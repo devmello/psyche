@@ -257,6 +257,8 @@
 //   let browserTabsResult = try? JSONDecoder().decode(BrowserTabsResult.self, from: jsonData)
 //   let browserTeachStep = try? JSONDecoder().decode(BrowserTeachStep.self, from: jsonData)
 //   let browserTeachStepKind = try? JSONDecoder().decode(BrowserTeachStepKind.self, from: jsonData)
+//   let bundleSigner = try? JSONDecoder().decode(BundleSigner.self, from: jsonData)
+//   let bundleSignerStatus = try? JSONDecoder().decode(BundleSignerStatus.self, from: jsonData)
 //   let capabilitiesSearchParams = try? JSONDecoder().decode(CapabilitiesSearchParams.self, from: jsonData)
 //   let capabilitiesSearchResult = try? JSONDecoder().decode(CapabilitiesSearchResult.self, from: jsonData)
 //   let capabilitiesSetLoadingParams = try? JSONDecoder().decode(CapabilitiesSetLoadingParams.self, from: jsonData)
@@ -681,6 +683,7 @@
 //   let libraryListResult = try? JSONDecoder().decode(LibraryListResult.self, from: jsonData)
 //   let libraryUploadParams = try? JSONDecoder().decode(LibraryUploadParams.self, from: jsonData)
 //   let libraryUploadResult = try? JSONDecoder().decode(LibraryUploadResult.self, from: jsonData)
+//   let lifeAnswerPassage = try? JSONDecoder().decode(LifeAnswerPassage.self, from: jsonData)
 //   let lifeAnswerReason = try? JSONDecoder().decode(LifeAnswerReason.self, from: jsonData)
 //   let lifeFactHit = try? JSONDecoder().decode(LifeFactHit.self, from: jsonData)
 //   let linkPaymentMethod = try? JSONDecoder().decode(LinkPaymentMethod.self, from: jsonData)
@@ -1235,8 +1238,11 @@
 //   let settingsSetResult = try? JSONDecoder().decode(SettingsSetResult.self, from: jsonData)
 //   let setupTokenInfo = try? JSONDecoder().decode(SetupTokenInfo.self, from: jsonData)
 //   let setupTokenScope = try? JSONDecoder().decode(SetupTokenScope.self, from: jsonData)
+//   let setupTokenVia = try? JSONDecoder().decode(SetupTokenVia.self, from: jsonData)
 //   let sideEffect = try? JSONDecoder().decode(SideEffect.self, from: jsonData)
+//   let skillAuthor = try? JSONDecoder().decode(SkillAuthor.self, from: jsonData)
 //   let skillAuthorVersion = try? JSONDecoder().decode(SkillAuthorVersion.self, from: jsonData)
+//   let skillBundleInfo = try? JSONDecoder().decode(SkillBundleInfo.self, from: jsonData)
 //   let skillChangeEvent = try? JSONDecoder().decode(SkillChangeEvent.self, from: jsonData)
 //   let skillCommand = try? JSONDecoder().decode(SkillCommand.self, from: jsonData)
 //   let skillDetails = try? JSONDecoder().decode(SkillDetails.self, from: jsonData)
@@ -1255,6 +1261,9 @@
 //   let skillSummary = try? JSONDecoder().decode(SkillSummary.self, from: jsonData)
 //   let skillTrust = try? JSONDecoder().decode(SkillTrust.self, from: jsonData)
 //   let skillUpdateStatus = try? JSONDecoder().decode(SkillUpdateStatus.self, from: jsonData)
+//   let skillsAuthorsListResult = try? JSONDecoder().decode(SkillsAuthorsListResult.self, from: jsonData)
+//   let skillsAuthorsSetParams = try? JSONDecoder().decode(SkillsAuthorsSetParams.self, from: jsonData)
+//   let skillsAuthorsSetResult = try? JSONDecoder().decode(SkillsAuthorsSetResult.self, from: jsonData)
 //   let skillsCheckUpdatesParams = try? JSONDecoder().decode(SkillsCheckUpdatesParams.self, from: jsonData)
 //   let skillsCheckUpdatesResult = try? JSONDecoder().decode(SkillsCheckUpdatesResult.self, from: jsonData)
 //   let skillsCommandsResult = try? JSONDecoder().decode(SkillsCommandsResult.self, from: jsonData)
@@ -1269,6 +1278,8 @@
 //   let skillsDraftsListResult = try? JSONDecoder().decode(SkillsDraftsListResult.self, from: jsonData)
 //   let skillsDraftsUpdateParams = try? JSONDecoder().decode(SkillsDraftsUpdateParams.self, from: jsonData)
 //   let skillsDraftsUpdateResult = try? JSONDecoder().decode(SkillsDraftsUpdateResult.self, from: jsonData)
+//   let skillsExportParams = try? JSONDecoder().decode(SkillsExportParams.self, from: jsonData)
+//   let skillsExportResult = try? JSONDecoder().decode(SkillsExportResult.self, from: jsonData)
 //   let skillsGetParams = try? JSONDecoder().decode(SkillsGetParams.self, from: jsonData)
 //   let skillsGetProposalParams = try? JSONDecoder().decode(SkillsGetProposalParams.self, from: jsonData)
 //   let skillsGetProposalResult = try? JSONDecoder().decode(SkillsGetProposalResult.self, from: jsonData)
@@ -1277,6 +1288,7 @@
 //   let skillsInstallResult = try? JSONDecoder().decode(SkillsInstallResult.self, from: jsonData)
 //   let skillsListResult = try? JSONDecoder().decode(SkillsListResult.self, from: jsonData)
 //   let skillsProposeApprovalParams = try? JSONDecoder().decode(SkillsProposeApprovalParams.self, from: jsonData)
+//   let skillsProposeImportParams = try? JSONDecoder().decode(SkillsProposeImportParams.self, from: jsonData)
 //   let skillsProposeInstallParams = try? JSONDecoder().decode(SkillsProposeInstallParams.self, from: jsonData)
 //   let skillsProposeUpdateParams = try? JSONDecoder().decode(SkillsProposeUpdateParams.self, from: jsonData)
 //   let skillsRemoveParams = try? JSONDecoder().decode(SkillsRemoveParams.self, from: jsonData)
@@ -1595,7 +1607,7 @@ public struct AccessEntry: Codable, Sendable {
         case type = "type"
     }
 
-    public init(grantID: String?, id: String, kind: ApprovalKind?, label: String, lastUsedAt: String?, mode: Mode?, path: String?, scope: AccessEntryScope, since: String?, threadID: String?, type: AccessEntryType) {
+    public init(grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: Mode? = nil, path: String? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
         self.grantID = grantID
         self.id = id
         self.kind = kind
@@ -1747,7 +1759,7 @@ public struct AppleCalendar: Codable, Sendable {
         case writable = "writable"
     }
 
-    public init(color: String?, id: String, source: String, title: String, writable: Bool) {
+    public init(color: String? = nil, id: String, source: String, title: String, writable: Bool) {
         self.color = color
         self.id = id
         self.source = source
@@ -1791,7 +1803,7 @@ public struct AppleCalendarDeleteEventParams: Codable, Sendable {
         case span = "span"
     }
 
-    public init(id: String, span: Span?) {
+    public init(id: String, span: Span? = nil) {
         self.id = id
         self.span = span
     }
@@ -1842,7 +1854,7 @@ public struct AppleCalendarEvent: Codable, Sendable {
         case url = "url"
     }
 
-    public init(alarms: [AppleAlarm]?, allDay: Bool, attendees: [Attendee]?, availability: AppleCalendarEventAvailability?, calendarID: String, conferenceURL: String?, end: String, id: String, location: String?, notes: String?, recurrence: AppleRecurrence?, recurring: Bool, start: String, title: String, url: String?) {
+    public init(alarms: [AppleAlarm]? = nil, allDay: Bool, attendees: [Attendee]? = nil, availability: AppleCalendarEventAvailability? = nil, calendarID: String, conferenceURL: String? = nil, end: String, id: String, location: String? = nil, notes: String? = nil, recurrence: AppleRecurrence? = nil, recurring: Bool, start: String, title: String, url: String? = nil) {
         self.alarms = alarms
         self.allDay = allDay
         self.attendees = attendees
@@ -1872,7 +1884,7 @@ public struct AppleAlarm: Codable, Sendable {
         case at = "at"
     }
 
-    public init(relativeMinutes: Int?, at: String?) {
+    public init(relativeMinutes: Int? = nil, at: String? = nil) {
         self.relativeMinutes = relativeMinutes
         self.at = at
     }
@@ -1892,7 +1904,7 @@ public struct Attendee: Codable, Sendable {
         case status = "status"
     }
 
-    public init(email: String?, name: String, organizer: Bool, status: AttendeeStatus) {
+    public init(email: String? = nil, name: String, organizer: Bool, status: AttendeeStatus) {
         self.email = email
         self.name = name
         self.organizer = organizer
@@ -1935,7 +1947,7 @@ public struct AppleRecurrence: Codable, Sendable {
         case until = "until"
     }
 
-    public init(count: Int?, daysOfWeek: [DaysOfWeek]?, frequency: Frequency, interval: Int?, until: String?) {
+    public init(count: Int? = nil, daysOfWeek: [DaysOfWeek]? = nil, frequency: Frequency, interval: Int? = nil, until: String? = nil) {
         self.count = count
         self.daysOfWeek = daysOfWeek
         self.frequency = frequency
@@ -1993,7 +2005,7 @@ public struct AppleCalendarEventInput: Codable, Sendable {
         case url = "url"
     }
 
-    public init(alarms: [AppleAlarm]?, allDay: Bool?, availability: AppleCalendarEventInputAvailability?, calendarID: String?, end: String, location: String?, notes: String?, recurrence: AppleRecurrence?, start: String, title: String, url: String?) {
+    public init(alarms: [AppleAlarm]? = nil, allDay: Bool? = nil, availability: AppleCalendarEventInputAvailability? = nil, calendarID: String? = nil, end: String, location: String? = nil, notes: String? = nil, recurrence: AppleRecurrence? = nil, start: String, title: String, url: String? = nil) {
         self.alarms = alarms
         self.allDay = allDay
         self.availability = availability
@@ -2047,7 +2059,7 @@ public struct AppleCalendarEventUpdate: Codable, Sendable {
         case url = "url"
     }
 
-    public init(alarms: [AppleAlarm]?, allDay: Bool?, availability: AppleCalendarEventInputAvailability?, end: String?, id: String, location: String?, notes: String?, recurrence: AppleRecurrence?, span: Span?, start: String?, title: String?, url: String?) {
+    public init(alarms: [AppleAlarm]? = nil, allDay: Bool? = nil, availability: AppleCalendarEventInputAvailability? = nil, end: String? = nil, id: String, location: String? = nil, notes: String? = nil, recurrence: AppleRecurrence? = nil, span: Span? = nil, start: String? = nil, title: String? = nil, url: String? = nil) {
         self.alarms = alarms
         self.allDay = allDay
         self.availability = availability
@@ -2076,7 +2088,7 @@ public struct AppleCalendarFreeBusyParams: Codable, Sendable {
         case to = "to"
     }
 
-    public init(calendarIDS: [String]?, from: String, to: String) {
+    public init(calendarIDS: [String]? = nil, from: String, to: String) {
         self.calendarIDS = calendarIDS
         self.from = from
         self.to = to
@@ -2100,7 +2112,7 @@ public struct AppleCalendarListEventsParams: Codable, Sendable {
         case to = "to"
     }
 
-    public init(calendarIDS: [String]?, from: String, limit: Int?, query: String?, to: String) {
+    public init(calendarIDS: [String]? = nil, from: String, limit: Int? = nil, query: String? = nil, to: String) {
         self.calendarIDS = calendarIDS
         self.from = from
         self.limit = limit
@@ -2146,7 +2158,7 @@ public struct AppleContact: Codable, Sendable {
         case urls = "urls"
     }
 
-    public init(addresses: [Address], birthday: String?, emails: [AppleContactEmail], familyName: String, givenName: String, groups: [String], id: String, jobTitle: String, nickname: String, organization: String, phones: [AppleContactPhone], urls: [URLElement]) {
+    public init(addresses: [Address], birthday: String? = nil, emails: [AppleContactEmail], familyName: String, givenName: String, groups: [String], id: String, jobTitle: String, nickname: String, organization: String, phones: [AppleContactPhone], urls: [URLElement]) {
         self.addresses = addresses
         self.birthday = birthday
         self.emails = emails
@@ -2262,7 +2274,7 @@ public struct AppleContactInput: Codable, Sendable {
         case phones = "phones"
     }
 
-    public init(birthday: String?, emails: [AppleContactInputEmail]?, familyName: String?, givenName: String?, jobTitle: String?, organization: String?, phones: [AppleContactInputPhone]?) {
+    public init(birthday: String? = nil, emails: [AppleContactInputEmail]? = nil, familyName: String? = nil, givenName: String? = nil, jobTitle: String? = nil, organization: String? = nil, phones: [AppleContactInputPhone]? = nil) {
         self.birthday = birthday
         self.emails = emails
         self.familyName = familyName
@@ -2355,7 +2367,7 @@ public struct AppleContactUpdate: Codable, Sendable {
         case organization = "organization"
     }
 
-    public init(addEmails: [AddEmail]?, addPhones: [AddPhone]?, birthday: String?, familyName: String?, givenName: String?, id: String, jobTitle: String?, organization: String?) {
+    public init(addEmails: [AddEmail]? = nil, addPhones: [AddPhone]? = nil, birthday: String? = nil, familyName: String? = nil, givenName: String? = nil, id: String, jobTitle: String? = nil, organization: String? = nil) {
         self.addEmails = addEmails
         self.addPhones = addPhones
         self.birthday = birthday
@@ -2413,7 +2425,7 @@ public struct AppleContactsSearchParams: Codable, Sendable {
         case query = "query"
     }
 
-    public init(limit: Int?, query: String) {
+    public init(limit: Int? = nil, query: String) {
         self.limit = limit
         self.query = query
     }
@@ -2439,7 +2451,7 @@ public struct AppleFileItem: Codable, Sendable {
         case size = "size"
     }
 
-    public init(added: String?, contentType: String?, kind: AppleFileItemKind, modified: String?, name: String, path: String, size: Int?) {
+    public init(added: String? = nil, contentType: String? = nil, kind: AppleFileItemKind, modified: String? = nil, name: String, path: String, size: Int? = nil) {
         self.added = added
         self.contentType = contentType
         self.kind = kind
@@ -2484,7 +2496,7 @@ public struct Item: Codable, Sendable {
         case to = "to"
     }
 
-    public init(name: String?, path: String, to: String) {
+    public init(name: String? = nil, path: String, to: String) {
         self.name = name
         self.path = path
         self.to = to
@@ -2509,7 +2521,7 @@ public struct AppleFilesRecentParams: Codable, Sendable {
         case limit = "limit"
     }
 
-    public init(addedBefore: String?, addedSince: String?, contentTypes: [String]?, folder: String, limit: Int?) {
+    public init(addedBefore: String? = nil, addedSince: String? = nil, contentTypes: [String]? = nil, folder: String, limit: Int? = nil) {
         self.addedBefore = addedBefore
         self.addedSince = addedSince
         self.contentTypes = contentTypes
@@ -2563,7 +2575,7 @@ public struct AppleFinderEntry: Codable, Sendable {
         case size = "size"
     }
 
-    public init(kind: AppleFileItemKind, modified: String?, name: String, path: String, size: Int?) {
+    public init(kind: AppleFileItemKind, modified: String? = nil, name: String, path: String, size: Int? = nil) {
         self.kind = kind
         self.modified = modified
         self.name = name
@@ -2585,7 +2597,7 @@ public struct AppleLlmAvailability: Codable, Sendable {
         case reason = "reason"
     }
 
-    public init(available: Bool, contextTokens: Int, reason: AppleLlmUnavailableReason?) {
+    public init(available: Bool, contextTokens: Int, reason: AppleLlmUnavailableReason? = nil) {
         self.available = available
         self.contextTokens = contextTokens
         self.reason = reason
@@ -2620,7 +2632,7 @@ public struct AppleLlmGenerateParams: Codable, Sendable {
         case timeoutMS = "timeoutMs"
     }
 
-    public init(instructions: String?, maxTokens: Int?, prompt: String, schema: [String: JSONAny]?, temperature: Double?, timeoutMS: Int?) {
+    public init(instructions: String? = nil, maxTokens: Int? = nil, prompt: String, schema: [String: JSONAny]? = nil, temperature: Double? = nil, timeoutMS: Int? = nil) {
         self.instructions = instructions
         self.maxTokens = maxTokens
         self.prompt = prompt
@@ -2645,7 +2657,7 @@ public struct AppleLlmGenerateResult: Codable, Sendable {
         case text = "text"
     }
 
-    public init(reason: AppleLlmUnavailableReason?, refusal: AppleLlmRefusal?, structured: Bool, text: String) {
+    public init(reason: AppleLlmUnavailableReason? = nil, refusal: AppleLlmRefusal? = nil, structured: Bool, text: String) {
         self.reason = reason
         self.refusal = refusal
         self.structured = structured
@@ -2683,7 +2695,7 @@ public struct AppleLlmStatus: Codable, Sendable {
         case ref = "ref"
     }
 
-    public init(available: Bool, contextTokens: Int, helperConnected: Bool, reason: AppleLlmUnavailableReason?, ref: String) {
+    public init(available: Bool, contextTokens: Int, helperConnected: Bool, reason: AppleLlmUnavailableReason? = nil, ref: String) {
         self.available = available
         self.contextTokens = contextTokens
         self.helperConnected = helperConnected
@@ -2706,7 +2718,7 @@ public struct AppleMailDraftInput: Codable, Sendable {
         case to = "to"
     }
 
-    public init(body: String, cc: [String]?, subject: String, to: [String]) {
+    public init(body: String, cc: [String]? = nil, subject: String, to: [String]) {
         self.body = body
         self.cc = cc
         self.subject = subject
@@ -2760,7 +2772,7 @@ public struct AppleMailForwardDraftParams: Codable, Sendable {
         case to = "to"
     }
 
-    public init(account: String?, body: String?, cc: [String]?, id: String, mailbox: String?, to: [String]) {
+    public init(account: String? = nil, body: String? = nil, cc: [String]? = nil, id: String, mailbox: String? = nil, to: [String]) {
         self.account = account
         self.body = body
         self.cc = cc
@@ -2785,7 +2797,7 @@ public struct AppleMailMailbox: Codable, Sendable {
         case unreadCount = "unreadCount"
     }
 
-    public init(account: String, name: String, special: Special?, unreadCount: Int) {
+    public init(account: String, name: String, special: Special? = nil, unreadCount: Int) {
         self.account = account
         self.name = name
         self.special = special
@@ -2821,7 +2833,7 @@ public struct AppleMailMessage: Codable, Sendable {
         case truncated = "truncated"
     }
 
-    public init(attachments: [AppleMailMessageAttachment]?, body: String, cc: [String], summary: AppleMailMessageSummary, to: [String], truncated: Bool) {
+    public init(attachments: [AppleMailMessageAttachment]? = nil, body: String, cc: [String], summary: AppleMailMessageSummary, to: [String], truncated: Bool) {
         self.attachments = attachments
         self.body = body
         self.cc = cc
@@ -2843,7 +2855,7 @@ public struct AppleMailMessageAttachment: Codable, Sendable {
         case size = "size"
     }
 
-    public init(mimeType: String?, name: String, size: Int?) {
+    public init(mimeType: String? = nil, name: String, size: Int? = nil) {
         self.mimeType = mimeType
         self.name = name
         self.size = size
@@ -2876,7 +2888,7 @@ public struct AppleMailMessageSummary: Codable, Sendable {
         case subject = "subject"
     }
 
-    public init(account: String, date: String, flagged: Bool?, from: String, id: String, link: String?, mailbox: String, read: Bool, subject: String) {
+    public init(account: String, date: String, flagged: Bool? = nil, from: String, id: String, link: String? = nil, mailbox: String, read: Bool, subject: String) {
         self.account = account
         self.date = date
         self.flagged = flagged
@@ -2906,7 +2918,7 @@ public struct AppleMailMoveParams: Codable, Sendable {
         case to = "to"
     }
 
-    public init(account: String?, ids: [String], mailbox: String?, to: ToUnion) {
+    public init(account: String? = nil, ids: [String], mailbox: String? = nil, to: ToUnion) {
         self.account = account
         self.ids = ids
         self.mailbox = mailbox
@@ -2985,7 +2997,7 @@ public struct AppleMailReplyDraftParams: Codable, Sendable {
         case replyAll = "replyAll"
     }
 
-    public init(account: String?, body: String, cc: [String]?, id: String, mailbox: String?, replyAll: Bool?) {
+    public init(account: String? = nil, body: String, cc: [String]? = nil, id: String, mailbox: String? = nil, replyAll: Bool? = nil) {
         self.account = account
         self.body = body
         self.cc = cc
@@ -3013,7 +3025,7 @@ public struct AppleMailSaveAttachmentsParams: Codable, Sendable {
         case names = "names"
     }
 
-    public init(account: String?, folder: String?, id: String, mailbox: String?, names: [String]?) {
+    public init(account: String? = nil, folder: String? = nil, id: String, mailbox: String? = nil, names: [String]? = nil) {
         self.account = account
         self.folder = folder
         self.id = id
@@ -3045,7 +3057,7 @@ public struct AppleMailSearchParams: Codable, Sendable {
         case until = "until"
     }
 
-    public init(from: String?, limit: Int?, mailbox: String?, query: String?, since: String?, unread: Bool?, until: String?) {
+    public init(from: String? = nil, limit: Int? = nil, mailbox: String? = nil, query: String? = nil, since: String? = nil, unread: Bool? = nil, until: String? = nil) {
         self.from = from
         self.limit = limit
         self.mailbox = mailbox
@@ -3064,7 +3076,7 @@ public struct AppleMailSelectedParams: Codable, Sendable {
         case limit = "limit"
     }
 
-    public init(limit: Int?) {
+    public init(limit: Int? = nil) {
         self.limit = limit
     }
 }
@@ -3088,7 +3100,7 @@ public struct AppleMailSendDraftParams: Codable, Sendable {
         case to = "to"
     }
 
-    public init(bodySha256: String, cc: [String]?, draftID: String, subject: String, to: [String]) {
+    public init(bodySha256: String, cc: [String]? = nil, draftID: String, subject: String, to: [String]) {
         self.bodySha256 = bodySha256
         self.cc = cc
         self.draftID = draftID
@@ -3120,7 +3132,7 @@ public struct AppleMailSetFlagsParams: Codable, Sendable {
         case read = "read"
     }
 
-    public init(account: String?, flagColor: Int?, flagged: Bool?, ids: [String], mailbox: String?, read: Bool?) {
+    public init(account: String? = nil, flagColor: Int? = nil, flagged: Bool? = nil, ids: [String], mailbox: String? = nil, read: Bool? = nil) {
         self.account = account
         self.flagColor = flagColor
         self.flagged = flagged
@@ -3147,7 +3159,7 @@ public struct AppleMusicControlParams: Codable, Sendable {
         case volume = "volume"
     }
 
-    public init(action: AppleMusicControlParamsAction, app: App?, shuffle: Bool?, volume: Int?) {
+    public init(action: AppleMusicControlParamsAction, app: App? = nil, shuffle: Bool? = nil, volume: Int? = nil) {
         self.action = action
         self.app = app
         self.shuffle = shuffle
@@ -3190,7 +3202,7 @@ public struct AppleMusicItem: Codable, Sendable {
         case trackCount = "trackCount"
     }
 
-    public init(album: String?, artist: String?, id: String, kind: AppleMusicItemKind, name: String, trackCount: Int?) {
+    public init(album: String? = nil, artist: String? = nil, id: String, kind: AppleMusicItemKind, name: String, trackCount: Int? = nil) {
         self.album = album
         self.artist = artist
         self.id = id
@@ -3220,7 +3232,7 @@ public struct AppleMusicPlayParams: Codable, Sendable {
         case shuffle = "shuffle"
     }
 
-    public init(id: String, kind: AppleMusicItemKind, shuffle: Bool?) {
+    public init(id: String, kind: AppleMusicItemKind, shuffle: Bool? = nil) {
         self.id = id
         self.kind = kind
         self.shuffle = shuffle
@@ -3241,7 +3253,7 @@ public struct AppleMusicSearchParams: Codable, Sendable {
         case query = "query"
     }
 
-    public init(kind: AppleMusicItemKind?, limit: Int?, query: String) {
+    public init(kind: AppleMusicItemKind? = nil, limit: Int? = nil, query: String) {
         self.kind = kind
         self.limit = limit
         self.query = query
@@ -3268,7 +3280,7 @@ public struct AppleNote: Codable, Sendable {
         case truncated = "truncated"
     }
 
-    public init(attachments: [AppleNoteAttachment]?, bodySha256: String?, html: String, summary: AppleNoteSummary, text: String, truncated: Bool) {
+    public init(attachments: [AppleNoteAttachment]? = nil, bodySha256: String? = nil, html: String, summary: AppleNoteSummary, text: String, truncated: Bool) {
         self.attachments = attachments
         self.bodySha256 = bodySha256
         self.html = html
@@ -3310,7 +3322,7 @@ public struct AppleNoteSummary: Codable, Sendable {
         case title = "title"
     }
 
-    public init(folder: String, id: String, modified: String, snippet: String?, title: String) {
+    public init(folder: String, id: String, modified: String, snippet: String? = nil, title: String) {
         self.folder = folder
         self.id = id
         self.modified = modified
@@ -3335,7 +3347,7 @@ public struct AppleNoteFolder: Codable, Sendable {
         case parentID = "parentId"
     }
 
-    public init(account: String, id: String, name: String, noteCount: Int, parentID: String?) {
+    public init(account: String, id: String, name: String, noteCount: Int, parentID: String? = nil) {
         self.account = account
         self.id = id
         self.name = name
@@ -3360,7 +3372,7 @@ public struct AppleNoteInput: Codable, Sendable {
         case title = "title"
     }
 
-    public init(body: String, folder: String?, format: AppleNoteInputFormat?, title: String) {
+    public init(body: String, folder: String? = nil, format: AppleNoteInputFormat? = nil, title: String) {
         self.body = body
         self.folder = folder
         self.format = format
@@ -3388,7 +3400,7 @@ public struct AppleNotesAppendParams: Codable, Sendable {
         case text = "text"
     }
 
-    public init(checklist: Bool?, id: String, text: String) {
+    public init(checklist: Bool? = nil, id: String, text: String) {
         self.checklist = checklist
         self.id = id
         self.text = text
@@ -3410,7 +3422,7 @@ public struct AppleNotesSearchParams: Codable, Sendable {
         case query = "query"
     }
 
-    public init(folder: String?, limit: Int?, modifiedSince: String?, query: String?) {
+    public init(folder: String? = nil, limit: Int? = nil, modifiedSince: String? = nil, query: String? = nil) {
         self.folder = folder
         self.limit = limit
         self.modifiedSince = modifiedSince
@@ -3434,7 +3446,7 @@ public struct AppleNotesUpdateParams: Codable, Sendable {
         case title = "title"
     }
 
-    public init(body: String?, id: String, previousBodySha256: String, title: String?) {
+    public init(body: String? = nil, id: String, previousBodySha256: String, title: String? = nil) {
         self.body = body
         self.id = id
         self.previousBodySha256 = previousBodySha256
@@ -3458,7 +3470,7 @@ public struct AppleNowPlaying: Codable, Sendable {
         case volume = "volume"
     }
 
-    public init(app: App, shuffle: Bool?, state: AppleNowPlayingState, track: Track?, volume: Int?) {
+    public init(app: App, shuffle: Bool? = nil, state: AppleNowPlayingState, track: Track? = nil, volume: Int? = nil) {
         self.app = app
         self.shuffle = shuffle
         self.state = state
@@ -3489,7 +3501,7 @@ public struct Track: Codable, Sendable {
         case positionSeconds = "positionSeconds"
     }
 
-    public init(album: String, artist: String, durationSeconds: Double?, name: String, positionSeconds: Double?) {
+    public init(album: String, artist: String, durationSeconds: Double? = nil, name: String, positionSeconds: Double? = nil) {
         self.album = album
         self.artist = artist
         self.durationSeconds = durationSeconds
@@ -3508,7 +3520,7 @@ public struct AppleReadingListParams: Codable, Sendable {
         case url = "url"
     }
 
-    public init(title: String?, url: String) {
+    public init(title: String? = nil, url: String) {
         self.title = title
         self.url = url
     }
@@ -3543,7 +3555,7 @@ public struct AppleReminder: Codable, Sendable {
         case url = "url"
     }
 
-    public init(alarms: [AppleAlarm]?, completed: Bool, due: String?, flagged: Bool?, id: String, listID: String, notes: String?, priority: Int, recurrence: AppleRecurrence?, title: String, url: String?) {
+    public init(alarms: [AppleAlarm]? = nil, completed: Bool, due: String? = nil, flagged: Bool? = nil, id: String, listID: String, notes: String? = nil, priority: Int, recurrence: AppleRecurrence? = nil, title: String, url: String? = nil) {
         self.alarms = alarms
         self.completed = completed
         self.due = due
@@ -3581,7 +3593,7 @@ public struct AppleReminderInput: Codable, Sendable {
         case url = "url"
     }
 
-    public init(alarm: AppleAlarm?, due: String?, listID: String?, notes: String?, priority: Int?, recurrence: AppleRecurrence?, title: String, url: String?) {
+    public init(alarm: AppleAlarm? = nil, due: String? = nil, listID: String? = nil, notes: String? = nil, priority: Int? = nil, recurrence: AppleRecurrence? = nil, title: String, url: String? = nil) {
         self.alarm = alarm
         self.due = due
         self.listID = listID
@@ -3611,7 +3623,7 @@ public struct AppleReminderUpdate: Codable, Sendable {
         case title = "title"
     }
 
-    public init(completed: Bool?, due: String?, id: String, notes: String?, priority: Int?, title: String?) {
+    public init(completed: Bool? = nil, due: String? = nil, id: String, notes: String? = nil, priority: Int? = nil, title: String? = nil) {
         self.completed = completed
         self.due = due
         self.id = id
@@ -3638,7 +3650,7 @@ public struct AppleRemindersCompleteParams: Codable, Sendable {
         case title = "title"
     }
 
-    public init(completed: Bool?, id: String?, listID: String?, title: String?) {
+    public init(completed: Bool? = nil, id: String? = nil, listID: String? = nil, title: String? = nil) {
         self.completed = completed
         self.id = id
         self.listID = listID
@@ -3686,7 +3698,7 @@ public struct AppleRemindersListParams: Codable, Sendable {
         case query = "query"
     }
 
-    public init(completed: Bool?, dueBefore: String?, dueToday: Bool?, flagged: Bool?, limit: Int?, listIDS: [String]?, overdue: Bool?, query: String?) {
+    public init(completed: Bool? = nil, dueBefore: String? = nil, dueToday: Bool? = nil, flagged: Bool? = nil, limit: Int? = nil, listIDS: [String]? = nil, overdue: Bool? = nil, query: String? = nil) {
         self.completed = completed
         self.dueBefore = dueBefore
         self.dueToday = dueToday
@@ -3728,7 +3740,7 @@ public struct AppleSavedFile: Codable, Sendable {
         case size = "size"
     }
 
-    public init(libraryItemID: String?, name: String, path: String?, size: Int) {
+    public init(libraryItemID: String? = nil, name: String, path: String? = nil, size: Int) {
         self.libraryItemID = libraryItemID
         self.name = name
         self.path = path
@@ -3754,7 +3766,7 @@ public struct AppleShortcut: Codable, Sendable {
         case name = "name"
     }
 
-    public init(acceptsInput: Bool, actionCount: Int?, folder: String?, id: String, name: String) {
+    public init(acceptsInput: Bool, actionCount: Int? = nil, folder: String? = nil, id: String, name: String) {
         self.acceptsInput = acceptsInput
         self.actionCount = actionCount
         self.folder = folder
@@ -3804,7 +3816,7 @@ public struct AppleShortcutsRunParams: Codable, Sendable {
         case timeoutSeconds = "timeoutSeconds"
     }
 
-    public init(id: String, input: String?, timeoutSeconds: Int?) {
+    public init(id: String, input: String? = nil, timeoutSeconds: Int? = nil) {
         self.id = id
         self.input = input
         self.timeoutSeconds = timeoutSeconds
@@ -3869,7 +3881,7 @@ public struct AppleTabTextParams: Codable, Sendable {
         case window = "window"
     }
 
-    public init(index: Int?, maxLength: Int?, window: Int?) {
+    public init(index: Int? = nil, maxLength: Int? = nil, window: Int? = nil) {
         self.index = index
         self.maxLength = maxLength
         self.window = window
@@ -3904,7 +3916,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, decision: ApprovalAnswerDecision, editedText: String?, folderMode: Mode?, folderPath: String?, presence: PresenceAssertion?, recipientChoice: String?, scope: GrantScope?, unsandboxed: Unsandboxed?, via: InputVia?) {
+    public init(answerToken: String, approvalID: String, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: Mode? = nil, folderPath: String? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.decision = decision
@@ -3941,7 +3953,7 @@ public struct PresenceAssertion: Codable, Sendable {
         case signature = "signature"
     }
 
-    public init(deviceID: String, kind: PresenceAssertionKind, payload: [String: String]?, signature: String) {
+    public init(deviceID: String, kind: PresenceAssertionKind, payload: [String: String]? = nil, signature: String) {
         self.deviceID = deviceID
         self.kind = kind
         self.payload = payload
@@ -4002,7 +4014,7 @@ public struct ApprovalCreatedPayload: Codable, Sendable {
         case approval = "approval"
     }
 
-    public init(answerToken: String?, approval: ApprovalRequest) {
+    public init(answerToken: String? = nil, approval: ApprovalRequest) {
         self.answerToken = answerToken
         self.approval = approval
     }
@@ -4064,7 +4076,7 @@ public struct ApprovalRequest: Codable, Sendable {
         case targetKind = "targetKind"
     }
 
-    public init(bindingHash: String, decidedAt: String?, decidedBy: DecidedByClass?, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson?, grantID: String?, grantKey: String, id: String, invalidatedReason: String?, kind: ApprovalKind, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, scopeGranted: GrantScope?, scopesOffered: [GrantScope], sideEffect: SideEffect?, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]?, target: Target?, targetKind: TargetKind?) {
+    public init(bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
         self.bindingHash = bindingHash
         self.decidedAt = decidedAt
         self.decidedBy = decidedBy
@@ -4108,7 +4120,7 @@ public struct DecidedByClass: Codable, Sendable {
         case senderID = "senderId"
     }
 
-    public init(deviceID: String?, surface: String?, channel: String?, senderID: String?) {
+    public init(deviceID: String? = nil, surface: String? = nil, channel: String? = nil, senderID: String? = nil) {
         self.deviceID = deviceID
         self.surface = surface
         self.channel = channel
@@ -4156,7 +4168,7 @@ public struct RequestedBy: Codable, Sendable {
         case toolCallID = "toolCallId"
     }
 
-    public init(agent: String?, parentRunID: String?, runID: String?, specialist: String?, taskID: String?, threadID: String?, toolCallID: String?) {
+    public init(agent: String? = nil, parentRunID: String? = nil, runID: String? = nil, specialist: String? = nil, taskID: String? = nil, threadID: String? = nil, toolCallID: String? = nil) {
         self.agent = agent
         self.parentRunID = parentRunID
         self.runID = runID
@@ -4198,7 +4210,7 @@ public struct TaintSource: Codable, Sendable {
         case toolCallID = "toolCallId"
     }
 
-    public init(origin: String?, sender: String?, sourceKind: String, toolCallID: String?) {
+    public init(origin: String? = nil, sender: String? = nil, sourceKind: String, toolCallID: String? = nil) {
         self.origin = origin
         self.sender = sender
         self.sourceKind = sourceKind
@@ -4220,7 +4232,7 @@ public struct Target: Codable, Sendable {
         case value = "value"
     }
 
-    public init(display: String?, kind: TargetKind, value: String) {
+    public init(display: String? = nil, kind: TargetKind, value: String) {
         self.display = display
         self.kind = kind
         self.value = value
@@ -4246,7 +4258,7 @@ public struct ApprovalResult: Codable, Sendable {
         case approval = "approval"
     }
 
-    public init(answerToken: String?, approval: ApprovalRequest) {
+    public init(answerToken: String? = nil, approval: ApprovalRequest) {
         self.answerToken = answerToken
         self.approval = approval
     }
@@ -4275,7 +4287,7 @@ public struct ApprovalsAnswerResult: Codable, Sendable {
         case grant = "grant"
     }
 
-    public init(approval: ApprovalRequest, grant: Grant?) {
+    public init(approval: ApprovalRequest, grant: Grant? = nil) {
         self.approval = approval
         self.grant = grant
     }
@@ -4313,7 +4325,7 @@ public struct Grant: Codable, Sendable {
         case useCount = "useCount"
     }
 
-    public init(binding: [String: JSONAny]?, createdAt: String, createdFromApprovalID: String?, expiresAt: String?, grantKey: String, id: String, kind: ApprovalKind, lastUsedAt: String?, revokedAt: String?, scope: GrantScope, subject: [String: JSONAny], taskID: String?, useCount: Int) {
+    public init(binding: [String: JSONAny]? = nil, createdAt: String, createdFromApprovalID: String? = nil, expiresAt: String? = nil, grantKey: String, id: String, kind: ApprovalKind, lastUsedAt: String? = nil, revokedAt: String? = nil, scope: GrantScope, subject: [String: JSONAny], taskID: String? = nil, useCount: Int) {
         self.binding = binding
         self.createdAt = createdAt
         self.createdFromApprovalID = createdFromApprovalID
@@ -4344,7 +4356,7 @@ public struct ApprovalsApproveWithTouchIDParams: Codable, Sendable {
         case scope = "scope"
     }
 
-    public init(answerToken: String, approvalID: String, helperDeviceID: String?, scope: ApprovalsApproveWithTouchIDParamsScope?) {
+    public init(answerToken: String, approvalID: String, helperDeviceID: String? = nil, scope: ApprovalsApproveWithTouchIDParamsScope? = nil) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.helperDeviceID = helperDeviceID
@@ -4366,7 +4378,7 @@ public struct ApprovalsApproveWithTouchIDResult: Codable, Sendable {
         case grant = "grant"
     }
 
-    public init(approval: ApprovalRequest, grant: Grant?) {
+    public init(approval: ApprovalRequest, grant: Grant? = nil) {
         self.approval = approval
         self.grant = grant
     }
@@ -4398,7 +4410,7 @@ public struct ApprovalsListParams: Codable, Sendable {
         case status = "status"
     }
 
-    public init(cursor: String?, limit: Int?, status: [ApprovalStatus]?) {
+    public init(cursor: String? = nil, limit: Int? = nil, status: [ApprovalStatus]? = nil) {
         self.cursor = cursor
         self.limit = limit
         self.status = status
@@ -4418,7 +4430,7 @@ public struct ApprovalsListResult: Codable, Sendable {
         case nextCursor = "nextCursor"
     }
 
-    public init(answerTokens: [String: String]?, approvals: [ApprovalRequest], nextCursor: String?) {
+    public init(answerTokens: [String: String]? = nil, approvals: [ApprovalRequest], nextCursor: String? = nil) {
         self.answerTokens = answerTokens
         self.approvals = approvals
         self.nextCursor = nextCursor
@@ -4437,7 +4449,7 @@ public struct ArtifactBlock: Codable, Sendable {
         case type = "type"
     }
 
-    public init(artifactID: String, preview: String?, type: ArtifactBlockType) {
+    public init(artifactID: String, preview: String? = nil, type: ArtifactBlockType) {
         self.artifactID = artifactID
         self.preview = preview
         self.type = type
@@ -4468,7 +4480,7 @@ public struct ArtifactChart: Codable, Sendable {
         case yLabel = "yLabel"
     }
 
-    public init(categories: [String], kind: ArtifactChartKind, series: [Series], stacked: Bool?, title: String?, xLabel: String?, yLabel: String?) {
+    public init(categories: [String], kind: ArtifactChartKind, series: [Series], stacked: Bool? = nil, title: String? = nil, xLabel: String? = nil, yLabel: String? = nil) {
         self.categories = categories
         self.kind = kind
         self.series = series
@@ -4538,7 +4550,7 @@ public struct ArtifactSlide: Codable, Sendable {
         case title = "title"
     }
 
-    public init(bullets: [String]?, bullets2: [String]?, id: String, image: String?, layout: ArtifactSlideLayout, notes: String?, title: String?) {
+    public init(bullets: [String]? = nil, bullets2: [String]? = nil, id: String, image: String? = nil, layout: ArtifactSlideLayout, notes: String? = nil, title: String? = nil) {
         self.bullets = bullets
         self.bullets2 = bullets2
         self.id = id
@@ -4596,7 +4608,7 @@ public struct ArtifactMap: Codable, Sendable {
         case title = "title"
     }
 
-    public init(bounds: [Double]?, markers: [ArtifactMapMarker], routes: [Route]?, title: String?) {
+    public init(bounds: [Double]? = nil, markers: [ArtifactMapMarker], routes: [Route]? = nil, title: String? = nil) {
         self.bounds = bounds
         self.markers = markers
         self.routes = routes
@@ -4622,7 +4634,7 @@ public struct ArtifactMapMarker: Codable, Sendable {
         case note = "note"
     }
 
-    public init(id: String, label: String, lat: Double, link: String?, lng: Double, note: String?) {
+    public init(id: String, label: String, lat: Double, link: String? = nil, lng: Double, note: String? = nil) {
         self.id = id
         self.label = label
         self.lat = lat
@@ -4642,7 +4654,7 @@ public struct Route: Codable, Sendable {
         case points = "points"
     }
 
-    public init(label: String?, points: [[Double]]) {
+    public init(label: String? = nil, points: [[Double]]) {
         self.label = label
         self.points = points
     }
@@ -4756,7 +4768,7 @@ public struct Artifact: Codable, Sendable {
         case version = "version"
     }
 
-    public init(bytes: Int?, id: String, language: String?, libraryItemID: String, messageID: String?, nameSlug: String, runID: String?, sourceRef: String?, threadID: String?, title: String, type: ArtifactType, untrusted: Bool?, updatedAt: String, version: Int) {
+    public init(bytes: Int? = nil, id: String, language: String? = nil, libraryItemID: String, messageID: String? = nil, nameSlug: String, runID: String? = nil, sourceRef: String? = nil, threadID: String? = nil, title: String, type: ArtifactType, untrusted: Bool? = nil, updatedAt: String, version: Int) {
         self.bytes = bytes
         self.id = id
         self.language = language
@@ -4824,7 +4836,7 @@ public struct ArtifactVersion: Codable, Sendable {
         case version = "version"
     }
 
-    public init(artifactID: String, author: ArtifactAuthor, bytes: Int, createdAt: String, hash: String, kind: ArtifactVersionKind, ops: [ArtifactOp]?, restoredFrom: Int?, runID: String?, summary: String, toolCallID: String?, version: Int) {
+    public init(artifactID: String, author: ArtifactAuthor, bytes: Int, createdAt: String, hash: String, kind: ArtifactVersionKind, ops: [ArtifactOp]? = nil, restoredFrom: Int? = nil, runID: String? = nil, summary: String, toolCallID: String? = nil, version: Int) {
         self.artifactID = artifactID
         self.author = author
         self.bytes = bytes
@@ -4913,7 +4925,7 @@ public struct ArtifactOp: Codable, Sendable {
         case patch = "patch"
     }
 
-    public init(new: String?, old: String?, op: ArtifactOpOp, after: String?, text: String?, content: String?, cell: String?, value: ArtifactCell?, range: String?, values: [ValueElement]?, at: Int?, rows: [[ArtifactCell]]?, count: Int?, name: String?, view: ArtifactTableView?, marker: ArtifactMapMarker?, id: String?, artifactOpSet: ArtifactMarkerPatch?, body: String?, heading: String?, level: Int?, slide: ArtifactSlide?, changes: ArtifactSlidePatch?, to: Int?, theme: ArtifactDeckTheme?, cells: [String: JSONAny]?, sheet: String?, patch: [String: JSONAny]?) {
+    public init(new: String? = nil, old: String? = nil, op: ArtifactOpOp, after: String? = nil, text: String? = nil, content: String? = nil, cell: String? = nil, value: ArtifactCell? = nil, range: String? = nil, values: [ValueElement]? = nil, at: Int? = nil, rows: [[ArtifactCell]]? = nil, count: Int? = nil, name: String? = nil, view: ArtifactTableView? = nil, marker: ArtifactMapMarker? = nil, id: String? = nil, artifactOpSet: ArtifactMarkerPatch? = nil, body: String? = nil, heading: String? = nil, level: Int? = nil, slide: ArtifactSlide? = nil, changes: ArtifactSlidePatch? = nil, to: Int? = nil, theme: ArtifactDeckTheme? = nil, cells: [String: JSONAny]? = nil, sheet: String? = nil, patch: [String: JSONAny]? = nil) {
         self.new = new
         self.old = old
         self.op = op
@@ -4961,7 +4973,7 @@ public struct ArtifactMarkerPatch: Codable, Sendable {
         case note = "note"
     }
 
-    public init(label: String?, lat: Double?, link: String?, lng: Double?, note: String?) {
+    public init(label: String? = nil, lat: Double? = nil, link: String? = nil, lng: Double? = nil, note: String? = nil) {
         self.label = label
         self.lat = lat
         self.link = link
@@ -4988,7 +5000,7 @@ public struct ArtifactSlidePatch: Codable, Sendable {
         case title = "title"
     }
 
-    public init(bullets: [String]?, bullets2: [String]?, image: String?, layout: ArtifactSlideLayout?, notes: String?, title: String?) {
+    public init(bullets: [String]? = nil, bullets2: [String]? = nil, image: String? = nil, layout: ArtifactSlideLayout? = nil, notes: String? = nil, title: String? = nil) {
         self.bullets = bullets
         self.bullets2 = bullets2
         self.image = image
@@ -5085,7 +5097,7 @@ public struct ArtifactTableView: Codable, Sendable {
         case sort = "sort"
     }
 
-    public init(filter: Filter?, sort: Sort?) {
+    public init(filter: Filter? = nil, sort: Sort? = nil) {
         self.filter = filter
         self.sort = sort
     }
@@ -5235,7 +5247,7 @@ public struct ArtifactsCreateParams: Codable, Sendable {
         case type = "type"
     }
 
-    public init(content: String, language: String?, threadID: String?, title: String, type: ArtifactType) {
+    public init(content: String, language: String? = nil, threadID: String? = nil, title: String, type: ArtifactType) {
         self.content = content
         self.language = language
         self.threadID = threadID
@@ -5256,7 +5268,7 @@ public struct ArtifactsCreateResult: Codable, Sendable {
         case ref = "ref"
     }
 
-    public init(artifact: Artifact, conflict: ArtifactConflict?, ref: ArtifactRef) {
+    public init(artifact: Artifact, conflict: ArtifactConflict? = nil, ref: ArtifactRef) {
         self.artifact = artifact
         self.conflict = conflict
         self.ref = ref
@@ -5325,7 +5337,7 @@ public struct ArtifactsExportParams: Codable, Sendable {
         case version = "version"
     }
 
-    public init(artifactID: String, format: String, version: Int?) {
+    public init(artifactID: String, format: String, version: Int? = nil) {
         self.artifactID = artifactID
         self.format = format
         self.version = version
@@ -5371,7 +5383,7 @@ public struct ArtifactsListParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(cursor: String?, limit: Int?, threadID: String?) {
+    public init(cursor: String? = nil, limit: Int? = nil, threadID: String? = nil) {
         self.cursor = cursor
         self.limit = limit
         self.threadID = threadID
@@ -5388,7 +5400,7 @@ public struct ArtifactsListResult: Codable, Sendable {
         case nextCursor = "nextCursor"
     }
 
-    public init(artifacts: [Artifact], nextCursor: String?) {
+    public init(artifacts: [Artifact], nextCursor: String? = nil) {
         self.artifacts = artifacts
         self.nextCursor = nextCursor
     }
@@ -5406,7 +5418,7 @@ public struct ArtifactsReadParams: Codable, Sendable {
         case version = "version"
     }
 
-    public init(artifactID: String, lines: Lines?, version: Int?) {
+    public init(artifactID: String, lines: Lines? = nil, version: Int? = nil) {
         self.artifactID = artifactID
         self.lines = lines
         self.version = version
@@ -5447,7 +5459,7 @@ public struct ArtifactsReadResult: Codable, Sendable {
         case view = "view"
     }
 
-    public init(artifactID: String, content: String, totalLines: Int, type: ArtifactType, version: Int, view: ArtifactTableView?) {
+    public init(artifactID: String, content: String, totalLines: Int, type: ArtifactType, version: Int, view: ArtifactTableView? = nil) {
         self.artifactID = artifactID
         self.content = content
         self.totalLines = totalLines
@@ -5485,7 +5497,7 @@ public struct ArtifactsRestoreResult: Codable, Sendable {
         case ref = "ref"
     }
 
-    public init(artifact: Artifact, conflict: ArtifactConflict?, ref: ArtifactRef) {
+    public init(artifact: Artifact, conflict: ArtifactConflict? = nil, ref: ArtifactRef) {
         self.artifact = artifact
         self.conflict = conflict
         self.ref = ref
@@ -5523,7 +5535,7 @@ public struct ArtifactsUpdateResult: Codable, Sendable {
         case ref = "ref"
     }
 
-    public init(artifact: Artifact, conflict: ArtifactConflict?, ref: ArtifactRef) {
+    public init(artifact: Artifact, conflict: ArtifactConflict? = nil, ref: ArtifactRef) {
         self.artifact = artifact
         self.conflict = conflict
         self.ref = ref
@@ -5570,7 +5582,7 @@ public struct AttentionReportParams: Codable, Sendable {
         case visible = "visible"
     }
 
-    public init(input: Bool?, pane: AttentionPane, visible: Bool) {
+    public init(input: Bool? = nil, pane: AttentionPane, visible: Bool) {
         self.input = input
         self.pane = pane
         self.visible = visible
@@ -5622,7 +5634,7 @@ public struct AuditChangeRecordedPayload: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(category: AuditChangeCategory, runID: String?, seq: Int, threadID: String?) {
+    public init(category: AuditChangeCategory, runID: String? = nil, seq: Int, threadID: String? = nil) {
         self.category = category
         self.runID = runID
         self.seq = seq
@@ -5650,7 +5662,7 @@ public struct AuditChangeResult: Codable, Sendable {
         case diff = "diff"
     }
 
-    public init(change: AuditChange, diff: String?) {
+    public init(change: AuditChange, diff: String? = nil) {
         self.change = change
         self.diff = diff
     }
@@ -5706,7 +5718,7 @@ public struct AuditChange: Codable, Sendable {
         case ts = "ts"
     }
 
-    public init(action: String, actor: AuditChangeActor, afterSha256: String?, approvalID: String?, beforeSha256: String?, bytes: Int?, category: AuditChangeCategory, diffTruncated: Bool?, hasDiff: Bool, hash: String, note: String?, outcome: AuditChangeOutcome, receiptID: String?, runID: String?, seq: Int, stats: Stats?, target: AuditChangeTarget, taskID: String?, threadID: String?, tool: String, toolCallID: String?, ts: String) {
+    public init(action: String, actor: AuditChangeActor, afterSha256: String? = nil, approvalID: String? = nil, beforeSha256: String? = nil, bytes: Int? = nil, category: AuditChangeCategory, diffTruncated: Bool? = nil, hasDiff: Bool, hash: String, note: String? = nil, outcome: AuditChangeOutcome, receiptID: String? = nil, runID: String? = nil, seq: Int, stats: Stats? = nil, target: AuditChangeTarget, taskID: String? = nil, threadID: String? = nil, tool: String, toolCallID: String? = nil, ts: String) {
         self.action = action
         self.actor = actor
         self.afterSha256 = afterSha256
@@ -5742,7 +5754,7 @@ public struct AuditChangeActor: Codable, Sendable {
         case type = "type"
     }
 
-    public init(name: String?, type: AuditChangeActorType) {
+    public init(name: String? = nil, type: AuditChangeActorType) {
         self.name = name
         self.type = type
     }
@@ -5787,7 +5799,7 @@ public struct AuditChangeTarget: Codable, Sendable {
         case path = "path"
     }
 
-    public init(connector: String?, object: String?, path: String?) {
+    public init(connector: String? = nil, object: String? = nil, path: String? = nil) {
         self.connector = connector
         self.object = object
         self.path = path
@@ -5812,7 +5824,7 @@ public struct AuditChangesExportParams: Codable, Sendable {
         case until = "until"
     }
 
-    public init(categories: [AuditChangeCategory]?, format: ChatExportFormat, runID: String?, since: String?, threadID: String?, until: String?) {
+    public init(categories: [AuditChangeCategory]? = nil, format: ChatExportFormat, runID: String? = nil, since: String? = nil, threadID: String? = nil, until: String? = nil) {
         self.categories = categories
         self.format = format
         self.runID = runID
@@ -5866,7 +5878,7 @@ public struct AuditChangesParams: Codable, Sendable {
         case until = "until"
     }
 
-    public init(beforeSeq: Int?, categories: [AuditChangeCategory]?, limit: Int?, runID: String?, since: String?, threadID: String?, until: String?) {
+    public init(beforeSeq: Int? = nil, categories: [AuditChangeCategory]? = nil, limit: Int? = nil, runID: String? = nil, since: String? = nil, threadID: String? = nil, until: String? = nil) {
         self.beforeSeq = beforeSeq
         self.categories = categories
         self.limit = limit
@@ -5902,7 +5914,7 @@ public struct AuditExportParams: Codable, Sendable {
         case until = "until"
     }
 
-    public init(format: AuditExportFormat?, since: String?, until: String?) {
+    public init(format: AuditExportFormat? = nil, since: String? = nil, until: String? = nil) {
         self.format = format
         self.since = since
         self.until = until
@@ -5940,7 +5952,7 @@ public struct AuditFrictionParams: Codable, Sendable {
         case until = "until"
     }
 
-    public init(since: String?, until: String?) {
+    public init(since: String? = nil, until: String? = nil) {
         self.since = since
         self.until = until
     }
@@ -5986,7 +5998,7 @@ public struct AuditFrictionResult: Codable, Sendable {
         case topAskRules = "topAskRules"
     }
 
-    public init(allowedByGrant: Int, answerRate: Double, answerRejections: [String: Int], approveRate: Double, askRate: Double, asks: Int, asksPerAskingRun: Double, byKind: [AuditFrictionKind], byMode: [String: ByMode], classifier: [String: Int], decisions: Int, from: String?, grantsCreated: [String: Int], p50AnswerMS: Double?, p90AnswerMS: Double?, to: String?, topAskRules: [TopAskRule]) {
+    public init(allowedByGrant: Int, answerRate: Double, answerRejections: [String: Int], approveRate: Double, askRate: Double, asks: Int, asksPerAskingRun: Double, byKind: [AuditFrictionKind], byMode: [String: ByMode], classifier: [String: Int], decisions: Int, from: String? = nil, grantsCreated: [String: Int], p50AnswerMS: Double? = nil, p90AnswerMS: Double? = nil, to: String? = nil, topAskRules: [TopAskRule]) {
         self.allowedByGrant = allowedByGrant
         self.answerRate = answerRate
         self.answerRejections = answerRejections
@@ -6035,7 +6047,7 @@ public struct AuditFrictionKind: Codable, Sendable {
         case p90AnswerMS = "p90AnswerMs"
     }
 
-    public init(allows: Int, approved: Int, asks: Int, decisions: Int, declined: Int, denies: Int, expired: Int, invalidated: Int, kind: String, p50AnswerMS: Double?, p90AnswerMS: Double?) {
+    public init(allows: Int, approved: Int, asks: Int, decisions: Int, declined: Int, denies: Int, expired: Int, invalidated: Int, kind: String, p50AnswerMS: Double? = nil, p90AnswerMS: Double? = nil) {
         self.allows = allows
         self.approved = approved
         self.asks = asks
@@ -6107,7 +6119,7 @@ public struct AuditListParams: Codable, Sendable {
         case until = "until"
     }
 
-    public init(approvalID: String?, kind: String?, kindPrefix: String?, limit: Int?, order: Dir?, since: String?, sinceSeq: Int?, taskID: String?, until: String?) {
+    public init(approvalID: String? = nil, kind: String? = nil, kindPrefix: String? = nil, limit: Int? = nil, order: Dir? = nil, since: String? = nil, sinceSeq: Int? = nil, taskID: String? = nil, until: String? = nil) {
         self.approvalID = approvalID
         self.kind = kind
         self.kindPrefix = kindPrefix
@@ -6156,7 +6168,7 @@ public struct AuditEntry: Codable, Sendable {
         case ts = "ts"
     }
 
-    public init(actor: AuditActor, data: [String: JSONAny], hash: String, kind: String, prev: String, seq: Int, subject: [String: JSONAny]?, ts: String) {
+    public init(actor: AuditActor, data: [String: JSONAny], hash: String, kind: String, prev: String, seq: Int, subject: [String: JSONAny]? = nil, ts: String) {
         self.actor = actor
         self.data = data
         self.hash = hash
@@ -6185,7 +6197,7 @@ public struct AuditActor: Codable, Sendable {
         case type = "type"
     }
 
-    public init(deviceID: String?, runID: String?, scope: String?, surface: String?, type: AuditActorType) {
+    public init(deviceID: String? = nil, runID: String? = nil, scope: String? = nil, surface: String? = nil, type: AuditActorType) {
         self.deviceID = deviceID
         self.runID = runID
         self.scope = scope
@@ -6230,7 +6242,7 @@ public struct AuditVerifyResult: Codable, Sendable {
         case signingSinceSeq = "signingSinceSeq"
     }
 
-    public init(anchorKeyIDS: [String]?, anchors: Int?, brokenAtSeq: Int?, count: Int?, file: String?, lastHash: String?, line: Int?, ok: Bool, reason: AuditVerifyResultReason?, signedAnchors: Int?, signingSinceSeq: Int?) {
+    public init(anchorKeyIDS: [String]? = nil, anchors: Int? = nil, brokenAtSeq: Int? = nil, count: Int? = nil, file: String? = nil, lastHash: String? = nil, line: Int? = nil, ok: Bool, reason: AuditVerifyResultReason? = nil, signedAnchors: Int? = nil, signingSinceSeq: Int? = nil) {
         self.anchorKeyIDS = anchorKeyIDS
         self.anchors = anchors
         self.brokenAtSeq = brokenAtSeq
@@ -6316,7 +6328,7 @@ public struct Automation: Codable, Sendable {
         case watch = "watch"
     }
 
-    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String?, lastStatus: String?, lightContext: Bool?, nextRunAt: String?, prompt: String, schedule: String, scratch: String?, sessionTarget: String, specialist: AutomationSpecialist?, timezone: String, title: String, trigger: AutomationTrigger?, updatedAt: String, watch: WatchConfig?) {
+    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String? = nil, lastStatus: String? = nil, lightContext: Bool? = nil, nextRunAt: String? = nil, prompt: String, schedule: String, scratch: String? = nil, sessionTarget: String, specialist: AutomationSpecialist? = nil, timezone: String, title: String, trigger: AutomationTrigger? = nil, updatedAt: String, watch: WatchConfig? = nil) {
         self.createdAt = createdAt
         self.delivery = delivery
         self.enabled = enabled
@@ -6353,7 +6365,7 @@ public struct Delivery: Codable, Sendable {
         case webhook = "webhook"
     }
 
-    public init(channel: String?, none: Bool?, thread: String?, webhook: String?) {
+    public init(channel: String? = nil, none: Bool? = nil, thread: String? = nil, webhook: String? = nil) {
         self.channel = channel
         self.none = none
         self.thread = thread
@@ -6385,7 +6397,7 @@ public struct AutomationSpecialist: Codable, Sendable {
         case role = "role"
     }
 
-    public init(budget: SpecialistBudgetSetting?, deliver: Deliver?, role: String) {
+    public init(budget: SpecialistBudgetSetting? = nil, deliver: Deliver? = nil, role: String) {
         self.budget = budget
         self.deliver = deliver
         self.role = role
@@ -6404,7 +6416,7 @@ public struct SpecialistBudgetSetting: Codable, Sendable {
         case tokens = "tokens"
     }
 
-    public init(costUsd: Double?, minutes: Int?, tokens: Int?) {
+    public init(costUsd: Double? = nil, minutes: Int? = nil, tokens: Int? = nil) {
         self.costUsd = costUsd
         self.minutes = minutes
         self.tokens = tokens
@@ -6434,7 +6446,7 @@ public struct AutomationTrigger: Codable, Sendable {
         case type = "type"
     }
 
-    public init(debounceMS: Int?, filter: WorkflowEventFilter?, maxRunsPerDay: Int?, source: WorkflowEventSource, type: AutomationTriggerType) {
+    public init(debounceMS: Int? = nil, filter: WorkflowEventFilter? = nil, maxRunsPerDay: Int? = nil, source: WorkflowEventSource, type: AutomationTriggerType) {
         self.debounceMS = debounceMS
         self.filter = filter
         self.maxRunsPerDay = maxRunsPerDay
@@ -6460,7 +6472,7 @@ public struct WorkflowEventFilter: Codable, Sendable {
         case mailbox = "mailbox"
     }
 
-    public init(accounts: [String]?, calendarIDS: [String]?, folder: String?, fromContains: String?, mailbox: String?) {
+    public init(accounts: [String]? = nil, calendarIDS: [String]? = nil, folder: String? = nil, fromContains: String? = nil, mailbox: String? = nil) {
         self.accounts = accounts
         self.calendarIDS = calendarIDS
         self.folder = folder
@@ -6499,7 +6511,7 @@ public struct WatchConfig: Codable, Sendable {
         case url = "url"
     }
 
-    public init(check: WatchCheck, selector: String?, text: String?, threshold: Double?, url: String) {
+    public init(check: WatchCheck, selector: String? = nil, text: String? = nil, threshold: Double? = nil, url: String) {
         self.check = check
         self.selector = selector
         self.text = text
@@ -6565,7 +6577,7 @@ public struct AutomationRun: Codable, Sendable {
         case usage = "usage"
     }
 
-    public init(automationID: String, coalesced: Int, endedAt: String?, events: [WorkflowEvent]?, id: String, notificationID: String?, runID: String?, scheduledFor: String, startedAt: String, status: AutomationRunStatus, summary: String?, taskID: String?, threadID: String?, trigger: AutomationRunTrigger, usage: Usage?) {
+    public init(automationID: String, coalesced: Int, endedAt: String? = nil, events: [WorkflowEvent]? = nil, id: String, notificationID: String? = nil, runID: String? = nil, scheduledFor: String, startedAt: String, status: AutomationRunStatus, summary: String? = nil, taskID: String? = nil, threadID: String? = nil, trigger: AutomationRunTrigger, usage: Usage? = nil) {
         self.automationID = automationID
         self.coalesced = coalesced
         self.endedAt = endedAt
@@ -6611,7 +6623,7 @@ public struct WorkflowEvent: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(account: String?, at: String, calendarEventID: String?, from: String?, id: String, messageID: String?, path: String?, source: WorkflowEventSource, subject: String?, threadID: String?) {
+    public init(account: String? = nil, at: String, calendarEventID: String? = nil, from: String? = nil, id: String, messageID: String? = nil, path: String? = nil, source: WorkflowEventSource, subject: String? = nil, threadID: String? = nil) {
         self.account = account
         self.at = at
         self.calendarEventID = calendarEventID
@@ -6732,7 +6744,7 @@ public struct DailyWorkflowProposal: Codable, Sendable {
         case title = "title"
     }
 
-    public init(groupID: String, notify: Notify, obstacles: [String], offerSkill: Bool?, runs: [DailyWorkflowRun], tainted: Bool?, timezone: String, title: String) {
+    public init(groupID: String, notify: Notify, obstacles: [String], offerSkill: Bool? = nil, runs: [DailyWorkflowRun], tainted: Bool? = nil, timezone: String, title: String) {
         self.groupID = groupID
         self.notify = notify
         self.obstacles = obstacles
@@ -6821,7 +6833,7 @@ public struct AutomationsCreateParams: Codable, Sendable {
         case watch = "watch"
     }
 
-    public init(delivery: Delivery?, enabled: Bool?, kind: AutomationKind, lightContext: Bool?, prompt: String, schedule: String, sessionTarget: String?, specialist: AutomationSpecialist?, timezone: String?, title: String, watch: WatchConfig?) {
+    public init(delivery: Delivery? = nil, enabled: Bool? = nil, kind: AutomationKind, lightContext: Bool? = nil, prompt: String, schedule: String, sessionTarget: String? = nil, specialist: AutomationSpecialist? = nil, timezone: String? = nil, title: String, watch: WatchConfig? = nil) {
         self.delivery = delivery
         self.enabled = enabled
         self.kind = kind
@@ -6857,7 +6869,7 @@ public struct AutomationsListParams: Codable, Sendable {
         case kind = "kind"
     }
 
-    public init(kind: AutomationKind?) {
+    public init(kind: AutomationKind? = nil) {
         self.kind = kind
     }
 }
@@ -6898,7 +6910,7 @@ public struct AutomationsRunResult: Codable, Sendable {
         case taskID = "taskId"
     }
 
-    public init(runID: String?, taskID: String?) {
+    public init(runID: String? = nil, taskID: String? = nil) {
         self.runID = runID
         self.taskID = taskID
     }
@@ -6917,7 +6929,7 @@ public struct AutomationsRunsParams: Codable, Sendable {
         case limit = "limit"
     }
 
-    public init(automationID: String, cursor: String?, limit: Int?) {
+    public init(automationID: String, cursor: String? = nil, limit: Int? = nil) {
         self.automationID = automationID
         self.cursor = cursor
         self.limit = limit
@@ -6934,7 +6946,7 @@ public struct AutomationsRunsResult: Codable, Sendable {
         case runs = "runs"
     }
 
-    public init(nextCursor: String?, runs: [AutomationRun]) {
+    public init(nextCursor: String? = nil, runs: [AutomationRun]) {
         self.nextCursor = nextCursor
         self.runs = runs
     }
@@ -6950,7 +6962,7 @@ public struct AutomationsUpcomingParams: Codable, Sendable {
         case limit = "limit"
     }
 
-    public init(horizonHours: Int?, limit: Int?) {
+    public init(horizonHours: Int? = nil, limit: Int? = nil) {
         self.horizonHours = horizonHours
         self.limit = limit
     }
@@ -6997,7 +7009,7 @@ public struct UpcomingItem: Codable, Sendable {
         case trigger = "trigger"
     }
 
-    public init(automationID: String?, enabled: Bool, id: String, kind: UpcomingItemKind, lastRunAt: String?, nextRunAt: String?, schedule: String?, taskID: String?, timezone: String?, title: String, trigger: AutomationTrigger?) {
+    public init(automationID: String? = nil, enabled: Bool, id: String, kind: UpcomingItemKind, lastRunAt: String? = nil, nextRunAt: String? = nil, schedule: String? = nil, taskID: String? = nil, timezone: String? = nil, title: String, trigger: AutomationTrigger? = nil) {
         self.automationID = automationID
         self.enabled = enabled
         self.id = id
@@ -7054,7 +7066,7 @@ public struct AutomationsUpdateParams: Codable, Sendable {
         case watch = "watch"
     }
 
-    public init(automationID: String, delivery: Delivery?, enabled: Bool?, lightContext: Bool?, prompt: String?, schedule: String?, scratch: String?, sessionTarget: String?, specialist: AutomationSpecialist?, timezone: String?, title: String?, watch: WatchConfig?) {
+    public init(automationID: String, delivery: Delivery? = nil, enabled: Bool? = nil, lightContext: Bool? = nil, prompt: String? = nil, schedule: String? = nil, scratch: String? = nil, sessionTarget: String? = nil, specialist: AutomationSpecialist? = nil, timezone: String? = nil, title: String? = nil, watch: WatchConfig? = nil) {
         self.automationID = automationID
         self.delivery = delivery
         self.enabled = enabled
@@ -7082,7 +7094,7 @@ public struct BackupCreateParams: Codable, Sendable {
         case unencrypted = "unencrypted"
     }
 
-    public init(passphrase: String?, recipients: [String]?, unencrypted: Bool?) {
+    public init(passphrase: String? = nil, recipients: [String]? = nil, unencrypted: Bool? = nil) {
         self.passphrase = passphrase
         self.recipients = recipients
         self.unencrypted = unencrypted
@@ -7121,7 +7133,7 @@ public struct BackupInfo: Codable, Sendable {
         case verifiedAt = "verifiedAt"
     }
 
-    public init(bytes: Int, createdAt: String, encrypted: Bool, file: String, verifiedAt: String?) {
+    public init(bytes: Int, createdAt: String, encrypted: Bool, file: String, verifiedAt: String? = nil) {
         self.bytes = bytes
         self.createdAt = createdAt
         self.encrypted = encrypted
@@ -7140,7 +7152,7 @@ public struct BackupDeleteParams: Codable, Sendable {
         case file = "file"
     }
 
-    public init(approvalID: String?, file: String) {
+    public init(approvalID: String? = nil, file: String) {
         self.approvalID = approvalID
         self.file = file
     }
@@ -7185,7 +7197,7 @@ public struct BackupVerifyParams: Codable, Sendable {
         case passphrase = "passphrase"
     }
 
-    public init(file: String, passphrase: String?) {
+    public init(file: String, passphrase: String? = nil) {
         self.file = file
         self.passphrase = passphrase
     }
@@ -7240,7 +7252,7 @@ public struct BridgeCDPEventPayload: Codable, Sendable {
         case tabID = "tabId"
     }
 
-    public init(method: String, params: JSONAny, sessionID: String?, tabID: String) {
+    public init(method: String, params: JSONAny, sessionID: String? = nil, tabID: String) {
         self.method = method
         self.params = params
         self.sessionID = sessionID
@@ -7262,7 +7274,7 @@ public struct BridgeCDPSendParams: Codable, Sendable {
         case tabID = "tabId"
     }
 
-    public init(method: String, params: [String: JSONAny]?, sessionID: String?, tabID: String) {
+    public init(method: String, params: [String: JSONAny]? = nil, sessionID: String? = nil, tabID: String) {
         self.method = method
         self.params = params
         self.sessionID = sessionID
@@ -7295,7 +7307,7 @@ public struct BridgeControlChangedPayload: Codable, Sendable {
         case via = "via"
     }
 
-    public init(state: BrowserController, tabID: String, via: BridgeControlVia?) {
+    public init(state: BrowserController, tabID: String, via: BridgeControlVia? = nil) {
         self.state = state
         self.tabID = tabID
         self.via = via
@@ -7357,7 +7369,7 @@ public struct BridgeDownloadPayload: Codable, Sendable {
         case url = "url"
     }
 
-    public init(at: String, bytes: Int?, downloadID: String, filename: String, mime: String?, quarantinePath: String?, state: BridgeDownloadState, tabID: String, url: String) {
+    public init(at: String, bytes: Int? = nil, downloadID: String, filename: String, mime: String? = nil, quarantinePath: String? = nil, state: BridgeDownloadState, tabID: String, url: String) {
         self.at = at
         self.bytes = bytes
         self.downloadID = downloadID
@@ -7442,7 +7454,7 @@ public struct BridgeTabOpenParams: Codable, Sendable {
         case url = "url"
     }
 
-    public init(background: Bool?, profile: BrowserProfile?, taskID: String?, taskTitle: String?, url: String) {
+    public init(background: Bool? = nil, profile: BrowserProfile? = nil, taskID: String? = nil, taskTitle: String? = nil, url: String) {
         self.background = background
         self.profile = profile
         self.taskID = taskID
@@ -7496,7 +7508,7 @@ public struct BridgeTab: Codable, Sendable {
         case url = "url"
     }
 
-    public init(attached: Bool, disposition: String?, openerTabID: String?, partition: String, profile: BrowserProfile, tabID: String, taskID: String?, title: String, url: String) {
+    public init(attached: Bool, disposition: String? = nil, openerTabID: String? = nil, partition: String, profile: BrowserProfile, tabID: String, taskID: String? = nil, title: String, url: String) {
         self.attached = attached
         self.disposition = disposition
         self.openerTabID = openerTabID
@@ -7522,7 +7534,7 @@ public struct BridgeTabStatusParams: Codable, Sendable {
         case text = "text"
     }
 
-    public init(highlight: Highlight?, tabID: String, text: String?) {
+    public init(highlight: Highlight? = nil, tabID: String, text: String? = nil) {
         self.highlight = highlight
         self.tabID = tabID
         self.text = text
@@ -7600,7 +7612,7 @@ public struct BotAuthStatus: Codable, Sendable {
         case signatureAgent = "signatureAgent"
     }
 
-    public init(advertised: [String], createdAt: String?, directoryPath: String, enabled: Bool, keyID: String?, origins: [String], publicJwk: BotAuthJwk?, signatureAgent: String?) {
+    public init(advertised: [String], createdAt: String? = nil, directoryPath: String, enabled: Bool, keyID: String? = nil, origins: [String], publicJwk: BotAuthJwk? = nil, signatureAgent: String? = nil) {
         self.advertised = advertised
         self.createdAt = createdAt
         self.directoryPath = directoryPath
@@ -7678,7 +7690,7 @@ public struct BrowserOpenParams: Codable, Sendable {
         case url = "url"
     }
 
-    public init(background: Bool?, profile: BrowserProfile?, url: String) {
+    public init(background: Bool? = nil, profile: BrowserProfile? = nil, url: String) {
         self.background = background
         self.profile = profile
         self.url = url
@@ -7718,7 +7730,7 @@ public struct BrowserTab: Codable, Sendable {
         case url = "url"
     }
 
-    public init(controller: BrowserController, driver: BrowserDriverKind, profile: BrowserProfile, tabID: String, taskID: String?, title: String, url: String) {
+    public init(controller: BrowserController, driver: BrowserDriverKind, profile: BrowserProfile, tabID: String, taskID: String? = nil, title: String, url: String) {
         self.controller = controller
         self.driver = driver
         self.profile = profile
@@ -7774,7 +7786,7 @@ public struct BrowserRecording: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(bytes: Int, endedAt: String?, eventCount: Int, frameCount: Int, id: String, libraryItemID: String?, runID: String?, startedAt: String, taskID: String?, threadID: String?) {
+    public init(bytes: Int, endedAt: String? = nil, eventCount: Int, frameCount: Int, id: String, libraryItemID: String? = nil, runID: String? = nil, startedAt: String, taskID: String? = nil, threadID: String? = nil) {
         self.bytes = bytes
         self.endedAt = endedAt
         self.eventCount = eventCount
@@ -7880,7 +7892,7 @@ public struct BrowserRecordingsGetParams: Codable, Sendable {
         case sinceSeq = "sinceSeq"
     }
 
-    public init(limit: Int?, recordingID: String, sinceSeq: Int?) {
+    public init(limit: Int? = nil, recordingID: String, sinceSeq: Int? = nil) {
         self.limit = limit
         self.recordingID = recordingID
         self.sinceSeq = sinceSeq
@@ -7936,7 +7948,7 @@ public struct BrowserRecordingEvent: Codable, Sendable {
         case url = "url"
     }
 
-    public init(action: String?, at: String, detail: [String: JSONAny]?, element: Element?, frameSeq: Int?, kind: BrowserRecordingEventKind, ref: String?, seq: Int, snapshotSeq: Int?, summary: String, tabID: String, url: String?) {
+    public init(action: String? = nil, at: String, detail: [String: JSONAny]? = nil, element: Element? = nil, frameSeq: Int? = nil, kind: BrowserRecordingEventKind, ref: String? = nil, seq: Int, snapshotSeq: Int? = nil, summary: String, tabID: String, url: String? = nil) {
         self.action = action
         self.at = at
         self.detail = detail
@@ -7995,7 +8007,7 @@ public struct BrowserRecordingsListParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(cursor: String?, limit: Int?, taskID: String?, threadID: String?) {
+    public init(cursor: String? = nil, limit: Int? = nil, taskID: String? = nil, threadID: String? = nil) {
         self.cursor = cursor
         self.limit = limit
         self.taskID = taskID
@@ -8013,7 +8025,7 @@ public struct BrowserRecordingsListResult: Codable, Sendable {
         case recordings = "recordings"
     }
 
-    public init(nextCursor: String?, recordings: [BrowserRecording]) {
+    public init(nextCursor: String? = nil, recordings: [BrowserRecording]) {
         self.nextCursor = nextCursor
         self.recordings = recordings
     }
@@ -8110,7 +8122,7 @@ public struct BrowserTabsParams: Codable, Sendable {
         case taskID = "taskId"
     }
 
-    public init(taskID: String?) {
+    public init(taskID: String? = nil) {
         self.taskID = taskID
     }
 }
@@ -8142,7 +8154,7 @@ public struct CapabilitiesSearchParams: Codable, Sendable {
         case query = "query"
     }
 
-    public init(installable: Bool?, kind: CapabilitiesSearchParamsKind?, limit: Int?, query: String?) {
+    public init(installable: Bool? = nil, kind: CapabilitiesSearchParamsKind? = nil, limit: Int? = nil, query: String? = nil) {
         self.installable = installable
         self.kind = kind
         self.limit = limit
@@ -8202,7 +8214,7 @@ public struct CatalogEntry: Codable, Sendable {
         case trust = "trust"
     }
 
-    public init(comesFrom: ComesFrom, id: String, install: CatalogInstall?, installCost: InstallCost, kind: CapabilitiesSearchParamsKind, loading: CatalogEntryLoading?, name: String, needs: CatalogNeeds, status: CatalogEntryStatus, summary: String, tools: [String]?, trust: Trust) {
+    public init(comesFrom: ComesFrom, id: String, install: CatalogInstall? = nil, installCost: InstallCost, kind: CapabilitiesSearchParamsKind, loading: CatalogEntryLoading? = nil, name: String, needs: CatalogNeeds, status: CatalogEntryStatus, summary: String, tools: [String]? = nil, trust: Trust) {
         self.comesFrom = comesFrom
         self.id = id
         self.install = install
@@ -8241,7 +8253,7 @@ public struct CatalogInstall: Codable, Sendable {
         case url = "url"
     }
 
-    public init(command: [String]?, docsURL: String?, preset: String?, url: String?) {
+    public init(command: [String]? = nil, docsURL: String? = nil, preset: String? = nil, url: String? = nil) {
         self.command = command
         self.docsURL = docsURL
         self.preset = preset
@@ -8346,7 +8358,7 @@ public struct CapabilityManifest: Codable, Sendable {
         case version = "version"
     }
 
-    public init(capabilities: [NodeCapability], nodeID: String?, platform: DevicePlatform, version: String) {
+    public init(capabilities: [NodeCapability], nodeID: String? = nil, platform: DevicePlatform, version: String) {
         self.capabilities = capabilities
         self.nodeID = nodeID
         self.platform = platform
@@ -8373,7 +8385,7 @@ public struct NodeCapability: Codable, Sendable {
         case targetKind = "targetKind"
     }
 
-    public init(description: String?, inputSchema: [String: JSONAny]?, name: String, sideEffect: SideEffect, streaming: Bool?, targetKind: TargetKind?) {
+    public init(description: String? = nil, inputSchema: [String: JSONAny]? = nil, name: String, sideEffect: SideEffect, streaming: Bool? = nil, targetKind: TargetKind? = nil) {
         self.description = description
         self.inputSchema = inputSchema
         self.name = name
@@ -8407,7 +8419,7 @@ public struct ChannelsAllowlistUpdateParams: Codable, Sendable {
         case remove = "remove"
     }
 
-    public init(add: [String]?, approvalID: String?, channelID: String, list: ChannelsAllowlistUpdateParamsList, remove: [String]?) {
+    public init(add: [String]? = nil, approvalID: String? = nil, channelID: String, list: ChannelsAllowlistUpdateParamsList, remove: [String]? = nil) {
         self.add = add
         self.approvalID = approvalID
         self.channelID = channelID
@@ -8469,7 +8481,7 @@ public struct Channel: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(account: String, allowFrom: [String], config: [String: JSONAny], createdAt: String, dmPolicy: DmPolicy, dmScope: DmScope, groupAllowFrom: [String], id: String, nodeID: String?, ownerIDS: [String], requireMention: Bool, status: ChannelStatus, type: ChannelType, updatedAt: String) {
+    public init(account: String, allowFrom: [String], config: [String: JSONAny], createdAt: String, dmPolicy: DmPolicy, dmScope: DmScope, groupAllowFrom: [String], id: String, nodeID: String? = nil, ownerIDS: [String], requireMention: Bool, status: ChannelStatus, type: ChannelType, updatedAt: String) {
         self.account = account
         self.allowFrom = allowFrom
         self.config = config
@@ -8551,7 +8563,7 @@ public struct ChannelsConfigureParams: Codable, Sendable {
         case type = "type"
     }
 
-    public init(account: String?, allowFrom: [String]?, approvalID: String?, channelID: String?, config: [String: JSONAny]?, dmPolicy: DmPolicy?, dmScope: DmScope?, groupAllowFrom: [String]?, nodeID: String?, ownerIDS: [String]?, requireMention: Bool?, status: ChannelsConfigureParamsStatus?, type: ChannelType?) {
+    public init(account: String? = nil, allowFrom: [String]? = nil, approvalID: String? = nil, channelID: String? = nil, config: [String: JSONAny]? = nil, dmPolicy: DmPolicy? = nil, dmScope: DmScope? = nil, groupAllowFrom: [String]? = nil, nodeID: String? = nil, ownerIDS: [String]? = nil, requireMention: Bool? = nil, status: ChannelsConfigureParamsStatus? = nil, type: ChannelType? = nil) {
         self.account = account
         self.allowFrom = allowFrom
         self.approvalID = approvalID
@@ -8659,7 +8671,7 @@ public struct ChannelIdentity: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(createdAt: String, delegatedPersona: String?, display: String, id: String, links: [String], toolAllow: [String]?, updatedAt: String) {
+    public init(createdAt: String, delegatedPersona: String? = nil, display: String, id: String, links: [String], toolAllow: [String]? = nil, updatedAt: String) {
         self.createdAt = createdAt
         self.delegatedPersona = delegatedPersona
         self.display = display
@@ -8688,7 +8700,7 @@ public struct ChannelsIdentitiesUpsertParams: Codable, Sendable {
         case toolAllow = "toolAllow"
     }
 
-    public init(approvalID: String?, delegatedPersona: String?, display: String, identityID: String?, links: [String], toolAllow: [String]?) {
+    public init(approvalID: String? = nil, delegatedPersona: String? = nil, display: String, identityID: String? = nil, links: [String], toolAllow: [String]? = nil) {
         self.approvalID = approvalID
         self.delegatedPersona = delegatedPersona
         self.display = display
@@ -8738,7 +8750,7 @@ public struct ChannelsPairingApproveParams: Codable, Sendable {
         case requestID = "requestId"
     }
 
-    public init(approvalID: String?, channelID: String?, code: String?, requestID: String?) {
+    public init(approvalID: String? = nil, channelID: String? = nil, code: String? = nil, requestID: String? = nil) {
         self.approvalID = approvalID
         self.channelID = channelID
         self.code = code
@@ -8798,7 +8810,7 @@ public struct PairingRequest: Codable, Sendable {
         case transport = "transport"
     }
 
-    public init(channelID: String?, code: String, createdAt: String, decidedAt: String?, decidedByDeviceID: String?, deviceID: String?, display: String, expiresAt: String, id: String, kind: PairingRequestKind, publicKeyFingerprint: String?, remoteAddress: String?, senderID: String?, status: PairingStatus, transport: PairingRequestTransport?) {
+    public init(channelID: String? = nil, code: String, createdAt: String, decidedAt: String? = nil, decidedByDeviceID: String? = nil, deviceID: String? = nil, display: String, expiresAt: String, id: String, kind: PairingRequestKind, publicKeyFingerprint: String? = nil, remoteAddress: String? = nil, senderID: String? = nil, status: PairingStatus, transport: PairingRequestTransport? = nil) {
         self.channelID = channelID
         self.code = code
         self.createdAt = createdAt
@@ -8847,7 +8859,7 @@ public struct ChannelsPairingDenyParams: Codable, Sendable {
         case requestID = "requestId"
     }
 
-    public init(channelID: String?, code: String?, requestID: String?) {
+    public init(channelID: String? = nil, code: String? = nil, requestID: String? = nil) {
         self.channelID = channelID
         self.code = code
         self.requestID = requestID
@@ -8877,7 +8889,7 @@ public struct ChannelsPairingListParams: Codable, Sendable {
         case status = "status"
     }
 
-    public init(channelID: String?, status: PairingStatus?) {
+    public init(channelID: String? = nil, status: PairingStatus? = nil) {
         self.channelID = channelID
         self.status = status
     }
@@ -9014,7 +9026,7 @@ public struct ChannelsUpdatedPayload: Codable, Sendable {
         case detail = "detail"
     }
 
-    public init(channel: Channel, detail: String?) {
+    public init(channel: Channel, detail: String? = nil) {
         self.channel = channel
         self.detail = detail
     }
@@ -9120,7 +9132,7 @@ public struct Block: Codable, Sendable {
         case widgetID = "widgetId"
     }
 
-    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ItemElement]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, id: String?, kind: BlockKind?, source: String?, title: String?, url: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?, cited: [String]?, compactionID: String?, replaced: Replaced?, summary: CompactionSummary?, tokensAfter: Int?, tokensBefore: Int?, trigger: BlockTrigger?, feedbackID: String?, lessonID: String?, messageID: String?, statement: String?, proposal: DailyWorkflowProposal?, route: String?, widgetID: String?) {
+    public init(md: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, compactionID: String? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, widgetID: String? = nil) {
         self.md = md
         self.type = type
         self.level1 = level1
@@ -9171,7 +9183,7 @@ public struct WrapUpAction: Codable, Sendable {
         case message = "message"
     }
 
-    public init(label: String, message: String?) {
+    public init(label: String, message: String? = nil) {
         self.label = label
         self.message = message
     }
@@ -9221,7 +9233,7 @@ public struct ItemElement: Codable, Sendable {
         case value = "value"
     }
 
-    public init(status: ChecklistItemStatus?, text: String?, lastMessageAt: String?, snippet: String?, threadID: String?, title: String?, date: String?, id: String?, kind: String?, provenance: Provenance?, route: String?, source: String?, span: String?, factID: String?, attribute: WorkNoteAttribute?, entityID: String?, name: String?, previous: String?, value: String?) {
+    public init(status: ChecklistItemStatus? = nil, text: String? = nil, lastMessageAt: String? = nil, snippet: String? = nil, threadID: String? = nil, title: String? = nil, date: String? = nil, id: String? = nil, kind: String? = nil, provenance: Provenance? = nil, route: String? = nil, source: String? = nil, span: String? = nil, factID: String? = nil, attribute: WorkNoteAttribute? = nil, entityID: String? = nil, name: String? = nil, previous: String? = nil, value: String? = nil) {
         self.status = status
         self.text = text
         self.lastMessageAt = lastMessageAt
@@ -9283,7 +9295,7 @@ public struct Replaced: Codable, Sendable {
         case turns = "turns"
     }
 
-    public init(fromMessageID: String?, toMessageID: String?, turns: Int) {
+    public init(fromMessageID: String? = nil, toMessageID: String? = nil, turns: Int) {
         self.fromMessageID = fromMessageID
         self.toMessageID = toMessageID
         self.turns = turns
@@ -9361,7 +9373,7 @@ public struct ChatCancelParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(runID: String?, threadID: String) {
+    public init(runID: String? = nil, threadID: String) {
         self.runID = runID
         self.threadID = threadID
     }
@@ -9394,7 +9406,7 @@ public struct ChatDeltaPayload: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(delta: String, messageID: String, runID: String?, threadID: String) {
+    public init(delta: String, messageID: String, runID: String? = nil, threadID: String) {
         self.delta = delta
         self.messageID = messageID
         self.runID = runID
@@ -9473,7 +9485,7 @@ public struct ChatGreetResult: Codable, Sendable {
         case started = "started"
     }
 
-    public init(runID: String?, started: Bool) {
+    public init(runID: String? = nil, started: Bool) {
         self.runID = runID
         self.started = started
     }
@@ -9492,7 +9504,7 @@ public struct ChatHistoryParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(cursor: String?, limit: Int?, threadID: String) {
+    public init(cursor: String? = nil, limit: Int? = nil, threadID: String) {
         self.cursor = cursor
         self.limit = limit
         self.threadID = threadID
@@ -9509,7 +9521,7 @@ public struct ChatHistoryResult: Codable, Sendable {
         case nextCursor = "nextCursor"
     }
 
-    public init(messages: [Message], nextCursor: String?) {
+    public init(messages: [Message], nextCursor: String? = nil) {
         self.messages = messages
         self.nextCursor = nextCursor
     }
@@ -9547,7 +9559,7 @@ public struct Message: Codable, Sendable {
         case via = "via"
     }
 
-    public init(blocks: [Block], channelRef: ChannelRef?, createdAt: String, id: String, lessonsApplied: [LessonRef]?, provenance: Provenance, providerNative: JSONAny?, replyToMessageID: String?, role: MessageRole, runID: String?, seq: Int, threadID: String, via: InputVia?) {
+    public init(blocks: [Block], channelRef: ChannelRef? = nil, createdAt: String, id: String, lessonsApplied: [LessonRef]? = nil, provenance: Provenance, providerNative: JSONAny? = nil, replyToMessageID: String? = nil, role: MessageRole, runID: String? = nil, seq: Int, threadID: String, via: InputVia? = nil) {
         self.blocks = blocks
         self.channelRef = channelRef
         self.createdAt = createdAt
@@ -9751,7 +9763,7 @@ public struct ChatReasoningPayload: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(delta: String?, done: Bool?, runID: String, stepID: String, summary: String?, threadID: String) {
+    public init(delta: String? = nil, done: Bool? = nil, runID: String, stepID: String, summary: String? = nil, threadID: String) {
         self.delta = delta
         self.done = done
         self.runID = runID
@@ -9786,7 +9798,7 @@ public struct ChatSendParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(attachments: [String]?, content: String, context: ChatContextRef?, fromWidget: ChatFromWidget?, mode: QueueMode?, redo: Redo?, replyToMessageID: String?, screen: ChatScreenRef?, threadID: String) {
+    public init(attachments: [String]? = nil, content: String, context: ChatContextRef? = nil, fromWidget: ChatFromWidget? = nil, mode: QueueMode? = nil, redo: Redo? = nil, replyToMessageID: String? = nil, screen: ChatScreenRef? = nil, threadID: String) {
         self.attachments = attachments
         self.content = content
         self.context = context
@@ -9813,7 +9825,7 @@ public struct ChatContextRef: Codable, Sendable {
         case title = "title"
     }
 
-    public init(id: String, kind: BlockKind, scope: String?, title: String?) {
+    public init(id: String, kind: BlockKind, scope: String? = nil, title: String? = nil) {
         self.id = id
         self.kind = kind
         self.scope = scope
@@ -9852,7 +9864,7 @@ public struct Redo: Codable, Sendable {
         case withoutLessons = "withoutLessons"
     }
 
-    public init(instruction: String?, messageID: String, withoutLessons: Bool?) {
+    public init(instruction: String? = nil, messageID: String, withoutLessons: Bool? = nil) {
         self.instruction = instruction
         self.messageID = messageID
         self.withoutLessons = withoutLessons
@@ -9894,7 +9906,7 @@ public struct ChatSendResult: Codable, Sendable {
         case runID = "runId"
     }
 
-    public init(messageID: String, queued: Bool, runID: String?) {
+    public init(messageID: String, queued: Bool, runID: String? = nil) {
         self.messageID = messageID
         self.queued = queued
         self.runID = runID
@@ -10023,7 +10035,7 @@ public struct ConnectChallenge: Codable, Sendable {
         case serverOrigin = "serverOrigin"
     }
 
-    public init(expiresAt: String, gatewayKey: String?, gatewaySignature: String?, lanCERTSignature: String?, lanCERTSpki: String?, nonce: String, phase: ConnectChallengePhase, protocolVersion: Int, serverOrigin: String) {
+    public init(expiresAt: String, gatewayKey: String? = nil, gatewaySignature: String? = nil, lanCERTSignature: String? = nil, lanCERTSpki: String? = nil, nonce: String, phase: ConnectChallengePhase, protocolVersion: Int, serverOrigin: String) {
         self.expiresAt = expiresAt
         self.gatewayKey = gatewayKey
         self.gatewaySignature = gatewaySignature
@@ -10055,7 +10067,7 @@ public struct ConnectDenied: Codable, Sendable {
         case reason = "reason"
     }
 
-    public init(code: Code?, phase: ConnectDeniedPhase, reason: String) {
+    public init(code: Code? = nil, phase: ConnectDeniedPhase, reason: String) {
         self.code = code
         self.phase = phase
         self.reason = reason
@@ -10092,7 +10104,7 @@ public struct ConnectPaired: Codable, Sendable {
         case stateVersion = "stateVersion"
     }
 
-    public init(deviceID: String, nodeID: String?, phase: ConnectPairedPhase, scopes: [DeviceScope], serverTime: String, stateVersion: Int) {
+    public init(deviceID: String, nodeID: String? = nil, phase: ConnectPairedPhase, scopes: [DeviceScope], serverTime: String, stateVersion: Int) {
         self.deviceID = deviceID
         self.nodeID = nodeID
         self.phase = phase
@@ -10141,7 +10153,7 @@ public struct ConnectParams: Codable, Sendable {
         case role = "role"
     }
 
-    public init(capabilities: [NodeCapability]?, deviceFamily: String, deviceID: String, handshakeSecret: String?, name: String, platform: DevicePlatform, protocolVersion: ProtocolVersionRange, publicKey: String, role: ConnectRole) {
+    public init(capabilities: [NodeCapability]? = nil, deviceFamily: String, deviceID: String, handshakeSecret: String? = nil, name: String, platform: DevicePlatform, protocolVersion: ProtocolVersionRange, publicKey: String, role: ConnectRole) {
         self.capabilities = capabilities
         self.deviceFamily = deviceFamily
         self.deviceID = deviceID
@@ -10225,7 +10237,7 @@ public struct ConnectResult: Codable, Sendable {
         case reason = "reason"
     }
 
-    public init(deviceID: String?, nodeID: String?, phase: ConnectResultPhase, scopes: [DeviceScope]?, serverTime: String?, stateVersion: Int?, code: String?, pairingRequestID: String?, reason: String?) {
+    public init(deviceID: String? = nil, nodeID: String? = nil, phase: ConnectResultPhase, scopes: [DeviceScope]? = nil, serverTime: String? = nil, stateVersion: Int? = nil, code: String? = nil, pairingRequestID: String? = nil, reason: String? = nil) {
         self.deviceID = deviceID
         self.nodeID = nodeID
         self.phase = phase
@@ -10268,7 +10280,7 @@ public struct ConnectVerifyParams: Codable, Sendable {
         case signature = "signature"
     }
 
-    public init(gatewayKey: String?, nonce: String, setupToken: String?, signature: String) {
+    public init(gatewayKey: String? = nil, nonce: String, setupToken: String? = nil, signature: String) {
         self.gatewayKey = gatewayKey
         self.nonce = nonce
         self.setupToken = setupToken
@@ -10323,7 +10335,7 @@ public struct ConnectorCatalogueEntry: Codable, Sendable {
         case vendor = "vendor"
     }
 
-    public init(actions: [ConnectorCatalogueAction], auth: String, available: Bool, category: String, configured: Bool?, description: String, docsURL: String?, id: String, label: String, remote: Remote?, scopes: Scopes, setupGuide: String?, type: String, vendor: String) {
+    public init(actions: [ConnectorCatalogueAction], auth: String, available: Bool, category: String, configured: Bool? = nil, description: String, docsURL: String? = nil, id: String, label: String, remote: Remote? = nil, scopes: Scopes, setupGuide: String? = nil, type: String, vendor: String) {
         self.actions = actions
         self.auth = auth
         self.available = available
@@ -10357,7 +10369,7 @@ public struct ConnectorCatalogueAction: Codable, Sendable {
         case title = "title"
     }
 
-    public init(approvalKind: String?, defaultRule: Decision, id: String, sideEffect: String, title: String) {
+    public init(approvalKind: String? = nil, defaultRule: Decision, id: String, sideEffect: String, title: String) {
         self.approvalKind = approvalKind
         self.defaultRule = defaultRule
         self.id = id
@@ -10384,7 +10396,7 @@ public struct Remote: Codable, Sendable {
         case url = "url"
     }
 
-    public init(readOnlyURL: String?, transport: RemoteTransport, url: String) {
+    public init(readOnlyURL: String? = nil, transport: RemoteTransport, url: String) {
         self.readOnlyURL = readOnlyURL
         self.transport = transport
         self.url = url
@@ -10473,7 +10485,7 @@ public struct Connector: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(account: String?, actionMatrix: [String: Decision], config: [String: JSONAny], createdAt: String, credentialID: String?, id: String, label: String, lastSync: [String: JSONAny]?, scopeMode: ScopeMode, scopes: [String], status: ConnectorStatus, type: String, updatedAt: String) {
+    public init(account: String? = nil, actionMatrix: [String: Decision], config: [String: JSONAny], createdAt: String, credentialID: String? = nil, id: String, label: String, lastSync: [String: JSONAny]? = nil, scopeMode: ScopeMode, scopes: [String], status: ConnectorStatus, type: String, updatedAt: String) {
         self.account = account
         self.actionMatrix = actionMatrix
         self.config = config
@@ -10518,7 +10530,7 @@ public struct ConnectorsConnectParams: Codable, Sendable {
         case scopeMode = "scopeMode"
     }
 
-    public init(catalogueID: String, config: [String: JSONAny]?, connectorID: String?, label: String?, scopeMode: ScopeMode) {
+    public init(catalogueID: String, config: [String: JSONAny]? = nil, connectorID: String? = nil, label: String? = nil, scopeMode: ScopeMode) {
         self.catalogueID = catalogueID
         self.config = config
         self.connectorID = connectorID
@@ -10537,7 +10549,7 @@ public struct ConnectorsConnectResult: Codable, Sendable {
         case connector = "connector"
     }
 
-    public init(authorization: ConnectorAuthorization?, connector: Connector) {
+    public init(authorization: ConnectorAuthorization? = nil, connector: Connector) {
         self.authorization = authorization
         self.connector = connector
     }
@@ -10560,7 +10572,7 @@ public struct ConnectorAuthorization: Codable, Sendable {
         case userCode = "userCode"
     }
 
-    public init(expiresAt: Int, opened: Bool, url: String, userCode: String?) {
+    public init(expiresAt: Int, opened: Bool, url: String, userCode: String? = nil) {
         self.expiresAt = expiresAt
         self.opened = opened
         self.url = url
@@ -10651,7 +10663,7 @@ public struct CustomConnectorProposal: Codable, Sendable {
         case update = "update"
     }
 
-    public init(approvalKind: ApprovalKindEnum, bindingHash: String, expiresAt: Int, findings: [Finding], grantKey: String, hash: String, id: String, kind: NeedEnum, manifest: CustomConnectorManifest, scopeMode: ScopeMode, text: String, update: CustomConnectorProposalUpdate?) {
+    public init(approvalKind: ApprovalKindEnum, bindingHash: String, expiresAt: Int, findings: [Finding], grantKey: String, hash: String, id: String, kind: NeedEnum, manifest: CustomConnectorManifest, scopeMode: ScopeMode, text: String, update: CustomConnectorProposalUpdate? = nil) {
         self.approvalKind = approvalKind
         self.bindingHash = bindingHash
         self.expiresAt = expiresAt
@@ -10726,7 +10738,7 @@ public struct CustomConnectorManifest: Codable, Sendable {
         case version = "version"
     }
 
-    public init(auth: CustomConnectorAuth, baseURL: String, description: String, hosts: [String], id: String, name: String, schemaVersion: Double, source: CustomConnectorManifestSource?, tools: [CustomConnectorTool], version: String) {
+    public init(auth: CustomConnectorAuth, baseURL: String, description: String, hosts: [String], id: String, name: String, schemaVersion: Double, source: CustomConnectorManifestSource? = nil, tools: [CustomConnectorTool], version: String) {
         self.auth = auth
         self.baseURL = baseURL
         self.description = description
@@ -10756,7 +10768,7 @@ public struct CustomConnectorAuth: Codable, Sendable {
         case description = "description"
     }
 
-    public init(kind: CustomConnectorAuthKind, credential: String?, name: String?, description: String?) {
+    public init(kind: CustomConnectorAuthKind, credential: String? = nil, name: String? = nil, description: String? = nil) {
         self.kind = kind
         self.credential = credential
         self.name = name
@@ -10784,7 +10796,7 @@ public struct CustomConnectorManifestSource: Codable, Sendable {
         case title = "title"
     }
 
-    public init(drafted: Drafted?, kind: PurpleKind, title: String?) {
+    public init(drafted: Drafted? = nil, kind: PurpleKind, title: String? = nil) {
         self.drafted = drafted
         self.kind = kind
         self.title = title
@@ -10821,7 +10833,7 @@ public struct CustomConnectorTool: Codable, Sendable {
         case sideEffect = "sideEffect"
     }
 
-    public init(defaultRule: Decision?, description: String, method: Method, name: String, params: [CustomConnectorParam], path: String, sideEffect: CustomConnectorToolSideEffect) {
+    public init(defaultRule: Decision? = nil, description: String, method: Method, name: String, params: [CustomConnectorParam], path: String, sideEffect: CustomConnectorToolSideEffect) {
         self.defaultRule = defaultRule
         self.description = description
         self.method = method
@@ -10856,7 +10868,7 @@ public struct CustomConnectorParam: Codable, Sendable {
         case schema = "schema"
     }
 
-    public init(description: String?, customConnectorParamIn: In, name: String, customConnectorParamRequired: Bool?, schema: [String: JSONAny]) {
+    public init(description: String? = nil, customConnectorParamIn: In, name: String, customConnectorParamRequired: Bool? = nil, schema: [String: JSONAny]) {
         self.description = description
         self.customConnectorParamIn = customConnectorParamIn
         self.name = name
@@ -10974,7 +10986,7 @@ public struct ConnectorsProposeCustomParams: Codable, Sendable {
         case scopeMode = "scopeMode"
     }
 
-    public init(manifest: CustomConnectorManifest?, openapi: Openapi?, scopeMode: ScopeMode?) {
+    public init(manifest: CustomConnectorManifest? = nil, openapi: Openapi? = nil, scopeMode: ScopeMode? = nil) {
         self.manifest = manifest
         self.openapi = openapi
         self.scopeMode = scopeMode
@@ -10995,7 +11007,7 @@ public struct Openapi: Codable, Sendable {
         case operations = "operations"
     }
 
-    public init(auth: CustomConnectorAuth?, document: String, id: String, operations: [String]?) {
+    public init(auth: CustomConnectorAuth? = nil, document: String, id: String, operations: [String]? = nil) {
         self.auth = auth
         self.document = document
         self.id = id
@@ -11072,7 +11084,7 @@ public struct ConnectorsStatusResult: Codable, Sendable {
         case status = "status"
     }
 
-    public init(checkedAt: Int, detail: String?, ok: Bool, status: ConnectorStatus) {
+    public init(checkedAt: Int, detail: String? = nil, ok: Bool, status: ConnectorStatus) {
         self.checkedAt = checkedAt
         self.detail = detail
         self.ok = ok
@@ -11092,7 +11104,7 @@ public struct ConnectorsUpdatedPayload: Codable, Sendable {
         case reason = "reason"
     }
 
-    public init(connector: Connector, error: String?, reason: ConnectorsUpdatedPayloadReason) {
+    public init(connector: Connector, error: String? = nil, reason: ConnectorsUpdatedPayloadReason) {
         self.connector = connector
         self.error = error
         self.reason = reason
@@ -11126,7 +11138,7 @@ public struct ContextBlock: Codable, Sendable {
         case url = "url"
     }
 
-    public init(id: String, kind: BlockKind, source: String?, title: String, type: ContextBlockType, url: String?) {
+    public init(id: String, kind: BlockKind, source: String? = nil, title: String, type: ContextBlockType, url: String? = nil) {
         self.id = id
         self.kind = kind
         self.source = source
@@ -11154,7 +11166,7 @@ public struct CredentialUpdatedPayload: Codable, Sendable {
         case ownerConnectorID = "ownerConnectorId"
     }
 
-    public init(change: CredentialUpdatedPayloadChange, credential: CredentialMeta?, credentialID: String, ownerConnectorID: String?) {
+    public init(change: CredentialUpdatedPayloadChange, credential: CredentialMeta? = nil, credentialID: String, ownerConnectorID: String? = nil) {
         self.change = change
         self.credential = credential
         self.credentialID = credentialID
@@ -11201,7 +11213,7 @@ public struct CredentialMeta: Codable, Sendable {
         case useCount = "useCount"
     }
 
-    public init(backend: Backend?, bindings: [CredentialBinding], createdAt: String, id: String, kind: CredentialKind, lastUsedAt: String?, managedBy: ManagedBy?, name: String, ownerConnectorID: String?, slug: String, updatedAt: String, useCount: Int) {
+    public init(backend: Backend? = nil, bindings: [CredentialBinding], createdAt: String, id: String, kind: CredentialKind, lastUsedAt: String? = nil, managedBy: ManagedBy? = nil, name: String, ownerConnectorID: String? = nil, slug: String, updatedAt: String, useCount: Int) {
         self.backend = backend
         self.bindings = bindings
         self.createdAt = createdAt
@@ -11236,7 +11248,7 @@ public struct CredentialBinding: Codable, Sendable {
         case connector = "connector"
     }
 
-    public init(origin: String?, host: String?, connector: String?) {
+    public init(origin: String? = nil, host: String? = nil, connector: String? = nil) {
         self.origin = origin
         self.host = host
         self.connector = connector
@@ -11379,7 +11391,7 @@ public struct DailyAutomationsParseResult: Codable, Sendable {
         case error = "error"
     }
 
-    public init(draft: DailyAutomationDraft?, error: String?) {
+    public init(draft: DailyAutomationDraft? = nil, error: String? = nil) {
         self.draft = draft
         self.error = error
     }
@@ -11462,7 +11474,7 @@ public struct DailyFollowup: Codable, Sendable {
         case text = "text"
     }
 
-    public init(createdAt: String, dueAt: String?, id: String, snoozedUntil: String?, source: DailyFollowupSource, sourceLink: String?, status: DailyFollowupStatus, text: String) {
+    public init(createdAt: String, dueAt: String? = nil, id: String, snoozedUntil: String? = nil, source: DailyFollowupSource, sourceLink: String? = nil, status: DailyFollowupStatus, text: String) {
         self.createdAt = createdAt
         self.dueAt = dueAt
         self.id = id
@@ -11501,7 +11513,7 @@ public struct DailyFollowupsIngestParams: Codable, Sendable {
         case text = "text"
     }
 
-    public init(source: DailyFollowupsIngestParamsSource, sourceLink: String?, text: String) {
+    public init(source: DailyFollowupsIngestParamsSource, sourceLink: String? = nil, text: String) {
         self.source = source
         self.sourceLink = sourceLink
         self.text = text
@@ -11535,7 +11547,7 @@ public struct DailyFollowupsListParams: Codable, Sendable {
         case status = "status"
     }
 
-    public init(status: [DailyFollowupStatus]?) {
+    public init(status: [DailyFollowupStatus]? = nil) {
         self.status = status
     }
 }
@@ -11565,7 +11577,7 @@ public struct DailyFollowupsUpdateParams: Codable, Sendable {
         case until = "until"
     }
 
-    public init(action: DailyFollowupsUpdateParamsAction, id: String, until: String?) {
+    public init(action: DailyFollowupsUpdateParamsAction, id: String, until: String? = nil) {
         self.action = action
         self.id = id
         self.until = until
@@ -11620,7 +11632,7 @@ public struct DailyRunResult: Codable, Sendable {
         case skipped = "skipped"
     }
 
-    public init(postID: String?, skipped: String?) {
+    public init(postID: String? = nil, skipped: String? = nil) {
         self.postID = postID
         self.skipped = skipped
     }
@@ -11667,7 +11679,7 @@ public struct DecidedBy: Codable, Sendable {
         case senderID = "senderId"
     }
 
-    public init(deviceID: String?, surface: String?, channel: String?, senderID: String?) {
+    public init(deviceID: String? = nil, surface: String? = nil, channel: String? = nil, senderID: String? = nil) {
         self.deviceID = deviceID
         self.surface = surface
         self.channel = channel
@@ -11713,7 +11725,7 @@ public struct Device: Codable, Sendable {
         case scopes = "scopes"
     }
 
-    public init(id: String, lastSeenAt: String?, name: String, pairedAt: String?, platform: DevicePlatform, publicKey: String, revokedAt: String?, role: DeviceRole, scopes: [DeviceScope]) {
+    public init(id: String, lastSeenAt: String? = nil, name: String, pairedAt: String? = nil, platform: DevicePlatform, publicKey: String, revokedAt: String? = nil, role: DeviceRole, scopes: [DeviceScope]) {
         self.id = id
         self.lastSeenAt = lastSeenAt
         self.name = name
@@ -11748,7 +11760,7 @@ public struct DevicesApproveParams: Codable, Sendable {
         case scopes = "scopes"
     }
 
-    public init(approvalID: String?, code: String?, pairingRequestID: String, scopes: [DeviceScope]) {
+    public init(approvalID: String? = nil, code: String? = nil, pairingRequestID: String, scopes: [DeviceScope]) {
         self.approvalID = approvalID
         self.code = code
         self.pairingRequestID = pairingRequestID
@@ -11792,7 +11804,7 @@ public struct DevicesDenyParams: Codable, Sendable {
         case reason = "reason"
     }
 
-    public init(pairingRequestID: String, reason: String?) {
+    public init(pairingRequestID: String, reason: String? = nil) {
         self.pairingRequestID = pairingRequestID
         self.reason = reason
     }
@@ -11819,7 +11831,7 @@ public struct DevicesListParams: Codable, Sendable {
         case includeRevoked = "includeRevoked"
     }
 
-    public init(includeRevoked: Bool?) {
+    public init(includeRevoked: Bool? = nil) {
         self.includeRevoked = includeRevoked
     }
 }
@@ -11845,7 +11857,7 @@ public struct DevicesPairingListParams: Codable, Sendable {
         case status = "status"
     }
 
-    public init(status: PairingStatus?) {
+    public init(status: PairingStatus? = nil) {
         self.status = status
     }
 }
@@ -11890,7 +11902,7 @@ public struct PresenceKeyInfo: Codable, Sendable {
         case registeredAt = "registeredAt"
     }
 
-    public init(deviceID: String, keyID: String, kind: PresenceKeyInfoKind?, registeredAt: String) {
+    public init(deviceID: String, keyID: String, kind: PresenceKeyInfoKind? = nil, registeredAt: String) {
         self.deviceID = deviceID
         self.keyID = keyID
         self.kind = kind
@@ -11915,7 +11927,7 @@ public struct DevicesPresenceKeyRegisterParams: Codable, Sendable {
         case expectKeyID = "expectKeyId"
     }
 
-    public init(approvalID: String?, deviceID: String, expectKeyID: String) {
+    public init(approvalID: String? = nil, deviceID: String, expectKeyID: String) {
         self.approvalID = approvalID
         self.deviceID = deviceID
         self.expectKeyID = expectKeyID
@@ -12006,15 +12018,18 @@ public struct DevicesSetupTokenCreateParams: Codable, Sendable {
     /// What the computer that uses the token gets, chosen by the owner now; never `node`.
     /// `operator.admin` only when the owner ticks it
     public let scopes: [SetupTokenScope]
+    public let via: SetupTokenVia?
 
     public enum CodingKeys: String, CodingKey {
         case approvalID = "approvalId"
         case scopes = "scopes"
+        case via = "via"
     }
 
-    public init(approvalID: String?, scopes: [SetupTokenScope]) {
+    public init(approvalID: String? = nil, scopes: [SetupTokenScope], via: SetupTokenVia? = nil) {
         self.approvalID = approvalID
         self.scopes = scopes
+        self.via = via
     }
 }
 
@@ -12025,15 +12040,23 @@ public enum SetupTokenScope: String, Codable, Sendable {
     case operatorWrite = "operator.write"
 }
 
+public enum SetupTokenVia: String, Codable, Sendable {
+    case address = "address"
+    case lan = "lan"
+}
+
 // MARK: - DevicesSetupTokenCreateResult
 public struct DevicesSetupTokenCreateResult: Codable, Sendable {
     public let gatewayFingerprint: String
     public let gatewayURL: String
     public let hostName: String
-    /// psyche-pair:v1 link: gatewayUrl, gatewayFingerprint, setupToken and hostName, nothing
-    /// else. The token appears only here, once
+    /// psyche-pair:v1 link (gatewayUrl, gatewayFingerprint, setupToken, hostName) for an
+    /// address, or psyche-pair:v2 link (gatewayUrl, gatewayKey, certPin, setupToken, hostName)
+    /// for the LAN; nothing else. The token appears only here, once
     public let link: String
     public let setupToken: SetupTokenInfo
+    /// 1 or 2: which link format `link` is
+    public let version: Int?
 
     public enum CodingKeys: String, CodingKey {
         case gatewayFingerprint = "gatewayFingerprint"
@@ -12041,14 +12064,16 @@ public struct DevicesSetupTokenCreateResult: Codable, Sendable {
         case hostName = "hostName"
         case link = "link"
         case setupToken = "setupToken"
+        case version = "version"
     }
 
-    public init(gatewayFingerprint: String, gatewayURL: String, hostName: String, link: String, setupToken: SetupTokenInfo) {
+    public init(gatewayFingerprint: String, gatewayURL: String, hostName: String, link: String, setupToken: SetupTokenInfo, version: Int? = nil) {
         self.gatewayFingerprint = gatewayFingerprint
         self.gatewayURL = gatewayURL
         self.hostName = hostName
         self.link = link
         self.setupToken = setupToken
+        self.version = version
     }
 }
 
@@ -12074,7 +12099,7 @@ public struct SetupTokenInfo: Codable, Sendable {
         case usedByDeviceID = "usedByDeviceId"
     }
 
-    public init(createdAt: String, expiresAt: String, id: String, revokedAt: String?, scopes: [SetupTokenScope], status: SetupTokenInfoStatus, usedAt: String?, usedByDeviceID: String?) {
+    public init(createdAt: String, expiresAt: String, id: String, revokedAt: String? = nil, scopes: [SetupTokenScope], status: SetupTokenInfoStatus, usedAt: String? = nil, usedByDeviceID: String? = nil) {
         self.createdAt = createdAt
         self.expiresAt = expiresAt
         self.id = id
@@ -12143,7 +12168,7 @@ public struct DictationInsertParams: Codable, Sendable {
         case text = "text"
     }
 
-    public init(expectPID: Int?, text: String) {
+    public init(expectPID: Int? = nil, text: String) {
         self.expectPID = expectPID
         self.text = text
     }
@@ -12191,7 +12216,7 @@ public struct DictationTarget: Codable, Sendable {
         case role = "role"
     }
 
-    public init(appName: String, bundleID: String?, insertable: Bool, pid: Int, refusal: DictationRefusal?, role: String?) {
+    public init(appName: String, bundleID: String? = nil, insertable: Bool, pid: Int, refusal: DictationRefusal? = nil, role: String? = nil) {
         self.appName = appName
         self.bundleID = bundleID
         self.insertable = insertable
@@ -12224,7 +12249,7 @@ public struct DictationKeyPayload: Codable, Sendable {
         case role = "role"
     }
 
-    public init(at: String, down: Bool, key: DictationKey, role: DictationKeyRole?) {
+    public init(at: String, down: Bool, key: DictationKey, role: DictationKeyRole? = nil) {
         self.at = at
         self.down = down
         self.key = key
@@ -12251,7 +12276,7 @@ public struct DictationTargetResult: Codable, Sendable {
         case target = "target"
     }
 
-    public init(target: DictationTarget?) {
+    public init(target: DictationTarget? = nil) {
         self.target = target
     }
 }
@@ -12269,7 +12294,7 @@ public struct DictationWatchParams: Codable, Sendable {
         case keys = "keys"
     }
 
-    public init(key: DictationKey?, keys: [Key]?) {
+    public init(key: DictationKey? = nil, keys: [Key]? = nil) {
         self.key = key
         self.keys = keys
     }
@@ -12324,7 +12349,7 @@ public struct DocumentsConvertParams: Codable, Sendable {
         case target = "target"
     }
 
-    public init(length: Int?, libraryPath: String?, offset: Int?, path: String?, target: ConversionTarget) {
+    public init(length: Int? = nil, libraryPath: String? = nil, offset: Int? = nil, path: String? = nil, target: ConversionTarget) {
         self.length = length
         self.libraryPath = libraryPath
         self.offset = offset
@@ -12356,7 +12381,7 @@ public struct DocumentsConvertResult: Codable, Sendable {
         case size = "size"
     }
 
-    public init(bytes: String, mime: DocumentsConvertResultMIME, nextOffset: Int?, offset: Int, size: Int) {
+    public init(bytes: String, mime: DocumentsConvertResultMIME, nextOffset: Int? = nil, offset: Int, size: Int) {
         self.bytes = bytes
         self.mime = mime
         self.nextOffset = nextOffset
@@ -12403,7 +12428,7 @@ public struct EventsSubscribeParams: Codable, Sendable {
         case filters = "filters"
     }
 
-    public init(filters: EventFilters?) {
+    public init(filters: EventFilters? = nil) {
         self.filters = filters
     }
 }
@@ -12419,7 +12444,7 @@ public struct EventFilters: Codable, Sendable {
         case threadIDS = "threadIds"
     }
 
-    public init(events: [String]?, threadIDS: [String]?) {
+    public init(events: [String]? = nil, threadIDS: [String]? = nil) {
         self.events = events
         self.threadIDS = threadIDS
     }
@@ -12506,7 +12531,7 @@ public struct EverythingModelSetting: Codable, Sendable {
         case perSource = "perSource"
     }
 
-    public init(everythingModelSettingDefault: EverythingProcessingModel, perSource: [String: JSONAny]?) {
+    public init(everythingModelSettingDefault: EverythingProcessingModel, perSource: [String: JSONAny]? = nil) {
         self.everythingModelSettingDefault = everythingModelSettingDefault
         self.perSource = perSource
     }
@@ -12522,7 +12547,7 @@ public struct EverythingProcessingModel: Codable, Sendable {
         case ref = "ref"
     }
 
-    public init(kind: SearchProcessing, ref: String?) {
+    public init(kind: SearchProcessing, ref: String? = nil) {
         self.kind = kind
         self.ref = ref
     }
@@ -12771,7 +12796,7 @@ public struct EverythingRunResult: Codable, Sendable {
         case tokens = "tokens"
     }
 
-    public init(deferred: Int, factsProposed: Int, itemsRead: Int, quarantined: Int, ran: Bool, reason: EverythingRunReason?, tokens: Int) {
+    public init(deferred: Int, factsProposed: Int, itemsRead: Int, quarantined: Int, ran: Bool, reason: EverythingRunReason? = nil, tokens: Int) {
         self.deferred = deferred
         self.factsProposed = factsProposed
         self.itemsRead = itemsRead
@@ -12822,7 +12847,7 @@ public struct FeedFeedbackParams: Codable, Sendable {
         case topic = "topic"
     }
 
-    public init(feedback: FeedFeedback?, postID: String, topic: String?) {
+    public init(feedback: FeedFeedback? = nil, postID: String, topic: String? = nil) {
         self.feedback = feedback
         self.postID = postID
         self.topic = topic
@@ -12848,7 +12873,7 @@ public struct FeedFeedbackResult: Codable, Sendable {
         case post = "post"
     }
 
-    public init(ledgerChanges: [String]?, post: FeedPost) {
+    public init(ledgerChanges: [String]? = nil, post: FeedPost) {
         self.ledgerChanges = ledgerChanges
         self.post = post
     }
@@ -12893,7 +12918,7 @@ public struct FeedPost: Codable, Sendable {
         case widget = "widget"
     }
 
-    public init(bodyMd: String, briefingID: String?, card: WorkflowCard?, citations: [Citation], cluster: [String: JSONAny]?, createdAt: String, exploration: Bool, feedback: FeedFeedback?, growth: GrowthCard?, id: String, kind: FeedPostKind?, reasons: [String], refs: FeedPostRefs?, score: Double, title: String, widget: FeedWidget?) {
+    public init(bodyMd: String, briefingID: String? = nil, card: WorkflowCard? = nil, citations: [Citation], cluster: [String: JSONAny]? = nil, createdAt: String, exploration: Bool, feedback: FeedFeedback? = nil, growth: GrowthCard? = nil, id: String, kind: FeedPostKind? = nil, reasons: [String], refs: FeedPostRefs? = nil, score: Double, title: String, widget: FeedWidget? = nil) {
         self.bodyMd = bodyMd
         self.briefingID = briefingID
         self.card = card
@@ -12929,7 +12954,7 @@ public struct WorkflowCard: Codable, Sendable {
         case daily = "daily"
     }
 
-    public init(digest: InboxDigest?, type: WorkflowCardType, prep: MeetingPrep?, notes: MeetingNotes?, daily: DailyBrief?) {
+    public init(digest: InboxDigest? = nil, type: WorkflowCardType, prep: MeetingPrep? = nil, notes: MeetingNotes? = nil, daily: DailyBrief? = nil) {
         self.digest = digest
         self.type = type
         self.prep = prep
@@ -12954,7 +12979,7 @@ public struct DailyBrief: Codable, Sendable {
         case summary = "summary"
     }
 
-    public init(carryOver: [DailyItem]?, date: String, kind: DailyKind, sections: [DailySection], summary: String) {
+    public init(carryOver: [DailyItem]? = nil, date: String, kind: DailyKind, sections: [DailySection], summary: String) {
         self.carryOver = carryOver
         self.date = date
         self.kind = kind
@@ -12975,7 +13000,7 @@ public struct DailyItem: Codable, Sendable {
         case text = "text"
     }
 
-    public init(followupID: String?, link: String?, text: String) {
+    public init(followupID: String? = nil, link: String? = nil, text: String) {
         self.followupID = followupID
         self.link = link
         self.text = text
@@ -12996,7 +13021,7 @@ public struct DailySection: Codable, Sendable {
         case unavailable = "unavailable"
     }
 
-    public init(id: DailySectionID, items: [DailyItem], title: String, unavailable: Bool?) {
+    public init(id: DailySectionID, items: [DailyItem], title: String, unavailable: Bool? = nil) {
         self.id = id
         self.items = items
         self.title = title
@@ -13054,7 +13079,7 @@ public struct InboxDigest: Codable, Sendable {
         case waitingOn = "waitingOn"
     }
 
-    public init(accounts: [String], counts: [String: Int], createdAt: String, groups: [DigestGroup], id: String, needsYou: [DigestItem], screen: [DigestItem], since: String, taint: Bool, until: String, unverified: [DigestItem], usedCloudModel: Bool?, waitingOn: [DigestLoop]) {
+    public init(accounts: [String], counts: [String: Int], createdAt: String, groups: [DigestGroup], id: String, needsYou: [DigestItem], screen: [DigestItem], since: String, taint: Bool, until: String, unverified: [DigestItem], usedCloudModel: Bool? = nil, waitingOn: [DigestLoop]) {
         self.accounts = accounts
         self.counts = counts
         self.createdAt = createdAt
@@ -13086,7 +13111,7 @@ public struct DigestGroup: Codable, Sendable {
         case title = "title"
     }
 
-    public init(category: DigestCategory, count: Int, proposalID: String?, title: String) {
+    public init(category: DigestCategory, count: Int, proposalID: String? = nil, title: String) {
         self.category = category
         self.count = count
         self.proposalID = proposalID
@@ -13120,7 +13145,7 @@ public struct DigestItem: Codable, Sendable {
         case thread = "thread"
     }
 
-    public init(actions: [DigestAction], because: String?, category: DigestCategory, summary: String, thread: MailThreadRef) {
+    public init(actions: [DigestAction], because: String? = nil, category: DigestCategory, summary: String, thread: MailThreadRef) {
         self.actions = actions
         self.because = because
         self.category = category
@@ -13163,7 +13188,7 @@ public struct MailThreadRef: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(account: String, at: String?, from: String?, link: String?, messageID: String?, subject: String?, threadID: String) {
+    public init(account: String, at: String? = nil, from: String? = nil, link: String? = nil, messageID: String? = nil, subject: String? = nil, threadID: String) {
         self.account = account
         self.at = at
         self.from = from
@@ -13188,7 +13213,7 @@ public struct DigestLoop: Codable, Sendable {
         case thread = "thread"
     }
 
-    public init(counterpart: String?, loop: GraphLoop, shownCount: Int, thread: MailThreadRef?) {
+    public init(counterpart: String? = nil, loop: GraphLoop, shownCount: Int, thread: MailThreadRef? = nil) {
         self.counterpart = counterpart
         self.loop = loop
         self.shownCount = shownCount
@@ -13232,7 +13257,7 @@ public struct GraphLoop: Codable, Sendable {
         case text = "text"
     }
 
-    public init(closedAt: String?, closedBy: GraphLoopClosedBy?, confidence: Double, counterpartID: String?, createdAt: String, detectedBy: GraphLoopDetectedBy, direction: GraphLoopDirectionFilter, dueAt: String?, evidence: String?, id: String, projectID: String?, provenance: Provenance, sourceInteractionID: String?, status: GraphLoopStatus, text: String) {
+    public init(closedAt: String? = nil, closedBy: GraphLoopClosedBy? = nil, confidence: Double, counterpartID: String? = nil, createdAt: String, detectedBy: GraphLoopDetectedBy, direction: GraphLoopDirectionFilter, dueAt: String? = nil, evidence: String? = nil, id: String, projectID: String? = nil, provenance: Provenance, sourceInteractionID: String? = nil, status: GraphLoopStatus, text: String) {
         self.closedAt = closedAt
         self.closedBy = closedBy
         self.confidence = confidence
@@ -13309,7 +13334,7 @@ public struct MeetingNotes: Codable, Sendable {
         case transcriptItemID = "transcriptItemId"
     }
 
-    public init(actionItems: [MeetingActionItem], decisions: [DecisionElement], durationMS: Int, id: String, meetingID: String?, model: Model, openQuestions: [String], provenance: Provenance, recordingItemID: String?, startedAt: String, summary: [String], title: String, transcriptItemID: String?) {
+    public init(actionItems: [MeetingActionItem], decisions: [DecisionElement], durationMS: Int, id: String, meetingID: String? = nil, model: Model, openQuestions: [String], provenance: Provenance, recordingItemID: String? = nil, startedAt: String, summary: [String], title: String, transcriptItemID: String? = nil) {
         self.actionItems = actionItems
         self.decisions = decisions
         self.durationMS = durationMS
@@ -13347,7 +13372,7 @@ public struct MeetingActionItem: Codable, Sendable {
         case text = "text"
     }
 
-    public init(atMS: Int?, dueAt: String?, loopID: String?, owner: String?, proposalID: String?, quote: String?, text: String) {
+    public init(atMS: Int? = nil, dueAt: String? = nil, loopID: String? = nil, owner: String? = nil, proposalID: String? = nil, quote: String? = nil, text: String) {
         self.atMS = atMS
         self.dueAt = dueAt
         self.loopID = loopID
@@ -13370,7 +13395,7 @@ public struct DecisionElement: Codable, Sendable {
         case text = "text"
     }
 
-    public init(atMS: Int?, quote: String?, text: String) {
+    public init(atMS: Int? = nil, quote: String? = nil, text: String) {
         self.atMS = atMS
         self.quote = quote
         self.text = text
@@ -13432,7 +13457,7 @@ public struct MeetingPrep: Codable, Sendable {
         case worthReading = "worthReading"
     }
 
-    public init(agenda: [String], attendees: [MeetingAttendee], calendarID: String?, endAt: String?, joinURL: String?, lastTime: [SourcedLine], meetingID: String, openLoops: [GraphLoop], startAt: String, taint: Bool, title: String, why: SourcedLine?, worthReading: [SourcedLine]) {
+    public init(agenda: [String], attendees: [MeetingAttendee], calendarID: String? = nil, endAt: String? = nil, joinURL: String? = nil, lastTime: [SourcedLine], meetingID: String, openLoops: [GraphLoop], startAt: String, taint: Bool, title: String, why: SourcedLine? = nil, worthReading: [SourcedLine]) {
         self.agenda = agenda
         self.attendees = attendees
         self.calendarID = calendarID
@@ -13466,7 +13491,7 @@ public struct MeetingAttendee: Codable, Sendable {
         case summary = "summary"
     }
 
-    public init(email: String, name: String?, personID: String?, relationship: Relationship?, summary: String?) {
+    public init(email: String, name: String? = nil, personID: String? = nil, relationship: Relationship? = nil, summary: String? = nil) {
         self.email = email
         self.name = name
         self.personID = personID
@@ -13493,7 +13518,7 @@ public struct SourcedLine: Codable, Sendable {
         case text = "text"
     }
 
-    public init(source: SourcedLineSource?, text: String) {
+    public init(source: SourcedLineSource? = nil, text: String) {
         self.source = source
         self.text = text
     }
@@ -13511,7 +13536,7 @@ public struct SourcedLineSource: Codable, Sendable {
         case ref = "ref"
     }
 
-    public init(kind: FluffyKind, label: String?, ref: String) {
+    public init(kind: FluffyKind, label: String? = nil, ref: String) {
         self.kind = kind
         self.label = label
         self.ref = ref
@@ -13547,7 +13572,7 @@ public struct Citation: Codable, Sendable {
         case url = "url"
     }
 
-    public init(source: String?, title: String, url: String) {
+    public init(source: String? = nil, title: String, url: String) {
         self.source = source
         self.title = title
         self.url = url
@@ -13586,7 +13611,7 @@ public struct GrowthCardItem: Codable, Sendable {
         case type = "type"
     }
 
-    public init(because: String, evidence: [String], lessonID: String?, statement: String, type: GrowthCardItemType) {
+    public init(because: String, evidence: [String], lessonID: String? = nil, statement: String, type: GrowthCardItemType) {
         self.because = because
         self.evidence = evidence
         self.lessonID = lessonID
@@ -13633,7 +13658,7 @@ public struct FeedPostRefs: Codable, Sendable {
         case threads = "threads"
     }
 
-    public init(goalID: String?, meetingID: String?, nudgeID: String?, proposalIDS: [String]?, threads: [MailThreadRef]?) {
+    public init(goalID: String? = nil, meetingID: String? = nil, nudgeID: String? = nil, proposalIDS: [String]? = nil, threads: [MailThreadRef]? = nil) {
         self.goalID = goalID
         self.meetingID = meetingID
         self.nudgeID = nudgeID
@@ -13688,7 +13713,7 @@ public struct FeedGenerateParams: Codable, Sendable {
         case briefingID = "briefingId"
     }
 
-    public init(briefingID: String?) {
+    public init(briefingID: String? = nil) {
         self.briefingID = briefingID
     }
 }
@@ -13721,7 +13746,7 @@ public struct FeedListParams: Codable, Sendable {
         case since = "since"
     }
 
-    public init(briefingID: String?, cursor: String?, limit: Int?, since: String?) {
+    public init(briefingID: String? = nil, cursor: String? = nil, limit: Int? = nil, since: String? = nil) {
         self.briefingID = briefingID
         self.cursor = cursor
         self.limit = limit
@@ -13741,7 +13766,7 @@ public struct FeedListResult: Codable, Sendable {
         case posts = "posts"
     }
 
-    public init(nextBriefAt: String?, nextCursor: String?, posts: [FeedPost]) {
+    public init(nextBriefAt: String? = nil, nextCursor: String? = nil, posts: [FeedPost]) {
         self.nextBriefAt = nextBriefAt
         self.nextCursor = nextCursor
         self.posts = posts
@@ -13771,7 +13796,7 @@ public struct FeedUpdatedPayload: Codable, Sendable {
         case posts = "posts"
     }
 
-    public init(briefingID: String?, posts: [FeedPost]) {
+    public init(briefingID: String? = nil, posts: [FeedPost]) {
         self.briefingID = briefingID
         self.posts = posts
     }
@@ -13807,7 +13832,7 @@ public struct FeedbackGiveParams: Codable, Sendable {
         case text = "text"
     }
 
-    public init(kind: ExplicitFeedbackKind, reason: FeedbackReason?, scope: FeedbackScope?, target: FeedbackTarget, text: String?) {
+    public init(kind: ExplicitFeedbackKind, reason: FeedbackReason? = nil, scope: FeedbackScope? = nil, target: FeedbackTarget, text: String? = nil) {
         self.kind = kind
         self.reason = reason
         self.scope = scope
@@ -13855,7 +13880,7 @@ public struct FeedbackTarget: Codable, Sendable {
         case type = "type"
     }
 
-    public init(automationID: String?, id: String, skill: String?, taskID: String?, threadID: String?, type: FeedbackTargetType) {
+    public init(automationID: String? = nil, id: String, skill: String? = nil, taskID: String? = nil, threadID: String? = nil, type: FeedbackTargetType) {
         self.automationID = automationID
         self.id = id
         self.skill = skill
@@ -13889,7 +13914,7 @@ public struct FeedbackGiveResult: Codable, Sendable {
         case lesson = "lesson"
     }
 
-    public init(approval: ApprovalRequest?, event: FeedbackEvent, lesson: Lesson?) {
+    public init(approval: ApprovalRequest? = nil, event: FeedbackEvent, lesson: Lesson? = nil) {
         self.approval = approval
         self.event = event
         self.lesson = lesson
@@ -13923,7 +13948,7 @@ public struct FeedbackEvent: Codable, Sendable {
         case text = "text"
     }
 
-    public init(createdAt: String, detail: [String: JSONAny]?, id: String, kind: FeedbackKind, lessonID: String?, reason: FeedbackReason?, scope: FeedbackScope?, surface: String, target: FeedbackTarget, text: String?) {
+    public init(createdAt: String, detail: [String: JSONAny]? = nil, id: String, kind: FeedbackKind, lessonID: String? = nil, reason: FeedbackReason? = nil, scope: FeedbackScope? = nil, surface: String, target: FeedbackTarget, text: String? = nil) {
         self.createdAt = createdAt
         self.detail = detail
         self.id = id
@@ -13991,7 +14016,7 @@ public struct Lesson: Codable, Sendable {
         case value = "value"
     }
 
-    public init(confidence: Double, confirmedAt: String?, createdAt: String, destination: LessonDestination, forgottenAt: String?, id: String, kind: LessonKind, lastAppliedAt: String?, origin: LessonOrigin, previous: String?, refinedCount: Int, scope: LessonScope, sources: [String], statement: String, status: LessonStatus, supersedes: String?, value: String) {
+    public init(confidence: Double, confirmedAt: String? = nil, createdAt: String, destination: LessonDestination, forgottenAt: String? = nil, id: String, kind: LessonKind, lastAppliedAt: String? = nil, origin: LessonOrigin, previous: String? = nil, refinedCount: Int, scope: LessonScope, sources: [String], statement: String, status: LessonStatus, supersedes: String? = nil, value: String) {
         self.confidence = confidence
         self.confirmedAt = confirmedAt
         self.createdAt = createdAt
@@ -14042,7 +14067,7 @@ public struct LessonDestination: Codable, Sendable {
         case field = "field"
     }
 
-    public init(lineID: String?, path: String?, section: String?, type: DestinationEnum, attribute: String?, entityID: String?, rel: String?, versionID: String?, skill: String?, automationID: String?, field: String?) {
+    public init(lineID: String? = nil, path: String? = nil, section: String? = nil, type: DestinationEnum, attribute: String? = nil, entityID: String? = nil, rel: String? = nil, versionID: String? = nil, skill: String? = nil, automationID: String? = nil, field: String? = nil) {
         self.lineID = lineID
         self.path = path
         self.section = section
@@ -14089,7 +14114,7 @@ public struct LessonScope: Codable, Sendable {
         case taskKind = "taskKind"
     }
 
-    public init(automationID: String?, connector: String?, entityID: String?, global: Bool?, recipient: String?, skill: String?, taskKind: String?) {
+    public init(automationID: String? = nil, connector: String? = nil, entityID: String? = nil, global: Bool? = nil, recipient: String? = nil, skill: String? = nil, taskKind: String? = nil) {
         self.automationID = automationID
         self.connector = connector
         self.entityID = entityID
@@ -14126,7 +14151,7 @@ public struct FeedbackListParams: Codable, Sendable {
         case targetType = "targetType"
     }
 
-    public init(cursor: String?, kind: FeedbackKind?, limit: Int?, since: String?, targetType: FeedbackTargetType?) {
+    public init(cursor: String? = nil, kind: FeedbackKind? = nil, limit: Int? = nil, since: String? = nil, targetType: FeedbackTargetType? = nil) {
         self.cursor = cursor
         self.kind = kind
         self.limit = limit
@@ -14145,7 +14170,7 @@ public struct FeedbackListResult: Codable, Sendable {
         case nextCursor = "nextCursor"
     }
 
-    public init(events: [FeedbackEvent], nextCursor: String?) {
+    public init(events: [FeedbackEvent], nextCursor: String? = nil) {
         self.events = events
         self.nextCursor = nextCursor
     }
@@ -14195,7 +14220,7 @@ public struct FilesListParams: Codable, Sendable {
         case path = "path"
     }
 
-    public init(offset: Int?, path: String) {
+    public init(offset: Int? = nil, path: String) {
         self.offset = offset
         self.path = path
     }
@@ -14211,7 +14236,7 @@ public struct FilesListResult: Codable, Sendable {
         case nextOffset = "nextOffset"
     }
 
-    public init(entries: [FileEntry], nextOffset: Int?) {
+    public init(entries: [FileEntry], nextOffset: Int? = nil) {
         self.entries = entries
         self.nextOffset = nextOffset
     }
@@ -14233,7 +14258,7 @@ public struct FileEntry: Codable, Sendable {
         case size = "size"
     }
 
-    public init(kind: FileEntryKind, modifiedAt: String?, name: String, path: String, size: Int?) {
+    public init(kind: FileEntryKind, modifiedAt: String? = nil, name: String, path: String, size: Int? = nil) {
         self.kind = kind
         self.modifiedAt = modifiedAt
         self.name = name
@@ -14266,7 +14291,7 @@ public struct FilesReadParams: Codable, Sendable {
         case path = "path"
     }
 
-    public init(length: Int?, libraryPath: String?, offset: Int?, path: String?) {
+    public init(length: Int? = nil, libraryPath: String? = nil, offset: Int? = nil, path: String? = nil) {
         self.length = length
         self.libraryPath = libraryPath
         self.offset = offset
@@ -14299,7 +14324,7 @@ public struct FilesReadResult: Codable, Sendable {
         case size = "size"
     }
 
-    public init(bytes: String, etag: String, mime: String, modifiedAt: String, name: String, nextOffset: Int?, offset: Int, size: Int) {
+    public init(bytes: String, etag: String, mime: String, modifiedAt: String, name: String, nextOffset: Int? = nil, offset: Int, size: Int) {
         self.bytes = bytes
         self.etag = etag
         self.mime = mime
@@ -14339,7 +14364,7 @@ public struct Frame: Codable, Sendable {
         case stateVersion = "stateVersion"
     }
 
-    public init(id: String?, idempotencyKey: String?, method: String?, params: JSONAny?, type: FrameType, ok: Bool?, payload: JSONAny?, error: ErrorPayload?, event: String?, seq: Int?, stateVersion: Int?) {
+    public init(id: String? = nil, idempotencyKey: String? = nil, method: String? = nil, params: JSONAny? = nil, type: FrameType, ok: Bool? = nil, payload: JSONAny? = nil, error: ErrorPayload? = nil, event: String? = nil, seq: Int? = nil, stateVersion: Int? = nil) {
         self.id = id
         self.idempotencyKey = idempotencyKey
         self.method = method
@@ -14368,7 +14393,7 @@ public struct ErrorPayload: Codable, Sendable {
         case retryable = "retryable"
     }
 
-    public init(code: ErrorCode, details: JSONAny?, message: String, retryable: Bool?) {
+    public init(code: ErrorCode, details: JSONAny? = nil, message: String, retryable: Bool? = nil) {
         self.code = code
         self.details = details
         self.message = message
@@ -14437,7 +14462,7 @@ public struct GatewayInfo: Codable, Sendable {
         case trustedProxy = "trustedProxy"
     }
 
-    public init(hostName: String, identity: Identity, lan: LAN?, publicOrigin: String?, trustedProxy: Bool) {
+    public init(hostName: String, identity: Identity, lan: LAN? = nil, publicOrigin: String? = nil, trustedProxy: Bool) {
         self.hostName = hostName
         self.identity = identity
         self.lan = lan
@@ -14468,7 +14493,7 @@ public struct Identity: Codable, Sendable {
 public struct LAN: Codable, Sendable {
     /// Bonjour `_psyche._tcp` is being advertised
     public let advertising: Bool
-    /// Interfaces the owner can pick
+    /// Interfaces the owner can pick: private IPv4 and IPv6 unique-local addresses only
     public let candidates: [Candidate]
     /// SHA-256 (base64url) of the LAN certificate's SPKI: the cert pin
     public let certSpki: String?
@@ -14476,6 +14501,9 @@ public struct LAN: Codable, Sendable {
     public let enabled: Bool
     /// The interface names or addresses the owner chose; empty = the default one
     public let interfaces: [String]
+    /// Also listen on the chosen interface's IPv6 unique-local (fc00::/7) addresses. Never
+    /// global or link-local ones
+    public let ipv6: Bool?
     /// What is bound right now; empty when off or when nothing could bind
     public let listening: [Listening]
     /// https://<host>.local:<port> while listening
@@ -14491,18 +14519,20 @@ public struct LAN: Codable, Sendable {
         case certSpki = "certSpki"
         case enabled = "enabled"
         case interfaces = "interfaces"
+        case ipv6 = "ipv6"
         case listening = "listening"
         case origin = "origin"
         case port = "port"
         case problems = "problems"
     }
 
-    public init(advertising: Bool, candidates: [Candidate], certSpki: String?, enabled: Bool, interfaces: [String], listening: [Listening], origin: String?, port: Int, problems: [String]) {
+    public init(advertising: Bool, candidates: [Candidate], certSpki: String? = nil, enabled: Bool, interfaces: [String], ipv6: Bool? = nil, listening: [Listening], origin: String? = nil, port: Int, problems: [String]) {
         self.advertising = advertising
         self.candidates = candidates
         self.certSpki = certSpki
         self.enabled = enabled
         self.interfaces = interfaces
+        self.ipv6 = ipv6
         self.listening = listening
         self.origin = origin
         self.port = port
@@ -14553,7 +14583,7 @@ public struct GatewayLANRotateCERTParams: Codable, Sendable {
         case approvalID = "approvalId"
     }
 
-    public init(approvalID: String?) {
+    public init(approvalID: String? = nil) {
         self.approvalID = approvalID
     }
 }
@@ -14627,7 +14657,7 @@ public struct Goal: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(archivedAt: String?, cadence: String?, category: GoalCategory, confirmedAt: String?, createdAt: String, id: String, inferred: Bool, nextCheckinAt: String?, plan: [String: JSONAny]?, status: GoalStatus, title: String, updatedAt: String) {
+    public init(archivedAt: String? = nil, cadence: String? = nil, category: GoalCategory, confirmedAt: String? = nil, createdAt: String, id: String, inferred: Bool, nextCheckinAt: String? = nil, plan: [String: JSONAny]? = nil, status: GoalStatus, title: String, updatedAt: String) {
         self.archivedAt = archivedAt
         self.cadence = cadence
         self.category = category
@@ -14706,7 +14736,7 @@ public struct GoalsCreateParams: Codable, Sendable {
         case title = "title"
     }
 
-    public init(cadence: String?, category: GoalCategory, milestones: [MilestoneElement]?, plan: [String: JSONAny]?, timezone: String?, title: String) {
+    public init(cadence: String? = nil, category: GoalCategory, milestones: [MilestoneElement]? = nil, plan: [String: JSONAny]? = nil, timezone: String? = nil, title: String) {
         self.cadence = cadence
         self.category = category
         self.milestones = milestones
@@ -14726,7 +14756,7 @@ public struct MilestoneElement: Codable, Sendable {
         case title = "title"
     }
 
-    public init(dueAt: String?, title: String) {
+    public init(dueAt: String? = nil, title: String) {
         self.dueAt = dueAt
         self.title = title
     }
@@ -14768,7 +14798,7 @@ public struct GoalLink: Codable, Sendable {
         case watchID = "watchId"
     }
 
-    public init(automationID: String?, goalID: String, taskID: String?, watchID: String?) {
+    public init(automationID: String? = nil, goalID: String, taskID: String? = nil, watchID: String? = nil) {
         self.automationID = automationID
         self.goalID = goalID
         self.taskID = taskID
@@ -14792,7 +14822,7 @@ public struct GoalMilestone: Codable, Sendable {
         case title = "title"
     }
 
-    public init(doneAt: String?, dueAt: String?, goalID: String, id: String, title: String) {
+    public init(doneAt: String? = nil, dueAt: String? = nil, goalID: String, id: String, title: String) {
         self.doneAt = doneAt
         self.dueAt = dueAt
         self.goalID = goalID
@@ -14863,7 +14893,7 @@ public struct GoalsGetResult: Codable, Sendable {
         case taskIDS = "taskIds"
     }
 
-    public init(goal: Goal, links: [GoalLink]?, milestones: [GoalMilestone]?, taskIDS: [String]) {
+    public init(goal: Goal, links: [GoalLink]? = nil, milestones: [GoalMilestone]? = nil, taskIDS: [String]) {
         self.goal = goal
         self.links = links
         self.milestones = milestones
@@ -14887,7 +14917,7 @@ public struct GoalsLinkParams: Codable, Sendable {
         case watchID = "watchId"
     }
 
-    public init(automationID: String?, goalID: String, taskID: String?, unlink: Bool?, watchID: String?) {
+    public init(automationID: String? = nil, goalID: String, taskID: String? = nil, unlink: Bool? = nil, watchID: String? = nil) {
         self.automationID = automationID
         self.goalID = goalID
         self.taskID = taskID
@@ -14906,7 +14936,7 @@ public struct GoalsListParams: Codable, Sendable {
         case status = "status"
     }
 
-    public init(category: GoalCategory?, status: [GoalStatus]?) {
+    public init(category: GoalCategory? = nil, status: [GoalStatus]? = nil) {
         self.category = category
         self.status = status
     }
@@ -14943,7 +14973,7 @@ public struct GoalsMilestoneParams: Codable, Sendable {
         case title = "title"
     }
 
-    public init(done: Bool?, dueAt: String?, goalID: String, milestoneID: String?, remove: Bool?, title: String?) {
+    public init(done: Bool? = nil, dueAt: String? = nil, goalID: String, milestoneID: String? = nil, remove: Bool? = nil, title: String? = nil) {
         self.done = done
         self.dueAt = dueAt
         self.goalID = goalID
@@ -14993,7 +15023,7 @@ public struct GoalsUpdateParams: Codable, Sendable {
         case title = "title"
     }
 
-    public init(cadence: String?, category: GoalCategory?, goalID: String, plan: [String: JSONAny]?, status: GraphProjectStatus?, title: String?) {
+    public init(cadence: String? = nil, category: GoalCategory? = nil, goalID: String, plan: [String: JSONAny]? = nil, status: GraphProjectStatus? = nil, title: String? = nil) {
         self.cadence = cadence
         self.category = category
         self.goalID = goalID
@@ -15041,7 +15071,7 @@ public struct GrantsListParams: Codable, Sendable {
         case kind = "kind"
     }
 
-    public init(includeRevoked: Bool?, kind: ApprovalKind?) {
+    public init(includeRevoked: Bool? = nil, kind: ApprovalKind? = nil) {
         self.includeRevoked = includeRevoked
         self.kind = kind
     }
@@ -15158,7 +15188,7 @@ public struct GraphEdge: Codable, Sendable {
         case validTo = "validTo"
     }
 
-    public init(confidence: Double, dst: String, id: String, label: GraphRelationshipLabel?, provenance: Provenance, rel: GraphEdgeRel, retractedAt: String?, review: GraphReviewState?, role: GraphFamilyRole?, sources: [String], src: String, supersededBy: String?, validFrom: String, validTo: String?) {
+    public init(confidence: Double, dst: String, id: String, label: GraphRelationshipLabel? = nil, provenance: Provenance, rel: GraphEdgeRel, retractedAt: String? = nil, review: GraphReviewState? = nil, role: GraphFamilyRole? = nil, sources: [String], src: String, supersededBy: String? = nil, validFrom: String, validTo: String? = nil) {
         self.confidence = confidence
         self.dst = dst
         self.id = id
@@ -15296,7 +15326,7 @@ public struct GraphEntity: Codable, Sendable {
         case workStatus = "workStatus"
     }
 
-    public init(aliases: [String], cardPath: String?, createdAt: String, dueAt: String?, hidden: Bool, id: String, isOwner: Bool, kind: GraphEntityKind, lastInteractionAt: String?, lastSignalAt: String?, mergedInto: String?, name: String, pinned: Bool, graphEntityPrivate: Bool?, projectStatus: GraphProjectStatus?, projectType: GraphProjectType?, status: GraphEntityStatus, summary: String?, summaryAt: String?, titleUntrusted: Bool?, updatedAt: String, workStatus: GraphWorkStatus?) {
+    public init(aliases: [String], cardPath: String? = nil, createdAt: String, dueAt: String? = nil, hidden: Bool, id: String, isOwner: Bool, kind: GraphEntityKind, lastInteractionAt: String? = nil, lastSignalAt: String? = nil, mergedInto: String? = nil, name: String, pinned: Bool, graphEntityPrivate: Bool? = nil, projectStatus: GraphProjectStatus? = nil, projectType: GraphProjectType? = nil, status: GraphEntityStatus, summary: String? = nil, summaryAt: String? = nil, titleUntrusted: Bool? = nil, updatedAt: String, workStatus: GraphWorkStatus? = nil) {
         self.aliases = aliases
         self.cardPath = cardPath
         self.createdAt = createdAt
@@ -15401,7 +15431,7 @@ public struct GraphFact: Codable, Sendable {
         case value = "value"
     }
 
-    public init(attribute: GraphFactAttribute, confidence: Double, entityID: String, evidence: String?, extractor: String?, firstSeenAt: String?, id: String, lastSeenAt: String?, provenance: Provenance, recordedAt: String, retractedAt: String?, review: GraphReviewState?, runID: String?, sensitivity: GraphSensitivity?, sources: [String], subjectKind: GraphSubjectKind?, supersededBy: String?, validFrom: String, validTo: String?, value: String) {
+    public init(attribute: GraphFactAttribute, confidence: Double, entityID: String, evidence: String? = nil, extractor: String? = nil, firstSeenAt: String? = nil, id: String, lastSeenAt: String? = nil, provenance: Provenance, recordedAt: String, retractedAt: String? = nil, review: GraphReviewState? = nil, runID: String? = nil, sensitivity: GraphSensitivity? = nil, sources: [String], subjectKind: GraphSubjectKind? = nil, supersededBy: String? = nil, validFrom: String, validTo: String? = nil, value: String) {
         self.attribute = attribute
         self.confidence = confidence
         self.entityID = entityID
@@ -15567,7 +15597,7 @@ public struct GraphInteraction: Codable, Sendable {
         case threadKey = "threadKey"
     }
 
-    public init(direction: GraphDirection, gist: String?, gistDocID: String?, id: String, kind: GraphInteractionKind, link: String?, occurredAt: String, participants: [Participant], projectID: String?, source: String, subject: String?, threadKey: String?) {
+    public init(direction: GraphDirection, gist: String? = nil, gistDocID: String? = nil, id: String, kind: GraphInteractionKind, link: String? = nil, occurredAt: String, participants: [Participant], projectID: String? = nil, source: String, subject: String? = nil, threadKey: String? = nil) {
         self.direction = direction
         self.gist = gist
         self.gistDocID = gistDocID
@@ -15664,7 +15694,7 @@ public struct EntitySummary: Codable, Sendable {
         case workStatus = "workStatus"
     }
 
-    public init(dueAt: String?, id: String, isOwner: Bool, kind: GraphEntityKind, lastInteractionAt: String?, name: String, openLoops: Int, pinned: Bool, entitySummaryPrivate: Bool?, projectStatus: GraphProjectStatus?, projectType: GraphProjectType?, status: GraphEntityStatus, subtitle: String?, summary: String?, workStatus: GraphWorkStatus?) {
+    public init(dueAt: String? = nil, id: String, isOwner: Bool, kind: GraphEntityKind, lastInteractionAt: String? = nil, name: String, openLoops: Int, pinned: Bool, entitySummaryPrivate: Bool? = nil, projectStatus: GraphProjectStatus? = nil, projectType: GraphProjectType? = nil, status: GraphEntityStatus, subtitle: String? = nil, summary: String? = nil, workStatus: GraphWorkStatus? = nil) {
         self.dueAt = dueAt
         self.id = id
         self.isOwner = isOwner
@@ -15702,7 +15732,7 @@ public struct GraphStatus: Codable, Sendable {
         case sources = "sources"
     }
 
-    public init(budget: GraphStatusBudget, counts: GraphStatusCounts, enabled: Bool, lastModelPassAt: String?, loopPrecision: [LoopPrecision], sources: [SourceElement]) {
+    public init(budget: GraphStatusBudget, counts: GraphStatusCounts, enabled: Bool, lastModelPassAt: String? = nil, loopPrecision: [LoopPrecision], sources: [SourceElement]) {
         self.budget = budget
         self.counts = counts
         self.enabled = enabled
@@ -15806,7 +15836,7 @@ public struct SourceElement: Codable, Sendable {
         case source = "source"
     }
 
-    public init(enabled: Bool, entities: Int, interactions: Int, lastIngestAt: String?, source: GraphSource) {
+    public init(enabled: Bool, entities: Int, interactions: Int, lastIngestAt: String? = nil, source: GraphSource) {
         self.enabled = enabled
         self.entities = entities
         self.interactions = interactions
@@ -15865,7 +15895,7 @@ public struct GrowthSummary: Codable, Sendable {
         case window = "window"
     }
 
-    public init(lessons: Lessons, metrics: [GrowthMetric], milestones: [Milestone], since: String?, timeline: [GrowthItem], window: GrowthWindow) {
+    public init(lessons: Lessons, metrics: [GrowthMetric], milestones: [Milestone], since: String? = nil, timeline: [GrowthItem], window: GrowthWindow) {
         self.lessons = lessons
         self.metrics = metrics
         self.milestones = milestones
@@ -15921,7 +15951,7 @@ public struct GrowthMetric: Codable, Sendable {
         case total = "total"
     }
 
-    public init(count: Int, evidence: [String], id: GrowthMetricID, previousCount: Int?, previousRate: Double?, previousTotal: Int?, rate: Double?, skill: String?, total: Int) {
+    public init(count: Int, evidence: [String], id: GrowthMetricID, previousCount: Int? = nil, previousRate: Double? = nil, previousTotal: Int? = nil, rate: Double? = nil, skill: String? = nil, total: Int) {
         self.count = count
         self.evidence = evidence
         self.id = id
@@ -15956,7 +15986,7 @@ public struct Milestone: Codable, Sendable {
         case subject = "subject"
     }
 
-    public init(at: String, kind: MilestoneKind, ref: String?, subject: String?) {
+    public init(at: String, kind: MilestoneKind, ref: String? = nil, subject: String? = nil) {
         self.at = at
         self.kind = kind
         self.ref = ref
@@ -15988,7 +16018,7 @@ public struct GrowthItem: Codable, Sendable {
         case milestone = "milestone"
     }
 
-    public init(at: String, lesson: Lesson?, type: GrowthItemType, milestone: Milestone?) {
+    public init(at: String, lesson: Lesson? = nil, type: GrowthItemType, milestone: Milestone? = nil) {
         self.at = at
         self.lesson = lesson
         self.type = type
@@ -16011,7 +16041,7 @@ public struct HelperSpeechTimings: Codable, Sendable {
         case firstPartialMS = "firstPartialMs"
     }
 
-    public init(finalizeMS: FinalizeMS?, firstPartialMS: FirstPartialMS?) {
+    public init(finalizeMS: FinalizeMS? = nil, firstPartialMS: FirstPartialMS? = nil) {
         self.finalizeMS = finalizeMS
         self.firstPartialMS = firstPartialMS
     }
@@ -16027,7 +16057,7 @@ public struct FinalizeMS: Codable, Sendable {
         case short = "short"
     }
 
-    public init(long: Int?, short: Int?) {
+    public init(long: Int? = nil, short: Int? = nil) {
         self.long = long
         self.short = short
     }
@@ -16043,7 +16073,7 @@ public struct FirstPartialMS: Codable, Sendable {
         case short = "short"
     }
 
-    public init(long: Int?, short: Int?) {
+    public init(long: Int? = nil, short: Int? = nil) {
         self.long = long
         self.short = short
     }
@@ -16090,7 +16120,7 @@ public struct Idea: Codable, Sendable {
         case title = "title"
     }
 
-    public init(acceptanceProb: Double, bodyMd: String, createdAt: String, decidedAt: String?, effort: String, evidence: [[String: JSONAny]], id: String, kind: IdeaKind, resultRef: String?, status: IdeaStatus, title: String) {
+    public init(acceptanceProb: Double, bodyMd: String, createdAt: String, decidedAt: String? = nil, effort: String, evidence: [[String: JSONAny]], id: String, kind: IdeaKind, resultRef: String? = nil, status: IdeaStatus, title: String) {
         self.acceptanceProb = acceptanceProb
         self.bodyMd = bodyMd
         self.createdAt = createdAt
@@ -16139,7 +16169,7 @@ public struct IdeasAcceptParams: Codable, Sendable {
         case timezone = "timezone"
     }
 
-    public init(brief: String?, ideaID: String, recurring: Bool?, schedule: String?, threadID: String?, timezone: String?) {
+    public init(brief: String? = nil, ideaID: String, recurring: Bool? = nil, schedule: String? = nil, threadID: String? = nil, timezone: String? = nil) {
         self.brief = brief
         self.ideaID = ideaID
         self.recurring = recurring
@@ -16161,7 +16191,7 @@ public struct IdeasAcceptResult: Codable, Sendable {
         case taskID = "taskId"
     }
 
-    public init(automationID: String?, idea: Idea, taskID: String?) {
+    public init(automationID: String? = nil, idea: Idea, taskID: String? = nil) {
         self.automationID = automationID
         self.idea = idea
         self.taskID = taskID
@@ -16216,7 +16246,7 @@ public struct IdeasListParams: Codable, Sendable {
         case status = "status"
     }
 
-    public init(cursor: String?, limit: Int?, status: [IdeaStatus]?) {
+    public init(cursor: String? = nil, limit: Int? = nil, status: [IdeaStatus]? = nil) {
         self.cursor = cursor
         self.limit = limit
         self.status = status
@@ -16233,7 +16263,7 @@ public struct IdeasListResult: Codable, Sendable {
         case nextCursor = "nextCursor"
     }
 
-    public init(ideas: [Idea], nextCursor: String?) {
+    public init(ideas: [Idea], nextCursor: String? = nil) {
         self.ideas = ideas
         self.nextCursor = nextCursor
     }
@@ -16276,7 +16306,7 @@ public struct InputRequest: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(answer: [String: Value]?, answeredAt: String?, answeredByDeviceID: String?, createdAt: String, id: String, questions: [Question], status: InputRequestStatus, taskID: String?, threadID: String) {
+    public init(answer: [String: Value]? = nil, answeredAt: String? = nil, answeredByDeviceID: String? = nil, createdAt: String, id: String, questions: [Question], status: InputRequestStatus, taskID: String? = nil, threadID: String) {
         self.answer = answer
         self.answeredAt = answeredAt
         self.answeredByDeviceID = answeredByDeviceID
@@ -16351,7 +16381,7 @@ public struct QuestionOption: Codable, Sendable {
         case preview = "preview"
     }
 
-    public init(description: String?, label: String, preview: String?) {
+    public init(description: String? = nil, label: String, preview: String? = nil) {
         self.description = description
         self.label = label
         self.preview = preview
@@ -16374,7 +16404,7 @@ public struct InsightsSummaryParams: Codable, Sendable {
         case window = "window"
     }
 
-    public init(timeZone: String?, window: GrowthWindow) {
+    public init(timeZone: String? = nil, window: GrowthWindow) {
         self.timeZone = timeZone
         self.window = window
     }
@@ -16400,7 +16430,7 @@ public struct InsightsSummaryResult: Codable, Sendable {
         case window = "window"
     }
 
-    public init(days: [InsightDay], firstActivityAt: String?, previous: InsightTotals?, range: Range, topEntities: [InsightEntity], totals: InsightTotals, window: GrowthWindow) {
+    public init(days: [InsightDay], firstActivityAt: String? = nil, previous: InsightTotals? = nil, range: Range, topEntities: [InsightEntity], totals: InsightTotals, window: GrowthWindow) {
         self.days = days
         self.firstActivityAt = firstActivityAt
         self.previous = previous
@@ -16478,7 +16508,7 @@ public struct InsightTotals: Codable, Sendable {
         case wallMS = "wallMs"
     }
 
-    public init(approvals: Approvals, artifacts: Artifacts, busiestDay: BusiestDay?, runs: InsightTotalsRuns, runsByKind: RunsByKind, runsDone: Int, runsFailed: Int, specialists: Specialists, topAutomation: TopAutomation?, wallMS: Int) {
+    public init(approvals: Approvals, artifacts: Artifacts, busiestDay: BusiestDay? = nil, runs: InsightTotalsRuns, runsByKind: RunsByKind, runsDone: Int, runsFailed: Int, specialists: Specialists, topAutomation: TopAutomation? = nil, wallMS: Int) {
         self.approvals = approvals
         self.artifacts = artifacts
         self.busiestDay = busiestDay
@@ -16802,7 +16832,7 @@ public struct LessonChangedPayload: Codable, Sendable {
         case status = "status"
     }
 
-    public init(lesson: Lesson?, lessonID: String, status: LessonStatus) {
+    public init(lesson: Lesson? = nil, lessonID: String, status: LessonStatus) {
         self.lesson = lesson
         self.lessonID = lessonID
         self.status = status
@@ -16855,7 +16885,7 @@ public struct LibraryItem: Codable, Sendable {
     public let kind: LibraryItemKind
     public let mime: String
     public let name: String
-    public let origin: Origin
+    public let origin: LibraryItemOrigin
     /// Relative to library/
     public let path: String
     public let quarantined: Bool?
@@ -16883,7 +16913,7 @@ public struct LibraryItem: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(createdAt: String, id: String, kind: LibraryItemKind, mime: String, name: String, origin: Origin, path: String, quarantined: Bool?, sha256: String, size: Int, tags: [String], taskID: String?, textExtractRef: String?, threadID: String?) {
+    public init(createdAt: String, id: String, kind: LibraryItemKind, mime: String, name: String, origin: LibraryItemOrigin, path: String, quarantined: Bool? = nil, sha256: String, size: Int, tags: [String], taskID: String? = nil, textExtractRef: String? = nil, threadID: String? = nil) {
         self.createdAt = createdAt
         self.id = id
         self.kind = kind
@@ -16912,7 +16942,7 @@ public enum LibraryItemKind: String, Codable, Sendable {
     case video = "video"
 }
 
-public enum Origin: String, Codable, Sendable {
+public enum LibraryItemOrigin: String, Codable, Sendable {
     case agent = "agent"
     case channel = "channel"
     case connector = "connector"
@@ -16960,7 +16990,7 @@ public struct LibraryListParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(cursor: String?, kind: LibraryItemKind?, limit: Int?, query: String?, taskID: String?, threadID: String?) {
+    public init(cursor: String? = nil, kind: LibraryItemKind? = nil, limit: Int? = nil, query: String? = nil, taskID: String? = nil, threadID: String? = nil) {
         self.cursor = cursor
         self.kind = kind
         self.limit = limit
@@ -16980,7 +17010,7 @@ public struct LibraryListResult: Codable, Sendable {
         case nextCursor = "nextCursor"
     }
 
-    public init(items: [LibraryItem], nextCursor: String?) {
+    public init(items: [LibraryItem], nextCursor: String? = nil) {
         self.items = items
         self.nextCursor = nextCursor
     }
@@ -17005,7 +17035,7 @@ public struct LibraryUploadParams: Codable, Sendable {
         case uploadID = "uploadId"
     }
 
-    public init(bytes: String, libraryUploadParamsFinal: Bool, mime: String?, name: String, threadID: String?, uploadID: String?) {
+    public init(bytes: String, libraryUploadParamsFinal: Bool, mime: String? = nil, name: String, threadID: String? = nil, uploadID: String? = nil) {
         self.bytes = bytes
         self.libraryUploadParamsFinal = libraryUploadParamsFinal
         self.mime = mime
@@ -17027,7 +17057,7 @@ public struct LibraryUploadResult: Codable, Sendable {
         case uploadID = "uploadId"
     }
 
-    public init(item: LibraryItem?, received: Int, uploadID: String) {
+    public init(item: LibraryItem? = nil, received: Int, uploadID: String) {
         self.item = item
         self.received = received
         self.uploadID = uploadID
@@ -17050,7 +17080,7 @@ public struct LogsTailParams: Codable, Sendable {
         case subsystem = "subsystem"
     }
 
-    public init(level: LogLevel?, lines: Int?, search: String?, since: String?, subsystem: String?) {
+    public init(level: LogLevel? = nil, lines: Int? = nil, search: String? = nil, since: String? = nil, subsystem: String? = nil) {
         self.level = level
         self.lines = lines
         self.search = search
@@ -17101,7 +17131,7 @@ public struct LogLine: Codable, Sendable {
         case ts = "ts"
     }
 
-    public init(fields: [String: JSONAny]?, level: LogLevel, msg: String, subsystem: String?, ts: String) {
+    public init(fields: [String: JSONAny]? = nil, level: LogLevel, msg: String, subsystem: String? = nil, ts: String) {
         self.fields = fields
         self.level = level
         self.msg = msg
@@ -17163,7 +17193,7 @@ public struct MCPServerStatus: Codable, Sendable {
         case version = "version"
     }
 
-    public init(connected: Bool, enabled: Bool?, id: String, madeBy: MadeBy?, name: String, network: Bool, transport: KindEnum, trust: Trust, version: String?) {
+    public init(connected: Bool, enabled: Bool? = nil, id: String, madeBy: MadeBy? = nil, name: String, network: Bool, transport: KindEnum, trust: Trust, version: String? = nil) {
         self.connected = connected
         self.enabled = enabled
         self.id = id
@@ -17210,7 +17240,7 @@ public struct MCPAppResult: Codable, Sendable {
         case available = "available"
     }
 
-    public init(app: MCPApp?, available: Bool) {
+    public init(app: MCPApp? = nil, available: Bool) {
         self.app = app
         self.available = available
     }
@@ -17307,7 +17337,7 @@ public struct MCPServerInput: Codable, Sendable {
         case transport = "transport"
     }
 
-    public init(allowedDomains: [String]?, id: String, name: String, transport: TransportClass) {
+    public init(allowedDomains: [String]? = nil, id: String, name: String, transport: TransportClass) {
         self.allowedDomains = allowedDomains
         self.id = id
         self.name = name
@@ -17331,7 +17361,7 @@ public struct TransportClass: Codable, Sendable {
         case url = "url"
     }
 
-    public init(command: [String]?, env: [String: JSONAny]?, kind: KindEnum, auth: Auth?, url: String?) {
+    public init(command: [String]? = nil, env: [String: JSONAny]? = nil, kind: KindEnum, auth: Auth? = nil, url: String? = nil) {
         self.command = command
         self.env = env
         self.kind = kind
@@ -17350,7 +17380,7 @@ public struct Auth: Codable, Sendable {
         case credential = "credential"
     }
 
-    public init(kind: AuthKind, credential: String?) {
+    public init(kind: AuthKind, credential: String? = nil) {
         self.kind = kind
         self.credential = credential
     }
@@ -17401,7 +17431,7 @@ public struct MCPProposal: Codable, Sendable {
         case toolsListHash = "toolsListHash"
     }
 
-    public init(diagnostics: String?, expiresAt: Int, id: String, isolation: Isolation, network: Network, server: MCPServerInput, tools: [MCPProbedTool], toolsListHash: String) {
+    public init(diagnostics: String? = nil, expiresAt: Int, id: String, isolation: Isolation, network: Network, server: MCPServerInput, tools: [MCPProbedTool], toolsListHash: String) {
         self.diagnostics = diagnostics
         self.expiresAt = expiresAt
         self.id = id
@@ -17667,7 +17697,7 @@ public struct MCPServerTool: Codable, Sendable {
         case sideEffect = "sideEffect"
     }
 
-    public init(blocked: Bool, description: String, enabled: Bool, name: String, sideEffect: CustomConnectorToolSideEffect?) {
+    public init(blocked: Bool, description: String, enabled: Bool, name: String, sideEffect: CustomConnectorToolSideEffect? = nil) {
         self.blocked = blocked
         self.description = description
         self.enabled = enabled
@@ -17724,7 +17754,7 @@ public struct MeetingNotesResult: Codable, Sendable {
         case status = "status"
     }
 
-    public init(notes: MeetingNotes?, postID: String?, question: String?, remindersProposalID: String?, status: MeetingNotesResultStatus) {
+    public init(notes: MeetingNotes? = nil, postID: String? = nil, question: String? = nil, remindersProposalID: String? = nil, status: MeetingNotesResultStatus) {
         self.notes = notes
         self.postID = postID
         self.question = question
@@ -17756,7 +17786,7 @@ public struct MeetingRecordingStatus: Codable, Sendable {
         case startedAt = "startedAt"
     }
 
-    public init(available: Bool, consentLine: String, last: MeetingRecordingEnded?, meetingID: String?, recording: Bool, startedAt: String?) {
+    public init(available: Bool, consentLine: String, last: MeetingRecordingEnded? = nil, meetingID: String? = nil, recording: Bool, startedAt: String? = nil) {
         self.available = available
         self.consentLine = consentLine
         self.last = last
@@ -17784,7 +17814,7 @@ public struct MeetingRecordingEnded: Codable, Sendable {
         case startedAt = "startedAt"
     }
 
-    public init(durationMS: Int, error: String?, notes: Notes, postID: String?, reason: MeetingRecordingEndedReason, startedAt: String) {
+    public init(durationMS: Int, error: String? = nil, notes: Notes, postID: String? = nil, reason: MeetingRecordingEndedReason, startedAt: String) {
         self.durationMS = durationMS
         self.error = error
         self.notes = notes
@@ -17824,7 +17854,7 @@ public struct MeetingsNotesCreateParams: Codable, Sendable {
         case title = "title"
     }
 
-    public init(libraryItemID: String, speakers: RecordingSpeakers?, startedAt: String?, title: String?) {
+    public init(libraryItemID: String, speakers: RecordingSpeakers? = nil, startedAt: String? = nil, title: String? = nil) {
         self.libraryItemID = libraryItemID
         self.speakers = speakers
         self.startedAt = startedAt
@@ -17865,7 +17895,7 @@ public struct MeetingsRecordStartParams: Codable, Sendable {
         case meetingID = "meetingId"
     }
 
-    public init(consentConfirmed: Bool, meetingID: String?) {
+    public init(consentConfirmed: Bool, meetingID: String? = nil) {
         self.consentConfirmed = consentConfirmed
         self.meetingID = meetingID
     }
@@ -17881,7 +17911,7 @@ public struct MeetingsRecordStopParams: Codable, Sendable {
         case reason = "reason"
     }
 
-    public init(reason: MeetingRecordingEndedReason?) {
+    public init(reason: MeetingRecordingEndedReason? = nil) {
         self.reason = reason
     }
 }
@@ -17900,7 +17930,7 @@ public struct MemoryAnchorsAddParams: Codable, Sendable {
         case ref = "ref"
     }
 
-    public init(entityID: String, kind: GraphAnchorKind, label: String?, ref: String) {
+    public init(entityID: String, kind: GraphAnchorKind, label: String? = nil, ref: String) {
         self.entityID = entityID
         self.kind = kind
         self.label = label
@@ -17983,7 +18013,7 @@ public struct MemoryAnchorsListParams: Codable, Sendable {
         case kind = "kind"
     }
 
-    public init(entityID: String?, kind: GraphAnchorKind?) {
+    public init(entityID: String? = nil, kind: GraphAnchorKind? = nil) {
         self.entityID = entityID
         self.kind = kind
     }
@@ -18040,7 +18070,7 @@ public struct MemoryCatchupActParams: Codable, Sendable {
         case until = "until"
     }
 
-    public init(action: CatchUpActAction, entityID: String, until: String?) {
+    public init(action: CatchUpActAction, entityID: String, until: String? = nil) {
         self.action = action
         self.entityID = entityID
         self.until = until
@@ -18080,7 +18110,7 @@ public struct MemoryCatchupListParams: Codable, Sendable {
         case surface = "surface"
     }
 
-    public init(limit: Int?, surface: CatchUpSurface) {
+    public init(limit: Int? = nil, surface: CatchUpSurface) {
         self.limit = limit
         self.surface = surface
     }
@@ -18160,7 +18190,7 @@ public struct CatchUpItem: Codable, Sendable {
         case urgency = "urgency"
     }
 
-    public init(actions: [CatchUpAction], ask: Bool?, changes: [CatchUpChange], dueAt: String?, entityID: String, kind: CatchUpItemKind, line: String, parent: Parent?, provenance: Provenance, resume: CatchUpResume?, sources: [CatchUpSource]?, stale: Bool, status: CatchUpStatus, statusAsOf: String, title: String, titleProvenance: Provenance, urgency: CatchUpUrgency) {
+    public init(actions: [CatchUpAction], ask: Bool? = nil, changes: [CatchUpChange], dueAt: String? = nil, entityID: String, kind: CatchUpItemKind, line: String, parent: Parent? = nil, provenance: Provenance, resume: CatchUpResume? = nil, sources: [CatchUpSource]? = nil, stale: Bool, status: CatchUpStatus, statusAsOf: String, title: String, titleProvenance: Provenance, urgency: CatchUpUrgency) {
         self.actions = actions
         self.ask = ask
         self.changes = changes
@@ -18206,7 +18236,7 @@ public struct CatchUpChange: Codable, Sendable {
         case text = "text"
     }
 
-    public init(at: String, citationID: String?, provenance: Provenance, source: GraphCitationSource, text: String) {
+    public init(at: String, citationID: String? = nil, provenance: Provenance, source: GraphCitationSource, text: String) {
         self.at = at
         self.citationID = citationID
         self.provenance = provenance
@@ -18408,7 +18438,7 @@ public struct MemoryClaim: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(confidence: Double, createdAt: String, id: String, kind: MemoryClaimKind, provenance: Provenance, retractedAt: String?, sources: [String], supersededBy: String?, text: String, updatedAt: String) {
+    public init(confidence: Double, createdAt: String, id: String, kind: MemoryClaimKind, provenance: Provenance, retractedAt: String? = nil, sources: [String], supersededBy: String? = nil, text: String, updatedAt: String) {
         self.confidence = confidence
         self.createdAt = createdAt
         self.id = id
@@ -18438,7 +18468,7 @@ public struct MemoryClaimsListParams: Codable, Sendable {
         case includeRetracted = "includeRetracted"
     }
 
-    public init(includeRetracted: Bool?) {
+    public init(includeRetracted: Bool? = nil) {
         self.includeRetracted = includeRetracted
     }
 }
@@ -18466,7 +18496,7 @@ public struct MemoryDailyListParams: Codable, Sendable {
         case limit = "limit"
     }
 
-    public init(before: String?, limit: Int?) {
+    public init(before: String? = nil, limit: Int? = nil) {
         self.before = before
         self.limit = limit
     }
@@ -18533,7 +18563,7 @@ public struct MemoryEntitiesCreateParams: Codable, Sendable {
         case projectType = "projectType"
     }
 
-    public init(aliases: [String]?, dueAt: String?, identifiers: [MemoryEntitiesCreateParamsIdentifier]?, kind: GraphEntityKind, name: String, memoryEntitiesCreateParamsPrivate: Bool?, projectStatus: GraphProjectStatus?, projectType: GraphProjectType?) {
+    public init(aliases: [String]? = nil, dueAt: String? = nil, identifiers: [MemoryEntitiesCreateParamsIdentifier]? = nil, kind: GraphEntityKind, name: String, memoryEntitiesCreateParamsPrivate: Bool? = nil, projectStatus: GraphProjectStatus? = nil, projectType: GraphProjectType? = nil) {
         self.aliases = aliases
         self.dueAt = dueAt
         self.identifiers = identifiers
@@ -18584,7 +18614,7 @@ public struct MemoryEntitiesEdgesRetractParams: Codable, Sendable {
         case source = "source"
     }
 
-    public init(edgeID: String, source: GraphWriteSource?) {
+    public init(edgeID: String, source: GraphWriteSource? = nil) {
         self.edgeID = edgeID
         self.source = source
     }
@@ -18601,7 +18631,7 @@ public struct GraphWriteSource: Codable, Sendable {
         case ref = "ref"
     }
 
-    public init(kind: GraphWriteSourceKind, ref: String?) {
+    public init(kind: GraphWriteSourceKind, ref: String? = nil) {
         self.kind = kind
         self.ref = ref
     }
@@ -18643,7 +18673,7 @@ public struct MemoryEntitiesEdgesSetParams: Codable, Sendable {
         case src = "src"
     }
 
-    public init(dst: String, label: GraphRelationshipLabel?, rel: GraphEdgeRel, source: GraphWriteSource?, src: String) {
+    public init(dst: String, label: GraphRelationshipLabel? = nil, rel: GraphEdgeRel, source: GraphWriteSource? = nil, src: String) {
         self.dst = dst
         self.label = label
         self.rel = rel
@@ -18662,7 +18692,7 @@ public struct MemoryEntitiesEdgesSetResult: Codable, Sendable {
         case superseded = "superseded"
     }
 
-    public init(edge: GraphEdge, superseded: String?) {
+    public init(edge: GraphEdge, superseded: String? = nil) {
         self.edge = edge
         self.superseded = superseded
     }
@@ -18680,7 +18710,7 @@ public struct MemoryEntitiesExcludeParams: Codable, Sendable {
         case mode = "mode"
     }
 
-    public init(dryRun: Bool?, id: String, mode: EverythingExclusionMode) {
+    public init(dryRun: Bool? = nil, id: String, mode: EverythingExclusionMode) {
         self.dryRun = dryRun
         self.id = id
         self.mode = mode
@@ -18786,7 +18816,7 @@ public struct MemoryEntitiesFactsRetractParams: Codable, Sendable {
         case source = "source"
     }
 
-    public init(factID: String, source: GraphWriteSource?) {
+    public init(factID: String, source: GraphWriteSource? = nil) {
         self.factID = factID
         self.source = source
     }
@@ -18820,7 +18850,7 @@ public struct MemoryEntitiesFactsSetParams: Codable, Sendable {
         case value = "value"
     }
 
-    public init(attribute: GraphFactAttribute, entityID: String, source: GraphWriteSource?, value: String) {
+    public init(attribute: GraphFactAttribute, entityID: String, source: GraphWriteSource? = nil, value: String) {
         self.attribute = attribute
         self.entityID = entityID
         self.source = source
@@ -18838,7 +18868,7 @@ public struct MemoryEntitiesFactsSetResult: Codable, Sendable {
         case superseded = "superseded"
     }
 
-    public init(fact: GraphFact, superseded: String?) {
+    public init(fact: GraphFact, superseded: String? = nil) {
         self.fact = fact
         self.superseded = superseded
     }
@@ -18855,7 +18885,7 @@ public struct MemoryEntitiesForgetParams: Codable, Sendable {
         case id = "id"
     }
 
-    public init(dryRun: Bool?, id: String) {
+    public init(dryRun: Bool? = nil, id: String) {
         self.dryRun = dryRun
         self.id = id
     }
@@ -18873,7 +18903,7 @@ public struct MemoryEntitiesForgetResult: Codable, Sendable {
         case removed = "removed"
     }
 
-    public init(cardPath: String?, dryRun: Bool, removed: Removed) {
+    public init(cardPath: String? = nil, dryRun: Bool, removed: Removed) {
         self.cardPath = cardPath
         self.dryRun = dryRun
         self.removed = removed
@@ -18915,7 +18945,7 @@ public struct MemoryEntitiesForgetSaidParams: Codable, Sendable {
         case id = "id"
     }
 
-    public init(dryRun: Bool?, id: String) {
+    public init(dryRun: Bool? = nil, id: String) {
         self.dryRun = dryRun
         self.id = id
     }
@@ -18960,7 +18990,7 @@ public struct MemoryEntitiesHistoryParams: Codable, Sendable {
         case entityID = "entityId"
     }
 
-    public init(attribute: GraphFactAttribute?, entityID: String) {
+    public init(attribute: GraphFactAttribute? = nil, entityID: String) {
         self.attribute = attribute
         self.entityID = entityID
     }
@@ -18995,7 +19025,7 @@ public struct MemoryEntitiesInteractionsParams: Codable, Sendable {
         case limit = "limit"
     }
 
-    public init(cursor: String?, id: String, limit: Int?) {
+    public init(cursor: String? = nil, id: String, limit: Int? = nil) {
         self.cursor = cursor
         self.id = id
         self.limit = limit
@@ -19012,7 +19042,7 @@ public struct MemoryEntitiesInteractionsResult: Codable, Sendable {
         case nextCursor = "nextCursor"
     }
 
-    public init(interactions: [GraphInteraction], nextCursor: String?) {
+    public init(interactions: [GraphInteraction], nextCursor: String? = nil) {
         self.interactions = interactions
         self.nextCursor = nextCursor
     }
@@ -19032,7 +19062,7 @@ public struct MemoryEntitiesMergeParams: Codable, Sendable {
         case into = "into"
     }
 
-    public init(dryRun: Bool?, ids: [String], into: String) {
+    public init(dryRun: Bool? = nil, ids: [String], into: String) {
         self.dryRun = dryRun
         self.ids = ids
         self.into = into
@@ -19076,7 +19106,7 @@ public struct MemoryEntitiesSearchParams: Codable, Sendable {
         case q = "q"
     }
 
-    public init(kinds: [GraphEntityKind]?, limit: Int?, q: String) {
+    public init(kinds: [GraphEntityKind]? = nil, limit: Int? = nil, q: String) {
         self.kinds = kinds
         self.limit = limit
         self.q = q
@@ -19112,7 +19142,7 @@ public struct MemoryEntitiesSplitParams: Codable, Sendable {
         case name = "name"
     }
 
-    public init(dryRun: Bool?, id: String, identifiers: [MemoryEntitiesSplitParamsIdentifier], name: String) {
+    public init(dryRun: Bool? = nil, id: String, identifiers: [MemoryEntitiesSplitParamsIdentifier], name: String) {
         self.dryRun = dryRun
         self.id = id
         self.identifiers = identifiers
@@ -19184,7 +19214,7 @@ public struct MemoryEntitiesSuggestionsAnswerResult: Codable, Sendable {
         case suggestion = "suggestion"
     }
 
-    public init(entity: GraphEntity?, suggestion: GraphSuggestion) {
+    public init(entity: GraphEntity? = nil, suggestion: GraphSuggestion) {
         self.entity = entity
         self.suggestion = suggestion
     }
@@ -19217,7 +19247,7 @@ public struct GraphSuggestion: Codable, Sendable {
         case status = "status"
     }
 
-    public init(createdAt: String, dueAt: String?, entityIDS: [String], id: String, kind: GraphSuggestionKind, name: String?, projectType: GraphProjectType?, reason: String, status: GraphSuggestionStatus) {
+    public init(createdAt: String, dueAt: String? = nil, entityIDS: [String], id: String, kind: GraphSuggestionKind, name: String? = nil, projectType: GraphProjectType? = nil, reason: String, status: GraphSuggestionStatus) {
         self.createdAt = createdAt
         self.dueAt = dueAt
         self.entityIDS = entityIDS
@@ -19251,7 +19281,7 @@ public struct MemoryEntitiesSuggestionsParams: Codable, Sendable {
         case status = "status"
     }
 
-    public init(status: GraphSuggestionFilter?) {
+    public init(status: GraphSuggestionFilter? = nil) {
         self.status = status
     }
 }
@@ -19288,7 +19318,7 @@ public struct MemoryEntitiesTimelineParams: Codable, Sendable {
         case limit = "limit"
     }
 
-    public init(before: String?, entityID: String, limit: Int?) {
+    public init(before: String? = nil, entityID: String, limit: Int? = nil) {
         self.before = before
         self.entityID = entityID
         self.limit = limit
@@ -19305,7 +19335,7 @@ public struct MemoryEntitiesTimelineResult: Codable, Sendable {
         case rows = "rows"
     }
 
-    public init(nextBefore: String?, rows: [GraphTimelineRow]) {
+    public init(nextBefore: String? = nil, rows: [GraphTimelineRow]) {
         self.nextBefore = nextBefore
         self.rows = rows
     }
@@ -19336,7 +19366,7 @@ public struct GraphTimelineRow: Codable, Sendable {
         case text = "text"
     }
 
-    public init(at: String, change: ChangeClass?, chip: GraphTimelineChip?, entityID: String, id: String, interactionKind: GraphInteractionKind?, kind: GraphTimelineKind, provenance: Provenance, text: String) {
+    public init(at: String, change: ChangeClass? = nil, chip: GraphTimelineChip? = nil, entityID: String, id: String, interactionKind: GraphInteractionKind? = nil, kind: GraphTimelineKind, provenance: Provenance, text: String) {
         self.at = at
         self.change = change
         self.chip = chip
@@ -19361,7 +19391,7 @@ public struct ChangeClass: Codable, Sendable {
         case to = "to"
     }
 
-    public init(attribute: GraphFactAttribute, from: String?, to: String) {
+    public init(attribute: GraphFactAttribute, from: String? = nil, to: String) {
         self.attribute = attribute
         self.from = from
         self.to = to
@@ -19383,7 +19413,7 @@ public struct GraphTimelineChip: Codable, Sendable {
         case source = "source"
     }
 
-    public init(citationID: String?, label: String, link: String?, source: GraphCitationSource) {
+    public init(citationID: String? = nil, label: String, link: String? = nil, source: GraphCitationSource) {
         self.citationID = citationID
         self.label = label
         self.link = link
@@ -19432,7 +19462,7 @@ public struct MemoryEntitiesUpdateParams: Codable, Sendable {
         case status = "status"
     }
 
-    public init(aliases: [String]?, dueAt: String?, etag: String?, hidden: Bool?, id: String, name: String?, pinned: Bool?, memoryEntitiesUpdateParamsPrivate: Bool?, projectStatus: GraphProjectStatus?, projectType: GraphProjectType?, status: GraphEntityStatus?) {
+    public init(aliases: [String]? = nil, dueAt: String? = nil, etag: String? = nil, hidden: Bool? = nil, id: String, name: String? = nil, pinned: Bool? = nil, memoryEntitiesUpdateParamsPrivate: Bool? = nil, projectStatus: GraphProjectStatus? = nil, projectType: GraphProjectType? = nil, status: GraphEntityStatus? = nil) {
         self.aliases = aliases
         self.dueAt = dueAt
         self.etag = etag
@@ -19494,7 +19524,7 @@ public struct MemoryExclusionsAddParams: Codable, Sendable {
         case value = "value"
     }
 
-    public init(dryRun: Bool?, kind: GraphBlockKind, mode: EverythingExclusionMode?, value: String) {
+    public init(dryRun: Bool? = nil, kind: GraphBlockKind, mode: EverythingExclusionMode? = nil, value: String) {
         self.dryRun = dryRun
         self.kind = kind
         self.mode = mode
@@ -19541,7 +19571,7 @@ public struct EverythingExclusion: Codable, Sendable {
         case mode = "mode"
     }
 
-    public init(createdAt: String, hint: String?, id: String, kind: GraphBlockKind, mode: EverythingExclusionMode) {
+    public init(createdAt: String, hint: String? = nil, id: String, kind: GraphBlockKind, mode: EverythingExclusionMode) {
         self.createdAt = createdAt
         self.hint = hint
         self.id = id
@@ -19670,7 +19700,7 @@ public struct MemoryChunk: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(claimID: String?, createdAt: String, id: String, lineEnd: Int, lineStart: Int, provenance: Provenance, source: String, text: String, tokenCount: Int, updatedAt: String) {
+    public init(claimID: String? = nil, createdAt: String, id: String, lineEnd: Int, lineStart: Int, provenance: Provenance, source: String, text: String, tokenCount: Int, updatedAt: String) {
         self.claimID = claimID
         self.createdAt = createdAt
         self.id = id
@@ -19725,7 +19755,7 @@ public struct MemoryFileChangedPayload: Codable, Sendable {
         case stepID = "stepId"
     }
 
-    public init(etag: String?, path: String, provenance: Provenance?, runID: String?, source: MemoryChangeSource, stepID: String?) {
+    public init(etag: String? = nil, path: String, provenance: Provenance? = nil, runID: String? = nil, source: MemoryChangeSource, stepID: String? = nil) {
         self.etag = etag
         self.path = path
         self.provenance = provenance
@@ -19750,7 +19780,7 @@ public struct MemoryFilesListParams: Codable, Sendable {
         case memoryFilesListParamsPrefix = "prefix"
     }
 
-    public init(memoryFilesListParamsPrefix: String?) {
+    public init(memoryFilesListParamsPrefix: String? = nil) {
         self.memoryFilesListParamsPrefix = memoryFilesListParamsPrefix
     }
 }
@@ -19833,7 +19863,7 @@ public struct MemoryForgetParams: Codable, Sendable {
         case subject = "subject"
     }
 
-    public init(dryRun: Bool?, subject: String) {
+    public init(dryRun: Bool? = nil, subject: String) {
         self.dryRun = dryRun
         self.subject = subject
     }
@@ -19902,7 +19932,7 @@ public struct GraphBlocklistEntry: Codable, Sendable {
         case kind = "kind"
     }
 
-    public init(createdAt: String, hint: String?, id: String, kind: GraphIdentifierKind) {
+    public init(createdAt: String, hint: String? = nil, id: String, kind: GraphIdentifierKind) {
         self.createdAt = createdAt
         self.hint = hint
         self.id = id
@@ -19960,7 +19990,7 @@ public struct MemoryGraphDeleteSourceParams: Codable, Sendable {
         case source = "source"
     }
 
-    public init(dryRun: Bool?, source: GraphSource) {
+    public init(dryRun: Bool? = nil, source: GraphSource) {
         self.dryRun = dryRun
         self.source = source
     }
@@ -20022,7 +20052,7 @@ public struct MemoryGraphForgetAllParams: Codable, Sendable {
         case dryRun = "dryRun"
     }
 
-    public init(confirm: Confirm, dryRun: Bool?) {
+    public init(confirm: Confirm, dryRun: Bool? = nil) {
         self.confirm = confirm
         self.dryRun = dryRun
     }
@@ -20065,7 +20095,7 @@ public struct MemoryImportParams: Codable, Sendable {
         case format = "format"
     }
 
-    public init(content: String?, dryRun: Bool?, files: [MemoryImportParamsFile]?, format: MemoryImportFormat) {
+    public init(content: String? = nil, dryRun: Bool? = nil, files: [MemoryImportParamsFile]? = nil, format: MemoryImportFormat) {
         self.content = content
         self.dryRun = dryRun
         self.files = files
@@ -20149,7 +20179,7 @@ public struct MemoryJob: Codable, Sendable {
         case summary = "summary"
     }
 
-    public init(endedAt: String?, id: String, kind: MemoryJobKind, startedAt: String, status: MemoryJobStatus, summary: String?) {
+    public init(endedAt: String? = nil, id: String, kind: MemoryJobKind, startedAt: String, status: MemoryJobStatus, summary: String? = nil) {
         self.endedAt = endedAt
         self.id = id
         self.kind = kind
@@ -20226,7 +20256,7 @@ public struct MemoryLessonsEditResult: Codable, Sendable {
         case lesson = "lesson"
     }
 
-    public init(approval: ApprovalRequest?, lesson: Lesson) {
+    public init(approval: ApprovalRequest? = nil, lesson: Lesson) {
         self.approval = approval
         self.lesson = lesson
     }
@@ -20242,7 +20272,7 @@ public struct MemoryLessonsForgetAllParams: Codable, Sendable {
         case dryRun = "dryRun"
     }
 
-    public init(approvalID: String?, dryRun: Bool?) {
+    public init(approvalID: String? = nil, dryRun: Bool? = nil) {
         self.approvalID = approvalID
         self.dryRun = dryRun
     }
@@ -20277,7 +20307,7 @@ public struct MemoryLessonsForgetParams: Codable, Sendable {
         case purgeSources = "purgeSources"
     }
 
-    public init(lessonID: String, purgeSources: Bool?) {
+    public init(lessonID: String, purgeSources: Bool? = nil) {
         self.lessonID = lessonID
         self.purgeSources = purgeSources
     }
@@ -20341,7 +20371,7 @@ public struct Diff: Codable, Sendable {
         case before = "before"
     }
 
-    public init(after: String, before: String?) {
+    public init(after: String, before: String? = nil) {
         self.after = after
         self.before = before
     }
@@ -20366,7 +20396,7 @@ public struct MemoryLessonsListParams: Codable, Sendable {
         case status = "status"
     }
 
-    public init(cursor: String?, destination: DestinationEnum?, kind: LessonKind?, limit: Int?, since: String?, status: [LessonStatus]?) {
+    public init(cursor: String? = nil, destination: DestinationEnum? = nil, kind: LessonKind? = nil, limit: Int? = nil, since: String? = nil, status: [LessonStatus]? = nil) {
         self.cursor = cursor
         self.destination = destination
         self.kind = kind
@@ -20386,7 +20416,7 @@ public struct MemoryLessonsListResult: Codable, Sendable {
         case nextCursor = "nextCursor"
     }
 
-    public init(lessons: [Lesson], nextCursor: String?) {
+    public init(lessons: [Lesson], nextCursor: String? = nil) {
         self.lessons = lessons
         self.nextCursor = nextCursor
     }
@@ -20394,13 +20424,47 @@ public struct MemoryLessonsListResult: Codable, Sendable {
 
 // MARK: - MemoryLifeAnswerParams
 public struct MemoryLifeAnswerParams: Codable, Sendable {
+    /// Also read source passages (mail, Messages, notes, files, calendar) from the local index.
+    /// Absent or false: facts only, the earlier behaviour
+    public let passages: Bool?
+    /// A follow-up: the question, answer and cited ids of the turn before. The ids are read
+    /// again under this connection's rules; nothing in here is trusted as a source
+    public let previous: Previous?
     public let q: String
 
     public enum CodingKeys: String, CodingKey {
+        case passages = "passages"
+        case previous = "previous"
         case q = "q"
     }
 
-    public init(q: String) {
+    public init(passages: Bool? = nil, previous: Previous? = nil, q: String) {
+        self.passages = passages
+        self.previous = previous
+        self.q = q
+    }
+}
+
+/// A follow-up: the question, answer and cited ids of the turn before. The ids are read
+/// again under this connection's rules; nothing in here is trusted as a source
+// MARK: - Previous
+public struct Previous: Codable, Sendable {
+    public let answer: String
+    public let factIDS: [String]
+    public let passageIDS: [String]
+    public let q: String
+
+    public enum CodingKeys: String, CodingKey {
+        case answer = "answer"
+        case factIDS = "factIds"
+        case passageIDS = "passageIds"
+        case q = "q"
+    }
+
+    public init(answer: String, factIDS: [String], passageIDS: [String], q: String) {
+        self.answer = answer
+        self.factIDS = factIDS
+        self.passageIDS = passageIDS
         self.q = q
     }
 }
@@ -20410,17 +20474,22 @@ public struct MemoryLifeAnswerResult: Codable, Sendable {
     public let answer: String?
     /// The facts the answer cites, in order
     public let facts: [LifeFactHit]
+    /// The source passages the answer cites, in order. `[n]` in the answer is the nth fact,
+    /// `[Pn]` the nth passage
+    public let passages: [LifeAnswerPassage]?
     public let reason: LifeAnswerReason?
 
     public enum CodingKeys: String, CodingKey {
         case answer = "answer"
         case facts = "facts"
+        case passages = "passages"
         case reason = "reason"
     }
 
-    public init(answer: String?, facts: [LifeFactHit], reason: LifeAnswerReason?) {
+    public init(answer: String? = nil, facts: [LifeFactHit], passages: [LifeAnswerPassage]? = nil, reason: LifeAnswerReason? = nil) {
         self.answer = answer
         self.facts = facts
+        self.passages = passages
         self.reason = reason
     }
 }
@@ -20429,6 +20498,9 @@ public struct MemoryLifeAnswerResult: Codable, Sendable {
 public struct LifeFactHit: Codable, Sendable {
     public let attribute: GraphFactAttribute
     public let docID: String?
+    /// Search document ids of every citation's source passage that is indexed, in citation
+    /// order, resolved at read time (never stored on the fact); the first is `docId`
+    public let docIDS: [String]?
     public let entity: EntitySummary
     public let factID: String
     public let learnedAt: String?
@@ -20437,12 +20509,16 @@ public struct LifeFactHit: Codable, Sendable {
     public let quote: String?
     public let review: GraphReviewState
     public let source: String?
+    /// Every citation's source (`mail`, `messages`, …), without repeats; `source` is the first.
+    /// A connection that cannot open one of them is not shown the fact
+    public let sources: [String]?
     /// Untrusted text when it came from someone else
     public let value: String
 
     public enum CodingKeys: String, CodingKey {
         case attribute = "attribute"
         case docID = "docId"
+        case docIDS = "docIds"
         case entity = "entity"
         case factID = "factId"
         case learnedAt = "learnedAt"
@@ -20451,12 +20527,14 @@ public struct LifeFactHit: Codable, Sendable {
         case quote = "quote"
         case review = "review"
         case source = "source"
+        case sources = "sources"
         case value = "value"
     }
 
-    public init(attribute: GraphFactAttribute, docID: String?, entity: EntitySummary, factID: String, learnedAt: String?, observedAt: String?, provenance: Provenance, quote: String?, review: GraphReviewState, source: String?, value: String) {
+    public init(attribute: GraphFactAttribute, docID: String? = nil, docIDS: [String]? = nil, entity: EntitySummary, factID: String, learnedAt: String? = nil, observedAt: String? = nil, provenance: Provenance, quote: String? = nil, review: GraphReviewState, source: String? = nil, sources: [String]? = nil, value: String) {
         self.attribute = attribute
         self.docID = docID
+        self.docIDS = docIDS
         self.entity = entity
         self.factID = factID
         self.learnedAt = learnedAt
@@ -20465,7 +20543,34 @@ public struct LifeFactHit: Codable, Sendable {
         self.quote = quote
         self.review = review
         self.source = source
+        self.sources = sources
         self.value = value
+    }
+}
+
+// MARK: - LifeAnswerPassage
+public struct LifeAnswerPassage: Codable, Sendable {
+    /// Epoch ms of the passage
+    public let createdAt: Int
+    /// Search document id; opens the source viewer (`search.document`)
+    public let id: String
+    /// `mail`, `messages`, `notes`, …
+    public let source: String
+    /// Untrusted text: written by someone else
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case id = "id"
+        case source = "source"
+        case title = "title"
+    }
+
+    public init(createdAt: Int, id: String, source: String, title: String) {
+        self.createdAt = createdAt
+        self.id = id
+        self.source = source
+        self.title = title
     }
 }
 
@@ -20488,7 +20593,7 @@ public struct MemoryLifeSearchParams: Codable, Sendable {
         case q = "q"
     }
 
-    public init(limit: Int?, q: String) {
+    public init(limit: Int? = nil, q: String) {
         self.limit = limit
         self.q = q
     }
@@ -20506,7 +20611,7 @@ public struct MemoryLifeSearchResult: Codable, Sendable {
         case intent = "intent"
     }
 
-    public init(entities: [EntitySummary], facts: [LifeFactHit], intent: String?) {
+    public init(entities: [EntitySummary], facts: [LifeFactHit], intent: String? = nil) {
         self.entities = entities
         self.facts = facts
         self.intent = intent
@@ -20548,7 +20653,7 @@ public struct MemoryLoopsListParams: Codable, Sendable {
         case status = "status"
     }
 
-    public init(cursor: String?, direction: GraphLoopDirectionFilter?, dueBefore: String?, entityID: String?, limit: Int?, projectID: String?, status: [GraphLoopStatus]?) {
+    public init(cursor: String? = nil, direction: GraphLoopDirectionFilter? = nil, dueBefore: String? = nil, entityID: String? = nil, limit: Int? = nil, projectID: String? = nil, status: [GraphLoopStatus]? = nil) {
         self.cursor = cursor
         self.direction = direction
         self.dueBefore = dueBefore
@@ -20569,7 +20674,7 @@ public struct MemoryLoopsListResult: Codable, Sendable {
         case nextCursor = "nextCursor"
     }
 
-    public init(loops: [GraphLoop], nextCursor: String?) {
+    public init(loops: [GraphLoop], nextCursor: String? = nil) {
         self.loops = loops
         self.nextCursor = nextCursor
     }
@@ -20591,7 +20696,7 @@ public struct MemoryLoopsUpdateParams: Codable, Sendable {
         case text = "text"
     }
 
-    public init(dueAt: String?, id: String, status: GraphLoopStatus?, text: String?) {
+    public init(dueAt: String? = nil, id: String, status: GraphLoopStatus? = nil, text: String? = nil) {
         self.dueAt = dueAt
         self.id = id
         self.status = status
@@ -20716,7 +20821,7 @@ public struct MemoryPersonaEditParams: Codable, Sendable {
         case instruction = "instruction"
     }
 
-    public init(description: String?, etag: String?, fields: Fields?, instruction: String?) {
+    public init(description: String? = nil, etag: String? = nil, fields: Fields? = nil, instruction: String? = nil) {
         self.description = description
         self.etag = etag
         self.fields = fields
@@ -20745,7 +20850,7 @@ public struct Fields: Codable, Sendable {
         case voice = "voice"
     }
 
-    public init(avatar: String?, creature: String?, emoji: String?, name: String?, tagline: String?, vibe: String?, voice: String?) {
+    public init(avatar: String? = nil, creature: String? = nil, emoji: String? = nil, name: String? = nil, tagline: String? = nil, vibe: String? = nil, voice: String? = nil) {
         self.avatar = avatar
         self.creature = creature
         self.emoji = emoji
@@ -20802,7 +20907,7 @@ public struct PersonaIdentity: Codable, Sendable {
         case voice = "voice"
     }
 
-    public init(avatar: String?, creature: String?, emoji: String?, name: String?, tagline: String?, vibe: String?, voice: String?) {
+    public init(avatar: String? = nil, creature: String? = nil, emoji: String? = nil, name: String? = nil, tagline: String? = nil, vibe: String? = nil, voice: String? = nil) {
         self.avatar = avatar
         self.creature = creature
         self.emoji = emoji
@@ -20892,7 +20997,7 @@ public struct QuarantineItem: Codable, Sendable {
         case sourceRef = "sourceRef"
     }
 
-    public init(createdAt: String, decided: QuarantineDecided?, decidedAt: String?, excerpt: String, id: String, reasons: [QuarantineReason], senderEntityID: String?, source: GraphCitationSource, sourceRef: String) {
+    public init(createdAt: String, decided: QuarantineDecided? = nil, decidedAt: String? = nil, excerpt: String, id: String, reasons: [QuarantineReason], senderEntityID: String? = nil, source: GraphCitationSource, sourceRef: String) {
         self.createdAt = createdAt
         self.decided = decided
         self.decidedAt = decidedAt
@@ -20938,7 +21043,7 @@ public struct MemoryQuarantineListParams: Codable, Sendable {
         case limit = "limit"
     }
 
-    public init(cursor: String?, includeDecided: Bool?, limit: Int?) {
+    public init(cursor: String? = nil, includeDecided: Bool? = nil, limit: Int? = nil) {
         self.cursor = cursor
         self.includeDecided = includeDecided
         self.limit = limit
@@ -20955,7 +21060,7 @@ public struct MemoryQuarantineListResult: Codable, Sendable {
         case nextCursor = "nextCursor"
     }
 
-    public init(items: [QuarantineItem], nextCursor: String?) {
+    public init(items: [QuarantineItem], nextCursor: String? = nil) {
         self.items = items
         self.nextCursor = nextCursor
     }
@@ -20973,7 +21078,7 @@ public struct MemoryReadParams: Codable, Sendable {
         case path = "path"
     }
 
-    public init(lineEnd: Int?, lineStart: Int?, path: String) {
+    public init(lineEnd: Int? = nil, lineStart: Int? = nil, path: String) {
         self.lineEnd = lineEnd
         self.lineStart = lineStart
         self.path = path
@@ -20994,7 +21099,7 @@ public struct MemoryReadResult: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(content: String, etag: String?, path: String, updatedAt: String) {
+    public init(content: String, etag: String? = nil, path: String, updatedAt: String) {
         self.content = content
         self.etag = etag
         self.path = path
@@ -21041,7 +21146,7 @@ public struct MemoryResetParams: Codable, Sendable {
         case dryRun = "dryRun"
     }
 
-    public init(approvalID: String?, dryRun: Bool?) {
+    public init(approvalID: String? = nil, dryRun: Bool? = nil) {
         self.approvalID = approvalID
         self.dryRun = dryRun
     }
@@ -21084,7 +21189,7 @@ public struct MemoryReviewDecideParams: Codable, Sendable {
         case value = "value"
     }
 
-    public init(decision: ReviewDecision, factIDS: [String], never: ReviewNever?, value: String?) {
+    public init(decision: ReviewDecision, factIDS: [String], never: ReviewNever? = nil, value: String? = nil) {
         self.decision = decision
         self.factIDS = factIDS
         self.never = never
@@ -21133,7 +21238,7 @@ public struct MemoryReviewListParams: Codable, Sendable {
         case state = "state"
     }
 
-    public init(cursor: String?, entityID: String?, limit: Int?, state: [GraphReviewState]?) {
+    public init(cursor: String? = nil, entityID: String? = nil, limit: Int? = nil, state: [GraphReviewState]? = nil) {
         self.cursor = cursor
         self.entityID = entityID
         self.limit = limit
@@ -21153,7 +21258,7 @@ public struct MemoryReviewListResult: Codable, Sendable {
         case nextCursor = "nextCursor"
     }
 
-    public init(counts: MemoryReviewListResultCounts, items: [ReviewItem], nextCursor: String?) {
+    public init(counts: MemoryReviewListResultCounts, items: [ReviewItem], nextCursor: String? = nil) {
         self.counts = counts
         self.items = items
         self.nextCursor = nextCursor
@@ -21198,7 +21303,7 @@ public struct ReviewItem: Codable, Sendable {
         case sentence = "sentence"
     }
 
-    public init(change: ReviewItemChange, citations: [GraphCitation], entityName: String, fact: GraphFact, previousValue: String?, sentence: String) {
+    public init(change: ReviewItemChange, citations: [GraphCitation], entityName: String, fact: GraphFact, previousValue: String? = nil, sentence: String) {
         self.change = change
         self.citations = citations
         self.entityName = entityName
@@ -21254,7 +21359,7 @@ public struct GraphCitation: Codable, Sendable {
         case targetKind = "targetKind"
     }
 
-    public init(authorEntityID: String?, createdAt: String, docID: String?, end: Int, id: String, observedAt: String, provenance: Provenance, quote: String, source: GraphCitationSource, sourceHash: String, sourceRef: String, start: Int, targetID: String, targetKind: GraphCitationTarget) {
+    public init(authorEntityID: String? = nil, createdAt: String, docID: String? = nil, end: Int, id: String, observedAt: String, provenance: Provenance, quote: String, source: GraphCitationSource, sourceHash: String, sourceRef: String, start: Int, targetID: String, targetKind: GraphCitationTarget) {
         self.authorEntityID = authorEntityID
         self.createdAt = createdAt
         self.docID = docID
@@ -21314,7 +21419,7 @@ public struct MemoryRunsListParams: Codable, Sendable {
         case limit = "limit"
     }
 
-    public init(limit: Int?) {
+    public init(limit: Int? = nil) {
         self.limit = limit
     }
 }
@@ -21369,7 +21474,7 @@ public struct MemoryRun: Codable, Sendable {
         case tokensOut = "tokensOut"
     }
 
-    public init(batches: Int, deferred: Int, endedAt: String?, error: String?, factsDropped: [String: Int], factsProposed: Int, id: String, itemsFiltered: Int, itemsRead: Int, model: String?, quarantined: Int, sources: [EverythingSource], startedAt: String, tokensIn: Int, tokensOut: Int) {
+    public init(batches: Int, deferred: Int, endedAt: String? = nil, error: String? = nil, factsDropped: [String: Int], factsProposed: Int, id: String, itemsFiltered: Int, itemsRead: Int, model: String? = nil, quarantined: Int, sources: [EverythingSource], startedAt: String, tokensIn: Int, tokensOut: Int) {
         self.batches = batches
         self.deferred = deferred
         self.endedAt = endedAt
@@ -21414,7 +21519,7 @@ public struct MemorySearchParams: Codable, Sendable {
         case sources = "sources"
     }
 
-    public init(limit: Int?, provenance: [Provenance]?, query: String, sources: [String]?) {
+    public init(limit: Int? = nil, provenance: [Provenance]? = nil, query: String, sources: [String]? = nil) {
         self.limit = limit
         self.provenance = provenance
         self.query = query
@@ -21449,7 +21554,7 @@ public struct MemoryHit: Codable, Sendable {
         case score = "score"
     }
 
-    public init(bm25: Double?, chunk: MemoryChunk, cosine: Double?, score: Double) {
+    public init(bm25: Double? = nil, chunk: MemoryChunk, cosine: Double? = nil, score: Double) {
         self.bm25 = bm25
         self.chunk = chunk
         self.cosine = cosine
@@ -21556,7 +21661,7 @@ public struct MemoryStatusResult: Codable, Sendable {
         case vectorSearch = "vectorSearch"
     }
 
-    public init(chunks: Int, claims: Int, files: Int, lastJobs: [MemoryJob], paused: Bool, recall: MemoryRecallStatus?, store: MemoryStoreStatus?, vectorSearch: MemoryVectorMode) {
+    public init(chunks: Int, claims: Int, files: Int, lastJobs: [MemoryJob], paused: Bool, recall: MemoryRecallStatus? = nil, store: MemoryStoreStatus? = nil, vectorSearch: MemoryVectorMode) {
         self.chunks = chunks
         self.claims = claims
         self.files = files
@@ -21589,7 +21694,7 @@ public struct MemoryRecallStatus: Codable, Sendable {
         case vectors = "vectors"
     }
 
-    public init(chunks: Int?, fallback: MemoryRecallFallback?, mode: MemoryRecallMode, model: String?, state: MemoryRecallState, vectors: Int?) {
+    public init(chunks: Int? = nil, fallback: MemoryRecallFallback? = nil, mode: MemoryRecallMode, model: String? = nil, state: MemoryRecallState, vectors: Int? = nil) {
         self.chunks = chunks
         self.fallback = fallback
         self.mode = mode
@@ -21633,7 +21738,7 @@ public struct MemoryStoreStatus: Codable, Sendable {
         case state = "state"
     }
 
-    public init(encrypted: Bool, reason: String?, restartNeeded: Bool, safetyCopy: MemorySafetyCopy?, state: MemoryStoreState) {
+    public init(encrypted: Bool, reason: String? = nil, restartNeeded: Bool, safetyCopy: MemorySafetyCopy? = nil, state: MemoryStoreState) {
         self.encrypted = encrypted
         self.reason = reason
         self.restartNeeded = restartNeeded
@@ -21798,7 +21903,7 @@ public struct MemoryUpcomingParams: Codable, Sendable {
         case entityID = "entityId"
     }
 
-    public init(days: Int?, entityID: String?) {
+    public init(days: Int? = nil, entityID: String? = nil) {
         self.days = days
         self.entityID = entityID
     }
@@ -21841,7 +21946,7 @@ public struct ComingUpItem: Codable, Sendable {
         case turns = "turns"
     }
 
-    public init(date: String, daysAway: Int, entityID: String, kind: ComingUpKind, lastContactAt: String?, name: String, text: String, turns: Int?) {
+    public init(date: String, daysAway: Int, entityID: String, kind: ComingUpKind, lastContactAt: String? = nil, name: String, text: String, turns: Int? = nil) {
         self.date = date
         self.daysAway = daysAway
         self.entityID = entityID
@@ -21880,7 +21985,7 @@ public struct MemoryWorkSettings: Codable, Sendable {
         case trackedLists = "trackedLists"
     }
 
-    public init(anchorsFromFolders: MemoryWorkFolders, askWhereStopped: Bool, consentedAt: String?, enabled: Bool, remind: MemoryWorkRemind, trackedLists: [String: String]) {
+    public init(anchorsFromFolders: MemoryWorkFolders, askWhereStopped: Bool, consentedAt: String? = nil, enabled: Bool, remind: MemoryWorkRemind, trackedLists: [String: String]) {
         self.anchorsFromFolders = anchorsFromFolders
         self.askWhereStopped = askWhereStopped
         self.consentedAt = consentedAt
@@ -21969,7 +22074,7 @@ public struct MemoryWriteParams: Codable, Sendable {
         case path = "path"
     }
 
-    public init(content: String, etag: String?, mode: MemoryWriteMode?, path: String) {
+    public init(content: String, etag: String? = nil, mode: MemoryWriteMode? = nil, path: String) {
         self.content = content
         self.etag = etag
         self.mode = mode
@@ -21996,7 +22101,7 @@ public struct MemoryWriteResult: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(bytes: Int, etag: String?, path: String, updatedAt: String) {
+    public init(bytes: Int, etag: String? = nil, path: String, updatedAt: String) {
         self.bytes = bytes
         self.etag = etag
         self.path = path
@@ -22015,7 +22120,7 @@ public struct MessagesChatsParams: Codable, Sendable {
         case query = "query"
     }
 
-    public init(limit: Int?, query: String?) {
+    public init(limit: Int? = nil, query: String? = nil) {
         self.limit = limit
         self.query = query
     }
@@ -22056,7 +22161,7 @@ public struct MessagesChat: Codable, Sendable {
         case service = "service"
     }
 
-    public init(chatID: String, displayName: String?, isGroup: Bool, lastCursor: Int?, lastMessageAt: String?, participants: [MessagesHandle], service: MessagesService) {
+    public init(chatID: String, displayName: String? = nil, isGroup: Bool, lastCursor: Int? = nil, lastMessageAt: String? = nil, participants: [MessagesHandle], service: MessagesService) {
         self.chatID = chatID
         self.displayName = displayName
         self.isGroup = isGroup
@@ -22104,7 +22209,7 @@ public struct MessagesReadParams: Codable, Sendable {
         case sinceCursor = "sinceCursor"
     }
 
-    public init(chatID: String?, handle: String?, limit: Int?, sinceCursor: Int?) {
+    public init(chatID: String? = nil, handle: String? = nil, limit: Int? = nil, sinceCursor: Int? = nil) {
         self.chatID = chatID
         self.handle = handle
         self.limit = limit
@@ -22124,7 +22229,7 @@ public struct MessagesReadResult: Codable, Sendable {
         case messages = "messages"
     }
 
-    public init(cursor: Int?, hasMore: Bool, messages: [MessagesMessage]) {
+    public init(cursor: Int? = nil, hasMore: Bool, messages: [MessagesMessage]) {
         self.cursor = cursor
         self.hasMore = hasMore
         self.messages = messages
@@ -22161,7 +22266,7 @@ public struct MessagesMessage: Codable, Sendable {
         case text = "text"
     }
 
-    public init(attachments: [MessagesAttachment], chatID: String, cursor: Int, editedAt: String?, guid: String, isFromMe: Bool, reaction: MessagesReaction?, replyToGUID: String?, sender: MessagesHandle?, sentAt: String, service: MessagesService, text: String?) {
+    public init(attachments: [MessagesAttachment], chatID: String, cursor: Int, editedAt: String? = nil, guid: String, isFromMe: Bool, reaction: MessagesReaction? = nil, replyToGUID: String? = nil, sender: MessagesHandle? = nil, sentAt: String, service: MessagesService, text: String? = nil) {
         self.attachments = attachments
         self.chatID = chatID
         self.cursor = cursor
@@ -22199,7 +22304,7 @@ public struct MessagesAttachment: Codable, Sendable {
         case uti = "uti"
     }
 
-    public init(filename: String?, id: String, isSticker: Bool, isVoiceNote: Bool, mimeType: String?, totalBytes: Int?, uti: String?) {
+    public init(filename: String? = nil, id: String, isSticker: Bool, isVoiceNote: Bool, mimeType: String? = nil, totalBytes: Int? = nil, uti: String? = nil) {
         self.filename = filename
         self.id = id
         self.isSticker = isSticker
@@ -22226,7 +22331,7 @@ public struct MessagesReaction: Codable, Sendable {
         case targetGUID = "targetGuid"
     }
 
-    public init(emoji: String?, kind: MessagesReactionKind, removed: Bool, targetGUID: String) {
+    public init(emoji: String? = nil, kind: MessagesReactionKind, removed: Bool, targetGUID: String) {
         self.emoji = emoji
         self.kind = kind
         self.removed = removed
@@ -22259,7 +22364,7 @@ public struct MessagesSendParams: Codable, Sendable {
         case to = "to"
     }
 
-    public init(chatID: String?, service: MessagesSendService?, text: String, to: String?) {
+    public init(chatID: String? = nil, service: MessagesSendService? = nil, text: String, to: String? = nil) {
         self.chatID = chatID
         self.service = service
         self.text = text
@@ -22307,7 +22412,7 @@ public struct MessagesStatus: Codable, Sendable {
         case lastCursor = "lastCursor"
     }
 
-    public init(automation: MessagesAutomationStatus, databasePresent: Bool, fullDiskAccess: Bool, lastCursor: Int?) {
+    public init(automation: MessagesAutomationStatus, databasePresent: Bool, fullDiskAccess: Bool, lastCursor: Int? = nil) {
         self.automation = automation
         self.databasePresent = databasePresent
         self.fullDiskAccess = fullDiskAccess
@@ -22338,7 +22443,7 @@ public struct MessagesWatchEvent: Codable, Sendable {
         case retryable = "retryable"
     }
 
-    public init(cursor: Int?, messages: [MessagesMessage]?, type: MessagesWatchEventType, reason: String?, retryable: Bool?) {
+    public init(cursor: Int? = nil, messages: [MessagesMessage]? = nil, type: MessagesWatchEventType, reason: String? = nil, retryable: Bool? = nil) {
         self.cursor = cursor
         self.messages = messages
         self.type = type
@@ -22364,7 +22469,7 @@ public struct MessagesWatchParams: Codable, Sendable {
         case sinceCursor = "sinceCursor"
     }
 
-    public init(includeFromMe: Bool?, intervalMS: Int?, sinceCursor: Int?) {
+    public init(includeFromMe: Bool? = nil, intervalMS: Int? = nil, sinceCursor: Int? = nil) {
         self.includeFromMe = includeFromMe
         self.intervalMS = intervalMS
         self.sinceCursor = sinceCursor
@@ -22505,7 +22610,7 @@ public struct MissingPermission: Codable, Sendable {
         case reason = "reason"
     }
 
-    public init(access: Access?, need: MissingPermissionNeed, path: String?, capability: GatedCapability?, connector: String?, group: String?, reason: String?) {
+    public init(access: Access? = nil, need: MissingPermissionNeed, path: String? = nil, capability: GatedCapability? = nil, connector: String? = nil, group: String? = nil, reason: String? = nil) {
         self.access = access
         self.need = need
         self.path = path
@@ -22586,7 +22691,7 @@ public struct ToolCheckResult: Codable, Sendable {
         case total = "total"
     }
 
-    public init(inconclusive: Bool, passed: Int, probedAt: String?, ref: String, status: ToolCheckStatus, total: Int) {
+    public init(inconclusive: Bool, passed: Int, probedAt: String? = nil, ref: String, status: ToolCheckStatus, total: Int) {
         self.inconclusive = inconclusive
         self.passed = passed
         self.probedAt = probedAt
@@ -22650,7 +22755,7 @@ public struct ModelProviderSummary: Codable, Sendable {
         case probe = "probe"
     }
 
-    public init(baseURL: String?, id: String, keyConfigured: Bool, kind: String, label: String, local: Bool, models: [ProviderModelEntry], probe: EndpointProbe) {
+    public init(baseURL: String? = nil, id: String, keyConfigured: Bool, kind: String, label: String, local: Bool, models: [ProviderModelEntry], probe: EndpointProbe) {
         self.baseURL = baseURL
         self.id = id
         self.keyConfigured = keyConfigured
@@ -22676,7 +22781,7 @@ public struct ProviderModelEntry: Codable, Sendable {
         case toolCheck = "toolCheck"
     }
 
-    public init(autoMode: Bool?, capabilities: ModelCapabilityGuess?, ref: String, toolCheck: ToolCheckStatus) {
+    public init(autoMode: Bool? = nil, capabilities: ModelCapabilityGuess? = nil, ref: String, toolCheck: ToolCheckStatus) {
         self.autoMode = autoMode
         self.capabilities = capabilities
         self.ref = ref
@@ -22702,7 +22807,7 @@ public struct ModelCapabilityGuess: Codable, Sendable {
         case vision = "vision"
     }
 
-    public init(contextWindow: Int?, embeddings: Bool?, reasoning: Bool?, source: ModelFactSource, toolCalling: Bool?, vision: Bool?) {
+    public init(contextWindow: Int? = nil, embeddings: Bool? = nil, reasoning: Bool? = nil, source: ModelFactSource, toolCalling: Bool? = nil, vision: Bool? = nil) {
         self.contextWindow = contextWindow
         self.embeddings = embeddings
         self.reasoning = reasoning
@@ -22737,7 +22842,7 @@ public struct EndpointProbe: Codable, Sendable {
         case state = "state"
     }
 
-    public init(error: String?, latencyMS: Int?, models: [ProbedModel], probedAt: String?, server: String?, state: EndpointProbeState) {
+    public init(error: String? = nil, latencyMS: Int? = nil, models: [ProbedModel], probedAt: String? = nil, server: String? = nil, state: EndpointProbeState) {
         self.error = error
         self.latencyMS = latencyMS
         self.models = models
@@ -22763,7 +22868,7 @@ public struct ProbedModel: Codable, Sendable {
         case ref = "ref"
     }
 
-    public init(capabilities: ModelCapabilityGuess, id: String, label: String?, loaded: Bool?, ref: String) {
+    public init(capabilities: ModelCapabilityGuess, id: String, label: String? = nil, loaded: Bool? = nil, ref: String) {
         self.capabilities = capabilities
         self.id = id
         self.label = label
@@ -22806,7 +22911,7 @@ public struct ModelRoles: Codable, Sendable {
         case utility = "utility"
     }
 
-    public init(primary: String?, utility: String?) {
+    public init(primary: String? = nil, utility: String? = nil) {
         self.primary = primary
         self.utility = utility
     }
@@ -22879,7 +22984,7 @@ public struct ModelsSetRoleParams: Codable, Sendable {
         case role = "role"
     }
 
-    public init(modelsSetRoleParamsOverride: Bool?, ref: String, role: PickableModelRole) {
+    public init(modelsSetRoleParamsOverride: Bool? = nil, ref: String, role: PickableModelRole) {
         self.modelsSetRoleParamsOverride = modelsSetRoleParamsOverride
         self.ref = ref
         self.role = role
@@ -22948,7 +23053,7 @@ public struct NodeInvokeParams: Codable, Sendable {
         case params = "params"
     }
 
-    public init(approvalID: String?, capability: String, invocationID: String, params: JSONAny) {
+    public init(approvalID: String? = nil, capability: String, invocationID: String, params: JSONAny) {
         self.approvalID = approvalID
         self.capability = capability
         self.invocationID = invocationID
@@ -22972,7 +23077,7 @@ public struct NodeResultParams: Codable, Sendable {
         case result = "result"
     }
 
-    public init(error: ErrorPayload?, invocationID: String, ok: Bool, receipt: Receipt?, result: JSONAny?) {
+    public init(error: ErrorPayload? = nil, invocationID: String, ok: Bool, receipt: Receipt? = nil, result: JSONAny? = nil) {
         self.error = error
         self.invocationID = invocationID
         self.ok = ok
@@ -23011,7 +23116,7 @@ public struct Receipt: Codable, Sendable {
         case toolCallID = "toolCallId"
     }
 
-    public init(approvalID: String?, createdAt: String, externalRefs: [String: ExternalRef], id: String, kind: String, outcome: ReceiptOutcome, payload: [String: JSONAny]?, shortID: String?, summary: String, taskID: String?, toolCallID: String?) {
+    public init(approvalID: String? = nil, createdAt: String, externalRefs: [String: ExternalRef], id: String, kind: String, outcome: ReceiptOutcome, payload: [String: JSONAny]? = nil, shortID: String? = nil, summary: String, taskID: String? = nil, toolCallID: String? = nil) {
         self.approvalID = approvalID
         self.createdAt = createdAt
         self.externalRefs = externalRefs
@@ -23091,7 +23196,7 @@ public struct NodeInfo: Codable, Sendable {
         case status = "status"
     }
 
-    public init(capabilities: [NodeCapability], deviceID: String, id: String, kind: NodeKind, lastHeartbeatAt: String?, status: NodeStatus) {
+    public init(capabilities: [NodeCapability], deviceID: String, id: String, kind: NodeKind, lastHeartbeatAt: String? = nil, status: NodeStatus) {
         self.capabilities = capabilities
         self.deviceID = deviceID
         self.id = id
@@ -23157,7 +23262,7 @@ public struct NodesInvokeParams: Codable, Sendable {
         case params = "params"
     }
 
-    public init(approvalID: String?, capability: String, nodeID: String, params: JSONAny) {
+    public init(approvalID: String? = nil, capability: String, nodeID: String, params: JSONAny) {
         self.approvalID = approvalID
         self.capability = capability
         self.nodeID = nodeID
@@ -23181,7 +23286,7 @@ public struct NodesInvokeResult: Codable, Sendable {
         case result = "result"
     }
 
-    public init(error: ErrorPayload?, invocationID: String, ok: Bool, receipt: Receipt?, result: JSONAny?) {
+    public init(error: ErrorPayload? = nil, invocationID: String, ok: Bool, receipt: Receipt? = nil, result: JSONAny? = nil) {
         self.error = error
         self.invocationID = invocationID
         self.ok = ok
@@ -23252,7 +23357,7 @@ public struct Notification: Codable, Sendable {
         case title = "title"
     }
 
-    public init(actions: [NotificationAction], approvalID: String?, body: String, createdAt: String, delivered: [String: String], id: String, kind: NotificationKind, readAt: String?, resolvedAt: String?, route: String?, staleAt: String?, staleReason: String?, surfaces: [String], taskID: String?, title: String) {
+    public init(actions: [NotificationAction], approvalID: String? = nil, body: String, createdAt: String, delivered: [String: String], id: String, kind: NotificationKind, readAt: String? = nil, resolvedAt: String? = nil, route: String? = nil, staleAt: String? = nil, staleReason: String? = nil, surfaces: [String], taskID: String? = nil, title: String) {
         self.actions = actions
         self.approvalID = approvalID
         self.body = body
@@ -23287,7 +23392,7 @@ public struct NotificationAction: Codable, Sendable {
         case label = "label"
     }
 
-    public init(authenticationRequired: Bool?, destructive: Bool?, id: String, label: String) {
+    public init(authenticationRequired: Bool? = nil, destructive: Bool? = nil, id: String, label: String) {
         self.authenticationRequired = authenticationRequired
         self.destructive = destructive
         self.id = id
@@ -23327,7 +23432,7 @@ public struct NotificationDevicePayload: Codable, Sendable {
         case title = "title"
     }
 
-    public init(body: String, createdAt: String, id: String, interruption: Interruption, kind: NotificationKind, route: String?, title: String) {
+    public init(body: String, createdAt: String, id: String, interruption: Interruption, kind: NotificationKind, route: String? = nil, title: String) {
         self.body = body
         self.createdAt = createdAt
         self.id = id
@@ -23427,7 +23532,7 @@ public struct NotificationsListParams: Codable, Sendable {
         case unresolvedOnly = "unresolvedOnly"
     }
 
-    public init(cursor: String?, limit: Int?, unreadOnly: Bool?, unresolvedOnly: Bool?) {
+    public init(cursor: String? = nil, limit: Int? = nil, unreadOnly: Bool? = nil, unresolvedOnly: Bool? = nil) {
         self.cursor = cursor
         self.limit = limit
         self.unreadOnly = unreadOnly
@@ -23445,7 +23550,7 @@ public struct NotificationsListResult: Codable, Sendable {
         case notifications = "notifications"
     }
 
-    public init(nextCursor: String?, notifications: [Notification]) {
+    public init(nextCursor: String? = nil, notifications: [Notification]) {
         self.nextCursor = nextCursor
         self.notifications = notifications
     }
@@ -23487,7 +23592,7 @@ public struct NotificationsResolveParams: Codable, Sendable {
         case notificationID = "notificationId"
     }
 
-    public init(actionID: String?, notificationID: String) {
+    public init(actionID: String? = nil, notificationID: String) {
         self.actionID = actionID
         self.notificationID = notificationID
     }
@@ -23556,7 +23661,7 @@ public struct NudgesListParams: Codable, Sendable {
         case entityID = "entityId"
     }
 
-    public init(entityID: String?) {
+    public init(entityID: String? = nil) {
         self.entityID = entityID
     }
 }
@@ -23610,7 +23715,7 @@ public struct NudgeItem: Codable, Sendable {
         case text = "text"
     }
 
-    public init(channel: ChannelEnum?, date: String?, daysAgo: Int?, entityID: String, id: String, kind: NudgeKind, name: String, overdue: Bool, starters: [NudgeStarter]?, text: String) {
+    public init(channel: ChannelEnum? = nil, date: String? = nil, daysAgo: Int? = nil, entityID: String, id: String, kind: NudgeKind, name: String, overdue: Bool, starters: [NudgeStarter]? = nil, text: String) {
         self.channel = channel
         self.date = date
         self.daysAgo = daysAgo
@@ -23707,7 +23812,7 @@ public struct OcrRecognizeParams: Codable, Sendable {
         case path = "path"
     }
 
-    public init(fromPage: Int?, maxFileBytes: Int?, maxPages: Int?, minTextChars: Int?, pages: [Int]?, path: String) {
+    public init(fromPage: Int? = nil, maxFileBytes: Int? = nil, maxPages: Int? = nil, minTextChars: Int? = nil, pages: [Int]? = nil, path: String) {
         self.fromPage = fromPage
         self.maxFileBytes = maxFileBytes
         self.maxPages = maxPages
@@ -23734,7 +23839,7 @@ public struct OcrRecognizeResult: Codable, Sendable {
         case refusal = "refusal"
     }
 
-    public init(nextPage: Int?, pageCount: Int, pages: [OcrPage], refusal: OcrRefusal?) {
+    public init(nextPage: Int? = nil, pageCount: Int, pages: [OcrPage], refusal: OcrRefusal? = nil) {
         self.nextPage = nextPage
         self.pageCount = pageCount
         self.pages = pages
@@ -23845,7 +23950,7 @@ public struct PasskeyInfo: Codable, Sendable {
         case name = "name"
     }
 
-    public init(backedUp: Bool, createdAt: String, deviceID: String, id: String, lastUsedAt: String?, name: String) {
+    public init(backedUp: Bool, createdAt: String, deviceID: String, id: String, lastUsedAt: String? = nil, name: String) {
         self.backedUp = backedUp
         self.createdAt = createdAt
         self.deviceID = deviceID
@@ -23903,7 +24008,7 @@ public struct PasskeysRegisterFinishParams: Codable, Sendable {
         case response = "response"
     }
 
-    public init(approvalID: String?, ceremonyID: String, name: String?, reauth: PasskeyReauth?, response: [String: JSONAny]) {
+    public init(approvalID: String? = nil, ceremonyID: String, name: String? = nil, reauth: PasskeyReauth? = nil, response: [String: JSONAny]) {
         self.approvalID = approvalID
         self.ceremonyID = ceremonyID
         self.name = name
@@ -24044,7 +24149,7 @@ public struct PluginProposal: Codable, Sendable {
         case source = "source"
     }
 
-    public init(bindingHash: String, files: [PluginProposalFile], findings: [ScanFinding], fromHash: String?, hash: String, id: String, manifest: PluginManifest, source: String) {
+    public init(bindingHash: String, files: [PluginProposalFile], findings: [ScanFinding], fromHash: String? = nil, hash: String, id: String, manifest: PluginManifest, source: String) {
         self.bindingHash = bindingHash
         self.files = files
         self.findings = findings
@@ -24090,7 +24195,7 @@ public struct ScanFinding: Codable, Sendable {
         case severity = "severity"
     }
 
-    public init(file: String?, line: Int?, message: String, rule: String, severity: Severity) {
+    public init(file: String? = nil, line: Int? = nil, message: String, rule: String, severity: Severity) {
         self.file = file
         self.line = line
         self.message = message
@@ -24191,7 +24296,7 @@ public struct PluginSummary: Codable, Sendable {
         case version = "version"
     }
 
-    public init(capabilities: [PluginCapability], description: String, enabled: Bool, error: String?, hash: String, installedAt: String, name: String, source: String, status: PluginStatus, version: String) {
+    public init(capabilities: [PluginCapability], description: String, enabled: Bool, error: String? = nil, hash: String, installedAt: String, name: String, source: String, status: PluginStatus, version: String) {
         self.capabilities = capabilities
         self.description = description
         self.enabled = enabled
@@ -24322,7 +24427,7 @@ public struct PolicyRule: Codable, Sendable {
         case priority = "priority"
     }
 
-    public init(createdAt: String, effect: Decision, id: String, match: [String: JSONAny], note: String?, priority: Int) {
+    public init(createdAt: String, effect: Decision, id: String, match: [String: JSONAny], note: String? = nil, priority: Int) {
         self.createdAt = createdAt
         self.effect = effect
         self.id = id
@@ -24381,7 +24486,7 @@ public struct ActionProposal: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(approvalID: String?, calls: [ActionCall], createdAt: String, createdBy: CreatedBy, expiresAt: String, id: String, postID: String?, results: [ActionCallResult]?, sideEffect: ActionProposalSideEffect, status: ActionProposalStatus, taint: Bool, taintSources: [TaintSource]?, title: String, undoOf: String?, updatedAt: String) {
+    public init(approvalID: String? = nil, calls: [ActionCall], createdAt: String, createdBy: CreatedBy, expiresAt: String, id: String, postID: String? = nil, results: [ActionCallResult]? = nil, sideEffect: ActionProposalSideEffect, status: ActionProposalStatus, taint: Bool, taintSources: [TaintSource]? = nil, title: String, undoOf: String? = nil, updatedAt: String) {
         self.approvalID = approvalID
         self.calls = calls
         self.createdAt = createdAt
@@ -24434,7 +24539,7 @@ public struct CreatedBy: Codable, Sendable {
         case runID = "runId"
     }
 
-    public init(automationID: String?, job: String, runID: String?) {
+    public init(automationID: String? = nil, job: String, runID: String? = nil) {
         self.automationID = automationID
         self.job = job
         self.runID = runID
@@ -24455,7 +24560,7 @@ public struct ActionCallResult: Codable, Sendable {
         case status = "status"
     }
 
-    public init(error: String?, index: Int, receiptID: String?, status: ActionCallResultStatus) {
+    public init(error: String? = nil, index: Int, receiptID: String? = nil, status: ActionCallResultStatus) {
         self.error = error
         self.index = index
         self.receiptID = receiptID
@@ -24509,7 +24614,7 @@ public struct ProposalsApproveResult: Codable, Sendable {
         case proposal = "proposal"
     }
 
-    public init(answerToken: String?, approval: ApprovalRequest, proposal: ActionProposal) {
+    public init(answerToken: String? = nil, approval: ApprovalRequest, proposal: ActionProposal) {
         self.answerToken = answerToken
         self.approval = approval
         self.proposal = proposal
@@ -24583,7 +24688,7 @@ public struct ProposalsListParams: Codable, Sendable {
         case status = "status"
     }
 
-    public init(cursor: String?, limit: Int?, postID: String?, status: [ActionProposalStatus]?) {
+    public init(cursor: String? = nil, limit: Int? = nil, postID: String? = nil, status: [ActionProposalStatus]? = nil) {
         self.cursor = cursor
         self.limit = limit
         self.postID = postID
@@ -24601,7 +24706,7 @@ public struct ProposalsListResult: Codable, Sendable {
         case proposals = "proposals"
     }
 
-    public init(nextCursor: String?, proposals: [ActionProposal]) {
+    public init(nextCursor: String? = nil, proposals: [ActionProposal]) {
         self.nextCursor = nextCursor
         self.proposals = proposals
     }
@@ -24707,7 +24812,7 @@ public struct TraceRun: Codable, Sendable {
         case usage = "usage"
     }
 
-    public init(endedAt: String?, id: String, kind: String?, model: String, parentRunID: String?, startedAt: String, status: RunStatus, title: String?, usage: Usage) {
+    public init(endedAt: String? = nil, id: String, kind: String? = nil, model: String, parentRunID: String? = nil, startedAt: String, status: RunStatus, title: String? = nil, usage: Usage) {
         self.endedAt = endedAt
         self.id = id
         self.kind = kind
@@ -24769,7 +24874,7 @@ public struct TraceStep: Codable, Sendable {
         case thinking = "thinking"
     }
 
-    public init(attempt: Int, attributes: [String: Attribute], childRunID: String?, endedAt: String?, error: RunStepError?, groupID: String?, id: String, input: JSONAny?, kind: RunStepKind, label: String, output: JSONAny?, parentStepID: String?, seq: Int, startedAt: String, status: RunStepStatus, target: String?, thinking: String?) {
+    public init(attempt: Int, attributes: [String: Attribute], childRunID: String? = nil, endedAt: String? = nil, error: RunStepError? = nil, groupID: String? = nil, id: String, input: JSONAny? = nil, kind: RunStepKind, label: String, output: JSONAny? = nil, parentStepID: String? = nil, seq: Int, startedAt: String, status: RunStepStatus, target: String? = nil, thinking: String? = nil) {
         self.attempt = attempt
         self.attributes = attributes
         self.childRunID = childRunID
@@ -24886,7 +24991,7 @@ public struct FrameElement: Codable, Sendable {
         case stepID = "stepId"
     }
 
-    public init(at: String, file: String, seq: Int, stepID: String?) {
+    public init(at: String, file: String, seq: Int, stepID: String? = nil) {
         self.at = at
         self.file = file
         self.seq = seq
@@ -24993,7 +25098,7 @@ public struct QuestionsListParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(cursor: String?, limit: Int?, status: [InputRequestStatus]?, taskID: String?, threadID: String?) {
+    public init(cursor: String? = nil, limit: Int? = nil, status: [InputRequestStatus]? = nil, taskID: String? = nil, threadID: String? = nil) {
         self.cursor = cursor
         self.limit = limit
         self.status = status
@@ -25012,7 +25117,7 @@ public struct QuestionsListResult: Codable, Sendable {
         case nextCursor = "nextCursor"
     }
 
-    public init(inputRequests: [InputRequest], nextCursor: String?) {
+    public init(inputRequests: [InputRequest], nextCursor: String? = nil) {
         self.inputRequests = inputRequests
         self.nextCursor = nextCursor
     }
@@ -25051,7 +25156,7 @@ public struct RealChromeStatus: Codable, Sendable {
         case userDataDir = "userDataDir"
     }
 
-    public init(attached: Bool, enabled: Bool, pid: Int?, port: Int?, sessions: Int, since: String?, userDataDir: String?) {
+    public init(attached: Bool, enabled: Bool, pid: Int? = nil, port: Int? = nil, sessions: Int, since: String? = nil, userDataDir: String? = nil) {
         self.attached = attached
         self.enabled = enabled
         self.pid = pid
@@ -25134,7 +25239,7 @@ public struct ReceiptsListParams: Codable, Sendable {
         case taskID = "taskId"
     }
 
-    public init(cursor: String?, limit: Int?, taskID: String?) {
+    public init(cursor: String? = nil, limit: Int? = nil, taskID: String? = nil) {
         self.cursor = cursor
         self.limit = limit
         self.taskID = taskID
@@ -25151,7 +25256,7 @@ public struct ReceiptsListResult: Codable, Sendable {
         case receipts = "receipts"
     }
 
-    public init(nextCursor: String?, receipts: [Receipt]) {
+    public init(nextCursor: String? = nil, receipts: [Receipt]) {
         self.nextCursor = nextCursor
         self.receipts = receipts
     }
@@ -25187,7 +25292,7 @@ public struct RelatedThread: Codable, Sendable {
         case title = "title"
     }
 
-    public init(lastMessageAt: String?, snippet: String, threadID: String, title: String) {
+    public init(lastMessageAt: String? = nil, snippet: String, threadID: String, title: String) {
         self.lastMessageAt = lastMessageAt
         self.snippet = snippet
         self.threadID = threadID
@@ -25215,7 +25320,7 @@ public struct ReqFrame: Codable, Sendable {
         case type = "type"
     }
 
-    public init(id: String, idempotencyKey: String?, method: String, params: JSONAny?, type: ReqFrameType) {
+    public init(id: String, idempotencyKey: String? = nil, method: String, params: JSONAny? = nil, type: ReqFrameType) {
         self.id = id
         self.idempotencyKey = idempotencyKey
         self.method = method
@@ -25270,7 +25375,7 @@ public struct ResFrame: Codable, Sendable {
         case error = "error"
     }
 
-    public init(id: String, ok: Bool, payload: JSONAny?, type: ResErrFrameType, error: ErrorPayload?) {
+    public init(id: String, ok: Bool, payload: JSONAny? = nil, type: ResErrFrameType, error: ErrorPayload? = nil) {
         self.id = id
         self.ok = ok
         self.payload = payload
@@ -25343,7 +25448,7 @@ public struct ResearchProgressEvent: Codable, Sendable {
         case artifactID = "artifactId"
     }
 
-    public init(step: ResearchProgressStep?, type: ResearchProgressEventType, plan: ResearchProgressPlan?, status: ResearchProgressEventStatus?, title: String?, url: String?, count: Double?, budget: Double?, used: Double?, artifactID: String?) {
+    public init(step: ResearchProgressStep? = nil, type: ResearchProgressEventType, plan: ResearchProgressPlan? = nil, status: ResearchProgressEventStatus? = nil, title: String? = nil, url: String? = nil, count: Double? = nil, budget: Double? = nil, used: Double? = nil, artifactID: String? = nil) {
         self.step = step
         self.type = type
         self.plan = plan
@@ -25491,7 +25596,7 @@ public struct Run: Codable, Sendable {
         case usage = "usage"
     }
 
-    public init(attempt: Int, automationRunID: String?, budget: RunBudget?, currentStepID: String?, deadline: String?, endedAt: String?, error: String?, id: String, kind: RunKind?, lastStepAt: String?, modelRef: String, note: String?, origin: RunOrigin?, parentRunID: String?, rootRunID: String?, specialist: RunSpecialist?, startedAt: String, status: RunStatus, stepCount: Int?, taskID: String?, threadID: String, title: String?, usage: Usage) {
+    public init(attempt: Int, automationRunID: String? = nil, budget: RunBudget? = nil, currentStepID: String? = nil, deadline: String? = nil, endedAt: String? = nil, error: String? = nil, id: String, kind: RunKind? = nil, lastStepAt: String? = nil, modelRef: String, note: String? = nil, origin: RunOrigin? = nil, parentRunID: String? = nil, rootRunID: String? = nil, specialist: RunSpecialist? = nil, startedAt: String, status: RunStatus, stepCount: Int? = nil, taskID: String? = nil, threadID: String, title: String? = nil, usage: Usage) {
         self.attempt = attempt
         self.automationRunID = automationRunID
         self.budget = budget
@@ -25548,7 +25653,7 @@ public struct Limit: Codable, Sendable {
         case wallMS = "wallMs"
     }
 
-    public init(costUsd: Double?, steps: Int?, tokens: Int?, wallMS: Int?) {
+    public init(costUsd: Double? = nil, steps: Int? = nil, tokens: Int? = nil, wallMS: Int? = nil) {
         self.costUsd = costUsd
         self.steps = steps
         self.tokens = tokens
@@ -25572,7 +25677,7 @@ public struct Used: Codable, Sendable {
         case wallMS = "wallMs"
     }
 
-    public init(costUsd: Double?, retried: Retried?, steps: Int, tokens: Int, wallMS: Int) {
+    public init(costUsd: Double? = nil, retried: Retried? = nil, steps: Int, tokens: Int, wallMS: Int) {
         self.costUsd = costUsd
         self.retried = retried
         self.steps = steps
@@ -25591,7 +25696,7 @@ public struct Retried: Codable, Sendable {
         case tokens = "tokens"
     }
 
-    public init(costUsd: Double?, tokens: Int) {
+    public init(costUsd: Double? = nil, tokens: Int) {
         self.costUsd = costUsd
         self.tokens = tokens
     }
@@ -25691,7 +25796,7 @@ public struct RunStep: Codable, Sendable {
         case usage = "usage"
     }
 
-    public init(approvalID: String?, artifactID: String?, attempt: Int, attempts: [RunStepAttempt]?, childRunID: String?, doneLabel: String?, endedAt: String?, error: RunStepError?, frames: Frames?, groupID: String?, id: String, inputRequestID: String?, kind: RunStepKind, label: String, memoryPath: String?, modelRef: String?, parentStepID: String?, payloadRef: PayloadRef?, preview: Preview?, progress: Progress?, receiptID: String?, runID: String, seq: Int, startedAt: String, status: RunStepStatus, target: String?, taskID: String?, text: Text?, toolCallID: String?, usage: Usage?) {
+    public init(approvalID: String? = nil, artifactID: String? = nil, attempt: Int, attempts: [RunStepAttempt]? = nil, childRunID: String? = nil, doneLabel: String? = nil, endedAt: String? = nil, error: RunStepError? = nil, frames: Frames? = nil, groupID: String? = nil, id: String, inputRequestID: String? = nil, kind: RunStepKind, label: String, memoryPath: String? = nil, modelRef: String? = nil, parentStepID: String? = nil, payloadRef: PayloadRef? = nil, preview: Preview? = nil, progress: Progress? = nil, receiptID: String? = nil, runID: String, seq: Int, startedAt: String, status: RunStepStatus, target: String? = nil, taskID: String? = nil, text: Text? = nil, toolCallID: String? = nil, usage: Usage? = nil) {
         self.approvalID = approvalID
         self.artifactID = artifactID
         self.attempt = attempt
@@ -25739,7 +25844,7 @@ public struct RunStepAttempt: Codable, Sendable {
         case status = "status"
     }
 
-    public init(endedAt: String?, error: RunStepError?, startedAt: String, status: RunStepStatus) {
+    public init(endedAt: String? = nil, error: RunStepError? = nil, startedAt: String, status: RunStepStatus) {
         self.endedAt = endedAt
         self.error = error
         self.startedAt = startedAt
@@ -25773,7 +25878,7 @@ public struct PayloadRef: Codable, Sendable {
         case output = "output"
     }
 
-    public init(input: String?, output: String?) {
+    public init(input: String? = nil, output: String? = nil) {
         self.input = input
         self.output = output
     }
@@ -25789,7 +25894,7 @@ public struct Preview: Codable, Sendable {
         case output = "output"
     }
 
-    public init(input: String?, output: String?) {
+    public init(input: String? = nil, output: String? = nil) {
         self.input = input
         self.output = output
     }
@@ -25805,7 +25910,7 @@ public struct Progress: Codable, Sendable {
         case message = "message"
     }
 
-    public init(fraction: Double?, message: String?) {
+    public init(fraction: Double? = nil, message: String? = nil) {
         self.fraction = fraction
         self.message = message
     }
@@ -25823,7 +25928,7 @@ public struct Text: Codable, Sendable {
         case summary = "summary"
     }
 
-    public init(expiresAt: String?, full: String?, summary: String) {
+    public init(expiresAt: String? = nil, full: String? = nil, summary: String) {
         self.expiresAt = expiresAt
         self.full = full
         self.summary = summary
@@ -25943,7 +26048,7 @@ public struct RunSummary: Codable, Sendable {
         case usage = "usage"
     }
 
-    public init(activity: [Int]?, attempt: Int, automationRunID: String?, budget: RunBudget?, currentStep: CurrentStep?, currentStepID: String?, deadline: String?, durationsMS: [Int]?, endedAt: String?, error: String?, id: String, kind: RunKind?, lastStepAt: String?, modelRef: String, note: String?, origin: RunOrigin?, parentRunID: String?, rootRunID: String?, specialist: RunSummarySpecialist?, startedAt: String, status: RunStatus, stepCount: Int?, taskID: String?, threadID: String, title: String?, usage: Usage) {
+    public init(activity: [Int]? = nil, attempt: Int, automationRunID: String? = nil, budget: RunBudget? = nil, currentStep: CurrentStep? = nil, currentStepID: String? = nil, deadline: String? = nil, durationsMS: [Int]? = nil, endedAt: String? = nil, error: String? = nil, id: String, kind: RunKind? = nil, lastStepAt: String? = nil, modelRef: String, note: String? = nil, origin: RunOrigin? = nil, parentRunID: String? = nil, rootRunID: String? = nil, specialist: RunSummarySpecialist? = nil, startedAt: String, status: RunStatus, stepCount: Int? = nil, taskID: String? = nil, threadID: String, title: String? = nil, usage: Usage) {
         self.activity = activity
         self.attempt = attempt
         self.automationRunID = automationRunID
@@ -26031,7 +26136,7 @@ public struct RunsExportParams: Codable, Sendable {
         case runID = "runId"
     }
 
-    public init(format: RunTraceFormat, includeFrames: Bool?, runID: String) {
+    public init(format: RunTraceFormat, includeFrames: Bool? = nil, runID: String) {
         self.format = format
         self.includeFrames = includeFrames
         self.runID = runID
@@ -26057,7 +26162,7 @@ public struct RunsExportResult: Codable, Sendable {
         case mime = "mime"
     }
 
-    public init(dataBase64: String?, fileName: String, libraryItemID: String?, mime: String) {
+    public init(dataBase64: String? = nil, fileName: String, libraryItemID: String? = nil, mime: String) {
         self.dataBase64 = dataBase64
         self.fileName = fileName
         self.libraryItemID = libraryItemID
@@ -26119,7 +26224,7 @@ public struct RunsFramesParams: Codable, Sendable {
         case stepID = "stepId"
     }
 
-    public init(afterSeq: Int?, limit: Int?, runID: String, stepID: String?) {
+    public init(afterSeq: Int? = nil, limit: Int? = nil, runID: String, stepID: String? = nil) {
         self.afterSeq = afterSeq
         self.limit = limit
         self.runID = runID
@@ -26158,7 +26263,7 @@ public struct RunFrame: Codable, Sendable {
         case width = "width"
     }
 
-    public init(at: String, expired: Bool?, height: Int, seq: Int, stepID: String?, width: Int) {
+    public init(at: String, expired: Bool? = nil, height: Int, seq: Int, stepID: String? = nil, width: Int) {
         self.at = at
         self.expired = expired
         self.height = height
@@ -26195,7 +26300,7 @@ public struct RunsListParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(automationID: String?, cursor: String?, kind: RunKind?, limit: Int?, parentRunID: String?, rootRunID: String?, since: String?, status: [RunStatus]?, taskID: String?, threadID: String?) {
+    public init(automationID: String? = nil, cursor: String? = nil, kind: RunKind? = nil, limit: Int? = nil, parentRunID: String? = nil, rootRunID: String? = nil, since: String? = nil, status: [RunStatus]? = nil, taskID: String? = nil, threadID: String? = nil) {
         self.automationID = automationID
         self.cursor = cursor
         self.kind = kind
@@ -26219,7 +26324,7 @@ public struct RunsListResult: Codable, Sendable {
         case runs = "runs"
     }
 
-    public init(nextCursor: String?, runs: [RunSummary]) {
+    public init(nextCursor: String? = nil, runs: [RunSummary]) {
         self.nextCursor = nextCursor
         self.runs = runs
     }
@@ -26256,7 +26361,7 @@ public struct RunsStepResult: Codable, Sendable {
         case truncated = "truncated"
     }
 
-    public init(input: JSONAny?, output: JSONAny?, step: RunStep, truncated: Bool) {
+    public init(input: JSONAny? = nil, output: JSONAny? = nil, step: RunStep, truncated: Bool) {
         self.input = input
         self.output = output
         self.step = step
@@ -26276,7 +26381,7 @@ public struct RunsStepsParams: Codable, Sendable {
         case runID = "runId"
     }
 
-    public init(afterSeq: Int?, limit: Int?, runID: String) {
+    public init(afterSeq: Int? = nil, limit: Int? = nil, runID: String) {
         self.afterSeq = afterSeq
         self.limit = limit
         self.runID = runID
@@ -26293,7 +26398,7 @@ public struct RunsStepsResult: Codable, Sendable {
         case steps = "steps"
     }
 
-    public init(nextSeq: Int?, steps: [RunStep]) {
+    public init(nextSeq: Int? = nil, steps: [RunStep]) {
         self.nextSeq = nextSeq
         self.steps = steps
     }
@@ -26307,7 +26412,7 @@ public struct SandboxInstallSrtParams: Codable, Sendable {
         case approvalID = "approvalId"
     }
 
-    public init(approvalID: String?) {
+    public init(approvalID: String? = nil) {
         self.approvalID = approvalID
     }
 }
@@ -26348,7 +26453,7 @@ public struct SandboxSrtInstaller: Codable, Sendable {
         case version = "version"
     }
 
-    public init(dir: String, installedVersion: String?, package: String, updateAvailable: Bool, version: String) {
+    public init(dir: String, installedVersion: String? = nil, package: String, updateAvailable: Bool, version: String) {
         self.dir = dir
         self.installedVersion = installedVersion
         self.package = package
@@ -26373,7 +26478,7 @@ public struct SandboxSrtStatus: Codable, Sendable {
         case version = "version"
     }
 
-    public init(available: Bool, path: String?, problem: SandboxSrtProblem?, source: SandboxSrtSource?, version: String?) {
+    public init(available: Bool, path: String? = nil, problem: SandboxSrtProblem? = nil, source: SandboxSrtSource? = nil, version: String? = nil) {
         self.available = available
         self.path = path
         self.problem = problem
@@ -26429,7 +26534,7 @@ public struct SandboxInfo: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(createdAt: String, id: String, image: String, lastUsedAt: String?, network: SandboxNetwork, status: SandboxStatus, taskID: String?, threadID: String?) {
+    public init(createdAt: String, id: String, image: String, lastUsedAt: String? = nil, network: SandboxNetwork, status: SandboxStatus, taskID: String? = nil, threadID: String? = nil) {
         self.createdAt = createdAt
         self.id = id
         self.image = image
@@ -26468,7 +26573,7 @@ public struct SandboxSetupResult: Codable, Sendable {
         case srt = "srt"
     }
 
-    public init(containers: SandboxContainerSetup, installer: SandboxSrtInstaller?, ready: Bool, srt: SandboxSrtStatus) {
+    public init(containers: SandboxContainerSetup, installer: SandboxSrtInstaller? = nil, ready: Bool, srt: SandboxSrtStatus) {
         self.containers = containers
         self.installer = installer
         self.ready = ready
@@ -26528,7 +26633,7 @@ public struct SandboxSetupBackend: Codable, Sendable {
         case version = "version"
     }
 
-    public init(installed: Bool, kind: SandboxContainerBackend, running: Bool, supported: Bool, version: String?) {
+    public init(installed: Bool, kind: SandboxContainerBackend, running: Bool, supported: Bool, version: String? = nil) {
         self.installed = installed
         self.kind = kind
         self.running = running
@@ -26551,7 +26656,7 @@ public struct SandboxStatusParams: Codable, Sendable {
         case sandboxID = "sandboxId"
     }
 
-    public init(sandboxID: String?) {
+    public init(sandboxID: String? = nil) {
         self.sandboxID = sandboxID
     }
 }
@@ -26573,7 +26678,7 @@ public struct SandboxStatusResult: Codable, Sendable {
         case srt = "srt"
     }
 
-    public init(available: Bool, backend: SandboxBackend, egress: Bool?, sandbox: SandboxInfo?, srt: SandboxSrtStatus?) {
+    public init(available: Bool, backend: SandboxBackend, egress: Bool? = nil, sandbox: SandboxInfo? = nil, srt: SandboxSrtStatus? = nil) {
         self.available = available
         self.backend = backend
         self.egress = egress
@@ -26646,7 +26751,7 @@ public struct ScheduledItem: Codable, Sendable {
         case warnings = "warnings"
     }
 
-    public init(approvals: [String], deletable: Bool, enabled: Bool, group: ScheduledGroup, id: String, kind: AutomationKind, lastRunAt: String?, lastStatus: String?, linked: ScheduledLink?, nextRunAt: String?, prompt: String?, routine: String?, schedule: String, settings: String?, state: ScheduledState, summary: String, timezone: String, title: String, trigger: AutomationTrigger?, warningReason: String?, warnings: [ScheduledWarning]?) {
+    public init(approvals: [String], deletable: Bool, enabled: Bool, group: ScheduledGroup, id: String, kind: AutomationKind, lastRunAt: String? = nil, lastStatus: String? = nil, linked: ScheduledLink? = nil, nextRunAt: String? = nil, prompt: String? = nil, routine: String? = nil, schedule: String, settings: String? = nil, state: ScheduledState, summary: String, timezone: String, title: String, trigger: AutomationTrigger? = nil, warningReason: String? = nil, warnings: [ScheduledWarning]? = nil) {
         self.approvals = approvals
         self.deletable = deletable
         self.enabled = enabled
@@ -26706,7 +26811,7 @@ public struct ScheduledLinkedRun: Codable, Sendable {
         case title = "title"
     }
 
-    public init(id: String, nextRunAt: String?, schedule: String, title: String) {
+    public init(id: String, nextRunAt: String? = nil, schedule: String, title: String) {
         self.id = id
         self.nextRunAt = nextRunAt
         self.schedule = schedule
@@ -26767,7 +26872,7 @@ public struct ScheduledRunsParams: Codable, Sendable {
         case state = "state"
     }
 
-    public init(automationID: String?, limit: Int?, state: ScheduledRunState?) {
+    public init(automationID: String? = nil, limit: Int? = nil, state: ScheduledRunState? = nil) {
         self.automationID = automationID
         self.limit = limit
         self.state = state
@@ -26843,7 +26948,7 @@ public struct ScheduledRunEntry: Codable, Sendable {
         case trigger = "trigger"
     }
 
-    public init(agentRunID: String?, automationID: String, durationMS: Int?, endedAt: String?, evidence: [String]?, group: ScheduledGroup, id: String, pendingApprovals: Int, reason: String?, routine: String?, startedAt: String, state: ScheduledRunState, summary: String?, taskID: String?, threadID: String?, title: String, trigger: AutomationRunTrigger) {
+    public init(agentRunID: String? = nil, automationID: String, durationMS: Int? = nil, endedAt: String? = nil, evidence: [String]? = nil, group: ScheduledGroup, id: String, pendingApprovals: Int, reason: String? = nil, routine: String? = nil, startedAt: String, state: ScheduledRunState, summary: String? = nil, taskID: String? = nil, threadID: String? = nil, title: String, trigger: AutomationRunTrigger) {
         self.agentRunID = agentRunID
         self.automationID = automationID
         self.durationMS = durationMS
@@ -26888,7 +26993,7 @@ public struct ScreenCapture: Codable, Sendable {
         case width = "width"
     }
 
-    public init(captureID: String, context: ScreenContext?, expiresAt: String, height: Int, libraryItemID: String?, mode: ScreenCaptureMode, refusal: ScreenCaptureRefusal?, thumbnail: String?, width: Int) {
+    public init(captureID: String, context: ScreenContext? = nil, expiresAt: String, height: Int, libraryItemID: String? = nil, mode: ScreenCaptureMode, refusal: ScreenCaptureRefusal? = nil, thumbnail: String? = nil, width: Int) {
         self.captureID = captureID
         self.context = context
         self.expiresAt = expiresAt
@@ -26917,7 +27022,7 @@ public struct ScreenContext: Codable, Sendable {
         case windowTitle = "windowTitle"
     }
 
-    public init(appName: String, bundleID: String?, selectedText: String?, url: String?, windowTitle: String?) {
+    public init(appName: String, bundleID: String? = nil, selectedText: String? = nil, url: String? = nil, windowTitle: String? = nil) {
         self.appName = appName
         self.bundleID = bundleID
         self.selectedText = selectedText
@@ -26952,7 +27057,7 @@ public struct ScreenContextParams: Codable, Sendable {
         case rect = "rect"
     }
 
-    public init(maxHeight: Int?, maxWidth: Int?, mode: ScreenCaptureMode, rect: ScreenRect?) {
+    public init(maxHeight: Int? = nil, maxWidth: Int? = nil, mode: ScreenCaptureMode, rect: ScreenRect? = nil) {
         self.maxHeight = maxHeight
         self.maxWidth = maxWidth
         self.mode = mode
@@ -26998,7 +27103,7 @@ public struct ScreenContextResult: Codable, Sendable {
         case width = "width"
     }
 
-    public init(context: ScreenContext?, height: Int, image: String?, refusal: ScreenCaptureRefusal?, width: Int) {
+    public init(context: ScreenContext? = nil, height: Int, image: String? = nil, refusal: ScreenCaptureRefusal? = nil, width: Int) {
         self.context = context
         self.height = height
         self.image = image
@@ -27057,7 +27162,7 @@ public struct SearchDocument: Codable, Sendable {
         case truncated = "truncated"
     }
 
-    public init(createdAt: Int, id: String, searchDocumentOpen: SearchOpenTargetKind?, provenance: Provenance, source: SearchSourceID, text: String, title: String, truncated: Bool) {
+    public init(createdAt: Int, id: String, searchDocumentOpen: SearchOpenTargetKind? = nil, provenance: Provenance, source: SearchSourceID, text: String, title: String, truncated: Bool) {
         self.createdAt = createdAt
         self.id = id
         self.searchDocumentOpen = searchDocumentOpen
@@ -27116,7 +27221,7 @@ public struct SearchIndexStatus: Codable, Sendable {
         case semantic = "semantic"
     }
 
-    public init(backfill: SearchBackfillStatus, docs: Int, encryption: SearchIndexEncryption?, semantic: SearchSemanticStatus?) {
+    public init(backfill: SearchBackfillStatus, docs: Int, encryption: SearchIndexEncryption? = nil, semantic: SearchSemanticStatus? = nil) {
         self.backfill = backfill
         self.docs = docs
         self.encryption = encryption
@@ -27146,7 +27251,7 @@ public struct SearchBackfillStatus: Codable, Sendable {
         case state = "state"
     }
 
-    public init(done: Int, error: String?, finishedAt: Int?, source: String?, startedAt: Int?, state: SearchBackfillState) {
+    public init(done: Int, error: String? = nil, finishedAt: Int? = nil, source: String? = nil, startedAt: Int? = nil, state: SearchBackfillState) {
         self.done = done
         self.error = error
         self.finishedAt = finishedAt
@@ -27177,7 +27282,7 @@ public struct SearchIndexEncryption: Codable, Sendable {
         case state = "state"
     }
 
-    public init(reason: String?, state: SearchIndexEncryptionState) {
+    public init(reason: String? = nil, state: SearchIndexEncryptionState) {
         self.reason = reason
         self.state = state
     }
@@ -27231,7 +27336,7 @@ public struct SearchSemanticStatus: Codable, Sendable {
         case vectors = "vectors"
     }
 
-    public init(blocked: SearchSemanticBlock?, cloud: Bool?, dims: Int?, done: Int?, enabled: Bool, engine: SearchSemanticEngine, error: String?, model: String?, receivedBytes: Int?, state: SearchSemanticState, total: Int?, totalBytes: Int?, vectors: Int?) {
+    public init(blocked: SearchSemanticBlock? = nil, cloud: Bool? = nil, dims: Int? = nil, done: Int? = nil, enabled: Bool, engine: SearchSemanticEngine, error: String? = nil, model: String? = nil, receivedBytes: Int? = nil, state: SearchSemanticState, total: Int? = nil, totalBytes: Int? = nil, vectors: Int? = nil) {
         self.blocked = blocked
         self.cloud = cloud
         self.dims = dims
@@ -27289,7 +27394,7 @@ public struct SearchOpenSourceResult: Codable, Sendable {
         case target = "target"
     }
 
-    public init(target: SearchOpenTarget?) {
+    public init(target: SearchOpenTarget? = nil) {
         self.target = target
     }
 }
@@ -27311,7 +27416,7 @@ public struct SearchOpenTarget: Codable, Sendable {
         case roots = "roots"
     }
 
-    public init(kind: SearchOpenTargetKind, messageID: String?, path: String?, roots: [String]?) {
+    public init(kind: SearchOpenTargetKind, messageID: String? = nil, path: String? = nil, roots: [String]? = nil) {
         self.kind = kind
         self.messageID = messageID
         self.path = path
@@ -27338,7 +27443,7 @@ public struct SearchQueryParams: Codable, Sendable {
         case smart = "smart"
     }
 
-    public init(dropChips: [String]?, limit: Int?, query: String, scopes: [SearchScope]?, smart: Bool?) {
+    public init(dropChips: [String]? = nil, limit: Int? = nil, query: String, scopes: [SearchScope]? = nil, smart: Bool? = nil) {
         self.dropChips = dropChips
         self.limit = limit
         self.query = query
@@ -27378,7 +27483,7 @@ public struct SearchQueryResult: Codable, Sendable {
         case warnings = "warnings"
     }
 
-    public init(groups: [SearchHitGroup]?, hits: [SearchHit], total: Int?, understood: SearchUnderstood?, warnings: [String]?) {
+    public init(groups: [SearchHitGroup]? = nil, hits: [SearchHit], total: Int? = nil, understood: SearchUnderstood? = nil, warnings: [String]? = nil) {
         self.groups = groups
         self.hits = hits
         self.total = total
@@ -27457,7 +27562,7 @@ public struct SearchHit: Codable, Sendable {
         case titleHighlights = "titleHighlights"
     }
 
-    public init(card: SearchHitCard?, createdAt: Int?, group: SearchGroup?, id: String, kind: SearchIndexDocKind?, match: SearchMatch?, provenance: Provenance?, route: String?, scope: SearchScope, score: Double, snippet: String, snippetHighlights: [[Int]]?, threadID: String?, title: String, titleHighlights: [[Int]]?) {
+    public init(card: SearchHitCard? = nil, createdAt: Int? = nil, group: SearchGroup? = nil, id: String, kind: SearchIndexDocKind? = nil, match: SearchMatch? = nil, provenance: Provenance? = nil, route: String? = nil, scope: SearchScope, score: Double, snippet: String, snippetHighlights: [[Int]]? = nil, threadID: String? = nil, title: String, titleHighlights: [[Int]]? = nil) {
         self.card = card
         self.createdAt = createdAt
         self.group = group
@@ -27623,7 +27728,7 @@ public struct SearchSourcesConfigureParams: Codable, Sendable {
         case source = "source"
     }
 
-    public init(agent: Bool?, enabled: Bool?, exclude: Exclude?, ocr: Bool?, processing: SearchProcessing?, source: SearchSourceID?) {
+    public init(agent: Bool? = nil, enabled: Bool? = nil, exclude: Exclude? = nil, ocr: Bool? = nil, processing: SearchProcessing? = nil, source: SearchSourceID? = nil) {
         self.agent = agent
         self.enabled = enabled
         self.exclude = exclude
@@ -27647,7 +27752,7 @@ public struct Exclude: Codable, Sendable {
         case folders = "folders"
     }
 
-    public init(accounts: [String]?, chats: [String]?, contacts: [String]?, folders: [String]?) {
+    public init(accounts: [String]? = nil, chats: [String]? = nil, contacts: [String]? = nil, folders: [String]? = nil) {
         self.accounts = accounts
         self.chats = chats
         self.contacts = contacts
@@ -27755,7 +27860,7 @@ public struct SearchSourceStatus: Codable, Sendable {
         case textBytes = "textBytes"
     }
 
-    public init(agent: Bool, backfilled: Bool, cannotAgent: String?, cannotEnable: String?, detail: String?, enabled: Bool, id: SearchSourceID, items: Int, label: String, lastIndexedAt: Int?, ocr: Bool, processing: SearchProcessing, state: SearchSourceState, textBytes: Int) {
+    public init(agent: Bool, backfilled: Bool, cannotAgent: String? = nil, cannotEnable: String? = nil, detail: String? = nil, enabled: Bool, id: SearchSourceID, items: Int, label: String, lastIndexedAt: Int? = nil, ocr: Bool, processing: SearchProcessing, state: SearchSourceState, textBytes: Int) {
         self.agent = agent
         self.backfilled = backfilled
         self.cannotAgent = cannotAgent
@@ -27886,7 +27991,7 @@ public struct SettingsGetParams: Codable, Sendable {
         case keys = "keys"
     }
 
-    public init(keys: [String]?) {
+    public init(keys: [String]? = nil) {
         self.keys = keys
     }
 }
@@ -27919,7 +28024,7 @@ public struct SettingsSetParams: Codable, Sendable {
         case value = "value"
     }
 
-    public init(approvalID: String?, key: String, value: JSONAny) {
+    public init(approvalID: String? = nil, key: String, value: JSONAny) {
         self.approvalID = approvalID
         self.key = key
         self.value = value
@@ -27966,7 +28071,7 @@ public struct SkillChangeEvent: Codable, Sendable {
         case hash = "hash"
     }
 
-    public init(added: [String]?, changed: [String]?, removed: [String]?, type: SkillChangeEventType, name: String?, path: String?, source: SkillSource?, enabled: Bool?, hash: String?) {
+    public init(added: [String]? = nil, changed: [String]? = nil, removed: [String]? = nil, type: SkillChangeEventType, name: String? = nil, path: String? = nil, source: SkillSource? = nil, enabled: Bool? = nil, hash: String? = nil) {
         self.added = added
         self.changed = changed
         self.removed = removed
@@ -28015,6 +28120,7 @@ public struct SkillProposal: Codable, Sendable {
     /// (recording): its text carries page content, so it stays untrusted
     public let author: AuthorEnum?
     public let bindingHash: String
+    public let bundle: SkillBundleInfo?
     public let commit: String?
     /// Epoch ms
     public let expiresAt: Int
@@ -28031,6 +28137,8 @@ public struct SkillProposal: Codable, Sendable {
     /// Full `SKILL.md` text, shown before enabling
     public let text: String
     public let trust: SkillTrust
+    /// Approving this card also trusts the bundle's author key
+    public let trustAuthor: Bool?
     /// Updates and re-approvals: the installed hash and the diff
     public let update: SkillProposalUpdate?
 
@@ -28038,6 +28146,7 @@ public struct SkillProposal: Codable, Sendable {
         case approvalKind = "approvalKind"
         case author = "author"
         case bindingHash = "bindingHash"
+        case bundle = "bundle"
         case commit = "commit"
         case expiresAt = "expiresAt"
         case files = "files"
@@ -28051,13 +28160,15 @@ public struct SkillProposal: Codable, Sendable {
         case source = "source"
         case text = "text"
         case trust = "trust"
+        case trustAuthor = "trustAuthor"
         case update = "update"
     }
 
-    public init(approvalKind: ApprovalKindEnum, author: AuthorEnum?, bindingHash: String, commit: String?, expiresAt: Int, files: [SkillProposalFile], findings: [ScanFinding], grantKey: String, hash: String, id: String, manifest: SkillManifest?, name: String, scope: SkillProposalScope, source: SkillInstallSource, text: String, trust: SkillTrust, update: SkillProposalUpdate?) {
+    public init(approvalKind: ApprovalKindEnum, author: AuthorEnum? = nil, bindingHash: String, bundle: SkillBundleInfo? = nil, commit: String? = nil, expiresAt: Int, files: [SkillProposalFile], findings: [ScanFinding], grantKey: String, hash: String, id: String, manifest: SkillManifest? = nil, name: String, scope: SkillProposalScope, source: SkillInstallSource, text: String, trust: SkillTrust, trustAuthor: Bool? = nil, update: SkillProposalUpdate? = nil) {
         self.approvalKind = approvalKind
         self.author = author
         self.bindingHash = bindingHash
+        self.bundle = bundle
         self.commit = commit
         self.expiresAt = expiresAt
         self.files = files
@@ -28071,18 +28182,99 @@ public struct SkillProposal: Codable, Sendable {
         self.source = source
         self.text = text
         self.trust = trust
+        self.trustAuthor = trustAuthor
         self.update = update
     }
 }
 
-/// Psyche wrote this skill (self-extension), or it was made from a recording; trust stays
-/// unknown
+/// Psyche wrote this skill on this Mac (self-extension), or it was made from a recording;
+/// trust stays unknown
 ///
 /// Psyche wrote this skill (agent), or it was made from a recording of web pages
 /// (recording): its text carries page content, so it stays untrusted
 public enum AuthorEnum: String, Codable, Sendable {
     case agent = "agent"
     case recording = "recording"
+}
+
+// MARK: - SkillBundleInfo
+public struct SkillBundleInfo: Codable, Sendable {
+    public let bytes: Int
+    /// The author's claimed time; not verified
+    public let createdAt: String
+    /// Where the exporter says the skill came from (signed); a bundle never installs as local
+    public let origin: BundleOriginEnum
+    public let signer: BundleSigner
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case createdAt = "createdAt"
+        case origin = "origin"
+        case signer = "signer"
+    }
+
+    public init(bytes: Int, createdAt: String, origin: BundleOriginEnum, signer: BundleSigner) {
+        self.bytes = bytes
+        self.createdAt = createdAt
+        self.origin = origin
+        self.signer = signer
+    }
+}
+
+/// Where the exporter says the skill came from (signed); a bundle never installs as local
+///
+/// An imported bundle: where the sender says it came from (signed). Never madeBy, which is
+/// for this Mac
+public enum BundleOriginEnum: String, Codable, Sendable {
+    case agent = "agent"
+    case workspace = "workspace"
+}
+
+// MARK: - BundleSigner
+public struct BundleSigner: Codable, Sendable {
+    /// The name looks like the owner's own author name, with another key
+    public let impersonates: Bool?
+    /// `sha256:<hex>` of the public key
+    public let keyID: String?
+    /// The author's claimed name (data, not verified)
+    public let name: String?
+    /// A trusted key now signs under a name not seen with it before
+    public let nameChanged: Bool?
+    /// The key seen before when status is `changed`
+    public let previousKeyID: String?
+    /// Differs from the key this skill was installed with (or it was signed and is no longer)
+    public let signerChanged: Bool
+    public let status: BundleSignerStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case impersonates = "impersonates"
+        case keyID = "keyId"
+        case name = "name"
+        case nameChanged = "nameChanged"
+        case previousKeyID = "previousKeyId"
+        case signerChanged = "signerChanged"
+        case status = "status"
+    }
+
+    public init(impersonates: Bool? = nil, keyID: String? = nil, name: String? = nil, nameChanged: Bool? = nil, previousKeyID: String? = nil, signerChanged: Bool, status: BundleSignerStatus) {
+        self.impersonates = impersonates
+        self.keyID = keyID
+        self.name = name
+        self.nameChanged = nameChanged
+        self.previousKeyID = previousKeyID
+        self.signerChanged = signerChanged
+        self.status = status
+    }
+}
+
+public enum BundleSignerStatus: String, Codable, Sendable {
+    case changed = "changed"
+    case new = "new"
+    case own = "own"
+    case revoked = "revoked"
+    case seen = "seen"
+    case trusted = "trusted"
+    case unsigned = "unsigned"
 }
 
 // MARK: - SkillProposalFile
@@ -28100,7 +28292,7 @@ public struct SkillProposalFile: Codable, Sendable {
         case text = "text"
     }
 
-    public init(bytes: Int, executable: Bool, path: String, text: String?) {
+    public init(bytes: Int, executable: Bool, path: String, text: String? = nil) {
         self.bytes = bytes
         self.executable = executable
         self.path = path
@@ -28114,18 +28306,71 @@ public struct SkillManifest: Codable, Sendable {
     public let permissions: [ApprovalKind]
     /// Prompt files inside the skill folder (relative paths), sorted
     public let prompts: [String]
+    /// The background role the skill defines (metadata.psyche.specialist): part of what the
+    /// skill asks for, so a wider role is a wider request
+    public let specialist: SkillManifestSpecialist?
     /// Tool names or `family.*` globs, sorted, without duplicates
     public let tools: [String]
 
     public enum CodingKeys: String, CodingKey {
         case permissions = "permissions"
         case prompts = "prompts"
+        case specialist = "specialist"
         case tools = "tools"
     }
 
-    public init(permissions: [ApprovalKind], prompts: [String], tools: [String]) {
+    public init(permissions: [ApprovalKind], prompts: [String], specialist: SkillManifestSpecialist? = nil, tools: [String]) {
         self.permissions = permissions
         self.prompts = prompts
+        self.specialist = specialist
+        self.tools = tools
+    }
+}
+
+/// The background role the skill defines (metadata.psyche.specialist): part of what the
+/// skill asks for, so a wider role is a wider request
+// MARK: - SkillManifestSpecialist
+public struct SkillManifestSpecialist: Codable, Sendable {
+    public let approvals: [String]
+    public let budget: [String: Double]
+    public let caps: [String: Double]
+    public let deny: [String]
+    public let label: String
+    public let maxMode: String
+    public let memory: String
+    public let model: String
+    public let planFirst: Bool
+    public let result: String
+    public let role: String
+    public let tools: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case approvals = "approvals"
+        case budget = "budget"
+        case caps = "caps"
+        case deny = "deny"
+        case label = "label"
+        case maxMode = "maxMode"
+        case memory = "memory"
+        case model = "model"
+        case planFirst = "planFirst"
+        case result = "result"
+        case role = "role"
+        case tools = "tools"
+    }
+
+    public init(approvals: [String], budget: [String: Double], caps: [String: Double], deny: [String], label: String, maxMode: String, memory: String, model: String, planFirst: Bool, result: String, role: String, tools: [String]) {
+        self.approvals = approvals
+        self.budget = budget
+        self.caps = caps
+        self.deny = deny
+        self.label = label
+        self.maxMode = maxMode
+        self.memory = memory
+        self.model = model
+        self.planFirst = planFirst
+        self.result = result
+        self.role = role
         self.tools = tools
     }
 }
@@ -28135,29 +28380,36 @@ public enum SkillProposalScope: String, Codable, Sendable {
     case workspace = "workspace"
 }
 
+/// bundleFile: a .psyche-skill file the owner chose (name is for display); bundleUrl: one at
+/// an https URL (no redirect to http, size-capped)
 // MARK: - SkillInstallSource
 public struct SkillInstallSource: Codable, Sendable {
     public let kind: SkillInstallSourceKind
     public let path: String?
     public let ref: String?
     public let url: String?
+    public let name: String?
 
     public enum CodingKeys: String, CodingKey {
         case kind = "kind"
         case path = "path"
         case ref = "ref"
         case url = "url"
+        case name = "name"
     }
 
-    public init(kind: SkillInstallSourceKind, path: String?, ref: String?, url: String?) {
+    public init(kind: SkillInstallSourceKind, path: String? = nil, ref: String? = nil, url: String? = nil, name: String? = nil) {
         self.kind = kind
         self.path = path
         self.ref = ref
         self.url = url
+        self.name = name
     }
 }
 
 public enum SkillInstallSourceKind: String, Codable, Sendable {
+    case bundleFile = "bundleFile"
+    case bundleURL = "bundleUrl"
     case git = "git"
     case path = "path"
     case zip = "zip"
@@ -28176,18 +28428,144 @@ public struct SkillProposalUpdate: Codable, Sendable {
     /// Unified diff per file
     public let diff: String
     public let fromHash: String
+    public let signerChanged: Bool?
     public let upToDate: Bool
+    /// What the new version asks for that the installed one did not
+    public let widened: Widened?
 
     public enum CodingKeys: String, CodingKey {
         case diff = "diff"
         case fromHash = "fromHash"
+        case signerChanged = "signerChanged"
         case upToDate = "upToDate"
+        case widened = "widened"
     }
 
-    public init(diff: String, fromHash: String, upToDate: Bool) {
+    public init(diff: String, fromHash: String, signerChanged: Bool? = nil, upToDate: Bool, widened: Widened? = nil) {
         self.diff = diff
         self.fromHash = fromHash
+        self.signerChanged = signerChanged
         self.upToDate = upToDate
+        self.widened = widened
+    }
+}
+
+/// What the new version asks for that the installed one did not
+// MARK: - Widened
+public struct Widened: Codable, Sendable {
+    public let permissions: [String]
+    public let prompts: [String]
+    /// Plain-text changes to the background role that make it wider
+    public let specialist: [String]?
+    public let tools: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case permissions = "permissions"
+        case prompts = "prompts"
+        case specialist = "specialist"
+        case tools = "tools"
+    }
+
+    public init(permissions: [String], prompts: [String], specialist: [String]? = nil, tools: [String]) {
+        self.permissions = permissions
+        self.prompts = prompts
+        self.specialist = specialist
+        self.tools = tools
+    }
+}
+
+// MARK: - SkillsAuthorsListResult
+public struct SkillsAuthorsListResult: Codable, Sendable {
+    public let authors: [SkillAuthor]
+    public let own: Own?
+
+    public enum CodingKeys: String, CodingKey {
+        case authors = "authors"
+        case own = "own"
+    }
+
+    public init(authors: [SkillAuthor], own: Own? = nil) {
+        self.authors = authors
+        self.own = own
+    }
+}
+
+// MARK: - SkillAuthor
+public struct SkillAuthor: Codable, Sendable {
+    public let firstSeen: String
+    public let keyID: String
+    public let names: [String]
+    public let state: SkillAuthorState
+    public let trustedAt: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case firstSeen = "firstSeen"
+        case keyID = "keyId"
+        case names = "names"
+        case state = "state"
+        case trustedAt = "trustedAt"
+    }
+
+    public init(firstSeen: String, keyID: String, names: [String], state: SkillAuthorState, trustedAt: String? = nil) {
+        self.firstSeen = firstSeen
+        self.keyID = keyID
+        self.names = names
+        self.state = state
+        self.trustedAt = trustedAt
+    }
+}
+
+public enum SkillAuthorState: String, Codable, Sendable {
+    case revoked = "revoked"
+    case seen = "seen"
+    case trusted = "trusted"
+}
+
+// MARK: - Own
+public struct Own: Codable, Sendable {
+    public let keyID: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case keyID = "keyId"
+        case name = "name"
+    }
+
+    public init(keyID: String, name: String) {
+        self.keyID = keyID
+        self.name = name
+    }
+}
+
+// MARK: - SkillsAuthorsSetParams
+public struct SkillsAuthorsSetParams: Codable, Sendable {
+    public let approvalID: String?
+    public let keyID: String
+    public let state: SkillAuthorState
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case keyID = "keyId"
+        case state = "state"
+    }
+
+    public init(approvalID: String? = nil, keyID: String, state: SkillAuthorState) {
+        self.approvalID = approvalID
+        self.keyID = keyID
+        self.state = state
+    }
+}
+
+// MARK: - SkillsAuthorsSetResult
+public struct SkillsAuthorsSetResult: Codable, Sendable {
+    public let author: SkillAuthor
+
+    public enum CodingKeys: String, CodingKey {
+        case author = "author"
+    }
+
+    public init(author: SkillAuthor) {
+        self.author = author
     }
 }
 
@@ -28199,7 +28577,7 @@ public struct SkillsCheckUpdatesParams: Codable, Sendable {
         case name = "name"
     }
 
-    public init(name: String?) {
+    public init(name: String? = nil) {
         self.name = name
     }
 }
@@ -28244,7 +28622,7 @@ public struct SkillUpdateStatus: Codable, Sendable {
         case updateAvailable = "updateAvailable"
     }
 
-    public init(availableHash: String?, checkedAt: Int, commit: String?, error: String?, installedHash: String, manifestChanged: Bool, name: String, updateAvailable: Bool) {
+    public init(availableHash: String? = nil, checkedAt: Int, commit: String? = nil, error: String? = nil, installedHash: String, manifestChanged: Bool, name: String, updateAvailable: Bool) {
         self.availableHash = availableHash
         self.checkedAt = checkedAt
         self.commit = commit
@@ -28360,7 +28738,7 @@ public struct SkillDraft: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(approvalID: String?, createdAt: String, description: String, edited: Bool, id: String, installProposalID: String?, manifest: SkillManifest, name: String, occurrences: Int, origin: SkillDraftOrigin?, recordedOn: String?, redactions: Int, replay: SkillDraftReplay?, signature: String, status: SkillDraftStatus, steps: [SkillDraftStep], tainted: Bool, text: String, threadID: String, update: SkillDraftUpdate?, updatedAt: String) {
+    public init(approvalID: String? = nil, createdAt: String, description: String, edited: Bool, id: String, installProposalID: String? = nil, manifest: SkillManifest, name: String, occurrences: Int, origin: SkillDraftOrigin? = nil, recordedOn: String? = nil, redactions: Int, replay: SkillDraftReplay? = nil, signature: String, status: SkillDraftStatus, steps: [SkillDraftStep], tainted: Bool, text: String, threadID: String, update: SkillDraftUpdate? = nil, updatedAt: String) {
         self.approvalID = approvalID
         self.createdAt = createdAt
         self.description = description
@@ -28571,7 +28949,7 @@ public struct BrowserTeachStep: Codable, Sendable {
         case value = "value"
     }
 
-    public init(id: String, input: Input?, keepValue: Bool?, key: String?, kind: BrowserTeachStepKind, name: String?, role: String?, selector: String?, sensitive: Bool?, url: String?, value: String?) {
+    public init(id: String, input: Input? = nil, keepValue: Bool? = nil, key: String? = nil, kind: BrowserTeachStepKind, name: String? = nil, role: String? = nil, selector: String? = nil, sensitive: Bool? = nil, url: String? = nil, value: String? = nil) {
         self.id = id
         self.input = input
         self.keepValue = keepValue
@@ -28597,7 +28975,7 @@ public struct Input: Codable, Sendable {
         case name = "name"
     }
 
-    public init(description: String?, name: String) {
+    public init(description: String? = nil, name: String) {
         self.description = description
         self.name = name
     }
@@ -28632,7 +29010,7 @@ public struct SkillsDraftsListParams: Codable, Sendable {
         case status = "status"
     }
 
-    public init(status: SkillDraftStatus?) {
+    public init(status: SkillDraftStatus? = nil) {
         self.status = status
     }
 }
@@ -28679,6 +29057,65 @@ public struct SkillsDraftsUpdateResult: Codable, Sendable {
     }
 }
 
+// MARK: - SkillsExportParams
+public struct SkillsExportParams: Codable, Sendable {
+    public let approvalID: String?
+    /// Required when the author key does not exist yet; ignored after
+    public let authorName: String?
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case authorName = "authorName"
+        case name = "name"
+    }
+
+    public init(approvalID: String? = nil, authorName: String? = nil, name: String) {
+        self.approvalID = approvalID
+        self.authorName = authorName
+        self.name = name
+    }
+}
+
+// MARK: - SkillsExportResult
+public struct SkillsExportResult: Codable, Sendable {
+    /// The .psyche-skill file's text
+    public let bundle: String
+    public let createdKey: Bool
+    public let filename: String
+    public let signer: SkillsExportResultSigner
+
+    public enum CodingKeys: String, CodingKey {
+        case bundle = "bundle"
+        case createdKey = "createdKey"
+        case filename = "filename"
+        case signer = "signer"
+    }
+
+    public init(bundle: String, createdKey: Bool, filename: String, signer: SkillsExportResultSigner) {
+        self.bundle = bundle
+        self.createdKey = createdKey
+        self.filename = filename
+        self.signer = signer
+    }
+}
+
+// MARK: - SkillsExportResultSigner
+public struct SkillsExportResultSigner: Codable, Sendable {
+    public let keyID: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case keyID = "keyId"
+        case name = "name"
+    }
+
+    public init(keyID: String, name: String) {
+        self.keyID = keyID
+        self.name = name
+    }
+}
+
 // MARK: - SkillsGetParams
 public struct SkillsGetParams: Codable, Sendable {
     public let name: String
@@ -28689,7 +29126,7 @@ public struct SkillsGetParams: Codable, Sendable {
         case source = "source"
     }
 
-    public init(name: String, source: SkillSource?) {
+    public init(name: String, source: SkillSource? = nil) {
         self.name = name
         self.source = source
     }
@@ -28732,7 +29169,7 @@ public struct SkillsGetResult: Codable, Sendable {
         case text = "text"
     }
 
-    public init(skill: SkillDetails, text: String?) {
+    public init(skill: SkillDetails, text: String? = nil) {
         self.skill = skill
         self.text = text
     }
@@ -28740,6 +29177,9 @@ public struct SkillsGetResult: Codable, Sendable {
 
 // MARK: - SkillDetails
 public struct SkillDetails: Codable, Sendable {
+    /// An imported bundle: where the sender says it came from (signed). Never madeBy, which is
+    /// for this Mac
+    public let bundleOrigin: BundleOriginEnum?
     public let commit: String?
     public let description: String
     public let disableModelInvocation: Bool
@@ -28750,8 +29190,8 @@ public struct SkillDetails: Codable, Sendable {
     public let hash: String
     /// Earlier approved versions of an agent-made skill, newest first
     public let history: [SkillAuthorVersion]?
-    /// Psyche wrote this skill (self-extension), or it was made from a recording; trust stays
-    /// unknown
+    /// Psyche wrote this skill on this Mac (self-extension), or it was made from a recording;
+    /// trust stays unknown
     public let madeBy: AuthorEnum?
     public let manifest: SkillManifest?
     public let name: String
@@ -28759,6 +29199,7 @@ public struct SkillDetails: Codable, Sendable {
     public let overrides: [SkillSource]
     public let path: String
     public let reasons: [String]
+    public let signer: SkillDetailsSigner?
     public let source: SkillSource
     public let status: SkillStatus
     public let trust: SkillTrust
@@ -28769,6 +29210,7 @@ public struct SkillDetails: Codable, Sendable {
     public let version: String?
 
     public enum CodingKeys: String, CodingKey {
+        case bundleOrigin = "bundleOrigin"
         case commit = "commit"
         case description = "description"
         case disableModelInvocation = "disableModelInvocation"
@@ -28782,6 +29224,7 @@ public struct SkillDetails: Codable, Sendable {
         case overrides = "overrides"
         case path = "path"
         case reasons = "reasons"
+        case signer = "signer"
         case source = "source"
         case status = "status"
         case trust = "trust"
@@ -28791,7 +29234,8 @@ public struct SkillDetails: Codable, Sendable {
         case version = "version"
     }
 
-    public init(commit: String?, description: String, disableModelInvocation: Bool, enabled: Bool, findings: [ScanFinding], hash: String, history: [SkillAuthorVersion]?, madeBy: AuthorEnum?, manifest: SkillManifest?, name: String, overrides: [SkillSource], path: String, reasons: [String], source: SkillSource, status: SkillStatus, trust: SkillTrust, update: SkillUpdateStatus?, userEnabled: Bool, userInvocable: Bool, version: String?) {
+    public init(bundleOrigin: BundleOriginEnum? = nil, commit: String? = nil, description: String, disableModelInvocation: Bool, enabled: Bool, findings: [ScanFinding], hash: String, history: [SkillAuthorVersion]? = nil, madeBy: AuthorEnum? = nil, manifest: SkillManifest? = nil, name: String, overrides: [SkillSource], path: String, reasons: [String], signer: SkillDetailsSigner? = nil, source: SkillSource, status: SkillStatus, trust: SkillTrust, update: SkillUpdateStatus? = nil, userEnabled: Bool, userInvocable: Bool, version: String? = nil) {
+        self.bundleOrigin = bundleOrigin
         self.commit = commit
         self.description = description
         self.disableModelInvocation = disableModelInvocation
@@ -28805,6 +29249,7 @@ public struct SkillDetails: Codable, Sendable {
         self.overrides = overrides
         self.path = path
         self.reasons = reasons
+        self.signer = signer
         self.source = source
         self.status = status
         self.trust = trust
@@ -28845,6 +29290,32 @@ public enum RetiredBy: String, Codable, Sendable {
     case update = "update"
 }
 
+// MARK: - SkillDetailsSigner
+public struct SkillDetailsSigner: Codable, Sendable {
+    public let keyID: String
+    public let name: String
+    public let state: SignerState
+
+    public enum CodingKeys: String, CodingKey {
+        case keyID = "keyId"
+        case name = "name"
+        case state = "state"
+    }
+
+    public init(keyID: String, name: String, state: SignerState) {
+        self.keyID = keyID
+        self.name = name
+        self.state = state
+    }
+}
+
+public enum SignerState: String, Codable, Sendable {
+    case own = "own"
+    case revoked = "revoked"
+    case seen = "seen"
+    case trusted = "trusted"
+}
+
 public enum SkillStatus: String, Codable, Sendable {
     case active = "active"
     case blocked = "blocked"
@@ -28861,15 +29332,18 @@ public enum SkillStatus: String, Codable, Sendable {
 public struct SkillsInstallParams: Codable, Sendable {
     public let approvalID: String
     public let proposalID: String
+    public let trustApprovalID: String?
 
     public enum CodingKeys: String, CodingKey {
         case approvalID = "approvalId"
         case proposalID = "proposalId"
+        case trustApprovalID = "trustApprovalId"
     }
 
-    public init(approvalID: String, proposalID: String) {
+    public init(approvalID: String, proposalID: String, trustApprovalID: String? = nil) {
         self.approvalID = approvalID
         self.proposalID = proposalID
+        self.trustApprovalID = trustApprovalID
     }
 }
 
@@ -28951,16 +29425,43 @@ public struct SkillsProposeApprovalParams: Codable, Sendable {
     }
 }
 
+// MARK: - SkillsProposeImportParams
+public struct SkillsProposeImportParams: Codable, Sendable {
+    /// File name, for display
+    public let name: String
+    public let text: String
+    /// Also trust the bundle's signing key when this card is approved. It is part of what the
+    /// card binds, so the approver decides; ignored for an unsigned bundle
+    public let trustAuthor: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case text = "text"
+        case trustAuthor = "trustAuthor"
+    }
+
+    public init(name: String, text: String, trustAuthor: Bool? = nil) {
+        self.name = name
+        self.text = text
+        self.trustAuthor = trustAuthor
+    }
+}
+
 // MARK: - SkillsProposeInstallParams
 public struct SkillsProposeInstallParams: Codable, Sendable {
     public let source: SkillInstallSource
+    /// Also trust the bundle's signing key when this card is approved. It is part of what the
+    /// card binds, so the approver decides; ignored for an unsigned bundle
+    public let trustAuthor: Bool?
 
     public enum CodingKeys: String, CodingKey {
         case source = "source"
+        case trustAuthor = "trustAuthor"
     }
 
-    public init(source: SkillInstallSource) {
+    public init(source: SkillInstallSource, trustAuthor: Bool? = nil) {
         self.source = source
+        self.trustAuthor = trustAuthor
     }
 }
 
@@ -28968,15 +29469,20 @@ public struct SkillsProposeInstallParams: Codable, Sendable {
 public struct SkillsProposeUpdateParams: Codable, Sendable {
     public let name: String
     public let ref: String?
+    /// Also trust the bundle's signing key when this card is approved. It is part of what the
+    /// card binds, so the approver decides; ignored for an unsigned bundle
+    public let trustAuthor: Bool?
 
     public enum CodingKeys: String, CodingKey {
         case name = "name"
         case ref = "ref"
+        case trustAuthor = "trustAuthor"
     }
 
-    public init(name: String, ref: String?) {
+    public init(name: String, ref: String? = nil, trustAuthor: Bool? = nil) {
         self.name = name
         self.ref = ref
+        self.trustAuthor = trustAuthor
     }
 }
 
@@ -29003,7 +29509,7 @@ public struct SkillsSearchParams: Codable, Sendable {
         case query = "query"
     }
 
-    public init(limit: Int?, query: String) {
+    public init(limit: Int? = nil, query: String) {
         self.limit = limit
         self.query = query
     }
@@ -29034,7 +29540,7 @@ public struct SkillsSetEnabledParams: Codable, Sendable {
         case source = "source"
     }
 
-    public init(enabled: Bool, name: String, source: SkillSource?) {
+    public init(enabled: Bool, name: String, source: SkillSource? = nil) {
         self.enabled = enabled
         self.name = name
         self.source = source
@@ -29095,7 +29601,7 @@ public struct AnswerSource: Codable, Sendable {
         case title = "title"
     }
 
-    public init(date: String, id: String, kind: String, provenance: Provenance, route: String?, source: String, span: String, title: String) {
+    public init(date: String, id: String, kind: String, provenance: Provenance, route: String? = nil, source: String, span: String, title: String) {
         self.date = date
         self.id = id
         self.kind = kind
@@ -29188,7 +29694,7 @@ public struct SpecialistResultPayload: Codable, Sendable {
         case taskID = "taskId"
     }
 
-    public init(notificationID: String?, parentRunID: String?, result: SpecialistResult, runID: String?, taskID: String) {
+    public init(notificationID: String? = nil, parentRunID: String? = nil, result: SpecialistResult, runID: String? = nil, taskID: String) {
         self.notificationID = notificationID
         self.parentRunID = parentRunID
         self.result = result
@@ -29225,7 +29731,7 @@ public struct SpecialistResult: Codable, Sendable {
         case tainted = "tainted"
     }
 
-    public init(artifacts: [String], defaultsUsed: [String]?, evaluator: Evaluator?, findings: [SpecialistFinding], gaps: [String], next: [Next], outcome: SpecialistOutcome, receipts: [String], stopReason: String?, summary: String, tainted: Bool) {
+    public init(artifacts: [String], defaultsUsed: [String]? = nil, evaluator: Evaluator? = nil, findings: [SpecialistFinding], gaps: [String], next: [Next], outcome: SpecialistOutcome, receipts: [String], stopReason: String? = nil, summary: String, tainted: Bool) {
         self.artifacts = artifacts
         self.defaultsUsed = defaultsUsed
         self.evaluator = evaluator
@@ -29274,7 +29780,7 @@ public struct SpecialistFinding: Codable, Sendable {
         case title = "title"
     }
 
-    public init(detail: String, sources: [String]?, title: String) {
+    public init(detail: String, sources: [String]? = nil, title: String) {
         self.detail = detail
         self.sources = sources
         self.title = title
@@ -29358,7 +29864,7 @@ public struct SpecialistJob: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(automation: SpecialistAutomation?, budget: RunBudget, createdAt: String, deadline: String?, lastStep: String?, parentRunID: String?, parentThreadID: String, preflight: [ApprovalHint]?, queuePosition: Int?, result: SpecialistResult?, role: String, runID: String?, status: StatusElement, taskID: String, threadID: String, title: String, updatedAt: String) {
+    public init(automation: SpecialistAutomation? = nil, budget: RunBudget, createdAt: String, deadline: String? = nil, lastStep: String? = nil, parentRunID: String? = nil, parentThreadID: String, preflight: [ApprovalHint]? = nil, queuePosition: Int? = nil, result: SpecialistResult? = nil, role: String, runID: String? = nil, status: StatusElement, taskID: String, threadID: String, title: String, updatedAt: String) {
         self.automation = automation
         self.budget = budget
         self.createdAt = createdAt
@@ -29408,7 +29914,7 @@ public struct ApprovalHint: Codable, Sendable {
         case label = "label"
     }
 
-    public init(estimate: Int?, kind: ApprovalKind, label: String) {
+    public init(estimate: Int? = nil, kind: ApprovalKind, label: String) {
         self.estimate = estimate
         self.kind = kind
         self.label = label
@@ -29440,7 +29946,7 @@ public struct SpecialistsJobsParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(cursor: String?, limit: Int?, status: [StatusElement]?, threadID: String?) {
+    public init(cursor: String? = nil, limit: Int? = nil, status: [StatusElement]? = nil, threadID: String? = nil) {
         self.cursor = cursor
         self.limit = limit
         self.status = status
@@ -29458,7 +29964,7 @@ public struct SpecialistsJobsResult: Codable, Sendable {
         case nextCursor = "nextCursor"
     }
 
-    public init(jobs: [SpecialistJob], nextCursor: String?) {
+    public init(jobs: [SpecialistJob], nextCursor: String? = nil) {
         self.jobs = jobs
         self.nextCursor = nextCursor
     }
@@ -29514,7 +30020,7 @@ public struct SpecialistRole: Codable, Sendable {
         case tools = "tools"
     }
 
-    public init(approvals: [ApprovalKind], budget: SpecialistBudgetSetting, caps: Caps, description: String, enabled: Bool, label: String, maxMode: PermissionMode, model: String?, modelClass: ModelClass, planFirst: Bool, result: SpecialistResultKind, role: String, skill: String, source: SkillSource, tools: [String]) {
+    public init(approvals: [ApprovalKind], budget: SpecialistBudgetSetting, caps: Caps, description: String, enabled: Bool, label: String, maxMode: PermissionMode, model: String? = nil, modelClass: ModelClass, planFirst: Bool, result: SpecialistResultKind, role: String, skill: String, source: SkillSource, tools: [String]) {
         self.approvals = approvals
         self.budget = budget
         self.caps = caps
@@ -29547,7 +30053,7 @@ public struct Caps: Codable, Sendable {
         case tokens = "tokens"
     }
 
-    public init(costUsd: Double?, maxHours: Int, minutes: Int?, tokens: Int?) {
+    public init(costUsd: Double? = nil, maxHours: Int, minutes: Int? = nil, tokens: Int? = nil) {
         self.costUsd = costUsd
         self.maxHours = maxHours
         self.minutes = minutes
@@ -29630,7 +30136,7 @@ public struct SpeechTranscribeFileParams: Codable, Sendable {
         case vocabulary = "vocabulary"
     }
 
-    public init(locale: String?, maxDurationMS: Int?, path: String, vocabulary: [String]?) {
+    public init(locale: String? = nil, maxDurationMS: Int? = nil, path: String, vocabulary: [String]? = nil) {
         self.locale = locale
         self.maxDurationMS = maxDurationMS
         self.path = path
@@ -29693,7 +30199,7 @@ public struct TranscriptSegment: Codable, Sendable {
         case text = "text"
     }
 
-    public init(confidence: Double?, endMS: Int, transcriptSegmentFinal: Bool, startMS: Int, text: String) {
+    public init(confidence: Double? = nil, endMS: Int, transcriptSegmentFinal: Bool, startMS: Int, text: String) {
         self.confidence = confidence
         self.endMS = endMS
         self.transcriptSegmentFinal = transcriptSegmentFinal
@@ -29742,7 +30248,7 @@ public struct TaskAction: Codable, Sendable {
         case toolCallID = "toolCallId"
     }
 
-    public init(createdAt: String, id: String, idx: Int, level1: String, level2: Level2, level3Ref: String?, taskID: String, toolCallID: String?) {
+    public init(createdAt: String, id: String, idx: Int, level1: String, level2: Level2, level3Ref: String? = nil, taskID: String, toolCallID: String? = nil) {
         self.createdAt = createdAt
         self.id = id
         self.idx = idx
@@ -29766,7 +30272,7 @@ public struct Level2: Codable, Sendable {
         case tool = "tool"
     }
 
-    public init(outcome: String?, target: String?, tool: String) {
+    public init(outcome: String? = nil, target: String? = nil, tool: String) {
         self.outcome = outcome
         self.target = target
         self.tool = tool
@@ -29817,7 +30323,7 @@ public struct TaskCheckpoint: Codable, Sendable {
         case taskID = "taskId"
     }
 
-    public init(createdAt: String, id: String, idx: Int, payload: [String: JSONAny]?, receiptID: String?, replaySafe: Bool, status: CheckpointStatus, stepID: String, taskID: String) {
+    public init(createdAt: String, id: String, idx: Int, payload: [String: JSONAny]? = nil, receiptID: String? = nil, replaySafe: Bool, status: CheckpointStatus, stepID: String, taskID: String) {
         self.createdAt = createdAt
         self.id = id
         self.idx = idx
@@ -29920,7 +30426,7 @@ public struct Task: Codable, Sendable {
         case workspace = "workspace"
     }
 
-    public init(attempt: Int, browserSessionID: String?, checklist: [ChecklistItem], completedAt: String?, createdAt: String, createdFrom: TaskOrigin, currentStepID: String?, goal: String, id: String, leaseOwner: String?, leaseUntil: String?, lessonsApplied: [LessonRef]?, outcome: [String: JSONAny]?, plan: TaskPlan?, sandboxID: String?, specialist: SpecialistSpec?, status: TaskStatus, summary: String?, taint: Bool?, taintSources: [TaintSource]?, threadID: String, title: String, updatedAt: String, workspace: TaskWorkspace?) {
+    public init(attempt: Int, browserSessionID: String? = nil, checklist: [ChecklistItem], completedAt: String? = nil, createdAt: String, createdFrom: TaskOrigin, currentStepID: String? = nil, goal: String, id: String, leaseOwner: String? = nil, leaseUntil: String? = nil, lessonsApplied: [LessonRef]? = nil, outcome: [String: JSONAny]? = nil, plan: TaskPlan? = nil, sandboxID: String? = nil, specialist: SpecialistSpec? = nil, status: TaskStatus, summary: String? = nil, taint: Bool? = nil, taintSources: [TaintSource]? = nil, threadID: String, title: String, updatedAt: String, workspace: TaskWorkspace? = nil) {
         self.attempt = attempt
         self.browserSessionID = browserSessionID
         self.checklist = checklist
@@ -29967,7 +30473,7 @@ public struct TaskPlan: Codable, Sendable {
         case steps = "steps"
     }
 
-    public init(approvedAt: String?, steps: [PlanStep]) {
+    public init(approvedAt: String? = nil, steps: [PlanStep]) {
         self.approvedAt = approvedAt
         self.steps = steps
     }
@@ -29987,7 +30493,7 @@ public struct PlanStep: Codable, Sendable {
         case title = "title"
     }
 
-    public init(id: String, note: String?, status: PlanStepStatus, title: String) {
+    public init(id: String, note: String? = nil, status: PlanStepStatus, title: String) {
         self.id = id
         self.note = note
         self.status = status
@@ -30046,7 +30552,7 @@ public struct SpecialistSpec: Codable, Sendable {
         case tools = "tools"
     }
 
-    public init(automation: SpecialistAutomation?, budget: RunBudget, budgetPause: BudgetPause?, deadline: String?, deliver: Deliver, inputs: SpecialistInputs, model: String, parentRunID: String?, parentThreadID: String, permissionMode: PermissionMode, planApproved: Bool?, planFirst: Bool, preflight: [ApprovalHint]?, queuePosition: Int?, result: SpecialistResult?, role: String, rootRunID: String?, tools: [String]) {
+    public init(automation: SpecialistAutomation? = nil, budget: RunBudget, budgetPause: BudgetPause? = nil, deadline: String? = nil, deliver: Deliver, inputs: SpecialistInputs, model: String, parentRunID: String? = nil, parentThreadID: String, permissionMode: PermissionMode, planApproved: Bool? = nil, planFirst: Bool, preflight: [ApprovalHint]? = nil, queuePosition: Int? = nil, result: SpecialistResult? = nil, role: String, rootRunID: String? = nil, tools: [String]) {
         self.automation = automation
         self.budget = budget
         self.budgetPause = budgetPause
@@ -30080,7 +30586,7 @@ public struct BudgetPause: Codable, Sendable {
         case reason = "reason"
     }
 
-    public init(inputRequestID: String, raised: Bool?, reason: String) {
+    public init(inputRequestID: String, raised: Bool? = nil, reason: String) {
         self.inputRequestID = inputRequestID
         self.raised = raised
         self.reason = reason
@@ -30148,7 +30654,7 @@ public struct TasksActionsParams: Codable, Sendable {
         case taskID = "taskId"
     }
 
-    public init(cursor: String?, limit: Int?, taskID: String) {
+    public init(cursor: String? = nil, limit: Int? = nil, taskID: String) {
         self.cursor = cursor
         self.limit = limit
         self.taskID = taskID
@@ -30165,7 +30671,7 @@ public struct TasksActionsResult: Codable, Sendable {
         case nextCursor = "nextCursor"
     }
 
-    public init(actions: [TaskAction], nextCursor: String?) {
+    public init(actions: [TaskAction], nextCursor: String? = nil) {
         self.actions = actions
         self.nextCursor = nextCursor
     }
@@ -30186,7 +30692,7 @@ public struct TasksListParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(cursor: String?, limit: Int?, status: [TaskStatus]?, threadID: String?) {
+    public init(cursor: String? = nil, limit: Int? = nil, status: [TaskStatus]? = nil, threadID: String? = nil) {
         self.cursor = cursor
         self.limit = limit
         self.status = status
@@ -30204,7 +30710,7 @@ public struct TasksListResult: Codable, Sendable {
         case tasks = "tasks"
     }
 
-    public init(nextCursor: String?, tasks: [Task]) {
+    public init(nextCursor: String? = nil, tasks: [Task]) {
         self.nextCursor = nextCursor
         self.tasks = tasks
     }
@@ -30220,7 +30726,7 @@ public struct TasksRetryParams: Codable, Sendable {
         case taskID = "taskId"
     }
 
-    public init(fromStepID: String?, taskID: String) {
+    public init(fromStepID: String? = nil, taskID: String) {
         self.fromStepID = fromStepID
         self.taskID = taskID
     }
@@ -30254,7 +30760,7 @@ public struct TasksUpdateParams: Codable, Sendable {
         case taskID = "taskId"
     }
 
-    public init(budget: TasksUpdateParamsBudget?, deadline: String?, taskID: String) {
+    public init(budget: TasksUpdateParamsBudget? = nil, deadline: String? = nil, taskID: String) {
         self.budget = budget
         self.deadline = deadline
         self.taskID = taskID
@@ -30273,7 +30779,7 @@ public struct TasksUpdateParamsBudget: Codable, Sendable {
         case tokens = "tokens"
     }
 
-    public init(costUsd: Double?, minutes: Int?, tokens: Int?) {
+    public init(costUsd: Double? = nil, minutes: Int? = nil, tokens: Int? = nil) {
         self.costUsd = costUsd
         self.minutes = minutes
         self.tokens = tokens
@@ -30296,7 +30802,7 @@ public struct TaughtBlock: Codable, Sendable {
         case type = "type"
     }
 
-    public init(feedbackID: String, lessonID: String?, messageID: String, statement: String?, type: TaughtBlockType) {
+    public init(feedbackID: String, lessonID: String? = nil, messageID: String, statement: String? = nil, type: TaughtBlockType) {
         self.feedbackID = feedbackID
         self.lessonID = lessonID
         self.messageID = messageID
@@ -30364,7 +30870,7 @@ public struct TeachDraftFile: Codable, Sendable {
         case text = "text"
     }
 
-    public init(fromStep: Int?, path: String, text: String?) {
+    public init(fromStep: Int? = nil, path: String, text: String? = nil) {
         self.fromStep = fromStep
         self.path = path
         self.text = text
@@ -30396,7 +30902,7 @@ public struct TeachStep: Codable, Sendable {
         case text = "text"
     }
 
-    public init(at: String, index: Int, keys: String?, kind: TeachStepKind, note: String?, screenshot: TeachScreenshot?, secure: Bool?, target: TeachTarget?, text: String?) {
+    public init(at: String, index: Int, keys: String? = nil, kind: TeachStepKind, note: String? = nil, screenshot: TeachScreenshot? = nil, secure: Bool? = nil, target: TeachTarget? = nil, text: String? = nil) {
         self.at = at
         self.index = index
         self.keys = keys
@@ -30459,7 +30965,7 @@ public struct TeachTarget: Codable, Sendable {
         case window = "window"
     }
 
-    public init(app: String, appName: String, identifier: String?, label: String?, role: String?, subrole: String?, window: String?) {
+    public init(app: String, appName: String, identifier: String? = nil, label: String? = nil, role: String? = nil, subrole: String? = nil, window: String? = nil) {
         self.app = app
         self.appName = appName
         self.identifier = identifier
@@ -30504,7 +31010,7 @@ public struct TeachStartParams: Codable, Sendable {
         case screenshots = "screenshots"
     }
 
-    public init(app: String?, description: String?, maxSeconds: Int?, maxSteps: Int?, name: String?, screenshots: Bool?) {
+    public init(app: String? = nil, description: String? = nil, maxSeconds: Int? = nil, maxSteps: Int? = nil, name: String? = nil, screenshots: Bool? = nil) {
         self.app = app
         self.description = description
         self.maxSeconds = maxSeconds
@@ -30572,7 +31078,7 @@ public struct TerminalExitPayload: Codable, Sendable {
         case sessionID = "sessionId"
     }
 
-    public init(exitCode: Int?, reason: TerminalExitPayloadReason, sessionID: String) {
+    public init(exitCode: Int? = nil, reason: TerminalExitPayloadReason, sessionID: String) {
         self.exitCode = exitCode
         self.reason = reason
         self.sessionID = sessionID
@@ -30669,7 +31175,7 @@ public struct TerminalSessionOpenParams: Codable, Sendable {
         case rows = "rows"
     }
 
-    public init(approvalID: String?, cols: Int, cwd: String?, rows: Int) {
+    public init(approvalID: String? = nil, cols: Int, cwd: String? = nil, rows: Int) {
         self.approvalID = approvalID
         self.cols = cols
         self.cwd = cwd
@@ -30778,7 +31284,7 @@ public struct ThingsAddParams: Codable, Sendable {
         case when = "when"
     }
 
-    public init(checklist: [String]?, deadline: String?, list: String?, notes: String?, tags: [String]?, title: String, when: String?) {
+    public init(checklist: [String]? = nil, deadline: String? = nil, list: String? = nil, notes: String? = nil, tags: [String]? = nil, title: String, when: String? = nil) {
         self.checklist = checklist
         self.deadline = deadline
         self.list = list
@@ -30802,7 +31308,7 @@ public struct ThingsCompleteParams: Codable, Sendable {
         case status = "status"
     }
 
-    public init(authToken: String?, id: String, status: ThingsCompleteParamsStatus?) {
+    public init(authToken: String? = nil, id: String, status: ThingsCompleteParamsStatus? = nil) {
         self.authToken = authToken
         self.id = id
         self.status = status
@@ -30833,7 +31339,7 @@ public struct ThingsListParams: Codable, Sendable {
         case query = "query"
     }
 
-    public init(limit: Int?, list: ThingsListParamsList, name: String?, query: String?) {
+    public init(limit: Int? = nil, list: ThingsListParamsList, name: String? = nil, query: String? = nil) {
         self.limit = limit
         self.list = list
         self.name = name
@@ -30880,7 +31386,7 @@ public struct ThingsTodo: Codable, Sendable {
         case when = "when"
     }
 
-    public init(area: String?, deadline: String?, id: String, modified: String?, notes: String, project: String?, status: ThingsCompleteParamsStatus, tags: [String], title: String, when: String?) {
+    public init(area: String? = nil, deadline: String? = nil, id: String, modified: String? = nil, notes: String, project: String? = nil, status: ThingsCompleteParamsStatus, tags: [String], title: String, when: String? = nil) {
         self.area = area
         self.deadline = deadline
         self.id = id
@@ -30915,7 +31421,7 @@ public struct ThingsUpdateParams: Codable, Sendable {
         case when = "when"
     }
 
-    public init(addTags: [String]?, appendNotes: String?, authToken: String?, deadline: String?, id: String, title: String?, when: String?) {
+    public init(addTags: [String]? = nil, appendNotes: String? = nil, authToken: String? = nil, deadline: String? = nil, id: String, title: String? = nil, when: String? = nil) {
         self.addTags = addTags
         self.appendNotes = appendNotes
         self.authToken = authToken
@@ -31130,7 +31636,7 @@ public struct Thread: Codable, Sendable {
         case userCreated = "userCreated"
     }
 
-    public init(activeWriterRunID: String?, archivedAt: String?, createdAt: String, expiresAt: String?, forkedFromMessageID: String?, id: String, kind: ThreadKind, lastMessageAt: String?, modelRef: String?, parentThreadID: String?, permissionMode: PermissionMode, personaOverlay: String?, pinned: Bool, sessionKey: String, title: String, titleSource: TitleSource, updatedAt: String, userCreated: Bool?) {
+    public init(activeWriterRunID: String? = nil, archivedAt: String? = nil, createdAt: String, expiresAt: String? = nil, forkedFromMessageID: String? = nil, id: String, kind: ThreadKind, lastMessageAt: String? = nil, modelRef: String? = nil, parentThreadID: String? = nil, permissionMode: PermissionMode, personaOverlay: String? = nil, pinned: Bool, sessionKey: String, title: String, titleSource: TitleSource, updatedAt: String, userCreated: Bool? = nil) {
         self.activeWriterRunID = activeWriterRunID
         self.archivedAt = archivedAt
         self.createdAt = createdAt
@@ -31190,7 +31696,7 @@ public struct ThreadsClearParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(alsoForget: Bool?, threadID: String) {
+    public init(alsoForget: Bool? = nil, threadID: String) {
         self.alsoForget = alsoForget
         self.threadID = threadID
     }
@@ -31217,7 +31723,7 @@ public struct ThreadsCompactResult: Codable, Sendable {
         case compaction = "compaction"
     }
 
-    public init(compaction: CompactionResult?) {
+    public init(compaction: CompactionResult? = nil) {
         self.compaction = compaction
     }
 }
@@ -31272,7 +31778,7 @@ public struct ThreadsContextUsageResult: Codable, Sendable {
         case usage = "usage"
     }
 
-    public init(limits: EffectiveContextLimits, threadLimits: ContextLimits, usage: ContextUsage?) {
+    public init(limits: EffectiveContextLimits, threadLimits: ContextLimits, usage: ContextUsage? = nil) {
         self.limits = limits
         self.threadLimits = threadLimits
         self.usage = usage
@@ -31291,7 +31797,7 @@ public struct ContextLimits: Codable, Sendable {
         case maxTokens = "maxTokens"
     }
 
-    public init(compactAt: Double?, keepRecentTurns: Int?, maxTokens: Int?) {
+    public init(compactAt: Double? = nil, keepRecentTurns: Int? = nil, maxTokens: Int? = nil) {
         self.compactAt = compactAt
         self.keepRecentTurns = keepRecentTurns
         self.maxTokens = maxTokens
@@ -31314,7 +31820,7 @@ public struct ThreadsCreateParams: Codable, Sendable {
         case title = "title"
     }
 
-    public init(kind: ThreadKind?, modelRef: String?, parentThreadID: String?, permissionMode: PermissionMode?, title: String?) {
+    public init(kind: ThreadKind? = nil, modelRef: String? = nil, parentThreadID: String? = nil, permissionMode: PermissionMode? = nil, title: String? = nil) {
         self.kind = kind
         self.modelRef = modelRef
         self.parentThreadID = parentThreadID
@@ -31334,7 +31840,7 @@ public struct ThreadsDeleteParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(alsoForget: Bool?, threadID: String) {
+    public init(alsoForget: Bool? = nil, threadID: String) {
         self.alsoForget = alsoForget
         self.threadID = threadID
     }
@@ -31365,7 +31871,7 @@ public struct ThreadsForkParams: Codable, Sendable {
         case title = "title"
     }
 
-    public init(messageID: String, threadID: String, title: String?) {
+    public init(messageID: String, threadID: String, title: String? = nil) {
         self.messageID = messageID
         self.threadID = threadID
         self.title = title
@@ -31392,7 +31898,7 @@ public struct ThreadsListParams: Codable, Sendable {
         case query = "query"
     }
 
-    public init(cursor: String?, includeArchived: Bool?, kind: ThreadKind?, limit: Int?, pinnedOnly: Bool?, query: String?) {
+    public init(cursor: String? = nil, includeArchived: Bool? = nil, kind: ThreadKind? = nil, limit: Int? = nil, pinnedOnly: Bool? = nil, query: String? = nil) {
         self.cursor = cursor
         self.includeArchived = includeArchived
         self.kind = kind
@@ -31412,7 +31918,7 @@ public struct ThreadsListResult: Codable, Sendable {
         case threads = "threads"
     }
 
-    public init(nextCursor: String?, threads: [ThreadListEntry]) {
+    public init(nextCursor: String? = nil, threads: [ThreadListEntry]) {
         self.nextCursor = nextCursor
         self.threads = threads
     }
@@ -31432,7 +31938,7 @@ public struct ThreadListEntry: Codable, Sendable {
         case thread = "thread"
     }
 
-    public init(activity: ThreadActivity, automation: ThreadAutomation?, lastMessage: ThreadPreview?, thread: Thread) {
+    public init(activity: ThreadActivity, automation: ThreadAutomation? = nil, lastMessage: ThreadPreview? = nil, thread: Thread) {
         self.activity = activity
         self.automation = automation
         self.lastMessage = lastMessage
@@ -31471,7 +31977,7 @@ public struct ThreadAutomation: Codable, Sendable {
         case runCount = "runCount"
     }
 
-    public init(automationID: String, lastRun: LastRun?, runCount: Int) {
+    public init(automationID: String, lastRun: LastRun? = nil, runCount: Int) {
         self.automationID = automationID
         self.lastRun = lastRun
         self.runCount = runCount
@@ -31494,7 +32000,7 @@ public struct LastRun: Codable, Sendable {
         case summary = "summary"
     }
 
-    public init(endedAt: String?, id: String, startedAt: String, status: AutomationRunStatus, summary: String?) {
+    public init(endedAt: String? = nil, id: String, startedAt: String, status: AutomationRunStatus, summary: String? = nil) {
         self.endedAt = endedAt
         self.id = id
         self.startedAt = startedAt
@@ -31537,7 +32043,7 @@ public struct ThreadsNewChatParams: Codable, Sendable {
         case preferThreadID = "preferThreadId"
     }
 
-    public init(kind: ThreadsNewChatParamsKind, preferThreadID: String?) {
+    public init(kind: ThreadsNewChatParamsKind, preferThreadID: String? = nil) {
         self.kind = kind
         self.preferThreadID = preferThreadID
     }
@@ -31607,7 +32113,7 @@ public struct ThreadsSetContextLimitsParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(limits: ContextLimits?, threadID: String) {
+    public init(limits: ContextLimits? = nil, threadID: String) {
         self.limits = limits
         self.threadID = threadID
     }
@@ -31641,7 +32147,7 @@ public struct ThreadsUpdateParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(modelRef: String?, permissionMode: PermissionMode?, threadID: String) {
+    public init(modelRef: String? = nil, permissionMode: PermissionMode? = nil, threadID: String) {
         self.modelRef = modelRef
         self.permissionMode = permissionMode
         self.threadID = threadID
@@ -31738,7 +32244,7 @@ public struct ToolCall: Codable, Sendable {
         case tool = "tool"
     }
 
-    public init(approvalID: String?, decision: Decision?, decisionRule: String?, endedAt: String?, id: String, messageID: String?, paramsHash: String, paramsRedacted: JSONAny, provenanceOut: ProvenanceOut, receiptID: String?, resultRef: String?, runID: String, sideEffect: SideEffect, startedAt: String, status: ToolCallStatus, stepID: String?, taintIn: Bool, taintOut: Bool, target: Target?, tool: String) {
+    public init(approvalID: String? = nil, decision: Decision? = nil, decisionRule: String? = nil, endedAt: String? = nil, id: String, messageID: String? = nil, paramsHash: String, paramsRedacted: JSONAny, provenanceOut: ProvenanceOut, receiptID: String? = nil, resultRef: String? = nil, runID: String, sideEffect: SideEffect, startedAt: String, status: ToolCallStatus, stepID: String? = nil, taintIn: Bool, taintOut: Bool, target: Target? = nil, tool: String) {
         self.approvalID = approvalID
         self.decision = decision
         self.decisionRule = decisionRule
@@ -31787,7 +32293,7 @@ public struct ToolSpec: Codable, Sendable {
         case targetKind = "targetKind"
     }
 
-    public init(description: String, descriptionProvenance: ProvenanceOut?, inputSchema: [String: JSONAny], name: String, provenanceOut: ProvenanceOut, sideEffect: SideEffect, targetKind: TargetKind?) {
+    public init(description: String, descriptionProvenance: ProvenanceOut? = nil, inputSchema: [String: JSONAny], name: String, provenanceOut: ProvenanceOut, sideEffect: SideEffect, targetKind: TargetKind? = nil) {
         self.description = description
         self.descriptionProvenance = descriptionProvenance
         self.inputSchema = inputSchema
@@ -31846,7 +32352,7 @@ public struct UsageRecord: Codable, Sendable {
         case runID = "runId"
     }
 
-    public init(cacheRead: Int, cacheWrite: Int, costUsd: Double, createdAt: String, id: String, input: Int, job: String?, modelRef: String, output: Int, reasoning: Int, runID: String?) {
+    public init(cacheRead: Int, cacheWrite: Int, costUsd: Double, createdAt: String, id: String, input: Int, job: String? = nil, modelRef: String, output: Int, reasoning: Int, runID: String? = nil) {
         self.cacheRead = cacheRead
         self.cacheWrite = cacheWrite
         self.costUsd = costUsd
@@ -31871,7 +32377,7 @@ public struct UsageSummaryParams: Codable, Sendable {
         case timeZone = "timeZone"
     }
 
-    public init(days: Int?, timeZone: String?) {
+    public init(days: Int? = nil, timeZone: String? = nil) {
         self.days = days
         self.timeZone = timeZone
     }
@@ -31897,7 +32403,7 @@ public struct UsageSummaryResult: Codable, Sendable {
         case today = "today"
     }
 
-    public init(budgetUsd: Double?, byModel: [UsageByModel], days: [UsageDay], month: UsageTally, planWindow: UsagePlanWindow?, primary: String?, today: UsageToday) {
+    public init(budgetUsd: Double? = nil, byModel: [UsageByModel], days: [UsageDay], month: UsageTally, planWindow: UsagePlanWindow? = nil, primary: String? = nil, today: UsageToday) {
         self.budgetUsd = budgetUsd
         self.byModel = byModel
         self.days = days
@@ -32033,7 +32539,7 @@ public struct VaultAddParams: Codable, Sendable {
         case slug = "slug"
     }
 
-    public init(bindings: [CredentialBinding], kind: CredentialKind, name: String, requireAuthEachUse: Bool?, secret: CredentialSecretInput, slug: String?) {
+    public init(bindings: [CredentialBinding], kind: CredentialKind, name: String, requireAuthEachUse: Bool? = nil, secret: CredentialSecretInput, slug: String? = nil) {
         self.bindings = bindings
         self.kind = kind
         self.name = name
@@ -32065,7 +32571,7 @@ public struct CredentialSecretInput: Codable, Sendable {
         case username = "username"
     }
 
-    public init(headerName: String?, headerPrefix: String?, password: String?, privateKey: String?, text: String?, token: String?, totpSecret: String?, username: String?) {
+    public init(headerName: String? = nil, headerPrefix: String? = nil, password: String? = nil, privateKey: String? = nil, text: String? = nil, token: String? = nil, totpSecret: String? = nil, username: String? = nil) {
         self.headerName = headerName
         self.headerPrefix = headerPrefix
         self.password = password
@@ -32134,7 +32640,7 @@ public struct VaultStatus: Codable, Sendable {
         case state = "state"
     }
 
-    public init(autoLockMinutes: Int, itemCount: Int, lockAt: String?, recoveryConfirmed: Bool, slots: [VaultKeySlot], state: VaultStatusState) {
+    public init(autoLockMinutes: Int, itemCount: Int, lockAt: String? = nil, recoveryConfirmed: Bool, slots: [VaultKeySlot], state: VaultStatusState) {
         self.autoLockMinutes = autoLockMinutes
         self.itemCount = itemCount
         self.lockAt = lockAt
@@ -32284,7 +32790,7 @@ public struct VaultLinkExternalParams: Codable, Sendable {
         case source = "source"
     }
 
-    public init(bindings: [CredentialBinding], fields: [Field]?, kind: VaultLinkExternalParamsKind, name: String, ref: Ref, slug: String?, source: VaultLinkExternalParamsSource) {
+    public init(bindings: [CredentialBinding], fields: [Field]? = nil, kind: VaultLinkExternalParamsKind, name: String, ref: Ref, slug: String? = nil, source: VaultLinkExternalParamsSource) {
         self.bindings = bindings
         self.fields = fields
         self.kind = kind
@@ -32321,7 +32827,7 @@ public struct Ref: Codable, Sendable {
         case vault = "vault"
     }
 
-    public init(item: String, vault: String?) {
+    public init(item: String, vault: String? = nil) {
         self.item = item
         self.vault = vault
     }
@@ -32353,7 +32859,7 @@ public struct VaultListParams: Codable, Sendable {
         case kind = "kind"
     }
 
-    public init(kind: CredentialKind?) {
+    public init(kind: CredentialKind? = nil) {
         self.kind = kind
     }
 }
@@ -32453,7 +32959,7 @@ public struct VaultPayment: Codable, Sendable {
         case taskID = "taskId"
     }
 
-    public init(amount: Int, approvalID: String, card: Card?, createdAt: String, currency: String, fundingSource: FundingSource?, merchantHost: String, merchantName: String, payment: Payment, refs: [String: String], spendRequestID: String, status: String, taskID: String?) {
+    public init(amount: Int, approvalID: String, card: Card? = nil, createdAt: String, currency: String, fundingSource: FundingSource? = nil, merchantHost: String, merchantName: String, payment: Payment, refs: [String: String], spendRequestID: String, status: String, taskID: String? = nil) {
         self.amount = amount
         self.approvalID = approvalID
         self.card = card
@@ -32544,7 +33050,7 @@ public struct VaultPaymentsListParams: Codable, Sendable {
         case taskID = "taskId"
     }
 
-    public init(limit: Int?, taskID: String?) {
+    public init(limit: Int? = nil, taskID: String? = nil) {
         self.limit = limit
         self.taskID = taskID
     }
@@ -32592,7 +33098,7 @@ public struct LinkPaymentMethod: Codable, Sendable {
         case nickname = "nickname"
     }
 
-    public init(brand: String, id: String, isDefault: Bool, last4: String, nickname: String?) {
+    public init(brand: String, id: String, isDefault: Bool, last4: String, nickname: String? = nil) {
         self.brand = brand
         self.id = id
         self.isDefault = isDefault
@@ -32659,7 +33165,7 @@ public struct VaultUnlockParams: Codable, Sendable {
         case recoveryKey = "recoveryKey"
     }
 
-    public init(reason: String, recoveryKey: String?) {
+    public init(reason: String, recoveryKey: String? = nil) {
         self.reason = reason
         self.recoveryKey = recoveryKey
     }
@@ -32710,7 +33216,7 @@ public struct VaultUpdateParams: Codable, Sendable {
         case secret = "secret"
     }
 
-    public init(bindings: [CredentialBinding]?, credentialID: String, name: String?, requireAuthEachUse: Bool?, secret: CredentialSecretInput?) {
+    public init(bindings: [CredentialBinding]? = nil, credentialID: String, name: String? = nil, requireAuthEachUse: Bool? = nil, secret: CredentialSecretInput? = nil) {
         self.bindings = bindings
         self.credentialID = credentialID
         self.name = name
@@ -32742,7 +33248,7 @@ public struct VaultUsesParams: Codable, Sendable {
         case limit = "limit"
     }
 
-    public init(credentialID: String, limit: Int?) {
+    public init(credentialID: String, limit: Int? = nil) {
         self.credentialID = credentialID
         self.limit = limit
     }
@@ -32785,7 +33291,7 @@ public struct CredentialUse: Codable, Sendable {
         case taskID = "taskId"
     }
 
-    public init(approvalID: String?, createdAt: String, credentialID: String, executor: Executor, id: String, outcome: CredentialUseOutcome, reason: String?, target: String, taskID: String?) {
+    public init(approvalID: String? = nil, createdAt: String, credentialID: String, executor: Executor, id: String, outcome: CredentialUseOutcome, reason: String? = nil, target: String, taskID: String? = nil) {
         self.approvalID = approvalID
         self.createdAt = createdAt
         self.credentialID = credentialID
@@ -32823,7 +33329,7 @@ public struct ViewCommandPayload: Codable, Sendable {
         case commandID = "commandId"
     }
 
-    public init(args: [String: JSONAny], command: ViewCommandName, commandID: String?) {
+    public init(args: [String: JSONAny], command: ViewCommandName, commandID: String? = nil) {
         self.args = args
         self.command = command
         self.commandID = commandID
@@ -32844,7 +33350,7 @@ public struct ViewLayoutResult: Codable, Sendable {
         case layout = "layout"
     }
 
-    public init(layout: ViewLayout?) {
+    public init(layout: ViewLayout? = nil) {
         self.layout = layout
     }
 }
@@ -32861,7 +33367,7 @@ public struct ViewLayout: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(focusedPaneID: String?, panes: [ViewPaneState], updatedAt: String) {
+    public init(focusedPaneID: String? = nil, panes: [ViewPaneState], updatedAt: String) {
         self.focusedPaneID = focusedPaneID
         self.panes = panes
         self.updatedAt = updatedAt
@@ -32884,7 +33390,7 @@ public struct ViewPaneState: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(pane: ViewPane, paneID: String, placement: ViewPlacement, target: String?, threadID: String?) {
+    public init(pane: ViewPane, paneID: String, placement: ViewPlacement, target: String? = nil, threadID: String? = nil) {
         self.pane = pane
         self.paneID = paneID
         self.placement = placement
@@ -32933,7 +33439,7 @@ public struct ViewOpenParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(artifactID: String?, pane: ViewPane, placement: ViewPlacement?, target: String?, taskID: String?, threadID: String?) {
+    public init(artifactID: String? = nil, pane: ViewPane, placement: ViewPlacement? = nil, target: String? = nil, taskID: String? = nil, threadID: String? = nil) {
         self.artifactID = artifactID
         self.pane = pane
         self.placement = placement
@@ -32967,7 +33473,7 @@ public struct ViewPaneRef: Codable, Sendable {
         case paneID = "paneId"
     }
 
-    public init(pane: ViewPane?, paneID: String?) {
+    public init(pane: ViewPane? = nil, paneID: String? = nil) {
         self.pane = pane
         self.paneID = paneID
     }
@@ -33006,7 +33512,7 @@ public struct VMConfigureParams: Codable, Sendable {
         case vault = "vault"
     }
 
-    public init(clipboard: VMClipboardMode?, cpus: Int?, displayHeight: Int?, displayWidth: Int?, memoryGB: Int?, name: String?, vault: VMVaultPlacement?) {
+    public init(clipboard: VMClipboardMode? = nil, cpus: Int? = nil, displayHeight: Int? = nil, displayWidth: Int? = nil, memoryGB: Int? = nil, name: String? = nil, vault: VMVaultPlacement? = nil) {
         self.clipboard = clipboard
         self.cpus = cpus
         self.displayHeight = displayHeight
@@ -33038,7 +33544,7 @@ public struct VMCopyInParams: Codable, Sendable {
         case name = "name"
     }
 
-    public init(hostPath: String, name: String?) {
+    public init(hostPath: String, name: String? = nil) {
         self.hostPath = hostPath
         self.name = name
     }
@@ -33056,7 +33562,7 @@ public struct VMCopyOutParams: Codable, Sendable {
         case name = "name"
     }
 
-    public init(guestPath: String, hostDir: String, name: String?) {
+    public init(guestPath: String, hostDir: String, name: String? = nil) {
         self.guestPath = guestPath
         self.hostDir = hostDir
         self.name = name
@@ -33090,7 +33596,7 @@ public struct VMCreateParams: Codable, Sendable {
         case username = "username"
     }
 
-    public init(cpus: Int?, diskGB: Int?, download: Bool?, image: String?, imageSha256: String?, ipsw: String?, memoryGB: Int?, name: String?, username: String?) {
+    public init(cpus: Int? = nil, diskGB: Int? = nil, download: Bool? = nil, image: String? = nil, imageSha256: String? = nil, ipsw: String? = nil, memoryGB: Int? = nil, name: String? = nil, username: String? = nil) {
         self.cpus = cpus
         self.diskGB = diskGB
         self.download = download
@@ -33115,7 +33621,7 @@ public struct VMExportImageParams: Codable, Sendable {
         case outDir = "outDir"
     }
 
-    public init(id: String?, name: String?, outDir: String) {
+    public init(id: String? = nil, name: String? = nil, outDir: String) {
         self.id = id
         self.name = name
         self.outDir = outDir
@@ -33173,7 +33679,7 @@ public struct VMImageManifest: Codable, Sendable {
         case username = "username"
     }
 
-    public init(createdAt: String, diskFormat: VMDiskFormat, diskGB: Int, files: [VMImageFile], format: VMImageManifestFormat, formatVersion: Double, guestOS: String, id: String, permissionsGranted: Bool, provisioned: Bool, psycheInstalled: Bool, psycheVersion: String?, username: String) {
+    public init(createdAt: String, diskFormat: VMDiskFormat, diskGB: Int, files: [VMImageFile], format: VMImageManifestFormat, formatVersion: Double, guestOS: String, id: String, permissionsGranted: Bool, provisioned: Bool, psycheInstalled: Bool, psycheVersion: String? = nil, username: String) {
         self.createdAt = createdAt
         self.diskFormat = diskFormat
         self.diskGB = diskGB
@@ -33233,7 +33739,7 @@ public struct VMProgressEvent: Codable, Sendable {
         case version = "version"
     }
 
-    public init(fraction: Double?, phase: String, type: VMProgressEventType, version: String?) {
+    public init(fraction: Double? = nil, phase: String, type: VMProgressEventType, version: String? = nil) {
         self.fraction = fraction
         self.phase = phase
         self.type = type
@@ -33261,7 +33767,7 @@ public struct VMResetParams: Codable, Sendable {
         case name = "name"
     }
 
-    public init(name: String?) {
+    public init(name: String? = nil) {
         self.name = name
     }
 }
@@ -33276,7 +33782,7 @@ public struct VMRestoreParams: Codable, Sendable {
         case snapshot = "snapshot"
     }
 
-    public init(name: String?, snapshot: String) {
+    public init(name: String? = nil, snapshot: String) {
         self.name = name
         self.snapshot = snapshot
     }
@@ -33361,7 +33867,7 @@ public struct VMGuest: Codable, Sendable {
         case vsock = "vsock"
     }
 
-    public init(agent: VMGuestAgentStatus?, baseSnapshot: String?, clipboard: VMClipboardMode?, cpus: Int, diskGB: Int, display: Display?, guestOS: String?, image: VMGuestImageRef?, lastError: String?, memoryGB: Int, name: String, passwordRotationPending: Bool?, permissionsGranted: Bool?, phase: VMPhase, provisioned: Bool, psycheInstalled: Bool?, savedState: Bool?, shares: [VMShare], snapshots: [VMSnapshot]?, transfers: [VMTransfer]?, username: String, vault: VMVaultPlacement?, vsock: Vsock) {
+    public init(agent: VMGuestAgentStatus? = nil, baseSnapshot: String? = nil, clipboard: VMClipboardMode? = nil, cpus: Int, diskGB: Int, display: Display? = nil, guestOS: String? = nil, image: VMGuestImageRef? = nil, lastError: String? = nil, memoryGB: Int, name: String, passwordRotationPending: Bool? = nil, permissionsGranted: Bool? = nil, phase: VMPhase, provisioned: Bool, psycheInstalled: Bool? = nil, savedState: Bool? = nil, shares: [VMShare], snapshots: [VMSnapshot]? = nil, transfers: [VMTransfer]? = nil, username: String, vault: VMVaultPlacement? = nil, vsock: Vsock) {
         self.agent = agent
         self.baseSnapshot = baseSnapshot
         self.clipboard = clipboard
@@ -33404,7 +33910,7 @@ public struct VMGuestAgentStatus: Codable, Sendable {
         case version = "version"
     }
 
-    public init(accessibility: Bool?, connected: Bool, lastSeenAt: String?, screenRecording: Bool?, version: String?) {
+    public init(accessibility: Bool? = nil, connected: Bool, lastSeenAt: String? = nil, screenRecording: Bool? = nil, version: String? = nil) {
         self.accessibility = accessibility
         self.connected = connected
         self.lastSeenAt = lastSeenAt
@@ -33519,7 +34025,7 @@ public struct VMSnapshot: Codable, Sendable {
         case taskID = "taskId"
     }
 
-    public init(bytes: Int, createdAt: String, guestOS: String?, id: String, kind: VMSnapshotKind, label: String, method: VMSnapshotMethod, provisioned: Bool, psycheInstalled: Bool, savedState: Bool, taskID: String?) {
+    public init(bytes: Int, createdAt: String, guestOS: String? = nil, id: String, kind: VMSnapshotKind, label: String, method: VMSnapshotMethod, provisioned: Bool, psycheInstalled: Bool, savedState: Bool, taskID: String? = nil) {
         self.bytes = bytes
         self.createdAt = createdAt
         self.guestOS = guestOS
@@ -33614,7 +34120,7 @@ public struct VMSettings: Codable, Sendable {
         case resetPerTask = "resetPerTask"
     }
 
-    public init(clipboard: VMClipboardMode, credentials: VMVaultPlacement, defaultWorkspace: TaskWorkspace, enabled: Bool, guestNodeID: String?, resetPerTask: Bool?) {
+    public init(clipboard: VMClipboardMode, credentials: VMVaultPlacement, defaultWorkspace: TaskWorkspace, enabled: Bool, guestNodeID: String? = nil, resetPerTask: Bool? = nil) {
         self.clipboard = clipboard
         self.credentials = credentials
         self.defaultWorkspace = defaultWorkspace
@@ -33638,7 +34144,7 @@ public struct VMShareAddParams: Codable, Sendable {
         case share = "share"
     }
 
-    public init(name: String?, path: String, readOnly: Bool?, share: String) {
+    public init(name: String? = nil, path: String, readOnly: Bool? = nil, share: String) {
         self.name = name
         self.path = path
         self.readOnly = readOnly
@@ -33656,7 +34162,7 @@ public struct VMSnapshotDeleteParams: Codable, Sendable {
         case snapshot = "snapshot"
     }
 
-    public init(name: String?, snapshot: String) {
+    public init(name: String? = nil, snapshot: String) {
         self.name = name
         self.snapshot = snapshot
     }
@@ -33676,7 +34182,7 @@ public struct VMSnapshotParams: Codable, Sendable {
         case taskID = "taskId"
     }
 
-    public init(kind: VMSnapshotKind?, label: String?, name: String?, taskID: String?) {
+    public init(kind: VMSnapshotKind? = nil, label: String? = nil, name: String? = nil, taskID: String? = nil) {
         self.kind = kind
         self.label = label
         self.name = name
@@ -33711,7 +34217,7 @@ public struct VMSnapshotsCreateParams: Codable, Sendable {
         case label = "label"
     }
 
-    public init(base: Bool?, label: String?) {
+    public init(base: Bool? = nil, label: String? = nil) {
         self.base = base
         self.label = label
     }
@@ -33754,7 +34260,7 @@ public struct VMSnapshotsListResult: Codable, Sendable {
         case snapshots = "snapshots"
     }
 
-    public init(baseSnapshot: String?, snapshots: [VMSnapshot]) {
+    public init(baseSnapshot: String? = nil, snapshots: [VMSnapshot]) {
         self.baseSnapshot = baseSnapshot
         self.snapshots = snapshots
     }
@@ -33840,7 +34346,7 @@ public struct VoiceEndedPayload: Codable, Sendable {
         case sessionID = "sessionId"
     }
 
-    public init(error: ErrorPayload?, reason: VoiceEndReason, sessionID: String) {
+    public init(error: ErrorPayload? = nil, reason: VoiceEndReason, sessionID: String) {
         self.error = error
         self.reason = reason
         self.sessionID = sessionID
@@ -33866,7 +34372,7 @@ public struct VoiceMemoSaveParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(sessionID: String, task: MemoTaskMode?, threadID: String?) {
+    public init(sessionID: String, task: MemoTaskMode? = nil, threadID: String? = nil) {
         self.sessionID = sessionID
         self.task = task
         self.threadID = threadID
@@ -33900,7 +34406,7 @@ public struct VoiceMemoSaveResult: Codable, Sendable {
         case transcript = "transcript"
     }
 
-    public init(blocks: [Block], content: VoiceMemoContent, durationMS: Int, item: LibraryItem, provenance: Provenance, task: Task?, transcript: Transcript) {
+    public init(blocks: [Block], content: VoiceMemoContent, durationMS: Int, item: LibraryItem, provenance: Provenance, task: Task? = nil, transcript: Transcript) {
         self.blocks = blocks
         self.content = content
         self.durationMS = durationMS
@@ -33945,7 +34451,7 @@ public struct Transcript: Codable, Sendable {
         case text = "text"
     }
 
-    public init(language: String?, segments: [TranscriptSegment], text: String) {
+    public init(language: String? = nil, segments: [TranscriptSegment], text: String) {
         self.language = language
         self.segments = segments
         self.text = text
@@ -34008,7 +34514,7 @@ public struct VoiceStartParams: Codable, Sendable {
         case vocabulary = "vocabulary"
     }
 
-    public init(format: AudioFormat, language: String?, memo: Bool?, threadID: String?, vocabulary: [String]?) {
+    public init(format: AudioFormat, language: String? = nil, memo: Bool? = nil, threadID: String? = nil, vocabulary: [String]? = nil) {
         self.format = format
         self.language = language
         self.memo = memo
@@ -34057,7 +34563,7 @@ public struct VoiceStartResult: Codable, Sendable {
         case sessionID = "sessionId"
     }
 
-    public init(engine: String, location: SpeechEngineLocation, sessionID: String?) {
+    public init(engine: String, location: SpeechEngineLocation, sessionID: String? = nil) {
         self.engine = engine
         self.location = location
         self.sessionID = sessionID
@@ -34123,7 +34629,7 @@ public struct WidgetAction: Codable, Sendable {
         case tool = "tool"
     }
 
-    public init(kind: WidgetActionKind, text: String?, inputRequestID: String?, value: Value?, artifactID: String?, fileID: String?, route: String?, url: String?, args: [String: JSONAny]?, tool: String?) {
+    public init(kind: WidgetActionKind, text: String? = nil, inputRequestID: String? = nil, value: Value? = nil, artifactID: String? = nil, fileID: String? = nil, route: String? = nil, url: String? = nil, args: [String: JSONAny]? = nil, tool: String? = nil) {
         self.kind = kind
         self.text = text
         self.inputRequestID = inputRequestID
@@ -34192,7 +34698,7 @@ public struct WidgetDraftPayload: Codable, Sendable {
         case title = "title"
     }
 
-    public init(callID: String, done: Bool?, messageID: String, nodes: Int, root: [String: JSONAny]?, threadID: String, title: String?) {
+    public init(callID: String, done: Bool? = nil, messageID: String, nodes: Int, root: [String: JSONAny]? = nil, threadID: String, title: String? = nil) {
         self.callID = callID
         self.done = done
         self.messageID = messageID
@@ -34215,7 +34721,7 @@ public struct WidgetPatch: Codable, Sendable {
         case widgetID = "widgetId"
     }
 
-    public init(baseRev: Int?, ops: [WidgetOp], widgetID: String) {
+    public init(baseRev: Int? = nil, ops: [WidgetOp], widgetID: String) {
         self.baseRev = baseRev
         self.ops = ops
         self.widgetID = widgetID
@@ -34244,7 +34750,7 @@ public struct WidgetOp: Codable, Sendable {
         case title = "title"
     }
 
-    public init(id: String?, op: WidgetOpOp, props: [String: JSONAny]?, field: String?, items: [JSONAny]?, node: [String: JSONAny]?, fallbackText: String?, title: String?) {
+    public init(id: String? = nil, op: WidgetOpOp, props: [String: JSONAny]? = nil, field: String? = nil, items: [JSONAny]? = nil, node: [String: JSONAny]? = nil, fallbackText: String? = nil, title: String? = nil) {
         self.id = id
         self.op = op
         self.props = props
@@ -34296,7 +34802,7 @@ public struct WidgetUpdatedPayload: Codable, Sendable {
         case widgetID = "widgetId"
     }
 
-    public init(fromRev: Int?, ops: [WidgetOp], pinned: Bool?, rev: Int, state: WidgetState?, threadID: String, widgetID: String) {
+    public init(fromRev: Int? = nil, ops: [WidgetOp], pinned: Bool? = nil, rev: Int, state: WidgetState? = nil, threadID: String, widgetID: String) {
         self.fromRev = fromRev
         self.ops = ops
         self.pinned = pinned
@@ -34326,7 +34832,7 @@ public struct WidgetsActParams: Codable, Sendable {
         case widgetID = "widgetId"
     }
 
-    public init(itemID: String?, nodeID: String, values: [String: JSONAny]?, widgetID: String) {
+    public init(itemID: String? = nil, nodeID: String, values: [String: JSONAny]? = nil, widgetID: String) {
         self.itemID = itemID
         self.nodeID = nodeID
         self.values = values
@@ -34344,7 +34850,7 @@ public struct WidgetsActResult: Codable, Sendable {
         case runID = "runId"
     }
 
-    public init(messageID: String, runID: String?) {
+    public init(messageID: String, runID: String? = nil) {
         self.messageID = messageID
         self.runID = runID
     }
@@ -34439,7 +34945,7 @@ public struct WidgetOwner: Codable, Sendable {
         case jobID = "jobId"
     }
 
-    public init(kind: WidgetOwnerKind, runID: String?, taskID: String?, automationID: String?, jobID: String?) {
+    public init(kind: WidgetOwnerKind, runID: String? = nil, taskID: String? = nil, automationID: String? = nil, jobID: String? = nil) {
         self.kind = kind
         self.runID = runID
         self.taskID = taskID
@@ -34562,7 +35068,7 @@ public struct WidgetsPreviewParams: Codable, Sendable {
         case widgetID = "widgetId"
     }
 
-    public init(itemID: String?, nodeID: String, widgetID: String) {
+    public init(itemID: String? = nil, nodeID: String, widgetID: String) {
         self.itemID = itemID
         self.nodeID = nodeID
         self.widgetID = widgetID
@@ -34629,7 +35135,7 @@ public struct WorkNoteItem: Codable, Sendable {
         case value = "value"
     }
 
-    public init(attribute: WorkNoteAttribute, entityID: String, factID: String, kind: WorkNoteItemKind, name: String, previous: String?, value: String) {
+    public init(attribute: WorkNoteAttribute, entityID: String, factID: String, kind: WorkNoteItemKind, name: String, previous: String? = nil, value: String) {
         self.attribute = attribute
         self.entityID = entityID
         self.factID = factID
@@ -34663,7 +35169,7 @@ public struct WrapUpBlock: Codable, Sendable {
         case type = "type"
     }
 
-    public init(actions: [WrapUpAction]?, ask: String?, recap: String, type: WrapUpBlockType) {
+    public init(actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String, type: WrapUpBlockType) {
         self.actions = actions
         self.ask = ask
         self.recap = recap

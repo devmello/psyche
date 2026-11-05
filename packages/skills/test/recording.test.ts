@@ -261,6 +261,40 @@ describe("accepting a recording uses the usual approval card", () => {
     expect(installed.map((x: SkillDraft) => x.id)).toEqual([draft.id]);
   });
 
+  it("a skill made from a recording is never exported, and shared-skill lock fields stay apart from it", async () => {
+    const { t, d } = drafts();
+    const handlers = createSkillsHandlers(t.loader, { broker: t.broker, drafts: d });
+    const { draft } = await handlers["skills.drafts.fromRecording"]({
+      title: "Export the weekly billing report",
+      steps: steps(),
+    });
+    const accepted = await handlers["skills.drafts.accept"]({ draftId: draft.id });
+    // The card carries the taint and the recording wording together.
+    expect(accepted.approval).toMatchObject({ taint: true, kind: "skill_install" });
+    expect(accepted.approval.summary).toContain("from your recording");
+    expect(accepted.proposal.bundle).toBeUndefined();
+    expect(accepted.proposal.trustAuthor).toBeUndefined();
+    await t.loader.install(
+      accepted.proposal.id,
+      await approve(t.broker, t.clock, accepted.proposal),
+    );
+    const lock = JSON.parse(readFileSync(t.loader.lockPath, "utf8")) as {
+      skills: Record<string, { author?: string; bundleOrigin?: string; signer?: unknown }>;
+    };
+    const entry = Object.values(lock.skills).find((l) => l.author === "recording");
+    expect(entry).toBeDefined();
+    // Never a bundle: no origin claim, no signer.
+    expect(entry?.bundleOrigin).toBeUndefined();
+    expect(entry?.signer).toBeUndefined();
+    const details = (await t.loader.listDetailed()).find((x) => x.name === draft.name);
+    expect(details).toMatchObject({ madeBy: "recording", trust: "unknown" });
+    expect(details?.bundleOrigin).toBeUndefined();
+    // Not exportable: its text carries web pages, and a signature would hide that. Not
+    // "agent-owned" either, so the agent's own skill tools get no hold on it.
+    expect(() => t.loader.previewExport(draft.name)).toThrow("cannot be exported");
+    expect(t.loader.agentOwned(draft.name)).toBeUndefined();
+  });
+
   it("taint survives accept: the card says so, the lock remembers it, and the skill loads as untrusted text", async () => {
     const { t, d } = drafts();
     const handlers = createSkillsHandlers(t.loader, { broker: t.broker, drafts: d });

@@ -5,6 +5,7 @@ import {
   EverythingExclusion,
   EverythingExclusionMode,
   EverythingRunResult,
+  LifeAnswerPassage,
   LifeFactHit,
   MemoryRun,
   PersonRemoved,
@@ -871,10 +872,38 @@ export const MemoryMethods = {
       "Life search for the owner: people, organisations, events and topics by name, and cited facts (including ones still waiting for review, marked) by their words. Owner-only: the agent reads memory through its own tools and access rules.",
   }),
   "memory.life.answer": defineMethod({
-    params: Type.Object({ q: Type.String({ minLength: 1, maxLength: 500 }) }),
+    params: Type.Object({
+      q: Type.String({ minLength: 1, maxLength: 500 }),
+      passages: Type.Optional(
+        Type.Boolean({
+          description:
+            "Also read source passages (mail, Messages, notes, files, calendar) from the local index. Absent or false: facts only, the earlier behaviour",
+        }),
+      ),
+      previous: Type.Optional(
+        Type.Object(
+          {
+            q: Type.String({ maxLength: 500 }),
+            answer: Type.String({ maxLength: 900 }),
+            factIds: Type.Array(Id, { maxItems: 12 }),
+            passageIds: Type.Array(Type.String({ maxLength: 200 }), { maxItems: 8 }),
+          },
+          {
+            description:
+              "A follow-up: the question, answer and cited ids of the turn before. The ids are read again under this connection's rules; nothing in here is trusted as a source",
+          },
+        ),
+      ),
+    }),
     result: Type.Object({
-      answer: Nullable(Type.String({ maxLength: 600 })),
+      answer: Nullable(Type.String({ maxLength: 900 })),
       facts: Type.Array(LifeFactHit, { description: "The facts the answer cites, in order" }),
+      passages: Type.Optional(
+        Type.Array(LifeAnswerPassage, {
+          description:
+            "The source passages the answer cites, in order. `[n]` in the answer is the nth fact, `[Pn]` the nth passage",
+        }),
+      ),
       reason: Nullable(
         StringEnum(["no_model", "no_facts", "no_answer", "ungrounded", "model_failed"], {
           $id: "LifeAnswerReason",
@@ -883,7 +912,7 @@ export const MemoryMethods = {
     }),
     scope: "operator.read",
     description:
-      "A short answer to a question about the owner's people, from reviewed, non-sensitive facts only, each claim cited to a fact. Owner-only. No answer (with a reason) when the model is off, no fact matches, or the reply cites nothing it was given.",
+      "A short answer to a question about the owner's life, from reviewed, non-sensitive facts and, when asked, from source passages in the local index, each claim cited to a fact (`[n]`) or a passage (`[Pn]`). Owner-only. A claim that cites nothing it was given is dropped; no answer (with a reason) when the model is off, nothing matches or nothing is left. A sensitive-class passage, a source kept from the agent, or a source the connection cannot open is never read for that connection.",
   }),
   "memory.runs.list": defineMethod({
     params: Type.Object({

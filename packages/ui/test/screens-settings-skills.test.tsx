@@ -3,6 +3,7 @@ import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { FIXTURE_NOW, GREEDY_SKILL_FOLDER, SKILL_FOLDER } from "../src/fixtures/index.ts";
+import { SKILL_BUNDLE_FILE, WIDER_BUNDLE_FILE } from "../src/fixtures/skills.ts";
 import { SettingsScreen } from "../src/screens/settings/SettingsScreen.tsx";
 import { asksFor, skillSourceOf } from "../src/screens/settings/SkillsSection.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
@@ -125,7 +126,98 @@ describe("Settings → Skills", () => {
     expect(await screen.findByText("Every installed skill is up to date.")).toBeTruthy();
   });
 
+  it("imports a signed bundle file: the card names the signer, and 'trust this author' is part of the card", async () => {
+    const gateway = setup();
+    const input = await screen.findByLabelText("Import a file…");
+    await userEvent.upload(
+      input,
+      new File(["{}"], SKILL_BUNDLE_FILE, { type: "application/json" }),
+    );
+    const card = await screen.findByTestId("skill-trust-card");
+    expect(within(card).getByTestId("skill-signer").textContent).toContain(
+      "Signed by Ada Lovelace. You have not seen this key before.",
+    );
+    expect(within(card).getByText(SKILL_BUNDLE_FILE)).toBeTruthy();
+    expect(within(card).getByRole("region", { name: "What it asks for" })).toBeTruthy();
+    expect(within(card).queryByTestId("skill-widened")).toBeNull();
+    expect(gateway().calls.find((c) => c.method === "skills.proposeImport")?.params).toMatchObject({
+      name: SKILL_BUNDLE_FILE,
+    });
+    // Ticking the box stages the review again with trustAuthor, so the approver's card binds it.
+    await userEvent.click(
+      within(card).getByRole("checkbox", { name: "Trust Ada Lovelace as an author" }),
+    );
+    await waitFor(() =>
+      expect(gateway().calls.filter((c) => c.method === "skills.proposeImport")).toHaveLength(2),
+    );
+    expect(
+      gateway().calls.filter((c) => c.method === "skills.proposeImport")[1]?.params,
+    ).toMatchObject({ trustAuthor: true });
+    const again = await screen.findByTestId("skill-trust-card");
+    await waitFor(() =>
+      expect(
+        within(again)
+          .getByRole("checkbox", { name: "Trust Ada Lovelace as an author" })
+          .getAttribute("aria-checked"),
+      ).toBe("true"),
+    );
+    await answer(again, "Allow once");
+    expect(await screen.findByText("Installed “pdf-merge”.")).toBeTruthy();
+    // The install call carries no flag of its own: the approved card already says it.
+    expect(gateway().calls.find((c) => c.method === "skills.install")?.params).not.toHaveProperty(
+      "trustAuthor",
+    );
+  });
+
+  it("without the box ticked, trustAuthor is not sent", async () => {
+    const gateway = setup();
+    await userEvent.upload(
+      await screen.findByLabelText("Import a file…"),
+      new File(["{}"], SKILL_BUNDLE_FILE),
+    );
+    await answer(await screen.findByTestId("skill-trust-card"), "Allow once");
+    expect(await screen.findByText("Installed “pdf-merge”.")).toBeTruthy();
+    expect(gateway().calls.find((c) => c.method === "skills.install")?.params).not.toHaveProperty(
+      "trustAuthor",
+    );
+  });
+
+  it("an update with a changed key and wider permissions says so before anything else", async () => {
+    setup();
+    await userEvent.upload(
+      await screen.findByLabelText("Import a file…"),
+      new File(["{}"], WIDER_BUNDLE_FILE),
+    );
+    const card = await screen.findByTestId("skill-trust-card");
+    const signer = within(card).getByTestId("skill-signer");
+    expect(signer.textContent).toContain("different key than the version you have installed");
+    expect(signer.getAttribute("role")).toBe("alert");
+    // Text Psyche wrote for the sender is labelled, whoever signed it.
+    expect(within(card).getByTestId("skill-origin").textContent).toContain(
+      "Written by an assistant",
+    );
+    const widened = within(card).getByTestId("skill-widened");
+    expect(widened.textContent).toContain("Asks for more than the installed version");
+    expect(widened.textContent).toContain("email.*");
+    expect(widened.textContent).toContain("Send email");
+    // Not an author the owner has seen: the trust box is offered, unticked.
+    const box = within(card).getByRole("checkbox", { name: "Trust Ada Lovelace as an author" });
+    expect(box.getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("skills from elsewhere offer no export (the key never signs someone else's work)", async () => {
+    const gateway = setup();
+    await userEvent.click(await screen.findByRole("button", { name: "More for receipt-filer" }));
+    // receipt-filer is a home skill from elsewhere: no export entry.
+    expect(screen.queryByRole("menuitem", { name: "Export…" })).toBeNull();
+    expect(methods(gateway())).not.toContain("skills.export");
+  });
+
   it("helpers: archive sources and the asks-for line", () => {
+    expect(skillSourceOf(" https://example.com/a.psyche-skill ")).toEqual({
+      kind: "bundleUrl",
+      url: "https://example.com/a.psyche-skill",
+    });
     expect(skillSourceOf(" /tmp/x.skill ")).toEqual({ kind: "zip", path: "/tmp/x.skill" });
     expect(skillSourceOf("/tmp/x")).toEqual({ kind: "path", path: "/tmp/x" });
     expect(asksFor({ tools: [], permissions: [], prompts: [] })).toBe(

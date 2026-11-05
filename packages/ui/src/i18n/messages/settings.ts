@@ -1771,7 +1771,9 @@ export const settings = {
   "settings.gateways.problem.link_bad_field":
     "That pairing link is damaged. Copy it again from the Mac that made it.",
   "settings.gateways.problem.link_lan":
-    "This pairing link is for a computer on your local network. Use Look on this network to add it instead.",
+    "This pairing link is for a computer on your local network but doesn't carry its certificate, so it isn't used. On that Mac, make a new one: Pair another computer, From this network.",
+  "settings.gateways.problem.link_not_lan":
+    "That pairing link names an address that isn't on a local network, so it isn't used.",
   "settings.gateways.problem.link_pin_mismatch":
     "This Gateway is already saved with a different identity. Use Pair again on it first, then add the link.",
   "settings.gateways.problem.failed": "Couldn't add the Gateway. Nothing changed.",
@@ -1842,6 +1844,15 @@ export const settings = {
   "settings.pair.err.forbidden":
     "Only Psyche on the Host itself, paired as admin, can make a pairing link.",
   "settings.pair.err.failed": "Couldn't make a pairing link ({reason}).",
+  "settings.pair.via": "Where will the other computer connect from?",
+  "settings.pair.viaAddress": "Over Tailscale, at this Mac's address",
+  "settings.pair.viaLan": "From this network",
+  "settings.pair.viaLanHint":
+    "A link for this network holds this Mac's key and certificate, so it works only for computers on the same Wi-Fi or Ethernet.",
+  "settings.pair.lanNote":
+    "This link is for computers on the same network as this Mac. It names the key and certificate Psyche will insist on.",
+  "settings.pair.err.noLan":
+    "Turn on Allow computers on this network, and wait until it is listening, to make a link for this network.",
   // Settings → Server & remote access → Allow computers on this network (§3.1, LAN).
   "settings.key.gateway.lan": "Allow computers on this network",
   "settings.key.gateway.lan.rotateCert": "The network certificate",
@@ -1853,6 +1864,13 @@ export const settings = {
   "settings.lan.toggle": "Allow computers on this network",
   "settings.lan.toggleHint":
     "Psyche listens on one network, over an encrypted connection with its own certificate. A computer that connects still has to be approved here with Touch ID.",
+  "settings.lan.ipv6": "Also use this network's IPv6 addresses",
+  "settings.lan.ipv6Hint":
+    "Adds the private IPv6 addresses (they start with fd or fc) of the chosen network. Public IPv6 addresses and fe80 addresses are never used.",
+  "settings.lan.problem.ipv6Off":
+    "{address} is an IPv6 address, and IPv6 is off, so Psyche isn't listening on it. Turn on IPv6 above, or remove it.",
+  "settings.lan.problem.ipv6NeedsIpv4":
+    "Psyche isn't listening on {address}. IPv6 is used only together with this network's IPv4 address, which you have to allow here first.",
   "settings.lan.interface": "Network",
   "settings.lan.interfaceDefault": "Primary network",
   "settings.lan.interfaceOption": "{name} ({address})",
@@ -1999,7 +2017,7 @@ export const settings = {
   "settings.skills.status.ineligible": "Unavailable here",
   "settings.skills.status.shadowed": "Overridden",
   "settings.skills.trust.bundled": "Bundled with Psyche",
-  "settings.skills.trust.verified": "Verified publisher",
+  "settings.skills.trust.verified": "Author you trust",
   "settings.skills.trust.local": "Your own",
   "settings.skills.trust.unknown": "Unknown publisher",
   "settings.skills.asks.unknown": "Unknown: the skill could not be read.",
@@ -2063,11 +2081,71 @@ export const settings = {
   "settings.skills.err.violations": "Psyche won't install this skill: it {violations}.",
   "settings.skills.err.violationJoin": "; it ",
   "settings.skills.err.wont":
-    "Psyche won't {action, select, review {review the skill} reviewProposed {review the proposed skill} install {install the skill} dismiss {dismiss the suggestion} on {turn the skill on} off {turn the skill off} remove {remove the skill} reviewUpdate {review the update} other {check for updates}} ({reason}).",
+    "Psyche won't {action, select, review {review the skill} import {import the file} export {export the skill} author {change that author} reviewProposed {review the proposed skill} install {install the skill} dismiss {dismiss the suggestion} on {turn the skill on} off {turn the skill off} remove {remove the skill} reviewUpdate {review the update} other {check for updates}} ({reason}).",
   "settings.skills.err.forbidden":
-    "{action, select, review {Review the skill} reviewProposed {Review the proposed skill} install {Install the skill} dismiss {Dismiss the suggestion} on {Turn the skill on} off {Turn the skill off} remove {Remove the skill} reviewUpdate {Review the update} other {Check for updates}} needs a device paired as admin.",
+    "{action, select, review {Review the skill} import {Import the file} export {Export the skill} author {Change that author} reviewProposed {Review the proposed skill} install {Install the skill} dismiss {Dismiss the suggestion} on {Turn the skill on} off {Turn the skill off} remove {Remove the skill} reviewUpdate {Review the update} other {Check for updates}} needs a device paired as admin.",
   "settings.skills.err.failed":
-    "Psyche couldn't {action, select, review {review the skill} reviewProposed {review the proposed skill} install {install the skill} dismiss {dismiss the suggestion} on {turn the skill on} off {turn the skill off} remove {remove the skill} reviewUpdate {review the update} other {check for updates}} ({reason}).",
+    "Psyche couldn't {action, select, review {review the skill} import {import the file} export {export the skill} author {change that author} reviewProposed {review the proposed skill} install {install the skill} dismiss {dismiss the suggestion} on {turn the skill on} off {turn the skill off} remove {remove the skill} reviewUpdate {review the update} other {check for updates}} ({reason}).",
+  "settings.skills.signer.title": "Who made it",
+  "settings.skills.signer.unsigned":
+    "Not signed. Nothing shows who made it or that it was not changed on the way, so it installs as an unknown publisher.",
+  "settings.skills.signer.new": "Signed by {name}. You have not seen this key before.",
+  "settings.skills.signer.seen":
+    "Signed by {name}, with a key you have seen before but have not trusted.",
+  "settings.skills.signer.trusted": "Signed by {name}, an author you trust.",
+  "settings.skills.signer.own": "Signed by you.",
+  "settings.skills.signer.changed":
+    "Signed by {name}, but not with the key seen before. Check that it is the same person before you install it.",
+  "settings.skills.signer.changedUpdate":
+    "Signed by {name}, with a different key than the version you have installed. Check that it is the same person before you update.",
+  "settings.skills.signer.dropped":
+    "The installed version was signed by {name}. This one is not signed at all.",
+  "settings.skills.signer.impersonates":
+    "Signed by {name}, which looks like the name you sign your own skills with, but the key is not yours. Do not install it unless you know where it came from.",
+  "settings.skills.signer.nameChanged":
+    "Signed by a key you trust, but under a name it has not used before: {name}. Check that it is still the same person.",
+  "settings.skills.signer.originAgent":
+    "Written by an assistant on the sender's Mac. Read it as unreviewed text, whoever signed it.",
+  "settings.skills.widened.specialist": "Background role",
+  "settings.skills.bundleOriginAgent": "Written by an assistant elsewhere",
+  "settings.skills.export.label": "Signing “{name}”",
+  "settings.skills.author.label": "Author trust",
+  "settings.skills.signer.claim":
+    "The name is the author's own claim. The key is what ties versions together.",
+  "settings.skills.signer.key": "Author key",
+  "settings.skills.signer.trust": "Trust {name} as an author",
+  "settings.skills.signer.trustHint":
+    "Later versions signed with this key are marked as from an author you trust. Every install still asks you first.",
+  "settings.skills.widened.title": "Asks for more than the installed version",
+  "settings.skills.widened.hint":
+    "Approving gives it no permission by itself, but it will now lead to these questions as well.",
+  "settings.skills.widened.permissions": "New permissions",
+  "settings.skills.widened.tools": "New tools",
+  "settings.skills.widened.prompts": "New prompt files",
+  "settings.skills.import.file": "Import a file…",
+  "settings.skills.import.hint":
+    "A .psyche-skill file from someone else, or an https link to one. It is checked and shown to you before anything is installed.",
+  "settings.skills.import.failed": "Psyche couldn't read that file ({reason}).",
+  "settings.skills.import.tooBig": "that file is larger than 8 MB",
+  "settings.skills.signedBy": "Signed by {name}",
+  "settings.skills.signedState":
+    "{state, select, own {you} trusted {trusted} revoked {revoked} other {not trusted}}",
+  "settings.skills.export": "Export…",
+  "settings.skills.export.title": "Export “{name}”",
+  "settings.skills.export.hint":
+    "The file is signed with your author key, so people who get it can tell it is yours and that it was not changed. The key stays on this Mac.",
+  "settings.skills.export.nameLabel": "Name to sign with",
+  "settings.skills.export.nameHint": "Made once. Everyone who imports your skills sees it.",
+  "settings.skills.export.go": "Export and sign",
+  "settings.skills.exported":
+    "Exported “{name}” as {file}, signed as {author}.{created, select, true { Your author key was created: {key}.} other {}}",
+  "settings.skills.author.trust": "Trust this author",
+  "settings.skills.author.untrust": "Stop trusting this author",
+  "settings.skills.author.revoke": "Revoke this author",
+  "settings.skills.author.revokeTitle": "Revoke {name}'s key?",
+  "settings.skills.author.revokeDescription":
+    "Skills signed with it stop loading, and new files signed with it are refused. You can trust it again later.",
+  "settings.skills.author.revokeConfirm": "Revoke",
   "settings.skills.denied": "Not installed: you denied “{name}”.",
   "settings.skills.lapsed":
     "Not installed: the approval {expired, select, true {expired} other {was withdrawn}}. Review it again to ask for a new one.",
