@@ -1,10 +1,10 @@
-# Cross-platform readiness audit (macOS + Windows)
+# Cross-platform readiness audit (macOS, Windows, Linux)
 
-Status: proposal (docs only), 2026-10-26, revised after the owner's decision. Nothing here changes code.
+Status: proposal (docs only), 2026-10-26, revised after the owner's decision; scope revised again 2026-11-05. Nothing here changes code.
 
 Scope decisions (owner):
-- **Desktop app targets macOS and, eventually, Windows. No Linux desktop support.**
-- The **Gateway may still run on Linux** in Docker or headless as a *server deployment* (today's `deploy/Dockerfile`, `docker-compose.yml`, `deploy/systemd`, CLI). That is not desktop support and gets no desktop work.
+- **Desktop app targets macOS, Linux and, eventually, Windows.** On 2026-11-05 the owner reversed the earlier "No Linux desktop support" line: Psyche ships a full Linux desktop app, with three computer-use modes and presence by password through polkit. The design and PR plan are in [linux-desktop-2026.md](linux-desktop-2026.md); this audit's Linux notes defer to it.
+- The **Gateway also keeps running on Linux** in Docker or headless as a *server deployment* (today's `deploy/Dockerfile`, `docker-compose.yml`, `deploy/systemd`, CLI). The desktop app reuses the same `systemd --user` unit shape (linux design §2.3).
 - **No text-to-speech.** Voice is speech-to-text into the pop-up chat window with text answers. `speech.synthesize`, `SpeechSynthesis.swift`, `speech.readAloud.*` and `voice.conversation.speech` appear below only as inventory of code being deleted.
 
 Method: grep-based inventory by cheap subagents, then synthesis. Swift framework usage is inferred from imports and symbol names, not compiled. Line numbers drift; re-grep before acting.
@@ -115,8 +115,9 @@ Proposed **platform node** = any process speaking the node protocol that adverti
 | Implementation | Language | Platforms | Notes |
 |---|---|---|---|
 | `mac-helper` | Swift | macOS | Exists. Superset: neutral caps + Apple-app caps. |
-| `electron-node` | TS in desktop main | macOS, Windows | **New, cheap.** Implements what Electron already gives: `desktopCapturer` screen capture, notifications, `globalShortcut`, `safeStorage` wrapping, open-external, trash. Registers in-process so the gateway needs no special case. |
+| `electron-node` | TS in desktop main | macOS, Windows, Linux | **New, cheap.** Implements what Electron already gives: `desktopCapturer` screen capture, notifications, `globalShortcut`, `safeStorage` wrapping, open-external, trash. Registers in-process so the gateway needs no special case. |
 | `win-helper` | .NET (recommended) | Windows | New, later: UIA, SendInput, key hook, Hello presence. |
+| `linux-helper` | Rust | Linux | New (linux design §4): AT-SPI2, portals (ScreenCast, RemoteDesktop), libei, X11, the virtual screen. Presence is not a helper job on Linux: psyched asks polkit itself (linux design §9). |
 | `apps/node` headless | TS | any (server use) | Exists: exec, fs, browser, health. |
 
 Several nodes can be connected at once (electron-node + mac-helper); the gateway routes each capability to the best advertiser by per-capability priority.
@@ -173,7 +174,7 @@ Capability specs keep today's metadata (side effect, target kind, permission lis
 
 ## 5. Phases
 
-**Phase 0: stop the bleeding (1–2 weeks, no user-visible change).** 4.4 items 1, 2 (start), 7, 8; document the support matrix (macOS desktop; Windows planned; Linux = server deployment only).
+**Phase 0: stop the bleeding (1–2 weeks, no user-visible change).** 4.4 items 1, 2 (start), 7, 8; document the support matrix (macOS desktop; Linux desktop in progress, see [linux-desktop-2026.md](linux-desktop-2026.md); Windows planned).
 
 **Phase 1: Windows "works" (parity with the portable feature set).** Windows Forge maker + Authenticode signing in CI, `TaskSchedulerSupervisor`, named-pipe/authenticated-loopback gateway endpoint, DPAPI via `safeStorage`, toast notifications, `windows` platform in protocol, update artifact map + Squirrel.Windows apply path, quick-entry shortcut default, `desktopCapturer` screenshot-only screen-ask, whisper/Web Speech dictation, Windows real-Chrome/Edge paths, Docker Desktop sandbox detection, `install-windows.ps1` for the headless node.
 
@@ -183,7 +184,9 @@ Capability specs keep today's metadata (side effect, target kind, permission lis
 
 **Phase 4 (optional).** Windows built-in STT engine, Outlook connector.
 
-Mac-only forever: iMessage, Notes, Things, Shortcuts, Music, VM guests, Secure Enclave presence.
+Mac-only forever: iMessage, Notes, Things, Shortcuts, Music, macOS VM guests, Secure Enclave presence.
+
+**Linux** runs its own track, in parallel with these phases: [linux-desktop-2026.md](linux-desktop-2026.md) §14 (PRs L0–L10). Its L0 (protocol additions) and L1 (platform module, supervisor interface) carry out 4.4 items 2 and 3 for Linux, and the Windows work reuses them.
 
 ## 6. Decision points (recommended default first)
 
