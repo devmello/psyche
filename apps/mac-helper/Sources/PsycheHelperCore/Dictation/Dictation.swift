@@ -151,6 +151,9 @@ public enum DictationInserter {
             message = "The focused field in \(app) is a password field. Psyche never types into password fields."
         case .notEditable: message = "The focused element does not take text."
         case .focusChanged: message = "Focus moved to another app while you were dictating; nothing was inserted."
+        // Only the Windows helper reports this (an app running as administrator); the shared
+        // protocol enum carries it, so the switch must name it.
+        case .elevatedTarget: message = "The focused app runs with higher privileges; nothing was inserted."
         }
         var details: [String: JSONValue] = ["refusal": .string(r.rawValue)]
         if let target, let app = target.bundleID { details["bundleId"] = .string(app) }
