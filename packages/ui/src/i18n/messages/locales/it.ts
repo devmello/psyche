@@ -16,6 +16,7 @@ import { designRest } from "./design-rest/it.ts";
 import { everythingRest } from "./everything-rest/it.ts";
 import { final202611 } from "./final-2026-11/it.ts";
 import { galleryRest } from "./gallery-rest/it.ts";
+import { helperCheck } from "./helper-check/it.ts";
 import { homeRest } from "./home-rest/it.ts";
 import { links } from "./links/it.ts";
 import { mailMeetings } from "./mail-meetings/it.ts";
@@ -32,12 +33,14 @@ import { onboardingRest } from "./onboarding-rest/it.ts";
 import { overview } from "./overview/it.ts";
 import { overviewGrowth } from "./overview-growth/it.ts";
 import { overviewShared } from "./overview-shared/it.ts";
+import { passwordPresence } from "./password-presence/it.ts";
 import { peopleRest } from "./people-rest/it.ts";
 import { personDataRest } from "./person-data-rest/it.ts";
 import { researchRest } from "./research-rest/it.ts";
 import { scheduledRest } from "./scheduled-rest/it.ts";
 import { screensRest } from "./screens-rest/it.ts";
 import { securityState } from "./security-state/it.ts";
+import { separateDesktop } from "./separate-desktop/it.ts";
 import { settingsRest } from "./settings-rest/it.ts";
 import { shellRest } from "./shell-rest/it.ts";
 import { specialistsRest } from "./specialists-rest/it.ts";
@@ -3313,6 +3316,11 @@ export const it: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "Dalla tua automazione {name}",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // password approvals on Linux (polkit)
+  ...passwordPresence,
+  ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings > Computer use > Separate desktop (Linux)
+  ...separateDesktop,
 };

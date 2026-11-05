@@ -16,6 +16,7 @@ import { designRest } from "./design-rest/ja.ts";
 import { everythingRest } from "./everything-rest/ja.ts";
 import { final202611 } from "./final-2026-11/ja.ts";
 import { galleryRest } from "./gallery-rest/ja.ts";
+import { helperCheck } from "./helper-check/ja.ts";
 import { homeRest } from "./home-rest/ja.ts";
 import { links } from "./links/ja.ts";
 import { mailMeetings } from "./mail-meetings/ja.ts";
@@ -32,12 +33,14 @@ import { onboardingRest } from "./onboarding-rest/ja.ts";
 import { overview } from "./overview/ja.ts";
 import { overviewGrowth } from "./overview-growth/ja.ts";
 import { overviewShared } from "./overview-shared/ja.ts";
+import { passwordPresence } from "./password-presence/ja.ts";
 import { peopleRest } from "./people-rest/ja.ts";
 import { personDataRest } from "./personData-rest/ja.ts";
 import { researchRest } from "./research-rest/ja.ts";
 import { scheduledRest } from "./scheduled-rest/ja.ts";
 import { screensRest } from "./screens-rest/ja.ts";
 import { securityState } from "./security-state/ja.ts";
+import { separateDesktop } from "./separate-desktop/ja.ts";
 import { settingsRest } from "./settings-rest/ja.ts";
 import { shellRest } from "./shell-rest/ja.ts";
 import { specialistsRest } from "./specialists-rest/ja.ts";
@@ -3283,6 +3286,11 @@ export const ja: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "オートメーション「{name}」から",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // password approvals on Linux (polkit)
+  ...passwordPresence,
+  ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings > Computer use > Separate desktop (Linux)
+  ...separateDesktop,
 };

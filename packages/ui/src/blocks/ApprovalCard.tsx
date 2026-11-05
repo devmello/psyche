@@ -388,8 +388,19 @@ export function ApprovalCard({
   const inFlight = useRef(false);
   const [showIds, setShowIds] = useState(false);
   // folder_access: the folder the owner picks is what is granted, never the agent's string.
-  const isFolder = raw.kind === "folder_access";
-  const { pickFolder, permissionAction, touchIdFix, touchIdOnceOnly, remotePresence } = useSlots();
+  // separate_desktop_share is the same pick for the Linux separate desktop, and grants nothing here.
+  const isSdShare = raw.kind === "separate_desktop_share";
+  const isFolder = raw.kind === "folder_access" || isSdShare;
+  const {
+    pickFolder,
+    permissionAction,
+    touchIdFix,
+    touchIdOnceOnly,
+    passwordPresence,
+    remotePresence,
+  } = useSlots();
+  // Linux: Allow opens the system's own password dialog; the card says so while it is up.
+  const [waitingForPassword, setWaitingForPassword] = useState(false);
   // A remote client with no passkey of its own can't give the presence this card needs.
   const answerOnHost =
     remotePresence !== undefined && approval.requiresAuthentication && !remotePresence.hasPasskey
@@ -413,7 +424,7 @@ export function ApprovalCard({
   );
   const folderBlocked = requestedFolder?.status === "blocked" && folder === "";
   // The agent asked to change files: the owner may narrow that to read-only (never the reverse).
-  const asksWrite = raw.kind === "folder_access" && raw.details.access === "rw";
+  const asksWrite = isFolder && raw.details.access === "rw";
   const [readOnly, setReadOnly] = useState(false);
   // message_send compose card (`messages_send`): the recipient picked and the text left in the
   // editor are what the Gateway binds and sends, not the agent's draft.
@@ -495,6 +506,9 @@ export function ApprovalCard({
     setLimitedUntil(null);
     setLimitFailure(null);
     setTouchIdFixFor(null);
+    setWaitingForPassword(
+      decision === "approve" && passwordPresence === true && approval.requiresAuthentication,
+    );
     try {
       // macOS access: re-read the grant first, so the Gateway's check sees what was just allowed.
       if (decision === "approve" && need?.need === "macos_access") {
@@ -529,6 +543,7 @@ export function ApprovalCard({
       }
     } finally {
       inFlight.current = false;
+      setWaitingForPassword(false);
       setBusy(false);
     }
   };
@@ -552,7 +567,9 @@ export function ApprovalCard({
 
   const status =
     forcedOnce && approval.status === "approved"
-      ? t("blocks.approval.status.allowedOnceTouchId")
+      ? passwordPresence === true
+        ? t("blocks.approval.status.allowedOncePassword")
+        : t("blocks.approval.status.allowedOnceTouchId")
       : statusText(approval, now);
   const whatLabel = t("blocks.approval.whatItWillDo");
   const onlyOnce = offered.length === 1 && offered[0] === "once";
@@ -582,7 +599,7 @@ export function ApprovalCard({
     : t("blocks.permission.checkAgain");
   const scopeText = (scope: GrantScope) =>
     isFolder && (scope === "once" || scope === "always")
-      ? t(`blocks.folder.scope.${scope}`)
+      ? t(isSdShare ? "blocks.folder.sd.scope.once" : `blocks.folder.scope.${scope}`)
       : scopeLabel(scope);
   const offeredScopes: { value: AllowScope; label: string }[] = [
     ...(offered.includes("once")
@@ -761,7 +778,16 @@ export function ApprovalCard({
       {interactive && isFolder ? (
         <div className="mt-2 flex flex-col gap-1.5" data-testid="folder-pick">
           <p className="text-body text-label-primary" data-testid="folder-explain">
-            {t(asksWrite ? "blocks.folder.explain.rw" : "blocks.folder.explain.ro", { persona })}
+            {t(
+              isSdShare
+                ? asksWrite
+                  ? "blocks.folder.sd.explain.rw"
+                  : "blocks.folder.sd.explain.ro"
+                : asksWrite
+                  ? "blocks.folder.explain.rw"
+                  : "blocks.folder.explain.ro",
+              { persona },
+            )}
           </p>
           <div className="grid grid-cols-[7rem_1fr] gap-3 py-0.5 text-body">
             <span
@@ -850,7 +876,8 @@ export function ApprovalCard({
             </label>
           ) : null}
           <p className="text-callout text-label-secondary">
-            {t("blocks.folder.exact")} {t("blocks.folder.scope")}
+            {t("blocks.folder.exact")}{" "}
+            {t(isSdShare ? "blocks.folder.sd.scope" : "blocks.folder.scope")}
           </p>
         </div>
       ) : null}
@@ -967,7 +994,9 @@ export function ApprovalCard({
           {approval.requiresAuthentication ? (
             <span className="inline-flex items-center gap-1.5">
               <Fingerprint className="size-3.5" aria-hidden="true" />{" "}
-              {t("blocks.approval.needsAuth")}
+              {passwordPresence === true
+                ? t("blocks.approval.password.needsAuth")
+                : t("blocks.approval.needsAuth")}
               {/* The Touch ID sheet names the same code (security §3.7). */}
               <span className="font-mono" data-testid="approval-code">
                 {t("blocks.approval.touchId.code", { code: approvalCode(approval.bindingHash) })}
@@ -980,11 +1009,28 @@ export function ApprovalCard({
             </span>
           ) : null}
           {onceOnlyHere && choice !== "once" ? (
-            <span data-testid="touch-id-once-only">{t("blocks.approval.touchId.onceOnly")}</span>
+            <span data-testid="touch-id-once-only">
+              {passwordPresence === true
+                ? t("blocks.approval.password.onceOnly")
+                : t("blocks.approval.touchId.onceOnly")}
+            </span>
           ) : null}
           {otherSurfaces.length > 0 ? (
             <span>{t("blocks.approval.alsoSentTo", { surfaces: otherSurfaces.join(", ") })}</span>
           ) : null}
+        </p>
+      ) : null}
+
+      {waitingForPassword ? (
+        // The system dialog's text is fixed and cannot name the approval, so Psyche's own window
+        // says what the password is for (linux design §9.4).
+        <p className="mt-2 flex flex-col gap-0.5" role="status" data-testid="password-waiting">
+          <span className="text-label-primary">
+            {t("blocks.approval.password.waiting", { code: approvalCode(approval.bindingHash) })}
+          </span>
+          <span className="text-callout text-label-secondary">
+            {t("blocks.approval.password.waitingShort")}
+          </span>
         </p>
       ) : null}
 

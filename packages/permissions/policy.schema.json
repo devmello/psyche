@@ -97,6 +97,7 @@
               "git_write",
               "git_push",
               "folder_access",
+              "separate_desktop_share",
               "batch",
               "permission_request"
             ]

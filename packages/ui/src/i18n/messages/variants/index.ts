@@ -1,27 +1,26 @@
 import type { UiPlatform } from "../../../lib/platform.ts";
 import type { MessageId } from "../index.ts";
+import { linux } from "./linux.ts";
+import { LINUX_LOCALES } from "./linux-locales.ts";
 import { windows } from "./windows.ts";
+import { WINDOWS_LOCALES } from "./windows-locales.ts";
 
 /**
- * Platform variants of catalogue messages (`./windows.ts`). macOS is the base wording, so only
- * Windows has a table; `other` (Linux, phones) reads the base messages.
+ * Platform variants of catalogue messages (`./windows.ts`, `./linux.ts`). macOS is the base
+ * wording, so only Windows and Linux have a table; `other` (phones) reads the base messages.
  */
 export const PLATFORM_VARIANTS: Partial<
   Record<UiPlatform, Readonly<Partial<Record<MessageId, string>>>>
-> = { windows };
-
-/**
- * Translations of the Windows variants, by message locale (`{ de: { "web.remote.thisMac": "Dieser
- * PC" } }`). Empty until translators add them; a missing one shows the English variant.
- */
-export const WINDOWS_LOCALES: Readonly<
-  Record<string, Readonly<Partial<Record<MessageId, string>>>>
-> = {};
+> = { windows, linux };
 
 /** The variant of `id` on `platform`, or undefined when the base message applies. */
 export function platformVariant(platform: UiPlatform, id: MessageId): string | undefined {
   return PLATFORM_VARIANTS[platform]?.[id];
 }
+
+const VARIANT_LOCALES: Partial<
+  Record<UiPlatform, Readonly<Record<string, Readonly<Partial<Record<MessageId, string>>>>>>
+> = { windows: WINDOWS_LOCALES, linux: LINUX_LOCALES };
 
 /** A translated variant of `id` for `locale` on `platform`, if a translator wrote one. */
 export function translatedPlatformVariant(
@@ -29,5 +28,5 @@ export function translatedPlatformVariant(
   locale: string,
   id: MessageId,
 ): string | undefined {
-  return platform === "windows" ? WINDOWS_LOCALES[locale]?.[id] : undefined;
+  return VARIANT_LOCALES[platform]?.[locale]?.[id];
 }

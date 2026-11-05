@@ -129,6 +129,7 @@ const KIND_TITLES: Record<string, string> = {
   git_write: "Change git repository",
   git_push: "Push to git remote",
   folder_access: "Open a folder",
+  separate_desktop_share: "Share a folder with the separate desktop",
   permission_request: "Permission needed",
 };
 

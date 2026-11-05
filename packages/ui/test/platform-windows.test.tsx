@@ -57,7 +57,8 @@ describe("platform detection", () => {
     expect(normalizePlatform("windows")).toBe("windows");
     expect(normalizePlatform("darwin")).toBe("macos");
     expect(normalizePlatform("MacIntel")).toBe("macos");
-    expect(normalizePlatform("linux")).toBe("other");
+    expect(normalizePlatform("linux")).toBe("linux");
+    expect(normalizePlatform("web")).toBe("other");
     document.documentElement.dataset.platform = "win32";
     expect(uiPlatform()).toBe("windows");
     delete document.documentElement.dataset.platform;
@@ -105,6 +106,15 @@ describe("Windows copy (i18n/messages/variants/windows.ts)", () => {
     expect(t("web.remote.thisMac")).not.toBe("This PC");
     setUiPlatform("windows");
     expect(t("web.remote.thisMac")).toBe("This PC");
+  });
+
+  it("translates the security-record variants: PC and Windows Hello, never the Mac", () => {
+    setActiveI18n(createI18n({ locale: "de-DE", language: "de" }));
+    setUiPlatform("windows");
+    const text = t("web.security.alert.requested", { action: "x", when: "y" });
+    expect(text).toContain("diesem PC");
+    expect(text).not.toMatch(/Mac/);
+    expect(t("web.security.needsApproval")).toContain("Windows Hello");
   });
 
   it("keeps every variant valid ICU with the English message's placeholders, and Mac-free", () => {

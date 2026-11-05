@@ -12,6 +12,7 @@ import { designRest } from "./design-rest/fr.ts";
 import { everythingRest } from "./everything-rest/fr.ts";
 import { final202611 } from "./final-2026-11/fr.ts";
 import { galleryRest } from "./gallery-rest/fr.ts";
+import { helperCheck } from "./helper-check/fr.ts";
 import { homeRest } from "./home-rest/fr.ts";
 import { links } from "./links/fr.ts";
 import { mailMeetings } from "./mail-meetings/fr.ts";
@@ -25,11 +26,13 @@ import { onboardingRest } from "./onboarding-rest/fr.ts";
 import { overview } from "./overview/fr.ts";
 import { overviewGrowth } from "./overview-growth/fr.ts";
 import { overviewShared } from "./overview-shared/fr.ts";
+import { passwordPresence } from "./password-presence/fr.ts";
 import { peopleRest } from "./people-rest/fr.ts";
 import { researchRest } from "./research-rest/fr.ts";
 import { scheduledRest } from "./scheduled-rest/fr.ts";
 import { screensRest } from "./screens-rest/fr.ts";
 import { securityState } from "./security-state/fr.ts";
+import { separateDesktop } from "./separate-desktop/fr.ts";
 import { settingsRest } from "./settings-rest/fr.ts";
 import { shellRest } from "./shell-rest/fr.ts";
 import { specialistsRest } from "./specialists-rest/fr.ts";
@@ -3312,6 +3315,11 @@ export const fr: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "De votre automatisation {name}",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // password approvals on Linux (polkit)
+  ...passwordPresence,
+  ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings > Computer use > Separate desktop (Linux)
+  ...separateDesktop,
 };

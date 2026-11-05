@@ -24,9 +24,22 @@ export const DEVICE_ONLY_KINDS: readonly ApprovalKind[] = [
   "apple_script",
   // The owner picks the folder in the native picker; a chat reply could not.
   "folder_access",
+  "separate_desktop_share",
   // Turning a capability on, or opening System Settings, happens on the Mac (§3.13).
   "permission_request",
 ];
+
+/**
+ * The grant key of a saved login typed into the Linux separate desktop. It is its own namespace:
+ * the Host's agent-browser "site" grants never match it, and the broker offers `once` only for it,
+ * so no grant for it is ever created. The page in there can't be verified (only the helper's word
+ * names it), so every fill is a fresh card.
+ */
+export const SEPARATE_DESKTOP_CREDENTIAL_PREFIX = "credential_fill|separate_desktop|";
+export const separateDesktopCredentialGrantKey = (origin: string): string =>
+  `${SEPARATE_DESKTOP_CREDENTIAL_PREFIX}${origin}`;
+export const isSeparateDesktopCredentialKey = (grantKey: string): boolean =>
+  grantKey.startsWith(SEPARATE_DESKTOP_CREDENTIAL_PREFIX);
 
 /** `authenticationRequired` on the Mac (security §3.7). */
 export const AUTH_KINDS: readonly ApprovalKind[] = [
@@ -166,6 +179,8 @@ export function allowedScopes(
       "git_push",
       // A setting is turned on until revoked in Settings, never a grant (§3.13).
       "permission_request",
+      // One folder for one task of the separate desktop: never kept, never a host grant.
+      "separate_desktop_share",
     ].includes(kind)
   )
     return ["once"];

@@ -16,6 +16,7 @@ import { daily } from "./daily/zh.ts";
 import { design } from "./design/zh.ts";
 import { deviceAccess } from "./device-access/zh.ts";
 import { final202611 } from "./final-2026-11/zh.ts";
+import { helperCheck } from "./helper-check/zh.ts";
 import { home } from "./home/zh.ts";
 import { links } from "./links/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
@@ -28,12 +29,14 @@ import { onboarding } from "./onboarding/zh.ts";
 import { overview } from "./overview/zh.ts";
 import { overviewGrowth } from "./overview-growth/zh.ts";
 import { overviewShared } from "./overview-shared/zh.ts";
+import { passwordPresence } from "./password-presence/zh.ts";
 import { people } from "./people/zh.ts";
 import { research } from "./research/zh.ts";
 import { scheduled } from "./scheduled/zh.ts";
 import { screens } from "./screens/zh.ts";
 import { securityState } from "./security-state/zh.ts";
 import { selfConnectors } from "./self-connectors/zh.ts";
+import { separateDesktop } from "./separate-desktop/zh.ts";
 import { settings } from "./settings/zh.ts";
 import { settingsLanguage } from "./settings-language/zh.ts";
 import { settingsSections } from "./settings-sections/zh.ts";
@@ -3237,6 +3240,11 @@ export const zh: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "来自你的自动化 {name}",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // password approvals on Linux (polkit)
+  ...passwordPresence,
+  ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings > Computer use > Separate desktop (Linux)
+  ...separateDesktop,
 };

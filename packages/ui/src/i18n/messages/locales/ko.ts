@@ -16,6 +16,7 @@ import { designRest } from "./design-rest/ko.ts";
 import { everythingRest } from "./everything-rest/ko.ts";
 import { final202611 } from "./final-2026-11/ko.ts";
 import { galleryRest } from "./gallery-rest/ko.ts";
+import { helperCheck } from "./helper-check/ko.ts";
 import { homeRest } from "./home-rest/ko.ts";
 import { links } from "./links/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
@@ -32,12 +33,14 @@ import { onboardingRest } from "./onboarding-rest/ko.ts";
 import { overview } from "./overview/ko.ts";
 import { overviewGrowth } from "./overview-growth/ko.ts";
 import { overviewShared } from "./overview-shared/ko.ts";
+import { passwordPresence } from "./password-presence/ko.ts";
 import { peopleRest } from "./people-rest/ko.ts";
 import { personDataRest } from "./personData-rest/ko.ts";
 import { researchRest } from "./research-rest/ko.ts";
 import { scheduledRest } from "./scheduled-rest/ko.ts";
 import { screensRest } from "./screens-rest/ko.ts";
 import { securityState } from "./security-state/ko.ts";
+import { separateDesktop } from "./separate-desktop/ko.ts";
 import { settingsRest } from "./settings-rest/ko.ts";
 import { shellRest } from "./shell-rest/ko.ts";
 import { specialistsRest } from "./specialists-rest/ko.ts";
@@ -3265,6 +3268,11 @@ export const ko: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "자동화 {name}에서",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // password approvals on Linux (polkit)
+  ...passwordPresence,
+  ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings > Computer use > Separate desktop (Linux)
+  ...separateDesktop,
 };

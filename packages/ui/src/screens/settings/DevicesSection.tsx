@@ -8,6 +8,13 @@ import { isMessageId, t } from "../../i18n/core.ts";
 import { groupFingerprint } from "../../lib/fingerprint.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
+import {
+  HOST_HELPER_STATUS_KEY,
+  HostHelperCheckGroup,
+  type HostHelperStatus,
+  parseHostHelperStatus,
+} from "./HostHelperCheckGroup.tsx";
+import { PasswordPresenceGroup, type PasswordPresenceRow } from "./PasswordPresenceGroup.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
   EmptyNotice,
@@ -49,9 +56,9 @@ const NODE_KIND_ID: Readonly<Record<NodeInfo["kind"] | "win-helper", string>> = 
   "vm-guest": "vmGuest",
   remote: "remote",
   phone: "phone",
-  // Linux L0 kinds. No Gateway emits them yet; a later Linux PR gives them their own labels.
-  "host-helper": "macHelper",
-  guest: "vmGuest",
+  // The Linux helper (stored as host-helper) and the helper inside a separate desktop.
+  "host-helper": "hostHelper",
+  guest: "guest",
 };
 
 const nodeKindLabel = (k: string): string => {
@@ -93,6 +100,10 @@ export interface DevicesPanelProps extends LoadProps {
     onRemove: (deviceId: string) => Promise<unknown>;
     onAllowDevFileKey: (on: boolean) => Promise<unknown>;
   };
+  /** Linux: the Gateway's password-approval status (`devices.presence.status`); absent elsewhere. */
+  passwordPresence?: PasswordPresenceRow | undefined;
+  /** Linux: what the Gateway saw of the helper's process (`devices.hostHelper.status`). */
+  hostHelperStatus?: HostHelperStatus | undefined;
   now?: number;
   thisDeviceId?: string;
   onApprove?: (request: PairingRequest, scopes: DeviceScope[]) => void;
@@ -109,6 +120,8 @@ export function DevicesPanel({
   nodes,
   presenceKeys = [],
   touchId,
+  passwordPresence,
+  hostHelperStatus,
   now,
   thisDeviceId,
   onApprove,
@@ -159,6 +172,9 @@ export function DevicesPanel({
             </ul>
           </Group>
         ) : null}
+
+        {passwordPresence ? <PasswordPresenceGroup row={passwordPresence} /> : null}
+        {hostHelperStatus ? <HostHelperCheckGroup status={hostHelperStatus} /> : null}
 
         <Group title={t("settings.devices.paired")}>
           {active.length === 0 ? (
@@ -484,6 +500,8 @@ export function DevicesSection({
 }): ReactElement {
   const call = useCall();
   const devSettingQ = useGatewayQuery("settings.get", { keys: [DEV_FILE_KEY_SETTING] });
+  // Only a Linux Gateway records a peer check of its helper; elsewhere there is nothing to show.
+  const hostStatusQ = useGatewayQuery("settings.get", { keys: [HOST_HELPER_STATUS_KEY] });
   const [bundled, setBundled] = useState<BundledHelperKey | null | undefined>(undefined);
   useEffect(() => {
     if (!touchId) return;
@@ -507,6 +525,9 @@ export function DevicesSection({
     },
   );
   const keysQ = useGatewayQuery("devices.presenceKey.list", {});
+  // Only a Linux Gateway reports a password verifier; an older Gateway answers an error.
+  const presenceQ = useGatewayQuery("devices.presence.status", {});
+  const passwordRow = presenceQ.data?.verifiers.find((v) => v.kind === "password");
   const settled = (p: Promise<unknown>) =>
     p.then((v) => {
       keysQ.reload();
@@ -532,6 +553,8 @@ export function DevicesSection({
       pairing={pairingQ.data?.pairingRequests ?? []}
       nodes={nodesQ.data?.nodes ?? []}
       presenceKeys={keysQ.data?.presenceKeys ?? []}
+      passwordPresence={passwordRow}
+      hostHelperStatus={parseHostHelperStatus(hostStatusQ.data?.settings?.[HOST_HELPER_STATUS_KEY])}
       {...(infoQ.data ? { gatewayFingerprint: infoQ.data.identity.fingerprint } : {})}
       touchId={{
         bundled: touchId ? bundled : undefined,

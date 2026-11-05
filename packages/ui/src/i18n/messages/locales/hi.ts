@@ -16,6 +16,7 @@ import { designRest } from "./design-rest/hi.ts";
 import { everythingRest } from "./everything-rest/hi.ts";
 import { final202611 } from "./final-2026-11/hi.ts";
 import { galleryRest } from "./gallery-rest/hi.ts";
+import { helperCheck } from "./helper-check/hi.ts";
 import { homeRest } from "./home-rest/hi.ts";
 import { links } from "./links/hi.ts";
 import { mailMeetings } from "./mail-meetings/hi.ts";
@@ -32,12 +33,14 @@ import { onboardingRest } from "./onboarding-rest/hi.ts";
 import { overview } from "./overview/hi.ts";
 import { overviewGrowth } from "./overview-growth/hi.ts";
 import { overviewShared } from "./overview-shared/hi.ts";
+import { passwordPresence } from "./password-presence/hi.ts";
 import { peopleRest } from "./people-rest/hi.ts";
 import { personDataRest } from "./person-data-rest/hi.ts";
 import { researchRest } from "./research-rest/hi.ts";
 import { scheduledRest } from "./scheduled-rest/hi.ts";
 import { screensRest } from "./screens-rest/hi.ts";
 import { securityState } from "./security-state/hi.ts";
+import { separateDesktop } from "./separate-desktop/hi.ts";
 import { settingsRest } from "./settings-rest/hi.ts";
 import { shellRest } from "./shell-rest/hi.ts";
 import { specialistsRest } from "./specialists-rest/hi.ts";
@@ -3284,6 +3287,11 @@ export const hi: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "आपके ऑटोमेशन {name} से",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // password approvals on Linux (polkit)
+  ...passwordPresence,
+  ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings > Computer use > Separate desktop (Linux)
+  ...separateDesktop,
 };

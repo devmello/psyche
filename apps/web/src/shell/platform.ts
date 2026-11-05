@@ -462,6 +462,8 @@ export interface ShellPlatform {
   permissions?: PermissionsPort;
   /** Desktop only: the bundled Mac helper the app launches (docs/archive/status/s14.md "Packaging"). */
   helper?: HelperPort;
+  /** Desktop on Linux only: approving a card with the owner's password in the system's polkit dialog. */
+  password?: PasswordPort;
   /** Desktop only: the macOS region format; the web uses the browser's language (A12). */
   locale?: LocalePort;
   /** Desktop only: opens an https page in the default browser; the web uses window.open (#505). */
@@ -613,6 +615,14 @@ export interface BundledHelperIdentity {
   kind?: "keychain" | "enclave_keychain_acl" | "enclave_file" | "windows_hello";
   algorithm?: string;
   error?: string;
+}
+
+/**
+ * Linux password presence (linux design §9): approving a card once through the Gateway, which
+ * asks polkit. On main's own channel, which only the main and Settings windows reach.
+ */
+export interface PasswordPort {
+  approve(params: { approvalId: string; answerToken: string }): Promise<unknown>;
 }
 
 export interface TouchIdPort {

@@ -108,7 +108,7 @@ export const nodesHandlers: Record<string, HandlerDef> = {
       ) {
         throw new PsycheError(
           "forbidden",
-          `${params.capability} is not reachable through nodes.invoke on the Host's ${node.kind === "win-helper" ? "Windows" : "Mac"} helper`,
+          `${params.capability} is not reachable through nodes.invoke on the Host's ${node.kind === "win-helper" ? "Windows" : node.kind === "host-helper" ? "Linux" : "Mac"} helper`,
         );
       }
       if (isUnreachableCapability(params.capability)) {

@@ -7,6 +7,7 @@ import { chatA } from "./chat-a/pt.ts";
 import { dailyA } from "./daily-a/pt.ts";
 import { final202611 } from "./final-2026-11/pt.ts";
 import { galleryA } from "./gallery-a/pt.ts";
+import { helperCheck } from "./helper-check/pt.ts";
 import { homeA } from "./home-a/pt.ts";
 import { links } from "./links/pt.ts";
 import { mailMeetings } from "./mail-meetings/pt.ts";
@@ -15,8 +16,10 @@ import { memoryB } from "./memory-b/pt.ts";
 import { overview } from "./overview/pt.ts";
 import { overviewGrowth } from "./overview-growth/pt.ts";
 import { overviewShared } from "./overview-shared/pt.ts";
+import { passwordPresence } from "./password-presence/pt.ts";
 import { scheduledA } from "./scheduled-a/pt.ts";
 import { securityState } from "./security-state/pt.ts";
+import { separateDesktop } from "./separate-desktop/pt.ts";
 import { settingsA } from "./settings-a/pt.ts";
 import { settingsB } from "./settings-b/pt.ts";
 import { settingsC } from "./settings-c/pt.ts";
@@ -3256,6 +3259,11 @@ export const pt: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "Da sua automação {name}",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // password approvals on Linux (polkit)
+  ...passwordPresence,
+  ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings > Computer use > Separate desktop (Linux)
+  ...separateDesktop,
 };

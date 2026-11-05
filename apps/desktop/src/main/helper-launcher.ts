@@ -22,7 +22,7 @@ import type { Runner } from "./supervisor-base.ts";
  */
 
 /** The node kinds that are this computer's own helper (`NodeKind` in @psyche/protocol). */
-export const HOST_HELPER_KINDS: readonly string[] = ["mac-helper", "win-helper"];
+export const HOST_HELPER_KINDS: readonly string[] = ["mac-helper", "win-helper", "host-helper"];
 
 export function isHostHelperKind(kind: unknown): boolean {
   return typeof kind === "string" && HOST_HELPER_KINDS.includes(kind);

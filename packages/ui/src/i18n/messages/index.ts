@@ -18,6 +18,7 @@ import { design } from "./design.ts";
 import { deviceAccess } from "./device-access.ts";
 import { errors } from "./errors.ts";
 import { glass } from "./glass.ts";
+import { helperCheck } from "./helper-check.ts";
 import { home } from "./home.ts";
 import { links } from "./links.ts";
 import { mailMeetings } from "./mail-meetings.ts";
@@ -29,6 +30,7 @@ import { nudges } from "./nudges.ts";
 import { onboarding } from "./onboarding.ts";
 import { overview } from "./overview.ts";
 import { overviewGrowth } from "./overview-growth.ts";
+import { passwordPresence } from "./password-presence.ts";
 import { people } from "./people.ts";
 import { platform } from "./platform.ts";
 import { research } from "./research.ts";
@@ -38,6 +40,7 @@ import { screenAsk } from "./screen-ask.ts";
 import { screens } from "./screens.ts";
 import { securityState } from "./security-state.ts";
 import { selfConnectors } from "./self-connectors.ts";
+import { separateDesktop } from "./separate-desktop.ts";
 import { settings } from "./settings.ts";
 import { settingsLanguage } from "./settings-language.ts";
 import { settingsSections } from "./settings-sections.ts";
@@ -113,7 +116,10 @@ export const en = {
   ...automationChat,
   ...widgets,
   ...platform,
+  ...passwordPresence,
+  ...helperCheck,
   ...securityState,
+  ...separateDesktop,
 } as const;
 
 export type MessageId = keyof typeof en;

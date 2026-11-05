@@ -540,12 +540,28 @@ export function ApprovalDetails({
             ) : null}
           </Row>
           <Row label={t("blocks.details.fields")}>{str(d.fields)}</Row>
+          {d.separateDesktop === true ? (
+            <Row label={t("blocks.details.thisPage")}>
+              <span className="inline-flex items-center gap-1 text-danger-text">
+                <TriangleAlert className="size-3.5" aria-hidden="true" />{" "}
+                {t("blocks.details.sdUnverified", { origin: bound })}
+              </span>
+            </Row>
+          ) : null}
           <Row label={t("blocks.details.personaSees", { persona })}>
             {t("blocks.details.placeholderOnly")}
           </Row>
           <Rest
             details={d}
-            shown={["item", "credential", "boundOrigin", "origin", "currentOrigin", "fields"]}
+            shown={[
+              "item",
+              "credential",
+              "boundOrigin",
+              "origin",
+              "currentOrigin",
+              "fields",
+              "separateDesktop",
+            ]}
           />
         </dl>
       );
@@ -645,6 +661,7 @@ export function ApprovalDetails({
           <Rest details={d} shown={["need", "reason"]} />
         </dl>
       );
+    case "separate_desktop_share":
     case "folder_access": {
       // The folder itself is the card's "Folder to share" pick; this is what was asked and why.
       const asked = str(d.requestedPath);
@@ -669,6 +686,23 @@ export function ApprovalDetails({
               "blockedReason",
             ]}
           />
+        </dl>
+      );
+    }
+    case "new_origin": {
+      // The separate desktop's internet card: when a read-write folder is also in play, say so.
+      const changes = Array.isArray(d.alsoChanges)
+        ? d.alsoChanges.filter((x): x is string => typeof x === "string")
+        : [];
+      if (d.separateDesktop !== true || changes.length === 0) {
+        return <GenericDetails approval={approval} d={d} />;
+      }
+      return (
+        <dl>
+          <Row label={t("blocks.details.sdFiles")}>
+            {changes.map((folder) => t("blocks.details.sdAlsoChanges", { folder })).join(" ")}
+          </Row>
+          <Rest details={d} shown={["alsoChanges", "separateDesktop"]} />
         </dl>
       );
     }
