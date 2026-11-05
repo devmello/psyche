@@ -48,8 +48,8 @@ describe("gating the mail and meeting skills", () => {
     expect(s.get("follow-up-tracking")?.reasons[0]).toMatch(
       /People & projects or reminders .*Settings → Memory.*Apple Reminders/,
     );
-    expect(s.get("meeting-notes")?.reasons[0]).toContain(
-      "turn on the Mac helper's speech engine in Settings → Voice & dictation",
+    expect(s.get("meeting-notes")?.reasons[0]).toMatch(
+      /turn on the (Mac|Windows) helper's speech engine in Settings → Voice & dictation/,
     );
   });
 });

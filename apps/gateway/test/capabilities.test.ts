@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DeferredToolsApi, ToolRunContext } from "@psyche/agent-core";
 import { setSetting } from "@psyche/db";
+import { hostWords } from "@psyche/protocol/host-words";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -393,7 +394,9 @@ describe("device access in find_capability", () => {
     expect(await status("terminal run commands", "setting:terminal")).toMatchObject({
       status: "installed",
     });
-    expect((await status("files on this mac", "setting:files"))?.summary).toContain("1 shared");
+    expect(
+      (await status(`files on ${hostWords().thisDevice}`, "setting:files"))?.summary,
+    ).toContain("1 shared");
     expect((await status("terminal", "setting:terminal"))?.install).toBeUndefined();
   });
 });

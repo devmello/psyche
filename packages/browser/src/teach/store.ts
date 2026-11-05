@@ -27,6 +27,7 @@ import {
   teachStepIssues,
   teachText,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 
 /**
  * Recordings the owner chose to keep (teach by showing, design doc §5). By default a recording is
@@ -274,7 +275,10 @@ export class TeachKeptStore {
 
   #encKey(): Buffer {
     if (this.#enc === null || this.#enc === undefined)
-      throw new PsycheError("unavailable", "recordings cannot be encrypted on this Mac");
+      throw new PsycheError(
+        "unavailable",
+        `recordings cannot be encrypted on ${hostWords().thisDevice}`,
+      );
     if (typeof this.#enc === "function") {
       try {
         this.#enc = this.#enc();
@@ -284,7 +288,10 @@ export class TeachKeptStore {
         this.#log(
           `kept recordings: the encryption key cannot be opened (${err instanceof Error ? err.message : "error"})`,
         );
-        throw new PsycheError("unavailable", "recordings cannot be encrypted on this Mac");
+        throw new PsycheError(
+          "unavailable",
+          `recordings cannot be encrypted on ${hostWords().thisDevice}`,
+        );
       }
     }
     if (this.#enc.length !== 32)
@@ -452,7 +459,7 @@ export class TeachKeptStore {
     if (!this.canKeep)
       throw new PsycheError(
         "unavailable",
-        "recordings are not kept on this Mac: the keychain is not available to encrypt them",
+        `recordings are not kept on ${hostWords().thisDevice}: ${hostWords().secretStore} is not available to encrypt them`,
       );
     await this.#ready();
     const clean = sanitizeTeachSteps(steps);

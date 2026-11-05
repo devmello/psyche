@@ -1,6 +1,7 @@
 import { openAsBlob } from "node:fs";
 import { basename } from "node:path";
 import { PsycheError } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import type { PathTranscribeOptions, PathTranscriber, PathTranscript } from "./node.ts";
 
 /**
@@ -50,7 +51,7 @@ export function endpointUrl(baseUrl: string): URL {
   if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
     throw new PsycheError(
       "invalid_params",
-      "the transcription endpoint must be https, or http on this Mac (127.0.0.1)",
+      `the transcription endpoint must be https, or http on ${hostWords().thisDevice} (127.0.0.1)`,
     );
   }
   return url;

@@ -23,6 +23,7 @@ import {
   type ToolResult,
   type ToolSpec,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { Type } from "@sinclair/typebox";
 import type { HandlerDef } from "../context.ts";
 import { MCP_SERVERS_SETTING } from "./mcp.ts";
@@ -275,8 +276,7 @@ function deviceAccessItems(db: PsycheDb): CatalogItem[] {
         ...base,
         id: "setting:terminal",
         name: "Terminal",
-        summary:
-          "Run terminal commands on this Mac, in folders the owner shared. Basic read-only file and info commands (ls, cat, wc, date…) run without asking unless the turn read untrusted content; every other command, git included, asks first. It runs under the sandbox unless the owner types UNSANDBOXED. Owner turns it on in Settings → Connectors → Terminal.",
+        summary: `Run terminal commands on ${hostWords().thisDevice}, in folders the owner shared. Basic read-only file and info commands (ls, cat, wc, date…) run without asking unless the turn read untrusted content; every other command, git included, asks first. It runs under the sandbox unless the owner types UNSANDBOXED. Owner turns it on in Settings → Connectors → Terminal.`,
         status: terminalOn ? "installed" : "off",
       },
       keywords: "terminal shell command run exec bash script cli",
@@ -285,8 +285,8 @@ function deviceAccessItems(db: PsycheDb): CatalogItem[] {
       entry: {
         ...base,
         id: "setting:files",
-        name: "Files on this Mac",
-        summary: `Read (and where allowed, change) files in folders the owner shared: ${folders} shared now. Same list as Settings → File access; the owner adds or revokes folders in Settings → Connectors → Files on this Mac.`,
+        name: `Files on ${hostWords().thisDevice}`,
+        summary: `Read (and where allowed, change) files in folders the owner shared: ${folders} shared now. Same list as Settings → File access; the owner adds or revokes folders in Settings → Connectors → Files on ${hostWords().thisDevice}.`,
         status: folders > 0 ? "installed" : "off",
       },
       keywords: "files folder documents disk local mac access grant",
@@ -834,7 +834,7 @@ export function capabilityTools(deps: CapabilityToolsDeps): {
     defineTool({
       name: "install_capability",
       description:
-        "Add an option find_capability returned: loads an installed tool or connector, or opens one card on the owner's Mac (source, tier, exact command or URL, network) and waits for the answer in this turn. On approval the new tools are loaded and you can call them from the next step. Add only what the task needs, and say in one line what you are adding and why. On a denial, tell the owner briefly and do not ask again.",
+        "Add an option find_capability returned: loads an installed tool or connector, or opens one card on the owner's computer (source, tier, exact command or URL, network) and waits for the answer in this turn. On approval the new tools are loaded and you can call them from the next step. Add only what the task needs, and say in one line what you are adding and why. On a denial, tell the owner briefly and do not ask again.",
       input: Type.Object({
         id: Type.String({ minLength: 3, maxLength: 260 }),
         reason: Type.String({ minLength: 3, maxLength: 300, description: "Why, in one line" }),

@@ -26,6 +26,7 @@ import {
   PsycheError,
   type ToolResult,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { type CliDriver, type CliResult, nodeCliDriver } from "@psyche/sandbox";
 import { Type } from "@sinclair/typebox";
 import type { SrtResolver } from "./srt.ts";
@@ -445,7 +446,7 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
   return defineTool({
     name: "exec_host",
     description:
-      "Run one command (an argv array, no shell string) on the owner's own Mac, in a folder they granted, for their own files and projects (build, test, git, scripts). Prefer `exec` (the sandbox container) whenever the work does not need the owner's real files. Calls ask the owner on their Mac, showing the exact argv, cwd, env and executable; read-only commands (date, pwd, whoami, uname, ls, cat, head, tail, wc, file, stat, which on files in the cwd) with no env and no allowedDomains run without asking unless the turn read untrusted content; git and everything else asks. It runs under srt (no secrets, no network unless `allowedDomains`). It is off until the owner turns it on: when a call is denied because it is off, or the cwd is outside granted folders, use request_permission with the `missing` object from the error, then retry.",
+      "Run one command (an argv array, no shell string) on the owner's own computer, in a folder they granted, for their own files and projects (build, test, git, scripts). Prefer `exec` (the sandbox container) whenever the work does not need the owner's real files. Calls ask the owner on their Mac, showing the exact argv, cwd, env and executable; read-only commands (date, pwd, whoami, uname, ls, cat, head, tail, wc, file, stat, which on files in the cwd) with no env and no allowedDomains run without asking unless the turn read untrusted content; git and everything else asks. It runs under srt (no secrets, no network unless `allowedDomains`). It is off until the owner turns it on: when a call is denied because it is off, or the cwd is outside granted folders, use request_permission with the `missing` object from the error, then retry.",
     input: Input,
     // The broker lowers a call to `read` only when it re-checks the read-only class itself
     // (`describeCall` names it in `meta`); the tool as such stays `destructive`.
@@ -472,7 +473,7 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
             }
           : {}),
         target: { kind: "command", value: command.slice(0, 1000) },
-        summary: `Run \`${command.slice(0, 80)}\` on this Mac`,
+        summary: `Run \`${command.slice(0, 80)}\` on ${hostWords().thisDevice}`,
         details: {
           argv: p.argv,
           cwd: p.cwd,

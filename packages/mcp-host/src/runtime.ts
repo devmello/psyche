@@ -2,6 +2,7 @@ import { constants } from "node:fs";
 import { access, realpath } from "node:fs/promises";
 import { posix, win32 } from "node:path";
 import { PsycheError } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 
 /**
  * Which program a stdio server's first word means, and where it really is. A LaunchAgent starts
@@ -17,8 +18,8 @@ export type RuntimeKind = "node" | "uv";
 
 /** Stable phrases; `diagnoseLaunch` recognises them. */
 export const RUNTIME_MISSING_TEXT: Record<RuntimeKind, string> = {
-  node: "Node.js tools (npm) are needed to run this server but were not found on this Mac",
-  uv: "uv (uvx) is needed to run this Python server but was not found on this Mac",
+  node: `Node.js tools (npm) are needed to run this server but were not found on ${hostWords().thisDevice}`,
+  uv: `uv (uvx) is needed to run this Python server but was not found on ${hostWords().thisDevice}`,
 };
 
 export interface RuntimeDeps {

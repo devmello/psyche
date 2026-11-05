@@ -1,3 +1,4 @@
+import { DEVICE_ONLY_TEXT } from "@psyche/permissions/cards";
 import type { ApprovalRequestInput, Channel, PsycheError } from "@psyche/protocol";
 import { FakeClock, FakePermissionBroker } from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -201,7 +202,7 @@ describe("SMS through the channel service", () => {
       { surface: `sms:${OWNER}`, delivered: false, reason: "weak_identity" },
     ]);
     const card = api.sent().at(-1) ?? "";
-    expect(card).toContain("Answer this on your Mac.");
+    expect(card).toContain(DEVICE_ONLY_TEXT);
     expect(card).not.toContain("/approve");
     expect(card).not.toContain("alice@example.org");
     expect(card).not.toContain(issued.answerTokens[`sms:${OWNER}`] ?? "?");

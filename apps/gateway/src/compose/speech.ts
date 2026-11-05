@@ -7,6 +7,7 @@ import { deleteSettings, getLibraryItem, getSetting, type PsycheDb } from "@psyc
 import { defaultDenyRead } from "@psyche/mcp-host";
 import type { LibraryItem, NodeClient } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import {
   createSpeechHandlers,
   createSpeechStack,
@@ -317,7 +318,7 @@ export function composeSpeech(setup: SpeechSetup = {}) {
         if (other === undefined) {
           throw new PsycheError(
             "unavailable",
-            "long recordings need the Mac helper or a transcription endpoint in Settings",
+            `long recordings need ${hostWords().helper} or a transcription endpoint in Settings`,
             { retryable: true },
           );
         }

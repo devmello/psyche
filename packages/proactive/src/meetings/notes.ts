@@ -10,6 +10,7 @@ import type {
   TranscriptSegment,
 } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { ulid } from "ulid";
 import { PROACTIVITY_BUDGET } from "../budget.ts";
 import { complete, extractJson } from "../feed/model.ts";
@@ -192,7 +193,7 @@ export class MeetingNotesService {
       );
     }
     if (this.#o.transcriber === undefined) {
-      throw new PsycheError("unavailable", "long recordings need the Mac helper", {
+      throw new PsycheError("unavailable", `long recordings need ${hostWords().helper}`, {
         retryable: true,
       });
     }
@@ -250,8 +251,7 @@ export class MeetingNotesService {
   async fromTranscript(input: TranscriptInput): Promise<NotesOutcome> {
     const { provider, primary } = this.#o;
     if (this.#o.primaryIsRemote?.() === true && this.#o.cloudAllowed?.() !== true) {
-      const question =
-        "Write meeting notes with your cloud model? The transcript would leave this Mac once per meeting.";
+      const question = `Write meeting notes with your cloud model? The transcript would leave ${hostWords().thisDevice} once per meeting.`;
       if (!this.#asked) {
         this.#asked = true;
         await this.#o.notifier?.notify({

@@ -1,5 +1,6 @@
 import { accessSync, constants } from "node:fs";
 import { delimiter, join } from "node:path";
+import { hostWords } from "@psyche/protocol/host-words";
 import type { SkillRequires } from "./frontmatter.ts";
 
 /** What gating checks against. Build one per Gateway (or per thread when tools differ). */
@@ -118,14 +119,14 @@ export const TOOL_CAPABILITIES: Readonly<
   },
   "files.*": {
     tools: ["files_*"],
-    label: "your Mac's files",
+    label: `${hostWords().yourDevice}'s files`,
     hint: "turn on Files in Settings → Connectors and share the folder in Settings → File access",
   },
   // Mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §8.1, §8.4).
   "speech.*": {
     tools: ["speech_*"],
     label: "transcription",
-    hint: "turn on the Mac helper's speech engine in Settings → Voice & dictation",
+    hint: `turn on ${hostWords().helper}'s speech engine in Settings → Voice & dictation`,
   },
   "proposals.*": {
     tools: ["proposals_*"],

@@ -32,6 +32,7 @@ import type {
   RecordingSpeakers,
 } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import { mountParamsOnly } from "./handlers.ts";
@@ -289,7 +290,7 @@ export class RecordMeeting {
     if (capture === undefined) {
       throw new PsycheError(
         "unavailable",
-        "Record meeting needs a way to turn audio into notes: connect the Mac helper",
+        `Record meeting needs a way to turn audio into notes: connect ${hostWords().helper}`,
         { retryable: true },
       );
     }
