@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createConnection } from "node:net";
 import { getDevice, listDevices } from "@psyche/db";
 import { afterEach, describe, expect, it } from "vitest";
@@ -59,15 +59,19 @@ async function pairWith(
 }
 
 describe("a separate desktop's socket", () => {
-  it("keeps the token in a 0600 file next to the socket, never anywhere else, and removes it when spent or closed", async () => {
+  it("keeps the token in a 0600 file next to the socket, and removes it when the socket closes", async () => {
     const { g, guests } = await start();
     const opened = await guests.open("main");
     expect(opened.tokenPath).toMatch(/run\/guest-main\.token$/);
     expect(statSync(opened.tokenPath).mode & 0o777).toBe(0o600);
     expect(readFileSync(opened.tokenPath, "utf8")).toBe(`${opened.token}
 `);
-    // Spent on pairing: the file is gone, so nothing is left to read.
+    // What the entrypoint does: read it once, empty it. Then the helper pairs.
+    writeFileSync(opened.tokenPath, "");
     await pairWith(opened.socketPath, opened.token, { origin: g.origin });
+    expect(existsSync(opened.tokenPath)).toBe(true);
+    expect(readFileSync(opened.tokenPath, "utf8")).toBe("");
+    guests.close("main");
     expect(existsSync(opened.tokenPath)).toBe(false);
     // Closed before use: gone too.
     const second = await guests.open("other");

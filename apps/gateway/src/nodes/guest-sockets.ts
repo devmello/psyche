@@ -182,8 +182,8 @@ export class GuestSockets {
     }
     entry.spent = true;
     entry.deviceId = deviceId;
-    // Spent: the file has nothing left to give anyone.
-    rmSync(entry.tokenPath, { force: true });
+    // The file stays until the socket closes (the start's mount check compares its identity), but
+    // the entrypoint emptied it before the helper ran, so it has nothing left to give anyone.
     return true;
   }
 
