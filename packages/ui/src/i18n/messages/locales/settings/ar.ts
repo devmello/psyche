@@ -573,6 +573,10 @@ export const settings: Partial<Catalogue> = {
   "settings.devices.touchId.bundled": "يعرض مساعد Psyche في هذا التطبيق المفتاح",
   "settings.devices.touchId.notBundled":
     "هذا المساعد ليس المضمَّن مع هذا التطبيق، لذا لا يمكن تسجيل مفتاحه هنا.",
+  "settings.devices.touchId.untrusted":
+    "لم يُستخدم مفتاح Touch ID في سلسلة المفاتيح لأنه لا يمكن إثبات أنه يخص مساعد Psyche: فقد غيّره شيء آخر أو أضافه. أعد تعيينه بتشغيل المساعد مع الخيار --reset-presence-key (راجع وثائق الأمان)، ثم سجّل المفتاح الجديد.",
+  "settings.devices.touchId.accessDenied":
+    "لم يسمح macOS لمساعد Psyche باستخدام مفتاح Touch ID في سلسلة المفاتيح. شغّل Psyche مرة أخرى واختر السماح دائمًا عندما يسأل macOS.",
   "settings.devices.touchId.noBundledKey":
     "لا يملك مساعد Psyche في هذا التطبيق مفتاح Touch ID ({reason}).",
   "settings.devices.touchId.register": "تسجيل هذا المفتاح",

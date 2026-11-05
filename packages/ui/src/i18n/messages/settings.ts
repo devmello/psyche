@@ -1456,6 +1456,10 @@ export const settings = {
   "settings.devices.touchId.bundled": "The Psyche Helper in this app shows key",
   "settings.devices.touchId.notBundled":
     "This helper isn't the one bundled with this app, so its key can't be registered here.",
+  "settings.devices.touchId.untrusted":
+    "The Touch ID key in the keychain was not used because it can't be shown to be Psyche Helper's: something else changed or added it. Reset it by running the helper with --reset-presence-key (see the security docs), then register the new key.",
+  "settings.devices.touchId.accessDenied":
+    "macOS did not let Psyche Helper use its Touch ID key in the keychain. Run Psyche again and choose Always Allow when macOS asks.",
   "settings.devices.touchId.noBundledKey":
     "The Psyche Helper in this app has no Touch ID key ({reason}).",
   "settings.devices.touchId.register": "Register this key",

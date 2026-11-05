@@ -101,7 +101,13 @@ export function TouchIdKeySetup({
       bundled.deviceId !== deviceId ? (
         <p data-testid="touch-id-not-bundled">{t("settings.devices.touchId.notBundled")}</p>
       ) : bundled.keyId === undefined ? (
-        <p>{t("settings.devices.touchId.noBundledKey", { reason: bundled.error ?? "unknown" })}</p>
+        <p data-testid="touch-id-no-key">
+          {bundled.error === "presence_key_untrusted"
+            ? t("settings.devices.touchId.untrusted")
+            : bundled.error === "presence_key_access_denied"
+              ? t("settings.devices.touchId.accessDenied")
+              : t("settings.devices.touchId.noBundledKey", { reason: bundled.error ?? "unknown" })}
+        </p>
       ) : (
         <div className="flex flex-col gap-2">
           <p>

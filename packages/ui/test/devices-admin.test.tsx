@@ -176,6 +176,21 @@ describe("Settings → Devices: registering a Touch ID key (security review, fin
     expect(h.onAllowDevFileKey).toHaveBeenCalledWith(true);
   });
 
+  it("an untrusted keychain key is named in plain words and nothing can be registered", () => {
+    render(
+      <StoryWorld>
+        <TouchIdKeySetup
+          deviceId="dev_helper"
+          bundled={{ deviceId: "dev_helper", error: "presence_key_untrusted" }}
+          allowDevFileKey={false}
+          {...handlers()}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.getByTestId("touch-id-no-key").textContent).toContain("--reset-presence-key");
+    expect(screen.queryByRole("button", { name: "Register this key" })).toBeNull();
+  });
+
   it("web: the owner pastes the key id the helper prints; nothing registers without one", async () => {
     const h = handlers();
     render(

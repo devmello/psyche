@@ -11,7 +11,7 @@ import PsycheWire
 // grants belong to the helper (spike 04).
 
 let usage = """
-    usage: psyche-helper [--handshake-only [--challenge-only]] [--timeout <seconds>] [--manifest] [--build-info] [--print-identity]
+    usage: psyche-helper [--handshake-only [--challenge-only]] [--timeout <seconds>] [--manifest] [--build-info] [--print-identity] [--reset-presence-key]
 
       (no flags)        stay connected to the Gateway and serve capabilities (reconnects)
       --handshake-only  connect, pair, print the phase and exit (smoke test)
@@ -19,7 +19,12 @@ let usage = """
       --manifest        print the capability manifest as JSON and exit
       --build-info      print {"presenceFileFallback": true|false} and exit (release builds: false; the keychain ACL key is in every build)
       --print-identity  print {deviceId, presenceKeyId, presenceKeyKind} as JSON and exit: what the
-                        desktop compares with the Gateway before it registers the Touch ID key
+                        desktop compares with the Gateway before it registers the Touch ID key;
+                        read only (never creates a key, never waits for a keychain prompt)
+      --reset-presence-key
+                        owner action: delete the Touch ID key kept in the login keychain (macOS may
+                        ask) and make a new one, then print its key id. Register it again in
+                        Settings → Devices. Quit Psyche Helper first.
 
     Environment: PSYCHE_NODE_SOCKET (default $PSYCHE_HOME/run/node.sock), PSYCHE_HOME (default ~/.psyche).
     Exit codes (--handshake-only): 0 handshake done, 2 socket missing, 3 denied, 4 timeout, 1 other errors.
@@ -31,6 +36,7 @@ var verify = true
 var printManifest = false
 var printIdentity = false
 var printBuildInfo = false
+var resetPresenceKey = false
 // `psyche-helper vsock-bridge CID:PORT`: stdin/stdout ⇄ vsock, the bridge psyche-node uses in a
 // macOS guest (PSYCHE_NODE_VSOCK_BRIDGE, VM mode L3). Handled before anything else starts.
 if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "vsock-bridge" {
@@ -71,6 +77,7 @@ while let arg = args.popFirst() {
     case "--manifest": printManifest = true
     case "--print-identity": printIdentity = true
     case "--build-info": printBuildInfo = true
+    case "--reset-presence-key": resetPresenceKey = true
     case "-h", "--help":
         print(usage)
         exit(0)
@@ -97,7 +104,22 @@ if printBuildInfo {
 
 // The desktop runs its bundled copy with --print-identity (a fixed path inside its own signed app)
 // to learn the device id and Touch ID key id it registers, independently of whatever node answers
-// on the Gateway socket (security §10). Read-only apart from creating them on first use.
+// on the Gateway socket (security §10). Creates only the device identity on first use, never a
+// Touch ID key (the running helper makes that).
+if resetPresenceKey {
+    do {
+        let made = try EnclaveKeychainAclPresenceKey().resetByOwner()
+        print(JSONValue.object(["presenceKeyId": .string(made.keyId)]).jsonString(pretty: false))
+        exit(0)
+    } catch let e as CapabilityError {
+        FileHandle.standardError.write(Data("reset failed: \(e.reason)\n".utf8))
+        exit(1)
+    } catch {
+        FileHandle.standardError.write(Data("reset failed\n".utf8))
+        exit(1)
+    }
+}
+
 if printIdentity {
     let quiet = HelperLog(echo: { _ in })
     var out: [String: JSONValue] = [:]
@@ -107,10 +129,17 @@ if printIdentity {
         FileHandle.standardError.write(Data("could not load the device identity\n".utf8))
         exit(1)
     }
+    // Read only and never interactive: this runs under the desktop's 15 s timeout, so it must not
+    // create, delete or rewrite a key, nor wait for a macOS keychain prompt.
+    SecKeychainSetUserInteractionAllowed(false)
     let presence = PreferredPresenceKey.live()
     do {
-        out["presenceKeyId"] = .string(try presence.publicKey().keyId)
-        out["presenceKeyKind"] = .string(presence.keyKind.rawValue)
+        if let existing = try presence.existingPublicKey() {
+            out["presenceKeyId"] = .string(existing.keyId)
+            out["presenceKeyKind"] = .string(presence.keyKind.rawValue)
+        } else {
+            out["presenceError"] = .string("no_presence_key")
+        }
     } catch let e as CapabilityError {
         out["presenceError"] = .string(e.reason)
     } catch {

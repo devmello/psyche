@@ -192,22 +192,42 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
           );
         }
         const kind = kindOf(out.kind);
-        // RELEASE BLOCKER (docs/08-roadmap.md v1.0): the development-only file key (security §10).
-        if (kind === "enclave_file" && !deps.allowDevFileKey()) {
+        // Only the keychain kinds are accepted in every build. Anything else, the development file
+        // key or a kind the helper did not name or this Gateway does not know, needs the setting.
+        if (kind !== "keychain" && kind !== "enclave_keychain_acl" && !deps.allowDevFileKey()) {
           throw new PsycheError(
             "forbidden",
-            `This helper's Touch ID key is a development Secure Enclave file key; turn on ${DEV_FILE_KEY_SETTING} to register it`,
-            { details: { reason: "dev_file_key_off" } },
+            kind === "enclave_file"
+              ? `This helper's Touch ID key is a development Secure Enclave file key; turn on ${DEV_FILE_KEY_SETTING} to register it`
+              : `This helper's Touch ID key has no recognised kind; turn on ${DEV_FILE_KEY_SETTING} to register it`,
+            {
+              details: {
+                reason: kind === "enclave_file" ? "dev_file_key_off" : "unknown_key_kind",
+              },
+            },
           );
         }
+        // A different key than the one registered: say so loudly, in the card the owner approves
+        // and in the audit log. A key that replaces another is how a swapped key would arrive.
+        const replaces = deps.store
+          .list()
+          .find((k) => k.deviceId === deviceId && k.keyId !== keyId);
         // A new verifier: once presence is enrolled, adding one needs the owner's presence.
         await requireFreshPresence(
           call,
           {
             name: "method:devices.presenceKey.register",
-            summary: "Register the Mac helper's Touch ID key",
+            summary:
+              replaces === undefined
+                ? "Register the Mac helper's Touch ID key"
+                : "REPLACE the Mac helper's registered Touch ID key with a different one",
             subject: { deviceId, keyId },
-            details: { method: "devices.presenceKey.register", deviceId, keyId },
+            details: {
+              method: "devices.presenceKey.register",
+              deviceId,
+              keyId,
+              ...(replaces === undefined ? {} : { replacesKeyId: replaces.keyId }),
+            },
           },
           params.approvalId,
         );
@@ -217,6 +237,14 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
           keyId,
           ...(kind === undefined ? {} : { kind }),
         });
+        if (replaces !== undefined) {
+          audit("presence_key.replaced", {
+            deviceId,
+            keyId,
+            previousKeyId: replaces.keyId,
+            ...(replaces.kind === undefined ? {} : { previousKind: replaces.kind }),
+          });
+        }
         call.ctx.presenceState(); // records the enrollment (sticky)
         return { presenceKey };
       },

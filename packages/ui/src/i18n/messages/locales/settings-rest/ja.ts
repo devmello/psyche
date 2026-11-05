@@ -622,6 +622,10 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.bundled": "このアプリのPsyche Helperのキーを表示",
   "settings.devices.touchId.notBundled":
     "このヘルパーはこのアプリに同梱のものではないため、ここでキーを登録できません。",
+  "settings.devices.touchId.untrusted":
+    "キーチェーンのTouch IDキーは、Psyche Helperのものと確認できないため使われませんでした。ほかの何かが変更または追加しています。--reset-presence-key を付けてヘルパーを実行してリセットし（セキュリティのドキュメント参照）、新しいキーを登録してください。",
+  "settings.devices.touchId.accessDenied":
+    "macOSがPsyche Helperにキーチェーンの Touch IDキーの使用を許可しませんでした。Psycheを再度起動し、macOSの確認で「常に許可」を選んでください。",
   "settings.devices.touchId.noBundledKey":
     "このアプリのPsyche HelperにはTouch IDキーがありません（{reason}）。",
   "settings.devices.touchId.register": "このキーを登録",

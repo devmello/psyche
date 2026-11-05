@@ -31,6 +31,13 @@ public protocol EnclaveKeyBackend: Sendable {
     /// signature over `message` with that same context (one prompt). Throws
     /// `PresenceKeyErrors.refused` when Touch ID passed but the Secure Enclave refused the key.
     func sign(blob: Data, message: Data, reason: String) async throws -> Data
+    /// True when the key signs a nonce with no authentication at all (no Touch ID requirement), so it
+    /// is not a key this helper made. Never shows UI. Default false (tests' software keys).
+    func signsWithoutAuthentication(blob: Data) -> Bool
+}
+
+extension EnclaveKeyBackend {
+    public func signsWithoutAuthentication(blob: Data) -> Bool { false }
 }
 
 /// CryptoKit's Secure Enclave key: works without a keychain access group, so builds without a
@@ -59,6 +66,14 @@ public struct SecureEnclaveBackend: EnclaveKeyBackend {
         } catch {
             throw CapabilityError(.errorCodeInternal, reason: "presence_key", "The Touch ID key file can't be used on this Mac")
         }
+    }
+
+    public func signsWithoutAuthentication(blob: Data) -> Bool {
+        // interactionNotAllowed: a key that needs Touch ID fails here instead of showing the sheet.
+        let ctx = LAContext()
+        ctx.interactionNotAllowed = true
+        guard let key = try? SecureEnclave.P256.Signing.PrivateKey(dataRepresentation: blob, authenticationContext: ctx) else { return false }
+        return (try? key.signature(for: Data("psyche-presence-probe".utf8))) != nil
     }
 
     public func sign(blob: Data, message: Data, reason: String) async throws -> Data {
@@ -226,6 +241,15 @@ public final class EnclaveFilePresenceKey: PresenceSigning, @unchecked Sendable 
         return (x963, PresenceMessage.keyId(x963: x963))
     }
 
+    /// Read only: nil when there is no key file; never makes or moves one.
+    public func existingPublicKey() throws -> (x963: Data, keyId: String)? {
+        try lock.withLock {
+            guard let loaded = try load() else { return nil }
+            let x963 = try backend.publicKey(blob: loaded.blob)
+            return (x963, PresenceMessage.keyId(x963: x963))
+        }
+    }
+
     public func sign(challenge: String, reason: String) async throws -> PresenceSignature {
         guard PresenceMessage.isValidChallenge(challenge) else {
             throw CapabilityError.invalidParams("presenceChallenge must be 64 hex characters", field: "presenceChallenge")
@@ -387,7 +411,7 @@ public final class PreferredPresenceKey: PresenceSigning, @unchecked Sendable {
             if let chosen { return chosen }
             let pick: any PresenceSigning
             do {
-                _ = try primary.publicKey()
+                _ = try primary.existingPublicKey()
                 pick = primary
             } catch let e as CapabilityError where e.reason == "missing_entitlement" {
                 pick = fileKeyAllowed ? fileKey : aclKey
@@ -400,6 +424,8 @@ public final class PreferredPresenceKey: PresenceSigning, @unchecked Sendable {
     public var keyKind: PresenceKeyKind { (try? active())?.keyKind ?? primary.keyKind }
 
     public func publicKey() throws -> (x963: Data, keyId: String) { try active().publicKey() }
+
+    public func existingPublicKey() throws -> (x963: Data, keyId: String)? { try active().existingPublicKey() }
 
     public func sign(challenge: String, reason: String) async throws -> PresenceSignature {
         try await active().sign(challenge: challenge, reason: reason)

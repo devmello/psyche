@@ -633,6 +633,10 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.bundled": "Le Psyche Helper de cette app affiche la clé",
   "settings.devices.touchId.notBundled":
     "Cet assistant n’est pas celui fourni avec cette app, sa clé ne peut donc pas être enregistrée ici.",
+  "settings.devices.touchId.untrusted":
+    "La clé Touch ID du trousseau n’a pas été utilisée, car rien ne prouve qu’elle appartient à l’assistant Psyche : autre chose l’a modifiée ou ajoutée. Réinitialisez-la en lançant l’assistant avec --reset-presence-key (voir la documentation de sécurité), puis enregistrez la nouvelle clé.",
+  "settings.devices.touchId.accessDenied":
+    "macOS n’a pas autorisé l’assistant Psyche à utiliser sa clé Touch ID du trousseau. Relancez Psyche et choisissez Toujours autoriser quand macOS le demande.",
   "settings.devices.touchId.noBundledKey":
     "Le Psyche Helper de cette app n’a pas de clé Touch ID ({reason}).",
   "settings.devices.touchId.register": "Enregistrer cette clé",

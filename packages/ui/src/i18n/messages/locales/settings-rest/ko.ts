@@ -615,6 +615,10 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.bundled": "이 앱의 Psyche Helper 키 표시",
   "settings.devices.touchId.notBundled":
     "이 도우미는 이 앱에 포함된 것이 아니므로 여기서 키를 등록할 수 없습니다.",
+  "settings.devices.touchId.untrusted":
+    "키체인의 Touch ID 키는 Psyche 도우미의 것임을 확인할 수 없어 사용하지 않았습니다. 다른 무언가가 바꾸거나 추가했습니다. --reset-presence-key 옵션으로 도우미를 실행해 초기화하고(보안 문서 참조) 새 키를 등록하세요.",
+  "settings.devices.touchId.accessDenied":
+    "macOS가 Psyche 도우미의 키체인 Touch ID 키 사용을 허용하지 않았습니다. Psyche를 다시 실행하고 macOS가 물으면 항상 허용을 선택하세요.",
   "settings.devices.touchId.noBundledKey":
     "이 앱의 Psyche Helper에 Touch ID 키가 없습니다 ({reason}).",
   "settings.devices.touchId.register": "이 키 등록",

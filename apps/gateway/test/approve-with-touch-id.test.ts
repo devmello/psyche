@@ -116,7 +116,7 @@ async function setup(
     const node = await FakeNode.connect(composed.gateway.config.nodeSocketPath, {
       origin: composed.gateway.origin,
       secret: composed.gateway.handshakeSecret,
-      handlers: helperHandlers(key, opts.confirm, opts.kind),
+      handlers: helperHandlers(key, opts.confirm, opts.kind ?? "keychain"),
       deviceId: helperDevice,
     });
     nodes.push(node);
@@ -340,7 +340,7 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
       presenceKeys: [{ deviceId: helperDevice, kind: "enclave_file" }],
     });
     await reset();
-    const old = await setup({ kind: "something-else" });
+    const old = await setup({ kind: "something-else", allowDevFileKey: true });
     const listed = await old.admin.call<{ presenceKeys: Record<string, unknown>[] }>(
       "devices.presenceKey.list",
       {},
@@ -561,6 +561,20 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
     ).toMatchObject({ presenceKey: { kind: "enclave_keychain_acl" } });
     expect(await admin.call("devices.presenceKey.list", {})).toMatchObject({
       presenceKeys: [{ deviceId: helperDevice, kind: "enclave_keychain_acl" }],
+    });
+  });
+
+  it("refuses a kind that is missing or unknown unless the dev setting is on", async () => {
+    const { admin, helperDevice, key } = await setup({ kind: "something-else", register: false });
+    expect(
+      await admin.request(
+        "devices.presenceKey.register",
+        { deviceId: helperDevice, expectKeyId: key.keyId },
+        ik(),
+      ),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "forbidden", details: { reason: "unknown_key_kind" } },
     });
   });
 

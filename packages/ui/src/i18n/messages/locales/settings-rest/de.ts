@@ -637,6 +637,10 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.bundled": "Der Psyche Helper in dieser App zeigt den Schlüssel",
   "settings.devices.touchId.notBundled":
     "Dieser Helper ist nicht der, der mit dieser App geliefert wurde, daher lässt sich sein Schlüssel hier nicht registrieren.",
+  "settings.devices.touchId.untrusted":
+    "Der Touch-ID-Schlüssel im Schlüsselbund wurde nicht verwendet, weil sich nicht belegen lässt, dass er vom Psyche Helper stammt: etwas anderes hat ihn geändert oder hinzugefügt. Setze ihn zurück, indem du den Helper mit --reset-presence-key startest (siehe Sicherheitsdokumentation), und registriere dann den neuen Schlüssel.",
+  "settings.devices.touchId.accessDenied":
+    "macOS hat dem Psyche Helper die Nutzung seines Touch-ID-Schlüssels im Schlüsselbund nicht erlaubt. Starte Psyche neu und wähle „Immer erlauben“, wenn macOS fragt.",
   "settings.devices.touchId.noBundledKey":
     "Der Psyche Helper in dieser App hat keinen Touch-ID-Schlüssel ({reason}).",
   "settings.devices.touchId.register": "Diesen Schlüssel registrieren",

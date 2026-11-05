@@ -603,6 +603,10 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.bundled": "इस ऐप का Psyche Helper कुंजी दिखाता है",
   "settings.devices.touchId.notBundled":
     "यह हेल्पर इस ऐप के साथ आया हेल्पर नहीं है, इसलिए इसकी कुंजी यहाँ रजिस्टर नहीं की जा सकती।",
+  "settings.devices.touchId.untrusted":
+    "कीचेन में मौजूद Touch ID कुंजी इस्तेमाल नहीं की गई, क्योंकि यह साबित नहीं हो सकता कि वह Psyche हेल्पर की है: किसी और ने उसे बदला या जोड़ा है। हेल्पर को --reset-presence-key विकल्प के साथ चलाकर उसे रीसेट करें (सुरक्षा दस्तावेज़ देखें), फिर नई कुंजी पंजीकृत करें।",
+  "settings.devices.touchId.accessDenied":
+    "macOS ने Psyche हेल्पर को कीचेन की अपनी Touch ID कुंजी इस्तेमाल करने नहीं दी। Psyche फिर से चलाएँ और macOS पूछे तो हमेशा अनुमति दें चुनें।",
   "settings.devices.touchId.noBundledKey":
     "इस ऐप के Psyche Helper के पास Touch ID कुंजी नहीं है ({reason})।",
   "settings.devices.touchId.register": "यह कुंजी रजिस्टर करें",

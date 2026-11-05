@@ -110,6 +110,10 @@ export const settingsC: Partial<Catalogue> = {
   "settings.devices.touchId.bundled": "O Psyche Helper deste app mostra a chave",
   "settings.devices.touchId.notBundled":
     "Este auxiliar não é o que vem com este app, então a chave dele não pode ser registrada aqui.",
+  "settings.devices.touchId.untrusted":
+    "A chave do Touch ID no chaveiro não foi usada porque não é possível provar que é do auxiliar do Psyche: outra coisa a alterou ou adicionou. Redefina-a executando o auxiliar com --reset-presence-key (veja a documentação de segurança) e registre a nova chave.",
+  "settings.devices.touchId.accessDenied":
+    "O macOS não permitiu que o auxiliar do Psyche usasse sua chave do Touch ID no chaveiro. Abra o Psyche de novo e escolha Sempre permitir quando o macOS perguntar.",
   "settings.devices.touchId.noBundledKey":
     "O Psyche Helper deste app não tem chave do Touch ID ({reason}).",
   "settings.devices.touchId.register": "Registrar esta chave",

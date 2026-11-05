@@ -541,6 +541,10 @@ export const settings: Partial<Catalogue> = {
     "还没有 Touch ID 密钥。注册密钥之前，需要 Touch ID 的卡片无法批准。",
   "settings.devices.touchId.bundled": "此 App 中的 Psyche 助手显示密钥",
   "settings.devices.touchId.notBundled": "此助手不是此 App 自带的那个，因此无法在此注册它的密钥。",
+  "settings.devices.touchId.untrusted":
+    "钥匙串中的 Touch ID 密钥未被使用，因为无法证明它属于 Psyche 助手：有其他程序更改或添加了它。请用 --reset-presence-key 选项运行助手来重置（见安全文档），然后注册新密钥。",
+  "settings.devices.touchId.accessDenied":
+    "macOS 未允许 Psyche 助手使用钥匙串中的 Touch ID 密钥。请重新运行 Psyche，并在 macOS 询问时选择“始终允许”。",
   "settings.devices.touchId.noBundledKey":
     "此 App 中的 Psyche 助手没有 Touch ID 密钥（{reason}）。",
   "settings.devices.touchId.register": "注册此密钥",
