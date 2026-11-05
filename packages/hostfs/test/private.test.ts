@@ -3,7 +3,13 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { currentUserSid, daclIsOwnerOnly, isOwnerOnly, restrictToOwner } from "../src/index.ts";
+import {
+  currentUserSid,
+  daclIsOwnerOnly,
+  isOwnerOnly,
+  readDaclsSddl,
+  restrictToOwner,
+} from "../src/index.ts";
 import { exposeToOthers, OWNER_DIR, OWNER_FILE, privacyOf } from "../src/testing.ts";
 
 describe("@psyche/hostfs/testing", () => {
@@ -112,6 +118,24 @@ describe("isOwnerOnly / restrictToOwner on this host", () => {
     expect(isOwnerOnly(d)).toBe(true);
     writeFileSync(join(d, "later"), "x");
     expect(isOwnerOnly(join(d, "later"))).toBe(true);
+  });
+
+  it.runIf(process.platform === "win32")("Windows: one icacls run reads a folder's tree", () => {
+    mkdirSync(join(dir, "vault", "sub"), { recursive: true });
+    writeFileSync(join(dir, "vault", "sub", "k"), "x");
+    writeFileSync(join(dir, "top"), "x");
+    expect(spawnSync("icacls", [join(dir, "top"), "/grant", "*S-1-1-0:(R)", "/q"]).status).toBe(0);
+    const sid = currentUserSid() ?? "";
+    const entries = readDaclsSddl(`${dir}\\*`);
+    expect(entries?.map((e) => e.name).sort()).toEqual(["top", "vault"]);
+    const own = (name: string, list = entries) =>
+      daclIsOwnerOnly(list?.find((e) => e.name === name)?.sddl ?? "", sid, false);
+    expect(own("top")).toBe(false);
+    expect(own("vault")).toBe(true);
+    const tree = readDaclsSddl(join(dir, "vault"), { recursive: true });
+    expect(tree?.map((e) => e.name)).toEqual(["vault", "vault\\sub", "vault\\sub\\k"]);
+    expect(own("vault\\sub\\k", tree)).toBe(true);
+    expect(readDaclsSddl(join(dir, "missing"))).toBeNull();
   });
 
   it.runIf(process.platform === "win32")("Windows: an unreadable path is not owner-only", () => {
