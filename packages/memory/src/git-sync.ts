@@ -38,6 +38,13 @@ memory/imports/
 
 const AUTHOR = ["-c", "user.name=Psyche", "-c", "user.email=psyche@localhost"];
 
+/**
+ * The workspace's bytes as written, whatever the owner's git config says: Git for Windows sets
+ * `core.autocrlf=true` system-wide, which would rewrite every note to CRLF on checkout (and the
+ * scan, the index and the other machine would see different text).
+ */
+const BYTES_AS_WRITTEN = ["-c", "core.autocrlf=false", "-c", "core.eol=lf"];
+
 export interface GitSyncOptions {
   /** Remote name (default `origin`). */
   remote?: string;
@@ -98,7 +105,7 @@ export class WorkspaceGit {
 
   async #run(args: string[], allowFail = false): Promise<{ stdout: string; code: number }> {
     try {
-      const { stdout } = await run(this.#git, args, {
+      const { stdout } = await run(this.#git, [...BYTES_AS_WRITTEN, ...args], {
         cwd: this.#store.root,
         env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_ASKPASS: "", LC_ALL: "C" },
         maxBuffer: 16 * 1024 * 1024,
