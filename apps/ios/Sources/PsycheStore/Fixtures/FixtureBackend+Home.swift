@@ -87,6 +87,22 @@ extension FixtureData {
         allowLabel: "Allow with Face ID"
     )
 
+    /// A non-payment write: no presence check, so "Allow" answers straight away (the UI tests tap it).
+    public static let dentistApproval = ApprovalDetail(
+        kindLabel: "calendar",
+        title: "Add the dentist cleaning to your calendar",
+        summary: "Psyche found the confirmation email and wants to put the appointment on your calendar.",
+        fields: [
+            .init(key: "Event", value: "Dentist cleaning"),
+            .init(key: "When", value: "Sat, Nov 7 · 10:00"),
+            .init(key: "Calendar", value: "Personal"),
+        ],
+        evidence: ["mail 07:41"],
+        alsoSentTo: "Mac · expires 21:12",
+        presenceNote: nil,
+        allowLabel: "Allow"
+    )
+
     public static let deckQuestion = QuestionDetail(
         prompt: "I found two decks in the Q3 folder. Dana asked for the latest, but the older one has the final numbers.",
         options: [
@@ -102,6 +118,9 @@ extension FixtureData {
             NeedsYouItem(
                 id: "q_deck", kind: .question, title: "Which deck should I send to Dana?",
                 source: "Q3 review", time: "8:40", threadID: "thr_q3", question: deckQuestion),
+            NeedsYouItem(
+                id: "appr_dentist", kind: .approval, title: "Add 'Dentist cleaning' to your calendar, Sat 10:00",
+                source: "Mail", time: "7:41", approval: dentistApproval),
         ],
         running: [
             RunningTask(

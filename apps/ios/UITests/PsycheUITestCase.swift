@@ -72,6 +72,22 @@ class PsycheUITestCase: XCTestCase {
     /// The grabber every sheet shows; gone once the sheet has dismissed.
     var sheetGrabber: XCUIElement { app.buttons["Sheet Grabber"] }
 
+    /// Drags the sheet's grabber to the bottom of the screen to dismiss it.
+    func dismissSheetByDragging() {
+        let grabber = sheetGrabber.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        grabber.press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1.0)))
+    }
+
+    /// Taps outside a popover (a confirmation dialog on iPhone) to dismiss it, like Cancel.
+    func dismissPopover() {
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.12)).tap()
+    }
+
+    /// The last button with this label: a confirmation dialog's button sits above the page's own.
+    func lastButton(_ label: String) -> XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label == %@", label)).allElementsBoundByIndex.last ?? app.buttons[label]
+    }
+
     /// The Needs-you row for an item by title text.
     func needsYouRow(_ title: String) -> XCUIElement {
         app.buttons.matching(NSPredicate(format: "label CONTAINS %@", title)).firstMatch
