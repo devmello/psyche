@@ -114,11 +114,13 @@ public actor NotifiedLedger {
 extension TaskActivityContent {
     /// The content state for a task. The title is included only when the owner turned on
     /// "Task titles on the Lock Screen"; with it off nothing about the task but its progress leaves the app.
+    /// `inlineApprovalID` is the waiting approval only when the island may answer it (a write approval with
+    /// no presence gate; the caller decides with `AlertPolicy.answersInline`).
     /// The island-only fields (`islandTitle`, `detail`, `asking`) are always filled: the Dynamic Island
     /// shows only on an unlocked phone, and the activity never leaves it.
     public static func make(
         task: RunningTask, status: TaskActivityStatus, showTitle: Bool, now: Date = .now, fallbackStart: Date? = nil,
-        asking: String? = nil
+        asking: String? = nil, inlineApprovalID: String? = nil
     ) -> TaskActivityContent {
         let detail = task.detail.trimmingCharacters(in: .whitespacesAndNewlines)
         return TaskActivityContent(
@@ -126,7 +128,8 @@ extension TaskActivityContent {
             startedAt: task.startedAt ?? fallbackStart ?? now, endedAt: nil,
             title: showTitle ? task.title : nil, islandTitle: task.title,
             detail: detail.isEmpty ? nil : detail.prefix(1).uppercased() + detail.dropFirst(),
-            asking: status == .needsApproval ? asking : nil)
+            asking: status == .needsApproval ? asking : nil,
+            inlineApprovalID: status == .needsApproval ? inlineApprovalID : nil)
     }
 
     /// The same activity, finished: the timer stops and the title rule still applies.
@@ -135,6 +138,7 @@ extension TaskActivityContent {
         copy.status = failed ? .failed : .done
         copy.endedAt = now
         copy.asking = nil
+        copy.inlineApprovalID = nil
         copy.detail = failed ? "Open Psyche to see what went wrong" : nil
         if !failed, stepCount > 0 { copy.step = stepCount }
         return copy

@@ -267,6 +267,84 @@ describe("undo of a direct chat update", () => {
   });
 });
 
+describe("a work item's history", () => {
+  it("lists the changes newest first and marks only chat updates in the window undoable", () => {
+    graph.setFact({
+      entityId: thesis,
+      attribute: "next_step",
+      value: "email Rao",
+      provenance: "owner",
+    });
+    const r = say("Thesis draft: stopped at section 3", {
+      attribute: "stopped_at",
+      value: "section 3",
+    });
+    const history = em.workHistory(thesis);
+    expect(history.map((h) => [h.attribute, h.value, h.origin, h.undoable])).toEqual(
+      expect.arrayContaining([
+        ["stopped_at", "section 3", "chat", true],
+        ["next_step", "email Rao", "you", false],
+      ]),
+    );
+    expect(history.find((h) => h.factId === r.applied[0]?.factId)?.undoable).toBe(true);
+  });
+
+  it("is no longer undoable once undone, changed again, or past seven days", () => {
+    const r = say("Thesis draft: stopped at section 3", {
+      attribute: "stopped_at",
+      value: "section 3",
+    });
+    const id = r.applied[0]?.factId as string;
+    graph.setFact({
+      entityId: thesis,
+      attribute: "stopped_at",
+      value: "section 5",
+      provenance: "owner",
+    });
+    // Changed again: still listed and still inside the window; Undo itself answers changed_again.
+    expect(em.workHistory(thesis).find((h) => h.factId === id)?.undoable).toBe(true);
+    expect(em.undoChatWork(id)).toBe("changed_again");
+    const later = new GraphStore({
+      sqlite: env.db.sqlite,
+      clock: new FakeClock(NOW + 8 * 86_400_000),
+    });
+    const store = new EverythingStore({
+      sqlite: env.db.sqlite,
+      graph: later,
+      clock: new FakeClock(NOW + 8 * 86_400_000),
+    });
+    expect(store.workHistory(thesis).find((h) => h.factId === id)?.undoable).toBe(false);
+  });
+
+  it("words a cited line from its source and keeps the chip", () => {
+    const out = em.proposeFact({
+      entityId: thesis,
+      attribute: "next_step",
+      value: "submit the form",
+      provenance: "untrusted",
+      subjectKind: "about_other",
+      sensitivity: "none",
+      confidence: 0.8,
+      extractor: "model/x",
+      citations: [
+        {
+          source: "mail",
+          sourceRef: "<a@b>",
+          quote: "please submit the form",
+          start: 0,
+          end: 22,
+          sourceHash: "h",
+          authorEntityId: null,
+        },
+      ],
+    });
+    if (out.status === "refused") throw new Error(out.reason);
+    em.decide(out.fact.id, "confirm");
+    const h = em.workHistory(thesis).find((x) => x.factId === out.fact.id);
+    expect(h).toMatchObject({ origin: "mail", undoable: false, chip: { source: "mail" } });
+  });
+});
+
 describe("a proposal carries the pending fact the owner decides", () => {
   it("names the pending fact, and nothing is applied until it is confirmed", () => {
     const r = say("Thesis draft is due Friday", {

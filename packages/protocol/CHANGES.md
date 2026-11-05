@@ -22,6 +22,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 - New methods `skills.recording.unattended` (`operator.read`: whether a skill made from a recording can run with nobody there; `reasons` name the sensitive steps and the steps whose value is asked for each run) and `skills.recording.schedule` (`operator.admin`, side-effecting, Psyche desktop shell on the Host only, `forbidden` for anything else: creates the Scheduled automation for an installed recording skill; `invalid_params` with the reasons when a step is sensitive or asks for a value each time, and when the schedule is not a fixed minute and hour; `conflict` when the skill already has a schedule).
 - `Automation` gains optional `recordedSkill` (`{ skill }`) and `ScheduledItem` gains optional `recordedSkill` (the skill's name). Set only by `skills.recording.schedule`: `automations.create` and `automations.update` ignore it, and the agent's `schedule` tool has no such field. Needs the database column `automations.recorded_skill` (migration 202611041600).
+### v1 additive — 2026-11-04 (work item History)
+
+- New method `memory.work.history` (`operator.read`): params `entityId` and optional `limit` (1 to 100, default 20); result `{ entries }` of `WorkHistoryEntry`, newest first. Each entry is one change to a work item's `status`, `progress`, `stopped_at`, `next_step` or `deadline` (`WorkHistoryAttribute`): `factId`, `value`, `from` (the value it replaced, or null), `at`, `origin` (`WorkHistoryOrigin`: `chat`, `mail`, `you`, `nightly`, `source`), `chip` (`{ source, label }` or null) and `undoable`. `undoable` is true only for a direct update the owner's chat wrote that is still inside the seven-day window and not yet undone; the Undo button calls the existing `memory.work.undoUpdate`, which keeps all its rules (`changed_again`, `already_undone`, `removed`).
+- A connection that may not open an owner-only source (Messages, Contacts, Memory: only the desktop app on the Host may) gets the chip's `source` with an empty `label`; a Mac helper gets no chip.
 
 ### v1 additive — 2026-11-04 (teach by showing in the built-in browser, J8 phase 1)
 

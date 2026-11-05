@@ -7439,6 +7439,43 @@ export interface ComingUpItem {
 
 export type ComingUpKind = "birthday" | "anniversary" | "event";
 
+export interface MemoryWorkHistoryParams {
+    entityId: string;
+    /**
+     * Default 20
+     */
+    limit?: number;
+}
+
+export interface MemoryWorkHistoryResult {
+    entries: WorkHistoryEntry[];
+}
+
+export interface WorkHistoryEntry {
+    at:        string;
+    attribute: WorkNoteAttribute;
+    chip?:     Chip | null;
+    factId:    string;
+    from?:     null | string;
+    origin:    WorkHistoryOrigin;
+    /**
+     * A direct update from the owner's chat, still inside the undo window and not yet undone:
+     * `memory.work.undoUpdate` accepts it
+     */
+    undoable: boolean;
+    value:    string;
+}
+
+export interface Chip {
+    /**
+     * Sender or file name: data; empty when this connection may not see it
+     */
+    label:  string;
+    source: GraphCitationSource;
+}
+
+export type WorkHistoryOrigin = "chat" | "mail" | "you" | "nightly" | "source";
+
 export interface MemoryWorkSettings {
     anchorsFromFolders: MemoryWorkFolders;
     /**

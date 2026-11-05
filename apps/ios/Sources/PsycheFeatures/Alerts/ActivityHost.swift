@@ -30,7 +30,11 @@ final class SystemActivityHost: ActivityHost {
     }
 
     var isEnabled: Bool { ActivityAuthorizationInfo().areActivitiesEnabled }
-    var activeTaskIDs: [String] { Array(activities.keys) }
+    /// Read from ActivityKit, not this host's own list: the system's record is the same for every part of the
+    /// app and survives a relaunch.
+    var activeTaskIDs: [String] {
+        Activity<PsycheTaskAttributes>.activities.filter { $0.activityState == .active }.map(\.attributes.taskID)
+    }
 
     func start(taskID: String, content: TaskActivityContent) -> Bool {
         guard isEnabled, activities[taskID] == nil else { return activities[taskID] != nil }

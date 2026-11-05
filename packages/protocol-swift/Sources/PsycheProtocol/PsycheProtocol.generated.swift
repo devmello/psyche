@@ -907,6 +907,8 @@
 //   let memoryUpcomingResult = try? JSONDecoder().decode(MemoryUpcomingResult.self, from: jsonData)
 //   let memoryVectorMode = try? JSONDecoder().decode(MemoryVectorMode.self, from: jsonData)
 //   let memoryWorkFolders = try? JSONDecoder().decode(MemoryWorkFolders.self, from: jsonData)
+//   let memoryWorkHistoryParams = try? JSONDecoder().decode(MemoryWorkHistoryParams.self, from: jsonData)
+//   let memoryWorkHistoryResult = try? JSONDecoder().decode(MemoryWorkHistoryResult.self, from: jsonData)
 //   let memoryWorkRemind = try? JSONDecoder().decode(MemoryWorkRemind.self, from: jsonData)
 //   let memoryWorkSettings = try? JSONDecoder().decode(MemoryWorkSettings.self, from: jsonData)
 //   let memoryWorkUndoUpdateParams = try? JSONDecoder().decode(MemoryWorkUndoUpdateParams.self, from: jsonData)
@@ -1560,6 +1562,9 @@
 //   let widgetsPinResult = try? JSONDecoder().decode(WidgetsPinResult.self, from: jsonData)
 //   let widgetsPreviewParams = try? JSONDecoder().decode(WidgetsPreviewParams.self, from: jsonData)
 //   let widgetsPreviewResult = try? JSONDecoder().decode(WidgetsPreviewResult.self, from: jsonData)
+//   let workHistoryAttribute = try? JSONDecoder().decode(WorkHistoryAttribute.self, from: jsonData)
+//   let workHistoryEntry = try? JSONDecoder().decode(WorkHistoryEntry.self, from: jsonData)
+//   let workHistoryOrigin = try? JSONDecoder().decode(WorkHistoryOrigin.self, from: jsonData)
 //   let workNoteAttribute = try? JSONDecoder().decode(WorkNoteAttribute.self, from: jsonData)
 //   let workNoteBlock = try? JSONDecoder().decode(WorkNoteBlock.self, from: jsonData)
 //   let workNoteItem = try? JSONDecoder().decode(WorkNoteItem.self, from: jsonData)
@@ -21985,6 +21990,97 @@ public enum ComingUpKind: String, Codable, Sendable {
     case anniversary = "anniversary"
     case birthday = "birthday"
     case event = "event"
+}
+
+// MARK: - MemoryWorkHistoryParams
+public struct MemoryWorkHistoryParams: Codable, Sendable {
+    public let entityID: String
+    /// Default 20
+    public let limit: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case entityID = "entityId"
+        case limit = "limit"
+    }
+
+    public init(entityID: String, limit: Int? = nil) {
+        self.entityID = entityID
+        self.limit = limit
+    }
+}
+
+// MARK: - MemoryWorkHistoryResult
+public struct MemoryWorkHistoryResult: Codable, Sendable {
+    public let entries: [WorkHistoryEntry]
+
+    public enum CodingKeys: String, CodingKey {
+        case entries = "entries"
+    }
+
+    public init(entries: [WorkHistoryEntry]) {
+        self.entries = entries
+    }
+}
+
+// MARK: - WorkHistoryEntry
+public struct WorkHistoryEntry: Codable, Sendable {
+    public let at: String
+    public let attribute: WorkNoteAttribute
+    public let chip: Chip?
+    public let factID: String
+    public let from: String?
+    public let origin: WorkHistoryOrigin
+    /// A direct update from the owner's chat, still inside the undo window and not yet undone:
+    /// `memory.work.undoUpdate` accepts it
+    public let undoable: Bool
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case attribute = "attribute"
+        case chip = "chip"
+        case factID = "factId"
+        case from = "from"
+        case origin = "origin"
+        case undoable = "undoable"
+        case value = "value"
+    }
+
+    public init(at: String, attribute: WorkNoteAttribute, chip: Chip? = nil, factID: String, from: String? = nil, origin: WorkHistoryOrigin, undoable: Bool, value: String) {
+        self.at = at
+        self.attribute = attribute
+        self.chip = chip
+        self.factID = factID
+        self.from = from
+        self.origin = origin
+        self.undoable = undoable
+        self.value = value
+    }
+}
+
+// MARK: - Chip
+public struct Chip: Codable, Sendable {
+    /// Sender or file name: data; empty when this connection may not see it
+    public let label: String
+    public let source: GraphCitationSource
+
+    public enum CodingKeys: String, CodingKey {
+        case label = "label"
+        case source = "source"
+    }
+
+    public init(label: String, source: GraphCitationSource) {
+        self.label = label
+        self.source = source
+    }
+}
+
+public enum WorkHistoryOrigin: String, Codable, Sendable {
+    case chat = "chat"
+    case mail = "mail"
+    case nightly = "nightly"
+    case source = "source"
+    case you = "you"
 }
 
 // MARK: - MemoryWorkSettings
