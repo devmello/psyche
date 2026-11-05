@@ -10,28 +10,77 @@ extension GatewayBackend {
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return SearchResults(answer: nil, hits: []) }
         let asksQuestion = Self.readsAsQuestion(text)
-        async let answer = optional { asksQuestion ? try await self.lifeAnswer(text) : nil }
+        // Typing never sends raw mail, messages or files to a model: this answer reads reviewed facts only.
+        async let answer = optional { asksQuestion ? try await self.lifeAnswer(question: text, passages: false, previous: nil) : nil }
         let result = try await call("search.query", .obj(["query": .string(text), "limit": .number(40)]))
         var found = await answer ?? nil
+        var question = asksQuestion
         // The Gateway may read a question the rules did not: ask for the answer then.
         if found == nil, !asksQuestion, result.at("understood", "intent")?.string == "answer" {
-            found = await optional { try await self.lifeAnswer(text) } ?? nil
+            question = true
+            found = await optional { try await self.lifeAnswer(question: text, passages: false, previous: nil) } ?? nil
         }
         let hits = (result["hits"]?.array ?? []).compactMap(Self.hit)
-        return SearchResults(answer: found, hits: hits)
+        return SearchResults(answer: found, hits: hits, canAskLife: question)
     }
 
-    func lifeAnswer(_ text: String) async throws -> SearchResults.Answer? {
-        let result = try await call("memory.life.answer", .obj(["q": .string(text)]))
+    public func lifeAnswer(question: String, passages: Bool, previous: LifeTurn?) async throws -> SearchResults.Answer? {
+        let result = try await call("memory.life.answer", Self.lifeAnswerParams(question: question, passages: passages, previous: previous))
+        return Self.lifeAnswer(from: result)
+    }
+
+    /// `memory.life.answer` params. `passages` is sent only when true (absent = facts only); `previous` carries ids,
+    /// never text the Gateway would have to trust.
+    static func lifeAnswerParams(question: String, passages: Bool, previous: LifeTurn?) -> JSONValue {
+        var params: [String: JSONValue] = ["q": .string(String(question.prefix(LifeTurn.maxQuestion)))]
+        if passages { params["passages"] = .bool(true) }
+        if let previous {
+            params["previous"] = .object([
+                "q": .string(previous.question), "answer": .string(previous.answer),
+                "factIds": .array(previous.factIDs.map { .string($0) }),
+                "passageIds": .array(previous.passageIDs.map { .string($0) }),
+            ])
+        }
+        return .object(params)
+    }
+
+    static func lifeAnswer(from result: JSONValue) -> SearchResults.Answer? {
         guard let sentence = result["answer"]?.string, !sentence.isEmpty else { return nil }
         var evidence: [String] = []
+        var factIDs: [String] = []
         for fact in result["facts"]?.array ?? [] {
+            if let id = fact["factId"]?.string { factIDs.append(id) }
             let when = (WireFormat.date(fact["observedAt"]?.string) ?? WireFormat.date(fact["learnedAt"]?.string))
                 .map { $0.formatted(.dateTime.month(.abbreviated).day()) }
             let label = [fact["source"]?.string ?? "memory", when].compactMap { $0 }.joined(separator: " ")
             if !evidence.contains(label) { evidence.append(label) }
         }
-        return SearchResults.Answer(text: sentence, emphasis: "", evidence: evidence)
+        let passages = (result["passages"]?.array ?? []).compactMap { p -> LifePassage? in
+            guard let id = p["id"]?.string else { return nil }
+            return LifePassage(
+                id: id, source: p["source"]?.string ?? "", title: p["title"]?.string ?? "",
+                date: p["createdAt"]?.double.map { Date(timeIntervalSince1970: $0 / 1000) })
+        }
+        return SearchResults.Answer(text: sentence, emphasis: "", evidence: evidence, factIDs: factIDs, passages: passages)
+    }
+
+    /// `search.document`. A passage this connection may not open (the Gateway says not_found or refuses) is nil, which
+    /// the sheet shows as "Open on your Mac"; an unreachable Mac still throws.
+    public func sourceDocument(id: String) async throws -> SourceDocument? {
+        let result: JSONValue
+        do {
+            result = try await call("search.document", .obj(["id": .string(id)]))
+        } catch {
+            switch error as? BackendError {
+            case .notFound, .refused: return nil
+            default: throw error
+            }
+        }
+        guard let text = result["text"]?.string else { return nil }
+        return SourceDocument(
+            id: result["id"]?.string ?? id, source: result["source"]?.string ?? "", title: result["title"]?.string ?? "",
+            text: text, truncated: result["truncated"]?.bool ?? false,
+            date: result["createdAt"]?.double.map { Date(timeIntervalSince1970: $0 / 1000) })
     }
 
     static func readsAsQuestion(_ text: String) -> Bool {
