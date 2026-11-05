@@ -625,6 +625,8 @@ export const settingsRest: Partial<Catalogue> = {
     "Le schermate che {persona} ha guardato mentre lavorava, per la Timeline. Se disattivato, non ne conserva nessuna.",
   "settings.devices.presenceKey.keychain":
     "Chiave Touch ID (portachiavi), come indicata dall’helper",
+  "settings.devices.presenceKey.enclaveKeychainAcl":
+    "Chiave Touch ID (Secure Enclave, conservata nel portachiavi di login e leggibile solo dall’helper), come indicata dall’helper",
   "settings.devices.presenceKey.enclaveFile":
     "Chiave Touch ID (file Secure Enclave, questa build non ha un profilo di provisioning), come indicata dall’helper",
   "settings.devices.presenceKey.unknown": "Chiave Touch ID (tipo non indicato dall’helper)",

@@ -17,7 +17,7 @@ let usage = """
       --handshake-only  connect, pair, print the phase and exit (smoke test)
       --challenge-only  with --handshake-only: stop after the challenge
       --manifest        print the capability manifest as JSON and exit
-      --build-info      print {"presenceFileFallback": true|false} and exit (release builds: false)
+      --build-info      print {"presenceFileFallback": true|false} and exit (release builds: false; the keychain ACL key is in every build)
       --print-identity  print {deviceId, presenceKeyId, presenceKeyKind} as JSON and exit: what the
                         desktop compares with the Gateway before it registers the Touch ID key
 

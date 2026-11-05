@@ -588,7 +588,7 @@ export interface HelperPort {
 export interface BundledHelperIdentity {
   deviceId: string;
   keyId?: string;
-  kind?: "keychain" | "enclave_file";
+  kind?: "keychain" | "enclave_keychain_acl" | "enclave_file";
   error?: string;
 }
 

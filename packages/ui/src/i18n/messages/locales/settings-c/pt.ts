@@ -100,6 +100,8 @@ export const settingsC: Partial<Catalogue> = {
     "As telas que {persona} viu enquanto trabalhava, para a linha do tempo. Desativado não guarda nenhuma.",
   "settings.devices.presenceKey.keychain":
     "Chave do Touch ID (chaveiro), conforme informado pelo auxiliar",
+  "settings.devices.presenceKey.enclaveKeychainAcl":
+    "Chave do Touch ID (Secure Enclave, guardada no chaveiro de login e legível apenas pelo auxiliar), conforme informado pelo auxiliar",
   "settings.devices.presenceKey.enclaveFile":
     "Chave do Touch ID (arquivo do Secure Enclave, esta versão não tem perfil de provisionamento), conforme informado pelo auxiliar",
   "settings.devices.presenceKey.unknown": "Chave do Touch ID (tipo não informado pelo auxiliar)",

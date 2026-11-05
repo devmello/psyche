@@ -1446,6 +1446,8 @@ export const settings = {
   "settings.devices.lastSeen": "last seen {when}",
   "settings.devices.lastSeenNever": "last seen never",
   "settings.devices.presenceKey.keychain": "Touch ID key (keychain), as reported by the helper",
+  "settings.devices.presenceKey.enclaveKeychainAcl":
+    "Touch ID key (Secure Enclave, kept in the login keychain where only the helper may read it), as reported by the helper",
   "settings.devices.presenceKey.enclaveFile":
     "Touch ID key (Secure Enclave file, this build has no provisioning profile), as reported by the helper",
   "settings.devices.presenceKey.unknown": "Touch ID key (kind not reported by the helper)",

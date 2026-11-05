@@ -623,6 +623,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.data.replayRetentionHint":
     "Les écrans que {persona} a regardés pendant son travail, pour la chronologie. Désactivé, aucun n’est conservé.",
   "settings.devices.presenceKey.keychain": "Clé Touch ID (trousseau), signalée par l’assistant",
+  "settings.devices.presenceKey.enclaveKeychainAcl":
+    "Clé Touch ID (Secure Enclave, conservée dans le trousseau de session, lisible uniquement par l’assistant), signalée par l’assistant",
   "settings.devices.presenceKey.enclaveFile":
     "Clé Touch ID (fichier Secure Enclave, cette version n’a pas de profil de provisionnement), signalée par l’assistant",
   "settings.devices.presenceKey.unknown": "Clé Touch ID (type non signalé par l’assistant)",

@@ -15,11 +15,13 @@ export const PresenceKeyInfo = Type.Object(
     registeredAt: IsoDateTime,
     /**
      * Where the helper keeps it: `keychain` (data-protection keychain, bound to the helper's
-     * access group), or `enclave_file` (a Secure Enclave key whose wrapped blob is a file, on
-     * builds without a provisioning profile; any same-user process could ask it to sign behind
-     * its own Touch ID prompt, security §10). Absent for keys registered before it was reported.
+     * access group); `enclave_keychain_acl` (a Secure Enclave key whose wrapped blob is a
+     * login-keychain item only the helper may read, on builds without a provisioning profile); or
+     * `enclave_file` (the blob is a plain file, development builds only; any same-user process could
+     * ask it to sign behind its own Touch ID prompt, security §10). Absent for keys registered
+     * before it was reported.
      */
-    kind: Type.Optional(StringEnum(["keychain", "enclave_file"])),
+    kind: Type.Optional(StringEnum(["keychain", "enclave_keychain_acl", "enclave_file"])),
   },
   { $id: "PresenceKeyInfo" },
 );
@@ -148,7 +150,7 @@ export const DevicesMethods = {
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Reads the helper's Secure Enclave presence key (`presence.public_key`) and registers it for that device when its key id equals expectKeyId, so its Touch ID answers verify. A Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
+      "Reads the helper's Secure Enclave presence key (`presence.public_key`) and registers it for that device when its key id equals expectKeyId, so its Touch ID answers verify. A key of kind enclave_keychain_acl is accepted in every build. A Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
   }),
   "devices.presenceKey.remove": defineMethod({
     params: Type.Object({ deviceId: Id }),

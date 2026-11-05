@@ -17,11 +17,17 @@ import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
  * desktop main reads it from the helper bundled in the app (`psyche-helper --print-identity`),
  * never from whichever node answered on the socket, until peer code signatures are checked.
  *
- * Limit (`kind: enclave_file`): a build without a provisioning profile keeps its Secure Enclave key
- * as a wrapped blob file instead of in the keychain. Every signature still needs Touch ID inside
- * the Secure Enclave, but any same-user process can read the blob and ask for one behind its own
- * prompt and wording. Same trust boundary as the pairing limit above; Settings → Devices names
- * the kind so the owner knows which one is in use.
+ * `kind: enclave_keychain_acl`: a build without a provisioning profile (a self-signed release)
+ * keeps its Secure Enclave key as a wrapped blob in a login-keychain item whose access list trusts
+ * only the helper's designated requirement. Another program that reads it gets a macOS prompt, so
+ * it is accepted in every build. Writing the item is not guarded, so the helper seals it; see
+ * security §10 for what a same-user process can still do.
+ *
+ * Limit (`kind: enclave_file`): a development build may keep the blob as a plain file. Every
+ * signature still needs Touch ID inside the Secure Enclave, but any same-user process can read the
+ * blob and ask for one behind its own prompt and wording. Same trust boundary as the pairing limit
+ * above; refused unless `devices.presence.allowDevFileKey` is on. Settings → Devices names the kind
+ * so the owner knows which one is in use.
  */
 
 export const PRESENCE_KEYS_SETTING = `${INTERNAL_SETTING_PREFIX}presence.helperKeys`;
@@ -32,7 +38,7 @@ export const PRESENCE_KEYS_SETTING = `${INTERNAL_SETTING_PREFIX}presence.helperK
  */
 export const DEV_FILE_KEY_SETTING = "devices.presence.allowDevFileKey";
 
-export type PresenceKeyKind = "keychain" | "enclave_file";
+export type PresenceKeyKind = "keychain" | "enclave_keychain_acl" | "enclave_file";
 
 /** `PresenceKeyInfo` in the protocol. */
 export interface PresenceKeyInfo {
@@ -51,7 +57,7 @@ interface StoredKey {
 }
 
 function kindOf(v: unknown): PresenceKeyKind | undefined {
-  return v === "keychain" || v === "enclave_file" ? v : undefined;
+  return v === "keychain" || v === "enclave_keychain_acl" || v === "enclave_file" ? v : undefined;
 }
 
 export function presenceKeyId(publicKey: string): string {

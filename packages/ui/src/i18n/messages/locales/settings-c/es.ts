@@ -99,6 +99,8 @@ export const settingsC: Partial<Catalogue> = {
   "settings.data.replayRetentionHint":
     "Las pantallas que {persona} miró mientras trabajaba, para la cronología. Desactivado no guarda ninguna.",
   "settings.devices.presenceKey.keychain": "Clave de Touch ID (llavero), según informa el ayudante",
+  "settings.devices.presenceKey.enclaveKeychainAcl":
+    "Clave de Touch ID (Secure Enclave, guardada en el llavero de inicio de sesión y legible solo por el ayudante), según informa el ayudante",
   "settings.devices.presenceKey.enclaveFile":
     "Clave de Touch ID (archivo de Secure Enclave, esta compilación no tiene perfil de aprovisionamiento), según informa el ayudante",
   "settings.devices.presenceKey.unknown": "Clave de Touch ID (el ayudante no indica el tipo)",

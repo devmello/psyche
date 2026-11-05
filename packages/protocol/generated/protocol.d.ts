@@ -4160,7 +4160,7 @@ export interface PresenceKeyInfo {
     registeredAt: string;
 }
 
-export type PresenceKeyInfoKind = "keychain" | "enclave_file";
+export type PresenceKeyInfoKind = "keychain" | "enclave_keychain_acl" | "enclave_file";
 
 export interface DevicesPresenceKeyRegisterParams {
     approvalId?: string;

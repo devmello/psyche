@@ -150,7 +150,7 @@ export interface HelperIdentity {
   deviceId: string;
   /** Hex SHA-256 of its Touch ID public key, when it has one. */
   keyId?: string;
-  kind?: "keychain" | "enclave_file";
+  kind?: "keychain" | "enclave_keychain_acl" | "enclave_file";
   /** Why it has no key (`missing_entitlement`, `presence_key_file`, …). */
   error?: string;
 }
@@ -191,7 +191,9 @@ export async function readHelperIdentity(
       ? out.presenceKeyId
       : undefined;
   const kind =
-    out.presenceKeyKind === "keychain" || out.presenceKeyKind === "enclave_file"
+    out.presenceKeyKind === "keychain" ||
+    out.presenceKeyKind === "enclave_keychain_acl" ||
+    out.presenceKeyKind === "enclave_file"
       ? out.presenceKeyKind
       : undefined;
   const error =

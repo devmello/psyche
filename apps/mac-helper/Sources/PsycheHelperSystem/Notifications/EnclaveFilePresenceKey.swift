@@ -6,11 +6,14 @@ import PsycheProtocol
 import PsycheWire
 import Security
 
-/// Which presence key signs: the data-protection keychain one (`PresenceKey`), or the Secure
-/// Enclave key whose wrapped blob is a file (`EnclaveFilePresenceKey`) on builds without a
-/// provisioning profile. `presence.public_key` reports it; Settings → Devices shows it.
+/// Which presence key signs: the data-protection keychain one (`PresenceKey`); the Secure Enclave
+/// key whose wrapped blob is a login-keychain item only the helper may read
+/// (`EnclaveKeychainAclPresenceKey`) on builds without a provisioning profile; or, in development
+/// builds only, one whose blob is a file (`EnclaveFilePresenceKey`). `presence.public_key` reports
+/// it; Settings → Devices shows it.
 public enum PresenceKeyKind: String, Sendable {
     case keychain
+    case enclaveKeychainAcl = "enclave_keychain_acl"
     case enclaveFile = "enclave_file"
 }
 
@@ -343,9 +346,12 @@ public final class EnclaveFilePresenceKey: PresenceSigning, @unchecked Sendable 
     }
 }
 
-/// The keychain key whenever the build can hold it; the Secure Enclave file key only when the
-/// keychain answers `missing_entitlement` (no provisioning profile) and the build has the fallback.
-/// The choice is made once per process, so one helper never signs with both.
+/// The data-protection keychain key whenever the build can hold it. Without a provisioning profile
+/// (`missing_entitlement`) the login-keychain ACL key (`EnclaveKeychainAclPresenceKey`), in every
+/// build. The development file key is used only when the build has it (not
+/// `PSYCHE_PUBLIC_RELEASE=1`) and the developer opts in with `PSYCHE_PRESENCE_FILE_KEY=1`
+/// (an ad-hoc build is a new program for the keychain on every rebuild). The choice is made once
+/// per process, so one helper never signs with two kinds.
 public final class PreferredPresenceKey: PresenceSigning, @unchecked Sendable {
     /// Whether this build may use the file key at all: on for development builds, off when built
     /// with `PSYCHE_PUBLIC_RELEASE=1` (Package.swift leaves `PSYCHE_PRESENCE_FILE_FALLBACK` out).
@@ -356,20 +362,24 @@ public final class PreferredPresenceKey: PresenceSigning, @unchecked Sendable {
     #endif
 
     private let primary: any PresenceSigning
-    private let fallback: any PresenceSigning
-    private let fallbackAllowed: Bool
+    private let aclKey: any PresenceSigning
+    private let fileKey: any PresenceSigning
+    private let fileKeyAllowed: Bool
     private let lock = NSLock()
     private var chosen: (any PresenceSigning)?
 
-    public init(primary: any PresenceSigning, fallback: any PresenceSigning, fallbackAllowed: Bool = PreferredPresenceKey.fallbackBuiltIn) {
+    public init(
+        primary: any PresenceSigning, aclKey: any PresenceSigning, fileKey: any PresenceSigning,
+        fileKeyAllowed: Bool = PreferredPresenceKey.fallbackBuiltIn && ProcessInfo.processInfo.environment["PSYCHE_PRESENCE_FILE_KEY"] == "1"
+    ) {
         self.primary = primary
-        self.fallback = fallback
-        self.fallbackAllowed = fallbackAllowed
+        self.aclKey = aclKey
+        self.fileKey = fileKey
+        self.fileKeyAllowed = fileKeyAllowed && Self.fallbackBuiltIn
     }
 
-    /// The helper's key: keychain first, the file key on builds without a provisioning profile.
     public static func live() -> PreferredPresenceKey {
-        PreferredPresenceKey(primary: PresenceKey(), fallback: EnclaveFilePresenceKey())
+        PreferredPresenceKey(primary: PresenceKey(), aclKey: EnclaveKeychainAclPresenceKey(), fileKey: EnclaveFilePresenceKey())
     }
 
     func active() throws -> any PresenceSigning {
@@ -379,11 +389,8 @@ public final class PreferredPresenceKey: PresenceSigning, @unchecked Sendable {
             do {
                 _ = try primary.publicKey()
                 pick = primary
-            } catch let e as CapabilityError where e.reason == "missing_entitlement" && fallbackAllowed {
-                // RELEASE BLOCKER (docs/08-roadmap.md v1.0): before any public release a
-                // provisioned keychain key replaces this, and the file-key fallback is removed or
-                // disabled (security §10). Release builds already leave it out (PSYCHE_PUBLIC_RELEASE).
-                pick = fallback
+            } catch let e as CapabilityError where e.reason == "missing_entitlement" {
+                pick = fileKeyAllowed ? fileKey : aclKey
             }
             chosen = pick
             return pick

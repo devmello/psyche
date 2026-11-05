@@ -546,6 +546,24 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
     ).toMatchObject({ presenceKey: { kind: "enclave_file" } });
   });
 
+  it("accepts a login-keychain ACL key without the dev setting, and a release build never needs it", async () => {
+    const { admin, helperDevice, key } = await setup({
+      kind: "enclave_keychain_acl",
+      register: false,
+    });
+    // devices.presence.allowDevFileKey stays off: only the plain-file key needs it.
+    expect(
+      await admin.call(
+        "devices.presenceKey.register",
+        { deviceId: helperDevice, expectKeyId: key.keyId },
+        ik(),
+      ),
+    ).toMatchObject({ presenceKey: { kind: "enclave_keychain_acl" } });
+    expect(await admin.call("devices.presenceKey.list", {})).toMatchObject({
+      presenceKeys: [{ deviceId: helperDevice, kind: "enclave_keychain_acl" }],
+    });
+  });
+
   it("a key the fingerprint change killed says so, so the card can send the owner to Devices", async () => {
     const { admin } = await setup({
       confirm: () => {

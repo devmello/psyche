@@ -593,6 +593,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.data.replayRetentionHint":
     "काम करते समय {persona} ने जो स्क्रीन देखीं, टाइमलाइन के लिए। बंद करने पर कोई नहीं रखी जाती।",
   "settings.devices.presenceKey.keychain": "Touch ID कुंजी (कीचेन), जैसा हेल्पर ने बताया",
+  "settings.devices.presenceKey.enclaveKeychainAcl":
+    "Touch ID कुंजी (Secure Enclave, लॉगिन कीचेन में रखी गई, जिसे केवल हेल्पर पढ़ सकता है), जैसा हेल्पर ने बताया",
   "settings.devices.presenceKey.enclaveFile":
     "Touch ID कुंजी (Secure Enclave फ़ाइल, इस बिल्ड में प्रोविज़निंग प्रोफ़ाइल नहीं है), जैसा हेल्पर ने बताया",
   "settings.devices.presenceKey.unknown": "Touch ID कुंजी (हेल्पर ने प्रकार नहीं बताया)",

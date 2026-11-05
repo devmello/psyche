@@ -563,6 +563,8 @@ export const settings: Partial<Catalogue> = {
   "settings.data.replayRetentionHint":
     "الشاشات التي نظر إليها {persona} أثناء العمل، من أجل الجدول الزمني. الإيقاف لا يحتفظ بشيء.",
   "settings.devices.presenceKey.keychain": "مفتاح Touch ID (سلسلة المفاتيح)، كما أبلغ عنه المساعد",
+  "settings.devices.presenceKey.enclaveKeychainAcl":
+    "مفتاح Touch ID (Secure Enclave، محفوظ في سلسلة مفاتيح تسجيل الدخول ولا يقرؤه إلا المساعد)، كما أبلغ عنه المساعد",
   "settings.devices.presenceKey.enclaveFile":
     "مفتاح Touch ID (ملف Secure Enclave، لا يحتوي هذا الإصدار على ملف تعريف تجهيز)، كما أبلغ عنه المساعد",
   "settings.devices.presenceKey.unknown": "مفتاح Touch ID (لم يبلغ المساعد عن نوعه)",

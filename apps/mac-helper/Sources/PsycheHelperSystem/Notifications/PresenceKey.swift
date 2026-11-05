@@ -59,7 +59,7 @@ public enum PresenceKeyErrors {
 /// `[.privateKeyUsage, .biometryCurrentSet]`, so every signature needs a current fingerprint.
 /// Like every data-protection keychain item it needs the keychain access group entitlement
 /// (provisioning profile); without it the key cannot be created (`missing_entitlement`) and the
-/// helper uses `EnclaveFilePresenceKey` instead (`PreferredPresenceKey`).
+/// helper uses `EnclaveKeychainAclPresenceKey` instead (`PreferredPresenceKey`).
 ///
 /// `secureEnclave: false` makes a non-permanent software key with the same algorithm, so tests run
 /// the real `SecKey` signing path without a Secure Enclave, Touch ID or entitlements.
@@ -336,7 +336,7 @@ public enum PresenceCapabilities {
         Capability(CapabilitySpec(
             name: "presence.public_key",
             description: "The helper's Secure Enclave presence public key (P-256, X9.63 uncompressed, base64url), keyId (hex SHA-256 of it) and kind "
-                + "(keychain, or enclave_file on builds without a keychain access group). Created on first use; never prompts.",
+                + "(keychain; enclave_keychain_acl on builds without a keychain access group; enclave_file in development builds only). Created on first use; never prompts.",
             sideEffect: .read
         )) { _ in
             let (x963, keyId) = try key.publicKey()

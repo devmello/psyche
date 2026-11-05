@@ -532,6 +532,8 @@ export const settings: Partial<Catalogue> = {
   "settings.data.recallState.textOnly": "没有可用的嵌入模型，因此调用时只匹配字词。",
   "settings.data.replayRetentionHint": "{persona}工作时看过的屏幕，用于时间线。关闭则不保留。",
   "settings.devices.presenceKey.keychain": "Touch ID 密钥（钥匙串），由助手报告",
+  "settings.devices.presenceKey.enclaveKeychainAcl":
+    "Touch ID 密钥（Secure Enclave，保存在登录钥匙串中，仅助手可读取），由助手报告",
   "settings.devices.presenceKey.enclaveFile":
     "Touch ID 密钥（Secure Enclave 文件，此版本没有配置描述文件），由助手报告",
   "settings.devices.presenceKey.unknown": "Touch ID 密钥（助手未报告类型）",

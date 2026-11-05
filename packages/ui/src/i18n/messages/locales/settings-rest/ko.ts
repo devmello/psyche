@@ -605,6 +605,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.data.replayRetentionHint":
     "작업 중 {persona}가 본 화면으로, 타임라인에 사용됩니다. 끄면 보관하지 않습니다.",
   "settings.devices.presenceKey.keychain": "Touch ID 키 (키체인), 도우미가 보고함",
+  "settings.devices.presenceKey.enclaveKeychainAcl":
+    "Touch ID 키 (Secure Enclave, 로그인 키체인에 보관되며 도우미만 읽을 수 있음), 도우미가 보고함",
   "settings.devices.presenceKey.enclaveFile":
     "Touch ID 키 (Secure Enclave 파일, 이 빌드에는 프로비저닝 프로파일 없음), 도우미가 보고함",
   "settings.devices.presenceKey.unknown": "Touch ID 키 (도우미가 종류를 보고하지 않음)",

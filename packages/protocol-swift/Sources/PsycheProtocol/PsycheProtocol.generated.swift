@@ -12882,6 +12882,7 @@ public struct PresenceKeyInfo: Codable, Sendable {
 
 public enum PresenceKeyInfoKind: String, Codable, Sendable {
     case enclaveFile = "enclave_file"
+    case enclaveKeychainACL = "enclave_keychain_acl"
     case keychain = "keychain"
 }
 

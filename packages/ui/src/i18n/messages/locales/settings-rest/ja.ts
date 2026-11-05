@@ -612,6 +612,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.data.replayRetentionHint":
     "作業中に{persona}が見ていた画面で、タイムライン用です。オフにすると保持されません。",
   "settings.devices.presenceKey.keychain": "Touch IDキー（キーチェーン）、ヘルパーからの報告",
+  "settings.devices.presenceKey.enclaveKeychainAcl":
+    "Touch IDキー（Secure Enclave。ログインキーチェーンに保存され、ヘルパーだけが読み取れます）、ヘルパーからの報告",
   "settings.devices.presenceKey.enclaveFile":
     "Touch IDキー（Secure Enclaveファイル。このビルドにはプロビジョニングプロファイルがありません）、ヘルパーからの報告",
   "settings.devices.presenceKey.unknown": "Touch IDキー（種類はヘルパーから報告されていません）",

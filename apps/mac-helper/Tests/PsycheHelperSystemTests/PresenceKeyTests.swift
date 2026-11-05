@@ -189,26 +189,29 @@ struct EnclaveFilePresenceKeyTests {
     }
 
     @Test func keepsTheKeychainKeyWhenTheBuildCanHoldIt() async throws {
-        let k = PreferredPresenceKey(primary: KeyedFake(kind: .keychain), fallback: KeyedFake(kind: .enclaveFile), fallbackAllowed: true)
+        let k = PreferredPresenceKey(primary: KeyedFake(kind: .keychain), aclKey: KeyedFake(kind: .enclaveKeychainAcl), fileKey: KeyedFake(kind: .enclaveFile), fileKeyAllowed: true)
         #expect(try k.publicKey().keyId == "keychain")
         #expect(k.keyKind == .keychain)
         #expect(try await k.sign(challenge: Self.challenge, reason: "r").signature == "keychain")
     }
 
-    @Test func fallsBackOnlyOnMissingEntitlementAndOnlyInBuildsWithTheFallback() async throws {
+    @Test func usesTheKeychainAclKeyOnMissingEntitlementInEveryBuild() async throws {
         let noProfile = CapabilityError(.unavailable, reason: "missing_entitlement", "x")
-        let k = PreferredPresenceKey(primary: KeyedFake(kind: .keychain, failure: noProfile), fallback: KeyedFake(kind: .enclaveFile), fallbackAllowed: true)
-        #expect(try k.publicKey().keyId == "enclave_file")
-        #expect(k.keyKind == .enclaveFile)
-        #expect(try await k.sign(challenge: Self.challenge, reason: "r").signature == "enclave_file")
-        // A release build (PSYCHE_PUBLIC_RELEASE=1) has no fallback: the keychain error stands.
-        let release = PreferredPresenceKey(primary: KeyedFake(kind: .keychain, failure: noProfile), fallback: KeyedFake(kind: .enclaveFile), fallbackAllowed: false)
-        #expect(throws: CapabilityError.self) { _ = try release.publicKey() }
-        // Any other keychain failure is reported, never papered over with the file key.
+        let k = PreferredPresenceKey(primary: KeyedFake(kind: .keychain, failure: noProfile), aclKey: KeyedFake(kind: .enclaveKeychainAcl), fileKey: KeyedFake(kind: .enclaveFile), fileKeyAllowed: false)
+        #expect(try k.publicKey().keyId == "enclave_keychain_acl")
+        #expect(k.keyKind == .enclaveKeychainAcl)
+        // Any other keychain failure is reported, never papered over with another kind.
         let locked = CapabilityError(.forbidden, reason: "interaction_not_allowed", "x")
-        let other = PreferredPresenceKey(primary: KeyedFake(kind: .keychain, failure: locked), fallback: KeyedFake(kind: .enclaveFile), fallbackAllowed: true)
+        let other = PreferredPresenceKey(primary: KeyedFake(kind: .keychain, failure: locked), aclKey: KeyedFake(kind: .enclaveKeychainAcl), fileKey: KeyedFake(kind: .enclaveFile), fileKeyAllowed: true)
         #expect(throws: CapabilityError.self) { _ = try other.publicKey() }
         #expect(other.keyKind == .keychain)
+    }
+
+    @Test func theFileKeyNeedsADevelopmentBuildAndTheOptIn() async throws {
+        let noProfile = CapabilityError(.unavailable, reason: "missing_entitlement", "x")
+        let k = PreferredPresenceKey(primary: KeyedFake(kind: .keychain, failure: noProfile), aclKey: KeyedFake(kind: .enclaveKeychainAcl), fileKey: KeyedFake(kind: .enclaveFile), fileKeyAllowed: true)
+        // Allowed only when the build has the fallback (a PSYCHE_PUBLIC_RELEASE=1 build never does).
+        #expect(k.keyKind == (PreferredPresenceKey.fallbackBuiltIn ? .enclaveFile : .enclaveKeychainAcl))
     }
 
     @Test func writesTheSealedFile0600InA0700FolderAndReusesIt() async throws {

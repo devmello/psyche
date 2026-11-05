@@ -59,7 +59,7 @@ describe("Settings → Devices: which Touch ID key the helper uses", () => {
     status: "online",
     lastHeartbeatAt: null,
   } as unknown as Parameters<typeof DevicesPanel>[0]["nodes"][number];
-  const key = (kind?: "keychain" | "enclave_file") => ({
+  const key = (kind?: "keychain" | "enclave_keychain_acl" | "enclave_file") => ({
     deviceId: "d1",
     keyId: "a".repeat(64),
     registeredAt: "2026-11-02T10:00:00.000Z",
@@ -92,6 +92,19 @@ describe("Settings → Devices: which Touch ID key the helper uses", () => {
     );
     expect(screen.getByTestId("presence-key").textContent).toBe(
       "Touch ID key (Secure Enclave file, this build has no provisioning profile), as reported by the helper",
+    );
+    rerender(
+      <StoryWorld>
+        <DevicesPanel
+          devices={[mac]}
+          pairing={[]}
+          nodes={[helper]}
+          presenceKeys={[key("enclave_keychain_acl")]}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.getByTestId("presence-key").textContent).toBe(
+      "Touch ID key (Secure Enclave, kept in the login keychain where only the helper may read it), as reported by the helper",
     );
     rerender(
       <StoryWorld>

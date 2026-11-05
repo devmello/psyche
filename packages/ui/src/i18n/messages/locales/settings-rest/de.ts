@@ -627,6 +627,8 @@ export const settingsRest: Partial<Catalogue> = {
     "Die Bildschirme, die {persona} bei der Arbeit angesehen hat, für den Verlauf. Aus behält keine.",
   "settings.devices.presenceKey.keychain":
     "Touch-ID-Schlüssel (Schlüsselbund), vom Helper gemeldet",
+  "settings.devices.presenceKey.enclaveKeychainAcl":
+    "Touch-ID-Schlüssel (Secure Enclave, im Anmeldeschlüsselbund abgelegt, nur der Helper darf ihn lesen), vom Helper gemeldet",
   "settings.devices.presenceKey.enclaveFile":
     "Touch-ID-Schlüssel (Secure-Enclave-Datei, dieser Build hat kein Provisioning-Profil), vom Helper gemeldet",
   "settings.devices.presenceKey.unknown": "Touch-ID-Schlüssel (Art vom Helper nicht gemeldet)",

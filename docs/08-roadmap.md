@@ -70,8 +70,7 @@ Goal: credentials, proactivity, computer use, server mode.
 
 - Documentation site, installers (DMG, Homebrew cask, Docker image), migration and backup guides, accessibility pass, performance targets met, public security policy and disclosure process, third-party security review of the Permission and Credential Brokers.
 - **Before any public release (owner, 2026-11-02):**
-  - Join the paid Apple Developer Program and embed a provisioning profile in `PsycheHelper.app`, so its Touch ID presence key lives in the keychain.
-  - Then remove or disable the Secure Enclave file fallback. That fallback was added for profile-less development builds, and any process running as the same user can ask it to sign behind its own Touch ID prompt.
+  - Update 2026-11-05: the owner chose not to pay for the Apple Developer Program; releases are signed with a stable self-signed certificate, so there is no provisioning profile. The Touch ID presence key is a Secure Enclave key whose wrapped blob sits in a login-keychain item that only the helper's designated requirement may read, sealed so a replaced item is refused (`enclave_keychain_acl`, security §10). It replaces the Secure Enclave file fallback in release builds, which stays development-only (`PSYCHE_PUBLIC_RELEASE=1` leaves it out). Residual risk: a program running as the owner cannot read or swap the key without a macOS prompt that names it, but it can delete it (the owner registers again) or trick the owner into approving a prompt. A real self-signed build and real Touch ID are still to be checked (manual test plan 9.11e).
   - Ship with Developer ID signing and notarization at the same time.
 
 ## After 1.0

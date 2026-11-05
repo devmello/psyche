@@ -13,7 +13,7 @@ export type PresenceKeyRow = MethodResult<"devices.presenceKey.list">["presenceK
 export interface BundledHelperKey {
   deviceId: string;
   keyId?: string;
-  kind?: "keychain" | "enclave_file";
+  kind?: "keychain" | "enclave_keychain_acl" | "enclave_file";
   error?: string;
 }
 
@@ -24,9 +24,11 @@ export const DEV_FILE_KEY_SETTING = "devices.presence.allowDevFileKey";
 export function presenceKeyText(k: { kind?: string | undefined }): string {
   return k.kind === "enclave_file"
     ? t("settings.devices.presenceKey.enclaveFile")
-    : k.kind === "keychain"
-      ? t("settings.devices.presenceKey.keychain")
-      : t("settings.devices.presenceKey.unknown");
+    : k.kind === "enclave_keychain_acl"
+      ? t("settings.devices.presenceKey.enclaveKeychainAcl")
+      : k.kind === "keychain"
+        ? t("settings.devices.presenceKey.keychain")
+        : t("settings.devices.presenceKey.unknown");
 }
 
 /** `0123 4567 89ab cdef …`: the start of a key id, grouped so the owner can compare it. */
