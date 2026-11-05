@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { TeachKeptStore } from "@psyche/browser/teach";
+import { loadTeachKey, TeachKeptStore } from "@psyche/browser/teach";
 import {
   type BridgeProfile,
   type BridgeTab,
@@ -230,7 +230,9 @@ export class BrowserHost implements BridgeTabHost {
     });
     this.teach = new TeachSession({
       onChange: () => this.scheduleState(),
-      kept: new TeachKeptStore(join(this.home, "library", "teach")),
+      kept: new TeachKeptStore(join(this.home, "state", "teach"), () =>
+        loadTeachKey(join(this.userData, "teach.key")),
+      ),
     });
     this.captureTimer = setInterval(() => this.pollCaptures(), opts.captureEveryMs ?? 500);
     this.captureTimer.unref();
@@ -985,6 +987,9 @@ export class BrowserHost implements BridgeTabHost {
   }
 
   async navigate(tabId: string, action: BrowserNav): Promise<void> {
+    // Back, Forward and Reload are the owner's own navigation: a recording keeps them as steps.
+    if (action === "back" || action === "forward" || action === "reload")
+      this.teach.ownerNavigated(tabId);
     const wasDiscarded = this.tabs.get(tabId)?.discarded === true;
     const t = this.need(tabId);
     // Restoring already loads the remembered URL; reload, stop and history have nothing more to do.
@@ -1061,6 +1066,12 @@ export class BrowserHost implements BridgeTabHost {
     const t = this.need(tabId);
     if (t.taskId !== null)
       throw new PsycheError("conflict", "the agent is using this tab; open your own tab to record");
+    // The bridge has domains enabled here: the agent's driver is attached to this tab.
+    if (t.enabled.size > 0)
+      throw new PsycheError(
+        "conflict",
+        "the agent's browser is attached to this tab; open your own tab",
+      );
     if (!t.wc.debugger.isAttached()) this.attachDebugger(t);
     await this.teach.start(this.teachPort(t));
   }

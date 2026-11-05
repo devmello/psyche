@@ -30,6 +30,8 @@ export const teach = {
     "These are the steps Psyche caught, in plain words. Fix, reorder or remove any of them. Nothing is saved until you press Save.",
   "web.teach.review.name": "What should this be called?",
   "web.teach.review.namePlaceholder": "Export the weekly billing report",
+  "web.teach.review.skipped":
+    "{count, plural, one {The page changed itself # time while you recorded. That is left out.} other {The page changed itself # times while you recorded. Those are left out.}}",
   "web.teach.review.steps": "Steps",
   "web.teach.review.stepNumber": "Step {n}",
   "web.teach.review.moveUp": "Move step {n} up",

@@ -40,6 +40,7 @@ import {
   type SkillCommand,
   toCommand,
 } from "./prompt.ts";
+import { isRecordingSkillText } from "./recording.ts";
 import {
   hasBlockingFindings,
   type SkillScanFinding,
@@ -93,7 +94,7 @@ export interface SkillDetails extends SkillSummary {
   /** The last update check for an installed skill (`checkUpdates`). */
   update?: SkillUpdateCheck;
   /** Psyche wrote this skill (lock entry `author`). */
-  madeBy?: "agent";
+  madeBy?: "agent" | "recording";
   /** Earlier approved versions of an agent-made skill, newest first. */
   history?: SkillAuthorVersion[];
   /**
@@ -118,7 +119,7 @@ export interface SkillProposal extends SkillInstallProposal {
   expiresAt: number;
   manifest: SkillManifest;
   /** Psyche wrote this skill (self-extension); recorded in the lock entry. */
-  author?: "agent";
+  author?: "agent" | "recording";
 }
 
 export type SkillChangeEvent =
@@ -373,7 +374,7 @@ export class FsSkillLoader implements SkillLoader {
       if (lk !== undefined) {
         entry.lock = lk;
         details.trust = lk.trust;
-        if (lk.author === "agent") details.madeBy = "agent";
+        if (lk.author !== undefined) details.madeBy = lk.author;
         if (lk.commit !== undefined) details.commit = lk.commit;
       }
       if (needsLock && lk === undefined) {
@@ -793,6 +794,10 @@ export class FsSkillLoader implements SkillLoader {
       ...(update === undefined ? {} : { update }),
       expiresAt: this.#now() + (this.#o.proposalTtlMs ?? TTL_MS),
       manifest,
+      // A skill made from a recording carries web page text: it stays untrusted, whatever else.
+      ...(scope === "home" && isRecordingSkillText(text ?? "")
+        ? { author: "recording" as const }
+        : {}),
     };
     this.#proposals.set(id, { proposal, tree });
     return structuredClone(proposal);

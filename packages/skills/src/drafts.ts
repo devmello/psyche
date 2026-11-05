@@ -284,7 +284,12 @@ export class SkillDrafts {
    * text is quoted as untrusted in the skill. It stays a draft: accepting it replays the check and
    * opens the usual `skill_install` approval.
    */
-  proposeFromRecording(input: { title: string; steps: readonly BrowserTeachStep[] }): SkillDraft {
+  proposeFromRecording(input: {
+    title: string;
+    steps: readonly BrowserTeachStep[];
+    /** The device the owner recorded on; the approval card names it. */
+    device?: string;
+  }): SkillDraft {
     const issues = teachStepIssues(input.steps);
     if (issues.length > 0)
       throw new PsycheError(
@@ -337,6 +342,7 @@ export class SkillDrafts {
       createdAt: at,
       updatedAt: at,
       origin: "recording",
+      ...(input.device === undefined ? {} : { recordedOn: input.device.slice(0, 128) }),
     };
     store.drafts.push(draft);
     this.#write(store);

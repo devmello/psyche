@@ -13,8 +13,8 @@ export interface TargetWant {
   /** The accessibility role the owner clicked or typed into; unchecked when absent. */
   role?: string;
   name: string;
-  /** The origin the step was recorded on; a different page is `wrong_page`. */
-  origin?: string;
+  /** The origin the step was recorded on; a different or unknown page is `wrong_page`. */
+  origin: string;
 }
 
 export interface TargetCandidate {
@@ -36,8 +36,14 @@ export function matchRecordedTarget(
   want: TargetWant,
   actualOrigin?: string,
 ): TargetCheck {
-  if (want.origin !== undefined && actualOrigin !== undefined && want.origin !== actualOrigin)
-    return { status: "wrong_page", stop: true, expected: want.origin, actual: actualOrigin };
+  // An unknown origin is not "the same page": stop.
+  if (actualOrigin === undefined || want.origin !== actualOrigin)
+    return {
+      status: "wrong_page",
+      stop: true,
+      expected: want.origin,
+      actual: actualOrigin ?? "",
+    };
   const name = norm(want.name);
   const hits = candidates.filter(
     (c) => norm(c.name) === name && (want.role === undefined || norm(c.role) === norm(want.role)),

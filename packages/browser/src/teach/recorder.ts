@@ -3,8 +3,10 @@ import {
   classifyTeachField,
   classifyTeachValue,
   PsycheError,
+  redactTeachText,
   type TeachFieldFacts,
   type TeachSensitiveReason,
+  teachRole,
   teachText,
   teachUrl,
   type Unsubscribe,
@@ -59,6 +61,8 @@ export interface TeachRecording {
   steps: RecordedStep[];
   /** Why recording ended when the owner did not press Stop. */
   endedBy: "stop" | "limit" | "interrupted";
+  /** Page changes the page made by itself (script, redirect, refresh) that got no step. */
+  skippedNavigations: number;
 }
 
 export interface TeachRecorderOptions {
@@ -95,10 +99,20 @@ function factsOf(v: unknown): TeachFieldFacts {
   if (typeof v !== "object" || v === null) return {};
   const o = v as Record<string, unknown>;
   const out: TeachFieldFacts = {};
-  for (const k of ["tag", "type", "autocomplete", "name", "id", "label", "placeholder"] as const) {
+  for (const k of [
+    "tag",
+    "type",
+    "autocomplete",
+    "name",
+    "id",
+    "label",
+    "placeholder",
+    "inputmode",
+  ] as const) {
     const s = str(o[k], 200);
     if (s !== undefined) out[k] = s;
   }
+  if (o.wasPassword === true) out.wasPassword = true;
   return out;
 }
 
@@ -119,6 +133,9 @@ export class TeachRecorder {
   /** Execution contexts of our world that belong to the top frame. */
   #contexts = new Set<number>();
   #lastActionAt = Number.NEGATIVE_INFINITY;
+  /** The owner pressed Back, Forward or Reload in the pane: the next top-frame navigation is theirs. */
+  #ownerNavUntil = Number.NEGATIVE_INFINITY;
+  #skippedNavigations = 0;
   #lastUrl = "";
   #endedBy: TeachRecording["endedBy"] = "stop";
 
@@ -192,6 +209,16 @@ export class TeachRecorder {
     this.#steps = [];
   }
 
+  /**
+   * The owner used the pane's own Back, Forward or Reload (an event of the app, not of the page).
+   * A navigation within a few seconds after it is the owner's and gets a step. A navigation the
+   * page starts by itself (script, meta refresh, redirect) never does: a page could otherwise
+   * write steps into a recording by navigating.
+   */
+  ownerNavigation(): void {
+    this.#ownerNavUntil = this.#now() + 3000;
+  }
+
   /** The page's debugger went away: what was recorded stays available to `stop()`. */
   interrupted(): void {
     if (this.#state !== "recording") return;
@@ -211,6 +238,7 @@ export class TeachRecorder {
       endedAt: this.#now(),
       steps,
       endedBy: this.#endedBy,
+      skippedNavigations: this.#skippedNavigations,
     };
   }
 
@@ -242,6 +270,10 @@ export class TeachRecorder {
         cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: scriptId }),
       );
     await quiet(() => cdp.send("Runtime.removeBinding", { name: this.binding }));
+    // Put the domains back as found: the host starts a recording only on a tab the bridge has
+    // enabled nothing on, and refuses the bridge's commands for the tab until this resolves.
+    await quiet(() => cdp.send("Runtime.disable"));
+    await quiet(() => cdp.send("Page.disable"));
   }
 
   #event(method: string, params: unknown): void {
@@ -306,9 +338,16 @@ export class TeachRecorder {
     const clean = teachUrl(url);
     if (clean === "" || clean === this.#lastUrl) return;
     this.#lastUrl = clean;
+    const now = this.#now();
     // The effect of a click or Enter is not a step of its own.
-    if (this.#now() - this.#lastActionAt <= (this.#o.causedNavMs ?? 4000)) return;
-    this.#add({ kind: "navigate", url: clean });
+    if (now - this.#lastActionAt <= (this.#o.causedNavMs ?? 4000)) return;
+    // Only a navigation the owner made with the pane's own controls is a step.
+    if (now <= this.#ownerNavUntil) {
+      this.#ownerNavUntil = Number.NEGATIVE_INFINITY;
+      this.#add({ kind: "navigate", url: clean });
+      return;
+    }
+    this.#skippedNavigations += 1;
   }
 
   #payload(raw: string): void {
@@ -327,9 +366,10 @@ export class TeachRecorder {
     const role = str(v.role, 64);
     const name = str(v.name, 400);
     const selector = str(v.selector, 600);
-    if (role !== undefined) step.role = teachText(role, 64);
-    if (name !== undefined && name !== "") step.name = teachText(name, 120);
-    if (selector !== undefined && selector !== "") step.selector = teachText(selector, 300);
+    if (role !== undefined) step.role = teachRole(role);
+    if (name !== undefined && name !== "") step.name = redactTeachText(teachText(name, 120));
+    if (selector !== undefined && selector !== "")
+      step.selector = redactTeachText(teachText(selector, 300));
     if (kind === "press") {
       const key = str(v.key, 40);
       if (key !== "Enter") return;

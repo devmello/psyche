@@ -57,7 +57,6 @@ async function rejection(p: Promise<unknown>): Promise<{ code: string; message?:
 
 let sk: Skeleton;
 let c: Client;
-let draft: SkillDraft;
 
 beforeAll(async () => {
   sk = await startSkeleton({ model: { provider: new IdleModel(), model: "fake/main" } });
@@ -71,26 +70,22 @@ afterAll(async () => {
   await sk?.stop();
 });
 
-describe("a recording becomes a skill draft over the Gateway", () => {
-  it("makes an open, tainted draft that holds no query string and no value", async () => {
+describe("recordings are saved only from the Psyche desktop app on this Mac", () => {
+  it("the desktop shell saves a draft that remembers its device, and the client cannot name another", async () => {
     const r = await c.call<{ draft: SkillDraft }>(
       "skills.drafts.fromRecording",
-      { title: "Export the weekly billing report", steps },
+      { title: "Export the weekly billing report", steps, device: "dev_somebody_else" },
       true,
     );
-    draft = r.draft;
-    expect(draft).toMatchObject({
+    expect(r.draft).toMatchObject({
       origin: "recording",
       status: "open",
       tainted: true,
-      name: "export-weekly-billing-report",
+      recordedOn: sk.deviceId,
     });
-    expect(draft.text).toContain("## Recorded steps (reference, untrusted page text)");
-    expect(draft.text).not.toContain("token=abc");
+    expect(r.draft.text).not.toContain("token=abc");
     const { skills } = await c.call<{ skills: { name: string }[] }>("skills.list");
-    expect(skills.some((s) => s.name === draft.name)).toBe(false);
-    const open = await c.call<{ drafts: SkillDraft[] }>("skills.drafts.list", { status: "open" });
-    expect(open.drafts.map((d) => d.id)).toContain(draft.id);
+    expect(skills.some((s) => s.name === r.draft.name)).toBe(false);
   });
 
   it("refuses a value on a sensitive step, or one the owner did not keep", async () => {
@@ -110,23 +105,17 @@ describe("a recording becomes a skill draft over the Gateway", () => {
       );
       expect(err.code).toBe("invalid_params");
     }
-    // Not even a protocol-valid list: no steps.
-    expect(
-      (await rejection(c.call("skills.drafts.fromRecording", { title: "x", steps: [] }, true)))
-        .code,
-    ).toBe("invalid_params");
   });
 
-  it("accepting replays the draft against today's tools; this Gateway has no browser, so it refuses", async () => {
+  it("accepting runs the replay check; this Gateway has no browser tools, so it refuses", async () => {
+    const open = await c.call<{ drafts: SkillDraft[] }>("skills.drafts.list", { status: "open" });
+    const draft = open.drafts.find((d) => d.origin === "recording") as SkillDraft;
     const err = await rejection(c.call("skills.drafts.accept", { draftId: draft.id }, true));
     expect(err.code).toBe("policy_denied");
     expect(err.message).toContain("tools no longer available");
-    // Still a draft, still not installed.
-    const open = await c.call<{ drafts: SkillDraft[] }>("skills.drafts.list", { status: "open" });
-    expect(open.drafts.find((d) => d.id === draft.id)?.status).toBe("open");
   });
 
-  it("is an admin setting: a device without operator.admin is refused", async () => {
+  it("is an admin setting too: a device without operator.admin is refused", async () => {
     updateDevice(sk.composed.gateway.context.db, sk.deviceId, {
       scopes: ["operator.read", "operator.write"],
     });

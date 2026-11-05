@@ -329,6 +329,13 @@ export async function checkProhibitions(
     const home = posix.normalize(env.psycheHome).toLowerCase();
     if (isUnder(path, posix.join(home, "vault")))
       return deny("psyche_state", "the vault is not a file target");
+    if (isUnder(path, posix.join(home, "state", "teach")))
+      return deny("teach_recordings", "kept demonstration recordings are not a file target");
+    if (isUnder(path, posix.join(home, "state", "teach")))
+      return deny(
+        "teach_recordings",
+        "kept recordings of the owner's demonstrations are not a file target",
+      );
     if (isUnder(path, home) && !HOME_TOOL_ROOTS.some((r) => isUnder(path, posix.join(home, r)))) {
       return deny(
         "psyche_state",

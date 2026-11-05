@@ -1,5 +1,7 @@
-import { chmod, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { chmodSync, constants, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmod, lstat, mkdir, open, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import {
   type BrowserTeachStep,
   PsycheError,
@@ -14,8 +16,16 @@ import {
  * skill or discards it, and is then gone. Only "Keep this recording on this Mac" writes a file
  * here, and what it writes is the reviewed step list after `sanitizeTeachSteps`: no sensitive
  * value (there never was one), no typed example the owner did not choose to keep, no query
- * strings. The folder is `$PSYCHE_HOME/library/teach/` with mode 0700 and files 0600, the same as
- * the browser recordings beside it.
+ * strings.
+ *
+ * Where: `$PSYCHE_HOME/state/teach/`, not the Library. `state/` is Psyche's own: no agent file tool
+ * reaches it (the prohibitions deny it by name), `files.read` serves only the Library, and the
+ * backup leaves it out. The folder is `0700` and the files `0600`.
+ *
+ * Signed: each file carries an HMAC-SHA256 over its id and contents, made with a key that lives
+ * outside `$PSYCHE_HOME` (the app's user-data folder). A file that is unsigned, edited or dropped
+ * in from elsewhere is not listed and not opened. Files expire after 90 days and at most 20 are
+ * kept. Reads refuse links (`O_NOFOLLOW`, `lstat`), cap the size, and pick fields explicitly.
  *
  * Only the desktop app's main process opens this store. It has no tool, no Gateway method and no
  * bridge command, so the agent cannot list, read or write a kept recording.
@@ -29,20 +39,57 @@ export interface KeptRecording {
 }
 
 export const KEPT_RECORDING_LIMIT = 20;
+export const KEPT_RECORDING_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+const MAX_FILE_BYTES = 512 * 1024;
 const ID = /^teach_[a-z0-9]{8,32}$/;
+
+/** The signing key: 32 random bytes in a `0600` file, made on first use. Keep it outside the store's folder. */
+export function loadTeachKey(path: string): Buffer {
+  if (existsSync(path)) {
+    const key = readFileSync(path);
+    if (key.length === 32) return key;
+  }
+  const key = randomBytes(32);
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  writeFileSync(path, key, { mode: 0o600 });
+  chmodSync(path, 0o600);
+  return key;
+}
+
+interface Signed {
+  v: 1;
+  mac: string;
+  rec: KeptRecording;
+}
 
 export class TeachKeptStore {
   readonly dir: string;
+  #key: Buffer | (() => Buffer);
   #now: () => number;
 
-  constructor(dir: string, now: () => number = Date.now) {
+  /** `key` may be a function, so the key file is made only when a recording is first kept or read. */
+  constructor(dir: string, key: Buffer | (() => Buffer), now: () => number = Date.now) {
     this.dir = dir;
+    this.#key = key;
     this.#now = now;
+  }
+
+  #secret(): Buffer {
+    if (typeof this.#key === "function") this.#key = this.#key();
+    if (this.#key.length < 16)
+      throw new PsycheError("invalid_params", "the signing key is too short");
+    return this.#key;
   }
 
   #file(id: string): string {
     if (!ID.test(id)) throw new PsycheError("invalid_params", "not a recording id");
     return join(this.dir, `${id}.json`);
+  }
+
+  #mac(rec: KeptRecording): string {
+    return createHmac("sha256", this.#secret())
+      .update(`psyche.teach.v1\n${rec.id}\n${JSON.stringify(rec)}`)
+      .digest("hex");
   }
 
   async keep(
@@ -64,22 +111,63 @@ export class TeachKeptStore {
       steps: clean,
     };
     await mkdir(this.dir, { recursive: true, mode: 0o700 });
+    await chmod(this.dir, 0o700);
+    const signed: Signed = { v: 1, mac: this.#mac(rec), rec };
     const tmp = `${file}.tmp`;
-    await writeFile(tmp, `${JSON.stringify(rec)}\n`, { mode: 0o600 });
+    await writeFile(tmp, `${JSON.stringify(signed)}\n`, { mode: 0o600 });
     await chmod(tmp, 0o600);
     await rename(tmp, file);
     return rec;
   }
 
+  /** A signed, unexpired, plain file of the right shape; anything else is `undefined`. */
   async get(id: string): Promise<KeptRecording | undefined> {
+    const file = this.#file(id);
+    let raw: string;
     try {
-      const rec = JSON.parse(await readFile(this.#file(id), "utf8")) as KeptRecording;
-      // Re-clean on the way out: a file edited by hand never carries a value past the rules.
-      return { ...rec, steps: sanitizeTeachSteps(rec.steps) };
-    } catch (err) {
-      if (err instanceof PsycheError) throw err;
+      const st = await lstat(file);
+      if (!st.isFile() || st.size > MAX_FILE_BYTES) return undefined;
+      const fh = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+      try {
+        raw = await fh.readFile("utf8");
+      } finally {
+        await fh.close();
+      }
+    } catch {
       return undefined;
     }
+    let signed: Signed;
+    try {
+      signed = JSON.parse(raw) as Signed;
+    } catch {
+      return undefined;
+    }
+    const r = signed?.rec;
+    if (
+      signed?.v !== 1 ||
+      typeof signed.mac !== "string" ||
+      typeof r !== "object" ||
+      r === null ||
+      r.id !== id ||
+      typeof r.title !== "string" ||
+      typeof r.keptAt !== "number" ||
+      !Array.isArray(r.steps)
+    )
+      return undefined;
+    const mine = Buffer.from(this.#mac(r), "hex");
+    const theirs = Buffer.from(signed.mac, "hex");
+    if (mine.length !== theirs.length || !timingSafeEqual(mine, theirs)) return undefined;
+    if (this.#now() - r.keptAt > KEPT_RECORDING_TTL_MS) {
+      await rm(file, { force: true });
+      return undefined;
+    }
+    // Fields picked one by one, and cleaned again on the way out.
+    return {
+      id: r.id,
+      title: teachText(r.title, 120),
+      keptAt: r.keptAt,
+      steps: sanitizeTeachSteps(r.steps),
+    };
   }
 
   async list(): Promise<KeptRecording[]> {

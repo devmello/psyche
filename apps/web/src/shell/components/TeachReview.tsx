@@ -181,6 +181,11 @@ export function TeachReview(props: {
           onChange={(e) => setTitle(e.target.value)}
         />
       </label>
+      {(props.capture.skippedNavigations ?? 0) > 0 ? (
+        <p className="teach-hint" data-testid="teach-skipped">
+          {t("web.teach.review.skipped", { count: props.capture.skippedNavigations ?? 0 })}
+        </p>
+      ) : null}
       <h3>{t("web.teach.review.steps")}</h3>
       {rows.length === 0 ? <p className="teach-hint">{t("web.teach.review.empty")}</p> : null}
       <ol className="teach-steps">

@@ -37861,9 +37861,10 @@
           "$ref": "#/$defs/SkillUpdateStatus"
         },
         "madeBy": {
-          "description": "Psyche wrote this skill (self-extension); trust stays unknown",
+          "description": "Psyche wrote this skill (self-extension), or it was made from a recording; trust stays unknown",
           "enum": [
-            "agent"
+            "agent",
+            "recording"
           ],
           "type": "string"
         },
@@ -37962,6 +37963,10 @@
         },
         "origin": {
           "$ref": "#/$defs/SkillDraftOrigin"
+        },
+        "recordedOn": {
+          "maxLength": 128,
+          "type": "string"
         },
         "installProposalId": {
           "description": "ULID in production",
@@ -38276,9 +38281,10 @@
           "$ref": "#/$defs/SkillManifest"
         },
         "author": {
-          "description": "Psyche wrote this skill",
+          "description": "Psyche wrote this skill (agent), or it was made from a recording of web pages (recording): its text carries page content, so it stays untrusted",
           "enum": [
-            "agent"
+            "agent",
+            "recording"
           ],
           "type": "string"
         }

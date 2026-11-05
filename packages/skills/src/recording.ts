@@ -1,5 +1,10 @@
-import type { BrowserTeachStep, SideEffect, SkillDraftStep } from "@psyche/protocol";
-import { stringify } from "yaml";
+import {
+  type BrowserTeachStep,
+  type SideEffect,
+  type SkillDraftStep,
+  teachRole,
+} from "@psyche/protocol";
+import { parse, stringify } from "yaml";
 
 /**
  * A skill made from a demonstration (teach by showing, docs/design/teach-by-showing-2026.md §4).
@@ -39,6 +44,8 @@ export interface RecordingInput {
   name: string;
   description: string;
   field: string;
+  /** 1-based step in the recording: the Inputs section refers to the step, not to page text. */
+  step: number;
 }
 
 const TOOL_FOR: Record<BrowserTeachStep["kind"], string> = {
@@ -75,7 +82,8 @@ const oneLine = (s: string, max: number) =>
   s.replace(LINE_BREAKS, " ").replace(/\s+/g, " ").trim().slice(0, max);
 
 function fieldOf(s: BrowserTeachStep): string {
-  const role = s.role === undefined || s.role === "" ? "field" : oneLine(s.role, 40);
+  // The role comes from the page: only a known accessibility role gets through.
+  const role = s.role === undefined || s.role === "" ? "field" : teachRole(s.role);
   return s.name === undefined || s.name === ""
     ? `${role} at selector ${quoteUntrusted(s.selector)}`
     : `${role} ${quoteUntrusted(s.name)}`;
@@ -85,12 +93,13 @@ function fieldOf(s: BrowserTeachStep): string {
 export function recordingInputs(steps: readonly BrowserTeachStep[]): RecordingInput[] {
   const out: RecordingInput[] = [];
   let n = 0;
-  for (const s of steps) {
+  for (const [i, s] of steps.entries()) {
     if ((s.kind !== "type" && s.kind !== "select") || s.sensitive === true) continue;
     if (s.keepValue === true) continue;
     n += 1;
     out.push({
-      name: s.input?.name ?? `value_${n}`,
+      step: i + 1,
+      name: s.input?.name ?? `input${n}`,
       description: s.input?.description === undefined ? "" : oneLine(s.input.description, 200),
       field: fieldOf(s),
     });
@@ -194,7 +203,7 @@ export function recordingSkillText(input: RecordingSkillInput): string {
     "## How to run it",
     "",
     "1. Open the first address in a new tab with `browser.open_tab`. Only go to addresses the steps name; the origin policy and the usual approvals apply.",
-    "2. Before each step that acts on an element, call `browser.check_target` with the step's role and name, and the address's origin as `origin`. When it answers `found`, use the ref it gives. The selector is only a hint to help you find the same element when you must look at the page yourself (`browser.snapshot`).",
+    "2. Before each step that acts on an element, call `browser.check_target` with the step's role and name, and as `origin` the origin of the most recent `open` step (it is required: a page on another origin is a stop). When it answers `found`, use the ref it gives. The selector is only a hint to help you find the same element when you must look at the page yourself (`browser.snapshot`).",
     "3. When `browser.check_target` answers anything but `found` (`missing`, `ambiguous` or `wrong_page`), or the page is clearly not the one the steps expect (a different site, a login wall, an error, a new dialog), stop and ask the owner what to do. Do not guess, pick a similar element or carry on.",
     "4. Never type into a password, payment, one-time-code, ID-number or secret field, and never read one aloud. Where a step says the owner does it themselves, hand the tab over with `browser.request_control` and wait.",
     "5. Steps that change something (a submit, a purchase, a send) still ask the owner for approval, as always. A skill never widens what you are allowed to do.",
@@ -209,7 +218,7 @@ export function recordingSkillText(input: RecordingSkillInput): string {
   else {
     for (const i of inputs)
       lines.push(
-        `- \`${i.name}\`${i.description === "" ? "" : `: ${i.description}`} (goes into the ${i.field})`,
+        `- \`${i.name}\` (step ${i.step})${i.description === "" ? "" : `: ${i.description}`}`,
       );
     lines.push("");
   }
@@ -228,4 +237,20 @@ export function recordingSkillText(input: RecordingSkillInput): string {
   });
   lines.push("```", "");
   return lines.join("\n");
+}
+
+/**
+ * Was this `SKILL.md` made from a recording? (`metadata.psyche.proposedBy`.) Read at staging, so the
+ * install proposal, the card and the lock entry carry it. A third-party skill can claim it too; the
+ * only effect is that it is treated as the untrusted text it is.
+ */
+export function isRecordingSkillText(text: string): boolean {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+  if (m === null) return false;
+  try {
+    const fm = parse(m[1] ?? "") as { metadata?: { psyche?: { proposedBy?: unknown } } } | null;
+    return fm?.metadata?.psyche?.proposedBy === "owner-recording";
+  } catch {
+    return false;
+  }
 }

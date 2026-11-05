@@ -18,6 +18,7 @@ class El {
   options: { selected: boolean; label: string; text: string }[] = [];
   multiple = false;
   isContentEditable = false;
+  textSecurity: string | undefined;
   reads: string[] = [];
   #value = "";
   readonly tagName: string;
@@ -75,10 +76,18 @@ function page(opts: { top?: boolean } = {}) {
   const doc = {
     body: new El("BODY"),
     getElementById: () => null,
-    addEventListener: (t: string, h: Handler) => handlers.set(t, h),
-    removeEventListener: (t: string) => handlers.delete(t),
+    // The listeners belong on window, not here: see "registers on window" below.
+    addEventListener: () => {
+      throw new Error("registered on document");
+    },
   };
   const win: Record<string, unknown> = {
+    addEventListener: (t: string, h: Handler) => handlers.set(t, h),
+    removeEventListener: (t: string) => handlers.delete(t),
+    getComputedStyle: (el: El) => ({
+      getPropertyValue: (n: string) =>
+        n === "-webkit-text-security" ? (el.textSecurity ?? "none") : "",
+    }),
     [TEACH_BINDING]: (s: string) => {
       raw.push(s);
       sent.push(JSON.parse(s));
@@ -115,9 +124,62 @@ describe("teach page script", () => {
 
   it("listens in the capture phase and stops on request", () => {
     const p = page();
-    expect([...p.handlers.keys()].sort()).toEqual(["change", "click", "keydown"]);
+    expect([...p.handlers.keys()].sort()).toEqual(["change", "click", "focusin", "keydown"]);
     (p.win.__psycheTeachStop as () => void)();
     expect(p.handlers.size).toBe(0);
+  });
+
+  it("registers on window in the capture phase, so it runs before the page's own listeners", () => {
+    // `document.addEventListener` throws in this fake; getting here means it was never used.
+    const p = page();
+    expect(p.handlers.size).toBe(4);
+  });
+
+  it("a field that was a password field stays one when the page flips it to text", () => {
+    const p = page();
+    const f = input({ type: "password", name: "x" }, "hunter2");
+    p.fire("focusin", { target: f });
+    f.attrs.type = "text";
+    f.reads.length = 0;
+    p.fire("change", { target: f });
+    expect(f.reads).toEqual([]);
+    expect(p.sent[0]).toMatchObject({ k: "type", sensitive: true });
+    expect(p.raw.join("")).not.toContain("hunter2");
+  });
+
+  it("a field drawn as dots (-webkit-text-security) is a password", () => {
+    const p = page();
+    const f = input({ type: "text", name: "code" }, "123456");
+    f.textSecurity = "disc";
+    p.fire("change", { target: f });
+    expect(f.reads).toEqual([]);
+    expect(p.sent[0]).toMatchObject({ sensitive: true, reason: "password" });
+  });
+
+  it.each([
+    ["contrase\u00f1a"],
+    ["Passwort"],
+    ["Mot de passe"],
+    ["pw"],
+    ["pass"],
+    ["CVV2"],
+    ["CVC2"],
+    ["Recovery code"],
+    ["Backup codes"],
+    ["Seed phrase"],
+    ["\u5bc6\u7801"],
+  ])("a field labelled %s is sensitive", (label) => {
+    const p = page();
+    const f = input({ type: "text", "aria-label": label }, "SECRET-123");
+    p.fire("change", { target: f });
+    expect(f.reads).toEqual([]);
+    expect(p.sent[0]).toMatchObject({ sensitive: true });
+  });
+
+  it("sends the input mode with the field's facts", () => {
+    const p = page();
+    p.fire("change", { target: input({ type: "text", name: "q", inputmode: "numeric" }, "5") });
+    expect((p.sent[0] as { f: { inputmode: string } }).f.inputmode).toBe("numeric");
   });
 
   it("reports a click as role, name and selector", () => {

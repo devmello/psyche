@@ -208,6 +208,8 @@ export interface TeachCapture {
   id: string;
   endedBy: "stop" | "limit" | "interrupted";
   steps: TeachCapturedStep[];
+  /** Page changes the page made by itself, left out of the steps. */
+  skippedNavigations?: number;
 }
 
 /** A recording the owner chose to keep on this Mac: the reviewed steps only. */

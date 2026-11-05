@@ -403,21 +403,24 @@ export function browserToolDefs(deps: BrowserToolDeps) {
     def({
       name: "browser.check_target",
       description:
-        "Check that the element a recorded step names is on the page right now, by its role and name (and, with origin, that this is the page the step was recorded on). Answers found with its ref, or missing, ambiguous or wrong_page with stop: true. Skills made from a recording call it before every step; when stop is true, stop and ask the owner instead of guessing.",
+        "Check that the element a recorded step names is on the page right now, by its role and name and that this is the page (origin) the step was recorded on. The origin is required: a tab on another or unknown origin answers wrong_page. Answers found with its ref, or missing, ambiguous or wrong_page with stop: true. Skills made from a recording call it before every step; when stop is true, stop and ask the owner instead of guessing.",
       schema: Type.Object({
         tabId: TabId,
         name: Type.String({ minLength: 1, maxLength: 200 }),
         role: Type.Optional(Type.String({ maxLength: 64 })),
-        origin: Type.Optional(Type.String({ maxLength: 2048 })),
+        origin: Type.String({
+          minLength: 1,
+          maxLength: 2048,
+          description: "The origin the step was recorded on",
+        }),
       }),
       sideEffect: "read",
       rerun: true,
       run: async (p, { callId }) => {
         const tabId = await sessionTab(callId, p.tabId);
         const matches = await d.find(tabId, p.name);
-        const want: TargetWant = { name: p.name };
+        const want: TargetWant = { name: p.name, origin: p.origin };
         if (p.role !== undefined) want.role = p.role;
-        if (p.origin !== undefined) want.origin = p.origin;
         const check = matchRecordedTarget(matches, want, d.tabOrigin(tabId));
         return pageOut(tabId, { check });
       },

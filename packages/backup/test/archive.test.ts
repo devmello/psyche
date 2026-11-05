@@ -43,6 +43,8 @@ const EXCLUDED: Record<string, string> = {
   "cli/device.json": '{"privateKey":"never-in-a-backup"}',
   "run/gateway.sock": "not a real socket",
   "logs/gateway.err.log": "log line\n",
+  // Kept recordings of the owner's demonstrations never travel (teach by showing).
+  "state/teach/teach_abcdef123456.json": '{"v":1}',
 };
 
 function writeTree(root: string, files: Record<string, string | Buffer>): void {

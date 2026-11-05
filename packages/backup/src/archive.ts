@@ -40,6 +40,8 @@ export const BACKUP_ENTRIES = [
   "library",
   "audit",
 ] as const;
+/** Never in a backup: kept recordings of the owner's demonstrations (teach by showing). */
+export const BACKUP_EXCLUDED = ["state/teach"] as const;
 export const MANIFEST = "psyche-backup.json";
 const FORMAT = "psyche-backup";
 
@@ -157,6 +159,7 @@ function stageTree(home: string, tree: string, rel: string, skip: ReadonlySet<st
   const st = lstatSync(src);
   if (st.isSymbolicLink()) return; // never follow links out of $PSYCHE_HOME
   const dest = join(tree, rel);
+  if (BACKUP_EXCLUDED.includes(rel.split(sep).join("/") as never)) return;
   if (st.isDirectory()) {
     mkdirSync(dest, { recursive: true, mode: 0o700 });
     for (const name of readdirSync(src).sort()) stageTree(home, tree, join(rel, name), skip);

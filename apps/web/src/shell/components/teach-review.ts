@@ -52,7 +52,8 @@ export function reviewFrom(capture: TeachCapture): ReviewStep[] {
     if (s.key !== undefined) step.key = s.key;
     if (!sensitive && s.sample !== undefined) step.sample = s.sample;
     if (isTyped(step) && !sensitive) {
-      step.inputName = suggestInputName(s.name, taken);
+      // Neutral names: the field's name is page text and does not become an input name.
+      step.inputName = suggestInputName(undefined, taken);
       taken.add(step.inputName);
     }
     return step;
@@ -62,19 +63,9 @@ export function reviewFrom(capture: TeachCapture): ReviewStep[] {
 export const isTyped = (s: Pick<ReviewStep, "kind">): boolean =>
   s.kind === "type" || s.kind === "select";
 
-/** `From date` becomes `from_date`; a name already taken gets `_2`. */
-export function suggestInputName(name: string | undefined, taken: ReadonlySet<string>): string {
-  const base =
-    (name ?? "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .replace(/^[0-9]+/, "")
-      .slice(0, 32)
-      .replace(/_+$/, "") || "value";
-  let candidate = base;
-  for (let n = 2; taken.has(candidate); n += 1) candidate = `${base}_${n}`;
-  return candidate;
+/** `input1`, `input2`, ...: a name that is not page text. The owner renames it. */
+export function suggestInputName(_name: string | undefined, taken: ReadonlySet<string>): string {
+  for (let n = 1; ; n += 1) if (!taken.has(`input${n}`)) return `input${n}`;
 }
 
 export function moveStep(steps: readonly ReviewStep[], index: number, by: -1 | 1): ReviewStep[] {

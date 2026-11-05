@@ -15,6 +15,8 @@ import { registerBrowserTools } from "../src/tools/register.ts";
  * step's target is looked up by role and name, and anything but exactly one match says `stop`.
  */
 
+const ORIGIN = "https://billing.example.com";
+
 describe("matchRecordedTarget", () => {
   const els = [
     { ref: "ref_1", role: "button", name: "Export" },
@@ -23,39 +25,59 @@ describe("matchRecordedTarget", () => {
     { ref: "ref_4", role: "textbox", name: "From" },
   ];
   it("finds exactly one element by role and name, ignoring case and spacing", () => {
-    expect(matchRecordedTarget(els, { role: "button", name: "export" })).toEqual({
+    expect(
+      matchRecordedTarget(els, { role: "button", name: "export", origin: ORIGIN }, ORIGIN),
+    ).toEqual({
       status: "found",
       stop: false,
       ref: "ref_1",
       role: "button",
       name: "Export",
     });
-    expect(matchRecordedTarget(els, { role: "button", name: " export   ALL " })).toMatchObject({
+    expect(
+      matchRecordedTarget(els, { role: "button", name: " export   ALL ", origin: ORIGIN }, ORIGIN),
+    ).toMatchObject({
       status: "found",
       ref: "ref_3",
     });
   });
   it("stops when the element is gone, even if a similar one is there", () => {
-    expect(matchRecordedTarget(els, { role: "button", name: "Download" })).toEqual({
+    expect(
+      matchRecordedTarget(els, { role: "button", name: "Download", origin: ORIGIN }, ORIGIN),
+    ).toEqual({
       status: "missing",
       stop: true,
     });
     // Same name, other role: not the same element.
-    expect(matchRecordedTarget(els, { role: "checkbox", name: "Export" })).toMatchObject({
+    expect(
+      matchRecordedTarget(els, { role: "checkbox", name: "Export", origin: ORIGIN }, ORIGIN),
+    ).toMatchObject({
       status: "missing",
       stop: true,
     });
     // A longer or shorter name is not the same name.
-    expect(matchRecordedTarget(els, { role: "textbox", name: "From date" })).toMatchObject({
+    expect(
+      matchRecordedTarget(els, { role: "textbox", name: "From date", origin: ORIGIN }, ORIGIN),
+    ).toMatchObject({
       status: "missing",
     });
   });
   it("stops when two elements match, rather than picking one", () => {
-    const r = matchRecordedTarget(els, { name: "Export" });
+    const r = matchRecordedTarget(els, { name: "Export", origin: ORIGIN }, ORIGIN);
     expect(r.status).toBe("ambiguous");
     expect(r.stop).toBe(true);
     if (r.status === "ambiguous")
       expect(r.candidates.map((c) => c.ref)).toEqual(["ref_1", "ref_2"]);
+  });
+  it("stops when the tab's origin is unknown: unknown is not the same page", () => {
+    expect(
+      matchRecordedTarget(els, { name: "From", origin: "https://billing.example.com" }),
+    ).toEqual({
+      status: "wrong_page",
+      stop: true,
+      expected: "https://billing.example.com",
+      actual: "",
+    });
   });
   it("stops on another site", () => {
     expect(
@@ -154,11 +176,14 @@ describe("browser.check_target on a live page", () => {
   });
 
   it("stops when the page changed: the recorded button is gone", async () => {
-    expect(await check({ role: "button", name: "Export" })).toEqual({
+    const origin = desktop.browser.origin("a");
+    expect(await check({ role: "button", name: "Export", origin })).toEqual({
       status: "missing",
       stop: true,
     });
-    expect(await check({ role: "textbox", name: "Recipient" })).toMatchObject({ stop: true });
+    expect(await check({ role: "textbox", name: "Recipient", origin })).toMatchObject({
+      stop: true,
+    });
   });
 
   it("stops when the page is another site", async () => {
@@ -168,9 +193,14 @@ describe("browser.check_target on a live page", () => {
 
   it("answers about the page after it navigated, not the page it was recorded on", async () => {
     await call("browser.navigate", { tabId, url: desktop.browser.url("a/landing") });
-    expect(await check({ role: "button", name: "Sign in" })).toMatchObject({
-      status: "missing",
-      stop: true,
-    });
+    expect(
+      await check({ role: "button", name: "Sign in", origin: desktop.browser.origin("a") }),
+    ).toMatchObject({ status: "missing", stop: true });
+  });
+
+  it("requires the origin: a call without one is refused, not guessed", async () => {
+    const out = await call("browser.check_target", { tabId, name: "Sign in", role: "button" });
+    expect(out.isError).toBe(true);
+    expect(out).toMatchObject({ output: { error: { code: "invalid_params" } } });
   });
 });

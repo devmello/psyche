@@ -41,6 +41,8 @@ export interface TeachReview {
   id: string;
   endedBy: TeachRecording["endedBy"];
   steps: RecordedStep[];
+  /** Page changes the page made by itself, which got no step. */
+  skippedNavigations: number;
 }
 
 interface Current {
@@ -48,6 +50,8 @@ interface Current {
   rec: TeachRecorder;
   steps: number;
   ended?: "limit" | "interrupted";
+  /** Stop is tearing the recorder down: its channel stays hidden until that resolves. */
+  stopping?: boolean;
 }
 
 export interface TeachSessionOptions {
@@ -136,29 +140,51 @@ export class TeachSession {
     this.#o.onChange();
   }
 
-  /** Ends the recording and hands the steps to the review screen; nothing is kept here. */
+  /**
+   * Ends the recording and hands the steps to the review screen; nothing is kept here. The
+   * recording stays "current" until the teardown (`Runtime.removeBinding` and the rest) has
+   * resolved, so the bridge stays refused for the tab and the recorder's channel stays hidden
+   * from the Gateway for the whole of it.
+   */
   async stop(): Promise<TeachReview> {
     const cur = this.#cur;
-    if (cur === undefined) throw new PsycheError("conflict", "nothing is being recorded");
-    this.#cur = undefined;
-    cur.tab.hold(false);
+    if (cur === undefined || cur.stopping === true)
+      throw new PsycheError("conflict", "nothing is being recorded");
+    cur.stopping = true;
     let rec: TeachRecording;
     try {
       rec = await cur.rec.stop();
     } finally {
+      if (this.#cur === cur) this.#cur = undefined;
+      cur.tab.hold(false);
       this.#o.onChange();
     }
-    return { id: rec.id, endedBy: rec.endedBy, steps: rec.steps };
+    return {
+      id: rec.id,
+      endedBy: rec.endedBy,
+      steps: rec.steps,
+      skippedNavigations: rec.skippedNavigations,
+    };
   }
 
-  /** Ends the recording and drops it. */
+  /** Ends the recording and drops it (same rule: current until the teardown resolved). */
   async cancel(): Promise<void> {
     const cur = this.#cur;
-    if (cur === undefined) return;
-    this.#cur = undefined;
-    cur.tab.hold(false);
-    await cur.rec.cancel();
-    this.#o.onChange();
+    if (cur === undefined || cur.stopping === true) return;
+    cur.stopping = true;
+    try {
+      await cur.rec.cancel();
+    } finally {
+      if (this.#cur === cur) this.#cur = undefined;
+      cur.tab.hold(false);
+      this.#o.onChange();
+    }
+  }
+
+  /** The owner used the pane's Back, Forward or Reload on this tab. */
+  ownerNavigated(tabId: string): void {
+    const cur = this.#cur;
+    if (cur !== undefined && cur.tab.id === tabId) cur.rec.ownerNavigation();
   }
 
   /** The tab's debugger went away or the tab closed: keep what was recorded for review. */

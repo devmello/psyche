@@ -147,8 +147,9 @@ export const SkillDetails = Type.Object(
     manifest: Type.Optional(SkillManifest),
     update: Type.Optional(SkillUpdateStatus),
     madeBy: Type.Optional(
-      StringEnum(["agent"], {
-        description: "Psyche wrote this skill (self-extension); trust stays unknown",
+      StringEnum(["agent", "recording"], {
+        description:
+          "Psyche wrote this skill (self-extension), or it was made from a recording; trust stays unknown",
       }),
     ),
     history: Type.Optional(
@@ -215,7 +216,12 @@ export const SkillProposal = Type.Object(
     ),
     expiresAt: Type.Integer({ minimum: 0, description: "Epoch ms" }),
     manifest: Type.Optional(SkillManifest),
-    author: Type.Optional(StringEnum(["agent"], { description: "Psyche wrote this skill" })),
+    author: Type.Optional(
+      StringEnum(["agent", "recording"], {
+        description:
+          "Psyche wrote this skill (agent), or it was made from a recording of web pages (recording): its text carries page content, so it stays untrusted",
+      }),
+    ),
   },
   { $id: "SkillProposal" },
 );
@@ -317,6 +323,8 @@ export const SkillDraft = Type.Object(
     updatedAt: IsoDateTime,
     /** `recording`: made from a demonstration the owner recorded (teach by showing). */
     origin: Type.Optional(StringEnum(["routine", "recording"], { $id: "SkillDraftOrigin" })),
+    /** `recording`: the device the owner recorded on; the approval card names it. */
+    recordedOn: Type.Optional(Type.String({ maxLength: 128 })),
     installProposalId: Type.Optional(Id),
     approvalId: Type.Optional(Id),
     replay: Type.Optional(SkillDraftReplay),

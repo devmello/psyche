@@ -33,6 +33,9 @@ export function teachCaptureScript(binding: string = TEACH_BINDING): string {
   var RULES = ${rules}.map(function (r) { return { reason: r.reason, re: new RegExp(r.source, "i") }; });
   var AC = ${autocomplete};
   var last = new WeakMap();
+  // Fields that were ever a password field (a page can flip a field to type=text after the owner
+  // started typing, to get its value recorded) or are drawn as dots.
+  var wasPassword = new WeakSet();
   var lastSent = "";
   var lastSentAt = 0;
 
@@ -126,7 +129,19 @@ export function teachCaptureScript(binding: string = TEACH_BINDING): string {
     }
     return path.join(" > ");
   }
+  function masked(el) {
+    try {
+      var cs = typeof window.getComputedStyle === "function" ? window.getComputedStyle(el) : null;
+      var v = cs ? (cs.getPropertyValue("-webkit-text-security") || cs.webkitTextSecurity || "") : "";
+      return !!v && v !== "none";
+    } catch (e) { return false; }
+  }
+  function note(el) {
+    if (!el || el.nodeType !== 1) return;
+    if (String(el.type || "").toLowerCase() === "password" || masked(el)) wasPassword.add(el);
+  }
   function facts(el) {
+    note(el);
     return {
       tag: (el.tagName || "").toLowerCase(),
       type: (el.type || "").toLowerCase(),
@@ -135,10 +150,12 @@ export function teachCaptureScript(binding: string = TEACH_BINDING): string {
       id: txt(el.id, 80),
       label: labelOf(el),
       placeholder: txt(attr(el, "placeholder"), 80),
+      inputmode: txt(attr(el, "inputmode"), 20),
+      wasPassword: wasPassword.has(el),
     };
   }
   function sensitive(f) {
-    if (f.type === "password") return "password";
+    if (f.type === "password" || f.wasPassword) return "password";
     var toks = (f.autocomplete || "").toLowerCase().split(/\\s+/);
     for (var i = 0; i < toks.length; i++) {
       if (toks[i].indexOf("cc-") === 0) return "payment";
@@ -191,6 +208,7 @@ export function teachCaptureScript(binding: string = TEACH_BINDING): string {
     sendValue(el);
   }
   function onKey(e) {
+    if (e.isTrusted && e.target && e.target.nodeType === 1) note(e.target);
     if (!e.isTrusted || e.key !== "Enter" || e.isComposing) return;
     var el = e.target;
     if (!el || el.nodeType !== 1) return;
@@ -205,13 +223,17 @@ export function teachCaptureScript(binding: string = TEACH_BINDING): string {
     d.key = "Enter";
     send(d);
   }
-  document.addEventListener("click", onClick, true);
-  document.addEventListener("change", onChange, true);
-  document.addEventListener("keydown", onKey, true);
+  function onFocus(e) { if (e.isTrusted) note(e.target); }
+  // On window, in the capture phase, from the document-start script: before any page script.
+  window.addEventListener("focusin", onFocus, true);
+  window.addEventListener("click", onClick, true);
+  window.addEventListener("change", onChange, true);
+  window.addEventListener("keydown", onKey, true);
   window.__psycheTeachStop = function () {
-    document.removeEventListener("click", onClick, true);
-    document.removeEventListener("change", onChange, true);
-    document.removeEventListener("keydown", onKey, true);
+    window.removeEventListener("focusin", onFocus, true);
+    window.removeEventListener("click", onClick, true);
+    window.removeEventListener("change", onChange, true);
+    window.removeEventListener("keydown", onKey, true);
     window.__psycheTeachOn = false;
   };
 })()`;

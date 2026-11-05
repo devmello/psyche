@@ -61,7 +61,7 @@ describe("TeachSession (owner-only recording in the built-in browser)", () => {
       onChange: () => {
         changes += 1;
       },
-      kept: new TeachKeptStore(join(dir, "library", "teach")),
+      kept: new TeachKeptStore(join(dir, "state", "teach"), Buffer.alloc(32, 3)),
     });
   });
   afterEach(() => rm(dir, { recursive: true, force: true }));
@@ -122,6 +122,54 @@ describe("TeachSession (owner-only recording in the built-in browser)", () => {
     expect(session.hides("tab_2", "Runtime.bindingCalled", { name: binding })).toBe(false);
     await session.stop();
     expect(session.hides("tab_1", "Runtime.bindingCalled", { name: binding })).toBe(false);
+  });
+
+  it("keeps hiding the channel and refusing the bridge until the teardown has resolved", async () => {
+    await startAndLearnNames();
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const orig = tab.send.bind(tab);
+    tab.send = async (method, params) => {
+      if (method === "Runtime.removeBinding") await gate;
+      return orig(method, params);
+    };
+    const stopping = session.stop();
+    await new Promise((r) => setTimeout(r, 10));
+    // removeBinding has not resolved: the binding's events still must not reach the Gateway.
+    expect(session.recording("tab_1")).toBe(true);
+    expect(session.hides("tab_1", "Runtime.bindingCalled", { name: binding })).toBe(true);
+    expect(
+      session.hides("tab_1", "Runtime.executionContextCreated", { context: { name: world } }),
+    ).toBe(true);
+    await expect(session.stop()).rejects.toThrow("nothing is being recorded");
+    release();
+    await stopping;
+    expect(session.recording("tab_1")).toBe(false);
+    expect(session.hides("tab_1", "Runtime.bindingCalled", { name: binding })).toBe(false);
+    expect(tab.held).toEqual([true, false]);
+  });
+
+  it("only the pane's own Back, Forward and Reload make a navigation step; the page's do not", async () => {
+    await startAndLearnNames();
+    tab.emit("Page.frameNavigated", {
+      frame: { id: "main", url: "https://page.example.net/redirected" },
+    });
+    session.ownerNavigated("tab_2");
+    tab.emit("Page.frameNavigated", {
+      frame: { id: "main", url: "https://page.example.net/other" },
+    });
+    session.ownerNavigated("tab_1");
+    tab.emit("Page.frameNavigated", {
+      frame: { id: "main", url: "https://owner.example.net/back" },
+    });
+    const review = await session.stop();
+    expect(review.steps.map((s) => s.url)).toEqual([
+      "https://billing.example.com/reports",
+      "https://owner.example.net/back",
+    ]);
+    expect(review.skippedNavigations).toBe(2);
   });
 
   it("hands the steps to the review screen once and keeps nothing", async () => {

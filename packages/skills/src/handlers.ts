@@ -54,6 +54,8 @@ export interface SkillsHandlers {
   "skills.drafts.fromRecording": (p: {
     title: string;
     steps: BrowserTeachStep[];
+    /** Set by the Gateway from the connection, never from the client. */
+    device?: string;
   }) => Promise<{ draft: SkillDraft }>;
   "skills.drafts.dismiss": (p: { draftId: string }) => Promise<{ draft: SkillDraft }>;
   /** The staged proposal (full text, files, findings, diff) for an approval card on any device. */
@@ -82,6 +84,7 @@ export function createSkillsHandlers(
   const requestApproval = async (
     proposal: SkillProposal,
     proposedBy?: "agent" | "recording",
+    recordedOn?: string,
   ): Promise<ProposalResult> => {
     const counts = summarizeFindings(proposal.findings);
     const verb =
@@ -100,6 +103,13 @@ export function createSkillsHandlers(
       details: {
         name: proposal.name,
         ...(proposedBy === undefined ? {} : { proposedBy }),
+        ...(recordedOn === undefined ? {} : { recordedOn }),
+        ...(proposal.author === "recording"
+          ? {
+              untrustedText:
+                "This skill was made from pages you visited. Its steps quote text from those pages as data; it will be treated as untrusted instructions, and every action it takes still asks as usual.",
+            }
+          : {}),
         scope: proposal.scope,
         source: proposal.source,
         ...(proposal.commit === undefined ? {} : { commit: proposal.commit }),
@@ -121,7 +131,13 @@ export function createSkillsHandlers(
       // Device surfaces only: a chat channel (`telegram:123`) can never approve an install.
       surfaces: (opts.surfaces ?? ["desktop"]).filter((x) => !x.includes(":")),
       scopesOffered: ["once"],
-      taint: false,
+      // A skill made from a recording carries web page text: the card says so, in plain words.
+      ...(proposal.author === "recording"
+        ? {
+            taint: true,
+            taintSources: [{ sourceKind: "recorded web pages" }],
+          }
+        : { taint: false }),
     });
     return { proposal, approval: issued.approval };
   };
@@ -190,10 +206,11 @@ export function createSkillsHandlers(
     async "skills.drafts.accept"(p) {
       const drafts = needDrafts();
       const { proposal } = await drafts.accept(p.draftId);
-      const origin = drafts.get(p.draftId).origin;
+      const made = drafts.get(p.draftId);
       const result = await requestApproval(
         proposal,
-        origin === "recording" ? "recording" : "agent",
+        made.origin === "recording" ? "recording" : "agent",
+        made.recordedOn,
       );
       const draft = drafts.accepted(p.draftId, proposal.id, result.approval.id);
       return { ...result, draft };

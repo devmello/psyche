@@ -27989,7 +27989,8 @@ public struct SkillProposalResult: Codable, Sendable {
 // MARK: - SkillProposal
 public struct SkillProposal: Codable, Sendable {
     public let approvalKind: ApprovalKindEnum
-    /// Psyche wrote this skill
+    /// Psyche wrote this skill (agent), or it was made from a recording of web pages
+    /// (recording): its text carries page content, so it stays untrusted
     public let author: AuthorEnum?
     public let bindingHash: String
     public let commit: String?
@@ -28052,11 +28053,14 @@ public struct SkillProposal: Codable, Sendable {
     }
 }
 
-/// Psyche wrote this skill (self-extension); trust stays unknown
+/// Psyche wrote this skill (self-extension), or it was made from a recording; trust stays
+/// unknown
 ///
-/// Psyche wrote this skill
+/// Psyche wrote this skill (agent), or it was made from a recording of web pages
+/// (recording): its text carries page content, so it stays untrusted
 public enum AuthorEnum: String, Codable, Sendable {
     case agent = "agent"
+    case recording = "recording"
 }
 
 // MARK: - SkillProposalFile
@@ -28295,6 +28299,7 @@ public struct SkillDraft: Codable, Sendable {
     /// Runs in the thread with this routine
     public let occurrences: Int
     public let origin: SkillDraftOrigin?
+    public let recordedOn: String?
     /// Values stripped from the owner's words
     public let redactions: Int
     public let replay: SkillDraftReplay?
@@ -28320,6 +28325,7 @@ public struct SkillDraft: Codable, Sendable {
         case name = "name"
         case occurrences = "occurrences"
         case origin = "origin"
+        case recordedOn = "recordedOn"
         case redactions = "redactions"
         case replay = "replay"
         case signature = "signature"
@@ -28332,7 +28338,7 @@ public struct SkillDraft: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(approvalID: String?, createdAt: String, description: String, edited: Bool, id: String, installProposalID: String?, manifest: SkillManifest, name: String, occurrences: Int, origin: SkillDraftOrigin?, redactions: Int, replay: SkillDraftReplay?, signature: String, status: SkillDraftStatus, steps: [SkillDraftStep], tainted: Bool, text: String, threadID: String, update: SkillDraftUpdate?, updatedAt: String) {
+    public init(approvalID: String?, createdAt: String, description: String, edited: Bool, id: String, installProposalID: String?, manifest: SkillManifest, name: String, occurrences: Int, origin: SkillDraftOrigin?, recordedOn: String?, redactions: Int, replay: SkillDraftReplay?, signature: String, status: SkillDraftStatus, steps: [SkillDraftStep], tainted: Bool, text: String, threadID: String, update: SkillDraftUpdate?, updatedAt: String) {
         self.approvalID = approvalID
         self.createdAt = createdAt
         self.description = description
@@ -28343,6 +28349,7 @@ public struct SkillDraft: Codable, Sendable {
         self.name = name
         self.occurrences = occurrences
         self.origin = origin
+        self.recordedOn = recordedOn
         self.redactions = redactions
         self.replay = replay
         self.signature = signature
@@ -28721,7 +28728,8 @@ public struct SkillDetails: Codable, Sendable {
     public let hash: String
     /// Earlier approved versions of an agent-made skill, newest first
     public let history: [SkillAuthorVersion]?
-    /// Psyche wrote this skill (self-extension); trust stays unknown
+    /// Psyche wrote this skill (self-extension), or it was made from a recording; trust stays
+    /// unknown
     public let madeBy: AuthorEnum?
     public let manifest: SkillManifest?
     public let name: String
