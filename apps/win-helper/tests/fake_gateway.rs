@@ -527,6 +527,10 @@ async fn real_groups_through_the_node_protocol() {
         "{t}"
     );
     assert!(t.get("value").is_none());
+    // The helper-wide app id: a lowercase executable name, never a package family name.
+    if let Some(b) = t["bundleId"].as_str() {
+        assert!(b.ends_with(".exe") && b == b.to_lowercase(), "{t}");
+    }
 
     stop.cancel();
     drop(gw);
@@ -535,6 +539,305 @@ async fn real_groups_through_the_node_protocol() {
         .expect("daemon stops")
         .unwrap();
     let _ = std::fs::remove_dir_all(home);
+}
+
+/// A daemon serving the real capability groups, paired with a fake Gateway.
+struct RealHelper {
+    gw: Gateway,
+    stop: psyche_win_helper::node::cancel::CancelToken,
+    running: tokio::task::JoinHandle<()>,
+    home: std::path::PathBuf,
+    next: u32,
+}
+
+impl RealHelper {
+    async fn start(tag: &str) -> RealHelper {
+        let (env, pipe, home) = setup(tag);
+        let first = server(&pipe, true);
+        let identity = DeviceIdentity::generate();
+        let device_id = identity.device_id();
+        let registry = Arc::new(psyche_win_helper::groups::build(Runtime::offline(
+            env.clone(),
+        )));
+        let mut daemon = NodeDaemon::new(identity, registry, env, HelperLog::quiet());
+        fast(&mut daemon);
+        let daemon = Arc::new(daemon);
+        let stop = daemon.stop_token();
+        let d = daemon.clone();
+        let running = tokio::spawn(async move { d.run().await });
+        let mut gw = Gateway::accept(first).await;
+        gw.handshake(json!({ "phase": "paired", "deviceId": device_id, "scopes": ["node"], "stateVersion": 0, "serverTime": "2030-01-01T00:00:00.000Z" })).await;
+        RealHelper {
+            gw,
+            stop,
+            running,
+            home,
+            next: 0,
+        }
+    }
+
+    /// One invocation's `node.result` payload.
+    async fn call(&mut self, capability: &str, params: Value, approval_id: Option<&str>) -> Value {
+        self.next += 1;
+        let id = format!("c{}", self.next);
+        let mut inv = json!({ "invocationId": id, "capability": capability, "params": params });
+        if let Some(a) = approval_id {
+            inv["approvalId"] = json!(a);
+        }
+        self.gw
+            .send(Frame::req(format!("g-{id}"), "node.invoke", Some(inv)));
+        assert!(self.gw.res(&format!("g-{id}")).await.0);
+        self.gw.collect(&id).await.1
+    }
+
+    /// Like [`Self::call`], answering an `approval_required` refusal once as the Gateway does:
+    /// the same call with an approval bound to the app and tier the refusal named.
+    async fn call_approved(&mut self, capability: &str, params: Value) -> Value {
+        let r = self.call(capability, params.clone(), None).await;
+        if r["error"]["code"] != "approval_required" {
+            return r;
+        }
+        let d = &r["error"]["details"];
+        let mut p = params;
+        p["approval"] = json!({ "app": d["app"], "tier": d["tierRequired"] });
+        self.call(capability, p, Some("apr_ids")).await
+    }
+
+    async fn stop(self) {
+        self.stop.cancel();
+        drop(self.gw);
+        tokio::time::timeout(STEP, self.running)
+            .await
+            .expect("daemon stops")
+            .unwrap();
+        let _ = std::fs::remove_dir_all(self.home);
+    }
+}
+
+/// The app id a computer-use result names: the snapshot header's `bundleId`, or (refused) the
+/// error's `app`.
+fn computer_app_id(r: &Value) -> Option<String> {
+    let id = if r["ok"] == true {
+        &r["result"]["header"]["bundleId"]
+    } else {
+        &r["error"]["details"]["app"]
+    };
+    id.as_str().map(str::to_owned)
+}
+
+/// Every capability names an app by the same id (the lowercase executable name): `apps.list`
+/// agrees with the computer crate's window attribution for every running app, and for the
+/// foreground app `apps.list`, `computer.ax_tree`, `screen.context` and `dictation.target` report
+/// the same id whenever they reached the same process. Reads only; never changes the foreground.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn app_ids_agree_across_capabilities() {
+    let mut h = RealHelper::start("ids").await;
+    let list = h.call("apps.list", json!({}), None).await;
+    assert_eq!(list["ok"], true, "{list}");
+    let apps = list["result"]["apps"].as_array().unwrap().clone();
+    let crate_view = psyche_win_computer::win::apps::windowed_apps();
+    for a in &apps {
+        let id = a["bundleId"].as_str().unwrap_or_default();
+        assert_eq!(id, id.to_lowercase(), "{a}");
+        assert!(
+            !id.contains(['\\', '!']),
+            "ids are executable names, not paths or AUMIDs: {a}"
+        );
+        let exe = a["exe"]
+            .as_str()
+            .map(|e| psyche_win_computer::app_id_from_exe(e).unwrap());
+        assert_eq!(a["bundleId"].as_str().map(str::to_owned), exe, "{a}");
+        // Windows that closed or opened between the two listings are skipped.
+        if let Some(c) = crate_view
+            .iter()
+            .find(|c| c.pid == a["pid"].as_u64().unwrap() as u32)
+        {
+            assert_eq!(c.bundle_id.as_deref().unwrap_or_default(), id, "{a}");
+        }
+        // Packaged apps hosted in a frame are the hosted app, never the frame host.
+        if a["aumid"].as_str().is_some_and(|m| m.contains('!')) {
+            assert_ne!(id, "applicationframehost.exe", "{a}");
+        }
+    }
+
+    let fg_before = psyche_win_helper::win::process::foreground_window();
+    let active = apps.iter().find(|a| a["active"] == true).cloned();
+    let tree = h
+        .call_approved("computer.ax_tree", json!({ "maxEmit": 5 }))
+        .await;
+    let ctx = h
+        .call(
+            "screen.context",
+            json!({ "mode": "window", "maxWidth": 320, "maxHeight": 240 }),
+            None,
+        )
+        .await;
+    let target = h.call("dictation.target", Value::Null, None).await;
+    let fg_after = psyche_win_helper::win::process::foreground_window();
+    let Some(active) = active.filter(|_| fg_before == fg_after) else {
+        eprintln!("no stable foreground app; skipping the foreground comparison");
+        return h.stop().await;
+    };
+    let id = active["bundleId"].as_str().map(str::to_owned);
+    let pid = active["pid"].clone();
+    eprintln!("foreground app {id:?}");
+    if r_pid(&tree) == Some(pid.clone())
+        || (tree["ok"] != true && tree["error"]["details"]["app"].is_string())
+    {
+        assert_eq!(computer_app_id(&tree), id, "computer.ax_tree {tree}");
+    }
+    assert_eq!(ctx["ok"], true, "{ctx}");
+    if ctx["result"]["win"]["exePath"].is_string()
+        && ctx["result"]["win"]["exePath"] == active["exe"]
+    {
+        assert_eq!(
+            ctx["result"]["context"]["bundleId"]
+                .as_str()
+                .map(str::to_owned),
+            id,
+            "screen.context {ctx}"
+        );
+    }
+    assert_eq!(target["ok"], true, "{target}");
+    let t = &target["result"]["target"];
+    if t["pid"] == pid {
+        assert_eq!(
+            t["bundleId"].as_str().map(str::to_owned),
+            id,
+            "dictation.target {t}"
+        );
+    }
+    h.stop().await;
+}
+
+fn r_pid(r: &Value) -> Option<Value> {
+    (r["ok"] == true).then(|| r["result"]["header"]["pid"].clone())
+}
+
+/// Live: Calculator (a packaged app drawn in an `ApplicationFrameHost.exe` frame) opened by its
+/// app id, focused by it, and named `calculatorapp.exe` by `apps.list`, `computer.ax_tree`,
+/// `screen.context` and `dictation.target`. Skipped when Calculator is already running (it is the
+/// user's then); the Calculator it opens is closed again. `cargo test -- --ignored live_app_ids`
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[ignore = "opens and focuses Calculator on the desktop"]
+async fn live_app_ids_on_calculator() {
+    use psyche_win_helper::win::process::{all_processes, app_windows_by_pid};
+    const ID: &str = "calculatorapp.exe";
+    if all_processes()
+        .iter()
+        .any(|(_, exe)| exe.eq_ignore_ascii_case(ID))
+    {
+        eprintln!("Calculator is already running; skipping");
+        return;
+    }
+    let mut h = RealHelper::start("calc").await;
+    let opened = h.call("apps.open", json!({ "app": ID }), None).await;
+    assert_eq!(opened["ok"], true, "{opened}");
+    assert_eq!(opened["result"]["bundleId"], ID, "{opened}");
+    assert!(
+        opened["result"]["aumid"]
+            .as_str()
+            .unwrap()
+            .ends_with("!App"),
+        "{opened}"
+    );
+    assert_eq!(opened["receipt"]["externalRefs"]["app"], ID);
+
+    let mut listed = None;
+    for _ in 0..50 {
+        let list = h.call("apps.list", json!({}), None).await;
+        listed = list["result"]["apps"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["bundleId"] == ID)
+            .cloned();
+        if listed.is_some() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+    let listed = listed.expect("apps.list shows Calculator");
+    // Closes the Calculator this test opened, whatever happens below.
+    struct Close(u32);
+    impl Drop for Close {
+        fn drop(&mut self) {
+            for w in app_windows_by_pid().remove(&self.0).unwrap_or_default() {
+                // SAFETY: posting WM_CLOSE to the Calculator frame this test opened.
+                unsafe {
+                    let _ = windows::Win32::UI::WindowsAndMessaging::PostMessageW(
+                        Some(w),
+                        windows::Win32::UI::WindowsAndMessaging::WM_CLOSE,
+                        windows::Win32::Foundation::WPARAM(0),
+                        windows::Win32::Foundation::LPARAM(0),
+                    );
+                }
+            }
+        }
+    }
+    let close = Close(listed["pid"].as_u64().unwrap() as u32);
+    assert!(
+        listed["packageFamilyName"]
+            .as_str()
+            .unwrap()
+            .starts_with("Microsoft.WindowsCalculator_"),
+        "{listed}"
+    );
+
+    let focused = h.call_approved("apps.focus", json!({ "app": ID })).await;
+    let mut ids: Vec<(&str, Option<String>)> = Vec::new();
+    if focused["result"]["focused"] == true {
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        let list = h.call("apps.list", json!({}), None).await;
+        let active = list["result"]["apps"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["active"] == true)
+            .cloned();
+        ids.push((
+            "apps.list active",
+            active.and_then(|a| a["bundleId"].as_str().map(str::to_owned)),
+        ));
+        let tree = h
+            .call_approved("computer.ax_tree", json!({ "maxEmit": 5 }))
+            .await;
+        ids.push(("computer.ax_tree (foreground)", computer_app_id(&tree)));
+        let ctx = h
+            .call(
+                "screen.context",
+                json!({ "mode": "window", "maxWidth": 320, "maxHeight": 240 }),
+                None,
+            )
+            .await;
+        ids.push((
+            "screen.context",
+            ctx["result"]["context"]["bundleId"]
+                .as_str()
+                .map(str::to_owned),
+        ));
+        let target = h.call("dictation.target", Value::Null, None).await;
+        ids.push((
+            "dictation.target",
+            target["result"]["target"]["bundleId"]
+                .as_str()
+                .map(str::to_owned),
+        ));
+    } else {
+        eprintln!(
+            "Windows kept Calculator in the background ({focused}); checking the by-id reads only"
+        );
+    }
+    assert_eq!(focused["result"]["app"], ID, "{focused}");
+    let tree = h
+        .call_approved("computer.ax_tree", json!({ "app": ID, "maxEmit": 5 }))
+        .await;
+    ids.push(("computer.ax_tree (by id)", computer_app_id(&tree)));
+    drop(close);
+    for (cap, id) in &ids {
+        assert_eq!(id.as_deref(), Some(ID), "{cap}: {ids:?}");
+    }
+    h.stop().await;
 }
 
 #[tokio::test]

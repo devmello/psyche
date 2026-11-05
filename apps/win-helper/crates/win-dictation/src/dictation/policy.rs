@@ -115,8 +115,13 @@ impl ElementInfo {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Focus {
     pub pid: u32,
-    /// Package family name for packaged apps, else the executable's file name (lowercase).
+    /// The helper-wide app id (`psyche_win_computer::app_id`): the lowercase executable file
+    /// name, the same id `apps.list` and `computer.*` report.
     pub bundle_id: Option<String>,
+    /// Full executable path.
+    pub exe: Option<String>,
+    /// Package family name, for packaged apps.
+    pub package_family_name: Option<String>,
     pub app_name: String,
     pub role: Option<String>,
     /// UIA `IsPassword`.
@@ -131,6 +136,8 @@ impl Focus {
         Focus {
             pid,
             bundle_id: bundle_id.map(str::to_string),
+            exe: None,
+            package_family_name: None,
             app_name: app_name.to_string(),
             role: None,
             secure: false,
@@ -240,6 +247,8 @@ fn refusal_or_no_focus(focus: Option<&Focus>, expect_pid: Option<u32>) -> Option
 pub struct Target {
     pub app_name: String,
     pub bundle_id: Option<String>,
+    pub exe: Option<String>,
+    pub package_family_name: Option<String>,
     pub insertable: bool,
     pub pid: u32,
     pub refusal: Option<Refusal>,
@@ -247,7 +256,8 @@ pub struct Target {
 }
 
 impl Target {
-    /// Wire form: `bundleId` and `role` present as null rather than omitted.
+    /// Wire form: `bundleId` and `role` present as null rather than omitted; the Windows extras
+    /// `exe` and `packageFamilyName` only when known.
     pub fn wire(&self) -> Value {
         let mut o = json!({
             "pid": self.pid,
@@ -256,6 +266,12 @@ impl Target {
             "role": self.role,
             "insertable": self.insertable,
         });
+        if let Some(e) = &self.exe {
+            o["exe"] = json!(e);
+        }
+        if let Some(f) = &self.package_family_name {
+            o["packageFamilyName"] = json!(f);
+        }
         if let Some(r) = self.refusal {
             o["refusal"] = json!(r.as_str());
         }
@@ -269,6 +285,8 @@ pub fn target(focus: Option<&Focus>, expect_pid: Option<u32>) -> Option<Target> 
     Some(Target {
         app_name: f.app_name.clone(),
         bundle_id: f.bundle_id.clone(),
+        exe: f.exe.clone(),
+        package_family_name: f.package_family_name.clone(),
         insertable: r.is_none(),
         pid: f.pid,
         refusal: r,
@@ -449,7 +467,9 @@ mod tests {
         Focus {
             role: Some("Document".into()),
             element: Some(ElementInfo { control_type: 50030, framework_id: "Win32".into(), value_settable: false, has_text_pattern: true }),
-            ..Focus::app(4242, Some("microsoft.windowsnotepad_8wekyb3d8bbwe"), "Notepad")
+            exe: Some(r"C:\Program Files\WindowsApps\Microsoft.WindowsNotepad_11.2_x64__8wekyb3d8bbwe\Notepad\Notepad.exe".into()),
+            package_family_name: Some("Microsoft.WindowsNotepad_8wekyb3d8bbwe".into()),
+            ..Focus::app(4242, Some("notepad.exe"), "Notepad")
         }
     }
 
@@ -541,6 +561,10 @@ mod tests {
         assert_eq!(s.wire()["refusal"], "secure_field");
         assert_eq!(s.wire()["insertable"], false);
         assert_eq!(s.wire()["role"], "Document");
+        // Packaged apps: the id is the executable name; the family name is an extra.
+        assert_eq!(s.wire()["bundleId"], "notepad.exe");
+        assert_eq!(s.wire()["packageFamilyName"], "Microsoft.WindowsNotepad_8wekyb3d8bbwe");
+        assert!(s.wire()["exe"].as_str().unwrap().ends_with(r"\Notepad.exe"));
     }
 
     #[test]
@@ -605,7 +629,7 @@ mod tests {
         let f = Fake::with(notepad());
         let e = insert("hi", Some(77), &f).unwrap_err();
         assert_eq!(e.reason, "focus_changed");
-        assert_eq!(e.details["bundleId"], "microsoft.windowsnotepad_8wekyb3d8bbwe");
+        assert_eq!(e.details["bundleId"], "notepad.exe");
         let f = Fake::with(Focus { elevated: true, ..notepad() });
         assert_eq!(insert("hi", None, &f).unwrap_err().reason, "elevated_target");
         assert!(f.calls.borrow().is_empty());

@@ -6,6 +6,8 @@
 //! Gateway's bundle-id pattern (`^[A-Za-z0-9-]+(\.[A-Za-z0-9_-]+)+$`) for ordinary names, is
 //! stable across installs and is what Settings → Computer use lists. Packaged (UWP) apps hosted by
 //! `ApplicationFrameHost.exe` are identified by the hosted app's executable, never the host.
+//! [`crate::app_id`] computes it, for every capability of the helper (`apps.*` and
+//! `dictation.*` included), so an id from one matches the others.
 
 use crate::error::{code, CapError, CapResult};
 use crate::keychord::send_keys;

@@ -1,12 +1,14 @@
 //! Per-app computer-use tiers (feature F6/J5; port of `Core/Computer/Tiers.swift`). Shared by
 //! `apps.*` here and by the wave-2 `computer.*` group.
 //!
-//! **App identity on Windows** (what the mac helper calls a bundle id): the window's or process's
-//! AppUserModelID when it has one (packaged apps, `Microsoft.WindowsCalculator_8wekyb3d8bbwe!App`,
-//! or Win32 apps that set one), else the full executable path (`C:\Program Files\…\app.exe`).
-//! Settings keys in `computer-use.json` match an identity exactly (case-insensitive) or by
-//! executable file name (`"notepad.exe": "interact"`). Fixed caps match executable file names
-//! and AppUserModelID prefixes.
+//! **App identity on Windows** (what the mac helper calls a bundle id) is the helper-wide app id,
+//! `psyche_win_computer::app_id`: the lowercase executable file name (`notepad.exe`,
+//! `calculatorapp.exe`; frame-host windows belong to the hosted packaged app), the same id
+//! `computer.*`, `screen.context`, `teach.*` and `dictation.*` report. Settings keys in
+//! `computer-use.json` match an identity exactly (case-insensitive) or by executable file name
+//! (`"notepad.exe": "interact"`, so a full path also matches). Fixed caps match executable file
+//! names and AppUserModelID prefixes; `apps.*` checks an app's AUMID (an extra field) as well
+//! ([`TierPolicy::authorize_app`]), so a packaged app's AUMID rule still holds.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -382,7 +384,7 @@ pub fn with_approval_param(mut spec: CapabilitySpec) -> CapabilitySpec {
             "approval".into(),
             schema::object_with(
                 vec![
-                    ("app", schema::string(Some("App identity the approval card named (AppUserModelID or executable path)"))),
+                    ("app", schema::string(Some("App id the approval card named (lowercase executable name, e.g. notepad.exe)"))),
                     ("tier", schema::string_enum(None, &["read", "click", "interact"])),
                 ],
                 &["app", "tier"],
@@ -506,6 +508,30 @@ impl TierPolicy {
             .with_detail("tierRequired", needed.as_str()));
         }
         Ok(())
+    }
+
+    /// [`Self::effective_tier`] lowered by the fixed cap of the app's AppUserModelID.
+    pub fn effective_tier_app(&self, identity: Option<&str>, aumid: Option<&str>) -> ComputerTier {
+        self.effective_tier(identity).min(fixed_caps::cap(aumid))
+    }
+
+    /// [`Self::authorize`], also refusing when the app's AppUserModelID matches a fixed cap below
+    /// the needed tier (packaged apps listed by AUMID prefix).
+    pub fn authorize_app(
+        &self,
+        intent: ComputerIntent,
+        identity: Option<&str>,
+        aumid: Option<&str>,
+        app_name: &str,
+        approval: Option<&ApprovalBinding>,
+    ) -> Result<(), CapabilityError> {
+        let needed = intent.required_tier();
+        let cap = fixed_caps::cap(aumid);
+        if cap < needed {
+            return Err(refusal(needed, cap, app_name, aumid, true)
+                .with_detail("app", identity.or(aumid).unwrap_or(app_name)));
+        }
+        self.authorize(intent, identity, app_name, approval)
     }
 
     pub fn clear_allowances(&self) {
@@ -684,6 +710,43 @@ mod tests {
         );
         p.clear_allowances();
         assert_eq!(p.effective_tier(Some(notes)), ComputerTier::Off);
+    }
+
+    #[test]
+    fn aumid_fixed_caps_hold_for_exe_name_ids() {
+        let p = TierPolicy::new(serde_json::from_value(json!({"default": "interact"})).unwrap());
+        let pw = Some("AgileBits.1Password_abc!App");
+        assert_eq!(
+            p.effective_tier_app(Some("someapp.exe"), pw),
+            ComputerTier::Off
+        );
+        let e = p
+            .authorize_app(
+                ComputerIntent::Read,
+                Some("someapp.exe"),
+                pw,
+                "1Password",
+                None,
+            )
+            .unwrap_err();
+        assert_eq!(
+            (e.reason.as_str(), &e.details["app"]),
+            ("tier_off", &json!("someapp.exe"))
+        );
+        assert!(
+            p.authorize_app(
+                ComputerIntent::Read,
+                Some("notepad.exe"),
+                Some("Microsoft.WindowsNotepad_8wekyb3d8bbwe!App"),
+                "Notepad",
+                None
+            )
+            .is_ok()
+        );
+        assert_eq!(
+            p.effective_tier_app(Some("notepad.exe"), None),
+            ComputerTier::Interact
+        );
     }
 
     #[test]

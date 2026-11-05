@@ -19,6 +19,8 @@
 //! - [`element_at`] / [`focused_element`] → [`ElementTarget`]: one element described with the
 //!   `ax_tree` mapping (AX role / subrole, label, identifier, app, window), never its value; and
 //!   [`app_window_image`], an app's main window with screenshot hygiene (the teach recorder).
+//! - [`app_id`]: the one Windows app identity (lowercase executable name, frame-host windows
+//!   attributed to the hosted app) that every capability of the helper reports.
 //! - [`browser::tabs`]: Chrome / Edge / Brave tabs through UI Automation (`chrome.tabs`).
 //!
 //! ## Threading
@@ -40,6 +42,7 @@
 // and returned once per call, so they stay unboxed.
 #![allow(clippy::result_large_err)]
 
+pub mod app_id;
 pub mod error;
 pub mod hygiene;
 pub mod keychord;
@@ -57,9 +60,12 @@ pub mod element;
 #[cfg(windows)]
 pub mod win;
 
+pub use app_id::{app_id_from_exe, is_app_id};
 pub use error::{CapError, CapResult};
 pub use spec::{specs, CapSpecLite};
 
+#[cfg(windows)]
+pub use app_id::{app_id_for_pid, app_id_for_window, app_pid_for_window, app_pids_by_window};
 #[cfg(windows)]
 pub use caps::{invoke, CapOutput, Invocation, ReceiptDraft};
 #[cfg(windows)]
