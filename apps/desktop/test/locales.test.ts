@@ -1,9 +1,9 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MESSAGE_LOCALES } from "../../../packages/ui/src/i18n/messages/locales/index.ts";
-import { pruneLocales, SHIPPED_LOCALES } from "../src/packaging/locales.ts";
+import { pruneLocales, pruneWin32Locales, SHIPPED_LOCALES } from "../src/packaging/locales.ts";
 
 describe("pruneLocales", () => {
   it("ships Chromium strings for exactly the languages the UI has catalogues for", () => {
@@ -31,6 +31,24 @@ describe("pruneLocales", () => {
       expect(existsSync(join(contents, "Resources", "psyched"))).toBe(true);
     } finally {
       rmSync(contents, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("pruneWin32Locales", () => {
+  it("keeps en-US and the shipped languages with their regions, drops the other .pak files", () => {
+    const root = mkdtempSync(join(tmpdir(), "psyche-win-locales-"));
+    const dir = join(root, "locales");
+    mkdirSync(dir);
+    const kept = ["en-US", "en-GB", "de", "pt-BR", "zh-TW", "es-419"];
+    const dropped = ["fi", "sv", "tr", "vi", "nb"];
+    try {
+      for (const l of [...kept, ...dropped]) writeFileSync(join(dir, `${l}.pak`), "pak");
+      expect(pruneWin32Locales(root)).toBe(dropped.length);
+      expect(readdirSync(dir).sort()).toEqual(kept.map((l) => `${l}.pak`).sort());
+      expect(pruneWin32Locales(join(root, "nowhere"))).toBe(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });
