@@ -1,1 +1,6 @@
+# Check text files out with LF on every platform. Windows clones default to core.autocrlf=true,
+# which rewrites fixtures, golden files, pinned prompts and bundled assets to CRLF; tests compare
+# bytes and the Windows build ships what is checked out.
+* text=auto eol=lf
+
 packages/protocol/CHANGES.md merge=union
