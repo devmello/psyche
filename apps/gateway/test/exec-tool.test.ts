@@ -10,6 +10,7 @@ import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { composeSandboxIfAvailable } from "../src/compose/sandbox.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
 import { createLogger } from "../src/log.ts";
+import { releaseAllGatewayLocks } from "../src/pre-update.ts";
 import { adminClient, ik, type TestClient } from "./helpers.ts";
 
 /**
@@ -38,6 +39,7 @@ afterEach(async () => {
   for (const c of clients.splice(0)) c.close();
   await composed?.stop("test");
   composed = null;
+  releaseAllGatewayLocks();
   if (home) rmSync(home, { recursive: true, force: true });
 });
 

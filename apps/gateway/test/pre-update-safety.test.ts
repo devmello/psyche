@@ -21,6 +21,7 @@ import {
   pruneSnapshots,
   RESTORE_MARKER_FILE,
   readUpdateFailure,
+  releaseAllGatewayLocks,
   restoreSnapshot,
   UPDATE_FAILED_FILE,
   UPDATE_PROGRESS_FILE,
@@ -30,6 +31,7 @@ import {
 
 const roots: string[] = [];
 afterEach(() => {
+  releaseAllGatewayLocks();
   for (const r of roots.splice(0)) rmSync(r, { recursive: true, force: true });
 });
 

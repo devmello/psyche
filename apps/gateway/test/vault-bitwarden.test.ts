@@ -8,6 +8,7 @@ import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { BITWARDEN_CONNECTOR, binaryOnPath, bitwardenSource } from "../src/compose/vault.ts";
 import { readConfigFile } from "../src/config.ts";
 import { silentLogger } from "../src/log.ts";
+import { releaseAllGatewayLocks } from "../src/pre-update.ts";
 
 /** G11: the Gateway hands the vault its Bitwarden source (`credentials.bitwarden`). */
 
@@ -19,6 +20,7 @@ let composed: ComposedGateway | null = null;
 afterEach(async () => {
   await composed?.stop("test");
   composed = null;
+  releaseAllGatewayLocks();
   if (home) rmSync(home, { recursive: true, force: true });
 });
 
