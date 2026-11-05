@@ -769,6 +769,52 @@ export const settingsRest: Partial<Catalogue> = {
     "Riavvia Psyche. Poi, sull’altro computer, aggiungi questo Mac come Gateway. Mostra un codice di abbinamento e l’impronta di una chiave: confrontali con la richiesta in “In attesa di abbinamento” qui, poi approvala.",
   "settings.remote.funnel":
     "Non attivare mai Tailscale Funnel per questo. Metterebbe il Gateway su internet pubblico.",
+  "settings.remote.configWarnings":
+    "config.json contiene impostazioni che questa versione di Psyche non conosce e quindi ignora: {keys}. Se intendevi una di queste, controlla l’ortografia.",
+  "settings.uninstall.group": "Disinstalla Psyche",
+  "settings.uninstall.groupHint":
+    "Ferma il Gateway e l’assistente e sposta l’app nel Cestino. I tuoi dati restano, a meno che tu non scelga altrimenti.",
+  "settings.uninstall.open": "Disinstalla Psyche…",
+  "settings.uninstall.title": "Disinstalla Psyche",
+  "settings.uninstall.description":
+    "Tutto ciò che segue va nel Cestino, quindi puoi ancora recuperarlo. Niente viene eliminato definitivamente.",
+  "settings.uninstall.dataChoice": "I tuoi dati",
+  "settings.uninstall.keep": "Conserva i miei dati",
+  "settings.uninstall.keepHint":
+    "Chat, memoria, cassaforte e backup restano nella cartella dei dati.",
+  "settings.uninstall.delete": "Elimina i miei dati",
+  "settings.uninstall.deleteHint":
+    "Sposta nel Cestino anche la cartella dei dati: chat, memoria, cassaforte e backup.",
+  "settings.uninstall.willDo": "Cosa succede",
+  "settings.uninstall.stopAgent": "Il LaunchAgent del Gateway viene fermato e rimosso.",
+  "settings.uninstall.stopHelper":
+    "Psyche Helper viene fermato e «Apri al login» viene disattivato.",
+  "settings.uninstall.trash": "Spostato nel Cestino",
+  "settings.uninstall.kind.agent": "LaunchAgent del Gateway",
+  "settings.uninstall.kind.support": "Application Support",
+  "settings.uninstall.kind.cache": "Cache, log, preferenze e stato salvato",
+  "settings.uninstall.kind.data": "I tuoi dati",
+  "settings.uninstall.kind.app": "L’app",
+  "settings.uninstall.agentOther":
+    "L’agente del Gateway appartiene a un’altra copia di Psyche o allo strumento da riga di comando, quindi viene lasciato dov’è.",
+  "settings.uninstall.blocked": "{path} non può essere spostato nel Cestino da qui: {reason}",
+  "settings.uninstall.keychainStays":
+    "Gli elementi del portachiavi restano (la chiave della cassaforte e quelli dell’assistente). Rimuovili in Accesso Portachiavi se vuoi.",
+  "settings.uninstall.keychainGoes":
+    "Vengono rimossi anche gli elementi del portachiavi per la cassaforte e l’assistente.",
+  "settings.uninstall.removeKeychain":
+    "Rimuovi anche i miei elementi del portachiavi (com.psyche.vault e quelli dell’assistente). Senza i tuoi dati sono inutili.",
+  "settings.uninstall.kind.state": "Stato salvato delle finestre",
+  "settings.uninstall.dataStays": "La cartella dei tuoi dati non viene toccata.",
+  "settings.uninstall.typeWord": "Digita {word} per confermare",
+  "settings.uninstall.presence":
+    "Ti verrà poi chiesto di confermare con Touch ID o su questo dispositivo, perché così i tuoi dati vengono rimossi.",
+  "settings.uninstall.approvalLabel": "Disinstalla Psyche ed elimina i dati",
+  "settings.uninstall.failed":
+    "Psyche non è riuscito a disinstallarsi ({reason}). Nient’altro è stato modificato.",
+  "settings.uninstall.cancel": "Annulla",
+  "settings.uninstall.go": "Disinstalla ed esci",
+  "settings.uninstall.goDelete": "Elimina i dati e disinstalla",
   "settings.remote.admin":
     "Un computer che si abbina ottiene lettura, scrittura e approvazioni. L’amministrazione resta disattivata a meno che tu non la selezioni durante l’approvazione, e ogni modifica di amministrazione richiede comunque il tuo Touch ID qui.",
   "settings.remote.address": "Indirizzo pubblico",

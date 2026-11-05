@@ -103,6 +103,7 @@ const bridge = {
     onRun: (cb: (s: unknown) => void) => listen(IPC.gatewayRun, cb),
     showLogs: () => invoke(IPC.gatewayShowLogs),
     retry: () => invoke(IPC.gatewayRetry),
+    restoredByHand: () => invoke(IPC.gatewayRestoredByHand),
   },
   gateways: {
     list: () => invoke(IPC.gatewaysList),

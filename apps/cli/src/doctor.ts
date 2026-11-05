@@ -26,11 +26,28 @@ export function doctorChecks(s: Snapshot): Check[] {
       message: `config.json: ${s.config.problems.join("; ")}`,
       hint: "Fix it with `psyche config set` or edit $PSYCHE_HOME/config.json",
     });
+  } else if (s.config.warnings?.length) {
+    add({
+      id: "config",
+      status: "warn",
+      message: `config.json has keys this version does not know (${s.config.warnings.join(", ")}); they are kept and ignored`,
+      hint: "Written by a newer version? If it is a typo of a setting, fix it in $PSYCHE_HOME/config.json",
+    });
   } else {
     add({
       id: "config",
       status: "ok",
       message: s.config.exists ? "config.json is valid" : "no config.json (defaults)",
+    });
+  }
+
+  // A restore put data aside instead of overwriting it: say where, so it is not forgotten.
+  if (s.displaced?.length) {
+    add({
+      id: "displaced",
+      status: "warn",
+      message: `a restore after a failed update moved your newer data aside in $PSYCHE_HOME/backups/pre-update/${s.displaced.join(", ")}`,
+      hint: "Nothing was deleted. If you are missing anything from before the failure, it is in there for 30 days",
     });
   }
 

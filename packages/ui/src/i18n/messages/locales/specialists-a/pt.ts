@@ -226,6 +226,7 @@ export const specialistsA: Partial<Catalogue> = {
   "web.splash.remote.tokenRefused": "{host} recusou este link de emparelhamento.",
   "web.splash.remote.tokenRefusedReason":
     "Ele já foi usado, expirou ou foi revogado. Crie um novo em {host} e adicione-o de novo.",
+  "web.splash.restoredByHand": "Restaurei meus dados por conta própria",
   "web.splash.remote.switch": "Trocar de Gateway",
   "web.splash.remote.useThisMac": "Usar este Mac",
   "web.splash.remote.pairAgain": "Esquecer e emparelhar novamente",

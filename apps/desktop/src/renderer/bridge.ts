@@ -150,6 +150,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
     onRun: (cb) => b.gateway.onRun((s) => cb(s as GatewayRunView)),
     showLogs: async () => void (await b.gateway.showLogs()),
     retry: async () => void (await b.gateway.retry()),
+    restoredByHand: async () => void (await b.gateway.restoredByHand()),
   };
   return {
     kind: "desktop",

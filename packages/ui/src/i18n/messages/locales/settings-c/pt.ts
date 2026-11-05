@@ -243,6 +243,51 @@ export const settingsC: Partial<Catalogue> = {
     "Reinicie o Psyche. Depois, no outro computador, adicione este Mac como Gateway. Ele mostra um código de emparelhamento e a impressão digital de uma chave: compare-os com o pedido em “Aguardando emparelhamento” aqui e aprove.",
   "settings.remote.funnel":
     "Nunca ative o Tailscale Funnel para isto. Ele colocaria o Gateway na internet pública.",
+  "settings.remote.configWarnings":
+    "O config.json tem ajustes que esta versão do Psyche não conhece, por isso ela os ignora: {keys}. Se você queria usar algum deles, confira a grafia.",
+  "settings.uninstall.group": "Desinstalar o Psyche",
+  "settings.uninstall.groupHint":
+    "Para o Gateway e o assistente e move o app para o Lixo. Seus dados ficam, a menos que você escolha o contrário.",
+  "settings.uninstall.open": "Desinstalar o Psyche…",
+  "settings.uninstall.title": "Desinstalar o Psyche",
+  "settings.uninstall.description":
+    "Tudo abaixo vai para o Lixo, então você ainda pode recuperar. Nada é apagado de forma permanente.",
+  "settings.uninstall.dataChoice": "Seus dados",
+  "settings.uninstall.keep": "Manter meus dados",
+  "settings.uninstall.keepHint": "Conversas, memória, cofre e backups ficam na pasta de dados.",
+  "settings.uninstall.delete": "Apagar meus dados",
+  "settings.uninstall.deleteHint":
+    "Também move a pasta de dados para o Lixo: conversas, memória, cofre e backups.",
+  "settings.uninstall.willDo": "O que acontece",
+  "settings.uninstall.stopAgent": "O LaunchAgent do Gateway é parado e removido.",
+  "settings.uninstall.stopHelper":
+    "O Psyche Helper é parado e “Abrir ao iniciar sessão” é desativado.",
+  "settings.uninstall.trash": "Movido para o Lixo",
+  "settings.uninstall.kind.agent": "LaunchAgent do Gateway",
+  "settings.uninstall.kind.support": "Application Support",
+  "settings.uninstall.kind.cache": "Caches, registros, preferências e estado salvo",
+  "settings.uninstall.kind.data": "Seus dados",
+  "settings.uninstall.kind.app": "O app",
+  "settings.uninstall.agentOther":
+    "O agente do Gateway pertence a outra cópia do Psyche ou à ferramenta de linha de comando, por isso fica como está.",
+  "settings.uninstall.blocked": "{path} não pode ser movido para o Lixo a partir daqui: {reason}",
+  "settings.uninstall.keychainStays":
+    "Os itens do Acesso às Chaves ficam (a chave do cofre e os do assistente). Remova-os no Acesso às Chaves se quiser.",
+  "settings.uninstall.keychainGoes":
+    "Os itens do Acesso às Chaves do cofre e do assistente também são removidos.",
+  "settings.uninstall.removeKeychain":
+    "Remover também meus itens do Acesso às Chaves (com.psyche.vault e os do assistente). Sem seus dados, eles não servem para nada.",
+  "settings.uninstall.kind.state": "Estado salvo das janelas",
+  "settings.uninstall.dataStays": "Sua pasta de dados não é tocada.",
+  "settings.uninstall.typeWord": "Digite {word} para confirmar",
+  "settings.uninstall.presence":
+    "Depois você será solicitado a confirmar com Touch ID ou neste dispositivo, porque isso remove seus dados.",
+  "settings.uninstall.approvalLabel": "Desinstalar o Psyche e apagar os dados",
+  "settings.uninstall.failed":
+    "O Psyche não conseguiu se desinstalar ({reason}). Mais nada foi alterado.",
+  "settings.uninstall.cancel": "Cancelar",
+  "settings.uninstall.go": "Desinstalar e sair",
+  "settings.uninstall.goDelete": "Apagar os dados e desinstalar",
   "settings.remote.admin":
     "Um computador que emparelha recebe leitura, gravação e aprovações. Admin continua desativado, a menos que você marque ao aprovar, e cada alteração de admin ainda exige o seu Touch ID aqui.",
   "settings.remote.address": "Endereço público",

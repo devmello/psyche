@@ -25,6 +25,7 @@ import type { PresenceState } from "./presence-gate.ts";
 import type { RateLimiter } from "./rate-limit.ts";
 import type { RunTraceSink } from "./run-trace/sink.ts";
 import type { SessionController } from "./session/controller.ts";
+import type { UpdateGate } from "./update-gate.ts";
 
 /**
  * Model policy for thread writes (architecture §4.4, security §7.2): which models may run a
@@ -194,6 +195,8 @@ export interface GatewayContext {
   readonly deviceRequests: RateLimiter;
   readonly deviceSideEffects: RateLimiter;
   readonly handshakeSecret: string;
+  /** Closed to new chat turns and tasks while an app update is prepared (`update-gate.ts`). */
+  readonly updateGate: UpdateGate;
   readonly idempotency: Idempotency;
   readonly sessions: SessionController;
   readonly nodes: NodeRegistry;

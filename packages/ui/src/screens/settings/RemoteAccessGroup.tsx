@@ -81,6 +81,11 @@ export function RemoteAccessGroup(): ReactElement {
         </ol>
         <p className="text-callout text-approval-text">{t("settings.remote.funnel")}</p>
         <p className="text-callout text-label-secondary">{t("settings.remote.admin")}</p>
+        {data?.configWarnings?.length ? (
+          <p className="text-callout text-approval-text" role="status">
+            {t("settings.remote.configWarnings", { keys: data.configWarnings.join(", ") })}
+          </p>
+        ) : null}
         {data ? (
           <Facts
             items={[
