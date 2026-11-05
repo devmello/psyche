@@ -1,15 +1,16 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, posix } from "node:path";
+import { type SystemdOptions, SystemdUserSupervisor } from "../platform/systemd-supervisor.ts";
 import {
   defaultSleep,
   type Supervisor,
   SupervisorBase,
   type SupervisorOptions,
 } from "./supervisor-base.ts";
-import { type SystemdOptions, SystemdUserSupervisor } from "../platform/systemd-supervisor.ts";
 import { type TaskSchedulerOptions, TaskSchedulerSupervisor } from "./supervisor-windows.ts";
 
+export { type RestartReason, SystemdUserSupervisor } from "../platform/systemd-supervisor.ts";
 export {
   type BuildCheck,
   chooseMode,
@@ -24,7 +25,6 @@ export {
   type SupervisorOptions,
   serviceModeFor,
 } from "./supervisor-base.ts";
-export { type RestartReason, SystemdUserSupervisor } from "../platform/systemd-supervisor.ts";
 export { TaskSchedulerSupervisor } from "./supervisor-windows.ts";
 
 /**

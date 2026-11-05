@@ -23,7 +23,13 @@ import { ensureOwnerOnly } from "@psyche/hostfs";
  *   stop the Gateway whose automations keep running here.
  */
 
-export type SupervisorMode = "dev" | "launchd" | "taskscheduler" | "systemd" | "external" | "remote";
+export type SupervisorMode =
+  | "dev"
+  | "launchd"
+  | "taskscheduler"
+  | "systemd"
+  | "external"
+  | "remote";
 
 /** The OS-registered modes: the Gateway outlives the app. */
 export type ServiceMode = "launchd" | "taskscheduler" | "systemd";

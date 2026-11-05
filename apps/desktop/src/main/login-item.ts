@@ -143,7 +143,10 @@ export class LoginItem {
   }
 
   set(value: unknown): void {
-    if (this.#platform === "linux") return this.#setAutostart(openAtLogin(value));
+    if (this.#platform === "linux") {
+      this.#setAutostart(openAtLogin(value));
+      return;
+    }
     const settings = loginItemSettings(
       openAtLogin(value),
       this.#platform,

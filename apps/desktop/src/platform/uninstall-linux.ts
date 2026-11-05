@@ -1,17 +1,17 @@
 import { accessSync, constants, existsSync, readFileSync, realpathSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+import type { Runner } from "../main/supervisor-base.ts";
 import {
   type AgentOwner,
   DELETE_CONFIRM_WORD,
   dataFolderProblem,
   type PlanOptions,
-  type UninstallItem,
   UninstallError,
+  type UninstallItem,
   type UninstallPlan,
   type UninstallRequest,
   type UninstallResult,
 } from "../main/uninstall.ts";
-import type { Runner } from "../main/supervisor-base.ts";
 import { autostartPath } from "./autostart.ts";
 import type { LinuxInstallKind, LinuxPackageManager } from "./install-kind.ts";
 import { fillText, type LinuxUninstallText, linuxUninstallText } from "./linux-text.ts";
@@ -350,9 +350,7 @@ export async function runUninstallLinux(
   for (const path of await deps.clearStagedUpdate().catch(() => [] as string[])) await trash(path);
   deps.setOpenAtLogin(false);
   await deps.run("systemctl", systemctlUser.stop(HELPER_UNIT)).catch(() => undefined);
-  await deps
-    .run("podman", ["rm", "-f", "--filter", `label=${OWNER_LABEL}`])
-    .catch(() => undefined);
+  await deps.run("podman", ["rm", "-f", "--filter", `label=${OWNER_LABEL}`]).catch(() => undefined);
   let stoppedGateway = false;
   if (plan.agent === "ours") {
     const out = await deps.run("systemctl", systemctlUser.disableNow());
