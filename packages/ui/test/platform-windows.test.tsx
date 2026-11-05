@@ -137,16 +137,12 @@ const ABOUT_MACOS = new Set<string>([
   "settings.vm.noReports",
   // Apple apps (Notes, Reminders, Calendar, Mail, Safari, Shortcuts) and their macOS grants.
   "settings.connectors.catalog.appleNotes",
-  "settings.connectors.catalog.appleReminders",
-  "settings.connectors.catalog.appleCalendar",
-  "settings.connectors.catalog.appleMail",
   "settings.connectors.app.safari",
   "settings.connectors.grant.allowed",
-  "settings.connect.needsPermission",
   "settings.connect.notAskedYet",
   "settings.connect.noPrompt",
   "gallery.builtin.appleNotes",
-  "gallery.builtin.appleMail",
+  "settings.searchSources.hint.notes",
   "settings.shortcuts.loading",
   "settings.shortcuts.noHelper",
   // Apple's container runtime (macOS 26 on Apple silicon).
@@ -169,17 +165,10 @@ const ABOUT_MACOS = new Set<string>([
 ]);
 
 /**
- * Mac wording whose Windows copy belongs to work in progress elsewhere (local search sources on
- * Windows; Outlook-backed trusted sources). Remove an id here once its variant lands.
+ * Mac wording whose Windows copy belongs to work in progress elsewhere; add an id here only
+ * until its variant lands.
  */
-const PENDING_ELSEWHERE = new Set<string>([
-  "settings.searchSources.hint.mail",
-  "settings.searchSources.hint.notes",
-  "settings.searchSources.hint.contacts",
-  "settings.trusted.loading",
-  "settings.trusted.noHelper",
-  "settings.trusted.failed",
-]);
+const PENDING_ELSEWHERE = new Set<string>([]);
 
 const MAC_ONLY_TERMS =
   /\bMac(?:s|'s)?\b|macOS|Touch ID|[Kk]eychain|Finder|Safari|⌘|⌥|\bOption\b|\bDock\b|menu bar|System Settings|\bApple\b/;
