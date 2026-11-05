@@ -24,6 +24,7 @@ import { CDP_ALLOWED_METHODS, checkCdpCommand } from "../src/bridge/allowlist.ts
 import { FsQuarantineWriter } from "../src/downloads/library.ts";
 import { CdpBridgeDriver } from "../src/drivers/cdp.ts";
 import {
+  hasEncryptedRecordings,
   KEPT_RECORDING_LIMIT,
   KEPT_RECORDING_TTL_MS,
   loadTeachKey,
@@ -255,7 +256,260 @@ describe("the agent cannot start, stop or read a recording", () => {
       "browser.recordings.list",
       "browser.recordings.snapshot",
       "skills.drafts.fromRecording",
+      // Of a skill that is already made: whether it can run on a schedule, and the schedule.
+      "skills.recording.schedule",
+      "skills.recording.unattended",
     ]);
+    expect(Methods["skills.recording.schedule"].scope).toBe("operator.admin");
+    expect(Methods["skills.recording.unattended"].scope).toBe("operator.read");
     expect(Methods["skills.drafts.fromRecording"].scope).toBe("operator.admin");
+  });
+});
+
+describe("kept recordings are encrypted at rest (design doc §5)", () => {
+  const ENC = Buffer.alloc(32, 3);
+  const ID_A = "teach_abcdef123456";
+  let dir: string;
+  let logs: string[];
+  const make = (enc: Buffer | null | (() => Buffer) | undefined = ENC, mac = KEY) =>
+    new TeachKeptStore(join(dir, "state", "teach"), mac, () => 5_000, {
+      ...(enc === undefined ? {} : { enc }),
+      log: (m) => logs.push(m),
+    });
+  const makePlain = () =>
+    new TeachKeptStore(join(dir, "state", "teach"), KEY, () => 5_000, {
+      log: (m) => logs.push(m),
+    });
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "psyche-teach-enc-"));
+    logs = [];
+  });
+  afterEach(() => rm(dir, { recursive: true, force: true }));
+
+  it("round-trips, and the file shows no step, address or kept value", async () => {
+    const store = make();
+    expect(store.mode).toBe("encrypted");
+    await store.keep(ID_A, "Weekly report", steps);
+    const raw = await readFile(join(store.dir, `${ID_A}.json`), "utf8");
+    for (const word of ["Weekly report", "example.com", "Export", "2026-11-01", "textbox"])
+      expect(raw).not.toContain(word);
+    expect(JSON.parse(raw)).toMatchObject({ v: 2, alg: "aes-256-gcm" });
+    const back = await make().get(ID_A);
+    expect(back?.title).toBe("Weekly report");
+    expect(back?.steps.find((s) => s.name === "From")?.value).toBe("2026-11-01");
+    expect((await make().list()).map((r) => r.id)).toEqual([ID_A]);
+    expect((await stat(join(store.dir, `${ID_A}.json`))).mode & 0o777).toBe(0o600);
+  });
+
+  it("uses a new nonce for every write", async () => {
+    const store = make();
+    await store.keep(ID_A, "x", steps);
+    const a = JSON.parse(await readFile(join(store.dir, `${ID_A}.json`), "utf8"));
+    await store.keep(ID_A, "x", steps);
+    const b = JSON.parse(await readFile(join(store.dir, `${ID_A}.json`), "utf8"));
+    expect(a.iv).not.toBe(b.iv);
+  });
+
+  it("ignores and logs a file made with another key, never crashing", async () => {
+    await make().keep(ID_A, "x", steps);
+    const other = make(Buffer.alloc(32, 4));
+    expect(await other.get(ID_A)).toBeUndefined();
+    expect(await other.list()).toEqual([]);
+    expect(logs.some((l) => l.includes(ID_A) && l.includes("ignored"))).toBe(true);
+    // The log names the file, never what was in it.
+    expect(logs.join("\n")).not.toContain("Export");
+    // A key that cannot be made at all is the same: ignored, not thrown.
+    const broken = make(() => {
+      throw new Error("keychain locked");
+    });
+    expect(await broken.get(ID_A)).toBeUndefined();
+  });
+
+  it("rejects a tampered file: ciphertext, tag, nonce, a swapped id", async () => {
+    const store = make();
+    await store.keep(ID_A, "x", steps);
+    const file = join(store.dir, `${ID_A}.json`);
+    const good = JSON.parse(await readFile(file, "utf8"));
+    const flip = (b64: string) => {
+      const b = Buffer.from(b64, "base64");
+      b[0] = (b[0] ?? 0) ^ 1;
+      return b.toString("base64");
+    };
+    for (const field of ["ct", "tag", "iv"] as const) {
+      await writeFile(file, JSON.stringify({ ...good, [field]: flip(good[field]) }));
+      expect(await make().get(ID_A)).toBeUndefined();
+    }
+    await writeFile(file, JSON.stringify({ ...good, ct: "" }));
+    expect(await make().get(ID_A)).toBeUndefined();
+    await writeFile(file, "not json");
+    expect(await make().get(ID_A)).toBeUndefined();
+    // A good file moved to another id fails: the id is part of what is authenticated.
+    await writeFile(file, JSON.stringify(good));
+    expect((await make().get(ID_A))?.id).toBe(ID_A);
+    await rename(file, join(store.dir, "teach_bbbbbbbbbb.json"));
+    expect(await make().get("teach_bbbbbbbbbb")).toBeUndefined();
+  });
+
+  it("does not take a plain file with a bad signature dropped in the folder", async () => {
+    const store = make();
+    await store.keep(ID_A, "x", steps);
+    const forged = { id: "teach_cccccccccc", title: "t", keptAt: 1, steps: [] };
+    await writeFile(
+      join(store.dir, "teach_cccccccccc.json"),
+      JSON.stringify({ v: 1, mac: "00".repeat(32), rec: forged }),
+    );
+    const s2 = make();
+    expect((await s2.list()).map((r) => r.id)).toEqual([ID_A]);
+    expect(logs.some((l) => l.includes("teach_cccccccccc"))).toBe(true);
+    const left = JSON.parse(await readFile(join(store.dir, "teach_cccccccccc.json"), "utf8"));
+    expect(left.v).toBe(1);
+  });
+
+  it("migrates signed plain files the first time the store is used", async () => {
+    const plain = makePlain();
+    expect(plain.mode).toBe("plain");
+    await plain.keep(ID_A, "Old one", steps);
+    expect(await readFile(join(plain.dir, `${ID_A}.json`), "utf8")).toContain("Old one");
+    const store = make();
+    expect((await store.list()).map((r) => r.title)).toEqual(["Old one"]);
+    const after = await readFile(join(store.dir, `${ID_A}.json`), "utf8");
+    expect(after).not.toContain("Old one");
+    expect(JSON.parse(after).v).toBe(2);
+    expect((await make().get(ID_A))?.title).toBe("Old one");
+    expect(logs).toEqual([]);
+  });
+
+  it("does not migrate a plain file that was edited", async () => {
+    const plain = makePlain();
+    await plain.keep(ID_A, "Old one", steps);
+    const file = join(plain.dir, `${ID_A}.json`);
+    const good = JSON.parse(await readFile(file, "utf8"));
+    good.rec.title = "Edited";
+    await writeFile(file, JSON.stringify(good));
+    const store = make();
+    expect(await store.list()).toEqual([]);
+    expect(JSON.parse(await readFile(file, "utf8")).v).toBe(1);
+    expect(logs.some((l) => l.includes("signature"))).toBe(true);
+  });
+
+  it("without a keychain keeps nothing new, and still opens and deletes what is there", async () => {
+    const plain = makePlain();
+    await plain.keep(ID_A, "Old one", steps);
+    const none = make(null);
+    expect(none.mode).toBe("unavailable");
+    expect(none.canKeep).toBe(false);
+    await expect(none.keep("teach_dddddddddd", "New", steps)).rejects.toThrow("not kept");
+    await expect(stat(join(none.dir, "teach_dddddddddd.json"))).rejects.toThrow();
+    // An old signed file is readable and deletable; nothing is encrypted or rewritten.
+    expect((await none.get(ID_A))?.title).toBe("Old one");
+    expect(JSON.parse(await readFile(join(none.dir, `${ID_A}.json`), "utf8")).v).toBe(1);
+    await none.delete(ID_A);
+    expect(await none.list()).toEqual([]);
+    // An encrypted file cannot be opened without the key: ignored.
+    await make().keep("teach_eeeeeeeeee", "Enc", steps);
+    expect(await make(null).get("teach_eeeeeeeeee")).toBeUndefined();
+  });
+
+  it("wraps an old unwrapped signing key in place, and only for the signing key", async () => {
+    const wrap = {
+      seal: (k: Buffer) => Buffer.concat([Buffer.from("SEALED"), Buffer.from(k).reverse()]),
+      open: (b: Buffer) => Buffer.from(b.subarray(6)).reverse(),
+    };
+    const path = join(dir, "userData", "teach.key");
+    await mkdir(join(dir, "userData"), { recursive: true });
+    const old = Buffer.from(Array.from({ length: 32 }, (_, n) => n + 1));
+    await writeFile(path, old);
+    expect(loadTeachKey(path, wrap, { adoptPlain: true }).equals(old)).toBe(true);
+    const onDisk = await readFile(path);
+    expect(onDisk.includes(old)).toBe(false);
+    expect(loadTeachKey(path, wrap).equals(old)).toBe(true);
+    // The encryption key does not adopt a raw file somebody put there.
+    const encPath = join(dir, "userData", "teach.enc.key");
+    await writeFile(encPath, Buffer.alloc(32, 8));
+    expect(() => loadTeachKey(encPath, wrap)).toThrow();
+  });
+});
+
+describe("the old signing key and the keychain that will not open (design doc §5)", () => {
+  const ENC = Buffer.alloc(32, 3);
+  const OLD = Buffer.from(Array.from({ length: 32 }, (_, n) => n + 1));
+  const wrap = {
+    seal: (k: Buffer) => Buffer.concat([Buffer.from("SEALED"), Buffer.from(k).reverse()]),
+    open: (b: Buffer) => Buffer.from(b.subarray(6)).reverse(),
+  };
+  let dir: string;
+  let logs: string[];
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "psyche-teach-key-"));
+    logs = [];
+  });
+  afterEach(() => rm(dir, { recursive: true, force: true }));
+
+  it("adopts an unwrapped key only when allowed, and creates the temporary file exclusively", async () => {
+    const path = join(dir, "teach.key");
+    await writeFile(path, OLD);
+    // Not allowed (the marker exists, or an encrypted recording does): a raw file is an error.
+    expect(() => loadTeachKey(path, wrap, { adoptPlain: () => false })).toThrow();
+    expect(await readFile(path)).toEqual(OLD);
+    // A planted link where the temporary file goes is not followed.
+    await symlink(join(dir, "elsewhere"), `${path}.tmp`);
+    expect(loadTeachKey(path, wrap, { adoptPlain: () => true }).equals(OLD)).toBe(true);
+    await expect(stat(join(dir, "elsewhere"))).rejects.toThrow();
+    expect((await readFile(path)).includes(OLD)).toBe(false);
+  });
+
+  it("sees an encrypted recording in the folder", async () => {
+    const folder = join(dir, "state", "teach");
+    expect(hasEncryptedRecordings(folder)).toBe(false);
+    const store = new TeachKeptStore(folder, KEY, () => 5_000, { enc: ENC });
+    await store.keep("teach_abcdef123456", "x", steps);
+    expect(hasEncryptedRecordings(folder)).toBe(true);
+  });
+
+  it("migrates once, tells the caller, and then reads no plain file again", async () => {
+    const folder = join(dir, "state", "teach");
+    const plain = new TeachKeptStore(folder, KEY, () => 5_000, {});
+    await plain.keep("teach_abcdef123456", "Old one", steps);
+    let migrated = 0;
+    const store = new TeachKeptStore(folder, KEY, () => 5_000, {
+      enc: ENC,
+      log: (m) => logs.push(m),
+      onMigrated: () => {
+        migrated += 1;
+      },
+    });
+    expect((await store.list()).map((r) => r.title)).toEqual(["Old one"]);
+    expect(migrated).toBe(1);
+    // A signed plain file put there afterwards, even one with a good signature, is not read.
+    await new TeachKeptStore(folder, KEY, () => 5_000, {}).keep("teach_zzzzzzzzzz", "Late", steps);
+    expect(await store.get("teach_zzzzzzzzzz")).toBeUndefined();
+    expect(logs.some((l) => l.includes("not read after migration"))).toBe(true);
+    expect(migrated).toBe(1);
+  });
+
+  it("remembers a keychain that will not open, keeps nothing and does not ask again", async () => {
+    const folder = join(dir, "state", "teach");
+    await new TeachKeptStore(folder, KEY, () => 5_000, { enc: ENC }).keep(
+      "teach_abcdef123456",
+      "x",
+      steps,
+    );
+    let tries = 0;
+    const store = new TeachKeptStore(folder, KEY, () => 5_000, {
+      enc: () => {
+        tries += 1;
+        throw new Error("decryptString failed");
+      },
+      log: (m) => logs.push(m),
+    });
+    expect(store.canKeep).toBe(true);
+    expect(await store.probe()).toBe(false);
+    expect(store.canKeep).toBe(false);
+    expect(store.mode).toBe("unavailable");
+    await expect(store.keep("teach_bbbbbbbbbb", "y", steps)).rejects.toThrow("not kept");
+    expect(await store.get("teach_abcdef123456")).toBeUndefined();
+    expect(await store.list()).toEqual([]);
+    expect(tries).toBe(1);
+    expect(logs.some((l) => l.includes("cannot be opened"))).toBe(true);
   });
 });

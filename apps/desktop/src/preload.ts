@@ -143,6 +143,7 @@ const bridge = {
     teachKeep: (id: string, title: string, steps: unknown) =>
       invoke(IPC.teachKeep, { id, title, steps }),
     teachKept: () => invoke(IPC.teachKept),
+    teachStorage: () => invoke(IPC.teachStorage),
     teachOpenKept: (id: string) => invoke(IPC.teachOpenKept, { id }),
     teachDeleteKept: (id: string) => invoke(IPC.teachDeleteKept, { id }),
   },

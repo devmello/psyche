@@ -281,6 +281,8 @@ export interface BrowserPort {
     steps: import("@psyche/protocol").BrowserTeachStep[],
   ): Promise<KeptRecordingView>;
   teachKept?(): Promise<KeptRecordingView[]>;
+  /** Kept recordings are encrypted; without the OS keychain none is kept (`encrypted: false`). */
+  teachStorage?(): Promise<{ encrypted: boolean }>;
   teachOpenKept?(id: string): Promise<KeptRecordingView>;
   teachDeleteKept?(id: string): Promise<void>;
 }

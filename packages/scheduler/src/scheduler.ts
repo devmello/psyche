@@ -318,10 +318,10 @@ export class SqliteScheduler implements Scheduler {
         .prepare(
           `INSERT INTO automations (id, kind, title, schedule, timezone, session_target, delivery,
              prompt, scratch, enabled, light_context, system, next_run_at, created_at, updated_at,
-             trigger, specialist)
+             trigger, specialist, recorded_skill)
            VALUES (@id, @kind, @title, @schedule, @timezone, @session_target, @delivery, @prompt,
              @scratch, @enabled, @light_context, @system, @next_run_at, @now, @now, @trigger,
-             @specialist)`,
+             @specialist, @recorded_skill)`,
         )
         .run({
           id,
@@ -340,6 +340,7 @@ export class SqliteScheduler implements Scheduler {
           now: this.#iso(now),
           trigger: a.trigger === undefined ? null : JSON.stringify(a.trigger),
           specialist: a.specialist === undefined ? null : JSON.stringify(a.specialist),
+          recorded_skill: a.recordedSkill === undefined ? null : JSON.stringify(a.recordedSkill),
         });
       if (a.watch !== undefined) this.#upsertWatch(id, a.watch, false);
       return this.#updatedEvent(id);
@@ -376,6 +377,13 @@ export class SqliteScheduler implements Scheduler {
   async update(id: string, patch: AutomationPatch): Promise<Automation> {
     const event = this.#tx(() => {
       const current = this.#automation(id);
+      // A recorded task is fixed by the skill the owner approved: it can be paused and resumed,
+      // nothing else (removing it and scheduling it again is how it changes).
+      if (
+        current.recordedSkill !== undefined &&
+        Object.entries(patch).some(([k, v]) => v !== undefined && k !== "enabled")
+      )
+        bad("a scheduled recording can only be paused or resumed");
       const next = { ...current, ...patch };
       if (patch.kind !== undefined && patch.kind !== current.kind) bad("kind cannot change");
       const schedule = this.#validate(next);

@@ -69,7 +69,11 @@ export function ScheduledRow({
   const owner = item.group === "owner";
   const sentenceEditable =
     owner && item.linked === undefined && ["cron", "interval"].includes(item.kind);
-  const canEdit = owner && (sentenceEditable ? onParseEdit && onSaveEdit : onEditInChat);
+  // A recording's instruction is fixed by the skill, so there is nothing to reword.
+  const canEdit =
+    owner &&
+    item.recordedSkill === undefined &&
+    (sentenceEditable ? onParseEdit && onSaveEdit : onEditInChat);
 
   const startEdit = () => {
     if (!sentenceEditable) {
@@ -159,6 +163,12 @@ export function ScheduledRow({
         </dd>
         <dt className="text-label-secondary">{t("scheduled.row.does")}</dt>
         <dd>{itemDoes(item)}</dd>
+        {item.recordedSkill !== undefined ? (
+          <>
+            <dt className="text-label-secondary">{t("scheduled.row.recorded")}</dt>
+            <dd>{t("scheduled.row.recordedBody")}</dd>
+          </>
+        ) : null}
         <dt className="text-label-secondary">{t("scheduled.row.approvals")}</dt>
         <dd>
           {approvals.map((line) => (

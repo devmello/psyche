@@ -5,7 +5,7 @@ import {
   teachKey,
   teachRole,
 } from "@psyche/protocol";
-import { stringify } from "yaml";
+import { parse as parseYaml, stringify } from "yaml";
 
 /**
  * A skill made from a demonstration (teach by showing, docs/design/teach-by-showing-2026.md §4).
@@ -238,4 +238,226 @@ export function recordingSkillText(input: RecordingSkillInput): string {
   });
   lines.push("```", "");
   return lines.join("\n");
+}
+
+// ── unattended runs (teach by showing, design doc §8) ─────────────────────────────────────────
+
+/** One line of the "Recorded steps" block, read back. Names and addresses are page text: data. */
+export interface ParsedRecordedStep {
+  /** 1-based, as the skill numbers it. */
+  n: number;
+  kind: "open" | "click" | "press" | "fill";
+  /** `fill`: typed into a field, or an option chosen in a list. */
+  verb?: "type" | "select";
+  role?: string;
+  /** The element's name (page text). */
+  name?: string;
+  /** `open`: the address; the origin of the page this step is on (for `open`, where it goes). */
+  url?: string;
+  origin?: string;
+  /** `fill`: the value the owner chose to keep. */
+  value?: string;
+  /** `press`: the key. */
+  key?: string;
+  /** The step needs the owner, now or in each run. A kept value needs nothing. */
+  needs?: "sensitive" | "input";
+}
+
+export type UnattendedReason =
+  | { code: "sensitive"; step: number }
+  | { code: "input"; step: number }
+  | { code: "unreadable"; step?: number }
+  /** Made from a Mac app (or needs computer use): scheduled runs are for browser recordings. */
+  | { code: "browser_only"; step?: number };
+
+export interface UnattendedCheck {
+  /** Every step can run with nobody there to ask. */
+  eligible: boolean;
+  /** How many steps the skill has (0 when it cannot be read). */
+  steps: number;
+  reasons: UnattendedReason[];
+  parsed: ParsedRecordedStep[];
+}
+
+const Q = String.raw`"(?:[^"\\]|\\.)*"`;
+const ROLE = "[A-Za-z0-9_-]+";
+const FIELD = `(${ROLE})(?: at selector ${Q}| (${Q}))`;
+const RE_OPEN = new RegExp(String.raw`^(\d+)\. open ${Q}$`);
+const RE_CLICK = new RegExp(String.raw`^(\d+)\. click the ${FIELD}$`);
+// A key press names its field: one with no field cannot be checked before it is pressed.
+const RE_PRESS = new RegExp(String.raw`^(\d+)\. press (\S+) in the ${FIELD}$`);
+const RE_FILL = new RegExp(
+  String.raw`^(\d+)\. (type into|choose an option in) the ${FIELD}: (sensitive, the owner does this themselves \(never type or fill it\)|${Q} \(a value the owner chose to keep\)|the value of input \S.*)$`,
+);
+
+function originOf(url: string | undefined): string | undefined {
+  if (url === undefined) return undefined;
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:" ? u.origin : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function jsonString(q: string | undefined): string | undefined {
+  if (q === undefined) return undefined;
+  try {
+    const v = JSON.parse(q) as unknown;
+    return typeof v === "string" ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The lines of the fenced block under "Recorded steps", or `undefined` when it is not there. */
+function recordedBlock(text: string): string[] | undefined {
+  const head = text.indexOf("\n## Recorded steps");
+  if (head < 0) return undefined;
+  const open = text.indexOf("\n```text\n", head);
+  if (open < 0) return undefined;
+  const from = open + "\n```text\n".length;
+  const close = text.indexOf("\n```", from);
+  if (close < 0) return undefined;
+  return text
+    .slice(from, close)
+    .split("\n")
+    .filter((l) => l.trim() !== "");
+}
+
+/**
+ * A recording of a Mac app (`metadata.psyche.recordedIn: mac_app`), or any skill that declares
+ * computer use (`computer.*` in `allowed-tools`), is not a browser recording: scheduled runs are
+ * for browser recordings for now.
+ */
+export function isBrowserRecording(text: string): boolean {
+  // No readable frontmatter is no evidence of a Mac app: the step list check refuses it as unreadable.
+  const m = /^---\n([\s\S]*?)\n---(?:\n|$)/.exec(text);
+  if (m === null) return true;
+  let fm: unknown;
+  try {
+    fm = parseYaml(m[1] ?? "");
+  } catch {
+    return true;
+  }
+  if (typeof fm !== "object" || fm === null) return true;
+  const rec = fm as Record<string, unknown>;
+  const psyche = (rec.metadata as { psyche?: Record<string, unknown> } | undefined)?.psyche;
+  if (psyche?.recordedIn !== undefined && psyche.recordedIn !== "browser") return false;
+  const tools = rec["allowed-tools"];
+  const list = Array.isArray(tools)
+    ? tools
+    : typeof tools === "string"
+      ? tools.split(/[\s,]+/)
+      : [];
+  return !list.some((t) => typeof t === "string" && /^computer[._*]/.test(t.trim()));
+}
+
+/**
+ * Whether a skill made from a recording can run on a schedule, with nobody to ask. It reads the
+ * steps back from the skill's text in the exact shape `recordingSkillText` writes them; a line
+ * it does not recognise makes the skill ineligible (`unreadable`), never eligible. A step is
+ * refused when it is sensitive (the owner does it themselves) or types a value that is asked
+ * for each run (an input, or a masked value). Only steps that hold everything they need run.
+ */
+export function recordingUnattended(text: string): UnattendedCheck {
+  if (!isBrowserRecording(text))
+    return { eligible: false, steps: 0, reasons: [{ code: "browser_only" }], parsed: [] };
+  const lines = recordedBlock(text);
+  if (lines === undefined || lines.length === 0)
+    return { eligible: false, steps: 0, reasons: [{ code: "unreadable" }], parsed: [] };
+  const reasons: UnattendedReason[] = [];
+  const parsed: ParsedRecordedStep[] = [];
+  let origin: string | undefined;
+  for (const [i, line] of lines.entries()) {
+    const want = i + 1;
+    const open = RE_OPEN.exec(line);
+    const click = RE_CLICK.exec(line);
+    const press = RE_PRESS.exec(line);
+    const fill = RE_FILL.exec(line);
+    if (open !== null && Number(open[1]) === want) {
+      const url = jsonString(/ open (".*")$/.exec(line)?.[1]);
+      const o = originOf(url);
+      if (o !== undefined) origin = o;
+      parsed.push({
+        n: want,
+        kind: "open",
+        ...(url === undefined ? {} : { url }),
+        ...(origin === undefined ? {} : { origin }),
+      });
+    } else if (click !== null && Number(click[1]) === want) {
+      const name = jsonString(click[3]);
+      parsed.push({
+        n: want,
+        kind: "click",
+        ...(click[2] === undefined ? {} : { role: click[2] }),
+        ...(name === undefined ? {} : { name }),
+        ...(origin === undefined ? {} : { origin }),
+      });
+    } else if (press !== null && Number(press[1]) === want) {
+      const name = jsonString(press[4]);
+      parsed.push({
+        n: want,
+        kind: "press",
+        key: press[2] ?? "Enter",
+        ...(press[3] === undefined ? {} : { role: press[3] }),
+        ...(name === undefined ? {} : { name }),
+        ...(origin === undefined ? {} : { origin }),
+      });
+    } else if (fill !== null && Number(fill[1]) === want) {
+      const what = fill[5] ?? "";
+      const name = jsonString(fill[4]);
+      const needs = what.startsWith("sensitive")
+        ? "sensitive"
+        : what.startsWith("the value of input")
+          ? "input"
+          : undefined;
+      if (needs !== undefined) reasons.push({ code: needs, step: want });
+      const value =
+        needs === undefined ? jsonString(/^(".*") \(a value/.exec(what)?.[1]) : undefined;
+      parsed.push({
+        n: want,
+        kind: "fill",
+        verb: fill[2] === "type into" ? "type" : "select",
+        ...(fill[3] === undefined ? {} : { role: fill[3] }),
+        ...(name === undefined ? {} : { name }),
+        ...(origin === undefined ? {} : { origin }),
+        ...(value === undefined ? {} : { value }),
+        ...(needs === undefined ? {} : { needs }),
+      });
+    } else {
+      reasons.push({ code: "unreadable", step: want });
+      parsed.push({ n: want, kind: "click" });
+    }
+  }
+  // An element named only by its selector cannot be checked by role and name: not unattended.
+  for (const st of parsed)
+    if (st.kind !== "open" && st.name === undefined && !reasons.some((r) => r.step === st.n))
+      reasons.push({ code: "unreadable", step: st.n });
+  // A page-changing step needs a page to be on.
+  if (parsed.some((st) => st.kind !== "open" && st.origin === undefined) && reasons.length === 0)
+    reasons.push({ code: "unreadable" });
+  return { eligible: reasons.length === 0, steps: lines.length, reasons, parsed };
+}
+
+const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+
+/**
+ * Which recorded step a `browser.check_target` call was for, so a stop can say "the page changed
+ * at step 3". Picks the first step after `after` (the last one that passed) whose element has
+ * this name; otherwise the next step after `after`. 1-based; `undefined` when there are no steps.
+ */
+export function recordedStepFor(
+  steps: readonly ParsedRecordedStep[],
+  want: { name?: string },
+  after: number,
+): number | undefined {
+  const name = want.name === undefined ? undefined : norm(want.name);
+  const acting = steps.filter((s) => s.kind !== "open");
+  const hit =
+    name === undefined
+      ? undefined
+      : (acting.find((s) => s.n > after && s.name !== undefined && norm(s.name) === name) ??
+        acting.find((s) => s.name !== undefined && norm(s.name) === name));
+  return hit?.n ?? acting.find((s) => s.n > after)?.n ?? steps[steps.length - 1]?.n;
 }

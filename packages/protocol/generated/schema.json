@@ -3109,6 +3109,22 @@
         "sideEffecting": true
       },
       {
+        "description": "Side-effecting, owner-only: runs an installed skill made from a recording on a schedule through Scheduled. Only the Psyche desktop shell on the Host may call it, and the agent has no tool for it. A skill with a sensitive or ask-each-time step is refused (invalid_params, with the steps). Every run uses the normal approvals; a changed page stops it and notifies the owner.",
+        "name": "skills.recording.schedule",
+        "params": "#/$defs/SkillsRecordingScheduleParams",
+        "result": "#/$defs/SkillsRecordingScheduleResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Whether a skill made from a recording can run on a schedule with nobody there to ask: not if a step is sensitive or its value is asked for each time (reasons name the steps).",
+        "name": "skills.recording.unattended",
+        "params": "#/$defs/SkillsRecordingUnattendedParams",
+        "result": "#/$defs/SkillsRecordingUnattendedResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Side-effecting: removes an installed skill (receipt kind skill_remove).",
         "name": "skills.remove",
         "params": "#/$defs/SkillsRemoveParams",
@@ -10136,6 +10152,27 @@
         },
         "specialist": {
           "$ref": "#/$defs/AutomationSpecialist"
+        },
+        "recordedSkill": {
+          "properties": {
+            "skill": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "hash": {
+              "maxLength": 128,
+              "type": "string"
+            },
+            "lessons": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          },
+          "required": [
+            "skill"
+          ],
+          "type": "object"
         }
       },
       "required": [
@@ -36621,6 +36658,10 @@
         },
         "trigger": {
           "$ref": "#/$defs/AutomationTrigger"
+        },
+        "recordedSkill": {
+          "maxLength": 64,
+          "type": "string"
         }
       },
       "required": [
@@ -40288,6 +40329,100 @@
       },
       "required": [
         "name"
+      ],
+      "type": "object"
+    },
+    "SkillsRecordingScheduleParams": {
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "type": "string"
+        },
+        "schedule": {
+          "description": "cron: minute and hour are fixed numbers (at most a few runs a day), e.g. 0 9 * * 1",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "timezone": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "schedule"
+      ],
+      "type": "object"
+    },
+    "SkillsRecordingScheduleResult": {
+      "properties": {
+        "automation": {
+          "$ref": "#/$defs/Automation"
+        }
+      },
+      "required": [
+        "automation"
+      ],
+      "type": "object"
+    },
+    "SkillsRecordingUnattendedParams": {
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "SkillsRecordingUnattendedResult": {
+      "properties": {
+        "eligible": {
+          "type": "boolean"
+        },
+        "steps": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "reasons": {
+          "items": {
+            "properties": {
+              "code": {
+                "enum": [
+                  "sensitive",
+                  "input",
+                  "unreadable",
+                  "not_recording",
+                  "off",
+                  "browser_only"
+                ],
+                "type": "string"
+              },
+              "step": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "code"
+            ],
+            "type": "object"
+          },
+          "maxItems": 200,
+          "type": "array"
+        }
+      },
+      "required": [
+        "eligible",
+        "steps",
+        "reasons"
       ],
       "type": "object"
     },

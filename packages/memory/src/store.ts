@@ -53,6 +53,7 @@ import {
   isGraphCard,
   isIndexed,
   isProtected,
+  isSkillFile,
   PERSONA_FILES,
   TEMPLATE_FILES,
   WORKSPACE_DIRS,
@@ -864,6 +865,11 @@ export class SqliteMemoryStore implements MemoryStore {
       // Cards are written by the graph and edited by the owner; the agent uses the graph tools.
       fail("policy_denied", "people and project cards are edited in Psyche or by you");
     }
+    if (isSkillFile(path) && actor === "agent") {
+      // A skill's LESSONS.md is read with the skill and followed over its steps: only the owner's
+      // teaching card (the lesson writer, actor `job`) may add to it.
+      fail("policy_denied", "skill files change through the owner's approval, not by the agent");
+    }
     if (path === BOOTSTRAP_FILE && actor === "agent" && request.operation !== "delete") {
       // Injected into every private session while it exists: the agent may only delete it.
       fail("policy_denied", "BOOTSTRAP.md can only be deleted by the agent");
@@ -1035,6 +1041,10 @@ export class SqliteMemoryStore implements MemoryStore {
       newPath: dst,
       contentSha256: sha256Hex(content),
     };
+    if (isSkillFile(src) || isSkillFile(dst)) {
+      const p = isSkillFile(dst) ? dst : src;
+      await this.#checkProtected(p, provenance, actor, undefined, { ...request, path: p });
+    }
     if (isProtected(src) || isProtected(dst)) {
       const p = isProtected(dst) ? dst : src;
       await this.#checkProtected(p, provenance, actor, options.approvalId, { ...request, path: p });

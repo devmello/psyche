@@ -1773,9 +1773,10 @@ export interface Automation {
     /**
      * Heartbeat: skip workspace bootstrap files (feature O2)
      */
-    lightContext?: boolean;
-    nextRunAt?:    null | string;
-    prompt:        string;
+    lightContext?:  boolean;
+    nextRunAt?:     null | string;
+    prompt:         string;
+    recordedSkill?: RecordedSkill;
     /**
      * cron expression, ISO-8601 duration or watch interval
      */
@@ -1805,6 +1806,12 @@ export interface Delivery {
  * `trigger` (mail and meeting workflows §4.7), and its `schedule` is empty
  */
 export type AutomationKind = "cron" | "interval" | "watch" | "heartbeat" | "briefing" | "reminder" | "event";
+
+export interface RecordedSkill {
+    hash?:    string;
+    lessons?: string;
+    skill:    string;
+}
 
 export interface AutomationSpecialist {
     budget?:  SpecialistBudgetSetting;
@@ -3215,7 +3222,7 @@ export interface ConnectDenied {
      * expired, revoked or not allowed here) or device_revoked (this device was removed on the
      * Gateway and can never connect again, so a client wipes its keys)
      */
-    code?:  Code;
+    code?:  ConnectDeniedCode;
     phase:  ConnectDeniedPhase;
     reason: string;
 }
@@ -3225,7 +3232,7 @@ export interface ConnectDenied {
  * expired, revoked or not allowed here) or device_revoked (this device was removed on the
  * Gateway and can never connect again, so a client wipes its keys)
  */
-export type Code = "setup_token_invalid" | "device_revoked";
+export type ConnectDeniedCode = "setup_token_invalid" | "device_revoked";
 
 export type ConnectDeniedPhase = "denied";
 
@@ -9405,6 +9412,7 @@ export interface ScheduledItem {
     linked?:        ScheduledLink;
     nextRunAt?:     null | string;
     prompt?:        string;
+    recordedSkill?: string;
     routine?:       string;
     schedule:       string;
     settings?:      string;
@@ -10637,6 +10645,36 @@ export interface SkillsProposeUpdateParams {
      */
     trustAuthor?: boolean;
 }
+
+export interface SkillsRecordingScheduleParams {
+    name: string;
+    /**
+     * cron: minute and hour are fixed numbers (at most a few runs a day), e.g. 0 9 * * 1
+     */
+    schedule:  string;
+    timezone?: string;
+}
+
+export interface SkillsRecordingScheduleResult {
+    automation: Automation;
+}
+
+export interface SkillsRecordingUnattendedParams {
+    name: string;
+}
+
+export interface SkillsRecordingUnattendedResult {
+    eligible: boolean;
+    reasons:  ReasonElement[];
+    steps:    number;
+}
+
+export interface ReasonElement {
+    code:  ReasonCode;
+    step?: number;
+}
+
+export type ReasonCode = "sensitive" | "input" | "unreadable" | "not_recording" | "off" | "browser_only";
 
 export interface SkillsRemoveParams {
     name: string;
