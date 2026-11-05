@@ -61,7 +61,7 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.key.vm.enabled": "Use the sandbox PC for tasks",
   "settings.key.vm.resetPerTask": "Fresh PC for every task",
   "settings.vm.phase.installing": "Setting up the guest",
-  "settings.vm.sandboxMac": "Sandbox PC",
+  "settings.vm.sandboxMac": "The sandbox PC",
   "settings.vm.description":
     "Run tasks in a separate sandbox PC, so {persona} works in its own small Linux computer instead of yours.",
   "settings.vm.between": "Between your PC and the guest",
