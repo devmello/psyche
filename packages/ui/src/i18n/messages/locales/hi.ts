@@ -40,6 +40,8 @@ import { meetingRecordRest } from "./meeting-record-rest/hi.ts";
 import { homeRest } from "./home-rest/hi.ts";
 import { researchRest } from "./research-rest/hi.ts";
 import { automationChatRest } from "./automation-chat-rest/hi.ts";
+import { widgetsRest } from "./widgets-rest/hi.ts";
+import { scheduledRest } from "./scheduled-rest/hi.ts";
 
 /** Hindi catalogue (hi). Same ids as `en`; missing ids fall back to English. */
 export const hi: Partial<Catalogue> = {
@@ -92,6 +94,8 @@ export const hi: Partial<Catalogue> = {
   ...homeRest,
   ...researchRest,
   ...automationChatRest,
+  ...widgetsRest,
+  ...scheduledRest,
   "common.cancel": "रद्द करें",
   "common.close": "बंद करें",
   "common.save": "सेव करें",

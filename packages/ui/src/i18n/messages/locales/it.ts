@@ -40,6 +40,8 @@ import { meetingRecordRest } from "./meeting-record-rest/it.ts";
 import { homeRest } from "./home-rest/it.ts";
 import { researchRest } from "./research-rest/it.ts";
 import { automationChatRest } from "./automation-chat-rest/it.ts";
+import { widgetsRest } from "./widgets-rest/it.ts";
+import { scheduledRest } from "./scheduled-rest/it.ts";
 
 /** Italian catalogue (it). Same ids as `en`; missing ids fall back to English. */
 export const it: Partial<Catalogue> = {
@@ -92,6 +94,8 @@ export const it: Partial<Catalogue> = {
   ...homeRest,
   ...researchRest,
   ...automationChatRest,
+  ...widgetsRest,
+  ...scheduledRest,
   "common.cancel": "Annulla",
   "common.close": "Chiudi",
   "common.save": "Salva",
