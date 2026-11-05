@@ -1,3 +1,4 @@
+import { readGuardOfConnection } from "@psyche/db";
 import {
   type Clock,
   type GraphCitation,
@@ -1447,6 +1448,11 @@ export class EverythingStore {
   // --- per-sender trust (§7.3, decision 6) -----------------------------------------------------
 
   isTrustedSender(entityId: string): boolean {
+    // The Gateway's security-state seal: checked first, and a trust row it cannot vouch for
+    // (written by another program while its records are untrusted) trusts nobody.
+    const guard = readGuardOfConnection(this.#db);
+    guard?.check();
+    if (guard?.genuine?.("memory_trusted_senders", entityId) === false) return false;
     return (
       (
         this.#db

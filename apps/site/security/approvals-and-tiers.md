@@ -44,7 +44,7 @@ Of these, purchases, credential fills, commands on the Mac, pairing, security se
 - **Passkeys.** In the web client at the server's HTTPS address, add one in Settings → Devices & nodes → Passkeys. See [server mode](/guides/server-mode).
 - **Touch ID.** The Gateway verifies Touch ID answers signed by the helper's presence key once that key is registered for the helper's device from an admin device (`devices.presenceKey.register`). There is no button for this in the app or the CLI yet.
 
-Without a registered Touch ID key or passkey, approvals for purchases, credential fills, commands on the Mac and scripts are refused rather than accepted unverified, and security settings need only an admin device. Once a verifier is registered, security settings need it too, and losing every verifier makes those calls fail with `presence_required` instead of falling back to admin alone. `psyched presence reset` on the machine clears that state.
+Without a registered Touch ID key or passkey, approvals for purchases, credential fills, commands on the Mac and scripts are refused rather than accepted unverified, and security settings need only an admin device. Once a verifier is registered, security settings need it too, and losing every verifier makes those calls fail with `presence_required` instead of falling back to admin alone. `psyched presence reset` on the machine clears that state. It does not apply at once: the running Gateway applies it 24 hours later, with a warning on every paired device until then, and any admin device can cancel it. A program on the Mac can ask for it the way you can, but it cannot make it happen quietly.
 
 ## Approving from a chat app
 

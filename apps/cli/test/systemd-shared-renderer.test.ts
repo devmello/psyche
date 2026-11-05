@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { renderGatewayUnit } from "../../desktop/src/platform/systemd-unit.ts";
 import { renderSystemdUnit } from "../src/supervisor.ts";
+import { renderGatewayUnit } from "../src/systemd-unit.ts";
 
 /**
  * `psyche start` and the desktop app write the unit from one renderer
- * (apps/desktop/src/platform/systemd-unit.ts). The server output is pinned here byte for byte, as
+ * (apps/cli/src/systemd-unit.ts). The server output is pinned here byte for byte, as
  * it was before the renderer moved, so a server install never sees its unit change.
  */
 

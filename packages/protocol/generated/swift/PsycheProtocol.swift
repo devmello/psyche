@@ -1253,6 +1253,20 @@
 //   let searchSourcesStatus = try? JSONDecoder().decode(SearchSourcesStatus.self, from: jsonData)
 //   let searchStatusParams = try? JSONDecoder().decode(SearchStatusParams.self, from: jsonData)
 //   let searchUnderstood = try? JSONDecoder().decode(SearchUnderstood.self, from: jsonData)
+//   let securityAlert = try? JSONDecoder().decode(SecurityAlert.self, from: jsonData)
+//   let securityAlertKind = try? JSONDecoder().decode(SecurityAlertKind.self, from: jsonData)
+//   let securityAlertsAcknowledgeParams = try? JSONDecoder().decode(SecurityAlertsAcknowledgeParams.self, from: jsonData)
+//   let securityAlertsAcknowledgeResult = try? JSONDecoder().decode(SecurityAlertsAcknowledgeResult.self, from: jsonData)
+//   let securityRecoveriesApproveParams = try? JSONDecoder().decode(SecurityRecoveriesApproveParams.self, from: jsonData)
+//   let securityRecoveriesApproveResult = try? JSONDecoder().decode(SecurityRecoveriesApproveResult.self, from: jsonData)
+//   let securityRecoveriesCancelParams = try? JSONDecoder().decode(SecurityRecoveriesCancelParams.self, from: jsonData)
+//   let securityRecoveriesCancelResult = try? JSONDecoder().decode(SecurityRecoveriesCancelResult.self, from: jsonData)
+//   let securityRecovery = try? JSONDecoder().decode(SecurityRecovery.self, from: jsonData)
+//   let securityRecoveryOp = try? JSONDecoder().decode(SecurityRecoveryOp.self, from: jsonData)
+//   let securityStateChange = try? JSONDecoder().decode(SecurityStateChange.self, from: jsonData)
+//   let securityStateChangedPayload = try? JSONDecoder().decode(SecurityStateChangedPayload.self, from: jsonData)
+//   let securityStateGetParams = try? JSONDecoder().decode(SecurityStateGetParams.self, from: jsonData)
+//   let securityStateStatus = try? JSONDecoder().decode(SecurityStateStatus.self, from: jsonData)
 //   let selfConnectorFile = try? JSONDecoder().decode(SelfConnectorFile.self, from: jsonData)
 //   let selfConnectorFilesResult = try? JSONDecoder().decode(SelfConnectorFilesResult.self, from: jsonData)
 //   let selfConnectorFilesWriteResult = try? JSONDecoder().decode(SelfConnectorFilesWriteResult.self, from: jsonData)
@@ -10934,7 +10948,7 @@ public struct ScanFinding: Codable, Sendable {
     /// Never quotes the matched text
     public let message: String
     public let rule: String
-    public let severity: Severity
+    public let severity: ScanFindingSeverity
 
     public enum CodingKeys: String, CodingKey {
         case file = "file"
@@ -10944,7 +10958,7 @@ public struct ScanFinding: Codable, Sendable {
         case severity = "severity"
     }
 
-    public init(file: String? = nil, line: Int? = nil, message: String, rule: String, severity: Severity) {
+    public init(file: String? = nil, line: Int? = nil, message: String, rule: String, severity: ScanFindingSeverity) {
         self.file = file
         self.line = line
         self.message = message
@@ -10953,7 +10967,7 @@ public struct ScanFinding: Codable, Sendable {
     }
 }
 
-public enum Severity: String, Codable, Sendable {
+public enum ScanFindingSeverity: String, Codable, Sendable {
     case high = "high"
     case info = "info"
     case warn = "warn"
@@ -11747,7 +11761,7 @@ public enum ApprovalKindEnum: String, Codable, Sendable {
 public struct Finding: Codable, Sendable {
     public let message: String
     public let rule: String
-    public let severity: Severity
+    public let severity: ScanFindingSeverity
 
     public enum CodingKeys: String, CodingKey {
         case message = "message"
@@ -11755,7 +11769,7 @@ public struct Finding: Codable, Sendable {
         case severity = "severity"
     }
 
-    public init(message: String, rule: String, severity: Severity) {
+    public init(message: String, rule: String, severity: ScanFindingSeverity) {
         self.message = message
         self.rule = rule
         self.severity = severity
@@ -29041,6 +29055,325 @@ public enum SearchSourceState: String, Codable, Sendable {
     case unavailable = "unavailable"
 }
 
+// MARK: - SecurityAlertsAcknowledgeParams
+public struct SecurityAlertsAcknowledgeParams: Codable, Sendable {
+    public let approvalID: String?
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case id = "id"
+    }
+
+    public init(approvalID: String? = nil, id: String) {
+        self.approvalID = approvalID
+        self.id = id
+    }
+}
+
+// MARK: - SecurityAlertsAcknowledgeResult
+public struct SecurityAlertsAcknowledgeResult: Codable, Sendable {
+    public let alert: SecurityAlert
+
+    public enum CodingKeys: String, CodingKey {
+        case alert = "alert"
+    }
+
+    public init(alert: SecurityAlert) {
+        self.alert = alert
+    }
+}
+
+// MARK: - SecurityAlert
+public struct SecurityAlert: Codable, Sendable {
+    public let acknowledgedAt: String?
+    public let createdAt: String
+    public let details: Details
+    public let id: String
+    public let kind: SecurityAlertKind
+    public let severity: SecurityAlertSeverity
+
+    public enum CodingKeys: String, CodingKey {
+        case acknowledgedAt = "acknowledgedAt"
+        case createdAt = "createdAt"
+        case details = "details"
+        case id = "id"
+        case kind = "kind"
+        case severity = "severity"
+    }
+
+    public init(acknowledgedAt: String? = nil, createdAt: String, details: Details, id: String, kind: SecurityAlertKind, severity: SecurityAlertSeverity) {
+        self.acknowledgedAt = acknowledgedAt
+        self.createdAt = createdAt
+        self.details = details
+        self.id = id
+        self.kind = kind
+        self.severity = severity
+    }
+}
+
+// MARK: - Details
+public struct Details: Codable, Sendable {
+    public let admins: Int?
+    public let changes: [SecurityStateChange]?
+    /// sha256:<hex> of the device key, shown next to its name
+    public let deviceFingerprint: String?
+    public let deviceName: String?
+    public let devices: Int?
+    public let more: Int?
+    public let notBefore: String?
+    public let occurrences: Int?
+    public let op: SecurityRecoveryOp?
+    public let reason: String?
+    public let recoveryID: String?
+    public let restored: Bool?
+    public let scopes: [String]?
+    public let via: Via?
+
+    public enum CodingKeys: String, CodingKey {
+        case admins = "admins"
+        case changes = "changes"
+        case deviceFingerprint = "deviceFingerprint"
+        case deviceName = "deviceName"
+        case devices = "devices"
+        case more = "more"
+        case notBefore = "notBefore"
+        case occurrences = "occurrences"
+        case op = "op"
+        case reason = "reason"
+        case recoveryID = "recoveryId"
+        case restored = "restored"
+        case scopes = "scopes"
+        case via = "via"
+    }
+
+    public init(admins: Int? = nil, changes: [SecurityStateChange]? = nil, deviceFingerprint: String? = nil, deviceName: String? = nil, devices: Int? = nil, more: Int? = nil, notBefore: String? = nil, occurrences: Int? = nil, op: SecurityRecoveryOp? = nil, reason: String? = nil, recoveryID: String? = nil, restored: Bool? = nil, scopes: [String]? = nil, via: Via? = nil) {
+        self.admins = admins
+        self.changes = changes
+        self.deviceFingerprint = deviceFingerprint
+        self.deviceName = deviceName
+        self.devices = devices
+        self.more = more
+        self.notBefore = notBefore
+        self.occurrences = occurrences
+        self.op = op
+        self.reason = reason
+        self.recoveryID = recoveryID
+        self.restored = restored
+        self.scopes = scopes
+        self.via = via
+    }
+}
+
+// MARK: - SecurityStateChange
+public struct SecurityStateChange: Codable, Sendable {
+    public let change: SecurityStateChangeChange
+    /// The row's label: a device name, a key
+    public let name: String?
+    /// The sealed table: devices, settings, grants, …
+    public let table: String
+
+    public enum CodingKeys: String, CodingKey {
+        case change = "change"
+        case name = "name"
+        case table = "table"
+    }
+
+    public init(change: SecurityStateChangeChange, name: String? = nil, table: String) {
+        self.change = change
+        self.name = name
+        self.table = table
+    }
+}
+
+public enum SecurityStateChangeChange: String, Codable, Sendable {
+    case added = "added"
+    case modified = "modified"
+    case removed = "removed"
+}
+
+public enum SecurityRecoveryOp: String, Codable, Sendable {
+    case devicesApprove = "devices.approve"
+    case devicesGrant = "devices.grant"
+    case presenceReset = "presence.reset"
+    case sealReset = "seal.reset"
+}
+
+public enum Via: String, Codable, Sendable {
+    case desktop = "desktop"
+    case mac = "mac"
+}
+
+public enum SecurityAlertKind: String, Codable, Sendable {
+    case localFirstAdmin = "local_first_admin"
+    case recoveryApplied = "recovery_applied"
+    case recoveryCancelled = "recovery_cancelled"
+    case recoveryFailed = "recovery_failed"
+    case recoveryRequested = "recovery_requested"
+    case stateChangedOutside = "state_changed_outside"
+    case stateFirstSeal = "state_first_seal"
+    case stateResealed = "state_resealed"
+    case stateUntrusted = "state_untrusted"
+}
+
+public enum SecurityAlertSeverity: String, Codable, Sendable {
+    case info = "info"
+    case warning = "warning"
+}
+
+// MARK: - SecurityRecoveriesApproveParams
+public struct SecurityRecoveriesApproveParams: Codable, Sendable {
+    public let approvalID: String?
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case id = "id"
+    }
+
+    public init(approvalID: String? = nil, id: String) {
+        self.approvalID = approvalID
+        self.id = id
+    }
+}
+
+// MARK: - SecurityRecoveriesApproveResult
+public struct SecurityRecoveriesApproveResult: Codable, Sendable {
+    public let recovery: SecurityRecovery
+
+    public enum CodingKeys: String, CodingKey {
+        case recovery = "recovery"
+    }
+
+    public init(recovery: SecurityRecovery) {
+        self.recovery = recovery
+    }
+}
+
+// MARK: - SecurityRecovery
+public struct SecurityRecovery: Codable, Sendable {
+    public let decidedAt: String?
+    public let deviceFingerprint: String?
+    public let deviceID: String?
+    public let deviceName: String?
+    public let id: String
+    public let notBefore: String
+    public let op: SecurityRecoveryOp
+    public let outcome: String?
+    public let requestedAt: String
+    public let scopes: [String]?
+    public let status: SecurityRecoveryStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case decidedAt = "decidedAt"
+        case deviceFingerprint = "deviceFingerprint"
+        case deviceID = "deviceId"
+        case deviceName = "deviceName"
+        case id = "id"
+        case notBefore = "notBefore"
+        case op = "op"
+        case outcome = "outcome"
+        case requestedAt = "requestedAt"
+        case scopes = "scopes"
+        case status = "status"
+    }
+
+    public init(decidedAt: String? = nil, deviceFingerprint: String? = nil, deviceID: String? = nil, deviceName: String? = nil, id: String, notBefore: String, op: SecurityRecoveryOp, outcome: String? = nil, requestedAt: String, scopes: [String]? = nil, status: SecurityRecoveryStatus) {
+        self.decidedAt = decidedAt
+        self.deviceFingerprint = deviceFingerprint
+        self.deviceID = deviceID
+        self.deviceName = deviceName
+        self.id = id
+        self.notBefore = notBefore
+        self.op = op
+        self.outcome = outcome
+        self.requestedAt = requestedAt
+        self.scopes = scopes
+        self.status = status
+    }
+}
+
+public enum SecurityRecoveryStatus: String, Codable, Sendable {
+    case applied = "applied"
+    case cancelled = "cancelled"
+    case failed = "failed"
+    case waiting = "waiting"
+}
+
+// MARK: - SecurityRecoveriesCancelParams
+public struct SecurityRecoveriesCancelParams: Codable, Sendable {
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+// MARK: - SecurityRecoveriesCancelResult
+public struct SecurityRecoveriesCancelResult: Codable, Sendable {
+    public let recovery: SecurityRecovery
+
+    public enum CodingKeys: String, CodingKey {
+        case recovery = "recovery"
+    }
+
+    public init(recovery: SecurityRecovery) {
+        self.recovery = recovery
+    }
+}
+
+// MARK: - SecurityStateChangedPayload
+public struct SecurityStateChangedPayload: Codable, Sendable {
+    public let openAlerts: Int
+    public let status: SecurityStateChangedPayloadStatus
+    public let waitingRecoveries: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case openAlerts = "openAlerts"
+        case status = "status"
+        case waitingRecoveries = "waitingRecoveries"
+    }
+
+    public init(openAlerts: Int, status: SecurityStateChangedPayloadStatus, waitingRecoveries: Int) {
+        self.openAlerts = openAlerts
+        self.status = status
+        self.waitingRecoveries = waitingRecoveries
+    }
+}
+
+public enum SecurityStateChangedPayloadStatus: String, Codable, Sendable {
+    case sealed = "sealed"
+    case untrusted = "untrusted"
+}
+
+// MARK: - SecurityStateStatus
+public struct SecurityStateStatus: Codable, Sendable {
+    /// Unacknowledged alerts first, newest first, then recent acknowledged ones
+    public let alerts: [SecurityAlert]
+    public let reason: String?
+    /// Waiting recoveries first, then recent ones
+    public let recoveries: [SecurityRecovery]
+    public let status: SecurityStateChangedPayloadStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case alerts = "alerts"
+        case reason = "reason"
+        case recoveries = "recoveries"
+        case status = "status"
+    }
+
+    public init(alerts: [SecurityAlert], reason: String? = nil, recoveries: [SecurityRecovery], status: SecurityStateChangedPayloadStatus) {
+        self.alerts = alerts
+        self.reason = reason
+        self.recoveries = recoveries
+        self.status = status
+    }
+}
+
 // MARK: - SelfConnectorFilesResult
 public struct SelfConnectorFilesResult: Codable, Sendable {
     public let entry: String
@@ -37378,6 +37711,7 @@ public typealias ScheduledListParams = [String: JSONAny]
 public typealias SearchReindexParams = [String: JSONAny]
 public typealias SearchSourcesParams = [String: JSONAny]
 public typealias SearchStatusParams = [String: JSONAny]
+public typealias SecurityStateGetParams = [String: JSONAny]
 public typealias Settings = [String: JSONAny]
 public typealias SpecialistsListParams = [String: JSONAny]
 public typealias SpeechEngineDownloadParams = [String: JSONAny]

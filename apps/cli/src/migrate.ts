@@ -119,3 +119,26 @@ export async function appliedMigrations(path: string): Promise<MigrationRef[]> {
     db.close();
   }
 }
+
+/**
+ * The seal row of a just-restored database (`gen`, `mac`), for the restore marker: it then
+ * vouches for that database only (security-state-integrity M1). `undefined` without one.
+ */
+export async function restoredSealRow(
+  path: string,
+): Promise<{ gen: number; mac: string } | undefined> {
+  const db = await openReadOnly(path);
+  try {
+    const table = db.all(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'security_seal'",
+    );
+    if (table.length === 0) return undefined;
+    const [row] = db.all("SELECT gen, mac FROM security_seal WHERE id = 1") as {
+      gen: unknown;
+      mac: unknown;
+    }[];
+    return row === undefined ? undefined : { gen: Number(row.gen), mac: String(row.mac) };
+  } finally {
+    db.close();
+  }
+}

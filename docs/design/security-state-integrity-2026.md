@@ -1,0 +1,190 @@
+# Security state integrity against same-user programs (2026-11)
+
+Status: design and first implementation (PR `claude/security-state-integrity`). Companion to [05-security-and-permissions.md](../05-security-and-permissions.md) (asset A6, §2, §10) and [08-roadmap.md](../08-roadmap.md).
+
+## 1. The problem
+
+The threat model said Psyche protects its control plane (A6: devices, grants, policy, channel allowlists) against **local malware running as the owner**. An independent review showed that this did not hold:
+
+- `state/psyche.sqlite` is a plain SQLite file. Any process running as the owner can open it and write a device row with `operator.admin`, add a presence key to `_presence.helperKeys`, insert an `always` grant, mark an approval approved, or widen a channel allowlist. The Gateway read those rows as the truth.
+- The `psyched` CLI changed security state directly, with no Touch ID and no approval: `psyched devices approve`, `psyched devices grant` and `psyched presence reset` opened the database and wrote it.
+
+None of this touched the keychain. The agent's own tools could not do it (the sandbox denies tool reads of `state/` and writes under `$PSYCHE_HOME`, see `compose/exec-host.ts`). Any other unsandboxed program running as the owner could.
+
+Releases are self-signed: the owner declined the paid Apple program, so there is no provisioning profile, no keychain access group, no notarization. The design has to work on that build.
+
+## 2. Security state that matters
+
+| State | Where | What it authorizes | An attacker who edits it can |
+| --- | --- | --- | --- |
+| Devices (`devices`): key, scopes, role, family, paired/revoked | `state/psyche.sqlite` | every connection and its scopes; `operator.admin` reaches every admin method | pair their own key with `operator.admin`; un-revoke a device; widen a device's scopes |
+| Presence keys (`_presence.helperKeys`) and enrollment (`_presence.enrolled`) | `settings` | Touch ID answers for security changes, purchases, credential fills, `exec_host` | register their own signing key; turn the presence gate off (`enrolled = false`) |
+| Passkeys (`passkeys`) | `state/psyche.sqlite` | web presence assertions | add an authenticator they hold |
+| Setup tokens (`setup_tokens`) | `state/psyche.sqlite` | a computer pairs itself without a second approval | mint a pairing link with any scopes |
+| Grants (`grants`) | `state/psyche.sqlite` | standing permission for agent actions | add `always` grants; reset a grant's use counter; un-revoke |
+| Approvals (`approvals`) | `state/psyche.sqlite` | a pending card's answer, `once` approvals checked at dispatch | mark a card approved |
+| Policy (`policy_rules`, `permissions.*`, `exec.*`, `computerUse.*`, `vault.*`, `devices.*`, `gateway.*`, `identityLinks.*` settings) | `state/psyche.sqlite` | the Permission Broker's rules and floors | remove deny rules, lift floors, share folders, turn on `exec_host` |
+| Channels (`channels`, `identities`, `commands.ownerAllowFrom`, `channels.*.dmPolicy/allowFrom/groupAllowFrom`) | `state/psyche.sqlite` | who may talk to the agent and who counts as the owner | make their own chat account the owner |
+| LAN networks (`_lan.networks`) | `settings` | which interfaces the Gateway listens on | expose the Gateway on another network |
+| Every other non-cosmetic setting (model, memory, sandbox, browser, connectors…) | `settings` | what the agent may reach and how | loosen a control nobody listed as security state |
+| Trusted memory senders (`memory_trusted_senders`) | `state/psyche.sqlite` | whose mail becomes memory without review | make their own sender trusted |
+| `config.json` | `$PSYCHE_HOME` | bind, proxies, deny rules | anything; the owner edits this file by hand on purpose |
+| Key files: vault key file (unsigned builds), audit anchor key, Gateway identity key, handshake secret | `secrets/`, `security/`, `identity/`, `run/` | opening the vault; signing audit anchors; the Gateway's identity; desktop auto-pairing | everything the key allows (§3) |
+
+## 3. What a same-user program can do today
+
+The attacker is a program running as the owner, outside Psyche's sandbox, without root, without the owner's finger, and without the owner's login password. It cannot click a macOS prompt unless the owner does.
+
+| Capability | Today |
+| --- | --- |
+| Read and write any file under `$PSYCHE_HOME` | yes (0600 files are the owner's) |
+| Write security rows in `psyche.sqlite` | yes, silently; the Gateway trusts them |
+| Run `psyched devices approve / grant`, `presence reset` | yes, silently |
+| Read the vault key file on an unsigned build, the audit anchor key, the identity key, the handshake secret | yes (documented in §4.3.1 and §15.1) |
+| Stop `psyched` and run its own Gateway on the same socket, or edit the LaunchAgent plist | yes (`launchctl` and `~/Library/LaunchAgents` are the owner's); macOS shows "Background item added" only for a new item |
+| Run Psyche's own Node with its own script | yes: `psyched` is a script on a Node binary, so nothing on the Mac can tell "Psyche's JavaScript" from "any JavaScript" on that binary |
+| Get code running inside the live `psyched` | yes: Node starts an inspector on `SIGUSR1` unless `--disable-sigusr1` is set, and it is not |
+| Read a login-keychain item whose access list names only the helper | no: macOS prompts and names the reader (PR #1265 measured this); it can overwrite the item's data, which #1265 seals |
+| Make the helper's Secure Enclave key sign | only behind a Touch ID prompt the owner must answer (the file key lets it choose the wording; #1265's keychain ACL key does not) |
+
+## 4. What cannot be achieved on this build
+
+Be clear about the ceiling. On a self-signed, profile-less macOS build, against a program that runs as the owner and **targets Psyche on purpose**:
+
+1. **Prevention is impossible.** The attacker can stop `psyched` and run Psyche's own code with its own inputs. Any secret `psyched` can read at boot without the owner (it must start unattended at login), this program can read too, by running the same Node binary with a different script, or by attaching to the live process. A keychain item "ACL'd to psyched" names the Node binary, which runs any script.
+2. **Rollback of the whole database** to an earlier copy (a backup, a copy taken earlier) cannot be detected from the Mac alone. Every monotonic counter that could catch it would live on the same disk.
+3. **Hiding alerts** is possible for a program that patches or replaces `psyched`: it controls what the clients are told.
+
+What *can* be achieved:
+
+- The **cheap, silent paths** stop working: a row edited with `sqlite3`, a generic database tool, an old CLI, or the bundled CLI. Each is now refused or undone, and seen.
+- The **remaining paths are Psyche-specific and loud**: read a particular key file and re-implement Psyche's seal format, or replace or attach to `psyched`. Psyche cannot stop them; it no longer helps them.
+- **A phone or another computer is outside the attacker's reach.** It is the only witness that can catch a Mac whose `psyched` itself is lying (decision D4).
+
+## 5. Options
+
+| Option | What it does | Works on a self-signed, profile-less build? | Cost |
+| --- | --- | --- | --- |
+| **(a) Tamper evidence**: a MAC over the security tables, keyed by a secret the attacker cannot silently read | Out-of-band edits fail verification and are undone | **Partly.** The key can only be: (1) a file in `security/` (readable by the attacker, so evidence against untargeted tampering only); (2) a login-keychain item ACL'd to `psyched` (meaningless: the ACL names the Node binary); (3) a key the helper holds behind its own ACL (#1265's pattern), but the helper cannot tell the real Gateway from a fake one on its socket (the identity key and handshake secret are files), so it would MAC whatever it is asked; (4) the vault's key slot, which on a signed build asks for Touch ID at every Gateway start | One trigger per write, a full check after a foreign commit (milliseconds for hundreds of rows) |
+| **(b) Out-of-band alerts and an append-only journal** | Every change not made through an authenticated Gateway call shows a persistent alert on every device and is written to the hash-chained audit log | **Yes**, for every change (a) detects. A patched `psyched` can suppress them (§4.3) | UI, i18n, one notification per incident |
+| **(c) CLI hardening** | `psyched devices approve / grant`, `presence reset` no longer write the database; the Gateway applies them, at once only for the first admin, otherwise after the owner's Touch ID on a device or a visible 24-hour delay | **Yes** | Server-mode owners approve later devices from an admin device (they already had to, for every device but the first); lockout recovery takes 24 hours |
+| **(d) Encrypt `state/` at rest** (SQLCipher) | Rows are unreadable without the key | Does not help here: the key must be available at unattended boot, so the attacker reads it the same way. It helps against a lost laptop or a leaked backup only | Every `state/` reader moves to SQLCipher; FTS and vector extensions need the cipher build |
+| **(e) A witness off the Mac**: the phone keeps the last security-state digest and every change record, signed by the Gateway, and alerts on a rollback or an unexplained change | Catches what nothing on the Mac can (§4.2, §4.3) | **Yes** (no Apple program needed) | iOS work, protocol, a digest chain |
+| **(f) A code identity for `psyched`**: a signed single-executable Node (SEA) with the hardened runtime and `--disable-sigusr1` | Lets a keychain ACL name `psyched` itself; stops `SIGUSR1` attach | **Partly**: a self-signed certificate is enough for an ACL (#1265 measured that legacy ACLs bind by designated requirement); library validation without a Team ID is weaker | Build pipeline, app size (owner prefers RAM over disk, so this is acceptable); the separate-Node layout changes |
+
+## 6. Recommendation: the realistic bar
+
+Build **(a) with a file key, (b) and (c)** now: they need no owner decision and remove every silent path. Say plainly that against a program that reads Psyche's key files or replaces `psyched`, they are evidence that a careful attacker can avoid, not protection. Then, as owner decisions: **(f)** before a public release, which makes (a)'s key unreachable without code execution in `psyched`, and **(e)** as the only answer to a lying `psyched`. Skip (d) for this threat.
+
+What this PR guarantees, as precisely as the code holds it. Against a program running as the owner that does **not** read `security/state-seal-key.json` and does **not** run code as `psyched`:
+
+1. **While the seal verifies**, any change it makes to a sealed row (devices, presence keys, passkeys, setup tokens, grants, approvals, policy, channels, identities, trusted senders, connectors, every non-cosmetic setting) is put back before the Gateway's next authorizing read, and shown on every device. Rows it added are revoked, invalidated or deleted. A trigger, view or index it plants is dropped before the Gateway's next write.
+2. **Once the seal fails** (any tampering with the seal itself, a rollback the Gateway can see, a planted schema object, a corrupt or replaced key, a failed repair, an unsigned restore), the state is untrusted and stays so (in the database and in the key file) until the owner's 24-hour re-seal. Then **one rule** holds: a row authorizes something only if its current value equals what the Gateway can vouch for, its in-memory copy from this run or an individually MAC-verified ledger entry. A Gateway write over a row it cannot vouch for gets a ledger entry whose MAC never verifies, so a restart does not make that row vouched for either. Presence, every presence-gated call, pairing links and the first-admin shortcut are closed. A device the Gateway cannot vouch for is read-only. The re-seal itself adopts nothing that grants access.
+3. **`psyched` security commands** never change security state at once, except the one request that makes the first admin of a fresh install.
+
+Its limits, all in §8:
+- the first admin of a fresh install can be taken before the owner (with an alert);
+- a rollback of the whole database to an older copy, made while the Gateway was stopped, is caught only if the Gateway's last stop was clean (a crash or `SIGKILL` leaves no record of the latest generation);
+- a restore marker signed with this Mac's key (which any program that reads the key file can sign) is a deliberate rollback, for the one database whose seal row it names and only once;
+- the desktop app's automatic pairing (the handshake secret is a file) still pairs a new desktop device with read, write and approvals while untrusted, as it does while sealed;
+- while untrusted since a start, rows nothing vouches for are ignored, so after a restore on another Mac or a replaced key the owner works read-only, with default security settings and with channels closed, until the re-seal;
+- an old genuine ledger entry replayed together with its row is vouched for (individually MAC-verified) until a full check sees the aggregate or the generation;
+- a write that lands in the microseconds between a check and the read or write it guards.
+
+## 7. What this PR builds
+
+### 7.1 The seal
+
+- **Key**: 32 random bytes in `$PSYCHE_HOME/security/state-seal-key.json` (0600 in a 0700 folder, outside the backup scope like the revocation ledger and the anchor key). Its id (a hash) is stored with the seal, so a replaced key is noticed. A key file that does not parse is moved aside (`…corrupt-<time>`, never deleted), a new key is made and the state is untrusted (`key_corrupt`); if `security/` cannot be written at all, the key lives only in memory and the state is untrusted (`key_unwritable`). The Gateway always starts. The file also records, outside the database, that presence was ever enrolled (D8) and the seal's generation at the last clean stop.
+- **What is sealed**: the tables in §2 and every setting except the cosmetic ones a non-admin device may change (`isUserSettingKey`) and the event counter. Only the Gateway writes settings, so sealing more costs nothing.
+- **On disk**: `security_ledger(tbl, pk, row, mac)` holds every sealed row's canonical JSON (fixed columns per table, `apps/gateway/src/security/seal-spec.ts`) and `HMAC(K, tbl ‖ pk ‖ row)`. `security_seal` holds `agg` (it starts from `HMAC(K, "agg-init" ‖ key id)` and XORs in `HMAC(K, "agg" ‖ mac)` per entry), `gen` (bumped by every ledger change), `state` and its own `mac` over format, key id, `agg`, `gen` and `state`. An empty ledger with a zero aggregate, a copied or edited seal row, a deleted, replayed or forged entry: none verifies without `K`.
+- **In memory, the shadow**: the canonical JSON of every sealed row as the Gateway itself last committed it. It changes only from committed data: a TEMP trigger notes each key the Gateway writes, and the key is read back only when no transaction is open and no other connection committed since, so a rolled-back transaction, a statement that fails halfway or an aborted write leaves it as it was. A full check never re-reads every row into it (a listener or another program may have written since); it keeps the authority it checked against and reads back only the Gateway's own writes. Nothing outside the process can change it, so during a run it is the authority: repairs come from it, never from a ledger that fails.
+- **Who writes the ledger**: SQLite `TEMP` triggers on the Gateway's own connection, calling functions registered there as *direct-only*, with `trusted_schema = OFF`: a trigger or view planted in the main schema cannot call them (`unsafe use of psyche_seal_mac()`). Every Gateway write to a sealed table, from any package, foreign-key cascades and bulk deletes included, updates the ledger in the same statement and transaction. `BEFORE` triggers refuse (`ABORT`) a Gateway update or delete whose old row is not the one in the shadow, and an insert of a key the shadow has but the file lost: the Gateway never seals a change somebody else made, even in a read-modify-write.
+- **Planted schema objects (an allowlist)**: every trigger, view and index in the main schema must be exactly one this build's migrations make (an in-memory database migrated once per process, lazily: about 70–90 ms), one the Gateway created itself at run time, or, at a first seal, one that was already there. The Gateway's own DDL is recognised as it runs (its connection's `prepare` and `exec` are wrapped) and each object it creates is sealed in the ledger, so it is still allowed after a restart. Anything else, whatever its name, is dropped (a known name with other SQL is put back as it was) and the state becomes untrusted (`schema_tampered`); a sealed table whose columns, types, defaults or keys differ from this build's is untrusted too. The check runs at every start, at every full check, whenever `main.schema_version` changes, and **before every write statement the Gateway runs**: a trigger planted since the last check is dropped before that write can fire it (inside an open transaction the write is refused instead). Writes the Gateway made since the last check are then not taken as its own. If the reference cannot be built, nothing is dropped and the state is untrusted (`schema_unverifiable`). If the seal's own tables (`security_seal`, `security_ledger`) are missing or lack a column, the Gateway puts them back empty and starts untrusted (`schema_tampered`) instead of failing to start. TEMP objects die when `temp_store` changes, so the seal sets it first and re-counts its triggers whenever `temp.schema_version` changes.
+- **When it is checked**: at every start, before revocations are replayed or policy is read; and before every read that authorizes something: the signed connect, every dispatched method, every setting and device read (a read guard in `@psyche/db`), the Permission Broker's store, presence verification, the broker's device approver, the channel store, the connector registry's store and each connector-rule pass. A running connector keeps the record it was loaded with. A check is three cached pragmas (`data_version`, the two `schema_version`s); the full comparison runs after another connection committed, after a schema change, and at least every 30 seconds. A 1-second timer checks too. `security/revocations.jsonl` is applied at every full check, not only at boot.
+- **While the seal verifies** (fail closed, destructive): rows that differ from the shadow are put back in one transaction. A row added outside Psyche is revoked (devices, with their connections closed and a revocation-ledger entry; grants; setup tokens), invalidated (approvals) or deleted (settings, passkeys, policy rules, channel identities, trusted senders). Inside an open transaction the check cannot repair; it refuses the call (`unavailable`) and repairs at the next check.
+- **When the seal fails** (a seal row or entry that does not verify, a broken aggregate, a generation lower than this run saw or than the last clean stop recorded, a replaced or corrupt key, a missing seal with a key on disk, a reset the audit log contradicts, a planted schema object, a failed repair, an unverified restore): the state is **untrusted**, recorded under the row MAC so it survives restarts. Nothing is destroyed: changed and removed rows are put back from the shadow (that only restores what the Gateway knew), added rows are left in the file but trusted for nothing. Then:
+  - presence fails closed (`presence_required`, `details.reason: "state_untrusted"`): no device approvals, setup tokens, presence keys, passkeys, security settings, first-admin bootstrap, Touch ID approvals or alert acknowledgements;
+  - the one rule: a row is genuine only if its current value equals the in-memory copy or an individually MAC-verified ledger entry; nothing else authorizes anything;
+  - a device the Gateway can vouch for keeps at most the scopes it knows for it (so the owner can still revoke, deny and cancel); one it cannot is read-only, which gives a same-user program nothing it could not read from the files, and no narrowing call either;
+  - grants, approvals, identities, trusted memory senders and connector rules that are not genuine are ignored; a channel that is not genuine stays (so nothing re-creates it) with DMs disabled and no allowlist or owner; security settings (the presence-gated keys, presence, LAN, `mcp.servers`) read the value the Gateway knows or their default; other settings read as stored;
+  - pairing links (setup tokens) are refused;
+  - a Gateway write over a row that is not genuine still goes through (revoking a stranger must work) but is never folded into the in-memory copy, and its ledger entry carries a MAC that never verifies (`unvouched`), so after a restart the row is still not vouched for; the device-family pin at connect skips such a device altogether;
+  - a channel that is not genuine takes only a status change from the Gateway (its stored allowlists and owners are kept, never overwritten with the narrowed view); any other edit is refused until the re-seal, after which the channel service reads its channels again;
+  - only `psyched security reseal`, 24 hours later, clears it.
+- **First seal**: on the first start of this version (no key, no seal, no `security.state.sealed` entry in the audit log), the current state is sealed as it is, and the owner gets one notice listing how many devices were sealed. If the key or the audit log shows an earlier seal, a missing seal is a reset: untrusted.
+- **A restored backup** (the restore marker): `psyche backup restore` signs the marker with this Mac's seal key, and the marker names the restored database's seal row (its `gen` and MAC) under that signature, so it vouches for that database only. A marker works once: its MAC is recorded in the key file when it is used. After a verified restore the restored generation becomes the key file's record (a plain assignment, not the maximum), so the next ordinary start is not taken for a rollback. Only a signed marker that names the database lifts the rollback check, and the restored seal must still verify with the key already on this Mac (a restore on the same Mac does). The owner gets a warning, and every waiting recovery waits its full 24 hours again. An unsigned marker (another Mac, or one another program planted) keeps the rollback check; a seal that does not verify is untrusted (`restore_unverified`) and needs the 24-hour re-seal (D9). A marker never clears an untrusted state. Decided recoveries are remembered in the key file, so a rollback cannot bring one back to apply.
+- **Pruning (D10, built)**: the retention sweep deletes, through the Gateway's connection (so the ledger follows), decided approvals and revoked or expired grants older than a year (the retention window in docs/05 §14; approvals a kept grant points to stay), and acknowledged alerts and decided recoveries older than 90 days.
+- **Cost**: a fast check is about 2 µs. A full check with about 350 sealed rows takes about 7 ms; a boot verification with about 2,050 sealed rows about 80 ms, plus the one reference build. A write the Gateway makes costs about 25 µs more (the schema checks around it); a write to a sealed row about 100 µs more (two HMACs, the ledger and seal row updates).
+- **Format changes**: the seal records its format. A migration that adds a column needs no change; a migration that rewrites a sealed column, or a new sealed column, bumps the format and verifies with the old specification before re-sealing. A test fails when a sealed table gains a column the specification does not list.
+
+### 7.2 The CLI and the recovery route
+
+`psyched devices approve`, `psyched devices grant` and `psyched presence reset` no longer write the database. (Approve now needs fresh presence once a Touch ID key or a passkey was ever enrolled; on a Gateway where none ever was, an admin device alone approves now, as for every other admin call.) They put a request in `security_requests`, an inbox anyone on the Mac can write and nothing trusts, and wait for the running Gateway (a request nobody answers is taken back; the Gateway counts the delay from when it first saw a request, never from the time the row claims):
+
+- **First admin of a fresh install** (no admin device exists, presence was never enrolled, neither in the database nor in the key file, the state is trusted): applied at once, as before. It is audited and shown as an alert ("A command on this Mac made X (key …) the first admin device"). `devices.bootstrapAdmin` (the desktop's path) follows the same rule and raises the same alert (D8, built).
+- **Narrowing waits too**: taking `operator.admin` from the owner's last admin device at once would make "no admin exists" true for an immediate first-admin approval right after it.
+- **Otherwise**: the Gateway records a **recovery** in the sealed `security_recoveries` table and applies it **24 hours later** unless it is cancelled. A pairing approval must name the key the device showed (its fingerprint), and applies only if the device still has that key. The same request again joins the one that waits; at most 5 of one kind wait, and a presence reset or a re-seal has its own place, so a flood of one kind can neither bury nor block another. While untrusted, only a recovery that is genuine (its current row equals the in-memory copy or an individually MAC-verified ledger entry) is applied. During the wait every device shows a warning with **Cancel** and, when presence can verify, **Approve now** (Touch ID or a passkey; the card names the device, its key fingerprint and the scopes).
+- `psyched recovery cancel <id>` cancels from the Mac: at most 5 an hour, each one an alert ("cancelled on this Mac"), counted from the sealed alerts and from the key file, so deleting the alerts while untrusted does not lower the count. A **re-seal** cannot be cancelled from the Mac, where any program could cancel it as fast as the owner asks; only an admin device the seal still trusts can.
+- `psyched security reseal` asks for a re-seal of an untrusted state the same way (24 hours, never "approve now", since no verifier is trusted then). **A re-seal adopts nothing that grants access**: a device, passkey, setup token, grant, approval, recovery, alert or security setting the Gateway cannot vouch for is put back to its known value where one exists and otherwise revoked, invalidated or deleted; other data it cannot vouch for (model and memory settings, channels, policy rules) is kept and listed in an alert. A device the Gateway can vouch for with admin can cancel a re-seal; the Mac cannot. The generation continues from the highest one seen.
+- The CLI prints what happened and when it will apply; exit 0 applied, 1 refused, 3 waiting, 4 the Gateway did not answer.
+
+A program on the Mac can still ask, like the owner can. It cannot make it happen quietly or quickly.
+
+### 7.3 Alerts
+
+`security_alerts` (sealed) keeps every incident: an undone change, an untrusted state, a first seal, a restore, a first admin made from the CLI or the app, a recovery requested, applied, cancelled or failed. Each is written to the audit log, sent as a `system` notification (the desktop inbox, the Mac's notification, the phone) and shown in a banner at the top of the desktop and web app until an admin acknowledges it (fresh presence once enrolled; never while untrusted). Repeated tampering keeps one open "changed outside" alert with a counter (`occurrences`) instead of a wall of them; its notification is updated at most every 10 minutes and only the first delivery breaks through quiet hours. Device names another program chose are shown without control or bidirectional characters and at most 64 characters, next to the start of the device key's fingerprint. An alert that disappears as it is written (a planted trigger) is still delivered and forces a full check. `security.state.get` (operator.read) lists them; `security.state.changed` tells clients to refresh.
+
+## 8. Residual risk after this PR
+
+| Same-user program | Before | After |
+| --- | --- | --- |
+| Edits a device, presence key, grant, approval, policy, channel or connector row with `sqlite3` | works silently | put back before the next authorizing read (and within a second), shown on every device |
+| Plants a trigger, view or index (any name) that writes security state on the Gateway's own writes (H1) | — | dropped before the Gateway's next write runs (and at every check); untrusted; it cannot call the seal's functions; only a plant that lands in the microseconds between that check and the write itself could run once, and what it changed is then trusted for nothing |
+| Empties the ledger and zeroes the aggregate, or edits the seal row (H2) | — | does not verify; nothing is revoked or deleted; untrusted, the owner's devices keep what this run knew; after a restart they are read-only until the re-seal; no first-admin shortcut (presence is remembered in the key file) |
+| Deletes one ledger entry to get a real row revoked (H3) | — | nothing is destroyed; untrusted |
+| Replaces the key file, then inserts an admin device (H4) | — | untrusted; the device is read-only at most |
+| Replays an old genuine entry, or rolls back the sealed tables, ledger and seal row together while the Gateway runs (H5) | — | caught (the aggregate, or a generation lower than this run saw); the revoked device stays revoked from memory; untrusted |
+| Rolls back the whole database to an older copy while the Gateway is stopped (a backup, a pre-update snapshot in `backups/pre-update/`) | works | caught when the key file recorded a higher generation: at every clean stop, every change to untrusted and every re-seal; after a crash or `SIGKILL` the latest generation may be missing, and a rollback to just before it passes; `revocations.jsonl` still revokes revoked devices and grants (lines this Mac's seal signed also while running) |
+| Plants a restore marker (H6), or replays a real one | — | an unsigned marker, one that names another database's seal row, or one already used changes nothing (the rollback check stays); a signed one (it would have to read the key file) is a deliberate rollback of the database it names, with a warning and every waiting recovery's 24 hours restarted; never clears an untrusted state |
+| While untrusted, inserts an admin device and waits for the Gateway to write over it (the family pin at connect, a status change) | — | the pin is skipped; any Gateway write over it is sealed with a MAC that never verifies, so after a restart it is still read-only and a re-seal revokes it |
+| Drops `security_seal` or `security_ledger` | — | put back empty at the next start; untrusted (`schema_tampered`); the Gateway still starts |
+| Runs `psyched devices approve <code>` while an admin exists | approves at once | 24-hour wait with a warning on every device; cancellable |
+| Runs `psyched presence reset` | presence gate off at once | 24-hour wait with a warning on every device |
+| Takes the first admin before the owner (fresh install) | works | still works, now with an alert (documented residual) |
+| Takes the first admin after the owner revoked every admin device | works | refused once presence was ever enrolled (CLI and `devices.bootstrapAdmin`) |
+| Floods the inbox | — | duplicates join one request; at most 5 of a kind wait |
+| While untrusted since a start, edits a security setting, a channel, a trusted sender or a connector rule | — | ignored: security settings read their known value or default, channels stay closed, trusted senders and connector rules count for nothing; other settings (models, memory options) read as stored |
+| While untrusted, plants a setup token, or inserts a device and tries to revoke the owner's | — | pairing links are refused; an unknown device is read-only and cannot call revoke, deny or cancel |
+| Makes a repair fail half way (a unique value moved, a constraint) | — | unique values are parked first; a repair that still fails is rolled back, its writes are not taken as the Gateway's own, and the state is untrusted |
+| Reads `security/state-seal-key.json` and writes sealed rows itself | — | **undetected**: needs D1/D3 |
+| Stops `psyched` and runs its own, or attaches through `SIGUSR1` | works | **still works**; macOS reports a new background item; needs D3, and D4 to be seen |
+| Writes in the microseconds between a check and the read it guards | — | that one read can use the changed row; the next check (at the latest within a second) puts it back and alerts |
+
+## 9. Decisions for the owner
+
+| # | Decision | Recommendation |
+| --- | --- | --- |
+| D1 | Where the seal key lives. Built: a file in `security/`. Alternatives: the vault's key slot (Touch ID at every Gateway start on a signed build), or a helper-held login-keychain item (#1265's pattern) | Keep the file until D3 lands. A helper-held key is only worth it once the helper can tell the real `psyched` from a script on the same Node, which needs D3. |
+| D2 | Recovery delay: 24 hours built | Keep 24 hours. Longer (72 hours) is safer but a locked-out owner waits three days. |
+| D3 | Ship `psyched` as a signed single executable with the hardened runtime and `--disable-sigusr1` (self-signed works for keychain ACLs) | Yes, before a public release. It is the change that turns the seal from evidence into protection. Costs disk, not RAM. |
+| D4 | The phone (and other paired computers) as a witness: keep the signed chain of security changes and alert on a rollback or a change the Mac does not explain | Yes, after D3. It is the only thing that catches a lying `psyched` or a whole-database rollback after a crash. |
+| D5 | Encrypt `state/` with SQLCipher | Not for this threat (the boot key is reachable). Keep it on the privacy list for lost laptops and backups. |
+| D6 | Untrusted state strictness. **Changed after the review**: devices are narrowed to what this run knew, or read-only when untrusted since boot; grants, approvals and channel rows nobody can vouch for are ignored; narrowing calls keep stored scopes | Keep what is built. The cost: after a restart into an untrusted state the owner works read-only for up to 24 hours (but can still revoke). |
+| D7 | `config.json` is edited by hand on purpose. Fingerprint its security fields and show an informational alert when they change outside Settings? | Yes, as a small follow-up; never undo hand edits. |
+| D8 | **Built**: `devices.bootstrapAdmin` follows the CLI's rule (only while presence was never enrolled, recorded in the key file too) and raises an alert | Keep. One flow changed: an owner who revoked every admin device after setting up Touch ID recovers with `psyched devices grant` (24 hours). |
+| D9 | A restore on another Mac is untrusted until a 24-hour re-seal (the seal key does not travel). Alternative: put the seal key inside the age-encrypted backup, so a restore verifies anywhere the passphrase is known | Put the key in the encrypted backup. The cost to weigh: anyone with the backup passphrase (and the archive) could then decrypt the key and forge seals for that backup's state, so a restore of a tampered archive would verify. A program that knows the passphrase can already restore anything, which is why the recommendation stands. |
+| D11 | Lockout recovery when no device the Gateway can vouch for holds admin (untrusted since a start): a re-seal then cannot be cancelled by anyone, and a program on the Mac can keep queueing and cancelling other requests (5 cancels an hour, 5 waiting of a kind) to delay the owner's own. Alternatives: a cancel or approve path that needs a physical action on the Mac (a Touch ID prompt from the bundled helper only), or accepting the delay | Accept it, documented: a program running as the owner can always deny service (delete the database); what it cannot do is make a widening change happen quietly. Revisit with D3 (a helper that can tell the real Gateway). |
+| D10 | **Built**: decided approvals and spent grants older than a year, acknowledged alerts and decided recoveries older than 90 days leave the sealed set | Keep. Change the windows if the owner wants a longer history of approvals. |
+
+## 10. Verification
+
+Automated: `seal-review3.test.ts` (the third review: H-A to H-D, M-A to M-G), `security-alerts.test.ts` (coalescing, cleaned names, the notification decision from the sealed `notified_at`), `packages/db/test/read-guard.test.ts`, `apps/gateway/test/state-seal.test.ts`, `seal-attacks.test.ts` (the review's H1–H6, M1 and M3 proofs of concept, each as a regression test), `seal-review2.test.ts` (the second review: the check before every write, the allowlist, rollbacks and half-failed writes, re-entrant checks, a soak of every kind of normal write with no abort and no drift, pruning, an unwritable `security/`), `security-recovery.test.ts`, the updated pairing, presence and bootstrap tests, the CLI integration test, and `deploy/scripts/upgrade-roundtrip.mjs`:
+
+- the Gateway's own writes, from every package, keep the seal valid, upserts and cascades included; nothing changes for the owner;
+- a write from a second connection to each sealed table is put back, with the right alert, at the next check and at the next start;
+- a planted trigger is dropped and cannot call the seal's functions; an emptied ledger, a deleted entry, a forged seal row, a replayed entry, a rolled-back database, a replaced or corrupt key and a planted restore marker all make the state untrusted without destroying anything, and an inserted device gets nothing beyond read-only;
+- `psyched devices approve` makes the first admin of a fresh install at once and waits 24 hours otherwise; duplicates join; a re-seal cannot be cancelled from the Mac; approve-now needs presence once enrolled; a recovery applies on time with a fake clock;
+- a restored backup boots and keeps its data.
+
+Manual (needs a person, see the PR): the banner on the desktop and on a phone, the notification on the Mac, and "Approve now" with real Touch ID.

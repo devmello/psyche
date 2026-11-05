@@ -1,8 +1,9 @@
-import { execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { PassThrough } from "node:stream";
+import { promisify } from "node:util";
 import { type Gateway, startGateway } from "@psyche/gateway";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { run } from "../src/cli.ts";
@@ -66,14 +67,12 @@ describe("psyche against the real Gateway", { timeout: 30_000 }, () => {
     expect(error.code).toBe("pairing");
 
     // The owner approves on the Gateway host (default: every operator scope, the first admin).
+    // `psyched devices approve` asks the running Gateway (this process), so it must not block it.
     const psyched = resolve(import.meta.dirname, "../../gateway/src/main.ts");
-    const out = execFileSync(
+    const { stdout: out } = await promisify(execFile)(
       process.execPath,
       [psyched, "devices", "approve", error.details.code],
-      {
-        env: { ...process.env, PSYCHE_HOME: home },
-        encoding: "utf8",
-      },
+      { env: { ...process.env, PSYCHE_HOME: home }, encoding: "utf8" },
     );
     expect(out).toMatch(/approved/);
 

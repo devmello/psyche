@@ -65,6 +65,7 @@ Goal: credentials, proactivity, computer use, server mode.
 - Models: B4 local probe UI; remaining B1 adapters (Google, OpenRouter, llama.cpp, LM Studio).
 - Runtime: C10 harness plugins (optional), V10 coding helper.
 - Hardening: threat-model review, dependency audit, fuzzing of the policy engine and binding hashes, injection corpus expansion, `psyche security audit` completeness.
+- Security state integrity ([design/security-state-integrity-2026.md](design/security-state-integrity-2026.md)): sealed security tables with a fail-closed repair from the Gateway's in-memory copy, planted-trigger and rollback detection, alerts on every device, and `psyched` security commands that wait 24 hours once an admin exists are built (hardened after an adversarial review). This is tamper evidence against programs that write the database, not protection: on a self-signed build a same-user program that reads `security/state-seal-key.json` or runs code as `psyched` is not stopped. Open for the owner: D1 seal key location, D3 a signed single-executable `psyched` with `--disable-sigusr1` (before a public release; it is what turns the seal into protection), D4 the phone as a witness of security changes, D9 the seal key inside encrypted backups.
 
 ## v1.0 (weeks 21–24)
 
@@ -104,6 +105,7 @@ Goal: credentials, proactivity, computer use, server mode.
 | iMessage breakage on new macOS releases (chat GUID change on 26) | Isolate in the Mac node; integration tests per macOS beta |
 | Unofficial WhatsApp bans | Label clearly; recommend a separate number; offer Cloud API |
 | Scope creep | P0/P1/P2 discipline; acceptance scenarios as the definition of done |
+| Same-user malware rewrites devices, presence keys or grants (self-signed build, no keychain access group) | Sealed security tables undo it and alert every device; `psyched` security commands wait 24 hours; residual: a program reading the seal key or controlling `psyched` (decisions D1, D3, D4) |
 
 ## Metrics to track from alpha
 
