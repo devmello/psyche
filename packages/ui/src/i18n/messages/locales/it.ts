@@ -1,11 +1,47 @@
 import type { Catalogue } from "../index.ts";
+import { agentRest } from "./agent-rest/it.ts";
+import { auditRest } from "./audit-rest/it.ts";
+import { automationChatRest } from "./automation-chat-rest/it.ts";
+import { blocksRest } from "./blocks-rest/it.ts";
+import { bookRest } from "./book-rest/it.ts";
 import { canvas } from "./canvas/it.ts";
+import { canvasRest } from "./canvas-rest/it.ts";
+import { capabilitiesRest } from "./capabilities-rest/it.ts";
 import { charts } from "./charts/it.ts";
+import { chatRest } from "./chat-rest/it.ts";
+import { commonRest } from "./common-rest/it.ts";
+import { dailyRest } from "./daily-rest/it.ts";
+import { deckRest } from "./deck-rest/it.ts";
+import { designRest } from "./design-rest/it.ts";
+import { everythingRest } from "./everything-rest/it.ts";
+import { galleryRest } from "./gallery-rest/it.ts";
+import { homeRest } from "./home-rest/it.ts";
 import { links } from "./links/it.ts";
 import { mailMeetings } from "./mail-meetings/it.ts";
+import { meetingRecordRest } from "./meeting-record-rest/it.ts";
+import { memoryAdvancedRest } from "./memory-advanced-rest/it.ts";
+import { memoryBasicsRest } from "./memory-basics-rest/it.ts";
+import { memoryPrivacyRest } from "./memory-privacy-rest/it.ts";
+import { memoryRest } from "./memory-rest/it.ts";
+import { memoryReviewRest } from "./memory-review-rest/it.ts";
+import { memorySurfacesRest } from "./memory-surfaces-rest/it.ts";
+import { memoryWorkRest } from "./memory-work-rest/it.ts";
+import { nudgesRest } from "./nudges-rest/it.ts";
+import { onboardingRest } from "./onboarding-rest/it.ts";
 import { overview } from "./overview/it.ts";
 import { overviewGrowth } from "./overview-growth/it.ts";
 import { overviewShared } from "./overview-shared/it.ts";
+import { peopleRest } from "./people-rest/it.ts";
+import { personDataRest } from "./person-data-rest/it.ts";
+import { researchRest } from "./research-rest/it.ts";
+import { scheduledRest } from "./scheduled-rest/it.ts";
+import { screensRest } from "./screens-rest/it.ts";
+import { settingsRest } from "./settings-rest/it.ts";
+import { shellRest } from "./shell-rest/it.ts";
+import { specialistsRest } from "./specialists-rest/it.ts";
+import { webRest } from "./web-rest/it.ts";
+import { widgetsRest } from "./widgets-rest/it.ts";
+import { workRest } from "./work-rest/it.ts";
 import { workflows } from "./workflows/it.ts";
 
 /** Italian catalogue (it). Same ids as `en`; missing ids fall back to English. */
@@ -26,6 +62,42 @@ export const it: Partial<Catalogue> = {
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
   ...charts,
+  ...commonRest,
+  ...canvasRest,
+  ...deckRest,
+  ...bookRest,
+  ...shellRest,
+  ...auditRest,
+  ...chatRest,
+  ...blocksRest,
+  ...agentRest,
+  ...dailyRest,
+  ...nudgesRest,
+  ...galleryRest,
+  ...onboardingRest,
+  ...capabilitiesRest,
+  ...memoryReviewRest,
+  ...personDataRest,
+  ...peopleRest,
+  ...screensRest,
+  ...everythingRest,
+  ...memoryBasicsRest,
+  ...memoryAdvancedRest,
+  ...memoryPrivacyRest,
+  ...memoryRest,
+  ...memoryWorkRest,
+  ...memorySurfacesRest,
+  ...workRest,
+  ...specialistsRest,
+  ...webRest,
+  ...designRest,
+  ...meetingRecordRest,
+  ...homeRest,
+  ...researchRest,
+  ...automationChatRest,
+  ...widgetsRest,
+  ...scheduledRest,
+  ...settingsRest,
   "common.cancel": "Annulla",
   "common.close": "Chiudi",
   "common.save": "Salva",

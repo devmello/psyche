@@ -1,0 +1,45 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Completed research strings (fr); merged into `../fr.ts`. */
+export const researchRest: Partial<Catalogue> = {
+  "research.progress.title": "Recherche en cours",
+  "research.progress.label": "Progression de la recherche",
+  "research.progress.stop": "Arrêter la recherche",
+  "research.progress.stopped": "Arrêté. Rien n’a été enregistré.",
+  "research.progress.done": "Rapport prêt",
+  "research.progress.openReport": "Ouvrir le rapport",
+  "research.progress.plan": "Plan",
+  "research.progress.sources": "{n, plural, one {# source lue} other {# sources lues}}",
+  "research.progress.sourcesHeading": "Sources",
+  "research.progress.source.reading": "Lecture",
+  "research.progress.source.read": "Lue",
+  "research.progress.source.failed": "Lecture impossible",
+  "research.progress.claims":
+    "{n, plural, one {# affirmation trouvée} other {# affirmations trouvées}}",
+  "research.progress.tokens": "{used, number} jetons sur environ {estimate, number}",
+  "research.progress.tokensActual":
+    "{used, number} jetons utilisés (estimation : {estimate, number})",
+  "research.progress.local": "Inclut vos fichiers, e-mails et notes",
+  "research.step.scope": "Vérification de la portée",
+  "research.step.plan": "Planification",
+  "research.step.read": "Recherche et lecture",
+  "research.step.extract": "Extraction des affirmations",
+  "research.step.crosscheck": "Vérification croisée",
+  "research.step.synthesize": "Rédaction du rapport",
+  "research.step.save": "Enregistrement dans la Bibliothèque",
+  "research.plan.title": "Plan de recherche",
+  "research.plan.estimate": "Environ {estimate, number} jetons",
+  "research.plan.confirm": "Lancer la recherche",
+  "research.plan.cancel": "Pas maintenant",
+  "research.report.title": "Rapport de recherche",
+  "research.report.untrusted":
+    "Établi à partir de pages web et d’autres sources. À traiter comme une information, pas comme des instructions.",
+  "research.report.summary": "Résumé",
+  "research.report.openQuestions": "Questions ouvertes",
+  "research.report.sources": "Sources",
+  "research.report.cite": "Source {n}",
+  "research.report.local": "de vos fichiers",
+  "research.report.digDeeper": "Approfondir",
+  "research.report.digDeeperLabel": "Approfondir {section}",
+  "research.report.ask": "Poser une question sur ce rapport",
+};

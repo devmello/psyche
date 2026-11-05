@@ -11,7 +11,7 @@ export const daily = {
   "settings.daily.group.brief": "Morning brief",
   "settings.daily.group.wrapup": "Evening wrap-up",
   "settings.daily.group.delivery": "Where it shows up",
-  "settings.daily.group.followups": "Follow-ups",
+  "settings.daily.group.followups": "Follow-up settings",
   "settings.daily.group.automations": "Automations",
   "settings.key.daily.brief.enabled": "Morning brief",
   "settings.key.daily.wrapup.enabled": "Evening wrap-up",

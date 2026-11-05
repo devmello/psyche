@@ -1,15 +1,51 @@
 import type { Catalogue } from "../index.ts";
+import { agentA } from "./agent-a/pt.ts";
+import { blocksA } from "./blocks-a/pt.ts";
 import { canvas } from "./canvas/pt.ts";
 import { charts } from "./charts/pt.ts";
+import { chatA } from "./chat-a/pt.ts";
+import { dailyA } from "./daily-a/pt.ts";
+import { galleryA } from "./gallery-a/pt.ts";
+import { homeA } from "./home-a/pt.ts";
 import { links } from "./links/pt.ts";
 import { mailMeetings } from "./mail-meetings/pt.ts";
+import { memoryA } from "./memory-a/pt.ts";
+import { memoryB } from "./memory-b/pt.ts";
 import { overview } from "./overview/pt.ts";
 import { overviewGrowth } from "./overview-growth/pt.ts";
 import { overviewShared } from "./overview-shared/pt.ts";
+import { scheduledA } from "./scheduled-a/pt.ts";
+import { settingsA } from "./settings-a/pt.ts";
+import { settingsB } from "./settings-b/pt.ts";
+import { settingsC } from "./settings-c/pt.ts";
+import { settingsD } from "./settings-d/pt.ts";
+import { settingsE } from "./settings-e/pt.ts";
+import { specialistsA } from "./specialists-a/pt.ts";
+import { teachA } from "./teach-a/pt.ts";
+import { workA } from "./work-a/pt.ts";
+import { workB } from "./work-b/pt.ts";
 import { workflows } from "./workflows/pt.ts";
 
 /** Portuguese catalogue (pt, Brazil). Same ids as `en`; missing ids fall back to English. */
 export const pt: Partial<Catalogue> = {
+  ...scheduledA,
+  ...homeA,
+  ...teachA,
+  ...specialistsA,
+  ...workB,
+  ...workA,
+  ...memoryB,
+  ...memoryA,
+  ...galleryA,
+  ...settingsE,
+  ...settingsD,
+  ...settingsC,
+  ...settingsB,
+  ...settingsA,
+  ...dailyA,
+  ...agentA,
+  ...blocksA,
+  ...chatA,
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
   ...mailMeetings,
   // link menu and the "Open links in" setting
