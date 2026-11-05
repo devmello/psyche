@@ -1044,6 +1044,17 @@ export const settings = {
   "settings.sandbox.restart.body":
     "The Gateway looked for a container runtime when it started and found none. Restart it, then it picks up {runtime}.",
   "settings.sandbox.restart.step": "Restart the Gateway",
+  "settings.sandbox.restart.reopen": "Quit Psyche and open it again.",
+  "settings.sandbox.pc.title": "Turn on the sandbox PC",
+  "settings.sandbox.pc.body":
+    "srt, Psyche's lightweight sandbox for commands, doesn't run on Windows. Here scripts, command servers and connectors Psyche makes run in the sandbox PC instead: a small Linux computer of its own, with no access to your files. Turn it on in Settings → Sandbox PC, then check again.",
+  "settings.sandbox.pc.notReady.title": "The sandbox PC isn't ready yet",
+  "settings.sandbox.pc.notReady.body":
+    "It's turned on, but it isn't running yet, or the Psyche inside it is out of date. Start or update it in Settings → Sandbox PC, then check again.",
+  "settings.sandbox.pc.ready":
+    "The sandbox PC is on: scripts, command servers and connectors Psyche makes run in it.",
+  "settings.sandbox.pc.open": "Open Sandbox PC settings",
+  "settings.sandbox.pc.where": "It's in Settings → Sandbox PC.",
   "settings.sandbox.without":
     "Without srt, Psyche can still use URL servers and your connectors, but it can't run local MCP command servers.",
   "settings.mcp.kind.url": "URL",

@@ -432,6 +432,8 @@ export function ApprovalDetails({
               <Row label={t("blocks.details.runs")}>
                 {d.sandbox === "srt" ? (
                   t("blocks.details.runsSandboxed")
+                ) : d.hostSandbox === "none" ? (
+                  <span className="text-danger-text">{t("blocks.details.runsNoHostSandbox")}</span>
                 ) : d.sandbox === "missing" ? (
                   <span className="text-danger-text">
                     {t("blocks.details.runsNoSandbox", { reason: str(d.sandboxMissingReason) })}

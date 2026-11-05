@@ -135,14 +135,29 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.computerUse.macPermissions": "Windows access",
   "settings.computerUse.openSystemSettingsFor": "Open Windows Settings for {name}",
   "settings.computerUse.openSystemSettings": "Open Settings",
-  "settings.mcp.sandboxHelp": "Command servers need a sandbox on this PC.",
+  "settings.mcp.sandboxHelp":
+    "Command servers run in the sandbox PC: turn it on in Settings → Sandbox PC.",
+  "settings.mcp.kind.commandHint":
+    "A program run in the sandbox PC, a small Linux computer with no access to your files.",
+  "settings.mcp.kind.commandUnavailable":
+    "Command servers run in the sandbox PC, which isn't on: turn it on in Settings → Sandbox PC. URL servers can be added now.",
   "settings.sandbox.why":
-    "Commands run on your PC with your files, but can't read your vault, keys or Psyche's private data.",
+    "Scripts and command servers run away from your files, your vault, your keys and Psyche's private data.",
   "settings.sandbox.whyHow":
-    "On Windows the sandbox is a container runtime: Docker Desktop or Podman, on WSL 2.",
+    "On Windows that's the sandbox PC, a small Linux computer of its own in Hyper-V. A container runtime (Docker Desktop or Podman) is optional, for code the agent runs.",
   "settings.sandbox.checking": "Looking at this PC…",
   "settings.sandbox.containers.body":
-    "A container runtime runs code in its own Linux machine with no access to your PC's files: for code the agent runs and some file conversions. Command servers keep using srt unless the Gateway is set to use containers.",
+    "A container runtime runs code in its own Linux machine with no access to your PC's files: for code the agent runs and some file conversions. Command servers and scripts run in the sandbox PC unless the Gateway is set to use containers.",
+  "settings.sandbox.missing.docker":
+    "Docker Desktop (on WSL 2) is the point-and-click choice; Podman works too.",
+  "settings.sandbox.stopped.docker": "Open Docker Desktop, then check again.",
+  "settings.sandbox.without":
+    "Without the sandbox PC, Psyche can still use URL servers and your connectors, but it can't run scripts or local MCP command servers.",
+  "blocks.permission.need.sandbox": "Turn on the sandbox PC",
+  "blocks.execHost.noHostSandbox":
+    "Windows has no sandbox for commands on this PC, so this command can only run without one. Type {word} to run it this once.",
+  "blocks.details.runsNoHostSandbox":
+    "on your PC, without a sandbox: Windows has none for commands on the PC itself",
   "settings.searchSources.description":
     "What Psyche reads into your search index. All off until you switch them on; the index stays on this PC. Turning a source on also lets memory learn from it, unless you opt out on Memory → Sources (Memory and Contacts are the exceptions: neither is learned from).",
   // Windows reads Mail, Calendar, Reminders and Contacts from classic Outlook (through the Windows

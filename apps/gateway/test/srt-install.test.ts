@@ -63,6 +63,7 @@ async function setup(deps: SrtInstallDeps) {
     isExecutable: async (p) => (await import("node:fs")).existsSync(p),
     searchDirs: () => [],
     version: async () => "srt-fake",
+    platform: "linux",
   };
   const srt = createSrtResolver({ db }, {}, srtDeps);
   const part = composeSandbox(services, {

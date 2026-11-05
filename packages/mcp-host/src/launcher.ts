@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { isAbsolute, join } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import type { Transport } from "@modelcontextprotocol/client";
 import { restrictToOwner } from "@psyche/hostfs";
@@ -67,8 +67,11 @@ export interface OpenedLaunch {
  * process, e.g. inside a container, and returns a transport over its pipes).
  */
 export interface StdioLauncher {
-  /** `none` launchers run the command as is and are accepted for `bundled` servers only. */
-  readonly isolation: "srt" | "container" | "none";
+  /**
+   * `none` launchers run the command as is and are accepted for `bundled` servers only; `vm`
+   * runs it in the sandbox guest (the sandbox PC on Windows, `vmLauncher`).
+   */
+  readonly isolation: "srt" | "container" | "vm" | "none";
   prepare?(spec: StdioLaunchSpec): Promise<PreparedLaunch>;
   open?(spec: StdioLaunchSpec, signal?: AbortSignal): Promise<OpenedLaunch>;
   /** The server was removed: drop any state kept for it (sandbox volume, egress allowlist). */
@@ -316,6 +319,172 @@ export interface ContainerLauncherOptions {
 }
 
 export const SANDBOX_WORKSPACE = "/workspace";
+
+// --- the sandbox guest (the sandbox PC on Windows) ------------------------------------------------
+
+/** A file copied into the guest's workspace before the server starts. */
+export interface StagedFile {
+  /** Relative to the workspace, `/`-separated. */
+  path: string;
+  content: string;
+  encoding: "base64";
+}
+
+/**
+ * The part of the Gateway's VM runner the guest launcher needs: whether the guest can run
+ * servers now, one workspace per server, and `openStdio` with staged files and a network policy.
+ */
+export interface VmStdioHost {
+  /** VM mode on and the guest's psyche-node connected with sessions. */
+  ready(): boolean | Promise<boolean>;
+  ensureSandbox(scope: SandboxScope): Promise<SandboxInstance>;
+  openStdio(
+    sandboxId: string,
+    options: {
+      argv: string[];
+      cwd?: string;
+      env?: Record<string, string>;
+      files?: StagedFile[];
+      network?: "none" | "allow";
+    },
+  ): Promise<SandboxStdioProcess>;
+}
+
+export interface VmLauncherOptions {
+  vm: VmStdioHost;
+  /** What a refused launch says when the guest is not ready (the host's words for turning it on). */
+  notReady?: string;
+}
+
+/** What one server may copy into the guest (a Psyche-made connector is at most 24 files, 400 KB). */
+export const VM_STAGE_MAX_FILES = 64;
+export const VM_STAGE_MAX_BYTES = 2 * 1024 * 1024;
+const VM_STAGE_MAX_DEPTH = 4;
+
+/** Regular files under `dir` (no symlinks, no deeper than 4 folders), as base64. */
+async function collect(dir: string): Promise<StagedFile[]> {
+  const out: StagedFile[] = [];
+  let total = 0;
+  const walk = async (abs: string, rel: string, depth: number): Promise<void> => {
+    const entries = await readdir(abs, { withFileTypes: true });
+    for (const e of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      const childAbs = join(abs, e.name);
+      const childRel = rel === "" ? e.name : `${rel}/${e.name}`;
+      const st = await lstat(childAbs);
+      if (st.isSymbolicLink()) continue;
+      if (st.isDirectory()) {
+        if (depth < VM_STAGE_MAX_DEPTH) await walk(childAbs, childRel, depth + 1);
+        continue;
+      }
+      if (!st.isFile()) continue;
+      total += st.size;
+      if (out.length + 1 > VM_STAGE_MAX_FILES || total > VM_STAGE_MAX_BYTES) {
+        throw new PsycheError(
+          "policy_denied",
+          `the server's folder is too large to copy into the sandbox (over ${VM_STAGE_MAX_FILES} files or ${VM_STAGE_MAX_BYTES} bytes)`,
+        );
+      }
+      out.push({
+        path: childRel,
+        content: (await readFile(childAbs)).toString("base64"),
+        encoding: "base64",
+      });
+    }
+  };
+  await walk(dir, "", 0);
+  return out;
+}
+
+const within = (path: string, root: string) => {
+  const rel = relative(root, path);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+};
+
+/**
+ * Runs each stdio server in the sandbox guest (VM mode; the sandbox PC on Windows, where srt
+ * cannot run): its own workspace per server, only its own env, no network unless the config
+ * allowlists domains (then the guest's own network, which is none unless the owner turned it on;
+ * the guest cannot limit it to those hosts). A server whose code lives on this computer (a
+ * Psyche-made connector: `cwd` inside its `allowRead` folder) has that folder copied in, never
+ * shared; any other host path, and every write grant, is refused.
+ */
+export function vmLauncher(options: VmLauncherOptions): StdioLauncher {
+  const notReady = () =>
+    new PsycheError(
+      "unavailable",
+      options.notReady ?? "the sandbox guest is not running, so command servers cannot start",
+      { details: { reason: "no_launcher" } },
+    );
+  return {
+    isolation: "vm",
+    ready: async () => (await options.vm.ready()) === true,
+    async open(spec, signal) {
+      if (spec.command.length === 0) throw new PsycheError("invalid_params", "empty command");
+      if (spec.sandbox.allowWrite.length > 0) {
+        throw new PsycheError(
+          "policy_denied",
+          "host folders cannot be written by an MCP server in the sandbox; it writes only its /workspace",
+        );
+      }
+      if (!(await options.vm.ready())) throw notReady();
+      let cwd = spec.cwd ?? SANDBOX_WORKSPACE;
+      let files: StagedFile[] = [];
+      let hostDir: string | undefined;
+      if (cwd !== SANDBOX_WORKSPACE && !cwd.startsWith(`${SANDBOX_WORKSPACE}/`)) {
+        // Only a folder the policy lets it read, and only as a copy.
+        const real = await realpath(cwd).catch(() => cwd);
+        const readable = await Promise.all(
+          (spec.sandbox.allowRead ?? []).map((r) => realpath(r).catch(() => r)),
+        );
+        if (!isAbsolute(cwd) || !readable.some((r) => within(real, r))) {
+          throw new PsycheError(
+            "invalid_params",
+            "cwd must be inside /workspace or the server's own code folder: host paths are never visible in the sandbox",
+          );
+        }
+        hostDir = real;
+        files = await collect(real);
+        cwd = SANDBOX_WORKSPACE;
+      }
+      // An argument naming a file in the copied folder names the copy.
+      const argv = spec.command.map((a) =>
+        hostDir !== undefined && isAbsolute(a) && within(a, hostDir)
+          ? `${SANDBOX_WORKSPACE}/${relative(hostDir, a).split(/[\\/]/).join("/")}`.replace(
+              /\/$/,
+              "",
+            )
+          : a,
+      );
+      const network = spec.sandbox.allowedDomains.length > 0 ? "allow" : "none";
+      const aborted = () => signal?.aborted === true;
+      if (aborted()) throw new PsycheError("cancelled", "launch aborted");
+      const instance = await options.vm.ensureSandbox(mcpSandboxScope(spec.serverId));
+      if (aborted()) throw new PsycheError("cancelled", "launch aborted");
+      const proc = await options.vm.openStdio(instance.id, {
+        argv,
+        cwd,
+        env: { ...spec.serverEnv },
+        network,
+        ...(files.length === 0 ? {} : { files }),
+      });
+      let killing: Promise<void> | undefined;
+      const kill = (sig: "TERM" | "KILL" = "TERM") => {
+        killing ??= proc.kill(sig).catch(() => undefined);
+        return killing;
+      };
+      return {
+        transport: new PipeTransport({
+          stdin: proc.stdin,
+          stdout: proc.stdout,
+          exited: proc.exited,
+          kill,
+        }),
+        stderr: proc.stderr,
+        cleanup: () => kill("TERM"),
+      };
+    },
+  };
+}
 
 /** One sandbox per server: its own container and `/workspace` volume. */
 export function mcpSandboxScope(serverId: string): SandboxScope {

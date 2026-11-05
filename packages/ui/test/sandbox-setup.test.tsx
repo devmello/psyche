@@ -3,6 +3,7 @@ import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { FIXTURE_NOW } from "../src/fixtures/index.ts";
+import { setUiPlatform } from "../src/lib/platform.ts";
 import { OnboardingFlow } from "../src/screens/onboarding/OnboardingFlow.tsx";
 import { McpPresetForm } from "../src/screens/settings/McpPresetForm.tsx";
 import { MCP_PRESETS } from "../src/screens/settings/mcp-presets.ts";
@@ -240,6 +241,151 @@ describe("SandboxSetup walkthrough", () => {
       <SandboxSetup />,
     );
     expect(await screen.findByText(/Restart the Gateway to use it/)).toBeTruthy();
+  });
+});
+
+describe("SandboxSetup on Windows (the sandbox PC, never srt)", () => {
+  const WIN_SRT: Setup["srt"] = { ...NO_SRT, problem: "unsupported_platform" };
+  const win = (sandboxPc: { enabled: boolean; ready: boolean }, extra: Partial<Setup> = {}) =>
+    ({
+      ready: sandboxPc.ready,
+      srt: WIN_SRT,
+      sandboxPc,
+      containers: { ...NO_CONTAINERS, recommended: "docker" },
+      ...extra,
+    }) as Setup;
+  const onWindows = async (fn: () => Promise<void>) => {
+    setUiPlatform("windows");
+    try {
+      await fn();
+    } finally {
+      setUiPlatform(undefined);
+    }
+  };
+
+  it("off: says scripts and command servers run in the sandbox PC and opens its settings", async () => {
+    await onWindows(async () => {
+      const navigate = vi.fn();
+      render(
+        <StoryWorld
+          slots={{ navigate }}
+          onGateway={(g) => {
+            g.sandboxSetup = win({ enabled: false, ready: false });
+          }}
+        >
+          <SandboxSetup />
+        </StoryWorld>,
+      );
+      expect(await screen.findByText("Turn on the sandbox PC")).toBeTruthy();
+      expect(screen.getByText(/doesn't run on Windows/)).toBeTruthy();
+      // Nothing of the Mac's setup: no srt install, Homebrew, Colima, launchctl or /opt/homebrew.
+      for (const mac of [
+        /Install srt/,
+        /npm install -g/,
+        /brew/,
+        /colima/,
+        /launchctl/,
+        /homebrew/,
+      ]) {
+        expect(screen.queryByText(mac)).toBeNull();
+      }
+      expect(screen.queryByRole("button", { name: "Install with Psyche" })).toBeNull();
+      await userEvent.click(screen.getByRole("button", { name: "Open Sandbox PC settings" }));
+      expect(navigate).toHaveBeenCalledWith("/settings/vm");
+    });
+  });
+
+  it("on but not ready, then ready after Check again", async () => {
+    await onWindows(async () => {
+      let gw: MockGateway | null = null;
+      render(
+        <StoryWorld
+          onGateway={(g) => {
+            gw = g;
+            g.sandboxSetup = win({ enabled: true, ready: false });
+          }}
+        >
+          <SandboxSetup />
+        </StoryWorld>,
+      );
+      expect(await screen.findByText("The sandbox PC isn't ready yet")).toBeTruthy();
+      (gw as unknown as MockGateway).sandboxSetup = win({ enabled: true, ready: true });
+      await userEvent.click(screen.getByRole("button", { name: "Check again" }));
+      expect(await screen.findByRole("status")).toBeTruthy();
+      expect(screen.getByText(/The sandbox PC is on/)).toBeTruthy();
+    });
+  });
+
+  it("the optional containers use Docker Desktop, not Homebrew, Colima or launchctl", async () => {
+    await onWindows(async () => {
+      render(
+        <StoryWorld
+          onGateway={(g) => {
+            g.sandboxSetup = win(
+              { enabled: true, ready: true },
+              {
+                containers: {
+                  ...NO_CONTAINERS,
+                  recommended: "docker",
+                  backends: [backend("docker", true, false)],
+                },
+              },
+            );
+          }}
+        >
+          <SandboxSetup />
+        </StoryWorld>,
+      );
+      expect(await screen.findByText("Docker is installed but not running")).toBeTruthy();
+      expect(screen.getByText("Open Docker Desktop, then check again.")).toBeTruthy();
+      expect(screen.queryByText("colima start")).toBeNull();
+    });
+    await onWindows(async () => {
+      render(
+        <StoryWorld
+          onGateway={(g) => {
+            g.sandboxSetup = win(
+              { enabled: true, ready: true },
+              { containers: { ...NO_CONTAINERS, recommended: "docker" } },
+            );
+          }}
+        >
+          <SandboxSetup />
+        </StoryWorld>,
+      );
+      expect((await screen.findAllByText("Install Docker")).length).toBeGreaterThan(0);
+      expect(screen.queryByText("brew install colima docker")).toBeNull();
+      expect(
+        screen.getAllByRole("link", { name: "Open the Docker Desktop download" }).length,
+      ).toBeGreaterThan(0);
+    });
+    await onWindows(async () => {
+      render(
+        <StoryWorld
+          onGateway={(g) => {
+            g.sandboxSetup = win(
+              { enabled: true, ready: true },
+              {
+                containers: {
+                  ...NO_CONTAINERS,
+                  recommended: "docker",
+                  backends: [backend("docker", true, true)],
+                  ready: true,
+                  restartNeeded: true,
+                },
+              },
+            );
+          }}
+        >
+          <SandboxSetup />
+        </StoryWorld>,
+      );
+      expect((await screen.findAllByText(/Restart the Gateway to use it/)).length).toBeGreaterThan(
+        0,
+      );
+      expect(screen.getAllByText("Quit Psyche and open it again.").length).toBeGreaterThan(0);
+      expect(screen.queryByText(/launchctl/)).toBeNull();
+    });
   });
 });
 

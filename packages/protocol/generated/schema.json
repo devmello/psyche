@@ -25383,6 +25383,7 @@
           "enum": [
             "srt",
             "container",
+            "vm",
             "none"
           ],
           "type": "string"
@@ -35893,6 +35894,23 @@
       ],
       "type": "string"
     },
+    "SandboxPcStatus": {
+      "properties": {
+        "enabled": {
+          "description": "The owner turned the sandbox PC on (`vm.enabled`)",
+          "type": "boolean"
+        },
+        "ready": {
+          "description": "Its guest runs and its psyche-node is connected with sessions, so those features run in it now",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled",
+        "ready"
+      ],
+      "type": "object"
+    },
     "SandboxSetupBackend": {
       "properties": {
         "kind": {
@@ -35935,11 +35953,14 @@
     "SandboxSetupResult": {
       "properties": {
         "ready": {
-          "description": "srt is available, so command servers can run",
+          "description": "srt is available (on Windows: the sandbox PC is ready), so scripts and command servers can run",
           "type": "boolean"
         },
         "srt": {
           "$ref": "#/$defs/SandboxSrtStatus"
+        },
+        "sandboxPc": {
+          "$ref": "#/$defs/SandboxPcStatus"
         },
         "installer": {
           "$ref": "#/$defs/SandboxSrtInstaller"
@@ -35994,10 +36015,12 @@
       "type": "object"
     },
     "SandboxSrtProblem": {
+      "description": "`unsupported_platform`: srt has no Windows build, so it is never looked for there; Windows uses the sandbox PC",
       "enum": [
         "not_found",
         "not_absolute",
-        "not_executable"
+        "not_executable",
+        "unsupported_platform"
       ],
       "type": "string"
     },
@@ -36104,6 +36127,9 @@
         },
         "srt": {
           "$ref": "#/$defs/SandboxSrtStatus"
+        },
+        "sandboxPc": {
+          "$ref": "#/$defs/SandboxPcStatus"
         }
       },
       "required": [

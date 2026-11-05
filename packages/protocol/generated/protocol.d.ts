@@ -5873,7 +5873,7 @@ export interface MCPStatusResult {
     servers:  MCPServerStatus[];
 }
 
-export type Launcher = "srt" | "container" | "none";
+export type Launcher = "srt" | "container" | "vm" | "none";
 
 export interface MCPToolsParams {
     serverId: string;
@@ -9125,7 +9125,11 @@ export interface SandboxSrtStatus {
     version?:  null | string;
 }
 
-export type SandboxSrtProblem = "not_found" | "not_absolute" | "not_executable";
+/**
+ * `unsupported_platform`: srt has no Windows build, so it is never looked for there;
+ * Windows uses the sandbox PC
+ */
+export type SandboxSrtProblem = "not_found" | "not_absolute" | "not_executable" | "unsupported_platform";
 
 export type SandboxSrtSource = "env" | "setting" | "detected";
 
@@ -9152,10 +9156,12 @@ export interface SandboxSetupResult {
     containers: SandboxContainerSetup;
     installer?: SandboxSrtInstaller;
     /**
-     * srt is available, so command servers can run
+     * srt is available (on Windows: the sandbox PC is ready), so scripts and command servers
+     * can run
      */
-    ready: boolean;
-    srt:   SandboxSrtStatus;
+    ready:      boolean;
+    sandboxPc?: SandboxPCStatus;
+    srt:        SandboxSrtStatus;
 }
 
 export interface SandboxContainerSetup {
@@ -9190,6 +9196,18 @@ export interface SandboxSetupBackend {
 
 export type SandboxContainerBackend = "apple-container" | "docker" | "podman";
 
+export interface SandboxPCStatus {
+    /**
+     * The owner turned the sandbox PC on (`vm.enabled`)
+     */
+    enabled: boolean;
+    /**
+     * Its guest runs and its psyche-node is connected with sessions, so those features run in
+     * it now
+     */
+    ready: boolean;
+}
+
 export interface SandboxStatusParams {
     sandboxId?: string;
 }
@@ -9198,11 +9216,12 @@ export interface SandboxStatusResult {
     /**
      * false → exec reports an error; there is never a host fallback
      */
-    available: boolean;
-    backend:   SandboxBackend;
-    egress?:   boolean;
-    sandbox?:  SandboxInfo | null;
-    srt?:      SandboxSrtStatus;
+    available:  boolean;
+    backend:    SandboxBackend;
+    egress?:    boolean;
+    sandbox?:   SandboxInfo | null;
+    sandboxPc?: SandboxPCStatus;
+    srt?:       SandboxSrtStatus;
 }
 
 export interface ScheduledListResult {
