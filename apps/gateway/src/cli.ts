@@ -1,8 +1,28 @@
-import { listDevices, listPairingRequests, openDb, type PsycheDb } from "@psyche/db";
+import {
+  listDevices,
+  listPairingRequests,
+  openDb,
+  type PsycheDb,
+  probeMigrations,
+} from "@psyche/db";
 import { DeviceScope, PsycheError, type DeviceScope as Scope } from "@psyche/protocol";
 import { resolveConfig } from "./config.ts";
 import { loadOrCreateGatewayIdentity, rotateGatewayIdentity } from "./identity.ts";
 import { DEFAULT_APPROVE_SCOPES } from "./security/recoveries.ts";
+
+/**
+ * These commands open the database directly, and opening it applies pending migrations. That
+ * step belongs to the Gateway's own start, which makes the safety copy first and can undo a
+ * failed migration (`pre-update.ts`); a command-line tool must never be the one that migrates the
+ * owner's data without it. When the data is not up to date (or cannot be read), say so and stop.
+ */
+export function refusesToMigrate(dbPath: string, out: (line: string) => void): boolean {
+  if (probeMigrations(dbPath).state === "none") return false;
+  out(
+    "this data needs an update first: start Psyche (or psyched) once so it can make a safety copy and update it, then run this again",
+  );
+  return true;
+}
 
 const SCOPES = (DeviceScope as unknown as { enum: Scope[] }).enum;
 
@@ -172,7 +192,9 @@ export async function runCli(
     out(USAGE);
     return group === undefined || group === "help" || group === "--help" ? 0 : CLI_EXIT.usage;
   }
-  const db = openDb(resolveConfig().dbPath);
+  const config = resolveConfig();
+  if (refusesToMigrate(config.dbPath, out)) return CLI_EXIT.refused;
+  const db = openDb(config.dbPath);
   try {
     if (group === "devices" && verb === "list") {
       for (const d of listDevices(db)) {

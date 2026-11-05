@@ -158,6 +158,8 @@ export function composeTeachApp() {
   return (services: ComposeServices): ComposedPart => {
     let gateway: Gateway | null = null;
     let recording: { bundleId: string; deviceId: string } | undefined;
+    // An app update waits for a recording in progress (`gateway.prepareUpdate` reports it).
+    services.busy?.add("recordings", () => (recording === undefined ? 0 : 1));
 
     // The desktop shell's own connection (handshake secret on loopback), never a device that only
     // says it runs macOS, and never a paired phone or a script holding an admin scope.

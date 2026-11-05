@@ -15,6 +15,7 @@ import {
 } from "@psyche/db";
 import { type Device, type DeviceScope, type PairingRequest, PsycheError } from "@psyche/protocol";
 import { keyFingerprint } from "../auth.ts";
+import { configWarnings } from "../config.ts";
 import type { Call, GatewayContext, HandlerDef, LiveConnection } from "../context.ts";
 
 /**
@@ -109,6 +110,9 @@ export const devicesHandlers: Record<string, HandlerDef> = {
         hostName: hostname(),
         publicOrigin: config.publicOrigin,
         trustedProxy: config.trustedProxy.enabled,
+        ...(call.identity.scopes.includes("operator.admin") && configWarnings().length > 0
+          ? { configWarnings: configWarnings().slice(0, 50) }
+          : {}),
         // The list of this Host's interfaces and addresses is for admins; others see the rest.
         lan: {
           ...call.ctx.lan.status(),

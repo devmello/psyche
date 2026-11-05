@@ -152,6 +152,8 @@ export const ko: Partial<Catalogue> = {
   "errors.rate_limited": "요청이 너무 많습니다. 잠시 후 다시 시도하십시오.",
   "errors.timeout": "Psyche의 응답이 너무 오래 걸렸습니다.",
   "errors.cancelled": "취소되었습니다.",
+  "errors.reason.updating":
+    "Psyche가 업데이트를 설치하기 위해 곧 다시 시작됩니다. 잠시 후 다시 시도하십시오.",
   "errors.unavailable": "Psyche가 지금은 해당 작업을 할 수 없습니다.",
   "errors.approval_required": "먼저 사용자의 승인이 필요합니다.",
   "errors.approval_expired": "승인이 만료되었습니다. 다시 요청하십시오.",

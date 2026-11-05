@@ -15,7 +15,7 @@ pnpm --filter @psyche/gateway start devices list     # local owner commands (bel
 
 ## Config keys
 
-Precedence: overrides passed to `startGateway` → environment → `$PSYCHE_HOME/config.json` → defaults. Invalid `config.json` fails fast with a readable error; unknown `gateway.*` keys are errors. No secrets in config.
+Precedence: overrides passed to `startGateway` → environment → `$PSYCHE_HOME/config.json` → defaults. Invalid `config.json` values fail fast with a readable error; keys this version does not know (a newer version may have written them) are warned about once, ignored and left in the file, so a rollback still starts. No secrets in config.
 
 | Key | Env | Default | Notes |
 | --- | --- | --- | --- |

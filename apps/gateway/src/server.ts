@@ -12,7 +12,6 @@ import type { Duplex } from "node:stream";
 import {
   getSetting,
   getThread,
-  openDb,
   type PsycheDb,
   revokeSetupTokensWithCertPin,
   setSetting,
@@ -64,6 +63,7 @@ import { LAN_SETTING, readLanSettings } from "./lan/settings.ts";
 import { createLogger, type Logger } from "./log.ts";
 import { allowedMapOrigins } from "./map-proxy.ts";
 import { NodeRegistry } from "./nodes/registry.ts";
+import { openGatewayDb } from "./pre-update.ts";
 import { presenceStateFor } from "./presence-gate.ts";
 import { normalizePeerAddress, resolvePeer, trustedProxyList } from "./proxy.ts";
 import { RateLimiter } from "./rate-limit.ts";
@@ -83,6 +83,7 @@ import { ensureSocketDir, writeSocketPointer } from "./socket-path.ts";
 import { INTERNAL_SETTING_PREFIX, readStateVersion, writeStateVersion } from "./state-version.ts";
 import { TransportGate } from "./transport-gate.ts";
 import { NdjsonDecoder } from "./transports/ndjson.ts";
+import { UpdateGate } from "./update-gate.ts";
 
 /**
  * From package.json, like the CLI's: changesets versions every workspace package together, so
@@ -107,6 +108,8 @@ export interface GatewayOptions {
   }) => void;
   /** Inject an open database (tests); defaults to SQLite at config.dbPath. */
   db?: PsycheDb;
+  /** The door `gateway.prepareUpdate` closes; the composition root shares it with the task pools. */
+  updateGate?: UpdateGate;
   /** Agent runtime (S02); defaults to a loop that fails every turn cleanly. */
   agent?: AgentLoop;
   /** Permission Broker (S05); defaults to a fail-closed broker. */
@@ -233,7 +236,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   const limits: GatewayLimits = { ...DEFAULT_LIMITS, ...options.limits };
 
   ensureHome(config.home);
-  const db = options.db ?? openDb(config.dbPath, { now: () => now().toISOString() });
+  const db = options.db ?? (await openGatewayDb(config, () => now().toISOString(), log));
   // Before anything reads or writes security state: verify the seal and undo what changed
   // outside the Gateway (docs/design/security-state-integrity-2026.md §7.1).
   // A restore marker is the composition root's to honour (it re-seals, then replays and
@@ -331,6 +334,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       now().getTime(),
     ),
     handshakeSecret,
+    updateGate: options.updateGate ?? new UpdateGate(),
     idempotency: new Idempotency(db),
     serverOrigin: () => origin,
     identity,
@@ -694,9 +698,17 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
 
   // Follow-ups queued before the restart run now; then the hourly retention sweep.
   ctx.sessions.drainAll();
+  // An update that never came (cancelled, or timed out): queued follow-ups start again.
+  const stopWatchingGate = ctx.updateGate.onReopen(() => ctx.sessions.drainAll());
   runRetention(ctx);
   const intervalMs = options.retentionIntervalMs ?? RETENTION_INTERVAL_MS;
-  const retentionTimer = intervalMs > 0 ? setInterval(() => runRetention(ctx), intervalMs) : null;
+  const retentionTimer =
+    intervalMs > 0
+      ? setInterval(() => {
+          // Not while an app update is being prepared: the files are about to be handed over.
+          if (ctx.updateGate.accepting()) runRetention(ctx);
+        }, intervalMs)
+      : null;
   retentionTimer?.unref();
 
   log.log("info", "gateway listening", {
@@ -720,6 +732,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       if (retentionTimer) clearInterval(retentionTimer);
       if (securityTimer) clearInterval(securityTimer);
       for (const off of offSecurity) off();
+      stopWatchingGate();
       bus.publish("gateway.shutdown", { reason });
       await ctx.sessions.stop();
       for (const conn of connections) conn.close(reason);

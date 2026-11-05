@@ -147,6 +147,8 @@ export const hi: Partial<Catalogue> = {
   "errors.rate_limited": "बहुत ज़्यादा अनुरोध; थोड़ा रुककर फिर से कोशिश करें।",
   "errors.timeout": "Psyche को जवाब देने में बहुत देर लगी।",
   "errors.cancelled": "इसे रद्द कर दिया गया।",
+  "errors.reason.updating":
+    "Psyche अपडेट इंस्टॉल करने के लिए अभी रीस्टार्ट होने वाला है। थोड़ी देर में फिर से कोशिश करें।",
   "errors.unavailable": "Psyche अभी ऐसा नहीं कर सकता।",
   "errors.approval_required": "इसके लिए पहले आपकी स्वीकृति चाहिए।",
   "errors.approval_expired": "स्वीकृति की अवधि समाप्त हो गई; फिर से पूछें।",
