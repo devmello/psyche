@@ -62,6 +62,23 @@ afterEach(async () => {
 });
 
 describe("devices.bootstrapAdmin", () => {
+  it("is refused once Touch ID or a passkey was ever set up (D8), and raises an alert when it works", async () => {
+    const gw = await compose();
+    const first = await desktop(gw, "d1");
+    await first.call("devices.bootstrapAdmin", {}, ik());
+    expect(
+      gw.gateway.context.securityState?.alerts.open().map((a) => [a.kind, a.details.via]),
+    ).toContainEqual(["local_first_admin", "desktop"]);
+    // The owner had a verifier once, then revoked every admin device.
+    gw.gateway.context.securityState?.notePresenceEnrolled();
+    await first.call("devices.revokeSelf", {}, ik()).catch(() => undefined);
+    const second = await desktop(gw, "d2");
+    expect(await second.request("devices.bootstrapAdmin", {}, ik())).toMatchObject({
+      ok: false,
+      error: { code: "forbidden", details: { reason: "presence_enrolled" } },
+    });
+  });
+
   it("grants the first desktop admin once, audited, and is inert afterwards", async () => {
     const gw = await compose();
     const first = await desktop(gw, "d1");

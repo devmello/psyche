@@ -359,6 +359,11 @@
         "payload": "#/$defs/SearchIndexStatus"
       },
       {
+        "description": "A security alert was raised or acknowledged, a local recovery changed, or the seal's state changed: clients refresh security.state.get.",
+        "name": "security.state.changed",
+        "payload": "#/$defs/SecurityStateChangedPayload"
+      },
+      {
         "description": "Settings changed (including appearance), so every paired client re-themes.",
         "name": "settings.changed",
         "payload": "#/$defs/SettingsChangedPayload"
@@ -2966,6 +2971,38 @@
         "name": "search.status",
         "params": "#/$defs/SearchStatusParams",
         "result": "#/$defs/SearchIndexStatus",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Marks an alert reviewed. Needs fresh presence once a verifier is enrolled (approval_required, then retry with approvalId). An untrusted state's alerts stay until it is re-sealed. Side-effecting.",
+        "name": "security.alerts.acknowledge",
+        "params": "#/$defs/SecurityAlertsAcknowledgeParams",
+        "result": "#/$defs/SecurityAlertsAcknowledgeResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Applies a waiting local recovery request now. Needs fresh presence (approval_required, then retry with approvalId); refused while the state is untrusted and for a re-seal. Side-effecting.",
+        "name": "security.recoveries.approve",
+        "params": "#/$defs/SecurityRecoveriesApproveParams",
+        "result": "#/$defs/SecurityRecoveriesApproveResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Cancels a waiting local recovery request. Narrowing: admin only, no presence. Side-effecting.",
+        "name": "security.recoveries.cancel",
+        "params": "#/$defs/SecurityRecoveriesCancelParams",
+        "result": "#/$defs/SecurityRecoveriesCancelResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Whether the security state is sealed, the alerts every device shows, and the local recovery requests that are waiting.",
+        "name": "security.state.get",
+        "params": "#/$defs/SecurityStateGetParams",
+        "result": "#/$defs/SecurityStateStatus",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -38671,6 +38708,403 @@
         "chips",
         "relaxed",
         "query"
+      ],
+      "type": "object"
+    },
+    "SecurityAlert": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/SecurityAlertKind"
+        },
+        "severity": {
+          "enum": [
+            "warning",
+            "info"
+          ],
+          "type": "string"
+        },
+        "details": {
+          "properties": {
+            "changes": {
+              "items": {
+                "$ref": "#/$defs/SecurityStateChange"
+              },
+              "type": "array"
+            },
+            "more": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "recoveryId": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "op": {
+              "$ref": "#/$defs/SecurityRecoveryOp"
+            },
+            "notBefore": {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            "deviceName": {
+              "type": "string"
+            },
+            "deviceFingerprint": {
+              "description": "sha256:<hex> of the device key, shown next to its name",
+              "type": "string"
+            },
+            "scopes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "occurrences": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "via": {
+              "enum": [
+                "mac",
+                "desktop"
+              ],
+              "type": "string"
+            },
+            "devices": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "admins": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "restored": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "acknowledgedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "severity",
+        "details",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "SecurityAlertKind": {
+      "enum": [
+        "state_changed_outside",
+        "state_untrusted",
+        "state_first_seal",
+        "state_resealed",
+        "local_first_admin",
+        "recovery_requested",
+        "recovery_applied",
+        "recovery_cancelled",
+        "recovery_failed"
+      ],
+      "type": "string"
+    },
+    "SecurityAlertsAcknowledgeParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "SecurityAlertsAcknowledgeResult": {
+      "properties": {
+        "alert": {
+          "$ref": "#/$defs/SecurityAlert"
+        }
+      },
+      "required": [
+        "alert"
+      ],
+      "type": "object"
+    },
+    "SecurityRecoveriesApproveParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "SecurityRecoveriesApproveResult": {
+      "properties": {
+        "recovery": {
+          "$ref": "#/$defs/SecurityRecovery"
+        }
+      },
+      "required": [
+        "recovery"
+      ],
+      "type": "object"
+    },
+    "SecurityRecoveriesCancelParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "SecurityRecoveriesCancelResult": {
+      "properties": {
+        "recovery": {
+          "$ref": "#/$defs/SecurityRecovery"
+        }
+      },
+      "required": [
+        "recovery"
+      ],
+      "type": "object"
+    },
+    "SecurityRecovery": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "op": {
+          "$ref": "#/$defs/SecurityRecoveryOp"
+        },
+        "status": {
+          "enum": [
+            "waiting",
+            "applied",
+            "cancelled",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "requestedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "notBefore": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "decidedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "deviceName": {
+          "type": "string"
+        },
+        "deviceFingerprint": {
+          "type": "string"
+        },
+        "scopes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "op",
+        "status",
+        "requestedAt",
+        "notBefore"
+      ],
+      "type": "object"
+    },
+    "SecurityRecoveryOp": {
+      "enum": [
+        "devices.approve",
+        "devices.grant",
+        "presence.reset",
+        "seal.reset"
+      ],
+      "type": "string"
+    },
+    "SecurityStateChange": {
+      "properties": {
+        "table": {
+          "description": "The sealed table: devices, settings, grants, …",
+          "type": "string"
+        },
+        "change": {
+          "enum": [
+            "added",
+            "modified",
+            "removed"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "The row's label: a device name, a key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "table",
+        "change"
+      ],
+      "type": "object"
+    },
+    "SecurityStateChangedPayload": {
+      "properties": {
+        "status": {
+          "enum": [
+            "sealed",
+            "untrusted"
+          ],
+          "type": "string"
+        },
+        "openAlerts": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "waitingRecoveries": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "openAlerts",
+        "waitingRecoveries"
+      ],
+      "type": "object"
+    },
+    "SecurityStateGetParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "SecurityStateStatus": {
+      "properties": {
+        "status": {
+          "enum": [
+            "sealed",
+            "untrusted"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "alerts": {
+          "description": "Unacknowledged alerts first, newest first, then recent acknowledged ones",
+          "items": {
+            "$ref": "#/$defs/SecurityAlert"
+          },
+          "type": "array"
+        },
+        "recoveries": {
+          "description": "Waiting recoveries first, then recent ones",
+          "items": {
+            "$ref": "#/$defs/SecurityRecovery"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "status",
+        "alerts",
+        "recoveries"
       ],
       "type": "object"
     },

@@ -37,14 +37,21 @@ const touchId: PresenceVerifier = {
 };
 const DEVICE = "admin-fresh";
 
+/** Added to the real clock: a test moves the Gateway a day ahead without fake timers. */
+let offsetMs = 0;
+
 async function boot(
   presence?: PresenceVerifier,
   parts?: ComposeOptions["parts"],
   config: Record<string, unknown> = {},
+  security?: ComposeOptions["security"],
 ) {
   home = mkdtempSync(join(tmpdir(), "psyche-fresh-"));
+  offsetMs = 0;
   composed = await composeGateway({
     env: {},
+    now: () => new Date(Date.now() + offsetMs),
+    ...(security === undefined ? {} : { security }),
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
@@ -201,8 +208,8 @@ describe("fail closed once presence was enrolled", () => {
     });
   });
 
-  it("psyched presence reset clears the enrollment", async () => {
-    const { c } = await boot();
+  it("psyched presence reset waits 24 hours in plain view, then clears the enrollment", async () => {
+    const { c } = await boot(undefined, undefined, {}, { pollMs: 20 });
     const db = c.gateway.context.db;
     let ready = true;
     expect(presenceStateFor(db, () => ready)()).toBe("ready");
@@ -214,14 +221,27 @@ describe("fail closed once presence was enrolled", () => {
     process.env.PSYCHE_HOME = home;
     process.env.PSYCHE_DB = join(home, "psyche.db");
     try {
-      expect(runCli(["presence", "reset"], (l) => lines.push(l))).toBe(0);
+      // 3: waiting. Nothing changed yet; every device shows the request.
+      const code = await runCli(["presence", "reset"], (l) => lines.push(l), { pollMs: 20 });
+      expect(code).toBe(3);
     } finally {
       if (prev === undefined) delete process.env.PSYCHE_HOME;
       else process.env.PSYCHE_HOME = prev;
       if (prevDb === undefined) delete process.env.PSYCHE_DB;
       else process.env.PSYCHE_DB = prevDb;
     }
-    expect(lines[0]).toMatch(/presence enrollment cleared/);
+    expect(lines[0]).toMatch(/^waiting: this applies at /);
+    expect(presenceStateFor(db, () => false)()).toBe("unavailable");
+    const recoveries = c.gateway.context.securityRecoveries;
+    const [waiting] = recoveries?.list() ?? [];
+    expect(waiting).toMatchObject({ op: "presence.reset", status: "waiting" });
+    expect(c.gateway.context.securityState?.alerts.open().map((a) => a.kind)).toContain(
+      "recovery_requested",
+    );
+    // A day later it applies by itself.
+    offsetMs = 24 * 60 * 60 * 1000 + 1000;
+    recoveries?.applyDue();
+    expect(recoveries?.get(waiting?.id ?? "")?.status).toBe("applied");
     expect(presenceStateFor(db, () => false)()).toBe("off");
     expect(PRESENCE_ENROLLED_SETTING.startsWith("_")).toBe(true);
   });

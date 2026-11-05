@@ -16,6 +16,7 @@ import { overview } from "./overview/pt.ts";
 import { overviewGrowth } from "./overview-growth/pt.ts";
 import { overviewShared } from "./overview-shared/pt.ts";
 import { scheduledA } from "./scheduled-a/pt.ts";
+import { securityState } from "./security-state/pt.ts";
 import { settingsA } from "./settings-a/pt.ts";
 import { settingsB } from "./settings-b/pt.ts";
 import { settingsC } from "./settings-c/pt.ts";
@@ -3255,4 +3256,6 @@ export const pt: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "Da sua automação {name}",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
+  ...securityState,
 };
