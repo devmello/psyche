@@ -1,1 +1,11 @@
+# LF everywhere, whatever core.autocrlf says: Biome formats with LF, and tests compare files as
+# written (generated CSS, golden files). A Windows checkout with autocrlf=true would otherwise get
+# CRLF and fail `pnpm lint` on every file.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.icns binary
+*.woff2 binary
+
 packages/protocol/CHANGES.md merge=union
