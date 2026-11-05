@@ -2273,6 +2273,26 @@ export const settings = {
   "settings.voice.key.fn": "fn",
   "settings.voice.key.rightOption": "Right Option",
   "settings.voice.key.rightCommand": "Right Command",
+  // Hold-to-talk keys a PC has (Windows; the helper watches them by these names).
+  "settings.voice.key.rightCtrl": "Right Ctrl",
+  "settings.voice.key.rightAlt": "Right Alt",
+  "settings.voice.key.rightShift": "Right Shift",
+  "settings.voice.key.rightWin": "Right Windows key",
+  "settings.voice.key.capsLock": "Caps Lock",
+  "settings.voice.key.scrollLock": "Scroll Lock",
+  "settings.voice.key.pause": "Pause",
+  "settings.voice.key.menu": "Menu key",
+  "settings.voice.key.insert": "Insert",
+  "settings.voice.key.numLock": "Num Lock",
+  "settings.voice.key.other": "Another key",
+  "settings.voice.key.press": "Press a key",
+  "settings.voice.key.pressNow": "Press the key to hold…",
+  "settings.voice.key.cantUse":
+    "That key types text, so it can't be held to talk. Try Right Ctrl, Caps Lock, Pause, the Menu key or F13 to F24.",
+  "settings.voice.key.capsLockHint":
+    "Caps Lock keeps its on or off state: holding it to talk doesn't change it, and a quick tap still toggles it.",
+  "settings.voice.key.altGrWarning":
+    "On your keyboard layout Right Alt is AltGr, which types characters such as @ or €. Holding it to talk can get in the way of typing them; Right Ctrl is a safer key.",
   "settings.voice.access.helperOff": "Helper not running",
   "settings.voice.access.needed": "Needed",
   "settings.voice.access.unknown": "Not checked yet",

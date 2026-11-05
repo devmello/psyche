@@ -112,6 +112,13 @@ pub struct CapOutput {
 }
 
 pub use dictation::{dictation_insert, dictation_target, dictation_watch};
+
+/// `{layout, altGr}` for the keyboard layout in use (the foreground window's): `altGr` is true
+/// when Right Alt is AltGr there, so the desktop can warn before it becomes the talk key.
+pub fn keyboard_layout() -> Value {
+    let (layout, alt_gr) = win::layout::layout_info();
+    serde_json::json!({ "layout": layout, "altGr": alt_gr })
+}
 pub use speech::{speech_audio_push, speech_status, speech_stop, speech_transcribe_file, speech_transcribe_stream};
 
 /// Dispatches one capability by name (for the core's registry). `not_found/unknown_capability`

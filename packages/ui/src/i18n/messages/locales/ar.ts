@@ -263,7 +263,7 @@ export const ar: Partial<Catalogue> = {
   "chat.composer.placeholder": "راسل {persona}…",
   "chat.composer.label": "راسل {persona}",
   "chat.composer.attach": "إرفاق ملفات",
-  "chat.composer.dictate": "إملاء (اضغط مطوّلًا على fn)",
+  "chat.composer.dictate": "إملاء (اضغط مطوّلًا على {key})",
   "chat.composer.hintIdle": "اكتب / لعرض الأوامر",
   "chat.composer.hintFollowUp": "تُرسل عندما ينهي {persona} هذا الدور",
   "chat.composer.hintSteer": "تُرسل الآن لتوجيه {persona}",

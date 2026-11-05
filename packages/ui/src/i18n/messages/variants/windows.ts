@@ -343,7 +343,7 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.voice.engine.systemHint": "Windows' on-device recognizer, through the Windows helper.",
   "onboarding.safety.touchId.setHint":
     "Approvals that need you ask for your face, fingerprint or PIN.",
-  "shell.shortcut.pushToTalkKeys": "Hold Right Alt",
+  "shell.shortcut.pushToTalkKeys": "Hold Right Ctrl",
   "platform.term.os": "Windows",
   "platform.term.device": "PC",
   "platform.term.thisDevice": "This PC",

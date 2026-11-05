@@ -1,11 +1,11 @@
 //! Hold-to-talk key state (pure): the Windows port of `DictationKeyTracker`, `DictationKeySet`
 //! and `DictationWatchPlan`.
 //!
-//! The wire keys stay the mac helper's (`fn`, `rightOption`, `rightCommand`; the desktop and the
-//! protocol enum send them) and map to Windows virtual keys: `rightOption` → Right Alt,
-//! `rightCommand` → Right Ctrl, `fn` → a configurable key (Right Alt unless
-//! `PSYCHE_DICTATION_FN_KEY` or [`set_fn_key`] names another), since a laptop's Fn key never
-//! reaches Windows.
+//! The wire keys are the protocol's `DictationKey` names. The mac helper's (`fn`, `rightOption`,
+//! `rightCommand`) keep working and map to Windows virtual keys: `fn` and `rightOption` → Right
+//! Alt (a laptop's Fn key never reaches Windows), `rightCommand` → Right Ctrl. The Windows names
+//! pick any key a PC has for it: `rightCtrl`, `rightAlt`, `rightShift`, `rightWin`, `capsLock`,
+//! `scrollLock`, `pause`, `menu` (the Application key), `insert`, `numLock`, `f13`…`f24`.
 //!
 //! Mac semantics kept exactly: each watched key holds independently; a non-modifier key pressed
 //! while a watched key is held is a chord (fn+arrow), which ends the hold at once and swallows
@@ -17,7 +17,6 @@
 
 use crate::error::CapError;
 use serde::Deserialize;
-use std::sync::atomic::{AtomicU16, Ordering};
 
 pub const VK_SHIFT: u16 = 0x10;
 pub const VK_CONTROL: u16 = 0x11;
@@ -36,6 +35,42 @@ pub const ALTGR_FAKE_LCTRL_SCAN: u32 = 0x21D;
 /// An unassigned virtual key: pressing it while Alt or Win is held stops the bare release from
 /// opening the menu bar or Start (the "menu mask"; it types nothing).
 pub const VK_MENU_MASK: u16 = 0xE8;
+pub const VK_PAUSE: u16 = 0x13;
+pub const VK_APPS: u16 = 0x5D;
+pub const VK_INSERT: u16 = 0x2D;
+pub const VK_NUMLOCK: u16 = 0x90;
+pub const VK_SCROLL: u16 = 0x91;
+pub const VK_F13: u16 = 0x7C;
+
+/// Every hold-to-talk key name, with its virtual key. One table for parsing, the manifest's enum
+/// and the payloads, so a name can never mean two keys.
+pub const KEY_NAMES: &[(DictationKey, &str, u16)] = &[
+    (DictationKey::Fn, "fn", VK_RMENU),
+    (DictationKey::RightOption, "rightOption", VK_RMENU),
+    (DictationKey::RightCommand, "rightCommand", VK_RCONTROL),
+    (DictationKey::RightCtrl, "rightCtrl", VK_RCONTROL),
+    (DictationKey::RightAlt, "rightAlt", VK_RMENU),
+    (DictationKey::RightShift, "rightShift", VK_RSHIFT),
+    (DictationKey::RightWin, "rightWin", VK_RWIN),
+    (DictationKey::CapsLock, "capsLock", VK_CAPITAL),
+    (DictationKey::ScrollLock, "scrollLock", VK_SCROLL),
+    (DictationKey::Pause, "pause", VK_PAUSE),
+    (DictationKey::Menu, "menu", VK_APPS),
+    (DictationKey::Insert, "insert", VK_INSERT),
+    (DictationKey::NumLock, "numLock", VK_NUMLOCK),
+    (DictationKey::F13, "f13", VK_F13),
+    (DictationKey::F14, "f14", VK_F13 + 1),
+    (DictationKey::F15, "f15", VK_F13 + 2),
+    (DictationKey::F16, "f16", VK_F13 + 3),
+    (DictationKey::F17, "f17", VK_F13 + 4),
+    (DictationKey::F18, "f18", VK_F13 + 5),
+    (DictationKey::F19, "f19", VK_F13 + 6),
+    (DictationKey::F20, "f20", VK_F13 + 7),
+    (DictationKey::F21, "f21", VK_F13 + 8),
+    (DictationKey::F22, "f22", VK_F13 + 9),
+    (DictationKey::F23, "f23", VK_F13 + 10),
+    (DictationKey::F24, "f24", VK_F13 + 11),
+];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -43,25 +78,54 @@ pub enum DictationKey {
     Fn,
     RightOption,
     RightCommand,
+    RightCtrl,
+    RightAlt,
+    RightShift,
+    RightWin,
+    CapsLock,
+    ScrollLock,
+    Pause,
+    Menu,
+    Insert,
+    NumLock,
+    F13,
+    F14,
+    F15,
+    F16,
+    F17,
+    F18,
+    F19,
+    F20,
+    F21,
+    F22,
+    F23,
+    F24,
 }
 
 impl DictationKey {
+    fn entry(self) -> &'static (DictationKey, &'static str, u16) {
+        // Every variant has exactly one row (`key_table_is_complete`).
+        KEY_NAMES.iter().find(|(k, _, _)| *k == self).unwrap_or(&KEY_NAMES[0])
+    }
+
     pub fn as_str(self) -> &'static str {
-        match self {
-            DictationKey::Fn => "fn",
-            DictationKey::RightOption => "rightOption",
-            DictationKey::RightCommand => "rightCommand",
-        }
+        self.entry().1
     }
 
     /// The Windows virtual key this wire key watches.
     pub fn vk(self) -> u16 {
-        match self {
-            DictationKey::Fn => fn_key(),
-            DictationKey::RightOption => VK_RMENU,
-            DictationKey::RightCommand => VK_RCONTROL,
-        }
+        self.entry().2
     }
+
+    /// The key a wire name stands for (`None` for an unknown name).
+    pub fn from_name(name: &str) -> Option<DictationKey> {
+        KEY_NAMES.iter().find(|(_, n, _)| *n == name).map(|(k, _, _)| *k)
+    }
+}
+
+/// Every wire name, for the manifest's `key` enum.
+pub fn key_names() -> Vec<&'static str> {
+    KEY_NAMES.iter().map(|(_, n, _)| *n).collect()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Deserialize)]
@@ -80,43 +144,14 @@ impl KeyRole {
     }
 }
 
-static FN_KEY: AtomicU16 = AtomicU16::new(0);
+/// How long a Caps Lock press must be held to count as a hold: a shorter one is a tap that
+/// toggles Caps Lock as usual (the desktop's own hold threshold, `key-gesture.ts`).
+pub const CAPS_HOLD_MS: u64 = 250;
 
-/// The virtual key `fn` stands for: [`set_fn_key`], else `PSYCHE_DICTATION_FN_KEY`, else Right Alt.
-pub fn fn_key() -> u16 {
-    match FN_KEY.load(Ordering::Relaxed) {
-        0 => std::env::var("PSYCHE_DICTATION_FN_KEY").ok().and_then(|s| parse_key_name(&s)).unwrap_or(VK_RMENU),
-        vk => vk,
-    }
-}
-
-/// Binds `fn` to `vk` (0 restores the default). Takes effect on the next `dictation.watch`.
-pub fn set_fn_key(vk: u16) {
-    FN_KEY.store(vk, Ordering::Relaxed);
-}
-
-/// `rightAlt`, `rightCtrl`, `rightShift`, `rightWin`, `leftWin`, `apps`, `scrollLock`, `pause`,
-/// `f13`…`f24`, or a virtual-key code (`0xA5`, `165`).
-pub fn parse_key_name(s: &str) -> Option<u16> {
-    let s = s.trim();
-    let named = match s.to_ascii_lowercase().as_str() {
-        "rightalt" | "altgr" => Some(VK_RMENU),
-        "rightctrl" | "rightcontrol" => Some(VK_RCONTROL),
-        "rightshift" => Some(VK_RSHIFT),
-        "rightwin" => Some(VK_RWIN),
-        "leftwin" => Some(VK_LWIN),
-        "apps" | "menu" => Some(0x5D),
-        "scrolllock" => Some(0x91),
-        "pause" => Some(0x13),
-        other => other.strip_prefix('f').and_then(|n| n.parse::<u16>().ok()).filter(|n| (13..=24).contains(n)).map(|n| 0x7C + n - 13),
-    };
-    named.or_else(|| {
-        let v = match s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")) {
-            Some(hex) => u16::from_str_radix(hex, 16).ok(),
-            None => s.parse::<u16>().ok(),
-        }?;
-        (0x01..=0xFE).contains(&v).then_some(v)
-    })
+/// Whether a Caps Lock release must tap Caps Lock again to put its lock state back: the press
+/// toggled it, and it was held as the talk key (or chorded), not tapped.
+pub fn caps_lock_needs_restore(watched: bool, held_ms: u64, chorded: bool) -> bool {
+    watched && (chorded || held_ms >= CAPS_HOLD_MS)
 }
 
 /// Shift, Ctrl, Alt (generic and sided), Win and Caps Lock: keys the mac reports as
@@ -519,17 +554,67 @@ mod tests {
 
     #[test]
     fn key_mapping() {
+        assert_eq!(DictationKey::Fn.vk(), VK_RMENU);
         assert_eq!(DictationKey::RightOption.vk(), VK_RMENU);
         assert_eq!(DictationKey::RightCommand.vk(), VK_RCONTROL);
-        assert_eq!(parse_key_name("rightWin"), Some(VK_RWIN));
-        assert_eq!(parse_key_name("F13"), Some(0x7C));
-        assert_eq!(parse_key_name("f24"), Some(0x87));
-        assert_eq!(parse_key_name("0xA3"), Some(VK_RCONTROL));
-        assert_eq!(parse_key_name("165"), Some(VK_RMENU));
-        assert_eq!(parse_key_name("f12"), None);
-        assert_eq!(parse_key_name("0x1FF"), None);
-        assert_eq!(parse_key_name("nope"), None);
+        assert_eq!(DictationKey::RightCtrl.vk(), VK_RCONTROL);
+        assert_eq!(DictationKey::RightAlt.vk(), VK_RMENU);
+        assert_eq!(DictationKey::CapsLock.vk(), VK_CAPITAL);
+        assert_eq!(DictationKey::ScrollLock.vk(), 0x91);
+        assert_eq!(DictationKey::Pause.vk(), 0x13);
+        assert_eq!(DictationKey::Menu.vk(), 0x5D);
+        assert_eq!(DictationKey::F13.vk(), 0x7C);
+        assert_eq!(DictationKey::F24.vk(), 0x87);
+        assert_eq!(DictationKey::from_name("capsLock"), Some(DictationKey::CapsLock));
+        assert_eq!(DictationKey::from_name("f19"), Some(DictationKey::F19));
+        assert_eq!(DictationKey::from_name("F19"), None);
+        assert_eq!(DictationKey::from_name("leftWin"), None);
         assert!(is_modifier(VK_LWIN) && is_modifier(VK_CAPITAL) && !is_modifier(0x41));
+    }
+
+    #[test]
+    fn key_table_is_complete() {
+        let names = key_names();
+        assert_eq!(names.len(), 25);
+        for name in &names {
+            let key = DictationKey::from_name(name).unwrap();
+            assert_eq!(key.as_str(), *name);
+            // serde agrees with the table, both ways the wire uses it.
+            assert_eq!(serde_json::from_value::<DictationKey>(serde_json::json!(name)).unwrap(), key);
+        }
+        let unique: std::collections::HashSet<_> = names.iter().collect();
+        assert_eq!(unique.len(), names.len());
+    }
+
+    #[test]
+    fn caps_lock_restores_only_after_a_hold() {
+        assert!(!caps_lock_needs_restore(true, 80, false), "a tap toggles Caps Lock as usual");
+        assert!(caps_lock_needs_restore(true, CAPS_HOLD_MS, false));
+        assert!(caps_lock_needs_restore(true, 1200, false));
+        assert!(caps_lock_needs_restore(true, 40, true), "Caps+key was not meant as a toggle");
+        assert!(!caps_lock_needs_restore(false, 1200, false), "not watched: never touched");
+    }
+
+    #[test]
+    fn caps_lock_hold_is_a_hold_and_typing_chords_it() {
+        let mut s = set(&[(DictationKey::CapsLock, None, VK_CAPITAL)]);
+        assert_eq!(s.handle(&KeyEvent::down(VK_CAPITAL)), [ch(DictationKey::CapsLock, None, true)]);
+        assert!(s.handle(&KeyEvent::down(VK_CAPITAL)).is_empty()); // repeat
+        assert_eq!(s.handle(&KeyEvent::up(VK_CAPITAL)), [ch(DictationKey::CapsLock, None, false)]);
+        s.handle(&KeyEvent::down(VK_CAPITAL));
+        assert_eq!(s.handle(&KeyEvent::down(0x41)), [ch(DictationKey::CapsLock, None, false)]);
+        assert!(s.handle(&KeyEvent::up(VK_CAPITAL)).is_empty());
+    }
+
+    #[test]
+    fn windows_names_in_a_watch() {
+        let p = |v: serde_json::Value| watch_plan(&serde_json::from_value::<WatchParams>(v).unwrap());
+        let two = p(serde_json::json!({"keys": [{"key": "rightCtrl", "role": "dictation"}, {"key": "rightAlt", "role": "voice"}]})).unwrap();
+        assert_eq!(two.iter().map(|w| w.vk).collect::<Vec<_>>(), [VK_RCONTROL, VK_RMENU]);
+        // A Mac name and its Windows name are one physical key.
+        assert!(p(serde_json::json!({"keys": [{"key": "rightCtrl", "role": "dictation"}, {"key": "rightCommand", "role": "voice"}]})).is_err());
+        assert_eq!(p(serde_json::json!({"key": "f13"})).unwrap()[0].vk, VK_F13);
+        assert!(serde_json::from_value::<WatchParams>(serde_json::json!({"key": "vk:42"})).is_err());
     }
 
     #[test]
@@ -546,10 +631,7 @@ mod tests {
         assert_eq!(err(serde_json::json!({"keys": [{"key": "fn", "role": "voice"}, {"key": "fn", "role": "dictation"}]})), "keys");
         assert_eq!(err(serde_json::json!({"keys": [{"key": "fn", "role": "voice"}, {"key": "rightCommand", "role": "voice"}]})), "keys");
         assert_eq!(err(serde_json::json!({"keys": []})), "keys");
-        // fn defaults to Right Alt, so fn + rightOption is one physical key.
-        set_fn_key(0);
-        if std::env::var("PSYCHE_DICTATION_FN_KEY").is_err() {
-            assert!(p(serde_json::json!({"keys": [{"key": "fn", "role": "voice"}, {"key": "rightOption", "role": "dictation"}]})).is_err());
-        }
+        // fn is Right Alt on Windows, so fn + rightOption is one physical key.
+        assert!(p(serde_json::json!({"keys": [{"key": "fn", "role": "voice"}, {"key": "rightOption", "role": "dictation"}]})).is_err());
     }
 }

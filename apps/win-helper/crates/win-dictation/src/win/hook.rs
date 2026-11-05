@@ -5,10 +5,12 @@
 //! far below `LowLevelHooksTimeout`. Windows silently unhooks a callback that times out, so the
 //! thread re-arms the hook every 30 s and on unlock / resume, and repairs key state from
 //! `GetAsyncKeyState` (a key-up lost to the lock screen ends the hold). Keys are never
-//! swallowed: every event goes on with `CallNextHookEx`.
+//! swallowed: every event goes on with `CallNextHookEx`. A Caps Lock hold toggles the lock like
+//! any press, so its release taps Caps Lock once more (injected, so the watch ignores it) and the
+//! lock state is what it was; a short tap still toggles it.
 
 use super::input;
-use crate::dictation::keys::{KeyChange, KeyEvent, KeySet, WatchedKey};
+use crate::dictation::keys::{KeyChange, KeyEvent, KeySet, VK_CAPITAL, WatchedKey, caps_lock_needs_restore};
 use crate::error::CapError;
 use crate::time::iso8601_now;
 use std::cell::RefCell;
@@ -16,6 +18,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Mutex, OnceLock};
 use std::thread::JoinHandle;
+use std::time::Instant;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::RemoteDesktop::{NOTIFY_FOR_THIS_SESSION, WTSRegisterSessionNotification, WTSUnRegisterSessionNotification};
@@ -31,6 +34,7 @@ use windows::core::w;
 
 const WATCHDOG_TIMER: usize = 1;
 const MASK_TIMER: usize = 2;
+const CAPS_TIMER: usize = 3;
 const WATCHDOG_MS: u32 = 1000;
 const REARM_TICKS: u32 = 30;
 const MASK_AFTER_MS: u32 = 200;
@@ -138,6 +142,8 @@ struct HookState {
     mask_vk: u16,
     stale_ticks: u32,
     ticks: u32,
+    /// A watched Caps Lock is down: since when, and whether another key chorded it.
+    caps_down: Option<(Instant, bool)>,
 }
 
 thread_local! {
@@ -185,6 +191,7 @@ fn on_key(ev: &KeyEvent) {
             && let Some(st) = s.as_mut()
         {
             let changes = st.keys.handle(ev);
+            caps_lock(st, ev, &changes);
             if changes.iter().any(|c| c.down) && st.keys.wants_menu_mask(ev.vk) {
                 st.mask_vk = ev.vk;
                 // SAFETY: a timer on this thread's window.
@@ -193,6 +200,30 @@ fn on_key(ev: &KeyEvent) {
             emit(&st.tx, changes);
         }
     });
+}
+
+/// Tracks a watched Caps Lock press; its release (after a hold or a chord) asks for the tap that
+/// puts the lock state back, from a timer so SendInput never runs inside the hook callback.
+fn caps_lock(st: &mut HookState, ev: &KeyEvent, changes: &[KeyChange]) {
+    if ev.injected || !st.keys.watched.iter().any(|w| w.vk == VK_CAPITAL) {
+        return;
+    }
+    if ev.vk == VK_CAPITAL {
+        if ev.down {
+            st.caps_down.get_or_insert((Instant::now(), false));
+        } else if let Some((at, chorded)) = st.caps_down.take() {
+            let held = at.elapsed().as_millis() as u64;
+            if caps_lock_needs_restore(true, held, chorded) {
+                // SAFETY: a timer on this thread's window.
+                unsafe { SetTimer(Some(st.hwnd), CAPS_TIMER, 1, None) };
+            }
+        }
+    } else if ev.down
+        && let Some((_, chorded)) = st.caps_down.as_mut()
+        && changes.iter().any(|c| c.key.vk() == VK_CAPITAL && !c.down)
+    {
+        *chorded = true;
+    }
 }
 
 fn install() -> Result<HHOOK, CapError> {
@@ -221,6 +252,13 @@ fn on_timer(id: usize) {
         let mut s = s.borrow_mut();
         let Some(st) = s.as_mut() else { return };
         match id {
+            CAPS_TIMER => {
+                // SAFETY: the timer this thread set.
+                unsafe {
+                    let _ = KillTimer(Some(st.hwnd), CAPS_TIMER);
+                }
+                input::send_caps_lock_tap();
+            }
             MASK_TIMER => {
                 // SAFETY: the timer this thread set.
                 unsafe {
@@ -323,7 +361,7 @@ fn hook_thread(keys: Vec<WatchedKey>, tx: Sender<Change>, ready: Sender<Result<u
         SetTimer(Some(hwnd), WATCHDOG_TIMER, WATCHDOG_MS, None);
     }
     STATE.with(|s| {
-        *s.borrow_mut() = Some(HookState { keys: KeySet::new(keys), tx, hook, hwnd, mask_vk: 0, stale_ticks: 0, ticks: 0 });
+        *s.borrow_mut() = Some(HookState { keys: KeySet::new(keys), tx, hook, hwnd, mask_vk: 0, stale_ticks: 0, ticks: 0, caps_down: None });
     });
     // SAFETY: thread id of this thread.
     let _ = ready.send(Ok(unsafe { GetCurrentThreadId() }));

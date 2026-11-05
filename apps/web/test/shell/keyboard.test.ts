@@ -100,7 +100,7 @@ describe("keyboard map", () => {
       const quick = SHORTCUTS.find((s) => s.action === "quickEntry");
       expect(quick && chordLabel(quick.chord, false)).toBe("Ctrl+Alt+Space");
       const talk = SHORTCUTS.find((s) => s.action === "pushToTalk");
-      expect(talk && chordLabel(talk.chord, false)).toBe("Right Alt");
+      expect(talk && chordLabel(talk.chord, false)).toBe("Right Ctrl");
       const go = SHORTCUTS.filter((s) => s.action.startsWith("go:")).map((s) =>
         chordLabel(s.chord, false),
       );

@@ -326,6 +326,26 @@ export async function askHelperNotificationsIfUndetermined(
   return true;
 }
 
+/**
+ * Whether the keyboard layout in use has AltGr, as the bundled Windows helper measures it
+ * (`psyche-helper --keyboard-layout` prints `{layout, altGr}`); undefined when not bundled or
+ * the output is not what a helper prints.
+ */
+export async function readAltGrLayout(
+  appPath: string | undefined,
+  run: IdentityRunner,
+): Promise<boolean | undefined> {
+  if (appPath === undefined || !existsSync(appPath)) return undefined;
+  const res = await run(helperExecutable(appPath), ["--keyboard-layout"], process.env);
+  if (res.code !== 0) return undefined;
+  try {
+    const out = JSON.parse(res.stdout.trim()) as { altGr?: unknown };
+    return typeof out.altGr === "boolean" ? out.altGr : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** What the bundled helper says about itself (`psyche-helper --print-identity`). */
 export interface HelperIdentity {
   deviceId: string;

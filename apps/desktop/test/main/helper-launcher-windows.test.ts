@@ -11,6 +11,7 @@ import {
   helperExecutable,
   helperPathFor,
   isHostHelperKind,
+  readAltGrLayout,
   readHelperIdentity,
 } from "../../src/main/helper-launcher.ts";
 import type { Runner } from "../../src/main/supervisor.ts";
@@ -78,6 +79,24 @@ describe("the Windows helper's location", () => {
       throw new Error("codesign must not run on Windows");
     };
     expect(await helperCanHoldKeychain(exe, never)).toBe(false);
+  });
+});
+
+describe("readAltGrLayout", () => {
+  it("asks the bundled helper whether Right Alt is AltGr on the layout in use", async () => {
+    const seen: string[][] = [];
+    const say =
+      (stdout: string, code = 0) =>
+      async (file: string, args: string[]) => {
+        seen.push([file, ...args]);
+        return { code, stdout };
+      };
+    expect(await readAltGrLayout(exe, say('{"layout":"0x04070407","altGr":true}'))).toBe(true);
+    expect(seen.at(-1)).toEqual([exe, "--keyboard-layout"]);
+    expect(await readAltGrLayout(exe, say('{"layout":"0x04090409","altGr":false}'))).toBe(false);
+    expect(await readAltGrLayout(exe, say("not json"))).toBeUndefined();
+    expect(await readAltGrLayout(exe, say('{"altGr":true}', 1))).toBeUndefined();
+    expect(await readAltGrLayout(undefined, say('{"altGr":true}'))).toBeUndefined();
   });
 });
 

@@ -249,9 +249,9 @@ const BASE_SHORTCUTS: readonly Shortcut[] = [
     get label() {
       return t("web.shortcut.pushToTalk");
     },
-    // fn never reaches Windows: hold-to-talk is Right Alt there (the "fn" setting's Windows key).
+    // fn never reaches Windows: hold-to-talk defaults to Right Ctrl there (Settings → Voice).
     get chord(): KeyChord {
-      return { key: isWindows() ? t("voice.key.rightOption") : "Fn" };
+      return { key: isWindows() ? t("settings.voice.key.rightCtrl") : "Fn" };
     },
     scope: "global",
   },

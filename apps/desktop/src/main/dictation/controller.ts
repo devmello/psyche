@@ -11,7 +11,15 @@
  * here; the composer dictates there.
  */
 
-export type DictationKey = "fn" | "rightOption" | "rightCommand";
+import {
+  type DictationKey,
+  defaultHoldKeys,
+  MAC_DICTATION_KEYS,
+  WINDOWS_DICTATION_KEYS,
+  windowsHoldKey,
+} from "@psyche/protocol";
+
+export type { DictationKey };
 export type DictationMode = "hold" | "toggle";
 
 export interface DictationSettings {
@@ -31,22 +39,42 @@ export const DICTATION_SETTING_KEYS = [
 
 export const DEFAULT_DICTATION_SETTINGS: DictationSettings = {
   enabled: true,
-  key: "fn",
+  key: defaultHoldKeys(process.platform === "win32").dictation,
   mode: "hold",
   hotkey: "",
 };
 
-const KEYS: readonly DictationKey[] = ["fn", "rightOption", "rightCommand"];
+/**
+ * The hold-to-talk keys this OS's helper watches: the Mac's three modifiers on macOS; on Windows
+ * those (as stored by an older Settings) and the PC keys by name (`rightCtrl`, `capsLock`,
+ * `f13`… in `@psyche/protocol`'s `WINDOWS_DICTATION_KEYS`). They go to `dictation.watch` as
+ * stored.
+ */
+export function holdKeys(platform: NodeJS.Platform): readonly DictationKey[] {
+  return platform === "win32"
+    ? [...MAC_DICTATION_KEYS, ...WINDOWS_DICTATION_KEYS]
+    : MAC_DICTATION_KEYS;
+}
+
+/** The key a stored value names on this OS; anything else is the OS's default. */
+export function holdKeyOf(
+  raw: unknown,
+  role: "dictation" | "voice",
+  platform: NodeJS.Platform,
+): DictationKey {
+  const keys = holdKeys(platform);
+  return keys.includes(raw as DictationKey)
+    ? (raw as DictationKey)
+    : defaultHoldKeys(platform === "win32")[role];
+}
 
 /**
- * The hold-to-talk keys keep their macOS names on every OS and go to the helper's
- * `dictation.watch` as stored. The Windows helper (a `WH_KEYBOARD_LL` hook) holds `fn` and
+ * The physical key a name holds. The Windows helper (a `WH_KEYBOARD_LL` hook) holds `fn` and
  * `rightOption` on Right Alt (a PC's Fn never reaches Windows) and `rightCommand` on Right Ctrl,
  * so there two names can be one physical key.
  */
 export function physicalKey(key: DictationKey, platform: NodeJS.Platform): string {
-  if (platform !== "win32") return key;
-  return key === "rightCommand" ? "rightCtrl" : "rightAlt";
+  return platform === "win32" ? windowsHoldKey(key) : key;
 }
 
 /** Whether two settings name the same key on this OS (one watch cannot serve both roles). */
@@ -54,13 +82,18 @@ export function sameKey(a: DictationKey, b: DictationKey, platform: NodeJS.Platf
   return physicalKey(a, platform) === physicalKey(b, platform);
 }
 
-/** Reads the `voice.*` settings; anything unknown falls back to the default. */
-export function parseDictationSettings(values: Record<string, unknown>): DictationSettings {
-  const key = values["voice.pushToTalk"];
+/**
+ * Reads the `voice.*` settings; anything unknown falls back to the default (fn on a Mac, Right
+ * Ctrl on Windows: `defaultHoldKeys`).
+ */
+export function parseDictationSettings(
+  values: Record<string, unknown>,
+  platform: NodeJS.Platform = process.platform,
+): DictationSettings {
   const hotkey = values["voice.hotkey"];
   return {
     enabled: values["voice.systemWide"] !== false,
-    key: KEYS.includes(key as DictationKey) ? (key as DictationKey) : "fn",
+    key: holdKeyOf(values["voice.pushToTalk"], "dictation", platform),
     mode: values["voice.mode"] === "toggle" ? "toggle" : "hold",
     hotkey: typeof hotkey === "string" ? hotkey.trim().slice(0, 64) : "",
   };
