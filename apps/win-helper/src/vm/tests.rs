@@ -65,6 +65,12 @@ fn fake_service(
                     let params = req["params"].clone();
                     log.lock().unwrap().push((id, method.clone(), params.clone()));
                     if method != "watch" {
+                        // Progress is opt-in per request, as the real service does it.
+                        if req["progress"] == true {
+                            let ev = json!({"event": "progress", "data": {"id": req["id"],
+                                "event": {"type": "vm.state", "phase": "starting", "fraction": 0.5}}});
+                            let _ = write.write_all(format!("{ev}\n").as_bytes()).await;
+                        }
                         tokio::time::sleep(delay).await;
                     }
                     let body = match reply(&method, &params) {
@@ -216,6 +222,17 @@ async fn status_adds_the_service_block_and_is_passive() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn progress_is_requested_only_by_streaming_calls() {
+    let (pipe, seen) = fake_service(Duration::ZERO, |_, _| Ok(json!({})));
+    let reg = registry(&pipe);
+    let (_, ev) = call(&reg, "vm.stop", json!({}), None).await;
+    assert!(ev.is_empty());
+    let (_, ev) = call(&reg, "vm.start", json!({}), None).await;
+    assert_eq!(ev.len(), 1, "{ev:?}");
+    assert_eq!(seen.lock().unwrap().len(), 2, "one connection per call, no watcher");
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn streaming_calls_forward_service_events() {
     let (pipe, _) = fake_service(Duration::from_millis(400), |_, _| Ok(json!({"started": true})));
     let reg = registry(&pipe);
@@ -347,4 +364,54 @@ async fn without_the_service_only_status_exists_and_says_so() {
     assert_eq!(vm, vec!["vm.status"]);
     let (r, _) = call(&reg, "vm.status", json!({}), None).await;
     assert_eq!(r.unwrap().result["service"]["state"], "notInstalled");
+}
+
+/// The helper against the real `psyche-vm-svc run --backend fake` (built next to the tests; the
+/// test is skipped when the binary has not been built): impersonation QoS accepted, `status`,
+/// `create` / `start` with progress, errors in the mac helper's shape.
+#[tokio::test(flavor = "multi_thread")]
+async fn against_the_real_service_with_the_fake_backend() {
+    let exe = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent()?.parent().map(|d| d.join("psyche-vm-svc.exe")))
+        .filter(|p| p.exists());
+    let Some(exe) = exe else {
+        eprintln!("psyche-vm-svc.exe not built; skipped");
+        return;
+    };
+    let pipe = format!(r"\\.\pipe\psyche-vm-real-{}", std::process::id());
+    let home = std::env::temp_dir().join(format!("psyche-vm-real-{}", std::process::id()));
+    std::fs::create_dir_all(&home).unwrap();
+    let mut child = std::process::Command::new(exe)
+        .args(["run", "--backend", "fake", "--pipe", &pipe, "--home"])
+        .arg(&home)
+        .arg("--images")
+        .arg(home.join("images"))
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    let reg = registry(&pipe);
+    // Wait for the pipe.
+    let mut status = None;
+    for _ in 0..40 {
+        let (r, _) = call(&reg, "vm.status", json!({}), None).await;
+        if let Ok(o) = r {
+            status = Some(o.result);
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    let status = status.expect("the real service answered vm.status");
+    assert_eq!(status["guests"], json!([]));
+    assert_eq!(status["service"]["installed"], true);
+    // An unknown guest is the mac helper's not_found, with a reason.
+    let (r, _) = call(&reg, "vm.start", json!({"name": "nope"}), None).await;
+    let e = r.unwrap_err();
+    assert!(!e.reason.is_empty(), "{e}");
+    let (r, _) = call(&reg, "vm.create", json!({"ipsw": "x"}), None).await;
+    assert_eq!(r.unwrap_err().code, ErrorCode::InvalidParams);
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(home);
 }

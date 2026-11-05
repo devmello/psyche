@@ -4,7 +4,7 @@ import { currentUserSid } from "@psyche/hostfs";
 import { authenticodeStatus } from "../helper-launcher.ts";
 import type { Runner } from "../supervisor-base.ts";
 import {
-  DEFAULT_MANIFEST_URL,
+  DEFAULT_IMAGE_BASE_URL,
   SandboxPc,
   type SandboxPcState,
   serviceNameFor,
@@ -88,8 +88,16 @@ export function createSandboxPc(w: SandboxPcWiring): SandboxPc {
         throw new Error("Could not restrict the guest image folder to your account");
     },
     restartHelper: w.restartHelper,
-    // Only an unpackaged (development) run may point at another manifest.
-    manifestUrl: (!w.packaged && env.PSYCHE_VM_IMAGE_MANIFEST) || DEFAULT_MANIFEST_URL,
+    // Only an unpackaged (development) run may use a local build or another release:
+    // PSYCHE_VM_IMAGE_DIR (a folder with manifest.json, vmlinuz, initrd, rootfs.vhdx[.zst]) or
+    // PSYCHE_VM_IMAGE_BASE_URL (an https folder).
+    imageSource:
+      !w.packaged && env.PSYCHE_VM_IMAGE_DIR
+        ? { kind: "folder", dir: env.PSYCHE_VM_IMAGE_DIR }
+        : {
+            kind: "http",
+            baseUrl: (!w.packaged && env.PSYCHE_VM_IMAGE_BASE_URL) || DEFAULT_IMAGE_BASE_URL,
+          },
     listDir: (dir) => readdirSync(dir),
     onState: w.onState,
     log: (m) => console.warn(`[sandbox-pc] ${m}`),

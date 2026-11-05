@@ -4,7 +4,8 @@
 //!
 //! Trust: the pipe's DACL admits only the owner and SYSTEM, and the helper refuses a server that
 //! is not the service process the Service Control Manager reports (pipe server pid == service pid),
-//! so a process squatting on the name never sees a request. `PSYCHE_VM_PIPE` points the client at a
+//! so a process squatting on the name never sees a request. The pipe is opened with the default
+//! (impersonation) security QoS: the service refuses identification-level clients. `PSYCHE_VM_PIPE` points the client at a
 //! fake service for tests and development; then the server must be a process of this same user.
 
 use std::collections::VecDeque;
@@ -204,12 +205,12 @@ impl Endpoint {
         start: Start,
     ) -> Result<Value, CapabilityError> {
         let mut conn = self.connect(start).await?;
-        conn.request(method, params, &mut |_| {}).await
+        conn.request(method, params, false, &mut |_| {}).await
     }
 
-    /// A request while a second connection `watch`es: the service's progress events (VM state,
-    /// image checks, snapshots) are forwarded through `emit` as `{type: <event>, …data}` until the
-    /// request ends. The watch is best effort; the request does not depend on it.
+    /// A request with `"progress": true`: the service's progress events (VM state, image checks,
+    /// snapshots, imports) arrive on the same connection before the response and are forwarded
+    /// through `emit` as node events.
     pub async fn call_streaming(
         &self,
         method: &str,
@@ -217,35 +218,16 @@ impl Endpoint {
         emit: impl Fn(Value) + Send + Sync + 'static,
     ) -> Result<Value, CapabilityError> {
         let mut conn = self.connect(Start::IfNeeded).await?;
-        let watcher = match self.connect(Start::Never).await {
-            Ok(mut w) => {
-                let forwarder = tokio::spawn(async move {
-                    if w.request("watch", json!({}), &mut |_| {}).await.is_err() {
-                        return;
-                    }
-                    while let Ok(Some(v)) = w.next_value().await {
-                        if let Some(e) = event_value(&v) {
-                            emit(e);
-                        }
-                    }
-                });
-                Some(forwarder)
-            }
-            Err(_) => None,
-        };
-        let result = conn.request(method, params, &mut |_| {}).await;
-        if let Some(w) = watcher {
-            w.abort();
-        }
-        result
+        conn.request(method, params, true, &mut |v| emit(v)).await
     }
 
-    /// `vm.watch`: the current status, then every event until the service closes the pipe.
+    /// `vm.watch`: every `vm.status` / `vm.updated` / `vm.deleted` event until the service closes
+    /// the pipe (it sends the current status itself right after `watch`).
     pub async fn watch(&self, emit: impl Fn(Value) + Send + Sync) -> Result<Value, CapabilityError> {
         let mut conn = self.connect(Start::IfNeeded).await?;
-        let status = conn.request("status", json!({}), &mut |_| {}).await?;
-        emit(json!({"type": "vm.status", "status": status}));
-        conn.send("watch", "watch", &json!({})).await.map_err(io_error)?;
+        conn.send("watch", "watch", &json!({}), false)
+            .await
+            .map_err(io_error)?;
         loop {
             match conn.next_value().await.map_err(io_error)? {
                 None => return Ok(json!({"closed": true})),
@@ -262,6 +244,10 @@ impl Endpoint {
 /// `{event, data}` → `{type: event, …data}` (a node event as the mac helper streams them).
 fn event_value(v: &Value) -> Option<Value> {
     let name = v.get("event")?.as_str()?;
+    // `{event: "progress", data: {id, event: {...}}}`: the inner object is the progress event.
+    if name == "progress" {
+        return v.get("data")?.get("event").cloned().filter(Value::is_object);
+    }
     let mut out = serde_json::Map::new();
     out.insert("type".into(), name.into());
     if let Some(d) = v.get("data").and_then(Value::as_object) {
@@ -315,8 +301,18 @@ impl Conn {
         }
     }
 
-    pub async fn send(&mut self, id: &str, method: &str, params: &Value) -> io::Result<()> {
-        let mut line = serde_json::to_vec(&json!({"id": id, "method": method, "params": params}))
+    pub async fn send(
+        &mut self,
+        id: &str,
+        method: &str,
+        params: &Value,
+        progress: bool,
+    ) -> io::Result<()> {
+        let mut body = json!({"id": id, "method": method, "params": params});
+        if progress {
+            body["progress"] = true.into();
+        }
+        let mut line = serde_json::to_vec(&body)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         line.push(b'\n');
         self.pipe.write_all(&line).await?;
@@ -354,11 +350,12 @@ impl Conn {
         &mut self,
         method: &str,
         params: Value,
+        progress: bool,
         on_event: &mut (dyn FnMut(Value) + Send),
     ) -> Result<Value, CapabilityError> {
         self.seq += 1;
         let id = format!("h{}", self.seq);
-        self.send(&id, method, &params).await.map_err(io_error)?;
+        self.send(&id, method, &params, progress).await.map_err(io_error)?;
         loop {
             let Some(v) = self.next_value().await.map_err(io_error)? else {
                 return Err(io_error(io::ErrorKind::UnexpectedEof.into()));

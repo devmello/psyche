@@ -4,8 +4,11 @@ import { runElevated as defaultRunElevated, type ElevatedResult } from "./elevat
 import {
   type DownloadProgress,
   downloadImage,
+  folderSource,
   type GuestImageManifest,
+  httpSource,
   ImageError,
+  type ImageSource,
   imageSizes,
   installedImageVersion,
   parseManifest,
@@ -44,9 +47,14 @@ export interface SandboxPcState {
   diskBytes?: number;
 }
 
-/** Where the published manifest is. VM-IMAGE publishes it next to the image files. */
-export const DEFAULT_MANIFEST_URL =
-  "https://github.com/devmello/psyche/releases/latest/download/guest-image-manifest.json";
+/**
+ * The guest image this build installs: a pinned release of deploy/windows/guest-image (the
+ * `windows-guest-image` workflow publishes `vmlinuz`, `initrd`, `rootfs.vhdx.zst`, `manifest.json`
+ * … as assets of release `windows-guest-image-v<version>`). Bump with each image the app should
+ * use; the SHA-256s in that release's manifest are what the download is checked against.
+ */
+export const GUEST_IMAGE_VERSION = "0.1.0-84ef34a6";
+export const DEFAULT_IMAGE_BASE_URL = `https://github.com/devmello/psyche/releases/download/windows-guest-image-v${GUEST_IMAGE_VERSION}/`;
 
 export type ServiceProbe = "installed" | "notInstalled" | "unknown";
 
@@ -69,7 +77,8 @@ export interface SandboxPcDeps {
   /** Limits a folder to this account and SYSTEM (icacls). */
   restrictFolder: (dir: string, sid: string) => Promise<void>;
   restartHelper: () => Promise<void>;
-  manifestUrl: string;
+  /** Where the manifest and files come from: a release URL, or a local folder (development). */
+  imageSource: { kind: "http"; baseUrl: string } | { kind: "folder"; dir: string };
   fetch?: typeof fetch;
   listDir: (dir: string) => string[];
   freeBytes?: (dir: string) => number;
@@ -145,15 +154,21 @@ export class SandboxPc {
     });
   }
 
+  #source(): ImageSource {
+    const s = this.#d.imageSource;
+    return s.kind === "folder" ? folderSource(s.dir) : httpSource(s.baseUrl, this.#d.fetch);
+  }
+
   async #readManifest(): Promise<{ value: GuestImageManifest; text: string }> {
     if (this.#manifest !== undefined) return this.#manifest;
-    const doFetch = this.#d.fetch ?? fetch;
     let text: string;
     try {
-      const res = await doFetch(this.#d.manifestUrl, { redirect: "follow" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      text = await res.text();
+      const src = this.#source();
+      const chunks: Buffer[] = [];
+      for await (const c of await src("manifest.json")) chunks.push(c as Buffer);
+      text = Buffer.concat(chunks).toString("utf8");
     } catch (err) {
+      if (err instanceof ImageError) throw err;
       throw new ImageError(
         "download_failed",
         `Could not read the guest image list (${err instanceof Error ? err.message : String(err)})`,
@@ -241,7 +256,7 @@ export class SandboxPc {
         await downloadImage(manifest.value, manifest.text, {
           dir: join(this.#d.imagesRoot, manifest.value.imageVersion),
           signal: this.#abort.signal,
-          ...(this.#d.fetch ? { fetch: this.#d.fetch } : {}),
+          source: this.#source(),
           ...(this.#d.freeBytes ? { freeBytes: this.#d.freeBytes } : {}),
           onProgress: (p: DownloadProgress) => {
             const now = Date.now();

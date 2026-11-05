@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  createReadStream,
   createWriteStream,
   existsSync,
   mkdirSync,
@@ -10,54 +11,88 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createZstdDecompress } from "node:zlib";
 
 /**
- * The sandbox PC's guest image: `vmlinuz`, `initrd` and `rootfs.vhdx`, published as a manifest
- * plus one (zstd-compressed) file each, built by deploy/windows/guest-image. The manifest:
+ * The sandbox PC's guest image, built and published by deploy/windows/guest-image (release
+ * `windows-guest-image-v<imageVersion>`): `vmlinuz`, `initrd`, `rootfs.vhdx.zst` (the root disk,
+ * zstd), `sessiondata.vhdx` (a template the service formats itself: not downloaded) and
+ * `manifest.json`:
  *
  *   {
- *     "format": "psyche-windows-guest-image", "formatVersion": 1,
- *     "imageVersion": "2026.11.1",                 // the folder name under vm-images\
- *     "guestOS": "Debian 13", "arch": "x64",
- *     "files": [{
- *       "name": "rootfs.vhdx",                     // vmlinuz | initrd | rootfs.vhdx
- *       "url": "https://…/rootfs.vhdx.zst",        // https only
- *       "bytes": 2147483648,                       // size of the unpacked file
- *       "sha256": "<hex>",                         // of the unpacked file
- *       "compressed": { "codec": "zstd", "bytes": 612345678, "sha256": "<hex>" }   // optional
- *     }]
+ *     "schema": 1, "kind": "psyche-windows-guest-image", "imageVersion": "0.1.0-84ef34a6",
+ *     "arch": "x86_64",
+ *     "files": {
+ *       "vmlinuz": { "name", "size", "sha256" },
+ *       "initrd": { "name", "size", "sha256" },
+ *       "rootfs": { "name": "rootfs.vhdx", "size", "sha256",
+ *                   "compressed": { "name": "rootfs.vhdx.zst", "size", "sha256", "format": "zstd" } }
+ *     }, …
  *   }
  *
- * Every file is hashed while it downloads and unpacks, and moved into place only when the digests
- * match; `manifest.json` is written last, so a folder holding it is a complete, verified image. The
- * service checks the same digests again before it boots anything. The folder
+ * Sizes and digests of a compressed file describe the unpacked file, and `compressed` the
+ * download. Every file is hashed while it downloads and unpacks, and moved into place only when
+ * the digests match; `manifest.json` (verbatim: the service pins it) is written last, so a folder
+ * holding it is a complete, verified image. The folder
  * (`%LOCALAPPDATA%\Psyche\vm-images\<imageVersion>\`) is limited to the owner and SYSTEM by the
- * caller (`restrictTo`).
+ * caller.
  */
 
-export const IMAGE_FORMAT = "psyche-windows-guest-image";
+export const IMAGE_KIND = "psyche-windows-guest-image";
 export const IMAGE_FILES = ["vmlinuz", "initrd", "rootfs.vhdx"] as const;
 export type ImageFileName = (typeof IMAGE_FILES)[number];
 
 export interface GuestImageFile {
   name: ImageFileName;
-  url: string;
+  /** The file to fetch from the source: `name`, or the compressed file's name. */
+  asset: string;
   bytes: number;
   sha256: string;
-  compressed?: { codec: "zstd"; bytes: number; sha256: string };
+  compressed?: { bytes: number; sha256: string };
 }
 
 export interface GuestImageManifest {
-  format: typeof IMAGE_FORMAT;
-  formatVersion: 1;
   imageVersion: string;
-  guestOS: string;
-  arch: "x64" | "arm64";
+  arch: string;
   files: GuestImageFile[];
+}
+
+/** Where the files come from: a release (HTTPS) or a local folder (development). */
+export type ImageSource = (asset: string, signal?: AbortSignal) => Promise<Readable>;
+
+export function httpSource(baseUrl: string, doFetch: typeof fetch = fetch): ImageSource {
+  const base = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  return async (asset, signal) => {
+    let res: Response;
+    try {
+      res = await doFetch(new URL(asset, base).toString(), {
+        signal: signal ?? null,
+        redirect: "follow",
+      });
+    } catch (err) {
+      if (signal?.aborted) throw new ImageError("cancelled", "Cancelled");
+      throw new ImageError("download_failed", `Could not reach the guest image (${errText(err)})`);
+    }
+    if (!res.ok || res.body === null) {
+      throw new ImageError("download_failed", `The guest image server answered ${res.status}`);
+    }
+    return Readable.fromWeb(res.body as never);
+  };
+}
+
+/** A local build (`PSYCHE_VM_IMAGE_DIR`, unpackaged runs only): the same files in a folder. */
+export function folderSource(dir: string): ImageSource {
+  return async (asset) => {
+    if (asset !== basename(asset)) throw new ImageError("manifest_invalid", "bad file name");
+    const path = join(dir, asset);
+    if (!existsSync(path)) {
+      throw new ImageError("download_failed", `${asset} is not in ${dir}`);
+    }
+    return createReadStream(path);
+  };
 }
 
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -79,7 +114,7 @@ export class ImageError extends Error {
   }
 }
 
-/** Validates a manifest from the network: shape, digests, https URLs, no path in a file name. */
+/** Validates a manifest from the network: shape, digests, no path in a file name. */
 export function parseManifest(text: string): GuestImageManifest {
   const bad = (m: string): never => {
     throw new ImageError("manifest_invalid", `The guest image manifest is not usable: ${m}`);
@@ -91,49 +126,39 @@ export function parseManifest(text: string): GuestImageManifest {
     return bad("not JSON");
   }
   if (v === null || typeof v !== "object") return bad("not an object");
-  if (v.format !== IMAGE_FORMAT || v.formatVersion !== 1) return bad("unknown format");
+  if (v.kind !== IMAGE_KIND || v.schema !== 1) return bad("unknown format");
   if (typeof v.imageVersion !== "string" || !VERSION.test(v.imageVersion))
     return bad("imageVersion");
-  if (typeof v.guestOS !== "string" || v.guestOS.length > 100) return bad("guestOS");
-  if (v.arch !== "x64" && v.arch !== "arm64") return bad("arch");
-  if (!Array.isArray(v.files)) return bad("files");
+  if (typeof v.arch !== "string" || !["x86_64", "x64"].includes(v.arch)) return bad("arch");
+  const raw = v.files as Record<string, Record<string, unknown>> | undefined;
+  if (raw === null || typeof raw !== "object") return bad("files");
+  const hex = (x: unknown) => typeof x === "string" && HEX64.test(x);
+  const size = (x: unknown) => Number.isSafeInteger(x) && (x as number) > 0;
+  const assetName = (x: unknown) => typeof x === "string" && /^[A-Za-z0-9._-]{1,64}$/.test(x);
   const files: GuestImageFile[] = [];
-  for (const raw of v.files as Record<string, unknown>[]) {
-    const name = raw?.name;
-    if (!(IMAGE_FILES as readonly unknown[]).includes(name)) return bad("file name");
-    if (files.some((f) => f.name === name)) return bad("duplicate file");
-    if (typeof raw.url !== "string" || !/^https:\/\/[^\s]+$/.test(raw.url)) return bad("url");
-    if (!Number.isSafeInteger(raw.bytes) || (raw.bytes as number) <= 0) return bad("bytes");
-    if (typeof raw.sha256 !== "string" || !HEX64.test(raw.sha256)) return bad("sha256");
+  for (const [key, name] of [
+    ["vmlinuz", "vmlinuz"],
+    ["initrd", "initrd"],
+    ["rootfs", "rootfs.vhdx"],
+  ] as const) {
+    const f = raw[key];
+    if (f === undefined || f.name !== name || !size(f.size) || !hex(f.sha256)) return bad(key);
     const file: GuestImageFile = {
-      name: name as ImageFileName,
-      url: raw.url,
-      bytes: raw.bytes as number,
-      sha256: raw.sha256,
+      name,
+      asset: name,
+      bytes: f.size as number,
+      sha256: f.sha256 as string,
     };
-    const c = raw.compressed as Record<string, unknown> | undefined;
+    const c = f.compressed as Record<string, unknown> | undefined;
     if (c !== undefined) {
-      if (
-        c.codec !== "zstd" ||
-        !Number.isSafeInteger(c.bytes) ||
-        (c.bytes as number) <= 0 ||
-        typeof c.sha256 !== "string" ||
-        !HEX64.test(c.sha256)
-      )
-        return bad("compressed");
-      file.compressed = { codec: "zstd", bytes: c.bytes as number, sha256: c.sha256 };
+      if (c.format !== "zstd" || !assetName(c.name) || !size(c.size) || !hex(c.sha256))
+        return bad(`${key} compressed`);
+      file.asset = c.name as string;
+      file.compressed = { bytes: c.size as number, sha256: c.sha256 as string };
     }
     files.push(file);
   }
-  for (const need of IMAGE_FILES) if (!files.some((f) => f.name === need)) return bad(`no ${need}`);
-  return {
-    format: IMAGE_FORMAT,
-    formatVersion: 1,
-    imageVersion: v.imageVersion,
-    guestOS: v.guestOS,
-    arch: v.arch,
-    files,
-  };
+  return { imageVersion: v.imageVersion, arch: v.arch, files };
 }
 
 /** Bytes to download for this image, and bytes the unpacked files take on disk. */
@@ -154,7 +179,7 @@ export interface DownloadProgress {
 
 export interface DownloadOptions {
   dir: string;
-  fetch?: typeof fetch;
+  source: ImageSource;
   signal?: AbortSignal;
   onProgress?: (p: DownloadProgress) => void;
   /** Free bytes on the drive holding `dir` (default: statfs). */
@@ -179,7 +204,6 @@ export async function downloadImage(
   manifestText: string,
   opts: DownloadOptions,
 ): Promise<void> {
-  const doFetch = opts.fetch ?? fetch;
   mkdirSync(opts.dir, { recursive: true });
   const need = imageSizes(m).disk;
   const free = (opts.freeBytes ?? freeBytesOf)(opts.dir);
@@ -206,16 +230,7 @@ export async function downloadImage(
       continue;
     }
     if (opts.signal?.aborted) throw new ImageError("cancelled", "Cancelled");
-    let res: Response;
-    try {
-      res = await doFetch(f.url, { signal: opts.signal ?? null, redirect: "follow" });
-    } catch (err) {
-      if (opts.signal?.aborted) throw new ImageError("cancelled", "Cancelled");
-      throw new ImageError("download_failed", `Could not reach the guest image (${errText(err)})`);
-    }
-    if (!res.ok || res.body === null) {
-      throw new ImageError("download_failed", `The guest image server answered ${res.status}`);
-    }
+    const source = await opts.source(f.asset, opts.signal);
     const wire = createHash("sha256");
     const unpacked = createHash("sha256");
     let received = 0;
@@ -242,7 +257,6 @@ export async function downloadImage(
       },
     });
     try {
-      const source = Readable.fromWeb(res.body as never);
       const out = createWriteStream(part, { flags: "w" });
       if (f.compressed) {
         await pipeline(source, count, createZstdDecompress(), tally, out, {
