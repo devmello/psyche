@@ -1,15 +1,24 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
+import {
+  currentUserSid,
+  gatewayTaskName,
+  LEGACY_GATEWAY_TASK,
+  restrictToOwner,
+  taskBelongsTo,
+} from "@psyche/hostfs";
 import { defaultSleep, SupervisorBase, type SupervisorOptions } from "./supervisor-base.ts";
 
 /**
  * The Windows Gateway service, the counterpart of the macOS LaunchAgent (feature A7;
  * docs/design/cross-platform-2026.md §3.1). It is the same per-user scheduled task `psyche start`
  * installs (apps/cli/src/supervisor.ts, Windows branch), so the app and the CLI never fight over
- * it: `\Psyche\Gateway`, at logon, from the template the release bundles next to psyched
- * (`resources\psyched\psyche-gateway.task.xml.template`, deploy/scripts/build-psyched.mjs) with
- * `{{PSYCHED_DIR}}`, `{{PSYCHE_HOME}}` and `{{USER_ID}}` (DOMAIN\user) filled in here. It runs
+ * it: `\Psyche\Gateway-<user SID>` (Task Scheduler names are machine-wide, so each account has
+ * its own; @psyche/hostfs `gatewayTaskName`), at logon, from the template the release bundles next
+ * to psyched (`resources\psyched\psyche-gateway.task.xml.template`,
+ * deploy/scripts/build-psyched.mjs) with `{{PSYCHED_DIR}}`, `{{PSYCHE_HOME}}`, `{{USER_ID}}`
+ * (DOMAIN\user) and `{{TASK_NAME}}` filled in here. It runs
  *
  *   conhost.exe --headless <psyched>\runtime\node.exe <psyched>\service-host.mjs
  *               --home <PSYCHE_HOME> -- <node.exe> … <psyched>\app\apps\gateway\dist\main.mjs
@@ -23,12 +32,32 @@ import { defaultSleep, SupervisorBase, type SupervisorOptions } from "./supervis
  * last registered is kept in `$PSYCHE_HOME\run\psyche-gateway.task.xml` (the CLI's file too): a
  * moved or updated app changes it and the task is replaced. A task that runs another copy's
  * existing runtime is not taken over without asking.
+ *
+ * The vault's key file reaches the Gateway as on macOS (`PSYCHE_VAULT_KEY_FILE`), but a task has
+ * no environment of its own: the app writes `$PSYCHE_HOME\run\gateway-service.json`
+ * (`{"vaultKeyFile": …}`, owner-only) and the service host puts the path into the Gateway's
+ * environment alone at every start, so it is on no command line. A changed file restarts the task.
+ *
+ * Before the name was per user every account shared `\Psyche\Gateway`; a launch replaces that
+ * task when it runs as this account (and asks first, like any task, when it runs another copy).
  */
 
-export const SCHEDULED_TASK = "\\Psyche\\Gateway";
+export { LEGACY_GATEWAY_TASK };
 export const TASK_TEMPLATE_FILE = "psyche-gateway.task.xml.template";
 export const SERVICE_PID_FILE = "gateway-service.pid";
 export const GATEWAY_PID_FILE = "gateway.pid";
+/** In `$PSYCHE_HOME\run`, read by the service host (apps/cli/src/supervisor.ts, same name). */
+export const SERVICE_CONFIG_FILE = "gateway-service.json";
+
+/** The file with what the service host passes to the Gateway (`gatewayServiceConfig`). */
+export function gatewayServiceConfigFile(psycheHome: string): string {
+  return join(psycheHome, "run", SERVICE_CONFIG_FILE);
+}
+
+/** The service config's exact text for a key file, or undefined when there is nothing to pass. */
+export function gatewayServiceConfig(vaultKeyFile: string | undefined): string | undefined {
+  return vaultKeyFile === undefined ? undefined : `${JSON.stringify({ vaultKeyFile })}\n`;
+}
 
 /** Where the definition last registered is kept (compared on every launch; shared with the CLI). */
 export function gatewayTaskFile(psycheHome: string): string {
@@ -81,13 +110,20 @@ function xmlUnescape(s: string): string {
  */
 export function fillTaskTemplate(
   template: string,
-  values: { psychedDir: string; psycheHome: string; userId: string },
+  values: { psychedDir: string; psycheHome: string; userId: string; taskName: string },
 ): string {
   const path = (p: string) => xmlText(p.replace(/\\+$/, ""));
   return template
     .replaceAll("{{PSYCHED_DIR}}", path(values.psychedDir))
     .replaceAll("{{PSYCHE_HOME}}", path(values.psycheHome))
-    .replaceAll("{{USER_ID}}", xmlText(values.userId));
+    .replaceAll("{{USER_ID}}", xmlText(values.userId))
+    .replaceAll("{{TASK_NAME}}", xmlText(values.taskName));
+}
+
+/** The task path a definition names (`<URI>`), XML-unescaped. */
+export function taskUri(xml: string): string | undefined {
+  const raw = /<URI>([^<]*)<\/URI>/.exec(xml)?.[1];
+  return raw === undefined ? undefined : xmlUnescape(raw);
 }
 
 /** One CSV row as `schtasks` prints it (every field quoted, `""` for a quote). */
@@ -204,13 +240,13 @@ export function decodeTaskXml(buf: Buffer): string {
 
 /** `schtasks.exe` argv (every OS language: only exit codes and fixed CSV columns are read). */
 export const schtasks = {
-  query: () => ["/Query", "/TN", SCHEDULED_TASK],
-  queryXml: () => ["/Query", "/TN", SCHEDULED_TASK, "/XML"],
-  queryVerbose: () => ["/Query", "/TN", SCHEDULED_TASK, "/V", "/FO", "CSV", "/NH"],
-  create: (xmlFile: string) => ["/Create", "/TN", SCHEDULED_TASK, "/XML", xmlFile, "/F"],
-  run: () => ["/Run", "/TN", SCHEDULED_TASK],
-  end: () => ["/End", "/TN", SCHEDULED_TASK],
-  delete: () => ["/Delete", "/TN", SCHEDULED_TASK, "/F"],
+  query: (task: string) => ["/Query", "/TN", task],
+  queryXml: (task: string) => ["/Query", "/TN", task, "/XML"],
+  queryVerbose: (task: string) => ["/Query", "/TN", task, "/V", "/FO", "CSV", "/NH"],
+  create: (task: string, xmlFile: string) => ["/Create", "/TN", task, "/XML", xmlFile, "/F"],
+  run: (task: string) => ["/Run", "/TN", task],
+  end: (task: string) => ["/End", "/TN", task],
+  delete: (task: string) => ["/Delete", "/TN", task, "/F"],
 } as const;
 
 /** "Last Result" (column 7 of `/V /FO CSV`, same in every language): the last exit code. */
@@ -246,6 +282,8 @@ export interface TaskSchedulerOptions extends SupervisorOptions {
   bundledTemplate?: string;
   /** `DOMAIN\user`; default from USERDOMAIN / USERNAME. */
   userId?: string;
+  /** This account's SID, which names the task; default from `whoami /user` (@psyche/hostfs). */
+  userSid?: string;
   /** `%SystemRoot%` (tests). */
   systemRoot?: string;
   /** The temp folder a runtime must not run from (tests); default `os.tmpdir()`. */
@@ -270,22 +308,84 @@ export class TaskSchedulerSupervisor extends SupervisorBase {
     return this.run(this.system32("schtasks.exe"), [...args]);
   }
 
+  /** This account's task (`\Psyche\Gateway-<SID>`), or undefined when Windows would not say. */
+  private taskName(): string | undefined {
+    const sid = this.sid();
+    return sid === undefined ? undefined : gatewayTaskName(sid);
+  }
+
+  private sid(): string | undefined {
+    const sid = this.win.userSid ?? currentUserSid();
+    return sid ? sid : undefined;
+  }
+
   /** The definition this build wants, or undefined when no Gateway (or template) is bundled. */
-  private content(): string | undefined {
+  private content(taskName: string): string | undefined {
     const { bundledPsyched: dir, bundledNode: node, bundledTemplate: template } = this.win;
     if (!dir || !node || !template || !existsSync(node) || !existsSync(template)) return undefined;
-    const userId = this.win.userId ?? windowsUserId(process.env);
+    const userId = this.userId();
     if (!userId) return undefined;
     return fillTaskTemplate(decodeTaskXml(readFileSync(template)), {
       psychedDir: dir,
       psycheHome: this.opts.psycheHome,
       userId,
+      taskName,
     });
+  }
+
+  private userId(): string | undefined {
+    return this.win.userId ?? windowsUserId(process.env);
   }
 
   private storedDefinition(): string | undefined {
     const file = gatewayTaskFile(this.opts.psycheHome);
     return existsSync(file) ? decodeTaskXml(readFileSync(file)) : undefined;
+  }
+
+  /**
+   * The definition `task` runs: the file this home's copy wrote when it is that task's (exact),
+   * else what schtasks printed (in the OEM code page, so a non-ASCII path may not survive).
+   */
+  private definitionOf(task: string, printed: string): string {
+    const stored = this.storedDefinition();
+    return stored !== undefined && taskUri(stored)?.toLowerCase() === task.toLowerCase()
+      ? stored
+      : printed;
+  }
+
+  /** The shared `\Psyche\Gateway` of earlier versions, when it runs as this account. */
+  private async legacyTask(): Promise<string | undefined> {
+    const sid = this.sid();
+    if (sid === undefined) return undefined;
+    const q = await this.schtasks(schtasks.queryXml(LEGACY_GATEWAY_TASK));
+    if (q.code !== 0) return undefined;
+    const userId = this.userId();
+    return taskBelongsTo(q.stdout, { sid, ...(userId ? { userId } : {}) })
+      ? this.definitionOf(LEGACY_GATEWAY_TASK, q.stdout)
+      : undefined;
+  }
+
+  /**
+   * Writes (or removes) `run\gateway-service.json` for this vault key file, owner-only. True when
+   * it changed, so a running Gateway must restart to read it. A file Windows will not restrict to
+   * this account is not left behind: the Gateway then starts without the key file.
+   */
+  private async syncServiceConfig(): Promise<boolean> {
+    const file = gatewayServiceConfigFile(this.opts.psycheHome);
+    const want = gatewayServiceConfig(await this.opts.vaultKeyFile?.());
+    const have = existsSync(file) ? readFileSync(file, "utf8") : undefined;
+    if (want === have) return false;
+    if (want === undefined) {
+      rmSync(file, { force: true });
+      return true;
+    }
+    mkdirSync(join(this.opts.psycheHome, "run"), { recursive: true, mode: 0o700 });
+    writeFileSync(file, want, { mode: 0o600 });
+    if (!restrictToOwner(file)) {
+      rmSync(file, { force: true });
+      return have !== undefined;
+    }
+    return true;
   }
 
   protected async startService(): Promise<void> {
@@ -298,17 +398,27 @@ export class TaskSchedulerSupervisor extends SupervisorBase {
       });
       return;
     }
-    const content = this.content();
+    const task = this.taskName();
+    if (task === undefined) {
+      this.set({
+        kind: "stopped",
+        mode: "taskscheduler",
+        reason: "Windows did not say which account this is (whoami /user)",
+      });
+      return;
+    }
+    const content = this.content(task);
     if (content === undefined) {
       this.set({ kind: "stopped", mode: "taskscheduler", reason: "psyched is not bundled" });
       return;
     }
-    const registered = await this.schtasks(schtasks.queryXml());
+    const registered = await this.schtasks(schtasks.queryXml(task));
     const loaded = registered.code === 0;
-    const current = loaded ? this.storedDefinition() : undefined;
+    // Before the per-user name: this account's \Psyche\Gateway, replaced below.
+    const legacy = await this.legacyTask();
+    const current = loaded ? this.definitionOf(task, registered.stdout) : undefined;
     const changed = current !== content;
-    // The file this home's copy wrote is exact; schtasks prints the live one in the OEM code page.
-    const other = loaded ? taskProgram(current ?? registered.stdout) : undefined;
+    const other = taskProgram(current ?? legacy ?? "");
     if (other !== undefined && other.toLowerCase() !== node.toLowerCase() && existsSync(other)) {
       const takeOver = (await this.opts.confirmTakeover?.(other).catch(() => false)) ?? false;
       if (!takeOver) {
@@ -325,30 +435,39 @@ export class TaskSchedulerSupervisor extends SupervisorBase {
         return;
       }
     }
-    if (!loaded && (await this.healthy())) {
+    if (legacy !== undefined) {
+      this.set({ kind: "starting", mode: "taskscheduler", step: "installing" });
+      await this.stopTask(LEGACY_GATEWAY_TASK);
+      await this.schtasks(schtasks.delete(LEGACY_GATEWAY_TASK));
+    } else if (!loaded && (await this.healthy())) {
       // Someone else serves the Gateway on this port; starting ours would fail to bind.
       this.set({ kind: "running", mode: "taskscheduler" });
       return;
     }
     mkdirSync(this.opts.psycheHome, { recursive: true, mode: 0o700 });
     mkdirSync(this.logDir(), { recursive: true, mode: 0o700 });
+    const configChanged = await this.syncServiceConfig();
     if (changed) {
       this.set({ kind: "starting", mode: "taskscheduler", step: "installing" });
       // A running Gateway of the old definition (an update moved the runtime) stops first.
-      if (loaded) await this.stopTask();
+      if (loaded) await this.stopTask(task);
       const file = gatewayTaskFile(this.opts.psycheHome);
       mkdirSync(join(this.opts.psycheHome, "run"), { recursive: true, mode: 0o700 });
       writeFileSync(file, encodeTaskXml(content), { mode: 0o600 });
-      if ((await this.schtasks(schtasks.create(file))).code !== 0) {
+      if ((await this.schtasks(schtasks.create(task, file))).code !== 0) {
         rmSync(file, { force: true });
         return this.failed("Task Scheduler could not register the Psyche Gateway task");
       }
+    } else if (configChanged && loaded) {
+      // The service host reads the key file's path when it starts the Gateway.
+      await this.stopTask(task);
     }
-    if (loaded && !changed && (await this.healthy())) return this.refreshService();
+    if (loaded && !changed && !configChanged && (await this.healthy()))
+      return this.refreshService();
     this.set({ kind: "starting", mode: "taskscheduler", step: "waiting" });
-    await this.schtasks(schtasks.run());
+    await this.schtasks(schtasks.run(task));
     if (await this.waitHealthy()) return this.refreshService();
-    const exit = parseLastResult((await this.schtasks(schtasks.queryVerbose())).stdout);
+    const exit = parseLastResult((await this.schtasks(schtasks.queryVerbose(task))).stdout);
     const secs = Math.round((this.opts.healthTimeoutMs ?? 60_000) / 1000);
     this.failed(
       `The Gateway did not answer within ${secs} s${exit && !NOT_AN_EXIT.has(exit) ? ` (last exit code ${exit})` : ""}`,
@@ -356,7 +475,8 @@ export class TaskSchedulerSupervisor extends SupervisorBase {
   }
 
   protected async refreshService(): Promise<void> {
-    if ((await this.schtasks(schtasks.query())).code !== 0)
+    const task = this.taskName();
+    if (task === undefined || (await this.schtasks(schtasks.query(task))).code !== 0)
       return this.set({ kind: "stopped", mode: "taskscheduler", reason: "not registered" });
     const pid = readPid(join(this.opts.psycheHome, "run", GATEWAY_PID_FILE));
     this.set(
@@ -370,8 +490,8 @@ export class TaskSchedulerSupervisor extends SupervisorBase {
    * Ends the task and, as `schtasks /End` only ends conhost, the service host's and the
    * Gateway's process trees (their pid files), then waits for `/healthz` to go quiet.
    */
-  private async stopTask(): Promise<void> {
-    await this.schtasks(schtasks.end());
+  private async stopTask(task: string): Promise<void> {
+    await this.schtasks(schtasks.end(task));
     for (const f of [SERVICE_PID_FILE, GATEWAY_PID_FILE]) {
       const pid = readPid(join(this.opts.psycheHome, "run", f));
       if (pid) await this.run(this.system32("taskkill.exe"), ["/PID", String(pid), "/T", "/F"]);
@@ -381,17 +501,27 @@ export class TaskSchedulerSupervisor extends SupervisorBase {
   }
 
   /**
-   * Ends and deletes the task; the next launch registers it again. A task that runs another
-   * copy's runtime is left alone: quitting this copy must not break that install.
+   * Ends and deletes the task (and this account's `\Psyche\Gateway` of an earlier version); the
+   * next launch registers it again. A task that runs another copy's runtime is left alone:
+   * quitting this copy must not break that install.
    */
   protected async uninstallService(): Promise<void> {
-    const registered = await this.schtasks(schtasks.queryXml());
-    if (registered.code !== 0) return;
-    const program = taskProgram(this.storedDefinition() ?? registered.stdout);
-    const ours = this.win.bundledNode;
-    if (program !== undefined && program.toLowerCase() !== ours?.toLowerCase()) return;
-    await this.stopTask();
-    await this.schtasks(schtasks.delete());
-    rmSync(gatewayTaskFile(this.opts.psycheHome), { force: true });
+    const task = this.taskName();
+    const ours = this.win.bundledNode?.toLowerCase();
+    const remove = async (name: string, definition: string) => {
+      const program = taskProgram(definition);
+      if (program !== undefined && program.toLowerCase() !== ours) return;
+      await this.stopTask(name);
+      await this.schtasks(schtasks.delete(name));
+      if (taskUri(this.storedDefinition() ?? "")?.toLowerCase() === name.toLowerCase())
+        rmSync(gatewayTaskFile(this.opts.psycheHome), { force: true });
+    };
+    if (task !== undefined) {
+      const registered = await this.schtasks(schtasks.queryXml(task));
+      if (registered.code === 0) await remove(task, this.definitionOf(task, registered.stdout));
+    }
+    const legacy = await this.legacyTask();
+    if (legacy !== undefined) await remove(LEGACY_GATEWAY_TASK, legacy);
+    rmSync(gatewayServiceConfigFile(this.opts.psycheHome), { force: true });
   }
 }

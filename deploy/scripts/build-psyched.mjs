@@ -690,6 +690,7 @@ async function main(argv) {
         ],
         psycheHome: "{{PSYCHE_HOME}}",
         userId: "{{USER_ID}}",
+        taskName: "{{TASK_NAME}}",
       }),
     );
     const longest = longestPath(bundle);

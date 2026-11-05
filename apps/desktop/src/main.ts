@@ -1699,11 +1699,11 @@ void app.whenReady().then(async () => {
       const res = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts);
       return res.response === 1;
     },
-    // Key-file slot unless the bundled helper can hold the Keychain (Touch ID) slot.
-    // (Windows' task cannot carry it: the service host sets PSYCHE_HOME only; the vault's slot
-    // there is the Gateway's own default.)
+    // Key-file slot unless the bundled helper can hold the Keychain (Touch ID) slot, which a
+    // Windows helper never can. macOS passes it in the LaunchAgent's environment; Windows in
+    // run\gateway-service.json, which the task's service host reads (supervisor-windows.ts).
     vaultKeyFile: async () =>
-      windows32 || (await helperCanHoldKeychain(bundledHelperPath(), execRunner))
+      (await helperCanHoldKeychain(bundledHelperPath(), execRunner))
         ? undefined
         : desktopVaultKeyFile(home),
     onState: (run) => {

@@ -7,7 +7,8 @@
     powershell -File deploy\windows\install-local.ps1 dist\Psyche-0.3.0-Setup.exe
     pnpm app:install [setup.exe] [--keep-data] [--no-launch] [--dry-run]
 
-  What it does: quits a running Psyche, ends the Gateway task (\Psyche\Gateway) and its processes so
+  What it does: quits a running Psyche, ends the Gateway task (\Psyche\Gateway-<your SID>, and the
+  shared \Psyche\Gateway of earlier versions when it is yours) and its processes so
   nothing runs from the old install, RESETS the app (every bit of data and cache, so the new build
   starts from scratch: $PSYCHE_HOME (~\.psyche: state, vault, workspace, logs, backups), the desktop's
   %APPDATA%\Psyche (settings, web storage, caches, logs, crash dumps), the Gateway's and helper's
@@ -27,8 +28,13 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-$Task = "\Psyche\Gateway"
 $InstallRoot = Join-Path $env:LOCALAPPDATA "Psyche"
+# The Gateway task is per account (Task Scheduler names are machine-wide): <folder><prefix><SID>,
+# from the definition the app and the CLI use (packages/hostfs/src/gateway-task.ts).
+$TaskSpec = Get-Content (Join-Path $Root "packages\hostfs\src\gateway-task.json") -Raw | ConvertFrom-Json
+$Me = [Security.Principal.WindowsIdentity]::GetCurrent()
+$Task = "$($TaskSpec.folder)$($TaskSpec.prefix)$($Me.User.Value)"
+$LegacyTask = "$($TaskSpec.folder)$($TaskSpec.legacyName)"
 
 function Say([string] $m) { Write-Host "==> $m" }
 function Act([string] $what, [scriptblock] $do) {
@@ -77,10 +83,26 @@ if ($running) {
     }
   }
 }
-$hasTask = ((Quiet schtasks.exe @("/Query", "/TN", $Task)) -eq 0)
-if ($hasTask) {
-  Say "Stopping the Gateway task ($Task)"
-  Act "schtasks /End /TN $Task" { [void] (Quiet schtasks.exe @("/End", "/TN", $Task)) }
+# The shared \Psyche\Gateway of an earlier version counts when it runs as this account (its logon
+# trigger names our SID, or its principal our DOMAIN\user); another account's is left alone.
+function Test-OwnLegacyTask {
+  $saved = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try { $xml = (& schtasks.exe /Query /TN $LegacyTask /XML 2> $null) -join "`n" } finally { $ErrorActionPreference = $saved }
+  if ($LASTEXITCODE -ne 0 -or -not $xml) { return $false }
+  $mine = @($Me.User.Value.ToLowerInvariant(), $Me.Name.ToLowerInvariant())
+  foreach ($m in [regex]::Matches($xml, '<UserId>([^<]*)</UserId>')) {
+    if ($mine -contains $m.Groups[1].Value.Trim().ToLowerInvariant()) { return $true }
+  }
+  return $false
+}
+$tasks = @()
+if ((Quiet schtasks.exe @("/Query", "/TN", $Task)) -eq 0) { $tasks += $Task }
+if (Test-OwnLegacyTask) { $tasks += $LegacyTask }
+$hasTask = $tasks.Count -gt 0
+foreach ($t in $tasks) {
+  Say "Stopping the Gateway task ($t)"
+  Act "schtasks /End /TN $t" { [void] (Quiet schtasks.exe @("/End", "/TN", $t)) }
 }
 foreach ($f in @("gateway-service.pid", "gateway.pid")) {
   $pidFile = Join-Path $PsycheHome "run\$f"
@@ -122,9 +144,9 @@ if (-not $KeepData) {
       Act "remove $p" { Remove-Item -LiteralPath $p -Recurse -Force }
     }
   }
-  if ($hasTask) {
-    Write-Host "    removing the scheduled task $Task"
-    Act "schtasks /Delete /TN $Task /F" { [void] (Quiet schtasks.exe @("/Delete", "/TN", $Task, "/F")) }
+  foreach ($t in $tasks) {
+    Write-Host "    removing the scheduled task $t"
+    Act "schtasks /Delete /TN $t /F" { [void] (Quiet schtasks.exe @("/Delete", "/TN", $t, "/F")) }
   }
   # Credential Manager: the vault's key and the helper's stores (generic credentials whose target
   # starts with com.psyche.).

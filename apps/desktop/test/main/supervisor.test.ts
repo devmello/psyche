@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { exposeToOthers, OWNER_DIR, OWNER_FILE, privacyOf } from "@psyche/hostfs/testing";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   chooseMode,
@@ -303,6 +304,15 @@ describe("desktop vault key file", () => {
       /<key>EnvironmentVariables<\/key>\s*<dict>\s*<key>PSYCHE_VAULT_KEY_FILE<\/key>\s*<string>[^<]+vault\.key<\/string>/,
     );
     expect(plist).toContain("<key>PSYCHE_HOME</key>");
+  });
+
+  it("keeps the key file owner-only even in a home others can read (the key-file slot checks)", () => {
+    const home = mkdtempSync(join(tmpdir(), "psy-vk-"));
+    // Windows: an ACL handed down to everything inside, as a home outside the profile has.
+    exposeToOthers(home);
+    const keyFile = desktopVaultKeyFile(home) as string;
+    expect(privacyOf(keyFile)).toBe(OWNER_FILE);
+    expect(privacyOf(dirname(keyFile))).toBe(OWNER_DIR);
   });
 
   it("never switches a vault that already uses another slot", () => {

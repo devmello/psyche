@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { ensureOwnerOnly } from "@psyche/hostfs";
 
 /**
  * Gateway lifecycle (feature A7, architecture §3.1), the part every platform shares. The window is
@@ -56,10 +57,14 @@ export function chooseMode(
  * The packaged desktop's vault key slot: a 0600 random key file under `$PSYCHE_HOME/secrets/`,
  * like server mode, because an ad-hoc helper has no keychain access group (keychain.* answers
  * missing_entitlement). Created on first use; never when the vault already exists with another
- * slot (switching would lock the owner out). On Windows the file inherits the profile folder's
- * owner-only ACL (POSIX modes do not apply there).
+ * slot (switching would lock the owner out). Windows has no modes: there the folder and the file
+ * get an owner-only ACL unless they already have one (a home under the profile inherits it); the
+ * Gateway's key-file slot refuses a file others can read (@psyche/hostfs `isOwnerOnly`).
  */
-export function desktopVaultKeyFile(psycheHome: string): string | undefined {
+export function desktopVaultKeyFile(
+  psycheHome: string,
+  platform: NodeJS.Platform = process.platform,
+): string | undefined {
   const keyFile = join(psycheHome, "secrets", "vault.key");
   const slotsFile = join(psycheHome, "vault", "slots.json");
   if (existsSync(slotsFile)) {
@@ -72,8 +77,10 @@ export function desktopVaultKeyFile(psycheHome: string): string | undefined {
   }
   if (!existsSync(keyFile)) {
     mkdirSync(dirname(keyFile), { recursive: true, mode: 0o700 });
+    if (platform === "win32") ensureOwnerOnly(dirname(keyFile), platform);
     writeFileSync(keyFile, randomBytes(32), { mode: 0o600, flag: "wx" });
   }
+  if (platform === "win32") ensureOwnerOnly(keyFile, platform);
   return keyFile;
 }
 
@@ -96,7 +103,10 @@ export interface SupervisorOptions {
   healthUrl: string;
   /** dev: path of the `apps/gateway` package. */
   gatewayDir?: string;
-  /** launchd: pass `PSYCHE_VAULT_KEY_FILE` to the Gateway (`desktopVaultKeyFile`). */
+  /**
+   * Pass `PSYCHE_VAULT_KEY_FILE` to the Gateway (`desktopVaultKeyFile`): launchd in the plist,
+   * Task Scheduler through `run\gateway-service.json` (supervisor-windows.ts).
+   */
   vaultKeyFile?: () => string | undefined | Promise<string | undefined>;
   /** Service modes: how long to wait for `/healthz` after starting it (default 60 s). */
   healthTimeoutMs?: number;
