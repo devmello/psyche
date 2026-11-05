@@ -1,11 +1,8 @@
 <script setup lang="ts">
 import { withBase } from "vitepress";
 import { onBeforeUnmount, onMounted, ref } from "vue";
-import ApprovalGate from "./ApprovalGate.vue";
-import CiteLine from "./CiteLine.vue";
 import CloseStack from "./CloseStack.vue";
-import DemoClip from "./DemoClip.vue";
-import MemoryGather from "./MemoryGather.vue";
+import DemoStage from "./DemoStage.vue";
 import SheetStack from "./SheetStack.vue";
 import { type SceneEngine, startScenes } from "./scroll-scenes";
 
@@ -122,170 +119,149 @@ onBeforeUnmount(() => {
     </section>
     </div>
 
-    <!-- Memory, gathered: pinned while the scraps become lines. -->
-    <section class="scene-track mem-track" data-scene="pin" aria-labelledby="memory-title">
-      <div class="scene-sticky">
-        <div class="leaf lit memory">
-          <p class="run-head">workspace/MEMORY.md</p>
-          <div class="split">
-            <div class="copy">
-              <h2 id="memory-title">It remembers the way you would, if you wrote everything down.</h2>
-              <p>
-                People, projects, open loops and what you prefer, gathered from your mail,
-                messages and notes. Each fact keeps a note of where it came from, and anything
-                Psyche would act on waits for you to confirm it.
-              </p>
-            </div>
-            <MemoryGather />
-          </div>
-        </div>
-      </div>
-    </section>
-    <section class="leaf lit memory-real" data-scene="flow" aria-label="The Memory page">
-      <div class="split flip">
-        <DemoClip name="memory" :ratio="1440 / 1120" :phone-ratio="780 / 1280" label="Psyche's Memory page showing a person, their facts with sources, and open loops">
-          <b>Memory → Sam Lee.</b> Facts carry their source: “From Sam Lee's mail, Oct 12.” A loop it
-          found in mail waits for your Confirm.
-        </DemoClip>
-        <div class="copy">
-          <p>
-            The persona and memory files are Markdown you can edit. Change a line and the agent
-            follows it. Facts about people and projects live on the Memory page, each with its
-            source.
-          </p>
-          <a class="more" :href="withBase('/using/memory')"><span class="src">1</span>How memory works <span class="where">using/memory</span></a>
-        </div>
-      </div>
+    <!-- Six things Psyche does, each shown by the app itself. The scroll is the playhead. -->
+    <DemoStage
+      id="brief-title"
+      title="Start the morning with what needs you."
+      where="Home"
+      clip="brief"
+      label="Psyche's Home: what needs you, a catch-up line opened to the message behind it, then the morning brief with numbered sources"
+      :ratio="1408 / 960"
+      :phone-ratio="720 / 1292"
+      :duration="13.54"
+      :beats="[
+        { at: 0, text: 'Approvals and questions that wait on you come first.' },
+        { at: 3.62, text: 'Catching up: what is due, and what moved since you last looked.' },
+        { at: 6.0, text: 'Each line opens the message it came from.' },
+        { at: 9.82, text: 'Then the brief, every line numbered to its source.' },
+      ]"
+      :scrub="pinned"
+      :motion="motion"
+      from="right"
+    >
+      <p>Home reads your mail, messages, calendar and work, and starts with you. The Feed behind the brief is still being finished.</p>
+      <template #foot><a class="more" :href="withBase('/using/feed-ideas-goals')"><span class="src">1</span>Home and the brief <span class="where">using/feed-ideas-goals</span></a></template>
+    </DemoStage>
+
+    <DemoStage
+      id="answer-title"
+      title="Ask, then open the source."
+      where="Search · ⌘K"
+      clip="answer"
+      label="A question typed into Search, answered from memory with source chips; one chip opens the mail it came from"
+      :ratio="1120 / 980"
+      :phone-ratio="648 / 1008"
+      :duration="14.7"
+      :beats="[
+        { at: 0.5, text: 'Ask in your own words, from anywhere.' },
+        { at: 3.7, text: 'Each claim in the answer carries a chip naming its source.' },
+        { at: 6.8, text: 'A chip shows the mail behind it, and the fact in Sam\'s own words.' },
+        { at: 9.5, text: 'Show source opens the message itself, as plain text.' },
+      ]"
+      :scrub="pinned"
+      :motion="motion"
+      from="left"
+    >
+      <p>One box searches threads, mail, messages, files and memory, indexed on this Mac. A claim that cites nothing is dropped.</p>
+      <template #foot><a class="more" :href="withBase('/using/memory')"><span class="src">2</span>How memory and search work <span class="where">using/memory</span></a></template>
+    </DemoStage>
+
+    <!-- Approvals: the lights go down, the lamp comes on. -->
+    <section class="night" data-scene="flow" data-end="0.15" data-exit aria-label="Approvals">
+      <DemoStage
+        id="approve-title"
+        title="Nothing changes until you say so."
+        where="Chat · Dentist booking"
+        clip="approval"
+        label="A dentist booking waiting on two approvals: the card for filling a saved login, Allow once, and then the next card, an email to send"
+        :ratio="1408 / 960"
+        :phone-ratio="720 / 1140"
+        :duration="10.2"
+        :beats="[
+          { at: 0, text: 'Wren is booking the dentist. Two steps wait on you.' },
+          { at: 2.9, text: 'The card names the exact action: this login, this site, and what Wren sees (a placeholder, never the password).' },
+          { at: 5.78, text: 'Allow once. The next step, the email, still waits its turn.' },
+        ]"
+        :scrub="pinned"
+        :motion="motion"
+        from="right"
+        class="lamplit"
+      >
+        <p>Sending, buying, filling a password or running a command stops at a card bound to that exact action. Text from a web page, an email or a file can never approve anything.</p>
+        <template #foot>
+          <p class="note">Purchases and password fills ask for Touch ID. Every write leaves a receipt in a hash-chained audit log.</p>
+          <a class="more" :href="withBase('/security/approvals-and-tiers')"><span class="src">3</span>Approvals and app tiers <span class="where">security/approvals-and-tiers</span></a>
+        </template>
+      </DemoStage>
     </section>
 
-    <!-- A claim getting its sources: the brief, read in by the scroll. -->
-    <section class="scene-track cite-track" data-scene="pin" aria-label="A brief with its sources">
-      <div class="scene-sticky cite-stage">
-        <CiteLine />
-      </div>
-    </section>
+    <DemoStage
+      id="memory-title"
+      title="It learns the people in your life, and checks with you."
+      where="Memory → Review, then Sam Lee"
+      clip="memory"
+      label="Memory's review list: facts found in mail with the words they came from, one confirmed; then Sam Lee's page with facts, sources and open loops"
+      :ratio="1408 / 960"
+      :phone-ratio="720 / 1140"
+      :duration="20.17"
+      :beats="[
+        { at: 0, text: 'Wren proposes what it found in your mail, messages and notes.' },
+        { at: 2.7, text: 'Each fact shows the words it came from.' },
+        { at: 5.2, text: 'Nothing is remembered until you confirm it.' },
+        { at: 9.58, text: 'A person\'s page builds up: role, preferences and open loops, each with its source.' },
+      ]"
+      :scrub="pinned"
+      :motion="motion"
+      from="left"
+    >
+      <p>People, projects and promises, learned the way you would, if you wrote everything down. Anything sensitive or unsure always waits for review.</p>
+      <template #foot><a class="more" :href="withBase('/using/memory')"><span class="src">4</span>Memory <span class="where">using/memory</span></a></template>
+    </DemoStage>
 
-    <!-- Search and Home, as two facing pages. -->
-    <section class="two-up" data-scene="flow" data-end="0.2" aria-label="Search and Home">
-      <article class="leaf lit half" aria-labelledby="search-title">
-                <h2 id="search-title">Ask once. Search the whole Mac.</h2>
-        <p>
-          Threads, messages, tasks, memory, your Library and the Feed, in one box. The index is
-          built and kept on this machine.
-        </p>
-        <DemoClip name="search" :ratio="1440 / 1280" :phone-ratio="660 / 1280" label="The Search palette finding a dentist booking across threads, messages, tasks and the feed">
-          <b>Search ⌘K</b>, typing “dentist”: a thread, your own message, the running task and the
-          morning brief.
-        </DemoClip>
-      </article>
-      <article class="leaf lit half" aria-labelledby="home-title">
-                <h2 id="home-title">Catch up in a minute.</h2>
-        <p>
-          What needs you, what moved since you last looked, and a brief whose lines point to their
-          sources. The Feed behind the brief is still being finished.
-        </p>
-        <DemoClip name="home" :ratio="1440 / 1120" :phone-ratio="780 / 1280" label="Psyche's Home: two items that need you, a catch-up list, and a morning brief with numbered sources">
-          <b>Home.</b> Two things wait on you; the brief cites Calendar, Gmail and acme.com.
-        </DemoClip>
-      </article>
-    </section>
+    <DemoStage
+      id="devices-title"
+      title="Use it from your phone or another computer."
+      where="Settings → Devices &amp; nodes, then the iPhone app"
+      clip="devices"
+      label="Settings on the Mac: an iPad waiting to pair with a code to compare, and the paired iPhone and browser with what each may do. Then the iPhone app: an approval to add a calendar event, allowed, and the Mac has the answer"
+      :ratio="1600 / 806"
+      :phone-ratio="720 / 1292"
+      :duration="19.29"
+      :beats="[
+        { at: 0, text: 'A new device asks to pair, and waits for you on this Mac.' },
+        { at: 2.69, text: 'Check the same code shows on both, and choose what it may do.' },
+        { at: 5.3, text: 'A paired iPhone can read, write and answer approvals.' },
+        { at: 7.62, text: 'A browser on a work laptop can read and write, and nothing more.' },
+        { at: 12.9, text: 'On the iPhone, the same approval. Allow, and your Mac has the answer.' },
+      ]"
+      :scrub="pinned"
+      :motion="motion"
+      from="right"
+    >
+      <p>Your Mac is the Host: data, memory and models stay on it. A phone or another computer is a window onto it, over your own network or your tailnet. The iPhone app is in development, built from source like the Mac app.</p>
+      <template #foot><a class="more" :href="withBase('/guides/remote-gateway')"><span class="src">5</span>Use Psyche from another computer <span class="where">guides/remote-gateway</span></a></template>
+    </DemoStage>
 
-    <!-- Approvals: the lamp comes on; an action is stopped, allowed, and leaves a receipt. -->
-    <section class="night" data-scene="flow" data-end="0.15" data-exit aria-labelledby="approve-title">
-      <div class="scene-track gate-track" data-scene="pin">
-        <div class="scene-sticky">
-          <div class="leaf lit lamplit">
-            <p class="run-head">state/psyche.sqlite</p>
-            <div class="split">
-              <div class="copy">
-                <h2 id="approve-title">Nothing changes until you say so.</h2>
-                <p>
-                  Sending, buying, filling a password or running a command stops at an approval
-                  card that shows the exact action and binds to it. Text from a web page, an email
-                  or a file can never approve anything. Purchases and password fills ask for
-                  Touch ID.
-                </p>
-                <a class="more" :href="withBase('/security/approvals-and-tiers')"><span class="src">2</span>Approvals and app tiers <span class="where">security/approvals-and-tiers</span></a>
-              </div>
-              <ApprovalGate />
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="leaf lit lamplit gate-real" data-scene="flow">
-        <div class="split flip">
-          <DemoClip name="approval" :ratio="1504 / 1320" :phone-ratio="780 / 1080" label="An approval card for filling a saved login, then the next card, an email to send, after Allow">
-            <b>Dentist booking.</b> The card names the exact login, the site it is bound to, and what
-            Wren sees: only the placeholder, never the value.
-          </DemoClip>
-          <ul class="facts">
-            <li>Approve from the app or a paired device; the first answer wins.</li>
-            <li>Passwords and keys stay in an encrypted vault. The model only sees placeholders.</li>
-            <li>A command sandbox with no network unless you allow a domain.</li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <!-- Receipts. -->
-    <section class="leaf lit receipts" data-scene="flow" data-end="0.25" aria-labelledby="receipt-title">
-      <p class="run-head">audit/2026-10.jsonl</p>
-      <div class="split flip">
-        <DemoClip name="chat" :ratio="1440 / 1120" :phone-ratio="780 / 1280" label="A chat where Psyche plans a dentist booking, shows each step it ran, and records the email it sent">
-          <b>Chat.</b> The plan, each step it ran, and what it sent, with the Gmail id and the time.
-        </DemoClip>
-        <div class="copy">
-          <h2 id="receipt-title">Every write leaves a receipt.</h2>
-          <p>
-            When Psyche sends, books or saves something, it records what it did, where, and who
-            allowed it. The audit log is hash-chained, so an edit after the fact shows.
-          </p>
-          <ol class="ledger-lines" aria-label="Example receipts (fictional)">
-            <li style="--i: 0"><time>10:06</time> Sent email to jane.ortiz@example.com <span>Gmail · allowed once · #a41f</span></li>
-            <li style="--i: 1"><time>10:04</time> Held Tue Oct 20, 2:30 pm on acme.com <span>browser · task · #3f9a</span></li>
-            <li style="--i: 2"><time>09:58</time> Read your calendar for Oct 19–23 <span>read · no approval · #c07e</span></li>
-          </ol>
-          <a class="more" :href="withBase('/security/audit-log')"><span class="src">3</span>The audit log <span class="where">security/audit-log</span></a>
-        </div>
-      </div>
-    </section>
-
-    <!-- What stays on the Mac: the rows go in, the line closes, only model calls cross it. -->
-    <section class="leaf lit stays" data-scene="flow" data-end="0.15" aria-labelledby="stays-title">
-      <p class="run-head">~/.psyche</p>
-      <h2 id="stays-title">What stays on your Mac.</h2>
-      <p class="lede">
-        Everything lives under <code>~/.psyche</code>, on hardware you control. No hosted service
-        holds your threads, memory or skills.
-      </p>
-      <div class="mac">
-        <span class="edge top" aria-hidden="true" /><span class="edge right" aria-hidden="true" /><span
-          class="edge bottom"
-          aria-hidden="true"
-        /><span class="edge left" aria-hidden="true" />
-        <p class="mac-label">This Mac · <code>~/.psyche</code></p>
-        <table class="stays-table">
-          <caption class="sr-only">What stays on this Mac</caption>
-          <thead>
-            <tr><th scope="col">What</th><th scope="col">Where</th><th scope="col">How it is kept</th></tr>
-          </thead>
-          <tbody>
-            <tr style="--i: 0"><th scope="row">Memory and persona</th><td><code>workspace/</code></td><td>Plain Markdown, by design</td></tr>
-            <tr style="--i: 1"><th scope="row">Threads, tasks, receipts</th><td><code>state/psyche.sqlite</code></td><td>On your disk; turn on FileVault</td></tr>
-            <tr style="--i: 2"><th scope="row">Passwords and keys</th><td><code>vault/</code></td><td>Encrypted (SQLCipher); filled at the last step</td></tr>
-            <tr style="--i: 3"><th scope="row">Audit log</th><td><code>audit/</code></td><td>Hash-chained, so tampering shows</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <table class="stays-table crosses">
-        <caption>What crosses the line</caption>
-        <tbody>
-          <tr><th scope="row">Model calls</th><td>The Gateway only</td><td>To the provider you choose, or nowhere with Ollama, llama.cpp or LM Studio</td></tr>
-          <tr class="never"><th scope="row">Telemetry</th><td>None</td><td>No analytics, crash reports or phone-home</td></tr>
-        </tbody>
-      </table>
-      <a class="more" :href="withBase('/security/on-device')"><span class="src">4</span>What stays on your machine <span class="where">security/on-device</span></a>
-    </section>
+    <DemoStage
+      id="files-title"
+      title="Its memory is files you can open."
+      where="Wren → Soul → MEMORY.md"
+      clip="files"
+      label="The agent sheet's files, SOUL.md, IDENTITY.md, USER.md, MEMORY.md and AGENTS.md; MEMORY.md opens as plain Markdown"
+      :ratio="1408 / 960"
+      :duration="10.58"
+      :beats="[
+        { at: 0, text: 'Who Wren is, what it knows about you and what it remembers: Markdown files.' },
+        { at: 2.85, text: 'Open MEMORY.md. Plain text, rewritten each night, yours to edit.' },
+        { at: 6.86, text: 'All of it lives under ~/.psyche, on this Mac.' },
+      ]"
+      :scrub="pinned"
+      :motion="motion"
+      from="left"
+    >
+      <p>No hosted service holds your threads, memory or skills. Model calls are the only thing that leaves, to the provider you choose, or nowhere with a local model.</p>
+      <template #foot><a class="more" :href="withBase('/security/on-device')"><span class="src">6</span>What stays on your machine <span class="where">security/on-device</span></a></template>
+    </DemoStage>
 
     <!-- Honest status. -->
     <section class="leaf lit status-page" data-scene="flow" data-end="-0.6" aria-labelledby="status-title">
@@ -588,24 +564,18 @@ onBeforeUnmount(() => {
   background: var(--paper-4);
 }
 .leaf h2,
-.night h2,
 .close h2 {
   font-size: clamp(32px, 3.7vw, 54px);
   line-height: 1.04;
   letter-spacing: -0.022em;
   max-width: 17ch;
 }
-.copy p,
-.half > p,
 .lede {
   margin-top: 20px;
   font-size: 17.5px;
   line-height: 1.6;
   color: var(--paper-11);
   max-width: 36em;
-}
-.copy p + p {
-  margin-top: 14px;
 }
 /* Each section cites the doc page it is drawn from, the way Psyche cites its sources. */
 .more {
@@ -645,38 +615,6 @@ onBeforeUnmount(() => {
 .more:hover .src {
   text-decoration: none;
 }
-.split {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: clamp(28px, 5vw, 88px);
-  align-items: center;
-}
-.split.flip {
-  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-}
-
-/* Two facing pages. */
-.two-up {
-  max-width: 1480px;
-  margin: clamp(40px, 7vw, 112px) auto 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: clamp(16px, 2vw, 28px);
-  align-items: start;
-}
-.two-up .leaf {
-  margin: 0;
-}
-.two-up .half:nth-child(2) {
-  margin-top: clamp(0px, 8vw, 120px);
-}
-.half h2 {
-  font-size: clamp(30px, 3vw, 44px);
-}
-.half > p {
-  margin-bottom: clamp(28px, 3vw, 44px);
-}
-
 /* ---------- Night: one sheet under the lamp ---------- */
 .night {
   margin: clamp(56px, 9vw, 144px) calc(var(--gutter-x) * -1) 0;
@@ -698,10 +636,17 @@ onBeforeUnmount(() => {
   );
   pointer-events: none;
 }
-.night .leaf {
-  margin: 0 auto;
+.night :deep(.stage-track) {
+  margin-top: 0;
 }
-.lamplit {
+.note {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--paper-11);
+  max-width: 36em;
+  margin-bottom: 4px;
+}
+.lamplit :deep(.stage) {
   /* Night-strength shadow, easing back toward a daylight sheet shadow as the band leaves. */
   --lamp-k: calc(1 - var(--x, 0) * 0.78);
   --shadow-lamp:
@@ -709,47 +654,6 @@ onBeforeUnmount(() => {
     0 24px 48px -18px oklch(0 0 0 / calc(0.7 * var(--lamp-k))),
     0 70px 120px -50px oklch(0 0 0 / calc(0.8 * var(--lamp-k)));
   box-shadow: var(--shadow-lamp);
-}
-.facts {
-  list-style: none;
-  padding: 0;
-  margin: 28px 0 0;
-  border-top: 1px solid var(--paper-5);
-  max-width: 36em;
-}
-.facts li {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--paper-5);
-  font-size: 15.5px;
-  line-height: 1.5;
-  color: var(--paper-11);
-}
-
-/* Lamplit paper: in dark mode, and on the night band, sheets stay paper. */
-.night .lit,
-.dark .landing .lit {
-  --sheet: oklch(0.93 0.0035 80);
-  --paper-1: oklch(0.93 0.0035 80);
-  --paper-2: oklch(0.915 0.0035 80);
-  --paper-3: oklch(0.89 0.004 80);
-  --paper-4: oklch(0.87 0.004 80);
-  --paper-5: oklch(0.84 0.0045 80);
-  --paper-6: oklch(0.81 0.0045 80);
-  --paper-7: oklch(0.77 0.005 80);
-  --paper-9: oklch(0.5 0.005 80);
-  --paper-11: oklch(0.43 0.0045 80);
-  --paper-12: oklch(0.22 0.003 80);
-  --ink: oklch(0.4727 0.1241 258.67);
-  --ink-hover: oklch(0.4377 0.1217 258.67);
-  --ink-text: oklch(0.44 0.124 258.67);
-  --ink-soft: oklch(0.89 0.03 250);
-  --ink-line: oklch(0.68 0.08 258.67);
-  /* Amber as it reads on paper, not the night value. */
-  --amber: #ffc53d;
-  --amber-line: #f3d673;
-  --amber-text: #ab6400;
-  --amber-soft: #fefbe9;
-  color: var(--paper-12);
 }
 .dark .landing .book::before {
   background: linear-gradient(
@@ -760,75 +664,6 @@ onBeforeUnmount(() => {
     oklch(0.2 0.01 80 / 0.08) 55%,
     transparent
   );
-}
-
-/* ---------- Receipts ---------- */
-.ledger-lines {
-  list-style: none;
-  padding: 0;
-  margin: 28px 0 0;
-  font-size: 14.5px;
-  border-top: 1px solid var(--paper-5);
-}
-.ledger-lines li {
-  display: grid;
-  grid-template-columns: 4.2em 1fr;
-  column-gap: 8px;
-  padding: 10px 0;
-  border-bottom: 1px dashed var(--paper-6);
-  line-height: 1.45;
-}
-.ledger-lines time {
-  font-family: var(--font-code);
-  font-variant-numeric: tabular-nums;
-  color: var(--paper-9);
-  grid-row: span 2;
-}
-.ledger-lines span {
-  color: var(--paper-9);
-  font-size: 13px;
-}
-
-/* ---------- What stays ---------- */
-.stays-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: clamp(28px, 3.5vw, 48px);
-  font-size: 15.5px;
-}
-.stays-table th,
-.stays-table td {
-  text-align: left;
-  padding: 16px 20px 16px 0;
-  border-bottom: 1px solid var(--paper-5);
-  vertical-align: baseline;
-  line-height: 1.45;
-}
-.stays-table thead th {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--paper-9);
-  border-bottom-color: var(--paper-7);
-  padding-top: 0;
-}
-.stays-table tbody th {
-  font-family: var(--font-display);
-  font-size: 19px;
-  font-weight: 500;
-  width: 30%;
-}
-.stays-table td:nth-child(2) {
-  width: 26%;
-  color: var(--paper-11);
-}
-.stays-table td:last-child {
-  color: var(--paper-11);
-}
-.stays-table code {
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--paper-12);
 }
 
 /* ---------- Status ---------- */
@@ -1003,68 +838,6 @@ onBeforeUnmount(() => {
   --q: calc(1 - (1 - var(--p)) * (1 - var(--p)) * (1 - var(--p)));
 }
 
-/* Pinned tracks: tall on wide screens, the stage stuck under the nav while the sequence plays. */
-.scene-sticky > .leaf {
-  margin-top: 0;
-}
-.scene-track {
-  margin-top: clamp(40px, 7vw, 112px);
-}
-.pin .scene-track {
-  height: var(--track, 250vh);
-}
-.pin .scene-sticky {
-  position: sticky;
-  top: calc(var(--vp-nav-height, 64px) + 20px);
-}
-.pin .mem-track {
-  --track: 260vh;
-}
-.pin .cite-track {
-  --track: 210vh;
-}
-.pin .gate-track {
-  --track: 300vh;
-}
-.pin .gate-track .scene-sticky {
-  top: calc(var(--vp-nav-height, 64px) + 9svh);
-}
-
-/* Sheets are laid down by the scroll: they rise, straighten, and their rule draws. */
-.motion .leaf[data-scene="flow"],
-.motion .two-up .half {
-  transform: translateY(calc((1 - var(--q, 1)) * 64px)) rotate(calc((1 - var(--q, 1)) * -0.7deg));
-}
-.motion [data-scene="flow"] .run-head::after {
-  transform: scaleX(var(--q, 1));
-}
-/* The two facing pages are dealt from either side. */
-.motion .two-up .half:nth-child(1) {
-  transform: translate(calc((1 - var(--q)) * -9%), calc((1 - var(--q)) * 90px))
-    rotate(calc((1 - var(--q)) * -3deg));
-}
-.motion .two-up .half:nth-child(2) {
-  transform: translate(calc((1 - var(--q)) * 9%), calc((1 - var(--q)) * 170px))
-    rotate(calc((1 - var(--q)) * 3deg));
-}
-.motion .two-up .clip {
-  transform: scale(calc(0.94 + var(--q) * 0.06));
-  transform-origin: 50% 100%;
-}
-
-/* The brief, alone on the desk. */
-.cite-track {
-  max-width: 1480px;
-  margin-left: auto;
-  margin-right: auto;
-}
-.cite-stage {
-  min-height: min(70svh, 640px);
-  display: grid;
-  align-content: center;
-  padding: 0 clamp(4px, 4vw, 88px);
-}
-
 /* Night: the lights go down as the band arrives, and the lamp comes on. */
 /* --x (exit) brings the lights back up as the band leaves, so the receipts sheet rises in daylight. */
 .motion .night {
@@ -1082,113 +855,6 @@ onBeforeUnmount(() => {
   transform: scale(calc(0.7 + var(--q) * 0.3));
   transform-origin: 30% 0;
 }
-.gate-real {
-  margin-top: clamp(32px, 5vw, 72px) !important;
-}
-.gate-real .facts {
-  align-self: center;
-}
-
-/* Receipts print in order, and the hash chain joins them as they do. */
-.ledger-lines {
-  position: relative;
-}
-.motion .receipts .ledger-lines li {
-  --k: clamp(0, calc((var(--p) - 0.25 - var(--i) * 0.16) / 0.16), 1);
-  clip-path: inset(0 calc((1 - var(--k)) * 100%) 0 0);
-}
-.ledger-lines::before {
-  content: "";
-  position: absolute;
-  left: 1.9em;
-  top: 2.4em;
-  bottom: 1.2em;
-  width: 1px;
-  background: repeating-linear-gradient(var(--paper-7) 0 4px, transparent 4px 8px);
-  transform-origin: top;
-  transform: scaleY(var(--p));
-}
-
-/* What stays: a line around this Mac draws shut as the rows file in. */
-.mac {
-  position: relative;
-  margin-top: clamp(32px, 4vw, 52px);
-  padding: 44px clamp(16px, 2.4vw, 32px) 12px;
-}
-/* The line around this Mac draws clockwise from the label and closes as the rows are in. */
-.edge {
-  position: absolute;
-  background: var(--paper-12);
-}
-.edge.top,
-.edge.bottom {
-  left: 0;
-  right: 0;
-  height: 1.5px;
-}
-.edge.left,
-.edge.right {
-  top: 0;
-  bottom: 0;
-  width: 1.5px;
-}
-.edge.top {
-  top: 0;
-  transform-origin: left;
-  transform: scaleX(clamp(0, calc(var(--p) / 0.3), 1));
-}
-.edge.right {
-  right: 0;
-  transform-origin: top;
-  transform: scaleY(clamp(0, calc((var(--p) - 0.3) / 0.15), 1));
-}
-.edge.bottom {
-  bottom: 0;
-  transform-origin: right;
-  transform: scaleX(clamp(0, calc((var(--p) - 0.45) / 0.3), 1));
-}
-.edge.left {
-  left: 0;
-  transform-origin: bottom;
-  transform: scaleY(clamp(0, calc((var(--p) - 0.75) / 0.15), 1));
-}
-.mac-label {
-  position: absolute;
-  top: 14px;
-  left: clamp(16px, 2.4vw, 32px);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--paper-12);
-}
-.mac .stays-table {
-  margin-top: 0;
-}
-.motion .mac tbody tr {
-  --k: clamp(0, calc((var(--p) - 0.08 - var(--i) * 0.13) / 0.2), 1);
-  opacity: var(--k);
-  transform: translateX(calc((1 - var(--k)) * 56px));
-}
-.crosses {
-  margin-top: 28px !important;
-}
-.crosses caption {
-  display: block;
-  white-space: nowrap;
-  text-align: left;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--paper-11);
-  padding-bottom: 6px;
-}
-.never th,
-.never td:nth-child(2) {
-  font-weight: 600;
-}
-.motion .crosses tr {
-  --k: clamp(0, calc((var(--p) - 0.7) / 0.25), 1);
-  opacity: calc(0.25 + var(--k) * 0.75);
-}
-
 /* Status: "Works today" is checked off row by row; "Not yet" stays in pencil. */
 .status-page .columns li {
   border-bottom-color: transparent;
@@ -1249,17 +915,8 @@ onBeforeUnmount(() => {
     text-align: left;
     margin-left: 0;
   }
-  .split,
-  .split.flip,
-  .two-up,
   .columns {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .split.flip > .clip {
-    order: 2;
-  }
-  .two-up .half:nth-child(2) {
-    margin-top: 0;
   }
   .index {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1273,26 +930,6 @@ onBeforeUnmount(() => {
   .leaf {
     border-radius: 4px;
   }
-  .stays-table thead {
-    display: none;
-  }
-  .stays-table,
-  .stays-table tbody,
-  .stays-table tr,
-  .stays-table th,
-  .stays-table td {
-    display: block;
-    width: auto !important;
-  }
-  .stays-table tr {
-    padding: 14px 0;
-    border-bottom: 1px solid var(--paper-5);
-  }
-  .stays-table th,
-  .stays-table td {
-    border: none;
-    padding: 2px 0;
-  }
   .index {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1304,6 +941,33 @@ onBeforeUnmount(() => {
 </style>
 
 <style>
+/* Lamplit paper: in dark mode, and on the night band, sheets stay paper. */
+.landing .night .lit,
+.dark .landing .lit {
+  --sheet: oklch(0.93 0.0035 80);
+  --paper-1: oklch(0.93 0.0035 80);
+  --paper-2: oklch(0.915 0.0035 80);
+  --paper-3: oklch(0.89 0.004 80);
+  --paper-4: oklch(0.87 0.004 80);
+  --paper-5: oklch(0.84 0.0045 80);
+  --paper-6: oklch(0.81 0.0045 80);
+  --paper-7: oklch(0.77 0.005 80);
+  --paper-9: oklch(0.5 0.005 80);
+  --paper-11: oklch(0.43 0.0045 80);
+  --paper-12: oklch(0.22 0.003 80);
+  --ink: oklch(0.4727 0.1241 258.67);
+  --ink-hover: oklch(0.4377 0.1217 258.67);
+  --ink-text: oklch(0.44 0.124 258.67);
+  --ink-soft: oklch(0.89 0.03 250);
+  --ink-line: oklch(0.68 0.08 258.67);
+  /* Amber as it reads on paper, not the night value. */
+  --amber: #ffc53d;
+  --amber-line: #f3d673;
+  --amber-text: #ab6400;
+  --amber-soft: #fefbe9;
+  color: var(--paper-12);
+}
+
 /* The nav sits on the desk on the landing page. */
 :root:has(.landing) {
   --vp-nav-bg-color: var(--desk);
