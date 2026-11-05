@@ -20,6 +20,9 @@ import { dailyRest } from "./daily-rest/hi.ts";
 import { nudgesRest } from "./nudges-rest/hi.ts";
 import { galleryRest } from "./gallery-rest/hi.ts";
 import { onboardingRest } from "./onboarding-rest/hi.ts";
+import { capabilitiesRest } from "./capabilities-rest/hi.ts";
+import { memoryReviewRest } from "./memory-review-rest/hi.ts";
+import { personDataRest } from "./person-data-rest/hi.ts";
 
 /** Hindi catalogue (hi). Same ids as `en`; missing ids fall back to English. */
 export const hi: Partial<Catalogue> = {
@@ -52,6 +55,9 @@ export const hi: Partial<Catalogue> = {
   ...nudgesRest,
   ...galleryRest,
   ...onboardingRest,
+  ...capabilitiesRest,
+  ...memoryReviewRest,
+  ...personDataRest,
   "common.cancel": "रद्द करें",
   "common.close": "बंद करें",
   "common.save": "सेव करें",

@@ -20,6 +20,9 @@ import { dailyRest } from "./daily-rest/it.ts";
 import { nudgesRest } from "./nudges-rest/it.ts";
 import { galleryRest } from "./gallery-rest/it.ts";
 import { onboardingRest } from "./onboarding-rest/it.ts";
+import { capabilitiesRest } from "./capabilities-rest/it.ts";
+import { memoryReviewRest } from "./memory-review-rest/it.ts";
+import { personDataRest } from "./person-data-rest/it.ts";
 
 /** Italian catalogue (it). Same ids as `en`; missing ids fall back to English. */
 export const it: Partial<Catalogue> = {
@@ -52,6 +55,9 @@ export const it: Partial<Catalogue> = {
   ...nudgesRest,
   ...galleryRest,
   ...onboardingRest,
+  ...capabilitiesRest,
+  ...memoryReviewRest,
+  ...personDataRest,
   "common.cancel": "Annulla",
   "common.close": "Chiudi",
   "common.save": "Salva",
