@@ -151,85 +151,89 @@ describe("global shortcuts on Windows", () => {
   });
 });
 
-describe("the Windows login item and jump list (Squirrel layout)", () => {
-  const exe = "C:\\Users\\a\\AppData\\Local\\Psyche\\app-0.3.0\\Psyche.exe";
-  const update = "C:\\Users\\a\\AppData\\Local\\Psyche\\Update.exe";
-  const installed = (p: string) => p === update;
+// Windows-only: the Squirrel layout and jump list use C:\\ paths that node:path reads as posix elsewhere.
+describe.skipIf(process.platform !== "win32")(
+  "the Windows login item and jump list (Squirrel layout)",
+  () => {
+    const exe = "C:\\Users\\a\\AppData\\Local\\Psyche\\app-0.3.0\\Psyche.exe";
+    const update = "C:\\Users\\a\\AppData\\Local\\Psyche\\Update.exe";
+    const installed = (p: string) => p === update;
 
-  it("recognizes a Squirrel install by its app-<version> folder and Update.exe", () => {
-    expect(squirrelLayout(exe, installed)).toEqual({ updateExe: update, exeName: "Psyche.exe" });
-    expect(squirrelLayout(exe, () => false)).toBeUndefined();
-    expect(squirrelLayout("C:\\Psyche\\Psyche.exe", () => true)).toBeUndefined();
-  });
-
-  it("starts the stable Update.exe at login, with --background passed through", () => {
-    expect(loginItemSettings(true, "win32", exe, { exists: installed })).toEqual({
-      openAtLogin: true,
-      path: update,
-      args: ["--processStart", "Psyche.exe", "--process-start-args", "--background"],
-      name: "Psyche",
+    it("recognizes a Squirrel install by its app-<version> folder and Update.exe", () => {
+      expect(squirrelLayout(exe, installed)).toEqual({ updateExe: update, exeName: "Psyche.exe" });
+      expect(squirrelLayout(exe, () => false)).toBeUndefined();
+      expect(squirrelLayout("C:\\Psyche\\Psyche.exe", () => true)).toBeUndefined();
     });
-    // A ZIP copy, or an unpackaged run (Electron's binary and the app folder).
-    expect(
-      loginItemSettings(false, "win32", "D:\\e\\electron.exe", {
-        exists: () => false,
-        leadingArgs: ["D:\\repo\\apps\\desktop"],
-      }),
-    ).toEqual({
-      openAtLogin: false,
-      path: "D:\\e\\electron.exe",
-      args: ["D:\\repo\\apps\\desktop", "--background"],
-      name: "Psyche",
-    });
-    expect(loginItemSettings(true, "darwin", "/x")).toEqual({
-      openAtLogin: true,
-      args: ["--background"],
-    });
-    expect(loginItemSettings(true, "linux", "/x")).toBeUndefined();
-  });
 
-  it("sets the login item from the setting on Windows", () => {
-    const set: unknown[] = [];
-    const item = new LoginItem(
-      { setLoginItemSettings: (s) => set.push(s) },
-      { platform: "win32", execPath: exe, exists: installed },
-    );
-    item.onSettingsChanged([{ key: "appearance.openAtLogin", value: true }]);
-    expect(set).toHaveLength(1);
-    expect(set[0]).toMatchObject({ openAtLogin: true, path: update });
-  });
-
-  it("lists New side chat and Ask about my screen, each a second launch with its task", () => {
-    const tasks = jumpListTasks(exe, { exists: installed, askScreen: true });
-    expect(tasks.map((t) => t.title)).toEqual(["New side chat", "Ask about my screen"]);
-    expect(tasks[0]).toMatchObject({
-      program: update,
-      arguments: "--processStart Psyche.exe --process-start-args --psyche-task=new-side-chat",
-      iconPath: exe,
-      iconIndex: 0,
+    it("starts the stable Update.exe at login, with --background passed through", () => {
+      expect(loginItemSettings(true, "win32", exe, { exists: installed })).toEqual({
+        openAtLogin: true,
+        path: update,
+        args: ["--processStart", "Psyche.exe", "--process-start-args", "--background"],
+        name: "Psyche",
+      });
+      // A ZIP copy, or an unpackaged run (Electron's binary and the app folder).
+      expect(
+        loginItemSettings(false, "win32", "D:\\e\\electron.exe", {
+          exists: () => false,
+          leadingArgs: ["D:\\repo\\apps\\desktop"],
+        }),
+      ).toEqual({
+        openAtLogin: false,
+        path: "D:\\e\\electron.exe",
+        args: ["D:\\repo\\apps\\desktop", "--background"],
+        name: "Psyche",
+      });
+      expect(loginItemSettings(true, "darwin", "/x")).toEqual({
+        openAtLogin: true,
+        args: ["--background"],
+      });
+      expect(loginItemSettings(true, "linux", "/x")).toBeUndefined();
     });
-    expect(jumpListTasks(exe, { exists: () => false, askScreen: false })).toEqual([
-      expect.objectContaining({ program: exe, arguments: "--psyche-task=new-side-chat" }),
-    ]);
-    expect(
-      windowsLaunchCommand("D:\\e\\electron.exe", ["--psyche-task=ask-screen"], {
-        exists: () => false,
-        leadingArgs: ["D:\\my repo"],
-      }),
-    ).toEqual({ path: "D:\\e\\electron.exe", args: ["D:\\my repo", "--psyche-task=ask-screen"] });
-    expect(taskFromArgv(["Psyche.exe", "--psyche-task=ask-screen"])).toBe("ask-screen");
-    expect(taskFromArgv(["Psyche.exe", "--psyche-task=rm -rf"])).toBeUndefined();
-  });
 
-  it("says Psyche is still running only the first time the window closes", async () => {
-    const { mkdtempSync } = await import("node:fs");
-    const { tmpdir } = await import("node:os");
-    const { join } = await import("node:path");
-    const marker = join(mkdtempSync(join(tmpdir(), "psy-tray-")), "closed-to-tray");
-    expect(firstCloseToTray(marker)).toBe(true);
-    expect(firstCloseToTray(marker)).toBe(false);
-  });
-});
+    it("sets the login item from the setting on Windows", () => {
+      const set: unknown[] = [];
+      const item = new LoginItem(
+        { setLoginItemSettings: (s) => set.push(s) },
+        { platform: "win32", execPath: exe, exists: installed },
+      );
+      item.onSettingsChanged([{ key: "appearance.openAtLogin", value: true }]);
+      expect(set).toHaveLength(1);
+      expect(set[0]).toMatchObject({ openAtLogin: true, path: update });
+    });
+
+    it("lists New side chat and Ask about my screen, each a second launch with its task", () => {
+      const tasks = jumpListTasks(exe, { exists: installed, askScreen: true });
+      expect(tasks.map((t) => t.title)).toEqual(["New side chat", "Ask about my screen"]);
+      expect(tasks[0]).toMatchObject({
+        program: update,
+        arguments: "--processStart Psyche.exe --process-start-args --psyche-task=new-side-chat",
+        iconPath: exe,
+        iconIndex: 0,
+      });
+      expect(jumpListTasks(exe, { exists: () => false, askScreen: false })).toEqual([
+        expect.objectContaining({ program: exe, arguments: "--psyche-task=new-side-chat" }),
+      ]);
+      expect(
+        windowsLaunchCommand("D:\\e\\electron.exe", ["--psyche-task=ask-screen"], {
+          exists: () => false,
+          leadingArgs: ["D:\\my repo"],
+        }),
+      ).toEqual({ path: "D:\\e\\electron.exe", args: ["D:\\my repo", "--psyche-task=ask-screen"] });
+      expect(taskFromArgv(["Psyche.exe", "--psyche-task=ask-screen"])).toBe("ask-screen");
+      expect(taskFromArgv(["Psyche.exe", "--psyche-task=rm -rf"])).toBeUndefined();
+    });
+
+    it("says Psyche is still running only the first time the window closes", async () => {
+      const { mkdtempSync } = await import("node:fs");
+      const { tmpdir } = await import("node:os");
+      const { join } = await import("node:path");
+      const marker = join(mkdtempSync(join(tmpdir(), "psy-tray-")), "closed-to-tray");
+      expect(firstCloseToTray(marker)).toBe(true);
+      expect(firstCloseToTray(marker)).toBe(false);
+    });
+  },
+);
 
 describe("the Windows notification-area icon", () => {
   const status = { phase: "paired" } as never;
