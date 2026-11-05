@@ -436,9 +436,11 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     // Servers that left the list, or joined it unmarked, by any route (`settings.set` included):
     // a record and files of a shared one go with it; a server of that id that is not one never
     // inherits them.
+    // The files go after the server stops: Windows will not delete a folder a process runs in.
+    const gone = seeded
+      ? [...known].filter(([id, was]) => !next.has(id) && was.bundle !== undefined)
+      : [];
     if (seeded) {
-      for (const [id, was] of known)
-        if (!next.has(id) && was.bundle !== undefined) await bundles.removed(was);
       for (const [id, now] of next)
         if (!known.has(id) && now.bundle === undefined) await bundles.added(now);
     }
@@ -459,6 +461,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
         await remove(id);
       }
     }
+    for (const [, was] of gone) await bundles.removed(was);
     for (const c of wanted) if (c.enabled !== false && !configs.has(c.id)) await add(c);
     // The owner's tool choices: re-register what is offered; the server keeps running.
     for (const [id, reg] of registrations) {
