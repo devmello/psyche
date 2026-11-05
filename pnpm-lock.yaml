@@ -533,6 +533,9 @@ importers:
 
   packages/agent-core:
     dependencies:
+      '@psyche/hostfs':
+        specifier: workspace:*
+        version: link:../hostfs
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -548,6 +551,9 @@ importers:
 
   packages/audit:
     dependencies:
+      '@psyche/hostfs':
+        specifier: workspace:*
+        version: link:../hostfs
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -564,6 +570,9 @@ importers:
 
   packages/backup:
     dependencies:
+      '@psyche/hostfs':
+        specifier: workspace:*
+        version: link:../hostfs
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -573,6 +582,9 @@ importers:
 
   packages/browser:
     dependencies:
+      '@psyche/hostfs':
+        specifier: workspace:*
+        version: link:../hostfs
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -682,6 +694,9 @@ importers:
       '@psyche/assets':
         specifier: workspace:*
         version: link:../assets
+      '@psyche/hostfs':
+        specifier: workspace:*
+        version: link:../hostfs
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -705,11 +720,16 @@ importers:
         specifier: workspace:*
         version: link:../testing
 
+  packages/hostfs: {}
+
   packages/mcp-host:
     dependencies:
       '@modelcontextprotocol/client':
         specifier: 2.4.0
         version: 2.4.0
+      '@psyche/hostfs':
+        specifier: workspace:*
+        version: link:../hostfs
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -738,6 +758,9 @@ importers:
       '@psyche/db':
         specifier: workspace:*
         version: link:../db
+      '@psyche/hostfs':
+        specifier: workspace:*
+        version: link:../hostfs
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -843,6 +866,9 @@ importers:
       '@psyche/audit':
         specifier: workspace:*
         version: link:../audit
+      '@psyche/hostfs':
+        specifier: workspace:*
+        version: link:../hostfs
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -999,6 +1025,9 @@ importers:
 
   packages/skills:
     dependencies:
+      '@psyche/hostfs':
+        specifier: workspace:*
+        version: link:../hostfs
       '@psyche/permissions':
         specifier: workspace:*
         version: link:../permissions
@@ -1186,6 +1215,9 @@ importers:
 
   packages/vault:
     dependencies:
+      '@psyche/hostfs':
+        specifier: workspace:*
+        version: link:../hostfs
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
