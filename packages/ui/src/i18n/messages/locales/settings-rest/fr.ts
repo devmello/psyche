@@ -1056,4 +1056,296 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.people.forgotAll": "Tout sur les personnes et les projets a été oublié.",
   "settings.people.counting": "Vérification de ce qui serait supprimé…",
   "settings.people.previewFailed": "Psyche n’a pas pu compter ce qu’il supprimerait ({reason}).",
+  "settings.people.removeCounts":
+    "Psyche supprime {entities, plural, one {# personne ou projet} other {# personnes et projets}}, {facts, plural, one {# fait} other {# faits}}, {interactions, plural, one {# interaction} other {# interactions}}, {loops, plural, one {# point ouvert} other {# points ouverts}} et {identifiers, plural, one {# adresse} other {# adresses}}.",
+  "settings.specialists.title": "Spécialistes",
+  "settings.specialists.description":
+    "Tâches en arrière-plan avec un rôle nommé, chacune dans son budget, qui livrent un résultat dans votre boîte de réception.",
+  "settings.specialists.all": "Tous les spécialistes",
+  "settings.specialists.concurrent": "Spécialistes simultanés",
+  "settings.specialists.concurrentHint":
+    "Davantage s’exécutent en parallèle ; les autres attendent dans la file.",
+  "settings.specialists.monthlyCap": "Dépenses mensuelles",
+  "settings.specialists.monthlyCapHint":
+    "Les nouvelles tâches attendent du budget une fois la limite atteinte. Vide, la moitié de votre budget mensuel est utilisée{budget, select, none {} other { ({budget})}}.",
+  "settings.specialists.monthlyCapNone": "Aucun plafond",
+  "settings.specialists.showInFeed": "Afficher les résultats dans Feed",
+  "settings.specialists.showInFeedHint":
+    "Votre boîte de réception reçoit de toute façon chaque résultat.",
+  "settings.specialists.roles": "Rôles",
+  "settings.specialists.rolesHint":
+    "Un rôle provient d’une compétence. Un rôle que vous avez installé reste désactivé tant que vous ne l’activez pas.",
+  "settings.specialists.turnOn": "{role} activé",
+  "settings.specialists.summary": "{model} · {budget} · {mode}",
+  "settings.specialists.budgetLine": "{tokens} jetons · {cost} · {minutes} min",
+  "settings.specialists.edit": "Modifier",
+  "settings.specialists.done": "Terminé",
+  "settings.specialists.editLabel": "Modifier {role}",
+  "settings.specialists.model": "Modèle",
+  "settings.specialists.modelDefault": "Par défaut : {class}",
+  "settings.specialists.class.utility": "modèle utilitaire",
+  "settings.specialists.class.primary": "modèle principal",
+  "settings.specialists.class.harness": "harnais de code",
+  "settings.specialists.class.vision": "modèle principal avec vision",
+  "settings.specialists.budget": "Budget par tâche",
+  "settings.specialists.budgetTokens": "Jetons",
+  "settings.specialists.budgetCost": "Coût (USD)",
+  "settings.specialists.budgetMinutes": "Minutes",
+  "settings.specialists.budgetCaps":
+    "Jusqu’à {tokens} jetons · {cost} · {minutes} min. Une tâche peut en demander plus, jamais au-delà.",
+  "settings.specialists.maxMode": "Le maximum qu’il peut faire sans demander",
+  "settings.specialists.mode.plan": "Plan",
+  "settings.specialists.mode.manual": "Manuel",
+  "settings.specialists.mode.balanced": "Équilibré",
+  "settings.specialists.mode.auto": "Auto",
+  "settings.specialists.installed": "Depuis {skill}",
+  "settings.specialists.empty": "Aucune compétence ne définit encore de spécialiste.",
+  "settings.language.description": "Langue du texte et format des dates et des nombres.",
+  "settings.language.languageHint": "Tout ce qui n’est pas encore traduit s’affiche en anglais.",
+  "settings.persona.identityHint": "Nom et slogan.",
+  "settings.persona.avatarHint": "Choisissez une créature ou décrivez une modification.",
+  "settings.persona.whileWorkingHint": "Ce que vous voyez pendant l’exécution d’une tâche.",
+  "settings.daily.group.briefHint": "Un court résumé pour bien démarrer la journée.",
+  "settings.daily.group.wrapupHint": "Un retour sur ce qui a été fait.",
+  "settings.daily.group.deliveryHint": "Comment ils vous parviennent.",
+  "settings.daily.group.automationsHint": "Tâches récurrentes que Psyche exécute pour vous.",
+  "settings.voice.dictationHint": "Parler au lieu de taper.",
+  "settings.usage.byThreadHint": "Où sont passés les jetons et les coûts.",
+  "settings.skills.installedHint": "Compétences que Psyche peut utiliser maintenant.",
+  "settings.about.versionsHint": "Ce qui s’exécute sur ce Mac.",
+  "settings.specialists.allHint": "Activez ou désactivez des rôles et définissez leurs budgets.",
+  "settings.vm.sandboxMacHint": "Où les commandes s’exécutent.",
+  "settings.computerUse.macPermissionsHint": "Ce que macOS a autorisé.",
+  "settings.voice.advancedHint": "Moteur vocal",
+  "settings.files.advancedHint": "Laisser Psyche exécuter des commandes dans les dossiers partagés",
+  "settings.browser.advancedHint": "Signer les requêtes web de Psyche",
+  "settings.skills.advancedHint": "Compétences fournies avec Psyche",
+  "settings.skills.madeByAgent": "Créé par {persona}",
+  "settings.skills.history":
+    "{n, plural, one {# version antérieure} other {# versions antérieures}}",
+  "settings.skills.historyItem":
+    "v{version} · approuvée {approved} · {retiredBy, select, delete {supprimée} other {remplacée}} {retired}",
+  "settings.skills.historyHint":
+    "Conservées à titre de référence. Ces versions ne sont jamais chargées.",
+  "settings.mcp.madeBy": "Créé par Psyche",
+  "settings.mcp.madeByHint":
+    "Psyche a rédigé le code de ce connecteur. Il ne s’exécute que dans le bac à sable, uniquement avec le code que vous avez approuvé, et ses outils demandent avant de modifier quoi que ce soit.",
+  "settings.mcp.code.title": "Code",
+  "settings.mcp.code.view": "Voir le code",
+  "settings.mcp.code.hide": "Masquer le code",
+  "settings.mcp.code.loading": "Chargement du code…",
+  "settings.mcp.code.version": "Version {version} · {runtime} · démarre {entry}",
+  "settings.mcp.code.modified":
+    "Le code sur le disque n’est pas la version que vous avez approuvée ; ce connecteur reste donc arrêté jusqu’à ce que vous approuviez la modification.",
+  "settings.mcp.code.file": "{path} · {bytes} o",
+  "settings.mcp.code.edit": "Modifier {file}",
+  "settings.mcp.code.editing": "Modification de {file}",
+  "settings.mcp.code.save": "Enregistrer pour vérification",
+  "settings.mcp.code.saving": "Enregistrement…",
+  "settings.mcp.code.cancel": "Annuler la modification",
+  "settings.mcp.code.provided": "Fourni par Psyche, identique pour chaque connecteur",
+  "settings.mcp.code.approved": "{name} mis à jour.",
+  "settings.mcp.code.denied":
+    "Modification de {name} non approuvée. Il reste arrêté jusqu’à ce que vous en approuviez une.",
+  "settings.deviceAccess.files.title": "Fichiers sur ce Mac",
+  "settings.deviceAccess.files.hint":
+    "Les dossiers que {persona} peut lire, et modifier là où vous l’autorisez. Vous les partagez dans Autorisations → Accès.",
+  "settings.deviceAccess.files.more": "{count, plural, one {et 1 autre} other {et # autres}}",
+  "settings.deviceAccess.open": "Ouvrir Accès",
+  "settings.deviceAccess.terminal.title": "Terminal",
+  "settings.deviceAccess.terminal.hint":
+    "{persona} peut exécuter des commandes de terminal sur ce Mac lorsque Exécuter des commandes sur ce Mac est activé dans Autorisations → Accès.",
+  "settings.deviceAccess.terminal.where":
+    "Les commandes s’exécutent sur votre Mac, dans les dossiers que vous avez partagés, et ne peuvent écrire que dans un dossier partagé en lecture et écriture.",
+  "settings.deviceAccess.terminal.asks":
+    "Les commandes susceptibles de modifier des fichiers demandent d’abord, sauf si vous choisissez d’autoriser toujours cette commande exacte. Les commandes de base en lecture seule comme ls, cat ou wc s’exécutent sans demander, sauf si vous le désactivez.",
+  "settings.deviceAccess.terminal.sandbox":
+    "Les commandes s’exécutent dans le bac à sable. Une exécution approuvée n’en sort que si vous saisissez UNSANDBOXED sur sa carte.",
+  "settings.deviceAccess.terminal.on": "L’exécution de commandes est activée",
+  "settings.deviceAccess.terminal.off": "L’exécution de commandes est désactivée",
+  "settings.deviceAccess.terminal.folders":
+    "{count, plural, =0 {Aucun dossier partagé pour l’instant : les commandes n’ont nulle part où s’exécuter.} one {1 dossier partagé.} other {# dossiers partagés.}}",
+  "settings.mcp.needs.title": "Ce dont cela a besoin sur votre Mac",
+  "settings.mcp.needs.srt": "Bac à sable (srt)",
+  "settings.mcp.needs.srt.fix": "Tient le serveur à l’écart des données privées de Psyche.",
+  "settings.mcp.needs.node": "Outils Node.js (npm)",
+  "settings.mcp.needs.node.fix":
+    "S’exécute sur le propre Node de Psyche ; nécessite npm sur ce Mac. Installez Node.js depuis nodejs.org, ou exécutez brew install node.",
+  "settings.mcp.needs.uv": "uv (uvx)",
+  "settings.mcp.needs.uv.fix":
+    "Un serveur Python. Installez uv avec brew install uv ou depuis docs.astral.sh/uv.",
+  "settings.mcp.needs.network": "Réseau",
+  "settings.mcp.needs.network.fix": "Accède à l’adresse propre du serveur.",
+  "settings.mcp.needs.networkHosts":
+    "N’accède qu’à {hosts} pour télécharger et exécuter le serveur.",
+  "settings.mcp.needs.missing": "Manquant",
+  "settings.mcp.needs.ready": "Prêt",
+  "settings.mcp.needs.checked": "Vérifié lors de Vérifier le serveur",
+  "settings.mcp.fail.no_srt":
+    "Le bac à sable n’est pas installé. Configurez-le ci-dessous, puis vérifiez à nouveau le serveur.",
+  "settings.mcp.fail.node_missing":
+    "Installez Node.js (nodejs.org, ou brew install node) pour que npm soit présent sur ce Mac, puis vérifiez à nouveau.",
+  "settings.mcp.fail.uv_missing":
+    "Installez uv (brew install uv, ou docs.astral.sh/uv), puis vérifiez à nouveau le serveur.",
+  "settings.mcp.fail.command_not_found":
+    "La commande du serveur n’est pas installée ici. Vérifiez la commande, ou installez l’outil qu’elle nomme.",
+  "settings.mcp.fail.network_blocked":
+    "Le serveur n’a pas pu télécharger ou atteindre ce dont il a besoin. Vérifiez votre connexion et que ses hôtes sont autorisés.",
+  "settings.mcp.fail.timeout":
+    "Cela a pris trop de temps. La première exécution télécharge le paquet ; vérifiez votre connexion et réessayez.",
+  "settings.mcp.fail.exited":
+    "Le serveur s’est arrêté juste après son démarrage. Sa dernière sortie figure ci-dessous.",
+  "settings.mcp.fail.failed": "Consultez la sortie du serveur ci-dessous, puis réessayez.",
+  "settings.mcp.fail.exitCode": "Code de sortie {code}.",
+  "settings.mcp.fail.output": "Sortie du serveur",
+  "settings.connectors.page.description":
+    "Les apps et outils que {persona} peut utiliser. Chacun demande avant d’agir, sauf indication contraire de votre part.",
+  "settings.connectors.page.needsYou": "Vous attend",
+  "settings.connectors.page.connected": "Connecté",
+  "settings.connectors.page.onThisMac": "Sur ce Mac",
+  "settings.connectors.page.addMore": "Ajouter d’autres",
+  "settings.connectors.page.addMore.hint":
+    "Mail, calendrier, notes et outils prêts à l’emploi. Chacun demande avant d’agir.",
+  "settings.connectors.page.addMore.browse": "Tout parcourir",
+  "settings.connectors.page.status.paused": "En pause",
+  "settings.connectors.page.status.notWorking": "Ne fonctionne pas",
+  "settings.connectors.page.status.signInExpired": "Connexion expirée",
+  "settings.connectors.page.status.on": "Activé",
+  "settings.connectors.page.status.off": "Désactivé",
+  "settings.connectors.page.paused": "En pause",
+  "settings.connectors.page.open": "Ouvrir {name}",
+  "settings.connectors.page.manage": "Gérer",
+  "settings.connectors.page.fix.seeWhy": "Voir pourquoi",
+  "settings.connectors.page.row.never": "Pas encore utilisé",
+  "settings.connectors.page.row.lastUsed": "Utilisé {when}",
+  "settings.connectors.page.row.unverified": "Non vérifié",
+  "settings.connectors.page.row.local": "S’exécute sur ce Mac",
+  "settings.connectors.page.row.remote": "Se connecte via le web",
+  "settings.connectors.page.row.files":
+    "{count, plural, =0 {Aucun dossier partagé} one {1 dossier partagé} other {# dossiers partagés}}",
+  "settings.connectors.page.row.terminal.on": "Peut exécuter des commandes",
+  "settings.connectors.page.row.terminal.off": "Les commandes sont désactivées",
+  "settings.connectors.page.detail.label": "Détails de {name}",
+  "settings.connectors.page.detail.about": "À propos",
+  "settings.connectors.page.detail.access": "Accès",
+  "settings.connectors.page.detail.source": "Source",
+  "settings.connectors.page.detail.technical": "Détails techniques",
+  "settings.connectors.page.detail.manage": "Mettre en pause ou supprimer",
+  "settings.connectors.page.detail.type": "Type",
+  "settings.connectors.page.detail.removeHint":
+    "Déconnecter le met en pause et conserve ses réglages. Supprimer l’efface.",
+  "settings.connectors.page.source.builtIn": "Intégré à Psyche",
+  "settings.connectors.page.source.verified": "Éditeur vérifié",
+  "settings.connectors.page.source.unverified": "Pas encore vérifié par quiconque",
+  "settings.connectors.page.attention.signIn":
+    "Votre connexion à {name} a expiré. Reconnectez-vous pour qu’il continue de fonctionner.",
+  "settings.connectors.page.attention.error":
+    "{name} ne fonctionne pas pour le moment. Essayez de vous reconnecter ; si cela échoue encore, supprimez-le puis ajoutez-le à nouveau.",
+  "settings.connectors.page.attention.errorReason": "Message reçu : {reason}",
+  "settings.connectors.page.attention.server":
+    "{name} n’a pas démarré, ses outils ne sont donc pas disponibles.",
+  "settings.connectors.page.attention.serverHint":
+    "Vérifiez sa commande ou son adresse et les secrets ci-dessous, puis désactivez-le et réactivez-le.",
+  "settings.connectors.page.server.local": "Un outil qui s’exécute dans un bac à sable sur ce Mac",
+  "settings.connectors.page.server.remote": "Un outil auquel on accède par une adresse web",
+  "settings.connectors.page.server.network": "Accède au réseau",
+  "settings.connectors.page.server.noNetwork": "Aucun réseau",
+  "settings.connectors.page.advanced": "Avancé",
+  "settings.connectors.page.advanced.hint":
+    "Vos propres serveurs d’outils et une recherche dans le registre public.",
+  "settings.connectors.page.advanced.custom": "Votre propre serveur d’outils",
+  "settings.connectors.page.advanced.customHint":
+    "Exécutez n’importe quel serveur MCP dans le bac à sable, ou connectez-vous à un serveur par adresse web.",
+  "settings.connectors.page.advanced.customAction": "Ajouter un serveur",
+  "settings.connectors.page.advanced.find": "Trouver des serveurs en ligne",
+  "settings.connectors.page.gallery.title": "Ajouter un connecteur",
+  "settings.connectors.page.gallery.intro":
+    "Choisissez quelque chose à essayer. Chacun demande avant d’agir, et vous pouvez le retirer à tout moment.",
+  "settings.connectors.page.gallery.noMatch": "Aucun résultat. Essayez un autre mot.",
+  "settings.connectors.page.gallery.back": "Retour à la galerie",
+  "settings.connectors.page.gallery.community": "Communauté",
+  "settings.nav.memory": "Vérification",
+  "settings.nav.everything": "Sources",
+  "settings.learnMore": "En savoir plus",
+  "settings.learnLess": "Afficher moins",
+  "settings.nav.work": "Travail",
+  "settings.nav.surfaces": "Où la mémoire s’affiche",
+  "settings.key.memory.work": "Travail en mémoire",
+  "settings.key.memory.surfaces": "Où la mémoire s’affiche",
+  "settings.key.memory.work.enabled": "Suivre mon travail",
+  "settings.key.memory.work.trackedLists": "Listes de Rappels suivies comme travail",
+  "settings.key.memory.work.anchorsFromFolders": "Quels dossiers comptent comme travail",
+  "settings.key.memory.work.remind.enabled": "Me rappeler ce qui est à rendre demain",
+  "settings.key.memory.work.remind.dueSoonHours":
+    "Jusqu’où chercher à l’avance ce qui est à rendre",
+  "settings.key.memory.work.remind.dayOf": "Me dire aussi le matin ce qui est à rendre aujourd’hui",
+  "settings.key.memory.surfaces.tiers.work.home": "Travail dans Home",
+  "settings.key.memory.surfaces.tiers.work.brief": "Travail dans le résumé quotidien",
+  "settings.key.memory.surfaces.tiers.work.notification": "Travail dans les notifications",
+  "settings.key.memory.surfaces.tiers.work.channel": "Travail dans le résumé envoyé à un canal",
+  "settings.key.memory.surfaces.tiers.workMail.home": "E-mails de travail dans Home",
+  "settings.key.memory.surfaces.tiers.workMail.brief":
+    "E-mails de travail dans le résumé quotidien",
+  "settings.key.memory.surfaces.tiers.workMail.notification":
+    "E-mails de travail dans les notifications",
+  "settings.key.memory.surfaces.tiers.workMail.channel":
+    "E-mails de travail dans le résumé envoyé à un canal",
+  "settings.key.memory.surfaces.tiers.people.home": "Personnes dans Home",
+  "settings.key.memory.surfaces.tiers.people.brief": "Personnes dans le résumé quotidien",
+  "settings.key.memory.surfaces.tiers.people.notification": "Personnes dans les notifications",
+  "settings.key.memory.surfaces.tiers.people.channel": "Personnes dans le résumé envoyé à un canal",
+  "settings.key.memory.surfaces.birthdays":
+    "Anniversaires et dates anniversaires dans le résumé et dans Home",
+  "settings.key.memory.surfaces.hideSources":
+    "Exclure une source de Home, des résumés et des notifications",
+  "settings.key.memory.surfaces.kinds.project": "Afficher les projets en dehors de Mémoire",
+  "settings.key.memory.surfaces.kinds.course": "Afficher les cours en dehors de Mémoire",
+  "settings.key.memory.surfaces.kinds.assignment": "Afficher les tâches en dehors de Mémoire",
+  "settings.key.memory.surfaces.kinds.event": "Afficher les événements en dehors de Mémoire",
+  "settings.recording.madeBy": "Issu d’un enregistrement",
+  "settings.recording.open": "L’exécuter chaque semaine",
+  "settings.recording.title": "L’exécuter selon un planning",
+  "settings.recording.checking": "Vérification des étapes.",
+  "settings.recording.cannot": "Celui-ci ne peut pas s’exécuter en votre absence :",
+  "settings.recording.reason.sensitive":
+    "L’étape {step} est un champ que vous remplissez vous-même.",
+  "settings.recording.reason.input": "L’étape {step} vous demande une valeur à chaque fois.",
+  "settings.recording.reason.unreadable":
+    "Ses étapes sont illisibles. Enregistrez-le à nouveau pour le planifier.",
+  "settings.recording.reason.browserOnly":
+    "Les exécutions planifiées ne concernent pour l’instant que les enregistrements de navigateur.",
+  "settings.recording.reason.off": "Il est désactivé ou a changé depuis votre approbation.",
+  "settings.recording.reason.notRecording":
+    "Ce n’est pas une compétence issue d’un enregistrement.",
+  "settings.recording.cannotWhy":
+    "Une exécution planifiée n’a personne à qui demander ; elle ne remplit donc jamais de mot de passe et ne demande jamais de valeur. Vous pouvez toujours l’exécuter vous-même depuis la discussion.",
+  "settings.recording.rules":
+    "Vous choisissez quand. Chaque exécution utilise vos approbations habituelles. Si la page a changé ou si une étape exige votre approbation, elle s’arrête à cette étape, se met en pause et vous prévient. Elle ne devine jamais.",
+  "settings.recording.every": "Chaque",
+  "settings.recording.daily": "jour",
+  "settings.recording.weekly": "semaine le",
+  "settings.recording.monthly": "mois le",
+  "settings.recording.dayOfWeek": "Jour de la semaine",
+  "settings.recording.dayOfMonth": "Jour du mois",
+  "settings.recording.at": "à",
+  "settings.recording.confirm": "Planifier",
+  "settings.recording.close": "Annuler",
+  "settings.recording.runs": "Exécutions",
+  "settings.recording.seeScheduled":
+    "mettre en pause, supprimer ou voir l’historique dans Planifié",
+  "settings.teach.storage.title": "Enregistrements conservés",
+  "settings.teach.storage.description":
+    "Quand vous demandez à Psyche de conserver un enregistrement pour pouvoir en créer une autre version, les étapes sont enregistrées sur ce Mac.",
+  "settings.teach.storage.encrypted":
+    "Chiffré. Le fichier est verrouillé par une clé conservée dans le trousseau de ce Mac et ne peut donc pas être lu en dehors de Psyche. Il expire après 90 jours.",
+  "settings.teach.storage.unavailable":
+    "Les enregistrements ne sont pas conservés. Le trousseau de ce Mac n’est pas disponible, et Psyche n’enregistre pas un enregistrement en clair. Vous pouvez toujours enregistrer un enregistrement comme compétence.",
+  "settings.key.capabilities.onlineSearch": "Rechercher dans le registre MCP en ligne",
+  "settings.key.tools.loading": "Quand les outils sont chargés",
+  "settings.widgets.title": "Widgets dans la discussion",
+  "settings.widgets.privacy":
+    "Psyche peut dessiner de petits panneaux dans la discussion : progression, listes, tableaux, graphiques et images. Un panneau peut pointer vers une image sur le web. L’autoriser fait récupérer l’image sur le web par votre Gateway à votre place (sans cookies, sans référent, jamais directement depuis votre appareil), uniquement pour les types d’image courants jusqu’à 512 Ko. Dans un panneau issu d’un contenu non fiable, l’image attend toujours votre clic.",
+  "settings.widgets.remoteImages": "Afficher les images du web dans les widgets",
+  "settings.widgets.remoteImagesHint":
+    "Désactivé par défaut : ces images affichent une courte note et rien n’est récupéré. Une modification exige votre confirmation.",
 };

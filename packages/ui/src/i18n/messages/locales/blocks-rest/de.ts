@@ -180,4 +180,23 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.workflow.declined": "Nicht geplant.",
   "blocks.workflow.failed":
     "Das konnte nicht geplant werden. Prüfe die Zeiten und versuche es erneut.",
+  "blocks.details.skillAction": "Aktion",
+  "blocks.details.skillActionValue":
+    "{action, select, update {Einen von {persona} erstellten Skill ändern} delete {Einen von {persona} erstellten Skill löschen} other {Einen neuen, von {persona} geschriebenen Skill hinzufügen}}",
+  "blocks.details.name": "Name",
+  "blocks.details.skillText": "Anweisungen",
+  "blocks.details.skillTextView": "Gesamten Text anzeigen",
+  "blocks.details.connector.runtime": "Läuft",
+  "blocks.details.connector.runtimeValue":
+    "{persona} hat diesen Connector geschrieben (Version {version})",
+  "blocks.details.connector.command": "Befehl",
+  "blocks.details.connector.network": "Möchte erreichen",
+  "blocks.details.connector.networkNone": "Kein Netzwerk",
+  "blocks.details.connector.tools": "Tools",
+  "blocks.details.connector.files": "Code ({n} Dateien)",
+  "blocks.details.connector.file": "{path} ({bytes} Bytes)",
+  "blocks.details.connector.provided": "von Psyche bereitgestellt",
+  "blocks.details.connector.diff": "Änderungen seit Version {version}",
+  "blocks.details.connector.suggested":
+    "{persona} schlägt diesen Connector aus dem Verzeichnis vor",
 };

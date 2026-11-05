@@ -3,19 +3,37 @@ import { agentRest } from "./agent-rest/fr.ts";
 import { auditRest } from "./audit-rest/fr.ts";
 import { blocksRest } from "./blocks-rest/fr.ts";
 import { canvas } from "./canvas/fr.ts";
+import { capabilitiesRest } from "./capabilities-rest/fr.ts";
 import { charts } from "./charts/fr.ts";
 import { chatRest } from "./chat-rest/fr.ts";
 import { dailyRest } from "./daily-rest/fr.ts";
 import { deckRest } from "./deck-rest/fr.ts";
+import { designRest } from "./design-rest/fr.ts";
+import { everythingRest } from "./everything-rest/fr.ts";
+import { galleryRest } from "./gallery-rest/fr.ts";
+import { homeRest } from "./home-rest/fr.ts";
 import { links } from "./links/fr.ts";
 import { mailMeetings } from "./mail-meetings/fr.ts";
+import { memoryRest } from "./memory-rest/fr.ts";
+import { memoryReviewRest } from "./memoryReview-rest/fr.ts";
+import { memorySurfacesRest } from "./memorySurfaces-rest/fr.ts";
+import { memoryWorkRest } from "./memoryWork-rest/fr.ts";
 import { miscRest } from "./misc-rest/fr.ts";
 import { nudgesRest } from "./nudges-rest/fr.ts";
+import { onboardingRest } from "./onboarding-rest/fr.ts";
 import { overview } from "./overview/fr.ts";
 import { overviewGrowth } from "./overview-growth/fr.ts";
 import { overviewShared } from "./overview-shared/fr.ts";
+import { peopleRest } from "./people-rest/fr.ts";
+import { researchRest } from "./research-rest/fr.ts";
+import { scheduledRest } from "./scheduled-rest/fr.ts";
+import { screensRest } from "./screens-rest/fr.ts";
 import { settingsRest } from "./settings-rest/fr.ts";
 import { shellRest } from "./shell-rest/fr.ts";
+import { specialistsRest } from "./specialists-rest/fr.ts";
+import { webRest } from "./web-rest/fr.ts";
+import { widgetsRest } from "./widgets-rest/fr.ts";
+import { workRest } from "./work-rest/fr.ts";
 import { workflows } from "./workflows/fr.ts";
 
 /** French catalogue (fr). Same ids as `en`; missing ids fall back to English. */
@@ -45,6 +63,24 @@ export const fr: Partial<Catalogue> = {
   ...dailyRest,
   ...nudgesRest,
   ...shellRest,
+  ...galleryRest,
+  ...onboardingRest,
+  ...capabilitiesRest,
+  ...memoryReviewRest,
+  ...peopleRest,
+  ...screensRest,
+  ...everythingRest,
+  ...memoryRest,
+  ...memoryWorkRest,
+  ...memorySurfacesRest,
+  ...workRest,
+  ...specialistsRest,
+  ...webRest,
+  ...designRest,
+  ...homeRest,
+  ...researchRest,
+  ...scheduledRest,
+  ...widgetsRest,
   ...miscRest,
   "common.cancel": "Annuler",
   "common.close": "Fermer",
