@@ -304,6 +304,8 @@ export class Connection implements LiveConnection {
         "Complete connect and connect.verify first",
       );
     }
+    // Security state changed outside the Gateway is undone before this call reads any of it.
+    this.#ctx.securityState?.ensure();
     this.#refreshIdentity(identity);
     const spec = methodSpec(method);
     const scope = spec.scope as DeviceScope | "none";
@@ -493,6 +495,8 @@ export class Connection implements LiveConnection {
     // costs nothing. A refused handshake closes the connection (see `handleRaw`).
     this.#challenge = null;
     this.#phase = "spent";
+    // The device row decides this connect: undo any change made to it outside the Gateway first.
+    ctx.securityState?.ensure();
     const outcome = verifyChallenge(pending, params, this.peer, {
       db: ctx.db,
       handshakeSecret: ctx.handshakeSecret,

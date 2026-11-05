@@ -1,6 +1,7 @@
 import { getDevice, listDevices, type PsycheDb, updateDevice } from "@psyche/db";
 import { type AuditLog, type MethodResult, PsycheError } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
+import { stateSealFor } from "../security/state-seal.ts";
 
 /**
  * First admin device without a terminal (packaged first run). The handshake secret never buys
@@ -36,6 +37,16 @@ export function bootstrapAdminHandlers(deps: {
           conn.peer.origin !== null
         ) {
           throw new PsycheError("forbidden", "only the Psyche desktop on this Mac can do this");
+        }
+        // Untrusted security records: no first admin either (the seal may have been reset to
+        // make "no admin exists" true).
+        stateSealFor(deps.db)?.ensure();
+        if (stateSealFor(deps.db)?.untrusted() != null) {
+          throw new PsycheError(
+            "presence_required",
+            "Psyche's security records failed their check; re-seal them before making an admin",
+            { details: { reason: "state_untrusted" } },
+          );
         }
         const grant = deps.db.sqlite.transaction(() => {
           if (activeAdminCount(deps.db) > 0) {

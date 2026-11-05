@@ -17,6 +17,7 @@ import {
   revokeSetupTokensWithCertPin,
   setSetting,
 } from "@psyche/db";
+import { RESTORE_MARKER } from "@psyche/permissions";
 import {
   type AgentLoop,
   type DeviceScope,
@@ -76,6 +77,8 @@ import {
   runRetention,
 } from "./retention.ts";
 import { RunTraceSink } from "./run-trace/sink.ts";
+import { SecurityRecoveries } from "./security/recoveries.ts";
+import { StateSeal } from "./security/state-seal.ts";
 import { SessionController } from "./session/controller.ts";
 import { ensureSocketDir, writeSocketPointer } from "./socket-path.ts";
 import { INTERNAL_SETTING_PREFIX, readStateVersion, writeStateVersion } from "./state-version.ts";
@@ -119,6 +122,13 @@ export interface GatewayOptions {
    * it was true, it being false later fails them closed (`presence_required`).
    */
   settingsPresence?: () => boolean;
+  /**
+   * The security-state seal (security/state-seal.ts). The composition root opens it before it
+   * reads policy or replays revocations; without one, `startGateway` opens it itself.
+   */
+  securityState?: StateSeal;
+  /** Tests: the local recovery delay (24 h) and how often the seal and the inbox are polled (1 s). */
+  security?: { recoveryDelayMs?: number; pollMs?: number };
   /** After a device is revoked (composition root: end the grants it approved). */
   onDeviceRevoked?: (deviceId: string) => Promise<unknown>;
   /** A device removed itself with devices.revokeSelf (composition root: audit it). */
@@ -225,6 +235,16 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
 
   ensureHome(config.home);
   const db = options.db ?? openDb(config.dbPath, { now: () => now().toISOString() });
+  // Before anything reads or writes security state: verify the seal and undo what changed
+  // outside the Gateway (docs/design/security-state-integrity-2026.md §7.1).
+  const seal =
+    options.securityState ??
+    (await StateSeal.open(db, {
+      home: config.home,
+      now,
+      log,
+      restored: existsSync(join(config.home, RESTORE_MARKER)),
+    }));
   const recovery = recoverAfterRestart(db, log);
   const bus = new EventBus(readStateVersion(db), (v) => writeStateVersion(db, v));
   // The secret is written to disk only after both listeners are up (see below).
@@ -271,6 +291,9 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   });
 
   const broker = options.broker ?? new LockedPermissionBroker();
+  const basePresence = presenceStateFor(db, options.settingsPresence ?? (() => false));
+  // While the security records are untrusted, presence fails closed (nothing that widens works).
+  const presenceState = () => (seal.untrusted() !== null ? "unavailable" : basePresence());
   const ctx = {
     config,
     db,
@@ -286,7 +309,8 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     onSetupTokenUsed: options.onSetupTokenUsed ?? null,
     onSettingChanged: options.onSettingChanged ?? null,
     brokerPublishesReceipts: options.brokerPublishesReceipts ?? false,
-    presenceState: presenceStateFor(db, options.settingsPresence ?? (() => false)),
+    presenceState,
+    securityState: seal,
     threadModels: options.threadModels ?? null,
     deviceDisconnected: new Set<(deviceId: string) => void>(),
     chatRedo: new Set(),
@@ -348,6 +372,56 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
     }),
   });
+
+  // Local `psyched` requests become first-admin approvals or delayed recoveries (§7.2).
+  const recoveries = new SecurityRecoveries({
+    db,
+    seal,
+    now,
+    log,
+    ...(options.security?.recoveryDelayMs === undefined
+      ? {}
+      : { delayMs: options.security.recoveryDelayMs }),
+    presence: { state: basePresence, forget: () => basePresence.forget() },
+    onDeviceChanged: (device) => {
+      bus.bumpStateVersion();
+      bus.publish("device.updated", { device });
+      // A pending device reconnects and comes back paired.
+      for (const conn of [...connections]) {
+        if (conn.pendingDeviceId === device.id) conn.close("pairing approved");
+      }
+    },
+  });
+  Object.assign(ctx, { securityRecoveries: recoveries });
+  const securityChanged = () =>
+    bus.publish("security.state.changed", {
+      status: seal.status().status,
+      openAlerts: seal.alerts.open().length,
+      waitingRecoveries: recoveries.waitingCount(),
+    });
+  const offSecurity = [
+    seal.onChange(securityChanged),
+    // A device that appeared outside Psyche was revoked by the seal: close it like a revocation.
+    seal.onDevicesRevoked((ids) => {
+      for (const conn of [...connections]) {
+        const id = conn.identity?.deviceId ?? conn.pendingDeviceId;
+        if (id !== undefined && id !== null && ids.includes(id)) conn.close("device revoked");
+      }
+    }),
+  ];
+  const pollSecurity = () => {
+    try {
+      seal.ensure();
+      recoveries.processInbox();
+      recoveries.applyDue();
+    } catch (err) {
+      log.log("warn", "security state poll failed", { code: PsycheError.from(err).code });
+    }
+  };
+  pollSecurity();
+  const securityPollMs = options.security?.pollMs ?? 1000;
+  const securityTimer = securityPollMs > 0 ? setInterval(pollSecurity, securityPollMs) : null;
+  securityTimer?.unref();
 
   // Security §3.7: a restart invalidates pending approvals; the broker re-issues them.
   try {
@@ -650,6 +724,8 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       if (stopped) return;
       stopped = true;
       if (retentionTimer) clearInterval(retentionTimer);
+      if (securityTimer) clearInterval(securityTimer);
+      for (const off of offSecurity) off();
       bus.publish("gateway.shutdown", { reason });
       await ctx.sessions.stop();
       for (const conn of connections) conn.close(reason);

@@ -24,6 +24,8 @@ import type { NodeRegistry } from "./nodes/registry.ts";
 import type { PresenceState } from "./presence-gate.ts";
 import type { RateLimiter } from "./rate-limit.ts";
 import type { RunTraceSink } from "./run-trace/sink.ts";
+import type { SecurityRecoveries } from "./security/recoveries.ts";
+import type { StateSeal } from "./security/state-seal.ts";
 import type { SessionController } from "./session/controller.ts";
 
 /**
@@ -222,6 +224,14 @@ export interface GatewayContext {
    * verify, `unavailable` when one could before but none can now (fail closed), else `off`.
    */
   readonly presenceState: () => PresenceState;
+  /**
+   * The security-state seal (security/state-seal.ts): checked before authorizing reads; while it
+   * is untrusted, presence and every widening call fail closed. Absent only in hand-built test
+   * contexts.
+   */
+  readonly securityState?: StateSeal;
+  /** Local `psyched` requests and their delayed recoveries (security/recoveries.ts). */
+  readonly securityRecoveries?: SecurityRecoveries;
   /** Null without a composition root: a thread can then never be created in `auto`. */
   readonly threadModels: ThreadModelPolicy | null;
   /** Called with a device id when its last paired connection closes (parts register here). */

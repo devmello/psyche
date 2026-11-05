@@ -42,6 +42,7 @@ import { SandboxMethods } from "./sandbox.ts";
 import { ScheduledMethods } from "./scheduled.ts";
 import { ScreenMethods } from "./screen.ts";
 import { SearchMethods } from "./search.ts";
+import { SecurityMethods } from "./security.ts";
 import { SettingsMethods } from "./settings.ts";
 import { SkillsMethods } from "./skills.ts";
 import { SpecialistsMethods } from "./specialists.ts";
@@ -100,6 +101,7 @@ export * from "./sandbox.ts";
 export * from "./scheduled.ts";
 export * from "./screen.ts";
 export * from "./search.ts";
+export * from "./security.ts";
 export * from "./settings.ts";
 export * from "./skills.ts";
 export * from "./specialists.ts";
@@ -182,6 +184,7 @@ export const Methods = {
   ...ScreenMethods,
   ...ScheduledMethods,
   ...TerminalMethods,
+  ...SecurityMethods,
 } as const;
 
 export type MethodName = keyof typeof Methods;

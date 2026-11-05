@@ -277,6 +277,15 @@ export const Events = {
     payload: Type.Object({ device: Device }),
     description: "A device was paired, changed scopes or was revoked.",
   }),
+  "security.state.changed": defineEvent({
+    payload: Type.Object({
+      status: StringEnum(["sealed", "untrusted"]),
+      openAlerts: Type.Integer({ minimum: 0 }),
+      waitingRecoveries: Type.Integer({ minimum: 0 }),
+    }),
+    description:
+      "A security alert was raised or acknowledged, a local recovery changed, or the seal's state changed: clients refresh security.state.get.",
+  }),
   "pairing.requested": defineEvent({
     payload: Type.Object({ pairingRequest: PairingRequest }),
     description: "A new pairing request awaits the owner's approval.",

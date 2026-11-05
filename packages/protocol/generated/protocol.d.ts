@@ -3443,10 +3443,10 @@ export interface ScanFinding {
      */
     message:  string;
     rule:     string;
-    severity: Severity;
+    severity: ScanFindingSeverity;
 }
 
-export type Severity = "info" | "warn" | "high";
+export type ScanFindingSeverity = "info" | "warn" | "high";
 
 export type Sandbox = "srt" | "container" | "none";
 
@@ -3748,7 +3748,7 @@ export type ApprovalKindEnum = "skill_install";
 export interface Finding {
     message:  string;
     rule:     string;
-    severity: Severity;
+    severity: ScanFindingSeverity;
 }
 
 export type NeedEnum = "connector";
@@ -9902,6 +9902,111 @@ export interface SearchSourceStatus {
 }
 
 export type SearchSourceState = "off" | "unavailable" | "idle" | "indexing" | "error";
+
+export interface SecurityAlertsAcknowledgeParams {
+    approvalId?: string;
+    id:          string;
+}
+
+export interface SecurityAlertsAcknowledgeResult {
+    alert: SecurityAlert;
+}
+
+export interface SecurityAlert {
+    acknowledgedAt?: null | string;
+    createdAt:       string;
+    details:         Details;
+    id:              string;
+    kind:            SecurityAlertKind;
+    severity:        SecurityAlertSeverity;
+}
+
+export interface Details {
+    admins?:     number;
+    changes?:    SecurityStateChange[];
+    deviceName?: string;
+    devices?:    number;
+    more?:       number;
+    notBefore?:  string;
+    op?:         SecurityRecoveryOp;
+    reason?:     string;
+    recoveryId?: string;
+    restored?:   boolean;
+    scopes?:     string[];
+}
+
+export interface SecurityStateChange {
+    change: SecurityStateChangeChange;
+    /**
+     * The row's label: a device name, a key
+     */
+    name?: string;
+    /**
+     * The sealed table: devices, settings, grants, …
+     */
+    table: string;
+}
+
+export type SecurityStateChangeChange = "added" | "modified" | "removed";
+
+export type SecurityRecoveryOp = "devices.approve" | "devices.grant" | "presence.reset" | "seal.reset";
+
+export type SecurityAlertKind = "state_changed_outside" | "state_untrusted" | "state_first_seal" | "state_resealed" | "local_first_admin" | "recovery_requested" | "recovery_applied" | "recovery_cancelled" | "recovery_failed";
+
+export type SecurityAlertSeverity = "warning" | "info";
+
+export interface SecurityRecoveriesApproveParams {
+    approvalId?: string;
+    id:          string;
+}
+
+export interface SecurityRecoveriesApproveResult {
+    recovery: SecurityRecovery;
+}
+
+export interface SecurityRecovery {
+    decidedAt?:  null | string;
+    deviceId?:   string;
+    deviceName?: string;
+    id:          string;
+    notBefore:   string;
+    op:          SecurityRecoveryOp;
+    outcome?:    null | string;
+    requestedAt: string;
+    scopes?:     string[];
+    status:      SecurityRecoveryStatus;
+}
+
+export type SecurityRecoveryStatus = "waiting" | "applied" | "cancelled" | "failed";
+
+export interface SecurityRecoveriesCancelParams {
+    id: string;
+}
+
+export interface SecurityRecoveriesCancelResult {
+    recovery: SecurityRecovery;
+}
+
+export interface SecurityStateChangedPayload {
+    openAlerts:        number;
+    status:            SecurityStateChangedPayloadStatus;
+    waitingRecoveries: number;
+}
+
+export type SecurityStateChangedPayloadStatus = "sealed" | "untrusted";
+
+export interface SecurityStateStatus {
+    /**
+     * Unacknowledged alerts first, newest first, then recent acknowledged ones
+     */
+    alerts:  SecurityAlert[];
+    reason?: null | string;
+    /**
+     * Waiting recoveries first, then recent ones
+     */
+    recoveries: SecurityRecovery[];
+    status:     SecurityStateChangedPayloadStatus;
+}
 
 export interface SelfConnectorFilesResult {
     entry:    string;

@@ -191,17 +191,17 @@ describe("the challenge names and signs the Gateway's identity", () => {
 });
 
 describe("psyched identity", () => {
-  it("shows the fingerprint and rotates the key only on request", () => {
+  it("shows the fingerprint and rotates the key only on request", async () => {
     const home = tempHome();
     const before = process.env.PSYCHE_HOME;
     process.env.PSYCHE_HOME = home;
     try {
       const shown: string[] = [];
-      expect(runCli(["identity", "show"], (l) => shown.push(l))).toBe(0);
+      expect(await runCli(["identity", "show"], (l) => shown.push(l))).toBe(0);
       const first = loadOrCreateGatewayIdentity(home);
       expect(shown).toEqual([first.fingerprint]);
       const rotated: string[] = [];
-      expect(runCli(["identity", "rotate"], (l) => rotated.push(l))).toBe(0);
+      expect(await runCli(["identity", "rotate"], (l) => rotated.push(l))).toBe(0);
       const second = loadOrCreateGatewayIdentity(home);
       expect(second.publicKey).not.toBe(first.publicKey);
       expect(rotated[0]).toBe(second.fingerprint);
