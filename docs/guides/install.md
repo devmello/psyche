@@ -23,13 +23,15 @@ Pick one setup:
 
 ### 1. Install the desktop app
 
-With Homebrew:
+The usual way is the DMG. Download it from the [GitHub releases page](https://github.com/devmello/psyche/releases): `Psyche-<version>-arm64.dmg` for Apple silicon, `Psyche-<version>-x64.dmg` for Intel. The app needs nothing else on your Mac: no Node, no pnpm, no source checkout. It carries the Gateway (`psyched`, with its own Node runtime), the `psyche` CLI and Psyche Helper.
+
+**With Homebrew (once the tap is live).** The cask is written but the tap (`devmello/homebrew-psyche`) is not published yet, so use the DMG for now. When it is live:
 
 ```bash
 brew install --cask devmello/psyche/psyche
 ```
 
-Or download it from the [GitHub releases page](https://github.com/devmello/psyche/releases): `Psyche-<version>-arm64.dmg` for Apple silicon, `Psyche-<version>-x64.dmg` for Intel. The app needs nothing else on your Mac: no Node, no pnpm, no source checkout. It carries the Gateway (`psyched`, with its own Node runtime), the `psyche` CLI and Psyche Helper.
+The cask is marked `auto_updates`: Psyche updates itself in the background, so `brew upgrade` leaves it alone. See [Uninstall](#uninstall-on-your-mac) for `brew uninstall --zap`.
 
 Each DMG has a checksum file next to it (`Psyche-<version>-arm64.dmg.sha256`), and the release also has `SHA256SUMS` for every file. Download one of them into the same folder and check the DMG before you open it:
 
@@ -144,6 +146,61 @@ To start it again, point `psyche start` at the `psyched` in the app bundle (or s
 ```bash
 psyche start --psyched /Applications/Psyche.app/Contents/Resources/psyched/psyched
 ```
+
+## Uninstall on your Mac
+
+**From the app (recommended).** Open Settings › About › **Uninstall Psyche…**. The sheet lists exactly what will go before you confirm:
+
+- It stops and removes the Gateway LaunchAgent (`com.psyche.gateway`), stops Psyche Helper and turns off "Open at login".
+- It moves the app's files outside the bundle to the Trash: `~/Library/Application Support/Psyche`, caches, logs, preferences, saved state and web storage.
+- It moves `Psyche.app` to the Trash, then quits.
+- **Keep my data** is the default: `~/.psyche` (chats, memory, vault, backups) stays where it is, so installing Psyche again picks up where you left off.
+- **Delete my data** also moves the data folder to the Trash. Because it cannot be undone once the Trash is emptied, it asks you to type `DELETE` and to confirm with Touch ID (or the approval card on this Mac), and the card names the exact folder. Back up first with `psyche backup create` if you want a copy. Psyche refuses a folder that is not clearly its own: it must be inside your home folder (never the home folder, `Documents`, `Desktop`, `Downloads`, `Library` or a volume) and hold Psyche's database or `config.json`. If your data lives somewhere else, move it to the Trash from Finder.
+- **Keychain items stay** unless you tick "Also remove my Keychain items", which removes exactly `com.psyche.vault`, `com.psyche.helper.items`, `com.psyche.helper.identity` and `com.psyche.helper.probe`. Without your data they are useless; you can also remove them in Keychain Access.
+- If the Gateway agent belongs to another copy of Psyche or to the `psyche` CLI, it is left alone and the sheet says so.
+- Before it stops anything, Psyche checks that every item can be moved to the Trash (a read-only folder, another volume, or an app running from a temporary location is refused with the manual step), shows a confirmation dialog, and clears any downloaded update so it cannot reinstall the app. If a step still fails, Psyche stays open, starts the Gateway again, and lists what to finish by hand.
+
+Nothing is deleted outright: everything goes to the Trash, so you can put it back until you empty it. The sheet is only offered by a packaged Psyche that runs its own Gateway agent on this Mac, never from a window connected to another computer or from a development build, and the agent cannot start it.
+
+**With Homebrew.** Once the tap is live:
+
+```bash
+brew uninstall --cask psyche          # stops the agent and removes the app, keeps your data
+brew uninstall --cask --zap psyche    # also moves the app's files outside the bundle to the Trash
+```
+
+Neither command deletes `~/.psyche`: the `psyche` CLI shares it. To delete it too, back it up (`psyche backup create`) and move the folder to the Trash yourself. Both commands also stop a Gateway that the `psyche` CLI installed, because it uses the same `com.psyche.gateway` LaunchAgent label.
+
+**If the app won't launch.** Do the same steps by hand:
+
+```bash
+launchctl bootout "gui/$(id -u)/com.psyche.gateway"
+osascript -e 'tell application "Psyche" to quit'
+pkill -f PsycheHelper.app
+rm -f ~/Library/LaunchAgents/com.psyche.gateway.plist
+```
+
+Then drag `/Applications/Psyche.app` to the Trash. To remove the rest, move these to the Trash too (skip `~/.psyche` to keep your data):
+
+```
+~/Library/Application Support/Psyche
+~/Library/Application Support/com.psyche.helper
+~/Library/Caches/com.psyche.desktop
+~/Library/Caches/com.psyche.helper
+~/Library/Caches/Psyche
+~/Library/HTTPStorages/com.psyche.desktop
+~/Library/Logs/Psyche
+~/Library/Preferences/com.psyche.desktop.plist
+~/Library/Preferences/com.psyche.helper.plist
+~/Library/Saved Application State/com.psyche.desktop.savedState
+~/Library/Saved Application State/com.psyche.helper.savedState
+~/Library/WebKit/com.psyche.desktop
+~/.psyche   (your data: skip it to keep it)
+```
+
+The vault and helper also keep items in your Keychain (`com.psyche.vault`, `com.psyche.helper.*`); without `~/.psyche` they are useless, and you can remove them in Keychain Access. To clear Psyche's privacy grants, run `tccutil reset All com.psyche.desktop` and `tccutil reset All com.psyche.helper`.
+
+**Building from source.** `pnpm app:install` (from a checkout) keeps your data by default. `pnpm app:install --reset` is the explicit wipe: it prints everything it will delete and asks you to type `RESET`. It uses the data folder from the installed LaunchAgent (warning if `PSYCHE_HOME` differs), refuses anything that is not a Psyche folder strictly inside your home folder, and refuses `--yes` unless the folder is the default `~/.psyche`. A path it cannot remove is reported at the end; the rest still goes.
 
 ## On Windows
 

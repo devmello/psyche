@@ -170,6 +170,23 @@ describe("release scripts", () => {
     expect(cask).toContain(`arm:   "${"0".repeat(64)}"`);
     expect(cask).toContain('depends_on macos: ">= :sequoia"');
     expect(cask).toContain('uninstall launchctl: "com.psyche.gateway"');
+    expect(cask).toContain("auto_updates true");
+    for (const path of [
+      "~/Library/LaunchAgents/com.psyche.gateway.plist",
+      "~/Library/Application Support/Psyche",
+      "~/Library/Caches/com.psyche.desktop",
+      "~/Library/Logs/Psyche",
+      "~/Library/Preferences/com.psyche.desktop.plist",
+      "~/Library/Saved Application State/com.psyche.desktop.savedState",
+      "~/Library/Application Support/com.psyche.helper",
+      "~/Library/Caches/com.psyche.desktop.ShipIt",
+      "~/Library/HTTPStorages/com.psyche.desktop.binarycookies",
+    ])
+      expect(cask, path).toContain(`"${path}"`);
+    // The data folder is shared with the CLI: never in zap, explained in the caveats instead.
+    expect(cask).not.toMatch(/^\s+"~\/\.psyche",?$/m);
+    expect(cask).toContain("Neither");
+    expect(cask).toContain("same com.psyche.gateway LaunchAgent label");
     expect(formula).toContain(`releases/download/v1.2.3/psyche-linux-x64`);
     expect(formula).toContain(`sha256 "${"5".repeat(64)}"`);
     expect(`${cask}${formula}`).not.toMatch(/\{\{/);

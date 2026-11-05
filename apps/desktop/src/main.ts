@@ -1,7 +1,8 @@
 import { execFile, spawn } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { mkdir, readFile, realpath } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { homedir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import {
   type ApprovalRequest,
   isMethodName,
@@ -58,8 +59,10 @@ import {
   checkNotifyRoute,
   checkPasskeyOptions,
   checkRoute,
+  checkTeachApp,
   checkTeachId,
   checkTeachKeep,
+  checkUninstall,
   checkViewport,
   IPC,
   REMOTE_ONLY_CHANNELS,
@@ -134,6 +137,9 @@ import {
   createSupervisor,
   desktopVaultKeyFile,
   execRunner,
+  launchAgentPath,
+  launchctl,
+  plistProgram,
   type Supervisor,
 } from "./main/supervisor.ts";
 import { bundledGatewayPaths } from "./main/supervisor-windows.ts";
@@ -141,7 +147,16 @@ import { firstCloseToTray, jumpListTasks, type TaskbarTask, taskFromArgv } from 
 import { threadRoute } from "./main/thread-route.ts";
 import { PsycheTray } from "./main/tray.ts";
 import { PERSONALIZE_KEY, taskbarIsDark, transparencyEffects } from "./main/tray-icon.ts";
-import { startUpdater } from "./main/updater.ts";
+import {
+  DELETE_CONFIRM_WORD,
+  planUninstall,
+  psycheHomeFromPlist,
+  runUninstall,
+  UNINSTALL_MANUAL_STEPS,
+  type UninstallDeps,
+  UninstallError,
+} from "./main/uninstall.ts";
+import { startUpdater, stopUpdater } from "./main/updater.ts";
 import {
   canvasColor,
   chromeViewBackground,
@@ -226,6 +241,9 @@ const thisMacGateway = !remoteGateway && isLocalGatewayOrigin(gatewayTarget.orig
 const lanGateway = remoteGateway && gatewayTarget.lan === true;
 /** The mode the supervisor runs in: a saved remote Gateway starts nothing here. */
 const supervisorMode = remoteGateway ? "remote" : chooseMode(process.env, app.isPackaged);
+/** Uninstall Psyche is for a packaged app that runs its own Gateway LaunchAgent. */
+const canUninstall =
+  app.isPackaged && supervisorMode === "launchd" && process.platform === "darwin";
 
 // A first-paint measurement run (main/perf-probe.ts) changes nothing outside its scratch dirs.
 const perfProbe = perfProbeFile();
@@ -695,6 +713,12 @@ async function withoutOwnWindows<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
+/** `/Applications/Psyche.app` for a packaged macOS build (three levels above the executable), else null. */
+function installedBundlePath(): string | null {
+  if (!app.isPackaged || process.platform !== "darwin") return null;
+  return resolve(dirname(process.execPath), "..", "..");
+}
+
 function requireGateway(): GatewayConnection {
   if (!gateway)
     throw new PsycheError("unavailable", "Gateway connection not ready", { retryable: true });
@@ -981,6 +1005,25 @@ function registerIpc(): void {
       checkTeachId(IPC.teachDeleteKept, rec(IPC.teachDeleteKept, arg).id),
     ),
   );
+  // Teach by showing in a Mac app. Main asks the Gateway (which asks the Mac helper) only when the
+  // owner's renderer sends one of these; `teach.app.*` is not callable through the generic call.
+  handle(IPC.teachAppApps, () => requireGateway().call("teach.app.apps", {}));
+  handle(IPC.teachAppStart, (_e, arg) =>
+    requireGateway().call(
+      "teach.app.start",
+      { bundleId: checkTeachApp(arg) },
+      { idempotencyKey: `teach-app-start:${Date.now()}` },
+    ),
+  );
+  handle(IPC.teachAppStop, () => requireGateway().call("teach.app.stop", {}));
+  handle(IPC.teachAppCancel, () =>
+    requireGateway().call(
+      "teach.app.cancel",
+      {},
+      { idempotencyKey: `teach-app-cancel:${Date.now()}` },
+    ),
+  );
+  handle(IPC.teachAppStatus, () => requireGateway().call("teach.app.status", {}));
   handle(IPC.browserPopOut, (_e, arg) => {
     const r = rec(IPC.browserPopOut, arg);
     return requireBrowser().popOut(
@@ -1170,6 +1213,124 @@ function registerIpc(): void {
     // The data folder is on the Host, not here (design §4.2: "Show in Finder" is Host-only).
     if (remoteGateway) throw new PsycheError("forbidden", "That folder is on the other computer");
     shell.showItemInFolder(home);
+  });
+  // Uninstall Psyche (design updates-and-install §3.5). Only a packaged app that runs its own
+  // LaunchAgent has it; remote windows, dev and external modes are refused, and "Delete my data"
+  // asks the Gateway for fresh presence for exactly the folder it will move.
+  const bundledProgram = join(process.resourcesPath, "psyched", "psyched");
+  const readAgentPlist = (): string | undefined => {
+    try {
+      return existsSync(launchAgentPath()) ? readFileSync(launchAgentPath(), "utf8") : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  const uninstallDeps = (): UninstallDeps => ({
+    userHome: homedir(),
+    psycheHome: process.env.PSYCHE_HOME,
+    agentPsycheHome: (() => {
+      const plist = readAgentPlist();
+      return plist === undefined ? undefined : psycheHomeFromPlist(plist);
+    })(),
+    appBundlePath: installedBundlePath(),
+    helperAppPath: bundledHelperPath() ?? null,
+    uid: process.getuid?.() ?? 0,
+    run: execRunner,
+    trashItem: (p) => shell.trashItem(p),
+    setOpenAtLogin: (v) => loginItem.set(v),
+    agentOwner: () => {
+      const plist = readAgentPlist();
+      if (plist === undefined) return "none";
+      return plistProgram(plist) === bundledProgram ? "ours" : "other";
+    },
+    agentLoaded: async () =>
+      (await execRunner("/bin/launchctl", [...launchctl.print(process.getuid?.() ?? 0)])).code ===
+      0,
+    restartAgent: async () => {
+      await supervisor?.ensureRunning();
+    },
+    clearStagedUpdate: async () => {
+      stopUpdater();
+      const staged = join(app.getPath("temp"), "psyche-update");
+      return existsSync(staged) ? [staged] : [];
+    },
+    authorizeDelete: async (path, approvalId) => {
+      await requireGateway().call("app.uninstall.authorize", {
+        path,
+        ...(approvalId === undefined ? {} : { approvalId }),
+      });
+    },
+    confirm: async (plan) => {
+      const box = await dialog.showMessageBox({
+        type: "warning",
+        buttons: ["Cancel", plan.deleteData ? "Delete data and uninstall" : "Uninstall"],
+        defaultId: 0,
+        cancelId: 0,
+        message: "Uninstall Psyche?",
+        detail: [
+          `${plan.trash.length} item(s) will be moved to the Trash, including Psyche.app.`,
+          plan.deleteData && plan.dataFolder !== undefined
+            ? `Your data folder ${plan.dataFolder} will be moved to the Trash too.`
+            : "Your data folder is kept.",
+          plan.keychain.length > 0
+            ? "The Keychain items Psyche keeps will be removed."
+            : "Keychain items stay; remove them in Keychain Access if you want.",
+        ].join("\n"),
+      });
+      return box.response === 1;
+    },
+    closeWindows: () => {
+      for (const w of BaseWindow.getAllWindows()) w.destroy();
+    },
+    quit: () => {
+      quittingEntirely = true;
+      app.quit();
+    },
+    log: (m) => console.warn(`[uninstall] ${m}`),
+  });
+  const asPsycheError = (err: unknown): unknown =>
+    err instanceof UninstallError ? new PsycheError(err.code, err.message) : err;
+  const uninstallAllowed = (): void => {
+    if (!canUninstall) {
+      throw new PsycheError("forbidden", "This copy of Psyche cannot uninstall itself from here");
+    }
+  };
+  handle(IPC.appUninstallPlan, (_event, arg) => {
+    uninstallAllowed();
+    const req = checkUninstall(IPC.appUninstallPlan, arg);
+    try {
+      const plan = planUninstall(uninstallDeps(), req);
+      return {
+        stops: plan.stops.map(({ kind, label }) => ({ kind, label })),
+        trash: plan.trash.map(({ kind, path, label }) => ({ kind, path, label })),
+        confirmWord: DELETE_CONFIRM_WORD,
+        agent: plan.agent,
+        keychain: plan.keychain,
+        warnings: plan.warnings,
+        blockers: plan.blockers,
+      };
+    } catch (err) {
+      throw asPsycheError(err);
+    }
+  });
+  handle(IPC.appUninstall, async (_event, arg) => {
+    uninstallAllowed();
+    const req = checkUninstall(IPC.appUninstall, arg);
+    try {
+      const res = await runUninstall(uninstallDeps(), req);
+      if (res.failed.length > 0) {
+        throw new PsycheError(
+          "internal",
+          `Some items could not be moved to the Trash, so Psyche stays open: ${res.failed
+            .map((f) => f.path)
+            .join(
+              ", ",
+            )}. ${res.restarted ? "The Gateway was started again. " : ""}${UNINSTALL_MANUAL_STEPS}`,
+        );
+      }
+    } catch (err) {
+      throw asPsycheError(err);
+    }
   });
   handle(IPC.systemAppearanceGet, () => systemAppearance());
   handle(IPC.localeGet, () => ({
@@ -1418,6 +1579,7 @@ void app.whenReady().then(async () => {
     ...(windows32 ? { onMainHidden: sayStillRunningOnce } : {}),
     splash: () => splashWanted,
     ...(remoteGateway ? { remote: { hostName: gatewayTarget.name } } : {}),
+    ...(canUninstall ? { uninstall: true } : {}),
     anySize: wantsAnyWindowSize(app.isPackaged, process.env),
     mainOptions: glassWindowOptions(glass),
     dock: dockPolicy,

@@ -240,6 +240,14 @@ function AboutLive({ app }: { app: AppInfoPort | undefined }): ReactElement {
       {...(app?.revealHome
         ? { onRevealHome: () => void app.revealHome?.().catch(() => undefined) }
         : {})}
+      {...(app?.uninstallPlan && app.uninstall
+        ? {
+            uninstall: {
+              plan: (req) => app.uninstallPlan?.(req) ?? Promise.reject(new Error("unavailable")),
+              uninstall: (req) => app.uninstall?.(req) ?? Promise.reject(new Error("unavailable")),
+            },
+          }
+        : {})}
     />
   );
 }

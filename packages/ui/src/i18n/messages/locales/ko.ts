@@ -14,6 +14,7 @@ import { dailyRest } from "./daily-rest/ko.ts";
 import { deckRest } from "./deck-rest/ko.ts";
 import { designRest } from "./design-rest/ko.ts";
 import { everythingRest } from "./everything-rest/ko.ts";
+import { final202611 } from "./final-2026-11/ko.ts";
 import { galleryRest } from "./gallery-rest/ko.ts";
 import { homeRest } from "./home-rest/ko.ts";
 import { links } from "./links/ko.ts";
@@ -3259,4 +3260,6 @@ export const ko: Partial<Catalogue> = {
   "voice.phrases.screen":
     "이거|이것|저거|그거|여기|화면|화면에|지금 보고 있는|이 페이지|이 오류|이 에러|이 차트|이 창|위에|아래",
   "specialists.card.fromAutomation": "자동화 {name}에서",
+  // signed connector bundles and teach-by-showing in Mac apps
+  ...final202611,
 };

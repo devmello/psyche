@@ -48,6 +48,7 @@ export interface ChromeFromArgv {
   material?: "mica" | "acrylic" | "none";
   splash?: boolean;
   remote?: { hostName: string };
+  uninstall?: boolean;
 }
 
 export function chromeFromArgv(argv: readonly string[]): ChromeFromArgv {
@@ -61,6 +62,8 @@ export function chromeFromArgv(argv: readonly string[]): ChromeFromArgv {
       typeof host === "string" && host.length > 0 && host.length <= 64
         ? { remote: { hostName: host } }
         : {};
+    const uninstall =
+      v?.uninstall === true && remote.remote === undefined ? { uninstall: true } : {};
     const m = v?.material;
     const material: { material?: "mica" | "acrylic" | "none" } =
       m === "mica" || m === "acrylic" || m === "none" ? { material: m } : {};
@@ -74,6 +77,7 @@ export function chromeFromArgv(argv: readonly string[]): ChromeFromArgv {
         ...material,
         ...splash,
         ...remote,
+        ...uninstall,
       };
     }
     return v?.titleBar === "inset"
@@ -84,8 +88,9 @@ export function chromeFromArgv(argv: readonly string[]): ChromeFromArgv {
             : {}),
           ...splash,
           ...remote,
+          ...uninstall,
         }
-      : { titleBar: "native", ...material, ...splash, ...remote };
+      : { titleBar: "native", ...material, ...splash, ...remote, ...uninstall };
   } catch {
     return { titleBar: "native" };
   }
@@ -196,6 +201,12 @@ const bridge = {
     teachStorage: () => invoke(IPC.teachStorage),
     teachOpenKept: (id: string) => invoke(IPC.teachOpenKept, { id }),
     teachDeleteKept: (id: string) => invoke(IPC.teachDeleteKept, { id }),
+    // Teach by showing in a Mac app: the owner picks a granted app and presses Record.
+    teachAppApps: () => invoke(IPC.teachAppApps),
+    teachAppStart: (bundleId: string) => invoke(IPC.teachAppStart, { bundleId }),
+    teachAppStop: () => invoke(IPC.teachAppStop),
+    teachAppCancel: () => invoke(IPC.teachAppCancel),
+    teachAppStatus: () => invoke(IPC.teachAppStatus),
   },
   windows: {
     popOutPane: (route: string, title: string) => invoke(IPC.windowPopOut, { route, title }),
@@ -312,6 +323,15 @@ const bridge = {
   app: {
     info: () => invoke(IPC.appInfo),
     revealHome: () => invoke(IPC.appRevealHome),
+    /** Uninstall Psyche (main refuses it in a remote window). Run resolves the raw envelope. */
+    uninstallPlan: (p: { deleteData: boolean; removeKeychain?: boolean }) =>
+      invoke(IPC.appUninstallPlan, p),
+    uninstall: (p: {
+      deleteData: boolean;
+      removeKeychain?: boolean;
+      confirm?: string;
+      approvalId?: string;
+    }) => ipcRenderer.invoke(IPC.appUninstall, p) as Promise<Envelope>,
   },
   /** macOS Reduce Transparency and Increase Contrast (redesign §3.4, §8). */
   systemAppearance: {

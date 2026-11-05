@@ -107,9 +107,69 @@ describe("recordings are saved only from the Psyche desktop app on this Mac", ()
     }
   });
 
+  it("a Mac-app recording becomes a tainted draft of the same kind, and a security prompt is refused", async () => {
+    const app = { bundleId: "com.apple.mail", name: "Mail" };
+    const r = await c.call<{ draft: SkillDraft }>(
+      "skills.drafts.fromRecording",
+      {
+        title: "Send the weekly note",
+        steps: [
+          { id: "a1", kind: "app_click", app, role: "button", name: "New Message" },
+          {
+            id: "a2",
+            kind: "app_type",
+            app,
+            role: "textbox",
+            name: "Subject",
+            input: { name: "subject" },
+          },
+          {
+            id: "a3",
+            kind: "app_menu",
+            app,
+            role: "menuitem",
+            name: "Export",
+            path: ["File", "Export"],
+          },
+        ],
+      },
+      true,
+    );
+    expect(r.draft).toMatchObject({
+      origin: "recording",
+      recordedIn: "mac_app",
+      status: "open",
+      tainted: true,
+      recordedOn: sk.deviceId,
+    });
+    expect(r.draft.text).toContain("computer.check_target");
+    const err = await rejection(
+      c.call(
+        "skills.drafts.fromRecording",
+        {
+          title: "x",
+          steps: [
+            {
+              id: "a1",
+              kind: "app_click",
+              app: { bundleId: "com.apple.SecurityAgent", name: "SecurityAgent" },
+              role: "button",
+              name: "Allow",
+            },
+          ],
+        },
+        true,
+      ),
+    );
+    expect(err.code).toBe("invalid_params");
+    expect(err.message).toContain("never recorded");
+  });
+
   it("accepting runs the replay check; this Gateway has no browser tools, so it refuses", async () => {
     const open = await c.call<{ drafts: SkillDraft[] }>("skills.drafts.list", { status: "open" });
-    const draft = open.drafts.find((d) => d.origin === "recording") as SkillDraft;
+    const draft = open.drafts.find(
+      (d) => d.origin === "recording" && d.recordedIn === "browser",
+    ) as SkillDraft;
     const err = await rejection(c.call("skills.drafts.accept", { draftId: draft.id }, true));
     expect(err.code).toBe("policy_denied");
     expect(err.message).toContain("tools no longer available");

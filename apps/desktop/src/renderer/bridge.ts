@@ -4,6 +4,7 @@ import { hostTerminalPort } from "@psyche/web/host-terminal-port";
 import {
   type BrowserHostState,
   type BrowserNav,
+  type BrowserPort,
   type BundledHelperIdentity,
   browserStorage,
   type DiscoveredGatewayView,
@@ -22,8 +23,11 @@ import {
   type SystemAppearance,
   type SystemDictationStatus,
   type SystemLocale,
+  type TeachAppChoiceView,
+  type TeachAppStatusView,
   type TeachCapture,
   type WindowChrome,
+  type UninstallPlanView,
 } from "@psyche/web/platform";
 import type { PsycheBridge } from "../preload.ts";
 
@@ -203,6 +207,16 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       teachStorage: () => b.browser.teachStorage() as Promise<{ encrypted: boolean }>,
       teachOpenKept: (id) => b.browser.teachOpenKept(id) as Promise<KeptRecordingView>,
       teachDeleteKept: async (id) => void (await b.browser.teachDeleteKept(id)),
+      teachAppApps: () => b.browser.teachAppApps() as Promise<{ apps: TeachAppChoiceView[] }>,
+      teachAppStart: (bundleId) =>
+        b.browser.teachAppStart(bundleId) as Promise<{
+          sessionId: string;
+          app: { bundleId: string; name: string };
+        }>,
+      teachAppStop: () =>
+        b.browser.teachAppStop() as ReturnType<NonNullable<BrowserPort["teachAppStop"]>>,
+      teachAppCancel: () => b.browser.teachAppCancel() as Promise<{ cancelled: boolean }>,
+      teachAppStatus: () => b.browser.teachAppStatus() as Promise<TeachAppStatusView>,
     },
     // The terminal pane is a session on the Host over this Gateway connection (R4): on This Mac
     // the Host is this Mac. Main starts nothing from what a Gateway answers.
@@ -268,6 +282,18 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
     app: {
       info: () => b.app.info() as Promise<HostAppInfo>,
       revealHome: async () => void (await b.app.revealHome()),
+      ...(b.chrome.uninstall === true
+        ? {
+            uninstallPlan: (req: { deleteData: boolean; removeKeychain?: boolean }) =>
+              b.app.uninstallPlan(req) as Promise<UninstallPlanView>,
+            uninstall: async (req: {
+              deleteData: boolean;
+              removeKeychain?: boolean;
+              confirm?: string;
+              approvalId?: string;
+            }) => void (await unwrapCall(b.app.uninstall(req))),
+          }
+        : {}),
     },
     systemAppearance: {
       get: () => b.systemAppearance.get() as Promise<SystemAppearance>,

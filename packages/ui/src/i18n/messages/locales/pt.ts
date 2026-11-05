@@ -5,6 +5,7 @@ import { canvas } from "./canvas/pt.ts";
 import { charts } from "./charts/pt.ts";
 import { chatA } from "./chat-a/pt.ts";
 import { dailyA } from "./daily-a/pt.ts";
+import { final202611 } from "./final-2026-11/pt.ts";
 import { galleryA } from "./gallery-a/pt.ts";
 import { homeA } from "./home-a/pt.ts";
 import { links } from "./links/pt.ts";
@@ -3250,4 +3251,6 @@ export const pt: Partial<Catalogue> = {
   "voice.phrases.screen":
     "isso|esse|essa|este|esta|aqui|na tela|na minha tela|o que estou vendo|o que é isso|essa página|esse erro|esse gráfico|essa janela|acima",
   "specialists.card.fromAutomation": "Da sua automação {name}",
+  // signed connector bundles and teach-by-showing in Mac apps
+  ...final202611,
 };

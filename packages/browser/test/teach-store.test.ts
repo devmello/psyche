@@ -86,6 +86,60 @@ describe("kept recordings (design doc §5)", () => {
     expect(JSON.parse(file).rec.steps[3]).not.toHaveProperty("value");
   });
 
+  it("keeps a Mac-app recording the same way, with its app, path and fallback, and refuses a security prompt", async () => {
+    const app = { bundleId: "com.apple.mail", name: "Mail" };
+    const appSteps: BrowserTeachStep[] = [
+      {
+        id: "a1",
+        kind: "app_click",
+        app,
+        role: "button",
+        name: "New Message",
+        path: ["Inbox", "New Message"],
+        fallback: "identifier:newMessage",
+      },
+      {
+        id: "a2",
+        kind: "app_type",
+        app,
+        role: "textbox",
+        name: "Subject",
+        value: "Weekly",
+        keepValue: true,
+      },
+      { id: "a3", kind: "app_type", app, role: "textbox", name: "Body", value: "private" },
+      {
+        id: "a4",
+        kind: "app_type",
+        app,
+        role: "textbox",
+        name: "Password",
+        sensitive: true,
+        value: "hunter2",
+      },
+    ];
+    await store.keep("teach_appabcdef123", "Weekly note", appSteps);
+    const opened = await store.get("teach_appabcdef123");
+    expect(opened?.steps[0]).toMatchObject({
+      kind: "app_click",
+      app,
+      path: ["Inbox", "New Message"],
+    });
+    const file = await readFile(join(store.dir, "teach_appabcdef123.json"), "utf8");
+    for (const gone of ["private", "hunter2"]) expect(file).not.toContain(gone);
+    expect(file).toContain("Weekly");
+    await expect(
+      store.keep("teach_appabcdef456", "x", [
+        {
+          id: "a1",
+          kind: "app_click",
+          app: { bundleId: "com.apple.SecurityAgent", name: "x" },
+          name: "Allow",
+        },
+      ]),
+    ).rejects.toThrow("never recorded");
+  });
+
   it("lives in state/, outside the Library, and the signing key is not beside it", async () => {
     expect(store.dir).toContain(join("state", "teach"));
     expect(store.dir).not.toContain("library");
@@ -270,7 +324,9 @@ describe("the agent cannot start, stop or read a recording", () => {
     const names = Object.keys(Methods);
     // The only methods that mention teaching or recording: the agent's own task recordings
     // (screencast frames of what the agent did, I10) and the one that turns the owner's
-    // reviewed steps into a skill draft. None starts a demonstration or returns one.
+    // reviewed steps into a skill draft. None starts a browser demonstration or returns one.
+    // `teach.app.*` (a Mac app, phase 2) is the desktop shell's: the Gateway refuses any other
+    // caller (apps/gateway/test/teach-app.test.ts), and it needs the owner-approved admin scope.
     const related = names.filter((n) => /teach|recording/i.test(n)).sort();
     expect(related).toEqual([
       "browser.recordings.delete",
@@ -282,10 +338,18 @@ describe("the agent cannot start, stop or read a recording", () => {
       // Of a skill that is already made: whether it can run on a schedule, and the schedule.
       "skills.recording.schedule",
       "skills.recording.unattended",
+      "teach.app.apps",
+      "teach.app.cancel",
+      "teach.app.start",
+      "teach.app.status",
+      "teach.app.stop",
     ]);
     expect(Methods["skills.recording.schedule"].scope).toBe("operator.admin");
     expect(Methods["skills.recording.unattended"].scope).toBe("operator.read");
     expect(Methods["skills.drafts.fromRecording"].scope).toBe("operator.admin");
+    for (const n of related.filter((x) => x.startsWith("teach.app.")))
+      expect(Methods[n as keyof typeof Methods].scope, n).toBe("operator.admin");
+    expect(Methods["teach.app.start"].sideEffecting).toBe(true);
   });
 });
 
@@ -322,6 +386,51 @@ describe("kept recordings are encrypted at rest (design doc §5)", () => {
     expect(back?.steps.find((s) => s.name === "From")?.value).toBe("2026-11-01");
     expect((await make().list()).map((r) => r.id)).toEqual([ID_A]);
     await expectPrivate(join(store.dir, `${ID_A}.json`), 0o600);
+  });
+
+  it("encrypts a kept Mac-app recording the same way, app steps and kept value included", async () => {
+    const app = { bundleId: "com.apple.mail", name: "Mail" };
+    const store = make();
+    await store.keep(ID_A, "Weekly note", [
+      {
+        id: "a1",
+        kind: "app_click",
+        app,
+        role: "button",
+        name: "New Message",
+        path: ["Inbox", "New Message"],
+        fallback: "identifier:newMessage",
+      },
+      {
+        id: "a2",
+        kind: "app_type",
+        app,
+        role: "textbox",
+        name: "Subject",
+        value: "ZebraKeptValue",
+        keepValue: true,
+      },
+    ]);
+    const raw = await readFile(join(store.dir, `${ID_A}.json`), "utf8");
+    for (const word of [
+      "Weekly note",
+      "com.apple.mail",
+      "New Message",
+      "newMessage",
+      "ZebraKeptValue",
+      "Subject",
+    ])
+      expect(raw).not.toContain(word);
+    expect(JSON.parse(raw)).toMatchObject({ v: 2, alg: "aes-256-gcm" });
+    const back = await make().get(ID_A);
+    expect(back?.steps[0]).toMatchObject({
+      kind: "app_click",
+      app,
+      path: ["Inbox", "New Message"],
+    });
+    expect(back?.steps[1]?.value).toBe("ZebraKeptValue");
+    // Without the key it cannot be opened.
+    expect(await make(Buffer.alloc(32, 9)).get(ID_A)).toBeUndefined();
   });
 
   it("uses a new nonce for every write", async () => {

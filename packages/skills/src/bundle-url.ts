@@ -13,6 +13,8 @@ export interface BundleFetchOptions {
   resolveHost?: (host: string) => Promise<string[]>;
   /** Milliseconds for a bundle download (default 30 s). */
   fetchTimeoutMs?: number;
+  /** Largest download in bytes (default: the bundle cap; a revocation notice asks for far less). */
+  maxBytes?: number;
 }
 
 const REDIRECTS = new Set([301, 302, 303, 307, 308]);
@@ -241,6 +243,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
  */
 export async function fetchBundleText(url: string, opts: BundleFetchOptions = {}): Promise<string> {
   const doFetch = opts.fetchImpl ?? pinnedFetch;
+  const cap = Math.min(opts.maxBytes ?? MAX_BUNDLE_BYTES, MAX_BUNDLE_BYTES);
   const resolve = opts.resolveHost ?? defaultResolve;
   let current = checkBundleUrl(url);
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
@@ -283,12 +286,9 @@ export async function fetchBundleText(url: string, opts: BundleFetchOptions = {}
       await res.body?.cancel().catch(() => undefined);
       throw new PsycheError("unavailable", GENERIC);
     }
-    if (Number(res.headers.get("content-length") ?? "0") > MAX_BUNDLE_BYTES) {
+    if (Number(res.headers.get("content-length") ?? "0") > cap) {
       await res.body?.cancel().catch(() => undefined);
-      throw new PsycheError(
-        "invalid_params",
-        `the bundle is larger than ${MAX_BUNDLE_BYTES} bytes`,
-      );
+      throw new PsycheError("invalid_params", `the file is larger than ${cap} bytes`);
     }
     if (res.body === null) throw new PsycheError("unavailable", GENERIC);
     const reader = res.body.getReader();
@@ -299,12 +299,9 @@ export async function fetchBundleText(url: string, opts: BundleFetchOptions = {}
         const { done, value } = await reader.read();
         if (done) break;
         total += value.byteLength;
-        if (total > MAX_BUNDLE_BYTES) {
+        if (total > cap) {
           await reader.cancel().catch(() => undefined);
-          throw new PsycheError(
-            "invalid_params",
-            `the bundle is larger than ${MAX_BUNDLE_BYTES} bytes`,
-          );
+          throw new PsycheError("invalid_params", `the file is larger than ${cap} bytes`);
         }
         chunks.push(value);
       }

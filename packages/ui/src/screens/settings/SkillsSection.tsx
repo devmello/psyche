@@ -28,6 +28,7 @@ import { activeI18n, t } from "../../i18n/core.ts";
 import { usePersona } from "../../slots.tsx";
 import { useLessons } from "../../teaching/hooks.ts";
 import { LessonMark } from "../../teaching/LessonMark.tsx";
+import { AuthorKeysPanel } from "./AuthorKeysPanel.tsx";
 import { AvailableSkills } from "./CapabilityAvailable.tsx";
 import { RecordingSchedule } from "./RecordingSchedule.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
@@ -141,6 +142,7 @@ function SignerBlock({
   const name = show(signer.name ?? "", 64);
   const warn =
     signer.status === "changed" ||
+    signer.retired === true ||
     signer.signerChanged ||
     signer.impersonates === true ||
     signer.nameChanged === true;
@@ -153,6 +155,10 @@ function SignerBlock({
     text = t("settings.skills.signer.impersonates", { name });
   } else if (signer.nameChanged === true) {
     text = t("settings.skills.signer.nameChanged", { name });
+  } else if (signer.status === "own" && signer.retired === true) {
+    text = t("settings.skills.signer.ownRetired");
+  } else if (signer.retired === true && signer.status !== "revoked") {
+    text = t("settings.skills.signer.retired", { name });
   } else if (signer.status === "changed") {
     text = t(updating ? "settings.skills.signer.changedUpdate" : "settings.skills.signer.changed", {
       name,
@@ -525,6 +531,8 @@ export interface SkillsPanelProps extends LoadProps {
   onExport?: (skill: SkillDetails, authorName?: string) => void;
   /** Whether the owner already has an author key (otherwise the first export asks for a name). */
   hasAuthorKey?: boolean;
+  /** The author key panel (replace the key, notices, authors you have met), under Advanced. */
+  authorKeys?: ReactNode;
   /** Trust, un-trust or revoke the author who signed a skill. */
   onAuthor?: (keyId: string, state: "seen" | "trusted" | "revoked") => void;
   /** Agent-proposed drafts (T3), shown above the installed skills. */
@@ -760,6 +768,7 @@ export function SkillsPanel({
   onImportFile,
   onExport,
   hasAuthorKey = true,
+  authorKeys,
   onAuthor,
   suggestions,
   lessons = [],
@@ -974,6 +983,7 @@ export function SkillsPanel({
         </Group>
         {onToggle ? <AvailableSkills skills={skills} onEnable={(s) => onToggle(s, true)} /> : null}
         <Advanced description={t("settings.skills.advancedHint")}>
+          {authorKeys ?? null}
           <Group title={t("settings.skills.trust.bundled")}>
             {bundled.length === 0 ? (
               <EmptyNotice text={t("settings.skills.noBundled")} />
@@ -1238,6 +1248,7 @@ export function SkillsSection({
         )
       }
       hasAuthorKey={authorsQ.data?.own !== undefined}
+      authorKeys={<AuthorKeysPanel />}
       onExport={(s, authorName) => {
         setActionError(null);
         setNotice(null);

@@ -61,6 +61,12 @@ export const IPC = {
   teachStorage: "psyche:teach:storage",
   teachOpenKept: "psyche:teach:open-kept",
   teachDeleteKept: "psyche:teach:delete-kept",
+  // Teach by showing in a Mac app (phase 2): pick a granted app, Record, Stop, Cancel, status.
+  teachAppApps: "psyche:teach:app-apps",
+  teachAppStart: "psyche:teach:app-start",
+  teachAppStop: "psyche:teach:app-stop",
+  teachAppCancel: "psyche:teach:app-cancel",
+  teachAppStatus: "psyche:teach:app-status",
   // Windows, notifications, native commands.
   windowPopOut: "psyche:window:pop-out",
   /** Raises a pane's pop-out window; resolves false when it is gone. */
@@ -107,6 +113,9 @@ export const IPC = {
   // Settings → About: versions, platform and the data folder (#610).
   appInfo: "psyche:app:info",
   appRevealHome: "psyche:app:reveal-home",
+  // Settings → About → Uninstall Psyche: what would go, then do it. Main only; never a remote window.
+  appUninstallPlan: "psyche:app:uninstall-plan",
+  appUninstall: "psyche:app:uninstall",
   // Native dialogs.
   dialogPickFolder: "psyche:dialog:pick-folder",
   // Dictation HUD only (main → HUD state and capture commands, HUD → main audio).
@@ -188,7 +197,16 @@ export function checkTeachKeep(v: unknown): {
   const steps = r.steps;
   if (!Array.isArray(steps) || steps.length === 0 || steps.length > 200)
     throw new IpcPayloadError(IPC.teachKeep, "steps must be 1 to 200 steps");
-  const kinds = ["navigate", "click", "type", "select", "press"];
+  const kinds = [
+    "navigate",
+    "click",
+    "type",
+    "select",
+    "press",
+    "app_click",
+    "app_type",
+    "app_menu",
+  ];
   for (const x of steps) {
     if (!isRecord(x) || typeof x.id !== "string" || !kinds.includes(String(x.kind)))
       throw new IpcPayloadError(IPC.teachKeep, "not a list of recorded steps");
@@ -198,6 +216,16 @@ export function checkTeachKeep(v: unknown): {
     title: str(IPC.teachKeep, r.title, "title", 120),
     steps: steps as BrowserTeachStep[],
   };
+}
+
+const BUNDLE_ID = /^[A-Za-z0-9-]+(\.[A-Za-z0-9_-]+)+$/;
+
+/** The app to record in: a bundle id, nothing else (the Gateway checks the grant list). */
+export function checkTeachApp(v: unknown): string {
+  const r = rec(IPC.teachAppStart, v);
+  const id = str(IPC.teachAppStart, r.bundleId, "bundleId", 200);
+  if (!BUNDLE_ID.test(id)) throw new IpcPayloadError(IPC.teachAppStart, "not an app bundle id");
+  return id;
 }
 
 /** Text the renderer may put on the clipboard: a non-empty string up to 64 KiB. */
@@ -282,6 +310,8 @@ export function checkCallable(method: unknown, isMethodName: (m: unknown) => boo
     method === "connect.verify" ||
     method.startsWith("node.") ||
     method.startsWith("dictation.") ||
+    // Recording in a Mac app starts from main's own channels (`teachApp*`), on the owner's click.
+    method.startsWith("teach.app.") ||
     // Where a source opens (a Message-ID, a host path) is resolved for main only (`sourceOpen`).
     method === "search.openSource" ||
     // The first-admin bootstrap runs from main only (approved design, condition 2).
@@ -393,6 +423,11 @@ export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
   IPC.teachStorage,
   IPC.teachOpenKept,
   IPC.teachDeleteKept,
+  IPC.teachAppApps,
+  IPC.teachAppStart,
+  IPC.teachAppStop,
+  IPC.teachAppCancel,
+  IPC.teachAppStatus,
   IPC.dialogPickFolder,
   IPC.permissionsRequest,
   IPC.helperLaunch,
@@ -408,4 +443,30 @@ export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
   IPC.dictationRecheck,
   IPC.dictationCheckHotkey,
   IPC.sourceOpen,
+  IPC.appUninstallPlan,
+  IPC.appUninstall,
 ]);
+
+/** The uninstall sheet's request: whether to delete the data, the typed word, a presence card. */
+export function checkUninstall(
+  channel: string,
+  v: unknown,
+): { deleteData: boolean; removeKeychain?: boolean; confirm?: string; approvalId?: string } {
+  const r = rec(channel, v);
+  if (typeof r.deleteData !== "boolean")
+    throw new IpcPayloadError(channel, "deleteData must be a boolean");
+  const out: {
+    deleteData: boolean;
+    removeKeychain?: boolean;
+    confirm?: string;
+    approvalId?: string;
+  } = { deleteData: r.deleteData };
+  if (r.removeKeychain !== undefined) {
+    if (typeof r.removeKeychain !== "boolean")
+      throw new IpcPayloadError(channel, "removeKeychain must be a boolean");
+    out.removeKeychain = r.removeKeychain;
+  }
+  if (r.confirm !== undefined) out.confirm = str(channel, r.confirm, "confirm", 32);
+  if (r.approvalId !== undefined) out.approvalId = str(channel, r.approvalId, "approvalId", 128);
+  return out;
+}

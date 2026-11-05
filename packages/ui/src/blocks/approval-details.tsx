@@ -339,6 +339,35 @@ export function ApprovalDetails({
   persona?: string;
 }): ReactElement {
   const d = approval.details as Details;
+  // A tool server's command, or a shared connector about to be signed: every argument on its own,
+  // quoted when it holds spaces, nothing cut off.
+  if (
+    Array.isArray(d.argv) &&
+    (d.kind === "mcp_server" || d.kind === "connector_export") &&
+    d.madeBy !== "psyche"
+  ) {
+    const argv = (d.argv as unknown[]).map(String);
+    return (
+      <dl>
+        <Row label={t("blocks.details.command")}>
+          <ol
+            className="inline-flex flex-wrap gap-1"
+            aria-label={t("blocks.details.argumentsList", {
+              args: argv.map((a) => JSON.stringify(a)).join(", "),
+            })}
+          >
+            {argv.map((a, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: argv order is the binding
+              <li key={i}>
+                <Code>{/[\s"'\\]/.test(a) || a === "" ? JSON.stringify(a) : a}</Code>
+              </li>
+            ))}
+          </ol>
+        </Row>
+        <Rest details={d} shown={["argv", "command"]} />
+      </dl>
+    );
+  }
   switch (approval.kind) {
     case "skill_install": {
       // Psyche's own connector: every file, the command, the network and the diff.

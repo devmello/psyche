@@ -17,8 +17,23 @@ extension FixtureBackend {
         demoTask = Task { await self.runDemo(taskID: taskID, stepInterval: stepInterval) }
     }
 
-    private func runDemo(taskID: String, stepInterval: Duration) async {
-        var askedForApproval = false
+    /// Debug checks of answering with the app closed: a freshly launched process starts the script already parked
+    /// on its approval (step 6, the approval waiting), so the approval a Live Activity offers still exists when the
+    /// system launches the app to answer it.
+    public func startRunningDemoParkedOnApproval(taskID: String, stepInterval: Duration = .seconds(4)) {
+        guard demoTask == nil, let index = homeState.snapshot.running.firstIndex(where: { $0.id == taskID }) else { return }
+        homeState.snapshot.running[index].step = 6
+        homeState.snapshot.running[index].detail = Self.demoDetails[6] ?? homeState.snapshot.running[index].detail
+        if !homeState.snapshot.needsYou.contains(where: { $0.id == Self.demoApprovalID }) {
+            homeState.snapshot.needsYou.insert(FixtureData.demoApproval, at: 0)
+        }
+        publish(.changed(.activity))
+        publish(.changed(.home))
+        demoTask = Task { await self.runDemo(taskID: taskID, stepInterval: stepInterval, parked: true) }
+    }
+
+    private func runDemo(taskID: String, stepInterval: Duration, parked: Bool = false) async {
+        var askedForApproval = parked
         while !Task.isCancelled {
             try? await Task.sleep(for: askedForApproval ? .seconds(1) : stepInterval)
             guard let index = homeState.snapshot.running.firstIndex(where: { $0.id == taskID }) else { return }

@@ -361,6 +361,44 @@ describe("scheduling a recording is refused when nobody could answer", () => {
     expect(await cu.scheduler.list()).toEqual([]);
   });
 
+  it("a skill made by the real Mac-app recorder can neither be scheduled nor run on a schedule", async () => {
+    const app = { bundleId: "com.apple.mail", name: "Mail" };
+    const appText = textOf([
+      { id: "a1", kind: "app_click", app, role: "button", name: "New Message" },
+      {
+        id: "a2",
+        kind: "app_menu",
+        app,
+        role: "menuitem",
+        name: "Export",
+        path: ["File", "Export"],
+      },
+    ]);
+    // The marker and the computer-use tools come from the recorder, not from a hand edit.
+    expect(appText).toContain("recordedIn: mac_app");
+    expect(appText).toContain("computer.check_target");
+    const t = setup();
+    t.state.text = appText;
+    const err = (await t.schedule().catch((e) => e)) as PsycheError;
+    expect(err.message).toBe("Scheduled runs are for browser recordings for now.");
+    expect(await t.scheduler.list()).toEqual([]);
+    const asked = (await t.handlers["skills.recording.unattended"]?.run(
+      desktop as never,
+      { name: "weekly-export" } as never,
+    )) as { eligible: boolean; reasons: { code: string }[] };
+    expect(asked).toMatchObject({ eligible: false, reasons: [{ code: "browser_only" }] });
+
+    // And the run-time re-check: scheduled while it was a browser recording, then re-recorded.
+    const later = setup();
+    const { automation } = await later.schedule();
+    later.state.text = appText;
+    await later.run(automation.id);
+    await later.scheduler.idle();
+    expect(later.prompts).toEqual([]);
+    const { runs } = await later.scheduled["scheduled.runs"]({});
+    expect(runs[0]?.reason).toMatch(/browser recordings for now/);
+  });
+
   it("does not start a scheduled recording that became a Mac app recording", async () => {
     const t = setup();
     const { automation } = await t.schedule();

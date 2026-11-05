@@ -244,6 +244,30 @@ const SnapshotParams = Type.Object(
   { additionalProperties: false },
 );
 
+/** Replay of a recorded Mac-app step (teach by showing, phase 2): the target as it was recorded. */
+const CheckTargetParams = Type.Object(
+  {
+    app: BundleId,
+    role: Type.Optional(
+      Type.String({
+        maxLength: 64,
+        description: "Role as recorded: button, textbox, menuitem, ...",
+      }),
+    ),
+    name: Type.Optional(Type.String({ maxLength: 200, description: "Name as recorded" })),
+    identifier: Type.Optional(
+      Type.String({ maxLength: 200, description: "Accessibility identifier as recorded" }),
+    ),
+    menuPath: Type.Optional(
+      Type.Array(Type.String({ maxLength: 120 }), {
+        maxItems: 8,
+        description: "A menu choice: titles from the menu bar down, e.g. File, Export",
+      }),
+    ),
+  },
+  { additionalProperties: false },
+);
+
 const ActParams = Type.Object(
   {
     app: BundleId,
@@ -1119,6 +1143,70 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
             ...(typeof r.tier === "string" ? { tier: r.tier } : {}),
             ...(typeof r.hint === "string" ? { hint: r.hint } : {}),
             text: clip(text, SNAPSHOT_CHARS),
+          },
+        };
+      },
+    }),
+    def({
+      name: "computer.check_target",
+      description:
+        "Read-only check before a replayed step of a recorded Mac-app skill: is the recorded target (role and name, identifier, or menu path) in the app's window right now? Needs a role (generic means any). Answers found, missing, ambiguous (also when the window was too big to read in full) or wrong_app. Anything but found carries stop: true: stop and ask the owner; never pick a similar element. When found, take computer.snapshot and act on the same ref.",
+      schema: CheckTargetParams,
+      sideEffect: "read",
+      targetKind: "app",
+      describe: (p) => ({
+        kind: "computer_action",
+        target: appTarget(p.app),
+        bindingFields: { app: p.app, tierRequired: "read", action: "check_target" },
+        grantKey: `${p.app}|read`,
+        summary: `Check the recorded step in ${p.app}`,
+      }),
+      async run(p, callId, signal) {
+        // A role is required (`generic` means any), unless it is a menu choice.
+        if ((p.menuPath === undefined || p.menuPath.length === 0) && (p.role ?? "") === "")
+          throw new PsycheError("invalid_params", "computer.check_target needs a role");
+        const { res } = await invoke(
+          callId,
+          {
+            tool: "computer.check_target",
+            capability: "computer.check_target",
+            params: {
+              app: p.app,
+              ...(p.role === undefined ? {} : { role: p.role }),
+              ...(p.name === undefined ? {} : { name: p.name }),
+              ...(p.identifier === undefined ? {} : { identifier: p.identifier }),
+              ...(p.menuPath === undefined ? {} : { menuPath: p.menuPath }),
+            },
+            session: true,
+            approval: { app: p.app, action: "check_target", tierRequired: "read" },
+          },
+          signal,
+        );
+        const r = (res.result ?? {}) as Record<string, unknown>;
+        const status =
+          r.status === "found" || r.status === "ambiguous" || r.status === "wrong_app"
+            ? r.status
+            : "missing";
+        const str = (v: unknown, max: number) =>
+          typeof v === "string" ? sanitizeSnapshot(v).slice(0, max) : undefined;
+        return {
+          output: {
+            app: p.app,
+            status,
+            stop: status !== "found",
+            ...(status === "found" && typeof r.ref === "string" && /^e[0-9]{1,7}$/.test(r.ref)
+              ? { ref: r.ref, role: str(r.role, 64), label: str(r.label, 200) }
+              : {}),
+            ...(Array.isArray(r.candidates)
+              ? {
+                  candidates: r.candidates
+                    .filter((c): c is string => typeof c === "string" && /^e[0-9]{1,7}$/.test(c))
+                    .slice(0, 5),
+                }
+              : {}),
+            ...(status === "found"
+              ? { next: "Take computer.snapshot and act on this ref; copy expect from it." }
+              : { hint: "Stop and ask the owner. Do not pick a similar element." }),
           },
         };
       },

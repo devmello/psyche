@@ -10,6 +10,7 @@ import { dailyRest } from "./daily-rest/fr.ts";
 import { deckRest } from "./deck-rest/fr.ts";
 import { designRest } from "./design-rest/fr.ts";
 import { everythingRest } from "./everything-rest/fr.ts";
+import { final202611 } from "./final-2026-11/fr.ts";
 import { galleryRest } from "./gallery-rest/fr.ts";
 import { homeRest } from "./home-rest/fr.ts";
 import { links } from "./links/fr.ts";
@@ -3306,4 +3307,6 @@ export const fr: Partial<Catalogue> = {
   "voice.phrases.screen":
     "ça|ceci|cela|ce|cette|ici|là|sur mon écran|je regarde quoi|cette page|cette erreur|ce graphique|cette fenêtre|en haut|en bas",
   "specialists.card.fromAutomation": "De votre automatisation {name}",
+  // signed connector bundles and teach-by-showing in Mac apps
+  ...final202611,
 };

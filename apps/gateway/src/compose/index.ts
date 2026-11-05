@@ -233,6 +233,7 @@ import {
 } from "./speech.ts";
 import { createSrtResolver, type SrtResolver } from "./srt.ts";
 import { taskUpdateHandlers } from "./task-controls.ts";
+import { composeTeachApp } from "./teach-app.ts";
 import {
   type ComposedTeaching,
   composeTeaching,
@@ -244,6 +245,7 @@ import { createThreadClear } from "./thread-clear.ts";
 import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
+import { uninstallHandlers } from "./uninstall.ts";
 import { usageSummaryHandlers } from "./usage-summary.ts";
 import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
@@ -569,7 +571,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     adapters: [createDeviceSurface({ send: (id, toast) => deviceNotes.send(id, toast) })],
   });
   // The old "Files on this Mac" connector is File access now: move its folder into the grants.
-  migrateFilesConnector(db, config.home);
+  await migrateFilesConnector(db, config.home, folderAccessEnv(config.home));
   // One chat per automation: runs that each opened a chat of their own are filed under it.
   groupAutomationRunThreads(db);
   const storedPolicy = validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger);
@@ -1034,6 +1036,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     skills.part,
     composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
     composeDictation(),
+    // Teach by showing in a Mac app (J8 phase 2): the desktop shell only (compose/teach-app.ts).
+    composeTeachApp(),
     composeDeviceNotifications(deviceNotes),
     // A terminal on the Host (remote-gateway design §4.2, R4): admin + presence, per device.
     hostTerminalPart(gwOptions.hostTerminal),
@@ -1749,6 +1753,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   parts.push(
     composeConversion({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
   );
+  // app.uninstall.authorize: the presence gate in front of the uninstall sheet's "Delete my data".
+  parts.push({ handlers: uninstallHandlers(services) });
   const handlers: Record<string, HandlerDef> = {
     ...mountPermissions(db, createPermissionHandlers(rawBroker, audit), tokens),
     ...mountParamsOnly(createMemoryHandlers(memory, { teaching: teaching.service.store }) as never),

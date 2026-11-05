@@ -100,6 +100,21 @@ async function updatesAllowed(): Promise<boolean> {
   return false;
 }
 
+let stopped = false;
+const servers: { close(): unknown }[] = [];
+
+/**
+ * Uninstall: no more checks, the loopback feed closed and the listeners dropped, so Squirrel
+ * (ShipIt) cannot be handed or reinstall an update after the app is in the Trash. The staged
+ * download itself is the `psyche-update` temp dir and `~/Library/Caches/com.psyche.desktop.ShipIt`,
+ * which the uninstall moves to the Trash.
+ */
+export function stopUpdater(): void {
+  stopped = true;
+  for (const s of servers.splice(0)) void s.close();
+  autoUpdater.removeAllListeners();
+}
+
 export async function startUpdater(opts: UpdaterOptions = {}): Promise<UpdaterState> {
   const state = await runUpdater(opts);
   if (opts.stateFile) {
@@ -126,7 +141,7 @@ type RunResult = { state: UpdaterState } & Partial<
 
 async function runUpdater(opts: UpdaterOptions): Promise<RunResult> {
   const log = opts.log ?? stderrLog;
-  if (!(await updatesAllowed())) return { state: "disabled" };
+  if (stopped || !(await updatesAllowed())) return { state: "disabled" };
   const platform = process.platform === "win32" ? "win32" : "darwin";
   const feed = opts.feedUrl ?? process.env.PSYCHE_UPDATE_FEED;
   const result = await checkForVerifiedUpdate({
@@ -153,6 +168,7 @@ async function runUpdater(opts: UpdaterOptions): Promise<RunResult> {
       log(`refused update (${result.code}): ${result.reason}`);
       return { state: "refused", code: result.code, reason: result.reason };
     case "ready":
+      if (stopped) return { state: "disabled" };
       if (platform === "win32") return applyWindows(result, log);
       return applyMac(result, log);
   }
@@ -166,6 +182,7 @@ function readyMessage(r: Ready): string {
 
 async function applyMac(result: Ready, log: (m: string) => void): Promise<RunResult> {
   const served = await serveVerifiedUpdate(result.file, result.release);
+  servers.push(served);
   autoUpdater.on("error", (error) => {
     log(error.message);
     void served.close();

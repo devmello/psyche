@@ -11,6 +11,7 @@ import { CapabilitiesMethods } from "./capabilities.ts";
 import { ChannelsMethods } from "./channels.ts";
 import { ChatMethods } from "./chat.ts";
 import { ConnectMethods } from "./connect.ts";
+import { ConnectorBundleMethods } from "./connector-bundles.ts";
 import { ConnectorsMethods } from "./connectors.ts";
 import { DailyMethods } from "./daily.ts";
 import { createValidator, type MethodSpec, type Validator } from "./define.ts";
@@ -45,8 +46,10 @@ import { SettingsMethods } from "./settings.ts";
 import { SkillsMethods } from "./skills.ts";
 import { SpecialistsMethods } from "./specialists.ts";
 import { TasksMethods } from "./tasks.ts";
+import { TeachAppMethods } from "./teach.ts";
 import { TerminalMethods } from "./terminal.ts";
 import { ThreadsMethods } from "./threads.ts";
+import { UninstallMethods } from "./uninstall.ts";
 import { UsageMethods } from "./usage.ts";
 import { VaultMethods } from "./vault.ts";
 import { ViewMethods } from "./view.ts";
@@ -66,6 +69,7 @@ export * from "./capabilities.ts";
 export * from "./channels.ts";
 export * from "./chat.ts";
 export * from "./connect.ts";
+export * from "./connector-bundles.ts";
 export * from "./connectors.ts";
 export * from "./daily.ts";
 export * from "./define.ts";
@@ -100,6 +104,7 @@ export * from "./settings.ts";
 export * from "./skills.ts";
 export * from "./specialists.ts";
 export * from "./tasks.ts";
+export * from "./teach.ts";
 export * from "./terminal.ts";
 export * from "./threads.ts";
 export * from "./vault.ts";
@@ -157,8 +162,11 @@ export const Methods = {
   ...VmMethods,
   ...RunsMethods,
   ...DictationMethods,
+  ...TeachAppMethods,
   ...AttentionMethods,
   ...SkillsMethods,
+  ...ConnectorBundleMethods,
+  ...UninstallMethods,
   ...PluginsMethods,
   ...BackupMethods,
   ...LogsMethods,

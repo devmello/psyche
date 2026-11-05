@@ -60,15 +60,15 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 - Scheduled, and turning a task into an automation ([#1030](https://github.com/devmello/psyche/pull/1030), [#1002](https://github.com/devmello/psyche/pull/1002)).
 - Teach mode is already named in the feature spec as **J8** (priority P2): "record a user demonstration (screens + AX events) into a reusable skill draft". This entry is that item, spelled out.
 
-**Status.** Phase 1 (browser only) is built: Record and Stop on the built-in browser, a review screen, a skill draft through the usual approval card, and "Run it once now". The design, the privacy rules and the answers to the open questions below are in [docs/design/teach-by-showing-2026.md](../design/teach-by-showing-2026.md).
+**Status.** Phases 1 and 2 are built. Phase 1 (browser): Record and Stop on the built-in browser, a review screen, a skill draft through the usual approval card, and "Run it once now". Phase 2 (Mac apps): "Record in an app" watches one app the owner already allowed for computer use through its accessibility events, with the same review screen and save path, a menu-bar indicator with Stop, and a replay that checks each target with `computer.check_target` and stops when it is not there. The design, the privacy rules and the answers to the open questions below are in [docs/design/teach-by-showing-2026.md](../design/teach-by-showing-2026.md) (Mac apps: §13).
 
 **Also built.** "Run it every week" for a skill made from a recording, from the skill's page through Scheduled (owner only; steps that are sensitive or ask for a value each time are refused; a changed page or a step that needs an approval stops the run, notifies the owner and pauses the schedule; see §8 of the design). Kept recordings are encrypted at rest with a keychain-sealed key and are not kept when there is no keychain (§5).
 
-**What is left.** The accessibility recorder for Mac apps (phase 2; the Mac helper has one, not yet joined to the review screen), and asking which values were examples across recordings. Scheduled runs that ask the owner for a value, instead of refusing the skill, are not built.
+**What is left.** Recording keyboard shortcuts and drags in apps, apps with poor accessibility trees, and asking which values were examples across recordings. Scheduled runs that ask the owner for a value, instead of refusing the skill, are not built.
 
 **Rough phases.**
 1. **Browser only.** Record clicks, typing and navigation in the built-in browser. Turn them into a draft skill that uses the browser tools. Show the steps; the owner edits and approves. Run it once with the owner watching.
-2. **Mac apps.** Record accessibility events (J1/J2) in apps the owner has already granted. Same review screen.
+2. **Mac apps. Built.** Record accessibility events (J1/J2) in one app the owner has already granted. Same review screen.
 3. **Generalize.** Ask which values were examples ("this recipient", "this date") and make them inputs. ("Run it every week" through Scheduled is built for skills that need no input.)
 
 **Open questions.** Answered for phase 1 in [the design](../design/teach-by-showing-2026.md#10-answers-to-the-roadmaps-open-questions); the text below is the original question.
@@ -91,27 +91,25 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 - Psyche can build its own skills and connectors with approval ([#977](https://github.com/devmello/psyche/pull/977)), which gives something worth sharing.
 - The capability catalogue with an online-registry toggle ([#987](https://github.com/devmello/psyche/pull/987)), and connector install cards.
 
-**Design and status.** [Shared bundles design](../design/shared-bundles-2026.md) (2026-11-04) answers the open questions below and records what is built. Phases 1 and 2 for skills are built there: the `.psyche-skill` file, signing with an author key, export, import from a file or an https link, the signer block on the trust card, "trust this author", the key-changed warning, the update diff, the "asks for more" warning and local revocation. Connectors (phase 3), signed revocation notices and lists (phase 4) are designed and not built; the list under "What is left" below is the original plan.
+**Design and status.** [Shared bundles design](../design/shared-bundles-2026.md) (2026-11-04) answers the open questions below and records what is built. Phases 1 to 3 are built there. Skills: the `.psyche-skill` file, signing with an author key, export, import from a file or an https link, the signer block on the trust card, "trust this author", the key-changed warning, the update diff, the "asks for more" warning and local revocation. Connectors: the `.psyche-connector` file (command and arguments, the names of the variables and secrets it needs, the network it asks for, the tools it says it lists, optional scripts), export from Settings → Connectors behind the same gates as a skill export, import from a file or a link with the full card, the sandboxed first run through `mcp.probe` / `mcp.add`, then the secrets by name, and updates with a diff and re-approval when the command, env, secrets, network or tools widen. Key rotation (the old key signs a statement naming the new one) and signed revocation notices (a key or one bundle, imported by file or link) are built for both. Lists (phase 4) are designed and not built.
 
 **What is left.**
-- A **bundle format**: a skill or connector, its manifest, its requested permissions and a signature, in one file.
-- **Signing and keys.** An author key, a "trust this author" step, and showing "signed by X, new key" or "changed key since last time".
-- **Export** from Settings → Skills and Connectors.
-- **Import from a file, URL or git** with the same trust card, for connectors as well as skills (skills already import from folder, zip and git).
-- **Updates:** show what changed between versions, and require approval again when permissions widen.
-- A way to find things without a central store: a share link, a pasted URL, or a git repo with a small index file.
+- A way to find things without a central store: a share link, a pasted URL, or a git repo with a small index file (phase 4). A link and a file already work.
+- A CLI `psyche skills export` / `import`, and phone surfaces for the new fields.
+- Trusting a connector author while installing (the "trust this author" box on the connector card): today trust is given from Settings → Skills → Advanced.
+- A connector that the sandbox cannot run (a native binary, a host-only app) is refused with a plain card, not run on the Mac; whether to offer an explicit "run on this Mac" is open.
 
 **Rough phases.**
 1. Export and import of skills as one file, with permissions shown before install. Unsigned bundles are `unknown`.
 2. Signing and author trust. Updates with a diff and re-approval on wider permissions.
-3. Connectors (MCP servers) in the same bundle format, including the command they run and the network and secrets they ask for.
+3. Connectors (MCP servers) in the same bundle format, including the command they run and the network and secrets they ask for. Built, with key rotation and signed revocation notices.
 4. Optional lists: a git repo or URL that lists bundles, with no server run by Psyche.
 
 **Open questions.**
 - What "verified" means when there is no central authority: a key the owner has trusted before, a key vouched for by someone they trust, or neither.
 - Connectors run code. How much can we show about a connector's behavior before it runs, and should the first run always be in the sandbox?
 - Whether bundles may carry secrets or settings (no, by default; only the names of what they need).
-- Revocation: how an author tells people a bundle is bad, without a server.
+- Revocation: how an author tells people a bundle is bad, without a server. Answered: a signed notice file or link the owner imports; no push to others.
 
 **Depends on.** The skills trust work (`packages/skills`, the `skill_install` approval kind), the sandbox, the connectors layer ([connectors guide](../guides/connectors.md)), and the permission broker.
 

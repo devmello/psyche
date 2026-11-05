@@ -15,6 +15,7 @@ import { connectorsPage } from "./connectors-page/ar.ts";
 import { daily } from "./daily/ar.ts";
 import { design } from "./design/ar.ts";
 import { deviceAccess } from "./device-access/ar.ts";
+import { final202611 } from "./final-2026-11/ar.ts";
 import { home } from "./home/ar.ts";
 import { links } from "./links/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
@@ -3326,4 +3327,6 @@ export const ar: Partial<Catalogue> = {
   "voice.phrases.screen":
     "هذا|هذه|ذلك|تلك|هنا|على الشاشة|على شاشتي|ماذا أرى|ما هذا|هذه الصفحة|هذا الخطأ|هذا الرسم البياني|هذه النافذة|أعلاه|بالأسفل",
   "specialists.card.fromAutomation": "من أتمتتك {name}",
+  // signed connector bundles and teach-by-showing in Mac apps
+  ...final202611,
 };

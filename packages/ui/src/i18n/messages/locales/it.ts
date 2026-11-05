@@ -14,6 +14,7 @@ import { dailyRest } from "./daily-rest/it.ts";
 import { deckRest } from "./deck-rest/it.ts";
 import { designRest } from "./design-rest/it.ts";
 import { everythingRest } from "./everything-rest/it.ts";
+import { final202611 } from "./final-2026-11/it.ts";
 import { galleryRest } from "./gallery-rest/it.ts";
 import { homeRest } from "./home-rest/it.ts";
 import { links } from "./links/it.ts";
@@ -3307,4 +3308,6 @@ export const it: Partial<Catalogue> = {
   "voice.phrases.screen":
     "questo|questa|quello|quella|qui|qua|sullo schermo|sul mio schermo|cosa sto guardando|questa pagina|questo errore|questo grafico|questa finestra|sopra|sotto",
   "specialists.card.fromAutomation": "Dalla tua automazione {name}",
+  // signed connector bundles and teach-by-showing in Mac apps
+  ...final202611,
 };

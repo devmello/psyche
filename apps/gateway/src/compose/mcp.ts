@@ -32,8 +32,10 @@ import {
   type ToolRegistry,
 } from "@psyche/protocol";
 import { srtSearchDirs } from "@psyche/sandbox";
+import type { BundleFetchOptions } from "@psyche/skills";
 import type { Gateway } from "../server.ts";
 import { TURN_ON_SANDBOX_PC } from "./guest-sandbox.ts";
+import { connectorBundles } from "./connector-bundles.ts";
 import { type McpAdder, mcpAdder } from "./mcp-add.ts";
 import { mcpAppHandler } from "./mcp-app.ts";
 import { mcpGrantRevocation } from "./mcp-grants.ts";
@@ -84,6 +86,8 @@ export interface McpSetup {
   runtime?: RuntimeDeps;
   /** Host overrides (tests: bundled ids and launcher). */
   hostOptions?: Partial<McpHostOptions>;
+  /** Tests: the pinned transport and DNS for a connector bundle link. */
+  bundleFetch?: BundleFetchOptions;
 }
 
 export interface ComposedMcp extends ComposedPart {
@@ -166,9 +170,12 @@ function launcherFor(services: ComposeServices, setup: McpSetup): StdioLauncher 
  * `unknown`), and `bundled` stays the host's to accept (it refuses ids it does not ship).
  */
 function trustOf(c: PsycheMcpServerConfig): McpTrustTier {
+  // Code Psyche wrote for itself, or that arrived in a shared file, is never vouched for,
+  // whatever its command looks like (an official-looking `npx` line proves nothing about a file),
+  // and not even a claimed `bundled` tier changes that (the host accepts `bundled` only for the
+  // ids Psyche ships).
+  if (c.madeBy === "psyche" || c.bundle !== undefined) return "unknown";
   if (c.trust === "bundled") return "bundled";
-  // Code Psyche wrote for itself is never vouched for, whatever its command looks like.
-  if (c.madeBy === "psyche") return "unknown";
   const t = c.transport as Partial<PsycheMcpServerConfig["transport"]>;
   if (t.kind === "stdio" && Array.isArray(t.command)) {
     return mcpTrustFor({ kind: "stdio", command: t.command });
@@ -374,9 +381,9 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     offered.set(config.id, choices(config));
     try {
       // Agent-made code starts only while it is the tree the owner approved.
-      const stale = await self.verifyMadeBy(config);
+      const stale = (await self.verifyMadeBy(config)) ?? (await bundles.stale(config));
       if (stale !== undefined) {
-        warn("agent-made mcp server not started", { serverId: config.id, reason: stale });
+        warn("mcp server not started", { serverId: config.id, reason: stale });
         return;
       }
       const info = await host.addServer(config);
@@ -422,9 +429,20 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     registrations.delete(serverId);
     await host.removeServer(serverId);
   };
+  let seeded = false;
   const reconcile = async (value: unknown) => {
     const wanted = readServers(value, (msg) => warn(msg));
     const next = new Map(wanted.map((c) => [c.id, c]));
+    // Servers that left the list, or joined it unmarked, by any route (`settings.set` included):
+    // a record and files of a shared one go with it; a server of that id that is not one never
+    // inherits them.
+    if (seeded) {
+      for (const [id, was] of known)
+        if (!next.has(id) && was.bundle !== undefined) await bundles.removed(was);
+      for (const [id, now] of next)
+        if (!known.has(id) && now.bundle === undefined) await bundles.added(now);
+    }
+    seeded = true;
     known.clear();
     for (const c of wanted) known.set(c.id, c);
     for (const id of [...configs.keys()]) {
@@ -435,7 +453,8 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
         c === undefined ||
         c.enabled === false ||
         runKey(c) !== configs.get(id) ||
-        (await self.verifyMadeBy(c)) !== undefined
+        (await self.verifyMadeBy(c)) !== undefined ||
+        (await bundles.stale(c)) !== undefined
       ) {
         await remove(id);
       }
@@ -502,7 +521,26 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
       return c === undefined ? undefined : statusOf(c);
     },
     toolsHash: (id) => (registrations.has(id) ? host.describe(id).toolsListHash : undefined),
-    removed: (entry) => self.removed(entry),
+    removed: async (entry) => {
+      await self.removed(entry);
+      await bundles.removed(entry);
+    },
+    added: (entry) => bundles.added(entry),
+  });
+  // Shared connectors: the signed `.psyche-connector` file in and out (same probe → card → add).
+  const bundles = connectorBundles({
+    services,
+    settingKey: MCP_SERVERS_SETTING,
+    adder,
+    sandbox: async () => {
+      // The same launcher the probe will use (a test override wins, as it does for the host).
+      const l = setup.hostOptions?.launcher ?? launcher;
+      if (l === undefined || l.isolation === "none") return "none";
+      if (l.ready !== undefined && !(await l.ready())) return "none";
+      return l.isolation === "container" ? "container" : "srt";
+    },
+    tools: (id) => (registrations.has(id) ? host.describe(id).tools : undefined),
+    ...(setup.bundleFetch === undefined ? {} : { fetchOptions: setup.bundleFetch }),
   });
   // Connectors Psyche writes for itself (`connector_*` tools; same probe → card → add path).
   const self = selfConnectors({
@@ -519,6 +557,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     idle: () => queue,
     handlers: {
       ...self.handlers,
+      ...bundles.handlers,
       // For `psyche security audit` (security §11 "MCP servers") and Settings → MCP.
       "mcp.status": {
         run: async () => ({
@@ -556,6 +595,11 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
           event?: string;
           payload?: { entries?: { key: string; value: unknown }[] };
         };
+        // A key or bundle was revoked: servers that came from it stop (`bundles.stale`).
+        if (f.event === "skills.changed") {
+          void enqueue(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
+          return;
+        }
         if (f.event !== "settings.changed") return;
         for (const entry of f.payload?.entries ?? []) {
           if (entry.key === MCP_SERVERS_SETTING) void enqueue(entry.value);

@@ -1,0 +1,254 @@
+import Foundation
+import PsycheHelperCore
+@testable import PsycheHelperSystem
+import PsycheProtocol
+import Testing
+
+private final class FakeSource: AppTeachSource, @unchecked Sendable {
+    var onEvent: (@Sendable (AppTeachEvent, Date) -> Void)?
+    var onEnd: (@Sendable () -> Void)?
+    var started = false
+    var stopped = false
+    /// When set, `start` waits here before it returns: a Stop or Cancel can land mid-start.
+    var gate: DispatchSemaphore?
+    let entered = DispatchSemaphore(value: 0)
+    var bundle = ""
+    let allow: Bool
+    init(allow: Bool = true) { self.allow = allow }
+    func start(
+        bundleId: String, bind: @escaping @Sendable (Int32) -> Void, onEvent: @escaping @Sendable (AppTeachEvent, Date) -> Void,
+        onEnd: @escaping @Sendable () -> Void
+    ) -> Bool {
+        guard allow else { return false }
+        bind(0)
+        entered.signal()
+        gate?.wait()
+        self.onEvent = onEvent
+        self.onEnd = onEnd
+        bundle = bundleId
+        started = true
+        return true
+    }
+    func stop() { stopped = true }
+    func send(_ e: AppTeachEvent) { onEvent?(e, Date()) }
+}
+
+private final class FakeIndicator: AppTeachIndicator, @unchecked Sendable {
+    var shown: String?
+    var hidden = 0
+    var stop: (@Sendable () -> Void)?
+    func show(appName: String, onStop: @escaping @Sendable () -> Void) {
+        shown = appName
+        stop = onStop
+    }
+    func hide() { hidden += 1 }
+}
+
+private final class ResultBox: @unchecked Sendable { var ok = true }
+
+private let mail = "com.apple.mail"
+
+private func button(_ title: String, app: String = mail) -> AppTeachElement {
+    AppTeachElement(bundleId: app, appName: "Mail", role: "AXButton", title: title, path: ["Inbox"])
+}
+
+private func controller(
+    source: FakeSource = FakeSource(), indicator: FakeIndicator = FakeIndicator(),
+    settings: TierSettings = TierSettings(defaultValue: .ask, apps: [mail: .interact]), running: Bool = true, maxSeconds: Int = 900,
+    unclaimed: TimeInterval = 1800, now: @escaping @Sendable () -> Date = { Date() }
+) -> AppTeachController {
+    AppTeachController(
+        makeSource: { source }, indicator: indicator, settings: { settings },
+        appName: { running && $0.lowercased() == mail ? "Mail" : nil }, now: now, maxSeconds: maxSeconds, unclaimedSeconds: unclaimed,
+        log: HelperLog(echo: { _ in })
+    )
+}
+
+@Suite("teach in a Mac app: controller", .serialized)
+struct AppTeachControllerTests {
+    @Test func recordsOneGrantedAppShowsTheIndicatorAndHandsOverOnce() throws {
+        let source = FakeSource()
+        let indicator = FakeIndicator()
+        let teach = controller(source: source, indicator: indicator)
+        let started = try teach.begin(bundleId: mail)
+        #expect(started.app.name == "Mail" && source.started && source.bundle == mail)
+        #expect(indicator.shown == "Mail")  // visible while it records
+        #expect(teach.status()["active"] == true)
+        #expect(throws: CapabilityError.self) { _ = try teach.begin(bundleId: mail) }  // one at a time
+
+        source.send(.press(button("New Message")))
+        source.send(.press(button("Other", app: "com.apple.Notes")))  // not the recorded app
+        let out = try teach.collect()
+        #expect(source.stopped && indicator.hidden == 1)
+        #expect(out["endedBy"] == "stop" && out["app"]?["bundleId"] == "com.apple.mail")
+        #expect(out["steps"]?.arrayValue?.count == 1)
+        #expect(out["steps"]?.arrayValue?.first?["kind"] == "app_click")
+        // Handed over once; the helper keeps nothing.
+        #expect(throws: CapabilityError.self) { _ = try teach.collect() }
+        #expect(teach.status()["active"] == false)
+    }
+
+    @Test func stopIsAlwaysAvailableFromTheIndicator() throws {
+        let source = FakeSource()
+        let indicator = FakeIndicator()
+        let teach = controller(source: source, indicator: indicator)
+        _ = try teach.begin(bundleId: mail)
+        source.send(.press(button("Archive")))
+        indicator.stop?()  // the menu-bar Stop
+        #expect(source.stopped && teach.activeId == nil)
+        // Steps stay until the owner's Stop in Psyche collects them.
+        #expect(try teach.collect()["steps"]?.arrayValue?.count == 1)
+    }
+
+    @Test func refusesAppsThatAreNotGrantedOrNeverRecorded() {
+        let none = controller(settings: TierSettings(defaultValue: .ask, apps: [:]))
+        #expect(throws: CapabilityError.self) { _ = try none.begin(bundleId: mail) }
+        for app in ["com.psyche.desktop", "com.apple.loginwindow", "com.apple.SecurityAgent", "com.apple.keychainaccess"] {
+            let src = FakeSource()
+            let granted = controller(source: src, settings: TierSettings(defaultValue: .interact, apps: [app: .interact]))
+            do {
+                _ = try granted.begin(bundleId: app)
+                Issue.record("\(app) must be refused")
+            } catch let e as CapabilityError {
+                #expect(e.code == .policyDenied, "\(app)")
+            } catch {
+                Issue.record("\(error)")
+            }
+            #expect(!src.started)  // nothing was watched
+        }
+    }
+
+    @Test func needsAccessibilityAndARunningApp() {
+        let denied = controller(source: FakeSource(allow: false))
+        #expect(throws: CapabilityError.self) { _ = try denied.begin(bundleId: mail) }
+        #expect(denied.activeId == nil)
+        let notRunning = controller(running: false)
+        #expect(throws: CapabilityError.self) { _ = try notRunning.begin(bundleId: mail) }
+    }
+
+    @Test func theAppQuittingEndsTheRecordingAndKeepsWhatWasCaught() throws {
+        let source = FakeSource()
+        let indicator = FakeIndicator()
+        let teach = controller(source: source, indicator: indicator)
+        _ = try teach.begin(bundleId: mail)
+        source.send(.press(button("Archive")))
+        source.onEnd?()
+        #expect(indicator.hidden == 1 && teach.status()["ended"] == "interrupted")
+        #expect(try teach.collect()["endedBy"] == "interrupted")
+    }
+
+    @Test func limitAndTimeoutEnd() async throws {
+        let source = FakeSource()
+        let teach = controller(source: source)
+        _ = try teach.begin(bundleId: mail)
+        for i in 0..<250 { source.send(.press(button("B\(i)"))) }
+        #expect(teach.status()["ended"] == "limit")
+        let out = try teach.collect()
+        #expect(out["steps"]?.arrayValue?.count == 200)
+
+        let slow = controller(maxSeconds: 1)
+        _ = try slow.begin(bundleId: mail)
+        try await _Concurrency.Task.sleep(nanoseconds: 1_300_000_000)
+        #expect(slow.status()["ended"] == "timeout")
+    }
+
+    @Test func anUnclaimedRecordingIsPurgedOnATimerAndRefusedWhenStale() async throws {
+        let source = FakeSource()
+        let teach = controller(source: source, unclaimed: 0.3)
+        _ = try teach.begin(bundleId: mail)
+        source.send(.press(button("Archive")))
+        source.onEnd?()
+        #expect(teach.status()["ended"] == "interrupted")
+        try await _Concurrency.Task.sleep(nanoseconds: 700_000_000)
+        #expect(teach.status()["active"] == false && teach.status()["sessionId"] == nil)  // gone without anyone asking
+        #expect(throws: CapabilityError.self) { _ = try teach.collect() }
+
+        // The age check in collect, with a clock that moved on.
+        final class Clock: @unchecked Sendable { var t = Date(timeIntervalSince1970: 1_000_000) }
+        let clock = Clock()
+        let stale = controller(source: FakeSource(), unclaimed: 60, now: { clock.t })
+        _ = try stale.begin(bundleId: mail)
+        stale.end(try #require(stale.activeId), .stop)
+        clock.t = clock.t.addingTimeInterval(61)
+        #expect(throws: CapabilityError.self) { _ = try stale.collect() }
+    }
+
+    @Test func computerUseWaitsWhileARecordingRuns() throws {
+        let computer = ComputerUse(environment: [:], log: HelperLog(echo: { _ in }))
+        let teach = controller()
+        computer.isRecording = { teach.activeId != nil }
+        try computer.beginAction(session: "run-1")  // nothing recording: fine
+        computer.sessions.release("run-1")
+        _ = try teach.begin(bundleId: mail)
+        do {
+            try computer.beginAction(session: "run-2")
+            Issue.record("computer use must wait")
+        } catch let e as CapabilityError {
+            #expect(e.reason == "recording_active")
+        }
+        _ = teach.cancel()
+        try computer.beginAction(session: "run-3")
+    }
+
+    @Test func aCancelOrStopWhileStartingTearsTheSourceDownAgain() throws {
+        for how in ["cancel", "stop"] {
+            let source = FakeSource()
+            let gate = DispatchSemaphore(value: 0)
+            source.gate = gate
+            let indicator = FakeIndicator()
+            let teach = controller(source: source, indicator: indicator)
+            let result = ResultBox()
+            let done = DispatchSemaphore(value: 0)
+            Thread.detachNewThread {
+                do {
+                    _ = try teach.begin(bundleId: mail)
+                    result.ok = true
+                } catch {
+                    result.ok = false
+                }
+                done.signal()
+            }
+            source.entered.wait()  // start is in flight
+            if how == "cancel" {
+                _ = teach.cancel()
+            } else {
+                // The menu-bar Stop cannot exist yet; a stop by id is what the owner's Stop does.
+                if let id = teach.currentIdForTests { teach.end(id, .stop) }
+            }
+            gate.signal()
+            done.wait()
+            let ok = result.ok
+            #expect(!ok, "begin must fail after \(how)")
+            #expect(source.stopped, "the source must be stopped after \(how)")
+            #expect(teach.activeId == nil)
+            #expect(indicator.shown == nil, "no indicator for a recording that never started (\(how))")
+            // And a new recording can start afterwards.
+            source.gate = nil
+            let again = controller(source: FakeSource())
+            _ = try again.begin(bundleId: mail)
+        }
+    }
+
+    @Test func cancelDropsEverything() throws {
+        let source = FakeSource()
+        let indicator = FakeIndicator()
+        let teach = controller(source: source, indicator: indicator)
+        _ = try teach.begin(bundleId: mail)
+        source.send(.press(button("Archive")))
+        #expect(teach.cancel())
+        #expect(source.stopped && indicator.hidden == 1)
+        #expect(throws: CapabilityError.self) { _ = try teach.collect() }
+        #expect(!teach.cancel())
+    }
+
+    @Test func theCapabilitiesAreNeverStreamingAndNeedAccessibilityToStart() throws {
+        let computer = ComputerUse(environment: [:], log: HelperLog(echo: { _ in }))
+        let handlers = AppTeachCapabilities.make(controller(), computer: computer)
+        let names = handlers.map(\.spec.name)
+        #expect(names == ["teach.record.start", "teach.record.stop", "teach.record.cancel", "teach.record.status"])
+        let start = try #require(handlers.first)
+        #expect(start.spec.permissions == [.accessibility] && !start.spec.streaming)
+        // No screenshot capability anywhere in the group.
+        #expect(!names.contains { $0.contains("screenshot") })
+    }
+}

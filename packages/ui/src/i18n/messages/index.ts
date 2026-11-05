@@ -8,6 +8,7 @@ import { capabilities } from "./capabilities.ts";
 import { charts } from "./charts.ts";
 import { chat } from "./chat.ts";
 import { common } from "./common.ts";
+import { connectorBundles } from "./connector-bundles.ts";
 import { connectorGallery } from "./connector-gallery.ts";
 import { connectorsPage } from "./connectors-page.ts";
 import { context } from "./context.ts";
@@ -78,6 +79,7 @@ export const en = {
   ...skillAuthor,
   ...selfConnectors,
   ...sandboxPc,
+  ...connectorBundles,
   ...deviceAccess,
   ...mailMeetings,
   ...connectorGallery,

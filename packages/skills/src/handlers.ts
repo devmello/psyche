@@ -15,6 +15,7 @@ import {
 } from "@psyche/protocol";
 import type { SkillDrafts } from "./drafts.ts";
 import type { FsSkillLoader, SkillDetails, SkillProposal } from "./loader.ts";
+import { MAX_NOTICE_BYTES } from "./notice.ts";
 import type { SkillCommand } from "./prompt.ts";
 import { summarizeFindings } from "./scanner.ts";
 
@@ -67,6 +68,39 @@ export interface SkillsHandlers {
     p: { keyId: string; state: "seen" | "trusted" | "revoked"; approvalId?: string },
     call?: unknown,
   ) => Promise<{ author: SkillAuthor }>;
+  "skills.authors.rotate": (
+    p: { approvalId?: string },
+    call?: unknown,
+  ) => Promise<{
+    from: { keyId: string; name: string };
+    to: { keyId: string; name: string };
+  }>;
+  "skills.authors.createNotice": (
+    p: {
+      kind: "key" | "bundle";
+      keyId?: string;
+      bundleHash?: string;
+      reason: string;
+      approvalId?: string;
+    },
+    call?: unknown,
+  ) => Promise<{ filename: string; notice: string }>;
+  "skills.authors.importNotice": (p: {
+    name?: string;
+    text?: string;
+    url?: string;
+    preview?: boolean;
+  }) => Promise<{
+    kind: "key" | "bundle";
+    keyId: string;
+    bundleHash?: string;
+    reason: string;
+    signer: { keyId: string; name: string };
+    applied: boolean;
+    names: string[];
+    alreadyRevoked: boolean;
+    text?: string;
+  }>;
   "skills.setEnabled": (p: {
     name: string;
     enabled: boolean;
@@ -127,6 +161,18 @@ export interface SkillsGates {
     },
     approvalId: string | undefined,
   ) => Promise<void>;
+  /** Replacing the author key with a new one (Host shell, presence). */
+  rotate?: (
+    call: unknown,
+    action: { keyId: string; name: string },
+    approvalId: string | undefined,
+  ) => Promise<void>;
+  /** Signing a revocation notice with the author key (Host shell, presence). */
+  notice?: (
+    call: unknown,
+    action: { kind: "key" | "bundle"; keyId: string; bundleHash?: string; reason: string },
+    approvalId: string | undefined,
+  ) => Promise<void>;
   /** Trusting a key, or moving one out of `revoked`. */
   authorChange?: (
     call: unknown,
@@ -184,6 +230,7 @@ export function createSkillsHandlers(
     proposedBy?: "agent" | "recording",
     recordedOn?: string,
     tainted = false,
+    recordedIn: "browser" | "mac_app" = "browser",
   ): Promise<ProposalResult> => {
     const counts = summarizeFindings(proposal.findings);
     const verb =
@@ -223,7 +270,9 @@ export function createSkillsHandlers(
         ...(proposal.author === "recording"
           ? {
               untrustedText:
-                "This skill was made from pages you visited. Its steps quote text from those pages as data; it will be treated as untrusted instructions, and every action it takes still asks as usual.",
+                recordedIn === "mac_app"
+                  ? "This skill was made from an app you showed Psyche. Its steps quote text from that app's windows and menus as data; it will be treated as untrusted instructions, and every action it takes still asks as usual."
+                  : "This skill was made from pages you visited. Its steps quote text from those pages as data; it will be treated as untrusted instructions, and every action it takes still asks as usual.",
             }
           : tainted
             ? {
@@ -264,7 +313,15 @@ export function createSkillsHandlers(
       scopesOffered: ["once"],
       // A skill made from a recording carries web page text: the card says so, in plain words.
       ...(proposal.author === "recording"
-        ? { taint: true, taintSources: [{ sourceKind: "recorded web pages" }] }
+        ? {
+            taint: true,
+            taintSources: [
+              {
+                sourceKind:
+                  recordedIn === "mac_app" ? "recorded app windows" : "recorded web pages",
+              },
+            ],
+          }
         : tainted
           ? { taint: true, taintSources: [{ sourceKind: "content read in the conversation" }] }
           : { taint: false }),
@@ -372,6 +429,42 @@ export function createSkillsHandlers(
       }
       return { author: loader.setAuthorState(p.keyId, p.state) };
     },
+    async "skills.authors.rotate"(p, call) {
+      const own = loader.authors().own;
+      if (own === undefined)
+        throw new PsycheError("conflict", "there is no author key to rotate yet");
+      const gate = opts.gates?.rotate;
+      if (gate === undefined)
+        throw new PsycheError("unavailable", "rotating needs the Gateway's approval gate");
+      await gate(call, { keyId: own.keyId, name: own.name }, p.approvalId);
+      return await loader.rotateAuthorKey();
+    },
+    async "skills.authors.createNotice"(p, call) {
+      const { keyId } = loader.previewNotice(p);
+      const gate = opts.gates?.notice;
+      if (gate === undefined)
+        throw new PsycheError("unavailable", "signing a notice needs the Gateway's approval gate");
+      await gate(
+        call,
+        {
+          kind: p.kind,
+          keyId,
+          ...(p.bundleHash === undefined ? {} : { bundleHash: p.bundleHash }),
+          reason: p.reason,
+        },
+        p.approvalId,
+      );
+      return await loader.createNotice(p);
+    },
+    async "skills.authors.importNotice"(p) {
+      if ((p.text === undefined) === (p.url === undefined))
+        throw new PsycheError(
+          "invalid_params",
+          "give either the notice's text or a link, not both",
+        );
+      const text = p.text ?? (await loader.fetchLink(p.url as string, MAX_NOTICE_BYTES));
+      return loader.importNotice(text, p.preview === true ? { preview: true } : {});
+    },
     async "skills.setEnabled"(p) {
       return { skill: await loader.setEnabled(p.name, p.enabled, p.source) };
     },
@@ -405,6 +498,7 @@ export function createSkillsHandlers(
         made.origin === "recording" ? "recording" : "agent",
         made.recordedOn,
         made.tainted,
+        made.recordedIn ?? "browser",
       );
       const draft = drafts.accepted(p.draftId, proposal.id, result.approval.id);
       return { ...result, draft };

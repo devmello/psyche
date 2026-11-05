@@ -26,11 +26,13 @@ import { paramsHash } from "../idempotency.ts";
  * JXA, Shortcuts, open / focus), `computer.*` (sessions and per-app tiers), `messages.*`
  * (the iMessage channel's reply authority), `notify.*` (the Gateway's approval notifications),
  * `ocr.*` (search ingest's Vision OCR) and `llm.*` (the model router's Apple on-device model).
+ * `teach.*` records the owner's actions in a desktop app (teach by showing, phase 2): only the
+ * desktop shell reaches it, through the Gateway's own `teach.app.*` methods, so neither a client
+ * nor an agent tool can start, stop or read a recording, on any node.
  * `presence.*` is the helper's Touch ID / Windows Hello key: only the Gateway picks what it signs
  * (a window's approval, `approvals.approveWithTouchId`) and reads the key it registers.
- * `teach.*` records the owner's own clicks, keys and screen to make a skill; `chrome.*` reads the
- * owner's open browser tabs: on any node, never through `nodes.invoke` (the Host helper's are
- * already behind the allowlist below; this keeps a remote node's out too).
+ * `chrome.*` reads the owner's open browser tabs: never through `nodes.invoke` on any node (the
+ * Host helper's are already behind the allowlist below; this keeps a remote node's out too).
  */
 const UNREACHABLE =
   /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation|apps|computer|messages|notify|screen|ocr|llm|presence|teach|chrome)([^a-z0-9]|$)/;
