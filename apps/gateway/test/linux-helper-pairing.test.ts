@@ -1,9 +1,10 @@
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readlinkSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getSetting } from "@psyche/db";
 import type { NodeClient } from "@psyche/protocol";
+import { LINUX_HELPER_READY_COMM } from "@psyche/protocol/platform";
 import { describeHostHelperConformance, LINUX_HELPER_L3_SPEC } from "@psyche/testing/conformance";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { HOST_HELPER_STATUS_SETTING } from "../src/nodes/registry.ts";
@@ -100,6 +101,16 @@ describe.skipIf(!enabled)("the Linux helper pairs with a real Gateway", () => {
       scopes: '["node"]',
       device_family: "linux-helper",
     });
+  });
+
+  it("the helper gave itself its ready name once its start-up hardening was done", () => {
+    const helper = children[0];
+    expect(helper?.pid).toBeDefined();
+    expect(readFileSync(`/proc/${helper?.pid}/comm`, "utf8").trim()).toBe(LINUX_HELPER_READY_COMM);
+    // The helper holds no descriptor above stderr except its own, and none of 0 to 2 is a socket.
+    for (const fd of [0, 1, 2]) {
+      expect(readlinkSync(`/proc/${helper?.pid}/fd/${fd}`)).not.toMatch(/^socket:/);
+    }
   });
 
   it("the peer check saw the helper binary and recorded it in the status", () => {
@@ -217,7 +228,7 @@ describe.skipIf(!enabled)("the Linux helper pairs with a real Gateway", () => {
         expect(r.check).toBe("mismatch");
       });
 
-      it("a fork that made itself non-dumpable to hide its copy of the socket is unverified", async () => {
+      it("a fork that made itself non-dumpable is not judged by relatedness: the visible holder is, and is not the helper", async () => {
         const r = await attacker(
           [
             "import socket,sys,time,os,ctypes",
@@ -229,7 +240,9 @@ describe.skipIf(!enabled)("the Linux helper pairs with a real Gateway", () => {
             "    time.sleep(5)",
           ].join("\n"),
         );
-        expect(r).toEqual({ check: "unverified", reason: "hidden_holder" });
+        // No heuristic about hidden relatives (they are skipped); the holder the kernel shows is
+        // python, not the helper.
+        expect(r.check).toBe("mismatch");
       });
 
       it("a fork (two holders of the socket) is unverified", async () => {
