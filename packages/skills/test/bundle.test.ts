@@ -1,6 +1,7 @@
 import { generateKeyPairSync, sign } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { OWNER_DIR, OWNER_FILE, privacyOf } from "@psyche/hostfs/testing";
 import { PsycheError } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import {
@@ -256,8 +257,8 @@ describe("export, import and trust", () => {
     expect(first.createdKey).toBe(true);
     expect(first.filename).toBe("tidy.psyche-skill");
     const keyPath = join(o.psycheHome, "identity", "author.key");
-    expect(statSync(keyPath).mode & 0o777).toBe(0o600);
-    expect(statSync(join(o.psycheHome, "identity")).mode & 0o777).toBe(0o700);
+    expect(privacyOf(keyPath)).toBe(OWNER_FILE);
+    expect(privacyOf(join(o.psycheHome, "identity"))).toBe(OWNER_DIR);
     const keyFile = JSON.parse(readFileSync(keyPath, "utf8")) as { jwk: { d: string; x: string } };
     expect(first.bundle).not.toContain(keyFile.jwk.d);
     const second = await exportOf(o.loader, "tidy");
