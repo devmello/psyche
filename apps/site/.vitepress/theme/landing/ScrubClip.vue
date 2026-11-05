@@ -228,7 +228,7 @@ onBeforeUnmount(() => {
   <div
     ref="box"
     class="clip"
-    :class="{ scrub, phone }"
+    :class="{ scrub, phone, manual: manual && !reduced }"
     :style="{ '--ratio': String(ratio), '--ratio-phone': String(phoneRatio ?? ratio) }"
   >
     <video
@@ -249,7 +249,7 @@ onBeforeUnmount(() => {
       <source v-if="near" :src="src" type="video/mp4" />
     </video>
     <button
-      v-if="!scrub && (!manual || reduced)"
+      v-if="!scrub"
       class="control"
       type="button"
       :aria-label="playing ? `Pause: ${label}` : `Play: ${label}`"
@@ -335,6 +335,15 @@ video {
 }
 .control:hover {
   background: #fff;
+}
+/* Played by hover: the control stays out of the way until the plate is hovered or focused. */
+.clip.manual .control {
+  opacity: 0;
+}
+.clip.manual:hover .control,
+.clip.manual .control:focus-visible {
+  opacity: 1;
+  transform: none;
 }
 @media (hover: none) {
   .control {

@@ -1,4 +1,4 @@
 {
-  "prompt": "Origin: first frame, the poster while the clip is scrubbed, from the web client's real TeachReview screen (apps/web) on a fictional capture, recorded with Playwright (CDP screencast, 2x); fictional fixture data; not generated.",
-  "createdAt": "2026-11-05T04:10:01.000Z"
+  "prompt": "Origin: first frame, the poster while the clip is scrubbed, from the web client's real TeachReview screen (apps/web/src/shell/components/TeachReview.tsx), rendered in a temporary local harness (not committed) with a fictional five-step capture of billing.example.com, recorded with Playwright (CDP screencast, 2x); fictional fixture data; not generated.",
+  "createdAt": "2026-11-05T04:26:47.000Z"
 }

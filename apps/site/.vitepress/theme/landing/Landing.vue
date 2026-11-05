@@ -133,6 +133,29 @@ onBeforeUnmount(() => {
 
     <!-- What only Psyche does, each shown by the app itself. The scroll is the playhead. -->
     <DemoStage
+      id="live-title"
+      title="A running task lives in your Dynamic Island."
+      where="The iPhone app, a Live Activity"
+      clip="ios-live"
+      label="The iPhone app: Watch on a running task, then the task in the Dynamic Island step by step, turning amber when it asks to send the Q3 summary, with a notification"
+      :ratio="540 / 1174"
+      :duration="20.04"
+      :beats="[
+        { at: 0, text: 'Watch a running task from Home.' },
+        { at: 4.0, text: 'Its steps show in the Dynamic Island while the app is open.' },
+        { at: 5.0, text: 'When it needs you, the island turns amber and asks.' },
+        { at: 9.0, text: 'The question arrives as a notification too.' },
+      ]"
+      :scrub="pinned"
+      :motion="motion"
+      from="right"
+      phone
+    >
+      <p>A task running on your Mac, step by step in the Dynamic Island and on the Lock Screen while the app is open. Updates with the app closed need your own Apple developer key. The iPhone app is in development.</p>
+      <template #foot><a class="more" href="https://github.com/devmello/psyche/blob/main/apps/ios/README.md" rel="noopener"><span class="src">1</span>The iPhone app <span class="where">apps/ios/README.md</span></a></template>
+    </DemoStage>
+
+    <DemoStage
       id="answer-title"
       title="Answers that cite your own mail."
       where="Search, ⌘K"
@@ -149,33 +172,10 @@ onBeforeUnmount(() => {
       ]"
       :scrub="pinned"
       :motion="motion"
-      from="right"
+      from="left"
     >
       <p>Search reads your threads, mail, messages, files and memory, indexed on this Mac. A claim that cites nothing is dropped.</p>
-      <template #foot><a class="more" :href="withBase('/using/memory')"><span class="src">1</span>How memory and search work <span class="where">using/memory</span></a></template>
-    </DemoStage>
-
-    <DemoStage
-      id="live-title"
-      title="A running task lives in your Dynamic Island."
-      where="The iPhone app, a Live Activity"
-      clip="ios-live"
-      label="The iPhone app: Watch on a running task, then the task in the Dynamic Island step by step, turning amber when it asks to send the Q3 summary, with a notification"
-      :ratio="540 / 1174"
-      :duration="20.04"
-      :beats="[
-        { at: 0, text: 'Watch a running task from Home.' },
-        { at: 4.0, text: 'It follows you out of the app, into the Dynamic Island.' },
-        { at: 5.0, text: 'When it needs you, the island turns amber and asks.' },
-        { at: 9.0, text: 'The question arrives as a notification too.' },
-      ]"
-      :scrub="pinned"
-      :motion="motion"
-      from="left"
-      phone
-    >
-      <p>The task on your Mac, step by step on your iPhone's Lock Screen and Dynamic Island. The iPhone app is in development.</p>
-      <template #foot><a class="more" :href="withBase('/guides/remote-gateway')"><span class="src">2</span>Use Psyche from another computer <span class="where">guides/remote-gateway</span></a></template>
+      <template #foot><a class="more" :href="withBase('/using/memory')"><span class="src">2</span>How memory and search work <span class="where">using/memory</span></a></template>
     </DemoStage>
 
     <!-- Under the lamp: a payment that waits for a face. -->
@@ -191,8 +191,8 @@ onBeforeUnmount(() => {
         :beats="[
           { at: 0, text: 'Your Bills automation wants to pay the electricity bill.' },
           { at: 1.2, text: 'The card names the exact amount, payee, site and card.' },
-          { at: 3.6, text: 'Allow asks for Face ID on the phone that answers.' },
-          { at: 6.5, text: 'Allowed. Your Mac has the answer, and acts once.' },
+          { at: 3.6, text: 'Allow asks for Face ID first.' },
+          { at: 6.5, text: 'Allowed. Your Mac has the answer.' },
         ]"
         :scrub="pinned"
         :motion="motion"
@@ -201,7 +201,7 @@ onBeforeUnmount(() => {
         lamp
         class="lamplit"
       >
-        <p>Purchases and sensitive actions are bound to one card and need your face. Text from a web page or an email can never approve anything.</p>
+        <p>The card binds one exact payment, and the phone asks for Face ID before it answers. Today that runs on the app's demo data: payments from your Mac still need the Mac until the phone's presence key ships. The iPhone app is in development.</p>
         <template #foot><a class="more" :href="withBase('/security/approvals-and-tiers')"><span class="src">3</span>Approvals and app tiers <span class="where">security/approvals-and-tiers</span></a></template>
       </DemoStage>
     </section>
@@ -213,32 +213,34 @@ onBeforeUnmount(() => {
       clip="teach"
       label="The review screen after recording a task in Psyche's browser: the steps in plain words, a name, a typed date turned into an input, then Save as a skill, waiting for approval"
       :ratio="1408 / 960"
-      :duration="16.5"
+      :phone-ratio="720 / 1140"
+      :duration="20.96"
       :beats="[
         { at: 0, text: 'Record a task in Psyche\'s browser; the steps come back in plain words.' },
         { at: 4.58, text: 'Give it a name.' },
-        { at: 6.31, text: 'Turn a value into an input it asks for each time.' },
-        { at: 12.7, text: 'Save makes a skill draft that waits for your approval.' },
+        { at: 6.4, text: 'Turn the date into an input it asks for each time.' },
+        { at: 14.95, text: 'Save makes a skill draft that waits for your approval.' },
       ]"
       :scrub="pinned"
       :motion="motion"
       from="left"
     >
       <p>Passwords, card numbers and codes are never recorded, and other typed values stay hidden unless you keep them.</p>
-      <template #foot><a class="more" :href="withBase('/using/skills')"><span class="src">4</span>Skills <span class="where">using/skills</span></a></template>
+      <template #foot><a class="more" href="https://github.com/devmello/psyche/blob/main/docs/design/teach-by-showing-2026.md" rel="noopener"><span class="src">4</span>Teach by showing <span class="where">docs/design/teach-by-showing-2026.md</span></a></template>
     </DemoStage>
 
     <!-- The rest, on one sheet: smaller recordings, each of the real app. -->
     <section class="leaf lit index-leaf" data-scene="flow" data-end="0.1" aria-labelledby="index-title">
-      <h2 id="index-title">Six more, each recorded from the app.</h2>
+      <p class="run-head">docs/03-feature-spec.md</p>
+      <h2 id="index-title">More of what it does, one page each.</h2>
       <DemoIndex
         :items="[
-          { clip: 'memory', title: 'It learns people, and checks with you', line: 'Facts found in your mail come with the words they came from. Nothing is kept until you confirm.', where: 'Memory, Review', label: 'Memory review: facts with their quotes, one confirmed, then a person page', ratio: 1408 / 960 },
-          { clip: 'files', title: 'Its memory is files you can open', line: 'SOUL.md, USER.md and MEMORY.md are Markdown under ~/.psyche, rewritten each night and yours to edit.', where: 'The agent sheet, Soul', label: 'The agent sheet listing memory files, then MEMORY.md open as plain text', ratio: 1408 / 960 },
-          { clip: 'skill', title: 'Skills you can share, signed', line: 'A .psyche-skill file names who signed it and what it asks for before anything installs.', where: 'Settings, Skills', label: 'Importing a shared skill: the signer, its permissions and the full SKILL.md, then trusting the author', ratio: 1408 / 960 },
-          { clip: 'brief', title: 'Catch up with the source of each line', line: 'What is due and what moved since you looked, each line one tap from the message behind it.', where: 'Home', label: 'Home: Needs you, catch-up with a source opened, and the brief', ratio: 1408 / 960 },
-          { clip: 'devices', title: 'Pair a phone or another computer', line: 'A new device waits for you on the Mac, with a code to compare and exactly what it may do.', where: 'Settings, Devices and the iPhone app', label: 'Devices and nodes with a pairing request and paired devices, then the iPhone answering an approval', ratio: 1600 / 806 },
-          { clip: 'ios-genui', title: 'Native cards on the iPhone', line: 'Plans, files and questions from the agent draw as native iPhone views, not web pages.', where: 'The iPhone app, Chat', label: 'The iPhone chat with a question card, a file card and a plan checklist', ratio: 540 / 1174, phone: true },
+          { n: 5, clip: 'memory', title: 'It learns people, and checks with you', line: 'Facts it finds in your mail wait for you to confirm, each with the words it came from.', label: 'Memory review: facts with their quotes, one confirmed, then a person page', ratio: 1408 / 960, phoneRatio: 720 / 1140, href: '/using/memory', focus: { x: 28, y: 40, zoom: 1.55 } },
+          { n: 6, clip: 'files', title: 'Its memory is files you can open', line: '`MEMORY.md`, `USER.md` and `SOUL.md` are Markdown under `~/.psyche`, yours to edit. Memory is tidied each night.', label: 'The agent sheet listing memory files, then MEMORY.md open as plain text', ratio: 1408 / 960, href: '/guides/memory-and-persona', focus: { x: 34, y: 22, zoom: 1.6 } },
+          { n: 7, clip: 'skill', title: 'Skills you can share, signed', line: 'A `.psyche-skill` file names who signed it and what it asks for before anything installs.', label: 'Importing a shared skill: the signer, its permissions and the full SKILL.md, then trusting the author', ratio: 1408 / 960, phoneRatio: 720 / 1140, href: 'https://github.com/devmello/psyche/blob/main/docs/design/shared-bundles-2026.md', focus: { x: 42, y: 30, zoom: 1.5 } },
+          { n: 8, clip: 'brief', title: 'Catch up with the source of each line', line: 'What is due and what moved since you looked, each line one tap from the message behind it.', label: 'Home: Needs you, catch-up with a source opened, and the brief', ratio: 1408 / 960, phoneRatio: 720 / 1292, href: '/using/feed-ideas-goals', focus: { x: 50, y: 58, zoom: 1.5 } },
+          { n: 9, clip: 'devices', title: 'Each device gets only what you choose', line: 'A phone, a browser or another Mac pairs with a code you compare, then reads, writes or answers approvals as you allowed.', label: 'Devices and nodes with a pairing request and paired devices, then the iPhone answering an approval', ratio: 1600 / 806, phoneRatio: 720 / 1292, href: '/guides/remote-gateway', focus: { x: 26, y: 30, zoom: 1.45 } },
+          { n: 10, clip: 'ios-genui', title: 'Native cards on the iPhone', line: 'Plans, files and questions from the agent draw as native iPhone views. The iPhone app is in development.', label: 'The iPhone chat with a question card, a file card and a plan checklist', ratio: 540 / 1174, href: 'https://github.com/devmello/psyche/blob/main/docs/design/ios-app-2026.md', focus: { x: 50, y: 36, zoom: 1.0 }, phone: true },
         ]"
       />
     </section>
@@ -499,6 +501,7 @@ onBeforeUnmount(() => {
   background: var(--paper-2);
 }
 .status {
+  text-wrap: balance;
   margin-top: 22px;
   font-size: 13.5px;
   color: var(--paper-11);
@@ -843,7 +846,7 @@ onBeforeUnmount(() => {
 .index-leaf h2 {
   max-width: 22ch;
 }
-.motion .index-leaf :deep(.card) {
+.motion .index-leaf :deep(.entry) {
   --k: clamp(0, calc((var(--q, 1) - var(--i) * 0.07) / 0.5), 1);
   opacity: calc(0.15 + var(--k) * 0.85);
   transform: translateY(calc((1 - var(--k)) * 44px));
@@ -986,12 +989,18 @@ onBeforeUnmount(() => {
 }
 :root.landing-night:has(.landing) .VPNav,
 :root.landing-night:has(.landing) .VPNavBar,
+:root.landing-night:has(.landing) .VPNavBar .wrapper,
+:root.landing-night:has(.landing) .VPNavBar .container,
+:root.landing-night:has(.landing) .VPNavBar .content,
 :root.landing-night:has(.landing) .VPNavBar .content-body,
 :root.landing-night:has(.landing) .VPNavBar .title {
   background: oklch(0.165 0.002 80) !important;
 }
 :root.dark.landing-night:has(.landing) .VPNav,
 :root.dark.landing-night:has(.landing) .VPNavBar,
+:root.dark.landing-night:has(.landing) .VPNavBar .wrapper,
+:root.dark.landing-night:has(.landing) .VPNavBar .container,
+:root.dark.landing-night:has(.landing) .VPNavBar .content,
 :root.dark.landing-night:has(.landing) .VPNavBar .content-body,
 :root.dark.landing-night:has(.landing) .VPNavBar .title {
   background: oklch(0.118 0.0015 80) !important;

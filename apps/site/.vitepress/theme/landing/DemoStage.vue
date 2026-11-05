@@ -354,7 +354,7 @@ h2 {
 .fixture {
   margin-top: 10px;
   font-size: 12.5px;
-  color: var(--paper-9);
+  color: var(--paper-11);
 }
 
 /* ---------- Pinned: the stage fills the screen under the nav while the clip scrubs ---------- */
@@ -404,6 +404,15 @@ h2 {
 }
 .has-phone .fixture {
   max-width: 24em;
+}
+/* Unpinned (short windows, phones, reduced motion), a phone's screen keeps a phone's size. */
+.has-phone .screen {
+  width: min(320px, 100%);
+  justify-self: center;
+  margin-inline: auto;
+}
+.pin .has-phone .screen {
+  width: min(360px, calc((100svh - var(--nav) - 190px) * var(--ratio, 0.46)));
 }
 
 /* ---------- Centred: the recording under the lamp, the copy beneath it ---------- */
