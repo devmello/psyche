@@ -12523,6 +12523,7 @@ public struct DictationTarget: Codable, Sendable {
 }
 
 public enum DictationRefusal: String, Codable, Sendable {
+    case elevatedTarget = "elevated_target"
     case focusChanged = "focus_changed"
     case noFocus = "no_focus"
     case notEditable = "not_editable"
@@ -30486,8 +30487,10 @@ public struct SpeechTranscribeFileResult: Codable, Sendable {
 
 public enum SpeechNodeEngine: String, Codable, Sendable {
     case dictationTranscriber = "dictationTranscriber"
+    case sapi = "sapi"
     case sfSpeech = "sfSpeech"
     case speechAnalyzer = "speechAnalyzer"
+    case windowsSpeech = "windowsSpeech"
 }
 
 // MARK: - TranscriptSegment

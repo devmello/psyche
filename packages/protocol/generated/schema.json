@@ -17371,7 +17371,8 @@
         "secure_field",
         "own_window",
         "not_editable",
-        "focus_changed"
+        "focus_changed",
+        "elevated_target"
       ],
       "type": "string"
     },
@@ -17384,6 +17385,7 @@
         "bundleId": {
           "anyOf": [
             {
+              "description": "macOS bundle id; on Windows the package family name of a packaged app, else its lowercase executable",
               "type": "string"
             },
             {
@@ -17397,7 +17399,7 @@
         "role": {
           "anyOf": [
             {
-              "description": "AX role of the focused element, e.g. AXTextArea",
+              "description": "AX role of the focused element (AXTextArea); on Windows its UI Automation control type (Edit, Document, …)",
               "type": "string"
             },
             {
@@ -17621,7 +17623,7 @@
           "description": "an absolute path in a granted folder",
           "maxLength": 4096,
           "minLength": 2,
-          "pattern": "^/",
+          "pattern": "^(/|[A-Za-z]:[\\\\/])",
           "type": "string"
         },
         "libraryPath": {
@@ -19332,7 +19334,7 @@
           "description": "an absolute path in a granted folder",
           "maxLength": 4096,
           "minLength": 2,
-          "pattern": "^/",
+          "pattern": "^(/|[A-Za-z]:[\\\\/])",
           "type": "string"
         },
         "offset": {
@@ -19377,7 +19379,7 @@
           "description": "an absolute path in a granted folder",
           "maxLength": 4096,
           "minLength": 2,
-          "pattern": "^/",
+          "pattern": "^(/|[A-Za-z]:[\\\\/])",
           "type": "string"
         },
         "libraryPath": {
@@ -32731,7 +32733,7 @@
         "path": {
           "maxLength": 4096,
           "minLength": 1,
-          "pattern": "^/",
+          "pattern": "^(/|[A-Za-z]:[\\\\/])",
           "type": "string"
         }
       },
@@ -40825,7 +40827,9 @@
       "enum": [
         "speechAnalyzer",
         "dictationTranscriber",
-        "sfSpeech"
+        "sfSpeech",
+        "windowsSpeech",
+        "sapi"
       ],
       "type": "string"
     },

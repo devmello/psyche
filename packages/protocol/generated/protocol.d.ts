@@ -3987,7 +3987,7 @@ export interface DictationTarget {
     role?:      null | string;
 }
 
-export type DictationRefusal = "no_focus" | "secure_field" | "own_window" | "not_editable" | "focus_changed";
+export type DictationRefusal = "no_focus" | "secure_field" | "own_window" | "not_editable" | "focus_changed" | "elevated_target";
 
 export interface DictationKeyPayload {
     /**
@@ -10673,7 +10673,7 @@ export interface SpeechTranscribeFileResult {
     text:     string;
 }
 
-export type SpeechNodeEngine = "speechAnalyzer" | "dictationTranscriber" | "sfSpeech";
+export type SpeechNodeEngine = "speechAnalyzer" | "dictationTranscriber" | "sfSpeech" | "windowsSpeech" | "sapi";
 
 export interface TranscriptSegment {
     confidence?: number;

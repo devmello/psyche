@@ -158,12 +158,14 @@ export class FakeNode {
   async #handshake(opts: FakeNodeOptions): Promise<void> {
     const key = opts.key ?? newDeviceKey();
     const deviceFamily = opts.deviceFamily ?? "mac-helper";
+    // The Windows helper declares `windows` (apps/win-helper); everything else here a Mac.
+    const platform = deviceFamily === "win-helper" ? "windows" : "macos";
     const challenge = await this.request("connect", {
       protocolVersion: { min: 1, max: PROTOCOL_VERSION },
       deviceId: opts.deviceId ?? `helper-${Math.random().toString(36).slice(2)}`,
       publicKey: key.publicKey,
       role: "node",
-      platform: "macos",
+      platform,
       deviceFamily,
       name: "Psyche helper",
       capabilities: opts.handlers.map((h) => h.capability),
@@ -174,7 +176,7 @@ export class FakeNode {
       null,
       connectSigningPayload({
         nonce,
-        platform: "macos",
+        platform,
         deviceFamily,
         protocolVersion,
         serverOrigin: opts.origin,

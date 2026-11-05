@@ -32,9 +32,13 @@ export const DictationInsertMethod = StringEnum(["ax", "typed"], {
 });
 export type DictationInsertMethod = Static<typeof DictationInsertMethod>;
 
-/** Why the focused element cannot take dictated text. */
+/**
+ * Why the focused element cannot take dictated text. `elevated_target` (Windows): the focused app
+ * runs as administrator and UIPI blocks a normal-integrity helper from typing into it;
+ * `dictation.insert` then fails `forbidden` with that reason.
+ */
 export const DictationRefusal = StringEnum(
-  ["no_focus", "secure_field", "own_window", "not_editable", "focus_changed"],
+  ["no_focus", "secure_field", "own_window", "not_editable", "focus_changed", "elevated_target"],
   { $id: "DictationRefusal" },
 );
 export type DictationRefusal = Static<typeof DictationRefusal>;
@@ -43,9 +47,19 @@ export type DictationRefusal = Static<typeof DictationRefusal>;
 export const DictationTarget = Type.Object(
   {
     pid: Type.Integer({ minimum: 0 }),
-    bundleId: Nullable(Type.String()),
+    bundleId: Nullable(
+      Type.String({
+        description:
+          "macOS bundle id; on Windows the package family name of a packaged app, else its lowercase executable",
+      }),
+    ),
     appName: Type.String(),
-    role: Nullable(Type.String({ description: "AX role of the focused element, e.g. AXTextArea" })),
+    role: Nullable(
+      Type.String({
+        description:
+          "AX role of the focused element (AXTextArea); on Windows its UI Automation control type (Edit, Document, …)",
+      }),
+    ),
     insertable: Type.Boolean(),
     refusal: Type.Optional(DictationRefusal),
   },

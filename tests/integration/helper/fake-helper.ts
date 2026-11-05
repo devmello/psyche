@@ -1,6 +1,6 @@
-import { createHash, generateKeyPairSync, type KeyObject, sign } from "node:crypto";
+import { constants, createHash, generateKeyPairSync, type KeyObject, sign } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { createConnection, type Socket } from "node:net";
+import { createConnection } from "node:net";
 import { join } from "node:path";
 import { helperPresenceMessage } from "@psyche/gateway/compose";
 import { connectSigningPayload, PROTOCOL_VERSION } from "@psyche/protocol";
@@ -8,11 +8,28 @@ import { connectSigningPayload, PROTOCOL_VERSION } from "@psyche/protocol";
 // biome-ignore lint/suspicious/noExplicitAny: wire frames in a test harness
 type Json = Record<string, any>;
 
-/** A Secure Enclave stand-in: a P-256 key whose public half the owner registers. */
+/**
+ * A Secure Enclave stand-in (a P-256 key) or a Windows Hello one (RSA-2048), whose public half the
+ * owner registers.
+ */
 export interface PresenceKey {
   privateKey: KeyObject;
-  /** X9.63 uncompressed point, base64url (what `SecKeyCopyExternalRepresentation` returns). */
+  /**
+   * base64url: the X9.63 uncompressed point (what `SecKeyCopyExternalRepresentation` returns),
+   * or for RSA the SPKI DER (`KeyCredential.RetrievePublicKey`).
+   */
   publicKey: string;
+  algorithm?: "p256-ecdsa-sha256" | "rsa-2048-pkcs1-sha256";
+}
+
+/** A Windows Hello stand-in: RSA-2048, signatures PKCS#1 v1.5 / SHA-256 (apps/win-helper). */
+export function newHelloKey(bits = 2048): PresenceKey {
+  const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: bits });
+  return {
+    privateKey,
+    publicKey: publicKey.export({ format: "der", type: "spki" }).toString("base64url"),
+    algorithm: "rsa-2048-pkcs1-sha256",
+  };
 }
 
 export function newPresenceKey(): PresenceKey {
@@ -27,10 +44,22 @@ export function newPresenceKey(): PresenceKey {
 }
 
 export function signPresence(key: PresenceKey, challenge: string): string {
+  if (key.algorithm === "rsa-2048-pkcs1-sha256") {
+    return sign("sha256", helperPresenceMessage(challenge), {
+      key: key.privateKey,
+      padding: constants.RSA_PKCS1_PADDING,
+    }).toString("base64url");
+  }
   return sign("sha256", helperPresenceMessage(challenge), {
     key: key.privateKey,
     dsaEncoding: "der",
   }).toString("base64url");
+}
+
+/** NDJSON lines both ways: the node socket / pipe, or the WebSocket (one frame per message). */
+interface Wire {
+  write(line: string): void;
+  close(): Promise<void>;
 }
 
 /** What the owner does on a banner: tap a button, then (maybe) pass Touch ID. */
@@ -75,28 +104,29 @@ export class FakeHelper {
   readonly deviceId: string;
   readonly presence: PresenceKey;
   nodeId = "";
-  readonly #socket: Socket;
+  readonly #wire: Wire;
   readonly #waiting = new Map<string, (f: Json) => void>();
   readonly #subscriptions = new Set<string>();
   readonly #subscribed: (() => void)[] = [];
   #buf = "";
   #n = 0;
 
-  private constructor(socket: Socket, deviceId: string, presence: PresenceKey) {
-    this.#socket = socket;
+  private constructor(wire: Wire, deviceId: string, presence: PresenceKey) {
+    this.#wire = wire;
     this.deviceId = deviceId;
     this.presence = presence;
-    socket.setEncoding("utf8");
-    socket.on("data", (chunk: string) => {
-      this.#buf += chunk;
-      let i = this.#buf.indexOf("\n");
-      while (i >= 0) {
-        const frame = JSON.parse(this.#buf.slice(0, i)) as Json;
-        this.#buf = this.#buf.slice(i + 1);
-        this.#onFrame(frame);
-        i = this.#buf.indexOf("\n");
-      }
-    });
+  }
+
+  /** Incoming bytes from the wire (NDJSON). */
+  feed(chunk: string): void {
+    this.#buf += chunk;
+    let i = this.#buf.indexOf("\n");
+    while (i >= 0) {
+      const frame = JSON.parse(this.#buf.slice(0, i)) as Json;
+      this.#buf = this.#buf.slice(i + 1);
+      this.#onFrame(frame);
+      i = this.#buf.indexOf("\n");
+    }
   }
 
   static async connect(
@@ -106,34 +136,78 @@ export class FakeHelper {
       /** `{ home }` reads `run/handshake.secret` as the Swift helper does; a string is sent as is; `undefined` sends none. */
       secret: string | { home: string } | undefined;
       presence?: PresenceKey;
+      /** `win-helper` connects as apps/win-helper does: `platform: "windows"`. Default `mac-helper`. */
+      family?: "mac-helper" | "win-helper";
+      /** A `ws://…/ws` URL instead of the node socket path (where a helper is never the Host's). */
+      ws?: boolean;
+      /** Reuse an identity (a device paired before). */
+      identity?: { privateKey: KeyObject; publicKey: string };
     },
   ): Promise<FakeHelper> {
     const secret =
       typeof opts.secret === "object" ? readHandshakeSecret(opts.secret.home) : opts.secret;
-    const socket = createConnection(socketPath);
-    await new Promise((r) => socket.once("connect", r));
-    const { privateKey } = generateKeyPairSync("ed25519");
-    const publicKey = String(privateKey.export({ format: "jwk" }).x);
-    const deviceId = `dev_${createHash("sha256").update(Buffer.from(publicKey, "base64url")).digest("base64url").slice(0, 22)}`;
-    const helper = new FakeHelper(socket, deviceId, opts.presence ?? newPresenceKey());
+    const family = opts.family ?? "mac-helper";
+    const platform = family === "win-helper" ? "windows" : "macos";
+    const identity = opts.identity ?? FakeHelper.newIdentity();
+    const { privateKey, publicKey } = identity;
+    const deviceId = FakeHelper.deviceIdOf(publicKey);
+    let helper: FakeHelper | undefined;
+    let wire: Wire;
+    if (opts.ws === true) {
+      const ws = new WebSocket(socketPath);
+      await new Promise<void>((resolve, reject) => {
+        ws.addEventListener("open", () => resolve(), { once: true });
+        ws.addEventListener("error", () => reject(new Error("websocket failed")), { once: true });
+      });
+      ws.addEventListener("message", (e) => helper?.feed(`${String(e.data)}\n`));
+      wire = {
+        write: (line) => ws.readyState === WebSocket.OPEN && ws.send(line.trimEnd()),
+        close: () =>
+          new Promise((resolve) => {
+            if (ws.readyState === WebSocket.CLOSED) return resolve();
+            ws.addEventListener("close", () => resolve(), { once: true });
+            ws.close();
+          }),
+      };
+    } else {
+      const socket = createConnection(socketPath);
+      await new Promise((r) => socket.once("connect", r));
+      socket.setEncoding("utf8");
+      socket.on("data", (chunk: string) => helper?.feed(chunk));
+      wire = {
+        // A named pipe (Windows) has no half-close: frames can still arrive after `end()`.
+        write: (line) => void (socket.writable && socket.write(line)),
+        close: () =>
+          new Promise((resolve) => {
+            if (socket.closed) return resolve();
+            socket.once("close", () => resolve());
+            socket.end();
+          }),
+      };
+    }
+    helper = new FakeHelper(wire, deviceId, opts.presence ?? newPresenceKey());
     const challenge = await helper.#request("connect", {
       protocolVersion: { min: 1, max: PROTOCOL_VERSION },
       deviceId,
       publicKey,
       role: "node",
-      platform: "macos",
-      deviceFamily: "mac-helper",
-      name: "Psyche Helper",
+      platform,
+      deviceFamily: family,
+      name: family === "win-helper" ? "Psyche (Helper)" : "Psyche Helper",
       capabilities: CAPABILITIES,
       ...(secret === undefined ? {} : { handshakeSecret: secret }),
     });
+    if (challenge.ok === false) {
+      await wire.close();
+      throw new Error(`helper did not pair: ${JSON.stringify(challenge)}`);
+    }
     const { nonce, protocolVersion } = challenge.payload;
     const signature = sign(
       null,
       connectSigningPayload({
         nonce,
-        platform: "macos",
-        deviceFamily: "mac-helper",
+        platform,
+        deviceFamily: family,
         protocolVersion,
         serverOrigin: opts.origin,
       }),
@@ -141,11 +215,20 @@ export class FakeHelper {
     ).toString("base64url");
     const verified = await helper.#request("connect.verify", { nonce, signature });
     if (verified.payload?.phase !== "paired") {
-      socket.destroy();
+      await wire.close();
       throw new Error(`helper did not pair: ${JSON.stringify(verified)}`);
     }
     helper.nodeId = verified.payload.nodeId;
     return helper;
+  }
+
+  static newIdentity(): { privateKey: KeyObject; publicKey: string } {
+    const { privateKey } = generateKeyPairSync("ed25519");
+    return { privateKey, publicKey: String(privateKey.export({ format: "jwk" }).x) };
+  }
+
+  static deviceIdOf(publicKey: string): string {
+    return `dev_${createHash("sha256").update(Buffer.from(publicKey, "base64url")).digest("base64url").slice(0, 22)}`;
   }
 
   /** Resolves once the Gateway holds a `notify.subscribe` open. */
@@ -195,18 +278,14 @@ export class FakeHelper {
   }
 
   close(): Promise<void> {
-    return new Promise((resolve) => {
-      if (this.#socket.closed) return resolve();
-      this.#socket.once("close", () => resolve());
-      this.#socket.end();
-    });
+    return this.#wire.close();
   }
 
   #request(method: string, params: unknown): Promise<Json> {
     const id = `h${++this.#n}`;
     return new Promise((resolve) => {
       this.#waiting.set(id, resolve);
-      this.#socket.write(`${JSON.stringify({ type: "req", id, method, params })}\n`);
+      this.#wire.write(`${JSON.stringify({ type: "req", id, method, params })}\n`);
     });
   }
 
@@ -218,7 +297,7 @@ export class FakeHelper {
     }
     if (frame.type !== "req" || frame.method !== "node.invoke") return;
     const { invocationId, capability, params } = frame.params;
-    this.#socket.write(
+    this.#wire.write(
       `${JSON.stringify({ type: "res", id: frame.id, ok: true, payload: { accepted: true } })}\n`,
     );
     if (capability === "notify.subscribe") {
