@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { isOwnerOnly } from "@psyche/hostfs";
 import { afterAll, describe, expect, it } from "vitest";
 import { srtLauncher } from "../src/launcher.ts";
 import {
@@ -31,55 +32,66 @@ const spec = {
 };
 
 describe("scratch directories", () => {
-  it("keeps the socket under 104 bytes for a deliberately deep home", async () => {
-    const root = await mkdtemp(join(tmpdir(), "psy-deep-"));
-    made.push(root);
-    const deepHome = join(root, "a".repeat(40), "b".repeat(40), "c".repeat(40), ".psyche");
-    const settingsDir = join(deepHome, "mcp", "srt");
-    const launcher = srtLauncher({
-      srtPath: "/usr/local/bin/srt",
-      settingsDir,
-      psycheHome: deepHome,
-    });
-    const p = await launcher.prepare(spec);
-    const scratch = p.env.TMPDIR as string;
-    made.push(scratch);
-    const socket = join(scratch, MUX);
-    expect(Buffer.byteLength(socket)).toBeLessThan(104);
-    expect(Buffer.byteLength(socket)).toBeLessThanOrEqual(MAX_SOCKET_PATH_BYTES);
-    expect(scratch.startsWith(deepHome)).toBe(false);
-    expect((await stat(scratch)).mode & 0o777).toBe(0o700);
-    expect((await stat(dirname(scratch))).mode & 0o777).toBe(0o700);
-    expect(p.cwd).toBe(scratch);
-    // Only the scratch is writable; no other server's scratch is readable, only its own.
-    const settings = JSON.parse(await readFile(p.args[1] as string, "utf8"));
-    expect(settings.filesystem.allowWrite).toEqual([scratch]);
-    expect(settings.filesystem.denyRead).toContain(dirname(scratch));
-    expect(settings.filesystem.allowRead).toEqual([scratch]);
-    expect(settings.network.allowUnixSockets).toEqual([]);
-    await p.cleanup?.();
-    await expect(stat(scratch)).rejects.toThrow();
-  });
+  // `sun_path` for srt's mux sockets: srt and that limit do not exist on Windows (scratchFits is
+  // always true there and the scratch stays under the settings folder).
+  it.skipIf(process.platform === "win32")(
+    "keeps the socket under 104 bytes for a deliberately deep home",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "psy-deep-"));
+      made.push(root);
+      const deepHome = join(root, "a".repeat(40), "b".repeat(40), "c".repeat(40), ".psyche");
+      const settingsDir = join(deepHome, "mcp", "srt");
+      const launcher = srtLauncher({
+        srtPath: "/usr/local/bin/srt",
+        settingsDir,
+        psycheHome: deepHome,
+      });
+      const p = await launcher.prepare(spec);
+      const scratch = p.env.TMPDIR as string;
+      made.push(scratch);
+      const socket = join(scratch, MUX);
+      expect(Buffer.byteLength(socket)).toBeLessThan(104);
+      expect(Buffer.byteLength(socket)).toBeLessThanOrEqual(MAX_SOCKET_PATH_BYTES);
+      expect(scratch.startsWith(deepHome)).toBe(false);
+      for (const dir of [scratch, dirname(scratch)]) {
+        if (process.platform === "win32") expect(isOwnerOnly(dir)).toBe(true);
+        else expect((await stat(dir)).mode & 0o777).toBe(0o700);
+      }
+      expect(p.cwd).toBe(scratch);
+      // Only the scratch is writable; no other server's scratch is readable, only its own.
+      const settings = JSON.parse(await readFile(p.args[1] as string, "utf8"));
+      expect(settings.filesystem.allowWrite).toEqual([scratch]);
+      expect(settings.filesystem.denyRead).toContain(dirname(scratch));
+      expect(settings.filesystem.allowRead).toEqual([scratch]);
+      expect(settings.network.allowUnixSockets).toEqual([]);
+      await p.cleanup?.();
+      await expect(stat(scratch)).rejects.toThrow();
+    },
+  );
 
-  it("stays under the settings directory when a socket fits there", async () => {
-    // A short root: macOS's own temp dir is already ~50 bytes.
-    const root = await mkdtemp("/tmp/pfs-");
-    made.push(root);
-    const settingsDir = join(root, ".psyche", "mcp", "srt");
-    const launcher = srtLauncher({
-      srtPath: "/usr/local/bin/srt",
-      settingsDir,
-      psycheHome: join(root, ".psyche"),
-    });
-    const p = await launcher.prepare(spec);
-    const scratch = p.env.TMPDIR as string;
-    expect(dirname(scratch)).toBe(settingsDir);
-    expect(scratchFits(scratch)).toBe(true);
-    expect(Buffer.byteLength(join(scratch, MUX))).toBeLessThan(104);
-    const settings = JSON.parse(await readFile(p.args[1] as string, "utf8"));
-    expect(settings.filesystem.allowRead).toEqual([]);
-    await p.cleanup?.();
-  });
+  // srt and its `sun_path`-bound mux sockets exist on macOS and Linux only.
+  it.skipIf(process.platform === "win32")(
+    "stays under the settings directory when a socket fits there",
+    async () => {
+      // A short root: macOS's own temp dir is already ~50 bytes.
+      const root = await mkdtemp("/tmp/pfs-");
+      made.push(root);
+      const settingsDir = join(root, ".psyche", "mcp", "srt");
+      const launcher = srtLauncher({
+        srtPath: "/usr/local/bin/srt",
+        settingsDir,
+        psycheHome: join(root, ".psyche"),
+      });
+      const p = await launcher.prepare(spec);
+      const scratch = p.env.TMPDIR as string;
+      expect(dirname(scratch)).toBe(settingsDir);
+      expect(scratchFits(scratch)).toBe(true);
+      expect(Buffer.byteLength(join(scratch, MUX))).toBeLessThan(104);
+      const settings = JSON.parse(await readFile(p.args[1] as string, "utf8"));
+      expect(settings.filesystem.allowRead).toEqual([]);
+      await p.cleanup?.();
+    },
+  );
 
   it("gives every launch its own directory", async () => {
     const root = await mkdtemp(join(tmpdir(), "psy-uniq-"));

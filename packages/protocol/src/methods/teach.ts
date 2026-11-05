@@ -4,12 +4,12 @@ import { defineMethod } from "./define.ts";
 import { BrowserTeachStep } from "./skills.ts";
 
 /**
- * `teach.app.*` Teach by showing in a Mac app (J8 phase 2, docs/design/teach-by-showing-2026.md
+ * `teach.app.*` Teach by showing in a desktop app (J8 phase 2, docs/design/teach-by-showing-2026.md
  * §13). The owner picks one app they already granted for computer use, does the task once and
- * stops; the Mac helper watches that app's accessibility events and returns semantic steps.
+ * stops; the Host helper (Mac or Windows) watches that app's accessibility events and returns semantic steps.
  *
  * Only the Psyche desktop shell on the Host may call these methods (the desktop's main process,
- * on the owner's click). The Mac helper's `teach.record.*` capabilities are unreachable through
+ * on the owner's click). The Host helper's `teach.record.*` capabilities are unreachable through
  * `nodes.invoke` and the agent's node tools, and no agent tool starts, stops or reads a
  * recording. The review and save path is the browser phase's: `skills.drafts.fromRecording`.
  */
@@ -77,7 +77,7 @@ export const TeachAppMethods = {
     result: Type.Object({ apps: Type.Array(TeachAppChoice, { maxItems: 200 }) }),
     scope: "operator.admin",
     description:
-      "Desktop shell only: the Mac apps the owner granted for computer use that can be recorded (Settings → Computer use). Psyche, security prompts, password managers, banking, browsers and terminals are never listed.",
+      "Desktop shell only: the apps the owner granted for computer use that can be recorded (Settings → Computer use). Psyche, security prompts, password managers, banking, browsers and terminals are never listed. An app is its bundle id on a Mac and its lowercase executable name on Windows (`notepad.exe`).",
   }),
   "teach.app.start": defineMethod({
     params: Type.Object({ bundleId: Type.String({ minLength: 3, maxLength: 200 }) }),
@@ -88,7 +88,7 @@ export const TeachAppMethods = {
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Side-effecting, desktop shell only, on the owner's click: the Mac helper starts watching one granted app's accessibility events. Refused (forbidden, policy_denied) for any other caller, for an app that is not granted, and for Psyche and system security prompts. A visible indicator shows on the Mac while it records.",
+      "Side-effecting, desktop shell only, on the owner's click: the Host helper starts watching one granted app's accessibility events. Refused (forbidden, policy_denied) for any other caller, for an app that is not granted, and for Psyche and system security prompts. A visible indicator shows on the owner's computer while it records.",
   }),
   "teach.app.stop": defineMethod({
     params: Type.Object({}),
@@ -111,7 +111,6 @@ export const TeachAppMethods = {
     params: Type.Object({}),
     result: TeachAppStatus,
     scope: "operator.admin",
-    description:
-      "Desktop shell only: whether a Mac app is being recorded, and how many steps so far.",
+    description: "Desktop shell only: whether an app is being recorded, and how many steps so far.",
   }),
 } as const;

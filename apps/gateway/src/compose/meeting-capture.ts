@@ -74,7 +74,8 @@ export class ClientAudioCapture implements AudioCapture {
   async start() {
     if (this.#session !== null) throw new PsycheError("conflict", "a recording is already running");
     const id = ulid();
-    const rel = join("audio", `${id}.wav`);
+    // Library paths are stored with "/" on every OS (the database and backups move between them).
+    const rel = `audio/${id}.wav`;
     const path = join(this.#library, rel);
     await mkdir(join(this.#library, "audio"), { recursive: true, mode: 0o700 });
     const file = await open(path, "w", 0o600);

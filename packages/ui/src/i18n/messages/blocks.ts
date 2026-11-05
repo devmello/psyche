@@ -108,6 +108,8 @@ export const blocks = {
   "blocks.details.runsSandboxed":
     "on your Mac, in the sandbox: it cannot read Psyche's vault, your SSH keys, Keychains or browser profiles",
   "blocks.details.runsNoSandbox": "on your Mac, and the sandbox is not set up ({reason})",
+  "blocks.details.runsNoHostSandbox":
+    "on this computer, without a sandbox: there is none for commands here",
   "blocks.details.needed": "Needed",
   "blocks.details.neededWhy": "Why",
   "blocks.execHost.sandboxed":
@@ -118,6 +120,9 @@ export const blocks = {
   "blocks.execHost.typeLabel": "Type {word} to run without the sandbox",
   "blocks.execHost.unsandboxedOnce": "Without the sandbox, only Allow once is offered.",
   "blocks.execHost.mustType": "Type {word} to allow, or set up the sandbox first.",
+  "blocks.execHost.noHostSandbox":
+    "There is no sandbox for commands on this computer, so this command can only run without one. Type {word} to run it this once.",
+  "blocks.execHost.mustTypeOnly": "Type {word} to allow it.",
   "blocks.permission.need.capability": "Turn on Run commands on this Mac",
   "blocks.permission.need.connector_action":
     "Let {connector} ask you before {group} (it is set to Deny)",

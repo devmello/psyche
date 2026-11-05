@@ -135,15 +135,21 @@ describe("self-signed identity", () => {
     expect(perFile(env, "/tmp/x/Psyche.app")).not.toHaveProperty("requirements");
   });
 
-  it("relaxes library validation only on the app and psyched's files, never anywhere else", () => {
-    // The app and Electron's helpers cannot load their own framework without it (no team ID).
-    expect(perFile(env, APP)).toMatchObject({ entitlements: base.selfSigned.entitlements });
-    // psyched's Node runtime and addons get the two-key plist.
-    expect(perFile(env, NODE)).toMatchObject({ entitlements: base.selfSigned.gatewayEntitlements });
-    expect(perFile(env, ADDON)).toMatchObject({
-      entitlements: base.selfSigned.gatewayEntitlements,
-    });
-  });
+  // isGatewayFile matches the host separator; macOS signing runs on macOS hosts only.
+  it.skipIf(process.platform === "win32")(
+    "relaxes library validation only on the app and psyched's files, never anywhere else",
+    () => {
+      // The app and Electron's helpers cannot load their own framework without it (no team ID).
+      expect(perFile(env, APP)).toMatchObject({ entitlements: base.selfSigned.entitlements });
+      // psyched's Node runtime and addons get the two-key plist.
+      expect(perFile(env, NODE)).toMatchObject({
+        entitlements: base.selfSigned.gatewayEntitlements,
+      });
+      expect(perFile(env, ADDON)).toMatchObject({
+        entitlements: base.selfSigned.gatewayEntitlements,
+      });
+    },
+  );
 });
 
 describe("Developer ID path is unchanged", () => {

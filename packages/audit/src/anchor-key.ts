@@ -9,6 +9,7 @@ import {
 } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { ensureOwnerOnly } from "@psyche/hostfs";
 import type { AnchorSigner, AnchorVerifier } from "./log.ts";
 import type { AuditAnchor } from "./store.ts";
 
@@ -123,7 +124,9 @@ export class SoftwareAnchorKey implements AnchorSigner, AnchorVerifier {
 
   #write(): void {
     mkdirSync(dirname(this.path), { recursive: true, mode: 0o700 });
-    chmodSync(dirname(this.path), 0o700);
+    // Windows has no modes: an owner-only DACL on security/, which the key file inherits.
+    if (process.platform === "win32") ensureOwnerOnly(dirname(this.path));
+    else chmodSync(dirname(this.path), 0o700);
     const tmp = `${this.path}.tmp`;
     writeFileSync(tmp, `${JSON.stringify(this.#file)}\n`, { mode: 0o600 });
     renameSync(tmp, this.path);

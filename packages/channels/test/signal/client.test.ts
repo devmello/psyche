@@ -2,10 +2,13 @@ import { chmodSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   checkSignalSocket,
+  checkSignalTcpPeer,
+  parseSignalTcpAddress,
   SIGNAL_MAX_ATTACHMENT_BYTES,
   SIGNAL_RECONNECT_MAX_MS,
   SIGNAL_REFUSED_METHODS,
   SignalAdapter,
+  type SignalPeerTools,
   SignalRpcClient,
 } from "../../src/adapters/signal/index.ts";
 import {
@@ -16,6 +19,8 @@ import {
   OWNER,
   textEnvelope,
   ticks,
+  untilConnected,
+  WINDOWS,
 } from "./helpers.ts";
 
 const uid = process.getuid?.() ?? 0;
@@ -40,7 +45,7 @@ describe("Signal connection", () => {
     expect(await h.adapter.health()).toMatchObject({ ok: true });
     h.daemon.dropClients();
     await h.daemon.waitForConnections(2);
-    await ticks();
+    await untilConnected(h.adapter);
     expect(h.reconnectSleeps).toEqual([1000]);
     expect(h.adapter.reconnects).toBe(1);
     expect(await h.adapter.health()).toMatchObject({ ok: true });
@@ -63,7 +68,7 @@ describe("Signal connection", () => {
     expect(health.detail).toContain(`cannot reach signal-cli at ${h.daemon.path}`);
     await h.daemon.listen();
     await h.daemon.waitForConnections(2);
-    await ticks();
+    await untilConnected(h.adapter);
     expect(await h.adapter.health()).toMatchObject({ ok: true });
   });
 
@@ -76,7 +81,8 @@ describe("Signal connection", () => {
   });
 });
 
-describe("Signal socket permission check", () => {
+// UNIX socket modes and owners: Windows reaches signal-cli over loopback TCP instead (below).
+describe.skipIf(WINDOWS)("Signal socket permission check", () => {
   it("accepts the owner's own 0700 socket", async () => {
     const d = await daemon();
     expect(await checkSignalSocket(d.path, uid)).toBeUndefined();
@@ -114,10 +120,104 @@ describe("Signal socket permission check", () => {
   });
 });
 
+describe("Signal over loopback TCP (Windows)", () => {
+  const me = "HOST\\owner";
+  const conn = {
+    local: { address: "127.0.0.1", port: 50_001 },
+    remote: { address: "127.0.0.1", port: 7583 },
+  };
+  const netstat = [
+    "  Proto  Local Address          Foreign Address        State           PID",
+    "  TCP    0.0.0.0:135            0.0.0.0:0              LISTENING       900",
+    "  TCP    127.0.0.1:7583         0.0.0.0:0              LISTENING       4242",
+    "  TCP    127.0.0.1:7583         127.0.0.1:50001        ESTABLISHED     4242",
+    "  TCP    127.0.0.1:50001        127.0.0.1:7583         ESTABLISHED     77",
+  ].join("\r\n");
+  function tools(text: string, users: Record<number, string> = { 4242: me }): SignalPeerTools {
+    return { netstat: async () => text, processUser: async (pid) => users[pid] };
+  }
+
+  it("takes only loopback addresses", () => {
+    expect(parseSignalTcpAddress("127.0.0.1:7583")).toEqual({ host: "127.0.0.1", port: 7583 });
+    expect(parseSignalTcpAddress("[::1]:7583")).toEqual({ host: "::1", port: 7583 });
+    expect(parseSignalTcpAddress("localhost:7583")).toEqual({ host: "localhost", port: 7583 });
+    for (const bad of ["0.0.0.0:7583", "192.168.1.5:7583", "example.com:7583", "127.0.0.1:0"]) {
+      expect(parseSignalTcpAddress(bad)).toBeUndefined();
+    }
+    expect(parseSignalTcpAddress("C:\\signal\\socket")).toBeUndefined();
+  });
+
+  it("accepts the owner's own daemon on loopback", async () => {
+    expect(await checkSignalTcpPeer(conn, me, "127.0.0.1:7583", tools(netstat))).toBeUndefined();
+    // Account names compare case-insensitively, as Windows does.
+    expect(
+      await checkSignalTcpPeer(conn, "host\\OWNER", "127.0.0.1:7583", tools(netstat)),
+    ).toBeUndefined();
+  });
+
+  it("refuses a daemon run by another user, or one Windows will not name", async () => {
+    expect(
+      await checkSignalTcpPeer(conn, me, "a", tools(netstat, { 4242: "HOST\\other" })),
+    ).toMatch(/belongs to another user \(HOST\\other\)/);
+    expect(await checkSignalTcpPeer(conn, me, "a", tools(netstat, {}))).toMatch(
+      /belongs to another user/,
+    );
+  });
+
+  it("refuses a daemon that also listens beyond this computer", async () => {
+    const open = `${netstat}\r\n  TCP    0.0.0.0:7583           0.0.0.0:0              LISTENING       4242`;
+    expect(await checkSignalTcpPeer(conn, me, "a", tools(open))).toMatch(/beyond this computer/);
+  });
+
+  it("refuses when the far end cannot be found or is not loopback", async () => {
+    expect(await checkSignalTcpPeer(conn, me, "a", tools(""))).toMatch(/cannot tell/);
+    const failing: SignalPeerTools = {
+      netstat: async () => {
+        throw new Error("no netstat");
+      },
+      processUser: async () => me,
+    };
+    expect(await checkSignalTcpPeer(conn, me, "a", failing)).toMatch(/cannot tell/);
+    const remote = { local: conn.local, remote: { address: "10.0.0.2", port: 7583 } };
+    expect(await checkSignalTcpPeer(remote, me, "a", tools(netstat))).toMatch(/loopback/);
+  });
+
+  it.skipIf(!WINDOWS)("connects to this user's own daemon", async () => {
+    const d = await daemon();
+    const adapter = new SignalAdapter({ socketPath: d.path, account: ACCOUNT });
+    await adapter.start();
+    expect(await adapter.health()).toMatchObject({ ok: true });
+    await adapter.stop();
+  });
+
+  it.skipIf(!WINDOWS)(
+    "refuses a daemon run by someone else before writing (fatal health)",
+    async () => {
+      const d = await daemon();
+      const adapter = new SignalAdapter({
+        socketPath: d.path,
+        account: ACCOUNT,
+        windowsUser: "NOWHERE\\nobody",
+      });
+      await expect(adapter.start()).rejects.toMatchObject({ code: "forbidden" });
+      expect((await adapter.health()).detail).toMatch(/belongs to another user/);
+      expect(d.lines).toEqual([]);
+    },
+  );
+
+  it.skipIf(!WINDOWS)("refuses a socket path: Windows uses --tcp", async () => {
+    const adapter = new SignalAdapter({ socketPath: "C:\\signal\\socket", account: ACCOUNT });
+    await expect(adapter.start()).rejects.toMatchObject({ code: "forbidden" });
+    expect((await adapter.health()).detail).toMatch(/--tcp 127\.0\.0\.1:7583/);
+  });
+});
+
 describe("Signal JSON-RPC client", () => {
   async function client(d: FixtureDaemon, timeoutMs = 15_000) {
+    const tcp = parseSignalTcpAddress(d.path);
     const c = new SignalRpcClient({
       socketPath: d.path,
+      ...(WINDOWS && tcp !== undefined ? { tcp } : {}),
       timeoutMs,
       onNotification: () => undefined,
       onClose: () => undefined,

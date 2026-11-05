@@ -1,4 +1,5 @@
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { win32 } from "node:path";
 import type { Readable, Writable } from "node:stream";
 
 /**
@@ -99,6 +100,17 @@ function startProcess(file: string, args: readonly string[], options: CliOptions
     windowsHide: true,
   });
   const signalAll = (signal: NodeJS.Signals) => {
+    if (options.processGroup === true && child.pid !== undefined && process.platform === "win32") {
+      // Windows has no process groups to signal: end the whole tree the command started.
+      const root = process.env.SystemRoot ?? "C:\\Windows";
+      execFile(
+        win32.join(root, "System32", "taskkill.exe"),
+        ["/PID", String(child.pid), "/T", "/F"],
+        { windowsHide: true },
+        () => child.kill(signal),
+      );
+      return;
+    }
     if (options.processGroup === true && child.pid !== undefined) {
       try {
         process.kill(-child.pid, signal);

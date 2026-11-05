@@ -36,8 +36,28 @@ export const nodeExec: Exec = (cmd, args, opts = {}) =>
     child.stdin.end(opts.input ?? "");
   });
 
-/** `true` when `cmd` is on PATH. */
-export async function which(exec: Exec, cmd: string): Promise<boolean> {
+/** `true` when `cmd` is on PATH (`where.exe` on Windows, which has no /bin/sh). */
+export async function which(
+  exec: Exec,
+  cmd: string,
+  platform: NodeJS.Platform = process.platform,
+): Promise<boolean> {
+  if (platform === "win32") return (await whereExe(exec, cmd)) !== null;
   const r = await exec("/bin/sh", ["-c", 'command -v "$1" >/dev/null 2>&1', "sh", cmd]);
   return r.code === 0;
+}
+
+/**
+ * Windows: the absolute path `cmd` resolves to on PATH, or null. `where.exe` lists every match,
+ * extensionless sh shims (npm, pnpm) included; the first one Windows can start (.exe, .cmd, .bat,
+ * .com) wins.
+ */
+export async function whereExe(exec: Exec, cmd: string): Promise<string | null> {
+  const r = await exec("where.exe", [cmd]);
+  if (r.code !== 0) return null;
+  const found = r.stdout
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  return found.find((p) => /\.(exe|cmd|bat|com)$/i.test(p)) ?? null;
 }

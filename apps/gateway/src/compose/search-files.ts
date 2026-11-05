@@ -9,6 +9,7 @@ import {
   type GrantedFolder,
 } from "@psyche/files";
 import { type FilesOcr, type FilesSourceDeps, filesAdapter, type PowerState } from "@psyche/search";
+import { readWindowsPower, type WindowsPower } from "../platform.ts";
 
 export { filesAdapter };
 
@@ -89,22 +90,37 @@ export function parsePower(batt: string, settings: string): PowerState {
 /** Reads the power state: cached for owner-paced work, `fresh()` when an owner action asks. */
 export type PowerRead = (() => PowerState) & { fresh: () => Promise<PowerState> };
 
+/** Windows `GetSystemPowerStatus` → battery state: a PC with no battery is never on battery. */
+export function windowsPowerState(p: WindowsPower | undefined): PowerState {
+  if (p === undefined) return { onBattery: false, lowPower: false };
+  return { onBattery: !p.noBattery && p.onAc === false, lowPower: p.saver };
+}
+
 /**
- * Battery state on macOS from two short-lived `pmset` calls, cached for a minute; plugged in
- * everywhere else and when `pmset` fails (unknown means "do the work"). The cached read answers
+ * Battery state, cached for a minute: on macOS from two short-lived `pmset` calls, on Windows from
+ * one PowerShell read of `GetSystemPowerStatus` (battery saver is "low power"); plugged in
+ * everywhere else and when the read fails (unknown means "do the work"). The cached read answers
  * from the last reading and refreshes in the background, so after a long idle it can be stale
  * (still "battery" after plugging in): an owner's Rebuild calls `fresh()` first (2026-11-03).
  */
-export function powerReader(platform: string = process.platform, ttlMs = 60_000): PowerRead {
+export function powerReader(
+  platform: string = process.platform,
+  ttlMs = 60_000,
+  windowsRead: () => Promise<WindowsPower | undefined> = () => readWindowsPower(),
+): PowerRead {
   let cached: { at: number; state: PowerState } | undefined;
   let inflight: Promise<PowerState> | undefined;
   const run = (args: string[]) =>
     new Promise<string>((resolve) =>
       execFile("/usr/bin/pmset", args, { timeout: 3000 }, (_e, out) => resolve(out ?? "")),
     );
+  const measured = platform === "darwin" || platform === "win32";
+  const readNow = (): Promise<PowerState> =>
+    platform === "win32"
+      ? windowsRead().then(windowsPowerState, () => windowsPowerState(undefined))
+      : Promise.all([run(["-g", "batt"]), run(["-g"])]).then(([b, s]) => parsePower(b, s));
   const refresh = (): Promise<PowerState> => {
-    inflight ??= Promise.all([run(["-g", "batt"]), run(["-g"])]).then(([b, s]) => {
-      const state = parsePower(b, s);
+    inflight ??= readNow().then((state) => {
       cached = { at: Date.now(), state };
       inflight = undefined;
       return state;
@@ -112,12 +128,12 @@ export function powerReader(platform: string = process.platform, ttlMs = 60_000)
     return inflight;
   };
   const read = (): PowerState => {
-    if (platform !== "darwin") return { onBattery: false, lowPower: false };
+    if (!measured) return { onBattery: false, lowPower: false };
     if (cached === undefined || Date.now() - cached.at > ttlMs) void refresh();
     return cached?.state ?? { onBattery: false, lowPower: false };
   };
   return Object.assign(read, {
     fresh: async (): Promise<PowerState> =>
-      platform !== "darwin" ? { onBattery: false, lowPower: false } : refresh(),
+      !measured ? { onBattery: false, lowPower: false } : refresh(),
   });
 }

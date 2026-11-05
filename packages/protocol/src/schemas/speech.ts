@@ -16,9 +16,13 @@ import type { NodeCapability } from "./identity.ts";
 export const SPEECH_FILE_MAX_DURATION_MS = 4 * 60 * 60 * 1000;
 
 /** The on-device engine that produced a transcript (the helper's `SpeechEngineKind`). */
-export const SpeechNodeEngine = StringEnum(["speechAnalyzer", "dictationTranscriber", "sfSpeech"], {
-  $id: "SpeechNodeEngine",
-});
+// Windows helper: `sapi` (on-device, the default) and `windowsSpeech` (Windows.Media.SpeechRecognition).
+export const SpeechNodeEngine = StringEnum(
+  ["speechAnalyzer", "dictationTranscriber", "sfSpeech", "windowsSpeech", "sapi"],
+  {
+    $id: "SpeechNodeEngine",
+  },
+);
 export type SpeechNodeEngine = Static<typeof SpeechNodeEngine>;
 
 /** `speech.transcribe_file` params. */

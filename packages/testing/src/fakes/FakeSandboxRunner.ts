@@ -1,3 +1,4 @@
+import { isAbsolute } from "node:path";
 import {
   EXEC_OUTPUT_CAP_BYTES,
   type ExecRequest,
@@ -74,7 +75,8 @@ export class FakeSandboxRunner implements SandboxRunner {
     }
     const mounts = (options.mounts ?? []).map((m) => ({ ...m }));
     for (const m of mounts) {
-      if (!m.source.startsWith("/") || !m.target.startsWith("/workspace/")) {
+      // The host side is a host path (`C:\…` on Windows); the container side is always POSIX.
+      if (!isAbsolute(m.source) || !m.target.startsWith("/workspace/")) {
         return fail("forbidden", `mount ${m.source} -> ${m.target} is not allowed`);
       }
     }

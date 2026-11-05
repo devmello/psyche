@@ -1,0 +1,186 @@
+#!/bin/sh
+# psyche-control: host -> guest control channel (the guest side of the mac helper's guestControl,
+# vsock port 7000). socat runs one copy per connection (psyche-supervise control); the protocol is
+# NDJSON on stdin/stdout, one request per line:
+#
+#   {"id": <any JSON>, "op": "<op>", ...params}   ->   {"id": ..., "result": ...}
+#                                                  or   {"id": ..., "error": {"code", "message"}}
+#
+#   ping                                            {"pong": true}
+#   status                                          version, hostname, uptime, node, session disk, network, shares
+#   mount     name, port?|tag?, readOnly? (true), aname?, transport? ("vsock"), fsRoot? (true), restartNode? (true)
+#             Plan9 share at /mnt/psyche/<name>; by default also added to psyche-node's fs roots
+#   umount    name, restartNode? (true)
+#   shares                                          mounted shares
+#   restart_node                                    psyche-node is restarted by its supervisor
+#   shutdown  reboot? (false)                       orderly power off / reboot (flushes the session disk)
+#   export    path, transferId                      copy a guest file (folder -> .tar) into psyche-out/<transferId>/; {bytes}
+#   install_psyche  payload, vsock?                 install a psyche-node.mjs bundle from a shared folder; restarts the node
+#
+# Error codes (the mac helper's): invalid_params, not_found, conflict, internal.
+# The peer is the Hyper-V host (a guest cannot connect to this socket); inputs are still validated.
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+set -u
+LIB=/usr/lib/psyche
+. /run/psyche/env
+
+ID=null
+ok() { jq -cn --argjson id "$ID" --argjson result "$1" '{id: $id, result: $result}'; }
+err() { jq -cn --argjson id "$ID" --arg code "$1" --arg message "$2" '{id: $id, error: {code: $code, message: $message}}'; }
+param() { printf '%s' "$REQ" | jq -r --arg k "$1" --arg d "${2:-}" '(if has($k) and .[$k] != null then .[$k] else $d end) | tostring'; }
+
+node_pid() { cat /run/psyche/node.pid 2>/dev/null || true; }
+restart_node() { p="$(node_pid)"; [ -z "$p" ] || kill -TERM "$p" 2>/dev/null || true; }
+
+# Runs a command as the sandbox user (uid 1000): no capabilities, no new privileges. export reads
+# guest files with it so the host can copy out only what the sandbox user itself can read.
+unpriv() { setpriv --reuid=1000 --regid=1000 --clear-groups --no-new-privs --inh-caps=-all --bounding-set=-all "$@"; }
+
+# export: copies one guest file (a directory becomes <name>.tar) into /mnt/psyche/psyche-out/<id>/.
+do_export() {
+  path="$(param path)"; tid="$(param transferId)"
+  case "$tid" in ""|*[!A-Za-z0-9_-]*) err invalid_params "transferId must be letters, digits, _ or -"; return ;; esac
+  [ "${#tid}" -le 64 ] || { err invalid_params "transferId is too long"; return; }
+  case "$path" in /*) ;; *) err invalid_params "path must be an absolute guest path"; return ;; esac
+  real="$(realpath -e -- "$path" 2>/dev/null)" || { err not_found "no such file or folder in the guest: $path"; return; }
+  case "$real" in
+    /|/proc|/proc/*|/sys|/sys/*|/dev|/dev/*|/session/node|/session/node/*|/mnt/psyche/psyche-out|/mnt/psyche/psyche-out/*)
+      err invalid_params "that guest path cannot be exported"; return ;;
+  esac
+  mountpoint -q /mnt/psyche/psyche-out || { err conflict "the psyche-out share is not mounted"; return; }
+  outdir="/mnt/psyche/psyche-out/$tid"
+  mkdir -p "$outdir" || { err internal "cannot create $outdir"; return; }
+  base="$(basename -- "$real")"
+  if unpriv test -f "$real"; then
+    dest="$outdir/$base"
+    unpriv cat -- "$real" >"$dest" 2>/dev/null; rc=$?
+  elif unpriv test -d "$real"; then
+    dest="$outdir/$base.tar"
+    unpriv tar -C "$(dirname -- "$real")" -cf - -- "$base" >"$dest" 2>/dev/null; rc=$?
+  else
+    rm -rf "$outdir"; err not_found "only files and folders can be exported"; return
+  fi
+  if [ "$rc" != 0 ]; then rm -rf "$outdir"; err internal "cannot read $path as the sandbox user"; return; fi
+  ok "$(jq -cn --argjson bytes "$(stat -c %s -- "$dest")" '{bytes: $bytes}')"
+}
+
+# install_psyche: installs a psyche-node bundle from the read-only payload share. The payload
+# (a guest path under /mnt/psyche) must contain psyche-node.mjs (bundle-node.mjs output) at its
+# root or at deploy/windows/guest-image/out/work/. It is test-run (`version`) as the sandbox user,
+# stored on the session disk (/session/payload) and preferred over the built-in node by the
+# supervisor; the supervisor falls back to the built-in node if the new one keeps crashing.
+do_install_psyche() {
+  payload="$(param payload)"; vs="$(param vsock "2:$GATEWAY_PORT")"
+  [ "$SESSION" = yes ] || { err conflict "no session disk to install onto"; return; }
+  case "$payload" in /mnt/psyche/*) ;; *) err invalid_params "payload must be a shared folder under /mnt/psyche"; return ;; esac
+  real="$(realpath -e -- "$payload" 2>/dev/null)" || { err not_found "payload folder not found"; return; }
+  case "$real" in /mnt/psyche/*) ;; *) err invalid_params "payload must be a shared folder under /mnt/psyche"; return ;; esac
+  [ "$vs" = "2:$GATEWAY_PORT" ] || { err invalid_params "vsock must be 2:$GATEWAY_PORT (the image's Gateway port)"; return; }
+  bundle=""
+  for c in "$real/psyche-node.mjs" "$real/deploy/windows/guest-image/out/work/psyche-node.mjs"; do
+    [ -f "$c" ] && { bundle="$c"; break; }
+  done
+  [ -n "$bundle" ] || { err invalid_params "payload has no psyche-node.mjs (build it with deploy/windows/guest-image/bundle-node.mjs)"; return; }
+  stage=/session/payload.new
+  rm -rf "$stage"; mkdir -p "$stage"
+  cp -- "$bundle" "$stage/psyche-node.mjs" || { rm -rf "$stage"; err internal "cannot copy the bundle"; return; }
+  chmod 0644 "$stage/psyche-node.mjs"
+  ver="$(unpriv env -i PATH=/usr/local/bin:/usr/bin:/bin timeout 20 node "$stage/psyche-node.mjs" version 2>&1)" \
+    || { rm -rf "$stage"; err invalid_params "the bundle does not run: $(printf '%s' "$ver" | head -c 200)"; return; }
+  rm -rf /session/payload.old
+  [ ! -d /session/payload ] || mv /session/payload /session/payload.old
+  mv "$stage" /session/payload && rm -rf /session/payload.old
+  rm -f /run/psyche/payload-disabled
+  restart_node
+  ok "$(jq -cn --arg version "$ver" --argjson bytes "$(stat -c %s /session/payload/psyche-node.mjs)" \
+    --arg sha256 "$(sha256sum /session/payload/psyche-node.mjs | cut -d' ' -f1)" '{installed: true, version: $version, bytes: $bytes, sha256: $sha256}')"
+}
+
+# Adds or removes /mnt/psyche/<name> from node.json fs.roots (root-owned write, psyche-owned file).
+update_roots() { # update_roots add|remove PATH MODE
+  f="$NODE_HOME/node.json"
+  [ -f "$f" ] || echo '{}' >"$f"
+  jq --arg op "$1" --arg path "$2" --arg mode "$3" '
+      .fs.roots = ((.fs.roots // []) | map(select(.path != $path)))
+      | if $op == "add" then .fs.roots += [{path: $path, mode: $mode}] else . end' "$f" >"$f.new" \
+    && chown 1000:1000 "$f.new" && chmod 0600 "$f.new" && mv "$f.new" "$f"
+}
+
+status() {
+  up="$(cut -d. -f1 /proc/uptime)"
+  p="$(node_pid)"
+  running=false; [ -n "$p" ] && kill -0 "$p" 2>/dev/null && running=true
+  if [ "$SESSION" = yes ]; then
+    disk="$(df -B1 --output=avail,size /session | tail -n 1)"
+    free="${disk%% *}"; total="$(echo "$disk" | awk '{print $2}')"
+  else
+    free=0; total=0
+  fi
+  addrs="$(busybox ip -o -4 addr show scope global 2>/dev/null | awk '{print $4}' | jq -R . | jq -cs . 2>/dev/null || echo '[]')"
+  shares="$("$LIB/share" list)"
+  jq -cn --arg version "$(cat "$LIB/image-version" 2>/dev/null || echo unknown)" --arg hostname "$GUEST_HOSTNAME" \
+    --arg kernel "$(uname -r)" --argjson uptime "$up" --argjson running "$running" --arg pid "${p:-}" \
+    --argjson mounted "$([ "$SESSION" = yes ] && echo true || echo false)" --argjson free "${free:-0}" --argjson total "${total:-0}" \
+    --argjson addrs "${addrs:-[]}" --argjson shares "${shares:-[]}" \
+    '{version: $version, hostname: $hostname, kernel: $kernel, uptimeSeconds: $uptime,
+      node: {running: $running, pid: ($pid | if . == "" then null else tonumber end)},
+      session: {mounted: $mounted, freeBytes: $free, totalBytes: $total},
+      network: {up: ($addrs | length > 0), addresses: $addrs}, shares: $shares}'
+}
+
+while IFS= read -r line; do
+  REQ="$line"
+  ID="$(printf '%s' "$REQ" | jq -c '.id // null' 2>/dev/null)" || { ID=null; err invalid_params "request is not JSON"; continue; }
+  op="$(param op)"
+  case "$op" in
+    ping) ok '{"pong":true}' ;;
+    status) ok "$(status)" ;;
+    shares) ok "$("$LIB/share" list)" ;;
+    restart_node) restart_node; ok '{"restarting":true}' ;;
+    export) do_export ;;
+    install_psyche) do_install_psyche ;;
+    mount)
+      name="$(param name)"; transport="$(param transport vsock)"; ro="$(param readOnly true)"
+      mode=rw; [ "$ro" = false ] || mode=ro
+      case "$transport" in
+        vsock) arg="$(param port 564)"; aname="$(param aname "$name")" ;;
+        virtio) arg="$(param tag)"; aname="" ;;
+        *) err invalid_params "transport must be vsock or virtio"; continue ;;
+      esac
+      out="$("$LIB/share" mount "$name" "$transport" "$arg" "$mode" ${aname:+"$aname"} 2>&1)"; rc=$?
+      case "$rc" in
+        0) ;;
+        64) err invalid_params "$out"; continue ;;
+        73) err conflict "$out"; continue ;;
+        *) err internal "$out"; continue ;;
+      esac
+      path="/mnt/psyche/$name"
+      if [ "$(param fsRoot true)" != false ]; then
+        update_roots add "$path" "$mode"
+        [ "$(param restartNode true)" = false ] || restart_node
+      fi
+      ok "$(jq -cn --arg name "$name" --arg path "$path" --argjson ro "$([ "$mode" = ro ] && echo true || echo false)" '{name: $name, path: $path, readOnly: $ro}')"
+      ;;
+    umount)
+      name="$(param name)"
+      out="$("$LIB/share" umount "$name" 2>&1)"; rc=$?
+      case "$rc" in
+        0) ;;
+        64) err invalid_params "$out"; continue ;;
+        69) err not_found "$out"; continue ;;
+        *) err internal "$out"; continue ;;
+      esac
+      update_roots remove "/mnt/psyche/$name" ro
+      [ "$(param restartNode true)" = false ] || restart_node
+      ok '{"unmounted":true}'
+      ;;
+    shutdown)
+      sig=USR2; [ "$(param reboot false)" = true ] && sig=USR1
+      ok '{"stopping":true}'
+      ( sleep 0.2; kill -"$sig" 1 ) >/dev/null 2>&1 &
+      ;;
+    "") err invalid_params "missing op" ;;
+    *) err invalid_params "unknown op $op" ;;
+  esac
+done

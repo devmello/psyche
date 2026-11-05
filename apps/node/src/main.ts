@@ -1,8 +1,8 @@
-import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 import { parseArgs, usage } from "./config.ts";
 import { loadOrCreateIdentity } from "./identity.ts";
+import { localGatewaySocket } from "./local-socket.ts";
 import { createLogger } from "./log.ts";
 import { createNodeRuntime, NODE_VERSION } from "./runtime.ts";
 
@@ -25,13 +25,8 @@ async function main(): Promise<number> {
     );
     return 0;
   }
-  const localSocket = join(process.env.PSYCHE_HOME ?? join(config.home, ".."), "run", "node.sock");
-  const runtime = await createNodeRuntime({
-    config,
-    identity,
-    log,
-    localSocket: existsSync(localSocket) ? localSocket : undefined,
-  });
+  const localSocket = localGatewaySocket(process.env.PSYCHE_HOME ?? join(config.home, ".."));
+  const runtime = await createNodeRuntime({ config, identity, log, localSocket });
   if (command === "manifest") {
     process.stdout.write(`${JSON.stringify(await runtime.detect(), null, 2)}\n`);
     await runtime.stop();

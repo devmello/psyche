@@ -208,23 +208,30 @@ describe("the data-folder rules (M4)", () => {
 });
 
 describe("pre-flight (M1)", () => {
-  it("flags AppTranslocation, /Volumes and a read-only parent", () => {
-    expect(trashProblem("/Volumes/Backup/Psyche.app")).toContain("another volume");
-    const t = join(root, "AppTranslocation", "X", "d", "Psyche.app");
-    mkdirSync(t, { recursive: true });
-    expect(trashProblem(t)).toContain("temporary");
-    chmodSync(lib("Caches"), 0o555);
-    expect(trashProblem(lib("Caches", "com.psyche.desktop"))).toContain("read-only");
-  });
+  // chmod and /Volumes paths are POSIX: the Windows rules are in uninstall-windows.test.ts.
+  it.skipIf(process.platform === "win32")(
+    "flags AppTranslocation, /Volumes and a read-only parent",
+    () => {
+      expect(trashProblem("/Volumes/Backup/Psyche.app")).toContain("another volume");
+      const t = join(root, "AppTranslocation", "X", "d", "Psyche.app");
+      mkdirSync(t, { recursive: true });
+      expect(trashProblem(t)).toContain("temporary");
+      chmodSync(lib("Caches"), 0o555);
+      expect(trashProblem(lib("Caches", "com.psyche.desktop"))).toContain("read-only");
+    },
+  );
 
-  it("an unwritable target stops everything before anything is stopped", async () => {
-    chmodSync(lib("Caches"), 0o555);
-    await expect(runUninstall(deps, { deleteData: false })).rejects.toMatchObject({
-      code: "unavailable",
-      message: expect.stringContaining("Nothing was changed"),
-    });
-    expect(calls).toEqual([]);
-  });
+  it.skipIf(process.platform === "win32")(
+    "an unwritable target stops everything before anything is stopped",
+    async () => {
+      chmodSync(lib("Caches"), 0o555);
+      await expect(runUninstall(deps, { deleteData: false })).rejects.toMatchObject({
+        code: "unavailable",
+        message: expect.stringContaining("Nothing was changed"),
+      });
+      expect(calls).toEqual([]);
+    },
+  );
 
   it("a renamed app gets a clear error with the manual step", async () => {
     mkdirSync(join(root, "Applications", "Psy.app"));

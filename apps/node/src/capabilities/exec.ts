@@ -5,7 +5,6 @@ import { StringDecoder } from "node:string_decoder";
 import {
   EXEC_DEFAULT_TIMEOUT_MS,
   EXEC_OUTPUT_CAP_BYTES,
-  type ExecRequest,
   type ExecResult,
   PsycheError,
   type SandboxBackendKind,
@@ -13,6 +12,12 @@ import {
   type SandboxScope,
 } from "@psyche/protocol";
 import { receiptOf } from "@psyche/sandbox";
+import type {
+  GuestFile,
+  GuestRunRequest,
+  GuestSession,
+  GuestSessionRequest,
+} from "./guest-runner.ts";
 import {
   type CapabilityEntry,
   type CapabilityOutcome,
@@ -50,6 +55,43 @@ export interface HostExecResult {
 
 const ARGV_SCHEMA = { type: "array", items: { type: "string" }, minItems: 1 };
 const ENV_SCHEMA = { type: "object", additionalProperties: { type: "string" } };
+const SCOPE_SCHEMA = {
+  type: "object",
+  properties: {
+    kind: { type: "string", enum: ["thread", "project", "task"] },
+    id: { type: "string" },
+  },
+  required: ["kind", "id"],
+  additionalProperties: false,
+};
+const FILES_SCHEMA = {
+  type: "array",
+  maxItems: 64,
+  items: {
+    type: "object",
+    properties: {
+      path: { type: "string" },
+      content: { type: "string" },
+      encoding: { type: "string", enum: ["utf8", "base64"] },
+    },
+    required: ["path", "content"],
+    additionalProperties: false,
+  },
+};
+const NETWORK_SCHEMA = { type: "string", enum: ["none", "allow"] };
+const SESSION_ID = /^[A-Za-z0-9_-]{8,64}$/;
+/** stdin given to one `exec`, and one `exec.session.write`, at most. */
+export const EXEC_STDIN_MAX_BYTES = 1024 * 1024;
+
+/** A runner that can do more than `SandboxRunner.exec` (the sandbox guest's). */
+interface RichRunner extends SandboxRunner {
+  run(request: GuestRunRequest): Promise<ExecResult>;
+  openSession(sandboxId: string, request: GuestSessionRequest): Promise<GuestSession>;
+}
+const isRich = (r: SandboxRunner | null): r is RichRunner =>
+  r !== null &&
+  typeof (r as Partial<RichRunner>).run === "function" &&
+  typeof (r as Partial<RichRunner>).openSession === "function";
 
 /**
  * `exec` runs argv in the node's container sandbox; there is never a fallback to the host when
@@ -71,10 +113,27 @@ export function createExecProvider(options: ExecProviderOptions): CapabilityProv
 
   async function sandboxExec(params: unknown, ctx: InvocationContext): Promise<CapabilityOutcome> {
     if (!runner) return fail("unavailable", "no sandbox runner on this node");
-    const p = parseObject(params, ["argv", "cwd", "env", "timeoutMs", "scope"]);
+    const p = parseObject(params, [
+      "argv",
+      "cwd",
+      "env",
+      "timeoutMs",
+      "scope",
+      "stdin",
+      "files",
+      "network",
+      "ephemeral",
+    ]);
     if (!p.ok) return p.outcome;
     const argv = parseArgv(p.value.argv);
     if (!argv) return fail("invalid_params", "argv must be a non-empty array of strings");
+    const extras = parseExtras(p.value);
+    if ("error" in extras) return fail("invalid_params", extras.error);
+    if (Object.keys(extras.value).length > 0 && !isRich(runner)) {
+      // Never dropped silently: a runner that cannot give stdin or keep a run off the network
+      // does not run it.
+      return fail("invalid_params", "this node's sandbox takes no stdin, files or network policy");
+    }
     const cwd = p.value.cwd ?? "/workspace";
     if (typeof cwd !== "string" || !path.posix.isAbsolute(cwd) || cwd.includes("\0")) {
       return fail("invalid_params", "cwd must be an absolute container path");
@@ -94,12 +153,19 @@ export function createExecProvider(options: ExecProviderOptions): CapabilityProv
     } catch (err) {
       return { ok: false, error: PsycheError.from(err).toPayload() };
     }
-    const request: ExecRequest = { sandboxId, argv, cwd, timeoutMs, signal: ctx.signal };
+    const request: GuestRunRequest = {
+      sandboxId,
+      argv,
+      cwd,
+      timeoutMs,
+      signal: ctx.signal,
+      ...extras.value,
+    };
     if (env) request.env = env;
     ctx.emit({ phase: "started", sandboxId });
     let result: ExecResult;
     try {
-      result = await runner.exec(request);
+      result = isRich(runner) ? await runner.run(request) : await runner.exec(request);
     } catch (err) {
       const error = PsycheError.from(err).toPayload();
       const receipt = ctx.receipt({
@@ -199,6 +265,181 @@ export function createExecProvider(options: ExecProviderOptions): CapabilityProv
     return { ok: true, result: r, receipt };
   }
 
+  // --- long-lived sessions (stdio MCP servers in the guest) -------------------------------
+
+  /** Open sessions by the Gateway's id; each lives as long as its `exec.session.open`. */
+  const sessions = new Map<string, GuestSession>();
+
+  async function sessionOpen(params: unknown, ctx: InvocationContext): Promise<CapabilityOutcome> {
+    if (!isRich(runner)) return fail("unavailable", "no sandbox sessions on this node");
+    const p = parseObject(params, ["sessionId", "argv", "cwd", "env", "scope", "files", "network"]);
+    if (!p.ok) return p.outcome;
+    const sessionId = p.value.sessionId;
+    if (typeof sessionId !== "string" || !SESSION_ID.test(sessionId)) {
+      return fail("invalid_params", "sessionId must be 8–64 letters, digits, _ or -");
+    }
+    if (sessions.has(sessionId)) return fail("conflict", "session already open");
+    const argv = parseArgv(p.value.argv);
+    if (!argv) return fail("invalid_params", "argv must be a non-empty array of strings");
+    const cwd = p.value.cwd ?? "/workspace";
+    if (typeof cwd !== "string" || !path.posix.isAbsolute(cwd) || cwd.includes("\0")) {
+      return fail("invalid_params", "cwd must be an absolute container path");
+    }
+    const env = parseEnv(p.value.env);
+    if (env === false) return fail("invalid_params", "env must map names to strings");
+    const scope = parseScope(p.value.scope);
+    if (!scope) return fail("invalid_params", "scope must be {kind: thread|project|task, id}");
+    const extras = parseExtras({ files: p.value.files, network: p.value.network });
+    if ("error" in extras) return fail("invalid_params", extras.error);
+    // A session is off the network unless the Gateway says otherwise.
+    const network = extras.value.network ?? "none";
+    let session: GuestSession;
+    try {
+      const sandboxId = (await runner.ensureSandbox(scope)).id;
+      session = await runner.openSession(sandboxId, {
+        argv,
+        cwd,
+        network,
+        ...(env === undefined ? {} : { env }),
+        ...(extras.value.files === undefined ? {} : { files: extras.value.files }),
+      });
+    } catch (err) {
+      const code = (err as { code?: unknown }).code;
+      if (code === "ENOENT") return fail("not_found", `${argv[0]}: command not found`);
+      return { ok: false, error: PsycheError.from(err).toPayload() };
+    }
+    sessions.set(sessionId, session);
+    const onAbort = () => session.kill("TERM");
+    ctx.signal.addEventListener("abort", onAbort, { once: true });
+    ctx.emit({ phase: "started", sessionId });
+    const forward = (stream: "stdout" | "stderr") =>
+      session[stream].on("data", (chunk: Buffer) =>
+        ctx.emit({ stream, data: Buffer.from(chunk).toString("base64") }),
+      );
+    forward("stdout");
+    forward("stderr");
+    try {
+      const end = await session.exited;
+      const outcome = ctx.signal.aborted ? "uncertain" : end.exitCode === 0 ? "ok" : "failed";
+      const receipt = ctx.receipt({
+        kind: "exec.session",
+        outcome,
+        summary: `${argv[0]} exited ${end.exitCode ?? end.signal ?? "on a signal"}`,
+        payload: { argv, cwd, scope, network, exitCode: end.exitCode, durationMs: end.durationMs },
+      });
+      return { ok: true, result: end, receipt };
+    } finally {
+      ctx.signal.removeEventListener("abort", onAbort);
+      sessions.delete(sessionId);
+    }
+  }
+
+  async function sessionWrite(params: unknown): Promise<CapabilityOutcome> {
+    const p = parseObject(params, ["sessionId", "data", "end"]);
+    if (!p.ok) return p.outcome;
+    const session = typeof p.value.sessionId === "string" ? sessions.get(p.value.sessionId) : null;
+    if (!session) return fail("not_found", "no such session");
+    const { data, end } = p.value;
+    if (data !== undefined && typeof data !== "string") {
+      return fail("invalid_params", "data must be base64 text");
+    }
+    if (end !== undefined && typeof end !== "boolean") {
+      return fail("invalid_params", "end must be a boolean");
+    }
+    const bytes = Buffer.from(data ?? "", "base64");
+    if (bytes.length > EXEC_STDIN_MAX_BYTES) {
+      return fail("invalid_params", `at most ${EXEC_STDIN_MAX_BYTES} bytes per write`);
+    }
+    try {
+      if (bytes.length > 0) {
+        await new Promise<void>((resolve, reject) =>
+          session.stdin.write(bytes, (err) => (err ? reject(err) : resolve())),
+        );
+      }
+      if (end === true) session.stdin.end();
+    } catch (err) {
+      return fail("conflict", `stdin is closed (${PsycheError.from(err).message})`);
+    }
+    return { ok: true, result: { bytes: bytes.length } };
+  }
+
+  async function sessionClose(params: unknown): Promise<CapabilityOutcome> {
+    const p = parseObject(params, ["sessionId", "signal"]);
+    if (!p.ok) return p.outcome;
+    const session = typeof p.value.sessionId === "string" ? sessions.get(p.value.sessionId) : null;
+    if (!session) return fail("not_found", "no such session");
+    const sig = p.value.signal ?? "TERM";
+    if (sig !== "TERM" && sig !== "KILL") return fail("invalid_params", "signal is TERM or KILL");
+    session.stdin.end();
+    session.kill(sig);
+    return { ok: true, result: { closed: true } };
+  }
+
+  const sessionEntries: CapabilityEntry[] = [
+    {
+      manifest: {
+        name: "exec.session.open",
+        description:
+          "Start a long-lived argv in this node's sandbox with raw pipes (no shell, network off unless allowed); output streams as events until it exits.",
+        sideEffect: "write",
+        targetKind: "command",
+        streaming: true,
+        inputSchema: {
+          type: "object",
+          properties: {
+            sessionId: { type: "string", pattern: SESSION_ID.source },
+            argv: ARGV_SCHEMA,
+            cwd: { type: "string", description: "Container path, default /workspace" },
+            env: ENV_SCHEMA,
+            scope: SCOPE_SCHEMA,
+            files: FILES_SCHEMA,
+            network: NETWORK_SCHEMA,
+          },
+          required: ["sessionId", "argv"],
+          additionalProperties: false,
+        },
+      },
+      handler: sessionOpen,
+    },
+    {
+      manifest: {
+        name: "exec.session.write",
+        description: "Write base64 bytes to an open session's stdin; `end` closes it.",
+        sideEffect: "write",
+        targetKind: "command",
+        inputSchema: {
+          type: "object",
+          properties: {
+            sessionId: { type: "string" },
+            data: { type: "string" },
+            end: { type: "boolean" },
+          },
+          required: ["sessionId"],
+          additionalProperties: false,
+        },
+      },
+      handler: sessionWrite,
+    },
+    {
+      manifest: {
+        name: "exec.session.close",
+        description: "Stop an open session (TERM, then KILL after a grace period).",
+        sideEffect: "write",
+        targetKind: "command",
+        inputSchema: {
+          type: "object",
+          properties: {
+            sessionId: { type: "string" },
+            signal: { type: "string", enum: ["TERM", "KILL"] },
+          },
+          required: ["sessionId"],
+          additionalProperties: false,
+        },
+      },
+      handler: sessionClose,
+    },
+  ];
+
   const execEntry: CapabilityEntry = {
     manifest: {
       name: "exec",
@@ -213,15 +454,15 @@ export function createExecProvider(options: ExecProviderOptions): CapabilityProv
           cwd: { type: "string", description: "Container path, default /workspace" },
           env: ENV_SCHEMA,
           timeoutMs: { type: "integer", minimum: 1, maximum: EXEC_TIMEOUT_MS_MAX },
-          scope: {
-            type: "object",
-            properties: {
-              kind: { type: "string", enum: ["thread", "project", "task"] },
-              id: { type: "string" },
-            },
-            required: ["kind", "id"],
-            additionalProperties: false,
-          },
+          scope: SCOPE_SCHEMA,
+          ...(isRich(runner)
+            ? {
+                stdin: { type: "string", description: "Text written to stdin, then closed" },
+                files: FILES_SCHEMA,
+                network: NETWORK_SCHEMA,
+                ephemeral: { type: "boolean", description: "A fresh folder, removed afterwards" },
+              }
+            : {}),
         },
         required: ["argv"],
         additionalProperties: false,
@@ -255,9 +496,16 @@ export function createExecProvider(options: ExecProviderOptions): CapabilityProv
     id: "exec",
     async entries() {
       const out: CapabilityEntry[] = [];
-      if ((await backends()).length > 0) out.push(execEntry);
+      if ((await backends()).length > 0) {
+        out.push(execEntry);
+        if (isRich(runner)) out.push(...sessionEntries);
+      }
       if (host) out.push(hostEntry);
       return out;
+    },
+    async dispose() {
+      for (const s of sessions.values()) s.kill("KILL");
+      sessions.clear();
     },
     async status() {
       const b = await backends();
@@ -268,13 +516,17 @@ export function createExecProvider(options: ExecProviderOptions): CapabilityProv
 
 export type HostRun = { spawnError: string } | { result: HostExecResult; cancelled: boolean };
 
-/** Spawns without a shell, streams capped output as events, enforces timeout and cancel. */
+/**
+ * Spawns without a shell, streams capped output as events, enforces timeout and cancel. With
+ * `stdin`, the text is written to the process and its stdin closed; otherwise stdin is empty.
+ */
 export function runHost(
   argv: string[],
   cwd: string,
   env: Record<string, string>,
   timeoutMs: number,
   ctx: Pick<InvocationContext, "emit" | "signal">,
+  options: { stdin?: string } = {},
 ): Promise<HostRun> {
   const baseEnv: Record<string, string> = {};
   if (process.env.PATH !== undefined) baseEnv.PATH = process.env.PATH;
@@ -286,11 +538,16 @@ export function runHost(
       cwd,
       env: { ...baseEnv, ...env },
       shell: false,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: [options.stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
     });
   } catch (err) {
     const code = (err as { code?: unknown }).code;
     return Promise.resolve({ spawnError: typeof code === "string" ? code : "EINVAL" });
+  }
+  if (options.stdin !== undefined && child.stdin) {
+    // A process that exits without reading its input is not an error of ours (EPIPE).
+    child.stdin.on("error", () => undefined);
+    child.stdin.end(options.stdin);
   }
 
   return new Promise((resolve) => {
@@ -427,6 +684,44 @@ function parseEnv(v: unknown): Record<string, string> | undefined | false {
     out[k] = val;
   }
   return out;
+}
+
+type Extras = Pick<GuestRunRequest, "stdin" | "files" | "network" | "ephemeral">;
+
+/** `stdin`, `files`, `network` and `ephemeral`, each only when given. */
+function parseExtras(v: Record<string, unknown>): { value: Extras } | { error: string } {
+  const out: Extras = {};
+  if (v.stdin !== undefined) {
+    if (typeof v.stdin !== "string") return { error: "stdin must be a string" };
+    if (Buffer.byteLength(v.stdin, "utf8") > EXEC_STDIN_MAX_BYTES) {
+      return { error: `stdin is over ${EXEC_STDIN_MAX_BYTES} bytes` };
+    }
+    out.stdin = v.stdin;
+  }
+  if (v.files !== undefined) {
+    if (!Array.isArray(v.files)) return { error: "files must be an array" };
+    const files: GuestFile[] = [];
+    for (const f of v.files) {
+      const { path: p, content, encoding } = (f ?? {}) as Record<string, unknown>;
+      if (typeof p !== "string" || typeof content !== "string") {
+        return { error: "each file needs a path and a content string" };
+      }
+      if (encoding !== undefined && encoding !== "utf8" && encoding !== "base64") {
+        return { error: "file encoding is utf8 or base64" };
+      }
+      files.push({ path: p, content, ...(encoding === undefined ? {} : { encoding }) });
+    }
+    out.files = files;
+  }
+  if (v.network !== undefined) {
+    if (v.network !== "none" && v.network !== "allow") return { error: "network is none or allow" };
+    out.network = v.network;
+  }
+  if (v.ephemeral !== undefined) {
+    if (typeof v.ephemeral !== "boolean") return { error: "ephemeral must be a boolean" };
+    if (v.ephemeral) out.ephemeral = true;
+  }
+  return { value: out };
 }
 
 function parseTimeout(v: unknown, max: number): number | null {

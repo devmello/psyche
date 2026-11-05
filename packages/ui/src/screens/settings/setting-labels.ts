@@ -117,6 +117,7 @@ const LABELLED_KEYS = [
   "voice.mode",
   "voice.systemWide",
   "voice.hotkey",
+  "quickEntry.shortcut",
   "screenAsk.enabled",
   "screenAsk.shortcut",
   "screenAsk.destination",

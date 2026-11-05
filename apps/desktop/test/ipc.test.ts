@@ -88,6 +88,11 @@ describe("IPC validators", () => {
       expect(() => checkCallable(m, known), m).toThrow(/not callable/);
     // The dedicated channels take a bundle id and nothing else, and a remote window refuses them.
     expect(checkTeachApp({ bundleId: "com.apple.mail" })).toBe("com.apple.mail");
+    // A Windows app is its lowercase executable name, spaces and all.
+    for (const exe of ["notepad.exe", "adobe premiere pro.exe", "wps_office.exe"])
+      expect(checkTeachApp({ bundleId: exe })).toBe(exe);
+    for (const bad of ["..\\evil.exe", "a/b.exe", "Notepad.EXE;", ".exe"])
+      expect(() => checkTeachApp({ bundleId: bad }), bad).toThrow();
     for (const bad of [
       {},
       { bundleId: "" },

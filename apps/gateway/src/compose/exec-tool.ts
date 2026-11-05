@@ -10,6 +10,7 @@ import {
   type SandboxScope,
   type Target,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { buildSecretEnv, type SecretEnv, type Vault } from "@psyche/vault";
 import { Type } from "@sinclair/typebox";
 
@@ -133,8 +134,7 @@ async function secretEnv(
 export function execTool(deps: ExecToolDeps): AgentToolRegistration {
   return defineTool({
     name: "exec",
-    description:
-      "Run one command (an argv array, no shell string) in your sandbox (a container with network off, or the sandbox Mac for a Task set to run there): /workspace persists, never the owner's machine. An env value of exactly {{cred:<item>}} is filled from the vault as PSYCHE_SECRET_<NAME> after the owner approves; its value never comes back.",
+    description: `Run one command (an argv array, no shell string) in your sandbox (a container with network off, or the sandbox ${hostWords().device} for a Task set to run there): /workspace persists, never the owner's machine. An env value of exactly {{cred:<item>}} is filled from the vault as PSYCHE_SECRET_<NAME> after the owner approves; its value never comes back.`,
     input: Type.Object({
       argv: Type.Array(Type.String({ maxLength: 8192 }), { minItems: 1, maxItems: 256 }),
       cwd: Type.Optional(Type.String({ minLength: 1, maxLength: 1024 })),

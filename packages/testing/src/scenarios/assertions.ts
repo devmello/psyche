@@ -225,8 +225,10 @@ const EVALUATORS: Record<string, Evaluator> = {
     for (const s of (a.mustNotOffer as string[] | undefined) ?? [])
       if (offered.includes(s as never)) errors.push(`offers ${s}`);
     const shown = `${bound.summary}\n${json(bound.details)}`;
+    // A value inside `details` is JSON-escaped there (a Windows path's backslashes double).
     for (const s of (a.mustShow as string[] | undefined) ?? [])
-      if (!shown.includes(s)) errors.push(`card does not show ${json(s)}`);
+      if (!shown.includes(s) && !shown.includes(json(s).slice(1, -1)))
+        errors.push(`card does not show ${json(s)}`);
     if (a.taint !== undefined && bound.taint !== a.taint) errors.push(`taint ${bound.taint}`);
     if (a.deviceOnly !== undefined && bound.deviceOnly !== a.deviceOnly)
       errors.push(`deviceOnly ${bound.deviceOnly}`);

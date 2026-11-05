@@ -16,11 +16,27 @@ final class Dictation {
     }
 
     private(set) var state: State = .idle
-    private let engine = DictationEngine()
+    private let engine: any DictationEngining
     private var onText: @MainActor (String) -> Void = { _ in }
     private var starting: Task<Void, Never>?
 
     var isActive: Bool { state == .preparing || state == .listening }
+
+    init(engine: any DictationEngining = DictationEngine()) {
+        self.engine = engine
+        Self.registry.append(WeakDictation(self))
+    }
+
+    // Every Dictation (Home and each chat composer has one) is findable, so the app can stop them all when the
+    // scene leaves the screen: with the `audio` background mode the microphone would otherwise keep running.
+    private struct WeakDictation { weak var value: Dictation?; init(_ v: Dictation) { value = v } }
+    private static var registry: [WeakDictation] = []
+
+    /// Stops every dictation in the app.
+    static func stopAll() {
+        registry.removeAll { $0.value == nil }
+        for entry in registry { entry.value?.stop() }
+    }
 
     /// `onText` receives the whole transcript of this dictation each time it changes.
     func toggle(onText: @escaping @MainActor (String) -> Void) {
@@ -68,6 +84,17 @@ final class Dictation {
     }
 }
 
+/// What `Dictation` needs from the audio and recognition plumbing (a fake in tests).
+protocol DictationEngining: Sendable {
+    func start(onText: @escaping @Sendable (String) -> Void) async throws
+    func stop() async
+}
+
+/// Called by the app when the scene leaves `.active`: no microphone in the background.
+public enum PsycheDictation {
+    @MainActor public static func stopAll() { Dictation.stopAll() }
+}
+
 enum DictationError: LocalizedError {
     case denied
     case unavailable
@@ -81,8 +108,14 @@ enum DictationError: LocalizedError {
 }
 
 /// The audio and recognition plumbing, off the main actor: the microphone tap runs on an audio thread.
-final class DictationEngine: @unchecked Sendable {
+final class DictationEngine: DictationEngining, @unchecked Sendable {
     private let capture = AudioCapture()
+    /// This engine set the audio category and activated the session: only then may `stop` deactivate it. A stop
+    /// with no dictation running (every send, every thread exit) must not touch the session, which may be the
+    /// stay-awake loop's.
+    private var configuredSession = false
+    /// This engine's claim on the audio session in the arbiter; nil when it has none.
+    private var claim: UUID?
     private var analyzer: SpeechAnalyzer?
     private var inputContinuation: AsyncStream<AnalyzerInput>.Continuation?
     private var resultsTask: Task<Void, Never>?
@@ -90,13 +123,20 @@ final class DictationEngine: @unchecked Sendable {
     private var legacyTask: SFSpeechRecognitionTask?
 
     func start(onText: @escaping @Sendable (String) -> Void) async throws {
-        try await authorize()
-        try configureSession()
+        // Stay-awake lends the audio session while this holds it (one owner at a time), and takes it back in `stop`.
+        claim = await MainActor.run { AudioSessionArbiter.shared.begin() }
         do {
-            try await startAnalyzer(onText: onText)
+            try await authorize()
+            try configureSession()
+            do {
+                try await startAnalyzer(onText: onText)
+            } catch {
+                await stopAnalyzer()
+                try startLegacy(onText: onText)
+            }
         } catch {
-            await stopAnalyzer()
-            try startLegacy(onText: onText)
+            await release()
+            throw error
         }
     }
 
@@ -108,8 +148,18 @@ final class DictationEngine: @unchecked Sendable {
         legacyTask = nil
         await stopAnalyzer()
         #if os(iOS)
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        if configuredSession {
+            configuredSession = false
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
         #endif
+        await release()
+    }
+
+    private func release() async {
+        guard let claim else { return }
+        self.claim = nil
+        await MainActor.run { AudioSessionArbiter.shared.end(claim) }
     }
 
     // MARK: Permissions and session
@@ -127,6 +177,7 @@ final class DictationEngine: @unchecked Sendable {
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.record, mode: .measurement, options: .duckOthers)
         try session.setActive(true, options: .notifyOthersOnDeactivation)
+        configuredSession = true
         #endif
     }
 

@@ -1,5 +1,13 @@
 import { lstat, realpath } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import {
+  canonicalHostPath,
+  HostPathError,
+  isUnderHostPath,
+  isWin32HostPath,
+  relativeHostPath,
+  sameHostPath,
+} from "@psyche/hostfs";
 import { PsycheError } from "@psyche/protocol";
 
 /** A granted folder as `permissions.policy.folders` lists it (real path, `ro` or `rw`). */
@@ -11,17 +19,26 @@ export interface GrantedFolder {
 /**
  * The normalized absolute path the broker checks (pure: no file system access). `..` segments
  * resolve here, so `/granted/../outside` is judged as `/outside`, never as a path under
- * `/granted`.
+ * `/granted`. On Windows it is the broker's own form (`@psyche/hostfs`): a drive or UNC path, and
+ * a name Win32 would rewrite (`a.txt:stream`, `Docs.`, `NUL`, `DOCUME~1`) is refused.
  */
 export function canonicalTarget(p: string): string {
   if (p.includes("\0")) throw new PsycheError("invalid_params", "NUL in path");
-  return resolve(p);
+  if (process.platform !== "win32") return resolve(p);
+  try {
+    const c = canonicalHostPath(p);
+    // Windows would read `/x` as `\x` on the current drive: only drive and UNC paths name a file.
+    if (!isWin32HostPath(c)) throw new HostPathError(`path is not absolute: ${JSON.stringify(p)}`);
+    return c;
+  } catch (err) {
+    if (err instanceof HostPathError) throw new PsycheError("invalid_params", err.message);
+    throw err;
+  }
 }
 
-/** `child` equals `root` or lies under it, by whole segments. */
+/** `child` equals `root` or lies under it, by whole segments (Windows paths without case). */
 export function isUnder(child: string, root: string): boolean {
-  if (root === "/") return child.startsWith("/");
-  return child === root || child.startsWith(`${root}/`);
+  return isUnderHostPath(child, root);
 }
 
 /**
@@ -60,7 +77,13 @@ export function assertGranted(
 }
 
 /** Names under one of Psyche's own working folders that stay protected: agent config and tokens. */
-const OWN_DIR_PRIVATE = new Set(["CLAUDE.md", "AGENTS.md", "GEMINI.md"]);
+const OWN_DIR_PRIVATE = new Set([
+  "CLAUDE.md",
+  "AGENTS.md",
+  "GEMINI.md",
+  // NTFS opens `claude.md` as `CLAUDE.md`: Windows compares these upper-cased.
+  ...(process.platform === "win32" ? ["CLAUDE.MD", "AGENTS.MD", "GEMINI.MD"] : []),
+]);
 
 /**
  * Whether `path` lies in a protected root. `ownDirs` are folders Psyche creates for its own runs
@@ -80,8 +103,9 @@ export function isProtectedPath(
     const root = canonicalTarget(raw);
     if (!isUnder(path, root)) continue;
     if (own === undefined || !isUnder(own, root)) return true;
-    const first = path.slice(own.length + 1).split("/")[0] ?? "";
-    if (first.startsWith(".") || OWN_DIR_PRIVATE.has(first)) return true;
+    const first = relativeHostPath(own, path).split("/")[0] ?? "";
+    const name = process.platform === "win32" ? first.toUpperCase() : first;
+    if (first.startsWith(".") || OWN_DIR_PRIVATE.has(name)) return true;
   }
   return false;
 }
@@ -113,7 +137,8 @@ export async function assertNoSymlinks(path: string): Promise<void> {
     new PsycheError("forbidden", `${path} goes through a symlink; use the real path`);
   for (let dir = dirname(path); ; dir = dirname(dir)) {
     try {
-      if ((await realpath(dir)) !== dir) throw moved();
+      // Windows: the real path keeps the case on disk, and a short name comes back long.
+      if (!sameHostPath(await realpath(dir), dir)) throw moved();
       break;
     } catch (err) {
       if (err instanceof PsycheError || (err as NodeJS.ErrnoException).code !== "ENOENT") throw err;

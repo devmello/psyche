@@ -1,0 +1,53 @@
+# Psyche guest kernel: options merged over Microsoft's config-wsl (arch/x86/configs/config-wsl).
+# Every line here is asserted to be present in the final .config (Dockerfile.kernel fails otherwise).
+
+# --- Hyper-V guest: VMBus, SCSI-on-VMBus (VHDX disks), netvsc (HNS NAT), integration services
+# (shutdown, time sync, heartbeat), memory balloon. All built in: the initrd loads no modules.
+CONFIG_HYPERVISOR_GUEST=y
+CONFIG_HYPERV=y
+CONFIG_HYPERV_VMBUS=y
+CONFIG_HYPERV_STORAGE=y
+CONFIG_HYPERV_NET=y
+CONFIG_HYPERV_UTILS=y
+CONFIG_HYPERV_BALLOON=y
+CONFIG_HYPERV_TIMER=y
+
+# --- Sockets: AF_VSOCK over Hyper-V sockets (host = CID 2). Virtio vsock too, for QEMU tests.
+CONFIG_VSOCKETS=y
+CONFIG_HYPERV_VSOCKETS=y
+CONFIG_VIRTIO_VSOCKETS=y
+
+# --- Plan9 shares: trans=fd (HCS Plan9 over a vsock connection), trans=virtio (QEMU tests).
+CONFIG_NET_9P=y
+CONFIG_NET_9P_FD=y
+CONFIG_NET_9P_VIRTIO=y
+CONFIG_9P_FS=y
+CONFIG_9P_FS_POSIX_ACL=y
+
+# --- Root and session filesystems: ext4 on SCSI, overlayfs + tmpfs over the read-only root.
+CONFIG_EXT4_FS=y
+CONFIG_OVERLAY_FS=y
+CONFIG_TMPFS=y
+CONFIG_DEVTMPFS=y
+CONFIG_BLK_DEV_INITRD=y
+CONFIG_RD_GZIP=y
+
+# --- Virtio disk/net/PCI/console, so the same kernel boots under QEMU for CI boot tests.
+CONFIG_PCI=y
+CONFIG_VIRTIO=y
+CONFIG_VIRTIO_PCI=y
+CONFIG_VIRTIO_BLK=y
+CONFIG_VIRTIO_NET=y
+CONFIG_SERIAL_8250=y
+CONFIG_SERIAL_8250_CONSOLE=y
+
+# --- Sandboxing the node's tools may rely on.
+CONFIG_USER_NS=y
+CONFIG_SECCOMP=y
+CONFIG_SECCOMP_FILTER=y
+CONFIG_CGROUPS=y
+
+# --- Hardening: no loadable modules (none are shipped; nothing can be loaded later), and a
+# version suffix so `uname -r` identifies the image kernel.
+# CONFIG_MODULES is not set
+CONFIG_LOCALVERSION="-psyche"

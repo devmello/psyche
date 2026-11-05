@@ -230,7 +230,7 @@ export const ko: Partial<Catalogue> = {
   "chat.composer.placeholder": "{persona}에게 메시지 보내기…",
   "chat.composer.label": "{persona}에게 메시지 보내기",
   "chat.composer.attach": "파일 첨부",
-  "chat.composer.dictate": "받아쓰기 (fn 길게 누르기)",
+  "chat.composer.dictate": "받아쓰기 ({key} 길게 누르기)",
   "chat.composer.hintIdle": "명령을 보려면 /를 입력하십시오",
   "chat.composer.hintFollowUp": "{persona}의 이번 턴이 끝나면 전송됩니다",
   "chat.composer.hintSteer": "지금 전송하여 {persona}의 방향을 조정합니다",

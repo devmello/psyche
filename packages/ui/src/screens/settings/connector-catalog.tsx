@@ -2,6 +2,7 @@ import type { Connector } from "@psyche/protocol";
 import type { ReactElement } from "react";
 import { useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { macOnlyAvailable } from "../../lib/platform-copy.ts";
 import { RadioField } from "./shared.tsx";
 
 /** The connector catalogue: what Add connector offers, and the read / read-and-act choice. */
@@ -117,12 +118,28 @@ export function offeredCatalog(
   implemented: ReadonlySet<string> | undefined,
   options: { navigation?: boolean } = {},
 ) {
+  // The Apple apps exist only on a Mac: on Windows they are not offered (mail, calendar and
+  // contacts come through Google, Microsoft or IMAP there; cross-platform-2026 §3.2). The one
+  // exception is classic Outlook: the Windows helper serves Mail, Calendar and Reminders from it
+  // under the same types, and the Gateway lists them only while it does, so they are offered
+  // once its catalogue says so (never while it is still loading).
+  const mac = macOnlyAvailable();
   return CONNECTOR_CATALOG.filter((c) =>
-    c.opens !== undefined || c.type === "mcp"
-      ? options.navigation !== false
-      : implemented === undefined || implemented.has(c.type),
+    !mac && c.type.startsWith("apple:")
+      ? OUTLOOK_TYPES.has(c.type) && implemented?.has(c.type) === true
+      : c.opens !== undefined || c.type === "mcp"
+        ? options.navigation !== false
+        : implemented === undefined || implemented.has(c.type),
   );
 }
+
+/** The `apple:*` types the Windows helper serves from classic Outlook (its labels say Outlook). */
+const OUTLOOK_TYPES: ReadonlySet<string> = new Set([
+  "apple:mail",
+  "apple:calendar",
+  "apple:reminders",
+  "apple:contacts",
+]);
 
 /**
  * Types that need a setting chosen before they can connect (Obsidian: its vault folder), so they

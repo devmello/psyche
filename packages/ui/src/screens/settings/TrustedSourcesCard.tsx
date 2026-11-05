@@ -1,4 +1,4 @@
-import type { Connector } from "@psyche/protocol";
+import { type Connector, isHostHelperKind } from "@psyche/protocol";
 import { type ReactElement, useCallback, useEffect, useId, useState } from "react";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
@@ -66,7 +66,8 @@ export function useHelperSources(
 ): { sources: TrustSource[] | null; loading: boolean; error: string | null } {
   const call = useCall();
   const nodes = useGatewayQuery("nodes.list", {}, { enabled });
-  const helper = nodes.data?.nodes.find((n) => n.kind === "mac-helper" && n.status === "online");
+  // The Host's own helper, Mac or Windows (classic Outlook serves the lists and calendars there).
+  const helper = nodes.data?.nodes.find((n) => isHostHelperKind(n.kind) && n.status === "online");
   const [state, setState] = useState<{ sources: TrustSource[] | null; error: string | null }>({
     sources: null,
     error: null,

@@ -18,7 +18,11 @@ export function missingFor(
   if (rule === "folder:not_granted" || rule === "folder:read_only") {
     const cwd = typeof fields?.cwd === "string" ? fields.cwd : undefined;
     const path = call.tool === "exec_host" ? cwd : call.target?.value;
-    if (path === undefined || !path.startsWith("/")) return undefined;
+    // Absolute only: `/…`, or on Windows a drive-letter or UNC path.
+    const absolute =
+      path !== undefined &&
+      (path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path) || /^\\\\[^\\]+\\/.test(path));
+    if (path === undefined || !absolute) return undefined;
     const write = rule === "folder:read_only" || SEVERITY[se] >= SEVERITY.write;
     return { need: "folder", path, access: write ? "read_write" : "read" };
   }

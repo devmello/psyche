@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id, StringEnum } from "../common.ts";
+import { ABSOLUTE_HOST_PATH_PATTERN, Id, StringEnum } from "../common.ts";
 import { ApprovalRequest } from "../schemas/permissions.ts";
 import { defineMethod, EmptyParams, OkResult } from "./define.ts";
 import { ScanFindingSchema } from "./skills.ts";
@@ -108,7 +108,9 @@ export const PluginsMethods = {
     description: "A staged install (manifest, files, findings) for its approval card.",
   }),
   "plugins.proposeInstall": defineMethod({
-    params: Type.Object({ path: Type.String({ minLength: 1, maxLength: 4096, pattern: "^/" }) }),
+    params: Type.Object({
+      path: Type.String({ minLength: 1, maxLength: 4096, pattern: ABSOLUTE_HOST_PATH_PATTERN }),
+    }),
     result: ProposalResult,
     scope: "operator.admin",
     sideEffecting: true,

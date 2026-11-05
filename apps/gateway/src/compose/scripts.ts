@@ -14,6 +14,7 @@ import { EXEC_OUTPUT_CAP_BYTES, PsycheError, type ToolResult } from "@psyche/pro
 import { type CliDriver, type CliResult, nodeCliDriver } from "@psyche/sandbox";
 import { Type } from "@sinclair/typebox";
 import { execHostSrtSettings, resolveExecutable, SAFE_PATH, type SrtLookup } from "./exec-host.ts";
+import { type GuestSandbox, sandboxPcOff, usesSandboxPc } from "./guest-sandbox.ts";
 import type { ComposeServices } from "./services.ts";
 
 /**
@@ -48,6 +49,10 @@ export interface ScriptToolsDeps {
   python?: () => string | undefined;
   /** The owner-data change log (#985): every approved run, with the code that ran. */
   record?: (change: ChangeInput) => void;
+  /** Windows: the sandbox PC's runner, where scripts run instead of srt (`guest-sandbox.ts`). */
+  vm?: () => GuestSandbox | undefined;
+  /** Whose rules apply (tests; default this process's platform). */
+  platform?: NodeJS.Platform;
 }
 
 const sha = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
@@ -93,7 +98,16 @@ export function scriptTools(deps: ScriptToolsDeps): AgentToolRegistration[] {
   const driver = deps.driver ?? nodeCliDriver;
   const root = join(services.home, SCRIPTS_DIR);
   const ext = (l: Meta["language"]) => (l === "node" ? "mjs" : "py");
+  /** Windows: the sandbox PC's guest is where scripts run, and it must be up now. */
+  const inGuest = usesSandboxPc(deps.platform);
+  const guest = (what: string): GuestSandbox => {
+    const vm = deps.vm?.();
+    if (vm === undefined || !vm.canIsolate()) throw sandboxPcOff(what);
+    return vm;
+  };
   const interpreter = (l: Meta["language"]) => {
+    // The guest's own Node 24 and Python 3, found on its PATH (no shell).
+    if (inGuest) return l === "node" ? "node" : "python3";
     if (l === "node") return deps.node ?? process.execPath;
     const py = (deps.python ?? defaultPython)();
     if (py === undefined) {
@@ -156,11 +170,20 @@ export function scriptTools(deps: ScriptToolsDeps): AgentToolRegistration[] {
         input: input.length > 2_000 ? `${input.slice(0, 2_000)}…` : input,
         network: domains,
         purpose: p.purpose.slice(0, 300),
-        permissions: [
-          "Runs once on this Mac inside the srt sandbox, in a temporary folder it alone may write",
-          "Cannot read Psyche's data, your keys, SSH, keychains or browser profiles; gets no secrets",
-          domains.length === 0 ? "No network" : `Network: ${domains.join(", ")}`,
-        ],
+        permissions: inGuest
+          ? [
+              "Runs once in the sandbox PC (a separate Linux computer, not this PC), in a temporary folder it alone may write",
+              "Cannot read your files, Psyche's data, your keys or browser profiles; gets no secrets",
+              domains.length === 0
+                ? "No network"
+                : `Network: the sandbox PC's own connection, only if you turned it on in Settings → Sandbox PC; it is not limited to ${domains.join(", ")}`,
+            ]
+          : [
+              "Runs once on this Mac inside the srt sandbox, in a temporary folder it alone may write",
+              "Cannot read Psyche's data, your keys, SSH, keychains or browser profiles; gets no secrets",
+              domains.length === 0 ? "No network" : `Network: ${domains.join(", ")}`,
+            ],
+        ...(inGuest ? { sandbox: "sandbox-pc" } : {}),
         ...(ctx.taint
           ? {
               tainted:
@@ -194,7 +217,32 @@ export function scriptTools(deps: ScriptToolsDeps): AgentToolRegistration[] {
     input: string,
     domains: string[],
     timeoutMs: number,
-  ) => {
+  ): Promise<{ result: CliResult; timedOut: boolean }> => {
+    if (inGuest) {
+      // Checked again after the card: the owner may have turned it off meanwhile.
+      const r = await guest("the script was not run").run({
+        argv: [runner, file],
+        files: [{ path: file, content: script }],
+        stdin: input,
+        // Never wider than the card: no hosts listed means no network at all.
+        network: domains.length === 0 ? "none" : "allow",
+        env: { LANG: "C.UTF-8" },
+        timeoutMs,
+        signal: ctx.signal,
+      });
+      return {
+        result: {
+          exitCode: r.exitCode,
+          signal: null,
+          stdout: Buffer.from(r.stdout, "utf8"),
+          stderr: Buffer.from(r.stderr, "utf8"),
+          stdoutTruncated: r.truncated,
+          stderrTruncated: false,
+          durationMs: r.durationMs,
+        },
+        timedOut: r.timedOut,
+      };
+    }
     const srt = await deps.srt.resolve();
     if ("missing" in srt) {
       throw new PsycheError(
@@ -252,8 +300,9 @@ export function scriptTools(deps: ScriptToolsDeps): AgentToolRegistration[] {
 
   const runScript = defineTool({
     name: "run_script",
-    description:
-      "Build and run a capability you do not have, for this task: write a small Node (or Python, if installed) script that reads JSON from stdin and prints its result to stdout. The owner sees the whole code on one card on their Mac and it runs only if approved: inside the srt sandbox, in an empty temporary folder, no secrets, no network unless you list allowedDomains. Prefer it for one-off computation, parsing or conversion that no tool covers. Its output is untrusted data. If you will need it again, offer save_script_as_tool.",
+    description: inGuest
+      ? "Build and run a capability you do not have, for this task: write a small Node or Python script that reads JSON from stdin and prints its result to stdout. The owner sees the whole code on one card on their PC and it runs only if approved: in the sandbox PC (a separate Linux computer; it cannot see the owner's files), in an empty temporary folder, no secrets, no network unless you list allowedDomains. Prefer it for one-off computation, parsing or conversion that no tool covers. Its output is untrusted data. If you will need it again, offer save_script_as_tool."
+      : "Build and run a capability you do not have, for this task: write a small Node (or Python, if installed) script that reads JSON from stdin and prints its result to stdout. The owner sees the whole code on one card on their Mac and it runs only if approved: inside the srt sandbox, in an empty temporary folder, no secrets, no network unless you list allowedDomains. Prefer it for one-off computation, parsing or conversion that no tool covers. Its output is untrusted data. If you will need it again, offer save_script_as_tool.",
     input: Type.Object({
       language: Language,
       code: Type.String({ minLength: 1, maxLength: MAX_CODE }),
@@ -271,6 +320,8 @@ export function scriptTools(deps: ScriptToolsDeps): AgentToolRegistration[] {
     describeCall: (p) => ({ summary: `Ran a script: ${p.purpose.slice(0, 80)}` }),
     async run(p, ctx): Promise<ToolResult> {
       owner(ctx);
+      // Windows: no card the owner could approve but nothing could run.
+      if (inGuest) guest("scripts run only in the sandbox");
       const runner = interpreter(p.language);
       const input = JSON.stringify(p.input ?? null);
       const domains = [...new Set(p.allowedDomains ?? [])].sort();
@@ -336,8 +387,7 @@ export function scriptTools(deps: ScriptToolsDeps): AgentToolRegistration[] {
 
   const saveAsTool = defineTool({
     name: "save_script_as_tool",
-    description:
-      "Keep a script you ran with run_script as a tool of your own: wraps it in a small connector (one tool) and asks the owner to enable it on a card showing every file. It then runs under srt as an unknown-tier connector, and find_capability finds it next time. Use it when the owner agrees or when the script is clearly reusable.",
+    description: `Keep a script you ran with run_script as a tool of your own: wraps it in a small connector (one tool) and asks the owner to enable it on a card showing every file. It then runs ${inGuest ? "in the sandbox PC" : "under srt"} as an unknown-tier connector, and find_capability finds it next time. Use it when the owner agrees or when the script is clearly reusable.`,
     input: Type.Object({
       scriptId: Type.String({ pattern: "^s[0-9a-f]{16}$" }),
       id: Type.String({ pattern: "^[a-z][a-z0-9-]{1,40}$", description: "Connector id (slug)" }),
@@ -351,6 +401,7 @@ export function scriptTools(deps: ScriptToolsDeps): AgentToolRegistration[] {
     describeCall: (p) => ({ summary: `Asked to keep a script as the tool ${p.toolName}` }),
     async run(p, ctx) {
       owner(ctx);
+      if (inGuest) guest("Psyche-made connectors run only in the sandbox");
       const dir = join(root, p.scriptId);
       let meta: Meta;
       try {

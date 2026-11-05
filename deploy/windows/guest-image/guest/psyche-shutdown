@@ -1,0 +1,30 @@
+#!/bin/sh
+# psyche-shutdown: orderly teardown run by psyche-init before power off or reboot (25 s budget).
+# Stops psyche-node first (it flushes receipts and its state), then unmounts shares and the
+# session disk so the VHDX is consistent when the host deletes or snapshots the VM.
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+LIB=/usr/lib/psyche
+: >/run/psyche/stopping
+
+pid="$(cat /run/psyche/node.pid 2>/dev/null || true)"
+if [ -n "$pid" ] && kill -TERM "$pid" 2>/dev/null; then
+  n=0
+  while kill -0 "$pid" 2>/dev/null && [ "$n" -lt 80 ]; do sleep 0.1; n=$((n + 1)); done
+  kill -KILL "$pid" 2>/dev/null || true
+fi
+# Control listener and DHCP clients.
+pkill -TERM socat 2>/dev/null || true
+pkill -TERM udhcpc 2>/dev/null || true
+
+# Anything still running as the node's user (tools the agent started).
+pkill -TERM -u 1000 2>/dev/null || true
+sleep 0.3
+pkill -KILL -u 1000 2>/dev/null || true
+
+for m in $(findmnt -rn -t 9p -o TARGET | sort -r); do umount "$m" 2>/dev/null || umount -l "$m" 2>/dev/null || true; done
+sync
+if mountpoint -q /workspace; then umount /workspace 2>/dev/null || umount -l /workspace 2>/dev/null || true; fi
+if mountpoint -q /session; then umount /session 2>/dev/null || mount -o remount,ro /session 2>/dev/null || true; fi
+sync
+exit 0

@@ -131,7 +131,11 @@ async function until(pred: () => boolean, timeoutMs = 5_000): Promise<void> {
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "pb-"));
-  sockPath = join(dir, "b.sock");
+  // Windows has no Unix sockets in a folder: the Gateway listens on a named pipe there.
+  sockPath =
+    process.platform === "win32"
+      ? `\\\\.\\pipe\\psyche-test-${process.pid}-${Math.random().toString(36).slice(2)}`
+      : join(dir, "b.sock");
   host = new FakeTabHost();
   writeSecret(SECRET);
 });
@@ -366,32 +370,50 @@ describe("BridgeClient", () => {
     expect(await peer.call("bridge.tabs.list")).toMatchObject({ tabs: [{}, {}] });
   });
 
-  it("refuses a socket with group or other permission bits", async () => {
-    let accepted = 0;
-    const srv = createServer((s) => {
-      accepted++;
-      s.destroy();
-    });
-    extraServers.push(srv);
-    await new Promise<void>((r) => srv.listen(sockPath, r));
-    chmodSync(sockPath, 0o660);
-    expect(checkBridgeSocket(sockPath)).toBe("socket is accessible to group or others");
-    const c = startClient();
-    await until(() => c.status().attempt >= 3);
-    expect(accepted).toBe(0);
-    expect(c.status().lastError).toBe("socket is accessible to group or others");
-    // Fixing the mode lets the next attempt through.
-    chmodSync(sockPath, 0o600);
-    await until(() => accepted > 0);
-  });
+  // A named pipe has no mode bits (its DACL guards it); the check is POSIX only.
+  it.skipIf(process.platform === "win32")(
+    "refuses a socket with group or other permission bits",
+    async () => {
+      let accepted = 0;
+      const srv = createServer((s) => {
+        accepted++;
+        s.destroy();
+      });
+      extraServers.push(srv);
+      await new Promise<void>((r) => srv.listen(sockPath, r));
+      chmodSync(sockPath, 0o660);
+      expect(checkBridgeSocket(sockPath)).toBe("socket is accessible to group or others");
+      const c = startClient();
+      await until(() => c.status().attempt >= 3);
+      expect(accepted).toBe(0);
+      expect(c.status().lastError).toBe("socket is accessible to group or others");
+      // Fixing the mode lets the next attempt through.
+      chmodSync(sockPath, 0o600);
+      await until(() => accepted > 0);
+    },
+  );
 
-  it("refuses paths that are not sockets and waits for a missing one", async () => {
-    writeFileSync(join(dir, "plain"), "x");
-    expect(checkBridgeSocket(join(dir, "plain"))).toBe("not a socket");
-    expect(checkBridgeSocket(join(dir, "missing.sock"))).toBe("socket missing");
+  it.skipIf(process.platform === "win32")(
+    "refuses paths that are not sockets and waits for a missing one",
+    async () => {
+      writeFileSync(join(dir, "plain"), "x");
+      expect(checkBridgeSocket(join(dir, "plain"))).toBe("not a socket");
+      expect(checkBridgeSocket(join(dir, "missing.sock"))).toBe("socket missing");
+      const c = startClient();
+      await until(() => c.status().attempt >= 2);
+      expect(c.status().lastError).toBe("socket missing");
+      await startGateway();
+      await until(() => c.connected);
+    },
+  );
+});
+
+describe.runIf(process.platform === "win32")("BridgeClient over a named pipe", () => {
+  it("waits for a pipe the Gateway has not opened yet, then connects", async () => {
+    expect(checkBridgeSocket(sockPath)).toBeNull();
     const c = startClient();
     await until(() => c.status().attempt >= 2);
-    expect(c.status().lastError).toBe("socket missing");
+    expect(c.connected).toBe(false);
     await startGateway();
     await until(() => c.connected);
   });
@@ -401,12 +423,12 @@ describe("bridgeSocketPath", () => {
   it("is the default under the home, or the absolute path the Gateway recorded", () => {
     const home = mkdtempSync(join(tmpdir(), "psy-bsp-"));
     try {
-      expect(bridgeSocketPath(home)).toBe(join(home, "run", "browser-bridge.sock"));
+      expect(bridgeSocketPath(home, "darwin")).toBe(join(home, "run", "browser-bridge.sock"));
       mkdirSync(join(home, "run"));
       writeFileSync(join(home, "run", "browser-bridge-socket"), "/tmp/psyche-501/b-abc.sock\n");
-      expect(bridgeSocketPath(home)).toBe("/tmp/psyche-501/b-abc.sock");
+      expect(bridgeSocketPath(home, "darwin")).toBe("/tmp/psyche-501/b-abc.sock");
       writeFileSync(join(home, "run", "browser-bridge-socket"), "relative.sock\n");
-      expect(bridgeSocketPath(home)).toBe(join(home, "run", "browser-bridge.sock"));
+      expect(bridgeSocketPath(home, "darwin")).toBe(join(home, "run", "browser-bridge.sock"));
     } finally {
       rmSync(home, { recursive: true, force: true });
     }

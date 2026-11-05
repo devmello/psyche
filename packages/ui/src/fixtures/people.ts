@@ -216,6 +216,8 @@ export interface GraphWorld {
   catchUp?: CatchUpItem[];
   /** Work suggestions waiting to be confirmed, counted in `memory.catchup.list`; default none. */
   catchUpPending?: number;
+  /** What `memory.work.lists` answers (To Do and other connector lists); default none. */
+  workLists?: { id: string; name: string; shared: boolean; source?: string }[];
 }
 
 export function graphWorld(): GraphWorld {

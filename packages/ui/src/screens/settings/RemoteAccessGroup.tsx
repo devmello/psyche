@@ -20,7 +20,7 @@ export const SERVE_COMMAND = `tailscale serve --bg --https=443 http://127.0.0.1:
 
 export const CONFIG_EXAMPLE = `{
   "gateway": {
-    "publicOrigin": "https://<this-mac>.<tailnet>.ts.net",
+    "publicOrigin": "https://<this-computer>.<tailnet>.ts.net",
     "trustedProxy": { "enabled": true, "trustedProxies": ["127.0.0.1", "::1"] }
   }
 }`;

@@ -7,10 +7,12 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getDeviceFamily, getSetting, setSetting } from "@psyche/db";
 import type { NodeInfo } from "@psyche/protocol";
+import { isNamedPipePath, namedPipePath } from "@psyche/protocol/platform";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { computerHelper } from "../src/compose/computer.ts";
@@ -24,7 +26,7 @@ import {
   NodeRegistry,
 } from "../src/nodes/registry.ts";
 import type { Gateway } from "../src/server.ts";
-import { resolveGuestSocketPath } from "../src/socket-path.ts";
+import { resolveGuestSocketPath, resolveNodeSocketPath } from "../src/socket-path.ts";
 import { FakeNode, type FakeNodeHandler, pairNodeDevice } from "./fake-node.ts";
 import {
   desktopClient,
@@ -83,16 +85,35 @@ async function track(p: Promise<FakeNode>): Promise<FakeNode> {
 const info = (g: Gateway, id: string): NodeInfo | undefined =>
   g.context.nodes.list().find((n) => n.id === id);
 
+// Sandbox guests reach the Gateway on their own endpoint: `guest.sock` on macOS, the named pipe
+// `psyche-guest-<hash>` on Windows (the sandbox PC service relays into it).
 describe("a sandbox guest relayed to the Gateway", () => {
   it("listens on its own socket, next to the node socket", async () => {
     const g = await start();
     expect(guestSocket(g)).not.toBe(g.config.nodeSocketPath);
     expect(existsSync(guestSocket(g))).toBe(true);
-    expect(resolveGuestSocketPath("/h/run/node.sock", undefined)).toBe("/h/run/guest.sock");
-    expect(resolveGuestSocketPath("/tmp/psyche-1/abc.sock", undefined)).toBe(
+  });
+
+  it.skipIf(process.platform === "win32")("derives guest.sock from the node socket", () => {
+    expect(resolveGuestSocketPath("/h/run/node.sock", undefined, "darwin")).toBe(
+      "/h/run/guest.sock",
+    );
+    expect(resolveGuestSocketPath("/tmp/psyche-1/abc.sock", undefined, "darwin")).toBe(
       "/tmp/psyche-1/abc-guest.sock",
     );
   });
+
+  it.skipIf(process.platform !== "win32")(
+    "on Windows the guest pipe is named by the home and recorded in run/guest-socket",
+    async () => {
+      const g = await start();
+      expect(guestSocket(g)).toBe(namedPipePath("guest", g.config.home));
+      expect(guestSocket(g)).toMatch(/^\\\\\.\\pipe\\psyche-guest-[0-9a-f]{16}$/);
+      expect(readFileSync(join(g.config.home, "run", "guest-socket"), "utf8").trim()).toBe(
+        guestSocket(g),
+      );
+    },
+  );
 
   it("a guest that copied its identity and declares mac-helper never becomes the Host helper", async () => {
     const g = await start();
@@ -237,9 +258,22 @@ describe("the Host helper's proof", () => {
     writeFileSync(secretFile, "stale-secret\n", { mode: 0o600 });
     const starting = startTestGateway({ home });
     let seen = "";
-    const socket = join(home, "run", "node.sock");
+    // The node endpoint: a Unix socket file, or on Windows a named pipe (no file: it is up once
+    // a connect succeeds).
+    const socket = resolveNodeSocketPath(home, undefined);
+    const up = async () =>
+      isNamedPipePath(socket)
+        ? new Promise<boolean>((r) => {
+            const probe = createConnection(socket);
+            probe.once("connect", () => {
+              probe.destroy();
+              r(true);
+            });
+            probe.once("error", () => r(false));
+          })
+        : existsSync(socket);
     const deadline = Date.now() + 10_000;
-    while (!existsSync(socket) && Date.now() < deadline) await new Promise((r) => setImmediate(r));
+    while (!(await up()) && Date.now() < deadline) await new Promise((r) => setImmediate(r));
     // The moment a helper could connect, the file already holds a fresh secret (and never
     // vanished in between).
     seen = readFileSync(secretFile, "utf8").trim();

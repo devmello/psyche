@@ -69,6 +69,14 @@ What each one can do:
 
 Reading is allowed by default. Every change asks first, and sending mail always asks with the exact recipients, subject and text, even if you set it to allow. Notes, reminders, events and mail are untrusted content (see [approvals.md](approvals.md#untrusted-content)). Deleting notes, reminders or events is not offered.
 
+### Outlook on Windows
+
+On Windows the Psyche helper serves Mail, Calendar, Contacts and Reminders from classic Outlook, listed as **Outlook Mail**, **Outlook Calendar**, **Outlook Contacts** and **Outlook Tasks**. They appear only while the helper runs and classic Outlook is installed; the new Outlook for Windows cannot be automated, so with only it they are not offered. The other Apple apps are not offered on Windows.
+
+- Connecting asks no permission: Psyche reads Outlook's folders to check it answers (Outlook is started if it is not running). The account shown is "This PC".
+- Outlook guards addresses, message bodies and sending against other programs when Windows reports no up-to-date antivirus, or when a policy says so. Psyche never triggers Outlook's "A program is trying to access e-mail address information" prompt: those actions fail and say so. Turn on Windows Security or update your antivirus, or set Outlook › File › Options › Trust Center › Trust Center Settings › Programmatic Access to "Never warn me" (needs Outlook run as administrator).
+- Differences from the Mac: messages have no `message://` links; ids are long opaque strings; tasks are due on a date (no time of day), and flagged mail counts as a flagged task; a contact holds at most 3 email addresses; sending goes through the Outbox on Outlook's next send / receive.
+
 ## Obsidian
 
 Psyche reads and writes an Obsidian vault as the plain Markdown folder it is: no plugin, and Obsidian does not need to be running.

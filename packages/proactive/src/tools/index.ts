@@ -466,7 +466,7 @@ export function mailTools(
         "Write a reply in the owner's voice (their mail/VOICE.md) to one email. It returns the text, the sentences that commit the owner (a time, a price, a yes), and a pending card that saves the draft in Mail; nothing is sent. via: apple (messageId) or gmail (thread id as messageId).",
       input: Type.Object({
         via,
-        messageId: Type.String({ minLength: 1, maxLength: 256 }),
+        messageId: Type.String({ minLength: 1, maxLength: 4_000 }),
         mailbox: Type.Optional(Type.String({ maxLength: 200 })),
         account: Type.Optional(Type.String({ maxLength: 200 })),
         instruction: Type.Optional(Type.String({ maxLength: 2_000 })),
@@ -496,7 +496,7 @@ export function mailTools(
           "Offer three free times for a meeting someone asked for by email: free/busy inside working hours with buffers, written in both time zones, as a reply draft in the owner's voice (a pending card saves it). holds: also a card that puts tentative holds on the calendar. Never moves an existing meeting.",
         input: Type.Object({
           via,
-          messageId: Type.String({ minLength: 1, maxLength: 256 }),
+          messageId: Type.String({ minLength: 1, maxLength: 4_000 }),
           mailbox: Type.Optional(Type.String({ maxLength: 200 })),
           durationMin: Type.Optional(Type.Integer({ minimum: 10, maximum: 240 })),
           withinDays: Type.Optional(Type.Integer({ minimum: 1, maximum: 30 })),

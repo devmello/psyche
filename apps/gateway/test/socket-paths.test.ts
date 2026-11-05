@@ -7,7 +7,7 @@ import { createScratchDir, scratchFits } from "@psyche/mcp-host";
 import { afterAll, describe, expect, it } from "vitest";
 import { recordBridgeSocket } from "../src/compose/browser.ts";
 import { execHostSrtSettings } from "../src/compose/exec-host.ts";
-import { resolveNodeSocketPath } from "../src/socket-path.ts";
+import { resolveGuestSocketPath, resolveNodeSocketPath } from "../src/socket-path.ts";
 
 /**
  * Every Unix socket Psyche or srt creates fits macOS's 104-byte `sun_path` for any `$PSYCHE_HOME`:
@@ -27,7 +27,11 @@ const homes = {
   deep: `/Users/${"a".repeat(30)}/${"b".repeat(30)}/${"c".repeat(30)}/.psyche`,
 };
 
-describe.each(Object.entries(homes))("%s PSYCHE_HOME", (_name, home) => {
+// `sun_path` rules: Windows has none (the node transport and the bridge are named pipes, and srt,
+// which makes the mux sockets, does not run there); see "on Windows" below.
+const unix = process.platform !== "win32";
+
+describe.skipIf(!unix).each(Object.entries(homes))("%s PSYCHE_HOME", (_name, home) => {
   it("node socket and browser bridge socket fit", () => {
     const node = resolveNodeSocketPath(home, undefined);
     const bridge = defaultBridgeSocketPath(home);
@@ -81,7 +85,7 @@ describe("browser bridge socket pointer", () => {
   });
 });
 
-describe("listening for real", () => {
+describe.skipIf(!unix)("listening for real", () => {
   it("a deep home's bridge socket and an srt mux socket in the scratch both bind", async () => {
     const root = await mkdtemp("/tmp/pfs-");
     cleanup.push(root);
@@ -105,5 +109,63 @@ describe("listening for real", () => {
       server.listen(join(scratch, MUX), resolve);
     });
     server.close();
+  });
+});
+
+describe.skipIf(unix)("on Windows", () => {
+  it("the node transport and the bridge are named pipes named from the home, however deep", () => {
+    for (const home of [
+      "C:\\Users\\me\\.psyche",
+      `C:\\Users\\${"a".repeat(80)}\\${"b".repeat(80)}\\.psyche`,
+    ]) {
+      const node = resolveNodeSocketPath(home, undefined);
+      const bridge = defaultBridgeSocketPath(home);
+      expect(node).toMatch(/^\\\\\.\\pipe\\psyche-node-[0-9a-f]{16}$/);
+      // The desktop's fallback name: the hash of the home in lower case.
+      expect(bridge).toMatch(/^\\\\\.\\pipe\\psyche-[0-9a-f]{16}-browser-bridge$/);
+      expect(defaultBridgeSocketPath(home.toUpperCase())).toBe(bridge);
+    }
+    expect(resolveNodeSocketPath("C:\\a", undefined)).not.toBe(
+      resolveNodeSocketPath("C:\\b", undefined),
+    );
+    // An explicit endpoint must be a pipe; the guest endpoint is a pipe named by the home.
+    expect(() => resolveNodeSocketPath("C:\\a", "C:\\a\\run\\node.sock")).toThrow(/named pipe/);
+    expect(resolveNodeSocketPath("C:\\a", "\\\\.\\pipe\\mine")).toBe("\\\\.\\pipe\\mine");
+    const node = resolveNodeSocketPath("C:\\a", undefined);
+    expect(resolveGuestSocketPath(node, undefined, "win32")).toBeNull();
+    expect(resolveGuestSocketPath(node, undefined, "win32", "C:\\a")).toMatch(
+      /^\\\\\.\\pipe\\psyche-guest-[0-9a-f]{16}$/,
+    );
+    expect(resolveGuestSocketPath(node, "\\\\.\\pipe\\g", "win32", "C:\\a")).toBe("\\\\.\\pipe\\g");
+    expect(() => resolveGuestSocketPath(node, "C:\\g.sock", "win32", "C:\\a")).toThrow(
+      /named pipe/,
+    );
+  });
+
+  it("a bridge pipe binds and the pointer names it for the desktop", async () => {
+    const home = await mkdtemp(join(tmpdir(), "psy-pipe-"));
+    cleanup.push(home);
+    const socketPath = defaultBridgeSocketPath(home);
+    const bridge = new BridgeServer({
+      socketPath,
+      handshakeSecret: "s",
+      gatewayVersion: "test",
+      onClient: () => undefined,
+    });
+    await bridge.listen();
+    await recordBridgeSocket(home, socketPath);
+    expect((await readFile(join(home, "run", BRIDGE_SOCKET_POINTER), "utf8")).trim()).toBe(
+      socketPath,
+    );
+    await bridge.close();
+  });
+
+  it("an MCP scratch stays next to the settings files (no socket length to fit)", async () => {
+    const base = await mkdtemp(join(tmpdir(), "psy-scratch-"));
+    cleanup.push(base);
+    const deep = join(base, "d".repeat(80), "e".repeat(80), "mcp", "srt");
+    expect(scratchFits(deep)).toBe(true);
+    const scratch = await createScratchDir(deep);
+    expect(dirname(scratch)).toBe(deep);
   });
 });

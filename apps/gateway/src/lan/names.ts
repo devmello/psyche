@@ -3,8 +3,10 @@ import { hostname } from "node:os";
 
 /**
  * The `.local` name a LAN client dials (`https://<label>.local:<port>`). The label is the Host's
- * mDNS name: on macOS `scutil --get LocalHostName` (what Bonjour answers for), otherwise the first
- * label of the machine's host name, reduced to what a DNS label may hold.
+ * mDNS name: on macOS `scutil --get LocalHostName` (what Bonjour answers for); on Windows the
+ * computer name (`os.hostname()`, which Windows 10+ answers for as `<name>.local` itself);
+ * otherwise the first label of the machine's host name. Always reduced to what a DNS label may
+ * hold.
  */
 export function sanitizeLabel(raw: string): string {
   const first = raw.trim().split(".")[0] ?? "";

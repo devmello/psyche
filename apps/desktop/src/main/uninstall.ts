@@ -28,7 +28,15 @@ export const KEYCHAIN_SERVICES: readonly string[] = [
   "com.psyche.helper.probe",
 ];
 
-export type UninstallItemKind = "agent" | "helper" | "support" | "cache" | "app" | "data" | "state";
+export type UninstallItemKind =
+  | "agent"
+  | "helper"
+  | "service"
+  | "support"
+  | "cache"
+  | "app"
+  | "data"
+  | "state";
 
 export interface UninstallItem {
   kind: UninstallItemKind;

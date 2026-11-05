@@ -1,5 +1,6 @@
 import { type AgentToolRegistry, defineTool } from "@psyche/agent-core";
 import { type HashChainAuditLog, listChanges } from "@psyche/audit";
+import { type AppleHelper, CalendarWatch } from "@psyche/connectors";
 import { getSetting, type PsycheDb, setSetting } from "@psyche/db";
 import type { GrantedFolder } from "@psyche/files";
 import type { GraphStore, SqliteMemoryStore } from "@psyche/memory";
@@ -124,6 +125,11 @@ export interface ProactiveSetup {
   broker?: PsychePermissionBroker;
   /** The loop's tool registry: approved proposals run their calls through it. */
   registry?: AgentToolRegistry;
+  /**
+   * The Host's helper, for `calendar.watch` (Apple Calendar, or classic Outlook on Windows):
+   * its changes become `calendar.changed` events while an event automation listens for them.
+   */
+  calendarHelper?: () => AppleHelper | undefined;
   /** Post-meeting notes and Record meeting (§4.6); off without a registry. */
   meetings?: {
     home: string;
@@ -327,6 +333,30 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     ...(timeZone === undefined ? {} : { timezone: timeZone }),
     onError: (err) => logger?.log("warn", "mail poll failed", { code: PsycheError.from(err).code }),
   });
+  // Calendar changes are pushed (`calendar.watch`): one subscription while an automation listens,
+  // opened again whenever it ends (the helper restarted, or Outlook quit on Windows).
+  const calendarWatch =
+    setup.calendarHelper === undefined
+      ? undefined
+      : new CalendarWatch({
+          helper: setup.calendarHelper,
+          wanted: async () =>
+            (await scheduler.list()).some(
+              (a) => a.kind === "event" && a.enabled && a.trigger?.source === "calendar.changed",
+            ),
+          onChange: (change) => {
+            void scheduler
+              .publishEvent({
+                id: `calendar:${change.at}`,
+                source: "calendar.changed",
+                at: change.at,
+              })
+              .catch((err) =>
+                logger?.log("warn", "calendar event failed", { code: PsycheError.from(err).code }),
+              );
+          },
+          onError: (err) => logger?.log("info", "calendar watch ended", { code: err.code }),
+        });
   // The owner's own addresses tell their text from quoted mail (§4.3); Settings fills them.
   const ownerAddresses = async () => stringList(getSetting(db, "mail.ownerAddresses")?.value);
 
@@ -718,9 +748,11 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
       await offerWorkflowsOnUpgrade().catch((err) =>
         logger?.log("warn", "workflow upgrade card failed", { code: PsycheError.from(err).code }),
       );
+      calendarWatch?.start();
     },
     stop() {
       proposals?.stop();
+      void calendarWatch?.stop();
     },
   };
 }
@@ -757,6 +789,14 @@ export function connectorToolLookup(registry: AgentToolRegistry): ToolLookup {
         .list()
         .find((s) => s.name.startsWith("mcp__") && s.name.endsWith(suffix));
       return match === undefined ? undefined : registry.get(match.name);
+    },
+    names(name) {
+      if (registry.get(name) !== undefined) return [name];
+      const suffix = `__${name}`;
+      return registry
+        .list()
+        .filter((s) => s.name.startsWith("mcp__") && s.name.endsWith(suffix))
+        .map((s) => s.name);
     },
   };
 }

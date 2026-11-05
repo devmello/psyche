@@ -1,3 +1,5 @@
+import { hostWords } from "@psyche/protocol/host-words";
+
 /**
  * Opens something once a key that is not ready at start-up becomes available (the Mac helper
  * connects after the Gateway is composed). `provider` returns the key, or undefined while it is
@@ -22,7 +24,7 @@ export class DeferredOpen<T> {
   #timer: ReturnType<typeof setTimeout> | undefined;
   #stopped = false;
   #started = false;
-  #reason = "waiting for the Mac helper";
+  #reason = `waiting for ${hostWords().helper}`;
 
   constructor(options: DeferredOpenOptions<T>) {
     this.#o = options;
@@ -59,7 +61,7 @@ export class DeferredOpen<T> {
         this.#o.onReady?.(value);
         return;
       }
-      this.#reason = "waiting for the Mac helper";
+      this.#reason = `waiting for ${hostWords().helper}`;
     } catch (err) {
       this.#reason = err instanceof Error ? err.message : String(err);
     }

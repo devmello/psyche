@@ -1,3 +1,5 @@
+> **Windows:** the sandbox PC uses a different, Linux image that the desktop app downloads for you when you turn it on (Settings → Sandbox PC: one administrator prompt, then a download whose size Settings shows first). To build one yourself, see `deploy/windows/guest-image/README.md`. This page is about the Mac images.
+
 # Prebuilt sandbox Mac images
 
 Psyche can run Tasks in a **sandbox Mac**, a macOS guest that the Mac helper creates with Apple's Virtualization framework. The normal way to make one installs macOS from Apple's restore image. That is a 26 GB download and a 5 to 15 minute install, followed by a first boot that sets up the account, and then Psyche is installed in the guest.

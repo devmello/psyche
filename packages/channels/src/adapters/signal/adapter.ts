@@ -11,7 +11,12 @@ import {
   type Unsubscribe,
 } from "@psyche/protocol";
 import { approvalRef, chatEligibility, renderApprovalCard } from "../../format/approval-card.ts";
-import { checkSignalSocket, SIGNAL_REQUEST_TIMEOUT_MS, SignalRpcClient } from "./client.ts";
+import {
+  checkSignalSocket,
+  SIGNAL_REQUEST_TIMEOUT_MS,
+  SignalRpcClient,
+  type SignalRpcClientOptions,
+} from "./client.ts";
 import {
   E164_RE,
   mapReceive,
@@ -21,10 +26,12 @@ import {
   type SignalSelf,
   signalTarget,
 } from "./mapping.ts";
+import { checkSignalTcpPeer, currentWindowsUser, parseSignalTcpAddress } from "./tcp.ts";
 
 /**
  * Signal channel adapter (feature N7; architecture §4.10; security §9). Psyche connects to the
- * owner's own signal-cli JSON-RPC daemon over its UNIX socket; it never registers, verifies or
+ * owner's own signal-cli JSON-RPC daemon over its UNIX socket (loopback TCP on Windows, whose daemon
+ * must run as the same user: `./tcp.ts`); it never registers, verifies or
  * links a number (a separate number for Psyche is recommended). Inbound `receive` notifications
  * are mapped by `mapReceive`; replies go out with `send`. Approvals are 👍 / 👎 reactions on the
  * card only (security §9): the approval id and answer token stay in this process, keyed by the
@@ -32,7 +39,10 @@ import {
  */
 
 export interface SignalAdapterOptions {
-  /** signal-cli's `--socket` path. */
+  /**
+   * signal-cli's `--socket` path; on Windows its loopback `--tcp` address instead
+   * (`127.0.0.1:7583`).
+   */
   socketPath: string;
   /** Psyche's Signal number (E.164): the channel account. */
   account: string;
@@ -46,6 +56,8 @@ export interface SignalAdapterOptions {
   maxAttachmentBytes?: number;
   /** The uid that must own the socket (default the current process's). */
   uid?: number;
+  /** Windows: the account (`DOMAIN\user`) that must run the daemon (default the current one). */
+  windowsUser?: string;
   clock?: { now(): number };
   /** Reconnect wait (tests); default a real timer. */
   sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
@@ -75,6 +87,7 @@ export class SignalAdapter implements ChannelAdapter {
   readonly #timeoutMs: number;
   readonly #maxAttachment: number;
   readonly #uid: number | undefined;
+  readonly #windowsUser: string | undefined;
   readonly #clock: { now(): number };
   readonly #sleep: (ms: number, signal: AbortSignal) => Promise<void>;
 
@@ -107,6 +120,7 @@ export class SignalAdapter implements ChannelAdapter {
     this.#timeoutMs = options.requestTimeoutMs ?? SIGNAL_REQUEST_TIMEOUT_MS;
     this.#maxAttachment = options.maxAttachmentBytes ?? SIGNAL_MAX_ATTACHMENT_BYTES;
     this.#uid = options.uid ?? process.getuid?.();
+    this.#windowsUser = options.windowsUser;
     this.#clock = options.clock ?? { now: () => Date.now() };
     this.#sleep = options.sleep ?? sleep;
   }
@@ -286,6 +300,33 @@ export class SignalAdapter implements ChannelAdapter {
   // ── connection ───────────────────────────────────────────────────────────
 
   async #connect(run: AbortController): Promise<void> {
+    const client: SignalRpcClient = new SignalRpcClient({
+      socketPath: this.#path,
+      ...(process.platform === "win32" ? await this.#windowsEndpoint() : await this.#unixSocket()),
+      timeoutMs: this.#timeoutMs,
+      // A base64 attachment at the cap, plus room for the envelope.
+      maxLineBytes: Math.ceil((this.#maxAttachment * 4) / 3) + 1024 * 1024,
+      onNotification: (method, params) => this.#onNotification(method, params),
+      onClose: () => this.#onDisconnect(client, run),
+    });
+    try {
+      await client.connect();
+    } catch (error) {
+      if (error instanceof PsycheError && error.code === "forbidden") this.#fatal = error.message;
+      else this.#detail = `cannot reach signal-cli at ${this.#path}`;
+      throw error;
+    }
+    if (run.signal.aborted) {
+      client.close();
+      throw new PsycheError("cancelled", "signal start aborted");
+    }
+    this.#client = client;
+    this.#fatal = undefined;
+    this.#detail = undefined;
+  }
+
+  /** Checks the socket file before connecting (macOS, Linux). */
+  async #unixSocket(): Promise<Partial<SignalRpcClientOptions>> {
     const uid = this.#uid;
     if (uid === undefined) {
       this.#fatal = "the signal-cli socket needs a POSIX system (no uid to check ownership)";
@@ -300,27 +341,35 @@ export class SignalAdapter implements ChannelAdapter {
       this.#fatal = problem;
       throw new PsycheError("forbidden", problem);
     }
-    const client: SignalRpcClient = new SignalRpcClient({
-      socketPath: this.#path,
-      timeoutMs: this.#timeoutMs,
-      // A base64 attachment at the cap, plus room for the envelope.
-      maxLineBytes: Math.ceil((this.#maxAttachment * 4) / 3) + 1024 * 1024,
-      onNotification: (method, params) => this.#onNotification(method, params),
-      onClose: () => this.#onDisconnect(client, run),
-    });
-    try {
-      await client.connect();
-    } catch (error) {
-      this.#detail = `cannot reach signal-cli at ${this.#path}`;
-      throw error;
+    return {};
+  }
+
+  /** Loopback TCP, checked on the open connection: the daemon must be this user's (Windows). */
+  async #windowsEndpoint(): Promise<Partial<SignalRpcClientOptions>> {
+    const tcp = parseSignalTcpAddress(this.#path);
+    if (tcp === undefined) {
+      this.#fatal = `on Windows Psyche reaches signal-cli over loopback TCP: run "signal-cli -a ${this.account} daemon --tcp 127.0.0.1:7583" and use 127.0.0.1:7583 instead of ${this.#path}`;
+      throw new PsycheError("forbidden", this.#fatal);
     }
-    if (run.signal.aborted) {
-      client.close();
-      throw new PsycheError("cancelled", "signal start aborted");
+    const user = this.#windowsUser ?? (await currentWindowsUser());
+    if (user === undefined) {
+      this.#fatal =
+        "cannot tell which Windows user Psyche runs as, so signal-cli cannot be checked";
+      throw new PsycheError("forbidden", this.#fatal);
     }
-    this.#client = client;
-    this.#fatal = undefined;
-    this.#detail = undefined;
+    const label = this.#path;
+    return {
+      tcp,
+      verifyPeer: (socket) =>
+        checkSignalTcpPeer(
+          {
+            local: { address: socket.localAddress ?? "", port: socket.localPort ?? 0 },
+            remote: { address: socket.remoteAddress ?? "", port: socket.remotePort ?? 0 },
+          },
+          user,
+          label,
+        ),
+    };
   }
 
   #onDisconnect(client: SignalRpcClient, run: AbortController): void {

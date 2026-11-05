@@ -28,6 +28,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/toolti
 import { useNotifications } from "../data/index.ts";
 import { useCatchUp } from "../home/use-catch-up.ts";
 import { activeI18n, t } from "../i18n/core.ts";
+import { keysLabel } from "../lib/keys.ts";
 import { cn } from "../lib/utils.ts";
 import { usePersona } from "../slots.tsx";
 import { destinationFor, RAIL_ITEMS, type RailItem } from "./Rail.tsx";
@@ -197,7 +198,7 @@ function SettingsMenuItems({
       </DropdownMenuItem>
       <DropdownMenuItem onClick={onSettings}>
         {t("shell.rail.settings")}
-        <DropdownMenuShortcut>⌘,</DropdownMenuShortcut>
+        <DropdownMenuShortcut>{keysLabel("Mod+,")}</DropdownMenuShortcut>
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem onClick={() => onNavigate("/settings/usage")}>
@@ -388,7 +389,7 @@ export function Sidebar({
             <Search aria-hidden="true" strokeWidth={1.75} className="size-5 text-label-secondary" />
           </TooltipTrigger>
           {/* i18n-ignore: a key chord */}
-          <TooltipContent side="right">{`${searchLabel} ⌘K`}</TooltipContent>
+          <TooltipContent side="right">{`${searchLabel} ${keysLabel("Mod+K")}`}</TooltipContent>
         </Tooltip>
       </li>
     ) : (
@@ -409,7 +410,7 @@ export function Sidebar({
           />
           <span className="min-w-0 flex-1 truncate">{searchLabel}</span>
           <span aria-hidden="true" className="shrink-0 text-callout text-label-tertiary">
-            <kbd className="font-sans">⌘K</kbd>
+            <kbd className="font-sans">{keysLabel("Mod+K")}</kbd>
           </span>
         </button>
       </li>
@@ -637,7 +638,7 @@ export function SidebarToggle({
         <TooltipContent side="bottom">
           {label}
           {/* i18n-ignore: a key chord */}
-          <DropdownMenuShortcut>⌘B</DropdownMenuShortcut>
+          <DropdownMenuShortcut>{keysLabel("Mod+B")}</DropdownMenuShortcut>
         </TooltipContent>
       </Tooltip>
       {onModeChange ? (
@@ -674,12 +675,12 @@ export function SidebarToggle({
               <DropdownMenuRadioItem value="rail" closeOnClick>
                 {t("shell.sidebar.compact")}
                 {/* i18n-ignore: a key chord */}
-                <DropdownMenuShortcut>⌥⌘B</DropdownMenuShortcut>
+                <DropdownMenuShortcut>{keysLabel("Alt+Mod+B")}</DropdownMenuShortcut>
               </DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="hidden" closeOnClick>
                 {t("shell.sidebar.hidden")}
                 {/* i18n-ignore: a key chord */}
-                <DropdownMenuShortcut>⌘B</DropdownMenuShortcut>
+                <DropdownMenuShortcut>{keysLabel("Mod+B")}</DropdownMenuShortcut>
               </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
@@ -757,7 +758,7 @@ export function BrowserToggle({ onOpen, className }: BrowserToggleProps): ReactE
         <TooltipContent side="bottom">
           {label}
           {/* i18n-ignore: a key chord */}
-          <DropdownMenuShortcut>⌘⇧B</DropdownMenuShortcut>
+          <DropdownMenuShortcut>{keysLabel("Mod+Shift+B")}</DropdownMenuShortcut>
         </TooltipContent>
       </Tooltip>
     </span>

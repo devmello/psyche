@@ -25,7 +25,9 @@ beforeAll(async () => {
       port: 0,
       dbPath: ":memory:",
       webRoot: outDir,
-      nodeSocketPath: join(dir, "n.sock"),
+      // A short Unix socket path (macOS caps them at 104 bytes); Windows uses a named pipe named
+      // after the home, its default.
+      ...(process.platform === "win32" ? {} : { nodeSocketPath: join(dir, "n.sock") }),
     },
     env: {},
     logger: { log() {} } satisfies GatewayOptions["logger"],

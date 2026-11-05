@@ -1,4 +1,4 @@
-import { isAbsolute, normalize } from "node:path";
+import { posix } from "node:path";
 
 /**
  * The read-only class of `exec_host` (security §5.4): basic file and info commands that only read
@@ -69,9 +69,9 @@ type Rule = (args: string[], cwd: string) => { paths: string[] } | string;
  */
 function insideCwd(arg: string, cwd: string): boolean {
   if (arg === "" || arg.startsWith("~") || arg.includes("\0") || arg.includes(":")) return false;
-  if (isAbsolute(arg)) {
-    const root = normalize(cwd).replace(/\/+$/, "");
-    const n = normalize(arg);
+  if (posix.isAbsolute(arg)) {
+    const root = posix.normalize(cwd).replace(/\/+$/, "");
+    const n = posix.normalize(arg);
     return n === root || n.startsWith(`${root}/`);
   }
   return !arg.split("/").includes("..");
@@ -149,7 +149,9 @@ export function classifyHostCommand(argv: readonly unknown[], cwd: string): Host
   if (!argv.every((a): a is string => typeof a === "string" && a.length <= 4096)) {
     return no("argv must be short strings");
   }
-  if (!isAbsolute(cwd)) return no("cwd must be absolute");
+  // POSIX paths for the system binaries under srt: a Windows cwd (`C:\…`) is never read-only
+  // (there is no srt there, and `\` would be a separator this check does not see).
+  if (!posix.isAbsolute(cwd)) return no("cwd must be absolute");
   const [program, ...args] = argv as string[];
   if (program === undefined || program.includes("/")) {
     return no("only a bare program name from the system folders is read-only");

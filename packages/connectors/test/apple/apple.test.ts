@@ -1386,7 +1386,15 @@ describe("Safari and Chrome wave 1 (#639)", () => {
     helper.grant = "denied";
     const { registry } = make(helper);
     const r = await registry.connect({ catalogueId: "chrome-tabs", scopeMode: "read" });
-    expect(r.config.permission).toMatchObject({ kind: "automation", target: "com.google.Chrome" });
+    if (process.platform === "win32") {
+      // Windows reads the tabs through UI Automation: no Automation grant to ask for.
+      expect(r.config.permission ?? null).toBeNull();
+    } else {
+      expect(r.config.permission).toMatchObject({
+        kind: "automation",
+        target: "com.google.Chrome",
+      });
+    }
   });
 });
 

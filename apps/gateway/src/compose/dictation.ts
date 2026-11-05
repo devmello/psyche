@@ -1,10 +1,12 @@
 import {
   type DictationKey,
   type DictationKeyPayload,
+  type DictationKeyRole,
   type NodeClient,
   type NodeInvokeResult,
   PsycheError,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
@@ -17,7 +19,7 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  *
  * Inserted text is the owner's keystrokes into another app: it never reaches the agent, a thread
  * or memory, and these methods skip the Permission Broker's agent gates the way typing on the
- * keyboard does. Two rules keep that safe: only a desktop device (platform `macos`) may call
+ * keyboard does. Two rules keep that safe: only the desktop shell (macOS or Windows) may call
  * them, and `nodes.invoke` / agent tools can never reach `dictation.*` (`isUnreachableCapability`).
  * The helper refuses secure fields and Psyche's windows and never presses Return. The receipt
  * names the app and the length, never the text.
@@ -50,10 +52,14 @@ function unwrap(r: NodeInvokeResult): unknown {
   if (r.ok) return r.result;
   const e = r.error;
   const details = (e?.details ?? {}) as Record<string, unknown>;
-  throw new PsycheError((e?.code as never) ?? "internal", e?.message ?? "the Mac helper failed", {
-    details,
-    ...(e?.retryable === true ? { retryable: true } : {}),
-  });
+  throw new PsycheError(
+    (e?.code as never) ?? "internal",
+    e?.message ?? `${hostWords().helper} failed`,
+    {
+      details,
+      ...(e?.retryable === true ? { retryable: true } : {}),
+    },
+  );
 }
 
 interface Watch {
@@ -79,7 +85,7 @@ export function composeDictation() {
     const requireNode = (capability: string): NodeClient => {
       const node = dictationNode(() => gateway, capability);
       if (!node) {
-        throw new PsycheError("unavailable", "the Psyche helper is not running on this Mac", {
+        throw new PsycheError("unavailable", "the Psyche helper is not running on this computer", {
           retryable: true,
         });
       }
@@ -131,13 +137,27 @@ export function composeDictation() {
         },
       },
       "dictation.watch": {
-        async run(call: Call, params: { key: DictationKey | null }) {
+        async run(
+          call: Call,
+          params: {
+            key: DictationKey | null;
+            keys?: { key: DictationKey; role: DictationKeyRole }[];
+          },
+        ) {
           requireDesktop(call);
           const deviceId = call.identity.deviceId;
-          stopWatch(deviceId, params.key === null);
-          if (params.key === null) return { watching: false };
+          // `keys` (dictation and voice on one watch) wins over `key`, as in the helpers.
+          const keys = params.keys !== undefined && params.keys.length > 0 ? params.keys : null;
+          const stops = params.key === null && keys === null;
+          stopWatch(deviceId, stops);
+          if (stops) return { watching: false };
           const node = requireNode("dictation.watch");
-          const key = params.key;
+          // The key names are the Mac's on every helper (`fn`, `rightOption`, `rightCommand`): the
+          // Windows helper holds fn and Right Option on Right Alt and Right Command on Right Ctrl.
+          const key = (keys?.[0]?.key ?? params.key) as DictationKey;
+          const watched = new Map<DictationKey, DictationKeyRole | undefined>(
+            keys === null ? [[key, undefined]] : keys.map((k) => [k.key, k.role]),
+          );
           const abort = new AbortController();
           watches.set(deviceId, { abort, key });
           let armed: (() => void) | undefined;
@@ -146,7 +166,7 @@ export function composeDictation() {
           });
           const done = node.invoke(
             "dictation.watch",
-            { key },
+            keys === null ? { key } : { key: params.key, keys },
             {
               signal: abort.signal,
               timeoutMs: DICTATION_WATCH_TIMEOUT_MS,
@@ -155,8 +175,13 @@ export function composeDictation() {
                 const d = e.data as Partial<DictationKeyPayload> | null;
                 if (watches.get(deviceId)?.abort !== abort) return;
                 if (typeof d?.down !== "boolean") return;
+                // Only a key this watch asked for, with the role it was asked for.
+                const which = keys === null ? key : (d.key as DictationKey);
+                if (!watched.has(which)) return;
+                const role = watched.get(which);
                 gateway?.bus.publishToDevice(deviceId, "dictation.key", {
-                  key,
+                  key: which,
+                  ...(role === undefined ? {} : { role }),
                   down: d.down,
                   at: typeof d.at === "string" ? d.at : new Date().toISOString(),
                 });

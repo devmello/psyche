@@ -32,6 +32,27 @@ export const DEFAULT_SPEECH_SETTINGS: SpeechSettings = {
   stt: { order: ["mac-node", "whisper", "web-speech"] },
 };
 
+/**
+ * The default order for the Gateway's host. `mac-node` is the Host's own helper on every OS
+ * (`NodeRegistry.hostHelper`): SpeechAnalyzer on a Mac, SAPI 5.4 on Windows. On Windows the
+ * on-device whisper.cpp engine transcribes much better than SAPI, so it comes first once the
+ * owner installed it (until then it is unavailable and selection falls through to the helper).
+ * The owner's `speech.stt.order` overrides this on any OS.
+ */
+export function defaultSpeechSettings(
+  platform: NodeJS.Platform = process.platform,
+): SpeechSettings {
+  if (platform === "win32") return { stt: { order: ["whisper", "mac-node", "web-speech"] } };
+  return { stt: { order: [...DEFAULT_SPEECH_SETTINGS.stt.order] } };
+}
+
+/** `speech.stt.order` as stored: a non-empty list of engine ids, else `undefined` (use the default). */
+export function parseSttOrder(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const ids = value.filter((v): v is string => typeof v === "string" && /^[\w-]{1,32}$/.test(v));
+  return ids.length > 0 ? [...new Set(ids)].slice(0, 8) : undefined;
+}
+
 export interface EngineEntry {
   id: string;
   location: EngineLocation;

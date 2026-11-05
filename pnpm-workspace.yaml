@@ -19,6 +19,9 @@ allowBuilds:
   # On-device embeddings (docs/design/search-2026.md §3): the prebuilt CPU binaries for macOS and
   # Windows ship in the tarball; the postinstall only downloads optional CUDA/TensorRT libraries.
   onnxruntime-node: false
+  # Squirrel.Windows installer (@electron-forge/maker-squirrel, deploy/windows): its install script only
+  # copies the vendored 7-Zip for the host arch to vendor/7z.exe, which the nupkg step runs.
+  electron-winstaller: true
 # Dependency audit (docs/archive/reports/m3-dependency-audit.md):
 # - pptxgenjs 4.0.1 declares image-size ^1.2.1 (GHSA-5p2g-fcmc-qvqq, GHSA-w3rx-r6r6-pgpr) but never
 #   loads it; 2.0.4 is patched.

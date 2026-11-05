@@ -19,7 +19,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync
 import { createServer } from "node:net";
 import { arch, platform } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { budgets } from "./size-budget.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "../..");
@@ -173,7 +173,7 @@ async function main(argv) {
   }
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main(process.argv.slice(2)).catch((err) => {
     process.stderr.write(`memory-budget: ${err.message}\n`);
     process.exit(1);

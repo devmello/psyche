@@ -18,6 +18,12 @@ import type { DbLogger } from "./types.ts";
 /** Strict migration file name: `202610182200_db_init.sql`, `202610190900_permissions_grants.sql`. */
 export const MIGRATION_FILE_PATTERN = /^\d{12}_[a-z0-9-]+_[a-z0-9_-]+\.sql$/;
 
+/**
+ * First line of a migration that rebuilds a table other tables reference: the runner turns
+ * `foreign_keys` off around its transaction and runs `foreign_key_check` before committing.
+ */
+const FOREIGN_KEYS_OFF = /^-- migrate: foreign_keys=off\r?\n/;
+
 /** The migrations shipped with this package. */
 export const DEFAULT_MIGRATIONS_DIR = assetDir("packages/db/migrations");
 
@@ -131,6 +137,13 @@ export function runMigrations(
       continue;
     }
     let ranHere = true;
+    // A table rebuild (SQLite cannot alter a CHECK) of a table other tables reference needs
+    // foreign keys off around its transaction, or `DROP TABLE` would run their ON DELETE actions
+    // (sqlite.org/lang_altertable.html, "Making Other Kinds Of Table Schema Changes"). The pragma
+    // is a no-op inside a transaction, so it is set here; the check below runs before commit.
+    const fkOff = FOREIGN_KEYS_OFF.test(file.sql);
+    const fkWas = fkOff ? sqlite.pragma("foreign_keys", { simple: true }) : undefined;
+    if (fkOff) sqlite.pragma("foreign_keys = OFF");
     try {
       sqlite
         .transaction(() => {
@@ -146,12 +159,20 @@ export function runMigrations(
             return;
           }
           sqlite.exec(file.sql);
+          if (fkOff) {
+            const broken = sqlite.pragma("foreign_key_check") as unknown[];
+            if (broken.length > 0) {
+              throw new Error(`${broken.length} foreign key violation(s) after the rebuild`);
+            }
+          }
           insert.run(file.id, file.name, file.checksum, now());
         })
         .immediate();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       throw new MigrationError(`migration "${file.name}" failed: ${message}`, file.id);
+    } finally {
+      if (fkOff && fkWas === 1) sqlite.pragma("foreign_keys = ON");
     }
     if (!ranHere) {
       result.skipped.push(file.id);

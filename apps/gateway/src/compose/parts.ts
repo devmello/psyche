@@ -1,12 +1,13 @@
-import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type GoogleClientConfig, googleClientFrom, readConfigFile } from "../config.ts";
+import { openExternalUrl } from "../platform.ts";
 import { composeBackup } from "./backup.ts";
 import { type ComposedBrowser, composeBrowser } from "./browser.ts";
 import { channelsSetupFromEnv, composeChannels } from "./channels.ts";
 import { composeCoding } from "./coding.ts";
 import { composeConnectors } from "./connectors.ts";
+import { usesSandboxPc } from "./guest-sandbox.ts";
 import { composeHelper } from "./helper.ts";
 import { composeMcp } from "./mcp.ts";
 import { type ComposedSandbox, composeSandboxIfAvailable, type SandboxSetup } from "./sandbox.ts";
@@ -221,7 +222,9 @@ export function partsFromEnv(
       const egress = sandbox?.egress;
       // srt first (Seatbelt, no VM): found at each launch, so installing it or choosing it in
       // Settings needs no restart. `PSYCHE_MCP_LAUNCHER=container` asks for containers instead.
+      // On Windows, where srt cannot run, the sandbox PC's guest is the launcher (VM mode).
       const container = env.PSYCHE_MCP_LAUNCHER === "container";
+      const guest = vm;
       return composeMcp(s, {
         // The sandbox part's runner (not disposed by the MCP part) and its egress allowlists.
         ...(container && runner !== undefined && egress !== undefined
@@ -232,7 +235,15 @@ export function partsFromEnv(
               },
               egressAllowlist: (scope, hosts) => egress.egressAllowlist(scope, hosts),
             }
-          : { srt: srtFor(s) }),
+          : usesSandboxPc() && guest !== undefined
+            ? {
+                vm: {
+                  ready: () => guest.runner.canIsolate(),
+                  ensureSandbox: (scope) => guest.runner.ensureSandbox(scope),
+                  openStdio: (id, options) => guest.runner.openStdio(id, options),
+                },
+              }
+            : { srt: srtFor(s) }),
       });
     });
   }
@@ -241,10 +252,9 @@ export function partsFromEnv(
 
 function openConsent(services: ComposeServices, url: URL): void {
   if (url.protocol !== "https:") return;
-  if (process.platform === "darwin") {
-    execFile("open", [url.href], () => undefined);
-    return;
-  }
+  // macOS `open`, Windows `rundll32 url.dll,FileProtocolHandler` (no shell): the owner's browser
+  // on the computer running psyched, where the loopback redirect lands.
+  if (openExternalUrl(url)) return;
   // The link holds the PKCE challenge and state, never a secret; the loopback redirect only
   // completes on the machine running psyched.
   void services.notifier

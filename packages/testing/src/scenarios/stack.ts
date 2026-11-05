@@ -502,11 +502,17 @@ export class Stack {
       .map(([id]) => id);
   }
 
-  /** Let every live run progress until it ends or parks on a pending approval. */
+  /**
+   * Let every live run progress until it ends or parks on a pending approval. Bounded by wall
+   * time, not turns of the event loop: a real tool's child process (the V10 coding tools spawn
+   * git) takes far longer on Windows than a few thousand turns.
+   */
   async settle(): Promise<void> {
     let idle = 0;
-    for (let i = 0; i < 100_000; i += 1) {
-      await new Promise<void>((r) => setImmediate(r));
+    const deadline = Date.now() + 60_000;
+    for (let i = 0; Date.now() < deadline; i += 1) {
+      // Spin on the event loop first; once a run waits on I/O, poll instead of burning a core.
+      await new Promise<void>((r) => (i < 20_000 ? setImmediate(r) : setTimeout(r, 1)));
       const busy = this.runs.some(
         (r) =>
           r.gen === this.gen &&

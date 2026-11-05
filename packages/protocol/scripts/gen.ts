@@ -27,7 +27,7 @@
  *
  * `--check` regenerates in memory and exits 1 listing every stale or missing file.
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { InputData, JSONSchemaInput, quicktype } from "quicktype-core";
@@ -60,6 +60,7 @@ export const OUTPUT_FILES = {
     REPO_DIR,
     "packages/protocol-swift/Sources/PsycheProtocol/TeachNeverApps.generated.swift",
   ),
+  rustTeachNever: resolve(REPO_DIR, "apps/win-helper/src/teach/never_apps.generated.rs"),
 } as const;
 
 const SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema";
@@ -400,6 +401,33 @@ function header(comment: string): string {
   ].join("\n");
 }
 
+/** Every generated file is LF, on every platform (the repo's .gitattributes and biome say so). */
+export function toLf(text: string): string {
+  return text.replace(/\r\n?/g, "\n");
+}
+
+const GENERATED_DIR = resolve(PACKAGE_DIR, "generated");
+const TEXT_FILE = /\.(md|json|ts|swift)$/;
+
+/**
+ * Rewrites any text file under `generated/` that has CR line endings (the hand-written README
+ * included, which this script does not generate) to LF. A Windows checkout with `core.autocrlf`
+ * on a branch without the LF `.gitattributes` leaves them CRLF, and git then shows them modified.
+ * Returns the repo-relative paths it changed.
+ */
+export async function normalizeGeneratedEol(dir: string = GENERATED_DIR): Promise<string[]> {
+  const changed: string[] = [];
+  for (const entry of await readdir(dir, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile() || !TEXT_FILE.test(entry.name)) continue;
+    const path = resolve(entry.parentPath, entry.name);
+    const text = await readFile(path, "utf8");
+    if (!text.includes("\r")) continue;
+    await writeFile(path, toLf(text), "utf8");
+    changed.push(relative(REPO_DIR, path));
+  }
+  return changed.sort();
+}
+
 function finish(body: string): string {
   return `${body
     .replace(/\r\n/g, "\n")
@@ -416,6 +444,16 @@ function teachNeverSwift(): string {
   );
 }
 
+/** The Windows helper's never-recorded list (executable names), from `TEACH_NEVER_APPS_WINDOWS`. */
+function teachNeverRust(): string {
+  const items = protocol.TEACH_NEVER_APPS_WINDOWS.map((a) => `    ${JSON.stringify(a)},`).join(
+    "\n",
+  );
+  return finish(
+    `${header("//")}\n//! Apps "Record in an app" never records on Windows (docs/design/teach-by-showing-2026.md §13.3).\n//! A trailing \`*\` is a prefix; otherwise the whole executable name, ignoring case.\n\npub const PATTERNS: &[&str] = &[\n${items}\n];\n`,
+  );
+}
+
 export async function generateAll(): Promise<Map<string, string>> {
   const doc = buildSchemaDocument();
   const swift = finish(`${header("//")}\n${postProcessSwift(await runQuicktype(doc, "swift"))}`);
@@ -426,6 +464,7 @@ export async function generateAll(): Promise<Map<string, string>> {
     [OUTPUT_FILES.swift, swift],
     [OUTPUT_FILES.swiftHelper, swift],
     [OUTPUT_FILES.swiftTeachNever, teachNeverSwift()],
+    [OUTPUT_FILES.rustTeachNever, teachNeverRust()],
   ]);
 }
 
@@ -443,14 +482,20 @@ async function main(argv: readonly string[]): Promise<number> {
   const stale: string[] = [];
   for (const [path, content] of outputs) {
     const current = await readOrNull(path);
-    if (current === content) continue;
+    // A CRLF checkout of the same text is not stale: git stores LF.
+    if (current !== null && toLf(current) === content && (check || !current.includes("\r")))
+      continue;
     if (check) {
       stale.push(`${relative(REPO_DIR, path)}${current === null ? " (missing)" : ""}`);
     } else {
       await mkdir(dirname(path), { recursive: true });
-      await writeFile(path, content, "utf8");
+      await writeFile(path, toLf(content), "utf8");
       process.stdout.write(`wrote ${relative(REPO_DIR, path)}\n`);
     }
+  }
+  if (!check) {
+    for (const path of await normalizeGeneratedEol())
+      process.stdout.write(`normalized line endings in ${path}\n`);
   }
   if (check && stale.length > 0) {
     process.stderr.write(

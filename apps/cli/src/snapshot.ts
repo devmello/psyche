@@ -1,5 +1,6 @@
 import { existsSync, lstatSync, readdirSync, readFileSync, statfsSync } from "node:fs";
 import { join, relative } from "node:path";
+import { currentUserSid, daclIsOwnerOnly, readDaclsSddl } from "@psyche/hostfs";
 import type { BackupInfo, McpServerStatus, RealChromeStatus } from "@psyche/protocol";
 import type { GatewayClient, HttpProbe } from "./client.ts";
 import { callIfAvailable } from "./commands/util.ts";
@@ -74,7 +75,9 @@ export function launchAgentProgram(plist: string): string | null {
 
 /** The Psyche.app a bundled psyched lives in, or null for any other program. */
 export function appOfProgram(program: string): string | null {
-  return /^(.*\.app)\/Contents\/Resources\/psyched\/psyched$/.exec(program)?.[1] ?? null;
+  return (
+    /^(.*\.app)[\\/]Contents[\\/]Resources[\\/]psyched[\\/]psyched$/.exec(program)?.[1] ?? null
+  );
 }
 
 export function readLaunchAgent(file: string): LaunchAgentInfo | null {
@@ -101,7 +104,8 @@ export interface HelperPermissions {
   bundle?: {
     path?: string;
     version?: string;
-    signing?: "developer_id" | "development" | "adhoc" | "unsigned";
+    /** macOS: `developer_id` … `unsigned`; Windows: `authenticode`, `unsigned`, `untrusted`. */
+    signing?: "developer_id" | "development" | "adhoc" | "unsigned" | "authenticode" | "untrusted";
     teamId?: string;
     insideApp?: boolean;
   };
@@ -184,7 +188,7 @@ export interface Snapshot {
   updater: Query<UpdaterState>;
   /** macOS: the installed LaunchAgent (null when there is none). */
   launchAgent?: LaunchAgentInfo | null;
-  /** macOS: Psyche.app, from the LaunchAgent's program, else /Applications or ~/Applications. */
+  /** macOS: Psyche.app; Windows: Psyche.exe of the per-user install. macOS: from the LaunchAgent's program, else /Applications or ~/Applications. */
   app?: string | null;
   /** macOS: the helper's `permissions.status` (read only, no prompts). */
   helperPermissions?: Query<HelperPermissions>;
@@ -213,11 +217,29 @@ async function q<T>(
   return r.ok ? { ok: true, value: pick(r.value) } : r;
 }
 
-/** Walks `$PSYCHE_HOME` (up to `limit` entries) for directories not 0700 and files readable by others. */
+/**
+ * Windows' `chmod -R go-rwx`: everything below inherits again, then the home keeps only you and
+ * SYSTEM (what `@psyche/hostfs` `restrictToOwner` sets).
+ */
+export function ownerOnlyAclHint(home: string): string {
+  return `icacls "${home}" /reset /t /q && icacls "${home}" /inheritance:r /grant:r "%USERNAME%:(OI)(CI)F" "*S-1-5-18:(OI)(CI)F" /q`;
+}
+
+/** Folders owned by their subsystems, huge and not walked: sandbox workspaces, browser profiles. */
+const UNWALKED = ["sandbox", "browser", "vm", "node_modules"];
+
+/**
+ * Walks `$PSYCHE_HOME` (up to `limit` entries) for directories not 0700 and files readable by
+ * others. On Windows, where `stat` makes up 0666 for every file, "0700/0600" is the DACL test of
+ * `@psyche/hostfs` (`isOwnerOnly`): a folder or file another account can reach is mode `acl`.
+ * The platform is the disk's, not the one a test asks the CLI to behave as.
+ */
 export function scanModes(
   home: string,
   limit = 20_000,
+  platform: NodeJS.Platform = process.platform,
 ): { homeMode: string | null; issues: FileModeIssue[] } {
+  if (platform === "win32") return scanAcls(home, limit);
   const issues: FileModeIssue[] = [];
   let homeMode: string | null = null;
   let seen = 0;
@@ -242,8 +264,7 @@ export function scanModes(
       if (st.isDirectory()) {
         if (mode & 0o077)
           issues.push({ path: relative(home, p), mode: mode.toString(8), kind: "dir" });
-        // Sandbox workspaces and browser profiles are huge and owned by their subsystems.
-        if (!["sandbox", "browser", "vm", "node_modules"].includes(name)) walk(p);
+        if (!UNWALKED.includes(name)) walk(p);
       } else if (st.isFile() || st.isSocket()) {
         if (mode & 0o077)
           issues.push({ path: relative(home, p), mode: mode.toString(8), kind: "file" });
@@ -255,6 +276,51 @@ export function scanModes(
     walk(home);
   } catch {
     homeMode = null;
+  }
+  return { homeMode, issues };
+}
+
+/**
+ * Windows: the DACLs of `$PSYCHE_HOME`, its entries and the trees below them (not the unwalked
+ * folders), one `icacls` run per top-level folder. `homeMode` is `700` when the home is
+ * owner-only and `acl` when not; `null` (not checked) when the DACLs cannot be read.
+ */
+function scanAcls(
+  home: string,
+  limit: number,
+): { homeMode: string | null; issues: FileModeIssue[] } {
+  const sid = currentUserSid();
+  const self = readDaclsSddl(home)?.[0];
+  if (sid === null || self === undefined) return { homeMode: null, issues: [] };
+  const homeMode = daclIsOwnerOnly(self.sddl, sid, true) ? "700" : "acl";
+  const entries = new Map<string, string>();
+  for (const e of readDaclsSddl(join(home, "*")) ?? []) {
+    entries.set(e.name, e.sddl);
+    let st: ReturnType<typeof lstatSync>;
+    try {
+      st = lstatSync(join(home, e.name));
+    } catch {
+      continue;
+    }
+    if (!st.isDirectory() || st.isSymbolicLink() || UNWALKED.includes(e.name)) continue;
+    for (const below of readDaclsSddl(join(home, e.name), { recursive: true }) ?? []) {
+      if (entries.size >= limit) break;
+      entries.set(below.name, below.sddl);
+    }
+  }
+  const issues: FileModeIssue[] = [];
+  for (const [name, sddl] of entries) {
+    let st: ReturnType<typeof lstatSync>;
+    try {
+      st = lstatSync(join(home, name));
+    } catch {
+      continue;
+    }
+    if (st.isSymbolicLink()) continue;
+    const dir = st.isDirectory();
+    if (daclIsOwnerOnly(sddl, sid, dir)) continue;
+    // Written with `/`, as on POSIX, so the sensitive-path rules read the same.
+    issues.push({ path: name.replaceAll("\\", "/"), mode: "acl", kind: dir ? "dir" : "file" });
   }
   return { homeMode, issues };
 }
@@ -360,11 +426,17 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
     ),
   ]);
 
-  // The helper reports what macOS has granted it (a read capability; never prompts).
+  // The helper reports what macOS or Windows has granted it (a read capability; never prompts).
   let helperPermissions: Query<HelperPermissions> | undefined;
-  if (ctx.deps.platform === "darwin" && client && nodes.ok) {
+  const helperKind =
+    ctx.deps.platform === "darwin"
+      ? "mac-helper"
+      : ctx.deps.platform === "win32"
+        ? "win-helper"
+        : undefined;
+  if (helperKind !== undefined && client && nodes.ok) {
     const list: { id: string; kind: string; status: string }[] = nodes.value;
-    const helper = list.find((n) => n.kind === "mac-helper" && n.status === "online");
+    const helper = list.find((n) => n.kind === helperKind && n.status === "online");
     if (helper) {
       const r = await callIfAvailable<{
         ok: boolean;
@@ -397,11 +469,13 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
         join(ctx.env.HOME ?? "", "Applications", "Psyche.app"),
       ].find((p) => existsSync(p)) ??
       null;
+  } else if (ctx.deps.platform === "win32") {
+    app = windowsApp(ctx.env);
   }
 
   const localSandboxBackends: string[] = [];
   for (const bin of ["container", "docker", "podman"]) {
-    if (await which(ctx.deps.exec, bin))
+    if (await which(ctx.deps.exec, bin, ctx.deps.platform))
       localSandboxBackends.push(bin === "container" ? "apple-container" : bin);
   }
   let disk: Snapshot["disk"] = null;
@@ -411,6 +485,7 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
   } catch {
     disk = null;
   }
+  // POSIX modes, or the DACLs on Windows (where modes are made up): the disk decides.
   const { homeMode, issues } = scanModes(ctx.home);
   const [chromeDebugPort, localModel] = await Promise.all([
     reachable(ctx.deps.fetch, "http://127.0.0.1:9222/json/version"),
@@ -449,8 +524,16 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
     displaced: displacedFolders(ctx.home),
     localModel,
     ...(ctx.deps.platform === "darwin" ? { launchAgent, app } : {}),
+    ...(ctx.deps.platform === "win32" ? { app } : {}),
     ...(helperPermissions === undefined ? {} : { helperPermissions }),
   };
+}
+
+/** Windows: the Squirrel install (`%LOCALAPPDATA%\Psyche\Psyche.exe`, per user), or null. */
+export function windowsApp(env: NodeJS.ProcessEnv): string | null {
+  if (!env.LOCALAPPDATA) return null;
+  const exe = join(env.LOCALAPPDATA, "Psyche", "Psyche.exe");
+  return existsSync(exe) && existsSync(join(env.LOCALAPPDATA, "Psyche", "Update.exe")) ? exe : null;
 }
 
 /** Reads a setting stored either flat (`"a.b": v`) or nested (`a: {b: v}`). */

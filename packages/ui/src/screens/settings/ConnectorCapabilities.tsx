@@ -3,6 +3,7 @@ import { ChevronRight, ShieldCheck } from "lucide-react";
 import { type ReactElement, useId, useState } from "react";
 import { floorClassOf, unliftable, useLiftFloorConfirm } from "../../blocks/LiftFloorDialog.tsx";
 import { activeI18n, isMessageId, t } from "../../i18n/core.ts";
+import { macOnlyAvailable } from "../../lib/platform-copy.ts";
 import { cn } from "../../lib/utils.ts";
 import { type ActionRule, RULES } from "./ActionMatrix.tsx";
 import { useSubheading } from "./ConnectorRow.tsx";
@@ -124,7 +125,8 @@ export function CapabilityCard({
   const Heading = useSubheading();
   const app = appleApp(connector.type);
   if (app === null || actions.length === 0) return null;
-  const grant = grantName(app);
+  // A System Settings grant exists only on the Mac: classic Outlook on Windows asks for none.
+  const grant = macOnlyAvailable() ? grantName(app) : null;
   const connected = connector.status === "connected";
   const readOnly = connector.scopeMode === "read";
   const examples = connected && onTry ? tryRequests(app) : [];

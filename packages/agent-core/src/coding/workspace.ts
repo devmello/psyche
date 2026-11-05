@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { isAbsolute, normalize, relative, resolve, sep } from "node:path";
+import { isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
+import { canonicalHostPath, isUnderHostPath, isWin32HostPath } from "@psyche/hostfs";
 import { PsycheError, type SandboxMount, type SandboxScope } from "@psyche/protocol";
 import type { ToolRunContext } from "../registry.ts";
 
@@ -34,17 +35,34 @@ export function scopeKeyOf(ctx: Pick<ToolRunContext, "taskId" | "threadId">): st
   return ctx.taskId === undefined ? `thread:${ctx.threadId}` : `task:${ctx.taskId}`;
 }
 
-/** The normalized absolute form the broker and the executors compare (no file system access). */
+/**
+ * The normalized absolute form the broker and the executors compare (no file system access). On
+ * Windows it is a drive or UNC path in the broker's form (`@psyche/hostfs`), and a name Win32 would
+ * rewrite is refused: `.git::$INDEX_ALLOCATION`, `.git.` and `GIT~1` all open `.git`.
+ */
 export function canonicalRoot(path: string): string {
   if (path.includes("\0")) throw new PsycheError("invalid_params", "NUL in path");
+  if (process.platform === "win32") return windowsCanonical(path);
   if (!isAbsolute(path)) throw new PsycheError("invalid_params", `${path} is not absolute`);
   const r = resolve(path);
   return r.length > 1 && r.endsWith(sep) ? r.slice(0, -1) : r;
 }
 
+function windowsCanonical(path: string): string {
+  let c: string;
+  try {
+    c = canonicalHostPath(path);
+  } catch (err) {
+    throw new PsycheError("invalid_params", (err as Error).message);
+  }
+  // `/x` would be `\x` on the current drive: only drive and UNC paths name a folder.
+  if (!isWin32HostPath(c)) throw new PsycheError("invalid_params", `${path} is not absolute`);
+  return c;
+}
+
+/** `child` equals `root` or lies under it, by whole segments (Windows paths without case). */
 export function isUnder(child: string, root: string): boolean {
-  if (root === "/") return child.startsWith("/");
-  return child === root || child.startsWith(`${root}/`);
+  return isUnderHostPath(child, root);
 }
 
 /**
@@ -54,7 +72,14 @@ export function isUnder(child: string, root: string): boolean {
  */
 export function resolveInRoot(root: string, path: string): string {
   if (path.includes("\0")) throw new PsycheError("invalid_params", "NUL in path");
-  const full = isAbsolute(path) ? resolve(path) : resolve(root, normalize(path));
+  let full = isAbsolute(path) ? resolve(path) : resolve(root, normalize(path));
+  if (process.platform === "win32") {
+    try {
+      full = windowsCanonical(full);
+    } catch {
+      throw new PsycheError("forbidden", `${path} names a file another way than its own name`);
+    }
+  }
   if (!isUnder(full, root)) {
     throw new PsycheError("forbidden", `${path} is outside the workspace ${root}`);
   }
@@ -152,7 +177,7 @@ export function repoMounts(ws: CodingWorkspace, gitDir: boolean): SandboxMount[]
   return [
     { source: ws.root, target: REPO_MOUNT, readOnly: ws.mode !== "rw" },
     ...(gitDir
-      ? [{ source: `${ws.root}/.git`, target: `${REPO_MOUNT}/.git`, readOnly: true }]
+      ? [{ source: join(ws.root, ".git"), target: `${REPO_MOUNT}/.git`, readOnly: true }]
       : []),
   ];
 }
