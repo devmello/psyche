@@ -12,6 +12,18 @@ struct EventMapperTests {
     }
     func mapper() -> EventMapper { EventMapper(lookupQuestion: { _ in ("Which one?", [ChatOption(id: "A", title: "A", detail: "")]) }) }
 
+    @Test func widgetAndLibraryEventsMapToTheirTopics() async {
+        var m = mapper()
+        let patched = await m.map(frame("widget.updated", .object(["widgetId": "w1", "threadId": "t1", "rev": .number(2), "ops": .array([])])), ownDeviceID: "d").events
+        #expect(patched == [.changed(.widgets), .changed(.home)])
+        let task = await m.map(frame("task.updated", .object([:])), ownDeviceID: "d").events
+        #expect(task.contains(.changed(.widgets)) && task.contains(.changed(.activity)) && task.contains(.changed(.home)))
+        #expect(await m.map(frame("automation.updated", .object([:])), ownDeviceID: "d").events == [.changed(.widgets)])
+        for event in ["library.item.changed", "artifact.updated"] {
+            #expect(await m.map(frame(event, .object(["itemId": "lib_1", "change": "deleted"])), ownDeviceID: "d").events == [.changed(.library)])
+        }
+    }
+
     @Test func firstDeltaCreatesTheStreamingRowThenAppends() async {
         var m = mapper()
         let p: JSONValue = .object(["threadId": "t1", "messageId": "m1", "delta": "Hel"])

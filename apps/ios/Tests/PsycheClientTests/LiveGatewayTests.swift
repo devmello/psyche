@@ -40,14 +40,9 @@ struct LiveGatewayTests {
         #expect(await gateway.nextLine(timeout: 10)?.contains("\"tokens\":[\"live\",\"live\"]") == true)
 
         // 2. The right link: the key the Gateway proves hashes to the link's fingerprint, the token is presented
-        //    only after that, and the device is paired at once with the scopes chosen when the token was made.
-        //    Today's Gateway takes a setup token from a new device only when it is the desktop app (auth.ts: "the
-        //    phone comes later"), so the owner pairs this phone first, as approving it on the Mac does; the link
-        //    then arrives from a device the Gateway already knows, which it accepts and spends.
+        //    only after that, and this brand-new phone is paired at once with the scopes chosen when the token
+        //    was made. No owner step: the link is the owner's consent.
         let h = LiveHarness()
-        let me = try await h.identityStore.identity()
-        gateway.send("enroll \(me.deviceId) \(me.publicKey)")
-        #expect(await gateway.nextLine(timeout: 10)?.contains("\"enrolled\":true") == true)
         await h.client.beginPairing(link(token: info.setupToken))
         let live = await GatewayClientTests.wait(h.client, for: { $0 == .live }, seconds: 20)
         #expect(live == .live)
@@ -99,22 +94,16 @@ struct LiveGatewayTests {
         #expect(found.answer == nil)
         #expect(try await backend.pinnedWidgets().isEmpty)
 
-        // 4. A gap in today's Gateway, kept here so the test says so when it closes: a phone the owner has not
-        //    paired is denied its setup token (desktop only, auth.ts), and the denial reads like an expired link.
-        //    When the Gateway takes setup tokens from `ios`, this phone pairs and this expectation flips.
+        // 4. Another brand-new phone with the spare link pairs too (the Gateway takes setup tokens from `ios`),
+        //    and its token is then spent.
         do {
             let fresh = LiveHarness()
-            let failures = fresh.client.pairingFailures()
             await fresh.client.beginPairing(link(token: info.spareSetupToken))
-            let message = await withTaskGroup(of: String?.self) { group in
-                group.addTask { for await m in failures { return m }; return nil }
-                group.addTask { try? await Task.sleep(for: .seconds(15)); return nil }
-                let first = await group.next() ?? nil
-                group.cancelAll()
-                return first
-            }
-            #expect(message?.contains("Make a new link on your Mac") == true)
-            #expect(fresh.endpointStore.load() == nil)
+            let state = await GatewayClientTests.wait(fresh.client, for: { $0 == .live }, seconds: 20)
+            #expect(state == .live)
+            #expect(fresh.endpointStore.load()?.identityKey == info.identityKey)
+            gateway.send("tokens")
+            #expect(await gateway.nextLine(timeout: 10)?.contains("\"tokens\":[\"used\",\"used\"]") == true)
         }
 
         // Resilience: the Gateway closing the socket brings the phone back without losing the session.

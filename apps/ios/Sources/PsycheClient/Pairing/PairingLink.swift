@@ -41,6 +41,19 @@ public struct PairingLink: Equatable, Sendable {
         }
     }
 
+    #if DEBUG
+    /// Debug builds only: a link to a development Gateway on this Mac's loopback (`http://127.0.0.1:<port>`),
+    /// which real links never name. Used by `-psycheDevPair` to run the app against
+    /// `tests/integration/ios-gateway/serve.ts` on the simulator. Release builds don't contain it.
+    public static func development(origin: String, fingerprint: String, setupToken: String) -> PairingLink? {
+        guard let url = URL(string: origin), let host = url.host, isLoopback(host), isFingerprint(fingerprint),
+            isSetupToken(setupToken)
+        else { return nil }
+        return PairingLink(
+            gatewayURL: origin, gatewayFingerprint: fingerprint, setupToken: setupToken, hostName: "Development Gateway")
+    }
+    #endif
+
     private static let maxLinkChars = 2048
     private static let maxURLChars = 300
     private static let maxHostName = 64

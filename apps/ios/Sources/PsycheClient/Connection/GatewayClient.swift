@@ -484,7 +484,11 @@ public actor GatewayClient {
                 self.ownDeviceID = deviceID
                 self.ownScopes = scopes
                 set(.live)
-                if resync.connected(stateVersion: stateVersion) { publish(.resynced) }
+                // Always tell the screens: one that loaded while the phone was still connecting failed with
+                // "unreachable", and one that stayed open while offline may be stale, whether or not
+                // `stateVersion` moved (N14 refetch).
+                _ = resync.connected(stateVersion: stateVersion)
+                publish(.resynced)
                 persistStateVersion()
                 Task { await self.flushOutbox() }
                 return .live(connection.events)

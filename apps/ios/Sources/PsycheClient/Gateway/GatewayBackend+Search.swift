@@ -62,19 +62,42 @@ extension GatewayBackend {
             let entity = id.replacingOccurrences(of: "entity:", with: "")
             return .init(id: id, group: .people, symbol: "person", title: title, detail: "Person", target: .person(id: entity))
         case "memory":
-            // A to-do is a Memory entity whose document starts "To-do: name"; other Memory hits are notes.
-            if id.hasPrefix("memory:ent_"), snippet.hasPrefix("To-do:") || snippet.lowercased().hasPrefix("to-do") {
+            // A Memory hit does not say which kind of entity it is: the wire hit has no entity type, so the
+            // first line of its document ("To-do: name", "Project: name", see memoryItem in packages/search)
+            // is the only signal. Anything else is a note.
+            if id.hasPrefix("memory:ent_") {
                 let entity = String(id.dropFirst("memory:".count))
-                return .init(id: id, group: .todo, symbol: "circle", title: title, detail: "To-do", target: .todo(id: entity))
+                switch entityLabel(in: h["snippet"]?.string ?? "") {
+                case "to-do":
+                    return .init(id: id, group: .todo, symbol: "circle", title: title, detail: "To-do", target: .todo(id: entity))
+                case "project":
+                    return .init(id: id, group: .chatsAndFiles, symbol: "folder", title: title, detail: detail("Project"), target: .project(id: entity))
+                default: break
+                }
             }
             return .init(id: id, group: .chatsAndFiles, symbol: "brain", title: title, detail: detail("Memory"))
         case "project", "projects":
-            return .init(id: id, group: .chatsAndFiles, symbol: "folder", title: title, detail: detail("Project"))
+            // The project's own document: `entity:<id>`.
+            let entity = id.replacingOccurrences(of: "entity:", with: "")
+            return .init(
+                id: id, group: .chatsAndFiles, symbol: "folder", title: title, detail: detail("Project"), target: .project(id: entity))
         case "task", "tasks":
-            return .init(id: id, group: .chatsAndFiles, symbol: "checklist", title: title, detail: detail("Task"))
+            // An Activity line collapses onto its task; the route names the task (`/agent/activity/<taskId>`).
+            let task = h["route"]?.string.flatMap { route -> String? in
+                route.hasPrefix("/agent/activity/") ? String(route.dropFirst("/agent/activity/".count)) : nil
+            } ?? id
+            return .init(id: id, group: .chatsAndFiles, symbol: "checklist", title: title, detail: detail("Task"), target: .task(id: task))
         default:
             return .init(id: id, group: .chatsAndFiles, symbol: "doc.text", title: title, detail: detail(humanized(kind)))
         }
+    }
+
+    /// The lowercased label before the first colon of a Memory document's first line, e.g. "to-do".
+    private static func entityLabel(in snippet: String) -> String? {
+        let first = snippet.drop { $0.isWhitespace || $0.isNewline }
+        guard let colon = first.firstIndex(of: ":") else { return nil }
+        let label = first[..<colon].lowercased()
+        return label.count <= 14 ? label : nil
     }
 
     private static func clipped(_ text: String) -> String {

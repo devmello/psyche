@@ -63,6 +63,7 @@ import { type CatchupDeps, composeCatchup } from "./catchup.ts";
 import { mountParamsOnly, surfaceOf } from "./handlers.ts";
 import { type ComposedMeetings, composeMeetings, graphPrepHooks } from "./meetings.ts";
 import { recordingsFolderIo } from "./notes-folder.ts";
+import type { GistSources } from "./people.ts";
 import { isOwnerQuietAt } from "./quiet-hours.ts";
 import {
   notesRefusal,
@@ -163,6 +164,8 @@ export interface ProactiveSetup {
 }
 
 export interface ComposedProactive {
+  /** Binds Search's lookup and open check for catch-up source chips; unbound, a line has none. */
+  useCatchUpSources(sources: GistSources): void;
   readonly goals: GoalsService;
   readonly feed: FeedService;
   readonly ideas: IdeasService;
@@ -658,6 +661,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     setSetting(db, UPGRADE_CARD_SETTING, now);
   }
   return {
+    useCatchUpSources: (sources) => catchup?.useSources(sources),
     goals,
     feed,
     ideas,

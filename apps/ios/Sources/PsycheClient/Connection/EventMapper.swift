@@ -70,24 +70,24 @@ struct EventMapper {
              "feed.post", "feed.updated", "idea.updated", "goal.updated":
             return ([.changed(.home)], .none)
         case "task.updated", "task.action", "run.updated", "specialist.spawned", "specialist.progress", "specialist.result":
-            return ([.changed(.activity), .changed(.home)], .none)
+            // A task or specialist job can be what a pinned widget's bindings read, so widgets refetch too.
+            return ([.changed(.activity), .changed(.home), .changed(.widgets)], .none)
+        case "automation.updated":
+            return ([.changed(.widgets)], .none)
         case "thread.updated", "thread.cleared", "thread.deleted":
             return ([.changed(.threads)], .none)
         case "memory.entity.updated", "memory.loop.updated", "memory.suggestion.created", "memory.job.updated", "memory.file.changed":
             return ([.changed(.memory)], .none)
-        // Widgets reuse the Home topic: Home's pinned list and every widget view refetch on any change.
+        // A patched or frozen widget: the widget views refetch (the Gateway has the patched spec and the bound
+        // data), and Home's Pinned section reloads.
         case "widget.updated":
-            return ([.changed(.home)], .none)
-        case _ where frame.event.hasPrefix("memory."):
-            return ([.changed(.memory)], .none)
-        // Widgets reuse the Home topic: Home's pinned list and every widget view refetch on any change.
-        case "widget.updated":
-            return ([.changed(.home)], .none)
+            return ([.changed(.widgets), .changed(.home)], .none)
         case _ where frame.event.hasPrefix("memory."):
             return ([.changed(.memory)], .none)
         case "settings.changed", "persona.updated":
             return ([.changed(.settings)], .none)
-        case "artifact.updated", "library.item.created", "library.item.updated", "library.item.deleted":
+        // `library.item.changed` is an upload or delete from another device.
+        case "artifact.updated", "library.item.changed", "library.item.created", "library.item.updated", "library.item.deleted":
             return ([.changed(.library)], .none)
         case "device.updated":
             if let device = p["device"], device["id"]?.string == ownDeviceID, device["revokedAt"]?.string != nil {

@@ -1,0 +1,762 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-04T15:30:00Z",
+  "title": "Design System: Psyche Docs",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "primary",
+        "displayName": "Notebook Ink",
+        "tonalRamp": [
+          "oklch(0.15 0.0517 258.67)",
+          "oklch(0.27 0.0765 258.67)",
+          "oklch(0.39 0.1013 258.67)",
+          "oklch(0.5 0.1240 258.67)",
+          "oklch(0.62 0.0992 258.67)",
+          "oklch(0.74 0.0744 258.67)",
+          "oklch(0.86 0.0496 258.67)",
+          "oklch(0.95 0.0310 258.67)"
+        ],
+        "canonical": "#2c5aa0"
+      },
+      "ink-hover": {
+        "role": "primary",
+        "displayName": "Pressed Ink",
+        "tonalRamp": [
+          "oklch(0.15 0.0517 258.67)",
+          "oklch(0.27 0.0765 258.67)",
+          "oklch(0.39 0.1013 258.67)",
+          "oklch(0.5 0.1240 258.67)",
+          "oklch(0.62 0.0992 258.67)",
+          "oklch(0.74 0.0744 258.67)",
+          "oklch(0.86 0.0496 258.67)",
+          "oklch(0.95 0.0310 258.67)"
+        ]
+      },
+      "ink-text": {
+        "role": "primary",
+        "displayName": "Ink Text",
+        "tonalRamp": [
+          "oklch(0.15 0.0517 258.67)",
+          "oklch(0.27 0.0765 258.67)",
+          "oklch(0.39 0.1013 258.67)",
+          "oklch(0.5 0.1240 258.67)",
+          "oklch(0.62 0.0992 258.67)",
+          "oklch(0.74 0.0744 258.67)",
+          "oklch(0.86 0.0496 258.67)",
+          "oklch(0.95 0.0310 258.67)"
+        ]
+      },
+      "ink-soft": {
+        "role": "primary",
+        "displayName": "Ink Wash",
+        "tonalRamp": [
+          "oklch(0.15 0.0517 258.67)",
+          "oklch(0.27 0.0765 258.67)",
+          "oklch(0.39 0.1013 258.67)",
+          "oklch(0.5 0.1240 258.67)",
+          "oklch(0.62 0.0992 258.67)",
+          "oklch(0.74 0.0744 258.67)",
+          "oklch(0.86 0.0496 258.67)",
+          "oklch(0.95 0.0310 258.67)"
+        ]
+      },
+      "ink-soft-2": {
+        "role": "primary",
+        "displayName": "Ink Wash, Deeper",
+        "tonalRamp": [
+          "oklch(0.15 0.0517 258.67)",
+          "oklch(0.27 0.0765 258.67)",
+          "oklch(0.39 0.1013 258.67)",
+          "oklch(0.5 0.1240 258.67)",
+          "oklch(0.62 0.0992 258.67)",
+          "oklch(0.74 0.0744 258.67)",
+          "oklch(0.86 0.0496 258.67)",
+          "oklch(0.95 0.0310 258.67)"
+        ]
+      },
+      "ink-line": {
+        "role": "primary",
+        "displayName": "Ink Rule",
+        "tonalRamp": [
+          "oklch(0.15 0.0517 258.67)",
+          "oklch(0.27 0.0765 258.67)",
+          "oklch(0.39 0.1013 258.67)",
+          "oklch(0.5 0.1240 258.67)",
+          "oklch(0.62 0.0992 258.67)",
+          "oklch(0.74 0.0744 258.67)",
+          "oklch(0.86 0.0496 258.67)",
+          "oklch(0.95 0.0310 258.67)"
+        ]
+      },
+      "night-ink-text": {
+        "role": "primary",
+        "displayName": "Moonlit Ink",
+        "tonalRamp": [
+          "oklch(0.15 0.0517 258.67)",
+          "oklch(0.27 0.0765 258.67)",
+          "oklch(0.39 0.1013 258.67)",
+          "oklch(0.5 0.1240 258.67)",
+          "oklch(0.62 0.0992 258.67)",
+          "oklch(0.74 0.0744 258.67)",
+          "oklch(0.86 0.0496 258.67)",
+          "oklch(0.95 0.0310 258.67)"
+        ]
+      },
+      "lit-ink-text": {
+        "role": "primary",
+        "displayName": "Lamplit Ink Text",
+        "tonalRamp": [
+          "oklch(0.15 0.0517 258.67)",
+          "oklch(0.27 0.0765 258.67)",
+          "oklch(0.39 0.1013 258.67)",
+          "oklch(0.5 0.1240 258.67)",
+          "oklch(0.62 0.0992 258.67)",
+          "oklch(0.74 0.0744 258.67)",
+          "oklch(0.86 0.0496 258.67)",
+          "oklch(0.95 0.0310 258.67)"
+        ]
+      },
+      "lit-ink-soft": {
+        "role": "primary",
+        "displayName": "Lamplit Ink Wash",
+        "tonalRamp": [
+          "oklch(0.15 0.0517 258.67)",
+          "oklch(0.27 0.0765 258.67)",
+          "oklch(0.39 0.1013 258.67)",
+          "oklch(0.5 0.1240 258.67)",
+          "oklch(0.62 0.0992 258.67)",
+          "oklch(0.74 0.0744 258.67)",
+          "oklch(0.86 0.0496 258.67)",
+          "oklch(0.95 0.0310 258.67)"
+        ]
+      },
+      "amber": {
+        "role": "secondary",
+        "displayName": "Needs-You Amber",
+        "tonalRamp": [
+          "oklch(0.15 0.0667 85)",
+          "oklch(0.27 0.0987 85)",
+          "oklch(0.39 0.1307 85)",
+          "oklch(0.5 0.1600 85)",
+          "oklch(0.62 0.1280 85)",
+          "oklch(0.74 0.0960 85)",
+          "oklch(0.86 0.0640 85)",
+          "oklch(0.95 0.0400 85)"
+        ]
+      },
+      "amber-line": {
+        "role": "secondary",
+        "displayName": "Amber Rule",
+        "tonalRamp": [
+          "oklch(0.15 0.0667 85)",
+          "oklch(0.27 0.0987 85)",
+          "oklch(0.39 0.1307 85)",
+          "oklch(0.5 0.1600 85)",
+          "oklch(0.62 0.1280 85)",
+          "oklch(0.74 0.0960 85)",
+          "oklch(0.86 0.0640 85)",
+          "oklch(0.95 0.0400 85)"
+        ]
+      },
+      "amber-text": {
+        "role": "secondary",
+        "displayName": "Amber Text",
+        "tonalRamp": [
+          "oklch(0.15 0.0667 85)",
+          "oklch(0.27 0.0987 85)",
+          "oklch(0.39 0.1307 85)",
+          "oklch(0.5 0.1600 85)",
+          "oklch(0.62 0.1280 85)",
+          "oklch(0.74 0.0960 85)",
+          "oklch(0.86 0.0640 85)",
+          "oklch(0.95 0.0400 85)"
+        ]
+      },
+      "amber-soft": {
+        "role": "secondary",
+        "displayName": "Amber Wash",
+        "tonalRamp": [
+          "oklch(0.15 0.0667 85)",
+          "oklch(0.27 0.0987 85)",
+          "oklch(0.39 0.1307 85)",
+          "oklch(0.5 0.1600 85)",
+          "oklch(0.62 0.1280 85)",
+          "oklch(0.74 0.0960 85)",
+          "oklch(0.86 0.0640 85)",
+          "oklch(0.95 0.0400 85)"
+        ]
+      },
+      "paper-1": {
+        "role": "neutral",
+        "displayName": "Page Paper",
+        "tonalRamp": [
+          "oklch(0.244 0.003 80)",
+          "oklch(0.5 0.0045 80)",
+          "oklch(0.55 0.005 80)",
+          "oklch(0.795 0.005 80)",
+          "oklch(0.884 0.004 80)",
+          "oklch(0.931 0.003 80)",
+          "oklch(0.982 0.0017 80)",
+          "oklch(0.991 0.0013 80)"
+        ]
+      },
+      "paper-2": {
+        "role": "neutral",
+        "displayName": "Sidebar Paper",
+        "tonalRamp": [
+          "oklch(0.244 0.003 80)",
+          "oklch(0.5 0.0045 80)",
+          "oklch(0.55 0.005 80)",
+          "oklch(0.795 0.005 80)",
+          "oklch(0.884 0.004 80)",
+          "oklch(0.931 0.003 80)",
+          "oklch(0.982 0.0017 80)",
+          "oklch(0.991 0.0013 80)"
+        ]
+      },
+      "paper-3": {
+        "role": "neutral",
+        "displayName": "Field Paper",
+        "tonalRamp": [
+          "oklch(0.244 0.003 80)",
+          "oklch(0.5 0.0045 80)",
+          "oklch(0.55 0.005 80)",
+          "oklch(0.795 0.005 80)",
+          "oklch(0.884 0.004 80)",
+          "oklch(0.931 0.003 80)",
+          "oklch(0.982 0.0017 80)",
+          "oklch(0.991 0.0013 80)"
+        ]
+      },
+      "paper-5": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "tonalRamp": [
+          "oklch(0.244 0.003 80)",
+          "oklch(0.5 0.0045 80)",
+          "oklch(0.55 0.005 80)",
+          "oklch(0.795 0.005 80)",
+          "oklch(0.884 0.004 80)",
+          "oklch(0.931 0.003 80)",
+          "oklch(0.982 0.0017 80)",
+          "oklch(0.991 0.0013 80)"
+        ]
+      },
+      "paper-6": {
+        "role": "neutral",
+        "displayName": "Border",
+        "tonalRamp": [
+          "oklch(0.244 0.003 80)",
+          "oklch(0.5 0.0045 80)",
+          "oklch(0.55 0.005 80)",
+          "oklch(0.795 0.005 80)",
+          "oklch(0.884 0.004 80)",
+          "oklch(0.931 0.003 80)",
+          "oklch(0.982 0.0017 80)",
+          "oklch(0.991 0.0013 80)"
+        ]
+      },
+      "paper-7": {
+        "role": "neutral",
+        "displayName": "Outline",
+        "tonalRamp": [
+          "oklch(0.244 0.003 80)",
+          "oklch(0.5 0.0045 80)",
+          "oklch(0.55 0.005 80)",
+          "oklch(0.795 0.005 80)",
+          "oklch(0.884 0.004 80)",
+          "oklch(0.931 0.003 80)",
+          "oklch(0.982 0.0017 80)",
+          "oklch(0.991 0.0013 80)"
+        ]
+      },
+      "paper-9": {
+        "role": "neutral",
+        "displayName": "Faint Mark",
+        "tonalRamp": [
+          "oklch(0.244 0.003 80)",
+          "oklch(0.5 0.0045 80)",
+          "oklch(0.55 0.005 80)",
+          "oklch(0.795 0.005 80)",
+          "oklch(0.884 0.004 80)",
+          "oklch(0.931 0.003 80)",
+          "oklch(0.982 0.0017 80)",
+          "oklch(0.991 0.0013 80)"
+        ]
+      },
+      "paper-11": {
+        "role": "neutral",
+        "displayName": "Secondary Text",
+        "tonalRamp": [
+          "oklch(0.244 0.003 80)",
+          "oklch(0.5 0.0045 80)",
+          "oklch(0.55 0.005 80)",
+          "oklch(0.795 0.005 80)",
+          "oklch(0.884 0.004 80)",
+          "oklch(0.931 0.003 80)",
+          "oklch(0.982 0.0017 80)",
+          "oklch(0.991 0.0013 80)"
+        ]
+      },
+      "paper-12": {
+        "role": "neutral",
+        "displayName": "Near-Black Text",
+        "tonalRamp": [
+          "oklch(0.244 0.003 80)",
+          "oklch(0.5 0.0045 80)",
+          "oklch(0.55 0.005 80)",
+          "oklch(0.795 0.005 80)",
+          "oklch(0.884 0.004 80)",
+          "oklch(0.931 0.003 80)",
+          "oklch(0.982 0.0017 80)",
+          "oklch(0.991 0.0013 80)"
+        ]
+      },
+      "sheet": {
+        "role": "neutral",
+        "displayName": "Sheet",
+        "tonalRamp": [
+          "oklch(0.244 0.003 80)",
+          "oklch(0.5 0.0045 80)",
+          "oklch(0.55 0.005 80)",
+          "oklch(0.795 0.005 80)",
+          "oklch(0.884 0.004 80)",
+          "oklch(0.931 0.003 80)",
+          "oklch(0.982 0.0017 80)",
+          "oklch(0.991 0.0013 80)"
+        ]
+      },
+      "desk": {
+        "role": "neutral",
+        "displayName": "Desk",
+        "tonalRamp": [
+          "oklch(0.244 0.003 80)",
+          "oklch(0.5 0.0045 80)",
+          "oklch(0.55 0.005 80)",
+          "oklch(0.795 0.005 80)",
+          "oklch(0.884 0.004 80)",
+          "oklch(0.931 0.003 80)",
+          "oklch(0.982 0.0017 80)",
+          "oklch(0.991 0.0013 80)"
+        ]
+      },
+      "night-paper-1": {
+        "role": "neutral",
+        "displayName": "Desk at Night, Page",
+        "tonalRamp": [
+          "oklch(0.155 0.0013 80)",
+          "oklch(0.178 0.0013 80)",
+          "oklch(0.213 0.0017 80)",
+          "oklch(0.285 0.003 80)",
+          "oklch(0.348 0.004 80)",
+          "oklch(0.488 0.005 80)",
+          "oklch(0.771 0.0045 80)",
+          "oklch(0.949 0.003 80)"
+        ]
+      },
+      "night-paper-12": {
+        "role": "neutral",
+        "displayName": "Desk at Night, Text",
+        "tonalRamp": [
+          "oklch(0.155 0.0013 80)",
+          "oklch(0.178 0.0013 80)",
+          "oklch(0.213 0.0017 80)",
+          "oklch(0.285 0.003 80)",
+          "oklch(0.348 0.004 80)",
+          "oklch(0.488 0.005 80)",
+          "oklch(0.771 0.0045 80)",
+          "oklch(0.949 0.003 80)"
+        ]
+      },
+      "night-sheet": {
+        "role": "neutral",
+        "displayName": "Desk at Night, Sheet",
+        "tonalRamp": [
+          "oklch(0.155 0.0013 80)",
+          "oklch(0.178 0.0013 80)",
+          "oklch(0.213 0.0017 80)",
+          "oklch(0.285 0.003 80)",
+          "oklch(0.348 0.004 80)",
+          "oklch(0.488 0.005 80)",
+          "oklch(0.771 0.0045 80)",
+          "oklch(0.949 0.003 80)"
+        ]
+      },
+      "night-desk": {
+        "role": "neutral",
+        "displayName": "Desk at Night",
+        "tonalRamp": [
+          "oklch(0.155 0.0013 80)",
+          "oklch(0.178 0.0013 80)",
+          "oklch(0.213 0.0017 80)",
+          "oklch(0.285 0.003 80)",
+          "oklch(0.348 0.004 80)",
+          "oklch(0.488 0.005 80)",
+          "oklch(0.771 0.0045 80)",
+          "oklch(0.949 0.003 80)"
+        ]
+      },
+      "night-band": {
+        "role": "neutral",
+        "displayName": "Night Band",
+        "tonalRamp": [
+          "oklch(0.155 0.0013 80)",
+          "oklch(0.178 0.0013 80)",
+          "oklch(0.213 0.0017 80)",
+          "oklch(0.285 0.003 80)",
+          "oklch(0.348 0.004 80)",
+          "oklch(0.488 0.005 80)",
+          "oklch(0.771 0.0045 80)",
+          "oklch(0.949 0.003 80)"
+        ]
+      },
+      "night-band-dark": {
+        "role": "neutral",
+        "displayName": "Night Band, Dark Mode",
+        "tonalRamp": [
+          "oklch(0.155 0.0013 80)",
+          "oklch(0.178 0.0013 80)",
+          "oklch(0.213 0.0017 80)",
+          "oklch(0.285 0.003 80)",
+          "oklch(0.348 0.004 80)",
+          "oklch(0.488 0.005 80)",
+          "oklch(0.771 0.0045 80)",
+          "oklch(0.949 0.003 80)"
+        ]
+      },
+      "lit-sheet": {
+        "role": "neutral",
+        "displayName": "Lamplit Paper",
+        "tonalRamp": [
+          "oklch(0.22 0.003 80)",
+          "oklch(0.43 0.0045 80)",
+          "oklch(0.5 0.005 80)",
+          "oklch(0.77 0.005 80)",
+          "oklch(0.84 0.0045 80)",
+          "oklch(0.87 0.004 80)",
+          "oklch(0.915 0.0035 80)",
+          "oklch(0.93 0.0035 80)"
+        ]
+      },
+      "lit-paper-5": {
+        "role": "neutral",
+        "displayName": "Lamplit Hairline",
+        "tonalRamp": [
+          "oklch(0.22 0.003 80)",
+          "oklch(0.43 0.0045 80)",
+          "oklch(0.5 0.005 80)",
+          "oklch(0.77 0.005 80)",
+          "oklch(0.84 0.0045 80)",
+          "oklch(0.87 0.004 80)",
+          "oklch(0.915 0.0035 80)",
+          "oklch(0.93 0.0035 80)"
+        ]
+      },
+      "lit-paper-9": {
+        "role": "neutral",
+        "displayName": "Lamplit Faint Mark",
+        "tonalRamp": [
+          "oklch(0.22 0.003 80)",
+          "oklch(0.43 0.0045 80)",
+          "oklch(0.5 0.005 80)",
+          "oklch(0.77 0.005 80)",
+          "oklch(0.84 0.0045 80)",
+          "oklch(0.87 0.004 80)",
+          "oklch(0.915 0.0035 80)",
+          "oklch(0.93 0.0035 80)"
+        ]
+      },
+      "lit-paper-11": {
+        "role": "neutral",
+        "displayName": "Lamplit Secondary Text",
+        "tonalRamp": [
+          "oklch(0.22 0.003 80)",
+          "oklch(0.43 0.0045 80)",
+          "oklch(0.5 0.005 80)",
+          "oklch(0.77 0.005 80)",
+          "oklch(0.84 0.0045 80)",
+          "oklch(0.87 0.004 80)",
+          "oklch(0.915 0.0035 80)",
+          "oklch(0.93 0.0035 80)"
+        ]
+      },
+      "lit-paper-12": {
+        "role": "neutral",
+        "displayName": "Lamplit Text",
+        "tonalRamp": [
+          "oklch(0.22 0.003 80)",
+          "oklch(0.43 0.0045 80)",
+          "oklch(0.5 0.005 80)",
+          "oklch(0.77 0.005 80)",
+          "oklch(0.84 0.0045 80)",
+          "oklch(0.87 0.004 80)",
+          "oklch(0.915 0.0035 80)",
+          "oklch(0.93 0.0035 80)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The hero headline on the notebook's left page only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Landing leaf titles; halves step down, the close steps up."
+      },
+      "headline-doc": {
+        "displayName": "Doc Headline",
+        "purpose": "Doc page h1."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Doc h2 with a hairline rule above."
+      },
+      "title-small": {
+        "displayName": "Small Title",
+        "purpose": "Doc h3."
+      },
+      "deck": {
+        "displayName": "Deck",
+        "purpose": "The hero's two-sentence deck."
+      },
+      "body-landing": {
+        "displayName": "Landing Body",
+        "purpose": "Secondary copy on landing leaves, 36em measure."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Doc reading text, 72ch measure."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Status lines, margin notes, captions."
+      },
+      "mono-head": {
+        "displayName": "Mono Head",
+        "purpose": "Running heads, citation paths, receipt times. Real paths and ids only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-sheet",
+        "value": "0 1px 1px oklch(0.2 0.01 80 / 0.04), 0 8px 18px -8px oklch(0.2 0.01 80 / 0.16), 0 28px 48px -28px oklch(0.2 0.01 80 / 0.22)",
+        "purpose": "Resting leaves, clip frames, the terminal, hero sheets. Dark: 0 1px 1px oklch(0 0 0 / 0.3), 0 10px 22px -10px oklch(0 0 0 / 0.6), 0 30px 56px -30px oklch(0 0 0 / 0.7)."
+      },
+      {
+        "name": "shadow-lift",
+        "value": "0 1px 1px oklch(0.2 0.01 80 / 0.05), 0 16px 32px -14px oklch(0.2 0.01 80 / 0.22), 0 48px 80px -40px oklch(0.2 0.01 80 / 0.28)",
+        "purpose": "The notebook spread, the search modal, a sheet before it is laid. Dark: 0 1px 1px oklch(0 0 0 / 0.35), 0 18px 34px -14px oklch(0 0 0 / 0.65), 0 50px 90px -40px oklch(0 0 0 / 0.75)."
+      },
+      {
+        "name": "shadow-lamplit",
+        "value": "0 2px 2px oklch(0 0 0 / 0.35), 0 24px 48px -18px oklch(0 0 0 / 0.7), 0 70px 120px -50px oklch(0 0 0 / 0.8)",
+        "purpose": "The approvals sheet on the night band."
+      },
+      {
+        "name": "shadow-button-primary",
+        "value": "0 1px 1px oklch(0.2 0.05 258 / 0.2), 0 6px 14px -8px oklch(0.3 0.1 258 / 0.6)",
+        "purpose": "The ink button only."
+      },
+      {
+        "name": "lamp-glow",
+        "value": "radial-gradient(ellipse 55% 75% at 30% 18%, oklch(0.96 0.025 85 / 0.13), transparent 72%)",
+        "purpose": "The single warm lamp over the night band."
+      },
+      {
+        "name": "gutter-fold",
+        "value": "linear-gradient(90deg, transparent, oklch(0.2 0.01 80 / 0.05) 45%, oklch(0.2 0.01 80 / 0.09) 50%, oklch(0.2 0.01 80 / 0.05) 55%, transparent)",
+        "purpose": "The 80px soft fold at the notebook's gutter (0.08/0.14 in dark mode)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Laying sheets down, control reveals, canvas fade-in."
+      },
+      {
+        "name": "ease-in-out",
+        "value": "cubic-bezier(0.65, 0, 0.35, 1)",
+        "purpose": "Declared for symmetric transitions."
+      },
+      {
+        "name": "lay-down",
+        "value": "translateY(28px) rotate(-0.4deg) to none, 1s ease-out; shadow lift to sheet 1.1s",
+        "purpose": "Sheets arriving below the fold; on-screen content never animates."
+      },
+      {
+        "name": "rule-draw",
+        "value": "scaleX(0) to 1, 1.2s ease-out, 0.25s delay",
+        "purpose": "The running-head rule draws after its sheet settles."
+      },
+      {
+        "name": "fan",
+        "value": "scroll progress 0 to 1 across the pinned spread track (100svh + 60svh)",
+        "purpose": "Hero sheets fan apart so each reads as its file; pointer tilt lerps at 0.08."
+      },
+      {
+        "name": "control",
+        "value": "0.15s to 0.2s",
+        "purpose": "Hover and press transitions on buttons, links and clip controls."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "all durations 0.01ms; no pinning, no lay-down, HTML stack instead of WebGL",
+        "purpose": "Static fallback."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "560px"
+      },
+      {
+        "name": "code-flush",
+        "value": "639px"
+      },
+      {
+        "name": "table-block",
+        "value": "760px"
+      },
+      {
+        "name": "single-page",
+        "value": "960px"
+      },
+      {
+        "name": "pinned-spread",
+        "value": "961px wide and 640px tall"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The ink action: Star on GitHub. One per view.",
+      "html": "<a class=\"ds-btn-primary\" href=\"#\"><svg viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"M8 .2a8 8 0 0 0-2.53 15.6c.4.07.55-.17.55-.38v-1.36c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.96 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.08-1.87 3.76-3.66 3.96.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 .2Z\"/></svg>Star on GitHub</a>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;gap:9px;height:46px;padding:0 20px;border-radius:10px;font:550 15.5px/1 var(--font-text,system-ui,sans-serif);text-decoration:none;background:var(--ink,oklch(0.4727 0.1241 258.67));color:#fff;box-shadow:0 1px 1px oklch(0.2 0.05 258 / 0.2),0 6px 14px -8px oklch(0.3 0.1 258 / 0.6);transition:background .18s,transform .18s cubic-bezier(0.16,1,0.3,1)}.ds-btn-primary svg{width:17px;height:17px;fill:currentColor}.ds-btn-primary:hover{background:var(--ink-hover,oklch(0.4377 0.1217 258.67));transform:translateY(-1px)}.ds-btn-primary:active{transform:none}.ds-btn-primary:focus-visible{outline:2px solid var(--ink,oklch(0.4727 0.1241 258.67));outline-offset:2px}"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "The secondary action beside the ink button.",
+      "html": "<a class=\"ds-btn-quiet\" href=\"#\">Build it from source</a>",
+      "css": ".ds-btn-quiet{display:inline-flex;align-items:center;height:46px;padding:0 20px;border-radius:10px;font:550 15.5px/1 var(--font-text,system-ui,sans-serif);text-decoration:none;color:var(--paper-12,oklch(0.244 0.003 80));background:var(--sheet,oklch(0.997 0.001 80));border:1px solid var(--paper-7,oklch(0.85 0.0045 80));transition:background .18s,border-color .18s}.ds-btn-quiet:hover{border-color:var(--paper-9,oklch(0.55 0.005 80));background:var(--paper-2,oklch(0.982 0.0017 80))}.ds-btn-quiet:focus-visible{outline:2px solid var(--ink,oklch(0.4727 0.1241 258.67));outline-offset:2px}"
+    },
+    {
+      "name": "Source Citation",
+      "kind": "chip",
+      "refersTo": "source-chip",
+      "description": "Closes each landing section: numbered chip, doc title, doc path.",
+      "html": "<a class=\"ds-more\" href=\"#\"><span class=\"ds-src\">1</span>How memory works <span class=\"ds-where\">using/memory</span></a>",
+      "css": ".ds-more{display:inline-flex;align-items:baseline;flex-wrap:wrap;column-gap:8px;font:550 15.5px/1.4 var(--font-text,system-ui,sans-serif);color:var(--ink-text,oklch(0.4727 0.1241 258.67));text-decoration:none}.ds-src{align-self:center;display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:var(--ink-soft,oklch(0.9662 0.0171 245.79));font:500 12px/1 var(--font-code,ui-monospace,monospace)}.ds-where{font:400 12.5px/1.4 var(--font-code,ui-monospace,monospace);color:var(--paper-11,oklch(0.5 0.0045 80))}.ds-more:hover{text-decoration:underline;text-decoration-color:var(--ink-line,oklch(0.803 0.0742 258.67));text-underline-offset:4px}.ds-more:hover .ds-src,.ds-more:hover .ds-where{text-decoration:none}.ds-more:focus-visible{outline:2px solid var(--ink,oklch(0.4727 0.1241 258.67));outline-offset:2px;border-radius:4px}"
+    },
+    {
+      "name": "Leaf with Running Head",
+      "kind": "card",
+      "refersTo": "leaf",
+      "description": "A sheet laid on the desk: margin rule, mono file-path head, serif title.",
+      "html": "<section class=\"ds-desk\"><div class=\"ds-leaf\"><p class=\"ds-run-head\">workspace/MEMORY.md</p><h2 class=\"ds-leaf-title\">It remembers the way you would.</h2><p class=\"ds-leaf-body\">Each fact keeps a note of where it came from.</p></div></section>",
+      "css": ".ds-desk{background:var(--desk,oklch(0.938 0.003 80));padding:32px}.ds-leaf{position:relative;background:var(--sheet,oklch(0.997 0.001 80));border-radius:6px;padding:40px 48px 48px;box-shadow:0 1px 1px oklch(0.2 0.01 80 / 0.04),0 8px 18px -8px oklch(0.2 0.01 80 / 0.16),0 28px 48px -28px oklch(0.2 0.01 80 / 0.22)}.ds-leaf::before{content:'';position:absolute;top:0;bottom:0;left:20px;width:1px;background:var(--paper-4,oklch(0.931 0.003 80))}.ds-run-head{position:relative;margin:0 0 32px;padding-bottom:12px;font:400 12.5px/1.4 var(--font-code,ui-monospace,monospace);color:var(--paper-11,oklch(0.5 0.0045 80))}.ds-run-head::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--paper-5,oklch(0.906 0.0035 80))}.ds-leaf-title{margin:0;font:500 40px/1.04 var(--font-display,ui-serif,Georgia,serif);letter-spacing:-0.022em;color:var(--paper-12,oklch(0.244 0.003 80))}.ds-leaf-body{margin:20px 0 0;font:400 17.5px/1.6 var(--font-text,system-ui,sans-serif);color:var(--paper-11,oklch(0.5 0.0045 80));max-width:36em}"
+    },
+    {
+      "name": "Lamplit Sheet on the Night Band",
+      "kind": "custom",
+      "refersTo": "leaf-lamplit",
+      "description": "The approvals treatment: paper under one warm lamp on a dark band.",
+      "html": "<section class=\"ds-night\"><div class=\"ds-lamplit\"><h2>Nothing changes until you say so.</h2><p>An approval card shows the exact action and binds to it.</p></div></section>",
+      "css": ".ds-night{position:relative;overflow:hidden;background:oklch(0.165 0.002 80);padding:56px 32px}.ds-night::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 55% 75% at 30% 18%,oklch(0.96 0.025 85 / 0.13),transparent 72%);pointer-events:none}.ds-lamplit{position:relative;background:oklch(0.93 0.0035 80);color:oklch(0.22 0.003 80);border-radius:6px;padding:40px 48px;box-shadow:0 2px 2px oklch(0 0 0 / 0.35),0 24px 48px -18px oklch(0 0 0 / 0.7),0 70px 120px -50px oklch(0 0 0 / 0.8)}.ds-lamplit h2{margin:0;font:500 40px/1.04 var(--font-display,ui-serif,Georgia,serif);letter-spacing:-0.022em}.ds-lamplit p{margin:20px 0 0;font:400 17.5px/1.6 var(--font-text,system-ui,sans-serif);color:oklch(0.43 0.0045 80)}"
+    },
+    {
+      "name": "Demo Clip",
+      "kind": "custom",
+      "refersTo": "clip-frame",
+      "description": "Real UI recording framed as a print, with a pill play control and caption.",
+      "html": "<figure class=\"ds-clip\"><div class=\"ds-frame\"><button class=\"ds-control\" type=\"button\" aria-label=\"Pause\"><svg viewBox=\"0 0 16 16\" aria-hidden=\"true\"><rect x=\"4\" y=\"3\" width=\"2.6\" height=\"10\" rx=\"0.8\"/><rect x=\"9.4\" y=\"3\" width=\"2.6\" height=\"10\" rx=\"0.8\"/></svg><span>Pause</span></button></div><figcaption><b>Memory, Sam Lee.</b> Facts carry their source.</figcaption></figure>",
+      "css": ".ds-clip{margin:0;max-width:420px}.ds-frame{position:relative;aspect-ratio:1440/1120;border-radius:12px;overflow:hidden;background:oklch(0.985 0.0015 80);box-shadow:0 0 0 1px var(--paper-6,oklch(0.884 0.004 80)),0 1px 1px oklch(0.2 0.01 80 / 0.04),0 8px 18px -8px oklch(0.2 0.01 80 / 0.16),0 28px 48px -28px oklch(0.2 0.01 80 / 0.22)}.ds-control{position:absolute;right:12px;bottom:12px;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px 0 10px;border-radius:999px;border:1px solid oklch(0.85 0.0045 80);background:oklch(0.991 0.0013 80 / 0.92);color:oklch(0.244 0.003 80);font:500 13px/1 var(--font-text,system-ui,sans-serif);cursor:pointer;transition:background .15s}.ds-control svg{width:13px;height:13px;fill:currentColor}.ds-control:hover{background:#fff}.ds-control:focus-visible{outline:2px solid var(--ink,oklch(0.4727 0.1241 258.67));outline-offset:2px}.ds-clip figcaption{margin-top:14px;font:400 14px/1.5 var(--font-text,system-ui,sans-serif);color:var(--paper-11,oklch(0.5 0.0045 80))}.ds-clip b{color:var(--paper-12,oklch(0.244 0.003 80));font-weight:550}"
+    },
+    {
+      "name": "Terminal",
+      "kind": "custom",
+      "refersTo": "terminal",
+      "description": "The closing install block: a sheet with a head row and Copy control.",
+      "html": "<div class=\"ds-term\"><div class=\"ds-term-head\"><span>Terminal · Node 24+, pnpm 12+</span><button class=\"ds-copy\" type=\"button\">Copy</button></div><pre><code>pnpm install\npnpm app:ship</code></pre></div>",
+      "css": ".ds-term{max-width:640px;background:var(--sheet,oklch(0.997 0.001 80));border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px var(--paper-6,oklch(0.884 0.004 80)),0 8px 18px -8px oklch(0.2 0.01 80 / 0.16)}.ds-term-head{display:flex;justify-content:space-between;align-items:center;padding:8px 8px 8px 16px;border-bottom:1px solid var(--paper-5,oklch(0.906 0.0035 80));font:400 13px/1.4 var(--font-text,system-ui,sans-serif);color:var(--paper-11,oklch(0.5 0.0045 80))}.ds-copy{font:500 13px/1 var(--font-text,system-ui,sans-serif);color:var(--paper-12,oklch(0.244 0.003 80));padding:7px 12px;border-radius:7px;border:1px solid var(--paper-6,oklch(0.884 0.004 80));background:var(--paper-2,oklch(0.982 0.0017 80));cursor:pointer;transition:background .15s}.ds-copy:hover{background:var(--paper-4,oklch(0.931 0.003 80))}.ds-copy:focus-visible{outline:2px solid var(--ink,oklch(0.4727 0.1241 258.67));outline-offset:2px}.ds-term pre{margin:0;padding:18px 20px 20px}.ds-term code{font:400 14.5px/1.75 var(--font-code,ui-monospace,monospace);color:var(--paper-12,oklch(0.244 0.003 80))}"
+    },
+    {
+      "name": "Doc Link and Inline Code",
+      "kind": "custom",
+      "refersTo": "code-inline",
+      "description": "Reading-page link with an ink-rule underline, and inline code on paper-3.",
+      "html": "<p class=\"ds-doc\">Read <a href=\"#\">the audit log</a> or open <code>~/.psyche</code>.</p>",
+      "css": ".ds-doc{font:400 16.5px/1.7 var(--font-text,system-ui,sans-serif);color:var(--paper-12,oklch(0.244 0.003 80))}.ds-doc a{color:var(--ink-text,oklch(0.4727 0.1241 258.67));font-weight:450;text-decoration:underline;text-decoration-color:var(--ink-line,oklch(0.803 0.0742 258.67));text-decoration-thickness:1px;text-underline-offset:3px;transition:text-decoration-color .15s}.ds-doc a:hover{text-decoration-color:currentColor}.ds-doc a:focus-visible{outline:2px solid var(--ink,oklch(0.4727 0.1241 258.67));outline-offset:2px;border-radius:4px}.ds-doc code{font-family:var(--font-code,ui-monospace,monospace);font-size:0.86em;padding:0.15em 0.4em;border-radius:5px;background:var(--paper-3,oklch(0.956 0.0025 80));border:1px solid var(--paper-5,oklch(0.906 0.0035 80))}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Notebook of Files",
+    "overview": "**Creative North Star: \"The Notebook of Files\"**\n\nThe site is the app's ink world set down on a desk. Every surface is a sheet of paper: the landing page is an open notebook with a two-page spread, then single leaves laid one after another on the desk; the doc pages are the same paper, read flat. Paper is a warm-neutral gray (hue 80, almost no chroma), text is near-black ink, and one ink blue carries every link, button and source mark. Amber appears only when something needs you.\n\nThe world is literal about what Psyche is: memory and receipts are plain files, so pages are headed by the file they are about, set in mono, and every landing section closes by citing the doc page it was drawn from with a numbered source chip, the way Psyche cites its sources. Proof is real UI, recorded on fictional fixture data and framed like a print pinned to the page; nothing is illustrated or invented.\n\nNight is a material change, not an inversion. Doc pages go to true dark grays. The landing page keeps every sheet as lamplit paper on a dark desk, and the approvals section is one lamplit sheet on a dark night band under a single warm pool of light, in either theme.",
+    "keyCharacteristics": [
+      "Warm-neutral paper grays, one ink accent per view, amber reserved for \"needs you\".",
+      "Display serif (New York first) for titles at weight 500 with tight negative tracking; system sans for reading; mono only for real paths, ids and commands.",
+      "Sheets with soft, layered offset shadows and a 1px margin rule; no borders on sheets.",
+      "Running heads are real file paths only.",
+      "Numbered source chips close each section and link its doc page.",
+      "Motion lays sheets down (rise, settle, shadow tightens) and draws rules; nothing idles."
+    ],
+    "rules": [
+      {
+        "name": "The One Ink Rule",
+        "body": "One accent per view, and it is ink. Ink marks what you can act on or follow (links, buttons, sources, focus); it never decorates.",
+        "section": "colors"
+      },
+      {
+        "name": "The Amber Means You Rule",
+        "body": "Amber appears only where the owner's decision is required. It is never a highlight, a badge color or a second accent.",
+        "section": "colors"
+      },
+      {
+        "name": "The Lamplit Paper Rule",
+        "body": "On the landing page, paper stays paper at night: in dark mode, and on the night band in either mode, sheets take the `lit-*` overrides instead of going dark. Doc pages are the exception; they use the true dark ramp.",
+        "section": "colors"
+      },
+      {
+        "name": "The Serif Is For Titles Rule",
+        "body": "The display serif sets headings, the wordmark, sidebar groups and a few row labels, always at 500. Running text, buttons and captions stay in the sans.",
+        "section": "typography"
+      },
+      {
+        "name": "The Mono Is Evidence Rule",
+        "body": "Mono only for a real file path, id, time or command. A running head names the file the page is about (`workspace/MEMORY.md`, `audit/2026-10.jsonl`); a section with no real file has no running head.",
+        "section": "typography"
+      },
+      {
+        "name": "The Laid Down Rule",
+        "body": "Sheets arrive by rising 28px with a -0.4deg turn under the lift shadow, then settle flat as the shadow tightens to the sheet shadow (1s, ease-out). The running head's rule draws left to right after. Content already on screen at load never animates, and reduced motion gets none of it.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use ink for every actionable or cited thing and nothing else; one accent per view.",
+      "Do keep landing sheets as lamplit paper in dark mode, and put doc pages on the true dark ramp.",
+      "Do head a sheet with the real file it is about, in mono, or leave it without a head.",
+      "Do close each landing section with a numbered source chip linking its doc page.",
+      "Do show the product with real recordings on fictional fixture data, with a phone-width take for each clip.",
+      "Do set titles in the display serif at 500 with negative tracking; body in the system sans.",
+      "Do give small metadata text at least 4.5:1 against its sheet; the lamplit overrides already darken paper-9 to `lit-paper-9` for this.",
+      "Do give every motion a static fallback under `prefers-reduced-motion` and a no-WebGL HTML stack for the hero."
+    ],
+    "donts": [
+      "Don't use amber for anything but \"needs you\".",
+      "Don't put topic labels or eyebrows above titles; running heads are file paths only.",
+      "Don't turn code blocks into dark slabs or give sheets borders; paper is edged by its shadow.",
+      "Don't use mono for prose, labels or decoration.",
+      "Don't invert the landing sheets to dark paper at night.",
+      "Don't use sparkles or other AI glyphs, testimonials, counts or illustrated proof.",
+      "Don't let anything idle or loop for attention; the clips are the only things that play."
+    ]
+  }
+}
