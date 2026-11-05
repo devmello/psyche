@@ -123,6 +123,18 @@ export function isOwnerOnly(
 }
 
 /**
+ * `restrictToOwner` unless `path` already is owner-only (a folder under the user profile inherits
+ * an owner-only DACL, so it is left as it is). True when it is owner-only afterwards.
+ */
+export function ensureOwnerOnly(
+  path: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  if (isOwnerOnly(path, undefined, platform)) return true;
+  return restrictToOwner(path, platform) && isOwnerOnly(path, undefined, platform);
+}
+
+/**
  * Makes `path` owner-only: mode 0600 (0700 for a folder) on macOS/Linux; on Windows its DACL is
  * reset and replaced, without inheritance from the parent, by full control for the current user
  * and SYSTEM (a folder hands both down to what is created inside). Returns false when Windows could

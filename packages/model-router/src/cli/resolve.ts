@@ -1,7 +1,16 @@
 import { execFile } from "node:child_process";
-import { accessSync, constants, readdirSync, readFileSync, statSync } from "node:fs";
+import { accessSync, constants, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { delimiter, dirname, extname, isAbsolute, join } from "node:path";
+import { envPath, windowsLaunchable } from "@psyche/hostfs";
+
+export {
+  envPath,
+  type HostLaunch as CliLaunch,
+  hostLaunch as cliLaunch,
+  setEnvPath,
+  shimTarget,
+} from "@psyche/hostfs";
 
 /**
  * Where a subscription CLI (`claude`, `codex`) lives (#530). The packaged Gateway runs under
@@ -40,9 +49,6 @@ export interface ResolveCliOptions {
 const WIN = process.platform === "win32";
 /** Windows: the extensions a bare name is tried with (never npm's extensionless sh shim). */
 const WIN_EXTS = [".exe", ".cmd", ".bat", ".com"] as const;
-const WIN_NATIVE = /\.(?:exe|com)$/i;
-const WIN_SHIM = /\.(?:cmd|bat)$/i;
-const NODE_SCRIPT = /\.[cm]?js$/i;
 
 /** nvm's per-version bins, newest first (`zsh -lc` does not read `.zshrc`, where nvm lives). */
 function nvmDirs(home: string): string[] {
@@ -83,91 +89,9 @@ export function knownCliDirs(home: string, env: NodeJS.ProcessEnv = {}): string[
   ];
 }
 
-/** The PATH of `env` (on Windows the key is case-insensitive and often spelled `Path`). */
-export function envPath(env: NodeJS.ProcessEnv): string {
-  if (!WIN) return env.PATH ?? "";
-  const key = Object.keys(env).find((k) => k.toUpperCase() === "PATH");
-  return key === undefined ? "" : (env[key] ?? "");
-}
-
-/** Sets PATH on `env`, dropping the key's other spellings (Windows). */
-export function setEnvPath(env: NodeJS.ProcessEnv, value: string): void {
-  if (WIN) for (const k of Object.keys(env)) if (k.toUpperCase() === "PATH") delete env[k];
-  env.PATH = value;
-}
-
-function isFile(path: string): boolean {
-  try {
-    return statSync(path).isFile();
-  } catch {
-    return false;
-  }
-}
-
-/**
- * What an npm (`cmd-shim`) or pnpm `.cmd` shim runs: the last quoted path before `%*`, relative
- * to the shim's directory (`%dp0%`, `%~dp0`) or absolute. An `.exe` is returned as is; a script
- * only when the shim runs it with `node`. Anything else is undefined.
- */
-export function shimTarget(shim: string): string | undefined {
-  let text: string;
-  try {
-    text = readFileSync(shim, "utf8");
-  } catch {
-    return undefined;
-  }
-  let target: string | undefined;
-  for (const m of text.matchAll(/"([^"]+)"\s*%\*/g)) target = m[1];
-  if (target === undefined) return undefined;
-  const path = target.replace(/^(?:%dp0%|%~dp0)\\?/i, `${dirname(shim)}\\`);
-  if (path.includes("%") || !isAbsolute(path) || /node\.exe$/i.test(path)) return undefined;
-  if (WIN_NATIVE.test(path)) return path;
-  // `cmd-shim`'s `"%_prog%"` is `%dp0%\node.exe` or `node`; another program is not supported.
-  const viaNode = /\bnode(?:\.exe)?\b/i.test(text) && !/_prog=(?!node|%dp0%\\node)/i.test(text);
-  return viaNode ? path : undefined;
-}
-
-/** How to start a resolved CLI: the program to spawn and the arguments before the CLI's own. */
-export interface CliLaunch {
-  command: string;
-  args: string[];
-  /** Added to the child's environment. */
-  env?: Record<string, string>;
-}
-
-/** `node.exe` on the child's PATH (like `#!/usr/bin/env node`), else the Gateway's runtime. */
-function nodeLaunch(script: string, env: NodeJS.ProcessEnv): CliLaunch {
-  for (const d of envPath(env).split(delimiter)) {
-    if (d.length === 0 || !isAbsolute(d)) continue;
-    const node = join(d, "node.exe");
-    if (isFile(node)) return { command: node, args: [script] };
-  }
-  // Electron runs a script only with ELECTRON_RUN_AS_NODE.
-  return { command: process.execPath, args: [script], env: { ELECTRON_RUN_AS_NODE: "1" } };
-}
-
-/**
- * How to run the CLI at `path` with the child environment `env` (whose PATH picks `node`). POSIX
- * runs the file itself. Windows runs an `.exe` itself and a Node script (`.js`, `.mjs`, `.cjs`,
- * or an npm `.cmd` shim's target) with `node`, never through `cmd.exe`, which would re-parse
- * the arguments; undefined when `path` cannot be run that way.
- */
-export function cliLaunch(path: string, env: NodeJS.ProcessEnv): CliLaunch | undefined {
-  if (!WIN || WIN_NATIVE.test(path)) return { command: path, args: [] };
-  if (NODE_SCRIPT.test(path)) return nodeLaunch(path, env);
-  const target = WIN_SHIM.test(path) ? shimTarget(path) : undefined;
-  if (target === undefined || !isFile(target)) return undefined;
-  return WIN_NATIVE.test(target) ? { command: target, args: [] } : nodeLaunch(target, env);
-}
-
 /** A regular file this user may execute (Windows: one `cliLaunch` can start). */
 export function executable(path: string): boolean {
-  if (WIN) {
-    if (!isFile(path)) return false;
-    if (WIN_NATIVE.test(path) || NODE_SCRIPT.test(path)) return true;
-    const target = WIN_SHIM.test(path) ? shimTarget(path) : undefined;
-    return target !== undefined && isFile(target);
-  }
+  if (WIN) return windowsLaunchable(path);
   try {
     if (!statSync(path).isFile()) return false;
     accessSync(path, constants.X_OK);

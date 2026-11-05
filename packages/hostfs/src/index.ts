@@ -1,4 +1,12 @@
 export {
+  envPath,
+  type HostLaunch,
+  hostLaunch,
+  setEnvPath,
+  shimTarget,
+  windowsLaunchable,
+} from "./launch.ts";
+export {
   canonicalHostPath,
   foldHostPath,
   HostPathError,
@@ -15,6 +23,7 @@ export {
 export {
   currentUserSid,
   daclIsOwnerOnly,
+  ensureOwnerOnly,
   isOwnerOnly,
   readDaclSddl,
   restrictToOwner,

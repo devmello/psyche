@@ -4,6 +4,27 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { currentUserSid, daclIsOwnerOnly, isOwnerOnly, restrictToOwner } from "../src/index.ts";
+import { exposeToOthers, OWNER_DIR, OWNER_FILE, privacyOf } from "../src/testing.ts";
+
+describe("@psyche/hostfs/testing", () => {
+  it("reports an owner-only file and one exposed to others", () => {
+    const dir = mkdtempSync(join(tmpdir(), "psyche-hostfs-"));
+    try {
+      const f = join(dir, "f");
+      writeFileSync(f, "x", { mode: 0o600 });
+      restrictToOwner(f);
+      expect(privacyOf(f)).toBe(OWNER_FILE);
+      exposeToOthers(f);
+      expect(privacyOf(f)).toBe(process.platform === "win32" ? "shared" : 0o644);
+      const d = join(dir, "d");
+      mkdirSync(d);
+      restrictToOwner(d);
+      expect(privacyOf(d)).toBe(OWNER_DIR);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
 
 const ME = "S-1-5-21-1-2-3-1001";
 

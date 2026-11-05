@@ -819,6 +819,9 @@ importers:
       '@psyche/assets':
         specifier: workspace:*
         version: link:../assets
+      '@psyche/hostfs':
+        specifier: workspace:*
+        version: link:../hostfs
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
