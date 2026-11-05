@@ -437,13 +437,21 @@ export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
 export function checkUninstall(
   channel: string,
   v: unknown,
-): { deleteData: boolean; confirm?: string; approvalId?: string } {
+): { deleteData: boolean; removeKeychain?: boolean; confirm?: string; approvalId?: string } {
   const r = rec(channel, v);
   if (typeof r.deleteData !== "boolean")
     throw new IpcPayloadError(channel, "deleteData must be a boolean");
-  const out: { deleteData: boolean; confirm?: string; approvalId?: string } = {
-    deleteData: r.deleteData,
-  };
+  const out: {
+    deleteData: boolean;
+    removeKeychain?: boolean;
+    confirm?: string;
+    approvalId?: string;
+  } = { deleteData: r.deleteData };
+  if (r.removeKeychain !== undefined) {
+    if (typeof r.removeKeychain !== "boolean")
+      throw new IpcPayloadError(channel, "removeKeychain must be a boolean");
+    out.removeKeychain = r.removeKeychain;
+  }
   if (r.confirm !== undefined) out.confirm = str(channel, r.confirm, "confirm", 32);
   if (r.approvalId !== undefined) out.approvalId = str(channel, r.approvalId, "approvalId", 128);
   return out;

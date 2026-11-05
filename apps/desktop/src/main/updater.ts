@@ -55,6 +55,21 @@ async function isDeveloperIdSigned(): Promise<boolean> {
   }
 }
 
+let stopped = false;
+const servers: { close(): unknown }[] = [];
+
+/**
+ * Uninstall: no more checks, the loopback feed closed and the listeners dropped, so Squirrel
+ * (ShipIt) cannot be handed or reinstall an update after the app is in the Trash. The staged
+ * download itself is the `psyche-update` temp dir and `~/Library/Caches/com.psyche.desktop.ShipIt`,
+ * which the uninstall moves to the Trash.
+ */
+export function stopUpdater(): void {
+  stopped = true;
+  for (const s of servers.splice(0)) void s.close();
+  autoUpdater.removeAllListeners();
+}
+
 export async function startUpdater(opts: UpdaterOptions = {}): Promise<UpdaterState> {
   const state = await runUpdater(opts);
   if (opts.stateFile) {
@@ -81,7 +96,7 @@ type RunResult = { state: UpdaterState } & Partial<
 
 async function runUpdater(opts: UpdaterOptions): Promise<RunResult> {
   const log = opts.log ?? stderrLog;
-  if (!app.isPackaged || !(await isDeveloperIdSigned())) return { state: "disabled" };
+  if (stopped || !app.isPackaged || !(await isDeveloperIdSigned())) return { state: "disabled" };
   const feed = opts.feedUrl ?? process.env.PSYCHE_UPDATE_FEED;
   const result = await checkForVerifiedUpdate({
     fetch,
@@ -106,7 +121,9 @@ async function runUpdater(opts: UpdaterOptions): Promise<RunResult> {
       log(`refused update (${result.code}): ${result.reason}`);
       return { state: "refused", code: result.code, reason: result.reason };
     case "ready": {
+      if (stopped) return { state: "disabled" };
       const served = await serveVerifiedUpdate(result.file, result.release);
+      servers.push(served);
       autoUpdater.on("error", (error) => {
         log(error.message);
         void served.close();

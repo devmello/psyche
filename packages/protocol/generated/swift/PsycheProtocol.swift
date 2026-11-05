@@ -1761,13 +1761,16 @@ public enum AppLinkBlockType: String, Codable, Sendable {
 // MARK: - AppUninstallAuthorizeParams
 public struct AppUninstallAuthorizeParams: Codable, Sendable {
     public let approvalID: String?
+    public let path: String
 
     public enum CodingKeys: String, CodingKey {
         case approvalID = "approvalId"
+        case path = "path"
     }
 
-    public init(approvalID: String? = nil) {
+    public init(approvalID: String? = nil, path: String) {
         self.approvalID = approvalID
+        self.path = path
     }
 }
 

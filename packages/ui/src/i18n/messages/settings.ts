@@ -594,6 +594,16 @@ export const settings = {
   "settings.uninstall.kind.cache": "Caches, logs, preferences and saved state",
   "settings.uninstall.kind.data": "Your data",
   "settings.uninstall.kind.app": "The app",
+  "settings.uninstall.agentOther":
+    "The Gateway agent belongs to another copy of Psyche or the command-line tool, so it is left alone.",
+  "settings.uninstall.blocked": "{path} can't be moved to the Trash from here: {reason}",
+  "settings.uninstall.keychainStays":
+    "Keychain items stay (the vault key and helper items). Remove them in Keychain Access if you want.",
+  "settings.uninstall.keychainGoes":
+    "The Keychain items for the vault and the helper are removed too.",
+  "settings.uninstall.removeKeychain":
+    "Also remove my Keychain items (com.psyche.vault and the helper's). Without your data they are useless.",
+  "settings.uninstall.kind.state": "Saved window state",
   "settings.uninstall.dataStays": "Your data folder is not touched.",
   "settings.uninstall.typeWord": "Type {word} to confirm",
   "settings.uninstall.presence":

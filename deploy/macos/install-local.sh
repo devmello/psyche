@@ -82,14 +82,59 @@ else
 fi
 codesign --verify --deep --strict "$APP" 2>/dev/null || { echo "the new app's signature does not verify; not installing" >&2; exit 1; }
 
+# Path safety for --reset (the same rules as the app's Uninstall sheet).
+strip_slashes() { local p="$1"; while [ "${#p}" -gt 1 ] && [ "${p%/}" != "$p" ]; do p="${p%/}"; done; printf '%s' "$p"; }
+resolve_dir() { ( cd -P "$1" 2>/dev/null && pwd -P ) || true; }
+# Prints why $1 (a resolved folder) may not be wiped as the data folder, or nothing when it may.
+data_folder_problem() {
+  local p="$1" h="$2" d
+  case "$p" in /*) ;; *) echo "not an absolute path"; return ;; esac
+  [ "$p" != "/" ] || { echo "it is the root folder"; return; }
+  [ "$p" != "$h" ] || { echo "it is your home folder"; return; }
+  case "$p" in "$h"/?*) ;; *) echo "it is not inside your home folder"; return ;; esac
+  for d in Library Documents Desktop Downloads Movies Music Pictures Public Applications; do
+    [ "$p" != "$h/$d" ] || { echo "it is your ~/$d folder"; return; }
+  done
+  if [ ! -e "$p/state/psyche.sqlite" ] && [ ! -e "$p/config.json" ]; then
+    echo "it has no Psyche marker (state/psyche.sqlite or config.json)"; return
+  fi
+}
+
 # 1b. --reset: work out exactly what would be deleted, show it, and ask before anything is stopped.
 RESET_PATHS=()
 RESET_KEYCHAIN=()
 if [ "$RESET" = 1 ]; then
-  PSYCHE_HOME_DIR="${PSYCHE_HOME:-$HOME/.psyche}"
-  case "$PSYCHE_HOME_DIR" in ""|/|"$HOME"|"$HOME/") echo "refusing to delete $PSYCHE_HOME_DIR as PSYCHE_HOME" >&2; exit 1 ;; esac
+  # Which data folder? The one the installed LaunchAgent runs with wins (it is what the Gateway
+  # really uses); PSYCHE_HOME from the environment is only a fallback, and a difference is a warning.
+  REAL_HOME="$(resolve_dir "$HOME")"
+  [ -n "$REAL_HOME" ] || { echo "cannot resolve HOME ($HOME); refusing --reset" >&2; exit 1; }
+  PLIST_FILE="$HOME/Library/LaunchAgents/$LABEL.plist"
+  PLIST_HOME=""
+  if [ -f "$PLIST_FILE" ]; then
+    PLIST_HOME="$(sed -n '/<key>PSYCHE_HOME<\/key>/{n;s/.*<string>\(.*\)<\/string>.*/\1/p;}' "$PLIST_FILE" | head -1)"
+  fi
+  ENV_HOME="${PSYCHE_HOME:-}"
+  if [ -n "$PLIST_HOME" ]; then
+    WANT_HOME="$PLIST_HOME"
+    if [ -n "$ENV_HOME" ] && [ "$(strip_slashes "$ENV_HOME")" != "$(strip_slashes "$PLIST_HOME")" ]; then
+      echo "warning: PSYCHE_HOME=$ENV_HOME differs from the LaunchAgent's $PLIST_HOME; using the LaunchAgent's" >&2
+    fi
+  else
+    WANT_HOME="${ENV_HOME:-$HOME/.psyche}"
+  fi
+  PSYCHE_HOME_DIR=""
+  case "$WANT_HOME" in /*) ;; *) echo "refusing to delete $WANT_HOME as the data folder: not an absolute path" >&2; exit 1 ;; esac
+  if [ -e "$WANT_HOME" ]; then
+    PSYCHE_HOME_DIR="$(resolve_dir "$WANT_HOME")"
+    problem="$(data_folder_problem "$PSYCHE_HOME_DIR" "$REAL_HOME")"
+    if [ -n "$problem" ]; then echo "refusing to delete $WANT_HOME as the data folder: $problem" >&2; exit 1; fi
+    if [ "$YES" = 1 ] && [ "$PSYCHE_HOME_DIR" != "$REAL_HOME/.psyche" ]; then
+      echo "refusing --yes: the data folder is $PSYCHE_HOME_DIR, not the default $REAL_HOME/.psyche; run --reset without --yes and confirm" >&2
+      exit 1
+    fi
+  fi
   for path in \
-    "$PSYCHE_HOME_DIR" \
+    ${PSYCHE_HOME_DIR:+"$PSYCHE_HOME_DIR"} \
     "$HOME/Library/Application Support/Psyche" \
     "$HOME/Library/Application Support/com.psyche.helper" \
     "$HOME/Library/Caches/com.psyche.desktop" \
@@ -143,11 +188,19 @@ fi
 
 # 3. Reset (only with --reset): everything the app, the Gateway and the helper keep on this Mac, so
 #    the new build runs first-run onboarding on a clean slate. Nothing here touches the TCC grants.
+#    The list was built before the stop; each entry is checked again now ("if present"), a failure
+#    does not stop the others, and the failures are reported at the end.
+FAILED=()
 if [ "$RESET" = 1 ]; then
   say "Resetting app data and caches"
   for path in ${RESET_PATHS[@]+"${RESET_PATHS[@]}"}; do
+    [ -e "$path" ] || continue
+    if [ "$path" = "${PSYCHE_HOME_DIR:-}" ]; then
+      problem="$(data_folder_problem "$(resolve_dir "$path")" "$REAL_HOME")"
+      if [ -n "$problem" ]; then FAILED+=("$path ($problem)"); continue; fi
+    fi
     printf '    removing %s\n' "$path"
-    run rm -rf "$path"
+    if ! run rm -rf "$path"; then FAILED+=("$path"); fi
   done
   # cfprefsd caches preference domains; forget them so a deleted plist does not come back.
   run defaults delete com.psyche.desktop >/dev/null 2>&1 || true
@@ -158,7 +211,7 @@ if [ "$RESET" = 1 ]; then
     while security find-generic-password -s "$svc" >/dev/null 2>&1 && [ "$n" -lt 50 ]; do
       printf '    removing Keychain item %s\n' "$svc"
       if [ "$DRY" = 1 ]; then break; fi
-      security delete-generic-password -s "$svc" >/dev/null 2>&1 || break
+      security delete-generic-password -s "$svc" >/dev/null 2>&1 || { FAILED+=("Keychain item $svc"); break; }
       n=$((n + 1))
     done
   done
@@ -190,4 +243,10 @@ fi
 if [ "$LAUNCH" = 1 ]; then
   say "Launching"
   run open -a "$DEST"
+fi
+
+if [ "${#FAILED[@]}" -gt 0 ]; then
+  echo "The install finished, but these could not be removed:" >&2
+  for f in "${FAILED[@]}"; do printf '    %s\n' "$f" >&2; done
+  exit 1
 fi

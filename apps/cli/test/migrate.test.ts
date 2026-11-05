@@ -179,10 +179,14 @@ describe("release scripts", () => {
       "~/Library/Preferences/com.psyche.desktop.plist",
       "~/Library/Saved Application State/com.psyche.desktop.savedState",
       "~/Library/Application Support/com.psyche.helper",
-      "~/.psyche",
+      "~/Library/Caches/com.psyche.desktop.ShipIt",
+      "~/Library/HTTPStorages/com.psyche.desktop.binarycookies",
     ])
       expect(cask, path).toContain(`"${path}"`);
-    expect(cask).toMatch(/# USER DATA[^\n]*\n[^\n]*\n\s*"~\/\.psyche"/);
+    // The data folder is shared with the CLI: never in zap, explained in the caveats instead.
+    expect(cask).not.toMatch(/^\s+"~\/\.psyche",?$/m);
+    expect(cask).toContain("Neither");
+    expect(cask).toContain("same com.psyche.gateway LaunchAgent label");
     expect(formula).toContain(`releases/download/v1.2.3/psyche-linux-x64`);
     expect(formula).toContain(`sha256 "${"5".repeat(64)}"`);
     expect(`${cask}${formula}`).not.toMatch(/\{\{/);

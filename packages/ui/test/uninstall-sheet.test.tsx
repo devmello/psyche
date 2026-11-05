@@ -15,8 +15,12 @@ const info: AboutInfo = {
 
 function port(over: Partial<UninstallPort> = {}): UninstallPort {
   return {
-    plan: vi.fn(async (deleteData: boolean) => ({
+    plan: vi.fn(async ({ deleteData }: { deleteData: boolean }) => ({
       stops: [],
+      agent: "ours" as const,
+      keychain: [],
+      warnings: [],
+      blockers: [],
       trash: [
         { kind: "support", path: "/Users/owner/Library/Application Support/Psyche", label: "x" },
         ...(deleteData ? [{ kind: "data", path: "/Users/owner/.psyche", label: "d" }] : []),
@@ -84,8 +88,70 @@ describe("Uninstall Psyche (About)", () => {
     await pending.retry("apr_1");
     expect(uninstall).toHaveBeenLastCalledWith({
       deleteData: true,
+      removeKeychain: false,
       confirm: "DELETE",
       approvalId: "apr_1",
     });
+  });
+
+  it("keeps the button off until the plan for the current choice has arrived", async () => {
+    let release: (() => void) | undefined;
+    const base = port();
+    const p = port({
+      plan: vi.fn(async (req) => {
+        if (req.deleteData) await new Promise<void>((r) => (release = r));
+        return base.plan(req);
+      }),
+    });
+    render(<AboutPanel info={info} uninstall={p} />);
+    await userEvent.click(screen.getByRole("button", { name: "Uninstall Psyche…" }));
+    const go = (await screen.findByTestId("uninstall-go")) as HTMLButtonElement;
+    await waitFor(() => expect(go.disabled).toBe(false));
+    await userEvent.click(screen.getByLabelText(/Delete my data/));
+    // The keep-my-data plan is stale now: the button is off until the new plan lands.
+    expect(go.disabled).toBe(true);
+    release?.();
+    await userEvent.type(await screen.findByLabelText("Type DELETE to confirm"), "DELETE");
+    await waitFor(() => expect(go.disabled).toBe(false));
+  });
+
+  it("says Keychain items stay, and sends removeKeychain only when asked", async () => {
+    const p = port();
+    render(<AboutPanel info={info} uninstall={p} />);
+    await userEvent.click(screen.getByRole("button", { name: "Uninstall Psyche…" }));
+    expect(await screen.findByText(/Keychain items stay/)).toBeTruthy();
+    await userEvent.click(screen.getByLabelText(/Delete my data/));
+    await userEvent.click(await screen.findByLabelText(/Also remove my Keychain items/));
+    await userEvent.type(await screen.findByLabelText("Type DELETE to confirm"), "DELETE");
+    await waitFor(() =>
+      expect(p.plan).toHaveBeenLastCalledWith({ deleteData: true, removeKeychain: true }),
+    );
+    await waitFor(() =>
+      expect((screen.getByTestId("uninstall-go") as HTMLButtonElement).disabled).toBe(false),
+    );
+    await userEvent.click(screen.getByTestId("uninstall-go"));
+    expect(p.uninstall).toHaveBeenLastCalledWith({
+      deleteData: true,
+      removeKeychain: true,
+      confirm: "DELETE",
+    });
+  });
+
+  it("shows blockers and warnings, leaves another copy's agent alone, and disables the button", async () => {
+    const base = port();
+    const p = port({
+      plan: vi.fn(async (req) => ({
+        ...(await base.plan(req)),
+        agent: "other" as const,
+        warnings: ["PSYCHE_HOME differs from the agent's"],
+        blockers: [{ path: "/Volumes/x/Psyche.app", reason: "on another volume" }],
+      })),
+    });
+    render(<AboutPanel info={info} uninstall={p} />);
+    await userEvent.click(screen.getByRole("button", { name: "Uninstall Psyche…" }));
+    expect(await screen.findByText(/belongs to another copy/)).toBeTruthy();
+    expect(screen.getByText("PSYCHE_HOME differs from the agent's")).toBeTruthy();
+    expect(screen.getByText(/\/Volumes\/x\/Psyche.app can't be moved/)).toBeTruthy();
+    expect((screen.getByTestId("uninstall-go") as HTMLButtonElement).disabled).toBe(true);
   });
 });

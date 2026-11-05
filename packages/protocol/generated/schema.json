@@ -509,7 +509,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Side-effecting, Psyche desktop shell on the Host only (forbidden for anything else), behind a device-only approval (fresh presence once a verifier exists; approval_required with details.approvalId, then retry with approvalId). Authorizes the desktop app to move the data folder to the Trash as part of uninstalling Psyche; it deletes nothing itself and the approval is consumed once. Audited.",
+        "description": "Side-effecting, Psyche desktop shell on the Host only (forbidden for anything else), behind a device-only approval (fresh presence once a verifier exists; approval_required with details.approvalId, then retry with approvalId). Authorizes the desktop app to move the data folder `path` to the Trash (`invalid_params` unless it is this Gateway's own home; the approval card names that exact folder) as part of uninstalling Psyche; it deletes nothing itself and the approval is consumed once. Audited.",
         "name": "app.uninstall.authorize",
         "params": "#/$defs/AppUninstallAuthorizeParams",
         "result": "#/$defs/UninstallAuthorized",
@@ -4190,6 +4190,11 @@
     },
     "AppUninstallAuthorizeParams": {
       "properties": {
+        "path": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
         "approvalId": {
           "description": "ULID in production",
           "maxLength": 64,
@@ -4197,6 +4202,9 @@
           "type": "string"
         }
       },
+      "required": [
+        "path"
+      ],
       "type": "object"
     },
     "AppleAlarm": {

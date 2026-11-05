@@ -153,18 +153,21 @@ psyche start --psyched /Applications/Psyche.app/Contents/Resources/psyched/psych
 - It moves the app's files outside the bundle to the Trash: `~/Library/Application Support/Psyche`, caches, logs, preferences, saved state and web storage.
 - It moves `Psyche.app` to the Trash, then quits.
 - **Keep my data** is the default: `~/.psyche` (chats, memory, vault, backups) stays where it is, so installing Psyche again picks up where you left off.
-- **Delete my data** also moves `~/.psyche` to the Trash. Because it cannot be undone from inside Psyche once the Trash is emptied, it asks you to type `DELETE` and to confirm with Touch ID (or the approval card on this Mac). Back up first with `psyche backup create` if you want a copy.
+- **Delete my data** also moves the data folder to the Trash. Because it cannot be undone once the Trash is emptied, it asks you to type `DELETE` and to confirm with Touch ID (or the approval card on this Mac), and the card names the exact folder. Back up first with `psyche backup create` if you want a copy. Psyche refuses a folder that is not clearly its own: it must be inside your home folder (never the home folder, `Documents`, `Desktop`, `Downloads`, `Library` or a volume) and hold Psyche's database or `config.json`. If your data lives somewhere else, move it to the Trash from Finder.
+- **Keychain items stay** unless you tick "Also remove my Keychain items", which removes exactly `com.psyche.vault`, `com.psyche.helper.items`, `com.psyche.helper.identity` and `com.psyche.helper.probe`. Without your data they are useless; you can also remove them in Keychain Access.
+- If the Gateway agent belongs to another copy of Psyche or to the `psyche` CLI, it is left alone and the sheet says so.
+- Before it stops anything, Psyche checks that every item can be moved to the Trash (a read-only folder, another volume, or an app running from a temporary location is refused with the manual step), shows a confirmation dialog, and clears any downloaded update so it cannot reinstall the app. If a step still fails, Psyche stays open, starts the Gateway again, and lists what to finish by hand.
 
-Nothing is deleted outright: everything goes to the Trash, so you can put it back until you empty it. The sheet is only offered by the Psyche app on the Mac that runs the Gateway, never from a window connected to another computer, and the agent cannot start it.
+Nothing is deleted outright: everything goes to the Trash, so you can put it back until you empty it. The sheet is only offered by a packaged Psyche that runs its own Gateway agent on this Mac, never from a window connected to another computer or from a development build, and the agent cannot start it.
 
 **With Homebrew.** Once the tap is live:
 
 ```bash
 brew uninstall --cask psyche          # stops the agent and removes the app, keeps your data
-brew uninstall --cask --zap psyche    # also moves the app's files and ~/.psyche to the Trash
+brew uninstall --cask --zap psyche    # also moves the app's files outside the bundle to the Trash
 ```
 
-`--zap` includes `~/.psyche`, so back it up first.
+Neither command deletes `~/.psyche`: the `psyche` CLI shares it. To delete it too, back it up (`psyche backup create`) and move the folder to the Trash yourself. Both commands also stop a Gateway that the `psyche` CLI installed, because it uses the same `com.psyche.gateway` LaunchAgent label.
 
 **If the app won't launch.** Do the same steps by hand:
 
@@ -190,12 +193,12 @@ Then drag `/Applications/Psyche.app` to the Trash. To remove the rest, move thes
 ~/Library/Saved Application State/com.psyche.desktop.savedState
 ~/Library/Saved Application State/com.psyche.helper.savedState
 ~/Library/WebKit/com.psyche.desktop
-~/.psyche
+~/.psyche   (your data: skip it to keep it)
 ```
 
 The vault and helper also keep items in your Keychain (`com.psyche.vault`, `com.psyche.helper.*`); without `~/.psyche` they are useless, and you can remove them in Keychain Access. To clear Psyche's privacy grants, run `tccutil reset All com.psyche.desktop` and `tccutil reset All com.psyche.helper`.
 
-**Building from source.** `pnpm app:install` (from a checkout) keeps your data by default. `pnpm app:install --reset` is the explicit wipe: it prints everything it will delete and asks you to type `RESET` (pass `--yes` to skip the question).
+**Building from source.** `pnpm app:install` (from a checkout) keeps your data by default. `pnpm app:install --reset` is the explicit wipe: it prints everything it will delete and asks you to type `RESET`. It uses the data folder from the installed LaunchAgent (warning if `PSYCHE_HOME` differs), refuses anything that is not a Psyche folder strictly inside your home folder, and refuses `--yes` unless the folder is the default `~/.psyche`. A path it cannot remove is reported at the end; the rest still goes.
 
 ## On a Linux server with Docker Compose
 

@@ -44,6 +44,7 @@ export type AppLinkBlockType = "app_link";
 
 export interface AppUninstallAuthorizeParams {
     approvalId?: string;
+    path:        string;
 }
 
 /**

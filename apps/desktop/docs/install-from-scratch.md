@@ -26,7 +26,7 @@ RESET, or pass `--yes`; it deletes `$PSYCHE_HOME`, by default `~/.psyche`, with 
 state, vault, workspace, logs and backups; the desktop's Application Support, caches, logs,
 preferences, saved state and web storage; the helper's preferences; the LaunchAgent plist; and the
 vault's and helper's Keychain items), so the new app installs the LaunchAgent again and runs first-run
-onboarding. `--keep-data` is accepted and does nothing (keeping is the default). Privacy grants are kept:
+onboarding. `--keep-data` is accepted and does nothing (keeping is the default). `--reset` takes the data folder from the installed LaunchAgent (and warns if `PSYCHE_HOME` differs), refuses anything that is not a Psyche folder strictly inside your home folder, refuses `--yes` for a folder other than `~/.psyche`, and reports any path it could not remove at the end. Privacy grants are kept:
 the build signs with the first Apple Development or Developer ID identity in your keychain, so they
 survive rebuilds, and when the signing identity changes the installer prints the `tccutil reset` to
 run once. `--dry-run` shows every step without doing it, `--no-launch` leaves the app closed.

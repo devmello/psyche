@@ -24,6 +24,7 @@ import type { UninstallPlanInfo, UninstallPort } from "./types.ts";
 
 const KIND_HEADINGS = {
   agent: "settings.uninstall.kind.agent",
+  state: "settings.uninstall.kind.state",
   support: "settings.uninstall.kind.support",
   cache: "settings.uninstall.kind.cache",
   data: "settings.uninstall.kind.data",
@@ -42,7 +43,19 @@ export function UninstallSheet({
   const requestApproval = useContext(SettingsApprovalContext);
   const nameId = useId();
   const [deleteData, setDeleteData] = useState(false);
-  const [plan, setPlan] = useState<UninstallPlanInfo | null>(null);
+  const [removeKeychain, setRemoveKeychain] = useState(false);
+  // Each plan is stamped with the choice it was made for, so a stale one never enables the button.
+  const [stamped, setStamped] = useState<{
+    plan: UninstallPlanInfo;
+    deleteData: boolean;
+    removeKeychain: boolean;
+  } | null>(null);
+  const plan =
+    stamped !== null &&
+    stamped.deleteData === deleteData &&
+    stamped.removeKeychain === removeKeychain
+      ? stamped.plan
+      : null;
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,18 +64,21 @@ export function UninstallSheet({
     if (!open) return;
     let live = true;
     setError(null);
-    port.plan(deleteData).then(
-      (p) => live && setPlan(p),
+    setStamped(null);
+    port.plan({ deleteData, removeKeychain: deleteData && removeKeychain }).then(
+      (p) => live && setStamped({ plan: p, deleteData, removeKeychain }),
       (err: unknown) => live && setError(messageOf(err)),
     );
     return () => {
       live = false;
     };
-  }, [open, deleteData, port]);
+  }, [open, deleteData, removeKeychain, port]);
 
   useEffect(() => {
     if (!open) {
       setDeleteData(false);
+      setRemoveKeychain(false);
+      setStamped(null);
       setTyped("");
       setBusy(false);
       setError(null);
@@ -70,12 +86,16 @@ export function UninstallSheet({
   }, [open]);
 
   const word = plan?.confirmWord ?? "";
+  const blocked = (plan?.blockers.length ?? 0) > 0;
   const typedOk = !deleteData || (word !== "" && typed === word);
 
   const go = () => {
     setBusy(true);
     setError(null);
-    const req = { deleteData, ...(deleteData ? { confirm: typed } : {}) };
+    const req = {
+      deleteData,
+      ...(deleteData ? { removeKeychain, confirm: typed } : {}),
+    };
     port.uninstall(req).then(
       () => undefined, // The app quits.
       (err: unknown) => {
@@ -103,7 +123,7 @@ export function UninstallSheet({
     );
   };
 
-  const groups = (["agent", "support", "cache", "data", "app"] as const)
+  const groups = (["agent", "support", "cache", "state", "data", "app"] as const)
     .map((kind) => ({ kind, items: plan?.trash.filter((i) => i.kind === kind) ?? [] }))
     .filter((g) => g.items.length > 0);
 
@@ -149,9 +169,23 @@ export function UninstallSheet({
         <div className="flex flex-col gap-2" data-testid="uninstall-plan">
           <h3 className="text-headline">{t("settings.uninstall.willDo")}</h3>
           <ul className="list-disc pl-5 text-label-secondary">
-            <li>{t("settings.uninstall.stopAgent")}</li>
+            <li>
+              {plan?.agent === "other"
+                ? t("settings.uninstall.agentOther")
+                : t("settings.uninstall.stopAgent")}
+            </li>
             <li>{t("settings.uninstall.stopHelper")}</li>
           </ul>
+          {plan?.warnings.map((w) => (
+            <p key={w} role="status" className="text-callout text-approval-text">
+              {w}
+            </p>
+          ))}
+          {plan?.blockers.map((b) => (
+            <p key={b.path} role="alert" className="text-callout text-danger-text">
+              {t("settings.uninstall.blocked", { path: b.path, reason: b.reason })}
+            </p>
+          ))}
           {groups.length === 0 ? null : (
             <>
               <h3 className="text-headline">{t("settings.uninstall.trash")}</h3>
@@ -172,6 +206,11 @@ export function UninstallSheet({
           {deleteData ? null : (
             <p className="text-callout text-label-secondary">{t("settings.uninstall.dataStays")}</p>
           )}
+          <p className="text-callout text-label-secondary">
+            {deleteData && removeKeychain
+              ? t("settings.uninstall.keychainGoes")
+              : t("settings.uninstall.keychainStays")}
+          </p>
         </div>
         {deleteData ? (
           <div className="flex flex-col gap-1.5">
@@ -186,6 +225,16 @@ export function UninstallSheet({
               onChange={(e) => setTyped(e.target.value)}
               disabled={busy}
             />
+            <label className="flex items-start gap-2 text-callout">
+              <input
+                type="checkbox"
+                checked={removeKeychain}
+                disabled={busy}
+                onChange={(e) => setRemoveKeychain(e.target.checked)}
+                className="mt-1"
+              />
+              <span>{t("settings.uninstall.removeKeychain")}</span>
+            </label>
             <p className="text-callout text-label-secondary">{t("settings.uninstall.presence")}</p>
           </div>
         ) : null}
@@ -201,7 +250,7 @@ export function UninstallSheet({
           <Button
             variant="destructive"
             onClick={go}
-            disabled={busy || plan === null || !typedOk}
+            disabled={busy || plan === null || blocked || !typedOk}
             data-testid="uninstall-go"
           >
             {t(deleteData ? "settings.uninstall.goDelete" : "settings.uninstall.go")}

@@ -411,6 +411,8 @@ export interface WindowChrome {
    * shell and the Apple apps are that Host's, so the shell names it and hides what cannot work.
    */
   remote?: { hostName: string };
+  /** Packaged app with its own Gateway LaunchAgent: only then is Uninstall Psyche offered. */
+  uninstall?: boolean;
 }
 
 /** Desktop only: native file dialogs. The web host has none; the shell falls back to typed paths. */
@@ -487,13 +489,21 @@ export interface AppInfoPort {
    * Uninstall Psyche (design updates-and-install §3.5). Desktop shell on this Mac only: absent
    * on the web and for a client of another computer's Gateway.
    */
-  uninstallPlan?(deleteData: boolean): Promise<UninstallPlanView>;
+  uninstallPlan?(req: {
+    deleteData: boolean;
+    removeKeychain?: boolean;
+  }): Promise<UninstallPlanView>;
   /**
    * Stops the agent and the helper, moves what the plan listed to the Trash, then quits. With
    * `deleteData` it needs the typed word and fresh presence: the first call rejects with
    * `approval_required` and `details.approvalId`; call again with that `approvalId` once approved.
    */
-  uninstall?(req: { deleteData: boolean; confirm?: string; approvalId?: string }): Promise<void>;
+  uninstall?(req: {
+    deleteData: boolean;
+    removeKeychain?: boolean;
+    confirm?: string;
+    approvalId?: string;
+  }): Promise<void>;
 }
 
 /** What uninstalling would do right now, as main lists it. */
@@ -504,6 +514,14 @@ export interface UninstallPlanView {
   trash: { kind: string; path: string; label: string }[];
   /** The word to type before deleting data. */
   confirmWord: string;
+  /** Who owns the Gateway LaunchAgent: only "ours" is stopped and removed. */
+  agent: "ours" | "other" | "none";
+  /** Keychain services that will be removed (only with the data, only when asked). */
+  keychain: string[];
+  /** Plain-words notes from main (a PSYCHE_HOME that differs from the agent's). */
+  warnings: string[];
+  /** Why this cannot run right now; empty when it can. */
+  blockers: { path: string; reason: string }[];
 }
 
 export interface SystemAppearance {

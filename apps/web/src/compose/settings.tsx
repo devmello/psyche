@@ -241,8 +241,7 @@ function AboutLive({ app }: { app: AppInfoPort | undefined }): ReactElement {
       {...(app?.uninstallPlan && app.uninstall
         ? {
             uninstall: {
-              plan: (deleteData: boolean) =>
-                app.uninstallPlan?.(deleteData) ?? Promise.reject(new Error("unavailable")),
+              plan: (req) => app.uninstallPlan?.(req) ?? Promise.reject(new Error("unavailable")),
               uninstall: (req) => app.uninstall?.(req) ?? Promise.reject(new Error("unavailable")),
             },
           }

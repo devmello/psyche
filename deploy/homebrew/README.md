@@ -4,7 +4,7 @@ Templates for the tap `devmello/psyche` (repository `github.com/devmello/homebre
 
 | Template | Renders to | Installs |
 | --- | --- | --- |
-| `psyche.rb.tmpl` | `Casks/psyche.rb` | `Psyche.app` from `Psyche-<version>-{arm64,x64}.dmg`; macOS 15+; `auto_updates true` (the in-app updater owns updates); uninstall boots out the `com.psyche.gateway` LaunchAgent and quits the app and helper; `zap` removes the app's files outside the bundle and `~/.psyche` (marked as user data) |
+| `psyche.rb.tmpl` | `Casks/psyche.rb` | `Psyche.app` from `Psyche-<version>-{arm64,x64}.dmg`; macOS 15+; `auto_updates true` (the in-app updater owns updates); uninstall boots out the `com.psyche.gateway` LaunchAgent and quits the app and helper; `zap` removes the app's files outside the bundle but never `~/.psyche` (the CLI shares it; the caveats say how to delete it) |
 | `psyche-cli.rb.tmpl` | `Formula/psyche-cli.rb` | the `psyche` binary for macOS and Linux (arm64, x64) plus bash/zsh/fish completions |
 
 ```bash
