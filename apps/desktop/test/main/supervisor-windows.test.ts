@@ -2,42 +2,47 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
+import { renderScheduledTaskXml, writeTaskXml } from "../../../cli/src/supervisor.ts";
 import { chooseMode, devGatewayCommand, type Runner } from "../../src/main/supervisor.ts";
 import {
   bundledGatewayPaths,
-  dataModuleUrl,
   decodeTaskXml,
   encodeTaskXml,
-  gatewayPreloadSource,
-  gatewayTaskArgs,
+  fillTaskTemplate,
+  GATEWAY_PID_FILE,
   gatewayTaskFile,
-  gatewayTaskName,
   isTemporaryLocation,
-  killGatewayScript,
   parseCsvRow,
   parseLastResult,
-  parseWhoami,
   quoteWindowsArg,
-  renderGatewayTaskXml,
+  SCHEDULED_TASK,
+  SERVICE_PID_FILE,
   schtasks,
   splitWindowsArgs,
   TaskSchedulerSupervisor,
   taskProgram,
+  windowsUserId,
 } from "../../src/main/supervisor-windows.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "psy-wsup-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-const SID = "S-1-5-21-1825757875-3616296202-2718152036-1001";
-const input = {
-  node: "C:\\Users\\Ada Lovelace\\AppData\\Local\\Psyche\\app-0.3.0\\resources\\psyched\\runtime\\node.exe",
-  entry:
-    "C:\\Users\\Ada Lovelace\\AppData\\Local\\Psyche\\app-0.3.0\\resources\\psyched\\app\\apps\\gateway\\dist\\main.mjs",
-  psycheHome: "C:\\Users\\Ada Lovelace\\.psyche",
-  logDir: "C:\\Users\\Ada Lovelace\\.psyche\\logs",
-  sid: SID,
-  systemRoot: "C:\\Windows",
-};
+/** The template exactly as deploy/scripts/build-psyched.mjs writes it into the bundle. */
+function bundleTemplate(): string {
+  const d = "{{PSYCHED_DIR}}";
+  return renderScheduledTaskXml({
+    node: `${d}\\runtime\\node.exe`,
+    serviceHost: `${d}\\service-host.mjs`,
+    program: `${d}\\runtime\\node.exe`,
+    args: [
+      "--max-semi-space-size=4",
+      "--disable-warning=ExperimentalWarning",
+      `${d}\\app\\apps\\gateway\\dist\\main.mjs`,
+    ],
+    psycheHome: "{{PSYCHE_HOME}}",
+    userId: "{{USER_ID}}",
+  });
+}
 
 describe("Windows supervisor mode", () => {
   it("is Task Scheduler when packaged on Windows; a forced launchd means the OS's own service", () => {
@@ -63,169 +68,112 @@ describe("Windows supervisor mode", () => {
     expect(devGatewayCommand(gw, "win32", () => false)).toBeUndefined();
   });
 
-  it("finds the bundled runtime and Gateway entry in the packaged resources", () => {
-    expect(bundledGatewayPaths("C:\\P\\resources")).toEqual({
-      node: join("C:\\P\\resources", "psyched", "runtime", "node.exe"),
-      entry: join("C:\\P\\resources", "psyched", "app", "apps", "gateway", "dist", "main.mjs"),
+  it("finds the bundled runtime and task template in resources\\psyched", () => {
+    const r = "C:\\P\\resources";
+    expect(bundledGatewayPaths(r)).toEqual({
+      dir: join(r, "psyched"),
+      node: join(r, "psyched", "runtime", "node.exe"),
+      entry: join(r, "psyched", "app", "apps", "gateway", "dist", "main.mjs"),
+      template: join(r, "psyched", "psyche-gateway.task.xml.template"),
     });
+    expect(windowsUserId({ USERDOMAIN: "HOST", USERNAME: "ada" })).toBe("HOST\\ada");
+    expect(windowsUserId({ USERNAME: "ada" })).toBe("ada");
+    expect(windowsUserId({})).toBeUndefined();
   });
 });
 
 describe("Windows command lines", () => {
   it("quotes like CommandLineToArgvW and splits back to the same argv", () => {
-    const args = [
-      "plain",
-      "with space",
-      "C:\\dir with space\\",
-      'quote"inside',
-      "",
-      "back\\\\slashes\\",
-    ];
-    const line = args.map(quoteWindowsArg).join(" ");
-    expect(splitWindowsArgs(line)).toEqual(args);
-    expect(quoteWindowsArg("C:\\Program Files\\x.exe")).toBe('"C:\\Program Files\\x.exe"');
+    const args = ["plain", "with space", "C:\\dir with space\\", 'quote"inside', "", "b\\\\s\\"];
+    expect(splitWindowsArgs(args.map(quoteWindowsArg).join(" "))).toEqual(args);
     expect(quoteWindowsArg("--headless")).toBe("--headless");
   });
 
-  it("reads whoami's SID and schtasks' CSV in any language (by column)", () => {
-    expect(parseWhoami(`"devmello\\pranav","${SID}"\r\n`)).toEqual({
-      user: "devmello\\pranav",
-      sid: SID,
-    });
-    expect(parseWhoami("nonsense")).toBeUndefined();
+  it("reads schtasks' CSV in any language (by column)", () => {
     expect(parseCsvRow('"a","b ""q""",c')).toEqual(["a", 'b "q"', "c"]);
     const row =
-      '"HOST","\\Psyche Gateway-S-1","N/A","Wird ausgeführt","Nur interaktiv","05.11.2026","1","N/A","C:\\x"';
+      '"HOST","\\Psyche\\Gateway","N/A","Wird ausgeführt","Nur interaktiv","05.11.2026","1","N/A","C:\\x"';
     expect(parseLastResult(row)).toBe("1");
     expect(parseLastResult("")).toBeUndefined();
   });
 
-  it("names the task per user and builds the schtasks argv", () => {
-    expect(gatewayTaskName(SID)).toBe(`Psyche Gateway-${SID}`);
-    const n = gatewayTaskName(SID);
-    expect(schtasks.create(n, "C:\\h\\run\\gateway-task.xml")).toEqual([
-      "/create",
-      "/tn",
-      n,
-      "/xml",
-      "C:\\h\\run\\gateway-task.xml",
-      "/f",
+  it("uses the CLI's task, \\Psyche\\Gateway", () => {
+    expect(SCHEDULED_TASK).toBe("\\Psyche\\Gateway");
+    expect(schtasks.create("C:\\h\\run\\psyche-gateway.task.xml")).toEqual([
+      "/Create",
+      "/TN",
+      "\\Psyche\\Gateway",
+      "/XML",
+      "C:\\h\\run\\psyche-gateway.task.xml",
+      "/F",
     ]);
-    expect(schtasks.run(n)).toEqual(["/run", "/tn", n]);
-    expect(schtasks.end(n)).toEqual(["/end", "/tn", n]);
-    expect(schtasks.delete(n)).toEqual(["/delete", "/tn", n, "/f"]);
-    expect(schtasks.queryVerbose(n)).toEqual(["/query", "/tn", n, "/v", "/fo", "csv", "/nh"]);
-  });
-
-  it("passes a path with a quote safely to PowerShell's kill backstop", () => {
-    expect(killGatewayScript("C:\\it's\\main.mjs")).toContain("$e='C:\\it''s\\main.mjs'");
+    expect(schtasks.end()).toEqual(["/End", "/TN", "\\Psyche\\Gateway"]);
+    expect(schtasks.delete()).toEqual(["/Delete", "/TN", "\\Psyche\\Gateway", "/F"]);
+    expect(gatewayTaskFile("C:\\h")).toBe(join("C:\\h", "run", "psyche-gateway.task.xml"));
   });
 
   it("never registers a runtime inside the temp folder (an exe run from inside a ZIP)", () => {
     expect(isTemporaryLocation(join(tmpdir(), "Temp1_psyche.zip", "node.exe"))).toBe(true);
-    expect(
-      isTemporaryLocation(join(dir, "..", "..", "elsewhere", "node.exe"), join(dir, "t")),
-    ).toBe(false);
+    expect(isTemporaryLocation("D:\\Apps\\node.exe", join(dir, "t"))).toBe(false);
   });
 });
 
-describe("the Gateway's scheduled task", () => {
-  const xml = renderGatewayTaskXml({ ...input, env: { PSYCHE_VAULT_KEY_FILE: "C:\\k&<x>" } });
+describe("the bundled task template", () => {
+  const values = {
+    psychedDir: "C:\\Users\\Ada & Co\\AppData\\Local\\Psyche\\app-0.3.0\\resources\\psyched",
+    psycheHome: "C:\\Users\\Ada & Co\\.psyche",
+    userId: "HOST\\Ada",
+  };
+  const xml = fillTaskTemplate(bundleTemplate(), values);
 
-  it("runs at logon and on registration, every minute it is not running, hidden, for this user", () => {
-    expect(xml).toContain('<?xml version="1.0" encoding="UTF-16"?>');
-    expect(xml).toMatch(/<LogonTrigger>[\s\S]*<Interval>PT1M<\/Interval>[\s\S]*<\/LogonTrigger>/);
-    expect(xml).toMatch(/<LogonTrigger>[\s\S]*<UserId>S-1-5-21-[\d-]+<\/UserId>/);
-    expect(xml).toMatch(/<RegistrationTrigger>[\s\S]*PT1M[\s\S]*<\/RegistrationTrigger>/);
-    expect(xml).toContain("<MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>");
+  it("fills every placeholder, XML-escaped, and reads back the runtime it runs", () => {
+    expect(xml).not.toContain("{{");
+    expect(xml).toContain("<UserId>HOST\\Ada</UserId>");
+    expect(xml).not.toContain("Ada & Co");
+    expect(taskProgram(xml)).toBe(`${values.psychedDir}\\runtime\\node.exe`);
+    expect(xml).toContain("<URI>\\Psyche\\Gateway</URI>");
     expect(xml).toContain("<LogonType>InteractiveToken</LogonType>");
-    expect(xml).toContain("<RunLevel>LeastPrivilege</RunLevel>");
     expect(xml).toContain("<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>");
-    expect(xml).toContain("<Hidden>true</Hidden>");
-    expect(xml).toContain("<DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>");
-    expect(xml).toContain("<StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>");
-    expect(xml).toMatch(/<RestartOnFailure>\s*<Interval>PT1M<\/Interval>/);
-    expect(xml).toContain(`<URI>\\Psyche Gateway-${SID}</URI>`);
+    expect(xml).toMatch(/<Command>%SystemRoot%\\System32\\conhost\.exe<\/Command>/);
   });
 
-  it("runs the bundled node under a headless conhost, the preload first, the Gateway last", () => {
-    expect(xml).toContain("<Command>C:\\Windows\\System32\\conhost.exe</Command>");
-    const args = gatewayTaskArgs(input);
-    expect(args[0]).toBe("--headless");
-    expect(args[1]).toBe(input.node);
-    expect(args[2]).toBe("--import");
-    expect(args[3]).toMatch(/^data:text\/javascript,[A-Za-z0-9%._-]+$/);
-    expect(args[4]).toBe(input.entry);
-    // The XML holds the escaped command line, which reads back to the same runtime.
-    expect(taskProgram(xml)).toBe(input.node);
-    expect(xml).not.toContain("k&<x>");
+  it("drops a trailing backslash, which would escape the closing quote", () => {
+    const filled = fillTaskTemplate(bundleTemplate(), { ...values, psychedDir: "C:\\P\\" });
+    expect(taskProgram(filled)).toBe("C:\\P\\runtime\\node.exe");
   });
 
-  it("sets the environment and the log files, and stops with its conhost", () => {
-    const src = gatewayPreloadSource({
-      env: { PSYCHE_HOME: input.psycheHome, PSYCHE_VAULT_KEY_FILE: "C:\\k" },
-      logDir: input.logDir,
-    });
-    expect(src).toContain(
-      JSON.stringify({ PSYCHE_HOME: input.psycheHome, PSYCHE_VAULT_KEY_FILE: "C:\\k" }),
-    );
-    expect(src).toContain('"gateway.out.log"');
-    expect(src).toContain('"gateway.err.log"');
-    expect(src).toContain('process.emit("SIGTERM")');
-    // The data URL decodes to exactly that module.
-    const url = dataModuleUrl(src);
-    expect(decodeURIComponent(url.slice("data:text/javascript,".length))).toBe(src);
-  });
-
-  it("round-trips through the UTF-16 file schtasks reads", () => {
+  it("round-trips through the UTF-16 file schtasks reads (and the CLI writes)", () => {
     const buf = encodeTaskXml(xml);
     expect([buf[0], buf[1]]).toEqual([0xff, 0xfe]);
     expect(decodeTaskXml(buf)).toBe(xml);
-  });
-
-  it("the preload really sets the environment and appends both logs", async () => {
-    const logDir = join(dir, "preload-logs");
-    const src = gatewayPreloadSource({ env: { PSYCHE_PRELOAD_TEST: "yes" }, logDir });
-    const { spawnSync } = await import("node:child_process");
-    const res = spawnSync(
-      process.execPath,
-      [
-        "--import",
-        dataModuleUrl(src),
-        "-e",
-        "console.log('out', process.env.PSYCHE_PRELOAD_TEST); console.error('err line')",
-      ],
-      { encoding: "utf8" },
-    );
-    expect(res.status).toBe(0);
-    expect(readFileSync(join(logDir, "gateway.out.log"), "utf8")).toBe("out yes\n");
-    expect(readFileSync(join(logDir, "gateway.err.log"), "utf8")).toBe("err line\n");
+    const file = join(dir, "cli.xml");
+    writeTaskXml(file, xml);
+    expect(readFileSync(file).equals(buf)).toBe(true);
   });
 });
 
-/** A fake Task Scheduler: registered after /create, healthy once run (unless told otherwise). */
+/** A fake Task Scheduler and taskkill: registered after /Create, healthy once run. */
 function scheduler(o: { neverHealthy?: boolean; registered?: string } = {}) {
   const calls: string[][] = [];
   let registered = o.registered;
   let running = false;
   const run: Runner = async (file, args) => {
-    calls.push([file.split("\\").pop() ?? file, ...args]);
-    const exe = file.toLowerCase();
-    if (exe.endsWith("whoami.exe")) return { code: 0, stdout: `"h\\u","${SID}"`, stderr: "" };
-    if (!exe.endsWith("schtasks.exe")) return { code: 0, stdout: "", stderr: "" };
-    const verb = args[0];
-    if (verb === "/create") {
-      registered = decodeTaskXml(readFileSync(args[4] as string));
-      running = true;
+    const exe = (file.split("\\").pop() ?? file).toLowerCase();
+    calls.push([exe, ...args]);
+    if (exe === "taskkill.exe") {
+      running = false;
+      return { code: 0, stdout: "", stderr: "" };
     }
-    if (verb === "/delete") registered = undefined;
-    if (verb === "/end") running = false;
-    if (verb === "/run") running = registered !== undefined;
-    if (verb === "/query") {
+    if (exe !== "schtasks.exe") return { code: 0, stdout: "", stderr: "" };
+    const verb = args[0];
+    if (verb === "/Create") registered = decodeTaskXml(readFileSync(args[4] as string));
+    if (verb === "/Delete") registered = undefined;
+    if (verb === "/Run") running = registered !== undefined;
+    if (verb === "/Query") {
       if (registered === undefined) return { code: 1, stdout: "", stderr: "not found" };
-      if (args.includes("/xml")) return { code: 0, stdout: registered, stderr: "" };
-      if (args.includes("/v"))
-        return { code: 0, stdout: '"H","\\T","N/A","Ready","I","x","3"', stderr: "" };
+      if (args.includes("/XML")) return { code: 0, stdout: registered, stderr: "" };
+      if (args.includes("/V"))
+        return { code: 0, stdout: '"H","\\Psyche\\Gateway","N/A","Ready","I","x","3"', stderr: "" };
     }
     return { code: 0, stdout: "", stderr: "" };
   };
@@ -233,73 +181,81 @@ function scheduler(o: { neverHealthy?: boolean; registered?: string } = {}) {
     running && !o.neverHealthy
       ? Promise.resolve(new Response("{}", { status: 200 }))
       : Promise.reject(new Error("down"));
-  return { calls, run, fetch: fetchFn, registered: () => registered };
+  return {
+    calls,
+    run,
+    fetch: fetchFn,
+    registered: () => registered,
+    start: () => {
+      running = true;
+    },
+  };
 }
 
-function bundle(name: string): { node: string; entry: string; home: string } {
+function bundle(name: string) {
   const root = join(dir, name);
-  const node = join(root, "psyched", "runtime", "node.exe");
-  const entry = join(root, "psyched", "app", "apps", "gateway", "dist", "main.mjs");
-  mkdirSync(join(root, "psyched", "runtime"), { recursive: true });
-  mkdirSync(join(root, "psyched", "app", "apps", "gateway", "dist"), { recursive: true });
-  writeFileSync(node, "");
-  writeFileSync(entry, "");
-  return { node, entry, home: join(root, "home") };
+  const psyched = join(root, "psyched");
+  mkdirSync(join(psyched, "runtime"), { recursive: true });
+  writeFileSync(join(psyched, "runtime", "node.exe"), "");
+  const template = join(psyched, "psyche-gateway.task.xml.template");
+  writeTaskXml(template, bundleTemplate());
+  return {
+    psyched,
+    node: join(psyched, "runtime", "node.exe"),
+    template,
+    home: join(root, "home"),
+  };
+}
+
+function supervisor(b: ReturnType<typeof bundle>, f: ReturnType<typeof scheduler>, more = {}) {
+  return new TaskSchedulerSupervisor({
+    mode: "taskscheduler",
+    psycheHome: b.home,
+    healthUrl: "http://127.0.0.1:1/healthz",
+    bundledPsyched: b.psyched,
+    bundledNode: b.node,
+    bundledTemplate: b.template,
+    userId: "HOST\\ada",
+    systemRoot: "C:\\Windows",
+    // The test bundles live in the temp folder, which a real install never does.
+    tempDir: join(dir, "elsewhere"),
+    run: f.run,
+    fetch: f.fetch,
+    sleep: async () => undefined,
+    ...more,
+  });
 }
 
 describe("TaskSchedulerSupervisor", () => {
   const verbs = (calls: string[][]) =>
     calls.filter((c) => c[0] === "schtasks.exe").map((c) => c[1]);
 
-  it("registers the task, runs it and waits for /healthz; a second launch changes nothing", async () => {
+  it("registers the filled template, runs it and waits for /healthz; a second launch changes nothing", async () => {
     const b = bundle("fresh");
     const f = scheduler();
     const states: string[] = [];
-    const sup = new TaskSchedulerSupervisor({
-      mode: "taskscheduler",
-      // The test bundles live in the temp folder, which a real install never does.
-      tempDir: join(dir, "elsewhere"),
-      psycheHome: b.home,
-      healthUrl: "http://127.0.0.1:1/healthz",
-      bundledNode: b.node,
-      bundledEntry: b.entry,
-      systemRoot: "C:\\Windows",
-      vaultKeyFile: () => join(b.home, "secrets", "vault.key"),
-      run: f.run,
-      fetch: f.fetch,
-      sleep: async () => undefined,
-      onState: (s) => states.push(`${s.kind}${"step" in s && s.step ? `:${s.step}` : ""}`),
+    const sup = supervisor(b, f, {
+      onState: (s: { kind: string; step?: string }) =>
+        states.push(`${s.kind}${s.step ? `:${s.step}` : ""}`),
     });
     await sup.ensureRunning();
     expect(sup.getState()).toEqual({ kind: "running", mode: "taskscheduler" });
-    expect(verbs(f.calls)).toEqual(["/query", "/create", "/run", "/query"]);
+    expect(verbs(f.calls)).toEqual(["/Query", "/Create", "/Run", "/Query"]);
     expect(states).toEqual(["starting:installing", "starting:waiting", "running"]);
     const stored = decodeTaskXml(readFileSync(gatewayTaskFile(b.home)));
     expect(stored).toBe(f.registered());
-    expect(stored).toContain("PSYCHE_VAULT_KEY_FILE");
+    expect(taskProgram(stored)).toBe(b.node);
     expect(existsSync(join(b.home, "logs"))).toBe(true);
 
     f.calls.length = 0;
     await sup.ensureRunning();
-    expect(verbs(f.calls)).toEqual(["/query", "/query"]);
+    expect(verbs(f.calls)).toEqual(["/Query", "/Query"]);
   });
 
   it("reports a Gateway that never answers with the task's last result and the logs folder", async () => {
     const b = bundle("silent");
     const f = scheduler({ neverHealthy: true });
-    const sup = new TaskSchedulerSupervisor({
-      mode: "taskscheduler",
-      // The test bundles live in the temp folder, which a real install never does.
-      tempDir: join(dir, "elsewhere"),
-      psycheHome: b.home,
-      healthUrl: "http://127.0.0.1:1/healthz",
-      bundledNode: b.node,
-      bundledEntry: b.entry,
-      run: f.run,
-      fetch: f.fetch,
-      healthTimeoutMs: 0,
-      sleep: async () => undefined,
-    });
+    const sup = supervisor(b, f, { healthTimeoutMs: 0 });
     await sup.ensureRunning();
     expect(sup.getState()).toEqual({
       kind: "stopped",
@@ -307,67 +263,46 @@ describe("TaskSchedulerSupervisor", () => {
       reason: "The Gateway did not answer within 0 s (last exit code 3)",
       logs: join(b.home, "logs"),
     });
-    expect(verbs(f.calls)).toContain("/run");
   });
 
-  it("says when no Gateway is bundled, and attaches to one it did not start", async () => {
+  it("says when nothing is bundled, and attaches to a Gateway it did not start", async () => {
+    const f = scheduler();
     const none = new TaskSchedulerSupervisor({
       mode: "taskscheduler",
-      // The test bundles live in the temp folder, which a real install never does.
-      tempDir: join(dir, "elsewhere"),
       psycheHome: join(dir, "nobundle"),
       healthUrl: "http://127.0.0.1:1/healthz",
-      bundledNode: join(dir, "nope", "node.exe"),
-      bundledEntry: join(dir, "nope", "main.mjs"),
-      run: scheduler().run,
-      fetch: () => Promise.reject(new Error("down")),
+      bundledPsyched: join(dir, "nope"),
+      bundledNode: join(dir, "nope", "runtime", "node.exe"),
+      bundledTemplate: join(dir, "nope", "x.template"),
+      tempDir: join(dir, "elsewhere"),
+      run: f.run,
+      fetch: f.fetch,
     });
     await none.ensureRunning();
     expect(none.getState()).toMatchObject({ kind: "stopped", reason: "psyched is not bundled" });
 
     const b = bundle("attach");
-    const f = scheduler();
-    const sup = new TaskSchedulerSupervisor({
-      mode: "taskscheduler",
-      // The test bundles live in the temp folder, which a real install never does.
-      tempDir: join(dir, "elsewhere"),
-      psycheHome: b.home,
-      healthUrl: "http://127.0.0.1:1/healthz",
-      bundledNode: b.node,
-      bundledEntry: b.entry,
-      run: f.run,
-      fetch: () => Promise.resolve(new Response("{}", { status: 200 })),
-    });
+    const g = scheduler();
+    g.start();
+    const sup = supervisor(b, g);
     await sup.ensureRunning();
     expect(sup.getState()).toEqual({ kind: "running", mode: "taskscheduler" });
-    expect(verbs(f.calls)).toEqual(["/query"]);
+    expect(verbs(g.calls)).toEqual(["/Query"]);
   });
 
   it("asks before taking over another copy's task; no means attach, yes replaces it", async () => {
     const other = bundle("other-copy");
     const mine = bundle("this-copy");
-    const otherXml = renderGatewayTaskXml({
-      node: other.node,
-      entry: other.entry,
+    const otherXml = fillTaskTemplate(bundleTemplate(), {
+      psychedDir: other.psyched,
       psycheHome: mine.home,
-      logDir: join(mine.home, "logs"),
-      sid: SID,
+      userId: "HOST\\ada",
     });
     for (const answer of [false, true]) {
       const f = scheduler({ registered: otherXml });
       const asked: string[] = [];
-      const sup = new TaskSchedulerSupervisor({
-        mode: "taskscheduler",
-        // The test bundles live in the temp folder, which a real install never does.
-        tempDir: join(dir, "elsewhere"),
-        psycheHome: mine.home,
-        healthUrl: "http://127.0.0.1:1/healthz",
-        bundledNode: mine.node,
-        bundledEntry: mine.entry,
-        run: f.run,
-        fetch: f.fetch,
-        sleep: async () => undefined,
-        confirmTakeover: async (p) => {
+      const sup = supervisor(mine, f, {
+        confirmTakeover: async (p: string) => {
           asked.push(p);
           return answer;
         },
@@ -376,8 +311,7 @@ describe("TaskSchedulerSupervisor", () => {
       expect(asked).toEqual([other.node]);
       if (answer) {
         expect(taskProgram(f.registered() ?? "")).toBe(mine.node);
-        // The other copy's running Gateway was ended first.
-        expect(verbs(f.calls)).toContain("/end");
+        expect(verbs(f.calls)).toContain("/End");
       } else {
         expect(f.registered()).toBe(otherXml);
         expect(sup.getState()).toMatchObject({ kind: "stopped", mode: "taskscheduler" });
@@ -385,48 +319,33 @@ describe("TaskSchedulerSupervisor", () => {
     }
   });
 
-  it("Quit entirely ends and deletes its own task, and leaves another copy's alone", async () => {
+  it("Quit entirely ends the task and both pid trees, deletes it, and leaves another copy's alone", async () => {
     const b = bundle("quit");
     const f = scheduler();
-    const sup = new TaskSchedulerSupervisor({
-      mode: "taskscheduler",
-      // The test bundles live in the temp folder, which a real install never does.
-      tempDir: join(dir, "elsewhere"),
-      psycheHome: b.home,
-      healthUrl: "http://127.0.0.1:1/healthz",
-      bundledNode: b.node,
-      bundledEntry: b.entry,
-      run: f.run,
-      fetch: f.fetch,
-      sleep: async () => undefined,
-    });
+    const sup = supervisor(b, f);
     await sup.ensureRunning();
+    writeFileSync(join(b.home, "run", SERVICE_PID_FILE), "4100");
+    writeFileSync(join(b.home, "run", GATEWAY_PID_FILE), "4200");
     await sup.stopEverything();
     expect(f.registered()).toBeUndefined();
     expect(existsSync(gatewayTaskFile(b.home))).toBe(false);
-    expect(verbs(f.calls).slice(-3)).toEqual(["/query", "/end", "/delete"]);
+    const tail = f.calls.slice(-4).map((c) => c.join(" "));
+    expect(tail).toEqual([
+      "schtasks.exe /End /TN \\Psyche\\Gateway",
+      "taskkill.exe /PID 4100 /T /F",
+      "taskkill.exe /PID 4200 /T /F",
+      "schtasks.exe /Delete /TN \\Psyche\\Gateway /F",
+    ]);
     expect(sup.getState()).toEqual({ kind: "stopped", mode: "taskscheduler", reason: "quit" });
 
     const other = bundle("quit-other");
-    const otherXml = renderGatewayTaskXml({
-      node: other.node,
-      entry: other.entry,
-      psycheHome: b.home,
-      logDir: join(b.home, "logs"),
-      sid: SID,
+    const otherXml = fillTaskTemplate(bundleTemplate(), {
+      psychedDir: other.psyched,
+      psycheHome: join(dir, "quit2"),
+      userId: "HOST\\ada",
     });
     const g = scheduler({ registered: otherXml });
-    const quitting = new TaskSchedulerSupervisor({
-      mode: "taskscheduler",
-      // The test bundles live in the temp folder, which a real install never does.
-      tempDir: join(dir, "elsewhere"),
-      psycheHome: b.home,
-      healthUrl: "http://127.0.0.1:1/healthz",
-      bundledNode: b.node,
-      bundledEntry: b.entry,
-      run: g.run,
-      fetch: g.fetch,
-    });
+    const quitting = supervisor({ ...b, home: join(dir, "quit2") }, g);
     await quitting.stopEverything();
     expect(g.registered()).toBe(otherXml);
   });

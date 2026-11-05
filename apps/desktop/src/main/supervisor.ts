@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, posix } from "node:path";
 import {
   defaultSleep,
   type Supervisor,
@@ -125,9 +125,9 @@ ${argv}
   <key>ProcessType</key>
   <string>Background</string>
   <key>StandardOutPath</key>
-  <string>${xml(join(input.logDir, "gateway.out.log"))}</string>
+  <string>${xml(posix.join(input.logDir, "gateway.out.log"))}</string>
   <key>StandardErrorPath</key>
-  <string>${xml(join(input.logDir, "gateway.err.log"))}</string>
+  <string>${xml(posix.join(input.logDir, "gateway.err.log"))}</string>
 </dict>
 </plist>
 `;

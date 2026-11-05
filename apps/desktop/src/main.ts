@@ -124,7 +124,7 @@ import { ScreenAskShortcut } from "./main/screen-ask/settings.ts";
 import { voicePopup } from "./main/screen-ask/voice-key.ts";
 import { QuickEntryShortcut } from "./main/shortcuts.ts";
 import { shouldShowSplash } from "./main/splash.ts";
-import { handleSquirrelEvent, squirrelEvent } from "./main/squirrel-events.ts";
+import { APP_AUMID, handleSquirrelEvent } from "./main/squirrel-events.ts";
 import { startShell } from "./main/startup.ts";
 import {
   chooseMode,
@@ -153,17 +153,17 @@ import { type AppWindows, createAppWindows, preloadPath } from "./main/windows.t
  * checked here before anything happens. No crash reporter, no telemetry (ADR-017).
  */
 
-/**
- * Squirrel.Windows starts the app to install, update or remove it (main/squirrel-events.ts): it
- * does that, never opens a window or takes the single-instance lock, and quits.
- */
-const squirrelRun = process.platform === "win32" ? squirrelEvent(process.argv) : undefined;
+// Squirrel.Windows install/update/uninstall events: shortcuts and cleanup, then exit before
+// anything else starts (src/main/squirrel-events.ts).
+if (handleSquirrelEvent({ app, shell })) process.exit(0);
+
 const windows32 = process.platform === "win32";
 
-// Windows groups the taskbar button, the jump list and every toast under the AppUserModelID; it
-// must be set before any window or notification. Unpackaged runs use Electron's own path, the
-// id Windows already knows for that binary, so dev toasts show too.
-if (windows32) app.setAppUserModelId(app.isPackaged ? "com.psyche.desktop" : process.execPath);
+// Windows groups the taskbar button, the jump list and every toast under the AppUserModelID (the
+// one the installer's shortcuts carry); it must be set before any window or notification.
+// Unpackaged runs use Electron's own path, the id Windows already knows for that binary, so dev
+// toasts show too.
+if (windows32) app.setAppUserModelId(app.isPackaged ? APP_AUMID : process.execPath);
 
 // The renderer is served from app://psyche (a standard, secure scheme) instead of file://.
 protocol.registerSchemesAsPrivileged([
@@ -178,7 +178,7 @@ app.enableSandbox();
 if (!app.isPackaged && process.env.PSYCHE_USER_DATA)
   app.setPath("userData", process.env.PSYCHE_USER_DATA);
 
-if (squirrelRun === undefined && !app.requestSingleInstanceLock()) app.quit();
+if (!app.requestSingleInstanceLock()) app.quit();
 
 /**
  * Which Gateway this launch connects to (remote-gateway design §1.3): `PSYCHE_GATEWAY_ORIGIN`
@@ -254,7 +254,7 @@ function registerScheme(scheme: string): void {
   }
 }
 
-if (perfProbe !== undefined || squirrelRun !== undefined) {
+if (perfProbe !== undefined) {
   // No psyche:// registration: it would point the owner's links at the measured copy.
 } else {
   registerScheme("psyche");
@@ -1331,38 +1331,7 @@ function lockDownDefaultSession(): void {
   );
 }
 
-/**
- * Squirrel's uninstall: the Gateway's scheduled task (ended and deleted, if it runs this copy's
- * runtime) and the login item go with the app. Bounded: Squirrel waits only seconds.
- */
-async function uninstallWindowsService(): Promise<void> {
-  const gw = bundledGatewayPaths(process.resourcesPath);
-  const sup = createSupervisor({
-    mode: "taskscheduler",
-    psycheHome: home,
-    healthUrl: new URL("/healthz", gatewayTarget.origin).toString(),
-    bundledNode: gw.node,
-    bundledEntry: gw.entry,
-    healthTimeoutMs: 1_000,
-  });
-  loginItem.set(false);
-  await Promise.race([
-    sup.stopEverything(),
-    new Promise<void>((r) => setTimeout(r, 8_000).unref()),
-  ]);
-}
-
-if (squirrelRun !== undefined) {
-  void handleSquirrelEvent({
-    platform: process.platform,
-    argv: process.argv,
-    execPath: process.execPath,
-    onUninstall: uninstallWindowsService,
-  }).finally(() => app.quit());
-}
-
 void app.whenReady().then(async () => {
-  if (squirrelRun !== undefined) return;
   if (gatewaysFileProblem !== undefined) {
     await dialog.showMessageBox({
       type: "warning",
@@ -1714,8 +1683,9 @@ void app.whenReady().then(async () => {
     gatewayDir: resolve(app.getAppPath(), "..", "gateway"),
     bundledProgram: join(process.resourcesPath, "psyched", "psyched"),
     bundledPlist: join(process.resourcesPath, "launchd", "com.psyche.gateway.plist"),
+    bundledPsyched: bundledGateway.dir,
     bundledNode: bundledGateway.node,
-    bundledEntry: bundledGateway.entry,
+    bundledTemplate: bundledGateway.template,
     confirmTakeover: async (other) => {
       const opts = {
         type: "question" as const,
@@ -1730,8 +1700,10 @@ void app.whenReady().then(async () => {
       return res.response === 1;
     },
     // Key-file slot unless the bundled helper can hold the Keychain (Touch ID) slot.
+    // (Windows' task cannot carry it: the service host sets PSYCHE_HOME only; the vault's slot
+    // there is the Gateway's own default.)
     vaultKeyFile: async () =>
-      (await helperCanHoldKeychain(bundledHelperPath(), execRunner))
+      windows32 || (await helperCanHoldKeychain(bundledHelperPath(), execRunner))
         ? undefined
         : desktopVaultKeyFile(home),
     onState: (run) => {

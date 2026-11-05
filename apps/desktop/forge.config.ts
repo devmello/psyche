@@ -1,8 +1,10 @@
-import { cpSync, existsSync, mkdirSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
+import { MakerSquirrel } from "@electron-forge/maker-squirrel";
 import { MakerZIP } from "@electron-forge/maker-zip";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { VitePlugin } from "@electron-forge/plugin-vite";
@@ -10,13 +12,19 @@ import type { ForgeConfig } from "@electron-forge/shared-types";
 import {
   allowPartial,
   bundleSources,
+  bundleSourcesWin32,
   copyBundleResources,
+  copyBundleResourcesWin32,
   HELPER_APP_NAME,
   skipOuterSigning,
   verifyNestedHelper,
 } from "./src/packaging/bundle-resources.ts";
-import { pruneLocales } from "./src/packaging/locales.ts";
-import { macSigningOptions, signingIdentity } from "./src/packaging/signing-config.ts";
+import { pruneLocales, pruneWin32Locales } from "./src/packaging/locales.ts";
+import {
+  macSigningOptions,
+  signingIdentity,
+  windowsSigning,
+} from "./src/packaging/signing-config.ts";
 import { pruneSwiftShader } from "./src/packaging/swiftshader.ts";
 import { dropGatewayWebCopy } from "./src/packaging/web-copy.ts";
 
@@ -32,18 +40,37 @@ import { dropGatewayWebCopy } from "./src/packaging/web-copy.ts";
  * On macOS the bundle carries the Gateway (`Resources/psyched/`), its LaunchAgent template and the
  * Swift helper (src/packaging/bundle-resources.ts); packaging fails when one is missing unless
  * PSYCHE_PACKAGE_ALLOW_PARTIAL=1.
+ *
+ * On Windows (deploy/windows/build-local.ps1) `make` builds a Squirrel.Windows installer
+ * (Psyche-<version>-Setup.exe, the full nupkg and RELEASES; per-user install in
+ * %LOCALAPPDATA%\Psyche) and a portable zip. The package carries resources\psyched\ (with its own
+ * node.exe), resources\win-helper\psyche-helper.exe and resources\tray.ico. Authenticode signing
+ * switches on with WINDOWS_CERTIFICATE_FILE / WINDOWS_CERTIFICATE_PASSWORD or the
+ * AZURE_TRUSTED_SIGNING_* variables (signing-config.ts `windowsSigning`); unsigned otherwise.
  */
 
 const root = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(root, "..", "..");
 const isMacHost = process.platform === "darwin";
 const resolveFromHere = createRequire(import.meta.url);
+const version = (
+  JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { version: string }
+).version;
+
+// Authenticode (Windows): one plan for the packager and the Squirrel maker. Trusted Signing reads
+// its account and profile from a metadata file that signtool is pointed at.
+const winSign = windowsSigning(process.env, join(tmpdir(), "psyche-trusted-signing.json"));
+if (winSign?.azureMetadata)
+  writeFileSync(winSign.azureMetadata.file, JSON.stringify(winSign.azureMetadata.json));
+// @electron/windows-sign types `hashes` as a const enum; its values are these strings.
+const windowsSign = winSign ? (winSign.options as never) : undefined;
 
 /**
  * The Vite plugin packages only `.vite/`, so native modules the main bundle keeps external
  * (node-pty) are copied in after pruning: its JS, its package.json and the prebuilt binary for
- * the target. `asar.unpack` keeps the `.node` file and `spawn-helper` on disk so they load,
- * execute and get signed.
+ * the target. `asar.unpack` keeps the `.node` file and `spawn-helper` (macOS) or the `.dll` and
+ * `.exe` helpers (Windows: winpty, conpty's OpenConsole.exe) on disk so they load, execute and get
+ * signed. Debug symbols (`.pdb`, ≈ 30 MB on Windows) stay out.
  */
 function copyNodePty(buildPath: string, platform: string, arch: string): void {
   const src = dirname(resolveFromHere.resolve("node-pty/package.json"));
@@ -53,11 +80,15 @@ function copyNodePty(buildPath: string, platform: string, arch: string): void {
   cpSync(join(src, "lib"), join(dest, "lib"), { recursive: true });
   const prebuild = join("prebuilds", `${platform}-${arch}`);
   if (existsSync(join(src, prebuild))) {
-    cpSync(join(src, prebuild), join(dest, prebuild), { recursive: true });
+    cpSync(join(src, prebuild), join(dest, prebuild), {
+      recursive: true,
+      filter: (f) => !f.endsWith(".pdb"),
+    });
   }
-  // Linux has no prebuild: the install step compiles into build/Release.
+  // Linux has no prebuild: the install step compiles into build/Release. On Windows that folder
+  // holds only a copy of conpty; the prebuilds have everything.
   const compiled = join("build", "Release");
-  if (existsSync(join(src, compiled))) {
+  if (platform !== "win32" && existsSync(join(src, compiled))) {
     cpSync(join(src, compiled), join(dest, compiled), { recursive: true });
   }
 }
@@ -66,11 +97,21 @@ const config: ForgeConfig = {
   packagerConfig: {
     name: "Psyche",
     executableName: "Psyche",
-    // apps/desktop/assets/icon.icns (and .png for the dev dock), from deploy/macos/make-icon.mjs.
+    // apps/desktop/assets/icon.icns (and .png for the dev dock), from deploy/macos/make-icon.mjs;
+    // icon.ico on Windows, from deploy/windows/make-icon.mjs.
     icon: join(root, "assets", "icon"),
+    // Psyche.exe's version resource (Task Manager, the file's Properties, SmartScreen).
+    win32metadata: {
+      CompanyName: "Psyche",
+      FileDescription: "Psyche",
+      ProductName: "Psyche",
+      InternalName: "Psyche",
+      OriginalFilename: "Psyche.exe",
+    },
+    ...(windowsSign ? { windowsSign } : {}),
     appBundleId: "com.psyche.desktop",
     appCategoryType: "public.app-category.productivity",
-    asar: { unpack: "{*.node,spawn-helper}" },
+    asar: { unpack: "{*.node,spawn-helper,*.dll,*.exe}" },
     // psyche:// deep links and psyche-pair: pairing links (CFBundleURLTypes). A pairing link only
     // opens the Add a Gateway field (src/lib/pair-link.ts).
     protocols: [
@@ -111,10 +152,48 @@ const config: ForgeConfig = {
   rebuildConfig: {},
   // TODO(S22/C2): signed DMG and the release pipeline (manifest signed with the release key,
   // security §11). ZIP only until then.
-  makers: [new MakerZIP({}, ["darwin", "linux"])],
+  makers: [
+    new MakerZIP({}, ["darwin", "linux", "win32"]),
+    // Squirrel.Windows (cross-platform-2026.md §6 decision 5): per user, no admin, behind the signed
+    // update manifest (src/main/updater.ts). Install events: src/main/squirrel-events.ts.
+    new MakerSquirrel(
+      {
+        name: "Psyche", // the NuGet id: Psyche-<version>-full.nupkg (not the scoped package name)
+        title: "Psyche",
+        authors: "Psyche",
+        description: "Psyche, your personal AI agent",
+        exe: "Psyche.exe",
+        setupExe: `Psyche-${version}-Setup.exe`,
+        setupIcon: join(root, "assets", "icon.ico"),
+        // Programs and Features shows this icon; Squirrel fetches it once at install time.
+        iconUrl:
+          "https://raw.githubusercontent.com/devmello/psyche/main/apps/desktop/assets/icon.ico",
+        noMsi: true,
+        // The previous release's folder, for a delta nupkg (the release workflow sets it).
+        ...(process.env.PSYCHE_SQUIRREL_REMOTE_RELEASES
+          ? { remoteReleases: process.env.PSYCHE_SQUIRREL_REMOTE_RELEASES }
+          : {}),
+        ...(windowsSign ? { windowsSign } : {}),
+      },
+      ["win32"],
+    ),
+  ],
   hooks: {
     packageAfterPrune: async (_config, buildPath, _electronVersion, platform, arch) => {
       copyNodePty(buildPath, platform, arch);
+      if (platform === "win32") {
+        // buildPath is <out>\Psyche-win32-<arch>\resources\app; the packager signs after this.
+        const resourcesDir = dirname(buildPath);
+        pruneWin32Locales(dirname(resourcesDir));
+        copyBundleResourcesWin32(
+          bundleSourcesWin32(process.env, repoRoot, arch),
+          resourcesDir,
+          arch,
+          { allowPartial: allowPartial(process.env), warn: (m) => console.warn(m) },
+        );
+        dropGatewayWebCopy(buildPath, resourcesDir);
+        return;
+      }
       if (platform !== "darwin") return;
       // buildPath is Contents/Resources/app; osx-sign runs after this hook and seals the bundle.
       const resourcesDir = dirname(buildPath);

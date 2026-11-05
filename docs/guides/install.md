@@ -3,18 +3,20 @@
 Psyche has three parts:
 
 - **The Gateway** (`psyched`): the always-on process that runs your agent. It listens only on `127.0.0.1:7979` and keeps its data in `$PSYCHE_HOME` (default `~/.psyche`, mode 0700).
-- **The desktop app** (`Psyche.app`, macOS only): installs and supervises the Gateway on your Mac.
-- **The CLI** (`psyche`): setup, status, pairing, backups and upgrades, on macOS and Linux.
+- **The desktop app** (`Psyche.app` on macOS, `Psyche.exe` on Windows): installs and supervises the Gateway on your computer.
+- **The CLI** (`psyche`): setup, status, pairing, backups and upgrades, on macOS, Windows and Linux.
 
 Pick one setup:
 
 - [On your Mac](#on-your-mac): the desktop app runs the Gateway locally.
+- [On Windows](#on-windows): the same, for Windows 10 and 11 on x64.
 - [On a Linux server with Docker Compose](#on-a-linux-server-with-docker-compose): recommended for servers.
 - [On a Linux host without Docker](#on-a-linux-host-without-docker): a systemd user service.
 
 ## Requirements
 
 - **Mac:** macOS 15 Sequoia or later, Apple silicon or Intel. Some features need newer macOS: on macOS 15 the command sandbox needs Colima or Docker Desktop; macOS 26 and later can use Apple's `container` instead.
+- **Windows:** Windows 10 (1903 or later) or Windows 11, x64. No administrator rights: Psyche installs for your user only.
 - **Linux server:** Docker with Compose. There is no other OS requirement.
 
 ## On your Mac
@@ -143,6 +145,48 @@ To start it again, point `psyche start` at the `psyched` in the app bundle (or s
 psyche start --psyched /Applications/Psyche.app/Contents/Resources/psyched/psyched
 ```
 
+## On Windows
+
+### 1. Install the desktop app
+
+There is no signed Windows release yet: build the installer from a source checkout (see [getting-started.md](getting-started.md#on-windows) for the tools), then run it:
+
+```powershell
+pnpm app:build
+```
+
+```powershell
+pnpm app:install
+```
+
+`pnpm app:build` writes `dist\Psyche-<version>-Setup.exe` (and a portable `dist\Psyche-<version>-win32-x64.zip`). `pnpm app:install` runs the installer silently. Like the Mac script, it first **resets** Psyche's data for your user so the new build starts from first-run onboarding; pass `--keep-data` to install over it:
+
+```powershell
+pnpm app:install --keep-data
+```
+
+You can also double-click `Psyche-<version>-Setup.exe`. It installs Psyche for your Windows user into `%LOCALAPPDATA%\Psyche` without asking for administrator rights, adds Psyche to the Start menu and the desktop, and opens it. The app carries the Gateway (`psyched`, with its own Node runtime), the `psyche` CLI and Psyche Helper; nothing else needs to be installed.
+
+**Unsigned builds.** A build without the project's code-signing certificate is unsigned. When you open its installer, Microsoft Defender SmartScreen says "Windows protected your PC". Click **More info**, then **Run anyway**. Signed releases do not show this once the certificate has built up reputation.
+
+### 2. Open Psyche
+
+Open Psyche from the Start menu. The Gateway runs as a scheduled task for your user, `\Psyche\Gateway`, started when you sign in to Windows; it keeps running when you close the window. Its logs are in `%USERPROFILE%\.psyche\logs\` (`gateway.out.log`, `gateway.err.log`). Task Scheduler shows the task under **Task Scheduler Library › Psyche**.
+
+To start it from the CLI instead, point `psyche start` at the `psyched.cmd` inside the install (the CLI also finds it on its own):
+
+```powershell
+psyche start --psyched "$env:LOCALAPPDATA\Psyche\app-<version>\resources\psyched\psyched.cmd"
+```
+
+`psyche stop`, `psyche restart` and `psyche status` work on the task the same way.
+
+### 3. Updates and uninstalling
+
+Psyche checks for updates when it starts, verifies them against the signed update manifest and installs them in the background; the new version opens the next time you start Psyche. Updates are off in builds without a signature or a release key.
+
+To uninstall, open **Settings › Apps › Installed apps**, find Psyche and choose **Uninstall**. That removes the app, its shortcuts and the `\Psyche\Gateway` task. Your data in `%USERPROFILE%\.psyche` stays; delete that folder to remove it too.
+
 ## On a Linux server with Docker Compose
 
 The Gateway image is `ghcr.io/devmello/psyche-gateway`, built for amd64 and arm64 and signed with cosign.
@@ -244,7 +288,7 @@ Then pair and check as in steps 4 and 5 of the Mac section, approving the code w
 
 ## Install the CLI from a release
 
-Each release has `psyche` binaries: `psyche-darwin-arm64`, `psyche-darwin-x64`, `psyche-linux-x64` and `psyche-linux-arm64`, plus `SHA256SUMS`.
+Each release has `psyche` binaries: `psyche-darwin-arm64`, `psyche-darwin-x64`, `psyche-linux-x64` and `psyche-linux-arm64`, plus `SHA256SUMS`. On Windows the CLI comes with the desktop app: `psyche.cmd` sits next to `psyched.cmd` in `%LOCALAPPDATA%\Psyche\app-<version>\resources\psyched\`.
 
 1. Download your binary and `SHA256SUMS` from the [releases page](https://github.com/devmello/psyche/releases) into one folder.
 2. Check the hash. On macOS:

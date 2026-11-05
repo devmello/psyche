@@ -16,9 +16,6 @@ const { loginItemSettings, LoginItem, squirrelLayout, windowsLaunchCommand } = a
   "../../src/main/login-item.ts"
 );
 const { jumpListTasks, taskFromArgv, firstCloseToTray } = await import("../../src/main/taskbar.ts");
-const { handleSquirrelEvent, squirrelEvent, squirrelShortcutArgs } = await import(
-  "../../src/main/squirrel-events.ts"
-);
 const { gatewayRowLabel, trayTemplate, trayTooltip } = await import("../../src/main/tray.ts");
 const { taskbarIsDark, trayIconRgba, toBgraPremultiplied, TRAY_ICON_SIZES } = await import(
   "../../src/main/tray-icon.ts"
@@ -213,41 +210,6 @@ describe("the Windows login item and jump list (Squirrel layout)", () => {
     const marker = join(mkdtempSync(join(tmpdir(), "psy-tray-")), "closed-to-tray");
     expect(firstCloseToTray(marker)).toBe(true);
     expect(firstCloseToTray(marker)).toBe(false);
-  });
-});
-
-describe("Squirrel.Windows events", () => {
-  const exe = "C:\\L\\Psyche\\app-0.3.0\\Psyche.exe";
-
-  it("handles install, update, uninstall and obsolete, and nothing else", async () => {
-    expect(squirrelEvent(["Psyche.exe", "--squirrel-install", "0.3.0"])).toBe("install");
-    expect(squirrelEvent(["Psyche.exe", "--squirrel-firstrun"])).toBeUndefined();
-    expect(squirrelEvent(["Psyche.exe", "psyche://chat"])).toBeUndefined();
-    expect(squirrelShortcutArgs("updated", exe)).toEqual(["--createShortcut=Psyche.exe"]);
-    expect(squirrelShortcutArgs("uninstall", exe)).toEqual(["--removeShortcut=Psyche.exe"]);
-    expect(squirrelShortcutArgs("obsolete", exe)).toBeUndefined();
-
-    const ran: string[][] = [];
-    let cleaned = false;
-    const quit = await handleSquirrelEvent({
-      platform: "win32",
-      argv: ["Psyche.exe", "--squirrel-uninstall"],
-      execPath: exe,
-      onUninstall: async () => {
-        cleaned = true;
-      },
-      run: async (file, args) => void ran.push([file, ...args]),
-    });
-    expect(quit).toBe(true);
-    expect(cleaned).toBe(true);
-    expect(ran).toEqual([["C:\\L\\Psyche\\Update.exe", "--removeShortcut=Psyche.exe"]]);
-    expect(
-      await handleSquirrelEvent({
-        platform: "darwin",
-        argv: ["x", "--squirrel-install"],
-        execPath: exe,
-      }),
-    ).toBe(false);
   });
 });
 

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -191,18 +191,21 @@ describe("release scripts", () => {
     ).toThrow(/no entry for: psyche-darwin-arm64/);
   });
 
-  it("make-dmg.sh is valid sh and refuses a bad version or arch", () => {
-    const script = join(ROOT, "deploy/macos/make-dmg.sh");
-    execFileSync("/bin/sh", ["-n", script]);
-    expect(() =>
-      execFileSync("/bin/sh", [script, "/nonexistent.app", "1.0;rm", "arm64", temp()], {
-        stdio: "pipe",
-      }),
-    ).toThrow();
-    expect(() =>
-      execFileSync("/bin/sh", [script, "/nonexistent.app", "1.0.0", "ppc", temp()], {
-        stdio: "pipe",
-      }),
-    ).toThrow();
-  });
+  it.skipIf(!existsSync("/bin/sh"))(
+    "make-dmg.sh is valid sh and refuses a bad version or arch",
+    () => {
+      const script = join(ROOT, "deploy/macos/make-dmg.sh");
+      execFileSync("/bin/sh", ["-n", script]);
+      expect(() =>
+        execFileSync("/bin/sh", [script, "/nonexistent.app", "1.0;rm", "arm64", temp()], {
+          stdio: "pipe",
+        }),
+      ).toThrow();
+      expect(() =>
+        execFileSync("/bin/sh", [script, "/nonexistent.app", "1.0.0", "ppc", temp()], {
+          stdio: "pipe",
+        }),
+      ).toThrow();
+    },
+  );
 });

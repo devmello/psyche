@@ -90,6 +90,94 @@ export function bundlePieces(
   ];
 }
 
+/**
+ * The Windows package (deploy/windows/build-local.ps1). Paths are relative to `resources\` next to
+ * Psyche.exe (`%LOCALAPPDATA%\Psyche\app-<version>\resources\` once installed):
+ *
+ *   psyched\                  the Gateway bundle (build-psyched.mjs on Windows): psyched.cmd,
+ *                             runtime\node.exe, app\, service-host.mjs and
+ *                             psyche-gateway.task.xml.template for the \Psyche\Gateway task
+ *   win-helper\psyche-helper.exe   the Rust helper (apps/win-helper, cargo build --release)
+ *   tray.ico                  the notification-area icon (deploy/windows/make-icon.mjs)
+ *
+ * The macOS pieces (LaunchAgent plist, PsycheHelper.app) are not part of it.
+ */
+export const WIN_HELPER_DIR = "win-helper";
+export const WIN_HELPER_EXE = "psyche-helper.exe";
+export const TRAY_ICON = "tray.ico";
+
+export interface BundleSourcesWin32 {
+  /** apps/gateway/dist-bin/win32-<arch>/psyched (or PSYCHE_PSYCHED_DIR). */
+  psychedDir: string;
+  /** apps/win-helper/target/release/psyche-helper.exe (or PSYCHE_WIN_HELPER_EXE). */
+  helperExe: string;
+  /** apps/desktop/assets/tray.ico. */
+  trayIcon: string;
+}
+
+export function bundleSourcesWin32(
+  env: BuildEnv,
+  repoRoot: string,
+  arch: string,
+): BundleSourcesWin32 {
+  return {
+    psychedDir:
+      value(env, "PSYCHE_PSYCHED_DIR") ??
+      join(repoRoot, "apps", "gateway", "dist-bin", `win32-${arch}`, BUNDLED_PSYCHED_DIR),
+    helperExe:
+      value(env, "PSYCHE_WIN_HELPER_EXE") ??
+      join(repoRoot, "apps", "win-helper", "target", "release", WIN_HELPER_EXE),
+    trayIcon: join(repoRoot, "apps", "desktop", "assets", TRAY_ICON),
+  };
+}
+
+export function bundlePiecesWin32(
+  sources: BundleSourcesWin32,
+  resourcesDir: string,
+  arch: string,
+): BundlePiece[] {
+  const p = sources.psychedDir;
+  return [
+    {
+      name: "psyched (the Gateway)",
+      source: p,
+      marker: join(p, "psyched.cmd"),
+      alsoRequires: [
+        join(p, "runtime", "node.exe"),
+        join(p, "app", "skills", "README.md"),
+        join(p, "service-host.mjs"),
+        join(p, "psyche-gateway.task.xml.template"),
+      ],
+      dest: join(resourcesDir, BUNDLED_PSYCHED_DIR),
+      build: `node deploy/scripts/build-psyched.mjs --arch ${arch}`,
+    },
+    {
+      name: WIN_HELPER_EXE,
+      source: sources.helperExe,
+      marker: sources.helperExe,
+      dest: join(resourcesDir, WIN_HELPER_DIR, WIN_HELPER_EXE),
+      build: "cargo build --release --manifest-path apps/win-helper/Cargo.toml",
+    },
+    {
+      name: TRAY_ICON,
+      source: sources.trayIcon,
+      marker: sources.trayIcon,
+      dest: join(resourcesDir, TRAY_ICON),
+      build: "node deploy/windows/make-icon.mjs",
+    },
+  ];
+}
+
+/** The Windows counterpart of copyBundleResources (same partial-package rule). */
+export function copyBundleResourcesWin32(
+  sources: BundleSourcesWin32,
+  resourcesDir: string,
+  arch: string,
+  opts: { allowPartial: boolean; warn?: (m: string) => void },
+): BundlePiece[] {
+  return copyPieces(bundlePiecesWin32(sources, resourcesDir, arch), opts, "win32");
+}
+
 /** The marker, or the first other required path, that does not exist. */
 function firstMissing(p: BundlePiece): string {
   return [p.marker, ...(p.alsoRequires ?? [])].find((f) => !existsSync(f)) ?? p.marker;
@@ -99,14 +187,17 @@ export function allowPartial(env: BuildEnv): boolean {
   return value(env, "PSYCHE_PACKAGE_ALLOW_PARTIAL") === "1";
 }
 
-export function missingPiecesMessage(missing: BundlePiece[]): string {
+export function missingPiecesMessage(
+  missing: BundlePiece[],
+  platform: "darwin" | "win32" = "darwin",
+): string {
   const lines = missing.map(
     (p) => `  - ${p.name}: not found at ${firstMissing(p)} (build it: ${p.build})`,
   );
   return [
-    "Psyche.app would not be self-contained; missing:",
+    `${platform === "win32" ? "The Windows package" : "Psyche.app"} would not be self-contained; missing:`,
     ...lines,
-    "Point PSYCHE_PSYCHED_DIR / PSYCHE_HELPER_APP at other builds, or set",
+    `Point PSYCHE_PSYCHED_DIR / ${platform === "win32" ? "PSYCHE_WIN_HELPER_EXE" : "PSYCHE_HELPER_APP"} at other builds, or set`,
     "PSYCHE_PACKAGE_ALLOW_PARTIAL=1 for a dev package without them.",
   ].join("\n");
 }
@@ -121,13 +212,22 @@ export function copyBundleResources(
   arch: string,
   opts: { allowPartial: boolean; warn?: (m: string) => void },
 ): BundlePiece[] {
-  const pieces = bundlePieces(sources, resourcesDir, arch);
+  return copyPieces(bundlePieces(sources, resourcesDir, arch), opts, "darwin");
+}
+
+function copyPieces(
+  pieces: BundlePiece[],
+  opts: { allowPartial: boolean; warn?: (m: string) => void },
+  platform: "darwin" | "win32",
+): BundlePiece[] {
   const missing = pieces.filter((p) =>
     [p.marker, ...(p.alsoRequires ?? [])].some((f) => !existsSync(f)),
   );
   if (missing.length > 0) {
-    if (!opts.allowPartial) throw new Error(missingPiecesMessage(missing));
-    opts.warn?.(`${missingPiecesMessage(missing)}\n(continuing: PSYCHE_PACKAGE_ALLOW_PARTIAL=1)`);
+    if (!opts.allowPartial) throw new Error(missingPiecesMessage(missing, platform));
+    opts.warn?.(
+      `${missingPiecesMessage(missing, platform)}\n(continuing: PSYCHE_PACKAGE_ALLOW_PARTIAL=1)`,
+    );
   }
   for (const piece of pieces) {
     if (missing.includes(piece)) continue;

@@ -2,10 +2,20 @@ import { FuseV1Options } from "@electron/fuses";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import type { ForgeConfig } from "@electron-forge/shared-types";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { macSigningOptions, notarizeCredentials } from "../src/packaging/signing-config.ts";
+import {
+  macSigningOptions,
+  notarizeCredentials,
+  windowsSigning,
+} from "../src/packaging/signing-config.ts";
 
 const SIGNING_VARS = [
   "PSYCHE_SIGN_IDENTITY",
+  "WINDOWS_CERTIFICATE_FILE",
+  "WINDOWS_CERTIFICATE_PASSWORD",
+  "AZURE_TRUSTED_SIGNING_ENDPOINT",
+  "AZURE_TRUSTED_SIGNING_ACCOUNT",
+  "AZURE_TRUSTED_SIGNING_PROFILE",
+  "AZURE_TRUSTED_SIGNING_DLIB",
   "APPLE_API_KEY",
   "APPLE_API_KEY_ID",
   "APPLE_API_ISSUER",
@@ -17,14 +27,14 @@ const SIGNING_VARS = [
 const identity = "Developer ID Application: Test Person (TEAM123456)";
 const entitlements = "/abs/entitlements.plist";
 
-type LoadedConfig = Required<Pick<ForgeConfig, "packagerConfig" | "plugins">>;
+type LoadedConfig = Required<Pick<ForgeConfig, "packagerConfig" | "plugins" | "makers">>;
 
 async function loadConfig(env: Record<string, string>): Promise<LoadedConfig> {
   for (const key of SIGNING_VARS) vi.stubEnv(key, env[key] ?? "");
   vi.resetModules();
-  const { packagerConfig, plugins } = (await import("../forge.config.ts")).default;
-  if (!packagerConfig || !plugins) throw new Error("forge config is missing sections");
-  return { packagerConfig, plugins };
+  const { packagerConfig, plugins, makers } = (await import("../forge.config.ts")).default;
+  if (!packagerConfig || !plugins || !makers) throw new Error("forge config is missing sections");
+  return { packagerConfig, plugins, makers };
 }
 
 afterEach(() => {
@@ -53,7 +63,7 @@ describe("forge.config.ts", () => {
     expect(sign.identity).toBe(identity);
     const perFile = sign.optionsForFile?.("/x/Psyche.app", { platform: "darwin" });
     expect(perFile?.hardenedRuntime).toBe(true);
-    expect(String(perFile?.entitlements)).toMatch(/apps\/desktop\/entitlements\.plist$/);
+    expect(String(perFile?.entitlements)).toMatch(/apps[\\/]desktop[\\/]entitlements\.plist$/);
     expect(config.packagerConfig.osxNotarize).toBeUndefined();
   });
 
@@ -149,5 +159,79 @@ describe("macSigningOptions", () => {
     ).toEqual({ appleId: "a@b.c", appleIdPassword: "p", teamId: "T" });
     expect(notarizeCredentials({ APPLE_API_KEY: "/k.p8", APPLE_API_KEY_ID: "K" })).toBeUndefined();
     expect(notarizeCredentials({ APPLE_ID: "a@b.c", APPLE_TEAM_ID: "T" })).toBeUndefined();
+  });
+});
+
+describe("Windows packaging", () => {
+  it("makes a Squirrel installer and a zip for win32, unsigned without credentials", async () => {
+    const config = await loadConfig({});
+    const byName = (n: string) =>
+      config.makers.find((m) => typeof m === "object" && "name" in m && m.name === n) as
+        | { configOrConfigFetcher: Record<string, unknown>; platformsToMakeOn?: string[] }
+        | undefined;
+    const squirrel = byName("squirrel");
+    expect(squirrel?.platformsToMakeOn).toEqual(["win32"]);
+    expect(squirrel?.configOrConfigFetcher).toMatchObject({
+      name: "Psyche",
+      exe: "Psyche.exe",
+      noMsi: true,
+      setupExe: expect.stringMatching(/^Psyche-\d+\.\d+\.\d+.*-Setup\.exe$/),
+      setupIcon: expect.stringMatching(/icon\.ico$/),
+    });
+    expect(squirrel?.configOrConfigFetcher.windowsSign).toBeUndefined();
+    expect(byName("zip")?.platformsToMakeOn).toContain("win32");
+    expect(config.packagerConfig.windowsSign).toBeUndefined();
+    expect(config.packagerConfig.win32metadata).toMatchObject({ OriginalFilename: "Psyche.exe" });
+    // winpty and conpty's helpers load from disk, not from inside app.asar.
+    expect(config.packagerConfig.asar).toEqual({ unpack: "{*.node,spawn-helper,*.dll,*.exe}" });
+  });
+
+  it("signs the package and the installer with a PFX when both variables are set", async () => {
+    const config = await loadConfig({
+      WINDOWS_CERTIFICATE_FILE: "C:/certs/psyche.pfx",
+      WINDOWS_CERTIFICATE_PASSWORD: "pw",
+    });
+    expect(config.packagerConfig.windowsSign).toMatchObject({
+      certificateFile: "C:/certs/psyche.pfx",
+      certificatePassword: "pw",
+      hashes: ["sha256"],
+    });
+  });
+});
+
+describe("windowsSigning", () => {
+  it("is off without credentials and with half a PFX pair", () => {
+    expect(windowsSigning({}, "m.json")).toBeUndefined();
+    expect(windowsSigning({ WINDOWS_CERTIFICATE_FILE: "a.pfx" }, "m.json")).toBeUndefined();
+    expect(
+      windowsSigning({ AZURE_TRUSTED_SIGNING_ENDPOINT: "https://eus.codesigning.azure.net" }, "m"),
+    ).toBeUndefined();
+  });
+
+  it("uses Azure Trusted Signing through signtool's dlib and its metadata file", () => {
+    const plan = windowsSigning(
+      {
+        AZURE_TRUSTED_SIGNING_ENDPOINT: "https://eus.codesigning.azure.net",
+        AZURE_TRUSTED_SIGNING_ACCOUNT: "psyche",
+        AZURE_TRUSTED_SIGNING_PROFILE: "public",
+        AZURE_TRUSTED_SIGNING_DLIB: "C:/dlib/Azure.CodeSigning.Dlib.dll",
+        WINDOWS_SIGNTOOL_PATH: "C:/sdk/signtool.exe",
+      },
+      "C:/tmp/meta.json",
+    );
+    expect(plan?.kind).toBe("azure-trusted-signing");
+    expect(plan?.options).toMatchObject({
+      signToolPath: "C:/sdk/signtool.exe",
+      signWithParams: '/v /dlib "C:/dlib/Azure.CodeSigning.Dlib.dll" /dmdf "C:/tmp/meta.json"',
+      timestampServer: "http://timestamp.acs.microsoft.com",
+    });
+    expect(plan?.azureMetadata).toEqual({
+      file: "C:/tmp/meta.json",
+      json: {
+        Endpoint: "https://eus.codesigning.azure.net",
+        CodeSigningAccountName: "psyche",
+        CertificateProfileName: "public",
+      },
+    });
   });
 });

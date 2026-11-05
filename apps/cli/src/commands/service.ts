@@ -38,7 +38,8 @@ async function waitHealthy(ctx: Ctx, want: boolean, timeoutMs: number): Promise<
 export const serviceCommands: CommandSpec[] = [
   {
     path: ["start"],
-    summary: "Install and start the Gateway service (LaunchAgent / systemd user unit)",
+    summary:
+      "Install and start the Gateway service (LaunchAgent / systemd user unit / scheduled task)",
     options: {
       psyched: { type: "string", description: "Path of the psyched executable" },
       "no-wait": { type: "boolean", description: "Do not wait for /healthz" },
