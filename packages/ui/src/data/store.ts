@@ -765,6 +765,9 @@ export class GatewayStore {
         return invalidate(s, ["nodes."]);
       case "search.sources.updated":
         return invalidate(s, ["search.sources"]);
+      case "speech.model_download":
+        // Settings → Voice and onboarding show the download's progress and then the engine.
+        return invalidate(s, ["speech.engine.status"]);
       case "search.status.updated":
         // Results refresh once a backfill or rebuild has finished, not on every progress tick.
         return invalidate(

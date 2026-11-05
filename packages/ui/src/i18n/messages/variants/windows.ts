@@ -201,6 +201,15 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.voice.engine.local": "On this PC",
   "settings.voice.engine.localHint": "Whisper runs locally; audio never leaves the PC.",
   "settings.voice.engine.system": "Windows speech",
+  "settings.voice.model.usingHelper":
+    "Dictation uses Windows speech recognition (SAPI), which often mishears names and short phrases. The speech model transcribes much better and runs on this PC.",
+  "settings.voice.model.downloadHint":
+    "A one-time download from the whisper.cpp project, checked before it is used. Audio never leaves this PC.",
+  "settings.voice.model.ready": "Whisper ({model}) on this PC",
+  "settings.voice.model.readyHint":
+    "Dictation and recordings are transcribed here; audio never leaves the PC.",
+  "settings.voice.model.crashed":
+    "The speech engine stopped unexpectedly; dictation uses Windows speech recognition until it starts again.",
   "settings.connect.finishOpened":
     "The sign-in to {name} opened in your browser on the Gateway's computer. This updates when you're done.",
   "settings.connect.openSystemSettings": "Open Windows Settings",
