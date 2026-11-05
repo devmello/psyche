@@ -1047,7 +1047,7 @@ export const settings = {
   "settings.sandbox.restart.reopen": "Quit Psyche and open it again.",
   "settings.sandbox.pc.title": "Turn on the sandbox PC",
   "settings.sandbox.pc.body":
-    "srt, the lightweight sandbox Psyche uses on a Mac, doesn't run on Windows. Here scripts, command servers and connectors Psyche makes run in the sandbox PC instead: a small Linux computer of its own, with no access to your files. Turn it on in Settings → Sandbox PC, then check again.",
+    "srt, Psyche's lightweight sandbox for commands, doesn't run on Windows. Here scripts, command servers and connectors Psyche makes run in the sandbox PC instead: a small Linux computer of its own, with no access to your files. Turn it on in Settings → Sandbox PC, then check again.",
   "settings.sandbox.pc.notReady.title": "The sandbox PC isn't ready yet",
   "settings.sandbox.pc.notReady.body":
     "It's turned on, but it isn't running yet, or the Psyche inside it is out of date. Start or update it in Settings → Sandbox PC, then check again.",
