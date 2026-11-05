@@ -202,13 +202,13 @@ changing one orphans existing shortcuts, toast settings and notification history
 | --- | --- |
 | App AppUserModelID | `com.psyche.desktop` (the app must call `app.setAppUserModelId` with it) |
 | Helper AppUserModelID | `com.psyche.helper` |
-| Helper toast activator CLSID | `{EA1B5B6E-87ED-48C1-A6C2-89101D0F9D0E}` |
+| Helper toast activator CLSID | `{B1DFC43D-98FC-44C2-9C1B-F3C21D0871C6}` |
 
 `src/main/squirrel-events.ts` handles Squirrel's events before anything else in `main.ts` starts:
 
-- `--squirrel-install`: `Psyche.lnk` in the Start menu (`%APPDATA%\Microsoft\Windows\Start Menu\Programs`) and on the desktop, both on the stub with the app's AUMID; `Psyche Helper.lnk` in the Start menu on `psyche-helper.exe` with the helper's AUMID and toast activator CLSID; and the activator's COM registration, `HKCU\Software\Classes\CLSID\{…}\LocalServer32` = `"…\psyche-helper.exe" -ToastActivated`.
-- `--squirrel-updated`: the same for the new version; the desktop shortcut only if it still exists.
-- `--squirrel-uninstall`: ends the Gateway's service host, deletes the `\Psyche\Gateway` task, ends other `Psyche.exe` and `psyche-helper.exe` processes, and removes the three shortcuts and the CLSID key. `%USERPROFILE%\.psyche` stays.
+- `--squirrel-install`: `Psyche.lnk` in the Start menu (`%APPDATA%\Microsoft\Windows\Start Menu\Programs`) and on the desktop, both on the stub with the app's AUMID; `Psyche Helper.lnk` in the Start menu on `psyche-helper.exe` with the helper's AUMID and toast activator CLSID; and the helper's toast identity as the helper itself registers it on every start (`apps/win-helper/src/notify/toast.rs`), so the first toast works before the helper ever ran: `HKCU\Software\Classes\CLSID\{…}` (`Psyche Helper toast activator`) with `LocalServer32` = `"…\psyche-helper.exe" -ToastActivated`, and `HKCU\Software\Classes\AppUserModelId\com.psyche.helper` with `DisplayName` = `Psyche` and `CustomActivator` = the CLSID.
+- `--squirrel-updated`: the same for the new version (the helper path changes with every `app-<version>`); the desktop shortcut only if it still exists. The helper keeps its versioned path rather than a copy at a fixed one, which a running helper would lock during an update; the helper rewrites `LocalServer32` itself when it starts but leaves an existing shortcut alone, which is why the hook refreshes both. Squirrel keeps the previous `app-<version>` until the next update, so a toast clicked in between still finds an executable.
+- `--squirrel-uninstall`: ends the Gateway's service host, deletes the `\Psyche\Gateway` task, ends other `Psyche.exe` and `psyche-helper.exe` processes, removes the three shortcuts, the CLSID and AppUserModelId keys and `HKCU\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\com.psyche.helper`. `%USERPROFILE%\.psyche` stays.
 
 The Gateway task `\Psyche\Gateway` (per user, at logon) runs
 `conhost.exe --headless <node.exe> <service-host.mjs> --home <PSYCHE_HOME> -- <psyched>`: the

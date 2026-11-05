@@ -1,7 +1,6 @@
-<<<<<<< HEAD
-# LF in every checkout, Windows included (git for Windows defaults core.autocrlf=true, and so does
-# actions/checkout on windows-latest). Tests compare generated files byte for byte with committed
-# ones, and sh scripts with CRLF do not run. cmd.exe needs CRLF in batch files.
+# Keep LF in every checkout, Windows included (.editorconfig, biome and the protocol codegen all
+# write LF; core.autocrlf=true would otherwise show generated files as modified on Windows, and
+# actions/checkout on windows-latest uses it). cmd.exe needs CRLF in batch files.
 * text=auto eol=lf
 *.cmd text eol=crlf
 *.bat text eol=crlf
@@ -13,12 +12,4 @@
 *.mp4 binary
 *.wav binary
 *.pdf binary
-
-=======
-# Keep LF in every checkout, Windows included (.editorconfig, biome and the protocol codegen all
-# write LF; core.autocrlf=true would otherwise show generated files as modified on Windows).
-* text=auto eol=lf
-*.cmd text eol=crlf
-*.bat text eol=crlf
->>>>>>> windows-app
 packages/protocol/CHANGES.md merge=union

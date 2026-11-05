@@ -23,6 +23,12 @@ import identity from "../../../win-helper/aumid.json" with { type: "json" };
  * makes. The identity values (AUMIDs, the helper's toast activator CLSID) are shared with the Rust
  * helper through apps/win-helper/aumid.json.
  *
+ * The helper stays at its versioned path inside app-<version> (no copy at a fixed path: a running
+ * helper would lock the copy during an update). The helper re-registers its identity whenever it
+ * starts, but creates its shortcut only when it is missing, so --squirrel-updated rewrites the
+ * shortcut target and LocalServer32 for the new version; Squirrel keeps the previous app-<version>
+ * until the next update, so a toast clicked in between still finds an executable.
+ *
  * Install layout (Squirrel, per user, no admin):
  *   %LOCALAPPDATA%\Psyche\Update.exe                     Squirrel
  *   %LOCALAPPDATA%\Psyche\Psyche.exe                     the stub that starts the newest version
@@ -86,6 +92,8 @@ export function helperExe(exe: string): string {
 }
 
 const ACTIVATOR_KEY = `HKCU\\Software\\Classes\\CLSID\\${HELPER_TOAST_CLSID}`;
+const AUMID_KEY = `HKCU\\Software\\Classes\\AppUserModelId\\${HELPER_AUMID}`;
+const NOTIFICATION_SETTINGS_KEY = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings\\${HELPER_AUMID}`;
 
 /** What an event does, as data (tests check it; runSquirrelActions carries it out). */
 export function squirrelPlan(event: SquirrelEvent, p: SquirrelPaths): SquirrelAction[] {
@@ -121,28 +129,36 @@ export function squirrelPlan(event: SquirrelEvent, p: SquirrelPaths): SquirrelAc
       cwd: win32.dirname(helper),
     },
   };
-  // COM registration of the toast activator (per user): a click on a toast starts the helper.
+  // The helper's toast identity, per user, exactly as the helper registers it on every start
+  // (apps/win-helper/src/notify/toast.rs), so the first toast works before the helper ever ran and
+  // a click on one starts the helper of the installed version: the COM activator
+  // (CLSID\{…}\LocalServer32) and the AUMID's DisplayName and CustomActivator.
+  const regAdd = (key: string, name: string | null, data: string): SquirrelAction => ({
+    kind: "run",
+    cmd: "reg.exe",
+    args: [
+      "add",
+      key,
+      ...(name === null ? ["/ve"] : ["/v", name]),
+      "/t",
+      "REG_SZ",
+      "/d",
+      data,
+      "/f",
+    ],
+  });
   const activator: SquirrelAction[] = [
-    {
-      kind: "run",
-      cmd: "reg.exe",
-      args: [
-        "add",
-        `${ACTIVATOR_KEY}\\LocalServer32`,
-        "/ve",
-        "/t",
-        "REG_SZ",
-        "/d",
-        `"${helper}" -ToastActivated`,
-        "/f",
-      ],
-    },
-    {
-      kind: "run",
-      cmd: "reg.exe",
-      args: ["add", ACTIVATOR_KEY, "/ve", "/t", "REG_SZ", "/d", identity.helper.displayName, "/f"],
-    },
+    regAdd(ACTIVATOR_KEY, null, identity.helper.activatorName),
+    regAdd(`${ACTIVATOR_KEY}\\LocalServer32`, null, `"${helper}" -ToastActivated`),
+    regAdd(AUMID_KEY, "DisplayName", identity.helper.toastDisplayName),
+    regAdd(AUMID_KEY, "CustomActivator", HELPER_TOAST_CLSID),
   ];
+  const regDelete = (key: string): SquirrelAction => ({
+    kind: "run",
+    cmd: "reg.exe",
+    args: ["delete", key, "/f"],
+    ignoreFailure: true,
+  });
   switch (event) {
     case "install":
       return [
@@ -184,12 +200,10 @@ export function squirrelPlan(event: SquirrelEvent, p: SquirrelPaths): SquirrelAc
         { kind: "remove", file: win32.join(p.startMenu, identity.app.shortcut) },
         { kind: "remove", file: win32.join(p.desktop, identity.app.shortcut) },
         { kind: "remove", file: win32.join(p.startMenu, identity.helper.shortcut) },
-        {
-          kind: "run",
-          cmd: "reg.exe",
-          args: ["delete", ACTIVATOR_KEY, "/f"],
-          ignoreFailure: true,
-        },
+        regDelete(ACTIVATOR_KEY),
+        regDelete(AUMID_KEY),
+        // What the owner chose in Settings › Notifications for the helper.
+        regDelete(NOTIFICATION_SETTINGS_KEY),
       ];
     case "obsolete":
       return [];

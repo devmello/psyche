@@ -87,6 +87,44 @@ describe("Squirrel events", () => {
       `"${HELPER}" -ToastActivated`,
       "/f",
     ]);
+    const aumidKey = "HKCU\\Software\\Classes\\AppUserModelId\\com.psyche.helper";
+    expect(reg).toContainEqual([
+      "add",
+      aumidKey,
+      "/v",
+      "DisplayName",
+      "/t",
+      "REG_SZ",
+      "/d",
+      "Psyche",
+      "/f",
+    ]);
+    expect(reg).toContainEqual([
+      "add",
+      aumidKey,
+      "/v",
+      "CustomActivator",
+      "/t",
+      "REG_SZ",
+      "/d",
+      HELPER_TOAST_CLSID,
+      "/f",
+    ]);
+  });
+
+  it("registers what the helper registers itself (apps/win-helper/src/notify/toast.rs)", () => {
+    const toast = readFileSync(
+      join(import.meta.dirname, "../../../win-helper/src/notify/toast.rs"),
+      "utf8",
+    );
+    expect(toast).toContain(`pub const AUMID: &str = "${HELPER_AUMID}";`);
+    expect(toast).toContain(
+      `pub const DISPLAY_NAME: &str = "${identity.helper.toastDisplayName}";`,
+    );
+    expect(toast).toContain(`pub const SHORTCUT_NAME: &str = "${identity.helper.shortcut}";`);
+    expect(toast).toContain(`"${identity.helper.activatorName}"`);
+    const hex = HELPER_TOAST_CLSID.slice(1, -1).replace(/-/g, "_");
+    expect(toast).toContain(`GUID::from_u128(0x${hex})`);
   });
 
   it("updated: refreshes the shortcuts for the new version, the desktop one only if it is still there", () => {
@@ -111,6 +149,14 @@ describe("Squirrel events", () => {
       `${paths.startMenu}\\Psyche Helper.lnk`,
     ]);
     expect(GATEWAY_TASK).toBe("\\Psyche\\Gateway");
+    const deleted = plan.flatMap((a) =>
+      a.kind === "run" && a.cmd === "reg.exe" ? [a.args[1]] : [],
+    );
+    expect(deleted).toEqual([
+      `HKCU\\Software\\Classes\\CLSID\\${HELPER_TOAST_CLSID}`,
+      "HKCU\\Software\\Classes\\AppUserModelId\\com.psyche.helper",
+      "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings\\com.psyche.helper",
+    ]);
     // Every other Psyche.exe and the helper end, so Squirrel can delete app-<version>.
     expect(plan).toContainEqual({
       kind: "run",
