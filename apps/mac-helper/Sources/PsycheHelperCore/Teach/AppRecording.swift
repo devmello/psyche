@@ -243,7 +243,7 @@ public enum AppTeachPolicy {
         if !matches("^[A-Za-z0-9_-]{32,}$", in: trimmed).isEmpty { return .secret }
         if !matches("\\beyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.", in: value).isEmpty { return .secret }
         if !matches("\\b(?:sk|pk|rk|ghp|xox[abp])[-_][A-Za-z0-9_-]{16,}", in: value).isEmpty { return .secret }
-        // Credentials in a URL: scheme://user:pass@host
+        // Credentials in a URL: a scheme, then user and password before an @ and the host
         if !matches("[A-Za-z][A-Za-z0-9+.-]*://[^/\\s:@]+:[^/\\s@]+@", in: value).isEmpty { return .secret }
         // A recovery phrase: 12, 15, 18, 21 or 24 short lowercase words (BIP39 shapes).
         let words = trimmed.split(whereSeparator: { $0.isWhitespace })

@@ -121,7 +121,7 @@ export function classifyTeachValue(value: string, label = ""): TeachSensitiveRea
   if (/^[A-Za-z0-9_-]{32,}$/.test(value.trim())) return "secret";
   if (/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\./.test(value)) return "secret";
   if (/\b(?:sk|pk|rk|ghp|xox[abp])[-_][A-Za-z0-9_-]{16,}/.test(value)) return "secret";
-  // Credentials in a URL: scheme://user:pass@host
+  // Credentials in a URL: a scheme, then user and password before an @ and the host
   if (/[a-z][a-z0-9+.-]*:\/\/[^/\s:@]+:[^/\s@]+@/i.test(value)) return "secret";
   // A recovery phrase: 12, 15, 18, 21 or 24 short lowercase words (BIP39 shapes).
   const words = value.trim().split(/\s+/);
