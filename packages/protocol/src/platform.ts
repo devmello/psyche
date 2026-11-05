@@ -25,7 +25,6 @@ import { join, resolve } from "node:path";
  * same name (another Gateway, or a squatter) fails with EADDRINUSE instead of sharing it.
  */
 
-/** Whether this platform's local endpoints are named pipes instead of Unix sockets. */
 /**
  * Where the packaged Linux helper lives (deb and rpm install under `/usr/lib/psyche`). The
  * Gateway's peer check accepts a `root_owned` peer only at this path, and the desktop packaging
@@ -33,6 +32,15 @@ import { join, resolve } from "node:path";
  */
 export const LINUX_PACKAGED_HELPER_PATH = "/usr/lib/psyche/resources/linux-helper/psyche-helper";
 
+/**
+ * The name (`comm`, at most 15 bytes) the Linux helper gives itself once its start-up hardening is
+ * done: descriptors closed, environment checked. Before that it still carries the name it was
+ * executed under. The Gateway's peer check requires this name, so a process that is still inside
+ * the window between `exec` and the cleanup does not pass as the helper.
+ */
+export const LINUX_HELPER_READY_COMM = "psyche-helper:1";
+
+/** Whether this platform's local endpoints are named pipes instead of Unix sockets. */
 export function usesNamedPipes(platform: NodeJS.Platform = process.platform): boolean {
   return platform === "win32";
 }

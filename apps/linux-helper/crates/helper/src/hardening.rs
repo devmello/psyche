@@ -47,6 +47,22 @@ pub fn close_fds_from(first: u32, last: u32) {
     }
 }
 
+/// The name the helper takes once its start-up hardening is done (at most 15 bytes). The
+/// Gateway's peer check requires it (`LINUX_HELPER_READY_COMM` in `packages/protocol`), so a process
+/// that is still between `exec` and `close_inherited_fds` does not pass as the helper.
+pub const READY_COMM: &str = "psyche-helper:1";
+
+/// Marks this process as past its start-up hardening by setting its name (`PR_SET_NAME`).
+/// Call it from the main thread, after the descriptors are closed and the environment checked.
+pub fn mark_ready() {
+    let mut name = [0u8; 16];
+    name[..READY_COMM.len()].copy_from_slice(READY_COMM.as_bytes());
+    // SAFETY: PR_SET_NAME reads a NUL-terminated string of at most 16 bytes from `name`.
+    unsafe {
+        libc::prctl(libc::PR_SET_NAME, name.as_ptr() as libc::c_ulong, 0, 0, 0);
+    }
+}
+
 /// The variables with which the dynamic loader loads code into a process.
 const INJECTION_VARS: [&str; 2] = ["LD_PRELOAD", "LD_AUDIT"];
 
@@ -102,6 +118,15 @@ mod tests {
         assert!(is_open(b), "the one outside it is left alone");
         close_fds_from(b as u32, b as u32);
         assert!(!is_open(b));
+    }
+
+    #[test]
+    fn the_ready_name_fits_a_comm_and_is_set() {
+        assert!(READY_COMM.len() <= 15);
+        // PR_SET_NAME names the calling thread: read this thread's comm.
+        mark_ready();
+        let comm = std::fs::read_to_string("/proc/thread-self/comm").unwrap();
+        assert_eq!(comm.trim_end(), READY_COMM);
     }
 
     #[test]

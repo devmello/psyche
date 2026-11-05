@@ -5,7 +5,7 @@ use psyche_helper::buildinfo::BuildInfo;
 use psyche_helper::capability::Registry;
 use psyche_helper::cli::{parse_args, run_info, Command};
 use psyche_helper::daemon::{Daemon, Exit};
-use psyche_helper::hardening::{close_inherited_fds, refuse_injected_libraries};
+use psyche_helper::hardening::{close_inherited_fds, mark_ready, refuse_injected_libraries};
 use psyche_helper::idle::IdleTimer;
 use psyche_helper::paths::{state_dir, ProcessEnv};
 use psyche_helper::{identity, log};
@@ -41,6 +41,8 @@ fn main() -> ExitCode {
         log(&message);
         return ExitCode::from(78);
     }
+    // Hardening is done: say so, so the Gateway can tell this from a process still starting up.
+    mark_ready();
 
     let identity = match identity::load_or_create(&state_dir(&ProcessEnv)) {
         Ok(identity) => identity,
