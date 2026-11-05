@@ -1066,6 +1066,10 @@ export function useSearchSurface(initialQuery = "", debounceMs = 200, enabled = 
         question,
         ...(ask.result ? { result: ask.result } : {}),
         onAsk: ask.ask,
+        turns: ask.turns,
+        onFollowUp: ask.followUp,
+        withPassages: ask.withPassages,
+        onAskPassages: ask.askPassages,
       }
     : undefined;
   return {

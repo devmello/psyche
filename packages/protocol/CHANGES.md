@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (cited answers, phase 3)
+
+- `memory.life.answer` params: `passages` (optional boolean: also read source passages from the local index; absent or false is the earlier facts-only behaviour, so an older client is unchanged) and `previous` (optional follow-up context: `q`, `answer`, `factIds`, `passageIds` of the turn before, read again by the Gateway under the connection's own rules and never trusted as a source).
+- `memory.life.answer` result: optional `passages` (`LifeAnswerPassage`: `id` is a search document id that opens with `search.document`, `source`, `title`, `createdAt`). In `answer`, `[n]` is the nth entry of `facts` and `[Pn]` the nth entry of `passages`. `answer` may be up to 900 characters. A claim that cites nothing it was given is dropped; nothing left is `ungrounded`.
+- `LifeFactHit.sources` (optional): every citation's source kind, without repeats; a connection that cannot open one of them is not shown the fact. `memory.life.search` follows the same rule.
+- `LifeFactHit.docIds` (optional): the search document ids of every citation, resolved at read time, at most 5; `docId` stays the first.
+
 ### v1 additive — 2026-11-04 (LAN pairing links v2 and IPv6, remote Gateway)
 
 - `pairing-link.ts`: `psyche-pair:v2` for a Gateway on the local network, with exactly `gatewayUrl` (a local-network origin only), `gatewayKey` (the 32-byte Ed25519 identity key, base64url), `certPin` (SPKI SHA-256 of the LAN certificate, base64url), `setupToken` and `hostName`. New `encodePairingLinkV2`, `parsePairingLinkAny` (v1 or v2, tagged `version`), `PairingLinkPayloadV2`, `ParsedPairingLink`, `isBase64Url32Bytes`, `PAIRING_LINK_PREFIX_V2`. `parsePairingLink` still reads v1 only (a v2 link is `unsupported_version` there), so code that predates v2 fails closed. Format: docs/design/remote-gateway-2026.md §3.4.1.
