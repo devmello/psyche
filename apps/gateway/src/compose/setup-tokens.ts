@@ -10,6 +10,7 @@ import {
   type AuditLog,
   type DeviceScope,
   encodePairingLink,
+  encodePairingLinkV2,
   type MethodResult,
   PsycheError,
 } from "@psyche/protocol";
@@ -77,7 +78,7 @@ export function setupTokenHandlers(deps: {
     "devices.setupToken.create": {
       async run(
         call: Call,
-        params: { scopes: DeviceScope[] },
+        params: { scopes: DeviceScope[]; via?: "address" | "lan" },
       ): Promise<MethodResult<"devices.setupToken.create">> {
         const { config, identity } = call.ctx;
         // The link is a secret that pairs a new device. Only the Host's own desktop shell may make
@@ -93,48 +94,91 @@ export function setupTokenHandlers(deps: {
             "Only Psyche on the Host itself can make a pairing link",
           );
         }
-        // The link carries the address other computers reach this Gateway at. Without one there
-        // is nothing to put in it, and guessing (a loopback address) would hand out a link that
-        // pairs nothing.
-        const origin = config.publicOrigin;
-        if (origin === null) {
-          throw new PsycheError(
-            "unavailable",
-            "Set gateway.publicOrigin (the Tailscale address of this Mac) before making a pairing link",
-          );
+        // Which link, and why. A link for a Tailscale (or other CA-certified) address is v1: the
+        // identity key's fingerprint is all the Client needs, because the address's own
+        // certificate is checked by the system. A link for this network is v2, and only then:
+        // the LAN certificate is self-signed, so the link must carry its SPKI pin and the full
+        // identity key, and v2 can name nothing but a local-network address (`lanHostKind`). The
+        // owner chooses (`via`); the Host never turns a link into the other kind by itself.
+        const hostName = (hostname().trim() || "Psyche").slice(0, 64);
+        const lan = params.via === "lan";
+        let gatewayUrl: string;
+        let certPin: string | null = null;
+        let makeLink: (token: string) => string;
+        if (lan) {
+          // The link names the address and the certificate the Gateway is serving right now, so
+          // LAN listening must be running (and not paused on another network).
+          const status = call.ctx.lan.status();
+          if (
+            !status.enabled ||
+            status.origin === null ||
+            status.certSpki === null ||
+            status.listening.length === 0
+          ) {
+            throw new PsycheError(
+              "unavailable",
+              "Allow computers on this network first, and make sure it is listening, before making a link for this network",
+            );
+          }
+          gatewayUrl = new URL(status.origin).origin;
+          const pin = status.certSpki;
+          certPin = pin;
+          makeLink = (token) =>
+            encodePairingLinkV2({
+              gatewayUrl,
+              gatewayKey: identity.publicKey,
+              certPin: pin,
+              setupToken: token,
+              hostName,
+            });
+        } else {
+          // The link carries the address other computers reach this Gateway at. Without one
+          // there is nothing to put in it, and guessing (a loopback address) would hand out a
+          // link that pairs nothing.
+          const origin = config.publicOrigin;
+          if (origin === null) {
+            throw new PsycheError(
+              "unavailable",
+              "Set gateway.publicOrigin (the Tailscale address of this Mac) before making a pairing link",
+            );
+          }
+          gatewayUrl = new URL(origin).origin;
+          makeLink = (token) =>
+            encodePairingLink({
+              gatewayUrl,
+              gatewayFingerprint: identity.fingerprint,
+              setupToken: token,
+              hostName,
+            });
         }
         // Everything the link needs is checked before a token row exists, so a failure leaves
         // no live token behind.
-        const hostName = (hostname().trim() || "Psyche").slice(0, 64);
-        const gatewayUrl = new URL(origin).origin;
         try {
-          encodePairingLink({
-            gatewayUrl,
-            gatewayFingerprint: identity.fingerprint,
-            setupToken: `pst_${"A".repeat(43)}`,
-            hostName,
-          });
+          makeLink(`pst_${"A".repeat(43)}`);
         } catch {
           throw new PsycheError(
             "unavailable",
-            "This Mac's address or name cannot go in a pairing link; check gateway.publicOrigin",
+            lan
+              ? "This Mac's network address or name cannot go in a pairing link"
+              : "This Mac's address or name cannot go in a pairing link; check gateway.publicOrigin",
           );
         }
         const { token, record } = createSetupToken(db, {
           scopes: params.scopes,
           createdByDeviceId: call.identity.deviceId,
+          certPin,
         });
-        const link = encodePairingLink({
-          gatewayUrl,
-          gatewayFingerprint: identity.fingerprint,
-          setupToken: token,
-          hostName,
-        });
+        const link = makeLink(token);
         try {
           await audit.append({
             kind: SETUP_TOKEN_CREATED_AUDIT_KIND,
             actor: { type: "device", deviceId: call.identity.deviceId },
-            data: { tokenId: record.id, scopes: record.scopes, expiresAt: record.expiresAt },
+            data: {
+              tokenId: record.id,
+              scopes: record.scopes,
+              expiresAt: record.expiresAt,
+              linkVersion: lan ? 2 : 1,
+            },
           });
         } catch (err) {
           // A way in nobody can audit is not handed out: the link is withheld, so the token that
@@ -149,6 +193,7 @@ export function setupTokenHandlers(deps: {
         return {
           setupToken: record,
           link,
+          version: lan ? 2 : 1,
           gatewayUrl,
           gatewayFingerprint: identity.fingerprint,
           hostName,

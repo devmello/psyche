@@ -159,7 +159,7 @@ describe("library.upload", () => {
   beforeEach(() => {
     handlers = libraryHandlers({ db, home });
   });
-  const call = (deviceId = "dev_1") => ({ identity: { deviceId } }) as never;
+  const call = (deviceId = "dev_1") => ({ identity: { deviceId }, emit: () => undefined }) as never;
   const upload = (params: unknown, deviceId?: string) =>
     (async () => handlers["library.upload"]?.run(call(deviceId), params as never))() as Promise<{
       uploadId: string;

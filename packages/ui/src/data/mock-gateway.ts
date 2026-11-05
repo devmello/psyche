@@ -30,6 +30,7 @@ import {
   type EventName,
   type EventPayload,
   encodePairingLink,
+  encodePairingLinkV2,
   type FeedbackEvent,
   type FeedPost,
   FILE_CHUNK_BYTES,
@@ -3526,14 +3527,32 @@ export class MockGateway implements GatewayClient {
       };
       this.setupTokens.unshift(setupToken);
       const gatewayFingerprint = `sha256:${"cd34".repeat(16)}`;
+      const token = `pst_${String(this.counter).padStart(43, "A")}`;
+      if (p.via === "lan") {
+        return {
+          setupToken,
+          link: encodePairingLinkV2({
+            gatewayUrl: "https://studio-mac.local:7979",
+            gatewayKey: "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
+            certPin: "CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk",
+            setupToken: token,
+            hostName: "studio-mac",
+          }),
+          version: 2,
+          gatewayUrl: "https://studio-mac.local:7979",
+          gatewayFingerprint,
+          hostName: "studio-mac",
+        };
+      }
       return {
         setupToken,
         link: encodePairingLink({
           gatewayUrl: "https://studio-mac.tail1234.ts.net",
           gatewayFingerprint,
-          setupToken: `pst_${String(this.counter).padStart(43, "A")}`,
+          setupToken: token,
           hostName: "studio-mac",
         }),
+        version: 1,
         gatewayUrl: "https://studio-mac.tail1234.ts.net",
         gatewayFingerprint,
         hostName: "studio-mac",

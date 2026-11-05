@@ -28,6 +28,7 @@ const PROBLEMS = [
   "link_bad_field",
   "link_pin_mismatch",
   "link_lan",
+  "link_not_lan",
 ] as const;
 
 /** What the field holds is a pairing link, not an address. */

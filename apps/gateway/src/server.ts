@@ -9,7 +9,14 @@ import {
 } from "node:net";
 import { join } from "node:path";
 import type { Duplex } from "node:stream";
-import { getSetting, getThread, openDb, type PsycheDb, setSetting } from "@psyche/db";
+import {
+  getSetting,
+  getThread,
+  openDb,
+  type PsycheDb,
+  revokeSetupTokensWithCertPin,
+  setSetting,
+} from "@psyche/db";
 import {
   type AgentLoop,
   type DeviceScope,
@@ -52,7 +59,7 @@ import { Idempotency } from "./idempotency.ts";
 import { loadOrCreateGatewayIdentity } from "./identity.ts";
 import { bonjourAdvertiser, type MdnsAdvertiser } from "./lan/discovery.ts";
 import type { LanInterface } from "./lan/interfaces.ts";
-import { type LanContext, type LanLimits, LanListener } from "./lan/listener.ts";
+import { type LanContext, type LanLimits, LanListener, peerLimitKey } from "./lan/listener.ts";
 import { LAN_SETTING, readLanSettings } from "./lan/settings.ts";
 import { createLogger, type Logger } from "./log.ts";
 import { allowedMapOrigins } from "./map-proxy.ts";
@@ -151,6 +158,8 @@ export interface GatewayOptions {
     hostLabel?: () => string;
     advertiser?: MdnsAdvertiser | null;
     limits?: Partial<LanLimits>;
+    /** Tests: which source addresses the LAN listener admits (see `isLanPeerAddress`). */
+    allowPeer?: (address: string) => boolean;
   };
 }
 
@@ -253,6 +262,12 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     ...(options.lan?.candidates ? { candidates: options.lan.candidates } : {}),
     ...(options.lan?.hostLabel ? { hostLabel: options.lan.hostLabel } : {}),
     ...(options.lan?.limits ? { limits: options.lan.limits } : {}),
+    ...(options.lan?.allowPeer ? { allowPeer: options.lan.allowPeer } : {}),
+    // Links made for the old certificate (v2) are void: their tokens stop working at once.
+    onCertRotated: () => {
+      const revoked = revokeSetupTokensWithCertPin(db);
+      if (revoked > 0) log.log("info", "lan links revoked with the certificate", { revoked });
+    },
   });
 
   const broker = options.broker ?? new LockedPermissionBroker();
@@ -282,7 +297,13 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>
       now().getTime(),
     ),
+    failedChallengesPrefix: new RateLimiter(limits.failedChallengesPrefixPerMinute, 60_000, () =>
+      now().getTime(),
+    ),
     lanPairings: {
+      perPrefix: new RateLimiter(limits.lanPairingsPerPrefixPerHour, 3_600_000, () =>
+        now().getTime(),
+      ),
       perIp: new RateLimiter(limits.lanPairingsPerIpPerHour, 3_600_000, () => now().getTime()),
       total: new RateLimiter(limits.lanPairingsTotalPerHour, 3_600_000, () => now().getTime()),
     },
@@ -403,6 +424,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       // gates do not apply to it. Pairing, the key binding and every rate limit still do.
       acceptUpgrade(req, socket, head, requestOrigin, {
         remoteAddress: normalizePeerAddress(req.socket.remoteAddress ?? "unknown"),
+        limitKey: peerLimitKey(normalizePeerAddress(req.socket.remoteAddress ?? "unknown")),
         remoteLoopback: false,
         forwarded: false,
         claimedIdentity: null,
@@ -451,7 +473,11 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     socket: Duplex,
     head: Buffer,
     requestOrigin: string | null,
-    peer: ReturnType<typeof resolvePeer> & { lan?: true; host?: string | null },
+    peer: ReturnType<typeof resolvePeer> & {
+      lan?: true;
+      host?: string | null;
+      limitKey?: string;
+    },
   ) => {
     wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
       const conn = new Connection(
@@ -462,7 +488,13 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
           remoteAddress: peer.remoteAddress,
           origin: requestOrigin,
           claimedIdentity: peer.claimedIdentity,
-          ...(peer.lan === true ? { lan: true as const, host: peer.host ?? null } : {}),
+          ...(peer.lan === true
+            ? {
+                lan: true as const,
+                host: peer.host ?? null,
+                ...(peer.limitKey === undefined ? {} : { limitKey: peer.limitKey }),
+              }
+            : {}),
         },
         {
           send: (f) => ws.readyState === ws.OPEN && ws.send(f),
@@ -474,7 +506,11 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       connections.add(conn);
       // A LAN socket that has not finished `connect` can be closed or evicted (lan/listener.ts).
       if (peer.lan === true) {
-        lan.bindAuth(socket, () => conn.phase === "paired" || conn.phase === "pending");
+        lan.bindAuth(
+          socket,
+          () => conn.phase === "paired",
+          () => conn.phase === "pending",
+        );
       }
       ws.on("message", (data, isBinary) => {
         if (isBinary) {
