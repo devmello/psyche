@@ -4,8 +4,8 @@ use crate::dictation::policy::MAX_CHARS;
 use crate::error::Permission;
 use crate::speech::longform::{MAX_FILE_DURATION_MS, MAX_PATH_LENGTH};
 use crate::speech::params::{
-    CHANNEL_RANGE, DEFAULT_MAX_DURATION_MS, MAX_DURATION_MS, MAX_PUSH_BYTES, MAX_STREAM_ID_LENGTH, MAX_VOCABULARY_ENTRIES,
-    MAX_VOCABULARY_ENTRY_LENGTH, MIN_DURATION_MS, SAMPLE_RATE_RANGE,
+    CHANNEL_RANGE, DEFAULT_MAX_DURATION_MS, MAX_DURATION_MS, MAX_PUSH_BYTES, MAX_STREAM_ID_LENGTH,
+    MAX_VOCABULARY_ENTRIES, MAX_VOCABULARY_ENTRY_LENGTH, MIN_DURATION_MS, SAMPLE_RATE_RANGE,
 };
 use serde_json::{Map, Value, json};
 
@@ -73,8 +73,15 @@ impl CapabilitySpec {
 pub(crate) mod schema {
     use super::*;
 
-    pub fn object(properties: Vec<(&str, Value)>, required: &[&str], description: Option<&str>) -> Value {
-        let props: Map<String, Value> = properties.into_iter().map(|(k, v)| (k.to_string(), v)).collect();
+    pub fn object(
+        properties: Vec<(&str, Value)>,
+        required: &[&str],
+        description: Option<&str>,
+    ) -> Value {
+        let props: Map<String, Value> = properties
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v))
+            .collect();
         let mut o = json!({ "type": "object", "properties": props, "additionalProperties": false });
         if !required.is_empty() {
             let mut r: Vec<&str> = required.to_vec();
@@ -87,7 +94,11 @@ pub(crate) mod schema {
         o
     }
 
-    pub fn string(description: Option<&str>, enum_values: Option<&[&str]>, max_length: Option<usize>) -> Value {
+    pub fn string(
+        description: Option<&str>,
+        enum_values: Option<&[&str]>,
+        max_length: Option<usize>,
+    ) -> Value {
         let mut o = json!({ "type": "string" });
         if let Some(d) = description {
             o["description"] = json!(d);
@@ -141,14 +152,45 @@ const KEYS: &[&str] = &["fn", "rightOption", "rightCommand"];
 pub fn specs() -> Vec<CapabilitySpec> {
     use schema::*;
     let vocabulary = || {
-        array(string(None, None, Some(MAX_VOCABULARY_ENTRY_LENGTH)), Some("Custom vocabulary (names, terms)"), Some(MAX_VOCABULARY_ENTRIES))
+        array(
+            string(None, None, Some(MAX_VOCABULARY_ENTRY_LENGTH)),
+            Some("Custom vocabulary (names, terms)"),
+            Some(MAX_VOCABULARY_ENTRIES),
+        )
     };
-    let stream_id = || string(Some("Stream id: the invocationId of the speech.transcribe_stream call"), None, Some(MAX_STREAM_ID_LENGTH));
+    let stream_id = || {
+        string(
+            Some("Stream id: the invocationId of the speech.transcribe_stream call"),
+            None,
+            Some(MAX_STREAM_ID_LENGTH),
+        )
+    };
     let format = object(
         vec![
-            ("encoding", string(Some("PCM sample encoding (little-endian, interleaved)"), Some(&["pcm_s16le", "pcm_f32le"]), None)),
-            ("sampleRate", integer(Some("Hz"), Some(*SAMPLE_RATE_RANGE.start() as i64), Some(*SAMPLE_RATE_RANGE.end() as i64))),
-            ("channels", integer(None, Some(*CHANNEL_RANGE.start() as i64), Some(*CHANNEL_RANGE.end() as i64))),
+            (
+                "encoding",
+                string(
+                    Some("PCM sample encoding (little-endian, interleaved)"),
+                    Some(&["pcm_s16le", "pcm_f32le"]),
+                    None,
+                ),
+            ),
+            (
+                "sampleRate",
+                integer(
+                    Some("Hz"),
+                    Some(*SAMPLE_RATE_RANGE.start() as i64),
+                    Some(*SAMPLE_RATE_RANGE.end() as i64),
+                ),
+            ),
+            (
+                "channels",
+                integer(
+                    None,
+                    Some(*CHANNEL_RANGE.start() as i64),
+                    Some(*CHANNEL_RANGE.end() as i64),
+                ),
+            ),
         ],
         &["encoding", "sampleRate", "channels"],
         Some("Pushed audio format (source \"push\" only)"),
@@ -332,11 +374,21 @@ mod tests {
         assert_eq!(insert["additionalProperties"], json!(false));
         let watch = &s[2].input_schema;
         assert_eq!(watch["properties"]["keys"]["maxItems"], json!(2));
-        assert_eq!(watch["properties"]["keys"]["items"]["required"], json!(["key", "role"]));
-        assert_eq!(s[5].input_schema["properties"]["data"]["maxLength"], json!(699_052));
+        assert_eq!(
+            watch["properties"]["keys"]["items"]["required"],
+            json!(["key", "role"])
+        );
+        assert_eq!(
+            s[5].input_schema["properties"]["data"]["maxLength"],
+            json!(699_052)
+        );
         assert_eq!(s[5].input_schema["required"], json!(["data", "streamId"]));
         assert_eq!(s[4].manifest_entry()["targetKind"], json!("path"));
-        assert!(s.iter().filter(|c| c.streaming).map(|c| c.name).eq(["dictation.watch", "speech.transcribe_stream", "speech.transcribe_file"]));
+        assert!(s.iter().filter(|c| c.streaming).map(|c| c.name).eq([
+            "dictation.watch",
+            "speech.transcribe_stream",
+            "speech.transcribe_file"
+        ]));
         assert_eq!(s[1].receipt_kind, Some("dictation"));
         assert_eq!(s[1].side_effect, SideEffect::Write);
     }

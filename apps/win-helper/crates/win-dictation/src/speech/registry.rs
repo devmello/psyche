@@ -15,29 +15,61 @@ pub mod errors {
     use super::*;
 
     pub fn microphone_busy() -> CapError {
-        CapError::new(ErrorCode::Conflict, "microphone_busy", "Another speech stream is already using the microphone")
+        CapError::new(
+            ErrorCode::Conflict,
+            "microphone_busy",
+            "Another speech stream is already using the microphone",
+        )
     }
     pub fn stream_exists(id: &str) -> CapError {
-        CapError::new(ErrorCode::Conflict, "stream_exists", "A speech stream with this id is already running").with_detail("streamId", id)
+        CapError::new(
+            ErrorCode::Conflict,
+            "stream_exists",
+            "A speech stream with this id is already running",
+        )
+        .with_detail("streamId", id)
     }
     pub fn too_many_streams() -> CapError {
-        CapError::new(ErrorCode::RateLimited, "too_many_streams", "Too many speech streams are running").retryable()
+        CapError::new(
+            ErrorCode::RateLimited,
+            "too_many_streams",
+            "Too many speech streams are running",
+        )
+        .retryable()
     }
     /// Retryable: a push can race the start of its `speech.transcribe_stream` invocation.
     pub fn stream_not_found(id: &str) -> CapError {
-        CapError::new(ErrorCode::NotFound, "stream_not_found", "No active speech stream with this id").with_detail("streamId", id).retryable()
+        CapError::new(
+            ErrorCode::NotFound,
+            "stream_not_found",
+            "No active speech stream with this id",
+        )
+        .with_detail("streamId", id)
+        .retryable()
     }
     pub fn not_push_stream() -> CapError {
-        CapError::new(ErrorCode::Conflict, "not_push_stream", "This speech stream reads the microphone; it does not accept pushed audio")
+        CapError::new(
+            ErrorCode::Conflict,
+            "not_push_stream",
+            "This speech stream reads the microphone; it does not accept pushed audio",
+        )
     }
     pub fn stream_finished() -> CapError {
-        CapError::new(ErrorCode::Conflict, "stream_finished", "This speech stream no longer accepts audio")
+        CapError::new(
+            ErrorCode::Conflict,
+            "stream_finished",
+            "This speech stream no longer accepts audio",
+        )
     }
     pub fn push_buffer_full(buffered: usize, limit: usize) -> CapError {
-        CapError::new(ErrorCode::RateLimited, "push_buffer_full", "Pushed audio is arriving faster than it is transcribed; retry shortly")
-            .with_detail("bufferedBytes", buffered)
-            .with_detail("limitBytes", limit)
-            .retryable()
+        CapError::new(
+            ErrorCode::RateLimited,
+            "push_buffer_full",
+            "Pushed audio is arriving faster than it is transcribed; retry shortly",
+        )
+        .with_detail("bufferedBytes", buffered)
+        .with_detail("limitBytes", limit)
+        .retryable()
     }
 }
 
@@ -74,7 +106,11 @@ pub struct PushBuffer {
 
 impl PushBuffer {
     pub fn new(limit: usize) -> Self {
-        PushBuffer { limit: limit.max(1), state: Mutex::new(PushState::default()), cv: Condvar::new() }
+        PushBuffer {
+            limit: limit.max(1),
+            state: Mutex::new(PushState::default()),
+            cv: Condvar::new(),
+        }
     }
 
     pub fn buffered(&self) -> usize {
@@ -97,7 +133,10 @@ impl PushBuffer {
             return Err(PushError::Finished);
         }
         if !data.is_empty() && s.buffered + data.len() > self.limit {
-            return Err(PushError::Overflow { buffered: s.buffered, limit: self.limit });
+            return Err(PushError::Overflow {
+                buffered: s.buffered,
+                limit: self.limit,
+            });
         }
         if !data.is_empty() {
             s.total += data.len();
@@ -138,7 +177,10 @@ impl PushBuffer {
             if s.finished {
                 return Next::Ended;
             }
-            let (g, t) = self.cv.wait_timeout(s, timeout).unwrap_or_else(|e| e.into_inner());
+            let (g, t) = self
+                .cv
+                .wait_timeout(s, timeout)
+                .unwrap_or_else(|e| e.into_inner());
             s = g;
             if t.timed_out() && s.queue.is_empty() && !s.finished {
                 return Next::Timeout;
@@ -160,7 +202,10 @@ pub struct Handle {
 
 impl std::fmt::Debug for Handle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Handle").field("id", &self.id).field("source", &self.source).finish_non_exhaustive()
+        f.debug_struct("Handle")
+            .field("id", &self.id)
+            .field("source", &self.source)
+            .finish_non_exhaustive()
     }
 }
 
@@ -213,26 +258,41 @@ impl Default for Registry {
 
 impl Registry {
     pub fn new(max_streams: usize) -> Self {
-        Registry { max_streams: max_streams.max(1), streams: Mutex::new(HashMap::new()) }
+        Registry {
+            max_streams: max_streams.max(1),
+            streams: Mutex::new(HashMap::new()),
+        }
     }
 
     pub fn register(&self, id: &str, source: SpeechSource) -> Result<Arc<Handle>, CapError> {
         self.register_with_limit(id, source, PUSH_BUFFER_LIMIT_BYTES)
     }
 
-    pub fn register_with_limit(&self, id: &str, source: SpeechSource, push_limit: usize) -> Result<Arc<Handle>, CapError> {
+    pub fn register_with_limit(
+        &self,
+        id: &str,
+        source: SpeechSource,
+        push_limit: usize,
+    ) -> Result<Arc<Handle>, CapError> {
         let mut m = lock(&self.streams);
         if m.contains_key(id) {
             return Err(errors::stream_exists(id));
         }
-        if source == SpeechSource::Microphone && m.values().any(|h| h.source == SpeechSource::Microphone) {
+        if source == SpeechSource::Microphone
+            && m.values().any(|h| h.source == SpeechSource::Microphone)
+        {
             return Err(errors::microphone_busy());
         }
         if m.len() >= self.max_streams {
             return Err(errors::too_many_streams());
         }
         let push = (source == SpeechSource::Push).then(|| Arc::new(PushBuffer::new(push_limit)));
-        let h = Arc::new(Handle { id: id.to_string(), source, push, stop: Mutex::new((false, None)) });
+        let h = Arc::new(Handle {
+            id: id.to_string(),
+            source,
+            push,
+            stop: Mutex::new((false, None)),
+        });
         m.insert(id.to_string(), h.clone());
         Ok(h)
     }
@@ -250,12 +310,16 @@ impl Registry {
     }
 
     pub fn microphone_busy(&self) -> bool {
-        lock(&self.streams).values().any(|h| h.source == SpeechSource::Microphone)
+        lock(&self.streams)
+            .values()
+            .any(|h| h.source == SpeechSource::Microphone)
     }
 
     /// `speech.audio_push`: returns the unconsumed byte count after the push.
     pub fn push(&self, id: &str, audio: &[u8], r#final: bool) -> Result<usize, CapError> {
-        let h = self.handle(id).ok_or_else(|| errors::stream_not_found(id))?;
+        let h = self
+            .handle(id)
+            .ok_or_else(|| errors::stream_not_found(id))?;
         let buf = h.push.as_ref().ok_or_else(errors::not_push_stream)?;
         buf.push(audio, r#final).map_err(|e| match e {
             PushError::Finished => errors::stream_finished(),
@@ -265,7 +329,9 @@ impl Registry {
 
     /// `speech.stop`.
     pub fn stop(&self, id: &str) -> Result<(), CapError> {
-        self.handle(id).ok_or_else(|| errors::stream_not_found(id))?.request_stop();
+        self.handle(id)
+            .ok_or_else(|| errors::stream_not_found(id))?
+            .request_stop();
         Ok(())
     }
 }
@@ -291,7 +357,13 @@ mod tests {
     fn orders_finishes_and_backpressure() {
         let b = PushBuffer::new(10);
         assert_eq!(b.push(&[1, 2, 3], false), Ok(3));
-        assert_eq!(b.push(&[4; 8], false), Err(PushError::Overflow { buffered: 3, limit: 10 }));
+        assert_eq!(
+            b.push(&[4; 8], false),
+            Err(PushError::Overflow {
+                buffered: 3,
+                limit: 10
+            })
+        );
         assert_eq!(b.push(&[4, 5], true), Ok(5));
         assert_eq!(b.push(&[6], false), Err(PushError::Finished));
         assert_eq!(b.next(Duration::from_millis(1)), Next::Chunk(vec![1, 2, 3]));
@@ -311,7 +383,11 @@ mod tests {
         assert_eq!(t.join().unwrap(), Next::Chunk(vec![9]));
         b.push(&[1], false).unwrap();
         b.cancel();
-        assert_eq!(b.next(Duration::from_millis(1)), Next::Ended, "cancel drops what was queued");
+        assert_eq!(
+            b.next(Duration::from_millis(1)),
+            Next::Ended,
+            "cancel drops what was queued"
+        );
         assert_eq!(b.buffered(), 0);
     }
 
@@ -319,10 +395,21 @@ mod tests {
     fn one_microphone_at_a_time_and_a_stream_cap() {
         let r = Registry::new(2);
         let _m = r.register("a", SpeechSource::Microphone).unwrap();
-        assert_eq!(r.register("b", SpeechSource::Microphone).unwrap_err().reason, "microphone_busy");
-        assert_eq!(r.register("a", SpeechSource::Push).unwrap_err().reason, "stream_exists");
+        assert_eq!(
+            r.register("b", SpeechSource::Microphone)
+                .unwrap_err()
+                .reason,
+            "microphone_busy"
+        );
+        assert_eq!(
+            r.register("a", SpeechSource::Push).unwrap_err().reason,
+            "stream_exists"
+        );
         r.register("c", SpeechSource::Push).unwrap();
-        assert_eq!(r.register("d", SpeechSource::Push).unwrap_err().reason, "too_many_streams");
+        assert_eq!(
+            r.register("d", SpeechSource::Push).unwrap_err().reason,
+            "too_many_streams"
+        );
         assert!(r.microphone_busy());
         r.remove("a");
         assert!(!r.microphone_busy());
@@ -332,18 +419,34 @@ mod tests {
     #[test]
     fn push_and_stop() {
         let r = Registry::default();
-        assert_eq!(r.push("x", &[1], false).unwrap_err().reason, "stream_not_found");
+        assert_eq!(
+            r.push("x", &[1], false).unwrap_err().reason,
+            "stream_not_found"
+        );
         assert!(r.push("x", &[1], false).unwrap_err().retryable);
         let mic = r.register("m", SpeechSource::Microphone).unwrap();
-        assert_eq!(r.push("m", &[1], false).unwrap_err().reason, "not_push_stream");
+        assert_eq!(
+            r.push("m", &[1], false).unwrap_err().reason,
+            "not_push_stream"
+        );
         let h = r.register_with_limit("p", SpeechSource::Push, 4).unwrap();
         assert_eq!(r.push("p", &[1, 2], false).unwrap(), 2);
         let e = r.push("p", &[1, 2, 3], false).unwrap_err();
-        assert_eq!((e.reason.as_str(), e.details["limitBytes"].as_u64()), ("push_buffer_full", Some(4)));
+        assert_eq!(
+            (e.reason.as_str(), e.details["limitBytes"].as_u64()),
+            ("push_buffer_full", Some(4))
+        );
         r.stop("p").unwrap();
         assert!(h.is_stop_requested());
-        assert_eq!(r.push("p", &[1], false).unwrap_err().reason, "stream_finished");
-        assert_eq!(h.push.as_ref().unwrap().next(Duration::from_millis(1)), Next::Chunk(vec![1, 2]), "queued audio drains");
+        assert_eq!(
+            r.push("p", &[1], false).unwrap_err().reason,
+            "stream_finished"
+        );
+        assert_eq!(
+            h.push.as_ref().unwrap().next(Duration::from_millis(1)),
+            Next::Chunk(vec![1, 2]),
+            "queued audio drains"
+        );
         drop(mic);
     }
 
@@ -368,7 +471,10 @@ mod tests {
         h2.request_stop();
         assert_eq!(n.load(Ordering::SeqCst), 2);
         {
-            let _reg = Registration { registry: &r, handle: h2 };
+            let _reg = Registration {
+                registry: &r,
+                handle: h2,
+            };
         }
         assert!(r.handle("t").is_none());
     }

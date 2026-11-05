@@ -8,7 +8,7 @@
 
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveRegistry } from "../fixtures/secrets/derive.mjs";
 
@@ -446,7 +446,7 @@ const REF_KEYS = {
 
 function crossCheck(sc, dir, errors) {
   const P = relative(root, join(dir, "scenario.json"));
-  if (sc.id !== dir.split("/").pop()) {
+  if (sc.id !== basename(dir)) {
     errors.push(`${P}: id ${sc.id} must equal its directory name`);
   }
   for (const k of ["owner", "tools"]) {

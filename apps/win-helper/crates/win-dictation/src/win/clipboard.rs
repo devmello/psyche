@@ -2,20 +2,25 @@
 //! thread's message-only window, and the paste driver (Ctrl+V plus the WM_RENDERFORMAT wait).
 
 use super::{input, wide};
-use crate::dictation::clipboard::{CF_ENHMETAFILE, CF_UNICODETEXT, ClipData, Clipboard, PasteDriver};
+use crate::dictation::clipboard::{
+    CF_ENHMETAFILE, CF_UNICODETEXT, ClipData, Clipboard, PasteDriver,
+};
 use std::cell::RefCell;
 use std::time::{Duration, Instant};
+use windows::Win32::Foundation::GlobalFree;
 use windows::Win32::Foundation::{HANDLE, HGLOBAL, HWND};
 use windows::Win32::Graphics::Gdi::{GetEnhMetaFileBits, HENHMETAFILE, SetEnhMetaFileBits};
 use windows::Win32::System::DataExchange::{
-    CloseClipboard, EmptyClipboard, EnumClipboardFormats, GetClipboardData, GetClipboardFormatNameW, GetClipboardOwner, OpenClipboard,
-    RegisterClipboardFormatW,
+    CloseClipboard, EmptyClipboard, EnumClipboardFormats, GetClipboardData,
+    GetClipboardFormatNameW, GetClipboardOwner, OpenClipboard, RegisterClipboardFormatW,
     SetClipboardData,
 };
-use windows::Win32::Foundation::GlobalFree;
-use windows::Win32::System::Memory::{GMEM_MOVEABLE, GlobalAlloc, GlobalLock, GlobalSize, GlobalUnlock};
+use windows::Win32::System::Memory::{
+    GMEM_MOVEABLE, GlobalAlloc, GlobalLock, GlobalSize, GlobalUnlock,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
-    DispatchMessageW, MSG, MWMO_INPUTAVAILABLE, MsgWaitForMultipleObjectsEx, PM_REMOVE, PeekMessageW, QS_ALLINPUT, TranslateMessage,
+    DispatchMessageW, MSG, MWMO_INPUTAVAILABLE, MsgWaitForMultipleObjectsEx, PM_REMOVE,
+    PeekMessageW, QS_ALLINPUT, TranslateMessage,
 };
 use windows::core::PCWSTR;
 
@@ -138,7 +143,9 @@ impl Clipboard for Win32Clipboard {
         unsafe {
             match data {
                 ClipData::Memory(b) => {
-                    let Some(h) = global_from(b) else { return false };
+                    let Some(h) = global_from(b) else {
+                        return false;
+                    };
                     if SetClipboardData(format, Some(h)).is_ok() {
                         return true;
                     }
@@ -197,7 +204,14 @@ pub(crate) fn pump_until(limit: Duration, mut done: impl FnMut() -> bool) -> boo
             return false;
         }
         // SAFETY: waits for any message (sent messages are delivered during the wait).
-        unsafe { MsgWaitForMultipleObjectsEx(None, left.as_millis().min(50) as u32, QS_ALLINPUT, MWMO_INPUTAVAILABLE) };
+        unsafe {
+            MsgWaitForMultipleObjectsEx(
+                None,
+                left.as_millis().min(50) as u32,
+                QS_ALLINPUT,
+                MWMO_INPUTAVAILABLE,
+            )
+        };
     }
 }
 

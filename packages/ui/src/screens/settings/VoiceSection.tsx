@@ -5,6 +5,7 @@ import { t } from "../../i18n/core.ts";
 import { isWindows } from "../../lib/platform.ts";
 import { readVoiceSettings, VOICE_KEYS } from "../../voice/settings.ts";
 import { type ShortcutCheck, ShortcutRecorder, shortcutText } from "./ShortcutRecorder.tsx";
+import { SpeechModelGroup } from "./SpeechModel.tsx";
 import {
   Advanced,
   bool,
@@ -331,6 +332,7 @@ export function VoicePanel({
             ]}
           />
         </Group>
+        <SpeechModelGroup />
         {system ? (
           <Group title={t("settings.voice.anyApp")}>
             <SwitchField

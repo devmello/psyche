@@ -18,7 +18,10 @@ use crate::win::{self, Com};
 use crate::{Invocation, decode};
 use engine::{Availability, EngineKind, best_locale, select};
 use longform::{CHUNK_MS, Merger, OVERLAP_MS, Roots, TranscribeFileParams, plan};
-use params::{AudioPushParams, PcmFormat, SpeechPreset, SpeechSource, StreamIdParams, TranscribeRequest, TranscribeStreamParams, validate_locale};
+use params::{
+    AudioPushParams, PcmFormat, SpeechPreset, SpeechSource, StreamIdParams, TranscribeRequest,
+    TranscribeStreamParams, validate_locale,
+};
 use pcm::{FrameAligner, ToEngine};
 use registry::{Handle, Next, Registration, Registry};
 use serde::Deserialize;
@@ -38,7 +41,10 @@ struct State {
 
 fn state() -> &'static State {
     static S: OnceLock<State> = OnceLock::new();
-    S.get_or_init(|| State { registry: Registry::default(), timings: Timings::default() })
+    S.get_or_init(|| State {
+        registry: Registry::default(),
+        timings: Timings::default(),
+    })
 }
 
 /// The PC's locale (`GetUserDefaultLocaleName`), the mac's `Locale.current`.
@@ -46,11 +52,19 @@ pub fn default_locale() -> String {
     let mut buf = [0u16; 85];
     // SAFETY: LOCALE_NAME_MAX_LENGTH buffer.
     let n = unsafe { windows::Win32::Globalization::GetUserDefaultLocaleName(&mut buf) };
-    if n > 1 { String::from_utf16_lossy(&buf[..n as usize - 1]) } else { "en-US".into() }
+    if n > 1 {
+        String::from_utf16_lossy(&buf[..n as usize - 1])
+    } else {
+        "en-US".into()
+    }
 }
 
 fn home_region() -> Option<String> {
-    default_locale().rsplit('-').next().filter(|r| r.len() == 2).map(str::to_string)
+    default_locale()
+        .rsplit('-')
+        .next()
+        .filter(|r| r.len() == 2)
+        .map(str::to_string)
 }
 
 /// Availability of every engine for one locale, plus the SAPI recognizer that serves it.
@@ -67,13 +81,20 @@ fn probe(locale: Option<&str>) -> Probe {
     let region = home_region();
     let topic_languages = win::winrt_speech::topic_languages();
     let recognizers = sapi::recognizers();
-    let sapi_languages: Vec<String> = recognizers.iter().flat_map(|r| r.languages.first().cloned()).collect();
+    let sapi_languages: Vec<String> = recognizers
+        .iter()
+        .flat_map(|r| r.languages.first().cloned())
+        .collect();
     let windows_speech_language = best_locale(&requested, &topic_languages, region.as_deref());
     let sapi_language = best_locale(&requested, &sapi_languages, region.as_deref());
     let sapi = sapi_language.as_deref().and_then(sapi::recognizer_for);
     Probe {
         requested,
-        availability: Availability { windows_speech_language, online_speech: win::privacy::online_speech_status() == "granted", sapi_language },
+        availability: Availability {
+            windows_speech_language,
+            online_speech: win::privacy::online_speech_status() == "granted",
+            sapi_language,
+        },
         sapi,
         topic_languages,
         sapi_languages,
@@ -111,7 +132,13 @@ fn gate(total: &mut u64, n: u64, max_frames: u64) -> (u64, bool) {
     }
 }
 
-fn start_sapi(req: &TranscribeRequest, rec: &Recognizer, language: &str, handle: &Arc<Handle>, tx: Sender<Msg>) -> Result<Running, CapError> {
+fn start_sapi(
+    req: &TranscribeRequest,
+    rec: &Recognizer,
+    language: &str,
+    handle: &Arc<Handle>,
+    tx: Sender<Msg>,
+) -> Result<Running, CapError> {
     let feed = Feed::new();
     let hit_limit = Arc::new(AtomicBool::new(false));
     let audio_ms = Arc::new(AtomicU64::new(0));
@@ -123,7 +150,13 @@ fn start_sapi(req: &TranscribeRequest, rec: &Recognizer, language: &str, handle:
                 return Err(CapError::internal("push stream without buffer"));
             };
             let max_frames = req.max_duration_ms * fmt.sample_rate as u64 / 1000;
-            let (feed, tx, hit, ms, cancelled) = (feed.clone(), tx.clone(), hit_limit.clone(), audio_ms.clone(), cancelled.clone());
+            let (feed, tx, hit, ms, cancelled) = (
+                feed.clone(),
+                tx.clone(),
+                hit_limit.clone(),
+                audio_ms.clone(),
+                cancelled.clone(),
+            );
             let buf2 = buf.clone();
             std::thread::Builder::new()
                 .name("psyche-speech-push".into())
@@ -136,7 +169,8 @@ fn start_sapi(req: &TranscribeRequest, rec: &Recognizer, language: &str, handle:
                         match buf.next(Duration::from_millis(200)) {
                             Next::Chunk(chunk) => {
                                 let whole = aligner.append(&chunk);
-                                let (pass, limit) = gate(&mut total, (whole.len() / bpf) as u64, max_frames);
+                                let (pass, limit) =
+                                    gate(&mut total, (whole.len() / bpf) as u64, max_frames);
                                 feed.write(&conv.push_bytes(&whole[..pass as usize * bpf]));
                                 ms.store(total * 1000 / fmt.sample_rate as u64, Ordering::SeqCst);
                                 if limit {
@@ -173,9 +207,20 @@ fn start_sapi(req: &TranscribeRequest, rec: &Recognizer, language: &str, handle:
                 move |samples, fmt| {
                     let ch = fmt.channels as usize;
                     let (c, total) = conv.get_or_insert_with(|| {
-                        (ToEngine::new(PcmFormat { encoding: params::PcmEncoding::F32le, sample_rate: fmt.rate, channels: fmt.channels }), 0)
+                        (
+                            ToEngine::new(PcmFormat {
+                                encoding: params::PcmEncoding::F32le,
+                                sample_rate: fmt.rate,
+                                channels: fmt.channels,
+                            }),
+                            0,
+                        )
                     });
-                    let (pass, limit) = gate(total, (samples.len() / ch) as u64, max_ms * fmt.rate as u64 / 1000);
+                    let (pass, limit) = gate(
+                        total,
+                        (samples.len() / ch) as u64,
+                        max_ms * fmt.rate as u64 / 1000,
+                    );
                     feed_a.write(&c.push_samples(&samples[..pass as usize * ch]));
                     ms.store(*total * 1000 / fmt.rate as u64, Ordering::SeqCst);
                     if limit {
@@ -193,7 +238,10 @@ fn start_sapi(req: &TranscribeRequest, rec: &Recognizer, language: &str, handle:
             let stopper = capture.stopper();
             let s2 = stopper.clone();
             handle.set_stop_handler(move || stopper.store(true, Ordering::SeqCst));
-            (Box::new(move || s2.store(true, Ordering::SeqCst)), Some(Box::new(capture)))
+            (
+                Box::new(move || s2.store(true, Ordering::SeqCst)),
+                Some(Box::new(capture)),
+            )
         }
     };
 
@@ -205,9 +253,15 @@ fn start_sapi(req: &TranscribeRequest, rec: &Recognizer, language: &str, handle:
         .spawn(move || {
             let _com = Com::init();
             let tx2 = tx.clone();
-            let r = sapi::recognize(&token, &feed_s, volatile, &mut |s| {
-                let _ = tx2.send(Msg::Segment(s));
-            }, &|| cancelled_s.load(Ordering::SeqCst));
+            let r = sapi::recognize(
+                &token,
+                &feed_s,
+                volatile,
+                &mut |s| {
+                    let _ = tx2.send(Msg::Segment(s));
+                },
+                &|| cancelled_s.load(Ordering::SeqCst),
+            );
             let _ = tx.send(Msg::Finished(r));
         })
         .map_err(|e| CapError::internal(format!("cannot start the recognizer: {e}")))?;
@@ -227,14 +281,29 @@ fn start_sapi(req: &TranscribeRequest, rec: &Recognizer, language: &str, handle:
     })
 }
 
-fn start_winrt(req: &TranscribeRequest, language: &str, handle: &Arc<Handle>, tx: Sender<Msg>) -> Result<Running, CapError> {
+fn start_winrt(
+    req: &TranscribeRequest,
+    language: &str,
+    handle: &Arc<Handle>,
+    tx: Sender<Msg>,
+) -> Result<Running, CapError> {
     let hit_limit = Arc::new(AtomicBool::new(false));
     let audio_ms = Arc::new(AtomicU64::new(0));
     let stop = Arc::new(AtomicBool::new(false));
     let cancelled = Arc::new(AtomicBool::new(false));
     let (ready_tx, ready_rx) = channel::<Result<String, CapError>>();
-    let (lang, volatile, short, max_ms) = (language.to_string(), req.volatile, req.preset == SpeechPreset::Short, req.max_duration_ms);
-    let (hit, ms, stop_t, cancel_t) = (hit_limit.clone(), audio_ms.clone(), stop.clone(), cancelled.clone());
+    let (lang, volatile, short, max_ms) = (
+        language.to_string(),
+        req.volatile,
+        req.preset == SpeechPreset::Short,
+        req.max_duration_ms,
+    );
+    let (hit, ms, stop_t, cancel_t) = (
+        hit_limit.clone(),
+        audio_ms.clone(),
+        stop.clone(),
+        cancelled.clone(),
+    );
     std::thread::Builder::new()
         .name("psyche-winrt-speech".into())
         .spawn(move || {
@@ -256,7 +325,10 @@ fn start_winrt(req: &TranscribeRequest, language: &str, handle: &Arc<Handle>, tx
                     }
                     Ok(win::winrt_speech::Event::Completed(r)) => {
                         if !stopping {
-                            ms.store(session.started.elapsed().as_millis() as u64, Ordering::SeqCst);
+                            ms.store(
+                                session.started.elapsed().as_millis() as u64,
+                                Ordering::SeqCst,
+                            );
                             let _ = tx.send(Msg::InputEnded);
                         }
                         // Results raised before Completed are already queued ahead of it.
@@ -286,7 +358,9 @@ fn start_winrt(req: &TranscribeRequest, language: &str, handle: &Arc<Handle>, tx
             }
         })
         .map_err(|e| CapError::internal(format!("cannot start Windows speech: {e}")))?;
-    let language = ready_rx.recv().map_err(|_| CapError::internal("Windows speech thread exited"))??;
+    let language = ready_rx
+        .recv()
+        .map_err(|_| CapError::internal("Windows speech thread exited"))??;
     let s = stop.clone();
     handle.set_stop_handler(move || s.store(true, Ordering::SeqCst));
     Ok(Running {
@@ -309,7 +383,12 @@ struct Driven {
 
 /// Emits segments as they arrive and finishes when the engine does (the mac's
 /// `engine.transcribe` + `StreamState`).
-fn drive(rx: Receiver<Msg>, inv: &Invocation, started: Instant, cancel: &mut Option<Box<dyn FnOnce()>>) -> Result<Driven, CapError> {
+fn drive(
+    rx: Receiver<Msg>,
+    inv: &Invocation,
+    started: Instant,
+    cancel: &mut Option<Box<dyn FnOnce()>>,
+) -> Result<Driven, CapError> {
     let mut acc = Accumulator::default();
     let mut first: Option<u64> = None;
     let mut input_ended: Option<Instant> = None;
@@ -342,7 +421,11 @@ fn drive(rx: Receiver<Msg>, inv: &Invocation, started: Instant, cancel: &mut Opt
         }
     }
     acc.promote_volatile();
-    Ok(Driven { transcript: acc, first_result_ms: first, finalize_ms: input_ended.map(|t| t.elapsed().as_millis() as u64) })
+    Ok(Driven {
+        transcript: acc,
+        first_result_ms: first,
+        finalize_ms: input_ended.map(|t| t.elapsed().as_millis() as u64),
+    })
 }
 
 /// `speech.transcribe_stream`: source → duration gate → engine → events, with a summary result.
@@ -353,21 +436,59 @@ pub fn speech_transcribe_stream(params: Value, inv: &Invocation) -> Result<Value
     }
     let st = state();
     let handle = st.registry.register(inv.id, req.source)?;
-    let _registration = Registration { registry: &st.registry, handle: handle.clone() };
+    let _registration = Registration {
+        registry: &st.registry,
+        handle: handle.clone(),
+    };
     let _com = Com::init();
     let p = probe(req.locale.as_deref());
-    let kind = select(req.source, &p.availability, req.engine, &req.vocabulary, req.preset)?;
+    let kind = select(
+        req.source,
+        &p.availability,
+        req.engine,
+        &req.vocabulary,
+        req.preset,
+    )?;
     let (tx, rx) = channel();
     let running = match kind {
-        EngineKind::WindowsSpeech => start_winrt(&req, p.availability.language(kind).unwrap_or(&p.requested), &handle, tx)?,
+        EngineKind::WindowsSpeech => start_winrt(
+            &req,
+            p.availability.language(kind).unwrap_or(&p.requested),
+            &handle,
+            tx,
+        )?,
         EngineKind::Sapi => {
-            let rec = p.sapi.as_ref().ok_or_else(|| CapError::unavailable("no_speech_engine", "No on-device speech engine supports this locale on this PC"))?;
-            start_sapi(&req, rec, p.availability.language(kind).unwrap_or(&p.requested), &handle, tx)?
+            let rec = p.sapi.as_ref().ok_or_else(|| {
+                CapError::unavailable(
+                    "no_speech_engine",
+                    "No on-device speech engine supports this locale on this PC",
+                )
+            })?;
+            start_sapi(
+                &req,
+                rec,
+                p.availability.language(kind).unwrap_or(&p.requested),
+                &handle,
+                tx,
+            )?
         }
     };
-    let Running { kind, language, hit_limit, audio_ms, cancel, _keep } = running;
+    let Running {
+        kind,
+        language,
+        hit_limit,
+        audio_ms,
+        cancel,
+        _keep,
+    } = running;
     let started = Instant::now();
-    inv.emit(started_event(&handle.id, kind, &language, req.source, req.format.as_ref()));
+    inv.emit(started_event(
+        &handle.id,
+        kind,
+        &language,
+        req.source,
+        req.format.as_ref(),
+    ));
     let mut cancel = Some(cancel);
     let driven = drive(rx, inv, started, &mut cancel);
     let driven = match driven {
@@ -393,7 +514,14 @@ pub fn speech_transcribe_stream(params: Value, inv: &Invocation) -> Result<Value
     } else {
         StopReason::EndOfInput
     };
-    let mut summary = driven.transcript.summary(&handle.id, kind, &language, reason, audio_ms.load(Ordering::SeqCst), driven.first_result_ms);
+    let mut summary = driven.transcript.summary(
+        &handle.id,
+        kind,
+        &language,
+        reason,
+        audio_ms.load(Ordering::SeqCst),
+        driven.first_result_ms,
+    );
     summary["preset"] = json!(req.preset.as_str());
     if let Some(f) = driven.finalize_ms {
         summary["finalizeMs"] = json!(f);
@@ -427,7 +555,11 @@ pub fn speech_status(params: Value) -> Result<Value, CapError> {
     let _com = Com::init();
     let p = probe(locale.as_deref());
     let a = &p.availability;
-    let pick = |source, vocab: &[String], preset| select(source, a, None, vocab, preset).ok().map(|k| k.as_str());
+    let pick = |source, vocab: &[String], preset| {
+        select(source, a, None, vocab, preset)
+            .ok()
+            .map(|k| k.as_str())
+    };
     let st = state();
     let mut sorted_topic = p.topic_languages.clone();
     sorted_topic.sort();
@@ -481,16 +613,36 @@ pub fn speech_transcribe_file(params: Value, inv: &Invocation) -> Result<Value, 
     let req = decode::<TranscribeFileParams>(params)?.validated()?;
     let path = Roots::load().resolve(&req.path)?;
     if !path.is_file() {
-        return Err(CapError::new(ErrorCode::NotFound, "not_found", format!("{} is not a file", req.path)).with_detail("path", req.path.clone()));
+        return Err(CapError::new(
+            ErrorCode::NotFound,
+            "not_found",
+            format!("{} is not a file", req.path),
+        )
+        .with_detail("path", req.path.clone()));
     }
     let _com = Com::init();
     let file = win::media::open(&path)?;
     let audio_ms = file.duration_ms;
     req.check_duration(audio_ms)?;
     let p = probe(req.locale.as_deref());
-    select(SpeechSource::Push, &p.availability, None, &req.vocabulary, SpeechPreset::Long)?;
-    let rec = p.sapi.as_ref().ok_or_else(|| CapError::unavailable("no_speech_engine", "No on-device speech engine supports this locale on this PC"))?;
-    let language = p.availability.sapi_language.clone().unwrap_or_else(|| p.requested.clone());
+    select(
+        SpeechSource::Push,
+        &p.availability,
+        None,
+        &req.vocabulary,
+        SpeechPreset::Long,
+    )?;
+    let rec = p.sapi.as_ref().ok_or_else(|| {
+        CapError::unavailable(
+            "no_speech_engine",
+            "No on-device speech engine supports this locale on this PC",
+        )
+    })?;
+    let language = p
+        .availability
+        .sapi_language
+        .clone()
+        .unwrap_or_else(|| p.requested.clone());
     let chunks = plan(audio_ms, CHUNK_MS, OVERLAP_MS);
     inv.emit(progress_event(0, audio_ms, 0, chunks.len()));
     let cancelled = || inv.cancel.is_cancelled();
@@ -502,10 +654,21 @@ pub fn speech_transcribe_file(params: Value, inv: &Invocation) -> Result<Value, 
         let pcm = file.read_range(chunk.read_from_ms, chunk.read_to_ms, &cancelled)?;
         let feed = Feed::from_bytes(pcm);
         let mut acc = Accumulator::default();
-        sapi::recognize(&rec.token_id, &feed, false, &mut |s| acc.ingest(s), &cancelled)?;
+        sapi::recognize(
+            &rec.token_id,
+            &feed,
+            false,
+            &mut |s| acc.ingest(s),
+            &cancelled,
+        )?;
         acc.promote_volatile();
         merger.add(chunk, acc.finals, chunk.index + 1 == chunks.len());
-        inv.emit(progress_event(chunk.keep_to_ms, audio_ms, chunk.index + 1, chunks.len()));
+        inv.emit(progress_event(
+            chunk.keep_to_ms,
+            audio_ms,
+            chunk.index + 1,
+            chunks.len(),
+        ));
     }
     let mut result = merger.result(EngineKind::Sapi, &language, audio_ms);
     // Recorded speech is other people's words unless the caller knows better.
@@ -525,26 +688,48 @@ mod tests {
         assert_eq!(gate(&mut total, 100, 250), (50, true));
         assert_eq!(total, 250);
         let mut t = 0;
-        assert_eq!(gate(&mut t, 250, 250), (250, true), "exactly the cap ends the stream");
+        assert_eq!(
+            gate(&mut t, 250, 250),
+            (250, true),
+            "exactly the cap ends the stream"
+        );
     }
 
     #[test]
     fn push_and_stop_need_a_stream() {
         let e = speech_audio_push(json!({"streamId": "nope", "data": ""})).unwrap_err();
-        assert_eq!((e.code, e.reason.as_str()), (ErrorCode::NotFound, "stream_not_found"));
-        assert_eq!(speech_stop(json!({"streamId": "nope"})).unwrap_err().reason, "stream_not_found");
-        assert_eq!(speech_stop(json!({})).unwrap_err().details["field"], "streamId");
-        assert_eq!(speech_status(json!({"locale": "bad tag!"})).unwrap_err().details["field"], "locale");
+        assert_eq!(
+            (e.code, e.reason.as_str()),
+            (ErrorCode::NotFound, "stream_not_found")
+        );
+        assert_eq!(
+            speech_stop(json!({"streamId": "nope"})).unwrap_err().reason,
+            "stream_not_found"
+        );
+        assert_eq!(
+            speech_stop(json!({})).unwrap_err().details["field"],
+            "streamId"
+        );
+        assert_eq!(
+            speech_status(json!({"locale": "bad tag!"}))
+                .unwrap_err()
+                .details["field"],
+            "locale"
+        );
     }
 
     #[test]
     fn drive_emits_non_blank_segments_and_promotes_the_tail() {
         let (tx, rx) = channel();
-        tx.send(Msg::Segment(Segment::new("hel", 0, 100, false, None))).unwrap();
-        tx.send(Msg::Segment(Segment::new(" ", 0, 100, false, None))).unwrap();
-        tx.send(Msg::Segment(Segment::new("hello", 0, 200, true, Some(0.8)))).unwrap();
+        tx.send(Msg::Segment(Segment::new("hel", 0, 100, false, None)))
+            .unwrap();
+        tx.send(Msg::Segment(Segment::new(" ", 0, 100, false, None)))
+            .unwrap();
+        tx.send(Msg::Segment(Segment::new("hello", 0, 200, true, Some(0.8))))
+            .unwrap();
         tx.send(Msg::InputEnded).unwrap();
-        tx.send(Msg::Segment(Segment::new("tail", 300, 400, false, None))).unwrap();
+        tx.send(Msg::Segment(Segment::new("tail", 300, 400, false, None)))
+            .unwrap();
         tx.send(Msg::Finished(Ok(()))).unwrap();
         let events = std::cell::RefCell::new(vec![]);
         let sink = |name: &str, v: Value| events.borrow_mut().push((name.to_string(), v));
@@ -556,15 +741,28 @@ mod tests {
         assert!(d.first_result_ms.is_some() && d.finalize_ms.is_some());
 
         let (tx, rx) = channel::<Msg>();
-        tx.send(Msg::Finished(Err(CapError::unavailable("transcription_failed", "x")))).unwrap();
-        assert_eq!(drive(rx, &inv, Instant::now(), &mut None).unwrap_err().reason, "transcription_failed");
+        tx.send(Msg::Finished(Err(CapError::unavailable(
+            "transcription_failed",
+            "x",
+        ))))
+        .unwrap();
+        assert_eq!(
+            drive(rx, &inv, Instant::now(), &mut None)
+                .unwrap_err()
+                .reason,
+            "transcription_failed"
+        );
 
         let (_tx, rx) = channel::<Msg>();
         inv.cancel.cancel();
         let hit = Arc::new(AtomicBool::new(false));
         let h2 = hit.clone();
-        let mut c: Option<Box<dyn FnOnce()>> = Some(Box::new(move || h2.store(true, Ordering::SeqCst)));
-        assert_eq!(drive(rx, &inv, Instant::now(), &mut c).unwrap_err().reason, "cancelled");
+        let mut c: Option<Box<dyn FnOnce()>> =
+            Some(Box::new(move || h2.store(true, Ordering::SeqCst)));
+        assert_eq!(
+            drive(rx, &inv, Instant::now(), &mut c).unwrap_err().reason,
+            "cancelled"
+        );
         assert!(hit.load(Ordering::SeqCst));
     }
 }

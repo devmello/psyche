@@ -1,7 +1,7 @@
 import { PROTOCOL_VERSION } from "@psyche/protocol";
 import { bytes } from "./output.ts";
 import { isLoopbackHost } from "./paths.ts";
-import { type Snapshot, setting } from "./snapshot.ts";
+import { ownerOnlyAclHint, type Snapshot, setting } from "./snapshot.ts";
 
 /** One `psyche doctor` check (architecture §14; feature A10 "done when"). */
 export interface Check {
@@ -260,14 +260,17 @@ export function doctorChecks(s: Snapshot): Check[] {
     add({ id: "disk", status, message: `${bytes(free)} free on the volume holding ${s.home}` });
   }
 
-  // File modes (POSIX only: on Windows the profile folder ACLs keep $PSYCHE_HOME private).
+  // File modes; on Windows the DACLs (scanModes): an entry another account can reach is `acl`.
+  const win = s.platform === "win32";
   const sensitive = s.modeIssues.filter((i) => SENSITIVE.test(i.path));
   if (s.homeMode && s.homeMode !== "700") {
     add({
       id: "modes",
       status: "fail",
-      message: `${s.home} is mode ${s.homeMode}, want 700`,
-      hint: `chmod 700 ${s.home}`,
+      message: win
+        ? `${s.home} is readable by other accounts (its permissions are not owner-only)`
+        : `${s.home} is mode ${s.homeMode}, want 700`,
+      hint: win ? ownerOnlyAclHint(s.home) : `chmod 700 ${s.home}`,
     });
   } else if (sensitive.length) {
     add({
@@ -277,22 +280,26 @@ export function doctorChecks(s: Snapshot): Check[] {
         .slice(0, 3)
         .map((i) => `${i.path} (${i.mode})`)
         .join(", ")}`,
-      hint: `chmod -R go-rwx ${s.home}`,
+      hint: win ? ownerOnlyAclHint(s.home) : `chmod -R go-rwx ${s.home}`,
     });
   } else if (s.modeIssues.length) {
     add({
       id: "modes",
       status: "warn",
       message: `${s.modeIssues.length} path(s) under ${s.home} readable by others`,
-      hint: `chmod -R go-rwx ${s.home}`,
+      hint: win ? ownerOnlyAclHint(s.home) : `chmod -R go-rwx ${s.home}`,
     });
   } else if (s.homeMode) {
-    add({ id: "modes", status: "ok", message: "file modes 0700/0600" });
-  } else if (s.platform === "win32") {
+    add({
+      id: "modes",
+      status: "ok",
+      message: win ? "owner-only permissions (you and SYSTEM)" : "file modes 0700/0600",
+    });
+  } else if (win) {
     add({
       id: "modes",
       status: "skip",
-      message: `Windows: ${s.home} is private through your profile folder permissions (no POSIX modes)`,
+      message: `Windows: could not read the permissions of ${s.home}`,
     });
   }
 

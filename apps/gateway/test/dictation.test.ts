@@ -185,6 +185,54 @@ describe("system-wide dictation (J9, Q2)", () => {
     expect(desk.eventsNamed("dictation.key").length).toBe(before);
   });
 
+  it("passes the macOS key names to the Windows helper as stored, fn included, with roles", async () => {
+    const c = await setup();
+    const h = dictationHelper();
+    const seen: unknown[] = [];
+    const watch = h.handlers.find((x) => x.capability.name === "dictation.watch");
+    const run = watch?.run;
+    if (watch && run)
+      watch.run = (params, emit) => {
+        seen.push(params);
+        return run(params, emit);
+      };
+    helper = await FakeNode.connect(c.gateway.config.nodeSocketPath, {
+      origin: c.gateway.origin,
+      secret: c.gateway.handshakeSecret,
+      handlers: h.handlers,
+      deviceFamily: "win-helper",
+    });
+    const desk = await desktopClient(c.gateway);
+    clients.push(desk);
+    // The stored default is "fn"; the Windows helper holds it on Right Alt.
+    expect(await desk.call("dictation.watch", { key: "fn" })).toEqual({ watching: true });
+    expect(seen.at(-1)).toEqual({ key: "fn" });
+    const both = {
+      key: "fn",
+      keys: [
+        { key: "fn", role: "dictation" },
+        { key: "rightCommand", role: "voice" },
+      ],
+    };
+    expect(await desk.call("dictation.watch", both)).toEqual({ watching: true });
+    expect(seen.at(-1)).toEqual(both);
+    h.watchers.at(-1)?.({
+      key: "rightCommand",
+      role: "voice",
+      down: true,
+      at: "2026-11-05T00:00:00.000Z",
+    });
+    const down = await desk.waitForEvent(
+      (e) => e.event === "dictation.key" && (e.payload as { down: boolean }).down,
+    );
+    expect(down.payload).toEqual({
+      key: "rightCommand",
+      role: "voice",
+      down: true,
+      at: "2026-11-05T00:00:00.000Z",
+    });
+  });
+
   it("reports a watch the helper refuses (no Accessibility)", async () => {
     const c = await setup();
     await withHelper(c, dictationHelper({ watchFails: true }));

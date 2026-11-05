@@ -10,8 +10,17 @@ import { UiSlotsProvider } from "../src/slots.tsx";
 const NOW = Date.parse(FIXTURE_NOW);
 
 /** Renders Connectors and opens an Apple app's detail, where its trusted sources live. */
-async function setup(config: Record<string, unknown> = {}, open = "Apple Reminders") {
+async function setup(
+  config: Record<string, unknown> = {},
+  open = "Apple Reminders",
+  helperKind?: "win-helper",
+) {
   const world = createFixtureWorld();
+  // The Windows helper (classic Outlook) lists the task lists and calendars the same way.
+  if (helperKind !== undefined)
+    world.nodes = world.nodes.map((n) =>
+      n.kind === "mac-helper" ? { ...n, kind: helperKind } : n,
+    );
   world.connectors = appleConnectors().map((c) =>
     c.type === "apple:reminders" ? { ...c, config } : c,
   );
@@ -76,6 +85,17 @@ describe("Mine — treat as trusted (security §3.6)", () => {
     expect(toggle.getAttribute("aria-checked")).toBe("false");
     await userEvent.click(toggle);
     expect(params("connectors.configure")).toEqual([]);
+  });
+
+  it("reads them from the Windows helper too, not only the Mac's", async () => {
+    const { params } = await setup({}, "Apple Reminders", "win-helper");
+    expect(await screen.findByRole("list", { name: "Your Reminders lists" })).toBeTruthy();
+    expect(params("nodes.invoke")).toContainEqual({
+      nodeId: IDS.nodes.macHelper,
+      capability: "reminders.list_lists",
+      params: {},
+    });
+    expect(screen.queryByText(/Open Psyche on your/)).toBeNull();
   });
 
   it("lists the calendars too", async () => {

@@ -93,6 +93,59 @@ describe("sensitive roots", () => {
   });
 });
 
+// macOS shares `/tmp` and `$TMPDIR` (under `/private`, an exact root); Windows' `%TEMP%` lies
+// inside the refused `~\AppData`, so it is lifted for itself and nothing else.
+describe.runIf(WIN)("the owner's temp folder on Windows", () => {
+  let temp: string;
+  let tempEnv: typeof env & { tempDir: string };
+
+  beforeAll(async () => {
+    temp = join(home, "AppData", "Local", "Temp");
+    for (const d of [
+      "AppData/Local/Temp/run-1/more",
+      "AppData/Local/Temp2/run",
+      "AppData/Local/Psyche",
+      "AppData/Roaming/Code",
+    ])
+      await mkdir(join(home, d), { recursive: true });
+    // Written in another case: compared without case, as Windows does.
+    tempEnv = { ...env, tempDir: temp.toUpperCase() };
+  });
+
+  it("shares %TEMP% and folders inside it", async () => {
+    expect(refuseFolder(temp, tempEnv)).toBeUndefined();
+    expect(await resolveFolderPick(join(temp, "run-1"), tempEnv)).toBe(join(temp, "run-1"));
+    await expect(
+      assertFolderGrantable(join(temp, "run-1", "more"), tempEnv),
+    ).resolves.toBeUndefined();
+  });
+
+  it("still refuses the rest of AppData, around and beside it", () => {
+    for (const p of [
+      join(home, "AppData"),
+      join(home, "AppData", "Local"),
+      join(home, "AppData", "Local", "Temp2"),
+      join(home, "AppData", "Local", "Temp2", "run"),
+      join(home, "AppData", "Local", "Psyche"),
+      join(home, "AppData", "Roaming", "Code"),
+    ])
+      expect(refuseFolder(p, tempEnv), p).toBe("sensitive_root");
+  });
+
+  it("keeps a protected root inside %TEMP% refused, and a pick holding it", () => {
+    const inside = { ...tempEnv, psycheHome: join(temp, "run-1", "more") };
+    expect(refuseFolder(join(temp, "run-1", "more"), inside)).toBe("sensitive_root");
+    expect(refuseFolder(join(temp, "run-1"), inside)).toBe("contains_sensitive_root");
+  });
+
+  it("opens nothing when %TEMP% is not inside the profile's AppData", () => {
+    const elsewhere = { ...env, tempDir: join(home, "Projects") };
+    expect(refuseFolder(join(home, "AppData", "Local", "Temp"), elsewhere)).toBe("sensitive_root");
+    const isAppData = { ...env, tempDir: join(home, "AppData") };
+    expect(refuseFolder(join(home, "AppData"), isAppData)).toBe("sensitive_root");
+  });
+});
+
 const ctx = (taint = false, threadId = "thr_a"): PolicyContext => ({
   threadId,
   runId: "run_1",

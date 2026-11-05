@@ -30,6 +30,7 @@ describe("device key", () => {
 
   it("maps node platforms to DevicePlatform", () => {
     expect(platformFromNode("darwin")).toBe("macos");
+    expect(platformFromNode("win32")).toBe("windows");
     expect(platformFromNode("linux")).toBe("linux");
   });
 });

@@ -19,7 +19,7 @@ import type { EventInput } from "../google/calendar.ts";
 import { calendarBinding, calendarEventSchema } from "../google/connector.ts";
 import { actionBinding } from "../mail/binding.ts";
 import { MAIL_ACTIONS, mailTools } from "../mail/connector.ts";
-import { GraphApi } from "./api.ts";
+import { GraphApi, GraphError } from "./api.ts";
 import {
   MicrosoftAuth,
   MicrosoftAuthError,
@@ -31,11 +31,13 @@ import {
 import { GraphCalendar } from "./calendar.ts";
 import { OneDriveAppFolder } from "./files.ts";
 import { GraphMailSession } from "./mail.ts";
+import { GraphTodo } from "./todo.ts";
+import { hasTodoScope, TODO_ACTIONS, todoTools } from "./todo-tools.ts";
 
 /**
  * Microsoft 365 / Outlook.com over Graph (feature M6): Outlook mail with the shared `mail_*`
- * tools, calendar tools shaped like Google's, contacts search, and OneDrive limited to Psyche's
- * app folder. Change notifications ("subscriptions renewed weekly") need a public HTTPS webhook,
+ * tools, calendar tools shaped like Google's, contacts search, Microsoft To Do as the Apple
+ * Reminders `reminders_*` tools (`todo-tools.ts`), and OneDrive limited to Psyche's app folder. Change notifications ("subscriptions renewed weekly") need a public HTTPS webhook,
  * which a loopback Gateway does not have, so sync polls Graph's delta queries instead (as M5
  * polls Gmail history); see docs/archive/status/s09.md.
  */
@@ -76,13 +78,15 @@ export const MICROSOFT_ACTIONS: ConnectorAction[] = [
     approvalKind: "connector_action",
     defaultRule: "ask",
   },
+  ...TODO_ACTIONS,
 ];
 
 export const MICROSOFT_CATALOGUE: CatalogueEntry = {
   type: "microsoft",
   id: "microsoft",
   label: "Microsoft 365",
-  description: "Outlook mail and calendar, contacts, and a OneDrive folder for Psyche.",
+  description:
+    "Outlook mail and calendar, contacts, To Do tasks, and a OneDrive folder for Psyche.",
   category: "first_party",
   vendor: "Microsoft",
   auth: "oauth",
@@ -103,6 +107,13 @@ export class MicrosoftConnector implements Connector {
   readonly #mail: GraphMailSession;
   readonly #calendar: GraphCalendar;
   readonly #files: OneDriveAppFolder;
+  readonly #todo: GraphTodo;
+  /**
+   * The connection holds a To Do scope (Tasks.Read / Tasks.ReadWrite). A connection made before
+   * To Do was added has none: its `reminders_*` tools appear once the owner reconnects, which
+   * asks for the whole current scope set (Microsoft shows only the new permission).
+   */
+  #todoGranted: boolean;
   #account: string | null;
   #status: ConnectorRecord["status"];
   #mode: ScopeMode;
@@ -116,6 +127,11 @@ export class MicrosoftConnector implements Connector {
     this.#mail = new GraphMailSession(this.#api, () => this.#requireAccount());
     this.#calendar = new GraphCalendar(this.#api);
     this.#files = new OneDriveAppFolder(this.#api);
+    this.#todo = new GraphTodo(this.#api, {
+      now: () => ctx.clock.now(),
+      ...(options.timeZone === undefined ? {} : { timeZone: options.timeZone }),
+    });
+    this.#todoGranted = hasTodoScope(record.scopes);
     this.#account = record.account;
     this.#status = record.status;
     this.#mode = record.scopeMode;
@@ -140,9 +156,11 @@ export class MicrosoftConnector implements Connector {
     this.#account = account;
     this.#status = "connected";
     this.#mode = input.scopeMode;
+    const granted = (tokens.scope ?? scopes.join(" ")).split(/\s+/).filter(Boolean);
+    this.#todoGranted = hasTodoScope(granted);
     return {
       account,
-      scopes: (tokens.scope ?? scopes.join(" ")).split(/\s+/).filter(Boolean),
+      scopes: granted,
       config: { tenant: this.#client.tenant, flow: this.#client.flow },
     };
   }
@@ -154,9 +172,11 @@ export class MicrosoftConnector implements Connector {
 
   actions(): ConnectorAction[] {
     // A read-only connection has no OneDrive scope (Graph has no read-only app-folder scope).
-    return this.#mode === "read"
-      ? MICROSOFT_ACTIONS.filter((a) => !a.id.startsWith("files."))
-      : MICROSOFT_ACTIONS;
+    return MICROSOFT_ACTIONS.filter(
+      (a) =>
+        !(this.#mode === "read" && a.id.startsWith("files.")) &&
+        (this.#todoGranted || !a.id.startsWith("reminders.")),
+    );
   }
 
   async health(): Promise<ConnectorHealth> {
@@ -176,15 +196,28 @@ export class MicrosoftConnector implements Connector {
 
   async sync(cursor: Record<string, unknown> | null, signal?: AbortSignal): Promise<SyncResult> {
     return this.#guard(async () => {
-      const c = (cursor ?? {}) as { mail?: Record<string, unknown>; calendar?: string };
+      const c = (cursor ?? {}) as {
+        mail?: Record<string, unknown>;
+        calendar?: string;
+        todo?: Record<string, string>;
+      };
       const mail = await this.#mail.sync(c.mail ?? null, signal);
       const cal = await this.#calendar.sync(c.calendar, this.#ctx.clock.now(), signal);
+      // To Do failing (a tenant without To Do, Graph busy) must not stop mail and calendar sync:
+      // its cursor stays as it was and the next pass tries again. Auth errors still surface.
+      const todo = this.#todoGranted
+        ? await this.#todo.sync(c.todo, signal).catch((err: unknown) => {
+            if (err instanceof GraphError) return { cursor: c.todo ?? {}, changed: 0, full: false };
+            throw err;
+          })
+        : undefined;
       return {
-        changes: mail.changes + cal.changed.length,
-        full: mail.full || cal.full,
+        changes: mail.changes + cal.changed.length + (todo?.changed ?? 0),
+        full: mail.full || cal.full || todo?.full === true,
         cursor: {
           mail: mail.cursor,
           ...(cal.deltaLink === undefined ? {} : { calendar: cal.deltaLink }),
+          ...(todo === undefined ? {} : { todo: todo.cursor }),
           newMessageIds: mail.newMessageIds.slice(0, 500),
         },
       };
@@ -410,6 +443,7 @@ export class MicrosoftConnector implements Connector {
             });
           }),
       },
+      ...todoTools({ connectorId: this.id, todo: this.#todo, guard: g }),
     ];
     const allowed = new Set(this.actions().map((a) => a.id));
     return tools.filter((t) => allowed.has(t.action));
