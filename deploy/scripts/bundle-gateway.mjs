@@ -22,7 +22,7 @@ import {
   symlinkSync,
 } from "node:fs";
 import { createRequire } from "node:module";
-import { basename, dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative, sep } from "node:path";
 import { prunePnpmStore, removeAllDanglingLinks } from "./pnpm-store.mjs";
 
 /** Output (relative to the app dir, no extension) → entry source. */
@@ -123,7 +123,8 @@ export async function bundleGateway(appDir, { root, entries = ENTRIES, external 
 function keepOnly(dir, base, keep) {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
-    const rel = relative(base, p);
+    // Keep paths are written with "/": compare in that form on Windows too.
+    const rel = relative(base, p).split(sep).join("/");
     if (keep.some((k) => rel === k || rel.startsWith(`${k}/`))) continue;
     if (lstatSync(p).isDirectory() && keep.some((k) => k.startsWith(`${rel}/`))) {
       keepOnly(p, base, keep);
@@ -165,7 +166,9 @@ export function discardSources(appDir, { external = EXTERNAL, keep = ASSET_PATHS
   for (const [name, real] of installs) {
     const link = join(nm, name);
     mkdirSync(dirname(link), { recursive: true });
-    symlinkSync(relative(dirname(link), real), link);
+    // A directory link on Windows is a junction (no developer mode needed; absolute target).
+    if (process.platform === "win32") symlinkSync(real, link, "junction");
+    else symlinkSync(relative(dirname(link), real), link);
   }
   const packages = prunePnpmStore(appDir, [nm]);
   for (const name of readdirSync(appDir)) {
