@@ -5,17 +5,24 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, LPARAM, WIN32_ERROR};
+use windows::Win32::Graphics::Dwm::{DWMWA_CLOAKED, DwmGetWindowAttribute};
 use windows::Win32::Storage::EnhancedStorage::PKEY_AppUserModel_ID;
-use windows::Win32::Storage::FileSystem::{GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW};
+use windows::Win32::Storage::FileSystem::{
+    GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW,
+};
 use windows::Win32::Storage::Packaging::Appx::GetApplicationUserModelId;
-use windows::Win32::System::Diagnostics::ToolHelp::{CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS};
-use windows::Win32::System::Threading::{OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW};
+use windows::Win32::System::Diagnostics::ToolHelp::{
+    CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
+};
+use windows::Win32::System::Threading::{
+    OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
+};
 use windows::Win32::UI::Shell::PropertiesSystem::{IPropertyStore, SHGetPropertyStoreForWindow};
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GW_OWNER, GWL_EXSTYLE, GetForegroundWindow, GetWindow, GetWindowLongPtrW, GetWindowTextLengthW, GetWindowTextW,
-    GetWindowThreadProcessId, IsIconic, IsWindowVisible, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
+    EnumWindows, GW_OWNER, GWL_EXSTYLE, GetForegroundWindow, GetWindow, GetWindowLongPtrW,
+    GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
+    WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
 };
-use windows::Win32::Graphics::Dwm::{DWMWA_CLOAKED, DwmGetWindowAttribute};
 use windows::core::{BOOL, HSTRING, PCWSTR, PWSTR};
 
 struct ProcHandle(HANDLE);
@@ -31,7 +38,11 @@ impl Drop for ProcHandle {
 
 fn open(pid: u32) -> Option<ProcHandle> {
     // SAFETY: plain Win32 call; the handle is owned by the guard.
-    unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok().map(ProcHandle) }
+    unsafe {
+        OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)
+            .ok()
+            .map(ProcHandle)
+    }
 }
 
 /// Full Win32 path of a process's executable.
@@ -40,7 +51,10 @@ pub fn image_path(pid: u32) -> Option<String> {
     let mut buf = vec![0u16; 32_768];
     let mut len = buf.len() as u32;
     // SAFETY: the buffer is `len` UTF-16 units.
-    unsafe { QueryFullProcessImageNameW(h.0, PROCESS_NAME_WIN32, PWSTR(buf.as_mut_ptr()), &mut len).ok()? };
+    unsafe {
+        QueryFullProcessImageNameW(h.0, PROCESS_NAME_WIN32, PWSTR(buf.as_mut_ptr()), &mut len)
+            .ok()?
+    };
     Some(String::from_utf16_lossy(&buf[..len as usize]))
 }
 
@@ -55,7 +69,8 @@ pub fn process_aumid(pid: u32) -> Option<String> {
             return None;
         }
         let mut buf = vec![0u16; len as usize];
-        if GetApplicationUserModelId(h.0, &mut len, Some(PWSTR(buf.as_mut_ptr()))) != WIN32_ERROR(0) {
+        if GetApplicationUserModelId(h.0, &mut len, Some(PWSTR(buf.as_mut_ptr()))) != WIN32_ERROR(0)
+        {
             return None;
         }
         let s = String::from_utf16_lossy(&buf[..(len as usize).saturating_sub(1)]);
@@ -87,12 +102,31 @@ pub fn file_description(path: &str) -> Option<String> {
         GetFileVersionInfoW(&wide, None, size, data.as_mut_ptr() as *mut _).ok()?;
         let mut ptr = std::ptr::null_mut();
         let mut len = 0u32;
-        if !VerQueryValueW(data.as_ptr() as *const _, &HSTRING::from("\\VarFileInfo\\Translation"), &mut ptr, &mut len).as_bool() || len < 4 {
+        if !VerQueryValueW(
+            data.as_ptr() as *const _,
+            &HSTRING::from("\\VarFileInfo\\Translation"),
+            &mut ptr,
+            &mut len,
+        )
+        .as_bool()
+            || len < 4
+        {
             return None;
         }
         let pair = std::slice::from_raw_parts(ptr as *const u16, 2);
-        let key = format!("\\StringFileInfo\\{:04x}{:04x}\\FileDescription", pair[0], pair[1]);
-        if !VerQueryValueW(data.as_ptr() as *const _, &HSTRING::from(key), &mut ptr, &mut len).as_bool() || len == 0 {
+        let key = format!(
+            "\\StringFileInfo\\{:04x}{:04x}\\FileDescription",
+            pair[0], pair[1]
+        );
+        if !VerQueryValueW(
+            data.as_ptr() as *const _,
+            &HSTRING::from(key),
+            &mut ptr,
+            &mut len,
+        )
+        .as_bool()
+            || len == 0
+        {
             return None;
         }
         let s = PCWSTR(ptr as *const u16).to_string().ok()?;
@@ -125,7 +159,8 @@ fn is_cloaked(hwnd: HWND) -> bool {
     let mut cloaked = 0u32;
     // SAFETY: the out buffer is a u32 as DWMWA_CLOAKED requires.
     unsafe {
-        DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &mut cloaked as *mut u32 as *mut _, 4).is_ok() && cloaked != 0
+        DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &mut cloaked as *mut u32 as *mut _, 4).is_ok()
+            && cloaked != 0
     }
 }
 
@@ -188,12 +223,24 @@ pub fn all_processes() -> Vec<(u32, String)> {
     let mut out = Vec::new();
     // SAFETY: Toolhelp snapshot iteration; the handle is closed at the end.
     unsafe {
-        let Ok(snap) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) else { return out };
-        let mut entry = PROCESSENTRY32W { dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
+        let Ok(snap) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) else {
+            return out;
+        };
+        let mut entry = PROCESSENTRY32W {
+            dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+            ..Default::default()
+        };
         if Process32FirstW(snap, &mut entry).is_ok() {
             loop {
-                let len = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(entry.szExeFile.len());
-                out.push((entry.th32ProcessID, String::from_utf16_lossy(&entry.szExeFile[..len])));
+                let len = entry
+                    .szExeFile
+                    .iter()
+                    .position(|&c| c == 0)
+                    .unwrap_or(entry.szExeFile.len());
+                out.push((
+                    entry.th32ProcessID,
+                    String::from_utf16_lossy(&entry.szExeFile[..len]),
+                ));
                 if Process32NextW(snap, &mut entry).is_err() {
                     break;
                 }
@@ -224,9 +271,19 @@ pub fn app_info(pid: u32, hwnd: Option<HWND>) -> AppInfo {
         .as_deref()
         .and_then(file_description)
         .or_else(|| hwnd.map(window_title).filter(|t| !t.is_empty()))
-        .or_else(|| exe.as_deref().and_then(|p| Path::new(p).file_stem()).map(|s| s.to_string_lossy().into_owned()))
+        .or_else(|| {
+            exe.as_deref()
+                .and_then(|p| Path::new(p).file_stem())
+                .map(|s| s.to_string_lossy().into_owned())
+        })
         .unwrap_or_else(|| format!("pid {pid}"));
-    AppInfo { pid, identity, exe, aumid, name }
+    AppInfo {
+        pid,
+        identity,
+        exe,
+        aumid,
+        name,
+    }
 }
 
 #[cfg(test)]
@@ -235,6 +292,10 @@ mod tests {
     fn own_process_has_an_image_path() {
         let me = super::image_path(std::process::id()).unwrap();
         assert!(me.to_lowercase().ends_with(".exe"));
-        assert!(super::all_processes().iter().any(|(pid, _)| *pid == std::process::id()));
+        assert!(
+            super::all_processes()
+                .iter()
+                .any(|(pid, _)| *pid == std::process::id())
+        );
     }
 }

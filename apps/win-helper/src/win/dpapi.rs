@@ -7,7 +7,10 @@ use windows::Win32::Security::Cryptography::{
 use windows::core::HSTRING;
 
 fn blob(bytes: &[u8]) -> CRYPT_INTEGER_BLOB {
-    CRYPT_INTEGER_BLOB { cbData: bytes.len() as u32, pbData: bytes.as_ptr() as *mut u8 }
+    CRYPT_INTEGER_BLOB {
+        cbData: bytes.len() as u32,
+        pbData: bytes.as_ptr() as *mut u8,
+    }
 }
 
 fn take(out: CRYPT_INTEGER_BLOB) -> Vec<u8> {
@@ -25,7 +28,17 @@ pub fn protect(plain: &[u8], entropy: &[u8], description: &str) -> windows::core
     let mut out = CRYPT_INTEGER_BLOB::default();
     let desc = HSTRING::from(description);
     // SAFETY: all blobs point at live buffers for the duration of the call.
-    unsafe { CryptProtectData(&input, &desc, Some(&ent), None, None, CRYPTPROTECT_UI_FORBIDDEN, &mut out)? };
+    unsafe {
+        CryptProtectData(
+            &input,
+            &desc,
+            Some(&ent),
+            None,
+            None,
+            CRYPTPROTECT_UI_FORBIDDEN,
+            &mut out,
+        )?
+    };
     Ok(take(out))
 }
 
@@ -34,7 +47,17 @@ pub fn unprotect(sealed: &[u8], entropy: &[u8]) -> windows::core::Result<Vec<u8>
     let ent = blob(entropy);
     let mut out = CRYPT_INTEGER_BLOB::default();
     // SAFETY: as above.
-    unsafe { CryptUnprotectData(&input, None, Some(&ent), None, None, CRYPTPROTECT_UI_FORBIDDEN, &mut out)? };
+    unsafe {
+        CryptUnprotectData(
+            &input,
+            None,
+            Some(&ent),
+            None,
+            None,
+            CRYPTPROTECT_UI_FORBIDDEN,
+            &mut out,
+        )?
+    };
     Ok(take(out))
 }
 

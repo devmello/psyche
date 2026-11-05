@@ -2,8 +2,9 @@
 
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Security::WinTrust::{
-    WINTRUST_ACTION_GENERIC_VERIFY_V2, WINTRUST_DATA, WINTRUST_DATA_0, WINTRUST_FILE_INFO, WTD_CHOICE_FILE, WTD_REVOKE_NONE,
-    WTD_STATEACTION_CLOSE, WTD_STATEACTION_VERIFY, WTD_UI_NONE, WinVerifyTrust,
+    WINTRUST_ACTION_GENERIC_VERIFY_V2, WINTRUST_DATA, WINTRUST_DATA_0, WINTRUST_FILE_INFO,
+    WTD_CHOICE_FILE, WTD_REVOKE_NONE, WTD_STATEACTION_CLOSE, WTD_STATEACTION_VERIFY, WTD_UI_NONE,
+    WinVerifyTrust,
 };
 use windows::core::{GUID, HSTRING, PCWSTR};
 
@@ -49,6 +50,9 @@ mod tests {
         // notepad.exe is catalog-signed; explorer.exe embeds a signature on every release.
         let r = super::authenticode(r"C:\Windows\explorer.exe");
         assert!(matches!(r, "authenticode" | "unsigned" | "untrusted"));
-        assert_eq!(super::authenticode(&std::env::current_exe().unwrap().display().to_string()), "unsigned");
+        assert_eq!(
+            super::authenticode(&std::env::current_exe().unwrap().display().to_string()),
+            "unsigned"
+        );
     }
 }

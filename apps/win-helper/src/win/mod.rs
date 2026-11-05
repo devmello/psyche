@@ -1,6 +1,7 @@
 //! Thin, safe wrappers over the Win32 / WinRT pieces several groups share.
 
 pub mod com;
+pub mod credman;
 pub mod dpapi;
 pub mod foreground;
 pub mod fs;

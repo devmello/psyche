@@ -35,7 +35,9 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 
 /// Cryptographically secure random bytes from the OS (`BCryptGenRandom`, system-preferred RNG).
 pub fn random_bytes<const N: usize>() -> [u8; N] {
-    use windows::Win32::Security::Cryptography::{BCRYPT_USE_SYSTEM_PREFERRED_RNG, BCryptGenRandom};
+    use windows::Win32::Security::Cryptography::{
+        BCRYPT_USE_SYSTEM_PREFERRED_RNG, BCryptGenRandom,
+    };
     let mut out = [0u8; N];
     // SAFETY: the buffer is valid for N bytes; a null algorithm handle is allowed with the flag.
     let status = unsafe { BCryptGenRandom(None, &mut out, BCRYPT_USE_SYSTEM_PREFERRED_RNG) };
@@ -59,7 +61,10 @@ mod tests {
 
     #[test]
     fn sha256_of_empty() {
-        assert_eq!(sha256_hex(b""), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+        assert_eq!(
+            sha256_hex(b""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
     }
 
     #[test]

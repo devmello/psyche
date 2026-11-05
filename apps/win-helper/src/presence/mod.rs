@@ -14,11 +14,13 @@ pub mod hello;
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
+use crate::node::CapabilityRegistry;
 use crate::node::cancel::CancelToken;
-use crate::node::capability::{CapabilityError, CapabilityOutput, CapabilitySpec, ReceiptDraft, SideEffect};
+use crate::node::capability::{
+    CapabilityError, CapabilityOutput, CapabilitySpec, ReceiptDraft, SideEffect,
+};
 use crate::node::encoding::{b64url, sha256_hex};
 use crate::node::schema;
-use crate::node::CapabilityRegistry;
 use crate::notify::plan::{is_valid_challenge, presence_message};
 
 pub const KEY_KIND: &str = "windows_hello";
@@ -35,19 +37,27 @@ pub struct Signed {
 /// use). Blocking; prompts.
 pub fn sign_challenge(challenge: &str, cancel: &CancelToken) -> Result<Signed, CapabilityError> {
     if !is_valid_challenge(challenge) {
-        return Err(CapabilityError::invalid_params("presenceChallenge must be 64 hex characters", Some("presenceChallenge")));
+        return Err(CapabilityError::invalid_params(
+            "presenceChallenge must be 64 hex characters",
+            Some("presenceChallenge"),
+        ));
     }
     let key = hello::open_or_create(hello::PRESENCE_KEY, cancel)?;
     let spki = hello::public_key_spki(&key)?;
     let sig = hello::sign(&key, &presence_message(challenge), cancel)?;
-    Ok(Signed { signature: b64url(&sig), key_id: sha256_hex(&spki) })
+    Ok(Signed {
+        signature: b64url(&sig),
+        key_id: sha256_hex(&spki),
+    })
 }
 
 /// `{publicKey, keyId, kind, algorithm}` (creating the key on first use).
 pub fn public_key_json(cancel: &CancelToken) -> Result<Value, CapabilityError> {
     let key = hello::open_or_create(hello::PRESENCE_KEY, cancel)?;
     let spki = hello::public_key_spki(&key)?;
-    Ok(json!({ "publicKey": b64url(&spki), "keyId": sha256_hex(&spki), "kind": KEY_KIND, "algorithm": ALGORITHM }))
+    Ok(
+        json!({ "publicKey": b64url(&spki), "keyId": sha256_hex(&spki), "kind": KEY_KIND, "algorithm": ALGORITHM }),
+    )
 }
 
 /// `--print-identity` fields; never prompts and never creates the key.
@@ -63,14 +73,14 @@ pub async fn identity_fields() -> Map<String, Value> {
                     out.insert("presenceKeyAlgorithm".into(), ALGORITHM.into());
                 }
                 Err(e) => {
-                    out.insert("presenceError".into(), e.reason.into());
+                    out.insert("presenceError".into(), e.reason.clone().into());
                 }
             },
             Ok(None) => {
                 out.insert("presenceError".into(), "presence_key_not_created".into());
             }
             Err(e) => {
-                out.insert("presenceError".into(), e.reason.into());
+                out.insert("presenceError".into(), e.reason.clone().into());
             }
         }
         out
@@ -82,7 +92,12 @@ pub async fn identity_fields() -> Map<String, Value> {
 /// `xxxx-xxxx`, lower-case hex.
 pub fn is_valid_code(s: &str) -> bool {
     let parts: Vec<&str> = s.split('-').collect();
-    parts.len() == 2 && parts.iter().all(|p| p.len() == 4 && p.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)))
+    parts.len() == 2
+        && parts.iter().all(|p| {
+            p.len() == 4
+                && p.bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        })
 }
 
 #[derive(Deserialize)]
@@ -150,7 +165,10 @@ mod tests {
 
     #[test]
     fn presence_message_is_domain_separated() {
-        assert_eq!(presence_message("ab"), b"psyche.presence.helper.v1|ab".to_vec());
+        assert_eq!(
+            presence_message("ab"),
+            b"psyche.presence.helper.v1|ab".to_vec()
+        );
     }
 
     #[test]
@@ -158,13 +176,26 @@ mod tests {
         let mut reg = CapabilityRegistry::new(crate::node::Runtime::offline(Default::default()));
         register(&mut reg);
         let cap = reg.get("presence.confirm").unwrap();
-        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
         let bad = |params: Value| {
             let ctx = crate::node::InvocationContext::detached("presence.confirm", params);
             rt.block_on((cap.handler)(ctx)).unwrap_err()
         };
-        assert_eq!(bad(json!({"challenge": "x", "summary": "s", "code": "0a1b-ff00"})).details["field"], "challenge");
-        assert_eq!(bad(json!({"challenge": "a".repeat(64), "summary": " ", "code": "0a1b-ff00"})).details["field"], "summary");
-        assert_eq!(bad(json!({"challenge": "a".repeat(64), "summary": "s", "code": "nope"})).details["field"], "code");
+        assert_eq!(
+            bad(json!({"challenge": "x", "summary": "s", "code": "0a1b-ff00"})).details["field"],
+            "challenge"
+        );
+        assert_eq!(
+            bad(json!({"challenge": "a".repeat(64), "summary": " ", "code": "0a1b-ff00"})).details
+                ["field"],
+            "summary"
+        );
+        assert_eq!(
+            bad(json!({"challenge": "a".repeat(64), "summary": "s", "code": "nope"})).details["field"],
+            "code"
+        );
     }
 }

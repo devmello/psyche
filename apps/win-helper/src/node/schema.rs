@@ -7,7 +7,12 @@ pub fn object(properties: Vec<(&str, Value)>, required: &[&str]) -> Value {
     object_with(properties, required, None, false)
 }
 
-pub fn object_with(properties: Vec<(&str, Value)>, required: &[&str], description: Option<&str>, additional: bool) -> Value {
+pub fn object_with(
+    properties: Vec<(&str, Value)>,
+    required: &[&str],
+    description: Option<&str>,
+    additional: bool,
+) -> Value {
     let mut props = Map::new();
     for (k, v) in properties {
         props.insert(k.to_owned(), v);
@@ -35,7 +40,11 @@ pub fn string(description: Option<&str>) -> Value {
     string_with(description, None, None)
 }
 
-pub fn string_with(description: Option<&str>, enum_values: Option<&[&str]>, max_length: Option<u64>) -> Value {
+pub fn string_with(
+    description: Option<&str>,
+    enum_values: Option<&[&str]>,
+    max_length: Option<u64>,
+) -> Value {
     let mut o = Map::new();
     o.insert("type".into(), "string".into());
     if let Some(d) = description {
@@ -123,17 +132,26 @@ mod tests {
 
     #[test]
     fn object_sorts_required_and_closes_properties() {
-        let s = object(vec![("b", boolean(None)), ("a", string(Some("x")))], &["b", "a"]);
+        let s = object(
+            vec![("b", boolean(None)), ("a", string(Some("x")))],
+            &["b", "a"],
+        );
         assert_eq!(s["type"], "object");
         assert_eq!(s["additionalProperties"], false);
         assert_eq!(s["required"], json!(["a", "b"]));
-        assert_eq!(s["properties"]["a"], json!({"type": "string", "description": "x"}));
+        assert_eq!(
+            s["properties"]["a"],
+            json!({"type": "string", "description": "x"})
+        );
         assert!(empty().get("required").is_none());
     }
 
     #[test]
     fn numeric_bounds_are_numbers() {
-        assert_eq!(integer(None, Some(1), Some(500)), json!({"type": "integer", "minimum": 1.0, "maximum": 500.0}));
+        assert_eq!(
+            integer(None, Some(1), Some(500)),
+            json!({"type": "integer", "minimum": 1.0, "maximum": 500.0})
+        );
         assert_eq!(array(string(None), None, Some(20))["maxItems"], json!(20.0));
     }
 }

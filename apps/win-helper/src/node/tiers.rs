@@ -69,7 +69,9 @@ impl ComputerIntent {
     pub fn required_tier(self) -> ComputerTier {
         match self {
             ComputerIntent::Read => ComputerTier::Read,
-            ComputerIntent::Click | ComputerIntent::Scroll | ComputerIntent::Press => ComputerTier::Click,
+            ComputerIntent::Click | ComputerIntent::Scroll | ComputerIntent::Press => {
+                ComputerTier::Click
+            }
             _ => ComputerTier::Interact,
         }
     }
@@ -92,7 +94,11 @@ enum Rule {
 }
 use Rule::{Aumid, Exe};
 
-const PSYCHE: &[Rule] = &[Exe("psyche.exe"), Exe("psyche-helper.exe"), Aumid("com.psyche.")];
+const PSYCHE: &[Rule] = &[
+    Exe("psyche.exe"),
+    Exe("psyche-helper.exe"),
+    Aumid("com.psyche."),
+];
 
 /// Settings, UAC, the lock screen, notification surfaces and security prompts: computer use must
 /// never press Approve on its own toasts or answer a security dialog.
@@ -259,7 +265,12 @@ pub mod fixed_caps {
     /// The highest tier an app can ever get.
     pub fn cap(identity: Option<&str>) -> ComputerTier {
         match category(identity) {
-            Some(Category::Psyche | Category::PasswordManager | Category::Finance | Category::SystemAuthority) => ComputerTier::Off,
+            Some(
+                Category::Psyche
+                | Category::PasswordManager
+                | Category::Finance
+                | Category::SystemAuthority,
+            ) => ComputerTier::Off,
             Some(Category::Browser) => ComputerTier::Read,
             Some(Category::TerminalOrIde) => ComputerTier::Click,
             None => ComputerTier::Interact,
@@ -301,13 +312,20 @@ fn ask() -> TierValue {
 
 impl Default for TierSettings {
     fn default() -> Self {
-        TierSettings { version: 1, default_value: TierValue::Ask, apps: HashMap::new(), sensitive: Vec::new() }
+        TierSettings {
+            version: 1,
+            default_value: TierValue::Ask,
+            apps: HashMap::new(),
+            sensitive: Vec::new(),
+        }
     }
 }
 
 impl TierSettings {
     pub fn value(&self, identity: Option<&str>) -> TierValue {
-        let Some(id) = identity else { return self.default_value };
+        let Some(id) = identity else {
+            return self.default_value;
+        };
         if let Some(v) = self.apps.get(id) {
             return *v;
         }
@@ -327,7 +345,10 @@ impl TierSettings {
     }
 
     pub fn load(env: &Env) -> TierSettings {
-        std::fs::read(Self::path(env)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+        std::fs::read(Self::path(env))
+            .ok()
+            .and_then(|b| serde_json::from_slice(&b).ok())
+            .unwrap_or_default()
     }
 }
 
@@ -352,7 +373,11 @@ impl ApprovalBinding {
 
 /// Adds the `approval {app, tier}` parameter every computer-use call may carry.
 pub fn with_approval_param(mut spec: CapabilitySpec) -> CapabilitySpec {
-    if let Some(props) = spec.input_schema.get_mut("properties").and_then(Value::as_object_mut) {
+    if let Some(props) = spec
+        .input_schema
+        .get_mut("properties")
+        .and_then(Value::as_object_mut)
+    {
         props.insert(
             "approval".into(),
             schema::object_with(
@@ -383,7 +408,12 @@ pub const SESSION_ALLOWANCE: Duration = Duration::from_secs(30 * 60);
 
 impl TierPolicy {
     pub fn new(settings: TierSettings) -> Self {
-        TierPolicy { inner: Mutex::new(PolicyState { settings, allowances: HashMap::new() }) }
+        TierPolicy {
+            inner: Mutex::new(PolicyState {
+                settings,
+                allowances: HashMap::new(),
+            }),
+        }
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, PolicyState> {
@@ -440,7 +470,10 @@ impl TierPolicy {
                 return Err(CapabilityError::new(
                     ErrorCode::PolicyDenied,
                     "approval_app_mismatch",
-                    format!("The approval was for {}, but the action would reach {app_name}", a.app),
+                    format!(
+                        "The approval was for {}, but the action would reach {app_name}",
+                        a.app
+                    ),
                 )
                 .with_detail("approvedApp", a.app.clone())
                 .with_detail("app", identity.unwrap_or(app_name)));
@@ -457,7 +490,10 @@ impl TierPolicy {
             && a.tier >= needed
         {
             let granted = cap.min(a.tier);
-            state.allowances.insert(id.to_lowercase(), (granted, Instant::now() + SESSION_ALLOWANCE));
+            state.allowances.insert(
+                id.to_lowercase(),
+                (granted, Instant::now() + SESSION_ALLOWANCE),
+            );
             have = granted;
         }
         if have < needed {
@@ -477,28 +513,52 @@ impl TierPolicy {
     }
 }
 
-fn refusal(needed: ComputerTier, have: ComputerTier, app_name: &str, identity: Option<&str>, fixed: bool) -> CapabilityError {
+fn refusal(
+    needed: ComputerTier,
+    have: ComputerTier,
+    app_name: &str,
+    identity: Option<&str>,
+    fixed: bool,
+) -> CapabilityError {
     let why = match (have, fixed_caps::category(identity)) {
         (ComputerTier::Off, Some(Category::Psyche)) => "Psyche never drives its own windows.",
-        (ComputerTier::Off, Some(Category::PasswordManager)) => "Password managers are off limits for computer use.",
-        (ComputerTier::Off, Some(Category::Finance)) => "Banking, trading and crypto apps are off limits for computer use.",
+        (ComputerTier::Off, Some(Category::PasswordManager)) => {
+            "Password managers are off limits for computer use."
+        }
+        (ComputerTier::Off, Some(Category::Finance)) => {
+            "Banking, trading and crypto apps are off limits for computer use."
+        }
         (ComputerTier::Off, Some(Category::SystemAuthority)) => {
             "Settings, notifications and security prompts are off limits for computer use."
         }
-        (ComputerTier::Read, Some(Category::Browser)) => "Browsers are read only; use the agent browser to act on the web.",
-        (ComputerTier::Click, Some(Category::TerminalOrIde)) => "Terminals and IDEs are click only (equivalent to shell access).",
+        (ComputerTier::Read, Some(Category::Browser)) => {
+            "Browsers are read only; use the agent browser to act on the web."
+        }
+        (ComputerTier::Click, Some(Category::TerminalOrIde)) => {
+            "Terminals and IDEs are click only (equivalent to shell access)."
+        }
         (ComputerTier::Off, _) => "Computer use is off for this app.",
         (ComputerTier::Read, _) => "This app is set to Read only.",
         _ => "This app is limited to plain clicks.",
     };
-    CapabilityError::new(ErrorCode::PolicyDenied, format!("tier_{}", have.as_str()), format!("{app_name}: {why}"))
-        .with_detail("app", identity.unwrap_or(app_name))
-        .with_detail("tier", have.as_str())
-        .with_detail("tierRequired", needed.as_str())
-        .with_detail("fixedCap", fixed)
+    CapabilityError::new(
+        ErrorCode::PolicyDenied,
+        format!("tier_{}", have.as_str()),
+        format!("{app_name}: {why}"),
+    )
+    .with_detail("app", identity.unwrap_or(app_name))
+    .with_detail("tier", have.as_str())
+    .with_detail("tierRequired", needed.as_str())
+    .with_detail("fixedCap", fixed)
 }
 
-/// JSON for diagnostics.
+/// The process-wide policy (shared by `apps.*` and `computer.*`), loaded from
+/// `computer-use.json`; callers `reload` it before each decision, as the mac helper does.
+pub fn shared_policy(rt: &super::registry::Runtime) -> std::sync::Arc<TierPolicy> {
+    rt.service(|| TierPolicy::new(TierSettings::load(&rt.env)))
+}
+
+/// `{tier, fixedCap}` for an app.
 pub fn describe(identity: Option<&str>, policy: &TierPolicy) -> Value {
     json!({ "tier": policy.effective_tier(identity).as_str(), "fixedCap": fixed_caps::cap(identity).as_str() })
 }
@@ -510,22 +570,58 @@ mod tests {
 
     #[test]
     fn fixed_caps_by_exe_and_aumid() {
-        assert_eq!(fixed_caps::cap(Some(r"C:\Program Files\Google\Chrome\Application\chrome.exe")), ComputerTier::Read);
-        assert_eq!(fixed_caps::cap(Some("Microsoft.WindowsTerminal_8wekyb3d8bbwe!App")), ComputerTier::Click);
-        assert_eq!(fixed_caps::cap(Some(r"C:\Windows\System32\consent.exe")), ComputerTier::Off);
-        assert_eq!(fixed_caps::cap(Some("windows.immersivecontrolpanel_cw5n1h2txyewy!microsoft.windows.immersivecontrolpanel")), ComputerTier::Off);
-        assert_eq!(fixed_caps::cap(Some(r"C:\Users\x\AppData\Local\1Password\app\8\1Password.exe")), ComputerTier::Off);
-        assert_eq!(fixed_caps::cap(Some("com.psyche.helper")), ComputerTier::Off);
-        assert_eq!(fixed_caps::cap(Some(r"C:\Windows\notepad.exe")), ComputerTier::Interact);
+        assert_eq!(
+            fixed_caps::cap(Some(
+                r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+            )),
+            ComputerTier::Read
+        );
+        assert_eq!(
+            fixed_caps::cap(Some("Microsoft.WindowsTerminal_8wekyb3d8bbwe!App")),
+            ComputerTier::Click
+        );
+        assert_eq!(
+            fixed_caps::cap(Some(r"C:\Windows\System32\consent.exe")),
+            ComputerTier::Off
+        );
+        assert_eq!(
+            fixed_caps::cap(Some(
+                "windows.immersivecontrolpanel_cw5n1h2txyewy!microsoft.windows.immersivecontrolpanel"
+            )),
+            ComputerTier::Off
+        );
+        assert_eq!(
+            fixed_caps::cap(Some(
+                r"C:\Users\x\AppData\Local\1Password\app\8\1Password.exe"
+            )),
+            ComputerTier::Off
+        );
+        assert_eq!(
+            fixed_caps::cap(Some("com.psyche.helper")),
+            ComputerTier::Off
+        );
+        assert_eq!(
+            fixed_caps::cap(Some(r"C:\Windows\notepad.exe")),
+            ComputerTier::Interact
+        );
         assert_eq!(fixed_caps::cap(None), ComputerTier::Interact);
         // A path segment that merely contains a browser name is not the browser.
-        assert_eq!(fixed_caps::cap(Some(r"C:\chrome.exe.d\tool.exe")), ComputerTier::Interact);
+        assert_eq!(
+            fixed_caps::cap(Some(r"C:\chrome.exe.d\tool.exe")),
+            ComputerTier::Interact
+        );
     }
 
     #[test]
     fn settings_match_identity_or_exe_name() {
-        let s: TierSettings = serde_json::from_value(json!({"default": "off", "apps": {"notepad.exe": "interact", "Foo!App": "read"}})).unwrap();
-        assert_eq!(s.value(Some(r"C:\Windows\System32\NOTEPAD.EXE")), TierValue::Interact);
+        let s: TierSettings = serde_json::from_value(
+            json!({"default": "off", "apps": {"notepad.exe": "interact", "Foo!App": "read"}}),
+        )
+        .unwrap();
+        assert_eq!(
+            s.value(Some(r"C:\Windows\System32\NOTEPAD.EXE")),
+            TierValue::Interact
+        );
         assert_eq!(s.value(Some("foo!app")), TierValue::Read);
         assert_eq!(s.value(Some("other.exe")), TierValue::Off);
         assert_eq!(TierSettings::default().value(None), TierValue::Ask);
@@ -533,30 +629,72 @@ mod tests {
 
     #[test]
     fn authorize_caps_asks_and_binds_approvals() {
-        let s: TierSettings = serde_json::from_value(json!({"default": "ask", "apps": {"chrome.exe": "interact", "calc.exe": "read"}})).unwrap();
+        let s: TierSettings = serde_json::from_value(
+            json!({"default": "ask", "apps": {"chrome.exe": "interact", "calc.exe": "read"}}),
+        )
+        .unwrap();
         let p = Arc::new(TierPolicy::new(s));
         let chrome = r"C:\Program Files\Google\Chrome\Application\chrome.exe";
-        assert!(p.authorize(ComputerIntent::Read, Some(chrome), "Chrome", None).is_ok());
-        let e = p.authorize(ComputerIntent::Type, Some(chrome), "Chrome", None).unwrap_err();
+        assert!(
+            p.authorize(ComputerIntent::Read, Some(chrome), "Chrome", None)
+                .is_ok()
+        );
+        let e = p
+            .authorize(ComputerIntent::Type, Some(chrome), "Chrome", None)
+            .unwrap_err();
         assert_eq!(e.reason, "tier_read");
         assert_eq!(e.details["fixedCap"], true);
-        let e = p.authorize(ComputerIntent::Click, Some(r"C:\x\calc.exe"), "Calc", None).unwrap_err();
+        let e = p
+            .authorize(ComputerIntent::Click, Some(r"C:\x\calc.exe"), "Calc", None)
+            .unwrap_err();
         assert_eq!(e.reason, "tier_read");
         let notes = r"C:\x\notes.exe";
-        assert_eq!(p.authorize(ComputerIntent::Read, Some(notes), "Notes", None).unwrap_err().reason, "tier_ask");
-        let other = ApprovalBinding { id: "a".into(), app: "other.exe".into(), tier: ComputerTier::Interact };
-        assert_eq!(p.authorize(ComputerIntent::Read, Some(notes), "Notes", Some(&other)).unwrap_err().reason, "approval_app_mismatch");
-        let ok = ApprovalBinding { id: "a".into(), app: notes.into(), tier: ComputerTier::Click };
-        assert!(p.authorize(ComputerIntent::Click, Some(notes), "Notes", Some(&ok)).is_ok());
+        assert_eq!(
+            p.authorize(ComputerIntent::Read, Some(notes), "Notes", None)
+                .unwrap_err()
+                .reason,
+            "tier_ask"
+        );
+        let other = ApprovalBinding {
+            id: "a".into(),
+            app: "other.exe".into(),
+            tier: ComputerTier::Interact,
+        };
+        assert_eq!(
+            p.authorize(ComputerIntent::Read, Some(notes), "Notes", Some(&other))
+                .unwrap_err()
+                .reason,
+            "approval_app_mismatch"
+        );
+        let ok = ApprovalBinding {
+            id: "a".into(),
+            app: notes.into(),
+            tier: ComputerTier::Click,
+        };
+        assert!(
+            p.authorize(ComputerIntent::Click, Some(notes), "Notes", Some(&ok))
+                .is_ok()
+        );
         assert_eq!(p.effective_tier(Some(notes)), ComputerTier::Click);
-        assert_eq!(p.authorize(ComputerIntent::Type, Some(notes), "Notes", None).unwrap_err().reason, "tier_ask");
+        assert_eq!(
+            p.authorize(ComputerIntent::Type, Some(notes), "Notes", None)
+                .unwrap_err()
+                .reason,
+            "tier_ask"
+        );
         p.clear_allowances();
         assert_eq!(p.effective_tier(Some(notes)), ComputerTier::Off);
     }
 
     #[test]
     fn approval_param_is_added() {
-        let spec = with_approval_param(CapabilitySpec::new("apps.focus", "", crate::node::SideEffect::Write).input(schema::object(vec![], &[])));
-        assert_eq!(spec.input_schema["properties"]["approval"]["required"], json!(["app", "tier"]));
+        let spec = with_approval_param(
+            CapabilitySpec::new("apps.focus", "", crate::node::SideEffect::Write)
+                .input(schema::object(vec![], &[])),
+        );
+        assert_eq!(
+            spec.input_schema["properties"]["approval"]["required"],
+            json!(["app", "tier"])
+        );
     }
 }

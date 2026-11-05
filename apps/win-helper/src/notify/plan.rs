@@ -24,7 +24,10 @@ pub const DISMISS_ACTION_ID: &str = "dismiss";
 pub const REPLY_ACTION_ID: &str = "reply";
 
 pub fn is_valid_id(s: &str) -> bool {
-    !s.is_empty() && s.len() <= MAX_ID_LENGTH && s.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'.' | b':' | b'-'))
+    !s.is_empty()
+        && s.len() <= MAX_ID_LENGTH
+        && s.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'.' | b':' | b'-'))
 }
 
 /// Truncates to at most `max` characters, ending with "…" when shortened.
@@ -79,7 +82,16 @@ impl NotificationKind {
         }
     }
 
-    pub const NAMES: [&'static str; 8] = ["approval", "input_needed", "task_done", "task_failed", "proactive", "briefing", "reminder", "system"];
+    pub const NAMES: [&'static str; 8] = [
+        "approval",
+        "input_needed",
+        "task_done",
+        "task_failed",
+        "proactive",
+        "briefing",
+        "reminder",
+        "system",
+    ];
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -187,13 +199,18 @@ pub struct NotifyShowParams {
 impl NotifyShowParams {
     pub fn from_value(v: &Value) -> Result<NotifyShowParams, CapabilityError> {
         let raw: RawShow = crate::node::capability::decode_params(v)?;
-        let kind = raw.kind.or(raw.category).ok_or_else(|| CapabilityError::invalid_params("missing parameter kind", Some("kind")))?;
+        let kind = raw.kind.or(raw.category).ok_or_else(|| {
+            CapabilityError::invalid_params("missing parameter kind", Some("kind"))
+        })?;
         let mut reply = raw.reply;
         let actions = raw.actions.map(|wire| {
             let mut buttons = Vec::new();
             for a in wire {
                 if a.text_input == Some(true) {
-                    reply = reply.clone().or(Some(NotifyReply { label: a.label, placeholder: None }));
+                    reply = reply.clone().or(Some(NotifyReply {
+                        label: a.label,
+                        placeholder: None,
+                    }));
                 } else {
                     buttons.push(NotifyAction {
                         id: a.id,
@@ -208,7 +225,10 @@ impl NotifyShowParams {
         if let Some(pc) = &raw.presence_challenge
             && !is_valid_challenge(pc)
         {
-            return Err(CapabilityError::invalid_params("presenceChallenge must be 64 hex characters", Some("presenceChallenge")));
+            return Err(CapabilityError::invalid_params(
+                "presenceChallenge must be 64 hex characters",
+                Some("presenceChallenge"),
+            ));
         }
         Ok(NotifyShowParams {
             id: raw.id,
@@ -249,7 +269,10 @@ impl QuietHours {
     }
 
     pub fn new(start: &str, end: &str) -> Option<QuietHours> {
-        Some(QuietHours { start_minute: Self::parse_hhmm(start)?, end_minute: Self::parse_hhmm(end)? })
+        Some(QuietHours {
+            start_minute: Self::parse_hhmm(start)?,
+            end_minute: Self::parse_hhmm(end)?,
+        })
     }
 
     pub fn contains(&self, minute: u32) -> bool {
@@ -275,7 +298,13 @@ pub struct ActionPlan {
 
 impl ActionPlan {
     fn button(id: &str, label: &str, destructive: bool) -> ActionPlan {
-        ActionPlan { id: id.into(), label: label.into(), destructive, requires_auth: false, text_input: None }
+        ActionPlan {
+            id: id.into(),
+            label: label.into(),
+            destructive,
+            requires_auth: false,
+            text_input: None,
+        }
     }
 }
 
@@ -335,16 +364,28 @@ pub fn default_interruption(kind: NotificationKind) -> Interruption {
 
 pub fn default_buttons(kind: NotificationKind) -> Vec<ActionPlan> {
     match kind {
-        NotificationKind::Approval => vec![ActionPlan::button("approve", "Approve", false), ActionPlan::button("deny", "Deny", true)],
+        NotificationKind::Approval => vec![
+            ActionPlan::button("approve", "Approve", false),
+            ActionPlan::button("deny", "Deny", true),
+        ],
         NotificationKind::InputNeeded => vec![],
-        NotificationKind::TaskFailed => vec![ActionPlan::button("open", "Open", false), ActionPlan::button("retry", "Retry", false)],
-        NotificationKind::Reminder => vec![ActionPlan::button("open", "Open", false), ActionPlan::button("snooze", "Snooze", false)],
+        NotificationKind::TaskFailed => vec![
+            ActionPlan::button("open", "Open", false),
+            ActionPlan::button("retry", "Retry", false),
+        ],
+        NotificationKind::Reminder => vec![
+            ActionPlan::button("open", "Open", false),
+            ActionPlan::button("snooze", "Snooze", false),
+        ],
         _ => vec![ActionPlan::button("open", "Open", false)],
     }
 }
 
 fn default_reply() -> NotifyReply {
-    NotifyReply { label: "Reply".into(), placeholder: Some("Type your answer".into()) }
+    NotifyReply {
+        label: "Reply".into(),
+        placeholder: Some("Type your answer".into()),
+    }
 }
 
 fn reply_action(r: &NotifyReply) -> ActionPlan {
@@ -353,18 +394,36 @@ fn reply_action(r: &NotifyReply) -> ActionPlan {
         label: truncate(&r.label, MAX_ACTION_LABEL),
         destructive: false,
         requires_auth: false,
-        text_input: Some(truncate(r.placeholder.as_deref().unwrap_or(""), MAX_PLACEHOLDER)),
+        text_input: Some(truncate(
+            r.placeholder.as_deref().unwrap_or(""),
+            MAX_PLACEHOLDER,
+        )),
     }
 }
 
 /// The fixed categories (mac `defaultCategories`), so `category` matches the mac helper's.
 pub fn default_categories() -> Vec<CategoryPlan> {
     vec![
-        CategoryPlan { identifier: "psyche.approval".into(), actions: default_buttons(NotificationKind::Approval) },
-        CategoryPlan { identifier: "psyche.input_needed".into(), actions: vec![reply_action(&default_reply())] },
-        CategoryPlan { identifier: "psyche.task_failed".into(), actions: default_buttons(NotificationKind::TaskFailed) },
-        CategoryPlan { identifier: "psyche.reminder".into(), actions: default_buttons(NotificationKind::Reminder) },
-        CategoryPlan { identifier: "psyche.open".into(), actions: default_buttons(NotificationKind::System) },
+        CategoryPlan {
+            identifier: "psyche.approval".into(),
+            actions: default_buttons(NotificationKind::Approval),
+        },
+        CategoryPlan {
+            identifier: "psyche.input_needed".into(),
+            actions: vec![reply_action(&default_reply())],
+        },
+        CategoryPlan {
+            identifier: "psyche.task_failed".into(),
+            actions: default_buttons(NotificationKind::TaskFailed),
+        },
+        CategoryPlan {
+            identifier: "psyche.reminder".into(),
+            actions: default_buttons(NotificationKind::Reminder),
+        },
+        CategoryPlan {
+            identifier: "psyche.open".into(),
+            actions: default_buttons(NotificationKind::System),
+        },
     ]
 }
 
@@ -376,9 +435,19 @@ pub fn custom_category_id(actions: &[ActionPlan]) -> String {
             [
                 a.id.clone(),
                 a.label.clone(),
-                if a.destructive { "d".into() } else { "-".into() },
-                if a.requires_auth { "a".into() } else { "-".into() },
-                a.text_input.as_ref().map_or("-".into(), |p| format!("t:{p}")),
+                if a.destructive {
+                    "d".into()
+                } else {
+                    "-".into()
+                },
+                if a.requires_auth {
+                    "a".into()
+                } else {
+                    "-".into()
+                },
+                a.text_input
+                    .as_ref()
+                    .map_or("-".into(), |p| format!("t:{p}")),
             ]
             .join("\u{1F}")
         })
@@ -388,20 +457,37 @@ pub fn custom_category_id(actions: &[ActionPlan]) -> String {
 }
 
 pub fn category_for(actions: Vec<ActionPlan>) -> CategoryPlan {
-    if let Some(known) = default_categories().into_iter().find(|c| c.actions == actions) {
+    if let Some(known) = default_categories()
+        .into_iter()
+        .find(|c| c.actions == actions)
+    {
         return known;
     }
-    CategoryPlan { identifier: custom_category_id(&actions), actions }
+    CategoryPlan {
+        identifier: custom_category_id(&actions),
+        actions,
+    }
 }
 
 /// Reply first (when any), then the buttons (custom, or the kind's defaults).
-pub fn action_list(kind: NotificationKind, buttons: Option<&[NotifyAction]>, reply: Option<&NotifyReply>) -> Result<Vec<ActionPlan>, CapabilityError> {
+pub fn action_list(
+    kind: NotificationKind,
+    buttons: Option<&[NotifyAction]>,
+    reply: Option<&NotifyReply>,
+) -> Result<Vec<ActionPlan>, CapabilityError> {
     let mut list = Vec::new();
     let default = default_reply();
-    let reply = reply.or(if kind == NotificationKind::InputNeeded { Some(&default) } else { None });
+    let reply = reply.or(if kind == NotificationKind::InputNeeded {
+        Some(&default)
+    } else {
+        None
+    });
     if let Some(r) = reply {
         if r.label.trim().is_empty() {
-            return Err(CapabilityError::invalid_params("reply.label must not be empty", Some("reply.label")));
+            return Err(CapabilityError::invalid_params(
+                "reply.label must not be empty",
+                Some("reply.label"),
+            ));
         }
         list.push(reply_action(r));
     }
@@ -409,13 +495,22 @@ pub fn action_list(kind: NotificationKind, buttons: Option<&[NotifyAction]>, rep
         Some(buttons) => {
             for (i, b) in buttons.iter().enumerate() {
                 if !is_valid_id(&b.id) {
-                    return Err(CapabilityError::invalid_params(format!("actions[{i}].id must match {ID_PATTERN}"), Some("actions")));
+                    return Err(CapabilityError::invalid_params(
+                        format!("actions[{i}].id must match {ID_PATTERN}"),
+                        Some("actions"),
+                    ));
                 }
                 if b.id == DEFAULT_ACTION_ID || b.id == DISMISS_ACTION_ID {
-                    return Err(CapabilityError::invalid_params(format!("actions[{i}].id {} is reserved", b.id), Some("actions")));
+                    return Err(CapabilityError::invalid_params(
+                        format!("actions[{i}].id {} is reserved", b.id),
+                        Some("actions"),
+                    ));
                 }
                 if b.label.trim().is_empty() {
-                    return Err(CapabilityError::invalid_params(format!("actions[{i}].label must not be empty"), Some("actions")));
+                    return Err(CapabilityError::invalid_params(
+                        format!("actions[{i}].label must not be empty"),
+                        Some("actions"),
+                    ));
                 }
                 list.push(ActionPlan {
                     id: b.id.clone(),
@@ -429,48 +524,82 @@ pub fn action_list(kind: NotificationKind, buttons: Option<&[NotifyAction]>, rep
         None => list.extend(default_buttons(kind)),
     }
     if list.len() > MAX_ACTIONS {
-        return Err(CapabilityError::invalid_params(format!("at most {MAX_ACTIONS} actions (including the reply)"), Some("actions")));
+        return Err(CapabilityError::invalid_params(
+            format!("at most {MAX_ACTIONS} actions (including the reply)"),
+            Some("actions"),
+        ));
     }
     let mut seen = std::collections::HashSet::new();
     if !list.iter().all(|a| seen.insert(a.id.clone())) {
-        return Err(CapabilityError::invalid_params("action ids must be unique (\"reply\" is used by the text reply)", Some("actions")));
+        return Err(CapabilityError::invalid_params(
+            "action ids must be unique (\"reply\" is used by the text reply)",
+            Some("actions"),
+        ));
     }
     Ok(list)
 }
 
 impl NotificationPlan {
     /// Builds the plan; `minute_of_day` is the local wall clock (for quiet hours).
-    pub fn make(p: &NotifyShowParams, minute_of_day: u32) -> Result<NotificationPlan, CapabilityError> {
+    pub fn make(
+        p: &NotifyShowParams,
+        minute_of_day: u32,
+    ) -> Result<NotificationPlan, CapabilityError> {
         if !is_valid_id(&p.id) {
-            return Err(CapabilityError::invalid_params(format!("id must match {ID_PATTERN}"), Some("id")));
+            return Err(CapabilityError::invalid_params(
+                format!("id must match {ID_PATTERN}"),
+                Some("id"),
+            ));
         }
         if let Some(t) = &p.thread_id
             && !is_valid_id(t)
         {
-            return Err(CapabilityError::invalid_params(format!("threadId must match {ID_PATTERN}"), Some("threadId")));
+            return Err(CapabilityError::invalid_params(
+                format!("threadId must match {ID_PATTERN}"),
+                Some("threadId"),
+            ));
         }
         if let Some(a) = &p.approval_id
             && !is_valid_id(a)
         {
-            return Err(CapabilityError::invalid_params(format!("approvalId must match {ID_PATTERN}"), Some("approvalId")));
+            return Err(CapabilityError::invalid_params(
+                format!("approvalId must match {ID_PATTERN}"),
+                Some("approvalId"),
+            ));
         }
         let title = p.title.trim();
         if title.is_empty() {
-            return Err(CapabilityError::invalid_params("title must not be empty", Some("title")));
+            return Err(CapabilityError::invalid_params(
+                "title must not be empty",
+                Some("title"),
+            ));
         }
         let actions = action_list(p.kind, p.actions.as_deref(), p.reply.as_ref())?;
         let category = category_for(actions);
         let quiet = match &p.quiet_hours {
             Some(q) => Some(QuietHours::new(&q.start, &q.end).ok_or_else(|| {
-                CapabilityError::invalid_params("quietHours.start and quietHours.end must be HH:mm", Some("quietHours"))
+                CapabilityError::invalid_params(
+                    "quietHours.start and quietHours.end must be HH:mm",
+                    Some("quietHours"),
+                )
             })?),
             None => None,
         };
-        let requested = p.interruption.unwrap_or_else(|| default_interruption(p.kind));
+        let requested = p
+            .interruption
+            .unwrap_or_else(|| default_interruption(p.kind));
         let in_quiet = quiet.is_some_and(|q| q.contains(minute_of_day));
-        let level = if in_quiet { Interruption::Passive } else { requested };
+        let level = if in_quiet {
+            Interruption::Passive
+        } else {
+            requested
+        };
         let sound = !in_quiet && p.sound.unwrap_or(requested != Interruption::Passive);
-        let subtitle = p.subtitle.as_deref().map(|s| truncate(s, MAX_SUBTITLE)).filter(|s| !s.is_empty());
+        let subtitle = p
+            .subtitle
+            .as_deref()
+            .map(|s| truncate(s, MAX_SUBTITLE))
+            .filter(|s| !s.is_empty());
         Ok(NotificationPlan {
             id: p.id.clone(),
             kind: p.kind,
@@ -495,8 +624,18 @@ impl NotificationPlan {
             kind: self.kind.as_str().into(),
             approval_id: self.approval_id.clone(),
             require_biometry: self.require_biometry,
-            destructive_action_ids: self.category.actions.iter().filter(|a| a.destructive).map(|a| a.id.clone()).collect(),
-            presence_challenge: if self.require_biometry { self.presence_challenge.clone() } else { None },
+            destructive_action_ids: self
+                .category
+                .actions
+                .iter()
+                .filter(|a| a.destructive)
+                .map(|a| a.id.clone())
+                .collect(),
+            presence_challenge: if self.require_biometry {
+                self.presence_challenge.clone()
+            } else {
+                None
+            },
         }
     }
 
@@ -507,7 +646,14 @@ impl NotificationPlan {
 }
 
 pub fn tag_for(id: &str) -> String {
-    if id.len() <= 64 { id.to_owned() } else { format!("h-{}", &crate::node::encoding::sha256_hex(id.as_bytes())[..62]) }
+    if id.len() <= 64 {
+        id.to_owned()
+    } else {
+        format!(
+            "h-{}",
+            &crate::node::encoding::sha256_hex(id.as_bytes())[..62]
+        )
+    }
 }
 
 // MARK: Activation arguments
@@ -555,7 +701,14 @@ pub fn encode_args(info: &UserInfo, action_id: &str) -> String {
         parts.push("rb=1".into());
     }
     if !info.destructive_action_ids.is_empty() {
-        parts.push(format!("d={}", info.destructive_action_ids.iter().map(|d| esc_arg(d)).collect::<Vec<_>>().join(",")));
+        parts.push(format!(
+            "d={}",
+            info.destructive_action_ids
+                .iter()
+                .map(|d| esc_arg(d))
+                .collect::<Vec<_>>()
+                .join(",")
+        ));
     }
     if let Some(c) = &info.presence_challenge {
         parts.push(format!("pc={c}"));
@@ -584,13 +737,20 @@ pub fn decode_args(args: &str) -> Option<(UserInfo, String)> {
             "k" => info.kind = unesc_arg(v)?,
             "ap" => info.approval_id = Some(unesc_arg(v)?).filter(|a| is_valid_id(a)),
             "rb" => info.require_biometry = v == "1",
-            "d" => info.destructive_action_ids = v.split(',').filter_map(unesc_arg).filter(|d| !d.is_empty()).collect(),
+            "d" => {
+                info.destructive_action_ids = v
+                    .split(',')
+                    .filter_map(unesc_arg)
+                    .filter(|d| !d.is_empty())
+                    .collect()
+            }
             "pc" => info.presence_challenge = Some(v.to_owned()).filter(|c| is_valid_challenge(c)),
             _ => {}
         }
     }
     let action = action.filter(|a| is_valid_id(a))?;
-    (version.as_deref() == Some("1") && is_valid_id(&info.notification_id)).then_some((info, action))
+    (version.as_deref() == Some("1") && is_valid_id(&info.notification_id))
+        .then_some((info, action))
 }
 
 // MARK: Toast XML
@@ -617,14 +777,21 @@ pub fn xml_escape(s: &str) -> String {
 pub fn toast_xml(plan: &NotificationPlan) -> String {
     let info = plan.user_info();
     let has_buttons = plan.category.actions.iter().any(|a| a.text_input.is_none());
-    let scenario = if plan.interruption == Interruption::TimeSensitive && has_buttons { " scenario=\"reminder\"" } else { "" };
+    let scenario = if plan.interruption == Interruption::TimeSensitive && has_buttons {
+        " scenario=\"reminder\""
+    } else {
+        ""
+    };
     let mut x = format!(
         "<toast launch=\"{}\" activationType=\"background\"{scenario}><visual><binding template=\"ToastGeneric\"><text>{}</text>",
         xml_escape(&encode_args(&info, DEFAULT_ACTION_ID)),
         xml_escape(&plan.title)
     );
     if let Some(s) = &plan.subtitle {
-        x.push_str(&format!("<text hint-maxLines=\"1\">{}</text>", xml_escape(s)));
+        x.push_str(&format!(
+            "<text hint-maxLines=\"1\">{}</text>",
+            xml_escape(s)
+        ));
     }
     if !plan.body.is_empty() {
         x.push_str(&format!("<text>{}</text>", xml_escape(&plan.body)));
@@ -634,7 +801,10 @@ pub fn toast_xml(plan: &NotificationPlan) -> String {
         x.push_str("<actions>");
         for a in &plan.category.actions {
             if let Some(placeholder) = &a.text_input {
-                x.push_str(&format!("<input id=\"{REPLY_ACTION_ID}\" type=\"text\" placeHolderContent=\"{}\"/>", xml_escape(placeholder)));
+                x.push_str(&format!(
+                    "<input id=\"{REPLY_ACTION_ID}\" type=\"text\" placeHolderContent=\"{}\"/>",
+                    xml_escape(placeholder)
+                ));
             }
         }
         for a in &plan.category.actions {
@@ -682,7 +852,12 @@ pub struct NotificationResponse {
 }
 
 impl NotificationResponse {
-    pub fn new(notification_id: &str, action_id: &str, reply_text: Option<String>, approval_id: Option<String>) -> Self {
+    pub fn new(
+        notification_id: &str,
+        action_id: &str,
+        reply_text: Option<String>,
+        approval_id: Option<String>,
+    ) -> Self {
         NotificationResponse {
             notification_id: notification_id.into(),
             action_id: action_id.into(),
@@ -712,7 +887,10 @@ impl NotificationResponse {
             o.insert("authError".into(), e.clone().into());
         }
         if let Some(p) = &self.presence {
-            o.insert("presence".into(), json!({ "signature": p.signature, "keyId": p.key_id }));
+            o.insert(
+                "presence".into(),
+                json!({ "signature": p.signature, "keyId": p.key_id }),
+            );
         }
         if let Some(e) = &self.presence_error {
             o.insert("presenceError".into(), e.clone().into());
@@ -752,11 +930,14 @@ mod tests {
         assert_eq!(p.interruption, Some(Interruption::TimeSensitive));
         assert_eq!(p.actions.as_ref().unwrap()[0].requires_auth, Some(true));
         assert!(p.thread_id.is_none());
-        let p = show(json!({"id": "x", "kind": "input_needed", "title": "T", "body": "B",
-            "actions": [{"id": "r", "label": "Answer", "textInput": true}]}));
+        let p = show(
+            json!({"id": "x", "kind": "input_needed", "title": "T", "body": "B",
+            "actions": [{"id": "r", "label": "Answer", "textInput": true}]}),
+        );
         assert_eq!(p.reply.as_ref().unwrap().label, "Answer");
         assert!(p.actions.is_none());
-        let e = NotifyShowParams::from_value(&json!({"id": "x", "title": "T", "body": "B"})).unwrap_err();
+        let e = NotifyShowParams::from_value(&json!({"id": "x", "title": "T", "body": "B"}))
+            .unwrap_err();
         assert_eq!(e.details["field"], "kind");
         let e = NotifyShowParams::from_value(&json!({"id": "x", "kind": "system", "title": "T", "body": "B", "presenceChallenge": "zz"})).unwrap_err();
         assert_eq!(e.details["field"], "presenceChallenge");
@@ -770,19 +951,32 @@ mod tests {
         assert_eq!(plan.interruption, Interruption::TimeSensitive);
         assert!(plan.play_sound);
         assert_eq!(plan.title, "Allow?");
-        let p = show(json!({"id": "n1", "kind": "task_done", "title": "T", "body": "b", "quietHours": {"start": "22:00", "end": "07:00"}}));
+        let p = show(
+            json!({"id": "n1", "kind": "task_done", "title": "T", "body": "b", "quietHours": {"start": "22:00", "end": "07:00"}}),
+        );
         let plan = NotificationPlan::make(&p, 23 * 60).unwrap();
         assert!(plan.quiet_hours_applied);
         assert_eq!(plan.interruption, Interruption::Passive);
         assert!(!plan.play_sound);
-        assert!(!NotificationPlan::make(&p, 12 * 60).unwrap().quiet_hours_applied);
+        assert!(
+            !NotificationPlan::make(&p, 12 * 60)
+                .unwrap()
+                .quiet_hours_applied
+        );
         let p = show(json!({"id": "bad id", "kind": "system", "title": "T", "body": "b"}));
-        assert_eq!(NotificationPlan::make(&p, 0).unwrap_err().details["field"], "id");
-        let p = show(json!({"id": "x", "kind": "system", "title": "T", "body": "b",
+        assert_eq!(
+            NotificationPlan::make(&p, 0).unwrap_err().details["field"],
+            "id"
+        );
+        let p = show(
+            json!({"id": "x", "kind": "system", "title": "T", "body": "b",
             "actions": [{"id": "a", "label": "1"}, {"id": "b", "label": "2"}, {"id": "c", "label": "3"}, {"id": "d", "label": "4"}],
-            "reply": {"label": "R"}}));
+            "reply": {"label": "R"}}),
+        );
         assert!(NotificationPlan::make(&p, 0).is_err());
-        let p = show(json!({"id": "x", "kind": "system", "title": "T", "body": "b", "actions": [{"id": "default", "label": "1"}]}));
+        let p = show(
+            json!({"id": "x", "kind": "system", "title": "T", "body": "b", "actions": [{"id": "default", "label": "1"}]}),
+        );
         assert!(NotificationPlan::make(&p, 0).is_err());
         assert_eq!(truncate("abcdef", 4), "abc…");
     }
@@ -803,7 +997,10 @@ mod tests {
         let id = custom_category_id(&a);
         assert!(id.starts_with("psyche.custom.") && id.len() == "psyche.custom.".len() + 16);
         assert_eq!(id, custom_category_id(&a));
-        assert_eq!(category_for(default_buttons(NotificationKind::System)).identifier, "psyche.open");
+        assert_eq!(
+            category_for(default_buttons(NotificationKind::System)).identifier,
+            "psyche.open"
+        );
     }
 
     #[test]
@@ -829,7 +1026,9 @@ mod tests {
 
     #[test]
     fn toast_xml_escapes_and_wires_actions() {
-        let p = show(json!({"id": "n1", "kind": "approval", "title": "Pay <Bob> & co", "body": "\"quoted\"", "requireBiometry": true}));
+        let p = show(
+            json!({"id": "n1", "kind": "approval", "title": "Pay <Bob> & co", "body": "\"quoted\"", "requireBiometry": true}),
+        );
         let plan = NotificationPlan::make(&p, 0).unwrap();
         let x = toast_xml(&plan);
         assert!(x.contains("<text>Pay &lt;Bob&gt; &amp; co</text>"));
@@ -839,17 +1038,24 @@ mod tests {
         assert!(x.contains("arguments=\"v=1&amp;n=n1&amp;a=approve"));
         let p = show(json!({"id": "n2", "kind": "input_needed", "title": "Q", "body": "b"}));
         let x = toast_xml(&NotificationPlan::make(&p, 0).unwrap());
-        assert!(x.contains("<input id=\"reply\" type=\"text\" placeHolderContent=\"Type your answer\"/>"));
+        assert!(x.contains(
+            "<input id=\"reply\" type=\"text\" placeHolderContent=\"Type your answer\"/>"
+        ));
         assert!(x.contains("hint-inputId=\"reply\""));
         assert!(!x.contains("scenario="));
         let p = show(json!({"id": "n3", "kind": "briefing", "title": "Q", "body": "b"}));
-        assert!(toast_xml(&NotificationPlan::make(&p, 0).unwrap()).contains("<audio silent=\"true\"/>"));
+        assert!(
+            toast_xml(&NotificationPlan::make(&p, 0).unwrap()).contains("<audio silent=\"true\"/>")
+        );
     }
 
     #[test]
     fn response_payload_shape() {
         let mut r = NotificationResponse::new("n1", "reply", Some("hi".into()), Some("apr".into()));
-        r.presence = Some(PresenceSignature { signature: "sig".into(), key_id: "kid".into() });
+        r.presence = Some(PresenceSignature {
+            signature: "sig".into(),
+            key_id: "kid".into(),
+        });
         let p = r.payload();
         assert_eq!(p["type"], "notify.response");
         assert_eq!(p["text"], "hi");

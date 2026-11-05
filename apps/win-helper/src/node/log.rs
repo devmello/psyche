@@ -36,12 +36,18 @@ impl HelperLog {
 
     /// No output at all (tests, `--manifest`).
     pub fn quiet() -> Self {
-        HelperLog { file: None, echo: Arc::new(|_| {}) }
+        HelperLog {
+            file: None,
+            echo: Arc::new(|_| {}),
+        }
     }
 
     /// Captures lines with a closure (tests).
     pub fn with_echo(echo: impl Fn(&str) + Send + Sync + 'static) -> Self {
-        HelperLog { file: None, echo: Arc::new(echo) }
+        HelperLog {
+            file: None,
+            echo: Arc::new(echo),
+        }
     }
 
     pub fn info(&self, message: impl AsRef<str>) {
@@ -59,7 +65,10 @@ impl HelperLog {
         if let Some(dir) = path.parent() {
             let _ = fs::create_dir_all(dir);
         }
-        if fs::metadata(&*path).map(|m| m.len() > MAX_LOG_BYTES).unwrap_or(false) {
+        if fs::metadata(&*path)
+            .map(|m| m.len() > MAX_LOG_BYTES)
+            .unwrap_or(false)
+        {
             let _ = fs::rename(&*path, path.with_extension("log.1"));
         }
         if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&*path) {

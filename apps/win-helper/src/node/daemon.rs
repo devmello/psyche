@@ -61,8 +61,20 @@ pub struct NodeDaemon {
 }
 
 impl NodeDaemon {
-    pub fn new(identity: DeviceIdentity, registry: Arc<CapabilityRegistry>, env: Env, log: HelperLog) -> Self {
-        NodeDaemon { identity, registry, env, log, backoff: Backoff::default(), stop: CancelToken::new() }
+    pub fn new(
+        identity: DeviceIdentity,
+        registry: Arc<CapabilityRegistry>,
+        env: Env,
+        log: HelperLog,
+    ) -> Self {
+        NodeDaemon {
+            identity,
+            registry,
+            env,
+            log,
+            backoff: Backoff::default(),
+            stop: CancelToken::new(),
+        }
     }
 
     pub fn stop_token(&self) -> CancelToken {
@@ -126,8 +138,10 @@ impl NodeDaemon {
         };
         let out = match result.phase.as_str() {
             "paired" => {
-                self.log.info(format!("serving capabilities={}", self.registry.len()));
-                let session = NodeSession::new(self.registry.clone(), writer.clone(), self.log.clone());
+                self.log
+                    .info(format!("serving capabilities={}", self.registry.len()));
+                let session =
+                    NodeSession::new(self.registry.clone(), writer.clone(), self.log.clone());
                 tokio::select! {
                     r = session.serve(&mut reader) => {
                         if let Err(e) = r {
@@ -141,11 +155,17 @@ impl NodeDaemon {
             }
             "pending" => {
                 // The pairing code is shown to the owner to compare in the app; not a secret.
-                self.log.info(format!("pairing pending: approve this device in Psyche (code {})", result.code.as_deref().unwrap_or("?")));
+                self.log.info(format!(
+                    "pairing pending: approve this device in Psyche (code {})",
+                    result.code.as_deref().unwrap_or("?")
+                ));
                 Outcome::Pending(result.code)
             }
             _ => {
-                self.log.error(format!("pairing denied{}", result.code.map(|c| format!(" ({c})")).unwrap_or_default()));
+                self.log.error(format!(
+                    "pairing denied{}",
+                    result.code.map(|c| format!(" ({c})")).unwrap_or_default()
+                ));
                 Outcome::Denied
             }
         };

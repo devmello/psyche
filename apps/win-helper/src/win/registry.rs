@@ -3,7 +3,8 @@
 
 use windows::Win32::Foundation::ERROR_SUCCESS;
 use windows::Win32::System::Registry::{
-    HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, REG_SZ, RRF_RT_REG_DWORD, RRF_RT_REG_SZ, RegGetValueW, RegSetKeyValueW,
+    HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, REG_SZ, RRF_RT_REG_DWORD, RRF_RT_REG_SZ,
+    RegGetValueW, RegSetKeyValueW,
 };
 use windows::core::HSTRING;
 
@@ -27,11 +28,30 @@ pub fn read_string(hive: Hive, subkey: &str, name: &str) -> Option<String> {
     let mut size = 0u32;
     // SAFETY: size query, then a buffer of that size.
     unsafe {
-        if RegGetValueW(hkey(hive), &sk, &nm, RRF_RT_REG_SZ, None, None, Some(&mut size)) != ERROR_SUCCESS || size == 0 {
+        if RegGetValueW(
+            hkey(hive),
+            &sk,
+            &nm,
+            RRF_RT_REG_SZ,
+            None,
+            None,
+            Some(&mut size),
+        ) != ERROR_SUCCESS
+            || size == 0
+        {
             return None;
         }
         let mut buf = vec![0u16; (size as usize).div_ceil(2)];
-        if RegGetValueW(hkey(hive), &sk, &nm, RRF_RT_REG_SZ, None, Some(buf.as_mut_ptr() as *mut _), Some(&mut size)) != ERROR_SUCCESS {
+        if RegGetValueW(
+            hkey(hive),
+            &sk,
+            &nm,
+            RRF_RT_REG_SZ,
+            None,
+            Some(buf.as_mut_ptr() as *mut _),
+            Some(&mut size),
+        ) != ERROR_SUCCESS
+        {
             return None;
         }
         let len = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
@@ -46,7 +66,15 @@ pub fn read_dword(hive: Hive, subkey: &str, name: &str) -> Option<u32> {
     let mut size = 4u32;
     // SAFETY: a 4-byte buffer for a DWORD.
     let r = unsafe {
-        RegGetValueW(hkey(hive), &sk, &nm, RRF_RT_REG_DWORD, None, Some(&mut value as *mut u32 as *mut _), Some(&mut size))
+        RegGetValueW(
+            hkey(hive),
+            &sk,
+            &nm,
+            RRF_RT_REG_DWORD,
+            None,
+            Some(&mut value as *mut u32 as *mut _),
+            Some(&mut size),
+        )
     };
     (r == ERROR_SUCCESS).then_some(value)
 }
@@ -76,7 +104,11 @@ mod tests {
 
     #[test]
     fn reads_a_value_every_machine_has() {
-        let v = read_string(Hive::LocalMachine, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion", "CurrentBuild");
+        let v = read_string(
+            Hive::LocalMachine,
+            r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
+            "CurrentBuild",
+        );
         assert!(v.is_some_and(|s| s.chars().all(|c| c.is_ascii_digit())));
         assert!(read_string(Hive::CurrentUser, r"Software\Psyche\DoesNotExist", "x").is_none());
     }

@@ -27,7 +27,12 @@ impl Env {
         // Windows environment names are case-insensitive.
         self.0
             .get(key)
-            .or_else(|| self.0.iter().find(|(k, _)| k.eq_ignore_ascii_case(key)).map(|(_, v)| v))
+            .or_else(|| {
+                self.0
+                    .iter()
+                    .find(|(k, _)| k.eq_ignore_ascii_case(key))
+                    .map(|(_, v)| v)
+            })
             .map(String::as_str)
             .filter(|v| !v.is_empty())
     }
@@ -119,16 +124,25 @@ pub fn node_pipe(env: &Env) -> PipeLocation {
     if let Some(p) = env.get("PSYCHE_NODE_SOCKET")
         && is_pipe_path(p)
     {
-        return PipeLocation { path: p.to_owned(), source: "env" };
+        return PipeLocation {
+            path: p.to_owned(),
+            source: "env",
+        };
     }
     let home = psyche_home(env);
     if let Ok(text) = std::fs::read_to_string(node_socket_pointer(&home)) {
         let line = text.trim();
         if is_pipe_path(line) {
-            return PipeLocation { path: line.to_owned(), source: "pointer" };
+            return PipeLocation {
+                path: line.to_owned(),
+                source: "pointer",
+            };
         }
     }
-    PipeLocation { path: computed_pipe_name(&home), source: "computed" }
+    PipeLocation {
+        path: computed_pipe_name(&home),
+        source: "computed",
+    }
 }
 
 /// The per-launch handshake secret, trimmed, if the Gateway wrote one. Never logged.
@@ -152,7 +166,10 @@ mod tests {
     #[test]
     fn home_defaults_to_user_profile() {
         let env = Env::default().with("USERPROFILE", r"C:\Users\someone");
-        assert_eq!(psyche_home(&env), PathBuf::from(r"C:\Users\someone\.psyche"));
+        assert_eq!(
+            psyche_home(&env),
+            PathBuf::from(r"C:\Users\someone\.psyche")
+        );
         let env = env.with("PSYCHE_HOME", r"D:\data\psyche\");
         assert_eq!(psyche_home(&env), PathBuf::from(r"D:\data\psyche"));
     }
@@ -164,7 +181,10 @@ mod tests {
         let name = computed_pipe_name(&home);
         assert!(name.starts_with(r"\\.\pipe\psyche-node-"));
         assert_eq!(name.len(), r"\\.\pipe\psyche-node-".len() + 16);
-        assert_eq!(home_hash(&home), sha256_hex(br"C:\Users\someone\.psyche")[..16]);
+        assert_eq!(
+            home_hash(&home),
+            sha256_hex(br"C:\Users\someone\.psyche")[..16]
+        );
     }
 
     #[test]
@@ -172,8 +192,18 @@ mod tests {
         let home = temp_home("pointer");
         let env = Env::default().with("PSYCHE_HOME", home.to_string_lossy());
         assert_eq!(node_pipe(&env).source, "computed");
-        std::fs::write(home.join("run").join("node-socket"), "\\\\.\\pipe\\psyche-node-from-file\n").unwrap();
-        assert_eq!(node_pipe(&env), PipeLocation { path: r"\\.\pipe\psyche-node-from-file".into(), source: "pointer" });
+        std::fs::write(
+            home.join("run").join("node-socket"),
+            "\\\\.\\pipe\\psyche-node-from-file\n",
+        )
+        .unwrap();
+        assert_eq!(
+            node_pipe(&env),
+            PipeLocation {
+                path: r"\\.\pipe\psyche-node-from-file".into(),
+                source: "pointer"
+            }
+        );
         // A Unix socket path written by another Gateway build is not a pipe: ignored.
         std::fs::write(home.join("run").join("node-socket"), "/tmp/node.sock\n").unwrap();
         assert_eq!(node_pipe(&env).source, "computed");

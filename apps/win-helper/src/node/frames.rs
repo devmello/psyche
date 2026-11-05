@@ -28,7 +28,11 @@ pub struct ReqFrame {
     pub method: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub params: Option<Value>,
-    #[serde(default, rename = "idempotencyKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        rename = "idempotencyKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub idempotency_key: Option<String>,
 }
 
@@ -79,26 +83,52 @@ impl std::error::Error for FrameError {}
 
 impl Frame {
     pub fn req(id: impl Into<String>, method: impl Into<String>, params: Option<Value>) -> Frame {
-        Frame::Req(ReqFrame { id: id.into(), method: method.into(), params, idempotency_key: None })
+        Frame::Req(ReqFrame {
+            id: id.into(),
+            method: method.into(),
+            params,
+            idempotency_key: None,
+        })
     }
 
     pub fn res_ok(id: impl Into<String>, payload: Value) -> Frame {
-        Frame::Res(ResFrame { id: id.into(), ok: true, payload: Some(payload), error: None })
+        Frame::Res(ResFrame {
+            id: id.into(),
+            ok: true,
+            payload: Some(payload),
+            error: None,
+        })
     }
 
     pub fn res_err(id: impl Into<String>, error: WireError) -> Frame {
-        Frame::Res(ResFrame { id: id.into(), ok: false, payload: None, error: Some(error) })
+        Frame::Res(ResFrame {
+            id: id.into(),
+            ok: false,
+            payload: None,
+            error: Some(error),
+        })
     }
 
     /// Parses one line. Unknown envelope keys are tolerated (the Gateway never sends them).
     pub fn decode(line: &[u8]) -> Result<Frame, FrameError> {
-        let value: Value = serde_json::from_slice(line).map_err(|e| FrameError::Invalid(e.to_string()))?;
-        let kind = value.get("type").and_then(Value::as_str).unwrap_or_default().to_owned();
+        let value: Value =
+            serde_json::from_slice(line).map_err(|e| FrameError::Invalid(e.to_string()))?;
+        let kind = value
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
         let map_err = |e: serde_json::Error| FrameError::Invalid(e.to_string());
         match kind.as_str() {
-            "req" => serde_json::from_value(value).map(Frame::Req).map_err(map_err),
-            "res" => serde_json::from_value(value).map(Frame::Res).map_err(map_err),
-            "event" => serde_json::from_value(value).map(Frame::Event).map_err(map_err),
+            "req" => serde_json::from_value(value)
+                .map(Frame::Req)
+                .map_err(map_err),
+            "res" => serde_json::from_value(value)
+                .map(Frame::Res)
+                .map_err(map_err),
+            "event" => serde_json::from_value(value)
+                .map(Frame::Event)
+                .map_err(map_err),
             other => Err(FrameError::Invalid(format!("unknown frame type {other:?}"))),
         }
     }
@@ -131,7 +161,10 @@ impl Frame {
                         details: None,
                         retryable: None,
                     });
-                    o.insert("error".into(), serde_json::to_value(err).unwrap_or(Value::Null));
+                    o.insert(
+                        "error".into(),
+                        serde_json::to_value(err).unwrap_or(Value::Null),
+                    );
                 }
             }
             Frame::Event(e) => {
@@ -147,7 +180,8 @@ impl Frame {
 
     /// Encodes the frame as one NDJSON line (with the trailing `\n`).
     pub fn encode_line(&self) -> Result<Vec<u8>, FrameError> {
-        let body = serde_json::to_vec(&self.to_value()).map_err(|e| FrameError::Invalid(e.to_string()))?;
+        let body =
+            serde_json::to_vec(&self.to_value()).map_err(|e| FrameError::Invalid(e.to_string()))?;
         super::ndjson::line_for(body, MAX_FRAME_BYTES)
     }
 }
@@ -160,30 +194,55 @@ mod tests {
     #[test]
     fn ok_response_has_payload_and_no_error() {
         let v = Frame::res_ok("a", json!({"accepted": true})).to_value();
-        assert_eq!(v, json!({"type": "res", "id": "a", "ok": true, "payload": {"accepted": true}}));
+        assert_eq!(
+            v,
+            json!({"type": "res", "id": "a", "ok": true, "payload": {"accepted": true}})
+        );
     }
 
     #[test]
     fn error_response_has_error_and_no_payload() {
-        let e = WireError { code: "not_found".into(), message: "x".into(), details: None, retryable: None };
+        let e = WireError {
+            code: "not_found".into(),
+            message: "x".into(),
+            details: None,
+            retryable: None,
+        };
         let v = Frame::res_err("b", e).to_value();
-        assert_eq!(v, json!({"type": "res", "id": "b", "ok": false, "error": {"code": "not_found", "message": "x"}}));
+        assert_eq!(
+            v,
+            json!({"type": "res", "id": "b", "ok": false, "error": {"code": "not_found", "message": "x"}})
+        );
     }
 
     #[test]
     fn request_omits_absent_params() {
-        assert_eq!(Frame::req("1", "x", None).to_value(), json!({"type": "req", "id": "1", "method": "x"}));
+        assert_eq!(
+            Frame::req("1", "x", None).to_value(),
+            json!({"type": "req", "id": "1", "method": "x"})
+        );
     }
 
     #[test]
     fn decodes_each_kind() {
-        let req = Frame::decode(br#"{"type":"req","id":"r1","method":"node.invoke","params":{"a":1}}"#).unwrap();
+        let req =
+            Frame::decode(br#"{"type":"req","id":"r1","method":"node.invoke","params":{"a":1}}"#)
+                .unwrap();
         assert!(matches!(req, Frame::Req(ref r) if r.method == "node.invoke"));
-        let res = Frame::decode(br#"{"type":"res","id":"connect","ok":true,"payload":{"phase":"challenge"}}"#).unwrap();
+        let res = Frame::decode(
+            br#"{"type":"res","id":"connect","ok":true,"payload":{"phase":"challenge"}}"#,
+        )
+        .unwrap();
         assert!(matches!(res, Frame::Res(ref r) if r.ok && r.payload.is_some()));
-        let err = Frame::decode(br#"{"type":"res","id":"x","ok":false,"error":{"code":"forbidden","message":"no"}}"#).unwrap();
+        let err = Frame::decode(
+            br#"{"type":"res","id":"x","ok":false,"error":{"code":"forbidden","message":"no"}}"#,
+        )
+        .unwrap();
         assert!(matches!(err, Frame::Res(ref r) if r.error.as_ref().unwrap().code == "forbidden"));
-        let ev = Frame::decode(br#"{"type":"event","event":"tick","payload":null,"seq":3,"stateVersion":9}"#).unwrap();
+        let ev = Frame::decode(
+            br#"{"type":"event","event":"tick","payload":null,"seq":3,"stateVersion":9}"#,
+        )
+        .unwrap();
         assert!(matches!(ev, Frame::Event(ref e) if e.seq == 3 && e.state_version == 9));
         assert!(Frame::decode(br#"{"type":"nope"}"#).is_err());
         assert!(Frame::decode(b"not json").is_err());
@@ -193,6 +252,11 @@ mod tests {
     fn encoding_rejects_oversized_frames() {
         let big = "x".repeat(MAX_FRAME_BYTES);
         let f = Frame::req("1", "node.result", Some(json!({"result": big})));
-        assert_eq!(f.encode_line(), Err(FrameError::TooLarge { limit: MAX_FRAME_BYTES }));
+        assert_eq!(
+            f.encode_line(),
+            Err(FrameError::TooLarge {
+                limit: MAX_FRAME_BYTES
+            })
+        );
     }
 }

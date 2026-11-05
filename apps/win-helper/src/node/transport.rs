@@ -31,7 +31,10 @@ impl std::fmt::Display for ConnectError {
         match self {
             ConnectError::Missing => write!(f, "node pipe missing (is the Gateway running?)"),
             ConnectError::Busy => write!(f, "node pipe busy"),
-            ConnectError::OwnerMismatch => write!(f, "refusing the node pipe: its server is not this Windows user"),
+            ConnectError::OwnerMismatch => write!(
+                f,
+                "refusing the node pipe: its server is not this Windows user"
+            ),
             ConnectError::Io(e) => write!(f, "node pipe I/O error: {}", e.kind()),
         }
     }
@@ -70,7 +73,10 @@ fn server_is_current_user(client: &NamedPipeClient) -> bool {
     if unsafe { GetNamedPipeServerProcessId(handle, &mut pid) }.is_err() || pid == 0 {
         return false;
     }
-    match (security::process_user_sid(pid), security::current_user_sid()) {
+    match (
+        security::process_user_sid(pid),
+        security::current_user_sid(),
+    ) {
         (Some(server), Some(me)) => server == me,
         _ => false,
     }

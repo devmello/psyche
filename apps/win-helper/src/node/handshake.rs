@@ -29,7 +29,13 @@ pub struct HandshakeOptions {
 
 impl Default for HandshakeOptions {
     fn default() -> Self {
-        HandshakeOptions { timeout: Duration::from_secs(10), verify: true, handshake_secret: None, name: NODE_NAME.into(), capabilities: Vec::new() }
+        HandshakeOptions {
+            timeout: Duration::from_secs(10),
+            verify: true,
+            handshake_secret: None,
+            name: NODE_NAME.into(),
+            capabilities: Vec::new(),
+        }
     }
 }
 
@@ -45,7 +51,10 @@ pub struct ConnectOutcome {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Completion {
-    ChallengeOnly { nonce_bytes: usize, protocol_version: u32 },
+    ChallengeOnly {
+        nonce_bytes: usize,
+        protocol_version: u32,
+    },
     Completed(ConnectOutcome),
 }
 
@@ -77,21 +86,30 @@ impl std::error::Error for HandshakeError {}
 /// `ConnectParams` for this helper.
 pub fn connect_params(identity: &DeviceIdentity, options: &HandshakeOptions) -> Value {
     let mut o = Map::new();
-    o.insert("protocolVersion".into(), json!({ "min": 1, "max": PROTOCOL_VERSION }));
+    o.insert(
+        "protocolVersion".into(),
+        json!({ "min": 1, "max": PROTOCOL_VERSION }),
+    );
     o.insert("deviceId".into(), identity.device_id().into());
     o.insert("publicKey".into(), identity.public_key().into());
     o.insert("role".into(), "node".into());
     o.insert("platform".into(), PLATFORM.into());
     o.insert("deviceFamily".into(), DEVICE_FAMILY.into());
     o.insert("name".into(), options.name.clone().into());
-    o.insert("capabilities".into(), Value::Array(options.capabilities.clone()));
+    o.insert(
+        "capabilities".into(),
+        Value::Array(options.capabilities.clone()),
+    );
     if let Some(s) = &options.handshake_secret {
         o.insert("handshakeSecret".into(), s.clone().into());
     }
     Value::Object(o)
 }
 
-async fn await_response<R: AsyncRead + Unpin>(reader: &mut FrameReader<R>, id: &str) -> Result<ResFrame, HandshakeError> {
+async fn await_response<R: AsyncRead + Unpin>(
+    reader: &mut FrameReader<R>,
+    id: &str,
+) -> Result<ResFrame, HandshakeError> {
     loop {
         match reader.next().await.map_err(HandshakeError::Io)? {
             None => return Err(HandshakeError::Closed),
@@ -103,7 +121,13 @@ async fn await_response<R: AsyncRead + Unpin>(reader: &mut FrameReader<R>, id: &
 }
 
 fn gateway_error(res: &ResFrame) -> HandshakeError {
-    HandshakeError::Gateway { code: res.error.as_ref().map(|e| e.code.clone()).unwrap_or_else(|| "unknown".into()) }
+    HandshakeError::Gateway {
+        code: res
+            .error
+            .as_ref()
+            .map(|e| e.code.clone())
+            .unwrap_or_else(|| "unknown".into()),
+    }
 }
 
 /// Runs the handshake. Frames that arrive after `connect.verify` stay queued in `reader` for the
@@ -115,7 +139,12 @@ pub async fn perform<R: AsyncRead + Unpin>(
     writer: &FrameWriter,
     log: &HelperLog,
 ) -> Result<Completion, HandshakeError> {
-    match tokio::time::timeout(options.timeout, perform_inner(identity, options, reader, writer, log)).await {
+    match tokio::time::timeout(
+        options.timeout,
+        perform_inner(identity, options, reader, writer, log),
+    )
+    .await
+    {
         Ok(r) => r,
         Err(_) => Err(HandshakeError::TimedOut),
     }
@@ -128,8 +157,17 @@ async fn perform_inner<R: AsyncRead + Unpin>(
     writer: &FrameWriter,
     log: &HelperLog,
 ) -> Result<Completion, HandshakeError> {
-    log.info(format!("phase=connecting role=node deviceFamily={DEVICE_FAMILY} capabilities={}", options.capabilities.len()));
-    writer.send(&Frame::req("connect", "connect", Some(connect_params(identity, options)))).map_err(|_| HandshakeError::Closed)?;
+    log.info(format!(
+        "phase=connecting role=node deviceFamily={DEVICE_FAMILY} capabilities={}",
+        options.capabilities.len()
+    ));
+    writer
+        .send(&Frame::req(
+            "connect",
+            "connect",
+            Some(connect_params(identity, options)),
+        ))
+        .map_err(|_| HandshakeError::Closed)?;
 
     let res = await_response(reader, "connect").await?;
     let payload = match (&res.ok, &res.payload) {
@@ -140,19 +178,34 @@ async fn perform_inner<R: AsyncRead + Unpin>(
     let nonce = payload.get("nonce").and_then(Value::as_str);
     let origin = payload.get("serverOrigin").and_then(Value::as_str);
     let version = payload.get("protocolVersion").and_then(Value::as_u64);
-    let (Some("challenge"), Some(nonce), Some(origin), Some(version)) = (phase, nonce, origin, version) else {
+    let (Some("challenge"), Some(nonce), Some(origin), Some(version)) =
+        (phase, nonce, origin, version)
+    else {
         return Err(HandshakeError::UnexpectedFrame);
     };
     let nonce_bytes = b64url_decode(nonce).map(|b| b.len()).unwrap_or(0);
-    log.info(format!("phase=challenge nonceBytes={nonce_bytes} protocolVersion={version}"));
+    log.info(format!(
+        "phase=challenge nonceBytes={nonce_bytes} protocolVersion={version}"
+    ));
     if !options.verify {
-        return Ok(Completion::ChallengeOnly { nonce_bytes, protocol_version: version as u32 });
+        return Ok(Completion::ChallengeOnly {
+            nonce_bytes,
+            protocol_version: version as u32,
+        });
     }
 
-    let signing = connect_signing_payload(nonce, PLATFORM, DEVICE_FAMILY, version as u32, origin, None).map_err(HandshakeError::Sign)?;
+    let signing =
+        connect_signing_payload(nonce, PLATFORM, DEVICE_FAMILY, version as u32, origin, None)
+            .map_err(HandshakeError::Sign)?;
     let verify = json!({ "nonce": nonce, "signature": identity.sign(&signing) });
     log.info("phase=verifying");
-    writer.send(&Frame::req("connect.verify", "connect.verify", Some(verify))).map_err(|_| HandshakeError::Closed)?;
+    writer
+        .send(&Frame::req(
+            "connect.verify",
+            "connect.verify",
+            Some(verify),
+        ))
+        .map_err(|_| HandshakeError::Closed)?;
 
     let res = await_response(reader, "connect.verify").await?;
     let payload = match (&res.ok, &res.payload) {

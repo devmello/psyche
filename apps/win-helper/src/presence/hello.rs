@@ -9,16 +9,18 @@
 
 use std::time::Duration;
 
-use windows_future::{AsyncStatus, IAsyncOperation};
 use windows::Security::Credentials::UI::{
     UserConsentVerificationResult, UserConsentVerifier, UserConsentVerifierAvailability,
 };
-use windows::Security::Credentials::{KeyCredential, KeyCredentialCreationOption, KeyCredentialManager, KeyCredentialStatus};
-use windows::Security::Cryptography::CryptographicBuffer;
+use windows::Security::Credentials::{
+    KeyCredential, KeyCredentialCreationOption, KeyCredentialManager, KeyCredentialStatus,
+};
 use windows::Security::Cryptography::Core::CryptographicPublicKeyBlobType;
+use windows::Security::Cryptography::CryptographicBuffer;
 use windows::Storage::Streams::IBuffer;
 use windows::Win32::Foundation::HWND;
 use windows::core::{HSTRING, Interface, RuntimeType};
+use windows_future::{AsyncStatus, IAsyncOperation};
 
 use crate::node::cancel::CancelToken;
 use crate::node::capability::{CapabilityError, ErrorCode};
@@ -83,7 +85,9 @@ fn os(reason: &str, e: &windows::core::Error) -> CapabilityError {
 
 /// Whether this user can use Hello keys (never prompts).
 pub fn is_supported() -> bool {
-    KeyCredentialManager::IsSupportedAsync().and_then(|op| op.join()).unwrap_or(false)
+    KeyCredentialManager::IsSupportedAsync()
+        .and_then(|op| op.join())
+        .unwrap_or(false)
 }
 
 /// `UserConsentVerifier` availability name (never prompts).
@@ -121,9 +125,13 @@ pub fn open(name: &str) -> Result<Option<KeyCredential>, CapabilityError> {
     if !is_supported() {
         return Err(hello_unavailable());
     }
-    let r = KeyCredentialManager::OpenAsync(&HSTRING::from(name)).and_then(|op| op.join()).map_err(|e| os("hello_error", &e))?;
+    let r = KeyCredentialManager::OpenAsync(&HSTRING::from(name))
+        .and_then(|op| op.join())
+        .map_err(|e| os("hello_error", &e))?;
     match r.Status().map_err(|e| os("hello_error", &e))? {
-        KeyCredentialStatus::Success => Ok(Some(r.Credential().map_err(|e| os("hello_error", &e))?)),
+        KeyCredentialStatus::Success => {
+            Ok(Some(r.Credential().map_err(|e| os("hello_error", &e))?))
+        }
         KeyCredentialStatus::NotFound => Ok(None),
         s => Err(status_error(s, false)),
     }
@@ -140,7 +148,13 @@ fn run_prompt<R: RuntimeType + 'static>(
     let hwnd = owner.as_ref().map(|o| o.hwnd).unwrap_or_default();
     let op = start(hwnd).map_err(|e| os("hello_error", &e))?;
     pump_until(
-        || cancel.is_cancelled() || op.Status().map(|s| s != AsyncStatus::Started).unwrap_or(true),
+        || {
+            cancel.is_cancelled()
+                || op
+                    .Status()
+                    .map(|s| s != AsyncStatus::Started)
+                    .unwrap_or(true)
+        },
         PROMPT_TIMEOUT,
     );
     let status = op.Status().unwrap_or(AsyncStatus::Error);
@@ -150,7 +164,11 @@ fn run_prompt<R: RuntimeType + 'static>(
         return Err(if cancel.is_cancelled() {
             CapabilityError::cancelled()
         } else {
-            CapabilityError::new(ErrorCode::Timeout, "prompt_timeout", "Windows Hello was not answered in time")
+            CapabilityError::new(
+                ErrorCode::Timeout,
+                "prompt_timeout",
+                "Windows Hello was not answered in time",
+            )
         });
     }
     drop(owner);
@@ -166,11 +184,15 @@ pub fn open_or_create(name: &str, cancel: &CancelToken) -> Result<KeyCredential,
         return Ok(k);
     }
     let n = HSTRING::from(name);
-    let r = run_prompt(cancel, |_| KeyCredentialManager::RequestCreateAsync(&n, KeyCredentialCreationOption::FailIfExists))?;
+    let r = run_prompt(cancel, |_| {
+        KeyCredentialManager::RequestCreateAsync(&n, KeyCredentialCreationOption::FailIfExists)
+    })?;
     match r.Status().map_err(|e| os("hello_error", &e))? {
         KeyCredentialStatus::Success => r.Credential().map_err(|e| os("hello_error", &e)),
         // Another process created it meanwhile.
-        KeyCredentialStatus::CredentialAlreadyExists => open(name)?.ok_or_else(|| status_error(KeyCredentialStatus::NotFound, true)),
+        KeyCredentialStatus::CredentialAlreadyExists => {
+            open(name)?.ok_or_else(|| status_error(KeyCredentialStatus::NotFound, true))
+        }
         s => Err(status_error(s, false)),
     }
 }
@@ -191,11 +213,18 @@ pub fn public_key_spki(key: &KeyCredential) -> Result<Vec<u8>, CapabilityError> 
 
 /// RSASSA-PKCS1-v1_5 / SHA-256 signature over `data` after a Hello gesture (deterministic for a
 /// given key and message).
-pub fn sign(key: &KeyCredential, data: &[u8], cancel: &CancelToken) -> Result<Vec<u8>, CapabilityError> {
-    let input = CryptographicBuffer::CreateFromByteArray(data).map_err(|e| os("hello_error", &e))?;
+pub fn sign(
+    key: &KeyCredential,
+    data: &[u8],
+    cancel: &CancelToken,
+) -> Result<Vec<u8>, CapabilityError> {
+    let input =
+        CryptographicBuffer::CreateFromByteArray(data).map_err(|e| os("hello_error", &e))?;
     let r = run_prompt(cancel, |_| key.RequestSignAsync(&input))?;
     match r.Status().map_err(|e| os("hello_error", &e))? {
-        KeyCredentialStatus::Success => buffer_bytes(&r.Result().map_err(|e| os("hello_error", &e))?),
+        KeyCredentialStatus::Success => {
+            buffer_bytes(&r.Result().map_err(|e| os("hello_error", &e))?)
+        }
         s => Err(status_error(s, true)),
     }
 }
@@ -205,7 +234,8 @@ pub fn sign(key: &KeyCredential, data: &[u8], cancel: &CancelToken) -> Result<Ve
 pub fn verify_owner(message: &str, cancel: &CancelToken) -> Result<(), CapabilityError> {
     let msg = HSTRING::from(message);
     let result = run_prompt(cancel, |hwnd| {
-        let verifier: IUserConsentVerifierInterop = windows::core::factory::<UserConsentVerifier, IUserConsentVerifierInterop>()?;
+        let verifier: IUserConsentVerifierInterop =
+            windows::core::factory::<UserConsentVerifier, IUserConsentVerifierInterop>()?;
         let mut raw = std::ptr::null_mut();
         // SAFETY: the HSTRING is borrowed for the call (ABI: an HSTRING handle); the out pointer
         // receives an owned IAsyncOperation<UserConsentVerificationResult>.
@@ -218,21 +248,33 @@ pub fn verify_owner(message: &str, cancel: &CancelToken) -> Result<(), Capabilit
                 &mut raw,
             )
             .ok()?;
-            Ok(IAsyncOperation::<UserConsentVerificationResult>::from_raw(raw))
+            Ok(IAsyncOperation::<UserConsentVerificationResult>::from_raw(
+                raw,
+            ))
         }
     })?;
     match result {
         UserConsentVerificationResult::Verified => Ok(()),
         UserConsentVerificationResult::Canceled => Err(CapabilityError::user_cancelled()),
-        UserConsentVerificationResult::RetriesExhausted => {
-            Err(CapabilityError::new(ErrorCode::Forbidden, "biometry_lockout", "Too many failed Windows Hello attempts"))
+        UserConsentVerificationResult::RetriesExhausted => Err(CapabilityError::new(
+            ErrorCode::Forbidden,
+            "biometry_lockout",
+            "Too many failed Windows Hello attempts",
+        )),
+        UserConsentVerificationResult::NotConfiguredForUser
+        | UserConsentVerificationResult::DeviceNotPresent => Err(hello_unavailable()),
+        UserConsentVerificationResult::DisabledByPolicy => Err(CapabilityError::unavailable(
+            "disabled_by_policy",
+            "Windows Hello is disabled by policy",
+        )),
+        UserConsentVerificationResult::DeviceBusy => {
+            Err(CapabilityError::unavailable("device_busy", "Windows Hello is busy").retryable())
         }
-        UserConsentVerificationResult::NotConfiguredForUser | UserConsentVerificationResult::DeviceNotPresent => Err(hello_unavailable()),
-        UserConsentVerificationResult::DisabledByPolicy => {
-            Err(CapabilityError::unavailable("disabled_by_policy", "Windows Hello is disabled by policy"))
-        }
-        UserConsentVerificationResult::DeviceBusy => Err(CapabilityError::unavailable("device_busy", "Windows Hello is busy").retryable()),
-        _ => Err(CapabilityError::new(ErrorCode::Forbidden, "auth_failed", "Authentication failed")),
+        _ => Err(CapabilityError::new(
+            ErrorCode::Forbidden,
+            "auth_failed",
+            "Authentication failed",
+        )),
     }
 }
 

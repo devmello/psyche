@@ -98,7 +98,13 @@ pub fn is_within(p: &Path, root: &Path) -> bool {
 
 impl FinderRoots {
     pub fn new(roots: Vec<String>, env: &Env) -> Self {
-        FinderRoots { roots: roots.iter().filter(|r| is_absolute(&expand_tilde(r, env))).map(|r| canonical(r, env)).collect() }
+        FinderRoots {
+            roots: roots
+                .iter()
+                .filter(|r| is_absolute(&expand_tilde(r, env)))
+                .map(|r| canonical(r, env))
+                .collect(),
+        }
     }
 
     /// Reads `permissions.folders[].path` from the Gateway's config.
@@ -109,19 +115,27 @@ impl FinderRoots {
             .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
             .and_then(|v| v.get("permissions")?.get("folders")?.as_array().cloned())
             .unwrap_or_default();
-        let paths = folders.iter().filter_map(|f| f.get("path")?.as_str().map(str::to_owned)).collect();
+        let paths = folders
+            .iter()
+            .filter_map(|f| f.get("path")?.as_str().map(str::to_owned))
+            .collect();
         FinderRoots::new(paths, env)
     }
 
     pub fn contains_root(&self, p: &Path) -> bool {
-        self.roots.iter().any(|r| lower(r).trim_end_matches('\\') == lower(p).trim_end_matches('\\'))
+        self.roots
+            .iter()
+            .any(|r| lower(r).trim_end_matches('\\') == lower(p).trim_end_matches('\\'))
     }
 
     /// The canonical path when it lies inside a granted root, else `policy_denied`.
     pub fn resolve(&self, path: &str, env: &Env) -> Result<PathBuf, CapabilityError> {
         let expanded = expand_tilde(path, env);
         if !is_absolute(&expanded) {
-            return Err(CapabilityError::invalid_params("path must be absolute", Some("path")));
+            return Err(CapabilityError::invalid_params(
+                "path must be absolute",
+                Some("path"),
+            ));
         }
         if self.roots.is_empty() {
             return Err(CapabilityError::policy_denied(
@@ -131,8 +145,11 @@ impl FinderRoots {
         }
         let p = canonical(&expanded, env);
         if !self.roots.iter().any(|r| is_within(&p, r)) {
-            return Err(CapabilityError::policy_denied("outside_granted_folders", format!("{path} is outside the granted folders"))
-                .with_detail("path", path));
+            return Err(CapabilityError::policy_denied(
+                "outside_granted_folders",
+                format!("{path} is outside the granted folders"),
+            )
+            .with_detail("path", path));
         }
         Ok(p)
     }
@@ -159,9 +176,15 @@ mod tests {
     #[test]
     fn within_is_case_insensitive_and_separator_aware() {
         let root = Path::new(r"C:\Users\someone\Downloads");
-        assert!(is_within(Path::new(r"c:\users\SOMEONE\downloads\a.pdf"), root));
+        assert!(is_within(
+            Path::new(r"c:\users\SOMEONE\downloads\a.pdf"),
+            root
+        ));
         assert!(is_within(Path::new(r"C:\Users\someone\Downloads"), root));
-        assert!(!is_within(Path::new(r"C:\Users\someone\Downloads2\a.pdf"), root));
+        assert!(!is_within(
+            Path::new(r"C:\Users\someone\Downloads2\a.pdf"),
+            root
+        ));
         assert!(!is_within(Path::new(r"C:\Users\someone"), root));
     }
 
@@ -172,25 +195,45 @@ mod tests {
         std::fs::create_dir_all(granted.join("sub")).unwrap();
         let e = env();
         let roots = FinderRoots::new(vec![granted.to_string_lossy().into_owned()], &e);
-        let inside = roots.resolve(&granted.join("sub").join("new.txt").to_string_lossy(), &e).unwrap();
+        let inside = roots
+            .resolve(&granted.join("sub").join("new.txt").to_string_lossy(), &e)
+            .unwrap();
         assert!(inside.ends_with(Path::new("sub").join("new.txt")));
         let escape = format!(r"{}\..\outside.txt", granted.to_string_lossy());
-        assert_eq!(roots.resolve(&escape, &e).unwrap_err().reason, "outside_granted_folders");
-        assert_eq!(roots.resolve("relative", &e).unwrap_err().reason, "invalid_params");
+        assert_eq!(
+            roots.resolve(&escape, &e).unwrap_err().reason,
+            "outside_granted_folders"
+        );
+        assert_eq!(
+            roots.resolve("relative", &e).unwrap_err().reason,
+            "invalid_params"
+        );
         let none = FinderRoots::new(vec![], &e);
-        assert_eq!(none.resolve(r"C:\x", &e).unwrap_err().reason, "no_granted_folders");
+        assert_eq!(
+            none.resolve(r"C:\x", &e).unwrap_err().reason,
+            "no_granted_folders"
+        );
         let _ = std::fs::remove_dir_all(base);
     }
 
     #[test]
     fn tilde_expands_to_the_profile() {
-        assert_eq!(expand_tilde(r"~\Downloads", &env()), r"C:\Users\someone\Downloads");
+        assert_eq!(
+            expand_tilde(r"~\Downloads", &env()),
+            r"C:\Users\someone\Downloads"
+        );
         assert_eq!(expand_tilde("~", &env()), r"C:\Users\someone");
     }
 
     #[test]
     fn verbatim_prefixes_are_stripped() {
-        assert_eq!(strip_verbatim(PathBuf::from(r"\\?\C:\x")), PathBuf::from(r"C:\x"));
-        assert_eq!(strip_verbatim(PathBuf::from(r"\\?\UNC\srv\share")), PathBuf::from(r"\\srv\share"));
+        assert_eq!(
+            strip_verbatim(PathBuf::from(r"\\?\C:\x")),
+            PathBuf::from(r"C:\x")
+        );
+        assert_eq!(
+            strip_verbatim(PathBuf::from(r"\\?\UNC\srv\share")),
+            PathBuf::from(r"\\srv\share")
+        );
     }
 }

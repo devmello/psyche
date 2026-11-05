@@ -11,7 +11,10 @@ pub struct LineBuffer {
 
 impl LineBuffer {
     pub fn new(max_frame_bytes: usize) -> Self {
-        LineBuffer { max_frame_bytes, pending: Vec::new() }
+        LineBuffer {
+            max_frame_bytes,
+            pending: Vec::new(),
+        }
     }
 
     /// Bytes buffered without a terminating newline yet.
@@ -32,7 +35,9 @@ impl LineBuffer {
                 line = &line[..line.len() - 1];
             }
             if line.len() > self.max_frame_bytes {
-                return Err(FrameError::TooLarge { limit: self.max_frame_bytes });
+                return Err(FrameError::TooLarge {
+                    limit: self.max_frame_bytes,
+                });
             }
             if !line.is_empty() {
                 lines.push(line.to_vec());
@@ -41,7 +46,9 @@ impl LineBuffer {
         }
         self.pending.drain(..start);
         if self.pending.len() > self.max_frame_bytes {
-            return Err(FrameError::TooLarge { limit: self.max_frame_bytes });
+            return Err(FrameError::TooLarge {
+                limit: self.max_frame_bytes,
+            });
         }
         Ok(lines)
     }
@@ -50,7 +57,9 @@ impl LineBuffer {
 /// Encodes one frame body as a line. Fails when the body exceeds the frame limit.
 pub fn line_for(mut body: Vec<u8>, max_frame_bytes: usize) -> Result<Vec<u8>, FrameError> {
     if body.len() > max_frame_bytes {
-        return Err(FrameError::TooLarge { limit: max_frame_bytes });
+        return Err(FrameError::TooLarge {
+            limit: max_frame_bytes,
+        });
     }
     body.push(b'\n');
     Ok(body)

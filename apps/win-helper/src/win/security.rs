@@ -3,10 +3,13 @@
 use windows::Win32::Foundation::{CloseHandle, HANDLE, HLOCAL, LocalFree};
 use windows::Win32::Security::Authorization::ConvertSidToStringSidW;
 use windows::Win32::Security::{
-    GetSidSubAuthority, GetSidSubAuthorityCount, GetTokenInformation, TOKEN_ELEVATION, TOKEN_MANDATORY_LABEL, TOKEN_QUERY,
-    TOKEN_USER, TokenElevation, TokenIntegrityLevel, TokenUIAccess, TokenUser,
+    GetSidSubAuthority, GetSidSubAuthorityCount, GetTokenInformation, TOKEN_ELEVATION,
+    TOKEN_MANDATORY_LABEL, TOKEN_QUERY, TOKEN_USER, TokenElevation, TokenIntegrityLevel,
+    TokenUIAccess, TokenUser,
 };
-use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION};
+use windows::Win32::System::Threading::{
+    GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION,
+};
 use windows::core::PWSTR;
 
 struct Token(HANDLE);
@@ -25,7 +28,10 @@ fn open_token(pid: Option<u32>) -> Option<Token> {
     unsafe {
         let (process, owned) = match pid {
             None => (GetCurrentProcess(), false),
-            Some(pid) => (OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?, true),
+            Some(pid) => (
+                OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?,
+                true,
+            ),
         };
         let mut token = HANDLE::default();
         let ok = OpenProcessToken(process, TOKEN_QUERY, &mut token).is_ok();
@@ -36,7 +42,10 @@ fn open_token(pid: Option<u32>) -> Option<Token> {
     }
 }
 
-fn token_info(token: &Token, class: windows::Win32::Security::TOKEN_INFORMATION_CLASS) -> Option<Vec<u8>> {
+fn token_info(
+    token: &Token,
+    class: windows::Win32::Security::TOKEN_INFORMATION_CLASS,
+) -> Option<Vec<u8>> {
     // SAFETY: the first call sizes the buffer, the second fills it.
     unsafe {
         let mut len = 0u32;
@@ -45,7 +54,14 @@ fn token_info(token: &Token, class: windows::Win32::Security::TOKEN_INFORMATION_
             return None;
         }
         let mut buf = vec![0u8; len as usize];
-        GetTokenInformation(token.0, class, Some(buf.as_mut_ptr() as *mut _), len, &mut len).ok()?;
+        GetTokenInformation(
+            token.0,
+            class,
+            Some(buf.as_mut_ptr() as *mut _),
+            len,
+            &mut len,
+        )
+        .ok()?;
         Some(buf)
     }
 }

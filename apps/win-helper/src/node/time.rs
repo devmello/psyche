@@ -76,7 +76,12 @@ pub fn parse_iso8601_millis(s: &str) -> Option<i64> {
         }
         part.parse().ok()
     };
-    if b[4] != b'-' || b[7] != b'-' || !(b[10] == b'T' || b[10] == b't') || b[13] != b':' || b[16] != b':' {
+    if b[4] != b'-'
+        || b[7] != b'-'
+        || !(b[10] == b'T' || b[10] == b't')
+        || b[13] != b':'
+        || b[16] != b':'
+    {
         return None;
     }
     let (y, mo, d) = (num(0..4)?, num(5..7)? as u32, num(8..10)? as u32);
@@ -139,9 +144,18 @@ mod tests {
 
     #[test]
     fn parses_round_trip_and_offsets() {
-        assert_eq!(parse_iso8601_millis("2026-10-24T12:00:00.123Z"), Some(1_792_843_200_123));
-        assert_eq!(parse_iso8601_millis("2026-10-24T14:00:00+02:00"), Some(1_792_843_200_000));
-        assert_eq!(parse_iso8601_millis("2026-10-24T12:00:00.5Z"), Some(1_792_843_200_500));
+        assert_eq!(
+            parse_iso8601_millis("2026-10-24T12:00:00.123Z"),
+            Some(1_792_843_200_123)
+        );
+        assert_eq!(
+            parse_iso8601_millis("2026-10-24T14:00:00+02:00"),
+            Some(1_792_843_200_000)
+        );
+        assert_eq!(
+            parse_iso8601_millis("2026-10-24T12:00:00.5Z"),
+            Some(1_792_843_200_500)
+        );
         assert_eq!(parse_iso8601_millis("2026-10-24 12:00:00Z"), None);
         assert_eq!(parse_iso8601_millis("2026-13-24T12:00:00Z"), None);
         assert_eq!(parse_iso8601_millis("nope"), None);

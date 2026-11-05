@@ -16,7 +16,9 @@
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::node::capability::{CapabilityError, CapabilityOutput, CapabilitySpec, OsPermission, ReceiptDraft, SideEffect};
+use crate::node::capability::{
+    CapabilityError, CapabilityOutput, CapabilitySpec, OsPermission, ReceiptDraft, SideEffect,
+};
 use crate::node::registry::PermissionPreflight;
 use crate::node::{CapabilityRegistry, schema};
 use crate::win::registry::{Hive, read_dword, read_string};
@@ -115,20 +117,30 @@ pub fn entry(p: OsPermission) -> Entry {
             applicable: true,
         },
         OsPermission::Automation => na("Automation", "ms-settings:privacy"),
-        OsPermission::FullDiskAccess => na("Full Disk Access", "ms-settings:privacy-broadfilesystemaccess"),
+        OsPermission::FullDiskAccess => na(
+            "Full Disk Access",
+            "ms-settings:privacy-broadfilesystemaccess",
+        ),
         OsPermission::Calendars => na("Calendars", "ms-settings:privacy-calendar"),
         OsPermission::Reminders => na("Reminders", "ms-settings:privacy-calendar"),
         OsPermission::Contacts => na("Contacts", "ms-settings:privacy-contacts"),
     }
 }
 
-const CONSENT: &str = r"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore";
-const CONSENT_LM: &str = r"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore";
+const CONSENT: &str =
+    r"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore";
+const CONSENT_LM: &str =
+    r"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore";
 const APP_PRIVACY: &str = r"SOFTWARE\Policies\Microsoft\Windows\AppPrivacy";
 
 /// Pure consent-store evaluation: any `Deny` (device, user, desktop apps) wins; a policy that
 /// forces deny (2) is `restricted`; absent values mean Windows' default (allowed).
-pub fn consent_state(policy: Option<u32>, device: Option<&str>, user: Option<&str>, desktop: Option<&str>) -> &'static str {
+pub fn consent_state(
+    policy: Option<u32>,
+    device: Option<&str>,
+    user: Option<&str>,
+    desktop: Option<&str>,
+) -> &'static str {
     if policy == Some(2) {
         return "restricted";
     }
@@ -136,20 +148,43 @@ pub fn consent_state(policy: Option<u32>, device: Option<&str>, user: Option<&st
         return "granted";
     }
     let deny = |v: Option<&str>| v.is_some_and(|s| s.eq_ignore_ascii_case("deny"));
-    if deny(device) || deny(user) || deny(desktop) { "denied" } else { "granted" }
+    if deny(device) || deny(user) || deny(desktop) {
+        "denied"
+    } else {
+        "granted"
+    }
 }
 
 fn consent(capability: &str, policy_value: &str) -> &'static str {
     consent_state(
         read_dword(Hive::LocalMachine, APP_PRIVACY, policy_value),
-        read_string(Hive::LocalMachine, &format!(r"{CONSENT_LM}\{capability}"), "Value").as_deref(),
-        read_string(Hive::CurrentUser, &format!(r"{CONSENT}\{capability}"), "Value").as_deref(),
-        read_string(Hive::CurrentUser, &format!(r"{CONSENT}\{capability}\NonPackaged"), "Value").as_deref(),
+        read_string(
+            Hive::LocalMachine,
+            &format!(r"{CONSENT_LM}\{capability}"),
+            "Value",
+        )
+        .as_deref(),
+        read_string(
+            Hive::CurrentUser,
+            &format!(r"{CONSENT}\{capability}"),
+            "Value",
+        )
+        .as_deref(),
+        read_string(
+            Hive::CurrentUser,
+            &format!(r"{CONSENT}\{capability}\NonPackaged"),
+            "Value",
+        )
+        .as_deref(),
     )
 }
 
 fn online_speech() -> &'static str {
-    match read_dword(Hive::CurrentUser, r"Software\Microsoft\Speech_OneCore\Settings\OnlineSpeechPrivacy", "HasAccepted") {
+    match read_dword(
+        Hive::CurrentUser,
+        r"Software\Microsoft\Speech_OneCore\Settings\OnlineSpeechPrivacy",
+        "HasAccepted",
+    ) {
         Some(1) => "granted",
         Some(_) => "denied",
         None => "notDetermined",
@@ -157,6 +192,7 @@ fn online_speech() -> &'static str {
 }
 
 /// Permission state from registry / API reads only (never prompts).
+#[derive(Default)]
 pub struct LivePreflight;
 
 impl LivePreflight {
@@ -166,7 +202,9 @@ impl LivePreflight {
 
     pub fn state(&self, p: OsPermission) -> &'static str {
         match p {
-            OsPermission::Accessibility | OsPermission::InputMonitoring | OsPermission::ScreenRecording => "granted",
+            OsPermission::Accessibility
+            | OsPermission::InputMonitoring
+            | OsPermission::ScreenRecording => "granted",
             OsPermission::Microphone => consent("microphone", "LetAppsAccessMicrophone"),
             OsPermission::Camera => consent("webcam", "LetAppsAccessCamera"),
             OsPermission::SpeechRecognition => online_speech(),
@@ -208,7 +246,10 @@ fn row(p: OsPermission, state: &str) -> Value {
         "requestStyle": e.style,
         "applicable": e.applicable,
     });
-    if matches!(p, OsPermission::Accessibility | OsPermission::InputMonitoring) {
+    if matches!(
+        p,
+        OsPermission::Accessibility | OsPermission::InputMonitoring
+    ) {
         r["details"] = ui_details();
     }
     r
@@ -216,7 +257,10 @@ fn row(p: OsPermission, state: &str) -> Value {
 
 /// The next permission to ask for, given what is granted and wanted.
 pub fn next(granted: &[OsPermission], wanted: &[OsPermission]) -> Option<OsPermission> {
-    ORDER.iter().copied().find(|p| wanted.contains(p) && !granted.contains(p))
+    ORDER
+        .iter()
+        .copied()
+        .find(|p| wanted.contains(p) && !granted.contains(p))
 }
 
 fn signing_kind(path: &str) -> &'static str {
@@ -224,7 +268,9 @@ fn signing_kind(path: &str) -> &'static str {
 }
 
 fn bundle_json() -> Value {
-    let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_default();
+    let exe = std::env::current_exe()
+        .map(|p| p.display().to_string())
+        .unwrap_or_default();
     let lower = exe.to_lowercase();
     json!({
         "path": exe,
@@ -262,6 +308,7 @@ fn open_uri(uri: &str) -> bool {
 
 pub fn register(reg: &mut CapabilityRegistry) {
     let names = OsPermission::names();
+    let rt = reg.runtime().clone();
 
     reg.add_blocking(
         CapabilitySpec::new(
@@ -295,7 +342,8 @@ pub fn register(reg: &mut CapabilityRegistry) {
                 "permissions": rows,
                 "automation": automation,
                 "next": next(&granted, &wanted).map(|p| p.as_str()),
-                "bundled": crate::notify::toast::current_setting().is_some(),
+                // Whether the toast identity (AUMID com.psyche.helper) is registered.
+                "bundled": rt.existing_service::<std::sync::Arc<crate::notify::toast::ToastCenter>>().is_some_and(|t| t.is_registered()),
                 "bundle": bundle_json(),
                 "attribution": Value::Null,
                 "disclaimSupported": false,
@@ -344,11 +392,23 @@ pub fn register(reg: &mut CapabilityRegistry) {
     );
 
     reg.add_blocking(
-        CapabilitySpec::new("permissions.open_settings", "Open Windows Settings at the page for one permission.", SideEffect::None)
-            .input(schema::object(vec![("permission", schema::string_enum(None, &OsPermission::names()))], &["permission"])),
+        CapabilitySpec::new(
+            "permissions.open_settings",
+            "Open Windows Settings at the page for one permission.",
+            SideEffect::None,
+        )
+        .input(schema::object(
+            vec![(
+                "permission",
+                schema::string_enum(None, &OsPermission::names()),
+            )],
+            &["permission"],
+        )),
         |ctx| {
             let p: OpenParams = ctx.decode()?;
-            Ok(CapabilityOutput::new(json!({ "opened": open_uri(entry(p.permission).settings_url) })))
+            Ok(CapabilityOutput::new(
+                json!({ "opened": open_uri(entry(p.permission).settings_url) }),
+            ))
         },
     );
 }
@@ -360,8 +420,14 @@ mod tests {
     #[test]
     fn consent_rules() {
         assert_eq!(consent_state(None, None, None, None), "granted");
-        assert_eq!(consent_state(None, Some("Allow"), Some("Allow"), Some("Deny")), "denied");
-        assert_eq!(consent_state(None, Some("Deny"), Some("Allow"), None), "denied");
+        assert_eq!(
+            consent_state(None, Some("Allow"), Some("Allow"), Some("Deny")),
+            "denied"
+        );
+        assert_eq!(
+            consent_state(None, Some("Deny"), Some("Allow"), None),
+            "denied"
+        );
         assert_eq!(consent_state(Some(2), None, None, None), "restricted");
         assert_eq!(consent_state(Some(1), Some("Deny"), None, None), "granted");
     }
@@ -370,14 +436,21 @@ mod tests {
     fn next_follows_the_order() {
         let all = [OsPermission::Microphone, OsPermission::Notifications];
         assert_eq!(next(&[], &all), Some(OsPermission::Notifications));
-        assert_eq!(next(&[OsPermission::Notifications], &all), Some(OsPermission::Microphone));
+        assert_eq!(
+            next(&[OsPermission::Notifications], &all),
+            Some(OsPermission::Microphone)
+        );
         assert_eq!(next(&all, &all), None);
     }
 
     #[test]
     fn every_permission_has_an_ms_settings_page() {
         for p in OsPermission::ALL {
-            assert!(entry(p).settings_url.starts_with("ms-settings:"), "{}", p.as_str());
+            assert!(
+                entry(p).settings_url.starts_with("ms-settings:"),
+                "{}",
+                p.as_str()
+            );
         }
     }
 

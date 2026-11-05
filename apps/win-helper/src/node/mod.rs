@@ -22,7 +22,7 @@ pub mod time;
 pub mod transport;
 
 pub use capability::{
-    CapResult, CapabilityError, CapabilityOutput, CapabilitySpec, ErrorCode, InvocationContext, OsPermission, ReceiptDraft, SideEffect,
-    TargetKind,
+    CapResult, CapabilityError, CapabilityOutput, CapabilitySpec, ErrorCode, InvocationContext,
+    OsPermission, ReceiptDraft, SideEffect, TargetKind,
 };
 pub use registry::{CapabilityRegistry, Runtime};

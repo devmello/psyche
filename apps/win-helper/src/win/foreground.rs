@@ -7,12 +7,15 @@ use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    INPUT, INPUT_0, INPUT_KEYBOARD, KEYBD_EVENT_FLAGS, KEYBDINPUT, KEYEVENTF_KEYUP, SendInput, SetActiveWindow, SetFocus, VK_MENU,
+    INPUT, INPUT_0, INPUT_KEYBOARD, KEYBD_EVENT_FLAGS, KEYBDINPUT, KEYEVENTF_KEYUP, SendInput,
+    SetActiveWindow, SetFocus, VK_MENU,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    BringWindowToTop, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, FindWindowW, GetForegroundWindow,
-    GetSystemMetrics, GetWindowThreadProcessId, MSG, PM_REMOVE, PeekMessageW, RegisterClassW, SM_CXSCREEN, SM_CYSCREEN, SW_RESTORE,
-    SW_SHOW, SetForegroundWindow, ShowWindow, TranslateMessage, WNDCLASSW, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
+    BringWindowToTop, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
+    FindWindowW, GetForegroundWindow, GetSystemMetrics, GetWindowThreadProcessId, MSG, PM_REMOVE,
+    PeekMessageW, RegisterClassW, SM_CXSCREEN, SM_CYSCREEN, SW_RESTORE, SW_SHOW,
+    SetForegroundWindow, ShowWindow, TranslateMessage, WNDCLASSW, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
+    WS_POPUP,
 };
 use windows::core::{HSTRING, w};
 
@@ -28,7 +31,15 @@ fn tap_alt() {
     // lock honours (the documented reason SetForegroundWindow then succeeds).
     let key = |flags: KEYBD_EVENT_FLAGS| INPUT {
         r#type: INPUT_KEYBOARD,
-        Anonymous: INPUT_0 { ki: KEYBDINPUT { wVk: VK_MENU, wScan: 0, dwFlags: flags, time: 0, dwExtraInfo: 0 } },
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: VK_MENU,
+                wScan: 0,
+                dwFlags: flags,
+                time: 0,
+                dwExtraInfo: 0,
+            },
+        },
     };
     let inputs = [key(KEYBD_EVENT_FLAGS(0)), key(KEYEVENTF_KEYUP)];
     // SAFETY: two well-formed keyboard inputs.
@@ -49,8 +60,11 @@ pub fn force_foreground(hwnd: HWND) -> bool {
         let fg = GetForegroundWindow();
         let fg_thread = if fg.is_invalid() { 0 } else { thread_of(fg) };
         let target_thread = thread_of(hwnd);
-        let attach_fg = fg_thread != 0 && fg_thread != me && AttachThreadInput(me, fg_thread, true).as_bool();
-        let attach_target = target_thread != 0 && target_thread != me && AttachThreadInput(me, target_thread, true).as_bool();
+        let attach_fg =
+            fg_thread != 0 && fg_thread != me && AttachThreadInput(me, fg_thread, true).as_bool();
+        let attach_target = target_thread != 0
+            && target_thread != me
+            && AttachThreadInput(me, target_thread, true).as_bool();
         let _ = ShowWindow(hwnd, SW_SHOW);
         let _ = BringWindowToTop(hwnd);
         let mut ok = SetForegroundWindow(hwnd).as_bool();
@@ -70,7 +84,12 @@ pub fn force_foreground(hwnd: HWND) -> bool {
     }
 }
 
-unsafe extern "system" fn owner_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+unsafe extern "system" fn owner_proc(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
     // SAFETY: default handling for every message.
     unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
 }
@@ -88,7 +107,12 @@ impl OwnerWindow {
         unsafe {
             let instance = GetModuleHandleW(None).ok()?;
             let class = w!("PsycheHelperOwner");
-            let wc = WNDCLASSW { lpfnWndProc: Some(owner_proc), hInstance: instance.into(), lpszClassName: class, ..Default::default() };
+            let wc = WNDCLASSW {
+                lpfnWndProc: Some(owner_proc),
+                hInstance: instance.into(),
+                lpszClassName: class,
+                ..Default::default()
+            };
             RegisterClassW(&wc);
             let (cx, cy) = (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
             let hwnd = CreateWindowExW(

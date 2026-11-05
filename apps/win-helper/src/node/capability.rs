@@ -156,9 +156,13 @@ impl OsPermission {
 }
 
 /// A capability failure: `code` is a protocol `ErrorCode`, `reason` the helper's finer machine
-/// reason, carried in `details.reason`.
+/// reason, carried in `details.reason`. Boxed so `Result<_, CapabilityError>` stays small; the
+/// fields are reached through `Deref`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct CapabilityError {
+pub struct CapabilityError(Box<ErrorFields>);
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ErrorFields {
     pub code: ErrorCode,
     pub reason: String,
     pub message: String,
@@ -166,9 +170,28 @@ pub struct CapabilityError {
     pub retryable: bool,
 }
 
+impl std::ops::Deref for CapabilityError {
+    type Target = ErrorFields;
+    fn deref(&self) -> &ErrorFields {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for CapabilityError {
+    fn deref_mut(&mut self) -> &mut ErrorFields {
+        &mut self.0
+    }
+}
+
 impl std::fmt::Display for CapabilityError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}/{}: {}", self.code.as_str(), self.reason, self.message)
+        write!(
+            f,
+            "{}/{}: {}",
+            self.code.as_str(),
+            self.reason,
+            self.message
+        )
     }
 }
 
@@ -176,7 +199,13 @@ impl std::error::Error for CapabilityError {}
 
 impl CapabilityError {
     pub fn new(code: ErrorCode, reason: impl Into<String>, message: impl Into<String>) -> Self {
-        CapabilityError { code, reason: reason.into(), message: message.into(), details: Map::new(), retryable: false }
+        CapabilityError(Box::new(ErrorFields {
+            code,
+            reason: reason.into(),
+            message: message.into(),
+            details: Map::new(),
+            retryable: false,
+        }))
     }
 
     pub fn with_detail(mut self, key: &str, value: impl Into<Value>) -> Self {
@@ -226,21 +255,34 @@ impl CapabilityError {
     }
 
     pub fn cancelled() -> Self {
-        CapabilityError::new(ErrorCode::Cancelled, "cancelled", "The invocation was cancelled")
+        CapabilityError::new(
+            ErrorCode::Cancelled,
+            "cancelled",
+            "The invocation was cancelled",
+        )
     }
 
     pub fn user_cancelled() -> Self {
-        CapabilityError::new(ErrorCode::Cancelled, "user_cancelled", "The user cancelled authentication")
+        CapabilityError::new(
+            ErrorCode::Cancelled,
+            "user_cancelled",
+            "The user cancelled authentication",
+        )
     }
 
     pub fn timed_out(after: Duration) -> Self {
-        CapabilityError::new(ErrorCode::Timeout, "timeout", format!("The capability did not finish within {} s", after.as_secs()))
-            .retryable()
+        CapabilityError::new(
+            ErrorCode::Timeout,
+            "timeout",
+            format!("The capability did not finish within {} s", after.as_secs()),
+        )
+        .retryable()
     }
 
     /// A Windows API failure, content-free (the HRESULT only).
     pub fn os(reason: &str, message: impl Into<String>, err: &windows::core::Error) -> Self {
-        CapabilityError::new(ErrorCode::Unavailable, reason, message).with_detail("hresult", format!("0x{:08X}", err.code().0 as u32))
+        CapabilityError::new(ErrorCode::Unavailable, reason, message)
+            .with_detail("hresult", format!("0x{:08X}", err.code().0 as u32))
     }
 
     /// Wire `ErrorPayload` with `details.reason`.
@@ -284,11 +326,19 @@ pub struct ReceiptDraft {
 
 impl ReceiptDraft {
     pub fn ok(summary: impl Into<String>) -> Self {
-        ReceiptDraft { outcome: ReceiptOutcome::Ok, summary: summary.into(), external_refs: Map::new() }
+        ReceiptDraft {
+            outcome: ReceiptOutcome::Ok,
+            summary: summary.into(),
+            external_refs: Map::new(),
+        }
     }
 
     pub fn failed(summary: impl Into<String>) -> Self {
-        ReceiptDraft { outcome: ReceiptOutcome::Failed, summary: summary.into(), external_refs: Map::new() }
+        ReceiptDraft {
+            outcome: ReceiptOutcome::Failed,
+            summary: summary.into(),
+            external_refs: Map::new(),
+        }
     }
 
     pub fn with_ref(mut self, key: &str, value: impl Into<Value>) -> Self {
@@ -322,11 +372,17 @@ pub struct CapabilityOutput {
 
 impl CapabilityOutput {
     pub fn new(result: Value) -> Self {
-        CapabilityOutput { result, receipt: None }
+        CapabilityOutput {
+            result,
+            receipt: None,
+        }
     }
 
     pub fn with_receipt(result: Value, receipt: ReceiptDraft) -> Self {
-        CapabilityOutput { result, receipt: Some(receipt) }
+        CapabilityOutput {
+            result,
+            receipt: Some(receipt),
+        }
     }
 }
 
@@ -424,13 +480,28 @@ pub struct InvocationContext {
 
 impl std::fmt::Debug for InvocationContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("InvocationContext").field("capability", &self.capability).finish_non_exhaustive()
+        f.debug_struct("InvocationContext")
+            .field("capability", &self.capability)
+            .finish_non_exhaustive()
     }
 }
 
 impl InvocationContext {
-    pub fn new(invocation_id: &str, capability: &str, params: Value, approval_id: Option<String>, emit: EmitFn) -> Self {
-        Self::with_cancel(invocation_id, capability, params, approval_id, emit, CancelToken::new())
+    pub fn new(
+        invocation_id: &str,
+        capability: &str,
+        params: Value,
+        approval_id: Option<String>,
+        emit: EmitFn,
+    ) -> Self {
+        Self::with_cancel(
+            invocation_id,
+            capability,
+            params,
+            approval_id,
+            emit,
+            CancelToken::new(),
+        )
     }
 
     pub fn with_cancel(
@@ -441,7 +512,14 @@ impl InvocationContext {
         emit: EmitFn,
         cancel: CancelToken,
     ) -> Self {
-        InvocationContext { invocation_id: invocation_id.to_owned(), capability: capability.to_owned(), params, approval_id, emit, cancel }
+        InvocationContext {
+            invocation_id: invocation_id.to_owned(),
+            capability: capability.to_owned(),
+            params,
+            approval_id,
+            emit,
+            cancel,
+        }
     }
 
     /// Set when the Gateway cancelled the invocation or the connection dropped. Blocking handlers
@@ -472,18 +550,29 @@ impl InvocationContext {
 }
 
 pub fn decode_params<T: DeserializeOwned>(params: &Value) -> Result<T, CapabilityError> {
-    let value = if params.is_null() { Value::Object(Map::new()) } else { params.clone() };
+    let value = if params.is_null() {
+        Value::Object(Map::new())
+    } else {
+        params.clone()
+    };
     serde_path_to_error::deserialize::<_, T>(value).map_err(|e| {
         let path = e.path().to_string();
         let inner = e.into_inner().to_string();
         if let Some(rest) = inner.strip_prefix("missing field `") {
             let key = rest.split('`').next().unwrap_or_default();
-            let field = if path == "." { key.to_owned() } else { format!("{path}.{key}") };
+            let field = if path == "." {
+                key.to_owned()
+            } else {
+                format!("{path}.{key}")
+            };
             CapabilityError::invalid_params(format!("missing parameter {field}"), Some(&field))
         } else if inner.starts_with("unknown variant") {
             CapabilityError::invalid_params(format!("parameter {path} is invalid"), Some(&path))
         } else {
-            CapabilityError::invalid_params(format!("parameter {path} has the wrong type"), Some(&path))
+            CapabilityError::invalid_params(
+                format!("parameter {path} has the wrong type"),
+                Some(&path),
+            )
         }
     })
 }
@@ -520,7 +609,9 @@ mod tests {
 
     #[test]
     fn wire_error_carries_reason_and_retryable() {
-        let e = CapabilityError::unavailable("x_reason", "msg").with_detail("k", 1).retryable();
+        let e = CapabilityError::unavailable("x_reason", "msg")
+            .with_detail("k", 1)
+            .retryable();
         let w = e.wire();
         assert_eq!(w.code, "unavailable");
         assert_eq!(w.details.unwrap(), json!({"k": 1, "reason": "x_reason"}));
@@ -530,7 +621,9 @@ mod tests {
 
     #[test]
     fn manifest_entry_shape() {
-        let s = CapabilitySpec::new("apps.open", "d", SideEffect::Write).target(TargetKind::App).receipt("app_open");
+        let s = CapabilitySpec::new("apps.open", "d", SideEffect::Write)
+            .target(TargetKind::App)
+            .receipt("app_open");
         let m = s.manifest_entry();
         assert_eq!(m["name"], "apps.open");
         assert_eq!(m["sideEffect"], "write");

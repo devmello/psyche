@@ -19,16 +19,20 @@ mod app {
     use std::sync::Arc;
     use std::time::Duration;
 
+    use psyche_win_helper::node::Runtime;
     use psyche_win_helper::node::channel::{FrameReader, spawn_writer};
     use psyche_win_helper::node::daemon::NodeDaemon;
-    use psyche_win_helper::node::handshake::{Completion, HandshakeError, HandshakeOptions, perform};
+    use psyche_win_helper::node::handshake::{
+        Completion, HandshakeError, HandshakeOptions, perform,
+    };
     use psyche_win_helper::node::identity::DpapiIdentityStore;
     use psyche_win_helper::node::instance::SingleInstanceLock;
     use psyche_win_helper::node::log::HelperLog;
-    use psyche_win_helper::node::paths::{Env, log_path, node_pipe, psyche_home, read_handshake_secret};
+    use psyche_win_helper::node::paths::{
+        Env, log_path, node_pipe, psyche_home, read_handshake_secret,
+    };
     use psyche_win_helper::node::registry::HELPER_VERSION;
     use psyche_win_helper::node::transport::{ConnectError, connect};
-    use psyche_win_helper::node::Runtime;
     use psyche_win_helper::{groups, permissions, presence, win};
     use serde_json::json;
 
@@ -67,7 +71,11 @@ Exit codes (--handshake-only): 0 handshake done, 2 pipe missing, 3 denied, 4 tim
         let mut args = std::env::args().skip(1);
         while let Some(arg) = args.next() {
             match arg.as_str() {
-                "--timeout" => match args.next().and_then(|v| v.parse::<f64>().ok()).filter(|v| *v > 0.0) {
+                "--timeout" => match args
+                    .next()
+                    .and_then(|v| v.parse::<f64>().ok())
+                    .filter(|v| *v > 0.0)
+                {
                     Some(v) => f.timeout = Duration::from_secs_f64(v),
                     None => {
                         eprintln!("{USAGE}");
@@ -88,7 +96,8 @@ Exit codes (--handshake-only): 0 handshake done, 2 pipe missing, 3 denied, 4 tim
                 }
                 // COM launches the helper with -Embedding (toast activator, LocalServer32 command
                 // line adds -ToastActivated); both just mean "start serving".
-                a if a.eq_ignore_ascii_case("-embedding") || a.eq_ignore_ascii_case("-toastactivated") => {}
+                a if a.eq_ignore_ascii_case("-embedding")
+                    || a.eq_ignore_ascii_case("-toastactivated") => {}
                 other => {
                     eprintln!("unknown argument: {other}\n{USAGE}");
                     return Err(64);
@@ -117,7 +126,10 @@ Exit codes (--handshake-only): 0 handshake done, 2 pipe missing, 3 denied, 4 tim
 
         if flags.manifest {
             let reg = groups::build(Runtime::offline(env));
-            println!("{}", serde_json::to_string_pretty(&reg.manifest(HELPER_VERSION)).unwrap_or_default());
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&reg.manifest(HELPER_VERSION)).unwrap_or_default()
+            );
             return 0;
         }
         if flags.build_info {
@@ -171,7 +183,13 @@ Exit codes (--handshake-only): 0 handshake done, 2 pipe missing, 3 denied, 4 tim
 
         let rt = tokio_runtime();
         if flags.handshake_only {
-            return rt.block_on(handshake_only(&env, &log, identity, flags.timeout, flags.verify));
+            return rt.block_on(handshake_only(
+                &env,
+                &log,
+                identity,
+                flags.timeout,
+                flags.verify,
+            ));
         }
 
         rt.block_on(async {
@@ -180,7 +198,10 @@ Exit codes (--handshake-only): 0 handshake done, 2 pipe missing, 3 denied, 4 tim
             let registry = Arc::new(groups::build(runtime));
             let daemon = NodeDaemon::new(identity, registry.clone(), env.clone(), log.clone());
             let stop = daemon.stop_token();
-            log.info(format!("psyche-helper {HELPER_VERSION} started capabilities={}", registry.len()));
+            log.info(format!(
+                "psyche-helper {HELPER_VERSION} started capabilities={}",
+                registry.len()
+            ));
             tokio::select! {
                 _ = daemon.run() => {}
                 _ = tokio::signal::ctrl_c() => {
@@ -192,7 +213,13 @@ Exit codes (--handshake-only): 0 handshake done, 2 pipe missing, 3 denied, 4 tim
         0
     }
 
-    async fn handshake_only(env: &Env, log: &HelperLog, identity: psyche_win_helper::node::identity::DeviceIdentity, timeout: Duration, verify: bool) -> i32 {
+    async fn handshake_only(
+        env: &Env,
+        log: &HelperLog,
+        identity: psyche_win_helper::node::identity::DeviceIdentity,
+        timeout: Duration,
+        verify: bool,
+    ) -> i32 {
         let pipe = node_pipe(env);
         let client = match connect(&pipe.path).await {
             Ok(c) => c,
@@ -207,7 +234,12 @@ Exit codes (--handshake-only): 0 handshake done, 2 pipe missing, 3 denied, 4 tim
         let (r, w) = tokio::io::split(client);
         let mut reader = FrameReader::new(r);
         let (writer, _task) = spawn_writer(w);
-        let options = HandshakeOptions { timeout, verify, handshake_secret: read_handshake_secret(env), ..HandshakeOptions::default() };
+        let options = HandshakeOptions {
+            timeout,
+            verify,
+            handshake_secret: read_handshake_secret(env),
+            ..HandshakeOptions::default()
+        };
         match perform(&identity, &options, &mut reader, &writer, log).await {
             Ok(Completion::ChallengeOnly { nonce_bytes, .. }) => {
                 log.info(format!("challenge ok nonceBytes={nonce_bytes}"));

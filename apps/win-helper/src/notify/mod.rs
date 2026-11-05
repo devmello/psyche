@@ -22,15 +22,22 @@ use serde_json::{Value, json};
 use windows::UI::Notifications::NotificationSetting;
 use windows::Win32::System::SystemInformation::GetLocalTime;
 
-use crate::node::capability::{CapabilityError, CapabilityOutput, CapabilitySpec, ReceiptDraft, SideEffect};
+use crate::node::capability::{
+    CapabilityError, CapabilityOutput, CapabilitySpec, ReceiptDraft, SideEffect,
+};
 use crate::node::schema;
 use crate::node::{CapabilityRegistry, Runtime};
-use plan::{ID_PATTERN, MAX_ACTION_LABEL, MAX_ACTIONS, MAX_BODY, MAX_ID_LENGTH, MAX_SUBTITLE, MAX_TITLE, NotificationKind, NotificationPlan, NotifyShowParams, is_valid_id};
+use plan::{
+    ID_PATTERN, MAX_ACTION_LABEL, MAX_ACTIONS, MAX_BODY, MAX_ID_LENGTH, MAX_SUBTITLE, MAX_TITLE,
+    NotificationKind, NotificationPlan, NotifyShowParams, is_valid_id,
+};
 use toast::{ToastCenter, current_setting, setting_name};
 
 /// The shared toast center (one per process).
 pub fn center(rt: &Runtime) -> Arc<ToastCenter> {
-    rt.service(|| ToastCenter::new(rt.log.clone())).as_ref().clone()
+    rt.service(|| ToastCenter::new(rt.log.clone()))
+        .as_ref()
+        .clone()
 }
 
 fn local_minute_of_day() -> u32 {
@@ -46,20 +53,43 @@ fn id_schema(description: &str) -> Value {
 fn show_schema() -> Value {
     schema::object(
         vec![
-            ("id", id_schema("Gateway notification id; reusing it replaces the shown notification")),
-            ("kind", schema::string_enum(Some("NotificationKind"), &NotificationKind::NAMES)),
-            ("title", schema::string(Some(&format!("Truncated to {MAX_TITLE} characters")))),
-            ("body", schema::string(Some(&format!("Truncated to {MAX_BODY} characters")))),
-            ("subtitle", schema::string(Some(&format!("Truncated to {MAX_SUBTITLE} characters")))),
+            (
+                "id",
+                id_schema("Gateway notification id; reusing it replaces the shown notification"),
+            ),
+            (
+                "kind",
+                schema::string_enum(Some("NotificationKind"), &NotificationKind::NAMES),
+            ),
+            (
+                "title",
+                schema::string(Some(&format!("Truncated to {MAX_TITLE} characters"))),
+            ),
+            (
+                "body",
+                schema::string(Some(&format!("Truncated to {MAX_BODY} characters"))),
+            ),
+            (
+                "subtitle",
+                schema::string(Some(&format!("Truncated to {MAX_SUBTITLE} characters"))),
+            ),
             (
                 "actions",
                 schema::array(
                     schema::object(
                         vec![
-                            ("id", id_schema("Action id returned as actionId (not default, dismiss or reply)")),
+                            (
+                                "id",
+                                id_schema(
+                                    "Action id returned as actionId (not default, dismiss or reply)",
+                                ),
+                            ),
                             ("label", schema::string_max(None, MAX_ACTION_LABEL as u64)),
                             ("destructive", schema::boolean(None)),
-                            ("requiresAuth", schema::boolean(Some("Device must be unlocked"))),
+                            (
+                                "requiresAuth",
+                                schema::boolean(Some("Device must be unlocked")),
+                            ),
                         ],
                         &["id", "label"],
                     ),
@@ -70,31 +100,65 @@ fn show_schema() -> Value {
             (
                 "reply",
                 schema::object_with(
-                    vec![("label", schema::string_max(None, MAX_ACTION_LABEL as u64)), ("placeholder", schema::string(None))],
+                    vec![
+                        ("label", schema::string_max(None, MAX_ACTION_LABEL as u64)),
+                        ("placeholder", schema::string(None)),
+                    ],
                     &["label"],
                     Some("Inline text reply (input_needed has one by default)"),
                     false,
                 ),
             ),
-            ("threadId", id_schema("Groups notifications in the notification center")),
-            ("route", schema::string(Some("Deep link inside the app (not stored in the OS notification)"))),
-            ("interruption", schema::string_enum(Some("Overrides the kind's default level"), &["passive", "active", "timeSensitive"])),
-            ("approvalId", id_schema("Approval answered by this notification")),
-            ("requireBiometry", schema::boolean(Some("Run Windows Hello before forwarding a non-destructive action"))),
+            (
+                "threadId",
+                id_schema("Groups notifications in the notification center"),
+            ),
+            (
+                "route",
+                schema::string(Some(
+                    "Deep link inside the app (not stored in the OS notification)",
+                )),
+            ),
+            (
+                "interruption",
+                schema::string_enum(
+                    Some("Overrides the kind's default level"),
+                    &["passive", "active", "timeSensitive"],
+                ),
+            ),
+            (
+                "approvalId",
+                id_schema("Approval answered by this notification"),
+            ),
+            (
+                "requireBiometry",
+                schema::boolean(Some(
+                    "Run Windows Hello before forwarding a non-destructive action",
+                )),
+            ),
             (
                 "presenceChallenge",
-                schema::string_max(Some("Hex SHA-256 the Windows Hello presence key signs (with requireBiometry)"), 64),
+                schema::string_max(
+                    Some("Hex SHA-256 the Windows Hello presence key signs (with requireBiometry)"),
+                    64,
+                ),
             ),
             (
                 "quietHours",
                 schema::object_with(
-                    vec![("start", schema::string(Some("HH:mm"))), ("end", schema::string(Some("HH:mm")))],
+                    vec![
+                        ("start", schema::string(Some("HH:mm"))),
+                        ("end", schema::string(Some("HH:mm"))),
+                    ],
                     &["end", "start"],
                     Some("Local-time window during which the notification is passive and silent"),
                     false,
                 ),
             ),
-            ("sound", schema::boolean(Some("Defaults to true unless the level is passive"))),
+            (
+                "sound",
+                schema::boolean(Some("Defaults to true unless the level is passive")),
+            ),
         ],
         &["body", "id", "kind", "title"],
     )
@@ -166,13 +230,23 @@ pub fn register(reg: &mut CapabilityRegistry) {
 
     let center_withdraw = c.clone();
     reg.add_blocking(
-        CapabilitySpec::new("notify.withdraw", "Remove a delivered or pending notification by id.", SideEffect::Write)
-            .input(schema::object(vec![("id", id_schema("Gateway notification id"))], &["id"]))
-            .receipt("notification"),
+        CapabilitySpec::new(
+            "notify.withdraw",
+            "Remove a delivered or pending notification by id.",
+            SideEffect::Write,
+        )
+        .input(schema::object(
+            vec![("id", id_schema("Gateway notification id"))],
+            &["id"],
+        ))
+        .receipt("notification"),
         move |ctx| {
             let p: WithdrawParams = ctx.decode()?;
             if !is_valid_id(&p.id) {
-                return Err(CapabilityError::invalid_params(format!("id must match {ID_PATTERN}"), Some("id")));
+                return Err(CapabilityError::invalid_params(
+                    format!("id must match {ID_PATTERN}"),
+                    Some("id"),
+                ));
             }
             center_withdraw.withdraw(&p.id)?;
             Ok(CapabilityOutput::with_receipt(
@@ -243,4 +317,80 @@ pub fn register(reg: &mut CapabilityRegistry) {
             }
         },
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Registers the toast identity (HKCU + Start-menu shortcut), posts a passive (silent,
+    /// notification-center only) toast and withdraws it: `cargo test -- --ignored live_toast`.
+    #[test]
+    #[ignore]
+    fn live_toast_show_and_withdraw() {
+        crate::win::com::ensure_mta();
+        let c = ToastCenter::new(crate::node::log::HelperLog::quiet());
+        c.start(true);
+        assert!(c.is_registered());
+        let p = NotifyShowParams::from_value(&json!({"id": "psyche-live-test", "kind": "briefing", "title": "Psyche Helper test", "body": "Safe to ignore"})).unwrap();
+        let plan = NotificationPlan::make(&p, 0).unwrap();
+        match c.show(&plan) {
+            Ok(o) => assert_eq!(o.interruption.as_str(), "passive"),
+            // Toasts turned off for the app: reported as a missing permission, not a crash.
+            Err(e) => assert_eq!(e.reason, "permission_missing", "{e:?}"),
+        }
+        c.withdraw("psyche-live-test").unwrap();
+    }
+
+    /// Activates the registered COM class the way Windows does after a toast click.
+    #[test]
+    #[ignore]
+    fn live_activator_delivers_responses() {
+        use windows::Win32::System::Com::{CLSCTX_LOCAL_SERVER, CoCreateInstance};
+        use windows::Win32::UI::Notifications::{
+            INotificationActivationCallback, NOTIFICATION_USER_INPUT_DATA,
+        };
+        use windows::core::{HSTRING, PCWSTR};
+        crate::win::com::ensure_mta();
+        let c = ToastCenter::new(crate::node::log::HelperLog::quiet());
+        c.start(true);
+        let info = plan::UserInfo {
+            notification_id: "n-live".into(),
+            kind: "input_needed".into(),
+            approval_id: Some("apr_live".into()),
+            require_biometry: false,
+            destructive_action_ids: vec![],
+            presence_challenge: None,
+        };
+        let args = HSTRING::from(plan::encode_args(&info, "reply"));
+        let (k, v) = (HSTRING::from("reply"), HSTRING::from("typed answer"));
+        let data = [NOTIFICATION_USER_INPUT_DATA {
+            Key: PCWSTR(k.as_ptr()),
+            Value: PCWSTR(v.as_ptr()),
+        }];
+        // SAFETY: COM activation of the class this process just registered.
+        unsafe {
+            let cb: INotificationActivationCallback =
+                CoCreateInstance(&toast::TOAST_ACTIVATOR_CLSID, None, CLSCTX_LOCAL_SERVER).unwrap();
+            cb.Activate(&HSTRING::from(toast::AUMID), &args, &data)
+                .unwrap();
+        }
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let mut sub = c.hub.subscribe();
+        let r = rt
+            .block_on(async {
+                tokio::time::timeout(std::time::Duration::from_secs(5), sub.rx.recv()).await
+            })
+            .unwrap()
+            .unwrap();
+        let p = r.payload();
+        assert_eq!(p["notificationId"], "n-live");
+        assert_eq!(p["actionId"], "reply");
+        assert_eq!(p["replyText"], "typed answer");
+        assert_eq!(p["approvalId"], "apr_live");
+        assert_eq!(p["authenticated"], false);
+    }
 }

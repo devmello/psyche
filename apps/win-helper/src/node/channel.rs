@@ -21,7 +21,12 @@ pub struct FrameReader<R> {
 
 impl<R: AsyncRead + Unpin> FrameReader<R> {
     pub fn new(inner: R) -> Self {
-        FrameReader { inner, buffer: LineBuffer::new(MAX_FRAME_BYTES), queued: VecDeque::new(), chunk: vec![0u8; 64 * 1024] }
+        FrameReader {
+            inner,
+            buffer: LineBuffer::new(MAX_FRAME_BYTES),
+            queued: VecDeque::new(),
+            chunk: vec![0u8; 64 * 1024],
+        }
     }
 
     /// Next frame, or `None` on EOF. Lines that are not valid frames are skipped (a malformed
@@ -42,7 +47,10 @@ impl<R: AsyncRead + Unpin> FrameReader<R> {
             if n == 0 {
                 return Ok(None);
             }
-            let lines = self.buffer.append(&self.chunk[..n]).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+            let lines = self
+                .buffer
+                .append(&self.chunk[..n])
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
             self.queued.extend(lines);
         }
     }
@@ -73,7 +81,9 @@ impl FrameWriter {
 }
 
 /// Starts the writer task. It ends when every `FrameWriter` is dropped or a write fails.
-pub fn spawn_writer<W: AsyncWrite + Unpin + Send + 'static>(mut w: W) -> (FrameWriter, JoinHandle<()>) {
+pub fn spawn_writer<W: AsyncWrite + Unpin + Send + 'static>(
+    mut w: W,
+) -> (FrameWriter, JoinHandle<()>) {
     let (tx, mut rx) = mpsc::unbounded_channel::<Vec<u8>>();
     let task = tokio::spawn(async move {
         while let Some(line) = rx.recv().await {
@@ -95,8 +105,14 @@ mod tests {
     async fn reads_frames_and_skips_garbage() {
         let (client, mut server) = tokio::io::duplex(1024);
         tokio::spawn(async move {
-            server.write_all(b"garbage\n{\"type\":\"req\",\"id\":\"1\",\"method\":\"m\"}\n").await.unwrap();
-            server.write_all(b"{\"type\":\"res\",\"id\":\"2\",\"ok\":true,\"payload\":null}\n").await.unwrap();
+            server
+                .write_all(b"garbage\n{\"type\":\"req\",\"id\":\"1\",\"method\":\"m\"}\n")
+                .await
+                .unwrap();
+            server
+                .write_all(b"{\"type\":\"res\",\"id\":\"2\",\"ok\":true,\"payload\":null}\n")
+                .await
+                .unwrap();
         });
         let mut r = FrameReader::new(client);
         assert!(matches!(r.next().await.unwrap(), Some(Frame::Req(f)) if f.id == "1"));
@@ -108,7 +124,8 @@ mod tests {
     async fn writer_serializes_lines() {
         let (client, server) = tokio::io::duplex(4096);
         let (w, task) = spawn_writer(client);
-        w.send(&Frame::req("a", "x", Some(json!({"n": 1})))).unwrap();
+        w.send(&Frame::req("a", "x", Some(json!({"n": 1}))))
+            .unwrap();
         w.send(&Frame::res_ok("b", json!(null))).unwrap();
         drop(w);
         task.await.unwrap();

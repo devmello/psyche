@@ -4,17 +4,22 @@
 use std::path::{Path, PathBuf};
 
 use windows::Win32::Foundation::{CloseHandle, PROPERTYKEY};
-use windows::Win32::Storage::EnhancedStorage::{PKEY_AppUserModel_ID, PKEY_AppUserModel_ToastActivatorCLSID, PKEY_Link_TargetParsingPath};
+use windows::Win32::Storage::EnhancedStorage::{
+    PKEY_AppUserModel_ID, PKEY_AppUserModel_ToastActivatorCLSID, PKEY_Link_TargetParsingPath,
+};
 use windows::Win32::System::Com::StructuredStorage::{InitPropVariantFromCLSID, PROPVARIANT};
-use windows::Win32::System::Com::{CLSCTX_INPROC_SERVER, CLSCTX_LOCAL_SERVER, CoCreateInstance, CoTaskMemFree, IPersistFile};
+use windows::Win32::System::Com::{
+    CLSCTX_INPROC_SERVER, CLSCTX_LOCAL_SERVER, CoCreateInstance, CoTaskMemFree, IPersistFile,
+};
 use windows::Win32::System::Threading::GetProcessId;
 use windows::Win32::UI::Shell::Common::ITEMIDLIST;
 use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
 use windows::Win32::UI::Shell::{
-    AO_NONE, ApplicationActivationManager, BHID_EnumItems, FOLDERID_AppsFolder, IApplicationActivationManager, IEnumShellItems,
-    IShellItem, IShellItem2, IShellLinkW, ILCreateFromPathW, ILFree, KF_FLAG_DEFAULT, SEE_MASK_NOASYNC, SEE_MASK_NOCLOSEPROCESS,
-    SHELLEXECUTEINFOW, SHGetKnownFolderItem, SHGetKnownFolderPath, SHOpenFolderAndSelectItems, SIGDN_NORMALDISPLAY,
-    SIGDN_PARENTRELATIVEPARSING, ShellExecuteExW, ShellLink, StrCmpLogicalW,
+    AO_NONE, ApplicationActivationManager, BHID_EnumItems, FOLDERID_AppsFolder,
+    IApplicationActivationManager, IEnumShellItems, ILCreateFromPathW, ILFree, IShellItem,
+    IShellItem2, IShellLinkW, KF_FLAG_DEFAULT, SEE_MASK_NOASYNC, SEE_MASK_NOCLOSEPROCESS,
+    SHELLEXECUTEINFOW, SHGetKnownFolderItem, SHGetKnownFolderPath, SHOpenFolderAndSelectItems,
+    SIGDN_NORMALDISPLAY, SIGDN_PARENTRELATIVEPARSING, ShellExecuteExW, ShellLink, StrCmpLogicalW,
 };
 use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 use windows::core::{GUID, HSTRING, Interface, PCWSTR, PWSTR};
@@ -67,8 +72,13 @@ pub fn shell_open(file: &str, parameters: Option<&str>) -> windows::core::Result
 pub fn activate_packaged(aumid: &str, arguments: Option<&str>) -> windows::core::Result<u32> {
     // SAFETY: COM activation through the system's activation manager.
     unsafe {
-        let mgr: IApplicationActivationManager = CoCreateInstance(&ApplicationActivationManager, None, CLSCTX_LOCAL_SERVER)?;
-        mgr.ActivateApplication(&HSTRING::from(aumid), &HSTRING::from(arguments.unwrap_or("")), AO_NONE)
+        let mgr: IApplicationActivationManager =
+            CoCreateInstance(&ApplicationActivationManager, None, CLSCTX_LOCAL_SERVER)?;
+        mgr.ActivateApplication(
+            &HSTRING::from(aumid),
+            &HSTRING::from(arguments.unwrap_or("")),
+            AO_NONE,
+        )
     }
 }
 
@@ -95,7 +105,14 @@ pub fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
 }
 
 /// Creates (or overwrites) a `.lnk` with the AppUserModelID and toast activator CLSID set.
-pub fn write_shortcut(lnk: &Path, target: &Path, arguments: &str, description: &str, aumid: &str, activator: &GUID) -> windows::core::Result<()> {
+pub fn write_shortcut(
+    lnk: &Path,
+    target: &Path,
+    arguments: &str,
+    description: &str,
+    aumid: &str,
+    activator: &GUID,
+) -> windows::core::Result<()> {
     // SAFETY: COM calls on freshly created shell-link objects.
     unsafe {
         let link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER)?;
@@ -107,7 +124,10 @@ pub fn write_shortcut(lnk: &Path, target: &Path, arguments: &str, description: &
         }
         let store: IPropertyStore = link.cast()?;
         store.SetValue(&PKEY_AppUserModel_ID, &PROPVARIANT::from(aumid))?;
-        store.SetValue(&PKEY_AppUserModel_ToastActivatorCLSID, &InitPropVariantFromCLSID(activator)?)?;
+        store.SetValue(
+            &PKEY_AppUserModel_ToastActivatorCLSID,
+            &InitPropVariantFromCLSID(activator)?,
+        )?;
         store.Commit()?;
         if let Some(dir) = lnk.parent() {
             let _ = std::fs::create_dir_all(dir);
@@ -127,8 +147,15 @@ fn item_string(item: &IShellItem, key: &PROPERTYKEY) -> Option<String> {
 pub fn read_shortcut(lnk: &Path) -> Option<(Option<String>, Option<String>)> {
     // SAFETY: shell item over an existing file.
     unsafe {
-        let item: IShellItem = windows::Win32::UI::Shell::SHCreateItemFromParsingName(&HSTRING::from(lnk.as_os_str()), None).ok()?;
-        Some((item_string(&item, &PKEY_Link_TargetParsingPath), item_string(&item, &PKEY_AppUserModel_ID)))
+        let item: IShellItem = windows::Win32::UI::Shell::SHCreateItemFromParsingName(
+            &HSTRING::from(lnk.as_os_str()),
+            None,
+        )
+        .ok()?;
+        Some((
+            item_string(&item, &PKEY_Link_TargetParsingPath),
+            item_string(&item, &PKEY_AppUserModel_ID),
+        ))
     }
 }
 
@@ -147,8 +174,14 @@ pub fn start_apps() -> Vec<StartApp> {
     let mut out = Vec::new();
     // SAFETY: COM enumeration; every string is freed by take_pwstr.
     unsafe {
-        let Ok(folder) = SHGetKnownFolderItem::<IShellItem>(&FOLDERID_AppsFolder, KF_FLAG_DEFAULT, None) else { return out };
-        let Ok(items) = folder.BindToHandler::<_, IEnumShellItems>(None, &BHID_EnumItems) else { return out };
+        let Ok(folder) =
+            SHGetKnownFolderItem::<IShellItem>(&FOLDERID_AppsFolder, KF_FLAG_DEFAULT, None)
+        else {
+            return out;
+        };
+        let Ok(items) = folder.BindToHandler::<_, IEnumShellItems>(None, &BHID_EnumItems) else {
+            return out;
+        };
         loop {
             let mut batch: [Option<IShellItem>; 1] = [None];
             let mut fetched = 0u32;
@@ -156,11 +189,21 @@ pub fn start_apps() -> Vec<StartApp> {
                 break;
             }
             let Some(item) = batch[0].take() else { break };
-            let name = item.GetDisplayName(SIGDN_NORMALDISPLAY).ok().and_then(|p| take_pwstr(p));
-            let id = item.GetDisplayName(SIGDN_PARENTRELATIVEPARSING).ok().and_then(|p| take_pwstr(p));
+            let name = item
+                .GetDisplayName(SIGDN_NORMALDISPLAY)
+                .ok()
+                .and_then(take_pwstr);
+            let id = item
+                .GetDisplayName(SIGDN_PARENTRELATIVEPARSING)
+                .ok()
+                .and_then(take_pwstr);
             if let (Some(name), Some(app_id)) = (name, id) {
                 let target = item_string(&item, &PKEY_Link_TargetParsingPath);
-                out.push(StartApp { name, app_id, target });
+                out.push(StartApp {
+                    name,
+                    app_id,
+                    target,
+                });
             }
         }
     }

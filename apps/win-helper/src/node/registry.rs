@@ -15,7 +15,9 @@ use std::time::Instant;
 
 use serde_json::{Value, json};
 
-use super::capability::{CapResult, CapabilityError, CapabilitySpec, InvocationContext, OsPermission};
+use super::capability::{
+    CapResult, CapabilityError, CapabilitySpec, InvocationContext, OsPermission,
+};
 use super::log::HelperLog;
 use super::paths::{Env, psyche_home};
 
@@ -50,9 +52,22 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    pub fn new(env: Env, log: HelperLog, preflight: Arc<dyn PermissionPreflight>, live: bool) -> Arc<Runtime> {
+    pub fn new(
+        env: Env,
+        log: HelperLog,
+        preflight: Arc<dyn PermissionPreflight>,
+        live: bool,
+    ) -> Arc<Runtime> {
         let home = psyche_home(&env);
-        Arc::new(Runtime { log, env, home, started: Instant::now(), preflight, live, services: Mutex::new(HashMap::new()) })
+        Arc::new(Runtime {
+            log,
+            env,
+            home,
+            started: Instant::now(),
+            preflight,
+            live,
+            services: Mutex::new(HashMap::new()),
+        })
     }
 
     /// A quiet, non-live runtime over `env` (tests, manifest printing).
@@ -74,7 +89,9 @@ impl Runtime {
     /// The shared `T`, if a group created it.
     pub fn existing_service<T: Any + Send + Sync>(&self) -> Option<Arc<T>> {
         let map = self.services.lock().unwrap_or_else(|p| p.into_inner());
-        map.get(&TypeId::of::<T>()).cloned().and_then(|s| s.downcast::<T>().ok())
+        map.get(&TypeId::of::<T>())
+            .cloned()
+            .and_then(|s| s.downcast::<T>().ok())
     }
 }
 
@@ -95,7 +112,11 @@ pub struct CapabilityRegistry {
 
 impl CapabilityRegistry {
     pub fn new(runtime: Arc<Runtime>) -> Self {
-        CapabilityRegistry { runtime, ordered: Vec::new(), index: HashMap::new() }
+        CapabilityRegistry {
+            runtime,
+            ordered: Vec::new(),
+            index: HashMap::new(),
+        }
     }
 
     pub fn runtime(&self) -> &Arc<Runtime> {
@@ -130,7 +151,10 @@ impl CapabilityRegistry {
                 {
                     Ok(r) => r,
                     Err(e) if e.is_cancelled() => Err(CapabilityError::cancelled()),
-                    Err(_) => Err(CapabilityError::internal("internal", "The capability panicked")),
+                    Err(_) => Err(CapabilityError::internal(
+                        "internal",
+                        "The capability panicked",
+                    )),
                 }
             })
         });
@@ -138,7 +162,11 @@ impl CapabilityRegistry {
     }
 
     fn insert(&mut self, cap: Capability) {
-        assert!(!self.index.contains_key(&cap.spec.name), "duplicate capability {}", cap.spec.name);
+        assert!(
+            !self.index.contains_key(&cap.spec.name),
+            "duplicate capability {}",
+            cap.spec.name
+        );
         self.index.insert(cap.spec.name.clone(), self.ordered.len());
         self.ordered.push(Arc::new(cap));
     }
@@ -161,7 +189,10 @@ impl CapabilityRegistry {
 
     /// `NodeCapability[]` for `connect`.
     pub fn manifest_entries(&self) -> Vec<Value> {
-        self.ordered.iter().map(|c| c.spec.manifest_entry()).collect()
+        self.ordered
+            .iter()
+            .map(|c| c.spec.manifest_entry())
+            .collect()
     }
 
     /// `CapabilityManifest` (what `psyche-helper --manifest` prints).
@@ -178,8 +209,14 @@ mod tests {
     #[test]
     fn manifest_keeps_order_and_platform() {
         let mut reg = CapabilityRegistry::new(Runtime::offline(Env::default()));
-        reg.add(CapabilitySpec::new("b.one", "first", SideEffect::Read), |_| async { Ok(CapabilityOutput::new(json!({}))) });
-        reg.add_blocking(CapabilitySpec::new("a.two", "second", SideEffect::Write), |_| Ok(CapabilityOutput::new(json!(1))));
+        reg.add(
+            CapabilitySpec::new("b.one", "first", SideEffect::Read),
+            |_| async { Ok(CapabilityOutput::new(json!({}))) },
+        );
+        reg.add_blocking(
+            CapabilitySpec::new("a.two", "second", SideEffect::Write),
+            |_| Ok(CapabilityOutput::new(json!(1))),
+        );
         let m = reg.manifest("9.9.9");
         assert_eq!(m["platform"], "windows");
         assert_eq!(m["version"], "9.9.9");
@@ -193,8 +230,12 @@ mod tests {
     #[should_panic(expected = "duplicate capability")]
     fn duplicate_names_panic() {
         let mut reg = CapabilityRegistry::new(Runtime::offline(Env::default()));
-        reg.add_blocking(CapabilitySpec::new("x", "", SideEffect::Read), |_| Ok(CapabilityOutput::new(json!(1))));
-        reg.add_blocking(CapabilitySpec::new("x", "", SideEffect::Read), |_| Ok(CapabilityOutput::new(json!(1))));
+        reg.add_blocking(CapabilitySpec::new("x", "", SideEffect::Read), |_| {
+            Ok(CapabilityOutput::new(json!(1)))
+        });
+        reg.add_blocking(CapabilitySpec::new("x", "", SideEffect::Read), |_| {
+            Ok(CapabilityOutput::new(json!(1)))
+        });
     }
 
     #[test]

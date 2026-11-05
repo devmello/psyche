@@ -17,7 +17,9 @@ use serde_json::{Map, Value, json};
 use tokio::io::AsyncRead;
 
 use super::cancel::CancelToken;
-use super::capability::{CapResult, CapabilityError, ErrorCode, InvocationContext, ReceiptDraft, SideEffect};
+use super::capability::{
+    CapResult, CapabilityError, ErrorCode, InvocationContext, ReceiptDraft, SideEffect,
+};
 use super::channel::{FrameReader, FrameWriter, SendError};
 use super::frames::{Frame, ReqFrame, WireError};
 use super::log::HelperLog;
@@ -49,12 +51,26 @@ struct InvokeParams {
 }
 
 fn wire_error(code: ErrorCode, message: impl Into<String>) -> WireError {
-    WireError { code: code.as_str().into(), message: message.into(), details: None, retryable: None }
+    WireError {
+        code: code.as_str().into(),
+        message: message.into(),
+        details: None,
+        retryable: None,
+    }
 }
 
 impl NodeSession {
-    pub fn new(registry: Arc<CapabilityRegistry>, writer: FrameWriter, log: HelperLog) -> Arc<NodeSession> {
-        Arc::new(NodeSession { registry, writer, log, state: Mutex::new(State::default()) })
+    pub fn new(
+        registry: Arc<CapabilityRegistry>,
+        writer: FrameWriter,
+        log: HelperLog,
+    ) -> Arc<NodeSession> {
+        Arc::new(NodeSession {
+            registry,
+            writer,
+            log,
+            state: Mutex::new(State::default()),
+        })
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, State> {
@@ -63,15 +79,23 @@ impl NodeSession {
 
     /// Reads frames until the Gateway closes the connection; in-flight invocations are cancelled
     /// when it returns.
-    pub async fn serve<R: AsyncRead + Unpin>(self: &Arc<Self>, reader: &mut FrameReader<R>) -> std::io::Result<()> {
+    pub async fn serve<R: AsyncRead + Unpin>(
+        self: &Arc<Self>,
+        reader: &mut FrameReader<R>,
+    ) -> std::io::Result<()> {
         let result = async {
             while let Some(frame) = reader.next().await? {
                 match frame {
                     Frame::Req(req) => self.handle(req),
                     Frame::Res(res) => {
                         if !res.ok {
-                            let code = res.error.as_ref().map(|e| e.code.as_str()).unwrap_or("unknown");
-                            self.log.error(format!("gateway rejected {}: {code}", res.id));
+                            let code = res
+                                .error
+                                .as_ref()
+                                .map(|e| e.code.as_str())
+                                .unwrap_or("unknown");
+                            self.log
+                                .error(format!("gateway rejected {}: {code}", res.id));
                         }
                     }
                     Frame::Event(_) => {}
@@ -106,7 +130,11 @@ impl NodeSession {
         match req.method.as_str() {
             "node.invoke" => self.handle_invoke(req),
             "node.cancel" => {
-                let id = req.params.as_ref().and_then(|p| p.get("invocationId")).and_then(Value::as_str);
+                let id = req
+                    .params
+                    .as_ref()
+                    .and_then(|p| p.get("invocationId"))
+                    .and_then(Value::as_str);
                 match id {
                     Some(id) => {
                         let token = self.lock().in_flight.get(id).cloned();
@@ -115,24 +143,46 @@ impl NodeSession {
                         }
                         self.respond(&req.id, json!({ "ok": true }));
                     }
-                    None => self.respond_error(&req.id, wire_error(ErrorCode::InvalidParams, "invocationId is required")),
+                    None => self.respond_error(
+                        &req.id,
+                        wire_error(ErrorCode::InvalidParams, "invocationId is required"),
+                    ),
                 }
             }
-            other => self.respond_error(&req.id, wire_error(ErrorCode::UnknownMethod, format!("Unknown method {other}"))),
+            other => self.respond_error(
+                &req.id,
+                wire_error(ErrorCode::UnknownMethod, format!("Unknown method {other}")),
+            ),
         }
     }
 
     fn handle_invoke(self: &Arc<Self>, req: ReqFrame) {
-        let parsed = serde_json::from_value::<InvokeParams>(req.params.clone().unwrap_or(Value::Null))
-            .ok()
-            .filter(|p| !p.invocation_id.is_empty() && p.invocation_id.chars().count() <= 128);
+        let parsed =
+            serde_json::from_value::<InvokeParams>(req.params.clone().unwrap_or(Value::Null))
+                .ok()
+                .filter(|p| !p.invocation_id.is_empty() && p.invocation_id.chars().count() <= 128);
         let Some(p) = parsed else {
-            self.respond_error(&req.id, wire_error(ErrorCode::InvalidParams, "node.invoke needs invocationId and capability"));
+            self.respond_error(
+                &req.id,
+                wire_error(
+                    ErrorCode::InvalidParams,
+                    "node.invoke needs invocationId and capability",
+                ),
+            );
             return;
         };
         let Some(cap) = self.registry.get(&p.capability) else {
-            self.log.info(format!("invoke capability={} outcome=not_found", p.capability));
-            self.respond_error(&req.id, wire_error(ErrorCode::NotFound, format!("Unknown capability {}", p.capability)));
+            self.log.info(format!(
+                "invoke capability={} outcome=not_found",
+                p.capability
+            ));
+            self.respond_error(
+                &req.id,
+                wire_error(
+                    ErrorCode::NotFound,
+                    format!("Unknown capability {}", p.capability),
+                ),
+            );
             return;
         };
         {
@@ -141,7 +191,10 @@ impl NodeSession {
                 drop(s);
                 self.respond_error(
                     &req.id,
-                    wire_error(ErrorCode::Conflict, format!("Invocation {} is already running", p.invocation_id)),
+                    wire_error(
+                        ErrorCode::Conflict,
+                        format!("Invocation {} is already running", p.invocation_id),
+                    ),
                 );
                 return;
             }
@@ -149,7 +202,11 @@ impl NodeSession {
         }
         // `accepted` goes out before the work starts, so it always precedes node.event / node.result.
         self.respond(&req.id, json!({ "accepted": true }));
-        self.log.info(format!("invoke capability={} approval={}", p.capability, if p.approval_id.is_some() { "yes" } else { "no" }));
+        self.log.info(format!(
+            "invoke capability={} approval={}",
+            p.capability,
+            if p.approval_id.is_some() { "yes" } else { "no" }
+        ));
 
         let cancel = CancelToken::new();
         let weak = Arc::downgrade(self);
@@ -182,7 +239,10 @@ impl NodeSession {
     fn finish(&self, cap: &Capability, ctx: &InvocationContext, outcome: CapResult) {
         self.lock().in_flight.remove(&ctx.invocation_id);
         let spec = &cap.spec;
-        let kind = spec.receipt_kind.clone().unwrap_or_else(|| ctx.capability.clone());
+        let kind = spec
+            .receipt_kind
+            .clone()
+            .unwrap_or_else(|| ctx.capability.clone());
         let mut params = Map::new();
         params.insert("invocationId".into(), ctx.invocation_id.clone().into());
         match outcome {
@@ -190,21 +250,39 @@ impl NodeSession {
                 params.insert("ok".into(), true.into());
                 params.insert("result".into(), output.result);
                 if let Some(r) = &output.receipt {
-                    params.insert("receipt".into(), r.wire(&kind, ctx.approval_id.as_deref(), SystemTime::now()));
+                    params.insert(
+                        "receipt".into(),
+                        r.wire(&kind, ctx.approval_id.as_deref(), SystemTime::now()),
+                    );
                 }
                 self.log.info(format!(
                     "result capability={} ok=true receipt={}",
                     ctx.capability,
-                    output.receipt.as_ref().map_or("none", |r| r.outcome.as_str())
+                    output
+                        .receipt
+                        .as_ref()
+                        .map_or("none", |r| r.outcome.as_str())
                 ));
             }
             Err(error) => {
                 params.insert("ok".into(), false.into());
-                params.insert("error".into(), serde_json::to_value(error.wire()).unwrap_or(Value::Null));
+                params.insert(
+                    "error".into(),
+                    serde_json::to_value(error.wire()).unwrap_or(Value::Null),
+                );
                 // A refused side effect still gets a failed receipt so the audit trail is complete.
-                if spec.side_effect != SideEffect::None && spec.side_effect != SideEffect::Read && error.code != ErrorCode::InvalidParams {
-                    let r = ReceiptDraft::failed(format!("{} failed: {}", ctx.capability, error.reason));
-                    params.insert("receipt".into(), r.wire(&kind, ctx.approval_id.as_deref(), SystemTime::now()));
+                if spec.side_effect != SideEffect::None
+                    && spec.side_effect != SideEffect::Read
+                    && error.code != ErrorCode::InvalidParams
+                {
+                    let r = ReceiptDraft::failed(format!(
+                        "{} failed: {}",
+                        ctx.capability, error.reason
+                    ));
+                    params.insert(
+                        "receipt".into(),
+                        r.wire(&kind, ctx.approval_id.as_deref(), SystemTime::now()),
+                    );
                 }
                 self.log.info(format!(
                     "result capability={} ok=false code={} reason={}",
@@ -226,7 +304,10 @@ impl NodeSession {
             s.in_flight.contains_key(invocation_id) || s.reserved.contains(invocation_id)
         };
         if live {
-            self.send_request("node.event", json!({ "invocationId": invocation_id, "data": data }));
+            self.send_request(
+                "node.event",
+                json!({ "invocationId": invocation_id, "data": data }),
+            );
         }
     }
 
@@ -236,24 +317,35 @@ impl NodeSession {
             s.next_request += 1;
             format!("h{}", s.next_request)
         };
-        match self.writer.send(&Frame::req(id.clone(), method, Some(params.clone()))) {
+        match self
+            .writer
+            .send(&Frame::req(id.clone(), method, Some(params.clone())))
+        {
             Ok(()) => {}
             Err(SendError::TooLarge) => {
                 self.log.error(format!("{method} frame over 1 MiB dropped"));
                 if method == "node.result"
                     && let Some(invocation_id) = params.get("invocationId")
                 {
-                    let error = CapabilityError::internal("result_too_large", "The result exceeded the 1 MiB frame limit");
+                    let error = CapabilityError::internal(
+                        "result_too_large",
+                        "The result exceeded the 1 MiB frame limit",
+                    );
                     let mut fallback = Map::new();
                     fallback.insert("invocationId".into(), invocation_id.clone());
                     fallback.insert("ok".into(), false.into());
-                    fallback.insert("error".into(), serde_json::to_value(error.wire()).unwrap_or(Value::Null));
+                    fallback.insert(
+                        "error".into(),
+                        serde_json::to_value(error.wire()).unwrap_or(Value::Null),
+                    );
                     // The side effect (if any) already happened: keep its receipt, marked uncertain.
                     if let Some(Value::Object(mut receipt)) = params.get("receipt").cloned() {
                         receipt.insert("outcome".into(), "uncertain".into());
                         fallback.insert("receipt".into(), Value::Object(receipt));
                     }
-                    let _ = self.writer.send(&Frame::req(id, method, Some(Value::Object(fallback))));
+                    let _ =
+                        self.writer
+                            .send(&Frame::req(id, method, Some(Value::Object(fallback))));
                 }
             }
             Err(_) => self.log.error(format!("{method} send failed")),
@@ -271,7 +363,12 @@ impl NodeSession {
 
 /// Preflight, then the handler, raced against cancellation and the spec's timeout. The handler
 /// runs in its own task, so a panic becomes `internal` instead of killing the session.
-async fn run(registry: &CapabilityRegistry, cap: &Arc<Capability>, ctx: InvocationContext, cancel: CancelToken) -> CapResult {
+async fn run(
+    registry: &CapabilityRegistry,
+    cap: &Arc<Capability>,
+    ctx: InvocationContext,
+    cancel: CancelToken,
+) -> CapResult {
     for p in &cap.spec.permissions {
         if !registry.runtime().preflight.is_granted(*p) {
             return Err(CapabilityError::permission_missing(*p));

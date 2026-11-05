@@ -41,7 +41,12 @@ impl ResponseHub {
     pub fn new(capacity: usize) -> Arc<ResponseHub> {
         Arc::new(ResponseHub {
             capacity: capacity.max(1),
-            state: Mutex::new(State { buffer: VecDeque::new(), subscribers: HashMap::new(), next_id: 0, dropped: 0 }),
+            state: Mutex::new(State {
+                buffer: VecDeque::new(),
+                subscribers: HashMap::new(),
+                next_id: 0,
+                dropped: 0,
+            }),
         })
     }
 
@@ -90,7 +95,11 @@ impl ResponseHub {
         }
         s.subscribers.insert(id, tx);
         drop(s);
-        Subscription { hub: self.clone(), id, rx }
+        Subscription {
+            hub: self.clone(),
+            id,
+            rx,
+        }
     }
 }
 
