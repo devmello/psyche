@@ -18,7 +18,6 @@ import {
   openSync,
   readFileSync,
   readSync,
-  renameSync,
   rmSync,
   writeSync,
 } from "node:fs";
@@ -29,6 +28,7 @@ import {
   PsycheError,
   type SkillAuthor,
 } from "@psyche/protocol";
+import { fsyncDirSync, renameOverSync } from "@psyche/protocol/platform";
 import { type BundleAuthor, type BundleSigningKey, keyIdOf } from "./bundle-core.ts";
 import { authorNameSkeleton } from "./confusables.ts";
 import type { VerifiedNotice } from "./notice.ts";
@@ -256,7 +256,8 @@ export class AuthorKeyStore {
   #replaceFile(path: string, text: string): void {
     const dir = dirname(path);
     mkdirSync(dir, { recursive: true, mode: 0o700 });
-    chmodSync(dir, 0o700);
+    if (process.platform === "win32") ensureOwnerOnly(dir);
+    else chmodSync(dir, 0o700);
     const tmp = `${path}.${process.pid}.tmp`;
     try {
       rmSync(tmp, { force: true });
@@ -267,14 +268,9 @@ export class AuthorKeyStore {
       } finally {
         closeSync(fd);
       }
-      renameSync(tmp, path);
+      renameOverSync(tmp, path);
       // The rename itself reaches the disk too.
-      const dfd = openSync(dir, "r");
-      try {
-        fsyncSync(dfd);
-      } finally {
-        closeSync(dfd);
-      }
+      fsyncDirSync(dir);
     } finally {
       rmSync(tmp, { force: true });
     }
@@ -455,14 +451,9 @@ export class AuthorRing {
     } finally {
       closeSync(fd);
     }
-    renameSync(tmp, this.path);
+    renameOverSync(tmp, this.path);
     // The rename reaches the disk too.
-    const dfd = openSync(dirname(this.path), "r");
-    try {
-      fsyncSync(dfd);
-    } finally {
-      closeSync(dfd);
-    }
+    fsyncDirSync(dirname(this.path));
   }
 
   /**

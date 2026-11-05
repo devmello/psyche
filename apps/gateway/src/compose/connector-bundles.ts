@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
 import { chmodSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, sep } from "node:path";
 import { getSetting } from "@psyche/db";
+import { ensureOwnerOnly } from "@psyche/hostfs";
 import { type PsycheMcpServerConfig, validateEnv } from "@psyche/mcp-host";
 import {
   type BundleSigner,
@@ -69,6 +71,16 @@ const FILE_TEXT_CAP = 100_000;
 const TOTAL_TEXT_CAP = 400_000;
 /** A version directory nobody installed is removed after this long. */
 const STALE_DIR_MS = 60 * 60_000;
+
+const removeTree = (dir: string) => rmSync(dir, { recursive: true, force: true });
+
+/**
+ * For a folder a server ran from: Windows keeps it locked while the process that just stopped is
+ * still going away, so this waits (without blocking) for the lock to go.
+ */
+const removeTreeLater = (dir: string) =>
+  rm(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
+
 /** Names Psyche uses itself: the ready-made servers, and the old "Files on this Mac" connector. */
 const RESERVED_IDS = new Set<string>(["filesystem", ...MCP_PRESETS.map((x) => x.id)]);
 const SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "fish", "csh", "tcsh"]);
@@ -298,9 +310,10 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
       }
     })();
     if (existing) return dir;
-    rmSync(dir, { recursive: true, force: true });
+    removeTree(dir);
     mkdirSync(dir, { recursive: true, mode: 0o700 });
-    chmodSync(dir, 0o700);
+    if (process.platform === "win32") ensureOwnerOnly(dir);
+    else chmodSync(dir, 0o700);
     for (const [path, file] of tree) {
       const target = join(dir, path);
       // Paths were verified normal; this keeps a bug from ever writing outside the directory.
@@ -324,8 +337,7 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
       const dir = join(base, n);
       if (keep.has(dir)) continue;
       try {
-        if (Date.now() - statSync(dir).mtimeMs > STALE_DIR_MS)
-          rmSync(dir, { recursive: true, force: true });
+        if (Date.now() - statSync(dir).mtimeMs > STALE_DIR_MS) removeTree(dir);
       } catch {
         // Gone already.
       }
@@ -629,11 +641,15 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
       "Downloads",
       "Pictures",
       "Movies",
+      "Videos",
       "Music",
       join("Library", "Mail"),
       join("Library", "Messages"),
       join("Library", "Calendars"),
       join("Library", "Group Containers"),
+      // Windows: the Mail/Calendar/People data and the packaged apps' own folders.
+      join("AppData", "Local", "Comms"),
+      join("AppData", "Local", "Packages"),
     ].map((d) => join(home, d));
     const config: PsycheMcpServerConfig = {
       ...base,
@@ -774,8 +790,7 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
             },
             // The payload directory this import wrote (never the one an installed version uses).
             () => {
-              if (dir !== undefined && update?.dir !== dir)
-                rmSync(dir, { recursive: true, force: true });
+              if (dir !== undefined && update?.dir !== dir) removeTree(dir);
             },
           ];
           for (const step of steps) {
@@ -788,10 +803,9 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
         },
         committed: async () => {
           // The version it replaced is no longer in use.
-          if (update?.dir !== undefined && update.dir !== dir)
-            rmSync(update.dir, { recursive: true, force: true });
+          if (update?.dir !== undefined && update.dir !== dir) await removeTreeLater(update.dir);
           pruneDirs(m.name, new Set(dir === undefined ? [] : [dir]));
-          if (dir === undefined) rmSync(join(root, m.name), { recursive: true, force: true });
+          if (dir === undefined) await removeTreeLater(join(root, m.name));
           await audit(
             "connector.installed",
             { serverId: m.name },
@@ -833,7 +847,7 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
         approval: staged.approval,
       };
     } catch (err) {
-      if (dir !== undefined && update?.dir !== dir) rmSync(dir, { recursive: true, force: true });
+      if (dir !== undefined && update?.dir !== dir) removeTree(dir);
       const e = PsycheError.from(err);
       if (
         e.code === "unavailable" &&
@@ -904,7 +918,7 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
     } catch {
       // An unreadable record is the owner's to reset; this server is not marked, so it runs.
     }
-    rmSync(join(root, entry.id), { recursive: true, force: true });
+    await removeTreeLater(join(root, entry.id));
   };
 
   const removed = async (entry: PsycheMcpServerConfig) => {
@@ -913,7 +927,7 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
     } catch {
       // A corrupt record is left for the owner; the files still go.
     }
-    rmSync(join(root, entry.id), { recursive: true, force: true });
+    await removeTreeLater(join(root, entry.id));
   };
 
   return {
