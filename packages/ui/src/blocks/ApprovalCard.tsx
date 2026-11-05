@@ -430,6 +430,8 @@ export function ApprovalCard({
   // Set up from this card's "Set up sandbox": the run re-resolves srt, so the card follows.
   const [sandboxSetUp, setSandboxSetUp] = useState(false);
   const sandboxReady = rawDetails.sandbox === "srt" || sandboxSetUp;
+  // Windows: no sandbox exists for commands on the PC itself, so there is nothing to set up.
+  const noHostSandbox = rawDetails.hostSandbox === "none";
   const [typed, setTyped] = useState("");
   const unsandboxed = isExecHost && typed === unsandboxedWord;
   // permission_request (§3.13): Enable turns a setting on; the rest are fixed elsewhere, then checked.
@@ -874,7 +876,9 @@ export function ApprovalCard({
           >
             {sandboxReady
               ? t("blocks.execHost.sandboxed", { word: unsandboxedWord })
-              : t("blocks.execHost.noSandbox", { word: unsandboxedWord })}
+              : noHostSandbox
+                ? t("blocks.execHost.noHostSandbox", { word: unsandboxedWord })
+                : t("blocks.execHost.noSandbox", { word: unsandboxedWord })}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <input
@@ -890,7 +894,7 @@ export function ApprovalCard({
               spellCheck={false}
               className="h-7 min-w-0 flex-1 rounded-md bg-fill-secondary px-2 font-mono text-callout outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
-            {!sandboxReady && permissionAction ? (
+            {!sandboxReady && !noHostSandbox && permissionAction ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -915,7 +919,9 @@ export function ApprovalCard({
             </p>
           ) : !sandboxReady ? (
             <p className="text-callout text-label-secondary">
-              {t("blocks.execHost.mustType", { word: unsandboxedWord })}
+              {noHostSandbox
+                ? t("blocks.execHost.mustTypeOnly", { word: unsandboxedWord })
+                : t("blocks.execHost.mustType", { word: unsandboxedWord })}
             </p>
           ) : null}
         </div>
