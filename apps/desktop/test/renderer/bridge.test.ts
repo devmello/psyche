@@ -54,6 +54,31 @@ describe("renderer bridge", () => {
     }
   });
 
+  it("on Linux offers the password path and no Touch ID, so Allow reaches approveWithPassword", async () => {
+    const sent: unknown[] = [];
+    const ok = { ok: true, value: { approval: { id: "ap_1" } } };
+    const mk = (platform: string) =>
+      ({
+        platform,
+        chrome: { titleBar: "native" },
+        helper: { touchIdApprove: async () => ok, touchIdRegister: async () => ok },
+        password: {
+          approve: async (p: unknown) => {
+            sent.push(p);
+            return ok;
+          },
+        },
+      }) as unknown as PsycheBridge;
+    const linux = desktopPlatform(mk("linux"));
+    expect(linux.helper?.touchId).toBeUndefined();
+    expect(linux.helper).toBeDefined();
+    await linux.password?.approve({ approvalId: "ap_1", answerToken: "t" });
+    expect(sent).toEqual([{ approvalId: "ap_1", answerToken: "t" }]);
+    const mac = desktopPlatform(mk("darwin"));
+    expect(mac.helper?.touchId).toBeDefined();
+    expect(mac.password).toBeUndefined();
+  });
+
   it("opens a cited source by document id and keeps the error code when main refuses", async () => {
     const sent: string[] = [];
     const fake = {

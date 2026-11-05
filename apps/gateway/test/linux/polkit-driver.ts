@@ -2,7 +2,7 @@
  * Drives the real system-bus client of password presence for tests/linux/polkit_dbusmock_test.py:
  * `preflight`, `prompt` (preflight, then the interactive check) or `cancel` (the interactive
  * check, cancelled after a moment). Prints one JSON line. The bus is whatever
- * DBUS_SYSTEM_BUS_ADDRESS names.
+ * DBUS_SYSTEM_BUS_ADDRESS names, which the client honors only with PSYCHE_TEST_SYSTEM_BUS=1.
  */
 import {
   PRESENCE_ACTION_ID,

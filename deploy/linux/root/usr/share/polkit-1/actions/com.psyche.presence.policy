@@ -6,7 +6,8 @@
 
   Installed root-owned, so a program running as the user cannot edit it.
   - allow_any and allow_inactive are "no": only the active local session can approve, never an
-    SSH login or a session that is locked or switched away.
+    SSH login or a session that is switched away. A locked screen keeps logind Active=true, so
+    psyched also refuses a session whose LockedHint is set; polkit itself would not.
   - allow_active is auth_self: the session owner's own password, asked every time. Never an
     "_keep" variant (that would remember the answer for minutes), and no exec annotations
     (nothing runs as root).

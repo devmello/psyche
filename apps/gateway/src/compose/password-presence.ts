@@ -51,6 +51,8 @@ export interface SessionProps {
   remote: boolean;
   seat: string;
   class: string;
+  /** logind's `LockedHint`: `Active` stays true while the screen is locked. */
+  locked: boolean;
 }
 
 export interface AuthorizationResult {
@@ -87,7 +89,36 @@ export class BusCallError extends Error {
   }
 }
 
+/** The connection to the bus ended or failed while a call was waiting. */
+export class BusConnectionLost extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BusConnectionLost";
+  }
+}
+
+/** The interactive check did not return by its hard deadline. */
+export class PromptDeadlineError extends Error {
+  constructor() {
+    super("the password dialog check did not return in time");
+    this.name = "PromptDeadlineError";
+  }
+}
+
+const SYSTEM_BUS_ADDRESS = "unix:path=/run/dbus/system_bus_socket";
+
+/**
+ * Where the system bus is: always the fixed socket, never `DBUS_SYSTEM_BUS_ADDRESS`, unless the
+ * test-only `PSYCHE_TEST_SYSTEM_BUS=1` is set (CI and the dbusmock tests set it).
+ */
+export function systemBusAddress(env: NodeJS.ProcessEnv): string {
+  return env.PSYCHE_TEST_SYSTEM_BUS === "1" && env.DBUS_SYSTEM_BUS_ADDRESS
+    ? env.DBUS_SYSTEM_BUS_ADDRESS
+    : SYSTEM_BUS_ADDRESS;
+}
 const BUS_CALL_TIMEOUT_MS = 8_000;
+/** Beyond the owner's time to type: how long a cancelled or silent check may take to return. */
+const PROMPT_DEADLINE_SLACK_MS = 5_000;
 
 function withTimeout<T>(p: Promise<T>, what: string): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
@@ -101,9 +132,25 @@ function withTimeout<T>(p: Promise<T>, what: string): Promise<T> {
 /** The real system-bus client (dbus-next, pure JS), loaded on first use. */
 export const systemPresenceBus: PresenceBusFactory = async () => {
   const dbus = await import("dbus-next");
-  const bus = dbus.systemBus();
+  // The one system bus socket, never an address from the environment: a changed
+  // DBUS_SYSTEM_BUS_ADDRESS would otherwise point psyched at a fake polkitd that says yes.
+  // Tests (CI, dbusmock) opt in with PSYCHE_TEST_SYSTEM_BUS=1, which production never sets.
+  const bus = dbus.sessionBus({ busAddress: systemBusAddress(process.env) });
+  // dbus-next 0.10.2 never rejects calls still waiting when the connection ends, so a bus that
+  // restarts mid-dialog would leave them pending forever. Every call races this instead.
+  let gone: ((e: Error) => void) | undefined;
+  const goneP = new Promise<never>((_, reject) => {
+    gone = reject;
+  });
+  goneP.catch(() => undefined);
+  const onGone = (e?: unknown) => {
+    gone?.(new BusConnectionLost(e instanceof Error ? e.message : "connection ended"));
+  };
   // A dropped connection must not become an uncaught 'error' event.
-  bus.on("error", () => undefined);
+  bus.on("error", onGone);
+  const conn = (bus as unknown as { _connection?: NodeJS.EventEmitter })._connection;
+  conn?.on("end", onGone);
+  conn?.on("close", onGone);
   const call = async (
     path: string,
     iface: string,
@@ -115,7 +162,7 @@ export const systemPresenceBus: PresenceBusFactory = async () => {
   ): Promise<unknown[]> => {
     const msg = new dbus.Message({ destination, path, interface: iface, member, signature, body });
     try {
-      const p = bus.call(msg).then((r) => (r?.body ?? []) as unknown[]);
+      const p = Promise.race([bus.call(msg).then((r) => (r?.body ?? []) as unknown[]), goneP]);
       return await (timeout ? withTimeout(p, member) : p);
     } catch (err) {
       const e = err as { type?: unknown; text?: unknown; message?: unknown };
@@ -152,6 +199,8 @@ export const systemPresenceBus: PresenceBusFactory = async () => {
         remote: variant(p.Remote) !== false,
         seat: Array.isArray(seat) ? String(seat[0] ?? "") : "",
         class: String(variant(p.Class) ?? ""),
+        // Fail closed: a missing hint counts as locked.
+        locked: variant(p.LockedHint) !== false,
       };
     },
     async checkAuthorization(sessionId, actionId, flags, cancellationId) {
@@ -223,6 +272,7 @@ function isUnknownAction(err: unknown): boolean {
 export async function preflight(bus: PresenceBus, uid: number): Promise<Preflight> {
   const sessions = (await bus.listSessions()).filter((s) => s.uid === uid && s.seat !== "");
   let chosen: { s: LoginSession; p: SessionProps } | undefined;
+  let lockedSeen = false;
   for (const s of sessions) {
     let p: SessionProps;
     try {
@@ -230,19 +280,17 @@ export async function preflight(bus: PresenceBus, uid: number): Promise<Prefligh
     } catch {
       continue; // a session that vanished cannot qualify
     }
-    if (
-      GRAPHICAL.has(p.type) &&
-      p.active &&
-      !p.remote &&
-      p.seat !== "" &&
-      p.class === "user" &&
-      chosen === undefined
-    ) {
-      chosen = { s, p };
+    if (GRAPHICAL.has(p.type) && p.active && !p.remote && p.seat !== "" && p.class === "user") {
+      // A locked screen keeps `Active=true`; nobody is at the keyboard to answer for it.
+      if (p.locked) lockedSeen = true;
+      else chosen ??= { s, p };
     }
   }
   if (chosen === undefined) {
-    return { state: "no_session", detail: "No active graphical session on this computer" };
+    return {
+      state: "no_session",
+      detail: lockedSeen ? "The screen is locked" : "No active graphical session on this computer",
+    };
   }
   const base = { sessionId: chosen.s.id, sessionType: chosen.p.type };
   let first: AuthorizationResult;
@@ -339,6 +387,8 @@ export interface PasswordPresenceSetup {
   agentGraceMs?: number;
   /** How long the owner has to type the password. */
   promptTimeoutMs?: number;
+  /** How long past promptTimeoutMs a silent check may stay pending before it counts as failed. */
+  deadlineSlackMs?: number;
   /** How long a readiness probe stays fresh. */
   probeTtlMs?: number;
 }
@@ -371,6 +421,7 @@ export function composePasswordPresence(
   const agentGraceMs = setup.agentGraceMs ?? AGENT_GRACE_MS;
   const promptTimeoutMs = setup.promptTimeoutMs ?? PROMPT_TIMEOUT_MS;
   const probeTtlMs = setup.probeTtlMs ?? PROBE_TTL_MS;
+  const deadlineSlackMs = setup.deadlineSlackMs ?? PROMPT_DEADLINE_SLACK_MS;
   const nonces = new PasswordNonces(now);
   const keys = new HelperPresenceKeys(services.db);
 
@@ -392,7 +443,8 @@ export function composePasswordPresence(
   };
 
   function refreshProbe(): Promise<void> {
-    if (!linux || stopped) return Promise.resolve();
+    // A keep policy is sticky: no probe can say more than that.
+    if (!linux || stopped || retains) return Promise.resolve();
     probing ??= (async () => {
       let bus: PresenceBus | undefined;
       try {
@@ -492,6 +544,16 @@ export function composePasswordPresence(
         }),
       );
 
+      // A *_keep policy was seen: polkit may answer yes without asking, which proves nothing.
+      // Refuse before step 1, whatever polkit would say now.
+      if (retains) {
+        return await reject(
+          "not_enforced",
+          "presence_not_enforced",
+          "The polkit policy keeps authorizations after a password, so it proves no presence",
+        );
+      }
+
       let bus: PresenceBus;
       try {
         bus = await withTimeout(openBus(), "connect");
@@ -553,18 +615,33 @@ export function composePasswordPresence(
       );
       timer = setTimeout(() => cancel("timeout"), promptTimeoutMs);
       timer.unref?.();
+      // Hard deadline: a bus that vanished mid-dialog never answers `pending`, and the slot
+      // must not stay taken for every later approval.
+      let deadline: NodeJS.Timeout | undefined;
+      const deadlineP = new Promise<never>((_, rejectDeadline) => {
+        deadline = setTimeout(
+          () => rejectDeadline(new PromptDeadlineError()),
+          promptTimeoutMs + deadlineSlackMs,
+        );
+        deadline.unref?.();
+      });
+      pending.catch(() => undefined); // a late failure after the deadline is not unhandled
       let res: AuthorizationResult | undefined;
       let failure: unknown;
       try {
-        res = await pending;
+        res = await Promise.race([pending, deadlineP]);
       } catch (err) {
         failure = err;
       }
+      clearTimeout(deadline);
       clearTimeout(timer);
       const elapsed = now() - started;
 
       if (attempt.cancelledBy === "closed") throw late();
-      if (attempt.cancelledBy !== undefined) {
+      if (
+        attempt.cancelledBy !== undefined &&
+        !(failure instanceof PromptDeadlineError || failure instanceof BusConnectionLost)
+      ) {
         return await reject("presence_cancelled", "cancelled", "The password dialog timed out");
       }
       if (res === undefined) {
@@ -623,11 +700,6 @@ export function composePasswordPresence(
         subject: `unix-session:${pre.sessionId}`,
         checkedAt,
       };
-      await services.audit.append({
-        kind: "approval.password_from_window",
-        actor: { type: "device", deviceId: call.identity.deviceId },
-        data: { approvalId: a.id, sessionId: pre.sessionId, presence },
-      });
       // The answer is the window's (its token, its surface); `once` only, because the scope is
       // not part of what polkit confirmed.
       const approval = await rawBroker.answer({
@@ -638,6 +710,19 @@ export function composePasswordPresence(
         decidedBy: by,
         presence: { kind: "password", deviceId: by.deviceId, signature: nonce },
       });
+      // Audited only once the broker accepted the answer: a refused or late one is the broker's
+      // own audit entry, and this one means "approved with the owner's password".
+      try {
+        await services.audit.append({
+          kind: "approval.password_from_window",
+          actor: { type: "device", deviceId: call.identity.deviceId },
+          data: { approvalId: a.id, sessionId: pre.sessionId, presence },
+        });
+      } catch (err) {
+        log?.log("error", "could not audit a password approval", {
+          reason: err instanceof Error ? err.name : "unknown",
+        });
+      }
       const grant =
         approval.grantId == null
           ? null

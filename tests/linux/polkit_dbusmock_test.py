@@ -57,15 +57,20 @@ class PasswordPresence(dbusmock.DBusTestCase):
         obj = self.bus.get_object(LOGIN, f"/org/freedesktop/login1/session/{sid}")
         obj.UpdateProperties("org.freedesktop.login1.Session", {"Type": typ}, dbus_interface=dbusmock.MOCK_IFACE)
 
-    def run_driver(self, command):
+    def run_driver(self, command, test_bus=True, check=True):
+        env = {**os.environ, "PSYCHE_TEST_SYSTEM_BUS": "1"}
+        if not test_bus:
+            env.pop("PSYCHE_TEST_SYSTEM_BUS")
         out = subprocess.run(
             ["pnpm", "--filter", "@psyche/gateway", "exec", "tsx", DRIVER, command],
             cwd=ROOT,
-            env=dict(os.environ),
+            env=env,
             capture_output=True,
             text=True,
             timeout=120,
         )
+        if not check:
+            return out
         self.assertEqual(out.returncode, 0, out.stderr)
         return json.loads(out.stdout.strip().splitlines()[-1])
 
@@ -147,6 +152,24 @@ class PasswordPresence(dbusmock.DBusTestCase):
         self.session("x4", "x11")
         r = self.run_driver("preflight")
         self.assertEqual((r["pre"]["state"], r["pre"]["sessionType"]), ("ready", "x11"))
+
+    def test_a_locked_session_does_not_count(self):
+        self.restart_logind()
+        self.session("c9", "wayland")
+        obj = self.bus.get_object(LOGIN, "/org/freedesktop/login1/session/c9")
+        obj.UpdateProperties(
+            "org.freedesktop.login1.Session", {"LockedHint": True}, dbus_interface=dbusmock.MOCK_IFACE
+        )
+        r = self.run_driver("preflight")
+        self.assertEqual(r["pre"]["state"], "no_session")
+        self.assertEqual(self.log(), [])
+
+    def test_the_bus_address_from_the_environment_is_ignored_in_production(self):
+        # Without PSYCHE_TEST_SYSTEM_BUS the client uses the fixed system socket, never the
+        # private test bus named by DBUS_SYSTEM_BUS_ADDRESS, so this polkitd stand-in sees nothing.
+        out = self.run_driver("preflight", test_bus=False, check=False)
+        self.assertEqual(self.log(), [])
+        self.assertNotIn('"state":"ready"', out.stdout)
 
 
 if __name__ == "__main__":

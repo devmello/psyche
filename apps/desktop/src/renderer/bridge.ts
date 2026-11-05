@@ -244,12 +244,19 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       getState: () => b.helper.getState() as Promise<MacHelperState>,
       onState: (cb) => b.helper.onState((s) => cb(s as MacHelperState)),
       launch: (restart) => b.helper.launch(restart) as Promise<MacHelperState>,
-      touchId: {
-        identity: () => b.helper.touchIdIdentity() as Promise<BundledHelperIdentity | null>,
-        register: (confirmReplacesKeyId) =>
-          unwrapCall(b.helper.touchIdRegister(confirmReplacesKeyId)),
-        approve: (p) => unwrapCall(b.helper.touchIdApprove(p)),
-      },
+      // Not on Linux: there the helper has no Touch ID, and offering it would send Allow to
+      //  (helper_offline) instead of the password path.
+      ...(b.platform === "linux"
+        ? {}
+        : {
+            touchId: {
+              identity: () => b.helper.touchIdIdentity() as Promise<BundledHelperIdentity | null>,
+              register: (confirmReplacesKeyId?: string) =>
+                unwrapCall(b.helper.touchIdRegister(confirmReplacesKeyId)),
+              approve: (p: { approvalId: string; answerToken: string }) =>
+                unwrapCall(b.helper.touchIdApprove(p)),
+            },
+          }),
     },
     // Linux only: Allow on a card that needs presence asks the Gateway to run the polkit check;
     // the owner types the password into the system's own dialog (linux design §9).

@@ -14,6 +14,7 @@ import {
   PasswordNonces,
   type PresenceBus,
   type SessionProps,
+  systemBusAddress,
 } from "../src/compose/password-presence.ts";
 import { silentLogger } from "../src/log.ts";
 import { adminClient, ik, type TestClient } from "./helpers.ts";
@@ -40,6 +41,7 @@ class Ctl {
     remote: false,
     seat: "seat0",
     class: "user",
+    locked: false,
   };
   step2: AuthorizationResult | Error = CHALLENGE;
   /** Called for the interactive check; resolve it to answer the dialog. */
@@ -100,7 +102,7 @@ afterEach(async () => {
 
 async function setup(
   ctl: Ctl,
-  opts: { platform?: NodeJS.Platform; promptTimeoutMs?: number } = {},
+  opts: { platform?: NodeJS.Platform; promptTimeoutMs?: number; deadlineSlackMs?: number } = {},
 ) {
   home = mkdtempSync(join(tmpdir(), "psyche-password-"));
   composed = await composeGateway({
@@ -121,6 +123,7 @@ async function setup(
             return ctl.bus();
           },
           promptTimeoutMs: opts.promptTimeoutMs ?? 120_000,
+          ...(opts.deadlineSlackMs === undefined ? {} : { deadlineSlackMs: opts.deadlineSlackMs }),
         }),
     ],
   });
@@ -292,6 +295,63 @@ describe("approvals.approveWithPassword", () => {
     });
     expect(ctl.checks.filter((x) => x.flags === 1)).toEqual([]);
     expect(await statusOf(admin, card.approval.id)).toBe("pending");
+  });
+
+  it("a locked screen does not qualify, though logind still says Active", async () => {
+    const ctl = new Ctl();
+    ctl.props = { ...ctl.props, locked: true };
+    const { c, admin } = await setup(ctl);
+    const card = await authCard(c, admin);
+    expect(await approve(admin, card)).toMatchObject({
+      ok: false,
+      error: { code: "presence_unavailable_here", details: { reason: "no_session" } },
+    });
+    expect(ctl.checks).toEqual([]);
+    expect(await statusOf(admin, card.approval.id)).toBe("pending");
+  });
+
+  it("a keep policy: the approval stands, every later one is refused before step 1", async () => {
+    const ctl = new Ctl();
+    ctl.prompt = async () => ({
+      isAuthorized: true,
+      isChallenge: false,
+      details: { "polkit.retains_authorization_after_challenge": "true" },
+    });
+    const { c, admin } = await setup(ctl);
+    const one = await authCard(c, admin, "a".repeat(64));
+    expect(await approve(admin, one)).toMatchObject({ ok: true });
+    const two = await authCard(c, admin, "c".repeat(64));
+    const before = ctl.checks.length;
+    expect(await approve(admin, two)).toMatchObject({
+      ok: false,
+      error: { code: "presence_not_enforced" },
+    });
+    expect(ctl.checks.length).toBe(before); // no polkit call at all, not even flags 0
+    expect(await statusOf(admin, two.approval.id)).toBe("pending");
+  });
+
+  it("a bus that dies mid-dialog frees the slot: polkit_error now, and the next try works", async () => {
+    const ctl = new Ctl();
+    ctl.prompt = () => new Promise<AuthorizationResult>(() => undefined); // never answers
+    const { c, admin } = await setup(ctl, { promptTimeoutMs: 100, deadlineSlackMs: 150 });
+    const one = await authCard(c, admin, "a".repeat(64));
+    expect(await approve(admin, one)).toMatchObject({ ok: false, error: { code: "unavailable" } });
+    expect(await statusOf(admin, one.approval.id)).toBe("pending");
+    ctl.prompt = async () => ({ isAuthorized: true, isChallenge: false, details: {} });
+    const two = await authCard(c, admin, "c".repeat(64));
+    expect(await approve(admin, two)).toMatchObject({ ok: true });
+  });
+
+  it("a failed approval writes no password_from_window audit entry", async () => {
+    const ctl = new Ctl();
+    ctl.prompt = async () => {
+      ctl.t += 9_000;
+      return { isAuthorized: false, isChallenge: false, details: {} };
+    };
+    const { c, admin } = await setup(ctl);
+    const card = await authCard(c, admin);
+    await approve(admin, card);
+    expect(await c.audit.query({ kind: "approval.password_from_window" })).toEqual([]);
   });
 
   it("policy missing: presence_policy_missing", async () => {
@@ -482,6 +542,24 @@ describe("devices.presence.status", () => {
     ctl.step2 = CHALLENGE;
     ctl.props = { ...ctl.props, type: "x11" };
     expect(await row()).toMatchObject({ state: "ready", detail: "x11" });
+  });
+});
+
+describe("systemBusAddress", () => {
+  it("is the fixed socket whatever DBUS_SYSTEM_BUS_ADDRESS says, unless the test flag is set", () => {
+    const fake = "unix:path=/tmp/evil";
+    expect(systemBusAddress({ DBUS_SYSTEM_BUS_ADDRESS: fake })).toBe(
+      "unix:path=/run/dbus/system_bus_socket",
+    );
+    expect(systemBusAddress({ DBUS_SYSTEM_BUS_ADDRESS: fake, PSYCHE_TEST_SYSTEM_BUS: "0" })).toBe(
+      "unix:path=/run/dbus/system_bus_socket",
+    );
+    expect(systemBusAddress({ DBUS_SYSTEM_BUS_ADDRESS: fake, PSYCHE_TEST_SYSTEM_BUS: "1" })).toBe(
+      fake,
+    );
+    expect(systemBusAddress({ PSYCHE_TEST_SYSTEM_BUS: "1" })).toBe(
+      "unix:path=/run/dbus/system_bus_socket",
+    );
   });
 });
 

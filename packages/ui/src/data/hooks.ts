@@ -796,10 +796,10 @@ export async function answerApproval(
   };
   // The window's own presence: Touch ID through the helper (macOS, Windows) or the owner's
   // password in the system dialog (Linux). A host offers one of them.
-  const touchId =
-    store.client.approveWithTouchId?.bind(store.client) ??
-    store.client.approveWithPassword?.bind(store.client);
-  const byPassword = store.client.approveWithTouchId === undefined;
+  const byPassword = store.client.approveWithPassword !== undefined;
+  const touchId = byPassword
+    ? store.client.approveWithPassword?.bind(store.client)
+    : store.client.approveWithTouchId?.bind(store.client);
   if (
     decision === "approve" &&
     approval?.requiresAuthentication &&
