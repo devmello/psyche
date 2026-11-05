@@ -61,6 +61,23 @@ struct IslandAnswerTests {
         #expect(try await waiting(backend).isSuperset(of: ["appr_electric", "q_deck"]))
     }
 
+    @Test func watchingATaskAlreadyWaitingOffersTheAnswerAtOnce() async throws {
+        // The approval came before Watch was pressed (or the app was relaunched while it waits): the island must
+        // offer Deny and Approve from its first frame, not after a sync the suspended app may never run.
+        let backend = FixtureBackend()
+        await backend.startRunningDemoParkedOnApproval(taskID: "task_q3", stepInterval: .seconds(60))
+        let host = StartedActivities()
+        let alerts = AlertCenter(
+            store: backend, notifier: QuietNotifier(), activities: host,
+            connection: FixtureAlertConnection(), ledger: NotifiedLedger(directory: nil), isFixture: true)
+        let task = try #require(try await backend.home().running.first { $0.id == "task_q3" })
+        #expect(await alerts.watch(task) == nil)
+        let started = try #require(host.started["task_q3"])
+        #expect(started.status == .needsApproval)
+        #expect(started.inlineApprovalID == demo)
+        #expect(started.answersInline)
+    }
+
     @Test func theAppInstallsTheHandler() async throws {
         let backend = try await backendWaitingOnDemo()
         let alerts = center(backend)
@@ -86,6 +103,16 @@ private final class WatchedTasks: ActivityHost {
     init(_ watching: [String]) { activeTaskIDs = watching }
     var isEnabled: Bool { true }
     func start(taskID: String, content: TaskActivityContent) -> Bool { true }
+    func update(taskID: String, content: TaskActivityContent) async {}
+    func end(taskID: String, final: TaskActivityContent?, dismissAfter: TimeInterval) async {}
+}
+
+@MainActor
+private final class StartedActivities: ActivityHost {
+    var started: [String: TaskActivityContent] = [:]
+    var activeTaskIDs: [String] { Array(started.keys) }
+    var isEnabled: Bool { true }
+    func start(taskID: String, content: TaskActivityContent) -> Bool { started[taskID] = content; return true }
     func update(taskID: String, content: TaskActivityContent) async {}
     func end(taskID: String, final: TaskActivityContent?, dismissAfter: TimeInterval) async {}
 }
