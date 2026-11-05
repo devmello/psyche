@@ -6,12 +6,12 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
-  renameSync,
   rmSync,
   writeSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
+import { fsyncDirSync, renameOverSync } from "@psyche/protocol/platform";
 import type { ConnectorRequests } from "./connector-bundle.ts";
 
 /**
@@ -97,13 +97,8 @@ export class ConnectorLedger {
     }
     // The file being replaced was read successfully a moment ago, so it is a good copy to keep.
     if (existsSync(this.path)) copyFileSync(this.path, `${this.path}.bak`);
-    renameSync(tmp, this.path);
-    const dfd = openSync(dir, "r");
-    try {
-      fsyncSync(dfd);
-    } finally {
-      closeSync(dfd);
-    }
+    renameOverSync(tmp, this.path);
+    fsyncDirSync(dir);
   }
 
   /**
@@ -118,7 +113,7 @@ export class ConnectorLedger {
     let file = existsSync(this.path) ? this.#valid(this.path) : undefined;
     let restored = false;
     if (file === undefined) {
-      if (existsSync(this.path)) renameSync(this.path, `${this.path}.corrupt`);
+      if (existsSync(this.path)) renameOverSync(this.path, `${this.path}.corrupt`);
       const bak = this.#valid(`${this.path}.bak`);
       restored = bak !== undefined;
       file = bak ?? { v: 1, servers: {} };
