@@ -1,0 +1,13 @@
+{
+  "name": "@psyche/win-helper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Psyche Helper for Windows (psyche-helper.exe): the Windows node, in Rust. Builds and tests only on Windows; a no-op elsewhere.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/cargo.mjs build",
+    "test": "node scripts/cargo.mjs test",
+    "lint": "node scripts/cargo.mjs clippy"
+  }
+}
