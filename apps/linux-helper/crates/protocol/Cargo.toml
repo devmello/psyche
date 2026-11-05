@@ -1,0 +1,10 @@
+[package]
+name = "psyche-protocol"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+description = "Psyche wire protocol types for the Linux helper, generated from packages/protocol/generated/schema.json"
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"

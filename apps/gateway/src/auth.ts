@@ -32,12 +32,14 @@ import {
   isHostHelperFamily,
   lanCertSigningPayload,
   type PairingRequest,
+  type PeerCheck,
   PROTOCOL_VERSION,
   PsycheError,
   type ServerBuild,
 } from "@psyche/protocol";
 import type { GatewayLimits } from "./context.ts";
 import type { GatewayIdentity } from "./identity.ts";
+import { recordPeerRefusal } from "./nodes/registry.ts";
 import type { RateLimiter } from "./rate-limit.ts";
 import { stateSealFor } from "./security/state-seal.ts";
 
@@ -79,6 +81,22 @@ export interface PeerInfo {
   limitKey?: string;
   /** WebSocket `Origin` header; `null` for native clients and Unix-socket nodes. */
   origin: string | null;
+  /**
+   * What the accept-time peer check found for a process on the Linux node socket (design §4.3):
+   * set only by the transport that owns that socket, after it looked at the connecting process,
+   * and never from anything the peer sends. Absent off Linux and on every other transport. A
+   * `mismatch` is never a Host helper.
+   */
+  peerCheck?: PeerCheck;
+  /** The machine reason behind `peerCheck` (logs and `devices.hostHelper.status`). */
+  peerCheckReason?: string;
+  /**
+   * The packaged helper is installed, so the peer check is strict here: only `root_owned` can be
+   * the Host helper. Set with `peerCheck`, by the transport.
+   */
+  peerCheckRequired?: true;
+  /** The platform of this Gateway, set by the node transport (the family rule needs it). */
+  hostPlatform?: NodeJS.Platform;
   /** Identity a trusted proxy claims for the client; shown on the pairing card, never trusted. */
   claimedIdentity?: string | null;
   /**
@@ -127,7 +145,9 @@ export interface PairedIdentity {
 
 /**
  * The Host helper's connection proof: the local node transport (Unix socket, or the named pipe on
- * Windows) plus the per-launch handshake secret. Either helper family qualifies, the same way.
+ * Windows) plus the per-launch handshake secret. Every helper family qualifies, the same way. On
+ * Linux the accept-time peer check must also not have found another program (`mismatch`); the
+ * other outcomes are recorded and shown, not refused.
  */
 export function isHostHelper(
   params: ConnectParams,
@@ -140,8 +160,38 @@ export function isHostHelper(
     peer.origin === null &&
     params.role === "node" &&
     isHostHelperFamily(params.deviceFamily) &&
+    hostHelperRefusal(params, peer) === undefined &&
     secretMatches(handshakeSecret, params.handshakeSecret)
   );
+}
+
+/**
+ * Why this node is refused as the Host helper on the node transport, or `undefined` when nothing
+ * stands in the way (the secret is checked separately).
+ * - A Linux helper exists only on Linux: on another OS a node declaring it is not the helper.
+ * - Where the Linux peer check ran, only the `linux-helper` family is possible (a Mac or Windows
+ *   helper cannot exist on this computer), and the connecting process must not be another
+ *   program (`mismatch`). With the packaged helper installed (`peerCheckRequired`) it must also be
+ *   that helper, root-owned (`root_owned`): `user_owned` and `unverified` are refused, because
+ *   any file named `psyche-helper`, or any peer the Gateway could not identify, would otherwise
+ *   pass. Without a packaged helper (AppImage, a dev build) `user_owned` and `unverified` are
+ *   accepted, and recorded.
+ */
+export function hostHelperRefusal(params: ConnectParams, peer: PeerInfo): string | undefined {
+  if (
+    params.deviceFamily === "linux-helper" &&
+    (peer.hostPlatform ?? process.platform) !== "linux"
+  ) {
+    return "a Linux helper pairs only on a Linux computer";
+  }
+  if (peer.peerCheck === undefined) return undefined;
+  if (params.deviceFamily !== "linux-helper" || peer.peerCheck === "mismatch") {
+    return "this process is not the Linux helper of this computer";
+  }
+  if (peer.peerCheckRequired === true && peer.peerCheck !== "root_owned") {
+    return `the installed Linux helper could not be verified (${peer.peerCheck}: ${peer.peerCheckReason ?? "unknown"}); restart it from the Psyche app`;
+  }
+  return undefined;
 }
 
 /** The desktop shell's connection proof, the same one its auto-pairing needs. */
@@ -420,7 +470,22 @@ export function verifyChallenge(
     peer.transport === "unix" &&
     !isHostHelper(params, peer, deps.handshakeSecret)
   ) {
-    return denied("stale or missing handshake secret; reconnect with the current one");
+    const refusal = hostHelperRefusal(params, peer);
+    // The owner can see why the helper was turned away (`devices.hostHelper.status`), but only
+    // for a process that held this launch's secret: anyone else is just a failed connection.
+    if (
+      refusal !== undefined &&
+      peer.peerCheck !== undefined &&
+      secretMatches(deps.handshakeSecret, params.handshakeSecret)
+    ) {
+      recordPeerRefusal(db, {
+        peerCheck: peer.peerCheck,
+        reason: peer.peerCheckReason ?? "unknown",
+        required: peer.peerCheckRequired === true,
+        message: refusal,
+      });
+    }
+    return denied(refusal ?? "stale or missing handshake secret; reconnect with the current one");
   }
   if (existing?.pairedAt) {
     // A paired device must present its pairing key, and keeps the role it was paired with.
@@ -501,7 +566,9 @@ export function verifyChallenge(
     return denied(
       params.deviceFamily === "win-helper"
         ? "a Windows helper pairs only with the handshake secret on its own PC"
-        : "a Mac helper pairs only with the handshake secret on its own Mac",
+        : params.deviceFamily === "linux-helper"
+          ? "a Linux helper pairs only with the handshake secret on its own computer"
+          : "a Mac helper pairs only with the handshake secret on its own Mac",
     );
   }
   const keyChanged = existing !== undefined && existing.publicKey !== params.publicKey;
