@@ -16,6 +16,10 @@
 //!   same call returning only the result. They read the approval id from the reserved
 //!   `params.approvalId` key, so a caller without an [`Invocation`] can still pass one.
 //! - [`set_on_user_stop`]: told when the user pressed Esc to stop computer use.
+//! - [`element_at`] / [`focused_element`] → [`ElementTarget`]: one element described with the
+//!   `ax_tree` mapping (AX role / subrole, label, identifier, app, window), never its value; and
+//!   [`app_window_image`], an app's main window with screenshot hygiene (the teach recorder).
+//! - [`browser::tabs`]: Chrome / Edge / Brave tabs through UI Automation (`chrome.tabs`).
 //!
 //! ## Threading
 //!
@@ -31,6 +35,11 @@
 //! Physical pixels of the virtual desktop, origin at the primary monitor's top-left: snapshot
 //! frames, `x`/`y` targets and screenshot `screen` rects all agree (see `hygiene.rs`).
 
+// In the helper's workspace serde_json has `preserve_order` (the core's choice), which makes
+// `Map`, and with it `CapError`, larger than clippy's 128-byte `Err` threshold. Errors are rare
+// and returned once per call, so they stay unboxed.
+#![allow(clippy::result_large_err)]
+
 pub mod error;
 pub mod hygiene;
 pub mod keychord;
@@ -40,7 +49,11 @@ pub mod spec;
 pub mod tiers;
 
 #[cfg(windows)]
+pub mod browser;
+#[cfg(windows)]
 pub mod caps;
+#[cfg(windows)]
+pub mod element;
 #[cfg(windows)]
 pub mod win;
 
@@ -49,6 +62,8 @@ pub use spec::{specs, CapSpecLite};
 
 #[cfg(windows)]
 pub use caps::{invoke, CapOutput, Invocation, ReceiptDraft};
+#[cfg(windows)]
+pub use element::{app_window_image, element_at, focused_element, ElementTarget};
 
 #[cfg(windows)]
 use serde_json::Value;

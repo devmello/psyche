@@ -1,6 +1,7 @@
 //! `speech.*` params, limits and validation (`SpeechParams.swift`, `SpeechAudioFormat.swift`).
 
 use crate::error::CapError;
+use super::engine::EngineKind;
 use base64::Engine as _;
 use serde::Deserialize;
 use std::ops::RangeInclusive;
@@ -183,6 +184,8 @@ pub struct TranscribeStreamParams {
     pub max_duration_ms: Option<u64>,
     pub volatile: Option<bool>,
     pub preset: Option<SpeechPreset>,
+    /// `sapi` (on-device, the default) or `windowsSpeech` (online; only when asked for).
+    pub engine: Option<EngineKind>,
 }
 
 /// Validated, defaulted `speech.transcribe_stream` request.
@@ -195,6 +198,8 @@ pub struct TranscribeRequest {
     pub max_duration_ms: u64,
     pub volatile: bool,
     pub preset: SpeechPreset,
+    /// The engine the caller asked for (`None`: the on-device default).
+    pub engine: Option<EngineKind>,
 }
 
 impl TranscribeStreamParams {
@@ -219,6 +224,9 @@ impl TranscribeStreamParams {
             },
             _ => {}
         }
+        if source != SpeechSource::Microphone && self.engine == Some(EngineKind::WindowsSpeech) {
+            return Err(CapError::invalid_params("engine \"windowsSpeech\" serves the microphone only", Some("engine")));
+        }
         Ok(TranscribeRequest {
             source,
             locale,
@@ -227,6 +235,7 @@ impl TranscribeStreamParams {
             max_duration_ms: max,
             volatile: self.volatile.unwrap_or(true),
             preset: self.preset.unwrap_or(SpeechPreset::Long),
+            engine: self.engine,
         })
     }
 }
@@ -294,6 +303,17 @@ mod tests {
         assert_eq!(req(bad).unwrap_err().details["field"], "format.sampleRate");
         let bad = json!({"source": "push", "format": {"encoding": "pcm_f32le", "sampleRate": 16000, "channels": 3}});
         assert_eq!(req(bad).unwrap_err().details["field"], "format.channels");
+    }
+
+    #[test]
+    fn engine_is_opt_in_and_microphone_only_for_online() {
+        assert_eq!(req(json!({})).unwrap().engine, None);
+        assert_eq!(req(json!({"engine": "sapi"})).unwrap().engine, Some(EngineKind::Sapi));
+        assert_eq!(req(json!({"engine": "windowsSpeech"})).unwrap().engine, Some(EngineKind::WindowsSpeech));
+        let fmt = json!({"encoding": "pcm_s16le", "sampleRate": 16000, "channels": 1});
+        let e = req(json!({"source": "push", "format": fmt, "engine": "windowsSpeech"})).unwrap_err();
+        assert_eq!(e.details["field"], "engine");
+        assert!(serde_json::from_value::<TranscribeStreamParams>(json!({"engine": "cloud"})).is_err());
     }
 
     #[test]

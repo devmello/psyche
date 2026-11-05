@@ -70,9 +70,46 @@ fn manifest_lists_the_windows_capabilities() {
         "finder.list",
         "ocr.recognize",
         "health",
+        "computer.ax_tree",
+        "computer.ax_value",
+        "computer.click",
+        "computer.double_click",
+        "computer.right_click",
+        "computer.press",
+        "computer.set_value",
+        "computer.select",
+        "computer.type",
+        "computer.key",
+        "computer.scroll",
+        "computer.drag",
+        "computer.menu",
+        "computer.end_session",
+        "computer.screenshot",
+        "computer.screenshot_pick",
+        "screen.context",
+        "dictation.target",
+        "dictation.insert",
+        "dictation.watch",
+        "speech.transcribe_stream",
+        "speech.transcribe_file",
+        "speech.audio_push",
+        "speech.stop",
+        "speech.status",
+        "teach.start",
+        "teach.stop",
+        "teach.cancel",
+        "teach.status",
+        "chrome.tabs",
+        "chrome.current_tab",
     ] {
         assert!(names.contains(&want), "missing {want}");
     }
+    // No text-to-speech (owner decision).
+    assert!(
+        !names
+            .iter()
+            .any(|n| *n == "speech.synthesize" || *n == "speech.voices")
+    );
     // Apple-only capabilities are not offered.
     assert!(!names.iter().any(|n| n.starts_with("apps.applescript")
         || n.starts_with("notes.")

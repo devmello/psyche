@@ -7,6 +7,11 @@ license = "Apache-2.0"
 publish = false
 description = "Psyche Helper for Windows: the Windows node (named-pipe node protocol, toasts, Windows Hello, Credential Manager, OCR)"
 
+[workspace]
+members = [".", "crates/win-computer", "crates/win-dictation"]
+default-members = [".", "crates/win-computer", "crates/win-dictation"]
+resolver = "3"
+
 [[bin]]
 name = "psyche-helper"
 path = "src/main.rs"
@@ -29,6 +34,12 @@ aes-gcm = "=0.10.3"
 zeroize = "=1.8.2"
 windows-core = "=0.62.2"
 windows-future = "=0.3.2"
+psyche-win-computer = { path = "crates/win-computer" }
+psyche-win-dictation = { path = "crates/win-dictation" }
+
+[dev-dependencies]
+# Paused clocks for the teach-mode timer test.
+tokio = { version = "=1.49.0", features = ["test-util"] }
 
 [dependencies.windows]
 version = "=0.62.2"

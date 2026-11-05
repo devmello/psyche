@@ -4,12 +4,14 @@
 
 #![cfg(windows)]
 
+pub mod bridge;
 pub mod groups;
 pub mod node;
 pub mod win;
 
 // Capability groups (each exposes `pub fn register(reg: &mut CapabilityRegistry)`).
 pub mod apps;
+pub mod chrome;
 pub mod files;
 pub mod health;
 pub mod keychain;
@@ -19,7 +21,7 @@ pub mod outlook;
 pub mod permissions;
 pub mod presence;
 
-// Wave-2 groups: wired, registering nothing yet.
+// Groups served by the workspace crates (win-computer, win-dictation) and teach mode.
 pub mod computer;
 pub mod dictation;
 pub mod screen;

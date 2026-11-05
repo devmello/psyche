@@ -207,7 +207,7 @@ pub fn specs() -> Vec<CapabilitySpec> {
         },
         CapabilitySpec {
             name: "speech.transcribe_stream",
-            description: "Transcribe speech from the microphone or pushed PCM, streaming speech.partial / speech.final events. Engine: Windows.Media.SpeechRecognition dictation (microphone, needs Online speech recognition) or the on-device SAPI desktop recognizer (pushed audio, and the microphone when online recognition is off). The stream id is this invocation's id; end it with speech.stop.".into(),
+            description: "Transcribe speech from the microphone or pushed PCM, streaming speech.partial / speech.final events. Engine: the on-device SAPI desktop recognizer (default; audio never leaves the PC), or Windows.Media.SpeechRecognition online dictation only when engine is \"windowsSpeech\" (microphone only, needs Online speech recognition). The stream id is this invocation's id; end it with speech.stop.".into(),
             side_effect: SideEffect::Read,
             target_kind: None,
             input_schema: object(
@@ -223,6 +223,14 @@ pub fn specs() -> Vec<CapabilitySpec> {
                         string(
                             Some("long (default: dictation, memos) or short (conversation turns: shorter end-of-phrase silence, frequent finalization)"),
                             Some(&["long", "short"]),
+                            None,
+                        ),
+                    ),
+                    (
+                        "engine",
+                        string(
+                            Some("sapi (default: on-device) or windowsSpeech (Microsoft's online dictation; microphone only, sends audio off the PC)"),
+                            Some(&["sapi", "windowsSpeech"]),
                             None,
                         ),
                     ),
