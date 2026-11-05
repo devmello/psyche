@@ -655,7 +655,12 @@ mod tests {
     fn plain_items_round_trip_through_credential_manager() {
         let vault = KeychainVault::default();
         let cancel = CancelToken::new();
-        let name = format!("test-{}", std::process::id());
+        // Unique per run: worktrees and CI jobs share the user's Credential Manager.
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or_default();
+        let name = format!("test-{}-{nanos}", std::process::id());
         assert!(!vault.store(&name, b"hello", false, false, &cancel).unwrap());
         assert_eq!(
             vault
