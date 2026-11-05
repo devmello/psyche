@@ -1,4 +1,5 @@
-import type { PsycheDb } from "@psyche/db";
+import { join, resolve } from "node:path";
+import { checkpointDatabaseFile, type PsycheDb } from "@psyche/db";
 import {
   type MethodParams,
   type MethodResult,
@@ -8,6 +9,7 @@ import {
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
+import { findDatabases } from "../pre-update.ts";
 import type { BusySources, UpdateGate } from "../update-gate.ts";
 import { DEFAULT_UPDATE_TIMEOUT_MS } from "../update-gate.ts";
 
@@ -29,6 +31,8 @@ type Busy = Report["busy"];
 
 export interface UpdateHandlerDeps {
   db: PsycheDb;
+  /** `$PSYCHE_HOME`: where the other databases live. */
+  home?: string;
   gate: UpdateGate;
   /** The task engine: tasks with a turn running (`tasks.list`'s source). */
   runningTasks: () => Promise<Pick<Task, "id" | "title">[]>;
@@ -130,6 +134,15 @@ export function updateHandlers(deps: UpdateHandlerDeps): Record<string, HandlerD
           db.sqlite.pragma("wal_checkpoint(TRUNCATE)");
         } catch {
           // Another connection holds the log; the next start replays it.
+        }
+        // The other databases too (search index, connectors, notifications, the vault): any
+        // plain SQLite file that is not locked. The encrypted memory store is closed by its
+        // owner at shutdown.
+        if (deps.home !== undefined) {
+          for (const rel of findDatabases(deps.home)) {
+            const file = join(deps.home, rel);
+            if (resolve(file) !== resolve(db.path)) checkpointDatabaseFile(file);
+          }
         }
         gate.markReady();
         deps.log?.log("info", "update ready", {

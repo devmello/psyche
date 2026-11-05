@@ -27,10 +27,14 @@ export interface UpdateGateOptions {
 export const DEFAULT_UPDATE_TIMEOUT_MS = 120_000;
 export const MIN_UPDATE_TIMEOUT_MS = 5_000;
 export const MAX_UPDATE_TIMEOUT_MS = 600_000;
+/** However often it is asked again, the gate is never held shut longer than this in one go. */
+export const MAX_CLOSED_TOTAL_MS = 900_000;
 
 export class UpdateGate {
   #state: UpdateGateState = "open";
   #deadline: number | null = null;
+  /** When the gate first closed in this stretch; extensions are capped from here. */
+  #since: number | null = null;
   #timer: unknown;
   readonly #now: () => number;
   readonly #set: (fn: () => void, ms: number) => unknown;
@@ -66,10 +70,17 @@ export class UpdateGate {
   /** Stops accepting new work for `timeoutMs`; calling it again moves the deadline. */
   close(timeoutMs: number): void {
     const ms = Math.min(MAX_UPDATE_TIMEOUT_MS, Math.max(MIN_UPDATE_TIMEOUT_MS, timeoutMs));
+    const now = this.#now();
     if (this.#timer !== undefined) this.#clear(this.#timer);
-    if (this.#state === "open") this.#state = "draining";
-    this.#deadline = this.#now() + ms;
-    this.#timer = this.#set(() => this.#open("timeout"), ms);
+    if (this.#state === "open") {
+      this.#state = "draining";
+      this.#since = now;
+    }
+    // Asking again moves the deadline, but a caller that keeps asking cannot hold the door shut
+    // forever: the total is capped from the first time it closed.
+    const cap = (this.#since ?? now) + MAX_CLOSED_TOTAL_MS;
+    this.#deadline = Math.min(now + ms, cap);
+    this.#timer = this.#set(() => this.#open("timeout"), Math.max(0, this.#deadline - now));
   }
 
   /** The wait is over and the Gateway can be stopped. Only from `draining`. */
@@ -94,6 +105,7 @@ export class UpdateGate {
     if (this.#timer !== undefined) this.#clear(this.#timer);
     this.#timer = undefined;
     this.#deadline = null;
+    this.#since = null;
     if (this.#state === "open") return false;
     this.#state = "open";
     for (const fn of this.#reopened) {

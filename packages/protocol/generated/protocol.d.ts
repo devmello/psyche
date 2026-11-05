@@ -3232,6 +3232,12 @@ export interface ServerBuild {
      */
     commit?: string;
     /**
+     * The build the LaunchAgent plist (PSYCHE_BUILD) says this process was started for,
+     * reported next to the bundle's build-info.json build when both exist. A claim, not a
+     * check: `build` is what counts
+     */
+    envBuild?: string;
+    /**
      * The Gateway's version
      */
     version: string;
@@ -5104,6 +5110,11 @@ export type ErrorCode = "not_implemented" | "invalid_frame" | "invalid_params" |
 export type FrameType = "req" | "res" | "event";
 
 export interface GatewayInfo {
+    /**
+     * Keys in config.json that this version does not know: kept and ignored. Admins only; the
+     * Settings screen shows them so a misspelt setting is noticed
+     */
+    configWarnings?: string[];
     /**
      * The Host machine's name
      */

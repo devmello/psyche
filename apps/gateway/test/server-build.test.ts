@@ -20,13 +20,20 @@ const read = (path: string): string => {
 };
 
 describe("readServerBuild", () => {
-  it("prefers PSYCHE_BUILD (the LaunchAgent's env), then the bundled build-info.json, then dev", () => {
+  it("reports the bundle's own build-info.json, the plist's claim separately, then dev", () => {
     expect(readServerBuild({ PSYCHE_BUILD: "from-plist" }, read).build).toBe("from-plist");
+    // The file read at start is the truth about the code in memory; the plist's word is a claim.
     const both = readServerBuild(
       { PSYCHE_BUILD: "from-plist", PSYCHE_BUILD_INFO: "/bundle/build-info.json" },
       read,
     );
-    expect(both).toMatchObject({ build: "from-plist", commit: "c0ffee" });
+    expect(both).toMatchObject({ build: "b1b2b3", commit: "c0ffee", envBuild: "from-plist" });
+    const same = readServerBuild(
+      { PSYCHE_BUILD: "b1b2b3", PSYCHE_BUILD_INFO: "/bundle/build-info.json" },
+      read,
+    );
+    expect(same.envBuild).toBe("b1b2b3");
+    expect(readServerBuild({ PSYCHE_BUILD: "from-plist" }, read)).not.toHaveProperty("envBuild");
     expect(readServerBuild({ PSYCHE_BUILD_INFO: "/bundle/build-info.json" }, read)).toMatchObject({
       build: "b1b2b3",
       commit: "c0ffee",

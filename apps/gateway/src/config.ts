@@ -128,14 +128,15 @@ interface ConfigFile {
 /** A `{{cred:slug}}` placeholder, the vault's slug grammar. */
 export const CRED_PLACEHOLDER = /^\{\{cred:[a-z0-9][a-z0-9-]{0,63}(\.[a-z]+)?\}\}$/;
 
-const TOP_LEVEL_KEYS = new Set(["gateway", "credentials", "connectors"]);
+const TOP_LEVEL_KEYS = new Set(["configVersion", "gateway", "credentials", "connectors"]);
 
 /** `connectors` in `config.json`: client ids and vault placeholders, never a secret. */
 function connectorsFrom(value: unknown, warn: ConfigWarn): NonNullable<ConfigFile["connectors"]> {
   if (value === null || typeof value !== "object" || Array.isArray(value))
     bad("connectors", "must be an object");
   const c = value as Record<string, unknown>;
-  for (const key of Object.keys(c)) if (key !== "google") warn(`connectors.${key}`);
+  for (const key of Object.keys(c))
+    if (key !== "google") unknownKey("connectors", key, ["google"], warn);
   if (c.google === undefined) return {};
   return { google: googleClientFrom(c.google, "connectors.google", warn) };
 }
@@ -150,7 +151,8 @@ export function googleClientFrom(
     bad(path, "must be an object");
   const g = value as Record<string, unknown>;
   for (const key of Object.keys(g))
-    if (key !== "clientId" && key !== "clientSecret") warn(`${path}.${key}`);
+    if (key !== "clientId" && key !== "clientSecret")
+      unknownKey(path, key, ["clientId", "clientSecret"], warn);
   const out: GoogleClientConfig = {};
   if (g.clientId !== undefined) {
     if (
@@ -177,7 +179,8 @@ function credentialsFrom(value: unknown, warn: ConfigWarn): NonNullable<ConfigFi
     bad("credentials", "must be an object");
   const c = value as Record<string, unknown>;
   for (const key of Object.keys(c))
-    if (key !== "onePassword" && key !== "bitwarden") warn(`credentials.${key}`);
+    if (key !== "onePassword" && key !== "bitwarden")
+      unknownKey("credentials", key, ["onePassword", "bitwarden"], warn);
   const bw = c.bitwarden === undefined ? {} : { bitwarden: bitwardenFrom(c.bitwarden, warn) };
   if (c.onePassword === undefined) return bw;
   return { ...bw, ...onePasswordFrom(c.onePassword, warn) };
@@ -189,7 +192,8 @@ function bitwardenFrom(value: unknown, warn: ConfigWarn): BitwardenConfig {
     bad("credentials.bitwarden", "must be an object");
   const b = value as Record<string, unknown>;
   for (const key of Object.keys(b))
-    if (key !== "bw" && key !== "appDataDir") warn(`credentials.bitwarden.${key}`);
+    if (key !== "bw" && key !== "appDataDir")
+      unknownKey("credentials.bitwarden", key, ["bw", "appDataDir"], warn);
   const out: BitwardenConfig = {};
   for (const key of ["bw", "appDataDir"] as const) {
     const v = b[key];
@@ -210,7 +214,8 @@ function onePasswordFrom(
   if (op === null || typeof op !== "object" || Array.isArray(op))
     bad("credentials.onePassword", "must be an object");
   for (const key of Object.keys(op))
-    if (!["kind", "op", "url"].includes(key)) warn(`credentials.onePassword.${key}`);
+    if (!["kind", "op", "url"].includes(key))
+      unknownKey("credentials.onePassword", key, ["kind", "op", "url"], warn);
   if (op.kind === "cli") {
     if (op.op !== undefined && (typeof op.op !== "string" || !isAbsolute(op.op)))
       bad("credentials.onePassword.op", "must be an absolute path to the op binary");
@@ -247,7 +252,70 @@ export function isLoopbackHost(host: string): boolean {
  */
 export type ConfigWarn = (path: string) => void;
 
+/** The `configVersion` this build writes and understands. A file may declare a newer one. */
+export const CONFIG_VERSION = 1;
+
+/** Levenshtein distance, for catching a typo of a key that matters. */
+export function editDistance(a: string, b: string): number {
+  const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let diag = prev[0] as number;
+    prev[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const up = prev[j] as number;
+      prev[j] = Math.min(
+        up + 1,
+        (prev[j - 1] as number) + 1,
+        diag + (a[i - 1]?.toLowerCase() === b[j - 1]?.toLowerCase() ? 0 : 1),
+      );
+      diag = up;
+    }
+  }
+  return prev[b.length] as number;
+}
+
+/** The closest of `known` within two edits of `key`, if any. */
+function nearKey(key: string, known: readonly string[]): string | undefined {
+  return known.find((k) => editDistance(key, k) <= 2 && key.length > 2);
+}
+
+/**
+ * Whether unknown keys may be tolerated: only when the file declares a `configVersion` newer
+ * than this build understands (a newer version wrote it, and a rollback must still start).
+ * Otherwise a key that is unknown in a security section, or one edit or two away from a known
+ * key, is a typo: refusing it is what keeps a misspelt `allowedLogins` from meaning "any login".
+ */
+let tolerateNewer = false;
+
+/**
+ * An unknown key at `prefix`: fatal when it sits in a security section (`strict`) or looks like
+ * a typo of one of `known`; otherwise a warning.
+ */
+function unknownKey(
+  prefix: string,
+  key: string,
+  known: readonly string[],
+  warn: ConfigWarn,
+  strict = false,
+): void {
+  const path = prefix === "" ? key : `${prefix}.${key}`;
+  if (!tolerateNewer) {
+    const near = nearKey(key, known);
+    if (near !== undefined)
+      bad(
+        path,
+        `is not a known key (did you mean "${near}"? a misspelt setting is refused, not ignored)`,
+      );
+    if (strict) bad(path, `is not a known key (known: ${known.join(", ")})`);
+  }
+  warn(path);
+}
+
 const warned = new Set<string>();
+/** Every unknown key warned about in this process, for `gateway.info` and the UI. */
+export function configWarnings(): string[] {
+  return [...warned];
+}
 const warnUnknownKey: ConfigWarn = (path) => {
   if (warned.has(path)) return;
   warned.add(path);
@@ -278,7 +346,12 @@ export function readConfigFile(path: string, warn: ConfigWarn = warnUnknownKey):
   }
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) bad("", "must be an object");
   const credentialsRaw = (raw as { credentials?: unknown }).credentials;
-  for (const key of Object.keys(raw as object)) if (!TOP_LEVEL_KEYS.has(key)) warn(key);
+  const declared = (raw as { configVersion?: unknown }).configVersion;
+  if (declared !== undefined && (!Number.isInteger(declared) || (declared as number) < 1))
+    bad("configVersion", "must be a positive integer");
+  tolerateNewer = typeof declared === "number" && declared > CONFIG_VERSION;
+  for (const key of Object.keys(raw as object))
+    if (!TOP_LEVEL_KEYS.has(key)) unknownKey("", key, [...TOP_LEVEL_KEYS], warn);
   const credentials =
     credentialsRaw === undefined ? undefined : credentialsFrom(credentialsRaw, warn);
   const connectorsRaw = (raw as { connectors?: unknown }).connectors;
@@ -302,7 +375,8 @@ export function readConfigFile(path: string, warn: ConfigWarn = warnUnknownKey):
     "cloudflareAccess",
     "rateLimits",
   ]);
-  for (const key of Object.keys(g)) if (!known.has(key)) warn(`gateway.${key}`);
+  for (const key of Object.keys(g))
+    if (!known.has(key)) unknownKey("gateway", key, [...known], warn);
   if (g.host !== undefined && typeof g.host !== "string") bad("gateway.host", "must be a string");
   if (
     g.port !== undefined &&
@@ -320,7 +394,12 @@ export function readConfigFile(path: string, warn: ConfigWarn = warnUnknownKey):
   if (g.publicOrigin !== undefined) out.publicOrigin = g.publicOrigin as string;
   if (g.trustedProxy !== undefined) {
     const tp = g.trustedProxy as Record<string, unknown>;
-    if (tp === null || typeof tp !== "object") bad("gateway.trustedProxy", "must be an object");
+    if (tp === null || typeof tp !== "object" || Array.isArray(tp))
+      bad("gateway.trustedProxy", "must be an object");
+    // Strict: a misspelt `allowedLogins` must never read as "no list", which means any login.
+    const tpKeys = ["enabled", "trustedProxies", "tailscaleProxies", "allowedLogins"];
+    for (const key of Object.keys(tp))
+      if (!tpKeys.includes(key)) unknownKey("gateway.trustedProxy", key, tpKeys, warn, true);
     if (tp.enabled !== undefined && typeof tp.enabled !== "boolean")
       bad("gateway.trustedProxy.enabled", "must be a boolean");
     const proxies = stringArray(tp.trustedProxies, "gateway.trustedProxy.trustedProxies");
@@ -335,7 +414,11 @@ export function readConfigFile(path: string, warn: ConfigWarn = warnUnknownKey):
   }
   if (g.cloudflareAccess !== undefined) {
     const cf = g.cloudflareAccess as Record<string, unknown>;
-    if (cf === null || typeof cf !== "object") bad("gateway.cloudflareAccess", "must be an object");
+    if (cf === null || typeof cf !== "object" || Array.isArray(cf))
+      bad("gateway.cloudflareAccess", "must be an object");
+    const cfKeys = ["teamDomain", "audience"];
+    for (const key of Object.keys(cf))
+      if (!cfKeys.includes(key)) unknownKey("gateway.cloudflareAccess", key, cfKeys, warn, true);
     if (typeof cf.teamDomain !== "string" || cf.teamDomain === "") {
       bad("gateway.cloudflareAccess.teamDomain", "must be a host name");
     }
@@ -354,7 +437,7 @@ function rateLimitsFrom(value: unknown, warn: ConfigWarn): Partial<RateLimitSett
   const out: Partial<RateLimitSettings> = {};
   for (const [key, n] of Object.entries(value as Record<string, unknown>)) {
     if (key !== "inboundChatPerMinute" && key !== "fetchPerMinute") {
-      warn(`gateway.rateLimits.${key}`);
+      unknownKey("gateway.rateLimits", key, ["inboundChatPerMinute", "fetchPerMinute"], warn);
       continue;
     }
     if (!Number.isInteger(n) || (n as number) < 1 || (n as number) > 10_000)

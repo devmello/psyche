@@ -1,7 +1,7 @@
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { listBackups } from "@psyche/backup";
-import type { CommandSpec } from "../command.ts";
+import { bool, type CommandSpec } from "../command.ts";
 import { readConfig, unknownConfigKeys, validateConfig } from "../config-file.ts";
 import type { Check } from "../doctor.ts";
 import { toReport } from "../errors.ts";
@@ -27,8 +27,26 @@ export const migrateCommands: CommandSpec[] = [
         type: "boolean",
         description: "Only check (the default; migrations apply at Gateway start)",
       },
+      retry: {
+        type: "boolean",
+        description:
+          "After a failed update was undone: forget the failure so the next Gateway start tries the update again",
+      },
     },
-    async run(ctx) {
+    async run(ctx, { opts }) {
+      if (bool(opts, "retry")) {
+        // The Gateway refuses to start the same build on the same data after a failed update
+        // (run/update-failed.json). This is the owner's "try again".
+        const note = join(ctx.home, "run", "update-failed.json");
+        const had = existsSync(note);
+        rmSync(note, { force: true });
+        return {
+          data: { retry: true, cleared: had },
+          human: had
+            ? "Cleared the failed-update note. Start Psyche again to retry the update."
+            : "There was no failed update to retry.",
+        };
+      }
       const checks: Check[] = [];
       const dbPath = ctx.env.PSYCHE_DB ?? join(ctx.home, "state", "psyche.sqlite");
       const known = knownMigrations();

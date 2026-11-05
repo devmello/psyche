@@ -29,7 +29,13 @@ export * from "./repos/threads.ts";
 export * from "./repos/tool-calls.ts";
 export * from "./repos/widgets.ts";
 export * from "./schema.ts";
-export { backupDatabaseFile, pendingMigrationIds } from "./snapshot.ts";
+export {
+  backupDatabaseFile,
+  checkpointDatabaseFile,
+  type MigrationProbe,
+  pendingMigrationIds,
+  probeMigrations,
+} from "./snapshot.ts";
 export type { DbLogger } from "./types.ts";
 export {
   type AppendOptions,

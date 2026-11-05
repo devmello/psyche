@@ -9,14 +9,56 @@ import { CliError } from "./errors.ts";
  * README "Config keys").
  */
 
-export const GATEWAY_KEYS: Record<string, "string" | "port" | "string[]" | "boolean"> = {
-  "gateway.host": "string",
-  "gateway.port": "port",
-  "gateway.allowedOrigins": "string[]",
-  "gateway.publicOrigin": "string",
-  "gateway.trustedProxy.enabled": "boolean",
-  "gateway.trustedProxy.trustedProxies": "string[]",
-};
+export const GATEWAY_KEYS: Record<string, "string" | "port" | "string[]" | "boolean" | "positive"> =
+  {
+    "gateway.host": "string",
+    "gateway.port": "port",
+    "gateway.allowedOrigins": "string[]",
+    "gateway.publicOrigin": "string",
+    "gateway.trustedProxy.enabled": "boolean",
+    "gateway.trustedProxy.trustedProxies": "string[]",
+    "gateway.trustedProxy.tailscaleProxies": "string[]",
+    "gateway.trustedProxy.allowedLogins": "string[]",
+    "gateway.cloudflareAccess.teamDomain": "string",
+    "gateway.cloudflareAccess.audience": "string",
+    "gateway.rateLimits.inboundChatPerMinute": "positive",
+    "gateway.rateLimits.fetchPerMinute": "positive",
+  };
+
+/** Sections where an unknown key is never tolerated: a misspelt setting there fails open. */
+const STRICT_SECTIONS = ["gateway.trustedProxy.", "gateway.cloudflareAccess."];
+const GATEWAY_TOP = [
+  "host",
+  "port",
+  "allowedOrigins",
+  "publicOrigin",
+  "trustedProxy",
+  "cloudflareAccess",
+  "rateLimits",
+];
+/** The `configVersion` this build understands; a newer file may carry keys it does not know. */
+const CONFIG_VERSION = 1;
+
+function editDistance(a: string, b: string): number {
+  const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let diag = prev[0] as number;
+    prev[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const up = prev[j] as number;
+      prev[j] = Math.min(
+        up + 1,
+        (prev[j - 1] as number) + 1,
+        diag + (a[i - 1]?.toLowerCase() === b[j - 1]?.toLowerCase() ? 0 : 1),
+      );
+      diag = up;
+    }
+  }
+  return prev[b.length] as number;
+}
+
+const newerFile = (config: ConfigObject): boolean =>
+  typeof config.configVersion === "number" && config.configVersion > CONFIG_VERSION;
 
 export type ConfigObject = Record<string, unknown>;
 
@@ -53,6 +95,20 @@ export function unknownConfigKeys(config: ConfigObject): string[] {
   return Object.keys(flatten({ gateway })).filter((key) => !GATEWAY_KEYS[key]);
 }
 
+/** Unknown keys the Gateway refuses: in a security section, or a typo of a known key. */
+function refusedUnknownKeys(config: ConfigObject): string[] {
+  if (newerFile(config)) return [];
+  const out: string[] = [];
+  for (const key of unknownConfigKeys(config)) {
+    const strict = STRICT_SECTIONS.some((p) => key.startsWith(p));
+    const second = key.split(".")[1] ?? "";
+    const near = GATEWAY_TOP.some((k) => k !== second && editDistance(second, k) <= 2);
+    if (strict || (near && !GATEWAY_TOP.includes(second)))
+      out.push(`${key} is not a known key${strict ? "" : " (a typo of a known key?)"}`);
+  }
+  return out;
+}
+
 /** Problems the Gateway would refuse to start with, as readable strings. */
 export function validateConfig(config: ConfigObject): string[] {
   const problems: string[] = [];
@@ -64,10 +120,11 @@ export function validateConfig(config: ConfigObject): string[] {
   const flat = flatten({ gateway });
   for (const [key, value] of Object.entries(flat)) {
     const type = GATEWAY_KEYS[key];
-    if (!type) continue; // unknown keys are kept and warned about, not refused (unknownConfigKeys)
+    if (!type) continue; // unknown keys are warned about (unknownConfigKeys) or refused below
     const err = checkType(type, value);
     if (err) problems.push(`${key} ${err}`);
   }
+  problems.push(...refusedUnknownKeys(config));
   const host = (gateway as ConfigObject).host;
   if (typeof host === "string" && !["127.0.0.1", "::1", "localhost"].includes(host)) {
     problems.push(
@@ -87,6 +144,10 @@ function checkType(type: string, value: unknown): string | null {
       return typeof value === "string" ? null : "must be a string";
     case "boolean":
       return typeof value === "boolean" ? null : "must be a boolean";
+    case "positive":
+      return Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 10_000
+        ? null
+        : "must be an integer 1-10000";
     case "port":
       return Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 65535
         ? null

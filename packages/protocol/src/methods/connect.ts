@@ -74,6 +74,14 @@ export const ServerBuild = Type.Object(
     commit: Type.Optional(
       Type.String({ minLength: 1, maxLength: 64, description: "The git commit it was built from" }),
     ),
+    envBuild: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: 64,
+        description:
+          "The build the LaunchAgent plist (PSYCHE_BUILD) says this process was started for, reported next to the bundle's build-info.json build when both exist. A claim, not a check: `build` is what counts",
+      }),
+    ),
   },
   { $id: "ServerBuild" },
 );

@@ -117,8 +117,11 @@ describe("openDbWithSnapshot", () => {
       Buffer.from("not sqlite, encrypted bytes"),
     );
     writeFileSync(join(s.home, "state", "memory.sqlite-wal"), Buffer.from("wal bytes"));
+    writeFileSync(join(s.home, "state", "memory.sqlite-shm"), Buffer.from("shm bytes"));
+    writeFileSync(join(s.home, "state", "memory.key.json"), "{}");
     mkdirSync(join(s.home, "vault"));
     writeFileSync(join(s.home, "vault", "vault.db"), Buffer.from("vault bytes"));
+    writeFileSync(join(s.home, "vault", "slots.json"), '{"slots":{}}');
     mkdirSync(join(s.home, "state", "teach"));
     writeFileSync(join(s.home, "state", "teach", "recording.db"), "owner recording");
     mkdirSync(join(s.home, "workspace"));
@@ -150,10 +153,23 @@ describe("openDbWithSnapshot", () => {
     });
     expect(m?.entries.map((e) => [e.rel, e.kind]).sort()).toEqual([
       ["config.json", "file"],
+      ["state/memory.key.json", "file"],
       ["state/memory.sqlite", "file"],
       ["state/psyche.sqlite", "sqlite"],
+      ["vault/slots.json", "file"],
       ["vault/vault.db", "file"],
     ]);
+    // The encrypted store's log is checksummed and private; the rebuildable index is not copied.
+    const memory = m?.entries.find((e) => e.rel === "state/memory.sqlite");
+    expect(memory?.sidecars?.map((x) => x.suffix)).toEqual(["-wal"]);
+    expect(
+      statSync(join(snap?.dir ?? "", "files", "state", "memory.sqlite-wal")).mode & 0o777,
+    ).toBe(0o600);
+    expect(existsSync(join(snap?.dir ?? "", "files", "state", "memory.sqlite-shm"))).toBe(false);
+    // The key files that open the stores travel with them.
+    expect(readFileSync(join(snap?.dir ?? "", "files", "vault", "slots.json"), "utf8")).toBe(
+      '{"slots":{}}',
+    );
     const copy = join(snap?.dir ?? "", "files", "state", "psyche.sqlite");
     // The copy is the data before the migration, including what was only in the WAL.
     expect(rows(copy, "SELECT body FROM notes ORDER BY id")).toEqual([
@@ -306,15 +322,11 @@ describe("openDbWithSnapshot", () => {
     installV1(s);
     for (let i = 0; i < 5; i++) {
       s.put({ [`2026020${i + 1}0000_test_step${i}.sql`]: `CREATE TABLE t${i} (id INTEGER);` });
-      (await openDbWithSnapshot(base(s, { now: at(10 + i), keep: 3 }))).close();
+      (await openDbWithSnapshot(base(s, { now: at(10 + i), keep: 3, minPruneAgeMs: 0 }))).close();
     }
     const kept = listSnapshots(s.home);
     expect(kept).toHaveLength(3);
-    expect(kept.map((k) => k.manifest.createdAt)).toEqual([
-      "2026-11-05T12:14:00.000Z",
-      "2026-11-05T12:13:00.000Z",
-      "2026-11-05T12:12:00.000Z",
-    ]);
+    expect(kept.map((k) => k.manifest.seq)).toEqual([5, 4, 3]);
     expect(readdirSync(join(s.home, "backups", "pre-update"))).toHaveLength(3);
   });
 });
@@ -333,17 +345,17 @@ describe("snapshot helpers", () => {
         now: at(i),
       });
     mkdirSync(join(s.home, "backups", "pre-update", ".partial-crashed"));
-    expect(pruneSnapshots(s.home, 0)).toHaveLength(2);
+    expect(pruneSnapshots(s.home, { keep: 0, minAgeMs: 0 })).toHaveLength(2);
     expect(listSnapshots(s.home)).toHaveLength(1);
     expect(existsSync(join(s.home, "backups", "pre-update", ".partial-crashed"))).toBe(false);
   });
 
-  it("reads PSYCHE_PRE_UPDATE_KEEP, 1 to 20, default 3", () => {
-    expect(DEFAULT_KEEP).toBe(3);
-    expect(keepFromEnv({})).toBe(3);
+  it("reads PSYCHE_PRE_UPDATE_KEEP, 1 to 20, default 2", () => {
+    expect(DEFAULT_KEEP).toBe(2);
+    expect(keepFromEnv({})).toBe(2);
     expect(keepFromEnv({ PSYCHE_PRE_UPDATE_KEEP: "5" })).toBe(5);
     for (const bad of ["0", "21", "x", "2.5", ""])
-      expect(keepFromEnv({ PSYCHE_PRE_UPDATE_KEEP: bad })).toBe(3);
+      expect(keepFromEnv({ PSYCHE_PRE_UPDATE_KEEP: bad })).toBe(2);
   });
 
   it("finds databases under state/ and vault/ but not sidecars or recordings", () => {

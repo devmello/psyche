@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-05 (review of the update foundation)
+
+- `ServerBuild` gains optional `envBuild`: the build the LaunchAgent plist claims (`PSYCHE_BUILD`), reported next to `build`, which now comes from the bundle's own `build-info.json` read at start. `ConnectChallenge.server` is sent only to a direct loopback peer without an Origin (the Host's own app), not to remote, LAN or browser peers.
+- `GatewayInfo` gains optional `configWarnings` (admins only): keys in `config.json` this version ignores, so Settings can show them.
+
 ### v1 additive — 2026-11-05 (`gateway.prepareUpdate`, updates design §2.2 and §2.6)
 
 - New method `gateway.prepareUpdate` (`operator.admin`, not side-effecting). Desktop shell on the Host only: the same gate as `devices.setupToken.create` (loopback, no Origin, the per-launch handshake secret), so a paired remote device is refused even with admin. `mode` is `prepare` (default), `check` or `cancel`; `waitMs` (0 to 120000, default 30000) is how long `prepare` waits for running turns and tasks; `timeoutMs` (5000 to 600000, default 120000) is how long the Gateway stays closed to new work if no update follows, after which service resumes by itself.

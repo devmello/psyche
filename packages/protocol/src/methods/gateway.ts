@@ -15,6 +15,13 @@ export const GatewayInfo = Type.Object(
       description: "gateway.publicOrigin, the https address other computers reach it at",
     }),
     trustedProxy: Type.Boolean({ description: "gateway.trustedProxy is on" }),
+    configWarnings: Type.Optional(
+      Type.Array(Type.String({ maxLength: 200 }), {
+        maxItems: 50,
+        description:
+          "Keys in config.json that this version does not know: kept and ignored. Admins only; the Settings screen shows them so a misspelt setting is noticed",
+      }),
+    ),
     lan: Type.Optional(
       Type.Object({
         enabled: Type.Boolean({ description: "The `gateway.lan` setting is on" }),

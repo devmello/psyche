@@ -636,6 +636,7 @@ export function composeChannels(
   const logger = channelLogger(services);
   const iso = () => new Date(clock.now()).toISOString();
   let gateway: Gateway | null = null;
+  let stopWatchingGate: (() => void) | undefined;
 
   // Where each channel-started run replies, and inbound turns waiting for a busy thread.
   const replyTo = new Map<string, OutboundTarget>();
@@ -957,7 +958,10 @@ export function composeChannels(
     const gw = gateway;
     if (gw === null) throw new PsycheError("unavailable", "gateway not started");
     const { sessions, bus } = gw.context;
-    if (sessions.activeRunId(threadId) !== null) {
+    // The thread is busy, or an app update is being prepared (`gateway.prepareUpdate`, which
+    // refuses new turns): hold the message, never drop it, and start it when the thread settles
+    // or the gate opens again (`onReopen` below).
+    if (sessions.activeRunId(threadId) !== null || !gw.context.updateGate.accepting()) {
       // Held in memory rather than the durable follow-up queue: `chat_queue.device_id` names a
       // paired device, which a chat sender is not (gap: docs/archive/status/int-2.md).
       const list = waiting.get(threadId) ?? [];
@@ -1008,6 +1012,7 @@ export function composeChannels(
     const list = waiting.get(threadId);
     if (list === undefined || list.length === 0) return;
     if (gateway?.context.sessions.activeRunId(threadId) !== null) return;
+    if (gateway?.context.updateGate.accepting() === false) return;
     const next = list.shift() as Pending;
     if (list.length === 0) waiting.delete(threadId);
     startTurn(threadId, next);
@@ -1243,6 +1248,10 @@ export function composeChannels(
     },
     async start(gw: Gateway) {
       gateway = gw;
+      // An update that never came: held messages start now.
+      stopWatchingGate = gw.context.updateGate.onReopen(() => {
+        for (const threadId of [...waiting.keys()]) drain(threadId);
+      });
       unregisterSendTool ??= services.tools.register(sendTool);
       unsubscribe = gw.bus.subscribe(["operator.read"], onFrame);
       await service.init();
@@ -1267,6 +1276,8 @@ export function composeChannels(
       }
     },
     async stop() {
+      stopWatchingGate?.();
+      stopWatchingGate = undefined;
       unregisterSendTool?.();
       unregisterSendTool = undefined;
       if (timer !== null) clearInterval(timer);

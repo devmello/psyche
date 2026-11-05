@@ -634,7 +634,13 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   const stopWatchingGate = ctx.updateGate.onReopen(() => ctx.sessions.drainAll());
   runRetention(ctx);
   const intervalMs = options.retentionIntervalMs ?? RETENTION_INTERVAL_MS;
-  const retentionTimer = intervalMs > 0 ? setInterval(() => runRetention(ctx), intervalMs) : null;
+  const retentionTimer =
+    intervalMs > 0
+      ? setInterval(() => {
+          // Not while an app update is being prepared: the files are about to be handed over.
+          if (ctx.updateGate.accepting()) runRetention(ctx);
+        }, intervalMs)
+      : null;
   retentionTimer?.unref();
 
   log.log("info", "gateway listening", {

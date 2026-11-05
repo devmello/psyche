@@ -155,6 +155,14 @@ describe("doctor rules", () => {
     expect(check(s, "config")?.message).toContain("gateway.foo");
   });
 
+  it("keys this version does not know → warn, never fail (psyche doctor shows them)", () => {
+    const s = snap({
+      config: { exists: true, config: {}, problems: [], warnings: ["gateway.quantumFlux"] },
+    });
+    expect(check(s, "config")).toMatchObject({ status: "warn" });
+    expect(check(s, "config")?.message).toContain("gateway.quantumFlux");
+  });
+
   it("no config.json → ok (defaults)", () => {
     const s = snap({ config: { exists: false, config: {}, problems: [] } });
     expect(check(s, "config")).toMatchObject({

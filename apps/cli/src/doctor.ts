@@ -26,6 +26,13 @@ export function doctorChecks(s: Snapshot): Check[] {
       message: `config.json: ${s.config.problems.join("; ")}`,
       hint: "Fix it with `psyche config set` or edit $PSYCHE_HOME/config.json",
     });
+  } else if (s.config.warnings?.length) {
+    add({
+      id: "config",
+      status: "warn",
+      message: `config.json has keys this version does not know (${s.config.warnings.join(", ")}); they are kept and ignored`,
+      hint: "Written by a newer version? If it is a typo of a setting, fix it in $PSYCHE_HOME/config.json",
+    });
   } else {
     add({
       id: "config",

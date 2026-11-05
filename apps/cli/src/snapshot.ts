@@ -3,7 +3,7 @@ import { join, relative } from "node:path";
 import type { BackupInfo, McpServerStatus, RealChromeStatus } from "@psyche/protocol";
 import type { GatewayClient, HttpProbe } from "./client.ts";
 import { callIfAvailable } from "./commands/util.ts";
-import { type ConfigObject, readConfig, validateConfig } from "./config-file.ts";
+import { type ConfigObject, readConfig, unknownConfigKeys, validateConfig } from "./config-file.ts";
 import type { Ctx } from "./context.ts";
 import { toReport } from "./errors.ts";
 import { which } from "./exec.ts";
@@ -113,7 +113,13 @@ export interface Snapshot {
   gatewayHost: string;
   platform: NodeJS.Platform;
   probe: HttpProbe;
-  config: { exists: boolean; config: ConfigObject; problems: string[] };
+  config: {
+    exists: boolean;
+    config: ConfigObject;
+    problems: string[];
+    /** Keys this version does not know: kept and ignored, shown by `psyche doctor`. */
+    warnings?: string[];
+  };
   service: ServiceState | null;
   connection: {
     paired: boolean;
@@ -266,7 +272,11 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
   let config: Snapshot["config"];
   try {
     const read = readConfig(ctx.home);
-    config = { ...read, problems: validateConfig(read.config) };
+    config = {
+      ...read,
+      problems: validateConfig(read.config),
+      warnings: unknownConfigKeys(read.config),
+    };
   } catch (err) {
     config = { exists: true, config: {}, problems: [toReport(err).message] };
   }

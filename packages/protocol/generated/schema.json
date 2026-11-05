@@ -20119,6 +20119,15 @@
           "description": "gateway.trustedProxy is on",
           "type": "boolean"
         },
+        "configWarnings": {
+          "description": "Keys in config.json that this version does not know: kept and ignored. Admins only; the Settings screen shows them so a misspelt setting is noticed",
+          "items": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
         "lan": {
           "properties": {
             "enabled": {
@@ -38515,6 +38524,12 @@
         },
         "commit": {
           "description": "The git commit it was built from",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "envBuild": {
+          "description": "The build the LaunchAgent plist (PSYCHE_BUILD) says this process was started for, reported next to the bundle's build-info.json build when both exist. A claim, not a check: `build` is what counts",
           "maxLength": 64,
           "minLength": 1,
           "type": "string"

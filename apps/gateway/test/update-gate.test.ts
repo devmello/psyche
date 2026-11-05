@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BusySources,
+  MAX_CLOSED_TOTAL_MS,
   MAX_UPDATE_TIMEOUT_MS,
   MIN_UPDATE_TIMEOUT_MS,
   UpdateGate,
@@ -71,6 +72,22 @@ describe("UpdateGate", () => {
     expect(gate.state).toBe("draining"); // the first deadline passed; the second has not
     advance(20_000);
     expect(gate.state).toBe("open");
+  });
+
+  it("cannot be held shut for ever by asking again and again", () => {
+    const { gate, advance } = fakeGate(0);
+    gate.close(MAX_UPDATE_TIMEOUT_MS);
+    for (let i = 0; i < 5; i++) {
+      advance(MAX_UPDATE_TIMEOUT_MS - 1_000);
+      if (gate.state === "open") break;
+      gate.close(MAX_UPDATE_TIMEOUT_MS);
+    }
+    // 600 s, then 599 s more, with the second ask cut short by the 900 s total.
+    expect(gate.state).toBe("open");
+    // A fresh stretch gets a fresh allowance.
+    gate.close(MAX_UPDATE_TIMEOUT_MS);
+    expect(gate.deadline).not.toBeNull();
+    expect(MAX_CLOSED_TOTAL_MS).toBeGreaterThan(MAX_UPDATE_TIMEOUT_MS);
   });
 
   it("cancel opens it at once, once, and clears the timer", () => {

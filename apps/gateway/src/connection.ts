@@ -470,7 +470,11 @@ export class Connection implements LiveConnection {
       this.#ctx.now().getTime(),
       this.#ctx.identity,
       this.peer.lan === true ? this.#ctx.lan.certSpki() : null,
-      serverBuild(),
+      // Only to the Host's own app: a remote client, a browser page or a LAN peer is not told
+      // which build runs here (it would only help someone choose an exploit).
+      this.peer.remoteLoopback && this.peer.origin === null && this.peer.lan !== true
+        ? serverBuild()
+        : undefined,
     );
     this.#challenge = pending;
     this.#connectParams = params;

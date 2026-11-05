@@ -10398,18 +10398,24 @@ public struct ServerBuild: Codable, Sendable {
     public let build: String
     /// The git commit it was built from
     public let commit: String?
+    /// The build the LaunchAgent plist (PSYCHE_BUILD) says this process was started for,
+    /// reported next to the bundle's build-info.json build when both exist. A claim, not a
+    /// check: `build` is what counts
+    public let envBuild: String?
     /// The Gateway's version
     public let version: String
 
     public enum CodingKeys: String, CodingKey {
         case build = "build"
         case commit = "commit"
+        case envBuild = "envBuild"
         case version = "version"
     }
 
-    public init(build: String, commit: String? = nil, version: String) {
+    public init(build: String, commit: String? = nil, envBuild: String? = nil, version: String) {
         self.build = build
         self.commit = commit
+        self.envBuild = envBuild
         self.version = version
     }
 }
@@ -15445,6 +15451,9 @@ public enum FrameType: String, Codable, Sendable {
 
 // MARK: - GatewayInfo
 public struct GatewayInfo: Codable, Sendable {
+    /// Keys in config.json that this version does not know: kept and ignored. Admins only; the
+    /// Settings screen shows them so a misspelt setting is noticed
+    public let configWarnings: [String]?
     /// The Host machine's name
     public let hostName: String
     public let identity: Identity
@@ -15455,6 +15464,7 @@ public struct GatewayInfo: Codable, Sendable {
     public let trustedProxy: Bool
 
     public enum CodingKeys: String, CodingKey {
+        case configWarnings = "configWarnings"
         case hostName = "hostName"
         case identity = "identity"
         case lan = "lan"
@@ -15462,7 +15472,8 @@ public struct GatewayInfo: Codable, Sendable {
         case trustedProxy = "trustedProxy"
     }
 
-    public init(hostName: String, identity: Identity, lan: LAN? = nil, publicOrigin: String? = nil, trustedProxy: Bool) {
+    public init(configWarnings: [String]? = nil, hostName: String, identity: Identity, lan: LAN? = nil, publicOrigin: String? = nil, trustedProxy: Bool) {
+        self.configWarnings = configWarnings
         self.hostName = hostName
         self.identity = identity
         self.lan = lan

@@ -243,6 +243,12 @@ export interface SupervisorOptions {
    * Gateway reports in the handshake. Unset (a bundle without build info): neither happens.
    */
   expectedBuild?: string;
+  /**
+   * launchd: asked before the agent is restarted for a build mismatch, so running turns and
+   * tasks are not killed mid-flight (`gateway.prepareUpdate` on the connected Gateway). Best
+   * effort: a Gateway too old to have the method just answers an error, which is ignored.
+   */
+  prepareRestart?: () => Promise<unknown>;
   /** launchd: how long to wait for `/healthz` after starting the agent (default 60 s). */
   healthTimeoutMs?: number;
   /**
@@ -257,6 +263,11 @@ export interface SupervisorOptions {
   onState?: (s: GatewayRunState) => void;
 }
 
+/** A progress note older than this is a Gateway that died while updating, not one that is busy. */
+const UPDATE_PROGRESS_FRESH_MS = 5 * 60_000;
+/** Never wait longer than this for an update to finish, whatever the note says. */
+const UPDATE_WAIT_CEILING_MS = 15 * 60_000;
+
 const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export class GatewaySupervisor {
@@ -265,6 +276,8 @@ export class GatewaySupervisor {
   /** Builds the agent was restarted for already (once each), and the restart in flight. */
   private readonly buildRestarts = new Set<string>();
   private buildRestart: Promise<BuildCheck> | undefined;
+  /** This app attached to a Gateway it does not run (a terminal's, another copy's). */
+  private attached = false;
   private readonly opts: SupervisorOptions;
   private readonly run: Runner;
 
@@ -401,6 +414,8 @@ export class GatewaySupervisor {
   checkServerBuild(server: { build: string } | undefined): Promise<BuildCheck> {
     const expected = this.opts.expectedBuild;
     if (this.opts.mode !== "launchd" || expected === undefined) return Promise.resolve("skipped");
+    // A Gateway this app did not start, or one that is still being started: leave it be.
+    if (this.attached || this.state.kind === "starting") return Promise.resolve("skipped");
     if (server?.build === expected) {
       this.buildRestarts.delete(expected);
       return Promise.resolve("match");
@@ -424,8 +439,23 @@ export class GatewaySupervisor {
     }
     this.buildRestarts.add(expected);
     const restart = (async (): Promise<BuildCheck> => {
+      // Stop new work and give running turns a moment to settle before the process goes.
+      await this.opts.prepareRestart?.().catch(() => undefined);
       this.set({ kind: "starting", mode: "launchd", step: "waiting" });
-      await this.run("/bin/launchctl", [...launchctl.restart(this.uid())]);
+      // `kickstart -k` restarts the loaded job with the plist launchd already read. Unload it,
+      // write the plist this build wants, and load that.
+      const uid = this.uid();
+      const content = await this.launchAgentContent();
+      await this.run("/bin/launchctl", [...launchctl.bootout(uid)]);
+      if (content !== undefined) {
+        mkdirSync(dirname(plistPath), { recursive: true });
+        writeFileSync(plistPath, content, { mode: 0o644 });
+      }
+      if (!(await this.bootstrap(uid, plistPath))) {
+        this.failed("launchctl could not load com.psyche.gateway after the update");
+        return "mismatch";
+      }
+      await this.run("/bin/launchctl", [...launchctl.kickstart(uid)]);
       if (await this.waitHealthy()) {
         await this.refresh();
         return "restarted";
@@ -450,13 +480,43 @@ export class GatewaySupervisor {
     return false;
   }
 
+  /** The Gateway is copying the data or migrating it (`run/update-progress.json`, still fresh). */
+  private updateInProgress(): boolean {
+    try {
+      const note = JSON.parse(
+        readFileSync(join(this.opts.psycheHome, "run", "update-progress.json"), "utf8"),
+      ) as { at?: unknown };
+      const at = typeof note.at === "string" ? Date.parse(note.at) : Number.NaN;
+      return Number.isFinite(at) && Date.now() - at < UPDATE_PROGRESS_FRESH_MS;
+    } catch {
+      return false;
+    }
+  }
+
   private async waitHealthy(): Promise<boolean> {
-    const deadline = Date.now() + (this.opts.healthTimeoutMs ?? 60_000);
+    const started = Date.now();
+    const deadline = started + (this.opts.healthTimeoutMs ?? 60_000);
     for (;;) {
       if (await this.healthy()) return true;
-      if (Date.now() >= deadline) return false;
+      if (Date.now() >= deadline) {
+        // A big database can take minutes to copy and migrate: keep waiting while the Gateway
+        // says it is doing that, up to a ceiling, instead of reporting a failure under it.
+        if (!this.updateInProgress() || Date.now() - started >= UPDATE_WAIT_CEILING_MS)
+          return false;
+      }
       await (this.opts.sleep ?? defaultSleep)(500);
     }
+  }
+
+  /**
+   * The splash's Retry after a failed update was undone: forget the note that makes the Gateway
+   * refuse the same build on the same data, so the next start tries the update again.
+   */
+  retryAfterUpdateFailure(): boolean {
+    const note = join(this.opts.psycheHome, "run", "update-failed.json");
+    const had = existsSync(note);
+    rmSync(note, { force: true });
+    return had;
   }
 
   private failed(reason: string): void {
@@ -511,6 +571,7 @@ export class GatewaySupervisor {
     if (other !== undefined && other !== program && existsSync(other)) {
       const takeOver = (await this.opts.confirmTakeover?.(other).catch(() => false)) ?? false;
       if (!takeOver) {
+        this.attached = true;
         this.set(
           (await this.healthy())
             ? { kind: "running", mode: "launchd" }
@@ -526,9 +587,11 @@ export class GatewaySupervisor {
     }
     if (!loaded && (await this.healthy())) {
       // Someone else serves the Gateway on this port; starting ours would crash-loop on bind.
+      this.attached = true;
       this.set({ kind: "running", mode: "launchd" });
       return;
     }
+    this.attached = false;
     if (changed) {
       this.set({ kind: "starting", mode: "launchd", step: "installing" });
       if (loaded) await this.run("/bin/launchctl", [...launchctl.bootout(uid)]);
