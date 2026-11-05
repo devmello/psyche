@@ -17,6 +17,7 @@ import { daily } from "./daily/zh.ts";
 import { design } from "./design/zh.ts";
 import { deviceAccess } from "./device-access/zh.ts";
 import { final202611 } from "./final-2026-11/zh.ts";
+import { helperCheck } from "./helper-check/zh.ts";
 import { home } from "./home/zh.ts";
 import { links } from "./links/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
@@ -3241,6 +3242,7 @@ export const zh: Partial<Catalogue> = {
   ...final202611,
   // password approvals on Linux (polkit)
   ...passwordPresence,
+  ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
