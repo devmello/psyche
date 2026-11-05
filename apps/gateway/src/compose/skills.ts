@@ -464,7 +464,11 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
       },
     };
   };
-  const recorded = recordedSkillsOf({ listDetailed: () => ready().listDetailed() });
+  const recorded = recordedSkillsOf({
+    listDetailed: () => ready().listDetailed(),
+    skillText: (name) => ready().skillText(name),
+    lessons: (name) => ready().lessons(name),
+  });
   return { part, loader, roles, updates, recorded };
 }
 

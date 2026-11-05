@@ -242,14 +242,23 @@ export function recordingSkillText(input: RecordingSkillInput): string {
 
 // ── unattended runs (teach by showing, design doc §8) ─────────────────────────────────────────
 
-/** One line of the "Recorded steps" block, read back. Names are page text: data only. */
+/** One line of the "Recorded steps" block, read back. Names and addresses are page text: data. */
 export interface ParsedRecordedStep {
   /** 1-based, as the skill numbers it. */
   n: number;
   kind: "open" | "click" | "press" | "fill";
+  /** `fill`: typed into a field, or an option chosen in a list. */
+  verb?: "type" | "select";
   role?: string;
   /** The element's name (page text). */
   name?: string;
+  /** `open`: the address; the origin of the page this step is on (for `open`, where it goes). */
+  url?: string;
+  origin?: string;
+  /** `fill`: the value the owner chose to keep. */
+  value?: string;
+  /** `press`: the key. */
+  key?: string;
   /** The step needs the owner, now or in each run. A kept value needs nothing. */
   needs?: "sensitive" | "input";
 }
@@ -273,10 +282,21 @@ const ROLE = "[A-Za-z0-9_-]+";
 const FIELD = `(${ROLE})(?: at selector ${Q}| (${Q}))`;
 const RE_OPEN = new RegExp(String.raw`^(\d+)\. open ${Q}$`);
 const RE_CLICK = new RegExp(String.raw`^(\d+)\. click the ${FIELD}$`);
-const RE_PRESS = new RegExp(String.raw`^(\d+)\. press \S+(?: in the ${FIELD})?$`);
+// A key press names its field: one with no field cannot be checked before it is pressed.
+const RE_PRESS = new RegExp(String.raw`^(\d+)\. press (\S+) in the ${FIELD}$`);
 const RE_FILL = new RegExp(
-  String.raw`^(\d+)\. (?:type into|choose an option in) the ${FIELD}: (sensitive, the owner does this themselves \(never type or fill it\)|${Q} \(a value the owner chose to keep\)|the value of input \S.*)$`,
+  String.raw`^(\d+)\. (type into|choose an option in) the ${FIELD}: (sensitive, the owner does this themselves \(never type or fill it\)|${Q} \(a value the owner chose to keep\)|the value of input \S.*)$`,
 );
+
+function originOf(url: string | undefined): string | undefined {
+  if (url === undefined) return undefined;
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:" ? u.origin : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function jsonString(q: string | undefined): string | undefined {
   if (q === undefined) return undefined;
@@ -316,6 +336,7 @@ export function recordingUnattended(text: string): UnattendedCheck {
     return { eligible: false, steps: 0, reasons: [{ code: "unreadable" }], parsed: [] };
   const reasons: UnattendedReason[] = [];
   const parsed: ParsedRecordedStep[] = [];
+  let origin: string | undefined;
   for (const [i, line] of lines.entries()) {
     const want = i + 1;
     const open = RE_OPEN.exec(line);
@@ -323,7 +344,15 @@ export function recordingUnattended(text: string): UnattendedCheck {
     const press = RE_PRESS.exec(line);
     const fill = RE_FILL.exec(line);
     if (open !== null && Number(open[1]) === want) {
-      parsed.push({ n: want, kind: "open" });
+      const url = jsonString(/ open (".*")$/.exec(line)?.[1]);
+      const o = originOf(url);
+      if (o !== undefined) origin = o;
+      parsed.push({
+        n: want,
+        kind: "open",
+        ...(url === undefined ? {} : { url }),
+        ...(origin === undefined ? {} : { origin }),
+      });
     } else if (click !== null && Number(click[1]) === want) {
       const name = jsonString(click[3]);
       parsed.push({
@@ -331,23 +360,37 @@ export function recordingUnattended(text: string): UnattendedCheck {
         kind: "click",
         ...(click[2] === undefined ? {} : { role: click[2] }),
         ...(name === undefined ? {} : { name }),
+        ...(origin === undefined ? {} : { origin }),
       });
     } else if (press !== null && Number(press[1]) === want) {
-      parsed.push({ n: want, kind: "press" });
+      const name = jsonString(press[4]);
+      parsed.push({
+        n: want,
+        kind: "press",
+        key: press[2] ?? "Enter",
+        ...(press[3] === undefined ? {} : { role: press[3] }),
+        ...(name === undefined ? {} : { name }),
+        ...(origin === undefined ? {} : { origin }),
+      });
     } else if (fill !== null && Number(fill[1]) === want) {
-      const what = fill[4] ?? "";
-      const name = jsonString(fill[3]);
+      const what = fill[5] ?? "";
+      const name = jsonString(fill[4]);
       const needs = what.startsWith("sensitive")
         ? "sensitive"
         : what.startsWith("the value of input")
           ? "input"
           : undefined;
       if (needs !== undefined) reasons.push({ code: needs, step: want });
+      const value =
+        needs === undefined ? jsonString(/^(".*") \(a value/.exec(what)?.[1]) : undefined;
       parsed.push({
         n: want,
         kind: "fill",
-        ...(fill[2] === undefined ? {} : { role: fill[2] }),
+        verb: fill[2] === "type into" ? "type" : "select",
+        ...(fill[3] === undefined ? {} : { role: fill[3] }),
         ...(name === undefined ? {} : { name }),
+        ...(origin === undefined ? {} : { origin }),
+        ...(value === undefined ? {} : { value }),
         ...(needs === undefined ? {} : { needs }),
       });
     } else {
@@ -355,6 +398,13 @@ export function recordingUnattended(text: string): UnattendedCheck {
       parsed.push({ n: want, kind: "click" });
     }
   }
+  // An element named only by its selector cannot be checked by role and name: not unattended.
+  for (const st of parsed)
+    if (st.kind !== "open" && st.name === undefined && !reasons.some((r) => r.step === st.n))
+      reasons.push({ code: "unreadable", step: st.n });
+  // A page-changing step needs a page to be on.
+  if (parsed.some((st) => st.kind !== "open" && st.origin === undefined) && reasons.length === 0)
+    reasons.push({ code: "unreadable" });
   return { eligible: reasons.length === 0, steps: lines.length, reasons, parsed };
 }
 

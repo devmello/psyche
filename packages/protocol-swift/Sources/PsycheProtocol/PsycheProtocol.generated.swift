@@ -6402,13 +6402,19 @@ public enum AutomationKind: String, Codable, Sendable {
 
 // MARK: - RecordedSkill
 public struct RecordedSkill: Codable, Sendable {
+    public let hash: String?
+    public let lessons: String?
     public let skill: String
 
     public enum CodingKeys: String, CodingKey {
+        case hash = "hash"
+        case lessons = "lessons"
         case skill = "skill"
     }
 
-    public init(skill: String) {
+    public init(hash: String? = nil, lessons: String? = nil, skill: String) {
+        self.hash = hash
+        self.lessons = lessons
         self.skill = skill
     }
 }

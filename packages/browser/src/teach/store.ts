@@ -11,8 +11,10 @@ import {
   lstatSync,
   mkdirSync,
   openSync,
+  readdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { chmod, lstat, mkdir, open, readdir, rename, rm, writeFile } from "node:fs/promises";
@@ -82,7 +84,7 @@ export interface TeachKeySeal {
 export function loadTeachKey(
   path: string,
   wrap?: TeachKeySeal,
-  options: { adoptPlain?: boolean } = {},
+  options: { adoptPlain?: boolean | (() => boolean) } = {},
 ): Buffer {
   let st: ReturnType<typeof lstatSync> | undefined;
   try {
@@ -109,9 +111,23 @@ export function loadTeachKey(
     // bytes (a wrapped one is longer). Keep that key, so files signed with it still verify, and
     // wrap it now. The encryption key never does this: a raw file there is an error, so a planted
     // file cannot choose the key.
-    if (options.adoptPlain === true && wrap !== undefined && raw.length === 32) {
+    // It happens once: the caller says whether it may (no marker yet, no encrypted file yet), and
+    // the temporary file is created exclusively without following a link.
+    const mayAdopt =
+      typeof options.adoptPlain === "function" ? options.adoptPlain() : options.adoptPlain === true;
+    if (mayAdopt && wrap !== undefined && raw.length === 32) {
       const tmp = `${path}.tmp`;
-      writeFileSync(tmp, wrap.seal(raw), { mode: 0o600, flag: "w" });
+      rmSync(tmp, { force: true });
+      const out = openSync(
+        tmp,
+        constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+        0o600,
+      );
+      try {
+        writeFileSync(out, wrap.seal(raw));
+      } finally {
+        closeSync(out);
+      }
       renameSync(tmp, path);
       return raw;
     }
@@ -166,6 +182,32 @@ export interface TeachStoreOptions {
   enc?: EncKey | null;
   /** A kept file that was ignored, and why in one line (no content). */
   log?: (message: string) => void;
+  /**
+   * Called once the older signed files have been dealt with (migrated, or left because they do not
+   * verify). The signing key is of no further use then: the desktop deletes it.
+   */
+  onMigrated?: () => void;
+}
+
+/** Whether the folder already holds an encrypted file (sync; for the one-time key adoption). */
+export function hasEncryptedRecordings(dir: string): boolean {
+  let names: string[];
+  try {
+    names = readdirSync(dir);
+  } catch {
+    return false;
+  }
+  for (const n of names) {
+    if (!n.endsWith(".json")) continue;
+    try {
+      const st = lstatSync(join(dir, n));
+      if (!st.isFile() || st.size > MAX_FILE_BYTES) continue;
+      if ((JSON.parse(readFileSync(join(dir, n), "utf8")) as { v?: unknown })?.v === 2) return true;
+    } catch {
+      // not a readable file of ours
+    }
+  }
+  return false;
 }
 
 export class TeachKeptStore {
@@ -175,6 +217,8 @@ export class TeachKeptStore {
   #enc: EncKey | null | undefined;
   #log: (message: string) => void;
   #migrated: Promise<void> | undefined;
+  #migratedOnce: (() => void) | undefined;
+  #done = false;
 
   /** `key` may be a function, so the key file is made only when a recording is first kept or read. */
   constructor(
@@ -188,6 +232,21 @@ export class TeachKeptStore {
     this.#now = now;
     this.#enc = options.enc;
     this.#log = options.log ?? (() => {});
+    this.#migratedOnce = options.onMigrated;
+  }
+
+  /**
+   * Opens the key now and says whether a recording can be kept. A keychain that is there but will
+   * not open the key (locked, a different login) is the same as none, and is remembered.
+   */
+  async probe(): Promise<boolean> {
+    if (this.#enc === null || this.#enc === undefined) return this.canKeep;
+    try {
+      this.#encKey();
+    } catch {
+      // #encKey has already logged it and switched keeping off.
+    }
+    return this.canKeep;
   }
 
   /** Whether a new recording can be kept: false without a keychain (nothing plain is written). */
@@ -203,7 +262,18 @@ export class TeachKeptStore {
   #encKey(): Buffer {
     if (this.#enc === null || this.#enc === undefined)
       throw new PsycheError("unavailable", "recordings cannot be encrypted on this Mac");
-    if (typeof this.#enc === "function") this.#enc = this.#enc();
+    if (typeof this.#enc === "function") {
+      try {
+        this.#enc = this.#enc();
+      } catch (err) {
+        // Once is enough: no more attempts, nothing new is kept, and the files stay unread.
+        this.#enc = null;
+        this.#log(
+          `kept recordings: the encryption key cannot be opened (${err instanceof Error ? err.message : "error"})`,
+        );
+        throw new PsycheError("unavailable", "recordings cannot be encrypted on this Mac");
+      }
+    }
     if (this.#enc.length !== 32)
       throw new PsycheError("internal", "the encryption key has the wrong size");
     return this.#enc;
@@ -296,6 +366,9 @@ export class TeachKeptStore {
       }
       await this.#write(this.#file(id), this.#seal(rec));
     }
+    // Nothing plain is read from here on, and the signing key is not needed again.
+    this.#done = true;
+    this.#migratedOnce?.();
   }
 
   /** The file's parsed JSON, or `undefined` for a link, a huge file or one that is not JSON. */
@@ -407,8 +480,13 @@ export class TeachKeptStore {
           return undefined;
         }
       } else if (parsed.v === 1) {
-        // With a keychain the plain files were re-written when the store opened, so one left here
-        // did not verify. Without one it is still read if its signature holds.
+        // With a keychain the plain files were re-written when the store opened, and the ones
+        // left did not verify: a plain file is never read again. Without one it is still read if
+        // its signature holds.
+        if (this.#done) {
+          this.#log(`kept recording ${id}: ignored (plain files are not read after migration)`);
+          return undefined;
+        }
         r = this.#verifySigned(id, parsed as Signed);
         if (r === undefined) {
           this.#log(`kept recording ${id}: ignored (the signature does not match)`);

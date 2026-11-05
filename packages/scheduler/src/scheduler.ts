@@ -377,6 +377,13 @@ export class SqliteScheduler implements Scheduler {
   async update(id: string, patch: AutomationPatch): Promise<Automation> {
     const event = this.#tx(() => {
       const current = this.#automation(id);
+      // A recorded task is fixed by the skill the owner approved: it can be paused and resumed,
+      // nothing else (removing it and scheduling it again is how it changes).
+      if (
+        current.recordedSkill !== undefined &&
+        Object.entries(patch).some(([k, v]) => v !== undefined && k !== "enabled")
+      )
+        bad("a scheduled recording can only be paused or resumed");
       const next = { ...current, ...patch };
       if (patch.kind !== undefined && patch.kind !== current.kind) bad("kind cannot change");
       const schedule = this.#validate(next);

@@ -92,6 +92,15 @@ export function isGraphCard(path: string): boolean {
   return (p.startsWith("people/") || p.startsWith("projects/")) && p.endsWith(".md");
 }
 
+/**
+ * `skills/**` in the workspace holds what skills carry with them (a skill's `LESSONS.md`, which is
+ * loaded next to its instructions). The agent never writes there: lessons come from the owner's
+ * teaching card (actor `job`), skills from the skill installer.
+ */
+export function isSkillFile(path: string): boolean {
+  return /^(?:\.\/)*skills\//i.test(path);
+}
+
 export function isProtected(path: string): boolean {
   return PROTECTED_FILES.has(canonicalCase(path));
 }

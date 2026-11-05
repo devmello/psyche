@@ -59,7 +59,7 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 
 **Status.** Phase 1 (browser only) is built: Record and Stop on the built-in browser, a review screen, a skill draft through the usual approval card, and "Run it once now". The design, the privacy rules and the answers to the open questions below are in [docs/design/teach-by-showing-2026.md](../design/teach-by-showing-2026.md).
 
-**Also built.** "Run it every week" for a skill made from a recording, from the skill's page through Scheduled (owner only; steps that are sensitive or ask for a value each time are refused; a changed page stops the run and notifies; approvals wait; see §8 of the design). Kept recordings are encrypted at rest with a keychain-sealed key and are not kept when there is no keychain (§5).
+**Also built.** "Run it every week" for a skill made from a recording, from the skill's page through Scheduled (owner only; steps that are sensitive or ask for a value each time are refused; a changed page or a step that needs an approval stops the run, notifies the owner and pauses the schedule; see §8 of the design). Kept recordings are encrypted at rest with a keychain-sealed key and are not kept when there is no keychain (§5).
 
 **What is left.** The accessibility recorder for Mac apps (phase 2; the Mac helper has one, not yet joined to the review screen), and asking which values were examples across recordings. Scheduled runs that ask the owner for a value, instead of refusing the skill, are not built.
 

@@ -48,7 +48,7 @@ export const scheduled = {
   "scheduled.row.noSummary": "Runs the instruction you gave it.",
   "scheduled.row.recorded": "From a recording",
   "scheduled.row.recordedBody":
-    "Repeats the task you showed Psyche. If the page has changed, it stops at that step and tells you. Anything that needs your approval waits for you.",
+    "Repeats the task you showed Psyche. If the page has changed, or a step needs your approval, it stops at that step, pauses, and tells you.",
 
   "scheduled.approvals.none": "None. It only uses what you've turned on in Settings.",
   "scheduled.approvals.queued":

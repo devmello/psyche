@@ -103,9 +103,31 @@ export function automationFromRow(r: AutomationRow, w?: WatchRow): Automation {
   if (w !== undefined) a.watch = watchConfigFromRow(w);
   if (r.trigger != null) a.trigger = JSON.parse(r.trigger) as AutomationTrigger;
   if (r.specialist != null) a.specialist = JSON.parse(r.specialist) as Automation["specialist"];
-  if (r.recorded_skill != null)
-    a.recordedSkill = JSON.parse(r.recorded_skill) as Automation["recordedSkill"];
+  if (r.recorded_skill != null) a.recordedSkill = recordedSkillOf(r.recorded_skill);
   return a;
+}
+
+/**
+ * The recorded-skill marker, shape-checked. A value that is not what was written ({skill, hash?,
+ * lessons?} of short strings) still counts as a marker with no hash, so the run is paused for the
+ * owner to confirm instead of being run as a plain automation.
+ */
+export function recordedSkillOf(json: string): NonNullable<Automation["recordedSkill"]> {
+  try {
+    const v = JSON.parse(json) as Record<string, unknown> | null;
+    const str = (x: unknown, max: number) =>
+      typeof x === "string" && x.length > 0 && x.length <= max ? x : undefined;
+    const skill = str(v?.skill, 64);
+    const hash = str(v?.hash, 128);
+    const lessons = str(v?.lessons, 128);
+    return {
+      skill: skill ?? "unknown",
+      ...(hash === undefined ? {} : { hash }),
+      ...(lessons === undefined ? {} : { lessons }),
+    };
+  } catch {
+    return { skill: "unknown" };
+  }
 }
 
 export function runFromRow(r: RunRow): AutomationRun {

@@ -1808,7 +1808,9 @@ export interface Delivery {
 export type AutomationKind = "cron" | "interval" | "watch" | "heartbeat" | "briefing" | "reminder" | "event";
 
 export interface RecordedSkill {
-    skill: string;
+    hash?:    string;
+    lessons?: string;
+    skill:    string;
 }
 
 export interface AutomationSpecialist {

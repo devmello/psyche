@@ -33,7 +33,7 @@ export const teach = {
   "settings.recording.cannotWhy":
     "A scheduled run has nobody to ask, so it never fills in a password or asks for a value. You can still run it yourself from the chat.",
   "settings.recording.rules":
-    "You choose when. Each run uses your usual approvals and waits for you if one is needed. If the page has changed, it stops at that step and tells you. It never guesses.",
+    "You choose when. Each run uses your usual approvals. If the page has changed, or a step needs your approval, it stops at that step, pauses, and tells you. It never guesses.",
   "settings.recording.every": "Every",
   "settings.recording.daily": "day",
   "settings.recording.weekly": "week on",

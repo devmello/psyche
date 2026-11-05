@@ -10111,6 +10111,14 @@
               "maxLength": 64,
               "minLength": 1,
               "type": "string"
+            },
+            "hash": {
+              "maxLength": 128,
+              "type": "string"
+            },
+            "lessons": {
+              "maxLength": 128,
+              "type": "string"
             }
           },
           "required": [

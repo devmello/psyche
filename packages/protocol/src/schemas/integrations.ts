@@ -415,7 +415,12 @@ export const Automation = Type.Object(
      * broker, stops on any changed page and cannot do a sensitive or ask-each-time step.
      */
     recordedSkill: Type.Optional(
-      Type.Object({ skill: Type.String({ minLength: 1, maxLength: 64 }) }),
+      Type.Object({
+        skill: Type.String({ minLength: 1, maxLength: 64 }),
+        /** The skill's tree hash and a hash of its lessons when the owner scheduled it. */
+        hash: Type.Optional(Type.String({ maxLength: 128 })),
+        lessons: Type.Optional(Type.String({ maxLength: 128 })),
+      }),
     ),
   },
   { $id: "Automation" },

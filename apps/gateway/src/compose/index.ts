@@ -1455,8 +1455,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // A scheduled recording holds to its rules (stops on a changed page, no guessing); other
   // automations pass through. The guard watches the loop's tool calls for those tasks only.
   const recordedRuns = new RecordedRuns();
-  attachRecordedRunGuard(loop.hooks, recordedRuns, (taskId, reason) =>
-    tasks.cancel(taskId, reason),
+  attachRecordedRunGuard(
+    loop.hooks,
+    recordedRuns,
+    (taskId, reason) => tasks.cancel(taskId, reason),
+    () => skills.recorded.names(),
   );
   launcher = withPausedRoutines(
     withRecordedSkillRuns(
@@ -1498,6 +1501,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         skills: skills.recorded,
         runs: recordedRuns,
         pause: (id) => scheduler.update(id, { enabled: false }),
+        automationOf: (id) => scheduler.get(id),
       },
     ),
     // Scheduled → Pause: a paused routine skips its scheduled runs (Run now still goes through).

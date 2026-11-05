@@ -97,3 +97,48 @@ describe("recordedStepFor", () => {
     expect(recordedStepFor([], { name: "x" }, 0)).toBeUndefined();
   });
 });
+
+describe("what the guard needs from each step", () => {
+  it("keeps the origin, the kept value, the verb and the key", () => {
+    const c = recordingUnattended(
+      text([
+        open,
+        kept,
+        {
+          id: "s4",
+          kind: "select",
+          role: "combobox",
+          name: "Range",
+          value: "Week",
+          keepValue: true,
+        },
+        { id: "s5", kind: "press", key: "Enter", role: "textbox", name: "Search" },
+        { id: "s6", kind: "navigate", url: "https://other.example.org/x" },
+        click,
+      ]),
+    );
+    expect(c.eligible).toBe(true);
+    const [o, f, sel, p, o2, cl] = c.parsed;
+    expect(o).toMatchObject({ kind: "open", origin: "https://billing.example.com" });
+    expect(f).toMatchObject({
+      kind: "fill",
+      verb: "type",
+      value: "2026-11-01",
+      name: "From",
+      role: "textbox",
+      origin: "https://billing.example.com",
+    });
+    expect(sel).toMatchObject({ verb: "select", value: "Week" });
+    expect(p).toMatchObject({ kind: "press", key: "Enter", name: "Search" });
+    expect(o2).toMatchObject({ origin: "https://other.example.org" });
+    expect(cl).toMatchObject({ origin: "https://other.example.org", name: "Export" });
+  });
+
+  it("will not run a key press that names no field, or an element known only by selector", () => {
+    const good = text([open, click]);
+    const nameless = good.replace(/2\. click the .*/, "2. press Enter");
+    expect(recordingUnattended(nameless).eligible).toBe(false);
+    const bySelector = good.replace(/2\. click the .*/, '2. click the button at selector "#x"');
+    expect(recordingUnattended(bySelector).eligible).toBe(false);
+  });
+});

@@ -1,5 +1,11 @@
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadTeachKey, TeachKeptStore, type TeachKeySeal } from "@psyche/browser/teach";
+import {
+  hasEncryptedRecordings,
+  loadTeachKey,
+  TeachKeptStore,
+  type TeachKeySeal,
+} from "@psyche/browser/teach";
 import {
   type BridgeProfile,
   type BridgeTab,
@@ -242,7 +248,14 @@ export class BrowserHost implements BridgeTabHost {
       onChange: () => this.scheduleState(),
       kept: new TeachKeptStore(
         join(this.home, "state", "teach"),
-        () => loadTeachKey(join(this.userData, "teach.key"), keychainSeal(), { adoptPlain: true }),
+        () =>
+          loadTeachKey(join(this.userData, "teach.key"), keychainSeal(), {
+            // An unwrapped key from the first version is wrapped once: not after the migration,
+            // and not while an encrypted recording exists.
+            adoptPlain: () =>
+              !existsSync(join(this.userData, "teach.key.done")) &&
+              !hasEncryptedRecordings(join(this.home, "state", "teach")),
+          }),
         Date.now,
         {
           // No keychain: nothing new is kept (a plain copy of the steps is the worse outcome).
@@ -251,6 +264,17 @@ export class BrowserHost implements BridgeTabHost {
               ? null
               : () => loadTeachKey(join(this.userData, "teach.enc.key"), keychainSeal()),
           log: (m) => console.warn(`[teach] ${m}`),
+          onMigrated: () => {
+            // The signing key has done its job: leave a marker, so a key planted later is not
+            // adopted, and delete the key file.
+            if (keychainSeal() === undefined) return;
+            try {
+              writeFileSync(join(this.userData, "teach.key.done"), "1", { mode: 0o600 });
+              rmSync(join(this.userData, "teach.key"), { force: true });
+            } catch {
+              // best effort: the store refuses plain files either way
+            }
+          },
         },
       ),
     });
