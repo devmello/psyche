@@ -16,6 +16,7 @@ import { designRest } from "./design-rest/ko.ts";
 import { everythingRest } from "./everything-rest/ko.ts";
 import { final202611 } from "./final-2026-11/ko.ts";
 import { galleryRest } from "./gallery-rest/ko.ts";
+import { helperCheck } from "./helper-check/ko.ts";
 import { homeRest } from "./home-rest/ko.ts";
 import { links } from "./links/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
@@ -3268,6 +3269,7 @@ export const ko: Partial<Catalogue> = {
   ...final202611,
   // password approvals on Linux (polkit)
   ...passwordPresence,
+  ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
 };

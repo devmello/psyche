@@ -114,6 +114,7 @@ export {
   policyWithFolderMode,
   policyWithFolders,
 } from "./FileAccessSection.tsx";
+export { type HostHelperStatus, parseHostHelperStatus } from "./HostHelperCheckGroup.tsx";
 export { type MacHelperStatus, MacHelperStatusRow } from "./MacHelperStatus.tsx";
 export {
   ModelProvidersPanel,

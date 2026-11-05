@@ -68,6 +68,8 @@ interface Proc {
   ppid?: number;
   /** Default: the helper's ready name for a process with an exe. */
   comm?: string;
+  /** Namespace links (`user:[n]`), when not the Gateway's own. */
+  ns?: { user?: string; mnt?: string };
   /** `State:` letter and `TracerPid` of /proc/<pid>/status. */
   state?: string;
   tracer?: number;
@@ -124,6 +126,12 @@ function system(
     },
     async readlink(p) {
       if (p === "/proc/self/fd/22") return `socket:[${OURS}]`;
+      const ns = /^\/proc\/(self|\d+)\/ns\/(user|mnt)$/.exec(p);
+      if (ns) {
+        const other =
+          ns[1] === "self" ? undefined : procs[Number(ns[1])]?.ns?.[ns[2] as "user" | "mnt"];
+        return other ?? `${ns[2]}:[4026531837]`;
+      }
       const proc = procOf(p);
       if (/\/exe$/.test(p) && proc?.exe) return proc.exe;
       const task = /^\/proc\/\d+\/task\/(\d+)\/fd\/(\d+)$/.exec(p);
@@ -474,6 +482,40 @@ describe("injected libraries, anonymous code and the loader environment", () => 
       ]),
       environ: "LD_PRELOAD=/home/u/evil.so\0",
       comm: "psyche-helper",
+    };
+    expect((await run(dev)).check).toBe("user_owned");
+  });
+});
+
+describe("namespaces", () => {
+  const run = (p: Proc) => check(system(only(p)));
+
+  it("a helper in another mount or user namespace is unverified (other_namespace)", async () => {
+    // A private mount could put files with chosen inode numbers over the system libraries.
+    expect(await run({ ...packaged, ns: { mnt: "mnt:[4026532999]" } })).toEqual({
+      check: "unverified",
+      reason: "other_namespace",
+    });
+    expect((await run({ ...packaged, ns: { user: "user:[4026532888]" } })).reason).toBe(
+      "other_namespace",
+    );
+  });
+  it("the same namespaces pass, and unreadable ones are unverified", async () => {
+    expect((await run(packaged)).check).toBe("root_owned");
+    const deps = system(only(packaged));
+    const base = deps.readlink.bind(deps);
+    deps.readlink = async (p) => {
+      if (p.includes("/ns/")) throw eErr("EACCES");
+      return base(p);
+    };
+    expect(await check(deps)).toEqual({ check: "unverified", reason: "namespace_unreadable" });
+  });
+  it("a development build in other namespaces is only recorded", async () => {
+    const dev = {
+      ...packaged,
+      exe: "/home/u/target/debug/psyche-helper",
+      uid: 1000,
+      ns: { mnt: "mnt:[4026532999]" },
     };
     expect((await run(dev)).check).toBe("user_owned");
   });

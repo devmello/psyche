@@ -7,6 +7,7 @@ import { chatA } from "./chat-a/es.ts";
 import { dailyA } from "./daily-a/es.ts";
 import { final202611 } from "./final-2026-11/es.ts";
 import { galleryA } from "./gallery-a/es.ts";
+import { helperCheck } from "./helper-check/es.ts";
 import { homeA } from "./home-a/es.ts";
 import { links } from "./links/es.ts";
 import { mailMeetings } from "./mail-meetings/es.ts";
@@ -3358,6 +3359,7 @@ export const es: Partial<Catalogue> = {
   ...final202611,
   // password approvals on Linux (polkit)
   ...passwordPresence,
+  ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
 };
