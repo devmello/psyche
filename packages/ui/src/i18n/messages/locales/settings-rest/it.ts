@@ -756,6 +756,8 @@ export const settingsRest: Partial<Catalogue> = {
     "Riavvia Psyche. Poi, sull’altro computer, aggiungi questo Mac come Gateway. Mostra un codice di abbinamento e l’impronta di una chiave: confrontali con la richiesta in “In attesa di abbinamento” qui, poi approvala.",
   "settings.remote.funnel":
     "Non attivare mai Tailscale Funnel per questo. Metterebbe il Gateway su internet pubblico.",
+  "settings.remote.configWarnings":
+    "config.json contiene impostazioni che questa versione di Psyche non conosce e quindi ignora: {keys}. Se intendevi una di queste, controlla l’ortografia.",
   "settings.remote.admin":
     "Un computer che si abbina ottiene lettura, scrittura e approvazioni. L’amministrazione resta disattivata a meno che tu non la selezioni durante l’approvazione, e ogni modifica di amministrazione richiede comunque il tuo Touch ID qui.",
   "settings.remote.address": "Indirizzo pubblico",

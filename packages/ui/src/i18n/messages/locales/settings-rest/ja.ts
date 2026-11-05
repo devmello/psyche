@@ -742,6 +742,8 @@ export const settingsRest: Partial<Catalogue> = {
     "Psycheを再起動します。次に、ほかのコンピュータでこのMacをGatewayとして追加します。ペアリングコードとキーのフィンガープリントが表示されるので、ここの「ペアリング待ち」の要求と照合してから承認してください。",
   "settings.remote.funnel":
     "このためにTailscale Funnelをオンにしないでください。Gatewayが公開インターネットに出てしまいます。",
+  "settings.remote.configWarnings":
+    "config.json に、このバージョンのPsycheが認識できない設定があるため、無視されます: {keys}。いずれかを意図していた場合は、つづりを確認してください。",
   "settings.remote.admin":
     "ペアリングしたコンピュータには、読み取り、書き込み、承認の権限が付与されます。管理者権限は、承認時にチェックしない限りオフのままで、管理者としての変更には毎回ここでTouch IDが必要です。",
   "settings.remote.address": "公開アドレス",

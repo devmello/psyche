@@ -230,6 +230,8 @@ export const settingsC: Partial<Catalogue> = {
     "Reinicie o Psyche. Depois, no outro computador, adicione este Mac como Gateway. Ele mostra um código de emparelhamento e a impressão digital de uma chave: compare-os com o pedido em “Aguardando emparelhamento” aqui e aprove.",
   "settings.remote.funnel":
     "Nunca ative o Tailscale Funnel para isto. Ele colocaria o Gateway na internet pública.",
+  "settings.remote.configWarnings":
+    "O config.json tem ajustes que esta versão do Psyche não conhece, por isso ela os ignora: {keys}. Se você queria usar algum deles, confira a grafia.",
   "settings.remote.admin":
     "Um computador que emparelha recebe leitura, gravação e aprovações. Admin continua desativado, a menos que você marque ao aprovar, e cada alteração de admin ainda exige o seu Touch ID aqui.",
   "settings.remote.address": "Endereço público",

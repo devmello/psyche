@@ -690,6 +690,8 @@ export const settings: Partial<Catalogue> = {
     "أعد تشغيل Psyche. ثم على الكمبيوتر الآخر أضف هذا الـ Mac كـ Gateway. سيعرض رمز إقران وبصمة مفتاح: قارنهما بالطلب ضمن «بانتظار الإقران» هنا، ثم وافق عليه.",
   "settings.remote.funnel":
     "لا تفعّل Tailscale Funnel لهذا الغرض أبدًا. فسيضع Gateway على الإنترنت العام.",
+  "settings.remote.configWarnings":
+    "يحتوي config.json على إعدادات لا تعرفها هذه النسخة من Psyche، لذلك تتجاهلها: {keys}. إن كنت تقصد أحدها، فتحقق من الإملاء.",
   "settings.remote.admin":
     "يحصل الكمبيوتر المقترن على القراءة والكتابة والموافقات. تبقى صلاحية المسؤول متوقفة ما لم تحدّدها عند الموافقة، وكل تغيير إداري يتطلب Touch ID منك هنا.",
   "settings.remote.address": "العنوان العام",

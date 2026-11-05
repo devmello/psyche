@@ -735,6 +735,8 @@ export const settingsRest: Partial<Catalogue> = {
     "Psyche를 다시 시작합니다. 그런 다음 다른 컴퓨터에서 이 Mac을 Gateway로 추가합니다. 페어링 코드와 키 지문이 표시되면, 여기 페어링 대기 중의 요청과 비교한 다음 승인하십시오.",
   "settings.remote.funnel":
     "이 용도로 Tailscale Funnel을 켜지 마십시오. Gateway가 공개 인터넷에 노출됩니다.",
+  "settings.remote.configWarnings":
+    "config.json에 이 버전의 Psyche가 알지 못하는 설정이 있어 무시됩니다: {keys}. 그중 하나를 의도하셨다면 철자를 확인하십시오.",
   "settings.remote.admin":
     "페어링된 컴퓨터에는 읽기, 쓰기, 승인 권한이 부여됩니다. 관리자 권한은 승인할 때 선택하지 않으면 꺼진 상태로 유지되며, 관리자 변경마다 여기서 Touch ID가 필요합니다.",
   "settings.remote.address": "공개 주소",

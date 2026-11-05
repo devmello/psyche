@@ -91,6 +91,7 @@ export const webRest: Partial<Catalogue> = {
   "web.splash.remote.tokenRefused": "{host} ha rifiutato questo link di abbinamento.",
   "web.splash.remote.tokenRefusedReason":
     "È già stato usato, è scaduto o è stato revocato. Creane uno nuovo su {host} e aggiungilo di nuovo.",
+  "web.splash.restoredByHand": "Ho ripristinato io i miei dati",
   "web.splash.remote.switch": "Cambia Gateway",
   "web.splash.remote.useThisMac": "Usa questo Mac",
   "web.splash.remote.pairAgain": "Dimentica e abbina di nuovo",

@@ -758,6 +758,8 @@ export const settingsRest: Partial<Catalogue> = {
     "Starte Psyche neu. Füge dann auf dem anderen Computer diesen Mac als Gateway hinzu. Er zeigt einen Kopplungscode und einen Schlüssel-Fingerabdruck: Vergleiche sie mit der Anfrage unter „Wartet auf Kopplung“ hier und genehmige sie dann.",
   "settings.remote.funnel":
     "Schalte dafür nie Tailscale Funnel ein. Es würde das Gateway im öffentlichen Internet erreichbar machen.",
+  "settings.remote.configWarnings":
+    "config.json enthält Einstellungen, die diese Version von Psyche nicht kennt und deshalb ignoriert: {keys}. Falls du eine davon meintest, prüfe die Schreibweise.",
   "settings.remote.admin":
     "Ein gekoppelter Computer erhält Lesen, Schreiben und Genehmigungen. Admin bleibt aus, außer du hakst es bei der Genehmigung an, und jede Admin-Änderung braucht hier weiterhin deine Touch ID.",
   "settings.remote.address": "Öffentliche Adresse",
