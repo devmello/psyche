@@ -200,7 +200,7 @@ export function acceptBridgeStream(
 
 /**
  * Unix-socket listener, mode 0600 in a 0700 directory; on Windows a named pipe
- * (`\\.\pipe\psyche-bridge-<hash>`, guarded by the handshake secret and the pipe's default DACL,
+ * (`\\.\pipe\psyche-<hash>-browser-bridge`, guarded by the handshake secret and the pipe's default DACL,
  * `@psyche/protocol/platform`). One desktop client at a time.
  */
 export class BridgeServer {

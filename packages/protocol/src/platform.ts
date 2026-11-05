@@ -13,7 +13,7 @@ import { join, resolve } from "node:path";
  * the absolute `$PSYCHE_HOME`:
  *
  * - node transport: `\\.\pipe\psyche-node-<first 16 hex of sha256(absolute PSYCHE_HOME)>`
- * - browser bridge: `\\.\pipe\psyche-bridge-<same hash>`
+ * - browser bridge: `\\.\pipe\psyche-<first 16 hex of sha256(lower-case absolute PSYCHE_HOME)>-browser-bridge`
  *
  * Clients never derive the name themselves: the Gateway writes the node endpoint it listens on to
  * `$PSYCHE_HOME/run/node-socket` and the bridge endpoint to `run/browser-bridge-socket`, exactly
@@ -43,9 +43,18 @@ export function psycheHomeHash(home: string): string {
 
 export type LocalEndpointKind = "node" | "bridge";
 
-/** The named pipe a Gateway on Windows listens on for `kind`, for this `$PSYCHE_HOME`. */
+/**
+ * The named pipe a Gateway on Windows listens on for `kind`, for this `$PSYCHE_HOME`. The two
+ * names are fixed by their clients' fallbacks (used when no pointer file is there): the
+ * win-helper's `psyche-node-<hash of the home as given>`, and the desktop's
+ * `psyche-<hash of the home in lower case>-browser-bridge` (apps/desktop `defaultBridgePipe`).
+ */
 export function namedPipePath(kind: LocalEndpointKind, home: string): string {
-  return `\\\\.\\pipe\\psyche-${kind}-${psycheHomeHash(home)}`;
+  if (kind === "bridge") {
+    const id = createHash("sha256").update(resolve(home).toLowerCase(), "utf8").digest("hex");
+    return `\\\\.\\pipe\\psyche-${id.slice(0, 16)}-browser-bridge`;
+  }
+  return `\\\\.\\pipe\\psyche-node-${psycheHomeHash(home)}`;
 }
 
 let cachedSid: string | null | undefined;

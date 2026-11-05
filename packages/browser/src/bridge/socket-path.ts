@@ -14,7 +14,7 @@ export const BRIDGE_SOCKET_POINTER = "browser-bridge-socket";
  * `$PSYCHE_HOME/run/browser-bridge.sock`, or, when `$PSYCHE_HOME` is too deep for a Unix socket,
  * `<tmp>/psyche-<uid>/b-<hash>.sock` (the directory is made private, 0700, by the server). The
  * desktop finds a fallback through the pointer file the Gateway writes, so both ends agree.
- * On Windows it is always the named pipe `\\.\pipe\psyche-bridge-<hash of PSYCHE_HOME>`, which
+ * On Windows it is always the named pipe `\\.\pipe\psyche-<hash of the lower-case PSYCHE_HOME>-browser-bridge`, which
  * the Gateway also records in the pointer file.
  */
 export function defaultBridgeSocketPath(

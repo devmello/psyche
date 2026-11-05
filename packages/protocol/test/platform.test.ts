@@ -32,7 +32,11 @@ describe("local endpoints", () => {
     const hash = createHash("sha256").update(home, "utf8").digest("hex").slice(0, 16);
     expect(psycheHomeHash(home)).toBe(hash);
     expect(namedPipePath("node", home)).toBe(`\\\\.\\pipe\\psyche-node-${hash}`);
-    expect(namedPipePath("bridge", home)).toBe(`\\\\.\\pipe\\psyche-bridge-${hash}`);
+    const lower = createHash("sha256")
+      .update(home.toLowerCase(), "utf8")
+      .digest("hex")
+      .slice(0, 16);
+    expect(namedPipePath("bridge", home)).toBe(`\\\\.\\pipe\\psyche-${lower}-browser-bridge`);
     // A relative home is made absolute first, so both spellings name one pipe.
     expect(psycheHomeHash(join("some", "psyche-home"))).toBe(hash);
   });

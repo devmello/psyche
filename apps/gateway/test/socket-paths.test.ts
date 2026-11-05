@@ -121,7 +121,9 @@ describe.skipIf(unix)("on Windows", () => {
       const node = resolveNodeSocketPath(home, undefined);
       const bridge = defaultBridgeSocketPath(home);
       expect(node).toMatch(/^\\\\\.\\pipe\\psyche-node-[0-9a-f]{16}$/);
-      expect(bridge).toBe(node.replace("psyche-node-", "psyche-bridge-"));
+      // The desktop's fallback name: the hash of the home in lower case.
+      expect(bridge).toMatch(/^\\\\\.\\pipe\\psyche-[0-9a-f]{16}-browser-bridge$/);
+      expect(defaultBridgeSocketPath(home.toUpperCase())).toBe(bridge);
     }
     expect(resolveNodeSocketPath("C:\\a", undefined)).not.toBe(
       resolveNodeSocketPath("C:\\b", undefined),
