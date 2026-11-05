@@ -779,6 +779,7 @@ function registerIpc(): void {
     return requireBrowser().teachKeep(k.id, k.title, k.steps);
   });
   handle(IPC.teachKept, () => requireBrowser().teachKept());
+  handle(IPC.teachStorage, () => requireBrowser().teachStorage());
   handle(IPC.teachOpenKept, (_e, arg) =>
     requireBrowser().teachOpenKept(checkTeachId(IPC.teachOpenKept, rec(IPC.teachOpenKept, arg).id)),
   );

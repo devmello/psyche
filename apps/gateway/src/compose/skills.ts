@@ -28,6 +28,7 @@ import {
 } from "@psyche/skills";
 import type { Call, HandlerDef } from "../context.ts";
 import { requireFreshPresence } from "../presence-gate.ts";
+import { type RecordedSkills, recordedSkillsOf } from "./recording-schedule.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -229,6 +230,8 @@ export interface ComposedSkills {
    * miner: drafts what is new, then lists every open update draft.
    */
   updates(): Promise<{ skill: string; draftId: string; lessons: number }[]>;
+  /** Installed skills made from a recording (for scheduling them; teach by showing §8). */
+  recorded: RecordedSkills;
 }
 
 const LESSON_LINE = /^- \d{4}-\d{2}-\d{2} \[(ls_[a-z0-9_]+)[^\]]*\] (.+)$/;
@@ -461,7 +464,12 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
       },
     };
   };
-  return { part, loader, roles, updates };
+  const recorded = recordedSkillsOf({
+    listDetailed: () => ready().listDetailed(),
+    skillText: (name) => ready().skillText(name),
+    lessons: (name) => ready().lessons(name),
+  });
+  return { part, loader, roles, updates, recorded };
 }
 
 /**

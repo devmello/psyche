@@ -94,6 +94,6 @@ export function chatContextResolver(
   lookup: SearchDocLookup,
   blocked?: (id: string) => boolean,
 ): ChatContextResolver {
-  return (ref) =>
-    ref.kind === "search_hit" ? resolveSearchHitContext(ref, lookup, blocked) : feed(ref);
+  return (ref, caller) =>
+    ref.kind === "search_hit" ? resolveSearchHitContext(ref, lookup, blocked) : feed(ref, caller);
 }

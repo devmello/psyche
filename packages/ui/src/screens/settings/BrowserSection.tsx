@@ -106,6 +106,40 @@ export interface SignedInSitesApi {
   forget(origin: string): Promise<void>;
 }
 
+/** Whether recordings the owner keeps (teach by showing) are encrypted on this Mac. */
+export type TeachStorageStatus = () => Promise<{ encrypted: boolean }>;
+
+/**
+ * Settings → Browser "Recordings you keep": kept recordings are encrypted with a key held in the
+ * OS keychain. When the keychain is not available none is kept, and this says so.
+ */
+export function TeachStorageGroup({ status }: { status: TeachStorageStatus }): ReactElement | null {
+  const [encrypted, setEncrypted] = useState<boolean | null>(null);
+  useEffect(() => {
+    let live = true;
+    status().then(
+      (s) => live && setEncrypted(s.encrypted),
+      () => live && setEncrypted(null),
+    );
+    return () => {
+      live = false;
+    };
+  }, [status]);
+  if (encrypted === null) return null;
+  return (
+    <Group
+      title={t("settings.teach.storage.title")}
+      description={t("settings.teach.storage.description")}
+    >
+      <p className="text-callout" data-testid="teach-storage">
+        {encrypted
+          ? t("settings.teach.storage.encrypted")
+          : t("settings.teach.storage.unavailable")}
+      </p>
+    </Group>
+  );
+}
+
 /** Settings → Browser "Signed-in sites": what "Stay signed in" kept, each with Sign out. */
 export function SignedInSitesGroup({ api }: { api: SignedInSitesApi }): ReactElement {
   const [sites, setSites] = useState<SignedInSite[] | null>(null);
@@ -189,6 +223,8 @@ export interface BrowserPanelProps extends SettingsFormProps, LoadProps {
   onOpenProfile?: (profile: string) => Promise<{ path: string }>;
   /** Desktop only: the sites "Stay signed in" kept, with Sign out / forget. */
   signedInSites?: SignedInSitesApi;
+  /** Desktop only: whether kept recordings can be stored (they are encrypted). */
+  teachStorage?: TeachStorageStatus;
 }
 
 export function BrowserPanel({
@@ -199,6 +235,7 @@ export function BrowserPanel({
   profileLabel = t("settings.browser.profile"),
   onOpenProfile,
   signedInSites,
+  teachStorage,
   botAuth,
   onRotateBotAuth,
   loading,
@@ -314,6 +351,7 @@ export function BrowserPanel({
           />
         </Group>
         {signedInSites ? <SignedInSitesGroup api={signedInSites} /> : null}
+        {teachStorage ? <TeachStorageGroup status={teachStorage} /> : null}
         <Advanced description={t("settings.browser.advancedHint")}>
           <Group
             title={t("settings.key.browser.botAuth")}
@@ -425,9 +463,11 @@ export function BrowserPanel({
 export function BrowserSection({
   onOpenProfile,
   signedInSites,
+  teachStorage,
 }: {
   onOpenProfile?: (profile: string) => Promise<{ path: string }>;
   signedInSites?: SignedInSitesApi;
+  teachStorage?: TeachStorageStatus;
 }): ReactElement {
   const form = useSettingsForm();
   const persona = usePersona();
@@ -444,6 +484,7 @@ export function BrowserSection({
         profileLabel={realChromeProfileLabel(named)}
         {...(onOpenProfile ? { onOpenProfile } : {})}
         {...(signedInSites ? { signedInSites } : {})}
+        {...(teachStorage ? { teachStorage } : {})}
         botAuth={botAuthQ.data?.status ?? null}
         onRotateBotAuth={() => call("browser.botAuth.rotate", {}).then(() => botAuthQ.reload())}
         loading={form.loading && Object.keys(form.values).length === 0}

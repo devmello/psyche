@@ -88,6 +88,8 @@ export const ScheduledItem = Type.Object(
     settings: Type.Optional(Type.String({ maxLength: 32 })),
     /** `kind: "event"`: what starts a run; such items have no next time. */
     trigger: Type.Optional(AutomationTrigger),
+    /** Runs a skill made from a recording (its name); it stops when the page changed. */
+    recordedSkill: Type.Optional(Type.String({ maxLength: 64 })),
   },
   { $id: "ScheduledItem" },
 );

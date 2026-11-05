@@ -193,6 +193,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       teachKeep: (id, title, steps) =>
         b.browser.teachKeep(id, title, steps) as Promise<KeptRecordingView>,
       teachKept: () => b.browser.teachKept() as Promise<KeptRecordingView[]>,
+      teachStorage: () => b.browser.teachStorage() as Promise<{ encrypted: boolean }>,
       teachOpenKept: (id) => b.browser.teachOpenKept(id) as Promise<KeptRecordingView>,
       teachDeleteKept: async (id) => void (await b.browser.teachDeleteKept(id)),
       teachAppApps: () => b.browser.teachAppApps() as Promise<{ apps: TeachAppChoiceView[] }>,

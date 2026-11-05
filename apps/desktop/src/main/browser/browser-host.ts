@@ -1,5 +1,11 @@
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadTeachKey, TeachKeptStore, type TeachKeySeal } from "@psyche/browser/teach";
+import {
+  hasEncryptedRecordings,
+  loadTeachKey,
+  TeachKeptStore,
+  type TeachKeySeal,
+} from "@psyche/browser/teach";
 import {
   type BridgeProfile,
   type BridgeTab,
@@ -240,8 +246,36 @@ export class BrowserHost implements BridgeTabHost {
     });
     this.teach = new TeachSession({
       onChange: () => this.scheduleState(),
-      kept: new TeachKeptStore(join(this.home, "state", "teach"), () =>
-        loadTeachKey(join(this.userData, "teach.key")),
+      kept: new TeachKeptStore(
+        join(this.home, "state", "teach"),
+        () =>
+          loadTeachKey(join(this.userData, "teach.key"), keychainSeal(), {
+            // An unwrapped key from the first version is wrapped once: not after the migration,
+            // and not while an encrypted recording exists.
+            adoptPlain: () =>
+              !existsSync(join(this.userData, "teach.key.done")) &&
+              !hasEncryptedRecordings(join(this.home, "state", "teach")),
+          }),
+        Date.now,
+        {
+          // No keychain: nothing new is kept (a plain copy of the steps is the worse outcome).
+          enc:
+            keychainSeal() === undefined
+              ? null
+              : () => loadTeachKey(join(this.userData, "teach.enc.key"), keychainSeal()),
+          log: (m) => console.warn(`[teach] ${m}`),
+          onMigrated: () => {
+            // The signing key has done its job: leave a marker, so a key planted later is not
+            // adopted, and delete the key file.
+            if (keychainSeal() === undefined) return;
+            try {
+              writeFileSync(join(this.userData, "teach.key.done"), "1", { mode: 0o600 });
+              rmSync(join(this.userData, "teach.key"), { force: true });
+            } catch {
+              // best effort: the store refuses plain files either way
+            }
+          },
+        },
       ),
     });
     this.captureTimer = setInterval(() => this.pollCaptures(), opts.captureEveryMs ?? 500);
@@ -1120,6 +1154,10 @@ export class BrowserHost implements BridgeTabHost {
   }
   teachKept() {
     return this.teach.listKept();
+  }
+  /** Whether kept recordings can be written (they are encrypted; without a keychain, none is). */
+  teachStorage() {
+    return this.teach.storage();
   }
   teachOpenKept(id: string) {
     return this.teach.openKept(id);

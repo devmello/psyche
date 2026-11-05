@@ -10,6 +10,7 @@ import {
   Mic,
   Newspaper,
   Plus,
+  Quote,
   Search,
   Square,
   X,
@@ -85,7 +86,7 @@ function useCommandMenu() {
 /** The item the next message is about (Feed "Ask about this"): a removable chip. */
 export interface ComposerContextChip {
   /** A search result gets its own icon and prompt; the default is a Feed item. */
-  kind?: "feed_item" | "search_hit" | "memory_entity";
+  kind?: "feed_item" | "search_hit" | "memory_entity" | "life_answer";
   title: string;
   /** Source name or host. */
   source: string | null;
@@ -266,6 +267,8 @@ export function Composer({
                   <Search className="size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
                 ) : context.kind === "memory_entity" ? (
                   <Brain className="size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
+                ) : context.kind === "life_answer" ? (
+                  <Quote className="size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
                 ) : (
                   <Newspaper
                     className="size-3.5 shrink-0 text-label-secondary"
@@ -397,7 +400,9 @@ export function Composer({
                           ? "chat.composer.placeholderResult"
                           : context.kind === "memory_entity"
                             ? "chat.composer.placeholderMemory"
-                            : "chat.composer.placeholderArticle",
+                            : context.kind === "life_answer"
+                              ? "chat.composer.placeholderAnswer"
+                              : "chat.composer.placeholderArticle",
                       )
                     : t("chat.composer.placeholder", { persona })
               }

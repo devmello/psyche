@@ -320,6 +320,8 @@ export interface BrowserPort {
   teachAppCancel?(): Promise<{ cancelled: boolean }>;
   teachAppStatus?(): Promise<TeachAppStatusView>;
   teachKept?(): Promise<KeptRecordingView[]>;
+  /** Kept recordings are encrypted; without the OS keychain none is kept (`encrypted: false`). */
+  teachStorage?(): Promise<{ encrypted: boolean }>;
   teachOpenKept?(id: string): Promise<KeptRecordingView>;
   teachDeleteKept?(id: string): Promise<void>;
 }

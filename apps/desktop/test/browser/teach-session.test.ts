@@ -277,6 +277,7 @@ describe("teach IPC", () => {
       IPC.teachCancel,
       IPC.teachKeep,
       IPC.teachKept,
+      IPC.teachStorage,
       IPC.teachOpenKept,
       IPC.teachDeleteKept,
     ]) {

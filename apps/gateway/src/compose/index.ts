@@ -78,11 +78,13 @@ import {
   type IssuedApproval,
   MEMORY_RECALL_MODE_SETTING,
   MEMORY_WORK_SETTING_KEY,
+  type Message,
   type ModelProvider,
   type ModelRef,
   type PermissionBroker,
   PsycheError,
   type Task,
+  TERMINAL_TASK_STATUSES,
 } from "@psyche/protocol";
 import {
   createAutomationHandlers,
@@ -101,6 +103,7 @@ import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
 import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
+import { personalizeMessageEvent } from "../message-scrub.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
@@ -178,6 +181,14 @@ import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { folderAccessEnv, ownWorkdirs, protectedRoots } from "./protected-paths.ts";
 import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
+import {
+  attachRecordedRunGuard,
+  createRecordingScheduleHandlers,
+  RECORDED_RUN_RULES,
+  RecordedRuns,
+  withoutAgentRecordingSchedules,
+  withRecordedSkillRuns,
+} from "./recording-schedule.ts";
 import { requestPermissionTool } from "./request-permission.ts";
 import { researchTools } from "./research.ts";
 import { withRunSnapshot } from "./run-snapshot.ts";
@@ -1217,7 +1228,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   parts.push(teaching.part);
   const loop = createAgentLoop({
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
-    state: new SqliteThreadStateStore(db, redactor, config.home),
+    state: new SqliteThreadStateStore(db, redactor, config.home, (threadId, state) =>
+      // A life-answer preamble built for a local model is rebuilt before a cloud model reads it.
+      everything.lifeChat.refreshState(threadId, state),
+    ),
     provider,
     model: modelRef,
     ...(utility === undefined ? {} : { utilityModel: utility }),
@@ -1225,7 +1239,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     memory,
     tasks,
     notifier,
-    scheduler,
+    // The agent cannot schedule a recorded skill: that is the owner's action (teach by showing §8).
+    scheduler: withoutAgentRecordingSchedules(scheduler, skills.recorded),
     registry,
     clock,
     ...(timeZone === undefined ? {} : { timeZone }),
@@ -1447,37 +1462,63 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // The dreaming automation runs memory dreaming and the people graph pass in-process.
   // Dreaming, then the lesson pass (teaching loop §6, #681), then the people graph pass.
   // Automations with a `specialist` run as unattended specialist jobs (specialists §4.10).
+  // A scheduled recording holds to its rules (stops on a changed page, no guessing); other
+  // automations pass through. The guard watches the loop's tool calls for those tasks only.
+  const recordedRuns = new RecordedRuns({
+    // The guard lives in memory. A task whose goal carries the recorded run's rules and has no
+    // guard (after a restart) gets no tools and is stopped.
+    isRecorded: async (taskId) =>
+      (await tasks.get(taskId))?.goal.includes(RECORDED_RUN_RULES) === true,
+  });
+  attachRecordedRunGuard(
+    loop.hooks,
+    recordedRuns,
+    (taskId, reason) => tasks.cancel(taskId, reason),
+    () => skills.recorded.names(),
+    skills.recorded,
+  );
   launcher = withPausedRoutines(
-    withAutomationSpecialists(
-      people.launcher(
-        // The weekly "What I learned" Feed post (teaching loop §5.4) runs in-process too.
-        withWeeklyCard(
-          // Everything memory (#1010) is its own scheduled job (03:15, after dreaming), so
-          // Scheduled shows it and can Run it now.
-          withProactiveJobs(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool), {
-            jobs: [everything.job],
-          }),
-          {
-            store: teaching.service.store,
-            memory,
-            clock,
-            enabled: () =>
-              teachingSettings(db).enabled &&
-              getSetting(db, "teaching.weeklyCard")?.value !== false,
-            post: (card) => proactive.feed.postGrowth(card),
-          },
+    withRecordedSkillRuns(
+      withAutomationSpecialists(
+        people.launcher(
+          // The weekly "What I learned" Feed post (teaching loop §5.4) runs in-process too.
+          withWeeklyCard(
+            // Everything memory (#1010) is its own scheduled job (03:15, after dreaming), so
+            // Scheduled shows it and can Run it now.
+            withProactiveJobs(
+              proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool),
+              {
+                jobs: [everything.job],
+              },
+            ),
+            {
+              store: teaching.service.store,
+              memory,
+              clock,
+              enabled: () =>
+                teachingSettings(db).enabled &&
+                getSetting(db, "teaching.weeklyCard")?.value !== false,
+              post: (card) => proactive.feed.postGrowth(card),
+            },
+          ),
+          [
+            async () => {
+              if (!teachingSettings(db).enabled) return undefined;
+              const r = await consolidateLessons(teaching.service, memory, { clock });
+              // "Still true?" left unanswered: the lesson goes dormant (teaching loop §3.3).
+              const dormant = await retireUnanswered(teaching.service, memory, { clock });
+              return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
+            },
+          ],
         ),
-        [
-          async () => {
-            if (!teachingSettings(db).enabled) return undefined;
-            const r = await consolidateLessons(teaching.service, memory, { clock });
-            // "Still true?" left unanswered: the lesson goes dormant (teaching loop §3.3).
-            const dormant = await retireUnanswered(teaching.service, memory, { clock });
-            return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
-          },
-        ],
+        { db, tasks, host: specialists, now: () => clock.now() },
       ),
-      { db, tasks, host: specialists, now: () => clock.now() },
+      {
+        skills: skills.recorded,
+        runs: recordedRuns,
+        pause: (id) => scheduler.update(id, { enabled: false }),
+        automationOf: (id) => scheduler.get(id),
+      },
     ),
     // Scheduled → Pause: a paused routine skips its scheduled runs (Run now still goes through).
     () => pausedRoutines(scheduledKv),
@@ -1748,6 +1789,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       }) as never,
     ),
     ...mountParamsOnly(createAutomationHandlers(scheduler) as never),
+    // "Run it every week" for a skill made from a recording: the desktop shell only.
+    ...createRecordingScheduleHandlers({
+      skills: skills.recorded,
+      scheduler,
+      timezone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    }),
     ...mountParamsOnly(
       createScheduledHandlers({
         scheduler,
@@ -1850,6 +1897,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // approval.created carries each approver's own surface token (issue #50, security §3.7):
   // only to devices that hold operator.approvals, and only their surface's token.
   gateway.bus.setPersonalizer((event, payload, sub) => {
+    // A life answer in a transcript is read again for each subscriber (a remote window gets no
+    // Messages chips); a subscriber with no identity (a Gateway part) is read as the least trusted.
+    if (event === "chat.message")
+      return personalizeMessageEvent(gateway.context, payload as { message: Message }, sub.reader);
     if (event !== "approval.created" || sub.deviceId === null) return undefined;
     if (!sub.scopes.includes("operator.approvals")) return undefined;
     const p = payload as { approval: { id: string } };
@@ -1892,7 +1943,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   for (const part of parts) await part.start?.(gateway);
   // Ask about this (Feed) and a search result in a side chat: `chat.send.context` names what the
   // agent reads as data (a search result by what the index holds, not what the window says).
-  gateway.context.chatContext.resolve = withMemoryEntityContext(
+  const baseChatContext = withMemoryEntityContext(
     chatContextResolver(
       feedContextResolver(proactive.feed.store),
       (id) => search.index.docOf(id),
@@ -1900,6 +1951,27 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ),
     () => people?.graph,
   );
+  // "Open as a chat" on a Search answer: the Gateway holds the answer and reads its citations
+  // again for this connection and this chat's model; every reader of the transcript gets the
+  // same pass (`chat.history`, `chat.export`, and the `chat.message` event through the bus).
+  everything.useThreadModel(
+    (threadId) => {
+      const ref = getThread(db, threadId)?.modelRef ?? modelPins.defaultModel?.();
+      return ref == null ? true : isCloudRef(ref);
+    },
+    // An answer opens a chat that has no message yet.
+    (threadId) =>
+      getThread(db, threadId) !== undefined &&
+      db.sqlite.prepare("SELECT 1 FROM messages WHERE thread_id = ? LIMIT 1").get(threadId) ===
+        undefined,
+  );
+  // A forget or a retract cuts the words it supported out of the answers kept in chats.
+  gateway.context.messageScrub.heal = () => everything.healTranscripts();
+  gateway.context.chatContext.resolve = (ref, caller) =>
+    ref.kind === "life_answer"
+      ? everything.lifeChat.resolve(ref, caller)
+      : baseChatContext(ref, caller);
+  gateway.context.messageScrub.scrub = (message, who) => everything.lifeChat.scrub(message, who);
   await proactive.start();
   await ensureWeeklyCardAutomation(scheduler, {
     timezone: timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -1908,6 +1980,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   await teaching.resume().catch(() => undefined);
 
   if (background) {
+    // Recorded runs that were still going when the app stopped have lost their guard (it is in
+    // memory). They are cancelled before the pool can requeue an expired lease and run them on;
+    // the scheduler then records them as failed and pauses their schedules.
+    for (const row of db.sqlite
+      .prepare(
+        `SELECT id FROM tasks WHERE created_from = 'automation' AND instr(goal, ?) > 0
+           AND status NOT IN (${TERMINAL_TASK_STATUSES.map(() => "?").join(", ")})`,
+      )
+      .all(RECORDED_RUN_RULES, ...TERMINAL_TASK_STATUSES) as { id: string }[]) {
+      await tasks.cancel(row.id, "The app restarted during a recorded run").catch(() => undefined);
+    }
     pool.start();
     specialistPool.start();
     try {

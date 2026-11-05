@@ -2,6 +2,7 @@ import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, Nullable, Provenance, StringEnum } from "../common.ts";
 import { CompactionSummary } from "./context.ts";
 import { DailyWorkflowProposal } from "./daily.ts";
+import { LifeAnswerPassage, LifeFactHit } from "./everything-memory.ts";
 import { LearnedFact } from "./memory.ts";
 
 /** Message content blocks (data model §9.1). Discriminated on `type`. */
@@ -75,7 +76,7 @@ export const FileBlock = Type.Object(
 export const ContextBlock = Type.Object(
   {
     type: Type.Literal("context"),
-    kind: StringEnum(["feed_item", "search_hit", "memory_entity"]),
+    kind: StringEnum(["feed_item", "search_hit", "memory_entity", "life_answer"]),
     id: Id,
     title: Type.String({ maxLength: 300 }),
     url: Type.Optional(Type.String({ maxLength: 2000 })),
@@ -158,6 +159,32 @@ export const SourcesBlock = Type.Object(
     cited: Type.Array(Type.String({ maxLength: 200 }), { maxItems: 20 }),
   },
   { $id: "SourcesBlock" },
+);
+
+/**
+ * "Open as a chat" on a Search answer (docs/roadmap/future-features.md §1): the answer and the
+ * citations it rests on, kept at the start of the chat. What is stored is the answer text, the
+ * ids it cites and the kind of model that made it; `facts` and `passages` are filled in by the
+ * Gateway on every read, for the reading connection only (a remote device gets no Messages,
+ * Contacts or Memory source, and a claim whose only sources it may not open is left out). A
+ * client never sends any of it: the chat names an opaque answer id and the Gateway reads the rest.
+ * `[n]` in `answer` is the nth of `facts`, `[Pn]` the nth of `passages`. All of it is written by
+ * a model from other people's words: plain text only.
+ */
+export const LifeAnswerBlock = Type.Object(
+  {
+    type: Type.Literal("life_answer"),
+    question: Type.String({ maxLength: 500, description: "The owner's own question" }),
+    answer: Type.String({ maxLength: 900 }),
+    model: StringEnum(["cloud", "local"], {
+      description: "The kind of model that made the answer",
+    }),
+    factIds: Type.Array(Id, { maxItems: 12 }),
+    passageIds: Type.Array(Type.String({ maxLength: 200 }), { maxItems: 8 }),
+    facts: Type.Array(LifeFactHit, { maxItems: 12 }),
+    passages: Type.Array(LifeAnswerPassage, { maxItems: 8 }),
+  },
+  { $id: "LifeAnswerBlock" },
 );
 
 /**
@@ -297,6 +324,7 @@ export const Block = Type.Union(
     WrapUpBlock,
     RelatedThreadsBlock,
     SourcesBlock,
+    LifeAnswerBlock,
     CompactionBlock,
     LearnedBlock,
     TaughtBlock,
