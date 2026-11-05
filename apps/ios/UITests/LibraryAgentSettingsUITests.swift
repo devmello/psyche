@@ -58,11 +58,6 @@ final class AgentSheetUITests: PsycheUITestCase {
 }
 
 final class SettingsUITests: PsycheUITestCase {
-    private func openSettings() {
-        avatarMenuItem("Settings").tap()
-        waitFor(app.navigationBars["Settings"], 5)
-    }
-
     func testToggleKeepsStateAndRemoveConfirmationCancels() {
         launch()
         openSettings()

@@ -16,8 +16,7 @@ final class LiveActivityUITests: PsycheUITestCase {
     /// With Live Activities off, Watch says so (and stays "Watch") instead of doing nothing.
     func testWatchExplainsWhenLiveActivitiesAreOff() {
         launch()
-        // Settings opens from the moth avatar's menu.
-        avatarMenuItem("Settings").tap()
+        openSettings()
         let toggle = app.switches["Live Activities"]
         scrollTo(toggle)
         waitFor(toggle)
