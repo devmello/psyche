@@ -32,6 +32,8 @@ import { memoryPrivacyRest } from "./memory-privacy-rest/it.ts";
 import { memoryRest } from "./memory-rest/it.ts";
 import { memoryWorkRest } from "./memory-work-rest/it.ts";
 import { memorySurfacesRest } from "./memory-surfaces-rest/it.ts";
+import { workRest } from "./work-rest/it.ts";
+import { specialistsRest } from "./specialists-rest/it.ts";
 
 /** Italian catalogue (it). Same ids as `en`; missing ids fall back to English. */
 export const it: Partial<Catalogue> = {
@@ -76,6 +78,8 @@ export const it: Partial<Catalogue> = {
   ...memoryRest,
   ...memoryWorkRest,
   ...memorySurfacesRest,
+  ...workRest,
+  ...specialistsRest,
   "common.cancel": "Annulla",
   "common.close": "Chiudi",
   "common.save": "Salva",
