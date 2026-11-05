@@ -112,16 +112,21 @@ struct SearchView: View {
         .psycheInlineTitle()
         // iPhone: the search tab's field sits at the bottom (system). iPad: a field that is always shown, not a
         // toolbar button, so the tab opens ready to type.
-        .searchable(
-            text: $model.query,
-            placement: sizeClass == .regular ? .navigationBarDrawer(displayMode: .always) : .automatic,
-            prompt: "Search or ask")
+        .searchable(text: $model.query, placement: fieldPlacement, prompt: "Search or ask")
         .onSubmit(of: .search) { model.remember() }
         .task(id: model.query) {
             if !model.trimmed.isEmpty { try? await Task.sleep(for: .milliseconds(250)) }
             guard !Task.isCancelled else { return }
             await model.run()
         }
+    }
+
+    private var fieldPlacement: SearchFieldPlacement {
+        #if os(iOS)
+        sizeClass == .regular ? .navigationBarDrawer(displayMode: .always) : .automatic
+        #else
+        .automatic  // the package's macOS test build; the app is iOS only
+        #endif
     }
 
     // MARK: States
