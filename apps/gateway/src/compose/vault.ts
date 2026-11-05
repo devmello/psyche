@@ -6,6 +6,7 @@ import {
   type Clock,
   type EventName,
   type EventPayload,
+  isHostHelperKind,
   type NodeCapability,
   type NodeClient,
   type NodeInfo,
@@ -188,9 +189,12 @@ const VAULT_EVENTS: readonly VaultEventName[] = [
 
 const KEYCHAIN_NEEDS = [...Object.values(KEYCHAIN_CAPABILITIES), "keychain.status"];
 
-/** The Host's connected mac-helper node with the vault's keychain capabilities. */
+/**
+ * The Host's connected helper node (mac-helper: Keychain + Touch ID; win-helper: DPAPI + Windows
+ * Hello, same capability names) with the vault's keychain capabilities.
+ */
 export function isKeychainHelper(node: NodeInfo): boolean {
-  if (node.kind !== "mac-helper" || node.status !== "online") return false;
+  if (!isHostHelperKind(node.kind) || node.status !== "online") return false;
   const names = new Set(node.capabilities.map((c) => c.name));
   return KEYCHAIN_NEEDS.every((n) => names.has(n));
 }

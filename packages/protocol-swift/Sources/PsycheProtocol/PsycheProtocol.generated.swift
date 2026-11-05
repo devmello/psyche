@@ -1050,6 +1050,7 @@
 //   let pluginsSetEnabledResult = try? JSONDecoder().decode(PluginsSetEnabledResult.self, from: jsonData)
 //   let policyRule = try? JSONDecoder().decode(PolicyRule.self, from: jsonData)
 //   let presenceAssertion = try? JSONDecoder().decode(PresenceAssertion.self, from: jsonData)
+//   let presenceKeyAlgorithm = try? JSONDecoder().decode(PresenceKeyAlgorithm.self, from: jsonData)
 //   let presenceKeyInfo = try? JSONDecoder().decode(PresenceKeyInfo.self, from: jsonData)
 //   let probedModel = try? JSONDecoder().decode(ProbedModel.self, from: jsonData)
 //   let proposalUpdatedPayload = try? JSONDecoder().decode(ProposalUpdatedPayload.self, from: jsonData)
@@ -8436,6 +8437,7 @@ public enum DevicePlatform: String, Codable, Sendable {
     case linux = "linux"
     case macos = "macos"
     case web = "web"
+    case windows = "windows"
 }
 
 // MARK: - ChannelsAllowlistUpdateParams
@@ -12175,19 +12177,22 @@ public struct DevicesPresenceKeyListResult: Codable, Sendable {
 
 // MARK: - PresenceKeyInfo
 public struct PresenceKeyInfo: Codable, Sendable {
+    public let algorithm: PresenceKeyAlgorithm?
     public let deviceID: String
     public let keyID: String
     public let kind: PresenceKeyInfoKind?
     public let registeredAt: String
 
     public enum CodingKeys: String, CodingKey {
+        case algorithm = "algorithm"
         case deviceID = "deviceId"
         case keyID = "keyId"
         case kind = "kind"
         case registeredAt = "registeredAt"
     }
 
-    public init(deviceID: String, keyID: String, kind: PresenceKeyInfoKind? = nil, registeredAt: String) {
+    public init(algorithm: PresenceKeyAlgorithm? = nil, deviceID: String, keyID: String, kind: PresenceKeyInfoKind? = nil, registeredAt: String) {
+        self.algorithm = algorithm
         self.deviceID = deviceID
         self.keyID = keyID
         self.kind = kind
@@ -12195,9 +12200,15 @@ public struct PresenceKeyInfo: Codable, Sendable {
     }
 }
 
+public enum PresenceKeyAlgorithm: String, Codable, Sendable {
+    case p256EcdsaSha256 = "p256-ecdsa-sha256"
+    case rsa2048Pkcs1Sha256 = "rsa-2048-pkcs1-sha256"
+}
+
 public enum PresenceKeyInfoKind: String, Codable, Sendable {
     case enclaveFile = "enclave_file"
     case keychain = "keychain"
+    case windowsHello = "windows_hello"
 }
 
 // MARK: - DevicesPresenceKeyRegisterParams
@@ -23411,6 +23422,7 @@ public enum NodeKind: String, Codable, Sendable {
     case phone = "phone"
     case remote = "remote"
     case vmGuest = "vm-guest"
+    case winHelper = "win-helper"
 }
 
 public enum NodeStatus: String, Codable, Sendable {

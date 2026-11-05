@@ -2545,7 +2545,7 @@ export interface NodeCapability {
     targetKind?: TargetKind;
 }
 
-export type DevicePlatform = "macos" | "ios" | "android" | "web" | "linux";
+export type DevicePlatform = "macos" | "ios" | "android" | "web" | "linux" | "windows";
 
 export interface ChannelsAllowlistUpdateParams {
     add?:        string[];
@@ -3865,13 +3865,16 @@ export interface DevicesPresenceKeyListResult {
 }
 
 export interface PresenceKeyInfo {
+    algorithm?:   PresenceKeyAlgorithm;
     deviceId:     string;
     keyId:        string;
     kind?:        PresenceKeyInfoKind;
     registeredAt: string;
 }
 
-export type PresenceKeyInfoKind = "keychain" | "enclave_file";
+export type PresenceKeyAlgorithm = "p256-ecdsa-sha256" | "rsa-2048-pkcs1-sha256";
+
+export type PresenceKeyInfoKind = "keychain" | "enclave_file" | "windows_hello";
 
 export interface DevicesPresenceKeyRegisterParams {
     approvalId?: string;
@@ -7959,7 +7962,7 @@ export interface NodeInfo {
     status:           NodeStatus;
 }
 
-export type NodeKind = "mac-helper" | "vm-guest" | "remote" | "phone";
+export type NodeKind = "mac-helper" | "vm-guest" | "remote" | "phone" | "win-helper";
 
 export type NodeStatus = "online" | "offline" | "degraded";
 

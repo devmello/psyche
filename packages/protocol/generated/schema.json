@@ -1277,7 +1277,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Reads the helper's Secure Enclave presence key (`presence.public_key`) and registers it for that device when its key id equals expectKeyId, so its Touch ID answers verify. A Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
+        "description": "Reads the helper's presence key (`presence.public_key`: the Secure Enclave P-256 key of a mac-helper, or the Windows Hello RSA key of a win-helper, `algorithm: rsa-2048-pkcs1-sha256`, SPKI DER of at least 2048 bits) and registers it for that device when its key id equals expectKeyId, so its Touch ID / Windows Hello answers verify. A Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
         "name": "devices.presenceKey.register",
         "params": "#/$defs/DevicesPresenceKeyRegisterParams",
         "result": "#/$defs/DevicesPresenceKeyRegisterResult",
@@ -16893,7 +16893,8 @@
         "ios",
         "android",
         "web",
-        "linux"
+        "linux",
+        "windows"
       ],
       "type": "string"
     },
@@ -31054,7 +31055,8 @@
         "mac-helper",
         "vm-guest",
         "remote",
-        "phone"
+        "phone",
+        "win-helper"
       ],
       "type": "string"
     },
@@ -32886,6 +32888,13 @@
       ],
       "type": "object"
     },
+    "PresenceKeyAlgorithm": {
+      "enum": [
+        "p256-ecdsa-sha256",
+        "rsa-2048-pkcs1-sha256"
+      ],
+      "type": "string"
+    },
     "PresenceKeyInfo": {
       "properties": {
         "deviceId": {
@@ -32906,9 +32915,13 @@
         "kind": {
           "enum": [
             "keychain",
-            "enclave_file"
+            "enclave_file",
+            "windows_hello"
           ],
           "type": "string"
+        },
+        "algorithm": {
+          "$ref": "#/$defs/PresenceKeyAlgorithm"
         }
       },
       "required": [

@@ -10,7 +10,7 @@ import {
 } from "../common.ts";
 
 /** Data model §1. */
-export const DevicePlatform = StringEnum(["macos", "ios", "android", "web", "linux"], {
+export const DevicePlatform = StringEnum(["macos", "ios", "android", "web", "linux", "windows"], {
   $id: "DevicePlatform",
 });
 export type DevicePlatform = Static<typeof DevicePlatform>;
@@ -49,7 +49,12 @@ export const NodeCapability = Type.Object(
 );
 export type NodeCapability = Static<typeof NodeCapability>;
 
-export const NodeKind = StringEnum(["mac-helper", "vm-guest", "remote", "phone"], {
+/**
+ * `mac-helper` and `win-helper` are the Host's own helper (the Gateway's node socket plus the
+ * per-launch handshake secret), on macOS and Windows; a node that only claims either family is
+ * `remote`. `isHostHelperKind` (node.ts) tests for both.
+ */
+export const NodeKind = StringEnum(["mac-helper", "vm-guest", "remote", "phone", "win-helper"], {
   $id: "NodeKind",
 });
 export type NodeKind = Static<typeof NodeKind>;

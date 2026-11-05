@@ -10,6 +10,10 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./platform": {
+      "types": "./src/platform.ts",
+      "default": "./src/platform.ts"
+    },
     "./binding": {
       "types": "./src/binding.ts",
       "default": "./src/binding.ts"

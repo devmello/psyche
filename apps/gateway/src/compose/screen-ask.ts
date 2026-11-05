@@ -124,7 +124,7 @@ export function helperScreenCapturer(gateway: () => Gateway | null): ScreenCaptu
     async capture(params) {
       const node = dictationNode(gateway, "screen.context");
       if (!node) {
-        throw new PsycheError("unavailable", "the Psyche helper is not running on this Mac", {
+        throw new PsycheError("unavailable", "the Psyche helper is not running on this computer", {
           retryable: true,
         });
       }

@@ -20,6 +20,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
+import { fsyncDirSync } from "@psyche/protocol/platform";
 
 /**
  * The Gateway identity key (remote-gateway design §3.3): a long-lived Ed25519 key created at first
@@ -177,11 +178,6 @@ function writeNewIdentity(path: string, home: string, replace: boolean): Gateway
     rmSync(tmp, { force: true });
     throw err;
   }
-  const dirFd = openSync(dirname(path), "r");
-  try {
-    fsyncSync(dirFd);
-  } finally {
-    closeSync(dirFd);
-  }
+  fsyncDirSync(dirname(path));
   return fromJwk(file.jwk);
 }

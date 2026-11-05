@@ -1,6 +1,7 @@
 import { getNode } from "@psyche/db";
 import {
   type ErrorPayload,
+  isHostHelperKind,
   type JsonObject,
   type NodeEventParams,
   type NodeResultParams,
@@ -80,12 +81,12 @@ export const nodesHandlers: Record<string, HandlerDef> = {
       const node = getNode(ctx.db, params.nodeId);
       if (!node) throw new PsycheError("not_found", `node ${params.nodeId} not found`);
       if (
-        (node.kind === "mac-helper" || ctx.nodes.isHostHelper(node.id)) &&
+        (isHostHelperKind(node.kind) || ctx.nodes.isHostHelper(node.id)) &&
         !isHostHelperCapabilityReachable(params.capability)
       ) {
         throw new PsycheError(
           "forbidden",
-          `${params.capability} is not reachable through nodes.invoke on the Host's Mac helper`,
+          `${params.capability} is not reachable through nodes.invoke on the Host's ${node.kind === "win-helper" ? "Windows" : "Mac"} helper`,
         );
       }
       if (isUnreachableCapability(params.capability)) {
