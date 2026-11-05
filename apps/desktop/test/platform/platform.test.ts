@@ -78,9 +78,15 @@ describe("traits", () => {
 
 describe("install kind", () => {
   it("AppImage runs itself with --psyched and owns the unit; a package uses /usr/lib/psyche", () => {
-    const env = { APPIMAGE: "/home/me/Psyche.AppImage" };
-    expect(linuxInstallKind(env)).toBe("appimage");
-    expect(linuxGatewayLaunch(env)).toEqual({
+    const env = { APPIMAGE: "/home/me/Psyche.AppImage", APPDIR: "/tmp/.mount_PsycheAbc" };
+    const probe = {
+      execPath: "/tmp/.mount_PsycheAbc/usr/lib/psyche/psyche",
+      mountInfo: () =>
+        "36 35 0:42 / /tmp/.mount_PsycheAbc ro,nosuid - fuse.Psyche.AppImage /home/me/Psyche.AppImage ro
+",
+    };
+    expect(linuxInstallKind(env, probe)).toBe("appimage");
+    expect(linuxGatewayLaunch(env, probe)).toEqual({
       program: "/home/me/Psyche.AppImage",
       args: ["--psyched"],
       install: "user",
@@ -91,7 +97,7 @@ describe("install kind", () => {
       install: "packaged",
     });
     expect(linuxAutostartExec({})).toEqual(["/usr/bin/psyche"]);
-    expect(linuxAutostartExec(env)).toEqual(["/home/me/Psyche.AppImage"]);
+    expect(linuxAutostartExec(env, probe)).toEqual(["/home/me/Psyche.AppImage"]);
   });
 
   it("finds the package manager with dpkg -S, then rpm -qf, on /usr/lib/psyche", async () => {

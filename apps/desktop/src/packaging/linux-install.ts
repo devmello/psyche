@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import type { InstallKind } from "../main/update-manifest.ts";
-import { LINUX_PACKAGE_ROOT, linuxInstallKind } from "../platform/install-kind.ts";
+import { LINUX_PACKAGE_ROOT, liveAppImageProbe, trustedAppImage } from "../platform/install-kind.ts";
 
 /**
  * How this copy of Psyche is installed on Linux, and where its update files live
@@ -29,6 +29,8 @@ export interface InstallProbe {
   /** `process.execPath` / `app.getPath("exe")`. */
   execPath: string;
   run: RunCommand;
+  /** `/proc/self/mountinfo` (the AppImage's FUSE mount is how a real AppImage proves itself). */
+  mountInfo?: () => string;
 }
 
 export interface InstallInfo {
@@ -46,16 +48,19 @@ async function owns(run: RunCommand, file: string, args: string[]): Promise<bool
 }
 
 /**
- * `$APPIMAGE` set (an absolute path) means AppImage. Otherwise the app must sit under
- * `/usr/lib/psyche` and be owned by a package: `dpkg -S` (deb) or `rpm -qf` (rpm). A tarball, a
+ * An AppImage that proves itself (a FUSE mount of `$APPIMAGE` under `/tmp/.mount_*` that holds this
+ * executable) is `appimage`. Otherwise the app must sit under `/usr/lib/psyche` and be owned by a
+ * package, whatever `$APPIMAGE` says: `dpkg -S` (deb) or `rpm -qf` (rpm). A tarball, a
  * development build or a copy somebody moved has no install kind, and so no updates.
  */
 export async function detectInstallKind(p: InstallProbe): Promise<InstallInfo | undefined> {
-  // L1's platform/install-kind.ts decides AppImage from $APPIMAGE; the path must be absolute to be replaced.
-  const image = p.env.APPIMAGE?.trim();
-  if (linuxInstallKind(p.env) === "appimage") {
-    return image && isAbsolute(image) ? { kind: "appimage", appImagePath: image } : undefined;
-  }
+  // An AppImage proves itself (platform/install-kind.ts `trustedAppImage`): $APPIMAGE alone is
+  // inherited environment and could name another app's file.
+  const image = trustedAppImage(p.env, {
+    execPath: p.execPath,
+    mountInfo: p.mountInfo ?? liveAppImageProbe.mountInfo,
+  });
+  if (image !== undefined) return { kind: "appimage", appImagePath: image };
   if (!p.execPath.startsWith(`${PACKAGE_INSTALL_DIR}/`)) return undefined;
   if (await owns(p.run, "/usr/bin/dpkg", ["-S", p.execPath])) return { kind: "deb" };
   if (await owns(p.run, "/usr/bin/rpm", ["-qf", p.execPath])) return { kind: "rpm" };

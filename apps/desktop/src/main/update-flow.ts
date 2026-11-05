@@ -73,6 +73,8 @@ export type UpdateCheck =
       file: string;
       /** Linux: the manifest entry the file was verified against (its kind tells the apply step what to do). */
       artifact?: ManifestArtifact;
+      /** Linux: the signed manifest that vouched for it, as fetched (rollback re-verifies it). */
+      manifest?: { bytes: Uint8Array; sig: string };
       mandatory: boolean;
       /** macOS: whether the download carried the quarantine flag (it should not: it is stripped if so). */
       quarantine?: "absent" | "removed" | "unknown";
@@ -190,6 +192,7 @@ export async function checkForVerifiedUpdate(d: UpdateCheckDeps): Promise<Update
         release: plan.release,
         file,
         artifact: plan.artifact,
+        manifest: { bytes: manifestBytes, sig: sig ? Buffer.from(sig).toString("utf8") : "" },
         mandatory: plan.mandatory,
       };
     }
