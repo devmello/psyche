@@ -7,7 +7,8 @@ import type { MessageId } from "../index.ts";
  * - the same placeholders as the English message and the same meaning: a variant only says it
  *   the way Windows does ("This PC", "Windows Hello", "File Explorer", "Ctrl+K");
  * - no variant for Mac-only features (Apple apps, VM guests, Apple's on-device model): they are
- *   hidden on Windows or say "Available on macOS" (cross-platform-2026 §4.3);
+ *   hidden on Windows or say "Available on macOS" (cross-platform-2026 §4.3). Mail, Calendar and
+ *   Reminders are the exception: on Windows they are classic Outlook, and say so;
  * - a translation of a variant goes in `WINDOWS_LOCALES` (./index.ts); until then a translated
  *   catalogue shows the English variant rather than its Mac wording.
  */
@@ -204,6 +205,16 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.connect.finishOpened":
     "The sign-in to {name} opened in your browser on the Gateway's computer. This updates when you're done.",
   "settings.connect.openSystemSettings": "Open Windows Settings",
+  // Mail, Calendar and Reminders on Windows are classic Outlook, served by the Windows helper
+  // under the same connector types (apps/win-helper `src/outlook/`).
+  "settings.connect.needsPermission":
+    "{name} is set up, but Outlook is blocking other programs right now. Turn on Windows Security or update your antivirus, or change it in",
+  "settings.connectors.catalog.appleMail": "Outlook Mail",
+  "settings.connectors.catalog.appleCalendar": "Outlook Calendar",
+  "settings.connectors.catalog.appleReminders": "Outlook Tasks",
+  "gallery.builtin.appleMail": "Read and draft mail in classic Outlook.",
+  "gallery.builtin.appleCalendar": "See your Outlook calendar and add events.",
+  "gallery.builtin.appleReminders": "See and create tasks in Outlook.",
   "settings.people.description":
     "The cards {persona} keeps for the people and projects in your life. They stay on this PC, and every fact shows where it came from.",
   "settings.about.versionsHint": "What is running on this PC.",

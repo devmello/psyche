@@ -153,6 +153,33 @@ describe("Windows in Settings and onboarding", () => {
     expect(offeredCatalog(undefined).some((c) => c.type.startsWith("apple:"))).toBe(true);
   });
 
+  it("offers classic Outlook's Mail, Calendar and Tasks once the Gateway lists them", () => {
+    setUiPlatform("windows");
+    // What the Gateway's catalogue lists while the Windows helper serves classic Outlook.
+    const outlook = new Set(["microsoft", "apple:mail", "apple:calendar", "apple:reminders"]);
+    const rows = offeredCatalog(outlook, { navigation: false });
+    expect(rows.filter((c) => c.type.startsWith("apple:")).map((c) => [c.type, c.label])).toEqual([
+      ["apple:reminders", "Outlook Tasks"],
+      ["apple:calendar", "Outlook Calendar"],
+      ["apple:mail", "Outlook Mail"],
+    ]);
+    // Notes and Shortcuts stay Mac-only even if a catalogue named them.
+    const all = new Set([...outlook, "apple:notes", "apple:shortcuts"]);
+    expect(offeredCatalog(all).some((c) => c.type === "apple:notes")).toBe(false);
+    // Without classic Outlook the Gateway lists none, and none is offered.
+    expect(offeredCatalog(new Set(["microsoft"])).some((c) => c.type.startsWith("apple:"))).toBe(
+      false,
+    );
+    render(
+      <ConnectorsStep persona="Wren" connected={[]} onConnect={vi.fn()} implemented={outlook} />,
+    );
+    expect(screen.getByText("On this PC")).toBeTruthy();
+    expect(screen.getByText("Outlook Mail")).toBeTruthy();
+    expect(screen.queryByText(/Apple/)).toBeNull();
+    setUiPlatform("macos");
+    expect(offeredCatalog(outlook).find((c) => c.type === "apple:mail")?.label).toBe("Apple Mail");
+  });
+
   it("shows what Windows asks for instead of the macOS privacy panes", async () => {
     setUiPlatform("windows");
     const open = vi.fn();
