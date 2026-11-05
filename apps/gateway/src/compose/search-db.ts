@@ -1,6 +1,7 @@
 import { chmodSync, closeSync, existsSync, openSync, readSync, rmSync } from "node:fs";
 import { getSetting, openDb, type PsycheDb } from "@psyche/db";
 import type { SearchIndexEncryption } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import {
   type DerivedKeyStore,
   isPlainSqlite,
@@ -53,7 +54,7 @@ export async function resolveSearchKey(o: {
       return {
         status: {
           state: "unavailable",
-          reason: "The Mac helper holds the key and is not available on this host.",
+          reason: `The key is held by ${hostWords().helper}, which is not available on this host.`,
         },
       };
     return {
@@ -61,7 +62,7 @@ export async function resolveSearchKey(o: {
         if ((await derived.unavailableReason()) !== null) return undefined;
         return (await derived.getOrCreate(SEARCH_KEY_NAME)).key;
       },
-      status: { state: "pending", reason: "Waiting for the Mac helper" },
+      status: { state: "pending", reason: `Waiting for ${hostWords().helper}` },
     };
   }
   try {

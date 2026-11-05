@@ -3,7 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { accessSync, constants, readFileSync, realpathSync, type Stats, statSync } from "node:fs";
 import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { homedir, userInfo } from "node:os";
-import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve, win32 } from "node:path";
 import {
   type AgentToolRegistration,
   defineTool,
@@ -26,6 +26,7 @@ import {
   PsycheError,
   type ToolResult,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { type CliDriver, type CliResult, nodeCliDriver } from "@psyche/sandbox";
 import { Type } from "@sinclair/typebox";
 import type { SrtResolver } from "./srt.ts";
@@ -83,17 +84,64 @@ export const EXEC_HOST_GIT_HARDENING = [
   "gpg.x509.program=/usr/bin/false",
 ] as const;
 
-function isGit(executable: string, argv0: string | undefined): boolean {
+/**
+ * Windows' `EXEC_HOST_GIT_HARDENING`. `/dev/null` there is a path on the current drive (whose
+ * root a standard user may create folders in), so hooks point at a folder under System32 that
+ * does not exist and only an administrator could create, and gpg at a program that does not
+ * exist there either: signing fails as `/usr/bin/false` makes it fail on a Mac.
+ */
+export function windowsGitHardening(env: NodeJS.ProcessEnv = process.env): string[] {
+  const sys = win32.join(env.SystemRoot ?? "C:\\Windows", "System32");
+  const none = win32.join(sys, "psyche-disabled");
+  const nogpg = win32.join(sys, "psyche-disabled.exe");
+  return [
+    "-c",
+    "core.fsmonitor=false",
+    "-c",
+    `core.hooksPath=${none}`,
+    "-c",
+    "core.pager=cat",
+    "-c",
+    "diff.external=",
+    "-c",
+    "log.showSignature=false",
+    "-c",
+    `gpg.program=${nogpg}`,
+    "-c",
+    `gpg.ssh.program=${nogpg}`,
+    "-c",
+    `gpg.x509.program=${nogpg}`,
+  ];
+}
+
+function gitHardening(platform: NodeJS.Platform): readonly string[] {
+  return platform === "win32" ? windowsGitHardening() : EXEC_HOST_GIT_HARDENING;
+}
+
+function isGit(executable: string, argv0: string | undefined, platform: NodeJS.Platform): boolean {
+  if (platform === "win32") {
+    const name = (p: string) =>
+      win32
+        .basename(p)
+        .toLowerCase()
+        .replace(/\.exe$/, "");
+    return name(executable) === "git" || (argv0 !== undefined && name(argv0) === "git");
+  }
   return basename(executable) === "git" || (argv0 !== undefined && basename(argv0) === "git");
 }
 
 /** The `-c` pairs that switch off the drivers the repository's config defines (config only). */
-function gitDriversOff(git: string, cwd: string, env: NodeJS.ProcessEnv): Promise<string[]> {
+function gitDriversOff(
+  git: string,
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
+): Promise<string[]> {
   return new Promise((done) => {
     execFile(
       git,
-      [...EXEC_HOST_GIT_HARDENING, ...GIT_DRIVER_QUERY],
-      { cwd, env, timeout: 5_000, maxBuffer: 256 * 1024 },
+      [...gitHardening(platform), ...GIT_DRIVER_QUERY],
+      { cwd, env, timeout: 5_000, maxBuffer: 256 * 1024, windowsHide: true },
       // Exit 1 means none are defined; stdout carries the names either way.
       (_err, stdout) => done(gitDriverOverrides(String(stdout ?? ""))),
     );
@@ -113,6 +161,44 @@ export const SAFE_PATH = [
 /** Env names the agent may not set: they change what runs or where it loads code from. */
 const RESERVED_ENV =
   /^(PATH|HOME|TMPDIR|SHELL|USER|LOGNAME|DYLD_.*|LD_.*|NODE_OPTIONS|BASH_ENV|ENV|PYTHONSTARTUP|PSYCHE_.*)$/;
+/**
+ * Windows adds the names its own `PATH`-like lookups and profile folders use (names are
+ * case-insensitive there, so the upper-case spelling the schema allows is the same variable).
+ */
+const RESERVED_ENV_WINDOWS =
+  /^(PATHEXT|SYSTEMROOT|WINDIR|SYSTEMDRIVE|COMSPEC|USERPROFILE|HOMEDRIVE|HOMEPATH|USERNAME|USERDOMAIN|TEMP|TMP|APPDATA|LOCALAPPDATA|PROGRAMDATA|PROGRAMFILES|PROGRAMW6432|COMMONPROGRAMFILES|PSMODULEPATH)$/;
+
+/**
+ * Windows' `SAFE_PATH`: its own folders (admin-only, like the SIP folders), then PowerShell 7,
+ * Git for Windows and Node under Program Files (admin-only, like Homebrew's prefix is not).
+ * Only `.exe` / `.com` files are taken from them: a `.cmd` / `.bat` would need cmd.exe, which
+ * re-reads the arguments as a command line.
+ */
+export function windowsSafePath(env: NodeJS.ProcessEnv = process.env): string[] {
+  const root = env.SystemRoot ?? "C:\\Windows";
+  const pf = env.ProgramFiles ?? "C:\\Program Files";
+  return [
+    win32.join(root, "System32"),
+    root,
+    win32.join(root, "System32", "Wbem"),
+    win32.join(root, "System32", "WindowsPowerShell", "v1.0"),
+    win32.join(root, "System32", "OpenSSH"),
+    win32.join(pf, "PowerShell", "7"),
+    win32.join(pf, "Git", "cmd"),
+    win32.join(pf, "nodejs"),
+  ];
+}
+
+/** Extensions Windows starts without a shell, in `PATHEXT` order (`.com`, `.exe`). */
+function directExtensions(env: NodeJS.ProcessEnv = process.env): string[] {
+  const listed = (env.PATHEXT ?? ".COM;.EXE")
+    .split(";")
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => e === ".exe" || e === ".com");
+  return listed.length > 0 ? [...new Set(listed)] : [".com", ".exe"];
+}
+
+const BATCH = new Set([".cmd", ".bat"]);
 
 /** Where srt is, or why it is not: the Gateway's one resolver (`compose/srt.ts`). */
 export type SrtStatus = { path: string } | { missing: true; reason: string };
@@ -156,6 +242,57 @@ export interface ExecHostDeps {
   audit?: Pick<AuditLog, "append">;
   /** Tests: a shorter cap than `READ_ONLY_TIMEOUT_MS`. */
   readOnlyTimeoutMs?: number;
+  /** Whose rules apply (tests; default this process's platform). */
+  platform?: NodeJS.Platform;
+}
+
+/**
+ * The whole environment of a host command on Windows (the Mac's `PATH`, `HOME`, `USER`,
+ * `TMPDIR`, `LANG` counterpart): `PATH` limited to `windowsSafePath`, `PATHEXT` to what starts
+ * without a shell, the system folders programs need to load at all, the owner's profile
+ * folders, and the scratch folder as `TEMP` / `TMP`. Nothing else of the Gateway's own.
+ */
+export function windowsHostEnv(
+  userHome: string,
+  user: string,
+  scratch: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Record<string, string> {
+  const root = env.SystemRoot ?? "C:\\Windows";
+  const keep = [
+    "ProgramData",
+    "ProgramFiles",
+    "ProgramFiles(x86)",
+    "ProgramW6432",
+    "CommonProgramFiles",
+    "CommonProgramFiles(x86)",
+    "CommonProgramW6432",
+    "NUMBER_OF_PROCESSORS",
+    "PROCESSOR_ARCHITECTURE",
+    "PROCESSOR_IDENTIFIER",
+    "OS",
+  ];
+  const out: Record<string, string> = {
+    PATH: windowsSafePath(env).join(";"),
+    PATHEXT: ".COM;.EXE",
+    SystemRoot: root,
+    windir: root,
+    SystemDrive: env.SystemDrive ?? root.slice(0, 2),
+    ComSpec: win32.join(root, "System32", "cmd.exe"),
+    USERPROFILE: userHome,
+    HOMEDRIVE: win32.parse(userHome).root.replace(/\\$/, ""),
+    HOMEPATH: userHome.slice(win32.parse(userHome).root.length - 1),
+    USERNAME: user,
+    APPDATA: win32.join(userHome, "AppData", "Roaming"),
+    LOCALAPPDATA: win32.join(userHome, "AppData", "Local"),
+    TEMP: scratch,
+    TMP: scratch,
+  };
+  for (const k of keep) {
+    const v = env[k];
+    if (v !== undefined) out[k] = v;
+  }
+  return out;
 }
 
 interface Resolved {
@@ -180,12 +317,64 @@ function sha256Of(path: string): string {
   return sha256;
 }
 
+/**
+ * Windows: a path (a drive letter or a separator) is taken as given, a bare name is looked up
+ * in `path` only. Either way a name without an extension tries `PATHEXT`'s `.com` and `.exe`,
+ * and only such a file runs; a batch file is refused, never handed to cmd.exe.
+ */
+function resolveWindowsExecutable(argv0: string, cwd: string, path: readonly string[]): Resolved {
+  const isPath = /[\\/]/.test(argv0) || /^[A-Za-z]:/.test(argv0);
+  const bases = isPath
+    ? [win32.isAbsolute(argv0) ? argv0 : win32.resolve(cwd, argv0)]
+    : path.map((d) => win32.join(d, argv0));
+  const exts = directExtensions();
+  let batch: string | undefined;
+  for (const base of bases) {
+    const ext = win32.extname(base).toLowerCase();
+    const tries =
+      ext === "" ? [...exts.map((e) => base + e), `${base}.cmd`, `${base}.bat`] : [base];
+    for (const c of tries) {
+      let real: string;
+      try {
+        real = realpathSync.native(c);
+        if (!statSync(real).isFile()) continue;
+      } catch {
+        continue;
+      }
+      const realExt = win32.extname(real).toLowerCase();
+      if (BATCH.has(realExt)) {
+        batch ??= real;
+        continue;
+      }
+      if (realExt !== ".exe" && realExt !== ".com") continue;
+      return { executable: real, sha256: sha256Of(real) };
+    }
+  }
+  if (batch !== undefined) {
+    throw new PsycheError(
+      "invalid_params",
+      `${argv0} is a batch file (${batch}); Windows runs those through cmd.exe, which reads the arguments again as a command line. Run the program it starts, or name cmd.exe yourself`,
+    );
+  }
+  throw new PsycheError(
+    "not_found",
+    isPath
+      ? `${argv0} is not a program (.exe or .com)`
+      : `${argv0} is not in ${path.join(";")}; give its absolute path`,
+  );
+}
+
 /** argv[0] → the real file that runs: absolute, cwd-relative (`./x`), or from `SAFE_PATH`. */
 export function resolveExecutable(
   argv0: string,
   cwd: string,
-  path: readonly string[] = SAFE_PATH,
+  path?: readonly string[],
+  platform: NodeJS.Platform = process.platform,
 ): Resolved {
+  if (platform === "win32") {
+    return resolveWindowsExecutable(argv0, cwd, path ?? windowsSafePath());
+  }
+  path ??= SAFE_PATH;
   const candidates = argv0.includes("/")
     ? [isAbsolute(argv0) ? argv0 : resolve(cwd, argv0)]
     : path.map((d) => join(d, argv0));
@@ -275,14 +464,37 @@ export function execHostSrtSettings(input: {
   };
 }
 
+/** A folder without its trailing separator (a root such as `/` or `C:\` keeps it). */
+function trimSep(p: string, platform: NodeJS.Platform): string {
+  if (platform === "win32") {
+    const n = win32.normalize(p);
+    return /^[A-Za-z]:\\$/.test(n) || /^\\\\[^\\]+\\[^\\]+\\$/.test(n) ? n : n.replace(/\\+$/, "");
+  }
+  return p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p;
+}
+
+/**
+ * Whether `path` is `root` or inside it. Windows compares without case (`C:\Users` is
+ * `c:\users`) and with either separator; elsewhere byte for byte with `/`.
+ */
+export function within(path: string, root: string, platform = process.platform): boolean {
+  if (platform === "win32") {
+    const p = win32.normalize(path).toLowerCase();
+    const r = trimSep(root, platform).toLowerCase();
+    return p === r || p.startsWith(r.endsWith("\\") ? r : `${r}\\`);
+  }
+  return path === root || path.startsWith(`${root}/`);
+}
+
 function folderOf(
   path: string,
   folders: readonly FolderGrantEntry[],
+  platform: NodeJS.Platform = process.platform,
 ): FolderGrantEntry | undefined {
   let best: FolderGrantEntry | undefined;
   for (const f of folders) {
-    const root = f.path.length > 1 && f.path.endsWith("/") ? f.path.slice(0, -1) : f.path;
-    if (path === root || path.startsWith(`${root}/`)) {
+    const root = trimSep(f.path, platform);
+    if (within(path, root, platform)) {
       if (best === undefined || root.length > best.path.length) best = { ...f, path: root };
       else if (root.length === best.path.length && f.mode === "rw") best = { ...f, path: root };
     }
@@ -294,6 +506,7 @@ function folderOf(
 async function grantedFolder(
   cwd: string,
   folders: readonly FolderGrantEntry[],
+  platform: NodeJS.Platform = process.platform,
 ): Promise<{ real: string; folder: FolderGrantEntry }> {
   let real: string;
   try {
@@ -304,7 +517,7 @@ async function grantedFolder(
   const resolvedFolders = await Promise.all(
     folders.map(async (f) => ({ ...f, path: await realpath(f.path).catch(() => f.path) })),
   );
-  const folder = folderOf(real, resolvedFolders);
+  const folder = folderOf(real, resolvedFolders, platform);
   if (folder === undefined) {
     throw new PsycheError("forbidden", `${real} is outside every granted folder`, {
       details: { missing: { need: "folder", path: real, access: "read_write" } },
@@ -333,7 +546,12 @@ const READS_CONTENT = new Set(["cat", "head", "tail", "wc", "file"]);
  * would hang or touch hardware); `cat`, `head`, `tail`, `wc` and `file` read regular files only.
  * A missing operand is checked by name: the command only fails on it, and the run checks again.
  */
-export function readOnlyHost(p: HostParams): Resolved | undefined {
+export function readOnlyHost(
+  p: HostParams,
+  platform: NodeJS.Platform = process.platform,
+): Resolved | undefined {
+  // Windows has no host sandbox to keep a command read-only: every command there asks.
+  if (platform === "win32") return undefined;
   if (Object.keys(p.env ?? {}).length > 0 || (p.allowedDomains ?? []).length > 0) return undefined;
   const c = classifyHostCommand(p.argv, p.cwd);
   if (!c.readOnly) return undefined;
@@ -366,9 +584,9 @@ export function readOnlyHost(p: HostParams): Resolved | undefined {
 }
 
 /** What the card shows and what an `always` grant binds (security §3.5, §5.4). */
-function describe(p: HostParams) {
-  const readOnly = readOnlyHost(p);
-  const resolved = readOnly ?? resolveExecutable(p.argv[0] as string, p.cwd);
+function describe(p: HostParams, platform: NodeJS.Platform) {
+  const readOnly = readOnlyHost(p, platform);
+  const resolved = readOnly ?? resolveExecutable(p.argv[0] as string, p.cwd, undefined, platform);
   const env = envList(p.env ?? {});
   const domains = [...(p.allowedDomains ?? [])].sort();
   return { resolved, env, domains, readOnly: readOnly !== undefined };
@@ -403,10 +621,19 @@ type HostParams = {
   timeoutMs?: number;
 };
 
-function checkParams(p: HostParams): void {
-  if (!isAbsolute(p.cwd)) throw new PsycheError("invalid_params", "cwd must be an absolute path");
+function checkParams(p: HostParams, platform: NodeJS.Platform): void {
+  if (platform === "win32") {
+    // A drive-letter or UNC path: a rooted `\x` would mean "on whatever drive is current".
+    if (!/^[A-Za-z]:[\\/]/.test(p.cwd) && !/^\\\\[^\\/]+[\\/][^\\/]+/.test(p.cwd)) {
+      throw new PsycheError("invalid_params", "cwd must be an absolute path with a drive letter");
+    }
+  } else if (!isAbsolute(p.cwd)) {
+    throw new PsycheError("invalid_params", "cwd must be an absolute path");
+  }
   for (const [k, v] of Object.entries(p.env ?? {})) {
-    if (RESERVED_ENV.test(k)) throw new PsycheError("invalid_params", `env ${k} is fixed`);
+    if (RESERVED_ENV.test(k) || (platform === "win32" && RESERVED_ENV_WINDOWS.test(k))) {
+      throw new PsycheError("invalid_params", `env ${k} is fixed`);
+    }
     // Host commands get no vault secrets: placeholders stay a container (`exec`) feature.
     if (v.includes("{{cred:")) {
       throw new PsycheError("invalid_params", `env ${k}: no vault placeholders on the host`);
@@ -438,22 +665,25 @@ async function approvedUnsandboxed(
 
 export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
   const driver = deps.driver ?? nodeCliDriver;
+  const platform = deps.platform ?? process.platform;
+  const windows = platform === "win32";
   const userHome = deps.userHome ?? homedir();
   const sandbox = cachedSrt(deps.srt);
   /** Read-only runs without a card in flight now (`READ_ONLY_CONCURRENCY`). */
   let quietRunning = 0;
   return defineTool({
     name: "exec_host",
-    description:
-      "Run one command (an argv array, no shell string) on the owner's own Mac, in a folder they granted, for their own files and projects (build, test, git, scripts). Prefer `exec` (the sandbox container) whenever the work does not need the owner's real files. Calls ask the owner on their Mac, showing the exact argv, cwd, env and executable; read-only commands (date, pwd, whoami, uname, ls, cat, head, tail, wc, file, stat, which on files in the cwd) with no env and no allowedDomains run without asking unless the turn read untrusted content; git and everything else asks. It runs under srt (no secrets, no network unless `allowedDomains`). It is off until the owner turns it on: when a call is denied because it is off, or the cwd is outside granted folders, use request_permission with the `missing` object from the error, then retry.",
+    description: windows
+      ? "Run one Windows program (an argv array, no shell string: argv[0] is a .exe by absolute path or a name found in Windows' own folders, Git or Node; .cmd/.bat files are refused) on the owner's own PC, in a folder they granted, for their own files and projects (build, test, git). Prefer `exec` (the sandbox) whenever the work does not need the owner's real files. Windows has no sandbox for commands on the PC itself, so every call asks the owner on their card, showing the exact argv, cwd, env and executable, and runs only if they type UNSANDBOXED there (once). It gets no secrets. It is off until the owner turns it on: when a call is denied because it is off, or the cwd is outside granted folders, use request_permission with the `missing` object from the error, then retry."
+      : "Run one command (an argv array, no shell string) on the owner's own computer, in a folder they granted, for their own files and projects (build, test, git, scripts). Prefer `exec` (the sandbox container) whenever the work does not need the owner's real files. Calls ask the owner on their Mac, showing the exact argv, cwd, env and executable; read-only commands (date, pwd, whoami, uname, ls, cat, head, tail, wc, file, stat, which on files in the cwd) with no env and no allowedDomains run without asking unless the turn read untrusted content; git and everything else asks. It runs under srt (no secrets, no network unless `allowedDomains`). It is off until the owner turns it on: when a call is denied because it is off, or the cwd is outside granted folders, use request_permission with the `missing` object from the error, then retry.",
     input: Input,
     // The broker lowers a call to `read` only when it re-checks the read-only class itself
     // (`describeCall` names it in `meta`); the tool as such stays `destructive`.
     sideEffect: "destructive",
     provenanceOut: "untrusted",
     describeCall: (p) => {
-      checkParams(p);
-      const described = describe(p);
+      checkParams(p, platform);
+      const described = describe(p, platform);
       const { resolved, env, domains } = described;
       // No audit log, no quiet path: the run must be recorded before it starts.
       const readOnly = described.readOnly && deps.audit !== undefined;
@@ -472,7 +702,7 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
             }
           : {}),
         target: { kind: "command", value: command.slice(0, 1000) },
-        summary: `Run \`${command.slice(0, 80)}\` on this Mac`,
+        summary: `Run \`${command.slice(0, 80)}\` on ${hostWords().thisDevice}`,
         details: {
           argv: p.argv,
           cwd: p.cwd,
@@ -482,6 +712,8 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
           allowedDomains: domains,
           sandbox: "path" in srt ? "srt" : "missing",
           ...("missing" in srt ? { sandboxMissingReason: srt.reason } : {}),
+          // Windows: there is no sandbox to set up for host commands; only the typed word runs it.
+          ...(windows ? { hostSandbox: "none" } : {}),
           unsandboxedWord: UNSANDBOXED_WORD,
           ...(readOnly ? { readOnly: true } : {}),
         },
@@ -498,7 +730,7 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
       };
     },
     async run(p, ctx) {
-      checkParams(p);
+      checkParams(p, platform);
       // A quiet run takes its slot before the first await, so runs racing through the checks
       // never make a third; every exit releases it.
       const quiet = ctx.approvalId === undefined && ctx.authority?.rule === READ_ONLY_RULE;
@@ -521,9 +753,9 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
   });
 
   async function runHost(p: HostParams, ctx: ToolRunContext, quiet: boolean): Promise<ToolResult> {
-    const { real, folder } = await grantedFolder(p.cwd, deps.folders(ctx.threadId));
+    const { real, folder } = await grantedFolder(p.cwd, deps.folders(ctx.threadId), platform);
     // Hashed again right before it runs: a binary swapped after approval does not run.
-    const described = describe(p);
+    const described = describe(p, platform);
     const { resolved, domains } = described;
     const readOnly = described.readOnly;
     if (quiet && deps.audit === undefined) {
@@ -537,6 +769,15 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
     }
     const unsandboxed = await approvedUnsandboxed(deps, ctx, resolved.sha256);
     const srt = await sandbox.fresh();
+    if (!unsandboxed && windows) {
+      // No sandbox for host commands exists on Windows (the sandbox PC runs Linux, not this
+      // PC's programs), so there is nothing to set up: only the typed word runs it.
+      throw new PsycheError(
+        "unavailable",
+        `Windows has no sandbox for commands on this PC: it runs only when the owner types ${UNSANDBOXED_WORD} on its card`,
+        { details: { reason: "no_host_sandbox" } },
+      );
+    }
     if (!unsandboxed && "missing" in srt) {
       throw new PsycheError(
         "unavailable",
@@ -568,23 +809,25 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
     } catch {
       // No passwd entry; leave USER empty.
     }
-    const env: NodeJS.ProcessEnv = {
-      // A read-only command finds only Apple's programs (no Homebrew helper it might call).
-      PATH: (readOnly ? SYSTEM_BIN_DIRS : SAFE_PATH).join(":"),
-      HOME: userHome,
-      USER: user,
-      LOGNAME: user,
-      LANG: "en_US.UTF-8",
-      TMPDIR: scratch,
-      ...(p.env ?? {}),
-    };
+    const env: NodeJS.ProcessEnv = windows
+      ? { ...windowsHostEnv(userHome, user, scratch), ...(p.env ?? {}) }
+      : {
+          // A read-only command finds only Apple's programs (no Homebrew helper it might call).
+          PATH: (readOnly ? SYSTEM_BIN_DIRS : SAFE_PATH).join(":"),
+          HOME: userHome,
+          USER: user,
+          LOGNAME: user,
+          LANG: "en_US.UTF-8",
+          TMPDIR: scratch,
+          ...(p.env ?? {}),
+        };
     let file = resolved.executable;
     let args = p.argv.slice(1);
     // Every git, carded or not: no program its config names (security §5.4).
-    if (isGit(resolved.executable, p.argv[0])) {
+    if (isGit(resolved.executable, p.argv[0], platform)) {
       args = [
-        ...EXEC_HOST_GIT_HARDENING,
-        ...(await gitDriversOff(resolved.executable, real, env)),
+        ...gitHardening(platform),
+        ...(await gitDriversOff(resolved.executable, real, env, platform)),
         ...args,
       ];
     }

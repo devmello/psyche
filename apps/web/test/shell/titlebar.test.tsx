@@ -12,6 +12,9 @@ import {
 } from "../../src/shell/components/TitleBar.tsx";
 import { sectionTitle } from "../../src/shell/ShellApp.tsx";
 
+/** This package's root: `vitest run` at the repository root does not change the cwd. */
+const PKG = `${import.meta.dirname}/../..`;
+
 afterEach(cleanup);
 
 describe("TitleBar", () => {
@@ -49,7 +52,7 @@ describe("TitleBar", () => {
 
 describe("overlays over the title bar (#508)", () => {
   it("opt every portaled overlay out of the drag region so their buttons take clicks", () => {
-    const css = readFileSync(join(process.cwd(), "src/shell/shell.css"), "utf8");
+    const css = readFileSync(join(PKG, "src/shell/shell.css"), "utf8");
     // The rule whose selectors include the sheet's content, up to its declarations.
     const at = css.indexOf('[data-slot="sheet-content"]');
     const selectors = css.slice(at, css.indexOf("{", at));

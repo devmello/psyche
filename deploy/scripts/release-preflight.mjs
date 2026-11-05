@@ -16,7 +16,7 @@
 //                 auto-update to this release (security §11)
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { checkPins, findPins, PIN_FILES } from "./node-pins.mjs";
 import { renderCompose } from "./render-compose.mjs";
 
@@ -94,7 +94,7 @@ export function preflight(root) {
   return results;
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const i = process.argv.indexOf("--root");
   const root = resolve(
     i === -1 ? join(fileURLToPath(new URL(".", import.meta.url)), "../..") : process.argv[i + 1],

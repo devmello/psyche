@@ -151,7 +151,7 @@ Extract explicit dates and times from the body (flight times, due dates) into a 
 
 ### 3.4 OCR via mac-helper
 
-Apple Vision runs on the Neural Engine/GPU with system models: no download, no resident model in Psyche's process, ~0.2–0.5 s per page on Apple Silicon, peak memory in the helper only while a page is recognised. A queue in the Gateway sends one page at a time, on power only for the backfill. Not a local LLM, so no warning to the owner is needed. Linux and Windows hosts skip OCR (a future Tesseract plug-in).
+Apple Vision runs on the Neural Engine/GPU with system models: no download, no resident model in Psyche's process, ~0.2–0.5 s per page on Apple Silicon, peak memory in the helper only while a page is recognised. A queue in the Gateway sends one page at a time, on power only for the backfill. Not a local LLM, so no warning to the owner is needed. On Windows the helper's `ocr.recognize` uses `Windows.Media.Ocr` through the same queue; it reads no PDF text layer yet (every page is recognised) and reports confidence as 1 or 0. Linux hosts skip OCR (a future Tesseract plug-in).
 
 ### 3.5 Chunking
 

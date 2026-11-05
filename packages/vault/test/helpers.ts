@@ -252,8 +252,15 @@ export function makeHarness(
       : {}),
     ...options.overrides,
   };
+  // Windows cannot delete a folder whose SQLite file is still open: cleanup locks every vault.
+  const opened: Vault[] = [];
+  const open = (o: VaultOptions): Vault => {
+    const v = new Vault(o);
+    opened.push(v);
+    return v;
+  };
   return {
-    vault: new Vault(base),
+    vault: open(base),
     clock,
     permissions,
     audit,
@@ -261,10 +268,11 @@ export function makeHarness(
     meta,
     home: tmp.home,
     cleanup: () => {
+      for (const v of opened.splice(0)) v.lock();
       db.close();
       tmp.cleanup();
     },
-    reopen: (overrides = {}) => new Vault({ ...base, ...overrides }),
+    reopen: (overrides = {}) => open({ ...base, ...overrides }),
   };
 }
 

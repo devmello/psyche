@@ -17,6 +17,7 @@ import {
   acquireGatewayLock,
   GATEWAY_LOCK_FILE,
   readUpdateFailure,
+  releaseAllGatewayLocks,
   releaseGatewayLock,
   sha256File,
 } from "../src/pre-update.ts";
@@ -32,8 +33,19 @@ const CHILD = join(import.meta.dirname, "fixtures", "lock-child.mts");
 
 const dirs: string[] = [];
 const kids: ChildProcess[] = [];
-afterEach(() => {
-  for (const k of kids.splice(0)) k.kill("SIGKILL");
+afterEach(async () => {
+  // Windows will not delete a folder (or its lock file) while a killed child is still going away.
+  await Promise.all(
+    kids.splice(0).map(
+      (k) =>
+        new Promise<void>((done) => {
+          if (k.exitCode !== null || k.signalCode !== null) return done();
+          k.once("exit", () => done());
+          k.kill("SIGKILL");
+        }),
+    ),
+  );
+  releaseAllGatewayLocks();
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 

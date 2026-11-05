@@ -1351,6 +1351,8 @@ export class BrowserHost implements BridgeTabHost {
     const downloadId = `dl_${this.nextDownload++}`;
     const filename = item.getFilename();
     const url = item.getURL();
+    // The page that started it, for the Windows Mark of the Web's ReferrerUrl.
+    const referrer = wc.getURL();
     const mime = item.getMimeType() || null;
     const emit = (state: "started" | "completed" | "failed" | "cancelled") => {
       this.emitter.emit("download", {
@@ -1371,7 +1373,9 @@ export class BrowserHost implements BridgeTabHost {
     emit("started");
     item.once("done", (_e, state) => {
       if (state === "completed") {
-        void setQuarantineAttribute(path).finally(() => emit("completed"));
+        void setQuarantineAttribute(path, { source: { url, referrer } }).finally(() =>
+          emit("completed"),
+        );
       } else emit(state === "cancelled" ? "cancelled" : "failed");
     });
   }

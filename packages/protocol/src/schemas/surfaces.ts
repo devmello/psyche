@@ -325,6 +325,9 @@ export const USER_SETTING_PREFIXES = [
   // Quiet hours (#953): a preference about when to be told, not a security setting. Lower-case:
   // the match lower-cases the key's segments, so this covers `notifications.quietHours.*`.
   "notifications.quiethours",
+  // The pop-up chat window's global shortcut (`quickEntry.shortcut`): a keyboard preference the
+  // desktop app writes when the owner rebinds it (Windows defaults to Ctrl+Alt+Space).
+  "quickentry.shortcut",
 ] as const;
 
 /**

@@ -28,6 +28,9 @@ export const MICROSOFT_SCOPES = {
   calendarsRead: "Calendars.Read",
   calendarsReadWrite: "Calendars.ReadWrite",
   contactsRead: "Contacts.Read",
+  /** Microsoft To Do (the `reminders_*` tools). */
+  tasksRead: "Tasks.Read",
+  tasksReadWrite: "Tasks.ReadWrite",
   /** Only Psyche's own app folder in OneDrive (`/drive/special/approot`), like Google `drive.file`. */
   filesAppFolder: "Files.ReadWrite.AppFolder",
 } as const;
@@ -37,7 +40,7 @@ const OIDC = new Set(["offline_access", "openid", "profile", "email"]);
 export function microsoftScopesFor(mode: ScopeMode): string[] {
   const s = MICROSOFT_SCOPES;
   if (mode === "read") {
-    return [s.offline, s.user, s.mailRead, s.calendarsRead, s.contactsRead];
+    return [s.offline, s.user, s.mailRead, s.calendarsRead, s.contactsRead, s.tasksRead];
   }
   return [
     s.offline,
@@ -46,6 +49,7 @@ export function microsoftScopesFor(mode: ScopeMode): string[] {
     s.mailSend,
     s.calendarsReadWrite,
     s.contactsRead,
+    s.tasksReadWrite,
     s.filesAppFolder,
   ];
 }
@@ -75,6 +79,8 @@ export interface MicrosoftAuthOptions {
   timeoutMs?: number;
   /** Device code polling wait (tests replace it). */
   sleep?(ms: number, signal?: AbortSignal): Promise<void>;
+  /** The owner's IANA time zone for To Do due days (default: this computer's). */
+  timeZone?: () => string;
 }
 
 export interface MicrosoftClientConfig {

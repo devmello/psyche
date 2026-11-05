@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 import { describe, expect, it, vi } from "vitest";
 import type { ComposeServices } from "../src/compose/services.ts";
@@ -5,7 +6,8 @@ import type { signGate } from "../src/compose/skills.ts";
 import { uninstallHandlers } from "../src/compose/uninstall.ts";
 import type { Call } from "../src/context.ts";
 
-const HOME = "/tmp/psyche-test-home-does-not-exist";
+// Resolved like the Gateway resolves it (a drive letter on Windows).
+const HOME = resolve("/tmp/psyche-test-home-does-not-exist");
 const audit = vi.fn(async () => undefined);
 const services = { audit: { append: audit } } as unknown as ComposeServices;
 const call = (over: { desktopShell?: boolean; remoteLoopback?: boolean } = {}) =>

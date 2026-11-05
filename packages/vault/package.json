@@ -16,6 +16,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@psyche/hostfs": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "better-sqlite3-multiple-ciphers": "13.0.3"
   },

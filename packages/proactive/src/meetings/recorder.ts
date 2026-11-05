@@ -22,6 +22,30 @@ export const CONFERENCE_APP_BUNDLES: readonly string[] = [
   "com.apple.FaceTime",
 ];
 
+/**
+ * The same apps on Windows, where the helper names an app by its AppUserModelID or, without one,
+ * its executable path (apps/win-helper `apps.list` `bundleId`): the executables and the AUMID
+ * package-family prefixes (case-insensitive).
+ */
+const CONFERENCE_EXES = [
+  "zoom.exe",
+  "ms-teams.exe",
+  "teams.exe",
+  "webex.exe",
+  "ciscocollabhost.exe",
+];
+const CONFERENCE_AUMID_PREFIXES = ["msteams_8wekyb3d8bbwe!", "microsoftteams_8wekyb3d8bbwe!"];
+
+/** Whether an app identity (`bundleId` from `apps.list`) is a conference app, Mac or Windows. */
+export function isConferenceApp(id: string): boolean {
+  if (CONFERENCE_APP_BUNDLES.includes(id)) return true;
+  const lower = id.toLowerCase();
+  const exe = lower.split(/[\\/]/).pop() ?? "";
+  return (
+    CONFERENCE_EXES.includes(exe) || CONFERENCE_AUMID_PREFIXES.some((p) => lower.startsWith(p))
+  );
+}
+
 export interface CapturedAudio {
   path: string;
   startedAt: string;

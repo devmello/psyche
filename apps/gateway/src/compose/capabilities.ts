@@ -23,8 +23,10 @@ import {
   type ToolResult,
   type ToolSpec,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { Type } from "@sinclair/typebox";
 import type { HandlerDef } from "../context.ts";
+import { usesSandboxPc } from "./guest-sandbox.ts";
 import { MCP_SERVERS_SETTING } from "./mcp.ts";
 import type { McpAdder } from "./mcp-add.ts";
 import { serverConfig } from "./mcp-add.ts";
@@ -275,8 +277,7 @@ function deviceAccessItems(db: PsycheDb): CatalogItem[] {
         ...base,
         id: "setting:terminal",
         name: "Terminal",
-        summary:
-          "Run terminal commands on this Mac, in folders the owner shared. Basic read-only file and info commands (ls, cat, wc, date…) run without asking unless the turn read untrusted content; every other command, git included, asks first. It runs under the sandbox unless the owner types UNSANDBOXED. Owner turns it on in Settings → Connectors → Terminal.",
+        summary: `Run terminal commands on ${hostWords().thisDevice}, in folders the owner shared. Basic read-only file and info commands (ls, cat, wc, date…) run without asking unless the turn read untrusted content; every other command, git included, asks first. It runs under the sandbox unless the owner types UNSANDBOXED. Owner turns it on in Settings → Connectors → Terminal.`,
         status: terminalOn ? "installed" : "off",
       },
       keywords: "terminal shell command run exec bash script cli",
@@ -285,8 +286,8 @@ function deviceAccessItems(db: PsycheDb): CatalogItem[] {
       entry: {
         ...base,
         id: "setting:files",
-        name: "Files on this Mac",
-        summary: `Read (and where allowed, change) files in folders the owner shared: ${folders} shared now. Same list as Settings → File access; the owner adds or revokes folders in Settings → Connectors → Files on this Mac.`,
+        name: `Files on ${hostWords().thisDevice}`,
+        summary: `Read (and where allowed, change) files in folders the owner shared: ${folders} shared now. Same list as Settings → File access; the owner adds or revokes folders in Settings → Connectors → Files on ${hostWords().thisDevice}.`,
         status: folders > 0 ? "installed" : "off",
       },
       keywords: "files folder documents disk local mac access grant",
@@ -615,7 +616,7 @@ function nextStep(item: CatalogItem): string {
 
 const BUILD_OPTION = {
   kind: "build",
-  how: "Nothing installed fits but you could do it in code? Build it and run it now: run_script with a small Node script (stdin JSON in, stdout out; one owner card shows the code; srt, no network unless listed). If it will be needed again, save_script_as_tool keeps it as a connector. For a server with several tools use the connector_* tools (load_tools them); for a procedure, skill_create. Tell the owner in one line what you are building and why.",
+  how: "Nothing installed fits but you could do it in code? Build it and run it now: run_script with a small Node script (stdin JSON in, stdout out; one owner card shows the code; it runs in the sandbox, no network unless listed). If it will be needed again, save_script_as_tool keeps it as a connector. For a server with several tools use the connector_* tools (load_tools them); for a procedure, skill_create. Tell the owner in one line what you are building and why.",
 };
 
 export interface CapabilityToolsDeps {
@@ -686,7 +687,9 @@ export function capabilityTools(deps: CapabilityToolsDeps): {
         ? ["Its instructions are offered to Psyche; it grants no tool or permission"]
         : [
             t?.kind === "stdio"
-              ? "Downloads and runs this package on this Mac inside the srt sandbox"
+              ? usesSandboxPc()
+                ? "Downloads and runs this package in the sandbox PC (a separate Linux computer, not this PC)"
+                : `Downloads and runs this package on ${hostWords().thisDevice} inside the srt sandbox`
               : "Connects to this endpoint; your data reaches it when its tools are used",
             network.length === 0 ? "No network" : `Network: ${network.join(", ")}`,
             "Its write tools ask each time unless you grant them; you can remove it in Settings → Connectors",
@@ -834,7 +837,7 @@ export function capabilityTools(deps: CapabilityToolsDeps): {
     defineTool({
       name: "install_capability",
       description:
-        "Add an option find_capability returned: loads an installed tool or connector, or opens one card on the owner's Mac (source, tier, exact command or URL, network) and waits for the answer in this turn. On approval the new tools are loaded and you can call them from the next step. Add only what the task needs, and say in one line what you are adding and why. On a denial, tell the owner briefly and do not ask again.",
+        "Add an option find_capability returned: loads an installed tool or connector, or opens one card on the owner's computer (source, tier, exact command or URL, network) and waits for the answer in this turn. On approval the new tools are loaded and you can call them from the next step. Add only what the task needs, and say in one line what you are adding and why. On a denial, tell the owner briefly and do not ask again.",
       input: Type.Object({
         id: Type.String({ minLength: 3, maxLength: 260 }),
         reason: Type.String({ minLength: 3, maxLength: 300, description: "Why, in one line" }),

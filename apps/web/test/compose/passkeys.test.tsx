@@ -125,6 +125,12 @@ function mockedNavigator() {
   return { credentials, authenticator };
 }
 
+/**
+ * Adding or removing a passkey is several Gateway round trips plus a software authenticator's
+ * signature: well under 1 s alone, longer than findBy's 1 s default under the full suite.
+ */
+const ROUND_TRIP = { timeout: 5_000 };
+
 function renderPanel(owner: TestClient, host: PasskeyHost | undefined) {
   const port = portOver(owner);
   render(
@@ -143,7 +149,7 @@ describe("Settings → Passkeys against the Gateway (issue #79)", () => {
     expect(await screen.findByText("No passkeys on this browser yet.")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Laptop" } });
     fireEvent.click(screen.getByRole("button", { name: "Add a passkey" }));
-    expect(await screen.findByText(/^Added Laptop\./)).toBeTruthy();
+    expect(await screen.findByText(/^Added Laptop\./, {}, ROUND_TRIP)).toBeTruthy();
     expect(credentials.create).toHaveBeenCalledTimes(1);
     expect(credentials.get).not.toHaveBeenCalled();
     const list = await screen.findByRole("list", { name: "Passkeys" });
@@ -153,7 +159,7 @@ describe("Settings → Passkeys against the Gateway (issue #79)", () => {
     expect(screen.getByText("You'll confirm with an existing passkey first.")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Phone" } });
     fireEvent.click(screen.getByRole("button", { name: "Add a passkey" }));
-    expect(await screen.findByText(/^Added Phone\./)).toBeTruthy();
+    expect(await screen.findByText(/^Added Phone\./, {}, ROUND_TRIP)).toBeTruthy();
     expect(credentials.get).toHaveBeenCalledTimes(1);
     await waitFor(() =>
       expect(
@@ -162,7 +168,7 @@ describe("Settings → Passkeys against the Gateway (issue #79)", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Remove Laptop" }));
-    expect(await screen.findByText("Removed Laptop.")).toBeTruthy();
+    expect(await screen.findByText("Removed Laptop.", {}, ROUND_TRIP)).toBeTruthy();
     expect(credentials.get).toHaveBeenCalledTimes(2);
     const left = await owner.call<{ passkeys: { name: string }[] }>("passkeys.list", {});
     expect(left.passkeys.map((p) => p.name)).toEqual(["Phone"]);

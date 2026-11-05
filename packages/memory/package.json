@@ -18,6 +18,7 @@
   "dependencies": {
     "@psyche/assets": "workspace:*",
     "@psyche/db": "workspace:*",
+    "@psyche/hostfs": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@sinclair/typebox": "0.34.52",
     "better-sqlite3-multiple-ciphers": "13.0.3",

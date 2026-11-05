@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FrameConnection } from "@psyche/browser";
+import { defaultBridgeSocketPath, FrameConnection } from "@psyche/browser";
 import { MockBrowser, MockDesktop } from "@psyche/browser/testing";
 import { type ComposedBrowser, composeBrowser } from "@psyche/gateway/compose";
 import { type ModelRequest, PROTOCOL_VERSION } from "@psyche/protocol";
@@ -381,7 +381,11 @@ describe("the bridge socket", () => {
     // The bridge refuses a socket directory that is not ours and private, and /tmp is neither (a
     // symlink on macOS, root's on Linux), so the socket gets a private directory of its own.
     const socketDir = await mkdtemp(join(tmpdir(), "psyche-int2-"));
-    const socketPath = join(socketDir, "bridge.sock");
+    // Windows: the bridge is a named pipe (the desktop's name for this folder), not a file.
+    const socketPath =
+      process.platform === "win32"
+        ? defaultBridgeSocketPath(socketDir)
+        : join(socketDir, "bridge.sock");
     let b: ComposedBrowser | undefined;
     const sk = await startSkeleton({
       model: { provider: model, model: MAIN },
@@ -415,9 +419,12 @@ describe("the bridge socket", () => {
       });
       await new Promise((r) => setTimeout(r, 20));
       expect(b?.driver).toBeDefined();
-      // The socket is the owner's only (0600).
-      const mode = statSync(socketPath).mode & 0o777;
-      expect(mode).toBe(0o600);
+      // The socket is the owner's only (0600). A named pipe has no mode: the handshake secret
+      // (checked above) is what keeps another account out on Windows.
+      if (process.platform !== "win32") {
+        const mode = statSync(socketPath).mode & 0o777;
+        expect(mode).toBe(0o600);
+      }
     } finally {
       await sk.stop();
       await rm(socketDir, { recursive: true, force: true });

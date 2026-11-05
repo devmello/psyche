@@ -10,17 +10,17 @@ Psyche is one repository for every platform: the TypeScript Gateway, web app, de
 | TypeScript libraries | `packages/*` | Node 24 and pnpm | exists |
 | Mac helper (Swift) | `apps/mac-helper` | Xcode or the Swift toolchain | exists |
 | Swift code shared by the Mac helper and iOS | `packages/swift` (one SwiftPM package) | Swift | planned |
-| Windows helper (C#/.NET) | `apps/windows-helper` | .NET SDK | planned |
+| Windows helper (Rust) | `apps/win-helper`, with the `crates/win-dictation` and `crates/win-computer` crates | Rust (stable) and the Visual Studio 2022 C++ build tools | exists |
 | iOS app (SwiftUI) | `apps/ios` | Xcode | planned |
 | Android app (Kotlin) | `apps/android` | Android SDK and Gradle | planned |
 
-The native folders do not exist yet. Create each one in the PR that adds the app, and add its paths to the three places that name them: `scripts/dev/sparse.sh`, the `changes` job in `.github/workflows/ci.yml`, and `.github/CODEOWNERS`.
+The planned native folders do not exist yet. Create each one in the PR that adds the app, and add its paths to the three places that name them: `scripts/dev/sparse.sh`, the `changes` job in `.github/workflows/ci.yml`, and `.github/CODEOWNERS`.
 
 ## Native toolchains are opt-in
 
-`pnpm install` and every TypeScript script must work on a machine with no Xcode, no .NET SDK and no Android SDK, and on Linux CI. Rules that keep this true:
+`pnpm install` and every TypeScript script must work on a machine with no Xcode, no Rust toolchain and no Android SDK, and on Linux CI. Rules that keep this true:
 
-- The native apps are not pnpm workspace packages. `pnpm-workspace.yaml` lists `apps/*`, but pnpm only picks up folders that contain a `package.json`, so a native folder without one is invisible to it. Do not add a `package.json` to a native app just to run scripts; call `swift`, `dotnet` or `gradlew` directly (or from a script under `scripts/dev`).
+- The native apps are not pnpm workspace packages. `pnpm-workspace.yaml` lists `apps/*`, but pnpm only picks up folders that contain a `package.json`, so a native folder without one is invisible to it. Do not add a `package.json` to a native app just to run scripts; call `swift`, `cargo` or `gradlew` directly (or from a script under `scripts/dev`).
 - No root script (`build`, `typecheck`, `test`, `lint`) may call a native toolchain. Native builds run from their own folder or from their own CI job.
 - Never add a dependency from a TypeScript package on native build output. Clients talk to the Gateway over the protocol, not through files.
 
@@ -31,7 +31,7 @@ The native folders do not exist yet. Create each one in the PR that adds the app
 ```sh
 pnpm sparse core      # TypeScript apps and packages, docs, tests, deploy, CI
 pnpm sparse mac       # core + apps/mac-helper + packages/swift
-pnpm sparse windows   # core + apps/windows-helper
+pnpm sparse windows   # core + apps/win-helper
 pnpm sparse mobile    # core + apps/ios + apps/android + packages/swift
 pnpm sparse all       # everything again
 ```
@@ -42,7 +42,7 @@ Sparse checkout is per worktree, so each session picks its own profile. Files in
 
 `packages/protocol` is the single definition of the Gateway protocol. `pnpm protocol:gen` turns it into the TypeScript declarations in `packages/protocol/generated` and the Swift `Codable` structs in `packages/protocol-swift/Sources/PsycheProtocol`; `pnpm protocol:check` fails when the committed output is stale, and CI runs it. Every new client follows the same rule:
 
-1. The client's models are generated, never hand-written: C# records into `apps/windows-helper/**/Protocol` (quicktype supports C#), Kotlin data classes into `apps/android/**/protocol`, and for iOS the same Swift structs through `packages/swift`.
+1. The client's models are generated where the language allows it: Kotlin data classes into `apps/android/**/protocol`, and for iOS the same Swift structs through `packages/swift`. The Windows helper keeps hand-written `serde` types with the protocol's names and shapes (it serves the Mac helper's capability names); its tests pin them, for example the hold-to-talk key names in `crates/win-dictation`.
 2. The generated folder is committed, marked as generated in its header, and listed in `.github/CODEOWNERS` as changed only through `protocol:` PRs.
 3. A protocol change reruns every CI job whose platform consumes it (below), so an enum case added in TypeScript cannot silently break a client's `switch`.
 
@@ -54,22 +54,22 @@ The `changes` job in `.github/workflows/ci.yml` diffs the pull request (or push)
 | --- | --- | --- |
 | `ts` | anything except native app folders | `ci` (typecheck, lint, tests, protocol freshness) |
 | `helper` | `packages/protocol/`, `packages/swift/`, `apps/mac-helper/` | `helper` (Swift build and test on macOS) |
-| `windows` | `packages/protocol/`, `apps/windows-helper/` | to add with the app |
+| `windows` | `packages/protocol/`, `apps/win-helper/` | `win-helper` (cargo build, test and clippy on windows-latest) |
 | `ios` | `packages/protocol/`, `packages/swift/`, `apps/ios/` | to add with the app |
 | `android` | `packages/protocol/`, `apps/android/` | to add with the app |
 
-A manual run, a tag, a new branch and any change to `ci.yml` itself run everything. The generated Swift protocol files count as TypeScript changes, so their freshness check still runs. A new platform job looks like this:
+A manual run, a tag, a new branch and any change to `ci.yml` itself run everything. The generated Swift protocol files count as TypeScript changes, so their freshness check still runs. A new platform job looks like the `win-helper` one:
 
 ```yaml
-  windows:
-    name: windows helper (dotnet build + test)
+  win-helper:
     needs: changes
     if: needs.changes.outputs.windows == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@<pinned sha>
-      - uses: actions/setup-dotnet@<pinned sha>
-      - run: dotnet test apps/windows-helper
+      - run: cargo build --release --locked --manifest-path apps/win-helper/Cargo.toml
+      - run: cargo test --locked --manifest-path apps/win-helper/Cargo.toml
+      - run: cargo clippy --locked --manifest-path apps/win-helper/Cargo.toml --all-targets -- -D warnings
 ```
 
 Workflows that only run on a schedule, on tags or on demand (`desktop`, `security`, `release`) need no path filter; `docs` already has one.

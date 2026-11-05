@@ -10,7 +10,7 @@ import {
 } from "../common.ts";
 
 /** Data model §1. */
-export const DevicePlatform = StringEnum(["macos", "ios", "android", "web", "linux"], {
+export const DevicePlatform = StringEnum(["macos", "ios", "android", "web", "linux", "windows"], {
   $id: "DevicePlatform",
 });
 export type DevicePlatform = Static<typeof DevicePlatform>;
@@ -49,12 +49,17 @@ export const NodeCapability = Type.Object(
 );
 export type NodeCapability = Static<typeof NodeCapability>;
 
+/**
+ * `mac-helper` and `win-helper` are the Host's own helper (the Gateway's node socket plus the
+ * per-launch handshake secret), on macOS and Windows; a node that only claims either family is
+ * `remote`. `isHostHelperKind` (node.ts) tests for both.
+ */
 export const NodeKind = StringEnum(
-  ["mac-helper", "vm-guest", "remote", "phone", "host-helper", "guest"],
+  ["mac-helper", "vm-guest", "remote", "phone", "win-helper", "host-helper", "guest"],
   {
     $id: "NodeKind",
     description:
-      "host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper inside a separate desktop (container or VM).",
+      "win-helper: the Windows helper on the Host (the node socket plus the handshake secret). host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper inside a separate desktop (container or VM).",
   },
 );
 export type NodeKind = Static<typeof NodeKind>;

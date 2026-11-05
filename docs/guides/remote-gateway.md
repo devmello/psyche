@@ -110,4 +110,4 @@ Settings → Gateways on this computer → **Forget** removes the saved Gateway,
 
 ## Not built yet
 
-Notifications on the other computer, presence (Touch ID or a passkey) on the other computer, the tailnet list in Add a Gateway, `psyche doctor` checks for Serve and Funnel, a Windows build, and the phone using the same LAN listener. On the LAN: link-local IPv6 (not supported, see the design), picking more than one network in Settings (the `gateway.lan.interfaces` setting takes several), and following an address that changes while the Gateway runs (turn the setting off and on, or restart). See the design for the order.
+Notifications on the other computer, presence (Touch ID or a passkey) on the other computer, the tailnet list in Add a Gateway, `psyche doctor` checks for Serve and Funnel, and the phone using the same LAN listener. On the LAN: link-local IPv6 (not supported, see the design), picking more than one network in Settings (the `gateway.lan.interfaces` setting takes several), and following an address that changes while the Gateway runs (turn the setting off and on, or restart). See the design for the order.

@@ -3,7 +3,10 @@
 //   node update-manifest.mjs keygen <private-key.pem>      new Ed25519 release key (0600); prints
 //                                                            {keyId, publicKey} for release-keys.ts
 //   node update-manifest.mjs build --release 1.2.3 --base <url>/ [--minimum 1.0.0]
-//        [--image gateway=ghcr.io/…@sha256:…] <artifacts…>   prints update-manifest.json
+//        [--image gateway=ghcr.io/…@sha256:…] [--win-arch x64] [--delta-base 1.2.2]
+//        <artifacts…>                                      prints update-manifest.json
+//        (macOS zips/DMGs, and the Windows RELEASES, nupkgs, Setup.exe and zip; --delta-base names
+//        the release a delta nupkg was made from, without it clients use the full package)
 //   node update-manifest.mjs sign <update-manifest.json>   writes <file>.sig with the key in
 //                                                            PSYCHE_RELEASE_SIGNING_KEY (PEM)
 //   node update-manifest.mjs verify <update-manifest.json> <publicKey-base64>
@@ -20,6 +23,7 @@ import {
 } from "node:crypto";
 import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const FORMAT = "psyche-update-manifest";
 const VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
@@ -33,35 +37,83 @@ function rawPublicKey(keyObject) {
   return Buffer.from(pub.export({ format: "jwk" }).x, "base64url");
 }
 
-export function artifactOf(path) {
+/**
+ * What a release file is, from its name. Windows files (deploy/windows/build-local.ps1 and the
+ * Squirrel maker): `Psyche-<v>-Setup.exe`, `Psyche-<v>-win32-<arch>.zip`, Squirrel's `RELEASES`
+ * and `Psyche-<nuget-version>-full.nupkg` / `-delta.nupkg` (those name no arch: `winArch`).
+ * Anything else named `Psyche-<v>-[darwin-]<arch>.zip|dmg` is macOS.
+ */
+/** `{ platform, kind, arch }` for a release file name, or null when it is not one. */
+export function classifyArtifact(name, winArch = "x64") {
+  if (name === "RELEASES") return { platform: "win32", kind: "squirrel-releases", arch: winArch };
+  const nupkg = /^Psyche-.+-(full|delta)\.nupkg$/.exec(name);
+  if (nupkg) return { platform: "win32", kind: `nupkg-${nupkg[1]}`, arch: winArch };
+  if (/^Psyche-.+-Setup\.exe$/.test(name))
+    return { platform: "win32", kind: "setup", arch: winArch };
+  const winZip = /^Psyche-.+-win32-(arm64|x64)\.zip$/.exec(name);
+  if (winZip) return { platform: "win32", kind: "zip", arch: winZip[1] };
+  const mac = /^Psyche-(.+?)-(?:darwin-)?(arm64|x64)\.(zip|dmg)$/.exec(name);
+  if (mac) return { platform: "darwin", kind: mac[3], arch: mac[2] };
+  return null;
+}
+
+export function artifactOf(path, { winArch = "x64", deltaBase } = {}) {
   const name = basename(path);
-  const m = /^Psyche-(.+?)-(?:darwin-)?(arm64|x64)\.(zip|dmg)$/.exec(name);
-  if (!m) return null;
+  const what = classifyArtifact(name, winArch);
+  if (!what) return null;
+  const { platform, kind, arch } = what;
   const bytes = readFileSync(path);
   return {
     name,
-    platform: "darwin",
-    arch: m[2],
-    kind: m[3],
+    platform,
+    arch,
+    kind,
     sha256: createHash("sha256").update(bytes).digest("hex"),
     bytes: statSync(path).size,
+    ...(kind === "nupkg-delta" && deltaBase ? { baseVersion: deltaBase } : {}),
   };
 }
 
+/**
+ * The manifest. `artifacts` keeps only macOS files, exactly as before Windows support: released
+ * Mac builds refuse a manifest with anything else there (apps/desktop/src/main/update-manifest.ts).
+ * With Windows files, `platforms` lists every platform's files by `<platform>-<arch>`.
+ */
 export function buildManifest({
   release,
   minimum = "0.0.0",
   base,
   images = {},
   files,
+  winArch,
+  deltaBase,
   now = new Date(),
 }) {
   if (!VERSION.test(release) || !VERSION.test(minimum))
     throw new Error("versions must look like 1.2.3");
+  if (deltaBase !== undefined && !VERSION.test(deltaBase))
+    throw new Error("--delta-base must look like 1.2.3");
   if (!/^https:\/\/.+\/$/.test(base)) throw new Error("--base must be an https URL ending in /");
-  const artifacts = files.map(artifactOf).filter(Boolean);
-  if (!artifacts.some((a) => a.kind === "zip"))
-    throw new Error("no Psyche-<version>-darwin-<arch>.zip among the artifacts");
+  const all = files.map((f) => artifactOf(f, { winArch, deltaBase })).filter(Boolean);
+  const mac = all.filter((a) => a.platform === "darwin");
+  const win = all.filter((a) => a.platform === "win32");
+  const macUpdate = mac.some((a) => a.kind === "zip");
+  const winUpdate =
+    win.some((a) => a.kind === "squirrel-releases") && win.some((a) => a.kind === "nupkg-full");
+  if (!macUpdate && !winUpdate)
+    throw new Error(
+      "no update among the artifacts: a Psyche-<version>-darwin-<arch>.zip, or RELEASES and a Psyche-<version>-full.nupkg",
+    );
+  if (win.length && !winUpdate)
+    throw new Error("Windows files without RELEASES and the full nupkg cannot update anyone");
+  let platforms;
+  if (win.length) {
+    platforms = {};
+    for (const { platform, arch, ...rest } of all) {
+      const key = `${platform}-${arch}`;
+      platforms[key] = [...(platforms[key] ?? []), rest];
+    }
+  }
   const manifest = {
     format: FORMAT,
     version: 1,
@@ -69,7 +121,8 @@ export function buildManifest({
     minimumVersion: minimum,
     publishedAt: now.toISOString(),
     baseUrl: base,
-    artifacts,
+    artifacts: mac,
+    ...(platforms ? { platforms } : {}),
     ...(Object.keys(images).length ? { images } : {}),
   };
   return `${JSON.stringify(manifest, null, 2)}\n`;
@@ -118,6 +171,8 @@ function main(argv) {
       if (a === "--release") opts.release = rest[++i];
       else if (a === "--minimum") opts.minimum = rest[++i];
       else if (a === "--base") opts.base = rest[++i];
+      else if (a === "--win-arch") opts.winArch = rest[++i];
+      else if (a === "--delta-base") opts.deltaBase = rest[++i];
       else if (a === "--image") {
         const [k, v] = String(rest[++i]).split("=");
         opts.images[k] = v;
@@ -143,7 +198,7 @@ function main(argv) {
   throw new Error("commands: keygen, build, sign, verify");
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     main(process.argv.slice(2));
   } catch (err) {

@@ -1,6 +1,6 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { defineTool } from "@psyche/agent-core";
 import { getLibraryItem, insertLibraryItem, setSetting } from "@psyche/db";
 import type { AudioCapture, CapturedAudio } from "@psyche/proactive";
@@ -452,12 +452,12 @@ describe("Record meeting with the device's microphone (§4.6)", () => {
     expect(last).toMatchObject({ notes: "done", reason: "silence" });
 
     const [path] = r.files.paths;
-    expect(path).toMatch(/library\/audio\/[0-9A-Z]+\.wav$/);
+    expect(path).toMatch(/library[\\/]audio[\\/][0-9A-Z]+\.wav$/);
     const wav = readFileSync(path ?? "");
     expect(wav.subarray(0, 4).toString()).toBe("RIFF");
     expect(wav.readUInt32LE(40)).toBe(64_000);
     expect(wav.length).toBe(44 + 64_000);
-    const id = (path ?? "").split("/").pop()?.replace(".wav", "") ?? "";
+    const id = basename(path ?? "", ".wav");
     expect(getLibraryItem(c.db, id)).toMatchObject({
       kind: "recording",
       mime: "audio/wav",

@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,6 +9,12 @@ import type { ExecResult } from "../src/exec.ts";
 import { scriptedPrompter } from "../src/prompt.ts";
 
 export const FIXED_NOW = new Date("2026-10-19T12:00:00.000Z");
+
+/** POSIX file modes; on Windows ACLs keep files private and Node reports 0o666 / 0o777. */
+export const POSIX_MODES = process.platform !== "win32";
+
+/** A real /bin/sh (absent on Windows, where Git Bash's sh is not at that path). */
+export const HAS_BIN_SH = existsSync("/bin/sh");
 
 export interface ExecCall {
   cmd: string;

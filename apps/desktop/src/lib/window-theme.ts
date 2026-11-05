@@ -15,7 +15,12 @@ export const THEME_KEY = "appearance.theme";
 export type ThemeSource = "system" | "light" | "dark";
 
 export interface ChromeTarget {
-  win: { setBackgroundColor(color: string): void; isDestroyed(): boolean };
+  win: {
+    setBackgroundColor(color: string): void;
+    isDestroyed(): boolean;
+    /** Windows: the caption buttons' colours (Window Controls Overlay). */
+    setTitleBarOverlay?(options: { color?: string; symbolColor?: string }): void;
+  };
   view: { setBackgroundColor(color: string): void };
 }
 
@@ -28,6 +33,16 @@ export interface WindowThemeOptions {
   setThemeSource: (source: ThemeSource) => void;
   /** The opaque canvas colour for the current (native) appearance. */
   canvas: () => string;
+  /**
+   * Windows: the caption buttons' colours for the current appearance, repainted with the canvas
+   * (the glyphs must stay readable when the theme flips). Unset elsewhere.
+   */
+  overlay?: () => { color: string; symbolColor: string };
+  /**
+   * The window's and the app view's background when it is not the canvas: transparent over
+   * Windows' Mica, which shows only where both let it through.
+   */
+  materialBackground?: () => string;
   warn?: (message: string) => void;
 }
 
@@ -56,9 +71,18 @@ export class WindowTheme {
 
   applyTo(t: ChromeTarget): void {
     if (t.win.isDestroyed()) return;
-    const canvas = this.#o.canvas();
-    t.win.setBackgroundColor(canvas);
-    t.view.setBackgroundColor(canvas);
+    const background = this.#o.materialBackground?.() ?? this.#o.canvas();
+    t.win.setBackgroundColor(background);
+    t.view.setBackgroundColor(background);
+    const overlay = this.#o.overlay?.();
+    if (overlay && t.win.setTitleBarOverlay) {
+      try {
+        t.win.setTitleBarOverlay(overlay);
+      } catch (err) {
+        // A window made without an overlay (high contrast toggled since) throws: nothing to paint.
+        this.#o.warn?.(`could not repaint the caption buttons: ${String(err)}`);
+      }
+    }
   }
 
   /** Reads the stored setting once paired; unset follows the system. */

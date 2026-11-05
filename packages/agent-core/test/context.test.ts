@@ -1,5 +1,5 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { FakeClock, FakeMemoryStore, FakeSkillLoader } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import {
@@ -22,7 +22,8 @@ async function workspaceFiles(dir = FIXTURE): Promise<Record<string, string>> {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) Object.assign(out, await workspaceFiles(path));
-    else out[relative(FIXTURE, path)] = await readFile(path, "utf8");
+    // Workspace paths are `/`-separated on every platform.
+    else out[relative(FIXTURE, path).split(sep).join("/")] = await readFile(path, "utf8");
   }
   return out;
 }

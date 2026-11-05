@@ -40,12 +40,32 @@ export const SandboxSrtStatus = Type.Object(
     source: Nullable(StringEnum(["env", "setting", "detected"], { $id: "SandboxSrtSource" })),
     version: Nullable(Type.String()),
     problem: Nullable(
-      StringEnum(["not_found", "not_absolute", "not_executable"], { $id: "SandboxSrtProblem" }),
+      StringEnum(["not_found", "not_absolute", "not_executable", "unsupported_platform"], {
+        $id: "SandboxSrtProblem",
+        description:
+          "`unsupported_platform`: srt has no Windows build, so it is never looked for there; Windows uses the sandbox PC",
+      }),
     ),
   },
   { $id: "SandboxSrtStatus" },
 );
 export type SandboxSrtStatus = Static<typeof SandboxSrtStatus>;
+
+/**
+ * The sandbox PC (Windows VM mode) as the place srt's features run on Windows: scripts, command
+ * servers and Psyche-made connectors. Present on Windows only.
+ */
+export const SandboxPcStatus = Type.Object(
+  {
+    enabled: Type.Boolean({ description: "The owner turned the sandbox PC on (`vm.enabled`)" }),
+    ready: Type.Boolean({
+      description:
+        "Its guest runs and its psyche-node is connected with sessions, so those features run in it now",
+    }),
+  },
+  { $id: "SandboxPcStatus" },
+);
+export type SandboxPcStatus = Static<typeof SandboxPcStatus>;
 
 /**
  * The srt install the owner can run from the guided setup: the pinned package, where it goes
@@ -116,6 +136,8 @@ export const SandboxMethods = {
       egress: Type.Optional(Type.Boolean()),
       /** `srt` for host commands (stdio MCP servers, host exec), looked up now. */
       srt: Type.Optional(SandboxSrtStatus),
+      /** Windows: srt's features use the sandbox PC instead. */
+      sandboxPc: Type.Optional(SandboxPcStatus),
     }),
     scope: "operator.read",
     description: "Reports the container backend and, with sandboxId, one sandbox's state.",
@@ -123,8 +145,13 @@ export const SandboxMethods = {
   "sandbox.setup": defineMethod({
     params: Type.Object({}),
     result: Type.Object({
-      ready: Type.Boolean({ description: "srt is available, so command servers can run" }),
+      ready: Type.Boolean({
+        description:
+          "srt is available (on Windows: the sandbox PC is ready), so scripts and command servers can run",
+      }),
       srt: SandboxSrtStatus,
+      /** Windows: srt's features use the sandbox PC instead. */
+      sandboxPc: Type.Optional(SandboxPcStatus),
       installer: Type.Optional(SandboxSrtInstaller),
       containers: SandboxContainerSetup,
     }),

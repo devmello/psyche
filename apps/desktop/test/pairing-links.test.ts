@@ -568,6 +568,6 @@ describe("opening a psyche-pair: link from the OS", () => {
     expect(main.match(/addFromLink\(/g)).toHaveLength(1);
     expect(main).toMatch(/handle\(IPC\.gatewaysAddLink/);
     // Registered as a protocol handler in packaged builds only.
-    expect(main).toMatch(/app\.isPackaged\) app\.setAsDefaultProtocolClient\(PAIR_LINK_SCHEME\)/);
+    expect(main).toMatch(/app\.isPackaged\) registerScheme\(PAIR_LINK_SCHEME\)/);
   });
 });

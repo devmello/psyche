@@ -12,6 +12,8 @@ import PackageDescription
 
 let package = Package(
     name: "PsycheKit",
+    // Strings new since 2026-11 live in String Catalogs (`Localizable.xcstrings`): English source plus the app's ten languages.
+    defaultLocalization: "en",
     platforms: [.iOS(.v26), .macOS(.v26)],
     products: [
         .library(name: "PsycheFeatures", targets: ["PsycheFeatures"]),
@@ -44,7 +46,8 @@ let package = Package(
         .target(name: "PsycheBlocks", dependencies: ["PsycheDesign", "PsycheStore"]),
         .target(
             name: "PsycheFeatures",
-            dependencies: ["PsycheBlocks", "PsycheDesign", "PsycheClient", "PsycheStore", "PsycheShared"]
+            dependencies: ["PsycheBlocks", "PsycheDesign", "PsycheClient", "PsycheStore", "PsycheShared"],
+            resources: [.process("Resources")]
         ),
         .testTarget(name: "PsycheStoreTests", dependencies: ["PsycheStore", "PsycheShared"]),
         .testTarget(name: "PsycheWidgetTests", dependencies: ["PsycheBlocks", "PsycheStore"]),

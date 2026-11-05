@@ -19,6 +19,7 @@ import {
   openDbWithSnapshot,
   preUpdateDir,
   readUpdateFailure,
+  releaseAllGatewayLocks,
   restoreWithMarker,
 } from "../src/pre-update.ts";
 
@@ -26,6 +27,7 @@ import {
 
 const roots: string[] = [];
 afterEach(() => {
+  releaseAllGatewayLocks();
   for (const r of roots.splice(0)) rmSync(r, { recursive: true, force: true });
 });
 

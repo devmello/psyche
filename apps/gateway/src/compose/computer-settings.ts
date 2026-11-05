@@ -31,7 +31,8 @@ export const COMPUTER_USE_ENABLED = "computerUse.enabled";
 export const COMPUTER_USE_APPS = "computerUse.apps";
 
 const TIERS: readonly AppTier[] = ["off", "read", "click", "interact"];
-const BUNDLE_ID = /^[A-Za-z0-9-]+(\.[A-Za-z0-9_-]+)+$/;
+/** A macOS bundle id, or a Windows app as its helper names it: the lowercase executable. */
+const BUNDLE_ID = /^(?:[A-Za-z0-9-]+(\.[A-Za-z0-9_-]+)+|[a-z0-9_][a-z0-9 _().-]*\.exe)$/;
 
 export interface ComputerUseFile {
   version: 1;

@@ -13,7 +13,7 @@ export interface SkillRequires {
   anyBins: string[];
   /** Every environment variable must be set and non-empty. */
   env: string[];
-  /** `process.platform` values (`darwin`, `linux`); empty means any. */
+  /** `process.platform` values (`darwin`, `linux`, `win32`; `macos` / `windows` are aliases); empty means any. */
   os: string[];
   /** Every tool must be registered and enabled; `email.*` matches a family. */
   tools: string[];

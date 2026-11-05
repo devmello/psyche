@@ -1,4 +1,5 @@
 import { PsycheError } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { describe, expect, it } from "vitest";
 import { assertDesktopRecording } from "../src/compose/skills.ts";
 
@@ -15,7 +16,7 @@ describe("assertDesktopRecording", () => {
       } catch (e) {
         expect(e).toBeInstanceOf(PsycheError);
         expect((e as PsycheError).code).toBe("forbidden");
-        expect((e as PsycheError).message).toContain("on this Mac");
+        expect((e as PsycheError).message).toContain(`on ${hostWords().thisDevice}`);
       }
     }
   });

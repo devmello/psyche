@@ -24,6 +24,7 @@ import {
   pruneSnapshots,
   RESTORE_MARKER_FILE,
   readUpdateFailure,
+  releaseAllGatewayLocks,
   restoreWithMarker,
   UPDATE_FAILED_FILE,
 } from "../src/pre-update.ts";
@@ -35,6 +36,7 @@ import {
 
 const roots: string[] = [];
 afterEach(() => {
+  releaseAllGatewayLocks();
   for (const r of roots.splice(0)) rmSync(r, { recursive: true, force: true });
 });
 

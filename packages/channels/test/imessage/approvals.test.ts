@@ -1,3 +1,4 @@
+import { DEVICE_ONLY_TEXT } from "@psyche/permissions/cards";
 import type { ApprovalRequestInput } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import { TAPBACK_HINT } from "../../src/adapters/imessage/index.ts";
@@ -117,7 +118,7 @@ describe("iMessage approvals over chat", () => {
     expect(reports).toEqual([
       { surface: `imessage:${OWNER}`, delivered: false, reason: "device_only" },
     ]);
-    expect(h.sent().at(-1)).toBe("Pay · financial\nAnswer this on your Mac.");
+    expect(h.sent().at(-1)).toBe(`Pay · financial\n${DEVICE_ONLY_TEXT}`);
     await expect(
       h.adapter.sendApprovalButtons(OWNER, { ...issued.approval, deviceOnly: true }, token),
     ).rejects.toMatchObject({ code: "forbidden" });

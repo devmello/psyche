@@ -427,7 +427,7 @@ export class MockGateway implements GatewayClient {
   /** The capability catalogue `capabilities.search` ranks (stories, tests); registry entries need the online setting. */
   capabilityCatalog: CatalogEntry[] = [];
   /** How stdio MCP servers run; tests set `"none"` for a Gateway with no sandbox. */
-  mcpLauncher: "srt" | "container" | "none" = "srt";
+  mcpLauncher: "srt" | "container" | "vm" | "none" = "srt";
   /** MCP Apps by tool name (`mcp__<server>__<tool>`), for `mcp.app`. */
   mcpApps: Record<string, McpApp> = {};
   /** `sandbox.installSrt` calls so far, and an error to throw from it (tests). */

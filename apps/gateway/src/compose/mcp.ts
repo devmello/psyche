@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { getSetting } from "@psyche/db";
@@ -20,6 +21,8 @@ import {
   srtLauncher,
   systemRuntimeDeps,
   type ToolWarning,
+  type VmStdioHost,
+  vmLauncher,
 } from "@psyche/mcp-host";
 import {
   type McpTrustTier,
@@ -32,6 +35,7 @@ import { srtSearchDirs } from "@psyche/sandbox";
 import type { BundleFetchOptions } from "@psyche/skills";
 import type { Gateway } from "../server.ts";
 import { connectorBundles } from "./connector-bundles.ts";
+import { TURN_ON_SANDBOX_PC } from "./guest-sandbox.ts";
 import { type McpAdder, mcpAdder } from "./mcp-add.ts";
 import { mcpAppHandler } from "./mcp-app.ts";
 import { mcpGrantRevocation } from "./mcp-grants.ts";
@@ -64,6 +68,11 @@ export interface McpSetup {
   /** Run stdio servers in their own sandbox container instead of under srt (M3, flagged). */
   container?: SandboxStdioHost & { dispose?(): Promise<void> };
   /**
+   * Run stdio servers in the sandbox guest (the sandbox PC on Windows, where srt cannot run).
+   * Ready only while VM mode is on and the guest's psyche-node is connected with sessions.
+   */
+  vm?: VmStdioHost;
+  /**
    * The sandbox egress proxy's allowlist setter (K4): a container server that declares network
    * hosts runs with `network: "proxy"` and reaches only those. Without it such servers are refused.
    */
@@ -95,7 +104,34 @@ function defaultRuntime(): RuntimeDeps {
     ...srtSearchDirs(),
     join(homedir(), ".cargo", "bin"),
     join(homedir(), ".nvm", "current", "bin"),
+    ...(process.platform === "win32" ? windowsRuntimeDirs(process.env) : []),
   ]);
+}
+
+/**
+ * Where `npx` / `uvx` live on Windows when a scheduled task's PATH lacks them: the Node installer
+ * (`%ProgramFiles%\\nodejs`), nvm-windows' link (`NVM_SYMLINK`), npm's global folder
+ * (`%APPDATA%\\npm`), uv's (`%USERPROFILE%\\.local\\bin`), and each per-user Python's `Scripts`.
+ */
+export function windowsRuntimeDirs(env: NodeJS.ProcessEnv): string[] {
+  const home = env.USERPROFILE ?? homedir();
+  const local = env.LOCALAPPDATA ?? join(home, "AppData", "Local");
+  const pythons = join(local, "Programs", "Python");
+  let pythonScripts: string[] = [];
+  try {
+    pythonScripts = readdirSync(pythons, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && /^python\d+/i.test(d.name))
+      .map((d) => join(pythons, d.name, "Scripts"));
+  } catch {
+    // no per-user Python
+  }
+  return [
+    join(env.ProgramFiles ?? "C:\\Program Files", "nodejs"),
+    ...(env.NVM_SYMLINK ? [env.NVM_SYMLINK] : []),
+    join(env.APPDATA ?? join(home, "AppData", "Roaming"), "npm"),
+    join(home, ".local", "bin"),
+    ...pythonScripts,
+  ];
 }
 
 function launcherFor(services: ComposeServices, setup: McpSetup): StdioLauncher | undefined {
@@ -105,6 +141,9 @@ function launcherFor(services: ComposeServices, setup: McpSetup): StdioLauncher 
       ...(setup.egressAllowlist === undefined ? {} : { egressAllowlist: setup.egressAllowlist }),
       ...(setup.egressRevoke === undefined ? {} : { egressRevoke: setup.egressRevoke }),
     });
+  }
+  if (setup.vm !== undefined) {
+    return vmLauncher({ vm: setup.vm, notReady: `Command servers: ${TURN_ON_SANDBOX_PC}` });
   }
   if (setup.srt !== undefined) {
     return resolvingSrtLauncher({
@@ -397,9 +436,11 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     // Servers that left the list, or joined it unmarked, by any route (`settings.set` included):
     // a record and files of a shared one go with it; a server of that id that is not one never
     // inherits them.
+    // The files go after the server stops: Windows will not delete a folder a process runs in.
+    const gone = seeded
+      ? [...known].filter(([id, was]) => !next.has(id) && was.bundle !== undefined)
+      : [];
     if (seeded) {
-      for (const [id, was] of known)
-        if (!next.has(id) && was.bundle !== undefined) await bundles.removed(was);
       for (const [id, now] of next)
         if (!known.has(id) && now.bundle === undefined) await bundles.added(now);
     }
@@ -420,6 +461,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
         await remove(id);
       }
     }
+    for (const [, was] of gone) await bundles.removed(was);
     for (const c of wanted) if (c.enabled !== false && !configs.has(c.id)) await add(c);
     // The owner's tool choices: re-register what is offered; the server keeps running.
     for (const [id, reg] of registrations) {
@@ -442,8 +484,9 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
 
   let unsubscribe: (() => void) | undefined;
   // What `mcp.status` reports: with a resolving srt launcher, whether srt is there right now.
-  const launcherKind = async (): Promise<"container" | "srt" | "none"> => {
+  const launcherKind = async (): Promise<"container" | "srt" | "vm" | "none"> => {
     if (setup.container !== undefined) return "container";
+    if (setup.vm !== undefined) return (await launcher?.ready?.()) === true ? "vm" : "none";
     if (setup.srt !== undefined) return (await launcher?.ready?.()) === true ? "srt" : "none";
     return setup.srtPath !== undefined ? "srt" : "none";
   };

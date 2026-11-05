@@ -926,6 +926,8 @@
 //   let memoryWorkFolders = try? JSONDecoder().decode(MemoryWorkFolders.self, from: jsonData)
 //   let memoryWorkHistoryParams = try? JSONDecoder().decode(MemoryWorkHistoryParams.self, from: jsonData)
 //   let memoryWorkHistoryResult = try? JSONDecoder().decode(MemoryWorkHistoryResult.self, from: jsonData)
+//   let memoryWorkListsParams = try? JSONDecoder().decode(MemoryWorkListsParams.self, from: jsonData)
+//   let memoryWorkListsResult = try? JSONDecoder().decode(MemoryWorkListsResult.self, from: jsonData)
 //   let memoryWorkRemind = try? JSONDecoder().decode(MemoryWorkRemind.self, from: jsonData)
 //   let memoryWorkSettings = try? JSONDecoder().decode(MemoryWorkSettings.self, from: jsonData)
 //   let memoryWorkUndoUpdateParams = try? JSONDecoder().decode(MemoryWorkUndoUpdateParams.self, from: jsonData)
@@ -1068,6 +1070,7 @@
 //   let policyRule = try? JSONDecoder().decode(PolicyRule.self, from: jsonData)
 //   let prepareUpdateResult = try? JSONDecoder().decode(PrepareUpdateResult.self, from: jsonData)
 //   let presenceAssertion = try? JSONDecoder().decode(PresenceAssertion.self, from: jsonData)
+//   let presenceKeyAlgorithm = try? JSONDecoder().decode(PresenceKeyAlgorithm.self, from: jsonData)
 //   let presenceKeyInfo = try? JSONDecoder().decode(PresenceKeyInfo.self, from: jsonData)
 //   let presenceVerifier = try? JSONDecoder().decode(PresenceVerifier.self, from: jsonData)
 //   let presenceVerifierKind = try? JSONDecoder().decode(PresenceVerifierKind.self, from: jsonData)
@@ -1171,6 +1174,7 @@
 //   let sandboxListParams = try? JSONDecoder().decode(SandboxListParams.self, from: jsonData)
 //   let sandboxListResult = try? JSONDecoder().decode(SandboxListResult.self, from: jsonData)
 //   let sandboxNetwork = try? JSONDecoder().decode(SandboxNetwork.self, from: jsonData)
+//   let sandboxPCStatus = try? JSONDecoder().decode(SandboxPCStatus.self, from: jsonData)
 //   let sandboxSetupBackend = try? JSONDecoder().decode(SandboxSetupBackend.self, from: jsonData)
 //   let sandboxSetupParams = try? JSONDecoder().decode(SandboxSetupParams.self, from: jsonData)
 //   let sandboxSetupResult = try? JSONDecoder().decode(SandboxSetupResult.self, from: jsonData)
@@ -1198,6 +1202,7 @@
 //   let scheduledWarning = try? JSONDecoder().decode(ScheduledWarning.self, from: jsonData)
 //   let screenCapture = try? JSONDecoder().decode(ScreenCapture.self, from: jsonData)
 //   let screenCaptureMode = try? JSONDecoder().decode(ScreenCaptureMode.self, from: jsonData)
+//   let screenCaptureParams = try? JSONDecoder().decode(ScreenCaptureParams.self, from: jsonData)
 //   let screenCaptureRefusal = try? JSONDecoder().decode(ScreenCaptureRefusal.self, from: jsonData)
 //   let screenContext = try? JSONDecoder().decode(ScreenContext.self, from: jsonData)
 //   let screenContextParams = try? JSONDecoder().decode(ScreenContextParams.self, from: jsonData)
@@ -1353,12 +1358,23 @@
 //   let specialistsJobsResult = try? JSONDecoder().decode(SpecialistsJobsResult.self, from: jsonData)
 //   let specialistsListParams = try? JSONDecoder().decode(SpecialistsListParams.self, from: jsonData)
 //   let specialistsListResult = try? JSONDecoder().decode(SpecialistsListResult.self, from: jsonData)
+//   let speechEngineDownloadParams = try? JSONDecoder().decode(SpeechEngineDownloadParams.self, from: jsonData)
+//   let speechEngineDownloadResult = try? JSONDecoder().decode(SpeechEngineDownloadResult.self, from: jsonData)
+//   let speechEngineEntryStatus = try? JSONDecoder().decode(SpeechEngineEntryStatus.self, from: jsonData)
 //   let speechEngineLocation = try? JSONDecoder().decode(SpeechEngineLocation.self, from: jsonData)
+//   let speechEngineStatus = try? JSONDecoder().decode(SpeechEngineStatus.self, from: jsonData)
+//   let speechEngineStatusParams = try? JSONDecoder().decode(SpeechEngineStatusParams.self, from: jsonData)
+//   let speechModelDownloadPayload = try? JSONDecoder().decode(SpeechModelDownloadPayload.self, from: jsonData)
 //   let speechNodeEngine = try? JSONDecoder().decode(SpeechNodeEngine.self, from: jsonData)
 //   let speechProgressEvent = try? JSONDecoder().decode(SpeechProgressEvent.self, from: jsonData)
 //   let speechTranscribeFileParams = try? JSONDecoder().decode(SpeechTranscribeFileParams.self, from: jsonData)
 //   let speechTranscribeFileResult = try? JSONDecoder().decode(SpeechTranscribeFileResult.self, from: jsonData)
 //   let speechTranscribePreset = try? JSONDecoder().decode(SpeechTranscribePreset.self, from: jsonData)
+//   let speechWhisperModel = try? JSONDecoder().decode(SpeechWhisperModel.self, from: jsonData)
+//   let speechWhisperRuntime = try? JSONDecoder().decode(SpeechWhisperRuntime.self, from: jsonData)
+//   let speechWhisperServerState = try? JSONDecoder().decode(SpeechWhisperServerState.self, from: jsonData)
+//   let speechWhisperSetup = try? JSONDecoder().decode(SpeechWhisperSetup.self, from: jsonData)
+//   let speechWhisperSetupState = try? JSONDecoder().decode(SpeechWhisperSetupState.self, from: jsonData)
 //   let taintSource = try? JSONDecoder().decode(TaintSource.self, from: jsonData)
 //   let target = try? JSONDecoder().decode(Target.self, from: jsonData)
 //   let targetKind = try? JSONDecoder().decode(TargetKind.self, from: jsonData)
@@ -1624,6 +1640,7 @@
 //   let workNoteAttribute = try? JSONDecoder().decode(WorkNoteAttribute.self, from: jsonData)
 //   let workNoteBlock = try? JSONDecoder().decode(WorkNoteBlock.self, from: jsonData)
 //   let workNoteItem = try? JSONDecoder().decode(WorkNoteItem.self, from: jsonData)
+//   let workReminderList = try? JSONDecoder().decode(WorkReminderList.self, from: jsonData)
 //   let workUndoStatus = try? JSONDecoder().decode(WorkUndoStatus.self, from: jsonData)
 //   let workflowCard = try? JSONDecoder().decode(WorkflowCard.self, from: jsonData)
 //   let workflowEvent = try? JSONDecoder().decode(WorkflowEvent.self, from: jsonData)
@@ -8540,6 +8557,7 @@ public enum DevicePlatform: String, Codable, Sendable {
     case linux = "linux"
     case macos = "macos"
     case web = "web"
+    case windows = "windows"
 }
 
 // MARK: - ChannelsAllowlistUpdateParams
@@ -12954,19 +12972,22 @@ public struct DevicesPresenceKeyListResult: Codable, Sendable {
 
 // MARK: - PresenceKeyInfo
 public struct PresenceKeyInfo: Codable, Sendable {
+    public let algorithm: PresenceKeyAlgorithm?
     public let deviceID: String
     public let keyID: String
     public let kind: PresenceKeyInfoKind?
     public let registeredAt: String
 
     public enum CodingKeys: String, CodingKey {
+        case algorithm = "algorithm"
         case deviceID = "deviceId"
         case keyID = "keyId"
         case kind = "kind"
         case registeredAt = "registeredAt"
     }
 
-    public init(deviceID: String, keyID: String, kind: PresenceKeyInfoKind? = nil, registeredAt: String) {
+    public init(algorithm: PresenceKeyAlgorithm? = nil, deviceID: String, keyID: String, kind: PresenceKeyInfoKind? = nil, registeredAt: String) {
+        self.algorithm = algorithm
         self.deviceID = deviceID
         self.keyID = keyID
         self.kind = kind
@@ -12974,10 +12995,16 @@ public struct PresenceKeyInfo: Codable, Sendable {
     }
 }
 
+public enum PresenceKeyAlgorithm: String, Codable, Sendable {
+    case p256EcdsaSha256 = "p256-ecdsa-sha256"
+    case rsa2048Pkcs1Sha256 = "rsa-2048-pkcs1-sha256"
+}
+
 public enum PresenceKeyInfoKind: String, Codable, Sendable {
     case enclaveFile = "enclave_file"
     case enclaveKeychainACL = "enclave_keychain_acl"
     case keychain = "keychain"
+    case windowsHello = "windows_hello"
 }
 
 // MARK: - DevicesPresenceKeyRegisterParams
@@ -13343,6 +13370,7 @@ public struct DictationTarget: Codable, Sendable {
 }
 
 public enum DictationRefusal: String, Codable, Sendable {
+    case elevatedTarget = "elevated_target"
     case focusChanged = "focus_changed"
     case noFocus = "no_focus"
     case notEditable = "not_editable"
@@ -13374,9 +13402,31 @@ public struct DictationKeyPayload: Codable, Sendable {
 }
 
 public enum DictationKey: String, Codable, Sendable {
+    case capsLock = "capsLock"
+    case f13 = "f13"
+    case f14 = "f14"
+    case f15 = "f15"
+    case f16 = "f16"
+    case f17 = "f17"
+    case f18 = "f18"
+    case f19 = "f19"
+    case f20 = "f20"
+    case f21 = "f21"
+    case f22 = "f22"
+    case f23 = "f23"
+    case f24 = "f24"
     case fn = "fn"
+    case insert = "insert"
+    case menu = "menu"
+    case numLock = "numLock"
+    case pause = "pause"
+    case rightAlt = "rightAlt"
     case rightCommand = "rightCommand"
+    case rightCtrl = "rightCtrl"
     case rightOption = "rightOption"
+    case rightShift = "rightShift"
+    case rightWin = "rightWin"
+    case scrollLock = "scrollLock"
 }
 
 public enum DictationKeyRole: String, Codable, Sendable {
@@ -18519,7 +18569,7 @@ public struct MCPSetEnabledResult: Codable, Sendable {
 
 // MARK: - MCPStatusResult
 public struct MCPStatusResult: Codable, Sendable {
-    public let launcher: Sandbox
+    public let launcher: Launcher
     public let servers: [MCPServerStatus]
 
     public enum CodingKeys: String, CodingKey {
@@ -18527,10 +18577,17 @@ public struct MCPStatusResult: Codable, Sendable {
         case servers = "servers"
     }
 
-    public init(launcher: Sandbox, servers: [MCPServerStatus]) {
+    public init(launcher: Launcher, servers: [MCPServerStatus]) {
         self.launcher = launcher
         self.servers = servers
     }
+}
+
+public enum Launcher: String, Codable, Sendable {
+    case container = "container"
+    case none = "none"
+    case srt = "srt"
+    case vm = "vm"
 }
 
 // MARK: - MCPToolsParams
@@ -22859,6 +22916,43 @@ public enum WorkHistoryOrigin: String, Codable, Sendable {
     case you = "you"
 }
 
+// MARK: - MemoryWorkListsResult
+public struct MemoryWorkListsResult: Codable, Sendable {
+    public let lists: [WorkReminderList]
+
+    public enum CodingKeys: String, CodingKey {
+        case lists = "lists"
+    }
+
+    public init(lists: [WorkReminderList]) {
+        self.lists = lists
+    }
+}
+
+// MARK: - WorkReminderList
+public struct WorkReminderList: Codable, Sendable {
+    public let id: String
+    public let name: String
+    /// Someone else can add to it (shared, read-only, flagged email): untrusted
+    public let shared: Bool
+    /// Where it lives, e.g. Microsoft To Do
+    public let source: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case name = "name"
+        case shared = "shared"
+        case source = "source"
+    }
+
+    public init(id: String, name: String, shared: Bool, source: String? = nil) {
+        self.id = id
+        self.name = name
+        self.shared = shared
+        self.source = source
+    }
+}
+
 // MARK: - MemoryWorkSettings
 public struct MemoryWorkSettings: Codable, Sendable {
     public let anchorsFromFolders: MemoryWorkFolders
@@ -24101,6 +24195,7 @@ public struct NodeInfo: Codable, Sendable {
     }
 }
 
+/// win-helper: the Windows helper on the Host (the node socket plus the handshake secret).
 /// host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux
 /// linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper
 /// inside a separate desktop (container or VM).
@@ -24111,6 +24206,7 @@ public enum NodeKind: String, Codable, Sendable {
     case phone = "phone"
     case remote = "remote"
     case vmGuest = "vm-guest"
+    case winHelper = "win-helper"
 }
 
 public enum NodeStatus: String, Codable, Sendable {
@@ -27486,10 +27582,13 @@ public struct SandboxSrtStatus: Codable, Sendable {
     }
 }
 
+/// `unsupported_platform`: srt has no Windows build, so it is never looked for there;
+/// Windows uses the sandbox PC
 public enum SandboxSrtProblem: String, Codable, Sendable {
     case notAbsolute = "not_absolute"
     case notExecutable = "not_executable"
     case notFound = "not_found"
+    case unsupportedPlatform = "unsupported_platform"
 }
 
 public enum SandboxSrtSource: String, Codable, Sendable {
@@ -27561,21 +27660,25 @@ public enum SandboxStatus: String, Codable, Sendable {
 public struct SandboxSetupResult: Codable, Sendable {
     public let containers: SandboxContainerSetup
     public let installer: SandboxSrtInstaller?
-    /// srt is available, so command servers can run
+    /// srt is available (on Windows: the sandbox PC is ready), so scripts and command servers
+    /// can run
     public let ready: Bool
+    public let sandboxPC: SandboxPCStatus?
     public let srt: SandboxSrtStatus
 
     public enum CodingKeys: String, CodingKey {
         case containers = "containers"
         case installer = "installer"
         case ready = "ready"
+        case sandboxPC = "sandboxPc"
         case srt = "srt"
     }
 
-    public init(containers: SandboxContainerSetup, installer: SandboxSrtInstaller? = nil, ready: Bool, srt: SandboxSrtStatus) {
+    public init(containers: SandboxContainerSetup, installer: SandboxSrtInstaller? = nil, ready: Bool, sandboxPC: SandboxPCStatus? = nil, srt: SandboxSrtStatus) {
         self.containers = containers
         self.installer = installer
         self.ready = ready
+        self.sandboxPC = sandboxPC
         self.srt = srt
     }
 }
@@ -27647,6 +27750,25 @@ public enum SandboxContainerBackend: String, Codable, Sendable {
     case podman = "podman"
 }
 
+// MARK: - SandboxPCStatus
+public struct SandboxPCStatus: Codable, Sendable {
+    /// The owner turned the sandbox PC on (`vm.enabled`)
+    public let enabled: Bool
+    /// Its guest runs and its psyche-node is connected with sessions, so those features run in
+    /// it now
+    public let ready: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+        case ready = "ready"
+    }
+
+    public init(enabled: Bool, ready: Bool) {
+        self.enabled = enabled
+        self.ready = ready
+    }
+}
+
 // MARK: - SandboxStatusParams
 public struct SandboxStatusParams: Codable, Sendable {
     public let sandboxID: String?
@@ -27667,6 +27789,7 @@ public struct SandboxStatusResult: Codable, Sendable {
     public let backend: SandboxBackend
     public let egress: Bool?
     public let sandbox: SandboxInfo?
+    public let sandboxPC: SandboxPCStatus?
     public let srt: SandboxSrtStatus?
 
     public enum CodingKeys: String, CodingKey {
@@ -27674,14 +27797,16 @@ public struct SandboxStatusResult: Codable, Sendable {
         case backend = "backend"
         case egress = "egress"
         case sandbox = "sandbox"
+        case sandboxPC = "sandboxPc"
         case srt = "srt"
     }
 
-    public init(available: Bool, backend: SandboxBackend, egress: Bool? = nil, sandbox: SandboxInfo? = nil, srt: SandboxSrtStatus? = nil) {
+    public init(available: Bool, backend: SandboxBackend, egress: Bool? = nil, sandbox: SandboxInfo? = nil, sandboxPC: SandboxPCStatus? = nil, srt: SandboxSrtStatus? = nil) {
         self.available = available
         self.backend = backend
         self.egress = egress
         self.sandbox = sandbox
+        self.sandboxPC = sandboxPC
         self.srt = srt
     }
 }
@@ -28045,47 +28170,28 @@ public enum ScreenCaptureRefusal: String, Codable, Sendable {
     case secureField = "secure_field"
 }
 
-// MARK: - ScreenContextParams
-public struct ScreenContextParams: Codable, Sendable {
+// MARK: - ScreenCaptureParams
+public struct ScreenCaptureParams: Codable, Sendable {
+    public let frame: ScreenContextResult?
     public let maxHeight: Int?
     public let maxWidth: Int?
     public let mode: ScreenCaptureMode
     public let rect: ScreenRect?
 
     public enum CodingKeys: String, CodingKey {
+        case frame = "frame"
         case maxHeight = "maxHeight"
         case maxWidth = "maxWidth"
         case mode = "mode"
         case rect = "rect"
     }
 
-    public init(maxHeight: Int? = nil, maxWidth: Int? = nil, mode: ScreenCaptureMode, rect: ScreenRect? = nil) {
+    public init(frame: ScreenContextResult? = nil, maxHeight: Int? = nil, maxWidth: Int? = nil, mode: ScreenCaptureMode, rect: ScreenRect? = nil) {
+        self.frame = frame
         self.maxHeight = maxHeight
         self.maxWidth = maxWidth
         self.mode = mode
         self.rect = rect
-    }
-}
-
-// MARK: - ScreenRect
-public struct ScreenRect: Codable, Sendable {
-    public let height: Double
-    public let width: Double
-    public let x: Double
-    public let y: Double
-
-    public enum CodingKeys: String, CodingKey {
-        case height = "height"
-        case width = "width"
-        case x = "x"
-        case y = "y"
-    }
-
-    public init(height: Double, width: Double, x: Double, y: Double) {
-        self.height = height
-        self.width = width
-        self.x = x
-        self.y = y
     }
 }
 
@@ -28111,6 +28217,50 @@ public struct ScreenContextResult: Codable, Sendable {
         self.image = image
         self.refusal = refusal
         self.width = width
+    }
+}
+
+// MARK: - ScreenRect
+public struct ScreenRect: Codable, Sendable {
+    public let height: Double
+    public let width: Double
+    public let x: Double
+    public let y: Double
+
+    public enum CodingKeys: String, CodingKey {
+        case height = "height"
+        case width = "width"
+        case x = "x"
+        case y = "y"
+    }
+
+    public init(height: Double, width: Double, x: Double, y: Double) {
+        self.height = height
+        self.width = width
+        self.x = x
+        self.y = y
+    }
+}
+
+// MARK: - ScreenContextParams
+public struct ScreenContextParams: Codable, Sendable {
+    public let maxHeight: Int?
+    public let maxWidth: Int?
+    public let mode: ScreenCaptureMode
+    public let rect: ScreenRect?
+
+    public enum CodingKeys: String, CodingKey {
+        case maxHeight = "maxHeight"
+        case maxWidth = "maxWidth"
+        case mode = "mode"
+        case rect = "rect"
+    }
+
+    public init(maxHeight: Int? = nil, maxWidth: Int? = nil, mode: ScreenCaptureMode, rect: ScreenRect? = nil) {
+        self.maxHeight = maxHeight
+        self.maxWidth = maxWidth
+        self.mode = mode
+        self.rect = rect
     }
 }
 
@@ -30066,7 +30216,7 @@ public struct SkillsDraftsFromRecordingParams: Codable, Sendable {
 
 // MARK: - BrowserTeachStep
 public struct BrowserTeachStep: Codable, Sendable {
-    /// app_*: the Mac app the step was recorded in (phase 2)
+    /// app_*: the desktop app the step was recorded in (phase 2)
     public let app: BrowserTeachStepApp?
     /// app_*: the element's accessibility identifier, when it has one
     public let fallback: String?
@@ -30128,7 +30278,7 @@ public struct BrowserTeachStep: Codable, Sendable {
     }
 }
 
-/// app_*: the Mac app the step was recorded in (phase 2)
+/// app_*: the desktop app the step was recorded in (phase 2)
 // MARK: - BrowserTeachStepApp
 public struct BrowserTeachStepApp: Codable, Sendable {
     public let bundleID: String
@@ -31357,6 +31507,215 @@ public enum SpecialistResultKind: String, Codable, Sendable {
     case plan = "plan"
 }
 
+// MARK: - SpeechEngineDownloadResult
+public struct SpeechEngineDownloadResult: Codable, Sendable {
+    /// False when a download runs or nothing is missing
+    public let started: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case started = "started"
+    }
+
+    public init(started: Bool) {
+        self.started = started
+    }
+}
+
+// MARK: - SpeechEngineStatus
+public struct SpeechEngineStatus: Codable, Sendable {
+    public let active: String?
+    /// Every engine in order for desktop dictation; the first eligible is used
+    public let dictation: [SpeechEngineEntryStatus]
+    /// speech.stt.order in effect
+    public let order: [String]
+    public let whisper: SpeechWhisperSetup?
+
+    public enum CodingKeys: String, CodingKey {
+        case active = "active"
+        case dictation = "dictation"
+        case order = "order"
+        case whisper = "whisper"
+    }
+
+    public init(active: String? = nil, dictation: [SpeechEngineEntryStatus], order: [String], whisper: SpeechWhisperSetup? = nil) {
+        self.active = active
+        self.dictation = dictation
+        self.order = order
+        self.whisper = whisper
+    }
+}
+
+// MARK: - SpeechEngineEntryStatus
+public struct SpeechEngineEntryStatus: Codable, Sendable {
+    public let eligible: Bool
+    /// mac-node (the Host's helper), whisper, web-speech
+    public let id: String
+    public let location: SpeechEngineLocation
+    public let reason: SpeechEngineEntryStatusReason?
+
+    public enum CodingKeys: String, CodingKey {
+        case eligible = "eligible"
+        case id = "id"
+        case location = "location"
+        case reason = "reason"
+    }
+
+    public init(eligible: Bool, id: String, location: SpeechEngineLocation, reason: SpeechEngineEntryStatusReason? = nil) {
+        self.eligible = eligible
+        self.id = id
+        self.location = location
+        self.reason = reason
+    }
+}
+
+public enum SpeechEngineLocation: String, Codable, Sendable {
+    case client = "client"
+    case cloud = "cloud"
+    case gateway = "gateway"
+    case node = "node"
+}
+
+public enum SpeechEngineEntryStatusReason: String, Codable, Sendable {
+    case clientOnly = "client_only"
+    case unavailable = "unavailable"
+    case unknown = "unknown"
+    case unsupported = "unsupported"
+}
+
+// MARK: - SpeechWhisperSetup
+public struct SpeechWhisperSetup: Codable, Sendable {
+    /// What a download fetches now
+    public let downloadBytes: Int
+    /// The last download's failure
+    public let error: String?
+    public let model: SpeechWhisperModel
+    public let receivedBytes: Int?
+    public let runtime: SpeechWhisperRuntime
+    public let server: VscreenState
+    /// vcredist_missing, crash_loop, crashed, start_timeout, …
+    public let serverError: String?
+    public let state: SpeechWhisperSetupState
+    public let totalBytes: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case downloadBytes = "downloadBytes"
+        case error = "error"
+        case model = "model"
+        case receivedBytes = "receivedBytes"
+        case runtime = "runtime"
+        case server = "server"
+        case serverError = "serverError"
+        case state = "state"
+        case totalBytes = "totalBytes"
+    }
+
+    public init(downloadBytes: Int, error: String? = nil, model: SpeechWhisperModel, receivedBytes: Int? = nil, runtime: SpeechWhisperRuntime, server: VscreenState, serverError: String? = nil, state: SpeechWhisperSetupState, totalBytes: Int? = nil) {
+        self.downloadBytes = downloadBytes
+        self.error = error
+        self.model = model
+        self.receivedBytes = receivedBytes
+        self.runtime = runtime
+        self.server = server
+        self.serverError = serverError
+        self.state = state
+        self.totalBytes = totalBytes
+    }
+}
+
+// MARK: - SpeechWhisperModel
+public struct SpeechWhisperModel: Codable, Sendable {
+    public let description: String?
+    public let id: String
+    public let present: Bool
+    public let sizeBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case description = "description"
+        case id = "id"
+        case present = "present"
+        case sizeBytes = "sizeBytes"
+    }
+
+    public init(description: String? = nil, id: String, present: Bool, sizeBytes: Int) {
+        self.description = description
+        self.id = id
+        self.present = present
+        self.sizeBytes = sizeBytes
+    }
+}
+
+// MARK: - SpeechWhisperRuntime
+public struct SpeechWhisperRuntime: Codable, Sendable {
+    public let id: String
+    public let present: Bool
+    /// whisper.cpp release tag
+    public let release: String
+    public let sizeBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case present = "present"
+        case release = "release"
+        case sizeBytes = "sizeBytes"
+    }
+
+    public init(id: String, present: Bool, release: String, sizeBytes: Int) {
+        self.id = id
+        self.present = present
+        self.release = release
+        self.sizeBytes = sizeBytes
+    }
+}
+
+public enum VscreenState: String, Codable, Sendable {
+    case running = "running"
+    case starting = "starting"
+    case stopped = "stopped"
+    case stopping = "stopping"
+}
+
+public enum SpeechWhisperSetupState: String, Codable, Sendable {
+    case downloading = "downloading"
+    case error = "error"
+    case missing = "missing"
+    case ready = "ready"
+}
+
+// MARK: - SpeechModelDownloadPayload
+public struct SpeechModelDownloadPayload: Codable, Sendable {
+    public let error: String?
+    public let fraction: Double
+    public let model: String
+    public let phase: SpeechModelDownloadPayloadPhase
+    public let receivedBytes: Int
+    public let totalBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case error = "error"
+        case fraction = "fraction"
+        case model = "model"
+        case phase = "phase"
+        case receivedBytes = "receivedBytes"
+        case totalBytes = "totalBytes"
+    }
+
+    public init(error: String? = nil, fraction: Double, model: String, phase: SpeechModelDownloadPayloadPhase, receivedBytes: Int, totalBytes: Int) {
+        self.error = error
+        self.fraction = fraction
+        self.model = model
+        self.phase = phase
+        self.receivedBytes = receivedBytes
+        self.totalBytes = totalBytes
+    }
+}
+
+public enum SpeechModelDownloadPayloadPhase: String, Codable, Sendable {
+    case failed = "failed"
+    case finished = "finished"
+    case progress = "progress"
+    case started = "started"
+}
+
 // MARK: - SpeechProgressEvent
 public struct SpeechProgressEvent: Codable, Sendable {
     /// Chunks finished
@@ -31452,8 +31811,10 @@ public struct SpeechTranscribeFileResult: Codable, Sendable {
 
 public enum SpeechNodeEngine: String, Codable, Sendable {
     case dictationTranscriber = "dictationTranscriber"
+    case sapi = "sapi"
     case sfSpeech = "sfSpeech"
     case speechAnalyzer = "speechAnalyzer"
+    case windowsSpeech = "windowsSpeech"
 }
 
 // MARK: - TranscriptSegment
@@ -32190,7 +32551,7 @@ public enum TeachAppEndedBy: String, Codable, Sendable {
 
 // MARK: - TeachAppCapturedStep
 public struct TeachAppCapturedStep: Codable, Sendable {
-    /// app_*: the Mac app the step was recorded in (phase 2)
+    /// app_*: the desktop app the step was recorded in (phase 2)
     public let app: TeachAppCapturedStepApp?
     /// app_*: the element's accessibility identifier, when it has one
     public let fallback: String?
@@ -32243,7 +32604,7 @@ public struct TeachAppCapturedStep: Codable, Sendable {
     }
 }
 
-/// app_*: the Mac app the step was recorded in (phase 2)
+/// app_*: the desktop app the step was recorded in (phase 2)
 // MARK: - TeachAppCapturedStepApp
 public struct TeachAppCapturedStepApp: Codable, Sendable {
     public let bundleID: String
@@ -36117,13 +36478,6 @@ public struct VoiceStartResult: Codable, Sendable {
     }
 }
 
-public enum SpeechEngineLocation: String, Codable, Sendable {
-    case client = "client"
-    case cloud = "cloud"
-    case gateway = "gateway"
-    case node = "node"
-}
-
 // MARK: - VoiceStopParams
 public struct VoiceStopParams: Codable, Sendable {
     public let sessionID: String
@@ -36337,13 +36691,6 @@ public struct VscreenApp: Codable, Sendable {
         self.pid = pid
         self.windowTitle = windowTitle
     }
-}
-
-public enum VscreenState: String, Codable, Sendable {
-    case running = "running"
-    case starting = "starting"
-    case stopped = "stopped"
-    case stopping = "stopping"
 }
 
 // MARK: - VscreenStopParams
@@ -37018,6 +37365,7 @@ public typealias MemoryNotesListParams = [String: JSONAny]
 public typealias MemoryPersonaGetParams = [String: JSONAny]
 public typealias MemorySendersListParams = [String: JSONAny]
 public typealias MemoryStatusParams = [String: JSONAny]
+public typealias MemoryWorkListsParams = [String: JSONAny]
 public typealias ModelsAppleStatusParams = [String: JSONAny]
 public typealias ModelsListParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]
@@ -37032,6 +37380,8 @@ public typealias SearchSourcesParams = [String: JSONAny]
 public typealias SearchStatusParams = [String: JSONAny]
 public typealias Settings = [String: JSONAny]
 public typealias SpecialistsListParams = [String: JSONAny]
+public typealias SpeechEngineDownloadParams = [String: JSONAny]
+public typealias SpeechEngineStatusParams = [String: JSONAny]
 public typealias TeachAppAppsParams = [String: JSONAny]
 public typealias TeachAppCancelParams = [String: JSONAny]
 public typealias TeachAppStatusParams = [String: JSONAny]

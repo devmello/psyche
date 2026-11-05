@@ -1,4 +1,5 @@
 import { type Formatters, IntlMessageFormat } from "intl-messageformat";
+import { uiPlatform } from "../lib/platform.ts";
 import {
   type Direction,
   type DirectionSetting,
@@ -8,6 +9,7 @@ import {
 } from "./locale.ts";
 import { en, type MessageId } from "./messages/index.ts";
 import { CATALOGUES } from "./messages/locales/index.ts";
+import { platformVariant, translatedPlatformVariant } from "./messages/variants/index.ts";
 
 /** Values a message's `{placeholders}` take. */
 export type MessageValues = Readonly<Record<string, string | number | boolean | Date | null>>;
@@ -57,7 +59,8 @@ export function createI18n(options: I18nOptions = {}): I18n {
   const dir = resolveDirection(options.direction ?? "auto", messageLocale);
   const catalogue = CATALOGUES[messageLocale];
   const timeZone = options.timeZone ?? defaultTimeZone;
-  const compiled = new Map<MessageId, IntlMessageFormat>();
+  // Keyed by id, or `id@windows` for a platform variant (messages/variants).
+  const compiled = new Map<string, IntlMessageFormat>();
   const numbers = new Map<string, Intl.NumberFormat>();
   const dates = new Map<string, Intl.DateTimeFormat>();
   const numberFormat = (o: Intl.NumberFormatOptions = {}) => {
@@ -110,23 +113,33 @@ export function createI18n(options: I18nOptions = {}): I18n {
     timeZone,
     t(id, values) {
       if (en[id] === undefined) return id;
-      let f = compiled.get(id);
+      // A platform variant ("This PC" for "This Mac") replaces the message on that platform. Its
+      // translation, else its English: the English variant beats a translation that names the
+      // wrong computer.
+      const platform = uiPlatform();
+      const variant = platformVariant(platform, id);
+      const key = variant === undefined ? id : `${id}@${platform}`;
+      const fallback = () => (variant === undefined ? englishFor(id) : compile(variant, "en"));
+      let f = compiled.get(key);
       if (f === undefined) {
         // Per id: a message the catalogue lacks, or one that does not parse, is the English one.
-        const translated = catalogue[id];
+        const translated =
+          variant === undefined
+            ? catalogue[id]
+            : translatedPlatformVariant(platform, messageLocale, id);
         try {
-          f = translated === undefined ? englishFor(id) : compile(translated, messageLocale);
+          f = translated === undefined ? fallback() : compile(translated, messageLocale);
         } catch {
-          f = englishFor(id);
+          f = fallback();
         }
-        compiled.set(id, f);
+        compiled.set(key, f);
       }
       let out: unknown;
       try {
         out = f.format(values as Values);
       } catch {
         // A translation that names a value the code does not pass: the English one.
-        out = englishFor(id).format(values as Values);
+        out = fallback().format(values as Values);
       }
       return typeof out === "string" ? out : String(out);
     },

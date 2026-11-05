@@ -10,16 +10,22 @@ import {
   WebContentsView,
 } from "electron";
 import type { DockPolicy } from "./dock-policy.ts";
+import { hideMenuBar } from "./menu.ts";
 import { createPopOutRegistry } from "./pop-outs.ts";
 import {
-  canvasColor,
+  chromeViewBackground,
   mainWindowOptions,
+  QUICK_ENTRY_SIZE,
+  quickEntryWindowOptions,
   SETTINGS_WINDOW_MIN,
   SETTINGS_WINDOW_SIZE,
   settingsWindowOptions,
+  TITLE_BAR_OVERLAY_HEIGHT,
   TRAFFIC_LIGHTS,
+  type WindowMaterial,
+  windowMaterial,
 } from "./window-options.ts";
-import { type Rect, settingsWindowBounds } from "./window-placement.ts";
+import { quickEntryBounds, type Rect, settingsWindowBounds } from "./window-placement.ts";
 
 /**
  * Windows hosting the shell (architecture §5): one main `BaseWindow` with the app in a
@@ -72,6 +78,8 @@ export interface WindowOptions {
   /** Extra main-window options (the Liquid Glass spike's transparent window). */
   mainOptions?: Partial<BaseWindowConstructorOptions>;
   onMainClosed?: () => void;
+  /** The owner closed the main window (it is hidden; the app keeps running in the tray). */
+  onMainHidden?: () => void;
   /** Every app renderer as it is made (main, pop-outs, quick entry): zoom and the like. */
   onViewCreated?: (wc: WebContents) => void;
   /** Whether the main window opens on the startup splash (#539). */
@@ -121,10 +129,53 @@ export function settingsRoute(section: string | undefined): string {
 
 export { TRAFFIC_LIGHTS };
 
-/** What the renderer needs to draw the window chrome (passed as a launch argument). */
+/** The chrome the main and Settings windows have on this OS. */
+export function chromeArgFor(
+  platform: NodeJS.Platform,
+  look: { highContrast?: boolean } = {},
+): ChromeArg {
+  if (platform === "darwin") return { titleBar: "inset", trafficLights: { ...TRAFFIC_LIGHTS } };
+  if (platform === "win32") {
+    // `material` only when Windows draws Mica (11 22H2+, no contrast theme): else opaque.
+    const material = windowMaterial(platform, look.highContrast === true);
+    return {
+      titleBar: "overlay",
+      titleBarOverlay: { height: TITLE_BAR_OVERLAY_HEIGHT },
+      ...(material === "none" ? {} : { material }),
+    };
+  }
+  return { titleBar: "native" };
+}
+
+/** A chrome window's app view background: transparent over Windows' Mica, else the canvas. */
+function viewBackground(): string {
+  const look = systemLook();
+  return chromeViewBackground(process.platform, look.dark, look.highContrast);
+}
+
+/** The appearance windows are created with. */
+function systemLook(): { dark: boolean; highContrast: boolean } {
+  return {
+    dark: nativeTheme.shouldUseDarkColors,
+    highContrast: nativeTheme.shouldUseHighContrastColors,
+  };
+}
+
+/**
+ * What the renderer needs to draw the window chrome (passed as a launch argument).
+ *
+ * - `inset` (macOS): no title bar; the traffic lights sit at `trafficLights`.
+ * - `overlay` (Windows): no title bar; Windows draws the caption buttons in a Window Controls
+ *   Overlay on the right, `titleBarOverlay.height` px tall (`TITLE_BAR_OVERLAY_HEIGHT`). The
+ *   renderer reads `env(titlebar-area-x/y/width/height)` for the free part of the bar and drags
+ *   by it; `material` says what shows where it paints nothing (Mica on Windows 11).
+ * - `native`: the OS title bar (pop-outs, the web build).
+ */
 export interface ChromeArg {
-  titleBar: "inset" | "native";
+  titleBar: "inset" | "overlay" | "native";
   trafficLights?: { x: number; y: number };
+  titleBarOverlay?: { height: number };
+  material?: WindowMaterial;
   /** The main window opens on the startup splash (#539). */
   splash?: boolean;
   /** Connected to a Gateway on another computer (remote-gateway design §1.3). */
@@ -216,6 +267,8 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       },
     });
     win.contentView.addChildView(view, 0); // index 0: agent tab views stay above the app view
+    // Windows: the app menu's accelerators work in every window; its bar is never drawn.
+    if (process.platform === "win32") hideMenuBar(win);
     const layout = () => {
       if (view.webContents.isDestroyed()) {
         win.off("resize", layout); // a released main view
@@ -239,7 +292,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
 
   function makeMainView(win: BaseWindow, route: string, chrome: ChromeArg): WebContentsView {
     const view = makeView(win, route, chrome);
-    view.setBackgroundColor(canvasColor(nativeTheme.shouldUseDarkColors));
+    view.setBackgroundColor(viewBackground());
     mainView = view;
     opts.onMainViewCreated?.(win, view);
     return view;
@@ -293,10 +346,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
   function createMain(hidden = false): BaseWindow {
     mainClosed = hidden;
     const win = new BaseWindow({
-      ...mainWindowOptions({
-        anySize: opts.anySize === true,
-        dark: nativeTheme.shouldUseDarkColors,
-      }),
+      ...mainWindowOptions({ anySize: opts.anySize === true, ...systemLook() }),
       ...opts.mainOptions,
     });
     const view = makeMainView(win, "/chat", {
@@ -318,6 +368,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       mainClosed = true;
       win.hide();
       syncDock();
+      opts.onMainHidden?.();
     });
     win.on("closed", () => {
       disarmRelease();
@@ -335,10 +386,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     return win;
   }
 
-  const insetChrome = (): ChromeArg =>
-    process.platform === "darwin"
-      ? { titleBar: "inset", trafficLights: { ...TRAFFIC_LIGHTS } }
-      : { titleBar: "native" };
+  const insetChrome = (): ChromeArg => chromeArgFor(process.platform, systemLook());
 
   function createSettings(section?: string): { win: BaseWindow; view: WebContentsView } {
     const main = mainWin && !mainWin.isDestroyed() && mainWin.isVisible() ? mainWin : undefined;
@@ -350,13 +398,13 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       min: SETTINGS_WINDOW_MIN,
     });
     const win = new BaseWindow({
-      ...settingsWindowOptions({ dark: nativeTheme.shouldUseDarkColors }),
+      ...settingsWindowOptions(systemLook()),
       ...bounds,
     });
     const view = makeView(win, settingsRoute(section), insetChrome());
     // Remembered on close, so it reopens where the owner left it (#596).
     win.on("close", () => writeBounds(opts.settingsBoundsFile, win.getNormalBounds()));
-    view.setBackgroundColor(canvasColor(nativeTheme.shouldUseDarkColors));
+    view.setBackgroundColor(viewBackground());
     view.webContents.once("did-finish-load", () => win.show());
     win.on("closed", () => {
       settings = undefined;
@@ -367,17 +415,16 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
   }
 
   function createQuick(): { win: BaseWindow; view: WebContentsView } {
-    const win = new BaseWindow({
-      width: 640,
-      height: 160,
-      frame: false,
-      resizable: false,
-      alwaysOnTop: true,
-      skipTaskbar: true,
-      show: false,
-      title: "Quick entry",
-    });
-    const view = makeView(win, "/quick");
+    const look = systemLook();
+    const win = new BaseWindow(quickEntryWindowOptions(look));
+    // Windows 11 22H2+: acrylic behind the bar, showing wherever the renderer paints nothing.
+    const acrylic = windowMaterial(process.platform, look.highContrast) !== "none";
+    const view = makeView(
+      win,
+      "/quick",
+      acrylic ? { titleBar: "native", material: "acrylic" } : undefined,
+    );
+    if (acrylic) view.setBackgroundColor("#00000000");
     win.on("blur", () => win.hide());
     win.on("closed", () => {
       quick = undefined;
@@ -458,7 +505,14 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
         quick.win.hide();
         return;
       }
-      quick.win.center();
+      if (process.platform === "win32") {
+        // The monitor with the pointer, a third of the way down its work area (above the
+        // taskbar), in DIPs: Electron scales to that monitor's DPI.
+        const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+        quick.win.setBounds(quickEntryBounds(display.workArea, QUICK_ENTRY_SIZE));
+      } else {
+        quick.win.center();
+      }
       quick.win.show();
       quick.win.focus();
       quick.view.webContents.focus();
