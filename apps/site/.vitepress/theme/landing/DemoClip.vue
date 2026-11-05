@@ -28,7 +28,37 @@ const poster = computed(() => withBase(`/demos/${props.name}${phone.value ? "-ph
 const src = (ext: string, take = "") => withBase(`/demos/${props.name}${take}.${ext}`);
 
 let io: IntersectionObserver | null = null;
+
+/** One clip plays at a time across the page: starting one pauses the one before, which keeps
+ * video decoding to a single stream while the scroll scenes run. */
+const live: { current: HTMLVideoElement | null } =
+  (globalThis as { __psycheClip?: { current: HTMLVideoElement | null } }).__psycheClip ??
+  ((globalThis as { __psycheClip?: { current: HTMLVideoElement | null } }).__psycheClip = {
+    current: null,
+  });
 let wantPlay = false;
+/** True while the clip is held still for an active scroll; the control keeps showing Pause. */
+let holding = false;
+let resumeTimer = 0;
+
+// While the page scrolls, the playing clip holds its frame and resumes when the scroll rests, so
+// video decoding never competes with the scroll scenes for a frame.
+function onScroll() {
+  const v = video.value;
+  if (!v || live.current !== v || !playing.value) return;
+  if (!holding) {
+    holding = true;
+    v.pause();
+  }
+  clearTimeout(resumeTimer);
+  resumeTimer = window.setTimeout(() => {
+    holding = false;
+    if (wantPlay && live.current === v) v.play().catch(() => {});
+  }, 180);
+}
+function onPause() {
+  if (!holding) playing.value = false;
+}
 
 // Sources are added once the clip nears the viewport; the element then has to be told to load them.
 watch(near, async (n) => {
@@ -43,6 +73,8 @@ function play() {
   if (!v) return;
   wantPlay = true;
   if (!near.value) return;
+  if (live.current && live.current !== v) live.current.pause();
+  live.current = v;
   v.play().then(
     () => {
       playing.value = true;
@@ -54,6 +86,8 @@ function play() {
 }
 function pause() {
   wantPlay = false;
+  holding = false;
+  clearTimeout(resumeTimer);
   video.value?.pause();
   playing.value = false;
 }
@@ -83,8 +117,13 @@ onMounted(() => {
     { rootMargin: "200px 0px", threshold: [0, 0.45] },
   );
   if (box.value) io.observe(box.value);
+  window.addEventListener("scroll", onScroll, { passive: true });
 });
-onBeforeUnmount(() => io?.disconnect());
+onBeforeUnmount(() => {
+  io?.disconnect();
+  window.removeEventListener("scroll", onScroll);
+  clearTimeout(resumeTimer);
+});
 </script>
 
 <template>
@@ -103,7 +142,7 @@ onBeforeUnmount(() => io?.disconnect());
         disablepictureinpicture
         :preload="near ? 'metadata' : 'none'"
         :aria-label="label"
-        @pause="playing = false"
+        @pause="onPause"
         @play="playing = true"
       >
         <template v-if="near">

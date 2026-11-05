@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { withBase } from "vitepress";
 import { onBeforeUnmount, onMounted, ref } from "vue";
+import ApprovalGate from "./ApprovalGate.vue";
+import CiteLine from "./CiteLine.vue";
 import DemoClip from "./DemoClip.vue";
+import MemoryGather from "./MemoryGather.vue";
 import SheetStack from "./SheetStack.vue";
+import { type SceneEngine, startScenes } from "./scroll-scenes";
 
 const repo = "https://github.com/devmello/psyche";
 const spread = ref<HTMLElement | null>(null);
@@ -29,7 +33,11 @@ async function copyInstall() {
 }
 
 let raf = 0;
-let io: IntersectionObserver | null = null;
+let engine: SceneEngine | null = null;
+let pinQuery: MediaQueryList | null = null;
+const motion = ref(false);
+const pinned = ref(false);
+
 function onScroll() {
   if (raf) return;
   raf = requestAnimationFrame(() => {
@@ -43,36 +51,36 @@ function onScroll() {
   });
 }
 
+function onPinChange() {
+  pinned.value = !!pinQuery?.matches;
+  // Track heights change with pinning; measure again after the layout settles.
+  requestAnimationFrame(() => engine?.update());
+}
+
 onMounted(() => {
   window.addEventListener("scroll", onScroll, { passive: true });
   onScroll();
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  // Sheets below the fold are laid down as they arrive; anything already on screen stays put.
-  const pending = [...(root.value?.querySelectorAll<HTMLElement>("[data-lay]") ?? [])].filter(
-    (el) => el.getBoundingClientRect().top > window.innerHeight * 0.9,
-  );
-  for (const el of pending) el.classList.add("to-lay");
-  io = new IntersectionObserver(
-    (entries) => {
-      for (const e of entries) {
-        if (!e.isIntersecting) continue;
-        e.target.classList.add("laid");
-        io?.unobserve(e.target);
-      }
-    },
-    { rootMargin: "0px 0px -12% 0px", threshold: 0.08 },
-  );
-  for (const el of pending) io.observe(el);
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !root.value) return;
+  motion.value = true;
+  // Pinned scenes need a screen tall enough to hold the whole sheet.
+  pinQuery = window.matchMedia("(min-width: 961px) and (min-height: 760px)");
+  pinned.value = pinQuery.matches;
+  pinQuery.addEventListener("change", onPinChange);
+  const el = root.value;
+  requestAnimationFrame(() => {
+    engine = startScenes(el, () => pinned.value);
+  });
 });
 onBeforeUnmount(() => {
   window.removeEventListener("scroll", onScroll);
   cancelAnimationFrame(raf);
-  io?.disconnect();
+  pinQuery?.removeEventListener("change", onPinChange);
+  engine?.destroy();
 });
 </script>
 
 <template>
-  <div ref="root" class="landing">
+  <div ref="root" class="landing" :class="{ motion, pin: pinned }">
     <!-- The spread: an open notebook. -->
     <div ref="spread" class="spread-track">
     <section class="spread" aria-labelledby="hero-title">
@@ -113,33 +121,52 @@ onBeforeUnmount(() => {
     </section>
     </div>
 
-    <!-- Memory. -->
-    <section class="leaf lit memory" data-lay aria-labelledby="memory-title">
-      <p class="run-head">workspace/MEMORY.md</p>
-      <div class="split">
-        <div class="copy">
-          <h2 id="memory-title">It remembers the way you would, if you wrote everything down.</h2>
-          <p>
-            People, projects, open loops and what you prefer, gathered from your mail, messages and
-            notes. Each fact keeps a note of where it came from, and anything Psyche would act on
-            waits for you to confirm it.
-          </p>
-          <p>
-            The persona and memory files are Markdown you can edit. Change a line and the agent
-            follows it.
-          </p>
-          <a class="more" :href="withBase('/using/memory')"><span class="src">1</span>How memory works <span class="where">using/memory</span></a>
+    <!-- Memory, gathered: pinned while the scraps become lines. -->
+    <section class="scene-track mem-track" data-scene="pin" aria-labelledby="memory-title">
+      <div class="scene-sticky">
+        <div class="leaf lit memory">
+          <p class="run-head">workspace/MEMORY.md</p>
+          <div class="split">
+            <div class="copy">
+              <h2 id="memory-title">It remembers the way you would, if you wrote everything down.</h2>
+              <p>
+                People, projects, open loops and what you prefer, gathered from your mail,
+                messages and notes. Each fact keeps a note of where it came from, and anything
+                Psyche would act on waits for you to confirm it.
+              </p>
+            </div>
+            <MemoryGather />
+          </div>
         </div>
+      </div>
+    </section>
+    <section class="leaf lit memory-real" data-scene="flow" aria-label="The Memory page">
+      <div class="split flip">
         <DemoClip name="memory" :ratio="1440 / 1120" :phone-ratio="780 / 1280" label="Psyche's Memory page showing a person, their facts with sources, and open loops">
           <b>Memory → Sam Lee.</b> Facts carry their source: “From Sam Lee's mail, Oct 12.” A loop it
           found in mail waits for your Confirm.
         </DemoClip>
+        <div class="copy">
+          <p>
+            The persona and memory files are Markdown you can edit. Change a line and the agent
+            follows it. Facts about people and projects live on the Memory page, each with its
+            source.
+          </p>
+          <a class="more" :href="withBase('/using/memory')"><span class="src">1</span>How memory works <span class="where">using/memory</span></a>
+        </div>
+      </div>
+    </section>
+
+    <!-- A claim getting its sources: the brief, read in by the scroll. -->
+    <section class="scene-track cite-track" data-scene="pin" aria-label="A brief with its sources">
+      <div class="scene-sticky cite-stage">
+        <CiteLine />
       </div>
     </section>
 
     <!-- Search and Home, as two facing pages. -->
-    <section class="two-up" aria-label="Search and Home">
-      <article class="leaf lit half" data-lay aria-labelledby="search-title">
+    <section class="two-up" data-scene="flow" data-end="0.2" aria-label="Search and Home">
+      <article class="leaf lit half" aria-labelledby="search-title">
                 <h2 id="search-title">Ask once. Search the whole Mac.</h2>
         <p>
           Threads, messages, tasks, memory, your Library and the Feed, in one box. The index is
@@ -150,7 +177,7 @@ onBeforeUnmount(() => {
           morning brief.
         </DemoClip>
       </article>
-      <article class="leaf lit half" data-lay aria-labelledby="home-title">
+      <article class="leaf lit half" aria-labelledby="home-title">
                 <h2 id="home-title">Catch up in a minute.</h2>
         <p>
           What needs you, what moved since you last looked, and a brief whose lines point to their
@@ -162,34 +189,45 @@ onBeforeUnmount(() => {
       </article>
     </section>
 
-    <!-- Approvals: one sheet under the lamp, on the desk at night. -->
-    <section class="night" aria-labelledby="approve-title">
-      <div class="leaf lit lamplit" data-lay>
-                <div class="split">
-          <div class="copy">
-            <h2 id="approve-title">Nothing changes until you say so.</h2>
-            <p>
-              Sending, buying, filling a password or running a command stops at an approval card
-              that shows the exact action and binds to it. Text from a web page, an email or a file
-              can never approve anything. Purchases and password fills ask for Touch ID.
-            </p>
-            <ul class="facts">
-              <li>Approve from the app or a paired device; the first answer wins.</li>
-              <li>Passwords and keys stay in an encrypted vault. The model only sees placeholders.</li>
-              <li>A command sandbox with no network unless you allow a domain.</li>
-            </ul>
-            <a class="more" :href="withBase('/security/approvals-and-tiers')"><span class="src">2</span>Approvals and app tiers <span class="where">security/approvals-and-tiers</span></a>
+    <!-- Approvals: the lamp comes on; an action is stopped, allowed, and leaves a receipt. -->
+    <section class="night" data-scene="flow" data-end="0.15" aria-labelledby="approve-title">
+      <div class="scene-track gate-track" data-scene="pin">
+        <div class="scene-sticky">
+          <div class="leaf lit lamplit">
+            <p class="run-head">Permission Broker</p>
+            <div class="split">
+              <div class="copy">
+                <h2 id="approve-title">Nothing changes until you say so.</h2>
+                <p>
+                  Sending, buying, filling a password or running a command stops at an approval
+                  card that shows the exact action and binds to it. Text from a web page, an email
+                  or a file can never approve anything. Purchases and password fills ask for
+                  Touch ID.
+                </p>
+                <a class="more" :href="withBase('/security/approvals-and-tiers')"><span class="src">2</span>Approvals and app tiers <span class="where">security/approvals-and-tiers</span></a>
+              </div>
+              <ApprovalGate />
+            </div>
           </div>
+        </div>
+      </div>
+      <div class="leaf lit lamplit gate-real" data-scene="flow">
+        <div class="split flip">
           <DemoClip name="approval" :ratio="1504 / 1320" :phone-ratio="780 / 1080" label="An approval card for filling a saved login, then the next card, an email to send, after Allow">
             <b>Dentist booking.</b> The card names the exact login, the site it is bound to, and what
             Wren sees: only the placeholder, never the value.
           </DemoClip>
+          <ul class="facts">
+            <li>Approve from the app or a paired device; the first answer wins.</li>
+            <li>Passwords and keys stay in an encrypted vault. The model only sees placeholders.</li>
+            <li>A command sandbox with no network unless you allow a domain.</li>
+          </ul>
         </div>
       </div>
     </section>
 
     <!-- Receipts. -->
-    <section class="leaf lit receipts" data-lay aria-labelledby="receipt-title">
+    <section class="leaf lit receipts" data-scene="flow" data-end="0.25" aria-labelledby="receipt-title">
       <p class="run-head">audit/2026-10.jsonl</p>
       <div class="split flip">
         <DemoClip name="chat" :ratio="1440 / 1120" :phone-ratio="780 / 1280" label="A chat where Psyche plans a dentist booking, shows each step it ran, and records the email it sent">
@@ -202,62 +240,75 @@ onBeforeUnmount(() => {
             allowed it. The audit log is hash-chained, so an edit after the fact shows.
           </p>
           <ol class="ledger-lines" aria-label="Example receipts (fictional)">
-            <li><time>10:06</time> Sent email to jane.ortiz@example.com <span>Gmail · allowed once</span></li>
-            <li><time>10:04</time> Held Tue Oct 20, 2:30 pm on acme.com <span>browser · task</span></li>
-            <li><time>09:58</time> Read your calendar for Oct 19–23 <span>read · no approval</span></li>
+            <li style="--i: 0"><time>10:06</time> Sent email to jane.ortiz@example.com <span>Gmail · allowed once · #a41f</span></li>
+            <li style="--i: 1"><time>10:04</time> Held Tue Oct 20, 2:30 pm on acme.com <span>browser · task · #3f9a</span></li>
+            <li style="--i: 2"><time>09:58</time> Read your calendar for Oct 19–23 <span>read · no approval · #c07e</span></li>
           </ol>
           <a class="more" :href="withBase('/security/audit-log')"><span class="src">3</span>The audit log <span class="where">security/audit-log</span></a>
         </div>
       </div>
     </section>
 
-    <!-- What stays on the Mac. -->
-    <section class="leaf lit stays" data-lay aria-labelledby="stays-title">
+    <!-- What stays on the Mac: the rows go in, the line closes, only model calls cross it. -->
+    <section class="leaf lit stays" data-scene="flow" data-end="0.15" aria-labelledby="stays-title">
       <p class="run-head">~/.psyche</p>
       <h2 id="stays-title">What stays on your Mac.</h2>
       <p class="lede">
         Everything lives under <code>~/.psyche</code>, on hardware you control. No hosted service
         holds your threads, memory or skills.
       </p>
-      <table class="stays-table">
-        <thead>
-          <tr><th scope="col">What</th><th scope="col">Where</th><th scope="col">How it is kept</th></tr>
-        </thead>
+      <div class="mac">
+        <span class="edge top" aria-hidden="true" /><span class="edge right" aria-hidden="true" /><span
+          class="edge bottom"
+          aria-hidden="true"
+        /><span class="edge left" aria-hidden="true" />
+        <p class="mac-label">This Mac · <code>~/.psyche</code></p>
+        <table class="stays-table">
+          <caption class="sr-only">What stays on this Mac</caption>
+          <thead>
+            <tr><th scope="col">What</th><th scope="col">Where</th><th scope="col">How it is kept</th></tr>
+          </thead>
+          <tbody>
+            <tr style="--i: 0"><th scope="row">Memory and persona</th><td><code>workspace/</code></td><td>Plain Markdown, by design</td></tr>
+            <tr style="--i: 1"><th scope="row">Threads, tasks, receipts</th><td><code>state/psyche.sqlite</code></td><td>On your disk; turn on FileVault</td></tr>
+            <tr style="--i: 2"><th scope="row">Passwords and keys</th><td><code>vault/</code></td><td>Encrypted (SQLCipher); filled at the last step</td></tr>
+            <tr style="--i: 3"><th scope="row">Audit log</th><td><code>audit/</code></td><td>Hash-chained, so tampering shows</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <table class="stays-table crosses">
+        <caption>What crosses the line</caption>
         <tbody>
-          <tr><th scope="row">Memory and persona</th><td><code>workspace/</code></td><td>Plain Markdown, by design</td></tr>
-          <tr><th scope="row">Threads, tasks, receipts</th><td><code>state/psyche.sqlite</code></td><td>On your disk; turn on FileVault</td></tr>
-          <tr><th scope="row">Passwords and keys</th><td><code>vault/</code></td><td>Encrypted (SQLCipher); filled at the last step</td></tr>
-          <tr><th scope="row">Audit log</th><td><code>audit/</code></td><td>Hash-chained, so tampering shows</td></tr>
-          <tr><th scope="row">Model calls</th><td>The Gateway only</td><td>Any provider, or none: Ollama, llama.cpp, LM Studio</td></tr>
-          <tr><th scope="row">Telemetry</th><td>None</td><td>No analytics, crash reports or phone-home</td></tr>
+          <tr><th scope="row">Model calls</th><td>The Gateway only</td><td>To the provider you choose, or nowhere with Ollama, llama.cpp or LM Studio</td></tr>
+          <tr class="never"><th scope="row">Telemetry</th><td>None</td><td>No analytics, crash reports or phone-home</td></tr>
         </tbody>
       </table>
       <a class="more" :href="withBase('/security/on-device')"><span class="src">4</span>What stays on your machine <span class="where">security/on-device</span></a>
     </section>
 
     <!-- Honest status. -->
-    <section class="leaf lit status-page" data-lay aria-labelledby="status-title">
+    <section class="leaf lit status-page" data-scene="flow" data-end="0.2" aria-labelledby="status-title">
       <p class="run-head">docs/release-notes/0.3.md</p>
       <h2 id="status-title">Alpha, and plain about it.</h2>
       <div class="columns">
         <div>
           <h3>Works today</h3>
           <ul>
-            <li>One ongoing chat with side chats, and replies that carry files, mail and live artifacts</li>
-            <li>Screen Ask: a hotkey panel over whatever you are looking at</li>
-            <li>On-device Search across threads, files and memory</li>
-            <li>Apple Notes, Reminders, Calendar and Mail; Gmail and Google Calendar with your own OAuth client; MCP servers</li>
-            <li>Approval cards with receipts, a browser you can watch and take over, a no-network sandbox</li>
-            <li>Dictation: hold a key, speak, and review the words before they go</li>
-            <li>Any model: Anthropic, OpenAI, Ollama and other compatible providers</li>
+            <li style="--i: 0">One ongoing chat with side chats, and replies that carry files, mail and live artifacts</li>
+            <li style="--i: 1">Screen Ask: a hotkey panel over whatever you are looking at</li>
+            <li style="--i: 2">On-device Search across threads, files and memory</li>
+            <li style="--i: 3">Apple Notes, Reminders, Calendar and Mail; Gmail and Google Calendar with your own OAuth client; MCP servers</li>
+            <li style="--i: 4">Approval cards with receipts, a browser you can watch and take over, a no-network sandbox</li>
+            <li style="--i: 5">Dictation: hold a key, speak, and review the words before they go</li>
+            <li style="--i: 6">Any model: Anthropic, OpenAI, Ollama and other compatible providers</li>
           </ul>
         </div>
         <div>
           <h3>Not yet</h3>
           <ul class="not-yet">
-            <li>A signed release. Today you build the Mac app from source</li>
-            <li>Windows. Linux runs the Gateway in server mode, not the desktop app</li>
-            <li>The Feed, background specialists and meeting capture are still being built</li>
+            <li style="--i: 0">A signed release. Today you build the Mac app from source</li>
+            <li style="--i: 1">Windows. Linux runs the Gateway in server mode, not the desktop app</li>
+            <li style="--i: 2">The Feed, background specialists and meeting capture are still being built</li>
           </ul>
           <p class="origin">
             Psyche began as an open-source take on Meta's Muse: one agent that knows your life,
@@ -268,7 +319,7 @@ onBeforeUnmount(() => {
     </section>
 
     <!-- Close. -->
-    <section class="close" data-lay aria-labelledby="close-title">
+    <section class="close" data-scene="flow" data-end="0.3" aria-labelledby="close-title">
       <h2 id="close-title">Clone it. Build it. Read every file.</h2>
       <div class="terminal lit">
         <div class="terminal-head">
@@ -278,7 +329,13 @@ onBeforeUnmount(() => {
           </button>
           <span class="sr-only" aria-live="polite">{{ copied ? "Commands copied" : "" }}</span>
         </div>
-        <pre><code>{{ install }}</code></pre>
+        <pre><code><span
+              v-for="(line, i) in install.split('\n')"
+              :key="i"
+              class="typed"
+              :style="{ '--i': i, '--len': line.length }"
+              >{{ line }}</span
+            ></code></pre>
       </div>
       <p class="fine">
         <code>pnpm app:ship</code> builds a DMG and installs it into /Applications. Installing
@@ -624,7 +681,8 @@ onBeforeUnmount(() => {
   padding: clamp(56px, 8vw, 128px) var(--gutter-x);
   background: oklch(0.165 0.002 80);
   position: relative;
-  overflow: hidden;
+  /* clip, not hidden: hidden would make a scroll container and break the pinned stage. */
+  overflow: clip;
 }
 .night::before {
   /* The lamp, above the sheet's upper left. */
@@ -924,33 +982,217 @@ onBeforeUnmount(() => {
   color: var(--ink-text);
 }
 
-/* ---------- Laying sheets down ---------- */
-.to-lay {
-  transform: translateY(28px) rotate(-0.4deg);
-  box-shadow: var(--shadow-lift);
-  transition:
-    transform 1s var(--ease-out),
-    box-shadow 1.1s var(--ease-out);
+/* ---------- Scroll scenes ----------
+ * Each [data-scene] carries --p (0 → 1) from scroll-scenes.ts. The default is 1, the finished
+ * state, so without the engine (no script, reduced motion) every scene shows complete.
+ */
+[data-scene] {
+  --p: 1;
 }
-.to-lay .run-head::after,
-.to-lay.run-head::after {
-  transform: scaleX(0);
-  transition: transform 1.2s var(--ease-out) 0.25s;
+/* Ease the raw progress once per scene: quick to arrive, settling at the end. */
+.motion [data-scene="flow"] {
+  --q: calc(1 - (1 - var(--p)) * (1 - var(--p)) * (1 - var(--p)));
 }
-.to-lay.laid {
-  transform: none;
-  box-shadow: var(--shadow-sheet);
+
+/* Pinned tracks: tall on wide screens, the stage stuck under the nav while the sequence plays. */
+.scene-sticky > .leaf {
+  margin-top: 0;
 }
-.to-lay.laid .run-head::after {
-  transform: none;
+.scene-track {
+  margin-top: clamp(40px, 7vw, 112px);
 }
-.close.to-lay,
-.close.to-lay.laid {
-  box-shadow: none;
+.pin .scene-track {
+  height: var(--track, 250vh);
 }
-.lamplit.to-lay.laid,
-.lamplit.to-lay {
-  box-shadow: var(--shadow-lamp);
+.pin .scene-sticky {
+  position: sticky;
+  top: calc(var(--vp-nav-height, 64px) + 20px);
+}
+.pin .mem-track {
+  --track: 260vh;
+}
+.pin .cite-track {
+  --track: 210vh;
+}
+.pin .gate-track {
+  --track: 300vh;
+}
+.pin .gate-track .scene-sticky {
+  top: calc(var(--vp-nav-height, 64px) + 9svh);
+}
+
+/* Sheets are laid down by the scroll: they rise, straighten, and their rule draws. */
+.motion .leaf[data-scene="flow"],
+.motion .two-up .half {
+  transform: translateY(calc((1 - var(--q, 1)) * 64px)) rotate(calc((1 - var(--q, 1)) * -0.7deg));
+}
+.motion [data-scene="flow"] .run-head::after {
+  transform: scaleX(var(--q, 1));
+}
+/* The two facing pages are dealt from either side. */
+.motion .two-up .half:nth-child(1) {
+  transform: translate(calc((1 - var(--q)) * -9%), calc((1 - var(--q)) * 90px))
+    rotate(calc((1 - var(--q)) * -3deg));
+}
+.motion .two-up .half:nth-child(2) {
+  transform: translate(calc((1 - var(--q)) * 9%), calc((1 - var(--q)) * 170px))
+    rotate(calc((1 - var(--q)) * 3deg));
+}
+.motion .two-up .clip {
+  transform: scale(calc(0.94 + var(--q) * 0.06));
+  transform-origin: 50% 100%;
+}
+
+/* The brief, alone on the desk. */
+.cite-track {
+  max-width: 1480px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.cite-stage {
+  min-height: min(70svh, 640px);
+  display: grid;
+  align-content: center;
+  padding: 0 clamp(4px, 4vw, 88px);
+}
+
+/* Night: the lights go down as the band arrives, and the lamp comes on. */
+.motion .night {
+  background: color-mix(in oklch, oklch(0.165 0.002 80) calc(var(--q) * 100%), var(--desk));
+}
+.motion .night::before {
+  opacity: var(--q);
+  transform: scale(calc(0.7 + var(--q) * 0.3));
+  transform-origin: 30% 0;
+}
+.gate-real {
+  margin-top: clamp(32px, 5vw, 72px) !important;
+}
+.gate-real .facts {
+  align-self: center;
+}
+
+/* Receipts print in order, and the hash chain joins them as they do. */
+.ledger-lines {
+  position: relative;
+}
+.motion .receipts .ledger-lines li {
+  --k: clamp(0, calc((var(--p) - 0.25 - var(--i) * 0.16) / 0.16), 1);
+  clip-path: inset(0 calc((1 - var(--k)) * 100%) 0 0);
+}
+.ledger-lines::before {
+  content: "";
+  position: absolute;
+  left: 1.9em;
+  top: 2.4em;
+  bottom: 1.2em;
+  width: 1px;
+  background: repeating-linear-gradient(var(--paper-7) 0 4px, transparent 4px 8px);
+  transform-origin: top;
+  transform: scaleY(var(--p));
+}
+
+/* What stays: a line around this Mac draws shut as the rows file in. */
+.mac {
+  position: relative;
+  margin-top: clamp(32px, 4vw, 52px);
+  padding: 44px clamp(16px, 2.4vw, 32px) 12px;
+}
+/* The line around this Mac draws clockwise from the label and closes as the rows are in. */
+.edge {
+  position: absolute;
+  background: var(--paper-12);
+}
+.edge.top,
+.edge.bottom {
+  left: 0;
+  right: 0;
+  height: 1.5px;
+}
+.edge.left,
+.edge.right {
+  top: 0;
+  bottom: 0;
+  width: 1.5px;
+}
+.edge.top {
+  top: 0;
+  transform-origin: left;
+  transform: scaleX(clamp(0, calc(var(--p) / 0.3), 1));
+}
+.edge.right {
+  right: 0;
+  transform-origin: top;
+  transform: scaleY(clamp(0, calc((var(--p) - 0.3) / 0.15), 1));
+}
+.edge.bottom {
+  bottom: 0;
+  transform-origin: right;
+  transform: scaleX(clamp(0, calc((var(--p) - 0.45) / 0.3), 1));
+}
+.edge.left {
+  left: 0;
+  transform-origin: bottom;
+  transform: scaleY(clamp(0, calc((var(--p) - 0.75) / 0.15), 1));
+}
+.mac-label {
+  position: absolute;
+  top: 14px;
+  left: clamp(16px, 2.4vw, 32px);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--paper-12);
+}
+.mac .stays-table {
+  margin-top: 0;
+}
+.motion .mac tbody tr {
+  --k: clamp(0, calc((var(--p) - 0.08 - var(--i) * 0.13) / 0.2), 1);
+  opacity: var(--k);
+  transform: translateX(calc((1 - var(--k)) * 56px));
+}
+.crosses {
+  margin-top: 28px !important;
+}
+.crosses caption {
+  display: block;
+  white-space: nowrap;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--paper-11);
+  padding-bottom: 6px;
+}
+.never td:last-child {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--paper-9);
+}
+.motion .crosses tr {
+  --k: clamp(0, calc((var(--p) - 0.7) / 0.25), 1);
+  opacity: calc(0.25 + var(--k) * 0.75);
+}
+
+/* Status: each item is checked off in turn. */
+.motion .status-page .columns li {
+  --k: clamp(0, calc((var(--p) - 0.3 - var(--i) * 0.07) / 0.12), 1);
+}
+.motion .status-page .columns li::before {
+  opacity: var(--k);
+  transform: rotate(-45deg) scale(calc(0.4 + var(--k) * 0.6));
+}
+.motion .status-page .not-yet li::before {
+  transform: scaleX(var(--k));
+  transform-origin: left;
+}
+
+/* Close: the commands type out with the scroll. */
+.typed {
+  display: block;
+}
+.motion .close .typed {
+  --k: clamp(0, calc((var(--p) - 0.35 - var(--i) * 0.14) / 0.14), 1);
+  clip-path: inset(0 calc(100% - round(down, calc(var(--k) * var(--len)), 1) * 1ch) 0 0);
 }
 
 /* ---------- Narrow ---------- */
