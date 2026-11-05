@@ -19,6 +19,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { useGatewayQuery, useLibrary, useSettings } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
+import { pathBasename as basename, displayPath, isAbsolutePath } from "../../lib/paths.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { cn } from "../../lib/utils.ts";
 import { usePersona } from "../../slots.tsx";
@@ -61,7 +62,7 @@ export function fileRefForTarget(
   target: string | null | undefined,
   library: readonly LibraryItem[],
 ): FileRef | null {
-  if (target?.startsWith("/")) {
+  if (target && isAbsolutePath(target)) {
     return { path: target, name: basename(target), size: null, modifiedAt: null };
   }
   if (target?.startsWith("library:")) {
@@ -81,12 +82,8 @@ export function fileRefForTarget(
   return null;
 }
 
-/** `/Users/ada/Documents` → `~/Documents`, for labels only. */
-export function displayPath(path: string): string {
-  return path.replace(/^\/(?:Users|home)\/[^/]+(?=\/|$)/, "~");
-}
-
-const basename = (path: string) => path.replace(/\/+$/, "").split("/").pop() ?? path;
+/** `/Users/ada/Documents` → `~/Documents`, `C:\Users\ada\Documents` → `~\Documents`; labels only. */
+export { displayPath };
 
 /** An icon by extension: the tree's only hint of what a viewer will show. */
 export function fileIcon(name: string): typeof File {
@@ -452,7 +449,7 @@ export function FilesPane(props: FilesPaneProps): ReactElement {
   return (
     <FilesPaneView
       {...props}
-      grants={folderGrants(settings.settings).filter((g) => g.path.startsWith("/"))}
+      grants={folderGrants(settings.settings).filter((g) => isAbsolutePath(g.path))}
       loading={settings.loading && Object.keys(settings.settings).length === 0}
     />
   );
