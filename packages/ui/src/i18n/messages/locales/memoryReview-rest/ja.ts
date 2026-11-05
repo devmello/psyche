@@ -3,8 +3,10 @@ import type { Catalogue } from "../../index.ts";
 /** memoryReview strings not covered elsewhere (ja); merged into `../ja.ts`. */
 export const memoryReviewRest: Partial<Catalogue> = {
   "memoryReview.title": "確認",
-  "memoryReview.description": "{persona}がメール、メッセージ、メモから見つけた事実です。承認するまで何も記憶されず、すべての事実に出どころが表示されます。",
-  "memoryReview.settingsDescription": "{persona}が確認なしで記憶してよい内容のルールです。確認待ちの事実はメモリページにあります。",
+  "memoryReview.description":
+    "{persona}がメール、メッセージ、メモから見つけた事実です。承認するまで何も記憶されず、すべての事実に出どころが表示されます。",
+  "memoryReview.settingsDescription":
+    "{persona}が確認なしで記憶してよい内容のルールです。確認待ちの事実はメモリページにあります。",
   "memoryReview.link.label": "確認キュー",
   "memoryReview.link.open": "メモリで開く",
   "memoryReview.loadLabel": "メモリの確認",
@@ -50,19 +52,25 @@ export const memoryReviewRest: Partial<Catalogue> = {
   "memoryReview.quarantine.reason.new_sender_sensitive": "新しい送信者からの機微な情報",
   "memoryReview.quarantine.reason.subject_mismatch": "内容と無関係な人の名前を挙げている",
   "memoryReview.quarantine.release": "解除",
-  "memoryReview.quarantine.releaseHint": "もう一度読み取ります。見つかった内容は引き続き確認待ちになります。",
+  "memoryReview.quarantine.releaseHint":
+    "もう一度読み取ります。見つかった内容は引き続き確認待ちになります。",
   "memoryReview.quarantine.discard": "破棄",
   "memoryReview.quarantine.block": "送信者をブロック",
   "memoryReview.quarantine.excerpt": "項目のテキスト（書式なしで表示）:",
   "memoryReview.rules.title": "確認なしで承認",
-  "memoryReview.rules.description": "それ以外はすべて確認待ちになります。機微な事実、食い違い、メモ、関係は常に確認します。",
+  "memoryReview.rules.description":
+    "それ以外はすべて確認待ちになります。機微な事実、食い違い、メモ、関係は常に確認します。",
   "memoryReview.rules.owner": "ご自身が書いたもの",
-  "memoryReview.rules.ownerHint": "機微でなく、あなたの発言と食い違わない場合に追加されます。1週間は元に戻せます。",
+  "memoryReview.rules.ownerHint":
+    "機微でなく、あなたの発言と食い違わない場合に追加されます。1週間は元に戻せます。",
   "memoryReview.rules.self": "人が自分について述べたこと",
-  "memoryReview.rules.selfHint": "現在は確認対象です。ある人の事実を{n, number}件確認すると、Psycheがその人を信頼するか提案します。",
+  "memoryReview.rules.selfHint":
+    "現在は確認対象です。ある人の事実を{n, number}件確認すると、Psycheがその人を信頼するか提案します。",
   "memoryReview.senders.title": "信頼する連絡先",
-  "memoryReview.senders.offer": "{name}が自分について伝えた{n, number}件を確認し、破棄したものはありません。{name}が自分について述べること（誕生日、仕事、都市、学校、好み、ペット、子ども）を、確認なしで承認しますか？",
-  "memoryReview.senders.offerHint": "機微な情報、不確かな情報、食い違う情報は引き続き確認し、1週間は元に戻せます。",
+  "memoryReview.senders.offer":
+    "{name}が自分について伝えた{n, number}件を確認し、破棄したものはありません。{name}が自分について述べること（誕生日、仕事、都市、学校、好み、ペット、子ども）を、確認なしで承認しますか？",
+  "memoryReview.senders.offerHint":
+    "機微な情報、不確かな情報、食い違う情報は引き続き確認し、1週間は元に戻せます。",
   "memoryReview.senders.trust": "自動で承認",
   "memoryReview.senders.decline": "今はしない（再度尋ねない）",
   "memoryReview.senders.trusted": "{name}: 自動で承認",

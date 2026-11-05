@@ -40,9 +40,11 @@ export const workRest: Partial<Catalogue> = {
   "work.add.label": "ToDoを追加",
   "work.add.placeholder": "家賃を払う、金",
   "work.add.placeholderChild": "Q3資料、木",
-  "work.add.hint": "タイトル、プロジェクト、曜日の順に入力します（例: 「Q3資料、仕事、木」）。「家賃を払う、金」だけでも構いません。",
+  "work.add.hint":
+    "タイトル、プロジェクト、曜日の順に入力します（例: 「Q3資料、仕事、木」）。「家賃を払う、金」だけでも構いません。",
   "work.add.dueOn": "期限: {date}",
-  "work.add.noParent": "「{name}」というプロジェクトやコースはありません。プロジェクトなしで追加されます。",
+  "work.add.noParent":
+    "「{name}」というプロジェクトやコースはありません。プロジェクトなしで追加されます。",
   "work.add.submit": "追加",
   "work.add.cancel": "キャンセル",
   "work.add.added": "「{title}」を追加しました。",
@@ -52,7 +54,8 @@ export const workRest: Partial<Catalogue> = {
   "work.projects.type": "種類",
   "work.projects.type.project": "プロジェクト",
   "work.projects.type.course": "コース",
-  "work.projects.hint": "名前を付けて、種類を選んでください。期限、次のステップ、リンクするフォルダは、そのページで追加できます。",
+  "work.projects.hint":
+    "名前を付けて、種類を選んでください。期限、次のステップ、リンクするフォルダは、そのページで追加できます。",
   "work.projects.added": "「{name}」を追加しました。",
   "work.empty.stopped_at": "まだ記録されていません。",
   "work.empty.next_step": "次のステップはまだありません。",
@@ -104,7 +107,8 @@ export const workRest: Partial<Catalogue> = {
   "work.noun.browser": "ブラウジング",
   "work.noun.transcripts": "文字起こし",
   "work.noun.contacts": "連絡先",
-  "work.anchors.empty": "リンクがありません。フォルダ、チャット、ドキュメントをリンクすると、そのアクティビティがこれに反映されます。",
+  "work.anchors.empty":
+    "リンクがありません。フォルダ、チャット、ドキュメントをリンクすると、そのアクティビティがこれに反映されます。",
   "work.anchors.add": "リンクを追加",
   "work.anchors.addLabel": "情報源をリンク",
   "work.anchors.kindLabel": "リンクする対象",
@@ -135,6 +139,7 @@ export const workRest: Partial<Catalogue> = {
   "work.anchors.choose": "選択…",
   "work.anchors.pick.chat_thread": "チャットを選択",
   "work.anchors.pick.library_item": "ドキュメントを選択",
-  "work.anchors.folderHint": "リンクしたフォルダのみが仕事として扱われます。{persona}はそこで変更されたファイルを記録しますが、中身は見ません。",
+  "work.anchors.folderHint":
+    "リンクしたフォルダのみが仕事として扱われます。{persona}はそこで変更されたファイルを記録しますが、中身は見ません。",
   "work.anchors.routeHint": "そのアクティビティは、この項目のタイムラインに表示されます。",
 };

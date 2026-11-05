@@ -8,7 +8,8 @@ export const memoryBasicsRest: Partial<Catalogue> = {
   "memoryBasics.feedback": "あなたのフィードバック",
   "memoryBasics.feedbackHint": "修正、編集、取り消しから学びます。",
   "memoryBasics.everything": "メール、メッセージ、メモ",
-  "memoryBasics.everythingHint": "「すべてのメモリ」が夜間にこれらを読み取り、確認用の事実を提案します。",
+  "memoryBasics.everythingHint":
+    "「すべてのメモリ」が夜間にこれらを読み取り、確認用の事実を提案します。",
   "memoryBasics.people": "人物とプロジェクト",
   "memoryBasics.peopleHint": "関わる人やプロジェクトごとにカードを保持します。",
   "memoryBasics.paused": "メモリは一時停止中です。",

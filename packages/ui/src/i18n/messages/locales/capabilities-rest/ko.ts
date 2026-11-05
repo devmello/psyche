@@ -3,7 +3,8 @@ import type { Catalogue } from "../../index.ts";
 /** capabilities strings not covered elsewhere (ko); merged into `../ko.ts`. */
 export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.title": "무엇을 할 수 있나요?",
-  "capabilities.lead": "지금 바로 해 볼 수 있는 일입니다. 계정이 필요한 카드는 연결하면 활성화됩니다.",
+  "capabilities.lead":
+    "지금 바로 해 볼 수 있는 일입니다. 계정이 필요한 카드는 연결하면 활성화됩니다.",
   "capabilities.available": "바로 해 보기",
   "capabilities.locked": "연결하면 사용 가능",
   "capabilities.connect": "계정 연결",
@@ -48,7 +49,8 @@ export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.automate.prompt1": "매주 금요일 4시에 주간 보고를 보내라고 알려 줘.",
   "capabilities.automate.prompt2": "매일 밤 캘린더를 확인하고 내일 이른 회의가 있으면 알려 줘.",
   "capabilities.available.title": "사용 가능",
-  "capabilities.available.connectorsHint": "바로 추가할 수 있는 커넥터와 레지스트리 커넥터입니다. 승인하기 전에는 아무것도 실행되지 않습니다.",
+  "capabilities.available.connectorsHint":
+    "바로 추가할 수 있는 커넥터와 레지스트리 커넥터입니다. 승인하기 전에는 아무것도 실행되지 않습니다.",
   "capabilities.available.skillsHint": "설치되어 있지만 꺼져 있는 스킬입니다.",
   "capabilities.search.label": "사용 가능한 커넥터 검색",
   "capabilities.search.skillsLabel": "사용 가능한 스킬 검색",
@@ -56,7 +58,8 @@ export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.noConnectors": "일치하는 커넥터가 없습니다.",
   "capabilities.noSkills": "꺼져 있는 스킬이 없습니다.",
   "capabilities.online.label": "Psyche가 온라인 MCP 레지스트리를 검색하도록 허용",
-  "capabilities.online.hint": "기본값은 꺼짐입니다. 켜면 검색어가 공식 MCP 레지스트리로 전송됩니다.",
+  "capabilities.online.hint":
+    "기본값은 꺼짐입니다. 켜면 검색어가 공식 MCP 레지스트리로 전송됩니다.",
   "capabilities.badge.official": "공식",
   "capabilities.badge.unverified": "확인 안 됨",
   "capabilities.badge.registry": "MCP 레지스트리 제공",
@@ -68,10 +71,12 @@ export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.action.setUp": "설정",
   "capabilities.action.check": "서버 확인",
   "capabilities.action.turnOn": "켜기",
-  "capabilities.action.needsKey": "키 또는 로그인이 필요합니다. 커넥터 갤러리나 JSON 양식에서 추가하십시오.",
+  "capabilities.action.needsKey":
+    "키 또는 로그인이 필요합니다. 커넥터 갤러리나 JSON 양식에서 추가하십시오.",
   "capabilities.loading.title": "Psyche가 불러오는 시점",
   "capabilities.loading.label": "항상 켜짐",
-  "capabilities.loading.hint": "필요 시 방식에서는 작업이 필요할 때 Psyche가 이 커넥터의 도구를 찾습니다. 항상 켜짐은 모든 요청과 함께 도구를 보냅니다.",
+  "capabilities.loading.hint":
+    "필요 시 방식에서는 작업이 필요할 때 Psyche가 이 커넥터의 도구를 찾습니다. 항상 켜짐은 모든 요청과 함께 도구를 보냅니다.",
   "capabilities.loading.failed": "변경하지 못했습니다: {reason}",
   "capabilities.card.source": "출처",
   "capabilities.card.kind.connector": "커넥터",

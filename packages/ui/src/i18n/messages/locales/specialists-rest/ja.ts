@@ -24,7 +24,8 @@ export const specialistsRest: Partial<Catalogue> = {
   "specialists.card.partialOther": "途中で停止しました。足りない部分を確認してください。",
   "specialists.card.failed": "{role}は{task}を完了できませんでした。",
   "specialists.card.nothingSent": "何も送信・購入されていません。",
-  "specialists.card.cancelled": "停止しました。停止するまでのレシートは{n, plural, =0 {ありません} other {#件です}}。",
+  "specialists.card.cancelled":
+    "停止しました。停止するまでのレシートは{n, plural, =0 {ありません} other {#件です}}。",
   "specialists.card.label": "{role}の結果: {task}",
   "specialists.card.findings": "調査結果",
   "specialists.card.items": "項目",
@@ -35,7 +36,8 @@ export const specialistsRest: Partial<Catalogue> = {
   "specialists.card.whatItDid": "実行内容",
   "specialists.card.nothingDone": "送信・変更・購入されたものはありません。",
   "specialists.card.usage": "使用量",
-  "specialists.card.taint": "外部の情報源から内容を読み取りました。その主張は未検証として扱ってください。",
+  "specialists.card.taint":
+    "外部の情報源から内容を読み取りました。その主張は未検証として扱ってください。",
   "specialists.card.defaultUsed": "デフォルトを使用: {label}",
   "specialists.card.source": "情報源",
   "specialists.card.sources": "情報源",

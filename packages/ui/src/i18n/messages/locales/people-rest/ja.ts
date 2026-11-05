@@ -106,7 +106,8 @@ export const peopleRest: Partial<Catalogue> = {
   "people.loop.markDone": "「{text}」を完了にする",
   "people.loop.notALoop": "未完了項目ではない",
   "people.loop.confirm": "確認",
-  "people.loop.suggested": "{name}の{source}から提案されました。確認しない限り、Psycheは対応しません。",
+  "people.loop.suggested":
+    "{name}の{source}から提案されました。確認しない限り、Psycheは対応しません。",
   "people.loop.with": "{name}と",
   "people.recent.in": "受信",
   "people.recent.out": "送信",
@@ -171,23 +172,28 @@ export const peopleRest: Partial<Catalogue> = {
   "people.sheet.filter.projects": "プロジェクト",
   "people.sheet.filter.suggestions": "提案",
   "people.sheet.filter.waiting": "返事待ち",
-  "people.sheet.empty": "まだ誰もいません。設定 → メモリ → 人物とプロジェクトで情報源をオンにしてください。",
+  "people.sheet.empty":
+    "まだ誰もいません。設定 → メモリ → 人物とプロジェクトで情報源をオンにしてください。",
   "people.sheet.nothing": "「{query}」に一致する人はいません。",
   "people.sheet.noSuggestions": "確認するものはありません。",
   "people.dialog.cancel": "キャンセル",
   "people.forget.title": "{name}を忘れますか？",
   "people.forget.counting": "Psycheが知っていることを確認しています…",
-  "people.forget.counts": "Psycheはカード、{facts, plural, other {事実#件}}、{loops, plural, other {未完了項目#件}}、{interactions, plural, other {やり取り#件}}、{edges, plural, other {関係#件}}を削除します。",
-  "people.forget.after": "その人のアドレスはブロックされるため、Psycheが再び学習することはありません。メールとカレンダーはそのまま残ります。",
+  "people.forget.counts":
+    "Psycheはカード、{facts, plural, other {事実#件}}、{loops, plural, other {未完了項目#件}}、{interactions, plural, other {やり取り#件}}、{edges, plural, other {関係#件}}を削除します。",
+  "people.forget.after":
+    "その人のアドレスはブロックされるため、Psycheが再び学習することはありません。メールとカレンダーはそのまま残ります。",
   "people.forget.previewFailed": "Psycheは削除される件数を数えられませんでした（{reason}）。",
   "people.forget.confirm": "忘れる",
   "people.forget.done": "{name}を忘れました。",
   "people.merge.title": "{name}に統合",
-  "people.merge.description": "同一人物を選んでください。変更する前に、Psycheが移動される内容を表示します。",
+  "people.merge.description":
+    "同一人物を選んでください。変更する前に、Psycheが移動される内容を表示します。",
   "people.merge.search": "ほかに誰ですか？",
   "people.merge.searchPlaceholder": "名前またはメールアドレス",
   "people.merge.checking": "移動される内容を確認しています…",
-  "people.merge.preview": "{other}の{identifiers, plural, other {アドレス#件}}と{facts, plural, other {事実#件}}を{name}に移動します。{other}はなくなりますが、あとで再び分けられます。",
+  "people.merge.preview":
+    "{other}の{identifiers, plural, other {アドレス#件}}と{facts, plural, other {事実#件}}を{name}に移動します。{other}はなくなりますが、あとで再び分けられます。",
   "people.merge.pickAnother": "別の人を選ぶ",
   "people.merge.confirm": "統合",
   "people.merge.done": "{other}を{name}に統合しました。",

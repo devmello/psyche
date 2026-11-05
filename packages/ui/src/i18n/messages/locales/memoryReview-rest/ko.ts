@@ -3,8 +3,10 @@ import type { Catalogue } from "../../index.ts";
 /** memoryReview strings not covered elsewhere (ko); merged into `../ko.ts`. */
 export const memoryReviewRest: Partial<Catalogue> = {
   "memoryReview.title": "검토",
-  "memoryReview.description": "{persona}가 메일, 메시지, 메모에서 찾은 사실입니다. 수락하기 전에는 아무것도 기억되지 않으며 모든 사실에 출처가 표시됩니다.",
-  "memoryReview.settingsDescription": "{persona}가 묻지 않고 기억해도 되는 내용에 대한 규칙입니다. 확인을 기다리는 사실은 메모리 페이지에 있습니다.",
+  "memoryReview.description":
+    "{persona}가 메일, 메시지, 메모에서 찾은 사실입니다. 수락하기 전에는 아무것도 기억되지 않으며 모든 사실에 출처가 표시됩니다.",
+  "memoryReview.settingsDescription":
+    "{persona}가 묻지 않고 기억해도 되는 내용에 대한 규칙입니다. 확인을 기다리는 사실은 메모리 페이지에 있습니다.",
   "memoryReview.link.label": "검토 대기열",
   "memoryReview.link.open": "메모리에서 열기",
   "memoryReview.loadLabel": "메모리 검토",
@@ -22,7 +24,7 @@ export const memoryReviewRest: Partial<Catalogue> = {
   "memoryReview.confidence.low": "불확실",
   "memoryReview.sensitive": "민감한 정보: {kind}",
   "memoryReview.source": "{source}, {date}에서",
-  "memoryReview.quote": "\"{quote}\"",
+  "memoryReview.quote": '"{quote}"',
   "memoryReview.confirm": "확인",
   "memoryReview.edit": "편집",
   "memoryReview.discard": "취소",
@@ -55,14 +57,19 @@ export const memoryReviewRest: Partial<Catalogue> = {
   "memoryReview.quarantine.block": "발신자 차단",
   "memoryReview.quarantine.excerpt": "항목의 텍스트 (서식 없이 표시):",
   "memoryReview.rules.title": "묻지 않고 수락",
-  "memoryReview.rules.description": "그 밖의 것은 모두 확인을 기다립니다. 민감한 사실, 충돌, 메모, 관계는 항상 확인합니다.",
+  "memoryReview.rules.description":
+    "그 밖의 것은 모두 확인을 기다립니다. 민감한 사실, 충돌, 메모, 관계는 항상 확인합니다.",
   "memoryReview.rules.owner": "직접 작성한 내용",
-  "memoryReview.rules.ownerHint": "민감하지 않고 사용자가 말한 내용과 충돌하지 않을 때 추가됩니다. 1주일 동안 실행 취소할 수 있습니다.",
+  "memoryReview.rules.ownerHint":
+    "민감하지 않고 사용자가 말한 내용과 충돌하지 않을 때 추가됩니다. 1주일 동안 실행 취소할 수 있습니다.",
   "memoryReview.rules.self": "사람이 자신에 대해 말한 내용",
-  "memoryReview.rules.selfHint": "현재는 검토 대상입니다. 어떤 사람의 사실을 {n, number}개 확인하면 Psyche가 그 사람을 신뢰할지 제안합니다.",
+  "memoryReview.rules.selfHint":
+    "현재는 검토 대상입니다. 어떤 사람의 사실을 {n, number}개 확인하면 Psyche가 그 사람을 신뢰할지 제안합니다.",
   "memoryReview.senders.title": "신뢰하는 연락처",
-  "memoryReview.senders.offer": "{name}이(가) 자신에 대해 알려 준 {n, number}개를 확인했고 취소한 것은 없습니다. {name}이(가) 자신에 대해 말하는 내용(생일, 직업, 도시, 학교, 취향, 반려동물, 자녀)을 묻지 않고 수락하시겠습니까?",
-  "memoryReview.senders.offerHint": "민감하거나 불확실하거나 충돌하는 정보는 계속 검토하며, 1주일 동안 실행 취소할 수 있습니다.",
+  "memoryReview.senders.offer":
+    "{name}이(가) 자신에 대해 알려 준 {n, number}개를 확인했고 취소한 것은 없습니다. {name}이(가) 자신에 대해 말하는 내용(생일, 직업, 도시, 학교, 취향, 반려동물, 자녀)을 묻지 않고 수락하시겠습니까?",
+  "memoryReview.senders.offerHint":
+    "민감하거나 불확실하거나 충돌하는 정보는 계속 검토하며, 1주일 동안 실행 취소할 수 있습니다.",
   "memoryReview.senders.trust": "자동으로 수락",
   "memoryReview.senders.decline": "지금은 안 함 (다시 묻지 않음)",
   "memoryReview.senders.trusted": "{name}: 자동 수락",

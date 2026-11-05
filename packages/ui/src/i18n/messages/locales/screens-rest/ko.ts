@@ -8,7 +8,8 @@ export const screensRest: Partial<Catalogue> = {
   "screens.search.answer.from": "이 답변의 근거가 된 사실",
   "screens.search.answer.noModel": "답변하려면 모든 메모리용 모델이 필요합니다.",
   "screens.search.answer.settings": "모든 메모리 설정 열기",
-  "screens.search.answer.noFacts": "Psyche가 읽을 수 있는 내용 중에는 이에 답할 수 있는 것이 없습니다.",
+  "screens.search.answer.noFacts":
+    "Psyche가 읽을 수 있는 내용 중에는 이에 답할 수 있는 것이 없습니다.",
   "screens.search.answer.noAnswer": "Psyche가 가진 사실로는 그 질문에 답할 수 없습니다.",
   "screens.search.answer.ungrounded": "그 근거가 되는 출처를 찾지 못했습니다.",
   "screens.search.answer.failed": "지금은 답변하지 못했습니다.",
@@ -47,7 +48,8 @@ export const screensRest: Partial<Catalogue> = {
   "screens.search.scope.people": "사람",
   "screens.search.scope.projects": "프로젝트",
   "screens.search.sideChatFailed": "사이드 채팅을 열지 못했습니다: {reason}",
-  "screens.search.indexing": "기록을 색인하는 중: 지금까지 {n, plural, other {#개}}. 진행되면서 결과가 채워집니다.",
+  "screens.search.indexing":
+    "기록을 색인하는 중: 지금까지 {n, plural, other {#개}}. 진행되면서 결과가 채워집니다.",
   "screens.search.indexFailed": "색인이 중지되었습니다: {reason}",
   "screens.search.rebuild": "검색 색인 다시 만들기",
   "screens.search.rebuilding": "다시 만드는 중…",
@@ -71,8 +73,10 @@ export const screensRest: Partial<Catalogue> = {
   "screens.search.chip.type.image": "이미지",
   "screens.search.chip.type.sheet": "스프레드시트",
   "screens.search.chip.type.slides": "슬라이드",
-  "screens.search.relaxed.filters": "모든 필터에 일치하는 항목이 없어 필터 없이 단어에 일치하는 결과를 표시합니다.",
-  "screens.search.relaxed.or": "모든 단어가 들어 있는 결과가 없어 일부와 일치하는 항목을 관련도순으로 표시합니다.",
+  "screens.search.relaxed.filters":
+    "모든 필터에 일치하는 항목이 없어 필터 없이 단어에 일치하는 결과를 표시합니다.",
+  "screens.search.relaxed.or":
+    "모든 단어가 들어 있는 결과가 없어 일부와 일치하는 항목을 관련도순으로 표시합니다.",
   "screens.lessons.inFile": "{n, plural, other {사용자에게서 배운 점 #개}}",
   "screens.lessons.fileList": "사용자에게서 배운 점",
   "screens.feed.askAbout": "이것에 대해 질문",

@@ -42,12 +42,14 @@ export const screensRest: Partial<Catalogue> = {
   "screens.search.source.untrusted": "他の人が書いたものです。プレーンテキストで表示しています。",
   "screens.search.source.openMail": "メールで開く",
   "screens.search.source.revealFile": "Finderで表示",
-  "screens.search.source.openFailed": "開けませんでした。上の箇所はPsycheがインデックス化した内容です。",
+  "screens.search.source.openFailed":
+    "開けませんでした。上の箇所はPsycheがインデックス化した内容です。",
   "screens.search.life.unconfirmed": "確認待ち",
   "screens.search.scope.people": "人物",
   "screens.search.scope.projects": "プロジェクト",
   "screens.search.sideChatFailed": "サイドチャットを開けませんでした: {reason}",
-  "screens.search.indexing": "履歴をインデックス化中: これまでに{n, plural, other {#件}}。進行に合わせて結果が増えていきます。",
+  "screens.search.indexing":
+    "履歴をインデックス化中: これまでに{n, plural, other {#件}}。進行に合わせて結果が増えていきます。",
   "screens.search.indexFailed": "インデックス化が停止しました: {reason}",
   "screens.search.rebuild": "検索インデックスを再構築",
   "screens.search.rebuilding": "再構築中…",
@@ -56,7 +58,8 @@ export const screensRest: Partial<Catalogue> = {
   "screens.search.card.source": "本文から",
   "screens.search.card.questions": "回答",
   "screens.search.card.untrusted": "他の人が書いたものです。指示ではなく情報として扱ってください。",
-  "screens.search.relatedHint": "意味で見つけたもので、入力した言葉が含まれていない場合があります。",
+  "screens.search.relatedHint":
+    "意味で見つけたもので、入力した言葉が含まれていない場合があります。",
   "screens.search.understood": "認識したフィルタ",
   "screens.search.chip.person": "{name}から",
   "screens.search.chip.remove": "{chip}を削除",
@@ -71,8 +74,10 @@ export const screensRest: Partial<Catalogue> = {
   "screens.search.chip.type.image": "画像",
   "screens.search.chip.type.sheet": "スプレッドシート",
   "screens.search.chip.type.slides": "スライド",
-  "screens.search.relaxed.filters": "すべてのフィルタに一致するものがなかったため、フィルタなしで言葉に一致する結果を表示しています。",
-  "screens.search.relaxed.or": "すべての言葉を含む結果がなかったため、一部に一致するものを関連度順に表示しています。",
+  "screens.search.relaxed.filters":
+    "すべてのフィルタに一致するものがなかったため、フィルタなしで言葉に一致する結果を表示しています。",
+  "screens.search.relaxed.or":
+    "すべての言葉を含む結果がなかったため、一部に一致するものを関連度順に表示しています。",
   "screens.lessons.inFile": "{n, plural, other {あなたから学んだこと#件}}",
   "screens.lessons.fileList": "あなたから学んだこと",
   "screens.feed.askAbout": "これについて質問",

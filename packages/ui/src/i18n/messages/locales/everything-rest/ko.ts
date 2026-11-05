@@ -9,40 +9,51 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.turnOn": "설정…",
   "everything.model.title": "모델",
   "everything.model.none": "없음",
-  "everything.model.noneHint": "사람, 캘린더 일정, 생일(모델 불필요) 외에는 아무것도 읽지 않습니다.",
+  "everything.model.noneHint":
+    "사람, 캘린더 일정, 생일(모델 불필요) 외에는 아무것도 읽지 않습니다.",
   "everything.model.cloud": "클라우드",
-  "everything.model.cloudHint": "켜 둔 출처의 텍스트가 밤에 모델 제공업체로 전송됩니다. 이 용도 외에는 사용되지 않습니다. 품질이 가장 좋습니다.",
+  "everything.model.cloudHint":
+    "켜 둔 출처의 텍스트가 밤에 모델 제공업체로 전송됩니다. 이 용도 외에는 사용되지 않습니다. 품질이 가장 좋습니다.",
   "everything.model.local": "로컬",
-  "everything.model.localHint": "이 Mac의 모델이 모든 것을 읽습니다. 이 Mac 밖으로 아무것도 나가지 않습니다. 사실은 더 적고 잡음은 더 많아집니다.",
+  "everything.model.localHint":
+    "이 Mac의 모델이 모든 것을 읽습니다. 이 Mac 밖으로 아무것도 나가지 않습니다. 사실은 더 적고 잡음은 더 많아집니다.",
   "everything.model.apple": "Apple 온디바이스 모델 (실험적)",
-  "everything.model.appleHint": "텍스트가 이 Mac을 벗어나지 않습니다. 다운로드나 키가 필요 없고 클라우드로 아무것도 전송되지 않습니다. 한 번에 약 4k 토큰까지 읽으므로 긴 항목은 건너뜁니다. 답하지 못하면 해당 묶음은 건너뛰고 이유가 기록됩니다. 클라우드 모델로 전환되지 않습니다.",
-  "everything.model.appleExperimental": "실험적입니다. 이 범위가 출처를 읽기에 충분한지 아직 확인되지 않았으므로 권장하지 않습니다.",
+  "everything.model.appleHint":
+    "텍스트가 이 Mac을 벗어나지 않습니다. 다운로드나 키가 필요 없고 클라우드로 아무것도 전송되지 않습니다. 한 번에 약 4k 토큰까지 읽으므로 긴 항목은 건너뜁니다. 답하지 못하면 해당 묶음은 건너뛰고 이유가 기록됩니다. 클라우드 모델로 전환되지 않습니다.",
+  "everything.model.appleExperimental":
+    "실험적입니다. 이 범위가 출처를 읽기에 충분한지 아직 확인되지 않았으므로 권장하지 않습니다.",
   "everything.model.appleSkipped": "그때까지 이 출처는 건너뜁니다.",
   "everything.model.localRef": "로컬 모델",
   "everything.model.localRefHint": "제공업체/모델 (예: ollama/qwen3:4b)",
   "everything.model.cloudRef": "클라우드 모델",
   "everything.model.cloudRefHint": "비워 두면 유틸리티 모델을 사용합니다.",
-  "everything.model.cloudNote": "클라우드에서는 민감한 주제 설정과 관계없이 제공업체가 읽는 각 항목의 텍스트를 볼 수 있습니다. 이를 피할 수 있는 것은 로컬뿐입니다.",
+  "everything.model.cloudNote":
+    "클라우드에서는 민감한 주제 설정과 관계없이 제공업체가 읽는 각 항목의 텍스트를 볼 수 있습니다. 이를 피할 수 있는 것은 로컬뿐입니다.",
   "everything.local.title": "로컬 모델에는 메모리가 필요합니다",
-  "everything.local.body": "실행 중에는 약 3GB RAM을 사용하며, 밤에 최대 45분 동안 작동합니다. 사용자가 돌아오면 중지됩니다. 확인하기 전에는 다운로드나 시작을 하지 않으며, 모델을 변경하면 다시 확인합니다.",
+  "everything.local.body":
+    "실행 중에는 약 3GB RAM을 사용하며, 밤에 최대 45분 동안 작동합니다. 사용자가 돌아오면 중지됩니다. 확인하기 전에는 다운로드나 시작을 하지 않으며, 모델을 변경하면 다시 확인합니다.",
   "everything.local.confirm": "이해했습니다. {model} 사용",
   "everything.local.confirmed": "{model}에 대해 확인함.",
   "everything.local.needsRef": "먼저 로컬 모델 이름을 지정하십시오.",
   "everything.cost.title": "예상 비용",
-  "everything.cost.cloud": "선택한 출처 기준 월 약 {typical} (가벼운 달 {low}, 많은 달 {high}). 평균적인 하루를 기준으로 한 추정치입니다.",
+  "everything.cost.cloud":
+    "선택한 출처 기준 월 약 {typical} (가벼운 달 {low}, 많은 달 {high}). 평균적인 하루를 기준으로 한 추정치입니다.",
   "everything.cost.free": "무료: 텍스트가 제공업체로 전송되지 않습니다.",
   "everything.cost.backfill": "처음 {days, number}일 분량 읽기: 정상 요금으로 약 {cost}.",
   "everything.perSource.title": "출처별 모델",
-  "everything.perSource.description": "예를 들어 메일은 클라우드로 두고 메시지는 로컬로 설정할 수 있습니다. \"위와 같음\"으로 설정된 출처는 위의 선택을 따릅니다.",
+  "everything.perSource.description":
+    '예를 들어 메일은 클라우드로 두고 메시지는 로컬로 설정할 수 있습니다. "위와 같음"으로 설정된 출처는 위의 선택을 따릅니다.',
   "everything.perSource.default": "위와 같음",
   "everything.perSource.ref": "{source}의 모델",
   "everything.sources.title": "읽는 대상",
-  "everything.sources.description": "메모리는 검색이 읽는 내용에서 설정 → 검색 출처와 같은 순서로 학습합니다. 여기서 끄면 학습을 중지하지만 검색은 계속할 수 있습니다.",
+  "everything.sources.description":
+    "메모리는 검색이 읽는 내용에서 설정 → 검색 출처와 같은 순서로 학습합니다. 여기서 끄면 학습을 중지하지만 검색은 계속할 수 있습니다.",
   "everything.sources.learning": "학습 중",
   "everything.sources.notLearning": "학습하지 않음",
   "everything.sources.notRead": "Psyche가 {source}을(를) 읽지 않습니다.",
   "everything.sources.letRead": "Psyche가 {source}을(를) 읽도록 허용",
-  "everything.sources.letReadFailed": "Psyche가 {source}을(를) 읽도록 허용하지 못했습니다: {reason}",
+  "everything.sources.letReadFailed":
+    "Psyche가 {source}을(를) 읽도록 허용하지 못했습니다: {reason}",
   "everything.source.mail": "메일",
   "everything.source.messages": "메시지",
   "everything.source.notes": "메모",
@@ -58,9 +69,11 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.people.contacts": "연락처에 있는 사람만",
   "everything.people.everyone": "제외하지 않은 모든 사람",
   "everything.people.chosen": "내가 고른 사람만",
-  "everything.people.note": "사용자 본인의 글은 항상 읽습니다. 다른 사람이 쓴 글은 여기서 선택한 사람에 한해, 본인이 자신에 대해 말한 내용만 읽습니다. 검토를 기다리며 지시로 취급되지 않습니다.",
+  "everything.people.note":
+    "사용자 본인의 글은 항상 읽습니다. 다른 사람이 쓴 글은 여기서 선택한 사람에 한해, 본인이 자신에 대해 말한 내용만 읽습니다. 검토를 기다리며 지시로 취급되지 않습니다.",
   "everything.people.aboutOthers": "다른 사람에 대한 발언도 포함",
-  "everything.people.aboutOthersHint": "기본값은 꺼짐입니다. 켜면 Sam의 메시지에 있는 \"Priya는 Initech에서 일한다\"가 Sam의 주장임을 표시한 채 Priya에 대한 제안이 됩니다.",
+  "everything.people.aboutOthersHint":
+    '기본값은 꺼짐입니다. 켜면 Sam의 메시지에 있는 "Priya는 Initech에서 일한다"가 Sam의 주장임을 표시한 채 Priya에 대한 제안이 됩니다.',
   "everything.exclusions.title": "읽기에서 제외",
   "everything.exclusions.empty": "제외한 사람이 없습니다.",
   "everything.exclusions.kind": "종류",
@@ -70,12 +83,14 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.exclusions.value": "주소, 번호 또는 도메인",
   "everything.exclusions.exclude": "제외",
   "everything.exclusions.excludeForget": "제외하고 지우기",
-  "everything.exclusions.confirmForget": "해당 사람에게서 학습한 사실 {facts, number}개와 인용 {citations, number}개도 삭제됩니다.",
+  "everything.exclusions.confirmForget":
+    "해당 사람에게서 학습한 사실 {facts, number}개와 인용 {citations, number}개도 삭제됩니다.",
   "everything.exclusions.remove": "제거",
   "everything.exclusions.mode.exclude": "제외됨",
   "everything.exclusions.mode.forget": "제외하고 지움",
   "everything.sensitive.title": "민감한 주제",
-  "everything.sensitive.description": "모두 꺼져 있습니다. 켜면 명확히 언급된 내용만 보관하며, 항상 검토를 기다리고 허용하지 않는 한 에이전트에게 보이지 않습니다. 정부 발급 ID와 계좌 번호는 저장되지 않습니다.",
+  "everything.sensitive.description":
+    "모두 꺼져 있습니다. 켜면 명확히 언급된 내용만 보관하며, 항상 검토를 기다리고 허용하지 않는 한 에이전트에게 보이지 않습니다. 정부 발급 ID와 계좌 번호는 저장되지 않습니다.",
   "everything.sensitive.health": "건강",
   "everything.sensitive.finance": "재정",
   "everything.sensitive.sexuality": "성적 지향",
@@ -86,7 +101,8 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.sensitive.precise_location": "정확한 위치",
   "everything.agent.title": "에이전트가 볼 수 있는 내용",
   "everything.agent.none": "없음",
-  "everything.agent.noneHint": "에이전트는 Psyche가 학습한 내용을 아무것도 볼 수 없습니다. 사용자는 볼 수 있습니다.",
+  "everything.agent.noneHint":
+    "에이전트는 Psyche가 학습한 내용을 아무것도 볼 수 없습니다. 사용자는 볼 수 있습니다.",
   "everything.agent.accepted": "확인된 사실",
   "everything.agent.acceptedHint": "에이전트는 수락한 사실을 인용 데이터로 읽습니다.",
   "everything.agent.all": "모두",
@@ -96,7 +112,8 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.schedule.quietStart": "방해 금지 시간 시작",
   "everything.schedule.quietEnd": "방해 금지 시간 종료",
   "everything.schedule.battery": "배터리 사용 중에도 실행",
-  "everything.schedule.batteryHint": "꺼짐: 전원이 연결되어 있고, 저전력 모드가 아니며, 자리를 비운 동안에만 실행합니다.",
+  "everything.schedule.batteryHint":
+    "꺼짐: 전원이 연결되어 있고, 저전력 모드가 아니며, 자리를 비운 동안에만 실행합니다.",
   "everything.schedule.backfill": "첫 실행 기록",
   "everything.schedule.backfillDays": "{days, number}일",
   "everything.schedule.backfillNone": "없음",
@@ -105,19 +122,26 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.run.hint": "지난 실행 이후 새로운 내용을 읽습니다.",
   "everything.run.estimateCloud": "선택한 출처의 평균적인 하루 기준 약 {cost}.",
   "everything.run.estimateFree": "무료: 텍스트가 제공업체로 전송되지 않습니다.",
-  "everything.run.done": "{items, number}개 항목을 읽음: 사실 {facts, number}개 제안, {held, number}개 보류{more, select, yes {, 나머지는 내일로 이월} other {}}.",
+  "everything.run.done":
+    "{items, number}개 항목을 읽음: 사실 {facts, number}개 제안, {held, number}개 보류{more, select, yes {, 나머지는 내일로 이월} other {}}.",
   "everything.run.reason.disabled": "모든 메모리가 꺼져 있습니다.",
-  "everything.run.reason.no_sources": "검색이 메모리가 학습할 수 있는 내용을 읽고 있지 않습니다. 먼저 Psyche가 출처를 읽도록 허용하십시오.",
-  "everything.run.reason.model_none": "먼저 모델을 선택하십시오. 없음으로 두면 아무것도 읽지 않습니다.",
-  "everything.run.reason.battery": "지금은 실행할 수 없습니다: Mac이 배터리를 사용 중입니다. 전원에 연결하거나 배터리 사용 중 실행을 허용하십시오.",
+  "everything.run.reason.no_sources":
+    "검색이 메모리가 학습할 수 있는 내용을 읽고 있지 않습니다. 먼저 Psyche가 출처를 읽도록 허용하십시오.",
+  "everything.run.reason.model_none":
+    "먼저 모델을 선택하십시오. 없음으로 두면 아무것도 읽지 않습니다.",
+  "everything.run.reason.battery":
+    "지금은 실행할 수 없습니다: Mac이 배터리를 사용 중입니다. 전원에 연결하거나 배터리 사용 중 실행을 허용하십시오.",
   "everything.run.reason.low_power": "지금은 실행할 수 없습니다: 저전력 모드가 켜져 있습니다.",
   "everything.run.reason.thermal": "지금은 실행할 수 없습니다: Mac의 온도가 너무 높습니다.",
   "everything.run.reason.not_idle": "지금은 실행할 수 없습니다: Mac을 사용 중입니다.",
-  "everything.run.reason.outside_quiet_hours": "지금은 실행할 수 없습니다: 방해 금지 시간이 아닙니다.",
+  "everything.run.reason.outside_quiet_hours":
+    "지금은 실행할 수 없습니다: 방해 금지 시간이 아닙니다.",
   "everything.run.reason.local_not_confirmed": "먼저 로컬 모델의 메모리 경고를 확인하십시오.",
-  "everything.run.reason.low_memory": "지금은 실행할 수 없습니다: 로컬 모델에 쓸 여유 메모리가 부족합니다.",
+  "everything.run.reason.low_memory":
+    "지금은 실행할 수 없습니다: 로컬 모델에 쓸 여유 메모리가 부족합니다.",
   "everything.run.reason.no_owner_entity": "사람에서 내 카드가 아직 설정되지 않았습니다.",
-  "everything.run.reason.store_unavailable": "지금은 실행할 수 없습니다: 메모리 저장소를 여는 중입니다.",
+  "everything.run.reason.store_unavailable":
+    "지금은 실행할 수 없습니다: 메모리 저장소를 여는 중입니다.",
   "everything.run.reason.busy": "이미 실행 중입니다.",
   "everything.storage.note": "모든 내용은 이 Mac에만 저장됩니다.",
   "everything.consent.title": "모든 메모리 설정",
@@ -127,10 +151,11 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.consent.cancel": "취소",
   "everything.consent.finish": "켜기",
   "everything.consent.what.title": "하는 일",
-  "everything.consent.what.body": "밤에 {persona}가 사용자가 쓴 글과 선택한 사람의 메시지를 읽고 언급된 내용을 기록합니다. 각 사실에는 출처가 인용되고 검토를 기다리며 수정하거나 지울 수 있습니다. 다른 사람이 쓴 글은 항상 데이터일 뿐 지시로 취급되지 않습니다.",
-  "everything.consent.what.e1": "\"Sam의 생일이 다가오고 있습니다.\"",
-  "everything.consent.what.e2": "\"리스본 저녁 식사에 누가 있었지?\"",
-  "everything.consent.what.e3": "\"Priya가 새 직장에 대해 뭐라고 했지?\"",
+  "everything.consent.what.body":
+    "밤에 {persona}가 사용자가 쓴 글과 선택한 사람의 메시지를 읽고 언급된 내용을 기록합니다. 각 사실에는 출처가 인용되고 검토를 기다리며 수정하거나 지울 수 있습니다. 다른 사람이 쓴 글은 항상 데이터일 뿐 지시로 취급되지 않습니다.",
+  "everything.consent.what.e1": '"Sam의 생일이 다가오고 있습니다."',
+  "everything.consent.what.e2": '"리스본 저녁 식사에 누가 있었지?"',
+  "everything.consent.what.e3": '"Priya가 새 직장에 대해 뭐라고 했지?"',
   "everything.consent.sources.title": "읽는 대상",
   "everything.consent.people.title": "사람 및 개인정보",
   "everything.consent.model.title": "내 하루를 읽는 주체",
@@ -142,7 +167,8 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.consent.summary.sensitive": "민감한 주제: {on}",
   "everything.consent.summary.agent": "에이전트 접근: {access}",
   "everything.consent.summary.backfill": "기록: {days, number}일",
-  "everything.consent.summary.noModel": "무언가를 읽게 하려면 모델을 선택하십시오. 없음이면 결정적 그래프만 실행됩니다.",
+  "everything.consent.summary.noModel":
+    "무언가를 읽게 하려면 모델을 선택하십시오. 없음이면 결정적 그래프만 실행됩니다.",
   "everything.off": "꺼짐. 설정하기 전까지 {persona}는 아무것도 읽지 않습니다.",
   "everything.offHint": "출처와 모델은 사용자가 선택하며, 검토 없이는 아무것도 보관되지 않습니다.",
   "everything.run.title": "지금 실행",

@@ -29,11 +29,13 @@ export const homeRest: Partial<Catalogue> = {
   "home.ask.failed": "送信されませんでした: {reason}",
   "home.start.try": "試してみる",
   "home.start.planWeek": "今週の計画を立てる",
-  "home.start.planWeek.prompt": "今週の計画を手伝って。これからの予定を見て、何が一番大事か聞いて。",
+  "home.start.planWeek.prompt":
+    "今週の計画を手伝って。これからの予定を見て、何が一番大事か聞いて。",
   "home.start.brief": "朝の概要を設定",
   "home.start.brief.prompt": "平日の朝に届く短い概要を設定して。何を載せるか聞いて。",
   "home.start.remember": "{name}にあなたのことを伝える",
-  "home.start.remember.prompt": "私のことを知って。仕事や手伝ってほしいことについていくつか質問して、答えを覚えておいて。",
+  "home.start.remember.prompt":
+    "私のことを知って。仕事や手伝ってほしいことについていくつか質問して、答えを覚えておいて。",
   "home.showMore": "{n, plural, other {さらに#件を表示}}",
   "home.showLess": "表示を減らす",
   "home.catchUp": "追いつく",

@@ -24,7 +24,8 @@ export const specialistsRest: Partial<Catalogue> = {
   "specialists.card.partialOther": "중간에 중지되었습니다. 부족한 부분을 확인하십시오.",
   "specialists.card.failed": "{role}이(가) {task}을(를) 완료하지 못했습니다.",
   "specialists.card.nothingSent": "아무것도 전송하거나 구매하지 않았습니다.",
-  "specialists.card.cancelled": "중지되었습니다. 중지하기 전까지의 영수증은 {n, plural, =0 {없습니다} other {#건입니다}}.",
+  "specialists.card.cancelled":
+    "중지되었습니다. 중지하기 전까지의 영수증은 {n, plural, =0 {없습니다} other {#건입니다}}.",
   "specialists.card.label": "{role} 결과: {task}",
   "specialists.card.findings": "발견 사항",
   "specialists.card.items": "항목",
@@ -35,7 +36,8 @@ export const specialistsRest: Partial<Catalogue> = {
   "specialists.card.whatItDid": "수행한 작업",
   "specialists.card.nothingDone": "전송, 변경, 구매된 것은 없습니다.",
   "specialists.card.usage": "사용량",
-  "specialists.card.taint": "외부 출처의 콘텐츠를 읽었습니다. 그 주장은 검증되지 않은 것으로 취급하십시오.",
+  "specialists.card.taint":
+    "외부 출처의 콘텐츠를 읽었습니다. 그 주장은 검증되지 않은 것으로 취급하십시오.",
   "specialists.card.defaultUsed": "기본값 사용: {label}",
   "specialists.card.source": "출처",
   "specialists.card.sources": "출처",

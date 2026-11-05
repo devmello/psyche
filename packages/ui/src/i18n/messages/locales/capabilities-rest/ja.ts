@@ -3,7 +3,8 @@ import type { Catalogue } from "../../index.ts";
 /** capabilities strings not covered elsewhere (ja); merged into `../ja.ts`. */
 export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.title": "何ができますか？",
-  "capabilities.lead": "今すぐ試せることです。アカウントが必要なカードは、接続すると有効になります。",
+  "capabilities.lead":
+    "今すぐ試せることです。アカウントが必要なカードは、接続すると有効になります。",
   "capabilities.available": "今すぐ試せる",
   "capabilities.locked": "接続して利用可能に",
   "capabilities.connect": "アカウントを接続",
@@ -48,7 +49,8 @@ export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.automate.prompt1": "毎週金曜の4時に、週次の報告を送るようリマインドして。",
   "capabilities.automate.prompt2": "毎晩カレンダーを確認して、明日の早い会議があれば知らせて。",
   "capabilities.available.title": "利用可能",
-  "capabilities.available.connectorsHint": "すぐに追加できるコネクタと、レジストリのコネクタです。承認するまで何も実行されません。",
+  "capabilities.available.connectorsHint":
+    "すぐに追加できるコネクタと、レジストリのコネクタです。承認するまで何も実行されません。",
   "capabilities.available.skillsHint": "インストール済みですがオフになっているスキル。",
   "capabilities.search.label": "利用可能なコネクタを検索",
   "capabilities.search.skillsLabel": "利用可能なスキルを検索",
@@ -56,7 +58,8 @@ export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.noConnectors": "一致するコネクタはありません。",
   "capabilities.noSkills": "オフになっているスキルはありません。",
   "capabilities.online.label": "PsycheにオンラインのMCPレジストリを検索させる",
-  "capabilities.online.hint": "初期値はオフです。オンにすると、検索語が公式のMCPレジストリに送信されます。",
+  "capabilities.online.hint":
+    "初期値はオフです。オンにすると、検索語が公式のMCPレジストリに送信されます。",
   "capabilities.badge.official": "公式",
   "capabilities.badge.unverified": "未確認",
   "capabilities.badge.registry": "MCPレジストリより",
@@ -68,10 +71,12 @@ export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.action.setUp": "設定",
   "capabilities.action.check": "サーバを確認",
   "capabilities.action.turnOn": "オンにする",
-  "capabilities.action.needsKey": "キーまたはサインインが必要です。コネクタギャラリーまたはJSONフォームから追加してください。",
+  "capabilities.action.needsKey":
+    "キーまたはサインインが必要です。コネクタギャラリーまたはJSONフォームから追加してください。",
   "capabilities.loading.title": "Psycheが読み込むタイミング",
   "capabilities.loading.label": "常にオン",
-  "capabilities.loading.hint": "オンデマンドの場合、タスクが必要としたときにPsycheがこのコネクタのツールを見つけます。「常にオン」では、毎回のリクエストと一緒に送信します。",
+  "capabilities.loading.hint":
+    "オンデマンドの場合、タスクが必要としたときにPsycheがこのコネクタのツールを見つけます。「常にオン」では、毎回のリクエストと一緒に送信します。",
   "capabilities.loading.failed": "変更できませんでした: {reason}",
   "capabilities.card.source": "提供元",
   "capabilities.card.kind.connector": "コネクタ",

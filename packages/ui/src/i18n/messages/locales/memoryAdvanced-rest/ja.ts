@@ -6,7 +6,8 @@ export const memoryAdvancedRest: Partial<Catalogue> = {
   "memoryAdvanced.description": "モデル、スケジュール、呼び出し方法、暗号化、データ。",
   "memoryAdvanced.recall": "呼び出し",
   "memoryAdvanced.data": "あなたのデータ",
-  "memoryAdvanced.dataHint": "{persona}が覚えているすべてを書き出し、バックアップ、またはリセットします。",
+  "memoryAdvanced.dataHint":
+    "{persona}が覚えているすべてを書き出し、バックアップ、またはリセットします。",
   "memoryAdvanced.dataOpen": "プライバシーとデータを開く",
   "memoryAdvanced.keeping": "保持期間",
   "memoryAdvanced.keepingPending": "未確認の事実",

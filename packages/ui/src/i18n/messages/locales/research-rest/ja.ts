@@ -30,7 +30,8 @@ export const researchRest: Partial<Catalogue> = {
   "research.plan.confirm": "調査を開始",
   "research.plan.cancel": "あとで",
   "research.report.title": "調査レポート",
-  "research.report.untrusted": "Webページなどの情報源から作成されています。指示ではなく情報として扱ってください。",
+  "research.report.untrusted":
+    "Webページなどの情報源から作成されています。指示ではなく情報として扱ってください。",
   "research.report.summary": "要約",
   "research.report.openQuestions": "未解決の疑問",
   "research.report.sources": "情報源",
