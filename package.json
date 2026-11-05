@@ -43,7 +43,7 @@
     "sparse": "sh scripts/dev/sparse.sh"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.15",
+    "@biomejs/biome": "2.6.4",
     "@changesets/cli": "3.0.3",
     "@types/node": "24.19.2",
     "esbuild": "0.28.2",
@@ -51,6 +51,6 @@
     "turbo": "2.11.10",
     "typescript": "5.9.3",
     "vite": "8.3.5",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   }
 }

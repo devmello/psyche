@@ -20,7 +20,7 @@
     "@psyche/permissions": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "grammy": "1.46.0",
-    "ws": "8.22.0"
+    "ws": "8.22.1"
   },
   "devDependencies": {
     "@psyche/testing": "workspace:*",
