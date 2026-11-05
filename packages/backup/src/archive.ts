@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
@@ -117,11 +117,21 @@ export async function buildManifest(
 
 /**
  * Windows: the bsdtar that ships in System32 (the same libarchive tar as macOS), by absolute path.
- * A GNU tar earlier on PATH (Git for Windows) reads `C:\...` as a remote `host:path`.
+ * A GNU tar earlier on PATH (Git for Windows) reads `C:\...` as a remote `host:path`. Without the
+ * System32 one (Windows before 10 1803), the tar on PATH, with `--force-local` when it is GNU tar.
  */
-function tarCommand(): string {
-  if (process.platform !== "win32") return "tar";
-  return win32.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe");
+let windowsTar: { command: string; args: string[] } | undefined;
+
+function tarCommand(): { command: string; args: string[] } {
+  if (process.platform !== "win32") return { command: "tar", args: [] };
+  if (windowsTar !== undefined) return windowsTar;
+  const system = win32.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe");
+  if (existsSync(system)) windowsTar = { command: system, args: [] };
+  else {
+    const v = spawnSync("tar", ["--version"], { encoding: "utf8", windowsHide: true });
+    windowsTar = { command: "tar", args: /GNU tar/.test(v.stdout ?? "") ? ["--force-local"] : [] };
+  }
+  return windowsTar;
 }
 
 /**
@@ -140,7 +150,8 @@ function makePrivate(path: string, mode: 0o600 | 0o700): void {
 
 function tarProcess(args: string[], cwd?: string) {
   // No shell; COPYFILE_DISABLE keeps macOS tar from adding AppleDouble ._ files.
-  return spawn(tarCommand(), args, {
+  const tar = tarCommand();
+  return spawn(tar.command, [...tar.args, ...args], {
     cwd,
     stdio: ["pipe", "pipe", "pipe"],
     env: { ...process.env, COPYFILE_DISABLE: "1" },
