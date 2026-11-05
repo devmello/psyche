@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { posix } from "node:path";
-import { buildArgs, type ContainerBackendKind, execArgs, parseInspect } from "./backends.ts";
 import { PsycheError } from "@psyche/protocol";
+import { buildArgs, type ContainerBackendKind, execArgs, parseInspect } from "./backends.ts";
 import { type CliDriver, nodeCliDriver, runCli } from "./cli.ts";
 import { type DetectDeps, type DetectOptions, detectBackends, systemDetectDeps } from "./detect.ts";
 import { attachTunnel, type EgressTunnel } from "./egress/tunnel.ts";
@@ -407,7 +407,7 @@ export class DesktopContainers {
     const rootless =
       first.kind === "podman"
         ? probe?.trim() === "true"
-        : /(^|[ \[,])name=rootless/.test(probe ?? "");
+        : /(^|[ [,])name=rootless/.test(probe ?? "");
     this.#backend = { ...first, rootless };
     return this.#backend;
   }

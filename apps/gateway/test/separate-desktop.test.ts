@@ -1,4 +1,4 @@
-import { PsycheError } from "@psyche/protocol";
+import type { PsycheError } from "@psyche/protocol";
 import type { DesktopContainers, DesktopShare } from "@psyche/sandbox";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -88,7 +88,11 @@ function fakeEngine(opts: { pairs?: boolean } = {}) {
       const e = { scope, closed: false };
       egress.push(e);
       log.push("egress");
-      return { close: () => void (e.closed = true) };
+      return {
+        close: () => {
+          e.closed = true;
+        },
+      };
     },
   };
   return engine;

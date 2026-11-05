@@ -3,18 +3,18 @@ import type { ToolRunContext } from "@psyche/agent-core";
 import { getSetting, setSetting } from "@psyche/db";
 import type { FolderAccessEnv, FolderGrantEntry } from "@psyche/permissions";
 import {
+  type ComputerSurface,
+  type NodeClient,
+  type PermissionBroker,
+  PsycheError,
+} from "@psyche/protocol";
+import {
   DEFAULT_DESKTOP_MEMORY,
   DesktopContainers,
   type DesktopShare,
   type EgressTunnelHandler,
   validateDesktopMemory,
 } from "@psyche/sandbox";
-import {
-  type ComputerSurface,
-  type NodeClient,
-  type PermissionBroker,
-  PsycheError,
-} from "@psyche/protocol";
 import { GuestSockets } from "../nodes/guest-sockets.ts";
 import type { Gateway } from "../server.ts";
 import { isRiskyLabel } from "./computer.ts";
@@ -534,13 +534,11 @@ export function composeSeparateDesktop(
             c.after !== null &&
             c.after !== undefined
           ) {
-            void sd
-              .reset()
-              .catch((err) =>
-                ctx.log.log("warn", "separate desktop reset failed", {
-                  error: PsycheError.from(err).message,
-                }),
-              );
+            void sd.reset().catch((err) =>
+              ctx.log.log("warn", "separate desktop reset failed", {
+                error: PsycheError.from(err).message,
+              }),
+            );
           }
         });
       },

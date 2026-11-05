@@ -2,8 +2,8 @@ import { existsSync, statSync } from "node:fs";
 import { createConnection } from "node:net";
 import { getDevice, listDevices } from "@psyche/db";
 import { afterEach, describe, expect, it } from "vitest";
-import { GUEST_NODE_KIND } from "../src/nodes/registry.ts";
 import { GuestSockets } from "../src/nodes/guest-sockets.ts";
+import { GUEST_NODE_KIND } from "../src/nodes/registry.ts";
 import { FakeNode, type FakeNodeHandler, pairNodeDevice } from "./fake-node.ts";
 import { newDeviceKey, startTestGateway, type TestGateway } from "./helpers.ts";
 

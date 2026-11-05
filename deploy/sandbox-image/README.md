@@ -7,6 +7,7 @@
 | `core` | Debian 13 (node:24 trixie-slim), Node 24, bash, Python 3 + uv, git, ripgrep, jq, curl, procps | 618 MB |
 | `base` | core + pandoc, poppler-utils, pdftk-java, ffmpeg (the default runtime image) | 1.76 GB |
 | `full` | base + LibreOffice writer, calc and impress (no GUI) | 2.3 GB |
+| `desktop` | full + Xvfb, a private D-Bus, AT-SPI, Firefox ESR, a file manager, LibreOffice with its GUI, and the Linux helper (the separate desktop, Linux only) | 2.29 GB (amd64, measured) |
 
 Every target:
 
@@ -16,6 +17,19 @@ Every target:
 - idles on `sleep infinity`; the runner adds `--init`.
 
 The base images are pinned by digest in the Dockerfile and in [`versions.json`](versions.json). `versions.json` also holds the published repository, tags, platforms (`linux/arm64`, `linux/amd64`), the digest of each published variant (`null` until the first release) and the cosign keyless identity that `publish.sh` signs with.
+
+## The desktop target (separate desktop, Linux)
+
+`desktop` is not a sandbox for commands. It is the image the Linux **separate desktop** runs (`packages/sandbox/src/desktop.ts`, [design §8](../../docs/design/linux-desktop-2026.md)): a graphical desktop that the Gateway drives through the helper inside it. It keeps the rules above (UID 1000, read-only root, `/tmp` a tmpfs, `/workspace` a volume, no setuid) and adds: no network at all, one read-only socket mount for the Gateway, a single-use pairing token in `PSYCHE_GUEST_TOKEN`, and shared folders only at `/shares/<name>`.
+
+`desktop/entrypoint.sh` starts a private session bus, Xvfb on `:1`, the AT-SPI bus, then the helper in the foreground (the container exits if it does). The helper is not built here: stage the Linux helper binary at `desktop/psyche-helper` (git-ignored) first, and optionally pin it with `--build-arg HELPER_SHA256=<sha256>`:
+
+```bash
+cp apps/linux-helper/target/release/psyche-helper deploy/sandbox-image/desktop/psyche-helper
+podman build --target desktop   --build-arg HELPER_SHA256=$(sha256sum deploy/sandbox-image/desktop/psyche-helper | cut -d" " -f1)   -t psyche-sandbox:desktop-dev deploy/sandbox-image
+```
+
+`versions.json` lists `desktop`, but `publish.sh` and the release workflow do not publish it by default yet (their default variants are `core base full`); publishing it needs the helper binary in the release job.
 
 ## Build locally
 

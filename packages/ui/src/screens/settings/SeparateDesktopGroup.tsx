@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { t } from "../../i18n/core.ts";
-import { ErrorNotice, Group, StatusChip, type SettingsFormProps, type Tone } from "./shared.tsx";
+import { ErrorNotice, Group, type SettingsFormProps, StatusChip, type Tone } from "./shared.tsx";
 
 /**
  * Settings › Computer use › Separate desktop (Linux; docs/design/linux-desktop-2026.md §8): the

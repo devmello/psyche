@@ -130,7 +130,6 @@ import {
 } from "./changes.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
 import { composeComputer } from "./computer.ts";
-import { composeSeparateDesktop } from "./separate-desktop.ts";
 import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
 import { macHelper } from "./connectors.ts";
 import { createContext } from "./context.ts";
@@ -216,6 +215,7 @@ import { helperRecognizer } from "./search-ocr.ts";
 import { agentBlockedHit, canOpenGistSource, scrubCitations } from "./search-open.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import { agentLocalSearch, searchEverythingTool } from "./search-tool.ts";
+import { composeSeparateDesktop } from "./separate-desktop.ts";
 import {
   type ApprovalRelay,
   type BrowserAvailability,
