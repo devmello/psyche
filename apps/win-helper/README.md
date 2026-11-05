@@ -104,12 +104,81 @@ src/win/           Win32/WinRT wrappers (DPAPI, Credential Manager, registry, sh
 src/<group>/       one folder per capability group
 src/bridge.rs      blocking capability crates on the node's invocation path (cancellation)
 crates/            workspace members: win-computer (computer, screen, chrome tabs, element
-                   lookups), win-dictation (dictation, speech)
+                   lookups), win-dictation (dictation, speech), win-vm (psyche-vm-svc.exe)
 tests/             fake Gateway end to end, the real binary
 ```
 
 Logs are content-free (phases, names, sizes, outcomes) on stderr and in
 `$PSYCHE_HOME\logs\helper.log` (rotated at 5 MB).
+
+## Sandbox PC service (`crates/win-vm`, `psyche-vm-svc.exe`)
+
+The Windows counterpart of the mac helper's VM layer (`PsycheHelperSystem/VM`): a per-user
+LocalSystem service that boots the Linux guest image (`deploy/windows/guest-image`) on the
+Hyper-V Host Compute Service and serves the mac `vm.*` methods to the helper over a pipe.
+
+```
+psyche-vm-svc install --owner-sid <SID> --home <PSYCHE_HOME> [--images <dir>]   elevated (one UAC prompt)
+psyche-vm-svc uninstall [--owner-sid <SID>]      elevated; otherwise prints a note, writes it to
+                                                  %LOCALAPPDATA%\Psyche-sandbox-pc-uninstall.txt, exits 5
+psyche-vm-svc start [--owner-sid <SID>]          start the installed service (the owner may)
+psyche-vm-svc run [--backend hcs|fake] [--pipe <name>] [--home <dir>] [--images <dir>] [--idle-secs N]
+                                                  console mode (development; --backend fake needs no Hyper-V)
+cargo test -p psyche-win-vm                      unit + fake-backend lifecycle + control pipe + binary
+cargo test -p psyche-win-vm --test live_hcs -- --ignored --nocapture   elevated, real boot
+                                                  (PSYCHE_VM_TEST_IMAGE = an image folder)
+```
+
+- **Install** copies the exe to `%ProgramFiles%\Psyche\vm-service\<SID>\` (a LocalSystem service
+  must not run a binary its user can replace), creates or updates service `PsycheVM-<SID>`
+  ("Psyche sandbox PC", LocalSystem, demand start, `serve --owner-sid … --home … --images …
+  --profile …`), grants the owner start / stop / query on it, and registers vsock 7980 and 7000
+  under `HKLM\…\Virtualization\GuestCommunicationServices`. Images default to the owner's
+  `%LOCALAPPDATA%\Psyche\vm-images`. Re-running install updates the binary (the helper compares
+  `service_info.version`). Exit: 0, 1 failed, 2 bad arguments, 5 elevation required; one JSON line
+  on stdout. Logs: `%ProgramData%\Psyche\vm-service\<SID>.log`, content-free. The service stops
+  itself after 10 minutes with no client, no running guest and nothing in progress.
+- **Control pipe** `\\.\pipe\psyche-vm-<SID>`: DACL owner + LocalSystem (network logons denied);
+  every connection's impersonation token and process token must carry the owner SID. **Connect
+  with the default `SECURITY_IMPERSONATION` QoS** (not identification): requests run impersonating
+  the owner, so every file in the owner's profile is touched with the owner's own rights (no
+  junction or link can redirect LocalSystem); HCS calls switch back to LocalSystem.
+- **Protocol**: NDJSON. Request `{"id": "<string>", "method", "params", "progress"?: true}`;
+  response `{"id", "result"}` or `{"id", "error": {"code", "message", "details": {"reason", …},
+  "retryable"?}}` (the mac helper's codes and reasons; `id: null` for an unparsable line or a
+  refused client). `watch` answers `{"watching": true}`, then sends `{"event": "vm.status", "data":
+  {"type": "vm.status", "status"}}` and `{"event": "vm.updated" | "vm.deleted", "data": <the mac
+  event object>}`; `unwatch` → `{"closed": true}`. With `"progress": true` a request's progress
+  (`vm.import`, `vm.state`, `vm.snapshot`, `vm.reset`, `vm.export`, `vm.psyche_install`) arrives as
+  `{"event": "progress", "data": {"id": "<request id>", "event": {…}}}` before its response.
+  Requests on one connection run concurrently. Extra methods: `service_info` → `{version, hcs:
+  {available, reason?, message?, backend, schema, supportedSchemaVersions}, images, imagesRoot,
+  ownerSid, vsock, active}`, `ping`.
+
+| Method | Windows behaviour (params and results are the mac helper's) |
+|---|---|
+| `status` | `{guests, active, supportsGuestProvisioning: true, maxActive: 1}`; each guest is the mac `describe` plus `network`, `guestKind: "linux"`, `ipAddress?`, `vsock.serviceId`. Answers without Hyper-V. |
+| `create` | From an installed image (`image`: image version or a folder in the images root; default the newest; `imageSha256` pins its `manifest.json`); every file SHA-256-verified; disks: `system.vhdx` (differencing child of the image's `rootfs.vhdx`) + `sessiondata.vhdx` (dynamic, `diskGB`; the guest formats it). Progress `vm.import`. Phase `installed`. `ipsw` → `unsupported`; `download` is the desktop's job. Extra param `network`. |
+| `start` | Re-verifies the image (pinned hash) and re-checks every share, boots (first boot `provisioning`), relays guest vsock 7980 to the Gateway guest pipe (`run\guest-socket`, else the hashed name; the pipe's server must run as the owner). Warm start from `SavedState.vmrs`, cold on failure. |
+| `stop` | Integration-service shutdown (30 s), then the guest's `shutdown` op, then (with `force`) terminate. `graceful` as on the Mac; `guest_did_not_stop` without `force`. |
+| `pause` / `resume` / `suspend` | HCS pause / resume; suspend = save to `SavedState.vmrs` (`SaveType: ToFile`) and stop. |
+| `configure` | cpus / memoryGB / display / `network` (`none` \| `nat`) while stopped; clipboard / vault any time. |
+| `snapshot` / `restore` / `reset` / `snapshot_delete` | VHDX differencing layers (`method: "vhdx-differencing"`): instant; deleted snapshots are retired and their layers collected once nothing builds on them. Saved state travels with a snapshot. Same kinds, limits and pruning as the Mac. |
+| `share_add` / `share_remove` | HCS Plan9 shares (port 564, AccessName = name) at `/mnt/psyche/<name>`, applied live (`ModifyComputeSystem`) and mounted over the guest control channel (`mount` / `umount`, a node `fs` root). Read-write needs `approvalId` in params. Paths follow `@psyche/hostfs` canonical rules; refused: drive roots, `C:\Users`, profile roots, `AppData` and credential folders, `$PSYCHE_HOME`, Windows / Program Files / ProgramData, UNC. The owner must be able to open the folder. |
+| `copy_in` | Into `transfer\in\<id>\` = `/mnt/psyche/psyche-in/<id>/<name>` (read-only, mounted at boot). |
+| `copy_out` | The guest's `export` op stages into `psyche-out`, then a move into a granted folder (`permissions.folders`), never overwriting. Images without `export` answer `unsupported`. |
+| `agent_status` | The guest's `status` op: `agent.{connected, lastSeenAt, version, hostname, kernel, uptimeSeconds, node, session, network, shares}`. |
+| `install_psyche` | Shares the payload read-only (`psyche-payload`) and calls the guest's `install_psyche` op (`unsupported` on images without it: the image ships psyche-node). |
+| `export_image` | `outDir/<id>/`: kernel, initrd, the system disk chain flattened to `rootfs.vhdx`, a schema-1 `manifest.json`; never the session disk (node identity). |
+| `restore_image` | The newest installed image: `{version, build, sizeBytes, guestOS, createdAt, manifestSha256}`. |
+| `display`, `grant_permissions` | `unavailable` / `unsupported` (headless Linux guest, no TCC). |
+
+Guest contract (what `deploy/windows/guest-image` implements): kernel command line = the
+manifest's `boot.kernelCmdline` + `psyche.port=7980` + `psyche.share=psyche-in:vsock:564:ro
+psyche.share=psyche-out:vsock:564:rw` (+ `psyche-payload` after `install_psyche`); control channel
+on vsock 7000 (`{"id", "op", …}` → `{"id", "result" | "error"}`); psyche-node dials host CID 2
+port 7980; the opt-in adapter is an HNS `ICS` network (NAT + DHCP), never bridged. HvSocket
+security descriptors let only LocalSystem bind or connect for the guest.
 
 ## CONTRIBUTING: adding a capability
 
