@@ -34,10 +34,12 @@ mod linux {
     use psyche_protocol::{ErrorCode, SideEffect, TargetKind};
     use serde_json::{json, Map, Value};
 
+    use crate::capability::Output;
     use crate::capability::{
         Capability, CapabilityError, CapabilitySpec, InvocationContext, Registry,
     };
     use crate::paths::{state_dir, Env, ProcessEnv};
+    use crate::receipt::ReceiptDraft;
 
     fn env_get(key: &str) -> Option<String> {
         ProcessEnv.get(key)
@@ -215,6 +217,54 @@ mod linux {
                     streaming: false,
                 },
             }
+        }
+
+        fn receipt_kind(&self) -> Option<&'static str> {
+            match self.op {
+                AppsOp::List => None,
+                AppsOp::Open => Some("app_open"),
+                AppsOp::Focus => Some("computer_action"),
+            }
+        }
+
+        fn invoke_full(&self, ctx: &InvocationContext) -> Result<Output, CapabilityError> {
+            let result = self.invoke(ctx)?;
+            let receipt = match self.op {
+                AppsOp::List => None,
+                AppsOp::Open => {
+                    let name = result
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .or_else(|| result.get("bundleId").and_then(Value::as_str))
+                        .unwrap_or("app");
+                    let mut d = ReceiptDraft::ok(format!("Opened {name}"));
+                    if let Some(id) = result.get("bundleId") {
+                        d.external_refs.insert("app".into(), id.clone());
+                    }
+                    Some(d)
+                }
+                AppsOp::Focus => {
+                    let app = result.get("app").and_then(Value::as_str).unwrap_or("app");
+                    let moved = result
+                        .get("focused")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false);
+                    let mut d = if moved {
+                        ReceiptDraft::ok(format!("Focused {app}"))
+                    } else {
+                        ReceiptDraft {
+                            outcome: "uncertain",
+                            summary: format!(
+                                "Asked for focus on {app}; the desktop may not have moved it"
+                            ),
+                            external_refs: Map::new(),
+                        }
+                    };
+                    d.external_refs.insert("app".into(), json!(app));
+                    Some(d)
+                }
+            };
+            Ok(Output { result, receipt })
         }
 
         fn input_schema(&self) -> Option<Value> {

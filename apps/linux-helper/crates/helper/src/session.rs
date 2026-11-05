@@ -17,7 +17,7 @@ use psyche_protocol::frame::{error_payload, req_line, res_err_line, res_ok_line,
 use psyche_protocol::{ErrorCode, NodeEventParams, NodeInvokeParams, NodeResultParams, ReqFrame};
 use serde_json::{json, Value};
 
-use crate::capability::{needs_approval, CapabilityError, InvocationContext, Registry};
+use crate::capability::{needs_approval, CapabilityError, InvocationContext, Output, Registry};
 use crate::channel::{FrameReader, HelperError, Read1};
 use crate::idle::IdleTimer;
 
@@ -280,30 +280,56 @@ fn handle_invoke<W: Write + Send + 'static>(
                 "Cancelled",
             ))
         } else {
-            capability.invoke(&ctx)
+            capability.invoke_full(&ctx)
         };
-        finish(&shared, &invocation_id, &capability_name, outcome);
+        let receipt = ReceiptPlan {
+            kind: capability.receipt_kind(),
+            approval_id: ctx.approval_id.clone(),
+            side_effect: spec.side_effect,
+        };
+        finish(&shared, &invocation_id, &capability_name, outcome, &receipt);
     });
+}
+
+/// What `finish` needs to attach a receipt.
+struct ReceiptPlan {
+    kind: Option<&'static str>,
+    approval_id: Option<String>,
+    side_effect: psyche_protocol::SideEffect,
 }
 
 fn finish<W: Write + Send>(
     shared: &Shared<W>,
     invocation_id: &str,
     capability: &str,
-    outcome: Result<Value, CapabilityError>,
+    outcome: Result<Output, CapabilityError>,
+    plan: &ReceiptPlan,
 ) {
     let Ok(id) = invocation_id.try_into() else {
         return;
     };
     let params = match &outcome {
-        Ok(result) => {
-            crate::log(&format!("result capability={capability} ok=true"));
+        Ok(output) => {
+            let receipt = plan
+                .kind
+                .zip(output.receipt.as_ref())
+                .and_then(|(kind, draft)| {
+                    draft.wire(
+                        kind,
+                        plan.approval_id.as_deref(),
+                        std::time::SystemTime::now(),
+                    )
+                });
+            crate::log(&format!(
+                "result capability={capability} ok=true receipt={}",
+                output.receipt.as_ref().map_or("none", |r| r.outcome)
+            ));
             NodeResultParams {
                 error: None,
                 invocation_id: id,
                 ok: true,
-                receipt: None,
-                result: Some(result.clone()),
+                receipt,
+                result: Some(output.result.clone()),
             }
         }
         Err(error) => {
@@ -311,11 +337,31 @@ fn finish<W: Write + Send>(
                 "result capability={capability} ok=false code={:?} reason={}",
                 error.code, error.reason
             ));
+            // A refused side effect still gets a failed receipt, so the audit trail is complete.
+            let receipt = plan
+                .kind
+                .filter(|_| {
+                    !matches!(
+                        plan.side_effect,
+                        psyche_protocol::SideEffect::None | psyche_protocol::SideEffect::Read
+                    ) && error.code != ErrorCode::InvalidParams
+                })
+                .and_then(|kind| {
+                    crate::receipt::ReceiptDraft::failed(format!(
+                        "{capability} failed: {}",
+                        error.reason
+                    ))
+                    .wire(
+                        kind,
+                        plan.approval_id.as_deref(),
+                        std::time::SystemTime::now(),
+                    )
+                });
             NodeResultParams {
                 error: Some(error.payload()),
                 invocation_id: id,
                 ok: false,
-                receipt: None,
+                receipt,
                 result: None,
             }
         }
@@ -371,6 +417,43 @@ mod tests {
         }
     }
 
+    struct Acts;
+    impl Capability for Acts {
+        fn spec(&self) -> CapabilitySpec {
+            CapabilitySpec {
+                name: "test.acts",
+                description: "writes",
+                side_effect: SideEffect::Write,
+                target_kind: None,
+                streaming: false,
+            }
+        }
+        fn receipt_kind(&self) -> Option<&'static str> {
+            Some("computer_action")
+        }
+        fn invoke(&self, ctx: &InvocationContext) -> Result<Value, CapabilityError> {
+            if ctx.params["fail"] == true {
+                return Err(CapabilityError::new(
+                    ErrorCode::Conflict,
+                    "focus_moved",
+                    "moved",
+                ));
+            }
+            Ok(json!({"status": "unverified"}))
+        }
+        fn invoke_full(&self, ctx: &InvocationContext) -> Result<Output, CapabilityError> {
+            let result = self.invoke(ctx)?;
+            Ok(Output {
+                result,
+                receipt: Some(crate::receipt::ReceiptDraft {
+                    outcome: "uncertain",
+                    summary: "click in Text Editor: unverified".into(),
+                    external_refs: serde_json::Map::new(),
+                }),
+            })
+        }
+    }
+
     struct Wait;
     impl Capability for Wait {
         fn spec(&self) -> CapabilitySpec {
@@ -407,6 +490,7 @@ mod tests {
         let mut registry = Registry::standard(BuildInfo::current());
         registry.register(Arc::new(Echo));
         registry.register(Arc::new(Danger));
+        registry.register(Arc::new(Acts));
         registry.register(Arc::new(Wait));
         let helper = std::thread::spawn(move || {
             let mut reader = FrameReader::new(a.try_clone().unwrap());
@@ -456,6 +540,32 @@ mod tests {
         assert_eq!(result["params"]["ok"], true);
         assert_eq!(result["params"]["result"], json!({ "a": 1 }));
         assert_eq!(h.finish(), ServeEnd::Closed);
+    }
+
+    #[test]
+    fn side_effects_carry_a_receipt_with_the_kind_outcome_and_approval() {
+        let mut h = start(None);
+        h.send(json!({
+            "type": "req", "id": "r1", "method": "node.invoke",
+            "params": { "invocationId": "inv1", "capability": "test.acts", "params": {}, "approvalId": "ap9" }
+        }));
+        assert_eq!(h.read()["payload"]["accepted"], true);
+        let result = h.read();
+        let receipt = &result["params"]["receipt"];
+        assert!(receipt["id"].as_str().unwrap().starts_with("rcpt_"));
+        assert_eq!(receipt["kind"], "computer_action");
+        assert_eq!(receipt["outcome"], "uncertain");
+        assert_eq!(receipt["approvalId"], "ap9");
+        // A refused side effect still leaves a failed receipt; a read does not.
+        h.invoke("r2", "inv2", "test.acts", json!({"fail": true}));
+        assert_eq!(h.read()["payload"]["accepted"], true);
+        let failed = h.read();
+        assert_eq!(failed["params"]["ok"], false);
+        assert_eq!(failed["params"]["receipt"]["outcome"], "failed");
+        h.invoke("r3", "inv3", "health", json!({}));
+        h.read();
+        assert!(h.read()["params"].get("receipt").is_none());
+        h.finish();
     }
 
     #[test]

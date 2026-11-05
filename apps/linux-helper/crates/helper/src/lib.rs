@@ -17,6 +17,7 @@ pub mod hardening;
 pub mod identity;
 pub mod idle;
 pub mod paths;
+pub mod receipt;
 pub mod session;
 
 /// Structured, content-free logging to stderr: phases, names and sizes only, never params,

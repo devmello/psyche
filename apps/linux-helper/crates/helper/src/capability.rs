@@ -101,8 +101,35 @@ pub struct InvocationContext {
     pub cancelled: Arc<AtomicBool>,
 }
 
+/// What a capability returns: the result and, for side effects, a receipt draft.
+#[derive(Debug, Clone)]
+pub struct Output {
+    pub result: Value,
+    pub receipt: Option<crate::receipt::ReceiptDraft>,
+}
+
+impl Output {
+    pub fn plain(result: Value) -> Self {
+        Output {
+            result,
+            receipt: None,
+        }
+    }
+}
+
 pub trait Capability: Send + Sync {
     fn spec(&self) -> CapabilitySpec;
+    /// The receipt kind for side-effecting calls (`computer_action`, `app_open`). `None`: the
+    /// capability sends no receipt.
+    fn receipt_kind(&self) -> Option<&'static str> {
+        None
+    }
+
+    /// Like [`Capability::invoke`], with the receipt draft a side-effecting call attaches.
+    fn invoke_full(&self, ctx: &InvocationContext) -> Result<Output, CapabilityError> {
+        self.invoke(ctx).map(Output::plain)
+    }
+
     /// The JSON Schema of the parameters, declared at `connect`. `None`: no parameters.
     fn input_schema(&self) -> Option<Value> {
         None
