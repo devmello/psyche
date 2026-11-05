@@ -107,6 +107,15 @@ describe("Windows copy (i18n/messages/variants/windows.ts)", () => {
     expect(t("web.remote.thisMac")).toBe("This PC");
   });
 
+  it("translates the security-record variants: PC and Windows Hello, never the Mac", () => {
+    setActiveI18n(createI18n({ locale: "de-DE", language: "de" }));
+    setUiPlatform("windows");
+    const text = t("web.security.alert.requested", { action: "x", when: "y" });
+    expect(text).toContain("diesem PC");
+    expect(text).not.toMatch(/Mac/);
+    expect(t("web.security.needsApproval")).toContain("Windows Hello");
+  });
+
   it("keeps every variant valid ICU with the English message's placeholders, and Mac-free", () => {
     const ids = Object.keys(windows) as MessageId[];
     expect(ids.length).toBeGreaterThan(150);
