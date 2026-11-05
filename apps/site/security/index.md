@@ -66,7 +66,7 @@ Report privately. Do not open a public issue, discussion or pull request.
 - Use GitHub private vulnerability reporting: the repository's **Security** tab, then **Report a vulnerability**.
 - A security email address is not set up yet.
 
-You get an acknowledgement within 72 hours. Fix targets are 7 days for critical, 30 for high and 90 for medium issues. The full policy, scope and safe-harbour terms are in [SECURITY.md](https://github.com/devmello/psyche/blob/main/SECURITY.md); how a report becomes a fix, an advisory and a write-up is in the [disclosure process](https://github.com/devmello/psyche/blob/main/docs/security-disclosure.md).
+You get an acknowledgement within 72 hours. Fix targets are 7 days for critical, 30 for high and 90 for medium issues. The full policy, scope and safe-harbour terms are in [SECURITY.md](https://github.com/devmello/psyche/blob/main/.github/SECURITY.md); how a report becomes a fix, an advisory and a write-up is in the [disclosure process](https://github.com/devmello/psyche/blob/main/docs/security-disclosure.md).
 
 ## Learn more
 
@@ -77,7 +77,7 @@ You get an acknowledgement within 72 hours. Fix targets are 7 days for critical,
 - [Audit log and receipts](/security/audit-log)
 - [Backups](/security/backups)
 - [Key storage](/security/key-storage)
-- [SECURITY.md](https://github.com/devmello/psyche/blob/main/SECURITY.md)
+- [SECURITY.md](https://github.com/devmello/psyche/blob/main/.github/SECURITY.md)
 - [Disclosure process](https://github.com/devmello/psyche/blob/main/docs/security-disclosure.md)
 - [docs/05-security-and-permissions.md](https://github.com/devmello/psyche/blob/main/docs/05-security-and-permissions.md)
 - [docs/archive/reports/m3-threat-model-review.md](https://github.com/devmello/psyche/blob/main/docs/archive/reports/m3-threat-model-review.md)

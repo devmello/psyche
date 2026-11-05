@@ -612,7 +612,7 @@ Brief:
 ### S: skills (content; one session, after W1)
 
 Brief:
-> You own `skills/` and `packages/skills/src/gating.ts` for docs/workflows/mail-and-meetings-2026.md.
+> You own `packages/skills/bundled/` and `packages/skills/src/gating.ts` for docs/workflows/mail-and-meetings-2026.md.
 > - **Update** `inbox-triage` (the six categories, the "Because:" rule, batch proposals, never send) and `reply-drafting` (use `mail/VOICE.md` and the tone controls; drafts only).
 > - **Add** `follow-up-tracking`, `scheduling-over-email` and `meeting-notes`. **Extend** P's `meeting-prep` (#641) with the §4.5 format; do not fork it.
 > - **Add** `requires.tools` families `speech.*` (for `speech_transcribe_file`) and `proposals.*` with Settings hints.

@@ -37,8 +37,11 @@ function fakeBuilds(dir: string, opts: { helper?: boolean; psyched?: boolean } =
     writeFileSync(join(psychedDir, "psyched"), "#!/bin/sh\n");
     chmodSync(join(psychedDir, "psyched"), 0o755);
     writeFileSync(join(psychedDir, "runtime", "node"), Buffer.from([0xcf, 0xfa, 0xed, 0xfe, 0, 0]));
-    mkdirSync(join(psychedDir, "app", "skills"), { recursive: true });
-    writeFileSync(join(psychedDir, "app", "skills", "README.md"), "# Bundled skills\n");
+    mkdirSync(join(psychedDir, "app", "packages", "skills", "bundled"), { recursive: true });
+    writeFileSync(
+      join(psychedDir, "app", "packages", "skills", "bundled", "README.md"),
+      "# Bundled skills\n",
+    );
     writeFileSync(
       join(psychedDir, "com.psyche.gateway.plist.template"),
       "<plist>{{PSYCHED}}</plist>",
@@ -93,10 +96,12 @@ describe("bundle resources", () => {
   it("refuses a psyched build without its bundled skills (#506)", () => {
     const dir = mkdtempSync(join(tmpdir(), "psyche-bundle-"));
     const sources = fakeBuilds(dir);
-    rmSync(join(sources.psychedDir, "app", "skills"), { recursive: true });
+    rmSync(join(sources.psychedDir, "app", "packages", "skills", "bundled"), { recursive: true });
     expect(() =>
       copyBundleResources(sources, join(dir, "Resources"), "arm64", { allowPartial: false }),
-    ).toThrow(/psyched \(the Gateway\): not found at .*app[\\/]skills[\\/]README\.md/);
+    ).toThrow(
+      /psyched \(the Gateway\): not found at .*app[\\/]packages[\\/]skills[\\/]bundled[\\/]README\.md/,
+    );
   });
 
   it("lets osx-sign sign only Mach-O files in psyched/ and never the helper", () => {
@@ -151,11 +156,11 @@ describe("bundle resources (Windows)", () => {
   function fakeWinBuilds(dir: string, opts: { helper?: boolean } = {}) {
     const psychedDir = join(dir, "gateway", "psyched");
     mkdirSync(join(psychedDir, "runtime"), { recursive: true });
-    mkdirSync(join(psychedDir, "app", "skills"), { recursive: true });
+    mkdirSync(join(psychedDir, "app", "packages", "skills", "bundled"), { recursive: true });
     for (const f of [
       "psyched.cmd",
       "runtime/node.exe",
-      "app/skills/README.md",
+      "app/packages/skills/bundled/README.md",
       "service-host.mjs",
       "psyche-gateway.task.xml.template",
     ])

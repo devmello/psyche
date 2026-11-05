@@ -98,8 +98,8 @@ import {
 } from "./support.ts";
 import { type Embedder, tryLoadSqliteVec, VectorIndex } from "./vector.ts";
 
-/** Repository `templates/` (S20) relative to this file: packages/memory/src → repo root. */
-export const DEFAULT_TEMPLATES_DIR = assetDir("templates");
+/** Repository `packages/memory/templates/` (S20), found through the assets root. */
+export const DEFAULT_TEMPLATES_DIR = assetDir("packages", "memory", "templates");
 
 const DIR_MODE = 0o700;
 const FILE_MODE = 0o600;
@@ -123,7 +123,7 @@ export interface SqliteMemoryStoreOptions {
   sqliteVec?: boolean;
   /** Confirms `memory_protected_write` approvals for agent writes. Default: deny. */
   approvals?: ApprovalCheck;
-  /** Copied on first run. Default: the repository's `templates/`. `null` disables. */
+  /** Copied on first run. Default: the repository's `packages/memory/templates/`. `null` disables. */
   templatesDir?: string | null;
   /** Values for `{{token}}` placeholders in templates (onboarding answers). */
   templateValues?: Record<string, string>;

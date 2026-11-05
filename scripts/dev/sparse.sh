@@ -5,7 +5,7 @@
 #   sh scripts/dev/sparse.sh --list
 #
 # Profiles:
-#   core     TypeScript apps and packages, docs, skills, tests, deploy, CI. No native app folders.
+#   core     TypeScript apps and packages, docs, tests, deploy, CI. No native app folders.
 #   mac      core + apps/mac-helper and the shared Swift package (packages/swift).
 #   windows  core + apps/win-helper (the Rust Windows helper).
 #   mobile   core + apps/ios, apps/android and the shared Swift package.
@@ -20,7 +20,7 @@ list_profiles() { sed -n '8,12p' "$0" | sed 's/^# \{0,1\}//'; }
 
 # `packages` is in every profile, so packages/protocol-swift (where `pnpm protocol:gen` writes the Swift structs) is too.
 core_dirs="apps/cli apps/desktop apps/gateway apps/node apps/site apps/web
-packages tests scripts docs skills templates deploy .github .changeset .vscode"
+packages tests scripts docs deploy .github .changeset .vscode"
 
 profile_dirs() {
   case $1 in

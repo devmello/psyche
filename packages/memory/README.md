@@ -32,7 +32,7 @@ Docs: architecture §2 principle 6 and §4.8, data model §7, security §8, ADR-
 | `DREAMS.md` | dreaming diary, not indexed | dreaming |
 | `skills/` | workspace skills (S16); not indexed as memory | owner |
 
-Templates come from `templates/` (S20). `{{token}}` placeholders are substituted at copy time with the onboarding values or the defaults in `templates/README.md` (`{{cred:…}}` is never touched). Hidden entries (`.git`, `.DS_Store`) are never listed, indexed, read or written through the store; `reset` keeps them.
+Templates come from `packages/memory/templates/` (S20). `{{token}}` placeholders are substituted at copy time with the onboarding values or the defaults in `packages/memory/templates/README.md` (`{{cred:…}}` is never touched). Hidden entries (`.git`, `.DS_Store`) are never listed, indexed, read or written through the store; `reset` keeps them.
 
 ## File formats
 
@@ -136,7 +136,7 @@ Imports are data (security §8): ChatGPT and Claude exports (JSON shapes with `c
 
 ## Sessions
 
-`bootstrapContext` follows `templates/README.md`: private sessions get `SOUL, IDENTITY, AGENTS, USER, MEMORY` (+ `BOOTSTRAP` while it exists) and today's/yesterday's notes; delegated sessions `SOUL, IDENTITY, AGENTS`; shared (group) sessions `IDENTITY, AGENTS`. Budgets: 20,000 characters per file, 4,000 for `USER.md`, 60,000 total; overflow is cut with `[truncated: …]`, a missing file becomes `[missing file: …]`, and a file holding untrusted content becomes `[withheld: …]` (defence in depth; the write rules already prevent it).
+`bootstrapContext` follows `packages/memory/templates/README.md`: private sessions get `SOUL, IDENTITY, AGENTS, USER, MEMORY` (+ `BOOTSTRAP` while it exists) and today's/yesterday's notes; delegated sessions `SOUL, IDENTITY, AGENTS`; shared (group) sessions `IDENTITY, AGENTS`. Budgets: 20,000 characters per file, 4,000 for `USER.md`, 60,000 total; overflow is cut with `[truncated: …]`, a missing file becomes `[missing file: …]`, and a file holding untrusted content becomes `[withheld: …]` (defence in depth; the write rules already prevent it).
 
 ## What is stubbed
 

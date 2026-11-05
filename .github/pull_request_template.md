@@ -1,7 +1,7 @@
 <!--
 Title: `[<id> <name>] <conventional commit summary>`, for example `[S05 permissions] feat(permissions): bind approvals to argv+cwd`.
 Protocol changes: `protocol: <summary>` (the integrator merges these first).
-Rules: docs/archive/prompts/_shared-rules.md (history, kept for reference). Process: CONTRIBUTING.md.
+Rules: docs/archive/prompts/_shared-rules.md (history, kept for reference). Process: .github/CONTRIBUTING.md.
 -->
 
 ## What and why

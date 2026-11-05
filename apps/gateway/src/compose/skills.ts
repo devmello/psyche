@@ -35,7 +35,7 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
 /**
  * Skills (features T1, T2; security §11; owner S16, `@psyche/skills`). Discovery
  * `$PSYCHE_HOME/workspace/skills` → `$PSYCHE_HOME/skills` (installed, `skills.lock.json`) →
- * the bundled `skills/` folder. Installing is a proposal: `skills.proposeInstall` fetches,
+ * the bundled `packages/skills/bundled/` folder. Installing is a proposal: `skills.proposeInstall` fetches,
  * scans and checks the manifest against the owner's policy, then opens a device-only, `once`
  * `skill_install` card (announced through the executor broker); only `skills.install` with that
  * approval writes files. The agent sees approved, enabled skills only: the loop's skills index,
@@ -281,7 +281,7 @@ export function skillGates(services: ComposeServices): SkillsGates {
 }
 
 export interface SkillsOptions {
-  /** Bundled skills folder; `null` for none. Default `PSYCHE_BUNDLED_SKILLS` or the repo's `skills/`. */
+  /** Bundled skills folder; `null` for none. Default `PSYCHE_BUNDLED_SKILLS` or the repo's `packages/skills/bundled/`. */
   bundledDir?: string | null;
   /** Watch the folders for hot reload (default true). */
   watch?: boolean;
@@ -352,7 +352,7 @@ function markedSearch(tool: ToolRegistration): ToolRegistration {
   };
 }
 
-const REPO_SKILLS = assetDir("skills");
+const REPO_SKILLS = assetDir("packages", "skills", "bundled");
 
 function bundledDirFor(opts: SkillsOptions): string | undefined {
   if (opts.bundledDir === null) return undefined;

@@ -160,7 +160,7 @@ export default defineConfig({
       text: "Edit this page on GitHub",
     },
     footer: {
-      message: `Apache-2.0. Report vulnerabilities privately: <a href="${repo}/blob/main/SECURITY.md">security policy</a>.`,
+      message: `Apache-2.0. Report vulnerabilities privately: <a href="${repo}/blob/main/.github/SECURITY.md">security policy</a>.`,
     },
     outline: [2, 3],
   },

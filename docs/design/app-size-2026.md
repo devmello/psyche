@@ -162,7 +162,7 @@ image context and the MCP bridge through `import.meta.url` now ask `@psyche/asse
 `assetPath("packages/db/migrations")` is the same relative path below one root in a checkout and in the
 bundle: the root is `PSYCHE_ASSETS_ROOT`, else three directories above a bundle (each bundle's banner
 sets `globalThis.__PSYCHE_BUNDLE_URL__`), else the repository root. `entryUrl()` does the same for the
-extraction worker. What stays next to the bundles: `skills/`, `templates/`, `deploy/sandbox-image/`,
+extraction worker. What stays next to the bundles: `packages/skills/bundled/`, `packages/memory/templates/`, `deploy/sandbox-image/`,
 `apps/web/dist/`, the three `migrations/` folders and `mcp-stdio-bridge.mjs`.
 
 **Smoke.** `psyched --bundle-check` (`apps/gateway/src/bundle-check.ts`) opens a fresh database and runs

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { blocks, call, harness, resultsIn, runTurn, say, spec, toolStatuses } from "./harness.ts";
 
 const GUIDE = readFileSync(
-  new URL("../../../skills/psyche-app-guide/SKILL.md", import.meta.url),
+  new URL("../../skills/bundled/psyche-app-guide/SKILL.md", import.meta.url),
   "utf8",
 );
 

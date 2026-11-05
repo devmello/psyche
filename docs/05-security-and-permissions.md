@@ -708,7 +708,7 @@ Receipts (§3.11) are the evaluator's evidence and the Activity view; required f
 
 ### 15.3 Incident response and disclosure
 
-`SECURITY.md` names a private reporting channel (GitHub private vulnerability reporting plus a security address), acknowledgement within 72 hours, fix targets by severity (critical 7 days, high 30, medium 90), coordinated disclosure after 90 days or on fix, a CVE for every exploitable issue, and a write-up for anything that shipped — the elements the OpenClaw Foundation listed as missing after 722 advisories in a year (openclaw notes, 2l–2m). In product, security releases surface as an update banner and `psyche security audit` gains a check per disclosed misconfiguration class; there is no remote kill switch because there is no phone-home. Owner-side runbook (`docs/runbooks/incident.md`, to be written): revoke devices and tokens from any paired device, `psyche vault rekey`, export the audit chain.
+`.github/SECURITY.md` names a private reporting channel (GitHub private vulnerability reporting plus a security address), acknowledgement within 72 hours, fix targets by severity (critical 7 days, high 30, medium 90), coordinated disclosure after 90 days or on fix, a CVE for every exploitable issue, and a write-up for anything that shipped — the elements the OpenClaw Foundation listed as missing after 722 advisories in a year (openclaw notes, 2l–2m). In product, security releases surface as an update banner and `psyche security audit` gains a check per disclosed misconfiguration class; there is no remote kill switch because there is no phone-home. Owner-side runbook (`docs/runbooks/incident.md`, to be written): revoke devices and tokens from any paired device, `psyche vault rekey`, export the audit chain.
 
 ### 15.4 Per-release security checklist
 
@@ -723,7 +723,7 @@ Receipts (§3.11) are the evaluator's evidence and the Activity view; required f
 9. Helper signed with the release certificate (not notarized); TCC smoke test on clean macOS 15, 26 and 27 VMs; keychain access-group entitlement present.
 10. Release manifest signed, image digests pinned, downgrade refused.
 11. `psyche security audit` on the default install, the Compose sample and VM mode: zero findings.
-12. Changelog lists every security-relevant default change; SECURITY.md contact verified.
+12. Changelog lists every security-relevant default change; .github/SECURITY.md contact verified.
 
 ---
 

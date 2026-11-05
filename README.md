@@ -53,7 +53,7 @@ pnpm lint
 pnpm --filter @psyche/integration-tests test   # the walking-skeleton scenario, with a scripted model
 ```
 
-Contributors: read [CONTRIBUTING.md](CONTRIBUTING.md) first.
+Contributors: read [CONTRIBUTING.md](.github/CONTRIBUTING.md) first.
 
 ## Repository layout
 
@@ -65,8 +65,8 @@ Contributors: read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 | `deploy/` | Dockerfiles, Compose, launchd and systemd files, macOS packaging and release scripts |
 | `scripts/` | Repository checks used by CI (`scripts/ci/`) and the i18n baseline |
 | `tests/` | Integration and acceptance tests, the injection corpus and scenario fixtures |
-| `skills/` | The `SKILL.md` skills that ship with Psyche |
-| `templates/` | The default persona files (`SOUL.md`, `AGENTS.md`, `USER.md`, …) written at onboarding |
+| `packages/skills/bundled/` | The `SKILL.md` skills that ship with Psyche |
+| `packages/memory/templates/` | The default persona files (`SOUL.md`, `AGENTS.md`, `USER.md`, …) written at onboarding |
 
 ## Documentation
 
@@ -77,6 +77,6 @@ Contributors: read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
 ## Contributing, security and license
 
-- [CONTRIBUTING.md](CONTRIBUTING.md): how to work in the repo and what is expected of a change.
-- [SECURITY.md](SECURITY.md): how to report a vulnerability. Please don't open a public issue for one.
+- [CONTRIBUTING.md](.github/CONTRIBUTING.md): how to work in the repo and what is expected of a change.
+- [SECURITY.md](.github/SECURITY.md): how to report a vulnerability. Please don't open a public issue for one.
 - [LICENSE](LICENSE): Apache-2.0.

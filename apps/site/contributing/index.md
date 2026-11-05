@@ -4,7 +4,7 @@ title: Contributing
 
 # Contributing
 
-Psyche is an open-source monorepo: a TypeScript Gateway, an Electron desktop app, a React web UI, a CLI, a Swift helper for macOS, and about twenty-five libraries they share. This page gets you from a fresh clone to a working setup, shows where things live, and points to the design documents that decide how things should work. The rules themselves are in [CONTRIBUTING.md](https://github.com/devmello/psyche/blob/main/CONTRIBUTING.md) and [docs/archive/prompts/_shared-rules.md](https://github.com/devmello/psyche/blob/main/docs/archive/prompts/_shared-rules.md); read both before your first pull request.
+Psyche is an open-source monorepo: a TypeScript Gateway, an Electron desktop app, a React web UI, a CLI, a Swift helper for macOS, and about twenty-five libraries they share. This page gets you from a fresh clone to a working setup, shows where things live, and points to the design documents that decide how things should work. The rules themselves are in [CONTRIBUTING.md](https://github.com/devmello/psyche/blob/main/.github/CONTRIBUTING.md) and [docs/archive/prompts/_shared-rules.md](https://github.com/devmello/psyche/blob/main/docs/archive/prompts/_shared-rules.md); read both before your first pull request.
 
 ## Set up
 
@@ -78,7 +78,7 @@ To work on this documentation site, run `pnpm docs:dev`. Some pages are generate
 | `packages/protocol` | Schemas, the method and event registry, and the interfaces every package implements |
 | `packages/*` | One library per subsystem: `agent-core`, `model-router`, `permissions`, `audit`, `vault`, `memory`, `browser`, `sandbox`, `mcp-host`, `connectors`, `channels`, `tasks`, `scheduler`, `ui`, `viewers` and others |
 | `packages/testing` | In-memory fakes for every interface, fixtures, the secret-leak checker, the scenario and injection runners |
-| `skills/`, `templates/` | Bundled skills, and the default persona files |
+| `packages/skills/bundled/`, `packages/memory/templates/` | Bundled skills, and the default persona files |
 | `deploy/` | Dockerfiles, Compose, launchd and systemd files, release scripts |
 | `tests/` | Integration and acceptance tests, the injection corpus, scenario fixtures |
 | `apps/site` | This documentation site |
@@ -109,13 +109,13 @@ Psyche is built by many parallel workstreams, human or agent, each owning a sepa
 
 ## Security issues
 
-Do not open a public issue for a vulnerability. Follow [SECURITY.md](https://github.com/devmello/psyche/blob/main/SECURITY.md) and use GitHub private vulnerability reporting.
+Do not open a public issue for a vulnerability. Follow [SECURITY.md](https://github.com/devmello/psyche/blob/main/.github/SECURITY.md) and use GitHub private vulnerability reporting.
 
 ## Learn more
 
 - [Architecture](/contributing/architecture)
 - [Pull requests](/contributing/pull-requests)
 - [Protocol](/reference/protocol)
-- [CONTRIBUTING.md](https://github.com/devmello/psyche/blob/main/CONTRIBUTING.md)
+- [CONTRIBUTING.md](https://github.com/devmello/psyche/blob/main/.github/CONTRIBUTING.md)
 - [docs/archive/prompts/_shared-rules.md](https://github.com/devmello/psyche/blob/main/docs/archive/prompts/_shared-rules.md)
 - [README.md](https://github.com/devmello/psyche/blob/main/README.md)

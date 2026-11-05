@@ -4,7 +4,7 @@ Psyche keeps the agent's persona and memory as plain Markdown files you can read
 
 ## The workspace
 
-The files live in `~/.psyche/workspace/` (`$PSYCHE_HOME/workspace/`). On the first start, the Gateway copies them from the repository's `templates/` folder. They are ordinary files: you can open them in Soul & Memory, in any editor, or in Finder.
+The files live in `~/.psyche/workspace/` (`$PSYCHE_HOME/workspace/`). On the first start, the Gateway copies them from the repository's `packages/memory/templates/` folder. They are ordinary files: you can open them in Soul & Memory, in any editor, or in Finder.
 
 | File | What it holds |
 | --- | --- |
@@ -69,7 +69,7 @@ Settings → Persona shows Identity fields (Name, Vibe or tagline, Emoji), the A
 
 ### Tone presets
 
-The repository has three `SOUL.md` presets in `templates/personas/`: `calm-assistant.md`, `dry-wit.md` and `chief-of-staff.md`. They keep the default Core truths and Boundaries word for word and change only the personality and writing style. Picking one in onboarding is not available yet. To use one, copy its text into `SOUL.md` in Soul & Memory and save.
+The repository has three `SOUL.md` presets in `packages/memory/templates/personas/`: `calm-assistant.md`, `dry-wit.md` and `chief-of-staff.md`. They keep the default Core truths and Boundaries word for word and change only the personality and writing style. Picking one in onboarding is not available yet. To use one, copy its text into `SOUL.md` in Soul & Memory and save.
 
 ## Nightly dreaming
 

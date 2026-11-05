@@ -1,6 +1,6 @@
 # Security policy
 
-Psyche runs with access to your mail, files, accounts and computer, so we treat security reports as the most important thing in the issue queue. The security design is [docs/05-security-and-permissions.md](docs/05-security-and-permissions.md). The full disclosure process is in [docs/security-disclosure.md](docs/security-disclosure.md).
+Psyche runs with access to your mail, files, accounts and computer, so we treat security reports as the most important thing in the issue queue. The security design is [docs/05-security-and-permissions.md](../docs/05-security-and-permissions.md). The full disclosure process is in [docs/security-disclosure.md](../docs/security-disclosure.md).
 
 ## Supported versions
 
@@ -81,4 +81,4 @@ If a third party takes legal action against you for research that followed this 
 - **CVEs:** we request one for every exploitable issue.
 - **Write-ups:** anything that shipped in a release gets a public write-up of what happened, who was affected, how it was fixed and what changed to prevent a repeat.
 
-Details: [docs/security-disclosure.md](docs/security-disclosure.md).
+Details: [docs/security-disclosure.md](../docs/security-disclosure.md).

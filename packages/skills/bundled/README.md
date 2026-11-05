@@ -1,4 +1,4 @@
-# skills/
+# packages/skills/bundled/
 
 **Owner:** S20 (content). **Consumer:** S16 (`packages/skills`) loads these as the `bundled` source, after workspace `skills/` and `$PSYCHE_HOME/skills/` (architecture §13, feature T1).
 

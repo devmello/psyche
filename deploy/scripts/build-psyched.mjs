@@ -22,7 +22,7 @@
 // Native addons (better-sqlite3, node-pty, sqlite-vec, …) are installed for the host by pnpm, so
 // build each arch on a host of that arch (the release workflow uses an Intel runner for x64); the
 // script checks every .node file's architecture and refuses a mismatch. The build fails when the
-// bundled skills folder (app/skills) is missing or a skill has no SKILL.md (#506). --smoke starts
+// bundled skills folder (app/packages/skills/bundled) is missing or a skill has no SKILL.md (#506). --smoke starts
 // the built psyched with only PSYCHE_HOME set and waits for /healthz, runs `psyched --bundle-check`
 // (migrations on a fresh database, templates, skills, the web client, a PDF through the extraction
 // worker) and loads the external packages, all with the bundle's own runtime.
@@ -402,14 +402,18 @@ done
 here=\${self%/*}`;
 
 /**
- * The bundled skills the Gateway loads from `app/skills` (issue #506). The Gateway resolves the
+ * The bundled skills the Gateway loads from `app/packages/skills/bundled` (issue #506). The Gateway resolves the
  * folder four levels up from `apps/gateway/src/compose/skills.ts`; this checks that the folder is
  * there, that the path still lands on it, and that every skill folder has a `SKILL.md` naming
  * itself. Returns the skill names; throws so a bundle without skills never ships.
  */
 export function checkShippedSkills(appDir) {
-  const dir = join(appDir, "skills");
-  const resolved = resolve(appDir, "apps/gateway/src/compose", "../../../../skills");
+  const dir = join(appDir, "packages/skills/bundled");
+  const resolved = resolve(
+    appDir,
+    "apps/gateway/src/compose",
+    "../../../../packages/skills/bundled",
+  );
   if (resolved !== dir)
     throw new Error(`the Gateway would look for skills at ${resolved}, not ${dir}`);
   if (!existsSync(dir)) throw new Error(`bundled skills folder missing: ${dir}`);

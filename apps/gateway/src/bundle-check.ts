@@ -65,7 +65,7 @@ export async function bundleCheck(): Promise<Record<string, unknown>> {
 
     const loader = createSkillLoader({
       homeDir: join(home, "skills"),
-      bundledDir: assetDir("skills"),
+      bundledDir: assetDir("packages", "skills", "bundled"),
     });
     const skills = (await loader.listDetailed()).filter((s) => s.source === "bundled");
     need(skills.length > 0, "no bundled skills");

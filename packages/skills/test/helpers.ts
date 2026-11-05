@@ -7,8 +7,8 @@ import { FakeClock, FakePermissionBroker } from "@psyche/testing";
 import type { GateContext } from "../src/gating.ts";
 import { FsSkillLoader, type FsSkillLoaderOptions, type SkillProposal } from "../src/loader.ts";
 
-/** S20's bundled skills at the repository root. */
-export const BUNDLED_DIR = fileURLToPath(new URL("../../../skills/", import.meta.url));
+/** S20's bundled skills (packages/skills/bundled). */
+export const BUNDLED_DIR = fileURLToPath(new URL("../bundled/", import.meta.url));
 
 export function tempDir(prefix = "psyche-skills-"): string {
   return mkdtempSync(join(tmpdir(), prefix));

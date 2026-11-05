@@ -12,7 +12,7 @@ import { createSkillLoader, createSkillTools, createSkillsHandlers, SqliteSkillS
 const skills = createSkillLoader({
   workspaceDir: `${home}/workspace/skills`,
   homeDir: `${home}/skills`,            // installed skills + skills.lock.json
-  bundledDir: `${appRoot}/skills`,      // S20's bundled skills
+  bundledDir: `${appRoot}/packages/skills/bundled`,      // S20's bundled skills
   state: new SqliteSkillStateStore(db.sqlite),
   broker,                               // PermissionBroker: verifies skill_install, records receipts
   gate: () => ({ ...defaultGateContext(), tools: registry.list().map((t) => t.name) }),

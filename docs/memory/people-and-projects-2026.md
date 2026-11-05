@@ -406,7 +406,7 @@ Every PR:
 ### PG3: skills and flows (content + scenarios)
 
 > You own the people-and-projects flows for docs/memory/people-and-projects-2026.md §6.6:
-> - **New skill:** `skills/meeting-prep/` (SKILL.md + acceptance.md) using `meeting_prep`, `people_lookup` and the mail and notes tools.
+> - **New skill:** `packages/skills/bundled/meeting-prep/` (SKILL.md + acceptance.md) using `meeting_prep`, `people_lookup` and the mail and notes tools.
 > - **Updated skills:** `inbox-triage` (relationship strength, suggested loops, unknown senders), `weekly-review` and the morning brief (Waiting on / You owe), and `memory-hygiene` (review suggestions and corrections).
 > - **Agent guidance:** the system-prompt guidance for the five tools (when to look up, never assume which Sam, untrusted facts are quotes).
 > - **Scenarios:** `tests/scenarios/people-*.md` on the §8 fixture world, one per question in §8.

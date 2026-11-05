@@ -42,7 +42,7 @@ minimumReleaseAge: 1440
 engineStrict: true
 autoInstallPeers: true
 
-# Disk (docs/guides/monorepo-layout.md, CONTRIBUTING.md "Disk & worktrees"). pnpm 12 reads its settings
+# Disk (docs/guides/monorepo-layout.md, .github/CONTRIBUTING.md "Disk & worktrees"). pnpm 12 reads its settings
 # from this file only: the same keys in a root .npmrc have no effect (checked with `pnpm config list`).
 # The store stays global (default: ~/Library/pnpm/store/v11), so every worktree shares one copy.
 # `clone-or-copy` imports with APFS clones (copy-on-write: a worktree's node_modules costs almost no

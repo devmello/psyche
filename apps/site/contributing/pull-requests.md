@@ -122,5 +122,5 @@ Dependabot opens grouped weekly updates for Actions, npm and Docker images; they
 - [Architecture](/contributing/architecture)
 - [Untrusted content and taint](/security/taint)
 - [docs/archive/prompts/_shared-rules.md](https://github.com/devmello/psyche/blob/main/docs/archive/prompts/_shared-rules.md)
-- [CONTRIBUTING.md](https://github.com/devmello/psyche/blob/main/CONTRIBUTING.md)
+- [CONTRIBUTING.md](https://github.com/devmello/psyche/blob/main/.github/CONTRIBUTING.md)
 - [docs/09-execution-plan.md](https://github.com/devmello/psyche/blob/main/docs/09-execution-plan.md)
