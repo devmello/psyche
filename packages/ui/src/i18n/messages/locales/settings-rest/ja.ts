@@ -12,7 +12,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.daily.group.brief": "朝の概要",
   "settings.daily.group.wrapup": "夕方のまとめ",
   "settings.daily.group.delivery": "表示場所",
-  "settings.daily.group.followups": "フォローアップ",
+  "settings.daily.group.followups": "フォローアップの設定",
   "settings.daily.group.automations": "オートメーション",
   "settings.key.daily.brief.enabled": "朝の概要",
   "settings.key.daily.wrapup.enabled": "夕方のまとめ",

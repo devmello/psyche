@@ -10,7 +10,7 @@ export const daily: Partial<Catalogue> = {
   "settings.daily.group.brief": "موجز الصباح",
   "settings.daily.group.wrapup": "خلاصة المساء",
   "settings.daily.group.delivery": "أين يظهر",
-  "settings.daily.group.followups": "المتابعات",
+  "settings.daily.group.followups": "إعدادات المتابعة",
   "settings.daily.group.automations": "الأتمتة",
   "settings.key.daily.brief.enabled": "موجز الصباح",
   "settings.key.daily.wrapup.enabled": "خلاصة المساء",

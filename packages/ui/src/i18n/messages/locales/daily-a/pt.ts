@@ -24,7 +24,7 @@ export const dailyA: Partial<Catalogue> = {
   "settings.daily.group.brief": "Resumo da manhã",
   "settings.daily.group.wrapup": "Fechamento da noite",
   "settings.daily.group.delivery": "Onde aparece",
-  "settings.daily.group.followups": "Acompanhamentos",
+  "settings.daily.group.followups": "Ajustes de acompanhamento",
   "settings.daily.group.automations": "Automações",
   "settings.key.daily.brief.enabled": "Resumo da manhã",
   "settings.key.daily.wrapup.enabled": "Fechamento da noite",

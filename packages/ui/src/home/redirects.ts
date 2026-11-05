@@ -35,6 +35,9 @@ export function legacyRedirect(route: string): string | null {
     return `/home?${HOME_POST_PARAM}=${encodeURIComponent(decoded(parts[1]))}#today`;
   }
   if (parts[0] === "ideas") return "/home#suggestions";
+  // Run results used to link `/threads/<id>` and `/upcoming/<automation>`; neither was a route.
+  if (parts[0] === "threads" && parts[1]) return `/chat/${parts[1]}`;
+  if (parts[0] === "upcoming") return "/scheduled?tab=runs";
   const entity = new URLSearchParams(query).get("entity");
   const memoryEntity = entity ? `/memory?entity=${encodeURIComponent(entity)}` : null;
   if (parts[0] === "people") return memoryEntity ?? "/memory?kind=people";

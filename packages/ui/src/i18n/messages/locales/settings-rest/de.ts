@@ -12,7 +12,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.daily.group.brief": "Morgenübersicht",
   "settings.daily.group.wrapup": "Abendrückblick",
   "settings.daily.group.delivery": "Wo es erscheint",
-  "settings.daily.group.followups": "Nachfassen",
+  "settings.daily.group.followups": "Nachfass-Einstellungen",
   "settings.daily.group.automations": "Automatisierungen",
   "settings.key.daily.brief.enabled": "Morgenübersicht",
   "settings.key.daily.wrapup.enabled": "Abendrückblick",

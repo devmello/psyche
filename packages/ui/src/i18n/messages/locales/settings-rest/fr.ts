@@ -12,7 +12,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.daily.group.brief": "Résumé du matin",
   "settings.daily.group.wrapup": "Bilan du soir",
   "settings.daily.group.delivery": "Où cela s’affiche",
-  "settings.daily.group.followups": "Relances",
+  "settings.daily.group.followups": "Réglages des relances",
   "settings.daily.group.automations": "Automatisations",
   "settings.key.daily.brief.enabled": "Résumé du matin",
   "settings.key.daily.wrapup.enabled": "Bilan du soir",

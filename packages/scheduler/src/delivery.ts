@@ -92,7 +92,7 @@ export function createDeliverer(options: DelivererOptions): Deliverer {
       const text = result.summary ?? "";
       if (text.trim() === "") return {};
       const route =
-        run.threadId === null ? `/upcoming/${automation.id}` : `/threads/${run.threadId}`;
+        run.threadId === null ? SCHEDULED_RUNS_ROUTE : `/chat/${run.threadId}`;
       if (automation.kind === "heartbeat") {
         const n = await options.notifier?.notify({
           kind: "proactive",
