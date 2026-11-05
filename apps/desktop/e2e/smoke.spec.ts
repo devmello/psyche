@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSyn
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   type ElectronApplication,
@@ -12,6 +12,7 @@ import {
   test,
 } from "@playwright/test";
 import { MockGateway } from "@psyche/web/testing";
+import { mainWindowPage, stopTestHelpers } from "./helpers.ts";
 
 /**
  * Smoke tests for the desktop shell against the mock Gateway: launch and connect, panes through
@@ -19,7 +20,9 @@ import { MockGateway } from "@psyche/web/testing";
  * download quarantine toast. Network stays on 127.0.0.1 (fixture server + mock Gateway).
  */
 
-const appDir = fileURLToPath(new URL("..", import.meta.url));
+// resolve() drops the trailing separator: on Windows `...desktop` before the closing quote of
+// the quoted argv entry would escape it and Electron would never find the app.
+const appDir = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const MAIN_THREAD = {
   id: "01JBXY6Q8Z0000000000000001",
   kind: "main",
@@ -47,6 +50,7 @@ let fixture: Server;
 let fixtureOrigin: string;
 let app: ElectronApplication;
 let page: Page;
+let sharedFolders: { path: string; mode: string }[] = [];
 
 const composer = () => page.getByRole("textbox", { name: /^Message / });
 
@@ -72,8 +76,17 @@ test.beforeAll(async () => {
   mkdirSync(join(home, "run"), { recursive: true });
   const secret = "e2e-handshake-secret";
   writeFileSync(join(home, "run", "handshake.secret"), secret, { mode: 0o600 });
+  // Windows has no Unix sockets in a folder: the bridge is a named pipe, which the desktop finds
+  // through the pointer file the Gateway writes under run/.
+  const bridgeSocketPath =
+    process.platform === "win32"
+      ? `\\\\.\\pipe\\psyche-e2e-${process.pid}-${Date.now()}-browser-bridge`
+      : join(home, "run", "browser-bridge.sock");
+  if (process.platform === "win32") {
+    writeFileSync(join(home, "run", "browser-bridge-socket"), bridgeSocketPath);
+  }
   gw = await new MockGateway({
-    bridgeSocketPath: join(home, "run", "browser-bridge.sock"),
+    bridgeSocketPath,
     handshakeSecret: secret,
     handlers: {
       "threads.list": () => ({
@@ -93,8 +106,22 @@ test.beforeAll(async () => {
         },
         stateVersion: 1,
       }),
+      // What Settings → Permissions → Access lists: the folders of the stored permissions.policy.
+      "access.list": () => ({
+        entries: sharedFolders.map((f) => ({
+          id: `folder:always:${f.path}`,
+          type: "folder",
+          scope: "always",
+          label: f.path,
+          path: f.path,
+          mode: f.mode,
+        })),
+      }),
       "settings.set": (params) => {
         const p = params as { key: string; value: unknown };
+        if (p.key === "permissions.policy") {
+          sharedFolders = (p.value as { folders: { path: string; mode: string }[] }).folders;
+        }
         return {
           entry: { key: p.key, value: p.value, updatedAt: "2026-10-19T10:00:00.000Z" },
           stateVersion: 2,
@@ -115,11 +142,12 @@ test.beforeAll(async () => {
       PSYCHE_DISABLE_GLOBAL_SHORTCUTS: "1",
     },
   });
-  page = await app.firstWindow();
+  page = await mainWindowPage(app);
   await page.waitForSelector('[data-testid="shell"]');
 });
 
 test.afterAll(async () => {
+  stopTestHelpers(appDir);
   await app?.close();
   await gw?.stop();
   fixture?.close();
@@ -162,16 +190,16 @@ test("the agent opens and closes panes through view.* and the layout is reported
 test("keyboard shortcuts: palette, shortcut sheet, browser pane, close pane", async () => {
   // Out of the composer, without clicking anything (the sidebar sits at the window's start edge).
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-  await page.keyboard.press("Meta+K");
+  await page.keyboard.press("ControlOrMeta+K");
   await expect(page.getByTestId("palette")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("palette")).toHaveCount(0);
-  await page.keyboard.press("Meta+/");
+  await page.keyboard.press("ControlOrMeta+/");
   await expect(page.getByTestId("shortcut-sheet")).toBeVisible();
   await page.keyboard.press("Escape");
-  await page.keyboard.press("Meta+Shift+B");
+  await page.keyboard.press("ControlOrMeta+Shift+B");
   await expect(page.getByTestId("browser-pane")).toBeVisible();
-  await page.keyboard.press("Meta+\\");
+  await page.keyboard.press("ControlOrMeta+\\");
   await expect(page.getByTestId("browser-pane")).toHaveCount(0);
 });
 

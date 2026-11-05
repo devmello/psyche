@@ -421,7 +421,8 @@ button {
   gap: 4px;
   flex-shrink: 0;
   box-sizing: border-box;
-  height: 56px;
+  /* The chat toolbar's row (h-13 = TITLEBAR_HEIGHT), so the two headers line up. */
+  height: 52px;
   padding: 0 8px;
   border-bottom: 1px solid var(--separator);
   font-size: 13px;

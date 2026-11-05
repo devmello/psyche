@@ -51,6 +51,9 @@ export interface MockGatewayOptions {
   webRoot?: string;
 }
 
+/** `\\.\pipe\…` / `\\?\pipe\…`: a Windows named pipe. */
+const isNamedPipePath = (path: string): boolean => /^\\\\[.?]\\pipe\\/.test(path);
+
 const CONTENT_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -272,7 +275,9 @@ export class MockGateway {
   }
 
   private async startBridge(path: string): Promise<void> {
-    rmSync(path, { force: true });
+    // A Windows named pipe is not a file: nothing to remove before listening or to chmod after.
+    const pipe = isNamedPipePath(path);
+    if (!pipe) rmSync(path, { force: true });
     this.bridgeServer = createNetServer((sock) => {
       const peer = new MockBridgePeer(sock, this.opts.handshakeSecret);
       // Only a peer that passed bridge.hello becomes `bridge`; rejected peers are ignored.
@@ -283,7 +288,7 @@ export class MockGateway {
       };
     });
     await new Promise<void>((r) => this.bridgeServer?.listen(path, r));
-    chmodSync(path, 0o600);
+    if (!pipe) chmodSync(path, 0o600);
   }
 
   /** Resolves with the desktop's bridge connection once it has said hello. */
@@ -305,7 +310,9 @@ export class MockGateway {
     await new Promise<void>((r) => (this.wss ? this.wss.close(() => r()) : r()));
     await new Promise<void>((r) => (this.bridgeServer ? this.bridgeServer.close(() => r()) : r()));
     await new Promise<void>((r) => (this.http ? this.http.close(() => r()) : r()));
-    if (this.opts.bridgeSocketPath) rmSync(this.opts.bridgeSocketPath, { force: true });
+    if (this.opts.bridgeSocketPath && !isNamedPipePath(this.opts.bridgeSocketPath)) {
+      rmSync(this.opts.bridgeSocketPath, { force: true });
+    }
   }
 
   /** Drops every client socket (the client should reconnect with backoff). */

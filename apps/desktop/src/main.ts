@@ -267,11 +267,14 @@ const supervisorMode = remoteGateway ? "remote" : chooseMode(process.env, app.is
  * Mac, the per-user scheduled task of a Squirrel install on Windows.
  */
 const canUninstall =
-  app.isPackaged &&
-  ((supervisorMode === "launchd" && process.platform === "darwin") ||
-    (supervisorMode === "taskscheduler" &&
-      process.platform === "win32" &&
-      squirrelLayout(process.execPath) !== undefined));
+  (app.isPackaged &&
+    ((supervisorMode === "launchd" && process.platform === "darwin") ||
+      (supervisorMode === "taskscheduler" &&
+        process.platform === "win32" &&
+        squirrelLayout(process.execPath) !== undefined))) ||
+  // The e2e shows the Uninstall sheet from an unpackaged run (it stubs the plan and never
+  // confirms); the real plan and uninstall still refuse a copy that is not a Squirrel install.
+  (!app.isPackaged && process.env.PSYCHE_E2E_UNINSTALL === "1");
 
 // A first-paint measurement run (main/perf-probe.ts) changes nothing outside its scratch dirs.
 const perfProbe = perfProbeFile();
