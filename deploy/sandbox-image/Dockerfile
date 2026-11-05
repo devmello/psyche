@@ -100,6 +100,9 @@ RUN if [ -n "$HELPER_SHA256" ]; then \
       exit 1 ; \
     fi \
  && sh /usr/local/lib/psyche/harden.sh
+# The image's PATH starts with /workspace/.local/bin, which persists between tasks and is writable:
+# the desktop's PATH names only the image's own folders.
+ENV PATH=/usr/local/bin:/usr/bin:/bin
 ENV XDG_RUNTIME_DIR=/tmp/run \
     DISPLAY=:1 \
     GNOME_ACCESSIBILITY=1 \

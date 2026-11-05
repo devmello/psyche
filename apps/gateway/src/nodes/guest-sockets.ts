@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { chmodSync, rmSync } from "node:fs";
+import { chmodSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -45,6 +45,8 @@ const sha256 = (s: string): Buffer => createHash("sha256").update(s).digest();
 interface Entry {
   server: Server;
   socketPath: string;
+  /** The file the container reads its token from; gone once the token is spent or the socket closes. */
+  tokenPath: string;
   tokenHash: Buffer;
   expiresAtMs: number;
   spent: boolean;
@@ -66,7 +68,13 @@ export interface GuestSocketsDeps {
 
 export interface OpenedGuestSocket {
   socketPath: string;
-  /** Single use. Goes to the container's environment and nowhere else; never logged. */
+  /**
+   * A file (0600, next to the socket) holding the single-use token. The container mounts it, reads
+   * it once and empties it; the Gateway removes it as soon as the token is spent. The token is
+   * never put in an environment variable or on a command line.
+   */
+  tokenPath: string;
+  /** The token itself, for tests; never logged and not passed anywhere else. */
   token: string;
   expiresAt: number;
 }
@@ -110,9 +118,14 @@ export class GuestSockets {
     rmSync(socketPath, { force: true });
     const now = this.#deps.now ?? Date.now;
     const token = randomBytes(32).toString("base64url");
+    const tokenPath = socketPath.replace(/\.sock$/, ".token");
+    rmSync(tokenPath, { force: true });
+    writeFileSync(tokenPath, `${token}\n`, { mode: 0o600, flag: "wx" });
+    chmodSync(tokenPath, 0o600);
     const entry: Entry = {
       server: createServer(),
       socketPath,
+      tokenPath,
       tokenHash: sha256(token),
       expiresAtMs: now() + (this.#deps.tokenTtlMs ?? GUEST_TOKEN_TTL_MS),
       spent: false,
@@ -138,7 +151,7 @@ export class GuestSockets {
     }
     chmodSync(socketPath, 0o600);
     this.#entries.set(container, entry);
-    return { socketPath, token, expiresAt: entry.expiresAtMs };
+    return { socketPath, tokenPath, token, expiresAt: entry.expiresAtMs };
   }
 
   /** Spends this container's token. False for anything but the first valid presentation. */
@@ -169,6 +182,8 @@ export class GuestSockets {
     }
     entry.spent = true;
     entry.deviceId = deviceId;
+    // Spent: the file has nothing left to give anyone.
+    rmSync(entry.tokenPath, { force: true });
     return true;
   }
 
@@ -266,6 +281,7 @@ export class GuestSockets {
     entry.conns.clear();
     entry.sockets.clear();
     rmSync(entry.socketPath, { force: true });
+    rmSync(entry.tokenPath, { force: true });
     if (entry.deviceId !== null) {
       try {
         revokeDevice(this.#deps.ctx.db, entry.deviceId);

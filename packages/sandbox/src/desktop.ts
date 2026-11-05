@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import type { Dirent } from "node:fs";
-import { readdir, realpath, stat } from "node:fs/promises";
+import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { posix } from "node:path";
+import { dirname, posix } from "node:path";
 import { PsycheError } from "@psyche/protocol";
-import { buildArgs, type ContainerBackendKind, execArgs, parseInspect } from "./backends.ts";
+import { buildArgs, type ContainerBackendKind, parseInspect } from "./backends.ts";
 import { type CliDriver, nodeCliDriver, runCli } from "./cli.ts";
 import { type DetectDeps, type DetectOptions, detectBackends, systemDetectDeps } from "./detect.ts";
 import { attachTunnel, type EgressTunnel } from "./egress/tunnel.ts";
@@ -58,7 +58,15 @@ export const DESKTOP_OWNER_LABEL = "com.psyche.owner";
 export const DESKTOP_ID_LABEL = "com.psyche.desktop";
 export const DESKTOP_SHARES_LABEL = "com.psyche.shares";
 export const DESKTOP_SOCKET_TARGET = "/run/psyche/node.sock";
-export const DESKTOP_TOKEN_ENV = "PSYCHE_GUEST_TOKEN";
+/**
+ * Where the pairing token file is mounted. The token never goes through the environment (which is
+ * readable by every process of the container, from `/proc/1/environ`, and by `podman inspect`):
+ * the entrypoint reads this file once, empties it, and hands the token to the helper through a
+ * named pipe.
+ */
+export const DESKTOP_TOKEN_TARGET = "/run/psyche/token";
+/** `PATH` for every command the Gateway runs in the container: no folder the container can write. */
+export const DESKTOP_EXEC_PATH = "/usr/bin:/bin";
 export const DESKTOP_SHARES_ROOT = "/shares";
 export const DEFAULT_DESKTOP_MEMORY = "2g";
 export const DESKTOP_MAX_SHARES = 8;
@@ -92,8 +100,11 @@ export interface DesktopSpec {
   image: string;
   /** The per-container Gateway socket on the host. */
   socketPath: string;
-  /** Single-use; passed by name, the value rides the CLI's environment. */
-  token: string;
+  /**
+   * Host file holding the single-use pairing token (0600, in a folder only the owner can open),
+   * mounted read-write at `DESKTOP_TOKEN_TARGET` so the entrypoint can empty it after reading.
+   */
+  tokenPath: string;
   /** Already validated (`validateDesktopShares`). */
   shares: readonly DesktopShare[];
   memory: string;
@@ -241,6 +252,33 @@ async function assertNoGit(root: string): Promise<void> {
   await walk(root, 0);
 }
 
+/**
+ * Refuses a read-write share inside a git repository: a `.git` (or bare repository) in any parent
+ * folder, up to the home folder (or the filesystem root when the share is outside it). `git`
+ * run in the share would read that repository's config, which the container could then change.
+ */
+async function assertNoGitAbove(root: string, home: string): Promise<void> {
+  const stop = under(root, home) ? home : "/";
+  let dir = dirname(root);
+  for (;;) {
+    let names: string[];
+    try {
+      names = await readdir(dir);
+    } catch {
+      names = [];
+    }
+    const set = new Set(names);
+    if (set.has(".git") || (set.has("HEAD") && set.has("objects") && set.has("refs"))) {
+      throw errors.forbidden(
+        `${root} is inside a git repository (${dir}), so it is not shared read-write. Share it read-only; changes come back through "Copy to my computer".`,
+        { reason: "git_in_read_write_share" },
+      );
+    }
+    if (dir === stop || dir === "/" || dir === dirname(dir)) return;
+    dir = dirname(dir);
+  }
+}
+
 const identityOf = async (path: string): Promise<FileIdentity> => {
   const st = await stat(path, { bigint: true });
   return { dev: st.dev.toString(), ino: st.ino.toString() };
@@ -331,8 +369,9 @@ export async function validateDesktopShares(
       out.push({ source, name: s.name, readOnly: true, identity });
       continue;
     }
-    // Read-write: only a folder with no git repository anywhere in it.
+    // Read-write: only a folder with no git repository in it, and none around it.
     await assertNoGit(real);
+    await assertNoGitAbove(real, home);
     out.push({ source, name: s.name, readOnly: false, identity });
   }
   return out.sort((a, b) => (a.name < b.name ? -1 : 1));
@@ -342,11 +381,13 @@ function labelFlags(labels: Record<string, string>): string[] {
   return Object.entries(labels).flatMap(([k, v]) => ["--label", `${k}=${v}`]);
 }
 
-/** Environment the container gets: only names on argv, values come from the CLI's environment. */
-export function desktopEnv(token: string): Record<string, string> {
+/**
+ * Environment the container gets: only names on argv, values come from the CLI's environment.
+ * Nothing secret: the proxy settings point at a shim that is not running unless internet is on.
+ */
+export function desktopEnv(): Record<string, string> {
   const proxy = `http://127.0.0.1:${EGRESS_SHIM_PORT}`;
   return {
-    [DESKTOP_TOKEN_ENV]: token,
     HTTP_PROXY: proxy,
     HTTPS_PROXY: proxy,
     http_proxy: proxy,
@@ -363,15 +404,22 @@ export function desktopEnv(token: string): Record<string, string> {
 export function desktopRunArgs(kind: DesktopBackendKind, spec: DesktopSpec): string[] {
   const { container, volume } = desktopNames(spec.id);
   validateDesktopMemory(spec.memory);
-  if (/[\0,=\n\r]/.test(spec.socketPath) || !spec.socketPath.startsWith("/")) {
-    throw errors.forbidden("the guest socket path is not allowed");
+  for (const path of [spec.socketPath, spec.tokenPath]) {
+    if (/[\0,=\n\r]/.test(path) || !path.startsWith("/")) {
+      throw errors.forbidden("the guest socket or token path is not allowed");
+    }
   }
   const mounts = [
     "--mount",
-    `type=volume,source=${volume},target=${WORKSPACE_PATH}`,
+    // Nothing in the workspace runs: it persists between tasks, and a program planted there by one
+    // task must not run for the next (Podman only; Docker volumes take no such options).
+    `type=volume,source=${volume},target=${WORKSPACE_PATH}${kind === "podman" ? ",noexec,nosuid,nodev" : ""}`,
     // Read-only mount of the one socket: connecting works, replacing it does not.
     "--mount",
     `type=bind,source=${spec.socketPath},target=${DESKTOP_SOCKET_TARGET},readonly`,
+    // Read-write, so the entrypoint can empty it once it has read the token.
+    "--mount",
+    `type=bind,source=${spec.tokenPath},target=${DESKTOP_TOKEN_TARGET}`,
     ...spec.shares.flatMap((s) => {
       const opts = kind === "podman" ? ",nosuid,nodev,noexec" : "";
       const out = [
@@ -409,7 +457,7 @@ export function desktopRunArgs(kind: DesktopBackendKind, spec: DesktopSpec): str
       [DESKTOP_ID_LABEL]: spec.id,
       [DESKTOP_SHARES_LABEL]: sharesKey(spec.shares),
     }),
-    ...Object.keys(desktopEnv("x")).flatMap((k) => ["-e", k]),
+    ...Object.keys(desktopEnv()).flatMap((k) => ["-e", k]),
     spec.image,
   ];
 }
@@ -435,12 +483,17 @@ export interface DesktopOptions extends DetectOptions {
   contextDir?: string;
   now?: () => number;
   home?: string;
+  /** Where the host's process table is (`/proc`); tests point it at a made-up one. */
+  procRoot?: string;
+  /** Where the host's cgroup tree is (`/sys/fs/cgroup`). */
+  cgroupRoot?: string;
 }
 
 export interface DesktopStartRequest {
   id: string;
   socketPath: string;
-  token: string;
+  /** Host file with the pairing token (see `DesktopSpec.tokenPath`). */
+  tokenPath: string;
   shares?: readonly DesktopShare[];
   /** `2g` by default (`validateDesktopMemory`). */
   memory?: string;
@@ -636,7 +689,6 @@ export class DesktopContainers {
       ...(request.protectedRoots === undefined ? {} : { protectedRoots: request.protectedRoots }),
       ...(this.#options.home === undefined ? {} : { home: this.#options.home }),
     });
-    if (request.token.length < 32) throw errors.invalid("the pairing token is too short");
     await this.ensureImage();
     const { container, volume } = desktopNames(request.id);
     // What each host path was when it was checked. After `run`, the engine reports what it really
@@ -648,8 +700,15 @@ export class DesktopContainers {
         identity: await identityOf(request.socketPath),
         readOnly: true,
       });
+      expected.set(DESKTOP_TOKEN_TARGET, {
+        source: request.tokenPath,
+        identity: await identityOf(request.tokenPath),
+        readOnly: false,
+      });
     } catch {
-      throw errors.unavailable("the guest socket is not there", { reason: "no_guest_socket" });
+      throw errors.unavailable("the guest socket or token file is not there", {
+        reason: "no_guest_socket",
+      });
     }
     for (const sh of shares) {
       if (sh.identity === undefined) throw errors.invalid("a share was not validated");
@@ -667,7 +726,7 @@ export class DesktopContainers {
       id: request.id,
       image,
       socketPath: request.socketPath,
-      token: request.token,
+      tokenPath: request.tokenPath,
       shares,
       memory,
     });
@@ -688,7 +747,7 @@ export class DesktopContainers {
     }
     const ran = await this.#cli(backend, args, {
       timeoutMs: 120_000,
-      env: { ...process.env, ...desktopEnv(request.token) },
+      env: { ...process.env, ...desktopEnv() },
     });
     if (ran.exitCode !== 0) {
       await this.#remove(backend, container);
@@ -706,14 +765,14 @@ export class DesktopContainers {
         reason: "start_failed",
       });
     }
+    let limits: { memory: boolean; pids: boolean };
     try {
       await this.#verifyMounts(backend, container, expected);
-      await this.#verifyFromInside(backend, container, expected);
+      limits = await this.#verifyOnHost(backend, container, expected, memory);
     } catch (err) {
       await this.#remove(backend, container);
       throw err;
     }
-    const limits = await this.#checkLimits(backend, container, memory);
     return { container, startMs: now() - began, backend, limits };
   }
 
@@ -762,53 +821,49 @@ export class DesktopContainers {
   }
 
   /**
-   * The same check from the container's own point of view, which the engine's report cannot
-   * fake: each mounted path is the file that was validated (`stat` device and inode), and each
-   * read-only one is mounted `ro` and each read-write one is not (`/proc/self/mountinfo`).
+   * The check that does not ask the container anything: no program of the container, and so none
+   * planted in its workspace, is involved. From the host, through the container's main process:
+   * each mounted path (`/proc/<pid>/root/<path>`) is the file that was validated (device and
+   * inode), each read-only one is mounted `ro` and each read-write one is not
+   * (`/proc/<pid>/mountinfo`), and the memory and process limits are in force in its cgroup.
+   * Anything that cannot be read from here fails the start, as does any difference.
    */
-  async #verifyFromInside(
+  async #verifyOnHost(
     backend: DesktopBackend,
     container: string,
     expected: ReadonlyMap<string, ExpectedMount>,
-  ): Promise<void> {
+    memory: string,
+  ): Promise<{ memory: boolean; pids: boolean }> {
     const bad = (why: string) =>
       errors.unavailable(`the separate desktop's mounts are not what was approved (${why})`, {
         reason: "mount_mismatch",
       });
-    const dests = [...expected.keys()];
-    const user = `${SANDBOX_UID}:${SANDBOX_GID}`;
-    const st = await this.#cli(backend, [
-      "exec",
-      "--user",
-      user,
-      container,
-      "stat",
-      "-c",
-      "%d:%i",
-      "--",
-      ...dests,
-    ]);
-    const ids = st.stdout.toString("utf8").trim().split("\n");
-    if (st.exitCode !== 0 || ids.length !== dests.length)
-      throw bad("cannot read the mounted files");
-    dests.forEach((dest, i) => {
-      const want = expected.get(dest);
-      if (want === undefined || ids[i] !== `${want.identity.dev}:${want.identity.ino}`) {
+    const procRoot = this.#options.procRoot ?? "/proc";
+    const pidOut = await this.#cli(backend, ["inspect", "--format", "{{.State.Pid}}", container]);
+    const pid = Number.parseInt(pidOut.stdout.toString("utf8").trim(), 10);
+    if (pidOut.exitCode !== 0 || !Number.isInteger(pid) || pid < 2)
+      throw bad("no process to check");
+    const root = `${procRoot}/${pid}`;
+    for (const [dest, want] of expected) {
+      let got: FileIdentity;
+      try {
+        got = await identityOf(`${root}/root${dest}`);
+      } catch {
+        throw bad(`${dest} cannot be read from the host`);
+      }
+      if (got.dev !== want.identity.dev || got.ino !== want.identity.ino) {
         throw bad(`${dest} is a different file inside the container`);
       }
-    });
-    const mi = await this.#cli(backend, [
-      "exec",
-      "--user",
-      user,
-      container,
-      "cat",
-      "/proc/self/mountinfo",
-    ]);
-    if (mi.exitCode !== 0) throw bad("cannot read the container's mount table");
+    }
+    let mountinfo: string;
+    try {
+      mountinfo = await readFile(`${root}/mountinfo`, "utf8");
+    } catch {
+      throw bad("the container's mount table cannot be read from the host");
+    }
     // The last line for a mount point is the one on top.
     const options = new Map<string, string[]>();
-    for (const line of mi.stdout.toString("utf8").split("\n")) {
+    for (const line of mountinfo.split("\n")) {
       const f = line.split(" ");
       const point = f[4]?.replace(/\\([0-7]{3})/g, (_, o: string) =>
         String.fromCharCode(Number.parseInt(o, 8)),
@@ -822,30 +877,28 @@ export class DesktopContainers {
         throw bad(`${dest} is mounted ${want.readOnly ? "read-write" : "read-only"} inside`);
       }
     }
+    return this.#limitsOnHost(root, memory);
   }
 
-  /** Reads the cgroup limits from inside: `max` or a different number means they are not enforced. */
-  async #checkLimits(
-    backend: DesktopBackend,
-    container: string,
-    memory: string,
-  ): Promise<{ memory: boolean; pids: boolean }> {
+  /** `memory.max` and `pids.max` of the container's cgroup, read from the host. */
+  async #limitsOnHost(root: string, memory: string): Promise<{ memory: boolean; pids: boolean }> {
     const m = MEMORY_RE.exec(memory);
     const bytes = BigInt(m?.[1] ?? "0") * (m?.[2] === "g" ? 1024n ** 3n : 1024n ** 2n);
-    const r = await this.#cli(backend, [
-      "exec",
-      "--user",
-      `${SANDBOX_UID}:${SANDBOX_GID}`,
-      container,
-      "cat",
-      "/sys/fs/cgroup/memory.max",
-      "/sys/fs/cgroup/pids.max",
-    ]);
-    const [mem, pids] = r.exitCode === 0 ? r.stdout.toString("utf8").trim().split(/\s+/) : [];
-    return {
-      memory: mem === bytes.toString(),
-      pids: pids === String(DESKTOP_PIDS_LIMIT),
-    };
+    try {
+      const cg = (await readFile(`${root}/cgroup`, "utf8"))
+        .split("\n")
+        .find((l) => l.startsWith("0::"))
+        ?.slice(3);
+      if (cg === undefined || cg.includes("..")) return { memory: false, pids: false };
+      const dir = `${this.#options.cgroupRoot ?? "/sys/fs/cgroup"}${cg}`;
+      const read = async (f: string) => (await readFile(`${dir}/${f}`, "utf8")).trim();
+      return {
+        memory: (await read("memory.max").catch(() => "")) === bytes.toString(),
+        pids: (await read("pids.max").catch(() => "")) === String(DESKTOP_PIDS_LIMIT),
+      };
+    } catch {
+      return { memory: false, pids: false };
+    }
   }
 
   /** Stops and removes the container (not its workspace). Absent is fine. */
@@ -909,17 +962,25 @@ export class DesktopContainers {
   ): Promise<{ close(): void }> {
     const backend = await this.requireBackend();
     const { container } = desktopNames(id);
-    const stream = this.#driver.stream(
-      backend.cli,
-      execArgs(backend.kind, container, "/", [
-        PYTHON,
-        "-I",
-        "-S",
-        "-c",
-        EGRESS_SHIM,
-        String(EGRESS_SHIM_PORT),
-      ]),
-    );
+    const stream = this.#driver.stream(backend.cli, [
+      "exec",
+      "--interactive",
+      "--user",
+      `${SANDBOX_UID}:${SANDBOX_GID}`,
+      "--workdir",
+      "/",
+      // Never the image's PATH, and never a program found by name: nothing the container can
+      // write is looked at.
+      "--env",
+      `PATH=${DESKTOP_EXEC_PATH}`,
+      container,
+      PYTHON,
+      "-I",
+      "-S",
+      "-c",
+      EGRESS_SHIM,
+      String(EGRESS_SHIM_PORT),
+    ]);
     stream.stderr.resume();
     const tunnel: EgressTunnel = attachTunnel(stream, (conn) => handler.handle({ ...scope }, conn));
     const closed = () => {
