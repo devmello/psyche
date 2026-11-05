@@ -23,6 +23,9 @@ import { onboardingRest } from "./onboarding-rest/hi.ts";
 import { capabilitiesRest } from "./capabilities-rest/hi.ts";
 import { memoryReviewRest } from "./memory-review-rest/hi.ts";
 import { personDataRest } from "./person-data-rest/hi.ts";
+import { peopleRest } from "./people-rest/hi.ts";
+import { screensRest } from "./screens-rest/hi.ts";
+import { everythingRest } from "./everything-rest/hi.ts";
 
 /** Hindi catalogue (hi). Same ids as `en`; missing ids fall back to English. */
 export const hi: Partial<Catalogue> = {
@@ -58,6 +61,9 @@ export const hi: Partial<Catalogue> = {
   ...capabilitiesRest,
   ...memoryReviewRest,
   ...personDataRest,
+  ...peopleRest,
+  ...screensRest,
+  ...everythingRest,
   "common.cancel": "रद्द करें",
   "common.close": "बंद करें",
   "common.save": "सेव करें",
