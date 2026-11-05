@@ -47,10 +47,10 @@ describe("error reasons", () => {
     expect(describeError(updating())).toBe("Psyche is about to restart to update");
   });
 
-  it("uses the English sentence in a language that has no translation yet", () => {
+  it("is translated, with no English fallback", () => {
     setActiveI18n({ ...createI18n({ locale: "de-DE" }), messageLocale: "de" });
     expect(describeError(updating())).toBe(
-      "Psyche is about to restart to install an update. Try again in a moment.",
+      "Psyche startet gleich neu, um ein Update zu installieren. Versuche es in einem Moment erneut.",
     );
   });
 });
