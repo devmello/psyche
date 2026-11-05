@@ -190,6 +190,10 @@ struct MemorySearchWidgetsTests {
                 .object(["scope": "tasks", "id": "act_9", "title": "Book flights", "snippet": "searched", "score": .number(1), "threadId": "thr_3", "route": "/agent/activity/tsk_7", "kind": "task"]),
                 .object(["scope": "memory", "id": "memory:ent_pr2", "title": "Garden", "snippet": "Project: Garden", "score": .number(1), "threadId": .null, "route": .null, "kind": "memory"]),
                 .object(["scope": "memory", "id": "memory:notes", "title": "notes", "snippet": "a note", "score": .number(1), "threadId": .null, "route": .null, "kind": "memory"]),
+                // The typed entity wins over the snippet's first line; a snippet that says otherwise is ignored.
+                .object(["scope": "memory", "id": "memory:ent_a2", "title": "Call Sam", "snippet": "Status: open", "score": .number(1), "threadId": .null, "route": .null, "kind": "memory", "entityType": "assignment"]),
+                .object(["scope": "memory", "id": "memory:ent_pr3", "title": "Move", "snippet": "To-do: not really", "score": .number(1), "threadId": .null, "route": .null, "kind": "memory", "entityType": "project"]),
+                .object(["scope": "memory", "id": "memory:ent_pe9", "title": "Sam", "snippet": "To-do: stale prefix", "score": .number(1), "threadId": .null, "route": .null, "kind": "memory", "entityType": "person"]),
             ])])) }
             g.on("memory.life.answer") { _ in .success(.object([
                 "answer": "Rent is due on the 6th.", "reason": .null,
@@ -198,7 +202,7 @@ struct MemorySearchWidgetsTests {
         }
         let results = try await backend.search(query: "when is rent due?")
         #expect(results.answer?.text == "Rent is due on the 6th." && results.answer?.evidence == ["mail Jan 5"])
-        #expect(results.hits.map(\.group) == [.chatsAndFiles, .chatsAndFiles, .chatsAndFiles, .people, .todo, .chatsAndFiles, .chatsAndFiles, .chatsAndFiles, .chatsAndFiles])
+        #expect(results.hits.map(\.group) == [.chatsAndFiles, .chatsAndFiles, .chatsAndFiles, .people, .todo, .chatsAndFiles, .chatsAndFiles, .chatsAndFiles, .chatsAndFiles, .todo, .chatsAndFiles, .chatsAndFiles])
         #expect(results.hits[0].target == .chat(id: "thr_1") && results.hits[1].target == .chat(id: "thr_2"))
         #expect(results.hits[2].target == .file(id: "lib_1"))
         #expect(results.hits[3].target == .person(id: "ent_pe1") && results.hits[3].detail == "Person")
@@ -207,6 +211,9 @@ struct MemorySearchWidgetsTests {
         #expect(results.hits[6].target == .task(id: "tsk_7"))
         #expect(results.hits[7].target == .project(id: "ent_pr2"))
         #expect(results.hits[8].target == nil)
+        #expect(results.hits[9].target == .todo(id: "ent_a2") && results.hits[9].group == .todo)
+        #expect(results.hits[10].target == .project(id: "ent_pr3"))
+        #expect(results.hits[11].target == nil)  // a typed person is neither a to-do nor a project, whatever the snippet says
     }
 
     @Test func aPlainQueryAsksNoQuestionAndNoAnswerMeansNoCard() async throws {
@@ -262,6 +269,14 @@ struct MemorySearchWidgetsTests {
                              "bind": .object(["source": "automation", "id": "aut_1", "field": "nextRun"])]),
                     .object(["type": "text", "id": "r1", "text": "stored research",
                              "bind": .object(["source": "research", "id": "tc_1", "field": "status"])]),
+                    .object(["type": "text", "id": "r2", "text": "stored claims",
+                             "bind": .object(["source": "research", "id": "tc_1", "field": "claims"])]),
+                    .object(["type": "stat", "id": "r3", "label": "Sources", "value": "0",
+                             "bind": .object(["source": "research", "id": "tc_1", "field": "sources"])]),
+                    .object(["type": "progress", "id": "r4", "label": "Research", "value": .number(0), "max": .number(7),
+                             "bind": .object(["source": "research", "id": "tc_1", "field": "progress"])]),
+                    .object(["type": "status", "id": "c1", "label": "Fetch", "tone": "neutral",
+                             "bind": .object(["source": "tool_call", "id": "tc_2", "field": "status"])]),
                 ]),
             ])]),
             "taint": .array([]), "owner": .object(["kind": "task", "taskId": "tsk_1"]), "state": "live", "pinned": .bool(true),
@@ -283,6 +298,15 @@ struct MemorySearchWidgetsTests {
             g.on("automations.list") { _ in .success(.object(["automations": .array([.object([
                 "id": "aut_1", "enabled": .bool(true), "nextRunAt": .null, "lastRunAt": .null, "lastStatus": .null,
             ])])])) }
+            g.on("widgets.binding.resolve") { req in
+                guard req.params?["widgetId"]?.string == "wdg_b" else { return .failure(WireError(code: "not_found", message: "no such widget")) }
+                switch req.params?["nodeId"]?.string {
+                case "c1": return .success(.object(["available": .bool(true), "status": "ok"]))
+                default: return .success(.object([
+                    "available": .bool(true), "status": "running", "claims": .number(1), "sources": .number(3), "step": .number(3), "steps": .number(7),
+                ]))
+                }
+            }
         }
         for snapshot in [try await backend.widget(id: "wdg_b"), try #require(try await backend.pinnedWidgets().first)] {
             guard case .progress(_, let progress)? = snapshot.root.find(id: "p1") else { Issue.record("no progress"); return }
@@ -291,9 +315,17 @@ struct MemorySearchWidgetsTests {
             #expect(label == "Running")
             guard case .text(_, let next)? = snapshot.root.find(id: "n1") else { Issue.record("no text"); return }
             #expect(next.text == "Not scheduled")
-            // No Gateway read method for research: the stored props stay.
-            guard case .text(_, let stored)? = snapshot.root.find(id: "r1") else { Issue.record("no text"); return }
-            #expect(stored.text == "stored research")
+            // Research and tool-call nodes come from `widgets.binding.resolve`.
+            guard case .text(_, let research)? = snapshot.root.find(id: "r1") else { Issue.record("no text"); return }
+            #expect(research.text == "Running")
+            guard case .text(_, let claims)? = snapshot.root.find(id: "r2") else { Issue.record("no text"); return }
+            #expect(claims.text == "1 claim")
+            guard case .stat(_, let sources)? = snapshot.root.find(id: "r3") else { Issue.record("no stat"); return }
+            #expect(sources.number == 3)
+            guard case .progress(_, let steps)? = snapshot.root.find(id: "r4") else { Issue.record("no progress"); return }
+            #expect(steps.value == 3 && steps.max == 7)
+            guard case .status(_, let call, _)? = snapshot.root.find(id: "c1") else { Issue.record("no status"); return }
+            #expect(call == "Done")
         }
     }
 
@@ -310,6 +342,24 @@ struct MemorySearchWidgetsTests {
         #expect(t.text == "Packing: Unavailable")
         guard case .text(_, let auto)? = snapshot.root.find(id: "n1") else { Issue.record("no text"); return }
         #expect(auto.text == "Unavailable")
+    }
+
+    @Test func aBoundCallThatIsGoneIsUnavailableAndAGatewayWithoutTheMethodKeepsStoredProps() async throws {
+        let (gone, _) = try await live { g in
+            g.on("widgets.get") { _ in .success(.object(["widgets": .array([Self.boundWidget()]), "missing": .array([])])) }
+            g.on("tasks.get") { _ in .success(.object(["task": .null])) }
+            g.on("automations.list") { _ in .success(.object(["automations": .array([])])) }
+            g.on("widgets.binding.resolve") { _ in .success(.object(["available": .bool(false)])) }
+        }
+        guard case .text(_, let t)? = try await gone.widget(id: "wdg_b").root.find(id: "r1") else { Issue.record("no text"); return }
+        #expect(t.text == "Unavailable")
+        let (old, _) = try await live { g in
+            g.on("widgets.get") { _ in .success(.object(["widgets": .array([Self.boundWidget()]), "missing": .array([])])) }
+            g.on("tasks.get") { _ in .success(.object(["task": .null])) }
+            g.on("automations.list") { _ in .success(.object(["automations": .array([])])) }
+        }
+        guard case .text(_, let stored)? = try await old.widget(id: "wdg_b").root.find(id: "r1") else { Issue.record("no text"); return }
+        #expect(stored.text == "stored research")
     }
 
     @Test func widgetActionsRouteToTheirOwnMethods() async throws {
@@ -341,5 +391,7 @@ struct MemorySearchWidgetsTests {
         #expect(await m.map(frame("memory.review.updated"), ownDeviceID: "d").events == [.changed(.memory)])
         #expect(await m.map(frame("memory.loop.updated"), ownDeviceID: "d").events == [.changed(.memory)])
         #expect(await m.map(frame("widget.updated"), ownDeviceID: "d").events == [.changed(.widgets), .changed(.home)])
+        #expect(await m.map(frame("tool_call.updated"), ownDeviceID: "d").events == [.changed(.widgets)])
+        #expect(await m.map(frame("research.progress"), ownDeviceID: "d").events == [.changed(.widgets)])
     }
 }

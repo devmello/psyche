@@ -3549,6 +3549,14 @@
         "sideEffecting": true
       },
       {
+        "description": "Reads the live value behind a widget node's `tool_call` or `research` binding (generative-ui-2026 §5.4), the same facts the desktop shows: the tool call's status, and for deep research the claim and source counts and the step reached. Task, job and automation bindings are read with their own methods. Research counts come from `research.progress` events the Gateway saw since it started; after a restart a finished call reads as done with no counts.",
+        "name": "widgets.binding.resolve",
+        "params": "#/$defs/WidgetsBindingResolveParams",
+        "result": "#/$defs/WidgetsBindingResolveResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Returns the latest snapshot of widgets by id (one batched call per history page or reconnect).",
         "name": "widgets.get",
         "params": "#/$defs/WidgetsGetParams",
@@ -36446,6 +36454,18 @@
       ],
       "type": "object"
     },
+    "SearchEntityType": {
+      "enum": [
+        "person",
+        "org",
+        "project",
+        "place",
+        "event",
+        "topic",
+        "assignment"
+      ],
+      "type": "string"
+    },
     "SearchExclusions": {
       "properties": {
         "contacts": {
@@ -36549,6 +36569,9 @@
         },
         "kind": {
           "$ref": "#/$defs/SearchIndexDocKind"
+        },
+        "entityType": {
+          "$ref": "#/$defs/SearchEntityType"
         },
         "group": {
           "$ref": "#/$defs/SearchGroup"
@@ -46016,6 +46039,59 @@
       "required": [
         "messageId",
         "runId"
+      ],
+      "type": "object"
+    },
+    "WidgetsBindingResolveParams": {
+      "additionalProperties": false,
+      "properties": {
+        "widgetId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "nodeId": {
+          "pattern": "^[a-z0-9_-]{1,40}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "widgetId",
+        "nodeId"
+      ],
+      "type": "object"
+    },
+    "WidgetsBindingResolveResult": {
+      "properties": {
+        "available": {
+          "description": "False when the bound call is gone or not in the widget's chat (renders Unavailable)",
+          "type": "boolean"
+        },
+        "status": {
+          "description": "Tool call status; for research also `cancelled` when it stopped",
+          "type": "string"
+        },
+        "claims": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sources": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "step": {
+          "description": "Research steps reached, 0 to `steps`",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "steps": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "available"
       ],
       "type": "object"
     },

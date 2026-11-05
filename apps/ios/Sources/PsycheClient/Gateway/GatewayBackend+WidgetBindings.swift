@@ -8,8 +8,10 @@ import PsycheWire
 // stored patches. The phone reads the entity from the Gateway (`tasks.get`, `automations.list`) when it
 // loads a widget and writes the result over the node's props; the widget views refetch on `.widgets`.
 //
-// `tool_call` and `research` have no Gateway read method, so those nodes keep their stored props. A source
-// that is gone, or a task of another chat, renders "Unavailable" like the desktop.
+// `tool_call` and `research` nodes are read with `widgets.binding.resolve {widgetId, nodeId}`: the Gateway
+// holds the tool call and folds the research progress events, which the phone cannot. The widgets refetch
+// on `tool_call.updated` and `research.progress` too. A source that is gone, or a task of another chat,
+// renders "Unavailable" like the desktop; a Gateway without the method keeps the stored props.
 extension GatewayBackend {
     /// The widget with every resolvable binding applied. Never throws: a failed read leaves stored props.
     func resolvingBindings(_ widget: JSONValue) async -> JSONValue {
@@ -28,8 +30,19 @@ extension GatewayBackend {
         if binds.contains(where: { $0.source == "automation" }) {
             automations = await optional { try await self.call("automations.list")["automations"]?.array ?? [] }
         }
+        var calls: [String: JSONValue] = [:]
+        if let widgetID = widget["id"]?.string {
+            for bind in binds where bind.source == "tool_call" || bind.source == "research" {
+                guard let nodeID = bind.nodeID, calls[nodeID] == nil else { continue }
+                let result = await settled {
+                    try await self.call("widgets.binding.resolve", .obj(["widgetId": .string(widgetID), "nodeId": .string(nodeID)]))
+                }
+                if case .success(let value) = result { calls[nodeID] = value }  // else: stays unresolved
+            }
+        }
         guard case .object(var obj) = widget, case .object(var spec)? = obj["spec"] else { return widget }
-        spec["root"] = Self.resolve(root, threadID: widget["threadId"]?.string, tasks: tasks, automations: automations)
+        spec["root"] = Self.resolve(
+            root, threadID: widget["threadId"]?.string, tasks: tasks, automations: automations, calls: calls)
         obj["spec"] = .object(spec)
         return .object(obj)
     }
@@ -42,6 +55,8 @@ extension GatewayBackend {
         var source: String
         var id: String
         var field: String
+        /// The id of the node carrying the bind, which `widgets.binding.resolve` takes.
+        var nodeID: String?
     }
 
     static func collectBinds(_ node: JSONValue) -> [Bind] {
@@ -49,7 +64,7 @@ extension GatewayBackend {
         func walk(_ n: JSONValue, _ depth: Int) {
             guard depth <= 12, case .object(let o) = n else { return }
             if let b = o["bind"], let s = b["source"]?.string, let id = b["id"]?.string, let f = b["field"]?.string {
-                out.append(Bind(source: s, id: id, field: f))
+                out.append(Bind(source: s, id: id, field: f, nodeID: o["id"]?.string))
             }
             for child in o["children"]?.array ?? [] { walk(child, depth + 1) }
             for tab in o["tabs"]?.array ?? [] { for child in tab["children"]?.array ?? [] { walk(child, depth + 1) } }
@@ -59,26 +74,28 @@ extension GatewayBackend {
     }
 
     /// Rewrites every bound node. `tasks[id] == .some(nil)` means the task is gone; a missing key means the
-    /// read failed (keep the stored props); `automations == nil` means the same for automations.
+    /// read failed (keep the stored props); `automations == nil` means the same for automations. `calls` holds
+    /// each `widgets.binding.resolve` result by node id (tool_call and research); a missing key keeps the props.
     static func resolve(
-        _ node: JSONValue, threadID: String?, tasks: [String: JSONValue?], automations: [JSONValue]?
+        _ node: JSONValue, threadID: String?, tasks: [String: JSONValue?], automations: [JSONValue]?,
+        calls: [String: JSONValue] = [:]
     ) -> JSONValue {
         guard case .object(var o) = node else { return node }
         if let b = o["bind"], let source = b["source"]?.string, let id = b["id"]?.string, let field = b["field"]?.string {
-            let bind = Bind(source: source, id: id, field: field)
-            if let props = boundProps(o, bind, threadID: threadID, tasks: tasks, automations: automations) {
+            let bind = Bind(source: source, id: id, field: field, nodeID: o["id"]?.string)
+            if let props = boundProps(o, bind, threadID: threadID, tasks: tasks, automations: automations, calls: calls) {
                 o["bind"] = nil
                 if props.isEmpty { return unavailable(o) }
                 for (key, value) in props { o[key] = value }
             }
         }
         if let children = o["children"]?.array {
-            o["children"] = .array(children.map { resolve($0, threadID: threadID, tasks: tasks, automations: automations) })
+            o["children"] = .array(children.map { resolve($0, threadID: threadID, tasks: tasks, automations: automations, calls: calls) })
         }
         if let tabs = o["tabs"]?.array {
             o["tabs"] = .array(tabs.map { tab in
                 guard case .object(var t) = tab, let kids = t["children"]?.array else { return tab }
-                t["children"] = .array(kids.map { resolve($0, threadID: threadID, tasks: tasks, automations: automations) })
+                t["children"] = .array(kids.map { resolve($0, threadID: threadID, tasks: tasks, automations: automations, calls: calls) })
                 return .object(t)
             })
         }
@@ -87,7 +104,8 @@ extension GatewayBackend {
 
     /// nil: leave the node as stored. Empty: Unavailable. Otherwise the props to merge over the node.
     private static func boundProps(
-        _ node: [String: JSONValue], _ bind: Bind, threadID: String?, tasks: [String: JSONValue?], automations: [JSONValue]?
+        _ node: [String: JSONValue], _ bind: Bind, threadID: String?, tasks: [String: JSONValue?], automations: [JSONValue]?,
+        calls: [String: JSONValue]
     ) -> [String: JSONValue]? {
         let isStatus = node["type"]?.string == "status"
         let isStat = node["type"]?.string == "stat"
@@ -147,8 +165,27 @@ extension GatewayBackend {
             case "lastRun": return text(at(a["lastRunAt"]?.string, "Never"))
             default: return nil
             }
+        case "tool_call", "research":
+            guard let nodeID = bind.nodeID, let call = calls[nodeID] else { return nil }
+            guard call["available"]?.bool == true else { return [:] }
+            let state = call["status"]?.string ?? ""
+            switch (bind.source, bind.field) {
+            case (_, "status"): return status(state)
+            case ("research", "claims"):
+                let n = call["claims"]?.int ?? 0
+                return isStat ? ["value": .number(Double(n))] : ["text": .string("\(n) \(n == 1 ? "claim" : "claims")")]
+            case ("research", "sources"):
+                let n = call["sources"]?.int ?? 0
+                return isStat ? ["value": .number(Double(n))] : ["text": .string("\(n) \(n == 1 ? "source" : "sources")")]
+            case ("research", "progress"):
+                return [
+                    "value": .number(Double(call["step"]?.int ?? 0)),
+                    "max": .number(Double(call["steps"]?.int ?? 7)),
+                ]
+            default: return nil
+            }
         default:
-            return nil  // tool_call, research: no read method on the Gateway; the stored props stay.
+            return nil
         }
     }
 

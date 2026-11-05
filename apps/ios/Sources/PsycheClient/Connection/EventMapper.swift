@@ -74,6 +74,9 @@ struct EventMapper {
             return ([.changed(.activity), .changed(.home), .changed(.widgets)], .none)
         case "automation.updated":
             return ([.changed(.widgets)], .none)
+        // A tool call or a deep-research run can be what a widget node binds to (`widgets.binding.resolve`).
+        case "tool_call.updated", "research.progress":
+            return ([.changed(.widgets)], .none)
         case "thread.updated", "thread.cleared", "thread.deleted":
             return ([.changed(.threads)], .none)
         case "memory.entity.updated", "memory.loop.updated", "memory.suggestion.created", "memory.job.updated", "memory.file.changed":

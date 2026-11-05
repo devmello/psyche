@@ -62,12 +62,14 @@ extension GatewayBackend {
             let entity = id.replacingOccurrences(of: "entity:", with: "")
             return .init(id: id, group: .people, symbol: "person", title: title, detail: "Person", target: .person(id: entity))
         case "memory":
-            // A Memory hit does not say which kind of entity it is: the wire hit has no entity type, so the
-            // first line of its document ("To-do: name", "Project: name", see memoryItem in packages/search)
-            // is the only signal. Anything else is a note.
+            // The wire hit's `entityType` says which kind of entity it is ("assignment" is a to-do). A Gateway
+            // that predates it sends none, so the first line of the document ("To-do: name", "Project: name",
+            // see memoryItem in packages/search) is the fallback. Anything else is a note.
             if id.hasPrefix("memory:ent_") {
                 let entity = String(id.dropFirst("memory:".count))
-                switch entityLabel(in: h["snippet"]?.string ?? "") {
+                let label = h["entityType"]?.string.map { $0 == "assignment" ? "to-do" : $0 }
+                    ?? entityLabel(in: h["snippet"]?.string ?? "")
+                switch label {
                 case "to-do":
                     return .init(id: id, group: .todo, symbol: "circle", title: title, detail: "To-do", target: .todo(id: entity))
                 case "project":

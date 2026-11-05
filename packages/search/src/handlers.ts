@@ -126,6 +126,7 @@ export function createSearchHandlers(index: SqliteSearchIndex): SearchHandlers {
           threadId: h.threadId ?? null,
           route: routeOf(h),
           kind: h.kind,
+          ...(h.entityType === undefined ? {} : { entityType: h.entityType }),
           group: h.group,
           provenance: h.provenance,
           createdAt: h.createdAt,
