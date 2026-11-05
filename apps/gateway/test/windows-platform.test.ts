@@ -6,7 +6,14 @@ import { createDesktopLauncher, desktopInstalled } from "../src/compose/desktop-
 import { readSystemState } from "../src/compose/everything-probe.ts";
 import { powerReader, windowsPowerState } from "../src/compose/search-files.ts";
 import { isHostHelperCapabilityReachable, isUnreachableCapability } from "../src/handlers/nodes.ts";
-import { openExternalUrl, parseWindowsPower, windowsDesktopExe } from "../src/platform.ts";
+import {
+  openExternalUrl,
+  parseWindowsPower,
+  parseWindowsThermal,
+  readWindowsThermal,
+  windowsDesktopExe,
+  windowsThermalLevel,
+} from "../src/platform.ts";
 
 /** The Gateway's Windows branches, driven with fakes (no PowerShell, no browser, no app). */
 
@@ -58,6 +65,7 @@ describe("Windows power and idle state", () => {
         saver: false,
         idleMs: 30 * 60_000,
       }),
+      async () => "nominal",
     );
     expect(s).toEqual({
       onAc: false,
@@ -76,8 +84,20 @@ describe("Windows power and idle state", () => {
         noBattery: true,
         saver: false,
       }),
+      async () => "serious",
     );
-    expect(desktop).toMatchObject({ onAc: true, idleMinutes: 999 });
+    expect(desktop).toMatchObject({ onAc: true, idleMinutes: 999, thermal: "serious" });
+    // A thermal read that fails is nominal, never a reason to wait forever.
+    const failed = await readSystemState(
+      "win32",
+      exec,
+      () => 9,
+      async () => undefined,
+      async () => {
+        throw new Error("no powershell");
+      },
+    );
+    expect(failed.thermal).toBe("nominal");
     const failed = await readSystemState(
       "win32",
       exec,
@@ -85,6 +105,39 @@ describe("Windows power and idle state", () => {
       async () => undefined,
     );
     expect(failed.onAc).toBe(false);
+  });
+});
+
+describe("Windows thermal state for the nightly memory pass", () => {
+  it("grades the tightest thermal zone's passive limit like a Mac's CPU speed limit", () => {
+    expect(parseWindowsThermal("passive=100,100 perf=100")).toEqual({
+      passive: [100, 100],
+      perf: 100,
+    });
+    expect(windowsThermalLevel(parseWindowsThermal("passive=100,100 perf=100"))).toBe("nominal");
+    expect(windowsThermalLevel(parseWindowsThermal("passive=100,85 perf=100"))).toBe("fair");
+    expect(windowsThermalLevel(parseWindowsThermal("passive=60 perf=100"))).toBe("serious");
+    expect(windowsThermalLevel(parseWindowsThermal("passive=30 perf=100"))).toBe("critical");
+  });
+
+  it("falls back to the processors' performance limit without zones; unreadable is nominal", () => {
+    expect(parseWindowsThermal("passive= perf=70")).toEqual({ passive: [], perf: 70 });
+    expect(windowsThermalLevel(parseWindowsThermal("passive= perf=70"))).toBe("serious");
+    expect(windowsThermalLevel(parseWindowsThermal("passive= perf="))).toBe("nominal");
+    expect(windowsThermalLevel(parseWindowsThermal(""))).toBe("nominal");
+    expect(windowsThermalLevel(undefined)).toBe("nominal");
+  });
+
+  it("reads it with one PowerShell run, no admin rights", async () => {
+    const seen: string[][] = [];
+    const level = await readWindowsThermal(async (file, args) => {
+      seen.push([file, ...args]);
+      return "passive=90 perf=100\r\n";
+    });
+    expect(level).toBe("fair");
+    expect(seen[0]?.[0]).toMatch(/powershell\.exe$/i);
+    expect(seen[0]?.join(" ")).toContain("ThermalZoneInformation");
+    expect(seen[0]?.join(" ")).not.toContain("MSAcpi");
   });
 });
 

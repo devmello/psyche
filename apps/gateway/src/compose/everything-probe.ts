@@ -1,14 +1,22 @@
 import { execFile } from "node:child_process";
 import { freemem } from "node:os";
 import type { SystemState } from "@psyche/memory";
-import { readWindowsPower, type WindowsPower } from "../platform.ts";
+import {
+  readWindowsPower,
+  readWindowsThermal,
+  type ThermalLevel,
+  type WindowsPower,
+} from "../platform.ts";
 
 /**
  * The machine as the everything-memory gates see it (docs/design/everything-memory-2026.md §6.1,
  * decision 10). Read once when the nightly pass starts, from short-lived system commands on
- * macOS (`pmset`, `ioreg`) and one PowerShell read on Windows (`GetSystemPowerStatus`,
- * `GetLastInputInfo`; Windows reports no thermal state to a normal user, so it is "nominal"). Anything that cannot be read errs toward "do not run a heavy job" for power and
- * temperature, and toward "idle" for input (the pass only runs inside quiet hours anyway).
+ * macOS (`pmset`, `ioreg`) and PowerShell reads on Windows (`GetSystemPowerStatus`,
+ * `GetLastInputInfo`, and the thermal zones' passive limit / the processors' performance limit,
+ * which a normal user can read: `readWindowsThermal`). Anything that cannot be read errs toward
+ * "do not run a heavy job" for power, and toward "idle" for input (the pass only runs inside
+ * quiet hours anyway); a temperature Windows does not report is nominal, as on a Mac whose
+ * `pmset -g therm` has no limit.
  */
 
 export type Exec = (file: string, args: string[]) => Promise<string>;
@@ -50,16 +58,20 @@ export async function readSystemState(
   exec: Exec = realExec,
   free: () => number = freemem,
   windowsRead: () => Promise<WindowsPower | undefined> = () => readWindowsPower(),
+  windowsThermal: () => Promise<ThermalLevel> = () => readWindowsThermal(),
 ): Promise<SystemState> {
   if (platform === "win32") {
-    const p = await windowsRead().catch(() => undefined);
+    const [p, thermal] = await Promise.all([
+      windowsRead().catch(() => undefined),
+      windowsThermal().catch(() => "nominal" as const),
+    ]);
     return {
       // A failed read means "not sure": not on AC, so the pass waits. A desktop PC (no battery)
       // is on AC whatever ACLineStatus says.
       onAc: p === undefined ? false : p.noBattery || p.onAc === true,
       ...(p?.batteryPct === undefined || p.noBattery ? {} : { batteryPct: p.batteryPct }),
       lowPowerMode: p?.saver ?? false,
-      thermal: "nominal",
+      thermal,
       idleMinutes: p?.idleMs === undefined ? 999 : Math.floor(p.idleMs / 60_000),
       freeMemBytes: free(),
     };

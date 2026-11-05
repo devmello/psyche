@@ -114,6 +114,65 @@ export async function readWindowsPower(run: Run = runFile): Promise<WindowsPower
   return parseWindowsPower(out);
 }
 
+export type ThermalLevel = "nominal" | "fair" | "serious" | "critical";
+
+/**
+ * How hot Windows says the PC runs, readable without admin rights: the ACPI thermal zones'
+ * passive-cooling limit (`Win32_PerfFormattedData_Counters_ThermalZoneInformation`, 100 = no
+ * thermal throttling) and the processors' performance limit (`% Performance Limit`, lowered by
+ * firmware when hot). `MSAcpi_ThermalZoneTemperature` needs admin, so temperatures are not read.
+ * About a second (two CIM queries), so only the nightly memory pass asks.
+ */
+export const WINDOWS_THERMAL_SCRIPT = [
+  "$ErrorActionPreference='SilentlyContinue'",
+  "$z=@(Get-CimInstance Win32_PerfFormattedData_Counters_ThermalZoneInformation | ForEach-Object { $_.PercentPassiveLimit })",
+  "$p=(Get-CimInstance Win32_PerfFormattedData_Counters_ProcessorInformation -Filter \"Name='_Total'\").PercentPerformanceLimit",
+  "\"passive=$($z -join ',') perf=$p\"",
+].join(";");
+
+/** Parses the thermal script's line: the zones' passive limits and the processors' limit. */
+export function parseWindowsThermal(out: string): { passive: number[]; perf?: number } | undefined {
+  const m = /passive=([\d,]*) perf=(\d*)/.exec(out);
+  if (m === null) return undefined;
+  const passive = (m[1] ?? "")
+    .split(",")
+    .filter((s) => s !== "")
+    .map(Number)
+    .filter((n) => Number.isFinite(n));
+  const perf = m[2] === "" || m[2] === undefined ? undefined : Number(m[2]);
+  return { passive, ...(perf === undefined || !Number.isFinite(perf) ? {} : { perf }) };
+}
+
+/**
+ * The limit as the nightly gates grade it, like macOS's CPU speed limit: the tightest thermal
+ * zone, else (a PC without readable zones) the processors' performance limit. Unreadable is
+ * nominal: most desktops report nothing, and the pass already waits for AC, idle and quiet hours.
+ */
+export function windowsThermalLevel(
+  r: { passive: number[]; perf?: number } | undefined,
+): ThermalLevel {
+  const limit =
+    r === undefined ? undefined : r.passive.length > 0 ? Math.min(...r.passive) : r.perf;
+  if (limit === undefined) return "nominal";
+  return limit >= 100 ? "nominal" : limit >= 80 ? "fair" : limit >= 50 ? "serious" : "critical";
+}
+
+export async function readWindowsThermal(run: Run = runFile): Promise<ThermalLevel> {
+  const out = await run(
+    POWERSHELL(),
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-Command",
+      WINDOWS_THERMAL_SCRIPT,
+    ],
+    15_000,
+  );
+  return windowsThermalLevel(parseWindowsThermal(out));
+}
+
 /**
  * The account's full name for the owner's own card when USER.md has none: `id -F` on macOS, the
  * local account's Full Name on Windows (ADSI `WinNT://`; a Microsoft account sets it at sign-up).
