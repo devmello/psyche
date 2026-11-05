@@ -1,5 +1,5 @@
 import { execFile, spawn } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { mkdir, readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
@@ -118,6 +118,7 @@ import {
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
 import { HAS_UNSENT_TEXT, releaseHiddenAfterMs } from "./main/release.ts";
+import { createSandboxPc } from "./main/sandbox-pc/wire.ts";
 import { captureScreenFrame, wantsFallback } from "./main/screen-ask/capture-fallback.ts";
 import { ScreenAskWindow } from "./main/screen-ask/panel.ts";
 import { ScreenAskShortcut } from "./main/screen-ask/settings.ts";
@@ -529,6 +530,22 @@ async function invokeHelper(capability: string, params: unknown): Promise<unknow
   if (!r.ok) throw new Error(`${capability} failed`);
   return r.result;
 }
+
+/** The sandbox PC's one-time setup on Windows (service install, guest image); idle elsewhere. */
+const sandboxPc = createSandboxPc({
+  platform: process.platform,
+  packaged: app.isPackaged,
+  resourcesPath: process.resourcesPath,
+  appPath: app.getAppPath(),
+  psycheHome: home,
+  localAppData: process.env.LOCALAPPDATA ?? join(app.getPath("appData"), "..", "Local"),
+  run: execRunner,
+  exists: existsSync,
+  restartHelper: async () => {
+    await helper?.restart();
+  },
+  onState: (s) => broadcast(IPC.sandboxPcState, s),
+});
 
 /** macOS privacy permissions for onboarding and Settings (issue #384). */
 const permissions = createPermissions({
@@ -1053,6 +1070,12 @@ function registerIpc(): void {
     return dictation?.status;
   });
   handle(IPC.permissionsStatus, () => permissions.statusAll());
+  // Windows: Settings → Sandbox PC. State, and "Turn on" (the elevated service install, the helper
+  // restart and the guest image download). Nothing in the arguments: main computes every path.
+  handle(IPC.sandboxPcGetState, () => sandboxPc.getState());
+  handle(IPC.sandboxPcRefresh, () => sandboxPc.refresh());
+  handle(IPC.sandboxPcTurnOn, () => sandboxPc.turnOn());
+  handle(IPC.sandboxPcCancel, () => sandboxPc.cancel());
   handle(IPC.helperGetState, () => helper?.getState() ?? { kind: "unbundled" });
   // An approval card's "Start Psyche Helper": launch now (no relaunch throttle), wait to pair. On
   // Windows a running helper is ended and started again (`restart`).

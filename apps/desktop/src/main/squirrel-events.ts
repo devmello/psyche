@@ -1,6 +1,13 @@
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, readFileSync, rmSync } from "node:fs";
-import { homedir } from "node:os";
+import {
+  copyFileSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { win32 } from "node:path";
 import {
   currentUserSid,
@@ -11,6 +18,7 @@ import {
 import identity from "../../../win-helper/aumid.json" with { type: "json" };
 import { PAIR_LINK_SCHEME } from "../lib/pair-link.ts";
 import { LOGIN_ITEM_NAME } from "./login-item.ts";
+import { startElevatedDetached } from "./sandbox-pc/elevate.ts";
 import { windowsUserId } from "./supervisor-windows.ts";
 
 /**
@@ -27,6 +35,10 @@ import { windowsUserId } from "./supervisor-windows.ts";
  *                         otherwise keep files of the install folder open, the login item
  *                         (Settings › Appearance › Open at login) and the psyche:// and
  *                         psyche-pair: handlers the app registered
+ *                         and the sandbox PC's Windows service (`psyche-vm-svc.exe uninstall`; it
+ *                         needs an administrator, so when this process cannot do it an elevated
+ *                         copy is started that outlives the hook, and the steps to do it by hand
+ *                         are left in %TEMP%\Psyche-remove-sandbox-pc.txt)
  *   --squirrel-obsolete   an older version being replaced: nothing to do
  *   --squirrel-firstrun   the first normal launch after install: not handled here, the app starts
  *
@@ -89,6 +101,8 @@ export interface SquirrelPaths {
    * `\Psyche\Gateway` when an earlier version left one for this account (`gatewayTasks`).
    */
   gatewayTasks: readonly string[];
+  /** The account's SID, for the sandbox PC's service (`PsycheVM-<SID>`); absent: none to remove. */
+  ownerSid?: string | null;
 }
 
 export interface ShortcutSpec {
@@ -108,11 +122,21 @@ export type SquirrelAction =
   | { kind: "remove"; file: string }
   | { kind: "copy"; from: string; to: string }
   | { kind: "run"; cmd: string; args: string[]; ignoreFailure?: boolean }
-  | { kind: "stopGateway"; psycheHome: string; tasks: readonly string[] };
+  | { kind: "stopGateway"; psycheHome: string; tasks: readonly string[] }
+  | { kind: "removeSandboxPc"; exe: string; sid: string };
 
 export function installRoot(exe: string): string {
   // …\Psyche\app-<version>\Psyche.exe → …\Psyche
   return win32.dirname(win32.dirname(exe));
+}
+
+export function vmServiceExe(exe: string): string {
+  return win32.join(
+    win32.dirname(exe),
+    "resources",
+    identity.helper.resourcesDir,
+    "psyche-vm-svc.exe",
+  );
 }
 
 export function helperExe(exe: string): string {
@@ -218,6 +242,11 @@ export function squirrelPlan(event: SquirrelEvent, p: SquirrelPaths): SquirrelAc
     case "uninstall":
       return [
         { kind: "stopGateway", psycheHome: p.psycheHome, tasks: p.gatewayTasks },
+        // The sandbox PC's service runs from its own protected copy and nothing in app-<version>
+        // keeps it alive, but it is registered with Windows: take it out.
+        ...(p.ownerSid
+          ? [{ kind: "removeSandboxPc", exe: vmServiceExe(p.exe), sid: p.ownerSid } as const]
+          : []),
         // A running Psyche or helper keeps app-<version> open, and Squirrel then leaves the folder
         // behind (marked .dead). End them; this hook process stays.
         {
@@ -327,6 +356,57 @@ function stopGateway(psycheHome: string, tasks: readonly string[]): void {
   }
 }
 
+/** What to do by hand when the service could not be removed here. */
+export function removalNote(sid: string): string {
+  const name = `PsycheVM-${sid}`;
+  return [
+    "Psyche was uninstalled, but its sandbox PC service may still be registered with Windows.",
+    "If the administrator prompt appeared and you approved it, nothing else is needed.",
+    "Otherwise open Windows Terminal as an administrator and run:",
+    "",
+    `  sc.exe stop ${name}`,
+    `  sc.exe delete ${name}`,
+    "",
+    "Then delete the folder %LOCALAPPDATA%\\Psyche\\vm-images if you do not want the guest image.",
+    "",
+  ].join("\r\n");
+}
+
+/**
+ * Removes the sandbox PC's service. A copy of the exe in %TEMP% does the work, so the install
+ * folder is free for Squirrel to delete. First without elevation (an administrator account that
+ * already runs elevated, or a service this account may delete); when that fails, an elevated copy
+ * is started and not waited for (Squirrel gives this hook 15 s, a UAC prompt can take longer).
+ */
+function removeSandboxPc(exe: string, sid: string, rt: SquirrelRuntime): void {
+  const probe = spawnSync("sc.exe", ["query", `PsycheVM-${sid}`], {
+    windowsHide: true,
+    timeout: 5000,
+    stdio: "ignore",
+  });
+  // 1060: not installed. Anything else (0, or access denied) means there is something to remove.
+  if (probe.status === 1060) return;
+  if (!existsSync(exe)) {
+    rt.log("the sandbox PC service is installed but its program is missing");
+  }
+  const dir = mkdtempSync(win32.join(tmpdir(), "psyche-vm-uninstall-"));
+  const copy = win32.join(dir, "psyche-vm-svc.exe");
+  let ran = false;
+  if (existsSync(exe)) {
+    copyFileSync(exe, copy);
+    const r = spawnSync(copy, ["uninstall"], { windowsHide: true, timeout: 5000, stdio: "ignore" });
+    if (r.status === 0) return;
+    ran = startElevatedDetached(copy, ["uninstall"]);
+  }
+  const note = win32.join(tmpdir(), "Psyche-remove-sandbox-pc.txt");
+  writeFileSync(note, removalNote(sid));
+  rt.log(
+    ran
+      ? `the sandbox PC service is being removed (administrator prompt); steps if it fails: ${note}`
+      : `the sandbox PC service could not be removed here; steps: ${note}`,
+  );
+}
+
 export function runSquirrelActions(actions: readonly SquirrelAction[], rt: SquirrelRuntime): void {
   for (const a of actions) {
     try {
@@ -341,6 +421,8 @@ export function runSquirrelActions(actions: readonly SquirrelAction[], rt: Squir
         copyFileSync(a.from, a.to);
       } else if (a.kind === "stopGateway") {
         stopGateway(a.psycheHome, a.tasks);
+      } else if (a.kind === "removeSandboxPc") {
+        removeSandboxPc(a.exe, a.sid, rt);
       } else {
         const code = run(a.cmd, a.args);
         if (code !== 0 && !a.ignoreFailure) rt.log(`${a.cmd} ${a.args[0]} exited ${code}`);
@@ -382,6 +464,7 @@ export function handleSquirrelEvent(
     pid: process.pid,
     gatewayTasks:
       event === "uninstall" ? gatewayTasks(currentUserSid(), windowsUserId(env), queryTaskXml) : [],
+    ownerSid: event === "uninstall" ? currentUserSid() : null,
   };
   runSquirrelActions(squirrelPlan(event, paths), {
     writeShortcutLink: (f, op, o) => electron.shell.writeShortcutLink(f, op, o),

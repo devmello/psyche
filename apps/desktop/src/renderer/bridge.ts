@@ -1,4 +1,4 @@
-import { t } from "@psyche/ui";
+import { type SandboxPcState, t } from "@psyche/ui";
 import type { GatewayEvent, GatewayStatus } from "@psyche/web/client";
 import { hostTerminalPort } from "@psyche/web/host-terminal-port";
 import {
@@ -235,6 +235,19 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
         approve: (p) => unwrapCall(b.helper.touchIdApprove(p)),
       },
     },
+    // Windows only: the sandbox PC's one-time setup. Elsewhere main answers "unsupported".
+    ...(b.platform === "win32"
+      ? {
+          sandboxPc: {
+            getState: () => b.sandboxPc.getState() as Promise<SandboxPcState>,
+            refresh: () => b.sandboxPc.refresh() as Promise<SandboxPcState>,
+            turnOn: () => b.sandboxPc.turnOn() as Promise<SandboxPcState>,
+            cancel: async () => void (await b.sandboxPc.cancel()),
+            onState: (cb: (s: SandboxPcState) => void) =>
+              b.sandboxPc.onState((s) => cb(s as SandboxPcState)),
+          },
+        }
+      : {}),
     clipboard: {
       writeText: async (text, opts) => {
         await b.clipboard.writeText(text, opts);

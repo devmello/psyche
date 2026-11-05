@@ -270,6 +270,14 @@ const bridge = {
     touchIdApprove: (p: { approvalId: string; answerToken: string }) =>
       ipcRenderer.invoke(IPC.touchIdApprove, p) as Promise<Envelope>,
   },
+  /** Windows: the sandbox PC's one-time setup (elevated service install + guest image download). */
+  sandboxPc: {
+    getState: () => invoke(IPC.sandboxPcGetState),
+    refresh: () => invoke(IPC.sandboxPcRefresh),
+    turnOn: () => invoke(IPC.sandboxPcTurnOn),
+    cancel: () => invoke(IPC.sandboxPcCancel),
+    onState: (cb: (s: unknown) => void) => listen(IPC.sandboxPcState, cb),
+  },
   /**
    * A passkey for the remote Gateway (remote windows only; main refuses it elsewhere). Resolves
    * the raw envelope: the card needs the error's `details.name` to tell a cancel from a failure.

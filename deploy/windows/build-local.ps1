@@ -76,6 +76,9 @@ if ($SkipHelper) {
   Run cargo @("build", "--release", "--manifest-path", $manifest)
   $exe = Join-Path $Root "apps\win-helper\target\release\psyche-helper.exe"
   if (-not (Test-Path $exe)) { throw "cargo build produced no $exe" }
+  # The sandbox PC's service (installed elevated by "Turn on the sandbox PC"), same workspace.
+  $svc = Join-Path $Root "apps\win-helper\target\release\psyche-vm-svc.exe"
+  if (-not (Test-Path $svc)) { throw "cargo build produced no $svc" }
 }
 
 Step "Psyche (electron-forge $(if ($NoInstaller) { 'package' } else { 'make' }))"
