@@ -90,6 +90,11 @@ async function expectedCommit(temps: string[]): Promise<string> {
 
 function substitute(value: unknown, vars: Record<string, string>): unknown {
   if (typeof value === "string") {
+    // A path under a path variable (`@REPO@/src/add.js`) gets the OS's separators, as the
+    // tools report it (backslashes on Windows).
+    for (const [k, v] of Object.entries(vars)) {
+      if (value.startsWith(`${k}/`) && !/\s/.test(value)) return join(v, value.slice(k.length));
+    }
     return Object.entries(vars).reduce((s, [k, v]) => s.split(k).join(v), value);
   }
   if (Array.isArray(value)) return value.map((v) => substitute(v, vars));

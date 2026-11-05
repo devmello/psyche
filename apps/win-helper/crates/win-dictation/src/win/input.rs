@@ -6,8 +6,8 @@ use crate::dictation::policy::typing_chunks;
 use crate::error::CapError;
 use std::time::{Duration, Instant};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    GetAsyncKeyState, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBD_EVENT_FLAGS, KEYBDINPUT, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, MAPVK_VK_TO_VSC,
-    MapVirtualKeyW, SendInput, VIRTUAL_KEY,
+    GetAsyncKeyState, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBD_EVENT_FLAGS, KEYBDINPUT,
+    KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, MAPVK_VK_TO_VSC, MapVirtualKeyW, SendInput, VIRTUAL_KEY,
 };
 
 /// "PSYCHE".
@@ -18,7 +18,15 @@ const CHUNK_PAUSE: Duration = Duration::from_millis(15);
 fn key(vk: u16, scan: u16, flags: KEYBD_EVENT_FLAGS) -> INPUT {
     INPUT {
         r#type: INPUT_KEYBOARD,
-        Anonymous: INPUT_0 { ki: KEYBDINPUT { wVk: VIRTUAL_KEY(vk), wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: MARKER } },
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: VIRTUAL_KEY(vk),
+                wScan: scan,
+                dwFlags: flags,
+                time: 0,
+                dwExtraInfo: MARKER,
+            },
+        },
     }
 }
 
@@ -35,7 +43,9 @@ fn vk_down(vk: u16) -> bool {
 
 /// Shift, Ctrl, Alt or Win physically held.
 pub(crate) fn modifiers_held() -> bool {
-    [VK_SHIFT, VK_CONTROL, VK_MENU, VK_LWIN, VK_RWIN].into_iter().any(vk_down)
+    [VK_SHIFT, VK_CONTROL, VK_MENU, VK_LWIN, VK_RWIN]
+        .into_iter()
+        .any(vk_down)
 }
 
 /// Waits up to `limit` for the owner to let go of the modifiers (the hold-to-talk key may still
@@ -58,9 +68,16 @@ fn blocked() -> CapError {
 
 /// Unicode typing (`KEYEVENTF_UNICODE`), 16 UTF-16 units per chunk with a short pause; `guard`
 /// runs before every chunk.
-pub(crate) fn type_text(text: &str, guard: &mut dyn FnMut() -> Result<(), CapError>) -> Result<(), CapError> {
+pub(crate) fn type_text(
+    text: &str,
+    guard: &mut dyn FnMut() -> Result<(), CapError>,
+) -> Result<(), CapError> {
     if !wait_for_modifiers_released(Duration::from_millis(1000)) {
-        return Err(CapError::unavailable("modifier_held", "Release Shift, Ctrl, Alt and Windows keys, then try again; nothing was typed.").retryable());
+        return Err(CapError::unavailable(
+            "modifier_held",
+            "Release Shift, Ctrl, Alt and Windows keys, then try again; nothing was typed.",
+        )
+        .retryable());
     }
     for chunk in typing_chunks(text, CHUNK_UNITS) {
         guard()?;
@@ -96,11 +113,18 @@ pub(crate) fn send_ctrl_v() -> bool {
 
 /// An unassigned key tapped while Alt or Win is held, so their release opens no menu.
 pub(crate) fn send_menu_mask() -> bool {
-    send(&[key(VK_MENU_MASK, 0, KEYBD_EVENT_FLAGS(0)), key(VK_MENU_MASK, 0, KEYEVENTF_KEYUP)])
+    send(&[
+        key(VK_MENU_MASK, 0, KEYBD_EVENT_FLAGS(0)),
+        key(VK_MENU_MASK, 0, KEYEVENTF_KEYUP),
+    ])
 }
 
 /// Test support: a real-looking key press (scan code, no unicode flag).
 pub fn send_vk(vk: u16, down: bool) -> bool {
-    let flags = if down { KEYBD_EVENT_FLAGS(0) } else { KEYEVENTF_KEYUP };
+    let flags = if down {
+        KEYBD_EVENT_FLAGS(0)
+    } else {
+        KEYEVENTF_KEYUP
+    };
     send(&[key(vk, scan(vk), flags)])
 }

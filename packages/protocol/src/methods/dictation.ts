@@ -18,9 +18,10 @@ import { defineMethod } from "./define.ts";
 
 /**
  * Modifier keys the helper can watch for hold-to-talk (Electron cannot see fn or key-up). The
- * Windows helper (low-level keyboard hook) maps `rightOption` to Right Alt and `rightCommand` to
- * Right Ctrl; `fn` is not visible to Windows and is refused there (`invalid_params`). On Windows
- * the insert goes through UI Automation (`ax`) or SendInput unicode typing (`typed`).
+ * Windows helper (low-level keyboard hook) keeps these names: `rightOption` is Right Alt,
+ * `rightCommand` Right Ctrl, and `fn` (a PC's Fn never reaches Windows; the stored default) Right
+ * Alt too, so there two names can be one physical key. On Windows the insert goes through UI
+ * Automation (`ax`) or SendInput unicode typing (`typed`).
  */
 export const DictationKey = StringEnum(["fn", "rightOption", "rightCommand"], {
   $id: "DictationKey",

@@ -1,3 +1,7 @@
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { PROTOCOL_VERSION } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import { type AuditReport, auditExitCode, auditRules, parseSeverity } from "../src/audit.ts";
@@ -8,7 +12,7 @@ import {
   firstRunChecklist,
   slotLabel,
 } from "../src/doctor.ts";
-import { appOfProgram, launchAgentProgram, type Snapshot } from "../src/snapshot.ts";
+import { appOfProgram, launchAgentProgram, type Snapshot, scanModes } from "../src/snapshot.ts";
 import { renderLaunchAgentPlist } from "../src/supervisor.ts";
 import { CLI_VERSION } from "../src/version.ts";
 
@@ -314,6 +318,24 @@ describe("doctor rules", () => {
       status: "fail",
       hint: "chmod 700 /home/me/.psyche",
     });
+  });
+
+  it("Windows: an ACL others can reach → fail with an icacls fix; owner-only → ok", () => {
+    const home = "C:\\Users\\me\\.psyche";
+    const win = (o: Partial<Snapshot>) => snap({ platform: "win32", home, ...o });
+    const shared = check(win({ homeMode: "acl" }), "modes");
+    expect(shared).toMatchObject({ status: "fail" });
+    expect(shared?.message).toContain("not owner-only");
+    expect(shared?.hint).toMatch(/^icacls "C:\\Users\\me\\.psyche" \/reset \/t/);
+    const vault = check(
+      win({ modeIssues: [{ path: "vault/vault.db", mode: "acl", kind: "file" }] }),
+      "modes",
+    );
+    expect(vault).toMatchObject({ status: "fail" });
+    expect(vault?.message).toContain("vault/vault.db (acl)");
+    expect(vault?.hint).toContain("icacls");
+    expect(check(win({}), "modes")).toMatchObject({ status: "ok" });
+    expect(check(win({ homeMode: null }), "modes")).toMatchObject({ status: "skip" });
   });
 
   it("sensitive file 644 → fail; other paths → warn", () => {
@@ -795,6 +817,13 @@ describe("audit rules", () => {
     ]);
   });
 
+  it("files.home_mode on Windows names the ACL and an icacls fix", () => {
+    const s = snap({ platform: "win32", home: "C:\\Users\\me\\.psyche", homeMode: "acl" });
+    const [f] = finding(s, "files.home_mode") as { message: string; fix: string }[];
+    expect(f?.message).toContain("not owner-only");
+    expect(f?.fix).toContain("icacls");
+  });
+
   it("files.sensitive_modes and files.modes", () => {
     const sensitive = snap({
       modeIssues: [
@@ -1127,3 +1156,32 @@ describe("audit completeness (M3: docs/05 §10 and the S05 review)", () => {
     ]);
   });
 });
+
+describe.runIf(process.platform === "win32")(
+  "scanModes on Windows (DACLs, not made-up modes)",
+  () => {
+    it("passes an owner-only home and names the entries other accounts can reach", () => {
+      const home = mkdtempSync(join(tmpdir(), "psy-acl-"));
+      try {
+        mkdirSync(join(home, "vault"));
+        writeFileSync(join(home, "vault", "vault.db"), "x");
+        mkdirSync(join(home, "browser", "profile"), { recursive: true });
+        writeFileSync(join(home, "browser", "profile", "Cookies"), "x");
+        // A temp folder inherits the profile's DACL (you, SYSTEM, Administrators): owner-only.
+        expect(scanModes(home)).toEqual({ homeMode: "700", issues: [] });
+        const everyone = (p: string) =>
+          expect(spawnSync("icacls", [p, "/grant", "*S-1-1-0:(R)", "/q"]).status).toBe(0);
+        everyone(join(home, "vault", "vault.db"));
+        everyone(join(home, "browser", "profile", "Cookies"));
+        // Browser profiles are their subsystem's and not walked, as on POSIX.
+        expect(scanModes(home).issues).toEqual([
+          { path: "vault/vault.db", mode: "acl", kind: "file" },
+        ]);
+        everyone(home);
+        expect(scanModes(home).homeMode).toBe("acl");
+      } finally {
+        rmSync(home, { recursive: true, force: true });
+      }
+    });
+  },
+);

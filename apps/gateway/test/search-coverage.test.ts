@@ -139,10 +139,25 @@ describe("power", () => {
   });
 });
 
+/**
+ * Reads until `ok`, or returns the last read after `withinMs`. The indexer reads in the
+ * background (SQLite, no clock to inject): a fixed count of 50 ms tries ran out on a loaded
+ * machine (the full suite on Windows). Bounded by wall time instead, inside the tests' budget.
+ */
+async function waitFor<T>(read: () => Promise<T>, ok: (v: T) => boolean, withinMs = 20_000) {
+  const deadline = Date.now() + withinMs;
+  let last = await read();
+  while (!ok(last) && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 50));
+    last = await read();
+  }
+  return last;
+}
+
 /** The host decides which local sources exist (no Notes or Messages on Windows). */
 const WINDOWS = process.platform === "win32";
 
-describe("search.sources methods", () => {
+describe("search.sources methods", { timeout: 30_000 }, () => {
   async function start() {
     const home = tmp();
     composed = await composeGateway({
@@ -250,11 +265,10 @@ describe("search.sources methods", () => {
       agent: false,
     });
     // The people and projects memory is off in a new home: nothing to index, and it says it is read.
-    for (let i = 0; i < 40; i++) {
-      st = await owner.call<SearchSourcesStatus>("search.sources", {});
-      if (st.sources.find((s) => s.id === "memory")?.state === "idle") break;
-      await new Promise((r) => setTimeout(r, 50));
-    }
+    st = await waitFor(
+      () => owner.call<SearchSourcesStatus>("search.sources", {}),
+      (v) => v.sources.find((s) => s.id === "memory")?.state === "idle",
+    );
     expect(st.sources.find((s) => s.id === "memory")).toMatchObject({ state: "idle", items: 0 });
     // These tests run on the machine's real power state: a laptop on battery would refuse.
     await owner.call("settings.set", { key: "search.runOnBattery", value: true }, ik());
@@ -268,15 +282,6 @@ describe("search.sources methods", () => {
     );
     expect(st.sources.find((s) => s.id === "memory")?.state).toBe("off");
   });
-
-  const waitFor = async <T>(read: () => Promise<T>, ok: (v: T) => boolean) => {
-    let last = await read();
-    for (let i = 0; i < 60 && !ok(last); i++) {
-      await new Promise((r) => setTimeout(r, 100));
-      last = await read();
-    }
-    return last;
-  };
 
   it("Memory: the agent cannot be let search it while memory's agent access is none, and the Gateway keeps it off", async () => {
     const owner = await start();
@@ -395,11 +400,10 @@ describe("search.sources methods", () => {
       items: 0,
     });
     // It finishes by itself (there are no recordings to read).
-    for (let i = 0; i < 40; i++) {
-      const now = await owner.call<SearchSourcesStatus>("search.sources", {});
-      if (now.sources.find((s) => s.id === "transcripts")?.state === "idle") return;
-      await new Promise((r) => setTimeout(r, 50));
-    }
-    throw new Error("the rebuilt source never finished");
+    const done = await waitFor(
+      () => owner.call<SearchSourcesStatus>("search.sources", {}),
+      (v) => v.sources.find((s) => s.id === "transcripts")?.state === "idle",
+    );
+    expect(done.sources.find((s) => s.id === "transcripts")?.state, "never finished").toBe("idle");
   });
 });

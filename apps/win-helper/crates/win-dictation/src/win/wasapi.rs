@@ -14,9 +14,10 @@ use windows::Win32::Foundation::{CloseHandle, E_ACCESSDENIED, WAIT_OBJECT_0};
 /// HRESULT_FROM_WIN32(ERROR_NOT_FOUND): no capture endpoint.
 const E_NOTFOUND: windows::core::HRESULT = windows::core::HRESULT(0x8007_0490_u32 as i32);
 use windows::Win32::Media::Audio::{
-    AUDCLNT_BUFFERFLAGS_SILENT, AUDCLNT_E_DEVICE_INVALIDATED, AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM,
-    AUDCLNT_STREAMFLAGS_EVENTCALLBACK, AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY, IAudioCaptureClient, IAudioClient, IMMDeviceEnumerator,
-    MMDeviceEnumerator, WAVEFORMATEX, eCapture, eConsole,
+    AUDCLNT_BUFFERFLAGS_SILENT, AUDCLNT_E_DEVICE_INVALIDATED, AUDCLNT_SHAREMODE_SHARED,
+    AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM, AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+    AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY, IAudioCaptureClient, IAudioClient,
+    IMMDeviceEnumerator, MMDeviceEnumerator, WAVEFORMATEX, eCapture, eConsole,
 };
 use windows::Win32::System::Com::{CLSCTX_ALL, CoCreateInstance, CoTaskMemFree};
 use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject};
@@ -55,7 +56,12 @@ fn map(e: &windows::core::Error) -> CapError {
     } else if e.code() == E_NOTFOUND {
         CapError::unavailable("no_input_device", "No microphone is available")
     } else {
-        win_err("microphone_start_failed", "The microphone could not be started", e).retryable()
+        win_err(
+            "microphone_start_failed",
+            "The microphone could not be started",
+            e,
+        )
+        .retryable()
     }
 }
 
@@ -103,7 +109,9 @@ pub(crate) fn start(
                         let mut data: *mut u8 = std::ptr::null_mut();
                         let mut frames = 0u32;
                         let mut flags = 0u32;
-                        if let Err(e) = capture.GetBuffer(&mut data, &mut frames, &mut flags, None, None) {
+                        if let Err(e) =
+                            capture.GetBuffer(&mut data, &mut frames, &mut flags, None, None)
+                        {
                             if e.code() == AUDCLNT_E_DEVICE_INVALIDATED {
                                 break 'outer;
                             }
@@ -114,7 +122,10 @@ pub(crate) fn start(
                         if flags & AUDCLNT_BUFFERFLAGS_SILENT.0 as u32 != 0 || data.is_null() {
                             buf.resize(count, 0.0);
                         } else {
-                            buf.extend_from_slice(std::slice::from_raw_parts(data as *const f32, count));
+                            buf.extend_from_slice(std::slice::from_raw_parts(
+                                data as *const f32,
+                                count,
+                            ));
                         }
                         let _ = capture.ReleaseBuffer(frames);
                         if !on_audio(&buf, format) {
@@ -129,7 +140,10 @@ pub(crate) fn start(
         })
         .map_err(|e| CapError::internal(format!("cannot start microphone capture: {e}")))?;
     match ready_rx.recv() {
-        Ok(Ok(_)) => Ok(Capture { stop, thread: Some(thread) }),
+        Ok(Ok(_)) => Ok(Capture {
+            stop,
+            thread: Some(thread),
+        }),
         Ok(Err(e)) => {
             let _ = thread.join();
             Err(e)
@@ -138,11 +152,22 @@ pub(crate) fn start(
     }
 }
 
-unsafe fn open() -> Result<(IAudioClient, IAudioCaptureClient, windows::Win32::Foundation::HANDLE, CaptureFormat), CapError> {
+unsafe fn open() -> Result<
+    (
+        IAudioClient,
+        IAudioCaptureClient,
+        windows::Win32::Foundation::HANDLE,
+        CaptureFormat,
+    ),
+    CapError,
+> {
     // SAFETY: standard WASAPI shared-mode capture setup.
     unsafe {
-        let en: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).map_err(|e| map(&e))?;
-        let device = en.GetDefaultAudioEndpoint(eCapture, eConsole).map_err(|e| map(&e))?;
+        let en: IMMDeviceEnumerator =
+            CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).map_err(|e| map(&e))?;
+        let device = en
+            .GetDefaultAudioEndpoint(eCapture, eConsole)
+            .map_err(|e| map(&e))?;
         let client: IAudioClient = device.Activate(CLSCTX_ALL, None).map_err(|e| map(&e))?;
         let mix = client.GetMixFormat().map_err(|e| map(&e))?;
         let (rate, channels) = ((*mix).nSamplesPerSec, (*mix).nChannels as u32);
@@ -158,8 +183,12 @@ unsafe fn open() -> Result<(IAudioClient, IAudioCaptureClient, windows::Win32::F
             wBitsPerSample: 32,
             cbSize: 0,
         };
-        let flags = AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
-        client.Initialize(AUDCLNT_SHAREMODE_SHARED, flags, 2_000_000, 0, &fmt, None).map_err(|e| map(&e))?;
+        let flags = AUDCLNT_STREAMFLAGS_EVENTCALLBACK
+            | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM
+            | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
+        client
+            .Initialize(AUDCLNT_SHAREMODE_SHARED, flags, 2_000_000, 0, &fmt, None)
+            .map_err(|e| map(&e))?;
         let event = CreateEventW(None, false, false, None).map_err(|e| map(&e))?;
         client.SetEventHandle(event).map_err(|e| map(&e))?;
         let capture: IAudioCaptureClient = client.GetService().map_err(|e| map(&e))?;

@@ -82,7 +82,13 @@ pub struct CapError {
 
 impl CapError {
     pub fn new(code: ErrorCode, reason: &str, message: impl Into<String>) -> Self {
-        CapError { code, reason: reason.to_string(), message: message.into(), details: Map::new(), retryable: false }
+        CapError {
+            code,
+            reason: reason.to_string(),
+            message: message.into(),
+            details: Map::new(),
+            retryable: false,
+        }
     }
 
     pub fn with_detail(mut self, key: &str, value: impl Into<Value>) -> Self {
@@ -107,7 +113,11 @@ impl CapError {
         CapError::new(
             ErrorCode::Forbidden,
             "permission_missing",
-            format!("Psyche (Helper) does not have the {} permission. {}", p.as_str(), p.instructions()),
+            format!(
+                "Psyche (Helper) does not have the {} permission. {}",
+                p.as_str(),
+                p.instructions()
+            ),
         )
         .with_detail("permission", p.as_str())
         .with_detail("settingsUri", p.settings_uri())
@@ -118,7 +128,11 @@ impl CapError {
     }
 
     pub fn cancelled() -> Self {
-        CapError::new(ErrorCode::Cancelled, "cancelled", "The invocation was cancelled")
+        CapError::new(
+            ErrorCode::Cancelled,
+            "cancelled",
+            "The invocation was cancelled",
+        )
     }
 
     pub fn internal(message: impl Into<String>) -> Self {
@@ -129,7 +143,8 @@ impl CapError {
     pub fn wire(&self) -> Value {
         let mut details = self.details.clone();
         details.insert("reason".into(), Value::String(self.reason.clone()));
-        let mut o = json!({ "code": self.code.as_str(), "message": self.message, "details": details });
+        let mut o =
+            json!({ "code": self.code.as_str(), "message": self.message, "details": details });
         if self.retryable {
             o["retryable"] = Value::Bool(true);
         }
@@ -139,7 +154,13 @@ impl CapError {
 
 impl fmt::Display for CapError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}/{}: {}", self.code.as_str(), self.reason, self.message)
+        write!(
+            f,
+            "{}/{}: {}",
+            self.code.as_str(),
+            self.reason,
+            self.message
+        )
     }
 }
 
@@ -147,5 +168,6 @@ impl std::error::Error for CapError {}
 
 /// Windows API failure → `unavailable` with the HRESULT in details.
 pub(crate) fn win_err(reason: &str, message: &str, e: &windows_core::Error) -> CapError {
-    CapError::unavailable(reason, message).with_detail("hresult", format!("0x{:08X}", e.code().0 as u32))
+    CapError::unavailable(reason, message)
+        .with_detail("hresult", format!("0x{:08X}", e.code().0 as u32))
 }

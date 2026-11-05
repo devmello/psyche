@@ -589,15 +589,26 @@ describe("sessions that would be orphaned", () => {
   });
 
   it("closes a session with no calls for the idle timeout", async () => {
-    const c = await boot({ limits: { flushMs: 0, sweepMs: 20, idleTimeoutMs: 80 } });
+    // The idle clock is the injected one, so a loaded machine's late timers change nothing: the
+    // real 20 ms sweep only looks at it.
+    let clock = 1_000_000;
+    const c = await boot({
+      now: () => clock,
+      limits: { flushMs: 0, sweepMs: 20, idleTimeoutMs: 80 },
+    });
     const desk = await adminClient(c.gateway);
     clients.push(desk);
     const s = await open(desk);
-    await tick(60);
-    // An ack counts as activity.
-    await desk.call("terminal.session.ack", { sessionId: s.sessionId, end: 0 });
+    clock += 60;
     await tick(60);
     expect((ptys[0] as FakePty).killed).toBe(false);
+    // An ack counts as activity.
+    await desk.call("terminal.session.ack", { sessionId: s.sessionId, end: 0 });
+    clock += 60; // 120 ms since the open, 60 since the ack
+    await tick(60);
+    expect((ptys[0] as FakePty).killed).toBe(false);
+    clock += 30; // 90 ms since the ack
+
     const exit = await desk.waitForEvent((e) => e.event === "terminal.exit");
     expect(exit.payload).toMatchObject({ sessionId: s.sessionId, reason: "idle" });
     expect((ptys[0] as FakePty).killed).toBe(true);

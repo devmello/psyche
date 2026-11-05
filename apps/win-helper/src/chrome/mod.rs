@@ -6,7 +6,8 @@
 //! - All three browsers are listed; each tab adds `browser` (`chrome` | `edge` | `brave`) and
 //!   `active` (the selected tab of its window). `window` 0 is the frontmost browser window.
 //! - Only active tabs carry a `url`: UI Automation exposes no URL for background tabs, so theirs
-//!   is `""`. Titles come from the tab strip and may carry Chromium's status suffixes.
+//!   is `""`. Titles come from the tab strip, without Chromium's status suffixes (" - Audio
+//!   playing", " - Memory usage - 20.7 MB", …), as on the Mac.
 //! - No Automation permission exists on Windows: nothing to grant, nothing prompts.
 
 use std::time::Duration;
@@ -122,9 +123,9 @@ mod tests {
         }
     }
 
-    /// Live: opens Edge (a private temporary profile) with two local files and a `data:` page,
-    /// reads them back through `chrome.tabs` / `chrome.current_tab`, then closes it. Reads only:
-    /// no input is sent.
+    /// Live: opens Edge (a private temporary profile) with two local files, a `data:` page and a
+    /// page playing a -60 dBFS tone (so Edge labels its tab " - Audio playing"), reads them back
+    /// through `chrome.tabs` / `chrome.current_tab`, then closes it. Reads only: no input is sent.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     #[ignore]
     // Edge ends through the guard (WM_CLOSE, then its private profile's processes).
@@ -153,6 +154,17 @@ mod tests {
         };
         let (a, b) = (page("A"), page("B"));
         let c = "data:text/html,<title>Psyche Tab C</title>c".to_string();
+        let d = {
+            let p = dir.join("tab-D.html");
+            std::fs::write(
+                &p,
+                "<!doctype html><title>Psyche Tab D</title><script>const c = new AudioContext(); \
+                 const o = c.createOscillator(); const g = c.createGain(); g.gain.value = 0.001; \
+                 o.connect(g); g.connect(c.destination); o.start();</script>",
+            )
+            .unwrap();
+            format!("file:///{}", p.display().to_string().replace('\\', "/"))
+        };
         let profile = dir.join("profile");
         std::process::Command::new(&edge)
             .arg(format!("--user-data-dir={}", profile.display()))
@@ -161,27 +173,47 @@ mod tests {
                 "--no-default-browser-check",
                 "--disable-sync",
                 "--new-window",
+                "--autoplay-policy=no-user-gesture-required",
             ])
-            .args([&a, &b, &c])
+            .args([&a, &b, &c, &d])
             .spawn()
             .expect("msedge");
 
+        // Background tabs show their file name or "Untitled" until their page has loaded: wait
+        // (bounded) until every tab of ours carries its page's title.
+        let want = [
+            "Psyche Tab A",
+            "Psyche Tab B",
+            "Psyche Tab C",
+            "Psyche Tab D",
+        ];
+        let ours_of = |tabs: &[browser::Tab]| -> Vec<browser::Tab> {
+            let window = tabs
+                .iter()
+                .find(|t| t.title.starts_with("Psyche Tab"))
+                .map(|t| t.window);
+            tabs.iter()
+                .filter(|t| Some(t.window) == window)
+                .cloned()
+                .collect()
+        };
+        let titles =
+            |tabs: &[browser::Tab]| tabs.iter().map(|t| t.title.clone()).collect::<Vec<_>>();
         let started = Instant::now();
         let mut tabs = Vec::new();
         while started.elapsed() < Duration::from_secs(30) {
-            tabs = tokio::task::spawn_blocking(browser::tabs).await.unwrap();
-            let ours = tabs
-                .iter()
-                .filter(|t| t.title.contains("Psyche Tab"))
-                .count();
-            if ours == 3 && tabs.iter().any(|t| t.active && !t.url.is_empty()) {
+            tabs = ours_of(&tokio::task::spawn_blocking(browser::tabs).await.unwrap());
+            if titles(&tabs) == want && tabs.iter().any(|t| t.active && !t.url.is_empty()) {
                 break;
             }
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
         let found_after = started.elapsed();
+        // By now Edge labels the tone's tab " - Audio playing" (and may add " - Memory usage -
+        // …" to the active one); the titles must not change.
+        tokio::time::sleep(Duration::from_secs(3)).await;
         let read = Instant::now();
-        let again = tokio::task::spawn_blocking(browser::tabs).await.unwrap();
+        let again = ours_of(&tokio::task::spawn_blocking(browser::tabs).await.unwrap());
         println!(
             "tabs after {found_after:?}; one more read took {:?}",
             read.elapsed()
@@ -189,22 +221,17 @@ mod tests {
         for t in &again {
             println!("{}", t.json());
         }
-        let ours: Vec<_> = tabs
-            .iter()
-            .filter(|t| t.title.contains("Psyche Tab"))
-            .collect();
-        assert_eq!(ours.len(), 3, "{tabs:?}");
-        assert!(
-            ours.iter()
-                .all(|t| t.browser == "edge" && t.window == ours[0].window)
+        assert_eq!(titles(&tabs), want, "{tabs:?}");
+        assert_eq!(titles(&again), want, "{again:?}");
+        let ours: Vec<_> = tabs.iter().collect();
+        assert!(ours.iter().all(|t| t.browser == "edge"));
+        assert_eq!(
+            ours.iter().map(|t| t.index).collect::<Vec<_>>(),
+            [0, 1, 2, 3]
         );
-        assert_eq!(ours.iter().map(|t| t.index).collect::<Vec<_>>(), [0, 1, 2]);
-        for (t, n) in ours.iter().zip(["A", "B", "C"]) {
-            assert!(t.title.contains(&format!("Psyche Tab {n}")), "{t:?}");
-        }
         let active: Vec<_> = ours.iter().filter(|t| t.active).collect();
         assert_eq!(active.len(), 1);
-        let expected = [&a, &b, &c][active[0].index];
+        let expected = [&a, &b, &c, &d][active[0].index];
         assert_eq!(&active[0].url, expected);
         assert!(ours.iter().filter(|t| !t.active).all(|t| t.url.is_empty()));
         assert_eq!(active[0].current, active[0].window == 0);

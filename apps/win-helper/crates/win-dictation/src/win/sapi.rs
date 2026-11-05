@@ -14,15 +14,20 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use windows::Win32::Foundation::{E_NOTIMPL, LPARAM, S_FALSE, S_OK};
 use windows::Win32::Media::Audio::WAVEFORMATEX;
 use windows::Win32::Media::Speech::{
-    ISpObjectToken, ISpRecoContext, ISpRecoGrammar, ISpRecoResult, ISpRecognizer, ISpStream, SPEI_END_SR_STREAM, SPEI_FALSE_RECOGNITION,
-    SPEI_HYPOTHESIS, SPEI_RECOGNITION, SPEI_RESERVED1, SPEI_RESERVED2, SPET_LPARAM_IS_OBJECT, SPET_LPARAM_IS_POINTER, SPET_LPARAM_IS_STRING,
-    SPET_LPARAM_IS_TOKEN, SPEVENT, SPLO_STATIC, SPRECORESULTTIMES, SPRS_ACTIVE, SPRST_ACTIVE, SpInprocRecognizer, SpObjectToken, SpStream,
+    ISpObjectToken, ISpRecoContext, ISpRecoGrammar, ISpRecoResult, ISpRecognizer, ISpStream,
+    SPEI_END_SR_STREAM, SPEI_FALSE_RECOGNITION, SPEI_HYPOTHESIS, SPEI_RECOGNITION, SPEI_RESERVED1,
+    SPEI_RESERVED2, SPET_LPARAM_IS_OBJECT, SPET_LPARAM_IS_POINTER, SPET_LPARAM_IS_STRING,
+    SPET_LPARAM_IS_TOKEN, SPEVENT, SPLO_STATIC, SPRECORESULTTIMES, SPRS_ACTIVE, SPRST_ACTIVE,
+    SpInprocRecognizer, SpObjectToken, SpStream,
 };
 use windows::Win32::System::Com::{
-    CLSCTX_ALL, CoCreateInstance, CoTaskMemFree, ISequentialStream_Impl, IStream, IStream_Impl, LOCKTYPE, STATFLAG, STATSTG, STGC,
-    STREAM_SEEK, STREAM_SEEK_CUR, STREAM_SEEK_END, STREAM_SEEK_SET,
+    CLSCTX_ALL, CoCreateInstance, CoTaskMemFree, ISequentialStream_Impl, IStream, IStream_Impl,
+    LOCKTYPE, STATFLAG, STATSTG, STGC, STREAM_SEEK, STREAM_SEEK_CUR, STREAM_SEEK_END,
+    STREAM_SEEK_SET,
 };
-use windows::Win32::System::Registry::{HKEY, HKEY_LOCAL_MACHINE, KEY_READ, RRF_RT_REG_SZ, RegEnumKeyExW, RegGetValueW, RegOpenKeyExW};
+use windows::Win32::System::Registry::{
+    HKEY, HKEY_LOCAL_MACHINE, KEY_READ, RRF_RT_REG_SZ, RegEnumKeyExW, RegGetValueW, RegOpenKeyExW,
+};
 use windows::core::{GUID, HRESULT, IUnknown, Interface, PCWSTR, PWSTR, implement};
 
 /// `SPDFID_WaveFormatEx`.
@@ -134,7 +139,12 @@ impl ISequentialStream_Impl for FeedStream_Impl {
 }
 
 impl IStream_Impl for FeedStream_Impl {
-    fn Seek(&self, dlibmove: i64, dworigin: STREAM_SEEK, plibnewposition: *mut u64) -> windows::core::Result<()> {
+    fn Seek(
+        &self,
+        dlibmove: i64,
+        dworigin: STREAM_SEEK,
+        plibnewposition: *mut u64,
+    ) -> windows::core::Result<()> {
         // Forward-only: SAPI asks for the current position (a zero move) and nothing else.
         let pos = self.feed.position();
         let ok = match dworigin {
@@ -155,7 +165,13 @@ impl IStream_Impl for FeedStream_Impl {
     fn SetSize(&self, _: u64) -> windows::core::Result<()> {
         Err(E_NOTIMPL.into())
     }
-    fn CopyTo(&self, _: windows::core::Ref<IStream>, _: u64, _: *mut u64, _: *mut u64) -> windows::core::Result<()> {
+    fn CopyTo(
+        &self,
+        _: windows::core::Ref<IStream>,
+        _: u64,
+        _: *mut u64,
+        _: *mut u64,
+    ) -> windows::core::Result<()> {
         Err(E_NOTIMPL.into())
     }
     fn Commit(&self, _: &STGC) -> windows::core::Result<()> {
@@ -174,7 +190,11 @@ impl IStream_Impl for FeedStream_Impl {
         if !pstatstg.is_null() {
             // SAFETY: the caller's STATSTG; an unknown-length stream reports its size so far.
             unsafe {
-                *pstatstg = STATSTG { r#type: 2, cbSize: self.feed.position(), ..Default::default() };
+                *pstatstg = STATSTG {
+                    r#type: 2,
+                    cbSize: self.feed.position(),
+                    ..Default::default()
+                };
             }
         }
         Ok(())
@@ -198,11 +218,23 @@ fn reg_string(key: HKEY, sub: &str, value: &str) -> Option<String> {
     let mut buf = vec![0u16; 1024];
     let mut len = (buf.len() * 2) as u32;
     // SAFETY: buf holds len bytes.
-    let r = unsafe { RegGetValueW(key, PCWSTR(sub.as_ptr()), PCWSTR(value.as_ptr()), RRF_RT_REG_SZ, None, Some(buf.as_mut_ptr() as *mut c_void), Some(&mut len)) };
+    let r = unsafe {
+        RegGetValueW(
+            key,
+            PCWSTR(sub.as_ptr()),
+            PCWSTR(value.as_ptr()),
+            RRF_RT_REG_SZ,
+            None,
+            Some(buf.as_mut_ptr() as *mut c_void),
+            Some(&mut len),
+        )
+    };
     if r.is_err() {
         return None;
     }
-    Some(String::from_utf16_lossy(&buf[..(len as usize / 2).saturating_sub(1)]))
+    Some(String::from_utf16_lossy(
+        &buf[..(len as usize / 2).saturating_sub(1)],
+    ))
 }
 
 /// `409;9` → `en-US`.
@@ -213,7 +245,8 @@ fn lcid_tags(langs: &str) -> Vec<String> {
         .filter_map(|lcid| {
             let mut buf = [0u16; 85];
             // SAFETY: buffer of LOCALE_NAME_MAX_LENGTH units.
-            let n = unsafe { windows::Win32::Globalization::LCIDToLocaleName(lcid, Some(&mut buf), 0) };
+            let n =
+                unsafe { windows::Win32::Globalization::LCIDToLocaleName(lcid, Some(&mut buf), 0) };
             (n > 1).then(|| String::from_utf16_lossy(&buf[..n as usize - 1]))
         })
         .filter(|t| t.contains('-'))
@@ -227,21 +260,47 @@ pub(crate) fn recognizers() -> Vec<Recognizer> {
     let mut key = HKEY::default();
     // SAFETY: read-only registry enumeration.
     unsafe {
-        if RegOpenKeyExW(HKEY_LOCAL_MACHINE, PCWSTR(sub.as_ptr()), None, KEY_READ, &mut key).is_err() {
+        if RegOpenKeyExW(
+            HKEY_LOCAL_MACHINE,
+            PCWSTR(sub.as_ptr()),
+            None,
+            KEY_READ,
+            &mut key,
+        )
+        .is_err()
+        {
             return out;
         }
         for i in 0.. {
             let mut name = [0u16; 256];
             let mut len = name.len() as u32;
-            if RegEnumKeyExW(key, i, Some(PWSTR(name.as_mut_ptr())), &mut len, None, None, None, None).is_err() {
+            if RegEnumKeyExW(
+                key,
+                i,
+                Some(PWSTR(name.as_mut_ptr())),
+                &mut len,
+                None,
+                None,
+                None,
+                None,
+            )
+            .is_err()
+            {
                 break;
             }
             let id = String::from_utf16_lossy(&name[..len as usize]);
             let attrs = format!(r"{TOKENS_KEY}\{id}\Attributes");
-            let languages = reg_string(HKEY_LOCAL_MACHINE, &attrs, "Language").map(|l| lcid_tags(&l)).unwrap_or_default();
-            let display = reg_string(HKEY_LOCAL_MACHINE, &format!(r"{TOKENS_KEY}\{id}"), "").unwrap_or_else(|| id.clone());
+            let languages = reg_string(HKEY_LOCAL_MACHINE, &attrs, "Language")
+                .map(|l| lcid_tags(&l))
+                .unwrap_or_default();
+            let display = reg_string(HKEY_LOCAL_MACHINE, &format!(r"{TOKENS_KEY}\{id}"), "")
+                .unwrap_or_else(|| id.clone());
             if !languages.is_empty() {
-                out.push(Recognizer { token_id: id, name: display, languages });
+                out.push(Recognizer {
+                    token_id: id,
+                    name: display,
+                    languages,
+                });
             }
         }
         let _ = windows::Win32::System::Registry::RegCloseKey(key);
@@ -251,7 +310,9 @@ pub(crate) fn recognizers() -> Vec<Recognizer> {
 
 /// The recognizer serving `language` (a tag from [`recognizers`]).
 pub(crate) fn recognizer_for(language: &str) -> Option<Recognizer> {
-    recognizers().into_iter().find(|r| r.languages.iter().any(|l| l.eq_ignore_ascii_case(language)))
+    recognizers()
+        .into_iter()
+        .find(|r| r.languages.iter().any(|l| l.eq_ignore_ascii_case(language)))
 }
 
 fn spfei(id: i32) -> u64 {
@@ -279,7 +340,9 @@ fn result_segment(result: &ISpRecoResult, r#final: bool) -> Option<Segment> {
     // SAFETY: COM calls on a live result; returned memory is freed with CoTaskMemFree.
     unsafe {
         let mut text = PWSTR::null();
-        result.GetText(SP_GETWHOLEPHRASE, SP_GETWHOLEPHRASE, true, &mut text, None).ok()?;
+        result
+            .GetText(SP_GETWHOLEPHRASE, SP_GETWHOLEPHRASE, true, &mut text, None)
+            .ok()?;
         let s = text.to_string().unwrap_or_default();
         CoTaskMemFree(Some(text.0 as *const c_void));
         let mut times = SPRECORESULTTIMES::default();
@@ -290,7 +353,11 @@ fn result_segment(result: &ISpRecoResult, r#final: bool) -> Option<Segment> {
                 let n = phrase.Base.Rule.ulCountOfElements as usize;
                 let c = if n > 0 && !phrase.Base.pElements.is_null() {
                     let els = std::slice::from_raw_parts(phrase.Base.pElements, n);
-                    let xs: Vec<f64> = els.iter().map(|e| e.SREngineConfidence as f64).filter(|c| (0.0..=1.0).contains(c)).collect();
+                    let xs: Vec<f64> = els
+                        .iter()
+                        .map(|e| e.SREngineConfidence as f64)
+                        .filter(|c| (0.0..=1.0).contains(c))
+                        .collect();
                     (!xs.is_empty()).then(|| xs.iter().sum::<f64>() / xs.len() as f64)
                 } else {
                     None
@@ -301,7 +368,13 @@ fn result_segment(result: &ISpRecoResult, r#final: bool) -> Option<Segment> {
         } else {
             None
         };
-        Some(Segment::from_hns(s, times.ullStart, times.ullLength, r#final, confidence))
+        Some(Segment::from_hns(
+            s,
+            times.ullStart,
+            times.ullLength,
+            r#final,
+            confidence,
+        ))
     }
 }
 
@@ -336,7 +409,11 @@ fn open(token_id: &str, feed: &Arc<Feed>) -> windows::core::Result<Session> {
         token.SetId(PCWSTR::null(), PCWSTR(id.as_ptr()), false)?;
         reco.SetRecognizer(&token)?;
         // Other people's audio must never train the owner's speech profile.
-        for p in ["AdaptationOn", "PersistedBackgroundAdaptation", "PersistedLanguageModelAdaptation"] {
+        for p in [
+            "AdaptationOn",
+            "PersistedBackgroundAdaptation",
+            "PersistedLanguageModelAdaptation",
+        ] {
             let name = wide(p);
             let _ = reco.SetPropertyNum(PCWSTR(name.as_ptr()), 0);
         }
@@ -347,13 +424,20 @@ fn open(token_id: &str, feed: &Arc<Feed>) -> windows::core::Result<Session> {
         reco.SetInput(&sp, false)?;
         let ctx = reco.CreateRecoContext()?;
         ctx.SetNotifyWin32Event()?;
-        let interest = spfei(SPEI_RECOGNITION.0) | spfei(SPEI_HYPOTHESIS.0) | spfei(SPEI_END_SR_STREAM.0) | spfei(SPEI_FALSE_RECOGNITION.0);
+        let interest = spfei(SPEI_RECOGNITION.0)
+            | spfei(SPEI_HYPOTHESIS.0)
+            | spfei(SPEI_END_SR_STREAM.0)
+            | spfei(SPEI_FALSE_RECOGNITION.0);
         ctx.SetInterest(interest, interest)?;
         let grammar = ctx.CreateGrammar(0)?;
         grammar.LoadDictation(PCWSTR::null(), SPLO_STATIC)?;
         grammar.SetDictationState(SPRS_ACTIVE)?;
         reco.SetRecoState(SPRST_ACTIVE)?;
-        Ok(Session { _reco: reco, ctx, _grammar: grammar })
+        Ok(Session {
+            _reco: reco,
+            ctx,
+            _grammar: grammar,
+        })
     }
 }
 
@@ -376,14 +460,20 @@ pub(crate) fn recognize(
         unsafe {
             let _ = session.ctx.WaitForNotifyEvent(200);
             loop {
-                let mut ev = SPEVENT { lParam: LPARAM(0), ..Default::default() };
+                let mut ev = SPEVENT {
+                    lParam: LPARAM(0),
+                    ..Default::default()
+                };
                 let mut fetched = 0u32;
                 if session.ctx.GetEvents(1, &mut ev, &mut fetched).is_err() || fetched == 0 {
                     break;
                 }
                 let id = ev._bitfield & 0xFFFF;
                 let kind = (ev._bitfield >> 16) & 0xFFFF;
-                if (id == SPEI_RECOGNITION.0 || (volatile && id == SPEI_HYPOTHESIS.0)) && kind == SPET_LPARAM_IS_OBJECT.0 && ev.lParam.0 != 0 {
+                if (id == SPEI_RECOGNITION.0 || (volatile && id == SPEI_HYPOTHESIS.0))
+                    && kind == SPET_LPARAM_IS_OBJECT.0
+                    && ev.lParam.0 != 0
+                {
                     let raw = ev.lParam.0 as *mut c_void;
                     let unk = IUnknown::from_raw_borrowed(&raw);
                     if let Some(r) = unk.and_then(|u| u.cast::<ISpRecoResult>().ok())
