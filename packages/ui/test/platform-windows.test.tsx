@@ -194,8 +194,7 @@ const ABOUT_MACOS = new Set<string>([
  * Mac wording whose Windows copy belongs to work in progress elsewhere; add an id here only
  * until its variant lands.
  */
-// Windows variants arrive with the teach-in-an-app port (merged right after this).
-const PENDING_ELSEWHERE = new Set<string>(["web.teach.app.recordHint", "web.teach.app.bar.body"]);
+const PENDING_ELSEWHERE = new Set<string>([]);
 
 const MAC_ONLY_TERMS =
   /\bMac(?:s|'s)?\b|macOS|Touch ID|[Kk]eychain|Finder|Safari|⌘|⌥|\bOption\b|\bDock\b|menu bar|System Settings|\bApple\b/;
