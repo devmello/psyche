@@ -88,7 +88,7 @@ describe("Windows power and idle state", () => {
     );
     expect(desktop).toMatchObject({ onAc: true, idleMinutes: 999, thermal: "serious" });
     // A thermal read that fails is nominal, never a reason to wait forever.
-    const failed = await readSystemState(
+    const noThermal = await readSystemState(
       "win32",
       exec,
       () => 9,
@@ -97,7 +97,7 @@ describe("Windows power and idle state", () => {
         throw new Error("no powershell");
       },
     );
-    expect(failed.thermal).toBe("nominal");
+    expect(noThermal.thermal).toBe("nominal");
     const failed = await readSystemState(
       "win32",
       exec,
