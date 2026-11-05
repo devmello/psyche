@@ -33,6 +33,7 @@ import {
 } from "@psyche/proactive";
 import {
   APPLE_LLM_CONTEXT_TOKENS,
+  type Block,
   type Clock,
   EVERYTHING_MEMORY_DEFAULTS,
   EVERYTHING_MEMORY_SETTING_KEY,
@@ -49,12 +50,18 @@ import {
   type ModelRef,
   PsycheError,
 } from "@psyche/protocol";
-import { OWNER_ONLY_SOURCES, readSourcesConfig, SOURCE_IDS, sourceTag } from "@psyche/search";
+import { readSourcesConfig, SOURCE_IDS, sourceTag } from "@psyche/search";
 import { Value } from "@sinclair/typebox/value";
 import type { Call } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import { readSystemState } from "./everything-probe.ts";
 import { mountParamsOnly } from "./handlers.ts";
+import {
+  AnswerRecords,
+  forViewer,
+  type LifeAnswerChat,
+  lifeAnswerChat,
+} from "./life-answer-chat.ts";
 import {
   type AnswerViewer,
   lifePassages,
@@ -270,6 +277,8 @@ export interface EverythingHandlers {
     p: ReviewParams<"memory.life.answer">,
     /** Who asks; absent is the most restricted viewer (no passages, nothing owner-only). */
     viewer?: AnswerViewer,
+    /** The asking device: only it can open the answer as a chat. */
+    deviceId?: string,
   ): Promise<ReviewResult<"memory.life.answer">>;
   "memory.entities.export"(
     p: ReviewParams<"memory.entities.export">,
@@ -305,33 +314,13 @@ export interface PersonContext {
   answerIsCloud?: () => boolean;
   /** Sources (`mail`, `messages`, …) whose text may not reach a cloud model (processing none or local). */
   cloudBlockedSources?: () => readonly string[];
+  /** The answers made lately, so "Open as a chat" can name one (`compose/life-answer-chat.ts`). */
+  answers?: AnswerRecords;
 }
 
 const PAGE = 50;
 
 const RESTRICTED_VIEWER: AnswerViewer = { passages: false, desktop: false };
-
-const ownerOnly = (x: string | null | undefined): boolean =>
-  x != null && (OWNER_ONLY_SOURCES as readonly string[]).includes(x.split(":")[0] ?? "");
-
-/**
- * A fact as this connection may be shown it. A connection other than the desktop app cannot open
- * Messages, Contacts or Memory passages (`search.document`). The rule: a fact is shown only if
- * every citation it rests on can be opened by the connection; if any one cannot, the fact is left
- * out whole (not trimmed), so a claim never rests on a source the connection cannot see.
- */
-function forViewer<
-  T extends {
-    source?: string | null;
-    docId?: string | null;
-    sources?: string[];
-    docIds?: string[];
-  },
->(h: T, viewer: AnswerViewer): T | undefined {
-  if (viewer.desktop) return h;
-  const cited = [h.source, h.docId, ...(h.sources ?? []), ...(h.docIds ?? [])];
-  return cited.some(ownerOnly) ? undefined : h;
-}
 
 /** Who a call is: a paired client may read passages; only the desktop app reads the owner-only ones. */
 const viewerOf = (call: Call): AnswerViewer => ({
@@ -485,7 +474,7 @@ export function everythingHandlers(
       );
       return { ...found, facts };
     },
-    async "memory.life.answer"(p, viewer = RESTRICTED_VIEWER) {
+    async "memory.life.answer"(p, viewer = RESTRICTED_VIEWER, deviceId) {
       const ctx = needPerson();
       const now = ctx.clock.now();
       const model = ctx.answerModel?.();
@@ -565,9 +554,21 @@ export function everythingHandlers(
         exclude: new Set(candidates.filter((c) => c.sensitive).map((c) => c.hit.factId)),
       });
       return r.answer === null
-        ? { answer: null, facts: [], passages: [], reason: r.reason }
+        ? { answer: null, facts: [], passages: [], answerId: null, reason: r.reason }
         : {
             answer: r.answer,
+            // Kept here for "Open as a chat": the text, the ids it cites and the kind of model.
+            answerId:
+              ctx.answers?.save({
+                deviceId,
+                q: p.q,
+                answer: r.answer,
+                factIds: r.facts.map((f) => f.factId),
+                passageIds: r.passages.map((x) => x.id),
+                cloud,
+                // What the model was offered, not only what it cited.
+                untrustedInput: passages.length > 0 || hits.some((h) => h.provenance !== "owner"),
+              }) ?? null,
             facts: r.facts,
             passages: r.passages.map((x) => ({
               id: x.id,
@@ -716,6 +717,18 @@ export interface Everything {
   readonly store: EverythingStore;
   readonly settings: () => EverythingMemorySettings;
   readonly handlers: EverythingHandlers;
+  /** "Open as a chat" for a Search answer: the chat context it gives, and the per-reader pass over its block. */
+  readonly lifeChat: LifeAnswerChat;
+  /**
+   * Binds how a thread's model is judged (cloud or not) and whether a thread is still empty; until
+   * then every thread counts as cloud and none as new.
+   */
+  useThreadModel(
+    isCloud: (threadId: string) => boolean,
+    isNew: (threadId: string) => boolean,
+  ): void;
+  /** Cuts the words of forgotten or unreadable sources out of the answers stored in transcripts. */
+  healTranscripts(): void;
   /** The model the owner chose, or none (off, or a local one not confirmed yet). */
   readonly answerModel: () => { provider: ModelProvider; model: ModelRef } | undefined;
   /** The nightly step, for the dreaming automation (after the lesson pass, before the graph pass). */
@@ -771,7 +784,71 @@ export function composeEverything(deps: EverythingDeps): Everything {
       ? deps.isCloudRef(m.model)
       : settings().model.default.kind !== "local";
   };
+  const answers = new AnswerRecords(() => clock.now());
+  const cloudBlockedSources = (): string[] => {
+    const tags = deps.passageIndex?.()?.cloudBlocked() ?? [];
+    return SOURCE_IDS.filter((id) => tags.includes(sourceTag(id)));
+  };
+  const passageSource = (): PassageSource | undefined => {
+    const idx = deps.passageIndex?.();
+    return idx === undefined
+      ? undefined
+      : lifePassages({
+          ...idx,
+          cloud: answerIsCloud,
+          sensitive: () => settings().sensitive,
+          // Memory's own per-source opt-out also keeps a source's passages out of answers.
+          optedOut: (source) =>
+            (settings().optOut as Record<string, boolean | undefined>)[source] === true,
+        });
+  };
+  let threadIsCloud: (threadId: string) => boolean = () => true;
+  // Fails closed: no thread counts as new until the composition root says so.
+  let threadIsNew: (threadId: string) => boolean = () => false;
+  const lifeChat = lifeAnswerChat({
+    records: answers,
+    // Fails closed: a thread's model is cloud until the composition root says it is not.
+    threadIsCloud: (threadId) => threadIsCloud(threadId),
+    threadIsNew: (threadId) => threadIsNew(threadId),
+    blockOf: (threadId) => {
+      const row = db.sqlite
+        .prepare(
+          "SELECT blocks FROM messages WHERE thread_id = ? AND blocks LIKE '%\"life_answer\"%' ORDER BY seq LIMIT 1",
+        )
+        .get(threadId) as { blocks: string } | undefined;
+      if (row === undefined) return undefined;
+      return (JSON.parse(row.blocks) as Block[]).find(
+        (b): b is Extract<Block, { type: "life_answer" }> => b.type === "life_answer",
+      );
+    },
+    read: {
+      // By id, so a fact older than the newest 2000 still resolves.
+      facts: (ids) =>
+        new Map(
+          lifeCandidates(graph, store, memorySql, clock.now(), 2000, ids)
+            .filter((c) => !c.sensitive)
+            .map((c) => [c.hit.factId, c.hit]),
+        ),
+      // What the agent may read of everything memory: the setting, and Search's per-source flag.
+      agent: () => {
+        const s = settings();
+        const cfg = readSourcesConfig(getSetting(db, "search.sources")?.value);
+        return {
+          mode: s.enabled ? s.agentAccess : "none",
+          seesSensitive: s.agentSeesSensitive,
+          sourceAllowed: (src) =>
+            src !== "contacts" && src in cfg.sources
+              ? cfg.sources[src as keyof typeof cfg.sources].agent
+              : true,
+        };
+      },
+      passages: passageSource,
+      cloudBlocked: cloudBlockedSources,
+      sensitive: () => settings().sensitive,
+    },
+  });
   const handlers = everythingHandlers(store, settings, () => runNowFn(), {
+    answers,
     graph,
     clock,
     db: memorySql,
@@ -784,23 +861,8 @@ export function composeEverything(deps: EverythingDeps): Everything {
     // Whether the model actually called is a cloud model: the router's answer, and an unknown ref
     // counts as cloud. Without a router (tests) the setting's label stands.
     answerIsCloud,
-    cloudBlockedSources: () => {
-      const tags = deps.passageIndex?.()?.cloudBlocked() ?? [];
-      return SOURCE_IDS.filter((id) => tags.includes(sourceTag(id)));
-    },
-    passages: () => {
-      const idx = deps.passageIndex?.();
-      return idx === undefined
-        ? undefined
-        : lifePassages({
-            ...idx,
-            cloud: answerIsCloud,
-            sensitive: () => settings().sensitive,
-            // Memory's own per-source opt-out also keeps a source's passages out of answers.
-            optedOut: (source) =>
-              (settings().optOut as Record<string, boolean | undefined>)[source] === true,
-          });
-    },
+    cloudBlockedSources,
+    passages: passageSource,
   });
   let search: PsycheDb | undefined;
   // A second, read-only connection to the derived index, opened on the first read (so a pass the
@@ -991,6 +1053,22 @@ export function composeEverything(deps: EverythingDeps): Everything {
     store,
     settings,
     handlers,
+    lifeChat,
+    useThreadModel(isCloud, isNew) {
+      threadIsCloud = isCloud;
+      threadIsNew = isNew;
+    },
+    healTranscripts() {
+      // Messages that hold an answer: cut what no one may read now (a forgotten fact's words).
+      const rows = db.sqlite
+        .prepare("SELECT id, blocks FROM messages WHERE blocks LIKE '%\"life_answer\"%'")
+        .all() as { id: string; blocks: string }[];
+      const put = db.sqlite.prepare("UPDATE messages SET blocks = ? WHERE id = ?");
+      for (const row of rows) {
+        const healed = lifeChat.heal(JSON.parse(row.blocks) as Block[]);
+        if (healed.changed) put.run(JSON.stringify(healed.blocks), row.id);
+      }
+    },
     answerModel,
     nightly,
     job,
@@ -1027,7 +1105,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
           // who can open a passage (a Mac helper).
           "memory.life.answer": {
             run: (call: Call, params: never) =>
-              handlers["memory.life.answer"](params, viewerOf(call)),
+              handlers["memory.life.answer"](params, viewerOf(call), call.identity.deviceId),
           },
           // Life search lists facts too: the same rule for what a connection may be shown.
           "memory.life.search": {

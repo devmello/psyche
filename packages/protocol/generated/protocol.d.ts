@@ -2785,25 +2785,103 @@ export interface Block {
     ask?:            string;
     recap?:          string;
     cited?:          string[];
-    compactionId?:   string;
-    replaced?:       Replaced;
-    summary?:        CompactionSummary;
-    tokensAfter?:    number;
-    tokensBefore?:   number;
-    trigger?:        BlockTrigger;
-    feedbackId?:     string;
-    lessonId?:       null | string;
-    messageId?:      string;
-    statement?:      null | string;
-    proposal?:       DailyWorkflowProposal;
-    route?:          string;
-    widgetId?:       string;
+    answer?:         string;
+    factIds?:        string[];
+    facts?:          LifeFactHit[];
+    /**
+     * The kind of model that made the answer
+     */
+    model?:      ModelEnum;
+    passageIds?: string[];
+    passages?:   LifeAnswerPassage[];
+    /**
+     * The owner's own question
+     */
+    question?:     string;
+    compactionId?: string;
+    replaced?:     Replaced;
+    summary?:      CompactionSummary;
+    tokensAfter?:  number;
+    tokensBefore?: number;
+    trigger?:      BlockTrigger;
+    feedbackId?:   string;
+    lessonId?:     null | string;
+    messageId?:    string;
+    statement?:    null | string;
+    proposal?:     DailyWorkflowProposal;
+    route?:        string;
+    widgetId?:     string;
 }
 
 export interface WrapUpAction {
     label:    string;
     message?: string;
 }
+
+export interface LifeFactHit {
+    attribute: GraphFactAttribute;
+    docId?:    null | string;
+    /**
+     * Search document ids of every citation's source passage that is indexed, in citation
+     * order, resolved at read time (never stored on the fact); the first is `docId`
+     */
+    docIds?:     string[];
+    entity:      EntitySummary;
+    factId:      string;
+    learnedAt?:  null | string;
+    observedAt?: null | string;
+    provenance:  Provenance;
+    quote?:      null | string;
+    review:      GraphReviewState;
+    source?:     null | string;
+    /**
+     * Every citation's source (`mail`, `messages`, …), without repeats; `source` is the first.
+     * A connection that cannot open one of them is not shown the fact
+     */
+    sources?: string[];
+    /**
+     * Untrusted text when it came from someone else
+     */
+    value: string;
+}
+
+export type GraphFactAttribute = "role" | "title" | "employer" | "team" | "email_pref" | "timezone" | "city" | "birthday" | "relationship_to_owner" | "preference" | "note" | "status" | "next_step" | "budget_note" | "deadline" | "anniversary" | "hometown" | "school" | "pronouns" | "partner_name" | "children_names" | "pet_names" | "likes" | "dislikes" | "diet" | "gift_idea" | "languages" | "contact_pref" | "life_event" | "progress" | "stopped_at" | "blocked_on" | "course_code" | "term" | "meets";
+
+export interface EntitySummary {
+    dueAt?:             null | string;
+    id:                 string;
+    isOwner:            boolean;
+    kind:               SearchEntityType;
+    lastInteractionAt?: null | string;
+    name:               string;
+    openLoops:          number;
+    pinned:             boolean;
+    private?:           boolean;
+    projectStatus?:     GraphProjectStatus;
+    projectType?:       GraphProjectType;
+    status:             GraphEntityStatus;
+    subtitle?:          null | string;
+    summary?:           null | string;
+    workStatus?:        GraphWorkStatus | null;
+}
+
+/**
+ * person, organisation, project (or course), place, event (dated, may recur), topic (a
+ * lightweight label) or assignment (one deliverable with a due date)
+ */
+export type SearchEntityType = "person" | "org" | "project" | "place" | "event" | "topic" | "assignment";
+
+export type GraphProjectStatus = "active" | "paused" | "done";
+
+export type GraphProjectType = "project" | "course";
+
+export type GraphEntityStatus = "active" | "archived" | "merged";
+
+export type GraphWorkStatus = "not_started" | "in_progress" | "submitted" | "done" | "dropped";
+
+export type Provenance = "owner" | "agent" | "untrusted" | "system";
+
+export type GraphReviewState = "pending" | "accepted" | "auto_accepted" | "edited" | "discarded" | "quarantined";
 
 export interface ItemElement {
     status?:        ChecklistItemStatus;
@@ -2829,11 +2907,33 @@ export interface ItemElement {
 
 export type WorkNoteAttribute = "status" | "deadline" | "progress" | "stopped_at" | "next_step";
 
-export type Provenance = "owner" | "agent" | "untrusted" | "system";
-
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
-export type BlockKind = "feed_item" | "search_hit" | "memory_entity";
+export type BlockKind = "feed_item" | "search_hit" | "memory_entity" | "life_answer";
+
+/**
+ * The kind of model that made the answer
+ */
+export type ModelEnum = "cloud" | "local";
+
+export interface LifeAnswerPassage {
+    /**
+     * Epoch ms of the passage
+     */
+    createdAt: number;
+    /**
+     * Search document id; opens the source viewer (`search.document`)
+     */
+    id: string;
+    /**
+     * `mail`, `messages`, `notes`, …
+     */
+    source: string;
+    /**
+     * Untrusted text: written by someone else
+     */
+    title: string;
+}
 
 export interface Replaced {
     fromMessageId?: null | string;
@@ -2852,7 +2952,7 @@ export interface CompactionSummary {
 
 export type BlockTrigger = "auto" | "manual";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "sources" | "compaction" | "learned" | "taught" | "work_note" | "specialist_result" | "automation_workflow" | "app_link" | "ui";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "sources" | "life_answer" | "compaction" | "learned" | "taught" | "work_note" | "specialist_result" | "automation_workflow" | "app_link" | "ui";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -4582,7 +4682,7 @@ export interface MeetingNotes {
     durationMs:        number;
     id:                string;
     meetingId?:        null | string;
-    model:             Model;
+    model:             ModelClass;
     openQuestions:     string[];
     provenance:        Provenance;
     recordingItemId?:  null | string;
@@ -4611,7 +4711,7 @@ export interface DecisionElement {
     text:   string;
 }
 
-export interface Model {
+export interface ModelClass {
     remote: boolean;
     role:   ModelRole;
 }
@@ -5194,8 +5294,6 @@ export interface GoalsUpdateParams {
     title?:    string;
 }
 
-export type GraphProjectStatus = "active" | "paused" | "done";
-
 export interface GoalsUpdateResult {
     goal:       Goal;
     links:      GoalLink[];
@@ -5264,8 +5362,6 @@ export type GraphRelationshipLabel = "partner" | "parent" | "child" | "sibling" 
 
 export type GraphEdgeRel = "works_at" | "member_of" | "stakeholder_of" | "located_at" | "reports_to" | "related_to" | "part_of" | "family" | "friend" | "neighbour" | "classmate" | "roommate" | "colleague" | "manager" | "client" | "vendor" | "mentor" | "studied_at" | "lives_in" | "attended" | "about" | "assigned_by" | "teaches";
 
-export type GraphReviewState = "pending" | "accepted" | "auto_accepted" | "edited" | "discarded" | "quarantined";
-
 export type GraphFamilyRole = "parent" | "child" | "sibling" | "partner" | "spouse" | "grandparent" | "grandchild" | "cousin" | "in_law" | "other";
 
 export interface GraphEntity {
@@ -5307,18 +5403,6 @@ export interface GraphEntity {
     workStatus?:     GraphWorkStatus | null;
 }
 
-/**
- * person, organisation, project (or course), place, event (dated, may recur), topic (a
- * lightweight label) or assignment (one deliverable with a due date)
- */
-export type SearchEntityType = "person" | "org" | "project" | "place" | "event" | "topic" | "assignment";
-
-export type GraphProjectType = "project" | "course";
-
-export type GraphEntityStatus = "active" | "archived" | "merged";
-
-export type GraphWorkStatus = "not_started" | "in_progress" | "submitted" | "done" | "dropped";
-
 export interface GraphFact {
     attribute:  GraphFactAttribute;
     confidence: number;
@@ -5347,8 +5431,6 @@ export interface GraphFact {
     validTo?:      null | string;
     value:         string;
 }
-
-export type GraphFactAttribute = "role" | "title" | "employer" | "team" | "email_pref" | "timezone" | "city" | "birthday" | "relationship_to_owner" | "preference" | "note" | "status" | "next_step" | "budget_note" | "deadline" | "anniversary" | "hometown" | "school" | "pronouns" | "partner_name" | "children_names" | "pet_names" | "likes" | "dislikes" | "diet" | "gift_idea" | "languages" | "contact_pref" | "life_event" | "progress" | "stopped_at" | "blocked_on" | "course_code" | "term" | "meets";
 
 export type GraphSensitivity = "none" | "health" | "finance" | "sexuality" | "religion" | "politics" | "ethnicity" | "legal" | "precise_location" | "gov_id" | "account_numbers";
 
@@ -5415,24 +5497,6 @@ export interface Participant {
 }
 
 export type GraphParticipantRole = "from" | "to" | "cc" | "attendee" | "organizer" | "mentioned";
-
-export interface EntitySummary {
-    dueAt?:             null | string;
-    id:                 string;
-    isOwner:            boolean;
-    kind:               SearchEntityType;
-    lastInteractionAt?: null | string;
-    name:               string;
-    openLoops:          number;
-    pinned:             boolean;
-    private?:           boolean;
-    projectStatus?:     GraphProjectStatus;
-    projectType?:       GraphProjectType;
-    status:             GraphEntityStatus;
-    subtitle?:          null | string;
-    summary?:           null | string;
-    workStatus?:        GraphWorkStatus | null;
-}
 
 export interface GraphStatus {
     budget:           GraphStatusBudget;
@@ -5864,6 +5928,25 @@ export interface LibraryUploadResult {
     received: number;
     uploadId: string;
 }
+
+export interface LifeAnswerBlock {
+    answer:  string;
+    factIds: string[];
+    facts:   LifeFactHit[];
+    /**
+     * The kind of model that made the answer
+     */
+    model:      ModelEnum;
+    passageIds: string[];
+    passages:   LifeAnswerPassage[];
+    /**
+     * The owner's own question
+     */
+    question: string;
+    type:     LifeAnswerBlockType;
+}
+
+export type LifeAnswerBlockType = "life_answer";
 
 export interface LogsTailParams {
     level?:     LogLevel;
@@ -7058,7 +7141,8 @@ export interface Previous {
 }
 
 export interface MemoryLifeAnswerResult {
-    answer?: null | string;
+    answer?:   null | string;
+    answerId?: null | string;
     /**
      * The facts the answer cites, in order
      */
@@ -7069,52 +7153,6 @@ export interface MemoryLifeAnswerResult {
      */
     passages?: LifeAnswerPassage[];
     reason?:   LifeAnswerReason | null;
-}
-
-export interface LifeFactHit {
-    attribute: GraphFactAttribute;
-    docId?:    null | string;
-    /**
-     * Search document ids of every citation's source passage that is indexed, in citation
-     * order, resolved at read time (never stored on the fact); the first is `docId`
-     */
-    docIds?:     string[];
-    entity:      EntitySummary;
-    factId:      string;
-    learnedAt?:  null | string;
-    observedAt?: null | string;
-    provenance:  Provenance;
-    quote?:      null | string;
-    review:      GraphReviewState;
-    source?:     null | string;
-    /**
-     * Every citation's source (`mail`, `messages`, …), without repeats; `source` is the first.
-     * A connection that cannot open one of them is not shown the fact
-     */
-    sources?: string[];
-    /**
-     * Untrusted text when it came from someone else
-     */
-    value: string;
-}
-
-export interface LifeAnswerPassage {
-    /**
-     * Epoch ms of the passage
-     */
-    createdAt: number;
-    /**
-     * Search document id; opens the source viewer (`search.document`)
-     */
-    id: string;
-    /**
-     * `mail`, `messages`, `notes`, …
-     */
-    source: string;
-    /**
-     * Untrusted text: written by someone else
-     */
-    title: string;
 }
 
 export type LifeAnswerReason = "no_model" | "no_facts" | "no_answer" | "ungrounded" | "model_failed";
@@ -10770,7 +10808,7 @@ export interface SpecialistRole {
     label:       string;
     maxMode:     PermissionMode;
     model?:      null | string;
-    modelClass:  ModelClass;
+    modelClass:  ModelClassEnum;
     planFirst:   boolean;
     result:      SpecialistResultKind;
     /**
@@ -10791,7 +10829,7 @@ export interface Caps {
 
 export type PermissionMode = "plan" | "manual" | "balanced" | "auto";
 
-export type ModelClass = "utility" | "primary" | "harness" | "vision";
+export type ModelClassEnum = "utility" | "primary" | "harness" | "vision";
 
 export type SpecialistResultKind = "findings" | "draft" | "changes" | "plan" | "items";
 

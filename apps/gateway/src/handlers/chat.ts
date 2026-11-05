@@ -10,6 +10,7 @@ import {
   type Thread,
 } from "@psyche/protocol";
 import type { Call, HandlerDef, ResolvedChatContext, ResolvedScreen } from "../context.ts";
+import { readerOf, scrubMessage } from "../message-scrub.ts";
 import { claimWidgetClick } from "../widgets/rate.ts";
 import { requireThread } from "./threads.ts";
 
@@ -66,7 +67,12 @@ function send(
     const resolve = call.ctx.chatContext.resolve;
     if (resolve === null)
       throw new PsycheError("unavailable", "Ask about this is not available here");
-    context = resolve(params.context);
+    context = resolve(params.context, {
+      deviceId: call.identity.deviceId,
+      role: call.identity.role,
+      desktopShell: call.identity.desktopShell === true,
+      threadId: params.threadId,
+    });
   }
   // A click on a widget (generative-ui-2026 §6.2): same chat only, one a second, and an untrusted
   // widget taints the turn it starts (§7.3): the owner's click does not launder agent-chosen text.
@@ -114,7 +120,7 @@ function send(
             taintSources: [...(screen?.taintSources ?? []), ...(context?.taintSources ?? [])],
           }),
       ...(screen === undefined ? {} : { images: screen.images }),
-      ...(context === undefined ? {} : { contextBlocks: [context.block] }),
+      ...(context === undefined ? {} : { contextBlocks: context.blocks ?? [context.block] }),
       ...(params.replyToMessageId === undefined
         ? {}
         : { replyToMessageId: params.replyToMessageId }),
@@ -175,6 +181,9 @@ function blockToMarkdown(block: Block): string {
       return block.statement === null ? "[noted feedback]" : `[will remember: ${block.statement}]`;
     case "related_threads":
       return `[from your other chats: ${block.items.map((i) => i.title || i.threadId).join(", ")}]`;
+    case "life_answer":
+      // Only a marker: another chat reading this transcript does not get the answer's words.
+      return "[answer from your mail, messages and files]";
     case "sources":
       return `[sources: ${block.items.map((i) => i.title || i.id).join("; ")}]`;
     case "specialist_result":
@@ -255,8 +264,10 @@ export const chatHandlers: Record<string, HandlerDef> = {
         limit: Math.min(params.limit ?? DEFAULT_PAGE, MAX_PAGE),
         ...(beforeSeq === undefined ? {} : { beforeSeq }),
       });
+      const who = readerOf(call.identity);
       return {
-        messages: page.messages,
+        // A life answer's citations are read again for this connection.
+        messages: page.messages.map((m) => scrubMessage(call.ctx, m, who)),
         nextCursor: page.nextBeforeSeq === null ? null : `s${page.nextBeforeSeq}`,
       };
     },
@@ -282,7 +293,10 @@ export const chatHandlers: Record<string, HandlerDef> = {
   "chat.export": {
     run(call: Call, params: { threadId: string; format: "markdown" | "json" }) {
       const thread = requireThread(call, params.threadId);
-      const messages = listAllMessages(call.ctx.db, thread.id);
+      const who = readerOf(call.identity);
+      const messages = listAllMessages(call.ctx.db, thread.id).map((m) =>
+        scrubMessage(call.ctx, m, who),
+      );
       if (params.format === "json") {
         return { mime: "application/json", content: JSON.stringify({ thread, messages }, null, 2) };
       }
