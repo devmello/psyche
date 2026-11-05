@@ -123,6 +123,37 @@ describe("morning brief", () => {
     expect(brief.sections.some((s) => s.id === "weather")).toBe(false);
   });
 
+  it("lists what is due from every Reminders backend (Apple or Outlook, and To Do), soonest first, once each", async () => {
+    const tools: Record<string, unknown> = {
+      "mcp__apple-reminders-x1__reminders_list": tool({
+        reminders: [
+          { title: "Pay rent", due: "2026-10-28T07:00:00Z" },
+          { title: "Call the bank", due: "2026-10-27T07:00:00Z" },
+        ],
+      }),
+      "mcp__ms-1__reminders_list": tool({
+        reminders: [
+          // The same Outlook task, synced into To Do.
+          { title: "pay rent", due: "2026-10-28T07:00:00Z", source: "Microsoft To Do" },
+          { title: "Renew passport", due: "2026-10-26T07:00:00Z", source: "Microsoft To Do" },
+        ],
+      }),
+    };
+    const { svc } = service(tools, {
+      tools: {
+        get: (n: string) => tools[n] as never,
+        names: (n: string) => Object.keys(tools).filter((k) => k.endsWith(`__${n}`)),
+      },
+    });
+    const brief = await svc.assemble("morning");
+    expect(section(brief, "due").items.map((i) => i.text)).toEqual([
+      "Renew passport",
+      "Call the bank",
+      "Pay rent",
+    ]);
+    expect(section(brief, "due").unavailable).toBeUndefined();
+  });
+
   it("degrades gracefully with no connectors and still posts", async () => {
     const { svc, inserted, notify } = service({});
     const r = await svc.run("morning");

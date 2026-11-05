@@ -11,8 +11,8 @@ const MAIL: CapabilityNeed = { anyOf: ["apple:mail", "google", "microsoft", "ima
 const CALENDAR: CapabilityNeed = { anyOf: ["apple:calendar", "google", "microsoft"] };
 /**
  * `apple:reminders` is Reminders on a Mac and Outlook Tasks through the Windows helper (the same
- * type). `microsoft:todo` is Microsoft To Do, for a Windows PC without classic Outlook: listed
- * here so it unlocks the card once that connector exists.
+ * type). `microsoft:todo` is Microsoft To Do: a Microsoft 365 connection that holds the To Do
+ * scope (`connectedTypesOf`).
  */
 const REMINDERS: CapabilityNeed = { anyOf: ["apple:reminders", "microsoft:todo"] };
 const NOTES: CapabilityNeed = { anyOf: ["apple:notes", "obsidian"] };

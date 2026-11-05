@@ -910,6 +910,8 @@
 //   let memoryWorkFolders = try? JSONDecoder().decode(MemoryWorkFolders.self, from: jsonData)
 //   let memoryWorkHistoryParams = try? JSONDecoder().decode(MemoryWorkHistoryParams.self, from: jsonData)
 //   let memoryWorkHistoryResult = try? JSONDecoder().decode(MemoryWorkHistoryResult.self, from: jsonData)
+//   let memoryWorkListsParams = try? JSONDecoder().decode(MemoryWorkListsParams.self, from: jsonData)
+//   let memoryWorkListsResult = try? JSONDecoder().decode(MemoryWorkListsResult.self, from: jsonData)
 //   let memoryWorkRemind = try? JSONDecoder().decode(MemoryWorkRemind.self, from: jsonData)
 //   let memoryWorkSettings = try? JSONDecoder().decode(MemoryWorkSettings.self, from: jsonData)
 //   let memoryWorkUndoUpdateParams = try? JSONDecoder().decode(MemoryWorkUndoUpdateParams.self, from: jsonData)
@@ -1326,12 +1328,23 @@
 //   let specialistsJobsResult = try? JSONDecoder().decode(SpecialistsJobsResult.self, from: jsonData)
 //   let specialistsListParams = try? JSONDecoder().decode(SpecialistsListParams.self, from: jsonData)
 //   let specialistsListResult = try? JSONDecoder().decode(SpecialistsListResult.self, from: jsonData)
+//   let speechEngineDownloadParams = try? JSONDecoder().decode(SpeechEngineDownloadParams.self, from: jsonData)
+//   let speechEngineDownloadResult = try? JSONDecoder().decode(SpeechEngineDownloadResult.self, from: jsonData)
+//   let speechEngineEntryStatus = try? JSONDecoder().decode(SpeechEngineEntryStatus.self, from: jsonData)
 //   let speechEngineLocation = try? JSONDecoder().decode(SpeechEngineLocation.self, from: jsonData)
+//   let speechEngineStatus = try? JSONDecoder().decode(SpeechEngineStatus.self, from: jsonData)
+//   let speechEngineStatusParams = try? JSONDecoder().decode(SpeechEngineStatusParams.self, from: jsonData)
+//   let speechModelDownloadPayload = try? JSONDecoder().decode(SpeechModelDownloadPayload.self, from: jsonData)
 //   let speechNodeEngine = try? JSONDecoder().decode(SpeechNodeEngine.self, from: jsonData)
 //   let speechProgressEvent = try? JSONDecoder().decode(SpeechProgressEvent.self, from: jsonData)
 //   let speechTranscribeFileParams = try? JSONDecoder().decode(SpeechTranscribeFileParams.self, from: jsonData)
 //   let speechTranscribeFileResult = try? JSONDecoder().decode(SpeechTranscribeFileResult.self, from: jsonData)
 //   let speechTranscribePreset = try? JSONDecoder().decode(SpeechTranscribePreset.self, from: jsonData)
+//   let speechWhisperModel = try? JSONDecoder().decode(SpeechWhisperModel.self, from: jsonData)
+//   let speechWhisperRuntime = try? JSONDecoder().decode(SpeechWhisperRuntime.self, from: jsonData)
+//   let speechWhisperServerState = try? JSONDecoder().decode(SpeechWhisperServerState.self, from: jsonData)
+//   let speechWhisperSetup = try? JSONDecoder().decode(SpeechWhisperSetup.self, from: jsonData)
+//   let speechWhisperSetupState = try? JSONDecoder().decode(SpeechWhisperSetupState.self, from: jsonData)
 //   let taintSource = try? JSONDecoder().decode(TaintSource.self, from: jsonData)
 //   let target = try? JSONDecoder().decode(Target.self, from: jsonData)
 //   let targetKind = try? JSONDecoder().decode(TargetKind.self, from: jsonData)
@@ -1571,6 +1584,7 @@
 //   let workNoteAttribute = try? JSONDecoder().decode(WorkNoteAttribute.self, from: jsonData)
 //   let workNoteBlock = try? JSONDecoder().decode(WorkNoteBlock.self, from: jsonData)
 //   let workNoteItem = try? JSONDecoder().decode(WorkNoteItem.self, from: jsonData)
+//   let workReminderList = try? JSONDecoder().decode(WorkReminderList.self, from: jsonData)
 //   let workUndoStatus = try? JSONDecoder().decode(WorkUndoStatus.self, from: jsonData)
 //   let workflowCard = try? JSONDecoder().decode(WorkflowCard.self, from: jsonData)
 //   let workflowEvent = try? JSONDecoder().decode(WorkflowEvent.self, from: jsonData)
@@ -22177,6 +22191,43 @@ public enum WorkHistoryOrigin: String, Codable, Sendable {
     case you = "you"
 }
 
+// MARK: - MemoryWorkListsResult
+public struct MemoryWorkListsResult: Codable, Sendable {
+    public let lists: [WorkReminderList]
+
+    public enum CodingKeys: String, CodingKey {
+        case lists = "lists"
+    }
+
+    public init(lists: [WorkReminderList]) {
+        self.lists = lists
+    }
+}
+
+// MARK: - WorkReminderList
+public struct WorkReminderList: Codable, Sendable {
+    public let id: String
+    public let name: String
+    /// Someone else can add to it (shared, read-only, flagged email): untrusted
+    public let shared: Bool
+    /// Where it lives, e.g. Microsoft To Do
+    public let source: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case name = "name"
+        case shared = "shared"
+        case source = "source"
+    }
+
+    public init(id: String, name: String, shared: Bool, source: String? = nil) {
+        self.id = id
+        self.name = name
+        self.shared = shared
+        self.source = source
+    }
+}
+
 // MARK: - MemoryWorkSettings
 public struct MemoryWorkSettings: Codable, Sendable {
     public let anchorsFromFolders: MemoryWorkFolders
@@ -30418,6 +30469,215 @@ public enum SpecialistResultKind: String, Codable, Sendable {
     case plan = "plan"
 }
 
+// MARK: - SpeechEngineDownloadResult
+public struct SpeechEngineDownloadResult: Codable, Sendable {
+    /// False when a download runs or nothing is missing
+    public let started: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case started = "started"
+    }
+
+    public init(started: Bool) {
+        self.started = started
+    }
+}
+
+// MARK: - SpeechEngineStatus
+public struct SpeechEngineStatus: Codable, Sendable {
+    public let active: String?
+    /// Every engine in order for desktop dictation; the first eligible is used
+    public let dictation: [SpeechEngineEntryStatus]
+    /// speech.stt.order in effect
+    public let order: [String]
+    public let whisper: SpeechWhisperSetup?
+
+    public enum CodingKeys: String, CodingKey {
+        case active = "active"
+        case dictation = "dictation"
+        case order = "order"
+        case whisper = "whisper"
+    }
+
+    public init(active: String? = nil, dictation: [SpeechEngineEntryStatus], order: [String], whisper: SpeechWhisperSetup? = nil) {
+        self.active = active
+        self.dictation = dictation
+        self.order = order
+        self.whisper = whisper
+    }
+}
+
+// MARK: - SpeechEngineEntryStatus
+public struct SpeechEngineEntryStatus: Codable, Sendable {
+    public let eligible: Bool
+    /// mac-node (the Host's helper), whisper, web-speech
+    public let id: String
+    public let location: SpeechEngineLocation
+    public let reason: SpeechEngineEntryStatusReason?
+
+    public enum CodingKeys: String, CodingKey {
+        case eligible = "eligible"
+        case id = "id"
+        case location = "location"
+        case reason = "reason"
+    }
+
+    public init(eligible: Bool, id: String, location: SpeechEngineLocation, reason: SpeechEngineEntryStatusReason? = nil) {
+        self.eligible = eligible
+        self.id = id
+        self.location = location
+        self.reason = reason
+    }
+}
+
+public enum SpeechEngineLocation: String, Codable, Sendable {
+    case client = "client"
+    case cloud = "cloud"
+    case gateway = "gateway"
+    case node = "node"
+}
+
+public enum SpeechEngineEntryStatusReason: String, Codable, Sendable {
+    case clientOnly = "client_only"
+    case unavailable = "unavailable"
+    case unknown = "unknown"
+    case unsupported = "unsupported"
+}
+
+// MARK: - SpeechWhisperSetup
+public struct SpeechWhisperSetup: Codable, Sendable {
+    /// What a download fetches now
+    public let downloadBytes: Int
+    /// The last download's failure
+    public let error: String?
+    public let model: SpeechWhisperModel
+    public let receivedBytes: Int?
+    public let runtime: SpeechWhisperRuntime
+    public let server: SpeechWhisperServerState
+    /// vcredist_missing, crash_loop, crashed, start_timeout, …
+    public let serverError: String?
+    public let state: SpeechWhisperSetupState
+    public let totalBytes: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case downloadBytes = "downloadBytes"
+        case error = "error"
+        case model = "model"
+        case receivedBytes = "receivedBytes"
+        case runtime = "runtime"
+        case server = "server"
+        case serverError = "serverError"
+        case state = "state"
+        case totalBytes = "totalBytes"
+    }
+
+    public init(downloadBytes: Int, error: String? = nil, model: SpeechWhisperModel, receivedBytes: Int? = nil, runtime: SpeechWhisperRuntime, server: SpeechWhisperServerState, serverError: String? = nil, state: SpeechWhisperSetupState, totalBytes: Int? = nil) {
+        self.downloadBytes = downloadBytes
+        self.error = error
+        self.model = model
+        self.receivedBytes = receivedBytes
+        self.runtime = runtime
+        self.server = server
+        self.serverError = serverError
+        self.state = state
+        self.totalBytes = totalBytes
+    }
+}
+
+// MARK: - SpeechWhisperModel
+public struct SpeechWhisperModel: Codable, Sendable {
+    public let description: String?
+    public let id: String
+    public let present: Bool
+    public let sizeBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case description = "description"
+        case id = "id"
+        case present = "present"
+        case sizeBytes = "sizeBytes"
+    }
+
+    public init(description: String? = nil, id: String, present: Bool, sizeBytes: Int) {
+        self.description = description
+        self.id = id
+        self.present = present
+        self.sizeBytes = sizeBytes
+    }
+}
+
+// MARK: - SpeechWhisperRuntime
+public struct SpeechWhisperRuntime: Codable, Sendable {
+    public let id: String
+    public let present: Bool
+    /// whisper.cpp release tag
+    public let release: String
+    public let sizeBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case present = "present"
+        case release = "release"
+        case sizeBytes = "sizeBytes"
+    }
+
+    public init(id: String, present: Bool, release: String, sizeBytes: Int) {
+        self.id = id
+        self.present = present
+        self.release = release
+        self.sizeBytes = sizeBytes
+    }
+}
+
+public enum SpeechWhisperServerState: String, Codable, Sendable {
+    case running = "running"
+    case starting = "starting"
+    case stopped = "stopped"
+    case stopping = "stopping"
+}
+
+public enum SpeechWhisperSetupState: String, Codable, Sendable {
+    case downloading = "downloading"
+    case error = "error"
+    case missing = "missing"
+    case ready = "ready"
+}
+
+// MARK: - SpeechModelDownloadPayload
+public struct SpeechModelDownloadPayload: Codable, Sendable {
+    public let error: String?
+    public let fraction: Double
+    public let model: String
+    public let phase: SpeechModelDownloadPayloadPhase
+    public let receivedBytes: Int
+    public let totalBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case error = "error"
+        case fraction = "fraction"
+        case model = "model"
+        case phase = "phase"
+        case receivedBytes = "receivedBytes"
+        case totalBytes = "totalBytes"
+    }
+
+    public init(error: String? = nil, fraction: Double, model: String, phase: SpeechModelDownloadPayloadPhase, receivedBytes: Int, totalBytes: Int) {
+        self.error = error
+        self.fraction = fraction
+        self.model = model
+        self.phase = phase
+        self.receivedBytes = receivedBytes
+        self.totalBytes = totalBytes
+    }
+}
+
+public enum SpeechModelDownloadPayloadPhase: String, Codable, Sendable {
+    case failed = "failed"
+    case finished = "finished"
+    case progress = "progress"
+    case started = "started"
+}
+
 // MARK: - SpeechProgressEvent
 public struct SpeechProgressEvent: Codable, Sendable {
     /// Chunks finished
@@ -34907,13 +35167,6 @@ public struct VoiceStartResult: Codable, Sendable {
     }
 }
 
-public enum SpeechEngineLocation: String, Codable, Sendable {
-    case client = "client"
-    case cloud = "cloud"
-    case gateway = "gateway"
-    case node = "node"
-}
-
 // MARK: - VoiceStopParams
 public struct VoiceStopParams: Codable, Sendable {
     public let sessionID: String
@@ -35598,6 +35851,7 @@ public typealias MemoryNotesListParams = [String: JSONAny]
 public typealias MemoryPersonaGetParams = [String: JSONAny]
 public typealias MemorySendersListParams = [String: JSONAny]
 public typealias MemoryStatusParams = [String: JSONAny]
+public typealias MemoryWorkListsParams = [String: JSONAny]
 public typealias ModelsAppleStatusParams = [String: JSONAny]
 public typealias ModelsListParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]
@@ -35612,6 +35866,8 @@ public typealias SearchSourcesParams = [String: JSONAny]
 public typealias SearchStatusParams = [String: JSONAny]
 public typealias Settings = [String: JSONAny]
 public typealias SpecialistsListParams = [String: JSONAny]
+public typealias SpeechEngineDownloadParams = [String: JSONAny]
+public typealias SpeechEngineStatusParams = [String: JSONAny]
 public typealias TerminalSessionACKResult = [String: JSONAny]
 public typealias TerminalSessionResizeResult = [String: JSONAny]
 public typealias TerminalSessionWriteResult = [String: JSONAny]

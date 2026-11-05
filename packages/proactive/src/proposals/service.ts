@@ -74,6 +74,11 @@ export interface ToolLookup {
         describeCall?: AgentToolRegistration["describeCall"];
       }
     | undefined;
+  /**
+   * Every registered name for a bare connector tool (`reminders_list` on Apple Reminders and on
+   * Microsoft To Do), for readers that merge all of them. Absent: only `get`'s first match.
+   */
+  names?(name: string): string[];
 }
 
 /** The inverse of a reversible call (undo), or `undefined` when there is none. */
