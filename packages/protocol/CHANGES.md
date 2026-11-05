@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (teach by showing: run a recorded skill on a schedule)
+
+- New methods `skills.recording.unattended` (`operator.read`: whether a skill made from a recording can run with nobody there; `reasons` name the sensitive steps and the steps whose value is asked for each run) and `skills.recording.schedule` (`operator.admin`, side-effecting, Psyche desktop shell on the Host only, `forbidden` for anything else: creates the Scheduled automation for an installed recording skill; `invalid_params` with the reasons when a step is sensitive or asks for a value each time, and when the schedule is not a fixed minute and hour; `conflict` when the skill already has a schedule).
+- `Automation` gains optional `recordedSkill` (`{ skill }`) and `ScheduledItem` gains optional `recordedSkill` (the skill's name). Set only by `skills.recording.schedule`: `automations.create` and `automations.update` ignore it, and the agent's `schedule` tool has no such field. Needs the database column `automations.recorded_skill` (migration 202611041600).
+
 ### v1 additive — 2026-11-04 (teach by showing in the built-in browser, J8 phase 1)
 
 - New method `skills.drafts.fromRecording` (`operator.admin`, side-effecting): turns the owner's reviewed recording into a skill draft. Params `title` and `steps` (1 to 200 `BrowserTeachStep`); result `{ draft }`. A sensitive step carries no value; a value is accepted only on a `type` or `select` step with `keepValue: true` that is not sensitive and not an input (otherwise `invalid_params`). Page text in the steps is quoted as untrusted in the draft. Accepting it is the existing `skills.drafts.accept` (replay check, device-only `skill_install` card). Nothing starts or reads a recording over the protocol: the recorder is local to the desktop app.

@@ -59,12 +59,14 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 
 **Status.** Phase 1 (browser only) is built: Record and Stop on the built-in browser, a review screen, a skill draft through the usual approval card, and "Run it once now". The design, the privacy rules and the answers to the open questions below are in [docs/design/teach-by-showing-2026.md](../design/teach-by-showing-2026.md).
 
-**What is left.** The accessibility recorder for Mac apps (phase 2; the Mac helper has one, not yet joined to the review screen), asking which values were examples across recordings, and offering "run it every week" through Scheduled (phase 3, left alone on purpose: see §8 of the design).
+**Also built.** "Run it every week" for a skill made from a recording, from the skill's page through Scheduled (owner only; steps that are sensitive or ask for a value each time are refused; a changed page stops the run and notifies; approvals wait; see §8 of the design). Kept recordings are encrypted at rest with a keychain-sealed key and are not kept when there is no keychain (§5).
+
+**What is left.** The accessibility recorder for Mac apps (phase 2; the Mac helper has one, not yet joined to the review screen), and asking which values were examples across recordings. Scheduled runs that ask the owner for a value, instead of refusing the skill, are not built.
 
 **Rough phases.**
 1. **Browser only.** Record clicks, typing and navigation in the built-in browser. Turn them into a draft skill that uses the browser tools. Show the steps; the owner edits and approves. Run it once with the owner watching.
 2. **Mac apps.** Record accessibility events (J1/J2) in apps the owner has already granted. Same review screen.
-3. **Generalize.** Ask which values were examples ("this recipient", "this date") and make them inputs. Offer "run it every week" through Scheduled.
+3. **Generalize.** Ask which values were examples ("this recipient", "this date") and make them inputs. ("Run it every week" through Scheduled is built for skills that need no input.)
 
 **Open questions.** Answered for phase 1 in [the design](../design/teach-by-showing-2026.md#10-answers-to-the-roadmaps-open-questions); the text below is the original question.
 - What gets recorded. Screens and typed text can hold passwords and private data. The recorder needs to skip password fields, mask what it stores, and keep the recording on the Mac, deleted once the skill is made unless the owner keeps it.

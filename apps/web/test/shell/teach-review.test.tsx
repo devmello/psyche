@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { UiSlotsProvider } from "@psyche/ui";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TeachReview } from "../../src/shell/components/TeachReview.tsx";
 import {
@@ -110,7 +110,12 @@ describe("the review model", () => {
 });
 
 function setup(
-  over: { teachKeep?: BrowserPort["teachKeep"]; calls?: unknown[][]; skipped?: number } = {},
+  over: {
+    teachKeep?: BrowserPort["teachKeep"];
+    teachStorage?: BrowserPort["teachStorage"];
+    calls?: unknown[][];
+    skipped?: number;
+  } = {},
 ) {
   const calls: unknown[][] = over.calls ?? [];
   const listeners = new Set<(e: { event: string; payload: unknown }) => void>();
@@ -128,7 +133,10 @@ function setup(
       return () => listeners.delete(cb);
     },
   };
-  const port = { teachKeep: over.teachKeep } as unknown as BrowserPort;
+  const port = {
+    teachKeep: over.teachKeep,
+    teachStorage: over.teachStorage,
+  } as unknown as BrowserPort;
   const prefill = vi.fn();
   const onClose = vi.fn();
   const ui = render(
@@ -230,6 +238,21 @@ describe("the review screen", () => {
     expect(sent.steps[2]).not.toHaveProperty("value");
     expect(teachKeep).toHaveBeenCalledTimes(1);
     expect(teachKeep.mock.calls[0]?.[0]).toBe("teach_abcdef123456");
+  });
+
+  it("offers no keeping without a keychain, and says why", async () => {
+    const teachKeep = vi.fn();
+    setup({
+      teachKeep: teachKeep as never,
+      teachStorage: async () => ({ encrypted: false }),
+    });
+    const box = (await screen.findByTestId("teach-keep")) as HTMLInputElement;
+    await waitFor(() => expect(box.disabled).toBe(true));
+    expect(screen.getByText(/keychain is not available/)).toBeTruthy();
+    fireEvent.click(box);
+    fireEvent.change(screen.getByTestId("teach-title"), { target: { value: "Report" } });
+    await act(async () => fireEvent.click(screen.getByTestId("teach-save")));
+    expect(teachKeep).not.toHaveBeenCalled();
   });
 
   it("does not keep the recording by default", async () => {

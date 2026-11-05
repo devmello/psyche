@@ -269,8 +269,8 @@ export interface UnattendedCheck {
 }
 
 const Q = String.raw`"(?:[^"\\]|\\.)*"`;
-const ROLE = String.raw`[A-Za-z0-9_-]+`;
-const FIELD = String.raw`(${ROLE})(?: at selector ${Q}| (${Q}))`;
+const ROLE = "[A-Za-z0-9_-]+";
+const FIELD = `(${ROLE})(?: at selector ${Q}| (${Q}))`;
 const RE_OPEN = new RegExp(String.raw`^(\d+)\. open ${Q}$`);
 const RE_CLICK = new RegExp(String.raw`^(\d+)\. click the ${FIELD}$`);
 const RE_PRESS = new RegExp(String.raw`^(\d+)\. press \S+(?: in the ${FIELD})?$`);
@@ -318,22 +318,25 @@ export function recordingUnattended(text: string): UnattendedCheck {
   const parsed: ParsedRecordedStep[] = [];
   for (const [i, line] of lines.entries()) {
     const want = i + 1;
-    let m: RegExpExecArray | null;
-    if ((m = RE_OPEN.exec(line)) !== null && Number(m[1]) === want) {
+    const open = RE_OPEN.exec(line);
+    const click = RE_CLICK.exec(line);
+    const press = RE_PRESS.exec(line);
+    const fill = RE_FILL.exec(line);
+    if (open !== null && Number(open[1]) === want) {
       parsed.push({ n: want, kind: "open" });
-    } else if ((m = RE_CLICK.exec(line)) !== null && Number(m[1]) === want) {
-      const name = jsonString(m[3]);
+    } else if (click !== null && Number(click[1]) === want) {
+      const name = jsonString(click[3]);
       parsed.push({
         n: want,
         kind: "click",
-        ...(m[2] === undefined ? {} : { role: m[2] }),
+        ...(click[2] === undefined ? {} : { role: click[2] }),
         ...(name === undefined ? {} : { name }),
       });
-    } else if ((m = RE_PRESS.exec(line)) !== null && Number(m[1]) === want) {
+    } else if (press !== null && Number(press[1]) === want) {
       parsed.push({ n: want, kind: "press" });
-    } else if ((m = RE_FILL.exec(line)) !== null && Number(m[1]) === want) {
-      const what = m[4] ?? "";
-      const name = jsonString(m[3]);
+    } else if (fill !== null && Number(fill[1]) === want) {
+      const what = fill[4] ?? "";
+      const name = jsonString(fill[3]);
       const needs = what.startsWith("sensitive")
         ? "sensitive"
         : what.startsWith("the value of input")
@@ -343,7 +346,7 @@ export function recordingUnattended(text: string): UnattendedCheck {
       parsed.push({
         n: want,
         kind: "fill",
-        ...(m[2] === undefined ? {} : { role: m[2] }),
+        ...(fill[2] === undefined ? {} : { role: fill[2] }),
         ...(name === undefined ? {} : { name }),
         ...(needs === undefined ? {} : { needs }),
       });

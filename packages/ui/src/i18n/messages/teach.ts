@@ -18,6 +18,34 @@ export const teach = {
   "web.teach.stopFailed": "Psyche couldn't finish the recording.",
   "web.teach.nothingRecorded": "Nothing was recorded.",
 
+  // Settings → Skills: run a skill made from a recording on a schedule.
+  "settings.recording.madeBy": "From a recording",
+  "settings.recording.open": "Run it every week",
+  "settings.recording.title": "Run it on a schedule",
+  "settings.recording.checking": "Checking the steps.",
+  "settings.recording.cannot": "This one can't run when you're not there:",
+  "settings.recording.reason.sensitive": "Step {step} is a field you fill in yourself.",
+  "settings.recording.reason.input": "Step {step} asks you for a value each time.",
+  "settings.recording.reason.unreadable":
+    "Its steps can't be read. Record it again to schedule it.",
+  "settings.recording.reason.off": "It is turned off or has changed since you approved it.",
+  "settings.recording.reason.notRecording": "It isn't a skill made from a recording.",
+  "settings.recording.cannotWhy":
+    "A scheduled run has nobody to ask, so it never fills in a password or asks for a value. You can still run it yourself from the chat.",
+  "settings.recording.rules":
+    "You choose when. Each run uses your usual approvals and waits for you if one is needed. If the page has changed, it stops at that step and tells you. It never guesses.",
+  "settings.recording.every": "Every",
+  "settings.recording.daily": "day",
+  "settings.recording.weekly": "week on",
+  "settings.recording.monthly": "month on day",
+  "settings.recording.dayOfWeek": "Day of the week",
+  "settings.recording.dayOfMonth": "Day of the month",
+  "settings.recording.at": "at",
+  "settings.recording.confirm": "Schedule it",
+  "settings.recording.close": "Cancel",
+  "settings.recording.runs": "Runs",
+  "settings.recording.seeScheduled": "pause, remove or see its history in Scheduled",
+
   // Settings → Browser: where kept recordings go.
   "settings.teach.storage.title": "Recordings you keep",
   "settings.teach.storage.description":

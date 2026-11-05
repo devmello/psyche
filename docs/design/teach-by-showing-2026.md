@@ -1,11 +1,12 @@
 # Teach by showing: the built-in browser (2026)
 
-**Status:** phase 1 built, 2026-11-04. **Feature:** J8 in [03-feature-spec.md](../03-feature-spec.md), spelled out in [future-features.md §2](../roadmap/future-features.md#2-teach-by-showing). **Companion:** [the teaching loop](../agent/teaching-loop-2026.md), which learns from feedback ("not like this"). The two share lessons and marks. They do not share the recorder.
+**Status:** phase 1 built, 2026-11-04; weekly runs and encryption at rest added the same day (§5, §8). **Feature:** J8 in [03-feature-spec.md](../03-feature-spec.md), spelled out in [future-features.md §2](../roadmap/future-features.md#2-teach-by-showing). **Companion:** [the teaching loop](../agent/teaching-loop-2026.md), which learns from feedback ("not like this"). The two share lessons and marks. They do not share the recorder.
 
 **The short version:**
 - The owner presses **Record** on a tab of the built-in browser, does a task once, and presses **Stop**.
 - Psyche shows the steps in plain words ("Open example.com", "Click ‘Export’", "Type the date into ‘From’"). The owner edits, reorders, deletes, and marks values as inputs.
 - **Save** makes a skill draft through the existing owner-approved skill path, with the usual approval card. Nothing runs until the owner approves it.
+- **Run it every week** (on the skill's page, once it is installed) puts the skill in Scheduled at a day and time the owner picks. It refuses a skill with a sensitive step or a value asked for each run, stops and tells the owner when a page changed, and waits for the owner at every approval (§8).
 - **Run it once now** fills the message box with the skill. The agent runs it with the normal browser tools, so every action passes the permission broker, and it stops and asks when the page is not what was recorded.
 - Passwords, card numbers, one-time codes and ID numbers are never recorded. Other typed values are hidden by default and kept only when the owner says so. Cookies and session contents are never read.
 
@@ -17,7 +18,7 @@
 | --- | --- |
 | The built-in browser's own tabs (the owner's, not the agent's) | Real Chrome (R-mode), Mac apps (phase 2, J1/J2; the Mac helper already has an accessibility recorder, `apps/mac-helper/.../Teach/`, with its own `TeachStep` in `schemas/teach.ts`) |
 | Navigations, clicks, typing, choosing in a `<select>`, Enter | Drag, hover, file uploads, rich-text editors, keyboard shortcuts, cross-origin iframes |
-| One skill draft per recording, run once now | "Run it every week" through Scheduled (phase 3, §8) |
+| One skill draft per recording, run once now, run on a schedule (§8) | Scheduled runs that ask for values or hand a tab over (they are refused) |
 
 ## 2. Who can start a recording, and where it runs
 
@@ -82,9 +83,11 @@ The example the owner typed exists in the recorder's memory (the main process) f
 
 - **By default, nowhere on disk.** The steps are in the main process's memory until Stop, and in the review screen until Save or Discard. After Save the review screen empties, and the main process already forgot the recording at Stop. Closing the app loses an unsaved recording.
 - **Kept on request.** "Keep this recording on this Mac so I can make another version" writes the reviewed steps to `$PSYCHE_HOME/state/teach/<id>.json`: folder `0700` (re-applied on every write), file `0600`, written atomically, at most 20 files, expiring after 90 days, ids validated so a path cannot come through. What is written is the output of `sanitizeTeachSteps`: no example the owner did not keep, no sensitive value (there never was one), no query strings. The pane's "Kept recordings" list opens one for review again, or deletes it.
-- **Signed.** Each file carries an HMAC-SHA256 over its id and contents, made by the desktop main process with a 32-byte key kept in the app's user-data folder (`teach.key`), outside `$PSYCHE_HOME`. The key file holds the key wrapped by the OS keychain (Electron `safeStorage`) when it is available, so reading the file is not enough. It is opened with `O_NOFOLLOW`, created with `O_EXCL` at `0600`, and a file of the wrong size or one that cannot be opened is an error, never a silently new key. The user-data folder (`~/Library/Application Support/Psyche`, which also holds the device key) is denied to the agent's file tools, to host commands (read and write) and to MCP servers. A file that is unsigned, edited, signed with another key, or renamed to another id is not listed and not opened. Reads refuse links (`lstat`, `O_NOFOLLOW`), cap the size at 512 KB and pick the fields one by one.
+- **Encrypted.** With the OS keychain available, each file is AES-256-GCM (node `crypto`): a fresh 12-byte nonce for every write, the file's id as additional authenticated data, and a 32-byte per-install key kept in the user-data folder (`teach.enc.key`) wrapped by Electron `safeStorage`. The folder therefore shows no step names, addresses or kept values, and GCM itself rejects an edited, truncated or renamed file, so the format has no separate MAC. A file made with another key, or damaged, is ignored and logged (the log names the file and the reason, never its content); nothing throws. Files written by the first version (signed, plain) are verified against the old key and re-written encrypted the first time the store is used; one that does not verify is left alone, not listed, and logged.
+- **No keychain, no keeping.** If `safeStorage` is not available, Psyche does not keep recordings at all: "Keep this recording" is off on the review screen with the reason, the main process refuses the write, and Settings, Browser, "Recordings you keep" says so. This was chosen over keeping a plain copy with a notice because the steps (page names, addresses, any value the owner kept) are the owner's private browsing, a recording is cheap to make again, and the skill (which the owner approved) is unaffected. Files from before that are still readable and deletable (their signature is checked).
+- **Signed (older files).** Each plain file carries an HMAC-SHA256 over its id and contents, made by the desktop main process with a 32-byte key kept in the app's user-data folder (`teach.key`), outside `$PSYCHE_HOME`. The key file holds the key wrapped by the OS keychain (Electron `safeStorage`) when it is available (the first version wrote it unwrapped by mistake; an unwrapped signing key is now wrapped in place on first use, and only that key is ever adopted that way), so reading the file is not enough. It is opened with `O_NOFOLLOW`, created with `O_EXCL` at `0600`, and a file of the wrong size or one that cannot be opened is an error, never a silently new key. The user-data folder (`~/Library/Application Support/Psyche`, which also holds the device key) is denied to the agent's file tools, to host commands (read and write) and to MCP servers. A file that is unsigned, edited, signed with another key, or renamed to another id is not listed and not opened. Reads refuse links (`lstat`, `O_NOFOLLOW`), cap the size at 512 KB and pick the fields one by one.
 - **Not in the Library.** `state/` is Psyche's own: no agent file tool reaches it (the prohibitions deny `state/teach` by name, `teach_recordings`), `files.read` serves only the Library, and the backup leaves `state/teach` out.
-- **Encryption.** Not encrypted at rest in phase 1. The desktop has no encrypted file store yet (the encrypted memory store, EM9, is for memory). The file holds no secrets by construction, only the owner's own steps and any value they chose to keep, and it is signed, private and expires. If an encrypted store lands, kept recordings move into it. Listed in §11.
+- **Encryption.** See "Encrypted" above. The file holds no secrets by construction, only the owner's own steps and any value they chose to keep; it is now also unreadable without the keychain.
 - **Reach.** Only the desktop's main process opens the folder. No tool or method reads it.
 - **The skill draft** is stored with the other skill drafts (`$PSYCHE_HOME/skills/.drafts/`, `0600`) and holds only the reviewed steps.
 
@@ -127,10 +130,32 @@ In the review screen each typed or chosen value is one of three things (§4). A 
 
 A masked value that is not kept and not named becomes an unnamed input (`input2`): the skill never silently reuses an old example.
 
-## 8. Phase 3 is left alone, on purpose
+## 8. Run it every week
 
-- **Offering "run it every week".** The automation path (`automations.create` and Scheduled, #1030, #1002) runs a prompt on a schedule, unattended. A skill from a recording needs the skill to be installed first, inputs filled each run, and sensitive steps handed to the owner, so an unattended weekly run needs decisions this phase should not make for the owner (what to do when a sensitive step or a changed page stops it). That is phase 3 with the input questions in the roadmap. It is not a cheap button, so it is not built here.
-- **Mac apps (phase 2)** reuse the review screen and the draft path. Only the recorder differs (the Mac helper's).
+A skill made from a recording can be put in Scheduled. Phase 1 left this out because an unattended run needs decisions the owner should make: what to do when a step is sensitive, when a value is asked for each time, when a page changed, and when something needs approval. These are the answers.
+
+**Where.** On the page of the skill (Settings, Skills), for an installed, enabled skill made from a recording: "Run it every week". The owner picks every day, every week on a day, or every month on a day, and a time. It becomes an ordinary automation in Scheduled with its history ("From a recording" in the row), pause and resume, Run now and Delete, one click each. It can only be installed first: a draft that has not passed the approval card cannot be scheduled.
+
+**Owner only, by construction.** `skills.recording.schedule` accepts the Psyche desktop shell on the Host and nothing else (the same check as `skills.drafts.fromRecording`); a phone, a web client or a script with an admin scope gets `forbidden`. The agent has no tool for it, its `schedule` tool has no field for the marker, and the `automations.create` and `automations.update` methods ignore it, so it cannot be set or changed by any other path. As a second layer, the scheduler handed to the agent refuses a job whose title or text names a recording-made skill ("Only you can schedule it"). That is a name match, not a guarantee: an agent that describes the task in other words schedules an ordinary automation, which is no different from today (it needs its own approval card, the same broker applies) and does not get the recording rules below.
+
+**What it refuses.**
+- A skill with a **sensitive** step (the owner does it themselves) or a step that types a value **asked for each run** (a named input, or a masked value left as "ask me each time") is refused with the step numbers in plain words, and the form is not shown. A scheduled run has nobody to ask, so the safe answer is no, not a guess. The check reads the steps back from the skill's text in the exact shape the skill writes them and accepts only lines it recognises; an unrecognised line, a missing step list or an out-of-order number makes the skill ineligible. Page text cannot make a step look kept (names are quoted JSON strings and the markers sit after them). Only navigations, clicks, Enter, and values the owner chose to keep run unattended.
+- The check runs again at every run. If the skill was removed, turned off, changed on disk, or edited into something an unattended run cannot do, the run does not start; it is recorded as failed, with the reason, and the owner is notified.
+- A schedule that is not a fixed minute and hour (so at most one run a day).
+- A second schedule for the same skill.
+
+**Every run uses the normal broker.** The run is an unattended task like any automation's: origin policy (`new_origin`), side-effect classes (`browser_submit`, purchase, consent), taint (reading the skill taints the turn), grants and approval cards all apply. An action that needs approval parks the task on the approval, which sits in the approvals queue with a notification; the run is shown as **waiting** in Scheduled and carries on after the owner answers. It never skips the step or does later ones first (the run's rules say so, and the guard below blocks an action that has no fresh check).
+
+**A changed page stops the run.** The Gateway watches the run's tool calls (not just the model's instructions):
+- The model may act (`click`, `type`, `select`, `press`) only on the element that `browser.check_target` last answered `found` for, once. An action with no such check, or on another element, is blocked with the reason.
+- Any other answer (`missing`, `ambiguous`, `wrong_page`, or an error) ends the task at once. The run is recorded as **failed** with "The page changed at step 3: ..." (the step is found by matching the checked name against the recorded steps), and the scheduler sends the owner a "... failed" notification that opens Scheduled. Nothing more is done in that run. The schedule stays on, and the next run tries from the start; the owner can pause it from the same row.
+- A scheduled recording cannot hand the tab over (`browser.request_control`), fill a saved login, upload a file or drag. Those need the owner, and nobody is there.
+
+**What stays the same.** The skill is still instructions the agent follows, not a script. The agent still reads page text as untrusted. The owner approved the skill's full text first.
+
+**Residual risks.** The guard sees tool calls inside the Gateway's loop; a step that the model performs with a tool other than the four acting browser tools (for example by scripting a page) is not covered by the check-first rule, though the broker still decides every call and the skill's declared tools bound what it may call. A step that was found but whose click opens a different page is only caught by the next check. Notifications on a failed run are de-duplicated per schedule, so a second failure while the first notice is unread updates it rather than adding another.
+
+**Mac apps (phase 2)** reuse the review screen and the draft path. Only the recorder differs (the Mac helper's).
 
 ## 9. Threat model
 
@@ -148,6 +173,9 @@ A masked value that is not kept and not named becomes an unnamed input (`input2`
 | The bridge is attached when Record starts, or reaches the tab while it stops | Record is refused on a tab the bridge has enabled domains on. A stopping recording stays current (bridge refused, binding events hidden) until `Runtime.removeBinding` has resolved; then `Runtime.disable` and `Page.disable` put the domains back. |
 | The recorder leaks typed values to the Gateway | The recorder's channel is dropped in the main process before the Gateway's CDP forwarding; only reviewed steps travel, and only the owner-kept values among them. |
 | The recording is left on disk | Not written by default. Kept recordings are explicit, clean, signed, `0700`/`0600`, expire after 90 days, deletable in the pane. |
+| A scheduled run guesses, or does something nobody approved | Refused at schedule time and again at each run for sensitive and ask-each-time steps; the normal broker for every call; acts only on a just-found element; any check miss ends the run and notifies (§8). |
+| The agent schedules a recording | Owner-only method (desktop shell), no tool, marker settable nowhere else; the agent's scheduler refuses a job naming a recording skill (§8). |
+| A kept recording is read from disk or swapped | AES-256-GCM with a keychain-sealed key, id bound in; edited, truncated, renamed or wrong-key files are ignored and logged; no keychain, no keeping (§5). |
 | A replay does more than recorded | A skill declares tools, never grants them. Every call is decided by the broker as for any tool call. Origins outside the first address need `new_origin` approval. |
 
 ## 10. Answers to the roadmap's open questions
@@ -159,9 +187,9 @@ A masked value that is not kept and not named becomes an unnamed input (`input2`
 
 ## 11. Open points for the owner
 
-- **Encryption at rest for kept recordings** waits for an encrypted store on the desktop (§5). Kept recordings are signed, private, outside the Library and expire after 90 days; is 90 days the right length?
+- **Kept recordings** are now encrypted (§5), and not kept at all without a keychain. Is 90 days the right length? Is "not kept" the right answer when the keychain is missing, or would you rather have a plain copy with a notice?
 - **"Run it once now" sends nothing itself.** It fills the message box so the owner presses Send. A one-click run is possible; it would put a message in the thread on the owner's behalf, so it is left as an owner choice.
-- **Phase 3** questions: unattended runs and sensitive steps; what a scheduled run does when the page changed (stop and notify is the obvious answer).
+- **Weekly runs** (§8), decided as: sensitive and ask-each-time steps are refused, not asked for; a changed page stops the run and notifies; approvals wait. Still open: should a changed page also pause the schedule so it does not try again next week? (Today it stays on.) Should a run be able to ask for a value by notification and wait (a longer wait, a harder case)? Should the schedule offer more than one run a day?
 
 ## 12. Where it lives
 
@@ -174,5 +202,7 @@ A masked value that is not kept and not named becomes an unnamed input (`input2`
 | Recorder host, IPC, indicator state | `apps/desktop/src/main/browser/teach-session.ts`, `browser-host.ts`, `apps/desktop/src/lib/ipc.ts` |
 | Record, indicator, review screen | `apps/web/src/shell/components/BrowserPane.tsx`, `TeachReview.tsx`, `teach-review.ts` |
 | Skill text and draft | `packages/skills/src/recording.ts`, `drafts.ts` (`proposeFromRecording`), `handlers.ts` |
-| Kept recordings (signed, `state/teach`) | `packages/browser/src/teach/store.ts`; denied in `packages/permissions/src/prohibitions.ts`; left out of `packages/backup/src/archive.ts` |
+| Kept recordings (encrypted, `state/teach`) | `packages/browser/src/teach/store.ts`; keys in `apps/desktop/src/main/browser/browser-host.ts`; denied in `packages/permissions/src/prohibitions.ts`; left out of `packages/backup/src/archive.ts` |
+| Weekly runs: unattended check, schedule method, run guard | `packages/skills/src/recording.ts` (`recordingUnattended`), `apps/gateway/src/compose/recording-schedule.ts`, `skills.recording.*` in `packages/protocol/src/methods/skills.ts`, `Automation.recordedSkill` |
+| Weekly runs: screen | `packages/ui/src/screens/settings/RecordingSchedule.tsx`, the row note in `scheduled/ScheduledRow.tsx` |
 | Words | `packages/ui/src/i18n/messages/teach.ts` |

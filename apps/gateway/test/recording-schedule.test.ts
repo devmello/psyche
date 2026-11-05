@@ -1,6 +1,6 @@
-import { HookRegistry } from "@psyche/agent-core";
+import { HookRegistry, scheduleTool } from "@psyche/agent-core";
 import { openDb } from "@psyche/db";
-import { type BrowserTeachStep, PsycheError, type ToolSpec } from "@psyche/protocol";
+import { type BrowserTeachStep, Methods, PsycheError, type ToolSpec } from "@psyche/protocol";
 import {
   createAutomationHandlers,
   createDbSessionResolver,
@@ -267,6 +267,18 @@ describe("the agent cannot schedule a recording", () => {
     await expect(agent.update(ok.id, { prompt: "run weekly-export" })).rejects.toMatchObject({
       code: "forbidden",
     });
+  });
+
+  it("has no tool or open method to do it with", () => {
+    const spec = Methods["skills.recording.schedule"];
+    expect(spec.scope).toBe("operator.admin");
+    expect(spec.sideEffecting).toBe(true);
+    // The agent's schedule tool takes a title, a kind, a schedule and a prompt, nothing more.
+    const tool = scheduleTool({} as never, "UTC");
+    const props = Object.keys(
+      (tool.spec.inputSchema as { properties: Record<string, unknown> }).properties,
+    );
+    expect(props.sort()).toEqual(["kind", "prompt", "schedule", "timezone", "title"]);
   });
 
   it("cannot set the marker through the generic automation methods either", async () => {

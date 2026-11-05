@@ -29,6 +29,7 @@ import { usePersona } from "../../slots.tsx";
 import { useLessons } from "../../teaching/hooks.ts";
 import { LessonMark } from "../../teaching/LessonMark.tsx";
 import { AvailableSkills } from "./CapabilityAvailable.tsx";
+import { RecordingSchedule } from "./RecordingSchedule.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import { presenceUnavailable } from "./SettingsApproval.tsx";
 import { SkillSuggestions } from "./SkillDraftCard.tsx";
@@ -593,6 +594,9 @@ function SkillRow({
         {skill.madeBy === "agent" ? (
           <StatusChip tone="info">{t("settings.skills.madeByAgent", { persona })}</StatusChip>
         ) : null}
+        {skill.madeBy === "recording" ? (
+          <StatusChip tone="info">{t("settings.recording.madeBy")}</StatusChip>
+        ) : null}
         {skill.bundleOrigin === "agent" ? (
           <StatusChip tone="info">{t("settings.skills.bundleOriginAgent")}</StatusChip>
         ) : null}
@@ -660,6 +664,9 @@ function SkillRow({
         </div>
       </div>
       <p className="text-muted-foreground">{show(skill.description, 400)}</p>
+      {skill.madeBy === "recording" && skill.status === "active" ? (
+        <RecordingSchedule name={skill.name} />
+      ) : null}
       {signer !== undefined ? (
         <p
           className={signer.state === "revoked" ? "text-callout text-danger-text" : "text-callout"}

@@ -46,6 +46,9 @@ export const scheduled = {
   "scheduled.row.absolute": "{date} at {time}",
   "scheduled.row.linkedRun": "{title}: {when}",
   "scheduled.row.noSummary": "Runs the instruction you gave it.",
+  "scheduled.row.recorded": "From a recording",
+  "scheduled.row.recordedBody":
+    "Repeats the task you showed Psyche. If the page has changed, it stops at that step and tells you. Anything that needs your approval waits for you.",
 
   "scheduled.approvals.none": "None. It only uses what you've turned on in Settings.",
   "scheduled.approvals.queued":
