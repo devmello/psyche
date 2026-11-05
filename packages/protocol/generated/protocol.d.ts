@@ -9313,11 +9313,20 @@ export type ScreenCaptureMode = "window" | "region";
 
 export type ScreenCaptureRefusal = "app_excluded" | "secure_field" | "no_window" | "permission_missing";
 
-export interface ScreenContextParams {
+export interface ScreenCaptureParams {
+    frame?:     ScreenContextResult;
     maxHeight?: number;
     maxWidth?:  number;
     mode:       ScreenCaptureMode;
     rect?:      ScreenRect;
+}
+
+export interface ScreenContextResult {
+    context?: ScreenContext | null;
+    height:   number;
+    image?:   null | string;
+    refusal?: ScreenCaptureRefusal;
+    width:    number;
 }
 
 export interface ScreenRect {
@@ -9327,12 +9336,11 @@ export interface ScreenRect {
     y:      number;
 }
 
-export interface ScreenContextResult {
-    context?: ScreenContext | null;
-    height:   number;
-    image?:   null | string;
-    refusal?: ScreenCaptureRefusal;
-    width:    number;
+export interface ScreenContextParams {
+    maxHeight?: number;
+    maxWidth?:  number;
+    mode:       ScreenCaptureMode;
+    rect?:      ScreenRect;
 }
 
 export interface ScreenDiscardParams {

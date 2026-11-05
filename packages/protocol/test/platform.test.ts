@@ -9,7 +9,6 @@ import {
   isNamedPipePath,
   namedPipePath,
   psycheHomeHash,
-  restrictDirToCurrentUser,
   usesNamedPipes,
 } from "../src/platform.ts";
 
@@ -60,30 +59,6 @@ describe("directory helpers", () => {
       expect(() => fsyncDirSync(dir)).not.toThrow();
       // Windows cannot open a directory for fsync; the helper must not try.
       expect(() => fsyncDirSync(join(dir, "missing"), "win32")).not.toThrow();
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  it("makes a directory private to the current user", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "psyche-acl-"));
-    try {
-      expect(restrictDirToCurrentUser(dir)).toBe(true);
-      if (process.platform === "win32") {
-        const { execFileSync } = await import("node:child_process");
-        const acl = execFileSync("icacls", [dir], { encoding: "utf8" });
-        // Only SYSTEM and the user: nothing inherited from the temp dir's parent.
-        const aces = acl
-          .split(/\r?\n/)
-          .map((l) => l.replace(dir, "").trim())
-          .filter((l) => l.includes(":("));
-        expect(aces).toHaveLength(2);
-        expect(aces.some((a) => a.startsWith("NT AUTHORITY\\SYSTEM:"))).toBe(true);
-        expect(acl).not.toMatch(/\(I\)/);
-      } else {
-        const { statSync } = await import("node:fs");
-        expect(statSync(dir).mode & 0o777).toBe(0o700);
-      }
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

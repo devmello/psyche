@@ -224,7 +224,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   const now = options.now ?? (() => new Date());
   const limits: GatewayLimits = { ...DEFAULT_LIMITS, ...options.limits };
 
-  ensureHome(config.home, (msg) => log.log("warn", msg));
+  ensureHome(config.home);
   const db = options.db ?? openDb(config.dbPath, { now: () => now().toISOString() });
   const recovery = recoverAfterRestart(db, log);
   const bus = new EventBus(readStateVersion(db), (v) => writeStateVersion(db, v));

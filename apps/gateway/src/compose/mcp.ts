@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { getSetting } from "@psyche/db";
@@ -91,7 +92,34 @@ function defaultRuntime(): RuntimeDeps {
     ...srtSearchDirs(),
     join(homedir(), ".cargo", "bin"),
     join(homedir(), ".nvm", "current", "bin"),
+    ...(process.platform === "win32" ? windowsRuntimeDirs(process.env) : []),
   ]);
+}
+
+/**
+ * Where `npx` / `uvx` live on Windows when a scheduled task's PATH lacks them: the Node installer
+ * (`%ProgramFiles%\\nodejs`), nvm-windows' link (`NVM_SYMLINK`), npm's global folder
+ * (`%APPDATA%\\npm`), uv's (`%USERPROFILE%\\.local\\bin`), and each per-user Python's `Scripts`.
+ */
+export function windowsRuntimeDirs(env: NodeJS.ProcessEnv): string[] {
+  const home = env.USERPROFILE ?? homedir();
+  const local = env.LOCALAPPDATA ?? join(home, "AppData", "Local");
+  const pythons = join(local, "Programs", "Python");
+  let pythonScripts: string[] = [];
+  try {
+    pythonScripts = readdirSync(pythons, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && /^python\d+/i.test(d.name))
+      .map((d) => join(pythons, d.name, "Scripts"));
+  } catch {
+    // no per-user Python
+  }
+  return [
+    join(env.ProgramFiles ?? "C:\\Program Files", "nodejs"),
+    ...(env.NVM_SYMLINK ? [env.NVM_SYMLINK] : []),
+    join(env.APPDATA ?? join(home, "AppData", "Roaming"), "npm"),
+    join(home, ".local", "bin"),
+    ...pythonScripts,
+  ];
 }
 
 function launcherFor(services: ComposeServices, setup: McpSetup): StdioLauncher | undefined {

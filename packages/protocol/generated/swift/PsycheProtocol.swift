@@ -1178,6 +1178,7 @@
 //   let scheduledWarning = try? JSONDecoder().decode(ScheduledWarning.self, from: jsonData)
 //   let screenCapture = try? JSONDecoder().decode(ScreenCapture.self, from: jsonData)
 //   let screenCaptureMode = try? JSONDecoder().decode(ScreenCaptureMode.self, from: jsonData)
+//   let screenCaptureParams = try? JSONDecoder().decode(ScreenCaptureParams.self, from: jsonData)
 //   let screenCaptureRefusal = try? JSONDecoder().decode(ScreenCaptureRefusal.self, from: jsonData)
 //   let screenContext = try? JSONDecoder().decode(ScreenContext.self, from: jsonData)
 //   let screenContextParams = try? JSONDecoder().decode(ScreenContextParams.self, from: jsonData)
@@ -27259,47 +27260,28 @@ public enum ScreenCaptureRefusal: String, Codable, Sendable {
     case secureField = "secure_field"
 }
 
-// MARK: - ScreenContextParams
-public struct ScreenContextParams: Codable, Sendable {
+// MARK: - ScreenCaptureParams
+public struct ScreenCaptureParams: Codable, Sendable {
+    public let frame: ScreenContextResult?
     public let maxHeight: Int?
     public let maxWidth: Int?
     public let mode: ScreenCaptureMode
     public let rect: ScreenRect?
 
     public enum CodingKeys: String, CodingKey {
+        case frame = "frame"
         case maxHeight = "maxHeight"
         case maxWidth = "maxWidth"
         case mode = "mode"
         case rect = "rect"
     }
 
-    public init(maxHeight: Int? = nil, maxWidth: Int? = nil, mode: ScreenCaptureMode, rect: ScreenRect? = nil) {
+    public init(frame: ScreenContextResult? = nil, maxHeight: Int? = nil, maxWidth: Int? = nil, mode: ScreenCaptureMode, rect: ScreenRect? = nil) {
+        self.frame = frame
         self.maxHeight = maxHeight
         self.maxWidth = maxWidth
         self.mode = mode
         self.rect = rect
-    }
-}
-
-// MARK: - ScreenRect
-public struct ScreenRect: Codable, Sendable {
-    public let height: Double
-    public let width: Double
-    public let x: Double
-    public let y: Double
-
-    public enum CodingKeys: String, CodingKey {
-        case height = "height"
-        case width = "width"
-        case x = "x"
-        case y = "y"
-    }
-
-    public init(height: Double, width: Double, x: Double, y: Double) {
-        self.height = height
-        self.width = width
-        self.x = x
-        self.y = y
     }
 }
 
@@ -27325,6 +27307,50 @@ public struct ScreenContextResult: Codable, Sendable {
         self.image = image
         self.refusal = refusal
         self.width = width
+    }
+}
+
+// MARK: - ScreenRect
+public struct ScreenRect: Codable, Sendable {
+    public let height: Double
+    public let width: Double
+    public let x: Double
+    public let y: Double
+
+    public enum CodingKeys: String, CodingKey {
+        case height = "height"
+        case width = "width"
+        case x = "x"
+        case y = "y"
+    }
+
+    public init(height: Double, width: Double, x: Double, y: Double) {
+        self.height = height
+        self.width = width
+        self.x = x
+        self.y = y
+    }
+}
+
+// MARK: - ScreenContextParams
+public struct ScreenContextParams: Codable, Sendable {
+    public let maxHeight: Int?
+    public let maxWidth: Int?
+    public let mode: ScreenCaptureMode
+    public let rect: ScreenRect?
+
+    public enum CodingKeys: String, CodingKey {
+        case maxHeight = "maxHeight"
+        case maxWidth = "maxWidth"
+        case mode = "mode"
+        case rect = "rect"
+    }
+
+    public init(maxHeight: Int? = nil, maxWidth: Int? = nil, mode: ScreenCaptureMode, rect: ScreenRect? = nil) {
+        self.maxHeight = maxHeight
+        self.maxWidth = maxWidth
+        self.mode = mode
+        self.rect = rect
     }
 }
 

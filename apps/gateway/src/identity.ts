@@ -19,8 +19,9 @@ import {
   writeSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { ensureOwnerOnly } from "@psyche/hostfs";
 import { PsycheError } from "@psyche/protocol";
-import { fsyncDirSync, restrictDirToCurrentUser } from "@psyche/protocol/platform";
+import { fsyncDirSync } from "@psyche/protocol/platform";
 
 /**
  * The Gateway identity key (remote-gateway design §3.3): a long-lived Ed25519 key created at first
@@ -146,8 +147,10 @@ function writeNewIdentity(path: string, home: string, replace: boolean): Gateway
   }
   const file: IdentityFile = { v: 1, jwk: { kty: "OKP", crv: "Ed25519", x: jwk.x, d: jwk.d } };
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-  // 0700, or on Windows a DACL for this user and SYSTEM only.
-  restrictDirToCurrentUser(dirname(path));
+  // 0700, or on Windows a DACL for this user and SYSTEM only; never a key in a shared folder.
+  if (!ensureOwnerOnly(dirname(path))) {
+    throw new PsycheError("forbidden", `${dirname(path)} could not be made private to this user`);
+  }
   const tmp = `${path}.${process.pid}.tmp`;
   try {
     // A leftover from a crash is ours to replace; the file itself is created exclusively, written

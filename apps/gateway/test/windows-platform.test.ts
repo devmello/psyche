@@ -119,7 +119,10 @@ describe("the desktop app on Windows", () => {
     expect(runs).toEqual([["C:\\Apps\\Psyche.exe", ["--background"]]]);
     expect(createDesktopLauncher({ platform: "linux" })).toBeUndefined();
     const seen: string[] = [];
-    desktopInstalled((p) => (seen.push(p), false), "win32");
+    desktopInstalled((p) => {
+      seen.push(p);
+      return false;
+    }, "win32");
     expect(seen).toHaveLength(1);
     expect(seen[0]).toMatch(/Psyche[\\/]Psyche\.exe$/);
   });

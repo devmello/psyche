@@ -1,5 +1,5 @@
-import { accessSync, constants } from "node:fs";
-import { delimiter, isAbsolute, join } from "node:path";
+import { accessSync, constants, statSync } from "node:fs";
+import { delimiter, extname, isAbsolute, join } from "node:path";
 import type { PsycheDb } from "@psyche/db";
 import {
   type AuditLog,
@@ -99,16 +99,34 @@ export function opOnPath(path = process.env.PATH ?? ""): string | undefined {
   return binaryOnPath("op", path);
 }
 
-/** The first executable `name` on PATH, as an absolute path; relative PATH entries are skipped. */
-export function binaryOnPath(name: string, path = process.env.PATH ?? ""): string | undefined {
+/**
+ * The first executable `name` on PATH, as an absolute path; relative PATH entries are skipped. On
+ * Windows a name without an extension is tried with each `PATHEXT` one (`op.exe`, `bw.cmd`).
+ */
+export function binaryOnPath(
+  name: string,
+  path = process.env.PATH ?? "",
+  platform: NodeJS.Platform = process.platform,
+  pathext = process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD",
+): string | undefined {
+  const names =
+    platform === "win32" && extname(name) === ""
+      ? pathext
+          .split(";")
+          .filter((e) => /^\.[A-Za-z0-9]+$/.test(e))
+          .map((e) => `${name}${e.toLowerCase()}`)
+      : [name];
   for (const dir of path.split(delimiter)) {
     if (!isAbsolute(dir)) continue;
-    const candidate = join(dir, name);
-    try {
-      accessSync(candidate, constants.X_OK);
-      return candidate;
-    } catch {
-      // not here
+    for (const n of names) {
+      const candidate = join(dir, n);
+      try {
+        accessSync(candidate, constants.X_OK);
+        if (platform === "win32" && !statSync(candidate).isFile()) continue;
+        return candidate;
+      } catch {
+        // not here
+      }
     }
   }
   return undefined;

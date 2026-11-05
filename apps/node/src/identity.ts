@@ -9,8 +9,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { ensureOwnerOnly } from "@psyche/hostfs";
 import { PsycheError } from "@psyche/protocol";
-import { restrictDirToCurrentUser } from "@psyche/protocol/platform";
 import { ulid } from "ulid";
 
 /**
@@ -88,7 +88,7 @@ export function loadOrCreateIdentity(home: string): NodeIdentity {
   }
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   // Windows has no 0700/0600: the folder's DACL becomes this user and SYSTEM only instead.
-  if (process.platform === "win32" && !restrictDirToCurrentUser(dirname(path))) {
+  if (process.platform === "win32" && !ensureOwnerOnly(dirname(path))) {
     throw new PsycheError("forbidden", `could not make ${dirname(path)} private to this user`);
   }
   const stored = generateStored(ulid());
