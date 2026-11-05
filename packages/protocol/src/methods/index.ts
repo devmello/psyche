@@ -49,6 +49,7 @@ import { TasksMethods } from "./tasks.ts";
 import { TeachAppMethods } from "./teach.ts";
 import { TerminalMethods } from "./terminal.ts";
 import { ThreadsMethods } from "./threads.ts";
+import { UninstallMethods } from "./uninstall.ts";
 import { UsageMethods } from "./usage.ts";
 import { VaultMethods } from "./vault.ts";
 import { ViewMethods } from "./view.ts";
@@ -164,6 +165,7 @@ export const Methods = {
   ...AttentionMethods,
   ...SkillsMethods,
   ...ConnectorBundleMethods,
+  ...UninstallMethods,
   ...PluginsMethods,
   ...BackupMethods,
   ...LogsMethods,

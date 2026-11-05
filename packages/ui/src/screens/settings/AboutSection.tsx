@@ -7,7 +7,8 @@ import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { useSlots } from "../../slots.tsx";
 import { Facts, Group, SectionFrame } from "./shared.tsx";
-import type { AboutInfo, DoctorCheck } from "./types.ts";
+import type { AboutInfo, DoctorCheck, UninstallPort } from "./types.ts";
+import { UninstallGroupAction } from "./UninstallSheet.tsx";
 
 /** About (UI design §3.18): versions, `psyche doctor`, logs. */
 
@@ -25,6 +26,8 @@ export interface AboutPanelProps {
   onOpenLogs?: () => void;
   /** Desktop only: shows the data folder in Finder. */
   onRevealHome?: () => void;
+  /** Desktop on the Mac running the Gateway only: the Uninstall Psyche sheet. */
+  uninstall?: UninstallPort;
 }
 
 export function AboutPanel({
@@ -34,6 +37,7 @@ export function AboutPanel({
   onRunDoctor,
   onOpenLogs,
   onRevealHome,
+  uninstall,
 }: AboutPanelProps): ReactElement {
   const { navigate } = useSlots();
   return (
@@ -140,6 +144,15 @@ export function AboutPanel({
           </ul>
         )}
       </Group>
+      {uninstall ? (
+        <Group
+          title={t("settings.uninstall.group")}
+          description={t("settings.uninstall.groupHint")}
+          actions={<UninstallGroupAction port={uninstall} />}
+        >
+          {null}
+        </Group>
+      ) : null}
     </SectionFrame>
   );
 }

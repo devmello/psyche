@@ -105,6 +105,9 @@ export const IPC = {
   // Settings → About: versions, platform and the data folder (#610).
   appInfo: "psyche:app:info",
   appRevealHome: "psyche:app:reveal-home",
+  // Settings → About → Uninstall Psyche: what would go, then do it. Main only; never a remote window.
+  appUninstallPlan: "psyche:app:uninstall-plan",
+  appUninstall: "psyche:app:uninstall",
   // Native dialogs.
   dialogPickFolder: "psyche:dialog:pick-folder",
   // Dictation HUD only (main → HUD state and capture commands, HUD → main audio).
@@ -426,4 +429,30 @@ export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
   IPC.dictationRecheck,
   IPC.dictationCheckHotkey,
   IPC.sourceOpen,
+  IPC.appUninstallPlan,
+  IPC.appUninstall,
 ]);
+
+/** The uninstall sheet's request: whether to delete the data, the typed word, a presence card. */
+export function checkUninstall(
+  channel: string,
+  v: unknown,
+): { deleteData: boolean; removeKeychain?: boolean; confirm?: string; approvalId?: string } {
+  const r = rec(channel, v);
+  if (typeof r.deleteData !== "boolean")
+    throw new IpcPayloadError(channel, "deleteData must be a boolean");
+  const out: {
+    deleteData: boolean;
+    removeKeychain?: boolean;
+    confirm?: string;
+    approvalId?: string;
+  } = { deleteData: r.deleteData };
+  if (r.removeKeychain !== undefined) {
+    if (typeof r.removeKeychain !== "boolean")
+      throw new IpcPayloadError(channel, "removeKeychain must be a boolean");
+    out.removeKeychain = r.removeKeychain;
+  }
+  if (r.confirm !== undefined) out.confirm = str(channel, r.confirm, "confirm", 32);
+  if (r.approvalId !== undefined) out.approvalId = str(channel, r.approvalId, "approvalId", 128);
+  return out;
+}

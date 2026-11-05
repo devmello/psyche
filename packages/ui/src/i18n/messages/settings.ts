@@ -571,6 +571,48 @@ export const settings = {
   "settings.about.runtime": "Runtime",
   "settings.about.revealHome": "Reveal in Finder",
   "settings.about.unknown": "unknown",
+  // Uninstall Psyche (UninstallSheet.tsx).
+  "settings.uninstall.group": "Uninstall Psyche",
+  "settings.uninstall.groupHint":
+    "Stops the Gateway and the helper and moves the app to the Trash. Your data stays unless you choose otherwise.",
+  "settings.uninstall.open": "Uninstall Psyche…",
+  "settings.uninstall.title": "Uninstall Psyche",
+  "settings.uninstall.description":
+    "Everything below goes to the Trash, so you can still put it back. Nothing is permanently deleted.",
+  "settings.uninstall.dataChoice": "Your data",
+  "settings.uninstall.keep": "Keep my data",
+  "settings.uninstall.keepHint": "Chats, memory, vault and backups stay in the data folder.",
+  "settings.uninstall.delete": "Delete my data",
+  "settings.uninstall.deleteHint":
+    "Also moves the data folder to the Trash: chats, memory, vault and backups.",
+  "settings.uninstall.willDo": "What happens",
+  "settings.uninstall.stopAgent": "The Gateway LaunchAgent is stopped and removed.",
+  "settings.uninstall.stopHelper": "Psyche Helper is stopped and “Open at login” is turned off.",
+  "settings.uninstall.trash": "Moved to the Trash",
+  "settings.uninstall.kind.agent": "Gateway LaunchAgent",
+  "settings.uninstall.kind.support": "Application Support",
+  "settings.uninstall.kind.cache": "Caches, logs, preferences and saved state",
+  "settings.uninstall.kind.data": "Your data",
+  "settings.uninstall.kind.app": "The app",
+  "settings.uninstall.agentOther":
+    "The Gateway agent belongs to another copy of Psyche or the command-line tool, so it is left alone.",
+  "settings.uninstall.blocked": "{path} can't be moved to the Trash from here: {reason}",
+  "settings.uninstall.keychainStays":
+    "Keychain items stay (the vault key and helper items). Remove them in Keychain Access if you want.",
+  "settings.uninstall.keychainGoes":
+    "The Keychain items for the vault and the helper are removed too.",
+  "settings.uninstall.removeKeychain":
+    "Also remove my Keychain items (com.psyche.vault and the helper's). Without your data they are useless.",
+  "settings.uninstall.kind.state": "Saved window state",
+  "settings.uninstall.dataStays": "Your data folder is not touched.",
+  "settings.uninstall.typeWord": "Type {word} to confirm",
+  "settings.uninstall.presence":
+    "You will then be asked to confirm with Touch ID or on this device, because this removes your data.",
+  "settings.uninstall.approvalLabel": "Uninstall Psyche and delete data",
+  "settings.uninstall.failed": "Psyche couldn't uninstall ({reason}). Nothing more was changed.",
+  "settings.uninstall.cancel": "Cancel",
+  "settings.uninstall.go": "Uninstall and quit",
+  "settings.uninstall.goDelete": "Delete data and uninstall",
   "settings.about.doctorDescription": "Checks the Gateway, sandbox, permissions and vault.",
   "settings.about.running": "Running",
   "settings.about.runChecks": "Run checks",

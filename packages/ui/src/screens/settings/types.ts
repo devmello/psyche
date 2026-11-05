@@ -76,6 +76,33 @@ export interface AboutInfo {
   runtime?: string;
 }
 
+/** What uninstalling would do right now (the desktop shell lists it; nothing is changed). */
+export interface UninstallPlanInfo {
+  stops: { kind: string; label: string }[];
+  trash: { kind: string; path: string; label: string }[];
+  /** The word to type before "Delete my data". */
+  confirmWord: string;
+  agent: "ours" | "other" | "none";
+  keychain: string[];
+  warnings: string[];
+  blockers: { path: string; reason: string }[];
+}
+
+/** The desktop shell's uninstall, passed to About only on the Mac running the Gateway. */
+export interface UninstallPort {
+  plan(req: { deleteData: boolean; removeKeychain?: boolean }): Promise<UninstallPlanInfo>;
+  /**
+   * Rejects with `approval_required` (and `details.approvalId`) when deleting data needs
+   * presence; call again with the approved `approvalId`. Resolves just before the app quits.
+   */
+  uninstall(req: {
+    deleteData: boolean;
+    removeKeychain?: boolean;
+    confirm?: string;
+    approvalId?: string;
+  }): Promise<void>;
+}
+
 export interface DoctorCheck {
   id: string;
   label: string;
