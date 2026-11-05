@@ -104,7 +104,7 @@ import type { HandlerDef } from "../context.ts";
 import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { personalizeMessageEvent } from "../message-scrub.ts";
-import { openGatewayDb, purgePreUpdateSnapshots } from "../pre-update.ts";
+import { openGatewayDb, purgePreUpdateSnapshots, releaseGatewayLock } from "../pre-update.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { BusySources, UpdateGate } from "../update-gate.ts";
@@ -2111,7 +2111,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       // Suspended subscription-CLI runs end with the Gateway.
       for (const p of router?.providers() ?? []) if (p instanceof CliAdapter) await p.close();
       await gateway.stop(reason);
-      if (ownsDb) db.close();
+      if (ownsDb) {
+        db.close();
+        // Windows will not delete a data folder while the lock file in it is open.
+        releaseGatewayLock(config.home);
+      }
     },
   };
 }

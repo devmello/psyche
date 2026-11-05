@@ -64,7 +64,7 @@ import { LAN_SETTING, readLanSettings } from "./lan/settings.ts";
 import { createLogger, type Logger } from "./log.ts";
 import { allowedMapOrigins } from "./map-proxy.ts";
 import { NodeRegistry } from "./nodes/registry.ts";
-import { openGatewayDb } from "./pre-update.ts";
+import { openGatewayDb, releaseGatewayLock } from "./pre-update.ts";
 import { presenceStateFor } from "./presence-gate.ts";
 import { normalizePeerAddress, resolvePeer, trustedProxyList } from "./proxy.ts";
 import { RateLimiter } from "./rate-limit.ts";
@@ -707,7 +707,11 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       if (guestPipe) rmSync(join(config.home, "run", "guest-socket"), { force: true });
       rmSync(join(config.home, "run", "node-socket"), { force: true });
       removeHandshakeSecret(secretPath);
-      if (!options.db) db.close();
+      if (!options.db) {
+        db.close();
+        // Windows will not delete a data folder while the lock file in it is open.
+        releaseGatewayLock(config.home);
+      }
       log.log("info", "gateway stopped", { reason });
     },
   };
