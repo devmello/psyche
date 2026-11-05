@@ -14,7 +14,6 @@ import {
   PasswordNonces,
   type PresenceBus,
   type SessionProps,
-  systemBusAddress,
 } from "../src/compose/password-presence.ts";
 import { silentLogger } from "../src/log.ts";
 import { adminClient, ik, type TestClient } from "./helpers.ts";
@@ -542,24 +541,6 @@ describe("devices.presence.status", () => {
     ctl.step2 = CHALLENGE;
     ctl.props = { ...ctl.props, type: "x11" };
     expect(await row()).toMatchObject({ state: "ready", detail: "x11" });
-  });
-});
-
-describe("systemBusAddress", () => {
-  it("is the fixed socket whatever DBUS_SYSTEM_BUS_ADDRESS says, unless the test flag is set", () => {
-    const fake = "unix:path=/tmp/evil";
-    expect(systemBusAddress({ DBUS_SYSTEM_BUS_ADDRESS: fake })).toBe(
-      "unix:path=/run/dbus/system_bus_socket",
-    );
-    expect(systemBusAddress({ DBUS_SYSTEM_BUS_ADDRESS: fake, PSYCHE_TEST_SYSTEM_BUS: "0" })).toBe(
-      "unix:path=/run/dbus/system_bus_socket",
-    );
-    expect(systemBusAddress({ DBUS_SYSTEM_BUS_ADDRESS: fake, PSYCHE_TEST_SYSTEM_BUS: "1" })).toBe(
-      fake,
-    );
-    expect(systemBusAddress({ PSYCHE_TEST_SYSTEM_BUS: "1" })).toBe(
-      "unix:path=/run/dbus/system_bus_socket",
-    );
   });
 });
 

@@ -105,17 +105,8 @@ export class PromptDeadlineError extends Error {
   }
 }
 
-const SYSTEM_BUS_ADDRESS = "unix:path=/run/dbus/system_bus_socket";
+export const SYSTEM_BUS_ADDRESS = "unix:path=/run/dbus/system_bus_socket";
 
-/**
- * Where the system bus is: always the fixed socket, never `DBUS_SYSTEM_BUS_ADDRESS`, unless the
- * test-only `PSYCHE_TEST_SYSTEM_BUS=1` is set (CI and the dbusmock tests set it).
- */
-export function systemBusAddress(env: NodeJS.ProcessEnv): string {
-  return env.PSYCHE_TEST_SYSTEM_BUS === "1" && env.DBUS_SYSTEM_BUS_ADDRESS
-    ? env.DBUS_SYSTEM_BUS_ADDRESS
-    : SYSTEM_BUS_ADDRESS;
-}
 const BUS_CALL_TIMEOUT_MS = 8_000;
 /** Beyond the owner's time to type: how long a cancelled or silent check may take to return. */
 const PROMPT_DEADLINE_SLACK_MS = 5_000;
@@ -129,13 +120,10 @@ function withTimeout<T>(p: Promise<T>, what: string): Promise<T> {
   return Promise.race([p, t]).finally(() => clearTimeout(timer));
 }
 
-/** The real system-bus client (dbus-next, pure JS), loaded on first use. */
-export const systemPresenceBus: PresenceBusFactory = async () => {
+/** A bus client (dbus-next, pure JS) on `address`, loaded on first use. */
+async function openPresenceBus(address: string): Promise<PresenceBus> {
   const dbus = await import("dbus-next");
-  // The one system bus socket, never an address from the environment: a changed
-  // DBUS_SYSTEM_BUS_ADDRESS would otherwise point psyched at a fake polkitd that says yes.
-  // Tests (CI, dbusmock) opt in with PSYCHE_TEST_SYSTEM_BUS=1, which production never sets.
-  const bus = dbus.sessionBus({ busAddress: systemBusAddress(process.env) });
+  const bus = dbus.sessionBus({ busAddress: address });
   // dbus-next 0.10.2 never rejects calls still waiting when the connection ends, so a bus that
   // restarts mid-dialog would leave them pending forever. Every call races this instead.
   let gone: ((e: Error) => void) | undefined;
@@ -235,7 +223,25 @@ export const systemPresenceBus: PresenceBusFactory = async () => {
       }
     },
   };
-};
+}
+
+/**
+ * The production factory: always the one system bus socket. It reads NO environment variable
+ * (`DBUS_SYSTEM_BUS_ADDRESS` and the like can be set for a user service through
+ * `systemctl --user set-environment`, `environment.d` or a unit drop-in, and would point psyched
+ * at a fake polkitd that says yes).
+ */
+export const systemPresenceBus: PresenceBusFactory = () => openPresenceBus(SYSTEM_BUS_ADDRESS);
+
+/**
+ * TEST ONLY: a client on another bus address (the dbusmock harness's private bus). Nothing in
+ * production imports this; the address always comes from the test's own code, never from the
+ * environment of psyched.
+ */
+export const presenceBusAt =
+  (address: string): PresenceBusFactory =>
+  () =>
+    openPresenceBus(address);
 
 /** Why password presence cannot be used right now. */
 export type PasswordState =

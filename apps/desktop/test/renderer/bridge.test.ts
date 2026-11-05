@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { PsycheBridge } from "../../src/preload.ts";
-import { desktopPlatform, GatewayCallError, unwrapCall } from "../../src/renderer/bridge.ts";
+import {
+  desktopPlatform,
+  GatewayCallError,
+  remoteClientPlatform,
+  unwrapCall,
+} from "../../src/renderer/bridge.ts";
 
 describe("renderer bridge", () => {
   it("returns the value of an ok envelope", async () => {
@@ -74,6 +79,8 @@ describe("renderer bridge", () => {
     expect(linux.helper).toBeDefined();
     await linux.password?.approve({ approvalId: "ap_1", answerToken: "t" });
     expect(sent).toEqual([{ approvalId: "ap_1", answerToken: "t" }]);
+    // A window on another computer's Gateway has no password dialog of its own to promise.
+    expect(remoteClientPlatform(linux).password).toBeUndefined();
     const mac = desktopPlatform(mk("darwin"));
     expect(mac.helper?.touchId).toBeDefined();
     expect(mac.password).toBeUndefined();

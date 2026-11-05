@@ -133,6 +133,9 @@ export function remoteClientPlatform(full: ShellPlatform, b?: PsycheBridge): She
     terminal: _terminal,
     sources: _sources,
     permissions: _permissions,
+    // The password dialog is on this computer, not on the Host's: a remote window must not
+    // promise "type your password in the system dialog".
+    password: _password,
     ...rest
   } = full;
   const { showLogs: _showLogs, ...gateway } = full.gateway;
@@ -245,7 +248,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       onState: (cb) => b.helper.onState((s) => cb(s as MacHelperState)),
       launch: (restart) => b.helper.launch(restart) as Promise<MacHelperState>,
       // Not on Linux: there the helper has no Touch ID, and offering it would send Allow to
-      //  (helper_offline) instead of the password path.
+      // `approveWithTouchId` (helper_offline) instead of the password path.
       ...(b.platform === "linux"
         ? {}
         : {

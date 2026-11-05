@@ -57,14 +57,13 @@ class PasswordPresence(dbusmock.DBusTestCase):
         obj = self.bus.get_object(LOGIN, f"/org/freedesktop/login1/session/{sid}")
         obj.UpdateProperties("org.freedesktop.login1.Session", {"Type": typ}, dbus_interface=dbusmock.MOCK_IFACE)
 
-    def run_driver(self, command, test_bus=True, check=True):
-        env = {**os.environ, "PSYCHE_TEST_SYSTEM_BUS": "1"}
-        if not test_bus:
-            env.pop("PSYCHE_TEST_SYSTEM_BUS")
+    def run_driver(self, command, check=True):
+        # DBUS_SYSTEM_BUS_ADDRESS (the private test bus) is set by start_system_bus(); only the
+        # driver reads it, and hands it to the test-only presenceBusAt.
         out = subprocess.run(
             ["pnpm", "--filter", "@psyche/gateway", "exec", "tsx", DRIVER, command],
             cwd=ROOT,
-            env=env,
+            env=dict(os.environ),
             capture_output=True,
             text=True,
             timeout=120,
@@ -165,11 +164,11 @@ class PasswordPresence(dbusmock.DBusTestCase):
         self.assertEqual(self.log(), [])
 
     def test_the_bus_address_from_the_environment_is_ignored_in_production(self):
-        # Without PSYCHE_TEST_SYSTEM_BUS the client uses the fixed system socket, never the
-        # private test bus named by DBUS_SYSTEM_BUS_ADDRESS, so this polkitd stand-in sees nothing.
-        out = self.run_driver("preflight", test_bus=False, check=False)
+        # The production factory uses the fixed system socket and reads no environment, so the
+        # private test bus named by DBUS_SYSTEM_BUS_ADDRESS (and its mock session c2) is never seen.
+        out = self.run_driver("preflight-production", check=False)
         self.assertEqual(self.log(), [])
-        self.assertNotIn('"state":"ready"', out.stdout)
+        self.assertNotIn('"sessionId":"c2"', out.stdout)
 
 
 if __name__ == "__main__":
