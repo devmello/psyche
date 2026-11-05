@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-05 (Linux helper pairing)
+
+- `HOST_HELPER_FAMILIES` gains `linux-helper`; `isHostHelperKind` also accepts `host-helper`. New `hostHelperKindOf(family)` (the Linux helper is stored as `host-helper`, Mac and Windows keep their kinds) and the `PeerCheck` type (`root_owned` | `user_owned` | `unverified` | `mismatch`). No wire schema changes. The `devices.hostHelper.status` setting gains an optional `peerCheck`.
+
 ### v1 additive — 2026-11-05 (Teach by showing in a Windows app)
 
 - New `TEACH_APP_ID_PATTERN` and `isTeachAppId` (`common.ts`): an app is a macOS bundle id or, on Windows, its lowercase executable name (`notepad.exe`, `adobe premiere pro.exe`). `BrowserTeachStep.app.bundleId`'s `pattern` widens to it (additive: every earlier id still matches); `sanitizeTeachSteps` and the Gateway use `isTeachAppId`.

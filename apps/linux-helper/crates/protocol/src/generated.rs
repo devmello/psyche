@@ -59,7 +59,9 @@ impl ::std::convert::From<ConnectChallengeServerOrigin> for ::std::string::Strin
 }
 impl ::std::str::FromStr for ConnectChallengeServerOrigin {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() < 1usize {
             return Err("shorter than 1 characters".into());
         }
@@ -68,7 +70,9 @@ impl ::std::str::FromStr for ConnectChallengeServerOrigin {
 }
 impl ::std::convert::TryFrom<&str> for ConnectChallengeServerOrigin {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -112,7 +116,7 @@ pub struct ConnectDenied {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ConnectDeniedCode {
     #[serde(rename = "setup_token_invalid")]
@@ -130,7 +134,9 @@ impl ::std::fmt::Display for ConnectDeniedCode {
 }
 impl ::std::str::FromStr for ConnectDeniedCode {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "setup_token_invalid" => Ok(Self::SetupTokenInvalid),
             "device_revoked" => Ok(Self::DeviceRevoked),
@@ -140,7 +146,9 @@ impl ::std::str::FromStr for ConnectDeniedCode {
 }
 impl ::std::convert::TryFrom<&str> for ConnectDeniedCode {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -159,10 +167,7 @@ pub struct ConnectPaired {
     #[serde(rename = "deviceId")]
     pub device_id: ConnectPairedDeviceId,
     ///ULID in production
-    #[serde(
-        rename = "nodeId",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "nodeId", skip_serializing_if = "::std::option::Option::is_none")]
     pub node_id: ::std::option::Option<ConnectPairedNodeId>,
     pub phase: ::std::string::String,
     pub scopes: ::std::vec::Vec<DeviceScope>,
@@ -189,7 +194,9 @@ impl ::std::convert::From<ConnectPairedDeviceId> for ::std::string::String {
 }
 impl ::std::str::FromStr for ConnectPairedDeviceId {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 64usize {
             return Err("longer than 64 characters".into());
         }
@@ -201,7 +208,9 @@ impl ::std::str::FromStr for ConnectPairedDeviceId {
 }
 impl ::std::convert::TryFrom<&str> for ConnectPairedDeviceId {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -242,7 +251,9 @@ impl ::std::convert::From<ConnectPairedNodeId> for ::std::string::String {
 }
 impl ::std::str::FromStr for ConnectPairedNodeId {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 64usize {
             return Err("longer than 64 characters".into());
         }
@@ -254,7 +265,9 @@ impl ::std::str::FromStr for ConnectPairedNodeId {
 }
 impl ::std::convert::TryFrom<&str> for ConnectPairedNodeId {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -320,7 +333,9 @@ impl ::std::convert::From<ConnectParamsDeviceId> for ::std::string::String {
 }
 impl ::std::str::FromStr for ConnectParamsDeviceId {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 64usize {
             return Err("longer than 64 characters".into());
         }
@@ -332,7 +347,9 @@ impl ::std::str::FromStr for ConnectParamsDeviceId {
 }
 impl ::std::convert::TryFrom<&str> for ConnectParamsDeviceId {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -373,7 +390,9 @@ impl ::std::convert::From<ConnectParamsHandshakeSecret> for ::std::string::Strin
 }
 impl ::std::str::FromStr for ConnectParamsHandshakeSecret {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 256usize {
             return Err("longer than 256 characters".into());
         }
@@ -385,7 +404,9 @@ impl ::std::str::FromStr for ConnectParamsHandshakeSecret {
 }
 impl ::std::convert::TryFrom<&str> for ConnectParamsHandshakeSecret {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -426,7 +447,9 @@ impl ::std::convert::From<ConnectParamsName> for ::std::string::String {
 }
 impl ::std::str::FromStr for ConnectParamsName {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 128usize {
             return Err("longer than 128 characters".into());
         }
@@ -438,7 +461,9 @@ impl ::std::str::FromStr for ConnectParamsName {
 }
 impl ::std::convert::TryFrom<&str> for ConnectParamsName {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -488,7 +513,9 @@ impl ::std::convert::From<ConnectPendingCode> for ::std::string::String {
 }
 impl ::std::str::FromStr for ConnectPendingCode {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() < 1usize {
             return Err("shorter than 1 characters".into());
         }
@@ -497,7 +524,9 @@ impl ::std::str::FromStr for ConnectPendingCode {
 }
 impl ::std::convert::TryFrom<&str> for ConnectPendingCode {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -538,7 +567,9 @@ impl ::std::convert::From<ConnectPendingPairingRequestId> for ::std::string::Str
 }
 impl ::std::str::FromStr for ConnectPendingPairingRequestId {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 64usize {
             return Err("longer than 64 characters".into());
         }
@@ -550,7 +581,9 @@ impl ::std::str::FromStr for ConnectPendingPairingRequestId {
 }
 impl ::std::convert::TryFrom<&str> for ConnectPendingPairingRequestId {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -585,7 +618,7 @@ impl<'de> ::serde::Deserialize<'de> for ConnectPendingPairingRequestId {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ConnectRole {
     #[serde(rename = "client")]
@@ -603,7 +636,9 @@ impl ::std::fmt::Display for ConnectRole {
 }
 impl ::std::str::FromStr for ConnectRole {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "client" => Ok(Self::Client),
             "node" => Ok(Self::Node),
@@ -613,7 +648,9 @@ impl ::std::str::FromStr for ConnectRole {
 }
 impl ::std::convert::TryFrom<&str> for ConnectRole {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -647,7 +684,15 @@ pub struct ConnectVerifyParams {
 }
 ///"desktop" | "web" | "mac-helper" | "cli" | …
 #[derive(
-    ::serde::Deserialize, ::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd,
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
 )]
 #[serde(transparent)]
 pub struct DeviceFamily(pub ::std::string::String);
@@ -689,7 +734,7 @@ impl ::std::str::FromStr for DeviceFamily {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum DevicePlatform {
     #[serde(rename = "macos")]
@@ -702,6 +747,8 @@ pub enum DevicePlatform {
     Web,
     #[serde(rename = "linux")]
     Linux,
+    #[serde(rename = "windows")]
+    Windows,
 }
 impl ::std::fmt::Display for DevicePlatform {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
@@ -711,25 +758,31 @@ impl ::std::fmt::Display for DevicePlatform {
             Self::Android => f.write_str("android"),
             Self::Web => f.write_str("web"),
             Self::Linux => f.write_str("linux"),
+            Self::Windows => f.write_str("windows"),
         }
     }
 }
 impl ::std::str::FromStr for DevicePlatform {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "macos" => Ok(Self::Macos),
             "ios" => Ok(Self::Ios),
             "android" => Ok(Self::Android),
             "web" => Ok(Self::Web),
             "linux" => Ok(Self::Linux),
+            "windows" => Ok(Self::Windows),
             _ => Err("invalid value".into()),
         }
     }
 }
 impl ::std::convert::TryFrom<&str> for DevicePlatform {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -752,7 +805,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DevicePlatform {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum DeviceScope {
     #[serde(rename = "operator.read")]
@@ -779,7 +832,9 @@ impl ::std::fmt::Display for DeviceScope {
 }
 impl ::std::str::FromStr for DeviceScope {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "operator.read" => Ok(Self::OperatorRead),
             "operator.write" => Ok(Self::OperatorWrite),
@@ -792,7 +847,9 @@ impl ::std::str::FromStr for DeviceScope {
 }
 impl ::std::convert::TryFrom<&str> for DeviceScope {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -815,7 +872,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DeviceScope {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ErrorCode {
     #[serde(rename = "not_implemented")]
@@ -882,6 +939,14 @@ pub enum ErrorCode {
     MethodNotAllowed,
     #[serde(rename = "presence_required")]
     PresenceRequired,
+    #[serde(rename = "presence_unavailable_here")]
+    PresenceUnavailableHere,
+    #[serde(rename = "presence_agent_missing")]
+    PresenceAgentMissing,
+    #[serde(rename = "presence_policy_missing")]
+    PresencePolicyMissing,
+    #[serde(rename = "presence_not_enforced")]
+    PresenceNotEnforced,
 }
 impl ::std::fmt::Display for ErrorCode {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
@@ -918,12 +983,18 @@ impl ::std::fmt::Display for ErrorCode {
             Self::TabNotFound => f.write_str("tab_not_found"),
             Self::MethodNotAllowed => f.write_str("method_not_allowed"),
             Self::PresenceRequired => f.write_str("presence_required"),
+            Self::PresenceUnavailableHere => f.write_str("presence_unavailable_here"),
+            Self::PresenceAgentMissing => f.write_str("presence_agent_missing"),
+            Self::PresencePolicyMissing => f.write_str("presence_policy_missing"),
+            Self::PresenceNotEnforced => f.write_str("presence_not_enforced"),
         }
     }
 }
 impl ::std::str::FromStr for ErrorCode {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "not_implemented" => Ok(Self::NotImplemented),
             "invalid_frame" => Ok(Self::InvalidFrame),
@@ -957,13 +1028,19 @@ impl ::std::str::FromStr for ErrorCode {
             "tab_not_found" => Ok(Self::TabNotFound),
             "method_not_allowed" => Ok(Self::MethodNotAllowed),
             "presence_required" => Ok(Self::PresenceRequired),
+            "presence_unavailable_here" => Ok(Self::PresenceUnavailableHere),
+            "presence_agent_missing" => Ok(Self::PresenceAgentMissing),
+            "presence_policy_missing" => Ok(Self::PresencePolicyMissing),
+            "presence_not_enforced" => Ok(Self::PresenceNotEnforced),
             _ => Err("invalid value".into()),
         }
     }
 }
 impl ::std::convert::TryFrom<&str> for ErrorCode {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1014,7 +1091,9 @@ impl ::std::convert::From<EventFrameEvent> for ::std::string::String {
 }
 impl ::std::str::FromStr for EventFrameEvent {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 128usize {
             return Err("longer than 128 characters".into());
         }
@@ -1026,7 +1105,9 @@ impl ::std::str::FromStr for EventFrameEvent {
 }
 impl ::std::convert::TryFrom<&str> for EventFrameEvent {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1067,7 +1148,9 @@ impl ::std::convert::From<FrameId> for ::std::string::String {
 }
 impl ::std::str::FromStr for FrameId {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 128usize {
             return Err("longer than 128 characters".into());
         }
@@ -1079,7 +1162,9 @@ impl ::std::str::FromStr for FrameId {
 }
 impl ::std::convert::TryFrom<&str> for FrameId {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1120,7 +1205,9 @@ impl ::std::convert::From<IdempotencyKey> for ::std::string::String {
 }
 impl ::std::str::FromStr for IdempotencyKey {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 128usize {
             return Err("longer than 128 characters".into());
         }
@@ -1132,7 +1219,9 @@ impl ::std::str::FromStr for IdempotencyKey {
 }
 impl ::std::convert::TryFrom<&str> for IdempotencyKey {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1173,7 +1262,9 @@ impl ::std::convert::From<InvocationId> for ::std::string::String {
 }
 impl ::std::str::FromStr for InvocationId {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 128usize {
             return Err("longer than 128 characters".into());
         }
@@ -1185,7 +1276,9 @@ impl ::std::str::FromStr for InvocationId {
 }
 impl ::std::convert::TryFrom<&str> for InvocationId {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1276,7 +1369,9 @@ impl ::std::convert::From<NodeInvokeParamsApprovalId> for ::std::string::String 
 }
 impl ::std::str::FromStr for NodeInvokeParamsApprovalId {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 64usize {
             return Err("longer than 64 characters".into());
         }
@@ -1288,7 +1383,9 @@ impl ::std::str::FromStr for NodeInvokeParamsApprovalId {
 }
 impl ::std::convert::TryFrom<&str> for NodeInvokeParamsApprovalId {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1329,7 +1426,9 @@ impl ::std::convert::From<NodeInvokeParamsCapability> for ::std::string::String 
 }
 impl ::std::str::FromStr for NodeInvokeParamsCapability {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() < 1usize {
             return Err("shorter than 1 characters".into());
         }
@@ -1338,7 +1437,9 @@ impl ::std::str::FromStr for NodeInvokeParamsCapability {
 }
 impl ::std::convert::TryFrom<&str> for NodeInvokeParamsCapability {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1393,26 +1494,24 @@ pub struct Receipt {
     #[serde(rename = "createdAt")]
     pub created_at: ::std::string::String,
     #[serde(rename = "externalRefs")]
-    pub external_refs: ::std::collections::HashMap<::std::string::String, ReceiptExternalRefsValue>,
+    pub external_refs: ::std::collections::HashMap<
+        ::std::string::String,
+        ReceiptExternalRefsValue,
+    >,
     ///ULID in production
     pub id: ReceiptId,
     ///ApprovalKind vocabulary plus read kinds
     pub kind: ::std::string::String,
     pub outcome: ReceiptOutcome,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
-    pub payload:
-        ::std::option::Option<::serde_json::Map<::std::string::String, ::serde_json::Value>>,
+    pub payload: ::std::option::Option<
+        ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    >,
     ///Client-visible short id for the receipt line
-    #[serde(
-        rename = "shortId",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "shortId", skip_serializing_if = "::std::option::Option::is_none")]
     pub short_id: ::std::option::Option<::std::string::String>,
     pub summary: ::std::string::String,
-    #[serde(
-        rename = "taskId",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "taskId", skip_serializing_if = "::std::option::Option::is_none")]
     pub task_id: ::std::option::Option<ReceiptTaskId>,
     #[serde(
         rename = "toolCallId",
@@ -1437,7 +1536,9 @@ impl ::std::convert::From<ReceiptApprovalId> for ::std::string::String {
 }
 impl ::std::str::FromStr for ReceiptApprovalId {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 64usize {
             return Err("longer than 64 characters".into());
         }
@@ -1449,7 +1550,9 @@ impl ::std::str::FromStr for ReceiptApprovalId {
 }
 impl ::std::convert::TryFrom<&str> for ReceiptApprovalId {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1510,7 +1613,9 @@ impl ::std::convert::From<ReceiptId> for ::std::string::String {
 }
 impl ::std::str::FromStr for ReceiptId {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 64usize {
             return Err("longer than 64 characters".into());
         }
@@ -1522,7 +1627,9 @@ impl ::std::str::FromStr for ReceiptId {
 }
 impl ::std::convert::TryFrom<&str> for ReceiptId {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1557,7 +1664,7 @@ impl<'de> ::serde::Deserialize<'de> for ReceiptId {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum ReceiptOutcome {
     #[serde(rename = "ok")]
@@ -1578,7 +1685,9 @@ impl ::std::fmt::Display for ReceiptOutcome {
 }
 impl ::std::str::FromStr for ReceiptOutcome {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "ok" => Ok(Self::Ok),
             "failed" => Ok(Self::Failed),
@@ -1589,7 +1698,9 @@ impl ::std::str::FromStr for ReceiptOutcome {
 }
 impl ::std::convert::TryFrom<&str> for ReceiptOutcome {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1618,7 +1729,9 @@ impl ::std::convert::From<ReceiptTaskId> for ::std::string::String {
 }
 impl ::std::str::FromStr for ReceiptTaskId {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 64usize {
             return Err("longer than 64 characters".into());
         }
@@ -1630,7 +1743,9 @@ impl ::std::str::FromStr for ReceiptTaskId {
 }
 impl ::std::convert::TryFrom<&str> for ReceiptTaskId {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1671,7 +1786,9 @@ impl ::std::convert::From<ReceiptToolCallId> for ::std::string::String {
 }
 impl ::std::str::FromStr for ReceiptToolCallId {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 64usize {
             return Err("longer than 64 characters".into());
         }
@@ -1683,7 +1800,9 @@ impl ::std::str::FromStr for ReceiptToolCallId {
 }
 impl ::std::convert::TryFrom<&str> for ReceiptToolCallId {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1740,7 +1859,9 @@ impl ::std::convert::From<ReqFrameMethod> for ::std::string::String {
 }
 impl ::std::str::FromStr for ReqFrameMethod {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 128usize {
             return Err("longer than 128 characters".into());
         }
@@ -1752,7 +1873,9 @@ impl ::std::str::FromStr for ReqFrameMethod {
 }
 impl ::std::convert::TryFrom<&str> for ReqFrameMethod {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1805,10 +1928,7 @@ pub struct ServerBuild {
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub commit: ::std::option::Option<ServerBuildCommit>,
     ///The build the LaunchAgent plist (PSYCHE_BUILD) says this process was started for, reported next to the bundle's build-info.json build when both exist. A claim, not a check: `build` is what counts
-    #[serde(
-        rename = "envBuild",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
+    #[serde(rename = "envBuild", skip_serializing_if = "::std::option::Option::is_none")]
     pub env_build: ::std::option::Option<ServerBuildEnvBuild>,
     ///The Gateway's version
     pub version: ServerBuildVersion,
@@ -1830,7 +1950,9 @@ impl ::std::convert::From<ServerBuildBuild> for ::std::string::String {
 }
 impl ::std::str::FromStr for ServerBuildBuild {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 64usize {
             return Err("longer than 64 characters".into());
         }
@@ -1842,7 +1964,9 @@ impl ::std::str::FromStr for ServerBuildBuild {
 }
 impl ::std::convert::TryFrom<&str> for ServerBuildBuild {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1883,7 +2007,9 @@ impl ::std::convert::From<ServerBuildCommit> for ::std::string::String {
 }
 impl ::std::str::FromStr for ServerBuildCommit {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 64usize {
             return Err("longer than 64 characters".into());
         }
@@ -1895,7 +2021,9 @@ impl ::std::str::FromStr for ServerBuildCommit {
 }
 impl ::std::convert::TryFrom<&str> for ServerBuildCommit {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1936,7 +2064,9 @@ impl ::std::convert::From<ServerBuildEnvBuild> for ::std::string::String {
 }
 impl ::std::str::FromStr for ServerBuildEnvBuild {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 64usize {
             return Err("longer than 64 characters".into());
         }
@@ -1948,7 +2078,9 @@ impl ::std::str::FromStr for ServerBuildEnvBuild {
 }
 impl ::std::convert::TryFrom<&str> for ServerBuildEnvBuild {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -1989,7 +2121,9 @@ impl ::std::convert::From<ServerBuildVersion> for ::std::string::String {
 }
 impl ::std::str::FromStr for ServerBuildVersion {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         if value.chars().count() > 64usize {
             return Err("longer than 64 characters".into());
         }
@@ -2001,7 +2135,9 @@ impl ::std::str::FromStr for ServerBuildVersion {
 }
 impl ::std::convert::TryFrom<&str> for ServerBuildVersion {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -2036,7 +2172,7 @@ impl<'de> ::serde::Deserialize<'de> for ServerBuildVersion {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum SideEffect {
     #[serde(rename = "none")]
@@ -2063,7 +2199,9 @@ impl ::std::fmt::Display for SideEffect {
 }
 impl ::std::str::FromStr for SideEffect {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "none" => Ok(Self::None),
             "read" => Ok(Self::Read),
@@ -2076,7 +2214,9 @@ impl ::std::str::FromStr for SideEffect {
 }
 impl ::std::convert::TryFrom<&str> for SideEffect {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -2099,7 +2239,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SideEffect {
     Hash,
     Ord,
     PartialEq,
-    PartialOrd,
+    PartialOrd
 )]
 pub enum TargetKind {
     #[serde(rename = "origin")]
@@ -2129,7 +2269,9 @@ impl ::std::fmt::Display for TargetKind {
 }
 impl ::std::str::FromStr for TargetKind {
     type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "origin" => Ok(Self::Origin),
             "path" => Ok(Self::Path),
@@ -2143,7 +2285,9 @@ impl ::std::str::FromStr for TargetKind {
 }
 impl ::std::convert::TryFrom<&str> for TargetKind {
     type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
     }
 }
@@ -2161,12 +2305,18 @@ pub mod error {
     pub struct ConversionError(::std::borrow::Cow<'static, str>);
     impl ::std::error::Error for ConversionError {}
     impl ::std::fmt::Display for ConversionError {
-        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> Result<(), ::std::fmt::Error> {
+        fn fmt(
+            &self,
+            f: &mut ::std::fmt::Formatter<'_>,
+        ) -> Result<(), ::std::fmt::Error> {
             ::std::fmt::Display::fmt(&self.0, f)
         }
     }
     impl ::std::fmt::Debug for ConversionError {
-        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> Result<(), ::std::fmt::Error> {
+        fn fmt(
+            &self,
+            f: &mut ::std::fmt::Formatter<'_>,
+        ) -> Result<(), ::std::fmt::Error> {
             ::std::fmt::Debug::fmt(&self.0, f)
         }
     }
