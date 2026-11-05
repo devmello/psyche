@@ -100,10 +100,31 @@ struct TaskActivityContentTests {
     @Test func noTitleWhenTheSettingIsOff() throws {
         let content = TaskActivityContent.make(task: task, status: .running, showTitle: false)
         #expect(content.title == nil)
-        // Nothing but progress is encoded: this is what Apple's Live Activity service would carry.
-        let json = try String(decoding: JSONEncoder().encode(content), as: UTF8.self)
+        // A future push update carries nothing but progress: this is what Apple's Live Activity service would see.
+        let json = try String(decoding: JSONEncoder().encode(content.forPush), as: UTF8.self)
         #expect(!json.contains("Q3"))
         #expect(!json.contains("reading"))
+    }
+
+    @Test func theIslandAlwaysGetsTheTitleAndWhatTheStepIsDoing() {
+        // The Dynamic Island shows only on an unlocked phone, and the app updates the activity itself.
+        let content = TaskActivityContent.make(task: task, status: .running, showTitle: false)
+        #expect(content.islandTitle == "Drafting the Q3 review summary")
+        #expect(content.detail == "Reading 12 files")
+        #expect(content.asking == nil)
+        #expect(content.stepLabel == "Step 3 of 7")
+        #expect(content.statusWord == "Running")
+    }
+
+    @Test func whileWaitingTheIslandSaysWhatItIsAskingFor() {
+        let content = TaskActivityContent.make(
+            task: task, status: .needsApproval, showTitle: false, asking: "Send the Q3 summary to Dana?")
+        #expect(content.asking == "Send the Q3 summary to Dana?")
+        #expect(content.statusWord == "Needs your OK")
+        // Asking text is dropped once it isn't waiting, and when finished.
+        #expect(TaskActivityContent.make(task: task, status: .running, showTitle: false, asking: "x").asking == nil)
+        #expect(content.finished(failed: false).asking == nil)
+        #expect(content.forPush.asking == nil && content.forPush.islandTitle == nil)
     }
 
     @Test func titleWhenTheSettingIsOn() {

@@ -44,25 +44,23 @@ struct TaskLiveActivity: Widget {
                 .widgetURL(TaskActivityContent.url(forTask: context.attributes.taskID))
         } dynamicIsland: { context in
             let content = context.state
+            let url = TaskActivityContent.url(forTask: context.attributes.taskID)
             return DynamicIsland {
+                // Expanded (long-press, unlocked only): what the task is, what it's doing now, and how far along.
+                // Top row beside the camera: the moth and the elapsed time. Everything that needs width (the
+                // title, what it's doing, the bar) goes in the full-width bottom region.
                 DynamicIslandExpandedRegion(.leading) {
-                    LA.moth(26).padding(.leading, 4)
+                    LA.moth(24).padding(.leading, 8)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    ElapsedText(content: content, size: 15).padding(.trailing, 4)
-                }
-                DynamicIslandExpandedRegion(.center) {
-                    Text(content.title ?? "Psyche is working")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(LA.text)
-                        .lineLimit(1)
+                    ElapsedText(content: content, size: 14).padding(.trailing, 8)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        SegmentBar(content: content)
-                        StatusLine(content: content)
+                    VStack(alignment: .leading, spacing: 10) {
+                        IslandHeadline(content: content)
+                        IslandFooter(content: content, url: url)
                     }
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 8)
                 }
             } compactLeading: {
                 LA.moth(18)
@@ -168,6 +166,69 @@ struct ElapsedText: View {
 
 // MARK: - Dynamic Island
 
+/// The expanded island's headline: the task's title, and a line under it — what it's asking
+/// for (amber) when it needs you, otherwise what the current step is doing.
+private struct IslandHeadline: View {
+    let content: TaskActivityContent
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(content.islandTitle ?? content.title ?? "Psyche is working")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(LA.text)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            if let line = content.asking ?? content.detail {
+                Text(line)
+                    .font(.system(size: 13))
+                    .foregroundStyle(content.asking != nil ? LA.amber : LA.muted)
+                    .lineLimit(2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The expanded island's bottom: the segmented bar, then "Step 3 of 7" and the status (or Review).
+private struct IslandFooter: View {
+    let content: TaskActivityContent
+    let url: URL?
+
+    var body: some View {
+        VStack(spacing: 9) {
+            if content.hasStepCount { SegmentBar(content: content) }
+            HStack(spacing: 8) {
+                if let step = content.stepLabel {
+                    Text(step)
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(LA.muted)
+                }
+                Spacer(minLength: 8)
+                if content.status == .needsApproval, let url {
+                    Link(destination: url) {
+                        Text("Review")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(LA.card)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .background(LA.amber, in: Capsule())
+                    }
+                    .accessibilityLabel("Review the approval")
+                } else {
+                    HStack(spacing: 5) {
+                        if let dot = LA.dot(for: content.status) {
+                            Circle().fill(dot).frame(width: 6, height: 6)
+                        }
+                        Text(content.statusWord)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(LA.muted)
+                    }
+                }
+            }
+        }
+    }
+}
+
 private struct CompactTrailing: View {
     let content: TaskActivityContent
 
@@ -175,10 +236,13 @@ private struct CompactTrailing: View {
         switch content.status {
         case .needsApproval:
             Circle().fill(LA.amber).frame(width: 9, height: 9)
+                .accessibilityLabel("Needs your OK")
         case .done:
-            Text("Done").font(.system(size: 13, weight: .medium, design: .monospaced)).foregroundStyle(LA.muted)
+            Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(LA.green)
+                .accessibilityLabel("Done")
         case .failed:
-            Text("Failed").font(.system(size: 13, weight: .medium, design: .monospaced)).foregroundStyle(LA.muted)
+            Image(systemName: "exclamationmark").font(.system(size: 12, weight: .bold)).foregroundStyle(LA.red)
+                .accessibilityLabel("Failed")
         case .running:
             if content.hasStepCount {
                 Text("\(content.clampedStep)/\(content.stepCount)")
@@ -191,15 +255,24 @@ private struct CompactTrailing: View {
     }
 }
 
+/// The minimal view (when another app's activity shares the island): the moth inside a thin progress ring,
+/// amber when it needs you.
 private struct MinimalMark: View {
     let content: TaskActivityContent
 
     var body: some View {
-        LA.moth(16)
-            .overlay(alignment: .topTrailing) {
-                if content.status == .needsApproval {
-                    Circle().fill(LA.amber).frame(width: 6, height: 6).offset(x: 2, y: -2)
-                }
+        ZStack {
+            if let fraction = content.fraction {
+                Circle().stroke(LA.track, lineWidth: 2)
+                Circle()
+                    .trim(from: 0, to: max(fraction, 0.04))
+                    .stroke(content.status == .needsApproval ? LA.amber : LA.text, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            } else if content.status == .needsApproval {
+                Circle().stroke(LA.amber, lineWidth: 2)
             }
+            LA.moth(12)
+        }
+        .frame(width: 22, height: 22)
     }
 }

@@ -203,12 +203,14 @@ public final class AlertCenter {
         let previous = Set(await ledger.knownRunning())
 
         let effective: SyncMode = mode == .background ? .background : (baselined ? .live : .baseline)
-        await announce(home.needsYou, mode: effective)
-        await clearStale(pending: Set(home.needsYou.map(\.id)))
-
+        // The Live Activity first: announcing can wait on the system's notification prompt, and a backgrounded
+        // app may be suspended right after it, which would leave the island showing the old state.
         let vanished = previous.union(watching).subtracting(running)
         let recent = vanished.isEmpty ? [] : ((try? await store.activity())?.recent ?? [])
         await updateActivities(home: home, recent: recent)
+
+        await announce(home.needsYou, mode: effective)
+        await clearStale(pending: Set(home.needsYou.map(\.id)))
         if effective != .baseline {
             await announceFinished(vanished: vanished, recent: recent)
             if effective == .live { considerOffer(home.running, previous: previous) }
@@ -221,10 +223,11 @@ public final class AlertCenter {
         for id in watching {
             if let task = home.running.first(where: { $0.id == id }) {
                 titles[id] = task.title
-                let waiting = home.needsYou.contains { $0.kind == .approval && $0.taskID == id }
+                let approval = home.needsYou.first { $0.kind == .approval && $0.taskID == id }
                 let content = TaskActivityContent.make(
-                    task: task, status: waiting ? .needsApproval : .running,
-                    showTitle: settings.taskTitlesOnLockScreen, fallbackStart: lastContent[id]?.startedAt)
+                    task: task, status: approval != nil ? .needsApproval : .running,
+                    showTitle: settings.taskTitlesOnLockScreen, fallbackStart: lastContent[id]?.startedAt,
+                    asking: approval?.title)
                 if lastContent[id] != content {
                     lastContent[id] = content
                     await activities.update(taskID: id, content: content)
