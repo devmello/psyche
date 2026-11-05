@@ -180,6 +180,28 @@ describe("mail watch", () => {
     expect(await watcher.poll()).toEqual({ published: 1 });
     expect(errors).toEqual([]);
   });
+
+  it("keeps an Outlook message id whole, with a digest in the event's dedupe key", async () => {
+    const r = rig();
+    // The Windows helper's ids pack the store and entry ids: hundreds of characters.
+    const id = `ol1.${"A".repeat(400)}.${"B".repeat(100)}`;
+    r.inbox.push({ id, from: "Ann", subject: "Hi", date: new Date(NOON - 60_000).toISOString() });
+    const [e] = await appleMailSource({ get: (n) => r.tools.get(n) }).poll(
+      new Date(NOON - 3_600_000).toISOString(),
+      NOON,
+      new AbortController().signal,
+    );
+    expect(e?.messageId).toBe(id);
+    expect(e?.id).toMatch(/^mail:apple:Work:[0-9a-f]{64}$/);
+    // Mail's short ids keep their readable key.
+    r.inbox.splice(0, 1, { id: "m1", from: "A", subject: "S", date: new Date(NOON).toISOString() });
+    const [m] = await appleMailSource({ get: (n) => r.tools.get(n) }).poll(
+      new Date(NOON - 3_600_000).toISOString(),
+      NOON,
+      new AbortController().signal,
+    );
+    expect(m?.id).toBe("mail:apple:Work:m1");
+  });
 });
 
 describe("the poll cadence follows Settings → Mail & meetings", () => {

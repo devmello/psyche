@@ -1,7 +1,8 @@
 // Runs cargo for @psyche/win-helper on Windows; a no-op everywhere else, so turbo can run
 // `build` / `test` across the monorepo on any OS.
 //
-//   node scripts/cargo.mjs build   → cargo build --release, then copies psyche-helper.exe to dist/
+//   node scripts/cargo.mjs build   → cargo build --release, then copies psyche-helper.exe and
+//                                   psyche-vm-svc.exe to dist/
 //   node scripts/cargo.mjs test    → cargo test
 //   node scripts/cargo.mjs clippy  → cargo clippy --all-targets -- -D warnings
 import { spawnSync } from "node:child_process";
@@ -38,8 +39,8 @@ if (run.status !== 0) process.exit(run.status ?? 1);
 
 if (task === "build") {
   mkdirSync(join(root, "dist"), { recursive: true });
-  copyFileSync(
-    join(root, "target", "release", "psyche-helper.exe"),
-    join(root, "dist", "psyche-helper.exe"),
-  );
+  // psyche-vm-svc.exe: the sandbox PC service (crates/win-vm), shipped beside the helper.
+  for (const exe of ["psyche-helper.exe", "psyche-vm-svc.exe"]) {
+    copyFileSync(join(root, "target", "release", exe), join(root, "dist", exe));
+  }
 }

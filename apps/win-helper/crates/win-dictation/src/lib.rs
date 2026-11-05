@@ -87,11 +87,19 @@ pub struct Invocation<'a> {
 
 impl<'a> Invocation<'a> {
     pub fn new(id: &'a str, emit: &'a EventSink<'a>) -> Self {
-        Invocation { id, emit, cancel: CancelToken::new() }
+        Invocation {
+            id,
+            emit,
+            cancel: CancelToken::new(),
+        }
     }
 
     pub(crate) fn emit(&self, payload: Value) {
-        let name = payload.get("type").and_then(Value::as_str).unwrap_or("dictation.key").to_string();
+        let name = payload
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or("dictation.key")
+            .to_string();
         (self.emit)(&name, payload);
     }
 }
@@ -112,18 +120,26 @@ pub struct CapOutput {
 }
 
 pub use dictation::{dictation_insert, dictation_target, dictation_watch};
-pub use speech::{speech_audio_push, speech_status, speech_stop, speech_transcribe_file, speech_transcribe_stream};
+pub use speech::{
+    speech_audio_push, speech_status, speech_stop, speech_transcribe_file, speech_transcribe_stream,
+};
 
 /// Dispatches one capability by name (for the core's registry). `not_found/unknown_capability`
 /// for a name this crate does not serve.
 pub fn invoke(name: &str, params: Value, inv: &Invocation) -> Result<CapOutput, CapError> {
-    let plain = |result: Value| CapOutput { result, receipt: None };
+    let plain = |result: Value| CapOutput {
+        result,
+        receipt: None,
+    };
     match name {
         "dictation.target" => dictation_target(params).map(plain),
         "dictation.insert" => {
             let result = dictation_insert(params)?;
             let receipt = dictation::insert_receipt(&result);
-            Ok(CapOutput { result, receipt: Some(receipt) })
+            Ok(CapOutput {
+                result,
+                receipt: Some(receipt),
+            })
         }
         "dictation.watch" => dictation_watch(params, inv).map(plain),
         "speech.transcribe_stream" => speech_transcribe_stream(params, inv).map(plain),
@@ -131,7 +147,11 @@ pub fn invoke(name: &str, params: Value, inv: &Invocation) -> Result<CapOutput, 
         "speech.audio_push" => speech_audio_push(params).map(plain),
         "speech.stop" => speech_stop(params).map(plain),
         "speech.status" => speech_status(params).map(plain),
-        _ => Err(CapError::new(ErrorCode::NotFound, "unknown_capability", format!("{name} is not a dictation or speech capability"))),
+        _ => Err(CapError::new(
+            ErrorCode::NotFound,
+            "unknown_capability",
+            format!("{name} is not a dictation or speech capability"),
+        )),
     }
 }
 
@@ -176,25 +196,38 @@ pub mod testing {
 
     /// The clipboard's saved formats (format id, bytes) as paste-and-restore sees them.
     pub fn clipboard_snapshot() -> Option<Vec<(u32, Vec<u8>)>> {
-        crate::win::dictation::run(|b| b.clipboard_snapshot()).ok().flatten()
+        crate::win::dictation::run(|b| b.clipboard_snapshot())
+            .ok()
+            .flatten()
     }
 
     /// Inserts with one strategy only (`"uia"`, `"typed"` or `"paste"`), bypassing the order but
     /// not the guard: every chunk still requires focus in `expect_pid`.
-    pub fn insert_with(strategy: &str, text: &str, expect_pid: u32) -> Result<bool, crate::CapError> {
+    pub fn insert_with(
+        strategy: &str,
+        text: &str,
+        expect_pid: u32,
+    ) -> Result<bool, crate::CapError> {
         let text = text.to_string();
         let strategy = strategy.to_string();
         crate::win::dictation::run(move |b| {
-            use crate::dictation::policy::{InsertBackend, PasteOutcome, Refusal, refusal, refusal_error};
+            use crate::dictation::policy::{
+                InsertBackend, PasteOutcome, Refusal, refusal, refusal_error,
+            };
             let mut guard = || match b.focus_now() {
                 Some(f) if f.pid == expect_pid && !f.secure => Ok(()),
-                now => Err(refusal_error(refusal(now.as_ref(), Some(expect_pid)).unwrap_or(Refusal::FocusChanged), None)),
+                now => Err(refusal_error(
+                    refusal(now.as_ref(), Some(expect_pid)).unwrap_or(Refusal::FocusChanged),
+                    None,
+                )),
             };
             guard()?;
             match strategy.as_str() {
                 "uia" => Ok(b.uia_replace_selection(&text)),
                 "typed" => b.type_text(&text, &mut guard).map(|_| true),
-                _ => b.paste(&text, &mut guard).map(|o| o == PasteOutcome::Pasted),
+                _ => b
+                    .paste(&text, &mut guard)
+                    .map(|o| o == PasteOutcome::Pasted),
             }
         })?
     }
@@ -202,7 +235,11 @@ pub mod testing {
 
 /// Params `null` decode as `{}` (the mac helper's `InvocationContext.decode`).
 pub(crate) fn decode<T: serde::de::DeserializeOwned>(params: Value) -> Result<T, CapError> {
-    let value = if params.is_null() { Value::Object(Map::new()) } else { params };
+    let value = if params.is_null() {
+        Value::Object(Map::new())
+    } else {
+        params
+    };
     serde_json::from_value(value).map_err(|e| {
         let msg = e.to_string();
         // serde_json names the field in "missing field `x`" / "unknown field `x`" messages.

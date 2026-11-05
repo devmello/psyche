@@ -125,6 +125,7 @@ import {
 import { ChannelConversations } from "./channel-conversations.ts";
 import { composeComputer } from "./computer.ts";
 import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
+import { macHelper } from "./connectors.ts";
 import { createContext } from "./context.ts";
 import { composeConversion } from "./convert.ts";
 import { composeDeviceNotifications, DeviceNotifications } from "./device-notify.ts";
@@ -1372,6 +1373,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     broker,
     registry,
     audit,
+    // Calendar changes from the Host's helper (`calendar.watch`) for calendar.changed automations.
+    calendarHelper: macHelper(() => gatewayRef ?? undefined),
     channelSurfaces: () =>
       relays.flatMap((r) => r.surfaces()).filter((x) => x.startsWith("imessage:")),
     learned: () => everything.learnedYesterday(),

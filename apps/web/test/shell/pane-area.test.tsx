@@ -12,6 +12,9 @@ import type { ShellPlatform } from "../../src/shell/platform.ts";
 import { ShellStore } from "../../src/shell/store.ts";
 import { testEnv } from "../layout/helpers.ts";
 
+/** This package's root: `vitest run` at the repository root does not change the cwd. */
+const PKG = `${import.meta.dirname}/../..`;
+
 afterEach(cleanup);
 
 const platform: ShellPlatform = {
@@ -60,7 +63,7 @@ describe("PaneArea column width", () => {
 });
 
 describe("pane header layout", () => {
-  const css = readFileSync(resolve(process.cwd(), "src/shell/shell.css"), "utf8");
+  const css = readFileSync(resolve(PKG, "src/shell/shell.css"), "utf8");
   const rule = (selector: string): string =>
     new RegExp(`${selector.replace(/[.>]/g, "\\$&")}\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? "";
 

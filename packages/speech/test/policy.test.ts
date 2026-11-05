@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 import { PCM_16K_MONO } from "../src/audio.ts";
 import {
   DEFAULT_SPEECH_SETTINGS,
+  defaultSpeechSettings,
   type EngineEntry,
+  parseSttOrder,
   RoutedSpeechEngine,
   SpeechEngineSelector,
 } from "../src/policy.ts";
@@ -113,5 +115,57 @@ describe("RoutedSpeechEngine", () => {
     expect(seen[0]).toMatchObject({ language: "en-US", vocabulary: ["Alice", "Pip"] });
     const caps = await routed.capabilities();
     expect(caps).toMatchObject({ streaming: true });
+  });
+});
+
+describe("the default order per host (Windows prefers whisper.cpp over SAPI)", () => {
+  const winSelector = (up: { mac?: boolean; whisper?: boolean }) => {
+    const s = new SpeechEngineSelector(defaultSpeechSettings("win32"));
+    s.register(entry("mac-node", "node", { up: up.mac ?? true }));
+    s.register(entry("whisper", "gateway", { up: up.whisper ?? true }));
+    s.register(entry("web-speech", "client"));
+    return s;
+  };
+
+  it("is whisper → the helper → Web Speech on win32 and unchanged on darwin and linux", () => {
+    expect(defaultSpeechSettings("win32").stt.order).toEqual(["whisper", "mac-node", "web-speech"]);
+    expect(defaultSpeechSettings("darwin").stt.order).toEqual([
+      "mac-node",
+      "whisper",
+      "web-speech",
+    ]);
+    expect(defaultSpeechSettings("linux").stt.order).toEqual(DEFAULT_SPEECH_SETTINGS.stt.order);
+    // A copy: configuring one selector never edits the shared default.
+    defaultSpeechSettings("darwin").stt.order.push("x");
+    expect(DEFAULT_SPEECH_SETTINGS.stt.order).toHaveLength(3);
+  });
+
+  it("uses whisper for dictation and files on Windows once installed, else the helper (SAPI)", async () => {
+    for (const purpose of ["dictation", "file"] as const) {
+      expect((await winSelector({}).select({ purpose, caller: "desktop" })).id).toBe("whisper");
+      expect(
+        (await winSelector({ whisper: false }).select({ purpose, caller: "desktop" })).id,
+      ).toBe("mac-node");
+    }
+    const explain = await winSelector({ whisper: false }).explain({ purpose: "dictation" });
+    expect(explain.map((e) => [e.id, e.eligible])).toEqual([
+      ["whisper", false],
+      ["mac-node", true],
+      ["web-speech", false],
+    ]);
+  });
+
+  it("keeps the owner's speech.stt.order on any host", async () => {
+    const s = winSelector({});
+    s.configure({ stt: { order: parseSttOrder(["mac-node", "whisper"]) ?? [] } });
+    expect((await s.select({ purpose: "dictation", caller: "desktop" })).id).toBe("mac-node");
+  });
+
+  it("reads speech.stt.order defensively", () => {
+    expect(parseSttOrder(["whisper", "mac-node", "whisper"])).toEqual(["whisper", "mac-node"]);
+    expect(parseSttOrder(["ok", 3, "bad id!", ""])).toEqual(["ok"]);
+    expect(parseSttOrder([])).toBeUndefined();
+    expect(parseSttOrder("whisper")).toBeUndefined();
+    expect(parseSttOrder(null)).toBeUndefined();
   });
 });

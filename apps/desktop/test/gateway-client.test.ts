@@ -46,6 +46,9 @@ describe("desktopConnectParams", () => {
     const p = await desktopConnectParams({ key, home, origin: "http://127.0.0.1:7979" });
     expect(p.handshakeSecret).toBe("per-launch-secret");
     expect(p).toMatchObject({ role: "client", deviceFamily: "desktop", deviceId: "dev_x" });
+    // The Gateway gives macos and windows the desktop approval surface; never "linux" here.
+    const want = { darwin: "macos", win32: "windows" }[process.platform as string] ?? "linux";
+    expect(p.platform).toBe(want);
   });
 
   it("never sends it to a Gateway on another machine", async () => {

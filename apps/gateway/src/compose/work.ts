@@ -14,7 +14,7 @@ import {
   type WorkSettings,
   type WorkSignalReport,
 } from "@psyche/memory";
-import { type Clock, MEMORY_WORK_SETTING_KEY } from "@psyche/protocol";
+import { type Clock, MEMORY_WORK_SETTING_KEY, type WorkReminderList } from "@psyche/protocol";
 import type { People } from "./people.ts";
 import type { AppleSearchSeams } from "./search-apple.ts";
 import type { ComposedPart } from "./services.ts";
@@ -88,6 +88,8 @@ export interface WorkSources {
   files(roots: readonly string[], since: number, signal: AbortSignal): Promise<FileChangeRecord[]>;
   /** Folders inside the granted ones, to offer as anchors when a name matches (W5). */
   folders(signal: AbortSignal): Promise<FolderRecord[]>;
+  /** The Reminders lists the owner can track (`memory.work.lists`), from every backend. */
+  lists?(signal: AbortSignal): Promise<WorkReminderList[]>;
 }
 
 const str = (v: unknown): string | undefined =>
@@ -126,6 +128,25 @@ export function reminderRecords(rows: Obj[], owned: (row: Obj) => boolean): Remi
       ...(modifiedAt === undefined ? {} : { modifiedAt }),
       ...(link === undefined ? {} : { link }),
       trusted: owned(r),
+    });
+  }
+  return out;
+}
+
+/** `reminders_list_lists` rows as lists to track; unwritable or shared lists say so. */
+export function reminderLists(rows: Obj[]): WorkReminderList[] {
+  const out: WorkReminderList[] = [];
+  const seen = new Set<string>();
+  for (const r of rows) {
+    const id = str(r.id);
+    if (id === undefined || seen.has(id) || id.length > 500) continue;
+    seen.add(id);
+    const source = str(r.source);
+    out.push({
+      id,
+      name: (str(r.title) ?? str(r.name) ?? id).slice(0, 500),
+      shared: r.shared === true || r.writable === false || str(r.createdBy) !== undefined,
+      ...(source === undefined ? {} : { source: source.slice(0, 100) }),
     });
   }
   return out;
@@ -274,6 +295,11 @@ export function appleWorkSources(
         ),
       );
       return reminderRecords(rows, owned("reminders"));
+    },
+    async lists(signal) {
+      const call = apple.deps.call("reminders");
+      if (call === undefined) return [];
+      return reminderLists(list(await call("reminders_list_lists", {}, signal), "lists"));
     },
     async events(from, to, signal) {
       const call = apple.deps.call("calendar");
@@ -438,6 +464,17 @@ export function composeWork(deps: WorkDeps): Work {
       let first: NodeJS.Timeout | undefined;
       let timer: NodeJS.Timeout | undefined;
       let abort = new AbortController();
+      // Settings → Memory → Work picks lists from here as well as from the helper, so To Do lists
+      // (and Outlook's, without a helper the UI can reach) can be tracked too.
+      const handlers = {
+        "memory.work.lists": {
+          run: async () => {
+            await sources.refresh?.().catch(() => undefined);
+            const lists = await (sources.lists?.(new AbortController().signal) ?? []);
+            return { lists };
+          },
+        },
+      };
       const safe = () => {
         void run(abort.signal).catch((err) =>
           deps.logger?.log("warn", "work signals pass failed", {
@@ -446,6 +483,7 @@ export function composeWork(deps: WorkDeps): Work {
         );
       };
       return {
+        handlers,
         start() {
           const every = deps.intervalMs ?? PASS_MS;
           if (every <= 0) return;

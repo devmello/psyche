@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { ToolRunContext } from "@psyche/agent-core";
 import type { Automation, Clock, WorkflowEvent } from "@psyche/protocol";
 import {
@@ -29,6 +30,8 @@ export const OFF_HOURS_POLL_MS = 60 * 60_000;
 /** The first poll of a source looks back this far. */
 export const FIRST_POLL_LOOKBACK_MS = 60 * 60_000;
 const MAX_PER_POLL = 50;
+/** The longest message id kept (Outlook's `ol1.<StoreID>.<EntryID>`; Mail's are short). */
+const MAX_MESSAGE_ID = 4_000;
 
 export interface EventScheduler extends SchedulerLike {
   publishEvent(event: WorkflowEvent): Promise<string[]>;
@@ -91,11 +94,14 @@ export function appleMailSource(tools: ToolLookup): MailEventSource {
         signal,
       );
       return asList(out, "messages").flatMap((m) => {
-        const id = str(m.id, 256);
+        // Outlook's ids (the Windows helper) run to hundreds of characters: keep the whole id
+        // for the run, and a digest of a long one in the event's 256-character dedupe key.
+        const id = str(m.id, MAX_MESSAGE_ID);
         if (id === undefined) return [];
         const account = str(m.account, 200) ?? "mail";
+        const key = id.length > 64 ? createHash("sha256").update(id).digest("hex") : id;
         const e: WorkflowEvent = {
-          id: `mail:apple:${account}:${id}`,
+          id: `mail:apple:${account}:${key}`,
           source: "mail.received",
           at: str(m.date, 40) ?? since,
           account,
