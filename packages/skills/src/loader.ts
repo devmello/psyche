@@ -110,6 +110,8 @@ export interface SkillDetails extends SkillSummary {
   manifest?: SkillManifest;
   /** The last update check for an installed skill (`checkUpdates`). */
   update?: SkillUpdateCheck;
+  /** Where the sender says an imported bundle came from (signed); never `madeBy`, which is for this Mac. */
+  bundleOrigin?: BundleOrigin;
   /** The bundle author whose signature verified when the owner approved it. */
   signer?: { keyId: string; name: string; state: "seen" | "trusted" | "revoked" | "own" };
   /** Psyche wrote this skill (lock entry `author`). */
@@ -214,7 +216,7 @@ export interface FsSkillLoaderOptions {
     treeHash?: string;
     keyId: string;
     name?: string;
-  }) => void;
+  }) => void | Promise<void>;
   /** Workspace skills need an owner approval before they reach the prompt. Default true. */
   requireWorkspaceApproval?: boolean;
   /** Proposal lifetime (default 30 minutes, like approvals). */
@@ -440,6 +442,7 @@ export class FsSkillLoader implements SkillLoader {
         entry.lock = lk;
         details.trust = lk.trust;
         if (lk.author === "agent") details.madeBy = "agent";
+        if (lk.bundleOrigin !== undefined) details.bundleOrigin = lk.bundleOrigin;
         if (lk.commit !== undefined) details.commit = lk.commit;
         if (lk.signer !== undefined) {
           const state = this.#signerState(lk.signer.keyId);
@@ -510,8 +513,14 @@ export class FsSkillLoader implements SkillLoader {
 
   /** `unreadable`: the keyring or the author key cannot be read, so the skill stays off. */
   #signerState(keyId: string): "seen" | "trusted" | "revoked" | "own" | "unreadable" {
+    // The author key file only tells us whether a signature is the owner's own: if it is unsafe
+    // that is simply unknown here (exporting reports it), and no skill is blocked for it.
     try {
       if (this.#keys?.peek()?.keyId === keyId) return "own";
+    } catch {
+      // fall through to the author list
+    }
+    try {
       return this.#ring.get(keyId)?.state ?? "seen";
     } catch {
       return "unreadable";
@@ -980,6 +989,11 @@ export class FsSkillLoader implements SkillLoader {
       }
     }
     const status = bundleInfo?.signer.status;
+    if (opts.trustAuthor === true && bundleInfo?.signer.impersonates === true)
+      throw new PsycheError(
+        "policy_denied",
+        "this author's name matches your own author name but the key is not yours; it cannot be trusted",
+      );
     // Trusting the author rides on this very card, so the approver decides it; it makes no
     // sense for an unsigned bundle, a key already trusted or the owner's own.
     const trustAuthor =
@@ -1037,7 +1051,6 @@ export class FsSkillLoader implements SkillLoader {
       ...(update === undefined ? {} : { update }),
       ...(bundleInfo === undefined ? {} : { bundle: bundleInfo }),
       ...(trustAuthor ? { trustAuthor: true } : {}),
-      ...(bundle?.manifest.origin === "agent" ? { author: "agent" as const } : {}),
       expiresAt: this.#now() + (this.#o.proposalTtlMs ?? TTL_MS),
       manifest,
     };
@@ -1128,7 +1141,7 @@ export class FsSkillLoader implements SkillLoader {
         this.#ring.observe(signer);
         if (trustNow) {
           this.#ring.setState(signer.keyId, "trusted");
-          this.#o.onAuthorChange?.({
+          this.#notify({
             kind: "author_trusted",
             keyId: signer.keyId,
             name: signer.name,
@@ -1187,7 +1200,9 @@ export class FsSkillLoader implements SkillLoader {
       manifest: p.manifest,
       ...(p.author === undefined ? {} : { author: p.author }),
       ...(signer === undefined ? {} : { signer: { keyId: signer.keyId, name: signer.name } }),
-      ...(p.bundle === undefined ? {} : { bundleCreatedAt: p.bundle.createdAt }),
+      ...(p.bundle === undefined
+        ? {}
+        : { bundleCreatedAt: p.bundle.createdAt, bundleOrigin: p.bundle.origin }),
     };
     writeLock(this.lockPath, lock);
     this.#state.upsert({
@@ -1204,6 +1219,16 @@ export class FsSkillLoader implements SkillLoader {
 
   // --- Shared bundles: export and author keys --------------------------------------------------
 
+  /** Tells the audit about an author event without letting its failure affect the action. */
+  #notify(event: Parameters<NonNullable<FsSkillLoaderOptions["onAuthorChange"]>>[0]): void {
+    try {
+      const r = this.#o.onAuthorChange?.(event);
+      if (r instanceof Promise) r.catch(() => undefined);
+    } catch {
+      // The audit is best effort for everything but an export.
+    }
+  }
+
   #ownKey(): { keyId: string; name: string } | undefined {
     try {
       return this.#keys?.peek();
@@ -1214,7 +1239,7 @@ export class FsSkillLoader implements SkillLoader {
 
   /** The owner's author key (if made) and every author key seen on an imported bundle. */
   authors(): { own?: { keyId: string; name: string }; authors: ReturnType<AuthorRing["list"]> } {
-    const own = this.#keys?.peek();
+    const own = this.#ownKey();
     return {
       ...(own === undefined ? {} : { own: { keyId: own.keyId, name: own.name } }),
       authors: this.#ring.list(),
@@ -1224,7 +1249,7 @@ export class FsSkillLoader implements SkillLoader {
   /** Trusts, un-trusts or revokes a key seen on a bundle (owner action; never the agent's). */
   setAuthorState(keyId: string, state: "seen" | "trusted" | "revoked") {
     const author = this.#ring.setState(keyId, state);
-    this.#o.onAuthorChange?.({
+    this.#notify({
       kind:
         state === "trusted"
           ? "author_trusted"
@@ -1310,16 +1335,16 @@ export class FsSkillLoader implements SkillLoader {
    * `expectedHash` is the tree hash the owner approved on the card: files that changed since
    * are refused. The bundle records the origin, signed, so recipients can see agent-made text.
    */
-  exportSkill(
+  async exportSkill(
     name: string,
     authorName: string | undefined,
     expectedHash: string,
-  ): {
+  ): Promise<{
     filename: string;
     bundle: string;
     signer: { keyId: string; name: string };
     createdKey: boolean;
-  } {
+  }> {
     if (this.#keys === undefined)
       throw new PsycheError("unavailable", "this Gateway has no place for an author key");
     const pre = this.previewExport(name);
@@ -1327,13 +1352,14 @@ export class FsSkillLoader implements SkillLoader {
       throw new PsycheError("conflict", `${name} changed after you approved the export`);
     const { signer, created } = this.#keys.loadOrCreate(authorName);
     const bundle = buildBundle(pre.tree, signer, new Date(this.#now()), pre.origin);
+    // The audit comes first and is awaited: a signature that left no record is never returned.
     if (created)
-      this.#o.onAuthorChange?.({
+      await this.#o.onAuthorChange?.({
         kind: "author_key_created",
         keyId: signer.author.keyId,
         name: signer.author.name,
       });
-    this.#o.onAuthorChange?.({
+    await this.#o.onAuthorChange?.({
       kind: "skill_exported",
       keyId: signer.author.keyId,
       name: signer.author.name,
@@ -1749,7 +1775,13 @@ export function treeDiff(before: SkillTree, after: SkillTree): string {
 }
 
 /** Writes a tree into `root/<name>` atomically: stage beside it, then swap. */
-export function writeTree(root: string, target: string, tree: SkillTree): void {
+export function writeTree(
+  root: string,
+  target: string,
+  tree: SkillTree,
+  /** Replaces `renameSync` (tests make the last rename fail). */
+  rename: (from: string, to: string) => void = renameSync,
+): void {
   mkdirSync(root, { recursive: true, mode: 0o700 });
   // Hidden staging folder: discovery skips dot-folders, so a crash leaves nothing loadable.
   const stamp = `${process.pid}-${Date.now()}`;
@@ -1762,8 +1794,15 @@ export function writeTree(root: string, target: string, tree: SkillTree): void {
       mkdirSync(dirname(abs), { recursive: true, mode: 0o700 });
       writeFileSync(abs, f.bytes, { mode: f.executable ? 0o755 : 0o644, flag: "wx" });
     }
-    if (existsSync(target)) renameSync(target, old);
-    renameSync(staging, target);
+    const hadOld = existsSync(target);
+    if (hadOld) rename(target, old);
+    try {
+      rename(staging, target);
+    } catch (err) {
+      // The new tree could not be put in place: the installed one goes back, never lost.
+      if (hadOld && !existsSync(target)) rename(old, target);
+      throw err;
+    }
   } finally {
     // A failed write leaves no half-built folder behind; a swapped-out old tree is dropped too.
     rmSync(staging, { recursive: true, force: true });

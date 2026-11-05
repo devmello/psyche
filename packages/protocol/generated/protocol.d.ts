@@ -9642,7 +9642,7 @@ export interface SkillProposal {
 }
 
 /**
- * Psyche wrote this skill (self-extension); trust stays unknown
+ * Psyche wrote this skill on this Mac (self-extension); trust stays unknown
  *
  * Psyche wrote this skill
  */
@@ -9657,14 +9657,17 @@ export interface SkillBundleInfo {
     /**
      * Where the exporter says the skill came from (signed); a bundle never installs as local
      */
-    origin: SkillBundleInfoOrigin;
+    origin: BundleOriginEnum;
     signer: BundleSigner;
 }
 
 /**
  * Where the exporter says the skill came from (signed); a bundle never installs as local
+ *
+ * An imported bundle: where the sender says it came from (signed). Never madeBy, which is
+ * for this Mac
  */
-export type SkillBundleInfoOrigin = "workspace" | "agent";
+export type BundleOriginEnum = "workspace" | "agent";
 
 export interface BundleSigner {
     /**
@@ -10015,6 +10018,11 @@ export interface SkillsGetResult {
 }
 
 export interface SkillDetails {
+    /**
+     * An imported bundle: where the sender says it came from (signed). Never madeBy, which is
+     * for this Mac
+     */
+    bundleOrigin?:          BundleOriginEnum;
     commit?:                string;
     description:            string;
     disableModelInvocation: boolean;
@@ -10032,7 +10040,7 @@ export interface SkillDetails {
      */
     history?: SkillAuthorVersion[];
     /**
-     * Psyche wrote this skill (self-extension); trust stays unknown
+     * Psyche wrote this skill on this Mac (self-extension); trust stays unknown
      */
     madeBy?:   AuthorEnum;
     manifest?: SkillManifest;
@@ -10077,8 +10085,9 @@ export type SignerState = "seen" | "trusted" | "revoked" | "own";
 export type SkillStatus = "active" | "disabled" | "draft" | "unlocked" | "hash_mismatch" | "invalid" | "blocked" | "ineligible" | "shadowed";
 
 export interface SkillsInstallParams {
-    approvalId: string;
-    proposalId: string;
+    approvalId:       string;
+    proposalId:       string;
+    trustApprovalId?: string;
 }
 
 export interface SkillsInstallResult {

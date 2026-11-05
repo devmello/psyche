@@ -252,7 +252,7 @@ describe("export, import and trust", () => {
 
   it("exports a signed bundle, creating the author key once, with 0600 and no private key in it", async () => {
     const o = await owner();
-    const first = exportOf(o.loader, "tidy", "Ada");
+    const first = await exportOf(o.loader, "tidy", "Ada");
     expect(first.createdKey).toBe(true);
     expect(first.filename).toBe("tidy.psyche-skill");
     const keyPath = join(o.psycheHome, "identity", "author.key");
@@ -260,7 +260,7 @@ describe("export, import and trust", () => {
     expect(statSync(join(o.psycheHome, "identity")).mode & 0o777).toBe(0o700);
     const keyFile = JSON.parse(readFileSync(keyPath, "utf8")) as { jwk: { d: string; x: string } };
     expect(first.bundle).not.toContain(keyFile.jwk.d);
-    const second = exportOf(o.loader, "tidy");
+    const second = await exportOf(o.loader, "tidy");
     expect(second.createdKey).toBe(false);
     expect(second.signer).toEqual(first.signer);
     expect(second.signer.name).toBe("Ada");
@@ -299,7 +299,7 @@ describe("export, import and trust", () => {
 
   it("imports a bundle as a new, unknown signer; installing keeps it `unknown` and pins the signer", async () => {
     const o = await owner("tidy", "permissions: [file_write]\n");
-    const { bundle, signer } = exportOf(o.loader, "tidy", "Ada");
+    const { bundle, signer } = await exportOf(o.loader, "tidy", "Ada");
     const i = importer();
     const handlers = createSkillsHandlers(i.loader, { broker: i.broker });
     const { proposal, approval } = await handlers["skills.proposeImport"]({
@@ -365,7 +365,7 @@ describe("export, import and trust", () => {
 
   it("install needs the approved card: no approval, no install, and the trust flag does nothing alone", async () => {
     const o = await owner();
-    const { bundle, signer } = exportOf(o.loader, "tidy", "Ada");
+    const { bundle, signer } = await exportOf(o.loader, "tidy", "Ada");
     const i = importer();
     const p = await i.loader.proposeImport("t.psyche-skill", bundle, { trustAuthor: true });
     const err = await rejects(i.loader.install(p.id, "apr_missing"));
@@ -384,7 +384,7 @@ describe("export, import and trust", () => {
 
   it("trust this author: the install is verified, later imports show trusted, un-trusting takes it back", async () => {
     const o = await owner();
-    const { bundle, signer } = exportOf(o.loader, "tidy", "Ada");
+    const { bundle, signer } = await exportOf(o.loader, "tidy", "Ada");
     const i = importer();
     const p = await i.loader.proposeImport("t.psyche-skill", bundle, { trustAuthor: true });
     expect(p.trustAuthor).toBe(true);
@@ -404,7 +404,7 @@ describe("export, import and trust", () => {
 
   it("revoking a key refuses its bundles and stops what it signed from loading", async () => {
     const o = await owner();
-    const { bundle, signer } = exportOf(o.loader, "tidy", "Ada");
+    const { bundle, signer } = await exportOf(o.loader, "tidy", "Ada");
     const i = importer();
     const p = await i.loader.proposeImport("t.psyche-skill", bundle);
     const approvalId = await approve(i.broker, i.clock, p);
@@ -432,7 +432,7 @@ describe("export, import and trust", () => {
 
   it("warns when a known author name shows up with a different key", async () => {
     const o = await owner();
-    const { bundle } = exportOf(o.loader, "tidy", "Ada");
+    const { bundle } = await exportOf(o.loader, "tidy", "Ada");
     const i = importer();
     const p = await i.loader.proposeImport("t.psyche-skill", bundle, { trustAuthor: true });
     await i.loader.install(p.id, await approve(i.broker, i.clock, p));

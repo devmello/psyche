@@ -1,4 +1,4 @@
-import { APPROVAL_ARM_DELAY_MS, PsycheError } from "@psyche/protocol";
+import { APPROVAL_ARM_DELAY_MS, type IssuedApproval, PsycheError } from "@psyche/protocol";
 import { FakeClock, FakePermissionBroker } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { skillGates } from "../src/compose/skills.ts";
@@ -18,6 +18,14 @@ function rig(
   const clock = new FakeClock();
   const broker = new FakePermissionBroker({ clock });
   const published: { event: string; payload: unknown }[] = [];
+  // The answer tokens of the cards the gate issues, so a test can answer them as a device.
+  const issued: IssuedApproval[] = [];
+  const request = broker.requestApproval.bind(broker);
+  broker.requestApproval = async (input) => {
+    const r = await request(input);
+    issued.push(r);
+    return r;
+  };
   const services = {
     broker,
     publish: (event: string, payload: unknown) => published.push({ event, payload }),
@@ -32,7 +40,7 @@ function rig(
     },
   };
   const gates = skillGates(services as never);
-  return { clock, broker, published, call, gates };
+  return { clock, broker, published, call, gates, issued };
 }
 
 async function rejects(p: Promise<unknown>): Promise<PsycheError> {
@@ -116,6 +124,43 @@ describe("export gate", () => {
   });
 });
 
+describe("the plain card is answered on the device that asked", () => {
+  async function answered(by: string) {
+    const r = rig();
+    const err = await rejects(r.gates.export?.(r.call, ACTION, undefined) as Promise<unknown>);
+    const approvalId = (err.details as { approvalId: string }).approvalId;
+    r.clock.advance(APPROVAL_ARM_DELAY_MS + 10);
+    await r.broker.answer({
+      approvalId,
+      answerToken: r.issued[0]?.answerTokens.desktop as string,
+      decision: "approve",
+      scope: "once",
+      decidedBy: { deviceId: by },
+    });
+    return { r, approvalId };
+  }
+
+  it("a second paired computer cannot approve the Host's export", async () => {
+    const { r, approvalId } = await answered("dev2");
+    const err = await rejects(r.gates.export?.(r.call, ACTION, approvalId) as Promise<unknown>);
+    expect(err.code).toBe("forbidden");
+  });
+
+  it("the Host's own desktop can, once, and only for the files the card named", async () => {
+    const { r, approvalId } = await answered("dev1");
+    const other = { ...ACTION, treeHash: `sha256:${"b".repeat(64)}` };
+    await rejects(r.gates.export?.(r.call, other, approvalId) as Promise<unknown>);
+    await r.gates.export?.(r.call, ACTION, approvalId);
+  });
+
+  it("the card is bound to the asking device: another device presenting it gets a mismatch", async () => {
+    const { r, approvalId } = await answered("dev1");
+    const elsewhere = { ...r.call, identity: { ...r.call.identity, deviceId: "dev2" } };
+    const err = await rejects(r.gates.export?.(elsewhere, ACTION, approvalId) as Promise<unknown>);
+    expect(["binding_mismatch", "forbidden"]).toContain(err.code);
+  });
+});
+
 describe("author trust gate", () => {
   it("needs presence once a verifier exists, and fails closed when it is lost", async () => {
     const r = rig({ presence: "ready" });
@@ -138,9 +183,37 @@ describe("author trust gate", () => {
     ).toBe("presence_required");
   });
 
-  it("leaves a fresh install (no verifier ever enrolled) working with admin alone", async () => {
+  it("with no verifier it shows a device-only card, so trust never happens without one", async () => {
     const r = rig({ presence: "off" });
-    await r.gates.authorChange?.(r.call, { keyId: "k", from: "seen", to: "trusted" }, undefined);
-    expect(await r.broker.list()).toEqual([]);
+    const action = { keyId: `sha256:${"c".repeat(64)}`, from: "seen", to: "trusted" };
+    const err = await rejects(
+      r.gates.authorChange?.(r.call, action, undefined) as Promise<unknown>,
+    );
+    expect(err.code).toBe("approval_required");
+    const [card] = await r.broker.list();
+    expect(card?.deviceOnly).toBe(true);
+    expect(card?.details).toMatchObject({
+      kind: "skill_author",
+      keyId: action.keyId,
+      to: "trusted",
+    });
+  });
+
+  it("trusting while installing rides on the install card when no verifier exists, and needs presence when one does", async () => {
+    const off = rig({ presence: "off" });
+    const action = {
+      keyId: `sha256:${"c".repeat(64)}`,
+      from: undefined,
+      to: "trusted",
+      via: "install" as const,
+    };
+    await off.gates.authorChange?.(off.call, action, undefined);
+    expect(await off.broker.list()).toEqual([]);
+    const ready = rig({ presence: "ready" });
+    expect(
+      (await rejects(ready.gates.authorChange?.(ready.call, action, undefined) as Promise<unknown>))
+        .code,
+    ).toBe("approval_required");
+    expect((await ready.broker.list())[0]?.kind).toBe("policy_change");
   });
 });

@@ -41,10 +41,10 @@ export interface SkillsHandlers {
     call?: unknown,
   ) => Promise<ProposalResult>;
   "skills.proposeApproval": (p: { name: string }) => Promise<ProposalResult>;
-  "skills.install": (p: {
-    proposalId: string;
-    approvalId: string;
-  }) => Promise<{ skill: SkillSummary }>;
+  "skills.install": (
+    p: { proposalId: string; approvalId: string; trustApprovalId?: string },
+    call?: unknown,
+  ) => Promise<{ skill: SkillSummary }>;
   "skills.proposeImport": (
     p: { name: string; text: string; trustAuthor?: boolean },
     call?: unknown,
@@ -121,7 +121,13 @@ export interface SkillsGates {
   /** Trusting a key, or moving one out of `revoked`. */
   authorChange?: (
     call: unknown,
-    action: { keyId: string; from: string | undefined; to: string },
+    action: {
+      keyId: string;
+      from: string | undefined;
+      to: string;
+      /** The trust rides on a skill_install card the owner is approving right now. */
+      via?: "install";
+    },
     approvalId: string | undefined,
   ) => Promise<void>;
 }
@@ -141,13 +147,24 @@ export function quoteForSummary(text: string, max = 40): string {
         (c >= 0x202a && c <= 0x202e) ||
         (c >= 0x2066 && c <= 0x2069) ||
         c === 0xfeff ||
-        ch === '"';
+        QUOTE_LIKE.has(ch);
       return bad ? " " : ch;
     })
     .join("");
   const t = plain.replace(/\s+/g, " ").trim();
   return `"${t.length > max ? `${t.slice(0, max)}…` : t}"`;
 }
+
+/** Every character that reads as a quotation mark, an apostrophe, a prime or a backtick. */
+const QUOTE_LIKE = new Set(
+  [
+    "\"'`\\",
+    "\u00ab\u00bb\u2018\u2019\u201a\u201b\u201c\u201d\u201e\u201f\u2039\u203a",
+    "\u2032\u2033\u2034\u2035\u2036\u2037\u2057\u02ba\u02dd\u02ee\u02bb\u02bc\u02bd",
+    "\uff02\uff07\uff40\u00b4\u02cb\u0060\u2758\u2759\u275b\u275c\u275d\u275e\u275f",
+    "\u2760\u276e\u276f\u301d\u301e\u301f\u2e42\u00b4\u02c8\u02ca\u055a\u05f3\u05f4",
+  ].join(""),
+);
 
 export function createSkillsHandlers(
   loader: FsSkillLoader,
@@ -259,7 +276,21 @@ export function createSkillsHandlers(
     async "skills.proposeApproval"(p) {
       return requestApproval(await loader.proposeWorkspaceApproval(p.name));
     },
-    async "skills.install"(p) {
+    async "skills.install"(p, call) {
+      // "Also trust this author" is a loosening of trust: it needs the same presence gate as
+      // trusting a key from Settings, before anything is installed or trusted.
+      const staged = loader.getProposal(p.proposalId);
+      const keyId = staged?.bundle?.signer.keyId;
+      if (staged?.trustAuthor === true && keyId !== undefined) {
+        const gate = opts.gates?.authorChange;
+        if (gate === undefined)
+          throw new PsycheError("unavailable", "changing trust needs the Gateway's approval gate");
+        await gate(
+          call,
+          { keyId, from: loader.authorState(keyId), to: "trusted", via: "install" },
+          p.trustApprovalId,
+        );
+      }
       return { skill: await loader.install(p.proposalId, p.approvalId) };
     },
     async "skills.proposeImport"(p) {
@@ -287,7 +318,7 @@ export function createSkillsHandlers(
         },
         p.approvalId,
       );
-      return loader.exportSkill(p.name, p.authorName, pre.treeHash);
+      return await loader.exportSkill(p.name, p.authorName, pre.treeHash);
     },
     async "skills.authors.list"() {
       return loader.authors();

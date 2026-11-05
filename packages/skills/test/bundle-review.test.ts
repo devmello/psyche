@@ -96,7 +96,7 @@ async function agentApproval(o: {
   } as never);
 }
 
-function exportOf(loader: FsSkillLoader, name: string, author?: string) {
+async function exportOf(loader: FsSkillLoader, name: string, author?: string) {
   return loader.exportSkill(name, author, loader.previewExport(name).treeHash);
 }
 
@@ -106,7 +106,7 @@ async function owner(extra: Parameters<ReturnType<typeof setup>["make"]>[0] = {}
   const events: { kind: string; keyId: string; skill?: string; treeHash?: string }[] = [];
   const loader = a.make({
     psycheHome,
-    onAuthorChange: (e) => events.push(e),
+    onAuthorChange: (e) => void events.push(e),
     ...extra,
   });
   const approveWorkspace = async (name: string, fm = "") => {
@@ -127,7 +127,7 @@ function importer(extra: Parameters<ReturnType<typeof setup>["make"]>[0] = {}) {
 describe("M1: a bundle never installs as local", () => {
   it("re-importing the owner's own signed bundle is `verified`, not `local`", async () => {
     const o = await owner();
-    const { bundle } = exportOf(o.loader, "tidy", "Ada");
+    const { bundle } = await exportOf(o.loader, "tidy", "Ada");
     const p = await o.loader.proposeImport("t.psyche-skill", bundle);
     expect(p.bundle?.signer.status).toBe("own");
     expect(p.trust).toBe("verified");
@@ -140,7 +140,7 @@ describe("M1: a bundle never installs as local", () => {
     expect(provenanceOfTrust(home?.trust ?? "unknown")).toBe("untrusted");
   });
 
-  it("agent-written text stays `unknown` and `author: agent`, across export and import, whoever signs", async () => {
+  it("agent-written text stays `unknown` across export and import, whoever signs, and is never agent-owned", async () => {
     const o = await owner();
     await o.loader.installAgentTree({
       name: "agent-made",
@@ -148,21 +148,33 @@ describe("M1: a bundle never installs as local", () => {
       approvalId: await agentApproval(o),
       update: false,
     });
-    const { bundle } = exportOf(o.loader, "agent-made", "Ada");
+    const { bundle } = await exportOf(o.loader, "agent-made", "Ada");
     expect(parse(bundle).manifest.origin).toBe("agent");
     // Even trusted and own, an agent-origin bundle installs as unknown.
     const mine = await o.loader.proposeImport("a.psyche-skill", bundle);
     expect(mine.bundle?.signer.status).toBe("own");
     expect(mine.trust).toBe("unknown");
-    expect(mine.author).toBe("agent");
+    expect(mine.author).toBeUndefined();
     const i = importer();
     const theirs = await i.loader.proposeImport("a.psyche-skill", bundle, { trustAuthor: true });
     expect(theirs.trust).toBe("unknown");
     await i.loader.install(theirs.id, await approve(i.broker, i.clock, theirs));
     const d = (await i.loader.listDetailed()).find((s) => s.name === "agent-made");
     expect(d?.trust).toBe("unknown");
-    expect(d?.madeBy).toBe("agent");
+    expect(d?.madeBy).toBeUndefined();
+    expect(d?.bundleOrigin).toBe("agent");
     expect(i.loader.authors().authors[0]?.state).toBe("trusted");
+    // Not made on this Mac: the lock keeps the sender's word apart from `author`, the agent
+    // tools get no hold on it, and it updates from its source like any other import.
+    const entry = readLock(i.loader.lockPath).skills["home:agent-made"];
+    expect(entry?.author).toBeUndefined();
+    expect(entry?.bundleOrigin).toBe("agent");
+    expect(i.loader.agentOwned("agent-made")).toBeUndefined();
+    expect(i.loader.history("agent-made")).toEqual([]);
+    expect((await i.loader.checkUpdates()).map((u) => u.name)).toEqual([]);
+    expect((await rejects(i.loader.proposeUpdate("agent-made"))).message).toMatch(
+      /import the new file/,
+    );
   });
 
   it("the origin is signed: changing it breaks the signature", async () => {
@@ -173,7 +185,7 @@ describe("M1: a bundle never installs as local", () => {
       approvalId: await agentApproval(o),
       update: false,
     });
-    const b = parse(exportOf(o.loader, "agent-made", "Ada").bundle);
+    const b = parse((await exportOf(o.loader, "agent-made", "Ada")).bundle);
     b.manifest.origin = "workspace";
     expect(() => verifyBundle(JSON.stringify(b))).toThrow(/signature does not verify/);
     b.manifest.origin = "root";
@@ -203,7 +215,7 @@ describe("M1: a bundle never installs as local", () => {
       approvalId: await agentApproval(o),
       update: false,
     });
-    const { bundle } = exportOf(o.loader, "agent-made", "Ada");
+    const { bundle } = await exportOf(o.loader, "agent-made", "Ada");
     const i = importer();
     const p = await i.loader.proposeImport("a.psyche-skill", bundle);
     await i.loader.install(p.id, await approve(i.broker, i.clock, p));
@@ -268,7 +280,7 @@ describe("M2: export is gated, host-only, audited and signs the origin", () => {
     const pre = o.loader.previewExport("tidy");
     writeFileSync(join(o.workspaceDir, "tidy", "notes", "extra.md"), "changed after approval\n");
     // The approved hash no longer matches what the lock holds, and the lock was not updated.
-    expect(() => o.loader.exportSkill("tidy", "Ada", pre.treeHash)).toThrow(PsycheError);
+    await expect(o.loader.exportSkill("tidy", "Ada", pre.treeHash)).rejects.toThrow(PsycheError);
     expect(existsSync(join(o.psycheHome, "identity", "author.key"))).toBe(false);
   });
 
@@ -278,12 +290,12 @@ describe("M2: export is gated, host-only, audited and signs the origin", () => {
     const h = createSkillsHandlers(o.loader, { broker: o.broker, gates: gates(log) });
     expect((await rejects(h["skills.export"]({ name: "tidy" }))).code).toBe("invalid_params");
     expect(log).toEqual([]);
-    expect(() =>
+    await expect(
       o.loader.exportSkill("tidy", undefined, o.loader.previewExport("tidy").treeHash),
-    ).toThrow(/name to sign/);
-    expect(() =>
+    ).rejects.toThrow(/name to sign/);
+    await expect(
       o.loader.exportSkill("tidy", "  ", o.loader.previewExport("tidy").treeHash),
-    ).toThrow(/name to sign/);
+    ).rejects.toThrow(/name to sign/);
     expect(existsSync(join(o.psycheHome, "identity", "author.key"))).toBe(false);
   });
 });
@@ -291,7 +303,7 @@ describe("M2: export is gated, host-only, audited and signs the origin", () => {
 describe("M3: loosening trust needs presence, and trustAuthor is bound to the card", () => {
   async function seen() {
     const o = await owner();
-    const { bundle, signer } = exportOf(o.loader, "tidy", "Ada");
+    const { bundle, signer } = await exportOf(o.loader, "tidy", "Ada");
     const i = importer();
     const p = await i.loader.proposeImport("t.psyche-skill", bundle);
     await i.loader.install(p.id, await approve(i.broker, i.clock, p));
@@ -343,7 +355,7 @@ describe("M3: loosening trust needs presence, and trustAuthor is bound to the ca
 
   it("trustAuthor is part of the binding and the card: the other card cannot install it", async () => {
     const o = await owner();
-    const { bundle } = exportOf(o.loader, "tidy", "Ada");
+    const { bundle } = await exportOf(o.loader, "tidy", "Ada");
     const i = importer();
     const h = createSkillsHandlers(i.loader, { broker: i.broker });
     const plain = await h["skills.proposeImport"]({ name: "t.psyche-skill", text: bundle });
@@ -383,7 +395,7 @@ describe("M3: loosening trust needs presence, and trustAuthor is bound to the ca
     const o = await owner();
     const own = await o.loader.proposeImport(
       "o.psyche-skill",
-      exportOf(o.loader, "tidy", "Ada").bundle,
+      (await exportOf(o.loader, "tidy", "Ada")).bundle,
       {
         trustAuthor: true,
       },
@@ -549,7 +561,7 @@ describe("M5: author names are data, compared by skeleton", () => {
 
   it("a look-alike of the owner's own name with another key is impersonation, never trusted", async () => {
     const o = await owner();
-    exportOf(o.loader, "tidy", "Ada Lovelace");
+    await exportOf(o.loader, "tidy", "Ada Lovelace");
     const fake = authorKey("Аda Lovelace"); // a Cyrillic A
     const p = await o.loader.proposeImport(
       "x.psyche-skill",
@@ -768,12 +780,12 @@ describe("L3: links are resolved, pinned and answer generically", () => {
     };
     const resolveHost = async (host: string) => {
       resolved.push(host);
-      return host === "example.com" ? ["93.184.216.34", "93.184.216.35"] : ["203.0.113.9"];
+      return host === "example.com" ? ["93.184.216.34", "93.184.216.35"] : ["151.101.1.1"];
     };
     expect(await fetchBundleText("https://example.com/a", { fetchImpl, resolveHost })).toContain(
       "psyche-bundle",
     );
-    expect(pinned).toEqual(["example.com@93.184.216.34", "cdn.example.org@203.0.113.9"]);
+    expect(pinned).toEqual(["example.com@93.184.216.34", "cdn.example.org@151.101.1.1"]);
     expect(resolved).toEqual(["example.com", "cdn.example.org"]);
     // A redirect to a host that resolves privately dies on that hop.
     const rebind = async (host: string) =>

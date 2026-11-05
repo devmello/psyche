@@ -2089,6 +2089,7 @@ export const settings = {
   "settings.skills.signer.originAgent":
     "Written by an assistant on the sender's Mac. Read it as unreviewed text, whoever signed it.",
   "settings.skills.widened.specialist": "Background role",
+  "settings.skills.bundleOriginAgent": "Written by an assistant elsewhere",
   "settings.skills.export.label": "Signing “{name}”",
   "settings.skills.author.label": "Author trust",
   "settings.skills.signer.claim":

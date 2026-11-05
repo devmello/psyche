@@ -593,6 +593,9 @@ function SkillRow({
         {skill.madeBy === "agent" ? (
           <StatusChip tone="info">{t("settings.skills.madeByAgent", { persona })}</StatusChip>
         ) : null}
+        {skill.bundleOrigin === "agent" ? (
+          <StatusChip tone="info">{t("settings.skills.bundleOriginAgent")}</StatusChip>
+        ) : null}
         {skill.update?.updateAvailable ? (
           <StatusChip tone={skill.update.manifestChanged ? "approval" : "info"}>
             {t("settings.skills.updateAvailable", {
@@ -1137,14 +1140,44 @@ export function SkillsSection({
       return;
     }
     setReview(null);
-    run(
-      "install",
+    setActionError(null);
+    setNotice(null);
+    const done = t("settings.skills.installedNamed", { name: show(current.proposal.name, 64) });
+    const install = (trustApprovalId?: string) =>
       call("skills.install", {
         proposalId: current.proposal.id,
         approvalId: current.approvalId,
-      }).finally(() => authorsQ.reload()),
-      t("settings.skills.installedNamed", { name: show(current.proposal.name, 64) }),
-    );
+        ...(trustApprovalId === undefined ? {} : { trustApprovalId }),
+      });
+    const finish = () => {
+      q.reload();
+      draftsQ.reload();
+      authorsQ.reload();
+      setNotice(done);
+    };
+    install().then(finish, (err: unknown) => {
+      // A proposal that also trusts its author needs the owner's presence first (a second card,
+      // shown in the same banner as a security setting); the install is then made again.
+      const approvalId = approvalIdOf(err);
+      if (approvalId === null) return setActionError(refusal("install", err));
+      if (requestApproval === null) return setActionError(presenceUnavailable());
+      requestApproval({
+        key: "skills.trust",
+        label: t("settings.skills.author.label"),
+        approvalId,
+        retry: (approved) =>
+          install(approved).then(
+            (r) => {
+              finish();
+              return r;
+            },
+            (retryErr: unknown) => {
+              setActionError(refusal("install", retryErr));
+              throw retryErr;
+            },
+          ),
+      });
+    });
   };
 
   /** Saves the file the browser is handed; the Gateway made it, nothing here reads it. */

@@ -29,15 +29,21 @@ function widenedSpecialist(
   if (newApprovals.length > 0) out.push(`the role may ask for ${newApprovals.join(", ")}`);
   if (MODE_ORDER.indexOf(a.maxMode) > MODE_ORDER.indexOf(b.maxMode))
     out.push(`the role's highest mode goes from ${b.maxMode} to ${a.maxMode}`);
-  for (const [field, x, y] of [
-    ["budget", a.budget, b.budget],
-    ["caps", a.caps, b.caps],
+  // A limit is wider when it is bigger or when it is gone; a limit that appears is narrower.
+  for (const [field, was, now] of [
+    ["budget", b.budget, a.budget],
+    ["caps", b.caps, a.caps],
   ] as const) {
-    for (const [k, v] of Object.entries(x)) {
-      const old = y[k];
-      if (old === undefined || v > old) out.push(`the role's ${field} ${k} grows`);
+    for (const k of new Set([...Object.keys(was), ...Object.keys(now)])) {
+      const before = was[k];
+      const after = now[k];
+      if (before === undefined) continue;
+      if (after === undefined) out.push(`the role's ${field} ${k} limit is removed`);
+      else if (after > before) out.push(`the role's ${field} ${k} grows`);
     }
   }
+  if (a.result !== b.result)
+    out.push(`the role's result kind changes from ${b.result} to ${a.result}`);
   if (b.planFirst && !a.planFirst) out.push("the role no longer plans first");
   if (b.memory === "none" && a.memory === "user") out.push("the role reads your memory");
   if (a.model !== b.model) out.push(`the role's model class changes to ${a.model}`);

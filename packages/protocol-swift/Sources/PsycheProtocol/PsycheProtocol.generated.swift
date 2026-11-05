@@ -28064,7 +28064,7 @@ public struct SkillProposal: Codable, Sendable {
     }
 }
 
-/// Psyche wrote this skill (self-extension); trust stays unknown
+/// Psyche wrote this skill on this Mac (self-extension); trust stays unknown
 ///
 /// Psyche wrote this skill
 public enum AuthorEnum: String, Codable, Sendable {
@@ -28077,7 +28077,7 @@ public struct SkillBundleInfo: Codable, Sendable {
     /// The author's claimed time; not verified
     public let createdAt: String
     /// Where the exporter says the skill came from (signed); a bundle never installs as local
-    public let origin: SkillBundleInfoOrigin
+    public let origin: BundleOriginEnum
     public let signer: BundleSigner
 
     public enum CodingKeys: String, CodingKey {
@@ -28087,7 +28087,7 @@ public struct SkillBundleInfo: Codable, Sendable {
         case signer = "signer"
     }
 
-    public init(bytes: Int, createdAt: String, origin: SkillBundleInfoOrigin, signer: BundleSigner) {
+    public init(bytes: Int, createdAt: String, origin: BundleOriginEnum, signer: BundleSigner) {
         self.bytes = bytes
         self.createdAt = createdAt
         self.origin = origin
@@ -28096,7 +28096,10 @@ public struct SkillBundleInfo: Codable, Sendable {
 }
 
 /// Where the exporter says the skill came from (signed); a bundle never installs as local
-public enum SkillBundleInfoOrigin: String, Codable, Sendable {
+///
+/// An imported bundle: where the sender says it came from (signed). Never madeBy, which is
+/// for this Mac
+public enum BundleOriginEnum: String, Codable, Sendable {
     case agent = "agent"
     case workspace = "workspace"
 }
@@ -28930,6 +28933,9 @@ public struct SkillsGetResult: Codable, Sendable {
 
 // MARK: - SkillDetails
 public struct SkillDetails: Codable, Sendable {
+    /// An imported bundle: where the sender says it came from (signed). Never madeBy, which is
+    /// for this Mac
+    public let bundleOrigin: BundleOriginEnum?
     public let commit: String?
     public let description: String
     public let disableModelInvocation: Bool
@@ -28940,7 +28946,7 @@ public struct SkillDetails: Codable, Sendable {
     public let hash: String
     /// Earlier approved versions of an agent-made skill, newest first
     public let history: [SkillAuthorVersion]?
-    /// Psyche wrote this skill (self-extension); trust stays unknown
+    /// Psyche wrote this skill on this Mac (self-extension); trust stays unknown
     public let madeBy: AuthorEnum?
     public let manifest: SkillManifest?
     public let name: String
@@ -28959,6 +28965,7 @@ public struct SkillDetails: Codable, Sendable {
     public let version: String?
 
     public enum CodingKeys: String, CodingKey {
+        case bundleOrigin = "bundleOrigin"
         case commit = "commit"
         case description = "description"
         case disableModelInvocation = "disableModelInvocation"
@@ -28982,7 +28989,8 @@ public struct SkillDetails: Codable, Sendable {
         case version = "version"
     }
 
-    public init(commit: String?, description: String, disableModelInvocation: Bool, enabled: Bool, findings: [ScanFinding], hash: String, history: [SkillAuthorVersion]?, madeBy: AuthorEnum?, manifest: SkillManifest?, name: String, overrides: [SkillSource], path: String, reasons: [String], signer: SkillDetailsSigner?, source: SkillSource, status: SkillStatus, trust: SkillTrust, update: SkillUpdateStatus?, userEnabled: Bool, userInvocable: Bool, version: String?) {
+    public init(bundleOrigin: BundleOriginEnum?, commit: String?, description: String, disableModelInvocation: Bool, enabled: Bool, findings: [ScanFinding], hash: String, history: [SkillAuthorVersion]?, madeBy: AuthorEnum?, manifest: SkillManifest?, name: String, overrides: [SkillSource], path: String, reasons: [String], signer: SkillDetailsSigner?, source: SkillSource, status: SkillStatus, trust: SkillTrust, update: SkillUpdateStatus?, userEnabled: Bool, userInvocable: Bool, version: String?) {
+        self.bundleOrigin = bundleOrigin
         self.commit = commit
         self.description = description
         self.disableModelInvocation = disableModelInvocation
@@ -29079,15 +29087,18 @@ public enum SkillStatus: String, Codable, Sendable {
 public struct SkillsInstallParams: Codable, Sendable {
     public let approvalID: String
     public let proposalID: String
+    public let trustApprovalID: String?
 
     public enum CodingKeys: String, CodingKey {
         case approvalID = "approvalId"
         case proposalID = "proposalId"
+        case trustApprovalID = "trustApprovalId"
     }
 
-    public init(approvalID: String, proposalID: String) {
+    public init(approvalID: String, proposalID: String, trustApprovalID: String?) {
         self.approvalID = approvalID
         self.proposalID = proposalID
+        self.trustApprovalID = trustApprovalID
     }
 }
 

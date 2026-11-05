@@ -2992,7 +2992,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Side-effecting: installs a proposal; fails with approval_required without its approved skill_install.",
+        "description": "Side-effecting: installs a proposal; fails with approval_required without its approved skill_install. A proposal that also trusts its author needs fresh presence once a verifier exists (approval_required with details.approvalId, then retry with trustApprovalId).",
         "name": "skills.install",
         "params": "#/$defs/SkillsInstallParams",
         "result": "#/$defs/SkillsInstallResult",
@@ -37939,8 +37939,16 @@
           "$ref": "#/$defs/SkillUpdateStatus"
         },
         "madeBy": {
-          "description": "Psyche wrote this skill (self-extension); trust stays unknown",
+          "description": "Psyche wrote this skill on this Mac (self-extension); trust stays unknown",
           "enum": [
+            "agent"
+          ],
+          "type": "string"
+        },
+        "bundleOrigin": {
+          "description": "An imported bundle: where the sender says it came from (signed). Never madeBy, which is for this Mac",
+          "enum": [
+            "workspace",
             "agent"
           ],
           "type": "string"
@@ -39047,6 +39055,12 @@
           "type": "string"
         },
         "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "trustApprovalId": {
           "description": "ULID in production",
           "maxLength": 64,
           "minLength": 1,

@@ -30,6 +30,9 @@ import {
   type SkillAuthor,
 } from "@psyche/protocol";
 import { type BundleAuthor, type BundleSigningKey, keyIdOf } from "./bundle.ts";
+import { authorNameSkeleton } from "./confusables.ts";
+
+export { authorNameSkeleton, normalizeAuthorName } from "./confusables.ts";
 
 /**
  * The owner's author key and the keys they have met (docs/design/shared-bundles-2026.md
@@ -65,78 +68,15 @@ export function cleanAuthorName(name: string): string {
   return n;
 }
 
-/** Letters that look like Latin ones, for the comparison skeleton (not exhaustive). */
-const CONFUSABLES: Record<string, string> = {
-  а: "a",
-  е: "e",
-  о: "o",
-  р: "p",
-  с: "c",
-  у: "y",
-  х: "x",
-  і: "i",
-  ј: "j",
-  ѕ: "s",
-  һ: "h",
-  ԁ: "d",
-  ԛ: "q",
-  ԝ: "w",
-  к: "k",
-  м: "m",
-  н: "h",
-  т: "t",
-  в: "b",
-  ο: "o",
-  α: "a",
-  ε: "e",
-  ι: "i",
-  κ: "k",
-  ν: "v",
-  ρ: "p",
-  τ: "t",
-  υ: "u",
-  χ: "x",
-  β: "b",
-  η: "n",
-  μ: "u",
-  ѵ: "v",
-  "0": "o",
-  "1": "l",
-  "|": "l",
-  "5": "s",
-  "3": "e",
-  "!": "l",
-  i: "l",
-  j: "l",
-  $: "s",
-  "@": "a",
-};
-
-/** Normalized for comparison: NFKC, case-folded, trimmed, whitespace collapsed. */
-export function normalizeAuthorName(name: string): string {
-  return name
-    .normalize("NFKC")
-    .toUpperCase()
-    .toLowerCase()
-    .replace(/[\s\u200b-\u200f\ufeff]+/g, " ")
-    .trim();
-}
-
 /**
- * A confusable skeleton: diacritics dropped, look-alike letters and digits mapped to one Latin
- * form, everything that is not a letter or digit removed. "Ad\u0430 Lovelace", "ada  lovelace"
- * and "4da L0velace" share a skeleton with "Ada Lovelace".
+ * The author key file cannot be used as it is. A plain, actionable error (not `internal`): the
+ * owner can fix the file, and nothing but signing and the owner-name check depends on it.
  */
-export function authorNameSkeleton(name: string): string {
-  const base = normalizeAuthorName(name)
-    .normalize("NFKD")
-    .replace(/\p{M}+/gu, "");
-  let out = "";
-  for (const ch of base) {
-    const m = CONFUSABLES[ch] ?? ch;
-    if (/[\p{L}\p{N}]/u.test(m)) out += m;
-  }
-  return out;
+function unsafeKey(reason: string): PsycheError {
+  return new PsycheError(
+    "conflict",
+    `the author key file has unsafe permissions or is not a plain key file (${reason}); fix it or move it away`,
+  );
 }
 
 /** Opens the author key without following a link, and checks the owner and the mode. */
@@ -147,21 +87,16 @@ function readKeyText(path: string): string | undefined {
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
     if (code === "ENOENT") return undefined;
-    if (code === "ELOOP")
-      throw new PsycheError("internal", `${path} is a link; refusing to read it as the author key`);
+    if (code === "ELOOP") throw unsafeKey(`${path} is a link`);
     throw err;
   }
   try {
     const st = fstatSync(fd);
-    if (!st.isFile())
-      throw new PsycheError("internal", `${path} is not a regular file; refusing to read it`);
+    if (!st.isFile()) throw unsafeKey(`${path} is not a regular file`);
     if (typeof process.getuid === "function" && st.uid !== process.getuid())
-      throw new PsycheError("internal", `${path} is not owned by this user; refusing to read it`);
+      throw unsafeKey(`${path} is not owned by this user`);
     if ((st.mode & 0o077) !== 0)
-      throw new PsycheError(
-        "internal",
-        `${path} is readable by others (chmod 600 it); refusing to use it`,
-      );
+      throw unsafeKey(`${path} is readable by others (run chmod 600 on it)`);
     const buf = Buffer.alloc(Math.min(st.size, 65_536));
     let n = 0;
     while (n < buf.length) {
@@ -236,11 +171,7 @@ export class AuthorKeyStore {
   #read(): AuthorKeyFile | undefined {
     const dir = dirname(this.path);
     try {
-      if (lstatSync(dir).isSymbolicLink())
-        throw new PsycheError(
-          "internal",
-          `${dir} is a link; refusing to use it for the author key`,
-        );
+      if (lstatSync(dir).isSymbolicLink()) throw unsafeKey(`${dir} is a link`);
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
     }
@@ -255,10 +186,7 @@ export class AuthorKeyStore {
     // A file that exists but is not a key is an error, never a fresh key: replacing the author
     // key must be loud, because every reader who trusted it would then see a changed key.
     if (!isKeyFile(parsed))
-      throw new PsycheError(
-        "internal",
-        `${this.path} is not an author key; refusing to replace it`,
-      );
+      throw unsafeKey(`${this.path} is not an author key; it is not replaced`);
     return parsed;
   }
 

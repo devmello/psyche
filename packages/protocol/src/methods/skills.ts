@@ -177,7 +177,13 @@ export const SkillDetails = Type.Object(
     update: Type.Optional(SkillUpdateStatus),
     madeBy: Type.Optional(
       StringEnum(["agent"], {
-        description: "Psyche wrote this skill (self-extension); trust stays unknown",
+        description: "Psyche wrote this skill on this Mac (self-extension); trust stays unknown",
+      }),
+    ),
+    bundleOrigin: Type.Optional(
+      StringEnum(["workspace", "agent"], {
+        description:
+          "An imported bundle: where the sender says it came from (signed). Never madeBy, which is for this Mac",
       }),
     ),
     history: Type.Optional(
@@ -559,12 +565,14 @@ export const SkillsMethods = {
     params: Type.Object({
       proposalId: Id,
       approvalId: Id,
+      /** Fresh presence for a proposal that also trusts its author: the approved card from a first `approval_required` call. */
+      trustApprovalId: Type.Optional(Id),
     }),
     result: Type.Object({ skill: SkillSummarySchema }),
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Side-effecting: installs a proposal; fails with approval_required without its approved skill_install.",
+      "Side-effecting: installs a proposal; fails with approval_required without its approved skill_install. A proposal that also trusts its author needs fresh presence once a verifier exists (approval_required with details.approvalId, then retry with trustApprovalId).",
   }),
   "skills.proposeImport": defineMethod({
     params: Type.Object({
