@@ -252,7 +252,8 @@ The steps above work on Windows 10 and 11 (x64) in PowerShell, with these differ
 - **Environment variables** are set with `$env:NAME = "value"` instead of `NAME=value` in front of the command, for example `$env:PSYCHE_GATEWAY_MODE = "external"` before `pnpm --filter @psyche/desktop start`.
 - **The installed app:** `pnpm app:build` then `pnpm app:install` builds `dist\Psyche-<version>-Setup.exe` and installs it for your user, as in [install.md](install.md#on-windows). `pnpm app:install` resets your Psyche data first unless you pass `--keep-data`.
 - **Data:** `~/.psyche` below is `%USERPROFILE%\.psyche`. The desktop app's own settings and caches are in `%APPDATA%\Psyche`.
-- **File permissions:** Windows has no POSIX modes. Your profile folder's permissions keep `.psyche` private, so `psyche doctor` skips the mode check on Windows.
+- **File permissions:** Windows has no POSIX modes. Your profile folder's permissions keep `.psyche` private, so `psyche doctor` skips the mode check on Windows. `psyche doctor` checks the Windows helper instead of the Mac helper: paired and online, its version, and any permission Windows turned off (the microphone, notifications).
+- **Hold-to-talk dictation:** a PC's Fn key never reaches Windows, so dictation defaults to **Right Ctrl** (and Talk with Psyche to Right Alt). Settings › Voice & dictation also offers Right Alt, Caps Lock (holding it to talk leaves its on/off state alone), Scroll Lock, Pause, the Menu key, and **Press a key** for any other key you can hold, such as F13–F24. On layouts where Right Alt is AltGr (German, French, Polish and many more), Settings warns before you pick it.
 
 ## Where your data lives
 
