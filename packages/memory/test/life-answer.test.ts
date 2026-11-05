@@ -546,6 +546,32 @@ describe("narrowAnswer", () => {
     expect(narrowAnswer("Ready [1][P9].", 1, 1, all, all).answer).toBe("Ready [1].");
   });
 
+  it("decides per sentence, however the markers are spread", () => {
+    const noP1 = (n: number) => n !== 1;
+    for (const text of [
+      "Sam moves to Denver [1] [P1].",
+      "Sam moves to Denver [1], [P1].",
+      "Sam moves to Denver [1] and [P1].",
+      "Sam moves to Denver [P1] and then [1].",
+      "Sam moves to Denver [1]; she confirmed it [P1].",
+    ]) {
+      expect(narrowAnswer(`${text} It was signed [P2].`, 1, 2, all, noP1), text).toEqual({
+        answer: "It was signed [P1].",
+        facts: [],
+        passages: [2],
+      });
+    }
+    // The fact failing takes the sentence the same way, and a title's stop is not an end.
+    expect(narrowAnswer("Dr. Lee moves [1], [P1].", 1, 1, () => false, all).answer).toBe("");
+    expect(narrowAnswer("Dr. Lee moves [1], [P1].", 1, 1, all, all).answer).toBe(
+      "Dr. Lee moves [1][P1].",
+    );
+    // Words after the last marker stay with their sentence.
+    expect(narrowAnswer("Sam moves [1] to Denver.", 1, 0, all, all).answer).toBe(
+      "Sam moves to Denver [1].",
+    );
+  });
+
   it("repeated narrowing does not pile up full-width stops", () => {
     const once = narrowAnswer("合同周五好。[P1] 已签。[P2]", 0, 2, all, all);
     const twice = narrowAnswer(once.answer, 0, 2, all, all);

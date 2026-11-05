@@ -505,12 +505,22 @@ export interface NarrowedAnswer {
 }
 
 /**
- * Cuts a finished answer (as `answerFromSources` renders it: `claim [1][P2].` joined by spaces)
- * down to the claims that still stand. `keepFact(n)` / `keepPassage(n)` say whether the nth fact or
- * passage may still be cited; `keepClaim` can refuse a claim's own text. A claim is dropped whole
- * when any one of its citations fails (its words may come from that source) or when none is left
- * (no citation, no claim); the ones that stay are renumbered from 1 in order of first use.
- * Nothing left gives an empty answer.
+ * Where a sentence ends for `narrowAnswer`: after `.`, `!` or `?` and a space, after a full-width
+ * stop, or at a line break. A title's stop (Dr. Mr. e.g.) is not an end. A semicolon or a comma is
+ * not an end, so every marker in a sentence counts against it.
+ */
+const SENTENCE_END =
+  /(?<!\b(?:Dr|Mr|Mrs|Ms|Prof|St|vs|etc|e\.g|i\.e)\.)(?<=[.!?])\s+|(?<=[。！？])\s*|\n+/u;
+
+/**
+ * Cuts a finished answer down to the sentences that still stand. The decision is made on the
+ * whole sentence, however its markers are spread (`[1] [P1]`, `[1], [P1]`, `[1] and [P1]`, either
+ * order, across a semicolon): `keepFact(n)` / `keepPassage(n)` say whether the nth fact or passage
+ * may still be cited, and a sentence is kept only if every valid marker in it passes and it has at
+ * least one (no citation, no claim). A marker that names nothing offered is not a citation.
+ * `keepClaim` can refuse the sentence's own words. Words after the last marker stay with their
+ * sentence. Kept sentences are rendered as `words [1][P1].` and renumbered from 1 in order of
+ * first use, so narrowing again changes nothing. Nothing left gives an empty answer.
  */
 export function narrowAnswer(
   answer: string,
@@ -527,20 +537,11 @@ export function narrowAnswer(
     passages: number[];
   }
   const claims: Claim[] = [];
-  let last = 0;
-  for (const m of answer.matchAll(MARKER_RUN)) {
-    const start = m.index ?? 0;
-    const text = answer
-      .slice(last, start)
-      .replace(/^[\s.!?;,。！？；]+/, "")
-      .trim();
-    last = start + m[0].length;
+  for (const raw of answer.split(SENTENCE_END)) {
     const facts = new Set<number>();
     const passages = new Set<number>();
-    // Strict: a claim stands only if every citation it carries still passes. Its words may be
-    // drawn from any one of its sources, so one that fails takes the whole claim with it.
     let failed = false;
-    for (const n of m[0].matchAll(MARKER)) {
+    for (const n of raw.matchAll(MARKER)) {
       const k = Number(n[2]);
       if (n[1] === "P") {
         if (k < 1 || k > nPassages) continue;
@@ -552,9 +553,21 @@ export function narrowAnswer(
         else failed = true;
       }
     }
-    if (failed || text === "" || facts.size + passages.size === 0 || !keepClaim(text)) continue;
-    const end = /^[.!?。！？]/.exec(answer.slice(last))?.[0] ?? "";
-    claims.push({ text, end, facts: [...facts], passages: [...passages] });
+    if (failed || facts.size + passages.size === 0) continue;
+    const bare = raw.replace(MARKER, " ").replace(/\s+/g, " ").trim();
+    const end = /[.!?。！？]+$/.exec(bare)?.[0] ?? "";
+    const text = bare
+      .slice(0, bare.length - end.length)
+      .replace(/^[\s.!?;,。！？；]+/, "")
+      .replace(/[\s,;、，；]+$/, "")
+      .trim();
+    if (text === "" || !keepClaim(text)) continue;
+    claims.push({
+      text,
+      end: end === "" ? "" : end.slice(-1),
+      facts: [...facts],
+      passages: [...passages],
+    });
   }
   const f = [...new Set(claims.flatMap((c) => c.facts))];
   const p = [...new Set(claims.flatMap((c) => c.passages))];
