@@ -92,6 +92,16 @@ MCP servers plug in external tool servers that speak the Model Context Protocol.
 
 Every tool call still follows your permissions: anything that changes something asks first. If a server later changes its tools, the permissions you gave its old tools end and you get a notice. Remove a server from its row's ⋯ menu.
 
+### Sharing a tool server as a file
+
+A command server you set up can be shared as a signed `.psyche-connector` file, and someone else can import it. The design is in [shared-bundles-2026.md](../design/shared-bundles-2026.md).
+
+- **Share.** Open the server in Settings → Connectors, click **Share…** and confirm on your device (Touch ID or a passkey once one is set up). The first time, you choose the name that goes on everything you share. The file holds the command and its arguments, the names of the variables and secrets it needs, the websites it may reach and the tools it lists. It never holds a value. Servers Psyche wrote, built-in ones, URL servers and servers you imported yourself cannot be shared. The server has to be running.
+- **Import.** In Settings → Connectors → Advanced, choose the file or paste a link. Psyche shows who signed it (new, seen before, trusted, changed, or the same author with a new key), the full command, the network, the variable and secret names, the tools it says it lists, and any scripts that come with it. The first run is in the sandbox, which lists the tools the server really offers; on a Mac without a sandbox the card says so and nothing is started. Approve the card as for any tool server; then enter its secrets by name.
+- **Updates.** Import the newer file. The card shows what changed and flags anything that asks for more: a different command, new variables, secrets, websites or tools, or different scripts. It always needs a new approval.
+- **Authors.** Settings → Skills → Advanced → "Your author key and notices" lets you replace your key (people who trusted the old one see "same author, new key" and still decide), publish a signed notice that a key or a file is bad, and import notices other authors send you. A notice only counts if the author is someone you have met, and it can only block.
+- Signing says who made it, not that it is safe. The card, the sandbox and your approval are still the check, and the agent cannot export, import or trust anything.
+
 ## 1Password
 
 Not available yet. The vault code can read items from 1Password, but the app has no way to link it, and the Gateway's vault cannot be set up yet either. Settings → Credentials shows "External manager" as a choice, without a working connect step.

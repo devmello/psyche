@@ -34,6 +34,7 @@ export const SKILL_FORBIDDEN_TOOLS: readonly string[] = [
   "skills.proposeUpdate",
   "skills.export",
   "skills.authors.*",
+  "connectors.*",
   "policy.*",
 ];
 

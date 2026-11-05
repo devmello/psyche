@@ -53,7 +53,7 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  */
 
 /** Only Psyche on the Host itself (the desktop shell on loopback, no Origin) may sign. */
-function hostShellOnly(call: Call): void {
+export function hostShellOnly(call: Call): void {
   if (
     call.identity.desktopShell !== true ||
     !call.conn.peer.remoteLoopback ||
@@ -72,7 +72,7 @@ function hostShellOnly(call: Call): void {
  * For an export that is the Host's own desktop, so a second paired computer cannot approve it.
  * Throws `approval_required` with the card's id; the retry passes it back.
  */
-async function plainCard(
+export async function plainCard(
   services: ComposeServices,
   call: Call,
   a: { tag: string; summary: string; details: Record<string, unknown>; treeHash: string },
@@ -126,6 +126,46 @@ async function plainCard(
 }
 
 /**
+ * The gate for anything that signs with the owner's author key (an export, a rotation, a
+ * notice): Host shell only, then fresh presence (Touch ID or a passkey) once a verifier exists,
+ * or a plain device-only `once` card bound to the asking device before one does.
+ */
+export async function signGate(
+  services: ComposeServices,
+  call: Call,
+  a: {
+    method: string;
+    tag: string;
+    summary: string;
+    subject: Record<string, unknown>;
+    details: Record<string, unknown>;
+    treeHash: string;
+  },
+  approvalId: string | undefined,
+): Promise<void> {
+  hostShellOnly(call);
+  if (call.ctx.presenceState() !== "off") {
+    await requireFreshPresence(
+      call,
+      {
+        name: `method:${a.method}`,
+        summary: a.summary,
+        subject: a.subject,
+        details: a.details as never,
+      },
+      approvalId,
+    );
+    return;
+  }
+  await plainCard(
+    services,
+    call,
+    { tag: a.tag, summary: a.summary, details: a.details, treeHash: a.treeHash },
+    approvalId,
+  );
+}
+
+/**
  * The gates for the two owner actions that use or loosen trust (shared bundles, design doc
  * sections 4, 5 and 9). Both are Settings actions on an admin connection, and both need the
  * owner's approval on a device-only card:
@@ -140,33 +180,63 @@ async function plainCard(
 export function skillGates(services: ComposeServices): SkillsGates {
   return {
     async export(callRaw, a, approvalId) {
-      const call = callRaw as Call;
-      hostShellOnly(call);
       const summary = `Sign skill "${a.name}" with your author key`;
-      const details = {
-        kind: "skill_export",
-        name: a.name,
-        treeHash: a.treeHash,
-        origin: a.origin,
-        files: a.files.map((f) => f.path),
-      };
-      if (call.ctx.presenceState() !== "off") {
-        await requireFreshPresence(
-          call,
-          {
-            name: "method:skills.export",
-            summary,
-            subject: { name: a.name, treeHash: a.treeHash },
-            details,
-          },
-          approvalId,
-        );
-        return;
-      }
-      await plainCard(
+      await signGate(
         services,
-        call,
-        { tag: `export:${a.name}`, summary, details, treeHash: a.treeHash },
+        callRaw as Call,
+        {
+          method: "skills.export",
+          tag: `export:${a.name}`,
+          summary,
+          subject: { name: a.name, treeHash: a.treeHash },
+          treeHash: a.treeHash,
+          details: {
+            kind: "skill_export",
+            name: a.name,
+            treeHash: a.treeHash,
+            origin: a.origin,
+            files: a.files.map((f) => f.path),
+          },
+        },
+        approvalId,
+      );
+    },
+    async rotate(callRaw, a, approvalId) {
+      await signGate(
+        services,
+        callRaw as Call,
+        {
+          method: "skills.authors.rotate",
+          tag: "rotate",
+          summary: "Replace your author key with a new one",
+          subject: { keyId: a.keyId },
+          treeHash: a.keyId,
+          details: { kind: "skill_author_rotate", keyId: a.keyId, name: a.name },
+        },
+        approvalId,
+      );
+    },
+    async notice(callRaw, a, approvalId) {
+      await signGate(
+        services,
+        callRaw as Call,
+        {
+          method: "skills.authors.createNotice",
+          tag: `notice:${a.kind}`,
+          summary:
+            a.kind === "key"
+              ? "Sign a notice that one of your author keys is revoked"
+              : "Sign a notice that a bundle of yours is bad",
+          subject: { kind: a.kind, keyId: a.keyId, bundleHash: a.bundleHash ?? null },
+          treeHash: a.bundleHash ?? a.keyId,
+          details: {
+            kind: "skill_author_notice",
+            noticeKind: a.kind,
+            keyId: a.keyId,
+            ...(a.bundleHash === undefined ? {} : { bundleHash: a.bundleHash }),
+            reason: a.reason,
+          },
+        },
         approvalId,
       );
     },
@@ -373,6 +443,14 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
             ...(event.treeHash === undefined ? {} : { treeHash: event.treeHash }),
           },
         });
+        // Connectors that came from a revoked key or bundle stop (the MCP part listens for this).
+        if (event.kind === "author_revoked" || event.kind === "bundle_revoked")
+          services.publish("skills.changed", {
+            type: "reloaded",
+            added: [],
+            removed: [],
+            changed: [],
+          });
       },
       // A background role starts off again whenever its skill is installed, updated or removed
       // (the card showed what it asks for); the owner turns it back on in Settings.

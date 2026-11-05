@@ -15,6 +15,7 @@ import {
 } from "@psyche/protocol";
 import type { SkillDrafts } from "./drafts.ts";
 import type { FsSkillLoader, SkillDetails, SkillProposal } from "./loader.ts";
+import { MAX_NOTICE_BYTES } from "./notice.ts";
 import type { SkillCommand } from "./prompt.ts";
 import { summarizeFindings } from "./scanner.ts";
 
@@ -67,6 +68,39 @@ export interface SkillsHandlers {
     p: { keyId: string; state: "seen" | "trusted" | "revoked"; approvalId?: string },
     call?: unknown,
   ) => Promise<{ author: SkillAuthor }>;
+  "skills.authors.rotate": (
+    p: { approvalId?: string },
+    call?: unknown,
+  ) => Promise<{
+    from: { keyId: string; name: string };
+    to: { keyId: string; name: string };
+  }>;
+  "skills.authors.createNotice": (
+    p: {
+      kind: "key" | "bundle";
+      keyId?: string;
+      bundleHash?: string;
+      reason: string;
+      approvalId?: string;
+    },
+    call?: unknown,
+  ) => Promise<{ filename: string; notice: string }>;
+  "skills.authors.importNotice": (p: {
+    name?: string;
+    text?: string;
+    url?: string;
+    preview?: boolean;
+  }) => Promise<{
+    kind: "key" | "bundle";
+    keyId: string;
+    bundleHash?: string;
+    reason: string;
+    signer: { keyId: string; name: string };
+    applied: boolean;
+    names: string[];
+    alreadyRevoked: boolean;
+    text?: string;
+  }>;
   "skills.setEnabled": (p: {
     name: string;
     enabled: boolean;
@@ -125,6 +159,18 @@ export interface SkillsGates {
       origin: string;
       authorName?: string;
     },
+    approvalId: string | undefined,
+  ) => Promise<void>;
+  /** Replacing the author key with a new one (Host shell, presence). */
+  rotate?: (
+    call: unknown,
+    action: { keyId: string; name: string },
+    approvalId: string | undefined,
+  ) => Promise<void>;
+  /** Signing a revocation notice with the author key (Host shell, presence). */
+  notice?: (
+    call: unknown,
+    action: { kind: "key" | "bundle"; keyId: string; bundleHash?: string; reason: string },
     approvalId: string | undefined,
   ) => Promise<void>;
   /** Trusting a key, or moving one out of `revoked`. */
@@ -371,6 +417,42 @@ export function createSkillsHandlers(
         await gate(call, { keyId: p.keyId, from, to: p.state }, p.approvalId);
       }
       return { author: loader.setAuthorState(p.keyId, p.state) };
+    },
+    async "skills.authors.rotate"(p, call) {
+      const own = loader.authors().own;
+      if (own === undefined)
+        throw new PsycheError("conflict", "there is no author key to rotate yet");
+      const gate = opts.gates?.rotate;
+      if (gate === undefined)
+        throw new PsycheError("unavailable", "rotating needs the Gateway's approval gate");
+      await gate(call, { keyId: own.keyId, name: own.name }, p.approvalId);
+      return await loader.rotateAuthorKey();
+    },
+    async "skills.authors.createNotice"(p, call) {
+      const { keyId } = loader.previewNotice(p);
+      const gate = opts.gates?.notice;
+      if (gate === undefined)
+        throw new PsycheError("unavailable", "signing a notice needs the Gateway's approval gate");
+      await gate(
+        call,
+        {
+          kind: p.kind,
+          keyId,
+          ...(p.bundleHash === undefined ? {} : { bundleHash: p.bundleHash }),
+          reason: p.reason,
+        },
+        p.approvalId,
+      );
+      return await loader.createNotice(p);
+    },
+    async "skills.authors.importNotice"(p) {
+      if ((p.text === undefined) === (p.url === undefined))
+        throw new PsycheError(
+          "invalid_params",
+          "give either the notice's text or a link, not both",
+        );
+      const text = p.text ?? (await loader.fetchLink(p.url as string, MAX_NOTICE_BYTES));
+      return loader.importNotice(text, p.preview === true ? { preview: true } : {});
     },
     async "skills.setEnabled"(p) {
       return { skill: await loader.setEnabled(p.name, p.enabled, p.source) };
