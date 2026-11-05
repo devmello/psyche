@@ -29,6 +29,20 @@ export const sandboxPc = {
   "settings.sandboxPc.onboardingHint":
     "Optional: a private Linux PC for tasks that should not touch your files. You can set it up later in Settings.",
 
+  "settings.sandboxPc.update.title": "Update the sandbox PC service",
+  "settings.sandboxPc.update.explainCompatible":
+    "This version of Psyche came with a newer sandbox PC service than the one installed. The sandbox PC keeps working as it is.",
+  "settings.sandboxPc.update.explainRequired":
+    "This version of Psyche can't use the sandbox PC service that is installed. The sandbox PC stays off until you update it.",
+  "settings.sandboxPc.update.available": "Update available",
+  "settings.sandboxPc.update.required": "Update needed",
+  "settings.sandboxPc.update.versions":
+    "Installed: {installed}. This version of Psyche: {bundled}.",
+  "settings.sandboxPc.update.oneStep":
+    "Windows asks for administrator approval once. A running sandbox PC stops while the service is replaced.",
+  "settings.sandboxPc.update.button": "Update the sandbox PC service",
+  "settings.sandboxPc.update.failed": "The sandbox PC service was not updated: {reason}",
+  "settings.sandboxPc.update.failedDid": "Nothing else was changed. You can try again.",
   "settings.sandboxPc.controls.title": "The sandbox PC",
   "settings.sandboxPc.controls.hint": "Create it once, then start and stop it here.",
   "settings.sandboxPc.controls.create": "Create the sandbox PC",

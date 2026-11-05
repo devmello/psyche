@@ -120,7 +120,7 @@ import {
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
 import { HAS_UNSENT_TEXT, releaseHiddenAfterMs } from "./main/release.ts";
-import { createSandboxPc } from "./main/sandbox-pc/wire.ts";
+import { createSandboxPc, serviceUpdateNotice } from "./main/sandbox-pc/wire.ts";
 import { captureScreenFrame, wantsFallback } from "./main/screen-ask/capture-fallback.ts";
 import { ScreenAskWindow } from "./main/screen-ask/panel.ts";
 import { ScreenAskShortcut } from "./main/screen-ask/settings.ts";
@@ -1076,6 +1076,8 @@ function registerIpc(): void {
   handle(IPC.sandboxPcGetState, () => sandboxPc.getState());
   handle(IPC.sandboxPcRefresh, () => sandboxPc.refresh());
   handle(IPC.sandboxPcTurnOn, () => sandboxPc.turnOn());
+  // Only on the owner's click; never from the startup check.
+  handle(IPC.sandboxPcUpdateService, () => sandboxPc.updateService());
   handle(IPC.sandboxPcCancel, () => sandboxPc.cancel());
   handle(IPC.helperGetState, () => helper?.getState() ?? { kind: "unbundled" });
   // An approval card's "Start Psyche Helper": launch now (no relaunch throttle), wait to pair. On
@@ -1502,6 +1504,18 @@ void app.whenReady().then(async () => {
       bridge.start();
     },
   });
+
+  // A Squirrel update ships a new sandbox PC service, but the installed one is replaced only by an
+  // elevated install. Find out (no prompt, no network) and say so once; Settings has the update.
+  if (windows32) {
+    void sandboxPc
+      .check()
+      .then((s) => {
+        const notice = serviceUpdateNotice(s);
+        if (notice) showNotification(notice.title, notice.body, notice.route);
+      })
+      .catch(() => undefined);
+  }
 
   // The bundled host helper (docs/archive/status/s14.md "Packaging"), started once this window
   // pairs, i.e. the Gateway answers: through LaunchServices on macOS (dev builds use their own

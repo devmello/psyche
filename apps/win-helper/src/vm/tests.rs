@@ -91,6 +91,16 @@ fn fake_service(
     (pipe, seen)
 }
 
+/// What the fake saw, without the helper's own protocol check (`service_info`).
+fn reached(seen: &Seen) -> Vec<(u32, String, Value)> {
+    seen.lock()
+        .unwrap()
+        .iter()
+        .filter(|(_, m, _)| m != "service_info")
+        .cloned()
+        .collect()
+}
+
 fn registry(pipe: &str) -> CapabilityRegistry {
     let env = Env::default()
         .with(PIPE_OVERRIDE, pipe)
@@ -205,7 +215,7 @@ async fn params_and_results_cross_unchanged_with_a_receipt() {
     let receipt = out.receipt.expect("a receipt for a write");
     assert_eq!(receipt.outcome, ReceiptOutcome::Ok);
     assert_eq!(receipt.summary, "Force-stopped the sandbox PC");
-    let seen = seen.lock().unwrap();
+    let seen = reached(&seen);
     assert_eq!(seen[0].1, "stop");
     assert_eq!(seen[0].2, json!({"name": "sandbox", "force": true}));
 }
@@ -240,7 +250,7 @@ async fn status_adds_the_service_block_and_is_passive() {
     let v = r.unwrap().result;
     assert_eq!(v["guests"][0]["phase"], "running");
     assert_eq!(v["service"]["installed"], true);
-    assert_eq!(seen.lock().unwrap()[0].2, json!({"passive": true}));
+    assert_eq!(reached(&seen)[0].2, json!({"passive": true}));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -252,7 +262,7 @@ async fn progress_is_requested_only_by_streaming_calls() {
     let (_, ev) = call(&reg, "vm.start", json!({}), None).await;
     assert_eq!(ev.len(), 1, "{ev:?}");
     assert_eq!(
-        seen.lock().unwrap().len(),
+        reached(&seen).len(),
         2,
         "one connection per call, no watcher"
     );
@@ -305,10 +315,7 @@ async fn read_write_shares_need_an_approval_before_anything_is_sent() {
     let e = r.unwrap_err();
     assert_eq!(e.code, ErrorCode::ApprovalRequired);
     assert_eq!(e.reason, "share_rw_needs_approval");
-    assert!(
-        seen.lock().unwrap().is_empty(),
-        "refused before the service"
-    );
+    assert!(reached(&seen).is_empty(), "refused before the service");
 
     // Read-only needs none; the service receives the canonical path.
     let (r, _) = call(
@@ -320,7 +327,7 @@ async fn read_write_shares_need_an_approval_before_anything_is_sent() {
     .await;
     let out = r.unwrap();
     assert_eq!(out.receipt.unwrap().summary, "Shared work read-only");
-    let sent = seen.lock().unwrap()[0].2.clone();
+    let sent = reached(&seen)[0].2.clone();
     assert_eq!(sent["readOnly"], true);
     assert!(
         sent["path"]
@@ -339,7 +346,7 @@ async fn read_write_shares_need_an_approval_before_anything_is_sent() {
     )
     .await;
     assert_eq!(r.unwrap().receipt.unwrap().summary, "Shared rw read-write");
-    assert_eq!(seen.lock().unwrap()[1].2["approvalId"], "apr_9");
+    assert_eq!(reached(&seen)[1].2["approvalId"], "apr_9");
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -377,7 +384,7 @@ async fn sensitive_and_relative_paths_never_reach_the_service() {
             "{cap} {p}: {e}"
         );
     }
-    assert!(seen.lock().unwrap().is_empty());
+    assert!(reached(&seen).is_empty());
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -395,6 +402,53 @@ fn not_installed_status_names_the_action() {
     assert_eq!(v["service"]["state"], "notInstalled");
     assert_eq!(v["service"]["installed"], false);
     assert_eq!(v["service"]["action"], "turn_on_sandbox_pc");
+}
+
+fn service_info_calls(seen: &Seen) -> usize {
+    seen.lock()
+        .unwrap()
+        .iter()
+        .filter(|(_, m, _)| m == "service_info")
+        .count()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_older_service_of_a_known_protocol_keeps_working() {
+    // No `protocol` field at all: a service from before the field existed speaks protocol 1.
+    let (pipe, seen) = fake_service(Duration::ZERO, |m, _| match m {
+        "service_info" => Ok(json!({"version": "0.0.9"})),
+        _ => Ok(json!({})),
+    });
+    let reg = registry(&pipe);
+    for _ in 0..3 {
+        let (r, _) = call(&reg, "vm.stop", json!({}), None).await;
+        r.unwrap();
+    }
+    assert_eq!(service_info_calls(&seen), 1, "asked once, then remembered");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_service_of_an_unknown_protocol_is_refused_until_it_is_updated() {
+    let protocol = Arc::new(std::sync::atomic::AtomicU64::new(99));
+    let p = protocol.clone();
+    let (pipe, seen) = fake_service(Duration::ZERO, move |m, _| match m {
+        "service_info" => Ok(json!({"version": "9.0.0", "protocol": p.load(Ordering::SeqCst)})),
+        _ => Ok(json!({})),
+    });
+    let reg = registry(&pipe);
+    let (r, _) = call(&reg, "vm.start", json!({}), None).await;
+    let e = r.unwrap_err();
+    assert_eq!(e.reason, "vm_service_outdated");
+    assert!(e.message.contains("Update it in Settings"), "{}", e.message);
+    assert_eq!(e.details["action"], "update_sandbox_pc_service");
+    assert!(reached(&seen).is_empty(), "nothing reached the service");
+    // `vm.service_info` itself still answers, so the owner can see why.
+    let (r, _) = call(&reg, "vm.service_info", json!({}), None).await;
+    assert_eq!(r.unwrap().result["protocol"], 99);
+    // The owner updates the service; no helper restart is needed.
+    protocol.store(1, Ordering::SeqCst);
+    let (r, _) = call(&reg, "vm.stop", json!({}), None).await;
+    r.unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread")]

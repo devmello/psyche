@@ -11,6 +11,7 @@ import {
   formatSize,
   SandboxPcControls,
   SandboxPcOnboarding,
+  SandboxPcServiceUpdate,
   SandboxPcSetup,
 } from "../src/screens/settings/SandboxPcSection.tsx";
 import { VmSection } from "../src/screens/settings/VmSection.tsx";
@@ -210,6 +211,7 @@ function fakeSlot(first: SandboxPcState): {
   slot: SandboxPcSlot;
   push: (s: SandboxPcState) => void;
   turnOn: ReturnType<typeof vi.fn>;
+  updateService: ReturnType<typeof vi.fn>;
 } {
   let listener: ((s: SandboxPcState) => void) | undefined;
   const turnOn = vi.fn(async () => ({
@@ -218,11 +220,16 @@ function fakeSlot(first: SandboxPcState): {
     serviceInstalled: true,
     imageVersion: "2026.11.1",
   }));
+  const updateService = vi.fn(async () => {
+    const { serviceUpdate: _gone, ...rest } = first;
+    return { ...rest, phase: "ready" as const, serviceInstalled: true, imageVersion: "2026.11.1" };
+  });
   return {
     slot: {
       getState: async () => first,
       refresh: async () => first,
       turnOn,
+      updateService,
       cancel: async () => {},
       onState: (cb) => {
         listener = cb;
@@ -233,6 +240,7 @@ function fakeSlot(first: SandboxPcState): {
     },
     push: (s) => listener?.(s),
     turnOn,
+    updateService,
   };
 }
 
@@ -270,6 +278,70 @@ function renderSection(slot: SandboxPcSlot | undefined, withHelper: boolean) {
 
 const callsOf = (g: MockGateway, method: string): RecordedCall[] =>
   g.calls.filter((c) => c.method === method);
+
+const OUTDATED: SandboxPcState = {
+  phase: "ready",
+  serviceInstalled: true,
+  imageVersion: "2026.11.1",
+  serviceUpdate: { installed: "0.1.0", bundled: "0.2.0", compatible: true },
+};
+
+describe("updating the sandbox PC service after an app update", () => {
+  it("offers a one-click update and asks the desktop only when it is pressed", async () => {
+    setUiPlatform("windows");
+    const { slot, updateService } = fakeSlot(OUTDATED);
+    renderSection(slot, false);
+    expect(
+      await screen.findByRole("heading", { name: "Update the sandbox PC service" }),
+    ).toBeTruthy();
+    expect(screen.getByText(/keeps working as it is/)).toBeTruthy();
+    expect(screen.getByText(/Installed: 0\.1\.0\. This version of Psyche: 0\.2\.0\./)).toBeTruthy();
+    expect(screen.getByText(/administrator approval once/)).toBeTruthy();
+    // Showing it elevated nothing.
+    expect(updateService).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Update the sandbox PC service" }));
+    expect(updateService).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.queryByTestId("sandbox-pc-service-update")).toBeNull());
+  });
+
+  it("says plainly when the installed service cannot be used at all", () => {
+    render(
+      <SandboxPcServiceUpdate
+        state={{
+          ...OUTDATED,
+          serviceUpdate: { installed: "0.1.0", bundled: "1.0.0", compatible: false },
+        }}
+        onUpdate={() => {}}
+      />,
+    );
+    expect(screen.getByText(/can't use the sandbox PC service that is installed/)).toBeTruthy();
+    expect(screen.getByText("Update needed")).toBeTruthy();
+  });
+
+  it("shows the wait for the prompt, and a dismissed one as an error that can be retried", () => {
+    const { rerender } = render(
+      <SandboxPcServiceUpdate state={{ ...OUTDATED, phase: "updating" }} onUpdate={() => {}} />,
+    );
+    expect(screen.getByText("Waiting for the administrator prompt…")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Update the sandbox PC service" })).toBeNull();
+    rerender(
+      <SandboxPcServiceUpdate
+        state={{ ...OUTDATED, message: "Updating needs one administrator approval." }}
+        onUpdate={() => {}}
+      />,
+    );
+    expect(
+      screen.getByText(/was not updated: Updating needs one administrator approval/),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Update the sandbox PC service" })).toBeTruthy();
+  });
+
+  it("is absent when the service is current", () => {
+    const { serviceUpdate: _none, ...current } = OUTDATED;
+    const { container } = render(<SandboxPcServiceUpdate state={current} onUpdate={() => {}} />);
+    expect(container.textContent).toBe("");
+  });
+});
 
 describe("Settings → Sandbox PC on Windows", () => {
   it("is the real screen now, not 'Available on macOS'", async () => {

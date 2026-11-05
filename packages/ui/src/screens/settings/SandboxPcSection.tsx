@@ -32,6 +32,7 @@ export function useSandboxPc(): {
   slot: SandboxPcSlot | undefined;
   state: SandboxPcState | null;
   turnOn: () => void;
+  updateService: () => void;
   cancel: () => void;
   refresh: () => void;
 } {
@@ -53,6 +54,7 @@ export function useSandboxPc(): {
     slot,
     state,
     turnOn: () => void slot?.turnOn().then(setState),
+    updateService: () => void slot?.updateService().then(setState),
     cancel: () => void slot?.cancel(),
     refresh: () => void slot?.refresh().then(setState),
   };
@@ -73,7 +75,10 @@ export function SandboxPcSetup({
   onCancel,
 }: SandboxPcSetupProps): ReactElement {
   const busy =
-    state.phase === "installing" || state.phase === "downloading" || state.phase === "restarting";
+    state.phase === "installing" ||
+    state.phase === "updating" ||
+    state.phase === "downloading" ||
+    state.phase === "restarting";
   const size =
     state.downloadBytes !== undefined && state.diskBytes !== undefined
       ? t("settings.sandboxPc.oneTime", {
@@ -116,7 +121,7 @@ export function SandboxPcSetup({
       ) : null}
       {busy ? (
         <div className="flex flex-col gap-3" aria-live="polite">
-          {state.phase === "installing" ? (
+          {state.phase === "installing" || state.phase === "updating" ? (
             <p className="text-callout text-label-secondary">
               {t("settings.sandboxPc.waitingAdmin")}
             </p>
@@ -154,6 +159,75 @@ export function SandboxPcSetup({
           {t("settings.sandboxPc.readyText", { version: state.imageVersion })}
         </p>
       ) : null}
+    </Group>
+  );
+}
+
+export interface SandboxPcServiceUpdateProps {
+  state: SandboxPcState;
+  onUpdate: () => void;
+}
+
+/**
+ * After an app update brought a newer sandbox PC service than the one installed: say so and offer
+ * the one-click update. Nothing is elevated until the button is pressed.
+ */
+export function SandboxPcServiceUpdate({
+  state,
+  onUpdate,
+}: SandboxPcServiceUpdateProps): ReactElement | null {
+  const update = state.serviceUpdate;
+  if (update === undefined || state.phase === "unsupported") return null;
+  const updating = state.phase === "updating";
+  const busy = updating || state.phase === "installing" || state.phase === "downloading";
+  return (
+    <Group
+      title={t("settings.sandboxPc.update.title")}
+      description={t(
+        update.compatible
+          ? "settings.sandboxPc.update.explainCompatible"
+          : "settings.sandboxPc.update.explainRequired",
+      )}
+      actions={
+        <StatusChip tone={update.compatible ? "info" : "approval"}>
+          {t(
+            update.compatible
+              ? "settings.sandboxPc.update.available"
+              : "settings.sandboxPc.update.required",
+          )}
+        </StatusChip>
+      }
+    >
+      <div className="flex flex-col gap-3" data-testid="sandbox-pc-service-update">
+        <p className="text-callout text-label-secondary">
+          {t("settings.sandboxPc.update.versions", {
+            installed: update.installed,
+            bundled: update.bundled,
+          })}
+        </p>
+        {state.message ? (
+          <ErrorNotice
+            what={t("settings.sandboxPc.update.failed", { reason: state.message })}
+            did={t("settings.sandboxPc.update.failedDid")}
+          />
+        ) : null}
+        {updating ? (
+          <p className="text-callout text-label-secondary" aria-live="polite">
+            {t("settings.sandboxPc.waitingAdmin")}
+          </p>
+        ) : (
+          <>
+            <p className="text-callout text-label-secondary">
+              {t("settings.sandboxPc.update.oneStep")}
+            </p>
+            <div>
+              <Button type="button" disabled={busy} onClick={onUpdate}>
+                {t("settings.sandboxPc.update.button")}
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
     </Group>
   );
 }
@@ -383,6 +457,7 @@ export function SandboxPcConnected({ now }: { now?: number }): ReactElement | nu
   const setUp = pc.state.phase === "ready";
   return (
     <div className="flex flex-col gap-3">
+      <SandboxPcServiceUpdate state={pc.state} onUpdate={pc.updateService} />
       <SandboxPcSetup
         persona={persona.name}
         state={pc.state}

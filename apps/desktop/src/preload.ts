@@ -275,6 +275,7 @@ const bridge = {
     getState: () => invoke(IPC.sandboxPcGetState),
     refresh: () => invoke(IPC.sandboxPcRefresh),
     turnOn: () => invoke(IPC.sandboxPcTurnOn),
+    updateService: () => invoke(IPC.sandboxPcUpdateService),
     cancel: () => invoke(IPC.sandboxPcCancel),
     onState: (cb: (s: unknown) => void) => listen(IPC.sandboxPcState, cb),
   },

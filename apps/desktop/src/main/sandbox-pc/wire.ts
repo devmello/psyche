@@ -9,6 +9,7 @@ import {
   type SandboxPcState,
   serviceNameFor,
 } from "./sandbox-pc.ts";
+import { fileSha256, installedServiceExe, readServiceVersion } from "./service-version.ts";
 
 export const SERVICE_DIR = "win-helper";
 export const SERVICE_EXE = "psyche-vm-svc.exe";
@@ -73,6 +74,9 @@ export function createSandboxPc(w: SandboxPcWiring): SandboxPc {
     requireSignature: w.packaged,
     signatureOf: (exe) => authenticodeStatus(exe, w.run, systemRoot),
     probeService: (name) => probeService(w.run, name, systemRoot),
+    installedServiceExe: (sid) => installedServiceExe(sid, env),
+    serviceVersionOf: (exe) => readServiceVersion(w.run, exe),
+    fileHash: fileSha256,
     // The images are read by the SYSTEM service and must not be writable by anyone else.
     restrictFolder: async (dir, sid) => {
       mkdirSync(dir, { recursive: true });
@@ -102,6 +106,23 @@ export function createSandboxPc(w: SandboxPcWiring): SandboxPc {
     onState: w.onState,
     log: (m) => console.warn(`[sandbox-pc] ${m}`),
   });
+}
+
+/**
+ * The notification for an installed service older than the bundled one; it only points at
+ * Settings, where the one-click update (and its single administrator prompt) lives.
+ */
+export function serviceUpdateNotice(
+  s: SandboxPcState,
+): { title: string; body: string; route: string } | null {
+  if (!s.serviceUpdate || s.phase === "unsupported") return null;
+  return {
+    title: "Update the sandbox PC service",
+    body: s.serviceUpdate.compatible
+      ? "Psyche came with a newer sandbox PC service. It works as it is; update it in Settings when you like (one administrator prompt)."
+      : "Psyche came with a newer sandbox PC service, and the sandbox PC won't work until you update it. Open Settings → Sandbox PC (one administrator prompt).",
+    route: "/settings/vm",
+  };
 }
 
 export { serviceNameFor };

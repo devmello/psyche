@@ -99,7 +99,15 @@ export interface GatewaysSlot {
  */
 export interface SandboxPcState {
   /** `off`: not turned on yet (or the download was cancelled); `ready`: service and image are in place. */
-  phase: "unsupported" | "off" | "installing" | "downloading" | "restarting" | "ready" | "failed";
+  phase:
+    | "unsupported"
+    | "off"
+    | "installing"
+    | "updating"
+    | "downloading"
+    | "restarting"
+    | "ready"
+    | "failed";
   /** Plain words: why it is unsupported or what went wrong. */
   message?: string;
   serviceInstalled: boolean;
@@ -110,6 +118,11 @@ export interface SandboxPcState {
   downloadBytes?: number;
   /** What it takes unpacked. */
   diskBytes?: number;
+  /**
+   * Set while the installed service is older than the one this build ships (after an app
+   * update). `compatible`: the sandbox PC keeps working until it is updated.
+   */
+  serviceUpdate?: { installed: string; bundled: string; compatible: boolean };
 }
 
 export interface SandboxPcSlot {
@@ -118,6 +131,8 @@ export interface SandboxPcSlot {
   refresh(): Promise<SandboxPcState>;
   /** Installs the service (one administrator prompt), restarts the helper, downloads the image. */
   turnOn(): Promise<SandboxPcState>;
+  /** Replaces the installed service with this build's (one administrator prompt, on the click). */
+  updateService(): Promise<SandboxPcState>;
   cancel(): Promise<void>;
   onState(cb: (state: SandboxPcState) => void): () => void;
 }

@@ -44,7 +44,10 @@ fn main() -> ExitCode {
     let Some(cmd) = args.first().map(String::as_str) else { return usage() };
     match cmd {
         "version" | "--version" => {
-            println!("{}", json!({"version": env!("CARGO_PKG_VERSION"), "elevated": security::is_elevated()}));
+            println!(
+                "{}",
+                json!({"version": env!("CARGO_PKG_VERSION"), "protocol": psyche_win_vm::protocol::PROTOCOL_VERSION, "elevated": security::is_elevated()})
+            );
             ExitCode::SUCCESS
         }
         "install" => {
