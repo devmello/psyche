@@ -390,9 +390,20 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     registrations.delete(serverId);
     await host.removeServer(serverId);
   };
+  let seeded = false;
   const reconcile = async (value: unknown) => {
     const wanted = readServers(value, (msg) => warn(msg));
     const next = new Map(wanted.map((c) => [c.id, c]));
+    // Servers that left the list, or joined it unmarked, by any route (`settings.set` included):
+    // a record and files of a shared one go with it; a server of that id that is not one never
+    // inherits them.
+    if (seeded) {
+      for (const [id, was] of known)
+        if (!next.has(id) && was.bundle !== undefined) await bundles.removed(was);
+      for (const [id, now] of next)
+        if (!known.has(id) && now.bundle === undefined) await bundles.added(now);
+    }
+    seeded = true;
     known.clear();
     for (const c of wanted) known.set(c.id, c);
     for (const id of [...configs.keys()]) {

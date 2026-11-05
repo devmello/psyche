@@ -4,6 +4,7 @@ import { AuthorKeyStore, AuthorRing } from "../src/authors.ts";
 import { buildBundle, bundleHashOf, signingBytes, verifyBundle } from "../src/bundle.ts";
 import {
   argvCredentialLeaks,
+  argvSuspectAfterFlag,
   argvSuspectWords,
   normalizeRequests,
   riskyDomains,
@@ -464,5 +465,72 @@ describe("L6: the bundle record is written to disk, keeps a copy, and can be res
     expect(readdirSync(join(empty.path, "..")).filter((n) => n.includes(".corrupt"))).toEqual([
       "bundles.json.corrupt",
     ]);
+  });
+});
+
+describe("third review: argv credential names", () => {
+  const find = (...args: string[]) => argvCredentialLeaks(args);
+  const stripe = ["sk", "_test_", "a".repeat(24)].join("");
+  const hf = ["hf", "_", "b".repeat(30)].join("");
+  const xoxe = ["xoxe", ".", "xoxp-1-", "c".repeat(12)].join("");
+
+  it("camelCase names, standalone key/auth/pat/passphrase, and more token prefixes", () => {
+    for (const flag of [
+      "--accessToken",
+      "--authToken",
+      "--clientSecret",
+      "--privateKey",
+      "--apiToken",
+      "--secretKey",
+      "--key",
+      "--auth",
+      "--pat",
+      "--passphrase",
+    ]) {
+      expect(find(flag, "abc123"), flag).toHaveLength(1);
+      expect(find(`${flag}=abc123`), `${flag}=`).toHaveLength(1);
+    }
+    expect(find(stripe)).toHaveLength(1);
+    expect(find(hf)).toHaveLength(1);
+    expect(find(xoxe)).toHaveLength(1);
+  });
+
+  it("a login after -u, a value that starts with a dash after a secret flag, and signed-URL query keys", () => {
+    expect(find("-u", "bob:hunter2")).toHaveLength(1);
+    expect(find("--user", "bob:hunter2")).toHaveLength(1);
+    expect(find("--token", "-abc123xyz")).toHaveLength(1);
+    expect(find("https://b.s3.amazonaws.com/x?X-Amz-Signature=abc")).toHaveLength(1);
+    expect(find("https://b.s3.amazonaws.com/x?X-Amz-Credential=abc%2F2026")).toHaveLength(1);
+    expect(find("https://x.test/y?sig=abc")).toHaveLength(1);
+  });
+
+  it("does not flag ports, addresses, plain profile words, endpoints or package names", () => {
+    for (const args of [
+      ["-u", "1000:1000"],
+      ["-p", "8080"],
+      ["-p", "8080/tcp"],
+      ["-p", "0.0.0.0:80"],
+      ["-p", "default"],
+      ["-p", "src"],
+      ["-p8080"],
+      ["-pdefault"],
+      ["--token-endpoint", "https://auth.example.com/token"],
+      ["--secret-store", "vault"],
+      ["--key-uri", "kms://x"],
+      ["--keystore", "ks"],
+      ["--truststore", "ts"],
+      ["--cookie-jar", "jar.txt"],
+      ["--token", "--verbose"],
+      ["sk-mcp-server"],
+      ["@acme/sk-mcp-server@1.2.3"],
+    ])
+      expect(find(...args), args.join(" ")).toEqual([]);
+  });
+
+  it("on export, a random-looking value right after a flag is a credential", () => {
+    const rand = ["Zk3", "9xQ", "7vLm", "2PaR", "8sTu", "4WnY", "6BcD", "1eFg"].join("");
+    expect(argvSuspectAfterFlag(["--session", rand])).toHaveLength(1);
+    expect(argvSuspectAfterFlag([rand])).toEqual([]);
+    expect(argvSuspectAfterFlag(["--name", "plain"])).toEqual([]);
   });
 });

@@ -375,10 +375,12 @@ interface RevokedBundleEntry extends RevokedBundle {
   lineage: string[];
 }
 
-/** `AuthorRing.checkpoint`: records and rotations of some keys at a moment. */
-export interface RingCheckpoint {
-  authors: Record<string, AuthorRecord | undefined>;
-  rotations: Record<string, string[] | undefined>;
+/** What one `observe` added, filled in by it so `rollback` can take out exactly that. */
+export interface RingUndo {
+  /** The key record it made, when it made one. */
+  key?: string;
+  /** The (from, to) rotation pairs it added. */
+  pairs: [string, string][];
 }
 
 interface AuthorsFile {
@@ -447,33 +449,22 @@ export class AuthorRing {
   }
 
   /**
-   * What the records of these keys (and the rotations that name them) look like now, so an install
-   * that is undone can put them back (`rollback`).
+   * Undoes what one `observe` did (as told by the `undo` it filled in), where that is safe: a key
+   * it made is forgotten only while it is still exactly what `observe` made (seen, never trusted
+   * or revoked in between), and only the rotations it added are taken out, one pair at a time, so
+   * what another install recorded is never touched.
    */
-  checkpoint(keyIds: readonly string[]): RingCheckpoint {
+  rollback(undo: RingUndo): void {
     const f = this.#read();
-    return {
-      authors: Object.fromEntries(keyIds.map((k) => [k, structuredClone(f.authors[k])])),
-      rotations: Object.fromEntries(keyIds.map((k) => [k, structuredClone(f.rotations?.[k])])),
-    };
-  }
-
-  /**
-   * Undoes what `observe` did since the checkpoint, where that is safe: a key that was not known
-   * before is forgotten only while it is still exactly what `observe` made (seen, never trusted
-   * or revoked in between); rotations are put back. Anything the owner decided meanwhile stays.
-   */
-  rollback(cp: RingCheckpoint): void {
-    const f = this.#read();
-    for (const [k, before] of Object.entries(cp.authors)) {
-      const now = f.authors[k];
-      if (before === undefined && now?.state === "seen" && now.trustedAt === undefined)
-        delete f.authors[k];
+    if (undo.key !== undefined) {
+      const now = f.authors[undo.key];
+      if (now?.state === "seen" && now.trustedAt === undefined) delete f.authors[undo.key];
     }
     if (f.rotations !== undefined) {
-      for (const [k, before] of Object.entries(cp.rotations)) {
-        if (before === undefined) delete f.rotations[k];
-        else f.rotations[k] = before;
+      for (const [from, to] of undo.pairs) {
+        const list = (f.rotations[from] ?? []).filter((k) => k !== to);
+        if (list.length === 0) delete f.rotations[from];
+        else f.rotations[from] = list;
       }
     }
     this.#write(f);
@@ -510,7 +501,7 @@ export class AuthorRing {
    * by that one", so a later second successor of the same key is seen as a fork and a key that
    * has been replaced is known to be retired.
    */
-  observe(author: BundleAuthor, ancestors: readonly string[] = []): AuthorRecord {
+  observe(author: BundleAuthor, ancestors: readonly string[] = [], undo?: RingUndo): AuthorRecord {
     const f = this.#read();
     let r = f.authors[author.keyId];
     if (r === undefined || r.publicKey === "") {
@@ -527,6 +518,7 @@ export class AuthorRing {
           firstSeen: new Date(this.#now()).toISOString(),
         };
         f.authors[author.keyId] = r;
+        if (undo !== undefined) undo.key = author.keyId;
       } else {
         r.publicKey = author.publicKey;
         if (!r.names.includes(author.name)) r.names.push(author.name);
@@ -542,8 +534,10 @@ export class AuthorRing {
         !list.includes(to) &&
         list.length < 4 &&
         Object.keys(rotations).length < MAX_ROTATIONS_KEPT
-      )
+      ) {
         rotations[from] = [...list, to];
+        undo?.pairs.push([from, to]);
+      }
       to = from;
     }
     if (ancestors.length > 0) f.rotations = rotations;

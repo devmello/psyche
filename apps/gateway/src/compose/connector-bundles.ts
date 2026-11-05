@@ -16,6 +16,7 @@ import {
 import {
   AuthorKeyStore,
   AuthorRing,
+  argvSuspectAfterFlag,
   type BundleFetchOptions,
   buildConnectorBundle,
   CONNECTOR_EXTENSION,
@@ -24,12 +25,13 @@ import {
   type ConnectorModel,
   type ConnectorRequests,
   canonicalJson,
+  checkRequests,
   connectorWidenedBy,
   DEFAULT_LIMITS,
   fetchBundleText,
   normalizeRequests,
   quoteForSummary,
-  type RingCheckpoint,
+  type RingUndo,
   readSkillDir,
   SECRET_SHAPED_NAME,
   type SkillTree,
@@ -190,6 +192,8 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
     if (keys.peek() === undefined && (p.authorName === undefined || p.authorName.trim() === ""))
       return bad("Choose the name to sign your connectors with; everyone who imports them sees it");
     const model = modelOf(entry, tools);
+    // Caps first (62 arguments, 1,000 characters each), so a huge argument is refused before it is scanned.
+    checkRequests(model.requests);
     const tree = payload ?? new Map();
     // Anything that looks like a secret on the command line or in a script stays out of the file.
     const high = scanConnector(model.requests, tree).filter((f) => f.severity === "high");
@@ -200,6 +204,14 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
         { details: { rules: high.map((f) => f.rule) } },
       );
     const r = model.requests;
+    // A random-looking value right after a flag is a credential, on export.
+    const afterFlag = argvSuspectAfterFlag(r.args);
+    if (afterFlag.length > 0)
+      throw new PsycheError(
+        "policy_denied",
+        `the connector cannot be shared: ${afterFlag[0]}; a command line is visible to every process`,
+        { details: { rules: ["credential-in-argv"] } },
+      );
     const requestsHash = sha(canonicalJson({ model, tree: treeHash(tree) }));
     const summary = `Sign connector "${entry.id}" with your author key`;
     await signGate(
@@ -402,6 +414,8 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
         `${m.name}'s record is for a different file than the one installed; remove it, or reset the records in Settings`,
       );
     const update = installedEntry !== undefined && rec !== undefined ? rec : undefined;
+    // A record with no server in the list is an orphan: it describes nothing that runs.
+    if (installedEntry === undefined && rec !== undefined) ledger.remove(m.name);
     // A file that drops its signature over a signed install is refused, not just flagged.
     if (update?.signerKeyId !== undefined && v.signer === undefined)
       throw new PsycheError(
@@ -528,7 +542,7 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
         : undefined;
     };
     let probed: McpProposal["tools"] = [];
-    let checkpoint: RingCheckpoint | undefined;
+    const undo: RingUndo = { pairs: [] };
 
     // The update view: the command, then each bundled file, against what was approved before.
     let diff = "";
@@ -682,6 +696,26 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
           },
         }),
         precommit: async () => {
+          // The pairing between the list and the record is checked again at the last moment: an
+          // update needs the very server and record it was staged against, a fresh install needs
+          // neither to exist.
+          const nowEntry = readEntries(services, deps.settingKey).find((c) => c.id === m.name);
+          const nowRec = ledger.get(m.name);
+          if (update !== undefined) {
+            if (
+              nowEntry?.bundle?.hash !== update.bundleHash ||
+              nowRec?.bundleHash !== update.bundleHash
+            )
+              throw new PsycheError(
+                "conflict",
+                `${m.name} changed since you reviewed this card; import the file again`,
+              );
+          } else if (nowEntry !== undefined || nowRec !== undefined) {
+            throw new PsycheError(
+              "conflict",
+              `${m.name} appeared since you reviewed this card; import the file again`,
+            );
+          }
           // A notice or a revocation that arrived while the card was open still blocks it.
           if (
             v.signer !== undefined &&
@@ -699,12 +733,8 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
             );
           // The record goes down before the server does: a server that came from a file is never
           // running without it (every start checks it). If the add is undone, so is this.
-          const cp = ring.checkpoint(
-            v.signer === undefined ? [] : [v.signer.keyId, ...v.ancestors],
-          );
-          checkpoint = cp;
           try {
-            if (v.signer !== undefined) ring.observe(v.signer, v.ancestors);
+            if (v.signer !== undefined) ring.observe(v.signer, v.ancestors, undo);
             ledger.put({
               serverId: m.name,
               bundleHash: v.bundleHash,
@@ -724,7 +754,7 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
               ...(dir === undefined ? {} : { dir }),
             });
           } catch (err) {
-            ring.rollback(cp);
+            ring.rollback(undo);
             throw err;
           }
         },
@@ -740,7 +770,7 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
             },
             // The key and rotations this install recorded, where that is still what they are.
             () => {
-              if (checkpoint !== undefined) ring.rollback(checkpoint);
+              ring.rollback(undo);
             },
             // The payload directory this import wrote (never the one an installed version uses).
             () => {
@@ -844,6 +874,16 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
       // The record must be the one for the file this entry was approved from.
       if (marked && entry.bundle?.hash !== rec.bundleHash)
         return "its bundle record is for another file";
+      // What runs is what was approved: a command line and variables the record knows about.
+      if (marked) {
+        const t = entry.transport;
+        if (t.kind !== "stdio") return "it is not a command server any more";
+        if (JSON.stringify(t.command) !== JSON.stringify(argv(rec.requests)))
+          return "its command is not the one you approved";
+        const allowed = new Set([...rec.requests.env, ...rec.requests.secrets.map((x) => x.name)]);
+        if (Object.keys(t.env ?? {}).some((n) => !allowed.has(n)))
+          return "it has a variable the file did not declare";
+      }
       if (rec.signerKeyId !== undefined && ring.isRevoked(rec.signerKeyId))
         return "its author's key was revoked";
       if (ring.isBundleRevoked(rec.bundleHash, rec.signerKeyId))

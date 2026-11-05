@@ -425,13 +425,17 @@ export function connectorWidenedBy(
 const JWT = /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*/;
 /** Prefixes of tokens that services hand out: on their own they are a credential. */
 const TOKEN_PREFIX =
-  /^(ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|glpat-|xox[abprs]-|sk-|sk_live_|rk_live_|pk_live_|AKIA[0-9A-Z]{8}|AIza[0-9A-Za-z_-]{10}|npm_[A-Za-z0-9]{10}|eyJ[A-Za-z0-9_-]{8})/;
+  /^(ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|glpat-|xox[abprs]-|sk-(?:proj-|ant-)?[A-Za-z0-9_-]{20,}|sk_live_|sk_test_|rk_live_|rk_test_|pk_live_|xoxe\.|hf_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{8}|AIza[0-9A-Za-z_-]{10}|npm_[A-Za-z0-9]{10}|eyJ[A-Za-z0-9_-]{8})/;
 
 /**
  * Words (flag or key name segments) that name a credential. Whole segments are matched, so
  * `--api-key` and `--access_token` count, and `--max-tokens`, `--author` or `--sort-key` do not.
  */
 const SECRET_WORDS = new Set([
+  "key",
+  "auth",
+  "pat",
+  "passphrase",
   "token",
   "apikey",
   "secret",
@@ -457,10 +461,14 @@ const SECRET_PAIRS = [
 const NOT_SECRET =
   /(max-?tokens?|token-?(limit|count|budget|usage)|auth-?type|authority|author|keyspace|primary-?key|sort-?key|bypass-?cache|oauth-?scopes?)/i;
 /** A flag that names a secret but only points at where it is (`--token-file`) is not a leak. */
-const POINTER = /(file|path|env|name|url|dir|var|id|type|scope|scopes)$/i;
+const POINTER = /(file|path|env|name|url|dir|var|id|type|scope|scopes|jar|store|endpoint|uri)$/i;
 
 function secretName(raw: string): boolean {
-  const name = raw.replace(/^-+/, "").toLowerCase();
+  // `--accessToken` is `--access-token`.
+  const name = raw
+    .replace(/^-+/, "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .toLowerCase();
   if (name === "" || NOT_SECRET.test(name) || POINTER.test(name)) return false;
   const segs = name.split(/[-_.\s]+/).filter((x) => x !== "");
   if (segs.some((x) => SECRET_WORDS.has(x))) return true;
@@ -474,7 +482,40 @@ function secretName(raw: string): boolean {
 /** `Password=`, `Pwd=`, `AccountKey=` in a connection string, and the like. */
 const CONNECTION_KEYS = /^(password|pwd|accountkey|sharedaccesskey|secret|token|apikey|api key)$/i;
 const QUERY_KEYS =
-  /^(api[_-]?key|apikey|token|key|access[_-]?token|auth[_-]?token|secret|password|passwd|pwd|sig|signature|client[_-]?secret)$/i;
+  /^(api[_-]?key|apikey|token|key|access[_-]?token|auth[_-]?token|secret|password|passwd|pwd|sig|signature|client[_-]?secret|x-amz-(signature|credential|security-token)|x-goog-(signature|credential))$/i;
+
+/** After `-p`: a port or address (`8080`, `0.0.0.0:80/tcp`), a path, or a plain profile/folder word. */
+const PLAIN_WORDS = new Set([
+  "default",
+  "src",
+  "dist",
+  "build",
+  "lib",
+  "app",
+  "test",
+  "tests",
+  "dev",
+  "prod",
+  "production",
+  "staging",
+  "local",
+  "public",
+  "docs",
+]);
+function benignAfterP(value: string): boolean {
+  return /^[\d.:]+(\/(tcp|udp))?$/.test(value) || /^[/.~]/.test(value) || PLAIN_WORDS.has(value);
+}
+
+/** A random-looking word right after a flag: on export that is treated as a credential. */
+export function argvSuspectAfterFlag(args: readonly string[]): string[] {
+  const suspects = new Set(argvSuspectWords(args));
+  return args.flatMap((_arg, i) =>
+    /^--?[A-Za-z]/.test(args[i - 1] ?? "") &&
+    suspects.has(`argument ${i + 1} is a long random-looking word`)
+      ? [`argument ${i + 1} is a random-looking value after ${(args[i - 1] ?? "").slice(0, 40)}`]
+      : [],
+  );
+}
 
 function entropy(text: string): number {
   const counts = new Map<string, number>();
@@ -542,15 +583,23 @@ function argLeak(arg: string, previous: string | undefined): string | undefined 
   if (kv !== null && secretName(kv[1] as string))
     return `a value given to ${(kv[1] as string).slice(0, 40)}`;
   // The value after a flag that names a credential, long or short (`-p secret`, `-psecret`).
-  if (previous !== undefined && !arg.startsWith("-")) {
-    if (/^-{1,2}[A-Za-z][\w.-]*$/.test(previous) && secretName(previous))
+  if (previous !== undefined && arg !== "") {
+    // A value that itself starts with "-" still counts, unless it is plainly the next long flag.
+    const nextFlag = /^(--[A-Za-z][A-Za-z0-9-]*|-[A-Za-z])$/.test(arg);
+    if (/^-{1,2}[A-Za-z][\w.-]*$/.test(previous) && secretName(previous) && !nextFlag)
       return `the value after ${previous.slice(0, 40)}`;
-    if (/^-[pP]$/.test(previous) && !/^\d+$/.test(arg) && !/^[/.~]/.test(arg))
+    if (/^-[pP]$/.test(previous) && !benignAfterP(arg) && !arg.startsWith("-"))
       return "the value after -p";
+    // `-u user:password`, `--user user:password`.
+    if (
+      /^(-u|-U|--user|--username)$/.test(previous) &&
+      /^[^:\s/]+:[^:\s]+$/.test(arg) &&
+      !/^\d+:\d+$/.test(arg)
+    )
+      return `a login after ${previous}`;
   }
   const short = /^-[pP](.{3,})$/.exec(arg);
-  if (short !== null && !/^\d+$/.test(short[1] as string) && !/^[/.~]/.test(short[1] as string))
-    return "a value attached to -p";
+  if (short !== null && !benignAfterP(short[1] as string)) return "a value attached to -p";
   return undefined;
 }
 

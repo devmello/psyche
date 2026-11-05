@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { AuthorRing } from "../src/authors.ts";
+import { AuthorRing, type RingUndo } from "../src/authors.ts";
 import { buildBundle, bundleHashOf, signingBytes, verifyBundle } from "../src/bundle.ts";
 import { buildNotice, verifyNotice } from "../src/notice.ts";
 import { signRotation } from "../src/rotation.ts";
@@ -117,34 +117,52 @@ describe("7: a key that was replaced is not 'verified', even if the owner truste
   });
 });
 
-describe("9: undoing an install puts the key records back where that is safe", () => {
-  it("forgets a key that was only just seen, and the rotation it named", () => {
+describe("9: undoing an install puts back only what that install wrote", () => {
+  it("forgets a key that was only just seen, and the rotation pair it added", () => {
     const ring = new AuthorRing(join(tempDir(), "skills"));
     const a = authorKey("Ada");
     const b = authorKey("Ada");
-    const cp = ring.checkpoint([b.author.keyId, a.author.keyId]);
-    ring.observe(b.author, [a.author.keyId]);
+    const undo: RingUndo = { pairs: [] };
+    ring.observe(b.author, [a.author.keyId], undo);
     expect(ring.get(b.author.keyId)).toBeDefined();
     expect(ring.isRetired(a.author.keyId)).toBe(true);
-    ring.rollback(cp);
+    ring.rollback(undo);
     expect(ring.get(b.author.keyId)).toBeUndefined();
     expect(ring.isRetired(a.author.keyId)).toBe(false);
   });
 
-  it("keeps what the owner decided in the meantime", () => {
+  it("never wipes the rotations another install recorded for the same key", () => {
+    const ring = new AuthorRing(join(tempDir(), "skills"));
+    const a = authorKey("Ada");
+    const b = authorKey("Ada");
+    const c = authorKey("Ada");
+    // An earlier install recorded A -> B.
+    ring.observe(b.author, [a.author.keyId]);
+    // A later one names A -> C as well, and is undone.
+    const undo: RingUndo = { pairs: [] };
+    ring.observe(c.author, [a.author.keyId], undo);
+    expect(undo.pairs).toEqual([[a.author.keyId, c.author.keyId]]);
+    ring.rollback(undo);
+    expect(ring.isRetired(a.author.keyId)).toBe(true);
+    // A -> B is still known: a second successor is still a fork.
+    expect(() => ring.assertNoFork(c.author.keyId, [a.author.keyId])).toThrow(/same earlier key/);
+    ring.assertNoFork(b.author.keyId, [a.author.keyId]);
+  });
+
+  it("keeps what the owner decided in the meantime, and keys already known", () => {
     const ring = new AuthorRing(join(tempDir(), "skills"));
     const b = authorKey("Bo");
-    const cp = ring.checkpoint([b.author.keyId]);
-    ring.observe(b.author);
+    const undo: RingUndo = { pairs: [] };
+    ring.observe(b.author, [], undo);
     ring.setState(b.author.keyId, "trusted");
-    ring.rollback(cp);
+    ring.rollback(undo);
     expect(ring.get(b.author.keyId)?.state).toBe("trusted");
-    // A key the owner already knew before is never forgotten.
     const c = authorKey("Cy");
     ring.observe(c.author);
-    const cp2 = ring.checkpoint([c.author.keyId]);
-    ring.observe(c.author);
-    ring.rollback(cp2);
+    const again: RingUndo = { pairs: [] };
+    ring.observe(c.author, [], again);
+    expect(again.key).toBeUndefined();
+    ring.rollback(again);
     expect(ring.get(c.author.keyId)).toBeDefined();
   });
 });

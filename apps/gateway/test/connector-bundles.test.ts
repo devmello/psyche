@@ -19,6 +19,7 @@ import {
   type BundleSigningKey,
   buildConnectorBundle,
   buildNotice,
+  ConnectorLedger,
   type ConnectorModel,
   keyIdOf,
   normalizeRequests,
@@ -632,7 +633,10 @@ describe("updates", () => {
     }[];
     (given[0] as { transport: { env: Record<string, string> } }).transport.env.NOTES_DIR =
       "kept-plain";
-    await s.owner.call("settings.set", { key: "mcp.servers", value: given }, ik());
+    // Written the way `mcp.secrets.replace` writes it: `settings.set` keeps a shared server's variables.
+    s.services.publish("settings.changed", {
+      entries: [setSetting(s.services.db, "mcp.servers", given)],
+    });
     await s.mcp.idle();
 
     // Same request again: nothing widens, and it is a new card all the same.
@@ -868,7 +872,9 @@ describe("review fixes", () => {
       transport: { env: Record<string, string> };
     }[];
     for (const e of all) if (e.id === id) e.transport.env[name] = value;
-    await s.owner.call("settings.set", { key: "mcp.servers", value: all }, ik());
+    // Written the way an install writes it: `settings.set` keeps a shared server's variables.
+    const entry = setSetting(s.services.db, "mcp.servers", all);
+    s.services.publish("settings.changed", { entries: [entry] });
     await s.mcp.idle();
   };
 
@@ -1186,13 +1192,23 @@ describe("second review fixes", () => {
     const s = await setup();
     const key = authorKey("Ada");
     await install(s, await propose(s, buildConnectorBundle(model(), new Map(), key, NOW)));
-    // The shared server leaves the list without the hook (an edit of the setting), its record stays.
+    // The shared server leaves the list by an edit of the setting: its record goes with it.
     const e0 = setSetting(s.services.db, "mcp.servers", []);
     s.services.publish("settings.changed", { entries: [e0] });
     await s.mcp.idle();
     expect(
       JSON.parse(readFileSync(join(home, "connectors", "bundles.json"), "utf8")).servers,
-    ).toHaveProperty("notes-sync");
+    ).not.toHaveProperty("notes-sync");
+    // An orphaned record appears anyway (a crash between two writes).
+    new ConnectorLedger(home).put({
+      serverId: "notes-sync",
+      bundleHash: `sha256:${"e".repeat(64)}`,
+      signerAncestors: [],
+      title: "x",
+      createdAt: NOW.toISOString(),
+      requests: model().requests,
+      treeHash: "sha256:x",
+    });
     // The owner adds a server of that id by hand: the orphaned record goes.
     await addEcho(s, "notes-sync");
     expect(
@@ -1379,5 +1395,198 @@ describe("second review fixes", () => {
     expect(r.dropped).toBe(1);
     const after = JSON.parse(readFileSync(f, "utf8")).servers;
     expect(Object.keys(after)).toEqual(["notes-sync"]);
+  });
+});
+
+describe("third review fixes", () => {
+  const list = (s: Setup) =>
+    (getSetting(s.services.db, "mcp.servers")?.value ?? []) as {
+      id: string;
+      bundle?: { hash: string };
+      transport: { kind: string; command: string[]; env?: Record<string, string> };
+    }[];
+  const write = async (s: Setup, value: unknown) => {
+    const entry = setSetting(s.services.db, "mcp.servers", value);
+    s.services.publish("settings.changed", { entries: [entry] });
+    await s.mcp.idle();
+  };
+  const record = () => JSON.parse(readFileSync(join(home, "connectors", "bundles.json"), "utf8"));
+
+  it("2: settings.set cannot rewrite a marked server's command, arguments or variables", async () => {
+    const s = await setup();
+    await install(
+      s,
+      await propose(s, buildConnectorBundle(model(), new Map(), authorKey("Ada"), NOW)),
+    );
+    const before = list(s).find((e) => e.id === "notes-sync");
+    const edited = list(s).map((e) => ({
+      ...e,
+      transport: { kind: "stdio", command: ["/bin/sh", "-c", "id"], env: { EVIL: "1" } },
+    }));
+    await s.owner.call("settings.set", { key: "mcp.servers", value: edited }, ik());
+    await s.mcp.idle();
+    expect(list(s).find((e) => e.id === "notes-sync")?.transport).toEqual(before?.transport);
+    expect(s.services.tools.get("mcp__notes-sync__echo")).toBeDefined();
+  });
+
+  it("2: a marked server whose command or variables differ from the record does not start", async () => {
+    const s = await setup();
+    await install(
+      s,
+      await propose(s, buildConnectorBundle(model(), new Map(), authorKey("Ada"), NOW)),
+    );
+    const good = list(s);
+    await write(
+      s,
+      good.map((e) => ({ ...e, transport: { ...e.transport, command: ["/bin/sh", "-c", "id"] } })),
+    );
+    expect(s.services.tools.get("mcp__notes-sync__echo")).toBeUndefined();
+    await write(
+      s,
+      good.map((e) => ({
+        ...e,
+        transport: { ...e.transport, env: { ...e.transport.env, EVIL: "x" } },
+      })),
+    );
+    expect(s.services.tools.get("mcp__notes-sync__echo")).toBeUndefined();
+    await write(s, good);
+    expect(s.services.tools.get("mcp__notes-sync__echo")).toBeDefined();
+    await write(
+      s,
+      good.map((e) => ({ ...e, transport: { kind: "http", url: "https://x.test/" } })),
+    );
+    expect(s.services.tools.get("mcp__notes-sync__echo")).toBeUndefined();
+  });
+
+  it("2: dropping a marked server from the list by any route removes its record and files; a new unmarked one forgets an orphan", async () => {
+    const s = await setup();
+    const key = authorKey("Ada");
+    await install(
+      s,
+      await propose(
+        s,
+        buildConnectorBundle(
+          model({ command: "node", args: ["server.mjs", "--write-tool"] }),
+          treeOf({ "server.mjs": ECHO_SOURCE }),
+          key,
+          NOW,
+        ),
+      ),
+    );
+    expect(record().servers).toHaveProperty("notes-sync");
+    await s.owner.call("settings.set", { key: "mcp.servers", value: [] }, ik());
+    await s.mcp.idle();
+    expect(record().servers).not.toHaveProperty("notes-sync");
+    expect(existsSync(join(home, "connector-bundles", "notes-sync"))).toBe(false);
+    // An orphan record with a new unmarked server of that id.
+    const ledger = new ConnectorLedger(home);
+    ledger.put({
+      serverId: "other",
+      bundleHash: `sha256:${"b".repeat(64)}`,
+      signerAncestors: [],
+      title: "O",
+      createdAt: NOW.toISOString(),
+      requests: model().requests,
+      treeHash: "sha256:x",
+    });
+    await s.owner.call(
+      "settings.set",
+      {
+        key: "mcp.servers",
+        value: [
+          {
+            id: "other",
+            name: "O",
+            transport: { kind: "stdio", command: ["node", "x.mjs"] },
+            enabled: false,
+          },
+        ],
+      },
+      ik(),
+    );
+    await s.mcp.idle();
+    expect(record().servers).not.toHaveProperty("other");
+  });
+
+  it("3: the pairing is checked again at approval, for an update and for a fresh install", async () => {
+    const s = await setup();
+    const key = authorKey("Ada");
+    // A fresh install staged, then a record for that id appears.
+    const fresh = await propose(s, buildConnectorBundle(model(), new Map(), key, NOW));
+    await approve(s.owner, (fresh.approval as { id: string }).id);
+    new ConnectorLedger(home).put({
+      serverId: "notes-sync",
+      bundleHash: `sha256:${"c".repeat(64)}`,
+      signerAncestors: [],
+      title: "x",
+      createdAt: NOW.toISOString(),
+      requests: model().requests,
+      treeHash: "sha256:x",
+    });
+    const e1 = await rejects(
+      s.owner.call(
+        "mcp.add",
+        {
+          proposalId: (fresh.proposal as McpProposal).id,
+          approvalId: (fresh.approval as { id: string }).id,
+        },
+        ik(),
+      ),
+    );
+    expect(e1.code).toBe("conflict");
+    expect(e1.message).toMatch(/appeared since/);
+    expect(list(s)).toEqual([]);
+    rmSync(join(home, "connectors"), { recursive: true, force: true });
+
+    // An update staged, then the record changes under it.
+    await install(s, await propose(s, buildConnectorBundle(model(), new Map(), key, NOW)));
+    const upd = await propose(
+      s,
+      buildConnectorBundle(model(), new Map(), key, new Date(NOW.getTime() + 60_000)),
+    );
+    await approve(s.owner, (upd.approval as { id: string }).id);
+    const l = new ConnectorLedger(home);
+    const rec = l.get("notes-sync");
+    if (rec === undefined) throw new Error("no record");
+    const { installedAt: _a, ...rest } = rec;
+    l.put({ ...rest, bundleHash: `sha256:${"d".repeat(64)}` });
+    const e2 = await rejects(
+      s.owner.call(
+        "mcp.add",
+        {
+          proposalId: (upd.proposal as McpProposal).id,
+          approvalId: (upd.approval as { id: string }).id,
+        },
+        ik(),
+      ),
+    );
+    expect(e2.code).toBe("conflict");
+    expect(e2.message).toMatch(/changed since/);
+  });
+
+  it("export: more than 62 arguments are refused before any scan", async () => {
+    const s = await setup();
+    const many = Array.from({ length: 62 }, (_, i) => `--x${i}`);
+    const { proposal, approval } = await s.owner.call<{
+      proposal: McpProposal;
+      approval: { id: string };
+    }>(
+      "mcp.probe",
+      {
+        server: {
+          id: "many",
+          name: "Many",
+          transport: { kind: "stdio", command: [process.execPath, SERVER, ...many] },
+        },
+      },
+      ik(),
+    );
+    await approve(s.owner, approval.id);
+    await s.owner.call("mcp.add", { proposalId: proposal.id, approvalId: approval.id }, ik());
+    const e = await rejects(
+      s.handler("connectors.export").run(s.call(), { serverId: "many", authorName: "Ada" }),
+    );
+    expect(e.code).toBe("invalid_params");
+    expect(e.message).toMatch(/more than 62 arguments/);
   });
 });
