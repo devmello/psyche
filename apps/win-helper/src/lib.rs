@@ -11,6 +11,7 @@ pub mod win;
 
 // Capability groups (each exposes `pub fn register(reg: &mut CapabilityRegistry)`).
 pub mod apps;
+pub mod chrome;
 pub mod files;
 pub mod health;
 pub mod keychain;

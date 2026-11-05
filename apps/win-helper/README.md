@@ -76,7 +76,12 @@ COM starts the helper with `-ToastActivated` / `-Embedding`; both just mean "ser
 | `files` | `files.trash`, `files.move`, `files.rename`, `files.recent`, `finder.list`, `finder.reveal` | Recycle Bin through `IFileOperation` (refuses anything that would be destroyed instead); `added` is the creation time; `folder: "shell:recent"` lists Recent items inside granted folders; Explorer reveal. |
 | `ocr` | `recognize` | `Windows.Media.Ocr` + `Windows.Data.Pdf`. No PDF text layer on Windows, so every page in range is recognised; confidence is `1`/`0` (Windows reports none). |
 | `health` | `health` | Version, OS build, uptime, notify / Hello state. |
-| wave 2 | `computer`, `screen`, `dictation`, `speech`, `teach` | Wired, registering nothing yet. `chrome.tabs` / `chrome.current_tab` are left for wave 2 (UI Automation). |
+| `computer` | `ax_tree`, `ax_value`, `click`, `double_click`, `right_click`, `press`, `set_value`, `select`, `type`, `key`, `scroll`, `drag`, `menu`, `end_session`, `screenshot`, `screenshot_pick` | `crates/win-computer` (UI Automation, `SendInput`, Windows Graphics Capture), adapted in `src/computer/`. App ids are lowercase executable names (`notepad.exe`). Results add `method: "sendinput"`, `scaleFactor`, `truncated: "timeout"`. Esc fails the in-flight call with `cancelled/user_stopped` and ends the session (no other wire event, as on the Mac). |
+| `screen` | `screen.context` | Same crate: the foreground window or a region, app, title, selected text, browser URL; Windows extras under `win`. |
+| `speech` | `transcribe_stream`, `transcribe_file`, `audio_push`, `stop`, `status` | `crates/win-dictation`. On-device SAPI by default for every source (`defaultEngine: "sapi"`); Windows online dictation only with `engine: "windowsSpeech"` (microphone only). Engines report `sapi` / `windowsSpeech`. No text-to-speech. |
+| `dictation` | `target`, `insert`, `watch` | Same crate: `WH_KEYBOARD_LL` hold-to-talk, UIA / typed / paste insertion; refuses password fields and elevated targets (`forbidden/elevated_target`). |
+| `teach` | `start`, `stop`, `cancel`, `status` | Low-level mouse / keyboard hooks (injected input ignored), targets through UI Automation (`ElementFromPoint`, focus). Chords use `ctrl` / `opt` / `shift` / `win`. Dropping the `teach.start` invocation cancels the recording. |
+| `chrome` | `tabs`, `current_tab` | Chrome, Edge and Brave through UI Automation (tab strip + address bar); tabs add `browser`, `active`. Only active tabs carry a `url` (`""` for background tabs). |
 
 ## Layout
 
@@ -88,6 +93,9 @@ src/node/          runtime: frames, NDJSON, pipe transport, handshake, identity,
 src/win/           Win32/WinRT wrappers (DPAPI, Credential Manager, registry, shell, processes,
                    foreground, token security, Authenticode)
 src/<group>/       one folder per capability group
+src/bridge.rs      blocking capability crates on the node's invocation path (cancellation)
+crates/            workspace members: win-computer (computer, screen, chrome tabs, element
+                   lookups), win-dictation (dictation, speech)
 tests/             fake Gateway end to end, the real binary
 ```
 

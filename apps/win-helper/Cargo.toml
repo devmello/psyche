@@ -37,6 +37,10 @@ windows-future = "=0.3.2"
 psyche-win-computer = { path = "crates/win-computer" }
 psyche-win-dictation = { path = "crates/win-dictation" }
 
+[dev-dependencies]
+# Paused clocks for the teach-mode timer test.
+tokio = { version = "=1.49.0", features = ["test-util"] }
+
 [dependencies.windows]
 version = "=0.62.2"
 features = [

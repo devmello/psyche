@@ -95,6 +95,12 @@ fn manifest_lists_the_windows_capabilities() {
         "speech.audio_push",
         "speech.stop",
         "speech.status",
+        "teach.start",
+        "teach.stop",
+        "teach.cancel",
+        "teach.status",
+        "chrome.tabs",
+        "chrome.current_tab",
     ] {
         assert!(names.contains(&want), "missing {want}");
     }
