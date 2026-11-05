@@ -372,6 +372,8 @@ describe("the lifecycle, against a fake Podman", () => {
     expect(verbs.indexOf("rm")).toBeLessThan(verbs.indexOf("volume"));
     expect(verbs.indexOf("volume")).toBeLessThan(verbs.indexOf("run"));
     expect(verbs.lastIndexOf("inspect")).toBeGreaterThan(verbs.indexOf("run"));
+    // The workspace survives every start, so creating it again must not fail on Podman.
+    expect(driver.find("volume", "create")[0]?.args).toContain("--ignore");
     const run = driver.calls.find((c) => c.args[0] === "run");
     expect(run?.args).toContain("--network=none");
     // The token reaches the engine's process environment only.

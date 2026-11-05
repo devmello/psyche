@@ -553,6 +553,8 @@ export class DesktopContainers {
     const made = await this.#cli(backend, [
       "volume",
       "create",
+      // The workspace outlives every start; Podman refuses a second create unless told to ignore it.
+      ...(backend.kind === "podman" ? ["--ignore"] : []),
       "--label",
       `${DESKTOP_OWNER_LABEL}=1`,
       volume,
