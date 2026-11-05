@@ -304,7 +304,8 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
       "Windows Hello was cancelled",
     );
     expect(await messageOf({ confirm: cancelled })).toBe("Touch ID was cancelled");
-  });
+    // Four Gateways in one case: give a loaded machine the time.
+  }, 30_000);
 
   it("a long card's notification sends the owner to their Mac or PC", () => {
     const long = {
