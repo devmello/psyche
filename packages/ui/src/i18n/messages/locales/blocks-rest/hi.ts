@@ -127,9 +127,21 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.touchId.onceOnly": "इस विंडो से Touch ID स्वीकृतियाँ सिर्फ़ एक बार के लिए होती हैं।",
   "blocks.approval.status.allowedOnceTouchId":
     "एक बार अनुमति दी गई (इस विंडो से Touch ID स्वीकृतियाँ सिर्फ़ एक बार के लिए होती हैं)",
+  "blocks.approval.touchId.keyUntrusted":
+    "कीचेन में Psyche हेल्पर की Touch ID कुंजी को उसकी अपनी साबित नहीं किया जा सका, इसलिए उसका उपयोग नहीं हुआ। क्या करना है यह देखने के लिए सेटिंग्स → डिवाइस खोलें।",
+  "blocks.approval.touchId.keyAccessDenied":
+    "macOS ने Psyche हेल्पर को अपनी Touch ID कुंजी इस्तेमाल करने नहीं दी। फिर कोशिश करें और हमेशा अनुमति दें केवल तभी चुनें जब संवाद में psyche-helper का नाम हो।",
+  "blocks.approval.touchId.keyChanged":
+    "Psyche हेल्पर चलते समय Touch ID कुंजी बदल गई। Psyche हेल्पर बंद करके फिर शुरू करें।",
+  "blocks.approval.touchId.keyWrongLocation":
+    "Psyche ऐसी जगह से चल रहा है जहाँ उसकी Touch ID कुंजी नहीं रखी जा सकती (डिस्क इमेज, डाउनलोड या कोई और फ़ोल्डर)। Psyche को Applications में ले जाएँ और वहीं से खोलें।",
+  "blocks.approval.touchId.keyLocked": "कीचेन अभी अनुमति नहीं माँग सकता। Mac अनलॉक करें और फिर कोशिश करें।",
+  "blocks.approval.touchId.keyAclUnavailable":
+    "इस Mac पर कीचेन ने Touch ID कुंजी की एक्सेस सूची नहीं रखी। दोबारा कोशिश के लिए Psyche हेल्पर को रीस्टार्ट करें।",
   "blocks.approval.touchId.keyUnavailable":
     "Psyche Helper का यह बिल्ड Touch ID कुंजी नहीं रख सकता (इसमें कीचेन एक्सेस ग्रुप नहीं है), इसलिए जिन कार्डों को Touch ID चाहिए उन्हें इस Mac पर स्वीकृत नहीं किया जा सकता।",
   "blocks.approval.touchId.cancelled": "Touch ID रद्द किया गया, इसलिए कुछ भी स्वीकृत नहीं हुआ",
+  "blocks.approval.touchId.restartHelper": "Psyche हेल्पर रीस्टार्ट करें",
   "blocks.approval.touchId.startHelper": "Psyche Helper शुरू करें",
   "blocks.question.answerLine": "↳ {answer}",
   "blocks.sources.label": "स्रोत",

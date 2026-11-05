@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Runner } from "./supervisor-base.ts";
@@ -138,12 +138,29 @@ export interface HelperLauncherOptions {
   verifySignature?: boolean;
   signatureWaitMs?: number;
   onState?: (s: HelperRunState) => void;
+  /** True while the app's own signature fails (bundle-integrity.ts): the helper is not started. */
+  blocked?: () => boolean;
   /** How long a launch may take to pair before it counts as offline (default 30 s). */
   pairTimeoutMs?: number;
   /** Least time between two relaunches after it went offline (default 60 s). */
   relaunchEveryMs?: number;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
+  /** The pid in the helper's lock file (`<home>/run/helper.lock`); tests pass their own. */
+  readPid?: () => number | undefined;
+  kill?: (pid: number, signal: "SIGTERM") => void;
+}
+
+function lockPid(psycheHome: string): number | undefined {
+  try {
+    const n = Number.parseInt(
+      readFileSync(join(psycheHome, "run", "helper.lock"), "utf8").trim(),
+      10,
+    );
+    return Number.isInteger(n) && n > 1 ? n : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function openHelperArgs(appPath: string, psycheHome: string, home = homedir()): string[] {
@@ -219,7 +236,7 @@ export class HelperLauncher {
    */
   async restart(): Promise<void> {
     if (this.state.kind === "unbundled") return;
-    if (!this.windows) return this.launch();
+    if (!this.windows) return this.restartMac();
     await this.launching?.catch(() => undefined);
     const appPath = this.opts.appPath as string;
     const lit = `'${appPath.replaceAll("'", "''")}'`;
@@ -240,10 +257,41 @@ export class HelperLauncher {
   /** Launches the helper unless it is already paired; resolves once it paired or timed out. */
   launch(): Promise<void> {
     if (this.state.kind === "unbundled") return Promise.resolve();
+    if (this.opts.blocked?.()) {
+      this.set({ kind: "offline", reason: "this copy of Psyche was modified" });
+      return Promise.resolve();
+    }
     this.launching ??= this.doLaunch().finally(() => {
       this.launching = undefined;
     });
     return this.launching;
+  }
+
+  /**
+   * Quits the running helper (SIGTERM to the pid in its lock file, and only when `ps` says that pid
+   * is a psyche-helper) and starts it again: a card's "Restart Psyche Helper" after its Touch ID key
+   * changed while it ran.
+   */
+  private async restartMac(): Promise<void> {
+    const pid = this.opts.readPid ? this.opts.readPid() : lockPid(this.opts.psycheHome);
+    if (pid !== undefined) {
+      const ps = await this.opts
+        .run("/bin/ps", ["-p", String(pid), "-o", "comm="])
+        .catch(() => undefined);
+      if (ps?.code === 0 && ps.stdout.includes("psyche-helper")) {
+        try {
+          (this.opts.kill ?? process.kill)(pid, "SIGTERM");
+        } catch {
+          // already gone
+        }
+      }
+    }
+    const now = this.opts.now ?? Date.now;
+    const sleep = this.opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+    const end = now() + 10_000;
+    while (now() < end && (await this.opts.isPaired().catch(() => false))) await sleep(250);
+    this.set({ kind: "offline" });
+    await this.launch();
   }
 
   /** `fresh`: a restart, where the old helper's pairing must not count. */
@@ -277,7 +325,7 @@ export class HelperLauncher {
    * gone (it quit, crashed or was replaced by an update), at most once per `relaunchEveryMs`.
    */
   async onPresence(paired: boolean): Promise<void> {
-    if (this.state.kind === "unbundled") return;
+    if (this.state.kind === "unbundled" || this.opts.blocked?.()) return;
     if (paired) return this.set({ kind: "paired" });
     if (this.launching) return;
     const now = (this.opts.now ?? Date.now)();
@@ -351,7 +399,7 @@ export interface HelperIdentity {
   deviceId: string;
   /** Hex SHA-256 of its Touch ID public key, when it has one. */
   keyId?: string;
-  kind?: "keychain" | "enclave_file";
+  kind?: "keychain" | "enclave_keychain_acl" | "enclave_file";
   /** Why it has no key (`missing_entitlement`, `presence_key_file`, …). */
   error?: string;
 }
@@ -392,7 +440,9 @@ export async function readHelperIdentity(
       ? out.presenceKeyId
       : undefined;
   const kind =
-    out.presenceKeyKind === "keychain" || out.presenceKeyKind === "enclave_file"
+    out.presenceKeyKind === "keychain" ||
+    out.presenceKeyKind === "enclave_keychain_acl" ||
+    out.presenceKeyKind === "enclave_file"
       ? out.presenceKeyKind
       : undefined;
   const error =

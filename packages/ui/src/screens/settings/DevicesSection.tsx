@@ -82,7 +82,11 @@ export interface DevicesPanelProps extends LoadProps {
   touchId?: {
     bundled?: BundledHelperKey | null | undefined;
     allowDevFileKey: boolean;
-    onRegister: (deviceId: string, expectKeyId?: string) => Promise<unknown>;
+    onRegister: (
+      deviceId: string,
+      expectKeyId?: string,
+      confirmReplacesKeyId?: string,
+    ) => Promise<unknown>;
     onRemove: (deviceId: string) => Promise<unknown>;
     onAllowDevFileKey: (on: boolean) => Promise<unknown>;
   };
@@ -281,7 +285,9 @@ export function DevicesPanel({
                       registered={presenceKeys.find((k) => k.deviceId === n.deviceId)}
                       bundled={touchId.bundled}
                       allowDevFileKey={touchId.allowDevFileKey}
-                      onRegister={(expect) => touchId.onRegister(n.deviceId, expect)}
+                      onRegister={(expect, confirm) =>
+                        touchId.onRegister(n.deviceId, expect, confirm)
+                      }
                       onRemove={() => touchId.onRemove(n.deviceId)}
                       onAllowDevFileKey={touchId.onAllowDevFileKey}
                     />
@@ -468,7 +474,10 @@ export function DevicesSection({
    * The desktop's Touch ID channels: what the helper bundled with this app reports, and
    * registering exactly that key. Absent on the web, where the owner types the key id.
    */
-  touchId?: { identity(): Promise<BundledHelperKey | null>; register(): Promise<unknown> };
+  touchId?: {
+    identity(): Promise<BundledHelperKey | null>;
+    register(confirmReplacesKeyId?: string): Promise<unknown>;
+  };
 }): ReactElement {
   const call = useCall();
   const devSettingQ = useGatewayQuery("settings.get", { keys: [DEV_FILE_KEY_SETTING] });
@@ -524,11 +533,15 @@ export function DevicesSection({
       touchId={{
         bundled: touchId ? bundled : undefined,
         allowDevFileKey: devSettingQ.data?.settings?.[DEV_FILE_KEY_SETTING] === true,
-        onRegister: (deviceId, expectKeyId) =>
+        onRegister: (deviceId, expectKeyId, confirmReplacesKeyId) =>
           settled(
             touchId && expectKeyId === undefined
-              ? touchId.register()
-              : call("devices.presenceKey.register", { deviceId, expectKeyId: expectKeyId ?? "" }),
+              ? touchId.register(confirmReplacesKeyId)
+              : call("devices.presenceKey.register", {
+                  deviceId,
+                  expectKeyId: expectKeyId ?? "",
+                  ...(confirmReplacesKeyId === undefined ? {} : { confirmReplacesKeyId }),
+                }),
           ),
         onRemove: (deviceId) => settled(call("devices.presenceKey.remove", { deviceId })),
         onAllowDevFileKey: (on) =>

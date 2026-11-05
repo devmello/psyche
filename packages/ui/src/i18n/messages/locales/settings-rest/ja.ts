@@ -612,6 +612,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.data.replayRetentionHint":
     "作業中に{persona}が見ていた画面で、タイムライン用です。オフにすると保持されません。",
   "settings.devices.presenceKey.keychain": "Touch IDキー（キーチェーン）、ヘルパーからの報告",
+  "settings.devices.presenceKey.enclaveKeychainAcl":
+    "Touch IDキー（Secure Enclave。macOSの確認なしで読み取れるのはPsyche Helperだけ）、ヘルパーからの報告",
   "settings.devices.presenceKey.enclaveFile":
     "Touch IDキー（Secure Enclaveファイル。このビルドにはプロビジョニングプロファイルがありません）、ヘルパーからの報告",
   "settings.devices.presenceKey.unknown": "Touch IDキー（種類はヘルパーから報告されていません）",
@@ -620,6 +622,23 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.bundled": "このアプリのPsyche Helperのキーを表示",
   "settings.devices.touchId.notBundled":
     "このヘルパーはこのアプリに同梱のものではないため、ここでキーを登録できません。",
+  "settings.devices.touchId.untrusted":
+    "キーチェーンのTouch IDキーは、Psyche Helperのものと確認できないため使われませんでした。無害な原因として、Psycheが移動または別の場所に再インストールされた可能性があります。/Applicationsに戻して開き直してください。それ以外の場合は、まずPsyche Helperを終了し、ターミナルで /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key を実行して、新しいキーを登録してください。",
+  "settings.devices.touchId.accessDenied":
+    "macOSがPsyche Helperにキーチェーンの Touch IDキーの使用を許可しませんでした。Psycheを再度起動し、確認画面に psyche-helper と表示されている場合にだけ「常に許可」を選んでください（ほかのプログラムには選ばないでください）。",
+  "settings.devices.touchId.wrongLocation":
+    "Psyche Helperがディスクイメージ、ダウンロード、または別のフォルダから実行されているため、Touch IDキーは作成されませんでした。Psycheを/Applicationsに移動し、ディスクイメージを取り出して、そこから開いてください。",
+  "settings.devices.touchId.keyMismatch":
+    "このアプリのPsyche Helperは、登録済みの {registered} ではなくキー {shown} を示しています。自分でキーをリセットしていない場合は不審と見なし、登録しないでください。",
+  "settings.devices.touchId.confirmReplace":
+    "このMacに登録されているTouch IDキー {previous} を置き換えます。自分でキーをリセットした場合にだけ置き換えてください。",
+  "settings.devices.touchId.confirmReplaceButton": "キーを置き換える",
+  "settings.devices.touchId.interactionNotAllowed":
+    "キーチェーンは今は許可を求められません。Macのロックを解除してもう一度試してください。",
+  "settings.devices.touchId.changed":
+    "Psyche Helperの実行中にTouch IDキーが変わりました。Psyche Helperを終了して、もう一度起動してください。",
+  "settings.devices.touchId.aclUnavailable":
+    "このMacのキーチェーンはTouch IDキーのアクセスリストを保持しませんでした。Psyche Helperを再起動してもう一度試してください。",
   "settings.devices.touchId.noBundledKey":
     "このアプリのPsyche HelperにはTouch IDキーがありません（{reason}）。",
   "settings.devices.touchId.register": "このキーを登録",

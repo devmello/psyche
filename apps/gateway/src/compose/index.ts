@@ -2111,11 +2111,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       // Suspended subscription-CLI runs end with the Gateway.
       for (const p of router?.providers() ?? []) if (p instanceof CliAdapter) await p.close();
       await gateway.stop(reason);
-      if (ownsDb) {
-        db.close();
-        // Windows will not delete a data folder while the lock file in it is open.
-        releaseGatewayLock(config.home);
-      }
+      if (ownsDb) db.close();
+      // A stopped Gateway no longer uses the data folder. Letting go of its lock here (a real
+      // Gateway exits next, which releases it anyway) is what lets the folder be removed on
+      // Windows, where an open file pins its directory.
+      releaseGatewayLock(config.home);
     },
   };
 }

@@ -56,6 +56,44 @@ describe("HelperLauncher", () => {
     ]);
   });
 
+  it("restart quits only a process that is a psyche-helper, then launches again", async () => {
+    const killed: number[] = [];
+    const calls: string[][] = [];
+    let clock = 0;
+    let paired = true;
+    const make = (comm: string) =>
+      new HelperLauncher({
+        appPath,
+        psycheHome: join(dir, "home"),
+        // The macOS restart (SIGTERM to the lock file's pid); Windows has its own path.
+        platform: "darwin",
+        run: async (file, args) => {
+          calls.push([file, ...args]);
+          if (file === "/usr/bin/open") paired = true;
+          return { code: 0, stdout: file === "/bin/ps" ? comm : "", stderr: "" };
+        },
+        isPaired: async () => paired,
+        readPid: () => 4242,
+        kill: (pid) => {
+          killed.push(pid);
+          paired = false;
+        },
+        now: () => clock,
+        sleep: async (ms) => {
+          clock += ms;
+        },
+        pairTimeoutMs: 3_000,
+      });
+    await make("/x/psyche-helper\n").restart();
+    expect(killed).toEqual([4242]);
+    expect(calls.some((c) => c[0] === "/usr/bin/open")).toBe(true);
+    // Some other program's pid in the lock file is never signalled.
+    killed.length = 0;
+    paired = true;
+    await make("/usr/bin/some-other\n").restart();
+    expect(killed).toEqual([]);
+  });
+
   it("launches once, waits for it to pair, and does not relaunch while paired", async () => {
     const f = fake();
     await Promise.all([f.launcher.launch(), f.launcher.launch()]);

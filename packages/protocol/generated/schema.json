@@ -3282,7 +3282,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Desktop shell only: the Mac apps the owner granted for computer use that can be recorded (Settings → Computer use). Psyche, security prompts, password managers, banking, browsers and terminals are never listed.",
+        "description": "Desktop shell only: the apps the owner granted for computer use that can be recorded (Settings → Computer use). Psyche, security prompts, password managers, banking, browsers and terminals are never listed. An app is its bundle id on a Mac and its lowercase executable name on Windows (`notepad.exe`).",
         "name": "teach.app.apps",
         "params": "#/$defs/TeachAppAppsParams",
         "result": "#/$defs/TeachAppAppsResult",
@@ -3298,7 +3298,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Side-effecting, desktop shell only, on the owner's click: the Mac helper starts watching one granted app's accessibility events. Refused (forbidden, policy_denied) for any other caller, for an app that is not granted, and for Psyche and system security prompts. A visible indicator shows on the Mac while it records.",
+        "description": "Side-effecting, desktop shell only, on the owner's click: the Host helper starts watching one granted app's accessibility events. Refused (forbidden, policy_denied) for any other caller, for an app that is not granted, and for Psyche and system security prompts. A visible indicator shows on the owner's computer while it records.",
         "name": "teach.app.start",
         "params": "#/$defs/TeachAppStartParams",
         "result": "#/$defs/TeachAppStartResult",
@@ -3306,7 +3306,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Desktop shell only: whether a Mac app is being recorded, and how many steps so far.",
+        "description": "Desktop shell only: whether an app is being recorded, and how many steps so far.",
         "name": "teach.app.status",
         "params": "#/$defs/TeachAppStatusParams",
         "result": "#/$defs/TeachAppStatus",
@@ -12284,12 +12284,12 @@
           "type": "string"
         },
         "app": {
-          "description": "app_*: the Mac app the step was recorded in (phase 2)",
+          "description": "app_*: the desktop app the step was recorded in (phase 2)",
           "properties": {
             "bundleId": {
               "maxLength": 200,
               "minLength": 3,
-              "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9_-]+)+$",
+              "pattern": "^(?:[A-Za-z0-9-]+(?:\\.[A-Za-z0-9_-]+)+|[a-z0-9_][a-z0-9 _().-]*\\.exe)$",
               "type": "string"
             },
             "name": {
@@ -17724,6 +17724,10 @@
           "description": "ULID in production",
           "maxLength": 64,
           "minLength": 1,
+          "type": "string"
+        },
+        "confirmReplacesKeyId": {
+          "pattern": "^[0-9a-f]{64}$",
           "type": "string"
         }
       },
@@ -33673,6 +33677,7 @@
         "kind": {
           "enum": [
             "keychain",
+            "enclave_keychain_acl",
             "enclave_file",
             "windows_hello"
           ],
@@ -43106,12 +43111,12 @@
           "type": "string"
         },
         "app": {
-          "description": "app_*: the Mac app the step was recorded in (phase 2)",
+          "description": "app_*: the desktop app the step was recorded in (phase 2)",
           "properties": {
             "bundleId": {
               "maxLength": 200,
               "minLength": 3,
-              "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9_-]+)+$",
+              "pattern": "^(?:[A-Za-z0-9-]+(?:\\.[A-Za-z0-9_-]+)+|[a-z0-9_][a-z0-9 _().-]*\\.exe)$",
               "type": "string"
             },
             "name": {

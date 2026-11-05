@@ -1,0 +1,19 @@
+# The designated requirements (DR) a release build of Psyche must have.
+# docs/design/updates-and-install-2026.md §2.9. Read by:
+#   - deploy/macos/check-designated-requirements.sh (release.yml fails the release when a built app
+#     or helper has a different DR)
+#   - the desktop app itself: forge copies this file to Psyche.app/Contents/Resources/ and the updater
+#     turns on only when the running app's own signature satisfies the "desktop" line below
+#
+# Format: <name><TAB><requirement>. Names: desktop (Psyche.app), helper (Resources/PsycheHelper.app).
+#
+# The release certificate is self-signed (no Apple team ID), so the requirement pins the
+# certificate itself: its SHA-1 leaf hash. Run deploy/macos/make-signing-cert.sh once, paste the
+# SHA-1 it prints in place of SHA1_OF_PSYCHE_RELEASE_CERT in both lines, and commit.
+# Changing this hash later is a "team ID change" (§6): auto-update stops working for installed
+# copies and every macOS privacy grant resets. Do not edit it casually.
+#
+# While SHA1_OF_PSYCHE_RELEASE_CERT is still here, the check script refuses (exit 3) and the app's
+# updater stays off.
+desktop	identifier "com.psyche.desktop" and certificate leaf = H"SHA1_OF_PSYCHE_RELEASE_CERT"
+helper	identifier "com.psyche.helper" and certificate leaf = H"SHA1_OF_PSYCHE_RELEASE_CERT"

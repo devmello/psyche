@@ -1,4 +1,4 @@
-import type { BrowserTeachStep } from "@psyche/protocol";
+import { type BrowserTeachStep, isTeachAppId } from "@psyche/protocol";
 
 /**
  * IPC channel names shared by main and preload (`psyche:<area>:<verb>`) and the validators main
@@ -219,13 +219,11 @@ export function checkTeachKeep(v: unknown): {
   };
 }
 
-const BUNDLE_ID = /^[A-Za-z0-9-]+(\.[A-Za-z0-9_-]+)+$/;
-
 /** The app to record in: a bundle id, nothing else (the Gateway checks the grant list). */
 export function checkTeachApp(v: unknown): string {
   const r = rec(IPC.teachAppStart, v);
   const id = str(IPC.teachAppStart, r.bundleId, "bundleId", 200);
-  if (!BUNDLE_ID.test(id)) throw new IpcPayloadError(IPC.teachAppStart, "not an app bundle id");
+  if (!isTeachAppId(id)) throw new IpcPayloadError(IPC.teachAppStart, "not an app bundle id");
   return id;
 }
 

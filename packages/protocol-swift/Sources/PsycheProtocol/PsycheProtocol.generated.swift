@@ -12944,6 +12944,7 @@ public enum PresenceKeyAlgorithm: String, Codable, Sendable {
 
 public enum PresenceKeyInfoKind: String, Codable, Sendable {
     case enclaveFile = "enclave_file"
+    case enclaveKeychainACL = "enclave_keychain_acl"
     case keychain = "keychain"
     case windowsHello = "windows_hello"
 }
@@ -12951,17 +12952,20 @@ public enum PresenceKeyInfoKind: String, Codable, Sendable {
 // MARK: - DevicesPresenceKeyRegisterParams
 public struct DevicesPresenceKeyRegisterParams: Codable, Sendable {
     public let approvalID: String?
+    public let confirmReplacesKeyID: String?
     public let deviceID: String
     public let expectKeyID: String
 
     public enum CodingKeys: String, CodingKey {
         case approvalID = "approvalId"
+        case confirmReplacesKeyID = "confirmReplacesKeyId"
         case deviceID = "deviceId"
         case expectKeyID = "expectKeyId"
     }
 
-    public init(approvalID: String? = nil, deviceID: String, expectKeyID: String) {
+    public init(approvalID: String? = nil, confirmReplacesKeyID: String? = nil, deviceID: String, expectKeyID: String) {
         self.approvalID = approvalID
+        self.confirmReplacesKeyID = confirmReplacesKeyID
         self.deviceID = deviceID
         self.expectKeyID = expectKeyID
     }
@@ -30089,7 +30093,7 @@ public struct SkillsDraftsFromRecordingParams: Codable, Sendable {
 
 // MARK: - BrowserTeachStep
 public struct BrowserTeachStep: Codable, Sendable {
-    /// app_*: the Mac app the step was recorded in (phase 2)
+    /// app_*: the desktop app the step was recorded in (phase 2)
     public let app: BrowserTeachStepApp?
     /// app_*: the element's accessibility identifier, when it has one
     public let fallback: String?
@@ -30151,7 +30155,7 @@ public struct BrowserTeachStep: Codable, Sendable {
     }
 }
 
-/// app_*: the Mac app the step was recorded in (phase 2)
+/// app_*: the desktop app the step was recorded in (phase 2)
 // MARK: - BrowserTeachStepApp
 public struct BrowserTeachStepApp: Codable, Sendable {
     public let bundleID: String
@@ -32424,7 +32428,7 @@ public enum TeachAppEndedBy: String, Codable, Sendable {
 
 // MARK: - TeachAppCapturedStep
 public struct TeachAppCapturedStep: Codable, Sendable {
-    /// app_*: the Mac app the step was recorded in (phase 2)
+    /// app_*: the desktop app the step was recorded in (phase 2)
     public let app: TeachAppCapturedStepApp?
     /// app_*: the element's accessibility identifier, when it has one
     public let fallback: String?
@@ -32477,7 +32481,7 @@ public struct TeachAppCapturedStep: Codable, Sendable {
     }
 }
 
-/// app_*: the Mac app the step was recorded in (phase 2)
+/// app_*: the desktop app the step was recorded in (phase 2)
 // MARK: - TeachAppCapturedStepApp
 public struct TeachAppCapturedStepApp: Codable, Sendable {
     public let bundleID: String

@@ -226,6 +226,27 @@ pub fn specs() -> Vec<CapSpecLite> {
             receipt_kind: None,
         },
         CapSpecLite {
+            name: "computer.check_target",
+            description: "Read-only check before a replayed step: is the target (role and name, an identifier, or a menu path) in the app's window right now? Answers found (with its ref, role and label for computer.act), missing or ambiguous. Anything but found carries stop: true: ask the owner, do not guess.",
+            side_effect: "read",
+            target_kind: Some("app"),
+            input_schema: with_approval(object(
+                vec![
+                    ("app", string(Some("App id the recording was made in (the lowercase executable name, e.g. notepad.exe)"))),
+                    ("role", string(Some("Role as recorded: button, textbox, menuitem, ..."))),
+                    ("name", string_max(200)),
+                    ("identifier", string_max(200)),
+                    ("menuPath", json!({ "type": "array", "items": string_max(120), "maxItems": 8.0 })),
+                    ("session", string(None)),
+                ],
+                &["app"],
+                None,
+            )),
+            streaming: false,
+            permissions: vec![ACCESSIBILITY],
+            receipt_kind: None,
+        },
+        CapSpecLite {
             name: "computer.ax_value",
             description: "Full text value of one element (snapshots truncate values). Untrusted content.",
             side_effect: "read",
@@ -395,6 +416,7 @@ mod tests {
             names,
             vec![
                 "computer.ax_tree",
+                "computer.check_target",
                 "computer.ax_value",
                 "computer.click",
                 "computer.double_click",

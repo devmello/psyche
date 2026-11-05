@@ -2,7 +2,7 @@ import { createHash, generateKeyPairSync, type KeyObject, sign } from "node:cryp
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { setSetting } from "@psyche/db";
+import { getSetting, setSetting } from "@psyche/db";
 import { approvalCode, presenceChallenge } from "@psyche/permissions";
 import type { ApprovalRequest } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
@@ -15,6 +15,7 @@ import {
   helperPresenceMessage,
 } from "../src/compose/helper.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
+import { PRESENCE_REMOVED_SETTING } from "../src/compose/presence-keys.ts";
 import { silentLogger } from "../src/log.ts";
 import { FakeNode, type FakeNodeHandler, pairNodeDevice } from "./fake-node.ts";
 import { adminClient, ik, newDeviceKey, type TestClient, wsUrlOf } from "./helpers.ts";
@@ -57,6 +58,9 @@ function signChallenge(privateKey: KeyObject, challenge: string): string {
 
 type Confirm = (p: { challenge: string; summary: string; code: string }) => unknown;
 
+/** A different key the fake helper reports from now on (a reset made a new one). */
+let helperKeyOverride: ReturnType<typeof enclaveKey> | undefined;
+
 function helperHandlers(
   key: ReturnType<typeof enclaveKey>,
   confirm?: Confirm,
@@ -65,7 +69,10 @@ function helperHandlers(
   return [
     {
       capability: { name: "presence.public_key", sideEffect: "read", streaming: false },
-      run: () => ({ publicKey: key.publicKey, keyId: key.keyId, ...(kind ? { kind } : {}) }),
+      run: () => {
+        const k = helperKeyOverride ?? key;
+        return { publicKey: k.publicKey, keyId: k.keyId, ...(kind ? { kind } : {}) };
+      },
     },
     ...(confirm === undefined
       ? []
@@ -123,7 +130,7 @@ async function setup(
     const node = await FakeNode.connect(composed.gateway.config.nodeSocketPath, {
       origin: composed.gateway.origin,
       secret: composed.gateway.handshakeSecret,
-      handlers: helperHandlers(key, opts.confirm, opts.kind),
+      handlers: helperHandlers(key, opts.confirm, opts.kind ?? "keychain"),
       deviceId: helperDevice,
       ...(opts.family === undefined ? {} : { deviceFamily: opts.family }),
     });
@@ -192,6 +199,7 @@ async function reset(): Promise<void> {
   for (const n of nodes.splice(0)) await n.close();
   await composed?.stop("test");
   composed = null;
+  helperKeyOverride = undefined;
   if (home) rmSync(home, { recursive: true, force: true });
   home = "";
 }
@@ -396,7 +404,7 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
       presenceKeys: [{ deviceId: helperDevice, kind: "enclave_file" }],
     });
     await reset();
-    const old = await setup({ kind: "something-else" });
+    const old = await setup({ kind: "", allowDevFileKey: true });
     const listed = await old.admin.call<{ presenceKeys: Record<string, unknown>[] }>(
       "devices.presenceKey.list",
       {},
@@ -600,6 +608,148 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
         ik(),
       ),
     ).toMatchObject({ presenceKey: { kind: "enclave_file" } });
+  });
+
+  it("accepts a login-keychain ACL key without the dev setting, and a release build never needs it", async () => {
+    const { admin, helperDevice, key } = await setup({
+      kind: "enclave_keychain_acl",
+      register: false,
+    });
+    // devices.presence.allowDevFileKey stays off: only the plain-file key needs it.
+    expect(
+      await admin.call(
+        "devices.presenceKey.register",
+        { deviceId: helperDevice, expectKeyId: key.keyId },
+        ik(),
+      ),
+    ).toMatchObject({ presenceKey: { kind: "enclave_keychain_acl" } });
+    expect(await admin.call("devices.presenceKey.list", {})).toMatchObject({
+      presenceKeys: [{ deviceId: helperDevice, kind: "enclave_keychain_acl" }],
+    });
+  });
+
+  it("refuses an unknown kind outright and a missing one unless the dev setting is on", async () => {
+    const unknown = await setup({ kind: "something-else", allowDevFileKey: true, register: false });
+    expect(
+      await unknown.admin.request(
+        "devices.presenceKey.register",
+        { deviceId: unknown.helperDevice, expectKeyId: unknown.key.keyId },
+        ik(),
+      ),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "forbidden", details: { reason: "unknown_key_kind" } },
+    });
+    await reset();
+    const missing = await setup({ kind: "", register: false });
+    expect(
+      await missing.admin.request(
+        "devices.presenceKey.register",
+        { deviceId: missing.helperDevice, expectKeyId: missing.key.keyId },
+        ik(),
+      ),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "forbidden", details: { reason: "missing_key_kind" } },
+    });
+  });
+
+  it("a registration that replaces a different key says REPLACE on the card and names the old key", async () => {
+    const { admin, helperDevice, key } = await setup({
+      confirm: () => ({ signature: "x", keyId: "x" }),
+    });
+    const other = enclaveKey();
+    helperKeyOverride = other; // the helper now shows a different key
+    const first = await admin.request(
+      "devices.presenceKey.register",
+      { deviceId: helperDevice, expectKeyId: other.keyId },
+      ik(),
+    );
+    expect(first).toMatchObject({ ok: false, error: { code: "approval_required" } });
+    const approvalId = (first as { error: { details: { approvalId: string } } }).error.details
+      .approvalId;
+    const got = await admin.call<{ approval: ApprovalRequest }>("approvals.get", { approvalId });
+    expect(got.approval.summary).toContain("REPLACE");
+    expect(got.approval.details).toMatchObject({ replacesKeyId: key.keyId, keyId: other.keyId });
+    // The same key again is a plain registration, not a replacement.
+    helperKeyOverride = undefined;
+    const same = await admin.request(
+      "devices.presenceKey.register",
+      { deviceId: helperDevice, expectKeyId: key.keyId },
+      ik(),
+    );
+    const sameId = (same as { error: { details: { approvalId: string } } }).error.details
+      .approvalId;
+    const plain = await admin.call<{ approval: ApprovalRequest }>("approvals.get", {
+      approvalId: sameId,
+    });
+    expect(plain.approval.summary).not.toContain("REPLACE");
+    expect(plain.approval.details).not.toHaveProperty("replacesKeyId");
+  });
+
+  it("Remove is audited with who asked and remembered, so a later Register still says it replaces", async () => {
+    const { c, admin, helperDevice, key } = await setup();
+    expect(
+      await admin.call("devices.presenceKey.remove", { deviceId: helperDevice }, ik()),
+    ).toEqual({
+      removed: true,
+    });
+    const removed = (await c.audit.query({ kind: "presence_key.removed" }))[0];
+    expect(removed?.data).toMatchObject({ deviceId: helperDevice, keyId: key.keyId });
+    expect(removed?.actor).toMatchObject({ type: "device" });
+    const record = JSON.stringify(
+      getSetting(c.gateway.context.db, PRESENCE_REMOVED_SETTING)?.value,
+    );
+    expect(record).toContain(key.keyId);
+  });
+
+  it("with no presence card possible, replacing a forgotten key needs the owner to name it", async () => {
+    const { c, admin, helperDevice, key } = await setup({ register: false });
+    const forgotten = "a".repeat(64);
+    setSetting(c.gateway.context.db, PRESENCE_REMOVED_SETTING, {
+      [helperDevice]: { previousKeyId: forgotten, previousKind: "enclave_file", removedAt: "x" },
+    });
+    const params = { deviceId: helperDevice, expectKeyId: key.keyId };
+    expect(await admin.request("devices.presenceKey.register", params, ik())).toMatchObject({
+      ok: false,
+      error: {
+        code: "conflict",
+        details: { reason: "replace_confirmation_required", replacesKeyId: forgotten },
+      },
+    });
+    // The wrong id does not confirm it.
+    expect(
+      await admin.request(
+        "devices.presenceKey.register",
+        { ...params, confirmReplacesKeyId: "b".repeat(64) },
+        ik(),
+      ),
+    ).toMatchObject({ ok: false, error: { code: "conflict" } });
+    expect(
+      await admin.call(
+        "devices.presenceKey.register",
+        { ...params, confirmReplacesKeyId: forgotten },
+        ik(),
+      ),
+    ).toMatchObject({ presenceKey: { keyId: key.keyId } });
+    const replaced = (await c.audit.query({ kind: "presence_key.replaced" }))[0];
+    expect(replaced?.data).toMatchObject({ previousKeyId: forgotten, previousVia: "removed" });
+    expect(replaced?.actor).toMatchObject({ type: "device" });
+  });
+
+  it("registering the very key a Remove forgot is not a replacement", async () => {
+    const { c, admin, helperDevice, key } = await setup({ register: false });
+    setSetting(c.gateway.context.db, PRESENCE_REMOVED_SETTING, {
+      [helperDevice]: { previousKeyId: key.keyId, removedAt: "x" },
+    });
+    expect(
+      await admin.call(
+        "devices.presenceKey.register",
+        { deviceId: helperDevice, expectKeyId: key.keyId },
+        ik(),
+      ),
+    ).toMatchObject({ presenceKey: { keyId: key.keyId } });
+    expect(await c.audit.query({ kind: "presence_key.replaced" })).toHaveLength(0);
   });
 
   it("a key the fingerprint change killed says so, so the card can send the owner to Devices", async () => {

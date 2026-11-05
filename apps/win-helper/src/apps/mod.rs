@@ -496,6 +496,7 @@ pub fn register(reg: &mut CapabilityRegistry) {
         .receipt("app_open"),
         move |ctx| {
             let p: OpenParams = ctx.decode()?;
+            crate::teach::refuse_while_recording()?;
             let q = p
                 .bundle_id
                 .as_deref()
@@ -592,6 +593,7 @@ pub fn register(reg: &mut CapabilityRegistry) {
         ),
         move |ctx| {
             let p: FocusParams = ctx.decode()?;
+            crate::teach::refuse_while_recording()?;
             if p.window.is_some_and(|w| w < 0) {
                 return Err(CapabilityError::invalid_params("window must be ≥ 0", Some("window")));
             }

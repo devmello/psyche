@@ -4185,12 +4185,13 @@ export interface PresenceKeyInfo {
 
 export type PresenceKeyAlgorithm = "p256-ecdsa-sha256" | "rsa-2048-pkcs1-sha256";
 
-export type PresenceKeyInfoKind = "keychain" | "enclave_file" | "windows_hello";
+export type PresenceKeyInfoKind = "keychain" | "enclave_keychain_acl" | "enclave_file" | "windows_hello";
 
 export interface DevicesPresenceKeyRegisterParams {
-    approvalId?: string;
-    deviceId:    string;
-    expectKeyId: string;
+    approvalId?:           string;
+    confirmReplacesKeyId?: string;
+    deviceId:              string;
+    expectKeyId:           string;
 }
 
 export interface DevicesPresenceKeyRegisterResult {
@@ -10563,7 +10564,7 @@ export interface SkillsDraftsFromRecordingParams {
 
 export interface BrowserTeachStep {
     /**
-     * app_*: the Mac app the step was recorded in (phase 2)
+     * app_*: the desktop app the step was recorded in (phase 2)
      */
     app?: BrowserTeachStepApp;
     /**
@@ -10615,7 +10616,7 @@ export interface BrowserTeachStep {
 }
 
 /**
- * app_*: the Mac app the step was recorded in (phase 2)
+ * app_*: the desktop app the step was recorded in (phase 2)
  */
 export interface BrowserTeachStepApp {
     bundleId: string;
@@ -11461,7 +11462,7 @@ export type TeachAppEndedBy = "stop" | "limit" | "timeout" | "cancel" | "interru
 
 export interface TeachAppCapturedStep {
     /**
-     * app_*: the Mac app the step was recorded in (phase 2)
+     * app_*: the desktop app the step was recorded in (phase 2)
      */
     app?: TeachAppCapturedStepApp;
     /**
@@ -11502,7 +11503,7 @@ export interface TeachAppCapturedStep {
 }
 
 /**
- * app_*: the Mac app the step was recorded in (phase 2)
+ * app_*: the desktop app the step was recorded in (phase 2)
  */
 export interface TeachAppCapturedStepApp {
     bundleId: string;

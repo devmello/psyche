@@ -89,6 +89,12 @@ import { bootstrapAdminIfNeeded } from "./main/bootstrap-admin.ts";
 import { BridgeClient, bridgeSocketPath } from "./main/bridge/bridge-client.ts";
 import { createAttentionReporter } from "./main/browser/attention.ts";
 import { BrowserHost } from "./main/browser/browser-host.ts";
+import {
+  bundleFingerprint,
+  checkBundleIntegrity,
+  integrityText,
+  pidsOfExecutable,
+} from "./main/bundle-integrity.ts";
 import { SystemDictation } from "./main/dictation/controller.ts";
 import { HudWindow } from "./main/dictation/hud.ts";
 import { DictationService, dictationSettingsUrl } from "./main/dictation/service.ts";
@@ -123,6 +129,7 @@ import {
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
 import { HAS_UNSENT_TEXT, releaseHiddenAfterMs } from "./main/release.ts";
+import { confirmReplaceKey } from "./main/replace-key-dialog.ts";
 import { guardRestoredByHand } from "./main/restore-check.ts";
 import { createSandboxPc, serviceUpdateNotice } from "./main/sandbox-pc/wire.ts";
 import { captureScreenFrame, wantsFallback } from "./main/screen-ask/capture-fallback.ts";
@@ -165,6 +172,11 @@ import {
   UNINSTALL_MANUAL_STEPS_WINDOWS,
 } from "./main/uninstall-windows.ts";
 import { windowsUninstallDeps } from "./main/uninstall-windows-host.ts";
+import {
+  bundleOfExecutable,
+  parsePinnedRequirement,
+  readBundledPinned,
+} from "./main/update-gate.ts";
 import { startUpdater, stopUpdater } from "./main/updater.ts";
 import {
   canvasColor,
@@ -338,6 +350,64 @@ async function decideSplash(): Promise<void> {
   });
 }
 let helper: HelperLauncher | undefined;
+
+/**
+ * The app's own signature no longer verifies (bundle-integrity.ts): the TCC-backed features
+ * (microphone, screen, Apple Events, Contacts, Calendar) stay off until it is reinstalled.
+ */
+let integrityBlocked = false;
+let integrityMessage =
+  "Turned off: this copy of Psyche was modified. Reinstall it from the official download.";
+
+async function startupIntegrity(): Promise<void> {
+  if (!app.isPackaged || process.platform !== "darwin") return;
+  const pinned = readBundledPinned(process.resourcesPath);
+  const requirement = pinned === undefined ? undefined : parsePinnedRequirement(pinned);
+  if (!requirement) return;
+  const bundle = bundleOfExecutable(app.getPath("exe"));
+  const verdict = await checkBundleIntegrity({
+    bundle,
+    requirement,
+    cacheFile: join(app.getPath("userData"), "bundle-integrity.json"),
+    appVersion: app.getVersion(),
+    fingerprint: bundleFingerprint(bundle),
+  });
+  if (verdict.state !== "blocked") return;
+  integrityBlocked = true;
+  console.warn("[integrity] the app's signature no longer verifies; TCC-backed features are off");
+  // Stop a helper that an earlier launch left running from this bundle (an exact path match, not a
+  // regular expression). Only the helper: the Gateway keeps running and is not booted out from here.
+  void (async () => {
+    const exe = join(
+      bundle,
+      "Contents",
+      "Resources",
+      "PsycheHelper.app",
+      "Contents",
+      "MacOS",
+      "psyche-helper",
+    );
+    const ps = await execRunner("/bin/ps", ["-axo", "pid=,comm="]);
+    for (const pid of pidsOfExecutable(ps.stdout, exe)) {
+      try {
+        process.kill(pid, "SIGTERM");
+      } catch {
+        // Already gone.
+      }
+    }
+  })();
+  void integrityText(app.getSystemLocale())
+    .then((text) => {
+      integrityMessage = text.blocked;
+      return dialog.showMessageBox({
+        type: "warning",
+        message: text.title,
+        detail: text.detail,
+        buttons: [text.ok],
+      });
+    })
+    .catch(() => {});
+}
 let thisDeviceId: string | undefined;
 let hud: HudWindow | undefined;
 let screenAsk: ScreenAskWindow | undefined;
@@ -1057,7 +1127,7 @@ function registerIpc(): void {
       checkTeachId(IPC.teachDeleteKept, rec(IPC.teachDeleteKept, arg).id),
     ),
   );
-  // Teach by showing in a Mac app. Main asks the Gateway (which asks the Mac helper) only when the
+  // Teach by showing in a desktop app. Main asks the Gateway (which asks the Host helper) only when the
   // owner's renderer sends one of these; `teach.app.*` is not callable through the generic call.
   handle(IPC.teachAppApps, () => requireGateway().call("teach.app.apps", {}));
   handle(IPC.teachAppStart, (_e, arg) =>
@@ -1176,9 +1246,10 @@ function registerIpc(): void {
   handle(IPC.sandboxPcCancel, () => sandboxPc.cancel());
   handle(IPC.helperGetState, () => helper?.getState() ?? { kind: "unbundled" });
   // An approval card's "Start Psyche Helper": launch now (no relaunch throttle), wait to pair. On
-  // Windows a running helper is ended and started again (`restart`).
-  handle(IPC.helperLaunch, async () => {
-    await (windows32 ? helper?.restart() : helper?.launch());
+  // Windows a running helper is always ended and started again (`restart`).
+  handle(IPC.helperLaunch, async (_e, arg) => {
+    if (arg === "restart" || windows32) await helper?.restart();
+    else await helper?.launch();
     return helper?.getState() ?? { kind: "unbundled" };
   });
   // Touch ID from the window (security §3.7, §10): the main and Settings windows only, never a
@@ -1196,8 +1267,11 @@ function registerIpc(): void {
     approvalWindow(e);
     return (await bundledHelperIdentity()) ?? null;
   });
-  handle(IPC.touchIdRegister, async (e) => {
+  handle(IPC.touchIdRegister, async (e, arg) => {
     approvalWindow(e);
+    // The owner's confirmation that this replaces a named earlier key (see the Gateway method).
+    const confirmReplacesKeyId =
+      typeof arg === "string" && /^[0-9a-f]{64}$/.test(arg) ? arg : undefined;
     const id = await bundledHelperIdentity();
     if (id?.keyId === undefined) {
       throw new PsycheError(
@@ -1207,9 +1281,22 @@ function registerIpc(): void {
           : `The bundled Psyche Helper has no ${hostWords().presence} key (${id.error ?? "unknown"})`,
       );
     }
+    // `confirmReplacesKeyId` is only an accident guard: any admin caller can send it. The owner's
+    // real confirmation is this native box, which main shows itself (not the renderer), naming both
+    // keys, before the parameter is forwarded.
+    if (confirmReplacesKeyId !== undefined) {
+      const ok = await confirmReplaceKey(
+        (o) => dialog.showMessageBox(o),
+        app.getLocale(),
+        confirmReplacesKeyId,
+        id.keyId,
+      );
+      if (!ok) throw new PsycheError("cancelled", "The Touch ID key was not replaced");
+    }
     return requireGateway().call("devices.presenceKey.register", {
       deviceId: id.deviceId,
       expectKeyId: id.keyId,
+      ...(confirmReplacesKeyId === undefined ? {} : { confirmReplacesKeyId }),
     });
   });
   handle(IPC.touchIdApprove, async (e, arg) => {
@@ -1450,6 +1537,7 @@ function registerIpc(): void {
     preferred: app.getPreferredSystemLanguages(),
   }));
   handle(IPC.permissionsRequest, (_event, arg) => {
+    if (integrityBlocked) throw new Error(integrityMessage);
     const kind = str(IPC.permissionsRequest, rec(IPC.permissionsRequest, arg).kind, "kind", 32);
     if (!(PERMISSION_KINDS as readonly string[]).includes(kind)) {
       throw new Error(`${IPC.permissionsRequest}: unknown permission ${kind}`);
@@ -1638,6 +1726,7 @@ function lockDownDefaultSession(): void {
 }
 
 void app.whenReady().then(async () => {
+  await startupIntegrity().catch((err) => console.warn(`[integrity] ${String(err)}`));
   if (gatewaysFileProblem !== undefined) {
     await dialog.showMessageBox({
       type: "warning",
@@ -1801,6 +1890,7 @@ void app.whenReady().then(async () => {
     // A packaged Windows helper's Authenticode signature is checked once, in the background.
     verifySignature: windows32 && app.isPackaged,
     isPaired: async () => (await onlineHostHelpers()).length > 0,
+    blocked: () => integrityBlocked,
     onState: (s) => {
       broadcast(IPC.helperState, s);
     },
@@ -1972,7 +2062,7 @@ void app.whenReady().then(async () => {
   dictation = new DictationService({
     dictation: controller,
     call: (m, p) => requireGateway().call(m, p),
-    ...(!app.isPackaged && process.env.PSYCHE_DISABLE_GLOBAL_SHORTCUTS === "1"
+    ...((!app.isPackaged && process.env.PSYCHE_DISABLE_GLOBAL_SHORTCUTS === "1") || integrityBlocked
       ? {}
       : { shortcuts: globalShortcut }),
     warn: (m) => console.warn(`[dictation] ${m}`),
@@ -1983,7 +2073,7 @@ void app.whenReady().then(async () => {
       : {}),
     // Double-tapping the voice or dictation key opens "Ask about my screen", like the shortcut.
     onKeyDoubleTap: () => {
-      if (!remoteGateway) screenAsk?.trigger("window");
+      if (!remoteGateway && !integrityBlocked) screenAsk?.trigger("window");
     },
     // The voice key (held from any app) opens the ask panel in voice mode: speak, and the answer
     // appears as text. The panel dictates through the renderer, which owns the microphone, and
@@ -2092,8 +2182,10 @@ void app.whenReady().then(async () => {
   screenAskShortcut = new ScreenAskShortcut({
     call: (m, p) => requireGateway().call(m, p),
     ...(skipShortcuts ? {} : { shortcuts: globalShortcut }),
-    trigger: () => screenAsk?.trigger(),
-    setEnabled: (on) => screenAsk?.setEnabled(on, "screen"),
+    trigger: () => {
+      if (!integrityBlocked) screenAsk?.trigger();
+    },
+    setEnabled: (on) => screenAsk?.setEnabled(on && !integrityBlocked, "screen"),
     warn: (m) => console.warn(`[screen-ask] ${m}`),
     disabled: remoteGateway,
   });
@@ -2101,7 +2193,14 @@ void app.whenReady().then(async () => {
   tray.update({ shortcuts: shownShortcuts() });
   if (!remoteGateway) {
     app.dock?.setMenu(
-      Menu.buildFromTemplate([{ label: "Ask about screen", click: () => screenAsk?.trigger() }]),
+      Menu.buildFromTemplate([
+        {
+          label: "Ask about screen",
+          click: () => {
+            if (!integrityBlocked) screenAsk?.trigger();
+          },
+        },
+      ]),
     );
   }
   // Windows: the taskbar's jump list stands in for the Dock menu.

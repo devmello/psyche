@@ -96,7 +96,7 @@ export interface BundledHelperKey {
   deviceId: string;
   keyId?: string;
   /** `windows_hello` from the Windows helper (with `algorithm`, e.g. "RSA-2048"). */
-  kind?: "keychain" | "enclave_file" | "windows_hello";
+  kind?: "keychain" | "enclave_keychain_acl" | "enclave_file" | "windows_hello";
   algorithm?: string;
   error?: string;
 }

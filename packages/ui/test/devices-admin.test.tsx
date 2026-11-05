@@ -59,7 +59,7 @@ describe("Settings → Devices: which Touch ID key the helper uses", () => {
     status: "online",
     lastHeartbeatAt: null,
   } as unknown as Parameters<typeof DevicesPanel>[0]["nodes"][number];
-  const key = (kind?: "keychain" | "enclave_file") => ({
+  const key = (kind?: "keychain" | "enclave_keychain_acl" | "enclave_file") => ({
     deviceId: "d1",
     keyId: "a".repeat(64),
     registeredAt: "2026-11-02T10:00:00.000Z",
@@ -92,6 +92,19 @@ describe("Settings → Devices: which Touch ID key the helper uses", () => {
     );
     expect(screen.getByTestId("presence-key").textContent).toBe(
       "Touch ID key (Secure Enclave file, this build has no provisioning profile), as reported by the helper",
+    );
+    rerender(
+      <StoryWorld>
+        <DevicesPanel
+          devices={[mac]}
+          pairing={[]}
+          nodes={[helper]}
+          presenceKeys={[key("enclave_keychain_acl")]}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.getByTestId("presence-key").textContent).toBe(
+      "Touch ID key (Secure Enclave, readable only by Psyche Helper without a macOS prompt), as reported by the helper",
     );
     rerender(
       <StoryWorld>
@@ -161,6 +174,148 @@ describe("Settings → Devices: registering a Touch ID key (security review, fin
     expect(document.body.textContent).toContain("Any app running as you could ask it to sign");
     await userEvent.click(screen.getByRole("switch", { name: "Allow a development Touch ID key" }));
     expect(h.onAllowDevFileKey).toHaveBeenCalledWith(true);
+  });
+
+  it("an untrusted keychain key is named in plain words and nothing can be registered", () => {
+    render(
+      <StoryWorld>
+        <TouchIdKeySetup
+          deviceId="dev_helper"
+          bundled={{ deviceId: "dev_helper", error: "presence_key_untrusted" }}
+          allowDevFileKey={false}
+          {...handlers()}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.getByTestId("touch-id-no-key").textContent).toContain("--reset-presence-key");
+    expect(screen.queryByRole("button", { name: "Register this key" })).toBeNull();
+  });
+
+  it("the untrusted copy names the full helper path and the quit step; access denied is careful", () => {
+    const { rerender } = render(
+      <StoryWorld>
+        <TouchIdKeySetup
+          deviceId="dev_helper"
+          bundled={{ deviceId: "dev_helper", error: "presence_key_untrusted" }}
+          allowDevFileKey={false}
+          {...handlers()}
+        />
+      </StoryWorld>,
+    );
+    const untrusted = screen.getByTestId("touch-id-no-key").textContent ?? "";
+    expect(untrusted).toContain(
+      "/Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper",
+    );
+    expect(untrusted).toContain("quit Psyche Helper first");
+    expect(untrusted).toContain("moved or reinstalled");
+    rerender(
+      <StoryWorld>
+        <TouchIdKeySetup
+          deviceId="dev_helper"
+          bundled={{ deviceId: "dev_helper", error: "presence_key_access_denied" }}
+          allowDevFileKey={false}
+          {...handlers()}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.getByTestId("touch-id-no-key").textContent).toContain(
+      "only if the dialog names psyche-helper",
+    );
+  });
+
+  it("names the interaction, changed-while-running and ACL-unavailable key states", () => {
+    const text = (error: string) => {
+      const { unmount } = render(
+        <StoryWorld>
+          <TouchIdKeySetup
+            deviceId="dev_helper"
+            bundled={{ deviceId: "dev_helper", error }}
+            allowDevFileKey={false}
+            {...handlers()}
+          />
+        </StoryWorld>,
+      );
+      const out = screen.getByTestId("touch-id-no-key").textContent ?? "";
+      unmount();
+      return out;
+    };
+    expect(text("presence_key_interaction_not_allowed")).toContain("Unlock the Mac");
+    expect(text("presence_key_changed")).toContain("changed while Psyche Helper was running");
+    expect(text("presence_key_acl_unavailable")).toContain("access list");
+  });
+
+  it("shows the bundled helper's key problem and a key-id mismatch even while a key is registered", () => {
+    const registered = {
+      deviceId: "dev_helper",
+      keyId: "a".repeat(64),
+      registeredAt: "2026-11-02T10:00:00.000Z",
+      kind: "enclave_keychain_acl" as const,
+    };
+    const { rerender } = render(
+      <StoryWorld>
+        <TouchIdKeySetup
+          deviceId="dev_helper"
+          registered={registered}
+          bundled={{ deviceId: "dev_helper", error: "presence_key_untrusted" }}
+          allowDevFileKey={false}
+          {...handlers()}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.getByTestId("bundled-key-problem").textContent).toContain("--reset-presence-key");
+    rerender(
+      <StoryWorld>
+        <TouchIdKeySetup
+          deviceId="dev_helper"
+          registered={registered}
+          bundled={{ deviceId: "dev_helper", keyId: "b".repeat(64), kind: "enclave_keychain_acl" }}
+          allowDevFileKey={false}
+          {...handlers()}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.getByTestId("bundled-key-mismatch").textContent).toContain("bbbb bbbb");
+    rerender(
+      <StoryWorld>
+        <TouchIdKeySetup
+          deviceId="dev_helper"
+          registered={registered}
+          bundled={{ deviceId: "dev_helper", keyId: "a".repeat(64), kind: "enclave_keychain_acl" }}
+          allowDevFileKey={false}
+          {...handlers()}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.queryByTestId("bundled-key-mismatch")).toBeNull();
+  });
+
+  it("asks the owner to confirm a replacement naming the old key, then registers with it", async () => {
+    const previous = "c".repeat(64);
+    const onRegister = vi
+      .fn()
+      .mockRejectedValueOnce(
+        Object.assign(new Error("replace"), {
+          code: "conflict",
+          details: { reason: "replace_confirmation_required", replacesKeyId: previous },
+        }),
+      )
+      .mockResolvedValue(undefined);
+    render(
+      <StoryWorld>
+        <TouchIdKeySetup
+          deviceId="dev_helper"
+          bundled={{ deviceId: "dev_helper", keyId: KEY, kind: "enclave_keychain_acl" }}
+          allowDevFileKey={false}
+          {...handlers()}
+          onRegister={onRegister}
+        />
+      </StoryWorld>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Register this key" }));
+    const box = await screen.findByTestId("confirm-replace");
+    expect(box.textContent).toContain("cccc cccc cccc cccc");
+    await userEvent.click(screen.getByRole("button", { name: "Replace key" }));
+    expect(onRegister).toHaveBeenLastCalledWith(undefined, previous);
   });
 
   it("web: the owner pastes the key id the helper prints; nothing registers without one", async () => {

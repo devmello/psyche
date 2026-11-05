@@ -28,6 +28,15 @@ describe("fixTouchId", () => {
     ).rejects.toThrow(/did not connect/);
   });
 
+  it("restart_helper asks main to restart it and fails when it did not pair again", async () => {
+    const launch = vi.fn(async () => ({ kind: "paired" }));
+    await fixTouchId(platform({ launch }).p, "restart_helper");
+    expect(launch).toHaveBeenCalledWith(true);
+    await expect(
+      fixTouchId(platform({ launch: async () => ({ kind: "offline" }) }).p, "restart_helper"),
+    ).rejects.toThrow(/did not connect/);
+  });
+
   it("open_devices only opens Settings → Devices: no registration, no Gateway call", async () => {
     const { p, call, openSettings } = platform();
     await fixTouchId(p, "open_devices");

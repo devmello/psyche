@@ -5,6 +5,8 @@
 #   PSYCHE_SIGN_IDENTITY   codesign identity (default: first "Developer ID Application", else first
 #                          "Apple Development"; ad-hoc only as a last resort, which loses TCC grants
 #                          on every rebuild)
+#   PSYCHE_SIGN_KEYCHAIN   keychain file that holds the identity (default: the search list)
+#   PSYCHE_SIGN_TIMESTAMP  1: secure timestamp for a self-signed identity (a Developer ID always gets one)
 #   PSYCHE_HELPER_PROFILE  provisioning profile to embed. Needed for the data-protection keychain
 #                          (keychain-access-groups) and time-sensitive notifications. Without it the
 #                          helper runs, but keychain.* answers unavailable/missing_entitlement and the
@@ -17,8 +19,8 @@
 #                          default: next to the bundle, "<bundle>.dSYM", outside the app so it does not ship)
 #   PSYCHE_HELPER_STRIP    full (default: strip), x (strip -x, keeps global symbols) or none
 #   PSYCHE_PUBLIC_RELEASE  1 for a public release: builds without the development-only Secure Enclave
-#                          file-key fallback (Package.swift, security §10); a build without a
-#                          provisioning profile then has no Touch ID key at all
+#                          plain-file key (Package.swift, security §10); a build without a
+#                          provisioning profile still has the login-keychain ACL Touch ID key
 #   --install              copy the bundle to ~/Applications/Psyche Helper.app. TCC grants key on the
 #                          signature, bundle id and path: keep using one fixed path.
 set -eu
@@ -55,8 +57,8 @@ swift build --package-path "$HERE" -c "$CONFIG" $ARCH_ARGS --product psyche-help
 # shellcheck disable=SC2086
 BIN="$(swift build --package-path "$HERE" -c "$CONFIG" $ARCH_ARGS --show-bin-path)/psyche-helper"
 
-# A public release must not contain the development Secure Enclave file-key fallback (security
-# §10). SwiftPM may reuse a manifest evaluated without PSYCHE_PUBLIC_RELEASE, so check the binary.
+# A public release must not contain the development Secure Enclave plain-file key (security §10);
+# the login-keychain ACL key (enclave_keychain_acl) is in every build. SwiftPM may reuse a manifest evaluated without PSYCHE_PUBLIC_RELEASE, so check the binary.
 if [ "${PSYCHE_PUBLIC_RELEASE:-}" = "1" ]; then
   if ! "$BIN" --build-info | grep -q '"presenceFileFallback":false'; then
     echo "error: PSYCHE_PUBLIC_RELEASE=1 but the helper still has the file-key fallback; clean .build and rebuild" >&2
@@ -111,10 +113,19 @@ if [ -n "${PSYCHE_HELPER_PROFILE:-}" ]; then
 fi
 
 TIMESTAMP="--timestamp=none"
-case "$ID" in "Developer ID"*) TIMESTAMP="--timestamp" ;; esac
-# A fixed identifier keeps the designated requirement stable (identifier + team for a real
-# identity; ad-hoc requirements are the cdhash, so TCC still sees each ad-hoc build as new).
-codesign --force --options runtime $TIMESTAMP --identifier com.psyche.helper --entitlements "$ENT" --sign "$ID" "$APP"
+case "$ID" in
+  "Developer ID"*) TIMESTAMP="--timestamp" ;;
+  # A self-signed identity (Psyche's release certificate, by hash or name) gets Apple's timestamp
+  # only when PSYCHE_SIGN_TIMESTAMP=1 (it works without a Developer ID but needs the network).
+  "-"|"Apple Development"*) ;;
+  *) if [ "${PSYCHE_SIGN_TIMESTAMP:-}" = 1 ]; then TIMESTAMP="--timestamp"; fi ;;
+esac
+# The keychain that holds the identity, when it is not in the search list (CI, a temporary keychain).
+# A fixed identifier keeps the designated requirement stable (identifier + team for a Developer ID,
+# identifier + certificate hash for Psyche's self-signed certificate; ad-hoc requirements are the
+# cdhash, so TCC still sees each ad-hoc build as new).
+# shellcheck disable=SC2086
+codesign --force --options runtime $TIMESTAMP ${PSYCHE_SIGN_KEYCHAIN:+--keychain "$PSYCHE_SIGN_KEYCHAIN"} --identifier com.psyche.helper --entitlements "$ENT" --sign "$ID" "$APP"
 codesign --verify --strict --verbose=1 "$APP"
 codesign -dv "$APP" 2>&1 | grep -E '^(Identifier|TeamIdentifier|Authority=(Developer|Apple Dev))' || true
 

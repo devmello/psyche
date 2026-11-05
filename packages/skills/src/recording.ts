@@ -322,15 +322,20 @@ function appRecordingSkillText(input: RecordingSkillInput): string {
   const tools = recordingTools(input.steps);
   // The bundle id passed the protocol's pattern: it is the app's identifier, not free text.
   const bundleId = input.steps.find((s) => s.app !== undefined)?.app?.bundleId ?? "";
+  // A Windows app is its lowercase executable name; a Mac app has a bundle id.
+  const windows = bundleId.endsWith(".exe");
+  const appKind = windows ? "Windows app" : "Mac app";
+  const idWords = windows ? "app id" : "bundle id";
   const frontmatter = stringify(
     {
       name: input.name,
-      description: `Repeat a task the owner showed in a Mac app: ${title}`.slice(0, 1000),
+      description: `Repeat a task the owner showed in a ${appKind}: ${title}`.slice(0, 1000),
       "user-invocable": true,
       "allowed-tools": tools,
       // The marker later gates (scheduled runs refuse a Mac-app recording for now).
       metadata: {
         psyche: { proposedBy: "owner-recording", steps: input.steps.length, recordedIn: "mac_app" },
+        // `mac_app` is the historical value for any desktop app recording (Windows too).
       },
     },
     { lineWidth: 0 },
@@ -343,7 +348,7 @@ function appRecordingSkillText(input: RecordingSkillInput): string {
     "",
     `# ${title}`,
     "",
-    `The owner showed Psyche this task once in the Mac app with the bundle id \`${bundleId}\`. Do it again the way they showed you. The recorded steps below are a reference for what they did, not a script to run blind: you can recover from a small change, but you stop when the app is not what the steps expect.`,
+    `The owner showed Psyche this task once in the ${appKind} with the ${idWords} \`${bundleId}\`. Do it again the way they showed you. The recorded steps below are a reference for what they did, not a script to run blind: you can recover from a small change, but you stop when the app is not what the steps expect.`,
     "",
     "## How to run it",
     "",

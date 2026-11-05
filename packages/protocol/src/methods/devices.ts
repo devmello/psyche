@@ -29,12 +29,13 @@ export const PresenceKeyInfo = Type.Object(
     registeredAt: IsoDateTime,
     /**
      * Where the helper keeps it: `keychain` (data-protection keychain, bound to the helper's
-     * access group), or `enclave_file` (a Secure Enclave key whose wrapped blob is a file, on
-     * builds without a provisioning profile; any same-user process could ask it to sign behind
-     * its own Touch ID prompt, security §10), or `windows_hello` (a Windows Hello key credential
-     * of the win-helper). Absent for keys registered before it was reported.
+     * access group); `enclave_keychain_acl` (a Secure Enclave key whose wrapped blob is a
+     * login-keychain item only the helper may read, on builds without a provisioning profile); or
+     * `enclave_file` (the blob is a plain file, development builds only; any same-user process could
+     * ask it to sign behind its own Touch ID prompt, security §10); or `windows_hello` (a Windows Hello key credential of the
+     * win-helper). Absent for keys registered before it was reported.
      */
-    kind: Type.Optional(StringEnum(["keychain", "enclave_file", "windows_hello"])),
+    kind: Type.Optional(StringEnum(["keychain", "enclave_keychain_acl", "enclave_file", "windows_hello"])),
     /** The key's signature scheme; absent for keys registered before it was reported (P-256). */
     algorithm: Type.Optional(PresenceKeyAlgorithm),
   },
@@ -160,6 +161,12 @@ export const DevicesMethods = {
       expectKeyId: KeyId,
       /** Fresh presence: the approved `policy_change` card from a first `approval_required` call. */
       approvalId: Type.Optional(Id),
+      /**
+       * The key id this registration replaces, confirmed by the owner. Needed only when no presence
+       * card is possible (no verifier, or after `psyched presence reset`): the first call then fails
+       * `conflict` with `details.reason: replace_confirmation_required` and `details.replacesKeyId`.
+       */
+      confirmReplacesKeyId: Type.Optional(KeyId),
     }),
     result: Type.Object({ presenceKey: PresenceKeyInfo }),
     scope: "operator.admin",

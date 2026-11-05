@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened-runtime entitlements for the app and Electron's helpers when the release is signed with
+  Psyche's own self-signed certificate (docs/design/updates-and-install-2026.md §2.3, docs/signing.md).
+  The same as entitlements.plist plus ONE key:
+
+  - com.apple.security.cs.disable-library-validation: a self-signed certificate has no team ID.
+    With no team ID the hardened runtime refuses to load any library that Apple did not sign, even
+    one signed with the same certificate ("mapping process and mapped file (non-platform) have
+    different Team IDs"), so Electron cannot load Electron Framework.framework at all without it.
+    Measured on macOS 27 with a certificate made by deploy/macos/make-signing-cert.sh.
+
+  What it costs, plainly: with library validation off, malware running as the same user that can
+  write inside a user-owned /Applications/Psyche.app can swap a dylib inside the bundle. The swapped
+  library then runs inside this process and inherits Psyche's TCC grants (microphone, screen, Apple
+  Events, Contacts, Calendar) and its keychain entries. The hardened runtime stays on, so DYLD_*
+  injection, debugger attach and task_for_pid stay blocked, but none of that stops a swapped dylib. The
+  Electron fuses cover only Electron processes (this one and its helpers). The app also checks its own
+  bundle seal once a day and turns its TCC-backed features off when that fails (bundle-integrity.ts).
+  That check is a tripwire for an attacker who does not know it is there, not containment: a swapped
+  library that loads at launch runs before the check and can hide it. The Gateway keeps running. A
+  Developer ID build does not use this file.
+
+  PsycheHelper.app does not have this key: it links only system libraries.
+-->
+<plist version="1.0">
+  <dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+    <key>com.apple.security.personal-information.calendars</key>
+    <true/>
+    <key>com.apple.security.personal-information.addressbook</key>
+    <true/>
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
+  </dict>
+</plist>
