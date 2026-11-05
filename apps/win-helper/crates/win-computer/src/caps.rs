@@ -568,6 +568,95 @@ fn ax_tree(c: &ComputerUse, inv: &Invocation, params: &Value) -> CapResult<CapOu
     Ok(CapOutput::plain(Value::Object(result)))
 }
 
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct CheckTargetParams {
+    app: Option<String>,
+    role: Option<String>,
+    name: Option<String>,
+    identifier: Option<String>,
+    menu_path: Option<Vec<String>>,
+    #[allow(dead_code)]
+    session: Option<String>,
+}
+
+/// Replay of a recorded step (teach by showing): is the recorded target in the app right now?
+/// Read-only. Exact role and name; `missing` / `ambiguous` carry `stop` so the run asks the owner.
+fn check_target(c: &ComputerUse, inv: &Invocation, params: &Value) -> CapResult<CapOutput> {
+    let p: CheckTargetParams = decode(params)?;
+    let menu_path = p.menu_path.clone().unwrap_or_default();
+    let is_menu = !menu_path.is_empty();
+    // A role is required (`generic` means any): a name alone would match the wrong kind of element.
+    if !is_menu && p.role.as_deref().unwrap_or("").is_empty() {
+        return Err(CapError::invalid_params("role is required", Some("role")));
+    }
+    c.ensure_esc_tap();
+    c.reload_settings();
+    let app = apps::find_app(p.app.as_deref(), None)?;
+    c.policy.authorize(Intent::Read, app.bundle_id.as_deref(), &app.name, binding(inv, params).as_ref())?;
+    let options = SnapshotOptions::clamped(Some(8000), Some(2000), Some(400), Some(20), Some(true));
+    let req = SnapshotRequest { app: app.clone(), window: None, root: is_menu.then(|| "app".to_string()), options };
+    let snap = run(SNAPSHOT_TIMEOUT, move |u| snapshot_on(u, req))?;
+    let id = app.bundle_id.clone().unwrap_or_else(|| app.name.clone());
+    let reply = |status: &str, extra: Vec<(&str, Value)>| {
+        let mut o = Map::new();
+        o.insert("status".into(), json!(status));
+        o.insert("app".into(), json!(id));
+        o.insert("stop".into(), json!(status != "found"));
+        o.insert("provenance".into(), json!("untrusted"));
+        for (k, v) in extra {
+            o.insert(k.into(), v);
+        }
+        Ok(CapOutput::plain(Value::Object(o)))
+    };
+    // The app that answered is not the one the recording was made in: a stop.
+    let wanted = p.app.as_deref().unwrap_or("").to_lowercase();
+    if wanted.contains('.') && app.bundle_id.as_deref().map(str::to_lowercase).as_deref() != Some(wanted.as_str()) {
+        return reply("wrong_app", vec![("hint", json!("This is not the app the recording was made in. Ask the owner."))]);
+    }
+    let query = crate::target_check::Query { role: p.role, name: p.name, identifier: p.identifier, menu_path: menu_path.clone() };
+    let mut outcome = crate::target_check::check(&snap.nodes, &query);
+    // A Win32 menu bar is not in the tree until it is opened: read it the way `computer.menu` does.
+    if is_menu && outcome == crate::target_check::Outcome::Missing {
+        let hwnd = apps::foreground_window()
+            .filter(|w| w.pid == app.pid)
+            .or_else(|| apps::app_windows(&app).into_iter().find(|w| w.layer() == 0))
+            .map(|w| w.hwnd);
+        if hwnd.is_some_and(|h| menu::win32_path_exists(h, &menu_path)) {
+            return reply(
+                "found",
+                vec![
+                    ("role", json!("menuitem")),
+                    ("label", json!(menu_path.last().cloned().unwrap_or_default())),
+                    ("next", json!("Use computer.act with the menu action and this path.")),
+                ],
+            );
+        }
+    }
+    // A truncated snapshot cannot show that a match is the only one.
+    if snap.header.truncated.is_some() {
+        if let crate::target_check::Outcome::Found { ref_, .. } = &outcome {
+            outcome = crate::target_check::Outcome::Ambiguous(vec![ref_.clone()]);
+        }
+    }
+    match outcome {
+        crate::target_check::Outcome::Found { ref_, role, label } => {
+            let mut extra = vec![("ref", json!(ref_)), ("role", json!(role))];
+            if let Some(l) = label {
+                extra.push(("label", json!(l)));
+            }
+            reply("found", extra)
+        }
+        crate::target_check::Outcome::Ambiguous(refs) => reply(
+            "ambiguous",
+            vec![("candidates", json!(refs)), ("hint", json!("Several elements match; do not pick one. Ask the owner."))],
+        ),
+        crate::target_check::Outcome::Missing => {
+            reply("missing", vec![("hint", json!("The recorded element is not in the window. Ask the owner what to do."))])
+        }
+    }
+}
+
 #[derive(Deserialize)]
 struct ValueParams {
     #[serde(rename = "ref")]
@@ -1404,6 +1493,7 @@ pub fn invoke(name: &str, params: &Value, inv: &Invocation) -> CapResult<CapOutp
     let body = || -> CapResult<CapOutput> {
         match name {
             "computer.ax_tree" => ax_tree(c, inv, params),
+            "computer.check_target" => check_target(c, inv, params),
             "computer.ax_value" => ax_value(c, inv, params),
             "computer.click" => click(c, inv, params, 1, false),
             "computer.double_click" => click(c, inv, params, 2, false),
