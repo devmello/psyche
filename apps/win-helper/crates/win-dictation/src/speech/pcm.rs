@@ -11,11 +11,15 @@ use super::params::{PcmEncoding, PcmFormat};
 pub const ENGINE_RATE: u32 = 16_000;
 
 pub fn f32_from_s16le(data: &[u8]) -> Vec<f32> {
-    data.chunks_exact(2).map(|b| i16::from_le_bytes([b[0], b[1]]) as f32 / 32768.0).collect()
+    data.chunks_exact(2)
+        .map(|b| i16::from_le_bytes([b[0], b[1]]) as f32 / 32768.0)
+        .collect()
 }
 
 pub fn f32_from_f32le(data: &[u8]) -> Vec<f32> {
-    data.chunks_exact(4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).collect()
+    data.chunks_exact(4)
+        .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+        .collect()
 }
 
 pub fn s16_clipping(sample: f32) -> i16 {
@@ -33,7 +37,10 @@ pub fn s16_clipping(sample: f32) -> i16 {
 }
 
 pub fn s16le_from_f32(samples: &[f32]) -> Vec<u8> {
-    samples.iter().flat_map(|&s| s16_clipping(s).to_le_bytes()).collect()
+    samples
+        .iter()
+        .flat_map(|&s| s16_clipping(s).to_le_bytes())
+        .collect()
 }
 
 pub fn f32le_from_f32(samples: &[f32]) -> Vec<u8> {
@@ -61,7 +68,10 @@ pub fn downmix(interleaved: &[f32], channels: usize) -> Vec<f32> {
     if channels <= 1 {
         return interleaved.to_vec();
     }
-    interleaved.chunks_exact(channels).map(|f| f.iter().sum::<f32>() / channels as f32).collect()
+    interleaved
+        .chunks_exact(channels)
+        .map(|f| f.iter().sum::<f32>() / channels as f32)
+        .collect()
 }
 
 /// Re-frames a byte stream into whole frames, carrying a partial frame over to the next push.
@@ -73,7 +83,10 @@ pub struct FrameAligner {
 
 impl FrameAligner {
     pub fn new(bytes_per_frame: usize) -> Self {
-        FrameAligner { bytes_per_frame: bytes_per_frame.max(1), carry: vec![] }
+        FrameAligner {
+            bytes_per_frame: bytes_per_frame.max(1),
+            carry: vec![],
+        }
     }
 
     pub fn pending(&self) -> usize {
@@ -114,19 +127,34 @@ const PHASES: usize = 256;
 impl Resampler {
     pub fn new(in_rate: u32, out_rate: u32) -> Self {
         let step = in_rate as f64 / out_rate as f64;
-        let cutoff = if out_rate < in_rate { 0.9 * out_rate as f64 / in_rate as f64 } else { 1.0 };
+        let cutoff = if out_rate < in_rate {
+            0.9 * out_rate as f64 / in_rate as f64
+        } else {
+            1.0
+        };
         let taps = (HALF as f64 / cutoff).ceil() as usize;
         let n = 2 * taps + 1;
         let mut table = vec![0f32; (PHASES + 1) * n];
         for p in 0..=PHASES {
             let frac = p as f64 / PHASES as f64;
-            let row: Vec<f64> = (0..n).map(|j| kernel(j as f64 - taps as f64 - frac, cutoff, taps as f64)).collect();
+            let row: Vec<f64> = (0..n)
+                .map(|j| kernel(j as f64 - taps as f64 - frac, cutoff, taps as f64))
+                .collect();
             let sum: f64 = row.iter().sum();
             for (j, w) in row.iter().enumerate() {
                 table[p * n + j] = (w / sum) as f32;
             }
         }
-        Resampler { in_rate, out_rate, buf: vec![], pos: 0.0, step, taps, table, primed: false }
+        Resampler {
+            in_rate,
+            out_rate,
+            buf: vec![],
+            pos: 0.0,
+            step,
+            taps,
+            table,
+            primed: false,
+        }
     }
 
     pub fn is_passthrough(&self) -> bool {
@@ -195,7 +223,8 @@ fn kernel(x: f64, cutoff: f64, width: f64) -> f64 {
     let a = std::f64::consts::PI * x * cutoff;
     let sinc = if x.abs() < 1e-9 { 1.0 } else { a.sin() / a };
     let t = (x / width + 1.0) / 2.0;
-    let w = 0.42 - 0.5 * (2.0 * std::f64::consts::PI * t).cos() + 0.08 * (4.0 * std::f64::consts::PI * t).cos();
+    let w = 0.42 - 0.5 * (2.0 * std::f64::consts::PI * t).cos()
+        + 0.08 * (4.0 * std::f64::consts::PI * t).cos();
     cutoff * sinc * w
 }
 
@@ -241,7 +270,9 @@ mod tests {
 
     #[test]
     fn s16_round_trip_is_exact_for_every_value() {
-        let all: Vec<u8> = (i16::MIN..=i16::MAX).flat_map(|v| v.to_le_bytes()).collect();
+        let all: Vec<u8> = (i16::MIN..=i16::MAX)
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
         assert_eq!(s16le_from_f32(&f32_from_s16le(&all)), all);
     }
 
@@ -267,7 +298,10 @@ mod tests {
 
     #[test]
     fn downmix_averages_channels() {
-        assert_eq!(downmix(&[1.0, 0.0, 0.5, 0.5, -1.0, 1.0], 2), [0.5, 0.5, 0.0]);
+        assert_eq!(
+            downmix(&[1.0, 0.0, 0.5, 0.5, -1.0, 1.0], 2),
+            [0.5, 0.5, 0.0]
+        );
         assert_eq!(downmix(&[0.1, 0.2], 1), [0.1, 0.2]);
     }
 
@@ -281,7 +315,9 @@ mod tests {
     }
 
     fn sine(rate: u32, hz: f64, secs: f64) -> Vec<f32> {
-        (0..(rate as f64 * secs) as usize).map(|i| (2.0 * std::f64::consts::PI * hz * i as f64 / rate as f64).sin() as f32 * 0.5).collect()
+        (0..(rate as f64 * secs) as usize)
+            .map(|i| (2.0 * std::f64::consts::PI * hz * i as f64 / rate as f64).sin() as f32 * 0.5)
+            .collect()
     }
 
     fn rms(x: &[f32]) -> f64 {
@@ -301,7 +337,12 @@ mod tests {
 
     #[test]
     fn resampling_keeps_length_pitch_and_level_in_streaming_pieces() {
-        for (from, to) in [(48_000, 16_000), (44_100, 16_000), (8_000, 16_000), (22_050, 16_000)] {
+        for (from, to) in [
+            (48_000, 16_000),
+            (44_100, 16_000),
+            (8_000, 16_000),
+            (22_050, 16_000),
+        ] {
             let input = sine(from, 440.0, 1.0);
             let mut r = Resampler::new(from, to);
             let mut out = vec![];
@@ -310,9 +351,17 @@ mod tests {
             }
             out.extend(r.finish());
             let expected = (input.len() as f64 * to as f64 / from as f64).round() as i64;
-            assert!((out.len() as i64 - expected).abs() <= 1, "{from}->{to}: {} vs {expected}", out.len());
+            assert!(
+                (out.len() as i64 - expected).abs() <= 1,
+                "{from}->{to}: {} vs {expected}",
+                out.len()
+            );
             let mid = &out[2000..out.len() - 2000];
-            assert!((tone(mid, to, 440.0) - 0.5).abs() < 0.02, "{from}->{to} amplitude {}", tone(mid, to, 440.0));
+            assert!(
+                (tone(mid, to, 440.0) - 0.5).abs() < 0.02,
+                "{from}->{to} amplitude {}",
+                tone(mid, to, 440.0)
+            );
             assert!((rms(mid) - 0.5 / 2f64.sqrt()).abs() < 0.02);
         }
     }
@@ -331,7 +380,11 @@ mod tests {
 
     #[test]
     fn to_engine_converts_stereo_48k_float_pushes() {
-        let fmt = PcmFormat { encoding: PcmEncoding::F32le, sample_rate: 48_000, channels: 2 };
+        let fmt = PcmFormat {
+            encoding: PcmEncoding::F32le,
+            sample_rate: 48_000,
+            channels: 2,
+        };
         let mono = sine(48_000, 300.0, 0.5);
         let stereo: Vec<f32> = mono.iter().flat_map(|&s| [s, s]).collect();
         let bytes = f32le_from_f32(&stereo);
@@ -345,7 +398,11 @@ mod tests {
         let s = f32_from_s16le(&out);
         assert!((tone(&s[1000..7000], 16_000, 300.0) - 0.5).abs() < 0.02);
         // 16 kHz mono s16 passes through untouched.
-        let fmt = PcmFormat { encoding: PcmEncoding::S16le, sample_rate: 16_000, channels: 1 };
+        let fmt = PcmFormat {
+            encoding: PcmEncoding::S16le,
+            sample_rate: 16_000,
+            channels: 1,
+        };
         let raw: Vec<u8> = (0..100i16).flat_map(|v| (v * 300).to_le_bytes()).collect();
         assert_eq!(ToEngine::new(fmt).push_bytes(&raw), raw);
     }

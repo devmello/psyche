@@ -16,14 +16,38 @@ pub struct Segment {
 }
 
 impl Segment {
-    pub fn new(text: impl Into<String>, start_ms: u64, end_ms: u64, r#final: bool, confidence: Option<f64>) -> Self {
-        Segment { text: text.into(), start_ms, end_ms: end_ms.max(start_ms), r#final, confidence }
+    pub fn new(
+        text: impl Into<String>,
+        start_ms: u64,
+        end_ms: u64,
+        r#final: bool,
+        confidence: Option<f64>,
+    ) -> Self {
+        Segment {
+            text: text.into(),
+            start_ms,
+            end_ms: end_ms.max(start_ms),
+            r#final,
+            confidence,
+        }
     }
 
     /// From 100 ns units (SAPI and WinRT times), clamping nothing below zero by construction.
-    pub fn from_hns(text: impl Into<String>, start_hns: u64, len_hns: u64, r#final: bool, confidence: Option<f64>) -> Self {
+    pub fn from_hns(
+        text: impl Into<String>,
+        start_hns: u64,
+        len_hns: u64,
+        r#final: bool,
+        confidence: Option<f64>,
+    ) -> Self {
         let ms = |h: u64| (h + 5_000) / 10_000;
-        Segment::new(text, ms(start_hns), ms(start_hns + len_hns), r#final, confidence)
+        Segment::new(
+            text,
+            ms(start_hns),
+            ms(start_hns + len_hns),
+            r#final,
+            confidence,
+        )
     }
 
     pub fn json(&self) -> Value {
@@ -73,7 +97,13 @@ pub fn segment_event(s: &Segment) -> Value {
 }
 
 /// Emitted once the engine is ready and the source is live.
-pub fn started_event(stream_id: &str, engine: EngineKind, language: &str, source: SpeechSource, format: Option<&PcmFormat>) -> Value {
+pub fn started_event(
+    stream_id: &str,
+    engine: EngineKind,
+    language: &str,
+    source: SpeechSource,
+    format: Option<&PcmFormat>,
+) -> Value {
     let mut o = json!({
         "type": STARTED, "streamId": stream_id, "engine": engine.as_str(), "language": language, "source": source.as_str(),
     });
@@ -86,7 +116,11 @@ pub fn started_event(stream_id: &str, engine: EngineKind, language: &str, source
 /// `{type: "speech.progress", processedMs, totalMs, fraction, chunk, chunks}`.
 pub fn progress_event(processed_ms: u64, total_ms: u64, chunk: usize, chunks: usize) -> Value {
     let done = processed_ms.min(total_ms);
-    let fraction = if total_ms > 0 { done as f64 / total_ms as f64 } else { 1.0 };
+    let fraction = if total_ms > 0 {
+        done as f64 / total_ms as f64
+    } else {
+        1.0
+    };
     json!({
         "type": PROGRESS, "processedMs": done, "totalMs": total_ms,
         "fraction": (fraction * 1000.0).round() / 1000.0, "chunk": chunk, "chunks": chunks.max(1),
@@ -123,11 +157,23 @@ impl Accumulator {
     }
 
     pub fn text(&self) -> String {
-        self.finals.iter().map(|s| s.text.trim()).collect::<Vec<_>>().join(" ")
+        self.finals
+            .iter()
+            .map(|s| s.text.trim())
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 
     /// `{streamId, text, segments, engine, language, stopReason, audioMs, firstResultMs?}`.
-    pub fn summary(&self, stream_id: &str, engine: EngineKind, language: &str, stop: StopReason, audio_ms: u64, first_result_ms: Option<u64>) -> Value {
+    pub fn summary(
+        &self,
+        stream_id: &str,
+        engine: EngineKind,
+        language: &str,
+        stop: StopReason,
+        audio_ms: u64,
+        first_result_ms: Option<u64>,
+    ) -> Value {
         let mut o = json!({
             "streamId": stream_id,
             "text": self.text(),
@@ -152,22 +198,51 @@ mod tests {
     fn segment_payloads_and_clamps() {
         let s = Segment::new("hi", 100, 50, false, Some(1.7));
         assert_eq!(s.end_ms, 100);
-        assert_eq!(segment_event(&s), json!({"type": "speech.partial", "text": "hi", "startMs": 100, "endMs": 100, "final": false, "confidence": 1.0}));
+        assert_eq!(
+            segment_event(&s),
+            json!({"type": "speech.partial", "text": "hi", "startMs": 100, "endMs": 100, "final": false, "confidence": 1.0})
+        );
         let f = Segment::new("yo", 0, 10, true, Some(f64::NAN));
         assert_eq!(segment_event(&f)["type"], "speech.final");
         assert!(segment_event(&f).get("confidence").is_none());
-        assert_eq!(Segment::from_hns("x", 12_345_000, 4_000_000, true, None).start_ms, 1235);
+        assert_eq!(
+            Segment::from_hns("x", 12_345_000, 4_000_000, true, None).start_ms,
+            1235
+        );
     }
 
     #[test]
     fn other_events() {
-        let fmt = PcmFormat { encoding: super::super::params::PcmEncoding::S16le, sample_rate: 16_000, channels: 1 };
-        let e = started_event("s1", EngineKind::Sapi, "en-US", SpeechSource::Push, Some(&fmt));
+        let fmt = PcmFormat {
+            encoding: super::super::params::PcmEncoding::S16le,
+            sample_rate: 16_000,
+            channels: 1,
+        };
+        let e = started_event(
+            "s1",
+            EngineKind::Sapi,
+            "en-US",
+            SpeechSource::Push,
+            Some(&fmt),
+        );
         assert_eq!(e["type"], "speech.started");
         assert_eq!(e["format"]["sampleRate"], 16_000);
-        assert!(started_event("s1", EngineKind::WindowsSpeech, "en-US", SpeechSource::Microphone, None).get("format").is_none());
+        assert!(
+            started_event(
+                "s1",
+                EngineKind::WindowsSpeech,
+                "en-US",
+                SpeechSource::Microphone,
+                None
+            )
+            .get("format")
+            .is_none()
+        );
         let p = progress_event(600_000, 10_800_000, 1, 18);
-        assert_eq!((p["fraction"].as_f64(), p["chunk"].as_u64()), (Some(0.056), Some(1)));
+        assert_eq!(
+            (p["fraction"].as_f64(), p["chunk"].as_u64()),
+            (Some(0.056), Some(1))
+        );
         assert_eq!(progress_event(0, 0, 0, 1)["fraction"], 1.0);
     }
 
@@ -181,7 +256,14 @@ mod tests {
         a.ingest(Segment::new("wor", 300, 400, false, None));
         a.promote_volatile();
         assert_eq!(a.text(), "Hello. wor");
-        let s = a.summary("id", EngineKind::Sapi, "en-US", StopReason::EndOfInput, 450, Some(120));
+        let s = a.summary(
+            "id",
+            EngineKind::Sapi,
+            "en-US",
+            StopReason::EndOfInput,
+            450,
+            Some(120),
+        );
         assert_eq!(s["stopReason"], "end_of_input");
         assert_eq!(s["segments"].as_array().unwrap().len(), 2);
         assert_eq!(s["segments"][1]["final"], true);

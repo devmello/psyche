@@ -1,7 +1,7 @@
 //! `speech.*` params, limits and validation (`SpeechParams.swift`, `SpeechAudioFormat.swift`).
 
-use crate::error::CapError;
 use super::engine::EngineKind;
+use crate::error::CapError;
 use base64::Engine as _;
 use serde::Deserialize;
 use std::ops::RangeInclusive;
@@ -95,7 +95,8 @@ impl PcmFormat {
         if self.sample_rate == 0 || self.bytes_per_frame() == 0 {
             return 0;
         }
-        ((byte_count / self.bytes_per_frame()) as f64 * 1000.0 / self.sample_rate as f64).round() as u64
+        ((byte_count / self.bytes_per_frame()) as f64 * 1000.0 / self.sample_rate as f64).round()
+            as u64
     }
 
     /// Bytes holding `ms` of audio (whole frames).
@@ -106,12 +107,19 @@ impl PcmFormat {
     pub fn validate(&self, field: &str) -> Result<(), CapError> {
         if !SAMPLE_RATE_RANGE.contains(&self.sample_rate) {
             return Err(CapError::invalid_params(
-                format!("{field}.sampleRate must be between {} and {}", SAMPLE_RATE_RANGE.start(), SAMPLE_RATE_RANGE.end()),
+                format!(
+                    "{field}.sampleRate must be between {} and {}",
+                    SAMPLE_RATE_RANGE.start(),
+                    SAMPLE_RATE_RANGE.end()
+                ),
                 Some(&format!("{field}.sampleRate")),
             ));
         }
         if !CHANNEL_RANGE.contains(&self.channels) {
-            return Err(CapError::invalid_params(format!("{field}.channels must be 1 or 2"), Some(&format!("{field}.channels"))));
+            return Err(CapError::invalid_params(
+                format!("{field}.channels must be 1 or 2"),
+                Some(&format!("{field}.channels")),
+            ));
         }
         Ok(())
     }
@@ -132,22 +140,32 @@ pub fn is_valid_locale(id: &str) -> bool {
     if !(2..=3).contains(&first.len()) || !first.chars().all(|c| c.is_ascii_alphabetic()) {
         return false;
     }
-    parts[1..].iter().all(|p| (2..=8).contains(&p.len()) && p.chars().all(|c| c.is_ascii_alphanumeric()))
+    parts[1..]
+        .iter()
+        .all(|p| (2..=8).contains(&p.len()) && p.chars().all(|c| c.is_ascii_alphanumeric()))
 }
 
 pub fn validate_locale(id: Option<String>, field: &str) -> Result<Option<String>, CapError> {
     match id {
         None => Ok(None),
         Some(id) if is_valid_locale(&id) => Ok(Some(id)),
-        Some(_) => Err(CapError::invalid_params(format!("{field} must be a BCP-47 language tag such as en-US"), Some(field))),
+        Some(_) => Err(CapError::invalid_params(
+            format!("{field} must be a BCP-47 language tag such as en-US"),
+            Some(field),
+        )),
     }
 }
 
 /// Trims, drops duplicates (keeping order) and enforces ≤ 100 entries × 64 characters.
 pub fn validate_vocabulary(entries: Option<Vec<String>>) -> Result<Vec<String>, CapError> {
-    let Some(entries) = entries else { return Ok(vec![]) };
+    let Some(entries) = entries else {
+        return Ok(vec![]);
+    };
     if entries.len() > MAX_VOCABULARY_ENTRIES {
-        return Err(CapError::invalid_params(format!("vocabulary holds at most {MAX_VOCABULARY_ENTRIES} entries"), Some("vocabulary")));
+        return Err(CapError::invalid_params(
+            format!("vocabulary holds at most {MAX_VOCABULARY_ENTRIES} entries"),
+            Some("vocabulary"),
+        ));
     }
     let mut out: Vec<String> = vec![];
     for (i, raw) in entries.iter().enumerate() {
@@ -168,7 +186,10 @@ pub fn validate_vocabulary(entries: Option<Vec<String>>) -> Result<Vec<String>, 
 
 pub fn validate_stream_id(id: &str) -> Result<String, CapError> {
     if id.is_empty() || id.chars().count() > MAX_STREAM_ID_LENGTH {
-        return Err(CapError::invalid_params(format!("streamId must be 1–{MAX_STREAM_ID_LENGTH} characters"), Some("streamId")));
+        return Err(CapError::invalid_params(
+            format!("streamId must be 1–{MAX_STREAM_ID_LENGTH} characters"),
+            Some("streamId"),
+        ));
     }
     Ok(id.to_string())
 }
@@ -216,16 +237,27 @@ impl TranscribeStreamParams {
         let source = self.source.unwrap_or(SpeechSource::Microphone);
         match source {
             SpeechSource::Microphone if self.format.is_some() => {
-                return Err(CapError::invalid_params("format applies to source \"push\" only", Some("format")));
+                return Err(CapError::invalid_params(
+                    "format applies to source \"push\" only",
+                    Some("format"),
+                ));
             }
             SpeechSource::Push => match &self.format {
-                None => return Err(CapError::invalid_params("source \"push\" needs format {encoding, sampleRate, channels}", Some("format"))),
+                None => {
+                    return Err(CapError::invalid_params(
+                        "source \"push\" needs format {encoding, sampleRate, channels}",
+                        Some("format"),
+                    ));
+                }
                 Some(f) => f.validate("format")?,
             },
             _ => {}
         }
         if source != SpeechSource::Microphone && self.engine == Some(EngineKind::WindowsSpeech) {
-            return Err(CapError::invalid_params("engine \"windowsSpeech\" serves the microphone only", Some("engine")));
+            return Err(CapError::invalid_params(
+                "engine \"windowsSpeech\" serves the microphone only",
+                Some("engine"),
+            ));
         }
         Ok(TranscribeRequest {
             source,
@@ -254,7 +286,10 @@ impl AudioPushParams {
         let id = validate_stream_id(&self.stream_id)?;
         // Base64 length bounds the decoded size; check before decoding.
         if self.data.len() > MAX_PUSH_BYTES.div_ceil(3) * 4 {
-            return Err(CapError::invalid_params(format!("data holds at most {MAX_PUSH_BYTES} bytes per push"), Some("data")));
+            return Err(CapError::invalid_params(
+                format!("data holds at most {MAX_PUSH_BYTES} bytes per push"),
+                Some("data"),
+            ));
         }
         let audio = base64::engine::general_purpose::STANDARD
             .decode(self.data.as_bytes())
@@ -275,7 +310,9 @@ mod tests {
     use serde_json::json;
 
     fn req(v: serde_json::Value) -> Result<TranscribeRequest, CapError> {
-        serde_json::from_value::<TranscribeStreamParams>(v).unwrap().validated()
+        serde_json::from_value::<TranscribeStreamParams>(v)
+            .unwrap()
+            .validated()
     }
 
     #[test]
@@ -284,7 +321,20 @@ mod tests {
             assert!(is_valid_locale(ok), "{ok}");
         }
         let long = "ab-".repeat(20) + "ab";
-        for bad in ["", "e", "english", "en-", "-US", "en--US", "en-U", "en-US-toolongsubtag", "en US", "ée", "en-US;rm -rf", long.as_str()] {
+        for bad in [
+            "",
+            "e",
+            "english",
+            "en-",
+            "-US",
+            "en--US",
+            "en-U",
+            "en-US-toolongsubtag",
+            "en US",
+            "ée",
+            "en-US;rm -rf",
+            long.as_str(),
+        ] {
             assert!(!is_valid_locale(bad), "{bad}");
         }
     }
@@ -292,11 +342,28 @@ mod tests {
     #[test]
     fn transcribe_defaults_and_push_format() {
         let r = req(json!({})).unwrap();
-        assert_eq!((r.source, r.max_duration_ms, r.volatile, r.preset), (SpeechSource::Microphone, DEFAULT_MAX_DURATION_MS, true, SpeechPreset::Long));
-        assert_eq!(req(json!({"source": "push"})).unwrap_err().details["field"], "format");
+        assert_eq!(
+            (r.source, r.max_duration_ms, r.volatile, r.preset),
+            (
+                SpeechSource::Microphone,
+                DEFAULT_MAX_DURATION_MS,
+                true,
+                SpeechPreset::Long
+            )
+        );
+        assert_eq!(
+            req(json!({"source": "push"})).unwrap_err().details["field"],
+            "format"
+        );
         let fmt = json!({"encoding": "pcm_s16le", "sampleRate": 16000, "channels": 1});
-        assert_eq!(req(json!({"source": "microphone", "format": fmt})).unwrap_err().details["field"], "format");
-        let r = req(json!({"source": "push", "format": fmt, "preset": "short", "volatile": false})).unwrap();
+        assert_eq!(
+            req(json!({"source": "microphone", "format": fmt}))
+                .unwrap_err()
+                .details["field"],
+            "format"
+        );
+        let r = req(json!({"source": "push", "format": fmt, "preset": "short", "volatile": false}))
+            .unwrap();
         assert_eq!(r.format.unwrap().bytes_per_frame(), 2);
         assert_eq!((r.preset, r.volatile), (SpeechPreset::Short, false));
         let bad = json!({"source": "push", "format": {"encoding": "pcm_f32le", "sampleRate": 96000, "channels": 1}});
@@ -308,12 +375,21 @@ mod tests {
     #[test]
     fn engine_is_opt_in_and_microphone_only_for_online() {
         assert_eq!(req(json!({})).unwrap().engine, None);
-        assert_eq!(req(json!({"engine": "sapi"})).unwrap().engine, Some(EngineKind::Sapi));
-        assert_eq!(req(json!({"engine": "windowsSpeech"})).unwrap().engine, Some(EngineKind::WindowsSpeech));
+        assert_eq!(
+            req(json!({"engine": "sapi"})).unwrap().engine,
+            Some(EngineKind::Sapi)
+        );
+        assert_eq!(
+            req(json!({"engine": "windowsSpeech"})).unwrap().engine,
+            Some(EngineKind::WindowsSpeech)
+        );
         let fmt = json!({"encoding": "pcm_s16le", "sampleRate": 16000, "channels": 1});
-        let e = req(json!({"source": "push", "format": fmt, "engine": "windowsSpeech"})).unwrap_err();
+        let e =
+            req(json!({"source": "push", "format": fmt, "engine": "windowsSpeech"})).unwrap_err();
         assert_eq!(e.details["field"], "engine");
-        assert!(serde_json::from_value::<TranscribeStreamParams>(json!({"engine": "cloud"})).is_err());
+        assert!(
+            serde_json::from_value::<TranscribeStreamParams>(json!({"engine": "cloud"})).is_err()
+        );
     }
 
     #[test]
@@ -321,28 +397,65 @@ mod tests {
         assert!(req(json!({"maxDurationMs": 999})).is_err());
         assert!(req(json!({"maxDurationMs": 600_001})).is_err());
         assert!(req(json!({"maxDurationMs": 600_000})).is_ok());
-        let v = validate_vocabulary(Some(vec![" Psyche ".into(), "Alice Chen".into(), "Psyche".into()])).unwrap();
+        let v = validate_vocabulary(Some(vec![
+            " Psyche ".into(),
+            "Alice Chen".into(),
+            "Psyche".into(),
+        ]))
+        .unwrap();
         assert_eq!(v, ["Psyche", "Alice Chen"]);
-        assert_eq!(validate_vocabulary(Some(vec!["ok".into(), " ".into()])).unwrap_err().details["field"], "vocabulary.1");
+        assert_eq!(
+            validate_vocabulary(Some(vec!["ok".into(), " ".into()]))
+                .unwrap_err()
+                .details["field"],
+            "vocabulary.1"
+        );
         assert!(validate_vocabulary(Some(vec!["x".into(); 101])).is_err());
         assert!(validate_vocabulary(Some(vec!["x".repeat(65)])).is_err());
-        assert_eq!(req(json!({"locale": "english"})).unwrap_err().details["field"], "locale");
+        assert_eq!(
+            req(json!({"locale": "english"})).unwrap_err().details["field"],
+            "locale"
+        );
     }
 
     #[test]
     fn audio_push_and_format_math() {
-        let p = AudioPushParams { stream_id: "s".into(), data: "AAEC".into(), r#final: None };
+        let p = AudioPushParams {
+            stream_id: "s".into(),
+            data: "AAEC".into(),
+            r#final: None,
+        };
         assert_eq!(p.validated().unwrap(), ("s".into(), vec![0, 1, 2], false));
-        let bad = AudioPushParams { data: "!!".into(), ..p.clone() };
+        let bad = AudioPushParams {
+            data: "!!".into(),
+            ..p.clone()
+        };
         assert_eq!(bad.validated().unwrap_err().details["field"], "data");
-        let big = AudioPushParams { data: "A".repeat(699_053), ..p.clone() };
+        let big = AudioPushParams {
+            data: "A".repeat(699_053),
+            ..p.clone()
+        };
         assert_eq!(big.validated().unwrap_err().details["field"], "data");
-        assert!(AudioPushParams { stream_id: "".into(), ..p }.validated().is_err());
-        let f = PcmFormat { encoding: PcmEncoding::F32le, sample_rate: 48_000, channels: 2 };
+        assert!(
+            AudioPushParams {
+                stream_id: "".into(),
+                ..p
+            }
+            .validated()
+            .is_err()
+        );
+        let f = PcmFormat {
+            encoding: PcmEncoding::F32le,
+            sample_rate: 48_000,
+            channels: 2,
+        };
         assert_eq!(f.bytes_per_frame(), 8);
         assert_eq!(f.duration_ms(8 * 48_000), 1000);
         assert_eq!(f.byte_count(10), 480 * 8);
         assert_eq!(f.duration_ms(7), 0);
-        assert_eq!(f.json(), json!({"encoding": "pcm_f32le", "sampleRate": 48000, "channels": 2}));
+        assert_eq!(
+            f.json(),
+            json!({"encoding": "pcm_f32le", "sampleRate": 48000, "channels": 2})
+        );
     }
 }

@@ -5,7 +5,9 @@
 use super::clipboard::{Win32Clipboard, Win32PasteDriver, render_staged};
 use super::{Com, input, process};
 use crate::dictation::clipboard::{CF_UNICODETEXT, paste_with_restore};
-use crate::dictation::policy::{ElementInfo, Focus, InsertBackend, PasteOutcome, UIA_MAX_VALUE_UNITS};
+use crate::dictation::policy::{
+    ElementInfo, Focus, InsertBackend, PasteOutcome, UIA_MAX_VALUE_UNITS,
+};
 use crate::error::CapError;
 use std::sync::mpsc::{Sender, channel};
 use std::sync::{Mutex, OnceLock};
@@ -13,17 +15,20 @@ use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::Com::{CLSCTX_INPROC_SERVER, CoCreateInstance};
 use windows::Win32::System::DataExchange::{CloseClipboard, GetClipboardOwner, OpenClipboard};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows::Win32::System::Variant::VARIANT;
 use windows::Win32::UI::Accessibility::{
-    CUIAutomation8, IUIAutomation, IUIAutomation2, IUIAutomationCacheRequest, IUIAutomationElement, IUIAutomationTextPattern,
-    IUIAutomationTextRange, IUIAutomationValuePattern, TextPatternRangeEndpoint_End, TextPatternRangeEndpoint_Start, TextUnit_Character,
-    UIA_ControlTypePropertyId, UIA_FrameworkIdPropertyId, UIA_IsPasswordPropertyId, UIA_IsTextPatternAvailablePropertyId,
-    UIA_IsValuePatternAvailablePropertyId, UIA_ProcessIdPropertyId, UIA_TextPatternId, UIA_ValueIsReadOnlyPropertyId, UIA_ValuePatternId,
+    CUIAutomation8, IUIAutomation, IUIAutomation2, IUIAutomationCacheRequest, IUIAutomationElement,
+    IUIAutomationTextPattern, IUIAutomationTextRange, IUIAutomationValuePattern,
+    TextPatternRangeEndpoint_End, TextPatternRangeEndpoint_Start, TextUnit_Character,
+    UIA_ControlTypePropertyId, UIA_FrameworkIdPropertyId, UIA_IsPasswordPropertyId,
+    UIA_IsTextPatternAvailablePropertyId, UIA_IsValuePatternAvailablePropertyId,
+    UIA_ProcessIdPropertyId, UIA_TextPatternId, UIA_ValueIsReadOnlyPropertyId, UIA_ValuePatternId,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, GetForegroundWindow, GetWindowThreadProcessId, HWND_MESSAGE, RegisterClassW, WINDOW_EX_STYLE,
-    WM_RENDERALLFORMATS, WM_RENDERFORMAT, WNDCLASSW, WS_OVERLAPPED,
+    CreateWindowExW, DefWindowProcW, GetForegroundWindow, GetWindowThreadProcessId, HWND_MESSAGE,
+    RegisterClassW, WINDOW_EX_STYLE, WM_RENDERALLFORMATS, WM_RENDERFORMAT, WNDCLASSW,
+    WS_OVERLAPPED,
 };
-use windows::Win32::System::Variant::VARIANT;
 use windows::core::{BSTR, Interface, w};
 
 type Job = Box<dyn FnOnce(&Backend) + Send>;
@@ -31,14 +36,21 @@ type Job = Box<dyn FnOnce(&Backend) + Send>;
 static WORKER: OnceLock<Mutex<Sender<Job>>> = OnceLock::new();
 
 /// Runs `f` on the dictation thread and waits for it.
-pub(crate) fn run<T: Send + 'static>(f: impl FnOnce(&Backend) -> T + Send + 'static) -> Result<T, CapError> {
-    let tx = WORKER.get_or_init(|| Mutex::new(spawn())).lock().unwrap_or_else(|e| e.into_inner()).clone();
+pub(crate) fn run<T: Send + 'static>(
+    f: impl FnOnce(&Backend) -> T + Send + 'static,
+) -> Result<T, CapError> {
+    let tx = WORKER
+        .get_or_init(|| Mutex::new(spawn()))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
     let (rtx, rrx) = channel();
     tx.send(Box::new(move |b: &Backend| {
         let _ = rtx.send(f(b));
     }))
     .map_err(|_| CapError::internal("the dictation thread is gone"))?;
-    rrx.recv().map_err(|_| CapError::internal("the dictation thread failed"))
+    rrx.recv()
+        .map_err(|_| CapError::internal("the dictation thread failed"))
 }
 
 fn spawn() -> Sender<Job> {
@@ -56,7 +68,12 @@ fn spawn() -> Sender<Job> {
     tx
 }
 
-unsafe extern "system" fn owner_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+unsafe extern "system" fn owner_proc(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
     match msg {
         WM_RENDERFORMAT if wparam.0 as u32 == CF_UNICODETEXT => {
             render_staged();
@@ -84,7 +101,12 @@ fn owner_window() -> HWND {
     // SAFETY: registers the class (idempotent) and creates a message-only window on this thread.
     unsafe {
         let instance = GetModuleHandleW(None).unwrap_or_default();
-        let class = WNDCLASSW { lpfnWndProc: Some(owner_proc), hInstance: instance.into(), lpszClassName: w!("PsycheDictationOwner"), ..Default::default() };
+        let class = WNDCLASSW {
+            lpfnWndProc: Some(owner_proc),
+            hInstance: instance.into(),
+            lpszClassName: w!("PsycheDictationOwner"),
+            ..Default::default()
+        };
         RegisterClassW(&class);
         CreateWindowExW(
             WINDOW_EX_STYLE(0),
@@ -114,7 +136,8 @@ pub(crate) struct Backend {
 impl Backend {
     fn new() -> Self {
         // SAFETY: COM is initialized on this thread.
-        let uia: Option<IUIAutomation> = unsafe { CoCreateInstance(&CUIAutomation8, None, CLSCTX_INPROC_SERVER) }.ok();
+        let uia: Option<IUIAutomation> =
+            unsafe { CoCreateInstance(&CUIAutomation8, None, CLSCTX_INPROC_SERVER) }.ok();
         if let Some(u2) = uia.as_ref().and_then(|u| u.cast::<IUIAutomation2>().ok()) {
             // A hung target must not stall dictation (the mac's 0.25 s AX messaging timeout).
             // SAFETY: plain setters.
@@ -124,7 +147,11 @@ impl Backend {
             }
         }
         let cache = uia.as_ref().and_then(|u| cache_request(u).ok());
-        Backend { uia, cache, hwnd: owner_window() }
+        Backend {
+            uia,
+            cache,
+            hwnd: owner_window(),
+        }
     }
 
     /// Where keyboard input goes now (the `focus()` the capabilities call).
@@ -140,7 +167,8 @@ impl Backend {
             snap.items
                 .into_iter()
                 .map(|(f, d)| match d {
-                    crate::dictation::clipboard::ClipData::Memory(b) | crate::dictation::clipboard::ClipData::EnhMetafile(b) => (f, b),
+                    crate::dictation::clipboard::ClipData::Memory(b)
+                    | crate::dictation::clipboard::ClipData::EnhMetafile(b) => (f, b),
                 })
                 .collect(),
         )
@@ -171,9 +199,15 @@ fn cache_request(u: &IUIAutomation) -> windows::core::Result<IUIAutomationCacheR
     }
 }
 
-fn cached_bool(el: &IUIAutomationElement, prop: windows::Win32::UI::Accessibility::UIA_PROPERTY_ID) -> bool {
+fn cached_bool(
+    el: &IUIAutomationElement,
+    prop: windows::Win32::UI::Accessibility::UIA_PROPERTY_ID,
+) -> bool {
     // SAFETY: reading a cached property.
-    unsafe { el.GetCachedPropertyValue(prop) }.ok().and_then(|v: VARIANT| bool::try_from(&v).ok()).unwrap_or(false)
+    unsafe { el.GetCachedPropertyValue(prop) }
+        .ok()
+        .and_then(|v: VARIANT| bool::try_from(&v).ok())
+        .unwrap_or(false)
 }
 
 /// The foreground window's own process and its app's process: they differ for packaged apps
@@ -193,7 +227,10 @@ fn foreground_pids() -> Option<(u32, u32)> {
     if owner == 0 {
         return None;
     }
-    Some((owner, psyche_win_computer::app_pid_for_window(fg.0 as isize).unwrap_or(owner)))
+    Some((
+        owner,
+        psyche_win_computer::app_pid_for_window(fg.0 as isize).unwrap_or(owner),
+    ))
 }
 
 fn utf16(b: &BSTR) -> Vec<u16> {
@@ -225,7 +262,9 @@ impl InsertBackend for Backend {
                 el.CachedProcessId().unwrap_or(fg_owner as i32) as u32,
                 el.CachedControlType().map(|c| c.0).unwrap_or(0),
                 el.CachedIsPassword().map(|b| b.as_bool()).unwrap_or(false),
-                el.CachedFrameworkId().map(|s| s.to_string()).unwrap_or_default(),
+                el.CachedFrameworkId()
+                    .map(|s| s.to_string())
+                    .unwrap_or_default(),
             )
         };
         let value = cached_bool(&el, UIA_IsValuePatternAvailablePropertyId);
@@ -257,11 +296,19 @@ impl InsertBackend for Backend {
         self.uia_write(text).unwrap_or(false)
     }
 
-    fn type_text(&self, text: &str, guard: &mut dyn FnMut() -> Result<(), CapError>) -> Result<(), CapError> {
+    fn type_text(
+        &self,
+        text: &str,
+        guard: &mut dyn FnMut() -> Result<(), CapError>,
+    ) -> Result<(), CapError> {
         input::type_text(text, guard)
     }
 
-    fn paste(&self, text: &str, guard: &mut dyn FnMut() -> Result<(), CapError>) -> Result<PasteOutcome, CapError> {
+    fn paste(
+        &self,
+        text: &str,
+        guard: &mut dyn FnMut() -> Result<(), CapError>,
+    ) -> Result<PasteOutcome, CapError> {
         let mut cb = Win32Clipboard { hwnd: self.hwnd };
         let mut driver = Win32PasteDriver;
         paste_with_restore(&mut cb, &mut driver, text, guard)
@@ -273,7 +320,9 @@ impl Backend {
     /// TextPattern. Refuses (Ok(false)) unless the value and the document text agree, so offsets
     /// are exact; Ok(false) too when the control ignored the write.
     fn uia_write(&self, text: &str) -> windows::core::Result<bool> {
-        let Some(el) = self.focused() else { return Ok(false) };
+        let Some(el) = self.focused() else {
+            return Ok(false);
+        };
         // SAFETY: UIA client calls on this MTA thread.
         unsafe {
             let vp: IUIAutomationValuePattern = el.GetCurrentPatternAs(UIA_ValuePatternId)?;
@@ -315,11 +364,18 @@ impl Backend {
 }
 
 /// UTF-16 length of the document text before `at`'s start.
-unsafe fn prefix_len(doc: &IUIAutomationTextRange, at: &IUIAutomationTextRange) -> windows::core::Result<usize> {
+unsafe fn prefix_len(
+    doc: &IUIAutomationTextRange,
+    at: &IUIAutomationTextRange,
+) -> windows::core::Result<usize> {
     // SAFETY: range arithmetic on live UIA ranges.
     unsafe {
         let prefix = doc.Clone()?;
-        prefix.MoveEndpointByRange(TextPatternRangeEndpoint_End, at, TextPatternRangeEndpoint_Start)?;
+        prefix.MoveEndpointByRange(
+            TextPatternRangeEndpoint_End,
+            at,
+            TextPatternRangeEndpoint_Start,
+        )?;
         Ok(prefix.GetText(-1)?.len())
     }
 }
@@ -330,10 +386,19 @@ unsafe fn place_caret(tp: &IUIAutomationTextPattern, offset: usize, text: &[u16]
     // SAFETY: range arithmetic on live UIA ranges.
     unsafe {
         let Ok(doc) = tp.DocumentRange() else { return };
-        let crlfs = text[..offset.min(text.len())].windows(2).filter(|w| w == &[13, 10]).count();
+        let crlfs = text[..offset.min(text.len())]
+            .windows(2)
+            .filter(|w| w == &[13, 10])
+            .count();
         for n in [offset, offset - crlfs] {
             let Ok(r) = doc.Clone() else { return };
-            if r.MoveEndpointByRange(TextPatternRangeEndpoint_End, &doc, TextPatternRangeEndpoint_Start).is_err() {
+            if r.MoveEndpointByRange(
+                TextPatternRangeEndpoint_End,
+                &doc,
+                TextPatternRangeEndpoint_Start,
+            )
+            .is_err()
+            {
                 return;
             }
             if r.Move(TextUnit_Character, n as i32).is_err() {
@@ -356,11 +421,16 @@ pub(crate) fn focused_value() -> Option<String> {
         let el = b.focused()?;
         // SAFETY: UIA client calls on this MTA thread.
         unsafe {
-            if let Ok(vp) = el.GetCurrentPatternAs::<IUIAutomationValuePattern>(UIA_ValuePatternId) {
+            if let Ok(vp) = el.GetCurrentPatternAs::<IUIAutomationValuePattern>(UIA_ValuePatternId)
+            {
                 return vp.CurrentValue().ok().map(|s| s.to_string());
             }
             let tp: IUIAutomationTextPattern = el.GetCurrentPatternAs(UIA_TextPatternId).ok()?;
-            tp.DocumentRange().ok()?.GetText(-1).ok().map(|s| s.to_string())
+            tp.DocumentRange()
+                .ok()?
+                .GetText(-1)
+                .ok()
+                .map(|s| s.to_string())
         }
     })
     .ok()

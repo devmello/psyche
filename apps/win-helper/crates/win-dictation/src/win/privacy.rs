@@ -2,20 +2,35 @@
 
 use super::wide;
 use std::ffi::c_void;
-use windows::Win32::System::Registry::{HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, RRF_RT_REG_DWORD, RRF_RT_REG_SZ, RegGetValueW};
+use windows::Win32::System::Registry::{
+    HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, RRF_RT_REG_DWORD, RRF_RT_REG_SZ, RegGetValueW,
+};
 use windows::core::PCWSTR;
 
-const CONSENT: &str = r"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone";
+const CONSENT: &str =
+    r"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone";
 
 fn reg_sz(key: HKEY, sub: &str, value: &str) -> Option<String> {
     let (sub, value) = (wide(sub), wide(value));
     let mut buf = vec![0u16; 256];
     let mut len = (buf.len() * 2) as u32;
     // SAFETY: buf holds len bytes.
-    unsafe { RegGetValueW(key, PCWSTR(sub.as_ptr()), PCWSTR(value.as_ptr()), RRF_RT_REG_SZ, None, Some(buf.as_mut_ptr() as *mut c_void), Some(&mut len)) }
-        .ok()
-        .ok()?;
-    Some(String::from_utf16_lossy(&buf[..(len as usize / 2).saturating_sub(1)]))
+    unsafe {
+        RegGetValueW(
+            key,
+            PCWSTR(sub.as_ptr()),
+            PCWSTR(value.as_ptr()),
+            RRF_RT_REG_SZ,
+            None,
+            Some(buf.as_mut_ptr() as *mut c_void),
+            Some(&mut len),
+        )
+    }
+    .ok()
+    .ok()?;
+    Some(String::from_utf16_lossy(
+        &buf[..(len as usize / 2).saturating_sub(1)],
+    ))
 }
 
 fn reg_dword(key: HKEY, sub: &str, value: &str) -> Option<u32> {
@@ -23,9 +38,19 @@ fn reg_dword(key: HKEY, sub: &str, value: &str) -> Option<u32> {
     let mut v = 0u32;
     let mut len = 4u32;
     // SAFETY: a DWORD out-parameter.
-    unsafe { RegGetValueW(key, PCWSTR(sub.as_ptr()), PCWSTR(value.as_ptr()), RRF_RT_REG_DWORD, None, Some(&mut v as *mut u32 as *mut c_void), Some(&mut len)) }
-        .ok()
-        .ok()?;
+    unsafe {
+        RegGetValueW(
+            key,
+            PCWSTR(sub.as_ptr()),
+            PCWSTR(value.as_ptr()),
+            RRF_RT_REG_DWORD,
+            None,
+            Some(&mut v as *mut u32 as *mut c_void),
+            Some(&mut len),
+        )
+    }
+    .ok()
+    .ok()?;
     Some(v)
 }
 
@@ -57,10 +82,18 @@ pub(crate) fn microphone_status_of(s: &MicrophoneSettings) -> &'static str {
 
 pub(crate) fn microphone_settings() -> MicrophoneSettings {
     MicrophoneSettings {
-        policy: reg_dword(HKEY_LOCAL_MACHINE, r"SOFTWARE\Policies\Microsoft\Windows\AppPrivacy", "LetAppsAccessMicrophone"),
+        policy: reg_dword(
+            HKEY_LOCAL_MACHINE,
+            r"SOFTWARE\Policies\Microsoft\Windows\AppPrivacy",
+            "LetAppsAccessMicrophone",
+        ),
         device: reg_sz(HKEY_LOCAL_MACHINE, CONSENT, "Value"),
         user: reg_sz(HKEY_CURRENT_USER, CONSENT, "Value"),
-        desktop_apps: reg_sz(HKEY_CURRENT_USER, &format!(r"{CONSENT}\NonPackaged"), "Value"),
+        desktop_apps: reg_sz(
+            HKEY_CURRENT_USER,
+            &format!(r"{CONSENT}\NonPackaged"),
+            "Value",
+        ),
     }
 }
 
@@ -70,11 +103,19 @@ pub(crate) fn microphone_status() -> &'static str {
 
 /// Settings › Privacy › Speech › Online speech recognition, and the policy that can force it off.
 pub(crate) fn online_speech_status() -> &'static str {
-    let policy = reg_dword(HKEY_LOCAL_MACHINE, r"SOFTWARE\Policies\Microsoft\InputPersonalization", "AllowInputPersonalization");
+    let policy = reg_dword(
+        HKEY_LOCAL_MACHINE,
+        r"SOFTWARE\Policies\Microsoft\InputPersonalization",
+        "AllowInputPersonalization",
+    );
     if policy == Some(0) {
         return "restricted";
     }
-    match reg_dword(HKEY_CURRENT_USER, r"Software\Microsoft\Speech_OneCore\Settings\OnlineSpeechPrivacy", "HasAccepted") {
+    match reg_dword(
+        HKEY_CURRENT_USER,
+        r"Software\Microsoft\Speech_OneCore\Settings\OnlineSpeechPrivacy",
+        "HasAccepted",
+    ) {
         Some(1) => "granted",
         Some(_) => "denied",
         None => "notDetermined",
@@ -97,18 +138,41 @@ mod tests {
 
     #[test]
     fn microphone_status_mapping() {
-        let s = |policy, device: Option<&str>, user: Option<&str>, apps: Option<&str>| MicrophoneSettings {
-            policy,
-            device: device.map(str::to_string),
-            user: user.map(str::to_string),
-            desktop_apps: apps.map(str::to_string),
+        let s = |policy, device: Option<&str>, user: Option<&str>, apps: Option<&str>| {
+            MicrophoneSettings {
+                policy,
+                device: device.map(str::to_string),
+                user: user.map(str::to_string),
+                desktop_apps: apps.map(str::to_string),
+            }
         };
-        assert_eq!(microphone_status_of(&MicrophoneSettings::default()), "granted");
-        assert_eq!(microphone_status_of(&s(None, Some("Allow"), Some("Allow"), Some("Allow"))), "granted");
-        assert_eq!(microphone_status_of(&s(None, Some("Allow"), Some("Deny"), Some("Allow"))), "denied");
-        assert_eq!(microphone_status_of(&s(None, Some("Allow"), Some("Allow"), Some("Deny"))), "denied");
-        assert_eq!(microphone_status_of(&s(None, Some("Deny"), Some("Allow"), Some("Allow"))), "restricted");
-        assert_eq!(microphone_status_of(&s(Some(2), None, None, None)), "restricted");
-        assert_eq!(microphone_status_of(&s(Some(1), None, None, None)), "granted");
+        assert_eq!(
+            microphone_status_of(&MicrophoneSettings::default()),
+            "granted"
+        );
+        assert_eq!(
+            microphone_status_of(&s(None, Some("Allow"), Some("Allow"), Some("Allow"))),
+            "granted"
+        );
+        assert_eq!(
+            microphone_status_of(&s(None, Some("Allow"), Some("Deny"), Some("Allow"))),
+            "denied"
+        );
+        assert_eq!(
+            microphone_status_of(&s(None, Some("Allow"), Some("Allow"), Some("Deny"))),
+            "denied"
+        );
+        assert_eq!(
+            microphone_status_of(&s(None, Some("Deny"), Some("Allow"), Some("Allow"))),
+            "restricted"
+        );
+        assert_eq!(
+            microphone_status_of(&s(Some(2), None, None, None)),
+            "restricted"
+        );
+        assert_eq!(
+            microphone_status_of(&s(Some(1), None, None, None)),
+            "granted"
+        );
     }
 }

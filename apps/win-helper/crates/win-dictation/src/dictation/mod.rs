@@ -38,7 +38,12 @@ pub fn dictation_insert(params: Value) -> Result<Value, CapError> {
     let expect_pid = match p.expect_pid {
         None => None,
         Some(v) if (0..=i32::MAX as i64).contains(&v) => Some(v as u32),
-        Some(_) => return Err(CapError::invalid_params("expectPid is a process id", Some("expectPid"))),
+        Some(_) => {
+            return Err(CapError::invalid_params(
+                "expectPid is a process id",
+                Some("expectPid"),
+            ));
+        }
     };
     let outcome = win::dictation::run(move |b| policy::insert(&p.text, expect_pid, b))??;
     Ok(outcome.wire())
@@ -52,7 +57,11 @@ pub fn insert_receipt(result: &Value) -> ReceiptDraft {
     if let Some(b) = result["target"]["bundleId"].as_str() {
         refs.insert("bundleId".into(), json!(b));
     }
-    ReceiptDraft { outcome: "ok", summary: format!("Dictated {chars} characters into {app}"), external_refs: refs }
+    ReceiptDraft {
+        outcome: "ok",
+        summary: format!("Dictated {chars} characters into {app}"),
+        external_refs: refs,
+    }
 }
 
 fn key_payload(change: &KeyChange, at: String) -> Value {
@@ -77,7 +86,14 @@ pub fn dictation_watch(params: Value, inv: &Invocation) -> Result<Value, CapErro
     // The first events are the keys' states once the hook is installed: the Gateway answers
     // `watching: true` on the first.
     for k in &keys {
-        inv.emit(key_payload(&KeyChange { key: k.key, role: k.role, down: false }, iso8601_now()));
+        inv.emit(key_payload(
+            &KeyChange {
+                key: k.key,
+                role: k.role,
+                down: false,
+            },
+            iso8601_now(),
+        ));
     }
     loop {
         match changes.recv_timeout(Duration::from_millis(100)) {
@@ -100,18 +116,42 @@ mod tests {
 
     #[test]
     fn payload_and_receipt_shapes() {
-        let p = key_payload(&KeyChange { key: DictationKey::Fn, role: None, down: true }, "t".into());
+        let p = key_payload(
+            &KeyChange {
+                key: DictationKey::Fn,
+                role: None,
+                down: true,
+            },
+            "t".into(),
+        );
         assert_eq!(p, json!({"at": "t", "down": true, "key": "fn"}));
-        let p = key_payload(&KeyChange { key: DictationKey::RightCommand, role: Some(KeyRole::Voice), down: false }, "t".into());
+        let p = key_payload(
+            &KeyChange {
+                key: DictationKey::RightCommand,
+                role: Some(KeyRole::Voice),
+                down: false,
+            },
+            "t".into(),
+        );
         assert_eq!(p["role"], "voice");
-        let r = insert_receipt(&json!({"chars": 12, "method": "typed", "target": {"appName": "Notepad", "bundleId": "notepad.exe"}}));
+        let r = insert_receipt(
+            &json!({"chars": 12, "method": "typed", "target": {"appName": "Notepad", "bundleId": "notepad.exe"}}),
+        );
         assert_eq!(r.summary, "Dictated 12 characters into Notepad");
         assert_eq!(r.external_refs["bundleId"], "notepad.exe");
     }
 
     #[test]
     fn insert_params_validate() {
-        assert_eq!(dictation_insert(json!({})).unwrap_err().details["field"], "text");
-        assert_eq!(dictation_insert(json!({"text": "x", "expectPid": -1})).unwrap_err().details["field"], "expectPid");
+        assert_eq!(
+            dictation_insert(json!({})).unwrap_err().details["field"],
+            "text"
+        );
+        assert_eq!(
+            dictation_insert(json!({"text": "x", "expectPid": -1}))
+                .unwrap_err()
+                .details["field"],
+            "expectPid"
+        );
     }
 }
