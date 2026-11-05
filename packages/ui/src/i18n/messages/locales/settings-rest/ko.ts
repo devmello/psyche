@@ -616,7 +616,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.notBundled":
     "이 도우미는 이 앱에 포함된 것이 아니므로 여기서 키를 등록할 수 없습니다.",
   "settings.devices.touchId.untrusted":
-    "키체인의 Touch ID 키는 Psyche 도우미의 것임을 확인할 수 없어 사용하지 않았습니다. 무해한 원인으로 Psyche를 옮기거나 다른 곳에 다시 설치했을 수 있습니다. /Applications로 되돌리고 다시 여세요. 그렇지 않으면 먼저 Psyche 도우미를 종료하고, 터미널에서 /Applications/Psyche.app/Contents/MacOS/psyche-helper --reset-presence-key 를 실행한 다음 새 키를 등록하세요.",
+    "키체인의 Touch ID 키는 Psyche 도우미의 것임을 확인할 수 없어 사용하지 않았습니다. 무해한 원인으로 Psyche를 옮기거나 다른 곳에 다시 설치했을 수 있습니다. /Applications로 되돌리고 다시 여세요. 그렇지 않으면 먼저 Psyche 도우미를 종료하고, 터미널에서 /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key 를 실행한 다음 새 키를 등록하세요.",
   "settings.devices.touchId.accessDenied":
     "macOS가 Psyche 도우미의 키체인 Touch ID 키 사용을 허용하지 않았습니다. Psyche를 다시 실행하고, 대화상자에 psyche-helper가 표시될 때만 항상 허용을 선택하세요(다른 프로그램에는 절대 선택하지 마세요).",
   "settings.devices.touchId.wrongLocation":
@@ -626,6 +626,12 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.confirmReplace":
     "이 Mac에 등록된 Touch ID 키 {previous}을(를) 바꿉니다. 직접 키를 초기화한 경우에만 바꾸세요.",
   "settings.devices.touchId.confirmReplaceButton": "키 바꾸기",
+  "settings.devices.touchId.interactionNotAllowed":
+    "키체인이 지금은 권한을 요청할 수 없습니다. Mac의 잠금을 해제하고 다시 시도하세요.",
+  "settings.devices.touchId.changed":
+    "Psyche 도우미가 실행되는 동안 Touch ID 키가 바뀌었습니다. Psyche 도우미를 종료한 뒤 다시 시작하세요.",
+  "settings.devices.touchId.aclUnavailable":
+    "이 Mac의 키체인이 Touch ID 키의 접근 목록을 유지하지 않았습니다. Psyche 도우미를 다시 시작해 다시 시도하세요.",
   "settings.devices.touchId.noBundledKey":
     "이 앱의 Psyche Helper에 Touch ID 키가 없습니다 ({reason}).",
   "settings.devices.touchId.register": "이 키 등록",

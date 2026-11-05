@@ -574,7 +574,7 @@ export const settings: Partial<Catalogue> = {
   "settings.devices.touchId.notBundled":
     "هذا المساعد ليس المضمَّن مع هذا التطبيق، لذا لا يمكن تسجيل مفتاحه هنا.",
   "settings.devices.touchId.untrusted":
-    "لم يُستخدم مفتاح Touch ID في سلسلة المفاتيح لأنه لا يمكن إثبات أنه يخص مساعد Psyche. من الأسباب غير الضارة نقل Psyche أو إعادة تثبيته في مكان آخر: أعده إلى مجلد التطبيقات وافتحه مرة أخرى. وإلا فأغلق مساعد Psyche أولًا، ثم شغّل /Applications/Psyche.app/Contents/MacOS/psyche-helper --reset-presence-key في Terminal، وسجّل المفتاح الجديد.",
+    "لم يُستخدم مفتاح Touch ID في سلسلة المفاتيح لأنه لا يمكن إثبات أنه يخص مساعد Psyche. من الأسباب غير الضارة نقل Psyche أو إعادة تثبيته في مكان آخر: أعده إلى مجلد التطبيقات وافتحه مرة أخرى. وإلا فأغلق مساعد Psyche أولًا، ثم شغّل /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key في Terminal، وسجّل المفتاح الجديد.",
   "settings.devices.touchId.accessDenied":
     "لم يسمح macOS لمساعد Psyche باستخدام مفتاح Touch ID في سلسلة المفاتيح. شغّل Psyche مرة أخرى واختر السماح دائمًا فقط إذا ذكرت النافذة psyche-helper (وليس لأي برنامج آخر).",
   "settings.devices.touchId.wrongLocation":
@@ -584,6 +584,12 @@ export const settings: Partial<Catalogue> = {
   "settings.devices.touchId.confirmReplace":
     "سيستبدل هذا مفتاح Touch ID ‏{previous} المسجَّل لهذا الـ Mac. لا تستبدله إلا إذا أعدت تعيين المفتاح بنفسك.",
   "settings.devices.touchId.confirmReplaceButton": "استبدال المفتاح",
+  "settings.devices.touchId.interactionNotAllowed":
+    "لا تستطيع سلسلة المفاتيح طلب الإذن الآن. افتح قفل الـ Mac وحاول مرة أخرى.",
+  "settings.devices.touchId.changed":
+    "تغيّر مفتاح Touch ID أثناء تشغيل مساعد Psyche. أغلق مساعد Psyche وشغّله مرة أخرى.",
+  "settings.devices.touchId.aclUnavailable":
+    "رفضت سلسلة المفاتيح حفظ قائمة الوصول لمفتاح Touch ID على هذا الـ Mac. أعد تشغيل مساعد Psyche للمحاولة مرة أخرى.",
   "settings.devices.touchId.noBundledKey":
     "لا يملك مساعد Psyche في هذا التطبيق مفتاح Touch ID ({reason}).",
   "settings.devices.touchId.register": "تسجيل هذا المفتاح",

@@ -1457,7 +1457,7 @@ export const settings = {
   "settings.devices.touchId.notBundled":
     "This helper isn't the one bundled with this app, so its key can't be registered here.",
   "settings.devices.touchId.untrusted":
-    "The Touch ID key in the keychain was not used because it can’t be shown to be Psyche Helper’s. A harmless cause is that Psyche was moved or reinstalled somewhere else: move it back to /Applications and open it again. Otherwise quit Psyche Helper first, then run /Applications/Psyche.app/Contents/MacOS/psyche-helper --reset-presence-key in Terminal, and register the new key.",
+    "The Touch ID key in the keychain was not used because it can’t be shown to be Psyche Helper’s. A harmless cause is that Psyche was moved or reinstalled somewhere else: move it back to /Applications and open it again. Otherwise quit Psyche Helper first, then run /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key in Terminal, and register the new key.",
   "settings.devices.touchId.accessDenied":
     "macOS did not let Psyche Helper use its Touch ID key in the keychain. Run Psyche again and choose Always Allow only if the dialog names psyche-helper (never for another program).",
   "settings.devices.touchId.wrongLocation":
@@ -1467,6 +1467,12 @@ export const settings = {
   "settings.devices.touchId.confirmReplace":
     "This replaces the Touch ID key {previous} that was registered for this Mac. Replace it only if you reset the key yourself.",
   "settings.devices.touchId.confirmReplaceButton": "Replace key",
+  "settings.devices.touchId.interactionNotAllowed":
+    "The keychain can’t ask for permission right now. Unlock the Mac and try again.",
+  "settings.devices.touchId.changed":
+    "The Touch ID key changed while Psyche Helper was running. Quit Psyche Helper and start it again.",
+  "settings.devices.touchId.aclUnavailable":
+    "The keychain wouldn’t keep the Touch ID key’s access list on this Mac. Restart Psyche Helper to try again.",
   "settings.devices.touchId.noBundledKey":
     "The Psyche Helper in this app has no Touch ID key ({reason}).",
   "settings.devices.touchId.register": "Register this key",

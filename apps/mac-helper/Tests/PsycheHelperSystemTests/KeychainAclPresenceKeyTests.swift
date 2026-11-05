@@ -125,7 +125,7 @@ final class CreatedCounter: @unchecked Sendable {
 struct StubAuthorizer: OwnerAuthorizing {
     var allow = true
     func authorize(reason: String) throws {
-        guard allow, reason == "Reset Psyche's Touch ID key" else {
+        guard allow, reason == "delete Psyche's Touch ID key and make a new one" else {
             throw CapabilityError(.forbidden, reason: "presence_key_reset_declined", "no")
         }
     }
@@ -358,6 +358,28 @@ struct KeychainAclPresenceKeyTests {
         #expect(store.creates == 1)
         store.resetIsNoop = false
         #expect(try Self.key(store, lock: lock).publicKey().keyId == before.keyId)
+    }
+
+    @Test func aResetFromTheWrongPlaceChecksBeforeAskingOrDeleting() throws {
+        let store = MemoryAclStore()
+        let lock = Self.lockPath()
+        _ = try Self.key(store, lock: lock).publicKey()
+        let wrong = EnclaveKeychainAclPresenceKey(
+            store: store, backend: SoftBackend(), biometry: MutableState(Data([1])), lockPath: lock, location: { "a mounted disk image" }
+        )
+        struct Boom: OwnerAuthorizing {
+            func authorize(reason: String) throws { throw CapabilityError(.errorCodeInternal, reason: "asked", "was asked") }
+        }
+        // The location problem comes first: the owner is not even asked, and nothing is deleted.
+        #expect(Self.reason { _ = try wrong.resetByOwner(authorizing: Boom()) } == "presence_key_wrong_location")
+        #expect(store.resets == 0)
+    }
+
+    @Test func theResetCommandNamesTheBundledHelperPath() {
+        let cmd = AclAudit.resetCommand()
+        #expect(cmd.hasSuffix("/Contents/MacOS/psyche-helper --reset-presence-key"))
+        #expect(PresenceKeyErrors.untrusted("x").message.contains("PsycheHelper.app/Contents/MacOS/psyche-helper")
+            || PresenceKeyErrors.untrusted("x").message.contains(cmd))
     }
 
     @Test func aResetKilledHalfWayFailsClosedUntilTheNextReset() throws {

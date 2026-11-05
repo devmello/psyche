@@ -25,6 +25,18 @@ struct HelperInstanceTests {
         #expect(SingleInstanceLock.path(environment: ["PSYCHE_HOME": "/x"]) == "/x/run/helper.lock")
     }
 
+    @Test func theUserLockIsPerUserNotPerPsycheHome() throws {
+        let path = SingleInstanceLock.userPath()
+        #expect(path.hasSuffix("/Psyche Helper/presence/helper-running.lock"))
+        #expect(!path.contains("PSYCHE_HOME"))
+        // Same path whatever $PSYCHE_HOME says; two holders exclude each other.
+        let dir = try tempDir()
+        let user = (dir as NSString).appendingPathComponent("presence/helper-running.lock")
+        let first = try #require(SingleInstanceLock.acquire(path: user))
+        #expect(SingleInstanceLock.acquire(path: user) == nil)
+        first.release()
+    }
+
     @Test func replacingOrRemovingTheExecutableIsNoticedOnce() throws {
         let dir = try tempDir()
         let exe = (dir as NSString).appendingPathComponent("psyche-helper")

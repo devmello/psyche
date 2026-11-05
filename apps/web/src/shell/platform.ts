@@ -584,7 +584,7 @@ export interface HelperPort {
   getState(): Promise<MacHelperState>;
   onState(cb: (state: MacHelperState) => void): Unsubscribe;
   /** Starts the bundled helper now and resolves once it paired or timed out. */
-  launch?(): Promise<MacHelperState>;
+  launch?(restart?: boolean): Promise<MacHelperState>;
   /**
    * Touch ID through the bundled helper (security §3.7, §10), on main's own channels, which only
    * the main and Settings windows reach: what the bundled helper says about itself, registering

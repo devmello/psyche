@@ -152,6 +152,7 @@ export const blocksRest: Partial<Catalogue> = {
     "Questa build di Psyche Helper non può conservare una chiave Touch ID (non ha un gruppo di accesso al portachiavi), quindi le schede che richiedono Touch ID non possono essere approvate su questo Mac.",
   "blocks.approval.touchId.cancelled":
     "Touch ID è stato annullato, quindi non è stato approvato nulla",
+  "blocks.approval.touchId.restartHelper": "Riavvia l’helper di Psyche",
   "blocks.approval.touchId.startHelper": "Avvia Psyche Helper",
   "blocks.question.answerLine": "↳ {answer}",
   "blocks.sources.label": "Fonti",

@@ -128,11 +128,14 @@ if retireLegacy {
 if resetPresenceKey {
     // Owner action only: refuse while the helper runs (its single-instance lock), then the real
     // reset asks for an interactive terminal and macOS owner authentication.
-    guard let resetLock = SingleInstanceLock.acquire(path: SingleInstanceLock.path()) else {
+    // Both the per-$PSYCHE_HOME lock and the per-user one: no helper may be running for this user.
+    guard let resetLock = SingleInstanceLock.acquire(path: SingleInstanceLock.path()),
+          let resetUserLock = SingleInstanceLock.acquire(path: SingleInstanceLock.userPath())
+    else {
         FileHandle.standardError.write(Data("Quit Psyche Helper first, then run this again.\n".utf8))
         exit(1)
     }
-    _ = resetLock
+    _ = (resetLock, resetUserLock)
     do {
         let made = try PreferredPresenceKey.live().resetByOwner(authorizing: LiveOwnerAuthorizer())
         print(JSONValue.object(["presenceKeyId": .string(made.keyId)]).jsonString(pretty: false))
@@ -178,12 +181,16 @@ if printIdentity {
 // One helper per $PSYCHE_HOME: the desktop runs `open` on every start (docs/archive/status/s14.md
 // "Packaging"). Taken before the device identity loads, so a second copy touches nothing.
 var instanceLock: SingleInstanceLock?
+// The per-user lock a Touch ID key reset checks (any helper, any $PSYCHE_HOME). Best effort: a second
+// helper for another $PSYCHE_HOME may legitimately run, so failing to take it is not fatal.
+var userRunningLock: SingleInstanceLock?
 if !handshakeOnly {
     instanceLock = SingleInstanceLock.acquire(path: SingleInstanceLock.path())
     if instanceLock == nil {
         log.info("psyche-helper already running for this PSYCHE_HOME; exiting")
         exit(0)
     }
+    userRunningLock = SingleInstanceLock.acquire(path: SingleInstanceLock.userPath())
 }
 
 let identity: DeviceIdentity
@@ -252,6 +259,7 @@ for sig in [SIGTERM, SIGINT] {
         log.info("stopping")
         daemon.stop()
         instanceLock?.release()
+        userRunningLock?.release()
         exit(0)
     }
     source.resume()

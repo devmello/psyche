@@ -247,6 +247,7 @@ export const blocks = {
   "blocks.approval.touchId.keyUnavailable":
     "This build of Psyche Helper can't keep a Touch ID key (it has no keychain access group), so cards that need Touch ID can't be approved on this Mac.",
   "blocks.approval.touchId.cancelled": "Touch ID was cancelled, so nothing was approved",
+  "blocks.approval.touchId.restartHelper": "Restart Psyche Helper",
   "blocks.approval.touchId.startHelper": "Start Psyche Helper",
   "blocks.approval.alsoSentTo": "Also sent to: {surfaces}. The first answer wins.",
   "blocks.approval.details": "Details",

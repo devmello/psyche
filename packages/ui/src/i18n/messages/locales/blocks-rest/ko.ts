@@ -146,6 +146,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.touchId.keyUnavailable":
     "이 빌드의 Psyche Helper는 Touch ID 키를 보관할 수 없어(키체인 접근 그룹 없음) 이 Mac에서는 Touch ID가 필요한 카드를 승인할 수 없습니다.",
   "blocks.approval.touchId.cancelled": "Touch ID가 취소되어 아무것도 승인되지 않았습니다",
+  "blocks.approval.touchId.restartHelper": "Psyche 도우미 다시 시작",
   "blocks.approval.touchId.startHelper": "Psyche Helper 시작",
   "blocks.question.answerLine": "↳ {answer}",
   "blocks.sources.label": "출처",

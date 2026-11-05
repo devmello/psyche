@@ -623,7 +623,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.notBundled":
     "このヘルパーはこのアプリに同梱のものではないため、ここでキーを登録できません。",
   "settings.devices.touchId.untrusted":
-    "キーチェーンのTouch IDキーは、Psyche Helperのものと確認できないため使われませんでした。無害な原因として、Psycheが移動または別の場所に再インストールされた可能性があります。/Applicationsに戻して開き直してください。それ以外の場合は、まずPsyche Helperを終了し、ターミナルで /Applications/Psyche.app/Contents/MacOS/psyche-helper --reset-presence-key を実行して、新しいキーを登録してください。",
+    "キーチェーンのTouch IDキーは、Psyche Helperのものと確認できないため使われませんでした。無害な原因として、Psycheが移動または別の場所に再インストールされた可能性があります。/Applicationsに戻して開き直してください。それ以外の場合は、まずPsyche Helperを終了し、ターミナルで /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key を実行して、新しいキーを登録してください。",
   "settings.devices.touchId.accessDenied":
     "macOSがPsyche Helperにキーチェーンの Touch IDキーの使用を許可しませんでした。Psycheを再度起動し、確認画面に psyche-helper と表示されている場合にだけ「常に許可」を選んでください（ほかのプログラムには選ばないでください）。",
   "settings.devices.touchId.wrongLocation":
@@ -633,6 +633,12 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.confirmReplace":
     "このMacに登録されているTouch IDキー {previous} を置き換えます。自分でキーをリセットした場合にだけ置き換えてください。",
   "settings.devices.touchId.confirmReplaceButton": "キーを置き換える",
+  "settings.devices.touchId.interactionNotAllowed":
+    "キーチェーンは今は許可を求められません。Macのロックを解除してもう一度試してください。",
+  "settings.devices.touchId.changed":
+    "Psyche Helperの実行中にTouch IDキーが変わりました。Psyche Helperを終了して、もう一度起動してください。",
+  "settings.devices.touchId.aclUnavailable":
+    "このMacのキーチェーンはTouch IDキーのアクセスリストを保持しませんでした。Psyche Helperを再起動してもう一度試してください。",
   "settings.devices.touchId.noBundledKey":
     "このアプリのPsyche HelperにはTouch IDキーがありません（{reason}）。",
   "settings.devices.touchId.register": "このキーを登録",

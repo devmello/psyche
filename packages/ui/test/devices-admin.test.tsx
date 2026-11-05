@@ -203,7 +203,9 @@ describe("Settings → Devices: registering a Touch ID key (security review, fin
       </StoryWorld>,
     );
     const untrusted = screen.getByTestId("touch-id-no-key").textContent ?? "";
-    expect(untrusted).toContain("/Applications/Psyche.app/Contents/MacOS/psyche-helper");
+    expect(untrusted).toContain(
+      "/Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper",
+    );
     expect(untrusted).toContain("quit Psyche Helper first");
     expect(untrusted).toContain("moved or reinstalled");
     rerender(
@@ -219,6 +221,27 @@ describe("Settings → Devices: registering a Touch ID key (security review, fin
     expect(screen.getByTestId("touch-id-no-key").textContent).toContain(
       "only if the dialog names psyche-helper",
     );
+  });
+
+  it("names the interaction, changed-while-running and ACL-unavailable key states", () => {
+    const text = (error: string) => {
+      const { unmount } = render(
+        <StoryWorld>
+          <TouchIdKeySetup
+            deviceId="dev_helper"
+            bundled={{ deviceId: "dev_helper", error }}
+            allowDevFileKey={false}
+            {...handlers()}
+          />
+        </StoryWorld>,
+      );
+      const out = screen.getByTestId("touch-id-no-key").textContent ?? "";
+      unmount();
+      return out;
+    };
+    expect(text("presence_key_interaction_not_allowed")).toContain("Unlock the Mac");
+    expect(text("presence_key_changed")).toContain("changed while Psyche Helper was running");
+    expect(text("presence_key_acl_unavailable")).toContain("access list");
   });
 
   it("shows the bundled helper's key problem and a key-id mismatch even while a key is registered", () => {

@@ -233,7 +233,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
     helper: {
       getState: () => b.helper.getState() as Promise<MacHelperState>,
       onState: (cb) => b.helper.onState((s) => cb(s as MacHelperState)),
-      launch: () => b.helper.launch() as Promise<MacHelperState>,
+      launch: (restart) => b.helper.launch(restart) as Promise<MacHelperState>,
       touchId: {
         identity: () => b.helper.touchIdIdentity() as Promise<BundledHelperIdentity | null>,
         register: (confirmReplacesKeyId) =>

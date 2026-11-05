@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Runner } from "./supervisor.ts";
@@ -36,6 +36,21 @@ export interface HelperLauncherOptions {
   relaunchEveryMs?: number;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
+  /** The pid in the helper's lock file (`<home>/run/helper.lock`); tests pass their own. */
+  readPid?: () => number | undefined;
+  kill?: (pid: number, signal: "SIGTERM") => void;
+}
+
+function lockPid(psycheHome: string): number | undefined {
+  try {
+    const n = Number.parseInt(
+      readFileSync(join(psycheHome, "run", "helper.lock"), "utf8").trim(),
+      10,
+    );
+    return Number.isInteger(n) && n > 1 ? n : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function openHelperArgs(appPath: string, psycheHome: string, home = homedir()): string[] {
@@ -72,6 +87,34 @@ export class HelperLauncher {
       this.launching = undefined;
     });
     return this.launching;
+  }
+
+  /**
+   * Quits the running helper (SIGTERM to the pid in its lock file, and only when `ps` says that pid
+   * is a psyche-helper) and starts it again: a card's "Restart Psyche Helper" after its Touch ID key
+   * changed while it ran.
+   */
+  async restart(): Promise<void> {
+    if (this.state.kind === "unbundled") return;
+    const pid = this.opts.readPid ? this.opts.readPid() : lockPid(this.opts.psycheHome);
+    if (pid !== undefined) {
+      const ps = await this.opts
+        .run("/bin/ps", ["-p", String(pid), "-o", "comm="])
+        .catch(() => undefined);
+      if (ps?.code === 0 && ps.stdout.includes("psyche-helper")) {
+        try {
+          (this.opts.kill ?? process.kill)(pid, "SIGTERM");
+        } catch {
+          // already gone
+        }
+      }
+    }
+    const now = this.opts.now ?? Date.now;
+    const sleep = this.opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+    const end = now() + 10_000;
+    while (now() < end && (await this.opts.isPaired().catch(() => false))) await sleep(250);
+    this.set({ kind: "offline" });
+    await this.launch();
   }
 
   private async doLaunch(): Promise<void> {

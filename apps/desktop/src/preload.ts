@@ -222,7 +222,8 @@ const bridge = {
     getState: () => invoke(IPC.helperGetState),
     onState: (cb: (s: unknown) => void) => listen(IPC.helperState, cb),
     /** Starts the bundled helper (an approval card's "Start Psyche Helper"); resolves to its state. */
-    launch: () => invoke(IPC.helperLaunch),
+    launch: (restart?: boolean) =>
+      restart === true ? invoke(IPC.helperLaunch, "restart") : invoke(IPC.helperLaunch),
     // Touch ID through the bundled helper: main and Settings windows only (main checks).
     touchIdIdentity: () => invoke(IPC.touchIdIdentity),
     // Register and approve resolve the raw envelope like `gateway.call`: the approval card reads

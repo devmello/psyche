@@ -604,7 +604,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.notBundled":
     "यह हेल्पर इस ऐप के साथ आया हेल्पर नहीं है, इसलिए इसकी कुंजी यहाँ रजिस्टर नहीं की जा सकती।",
   "settings.devices.touchId.untrusted":
-    "कीचेन में मौजूद Touch ID कुंजी इस्तेमाल नहीं की गई, क्योंकि यह साबित नहीं हो सकता कि वह Psyche हेल्पर की है। एक हानिरहित कारण यह है कि Psyche को हटाकर कहीं और ले जाया गया या दोबारा इंस्टॉल किया गया: उसे वापस /Applications में रखें और फिर खोलें। नहीं तो पहले Psyche हेल्पर बंद करें, Terminal में /Applications/Psyche.app/Contents/MacOS/psyche-helper --reset-presence-key चलाएँ, और नई कुंजी पंजीकृत करें।",
+    "कीचेन में मौजूद Touch ID कुंजी इस्तेमाल नहीं की गई, क्योंकि यह साबित नहीं हो सकता कि वह Psyche हेल्पर की है। एक हानिरहित कारण यह है कि Psyche को हटाकर कहीं और ले जाया गया या दोबारा इंस्टॉल किया गया: उसे वापस /Applications में रखें और फिर खोलें। नहीं तो पहले Psyche हेल्पर बंद करें, Terminal में /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key चलाएँ, और नई कुंजी पंजीकृत करें।",
   "settings.devices.touchId.accessDenied":
     "macOS ने Psyche हेल्पर को कीचेन की अपनी Touch ID कुंजी इस्तेमाल करने नहीं दी। Psyche फिर से चलाएँ और हमेशा अनुमति दें केवल तभी चुनें जब संवाद में psyche-helper का नाम हो (किसी और प्रोग्राम के लिए कभी नहीं)।",
   "settings.devices.touchId.wrongLocation":
@@ -614,6 +614,12 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.confirmReplace":
     "यह इस Mac के लिए पंजीकृत Touch ID कुंजी {previous} को बदल देगा। इसे तभी बदलें जब आपने कुंजी खुद रीसेट की हो।",
   "settings.devices.touchId.confirmReplaceButton": "कुंजी बदलें",
+  "settings.devices.touchId.interactionNotAllowed":
+    "कीचेन अभी अनुमति नहीं माँग सकता। Mac अनलॉक करें और फिर कोशिश करें।",
+  "settings.devices.touchId.changed":
+    "Psyche हेल्पर चलते समय Touch ID कुंजी बदल गई। Psyche हेल्पर बंद करके फिर शुरू करें।",
+  "settings.devices.touchId.aclUnavailable":
+    "इस Mac पर कीचेन ने Touch ID कुंजी की एक्सेस सूची नहीं रखी। दोबारा कोशिश के लिए Psyche हेल्पर को रीस्टार्ट करें।",
   "settings.devices.touchId.noBundledKey":
     "इस ऐप के Psyche Helper के पास Touch ID कुंजी नहीं है ({reason})।",
   "settings.devices.touchId.register": "यह कुंजी रजिस्टर करें",

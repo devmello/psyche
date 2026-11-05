@@ -12,6 +12,15 @@ public final class SingleInstanceLock: @unchecked Sendable {
         (HelperPaths.psycheHome(environment: env) as NSString).appendingPathComponent("run/helper.lock")
     }
 
+    /// One per user, not per `$PSYCHE_HOME`: `~/Library/Application Support/Psyche Helper/presence/helper-running.lock`.
+    /// A running helper holds it, and the Touch ID key reset refuses while any helper does, whatever
+    /// its `$PSYCHE_HOME` (the key is per user, so the lock is too).
+    public static func userPath() -> String {
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
+        return support.appendingPathComponent("Psyche Helper/presence/helper-running.lock").path
+    }
+
     /// Takes the lock, or nil when another process holds it. The lock lasts until `release()` or
     /// process exit (the kernel drops it with the descriptor, so a crash never leaves it stale).
     public static func acquire(path: String) -> SingleInstanceLock? {

@@ -3,7 +3,7 @@ import { describeError, errorCode } from "../i18n/errors.ts";
 import type { MessageId } from "../i18n/messages/index.ts";
 
 /** What the card offers when Touch ID cannot confirm from this window (`touchIdFix` slot). */
-export type TouchIdFix = "start_helper" | "open_devices";
+export type TouchIdFix = "start_helper" | "restart_helper" | "open_devices";
 
 /** `approvals.approveWithTouchId`'s `details.reason` when it cannot run. */
 const TOUCH_ID_SETUP: Record<string, { id: MessageId; fix: TouchIdFix | null }> = {
@@ -16,7 +16,7 @@ const TOUCH_ID_SETUP: Record<string, { id: MessageId; fix: TouchIdFix | null }> 
   // The helper's keychain key, found wrong or unusable (security §10).
   presence_key_untrusted: { id: "blocks.approval.touchId.keyUntrusted", fix: "open_devices" },
   presence_key_access_denied: { id: "blocks.approval.touchId.keyAccessDenied", fix: null },
-  presence_key_changed: { id: "blocks.approval.touchId.keyChanged", fix: "start_helper" },
+  presence_key_changed: { id: "blocks.approval.touchId.keyChanged", fix: "restart_helper" },
   presence_key_wrong_location: { id: "blocks.approval.touchId.keyWrongLocation", fix: null },
   presence_key_interaction_not_allowed: { id: "blocks.approval.touchId.keyLocked", fix: null },
   presence_key_acl_unavailable: { id: "blocks.approval.touchId.keyAclUnavailable", fix: null },

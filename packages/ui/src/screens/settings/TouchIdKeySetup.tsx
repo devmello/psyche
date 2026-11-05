@@ -39,7 +39,13 @@ function bundledErrorText(error: string | undefined): string {
       ? t("settings.devices.touchId.accessDenied")
       : error === "presence_key_wrong_location"
         ? t("settings.devices.touchId.wrongLocation")
-        : t("settings.devices.touchId.noBundledKey", { reason: error ?? "unknown" });
+        : error === "presence_key_interaction_not_allowed"
+          ? t("settings.devices.touchId.interactionNotAllowed")
+          : error === "presence_key_changed"
+            ? t("settings.devices.touchId.changed")
+            : error === "presence_key_acl_unavailable"
+              ? t("settings.devices.touchId.aclUnavailable")
+              : t("settings.devices.touchId.noBundledKey", { reason: error ?? "unknown" });
 }
 
 /** `0123 4567 89ab cdef …`: the start of a key id, grouped so the owner can compare it. */

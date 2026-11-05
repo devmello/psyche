@@ -141,6 +141,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.touchId.keyUnavailable":
     "Psyche Helper का यह बिल्ड Touch ID कुंजी नहीं रख सकता (इसमें कीचेन एक्सेस ग्रुप नहीं है), इसलिए जिन कार्डों को Touch ID चाहिए उन्हें इस Mac पर स्वीकृत नहीं किया जा सकता।",
   "blocks.approval.touchId.cancelled": "Touch ID रद्द किया गया, इसलिए कुछ भी स्वीकृत नहीं हुआ",
+  "blocks.approval.touchId.restartHelper": "Psyche हेल्पर रीस्टार्ट करें",
   "blocks.approval.touchId.startHelper": "Psyche Helper शुरू करें",
   "blocks.question.answerLine": "↳ {answer}",
   "blocks.sources.label": "स्रोत",

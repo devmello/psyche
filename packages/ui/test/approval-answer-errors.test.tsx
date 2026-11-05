@@ -137,7 +137,7 @@ describe("answer failures on the card", () => {
     for (const [reason, fix] of [
       ["presence_key_untrusted", "open_devices"],
       ["presence_key_access_denied", null],
-      ["presence_key_changed", "start_helper"],
+      ["presence_key_changed", "restart_helper"],
       ["presence_key_wrong_location", null],
       ["presence_key_interaction_not_allowed", null],
       ["presence_key_acl_unavailable", null],

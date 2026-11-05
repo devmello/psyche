@@ -142,6 +142,7 @@ export const blocks: Partial<Catalogue> = {
   "blocks.approval.touchId.keyUnavailable":
     "لا يستطيع هذا الإصدار من مساعد Psyche حفظ مفتاح Touch ID (لا توجد مجموعة وصول إلى سلسلة المفاتيح)، لذا لا يمكن الموافقة على البطاقات التي تحتاج إلى Touch ID على هذا الـ Mac.",
   "blocks.approval.touchId.cancelled": "أُلغي Touch ID، لذا لم تتم الموافقة على شيء",
+  "blocks.approval.touchId.restartHelper": "إعادة تشغيل مساعد Psyche",
   "blocks.approval.touchId.startHelper": "تشغيل مساعد Psyche",
   "blocks.question.answerLine": "↳ {answer}",
   "blocks.sources.label": "المصادر",

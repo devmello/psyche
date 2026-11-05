@@ -136,6 +136,7 @@ export const blocks: Partial<Catalogue> = {
   "blocks.approval.touchId.keyUnavailable":
     "此版本的 Psyche 助手无法保存 Touch ID 密钥（没有钥匙串访问组），因此需要 Touch ID 的卡片无法在这台 Mac 上批准。",
   "blocks.approval.touchId.cancelled": "Touch ID 已取消，因此没有批准任何内容",
+  "blocks.approval.touchId.restartHelper": "重启 Psyche 助手",
   "blocks.approval.touchId.startHelper": "启动 Psyche 助手",
   "blocks.question.answerLine": "↳ {answer}",
   "blocks.sources.label": "来源",

@@ -111,7 +111,7 @@ export const settingsC: Partial<Catalogue> = {
   "settings.devices.touchId.notBundled":
     "Este auxiliar não é o que vem com este app, então a chave dele não pode ser registrada aqui.",
   "settings.devices.touchId.untrusted":
-    "A chave do Touch ID no chaveiro não foi usada porque não é possível provar que é do auxiliar do Psyche. Uma causa inofensiva: o Psyche foi movido ou reinstalado em outro lugar; coloque-o de volta em /Applications e abra de novo. Caso contrário, feche primeiro o auxiliar do Psyche, execute /Applications/Psyche.app/Contents/MacOS/psyche-helper --reset-presence-key no Terminal e registre a nova chave.",
+    "A chave do Touch ID no chaveiro não foi usada porque não é possível provar que é do auxiliar do Psyche. Uma causa inofensiva: o Psyche foi movido ou reinstalado em outro lugar; coloque-o de volta em /Applications e abra de novo. Caso contrário, feche primeiro o auxiliar do Psyche, execute /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key no Terminal e registre a nova chave.",
   "settings.devices.touchId.accessDenied":
     "O macOS não permitiu que o auxiliar do Psyche usasse sua chave do Touch ID no chaveiro. Abra o Psyche de novo e escolha Sempre permitir somente se a janela citar psyche-helper (nunca para outro programa).",
   "settings.devices.touchId.wrongLocation":
@@ -121,6 +121,12 @@ export const settingsC: Partial<Catalogue> = {
   "settings.devices.touchId.confirmReplace":
     "Isto substitui a chave do Touch ID {previous} registrada para este Mac. Substitua-a somente se você mesmo redefiniu a chave.",
   "settings.devices.touchId.confirmReplaceButton": "Substituir a chave",
+  "settings.devices.touchId.interactionNotAllowed":
+    "O chaveiro não pode pedir permissão agora. Desbloqueie o Mac e tente de novo.",
+  "settings.devices.touchId.changed":
+    "A chave do Touch ID mudou enquanto o auxiliar do Psyche estava em execução. Feche o auxiliar do Psyche e inicie-o de novo.",
+  "settings.devices.touchId.aclUnavailable":
+    "O chaveiro não manteve a lista de acesso da chave do Touch ID neste Mac. Reinicie o auxiliar do Psyche para tentar de novo.",
   "settings.devices.touchId.noBundledKey":
     "O Psyche Helper deste app não tem chave do Touch ID ({reason}).",
   "settings.devices.touchId.register": "Registrar esta chave",

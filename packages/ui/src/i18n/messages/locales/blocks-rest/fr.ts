@@ -152,6 +152,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.touchId.keyUnavailable":
     "Cette version de Psyche Helper ne peut pas conserver de clé Touch ID (elle n’a pas de groupe d’accès au trousseau), les cartes qui exigent Touch ID ne peuvent donc pas être approuvées sur ce Mac.",
   "blocks.approval.touchId.cancelled": "Touch ID a été annulé, rien n’a donc été approuvé",
+  "blocks.approval.touchId.restartHelper": "Relancer l’assistant Psyche",
   "blocks.approval.touchId.startHelper": "Démarrer Psyche Helper",
   "blocks.question.answerLine": "↳ {answer}",
   "blocks.sources.label": "Sources",

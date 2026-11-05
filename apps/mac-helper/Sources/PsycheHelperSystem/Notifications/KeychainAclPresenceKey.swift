@@ -55,7 +55,7 @@ extension PresenceKeyErrors {
     public static func untrusted(_ what: String) -> CapabilityError {
         CapabilityError(
             .errorCodeInternal, reason: "presence_key_untrusted",
-            "The Touch ID key in the keychain was not used because it cannot be shown to be Psyche Helper's (\(what)). A harmless cause is that Psyche was moved or reinstalled somewhere else: move it back to /Applications and open it again. Otherwise quit Psyche Helper, run /Applications/Psyche.app/Contents/MacOS/psyche-helper --reset-presence-key in Terminal, and register the new key."
+            "The Touch ID key in the keychain was not used because it cannot be shown to be Psyche Helper's (\(what)). A harmless cause is that Psyche was moved or reinstalled somewhere else: move it back to /Applications and open it again. Otherwise quit Psyche Helper, run \(AclAudit.resetCommand()) in Terminal (that exact bundled path: the key's access list names it), and register the new key."
         )
     }
 
@@ -426,7 +426,10 @@ public final class EnclaveKeychainAclPresenceKey: OwnerResettable, @unchecked Se
     /// (`presence_key_untrusted`) and needs another reset. The new key has a new key id: the owner
     /// registers it again in Settings → Devices.
     public func resetByOwner(authorizing: any OwnerAuthorizing) throws -> (x963: Data, keyId: String) {
-        try authorizing.authorize(reason: "Reset Psyche's Touch ID key")
+        // Before asking the owner for anything, and before deleting anything: a key that could not be
+        // made again from here must not be deleted.
+        if let problem = location() { throw PresenceKeyErrors.wrongLocation(problem) }
+        try authorizing.authorize(reason: "delete Psyche's Touch ID key and make a new one")
         return try lock.withLock {
             creationFailure = nil
             return try withCreationLock {
@@ -724,6 +727,14 @@ public struct LoginKeychainAclStore: AclKeychainStore {
 /// Reads an item's access list (`SecKeychainItemCopyAccess` family, deprecated) and answers whether
 /// every entry that matters trusts only this program, by its exact resolved path.
 enum AclAudit {
+    /// The command the owner runs to reset the key: this running bundle's real path when the code is
+    /// the bundled helper, else the standard install path.
+    static func resetCommand() -> String {
+        let standard = "/Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper"
+        let path = ownPath().flatMap { $0.hasSuffix("/Contents/MacOS/psyche-helper") ? $0 : nil } ?? standard
+        return path + " --reset-presence-key"
+    }
+
     static func ownPath() -> String? {
         var size: UInt32 = 0
         _NSGetExecutablePath(nil, &size)
