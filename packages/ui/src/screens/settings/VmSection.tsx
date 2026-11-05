@@ -111,8 +111,8 @@ function GuestCard({ report, now }: { report: VmUpdatedPayload; now: number }): 
       ) : null}
       <Facts
         items={[
-          // i18n-ignore: the operating system's name (the sandbox PC's guest is Linux)
           {
+            // i18n-ignore: the operating system's name (the sandbox PC's guest is Linux)
             term: isWindows() ? "Linux" : "macOS",
             value: g.guestOS ?? t("settings.vm.notInstalled"),
           },
