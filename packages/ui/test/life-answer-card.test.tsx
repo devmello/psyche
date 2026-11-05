@@ -199,7 +199,7 @@ describe("the answer card", () => {
   });
 
   it.each([
-    ["no_facts", "Nothing you have confirmed answers that yet."],
+    ["no_facts", "Nothing Psyche may read answers that yet."],
     ["no_answer", "The facts Psyche has do not answer that."],
     ["ungrounded", "Couldn't find a source for that."],
     ["model_failed", "Could not answer just now."],
@@ -365,7 +365,158 @@ describe("asking from the Search page", () => {
       </StoryWorld>,
     );
     type("where does Sam work?");
-    expect(await screen.findByText("Nothing you have confirmed answers that yet.")).toBeTruthy();
+    expect(await screen.findByText("Nothing Psyche may read answers that yet.")).toBeTruthy();
     expect(screen.queryByTestId("life-answer-source")).toBeNull();
+  });
+});
+
+describe("follow-up questions", () => {
+  it("offers a box under an answered card, and none under a missing answer", () => {
+    const onFollowUp = vi.fn();
+    card({
+      phase: "done",
+      result: { answer: "Sam works at Initech [1].", facts: [fact("f1", "Initech")], reason: null },
+      onFollowUp,
+      turns: [],
+    });
+    const box = screen.getByTestId("life-answer-followup");
+    const input = within(box).getByRole("textbox", { name: "Follow-up question" });
+    expect((within(box).getByRole("button", { name: "Ask" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    fireEvent.change(input, { target: { value: "and Pat?" } });
+    fireEvent.submit(box);
+    expect(onFollowUp).toHaveBeenCalledExactlyOnceWith("and Pat?");
+    expect((input as HTMLInputElement).value).toBe("");
+    cleanup();
+    card({
+      phase: "done",
+      result: { answer: null, facts: [], reason: "no_facts" },
+      onFollowUp,
+      turns: [],
+    });
+    expect(screen.queryByTestId("life-answer-followup")).toBeNull();
+  });
+
+  it("shows each follow-up under the answer with its own chips and reason", () => {
+    card({
+      phase: "done",
+      result: { answer: "Sam works at Initech [1].", facts: [fact("f1", "Initech")], reason: null },
+      onFollowUp: () => undefined,
+      turns: [
+        {
+          id: 1,
+          question: "and Pat?",
+          phase: "done",
+          result: {
+            answer: "Pat works at Globex [1].",
+            facts: [fact("f2", "Globex", {}, ["e2", "Pat Doe"])],
+            reason: null,
+          },
+        },
+        {
+          id: 2,
+          question: "and Eve?",
+          phase: "done",
+          result: { answer: null, facts: [], reason: "no_facts" },
+        },
+        { id: 3, question: "and Wu?", phase: "loading" },
+      ],
+    });
+    const turns = screen.getAllByTestId("life-answer-turn");
+    expect(turns).toHaveLength(3);
+    expect(turns[0]?.textContent).toContain("You asked: and Pat?");
+    expect(
+      within(turns[0] as HTMLElement).getByRole("button", { name: "Pat Doe: Works at" }),
+    ).toBeTruthy();
+    expect(turns[1]?.textContent).toContain("Nothing Psyche may read answers that yet.");
+    expect(turns[2]?.textContent).toContain("Looking through");
+    // One is still being answered: no second question until it is.
+    expect((screen.getByRole("button", { name: "Ask" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("reads passages only when asked: a button on the card, then the follow-ups keep reading them", async () => {
+    let gateway: MockGateway | undefined;
+    render(
+      <StoryWorld
+        edit={(w) => {
+          w.review = { items: [], quarantine: [], runs: [], life: [fact("f1", "Initech")] };
+        }}
+        onGateway={(g) => {
+          gateway = g;
+        }}
+      >
+        <SearchScreen initialQuery="" debounceMs={0} />
+      </StoryWorld>,
+    );
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "where does Sam work?" } });
+    await screen.findByRole("button", { name: "Sam Lee: Works at" });
+    const calls = () => gateway?.calls.filter((c) => c.method === "memory.life.answer") ?? [];
+    expect(calls()).toHaveLength(1);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Answer from my mail, messages and files" }),
+    );
+    await waitFor(() => expect(calls()).toHaveLength(2));
+    expect(calls()[1]?.params).toEqual({ q: "where does Sam work?", passages: true });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Answer from my mail, messages and files" }),
+      ).toBeNull(),
+    );
+    const box = await screen.findByTestId("life-answer-followup");
+    fireEvent.change(within(box).getByRole("textbox"), { target: { value: "since when?" } });
+    fireEvent.submit(box);
+    await waitFor(() => expect(calls()).toHaveLength(3));
+    expect(calls()[2]?.params).toMatchObject({ q: "since when?", passages: true });
+  });
+
+  it("sends the turn before with the ids it cited, then keeps that context for the next", async () => {
+    let gateway: MockGateway | undefined;
+    render(
+      <StoryWorld
+        edit={(w) => {
+          w.review = { items: [], quarantine: [], runs: [], life: [fact("f1", "Initech")] };
+        }}
+        onGateway={(g) => {
+          gateway = g;
+        }}
+      >
+        <SearchScreen initialQuery="" debounceMs={0} />
+      </StoryWorld>,
+    );
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "where does Sam work?" } });
+    await screen.findByRole("button", { name: "Sam Lee: Works at" });
+    const asked = gateway?.calls.filter((c) => c.method === "memory.life.answer") ?? [];
+    // Typing sends facts only: raw passages go only with the explicit button.
+    expect(asked[0]?.params).toEqual({ q: "where does Sam work?" });
+
+    const box = screen.getByTestId("life-answer-followup");
+    fireEvent.change(within(box).getByRole("textbox"), { target: { value: "since when?" } });
+    fireEvent.submit(box);
+    await waitFor(() =>
+      expect(screen.getAllByTestId("life-answer-turn")[0]?.textContent).toContain("Sam Lee"),
+    );
+    const second = gateway?.calls.filter((c) => c.method === "memory.life.answer")[1];
+    expect(second?.params).toEqual({
+      q: "since when?",
+      previous: {
+        q: "where does Sam work?",
+        answer: "Sam Lee: Initech [1]",
+        factIds: ["f1"],
+        passageIds: [],
+      },
+    });
+    // A third question carries the second's question, not the first's.
+    fireEvent.change(within(screen.getByTestId("life-answer-followup")).getByRole("textbox"), {
+      target: { value: "and now?" },
+    });
+    fireEvent.submit(screen.getByTestId("life-answer-followup"));
+    await waitFor(() =>
+      expect(gateway?.calls.filter((c) => c.method === "memory.life.answer")).toHaveLength(3),
+    );
+    const third = gateway?.calls.filter((c) => c.method === "memory.life.answer")[2]?.params as {
+      previous: { q: string };
+    };
+    expect(third.previous.q).toBe("since when?");
   });
 });

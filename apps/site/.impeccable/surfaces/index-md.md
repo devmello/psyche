@@ -22,3 +22,12 @@ FIRST VIEWPORT: A two-page spread filling the viewport under a quiet nav. Left p
 FORM: Notebook of files, position 5 on my list, dealt lead. seed:6e35e2e9750f5d1a. Signature interaction: the sheets fan apart along the scroll and each label reads as its file name. Motion grammar: sheets are laid down (rise, settle, shadow tightens), ink rules draw; nothing idles.
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+
+## Scroll choreography (follow-up, 2026-11-04)
+
+Owner ask: the page should get more animated as it scrolls, not blander; every section needs one strong, scroll-linked moment that shows what Psyche does.
+
+MOTION THESIS: The scroll is the agent's working day. Each section scrubs one sequence of the product's own mechanism. Hero: the stack fans into four files. Memory: mail, chat and calendar scraps travel into MEMORY.md and become lines with source chips (pinned). Brief: Home's brief inks in word by word and each claim snaps on its numbered source (pinned). Search and Home: the two pages are dealt onto the desk from either side. Approvals: the lights go down, the lamp comes on, a running send stops at the approval card, Allow once is pressed, the card folds away and the receipt prints (pinned). Receipts: lines print along a drawn hash chain. What stays: rows file into a line around "This Mac" that draws shut; only model calls cross it, telemetry is struck. Status: items are checked off. Close: the commands type out.
+
+GRAMMAR: one engine (`scroll-scenes.ts`) writes `--p` 0 to 1 per `[data-scene]`; CSS derives every transform, clip and opacity from it, so motion is scrubbed, not triggered. Pins only at ≥961 px wide and ≥760 px tall; elsewhere pin scenes run over their own height. Default `--p: 1` is the finished state (no script, reduced motion). Clips play one at a time and hold still while the page scrolls. Illustrations are labelled as illustrations with fictional data; the real UI clips follow each one.
+

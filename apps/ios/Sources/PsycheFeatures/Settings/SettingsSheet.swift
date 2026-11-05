@@ -98,6 +98,7 @@ final class SettingsModel {
 struct SettingsSheet: View {
     @State private var model: SettingsModel
     @Environment(Session.self) private var session
+    @Environment(\.alerts) private var alerts
     @Environment(\.dismiss) private var dismiss
     @State private var confirmingRepair = false
     @State private var confirmingRemove = false
@@ -202,9 +203,9 @@ struct SettingsSheet: View {
             infoRow("Connection", device.transport, last: true)
         }
 
-        section("Notifications", footer: "Task titles on the Lock Screen are off by default. When on, titles travel to your phone as plain text through Apple's push service.") {
-            toggleRow("Notifications", isOn: binding(\.notifications, settings))
-            toggleRow("Live Activities", isOn: binding(\.liveActivities, settings), disabled: !settings.notifications)
+        section("Notifications", footer: Self.notificationsFooter) {
+            toggleRow("Notifications", isOn: notificationsBinding(settings))
+            toggleRow("Live Activities", isOn: liveActivitiesBinding(settings), disabled: !settings.notifications)
             toggleRow(
                 "Task titles on the Lock Screen", isOn: binding(\.taskTitlesOnLockScreen, settings),
                 disabled: !settings.notifications || !settings.liveActivities, last: true)
@@ -299,6 +300,40 @@ struct SettingsSheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
     }
+
+    /// Turning notifications on asks iOS for permission (the only place besides the first approval that does);
+    /// if it is refused the switch goes back off and a line says where to change it.
+    private func notificationsBinding(_ settings: PhoneSettings) -> Binding<Bool> {
+        Binding(
+            get: { settings.notifications },
+            set: { value in
+                model.update { $0.notifications = value }
+                guard value, let alerts else { return }
+                Task {
+                    if await !alerts.requestNotificationPermission() {
+                        model.update { $0.notifications = false }
+                        model.notice = "Notifications are off for Psyche in the iOS Settings app. Turn them on there, then try again."
+                    }
+                }
+            })
+    }
+
+    private func liveActivitiesBinding(_ settings: PhoneSettings) -> Binding<Bool> {
+        Binding(
+            get: { settings.liveActivities },
+            set: { value in
+                model.update { $0.liveActivities = value }
+                if value, let alerts, !alerts.liveActivitiesAllowedBySystem {
+                    model.notice = "Live Activities are off for Psyche in the iOS Settings app. Turn them on there to see tasks on the Lock Screen."
+                }
+            })
+    }
+
+    static let notificationsFooter = """
+        Task titles on the Lock Screen are off by default.
+
+        Without an Apple Developer account, Psyche can only notify you while it's open or when iOS lets it check in the background.
+        """
 
     private func binding(_ keyPath: WritableKeyPath<PhoneSettings, Bool>, _ settings: PhoneSettings) -> Binding<Bool> {
         Binding(

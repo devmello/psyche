@@ -148,7 +148,7 @@ extension GatewayBackend {
         return NeedsYouItem(
             id: id, kind: .approval, title: summary, source: agent ?? Self.humanized(kind),
             time: WireFormat.time(a["requestedAt"]?.string), approval: detail,
-            threadID: a.at("requestedBy", "threadId")?.string)
+            threadID: a.at("requestedBy", "threadId")?.string, taskID: a.at("requestedBy", "taskId")?.string)
     }
 
     static func running(task t: JSONValue) -> RunningTask? {
@@ -159,7 +159,8 @@ extension GatewayBackend {
         return RunningTask(
             id: id, title: t["title"]?.string ?? "Working", step: min(done + 1, max(checklist.count, 1)),
             stepCount: checklist.count, detail: current ?? t["goal"]?.string ?? "",
-            elapsed: WireFormat.elapsed(since: t["createdAt"]?.string))
+            elapsed: WireFormat.elapsed(since: t["createdAt"]?.string),
+            startedAt: WireFormat.date(t["startedAt"]?.string) ?? WireFormat.date(t["createdAt"]?.string))
     }
 
     static func inboxLabel(_ kind: String) -> String {

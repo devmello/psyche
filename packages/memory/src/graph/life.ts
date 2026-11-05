@@ -30,9 +30,27 @@ export interface LifeFactHit {
   source: string | null;
   /** The search document id of that citation's source passage, when it is indexed. */
   docId: string | null;
+  /** Every citation's indexed passage, in order (at most 5), found at read time from the citations. */
+  docIds: string[];
+  /** Every citation's source kind, without repeats (at most 8). */
+  sources: string[];
   observedAt: string | null;
   /** When Psyche first learned it (first seen, else recorded). */
   learnedAt: string | null;
+}
+
+/** The search document ids of a fact's citations, without repeats. Read from the citations each time, never kept on the fact. */
+export function docIdsOf(cites: readonly { docId?: string | null }[]): string[] {
+  return [
+    ...new Set(cites.flatMap((c) => (c.docId == null || c.docId === "" ? [] : [c.docId]))),
+  ].slice(0, 5);
+}
+
+/** The source kinds of a fact's citations, without repeats. */
+export function sourcesOf(cites: readonly { source?: string | null }[]): string[] {
+  return [
+    ...new Set(cites.flatMap((c) => (c.source == null || c.source === "" ? [] : [c.source]))),
+  ].slice(0, 8);
 }
 
 export interface LifeResult {
@@ -190,6 +208,8 @@ export function lifeSearch(
       quote: first?.quote ?? null,
       source: first?.source ?? null,
       docId: first?.docId ?? null,
+      docIds: docIdsOf(cites),
+      sources: sourcesOf(cites),
       observedAt: first?.observedAt ?? null,
       learnedAt: r.first_seen_at ?? r.recorded_at,
     });
@@ -236,7 +256,8 @@ export function lifeCandidates(
   for (const r of rows) {
     const entity = graph.summary(r.entity_id);
     if (entity === undefined) continue;
-    const first = em.citations("fact", r.id)[0];
+    const cites = em.citations("fact", r.id);
+    const first = cites[0];
     out.push({
       sensitive: r.sensitivity !== "none",
       hit: {
@@ -249,6 +270,8 @@ export function lifeCandidates(
         quote: first?.quote ?? null,
         source: first?.source ?? null,
         docId: first?.docId ?? null,
+        docIds: docIdsOf(cites),
+        sources: sourcesOf(cites),
         observedAt: first?.observedAt ?? null,
         learnedAt: r.first_seen_at ?? r.recorded_at,
       },

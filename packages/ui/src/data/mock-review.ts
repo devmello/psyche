@@ -139,10 +139,11 @@ export function reviewHandlers(ctx: { world: () => ReviewWorld; now: () => strin
       const facts = (w.life ?? []).filter((f) => f.review !== "pending").slice(0, 1);
       const first = facts[0];
       return first === undefined
-        ? { answer: null, facts: [], reason: "no_facts" as const }
+        ? { answer: null, facts: [], passages: [], reason: "no_facts" as const }
         : {
             answer: `${first.entity.name}: ${first.value} [1]`,
             facts,
+            passages: [],
             reason: null,
           };
     },

@@ -1,4 +1,4 @@
-import type { EntitySummary, LifeFactHit, SearchHit } from "@psyche/protocol";
+import type { EntitySummary, LifeAnswerPassage, LifeFactHit, SearchHit } from "@psyche/protocol";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LifeAnswerCard } from "../src/screens/search/LifeAnswerCard.tsx";
@@ -224,5 +224,83 @@ describe("narrow windows, cloud connectors and side chats", () => {
       );
       view.unmount();
     }
+  });
+});
+
+describe("a passage chip opens the passage itself", () => {
+  const passage = (id: string, over: Partial<LifeAnswerPassage> = {}): LifeAnswerPassage => ({
+    id,
+    source: "mail",
+    title: "Contract timeline",
+    createdAt: Date.parse("2026-10-03T09:00:00.000Z"),
+    ...over,
+  });
+  const passageAnswer = (
+    passages: LifeAnswerPassage[],
+    text: string,
+    facts: LifeFactHit[] = [],
+  ) => (
+    <LifeAnswerCard
+      state={{
+        phase: "done",
+        onAsk: () => undefined,
+        result: { answer: text, facts, passages, reason: null },
+      }}
+    />
+  );
+
+  it("labels a one-passage claim with its source and title, and shows the passage as plain text", async () => {
+    mount(passageAnswer([passage("mail:123")], "The contract is ready Friday [P1]."), [
+      sourceHit("mail:123"),
+    ]);
+    const chip = screen.getByTestId("life-answer-source");
+    expect(chip.textContent).toBe("Mail: Contract timeline");
+    fireEvent.click(chip);
+    expect(screen.queryByTestId("source-viewer")).toBeNull();
+    fireEvent.click(screen.getByTestId("life-answer-open-passage"));
+    const text = await screen.findByTestId("source-text");
+    expect(text.textContent).toContain("<b>not markup</b> https://evil.example");
+    expect(text.querySelector("b, a")).toBeNull();
+    expect(screen.getByRole("region", { name: "Source passage" }).textContent).toContain(
+      "Mail, Oct 3",
+    );
+    fireEvent.click(screen.getByTestId("life-answer-open-passage"));
+    expect(screen.queryByTestId("source-viewer")).toBeNull();
+  });
+
+  it("puts a claim on a fact and a passage behind one counted chip, with both under it", () => {
+    mount(
+      passageAnswer([passage("mail:123")], "Sam is at Initech and signs Friday [1][P1].", [fact()]),
+      [sourceHit("mail:123")],
+    );
+    const chip = screen.getByTestId("life-answer-source");
+    expect(chip.textContent).toBe("2 sources");
+    fireEvent.click(chip);
+    expect(screen.getAllByTestId("life-answer-passage")).toHaveLength(1);
+    expect(screen.getAllByTestId("life-answer-fact")).toHaveLength(1);
+  });
+
+  it("shows nothing for a passage marker that names no passage, and drops an uncited claim", () => {
+    mount(passageAnswer([passage("mail:123")], "It is ready [P4]. Sam waved."), []);
+    expect(screen.queryByTestId("life-answer-source")).toBeNull();
+    expect(screen.getByTestId("life-answer").textContent).toContain(
+      "Couldn't find a source for that.",
+    );
+  });
+
+  it("opens each of a fact's several citations on its own button", async () => {
+    mount(answer(fact({ docIds: ["mail:123", "notes:9"] })), [
+      sourceHit("mail:123"),
+      sourceHit("notes:9", { title: "Second note" }),
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Sam Lee: Works at" }));
+    expect(screen.getAllByTestId("life-answer-open-source").map((b) => b.textContent)).toEqual([
+      "Show source 1",
+      "Show source 2",
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Show source 2" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("source-viewer").textContent).toContain("Second note"),
+    );
   });
 });

@@ -772,6 +772,7 @@ describe("Life answer handler", () => {
     expect(await e.handlers["memory.life.answer"]({ q: "where does sam work" })).toEqual({
       answer: null,
       facts: [],
+      passages: [],
       reason: "no_model",
     });
     expect(provider.requests).toHaveLength(0);

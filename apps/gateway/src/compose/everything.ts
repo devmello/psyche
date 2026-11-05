@@ -1,7 +1,8 @@
 import { join } from "node:path";
 import { getSetting, openDb, type PsycheDb } from "@psyche/db";
 import {
-  answerFromFacts,
+  type AnswerPassage,
+  answerFromSources,
   describeUpcoming,
   EverythingStore,
   FactVectorStore,
@@ -10,10 +11,12 @@ import {
   type ItemReader,
   isAppleOnDeviceRef,
   type LifeEmbedder,
+  type LifeFactHit,
   lifeCandidates,
   lifeFactsForQuestion,
   lifeSearch,
   localMinutesAt,
+  MAX_ANSWER_PASSAGES,
   type NightlyStep,
   type PassDeps,
   type PassReport,
@@ -46,12 +49,18 @@ import {
   type ModelRef,
   PsycheError,
 } from "@psyche/protocol";
-import { readSourcesConfig } from "@psyche/search";
+import { OWNER_ONLY_SOURCES, readSourcesConfig, SOURCE_IDS, sourceTag } from "@psyche/search";
 import { Value } from "@sinclair/typebox/value";
 import type { Call } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import { readSystemState } from "./everything-probe.ts";
 import { mountParamsOnly } from "./handlers.ts";
+import {
+  type AnswerViewer,
+  lifePassages,
+  type PassageDeps,
+  type PassageSource,
+} from "./life-passages.ts";
 import type { ComposedPart } from "./services.ts";
 import { workSettings } from "./work.ts";
 
@@ -254,6 +263,8 @@ export interface EverythingHandlers {
   ): Promise<ReviewResult<"memory.life.search">>;
   "memory.life.answer"(
     p: ReviewParams<"memory.life.answer">,
+    /** Who asks; absent is the most restricted viewer (no passages, nothing owner-only). */
+    viewer?: AnswerViewer,
   ): Promise<ReviewResult<"memory.life.answer">>;
   "memory.entities.export"(
     p: ReviewParams<"memory.entities.export">,
@@ -281,9 +292,47 @@ export interface PersonContext {
   vectors?: FactVectorStore;
   /** The model that may answer a question about people (off, or an unconfirmed local one: none). */
   answerModel?: () => { provider: ModelProvider; model: ModelRef } | undefined;
+  /** Raw source passages for an answer (late-bound: the index is composed after this). */
+  passages?: () => PassageSource | undefined;
+  /** The sensitive classes the owner switched on, read on every use; none when absent. */
+  sensitive?: () => Partial<Record<string, boolean>>;
+  /** Whether the model that would answer runs off this Mac. Absent counts as yes: fails closed. */
+  answerIsCloud?: () => boolean;
+  /** Sources (`mail`, `messages`, …) whose text may not reach a cloud model (processing none or local). */
+  cloudBlockedSources?: () => readonly string[];
 }
 
 const PAGE = 50;
+
+const RESTRICTED_VIEWER: AnswerViewer = { passages: false, desktop: false };
+
+const ownerOnly = (x: string | null | undefined): boolean =>
+  x != null && (OWNER_ONLY_SOURCES as readonly string[]).includes(x.split(":")[0] ?? "");
+
+/**
+ * A fact as this connection may be shown it. A connection other than the desktop app cannot open
+ * Messages, Contacts or Memory passages (`search.document`). The rule: a fact is shown only if
+ * every citation it rests on can be opened by the connection; if any one cannot, the fact is left
+ * out whole (not trimmed), so a claim never rests on a source the connection cannot see.
+ */
+function forViewer<
+  T extends {
+    source?: string | null;
+    docId?: string | null;
+    sources?: string[];
+    docIds?: string[];
+  },
+>(h: T, viewer: AnswerViewer): T | undefined {
+  if (viewer.desktop) return h;
+  const cited = [h.source, h.docId, ...(h.sources ?? []), ...(h.docIds ?? [])];
+  return cited.some(ownerOnly) ? undefined : h;
+}
+
+/** Who a call is: a paired client may read passages; only the desktop app reads the owner-only ones. */
+const viewerOf = (call: Call): AnswerViewer => ({
+  passages: call.identity.role === "client",
+  desktop: call.identity.role === "client" && call.identity.desktopShell === true,
+});
 
 export function everythingHandlers(
   em: EverythingStore,
@@ -428,14 +477,14 @@ export function everythingHandlers(
       );
       return { ...found, facts };
     },
-    async "memory.life.answer"(p) {
+    async "memory.life.answer"(p, viewer = RESTRICTED_VIEWER) {
       const ctx = needPerson();
       const now = ctx.clock.now();
       const model = ctx.answerModel?.();
-      if (model === undefined) return { answer: null, facts: [], reason: "no_model" };
+      if (model === undefined) return { answer: null, facts: [], passages: [], reason: "no_model" };
       const lexical = lifeFactsForQuestion(ctx.graph, em, ctx.db, p.q, { limit: 20, now });
       const candidates = lifeCandidates(ctx.graph, em, ctx.db, now);
-      const hits = await fuseLifeHits(
+      const fused = await fuseLifeHits(
         p.q,
         lexical,
         candidates,
@@ -444,13 +493,82 @@ export function everythingHandlers(
         undefined,
         ctx.vectors,
       );
-      const r = await answerFromFacts({
+      // A follow-up keeps the facts its earlier answer cited: read again, under this
+      // connection's rules, never taken from what the client sent back.
+      const prev = p.previous;
+      const earlier =
+        prev === undefined
+          ? []
+          : candidates
+              .filter((c) => !c.sensitive && prev.factIds.includes(c.hit.factId))
+              .map((c) => c.hit);
+      const seen = new Set<string>();
+      // Facts for this connection, and for this model: a fact resting on a source whose text may
+      // not reach the cloud is left out while the model is a cloud model.
+      const cloud = ctx.answerIsCloud?.() ?? true;
+      const blocked = new Set(cloud ? (ctx.cloudBlockedSources?.() ?? []) : []);
+      const allowed = (h: LifeFactHit): LifeFactHit | undefined => {
+        const shown = forViewer(h, viewer);
+        const cited = [h.source, ...(h.sources ?? [])];
+        return shown === undefined || cited.some((s) => s != null && blocked.has(s))
+          ? undefined
+          : shown;
+      };
+      const rereadFacts = earlier.flatMap((h) => {
+        const shown = allowed(h);
+        return shown === undefined ? [] : [shown];
+      });
+      const hits = [...rereadFacts, ...fused].flatMap((h) => {
+        if (seen.has(h.factId)) return [];
+        seen.add(h.factId);
+        const shown = allowed(h);
+        return shown === undefined ? [] : [shown];
+      });
+      const source = p.passages === true && viewer.passages ? ctx.passages?.() : undefined;
+      let passages: AnswerPassage[] = [];
+      // The earlier answer's text is sent only if everything it cited reads again now, under this
+      // connection and this model. If any id fails, only the earlier question goes.
+      const rereadPassages = source?.byIds(prev?.passageIds ?? [], prev?.q ?? "", viewer) ?? [];
+      const intact =
+        prev !== undefined &&
+        rereadFacts.length === new Set(prev.factIds).size &&
+        rereadPassages.length === new Set(prev.passageIds).size;
+      if (source !== undefined) {
+        const seenIds = new Set<string>();
+        const lists = [
+          rereadPassages,
+          await source.search(p.q, viewer, MAX_ANSWER_PASSAGES),
+          // "and what about his sister?" reads better next to the question before it.
+          ...(prev === undefined
+            ? []
+            : [await source.search(`${prev.q} ${p.q}`.slice(0, 500), viewer, MAX_ANSWER_PASSAGES)]),
+        ];
+        passages = lists.flat().filter((x) => !seenIds.has(x.id) && seenIds.add(x.id));
+      }
+      const r = await answerFromSources({
         ...model,
         question: p.q,
         hits,
+        passages,
+        ...(prev === undefined
+          ? {}
+          : { prior: { question: prev.q, answer: intact ? prev.answer : "" } }),
+        sensitive: ctx.sensitive?.() ?? {},
         exclude: new Set(candidates.filter((c) => c.sensitive).map((c) => c.hit.factId)),
       });
-      return r;
+      return r.answer === null
+        ? { answer: null, facts: [], passages: [], reason: r.reason }
+        : {
+            answer: r.answer,
+            facts: r.facts,
+            passages: r.passages.map((x) => ({
+              id: x.id,
+              source: x.source,
+              title: x.title.slice(0, 200),
+              createdAt: Math.max(0, Math.trunc(x.createdAt)),
+            })),
+            reason: null,
+          };
     },
     async "memory.everything.run"() {
       return run();
@@ -567,6 +685,10 @@ export interface EverythingDeps {
   card?: (path: string) => Promise<string | undefined>;
   /** The embedder Search uses now (late-bound), for Life search by meaning. */
   embedder?: () => LifeEmbedder | undefined;
+  /** Whether a model ref runs off this Mac (the router's providers); an unknown ref counts as cloud. */
+  isCloudRef?: (ref: ModelRef) => boolean;
+  /** The search index and what it needs to read passages for an answer (late-bound, like the embedder). */
+  passageIndex?: () => Pick<PassageDeps, "index" | "document" | "cloudBlocked"> | undefined;
   /** The machine, read once when the pass starts (tests pass fixed numbers). */
   readState?: () => Promise<PassDeps["state"]>;
   /** Posts the "Psyche learned N things" card to the Feed (no notification). */
@@ -634,6 +756,13 @@ export function composeEverything(deps: EverythingDeps): Everything {
       ? { provider: deps.provider, model: choice.ref as ModelRef }
       : undefined;
   };
+  const answerIsCloud = (): boolean => {
+    const m = answerModel();
+    if (m === undefined) return true;
+    return deps.isCloudRef !== undefined
+      ? deps.isCloudRef(m.model)
+      : settings().model.default.kind !== "local";
+  };
   const handlers = everythingHandlers(store, settings, () => runNowFn(), {
     graph,
     clock,
@@ -643,6 +772,27 @@ export function composeEverything(deps: EverythingDeps): Everything {
     ...(deps.card === undefined ? {} : { card: deps.card }),
     ...(deps.embedder === undefined ? {} : { embedder: deps.embedder }),
     answerModel,
+    sensitive: () => settings().sensitive,
+    // Whether the model actually called is a cloud model: the router's answer, and an unknown ref
+    // counts as cloud. Without a router (tests) the setting's label stands.
+    answerIsCloud,
+    cloudBlockedSources: () => {
+      const tags = deps.passageIndex?.()?.cloudBlocked() ?? [];
+      return SOURCE_IDS.filter((id) => tags.includes(sourceTag(id)));
+    },
+    passages: () => {
+      const idx = deps.passageIndex?.();
+      return idx === undefined
+        ? undefined
+        : lifePassages({
+            ...idx,
+            cloud: answerIsCloud,
+            sensitive: () => settings().sensitive,
+            // Memory's own per-source opt-out also keeps a source's passages out of answers.
+            optedOut: (source) =>
+              (settings().optOut as Record<string, boolean | undefined>)[source] === true,
+          });
+    },
   });
   let search: PsycheDb | undefined;
   // A second, read-only connection to the derived index, opened on the first read (so a pass the
@@ -865,6 +1015,26 @@ export function composeEverything(deps: EverythingDeps): Everything {
       return {
         handlers: {
           ...mounted,
+          // The answer depends on who asks: the desktop app, another paired client, or no one
+          // who can open a passage (a Mac helper).
+          "memory.life.answer": {
+            run: (call: Call, params: never) =>
+              handlers["memory.life.answer"](params, viewerOf(call)),
+          },
+          // Life search lists facts too: the same rule for what a connection may be shown.
+          "memory.life.search": {
+            run: async (call: Call, params: never) => {
+              const res = await handlers["memory.life.search"](params);
+              const viewer = viewerOf(call);
+              return {
+                ...res,
+                facts: res.facts.flatMap((h) => {
+                  const shown = forViewer(h, viewer);
+                  return shown === undefined ? [] : [shown];
+                }),
+              };
+            },
+          },
           "memory.review.list": {
             run: async (call: Call, params: never) => {
               const res = await handlers["memory.review.list"](params);

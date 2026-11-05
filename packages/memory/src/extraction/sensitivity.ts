@@ -1,5 +1,5 @@
 import type { GraphSensitivity } from "@psyche/protocol";
-import { detectSensitive } from "../filters.ts";
+import { detectSensitive, foldForDetection } from "../filters.ts";
 
 /**
  * The deterministic sensitivity classifier (docs/design/everything-memory-2026.md §10.2). It runs
@@ -60,7 +60,8 @@ const ATTRIBUTE_CLASS: Partial<Record<string, GraphSensitivity>> = {
  * Classify `text` (the fact value plus its quote). Returns the strictest class found, `none`
  * when nothing matched. Structured patterns (ids, accounts) come from the shared secret filters.
  */
-export function classifySensitivity(text: string, attribute?: string): GraphSensitivity {
+export function classifySensitivity(raw: string, attribute?: string): GraphSensitivity {
+  const text = foldForDetection(raw);
   let best: GraphSensitivity =
     attribute === undefined ? "none" : (ATTRIBUTE_CLASS[attribute] ?? "none");
   const found = detectSensitive(text);

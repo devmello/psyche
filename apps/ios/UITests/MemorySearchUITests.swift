@@ -88,7 +88,8 @@ final class SearchUITests: PsycheUITestCase {
         waitFor(hit)
         hit.tap()
         waitFor(app.segmentedControls.buttons["To-do"], 5)
-        XCTAssertTrue(tab("Memory").isSelected)
+        // The Memory page is showing (its title); on iPad the floating tab bar can be hidden at this moment.
+        waitFor(app.staticTexts["Memory"], 5)
     }
 
     func testPersonHitOpensPersonPage() {
