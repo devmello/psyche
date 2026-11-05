@@ -2,6 +2,7 @@ import type { Connector } from "@psyche/protocol";
 import type { ReactElement } from "react";
 import { useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { macOnlyAvailable } from "../../lib/platform-copy.ts";
 import { RadioField } from "./shared.tsx";
 
 /** The connector catalogue: what Add connector offers, and the read / read-and-act choice. */
@@ -117,10 +118,15 @@ export function offeredCatalog(
   implemented: ReadonlySet<string> | undefined,
   options: { navigation?: boolean } = {},
 ) {
+  // The Apple apps exist only on a Mac: on Windows they are not offered at all (mail, calendar
+  // and contacts come through Google, Microsoft or IMAP there; cross-platform-2026 §3.2).
+  const mac = macOnlyAvailable();
   return CONNECTOR_CATALOG.filter((c) =>
-    c.opens !== undefined || c.type === "mcp"
-      ? options.navigation !== false
-      : implemented === undefined || implemented.has(c.type),
+    !mac && c.type.startsWith("apple:")
+      ? false
+      : c.opens !== undefined || c.type === "mcp"
+        ? options.navigation !== false
+        : implemented === undefined || implemented.has(c.type),
   );
 }
 

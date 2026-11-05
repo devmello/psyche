@@ -246,6 +246,21 @@ export {
 export { groupFingerprint } from "./lib/fingerprint.ts";
 // Formatting helpers.
 export * from "./lib/format.ts";
+export { chordLabel, type KeyChord, keysLabel, modKey, parseChord } from "./lib/keys.ts";
+export {
+  applyPlatformAttribute,
+  isWindows,
+  normalizePlatform,
+  setUiPlatform,
+  type UiPlatform,
+  uiPlatform,
+} from "./lib/platform.ts";
+export {
+  macOnlyAvailable,
+  macOnlyLabel,
+  type PlatformTerm,
+  platformTerm,
+} from "./lib/platform-copy.ts";
 export { documentPrefersReducedMotion } from "./lib/reduced-motion.ts";
 export { cn } from "./lib/utils.ts";
 export * from "./links/index.ts";

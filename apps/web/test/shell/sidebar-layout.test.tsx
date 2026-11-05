@@ -271,6 +271,35 @@ describe("the toolbar clear of the traffic lights (#624)", () => {
     );
   });
 
+  it("Windows' overlay chrome: toggles at the left, the caption buttons' room on the right", () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/feed");
+    const { platform } = platformWith({ "shell.sidebar.open": "false" });
+    platform.chrome = { titleBar: "overlay", material: "mica" };
+    platform.kind = "desktop";
+    render(<ShellApp platform={platform} />);
+    const frame = screen.getByTestId("app-frame");
+    expect(frame.getAttribute("data-chrome")).toBe("overlay");
+    expect(screen.getByTestId("titlebar").getAttribute("data-frame")).toBe("overlay");
+    // No traffic lights: the toggles start at the window's edge, and the toolbars just after.
+    expect(screen.getByTestId("titlebar-toggle").style.left).toBe("8px");
+    expect(frame.style.getPropertyValue("--chrome-lead")).toBe("50px");
+    expect(document.documentElement.dataset.material).toBe("mica");
+    expect(
+      chromeLead({
+        chrome: { titleBar: "overlay" },
+        sidebarOpen: true,
+        mode: "full",
+        sidebarWidth: 248,
+      }),
+    ).toEqual({ lead: 248, toolbar: null });
+    const css = readFileSync(join(process.cwd(), "src/shell/layout/shell-layout.css"), "utf8");
+    expect(css).toMatch(/env\(titlebar-area-width/);
+    expect(css).toMatch(
+      /\.app-frame\[data-chrome="overlay"\]\s+\.shell-content\s+:is\([^)]*\)\s*\{\s*padding-right: calc\(var\(--caption-buttons-width\)/,
+    );
+  });
+
   it("the web has no lights: no inset, whatever the sidebar does", () => {
     window.innerWidth = 1280;
     window.history.replaceState(null, "", "/feed");
@@ -281,7 +310,7 @@ describe("the toolbar clear of the traffic lights (#624)", () => {
     // The attribute alone does nothing without the inset chrome (the CSS needs both).
     const css = readFileSync(join(process.cwd(), "src/shell/layout/shell-layout.css"), "utf8");
     expect(css).toMatch(
-      /\.app-frame\[data-chrome="inset"\]\[data-toolbar-lead\]\s+\.shell-content\s+:is\(\[data-slot="toolbar"\], \[data-slot="screen-toolbar"\], \[data-testid="chat-toolbar"\]\)\s*\{\s*padding-left: var\(--toolbar-lead/,
+      /\.app-frame\[data-chrome\]\[data-toolbar-lead\]\s+\.shell-content\s+:is\(\[data-slot="toolbar"\], \[data-slot="screen-toolbar"\], \[data-testid="chat-toolbar"\]\)\s*\{\s*padding-left: var\(--toolbar-lead/,
     );
     // The stale `<header>` selector is gone: the agent header is a div[role=toolbar].
     expect(css).not.toContain('[data-testid="kit-chat"] > header');

@@ -95,7 +95,9 @@ export interface MemoryChoices {
 export interface BundledHelperKey {
   deviceId: string;
   keyId?: string;
-  kind?: "keychain" | "enclave_file";
+  /** `windows_hello` from the Windows helper (with `algorithm`, e.g. "RSA-2048"). */
+  kind?: "keychain" | "enclave_file" | "windows_hello";
+  algorithm?: string;
   error?: string;
 }
 
@@ -158,7 +160,10 @@ export interface OnboardingResult {
     creatureDescription: string | null;
     tagline: string;
   };
-  permissions: Record<TccPermission, PermissionAnswer>;
+  /** The macOS grants; `microphone` only on Windows (its privacy toggle, the one grant there). */
+  permissions: Record<Exclude<TccPermission, "microphone">, PermissionAnswer> & {
+    microphone?: PermissionAnswer;
+  };
   connectors: ConnectedAccount[];
   model: ModelChoice;
   /**
