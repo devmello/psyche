@@ -58,9 +58,9 @@ const USAGE = `usage:
 scopes: comma-separated; default for approve is every operator scope (the owner's first device)
 
 The commands that change security state ask the running psyched and wait for its answer. Making
-the first admin device (no admin exists yet), and narrowing a device's scopes, apply at once.
-Everything else applies 24 hours later, with a warning on every device until then, unless it is
-cancelled or approved sooner with Touch ID or a passkey on an admin device.
+the first admin device of a fresh install (no admin device, no Touch ID key or passkey ever
+registered) applies at once. Everything else applies 24 hours later, with a warning on every device
+until then, unless it is cancelled or approved sooner with Touch ID or a passkey on an admin device.
 exit codes: 0 applied, 1 refused or failed, 2 usage, 3 waiting (applies later), 4 psyched did not
 answer (nothing changed)`;
 

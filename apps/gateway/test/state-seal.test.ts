@@ -137,6 +137,37 @@ describe("state seal", () => {
     expect(again.alerts.open()).toEqual([]);
   });
 
+  it("own bulk deletes and foreign-key cascades keep the seal valid", async () => {
+    const d = db();
+    pairDevice(d, "dev-a");
+    d.sqlite
+      .prepare(
+        `INSERT INTO passkeys (id, device_id, credential_id, public_key, name, created_at)
+         VALUES ('pk1', 'dev-a', 'cred', x'01', 'key', ?)`,
+      )
+      .run(d.now());
+    d.sqlite
+      .prepare(
+        `INSERT INTO grants (id, kind, scope, grant_key, subject, side_effect, created_at, updated_at)
+         VALUES ('g1', 'site', 'always', 'k', '{}', 'read', ?, ?)`,
+      )
+      .run(d.now(), d.now());
+    const seal = await StateSeal.open(d, { home });
+    d.sqlite.prepare("DELETE FROM devices WHERE id = 'dev-a'").run(); // cascades to the passkey
+    d.sqlite.prepare("DELETE FROM grants").run(); // no WHERE: no truncate shortcut with triggers
+    expect(
+      d.sqlite
+        .prepare(
+          "SELECT count(*) AS n FROM security_ledger WHERE tbl IN ('passkeys', 'grants', 'devices')",
+        )
+        .get(),
+    ).toEqual({ n: 0 });
+    foreign((f) => setSetting(f, "appearance.theme", "dark")); // any foreign commit: a full check
+    seal.ensure();
+    expect(seal.status().status).toBe("sealed");
+    expect(seal.alerts.open().map((a) => a.kind)).toEqual(["state_first_seal"]);
+  });
+
   it("undoes a device added by another program, at the next check", async () => {
     const d = db();
     const seal = await StateSeal.open(d, { home });

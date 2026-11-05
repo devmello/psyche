@@ -410,6 +410,9 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   const pollSecurity = () => {
     try {
       seal.ensure();
+      // Not while an app update is being prepared: the files are about to be handed over. The
+      // checks before each authorizing read still run.
+      if (!ctx.updateGate.accepting()) return;
       recoveries.processInbox();
       recoveries.applyDue();
     } catch (err) {
