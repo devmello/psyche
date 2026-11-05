@@ -24,14 +24,20 @@ afterEach(async () => {
   t = null;
 });
 
-const CAPS: FakeNodeHandler[] = ["computer.ax_tree", "dictation.target", "notify.show"].map((name) => ({
-  capability: { name, sideEffect: "read" as const, streaming: false },
-  run: () => ({ who: name }),
-}));
+const CAPS: FakeNodeHandler[] = ["computer.ax_tree", "dictation.target", "notify.show"].map(
+  (name) => ({
+    capability: { name, sideEffect: "read" as const, streaming: false },
+    run: () => ({ who: name }),
+  }),
+);
 
 async function start(opts: { now?: () => number } = {}) {
   t = await startTestGateway();
-  guests = new GuestSockets({ ctx: t.gateway.context, home: t.home, ...(opts.now ? { now: opts.now } : {}) });
+  guests = new GuestSockets({
+    ctx: t.gateway.context,
+    home: t.home,
+    ...(opts.now ? { now: opts.now } : {}),
+  });
   return { g: t.gateway, guests };
 }
 
@@ -97,7 +103,9 @@ describe("a separate desktop's socket", () => {
     const { g, guests } = await start();
     const { socketPath, token } = await guests.open("main");
     for (let i = 0; i < 5; i++) {
-      await expect(pairWith(socketPath, "nope", { origin: g.origin })).rejects.toThrow(/did not pair/);
+      await expect(pairWith(socketPath, "nope", { origin: g.origin })).rejects.toThrow(
+        /did not pair/,
+      );
     }
     await new Promise((r) => setTimeout(r, 120));
     expect(guests.isOpen("main")).toBe(false);
@@ -120,7 +128,13 @@ describe("a separate desktop's socket", () => {
     pairNodeDevice(g, "old-guest", key);
     const { token } = await guests.open("main");
     await expect(
-      FakeNode.connect(socketPath, { origin: g.origin, handlers: CAPS, key, deviceId: "old-guest", secret: token }),
+      FakeNode.connect(socketPath, {
+        origin: g.origin,
+        handlers: CAPS,
+        key,
+        deviceId: "old-guest",
+        secret: token,
+      }),
     ).rejects.toThrow(/did not pair/);
   });
 
@@ -128,11 +142,17 @@ describe("a separate desktop's socket", () => {
     const { g, guests } = await start();
     const a = await guests.open("aaa");
     const b = await guests.open("bbb");
-    await expect(pairWith(b.socketPath, a.token, { origin: g.origin })).rejects.toThrow(/did not pair/);
-    await expect(pairWith(a.socketPath, b.token, { origin: g.origin })).rejects.toThrow(/did not pair/);
+    await expect(pairWith(b.socketPath, a.token, { origin: g.origin })).rejects.toThrow(
+      /did not pair/,
+    );
+    await expect(pairWith(a.socketPath, b.token, { origin: g.origin })).rejects.toThrow(
+      /did not pair/,
+    );
     const again = await guests.open("aaa");
     expect(again.token).not.toBe(a.token);
-    await expect(pairWith(again.socketPath, a.token, { origin: g.origin })).rejects.toThrow(/did not pair/);
+    await expect(pairWith(again.socketPath, a.token, { origin: g.origin })).rejects.toThrow(
+      /did not pair/,
+    );
     await pairWith(again.socketPath, again.token, { origin: g.origin });
     expect(guests.clientFor("bbb")).toBeUndefined();
   });
@@ -147,7 +167,12 @@ describe("a separate desktop's socket", () => {
 
   it("whatever family the guest declares, it is never the Host's helper", async () => {
     const { g, guests } = await start();
-    for (const [i, family] of ["mac-helper", "win-helper", "linux-helper", "host-helper"].entries()) {
+    for (const [i, family] of [
+      "mac-helper",
+      "win-helper",
+      "linux-helper",
+      "host-helper",
+    ].entries()) {
       const id = `fam${i}`;
       const { socketPath, token } = await guests.open(id);
       const n = await pairWith(socketPath, token, { origin: g.origin, family });
@@ -162,10 +187,18 @@ describe("a separate desktop's socket", () => {
   it("the token is no way onto the Gateway's own sockets", async () => {
     const { g, guests } = await start();
     const { token } = await guests.open("main");
-    for (const path of [g.config.nodeSocketPath, ...(g.config.guestSocketPath ? [g.config.guestSocketPath] : [])]) {
+    for (const path of [
+      g.config.nodeSocketPath,
+      ...(g.config.guestSocketPath ? [g.config.guestSocketPath] : []),
+    ]) {
       for (const family of ["linux-helper", "mac-helper", "vm-guest", "psyche-node"]) {
         await expect(
-          FakeNode.connect(path, { origin: g.origin, handlers: CAPS, secret: token, deviceFamily: family }),
+          FakeNode.connect(path, {
+            origin: g.origin,
+            handlers: CAPS,
+            secret: token,
+            deviceFamily: family,
+          }),
         ).rejects.toThrow();
       }
     }

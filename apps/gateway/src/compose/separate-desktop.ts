@@ -94,7 +94,16 @@ export function separateDesktopFolderEnv(home: string): FolderAccessEnv {
 }
 
 /** Words that only touch files the separate desktop can reach anyway. */
-const FILE_LOCAL = ["move to trash", "delete", "trash", "remove", "erase", "clear", "empty", "discard"];
+const FILE_LOCAL = [
+  "move to trash",
+  "delete",
+  "trash",
+  "remove",
+  "erase",
+  "clear",
+  "empty",
+  "discard",
+];
 
 /**
  * Whether a label or key chord should ask inside the separate desktop. The file-local words are
@@ -128,7 +137,13 @@ export interface SeparateDesktopDeps {
   unsaved?: (client: NodeClient) => Promise<string[]>;
   /** Wait for the helper to pair after the container starts. */
   pairTimeoutMs?: number;
-  logger?: { log(level: "info" | "warn", msg: string, fields?: Record<string, string | number | boolean | null>): void };
+  logger?: {
+    log(
+      level: "info" | "warn",
+      msg: string,
+      fields?: Record<string, string | number | boolean | null>,
+    ): void;
+  };
 }
 
 interface Held {
@@ -184,7 +199,11 @@ export class SeparateDesktop {
    * the share to pass to `use`, or `undefined` when the owner said no or the card is queued.
    */
   async requestShare(
-    deps: { broker: PermissionBroker; surfaces: readonly string[]; grantedFolders?: (threadId: string) => readonly FolderGrantEntry[] },
+    deps: {
+      broker: PermissionBroker;
+      surfaces: readonly string[];
+      grantedFolders?: (threadId: string) => readonly FolderGrantEntry[];
+    },
     ctx: ToolRunContext,
     request: { path: string; reason: string; access: "read" | "read_write" },
   ): Promise<DesktopShare | undefined> {
@@ -194,7 +213,8 @@ export class SeparateDesktop {
         surfaces: deps.surfaces,
         folderEnv: () => separateDesktopFolderEnv(this.#deps.home),
         // A read-write share never rides on an earlier grant.
-        grantedFolders: request.access === "read_write" ? () => [] : (id) => deps.grantedFolders?.(id) ?? [],
+        grantedFolders:
+          request.access === "read_write" ? () => [] : (id) => deps.grantedFolders?.(id) ?? [],
       },
       ctx,
       request,
@@ -209,7 +229,10 @@ export class SeparateDesktop {
   }
 
   #shareName(path: string): string {
-    const base = basename(path).replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^[^A-Za-z0-9]+/, "") || "folder";
+    const base =
+      basename(path)
+        .replace(/[^A-Za-z0-9._-]+/g, "-")
+        .replace(/^[^A-Za-z0-9]+/, "") || "folder";
     const taken = new Set([...this.#tasks.values()].flatMap((h) => h.shares.map((s) => s.name)));
     let name = base.slice(0, 56);
     for (let i = 2; taken.has(name); i++) name = `${base.slice(0, 56)}-${i}`;
@@ -248,7 +271,8 @@ export class SeparateDesktop {
       if (!this.#running) await this.#startNow(shares);
       const held: Held = { shares: wanted, internet: undefined };
       this.#tasks.set(taskId, held);
-      if (options.internet !== undefined) await this.#openInternet(taskId, held, options.internet.allow);
+      if (options.internet !== undefined)
+        await this.#openInternet(taskId, held, options.internet.allow);
       this.#report({ phase: "running" });
     });
   }
@@ -270,15 +294,22 @@ export class SeparateDesktop {
       const deadline = Date.now() + (this.#deps.pairTimeoutMs ?? 20_000);
       while (this.#deps.guests.clientFor(SEPARATE_DESKTOP_ID) === undefined) {
         if (Date.now() > deadline) {
-          throw new PsycheError("unavailable", "the separate desktop started but its helper did not connect", {
-            details: { reason: "guest_not_paired" },
-          });
+          throw new PsycheError(
+            "unavailable",
+            "the separate desktop started but its helper did not connect",
+            {
+              details: { reason: "guest_not_paired" },
+            },
+          );
         }
         await new Promise((r) => setTimeout(r, 100));
       }
       this.#running = true;
       this.#shares = shares;
-      this.#deps.logger?.log("info", "separate desktop started", { engine: backend.kind, shares: shares.length });
+      this.#deps.logger?.log("info", "separate desktop started", {
+        engine: backend.kind,
+        shares: shares.length,
+      });
       this.#engine = backend;
     } catch (err) {
       // Fail closed: nothing half-started stays up, and the socket and token are gone.
@@ -301,9 +332,13 @@ export class SeparateDesktop {
   async #openInternet(taskId: string, held: Held, allow: readonly string[]): Promise<void> {
     const egress = this.#deps.egress;
     if (egress === undefined) {
-      throw new PsycheError("unavailable", "internet for the separate desktop is not available here", {
-        details: { reason: "no_egress_proxy" },
-      });
+      throw new PsycheError(
+        "unavailable",
+        "internet for the separate desktop is not available here",
+        {
+          details: { reason: "no_egress_proxy" },
+        },
+      );
     }
     const scope = { kind: "task" as const, id: taskId };
     egress.allowlist(scope, allow);
@@ -392,11 +427,17 @@ export class SeparateDesktop {
  * The owner's clipboard stays out of the desktop and the desktop's stays in: the only crossing is
  * the owner's own "Paste into separate desktop" from the watch view.
  */
-export function assertSeparateDesktopClipboard(direction: "paste_into" | "to_host" | "from_host"): void {
+export function assertSeparateDesktopClipboard(
+  direction: "paste_into" | "to_host" | "from_host",
+): void {
   if (direction !== "paste_into") {
-    throw new PsycheError("forbidden", "the separate desktop shares no clipboard with this computer", {
-      details: { reason: "separate_desktop_clipboard" },
-    });
+    throw new PsycheError(
+      "forbidden",
+      "the separate desktop shares no clipboard with this computer",
+      {
+        details: { reason: "separate_desktop_clipboard" },
+      },
+    );
   }
 }
 
@@ -415,6 +456,12 @@ export async function fillSeparateDesktopCredential(steps: {
   return true;
 }
 
+/** What `createSandboxEgress` gives (`ComposedSandbox.egress`). */
+export interface SandboxEgressLike {
+  readonly egressTunnel: EgressTunnelHandler;
+  egressAllowlist(scope: { kind: "task"; id: string }, domains: readonly string[]): void;
+}
+
 /** The part: mounts the desktop on Linux only, and nothing runs until a Task asks for it. */
 export interface ComposedSeparateDesktop extends ComposedPart {
   readonly separateDesktop: SeparateDesktop;
@@ -424,7 +471,8 @@ export function composeSeparateDesktop(
   options: {
     platform?: NodeJS.Platform;
     desktop?: DesktopContainers;
-    egress?: SeparateDesktopDeps["egress"];
+    /** The sandbox part's egress proxy, looked up when a Task asks for internet. */
+    egress?: () => SandboxEgressLike | undefined;
     unsaved?: SeparateDesktopDeps["unsaved"];
     onSettingChanged?: (listener: (change: { key: string; after: unknown }) => void) => void;
   } = {},
@@ -467,15 +515,32 @@ export function composeSeparateDesktop(
           },
           report,
           logger: ctx.log,
-          ...(options.egress === undefined ? {} : { egress: options.egress }),
+          get egress() {
+            const e = options.egress?.();
+            return e === undefined
+              ? undefined
+              : {
+                  tunnel: e.egressTunnel,
+                  allowlist: (sc: { kind: "task"; id: string }, d: readonly string[]) =>
+                    e.egressAllowlist(sc, d),
+                };
+          },
           ...(options.unsaved === undefined ? {} : { unsaved: options.unsaved }),
         });
         holder.current = sd;
         options.onSettingChanged?.((c) => {
-          if (c.key === SEPARATE_DESKTOP_SETTINGS.reset && c.after !== null && c.after !== undefined) {
-            void sd.reset().catch((err) =>
-              ctx.log.log("warn", "separate desktop reset failed", { error: PsycheError.from(err).message }),
-            );
+          if (
+            c.key === SEPARATE_DESKTOP_SETTINGS.reset &&
+            c.after !== null &&
+            c.after !== undefined
+          ) {
+            void sd
+              .reset()
+              .catch((err) =>
+                ctx.log.log("warn", "separate desktop reset failed", {
+                  error: PsycheError.from(err).message,
+                }),
+              );
           }
         });
       },

@@ -130,6 +130,7 @@ import {
 } from "./changes.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
 import { composeComputer } from "./computer.ts";
+import { composeSeparateDesktop } from "./separate-desktop.ts";
 import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
 import { macHelper } from "./connectors.ts";
 import { createContext } from "./context.ts";
@@ -527,7 +528,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     redact: (text) => redactor.redact(text),
     publish,
   });
-  gwOptions.onSettingChanged = (c) => void changes.record(settingChange(c));
+  // Parts that act on a setting the moment it changes (the separate desktop's reset).
+  const settingListeners: ((c: { key: string; after: unknown }) => void)[] = [];
+  gwOptions.onSettingChanged = (c) => {
+    void changes.record(settingChange(c));
+    for (const listener of settingListeners) listener(c);
+  };
   // A restored backup's log is shorter than what this key anchored; the restore is audited with
   // the head it had (replayRevocations below consumes the marker).
   const restored = existsSync(join(config.home, RESTORE_MARKER));
@@ -1104,6 +1110,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const skills = composeSkills();
   const partFactories = [
     composeComputer,
+    // The separate desktop (Linux only; nothing runs until a Task asks for it).
+    composeSeparateDesktop({
+      onSettingChanged: (listener) => void settingListeners.push(listener),
+      egress: () =>
+        parts.find((p): p is ComposedSandbox => "runner" in p && "egress" in p && "track" in p)
+          ?.egress,
+    }),
     skills.part,
     composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
     composeDictation(),

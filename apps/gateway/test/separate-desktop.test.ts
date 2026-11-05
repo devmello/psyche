@@ -72,7 +72,11 @@ function fakeEngine(opts: { pairs?: boolean } = {}) {
         });
         nodes.push(n);
       }
-      return { container: "psyche-desktop-main", startMs: 1, backend: await engine.requireBackend() };
+      return {
+        container: "psyche-desktop-main",
+        startMs: 1,
+        backend: await engine.requireBackend(),
+      };
     },
     async stop() {
       log.push("stop");
@@ -149,7 +153,12 @@ describe("the desktop's lifecycle", () => {
     expect(engine.started[0]).toMatchObject({ shares: [], memory: "2g" });
     expect(engine.egress).toEqual([]);
     expect(states.map((s) => s.phase)).toEqual(["starting", "running"]);
-    expect(states.at(-1)).toMatchObject({ engine: "podman", rootless: true, shares: [], internet: false });
+    expect(states.at(-1)).toMatchObject({
+      engine: "podman",
+      rootless: true,
+      shares: [],
+      internet: false,
+    });
   });
 
   it("uses the memory setting", async () => {
@@ -271,10 +280,28 @@ describe("what never reaches the container", () => {
   });
 
   it("file-local words do not ask there; words that reach outside do", () => {
-    for (const ok of ["Delete", "Move to Trash", "Remove file", "Empty trash", "Clear history", "Erase", "Discard changes"]) {
+    for (const ok of [
+      "Delete",
+      "Move to Trash",
+      "Remove file",
+      "Empty trash",
+      "Clear history",
+      "Erase",
+      "Discard changes",
+    ]) {
       expect(asksInSeparateDesktop(ok), ok).toBe(false);
     }
-    for (const ask of ["Send", "Submit order", "Purchase", "Buy now", "Pay", "Transfer funds", "Delete and send", "Unsubscribe", "Sign out"]) {
+    for (const ask of [
+      "Send",
+      "Submit order",
+      "Purchase",
+      "Buy now",
+      "Pay",
+      "Transfer funds",
+      "Delete and send",
+      "Unsubscribe",
+      "Sign out",
+    ]) {
       expect(asksInSeparateDesktop(ask), ask).toBe(true);
     }
     expect(asksInSeparateDesktop(undefined)).toBe(false);
@@ -289,10 +316,14 @@ describe("what never reaches the container", () => {
   it("a credential is read only after the approval, typed once, and not kept", async () => {
     const read = vi.fn(async () => "s3cret");
     const type = vi.fn(async () => undefined);
-    expect(await fillSeparateDesktopCredential({ approve: async () => false, read, type })).toBe(false);
+    expect(await fillSeparateDesktopCredential({ approve: async () => false, read, type })).toBe(
+      false,
+    );
     expect(read).not.toHaveBeenCalled();
     expect(type).not.toHaveBeenCalled();
-    expect(await fillSeparateDesktopCredential({ approve: async () => true, read, type })).toBe(true);
+    expect(await fillSeparateDesktopCredential({ approve: async () => true, read, type })).toBe(
+      true,
+    );
     expect(type).toHaveBeenCalledTimes(1);
     expect(type).toHaveBeenCalledWith("s3cret");
   });

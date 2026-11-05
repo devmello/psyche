@@ -33,6 +33,7 @@ import { research } from "./research/ar.ts";
 import { scheduled } from "./scheduled/ar.ts";
 import { screens } from "./screens/ar.ts";
 import { securityState } from "./security-state/ar.ts";
+import { separateDesktop } from "./separate-desktop/ar.ts";
 import { selfConnectors } from "./self-connectors/ar.ts";
 import { settings } from "./settings/ar.ts";
 import { settingsLanguage } from "./settings-language/ar.ts";
@@ -3333,4 +3334,6 @@ export const ar: Partial<Catalogue> = {
   ...final202611,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings > Computer use > Separate desktop (Linux)
+  ...separateDesktop,
 };

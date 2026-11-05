@@ -91,7 +91,9 @@ export interface DesktopSpec {
 
 export function desktopNames(id: string): { container: string; volume: string } {
   if (!ID_RE.test(id)) {
-    throw errors.invalid(`a separate desktop id is 1 to 16 lowercase letters or digits, not ${JSON.stringify(id)}`);
+    throw errors.invalid(
+      `a separate desktop id is 1 to 16 lowercase letters or digits, not ${JSON.stringify(id)}`,
+    );
   }
   return { container: `psyche-desktop-${id}`, volume: `psyche-desktop-${id}-workspace` };
 }
@@ -194,7 +196,11 @@ export async function validateDesktopShares(
   const out: DesktopShare[] = [];
   const seen = new Set<string>();
   for (const s of shares) {
-    if (typeof s?.source !== "string" || typeof s.name !== "string" || typeof s.readOnly !== "boolean") {
+    if (
+      typeof s?.source !== "string" ||
+      typeof s.name !== "string" ||
+      typeof s.readOnly !== "boolean"
+    ) {
       throw errors.invalid("a share is {source, name, readOnly}");
     }
     if (!SHARE_NAME_RE.test(s.name) || seen.has(s.name)) {
@@ -385,7 +391,8 @@ export class DesktopContainers {
     if (this.#backend !== undefined) return this.#backend ?? undefined;
     const deps = this.#options.detectDeps ?? systemDetectDeps(this.#driver);
     const found = (await detectBackends(deps, this.#options)).filter(
-      (b): b is typeof b & { kind: DesktopBackendKind } => b.kind === "podman" || b.kind === "docker",
+      (b): b is typeof b & { kind: DesktopBackendKind } =>
+        b.kind === "podman" || b.kind === "docker",
     );
     found.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "podman" ? -1 : 1));
     const first = found[0];
@@ -398,7 +405,9 @@ export class DesktopContainers {
         ? await deps.probe(first.cli, ["info", "--format", "{{.Host.Security.Rootless}}"])
         : await deps.probe(first.cli, ["info", "--format", "{{.SecurityOptions}}"]);
     const rootless =
-      first.kind === "podman" ? probe?.trim() === "true" : /(^|[ \[,])name=rootless/.test(probe ?? "");
+      first.kind === "podman"
+        ? probe?.trim() === "true"
+        : /(^|[ \[,])name=rootless/.test(probe ?? "");
     this.#backend = { ...first, rootless };
     return this.#backend;
   }
@@ -414,7 +423,11 @@ export class DesktopContainers {
     return b;
   }
 
-  #cli(backend: DesktopBackend, args: string[], opts: { timeoutMs?: number; env?: NodeJS.ProcessEnv } = {}) {
+  #cli(
+    backend: DesktopBackend,
+    args: string[],
+    opts: { timeoutMs?: number; env?: NodeJS.ProcessEnv } = {},
+  ) {
     return runCli(this.#driver, backend.cli, args, {
       timeoutMs: opts.timeoutMs ?? 60_000,
       maxBytes: 256 * 1024,
@@ -427,7 +440,12 @@ export class DesktopContainers {
   }
 
   /** Whether the image is on this computer, and its size: shown before anything is pulled. */
-  async imageStatus(): Promise<{ present: boolean; image: string; pinned: boolean; sizeBytes?: number }> {
+  async imageStatus(): Promise<{
+    present: boolean;
+    image: string;
+    pinned: boolean;
+    sizeBytes?: number;
+  }> {
     const backend = await this.requireBackend();
     const ref = this.image();
     const r = await this.#cli(backend, ["image", "inspect", "--format", "{{.Size}}", ref.image]);
@@ -440,7 +458,9 @@ export class DesktopContainers {
   }
 
   /** Builds the `desktop` target from this checkout (the dev path; a release pulls a pinned digest). */
-  async build(options: { tag?: string; timeoutMs?: number } = {}): Promise<{ tag: string; durationMs: number }> {
+  async build(
+    options: { tag?: string; timeoutMs?: number } = {},
+  ): Promise<{ tag: string; durationMs: number }> {
     const backend = await this.requireBackend();
     const tag = options.tag ?? resolveDesktopImage(undefined, {}).image;
     const r = await this.#cli(
@@ -449,9 +469,12 @@ export class DesktopContainers {
       { timeoutMs: options.timeoutMs ?? 30 * 60_000 },
     );
     if (r.exitCode !== 0) {
-      throw errors.unavailable(`desktop image build failed: ${r.stderr.toString("utf8").slice(-2000)}`, {
-        reason: "image_build_failed",
-      });
+      throw errors.unavailable(
+        `desktop image build failed: ${r.stderr.toString("utf8").slice(-2000)}`,
+        {
+          reason: "image_build_failed",
+        },
+      );
     }
     return { tag, durationMs: r.durationMs };
   }
@@ -471,11 +494,16 @@ export class DesktopContainers {
         { reason: "image_missing", image: status.image },
       );
     }
-    const r = await this.#cli(backend, ["pull", "--quiet", status.image], { timeoutMs: 30 * 60_000 });
+    const r = await this.#cli(backend, ["pull", "--quiet", status.image], {
+      timeoutMs: 30 * 60_000,
+    });
     if (r.exitCode !== 0) {
-      throw errors.unavailable(`could not download the separate desktop: ${r.stderr.toString("utf8").slice(-1000)}`, {
-        reason: "image_pull_failed",
-      });
+      throw errors.unavailable(
+        `could not download the separate desktop: ${r.stderr.toString("utf8").slice(-1000)}`,
+        {
+          reason: "image_pull_failed",
+        },
+      );
     }
   }
 
@@ -487,7 +515,11 @@ export class DesktopContainers {
     const state = parseInspect(backend.kind, r.stdout.toString("utf8"));
     if (state === null) return { exists: false, running: false };
     const key = state.labels[DESKTOP_SHARES_LABEL];
-    return { exists: true, running: state.running, ...(key === undefined ? {} : { sharesKey: key }) };
+    return {
+      exists: true,
+      running: state.running,
+      ...(key === undefined ? {} : { sharesKey: key }),
+    };
   }
 
   /**
@@ -518,9 +550,17 @@ export class DesktopContainers {
       memory,
     });
     // The workspace volume belongs to this desktop and is kept across starts.
-    const made = await this.#cli(backend, ["volume", "create", "--label", `${DESKTOP_OWNER_LABEL}=1`, volume]);
+    const made = await this.#cli(backend, [
+      "volume",
+      "create",
+      "--label",
+      `${DESKTOP_OWNER_LABEL}=1`,
+      volume,
+    ]);
     if (made.exitCode !== 0) {
-      throw errors.unavailable(`could not prepare the desktop's workspace: ${made.stderr.toString("utf8").slice(-500)}`);
+      throw errors.unavailable(
+        `could not prepare the desktop's workspace: ${made.stderr.toString("utf8").slice(-500)}`,
+      );
     }
     const ran = await this.#cli(backend, args, {
       timeoutMs: 120_000,
@@ -528,14 +568,19 @@ export class DesktopContainers {
     });
     if (ran.exitCode !== 0) {
       await this.#remove(backend, container);
-      throw errors.unavailable(`the separate desktop did not start: ${ran.stderr.toString("utf8").slice(-1000)}`, {
-        reason: "start_failed",
-      });
+      throw errors.unavailable(
+        `the separate desktop did not start: ${ran.stderr.toString("utf8").slice(-1000)}`,
+        {
+          reason: "start_failed",
+        },
+      );
     }
     const st = await this.status(request.id);
     if (!st.running) {
       await this.#remove(backend, container);
-      throw errors.unavailable("the separate desktop stopped right after it started", { reason: "start_failed" });
+      throw errors.unavailable("the separate desktop stopped right after it started", {
+        reason: "start_failed",
+      });
     }
     return { container, startMs: now() - began, backend };
   }
@@ -555,7 +600,9 @@ export class DesktopContainers {
     await this.#remove(backend, container);
     const r = await this.#cli(backend, ["volume", "rm", "--force", volume]);
     if (r.exitCode !== 0 && !/no such volume/i.test(r.stderr.toString("utf8"))) {
-      throw errors.unavailable(`could not delete the desktop's workspace: ${r.stderr.toString("utf8").slice(-500)}`);
+      throw errors.unavailable(
+        `could not delete the desktop's workspace: ${r.stderr.toString("utf8").slice(-500)}`,
+      );
     }
   }
 
@@ -592,12 +639,23 @@ export class DesktopContainers {
    * to `handler` over stdio, with the scope's allowlist and approvals. Close it to cut the
    * internet again. Never host networking, never the host's loopback or LAN.
    */
-  async openEgress(id: string, scope: Parameters<EgressTunnelHandler["handle"]>[0], handler: EgressTunnelHandler): Promise<{ close(): void }> {
+  async openEgress(
+    id: string,
+    scope: Parameters<EgressTunnelHandler["handle"]>[0],
+    handler: EgressTunnelHandler,
+  ): Promise<{ close(): void }> {
     const backend = await this.requireBackend();
     const { container } = desktopNames(id);
     const stream = this.#driver.stream(
       backend.cli,
-      execArgs(backend.kind, container, "/", [PYTHON, "-I", "-S", "-c", EGRESS_SHIM, String(EGRESS_SHIM_PORT)]),
+      execArgs(backend.kind, container, "/", [
+        PYTHON,
+        "-I",
+        "-S",
+        "-c",
+        EGRESS_SHIM,
+        String(EGRESS_SHIM_PORT),
+      ]),
     );
     stream.stderr.resume();
     const tunnel: EgressTunnel = attachTunnel(stream, (conn) => handler.handle({ ...scope }, conn));
@@ -613,7 +671,9 @@ export class DesktopContainers {
     ]);
     if (!ok) {
       closed();
-      throw errors.unavailable("the separate desktop's internet connection did not start", { reason: "egress_failed" });
+      throw errors.unavailable("the separate desktop's internet connection did not start", {
+        reason: "egress_failed",
+      });
     }
     return { close: closed };
   }

@@ -82,7 +82,8 @@ export class GuestSockets {
 
   /** Where this container's socket lives: the run folder, or a private folder when that is too deep. */
   socketPathFor(container: string): string {
-    if (!ID_RE.test(container)) throw new Error(`bad separate desktop id ${JSON.stringify(container)}`);
+    if (!ID_RE.test(container))
+      throw new Error(`bad separate desktop id ${JSON.stringify(container)}`);
     const preferred = join(this.#deps.home, "run", `guest-${container}.sock`);
     if (socketPathFits(preferred)) return preferred;
     const uid = typeof process.getuid === "function" ? process.getuid() : 0;
@@ -141,7 +142,12 @@ export class GuestSockets {
   }
 
   /** Spends this container's token. False for anything but the first valid presentation. */
-  #redeem(container: string, entry: Entry, presented: string | undefined, deviceId: string): boolean {
+  #redeem(
+    container: string,
+    entry: Entry,
+    presented: string | undefined,
+    deviceId: string,
+  ): boolean {
     const now = (this.#deps.now ?? Date.now)();
     // A closed socket or another container's entry never redeems.
     if (entry.closed || this.#entries.get(container) !== entry) return false;
@@ -154,7 +160,9 @@ export class GuestSockets {
       timingSafeEqual(sha256(presented), entry.tokenHash);
     if (!same || !fresh) {
       if (!same && ++entry.bad >= GUEST_MAX_BAD_TOKENS) {
-        this.#deps.ctx.log.log("warn", "separate desktop socket closed after bad tokens", { container });
+        this.#deps.ctx.log.log("warn", "separate desktop socket closed after bad tokens", {
+          container,
+        });
         setTimeout(() => this.close(container), 50).unref();
       }
       return false;
@@ -226,12 +234,14 @@ export class GuestSockets {
   clientFor(container: string): NodeClient | undefined {
     const entry = this.#entries.get(container);
     const deviceId = entry?.deviceId;
-    if (entry === undefined || entry.closed || deviceId === null || deviceId === undefined) return undefined;
+    if (entry === undefined || entry.closed || deviceId === null || deviceId === undefined)
+      return undefined;
     const { nodes } = this.#deps.ctx;
     const info = nodes.list().find((n) => n.deviceId === deviceId);
     if (info === undefined || !nodes.isLive(info.id)) return undefined;
     if (nodes.transportOf(info.id) !== "container-guest") return undefined;
-    if (![...entry.conns].some((c) => c.open && c.identity?.deviceId === deviceId)) return undefined;
+    if (![...entry.conns].some((c) => c.open && c.identity?.deviceId === deviceId))
+      return undefined;
     return nodes.client(info.id);
   }
 
@@ -274,7 +284,9 @@ export class GuestSockets {
    */
   revokeStale(): number {
     const { db } = this.#deps.ctx;
-    const live = new Set([...this.#entries.values()].flatMap((e) => (e.deviceId === null ? [] : [e.deviceId])));
+    const live = new Set(
+      [...this.#entries.values()].flatMap((e) => (e.deviceId === null ? [] : [e.deviceId])),
+    );
     let n = 0;
     for (const d of listDevices(db)) {
       if (getDeviceFamily(db, d.id) !== "separate-desktop" || live.has(d.id)) continue;

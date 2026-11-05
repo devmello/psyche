@@ -33,6 +33,7 @@ import { research } from "./research/zh.ts";
 import { scheduled } from "./scheduled/zh.ts";
 import { screens } from "./screens/zh.ts";
 import { securityState } from "./security-state/zh.ts";
+import { separateDesktop } from "./separate-desktop/zh.ts";
 import { selfConnectors } from "./self-connectors/zh.ts";
 import { settings } from "./settings/zh.ts";
 import { settingsLanguage } from "./settings-language/zh.ts";
@@ -3239,4 +3240,6 @@ export const zh: Partial<Catalogue> = {
   ...final202611,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings > Computer use > Separate desktop (Linux)
+  ...separateDesktop,
 };

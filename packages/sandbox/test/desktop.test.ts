@@ -73,11 +73,17 @@ describe("the desktop container's flags", () => {
 
   it("never asks for anything wider", () => {
     const joined = args.join(" ");
-    expect(joined).not.toMatch(/--privileged|--network=host|--net=host|--cap-add|--pid=host|--ipc=host|--userns=host/);
-    expect(joined).not.toMatch(/--device|--security-opt[= ]seccomp=unconfined|--security-opt[= ]label=disable/);
+    expect(joined).not.toMatch(
+      /--privileged|--network=host|--net=host|--cap-add|--pid=host|--ipc=host|--userns=host/,
+    );
+    expect(joined).not.toMatch(
+      /--device|--security-opt[= ]seccomp=unconfined|--security-opt[= ]label=disable/,
+    );
     expect(joined).not.toMatch(/docker\.sock|podman\.sock|XDG_RUNTIME/);
     // The only network flag is `none`.
-    expect(args.filter((a) => a.startsWith("--network") || a.startsWith("--net"))).toEqual(["--network=none"]);
+    expect(args.filter((a) => a.startsWith("--network") || a.startsWith("--net"))).toEqual([
+      "--network=none",
+    ]);
   });
 
   it("is labelled as ours, and mounts only the workspace volume and the one socket", () => {
@@ -106,12 +112,17 @@ describe("the desktop container's flags", () => {
       }),
     );
     const mounts = a.filter((_, i) => a[i - 1] === "--mount");
-    expect(mounts).toContain("type=bind,source=/data/a,target=/shares/a,nosuid,nodev,noexec,readonly");
+    expect(mounts).toContain(
+      "type=bind,source=/data/a,target=/shares/a,nosuid,nodev,noexec,readonly",
+    );
     expect(mounts).toContain("type=bind,source=/data/b,target=/shares/b,nosuid,nodev,noexec");
   });
 
   it("Docker gets the same rules without the Podman-only flags", () => {
-    const d = desktopRunArgs("docker", spec({ shares: [{ source: "/data/a", name: "a", readOnly: true }] }));
+    const d = desktopRunArgs(
+      "docker",
+      spec({ shares: [{ source: "/data/a", name: "a", readOnly: true }] }),
+    );
     expect(d.some((a) => a.startsWith("--userns"))).toBe(false);
     expect(d).toContain("--read-only");
     expect(d).toContain("--network=none");
@@ -119,7 +130,9 @@ describe("the desktop container's flags", () => {
   });
 
   it("refuses a socket path or name that could add mount options", () => {
-    expect(() => desktopRunArgs("podman", spec({ socketPath: "/a,source=/etc/shadow" }))).toThrow(/not allowed/);
+    expect(() => desktopRunArgs("podman", spec({ socketPath: "/a,source=/etc/shadow" }))).toThrow(
+      /not allowed/,
+    );
     expect(() => desktopRunArgs("podman", spec({ socketPath: "rel.sock" }))).toThrow(/not allowed/);
     expect(() => desktopNames("../x")).toThrow(/lowercase/);
     expect(() => desktopNames("A")).toThrow(/lowercase/);
@@ -156,23 +169,61 @@ describe("what may be shared", () => {
   it("refuses credential stores, configuration, the Gateway's home and system folders", async () => {
     const real = tmp();
     mkdirSync(join(real, ".psyche", "x"), { recursive: true });
-    const roots = [`${home}/.ssh`, `${home}/.gnupg`, `${home}/.config`, `${home}/.config/gh`, `${home}/.local/share/containers`, `${home}/.psyche`, "/proc", "/sys", "/dev", "/run/user/1000", "/etc", "/root", "/var/lib/docker", "/tmp", "/usr"];
+    const roots = [
+      `${home}/.ssh`,
+      `${home}/.gnupg`,
+      `${home}/.config`,
+      `${home}/.config/gh`,
+      `${home}/.local/share/containers`,
+      `${home}/.psyche`,
+      "/proc",
+      "/sys",
+      "/dev",
+      "/run/user/1000",
+      "/etc",
+      "/root",
+      "/var/lib/docker",
+      "/tmp",
+      "/usr",
+    ];
     for (const p of roots) {
       expect((await fail(validateDesktopShares(share(p), { home }))).code, p).toBe("forbidden");
     }
     // The Gateway's own protected roots, and anything that contains one.
     const protectedRoot = join(real, ".psyche");
-    expect((await fail(validateDesktopShares(share(join(protectedRoot, "x")), { home, protectedRoots: [protectedRoot] }))).code).toBe("forbidden");
-    expect((await fail(validateDesktopShares(share(real), { home, protectedRoots: [protectedRoot] }))).code).toBe("forbidden");
+    expect(
+      (
+        await fail(
+          validateDesktopShares(share(join(protectedRoot, "x")), {
+            home,
+            protectedRoots: [protectedRoot],
+          }),
+        )
+      ).code,
+    ).toBe("forbidden");
+    expect(
+      (await fail(validateDesktopShares(share(real), { home, protectedRoots: [protectedRoot] })))
+        .code,
+    ).toBe("forbidden");
   });
 
   it("refuses a path that goes through a symlink, a missing folder and a path that could add mount options", async () => {
     const real = tmp();
     mkdirSync(join(real, "docs"));
     symlinkSync(join(real, "docs"), join(real, "link"));
-    expect((await fail(validateDesktopShares(share(join(real, "link")), { home }))).message).toMatch(/symlink/);
-    expect((await fail(validateDesktopShares(share(join(real, "nope")), { home }))).code).toBe("not_found");
-    for (const bad of [`${real}/docs,source=/etc`, `${real}/a=b`, `${real}/docs/`, `${real}/../${real}/docs`, "relative/dir"]) {
+    expect(
+      (await fail(validateDesktopShares(share(join(real, "link")), { home }))).message,
+    ).toMatch(/symlink/);
+    expect((await fail(validateDesktopShares(share(join(real, "nope")), { home }))).code).toBe(
+      "not_found",
+    );
+    for (const bad of [
+      `${real}/docs,source=/etc`,
+      `${real}/a=b`,
+      `${real}/docs/`,
+      `${real}/../${real}/docs`,
+      "relative/dir",
+    ]) {
       expect((await fail(validateDesktopShares(share(bad), { home }))).code, bad).toBe("forbidden");
     }
   });
@@ -181,9 +232,13 @@ describe("what may be shared", () => {
     const real = tmp();
     mkdirSync(join(real, "a"));
     const s = (name: string) => ({ source: join(real, "a"), name, readOnly: true });
-    expect((await fail(validateDesktopShares([s("one"), s("one")], { home }))).code).toBe("invalid_params");
+    expect((await fail(validateDesktopShares([s("one"), s("one")], { home }))).code).toBe(
+      "invalid_params",
+    );
     for (const bad of ["", ".hidden", "a/b", "a,b", "a b", "x".repeat(65)]) {
-      expect((await fail(validateDesktopShares([s(bad)], { home }))).code, bad).toBe("invalid_params");
+      expect((await fail(validateDesktopShares([s(bad)], { home }))).code, bad).toBe(
+        "invalid_params",
+      );
     }
     const many = Array.from({ length: 9 }, (_, i) => s(`n${i}`));
     expect((await fail(validateDesktopShares(many, { home }))).code).toBe("invalid_params");
@@ -192,12 +247,21 @@ describe("what may be shared", () => {
   it("accepts an ordinary folder and returns it by name", async () => {
     const real = tmp();
     mkdirSync(join(real, "proj"));
-    const out = await validateDesktopShares([{ source: join(real, "proj"), name: "proj", readOnly: false }], { home });
+    const out = await validateDesktopShares(
+      [{ source: join(real, "proj"), name: "proj", readOnly: false }],
+      { home },
+    );
     expect(out).toEqual([{ source: join(real, "proj"), name: "proj", readOnly: false }]);
   });
 });
 
-function engine(opts: { podman?: boolean; docker?: boolean; podmanRootless?: boolean; dockerRootless?: boolean; apple?: boolean }): DetectDeps {
+function engine(opts: {
+  podman?: boolean;
+  docker?: boolean;
+  podmanRootless?: boolean;
+  dockerRootless?: boolean;
+  apple?: boolean;
+}): DetectDeps {
   const have = new Set<string>();
   if (opts.podman) have.add("podman");
   if (opts.docker) have.add("docker");
@@ -213,8 +277,12 @@ function engine(opts: { podman?: boolean; docker?: boolean; podmanRootless?: boo
       return null;
     },
     async probe(cli, args) {
-      if (args[0] === "info" && args[2]?.includes("Rootless")) return opts.podmanRootless === false ? "false" : "true";
-      if (args[0] === "info" && args[2]?.includes("SecurityOptions")) return opts.dockerRootless ? "[name=seccomp,profile=builtin name=rootless]" : "[name=seccomp,profile=builtin]";
+      if (args[0] === "info" && args[2]?.includes("Rootless"))
+        return opts.podmanRootless === false ? "false" : "true";
+      if (args[0] === "info" && args[2]?.includes("SecurityOptions"))
+        return opts.dockerRootless
+          ? "[name=seccomp,profile=builtin name=rootless]"
+          : "[name=seccomp,profile=builtin]";
       if (cli.endsWith("podman")) return "4.9.3";
       if (cli.endsWith("docker")) return "27.0.0";
       return "1.0";
@@ -224,19 +292,25 @@ function engine(opts: { podman?: boolean; docker?: boolean; podmanRootless?: boo
 
 describe("choosing the engine", () => {
   it("prefers Podman over Docker, and says whether it is rootless", async () => {
-    const d = new DesktopContainers({ detectDeps: engine({ podman: true, docker: true, dockerRootless: true }) });
+    const d = new DesktopContainers({
+      detectDeps: engine({ podman: true, docker: true, dockerRootless: true }),
+    });
     expect(await d.backend()).toMatchObject({ kind: "podman", rootless: true });
   });
 
   it("uses Docker when there is no Podman, and marks a rootful one", async () => {
     const rootful = new DesktopContainers({ detectDeps: engine({ docker: true }) });
     expect(await rootful.backend()).toMatchObject({ kind: "docker", rootless: false });
-    const rootless = new DesktopContainers({ detectDeps: engine({ docker: true, dockerRootless: true }) });
+    const rootless = new DesktopContainers({
+      detectDeps: engine({ docker: true, dockerRootless: true }),
+    });
     expect(await rootless.backend()).toMatchObject({ kind: "docker", rootless: true });
   });
 
   it("marks a rootful Podman too", async () => {
-    const d = new DesktopContainers({ detectDeps: engine({ podman: true, podmanRootless: false }) });
+    const d = new DesktopContainers({
+      detectDeps: engine({ podman: true, podmanRootless: false }),
+    });
     expect((await d.backend())?.rootless).toBe(false);
   });
 
@@ -254,16 +328,27 @@ describe("choosing the engine", () => {
 describe("the lifecycle, against a fake Podman", () => {
   const sockDir = () => tmp();
 
-  function setup(respond?: (args: string[]) => { exitCode?: number; stdout?: Buffer; stderr?: Buffer } | undefined) {
+  function setup(
+    respond?: (
+      args: string[],
+    ) => { exitCode?: number; stdout?: Buffer; stderr?: Buffer } | undefined,
+  ) {
     const driver = new FakeDriver();
     let running = false;
     driver.respond = (args) => {
       const custom = respond?.(args);
       if (custom !== undefined) return custom;
-      if (args[0] === "image" && args[1] === "inspect") return { stdout: Buffer.from("1234567890\n") };
+      if (args[0] === "image" && args[1] === "inspect")
+        return { stdout: Buffer.from("1234567890\n") };
       if (args[0] === "inspect") {
         return running
-          ? { stdout: Buffer.from(JSON.stringify([{ State: { Running: true }, Config: { Labels: { "com.psyche.shares": "abc" } } }])) }
+          ? {
+              stdout: Buffer.from(
+                JSON.stringify([
+                  { State: { Running: true }, Config: { Labels: { "com.psyche.shares": "abc" } } },
+                ]),
+              ),
+            }
           : { exitCode: 1, stderr: Buffer.from("no such container") };
       }
       if (args[0] === "run") running = true;
@@ -296,7 +381,9 @@ describe("the lifecycle, against a fake Podman", () => {
   });
 
   it("removes the container and fails when it did not come up", async () => {
-    const { d, driver } = setup((args) => (args[0] === "run" ? { exitCode: 125, stderr: Buffer.from("boom") } : undefined));
+    const { d, driver } = setup((args) =>
+      args[0] === "run" ? { exitCode: 125, stderr: Buffer.from("boom") } : undefined,
+    );
     const err = await fail(d.start({ id: "main", socketPath: "/s.sock", token: TOKEN }));
     expect(err.code).toBe("unavailable");
     expect(err.details).toMatchObject({ reason: "start_failed" });
@@ -305,9 +392,20 @@ describe("the lifecycle, against a fake Podman", () => {
 
   it("refuses a short token and a share that is not allowed, before running anything", async () => {
     const { d, driver } = setup();
-    expect((await fail(d.start({ id: "main", socketPath: "/s.sock", token: "short" }))).code).toBe("invalid_params");
+    expect((await fail(d.start({ id: "main", socketPath: "/s.sock", token: "short" }))).code).toBe(
+      "invalid_params",
+    );
     expect(
-      (await fail(d.start({ id: "main", socketPath: "/s.sock", token: TOKEN, shares: [{ source: "/home/owner", name: "h", readOnly: true }] }))).code,
+      (
+        await fail(
+          d.start({
+            id: "main",
+            socketPath: "/s.sock",
+            token: TOKEN,
+            shares: [{ source: "/home/owner", name: "h", readOnly: true }],
+          }),
+        )
+      ).code,
     ).toBe("forbidden");
     expect(driver.find("run")).toEqual([]);
   });
@@ -338,7 +436,9 @@ describe("the lifecycle, against a fake Podman", () => {
 
   it("reconcile removes only our own labelled desktops, by name", async () => {
     const { d, driver } = setup((args) =>
-      args[0] === "ps" ? { stdout: Buffer.from("psyche-desktop-main\nsomeones-container\npsyche-desktop-../x\n") } : undefined,
+      args[0] === "ps"
+        ? { stdout: Buffer.from("psyche-desktop-main\nsomeones-container\npsyche-desktop-../x\n") }
+        : undefined,
     );
     expect(await d.reconcile()).toEqual(["main"]);
     expect(driver.find("ps")[0]?.args).toContain(`label=${DESKTOP_OWNER_LABEL}=1`);
@@ -348,22 +448,40 @@ describe("the lifecycle, against a fake Podman", () => {
   it("internet is only the egress shim over stdio: no network is ever added", async () => {
     const { d, driver } = setup();
     const seen: unknown[] = [];
-    const pending = d.openEgress("main", { kind: "task", id: "t1" }, { handle: (scope) => void seen.push(scope) });
+    const pending = d.openEgress(
+      "main",
+      { kind: "task", id: "t1" },
+      { handle: (scope) => void seen.push(scope) },
+    );
     await vi.waitFor(() => expect(driver.streams).toHaveLength(1));
     const stream = driver.streams[0];
-    expect(stream?.args.slice(0, 5)).toEqual(["exec", "--interactive", "--user", "1000:1000", "--workdir"]);
+    expect(stream?.args.slice(0, 5)).toEqual([
+      "exec",
+      "--interactive",
+      "--user",
+      "1000:1000",
+      "--workdir",
+    ]);
     expect(stream?.args).toContain("psyche-desktop-main");
     expect(stream?.args.join(" ")).not.toMatch(/--network|--publish|-p /);
     stream?.exit(1);
     await expect(pending).rejects.toThrow(/internet connection did not start/);
-    expect(driver.calls.some((c) => c.args.includes("network") && c.args[0] === "network")).toBe(false);
+    expect(driver.calls.some((c) => c.args.includes("network") && c.args[0] === "network")).toBe(
+      false,
+    );
   });
 });
 
 describe("the image", () => {
   it("is the local dev tag until a release pins a digest, and the owner's override wins", () => {
-    expect(resolveDesktopImage(undefined, {})).toEqual({ image: "psyche-sandbox:desktop-dev", pinned: false });
+    expect(resolveDesktopImage(undefined, {})).toEqual({
+      image: "psyche-sandbox:desktop-dev",
+      pinned: false,
+    });
     expect(resolveDesktopImage("x:y", {})).toEqual({ image: "x:y", pinned: false });
-    expect(resolveDesktopImage(undefined, { PSYCHE_SANDBOX_IMAGE: "z:1" })).toEqual({ image: "z:1", pinned: false });
+    expect(resolveDesktopImage(undefined, { PSYCHE_SANDBOX_IMAGE: "z:1" })).toEqual({
+      image: "z:1",
+      pinned: false,
+    });
   });
 });
