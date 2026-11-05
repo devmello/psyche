@@ -139,6 +139,9 @@ private struct ThreadRow: View {
             }
         }
         .padding(.vertical, 2)
+        // The whole row is the button: without a shape only the title and status text took taps.
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
 }
 
