@@ -1,15 +1,126 @@
 import type { Catalogue } from "../index.ts";
+import { agent } from "./agent/zh.ts";
+import { agentNotes } from "./agent-notes/zh.ts";
+import { audit } from "./audit/zh.ts";
+import { automationChat } from "./automation-chat/zh.ts";
+import { blocks } from "./blocks/zh.ts";
 import { canvas } from "./canvas/zh.ts";
+import { canvasMore } from "./canvas-more/zh.ts";
+import { capabilities } from "./capabilities/zh.ts";
 import { charts } from "./charts/zh.ts";
+import { chat } from "./chat/zh.ts";
+import { common } from "./common/zh.ts";
+import { connectorGallery } from "./connector-gallery/zh.ts";
+import { connectorsPage } from "./connectors-page/zh.ts";
+import { daily } from "./daily/zh.ts";
+import { design } from "./design/zh.ts";
+import { deviceAccess } from "./device-access/zh.ts";
+import { home } from "./home/zh.ts";
 import { links } from "./links/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
+import { meetingRecord } from "./meeting-record/zh.ts";
+import { memoryPage } from "./memory-page/zh.ts";
+import { memoryReview } from "./memory-review/zh.ts";
+import { memorySettings } from "./memory-settings/zh.ts";
+import { nudges } from "./nudges/zh.ts";
+import { onboarding } from "./onboarding/zh.ts";
 import { overview } from "./overview/zh.ts";
 import { overviewGrowth } from "./overview-growth/zh.ts";
 import { overviewShared } from "./overview-shared/zh.ts";
+import { people } from "./people/zh.ts";
+import { research } from "./research/zh.ts";
+import { scheduled } from "./scheduled/zh.ts";
+import { screens } from "./screens/zh.ts";
+import { selfConnectors } from "./self-connectors/zh.ts";
+import { settings } from "./settings/zh.ts";
+import { settingsLanguage } from "./settings-language/zh.ts";
+import { settingsSections } from "./settings-sections/zh.ts";
+import { shell } from "./shell/zh.ts";
+import { skillAuthor } from "./skill-author/zh.ts";
+import { specialists } from "./specialists/zh.ts";
+import { teach } from "./teach/zh.ts";
+import { web } from "./web/zh.ts";
+import { whatCanYouDo } from "./what-can-you-do/zh.ts";
+import { widgets } from "./widgets/zh.ts";
+import { work } from "./work/zh.ts";
 import { workflows } from "./workflows/zh.ts";
 
 /** Simplified Chinese catalogue (zh). Same ids as `en`; missing ids fall back to English. */
 export const zh: Partial<Catalogue> = {
+  // common: translated ids (i18n completion)
+  ...common,
+  // chat: translated ids (i18n completion)
+  ...chat,
+  // blocks: translated ids (i18n completion)
+  ...blocks,
+  // canvas-more: translated ids (i18n completion)
+  ...canvasMore,
+  // agent: translated ids (i18n completion)
+  ...agent,
+  // agent-notes: translated ids (i18n completion)
+  ...agentNotes,
+  // audit: translated ids (i18n completion)
+  ...audit,
+  // daily: translated ids (i18n completion)
+  ...daily,
+  // nudges: translated ids (i18n completion)
+  ...nudges,
+  // shell: translated ids (i18n completion)
+  ...shell,
+  // settings: translated ids (i18n completion)
+  ...settings,
+  // settings-language: translated ids (i18n completion)
+  ...settingsLanguage,
+  // settings-sections: translated ids (i18n completion)
+  ...settingsSections,
+  // skill-author: translated ids (i18n completion)
+  ...skillAuthor,
+  // self-connectors: translated ids (i18n completion)
+  ...selfConnectors,
+  // device-access: translated ids (i18n completion)
+  ...deviceAccess,
+  // connector-gallery: translated ids (i18n completion)
+  ...connectorGallery,
+  // connectors-page: translated ids (i18n completion)
+  ...connectorsPage,
+  // onboarding: translated ids (i18n completion)
+  ...onboarding,
+  // what-can-you-do: translated ids (i18n completion)
+  ...whatCanYouDo,
+  // memory-review: translated ids (i18n completion)
+  ...memoryReview,
+  // memory-page: translated ids (i18n completion)
+  ...memoryPage,
+  // memory-settings: translated ids (i18n completion)
+  ...memorySettings,
+  // people: translated ids (i18n completion)
+  ...people,
+  // work: translated ids (i18n completion)
+  ...work,
+  // specialists: translated ids (i18n completion)
+  ...specialists,
+  // screens: translated ids (i18n completion)
+  ...screens,
+  // web: translated ids (i18n completion)
+  ...web,
+  // teach: translated ids (i18n completion)
+  ...teach,
+  // design: translated ids (i18n completion)
+  ...design,
+  // meeting-record: translated ids (i18n completion)
+  ...meetingRecord,
+  // home: translated ids (i18n completion)
+  ...home,
+  // capabilities: translated ids (i18n completion)
+  ...capabilities,
+  // research: translated ids (i18n completion)
+  ...research,
+  // scheduled: translated ids (i18n completion)
+  ...scheduled,
+  // automation-chat: translated ids (i18n completion)
+  ...automationChat,
+  // widgets: translated ids (i18n completion)
+  ...widgets,
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
   ...mailMeetings,
   // link menu and the "Open links in" setting

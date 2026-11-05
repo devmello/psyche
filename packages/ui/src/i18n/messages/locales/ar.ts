@@ -1,15 +1,126 @@
 import type { Catalogue } from "../index.ts";
+import { agent } from "./agent/ar.ts";
+import { agentNotes } from "./agent-notes/ar.ts";
+import { audit } from "./audit/ar.ts";
+import { automationChat } from "./automation-chat/ar.ts";
+import { blocks } from "./blocks/ar.ts";
 import { canvas } from "./canvas/ar.ts";
+import { canvasMore } from "./canvas-more/ar.ts";
+import { capabilities } from "./capabilities/ar.ts";
 import { charts } from "./charts/ar.ts";
+import { chat } from "./chat/ar.ts";
+import { common } from "./common/ar.ts";
+import { connectorGallery } from "./connector-gallery/ar.ts";
+import { connectorsPage } from "./connectors-page/ar.ts";
+import { daily } from "./daily/ar.ts";
+import { design } from "./design/ar.ts";
+import { deviceAccess } from "./device-access/ar.ts";
+import { home } from "./home/ar.ts";
 import { links } from "./links/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
+import { meetingRecord } from "./meeting-record/ar.ts";
+import { memoryPage } from "./memory-page/ar.ts";
+import { memoryReview } from "./memory-review/ar.ts";
+import { memorySettings } from "./memory-settings/ar.ts";
+import { nudges } from "./nudges/ar.ts";
+import { onboarding } from "./onboarding/ar.ts";
 import { overview } from "./overview/ar.ts";
 import { overviewGrowth } from "./overview-growth/ar.ts";
 import { overviewShared } from "./overview-shared/ar.ts";
+import { people } from "./people/ar.ts";
+import { research } from "./research/ar.ts";
+import { scheduled } from "./scheduled/ar.ts";
+import { screens } from "./screens/ar.ts";
+import { selfConnectors } from "./self-connectors/ar.ts";
+import { settings } from "./settings/ar.ts";
+import { settingsLanguage } from "./settings-language/ar.ts";
+import { settingsSections } from "./settings-sections/ar.ts";
+import { shell } from "./shell/ar.ts";
+import { skillAuthor } from "./skill-author/ar.ts";
+import { specialists } from "./specialists/ar.ts";
+import { teach } from "./teach/ar.ts";
+import { web } from "./web/ar.ts";
+import { whatCanYouDo } from "./what-can-you-do/ar.ts";
+import { widgets } from "./widgets/ar.ts";
+import { work } from "./work/ar.ts";
 import { workflows } from "./workflows/ar.ts";
 
 /** Arabic catalogue (ar). Same ids as `en`; missing ids fall back to English. */
 export const ar: Partial<Catalogue> = {
+  // common: translated ids (i18n completion)
+  ...common,
+  // chat: translated ids (i18n completion)
+  ...chat,
+  // blocks: translated ids (i18n completion)
+  ...blocks,
+  // canvas-more: translated ids (i18n completion)
+  ...canvasMore,
+  // agent: translated ids (i18n completion)
+  ...agent,
+  // agent-notes: translated ids (i18n completion)
+  ...agentNotes,
+  // audit: translated ids (i18n completion)
+  ...audit,
+  // daily: translated ids (i18n completion)
+  ...daily,
+  // nudges: translated ids (i18n completion)
+  ...nudges,
+  // shell: translated ids (i18n completion)
+  ...shell,
+  // settings: translated ids (i18n completion)
+  ...settings,
+  // settings-language: translated ids (i18n completion)
+  ...settingsLanguage,
+  // settings-sections: translated ids (i18n completion)
+  ...settingsSections,
+  // skill-author: translated ids (i18n completion)
+  ...skillAuthor,
+  // self-connectors: translated ids (i18n completion)
+  ...selfConnectors,
+  // device-access: translated ids (i18n completion)
+  ...deviceAccess,
+  // connector-gallery: translated ids (i18n completion)
+  ...connectorGallery,
+  // connectors-page: translated ids (i18n completion)
+  ...connectorsPage,
+  // onboarding: translated ids (i18n completion)
+  ...onboarding,
+  // what-can-you-do: translated ids (i18n completion)
+  ...whatCanYouDo,
+  // memory-review: translated ids (i18n completion)
+  ...memoryReview,
+  // memory-page: translated ids (i18n completion)
+  ...memoryPage,
+  // memory-settings: translated ids (i18n completion)
+  ...memorySettings,
+  // people: translated ids (i18n completion)
+  ...people,
+  // work: translated ids (i18n completion)
+  ...work,
+  // specialists: translated ids (i18n completion)
+  ...specialists,
+  // screens: translated ids (i18n completion)
+  ...screens,
+  // web: translated ids (i18n completion)
+  ...web,
+  // teach: translated ids (i18n completion)
+  ...teach,
+  // design: translated ids (i18n completion)
+  ...design,
+  // meeting-record: translated ids (i18n completion)
+  ...meetingRecord,
+  // home: translated ids (i18n completion)
+  ...home,
+  // capabilities: translated ids (i18n completion)
+  ...capabilities,
+  // research: translated ids (i18n completion)
+  ...research,
+  // scheduled: translated ids (i18n completion)
+  ...scheduled,
+  // automation-chat: translated ids (i18n completion)
+  ...automationChat,
+  // widgets: translated ids (i18n completion)
+  ...widgets,
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
   ...mailMeetings,
   // link menu and the "Open links in" setting
@@ -235,7 +346,7 @@ export const ar: Partial<Catalogue> = {
   "chat.approval.keysHint": "⌘↩ {allows} · ⌘D {denies}",
   "chat.approval.more": "المزيد حول هذه الموافقة",
   "chat.approval.others":
-    "{n, plural, one {# أخرى} two {# أخريان} few {# أخرى} many {# أخرى} other {# أخرى}}",
+    "{n, plural, one {# أخرى} two {# أخريان} few {# أخرى} many {# أخرى} other {# أخرى} zero {# أخرى}}",
   "chat.approval.nextLabel": "{more} · التالي: {summary}، تنتهي خلال {countdown}",
 
   "blocks.common.theAgent": "الوكيل",
@@ -251,7 +362,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.toolView.loading": "جارٍ تحميل النتيجة…",
   "blocks.toolView.none": "لا يُحتفظ بنتيجة هذا الإجراء.",
   "blocks.toolView.more":
-    "{count, plural, one {# آخر} two {# آخران} few {# أخرى} many {# أخرى} other {# أخرى}}",
+    "{count, plural, one {# آخر} two {# آخران} few {# أخرى} many {# أخرى} other {# أخرى} zero {# أخرى}}",
   "blocks.toolView.empty": "لا توجد نتائج.",
   "blocks.toolView.untitled": "بلا عنوان",
   "blocks.message.loading":
@@ -358,7 +469,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.question.noLongerNeeded": "لم يعد مطلوبًا.",
   "blocks.question.answeredInChat": "تمت الإجابة في الدردشة",
   "blocks.question.heading":
-    "يحتاج {persona} إلى {count, plural, =1 {إجابة} =2 {إجابتين} few {# إجابات} many {# إجابة} other {# إجابة}} قبل المتابعة",
+    "يحتاج {persona} إلى {count, plural, =1 {إجابة} =2 {إجابتين} few {# إجابات} many {# إجابة} other {# إجابة} zero {# إجابة} one {إجابة} two {إجابتين}} قبل المتابعة",
   "blocks.question.skip": "تخطٍّ الآن",
   "blocks.question.answer": "إجابة",
   "blocks.question.otherAnswer": "{header}: إجابة أخرى",
@@ -436,7 +547,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.plan.open": "فتح في لوحة الخطة",
 
   "blocks.related.toggle":
-    "من دردشاتك الأخرى ({count, plural, one {دردشة واحدة} two {دردشتان} few {# دردشات} many {# دردشة} other {# دردشة}})",
+    "من دردشاتك الأخرى ({count, plural, one {دردشة واحدة} two {دردشتان} few {# دردشات} many {# دردشة} other {# دردشة} zero {# دردشة}})",
   "blocks.related.untitled": "دردشة بلا عنوان",
 
   "blocks.markdown.image": "[صورة: {alt}]",
@@ -457,7 +568,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.receipt.failed": "فشل",
 
   "blocks.diff.moreLines":
-    "… {count, plural, one {سطر إضافي واحد} two {سطران إضافيان} few {# أسطر إضافية} many {# سطرًا إضافيًا} other {# سطر إضافي}}",
+    "… {count, plural, one {سطر إضافي واحد} two {سطران إضافيان} few {# أسطر إضافية} many {# سطرًا إضافيًا} other {# سطر إضافي} zero {# سطر إضافي}}",
 
   "context.breakdown.system": "موجّه النظام",
   "context.breakdown.tools": "الأدوات",
@@ -489,7 +600,7 @@ export const ar: Partial<Catalogue> = {
 
   "context.marker.region": "أدوار مضغوطة",
   "context.marker.toggle":
-    "{turns, plural, one {تم ضغط دور سابق واحد} two {تم ضغط دورين سابقين} few {تم ضغط # أدوار سابقة} many {تم ضغط # دورًا سابقًا} other {تم ضغط # دور سابق}}{manual, select, true { بناءً على طلب} other {}}، {before} ← {after} رمز",
+    "{turns, plural, one {تم ضغط دور سابق واحد} two {تم ضغط دورين سابقين} few {تم ضغط # أدوار سابقة} many {تم ضغط # دورًا سابقًا} other {تم ضغط # دور سابق} zero {تم ضغط # دور سابق}}{manual, select, true { بناءً على طلب} other {}}، {before} ← {after} رمز",
   "context.marker.readsInstead": "الملخص الذي يقرؤه الوكيل بدلًا منها:",
   "context.marker.empty": "لم يُعثر على شيء يستحق الاحتفاظ به.",
   "context.marker.showReplaced": "عرض ما تم استبداله",
@@ -499,7 +610,7 @@ export const ar: Partial<Catalogue> = {
 
   "context.compact.nothing": "لا شيء للضغط بعد: كل الأدوار لا تزال محفوظة حرفيًا.",
   "context.compact.done":
-    "تم ضغط {turns, plural, one {دور سابق واحد} two {دورين سابقين} few {# أدوار سابقة} many {# دورًا سابقًا} other {# دور سابق}}، {before} ← {after} رمز.",
+    "تم ضغط {turns, plural, one {دور سابق واحد} two {دورين سابقين} few {# أدوار سابقة} many {# دورًا سابقًا} other {# دور سابق} zero {# دور سابق}}، {before} ← {after} رمز.",
   "context.compact.busy": "لا يمكن الضغط أثناء عمل الوكيل أو انتظاره موافقة.",
   "context.compact.failed": "تعذّر الضغط: {reason}",
 
@@ -541,7 +652,7 @@ export const ar: Partial<Catalogue> = {
 
   "agent.status.offline": "تعذّر الوصول إلى Psyche",
   "agent.status.needsYou":
-    "بحاجة إليك: {n, plural, one {عنصر واحد} two {عنصران} few {# عناصر} many {# عنصرًا} other {# عنصر}}",
+    "بحاجة إليك: {n, plural, one {عنصر واحد} two {عنصران} few {# عناصر} many {# عنصرًا} other {# عنصر} zero {# عنصر}}",
   "agent.status.failed": "فشلت {title}",
   "agent.status.idle": "خامل",
   "agent.status.working": "يعمل…",
@@ -550,7 +661,7 @@ export const ar: Partial<Catalogue> = {
   "agent.header.stateLead": "{state}:",
   "agent.header.running": "{n, number} قيد التشغيل",
   "agent.header.needYou":
-    "{n, plural, one {# بحاجة إليك} two {# بحاجة إليك} few {# بحاجة إليك} many {# بحاجة إليك} other {# بحاجة إليك}}",
+    "{n, plural, one {# بحاجة إليك} two {# بحاجة إليك} few {# بحاجة إليك} many {# بحاجة إليك} other {# بحاجة إليك} zero {# بحاجة إليك}}",
   "agent.header.modeLabel": "وضع الأذونات: {mode}",
   "agent.header.modeLead": "وضع الأذونات:",
   "agent.header.modelLabel": "النموذج: {model}",
@@ -567,7 +678,7 @@ export const ar: Partial<Catalogue> = {
   "agent.sheet.soul": "الروح والذاكرة",
   "agent.sheet.now.working": "يعمل على {title} · {elapsed}",
   "agent.sheet.now.waiting":
-    "بانتظارك · {approvals, plural, =0 {} one {# موافقة} two {موافقتان} few {# موافقات} other {# موافقة}}{both, select, true { · } other {}}{questions, plural, =0 {} one {سؤال واحد} two {سؤالان} few {# أسئلة} many {# سؤالًا} other {# سؤال}}",
+    "بانتظارك · {approvals, plural, =0 {} one {# موافقة} two {موافقتان} few {# موافقات} other {# موافقة} zero {} many {# موافقة}}{both, select, true { · } other {}}{questions, plural, =0 {} one {سؤال واحد} two {سؤالان} few {# أسئلة} many {# سؤالًا} other {# سؤال} zero {}}",
   "agent.sheet.now.idleNext": "خامل · التالي: {title} {when}",
   "agent.sheet.now.idle": "خامل",
   "agent.sheet.now.memoryPaused": "الذاكرة متوقفة مؤقتًا",
@@ -683,7 +794,7 @@ export const ar: Partial<Catalogue> = {
   "agent.memory.exported": "تم تصدير {file}.",
   "agent.memory.export": "تصدير كل شيء",
   "agent.memory.resetDone":
-    "تمت إعادة تعيين {files, plural, one {ملف واحد} two {ملفين} few {# ملفات} many {# ملفًا} other {# ملف}} و{claims, plural, one {ادعاء واحد} two {ادعاءين} few {# ادعاءات} many {# ادعاءً} other {# ادعاء}}.",
+    "تمت إعادة تعيين {files, plural, one {ملف واحد} two {ملفين} few {# ملفات} many {# ملفًا} other {# ملف} zero {# ملف}} و{claims, plural, one {ادعاء واحد} two {ادعاءين} few {# ادعاءات} many {# ادعاءً} other {# ادعاء} zero {# ادعاء}}.",
   "agent.creature.axolotl.name": "أكسولوتل",
   "agent.creature.axolotl.description": "أكسولوتل شاحب بابتسامة عريضة وخياشيم مهدّبة بلون التمييز.",
   "agent.creature.bat.name": "خفاش",
@@ -826,15 +937,15 @@ export const ar: Partial<Catalogue> = {
   "shell.compact.modelCurrent": "النموذج: {model}",
   "shell.usage.apiLine": "{cost} اليوم · {tokens} رمز",
   "shell.usage.subscriptionLine":
-    "{turns, plural, one {دور واحد} two {دوران} few {# أدوار} many {# دورًا} other {# دور}} اليوم · ≈ {tokens} رمز",
+    "{turns, plural, one {دور واحد} two {دوران} few {# أدوار} many {# دورًا} other {# دور} zero {# دور}} اليوم · ≈ {tokens} رمز",
   "shell.usage.none": "لا استخدام اليوم",
   "shell.usage.turnsOnly":
-    "{turns, plural, one {دور واحد} two {دوران} few {# أدوار} many {# دورًا} other {# دور}} اليوم",
+    "{turns, plural, one {دور واحد} two {دوران} few {# أدوار} many {# دورًا} other {# دور} zero {# دور}} اليوم",
   "shell.usage.label": "{line}. تفاصيل الاستخدام؛ يفتح الإعدادات ← الاستخدام",
   "shell.usage.labelNamed": "{name}: {line}. تفاصيل الاستخدام؛ يفتح الإعدادات ← الاستخدام",
   "shell.usage.week": "هذا الأسبوع حسب النموذج",
   "shell.usage.turnsTokens":
-    "{turns, plural, one {دور واحد} two {دوران} few {# أدوار} many {# دورًا} other {# دور}} · {tokens}",
+    "{turns, plural, one {دور واحد} two {دوران} few {# أدوار} many {# دورًا} other {# دور} zero {# دور}} · {tokens}",
   "shell.usage.costTokens": "{cost} · {tokens}",
   "shell.usage.budget": "{spent} من {budget} هذا الشهر ({pct})",
   "shell.usage.month": "{cost} هذا الشهر",
@@ -1140,7 +1251,7 @@ export const ar: Partial<Catalogue> = {
 
   "settings.credentials.import.detect": "الكشف من الملف",
   "settings.credentials.import.summary":
-    "تم استيراد {imported, plural, one {عنصر واحد} two {عنصرين} few {# عناصر} many {# عنصرًا} other {# عنصر}}{skipped, plural, =0 {} one {؛ تم تخطي صف واحد} two {؛ تم تخطي صفين} few {؛ تم تخطي # صفوف} many {؛ تم تخطي # صفًا} other {؛ تم تخطي # صف}}.",
+    "تم استيراد {imported, plural, one {عنصر واحد} two {عنصرين} few {# عناصر} many {# عنصرًا} other {# عنصر} zero {# عنصر}}{skipped, plural, =0 {} one {؛ تم تخطي صف واحد} two {؛ تم تخطي صفين} few {؛ تم تخطي # صفوف} many {؛ تم تخطي # صفًا} other {؛ تم تخطي # صف} zero {}}.",
   "settings.credentials.import.row": "الصف {row}: {reason}",
   "settings.credentials.import.more": "و{n, number} أخرى",
   "settings.credentials.import.tooLarge":
@@ -1495,17 +1606,17 @@ export const ar: Partial<Catalogue> = {
   "settings.mcp.trust.noNetwork": "بلا شبكة",
   "settings.mcp.trust.tools": "الأدوات",
   "settings.mcp.trust.toolCount":
-    "{n, plural, one {أداة واحدة} two {أداتان} few {# أدوات} many {# أداة} other {# أداة}}",
+    "{n, plural, one {أداة واحدة} two {أداتان} few {# أدوات} many {# أداة} other {# أداة} zero {# أداة}}",
   "settings.mcp.trust.blocked": "متوقفة: وصف مريب",
   "settings.mcp.trust.seeTools":
-    "{n, plural, one {عرض الأداة} two {عرض الأداتين} few {عرض الأدوات الـ #} many {عرض الأدوات الـ #} other {عرض الأدوات الـ #}}",
+    "{n, plural, one {عرض الأداة} two {عرض الأداتين} few {عرض الأدوات الـ #} many {عرض الأدوات الـ #} other {عرض الأدوات الـ #} zero {عرض الأدوات الـ #}}",
   "settings.mcp.trust.tierCount.read": "{n} للقراءة",
   "settings.mcp.trust.tierCount.write": "{n} تغيّر أشياء",
   "settings.mcp.trust.tierCount.destructive": "{n} تدميرية",
   "settings.mcp.trust.offCount":
-    "{n, plural, one {# متوقفة} two {# متوقفتان} few {# متوقفة} many {# متوقفة} other {# متوقفة}}",
+    "{n, plural, one {# متوقفة} two {# متوقفتان} few {# متوقفة} many {# متوقفة} other {# متوقفة} zero {# متوقفة}}",
   "settings.mcp.trust.warnings":
-    "{n, plural, one {تحذير واحد} two {تحذيران} few {# تحذيرات} many {# تحذيرًا} other {# تحذير}}",
+    "{n, plural, one {تحذير واحد} two {تحذيران} few {# تحذيرات} many {# تحذيرًا} other {# تحذير} zero {# تحذير}}",
   "settings.mcp.trust.details": "التفاصيل",
   "settings.mcp.trust.id": "المعرّف",
   "settings.mcp.trust.how": "بدأ بـ",
@@ -1578,9 +1689,9 @@ export const ar: Partial<Catalogue> = {
   "settings.data.deleteThreadsHint":
     "حذف دردشة لا يحذف ما تعلّمه {persona} منها. لنسيان ذلك أيضًا، أعد تعيين الذاكرة أدناه.",
   "settings.data.confirmDelete":
-    "حذف {n, plural, one {محادثة مؤرشفة واحدة} two {محادثتين مؤرشفتين} few {# محادثات مؤرشفة} many {# محادثة مؤرشفة} other {# محادثة مؤرشفة}}؟ تبقى الإيصالات وسجل التدقيق.",
+    "حذف {n, plural, one {محادثة مؤرشفة واحدة} two {محادثتين مؤرشفتين} few {# محادثات مؤرشفة} many {# محادثة مؤرشفة} other {# محادثة مؤرشفة} zero {# محادثة مؤرشفة}}؟ تبقى الإيصالات وسجل التدقيق.",
   "settings.data.deleteArchived":
-    "{n, plural, =0 {لا محادثات مؤرشفة} one {حذف محادثة مؤرشفة واحدة} two {حذف محادثتين مؤرشفتين} few {حذف # محادثات مؤرشفة} many {حذف # محادثة مؤرشفة} other {حذف # محادثة مؤرشفة}}",
+    "{n, plural, =0 {لا محادثات مؤرشفة} one {حذف محادثة مؤرشفة واحدة} two {حذف محادثتين مؤرشفتين} few {حذف # محادثات مؤرشفة} many {حذف # محادثة مؤرشفة} other {حذف # محادثة مؤرشفة} zero {لا محادثات مؤرشفة}}",
   "settings.data.reset": "إعادة تعيين",
   "settings.data.resetHint":
     "يحذف كل ملفات الذاكرة والفهارس والادعاءات ويبدأ {persona} من جديد. تبقى الدردشات.",
@@ -1593,9 +1704,9 @@ export const ar: Partial<Catalogue> = {
   "settings.data.resumed": "تم استئناف الذاكرة.",
   "settings.data.exportReady": "التصدير جاهز: {filename}.",
   "settings.data.deleted":
-    "تم حذف {n, plural, one {محادثة مؤرشفة واحدة} two {محادثتين مؤرشفتين} few {# محادثات مؤرشفة} many {# محادثة مؤرشفة} other {# محادثة مؤرشفة}}.",
+    "تم حذف {n, plural, one {محادثة مؤرشفة واحدة} two {محادثتين مؤرشفتين} few {# محادثات مؤرشفة} many {# محادثة مؤرشفة} other {# محادثة مؤرشفة} zero {# محادثة مؤرشفة}}.",
   "settings.data.resetDone":
-    "تمت إعادة تعيين الذاكرة: أُزيل {files, plural, one {ملف واحد} two {ملفان} few {# ملفات} many {# ملفًا} other {# ملف}} و{claims, plural, one {ادعاء واحد} two {ادعاءان} few {# ادعاءات} many {# ادعاءً} other {# ادعاء}}.",
+    "تمت إعادة تعيين الذاكرة: أُزيل {files, plural, one {ملف واحد} two {ملفان} few {# ملفات} many {# ملفًا} other {# ملف} zero {# ملف}} و{claims, plural, one {ادعاء واحد} two {ادعاءان} few {# ادعاءات} many {# ادعاءً} other {# ادعاء} zero {# ادعاء}}.",
 
   "settings.devices.scope.operator.read": "قراءة",
   "settings.devices.scope.operator.write": "كتابة",
@@ -1699,7 +1810,7 @@ export const ar: Partial<Catalogue> = {
   "settings.model.cap.reasoning": "استدلال",
   "settings.model.cap.guessed": "(مخمَّن من الاسم)",
   "settings.model.probe.models":
-    "{n, plural, one {نموذج واحد} two {نموذجان} few {# نماذج} many {# نموذجًا} other {# نموذج}}",
+    "{n, plural, one {نموذج واحد} two {نموذجان} few {# نماذج} many {# نموذجًا} other {# نموذج} zero {# نموذج}}",
   "settings.model.probe.ms": "{n, number} مللي ثانية",
   "settings.model.probe.checked": "فُحص {when}",
   "settings.model.probe.checking": "جارٍ فحص نقطة النهاية",
@@ -1882,7 +1993,7 @@ export const ar: Partial<Catalogue> = {
   "settings.server.address": "العنوان",
   "settings.server.passkeys": "مفاتيح المرور",
   "settings.server.passkeyCount":
-    "{n, plural, one {مفتاح مرور واحد} two {مفتاحا مرور} few {# مفاتيح مرور} many {# مفتاح مرور} other {# مفتاح مرور}}",
+    "{n, plural, one {مفتاح مرور واحد} two {مفتاحا مرور} few {# مفاتيح مرور} many {# مفتاح مرور} other {# مفتاح مرور} zero {# مفتاح مرور}}",
   "settings.server.addPasskey": "إضافة مفتاح مرور",
   "settings.server.sandbox": "البيئة المعزولة",
   "settings.server.sandboxHint": "تعمل الأوامر في حاوية. لا يلجأ Psyche أبدًا إلى صدفة المضيف.",
@@ -1932,12 +2043,12 @@ export const ar: Partial<Catalogue> = {
   "settings.skills.draft.effect.destructive": "يحذف أو يستبدل",
   "settings.skills.draft.effect.financial": "ينفق مالًا",
   "settings.skills.draft.seen":
-    "شوهد {n, plural, one {مرة واحدة} two {مرتين} few {# مرات} many {# مرة} other {# مرة}}",
+    "شوهد {n, plural, one {مرة واحدة} two {مرتين} few {# مرات} many {# مرة} other {# مرة} zero {# مرة}}",
   "settings.skills.draft.edited": "محرَّر",
   "settings.skills.draft.tainted": "بُني بعد قراءة محتوى خارجي",
   "settings.skills.draft.step": "({effect}) · {summary}",
   "settings.skills.draft.redacted":
-    "{n, plural, =0 {} one {أزال {persona} قيمة شخصية أو سرية واحدة من كلماتك. } two {أزال {persona} قيمتين شخصيتين أو سريتين من كلماتك. } few {أزال {persona} # قيم شخصية أو سرية من كلماتك. } many {أزال {persona} # قيمة شخصية أو سرية من كلماتك. } other {أزال {persona} # قيمة شخصية أو سرية من كلماتك. }}لم يُحتفظ من المحادثة إلا بأسماء الأدوات وأسماء المدخلات.",
+    "{n, plural, =0 {} one {أزال {persona} قيمة شخصية أو سرية واحدة من كلماتك. } two {أزال {persona} قيمتين شخصيتين أو سريتين من كلماتك. } few {أزال {persona} # قيم شخصية أو سرية من كلماتك. } many {أزال {persona} # قيمة شخصية أو سرية من كلماتك. } other {أزال {persona} # قيمة شخصية أو سرية من كلماتك. } zero {}}لم يُحتفظ من المحادثة إلا بأسماء الأدوات وأسماء المدخلات.",
   "settings.skills.draft.noReplay": "لا يمكن إعادة تشغيله: {problems}.",
   "settings.skills.draft.editOrDismiss": "حرّره أو تجاهله.",
   "settings.skills.draft.saveFailed": "تعذّر على Psyche حفظه ({reason}).",
@@ -1978,7 +2089,7 @@ export const ar: Partial<Catalogue> = {
   "settings.skills.asks.unknown": "غير معروف: تعذّرت قراءة المهارة.",
   "settings.skills.asks.nothing": "لا شيء سوى تعليماتها.",
   "settings.skills.tools":
-    "{n, plural, one {أداة واحدة} two {أداتان} few {# أدوات} many {# أداة} other {# أداة}}",
+    "{n, plural, one {أداة واحدة} two {أداتان} few {# أدوات} many {# أداة} other {# أداة} zero {# أداة}}",
   "settings.skills.severity.high": "عالية",
   "settings.skills.severity.warn": "تحذير",
   "settings.skills.severity.info": "ملاحظة",
@@ -1998,14 +2109,14 @@ export const ar: Partial<Catalogue> = {
   "settings.skills.trust.prompts": "ملفات الموجّهات",
   "settings.skills.trust.findings": "نتائج الفحص",
   "settings.skills.trust.high":
-    "{n, plural, one {نتيجة واحدة عالية الخطورة} two {نتيجتان عاليتا الخطورة} few {# نتائج عالية الخطورة} many {# نتيجة عالية الخطورة} other {# نتيجة عالية الخطورة}}: إذا ثبّتها على أي حال، تبقى متوقفة ولا يمكن تشغيلها.",
+    "{n, plural, one {نتيجة واحدة عالية الخطورة} two {نتيجتان عاليتا الخطورة} few {# نتائج عالية الخطورة} many {# نتيجة عالية الخطورة} other {# نتيجة عالية الخطورة} zero {# نتيجة عالية الخطورة}}: إذا ثبّتها على أي حال، تبقى متوقفة ولا يمكن تشغيلها.",
   "settings.skills.trust.clean": "لم يجد الفحص الثابت ما يستدعي التنبيه.",
   "settings.skills.trust.changes": "التغييرات منذ الإصدار المعتمد",
   "settings.skills.trust.noChanges": "لا تغييرات.",
   "settings.skills.trust.fullText": "SKILL.md (النص الكامل)",
   "settings.skills.trust.files": "كل الملفات ({n, number})",
   "settings.skills.trust.fileMeta":
-    "{bytes, plural, one {بايت واحد} two {بايتان} few {# بايتات} many {# بايتًا} other {# بايت}}{executable, select, true { · قابل للتنفيذ} other {}}{binary, select, true { · ثنائي} other {}}",
+    "{bytes, plural, one {بايت واحد} two {بايتان} few {# بايتات} many {# بايتًا} other {# بايت} zero {# بايت}}{executable, select, true { · قابل للتنفيذ} other {}}{binary, select, true { · ثنائي} other {}}",
   "settings.skills.updateAvailable":
     "يتوفر تحديث{changed, select, true { · يطلب أشياء مختلفة} other {}}",
   "settings.skills.version": " · الإصدار {version}",
@@ -2047,7 +2158,7 @@ export const ar: Partial<Catalogue> = {
   "settings.skills.dismissed": "تم تجاهل «{name}». لن يقترح {persona} هذا الروتين مرة أخرى.",
   "settings.skills.removed": "تمت إزالة «{name}».",
   "settings.skills.updates":
-    "{n, plural, =0 {كل المهارات المثبّتة محدَّثة.} one {يتوفر تحديث واحد.} two {يتوفر تحديثان.} few {تتوفر # تحديثات.} many {يتوفر # تحديثًا.} other {يتوفر # تحديث.}}",
+    "{n, plural, =0 {كل المهارات المثبّتة محدَّثة.} one {يتوفر تحديث واحد.} two {يتوفر تحديثان.} few {تتوفر # تحديثات.} many {يتوفر # تحديثًا.} other {يتوفر # تحديث.} zero {كل المهارات المثبّتة محدَّثة.}}",
 
   "settings.usage.millions": "{n}M",
   "settings.usage.thousands": "{n}k",
@@ -2096,7 +2207,7 @@ export const ar: Partial<Catalogue> = {
   "settings.vm.notInstalled": "غير مثبّت بعد",
   "settings.vm.resources": "الموارد",
   "settings.vm.resourcesValue":
-    "{cpus, plural, one {معالج واحد} two {معالجان} few {# معالجات} many {# معالجًا} other {# معالج}} · ذاكرة {memory, number} ج.ب · قرص {disk, number} ج.ب",
+    "{cpus, plural, one {معالج واحد} two {معالجان} few {# معالجات} many {# معالجًا} other {# معالج} zero {# معالج}} · ذاكرة {memory, number} ج.ب · قرص {disk, number} ج.ب",
   "settings.vm.guestHelper": "مساعد الضيف",
   "settings.vm.connectedVersion": "متصل ({version})",
   "settings.vm.connected": "متصل",
@@ -2750,9 +2861,9 @@ export const ar: Partial<Catalogue> = {
   "web.backups.failed":
     "فشل {action, select, backup {النسخ الاحتياطي} verify {التحقق} other {الحذف}} ({error}). لم يتغيّر شيء.",
   "web.backups.created":
-    "تم نسخ {files, plural, one {ملف واحد} two {ملفين} few {# ملفات} many {# ملفًا} other {# ملف}} احتياطيًا إلى {file}.",
+    "تم نسخ {files, plural, one {ملف واحد} two {ملفين} few {# ملفات} many {# ملفًا} other {# ملف} zero {# ملف}} احتياطيًا إلى {file}.",
   "web.backups.verified":
-    "تم التحقق من {file}: {files, plural, one {ملف واحد يطابق} two {ملفان يطابقان} few {# ملفات تطابق} many {# ملفًا تطابق} other {# ملف تطابق}} البيان.",
+    "تم التحقق من {file}: {files, plural, one {ملف واحد يطابق} two {ملفان يطابقان} few {# ملفات تطابق} many {# ملفًا تطابق} other {# ملف تطابق} zero {# ملف تطابق}} البيان.",
   "web.backups.problems": "في {file} مشكلات: {problems}",
   "web.backups.deleted": "تم حذف {file}.",
   "web.backups.passphrase": "عبارة المرور",
@@ -3064,7 +3175,7 @@ export const ar: Partial<Catalogue> = {
   "web.chat.conversation": "المحادثة",
   "web.chat.preparing": "يجهّز Psyche دردشتك الرئيسية.",
   "web.quickEntry.status":
-    "Psyche · {online, select, true {الدردشة الرئيسية} other {غير متصل}}{approvals, plural, =0 {} one { · موافقة واحدة بالانتظار} two { · موافقتان بالانتظار} few { · # موافقات بالانتظار} many { · # موافقة بالانتظار} other { · # موافقة بالانتظار}}",
+    "Psyche · {online, select, true {الدردشة الرئيسية} other {غير متصل}}{approvals, plural, =0 {} one { · موافقة واحدة بالانتظار} two { · موافقتان بالانتظار} few { · # موافقات بالانتظار} many { · # موافقة بالانتظار} other { · # موافقة بالانتظار} zero {}}",
   "web.quickEntry.placeholder": "اسأل Psyche أو أخبره…",
   "web.quickEntry.label": "الإدخال السريع",
 

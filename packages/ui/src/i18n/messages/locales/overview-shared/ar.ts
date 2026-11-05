@@ -107,7 +107,7 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.lessons.refined":
     "{n, plural, zero {صُقل # مرة} one {صُقل مرة واحدة} two {صُقل مرتين} few {صُقل # مرات} many {صُقل # مرة} other {صُقل # مرة}}",
   "screens.lessons.markLabel":
-    "تعلّمتُه منك في {date}{n, plural, =0 {} one {، صُقل مرة واحدة} two {، صُقل مرتين} few {، صُقل # مرات} many {، صُقل # مرة} other {، صُقل # مرة}}. عرض التفاصيل",
+    "تعلّمتُه منك في {date}{n, plural, =0 {} one {، صُقل مرة واحدة} two {، صُقل مرتين} few {، صُقل # مرات} many {، صُقل # مرة} other {، صُقل # مرة} zero {}}. عرض التفاصيل",
   "screens.lessons.change": "التغيير",
   "screens.lessons.before": "قبل",
   "screens.lessons.after": "بعد",
