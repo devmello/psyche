@@ -348,8 +348,24 @@ export function mergedRemindersCall(backends: readonly ConnectorRecord[], exec: 
     if (tool !== "reminders_list") throw new Error(`${tool} is not available`);
     const seen = new Set<string>();
     const all: Obj[] = [];
+    const wanted =
+      Array.isArray(p.listIds) && p.listIds.length > 0
+        ? p.listIds.filter((x): x is string => typeof x === "string")
+        : undefined;
     for (const rec of backends) {
-      for (const r of await whole(rec, p, signal)) {
+      let params = p;
+      if (wanted !== undefined) {
+        // Each backend gets only its own list ids: the helper refuses an id it cannot read.
+        const own = new Set(
+          rows(await exec(rec, "reminders_list_lists", {}, signal), "lists").flatMap(
+            (l) => str(l.id) ?? [],
+          ),
+        );
+        const mine = wanted.filter((id) => own.has(id));
+        if (mine.length === 0) continue;
+        params = { ...p, listIds: mine };
+      }
+      for (const r of await whole(rec, params, signal)) {
         const k = sameTask(r);
         if (seen.has(k)) continue;
         seen.add(k);

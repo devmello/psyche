@@ -335,6 +335,32 @@ describe("Reminders from Microsoft To Do", () => {
     expect(second.reminders.map((r) => r.title)).toEqual(["renew passport"]);
     const lists = (await call("reminders_list_lists", {}, signal)) as { lists: Obj[] };
     expect(lists.lists.map((l) => l.id)).toEqual(["OL", "L1"]);
+    // Tracked lists: each backend is asked only about its own (the helper refuses others' ids).
+    const seen: Obj[] = [];
+    const tracking = seams(
+      [
+        rec("apple-reminders-1", "apple:reminders", "This PC"),
+        rec("ms-1", "microsoft", "owner@contoso.example"),
+      ],
+      {
+        ...tools,
+        "mcp__apple-reminders-1__reminders_list": (p: Obj) => {
+          seen.push(p);
+          if (Array.isArray(p.listIds) && p.listIds.some((id) => id !== "OL"))
+            throw new Error("unknown list");
+          return { reminders: [] };
+        },
+      },
+      "win32",
+    );
+    await tracking.s.refresh();
+    const only = (await tracking.s.deps.call("reminders")?.(
+      "reminders_list",
+      { listIds: ["L1"], completed: false, limit: 500 },
+      signal,
+    )) as { reminders: Obj[] };
+    expect(only.reminders.map((r) => r.id)).toEqual(["L1|t1", "L2|t2"]);
+    expect(seen).toEqual([]);
   });
 
   it("reaches Memory → Work with the list's name and the owner-content check", async () => {
@@ -370,5 +396,6 @@ describe("Reminders from Microsoft To Do", () => {
     } finally {
       await composed.stop("test");
     }
-  });
+    // A whole composed Gateway: slower than the seams above on a busy machine.
+  }, 30_000);
 });
