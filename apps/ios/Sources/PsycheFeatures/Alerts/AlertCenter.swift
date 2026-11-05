@@ -172,8 +172,10 @@ public final class AlertCenter {
         guard liveActivitiesOn else { return "Live Activities are off. Turn them on in Settings." }
         guard activities.isEnabled else { return "Live Activities are off for Psyche in the iOS Settings app." }
         if watching.contains(task.id) { return nil }
-        let content = TaskActivityContent.make(
-            task: task, status: .running, showTitle: settings.taskTitlesOnLockScreen)
+        // An approval the task is already waiting on shows from the start: the island must not wait for the next
+        // sync, which may not come before the app is suspended.
+        let waiting = (try? await store.home())?.needsYou ?? []
+        let content = activityContent(task: task, needsYou: waiting, fallbackStart: nil)
         guard activities.start(taskID: task.id, content: content) else { return "Couldn't start the Live Activity." }
         watching.insert(task.id)
         lastContent[task.id] = content
@@ -222,16 +224,21 @@ public final class AlertCenter {
         if mode != .background { baselined = true }
     }
 
+    /// What a task's Live Activity shows: its step, and the approval it is waiting on, if any.
+    private func activityContent(task: RunningTask, needsYou: [NeedsYouItem], fallbackStart: Date?) -> TaskActivityContent {
+        let approval = needsYou.first { $0.kind == .approval && $0.taskID == task.id }
+        return TaskActivityContent.make(
+            task: task, status: approval != nil ? .needsApproval : .running,
+            showTitle: settings.taskTitlesOnLockScreen, fallbackStart: fallbackStart,
+            asking: approval?.title,
+            inlineApprovalID: approval.flatMap { AlertPolicy.answersInline($0) ? $0.id : nil })
+    }
+
     private func updateActivities(home: HomeSnapshot, recent: [RecentRun]) async {
         for id in watching {
             if let task = home.running.first(where: { $0.id == id }) {
                 titles[id] = task.title
-                let approval = home.needsYou.first { $0.kind == .approval && $0.taskID == id }
-                let content = TaskActivityContent.make(
-                    task: task, status: approval != nil ? .needsApproval : .running,
-                    showTitle: settings.taskTitlesOnLockScreen, fallbackStart: lastContent[id]?.startedAt,
-                    asking: approval?.title,
-                    inlineApprovalID: approval.flatMap { AlertPolicy.answersInline($0) ? $0.id : nil })
+                let content = activityContent(task: task, needsYou: home.needsYou, fallbackStart: lastContent[id]?.startedAt)
                 if lastContent[id] != content {
                     lastContent[id] = content
                     await activities.update(taskID: id, content: content)

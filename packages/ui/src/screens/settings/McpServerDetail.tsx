@@ -3,6 +3,7 @@ import type { McpServerStatus } from "@psyche/protocol";
 import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
+import { type ConnectorBundlesState, ConnectorShare } from "./ConnectorBundles.tsx";
 import { ConnectorIcon } from "./ConnectorIcon.tsx";
 import { Disclosure, FactRows } from "./ConnectorRow.tsx";
 import { McpCodePanel } from "./McpCodePanel.tsx";
@@ -67,12 +68,15 @@ export function McpServerIcon({ server }: { server: McpServerStatus }): ReactEle
 export function McpServerDetail({
   server,
   mcp,
+  bundles,
   onRemove,
   onSetEnabled,
   onTry,
   now,
 }: {
   server: McpServerStatus;
+  /** Sharing this connector as a signed file. */
+  bundles?: ConnectorBundlesState;
   /** For the launch failure the last attempt left, shown with its next step. */
   mcp?: Pick<McpState, "reload" | "actionError" | "actionFailure">;
   onRemove?: (server: McpServerStatus) => void;
@@ -137,6 +141,7 @@ export function McpServerDetail({
         {...(onSetEnabled ? { onSetEnabled: (on: boolean) => onSetEnabled(server, on) } : {})}
         {...(onRemove ? { onRemove: () => onRemove(server) } : {})}
       />
+      {bundles ? <ConnectorShare server={server} state={bundles} /> : null}
       <Disclosure label={t("settings.connectors.page.detail.technical")}>
         <Facts
           className="text-callout"

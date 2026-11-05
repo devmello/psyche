@@ -333,3 +333,10 @@ describe("a notification opens its source", () => {
     expect(screen.queryByRole("button", { name: "Open" })).toBeNull();
   });
 });
+
+describe("old run-result links", () => {
+  it("send /threads/<id> to the chat and /upcoming/<id> to the runs list", () => {
+    expect(legacyRedirect("/threads/thr_1")).toBe("/chat/thr_1");
+    expect(legacyRedirect("/upcoming/auto_1")).toBe("/scheduled?tab=runs");
+  });
+});

@@ -1,0 +1,36 @@
+import type { Catalogue } from "../../index.ts";
+
+/** shell strings (ar); merged into `../ar.ts`. */
+export const shell: Partial<Catalogue> = {
+  "shell.rail.scheduled": "المجدولة",
+  "shell.rail.waiting": "{label}، {n, number} بانتظارك",
+  "shell.palette.addMcp": "إضافة خادم MCP",
+  "shell.palette.settingsSection": "الإعدادات ← {section}",
+  "shell.palette.librarySection": "المكتبة ← {section}",
+  "shell.palette.canDo": "ماذا يمكنك أن تفعل؟",
+  "shell.palette.rerunSetup": "تشغيل الإعداد مجددًا",
+  "shell.palette.you": "الانتقال إلى النظرة العامة (النشاط والنمو)",
+  "shell.palette.briefInstructions": "الرئيسية ← تعليمات الموجز",
+  "shell.palette.fullSearch": "فتح البحث الكامل",
+  "shell.palette.keywords.feedInstructions": "موجز يومي عمّ أكتب مواضيع",
+  "shell.palette.scheduledRuns": "المجدولة ← التشغيلات",
+  "shell.palette.memoryReview": "الذاكرة ← المراجعة",
+  "shell.palette.keywords.settings": "تفضيلات خيارات ضبط",
+  "shell.palette.keywords.canDo": "مساعدة قدرات أمثلة جرّب أفكار فتح",
+  "shell.palette.keywords.rerunSetup": "تهيئة إعداد ترحيب",
+  "shell.palette.keywords.approvals": "أذونات قرار بحاجة إليك",
+  "shell.palette.keywords.memoryReview": "تذكّر حقائق متابعات أشخاص حجر مراجعة",
+  "shell.palette.memoryKind": "الذاكرة ← {kind}",
+  "shell.palette.keywords.memoryPeople": "جهات اتصال أصدقاء عائلة زملاء علاقات البقاء على تواصل",
+  "shell.palette.keywords.memoryProjects": "دورات صفوف وظائف مبادرات عمل قيد التنفيذ",
+  "shell.palette.keywords.memoryDue":
+    "مهام قائمة مهام مواعيد نهائية مستحق متأخر واجبات فواتير إيجار تجديدات ضرائب أعمال منزلية مخرجات تسليم مشروع",
+  "shell.palette.keywords.memoryEvents": "تقويم اجتماعات مواعيد رحلات أحداث",
+  "shell.palette.addTodo": "إضافة مهمة",
+  "shell.palette.keywords.addTodo": "جديد مهمة واجب موعد نهائي مستحق تذكير إنشاء",
+  "shell.palette.addProject": "إضافة مشروع",
+  "shell.palette.keywords.addProject": "جديد مشروع دورة صف وظيفة مبادرة إنشاء تتبع",
+  "shell.browser.open": "فتح المتصفح",
+  "shell.search.keyCmdL": "⌘L",
+  "shell.search.keyCtrlL": "Ctrl L",
+};

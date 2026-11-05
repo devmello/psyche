@@ -30,7 +30,7 @@ export function withRunSnapshot(
           widget: runSnapshot({
             status: result.status,
             ...(Number.isFinite(seconds) ? { seconds } : {}),
-            route: run.threadId === null ? SCHEDULED_RUNS_ROUTE : `/threads/${run.threadId}`,
+            route: run.threadId === null ? SCHEDULED_RUNS_ROUTE : `/chat/${run.threadId}`,
           }),
         });
       } catch {

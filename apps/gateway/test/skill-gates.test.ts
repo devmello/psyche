@@ -217,3 +217,56 @@ describe("author trust gate", () => {
     expect((await ready.broker.list())[0]?.kind).toBe("policy_change");
   });
 });
+
+describe("rotating the author key and signing a notice use the same gate as an export", () => {
+  const ROTATE = { keyId: `sha256:${"a".repeat(64)}`, name: "Ada" };
+  const NOTICE = {
+    kind: "key" as const,
+    keyId: `sha256:${"a".repeat(64)}`,
+    reason: "key leaked",
+  };
+
+  it("are for Psyche on the Host itself only, whatever the presence", async () => {
+    for (const bad of [
+      { shell: false },
+      { loopback: false },
+      { shell: false, presence: "ready" },
+    ]) {
+      const r = rig(bad);
+      expect(
+        (await rejects(r.gates.rotate?.(r.call, ROTATE, undefined) as Promise<unknown>)).code,
+      ).toBe("forbidden");
+      expect(
+        (await rejects(r.gates.notice?.(r.call, NOTICE, undefined) as Promise<unknown>)).code,
+      ).toBe("forbidden");
+      expect(await r.broker.list()).toEqual([]);
+    }
+  });
+
+  it("show a device-only card, and with a verifier ask for fresh presence; a lost verifier fails closed", async () => {
+    const r = rig();
+    const err = await rejects(r.gates.rotate?.(r.call, ROTATE, undefined) as Promise<unknown>);
+    expect(err.code).toBe("approval_required");
+    const [card] = await r.broker.list();
+    expect(card?.deviceOnly).toBe(true);
+    expect(card?.details).toMatchObject({ kind: "skill_author_rotate", keyId: ROTATE.keyId });
+    const p = rig({ presence: "ready" });
+    await rejects(p.gates.notice?.(p.call, NOTICE, undefined) as Promise<unknown>);
+    const [pc] = await p.broker.list();
+    expect(pc?.kind).toBe("policy_change");
+    expect(pc?.details).toMatchObject({ kind: "skill_author_notice", noticeKind: "key" });
+    const lost = rig({ presence: "unavailable" });
+    expect(
+      (await rejects(lost.gates.rotate?.(lost.call, ROTATE, undefined) as Promise<unknown>)).code,
+    ).toBe("presence_required");
+  });
+
+  it("an approval for rotating is no use for signing a notice", async () => {
+    const r = rig();
+    const err = await rejects(r.gates.rotate?.(r.call, ROTATE, undefined) as Promise<unknown>);
+    const approvalId = (err.details as { approvalId: string }).approvalId;
+    r.clock.advance(APPROVAL_ARM_DELAY_MS + 10);
+    const e2 = await rejects(r.gates.notice?.(r.call, NOTICE, approvalId) as Promise<unknown>);
+    expect(["binding_mismatch", "approval_required", "forbidden"]).toContain(e2.code);
+  });
+});

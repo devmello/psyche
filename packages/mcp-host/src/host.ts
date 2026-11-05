@@ -45,6 +45,12 @@ export interface PsycheMcpServerConfig extends McpServerConfig {
    * still hashes to `filesHash`, the tree the owner approved.
    */
   madeBy?: "psyche";
+  /**
+   * Installed from a shared `.psyche-connector` file: someone else's command, so its tier is
+   * always `unknown` whatever the command looks like, and it starts only while its record in
+   * `connectors/bundles.json` is intact and its author's key and bundle are not revoked.
+   */
+  bundle?: { hash: string };
   /** The manifest's version (a counter the agent bumps on update). */
   version?: string;
   /** Hash of the approved code tree (`treeHash` of the files); checked before every start. */

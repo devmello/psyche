@@ -1,0 +1,48 @@
+import type { Catalogue } from "../../index.ts";
+
+/** audit strings (ar); merged into `../ar.ts`. */
+export const audit: Partial<Catalogue> = {
+  "audit.chip.files":
+    "{count, plural, zero {لم يُغيَّر أي ملف} one {تغيّر ملف واحد} two {تغيّر ملفان} few {تغيّرت # ملفات} many {تغيّر # ملفًا} other {تغيّر # ملف}}",
+  "audit.chip.items":
+    "{count, plural, zero {لم يتغيّر أي عنصر} one {تغيّر عنصر واحد} two {تغيّر عنصران} few {تغيّرت # عناصر} many {تغيّر # عنصرًا} other {تغيّر # عنصر}}",
+  "audit.chip.label": "{summary} · {names}",
+  "audit.chip.toggle": "عرض ما تغيّر",
+  "audit.chip.openTimeline": "فتح في الجدول الزمني",
+  "audit.chip.openFile": "فتح الملف",
+  "audit.chip.loadingDiff": "جارٍ تحميل الفروق…",
+  "audit.chip.noDiff": "لا فروق محفوظة (ملف ثنائي أو كبير): {bytes} بايت، وسُجّلت قيم التجزئة.",
+  "audit.chip.diffTruncated": "قُطعت الفروق عند الحد المخزّن.",
+  "audit.title": "التدقيق",
+  "audit.hint":
+    "كل تغيير أُجري على ملفاتك وذاكرتك وإعداداتك وتطبيقاتك المرتبطة، ومن أجراه ومتى. كل إدخال جزء من سلسلة تجزئة، فيُكتشف أي سجل جرى تغييره.",
+  "audit.empty": "لم يُسجَّل شيء بعد.",
+  "audit.loadFailed": "تعذّر تحميل التدقيق: {reason}",
+  "audit.filter.all": "الكل",
+  "audit.filter.files": "الملفات",
+  "audit.filter.memory": "الذاكرة",
+  "audit.filter.commands": "الأوامر",
+  "audit.filter.connectors": "الموصّلات",
+  "audit.filter.approvals": "الموافقات",
+  "audit.filter.other": "المهارات والإعدادات",
+  "audit.filter.label": "تصفية حسب النوع",
+  "audit.chain.verified": "تم التحقق",
+  "audit.chain.broken": "انقطعت السلسلة عند الإدخال {seq}",
+  "audit.chain.checking": "جارٍ فحص السلسلة…",
+  "audit.chain.help": "سلسلة تجزئة سجل التدقيق: {state}.",
+  "audit.actor.agent": "الوكيل",
+  "audit.actor.job": "مهمة في الخلفية",
+  "audit.actor.owner": "أنت",
+  "audit.actor.named": "{kind}: {name}",
+  "audit.action": "{action} · {target}",
+  "audit.failed": "فشل",
+  "audit.thread": "السلسلة {id}",
+  "audit.approval": "الموافقة {id}",
+  "audit.hash.before": "قبل",
+  "audit.hash.after": "بعد",
+  "audit.expand": "عرض التفاصيل",
+  "audit.collapse": "إخفاء التفاصيل",
+  "audit.export.json": "تصدير JSON",
+  "audit.export.markdown": "تصدير Markdown",
+  "audit.loadMore": "تحميل الأقدم",
+};

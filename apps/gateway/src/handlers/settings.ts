@@ -52,6 +52,36 @@ async function checkNewFolders(call: Call, value: unknown): Promise<void> {
   }
 }
 
+const isObj = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+/**
+ * Entries of `mcp.servers` that came from a shared file are written back with the marker, tier,
+ * transport, sandbox and working folder they had; an entry cannot claim the marker for itself.
+ */
+export function keepBundleProtections(stored: unknown, incoming: unknown): unknown {
+  if (!Array.isArray(incoming)) return incoming;
+  const before = new Map<string, Record<string, unknown>>();
+  if (Array.isArray(stored))
+    for (const e of stored) if (isObj(e) && typeof e.id === "string") before.set(e.id, e);
+  return incoming.map((e) => {
+    if (!isObj(e) || typeof e.id !== "string") return e;
+    const was = before.get(e.id);
+    const { bundle: _claimed, ...rest } = e;
+    if (was === undefined || !isObj(was.bundle)) return rest;
+    // The command, arguments and variables are what was approved too; values are set through
+    // `mcp.secrets.replace`, which writes the setting itself.
+    const protectedFields: Record<string, unknown> = {
+      bundle: was.bundle,
+      trust: "unknown",
+      transport: was.transport,
+    };
+    if (was.sandbox !== undefined) protectedFields.sandbox = was.sandbox;
+    if (was.cwd !== undefined) protectedFields.cwd = was.cwd;
+    return { ...rest, ...protectedFields };
+  });
+}
+
 export const settingsHandlers: Record<string, HandlerDef> = {
   "settings.get": {
     run(call: Call, params: { keys?: string[] }) {
@@ -69,7 +99,7 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       const { key } = params;
       // `gateway.lan` is stored in its normalized form, and a malformed or wildcard value is
       // refused before anything (including the presence card) is created for it.
-      const value = key === LAN_SETTING ? parseLanSettings(params.value) : params.value;
+      let value = key === LAN_SETTING ? parseLanSettings(params.value) : params.value;
       if (key.startsWith(INTERNAL_SETTING_PREFIX)) {
         throw new PsycheError(
           "invalid_params",
@@ -80,6 +110,10 @@ export const settingsHandlers: Record<string, HandlerDef> = {
         throw new PsycheError("forbidden", `Changing ${key} requires operator.admin`);
       }
       if (key === "permissions.policy") await checkNewFolders(call, value);
+      // A tool server that came from a shared file keeps its marker, tier and sandbox however the
+      // list is written: those only change by importing or removing it.
+      if (key === "mcp.servers")
+        value = keepBundleProtections(getSetting(call.ctx.db, key)?.value, value);
       // Fresh presence once a verifier was enrolled (helper Touch ID, passkeys); admin only before.
       if (needsPresence(key)) {
         await requireFreshPresence(

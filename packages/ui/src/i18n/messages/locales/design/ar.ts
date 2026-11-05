@@ -1,0 +1,41 @@
+import type { Catalogue } from "../../index.ts";
+
+/** design strings (ar); merged into `../ar.ts`. */
+export const design: Partial<Catalogue> = {
+  "design.duration.minS": "{m, number} د {s, number} ث",
+  "design.steps.running": "قيد التشغيل",
+  "design.steps.elapsed": "{elapsed} حتى الآن",
+  "design.steps.attempts": "المحاولة {n, number}",
+  "design.steps.repeats": "×{n, number}",
+  "design.steps.expand": "عرض التفاصيل",
+  "design.steps.collapse": "إخفاء التفاصيل",
+  "design.status.done": "اكتمل",
+  "design.status.failed": "فشل",
+  "design.status.running": "قيد التشغيل",
+  "design.status.waiting": "بانتظارك",
+  "design.status.pending": "لم يبدأ",
+  "design.status.cancelled": "متوقف",
+  "design.status.blocked": "محظور",
+  "design.status.paused": "متوقف مؤقتًا",
+  "design.status.thinking": "يفكر",
+  "design.status.retried": "أُعيدت المحاولة",
+  "design.status.skipped": "تم تخطيه",
+  "design.status.partial": "جزئي",
+  "design.timeline.axis": "الوقت",
+  "design.timeline.gap": "خامل {duration}",
+  "design.timeline.playhead": "رأس التشغيل عند {time}",
+  "design.timeline.waiting": "في الانتظار {duration}",
+  "design.json.redacted": "محجوب",
+  "design.json.vault": "الخزنة: {name}",
+  "design.json.copy": "نسخ",
+  "design.json.copied": "تم النسخ",
+  "design.json.items":
+    "{n, plural, zero {لا عناصر} one {عنصر واحد} two {عنصران} few {# عناصر} many {# عنصرًا} other {# عنصر}}",
+  "design.json.keys":
+    "{n, plural, zero {لا مفاتيح} one {مفتاح واحد} two {مفتاحان} few {# مفاتيح} many {# مفتاحًا} other {# مفتاح}}",
+  "design.json.expand": "توسيع {key}",
+  "design.json.collapse": "طيّ {key}",
+  "design.json.truncated": "عرض {shown} من {total}",
+  "design.filmstrip.label": "الإطارات",
+  "design.filmstrip.frame": "إطار عند {time}",
+};

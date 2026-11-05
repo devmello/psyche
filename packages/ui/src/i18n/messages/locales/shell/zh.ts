@@ -1,0 +1,36 @@
+import type { Catalogue } from "../../index.ts";
+
+/** shell strings (zh); merged into `../zh.ts`. */
+export const shell: Partial<Catalogue> = {
+  "shell.rail.scheduled": "计划任务",
+  "shell.rail.waiting": "{label}，有 {n, number} 项等你处理",
+  "shell.palette.addMcp": "添加 MCP 服务器",
+  "shell.palette.settingsSection": "设置 → {section}",
+  "shell.palette.librarySection": "资料库 → {section}",
+  "shell.palette.canDo": "你能做什么？",
+  "shell.palette.rerunSetup": "重新运行设置向导",
+  "shell.palette.you": "前往概览（活动与成长）",
+  "shell.palette.briefInstructions": "主页 → 简报说明",
+  "shell.palette.fullSearch": "打开完整搜索",
+  "shell.palette.keywords.feedInstructions": "简报 每日 我该写什么 话题",
+  "shell.palette.scheduledRuns": "计划任务 → 运行记录",
+  "shell.palette.memoryReview": "记忆 → 审阅",
+  "shell.palette.keywords.settings": "偏好 选项 配置",
+  "shell.palette.keywords.canDo": "帮助 功能 示例 试试 想法 解锁",
+  "shell.palette.keywords.rerunSetup": "引导 设置 欢迎",
+  "shell.palette.keywords.approvals": "权限 决定 需要你",
+  "shell.palette.keywords.memoryReview": "记住 事实 跟进 人物 隔离 审阅",
+  "shell.palette.memoryKind": "记忆 → {kind}",
+  "shell.palette.keywords.memoryPeople": "联系人 朋友 家人 同事 关系 保持联系",
+  "shell.palette.keywords.memoryProjects": "课程 班级 工作 计划 项目 进行中",
+  "shell.palette.keywords.memoryDue":
+    "待办 任务 截止日期 到期 逾期 作业 账单 房租 续订 税 家务 交付物 项目提交",
+  "shell.palette.keywords.memoryEvents": "日历 会议 约会 旅行 活动",
+  "shell.palette.addTodo": "添加待办",
+  "shell.palette.keywords.addTodo": "新建 待办 任务 作业 截止日期 到期 提醒 创建",
+  "shell.palette.addProject": "添加项目",
+  "shell.palette.keywords.addProject": "新建 项目 课程 班级 工作 计划 创建 跟踪",
+  "shell.browser.open": "打开浏览器",
+  "shell.search.keyCmdL": "⌘L",
+  "shell.search.keyCtrlL": "Ctrl L",
+};

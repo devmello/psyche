@@ -2,8 +2,16 @@ import type { EntitySummary, LifeAnswerPassage, LifeFactHit } from "@psyche/prot
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { AgentSheet } from "../agent/AgentSheet.tsx";
 import type { MockGateway } from "../data/mock-gateway.ts";
+import { createFixtureWorld, IDS } from "../fixtures/index.ts";
 import { withCatchUp } from "../fixtures/work.ts";
 import { HomeScreen } from "../home/HomeScreen.tsx";
+import { SettingsScreen } from "../screens/settings/SettingsScreen.tsx";
+import {
+  sampleAbout,
+  sampleDoctor,
+  sampleServerStatus,
+  sampleSettings,
+} from "../screens/settings/sample-data.ts";
 import { CommandPalette } from "../shell/CommandPalette.tsx";
 import { STORY_NOW, StoryWorld } from "../stories/harness.tsx";
 
@@ -171,6 +179,44 @@ export const MemoryFiles: Story = {
         tab="soul"
         onTabChange={() => {}}
         now={STORY_NOW}
+      />
+    </StoryWorld>
+  ),
+};
+
+const settingsWorld = createFixtureWorld();
+const noop = () => {};
+
+/** Settings → Skills, where a shared `.psyche-skill` file is imported: who signed it and what it asks for. */
+export const SharedSkill: Story = {
+  render: () => (
+    <StoryWorld
+      edit={(w) => {
+        Object.assign(w.settings, sampleSettings());
+      }}
+    >
+      <SettingsScreen
+        defaultSection="skills"
+        now={STORY_NOW}
+        ramGb={32}
+        thisDeviceId={IDS.devices.mac}
+        tcc={{ accessibility: "granted", screenRecording: "denied", notifications: "granted" }}
+        usage={settingsWorld.usage}
+        server={sampleServerStatus()}
+        about={sampleAbout()}
+        doctor={sampleDoctor()}
+        onOpenSystemSettings={noop}
+        onConnect={noop}
+        onReconnect={noop}
+        onDisconnect={noop}
+        onRemove={noop}
+        onRunModelCheck={noop}
+        onAddProvider={noop}
+        onEditProviderKey={noop}
+        onConnectManager={noop}
+        onRunDoctor={noop}
+        onOpenLogs={noop}
+        onAddPasskey={noop}
       />
     </StoryWorld>
   ),

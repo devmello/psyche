@@ -115,9 +115,13 @@ describe("AutomationChat", () => {
         />
       </StoryWorld>,
     );
-    const blocks = await screen.findAllByTestId("automation-run");
-    const focused = blocks.find((b) => b.getAttribute("data-run-id") === target);
-    expect(focused?.getAttribute("data-open")).toBe("true");
+    // The focused run opens after the runs load; wait for it (it raced on CI).
+    await waitFor(() => {
+      const focused = screen
+        .getAllByTestId("automation-run")
+        .find((b) => b.getAttribute("data-run-id") === target);
+      expect(focused?.getAttribute("data-open")).toBe("true");
+    });
     expect(R.automation(1)).toBeTruthy();
   });
 });

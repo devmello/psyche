@@ -1,0 +1,108 @@
+import type { Catalogue } from "../../index.ts";
+
+/** `onboarding.*` strings (hi); merged into `../hi.ts`. */
+export const onboardingRest: Partial<Catalogue> = {
+  "onboarding.stepCount": "{total, number} में से {n, number}",
+  "onboarding.connectors.onThisMac": "इस Mac पर",
+  "onboarding.connectors.onThisMacHint": "हर ऐप कनेक्ट होते समय macOS से अनुमति मांगता है, एक-एक करके।",
+  "onboarding.connectors.connectApps":
+    "{n, plural, =0 {ऐप कनेक्ट करें} one {# ऐप कनेक्ट करें} other {# ऐप कनेक्ट करें}}",
+  "onboarding.connectors.connecting": "{name} कनेक्ट हो रहा है",
+  "onboarding.connectors.accounts": "खाते",
+  "onboarding.step.memory": "मेमोरी और रोज़ की आदतें",
+  "onboarding.about.lead":
+    "कुछ बातें ताकि Psyche शुरू से ही आपको जानता हो। यहाँ सब कुछ वैकल्पिक है और USER.md में रहता है, जिसे आप कभी भी संपादित कर सकते हैं।",
+  "onboarding.about.name": "आपका नाम",
+  "onboarding.about.nameHint": "Psyche आपको क्या कहकर बुलाए?",
+  "onboarding.about.timeZone": "समय क्षेत्र",
+  "onboarding.about.timeZoneHint": "Asia/Kolkata",
+  "onboarding.about.work": "काम या पढ़ाई",
+  "onboarding.about.workHint": "आप क्या करते हैं, कुछ शब्दों में",
+  "onboarding.about.city": "घर का शहर",
+  "onboarding.about.cityHint": "आप आमतौर पर कहाँ रहते हैं",
+  "onboarding.memory.lead":
+    "ChatGPT या Claude में पहले से प्रोफ़ाइल है? उसकी मेमोरी का एक्सपोर्ट या “आप मेरे बारे में क्या जानते हैं?” का जवाब पेस्ट करें। सेव होने से पहले आप सब कुछ देख सकते हैं।",
+  "onboarding.memory.unavailable": "इस विंडो में इम्पोर्ट उपलब्ध नहीं है। आप इसे बाद में सोल में कर सकते हैं।",
+  "onboarding.memory.format": "यह कहाँ से आया",
+  "onboarding.memory.format.chatgpt": "ChatGPT",
+  "onboarding.memory.format.claude": "Claude",
+  "onboarding.memory.format.text": "अन्य टेक्स्ट",
+  "onboarding.memory.paste": "मेमोरी का टेक्स्ट",
+  "onboarding.memory.placeholder": "यहाँ पेस्ट करें, या .txt, .md या .json फ़ाइल अपलोड करें",
+  "onboarding.memory.upload": "फ़ाइल अपलोड करें",
+  "onboarding.memory.review": "समीक्षा करें",
+  "onboarding.memory.found":
+    "समीक्षा के लिए {n, number} आइटम मिले ({skipped, number} छोड़े गए)। जो न रखना हो उसका निशान हटा दें।",
+  "onboarding.memory.items": "इम्पोर्ट करने के आइटम",
+  "onboarding.memory.flagged": "निर्देश जैसा लगता है",
+  "onboarding.memory.edit": "टेक्स्ट पर वापस जाएँ",
+  "onboarding.memory.save": "{n, number} को मेमोरी में सेव करें",
+  "onboarding.memory.saved": "{n, number} आइटम मेमोरी में सेव हुए।",
+  "onboarding.memory.failed": "यह काम नहीं किया ({reason})।",
+  "onboarding.habits.lead":
+    "होम पर सुबह और शाम को छोटे कार्ड। Psyche सिर्फ़ पढ़ता है; आपकी स्वीकृति के बिना कुछ नहीं भेजा जाता।",
+  "onboarding.habits.brief": "दैनिक ब्रीफ़",
+  "onboarding.habits.briefHint": "आपका दिन, हर कार्यदिवस की सुबह।",
+  "onboarding.habits.wrapup": "शाम का सारांश",
+  "onboarding.habits.wrapupHint": "क्या पूरा हुआ और क्या कल पर जाता है।",
+  "onboarding.habits.followups": "फ़ॉलो-अप ट्रैकिंग",
+  "onboarding.habits.followupsHint": "उन जवाबों पर नज़र रखता है जिनका आप अब भी इंतज़ार कर रहे हैं।",
+  "onboarding.rerun.title": "फिर से सेट अप करें",
+  "onboarding.rerun.description":
+    "पहली बार वाला सेटअप फिर से देखें। जो चरण हो चुके हैं उन्हें छोड़ दिया जाता है।",
+  "onboarding.rerun.button": "सेटअप फिर से चलाएँ",
+  "onboarding.step.you": "आप और आपका एजेंट",
+  "onboarding.step.stuff": "आपकी चीज़ें",
+  "onboarding.step.safety": "सुरक्षा",
+  "onboarding.you.lead": "इस पेज पर सब कुछ वैकल्पिक है, और आप इसे बाद में बदल सकते हैं।",
+  "onboarding.you.agent": "आपका एजेंट",
+  "onboarding.you.customize": "रूप-रंग बदलें",
+  "onboarding.you.more": "आपके बारे में और",
+  "onboarding.memory.habitsLead":
+    "चुनें कि {name} हर दिन क्या करे और मेमोरी में क्या रखे। यह सब सेटिंग्ज़ में बदला जा सकता है।",
+  "onboarding.memory.bring": "ChatGPT या Claude से मेमोरी लाएँ",
+  "onboarding.habits.title": "हर दिन",
+  "onboarding.work.title": "काम और टू-डू",
+  "onboarding.work.hint":
+    "जिस भी चीज़ की समय-सीमा हो, उसके लिए एक टू-डू रखता है: बिल, किराया, टैक्स, नवीनीकरण, काम की डेडलाइन, होमवर्क। {persona} सिर्फ़ वही सूचियाँ और फ़ोल्डर पढ़ता है जो आप चुनते हैं। जब तक आप हाँ नहीं कहते, बंद रहता है।",
+  "onboarding.work.remindHint":
+    "शाम के सारांश के साथ भेजा जाता है। शीर्षक सिर्फ़ उन्हीं चीज़ों के दिखते हैं जो आपने खुद जोड़ीं।",
+  "onboarding.work.later": "कौन-सी रिमाइंडर सूचियाँ और फ़ोल्डर गिने जाएँ, यह सेटिंग्ज़ → मेमोरी → काम में चुनें।",
+  "onboarding.people.title": "लोग",
+  "onboarding.people.label": "मेरी ब्रीफ़ में लोगों को शामिल करें",
+  "onboarding.people.hint":
+    "आपके जानने वाले लोगों के बारे में तथ्य और किनसे संपर्क में रहना है। जब तक आप चालू न करें, बंद रहता है।",
+  "onboarding.people.needsBrief":
+    "सुबह की ब्रीफ़ बंद है, इसलिए लोग अभी कहीं नहीं दिखेंगे। उन्हें देखने के लिए इसे चालू करें।",
+  "onboarding.safety.lead":
+    "स्वीकृतियाँ आप तक कैसे पहुँचती हैं, और क्या अपने आप चलता है। फ़ाइलों, ऐप्स और स्क्रीन का एक्सेस यहाँ नहीं पूछा जाता: जब पहली बार ज़रूरत होती है तब {name} चैट में पूछता है।",
+  "onboarding.safety.touchId": "स्वीकृतियों के लिए Touch ID",
+  "onboarding.safety.touchId.checking": "Mac हेल्पर देखा जा रहा है…",
+  "onboarding.safety.touchId.again": "फिर से जाँचें",
+  "onboarding.safety.touchId.set": "सेट अप करें",
+  "onboarding.safety.touchId.setHint": "जिन स्वीकृतियों में आपकी ज़रूरत होती है, वे आपका फ़िंगरप्रिंट मांगती हैं।",
+  "onboarding.safety.touchId.starting": "Mac हेल्पर अभी शुरू हो रहा है। थोड़ी देर में फिर जाँचें।",
+  "onboarding.safety.touchId.noKey": "Mac हेल्पर के पास Touch ID कुंजी नहीं है ({reason})।",
+  "onboarding.safety.touchId.register": "यह कुंजी रजिस्टर करें",
+  "onboarding.safety.touchId.hint":
+    "Mac हेल्पर की कुंजी एक बार रजिस्टर करें, ताकि Touch ID स्वीकृतियों की पुष्टि कर सके।",
+  "onboarding.safety.notifications": "नोटिफ़िकेशन",
+  "onboarding.safety.asks":
+    "अगर आप {name} को इस Mac पर कमांड चलाने देते हैं, तो जो सिर्फ़ पढ़ते हैं, जैसे ls या cat, वे बिना कार्ड के चलते हैं। बाकी सब पहले आपसे पूछता है।",
+  "onboarding.safety.sandbox": "कमांड के लिए सैंडबॉक्स सेट अप करें",
+  "onboarding.safety.optional": "वैकल्पिक",
+  "onboarding.done.on": "चालू",
+  "onboarding.done.off": "बंद",
+  "onboarding.done.daily": "दैनिक",
+  "onboarding.done.work": "काम की ट्रैकिंग",
+  "onboarding.done.people": "ब्रीफ़ में लोग",
+  "onboarding.done.touchId": "Touch ID",
+  "onboarding.done.touchIdSet": "कुंजी रजिस्टर हो गई",
+  "onboarding.done.touchIdNot": "अभी रजिस्टर नहीं हुई",
+  "onboarding.done.modelKept": "अपरिवर्तित",
+  "onboarding.done.try": "आगे आज़माएँ",
+  "onboarding.done.try.search":
+    "खोज (⌘K) में कोई सवाल पूछें। जवाब दिखाता है कि वह आपके जीवन के किस हिस्से से आया।",
+  "onboarding.done.try.home": "होम खोलें। “कैच अप” वह सूची दिखाता है जो आपसे छूट गया हो सकता है।",
+  "onboarding.done.try.canDo": "तैयार कामों के लिए गियर मेनू में “आप क्या कर सकते हैं?” खोलें।",
+};

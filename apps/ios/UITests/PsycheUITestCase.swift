@@ -71,12 +71,16 @@ class PsycheUITestCase: XCTestCase {
         waitFor(app.navigationBars["Settings"], 5, file: file, line: line)
     }
 
-    /// Swipes up until `element` exists and is hittable.
+    /// Scrolls until `element` exists and is hittable. Content can sit under the top bars as well as below the fold
+    /// (an open keyboard pushes the page up), so an element near the top is brought down. `isHittable` is asked only
+    /// of an element fully on screen: for one partly off it fails the test ("Activation point invalid").
     func scrollTo(_ element: XCUIElement, maxSwipes: Int = 8) {
-        var n = 0
-        while !(element.exists && element.isHittable) && n < maxSwipes {
-            app.swipeUp(velocity: .slow)
-            n += 1
+        let screen = app.windows.firstMatch.frame
+        for _ in 0..<maxSwipes {
+            guard element.exists else { app.swipeUp(velocity: .slow); continue }
+            let frame = element.frame
+            if screen.contains(frame), element.isHittable { return }
+            if frame.midY < screen.minY + screen.height / 4 { app.swipeDown(velocity: .slow) } else { app.swipeUp(velocity: .slow) }
         }
     }
 
