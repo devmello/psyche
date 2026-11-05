@@ -6,7 +6,12 @@ import {
 } from "@psyche/search";
 import { describe, expect, it } from "vitest";
 import { attachGistSources, type GistSources } from "../src/compose/people.ts";
-import { canOpenGistSource, MAX_DOC_ID_CHARS, scrubCitations } from "../src/compose/search-open.ts";
+import {
+  canOpenGistSource,
+  MAX_DOC_ID_CHARS,
+  scrubCitations,
+  scrubWorkHistory,
+} from "../src/compose/search-open.ts";
 import type { Call } from "../src/context.ts";
 
 const NOW = Date.UTC(2026, 10, 4, 12, 0, 0);
@@ -194,6 +199,43 @@ describe("a Messages day", () => {
     expect(indexer.docIdFor({ kind: "message", externalRef: "chat2:2026-11-04" })).toBeUndefined();
     expect(indexer.docIdFor({ kind: "message", externalRef: "chat4:2026-11-03" })).toBeUndefined();
     expect(indexer.docIdFor({ kind: "message", externalRef: "no-day" })).toBeUndefined();
+  });
+});
+
+describe("a work item's history chips", () => {
+  const entry = (source: string, label: string) => ({
+    factId: `fact_${source}`,
+    chip: { source, label },
+  });
+  const all = [
+    entry("mail", "Prof. Rao"),
+    entry("messages", "Dana"),
+    entry("contacts", "Dana Lee"),
+    entry("files", "thesis.tex"),
+    { factId: "fact_none", chip: null },
+  ];
+
+  it("keeps every label for the desktop app", () => {
+    expect(scrubWorkHistory(desktop, all)).toEqual(all);
+  });
+
+  it("keeps the source but hides the label of an owner-only source from a remote client", () => {
+    const remote = scrubWorkHistory(phone, all);
+    expect(remote[0]?.chip).toEqual({ source: "mail", label: "Prof. Rao" });
+    expect(remote[1]?.chip).toEqual({ source: "messages", label: "" });
+    expect(remote[2]?.chip).toEqual({ source: "contacts", label: "" });
+    expect(remote[3]?.chip).toEqual({ source: "files", label: "thesis.tex" });
+    expect(remote[4]?.chip).toBeNull();
+  });
+
+  it("gives a Mac helper no chip at all", () => {
+    expect(scrubWorkHistory(helper, all).map((e) => e.chip)).toEqual([
+      null,
+      null,
+      null,
+      null,
+      null,
+    ]);
   });
 });
 

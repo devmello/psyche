@@ -7,6 +7,8 @@ import SwiftUI
 struct HomeView: View {
     @State private var model: HomeModel
     @State private var ask = ""
+    /// The same on-device dictation as the Chat composer (the mockup's mic in the Ask field).
+    @State private var dictation = Dictation()
     @Environment(Session.self) private var session
     @Environment(Router.self) private var router
     @Environment(\.alerts) private var alerts
@@ -62,7 +64,21 @@ struct HomeView: View {
                 .font(.callout)
                 .submitLabel(.send)
                 .onSubmit(submitAsk)
-            if !ask.isEmpty {
+            if ask.isEmpty || dictation.isActive {
+                let active = dictation.isActive
+                Button {
+                    dictation.toggle { transcript in ask = transcript }
+                } label: {
+                    Image(systemName: active ? "waveform" : "mic")
+                        .font(.system(size: 17))
+                        .foregroundStyle(active ? PsycheColor.text : PsycheColor.muted)
+                        .symbolEffect(.variableColor.iterative, isActive: active)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Circle())
+                }
+                .accessibilityLabel(active ? "Stop dictation" : "Dictate")
+            }
+            if !ask.isEmpty && !dictation.isActive {
                 Button(action: submitAsk) {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.title2)
@@ -80,6 +96,7 @@ struct HomeView: View {
     }
 
     private func submitAsk() {
+        dictation.stop()
         let text = ask.trimmingCharacters(in: .whitespacesAndNewlines)
         ask = ""
         router.askPsyche(text)

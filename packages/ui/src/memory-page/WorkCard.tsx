@@ -240,6 +240,8 @@ function DueRow({
 export interface WorkCardProps extends EntityCardProps {
   /** The item's timeline (`ConnectedTimeline`, or rows for a story). */
   timeline?: ReactNode;
+  /** The History section's rows (`ConnectedWorkHistory`). */
+  history?: ReactNode;
   /** The Linked section's rows (`ConnectedAnchors`). */
   linked?: ReactNode;
   /** Quick add inside a course or project: the form, given a way to close it. */
@@ -265,6 +267,7 @@ export function WorkCard({
   busy = false,
   className,
   timeline,
+  history,
   linked,
   addAssignment,
   ...actions
@@ -474,6 +477,9 @@ export function WorkCard({
             <GroupedList title={t("people.section.timeline")}>
               {timeline ?? <EmptyRow>{t("work.timeline.empty")}</EmptyRow>}
             </GroupedList>
+            {history ? (
+              <GroupedList title={t("work.section.history")}>{history}</GroupedList>
+            ) : null}
             <GroupedList title={t("work.section.linked")}>
               {linked ?? <EmptyRow>{t("work.anchors.empty")}</EmptyRow>}
             </GroupedList>

@@ -25,6 +25,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 - New methods `skills.authors.rotate` (admin, side-effecting, Host shell only: replaces the author key; the old key signs a statement naming the new one, carried in later bundles and notices; presence-gated, audited), `skills.authors.createNotice` (same gates: signs a revocation notice for the owner's current or an earlier key, or for one bundle hash) and `skills.authors.importNotice` (admin, side-effecting: a notice's text or an https link, applied only when signed by an author the owner has met; it can only block).
 - `BundleSignerStatus` gains `rotated` (at the end of the list) and `BundleSigner` gains optional `rotatedFrom` (`keyId`, `state`): same author, new key, signed by the old key; never trusted by itself. A bundle file may carry an optional top-level `rotation` list; a forged chain refuses the file.
 - Skill-forbidden tools gain `connectors.*`.
+### v1 additive — 2026-11-04 (work item History)
+
+- New method `memory.work.history` (`operator.read`): params `entityId` and optional `limit` (1 to 100, default 20); result `{ entries }` of `WorkHistoryEntry`, newest first. Each entry is one change to a work item's `status`, `progress`, `stopped_at`, `next_step` or `deadline` (`WorkHistoryAttribute`): `factId`, `value`, `from` (the value it replaced, or null), `at`, `origin` (`WorkHistoryOrigin`: `chat`, `mail`, `you`, `nightly`, `source`), `chip` (`{ source, label }` or null) and `undoable`. `undoable` is true only for a direct update the owner's chat wrote that is still inside the seven-day window and not yet undone; the Undo button calls the existing `memory.work.undoUpdate`, which keeps all its rules (`changed_again`, `already_undone`, `removed`).
+- A connection that may not open an owner-only source (Messages, Contacts, Memory: only the desktop app on the Host may) gets the chip's `source` with an empty `label`; a Mac helper gets no chip.
 
 ### v1 additive — 2026-11-04 (teach by showing in the built-in browser, J8 phase 1)
 

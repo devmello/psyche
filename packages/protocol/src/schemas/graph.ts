@@ -720,6 +720,46 @@ export const GraphTimelineRow = Type.Object(
 );
 export type GraphTimelineRow = Static<typeof GraphTimelineRow>;
 
+/** Which work lines the History section lists. */
+export const WorkHistoryAttribute = StringEnum(
+  ["status", "progress", "stopped_at", "next_step", "deadline"],
+  { $id: "WorkHistoryAttribute" },
+);
+export type WorkHistoryAttribute = Static<typeof WorkHistoryAttribute>;
+
+/** Where one change to a work item came from, as the History section words it. */
+export const WorkHistoryOrigin = StringEnum(["chat", "mail", "you", "nightly", "source"], {
+  $id: "WorkHistoryOrigin",
+});
+export type WorkHistoryOrigin = Static<typeof WorkHistoryOrigin>;
+
+/** One change to a work item's status, progress, stopped-at, next step or deadline. */
+export const WorkHistoryEntry = Type.Object(
+  {
+    factId: Id,
+    attribute: WorkHistoryAttribute,
+    value: Type.String({ maxLength: 2000 }),
+    from: Nullable(Type.String({ maxLength: 2000 })),
+    at: IsoDateTime,
+    origin: WorkHistoryOrigin,
+    chip: Nullable(
+      Type.Object({
+        source: GraphCitationSource,
+        label: Type.String({
+          maxLength: 200,
+          description: "Sender or file name: data; empty when this connection may not see it",
+        }),
+      }),
+    ),
+    undoable: Type.Boolean({
+      description:
+        "A direct update from the owner's chat, still inside the undo window and not yet undone: `memory.work.undoUpdate` accepts it",
+    }),
+  },
+  { $id: "WorkHistoryEntry" },
+);
+export type WorkHistoryEntry = Static<typeof WorkHistoryEntry>;
+
 export const CatchUpUrgency = StringEnum(["overdue", "today", "soon", "later", "none"], {
   $id: "CatchUpUrgency",
 });
