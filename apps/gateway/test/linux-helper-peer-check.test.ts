@@ -73,8 +73,6 @@ interface Proc {
   tracer?: number;
   maps?: string;
   environ?: string | null;
-  /** What `map_files` shows for a mapped path, when the file was replaced since. */
-  replaced?: Record<string, FileStat>;
 }
 
 type Dirs = Record<string, { uid: number; mode: number }>;
@@ -175,21 +173,6 @@ function system(
       const proc = procOf(p);
       if (/\/exe$/.test(p) && proc) {
         return { uid: proc.uid ?? 0, mode: proc.mode ?? 0o100755, dev: DEV, ino: proc.ino ?? 10 };
-      }
-      // The file behind a mapping, as map_files shows it (the mapped file, not the path).
-      const mf = /^\/proc\/\d+\/map_files\/([0-9a-f]+-[0-9a-f]+)$/.exec(p);
-      if (mf && proc?.exe) {
-        const line = (proc.maps ?? exeMaps(proc.exe, proc.ino ?? 10))
-          .split("\n")
-          .find((l) => l.startsWith(`${mf[1]} `));
-        const path = line?.replace(/^\S+ \S+ \S+ \S+ \S+ */, "").replace(/ \(deleted\)$/, "");
-        if (path === undefined) throw eErr("ENOENT");
-        if (path === proc.exe) {
-          return { uid: proc.uid ?? 0, mode: proc.mode ?? 0o100755, dev: DEV, ino: proc.ino ?? 10 };
-        }
-        const mapped = proc.replaced?.[path] ?? libs[path];
-        if (!mapped) throw eErr("ENOENT");
-        return mapped;
       }
       for (const candidate of Object.values(procs)) {
         if (candidate.exe === p) {
@@ -427,39 +410,31 @@ describe("injected libraries, anonymous code and the loader environment", () => 
       (await run(withMap(libLine()), { libs: libs({ ...goodLib, mode: 0o100666 }) })).check,
     ).toBe("mismatch");
   });
-  it("device numbers are compared through stat, so overlayfs and btrfs do not cause false alarms", async () => {
-    // The maps line says 00:2e (what overlayfs prints) while stat says another device: the mapped
-    // file and the named file are compared with stat, both agree.
+  it("the device number is not compared: overlayfs and btrfs print other numbers than stat", async () => {
     const line = `7f1000000000-7f1000100000 r-xp 00000000 00:2e 888 ${LIB}`;
     expect((await run(withMap(line), { libs: libs(goodLib) })).check).toBe("root_owned");
+    expect(
+      (await run(withMap(libLine()), { libs: libs({ ...goodLib, dev: mkdev(8, 2) }) })).check,
+    ).toBe("root_owned");
   });
-  it("a library replaced since it was mapped is unverified (library_replaced), so the helper is restarted", async () => {
-    const replaced = { ...withMap(libLine()), replaced: { [LIB]: { ...goodLib, ino: 111 } } };
-    expect(await run(replaced, { libs: libs(goodLib) })).toEqual({
+  it("a library replaced since it was mapped is unverified (library_replaced): refused until the helper restarts", async () => {
+    // The path now names another file than the one mapped.
+    expect(await run(withMap(libLine()), { libs: libs({ ...goodLib, ino: 111 }) })).toEqual({
       check: "unverified",
       reason: "library_replaced",
     });
-    // Another device for the same inode number.
-    const otherDev = {
-      ...withMap(libLine()),
-      replaced: { [LIB]: { ...goodLib, dev: mkdev(8, 2) } },
-    };
-    expect((await run(otherDev, { libs: libs(goodLib) })).reason).toBe("library_replaced");
     // The path no longer exists, or the mapping says (deleted) in a system directory.
-    expect((await run({ ...withMap(libLine()), replaced: { [LIB]: goodLib } })).reason).toBe(
-      "library_replaced",
-    );
-    const deleted = withMap(libLine(`${LIB} (deleted)`));
-    expect(await run(deleted, { libs: libs(goodLib) })).toEqual({
+    expect((await run(withMap(libLine()))).reason).toBe("library_replaced");
+    expect(await run(withMap(libLine(`${LIB} (deleted)`)), { libs: libs(goodLib) })).toEqual({
       check: "unverified",
       reason: "library_replaced",
     });
   });
-  it("a mapping that cannot be inspected is unverified", async () => {
+  it("a library that cannot be inspected is unverified", async () => {
     const deps = system(only(withMap(libLine())), { libs: libs(goodLib) });
     const base = deps.stat.bind(deps);
     deps.stat = async (p) => {
-      if (p.includes("/map_files/") && !p.includes("00400000")) throw eErr("EACCES");
+      if (p === LIB) throw eErr("EACCES");
       return base(p);
     };
     expect(await check(deps)).toEqual({ check: "unverified", reason: "image_unreadable" });
@@ -507,13 +482,20 @@ describe("injected libraries, anonymous code and the loader environment", () => 
 describe("start-up mark, tracing and inherited sockets", () => {
   const run = (p: Proc) => check(system(only(p)));
 
+  it("the ready name cannot come from an executable's name: it holds a slash", () => {
+    // An executable's basename (the default comm) never contains "/", PR_SET_NAME allows it.
+    expect(HELPER_READY_COMM).toContain("/");
+    expect(HELPER_READY_COMM.length).toBeLessThanOrEqual(15);
+  });
   it("the packaged helper must carry its ready name, on both looks", async () => {
+    // Executed under the name, or not yet renamed: still the default.
     expect(await run({ ...packaged, comm: "psyche-helper" })).toEqual({
       check: "unverified",
       reason: "not_ready",
     });
+    expect((await run({ ...packaged, comm: "psyche-helper:1" })).reason).toBe("not_ready");
     expect((await run({ ...packaged, comm: "evil" })).reason).toBe("not_ready");
-    // The name changes between the two reads (a process still starting, or one that renamed).
+    // The name changes between the two reads.
     const deps = system(only(packaged));
     let reads = 0;
     const base = deps.readFile.bind(deps);
@@ -524,7 +506,6 @@ describe("start-up mark, tracing and inherited sockets", () => {
       return reads > 1 ? "psyche-helper\n" : text;
     };
     expect((await check(deps)).reason).toBe("not_ready");
-    expect(HELPER_READY_COMM.length).toBeLessThanOrEqual(15);
   });
   it("a stopped or traced helper is unverified", async () => {
     expect(await run({ ...packaged, state: "T" })).toEqual({

@@ -35,13 +35,15 @@ import { LINUX_HELPER_READY_COMM, LINUX_PACKAGED_HELPER_PATH } from "@psyche/pro
  *      that it is still between `exec` and the descriptor cleanup); not be stopped, traced or have
  *      a tracer; map no anonymous executable memory (except `[vdso]` and `[vsyscall]`); map only
  *      files that are root-owned, not group- or world-writable, under a system library directory
- *      or the package (each mapped file and the file its path names now are compared with `stat`,
- *      through `/proc/<pid>/map_files`, so overlayfs and btrfs device numbers cannot cause false
- *      alarms); and not set `LD_PRELOAD`, `LD_AUDIT` or `LD_LIBRARY_PATH` in its initial
+ *      or the package (each by the inode `maps` prints, which must equal the inode its path names
+ *      now; the device number is not compared, as btrfs and overlayfs print other numbers than
+ *      `stat`, and `map_files` would need privileges the Gateway lacks); and not set
+ *      `LD_PRELOAD`, `LD_AUDIT` or `LD_LIBRARY_PATH` in its initial
  *      environment. The packaged, root-owned helper that passes is `root_owned`; another file
  *      named `psyche-helper` is `user_owned`; anything else is a `mismatch`. A system library
- *      replaced since it was mapped (an upgrade) is `unverified` with reason `library_replaced`,
- *      so the desktop restarts the helper.
+ *      replaced since it was mapped (an upgrade) is `unverified` with reason `library_replaced`:
+ *      the helper keeps being refused until it restarts (its next launch, or
+ *      `systemctl --user restart psyche-helper`).
  *
  * Everything that goes wrong is `unverified`, never `root_owned`: no `ss`, unparsable pairing rows,
  * a peer already gone, several or hidden holders, a timeout, an unreadable `/proc`, a deleted
@@ -52,8 +54,9 @@ import { LINUX_HELPER_READY_COMM, LINUX_PACKAGED_HELPER_PATH } from "@psyche/pro
  * made for it. What it does not: it is defence in depth against same-user impersonation, not a
  * boundary. A same-user process can ptrace its own child (Yama scope 1 allows that), or inject
  * code and clean up before the check, or patch the text of a mapped system library in place with
- * `mprotect` after the cleanup. None of that can be seen from outside, and a static build would
- * not help (later helper PRs link PipeWire and other C libraries). Pid reuse cannot be closed
+ * `mprotect` after the cleanup. None of that can be seen from outside. (A static helper would
+ * remove loader-variable injection, but the helper must link C libraries such as PipeWire, so it
+ * is dynamic.) Pid reuse cannot be closed
  * without a pidfd, which Node lacks. Security §1.3 accepts the same-user boundary: such an
  * attacker can also edit psyched's own unit. For AppImage and development installs the check
  * only records what it saw.
@@ -359,20 +362,19 @@ type ImageVerdict = "ok" | "foreign" | "replaced" | "unreadable";
 
 /**
  * Judges the executable mappings of `pid`. Every executable mapping must be a file (anonymous
- * executable memory is refused, except `[vdso]` and `[vsyscall]`), and every file must be
- * root-owned, a regular file, not group- or world-writable, under a system library directory (or
- * the package). The mapped file is `stat`ed through `/proc/<pid>/map_files/<range>` and compared
- * with `stat` of the path it is mapped under, both via `stat`, so overlayfs and btrfs device
- * numbers (which differ from the ones `maps` prints) cannot cause false alarms. A system library
- * that was replaced since it was mapped (an upgrade; a `(deleted)` file in a system directory) is
- * `replaced`, not foreign: the helper just needs a restart. The executable itself is judged
- * separately and skipped here.
+ * executable memory is refused, except `[vdso]` and `[vsyscall]`), and every file must be a
+ * root-owned regular file, not group- or world-writable, under a system library directory (or the
+ * package). The file is identified by the inode `maps` prints, which must equal the inode the
+ * path names now. The device number is not compared: `maps` prints a different one than `stat` on
+ * btrfs and overlayfs. (`/proc/<pid>/map_files` would give the mapped file itself, but following
+ * it needs CAP_SYS_ADMIN or CAP_CHECKPOINT_RESTORE, which the Gateway does not have.) A system
+ * library replaced since it was mapped (an upgrade; a `(deleted)` file in a system directory) is
+ * `replaced`, not foreign. The executable itself is judged separately and skipped here.
  */
 async function mappingsAreSystem(
   deps: PeerCheckDeps,
-  pid: number,
   entries: MapEntry[],
-  exe: { dev: number; ino: number },
+  exe: { path: string; ino: number },
 ): Promise<ImageVerdict> {
   const seen = new Set<string>();
   let replaced = false;
@@ -384,34 +386,32 @@ async function mappingsAreSystem(
     }
     if (e.path === "" || seen.has(`${e.path}:${e.inode}`)) continue;
     seen.add(`${e.path}:${e.inode}`);
+    if (e.path === exe.path && e.inode === exe.ino) continue;
     const deleted = e.path.endsWith(" (deleted)");
     const path = deleted ? e.path.slice(0, -" (deleted)".length) : e.path;
     if (!isCanonical(path) || !SYSTEM_LIBRARY_DIRS.some((dir) => path.startsWith(dir))) {
       return "foreign";
     }
-    let mapped: Awaited<ReturnType<PeerCheckDeps["stat"]>>;
-    try {
-      mapped = await deps.stat(`/proc/${pid}/map_files/${e.range}`);
-    } catch {
-      return "unreadable";
-    }
-    if (mapped.ino === exe.ino && mapped.dev === exe.dev) continue;
     if (deleted) {
       replaced = true;
       continue;
     }
-    let named: Awaited<ReturnType<PeerCheckDeps["stat"]>> | undefined;
+    let named: Awaited<ReturnType<PeerCheckDeps["stat"]>>;
     try {
       named = await deps.stat(path);
-    } catch {
-      named = undefined;
+    } catch (err) {
+      if (gone(err)) {
+        replaced = true;
+        continue;
+      }
+      return "unreadable";
     }
-    if (named === undefined || named.ino !== mapped.ino || named.dev !== mapped.dev) {
+    if (named.ino !== e.inode) {
       replaced = true;
       continue;
     }
-    if (mapped.uid !== 0 || (mapped.mode & S_IFMT) !== S_IFREG) return "foreign";
-    if ((mapped.mode & GROUP_OTHER_WRITE) !== 0) return "foreign";
+    if (named.uid !== 0 || (named.mode & S_IFMT) !== S_IFREG) return "foreign";
+    if ((named.mode & GROUP_OTHER_WRITE) !== 0) return "foreign";
   }
   return replaced ? "replaced" : "ok";
 }
@@ -506,7 +506,7 @@ async function judgePid(
     const notUp = startedUp(stateBefore) ?? startedUp(stateAfter);
     if (notUp !== undefined) return notUp;
     if (setsLoaderEnv(environ)) return { check: "mismatch", reason: "loader_env" };
-    const image = await mappingsAreSystem(deps, pid, maps, exe);
+    const image = await mappingsAreSystem(deps, maps, { path: exePath, ino: exe.ino });
     if (image === "foreign") return { check: "mismatch", reason: "foreign_mapping" };
     if (image === "replaced") return unverified("library_replaced");
     if (image === "unreadable") return unverified("image_unreadable");
