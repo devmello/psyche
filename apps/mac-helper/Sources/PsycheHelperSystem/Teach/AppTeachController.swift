@@ -67,6 +67,9 @@ public final class AppTeachController: @unchecked Sendable {
         self.log = log
     }
 
+    /// For tests: the id of the recording in progress or ended, started or not.
+    var currentIdForTests: String? { lock.withLock { current?.id } }
+
     public var activeId: String? { lock.withLock { current?.ended == nil ? current?.id : nil } }
 
     /// Starts recording `bundleId`. Refuses an app the owner has not granted, Psyche, security
@@ -98,8 +101,17 @@ public final class AppTeachController: @unchecked Sendable {
             onEnd: { [weak self] in _ = self?.end(id, .interrupted) }
         )
         guard started else {
-            lock.withLock { current = nil }
+            lock.withLock { if current?.id == id { current = nil } }
             throw CapabilityError.permissionMissing(.accessibility)
+        }
+        // A Stop or Cancel that arrived while the source was starting won: tear the source down
+        // again instead of leaving it recording with nothing to show for it.
+        let stillWanted = lock.withLock { current?.id == id && current?.ended == nil }
+        guard stillWanted else {
+            source.stop()
+            indicator.hide()
+            lock.withLock { if current?.id == id { current = nil } }
+            throw CapabilityError(.conflict, reason: "teach_cancelled", "The recording was stopped while it was starting")
         }
         indicator.show(appName: mapper.app.name, onStop: { [weak self] in _ = self?.end(id, .stop) })
         let seconds = TimeInterval(maxSeconds)

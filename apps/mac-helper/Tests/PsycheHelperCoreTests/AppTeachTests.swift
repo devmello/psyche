@@ -125,8 +125,11 @@ struct AppTeachPolicyTests {
         #expect(AppTeachPolicy.valueReason("https://" + "dana" + ":" + "pw" + "@example.com/x") == .secret)
         #expect(AppTeachPolicy.valueReason("https://example.com/x") == nil)
         #expect(AppTeachPolicy.valueReason("123456", label: "Code") == .oneTimeCode)
-        #expect(AppTeachPolicy.valueReason("123456", label: "Quantity") == nil)
-        #expect(AppTeachPolicy.valueReason("123456") == nil)
+        // Any bare 4 to 8 digit number is treated as a code: one Keep click is too easy.
+        #expect(AppTeachPolicy.valueReason("123456", label: "Quantity") == .oneTimeCode)
+        #expect(AppTeachPolicy.valueReason("4821") == .oneTimeCode)
+        #expect(AppTeachPolicy.valueReason("123") == nil)
+        #expect(AppTeachPolicy.valueReason("2026-11-04") == nil)
     }
 
     @Test func valuesThatLookLikeSecretsAreCaught() {
@@ -136,7 +139,7 @@ struct AppTeachPolicyTests {
         #expect(AppTeachPolicy.valueReason(String(repeating: "a1B2", count: 10)) == .secret)
         #expect(AppTeachPolicy.valueReason("ghp_" + String(repeating: "x9", count: 12)) == .secret)
         #expect(AppTeachPolicy.valueReason("Quarterly report") == nil)
-        #expect(AppTeachPolicy.valueReason("4111") == nil)
+        #expect(AppTeachPolicy.valueReason("4111") == .oneTimeCode)  // a bare 4 to 8 digit number
     }
 }
 
@@ -257,6 +260,95 @@ struct AppTeachMapperTests {
         #expect(step?.role == "row" && step?.name == nil && step?.fallback == nil && step?.path == ["row"])
         let json = String(decoding: (try? JSONEncoder().encode(m.finish())) ?? Data(), as: UTF8.self)
         #expect(!json.contains("dana") && !json.contains("layoffs") && !json.contains("Quiet"))
+    }
+
+    @Test func aWindowTitleAndTheLabelBeforeAFieldDecideItButAreNeverKept() {
+        // "Two-factor authentication" window, a sibling label, and a field with no words of its own.
+        var code = el("AXTextField", title: nil, path: [])
+        code.context = ["Two-factor authentication", "We sent a verification code to your phone"]
+        #expect(AppTeachPolicy.isSecret(code))
+        let m = mapper()
+        m.handle(.focus(code))
+        m.handle(.valueChanged(code, value: "x"))
+        let steps = m.finish()
+        #expect(steps.count == 1 && steps[0].sensitive == true && steps[0].sample == nil)
+        let json = String(decoding: (try? JSONEncoder().encode(steps)) ?? Data(), as: UTF8.self)
+        #expect(!json.contains("Two-factor") && !json.contains("verification"))
+        // A plain window is not secret.
+        var plain = el("AXTextField", title: "Subject")
+        plain.context = ["New Message", "Subject:"]
+        #expect(!AppTeachPolicy.isSecret(plain))
+    }
+
+    @Test func aBareCodeNumberIsSensitiveEvenInAPlainField() {
+        let m = mapper()
+        let f = el("AXTextField", title: "Amount")
+        m.handle(.focus(f))
+        m.handle(.valueChanged(f, value: "482913"))
+        let s = m.finish()
+        #expect(s.count == 1 && s[0].sensitive == true && s[0].sample == nil)
+    }
+
+    @Test func onlyWhatWasTypedAfterFocusIsKept() {
+        let m = mapper()
+        let f = el("AXTextField", title: "Subject")
+        // Pre-filled "Re: " plus what the owner added: only the addition.
+        m.handle(.focus(f, initial: "Re: "))
+        m.handle(.valueChanged(f, value: "Re: Weekly"))
+        #expect(m.finish().first?.sample == "Weekly")
+        // Autofilled and untouched: nothing.
+        let m2 = mapper()
+        let g = el("AXTextField", title: "Name")
+        m2.handle(.focus(g, initial: "Dana Example"))
+        m2.handle(.valueChanged(g, value: "Dana Example"))
+        #expect(m2.finish().isEmpty)
+    }
+
+    @Test func focusLeavingTheFieldEndsItsTyping() {
+        let m = mapper()
+        let f = el("AXTextField", title: "Subject")
+        m.handle(.focus(f))
+        m.handle(.valueChanged(f, value: "Weekly"))
+        #expect(m.handle(.focusCleared).count == 1)  // flushed
+        // Typing the source still reports for that field after focus left is ignored.
+        m.handle(.valueChanged(f, value: "Weekly and more"))
+        #expect(m.finish().count == 1)
+        // A focus on an element of another process clears focus too.
+        let m2 = mapper()
+        m2.bind(pid: 10)
+        var mine = el("AXTextField", title: "Subject")
+        mine.pid = 10
+        var foreign = el("AXTextField", title: "Subject")
+        foreign.pid = 99
+        m2.handle(.focus(mine))
+        m2.handle(.focus(foreign))
+        m2.handle(.valueChanged(mine, value: "text"))
+        #expect(m2.finish().isEmpty)
+    }
+
+    @Test func dynamicMenusAndPopUpButtonsAreRecordedByRoleOnly() {
+        let m = mapper()
+        let recent = el("AXMenuItem", title: "Q3 plan.numbers", path: [], menu: ["File", "Open Recent", "Q3 plan.numbers"])
+        let step = m.handle(.menuChosen(recent)).first
+        #expect(step?.path == ["File", "Open Recent"] && step?.name == "Open Recent")
+        #expect(!String(decoding: (try? JSONEncoder().encode(m.finish())) ?? Data(), as: UTF8.self).contains("Q3"))
+        let pop = el("AXPopUpButton", title: "Quarterly report.pdf", description: "Selected: Quarterly")
+        let m2 = mapper()
+        let s2 = m2.handle(.press(pop)).first
+        #expect(s2?.role == "combobox" && s2?.name == nil && s2?.fallback == nil)
+        #expect(AppTeachPolicy.matches("com.x.", "com.x.y"))
+        #expect(AppTeachRoles.isDynamicMenu("Window") && AppTeachRoles.isDynamicMenu("History") && !AppTeachRoles.isDynamicMenu("Export"))
+    }
+
+    @Test func pathTitlesLeaveOutTheUsersData() {
+        #expect(AppTeachRoles.pathTitle(role: "AXWindow", title: "Q3 layoffs.docx") == nil)
+        #expect(AppTeachRoles.pathTitle(role: "AXRow", title: "Re: salary") == nil)
+        #expect(AppTeachRoles.pathTitle(role: "AXCell", title: "x") == nil)
+        #expect(AppTeachRoles.pathTitle(role: "AXStaticText", title: "x") == nil)
+        #expect(AppTeachRoles.pathTitle(role: "AXWebArea", title: "Inbox - dana@example.com") == nil)
+        #expect(AppTeachRoles.pathTitle(role: "AXTabGroup", title: "Tabs") == nil)
+        #expect(AppTeachRoles.pathTitle(role: "AXSheet", title: "Export") == "Export")
+        #expect(AppTeachRoles.pathTitle(role: "AXGroup", title: "Toolbar") == "Toolbar")
     }
 
     @Test func onlyTextFieldsAreTypedInto() {

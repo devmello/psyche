@@ -226,6 +226,24 @@ describe("the browser pane: Record in an app (owner only)", () => {
     expect(screen.queryByTestId("teach-review")).toBeNull();
   });
 
+  it("Discard works once: a second click while the first is in flight does nothing", async () => {
+    let release: () => void = () => {};
+    const hold = new Promise<{ cancelled: boolean }>((r) => {
+      release = () => r({ cancelled: true });
+    });
+    const { port } = setupPane(
+      { teachAppCancel: vi.fn(() => hold) },
+      { active: true, app, steps: 1 },
+    );
+    const cancel = await screen.findByTestId("teach-app-cancel");
+    await act(async () => {
+      fireEvent.click(cancel);
+      fireEvent.click(cancel);
+    });
+    expect(port.teachAppCancel).toHaveBeenCalledTimes(1);
+    await act(async () => release());
+  });
+
   it("has no control where the host cannot record in an app", async () => {
     setupPane({ teachAppStart: undefined, teachAppApps: undefined });
     await screen.findByTestId("browser-pane");

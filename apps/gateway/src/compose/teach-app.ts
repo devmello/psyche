@@ -123,7 +123,11 @@ export function cleanAppCapture(raw: unknown, expected: { bundleId: string }): T
     delete (step as { value?: unknown }).value;
     delete (step as { input?: unknown }).input;
     if (typeof s.sample === "string" && step.sensitive !== true && step.kind === "app_type") {
-      if (classifyTeachValue(s.sample, step.name ?? "") !== null) step.sensitive = true;
+      if (
+        classifyTeachValue(s.sample, step.name ?? "") !== null ||
+        /^\d{4,8}$/.test(s.sample.trim())
+      )
+        step.sensitive = true;
       else step.sample = teachText(s.sample, 500);
     }
     steps.push(step);

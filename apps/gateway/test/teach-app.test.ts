@@ -350,6 +350,60 @@ describe("kept values are not copied into idempotency records", () => {
   });
 });
 
+describe("update, accept and dismiss keep no recorded value either", () => {
+  it("stores only identity and status for a recording's draft", async () => {
+    const { c, desk } = await setup();
+    const app = { bundleId: MAIL, name: "Mail" };
+    const mk = (value: string, title: string) => ({
+      title,
+      steps: [
+        {
+          id: "a1",
+          kind: "app_type",
+          app,
+          role: "textbox",
+          name: "Subject",
+          value,
+          keepValue: true,
+        },
+      ],
+    });
+    const a = await desk.call<{ draft: { id: string; text: string } }>(
+      "skills.drafts.fromRecording",
+      mk("KeptAlpha", "Alpha note"),
+      ik(),
+    );
+    const b = await desk.call<{ draft: { id: string; text: string } }>(
+      "skills.drafts.fromRecording",
+      mk("KeptBeta", "Beta note"),
+      ik(),
+    );
+    const upd = await desk.call<{ draft: { text: string } }>(
+      "skills.drafts.update",
+      { draftId: a.draft.id, text: `${a.draft.text}\n<!-- KeptAlpha -->\n` },
+      ik(),
+    );
+    expect(upd.draft.text).toContain("KeptAlpha"); // the caller still gets it
+    await desk.request("skills.drafts.accept", { draftId: a.draft.id }, ik()); // may be refused: still not stored
+    const dis = await desk.call<{ draft: { status: string; text: string } }>(
+      "skills.drafts.dismiss",
+      { draftId: b.draft.id },
+      ik(),
+    );
+    expect(dis.draft.text).toContain("KeptBeta");
+    const rows = c.db.sqlite
+      .prepare("SELECT method, result FROM gateway_idempotency WHERE method LIKE 'skills.drafts.%'")
+      .all() as { method: string; result: string }[];
+    expect(rows.map((r) => r.method)).toEqual(
+      expect.arrayContaining(["skills.drafts.update", "skills.drafts.dismiss"]),
+    );
+    const all = JSON.stringify(rows);
+    expect(all).not.toContain("KeptAlpha");
+    expect(all).not.toContain("KeptBeta");
+    expect(rows.find((r) => r.method === "skills.drafts.dismiss")?.result).toContain(b.draft.id);
+  });
+});
+
 describe("what the helper returns is cleaned again", () => {
   const raw = (steps: unknown[]) => ({
     id: "x",
@@ -408,6 +462,15 @@ describe("what the helper returns is cleaned again", () => {
     expect(out.steps[3]).not.toHaveProperty("sample");
     expect(JSON.stringify(out)).not.toContain("4111");
     expect(JSON.stringify(out)).not.toContain("hunter2");
+  });
+
+  it("marks a bare code-like sample sensitive and drops it", () => {
+    const out = cleanAppCapture(
+      raw([{ ...base, id: "1", kind: "app_type", name: "Amount", sample: "482913" }]),
+      { bundleId: MAIL },
+    );
+    expect(out.steps[0]).toMatchObject({ sensitive: true });
+    expect(out.steps[0]).not.toHaveProperty("sample");
   });
 
   it("keeps roles to the fixed list, text to one line, and never trusts extra fields", () => {

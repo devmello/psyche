@@ -431,6 +431,25 @@ describe("more secret shapes and the shared never-list (review fixes)", () => {
     }
   });
 
+  it("treats a bare 4 to 8 digit number typed in an app as sensitive, but not in the browser", () => {
+    const app = { bundleId: "com.apple.mail", name: "Mail" };
+    const [a, b] = sanitizeTeachSteps([
+      {
+        id: "a1",
+        kind: "app_type",
+        app,
+        role: "textbox",
+        name: "Amount",
+        value: "482913",
+        keepValue: true,
+      },
+      { id: "s1", kind: "type", role: "textbox", name: "Amount", value: "482913", keepValue: true },
+    ]);
+    expect(a?.sensitive).toBe(true);
+    expect(a).not.toHaveProperty("value");
+    expect(b?.value).toBe("482913");
+  });
+
   it("the never-list covers managers, authenticators, wallets and the dev Electron shell", () => {
     for (const id of [
       "com.markmcguill.strongbox.mac",

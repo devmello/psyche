@@ -274,6 +274,12 @@ The AXObserver source cannot run in unit tests; this is its check. Grant the app
 | 13b.9 | Run it with Mail closed, then with the New Message button renamed or hidden | `app_not_running`-style stop; `computer.check_target` answers missing and the agent asks, it does not pick a similar control |
 | 13b.10 | Start a computer-use run, then try Record | `computer_busy` |
 | 13b.11 | Start recording, close Psyche | The menu-bar Stop still works; steps are held only until collected (30 min) |
+| 13b.12 | Open a window titled "Two-factor authentication" (or any sheet with a label such as "Enter the code" beside a bare box) and type digits | The step is marked as yours to type, with no value; the review never shows the window title or the label |
+| 13b.13 | Click Start and immediately Stop (menu bar) or Discard, several times | No "● Recording" item is left behind, no recording keeps running, a new Start works |
+| 13b.14 | Focus a field that is already filled (Mail's "Re: " subject), add a word; then autofill a field and leave it | Only the added word is recorded; the autofilled field makes no step |
+| 13b.15 | Switch to another app or to a system sheet while a field has focus, then type | Nothing is recorded for the typing; the last field's step ends |
+| 13b.16 | Choose File > Open Recent > a document; click a message row and a pop-up button showing a document name | Steps read "File > Open Recent", "a row" and "a pop-up": no document or message names |
+| 13b.17 | While recording, ask the agent to open or focus an app or run a script | Refused with a clear "recording" reason until you stop |
 
 ## 14. Install from DMG (bundled helper)
 

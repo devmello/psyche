@@ -36,13 +36,17 @@ public struct AppTeachElement: Sendable, Equatable {
     public var secureInput: Bool
     /// Titles of linked or neighbouring label elements (`AXLinkedUIElements`).
     public var nearby: [String]
+    /// The window's title and the few static texts just before the field. Read only to judge
+    /// whether the field is a secret ("Two-factor authentication", "Enter the code"); never put
+    /// in a step, a path or anything that leaves the helper.
+    public var context: [String]
     /// The process the element belongs to; 0 when the source did not say.
     public var pid: Int32
 
     public init(
         bundleId: String, appName: String, role: String, subrole: String? = nil, title: String? = nil, description: String? = nil,
         identifier: String? = nil, placeholder: String? = nil, labelText: String? = nil, path: [String] = [], menuPath: [String] = [],
-        secureInput: Bool = false, nearby: [String] = [], pid: Int32 = 0
+        secureInput: Bool = false, nearby: [String] = [], context: [String] = [], pid: Int32 = 0
     ) {
         self.bundleId = bundleId
         self.appName = appName
@@ -57,6 +61,7 @@ public struct AppTeachElement: Sendable, Equatable {
         self.menuPath = menuPath
         self.secureInput = secureInput
         self.nearby = nearby
+        self.context = context
         self.pid = pid
     }
 
@@ -75,7 +80,12 @@ public struct AppTeachElement: Sendable, Equatable {
 }
 
 public enum AppTeachEvent: Sendable, Equatable {
-    case focus(AppTeachElement)
+    /// `initial` is the field's value when it got focus (read only for a field that is not secret):
+    /// what was already there is not what the owner typed.
+    case focus(AppTeachElement, initial: String? = nil)
+    /// Focus left every field we may watch: the app went to the background, or the new element is
+    /// outside the recorded process or not one we describe.
+    case focusCleared
     /// `value` is the field's whole value after the change (nil when the source did not read it).
     case valueChanged(AppTeachElement, value: String?)
     /// A mouse press or `AXPress` on a control.
@@ -207,7 +217,7 @@ public enum AppTeachPolicy {
     /// value is read: a secure text field, Secure Event Input, or words in its labels.
     public static func sensitiveReason(_ e: AppTeachElement) -> AppTeachSensitive? {
         if e.secureInput || e.role == "AXSecureTextField" || e.subrole == "AXSecureTextField" { return .password }
-        let text = ([e.title, e.description, e.identifier, e.placeholder, e.labelText].compactMap { $0 } + e.path + e.nearby)
+        let text = ([e.title, e.description, e.identifier, e.placeholder, e.labelText].compactMap { $0 } + e.path + e.nearby + e.context)
             .joined(separator: " ")
         guard !text.isEmpty else { return nil }
         let range = NSRange(text.startIndex..., in: text)
@@ -239,6 +249,9 @@ public enum AppTeachPolicy {
         let words = trimmed.split(whereSeparator: { $0.isWhitespace })
         if [12, 15, 18, 21, 24].contains(words.count),
            words.allSatisfy({ $0.count >= 3 && $0.count <= 8 && $0.allSatisfy { $0.isASCII && $0.isLowercase && $0.isLetter } }) { return .secret }
+        // A bare 4 to 8 digit number typed into an app: a code or a PIN far more often than not, and
+        // one click on "Keep this value" is too easy.
+        if !matches("^\\d{4,8}$", in: trimmed).isEmpty { return .oneTimeCode }
         // A short numeric code next to a label that says code, pin, otp or token.
         if !matches("^\\d{4,8}$", in: trimmed).isEmpty, !matches("\\b(?:code|pin|otp|token)\\b", in: label.lowercased()).isEmpty { return .oneTimeCode }
         return nil
@@ -286,7 +299,23 @@ public enum AppTeachRoles {
 
     /// Rows, cells and list items hold the user's data (a message subject, a file name), not the
     /// app's controls: they are recorded by role, never by what they contain.
-    public static let dataRoles: Set<String> = ["AXRow", "AXCell", "AXOutlineRow", "AXStaticText"]
+    public static let dataRoles: Set<String> = ["AXRow", "AXCell", "AXOutlineRow", "AXStaticText", "AXPopUpButton"]
+
+    /// Ancestors whose title is the user's data (a row's text, a page's title, the open tabs).
+    public static let dataAncestors: Set<String> = ["AXRow", "AXCell", "AXOutlineRow", "AXStaticText", "AXWebArea", "AXTabGroup", "AXList", "AXTable", "AXOutline"]
+
+    /// The title an ancestor may add to a path, or nil when it is the user's data or only a window.
+    public static func pathTitle(role: String, title: String?) -> String? {
+        if role == "AXWindow" || role == "AXApplication" || dataAncestors.contains(role) { return nil }
+        guard let t = AppTeachText.clean(title, 120) else { return nil }
+        return t
+    }
+
+    /// Menus whose items are the user's data (recent documents, history, bookmarks, the window list).
+    public static func isDynamicMenu(_ title: String) -> Bool {
+        let t = title.lowercased()
+        return ["recent", "history", "bookmarks", "window", "documents", "favorites", "open with"].contains { t.contains($0) }
+    }
 
     /// Roles whose press means "the owner moved into a field", not an action.
     public static let textInputs: Set<String> = ["AXTextField", "AXTextArea", "AXSecureTextField", "AXSearchField", "AXComboBox"]
@@ -303,7 +332,9 @@ public final class AppTeachMapper: @unchecked Sendable {
     public private(set) var steps: [AppTeachStep] = []
     /// Input left out: a secret field's contents, a control with no usable name, a never-recorded app.
     public private(set) var skipped = 0
-    private var pending: (element: AppTeachElement, text: String, at: Date)?
+    private var pending: (element: AppTeachElement, text: String, at: Date, baseline: String?)?
+    /// The value the focused field had when it got focus.
+    private var focusBaseline: String?
     /// The field that has focus: value changes are accepted from it and from nowhere else.
     private var focused: AppTeachElement?
     /// The process the recording is bound to (set at start); events from any other pid are dropped.
@@ -330,8 +361,18 @@ public final class AppTeachMapper: @unchecked Sendable {
     public func handle(_ event: AppTeachEvent, at: Date = Date()) -> [AppTeachStep] {
         lock.lock()
         defer { lock.unlock() }
+        if case .focusCleared = event {
+            let out = flushLocked()
+            focused = nil
+            focusBaseline = nil
+            return out
+        }
         let e = Self.element(of: event)
-        if let pid = boundPid, e.pid != pid { return [] }
+        if let pid = boundPid, e.pid != pid {
+            // A foreign element means focus is no longer in the recorded process.
+            if case .focus = event { let out = flushLocked(); focused = nil; focusBaseline = nil; return out }
+            return []
+        }
         if e.bundleId.lowercased() != app.bundleId.lowercased() {
             // Another app: never recorded. A security prompt or Psyche is counted so the review can say so.
             if AppTeachPolicy.neverRecorded(e.bundleId) != nil { skipped += 1 }
@@ -341,8 +382,11 @@ public final class AppTeachMapper: @unchecked Sendable {
         guard steps.count < maxSteps else { return [] }
         var out: [AppTeachStep] = []
         switch event {
-        case .focus(let el):
+        case .focusCleared:
+            break
+        case .focus(let el, let initial):
             if let p = pending, !p.element.sameField(el) { out += flushLocked() }
+            if focused?.sameField(el) != true { focusBaseline = initial }
             focused = el
         case .valueChanged(let el, let value):
             out += valueLocked(el, value, at)
@@ -366,8 +410,9 @@ public final class AppTeachMapper: @unchecked Sendable {
 
     static func element(of event: AppTeachEvent) -> AppTeachElement {
         switch event {
-        case .focus(let e), .press(let e), .menuChosen(let e): e
+        case .focus(let e, _), .press(let e), .menuChosen(let e): e
         case .valueChanged(let e, _): e
+        case .focusCleared: AppTeachElement(bundleId: "", appName: "", role: "")
         }
     }
 
@@ -390,7 +435,7 @@ public final class AppTeachMapper: @unchecked Sendable {
         }
         guard let value else { return out }
         if let p = pending, !p.element.sameField(el) { out += flushLocked() }
-        pending = (el, value, pending?.at ?? at)
+        pending = (el, value, pending?.at ?? at, pending?.baseline ?? focusBaseline)
         return out
     }
 
@@ -402,11 +447,23 @@ public final class AppTeachMapper: @unchecked Sendable {
         pending = nil
         // The value is checked once more, whatever the source decided: a card number or token
         // typed into an unlabelled field makes the step sensitive and drops the value.
-        if AppTeachPolicy.isSecret(p.element) || AppTeachPolicy.valueReason(p.text, label: p.element.name ?? "") != nil {
+        let label = ([p.element.name ?? ""] + p.element.context).joined(separator: " ")
+        if AppTeachPolicy.isSecret(p.element) || AppTeachPolicy.valueReason(p.text, label: label) != nil {
             skipped += 1
             return [appendLocked(kind: "app_type", p.element, sensitive: true)]
         }
-        let text = p.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Only what the owner typed after the field got focus: a value that was already there
+        // (pre-filled, autofilled) is not recorded, and an append keeps just the appended part.
+        var typed = p.text
+        if let base = p.baseline, !base.isEmpty {
+            if typed == base { return [] }
+            if typed.hasPrefix(base) { typed = String(typed.dropFirst(base.count)) }
+        }
+        if typed != p.text, AppTeachPolicy.valueReason(typed, label: label) != nil {
+            skipped += 1
+            return [appendLocked(kind: "app_type", p.element, sensitive: true)]
+        }
+        let text = typed.trimmingCharacters(in: .whitespacesAndNewlines)
         // Emptied fields are not a step: the owner typed and deleted.
         guard !text.isEmpty else { return [] }
         let sample = String(AppTeachText.clean(text, Self.maxSample) ?? "")
@@ -438,6 +495,9 @@ public final class AppTeachMapper: @unchecked Sendable {
         var path = el.menuPath.compactMap { AppTeachText.clean($0, 120) }
         if path.isEmpty, let name = el.name { path = [name] }
         guard !path.isEmpty else { skipped += 1; return [] }
+        // Open Recent, History, the Window list: the items are the user's data, so the step stops at the menu.
+        if let i = path.dropLast().firstIndex(where: AppTeachRoles.isDynamicMenu) { path = Array(path.prefix(i + 1)) }
+        else if path.count == 1, AppTeachRoles.isDynamicMenu(path[0]) { path = [path[0]] }
         return [appendLocked(kind: "app_menu", el, menuPath: path)]
     }
 

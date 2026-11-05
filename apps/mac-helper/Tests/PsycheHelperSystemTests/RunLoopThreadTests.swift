@@ -27,6 +27,7 @@ struct RunLoopThreadTests {
     }
 
     @Test func startReturnsWhileTheCallerHoldsItsOwnLock() {
+        let fails = Counter()
         let ok = finishes(within: 10) {
             let stateLock = NSLock()
             for _ in 0..<50 {
@@ -44,9 +45,11 @@ struct RunLoopThreadTests {
                 #expect(counter.value == 1)
                 t.stop()
                 t.stop()  // twice is fine
+                if !t.waitUntilExited(timeout: 5) { fails.bump() }
             }
         }
         #expect(ok, "RunLoopThread.start or stop hung")
+        #expect(fails.value == 0, "a thread did not exit after stop")
     }
 
     @Test func manyStartsAndStopsAtOnceNeitherHangNorCrash() {
@@ -68,5 +71,51 @@ struct RunLoopThreadTests {
     @Test func aStopBeforeAnyStartDoesNothing() {
         let t = RunLoopThread(name: "test.teach.runloop.idle")
         t.stop()
+    }
+
+    @Test func aStopRightAfterStartIsNeverLost() {
+        let fails = Counter()
+        let ok = finishes(within: 30) {
+            for _ in 0..<100 {
+                let t = RunLoopThread(name: "test.teach.runloop.race")
+                if t.start(install: { loop in
+                    let timer = CFRunLoopTimerCreateWithHandler(nil, CFAbsoluteTimeGetCurrent() + 100, 0, 0, 0) { _ in }
+                    CFRunLoopAddTimer(loop, timer, .commonModes)
+                }) {
+                    t.stop()  // before the loop necessarily ran
+                    if !t.waitUntilExited(timeout: 5) { fails.bump() }
+                }
+            }
+        }
+        #expect(ok)
+        #expect(fails.value == 0, "a stop was lost")
+    }
+
+    @Test func teardownRunsOnTheThreadWhenItEnds() {
+        let counter = Counter()
+        let t = RunLoopThread(name: "test.teach.runloop.teardown")
+        let up = t.start(install: { _ in }, teardown: { _ in counter.bump() })
+        #expect(up)
+        t.stop()
+        #expect(t.waitUntilExited(timeout: 5))
+        #expect(counter.value == 1)
+    }
+
+    @Test func aStartThatTimesOutEndsTheThreadAndStillTearsDown() {
+        let installed = Counter()
+        let tornDown = Counter()
+        let t = RunLoopThread(name: "test.teach.runloop.slow")
+        // Install is slower than the timeout: start gives up, the thread finishes and cleans up by itself.
+        let up = t.start(
+            timeout: 0.1,
+            install: { _ in
+                Thread.sleep(forTimeInterval: 0.5)
+                installed.bump()
+            },
+            teardown: { _ in tornDown.bump() }
+        )
+        #expect(!up)
+        #expect(t.waitUntilExited(timeout: 5), "the cancelled thread must exit")
+        #expect(installed.value == 1 && tornDown.value == 1, "what was installed is torn down")
     }
 }

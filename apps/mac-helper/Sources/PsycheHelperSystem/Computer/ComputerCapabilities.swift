@@ -291,6 +291,7 @@ public enum ComputerCapabilities {
             permissions: [.accessibility]
         )) { ctx in
             let p = try ctx.decode(ValueParams.self)
+            try cu.refuseWhileRecording()
             let el = try await cu.engine.run { try $0.element(for: p.ref) }
             try cu.policy.authorize(.read, bundleId: el.app.bundleId, appName: el.app.name, approval: binding(ctx))
             if el.info.isSecure { throw secureRefusal() }

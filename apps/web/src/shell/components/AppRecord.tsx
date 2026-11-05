@@ -1,5 +1,5 @@
 import { t } from "@psyche/ui";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 import { useShell } from "../context.tsx";
 import type {
   BrowserPort,
@@ -67,6 +67,7 @@ export function useAppRecord(props: {
   const [choice, setChoice] = useState("");
   const [status, setStatus] = useState<TeachAppStatusView>({ active: false });
   const [busy, setBusy] = useState(false);
+  const flight = useRef(false);
   const { onActive } = props;
 
   const poll = useCallback(async () => {
@@ -99,7 +100,8 @@ export function useAppRecord(props: {
   };
 
   const start = () => {
-    if (choice === "" || busy) return;
+    if (choice === "" || flight.current) return;
+    flight.current = true;
     setBusy(true);
     void port
       .teachAppStart?.(choice)
@@ -108,11 +110,15 @@ export function useAppRecord(props: {
         return poll();
       })
       .catch(() => store.toast(t("web.teach.app.startFailed"), "error"))
-      .finally(() => setBusy(false));
+      .finally(() => {
+        flight.current = false;
+        setBusy(false);
+      });
   };
 
   const stop = () => {
-    if (!port.teachAppStop || busy) return;
+    if (!port.teachAppStop || flight.current) return;
+    flight.current = true;
     setBusy(true);
     void port
       .teachAppStop()
@@ -123,16 +129,26 @@ export function useAppRecord(props: {
         else props.onCapture(captureFromApp(r));
       })
       .catch(() => store.toast(t("web.teach.app.stopFailed"), "error"))
-      .finally(() => setBusy(false));
+      .finally(() => {
+        flight.current = false;
+        setBusy(false);
+      });
   };
 
   const discard = () => {
+    // One Stop or Discard at a time: a second click while the first is in flight does nothing.
+    // A ref, not the state: two clicks in one tick both see the same state.
+    if (flight.current) return;
+    flight.current = true;
+    setBusy(true);
     void port
       .teachAppCancel?.()
       .catch(() => undefined)
       .finally(() => {
         setStatus({ active: false });
         props.onActive(false);
+        flight.current = false;
+        setBusy(false);
       });
   };
 
@@ -199,7 +215,13 @@ export function AppRecordPanel(props: { rec: AppRecordModel }): ReactElement | n
                   : t("web.teach.app.bar.body", { app: appName })}
           </div>
         </div>
-        <button type="button" className="pill" onClick={rec.discard} data-testid="teach-app-cancel">
+        <button
+          type="button"
+          className="pill"
+          disabled={busy}
+          onClick={rec.discard}
+          data-testid="teach-app-cancel"
+        >
           {t("web.teach.bar.cancel")}
         </button>
         <button

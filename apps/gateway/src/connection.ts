@@ -49,11 +49,30 @@ export const UNKNOWN_FRAME_ID = "_unknown";
  * projection, never the text (a replay inside the retry window still gets the draft's id and name).
  */
 export const REPLAY_KEEPS: Record<string, (result: unknown) => unknown> = {
-  "skills.drafts.fromRecording": (result) => {
-    const d = (result as { draft?: Record<string, unknown> } | null)?.draft;
-    return d === undefined ? result : { draft: { ...d, text: "", steps: [] } };
-  },
+  "skills.drafts.fromRecording": (result) => keepIdentity(result, true),
+  // The other draft methods return the draft's text too; for a draft made from a recording that
+  // text can hold values the owner kept, so only its identity and status are stored.
+  "skills.drafts.update": (result) => keepIdentity(result, false),
+  "skills.drafts.accept": (result) => keepIdentity(result, false),
+  "skills.drafts.dismiss": (result) => keepIdentity(result, false),
 };
+
+/** The result of a draft method without the text, the steps and the proposal's files and diff. */
+function keepIdentity(result: unknown, always: boolean): unknown {
+  const r = result as {
+    draft?: Record<string, unknown>;
+    proposal?: Record<string, unknown>;
+  } | null;
+  const d = r?.draft;
+  if (d === undefined || (!always && d.origin !== "recording")) return result;
+  const out: Record<string, unknown> = { ...r, draft: { ...d, text: "", steps: [] } };
+  const p = r?.proposal;
+  if (p !== undefined) {
+    const { update: _update, ...rest } = p;
+    out.proposal = { ...rest, text: "", files: [] };
+  }
+  return out;
+}
 
 const STREAM_METHODS: ReadonlySet<string> = new Set([
   "terminal.session.write",

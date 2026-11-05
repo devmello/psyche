@@ -371,7 +371,9 @@ export function sanitizeTeachSteps(steps: readonly BrowserTeachStep[]): BrowserT
           // The window, sheet and group titles above the field count as labels too.
           ...(s.path === undefined ? {} : { placeholder: s.path.join(" ") }),
         }) !== null) ||
-      (s.value !== undefined && classifyTeachValue(s.value, s.name ?? "") !== null);
+      (s.value !== undefined && classifyTeachValue(s.value, s.name ?? "") !== null) ||
+      // In an app a bare 4 to 8 digit number is treated as a code or PIN: one Keep click is too easy.
+      (s.kind === "app_type" && s.value !== undefined && /^\d{4,8}$/.test(s.value.trim()));
     if (sensitive && typed) out.sensitive = true;
     if (typed && !sensitive && s.input !== undefined) {
       out.input = { name: s.input.name };

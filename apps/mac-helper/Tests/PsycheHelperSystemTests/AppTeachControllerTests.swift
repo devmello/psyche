@@ -9,6 +9,9 @@ private final class FakeSource: AppTeachSource, @unchecked Sendable {
     var onEnd: (@Sendable () -> Void)?
     var started = false
     var stopped = false
+    /// When set, `start` waits here before it returns: a Stop or Cancel can land mid-start.
+    var gate: DispatchSemaphore?
+    let entered = DispatchSemaphore(value: 0)
     var bundle = ""
     let allow: Bool
     init(allow: Bool = true) { self.allow = allow }
@@ -18,6 +21,8 @@ private final class FakeSource: AppTeachSource, @unchecked Sendable {
     ) -> Bool {
         guard allow else { return false }
         bind(0)
+        entered.signal()
+        gate?.wait()
         self.onEvent = onEvent
         self.onEnd = onEnd
         bundle = bundleId
@@ -38,6 +43,8 @@ private final class FakeIndicator: AppTeachIndicator, @unchecked Sendable {
     }
     func hide() { hidden += 1 }
 }
+
+private final class ResultBox: @unchecked Sendable { var ok = true }
 
 private let mail = "com.apple.mail"
 
@@ -181,6 +188,45 @@ struct AppTeachControllerTests {
         }
         _ = teach.cancel()
         try computer.beginAction(session: "run-3")
+    }
+
+    @Test func aCancelOrStopWhileStartingTearsTheSourceDownAgain() throws {
+        for how in ["cancel", "stop"] {
+            let source = FakeSource()
+            let gate = DispatchSemaphore(value: 0)
+            source.gate = gate
+            let indicator = FakeIndicator()
+            let teach = controller(source: source, indicator: indicator)
+            let result = ResultBox()
+            let done = DispatchSemaphore(value: 0)
+            Thread.detachNewThread {
+                do {
+                    _ = try teach.begin(bundleId: mail)
+                    result.ok = true
+                } catch {
+                    result.ok = false
+                }
+                done.signal()
+            }
+            source.entered.wait()  // start is in flight
+            if how == "cancel" {
+                _ = teach.cancel()
+            } else {
+                // The menu-bar Stop cannot exist yet; a stop by id is what the owner's Stop does.
+                if let id = teach.currentIdForTests { teach.end(id, .stop) }
+            }
+            gate.signal()
+            done.wait()
+            let ok = result.ok
+            #expect(!ok, "begin must fail after \(how)")
+            #expect(source.stopped, "the source must be stopped after \(how)")
+            #expect(teach.activeId == nil)
+            #expect(indicator.shown == nil, "no indicator for a recording that never started (\(how))")
+            // And a new recording can start afterwards.
+            source.gate = nil
+            let again = controller(source: FakeSource())
+            _ = try again.begin(bundleId: mail)
+        }
     }
 
     @Test func cancelDropsEverything() throws {
