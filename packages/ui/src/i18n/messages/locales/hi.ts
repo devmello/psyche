@@ -10,6 +10,7 @@ import { capabilitiesRest } from "./capabilities-rest/hi.ts";
 import { charts } from "./charts/hi.ts";
 import { chatRest } from "./chat-rest/hi.ts";
 import { commonRest } from "./common-rest/hi.ts";
+import { computerWatch } from "./computer-watch/hi.ts";
 import { dailyRest } from "./daily-rest/hi.ts";
 import { deckRest } from "./deck-rest/hi.ts";
 import { designRest } from "./design-rest/hi.ts";
@@ -3289,4 +3290,6 @@ export const hi: Partial<Catalogue> = {
   ...passwordPresence,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
 };

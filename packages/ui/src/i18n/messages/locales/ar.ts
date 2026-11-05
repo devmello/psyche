@@ -10,6 +10,7 @@ import { capabilities } from "./capabilities/ar.ts";
 import { charts } from "./charts/ar.ts";
 import { chat } from "./chat/ar.ts";
 import { common } from "./common/ar.ts";
+import { computerWatch } from "./computer-watch/ar.ts";
 import { connectorGallery } from "./connector-gallery/ar.ts";
 import { connectorsPage } from "./connectors-page/ar.ts";
 import { daily } from "./daily/ar.ts";
@@ -3336,4 +3337,6 @@ export const ar: Partial<Catalogue> = {
   ...passwordPresence,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
 };

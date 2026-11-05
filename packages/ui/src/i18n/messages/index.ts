@@ -9,6 +9,7 @@ import { capabilities } from "./capabilities.ts";
 import { charts } from "./charts.ts";
 import { chat } from "./chat.ts";
 import { common } from "./common.ts";
+import { computerWatch } from "./computer-watch.ts";
 import { connectorBundles } from "./connector-bundles.ts";
 import { connectorGallery } from "./connector-gallery.ts";
 import { connectorsPage } from "./connectors-page.ts";
@@ -116,6 +117,7 @@ export const en = {
   ...platform,
   ...passwordPresence,
   ...securityState,
+  ...computerWatch,
 } as const;
 
 export type MessageId = keyof typeof en;

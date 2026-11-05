@@ -6,6 +6,7 @@ import { canvas } from "./canvas/fr.ts";
 import { capabilitiesRest } from "./capabilities-rest/fr.ts";
 import { charts } from "./charts/fr.ts";
 import { chatRest } from "./chat-rest/fr.ts";
+import { computerWatch } from "./computer-watch/fr.ts";
 import { dailyRest } from "./daily-rest/fr.ts";
 import { deckRest } from "./deck-rest/fr.ts";
 import { designRest } from "./design-rest/fr.ts";
@@ -3317,4 +3318,6 @@ export const fr: Partial<Catalogue> = {
   ...passwordPresence,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
 };
