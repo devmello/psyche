@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-05 (Linux virtual screen watch pane, L6)
+
+- New methods for the desktop's watch pane, all desktop shell only and wrapping the helper's `vscreen.*` capabilities: `computerWatch.status` (`operator.read`, `{ status: VscreenStatus, parked }`), `computerWatch.frame` (`operator.read`, `VscreenFrameParams` to `VscreenFrame`), `computerWatch.input` (`operator.write`), `computerWatch.takeOver` (`operator.write`, `{ on }`), `computerWatch.stop` (`operator.write`, `VscreenStopParams`), `computerWatch.resolveParked` (`operator.write`, `look` | `discard` | `keep_open`). New event `computerWatch.parked` (`apps`). New types `ComputerWatchState`, `ComputerWatchParkAction`. `VscreenStopParams` gains an optional `force` (close an app even if it asks "Save changes?"). `ViewPane` gains `computer-watch` (the Gateway opens the watch pane with `view.command` when a virtual screen starts). `AttentionPane` gains `vscreen` (the watch pane's visibility, so frames are only pulled while it is shown). Design: docs/design/linux-desktop-2026.md §7.5.
+
 ### v1 additive — 2026-11-05 (Linux helper pairing)
 
 - `HOST_HELPER_FAMILIES` gains `linux-helper`; `isHostHelperKind` also accepts `host-helper`. New `hostHelperKindOf(family)` (the Linux helper is stored as `host-helper`, Mac and Windows keep their kinds) and the `PeerCheck` type (`root_owned` | `user_owned` | `unverified` | `mismatch`). No wire schema changes. The `devices.hostHelper.status` setting gains an optional `peerCheck`.

@@ -4,6 +4,7 @@ import { blocksA } from "./blocks-a/pt.ts";
 import { canvas } from "./canvas/pt.ts";
 import { charts } from "./charts/pt.ts";
 import { chatA } from "./chat-a/pt.ts";
+import { computerWatch } from "./computer-watch/pt.ts";
 import { dailyA } from "./daily-a/pt.ts";
 import { final202611 } from "./final-2026-11/pt.ts";
 import { galleryA } from "./gallery-a/pt.ts";
@@ -3263,4 +3264,6 @@ export const pt: Partial<Catalogue> = {
   ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
 };

@@ -209,6 +209,8 @@ export const VscreenStopParams = Type.Object(
   {
     /** Close every app (a "Save changes?" dialog parks the Task) before stopping. Default true. */
     closeApps: Type.Optional(Type.Boolean()),
+    /** Close even an app that asks "Save changes?" (the parked card's Discard). Default false. */
+    force: Type.Optional(Type.Boolean()),
   },
   { $id: "VscreenStopParams" },
 );
@@ -272,3 +274,74 @@ export type VscreenInputParams = Static<typeof VscreenInputParams>;
 
 export const VscreenAck = Type.Object({ ok: Type.Boolean() }, { $id: "VscreenAck" });
 export type VscreenAck = Static<typeof VscreenAck>;
+
+/**
+ * The watch pane's Gateway methods (linux design §7.5): the desktop shell's view of the virtual
+ * screen. They wrap the helper's `vscreen.*` capabilities above, so the owner's pane never talks
+ * to the helper directly. Desktop shell only; a Gateway without a Linux host helper answers
+ * `unavailable`. Frames are pulled with `since` while the pane is visible
+ * (`attention.report { pane: "vscreen" }`).
+ */
+export const ComputerWatchState = Type.Object(
+  {
+    status: VscreenStatus,
+    /** A Task is parked on an app with unsaved changes: show Look / Discard / Keep it open. */
+    parked: Type.Boolean(),
+  },
+  { $id: "ComputerWatchState" },
+);
+export type ComputerWatchState = Static<typeof ComputerWatchState>;
+
+export const ComputerWatchParkAction = StringEnum(["look", "discard", "keep_open"], {
+  $id: "ComputerWatchParkAction",
+});
+export type ComputerWatchParkAction = Static<typeof ComputerWatchParkAction>;
+
+export const ComputerWatchMethods = {
+  "computerWatch.status": defineMethod({
+    params: Type.Object({}),
+    result: ComputerWatchState,
+    scope: "operator.read",
+    description:
+      "Desktop only: the virtual screen's state, its open apps and whether a Task is parked on unsaved changes.",
+  }),
+  "computerWatch.frame": defineMethod({
+    params: VscreenFrameParams,
+    result: VscreenFrame,
+    scope: "operator.read",
+    description:
+      "Desktop only: the newest virtual-screen frame (JPEG) when it changed since `since`. Only while the pane is visible, at most 4 a second.",
+  }),
+  "computerWatch.input": defineMethod({
+    params: VscreenInputParams,
+    result: VscreenAck,
+    scope: "operator.write",
+    description:
+      "Desktop only: the owner's clicks and keys while taking over, sent through the helper's XTest.",
+  }),
+  "computerWatch.takeOver": defineMethod({
+    params: Type.Object({ on: Type.Boolean() }),
+    result: Type.Object({ takenOver: Type.Boolean() }),
+    scope: "operator.write",
+    description:
+      "Desktop only: the owner takes control of the virtual screen (the agent pauses) or gives it back.",
+  }),
+  "computerWatch.stop": defineMethod({
+    params: VscreenStopParams,
+    result: VscreenAck,
+    scope: "operator.write",
+    description:
+      "Desktop only: Stop in the watch pane. Apps are asked to close; one with unsaved changes stays and the Task parks, unless `force` is set.",
+  }),
+  "computerWatch.resolveParked": defineMethod({
+    params: Type.Object({ action: ComputerWatchParkAction }),
+    result: Type.Object({
+      action: ComputerWatchParkAction,
+      /** For `look`: the pane to open. */
+      view: Type.Optional(Type.Literal("computer-watch")),
+    }),
+    scope: "operator.write",
+    description:
+      "Desktop only: answers the parked card (Look opens the watch pane, Discard closes the app and loses its changes, Keep it open leaves it).",
+  }),
+} as const;

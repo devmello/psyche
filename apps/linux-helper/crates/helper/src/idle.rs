@@ -1,7 +1,8 @@
 //! Idle exit (linux-desktop design §4.4). The helper runs on demand, so it exits after a quiet
 //! period instead of sitting in memory: psyched starts it again when computer use begins.
 
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 /// The default quiet period: 5 minutes with no invocation.
@@ -13,6 +14,20 @@ pub struct IdleTimer {
     /// lifetime).
     timeout: Option<Duration>,
     last_activity: Mutex<Instant>,
+    /// Things that need the helper to stay up (a running virtual screen). While any holds the
+    /// helper, it is never idle.
+    holds: AtomicUsize,
+}
+
+/// Keeps the helper from exiting for idleness while it lives.
+#[derive(Debug)]
+pub struct IdleHold(Arc<IdleTimer>);
+
+impl Drop for IdleHold {
+    fn drop(&mut self) {
+        self.0.holds.fetch_sub(1, Ordering::SeqCst);
+        self.0.touch();
+    }
 }
 
 impl IdleTimer {
@@ -20,7 +35,13 @@ impl IdleTimer {
         Self {
             timeout,
             last_activity: Mutex::new(Instant::now()),
+            holds: AtomicUsize::new(0),
         }
+    }
+
+    pub fn hold(self: &Arc<Self>) -> IdleHold {
+        self.holds.fetch_add(1, Ordering::SeqCst);
+        IdleHold(Arc::clone(self))
     }
 
     pub fn touch(&self) {
@@ -36,7 +57,7 @@ impl IdleTimer {
         let Some(timeout) = self.timeout else {
             return false;
         };
-        if in_flight > 0 {
+        if in_flight > 0 || self.holds.load(Ordering::SeqCst) > 0 {
             return false;
         }
         let last = *self.last_activity.lock().unwrap_or_else(|e| e.into_inner());
@@ -75,6 +96,19 @@ mod tests {
         timer.touch_at(t0 + Duration::from_secs(8));
         assert!(!timer.expired_at(t0 + Duration::from_secs(15), 0));
         assert!(!timer.expired_at(t0 + Duration::from_secs(600), 1));
+    }
+
+    #[test]
+    fn a_hold_keeps_the_helper_up_until_it_is_dropped() {
+        let timer = Arc::new(IdleTimer::new(Some(Duration::from_secs(10))));
+        let t0 = Instant::now();
+        timer.touch_at(t0);
+        let hold = timer.hold();
+        assert!(!timer.expired_at(t0 + Duration::from_secs(600), 0));
+        drop(hold);
+        // Dropping counts as activity, so the quiet period starts again.
+        assert!(!timer.expired_at(Instant::now(), 0));
+        assert!(timer.expired_at(Instant::now() + Duration::from_secs(11), 0));
     }
 
     #[test]

@@ -19,6 +19,7 @@ import {
   paneColumnWidth,
   presentation,
 } from "../layout/index.ts";
+import { ComputerWatchPane } from "../panes/ComputerWatchPane.tsx";
 import { TerminalPane } from "../panes/TerminalPane.tsx";
 import { BrowserPane } from "./BrowserPane.tsx";
 
@@ -34,6 +35,7 @@ const PANE_KINDS: readonly PaneInstance["pane"][] = [
   "artifact",
   "vm",
   "sidechat",
+  "computer-watch",
 ];
 
 /** Pane names by kind, localized when read. */
@@ -132,6 +134,8 @@ function PaneBody(props: {
     case "tasks":
     case "plan":
       return <TasksPane />;
+    case "computer-watch":
+      return <ComputerWatchPane covered={props.covered} />;
     case "vm":
       return <p style={{ padding: 16, color: "var(--shell-muted)" }}>{t("web.panes.vmOff")}</p>;
     default:

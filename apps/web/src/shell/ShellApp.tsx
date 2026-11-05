@@ -687,6 +687,11 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     // receive the same events and must not act on them twice.
     if (platform.kind !== "desktop" || popOutPane || route === "/quick") return;
     const offCmd = store.tap((e) => {
+      // A Task parked on an app with unsaved changes on the virtual screen: show the watch pane.
+      if (e.event === "computerWatch.parked" && threadId) {
+        layout.dispatch(threadId, { type: "open", pane: "computer-watch" }, env());
+        return;
+      }
       if (e.event !== "view.command" || !threadId) return;
       const out = layout.applyViewCommand(e.payload, threadId, env());
       if (!out.ok) store.toast(t("web.toast.paneFailed", { code: out.error.code }), "warn");

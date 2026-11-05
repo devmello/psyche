@@ -316,6 +316,7 @@ export {
   type ScreenAskViewProps,
 } from "./screen-ask/ScreenAskView.tsx";
 // Screens.
+export * from "./screens/computer-watch/index.ts";
 export * from "./screens/feed/index.ts";
 export * from "./screens/files/index.ts";
 export * from "./screens/goals/index.ts";
