@@ -222,7 +222,8 @@ export class FsAudioLibrary implements LibraryWriter {
 
 /** Writes `extracts/<id>.txt` under the Library root (0700 / 0600); returns its relative path. */
 async function writeExtract(root: string, id: string, text: string): Promise<string> {
-  const rel = join("extracts", `${id}.txt`);
+  // Library paths are stored with "/" on every OS (the database and backups move between them).
+  const rel = `extracts/${id}.txt`;
   await mkdir(join(root, "extracts"), { recursive: true, mode: 0o700 });
   await writeFile(join(root, rel), text, { mode: 0o600 });
   await chmod(join(root, rel), 0o600);

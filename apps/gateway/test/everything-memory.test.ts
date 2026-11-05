@@ -60,6 +60,13 @@ function setup(
     ...(over.readState === undefined ? {} : { readState: over.readState }),
     ...(over.announce === undefined ? {} : { announce: over.announce }),
   });
+  // The pass keeps a read-only connection to the search index until the part stops: close it
+  // before the folder goes (Windows cannot delete a file that is still open).
+  const removeDir = tmp.cleanup;
+  tmp.cleanup = () => {
+    void e.part().stop?.();
+    removeDir();
+  };
   return { clock, db, graph, provider, e, tmp };
 }
 

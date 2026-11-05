@@ -7,10 +7,12 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getDeviceFamily, getSetting, setSetting } from "@psyche/db";
 import type { NodeInfo } from "@psyche/protocol";
+import { isNamedPipePath } from "@psyche/protocol/platform";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { computerHelper } from "../src/compose/computer.ts";
@@ -24,7 +26,7 @@ import {
   NodeRegistry,
 } from "../src/nodes/registry.ts";
 import type { Gateway } from "../src/server.ts";
-import { resolveGuestSocketPath } from "../src/socket-path.ts";
+import { resolveGuestSocketPath, resolveNodeSocketPath } from "../src/socket-path.ts";
 import { FakeNode, type FakeNodeHandler, pairNodeDevice } from "./fake-node.ts";
 import {
   desktopClient,
@@ -83,7 +85,9 @@ async function track(p: Promise<FakeNode>): Promise<FakeNode> {
 const info = (g: Gateway, id: string): NodeInfo | undefined =>
   g.context.nodes.list().find((n) => n.id === id);
 
-describe("a sandbox guest relayed to the Gateway", () => {
+// Sandbox guest VMs (Virtualization.framework) and their relay socket are macOS only: a Windows
+// Gateway has no guest socket (`resolveGuestSocketPath` is null there).
+describe.skipIf(process.platform === "win32")("a sandbox guest relayed to the Gateway", () => {
   it("listens on its own socket, next to the node socket", async () => {
     const g = await start();
     expect(guestSocket(g)).not.toBe(g.config.nodeSocketPath);
@@ -237,9 +241,22 @@ describe("the Host helper's proof", () => {
     writeFileSync(secretFile, "stale-secret\n", { mode: 0o600 });
     const starting = startTestGateway({ home });
     let seen = "";
-    const socket = join(home, "run", "node.sock");
+    // The node endpoint: a Unix socket file, or on Windows a named pipe (no file: it is up once
+    // a connect succeeds).
+    const socket = resolveNodeSocketPath(home, undefined);
+    const up = async () =>
+      isNamedPipePath(socket)
+        ? new Promise<boolean>((r) => {
+            const probe = createConnection(socket);
+            probe.once("connect", () => {
+              probe.destroy();
+              r(true);
+            });
+            probe.once("error", () => r(false));
+          })
+        : existsSync(socket);
     const deadline = Date.now() + 10_000;
-    while (!existsSync(socket) && Date.now() < deadline) await new Promise((r) => setImmediate(r));
+    while (!(await up()) && Date.now() < deadline) await new Promise((r) => setImmediate(r));
     // The moment a helper could connect, the file already holds a fresh secret (and never
     // vanished in between).
     seen = readFileSync(secretFile, "utf8").trim();

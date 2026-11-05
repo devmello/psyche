@@ -18,8 +18,11 @@ const tmp = () => {
   return d;
 };
 const stops: Array<() => unknown> = [];
+/** Run after every part stopped: databases close before their folder goes (Windows cannot delete an open file). */
+const closeLast: Array<() => unknown> = [];
 afterEach(async () => {
   for (const s of stops.splice(0)) await s();
+  for (const c of closeLast.splice(0)) await c();
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
@@ -113,6 +116,7 @@ function fakeHelper() {
 function fixture(encrypt: boolean) {
   const home = tmp();
   const db = openDb(join(home, "psyche.sqlite"));
+  closeLast.push(() => db.close());
   if (encrypt) db.sqlite.prepare("SELECT 1").get();
   return { home, db };
 }

@@ -1,6 +1,7 @@
 import { execFile, execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { system32 } from "@psyche/protocol/platform";
 
 /**
  * The Gateway's OS-specific calls (docs/design/cross-platform-2026.md §4.4 item 2): opening a
@@ -13,6 +14,9 @@ import { join } from "node:path";
 export type Platform = NodeJS.Platform;
 
 type Run = (file: string, args: string[], timeoutMs: number) => Promise<string>;
+
+/** Windows PowerShell 5.1 by absolute path (always present; `pwsh` 7 may not be). */
+const POWERSHELL = () => system32("WindowsPowerShell", "v1.0", "powershell.exe");
 
 const runFile: Run = (file, args, timeoutMs) =>
   new Promise((resolve) =>
@@ -38,7 +42,7 @@ export function openExternalUrl(
     return true;
   }
   if (platform === "win32") {
-    run("rundll32.exe", ["url.dll,FileProtocolHandler", url.href]);
+    run(system32("rundll32.exe"), ["url.dll,FileProtocolHandler", url.href]);
     return true;
   }
   return false;
@@ -96,7 +100,7 @@ export function parseWindowsPower(out: string): WindowsPower | undefined {
 
 export async function readWindowsPower(run: Run = runFile): Promise<WindowsPower | undefined> {
   const out = await run(
-    "powershell.exe",
+    POWERSHELL(),
     [
       "-NoProfile",
       "-NonInteractive",
@@ -134,7 +138,7 @@ function readAccountFullName(platform: Platform): string | undefined {
     }
     if (platform === "win32") {
       const out = execFileSync(
-        "powershell.exe",
+        POWERSHELL(),
         [
           "-NoProfile",
           "-NonInteractive",

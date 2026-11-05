@@ -22,6 +22,7 @@ import {
 import { isIP } from "node:net";
 import { join } from "node:path";
 import { PsycheError, parseIpv6 } from "@psyche/protocol";
+import { restrictDirToCurrentUser } from "@psyche/protocol/platform";
 import { type DerName, derCertificate } from "./der.ts";
 
 /**
@@ -150,7 +151,8 @@ export async function ensureLanCert(
   const dir = lanTlsDir(home);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   chmodSync(join(home, "identity"), 0o700);
-  chmodSync(dir, 0o700);
+  // 0700 on POSIX; on Windows (no modes) the folder's DACL: this user and SYSTEM only.
+  restrictDirToCurrentUser(dir);
   const keyPath = join(dir, "key.pem");
   const certPath = join(dir, "cert.pem");
   let keyPem: string | undefined;
@@ -200,7 +202,7 @@ export async function rotateLanCert(
 ): Promise<LanCert> {
   const dir = lanTlsDir(home);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
-  chmodSync(dir, 0o700);
+  restrictDirToCurrentUser(dir);
   const keyPem = newKeyPem();
   const certPem = issue(createPrivateKey(keyPem), names, now);
   writePrivate(join(dir, "key.pem"), keyPem);

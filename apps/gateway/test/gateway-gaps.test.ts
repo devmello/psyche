@@ -21,7 +21,8 @@ function deepHome(): string {
   return join(base, "a".repeat(Math.max(1, MAX_SOCKET_PATH_BYTES - base.length)), "home");
 }
 
-describe("node socket paths (issue #50)", () => {
+// Unix `sun_path` rules; on Windows the node transport is a named pipe (below).
+describe.skipIf(process.platform === "win32")("node socket paths (issue #50)", () => {
   it("keeps run/node.sock when it fits", () => {
     expect(resolveNodeSocketPath("/tmp/h", undefined)).toBe("/tmp/h/run/node.sock");
   });
@@ -44,6 +45,26 @@ describe("node socket paths (issue #50)", () => {
       expect(statSync(join(path, "..")).mode & 0o777).toBe(0o700);
       expect(readFileSync(join(home, "run", "node-socket"), "utf8").trim()).toBe(path);
       expect(existsSync(path)).toBe(true);
+    } finally {
+      await t?.cleanup();
+    }
+    expect(existsSync(join(home, "run", "node-socket"))).toBe(false);
+  });
+});
+
+describe.skipIf(process.platform !== "win32")("the node pipe on Windows", () => {
+  it("listens on the home's pipe, records it in run/node-socket, and removes the pointer at stop", async () => {
+    const home = deepHome();
+    const path = resolveConfig({}, { home }).nodeSocketPath;
+    expect(path).toMatch(/^\\\\\.\\pipe\\psyche-node-[0-9a-f]{16}$/);
+    let t: TestGateway | null = null;
+    try {
+      t = await startTestGateway({ home });
+      expect(t.gateway.config.nodeSocketPath).toBe(path);
+      expect(t.gateway.config.guestSocketPath).toBeNull();
+      expect(readFileSync(join(home, "run", "node-socket"), "utf8").trim()).toBe(path);
+      // A second Gateway on the same home finds the pipe taken.
+      await expect(startTestGateway({ home })).rejects.toThrow(/already listening/);
     } finally {
       await t?.cleanup();
     }

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { accessSync, constants, existsSync, statSync } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
 import { homedir, hostname, tmpdir, userInfo } from "node:os";
-import { basename, isAbsolute } from "node:path";
+import { basename, isAbsolute, join, sep } from "node:path";
 import { getDevice } from "@psyche/db";
 import {
   type EventPayload,
@@ -77,10 +77,12 @@ export interface HostTarget {
 
 export interface TargetSource {
   home: string;
-  /** The Host user's shell from the OS user database; absent when it has none. */
+  /** The Host user's shell from the OS user database; absent when it has none (always on Windows). */
   userShell: string | undefined;
   env: NodeJS.ProcessEnv;
   user: string;
+  /** Defaults to this process's platform. */
+  platform?: NodeJS.Platform;
 }
 
 export interface HostTerminalLimits {
@@ -148,6 +150,66 @@ export interface HostTerminalPresence {
 }
 
 /** Fixed, never the Gateway's own PATH (a LaunchAgent's is whatever launchd gave it). */
+/**
+ * Windows: the shells to try after an explicit one, by absolute path: PowerShell 7, Windows
+ * PowerShell 5.1 (always present), then `cmd.exe`.
+ */
+function windowsShells(env: NodeJS.ProcessEnv): string[] {
+  const root = envValue(env, "SystemRoot") ?? "C:\\Windows";
+  const programFiles = envValue(env, "ProgramFiles") ?? "C:\\Program Files";
+  return [
+    join(programFiles, "PowerShell", "7", "pwsh.exe"),
+    join(root, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
+    envValue(env, "ComSpec") ?? join(root, "System32", "cmd.exe"),
+  ];
+}
+
+/** Windows environment names are case-insensitive (`Path` and `PATH` are one variable). */
+function envValue(env: NodeJS.ProcessEnv, name: string): string | undefined {
+  const key = Object.keys(env).find((k) => k.toLowerCase() === name.toLowerCase());
+  const v = key === undefined ? undefined : env[key];
+  return v !== undefined && v !== "" && !hasNul(v) ? v : undefined;
+}
+
+/**
+ * The Windows variables a shell and the tools in it need to work (profile folders, the system
+ * root, `PATHEXT`, the user's `PATH`), copied from the Host's own environment; nothing else is
+ * inherited, so no Psyche secret reaches the shell.
+ */
+const WINDOWS_ENV_KEYS = [
+  "SystemRoot",
+  "SystemDrive",
+  "windir",
+  "ComSpec",
+  "PATHEXT",
+  "Path",
+  "USERPROFILE",
+  "HOMEDRIVE",
+  "HOMEPATH",
+  "APPDATA",
+  "LOCALAPPDATA",
+  "ProgramData",
+  "ProgramFiles",
+  "ProgramFiles(x86)",
+  "ProgramW6432",
+  "CommonProgramFiles",
+  "PUBLIC",
+  "USERNAME",
+  "USERDOMAIN",
+  "COMPUTERNAME",
+  "OS",
+  "PROCESSOR_ARCHITECTURE",
+  "NUMBER_OF_PROCESSORS",
+] as const;
+
+function shellArgs(shell: string, platform: NodeJS.Platform): string[] {
+  if (platform !== "win32") return ["-l"];
+  const name = basename(shell).toLowerCase();
+  if (name === "cmd.exe") return [];
+  if (name === "pwsh.exe" || name === "powershell.exe") return ["-NoLogo"];
+  return ["-l"]; // a POSIX shell the owner chose (Git Bash, MSYS2)
+}
+
 function systemPath(): string {
   const extra = ["/opt/homebrew/bin", "/usr/local/bin"].filter((d) => existsSync(d));
   return [...extra, "/usr/bin", "/bin", "/usr/sbin", "/sbin"].join(":");
@@ -206,7 +268,12 @@ export async function resolveHostTarget(
   cwd: string | undefined,
   cwdTimeoutMs = 2_000,
 ): Promise<HostTarget> {
-  const shell = [source.userShell, "/bin/zsh", "/bin/bash", "/bin/sh"].find(
+  const platform = source.platform ?? process.platform;
+  const win = platform === "win32";
+  const candidates = win
+    ? [source.userShell, ...windowsShells(source.env)]
+    : [source.userShell, "/bin/zsh", "/bin/bash", "/bin/sh"];
+  const shell = candidates.find(
     (s): s is string => typeof s === "string" && isAbsolute(s) && !hasNul(s) && isExecutable(s),
   );
   if (shell === undefined) {
@@ -237,20 +304,52 @@ export async function resolveHostTarget(
     }
   }
   const lang = source.env.LANG;
+  const env: Record<string, string> = win
+    ? windowsEnv(source)
+    : {
+        TERM: "xterm-256color",
+        COLORTERM: "truecolor",
+        LANG: lang && !hasNul(lang) ? lang : "en_US.UTF-8",
+        PATH: systemPath(),
+        TMPDIR: tmpdir(),
+        HOME: source.home,
+        SHELL: shell,
+        ...(source.user && !hasNul(source.user) ? { USER: source.user, LOGNAME: source.user } : {}),
+      };
+  const slash = win ? sep : "/";
+  let shown = dir;
+  if (dir === source.home) shown = "~";
+  else if (dir.startsWith(`${source.home}${slash}`)) shown = `~${dir.slice(source.home.length)}`;
+  return {
+    file: shell,
+    args: shellArgs(shell, platform),
+    cwd: dir,
+    env,
+    label: `${basename(shell)} · ${shown}`,
+  };
+}
+
+function windowsEnv(source: TargetSource): Record<string, string> {
   const env: Record<string, string> = {
     TERM: "xterm-256color",
     COLORTERM: "truecolor",
-    LANG: lang && !hasNul(lang) ? lang : "en_US.UTF-8",
-    PATH: systemPath(),
-    TMPDIR: tmpdir(),
+    TEMP: tmpdir(),
+    TMP: tmpdir(),
     HOME: source.home,
-    SHELL: shell,
-    ...(source.user && !hasNul(source.user) ? { USER: source.user, LOGNAME: source.user } : {}),
   };
-  let shown = dir;
-  if (dir === source.home) shown = "~";
-  else if (dir.startsWith(`${source.home}/`)) shown = `~${dir.slice(source.home.length)}`;
-  return { file: shell, args: ["-l"], cwd: dir, env, label: `${basename(shell)} · ${shown}` };
+  for (const key of WINDOWS_ENV_KEYS) {
+    const v = envValue(source.env, key);
+    if (v !== undefined) env[key] = v;
+  }
+  if (env.Path === undefined) {
+    const root = env.SystemRoot ?? "C:\\Windows";
+    env.Path = [
+      join(root, "System32"),
+      root,
+      join(root, "System32", "WindowsPowerShell", "v1.0"),
+    ].join(";");
+  }
+  return env;
 }
 
 async function loadNodePty(): Promise<PtySpawn> {

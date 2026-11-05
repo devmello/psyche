@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chmodSync, closeSync, fsyncSync, openSync } from "node:fs";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 
 /**
  * Node-only platform helpers shared by the Gateway, `psyche-node` and the packages
@@ -50,10 +50,18 @@ export function namedPipePath(kind: LocalEndpointKind, home: string): string {
 
 let cachedSid: string | null | undefined;
 
+/**
+ * A Windows system tool by absolute path: `PATH` may put another `whoami` first (Git for
+ * Windows ships a POSIX one in `usr\bin`).
+ */
+export function system32(...path: string[]): string {
+  return join(process.env.SystemRoot ?? "C:\\Windows", "System32", ...path);
+}
+
 /** The current user's SID (`S-1-5-21-…`) on Windows, from `whoami /user`; `null` if unknown. */
 export function currentUserSid(): string | null {
   if (cachedSid !== undefined) return cachedSid;
-  const r = spawnSync("whoami", ["/user", "/fo", "csv", "/nh"], {
+  const r = spawnSync(system32("whoami.exe"), ["/user", "/fo", "csv", "/nh"], {
     encoding: "utf8",
     windowsHide: true,
     timeout: 5000,
@@ -82,7 +90,7 @@ export function restrictDirToCurrentUser(
   const sid = currentUserSid();
   if (sid === null) return false;
   const r = spawnSync(
-    "icacls",
+    system32("icacls.exe"),
     [dir, "/inheritance:r", "/grant:r", `*${sid}:(OI)(CI)F`, "*S-1-5-18:(OI)(CI)F", "/q"],
     { windowsHide: true, timeout: 10_000 },
   );

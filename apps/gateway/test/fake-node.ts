@@ -84,7 +84,8 @@ export class FakeNode {
     await new Promise((r) => socket.once("connect", r));
     const node = new FakeNode(
       {
-        write: (frame) => void socket.write(`${frame}\n`),
+        // A named pipe (Windows) has no half-close: frames can still arrive after `end()`.
+        write: (frame) => void (socket.writable && socket.write(`${frame}\n`)),
         close: () =>
           new Promise((resolve) => {
             if (socket.closed) return resolve();

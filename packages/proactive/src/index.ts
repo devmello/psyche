@@ -290,6 +290,7 @@ export {
   type CapturedAudio,
   CONFERENCE_APP_BUNDLES,
   CONSENT_LINE,
+  isConferenceApp,
   MeetingRecorder,
   type MeetingRecording,
 } from "./meetings/recorder.ts";

@@ -405,7 +405,9 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     invoke: async (nodeId, capability) => {
       const c = client(nodeId);
       if (c === undefined) return { ok: false, error: { code: "unavailable", message: "gone" } };
-      return c.invoke(capability, {}, { timeoutMs: 10_000 });
+      // The Windows helper's first `presence.public_key` creates the Hello key credential, which
+      // shows a Windows Hello prompt: give the owner as long as a Touch ID confirm.
+      return c.invoke(capability, {}, { timeoutMs: CONFIRM_TIMEOUT_MS });
     },
     now: () => new Date(services.clock.now()),
     allowDevFileKey: () => getSetting(services.db, DEV_FILE_KEY_SETTING)?.value === true,
