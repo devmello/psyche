@@ -34,8 +34,8 @@ import {
 import { srtSearchDirs } from "@psyche/sandbox";
 import type { BundleFetchOptions } from "@psyche/skills";
 import type { Gateway } from "../server.ts";
-import { TURN_ON_SANDBOX_PC } from "./guest-sandbox.ts";
 import { connectorBundles } from "./connector-bundles.ts";
+import { TURN_ON_SANDBOX_PC } from "./guest-sandbox.ts";
 import { type McpAdder, mcpAdder } from "./mcp-add.ts";
 import { mcpAppHandler } from "./mcp-app.ts";
 import { mcpGrantRevocation } from "./mcp-grants.ts";
