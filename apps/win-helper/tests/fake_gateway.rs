@@ -387,6 +387,156 @@ async fn denied_and_pending_are_retried() {
     let _ = std::fs::remove_dir_all(home);
 }
 
+/// The real groups (computer, screen, speech, dictation) through the node protocol: specs in the
+/// manifest, results, refusals with their reasons, and no receipts for reads or invalid params.
+/// Reads the screen once (screenshot, region context); never injects input.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn real_groups_through_the_node_protocol() {
+    let (env, pipe, home) = setup("groups");
+    let first = server(&pipe, true);
+    let identity = DeviceIdentity::generate();
+    let device_id = identity.device_id();
+    let registry = Arc::new(psyche_win_helper::groups::build(Runtime::offline(
+        env.clone(),
+    )));
+    let mut daemon = NodeDaemon::new(identity, registry, env.clone(), HelperLog::quiet());
+    fast(&mut daemon);
+    let daemon = Arc::new(daemon);
+    let stop = daemon.stop_token();
+    let d = daemon.clone();
+    let running = tokio::spawn(async move { d.run().await });
+
+    let mut gw = Gateway::accept(first).await;
+    let params = gw.handshake(json!({ "phase": "paired", "deviceId": device_id, "scopes": ["node"], "stateVersion": 0, "serverTime": "2030-01-01T00:00:00.000Z" })).await;
+    let caps = params["capabilities"].as_array().unwrap();
+    let cap = |n: &str| {
+        caps.iter()
+            .find(|c| c["name"] == n)
+            .cloned()
+            .unwrap_or_else(|| panic!("{n} missing"))
+    };
+    assert_eq!(cap("computer.click")["targetKind"], "app");
+    assert_eq!(cap("computer.click")["sideEffect"], "write");
+    assert_eq!(cap("screen.context")["sideEffect"], "read");
+    assert_eq!(cap("speech.transcribe_stream")["streaming"], true);
+    let engines = &cap("speech.transcribe_stream")["inputSchema"]["properties"]["engine"]["enum"];
+    assert_eq!(*engines, json!(["sapi", "windowsSpeech"]));
+
+    // computer.screenshot: an image of the foreground app, or a policy refusal / approval request
+    // with its reason (which one depends on what is in front).
+    gw.invoke(
+        "s1",
+        "computer.screenshot",
+        json!({ "maxWidth": 320, "maxHeight": 240 }),
+    );
+    assert!(gw.res("g-s1").await.0);
+    let (events, mut r) = gw.collect("s1").await;
+    assert!(events.is_empty());
+    if r["error"]["code"] == "approval_required" {
+        // The Gateway's approval round: the same call with the approval id, bound to {app, tier}.
+        let d = &r["error"]["details"];
+        let approval = json!({ "app": d["app"], "tier": d["tierRequired"] });
+        gw.send(Frame::req(
+            "g-s1b",
+            "node.invoke",
+            Some(json!({ "invocationId": "s1b", "capability": "computer.screenshot", "approvalId": "apr_e2e",
+                "params": { "maxWidth": 320, "maxHeight": 240, "approval": approval } })),
+        ));
+        assert!(gw.res("g-s1b").await.0);
+        r = gw.collect("s1b").await.1;
+    }
+    assert!(r.get("receipt").is_none(), "reads have no receipt");
+    eprintln!(
+        "computer.screenshot ok={} code={}",
+        r["ok"], r["error"]["code"]
+    );
+    if r["ok"] == true {
+        let res = &r["result"];
+        assert!(res["image"].as_str().unwrap().len() > 100);
+        assert_eq!(res["mimeType"], "image/jpeg");
+        assert!(res["width"].as_u64().unwrap() <= 320 && res["height"].as_u64().unwrap() <= 240);
+        assert_eq!(res["provenance"], "untrusted");
+        assert!(res["screen"]["width"].as_f64().unwrap() > 0.0);
+    } else {
+        let code = r["error"]["code"].as_str().unwrap();
+        assert!(
+            matches!(code, "policy_denied" | "approval_required"),
+            "{}",
+            r["error"]
+        );
+        assert!(r["error"]["details"]["reason"].is_string());
+    }
+
+    // screen.context over a region: the context, then an image or a refusal.
+    gw.invoke(
+        "s2",
+        "screen.context",
+        json!({ "mode": "region", "rect": { "x": 0, "y": 0, "width": 200, "height": 150 }, "maxWidth": 320, "maxHeight": 240 }),
+    );
+    assert!(gw.res("g-s2").await.0);
+    let (_, r) = gw.collect("s2").await;
+    assert_eq!(r["ok"], true, "{r}");
+    let res = &r["result"];
+    assert!(res["context"].get("appName").is_some());
+    if res.get("refusal").is_none() {
+        assert!(res["image"].as_str().unwrap().len() > 100);
+        assert!(res["width"].as_u64().unwrap() > 0);
+    }
+    // screen.context without `mode`: invalid_params naming the field.
+    gw.invoke("s3", "screen.context", json!({}));
+    assert!(gw.res("g-s3").await.0);
+    let (_, r) = gw.collect("s3").await;
+    assert_eq!(r["error"]["code"], "invalid_params");
+    assert_eq!(r["error"]["details"]["field"], "mode");
+
+    // A computer action without a session is refused before anything happens; invalid params
+    // carry no receipt.
+    gw.invoke(
+        "s4",
+        "computer.click",
+        json!({ "x": 1, "y": 1, "app": "notepad.exe" }),
+    );
+    assert!(gw.res("g-s4").await.0);
+    let (_, r) = gw.collect("s4").await;
+    assert_eq!(r["error"]["code"], "invalid_params");
+    assert_eq!(r["error"]["details"]["field"], "session");
+    assert!(r.get("receipt").is_none());
+
+    // speech.status: the on-device engine is the default.
+    gw.invoke("s5", "speech.status", Value::Null);
+    assert!(gw.res("g-s5").await.0);
+    let (_, r) = gw.collect("s5").await;
+    assert_eq!(r["ok"], true, "{r}");
+    let st = &r["result"];
+    assert_eq!(st["engines"]["sapi"]["onDevice"], true);
+    assert_eq!(st["engines"]["windowsSpeech"]["onDevice"], false);
+    if st["engines"]["sapi"]["available"] == true {
+        assert_eq!(st["defaultEngine"], "sapi");
+    } else {
+        assert_eq!(st["defaultEngine"], Value::Null);
+    }
+
+    // dictation.target: the focused element (or null), never its contents.
+    gw.invoke("s6", "dictation.target", Value::Null);
+    assert!(gw.res("g-s6").await.0);
+    let (_, r) = gw.collect("s6").await;
+    assert_eq!(r["ok"], true, "{r}");
+    let t = &r["result"]["target"];
+    assert!(
+        t.is_null() || (t["pid"].is_u64() && t["insertable"].is_boolean()),
+        "{t}"
+    );
+    assert!(t.get("value").is_none());
+
+    stop.cancel();
+    drop(gw);
+    tokio::time::timeout(STEP, running)
+        .await
+        .expect("daemon stops")
+        .unwrap();
+    let _ = std::fs::remove_dir_all(home);
+}
+
 #[tokio::test]
 async fn refuses_a_missing_pipe_quietly() {
     let (env, _pipe, home) = setup("missing");

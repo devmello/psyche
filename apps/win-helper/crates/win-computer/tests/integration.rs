@@ -9,6 +9,8 @@
 //! temp file and act only after checking that the foreground window's title names it; keys are
 //! only sent after the capability itself verified its target is in the foreground.
 #![cfg(windows)]
+// CapError with preserve_order Maps (see lib.rs).
+#![allow(clippy::result_large_err)]
 // Notepad and Calculator are launched and left running on purpose (the launcher may *be* the app).
 #![allow(clippy::zombie_processes)]
 

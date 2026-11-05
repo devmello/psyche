@@ -10,6 +10,11 @@
 //!
 //! Text-to-speech is out of scope (owner decision): there is no `speech.synthesize`/`voices`.
 
+// In the helper's workspace serde_json has `preserve_order` (the core's choice), which makes
+// `Map`, and with it `CapError`, larger than clippy's 128-byte `Err` threshold. Errors are rare
+// and returned once per call, so they stay unboxed.
+#![allow(clippy::result_large_err)]
+
 pub mod dictation;
 pub mod error;
 pub mod spec;
