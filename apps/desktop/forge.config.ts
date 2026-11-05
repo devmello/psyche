@@ -44,7 +44,8 @@ import { dropGatewayWebCopy } from "./src/packaging/web-copy.ts";
  * On Windows (deploy/windows/build-local.ps1) `make` builds a Squirrel.Windows installer
  * (Psyche-<version>-Setup.exe, the full nupkg and RELEASES; per-user install in
  * %LOCALAPPDATA%\Psyche) and a portable zip. The package carries resources\psyched\ (with its own
- * node.exe), resources\win-helper\psyche-helper.exe and resources\tray.ico. Authenticode signing
+ * node.exe), resources\win-helper\psyche-helper.exe and psyche-vm-svc.exe, and resources\tray.ico.
+ * Authenticode signing
  * switches on with WINDOWS_CERTIFICATE_FILE / WINDOWS_CERTIFICATE_PASSWORD or the
  * AZURE_TRUSTED_SIGNING_* variables (signing-config.ts `windowsSigning`); unsigned otherwise.
  */
