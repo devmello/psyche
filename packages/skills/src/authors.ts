@@ -24,6 +24,7 @@ import {
   writeSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { ensureOwnerOnly, isOwnerOnly } from "@psyche/hostfs";
 import {
   type BundleSigner as BundleSignerStatusInfo,
   PsycheError,
@@ -82,6 +83,15 @@ function unsafeKey(reason: string): PsycheError {
 /** Opens the author key without following a link, and checks the owner and the mode. */
 function readKeyText(path: string): string | undefined {
   let fd: number;
+  // Windows has no O_NOFOLLOW (the flag is undefined there): refuse a link or junction up front.
+  if (process.platform === "win32") {
+    try {
+      if (lstatSync(path).isSymbolicLink()) throw unsafeKey(`${path} is a link`);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+      throw err;
+    }
+  }
   try {
     fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   } catch (err) {
@@ -95,8 +105,13 @@ function readKeyText(path: string): string | undefined {
     if (!st.isFile()) throw unsafeKey(`${path} is not a regular file`);
     if (typeof process.getuid === "function" && st.uid !== process.getuid())
       throw unsafeKey(`${path} is not owned by this user`);
-    if ((st.mode & 0o077) !== 0)
-      throw unsafeKey(`${path} is readable by others (run chmod 600 on it)`);
+    if (!isOwnerOnly(path, st)) {
+      throw unsafeKey(
+        process.platform === "win32"
+          ? `${path} is readable by others (allow only this user in its security settings)`
+          : `${path} is readable by others (run chmod 600 on it)`,
+      );
+    }
     const buf = Buffer.alloc(Math.min(st.size, 65_536));
     let n = 0;
     while (n < buf.length) {
@@ -202,7 +217,9 @@ export class AuthorKeyStore {
     };
     const dir = dirname(this.path);
     mkdirSync(dir, { recursive: true, mode: 0o700 });
-    chmodSync(dir, 0o700);
+    // Windows has no modes: the folder gets an owner-only DACL, which the key inherits.
+    if (process.platform === "win32") ensureOwnerOnly(dir);
+    else chmodSync(dir, 0o700);
     const tmp = `${this.path}.${process.pid}.tmp`;
     try {
       rmSync(tmp, { force: true });

@@ -22,7 +22,7 @@ pub fn register(reg: &mut CapabilityRegistry) {
     let rt = reg.runtime().clone();
     let capabilities = reg.len();
     reg.add_blocking(
-        CapabilitySpec::new("health", "Helper version, uptime, OS build and the state of notifications, Windows Hello and the keychain.", SideEffect::None)
+        CapabilitySpec::new("health", "Helper version, uptime, OS build and the state of notifications, Windows Hello, the keychain and Outlook.", SideEffect::None)
             .input(schema::empty()),
         move |_| {
             let toast = rt.existing_service::<std::sync::Arc<crate::notify::toast::ToastCenter>>();
@@ -42,6 +42,8 @@ pub fn register(reg: &mut CapabilityRegistry) {
                         "setting": crate::notify::toast::current_setting().map(crate::notify::toast::setting_name),
                     },
                     "presence": { "helloSupported": crate::presence::hello::is_supported() },
+                    // Mail, calendar, contacts and tasks: classic Outlook, or why not.
+                    "outlook": crate::outlook::status_json(&rt),
                     "elevated": crate::win::security::is_elevated(),
                 },
             })))

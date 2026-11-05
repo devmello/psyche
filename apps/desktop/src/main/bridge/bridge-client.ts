@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto";
 import { lstatSync, readFileSync } from "node:fs";
 import { createConnection, type Socket } from "node:net";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
   BRIDGE_MAX_FRAME_BYTES,
   errRes,
@@ -61,16 +62,35 @@ export interface BridgeClientStatus {
  * path in `run/browser-bridge-socket` when a deep home moved it under the temp dir (the Gateway
  * writes that pointer; `@psyche/browser`'s `defaultBridgeSocketPath` picks the path).
  */
-export function bridgeSocketPath(home: string): string {
+export function bridgeSocketPath(home: string, platform = process.platform): string {
   const pointed = readSecret(join(home, "run", "browser-bridge-socket"));
-  return pointed?.startsWith("/") === true ? pointed : join(home, "run", "browser-bridge.sock");
+  if (pointed !== null && (pointed.startsWith("/") || isNamedPipe(pointed))) return pointed;
+  // Windows has no Unix sockets in a folder: the Gateway listens on a named pipe.
+  return platform === "win32" ? defaultBridgePipe(home) : join(home, "run", "browser-bridge.sock");
+}
+
+/** `\\.\pipe\…` (or `\\?\pipe\…`): a Windows named pipe, which `net` connects to like a socket. */
+export function isNamedPipe(path: string): boolean {
+  return /^\\\\[.?]\\pipe\\[^\\]+/i.test(path);
+}
+
+/**
+ * The bridge's pipe when the Gateway wrote no pointer: per `$PSYCHE_HOME` (case-insensitive, as
+ * Windows paths are), so two homes never share one.
+ */
+export function defaultBridgePipe(home: string): string {
+  const id = createHash("sha256").update(resolve(home).toLowerCase()).digest("hex").slice(0, 16);
+  return `\\\\.\\pipe\\psyche-${id}-browser-bridge`;
 }
 
 /**
  * The socket must be a socket owned by this uid with no group/other permission bits. Returns
- * null when it is acceptable, else why not (ENOENT included).
+ * null when it is acceptable, else why not (ENOENT included). A Windows named pipe has no file
+ * to check: its DACL (the Gateway's, owner-only) and the handshake secret guard it, and a
+ * missing one fails the connect and is retried.
  */
 export function checkBridgeSocket(path: string): string | null {
+  if (isNamedPipe(path)) return null;
   let st: ReturnType<typeof lstatSync>;
   try {
     st = lstatSync(path);

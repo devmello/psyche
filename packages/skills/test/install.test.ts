@@ -1,6 +1,8 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { OWNER_FILE, privacyOf } from "@psyche/hostfs/testing";
 import { zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import { createSkillsHandlers } from "../src/handlers.ts";
@@ -57,7 +59,7 @@ describe("install from a local path", () => {
       approvalId: ok,
       trust: "unknown",
     });
-    expect(statSync(t.loader.lockPath).mode & 0o777).toBe(0o600);
+    expect(privacyOf(t.loader.lockPath)).toBe(OWNER_FILE);
     const receipts = await t.broker.listReceipts();
     expect(receipts).toContainEqual(
       expect.objectContaining({ kind: "skill_install", approvalId: ok, outcome: "ok" }),
@@ -186,9 +188,11 @@ describe("review fixes", () => {
     await expect(t.loader.proposeWorkspaceApproval("../x")).rejects.toMatchObject({
       code: "invalid_params",
     });
-    await expect(t.loader.proposeInstall({ kind: "zip", path: "/dev/zero" })).rejects.toMatchObject(
-      { code: "invalid_params" },
-    );
+    // Not a regular file: a device on macOS/Linux, a folder on Windows (no /dev there).
+    const notAFile = process.platform === "win32" ? tempDir("psyche-not-a-zip-") : "/dev/zero";
+    await expect(t.loader.proposeInstall({ kind: "zip", path: notAFile })).rejects.toMatchObject({
+      code: "invalid_params",
+    });
     await expect(
       t.loader.proposeInstall({
         kind: "git",
@@ -286,7 +290,7 @@ describe("git sources and updates with diff review", () => {
     const v1 = git(repo, "rev-parse", "HEAD");
 
     const t = setup({ sourceOptions: { allowFileGitUrls: true } });
-    const url = `file://${repo}`;
+    const url = pathToFileURL(repo).href;
     await expect(
       t.make({ sourceOptions: {} }).proposeInstall({ kind: "git", url, ref: "main" }),
     ).rejects.toMatchObject({ code: "invalid_params" });

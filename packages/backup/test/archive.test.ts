@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { isOwnerOnly } from "@psyche/hostfs";
 import { generateIdentity, identityToRecipient } from "age-encryption";
 import { afterEach, describe, expect, it } from "vitest";
 import { createBackup, RESTORE_MARKER, restoreBackup, verifyBackup } from "../src/index.ts";
@@ -47,6 +48,12 @@ const EXCLUDED: Record<string, string> = {
   "state/teach/teach_abcdef123456.json": '{"v":1}',
 };
 
+/** `mode` on macOS and Linux; on Windows, which has no modes, a DACL for this user only. */
+function expectPrivate(path: string, mode: number, label?: string): void {
+  if (process.platform === "win32") expect(isOwnerOnly(path), label).toBe(true);
+  else expect(statSync(path).mode & 0o777, label).toBe(mode);
+}
+
 function writeTree(root: string, files: Record<string, string | Buffer>): void {
   for (const [rel, content] of Object.entries(files)) {
     const abs = join(root, rel);
@@ -65,7 +72,7 @@ function fixtureHome(home = join(tempDir(), "home")): string {
 function expectRestored(home: string): void {
   for (const [rel, content] of Object.entries(INCLUDED)) {
     expect(readFileSync(join(home, rel)), rel).toEqual(Buffer.from(content));
-    expect(statSync(join(home, rel)).mode & 0o777, rel).toBe(0o600);
+    expectPrivate(join(home, rel), 0o600, rel);
   }
   for (const dir of [
     "state",
@@ -75,7 +82,7 @@ function expectRestored(home: string): void {
     "library",
     "audit",
   ]) {
-    expect(statSync(join(home, dir)).mode & 0o777, dir).toBe(0o700);
+    expectPrivate(join(home, dir), 0o700, dir);
   }
   for (const rel of Object.keys(EXCLUDED)) expect(existsSync(join(home, rel)), rel).toBe(false);
 }
@@ -95,7 +102,7 @@ describe("backup library", () => {
     ]);
     expect(manifest.files.map((f) => f.path).sort()).toEqual(Object.keys(INCLUDED).sort());
     expect(manifest.createdAt).toBe(FIXED_NOW.toISOString());
-    expect(statSync(file).mode & 0o777).toBe(0o600);
+    expectPrivate(file, 0o600);
     expect(readFileSync(file).subarray(0, 21).toString()).toBe("age-encryption.org/v1");
 
     const v = await verifyBackup(file, { kind: "passphrase", passphrase: PASS }, tempDir());
@@ -108,7 +115,7 @@ describe("backup library", () => {
     });
     expect(r.movedAside).toBeNull();
     expectRestored(target);
-    expect(statSync(target).mode & 0o777).toBe(0o700);
+    expectPrivate(target, 0o700);
     expect(readdirSync(target).filter((n) => n.startsWith(".psyche-restore-"))).toEqual([]);
   });
 
@@ -232,6 +239,6 @@ describe("revocation ledger stays out of backups (S23 design-26)", () => {
       restoredAt: FIXED_NOW.toISOString(),
       backupCreatedAt: FIXED_NOW.toISOString(),
     });
-    expect(statSync(join(target, RESTORE_MARKER)).mode & 0o777).toBe(0o600);
+    expectPrivate(join(target, RESTORE_MARKER), 0o600);
   });
 });

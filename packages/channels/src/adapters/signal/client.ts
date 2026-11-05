@@ -3,10 +3,12 @@ import { createConnection, type Socket } from "node:net";
 import { dirname } from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import { PsycheError } from "@psyche/protocol";
+import type { SignalTcpAddress } from "./tcp.ts";
 
 /**
  * A minimal client for the owner's own signal-cli daemon (`signal-cli -a +NUMBER daemon --socket
- * <path>`): newline-delimited JSON-RPC 2.0 over a UNIX socket, `node:net` only. Psyche connects to
+ * <path>`, or `--tcp 127.0.0.1:<port>` on Windows, where Node cannot reach an AF_UNIX socket):
+ * newline-delimited JSON-RPC 2.0, `node:net` only. Psyche connects to
  * a daemon the owner runs; it never registers, verifies or links a number, so those methods are
  * refused here before a byte is written, and only the handful of calls the adapter needs pass.
  */
@@ -79,7 +81,15 @@ export async function checkSignalSocket(path: string, uid: number): Promise<stri
 }
 
 export interface SignalRpcClientOptions {
+  /** The socket path, or the daemon's address in messages when `tcp` is given. */
   socketPath: string;
+  /** Connect over loopback TCP to this address instead of the socket path. */
+  tcp?: SignalTcpAddress;
+  /**
+   * Runs on the open connection before anything is read or written; a returned problem closes it
+   * and `connect` rejects with `forbidden`.
+   */
+  verifyPeer?: (socket: Socket) => Promise<string | undefined>;
   timeoutMs?: number;
   /** Longest line accepted from the daemon; a longer one drops the connection. */
   maxLineBytes?: number;
@@ -104,6 +114,8 @@ interface RpcMessage {
 
 export class SignalRpcClient {
   readonly #path: string;
+  readonly #tcp: SignalTcpAddress | undefined;
+  readonly #verifyPeer: SignalRpcClientOptions["verifyPeer"];
   readonly #timeoutMs: number;
   readonly #maxLine: number;
   readonly #onNotification: SignalRpcClientOptions["onNotification"];
@@ -117,6 +129,8 @@ export class SignalRpcClient {
 
   constructor(options: SignalRpcClientOptions) {
     this.#path = options.socketPath;
+    this.#tcp = options.tcp;
+    this.#verifyPeer = options.verifyPeer;
     this.#timeoutMs = options.timeoutMs ?? SIGNAL_REQUEST_TIMEOUT_MS;
     this.#maxLine = options.maxLineBytes ?? 48 * 1024 * 1024;
     this.#onNotification = options.onNotification;
@@ -129,25 +143,48 @@ export class SignalRpcClient {
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const socket = createConnection({ path: this.#path });
+      const tcp = this.#tcp;
+      const socket =
+        tcp === undefined
+          ? createConnection({ path: this.#path })
+          : createConnection({ host: tcp.host, port: tcp.port });
       let open = false;
+      let settled = false;
+      const fail = (error: Error) => {
+        if (settled) return;
+        settled = true;
+        socket.destroy();
+        reject(error);
+      };
+      const unreachable = () =>
+        new PsycheError("unavailable", `cannot reach signal-cli at ${this.#path}`, {
+          retryable: true,
+        });
       socket.once("connect", () => {
-        open = true;
-        this.#socket = socket;
-        resolve();
+        const verify = this.#verifyPeer?.(socket) ?? Promise.resolve(undefined);
+        verify.then(
+          (problem) => {
+            if (settled) return;
+            if (problem !== undefined) {
+              fail(new PsycheError("forbidden", problem));
+              return;
+            }
+            settled = true;
+            open = true;
+            this.#socket = socket;
+            // Attached only now: nothing from the daemon is read before the check passes.
+            socket.on("data", (chunk: Buffer) => this.#onData(chunk));
+            resolve();
+          },
+          () => fail(new PsycheError("forbidden", `cannot verify signal-cli at ${this.#path}`)),
+        );
       });
-      socket.on("data", (chunk: Buffer) => this.#onData(chunk));
       socket.on("error", () => {
-        if (!open) {
-          reject(
-            new PsycheError("unavailable", `cannot reach signal-cli at ${this.#path}`, {
-              retryable: true,
-            }),
-          );
-        }
+        if (!open) fail(unreachable());
       });
       socket.on("close", () => {
         if (open) this.#teardown();
+        else fail(unreachable());
       });
     });
   }

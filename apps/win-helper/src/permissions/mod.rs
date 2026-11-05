@@ -8,7 +8,8 @@
 //! | `accessibility`, `inputMonitoring` | no grant exists: UI Automation and input are available, limited by UIPI (an unelevated helper cannot drive elevated windows); `details` reports integrity / elevation / UIAccess |
 //! | `screenRecording` | no grant exists for desktop apps: always available (`granted`) |
 //! | `speechRecognition` | the "Online speech recognition" privacy switch |
-//! | `automation`, `fullDiskAccess`, `calendars`, `reminders`, `contacts` | no Windows equivalent used by this helper: `notApplicable` |
+//! | `calendars`, `reminders`, `contacts` | classic Outlook (no Windows grant): `granted` when it is installed, else `notApplicable`; `details.outlook` says why |
+//! | `automation`, `fullDiskAccess` | no Windows equivalent used by this helper: `notApplicable` |
 //!
 //! Windows has no programmatic consent prompt for unpackaged apps, so `permissions.request`
 //! opens the matching `ms-settings:` page when something is off and reports the state.
@@ -49,6 +50,17 @@ pub const ORDER: [OsPermission; 12] = [
     OsPermission::InputMonitoring,
     OsPermission::Camera,
 ];
+
+fn outlook_entry(title: &'static str, url: &'static str) -> Entry {
+    Entry {
+        title,
+        explanation: "Read and changed through classic Outlook on this PC; Windows has no separate grant. Outlook warns about programs that read email addresses when no up-to-date antivirus is reported, and Psyche then refuses those reads instead of prompting.",
+        when_requested: "first use of Outlook mail, calendar, contacts or tasks",
+        settings_url: url,
+        style: "none",
+        applicable: true,
+    }
+}
 
 pub fn entry(p: OsPermission) -> Entry {
     let na = |title, url| Entry {
@@ -121,9 +133,11 @@ pub fn entry(p: OsPermission) -> Entry {
             "Full Disk Access",
             "ms-settings:privacy-broadfilesystemaccess",
         ),
-        OsPermission::Calendars => na("Calendars", "ms-settings:privacy-calendar"),
-        OsPermission::Reminders => na("Reminders", "ms-settings:privacy-calendar"),
-        OsPermission::Contacts => na("Contacts", "ms-settings:privacy-contacts"),
+        OsPermission::Calendars => {
+            outlook_entry("Outlook calendar", "ms-settings:privacy-calendar")
+        }
+        OsPermission::Reminders => outlook_entry("Outlook tasks", "ms-settings:privacy-calendar"),
+        OsPermission::Contacts => outlook_entry("Outlook contacts", "ms-settings:privacy-contacts"),
     }
 }
 
@@ -193,11 +207,18 @@ fn online_speech() -> &'static str {
 
 /// Permission state from registry / API reads only (never prompts).
 #[derive(Default)]
-pub struct LivePreflight;
+pub struct LivePreflight {
+    /// Classic Outlook backs calendars, reminders and contacts.
+    outlook: bool,
+}
 
 impl LivePreflight {
     pub fn new() -> Self {
-        LivePreflight
+        LivePreflight { outlook: false }
+    }
+
+    pub fn with_outlook(outlook: bool) -> Self {
+        LivePreflight { outlook }
     }
 
     pub fn state(&self, p: OsPermission) -> &'static str {
@@ -209,6 +230,11 @@ impl LivePreflight {
             OsPermission::Camera => consent("webcam", "LetAppsAccessCamera"),
             OsPermission::SpeechRecognition => online_speech(),
             OsPermission::Notifications => crate::notify::toast::permission_state(),
+            OsPermission::Calendars | OsPermission::Reminders | OsPermission::Contacts
+                if self.outlook =>
+            {
+                "granted"
+            }
             _ => "notApplicable",
         }
     }
@@ -234,7 +260,7 @@ fn ui_details() -> Value {
     })
 }
 
-fn row(p: OsPermission, state: &str) -> Value {
+fn row(p: OsPermission, state: &str, outlook: &Value) -> Value {
     let e = entry(p);
     let mut r = json!({
         "permission": p.as_str(),
@@ -251,6 +277,12 @@ fn row(p: OsPermission, state: &str) -> Value {
         OsPermission::Accessibility | OsPermission::InputMonitoring
     ) {
         r["details"] = ui_details();
+    }
+    if matches!(
+        p,
+        OsPermission::Calendars | OsPermission::Reminders | OsPermission::Contacts
+    ) {
+        r["details"] = json!({ "outlook": outlook });
     }
     r
 }
@@ -325,7 +357,8 @@ pub fn register(reg: &mut CapabilityRegistry) {
         )),
         move |ctx| {
             let p: StatusParams = ctx.decode()?;
-            let preflight = LivePreflight::new();
+            let outlook = crate::outlook::status_json(&rt);
+            let preflight = LivePreflight::with_outlook(outlook["available"] == true);
             let mut granted = Vec::new();
             let mut rows = Vec::new();
             for perm in ORDER {
@@ -333,7 +366,7 @@ pub fn register(reg: &mut CapabilityRegistry) {
                 if state == "granted" || state == "notApplicable" {
                     granted.push(perm);
                 }
-                rows.push(row(perm, state));
+                rows.push(row(perm, state, &outlook));
             }
             let automation: serde_json::Map<String, Value> =
                 p.automation_targets.unwrap_or_default().into_iter().take(20).map(|t| (t, "notApplicable".into())).collect();
@@ -348,6 +381,8 @@ pub fn register(reg: &mut CapabilityRegistry) {
                 "attribution": Value::Null,
                 "disclaimSupported": false,
                 "platform": "windows",
+                // Mail, calendar, contacts and tasks: classic Outlook, or why not.
+                "outlook": outlook,
             })))
         },
     );

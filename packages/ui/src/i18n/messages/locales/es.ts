@@ -1,15 +1,51 @@
 import type { Catalogue } from "../index.ts";
+import { agentA } from "./agent-a/es.ts";
+import { blocksA } from "./blocks-a/es.ts";
 import { canvas } from "./canvas/es.ts";
 import { charts } from "./charts/es.ts";
+import { chatA } from "./chat-a/es.ts";
+import { dailyA } from "./daily-a/es.ts";
+import { galleryA } from "./gallery-a/es.ts";
+import { homeA } from "./home-a/es.ts";
 import { links } from "./links/es.ts";
 import { mailMeetings } from "./mail-meetings/es.ts";
+import { memoryA } from "./memory-a/es.ts";
+import { memoryB } from "./memory-b/es.ts";
 import { overview } from "./overview/es.ts";
 import { overviewGrowth } from "./overview-growth/es.ts";
 import { overviewShared } from "./overview-shared/es.ts";
+import { scheduledA } from "./scheduled-a/es.ts";
+import { settingsA } from "./settings-a/es.ts";
+import { settingsB } from "./settings-b/es.ts";
+import { settingsC } from "./settings-c/es.ts";
+import { settingsD } from "./settings-d/es.ts";
+import { settingsE } from "./settings-e/es.ts";
+import { specialistsA } from "./specialists-a/es.ts";
+import { teachA } from "./teach-a/es.ts";
+import { workA } from "./work-a/es.ts";
+import { workB } from "./work-b/es.ts";
 import { workflows } from "./workflows/es.ts";
 
 /** Spanish catalogue (es). Same ids as `en`; missing ids fall back to English. */
 export const es: Partial<Catalogue> = {
+  ...scheduledA,
+  ...homeA,
+  ...teachA,
+  ...specialistsA,
+  ...workB,
+  ...workA,
+  ...memoryB,
+  ...memoryA,
+  ...galleryA,
+  ...settingsE,
+  ...settingsD,
+  ...settingsC,
+  ...settingsB,
+  ...settingsA,
+  ...dailyA,
+  ...agentA,
+  ...blocksA,
+  ...chatA,
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
   ...mailMeetings,
   // link menu and the "Open links in" setting

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { isOwnerOnly } from "@psyche/hostfs";
 import { describe, expect, it } from "vitest";
 import {
   decodeWav,
@@ -67,8 +68,14 @@ describe("model download manager", () => {
     expect(fetches).toBe(1);
     expect(progress.at(-1)).toBe(bytes.byteLength);
     expect(readFileSync(a)).toEqual(Buffer.from(bytes));
-    expect(statSync(a).mode & 0o777).toBe(0o600);
-    expect(statSync(join(home, "models")).mode & 0o777).toBe(0o700);
+    if (process.platform === "win32") {
+      // No mode bits on Windows: owner-only DACLs.
+      expect(isOwnerOnly(a)).toBe(true);
+      expect(isOwnerOnly(join(home, "models"))).toBe(true);
+    } else {
+      expect(statSync(a).mode & 0o777).toBe(0o600);
+      expect(statSync(join(home, "models")).mode & 0o777).toBe(0o700);
+    }
     expect(await mm.verify("whisper-test")).toBe(true);
     await mm.ensure("whisper-test");
     expect(fetches).toBe(1);

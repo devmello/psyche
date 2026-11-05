@@ -17,10 +17,11 @@ pub mod health;
 pub mod keychain;
 pub mod notify;
 pub mod ocr;
+pub mod outlook;
 pub mod permissions;
 pub mod presence;
 
-// Wave-2 groups: wired, registering nothing yet.
+// Groups served by the workspace crates (win-computer, win-dictation) and teach mode.
 pub mod computer;
 pub mod dictation;
 pub mod screen;

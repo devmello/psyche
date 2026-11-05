@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/client": "2.4.0",
+    "@psyche/hostfs": "workspace:*",
     "@psyche/protocol": "workspace:*"
   },
   "devDependencies": {

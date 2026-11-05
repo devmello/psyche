@@ -225,11 +225,12 @@ private struct PendingView: View {
     private func step(done: Bool, _ text: Text) -> some View {
         HStack(alignment: .top, spacing: 12) {
             ZStack {
-                Circle().fill(done ? PsycheColor.muted : PsycheColor.fill)
+                // The step waiting on the owner is amber (needs you); a finished one is a gray check.
+                Circle().fill(done ? PsycheColor.muted : PsycheColor.amber)
                 if done {
                     Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(PsycheColor.sheet)
                 } else {
-                    Text("2").font(.caption.weight(.semibold)).foregroundStyle(PsycheColor.muted)
+                    Text("2").font(.caption.weight(.semibold)).foregroundStyle(Color.black.opacity(0.8))
                 }
             }
             .frame(width: 22, height: 22)

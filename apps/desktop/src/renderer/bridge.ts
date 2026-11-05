@@ -23,6 +23,7 @@ import {
   type SystemDictationStatus,
   type SystemLocale,
   type TeachCapture,
+  type WindowChrome,
 } from "@psyche/web/platform";
 import type { PsycheBridge } from "../preload.ts";
 
@@ -56,6 +57,15 @@ export async function unwrapCall(envelope: Promise<unknown>): Promise<unknown> {
   };
   if (res?.ok === true) return res.value;
   throw new GatewayCallError(res?.error ?? { code: "internal", message: "IPC failed" });
+}
+
+/**
+ * The window chrome as the shell reads it: the shell lays out for Mica only (`material: "mica"`);
+ * the quick-entry bar's acrylic is the preload's `data-material` alone.
+ */
+export function shellChrome(c: PsycheBridge["chrome"]): WindowChrome {
+  const { material, titleBarOverlay: _height, ...rest } = c;
+  return { ...rest, ...(material === "mica" ? { material } : {}) };
 }
 
 /** Adapts the preload bridge to the shell's `ShellPlatform` port. */
@@ -149,7 +159,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
   };
   return {
     kind: "desktop",
-    chrome: b.chrome,
+    chrome: shellChrome(b.chrome),
     storage: browserStorage(),
     gateway,
     gateways: {

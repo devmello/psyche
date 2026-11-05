@@ -3,8 +3,9 @@
 
 use windows::Win32::Foundation::ERROR_SUCCESS;
 use windows::Win32::System::Registry::{
-    HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, REG_SZ, RRF_RT_REG_DWORD, RRF_RT_REG_SZ,
-    RegGetValueW, RegSetKeyValueW,
+    HKEY, HKEY_CLASSES_ROOT, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, REG_SZ,
+    RRF_RT_REG_DWORD, RRF_RT_REG_SZ, RegCloseKey, RegEnumKeyExW, RegGetValueW, RegOpenKeyExW,
+    RegSetKeyValueW,
 };
 use windows::core::HSTRING;
 
@@ -12,12 +13,15 @@ use windows::core::HSTRING;
 pub enum Hive {
     CurrentUser,
     LocalMachine,
+    /// The merged HKLM / HKCU `Software\Classes` view (COM registrations; read-only here).
+    ClassesRoot,
 }
 
 fn hkey(h: Hive) -> HKEY {
     match h {
         Hive::CurrentUser => HKEY_CURRENT_USER,
         Hive::LocalMachine => HKEY_LOCAL_MACHINE,
+        Hive::ClassesRoot => HKEY_CLASSES_ROOT,
     }
 }
 
@@ -79,6 +83,56 @@ pub fn read_dword(hive: Hive, subkey: &str, name: &str) -> Option<u32> {
     (r == ERROR_SUCCESS).then_some(value)
 }
 
+/// Whether `subkey` exists (and can be opened for reading).
+pub fn key_exists(hive: Hive, subkey: &str) -> bool {
+    let sk = HSTRING::from(subkey);
+    let mut key = HKEY::default();
+    // SAFETY: the opened key is closed before returning.
+    unsafe {
+        if RegOpenKeyExW(hkey(hive), &sk, None, KEY_READ, &mut key) != ERROR_SUCCESS {
+            return false;
+        }
+        let _ = RegCloseKey(key);
+    }
+    true
+}
+
+/// Names of the direct subkeys of `subkey` (empty when it does not exist), at most `max`.
+pub fn subkey_names(hive: Hive, subkey: &str, max: usize) -> Vec<String> {
+    let sk = HSTRING::from(subkey);
+    let mut key = HKEY::default();
+    let mut out = Vec::new();
+    // SAFETY: enumeration into a fixed buffer (registry key names are at most 255 chars); the
+    // key is closed before returning.
+    unsafe {
+        if RegOpenKeyExW(hkey(hive), &sk, None, KEY_READ, &mut key) != ERROR_SUCCESS {
+            return out;
+        }
+        let mut i = 0u32;
+        while out.len() < max {
+            let mut buf = [0u16; 256];
+            let mut len = buf.len() as u32;
+            let r = RegEnumKeyExW(
+                key,
+                i,
+                Some(windows::core::PWSTR(buf.as_mut_ptr())),
+                &mut len,
+                None,
+                None,
+                None,
+                None,
+            );
+            if r != ERROR_SUCCESS {
+                break;
+            }
+            out.push(String::from_utf16_lossy(&buf[..len as usize]));
+            i += 1;
+        }
+        let _ = RegCloseKey(key);
+    }
+    out
+}
+
 /// Writes a `REG_SZ` under HKCU, creating the key.
 pub fn write_user_string(subkey: &str, name: &str, value: &str) -> windows::core::Result<()> {
     let sk = HSTRING::from(subkey);
@@ -111,5 +165,21 @@ mod tests {
         );
         assert!(v.is_some_and(|s| s.chars().all(|c| c.is_ascii_digit())));
         assert!(read_string(Hive::CurrentUser, r"Software\Psyche\DoesNotExist", "x").is_none());
+    }
+
+    #[test]
+    fn keys_and_subkeys() {
+        assert!(key_exists(
+            Hive::LocalMachine,
+            r"SOFTWARE\Microsoft\Windows NT\CurrentVersion"
+        ));
+        assert!(!key_exists(
+            Hive::CurrentUser,
+            r"Software\Psyche\DoesNotExist"
+        ));
+        assert!(key_exists(Hive::ClassesRoot, "CLSID"));
+        let names = subkey_names(Hive::LocalMachine, r"SOFTWARE\Microsoft", 500);
+        assert!(names.iter().any(|n| n.eq_ignore_ascii_case("Windows")));
+        assert!(subkey_names(Hive::CurrentUser, r"Software\Psyche\DoesNotExist", 5).is_empty());
     }
 }

@@ -3,6 +3,7 @@ import { constants, existsSync } from "node:fs";
 import { type FileHandle, lstat, mkdir, open, readdir, rename, rm } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "@psyche/agent-core";
+import { absoluteHostPathPattern } from "@psyche/hostfs";
 import { type ProvenanceOut, PsycheError } from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 import { cardDiff } from "./diff.ts";
@@ -37,13 +38,16 @@ const GIT_DIR_ENTRIES = new Set(["head", "objects", "refs", "config"]);
  * entry `HEAD`, `objects`, `refs` or `config` into a folder that already has one of the first three.
  */
 export function gitInternal(path: string): boolean {
-  const segments = path.split("/");
+  const win = process.platform === "win32";
+  const segments = path.split(win ? /[\\/]/ : "/");
   if (segments.some((s) => s.toLowerCase() === ".git")) return true;
   // The folder the write lands in and up to three above it (`objects/ab/…`, `refs/heads/x`).
   for (let i = segments.length - 1; i >= Math.max(1, segments.length - 4); i--) {
     const entry = segments[i]?.toLowerCase();
     if (entry === undefined || !GIT_DIR_ENTRIES.has(entry)) continue;
-    const dir = segments.slice(0, i).join("/") || "/";
+    const joined = segments.slice(0, i).join(win ? "\\" : "/");
+    // `C:` alone is the drive's current folder, not its root.
+    const dir = win && /^[A-Za-z]:$/.test(joined) ? `${joined}\\` : joined || "/";
     const others = ["HEAD", "objects", "refs"].filter((e) => e.toLowerCase() !== entry);
     if (others.some((e) => existsSync(join(dir, e)))) return true;
   }
@@ -131,7 +135,11 @@ export interface FileChange {
 }
 
 const sha256 = (data: string | Uint8Array) => createHash("sha256").update(data).digest("hex");
-const AbsolutePath = Type.String({ minLength: 2, maxLength: 4096, pattern: "^/" });
+const AbsolutePath = Type.String({
+  minLength: 2,
+  maxLength: 4096,
+  pattern: absoluteHostPathPattern(),
+});
 const Sha256 = Type.String({ pattern: "^[0-9a-f]{64}$" });
 
 /** End of the last whole UTF-8 character at or before `end` (a page never splits a character). */

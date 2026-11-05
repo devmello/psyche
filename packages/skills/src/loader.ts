@@ -895,7 +895,11 @@ export class FsSkillLoader implements SkillLoader {
         { details: { name, violations, manifest } },
       );
     }
-    if (scope === "workspace" && source.kind === "path" && !source.path.endsWith(`/${name}`)) {
+    const folderName =
+      process.platform === "win32"
+        ? source.kind === "path" && source.path.split(/[\\/]/).at(-1)
+        : source.kind === "path" && source.path.endsWith(`/${name}`) && name;
+    if (scope === "workspace" && source.kind === "path" && folderName !== name) {
       throw new PsycheError("invalid_params", `skill name ${name} must equal its folder name`);
     }
     // Case-insensitive APFS would merge these on disk after the approval is spent: every path

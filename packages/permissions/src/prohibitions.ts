@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { posix } from "node:path";
 import { cardDigits, findSensitiveNormalized as findSensitive } from "@psyche/audit";
+import { canonicalHostPath, isAbsoluteHostPath, slashHostPath } from "@psyche/hostfs";
 import { PLACEHOLDER_PATTERN, PROTECTED_MEMORY_FILES } from "@psyche/protocol";
 import { dangerousEnvNames } from "./binding.ts";
 import {
@@ -8,7 +9,6 @@ import {
   canonicalUrl,
   isLoopbackAddress,
   isLoopbackName,
-  isUnder,
   TargetError,
 } from "./targets.ts";
 import type { PolicyCall, PolicyContext } from "./types.ts";
@@ -219,6 +219,11 @@ const OCR_INGEST_TOOL = /^(node\.)?ocr\./i;
 /** Apple's on-device model runs for the model router only; an agent gets no raw line to it. */
 const LLM_ROUTER_TOOL = /^(node\.)?llm\.apple\./i;
 const PERMANENT_RM = new Set(["rm", "rmdir", "shred", "srm", "unlink"]);
+/** cmd.exe's deleting commands and Sysinternals' sdelete (Windows). */
+const WINDOWS_RM = new Set(["del", "erase", "rd", "rmdir", "sdelete", "sdelete64"]);
+const WINDOWS_SHELLS = new Set(["cmd", "powershell", "pwsh"]);
+const WINDOWS_SHELL_RM =
+  /(^|[\s&|;(])(del|erase|rd|rmdir|rm|ri|remove-item|unlink|sdelete|sdelete64)(\.exe)?(\s|$)/i;
 export const CONFIRMATION_WORD = "DELETE";
 
 /** Paths Safari, Passwords and the keychain keep credentials in (macos notes, KQ7). */
@@ -257,6 +262,42 @@ const SYSTEM_CREDENTIAL_PATHS = [
     ].join("|")})(/|$)`,
     "i",
   ),
+  // Windows (paths compared as `c:/users/o/…`): the same CLI credentials in the profile, the
+  // browsers' user data, Credential Manager and DPAPI keys, the desktop app's user data
+  // (`%APPDATA%\Psyche`), the registry hive and the SAM.
+  new RegExp(
+    `^[a-z]:/users/[^/]+/(${[
+      "\\.ssh",
+      "\\.aws",
+      "\\.gnupg",
+      "_netrc",
+      "\\.netrc",
+      "\\.git-credentials",
+      "\\.npmrc",
+      "\\.pypirc",
+      "\\.docker",
+      "\\.kube",
+      "\\.config/gh",
+      "\\.config/gcloud",
+      "ntuser\\.dat",
+      "appdata/local/google/chrome/user data",
+      "appdata/local/microsoft/edge/user data",
+      "appdata/local/bravesoftware",
+      "appdata/local/chromium",
+      "appdata/roaming/mozilla",
+      "appdata/local/mozilla",
+      "appdata/roaming/microsoft/credentials",
+      "appdata/local/microsoft/credentials",
+      "appdata/roaming/microsoft/protect",
+      "appdata/roaming/microsoft/vault",
+      "appdata/local/microsoft/vault",
+      "appdata/roaming/github cli",
+      "appdata/roaming/gcloud",
+      "appdata/roaming/psyche",
+    ].join("|")})(/|$)`,
+    "i",
+  ),
+  /^[a-z]:\/windows\/system32\/config(\/|$)/i,
 ];
 
 /**
@@ -267,7 +308,7 @@ const SYSTEM_CREDENTIAL_PATHS = [
 const HOME_TOOL_ROOTS = ["workspace", "library"];
 /** Workspace paths only the `memory` tool or skill install review may change (security §8, §11). */
 function protectedWorkspacePath(path: string, workspace: string): boolean {
-  if (isUnder(path, posix.join(workspace, "skills"))) return true;
+  if (inside(path, posix.join(workspace, "skills"))) return true;
   const rel = posix.relative(workspace, path);
   return PROTECTED_MEMORY_FILES.some((f) => f.toLowerCase() === rel);
 }
@@ -282,12 +323,31 @@ function targetUrl(call: PolicyCall): CanonicalUrl | "invalid" | undefined {
   }
 }
 
-/** Normalized and lowercased: APFS is case-insensitive, so `/Users/o/.PSYCHE` is `.psyche`. */
-function targetPath(call: PolicyCall): string | undefined {
+/**
+ * Normalized and lowercased: APFS and NTFS are case-insensitive, so `/Users/o/.PSYCHE` is
+ * `.psyche`. A Windows path is compared with `/` (`c:/users/o/.psyche`), so one form serves the
+ * checks below. `"invalid"` for a Windows path that names a file another way (a stream, a trailing
+ * dot, a device or a short name), which no check could judge.
+ */
+function targetPath(call: PolicyCall): string | "invalid" | undefined {
   if (call.target?.kind !== "path") return undefined;
-  return call.target.value.startsWith("/")
-    ? posix.normalize(call.target.value).toLowerCase()
-    : undefined;
+  return comparablePath(call.target.value);
+}
+
+function comparablePath(raw: string): string | "invalid" | undefined {
+  if (raw.startsWith("/") && !raw.startsWith("//")) return posix.normalize(raw).toLowerCase();
+  if (!isAbsoluteHostPath(raw)) return undefined;
+  try {
+    return slashHostPath(canonicalHostPath(raw)).toLowerCase();
+  } catch {
+    return "invalid";
+  }
+}
+
+/** `child` is `root` or under it; both in `comparablePath` form. */
+function inside(child: string, root: string): boolean {
+  if (root === "/") return child.startsWith("/");
+  return child === root || child.startsWith(root.endsWith("/") ? root : `${root}/`);
 }
 
 function deny(id: string, reason: string): ProhibitionResult {
@@ -327,13 +387,16 @@ export async function checkProhibitions(
     return deny("llm_router_only", "Apple's on-device model is run only by the model router");
   }
   const path = targetPath(call);
-  if (path !== undefined && env.psycheHome !== undefined) {
-    const home = posix.normalize(env.psycheHome).toLowerCase();
-    if (isUnder(path, posix.join(home, "vault")))
+  if (path === "invalid") {
+    return deny("invalid_path", "the path names a file another way than its own name");
+  }
+  const home = env.psycheHome === undefined ? undefined : comparablePath(env.psycheHome);
+  if (path !== undefined && home !== undefined && home !== "invalid") {
+    if (inside(path, posix.join(home, "vault")))
       return deny("psyche_state", "the vault is not a file target");
-    if (isUnder(path, posix.join(home, "state", "teach")))
+    if (inside(path, posix.join(home, "state", "teach")))
       return deny("teach_recordings", "kept demonstration recordings are not a file target");
-    if (isUnder(path, home) && !HOME_TOOL_ROOTS.some((r) => isUnder(path, posix.join(home, r)))) {
+    if (inside(path, home) && !HOME_TOOL_ROOTS.some((r) => inside(path, posix.join(home, r)))) {
       return deny(
         "psyche_state",
         "Psyche's own state, audit, settings and browser profiles are not file targets",
@@ -343,7 +406,7 @@ export async function checkProhibitions(
     if (
       writePlus &&
       tool !== "memory" &&
-      isUnder(path, workspace) &&
+      inside(path, workspace) &&
       protectedWorkspacePath(path, workspace)
     ) {
       return deny(
@@ -546,7 +609,13 @@ function permanentRm(call: PolicyCall, kind: string): boolean {
     (call.binding as { argv?: unknown } | undefined)?.argv ??
     (call.params as { argv?: unknown })?.argv;
   if (!Array.isArray(argv) || typeof argv[0] !== "string") return false;
-  return PERMANENT_RM.has(posix.basename(argv[0]));
+  if (process.platform !== "win32") return PERMANENT_RM.has(posix.basename(argv[0]));
+  // Windows: either separator, any case, `.exe` optional (`C:\Program Files\Git\usr\bin\RM.EXE`),
+  // and the shells' deleting commands (`cmd /c del …`, `powershell -c Remove-Item …`).
+  const name = (argv[0].split(/[\\/]/).at(-1) ?? "").toLowerCase().replace(/\.(exe|com)$/, "");
+  if (PERMANENT_RM.has(name) || WINDOWS_RM.has(name)) return true;
+  if (!WINDOWS_SHELLS.has(name)) return false;
+  return argv.slice(1).some((a) => typeof a === "string" && WINDOWS_SHELL_RM.test(a));
 }
 
 function fillFieldMismatch(binding: unknown): string | undefined {

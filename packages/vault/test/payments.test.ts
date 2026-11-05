@@ -1,5 +1,6 @@
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { exposeToOthers, OWNER_DIR, OWNER_FILE, privacyOf } from "@psyche/hostfs/testing";
 import {
   assertNoSecrets,
   clearSecrets,
@@ -103,6 +104,7 @@ class FakeLinkWallet implements LinkWallet {
       }),
       { mode: this.fileMode },
     );
+    if ((this.fileMode & 0o077) !== 0) exposeToOthers(outFile, this.fileMode);
     sr.card = { brand: "visa", last4: VISA.slice(-4), expMonth: 4, expYear: 2031 };
     return structuredClone(sr);
   }
@@ -208,6 +210,10 @@ function checkout(origin: string, element: Partial<FocusedElement>) {
   return { cdp, typed };
 }
 
+/** What a CLI (bw, op, link-cli) gets besides PATH and HOME on Windows: the profile folders. */
+const WIN_CLI_ENV =
+  process.platform === "win32" ? ["APPDATA", "LOCALAPPDATA", "SystemRoot", "USERPROFILE"] : [];
+
 describe("Stripe Link payments (G12)", () => {
   it("asks for a financial, device-only, authenticated once approval bound to the purchase", async () => {
     const issued = await broker.requestPurchase(PURCHASE, {
@@ -289,8 +295,8 @@ describe("Stripe Link payments (G12)", () => {
     );
     expect(rec.card).toEqual({ brand: "visa", last4: VISA.slice(-4), expMonth: 4, expYear: 2031 });
     const cardFile = join(home.home, "vault", "cards", `${rec.spendRequestId}.json`);
-    expect(statSync(cardFile).mode & 0o777).toBe(0o600);
-    expect(statSync(join(home.home, "vault", "cards")).mode & 0o777).toBe(0o700);
+    expect(privacyOf(cardFile)).toBe(OWNER_FILE);
+    expect(privacyOf(join(home.home, "vault", "cards"))).toBe(OWNER_DIR);
     assertNoSecrets(rec, "spend record");
     for (const f of readdirSync(join(home.home, "vault", "payments"))) {
       assertNoSecrets(
@@ -489,7 +495,9 @@ describe("Link CLI adapter", () => {
         "usd",
       ]),
     );
-    expect(Object.keys(calls[0]?.env ?? {}).sort()).toEqual(["HOME", "LINK_AUTH_FILE", "PATH"]);
+    expect(Object.keys(calls[0]?.env ?? {}).sort()).toEqual(
+      ["HOME", "LINK_AUTH_FILE", "PATH", ...WIN_CLI_ENV].sort(),
+    );
     await wallet.revealCard("lsrq_abc1", "/home/p/.psyche/vault/cards/lsrq_abc1.json");
     expect(calls[1]?.args).toEqual(
       expect.arrayContaining([

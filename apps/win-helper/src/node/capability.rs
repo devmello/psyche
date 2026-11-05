@@ -30,6 +30,7 @@ pub enum ErrorCode {
     Internal,
     PresenceRequired,
     RateLimited,
+    BindingMismatch,
 }
 
 impl ErrorCode {
@@ -49,6 +50,7 @@ impl ErrorCode {
             ErrorCode::Internal => "internal",
             ErrorCode::PresenceRequired => "presence_required",
             ErrorCode::RateLimited => "rate_limited",
+            ErrorCode::BindingMismatch => "binding_mismatch",
         }
     }
 
@@ -68,6 +70,7 @@ impl ErrorCode {
             ErrorCode::PolicyDenied,
             ErrorCode::PresenceRequired,
             ErrorCode::RateLimited,
+            ErrorCode::BindingMismatch,
         ]
         .into_iter()
         .find(|c| c.as_str() == s)

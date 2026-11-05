@@ -16,6 +16,7 @@ struct ThreadView: View {
     @Environment(Session.self) private var session
     @Environment(\.alerts) private var alerts
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     init(id: String, store: any PsycheBackend) {
         _model = State(initialValue: ThreadModel(id: id, store: store))
@@ -71,11 +72,27 @@ struct ThreadView: View {
         .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: pinned)
         .psycheScreen()
         .navigationTitle(model.phase.value?.title ?? "")
-        .navigationSubtitle(model.phase.value?.status ?? "")
         .psycheInlineTitle()
         .toolbar {
+            // The title with its status as dot + words ("● Running · step 3 of 7"), as in the Chat mockup.
+            ToolbarItem(placement: .principal) {
+                if let thread = model.phase.value {
+                    VStack(spacing: 1) {
+                        Text(thread.title).font(.headline).foregroundStyle(PsycheColor.text).lineLimit(1)
+                        if !thread.status.isEmpty {
+                            StatusDot(thread.statusKind.dot, thread.status, textColor: PsycheColor.muted, font: .caption)
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
             ToolbarItem(placement: .primaryAction) { AgentButton(needsYou: false) }
         }
+        #if os(iOS)
+        // iPhone: a thread gets the whole height and the composer sits at the bottom, as in the mockup; back
+        // returns to the tabs. iPad keeps its sidebar.
+        .toolbarVisibility(sizeClass == .compact ? .hidden : .automatic, for: .tabBar)
+        #endif
         .safeAreaInset(edge: .bottom) {
             Composer(
                 composer: composer, isRunning: model.isRunning, canSend: composer.canSend && session.state.canAnswer,

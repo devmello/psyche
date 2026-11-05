@@ -13,6 +13,7 @@ const NODE = "/Applications/Psyche.app/Contents/Resources/runtime/node";
 function mac(files: Record<string, string | true>): RuntimeDeps {
   return {
     nodePath: NODE,
+    platform: "darwin",
     searchDirs: () => ["/opt/homebrew/bin", "/Users/me/.local/bin"],
     isFile: async (p) => p in files,
     realpath: async (p) => {
@@ -61,6 +62,64 @@ describe("resolveRuntimeCommand", () => {
   it("leaves absolute commands alone", async () => {
     const r = await resolveRuntimeCommand(["/usr/bin/true"], mac({}), "/s");
     expect(r).toEqual({ command: ["/usr/bin/true"], env: {}, runtime: null });
+  });
+});
+
+const WIN_NODE = "C:\\Program Files\\Psyche\\resources\\runtime\\node.exe";
+const WIN_NPM_DIR = "C:\\Program Files\\nodejs";
+const WIN_NPX_CLI = `${WIN_NPM_DIR}\\node_modules\\npm\\bin\\npx-cli.js`;
+const WIN_UV_DIR = "C:\\Users\\me\\.local\\bin";
+
+/** Windows: npm's `npx` is a shell script beside `npx.cmd`; uv installs `uvx.exe`. */
+function windows(files: Record<string, true>): RuntimeDeps {
+  return {
+    nodePath: WIN_NODE,
+    platform: "win32",
+    searchDirs: () => [WIN_NPM_DIR, WIN_UV_DIR, "relative\\bin"],
+    isFile: async (p) => p in files,
+    realpath: async (p) => p,
+  };
+}
+
+describe("resolveRuntimeCommand on Windows", () => {
+  it("runs npx-cli.js on Psyche's Node, never the npx.cmd shim", async () => {
+    const files = {
+      [`${WIN_NPM_DIR}\\npx`]: true as const,
+      [`${WIN_NPM_DIR}\\npx.cmd`]: true as const,
+      [WIN_NPX_CLI]: true as const,
+    };
+    const r = await resolveRuntimeCommand(["npx", "-y", "x"], windows(files), "C:\\s");
+    expect(r.command).toEqual([WIN_NODE, WIN_NPX_CLI, "-y", "x"]);
+    expect(r.env.PATH?.split(";").slice(0, 2)).toEqual([
+      "C:\\Program Files\\Psyche\\resources\\runtime",
+      `${WIN_NPM_DIR}\\node_modules\\npm\\bin`,
+    ]);
+    expect(r.env.npm_config_cache).toBe("C:\\s\\npm-cache");
+  });
+
+  it("runs uvx.exe by absolute path, and takes no .cmd or .bat in its place", async () => {
+    const r = await resolveRuntimeCommand(
+      ["uvx", "mcp-server-time"],
+      windows({ [`${WIN_UV_DIR}\\uvx.exe`]: true }),
+      "C:\\s",
+    );
+    expect(r.command).toEqual([`${WIN_UV_DIR}\\uvx.exe`, "mcp-server-time"]);
+    expect(r.env.PATH?.split(";")[0]).toBe(WIN_UV_DIR);
+    expect(r.env.UV_CACHE_DIR).toBe("C:\\s\\uv-cache");
+    const shims = {
+      [`${WIN_UV_DIR}\\uvx.cmd`]: true as const,
+      [`${WIN_UV_DIR}\\uvx.bat`]: true as const,
+    };
+    await expect(resolveRuntimeCommand(["uvx", "x"], windows(shims), "C:\\s")).rejects.toThrow(
+      RUNTIME_MISSING_TEXT.uv,
+    );
+  });
+
+  it("leaves Windows paths alone", async () => {
+    for (const first of ["C:\\tools\\server.exe", "tools\\server.exe"]) {
+      const r = await resolveRuntimeCommand([first], windows({}), "C:\\s");
+      expect(r).toEqual({ command: [first], env: {}, runtime: null });
+    }
   });
 });
 

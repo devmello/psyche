@@ -1,11 +1,47 @@
 import type { Catalogue } from "../index.ts";
+import { agentRest } from "./agent-rest/ja.ts";
+import { auditRest } from "./audit-rest/ja.ts";
+import { automationChatRest } from "./automationChat-rest/ja.ts";
+import { blocksRest } from "./blocks-rest/ja.ts";
+import { bookRest } from "./book-rest/ja.ts";
 import { canvas } from "./canvas/ja.ts";
+import { canvasRest } from "./canvas-rest/ja.ts";
+import { capabilitiesRest } from "./capabilities-rest/ja.ts";
 import { charts } from "./charts/ja.ts";
+import { chatRest } from "./chat-rest/ja.ts";
+import { commonRest } from "./common-rest/ja.ts";
+import { dailyRest } from "./daily-rest/ja.ts";
+import { deckRest } from "./deck-rest/ja.ts";
+import { designRest } from "./design-rest/ja.ts";
+import { everythingRest } from "./everything-rest/ja.ts";
+import { galleryRest } from "./gallery-rest/ja.ts";
+import { homeRest } from "./home-rest/ja.ts";
 import { links } from "./links/ja.ts";
 import { mailMeetings } from "./mail-meetings/ja.ts";
+import { meetingRecordRest } from "./meetingRecord-rest/ja.ts";
+import { memoryRest } from "./memory-rest/ja.ts";
+import { memoryAdvancedRest } from "./memoryAdvanced-rest/ja.ts";
+import { memoryBasicsRest } from "./memoryBasics-rest/ja.ts";
+import { memoryPrivacyRest } from "./memoryPrivacy-rest/ja.ts";
+import { memoryReviewRest } from "./memoryReview-rest/ja.ts";
+import { memorySurfacesRest } from "./memorySurfaces-rest/ja.ts";
+import { memoryWorkRest } from "./memoryWork-rest/ja.ts";
+import { nudgesRest } from "./nudges-rest/ja.ts";
+import { onboardingRest } from "./onboarding-rest/ja.ts";
 import { overview } from "./overview/ja.ts";
 import { overviewGrowth } from "./overview-growth/ja.ts";
 import { overviewShared } from "./overview-shared/ja.ts";
+import { peopleRest } from "./people-rest/ja.ts";
+import { personDataRest } from "./personData-rest/ja.ts";
+import { researchRest } from "./research-rest/ja.ts";
+import { scheduledRest } from "./scheduled-rest/ja.ts";
+import { screensRest } from "./screens-rest/ja.ts";
+import { settingsRest } from "./settings-rest/ja.ts";
+import { shellRest } from "./shell-rest/ja.ts";
+import { specialistsRest } from "./specialists-rest/ja.ts";
+import { webRest } from "./web-rest/ja.ts";
+import { widgetsRest } from "./widgets-rest/ja.ts";
+import { workRest } from "./work-rest/ja.ts";
 import { workflows } from "./workflows/ja.ts";
 
 /** Japanese catalogue (ja). Same ids as `en`; missing ids fall back to English. */
@@ -26,6 +62,42 @@ export const ja: Partial<Catalogue> = {
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
   ...charts,
+  ...widgetsRest,
+  ...automationChatRest,
+  ...scheduledRest,
+  ...researchRest,
+  ...homeRest,
+  ...meetingRecordRest,
+  ...designRest,
+  ...webRest,
+  ...specialistsRest,
+  ...workRest,
+  ...memorySurfacesRest,
+  ...memoryWorkRest,
+  ...memoryRest,
+  ...memoryPrivacyRest,
+  ...memoryAdvancedRest,
+  ...memoryBasicsRest,
+  ...everythingRest,
+  ...screensRest,
+  ...peopleRest,
+  ...personDataRest,
+  ...memoryReviewRest,
+  ...capabilitiesRest,
+  ...onboardingRest,
+  ...galleryRest,
+  ...shellRest,
+  ...nudgesRest,
+  ...dailyRest,
+  ...auditRest,
+  ...agentRest,
+  ...bookRest,
+  ...deckRest,
+  ...canvasRest,
+  ...blocksRest,
+  ...chatRest,
+  ...commonRest,
+  ...settingsRest,
   "common.cancel": "キャンセル",
   "common.close": "閉じる",
   "common.save": "保存",

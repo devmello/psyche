@@ -1,0 +1,60 @@
+import type { Catalogue } from "../../index.ts";
+
+/** `nudges.*` strings (hi); merged into `../hi.ts`. */
+export const nudgesRest: Partial<Catalogue> = {
+  "nudges.kind": "संपर्क में रहें",
+  "nudges.draftReply": "जवाब का मसौदा बनाएँ",
+  "nudges.draftMessage": "संदेश का मसौदा बनाएँ",
+  "nudges.snooze": "स्नूज़ करें",
+  "nudges.snoozeWeek": "एक हफ़्ते के लिए",
+  "nudges.snoozeMonth": "एक महीने के लिए",
+  "nudges.mutePerson": "इस व्यक्ति के लिए नहीं",
+  "nudges.done": "हो गया",
+  "nudges.overdue": "समय बीत चुका",
+  "nudges.moreActions": "इसे हटाने के और तरीके: {name}",
+  "nudges.result.done": "पूरा चिह्नित किया गया।",
+  "nudges.result.snooze_week": "एक हफ़्ते के लिए स्नूज़ किया गया।",
+  "nudges.result.snooze_month": "एक महीने के लिए स्नूज़ किया गया।",
+  "nudges.result.mute_person":
+    "{name} के लिए अब कोई याद दिलाना नहीं। आप इन्हें उनके पेज से फिर चालू कर सकते हैं।",
+  "nudges.gone": "यहाँ करने को कुछ नहीं बचा।",
+  "nudges.failed": "यह सेव नहीं हुआ: {reason}",
+  "nudges.draft.unanswered":
+    "{name} को जवाब देने में मेरी मदद करो। उनका मुझे आखिरी {channel, select, mail {ईमेल} other {संदेश}} {days} दिन पहले आया था और मैंने जवाब नहीं दिया। बातचीत देखो, फिर मेरे पढ़ने के लिए एक छोटा जवाब तैयार करो। कुछ भी भेजना मत।",
+  "nudges.draft.drift":
+    "मैंने काफ़ी समय से {name} से बात नहीं की है। एक छोटा, आत्मीय संदेश तैयार करो जो मैं हाल-चाल पूछने के लिए भेज सकूँ। कुछ भी भेजना मत।",
+  "nudges.draft.birthday":
+    "{name} का खास दिन ({date}) करीब है। एक छोटा, आत्मीय संदेश तैयार करो जो मैं भेज सकूँ। कुछ भी भेजना मत।",
+  "nudges.draft.promise":
+    "{text} फ़ॉलो-अप में मेरी मदद करो: इस बारे में {name} के लिए एक छोटा संदेश तैयार करो। कुछ भी भेजना मत।",
+  "nudges.starters.title": "बात छेड़ने के विषय",
+  "nudges.draft.starters":
+    "वे बातें जो मैं उठा सकता हूँ, Psyche के पास दर्ज जानकारी के आधार पर (सिर्फ़ इन्हीं का उपयोग करो और कुछ और मत गढ़ो):",
+  "nudges.settings.phrasing": "सुझावों को मेरे मॉडल से दोबारा लिखवाएँ",
+  "nudges.settings.phrasingHint":
+    "“सब कुछ” मेमोरी के लिए चुने गए मॉडल का उपयोग करके इन्हें ज़्यादा मित्रवत शब्दों में कहता है। डिफ़ॉल्ट रूप से बंद।",
+  "nudges.person.title": "संपर्क में रहें",
+  "nudges.person.none": "फ़ॉलो-अप के लिए कुछ नहीं।",
+  "nudges.person.muted": "{name} के लिए याद दिलाना बंद है।",
+  "nudges.person.unmute": "याद दिलाना फिर चालू करें",
+  "nudges.settings.title": "संपर्क में बने रहना",
+  "nudges.settings.description":
+    "जिन लोगों से संपर्क छूट गया है, जन्मदिनों और आपके किए वादों के बारे में हल्के-फुल्के रिमाइंडर।",
+  "nudges.settings.enabled": "संपर्क में रहने की याद दिलाएँ",
+  "nudges.settings.enabledHint":
+    "सुबह की ब्रीफ़ में अधिकतम तीन, और फ़ीड में शांत कार्ड। आपकी ओर से कभी कुछ नहीं भेजा जाता।",
+  "nudges.settings.sensitivity": "कितनी बार",
+  "nudges.settings.sensitivityHint": "किसी संदेश के बाद Psyche कुछ कहने से पहले कितना इंतज़ार करता है।",
+  "nudges.settings.low": "हल्का",
+  "nudges.settings.normal": "सामान्य",
+  "nudges.settings.high": "तत्पर",
+  "nudges.settings.quietHours":
+    "कार्ड शांत घंटों के खत्म होने का इंतज़ार करते हैं (सेटिंग्ज़ → सामान्य → नोटिफ़िकेशन)।",
+  "nudges.consent.title": "रिश्तों वाले रिमाइंडर चालू करें?",
+  "nudges.consent.body":
+    "Psyche देखेगा कि जिन लोगों से आपका पत्राचार है, उन्हें आपने या उन्होंने आखिरी बार कब लिखा (सिर्फ़ तारीखें, क्या कहा गया यह नहीं), आपके पुष्ट किए जन्मदिन, और आपके अपने शब्दों में किए गए वादे।",
+  "nudges.consent.rules":
+    "जिन्हें आपने बाहर रखा है वे कभी नहीं दिखते, संवेदनशील तथ्य कभी इस्तेमाल नहीं होते, और रिमाइंडर एक सीधा वाक्य होता है जिसमें नाम और दिनों की संख्या होती है। आप “इस व्यक्ति के लिए नहीं” से किसी को भी म्यूट कर सकते हैं और इसे कभी भी बंद कर सकते हैं।",
+  "nudges.consent.confirm": "चालू करें",
+  "nudges.consent.cancel": "अभी नहीं",
+};

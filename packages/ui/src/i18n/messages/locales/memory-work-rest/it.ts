@@ -1,0 +1,70 @@
+import type { Catalogue } from "../../index.ts";
+
+/** `memoryWork.*` strings (it); merged into `../it.ts`. */
+export const memoryWorkRest: Partial<Catalogue> = {
+  "memoryWork.title": "Lavoro",
+  "memoryWork.description":
+    "Ciò che {persona} tiene d’occhio per te: progetti, cose da fare con una scadenza e il punto in cui ti sei fermato.",
+  "memoryWork.loadLabel": "memoria del lavoro",
+  "memoryWork.enabled.title": "Lavoro in memoria",
+  "memoryWork.enabled.label": "Tieni traccia del mio lavoro",
+  "memoryWork.enabled.hint":
+    "Tiene una cosa da fare per tutto ciò che ha una scadenza, come procede e dove ti sei fermato. Disattivato finché non dici di sì.",
+  "memoryWork.enabled.off":
+    "Attiva per scegliere elenchi e cartelle di Promemoria e impostare i promemoria.",
+  "memoryWork.consent.title": "Tieni traccia del lavoro in memoria",
+  "memoryWork.consent.body":
+    "{persona} terrà una cosa da fare per tutto ciò che ha una scadenza (l’affitto, una relazione di laboratorio, una presentazione per il consiglio) e annoterà come procede e dove ti sei fermato.",
+  "memoryWork.consent.reads": "Cosa legge",
+  "memoryWork.consent.r1": "Gli elenchi di Promemoria che scegli e i tuoi calendari",
+  "memoryWork.consent.r2": "I file nelle cartelle che colleghi a un progetto",
+  "memoryWork.consent.r3":
+    "La tua posta inviata e la posta nelle conversazioni che colleghi, e le tue chat con {persona}",
+  "memoryWork.consent.keeps": "Cosa resta valido",
+  "memoryWork.consent.k1": "Nulla esce da questo Mac. Date e stato sono calcolati dal codice.",
+  "memoryWork.consent.k2": "Il testo scritto da altri non cambia mai una scadenza o uno stato.",
+  "memoryWork.consent.k3":
+    "Il lavoro compare in Home e nel riepilogo quotidiano. Cambialo in “Dove compare la memoria”.",
+  "memoryWork.consent.cancel": "Non ora",
+  "memoryWork.consent.confirm": "Attiva",
+  "memoryWork.lists.title": "Elenchi di Promemoria",
+  "memoryWork.lists.description":
+    "Un promemoria con scadenza in un elenco monitorato diventa una cosa da fare nel progetto che scegli. Gli altri elenchi non vengono toccati. Solo gli elenchi che segni come tuoi in Connettori possono segnare le cose come fatte.",
+  "memoryWork.lists.none": "Non monitorato",
+  "memoryWork.lists.pick": "Progetto per {list}",
+  "memoryWork.lists.missing": "Un elenco che non è più in Promemoria",
+  "memoryWork.lists.shared": "Elenco condiviso",
+  "memoryWork.lists.empty": "Ancora nessun elenco di Promemoria.",
+  "memoryWork.lists.noProjects": "Aggiungi un progetto nella pagina Memoria, poi sceglilo qui.",
+  "memoryWork.lists.openMemory": "Apri Memoria",
+  "memoryWork.lists.loading": "Lettura degli elenchi di Promemoria…",
+  "memoryWork.folders.title": "Cartelle",
+  "memoryWork.folders.anchored": "Solo le cartelle collegate a un progetto",
+  "memoryWork.folders.anchoredHint":
+    "Collega una cartella dalla pagina di un progetto. Quando il nome di una cartella corrisponde a un progetto, {persona} la suggerisce.",
+  "memoryWork.folders.all": "Qualsiasi cartella che {persona} possa leggere, abbinata per nome",
+  "memoryWork.folders.allHint":
+    "Una cartella il cui nome corrisponde a un progetto viene collegata senza chiedere. Vengono letti solo nomi e date.",
+  "memoryWork.remind.title": "Promemoria per finire le cose",
+  "memoryWork.remind.description":
+    "Le notifiche sono disattivate finché non le attivi. Non arrivano mai durante le ore di silenzio.",
+  "memoryWork.remind.enabled": "Ricordami cosa scade domani",
+  "memoryWork.remind.enabledHint":
+    "Una notifica al giorno all’ora del riepilogo serale, per ciò che scade {hours, plural, one {nella prossima # ora} other {nelle prossime # ore}}.",
+  "memoryWork.remind.hours": "Quanto in anticipo guardare",
+  "memoryWork.remind.hoursOption": "{hours, plural, one {# ora} other {# ore}}",
+  "memoryWork.remind.at": "Quando",
+  "memoryWork.remind.atWrapup": "All’ora del riepilogo serale, {time}",
+  "memoryWork.remind.atHint":
+    "Si imposta in Giornaliero. I titoli compaiono solo per ciò che hai aggiunto tu.",
+  "memoryWork.remind.openDaily": "Apri Giornaliero",
+  "memoryWork.remind.dayOf": "Dimmi anche al mattino cosa scade oggi",
+  "memoryWork.remind.dayOfHint":
+    "Una seconda notifica dopo il riepilogo del mattino: “In scadenza oggi: …”.",
+  "memoryWork.remind.needsWrapup":
+    "Il riepilogo serale è disattivato, quindi non verrà inviato nulla. Attivalo per riceverlo.",
+  "memoryWork.remind.needsBrief":
+    "Il riepilogo del mattino è disattivato, quindi non verrà inviato nulla. Attivalo per riceverlo.",
+  "memoryWork.remind.turnOnWrapup": "Attiva il riepilogo serale",
+  "memoryWork.remind.turnOnBrief": "Attiva il riepilogo del mattino",
+};

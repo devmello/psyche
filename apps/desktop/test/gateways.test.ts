@@ -124,7 +124,7 @@ describe("saved Gateways file", () => {
     const file = gatewaysFilePath(dir);
     const { gateways } = addGateway(EMPTY_GATEWAYS, { address: "studio-mac.tail1234.ts.net" });
     saveGateways(file, pinGatewayKey(gateways, gateways.gateways[0]?.id as string, KEY_A));
-    expect(statSync(file).mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") expect(statSync(file).mode & 0o777).toBe(0o600);
     const loaded = loadGateways(file);
     expect(loaded.gateways[0]).toMatchObject({
       name: "studio-mac",

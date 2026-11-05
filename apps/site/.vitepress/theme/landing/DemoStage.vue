@@ -34,10 +34,12 @@ const props = defineProps<{
   motion: boolean;
   /** Which side the sheet is dealt from. */
   from?: "left" | "right";
-  /** `center`: the recording centred, the copy under it (the stage under the lamp). */
+  /** `center`: the recording centred, the copy under it (unused on the page today). */
   layout?: "side" | "center";
-  /** A lamp hangs over this stage (the approvals band). */
+  /** A lamp hangs over this stage (the night band). */
   lamp?: boolean;
+  /** The recording is a phone's screen. */
+  phone?: boolean;
 }>();
 
 /** A step's text, with `backticks` around real paths and file names (set in mono). */
@@ -102,7 +104,7 @@ onBeforeUnmount(() => track.value?.removeEventListener("scene", onScene));
   <section
     ref="track"
     class="stage-track"
-    :class="[`from-${from ?? 'right'}`, `layout-${layout ?? 'side'}`]"
+    :class="[`from-${from ?? 'right'}`, `layout-${layout ?? 'side'}`, { 'has-phone': phone }]"
     data-scene="pin"
     data-enter
     data-exit
@@ -145,6 +147,7 @@ onBeforeUnmount(() => track.value?.removeEventListener("scene", onScene));
               :phone-ratio="phoneRatio"
               :scrub="scrub"
               :progress="progress"
+              :phone="phone"
               @time="(t) => (playTime = t)"
               @duration="(d) => (loaded = d)"
             />
@@ -351,7 +354,7 @@ h2 {
 .fixture {
   margin-top: 10px;
   font-size: 12.5px;
-  color: var(--paper-9);
+  color: var(--paper-11);
 }
 
 /* ---------- Pinned: the stage fills the screen under the nav while the clip scrubs ---------- */
@@ -388,6 +391,28 @@ h2 {
 }
 .pin .screen :deep(.clip) {
   width: 100%;
+}
+
+/* A phone's screen is narrow: the copy and the phone sit together in the middle of the sheet. */
+.pin .has-phone .body {
+  grid-template-columns: minmax(260px, 500px) auto;
+  justify-content: center;
+  column-gap: clamp(56px, 9vw, 160px);
+}
+.pin .has-phone.from-left .body {
+  grid-template-columns: auto minmax(260px, 500px);
+}
+.has-phone .fixture {
+  max-width: 24em;
+}
+/* Unpinned (short windows, phones, reduced motion), a phone's screen keeps a phone's size. */
+.has-phone .screen {
+  width: min(320px, 100%);
+  justify-self: center;
+  margin-inline: auto;
+}
+.pin .has-phone .screen {
+  width: min(360px, calc((100svh - var(--nav) - 190px) * var(--ratio, 0.46)));
 }
 
 /* ---------- Centred: the recording under the lamp, the copy beneath it ---------- */
