@@ -3,11 +3,13 @@ import { type KeyboardEvent, type ReactElement, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Kbd } from "../../components/ui/kbd.tsx";
 import { t } from "../../i18n/core.ts";
+import { isMac, isWindows } from "../../lib/platform.ts";
 
 /**
  * A shortcut recorder (docs/ui-audit.md decision 9): focus it, press the keys, and it records an
- * Electron accelerator ("Control+Alt+D"). Shortcuts macOS or Psyche reserve, and ones the shell
- * reports as taken by another app, are refused with an approval-tone hint and never saved.
+ * Electron accelerator ("Control+Alt+D"). Shortcuts the OS (macOS or Windows) or Psyche reserve,
+ * and ones the shell reports as taken by another app, are refused with an approval-tone hint and
+ * never saved. macOS shows the keys as glyphs (⌃⌥⇧⌘); Windows as text ("Ctrl+Alt+D").
  */
 
 export type ShortcutCheck = "ok" | "taken" | "invalid";
@@ -23,7 +25,13 @@ type ReservedBy =
   | "switchWindows"
   | "screenshots"
   | "forceQuit"
-  | "quickEntry";
+  | "quickEntry"
+  | "windowsKey"
+  | "windowMenu"
+  | "closeApp"
+  | "taskManager"
+  | "startMenu"
+  | "securityScreen";
 
 /**
  * Shortcuts macOS or Psyche already use, and what uses them; recording one is refused without
@@ -45,6 +53,26 @@ export const RESERVED_SHORTCUTS: Readonly<Record<string, ReservedBy>> = {
   "Alt+Space": "quickEntry",
   "Control+Alt+Space": "quickEntry",
 };
+
+/** Windows' own shortcuts; every chord with the Windows key (Super) is Windows' too. */
+export const RESERVED_SHORTCUTS_WINDOWS: Readonly<Record<string, ReservedBy>> = {
+  "Alt+Space": "windowMenu",
+  "Alt+Tab": "appSwitcher",
+  "Alt+F4": "closeApp",
+  "Control+Shift+Escape": "taskManager",
+  "Control+Escape": "startMenu",
+  "Control+Alt+Delete": "securityScreen",
+  "Control+W": "close",
+  "Control+Q": "quit",
+  "Control+Alt+Space": "quickEntry",
+};
+
+/** What reserves `accelerator` on this platform, or undefined when it is free to record. */
+export function reservedBy(accelerator: string): ReservedBy | undefined {
+  if (!isWindows()) return RESERVED_SHORTCUTS[accelerator];
+  if (accelerator.split("+").includes("Super")) return "windowsKey";
+  return RESERVED_SHORTCUTS_WINDOWS[accelerator];
+}
 
 export const reservedByLabel = (by: ReservedBy): string => t(`settings.shortcut.reserved.${by}`);
 
@@ -88,7 +116,8 @@ export function acceleratorOf(e: {
   else key = CODE_KEY[e.code];
   if (key === undefined) return null;
   const mods = [
-    e.metaKey ? "Command" : null,
+    // The Windows key is Electron's "Super"; ⌘ is "Command".
+    e.metaKey ? (isWindows() ? "Super" : "Command") : null,
     e.ctrlKey ? "Control" : null,
     e.altKey ? "Alt" : null,
     e.shiftKey ? "Shift" : null,
@@ -98,18 +127,27 @@ export function acceleratorOf(e: {
 }
 
 const SYMBOL: Record<string, string> = { Command: "⌘", Control: "⌃", Alt: "⌥", Shift: "⇧" };
+/** Keycap words elsewhere (Windows: "Ctrl", "Alt", "Shift", "Win"). */
+const WORD: Record<string, string> = {
+  Command: "Ctrl",
+  Control: "Ctrl",
+  Alt: "Alt",
+  Shift: "Shift",
+  Super: "Win",
+};
+const cap = (part: string): string => (isMac() ? SYMBOL[part] : WORD[part]) ?? part;
 
 function Keys({ accelerator }: { accelerator: string }): ReactElement {
   return (
     <span className="inline-flex gap-1">
       {accelerator.split("+").map((part) => (
-        <Kbd key={part}>{SYMBOL[part] ?? part}</Kbd>
+        <Kbd key={part}>{cap(part)}</Kbd>
       ))}
     </span>
   );
 }
 
-const MODIFIERS = ["Command", "Control", "Alt", "Shift"] as const;
+const MODIFIERS = ["Command", "Control", "Alt", "Shift", "Super"] as const;
 const isModifier = (p: string): p is (typeof MODIFIERS)[number] =>
   (MODIFIERS as readonly string[]).includes(p);
 
@@ -121,12 +159,10 @@ export function spokenShortcut(accelerator: string): string {
     .join(" ");
 }
 
-/** "Command+Shift+D" → "⌘⇧D", for messages. */
+/** "Command+Shift+D" → "⌘⇧D" on macOS, "Control+Shift+D" → "Ctrl+Shift+D" elsewhere, for messages. */
 export function shortcutText(accelerator: string): string {
-  return accelerator
-    .split("+")
-    .map((p) => SYMBOL[p] ?? p)
-    .join("");
+  const parts = accelerator.split("+").map(cap);
+  return parts.join(isMac() ? "" : "+");
 }
 
 export function ShortcutRecorder({
@@ -154,7 +190,7 @@ export function ShortcutRecorder({
 
   const accept = async (accelerator: string) => {
     setRecording(false);
-    const reserved = RESERVED_SHORTCUTS[accelerator];
+    const reserved = reservedBy(accelerator);
     if (reserved !== undefined) {
       setRefused(
         t("settings.shortcut.usedBy", {

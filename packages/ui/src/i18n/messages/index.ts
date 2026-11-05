@@ -28,6 +28,7 @@ import { onboarding } from "./onboarding.ts";
 import { overview } from "./overview.ts";
 import { overviewGrowth } from "./overview-growth.ts";
 import { people } from "./people.ts";
+import { platform } from "./platform.ts";
 import { research } from "./research.ts";
 import { scheduled } from "./scheduled.ts";
 import { screenAsk } from "./screen-ask.ts";
@@ -104,6 +105,7 @@ export const en = {
   ...scheduled,
   ...automationChat,
   ...widgets,
+  ...platform,
 } as const;
 
 export type MessageId = keyof typeof en;

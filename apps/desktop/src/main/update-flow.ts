@@ -3,6 +3,7 @@ import {
   createReadStream,
   createWriteStream,
   mkdirSync,
+  readFileSync,
   renameSync,
   rmSync,
   statSync,
@@ -20,14 +21,19 @@ import {
   planUpdate,
   type ReleaseKey,
   SIGNATURE_FILE,
+  type UpdatePlatform,
   verifyManifest,
 } from "./update-manifest.ts";
 
 /**
  * The update check without Electron (security §11): fetch the signed manifest from the pinned
- * release host, verify it, download the zip it names while hashing it, and only then offer the
- * verified file to Squirrel.Mac through a loopback JSON feed. Squirrel then checks the code
- * signature as well; it never sees a file the manifest did not vouch for.
+ * release host, verify it, download the files it names while hashing them, and only then offer
+ * the verified files to Squirrel. Squirrel never sees a file the manifest did not vouch for:
+ *
+ * - macOS: the zip, through a loopback JSON feed (Squirrel.Mac then checks the code signature);
+ * - Windows: a local feed folder with Squirrel.Windows' RELEASES and the nupkg it names. RELEASES
+ *   is checked against the verified nupkg (its SHA-1 and size, which Update.exe checks again) and
+ *   cut down to the lines of the packages in the folder, so Update.exe reads nothing else.
  */
 
 /** Releases come only from here (security §11 "fetches only from the pinned release host"). */
@@ -38,6 +44,8 @@ export interface UpdateCheckDeps {
   fetch: typeof fetch;
   currentVersion: string;
   arch: string;
+  /** Defaults to darwin. */
+  platform?: UpdatePlatform;
   keys: readonly ReleaseKey[];
   /** Where `update-manifest.json` and its `.sig` are fetched; must be on github.com/devmello/psyche/releases. */
   feed?: string;
@@ -50,7 +58,17 @@ export interface UpdateCheckDeps {
 export type UpdateCheck =
   | { state: "no_keys" }
   | { state: "none"; reason: string }
-  | { state: "ready"; release: string; file: string; mandatory: boolean }
+  | {
+      state: "ready";
+      release: string;
+      /** The verified zip (macOS) or nupkg (Windows). */
+      file: string;
+      mandatory: boolean;
+      /** Windows: the folder to hand to Squirrel.Windows (RELEASES + nupkg). */
+      feedDir?: string;
+      /** Windows, when `file` is a delta: the full package, for switchToFullPackage if the delta fails. */
+      full?: { artifact: ManifestArtifact; url: string };
+    }
   | { state: "refused"; code: string; reason: string };
 
 async function getBytes(f: typeof fetch, url: string): Promise<Uint8Array | null> {
@@ -123,20 +141,123 @@ export async function checkForVerifiedUpdate(d: UpdateCheckDeps): Promise<Update
       currentVersion: d.currentVersion,
       arch: d.arch,
       pinnedBase: pinned,
+      platform: d.platform ?? "darwin",
     });
     if (plan.action === "none") return { state: "none", reason: plan.reason };
     mkdirSync(d.dir, { recursive: true, mode: 0o700 });
-    const file = join(d.dir, plan.artifact.name);
-    await downloadVerified(d.fetch, plan.url, plan.artifact, file);
-    d.log(
-      `verified ${plan.artifact.name} for ${plan.release}${plan.mandatory ? " (required update)" : ""}`,
-    );
-    return { state: "ready", release: plan.release, file, mandatory: plan.mandatory };
+    if ((d.platform ?? "darwin") === "darwin") {
+      const file = join(d.dir, plan.artifact.name);
+      await downloadVerified(d.fetch, plan.url, plan.artifact, file);
+      d.log(
+        `verified ${plan.artifact.name} for ${plan.release}${plan.mandatory ? " (required update)" : ""}`,
+      );
+      return { state: "ready", release: plan.release, file, mandatory: plan.mandatory };
+    }
+    // Windows: a fresh feed folder per release, then RELEASES, then the package.
+    const feedDir = join(d.dir, `feed-${plan.release}`);
+    rmSync(feedDir, { recursive: true, force: true });
+    mkdirSync(feedDir, { recursive: true, mode: 0o700 });
+    const fetched: string[] = [];
+    try {
+      for (const { artifact, url } of plan.files) {
+        const file = join(feedDir, artifact.name);
+        await downloadVerified(d.fetch, url, artifact, file);
+        fetched.push(file);
+      }
+      const releasesFile = fetched[0] as string;
+      const file = fetched[1] as string;
+      const keep = [plan.artifact.name, ...(plan.full ? [plan.full.artifact.name] : [])];
+      writeFileSync(
+        releasesFile,
+        squirrelReleasesFor(readFileSync(releasesFile, "utf8"), keep, [file]),
+        { mode: 0o600 },
+      );
+      d.log(
+        `verified ${plan.artifact.name} for ${plan.release}${plan.mandatory ? " (required update)" : ""}`,
+      );
+      return {
+        state: "ready",
+        release: plan.release,
+        file,
+        mandatory: plan.mandatory,
+        feedDir,
+        ...(plan.full ? { full: plan.full } : {}),
+      };
+    } catch (err) {
+      rmSync(feedDir, { recursive: true, force: true });
+      throw err;
+    }
   } catch (err) {
     if (err instanceof ManifestError)
       return { state: "refused", code: err.code, reason: err.message };
     throw err;
   }
+}
+
+/** One line of Squirrel.Windows' RELEASES: `<SHA1> <file name> <size>`. */
+export interface ReleasesEntry {
+  sha1: string;
+  name: string;
+  bytes: number;
+}
+
+export function parseSquirrelReleases(text: string): ReleasesEntry[] {
+  const out: ReleasesEntry[] = [];
+  for (const raw of text.replace(/^\uFEFF/, "").split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const m = /^([0-9A-Fa-f]{40})\s+(\S+)\s+(\d+)$/.exec(line);
+    if (!m) throw new ManifestError("malformed", "RELEASES has a malformed line");
+    out.push({ sha1: (m[1] as string).toUpperCase(), name: m[2] as string, bytes: Number(m[3]) });
+  }
+  return out;
+}
+
+/**
+ * RELEASES cut down to the packages in `keep` (in that order), after checking each file in
+ * `present` against its line: Update.exe checks SHA-1 and size too, so a mismatch here means the
+ * RELEASES file and the manifest disagree. A kept package without a line is refused.
+ */
+export function squirrelReleasesFor(
+  text: string,
+  keep: readonly string[],
+  present: readonly string[],
+): string {
+  const entries = parseSquirrelReleases(text);
+  const lines: string[] = [];
+  for (const name of keep) {
+    const e = entries.find((x) => x.name === name);
+    if (!e) throw new ManifestError("hash_mismatch", `RELEASES does not list ${name}`);
+    lines.push(`${e.sha1} ${e.name} ${e.bytes}`);
+  }
+  for (const file of present) {
+    const name = file.split(/[\\/]/).pop() as string;
+    const e = entries.find((x) => x.name === name);
+    const bytes = readFileSync(file);
+    const sha1 = createHash("sha1").update(bytes).digest("hex").toUpperCase();
+    if (!e || e.bytes !== bytes.byteLength || e.sha1 !== sha1)
+      throw new ManifestError("hash_mismatch", `${name} does not match its RELEASES line`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+/**
+ * Windows, after a delta package failed to apply: downloads the full package (verified like the
+ * rest) into the same feed folder and leaves RELEASES with its line only. Returns the feed folder.
+ */
+export async function switchToFullPackage(
+  d: Pick<UpdateCheckDeps, "fetch" | "log">,
+  ready: { feedDir: string; full: { artifact: ManifestArtifact; url: string } },
+): Promise<string> {
+  const file = join(ready.feedDir, ready.full.artifact.name);
+  await downloadVerified(d.fetch, ready.full.url, ready.full.artifact, file);
+  const releasesFile = join(ready.feedDir, "RELEASES");
+  const text = readFileSync(releasesFile, "utf8");
+  writeFileSync(releasesFile, squirrelReleasesFor(text, [ready.full.artifact.name], [file]), {
+    mode: 0o600,
+  });
+  d.log(`verified ${ready.full.artifact.name}; retrying with the full package`);
+  return ready.feedDir;
 }
 
 /**

@@ -112,6 +112,7 @@ import { ScreenAskWindow } from "./main/screen-ask/panel.ts";
 import { ScreenAskShortcut } from "./main/screen-ask/settings.ts";
 import { voicePopup } from "./main/screen-ask/voice-key.ts";
 import { shouldShowSplash } from "./main/splash.ts";
+import { handleSquirrelEvent } from "./main/squirrel-events.ts";
 import { startShell } from "./main/startup.ts";
 import {
   chooseMode,
@@ -130,6 +131,10 @@ import { type AppWindows, createAppWindows, preloadPath } from "./main/windows.t
  * device key and every native surface; renderers get typed IPC only, and every payload is
  * checked here before anything happens. No crash reporter, no telemetry (ADR-017).
  */
+
+// Squirrel.Windows install/update/uninstall events: shortcuts and cleanup, then exit before
+// anything else starts (src/main/squirrel-events.ts).
+if (handleSquirrelEvent({ app, shell })) process.exit(0);
 
 // The renderer is served from app://psyche (a standard, secure scheme) instead of file://.
 protocol.registerSchemesAsPrivileged([

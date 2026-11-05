@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -51,7 +51,8 @@ function files(dir: string): string[] {
 }
 
 const all = ROOTS.flatMap((r) => files(join(src, r))).map((f) => ({
-  path: relative(src, f),
+  // POSIX separators on every OS (Windows paths come back with backslashes).
+  path: relative(src, f).split(sep).join("/"),
   text: readFileSync(f, "utf8"),
 }));
 

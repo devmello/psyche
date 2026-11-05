@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import { renderLaunchAgentPlist, renderSystemdUnit } from "../src/supervisor.ts";
 
@@ -19,6 +19,7 @@ import { renderLaunchAgentPlist, renderSystemdUnit } from "../src/supervisor.ts"
 
 const deploy = resolve(import.meta.dirname, "../../../deploy");
 const read = (p: string) => readFileSync(resolve(deploy, p), "utf8");
+const HAS_BIN_SH = existsSync("/bin/sh");
 const has = (cmd: string) => spawnSync("/bin/sh", ["-c", `command -v ${cmd}`]).status === 0;
 
 describe("deploy/launchd/com.psyche.gateway.plist", () => {
@@ -106,11 +107,14 @@ describe("deploy/docker-compose.yml", () => {
 });
 
 describe("deploy/backup", () => {
-  it.each(["backup.sh", "restore.sh", "verify.sh"])("%s is valid sh", (name) => {
-    const r = spawnSync("/bin/sh", ["-n", resolve(deploy, "backup", name)], { encoding: "utf8" });
-    expect(r.stderr).toBe("");
-    expect(r.status).toBe(0);
-  });
+  it.skipIf(!HAS_BIN_SH).each(["backup.sh", "restore.sh", "verify.sh"])(
+    "%s is valid sh",
+    (name) => {
+      const r = spawnSync("/bin/sh", ["-n", resolve(deploy, "backup", name)], { encoding: "utf8" });
+      expect(r.stderr).toBe("");
+      expect(r.status).toBe(0);
+    },
+  );
 });
 
 describe("deploy/sandbox-image/publish.sh split build (native per-arch runners, then merge)", () => {
@@ -630,7 +634,12 @@ describe("deploy/scripts/prune-package-waste.mjs (app size, phase 1)", () => {
     readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
       e.isDirectory() && !e.isSymbolicLink()
         ? all(join(dir, e.name), base)
-        : [join(dir, e.name).slice(base.length + 1)],
+        : [
+            join(dir, e.name)
+              .slice(base.length + 1)
+              .split(sep)
+              .join("/"),
+          ],
     );
 
   it("cuts sources, docs, tests and unused builds, and keeps what the Gateway loads", async () => {
@@ -772,7 +781,12 @@ process.stdout.write(JSON.stringify({ greet: greet("x"), native: native(), pure:
     readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
       e.isDirectory() && !e.isSymbolicLink()
         ? all(join(dir, e.name), base)
-        : [join(dir, e.name).slice(base.length + 1)],
+        : [
+            join(dir, e.name)
+              .slice(base.length + 1)
+              .split(sep)
+              .join("/"),
+          ],
     );
 
   it("bundles the entries with the workspace and pure dependencies inside, and an external outside", async () => {

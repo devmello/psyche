@@ -3,6 +3,7 @@ import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Kbd } from "../../components/ui/kbd.tsx";
 import { t } from "../../i18n/core.ts";
+import { isWindows } from "../../lib/platform.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { SegmentedRadio } from "./SegmentedRadio.tsx";
 import {
@@ -20,6 +21,7 @@ import {
   useSettingsForm,
 } from "./shared.tsx";
 import type { AppTier, ComputerUseApp, TccPermission, TccState } from "./types.ts";
+import { WindowsAccessRows } from "./WindowsAccess.tsx";
 
 /** Computer use (UI design §3.18; architecture §6). */
 
@@ -105,6 +107,7 @@ export const TCC_LABEL: Record<
   accessibility: tccLabel("accessibility"),
   screenRecording: tccLabel("screenRecording"),
   notifications: tccLabel("notifications"),
+  microphone: tccLabel("microphone"),
 };
 
 const TCC_TONE: Record<TccState, "success" | "danger" | "neutral"> = {
@@ -175,36 +178,44 @@ export function ComputerUsePanel({
           title={t("settings.computerUse.macPermissions")}
           description={t("settings.computerUse.macPermissionsHint")}
         >
-          <>
-            {(["accessibility", "screenRecording"] as const).map((p) => {
-              const state = tcc[p] ?? "not_determined";
-              return (
-                <div key={p} className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{TCC_LABEL[p].name}</span>
-                  <StatusChip tone={TCC_TONE[state]}>
-                    {t(`settings.computerUse.tccState.${state}`)}
-                  </StatusChip>
-                  <span className="text-callout text-muted-foreground">
-                    {TCC_LABEL[p].why(persona)}
-                  </span>
-                  {state !== "granted" && onOpenSystemSettings ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="xs"
-                      className="ms-auto"
-                      onClick={() => onOpenSystemSettings(p)}
-                      aria-label={t("settings.computerUse.openSystemSettingsFor", {
-                        name: TCC_LABEL[p].name,
-                      })}
-                    >
-                      {t("settings.computerUse.openSystemSettings")}
-                    </Button>
-                  ) : null}
-                </div>
-              );
-            })}
-          </>
+          {isWindows() ? (
+            <WindowsAccessRows
+              persona={persona}
+              microphone={tcc.microphone}
+              onOpenSettings={onOpenSystemSettings}
+            />
+          ) : (
+            <>
+              {(["accessibility", "screenRecording"] as const).map((p) => {
+                const state = tcc[p] ?? "not_determined";
+                return (
+                  <div key={p} className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{TCC_LABEL[p].name}</span>
+                    <StatusChip tone={TCC_TONE[state]}>
+                      {t(`settings.computerUse.tccState.${state}`)}
+                    </StatusChip>
+                    <span className="text-callout text-muted-foreground">
+                      {TCC_LABEL[p].why(persona)}
+                    </span>
+                    {state !== "granted" && onOpenSystemSettings ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        className="ms-auto"
+                        onClick={() => onOpenSystemSettings(p)}
+                        aria-label={t("settings.computerUse.openSystemSettingsFor", {
+                          name: TCC_LABEL[p].name,
+                        })}
+                      >
+                        {t("settings.computerUse.openSystemSettings")}
+                      </Button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </>
+          )}
         </Group>
 
         <Group

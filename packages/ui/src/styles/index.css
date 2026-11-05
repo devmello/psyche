@@ -10,6 +10,7 @@
 @import "./motion.css";
 @import "./design.css";
 @import "./prose.css";
+@import "./windows.css";
 
 /* Scan the kit's own sources wherever the shell's Tailwind runs from. */
 @source "../";

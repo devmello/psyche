@@ -785,6 +785,8 @@ export const settings = {
   "settings.computerUse.tcc.notifications.name": "Notifications",
   "settings.computerUse.tcc.notifications.why":
     "lets Psyche ask for approvals when the window is closed",
+  "settings.computerUse.tcc.microphone.name": "Microphone",
+  "settings.computerUse.tcc.microphone.why": "lets Psyche hear you for dictation and meeting notes",
   "settings.computerUse.tccState.granted": "Granted",
   "settings.computerUse.tccState.denied": "Denied",
   "settings.computerUse.tccState.not_determined": "Not asked yet",
@@ -1376,10 +1378,12 @@ export const settings = {
   "settings.devices.platform.android": "Android",
   "settings.devices.platform.web": "Web browser",
   "settings.devices.platform.linux": "Linux",
+  "settings.devices.platform.windows": "Windows PC",
   "settings.devices.nodeKind.macHelper": "Mac helper",
   "settings.devices.nodeKind.vmGuest": "VM guest",
   "settings.devices.nodeKind.remote": "Remote node",
   "settings.devices.nodeKind.phone": "Phone",
+  "settings.devices.nodeKind.winHelper": "Windows helper",
   "settings.devices.title": "Devices & nodes",
   "settings.devices.description":
     "Devices that can reach this Gateway, and the nodes that give it hands.",
@@ -1398,6 +1402,9 @@ export const settings = {
   "settings.devices.scopesOf": "{name} scopes",
   "settings.devices.thisMacAdmin":
     "This Mac is the admin device. Another admin device can revoke it here.",
+  // The device row names its own kind of computer, whatever this window runs on.
+  "settings.devices.thisPcAdmin":
+    "This PC is the admin device. Another admin device can revoke it here.",
   "settings.devices.key": "Key",
   "settings.devices.keyLastSeen": "· last seen {when}",
   "settings.devices.keyLastSeenNever": "· last seen never",
@@ -1407,6 +1414,11 @@ export const settings = {
   "settings.devices.presenceKey.enclaveFile":
     "Touch ID key (Secure Enclave file, this build has no provisioning profile), as reported by the helper",
   "settings.devices.presenceKey.unknown": "Touch ID key (kind not reported by the helper)",
+  // A Windows helper's key: Windows Hello (a TPM-backed key; RSA-2048 today), as the helper reports it.
+  "settings.devices.presenceKey.windowsHello":
+    "Windows Hello key ({algorithm}), as reported by the helper",
+  "settings.devices.presenceKey.windowsHelloNoAlgorithm":
+    "Windows Hello key, as reported by the helper",
   "settings.devices.touchId.none":
     "No Touch ID key yet. Cards that need Touch ID can't be approved until one is registered.",
   "settings.devices.touchId.bundled": "The Psyche Helper in this app shows key",
@@ -1953,10 +1965,18 @@ export const settings = {
   "settings.shortcut.reserved.screenshots": "screenshots",
   "settings.shortcut.reserved.forceQuit": "Force Quit",
   "settings.shortcut.reserved.quickEntry": "Psyche's quick entry",
+  // Windows' own shortcuts (ShortcutRecorder on Windows).
+  "settings.shortcut.reserved.windowsKey": "Windows (shortcuts with the Windows key)",
+  "settings.shortcut.reserved.windowMenu": "the window menu",
+  "settings.shortcut.reserved.closeApp": "closing apps",
+  "settings.shortcut.reserved.taskManager": "Task Manager",
+  "settings.shortcut.reserved.startMenu": "the Start menu",
+  "settings.shortcut.reserved.securityScreen": "the Windows security screen",
   "settings.shortcut.key.Command": "Command",
   "settings.shortcut.key.Control": "Control",
   "settings.shortcut.key.Alt": "Option",
   "settings.shortcut.key.Shift": "Shift",
+  "settings.shortcut.key.Super": "Windows key",
   "settings.shortcut.usedBy": "{keys} is used by {by}. Pick another shortcut.",
   "settings.shortcut.taken": "{keys} is taken by another app. Pick another shortcut.",
   "settings.shortcut.invalid": "{keys} can't be a system-wide shortcut. Pick another one.",
@@ -2253,6 +2273,8 @@ export const settings = {
   "settings.voice.access.unknown": "Not checked yet",
   "settings.voice.access.why":
     "lets the Psyche helper see the key you hold and type into the focused app",
+  "settings.voice.access.windowsWhy":
+    "watches the key you hold and types into the focused app. Windows needs no permission for it; apps that run as administrator don't get dictated text.",
   "settings.voice.hold": "Hold",
   "settings.voice.toDictate": "to dictate into any message field.",
   "settings.voice.loadLabel": "voice settings",

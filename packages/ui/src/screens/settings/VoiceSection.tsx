@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Kbd } from "../../components/ui/kbd.tsx";
 import { t } from "../../i18n/core.ts";
+import { isWindows } from "../../lib/platform.ts";
 import { readVoiceSettings, VOICE_KEYS } from "../../voice/settings.ts";
 import { type ShortcutCheck, ShortcutRecorder } from "./ShortcutRecorder.tsx";
 import {
@@ -100,9 +101,22 @@ export function ScreenAskGroup({
 
 const PTT_KEYS = ["fn", "rightOption", "rightCommand"] as const;
 
-/** The push-to-talk key as printed or named on a Mac keyboard; an unknown key shows as stored. */
+/**
+ * The key a stored hold-to-talk value means here. fn never reaches Windows, so there the "fn"
+ * value (the default) is Right Alt, the same key as "rightOption"; Right Ctrl is "rightCommand".
+ * The desktop's Windows key hook reads the setting the same way.
+ */
+export function effectiveTalkKey(key: string): string {
+  return isWindows() && key === "fn" ? "rightOption" : key;
+}
+
+/** The hold-to-talk keys this keyboard has: no fn on Windows. */
+export const talkKeys = (): readonly (typeof PTT_KEYS)[number][] =>
+  isWindows() ? ["rightOption", "rightCommand"] : PTT_KEYS;
+
+/** The push-to-talk key as printed or named on this keyboard; an unknown key shows as stored. */
 function keyLabel(key: string): string {
-  const known = PTT_KEYS.find((k) => k === key);
+  const known = PTT_KEYS.find((k) => k === effectiveTalkKey(key));
   return known === undefined ? key : t(`settings.voice.key.${known}`);
 }
 
@@ -115,6 +129,22 @@ function AccessibilityRow({
   onOpenAccessibility?: () => void;
   onRecheck?: () => void;
 }): ReactElement {
+  // Windows has no Accessibility grant: the helper's key hook needs no permission, so the row
+  // says what the helper is doing and where Windows draws the line (elevated apps).
+  if (isWindows()) {
+    const off = status.helper === "offline";
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-medium">{t("platform.term.helper")}</span>
+        <StatusChip tone={off ? "neutral" : "success"}>
+          {off ? t("settings.voice.access.helperOff") : t("platform.windows.access.noPermission")}
+        </StatusChip>
+        <span className="text-callout text-muted-foreground">
+          {t("settings.voice.access.windowsWhy")}
+        </span>
+      </div>
+    );
+  }
   const chip =
     status.helper === "offline"
       ? { tone: "neutral" as const, text: t("settings.voice.access.helperOff") }
@@ -156,7 +186,8 @@ export function VoiceConversationGroup({
   onChange,
 }: Pick<SettingsFormProps, "values" | "onChange">): ReactElement {
   const v = readVoiceSettings(values);
-  const dictationKey = str(values, "voice.pushToTalk", "fn");
+  const dictationKey = effectiveTalkKey(str(values, "voice.pushToTalk", "fn"));
+  const voiceKey = effectiveTalkKey(v.key);
   return (
     <Group title={t("voice.settings.title")}>
       <SwitchField
@@ -171,13 +202,13 @@ export function VoiceConversationGroup({
           <RadioField
             label={t("voice.settings.key")}
             description={
-              v.key === dictationKey ? t("voice.settings.keyClash") : t("voice.settings.keyHint")
+              voiceKey === dictationKey ? t("voice.settings.keyClash") : t("voice.settings.keyHint")
             }
             inline
-            value={v.key}
+            value={voiceKey}
             settingKey="voice.conversation.key"
             onChange={(k) => onChange("voice.conversation.key", k)}
-            options={VOICE_KEYS.map((k) => ({
+            options={VOICE_KEYS.filter((k) => talkKeys().some((x) => x === k)).map((k) => ({
               value: k,
               label: t(`voice.key.${k}`),
               disabled: k === dictationKey,
@@ -234,14 +265,10 @@ export function VoicePanel({
           <RadioField
             label={t("settings.key.voice.pushToTalk")}
             inline
-            value={ptt}
+            value={effectiveTalkKey(ptt)}
             settingKey="voice.pushToTalk"
             onChange={(v) => onChange("voice.pushToTalk", v)}
-            options={[
-              { value: "fn", label: keyLabel("fn") },
-              { value: "rightOption", label: keyLabel("rightOption") },
-              { value: "rightCommand", label: keyLabel("rightCommand") },
-            ]}
+            options={talkKeys().map((k) => ({ value: k, label: keyLabel(k) }))}
           />
           <RadioField
             label={t("settings.voice.mode")}

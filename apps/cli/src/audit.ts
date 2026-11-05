@@ -461,7 +461,7 @@ export function auditRules(s: Snapshot, now: Date): AuditReport {
         fix: "Install a release build; until then update by hand (docs/guides/upgrade.md)",
       });
     }
-  } else if (s.platform === "darwin") {
+  } else if (s.platform === "darwin" || s.platform === "win32") {
     skip("updates (manifest verification)", s.updater);
   }
 

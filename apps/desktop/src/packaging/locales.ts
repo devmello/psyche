@@ -50,3 +50,26 @@ export function pruneLocales(
   }
   return removed;
 }
+
+/**
+ * Windows: Chromium's strings are `locales\<lang>.pak` next to Psyche.exe (≈ 45 MB for all of
+ * them). Keeps the shipped languages and their regional variants (`pt-BR`, `zh-TW`, …); en-US is
+ * Chromium's fallback and always stays.
+ */
+export function pruneWin32Locales(
+  appRootDir: string,
+  keep: readonly string[] = SHIPPED_LOCALES,
+): number {
+  const dir = join(appRootDir, "locales");
+  if (!existsSync(dir)) return 0;
+  let removed = 0;
+  for (const name of readdirSync(dir)) {
+    if (!name.endsWith(".pak")) continue;
+    const lang = name.slice(0, -".pak".length);
+    if (lang === "en-US" || keep.includes(lang) || keep.includes(lang.split("-")[0] ?? lang))
+      continue;
+    rmSync(join(dir, name), { force: true });
+    removed++;
+  }
+  return removed;
+}
