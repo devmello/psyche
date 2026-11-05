@@ -42,7 +42,11 @@ use crate::paths::Env;
 pub use manager::{Config, Deps, VscreenManager};
 
 /// Adds the `vscreen.*` capabilities. Nothing starts until the first call that needs a display.
-pub fn register(registry: &mut Registry, env: &dyn Env, idle: Arc<IdleTimer>) -> Arc<VscreenManager> {
+pub fn register(
+    registry: &mut Registry,
+    env: &dyn Env,
+    idle: Arc<IdleTimer>,
+) -> Arc<VscreenManager> {
     let manager = VscreenManager::new(Config::from_env(env), Deps::real(), idle);
     for capability in capabilities::all(&manager) {
         registry.register(capability);

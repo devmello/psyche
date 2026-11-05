@@ -75,7 +75,9 @@ pub fn check_before_launch(
             }
         }
     }
-    let names: &[&str] = recipe_for(&entry.id).map(|r| r.process_names).unwrap_or(&[]);
+    let names: &[&str] = recipe_for(&entry.id)
+        .map(|r| r.process_names)
+        .unwrap_or(&[]);
     // Without a recipe the executable path is all there is to match on.
     if exe.is_some() || !names.is_empty() {
         let outside = procs
@@ -150,7 +152,9 @@ impl Procs for ProcFs {
             .into_iter()
             .filter(|&pid| pid != own)
             .filter(|pid| {
-                if let (Some(want), Ok(have)) = (exe, std::fs::read_link(format!("/proc/{pid}/exe"))) {
+                if let (Some(want), Ok(have)) =
+                    (exe, std::fs::read_link(format!("/proc/{pid}/exe")))
+                {
                     if have == want {
                         return true;
                     }
@@ -215,48 +219,99 @@ mod tests {
     }
 
     fn nothing() -> FakeProcs {
-        FakeProcs { running: vec![], ours: HashSet::new() }
+        FakeProcs {
+            running: vec![],
+            ours: HashSet::new(),
+        }
     }
 
     #[test]
     fn an_owned_bus_name_outside_the_slice_refuses() {
         let bus = FakeBus(HashMap::from([("org.gnome.TextEditor".into(), 100)]));
-        let r = check_before_launch(&entry("org.gnome.TextEditor", "gnome-text-editor"), None, &bus, &nothing());
+        let r = check_before_launch(
+            &entry("org.gnome.TextEditor", "gnome-text-editor"),
+            None,
+            &bus,
+            &nothing(),
+        );
         assert_eq!(r, Err(Refusal::AlreadyOpenOnYourScreen));
     }
 
     #[test]
     fn an_owned_bus_name_inside_the_slice_is_ours_and_allowed() {
         let bus = FakeBus(HashMap::from([("org.gnome.TextEditor".into(), 100)]));
-        let procs = FakeProcs { running: vec![], ours: HashSet::from([100]) };
-        assert!(check_before_launch(&entry("org.gnome.TextEditor", "gnome-text-editor"), None, &bus, &procs).is_ok());
+        let procs = FakeProcs {
+            running: vec![],
+            ours: HashSet::from([100]),
+        };
+        assert!(check_before_launch(
+            &entry("org.gnome.TextEditor", "gnome-text-editor"),
+            None,
+            &bus,
+            &procs
+        )
+        .is_ok());
     }
 
     #[test]
     fn a_process_with_the_same_executable_outside_the_slice_refuses() {
         let exe = PathBuf::from("/usr/bin/gnome-text-editor");
-        let procs = FakeProcs { running: vec![(7, Some(exe.clone()), "gnome-text-edit".into())], ours: HashSet::new() };
-        let r = check_before_launch(&entry("gnome-text-editor", "gnome-text-editor"), Some(&exe), &FakeBus(HashMap::new()), &procs);
+        let procs = FakeProcs {
+            running: vec![(7, Some(exe.clone()), "gnome-text-edit".into())],
+            ours: HashSet::new(),
+        };
+        let r = check_before_launch(
+            &entry("gnome-text-editor", "gnome-text-editor"),
+            Some(&exe),
+            &FakeBus(HashMap::new()),
+            &procs,
+        );
         assert_eq!(r, Err(Refusal::AlreadyOpenOnYourScreen));
-        let procs = FakeProcs { running: vec![(7, Some(exe.clone()), "x".into())], ours: HashSet::from([7]) };
-        assert!(check_before_launch(&entry("gnome-text-editor", "gnome-text-editor"), Some(&exe), &FakeBus(HashMap::new()), &procs).is_ok());
+        let procs = FakeProcs {
+            running: vec![(7, Some(exe.clone()), "x".into())],
+            ours: HashSet::from([7]),
+        };
+        assert!(check_before_launch(
+            &entry("gnome-text-editor", "gnome-text-editor"),
+            Some(&exe),
+            &FakeBus(HashMap::new()),
+            &procs
+        )
+        .is_ok());
     }
 
     #[test]
     fn firefox_is_found_by_process_name_even_when_the_launcher_is_a_script() {
-        let procs = FakeProcs { running: vec![(9, None, "firefox-bin".into())], ours: HashSet::new() };
-        let r = check_before_launch(&entry("firefox", "firefox"), Some(Path::new("/usr/bin/firefox")), &FakeBus(HashMap::new()), &procs);
+        let procs = FakeProcs {
+            running: vec![(9, None, "firefox-bin".into())],
+            ours: HashSet::new(),
+        };
+        let r = check_before_launch(
+            &entry("firefox", "firefox"),
+            Some(Path::new("/usr/bin/firefox")),
+            &FakeBus(HashMap::new()),
+            &procs,
+        );
         assert_eq!(r, Err(Refusal::AlreadyOpenOnYourScreen));
     }
 
     #[test]
     fn nothing_running_means_go() {
-        assert!(check_before_launch(&entry("firefox", "firefox"), None, &FakeBus(HashMap::new()), &nothing()).is_ok());
+        assert!(check_before_launch(
+            &entry("firefox", "firefox"),
+            None,
+            &FakeBus(HashMap::new()),
+            &nothing()
+        )
+        .is_ok());
     }
 
     #[test]
     fn only_reverse_dns_ids_are_bus_names() {
-        assert_eq!(bus_names(&entry("org.gnome.Calculator", "gnome-calculator")), vec!["org.gnome.Calculator"]);
+        assert_eq!(
+            bus_names(&entry("org.gnome.Calculator", "gnome-calculator")),
+            vec!["org.gnome.Calculator"]
+        );
         assert!(bus_names(&entry("firefox", "firefox")).is_empty());
     }
 
@@ -266,7 +321,9 @@ mod tests {
         assert_eq!(parse_busctl_u32("s \"x\""), None);
         assert_eq!(parse_busctl_u32(""), None);
         assert!(cgroup_in_slice("0::/user.slice/user-1000.slice/user@1000.service/psyche-vscreen.slice/psyche-vs-a-1.scope\n"));
-        assert!(!cgroup_in_slice("0::/user.slice/user-1000.slice/user@1000.service/app.slice/app-x.scope\n"));
+        assert!(!cgroup_in_slice(
+            "0::/user.slice/user-1000.slice/user@1000.service/app.slice/app-x.scope\n"
+        ));
     }
 
     #[test]
@@ -274,7 +331,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let bin = dir.path().join("myapp");
         std::fs::write(&bin, "#!/bin/sh\n").unwrap();
-        let found = resolve_exe(&entry("myapp", "myapp"), &format!("/nonexistent:{}", dir.path().display()));
+        let found = resolve_exe(
+            &entry("myapp", "myapp"),
+            &format!("/nonexistent:{}", dir.path().display()),
+        );
         assert_eq!(found, Some(std::fs::canonicalize(&bin).unwrap()));
         assert_eq!(resolve_exe(&entry("nope", "nope"), "/nonexistent"), None);
     }

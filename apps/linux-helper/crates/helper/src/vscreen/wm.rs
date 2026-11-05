@@ -23,7 +23,12 @@ pub struct Rect {
 
 impl Rect {
     pub fn new(x: i32, y: i32, w: u32, h: u32) -> Self {
-        Self { x, y, w: w.max(1), h: h.max(1) }
+        Self {
+            x,
+            y,
+            w: w.max(1),
+            h: h.max(1),
+        }
     }
 }
 
@@ -81,7 +86,10 @@ pub enum WmEvent {
     MapRequest(WindowInfo),
     /// The window went away or was withdrawn (UnmapNotify / DestroyNotify).
     Gone(WinId),
-    ConfigureRequest { win: WinId, rect: Rect },
+    ConfigureRequest {
+        win: WinId,
+        rect: Rect,
+    },
     /// A property changed (title, pid): update what we show, move nothing.
     InfoChanged(WindowInfo),
     /// `_NET_ACTIVE_WINDOW`
@@ -100,17 +108,32 @@ pub enum FocusMethod {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WmAction {
-    Configure { win: WinId, rect: Rect },
+    Configure {
+        win: WinId,
+        rect: Rect,
+    },
     /// ICCCM: a client whose request was ignored is told its (unchanged) geometry.
-    SyntheticConfigureNotify { win: WinId, rect: Rect },
+    SyntheticConfigureNotify {
+        win: WinId,
+        rect: Rect,
+    },
     Map(WinId),
     Raise(WinId),
     Lower(WinId),
-    Focus { win: WinId, method: FocusMethod },
+    Focus {
+        win: WinId,
+        method: FocusMethod,
+    },
     /// Ask the window to close (`WM_DELETE_WINDOW`), or kill its connection if it cannot.
-    RequestClose { win: WinId, supports_delete: bool },
+    RequestClose {
+        win: WinId,
+        supports_delete: bool,
+    },
     /// `_NET_CLIENT_LIST` and `_NET_ACTIVE_WINDOW` on the root.
-    Publish { client_list: Vec<WinId>, active: Option<WinId> },
+    Publish {
+        client_list: Vec<WinId>,
+        active: Option<WinId>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -388,13 +411,19 @@ mod tests {
         let actions = wm.handle(WmEvent::MapRequest(normal(1)));
         assert_eq!(
             actions[0],
-            WmAction::Configure { win: 1, rect: Rect::new(0, 0, 1280, 800) }
+            WmAction::Configure {
+                win: 1,
+                rect: Rect::new(0, 0, 1280, 800)
+            }
         );
         assert!(actions.contains(&WmAction::Map(1)));
         assert!(actions.contains(&WmAction::Raise(1)));
         assert_eq!(focused(&actions), Some(1));
         assert_eq!(wm.active(), Some(1));
-        assert!(actions.contains(&WmAction::Publish { client_list: vec![1], active: Some(1) }));
+        assert!(actions.contains(&WmAction::Publish {
+            client_list: vec![1],
+            active: Some(1)
+        }));
     }
 
     #[test]
@@ -416,7 +445,10 @@ mod tests {
         let actions = wm.handle(WmEvent::MapRequest(dialog(2, 1)));
         assert_eq!(
             actions[0],
-            WmAction::Configure { win: 2, rect: Rect::new(440, 325, 400, 150) }
+            WmAction::Configure {
+                win: 2,
+                rect: Rect::new(440, 325, 400, 150)
+            }
         );
         assert_eq!(focused(&actions), Some(2));
     }
@@ -462,7 +494,10 @@ mod tests {
         let actions = wm.handle(WmEvent::MapRequest(popup));
         assert_eq!(
             actions[0],
-            WmAction::Configure { win: 5, rect: Rect::new(100, 120, 200, 300) }
+            WmAction::Configure {
+                win: 5,
+                rect: Rect::new(100, 120, 200, 300)
+            }
         );
         assert_eq!(focused(&actions), None);
         assert_eq!(wm.active(), Some(1));
@@ -486,10 +521,16 @@ mod tests {
     fn a_maximised_window_that_asks_to_resize_is_told_its_geometry() {
         let mut wm = wm();
         wm.handle(WmEvent::MapRequest(normal(1)));
-        let actions = wm.handle(WmEvent::ConfigureRequest { win: 1, rect: Rect::new(5, 5, 50, 50) });
+        let actions = wm.handle(WmEvent::ConfigureRequest {
+            win: 1,
+            rect: Rect::new(5, 5, 50, 50),
+        });
         assert_eq!(
             actions,
-            vec![WmAction::SyntheticConfigureNotify { win: 1, rect: Rect::new(0, 0, 1280, 800) }]
+            vec![WmAction::SyntheticConfigureNotify {
+                win: 1,
+                rect: Rect::new(0, 0, 1280, 800)
+            }]
         );
     }
 
@@ -498,10 +539,16 @@ mod tests {
         let mut wm = wm();
         wm.handle(WmEvent::MapRequest(normal(1)));
         wm.handle(WmEvent::MapRequest(dialog(2, 1)));
-        let actions = wm.handle(WmEvent::ConfigureRequest { win: 2, rect: Rect::new(0, 0, 600, 400) });
+        let actions = wm.handle(WmEvent::ConfigureRequest {
+            win: 2,
+            rect: Rect::new(0, 0, 600, 400),
+        });
         assert_eq!(
             actions,
-            vec![WmAction::Configure { win: 2, rect: Rect::new(340, 200, 600, 400) }]
+            vec![WmAction::Configure {
+                win: 2,
+                rect: Rect::new(340, 200, 600, 400)
+            }]
         );
     }
 
@@ -535,7 +582,10 @@ mod tests {
             wm.handle(WmEvent::MapRequest(passive))
                 .iter()
                 .find(|a| matches!(a, WmAction::Focus { .. })),
-            Some(WmAction::Focus { method: FocusMethod::SetInputFocus, .. })
+            Some(WmAction::Focus {
+                method: FocusMethod::SetInputFocus,
+                ..
+            })
         ));
         let mut global = normal(2);
         global.input_hint = false;
@@ -544,7 +594,10 @@ mod tests {
             wm.handle(WmEvent::MapRequest(global))
                 .iter()
                 .find(|a| matches!(a, WmAction::Focus { .. })),
-            Some(WmAction::Focus { method: FocusMethod::TakeFocus, .. })
+            Some(WmAction::Focus {
+                method: FocusMethod::TakeFocus,
+                ..
+            })
         ));
         let mut none = normal(3);
         none.input_hint = false;
@@ -552,7 +605,10 @@ mod tests {
             wm.handle(WmEvent::MapRequest(none))
                 .iter()
                 .find(|a| matches!(a, WmAction::Focus { .. })),
-            Some(WmAction::Focus { method: FocusMethod::Nothing, .. })
+            Some(WmAction::Focus {
+                method: FocusMethod::Nothing,
+                ..
+            })
         ));
     }
 
@@ -562,7 +618,10 @@ mod tests {
         wm.handle(WmEvent::MapRequest(normal(1)));
         assert_eq!(
             wm.handle(WmEvent::Close(1)),
-            vec![WmAction::RequestClose { win: 1, supports_delete: true }]
+            vec![WmAction::RequestClose {
+                win: 1,
+                supports_delete: true
+            }]
         );
         assert!(wm.handle(WmEvent::Close(99)).is_empty());
         assert!(wm.handle(WmEvent::Gone(99)).is_empty());

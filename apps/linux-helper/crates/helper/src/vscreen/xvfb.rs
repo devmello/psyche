@@ -28,7 +28,9 @@ impl XvfbConfig {
             height,
             first_display: 90,
             xvfb_path: "Xvfb".into(),
-            runtime_dir: std::env::var("XDG_RUNTIME_DIR").ok().filter(|v| !v.is_empty()),
+            runtime_dir: std::env::var("XDG_RUNTIME_DIR")
+                .ok()
+                .filter(|v| !v.is_empty()),
             ready_timeout: Duration::from_secs(8),
         }
     }
@@ -47,10 +49,33 @@ pub fn socket_path(n: u32) -> PathBuf {
     PathBuf::from(format!("/tmp/.X11-unix/X{n}"))
 }
 
+/// Connects to display `n`: the socket file when there is one, else the abstract socket of the
+/// same name (where `/tmp/.X11-unix` is read-only, as under WSLg, Xvfb only has the abstract one).
+pub fn connect_stream(n: u32) -> std::io::Result<UnixStream> {
+    match UnixStream::connect(socket_path(n)) {
+        Ok(s) => Ok(s),
+        Err(file_err) => {
+            #[cfg(target_os = "linux")]
+            {
+                use std::os::linux::net::SocketAddrExt;
+                let name = format!("/tmp/.X11-unix/X{n}");
+                if let Ok(addr) =
+                    std::os::unix::net::SocketAddr::from_abstract_name(name.as_bytes())
+                {
+                    if let Ok(s) = UnixStream::connect_addr(&addr) {
+                        return Ok(s);
+                    }
+                }
+            }
+            Err(file_err)
+        }
+    }
+}
+
 /// Whether display `n` looks taken: its socket or lock file exists and something answers or
 /// lives behind it. A stale lock from a dead server does not count.
 pub fn display_in_use(n: u32) -> bool {
-    if socket_path(n).exists() && UnixStream::connect(socket_path(n)).is_ok() {
+    if connect_stream(n).is_ok() {
         return true;
     }
     match std::fs::read_to_string(format!("/tmp/.X{n}-lock")) {
@@ -80,6 +105,7 @@ impl XvfbServer {
             match Self::spawn_on(config, n, &auth, cookie) {
                 Ok(server) => return Ok(server),
                 Err(e) => {
+                    crate::log(&format!("vscreen: display :{n}: {e}"));
                     let _ = std::fs::remove_file(&auth);
                     last = e;
                 }
@@ -88,7 +114,12 @@ impl XvfbServer {
         Err(last)
     }
 
-    fn spawn_on(config: &XvfbConfig, n: u32, auth: &Path, cookie: Cookie) -> Result<XvfbServer, String> {
+    fn spawn_on(
+        config: &XvfbConfig,
+        n: u32,
+        auth: &Path,
+        cookie: Cookie,
+    ) -> Result<XvfbServer, String> {
         let mut cmd = Command::new(&config.xvfb_path);
         cmd.arg(format!(":{n}"))
             .args(["-screen", "0"])
@@ -115,7 +146,7 @@ impl XvfbServer {
             if let Ok(Some(status)) = child.try_wait() {
                 return Err(format!("Xvfb :{n} exited at start ({status})"));
             }
-            if UnixStream::connect(socket_path(n)).is_ok() {
+            if connect_stream(n).is_ok() {
                 return Ok(XvfbServer {
                     child,
                     display_number: n,

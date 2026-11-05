@@ -54,7 +54,10 @@ pub fn parse_memory_high(text: &str) -> Option<String> {
         return Some(t.to_string());
     }
     let digits = t.trim_end_matches(['K', 'M', 'G', 'T', '%']);
-    if digits.is_empty() || digits.len() + 1 < t.len() || !digits.chars().all(|c| c.is_ascii_digit()) {
+    if digits.is_empty()
+        || digits.len() + 1 < t.len()
+        || !digits.chars().all(|c| c.is_ascii_digit())
+    {
         return None;
     }
     Some(t.to_string())
@@ -104,7 +107,10 @@ mod tests {
 
     #[test]
     fn unit_names_are_safe_and_short() {
-        assert_eq!(unit_name("org.gnome.TextEditor", 3), "psyche-vs-org-gnome-TextEditor-3");
+        assert_eq!(
+            unit_name("org.gnome.TextEditor", 3),
+            "psyche-vs-org-gnome-TextEditor-3"
+        );
         assert_eq!(unit_name("../../etc", 1), "psyche-vs-etc-1");
         assert_eq!(unit_name("", 2), "psyche-vs-app-2");
         assert!(unit_name(&"a".repeat(200), 1).len() < 60);
@@ -112,7 +118,11 @@ mod tests {
 
     #[test]
     fn the_scope_goes_in_the_slice_with_the_app_after_a_double_dash() {
-        let args = systemd_run_args("psyche-vs-x-1", "Psyche virtual screen: X", &["app".into(), "--flag".into()]);
+        let args = systemd_run_args(
+            "psyche-vs-x-1",
+            "Psyche virtual screen: X",
+            &["app".into(), "--flag".into()],
+        );
         assert_eq!(args[0], "--user");
         assert!(args.contains(&"--scope".to_string()));
         assert!(args.contains(&"--slice=psyche-vscreen.slice".to_string()));

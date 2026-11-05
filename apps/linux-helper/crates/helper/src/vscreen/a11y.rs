@@ -67,17 +67,32 @@ mod tests {
 
     fn apps() -> Vec<A11yApp> {
         vec![
-            A11yApp { bus_name: ":1.10".into(), pid: 10 },
-            A11yApp { bus_name: ":1.20".into(), pid: 20 },
-            A11yApp { bus_name: ":1.30".into(), pid: 30 },
+            A11yApp {
+                bus_name: ":1.10".into(),
+                pid: 10,
+            },
+            A11yApp {
+                bus_name: ":1.20".into(),
+                pid: 20,
+            },
+            A11yApp {
+                bus_name: ":1.30".into(),
+                pid: 30,
+            },
         ]
     }
 
     #[test]
     fn each_surface_sees_only_its_own_apps() {
         let procs = Slice(HashSet::from([20]));
-        let v: Vec<u32> = visible_to(Surface::VirtualScreen, apps(), &procs).iter().map(|a| a.pid).collect();
-        let d: Vec<u32> = visible_to(Surface::Direct, apps(), &procs).iter().map(|a| a.pid).collect();
+        let v: Vec<u32> = visible_to(Surface::VirtualScreen, apps(), &procs)
+            .iter()
+            .map(|a| a.pid)
+            .collect();
+        let d: Vec<u32> = visible_to(Surface::Direct, apps(), &procs)
+            .iter()
+            .map(|a| a.pid)
+            .collect();
         assert_eq!(v, vec![20]);
         assert_eq!(d, vec![10, 30]);
     }

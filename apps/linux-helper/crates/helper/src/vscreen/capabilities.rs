@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 
 use super::input::Button;
 use super::manager::{InputEvent, Status, VsError, VscreenManager};
-use crate::capability::{Capability, CapabilitySpec, CapabilityError, InvocationContext};
+use crate::capability::{Capability, CapabilityError, CapabilitySpec, InvocationContext};
 
 fn error(e: VsError) -> CapabilityError {
     let code = match e.reason {
@@ -28,13 +28,20 @@ fn bad_params(message: &str) -> CapabilityError {
 
 fn parse<T: for<'de> Deserialize<'de>>(params: &Value) -> Result<T, CapabilityError> {
     // Absent params mean "all defaults".
-    let value = if params.is_null() { json!({}) } else { params.clone() };
+    let value = if params.is_null() {
+        json!({})
+    } else {
+        params.clone()
+    };
     serde_json::from_value(value).map_err(|e| bad_params(&e.to_string()))
 }
 
 /// RFC 3339 UTC, to the second.
 pub fn iso8601(t: SystemTime) -> String {
-    let secs = t.duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0) as i64;
+    let secs = t
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0) as i64;
     let (days, rem) = (secs.div_euclid(86_400), secs.rem_euclid(86_400));
     // Civil-from-days (Howard Hinnant).
     let z = days + 719_468;
@@ -238,10 +245,12 @@ pub fn parse_events(params: &Value) -> Result<Vec<InputEvent>, CapabilityError> 
     p.events
         .into_iter()
         .map(|e| {
-            let xy = |e: &WireEvent| Ok::<_, CapabilityError>((
-                e.x.ok_or_else(|| bad_params("x is missing"))?,
-                e.y.ok_or_else(|| bad_params("y is missing"))?,
-            ));
+            let xy = |e: &WireEvent| {
+                Ok::<_, CapabilityError>((
+                    e.x.ok_or_else(|| bad_params("x is missing"))?,
+                    e.y.ok_or_else(|| bad_params("y is missing"))?,
+                ))
+            };
             Ok(match e.kind.as_str() {
                 "move" => {
                     let (x, y) = xy(&e)?;
@@ -250,13 +259,24 @@ pub fn parse_events(params: &Value) -> Result<Vec<InputEvent>, CapabilityError> 
                 "down" | "up" => {
                     let (x, y) = xy(&e)?;
                     let b = button(e.button.as_deref())?;
-                    if e.kind == "down" { InputEvent::Down { x, y, button: b } } else { InputEvent::Up { x, y, button: b } }
+                    if e.kind == "down" {
+                        InputEvent::Down { x, y, button: b }
+                    } else {
+                        InputEvent::Up { x, y, button: b }
+                    }
                 }
                 "scroll" => {
                     let (x, y) = xy(&e)?;
-                    InputEvent::Scroll { x, y, dx: e.dx.unwrap_or(0.0), dy: e.dy.unwrap_or(0.0) }
+                    InputEvent::Scroll {
+                        x,
+                        y,
+                        dx: e.dx.unwrap_or(0.0),
+                        dy: e.dy.unwrap_or(0.0),
+                    }
                 }
-                "key_down" => InputEvent::KeyDown(e.key.ok_or_else(|| bad_params("key is missing"))?),
+                "key_down" => {
+                    InputEvent::KeyDown(e.key.ok_or_else(|| bad_params("key is missing"))?)
+                }
                 "key_up" => InputEvent::KeyUp(e.key.ok_or_else(|| bad_params("key is missing"))?),
                 "text" => {
                     let t = e.text.ok_or_else(|| bad_params("text is missing"))?;
@@ -306,8 +326,14 @@ mod tests {
     #[test]
     fn dates_are_rfc3339() {
         assert_eq!(iso8601(UNIX_EPOCH), "1970-01-01T00:00:00.000Z");
-        assert_eq!(iso8601(UNIX_EPOCH + Duration::from_secs(1_793_836_800)), "2026-11-05T00:00:00.000Z");
-        assert_eq!(iso8601(UNIX_EPOCH + Duration::from_secs(951_782_400)), "2000-02-29T00:00:00.000Z");
+        assert_eq!(
+            iso8601(UNIX_EPOCH + Duration::from_secs(1_793_836_800)),
+            "2026-11-05T00:00:00.000Z"
+        );
+        assert_eq!(
+            iso8601(UNIX_EPOCH + Duration::from_secs(951_782_400)),
+            "2000-02-29T00:00:00.000Z"
+        );
     }
 
     #[test]
@@ -321,11 +347,24 @@ mod tests {
         ]}))
         .unwrap();
         assert_eq!(ev.len(), 5);
-        assert_eq!(ev[1], InputEvent::Down { x: 1.0, y: 2.0, button: Button::Right });
+        assert_eq!(
+            ev[1],
+            InputEvent::Down {
+                x: 1.0,
+                y: 2.0,
+                button: Button::Right
+            }
+        );
         assert!(parse_events(&json!({ "events": [{ "type": "warp" }] })).is_err());
         assert!(parse_events(&json!({ "events": [{ "type": "move", "x": 1 }] })).is_err());
-        assert!(parse_events(&json!({ "events": [{ "type": "down", "x": 1, "y": 1, "button": "side" }] })).is_err());
-        assert!(parse_events(&json!({ "events": vec![json!({"type":"key_up","key":"a"}); 101] })).is_err());
+        assert!(parse_events(
+            &json!({ "events": [{ "type": "down", "x": 1, "y": 1, "button": "side" }] })
+        )
+        .is_err());
+        assert!(
+            parse_events(&json!({ "events": vec![json!({"type":"key_up","key":"a"}); 101] }))
+                .is_err()
+        );
         assert!(parse_events(&json!({})).is_err());
     }
 
@@ -350,9 +389,19 @@ mod tests {
 
     #[test]
     fn errors_carry_the_helper_reason() {
-        let e = error(VsError { reason: "already_open_on_your_screen", message: "x".into() });
+        let e = error(VsError {
+            reason: "already_open_on_your_screen",
+            message: "x".into(),
+        });
         assert_eq!(e.reason, "already_open_on_your_screen");
         assert_eq!(e.code, ErrorCode::Conflict);
-        assert_eq!(error(VsError { reason: "not_running", message: "x".into() }).code, ErrorCode::Unavailable);
+        assert_eq!(
+            error(VsError {
+                reason: "not_running",
+                message: "x".into()
+            })
+            .code,
+            ErrorCode::Unavailable
+        );
     }
 }

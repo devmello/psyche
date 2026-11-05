@@ -69,7 +69,10 @@ impl Capturer {
             .find(|f| f.depth == screen.root_depth)
             .ok_or("no pixmap format for the root depth")?;
         if fmt.bits_per_pixel != 32 {
-            return Err(format!("unsupported pixel format ({} bpp)", fmt.bits_per_pixel));
+            return Err(format!(
+                "unsupported pixel format ({} bpp)",
+                fmt.bits_per_pixel
+            ));
         }
         let shm = Self::attach(&conn, width, height);
         Ok(Self {
@@ -115,7 +118,12 @@ impl Capturer {
                 libc::shmdt(ptr as *const libc::c_void);
                 return None;
             }
-            Some(Segment { id, ptr: ptr as *mut u8, len, seg })
+            Some(Segment {
+                id,
+                ptr: ptr as *mut u8,
+                len,
+                seg,
+            })
         }
     }
 
@@ -129,7 +137,17 @@ impl Capturer {
         if let Some(seg) = &self.shm {
             let reply = self
                 .conn
-                .shm_get_image(self.root, 0, 0, w, h, !0, ImageFormat::Z_PIXMAP.into(), seg.seg, 0)
+                .shm_get_image(
+                    self.root,
+                    0,
+                    0,
+                    w,
+                    h,
+                    !0,
+                    ImageFormat::Z_PIXMAP.into(),
+                    seg.seg,
+                    0,
+                )
                 .map_err(|e| e.to_string())?
                 .reply()
                 .map_err(|e| e.to_string())?;
@@ -171,12 +189,23 @@ impl Capturer {
     }
 
     pub fn raw(&self) -> Raw<'_> {
-        Raw { width: self.width, height: self.height, bgrx: &self.copy }
+        Raw {
+            width: self.width,
+            height: self.height,
+            bgrx: &self.copy,
+        }
     }
 
     /// The JPEG of the current screen at most `max_width` wide.
-    pub fn jpeg(&mut self, max_width: Option<u32>, quality: u8) -> Result<(Vec<u8>, u32, u32), String> {
-        let target = max_width.map(|m| m.min(self.width)).unwrap_or(self.width).max(16);
+    pub fn jpeg(
+        &mut self,
+        max_width: Option<u32>,
+        quality: u8,
+    ) -> Result<(Vec<u8>, u32, u32), String> {
+        let target = max_width
+            .map(|m| m.min(self.width))
+            .unwrap_or(self.width)
+            .max(16);
         if let Some((seq, w, bytes)) = &self.jpeg {
             if *seq == self.seq && *w == target {
                 let h = scaled_height(self.width, self.height, target);
@@ -200,12 +229,12 @@ fn scaled_height(sw: u32, sh: u32, tw: u32) -> u32 {
 /// FNV-style hash over 8-byte words: cheap, and plenty to notice a changed screen.
 pub fn hash_pixels(bytes: &[u8]) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-    let mut chunks = bytes.chunks_exact(8);
-    for c in &mut chunks {
-        let w = u64::from_le_bytes(c.try_into().expect("8 bytes"));
+    let (words, rest) = bytes.as_chunks::<8>();
+    for c in words {
+        let w = u64::from_le_bytes(*c);
         h = (h ^ w).wrapping_mul(0x0100_0000_01b3).rotate_left(5);
     }
-    for b in chunks.remainder() {
+    for b in rest {
         h = (h ^ u64::from(*b)).wrapping_mul(0x0100_0000_01b3);
     }
     h
@@ -220,10 +249,12 @@ pub fn to_rgb_scaled(raw: &Raw<'_>, target_width: u32) -> (Vec<u8>, u32, u32) {
     let stride = raw.width as usize * 4;
     for ty in 0..th {
         let sy0 = (u64::from(ty) * u64::from(raw.height) / u64::from(th)) as usize;
-        let sy1 = ((u64::from(ty + 1) * u64::from(raw.height) / u64::from(th)) as usize).max(sy0 + 1);
+        let sy1 =
+            ((u64::from(ty + 1) * u64::from(raw.height) / u64::from(th)) as usize).max(sy0 + 1);
         for tx in 0..tw {
             let sx0 = (u64::from(tx) * u64::from(raw.width) / u64::from(tw)) as usize;
-            let sx1 = ((u64::from(tx + 1) * u64::from(raw.width) / u64::from(tw)) as usize).max(sx0 + 1);
+            let sx1 =
+                ((u64::from(tx + 1) * u64::from(raw.width) / u64::from(tw)) as usize).max(sx0 + 1);
             let (mut r, mut g, mut b, mut n) = (0u32, 0u32, 0u32, 0u32);
             for sy in sy0..sy1.min(raw.height as usize) {
                 for sx in sx0..sx1.min(raw.width as usize) {
@@ -246,7 +277,9 @@ mod tests {
     use super::*;
 
     fn solid(w: u32, h: u32, bgr: [u8; 3]) -> Vec<u8> {
-        (0..w * h).flat_map(|_| [bgr[0], bgr[1], bgr[2], 0]).collect()
+        (0..w * h)
+            .flat_map(|_| [bgr[0], bgr[1], bgr[2], 0])
+            .collect()
     }
 
     #[test]
@@ -266,7 +299,14 @@ mod tests {
     #[test]
     fn colours_are_swapped_to_rgb() {
         let px = solid(2, 2, [10, 20, 30]); // B=10 G=20 R=30
-        let (rgb, w, h) = to_rgb_scaled(&Raw { width: 2, height: 2, bgrx: &px }, 2);
+        let (rgb, w, h) = to_rgb_scaled(
+            &Raw {
+                width: 2,
+                height: 2,
+                bgrx: &px,
+            },
+            2,
+        );
         assert_eq!((w, h), (2, 2));
         assert_eq!(&rgb[..3], &[30, 20, 10]);
     }
@@ -281,19 +321,40 @@ mod tests {
                 px.extend_from_slice(&[v, v, v, 0]);
             }
         }
-        let (rgb, w, h) = to_rgb_scaled(&Raw { width: 8, height: 4, bgrx: &px }, 4);
+        let (rgb, w, h) = to_rgb_scaled(
+            &Raw {
+                width: 8,
+                height: 4,
+                bgrx: &px,
+            },
+            4,
+        );
         assert_eq!((w, h), (4, 2));
         assert_eq!(rgb[0], 0);
         assert_eq!(rgb[(3 * 3) as usize], 255);
         // Asking for more than the screen has gives the screen size.
-        let (_, w2, h2) = to_rgb_scaled(&Raw { width: 8, height: 4, bgrx: &px }, 100);
+        let (_, w2, h2) = to_rgb_scaled(
+            &Raw {
+                width: 8,
+                height: 4,
+                bgrx: &px,
+            },
+            100,
+        );
         assert_eq!((w2, h2), (8, 4));
     }
 
     #[test]
     fn a_jpeg_comes_out_with_the_magic_bytes() {
         let px = solid(32, 20, [200, 100, 50]);
-        let (rgb, w, h) = to_rgb_scaled(&Raw { width: 32, height: 20, bgrx: &px }, 32);
+        let (rgb, w, h) = to_rgb_scaled(
+            &Raw {
+                width: 32,
+                height: 20,
+                bgrx: &px,
+            },
+            32,
+        );
         let mut out = Vec::new();
         jpeg_encoder::Encoder::new(&mut out, 70)
             .encode(&rgb, w as u16, h as u16, jpeg_encoder::ColorType::Rgb)

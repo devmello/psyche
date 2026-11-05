@@ -9,15 +9,16 @@ use std::time::{Duration, Instant};
 
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{
-    self, AtomEnum, ChangeWindowAttributesAux, ClientMessageEvent, ConfigWindow, ConfigureNotifyEvent,
-    ConfigureWindowAux, ConnectionExt, EventMask, InputFocus, PropMode, StackMode, Window,
+    self, AtomEnum, ChangeWindowAttributesAux, ClientMessageEvent, ConfigWindow,
+    ConfigureNotifyEvent, ConfigureWindowAux, ConnectionExt, EventMask, InputFocus, PropMode,
+    StackMode, Window,
 };
 use x11rb::protocol::Event;
 use x11rb::rust_connection::RustConnection;
 use x11rb::wrapper::ConnectionExt as _;
 use x11rb::{atom_manager, CURRENT_TIME, NONE};
 
-use super::wm::{FocusMethod, Rect, WinId, Wm, WindowInfo, WindowKind, WmAction, WmEvent};
+use super::wm::{FocusMethod, Rect, WinId, WindowInfo, WindowKind, Wm, WmAction, WmEvent};
 
 atom_manager! {
     pub Atoms: AtomsCookie {
@@ -90,7 +91,10 @@ impl WmDriver {
     pub fn start(conn: Arc<RustConnection>, screen_num: usize) -> Result<Arc<WmDriver>, String> {
         let screen = &conn.setup().roots[screen_num];
         let root = screen.root;
-        let (w, h) = (u32::from(screen.width_in_pixels), u32::from(screen.height_in_pixels));
+        let (w, h) = (
+            u32::from(screen.width_in_pixels),
+            u32::from(screen.height_in_pixels),
+        );
         let atoms = Atoms::new(&*conn)
             .map_err(|e| e.to_string())?
             .reply()
@@ -143,9 +147,21 @@ impl WmDriver {
             &xproto::CreateWindowAux::new(),
         )?;
         for win in [self.root, check] {
-            c.change_property32(PropMode::REPLACE, win, a._NET_SUPPORTING_WM_CHECK, AtomEnum::WINDOW, &[check])?;
+            c.change_property32(
+                PropMode::REPLACE,
+                win,
+                a._NET_SUPPORTING_WM_CHECK,
+                AtomEnum::WINDOW,
+                &[check],
+            )?;
         }
-        c.change_property8(PropMode::REPLACE, check, a._NET_WM_NAME, a.UTF8_STRING, b"psyche-vscreen")?;
+        c.change_property8(
+            PropMode::REPLACE,
+            check,
+            a._NET_WM_NAME,
+            a.UTF8_STRING,
+            b"psyche-vscreen",
+        )?;
         let supported = [
             a._NET_SUPPORTED,
             a._NET_SUPPORTING_WM_CHECK,
@@ -156,10 +172,34 @@ impl WmDriver {
             a._NET_CURRENT_DESKTOP,
             a._NET_DESKTOP_GEOMETRY,
         ];
-        c.change_property32(PropMode::REPLACE, self.root, a._NET_SUPPORTED, AtomEnum::ATOM, &supported)?;
-        c.change_property32(PropMode::REPLACE, self.root, a._NET_NUMBER_OF_DESKTOPS, AtomEnum::CARDINAL, &[1])?;
-        c.change_property32(PropMode::REPLACE, self.root, a._NET_CURRENT_DESKTOP, AtomEnum::CARDINAL, &[0])?;
-        c.change_property32(PropMode::REPLACE, self.root, a._NET_DESKTOP_GEOMETRY, AtomEnum::CARDINAL, &[w, h])?;
+        c.change_property32(
+            PropMode::REPLACE,
+            self.root,
+            a._NET_SUPPORTED,
+            AtomEnum::ATOM,
+            &supported,
+        )?;
+        c.change_property32(
+            PropMode::REPLACE,
+            self.root,
+            a._NET_NUMBER_OF_DESKTOPS,
+            AtomEnum::CARDINAL,
+            &[1],
+        )?;
+        c.change_property32(
+            PropMode::REPLACE,
+            self.root,
+            a._NET_CURRENT_DESKTOP,
+            AtomEnum::CARDINAL,
+            &[0],
+        )?;
+        c.change_property32(
+            PropMode::REPLACE,
+            self.root,
+            a._NET_DESKTOP_GEOMETRY,
+            AtomEnum::CARDINAL,
+            &[w, h],
+        )?;
         c.flush()?;
         Ok(())
     }
@@ -169,11 +209,7 @@ impl WmDriver {
     }
 
     fn run(&self) {
-        loop {
-            let event = match self.conn.wait_for_event() {
-                Ok(e) => e,
-                Err(_) => break,
-            };
+        while let Ok(event) = self.conn.wait_for_event() {
             self.dispatch(event);
             while let Ok(Some(e)) = self.conn.poll_for_event() {
                 self.dispatch(e);
@@ -201,17 +237,40 @@ impl WmDriver {
                 let mask = e.value_mask;
                 let cur = self.geometry(e.window).unwrap_or(Rect::new(0, 0, 1, 1));
                 let rect = Rect::new(
-                    if mask.contains(ConfigWindow::X) { i32::from(e.x) } else { cur.x },
-                    if mask.contains(ConfigWindow::Y) { i32::from(e.y) } else { cur.y },
-                    if mask.contains(ConfigWindow::WIDTH) { u32::from(e.width) } else { cur.w },
-                    if mask.contains(ConfigWindow::HEIGHT) { u32::from(e.height) } else { cur.h },
+                    if mask.contains(ConfigWindow::X) {
+                        i32::from(e.x)
+                    } else {
+                        cur.x
+                    },
+                    if mask.contains(ConfigWindow::Y) {
+                        i32::from(e.y)
+                    } else {
+                        cur.y
+                    },
+                    if mask.contains(ConfigWindow::WIDTH) {
+                        u32::from(e.width)
+                    } else {
+                        cur.w
+                    },
+                    if mask.contains(ConfigWindow::HEIGHT) {
+                        u32::from(e.height)
+                    } else {
+                        cur.h
+                    },
                 );
-                self.feed(WmEvent::ConfigureRequest { win: e.window, rect });
+                self.feed(WmEvent::ConfigureRequest {
+                    win: e.window,
+                    rect,
+                });
             }
             Event::UnmapNotify(e) => self.feed(WmEvent::Gone(e.window)),
             Event::DestroyNotify(e) => self.feed(WmEvent::Gone(e.window)),
             Event::PropertyNotify(e) => {
-                let known = self.wm.lock().unwrap_or_else(|p| p.into_inner()).is_managed(e.window);
+                let known = self
+                    .wm
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner())
+                    .is_managed(e.window);
                 if known {
                     if let Some(info) = self.read_info(e.window) {
                         self.feed(WmEvent::InfoChanged(info));
@@ -231,7 +290,12 @@ impl WmDriver {
 
     fn geometry(&self, win: Window) -> Option<Rect> {
         let g = self.conn.get_geometry(win).ok()?.reply().ok()?;
-        Some(Rect::new(i32::from(g.x), i32::from(g.y), u32::from(g.width), u32::from(g.height)))
+        Some(Rect::new(
+            i32::from(g.x),
+            i32::from(g.y),
+            u32::from(g.width),
+            u32::from(g.height),
+        ))
     }
 
     fn get_u32s(&self, win: Window, prop: u32, ty: impl Into<u32>, max: u32) -> Vec<u32> {
@@ -314,13 +378,20 @@ impl WmDriver {
         info.supports_take_focus = protocols.contains(&a.WM_TAKE_FOCUS);
         info.supports_delete = protocols.contains(&a.WM_DELETE_WINDOW);
         info.title = self.read_title(win);
-        info.pid = self.get_u32s(win, a._NET_WM_PID, AtomEnum::CARDINAL, 1).first().copied();
+        info.pid = self
+            .get_u32s(win, a._NET_WM_PID, AtomEnum::CARDINAL, 1)
+            .first()
+            .copied();
         Some(info)
     }
 
     fn feed(&self, event: WmEvent) {
         let mapped = matches!(event, WmEvent::MapRequest(_));
-        let gone = if let WmEvent::Gone(w) = &event { Some(*w) } else { None };
+        let gone = if let WmEvent::Gone(w) = &event {
+            Some(*w)
+        } else {
+            None
+        };
         let mut wm = self.wm.lock().unwrap_or_else(|p| p.into_inner());
         let actions = wm.handle(event);
         self.apply(&actions);
@@ -397,10 +468,16 @@ impl WmDriver {
                     let _ = c.map_window(*win);
                 }
                 WmAction::Raise(win) => {
-                    let _ = c.configure_window(*win, &ConfigureWindowAux::new().stack_mode(StackMode::ABOVE));
+                    let _ = c.configure_window(
+                        *win,
+                        &ConfigureWindowAux::new().stack_mode(StackMode::ABOVE),
+                    );
                 }
                 WmAction::Lower(win) => {
-                    let _ = c.configure_window(*win, &ConfigureWindowAux::new().stack_mode(StackMode::BELOW));
+                    let _ = c.configure_window(
+                        *win,
+                        &ConfigureWindowAux::new().stack_mode(StackMode::BELOW),
+                    );
                 }
                 WmAction::Focus { win, method } => match method {
                     FocusMethod::SetInputFocus => {
@@ -411,15 +488,27 @@ impl WmDriver {
                     }
                     FocusMethod::Nothing => {}
                 },
-                WmAction::RequestClose { win, supports_delete } => {
+                WmAction::RequestClose {
+                    win,
+                    supports_delete,
+                } => {
                     if *supports_delete {
                         self.send_protocol(*win, a.WM_DELETE_WINDOW);
                     } else {
                         let _ = c.kill_client(*win);
                     }
                 }
-                WmAction::Publish { client_list, active } => {
-                    let _ = c.change_property32(PropMode::REPLACE, self.root, a._NET_CLIENT_LIST, AtomEnum::WINDOW, client_list);
+                WmAction::Publish {
+                    client_list,
+                    active,
+                } => {
+                    let _ = c.change_property32(
+                        PropMode::REPLACE,
+                        self.root,
+                        a._NET_CLIENT_LIST,
+                        AtomEnum::WINDOW,
+                        client_list,
+                    );
                     let _ = c.change_property32(
                         PropMode::REPLACE,
                         self.root,
@@ -434,7 +523,12 @@ impl WmDriver {
     }
 
     fn send_protocol(&self, win: Window, protocol: u32) {
-        let ev = ClientMessageEvent::new(32, win, self.atoms.WM_PROTOCOLS, [protocol, CURRENT_TIME, 0, 0, 0]);
+        let ev = ClientMessageEvent::new(
+            32,
+            win,
+            self.atoms.WM_PROTOCOLS,
+            [protocol, CURRENT_TIME, 0, 0, 0],
+        );
         let _ = self.conn.send_event(false, win, EventMask::NO_EVENT, ev);
         let _ = self.conn.flush();
     }
@@ -443,7 +537,11 @@ impl WmDriver {
 
     /// Mapped top-levels, oldest first.
     pub fn windows(&self) -> Vec<WindowRecord> {
-        self.table.lock().unwrap_or_else(|p| p.into_inner()).windows.clone()
+        self.table
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .windows
+            .clone()
     }
 
     pub fn active(&self) -> Option<WinId> {

@@ -47,7 +47,12 @@ pub fn runtime_dir(xdg_runtime_dir: Option<&str>) -> std::io::Result<PathBuf> {
 }
 
 /// Writes the authority file (0600, replacing any older one).
-pub fn write_file(path: &Path, hostname: &str, display_number: u32, cookie: &Cookie) -> std::io::Result<()> {
+pub fn write_file(
+    path: &Path,
+    hostname: &str,
+    display_number: u32,
+    cookie: &Cookie,
+) -> std::io::Result<()> {
     let _ = std::fs::remove_file(path);
     let mut file = std::fs::OpenOptions::new()
         .write(true)
@@ -84,11 +89,17 @@ mod tests {
     fn the_file_is_private_and_the_dir_too() {
         let dir = tempfile::tempdir().unwrap();
         let rt = runtime_dir(Some(dir.path().to_str().unwrap())).unwrap();
-        assert_eq!(std::fs::metadata(&rt).unwrap().permissions().mode() & 0o777, 0o700);
+        assert_eq!(
+            std::fs::metadata(&rt).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
         let file = rt.join("xauth-90");
         write_file(&file, "box", 90, &[1u8; 16]).unwrap();
         write_file(&file, "box", 90, &[2u8; 16]).unwrap();
-        assert_eq!(std::fs::metadata(&file).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            std::fs::metadata(&file).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
     }
 
     #[test]

@@ -18,7 +18,7 @@ use super::capture::Capturer;
 use super::input::{Button, Input};
 use super::wmdriver::{WindowRecord, WmDriver};
 use super::xauth::AUTH_NAME;
-use super::xvfb::{socket_path, XvfbConfig, XvfbServer};
+use super::xvfb::{connect_stream, XvfbConfig, XvfbServer};
 
 pub use super::xvfb::XvfbConfig as DisplayConfig;
 
@@ -35,9 +35,8 @@ pub struct VirtualDisplay {
 }
 
 fn connect(display_number: u32, cookie: [u8; 16]) -> Result<Arc<RustConnection>, String> {
-    use x11rb_protocol::parse_display::ConnectAddress;
-    let path = socket_path(display_number).to_string_lossy().into_owned();
-    let (stream, _) = DefaultStream::connect(&ConnectAddress::Socket(path)).map_err(|e| e.to_string())?;
+    let unix = connect_stream(display_number).map_err(|e| e.to_string())?;
+    let (stream, _) = DefaultStream::from_unix_stream(unix).map_err(|e| e.to_string())?;
     RustConnection::connect_to_stream_with_auth_info(stream, 0, AUTH_NAME.to_vec(), cookie.to_vec())
         .map(Arc::new)
         .map_err(|e| e.to_string())
@@ -66,7 +65,11 @@ impl VirtualDisplay {
     }
 
     pub fn is_alive(&self) -> bool {
-        self.xvfb.lock().unwrap_or_else(|p| p.into_inner()).is_running() && self.driver.is_alive()
+        self.xvfb
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .is_running()
+            && self.driver.is_alive()
     }
 
     pub fn xvfb_pid(&self) -> u32 {
@@ -100,11 +103,18 @@ impl VirtualDisplay {
 
     /// The screen's change counter, capturing first when the last capture is older than `max_age`.
     pub fn frame_seq(&self, max_age: Duration) -> Result<u64, String> {
-        self.capturer.lock().unwrap_or_else(|p| p.into_inner()).refresh(max_age)
+        self.capturer
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .refresh(max_age)
     }
 
     /// `(seq, jpeg, width, height)` of the current screen.
-    pub fn frame(&self, max_width: Option<u32>, max_age: Duration) -> Result<(u64, Vec<u8>, u32, u32), String> {
+    pub fn frame(
+        &self,
+        max_width: Option<u32>,
+        max_age: Duration,
+    ) -> Result<(u64, Vec<u8>, u32, u32), String> {
         let mut cap = self.capturer.lock().unwrap_or_else(|p| p.into_inner());
         let seq = cap.refresh(max_age)?;
         let (jpeg, w, h) = cap.jpeg(max_width, 70)?;
@@ -112,7 +122,10 @@ impl VirtualDisplay {
     }
 
     pub fn uses_shm(&self) -> bool {
-        self.capturer.lock().unwrap_or_else(|p| p.into_inner()).uses_shm()
+        self.capturer
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .uses_shm()
     }
 
     // ---- input ----

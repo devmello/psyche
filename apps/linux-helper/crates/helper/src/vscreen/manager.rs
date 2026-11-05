@@ -17,9 +17,7 @@ use std::sync::{Arc, Mutex, Weak};
 use std::time::{Duration, Instant};
 
 use super::display::{DisplayConfig, VirtualDisplay};
-use super::guard::{
-    check_before_launch, resolve_exe, BusctlBus, ProcFs, Procs, SessionBus,
-};
+use super::guard::{check_before_launch, resolve_exe, BusctlBus, ProcFs, Procs, SessionBus};
 use super::input::Button;
 use super::recipes::{
     application_dirs, copy_profile, find_desktop_entry, firefox_profile_from_ini, launch_spec,
@@ -39,7 +37,10 @@ pub struct VsError {
 
 impl VsError {
     fn new(reason: &'static str, message: impl Into<String>) -> Self {
-        Self { reason, message: message.into() }
+        Self {
+            reason,
+            message: message.into(),
+        }
     }
 }
 
@@ -74,10 +75,19 @@ impl Config {
             .or_else(|| memory_from_file(&state))
             .unwrap_or_else(|| DEFAULT_MEMORY_HIGH.to_string());
         Self {
-            app_dirs: application_dirs(&home, env.get("XDG_DATA_HOME").as_deref(), env.get("XDG_DATA_DIRS").as_deref()),
-            path_var: env.get("PATH").unwrap_or_else(|| "/usr/local/bin:/usr/bin:/bin".into()),
+            app_dirs: application_dirs(
+                &home,
+                env.get("XDG_DATA_HOME").as_deref(),
+                env.get("XDG_DATA_DIRS").as_deref(),
+            ),
+            path_var: env
+                .get("PATH")
+                .unwrap_or_else(|| "/usr/local/bin:/usr/bin:/bin".into()),
             xdg_runtime_dir: env.get("XDG_RUNTIME_DIR"),
-            first_display: env.get("PSYCHE_VSCREEN_FIRST_DISPLAY").and_then(|v| v.parse().ok()).unwrap_or(90),
+            first_display: env
+                .get("PSYCHE_VSCREEN_FIRST_DISPLAY")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(90),
             xvfb_path: env.get("PSYCHE_XVFB").unwrap_or_else(|| "Xvfb".into()),
             width: 1280,
             height: 800,
@@ -239,7 +249,10 @@ impl VscreenManager {
     // ---- the display ----
 
     /// Starts the display if it is not up. The first caller pays for Xvfb.
-    pub fn ensure_display(self: &Arc<Self>, size: Option<(u32, u32)>) -> Result<Arc<VirtualDisplay>, VsError> {
+    pub fn ensure_display(
+        self: &Arc<Self>,
+        size: Option<(u32, u32)>,
+    ) -> Result<Arc<VirtualDisplay>, VsError> {
         let mut inner = lock(&self.inner);
         if let Some(d) = &inner.display {
             if d.is_alive() {
@@ -258,7 +271,11 @@ impl VscreenManager {
         let display = VirtualDisplay::start(&cfg).map_err(|e| {
             let missing = e.contains("could not start");
             VsError::new(
-                if missing { "xvfb_missing" } else { "display_failed" },
+                if missing {
+                    "xvfb_missing"
+                } else {
+                    "display_failed"
+                },
                 if missing {
                     "The virtual screen needs Xvfb, which is not installed."
                 } else {
@@ -313,20 +330,30 @@ impl VscreenManager {
     /// Opens a desktop-file app on the virtual screen. This is what `apps.open { surface:
     /// "virtual_screen" }` calls.
     pub fn open_app(self: &Arc<Self>, desktop_id: &str) -> Result<Opened, VsError> {
-        let entry = find_desktop_entry(desktop_id, &self.config.app_dirs)
-            .ok_or_else(|| VsError::new("app_not_found", format!("No app called {desktop_id} is installed.")))?;
-        let exe = resolve_exe(&entry, &self.config.path_var);
-        // Before anything starts: is it already open on the owner's screen?
-        check_before_launch(&entry, exe.as_deref(), &*self.deps.bus, &*self.deps.procs).map_err(|_| {
+        let entry = find_desktop_entry(desktop_id, &self.config.app_dirs).ok_or_else(|| {
             VsError::new(
-                "already_open_on_your_screen",
-                format!("{} is already open on your screen. Use your own screen for it instead.", entry.name),
+                "app_not_found",
+                format!("No app called {desktop_id} is installed."),
             )
         })?;
+        let exe = resolve_exe(&entry, &self.config.path_var);
+        // Before anything starts: is it already open on the owner's screen?
+        check_before_launch(&entry, exe.as_deref(), &*self.deps.bus, &*self.deps.procs).map_err(
+            |_| {
+                VsError::new(
+                    "already_open_on_your_screen",
+                    format!(
+                        "{} is already open on your screen. Use your own screen for it instead.",
+                        entry.name
+                    ),
+                )
+            },
+        )?;
         let display = self.ensure_display(None)?;
         self.touch();
 
-        let firefox_profile = if recipe_for(&entry.id).is_some_and(|r| r.family == Family::Firefox) {
+        let firefox_profile = if recipe_for(&entry.id).is_some_and(|r| r.family == Family::Firefox)
+        {
             Some(self.firefox_profile_copy()?)
         } else {
             None
@@ -347,26 +374,46 @@ impl VscreenManager {
         let child = self
             .deps
             .runner
-            .spawn(&unit, &format!("Psyche virtual screen: {}", entry.name), &spec)
-            .map_err(|e| VsError::new("launch_failed", "The app could not be started.").with_detail(&e))?;
+            .spawn(
+                &unit,
+                &format!("Psyche virtual screen: {}", entry.name),
+                &spec,
+            )
+            .map_err(|e| {
+                VsError::new("launch_failed", "The app could not be started.").with_detail(&e)
+            })?;
         let root_pid = child.id();
         {
             let mut inner = lock(&self.inner);
-            inner.apps.push(AppRec { app_id: entry.id.clone(), unit: unit.clone(), child, root_pid, unsaved: false });
+            inner.apps.push(AppRec {
+                app_id: entry.id.clone(),
+                unit: unit.clone(),
+                child,
+                root_pid,
+                unsaved: false,
+            });
             if !inner.limited {
                 inner.limited = true;
                 self.deps.runner.limit_slice(&self.config.memory_high);
             }
         }
         match display.wait_for_window(serial, self.config.launch_wait, |_| true) {
-            Some(win) => Ok(Opened { app_id: entry.id, pid: win.pid.unwrap_or(root_pid), unit, window_title: win.title }),
+            Some(win) => Ok(Opened {
+                app_id: entry.id,
+                pid: win.pid.unwrap_or(root_pid),
+                unit,
+                window_title: win.title,
+            }),
             None => {
                 // No window on our display: the app handed its work to an instance somewhere
                 // else, or it never opened one. Undo the launch so nothing is left behind.
                 self.drop_app(&unit);
                 Err(VsError::new(
                     "opened_elsewhere",
-                    format!("{} did not open on the virtual screen, so it was stopped.", entry.name),
+                    format!(
+                        "{} did not open on the virtual screen, so it was stopped.",
+                        entry.name
+                    ),
                 ))
             }
         }
@@ -390,8 +437,12 @@ impl VscreenManager {
         }
         let bases = [
             self.config.home.join(".mozilla/firefox"),
-            self.config.home.join("snap/firefox/common/.mozilla/firefox"),
-            self.config.home.join(".var/app/org.mozilla.firefox/.mozilla/firefox"),
+            self.config
+                .home
+                .join("snap/firefox/common/.mozilla/firefox"),
+            self.config
+                .home
+                .join(".var/app/org.mozilla.firefox/.mozilla/firefox"),
         ];
         let source = bases.iter().find_map(|base| {
             let ini = std::fs::read_to_string(base.join("profiles.ini")).ok()?;
@@ -401,7 +452,10 @@ impl VscreenManager {
             Some(src) => copy_profile(&src, &dest),
             None => std::fs::create_dir_all(&dest),
         };
-        result.map_err(|e| VsError::new("launch_failed", "Firefox's profile could not be prepared.").with_detail(&e.to_string()))?;
+        result.map_err(|e| {
+            VsError::new("launch_failed", "Firefox's profile could not be prepared.")
+                .with_detail(&e.to_string())
+        })?;
         Ok(dest)
     }
 
@@ -410,7 +464,10 @@ impl VscreenManager {
     fn app_of_window(&self, apps: &[AppRec], win: &WindowRecord) -> Option<usize> {
         if let Some(pid) = win.pid {
             let cg = self.deps.procs.cgroup_text(pid);
-            if let Some(i) = apps.iter().position(|a| cg.contains(&format!("{}.scope", a.unit))) {
+            if let Some(i) = apps
+                .iter()
+                .position(|a| cg.contains(&format!("{}.scope", a.unit)))
+            {
                 return Some(i);
             }
             if let Some(i) = apps.iter().position(|a| a.root_pid == pid) {
@@ -428,7 +485,12 @@ impl VscreenManager {
                 .iter()
                 .map(|a| (a.app_id.clone(), a.root_pid, a.unsaved, a.unit.clone()))
                 .collect();
-            (inner.display.clone(), apps, inner.started_at_wall, inner.owner_input_at)
+            (
+                inner.display.clone(),
+                apps,
+                inner.started_at_wall,
+                inner.owner_input_at,
+            )
         };
         let Some(display) = display else {
             return Status {
@@ -489,15 +551,29 @@ impl VscreenManager {
     pub fn frame(&self, since: Option<u64>, max_width: Option<u32>) -> Result<Frame, VsError> {
         let display = self.current_display()?;
         let age = Duration::from_millis(100);
-        let seq = display.frame_seq(age).map_err(|e| VsError::new("capture_failed", "The screen could not be read.").with_detail(&e))?;
+        let seq = display.frame_seq(age).map_err(|e| {
+            VsError::new("capture_failed", "The screen could not be read.").with_detail(&e)
+        })?;
         if since == Some(seq) {
-            return Ok(Frame { changed: false, frame_seq: seq, jpeg: None, width: display.width, height: display.height });
+            return Ok(Frame {
+                changed: false,
+                frame_seq: seq,
+                jpeg: None,
+                width: display.width,
+                height: display.height,
+            });
         }
-        let (seq, jpeg, w, h) = display
-            .frame(max_width, age)
-            .map_err(|e| VsError::new("capture_failed", "The screen could not be read.").with_detail(&e))?;
+        let (seq, jpeg, w, h) = display.frame(max_width, age).map_err(|e| {
+            VsError::new("capture_failed", "The screen could not be read.").with_detail(&e)
+        })?;
         lock(&self.inner).last_frame_width = Some(w);
-        Ok(Frame { changed: true, frame_seq: seq, jpeg: Some(jpeg), width: w, height: h })
+        Ok(Frame {
+            changed: true,
+            frame_seq: seq,
+            jpeg: Some(jpeg),
+            width: w,
+            height: h,
+        })
     }
 
     fn current_display(&self) -> Result<Arc<VirtualDisplay>, VsError> {
@@ -517,11 +593,16 @@ impl VscreenManager {
             let mut inner = lock(&self.inner);
             inner.owner_input_at = Some(Instant::now());
             inner.last_activity = Instant::now();
-            inner.last_frame_width.map(|w| f64::from(display.width) / f64::from(w.max(1))).unwrap_or(1.0)
+            inner
+                .last_frame_width
+                .map(|w| f64::from(display.width) / f64::from(w.max(1)))
+                .unwrap_or(1.0)
         };
         self.idle.touch();
         let at = |x: f64, y: f64| ((x * scale).round() as i32, (y * scale).round() as i32);
-        let fail = |e: String| VsError::new("input_failed", "The input could not be sent.").with_detail(&e);
+        let fail = |e: String| {
+            VsError::new("input_failed", "The input could not be sent.").with_detail(&e)
+        };
         for event in events {
             match event {
                 InputEvent::Move { x, y } => {
@@ -537,7 +618,9 @@ impl VscreenManager {
                 }
                 InputEvent::Scroll { x, y, dx, dy } => {
                     let (x, y) = at(*x, *y);
-                    display.with_input(|i| i.scroll(x, y, *dx, *dy)).map_err(fail)?;
+                    display
+                        .with_input(|i| i.scroll(x, y, *dx, *dy))
+                        .map_err(fail)?;
                 }
                 InputEvent::KeyDown(k) => display.with_input(|i| i.key(k, true)).map_err(fail)?,
                 InputEvent::KeyUp(k) => display.with_input(|i| i.key(k, false)).map_err(fail)?,
@@ -552,22 +635,25 @@ impl VscreenManager {
     pub fn agent_click(&self, x: i32, y: i32, button: Button) -> Result<(), VsError> {
         self.refuse_if_owner_drives()?;
         self.touch();
-        self.current_display()?
-            .click(x, y, button)
-            .map_err(|e| VsError::new("input_failed", "The click could not be sent.").with_detail(&e))
+        self.current_display()?.click(x, y, button).map_err(|e| {
+            VsError::new("input_failed", "The click could not be sent.").with_detail(&e)
+        })
     }
 
     pub fn agent_type(&self, text: &str) -> Result<(), VsError> {
         self.refuse_if_owner_drives()?;
         self.touch();
-        self.current_display()?
-            .type_text(text)
-            .map_err(|e| VsError::new("input_failed", "The text could not be typed.").with_detail(&e))
+        self.current_display()?.type_text(text).map_err(|e| {
+            VsError::new("input_failed", "The text could not be typed.").with_detail(&e)
+        })
     }
 
     fn refuse_if_owner_drives(&self) -> Result<(), VsError> {
         if self.owner_is_driving() {
-            Err(VsError::new("taken_over", "You are driving the virtual screen, so Psyche is paused."))
+            Err(VsError::new(
+                "taken_over",
+                "You are driving the virtual screen, so Psyche is paused.",
+            ))
         } else {
             Ok(())
         }
@@ -579,7 +665,10 @@ impl VscreenManager {
     /// that keeps its window (a "Save changes?" dialog) is not forced and the screen stays up.
     pub fn stop(&self, close_apps: bool, force: bool) -> Result<StopOutcome, VsError> {
         let Some(display) = lock(&self.inner).display.clone() else {
-            return Ok(StopOutcome { stopped: true, unsaved: Vec::new() });
+            return Ok(StopOutcome {
+                stopped: true,
+                unsaved: Vec::new(),
+            });
         };
         self.touch();
         if close_apps && !force {
@@ -605,13 +694,19 @@ impl VscreenManager {
                 }
             }
             if !unsaved.is_empty() {
-                return Ok(StopOutcome { stopped: false, unsaved });
+                return Ok(StopOutcome {
+                    stopped: false,
+                    unsaved,
+                });
             }
         }
         let mut inner = lock(&self.inner);
         Self::teardown_locked(&mut inner, &*self.deps.runner);
         crate::log("vscreen: stopped");
-        Ok(StopOutcome { stopped: true, unsaved: Vec::new() })
+        Ok(StopOutcome {
+            stopped: true,
+            unsaved: Vec::new(),
+        })
     }
 
     /// Stops everything now (the helper is exiting).
@@ -645,9 +740,15 @@ fn watchdog(weak: Weak<VscreenManager>, every: Duration) {
         let snapshot: Vec<usize> = (0..apps.len()).collect();
         for (idx, mut app) in apps.into_iter().enumerate() {
             let exited = matches!(app.child.try_wait(), Ok(Some(_)));
-            let has_window = windows
-                .iter()
-                .any(|w| w.pid == Some(app.root_pid) || w.pid.is_some_and(|p| m.deps.procs.cgroup_text(p).contains(&format!("{}.scope", app.unit))));
+            let has_window = windows.iter().any(|w| {
+                w.pid == Some(app.root_pid)
+                    || w.pid.is_some_and(|p| {
+                        m.deps
+                            .procs
+                            .cgroup_text(p)
+                            .contains(&format!("{}.scope", app.unit))
+                    })
+            });
             let _ = (&snapshot, idx);
             if exited && !has_window {
                 m.deps.runner.stop(&app.unit);

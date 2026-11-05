@@ -169,7 +169,13 @@ impl Input {
             syms: m.keysyms,
         };
         let shift_code = keymap.find(XK_SHIFT_L).map(|c| c.keycode);
-        Ok(Self { conn, root, keymap, shift_code, held: HashSet::new() })
+        Ok(Self {
+            conn,
+            root,
+            keymap,
+            shift_code,
+            held: HashSet::new(),
+        })
     }
 
     fn fake(&self, kind: u8, detail: u8, x: i16, y: i16) -> Result<(), String> {
@@ -184,12 +190,22 @@ impl Input {
     }
 
     pub fn move_to(&self, x: i32, y: i32) -> Result<(), String> {
-        self.fake(MOTION_NOTIFY, 0, x.clamp(0, 32766) as i16, y.clamp(0, 32766) as i16)?;
+        self.fake(
+            MOTION_NOTIFY,
+            0,
+            x.clamp(0, 32766) as i16,
+            y.clamp(0, 32766) as i16,
+        )?;
         self.flush()
     }
 
     pub fn button(&self, button: Button, down: bool) -> Result<(), String> {
-        self.fake(if down { BUTTON_PRESS } else { BUTTON_RELEASE }, button.code(), 0, 0)?;
+        self.fake(
+            if down { BUTTON_PRESS } else { BUTTON_RELEASE },
+            button.code(),
+            0,
+            0,
+        )?;
         self.flush()
     }
 
@@ -202,7 +218,8 @@ impl Input {
     /// Wheel notches: positive `dy` scrolls down, positive `dx` right.
     pub fn scroll(&self, x: i32, y: i32, dx: f64, dy: f64) -> Result<(), String> {
         self.move_to(x, y)?;
-        let notches = |d: f64| ((d.abs() / 100.0).ceil() as u32).clamp(if d == 0.0 { 0 } else { 1 }, 20);
+        let notches =
+            |d: f64| ((d.abs() / 100.0).ceil() as u32).clamp(if d == 0.0 { 0 } else { 1 }, 20);
         for (delta, plus, minus) in [(dy, 5u8, 4u8), (dx, 7u8, 6u8)] {
             let code = if delta > 0.0 { plus } else { minus };
             for _ in 0..notches(delta) {
@@ -214,13 +231,17 @@ impl Input {
     }
 
     fn press_choice(&mut self, choice: KeyChoice, down: bool) -> Result<(), String> {
-        let shift_needed = choice.shift
-            && down
-            && self.shift_code.is_some_and(|s| !self.held.contains(&s));
+        let shift_needed =
+            choice.shift && down && self.shift_code.is_some_and(|s| !self.held.contains(&s));
         if shift_needed {
             self.fake(KEY_PRESS, self.shift_code.expect("checked"), 0, 0)?;
         }
-        self.fake(if down { KEY_PRESS } else { KEY_RELEASE }, choice.keycode, 0, 0)?;
+        self.fake(
+            if down { KEY_PRESS } else { KEY_RELEASE },
+            choice.keycode,
+            0,
+            0,
+        )?;
         if down {
             self.held.insert(choice.keycode);
         } else {
@@ -236,10 +257,16 @@ impl Input {
     /// One DOM key going down or up (the take-over).
     pub fn key(&mut self, key: &str, down: bool) -> Result<(), String> {
         let sym = dom_key_to_keysym(key).ok_or_else(|| format!("unknown key {key}"))?;
-        let choice = self.keymap.find(sym).ok_or_else(|| format!("no key for {key}"))?;
+        let choice = self
+            .keymap
+            .find(sym)
+            .ok_or_else(|| format!("no key for {key}"))?;
         // A key the owner holds is a modifier they are managing themselves: no extra shift.
         let choice = if self.held.contains(&self.shift_code.unwrap_or(0)) {
-            KeyChoice { shift: false, ..choice }
+            KeyChoice {
+                shift: false,
+                ..choice
+            }
         } else {
             choice
         };
@@ -319,10 +346,34 @@ mod tests {
     #[test]
     fn plain_and_shifted_characters_find_their_keys() {
         let m = map();
-        assert_eq!(m.find(0x61), Some(KeyChoice { keycode: 8, shift: false }));
-        assert_eq!(m.find(0x41), Some(KeyChoice { keycode: 8, shift: true }));
-        assert_eq!(m.find(0x21), Some(KeyChoice { keycode: 9, shift: true }));
-        assert_eq!(m.find(XK_RETURN), Some(KeyChoice { keycode: 11, shift: false }));
+        assert_eq!(
+            m.find(0x61),
+            Some(KeyChoice {
+                keycode: 8,
+                shift: false
+            })
+        );
+        assert_eq!(
+            m.find(0x41),
+            Some(KeyChoice {
+                keycode: 8,
+                shift: true
+            })
+        );
+        assert_eq!(
+            m.find(0x21),
+            Some(KeyChoice {
+                keycode: 9,
+                shift: true
+            })
+        );
+        assert_eq!(
+            m.find(XK_RETURN),
+            Some(KeyChoice {
+                keycode: 11,
+                shift: false
+            })
+        );
         assert_eq!(m.find(0x20ac), None);
         assert_eq!(m.find(0), None);
     }

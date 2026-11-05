@@ -74,9 +74,8 @@ fn strip_field_codes(word: &str) -> Option<String> {
             out.push(c);
             continue;
         }
-        match chars.next() {
-            Some('%') => out.push('%'),
-            Some(_) | None => {}
+        if let Some('%') = chars.next() {
+            out.push('%');
         }
     }
     (!out.is_empty() || word.is_empty()).then_some(out)
@@ -130,7 +129,11 @@ pub fn parse_desktop_entry(id: &str, text: &str) -> Option<DesktopEntry> {
 }
 
 /// `applications` directories, owner's data home first.
-pub fn application_dirs(home: &Path, xdg_data_home: Option<&str>, xdg_data_dirs: Option<&str>) -> Vec<PathBuf> {
+pub fn application_dirs(
+    home: &Path,
+    xdg_data_home: Option<&str>,
+    xdg_data_dirs: Option<&str>,
+) -> Vec<PathBuf> {
     let data_home = xdg_data_home
         .filter(|d| Path::new(d).is_absolute())
         .map(PathBuf::from)
@@ -323,24 +326,36 @@ pub fn launch_spec(entry: &DesktopEntry, ctx: &LaunchContext) -> Result<LaunchSp
                 Family::ChromiumFamily => "chromium",
                 _ => "electron",
             };
-            argv.push(format!("--user-data-dir={}", data_dir(ctx, kind, &entry.id)));
+            argv.push(format!(
+                "--user-data-dir={}",
+                data_dir(ctx, kind, &entry.id)
+            ));
             argv.push("--ozone-platform=x11".into());
         }
         Family::LibreOffice => {
-            argv.push(format!("-env:UserInstallation=file://{}", data_dir(ctx, "lo", "profile")));
+            argv.push(format!(
+                "-env:UserInstallation=file://{}",
+                data_dir(ctx, "lo", "profile")
+            ));
         }
         Family::Plain => {}
     }
     let env_set = vec![
         ("DISPLAY".to_string(), ctx.display.clone()),
-        ("XAUTHORITY".to_string(), ctx.xauthority.to_string_lossy().into_owned()),
+        (
+            "XAUTHORITY".to_string(),
+            ctx.xauthority.to_string_lossy().into_owned(),
+        ),
         ("GDK_BACKEND".to_string(), "x11".to_string()),
         ("QT_QPA_PLATFORM".to_string(), "xcb".to_string()),
         ("MOZ_ENABLE_WAYLAND".to_string(), "0".to_string()),
         ("SDL_VIDEODRIVER".to_string(), "x11".to_string()),
         // AT-SPI: apps on the session bus are discoverable, and toolkits expose themselves.
         ("GTK_A11Y".to_string(), "atspi".to_string()),
-        ("QT_LINUX_ACCESSIBILITY_ALWAYS_ON".to_string(), "1".to_string()),
+        (
+            "QT_LINUX_ACCESSIBILITY_ALWAYS_ON".to_string(),
+            "1".to_string(),
+        ),
         ("ACCESSIBILITY_ENABLED".to_string(), "1".to_string()),
         ("GNOME_ACCESSIBILITY".to_string(), "1".to_string()),
     ];
@@ -362,7 +377,10 @@ pub fn firefox_profile_from_ini(ini: &str, base: &Path) -> Option<PathBuf> {
         }
     }
     let get = |section: &[(String, String)], key: &str| {
-        section.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone())
+        section
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.clone())
     };
     // The install-specific default beats the profile flagged Default=1.
     let install_default = sections
@@ -374,7 +392,12 @@ pub fn firefox_profile_from_ini(ini: &str, base: &Path) -> Option<PathBuf> {
             .iter()
             .filter(|(n, _)| n.starts_with("Profile"))
             .find(|(_, kv)| get(kv, "Default").as_deref() == Some("1"))
-            .and_then(|(_, kv)| Some((get(kv, "Path")?, get(kv, "IsRelative").as_deref() != Some("0"))))
+            .and_then(|(_, kv)| {
+                Some((
+                    get(kv, "Path")?,
+                    get(kv, "IsRelative").as_deref() != Some("0"),
+                ))
+            })
     })?;
     let (path, relative) = chosen;
     Some(if relative && !path.starts_with('/') {
@@ -388,8 +411,18 @@ pub fn firefox_profile_from_ini(ini: &str, base: &Path) -> Option<PathBuf> {
 pub fn firefox_skip(name: &str) -> bool {
     matches!(
         name,
-        "lock" | ".parentlock" | "parent.lock" | "cache2" | "startupCache" | "crashes" | "minidumps"
-            | "datareporting" | "saved-telemetry-pings" | "storage" | "thumbnails" | "sessionstore-backups"
+        "lock"
+            | ".parentlock"
+            | "parent.lock"
+            | "cache2"
+            | "startupCache"
+            | "crashes"
+            | "minidumps"
+            | "datareporting"
+            | "saved-telemetry-pings"
+            | "storage"
+            | "thumbnails"
+            | "sessionstore-backups"
     )
 }
 
@@ -406,7 +439,10 @@ pub fn copy_profile(src: &Path, dest: &Path) -> std::io::Result<()> {
 
 fn copy_dir(src: &Path, dest: &Path) -> std::io::Result<()> {
     use std::os::unix::fs::DirBuilderExt;
-    std::fs::DirBuilder::new().recursive(true).mode(0o700).create(dest)?;
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(dest)?;
     for item in std::fs::read_dir(src)? {
         let item = item?;
         let name = item.file_name();
@@ -432,7 +468,9 @@ mod tests {
             state_dir: PathBuf::from("/state/psyche-helper"),
             display: ":90".into(),
             xauthority: PathBuf::from("/run/user/1000/psyche/xauth-90"),
-            firefox_profile: Some(PathBuf::from("/state/psyche-helper/vscreen/firefox/profile")),
+            firefox_profile: Some(PathBuf::from(
+                "/state/psyche-helper/vscreen/firefox/profile",
+            )),
         }
     }
 
@@ -455,9 +493,18 @@ mod tests {
     #[test]
     fn exec_lines_lose_their_field_codes_and_keep_their_quotes() {
         assert_eq!(split_exec("firefox %u"), vec!["firefox"]);
-        assert_eq!(split_exec("env FOO=1 /usr/bin/app --new-window %U"), vec!["env", "FOO=1", "/usr/bin/app", "--new-window"]);
-        assert_eq!(split_exec(r#""/opt/My App/app" --name "a b" 100%%"#), vec!["/opt/My App/app", "--name", "a b", "100%"]);
-        assert_eq!(split_exec("gnome-text-editor --gapplication-service"), vec!["gnome-text-editor", "--gapplication-service"]);
+        assert_eq!(
+            split_exec("env FOO=1 /usr/bin/app --new-window %U"),
+            vec!["env", "FOO=1", "/usr/bin/app", "--new-window"]
+        );
+        assert_eq!(
+            split_exec(r#""/opt/My App/app" --name "a b" 100%%"#),
+            vec!["/opt/My App/app", "--name", "a b", "100%"]
+        );
+        assert_eq!(
+            split_exec("gnome-text-editor --gapplication-service"),
+            vec!["gnome-text-editor", "--gapplication-service"]
+        );
     }
 
     #[test]
@@ -477,7 +524,11 @@ mod tests {
     #[test]
     fn lookup_reads_the_first_matching_directory_and_refuses_odd_ids() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("app.desktop"), "[Desktop Entry]\nExec=app\n").unwrap();
+        std::fs::write(
+            dir.path().join("app.desktop"),
+            "[Desktop Entry]\nExec=app\n",
+        )
+        .unwrap();
         let dirs = vec![PathBuf::from("/nonexistent"), dir.path().to_path_buf()];
         assert_eq!(find_desktop_entry("app", &dirs).unwrap().exec, vec!["app"]);
         assert!(find_desktop_entry("../app", &dirs).is_none());
@@ -499,7 +550,11 @@ mod tests {
         let spec = launch_spec(&entry("firefox", &["firefox"]), &ctx()).unwrap();
         assert_eq!(
             &spec.argv[1..],
-            ["--no-remote", "--profile", "/state/psyche-helper/vscreen/firefox/profile"]
+            [
+                "--no-remote",
+                "--profile",
+                "/state/psyche-helper/vscreen/firefox/profile"
+            ]
         );
         let mut c = ctx();
         c.firefox_profile = None;
@@ -511,7 +566,13 @@ mod tests {
     fn recipe_chromium_family_gets_its_own_user_data_dir_and_x11() {
         for id in RECIPES[1].ids {
             let spec = launch_spec(&entry(id, &["browser"]), &ctx()).unwrap();
-            assert!(has(&spec, &format!("--user-data-dir=/state/psyche-helper/vscreen/chromium/{id}")), "{id}");
+            assert!(
+                has(
+                    &spec,
+                    &format!("--user-data-dir=/state/psyche-helper/vscreen/chromium/{id}")
+                ),
+                "{id}"
+            );
             assert!(has(&spec, "--ozone-platform=x11"), "{id}");
         }
     }
@@ -520,7 +581,13 @@ mod tests {
     fn recipe_vscode_gets_its_own_user_data_dir_and_x11() {
         for id in RECIPES[2].ids {
             let spec = launch_spec(&entry(id, &["code"]), &ctx()).unwrap();
-            assert!(has(&spec, &format!("--user-data-dir=/state/psyche-helper/vscreen/code/{id}")), "{id}");
+            assert!(
+                has(
+                    &spec,
+                    &format!("--user-data-dir=/state/psyche-helper/vscreen/code/{id}")
+                ),
+                "{id}"
+            );
             assert!(has(&spec, "--ozone-platform=x11"), "{id}");
         }
     }
@@ -529,7 +596,13 @@ mod tests {
     fn recipe_electron_apps_get_their_own_data_dir_and_x11() {
         for id in RECIPES[3].ids {
             let spec = launch_spec(&entry(id, &["app"]), &ctx()).unwrap();
-            assert!(has(&spec, &format!("--user-data-dir=/state/psyche-helper/vscreen/electron/{id}")), "{id}");
+            assert!(
+                has(
+                    &spec,
+                    &format!("--user-data-dir=/state/psyche-helper/vscreen/electron/{id}")
+                ),
+                "{id}"
+            );
             assert!(has(&spec, "--ozone-platform=x11"), "{id}");
         }
     }
@@ -539,7 +612,10 @@ mod tests {
         for id in RECIPES[4].ids {
             let spec = launch_spec(&entry(id, &["libreoffice", "--writer"]), &ctx()).unwrap();
             assert!(
-                has(&spec, "-env:UserInstallation=file:///state/psyche-helper/vscreen/lo/profile"),
+                has(
+                    &spec,
+                    "-env:UserInstallation=file:///state/psyche-helper/vscreen/lo/profile"
+                ),
                 "{id}"
             );
             assert!(has(&spec, "--writer"));
@@ -562,16 +638,29 @@ mod tests {
 
     #[test]
     fn other_apps_launch_as_their_entry_says_with_the_x11_environment() {
-        let spec = launch_spec(&entry("org.gnome.TextEditor", &["gnome-text-editor"]), &ctx()).unwrap();
+        let spec = launch_spec(
+            &entry("org.gnome.TextEditor", &["gnome-text-editor"]),
+            &ctx(),
+        )
+        .unwrap();
         assert_eq!(spec.argv, vec!["gnome-text-editor"]);
-        let env = |k: &str| spec.env_set.iter().find(|(n, _)| n == k).map(|(_, v)| v.as_str());
+        let env = |k: &str| {
+            spec.env_set
+                .iter()
+                .find(|(n, _)| n == k)
+                .map(|(_, v)| v.as_str())
+        };
         assert_eq!(env("DISPLAY"), Some(":90"));
         assert_eq!(env("GDK_BACKEND"), Some("x11"));
         assert_eq!(env("QT_QPA_PLATFORM"), Some("xcb"));
         assert_eq!(env("MOZ_ENABLE_WAYLAND"), Some("0"));
         assert_eq!(env("XAUTHORITY"), Some("/run/user/1000/psyche/xauth-90"));
         assert_eq!(env("WAYLAND_DISPLAY"), None);
-        for gone in ["WAYLAND_DISPLAY", "XDG_ACTIVATION_TOKEN", "DESKTOP_STARTUP_ID"] {
+        for gone in [
+            "WAYLAND_DISPLAY",
+            "XDG_ACTIVATION_TOKEN",
+            "DESKTOP_STARTUP_ID",
+        ] {
             assert!(spec.env_remove.iter().any(|v| v == gone), "{gone}");
         }
     }
@@ -583,12 +672,16 @@ mod tests {
             firefox_profile_from_ini(ini, Path::new("/h/.mozilla/firefox")),
             Some(PathBuf::from("/h/.mozilla/firefox/xyz.release"))
         );
-        let with_install = format!("{ini}\n[Install4F96D1932A9F858E]\nDefault=abc.default\nLocked=1\n");
+        let with_install =
+            format!("{ini}\n[Install4F96D1932A9F858E]\nDefault=abc.default\nLocked=1\n");
         assert_eq!(
             firefox_profile_from_ini(&with_install, Path::new("/h/.mozilla/firefox")),
             Some(PathBuf::from("/h/.mozilla/firefox/abc.default"))
         );
-        assert_eq!(firefox_profile_from_ini("[General]\n", Path::new("/x")), None);
+        assert_eq!(
+            firefox_profile_from_ini("[General]\n", Path::new("/x")),
+            None
+        );
     }
 
     #[test]
@@ -612,6 +705,9 @@ mod tests {
         // A second call does not touch the copy.
         std::fs::write(dest.join("prefs.js"), "changed").unwrap();
         copy_profile(&src, &dest).unwrap();
-        assert_eq!(std::fs::read_to_string(dest.join("prefs.js")).unwrap(), "changed");
+        assert_eq!(
+            std::fs::read_to_string(dest.join("prefs.js")).unwrap(),
+            "changed"
+        );
     }
 }
