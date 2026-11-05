@@ -3,6 +3,7 @@ import { agentNotes } from "./agent-notes.ts";
 import { audit } from "./audit.ts";
 import { automationChat } from "./automation-chat.ts";
 import { blocks } from "./blocks.ts";
+import { bundleIntegrity } from "./bundle-integrity.ts";
 import { canvas } from "./canvas.ts";
 import { capabilities } from "./capabilities.ts";
 import { charts } from "./charts.ts";
@@ -93,6 +94,7 @@ export const en = {
   ...web,
   ...teach,
   ...glass,
+  ...bundleIntegrity,
   ...design,
   ...voice,
   ...screenAsk,

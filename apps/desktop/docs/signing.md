@@ -30,8 +30,11 @@ deploy/macos/make-signing-cert.sh --out ~/psyche-signing
 It asks for a password (typed, not shown), writes `psyche-release.p12` (refusing to overwrite one) and prints the SHA-1 and SHA-256 and the designated requirement the certificate implies:
 `identifier "com.psyche.desktop" and certificate leaf = H"<sha1>"`. Put the SHA-1 in
 `deploy/macos/designated-requirements.txt` (the release check and the updater read it) and set the
-GitHub secrets `MACOS_CERTIFICATE_P12_BASE64`, `MACOS_CERTIFICATE_PASSWORD` and
-`MACOS_SIGNING_IDENTITY` (the SHA-1). **Back up the `.p12` and its password.** The certificate is the
+secrets `MACOS_CERTIFICATE_P12_BASE64`, `MACOS_CERTIFICATE_PASSWORD` and
+`MACOS_SIGNING_IDENTITY` (the SHA-1) **in the `release` environment** (Settings, Environments,
+`release`: deployment tags `v*` only, you as required reviewer), not as repository secrets. A
+publishing run fails without them; it never ships an ad-hoc build. Use a random password of 20 or
+more characters (`openssl rand -base64 24`) and keep it in your password manager. **Back up the `.p12` and its password.** The certificate is the
 app's identity: losing or replacing it stops auto-update for every installed copy and resets every
 macOS permission (design §6, "Certificate loss or rotation").
 
@@ -140,11 +143,24 @@ native addons. So a self-signed build uses two other files, and only these two c
 | `entitlements.self-signed.plist` | the app and Electron's helpers | everything in `entitlements.plist` plus `disable-library-validation` (required: Electron will not start without it) |
 | `entitlements.self-signed.psyched.plist` | the files under `Contents/Resources/psyched/` (what matters is `runtime/node`) | `allow-jit` and `disable-library-validation` only |
 
-`PsycheHelper.app` links only system libraries and keeps full library validation. The cost is spelled
-out in design §2.9: those two processes could be made to load a library signed by anyone, if something
-put a file where they look; the hardened runtime stays on (no `DYLD_*` injection, no debugger attach)
-and the files come from inside the sealed bundle. Check which files carry it with
-`codesign -d --entitlements - <file>`.
+`PsycheHelper.app` links only system libraries and keeps full library validation.
+
+**What it costs, plainly.** With library validation off, malware running as the same user that can
+write inside a user-owned `/Applications/Psyche.app` can swap a dylib in the bundle, and the swapped
+library then runs inside Psyche's process and inherits its TCC grants (microphone, screen, Apple
+Events, Contacts, Calendar) and keychain entries. The hardened runtime still blocks `DYLD_*`
+injection and debugger attach, but not that. Mitigations (design §2.9): the app verifies its own seal
+once a day (`bundle-integrity.ts`, cached; not on every launch) and, if it fails, warns in the owner's
+language and turns the TCC-backed features off until a reinstall. It is a tripwire, not a wall.
+The Electron fuses cover only Electron, so psyched's launcher clears `NODE_OPTIONS`, `NODE_PATH` and
+`NODE_REPL_EXTERNAL_MODULE` and preloads `psyched-harden.cjs` (no `~/.node_modules` lookup). Check
+which files carry the entitlement with `codesign -d --entitlements - <file>`; `release.yml` also
+fails the release if the hardened runtime is off anywhere, if any file has
+`allow-dyld-environment-variables` or `get-task-allow`, or if `PsycheHelper.app` has
+`disable-library-validation`.
+
+**If the certificate leaks:** there is no revocation, and raising `minimumVersion` does not help. See
+design §6, "Certificate leak".
 
 ## Fuses
 

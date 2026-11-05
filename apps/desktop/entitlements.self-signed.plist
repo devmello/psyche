@@ -11,12 +11,14 @@
     different Team IDs"), so Electron cannot load Electron Framework.framework at all without it.
     Measured on macOS 27 with a certificate made by deploy/macos/make-signing-cert.sh.
 
-  What it costs: this process (the app and its Electron helpers) can be made to load a dylib that was
-  signed by anyone, if something gets a file into a place it loads from. It does NOT turn the hardened
-  runtime off: DYLD_* environment injection stays blocked (no allow-dyld-environment-variables),
-  debuggers and task_for_pid stay blocked (no get-task-allow), and the fuses already turn off
-  RunAsNode, NODE_OPTIONS and the inspector. Writing into Psyche.app needs the same rights that
-  replacing the app outright needs. A Developer ID build does not use this file.
+  What it costs, plainly: with library validation off, malware running as the same user that can
+  write inside a user-owned /Applications/Psyche.app can swap a dylib inside the bundle. The swapped
+  library then runs inside this process and inherits Psyche's TCC grants (microphone, screen, Apple
+  Events, Contacts, Calendar) and its keychain entries. The hardened runtime stays on, so DYLD_*
+  injection, debugger attach and task_for_pid stay blocked, but none of that stops a swapped dylib. The
+  Electron fuses cover only Electron processes (this one and its helpers). The app checks its own
+  bundle seal once a day and turns the TCC-backed features off when it fails (bundle-integrity.ts);
+  that is a tripwire, not a wall. A Developer ID build does not use this file.
 
   PsycheHelper.app does not have this key: it links only system libraries.
 -->

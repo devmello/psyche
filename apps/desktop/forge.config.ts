@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +7,7 @@ import { MakerZIP } from "@electron-forge/maker-zip";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import type { ForgeConfig } from "@electron-forge/shared-types";
+import { parsePinnedRequirement } from "./src/main/update-gate.ts";
 import {
   allowPartial,
   bundleSources,
@@ -46,6 +47,17 @@ const root = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(root, "..", "..");
 const isMacHost = process.platform === "darwin";
 const resolveFromHere = createRequire(import.meta.url);
+
+/** `desktop` from deploy/macos/designated-requirements.txt; undefined while it is the placeholder. */
+const pinnedDesktopRequirement = (() => {
+  try {
+    return parsePinnedRequirement(
+      readFileSync(join(repoRoot, "deploy", "macos", "designated-requirements.txt"), "utf8"),
+    );
+  } catch {
+    return undefined;
+  }
+})();
 
 if (isMacHost) console.log(`[forge] ${describeSigning(process.env, { adHoc: true })}`);
 
@@ -119,6 +131,7 @@ const config: ForgeConfig = {
         gatewayEntitlements: join(root, "entitlements.self-signed.psyched.plist"),
         isGatewayFile,
       },
+      pinnedDesktopRequirement,
       adHoc: isMacHost,
       ignore: skipOuterSigning,
     }),

@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { app, autoUpdater } from "electron";
+import { bundleFingerprint, checkBundleIntegrity } from "./bundle-integrity.ts";
 import { TRUSTED_RELEASE_KEYS } from "./release-keys.ts";
 import {
   checkForVerifiedUpdate,
@@ -12,7 +13,6 @@ import {
   evaluateUpdaterGate,
   inspectQuarantine,
   readBundledPinned,
-  satisfiesRequirement,
 } from "./update-gate.ts";
 
 /**
@@ -97,7 +97,17 @@ async function runUpdater(opts: UpdaterOptions): Promise<RunResult> {
     keyCount: TRUSTED_RELEASE_KEYS.length,
     bundlePath: bundleOfExecutable(app.getPath("exe")),
     readPinned: () => readBundledPinned(process.resourcesPath),
-    satisfies: satisfiesRequirement,
+    // Not a full verify on every launch: the deep check is cached for a day (bundle-integrity.ts).
+    satisfies: async (bundle, requirement) =>
+      (
+        await checkBundleIntegrity({
+          bundle,
+          requirement,
+          cacheFile: join(app.getPath("userData"), "bundle-integrity.json"),
+          appVersion: app.getVersion(),
+          fingerprint: bundleFingerprint(bundle),
+        })
+      ).state === "ok",
   });
   if (!gate.run) {
     if (gate.state === "no_keys") log(`${gate.why}: updates stay off`);

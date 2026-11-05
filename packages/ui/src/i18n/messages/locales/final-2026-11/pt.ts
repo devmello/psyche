@@ -223,4 +223,10 @@ export const final202611: Partial<Catalogue> = {
   "web.teach.step.app.typeInput": "Em {app}, digite {input} em “{name}”",
   "web.teach.step.app.typeAsk": "Em {app}, digite em “{name}” o que você informar",
   "web.teach.step.app.typeSensitive": "Em {app}, você mesmo digita em “{name}”",
+  "app.integrity.title": "Os arquivos do Psyche foram alterados",
+  "app.integrity.detail":
+    "Esta cópia do Psyche não corresponde mais à assinatura com que foi publicada, então algo pode tê-la modificado. Até você reinstalá-la a partir do download oficial, o Psyche mantém desativados os recursos de microfone, tela, Apple Events, Contatos e Calendário.",
+  "app.integrity.blocked":
+    "Desativado: esta cópia do Psyche foi modificada. Reinstale-a a partir do download oficial.",
+  "app.integrity.ok": "OK",
 };

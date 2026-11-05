@@ -470,7 +470,34 @@ export const PSYCHED_LAUNCHER = `#!/bin/sh
 # A 4 MB young generation keeps an idle Gateway near 200 MB instead of ≈ 330 MB.
 ${RESOLVE_HERE}
 ${COMPILE_CACHE}
-exec "$here/runtime/node" --max-semi-space-size=4 --disable-warning=ExperimentalWarning "$here/app/apps/gateway/dist/main.mjs" "$@"
+# Electron's fuses (RunAsNode, NODE_OPTIONS, the inspector) cover only Electron. This Node is not an
+# Electron process, so it is closed by hand: nothing from the environment may add code to the Gateway
+# (it holds the vault key and runs with the app's privacy grants through the helper), and the
+# per-user module folders are not searched (psyched-harden.cjs, docs/design/updates-and-install-2026.md §2.9).
+unset NODE_OPTIONS NODE_PATH NODE_REPL_EXTERNAL_MODULE
+exec "$here/runtime/node" --max-semi-space-size=4 --disable-warning=ExperimentalWarning --require "$here/psyched-harden.cjs" "$here/app/apps/gateway/dist/main.mjs" "$@"
+`;
+
+/**
+ * Preloaded with --require. CommonJS resolution falls back to ~/.node_modules and ~/.node_libraries
+ * (and $PREFIX/lib/node) when a package is not found beside the code; ESM imports never do. Node has
+ * no flag to turn that off, so: compute the global lookup paths again as if HOME were nowhere, then
+ * put HOME back. Anything the bundle ships resolves from the bundle as before; nothing is picked up
+ * from a folder a same-user process could write to.
+ */
+export const PSYCHED_HARDEN = `"use strict";
+const Module = require("node:module");
+const home = process.env.HOME;
+const nodePath = process.env.NODE_PATH;
+try {
+  process.env.HOME = "/var/empty";
+  delete process.env.NODE_PATH;
+  Module._initPaths();
+} finally {
+  if (home === undefined) delete process.env.HOME;
+  else process.env.HOME = home;
+  if (nodePath !== undefined) process.env.NODE_PATH = nodePath;
+}
 `;
 
 export const PSYCHE_LAUNCHER = `#!/bin/sh
@@ -625,6 +652,7 @@ async function main(argv) {
   chmodSync(join(bundle, "runtime/node"), 0o755);
   stripRuntime(join(bundle, "runtime/node"));
   writeFileSync(join(bundle, "psyched"), PSYCHED_LAUNCHER, { mode: 0o755 });
+  writeFileSync(join(bundle, "psyched-harden.cjs"), PSYCHED_HARDEN, { mode: 0o644 });
   writeFileSync(join(bundle, "psyche"), PSYCHE_LAUNCHER, { mode: 0o755 });
   const { renderLaunchAgentPlist } = await import(join(ROOT, "apps/cli/src/supervisor.ts"));
   writeFileSync(

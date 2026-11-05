@@ -10,12 +10,14 @@
     refuses them ("different Team IDs") even though they carry the same certificate. Measured on
     macOS 27: the bundle check (psyched, with the bundle-check flag) fails with ERR_DLOPEN_FAILED without it and passes with it.
 
-  What it costs: the Gateway's Node process could be made to load a library signed by anyone, if
-  something got a file into a path Node loads from. The Gateway only loads addons from inside the
-  sealed bundle (Psyche.app/Contents/Resources/psyched/app/node_modules), and writing into the
-  bundle needs the same rights as replacing the app.
-  Nothing here (no audio, contacts, calendar or Apple Events): TCC access belongs to the app and to
-  PsycheHelper.app, not to this process. A Developer ID build does not use this file.
+  What it costs, plainly: the same as for the app (entitlements.self-signed.plist). Malware running as
+  the same user that can write inside a user-owned /Applications/Psyche.app can swap a dylib or addon
+  inside the bundle, and it then runs in the Gateway's Node process, where the vault key is. The
+  Electron fuses do not apply to this Node. Its launcher clears NODE_OPTIONS, NODE_PATH and
+  NODE_REPL_EXTERNAL_MODULE and preloads psyched-harden.cjs so the per-user module folders are not
+  searched, which stops injection from the environment and from the home folder, but not a write
+  inside the bundle. The app's daily seal check covers that (bundle-integrity.ts). TCC access belongs
+  to the app and to PsycheHelper.app, not to this process. A Developer ID build does not use this file.
 -->
 <plist version="1.0">
   <dict>

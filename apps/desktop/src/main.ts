@@ -81,6 +81,7 @@ import { bootstrapAdminIfNeeded } from "./main/bootstrap-admin.ts";
 import { BridgeClient, bridgeSocketPath } from "./main/bridge/bridge-client.ts";
 import { createAttentionReporter } from "./main/browser/attention.ts";
 import { BrowserHost } from "./main/browser/browser-host.ts";
+import { bundleFingerprint, checkBundleIntegrity, integrityText } from "./main/bundle-integrity.ts";
 import { SystemDictation } from "./main/dictation/controller.ts";
 import { HudWindow } from "./main/dictation/hud.ts";
 import { ACCESSIBILITY_SETTINGS_URL, DictationService } from "./main/dictation/service.ts";
@@ -137,6 +138,11 @@ import {
   type UninstallDeps,
   UninstallError,
 } from "./main/uninstall.ts";
+import {
+  bundleOfExecutable,
+  parsePinnedRequirement,
+  readBundledPinned,
+} from "./main/update-gate.ts";
 import { startUpdater, stopUpdater } from "./main/updater.ts";
 import { canvasColor, wantsAnyWindowSize } from "./main/window-options.ts";
 import { type AppWindows, createAppWindows, preloadPath } from "./main/windows.ts";
@@ -262,6 +268,48 @@ async function decideSplash(): Promise<void> {
   });
 }
 let helper: HelperLauncher | undefined;
+
+/**
+ * The app's own signature no longer verifies (bundle-integrity.ts): the TCC-backed features
+ * (microphone, screen, Apple Events, Contacts, Calendar) stay off until it is reinstalled.
+ */
+let integrityBlocked = false;
+let integrityMessage =
+  "Turned off: this copy of Psyche was modified. Reinstall it from the official download.";
+
+async function startupIntegrity(): Promise<void> {
+  if (!app.isPackaged || process.platform !== "darwin") return;
+  const pinned = readBundledPinned(process.resourcesPath);
+  const requirement = pinned === undefined ? undefined : parsePinnedRequirement(pinned);
+  if (!requirement) return;
+  const bundle = bundleOfExecutable(app.getPath("exe"));
+  const verdict = await checkBundleIntegrity({
+    bundle,
+    requirement,
+    cacheFile: join(app.getPath("userData"), "bundle-integrity.json"),
+    appVersion: app.getVersion(),
+    fingerprint: bundleFingerprint(bundle),
+  });
+  if (verdict.state !== "blocked") return;
+  integrityBlocked = true;
+  console.warn("[integrity] the app's signature no longer verifies; TCC-backed features are off");
+  // Stop a helper that an earlier launch left running from this bundle.
+  void execRunner("/usr/bin/pkill", [
+    "-f",
+    join(bundle, "Contents", "Resources", "PsycheHelper.app", "Contents", "MacOS", "psyche-helper"),
+  ]);
+  void integrityText(app.getSystemLocale())
+    .then((text) => {
+      integrityMessage = text.blocked;
+      return dialog.showMessageBox({
+        type: "warning",
+        message: text.title,
+        detail: text.detail,
+        buttons: [text.ok],
+      });
+    })
+    .catch(() => {});
+}
 let thisDeviceId: string | undefined;
 let hud: HudWindow | undefined;
 let screenAsk: ScreenAskWindow | undefined;
@@ -1126,6 +1174,7 @@ function registerIpc(): void {
     preferred: app.getPreferredSystemLanguages(),
   }));
   handle(IPC.permissionsRequest, (_event, arg) => {
+    if (integrityBlocked) throw new Error(integrityMessage);
     const kind = str(IPC.permissionsRequest, rec(IPC.permissionsRequest, arg).kind, "kind", 32);
     if (!(PERMISSION_KINDS as readonly string[]).includes(kind)) {
       throw new Error(`${IPC.permissionsRequest}: unknown permission ${kind}`);
@@ -1306,6 +1355,7 @@ function lockDownDefaultSession(): void {
 }
 
 void app.whenReady().then(async () => {
+  await startupIntegrity().catch((err) => console.warn(`[integrity] ${String(err)}`));
   if (gatewaysFileProblem !== undefined) {
     await dialog.showMessageBox({
       type: "warning",
@@ -1449,6 +1499,7 @@ void app.whenReady().then(async () => {
     psycheHome: home,
     run: execRunner,
     isPaired: async () => (await onlineMacHelpers()).length > 0,
+    blocked: () => integrityBlocked,
     onState: (s) => {
       broadcast(IPC.helperState, s);
     },
@@ -1604,14 +1655,14 @@ void app.whenReady().then(async () => {
   dictation = new DictationService({
     dictation: controller,
     call: (m, p) => requireGateway().call(m, p),
-    ...(!app.isPackaged && process.env.PSYCHE_DISABLE_GLOBAL_SHORTCUTS === "1"
+    ...((!app.isPackaged && process.env.PSYCHE_DISABLE_GLOBAL_SHORTCUTS === "1") || integrityBlocked
       ? {}
       : { shortcuts: globalShortcut }),
     warn: (m) => console.warn(`[dictation] ${m}`),
     onStatus: (s) => broadcast(IPC.dictationStatus, s),
     // Double-tapping the voice or dictation key opens "Ask about my screen", like the shortcut.
     onKeyDoubleTap: () => {
-      if (!remoteGateway) screenAsk?.trigger("window");
+      if (!remoteGateway && !integrityBlocked) screenAsk?.trigger("window");
     },
     // The voice key (held from any app) opens the ask panel in voice mode: speak, and the answer
     // appears as text. The panel dictates through the renderer, which owns the microphone, and
@@ -1699,15 +1750,24 @@ void app.whenReady().then(async () => {
   screenAskShortcut = new ScreenAskShortcut({
     call: (m, p) => requireGateway().call(m, p),
     ...(skipShortcuts ? {} : { shortcuts: globalShortcut }),
-    trigger: () => screenAsk?.trigger(),
-    setEnabled: (on) => screenAsk?.setEnabled(on, "screen"),
+    trigger: () => {
+      if (!integrityBlocked) screenAsk?.trigger();
+    },
+    setEnabled: (on) => screenAsk?.setEnabled(on && !integrityBlocked, "screen"),
     warn: (m) => console.warn(`[screen-ask] ${m}`),
     disabled: remoteGateway,
   });
   screenAskShortcut.apply(screenAskShortcut.settings);
   if (!remoteGateway) {
     app.dock?.setMenu(
-      Menu.buildFromTemplate([{ label: "Ask about screen", click: () => screenAsk?.trigger() }]),
+      Menu.buildFromTemplate([
+        {
+          label: "Ask about screen",
+          click: () => {
+            if (!integrityBlocked) screenAsk?.trigger();
+          },
+        },
+      ]),
     );
   }
 

@@ -55,6 +55,10 @@ describe("signingKind", () => {
     expect(signingKind("Apple Development: Test (ABC)")).toBe("apple-development");
     expect(signingKind(HASH)).toBe("self-signed");
     expect(signingKind("Psyche Release")).toBe("self-signed");
+    // Only the hash or the exact name: another certificate that happens to be called that is not it.
+    expect(signingKind("Psyche Release 2")).toBe("other");
+    expect(signingKind("Some Other Cert")).toBe("other");
+    expect(signingKind("70ae89ae")).toBe("other");
   });
 });
 
@@ -96,6 +100,30 @@ describe("self-signed identity", () => {
     const withKc = osxSign({ ...env, PSYCHE_SIGN_KEYCHAIN: "/tmp/ci.keychain-db" });
     expect(withKc.sign.keychain).toBe("/tmp/ci.keychain-db");
     expect(signingKeychain({ PSYCHE_SIGN_KEYCHAIN: " " })).toBeUndefined();
+  });
+
+  it("passes the pinned requirement explicitly, for Psyche.app only", () => {
+    const req = `identifier "com.psyche.desktop" and certificate leaf = H"${HASH}"`;
+    const opts = macSigningOptions(env, { ...base, pinnedDesktopRequirement: req });
+    if (typeof opts.osxSign !== "object") throw new Error("osxSign missing");
+    const fn = opts.osxSign.optionsForFile;
+    if (!fn) throw new Error("optionsForFile missing");
+    const at = (f: string) => fn(f, {} as never) as Record<string, unknown>;
+    expect(at("/tmp/x/Psyche.app")).toMatchObject({ requirements: `=designated => ${req}` });
+    expect(at(NODE)).not.toHaveProperty("requirements");
+    expect(at("/tmp/x/Psyche.app/Contents/Frameworks/Psyche Helper.app")).not.toHaveProperty(
+      "requirements",
+    );
+    // Not given for a Developer ID (its default requirement is already team-based) or when unpinned.
+    const dev = macSigningOptions(
+      { PSYCHE_SIGN_IDENTITY: DEV_ID },
+      { ...base, pinnedDesktopRequirement: req },
+    );
+    if (typeof dev.osxSign !== "object") throw new Error("osxSign missing");
+    expect(
+      (dev.osxSign.optionsForFile?.("/tmp/x/Psyche.app", {} as never) ?? {}) as object,
+    ).not.toHaveProperty("requirements");
+    expect(perFile(env, "/tmp/x/Psyche.app")).not.toHaveProperty("requirements");
   });
 
   it("relaxes library validation only on the app and psyched's files, never anywhere else", () => {

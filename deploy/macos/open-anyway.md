@@ -1,6 +1,6 @@
 ### Opening Psyche the first time (Mac)
 
-Psyche is signed with its own certificate, not an Apple Developer ID, and it is not notarized. The first time you open it, macOS says **"Apple could not verify Psyche is free of malware"**. That is expected. Once:
+Psyche is signed with its own certificate, not an Apple Developer ID, and it is not notarized. **Before you do any of this, check your download against the `SHA256SUMS` file on the release page:** run `shasum -a 256 ~/Downloads/Psyche-<version>-arm64.dmg` and compare the result with the line for that file. Open Anyway turns off the one check macOS would otherwise make for you, so do not click it for a file that does not match. The first time you open Psyche, macOS says **"Apple could not verify Psyche is free of malware"**. That is expected. Once:
 
 1. Click **Done** (not Move to Trash).
 2. Open **System Settings › Privacy & Security** and scroll to **Security**.

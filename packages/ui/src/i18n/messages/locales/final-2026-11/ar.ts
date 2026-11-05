@@ -212,4 +212,9 @@ export const final202611: Partial<Catalogue> = {
   "web.teach.step.app.typeInput": "في {app}، اكتب {input} في «{name}»",
   "web.teach.step.app.typeAsk": "في {app}، اكتب في «{name}» ما تحدده",
   "web.teach.step.app.typeSensitive": "في {app}، تكتب أنت بنفسك في «{name}»",
+  "app.integrity.title": "تم تغيير ملفات Psyche",
+  "app.integrity.detail":
+    "لم تعد هذه النسخة من Psyche تطابق التوقيع الذي صدرت به، لذا قد يكون شيء ما قد عدّلها. إلى أن تعيد تثبيتها من التنزيل الرسمي، ستبقي Psyche ميزات الميكروفون والشاشة وأحداث Apple وجهات الاتصال والتقويم متوقفة.",
+  "app.integrity.blocked": "متوقف: تم تعديل هذه النسخة من Psyche. أعد تثبيتها من التنزيل الرسمي.",
+  "app.integrity.ok": "حسنًا",
 };

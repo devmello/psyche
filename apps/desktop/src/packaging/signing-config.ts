@@ -48,19 +48,28 @@ export function notarizeCredentials(env: BuildEnv): NotarizeCredentials | undefi
   return undefined;
 }
 
-export type SigningKind = "none" | "adhoc" | "developer-id" | "apple-development" | "self-signed";
+export type SigningKind =
+  | "none"
+  | "adhoc"
+  | "developer-id"
+  | "apple-development"
+  | "self-signed"
+  | "other";
 
 /**
- * What an identity string is. A hash, or any name that Apple did not issue, is Psyche's own
- * self-signed certificate: it has no team ID, so its designated requirement is the certificate
- * hash (`certificate leaf = H"<sha1>"`), and Gatekeeper does not know it.
+ * What an identity string is. Psyche's own self-signed certificate is named only by its SHA-1
+ * (40 hex digits) or the exact name "Psyche Release": it has no team ID, so its designated
+ * requirement is the certificate hash (`certificate leaf = H"<sha1>"`), and Gatekeeper does not
+ * know it. Any other name is "other": signed as given with the hardened runtime, but never given
+ * the self-signed relaxations (no library-validation exemption, no skipped identity validation).
  */
 export function signingKind(identity: string | undefined): SigningKind {
   if (!identity) return "none";
   if (identity === "-") return "adhoc";
   if (identity.startsWith("Developer ID Application:")) return "developer-id";
   if (identity.startsWith("Apple Development:")) return "apple-development";
-  return "self-signed";
+  if (/^[0-9a-fA-F]{40}$/.test(identity) || identity === "Psyche Release") return "self-signed";
+  return "other";
 }
 
 /** The keychain file holding the signing identity, when it is not in the search list. */
@@ -125,6 +134,13 @@ export function macSigningOptions(
       gatewayEntitlements: string;
       isGatewayFile: (file: string) => boolean;
     };
+    /**
+     * The pinned designated requirement of the outer app (`desktop` in
+     * deploy/macos/designated-requirements.txt; undefined while it is still the placeholder). A
+     * self-signed build passes it to codesign for `Psyche.app` itself, so the requirement is
+     * written down in the repo rather than left to codesign's default.
+     */
+    pinnedDesktopRequirement?: string | undefined;
     adHoc?: boolean;
     ignore?: (file: string) => boolean;
   },
@@ -167,6 +183,9 @@ export function macSigningOptions(
         hardenedRuntime: true,
         entitlements: pick(file),
         ...(selfSigned && !selfSignedTimestamp(env) ? { timestamp: "none" } : {}),
+        ...(selfSigned && opts.pinnedDesktopRequirement && file.endsWith("/Psyche.app")
+          ? { requirements: `=designated => ${opts.pinnedDesktopRequirement}` }
+          : {}),
       }),
       ...ignore,
     },
