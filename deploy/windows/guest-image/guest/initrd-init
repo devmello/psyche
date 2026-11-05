@@ -1,0 +1,42 @@
+#!/bin/busybox sh
+# Psyche initrd /init (busybox, no modules: every driver is built into the kernel).
+#
+# Finds the root disk by ext4 label psyche-root (Hyper-V SCSI /dev/sdX, or virtio /dev/vdX under
+# QEMU), mounts it read-only, puts a tmpfs overlay on top (the root is never written; session
+# data lives on the separate psyche-data disk), and hands over to psyche-init.
+/bin/busybox --install -s /bin
+export PATH=/bin
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+exec >/dev/console 2>&1 </dev/null
+
+fail() {
+  echo "psyche-initrd: $*"
+  sleep 2
+  exec poweroff -f
+}
+
+# Disks appear asynchronously (VMBus offers the SCSI controller after boot starts): poll 30 s.
+DEV=""
+i=0
+while [ "$i" -lt 150 ]; do
+  DEV="$(findfs LABEL=psyche-root 2>/dev/null)" && break
+  DEV=""
+  i=$((i + 1))
+  sleep 0.2
+done
+[ -n "$DEV" ] || fail "no disk labelled psyche-root after 30 s"
+
+mkdir -p /mnt/ro /mnt/rw /mnt/root
+mount -t ext4 -o ro,noatime "$DEV" /mnt/ro || fail "cannot mount $DEV"
+mount -t tmpfs -o mode=0755,size=25% tmpfs /mnt/rw || fail "cannot mount tmpfs"
+mkdir /mnt/rw/upper /mnt/rw/work
+mount -t overlay overlay -o lowerdir=/mnt/ro,upperdir=/mnt/rw/upper,workdir=/mnt/rw/work /mnt/root \
+  || fail "cannot mount the overlay root"
+[ -x /mnt/root/usr/lib/psyche/init ] || fail "$DEV is not a Psyche guest root (no /usr/lib/psyche/init)"
+
+mount --move /dev /mnt/root/dev
+mount --move /sys /mnt/root/sys
+mount --move /proc /mnt/root/proc
+exec switch_root /mnt/root /usr/lib/psyche/init
