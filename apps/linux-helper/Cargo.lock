@@ -229,6 +229,7 @@ dependencies = [
  "base64",
  "ed25519-dalek",
  "getrandom",
+ "libc",
  "psyche-protocol",
  "serde",
  "serde_json",

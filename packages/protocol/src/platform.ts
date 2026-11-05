@@ -26,6 +26,13 @@ import { join, resolve } from "node:path";
  */
 
 /** Whether this platform's local endpoints are named pipes instead of Unix sockets. */
+/**
+ * Where the packaged Linux helper lives (deb and rpm install under `/usr/lib/psyche`). The
+ * Gateway's peer check accepts a `root_owned` peer only at this path, and the desktop packaging
+ * bundles the helper there; both import it from here so they cannot drift apart.
+ */
+export const LINUX_PACKAGED_HELPER_PATH = "/usr/lib/psyche/resources/linux-helper/psyche-helper";
+
 export function usesNamedPipes(platform: NodeJS.Platform = process.platform): boolean {
   return platform === "win32";
 }

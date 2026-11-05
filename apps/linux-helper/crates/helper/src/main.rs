@@ -5,12 +5,15 @@ use psyche_helper::buildinfo::BuildInfo;
 use psyche_helper::capability::Registry;
 use psyche_helper::cli::{parse_args, run_info, Command};
 use psyche_helper::daemon::{Daemon, Exit};
-use psyche_helper::hardening::refuse_injected_libraries;
+use psyche_helper::hardening::{close_inherited_fds, refuse_injected_libraries};
 use psyche_helper::idle::IdleTimer;
 use psyche_helper::paths::{state_dir, ProcessEnv};
 use psyche_helper::{identity, log};
 
 fn main() -> ExitCode {
+    // First of all: whatever descriptors the parent left open (a copy of the node socket, say)
+    // are not ours to keep. A process that still holds one could be talking as this helper.
+    close_inherited_fds();
     let args: Vec<String> = std::env::args().skip(1).collect();
     let command = match parse_args(&args, &ProcessEnv) {
         Ok(command) => command,

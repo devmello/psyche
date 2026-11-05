@@ -6,11 +6,20 @@ import { describe, expect, it } from "vitest";
 import { hostHelperKindOf, isHostHelperFamily, isHostHelperKind } from "../src/index.ts";
 import {
   fsyncDirSync,
+  LINUX_PACKAGED_HELPER_PATH,
   isNamedPipePath,
   namedPipePath,
   psycheHomeHash,
   usesNamedPipes,
 } from "../src/platform.ts";
+
+describe("the packaged Linux helper path", () => {
+  it("is the one the design, the packaging and the peer check agree on", () => {
+    expect(LINUX_PACKAGED_HELPER_PATH).toBe(
+      "/usr/lib/psyche/resources/linux-helper/psyche-helper",
+    );
+  });
+});
 
 describe("host helper families", () => {
   it("knows the Mac, Windows and Linux helpers and nothing else", () => {
