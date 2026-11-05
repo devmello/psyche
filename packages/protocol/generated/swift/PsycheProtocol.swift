@@ -1153,6 +1153,7 @@
 //   let sandboxListParams = try? JSONDecoder().decode(SandboxListParams.self, from: jsonData)
 //   let sandboxListResult = try? JSONDecoder().decode(SandboxListResult.self, from: jsonData)
 //   let sandboxNetwork = try? JSONDecoder().decode(SandboxNetwork.self, from: jsonData)
+//   let sandboxPCStatus = try? JSONDecoder().decode(SandboxPCStatus.self, from: jsonData)
 //   let sandboxSetupBackend = try? JSONDecoder().decode(SandboxSetupBackend.self, from: jsonData)
 //   let sandboxSetupParams = try? JSONDecoder().decode(SandboxSetupParams.self, from: jsonData)
 //   let sandboxSetupResult = try? JSONDecoder().decode(SandboxSetupResult.self, from: jsonData)
@@ -17885,6 +17886,7 @@ public enum Launcher: String, Codable, Sendable {
     case container = "container"
     case none = "none"
     case srt = "srt"
+    case vm = "vm"
 }
 
 // MARK: - MCPToolsParams
@@ -26774,10 +26776,13 @@ public struct SandboxSrtStatus: Codable, Sendable {
     }
 }
 
+/// `unsupported_platform`: srt has no Windows build, so it is never looked for there;
+/// Windows uses the sandbox PC
 public enum SandboxSrtProblem: String, Codable, Sendable {
     case notAbsolute = "not_absolute"
     case notExecutable = "not_executable"
     case notFound = "not_found"
+    case unsupportedPlatform = "unsupported_platform"
 }
 
 public enum SandboxSrtSource: String, Codable, Sendable {
@@ -26849,21 +26854,25 @@ public enum SandboxStatus: String, Codable, Sendable {
 public struct SandboxSetupResult: Codable, Sendable {
     public let containers: SandboxContainerSetup
     public let installer: SandboxSrtInstaller?
-    /// srt is available, so command servers can run
+    /// srt is available (on Windows: the sandbox PC is ready), so scripts and command servers
+    /// can run
     public let ready: Bool
+    public let sandboxPC: SandboxPCStatus?
     public let srt: SandboxSrtStatus
 
     public enum CodingKeys: String, CodingKey {
         case containers = "containers"
         case installer = "installer"
         case ready = "ready"
+        case sandboxPC = "sandboxPc"
         case srt = "srt"
     }
 
-    public init(containers: SandboxContainerSetup, installer: SandboxSrtInstaller? = nil, ready: Bool, srt: SandboxSrtStatus) {
+    public init(containers: SandboxContainerSetup, installer: SandboxSrtInstaller? = nil, ready: Bool, sandboxPC: SandboxPCStatus? = nil, srt: SandboxSrtStatus) {
         self.containers = containers
         self.installer = installer
         self.ready = ready
+        self.sandboxPC = sandboxPC
         self.srt = srt
     }
 }
@@ -26935,6 +26944,25 @@ public enum SandboxContainerBackend: String, Codable, Sendable {
     case podman = "podman"
 }
 
+// MARK: - SandboxPCStatus
+public struct SandboxPCStatus: Codable, Sendable {
+    /// The owner turned the sandbox PC on (`vm.enabled`)
+    public let enabled: Bool
+    /// Its guest runs and its psyche-node is connected with sessions, so those features run in
+    /// it now
+    public let ready: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+        case ready = "ready"
+    }
+
+    public init(enabled: Bool, ready: Bool) {
+        self.enabled = enabled
+        self.ready = ready
+    }
+}
+
 // MARK: - SandboxStatusParams
 public struct SandboxStatusParams: Codable, Sendable {
     public let sandboxID: String?
@@ -26955,6 +26983,7 @@ public struct SandboxStatusResult: Codable, Sendable {
     public let backend: SandboxBackend
     public let egress: Bool?
     public let sandbox: SandboxInfo?
+    public let sandboxPC: SandboxPCStatus?
     public let srt: SandboxSrtStatus?
 
     public enum CodingKeys: String, CodingKey {
@@ -26962,14 +26991,16 @@ public struct SandboxStatusResult: Codable, Sendable {
         case backend = "backend"
         case egress = "egress"
         case sandbox = "sandbox"
+        case sandboxPC = "sandboxPc"
         case srt = "srt"
     }
 
-    public init(available: Bool, backend: SandboxBackend, egress: Bool? = nil, sandbox: SandboxInfo? = nil, srt: SandboxSrtStatus? = nil) {
+    public init(available: Bool, backend: SandboxBackend, egress: Bool? = nil, sandbox: SandboxInfo? = nil, sandboxPC: SandboxPCStatus? = nil, srt: SandboxSrtStatus? = nil) {
         self.available = available
         self.backend = backend
         self.egress = egress
         self.sandbox = sandbox
+        self.sandboxPC = sandboxPC
         self.srt = srt
     }
 }
