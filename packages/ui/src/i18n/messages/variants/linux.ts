@@ -13,6 +13,7 @@ import type { MessageId } from "../index.ts";
  *   translated catalogue shows the English variant rather than its Mac wording.
  */
 export const linux: Partial<Record<MessageId, string>> = {
+  "settings.devices.nodeKind.hostHelper": "Linux helper",
   "settings.links.description":
     "Where a link in a chat message, card or artifact opens. Ctrl+click always uses your default browser.",
   "errors.presence_required": "Confirm it's you with your password or a passkey first.",

@@ -16,6 +16,7 @@ import { daily } from "./daily/ar.ts";
 import { design } from "./design/ar.ts";
 import { deviceAccess } from "./device-access/ar.ts";
 import { final202611 } from "./final-2026-11/ar.ts";
+import { helperCheck } from "./helper-check/ar.ts";
 import { home } from "./home/ar.ts";
 import { links } from "./links/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
@@ -3335,6 +3336,7 @@ export const ar: Partial<Catalogue> = {
   ...final202611,
   // password approvals on Linux (polkit)
   ...passwordPresence,
+  ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
   // Settings > Computer use > Separate desktop (Linux)
