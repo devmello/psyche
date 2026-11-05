@@ -43,7 +43,12 @@ private final class FakeConditions: DeviceConditions {
     var onChange: (@MainActor () -> Void)?
     var monitoring = false
     func setMonitoring(_ on: Bool) { monitoring = on }
-    func snapshot() -> DeviceSnapshot { current }
+    /// Like the system: with monitoring off the battery level is unknown.
+    func snapshot() -> DeviceSnapshot {
+        var s = current
+        if !monitoring { s.batteryLevel = nil }
+        return s
+    }
     func change(_ edit: (inout DeviceSnapshot) -> Void) {
         edit(&current)
         onChange?()
@@ -265,12 +270,12 @@ struct StayAwakeControllerTests {
     @Test func dictationBorrowsTheSessionAndStayAwakeTakesItBack() async {
         let rig = Rig()
         rig.watch()
-        rig.arbiter.setDictating(true)
+        let claim = rig.arbiter.begin()
         #expect(rig.audio.pauseCalls == 1)
         #expect(rig.controller.isPaused)
         #expect(rig.audio.stopCalls == 0)  // it does not pull the session out from under dictation
         rig.now.addTimeInterval(600)  // ten minutes of dictation: not awake time
-        rig.arbiter.setDictating(false)
+        rig.arbiter.end(claim)
         #expect(rig.audio.resumeCalls == 1)
         #expect(!rig.controller.isPaused)
         rig.now.addTimeInterval(120)
@@ -281,19 +286,19 @@ struct StayAwakeControllerTests {
 
     @Test func doesNotStartWhileDictating() {
         let rig = Rig()
-        rig.arbiter.setDictating(true)
+        let claim = rig.arbiter.begin()
         rig.watch()
         #expect(rig.audio.startCalls == 0)
-        rig.arbiter.setDictating(false)
+        rig.arbiter.end(claim)
         #expect(rig.controller.isRunning)
     }
 
     @Test func stopsWhenTheSessionCannotBeTakenBackAfterDictation() {
         let rig = Rig()
         rig.watch()
-        rig.arbiter.setDictating(true)
+        let claim = rig.arbiter.begin()
         rig.audio.refuseResume = true
-        rig.arbiter.setDictating(false)
+        rig.arbiter.end(claim)
         #expect(rig.stops == [.audioUnavailable])
         #expect(!rig.controller.isRunning)
     }
@@ -328,6 +333,40 @@ struct StayAwakeControllerTests {
         again.now.addTimeInterval(1)
         again.controller.reevaluate()
         #expect(again.stops == [.hardCap])
+    }
+
+    @Test func theFirstStartAlreadyChecksTheBattery() {
+        let rig = Rig()
+        rig.conditions.current.batteryLevel = 0.15  // unplugged at 15%
+        rig.watch()
+        #expect(rig.audio.startCalls == 0)  // monitoring was on before the snapshot was read
+        #expect(!rig.controller.isRunning)
+        rig.conditions.change { $0.pluggedIn = true }
+        #expect(rig.controller.isRunning)
+    }
+
+    @Test func sendingAMessageWithNoDictationLeavesTheLoopAlone() {
+        let rig = Rig()
+        rig.watch()
+        // A send or a thread exit stops a dictation that is not running: that holds no claim and changes nothing.
+        rig.arbiter.end(UUID())
+        #expect(rig.controller.isRunning)
+        #expect(!rig.controller.isPaused)
+        #expect(rig.audio.isPlaying)
+        #expect(rig.audio.pauseCalls == 0 && rig.audio.stopCalls == 0 && rig.audio.resumeCalls == 0)
+    }
+
+    @Test func twoDictationsKeepTheSessionLentUntilBothAreDone() {
+        let rig = Rig()
+        rig.watch()
+        let home = rig.arbiter.begin()
+        let chat = rig.arbiter.begin()
+        #expect(rig.controller.isPaused)
+        rig.arbiter.end(home)
+        #expect(rig.controller.isPaused)  // the chat dictation still holds it
+        rig.arbiter.end(chat)
+        #expect(!rig.controller.isPaused)
+        #expect(rig.audio.isPlaying)
     }
 
     @Test func batteryMonitoringIsOnlyWhileThereIsSomethingToWatch() {

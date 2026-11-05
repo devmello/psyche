@@ -409,7 +409,6 @@ private struct ProgressRing: View {
                 }
                 .progressViewStyle(.circular)
                 .tint(tint)
-                .padding(lineWidth / 2)
             } else {
                 Circle().stroke(LA.track, lineWidth: lineWidth)
                 Circle()

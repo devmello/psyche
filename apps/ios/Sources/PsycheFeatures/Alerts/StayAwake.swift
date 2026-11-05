@@ -23,15 +23,25 @@ import UIKit
 @MainActor
 final class AudioSessionArbiter {
     static let shared = AudioSessionArbiter()
-    private(set) var dictating = false
+    /// One claim per dictation in progress (Home and each chat composer have their own): the session is lent for as
+    /// long as any claim is held, and a release without a claim (a send with no dictation running) changes nothing.
+    private var claims: Set<UUID> = []
     private var observers: [@MainActor () -> Void] = []
+
+    var dictating: Bool { !claims.isEmpty }
 
     func observe(_ handler: @escaping @MainActor () -> Void) { observers.append(handler) }
 
-    func setDictating(_ on: Bool) {
-        guard on != dictating else { return }
-        dictating = on
-        for handler in observers { handler() }
+    func begin() -> UUID {
+        let claim = UUID()
+        claims.insert(claim)
+        if claims.count == 1 { for handler in observers { handler() } }
+        return claim
+    }
+
+    func end(_ claim: UUID) {
+        guard claims.remove(claim) != nil else { return }
+        if claims.isEmpty { for handler in observers { handler() } }
     }
 }
 
@@ -192,6 +202,9 @@ final class StayAwakeController {
 
     func reevaluate() {
         let now = clock()
+        // Before the snapshot: with monitoring off the battery level reads as unknown, and the first start would
+        // skip the low-battery rule.
+        conditions.setMonitoring(switchOn && watched > 0)
         // New work (an id the record has not seen), or none, frees the cap and the budget.
         if let record, tasksReported, activeIDs.isEmpty || !activeIDs.isSubset(of: record.ids), !isRunning {
             self.record = nil
@@ -210,7 +223,6 @@ final class StayAwakeController {
         case .stop(let reason):
             if isRunning { end(reason, now: now) }
         }
-        conditions.setMonitoring(switchOn && watched > 0)
     }
 
     private func begin(now: Date) {

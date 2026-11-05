@@ -104,6 +104,8 @@ struct PsycheApp: App {
             .onChange(of: scenePhase, initial: true) { _, phase in
                 model.session.setActive(phase == .active)
                 model.alerts.setAppActive(phase == .active)
+                // No microphone once the scene leaves the screen (the `audio` background mode would let it run on).
+                if phase != .active { PsycheDictation.stopAll() }
                 #if os(iOS)
                 if phase == .background { model.alerts.scheduleBackgroundRefresh() }
                 #endif

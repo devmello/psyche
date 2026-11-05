@@ -14,7 +14,6 @@ import struct PsycheProtocol.WireConnectResult
 import enum PsycheProtocol.WireProtocol
 import PsycheWire
 
-/// What went wrong on one connection.
 /// Resumes a continuation exactly once, from whichever of two tasks gets there first.
 private final class PingRace: @unchecked Sendable {
     private let lock = NSLock()
@@ -47,6 +46,7 @@ private final class PingRace: @unchecked Sendable {
     }
 }
 
+/// What went wrong on one connection.
 public enum ConnectionFailure: Error, Equatable, Sendable {
     /// The Gateway that answered is not the one pinned. Never retried (companion M1 acceptance 2).
     case identityMismatch(IdentityCheck.Failure)
@@ -317,16 +317,18 @@ public actor GatewayConnection {
     public func ping(timeout: Duration = .seconds(10)) async throws {
         if closed { throw ConnectionFailure.closed }
         let race = PingRace()
+        nonisolated(unsafe) var timer: Task<Void, Never>?
         let outcome: Result<Void, any Error> = await withCheckedContinuation { continuation in
             race.install(continuation)
             let pinger = Task { [transport] in
                 do { try await transport.ping(); race.finish(.success(())) } catch { race.finish(.failure(error)) }
             }
-            Task {
+            timer = Task {
                 try? await Task.sleep(for: timeout)
                 if race.finish(.failure(ConnectionFailure.timeout)) { pinger.cancel() }
             }
         }
+        timer?.cancel()  // answered in time: the timer has nothing left to do
         if case .failure(let error) = outcome {
             close(reason: .timeout)  // unanswered: the socket is dead to us; the client reconnects
             throw error
