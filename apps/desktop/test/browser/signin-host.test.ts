@@ -148,8 +148,6 @@ const h = vi.hoisted(() => {
 vi.mock("electron", () => ({
   BaseWindow: h.FakeWindow,
   WebContentsView: h.FakeView,
-  // No OS keychain in tests: kept recordings use their plain file key.
-  safeStorage: { isEncryptionAvailable: () => false },
   session: { fromPartition: (p: string) => h.sessionFor(p) },
   // The recording store asks for the keychain; these tests keep no recordings.
   safeStorage: {
