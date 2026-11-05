@@ -1,4 +1,17 @@
 import type { Catalogue } from "../index.ts";
+import { researchRest } from "./research-rest/ko.ts";
+import { homeRest } from "./home-rest/ko.ts";
+import { meetingRecordRest } from "./meetingRecord-rest/ko.ts";
+import { designRest } from "./design-rest/ko.ts";
+import { webRest } from "./web-rest/ko.ts";
+import { specialistsRest } from "./specialists-rest/ko.ts";
+import { workRest } from "./work-rest/ko.ts";
+import { memorySurfacesRest } from "./memorySurfaces-rest/ko.ts";
+import { memoryWorkRest } from "./memoryWork-rest/ko.ts";
+import { memoryRest } from "./memory-rest/ko.ts";
+import { memoryPrivacyRest } from "./memoryPrivacy-rest/ko.ts";
+import { memoryAdvancedRest } from "./memoryAdvanced-rest/ko.ts";
+import { memoryBasicsRest } from "./memoryBasics-rest/ko.ts";
 import { everythingRest } from "./everything-rest/ko.ts";
 import { screensRest } from "./screens-rest/ko.ts";
 import { peopleRest } from "./people-rest/ko.ts";
@@ -46,6 +59,19 @@ export const ko: Partial<Catalogue> = {
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
   ...charts,
+  ...researchRest,
+  ...homeRest,
+  ...meetingRecordRest,
+  ...designRest,
+  ...webRest,
+  ...specialistsRest,
+  ...workRest,
+  ...memorySurfacesRest,
+  ...memoryWorkRest,
+  ...memoryRest,
+  ...memoryPrivacyRest,
+  ...memoryAdvancedRest,
+  ...memoryBasicsRest,
   ...everythingRest,
   ...screensRest,
   ...peopleRest,
