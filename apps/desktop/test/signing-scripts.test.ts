@@ -278,7 +278,8 @@ describe("make-signing-cert.sh", () => {
     );
   });
 
-  it.skipIf(process.platform === "win32")(
+  // macOS-only: needs the `security` tool and the login keychain.
+  it.skipIf(process.platform !== "darwin")(
     "refuses the login keychain in every spelling, short passwords, and needs --out",
     () => {
       for (const kc of [
