@@ -1,6 +1,7 @@
 export * from "./backends.ts";
 export type { CliDriver, CliOptions, CliProcess, CliResult, CliStream } from "./cli.ts";
 export { nodeCliDriver } from "./cli.ts";
+export * from "./desktop.ts";
 export * from "./detect.ts";
 export {
   DEFAULT_DEV_SERVER_MAX_CONNECTIONS,

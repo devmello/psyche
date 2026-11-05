@@ -388,7 +388,9 @@ export function ApprovalCard({
   const inFlight = useRef(false);
   const [showIds, setShowIds] = useState(false);
   // folder_access: the folder the owner picks is what is granted, never the agent's string.
-  const isFolder = raw.kind === "folder_access";
+  // separate_desktop_share is the same pick for the Linux separate desktop, and grants nothing here.
+  const isSdShare = raw.kind === "separate_desktop_share";
+  const isFolder = raw.kind === "folder_access" || isSdShare;
   const {
     pickFolder,
     permissionAction,
@@ -422,7 +424,7 @@ export function ApprovalCard({
   );
   const folderBlocked = requestedFolder?.status === "blocked" && folder === "";
   // The agent asked to change files: the owner may narrow that to read-only (never the reverse).
-  const asksWrite = raw.kind === "folder_access" && raw.details.access === "rw";
+  const asksWrite = isFolder && raw.details.access === "rw";
   const [readOnly, setReadOnly] = useState(false);
   // message_send compose card (`messages_send`): the recipient picked and the text left in the
   // editor are what the Gateway binds and sends, not the agent's draft.
@@ -597,7 +599,7 @@ export function ApprovalCard({
     : t("blocks.permission.checkAgain");
   const scopeText = (scope: GrantScope) =>
     isFolder && (scope === "once" || scope === "always")
-      ? t(`blocks.folder.scope.${scope}`)
+      ? t(isSdShare ? "blocks.folder.sd.scope.once" : `blocks.folder.scope.${scope}`)
       : scopeLabel(scope);
   const offeredScopes: { value: AllowScope; label: string }[] = [
     ...(offered.includes("once")
@@ -776,7 +778,16 @@ export function ApprovalCard({
       {interactive && isFolder ? (
         <div className="mt-2 flex flex-col gap-1.5" data-testid="folder-pick">
           <p className="text-body text-label-primary" data-testid="folder-explain">
-            {t(asksWrite ? "blocks.folder.explain.rw" : "blocks.folder.explain.ro", { persona })}
+            {t(
+              isSdShare
+                ? asksWrite
+                  ? "blocks.folder.sd.explain.rw"
+                  : "blocks.folder.sd.explain.ro"
+                : asksWrite
+                  ? "blocks.folder.explain.rw"
+                  : "blocks.folder.explain.ro",
+              { persona },
+            )}
           </p>
           <div className="grid grid-cols-[7rem_1fr] gap-3 py-0.5 text-body">
             <span
@@ -865,7 +876,8 @@ export function ApprovalCard({
             </label>
           ) : null}
           <p className="text-callout text-label-secondary">
-            {t("blocks.folder.exact")} {t("blocks.folder.scope")}
+            {t("blocks.folder.exact")}{" "}
+            {t(isSdShare ? "blocks.folder.sd.scope" : "blocks.folder.scope")}
           </p>
         </div>
       ) : null}
