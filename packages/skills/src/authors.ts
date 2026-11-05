@@ -254,6 +254,13 @@ export class AuthorKeyStore {
         closeSync(fd);
       }
       renameSync(tmp, path);
+      // The rename itself reaches the disk too.
+      const dfd = openSync(dir, "r");
+      try {
+        fsyncSync(dfd);
+      } finally {
+        closeSync(dfd);
+      }
     } finally {
       rmSync(tmp, { force: true });
     }
@@ -356,20 +363,33 @@ interface AuthorRecord {
   trustedAt?: string;
 }
 
+/** What an older file kept per bundle hash: one record. */
 interface RevokedBundle {
   keyId: string;
   reason: string;
   at: string;
 }
 
+/** One author's notice about a bundle; a hash can have several, none replacing another. */
+interface RevokedBundleEntry extends RevokedBundle {
+  /** The notice signer and the earlier keys its chain named. */
+  lineage: string[];
+}
+
 interface AuthorsFile {
   v: 1;
   authors: Record<string, AuthorRecord>;
-  /** Bundles a signed notice marked bad, by bundle hash. */
-  bundles?: Record<string, RevokedBundle>;
+  /** Bundles signed notices marked bad, by bundle hash (append-only per hash). */
+  bundles?: Record<string, RevokedBundleEntry[]>;
+  /** Rotations seen on approved installs: a key, and the keys that claimed to replace it. */
+  rotations?: Record<string, string[]>;
 }
 
+// Notice records have caps of their own, so they can never stop a key from being recorded.
 const MAX_REVOKED_BUNDLES = 1000;
+const MAX_NOTICES_PER_BUNDLE = 8;
+const MAX_REVOKED_UNSEEN = 1000;
+const MAX_ROTATIONS_KEPT = 2000;
 
 const MAX_AUTHORS = 500;
 
@@ -425,24 +445,55 @@ export class AuthorRing {
       .map((a) => a.keyId);
   }
 
-  /** Records a key seen on an approved install; trust is a separate, explicit step. */
-  observe(author: BundleAuthor): AuthorRecord {
+  /** A key the owner has actually met (seen on a bundle), not just named in a revocation. */
+  #met(f: AuthorsFile, keyId: string): boolean {
+    const r = f.authors[keyId];
+    return r !== undefined && r.publicKey !== "";
+  }
+
+  /**
+   * Records a key seen on an approved install; trust is a separate, explicit step. `ancestors`
+   * (the rotation chain the file carried, nearest first) is remembered as "this key was replaced
+   * by that one", so a later second successor of the same key is seen as a fork and a key that
+   * has been replaced is known to be retired.
+   */
+  observe(author: BundleAuthor, ancestors: readonly string[] = []): AuthorRecord {
     const f = this.#read();
     let r = f.authors[author.keyId];
-    if (r === undefined) {
-      if (Object.keys(f.authors).length >= MAX_AUTHORS)
+    if (r === undefined || r.publicKey === "") {
+      // Revocation placeholders (keys named in a notice) have their own cap and never count here.
+      const met = Object.values(f.authors).filter((a) => a.publicKey !== "").length;
+      if (met >= MAX_AUTHORS)
         throw new PsycheError("conflict", "too many author keys; revoke or remove some first");
-      r = {
-        keyId: author.keyId,
-        publicKey: author.publicKey,
-        names: [author.name],
-        state: "seen",
-        firstSeen: new Date(this.#now()).toISOString(),
-      };
-      f.authors[author.keyId] = r;
+      if (r === undefined) {
+        r = {
+          keyId: author.keyId,
+          publicKey: author.publicKey,
+          names: [author.name],
+          state: "seen",
+          firstSeen: new Date(this.#now()).toISOString(),
+        };
+        f.authors[author.keyId] = r;
+      } else {
+        r.publicKey = author.publicKey;
+        if (!r.names.includes(author.name)) r.names.push(author.name);
+      }
     } else if (!r.names.includes(author.name) && r.names.length < 8) {
       r.names.push(author.name);
     }
+    const rotations = f.rotations ?? {};
+    let to = author.keyId;
+    for (const from of ancestors) {
+      const list = rotations[from] ?? [];
+      if (
+        !list.includes(to) &&
+        list.length < 4 &&
+        Object.keys(rotations).length < MAX_ROTATIONS_KEPT
+      )
+        rotations[from] = [...list, to];
+      to = from;
+    }
+    if (ancestors.length > 0) f.rotations = rotations;
     this.#write(f);
     return structuredClone(r);
   }
@@ -455,8 +506,8 @@ export class AuthorRing {
       // A key can be revoked before it is ever met (a warning arrived out of band); it cannot be
       // trusted unseen.
       if (state !== "revoked") throw new PsycheError("not_found", "no such author key");
-      if (Object.keys(f.authors).length >= MAX_AUTHORS)
-        throw new PsycheError("conflict", "too many author keys");
+      if (Object.values(f.authors).filter((a) => a.publicKey === "").length >= MAX_REVOKED_UNSEEN)
+        throw new PsycheError("conflict", "too many revoked keys");
       r = {
         keyId,
         publicKey: "",
@@ -474,8 +525,50 @@ export class AuthorRing {
   }
 
   /**
+   * The earlier keys of a rotation chain that still vouch for the signer, nearest first: the chain
+   * is followed up from the signer and stops at the first key that was revoked, because a revoked
+   * key's word (that it named its successor) is no longer taken. Revoking an old key therefore
+   * never revokes its successors; they just stop being explained by it.
+   */
+  vouching(ancestors: readonly string[]): string[] {
+    const f = this.#read();
+    const out: string[] = [];
+    for (const k of ancestors) {
+      if (f.authors[k]?.state === "revoked") break;
+      out.push(k);
+    }
+    return out;
+  }
+
+  /** Whether this key was replaced by a rotation the owner has seen. */
+  isRetired(keyId: string): boolean {
+    return (this.#read().rotations?.[keyId]?.length ?? 0) > 0;
+  }
+
+  /**
+   * Two different successors of one key is a fork (a stolen old key minting a competing
+   * successor, or a mistake): refused until the owner revokes one of them.
+   */
+  assertNoFork(signerKeyId: string, ancestors: readonly string[]): void {
+    const rotations = this.#read().rotations ?? {};
+    let to = signerKeyId;
+    for (const from of ancestors) {
+      const known = rotations[from] ?? [];
+      if (known.length > 0 && !known.includes(to) && known.some((k) => !this.isRevoked(k)))
+        throw new PsycheError(
+          "policy_denied",
+          "two different keys claim to replace the same earlier key; revoke the one you do not trust first",
+          { details: { keyId: from } },
+        );
+      to = from;
+    }
+  }
+
+  /**
    * How a signed bundle looks to this owner. `installed` is the key the same skill was
    * installed with (`null` when it was installed unsigned), `undefined` for a first install.
+   * Rotation chains only vouch up to the first revoked key (`vouching`), and a key the owner
+   * retired by rotating is "own" but never `verified`.
    */
   statusOf(
     signer: BundleAuthor,
@@ -484,18 +577,18 @@ export class AuthorRing {
     lineage: { ancestors?: readonly string[]; ownRetired?: readonly string[] } = {},
   ): BundleSignerStatusInfo {
     const base = { keyId: signer.keyId, name: signer.name };
-    const ancestors = lineage.ancestors ?? [];
-    const rec = this.get(signer.keyId);
-    // A rotation chain that names the installed key explains the new one: not a change of signer.
+    const f = this.#read();
+    const vouch = this.vouching(lineage.ancestors ?? []);
+    const rec = f.authors[signer.keyId];
+    // A chain that names the installed key explains the new one: not a change of signer.
     const signerChanged =
-      installed != null && installed.keyId !== signer.keyId && !ancestors.includes(installed.keyId);
+      installed != null && installed.keyId !== signer.keyId && !vouch.includes(installed.keyId);
+    // Revoked comes before everything, the owner's own retired keys included.
     if (rec?.state === "revoked") return { ...base, status: "revoked", signerChanged };
-    // The chain says the new key came from a key the owner revoked: no better than that key.
-    const revokedAncestor = ancestors.find((k) => this.get(k)?.state === "revoked");
-    if (revokedAncestor !== undefined)
-      return { ...base, status: "revoked", previousKeyId: revokedAncestor, signerChanged };
-    if (own?.keyId === signer.keyId || lineage.ownRetired?.includes(signer.keyId) === true)
-      return { ...base, status: "own", signerChanged: false };
+    if (own?.keyId === signer.keyId) return { ...base, status: "own", signerChanged: false };
+    if (lineage.ownRetired?.includes(signer.keyId) === true)
+      return { ...base, status: "own", retired: true, signerChanged: false };
+    const retired = (f.rotations?.[signer.keyId]?.length ?? 0) > 0 ? { retired: true } : {};
     // A look-alike of the owner's own name with another key is the worst impersonation.
     const impersonates =
       own !== undefined && authorNameSkeleton(own.name) === authorNameSkeleton(signer.name);
@@ -508,14 +601,15 @@ export class AuthorRing {
         ...base,
         status: "trusted",
         signerChanged,
+        ...retired,
         ...(seenName ? {} : { nameChanged: true }),
       };
     }
     // Same author, new key: an earlier key the owner has met (or installed this with) signed a
     // statement naming this one. That explains the change; it does not trust the new key.
     if (!impersonates) {
-      for (const k of ancestors) {
-        const earlier = this.get(k);
+      for (const k of vouch) {
+        const earlier = f.authors[k];
         if (earlier === undefined && installed?.keyId !== k) continue;
         return {
           ...base,
@@ -523,6 +617,7 @@ export class AuthorRing {
           previousKeyId: k,
           rotatedFrom: { keyId: k, state: earlier?.state ?? "seen" },
           signerChanged,
+          ...retired,
         };
       }
     }
@@ -533,21 +628,33 @@ export class AuthorRing {
         status: "changed",
         ...(previousKeyId === undefined ? {} : { previousKeyId }),
         signerChanged,
+        ...retired,
         ...(impersonates ? { impersonates: true } : {}),
       };
     }
-    return { ...base, status: rec === undefined ? "new" : "seen", signerChanged };
+    return { ...base, status: rec === undefined ? "new" : "seen", signerChanged, ...retired };
   }
 
   /**
-   * Applies a verified revocation notice. It must come from a key the owner has met (or from a
-   * successor of one, by the rotation chain it carries), and it can only revoke that key's own
-   * lineage or a bundle that lineage signed. Revoking is the safe direction, so it needs no
-   * presence; a notice from a stranger, or about somebody else's key, is refused.
+   * What importing this notice would do, without doing it: the same checks as `applyNotice`
+   * (they throw the same errors), and the names the owner knows the key by.
    */
-  applyNotice(v: VerifiedNotice): { kind: "key" | "bundle"; keyId: string; bundleHash?: string } {
+  previewNotice(v: VerifiedNotice): { names: string[]; alreadyRevoked: boolean } {
+    const f = this.#read();
+    this.#checkNotice(f, v);
+    const rec = f.authors[v.notice.keyId];
+    return {
+      names: rec?.names ?? [],
+      alreadyRevoked:
+        v.notice.kind === "key"
+          ? rec?.state === "revoked"
+          : this.#entries(f, v.notice.bundleHash as string).some((e) => e.keyId === v.notice.keyId),
+    };
+  }
+
+  #checkNotice(f: AuthorsFile, v: VerifiedNotice, trustedLocal = false): void {
     const lineage = [v.notice.signer.keyId, ...v.ancestors];
-    if (!lineage.some((k) => this.get(k) !== undefined))
+    if (!trustedLocal && !lineage.some((k) => this.#met(f, k)))
       throw new PsycheError(
         "policy_denied",
         "that notice is signed by an author you have not met, so it is not applied",
@@ -559,6 +666,29 @@ export class AuthorRing {
         "a notice can only revoke its signer's own keys or bundles",
         { details: { keyId: v.notice.keyId } },
       );
+  }
+
+  #entries(f: AuthorsFile, hash: string): RevokedBundleEntry[] {
+    const v = f.bundles?.[hash] as RevokedBundleEntry[] | RevokedBundle | undefined;
+    if (v === undefined) return [];
+    // An older file kept one record per hash.
+    return Array.isArray(v) ? v : [{ ...v, lineage: [v.keyId] }];
+  }
+
+  /**
+   * Applies a verified revocation notice. It must come from a key the owner has met (or from a
+   * successor of one, by the rotation chain it carries), and it can only revoke that key's own
+   * lineage or a bundle that lineage signed. Revoking is the safe direction, so it needs no
+   * presence; a notice from a stranger, or about somebody else's key, is refused. Bundle notices
+   * are kept as a set per hash: one author's notice never replaces another's.
+   * `trustedLocal` is for the owner's own notices, made on this Mac.
+   */
+  applyNotice(
+    v: VerifiedNotice,
+    opts: { trustedLocal?: boolean } = {},
+  ): { kind: "key" | "bundle"; keyId: string; bundleHash?: string } {
+    const f0 = this.#read();
+    this.#checkNotice(f0, v, opts.trustedLocal === true);
     if (v.notice.kind === "key") {
       this.setState(v.notice.keyId, "revoked");
       return { kind: "key", keyId: v.notice.keyId };
@@ -566,26 +696,37 @@ export class AuthorRing {
     const hash = v.notice.bundleHash as string;
     const f = this.#read();
     const bundles = f.bundles ?? {};
-    if (bundles[hash] === undefined && Object.keys(bundles).length >= MAX_REVOKED_BUNDLES)
-      throw new PsycheError("conflict", "too many revoked bundles");
-    bundles[hash] = {
-      keyId: v.notice.keyId,
-      reason: v.notice.reason,
-      at: new Date(this.#now()).toISOString(),
-    };
+    const entries = this.#entries(f, hash);
+    const mine = entries.find((e) => e.keyId === v.notice.keyId);
+    if (mine === undefined) {
+      if (
+        entries.length >= MAX_NOTICES_PER_BUNDLE ||
+        (bundles[hash] === undefined && Object.keys(bundles).length >= MAX_REVOKED_BUNDLES)
+      )
+        throw new PsycheError("conflict", "too many notices about this bundle");
+      entries.push({
+        keyId: v.notice.keyId,
+        lineage: [v.notice.signer.keyId, ...v.ancestors],
+        reason: v.notice.reason,
+        at: new Date(this.#now()).toISOString(),
+      });
+    }
+    bundles[hash] = entries;
     f.bundles = bundles;
     this.#write(f);
     return { kind: "bundle", keyId: v.notice.keyId, bundleHash: hash };
   }
 
   /**
-   * Whether a signed notice marked this bundle (by its hash) bad. The notice counts only when it
-   * came from the bundle's own signer or one of the signer's earlier keys, so an author cannot
-   * block somebody else's bundle by naming its hash.
+   * Whether a signed notice marked this bundle bad. A notice counts only when its signer's
+   * lineage contains the key that actually signed the bundle, so an author cannot block somebody
+   * else's bundle by naming its hash. An unsigned bundle is never matched.
    */
-  isBundleRevoked(bundleHash: string, signedBy: readonly string[]): boolean {
-    const hit = this.#read().bundles?.[bundleHash];
-    return hit !== undefined && signedBy.includes(hit.keyId);
+  isBundleRevoked(bundleHash: string, signerKeyId: string | undefined): boolean {
+    if (signerKeyId === undefined) return false;
+    return this.#entries(this.#read(), bundleHash).some(
+      (e) => e.keyId === signerKeyId && e.lineage.includes(signerKeyId),
+    );
   }
 
   /** Keys the owner revoked, for installed skills signed by one. */

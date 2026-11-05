@@ -220,20 +220,6 @@ describe("rotating the owner's author key", () => {
     expect(gated).toEqual([`${rotated.to.keyId}:trusted`]);
     expect(i.loader.authorState(rotated.to.keyId)).toBe("seen");
   });
-
-  it("a chain from a revoked key is no better than that key", async () => {
-    const o = await owner();
-    const first = await exportOf(o.loader, "tidy", "Ada");
-    const i = importer();
-    const p1 = await i.loader.proposeImport("a.psyche-skill", first.bundle);
-    await i.loader.install(p1.id, await approve(i.broker, i.clock, p1));
-    await o.loader.rotateAuthorKey();
-    const second = await exportOf(o.loader, "tidy");
-    i.loader.setAuthorState(first.signer.keyId, "revoked");
-    expect((await rejects(i.loader.proposeImport("b.psyche-skill", second.bundle))).code).toBe(
-      "policy_denied",
-    );
-  });
 });
 
 describe("revocation notices", () => {

@@ -77,9 +77,9 @@ export const ConnectorBundleCard = Type.Object(
     findings: Type.Array(ScanFindingSchema),
     /** Why nothing can be installed from this card, when that is so. */
     blocker: Type.Optional(
-      StringEnum(["no_sandbox", "scan"], {
+      StringEnum(["no_sandbox", "scan", "probe_failed"], {
         description:
-          "no_sandbox: this Gateway has no sandbox, so a command server is never run; scan: a high-severity finding",
+          "no_sandbox: this Gateway has no sandbox, so a command server is never run; scan: a high-severity finding; probe_failed: the sandboxed first run (no network) could not start it",
       }),
     ),
     /**
@@ -102,6 +102,10 @@ export const ConnectorBundleCard = Type.Object(
         /** The command line of the installed version, for a side-by-side view. */
         installedCommand: Type.Array(Type.String()),
         signerChanged: Type.Boolean(),
+        /** Variables whose values stay as the owner set them (same key, nothing widened). */
+        carried: Type.Array(Type.String()),
+        /** Variables that had a value which is not carried over: they must be entered again. */
+        cleared: Type.Array(Type.String()),
       }),
     ),
   },
@@ -110,6 +114,14 @@ export const ConnectorBundleCard = Type.Object(
 export type ConnectorBundleCard = Static<typeof ConnectorBundleCard>;
 
 export const ConnectorBundleMethods = {
+  "connectors.resetRecords": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({ restored: Type.Boolean() }, { $id: "ConnectorResetResult" }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: sets aside an unreadable record of shared connectors (restoring the last good copy when there is one, else starting empty). Connectors that came from a file and have no record stay off until they are removed or imported again; it never starts anything.",
+  }),
   "connectors.export": defineMethod({
     params: Type.Object({
       serverId: Type.String({ minLength: 1, maxLength: 64 }),

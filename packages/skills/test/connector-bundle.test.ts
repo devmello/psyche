@@ -288,6 +288,7 @@ describe("the agent cannot export, import or trust a connector", () => {
     for (const tool of [
       "connectors.export",
       "connectors.proposeImport",
+      "connectors.resetRecords",
       "skills.authors.rotate",
       "skills.authors.importNotice",
       "skills.authors.createNotice",
@@ -305,6 +306,7 @@ describe("the agent cannot export, import or trust a connector", () => {
     for (const name of [
       "connectors.export",
       "connectors.proposeImport",
+      "connectors.resetRecords",
       "skills.authors.rotate",
       "skills.authors.createNotice",
       "skills.authors.importNotice",

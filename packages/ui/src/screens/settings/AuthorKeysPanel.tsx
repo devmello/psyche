@@ -132,11 +132,19 @@ export function AuthorKeysPanel(): ReactElement {
     );
   };
 
-  const importNotice = (
-    p: Promise<Awaited<ReturnType<typeof call<"skills.authors.importNotice">>>>,
-  ) => {
+  type NoticeResult = Awaited<ReturnType<typeof call<"skills.authors.importNotice">>>;
+  // A notice is checked first and shown ("this will revoke X"); it applies only on a second click.
+  const [preview, setPreview] = useState<NoticeResult | null>(null);
+  const previewNotice = (p: Promise<NoticeResult>) => {
     setError(null);
     setNotice(null);
+    setPreview(null);
+    p.then(setPreview, (err: unknown) => fail("settings.skills.keys.import.failed", err));
+  };
+  const importNotice = (p: Promise<NoticeResult>) => {
+    setError(null);
+    setNotice(null);
+    setPreview(null);
     p.then(
       (r) => {
         q.reload();
@@ -283,6 +291,46 @@ export function AuthorKeysPanel(): ReactElement {
           </form>
         ) : null}
 
+        {preview !== null ? (
+          <section
+            className="flex flex-col gap-2 rounded-md border border-approval-border p-3"
+            data-testid="notice-preview"
+          >
+            <p role="alert" className="font-medium">
+              {preview.kind === "key"
+                ? t("settings.skills.keys.import.previewKey", {
+                    key: show(preview.keyId, 80),
+                    names:
+                      preview.names.length === 0
+                        ? "none"
+                        : preview.names.map((n) => show(n)).join(", "),
+                    reason: show(preview.reason, 200),
+                  })
+                : t("settings.skills.keys.import.previewBundle", {
+                    hash: show(preview.bundleHash ?? "", 80),
+                    reason: show(preview.reason, 200),
+                  })}
+            </p>
+            <p className="text-callout text-muted-foreground">
+              {t("settings.skills.keys.import.signedBy", { name: show(preview.signer.name) })}{" "}
+              {preview.alreadyRevoked ? t("settings.skills.keys.import.already") : ""}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() =>
+                  importNotice(call("skills.authors.importNotice", { text: preview.text ?? "" }))
+                }
+              >
+                {t("settings.skills.keys.import.apply")}
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setPreview(null)}>
+                {t("common.cancel")}
+              </Button>
+            </div>
+          </section>
+        ) : null}
         <div className="flex flex-col gap-2">
           <h4 className="font-medium">{t("settings.skills.keys.import.title")}</h4>
           <p className="text-callout text-muted-foreground">
@@ -309,7 +357,9 @@ export function AuthorKeysPanel(): ReactElement {
                 }
                 file.text().then(
                   (text) =>
-                    importNotice(call("skills.authors.importNotice", { name: file.name, text })),
+                    previewNotice(
+                      call("skills.authors.importNotice", { name: file.name, text, preview: true }),
+                    ),
                   (err: unknown) => fail("settings.skills.keys.import.failed", err),
                 );
               }}
@@ -328,7 +378,9 @@ export function AuthorKeysPanel(): ReactElement {
             onSubmit={(e) => {
               e.preventDefault();
               if (link.trim() !== "")
-                importNotice(call("skills.authors.importNotice", { url: link.trim() }));
+                previewNotice(
+                  call("skills.authors.importNotice", { url: link.trim(), preview: true }),
+                );
             }}
           >
             <Label htmlFor={linkId}>{t("settings.skills.keys.import.linkLabel")}</Label>

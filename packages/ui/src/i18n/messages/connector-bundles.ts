@@ -69,6 +69,25 @@ export const connectorBundles = {
     "This Mac has no sandbox for command connectors, and Psyche never runs one outside it. This connector cannot be installed here. Nothing was started or saved.",
   "settings.connectorBundle.blocker.scan":
     "The checks found something that blocks installing it. Nothing was started or saved.",
+  "settings.connectorBundle.blocker.probe_failed":
+    "The first run, with no network and no secrets, could not start it. Nothing was saved.",
+  "settings.connectorBundle.signer.ownRetired":
+    "Signed with a key of yours that you replaced. It is not treated as yours any more.",
+  "settings.connectorBundle.signer.retired":
+    "Signed by {name}, with a key that was replaced by a rotation you have seen. A new file from it is suspect.",
+  "settings.connectorBundle.carry.kept": "Values you gave that stay: {names}",
+  "settings.connectorBundle.carry.cleared":
+    "Values you gave that are not carried over, because the signer or the command changed. Enter them again: {names}",
+  "settings.connectorBundle.carry.vault":
+    "Secrets you stored earlier stay in your vault but are not handed to this version.",
+  "settings.connectorBundle.reset.title": "If the record of shared connectors is damaged",
+  "settings.connectorBundle.reset.hint":
+    "Connectors that came from a file stay off while their record cannot be read. This sets the damaged record aside (restoring the last good copy if there is one); those connectors stay off until you remove them or import them again.",
+  "settings.connectorBundle.reset.go": "Reset the record…",
+  "settings.connectorBundle.reset.confirm": "Yes, reset it",
+  "settings.connectorBundle.reset.done":
+    "The record was reset. {restored, select, true {The last good copy was restored.} other {It starts empty.}}",
+  "settings.connectorBundle.reset.failed": "Could not reset the record: {reason}",
   "settings.connectorBundle.hash": "Bundle id",
   "settings.connectorBundle.close": "Close",
   // --- an update ---
@@ -120,6 +139,10 @@ export const connectorBundles = {
   "settings.connectorBundle.share.unavailable":
     "Only Psyche on the Mac that runs it can sign a connector.",
   // --- author key ---
+  "settings.skills.signer.ownRetired":
+    "Signed with a key of yours that you replaced. It is not treated as yours any more.",
+  "settings.skills.signer.retired":
+    "Signed by {name}, with a key that was replaced by a rotation you have seen. A new file from it is suspect.",
   "settings.skills.signer.rotated":
     "Signed by {name}: same author, new key (signed by the old key). The new key is not trusted until you trust it.",
   "settings.skills.author.state.seen": "Seen, not trusted",
@@ -159,5 +182,12 @@ export const connectorBundles = {
   "settings.skills.keys.import.go": "Import",
   "settings.skills.keys.import.key": "Blocked the key {key}. Reason given: {reason}",
   "settings.skills.keys.import.bundle": "Blocked the file {hash}. Reason given: {reason}",
+  "settings.skills.keys.import.previewKey":
+    "This will revoke the key {key}{names, select, none {} other { (known as {names})}}. Reason given by the signer: {reason}",
+  "settings.skills.keys.import.previewBundle":
+    "This will block the file {hash}. Reason given by the signer: {reason}",
+  "settings.skills.keys.import.already": "It is already in effect.",
+  "settings.skills.keys.import.apply": "Apply it",
+  "settings.skills.keys.import.signedBy": "Signed by {name}.",
   "settings.skills.keys.import.failed": "Could not use the notice: {reason}",
 } as const;

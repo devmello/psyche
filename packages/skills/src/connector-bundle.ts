@@ -111,9 +111,6 @@ export function connectorSigningBytes(manifest: ConnectorManifest): Uint8Array {
 }
 
 /** Argv text a secret scan and the placeholder rule apply to. */
-function argvText(r: Pick<ConnectorRequests, "command" | "args">): string {
-  return [r.command, ...r.args].join("\n");
-}
 
 /** The plain-text rules for what a connector asks for; throws `invalid_params` on the first break. */
 export function checkRequests(r: ConnectorRequests): void {
@@ -423,13 +420,134 @@ export function connectorWidenedBy(
     : undefined;
 }
 
+// --- credentials and risks in the command line ---------------------------------------------------
+
+const URL_USERINFO = /[a-z][a-z0-9+.-]*:\/\/[^/\s:@]+(?::[^/\s@]*)?@/i;
+const JWT = /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*/;
+/** A flag that names a secret but only points at where it is (`--token-file`) is not a leak. */
+const POINTER_FLAG = /(file|path|env|name|url|dir|var|id)$/i;
+
+function entropy(text: string): number {
+  const counts = new Map<string, number>();
+  for (const ch of text) counts.set(ch, (counts.get(ch) ?? 0) + 1);
+  let h = 0;
+  for (const n of counts.values()) {
+    const p = n / text.length;
+    h -= p * Math.log2(p);
+  }
+  return h;
+}
+
+/** Why an argument could be carrying a credential; `undefined` when it looks like plain config. */
+function argLeak(arg: string, previous: string | undefined): string | undefined {
+  if (URL_USERINFO.test(arg)) return "a web address with a user name or password in it";
+  if (JWT.test(arg)) return "a signed token";
+  const kv = /^-{0,2}([A-Za-z][\w.-]*)=(.+)$/s.exec(arg);
+  if (
+    kv !== null &&
+    SECRET_SHAPED_NAME.test(kv[1] as string) &&
+    !POINTER_FLAG.test(kv[1] as string)
+  )
+    return `a value given to ${(kv[1] as string).slice(0, 40)}`;
+  if (
+    previous !== undefined &&
+    /^-{1,2}[A-Za-z][\w.-]*$/.test(previous) &&
+    SECRET_SHAPED_NAME.test(previous) &&
+    !POINTER_FLAG.test(previous) &&
+    !arg.startsWith("-")
+  )
+    return `the value after ${previous.slice(0, 40)}`;
+  // A long, random-looking word that is not a path or a package spec.
+  if (
+    arg.length >= 24 &&
+    /^[A-Za-z0-9_\-+/=]+$/.test(arg) &&
+    !arg.startsWith("/") &&
+    !arg.startsWith(".") &&
+    !(arg.includes("/") && arg.includes(".")) &&
+    entropy(arg) >= 4.3 &&
+    /\d/.test(arg) &&
+    /[A-Za-z]/.test(arg)
+  )
+    return "a long random-looking value";
+  return undefined;
+}
+
+/** Arguments (never the program) that look like they carry a credential, in plain words. */
+export function argvCredentialLeaks(args: readonly string[]): string[] {
+  const out: string[] = [];
+  args.forEach((a, i) => {
+    const why = argLeak(a, args[i - 1]);
+    if (why !== undefined) out.push(`argument ${i + 1} looks like ${why}`);
+  });
+  return out;
+}
+
+const RUNNERS = new Set(["npx", "bunx", "uvx", "pipx", "pnpx"]);
+const basename = (p: string) => (p.split("/").pop() ?? p).toLowerCase();
+
+/** Whether the command downloads its package when it starts (needs the network). */
+export function downloadsPackage(r: Pick<ConnectorRequests, "command" | "args">): boolean {
+  const c = basename(r.command);
+  return RUNNERS.has(c) || ((c === "pnpm" || c === "yarn") && r.args[0] === "dlx");
+}
+
+/** The package spec an `npx` / `uvx` style command runs when it is not pinned to a version. */
+export function unpinnedPackage(
+  r: Pick<ConnectorRequests, "command" | "args">,
+): string | undefined {
+  if (!downloadsPackage(r)) return undefined;
+  const skip = new Set(["dlx", "run", "exec"]);
+  const spec = r.args.find((a) => !a.startsWith("-") && !skip.has(a));
+  if (spec === undefined) return undefined;
+  const pinned = spec.startsWith("@")
+    ? spec.indexOf("@", 1) > 0
+    : spec.includes("@") || spec.includes("==");
+  return pinned ? undefined : spec;
+}
+
+/** Domains that anyone can publish on, or wildcards: a grant of them reaches more than one site. */
+const SHARED_HOSTS =
+  /(^|\.)(github\.io|githubusercontent\.com|pages\.dev|workers\.dev|vercel\.app|netlify\.app|herokuapp\.com|amazonaws\.com|appspot\.com|firebaseapp\.com|web\.app|onrender\.com|fly\.dev|glitch\.me|repl\.co|ngrok\.(io|app|dev)|trycloudflare\.com|r2\.dev|blob\.core\.windows\.net)$/i;
+export function riskyDomains(network: readonly string[]): string[] {
+  return network.filter((d) => d.startsWith("*.") || SHARED_HOSTS.test(d));
+}
+
 /** Scan findings for what a connector bundle ships: its command line and its script files. */
 export function scanConnector(r: ConnectorRequests, tree: SkillTree): ScanFinding[] {
-  const out: ScanFinding[] = scanText("command", argvText(r)).map((f) => ({
-    rule: f.rule,
-    severity: f.severity,
-    message: f.message,
-  }));
+  const out: ScanFinding[] = [];
+  // `npx -y pkg` is the command itself, not an instruction to install something.
+  const runner = downloadsPackage(r);
+  for (const f of scanText("command", [r.command, ...r.args].join(" "))) {
+    if (runner && f.rule === "install-instructions") continue;
+    out.push({ rule: f.rule, severity: f.severity, message: f.message });
+  }
+  for (const why of argvCredentialLeaks(r.args))
+    out.push({
+      rule: "credential-in-argv",
+      severity: "high",
+      message: `${why}; a command line is visible to every process, so a credential does not belong in it`,
+    });
+  const unpinned = unpinnedPackage(r);
+  if (unpinned !== undefined)
+    out.push({
+      rule: "unpinned-package",
+      severity: "warn",
+      message: "the package it runs is not pinned to a version, so what runs can change under you",
+    });
+  if (downloadsPackage(r))
+    out.push({
+      rule: "downloads-at-start",
+      severity: "warn",
+      message:
+        "it downloads its package when it starts, and the first run has no network, so the check may not be able to start it",
+    });
+  const risky = riskyDomains(r.network);
+  if (risky.length > 0)
+    out.push({
+      rule: "broad-domain",
+      severity: "warn",
+      message: "a wildcard or shared-hosting domain reaches more than one site",
+    });
   for (const [path, file] of tree) {
     const body = textOf(file);
     if (body === undefined) {

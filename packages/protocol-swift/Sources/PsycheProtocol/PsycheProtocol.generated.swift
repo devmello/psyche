@@ -360,6 +360,7 @@
 //   let connectorCatalogueEntry = try? JSONDecoder().decode(ConnectorCatalogueEntry.self, from: jsonData)
 //   let connectorExportResult = try? JSONDecoder().decode(ConnectorExportResult.self, from: jsonData)
 //   let connectorImportResult = try? JSONDecoder().decode(ConnectorImportResult.self, from: jsonData)
+//   let connectorResetResult = try? JSONDecoder().decode(ConnectorResetResult.self, from: jsonData)
 //   let connectorStatus = try? JSONDecoder().decode(ConnectorStatus.self, from: jsonData)
 //   let connectorsCatalogueParams = try? JSONDecoder().decode(ConnectorsCatalogueParams.self, from: jsonData)
 //   let connectorsCatalogueResult = try? JSONDecoder().decode(ConnectorsCatalogueResult.self, from: jsonData)
@@ -381,6 +382,7 @@
 //   let connectorsProposeCustomParams = try? JSONDecoder().decode(ConnectorsProposeCustomParams.self, from: jsonData)
 //   let connectorsProposeImportParams = try? JSONDecoder().decode(ConnectorsProposeImportParams.self, from: jsonData)
 //   let connectorsRemoveCustomParams = try? JSONDecoder().decode(ConnectorsRemoveCustomParams.self, from: jsonData)
+//   let connectorsResetRecordsParams = try? JSONDecoder().decode(ConnectorsResetRecordsParams.self, from: jsonData)
 //   let connectorsSetMatrixParams = try? JSONDecoder().decode(ConnectorsSetMatrixParams.self, from: jsonData)
 //   let connectorsSetMatrixResult = try? JSONDecoder().decode(ConnectorsSetMatrixResult.self, from: jsonData)
 //   let connectorsStatusParams = try? JSONDecoder().decode(ConnectorsStatusParams.self, from: jsonData)
@@ -10373,7 +10375,8 @@ public struct ConnectorImportResult: Codable, Sendable {
 // MARK: - ConnectorBundleCard
 public struct ConnectorBundleCard: Codable, Sendable {
     /// no_sandbox: this Gateway has no sandbox, so a command server is never run; scan: a
-    /// high-severity finding
+    /// high-severity finding; probe_failed: the sandboxed first run (no network) could not start
+    /// it
     public let blocker: Blocker?
     /// `sha256:` of the signed manifest: what a notice names
     public let bundleHash: String
@@ -10449,9 +10452,11 @@ public struct ConnectorBundleCard: Codable, Sendable {
 }
 
 /// no_sandbox: this Gateway has no sandbox, so a command server is never run; scan: a
-/// high-severity finding
+/// high-severity finding; probe_failed: the sandboxed first run (no network) could not start
+/// it
 public enum Blocker: String, Codable, Sendable {
     case noSandbox = "no_sandbox"
+    case probeFailed = "probe_failed"
     case scan = "scan"
 }
 
@@ -10567,6 +10572,9 @@ public struct BundleSigner: Codable, Sendable {
     public let nameChanged: Bool?
     /// The key seen before when status is `changed`
     public let previousKeyID: String?
+    /// The key was replaced by a rotation (the owner's own earlier key, or one the owner saw
+    /// replaced): a new file it signs is suspect, and an own retired key is never `verified`
+    public let retired: Bool?
     public let rotatedFrom: RotatedFrom?
     /// Differs from the key this skill was installed with (or it was signed and is no longer)
     public let signerChanged: Bool
@@ -10578,17 +10586,19 @@ public struct BundleSigner: Codable, Sendable {
         case name = "name"
         case nameChanged = "nameChanged"
         case previousKeyID = "previousKeyId"
+        case retired = "retired"
         case rotatedFrom = "rotatedFrom"
         case signerChanged = "signerChanged"
         case status = "status"
     }
 
-    public init(impersonates: Bool? = nil, keyID: String? = nil, name: String? = nil, nameChanged: Bool? = nil, previousKeyID: String? = nil, rotatedFrom: RotatedFrom? = nil, signerChanged: Bool, status: BundleSignerStatus) {
+    public init(impersonates: Bool? = nil, keyID: String? = nil, name: String? = nil, nameChanged: Bool? = nil, previousKeyID: String? = nil, retired: Bool? = nil, rotatedFrom: RotatedFrom? = nil, signerChanged: Bool, status: BundleSignerStatus) {
         self.impersonates = impersonates
         self.keyID = keyID
         self.name = name
         self.nameChanged = nameChanged
         self.previousKeyID = previousKeyID
+        self.retired = retired
         self.rotatedFrom = rotatedFrom
         self.signerChanged = signerChanged
         self.status = status
@@ -10646,6 +10656,8 @@ public struct ToolCheck: Codable, Sendable {
 
 // MARK: - ConnectorBundleCardUpdate
 public struct ConnectorBundleCardUpdate: Codable, Sendable {
+    public let carried: [String]
+    public let cleared: [String]
     public let diff: String
     public let installedBundleHash: String
     public let installedCommand: [String]
@@ -10654,6 +10666,8 @@ public struct ConnectorBundleCardUpdate: Codable, Sendable {
     public let widened: ConnectorBundleWidened?
 
     public enum CodingKeys: String, CodingKey {
+        case carried = "carried"
+        case cleared = "cleared"
         case diff = "diff"
         case installedBundleHash = "installedBundleHash"
         case installedCommand = "installedCommand"
@@ -10662,7 +10676,9 @@ public struct ConnectorBundleCardUpdate: Codable, Sendable {
         case widened = "widened"
     }
 
-    public init(diff: String, installedBundleHash: String, installedCommand: [String], installedVersion: String? = nil, signerChanged: Bool, widened: ConnectorBundleWidened? = nil) {
+    public init(carried: [String], cleared: [String], diff: String, installedBundleHash: String, installedCommand: [String], installedVersion: String? = nil, signerChanged: Bool, widened: ConnectorBundleWidened? = nil) {
+        self.carried = carried
+        self.cleared = cleared
         self.diff = diff
         self.installedBundleHash = installedBundleHash
         self.installedCommand = installedCommand
@@ -10872,6 +10888,19 @@ public struct Warning: Codable, Sendable {
     public init(code: String, detail: String) {
         self.code = code
         self.detail = detail
+    }
+}
+
+// MARK: - ConnectorResetResult
+public struct ConnectorResetResult: Codable, Sendable {
+    public let restored: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case restored = "restored"
+    }
+
+    public init(restored: Bool) {
+        self.restored = restored
     }
 }
 
@@ -28985,18 +29014,23 @@ public struct SkillsAuthorsCreateNoticeResult: Codable, Sendable {
 public struct SkillsAuthorsImportNoticeParams: Codable, Sendable {
     /// File name, for display
     public let name: String?
+    /// Only check the notice and say what it would do (applied false, with the notice's text to
+    /// apply); changes nothing
+    public let preview: Bool?
     public let text: String?
     /// An https link to the notice
     public let url: String?
 
     public enum CodingKeys: String, CodingKey {
         case name = "name"
+        case preview = "preview"
         case text = "text"
         case url = "url"
     }
 
-    public init(name: String? = nil, text: String? = nil, url: String? = nil) {
+    public init(name: String? = nil, preview: Bool? = nil, text: String? = nil, url: String? = nil) {
         self.name = name
+        self.preview = preview
         self.text = text
         self.url = url
     }
@@ -29004,27 +29038,41 @@ public struct SkillsAuthorsImportNoticeParams: Codable, Sendable {
 
 // MARK: - SkillsAuthorsImportNoticeResult
 public struct SkillsAuthorsImportNoticeResult: Codable, Sendable {
+    public let alreadyRevoked: Bool
+    public let applied: Bool
     public let bundleHash: String?
     public let keyID: String
     public let kind: SkillsAuthorsCreateNoticeParamsKind
+    /// Names the owner knows the key by
+    public let names: [String]
     /// The author's words: data, not instructions
     public let reason: String
     public let signer: SkillsAuthorsImportNoticeResultSigner
+    /// On a preview: the verified notice, to apply
+    public let text: String?
 
     public enum CodingKeys: String, CodingKey {
+        case alreadyRevoked = "alreadyRevoked"
+        case applied = "applied"
         case bundleHash = "bundleHash"
         case keyID = "keyId"
         case kind = "kind"
+        case names = "names"
         case reason = "reason"
         case signer = "signer"
+        case text = "text"
     }
 
-    public init(bundleHash: String? = nil, keyID: String, kind: SkillsAuthorsCreateNoticeParamsKind, reason: String, signer: SkillsAuthorsImportNoticeResultSigner) {
+    public init(alreadyRevoked: Bool, applied: Bool, bundleHash: String? = nil, keyID: String, kind: SkillsAuthorsCreateNoticeParamsKind, names: [String], reason: String, signer: SkillsAuthorsImportNoticeResultSigner, text: String? = nil) {
+        self.alreadyRevoked = alreadyRevoked
+        self.applied = applied
         self.bundleHash = bundleHash
         self.keyID = keyID
         self.kind = kind
+        self.names = names
         self.reason = reason
         self.signer = signer
+        self.text = text
     }
 }
 
@@ -35865,6 +35913,7 @@ public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
 public typealias ConnectorsCatalogueParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]
+public typealias ConnectorsResetRecordsParams = [String: JSONAny]
 public typealias DailyAutomationsTemplatesParams = [String: JSONAny]
 public typealias DevicesBootstrapAdminParams = [String: JSONAny]
 public typealias DevicesPresenceKeyListParams = [String: JSONAny]

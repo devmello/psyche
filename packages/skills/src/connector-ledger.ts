@@ -1,4 +1,15 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  copyFileSync,
+  existsSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 import type { ConnectorRequests } from "./connector-bundle.ts";
@@ -24,6 +35,8 @@ export interface ConnectorLedgerRecord {
   requests: ConnectorRequests;
   /** Hash of the script payload tree as approved (`treeHash` of an empty tree when none). */
   treeHash: string;
+  /** The tools the sandboxed probe really listed when this was approved (what an update is compared with). */
+  probedTools?: { name: string; sideEffect: string }[];
   /** Where the payload is on disk, when the bundle carried files. */
   dir?: string;
   installedAt: string;
@@ -60,12 +73,50 @@ export class ConnectorLedger {
     return f;
   }
 
+  #valid(path: string): LedgerFile | undefined {
+    try {
+      const f = JSON.parse(readFileSync(path, "utf8")) as LedgerFile;
+      return f?.v === 1 && typeof f.servers === "object" && f.servers !== null ? f : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Written to disk (file and folder) before it counts, keeping the last good copy as `.bak`. */
   #write(f: LedgerFile): void {
-    mkdirSync(dirname(this.path), { recursive: true, mode: 0o700 });
+    const dir = dirname(this.path);
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
     const tmp = `${this.path}.${process.pid}.tmp`;
     rmSync(tmp, { force: true });
-    writeFileSync(tmp, `${JSON.stringify(f, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+    const fd = openSync(tmp, "wx", 0o600);
+    try {
+      writeSync(fd, `${JSON.stringify(f, null, 2)}\n`);
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+    // The file being replaced was read successfully a moment ago, so it is a good copy to keep.
+    if (existsSync(this.path)) copyFileSync(this.path, `${this.path}.bak`);
     renameSync(tmp, this.path);
+    const dfd = openSync(dir, "r");
+    try {
+      fsyncSync(dfd);
+    } finally {
+      closeSync(dfd);
+    }
+  }
+
+  /**
+   * Sets an unreadable record aside and restores the last good copy, else starts empty. Servers
+   * that came from a bundle and have no record stay off until removed or imported again.
+   */
+  reset(): { restored: boolean } {
+    const dir = dirname(this.path);
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    if (existsSync(this.path)) renameSync(this.path, `${this.path}.corrupt-${this.#now()}`);
+    const bak = this.#valid(`${this.path}.bak`);
+    this.#write(bak ?? { v: 1, servers: {} });
+    return { restored: bak !== undefined };
   }
 
   get(serverId: string): ConnectorLedgerRecord | undefined {

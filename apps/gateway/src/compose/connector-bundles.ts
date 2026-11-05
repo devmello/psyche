@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { chmodSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join, sep } from "node:path";
 import { getSetting } from "@psyche/db";
 import { type PsycheMcpServerConfig, validateEnv } from "@psyche/mcp-host";
@@ -168,7 +169,7 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
     if (entry.madeBy === "psyche")
       return bad("Psyche wrote that connector; only connectors you set up can be shared");
     if (entry.trust === "bundled") return bad("a bundled connector cannot be shared");
-    if (ledger.get(entry.id) !== undefined)
+    if (entry.bundle !== undefined || ledger.get(entry.id) !== undefined)
       return bad(
         "that connector came from a shared file; only connectors you set up can be shared",
       );
@@ -207,13 +208,19 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
         details: {
           kind: "connector_export",
           serverId: entry.id,
-          command: [r.command, ...r.args].join(" ").slice(0, 600),
+          // The whole command line, one item per argument, nothing cut off: what is signed is
+          // exactly what is shown.
+          command: [r.command, ...r.args].join(" "),
+          argv: [r.command, ...r.args],
+          // Who signs, and whether this export makes the key.
+          signAs: keys.peek()?.name ?? (p.authorName ?? "").trim(),
+          newKey: keys.peek() === undefined,
           env: r.env,
           secrets: r.secrets.map((s) => s.name),
           network: r.network,
           tools: r.tools.map((x) => `${x.sideEffect} ${x.name}`),
           files: [...tree.keys()],
-          note: "Names only. No env or secret value is included.",
+          note: "Names only. No env or secret value is included, and the command line was checked for anything that looks like a credential.",
         },
       },
       p.approvalId,
@@ -352,22 +359,31 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
     } catch (err) {
       throw new PsycheError("policy_denied", PsycheError.from(err).message);
     }
-    const lineage = v.signer === undefined ? [] : [v.signer.keyId, ...v.ancestors];
-    if (ring.isBundleRevoked(v.bundleHash, lineage))
+    if (ring.isBundleRevoked(v.bundleHash, v.signer?.keyId))
       throw new PsycheError(
         "policy_denied",
         "an author's signed notice marked this exact bundle as bad; it is not installed",
         { details: { bundleHash: v.bundleHash } },
       );
+    // Two keys claiming to replace one earlier key: refused until one of them is revoked.
+    if (v.signer !== undefined) ring.assertNoFork(v.signer.keyId, v.ancestors);
     const entries = readEntries(services, deps.settingKey);
     const installedEntry = entries.find((c) => c.id === m.name);
     const rec = ledger.get(m.name);
     if (installedEntry !== undefined && rec === undefined)
       throw new PsycheError(
         "conflict",
-        `an MCP server named ${m.name} is already set up here and did not come from a shared file; remove it first`,
+        installedEntry.bundle !== undefined
+          ? `${m.name} came from a shared file but its record is missing; remove it, or reset the records in Settings`
+          : `an MCP server named ${m.name} is already set up here and did not come from a shared file; remove it first`,
       );
     const update = installedEntry !== undefined && rec !== undefined ? rec : undefined;
+    // A file that drops its signature over a signed install is refused, not just flagged.
+    if (update?.signerKeyId !== undefined && v.signer === undefined)
+      throw new PsycheError(
+        "policy_denied",
+        "the installed version is signed and this file is not; a signed connector is not replaced by an unsigned one",
+      );
     const installedSigner =
       update === undefined
         ? undefined
@@ -386,6 +402,10 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
       throw new PsycheError("policy_denied", "this bundle is signed by a key you revoked", {
         details: { keyId: signer.keyId ?? "" },
       });
+    const previousEnv = (): Record<string, string> => {
+      const e = installedEntry?.transport;
+      return e?.kind === "stdio" ? (e.env ?? {}) : {};
+    };
 
     const widened = connectorWidenedBy(
       update === undefined ? undefined : { requests: update.requests, treeHash: update.treeHash },
@@ -397,6 +417,15 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
         rule: "runs-through-a-shell",
         severity: "warn",
         message: "the command is a shell, so what it does is in its arguments",
+      });
+    if (signer.retired === true)
+      findings.push({
+        rule: "retired-key",
+        severity: "warn",
+        message:
+          signer.status === "own"
+            ? "signed with a key of yours that you replaced; it is not treated as yours any more"
+            : "this key was replaced by a rotation you have seen; a new file from it is suspect",
       });
     if (signer.status === "rotated")
       findings.push({
@@ -426,12 +455,55 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
         severity: "warn",
         message: "this bundle was made before the installed version; it may be a rollback",
       });
-    if (widened !== undefined && update !== undefined)
-      findings.push({
-        rule: "permissions-widened",
-        severity: "warn",
-        message: "this version asks for more than the installed one",
-      });
+
+    // Which of the owner's values an update may keep: only from the same key (or a rotation from
+    // it to a key the owner trusts), and only when the command, scripts and network did not widen.
+    const sameKey = update?.signerKeyId !== undefined && v.signer?.keyId === update.signerKeyId;
+    const rotatedToTrusted =
+      update?.signerKeyId !== undefined &&
+      v.signer !== undefined &&
+      ring.vouching(v.ancestors).includes(update.signerKeyId) &&
+      ring.get(v.signer.keyId)?.state === "trusted";
+    const mayCarry =
+      update !== undefined &&
+      (sameKey || rotatedToTrusted) &&
+      widened?.command !== true &&
+      widened?.payload !== true &&
+      (widened?.network.length ?? 0) === 0;
+    const names = [...r.env, ...r.secrets.map((x) => x.name)];
+    const prevEnv = previousEnv();
+    const had = names.filter((n) => (prevEnv[n] ?? "") !== "");
+    const carried = mayCarry ? had : [];
+    const cleared = mayCarry ? [] : had;
+
+    // What an update asks for beyond the installed version. Tools are judged by what the
+    // sandboxed probe really listed, against what was listed when the installed one was approved,
+    // not by the file's own claims.
+    const RANK = ["read", "write", "destructive"];
+    const widenedFor = (found: Pick<McpProposal, "tools">) => {
+      if (update === undefined) return undefined;
+      const before = update.probedTools ?? update.requests.tools;
+      const tools = found.tools
+        .filter((t) => {
+          const was = before.find((x) => x.name === t.name);
+          return was === undefined || RANK.indexOf(t.sideEffect) > RANK.indexOf(was.sideEffect);
+        })
+        .map((t) => t.name);
+      const w = {
+        command: widened?.command ?? false,
+        env: widened?.env ?? [],
+        secrets: widened?.secrets ?? [],
+        network: widened?.network ?? [],
+        tools,
+        payload: widened?.payload ?? false,
+      };
+      return w.command ||
+        w.payload ||
+        w.env.length + w.secrets.length + w.network.length + tools.length > 0
+        ? w
+        : undefined;
+    };
+    let probed: McpProposal["tools"] = [];
 
     // The update view: the command, then each bundled file, against what was approved before.
     let diff = "";
@@ -482,6 +554,8 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
               diff,
               installedCommand: argv(update.requests),
               signerChanged: signer.signerChanged,
+              carried,
+              cleared,
             },
           }),
     };
@@ -496,11 +570,9 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
 
     // The payload goes to its own version directory before the probe (the probe runs it).
     const dir = v.tree.size > 0 ? writePayload(m.name, v.tree) : undefined;
-    const previous = entries.find((c) => c.id === m.name);
-    const prevEnv = previous?.transport.kind === "stdio" ? (previous.transport.env ?? {}) : {};
-    // A name that exists in the new version keeps the value the owner already gave it.
+    // Only the values listed on the card as carried over are kept; every other name starts empty.
     const env: Record<string, string> = {};
-    for (const n of [...r.env, ...r.secrets.map((s) => s.name)]) env[n] = prevEnv[n] ?? "";
+    for (const n of names) env[n] = carried.includes(n) ? (prevEnv[n] as string) : "";
     const input: McpServerInput = {
       id: m.name,
       name: m.title.slice(0, 100),
@@ -508,14 +580,33 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
       allowedDomains: r.network,
     };
     const base = serverConfig(input);
+    // A shared connector gets nobody's documents: the places people keep theirs, and the data of
+    // the Apple apps, are off limits to it besides what every connector is already denied. Its own
+    // scripts are readable (read-only), and its scratch folder is the only place it writes.
+    const home = homedir();
+    const denyRead = [
+      "Documents",
+      "Desktop",
+      "Downloads",
+      "Pictures",
+      "Movies",
+      "Music",
+      join("Library", "Mail"),
+      join("Library", "Messages"),
+      join("Library", "Calendars"),
+      join("Library", "Group Containers"),
+    ].map((d) => join(home, d));
     const config: PsycheMcpServerConfig = {
       ...base,
-      ...(dir === undefined
-        ? {}
-        : {
-            cwd: dir,
-            sandbox: { ...base.sandbox, allowRead: [dir] },
-          }),
+      // Someone else's command: never vouched for, whatever it looks like.
+      trust: "unknown",
+      bundle: { hash: v.bundleHash },
+      sandbox: {
+        ...base.sandbox,
+        denyRead,
+        ...(dir === undefined ? {} : { allowRead: [dir] }),
+      },
+      ...(dir === undefined ? {} : { cwd: dir }),
       ...(m.version === undefined ? {} : { version: m.version }),
     };
     const signerLabel =
@@ -538,61 +629,79 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
           },
         },
         replace: update !== undefined,
-        summary: `${update === undefined ? "Install" : "Update"} shared connector "${m.name}" (${signerLabel}${widened !== undefined && update !== undefined ? ", asks for more than before" : ""})`,
-        bind: {
-          bundleHash: v.bundleHash,
-          signer: v.signer?.keyId ?? null,
-          widened: widened ?? null,
+        summary: (found) =>
+          `${update === undefined ? "Install" : "Update"} shared connector "${m.name}" (${signerLabel}${widenedFor(found) !== undefined ? ", asks for more than before" : ""})`,
+        bind: (found) => {
+          probed = found.tools;
+          return {
+            bundleHash: v.bundleHash,
+            signer: v.signer?.keyId ?? null,
+            widened: widenedFor(found) ?? null,
+            carried,
+          };
         },
-        details: {
+        details: (found) => ({
           bundle: {
             bundleHash: v.bundleHash,
             signerStatus: signer.status,
             signerKey: v.signer?.keyId ?? null,
             signerName: v.signer?.name.slice(0, 64) ?? null,
             env: r.env,
-            secrets: r.secrets.map((s) => s.name),
+            secrets: r.secrets.map((x) => x.name),
             declaredTools: r.tools.map((t) => `${t.sideEffect} ${t.name}`),
             update: update !== undefined,
-            widened: widened !== undefined && update !== undefined,
+            widened: widenedFor(found) !== undefined,
+            carried,
+            cleared,
             firstRun: "sandbox",
           },
-        },
+        }),
         precommit: async () => {
           // A notice or a revocation that arrived while the card was open still blocks it.
-          if (v.signer !== undefined && ring.isRevoked(v.signer.keyId))
+          if (
+            v.signer !== undefined &&
+            ring.statusOf(v.signer, keys.peek(), undefined, { ancestors: v.ancestors }).status ===
+              "revoked"
+          )
             throw new PsycheError("policy_denied", "this bundle is signed by a key you revoked");
-          if (ring.isBundleRevoked(v.bundleHash, lineage))
+          if (ring.isBundleRevoked(v.bundleHash, v.signer?.keyId))
             throw new PsycheError("policy_denied", "a signed notice marked this bundle as bad");
+          if (v.signer !== undefined) ring.assertNoFork(v.signer.keyId, v.ancestors);
           if (dir !== undefined && treeHash(readSkillDir(dir, limits)) !== treeHash(v.tree))
             throw new PsycheError(
               "conflict",
               "the connector's files changed since you reviewed them",
             );
+          // The record goes down before the server does: a server that came from a file is never
+          // running without it (every start checks it). If the add is undone, so is this.
+          if (v.signer !== undefined) ring.observe(v.signer, v.ancestors);
+          ledger.put({
+            serverId: m.name,
+            bundleHash: v.bundleHash,
+            ...(v.signer === undefined
+              ? {}
+              : { signerKeyId: v.signer.keyId, signerName: v.signer.name }),
+            // The union, so an update does not forget keys an earlier file named.
+            signerAncestors: [
+              ...new Set([...(sameKey ? (update?.signerAncestors ?? []) : []), ...v.ancestors]),
+            ],
+            probedTools: probed.map((t) => ({ name: t.name, sideEffect: t.sideEffect })),
+            title: m.title,
+            ...(m.version === undefined ? {} : { version: m.version }),
+            createdAt: m.createdAt,
+            requests: r,
+            treeHash: m.payload.treeHash,
+            ...(dir === undefined ? {} : { dir }),
+          });
+        },
+        rolledBack: async () => {
+          if (update === undefined) ledger.remove(m.name);
+          else {
+            const { installedAt: _at, ...old } = update;
+            ledger.put(old);
+          }
         },
         committed: async () => {
-          try {
-            if (v.signer !== undefined) ring.observe(v.signer);
-            ledger.put({
-              serverId: m.name,
-              bundleHash: v.bundleHash,
-              ...(v.signer === undefined
-                ? {}
-                : { signerKeyId: v.signer.keyId, signerName: v.signer.name }),
-              signerAncestors: v.ancestors,
-              title: m.title,
-              ...(m.version === undefined ? {} : { version: m.version }),
-              createdAt: m.createdAt,
-              requests: r,
-              treeHash: m.payload.treeHash,
-              ...(dir === undefined ? {} : { dir }),
-            });
-          } catch (err) {
-            // A server that came from a bundle is never left running without its record (it is
-            // what revocation and updates look at): take it out again.
-            await deps.adder.remove(m.name).catch(() => undefined);
-            throw err;
-          }
           // The version it replaced is no longer in use.
           if (update?.dir !== undefined && update.dir !== dir)
             rmSync(update.dir, { recursive: true, force: true });
@@ -608,6 +717,17 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
           );
         },
       });
+      const finalWidened = widenedFor(staged.proposal);
+      if (card.update !== undefined) {
+        if (finalWidened === undefined) delete card.update.widened;
+        else card.update.widened = finalWidened;
+      }
+      if (finalWidened !== undefined)
+        card.findings.push({
+          rule: "permissions-widened",
+          severity: "warn",
+          message: "this version asks for more than the installed one",
+        });
       const declared = new Set(r.tools.map((t) => t.name));
       const found = new Set(staged.proposal.tools.map((t) => t.name));
       const undeclared = [...found].filter((x) => !declared.has(x)).sort();
@@ -635,6 +755,18 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
         (e.details as { reason?: string } | undefined)?.reason === "no_launcher"
       )
         return { card: { ...card, sandbox: "none", blocker: "no_sandbox" } };
+      if (
+        e.code === "unavailable" &&
+        (e.details as { reason?: string } | undefined)?.reason === "probe_failed"
+      ) {
+        // The first run, with no network and no secrets, could not start it: say so on the card.
+        card.findings.push({
+          rule: "probe-failed",
+          severity: "high",
+          message: `${e.message}. The first run has no network and no secrets, so a connector that needs them to start cannot be checked here`,
+        });
+        return { card: { ...card, blocker: "probe_failed" } };
+      }
       throw err;
     }
   };
@@ -642,19 +774,23 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
   const stale = async (entry: PsycheMcpServerConfig): Promise<string | undefined> => {
     // Psyche's own bundled servers never came from a file.
     if (entry.trust === "bundled") return undefined;
+    // The entry itself says whether it came from a file: a record that cannot be read stops
+    // those servers and no others.
+    const marked = entry.bundle !== undefined;
     let rec: ConnectorLedgerRecord | undefined;
     try {
       rec = ledger.get(entry.id);
     } catch {
-      // An unreadable record is not an excuse to run what it was guarding.
-      return "its bundle record cannot be read";
+      return marked ? "its bundle record cannot be read" : undefined;
     }
-    if (rec === undefined) return undefined;
+    if (rec === undefined) return marked ? "its bundle record is missing" : undefined;
     try {
-      const lineage =
-        rec.signerKeyId === undefined ? [] : [rec.signerKeyId, ...rec.signerAncestors];
-      if (lineage.some((k) => ring.isRevoked(k))) return "its author's key was revoked";
-      if (ring.isBundleRevoked(rec.bundleHash, lineage))
+      // The record must be the one for the file this entry was approved from.
+      if (marked && entry.bundle?.hash !== rec.bundleHash)
+        return "its bundle record is for another file";
+      if (rec.signerKeyId !== undefined && ring.isRevoked(rec.signerKeyId))
+        return "its author's key was revoked";
+      if (ring.isBundleRevoked(rec.bundleHash, rec.signerKeyId))
         return "a signed notice marked its bundle as bad";
       if (rec.dir !== undefined && treeHash(readSkillDir(rec.dir, limits)) !== rec.treeHash)
         return "its files changed since you approved them";
@@ -677,6 +813,17 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
     handlers: {
       "connectors.export": { run: (call, params) => exportConnector(call, params) },
       "connectors.proposeImport": { run: (_call, params) => proposeImport(params) },
+      "connectors.resetRecords": {
+        run: async () => {
+          const r = ledger.reset();
+          await audit(
+            "connector.records_reset",
+            { scope: "connectors" },
+            { restored: String(r.restored) },
+          );
+          return r;
+        },
+      },
     },
     stale,
     removed,

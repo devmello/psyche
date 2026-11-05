@@ -83,8 +83,10 @@ export interface ProposeExtra {
    */
   probeConfig?: PsycheMcpServerConfig;
   /** Merged into the card's details after the standard ones. */
-  details?: Record<string, unknown>;
-  summary?: string;
+  details?:
+    | Record<string, unknown>
+    | ((found: Omit<McpProposal, "id" | "expiresAt">) => Record<string, unknown>);
+  summary?: string | ((found: Omit<McpProposal, "id" | "expiresAt">) => string);
   requestedBy?: { runId: string | null; taskId: string | null; threadId: string | null };
   taint?: { sources?: readonly unknown[] };
   /** An update: replaces the existing entry of this id. */
@@ -93,11 +95,15 @@ export interface ProposeExtra {
    * Extra facts the card's binding covers besides the config and the probed tools (a shared
    * connector's bundle hash, signer and widening), so an approval cannot be spent on another.
    */
-  bind?: Record<string, unknown>;
+  bind?:
+    | Record<string, unknown>
+    | ((found: Omit<McpProposal, "id" | "expiresAt">) => Record<string, unknown>);
   /** Runs right before the entry is written; throws to refuse (the code changed since). */
   precommit?(): Promise<void>;
   /** Runs once the server is added. */
   committed?(): Promise<void>;
+  /** Runs when the server was written but taken out again (its tools changed): undo `precommit`. */
+  rolledBack?(): Promise<void>;
 }
 
 export interface McpAdder {
@@ -308,20 +314,27 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
         ? { ...config, sandbox: { ...config.sandbox, allowedDomains: [] } }
         : config);
     const found = await probe(input, config, runAs);
-    const b = binding(config, found, extra?.bind);
+    const resolve = <T>(v: T | ((f: typeof found) => T) | undefined): T | undefined =>
+      typeof v === "function" ? (v as (f: typeof found) => T)(found) : v;
+    const extraBind = resolve(extra?.bind);
+    const extraDetails = resolve(extra?.details);
+    const extraSummary = resolve(extra?.summary);
+    const b = binding(config, found, extraBind);
     const id = `mcpp_${randomUUID().replace(/-/g, "").slice(0, 20)}`;
     const proposal: McpProposal = { id, ...found, expiresAt: now() + MCP_PROPOSAL_TTL_MS };
     const t = config.transport;
     const issued = await services.broker.requestApproval({
       kind: "skill_install",
       summary:
-        extra?.summary ??
+        extraSummary ??
         `Add MCP server "${input.name}" (${found.tools.length} tools${found.network.reaches ? `, reaches ${found.network.hosts.join(", ").slice(0, 120)}` : ", no network"})`,
       details: {
         kind: "mcp_server",
         id: input.id,
         name: input.name,
-        ...(t.kind === "stdio" ? { command: t.command.join(" ") } : { url: t.url }),
+        ...(t.kind === "stdio"
+          ? { command: t.command.join(" "), argv: t.command }
+          : { url: t.url }),
         isolation: found.isolation,
         network: found.network.reaches ? found.network.hosts : [],
         // What the agent could do: every tool, its tier, and whether it stays off.
@@ -331,7 +344,7 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
         warnings: found.tools.reduce((n, x) => n + x.warnings.length, 0),
         toolsListHash: found.toolsListHash,
         proposalId: id,
-        ...(extra?.details ?? {}),
+        ...(extraDetails ?? {}),
       },
       bindingHash: b.bindingHash,
       grantKey: b.grantKey,
@@ -413,6 +426,7 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
           ? now0.filter((c) => c.id !== id)
           : now0.map((c) => (c.id === id ? previous : c)),
       );
+      await s.extra?.rolledBack?.();
       throw new PsycheError(
         "conflict",
         "the server's tools changed since you approved them; check it again",

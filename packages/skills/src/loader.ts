@@ -528,12 +528,16 @@ export class FsSkillLoader implements SkillLoader {
   #signerState(keyId: string): "seen" | "trusted" | "revoked" | "own" | "unreadable" {
     // The author key file only tells us whether a signature is the owner's own: if it is unsafe
     // that is simply unknown here (exporting reports it), and no skill is blocked for it.
+    // A revoked key stays revoked, the owner's own retired keys included.
     try {
-      if (
-        this.#keys?.peek()?.keyId === keyId ||
-        this.#keys?.retiredKeyIds().includes(keyId) === true
-      )
-        return "own";
+      if (this.#ring.get(keyId)?.state === "revoked") return "revoked";
+    } catch {
+      return "unreadable";
+    }
+    try {
+      if (this.#keys?.peek()?.keyId === keyId) return "own";
+      // A key the owner replaced is theirs no longer: it shows, and counts, as unknown.
+      if (this.#keys?.retiredKeyIds().includes(keyId) === true) return "seen";
     } catch {
       // fall through to the author list
     }
@@ -871,14 +875,9 @@ export class FsSkillLoader implements SkillLoader {
         `this bundle is signed by a key you revoked (${bundle.signer.keyId.slice(0, 23)}…)`,
         { details: { keyId: bundle.signer.keyId } },
       );
-    // A new key that an earlier, revoked key vouched for is no better than that key.
-    const revokedBefore = bundle?.ancestors.find((k) => this.#ring.isRevoked(k));
-    if (revokedBefore !== undefined)
-      throw new PsycheError(
-        "policy_denied",
-        "this bundle's key was named by an earlier key you revoked",
-        { details: { keyId: revokedBefore } },
-      );
+    // Two different keys claiming to replace one earlier key: refused until one is revoked.
+    if (bundle?.signer !== undefined)
+      this.#ring.assertNoFork(bundle.signer.keyId, bundle.ancestors);
     const lineage =
       bundle?.signer === undefined
         ? undefined
@@ -886,7 +885,10 @@ export class FsSkillLoader implements SkillLoader {
             keys: [bundle.signer.keyId, ...bundle.ancestors],
             bundleHash: bundleHashOf(signingBytes(bundle.manifest)),
           };
-    if (lineage !== undefined && this.#ring.isBundleRevoked(lineage.bundleHash, lineage.keys))
+    if (
+      lineage !== undefined &&
+      this.#ring.isBundleRevoked(lineage.bundleHash, bundle?.signer?.keyId)
+    )
       throw new PsycheError(
         "policy_denied",
         "an author's signed notice marked this exact bundle as bad; it is not installed",
@@ -990,6 +992,16 @@ export class FsSkillLoader implements SkillLoader {
         origin: bundle.manifest.origin,
       };
       if (signer.signerChanged && update !== undefined) update.signerChanged = true;
+      if (signer.retired === true) {
+        findings.push({
+          rule: "retired-key",
+          severity: "warn",
+          message:
+            signer.status === "own"
+              ? "signed with a key of yours that you replaced; it is no longer trusted as yours"
+              : "this key was replaced by a rotation you have seen; a new file from it is suspect",
+        });
+      }
       if (signer.status === "rotated") {
         findings.push({
           rule: "signer-rotated",
@@ -1078,7 +1090,9 @@ export class FsSkillLoader implements SkillLoader {
         ? "local"
         : bundle === undefined || bundle.manifest.origin === "agent"
           ? "unknown"
-          : status === "own" || status === "trusted" || trustAuthor
+          : (status === "own" && bundleInfo?.signer.retired !== true) ||
+              status === "trusted" ||
+              trustAuthor
             ? "verified"
             : "unknown";
     const id = this.#newId();
@@ -1155,14 +1169,10 @@ export class FsSkillLoader implements SkillLoader {
       this.#proposals.delete(proposalId);
       throw new PsycheError("policy_denied", "this bundle is signed by a key you revoked");
     }
-    if (staged.lineage?.keys.some((k) => this.#ring.isRevoked(k)) === true) {
-      this.#proposals.delete(proposalId);
-      throw new PsycheError("policy_denied", "this bundle is signed by a key you revoked");
-    }
     // A notice imported after the card was staged still blocks it.
     if (
       staged.lineage !== undefined &&
-      this.#ring.isBundleRevoked(staged.lineage.bundleHash, staged.lineage.keys)
+      this.#ring.isBundleRevoked(staged.lineage.bundleHash, signer?.keyId)
     ) {
       this.#proposals.delete(proposalId);
       throw new PsycheError("policy_denied", "a signed notice marked this bundle as bad");
@@ -1218,7 +1228,7 @@ export class FsSkillLoader implements SkillLoader {
       }
       this.#writeInstall(p, approvalId, target, signer);
       if (signer !== undefined) {
-        this.#ring.observe(signer);
+        this.#ring.observe(signer, staged.lineage?.keys.slice(1) ?? []);
         if (trustNow) {
           this.#ring.setState(signer.keyId, "trusted");
           this.#notify({
@@ -1541,6 +1551,10 @@ export class FsSkillLoader implements SkillLoader {
       new Date(this.#now()),
       keys.chain(),
     );
+    // The owner's own notice takes effect on this Mac too (a key of theirs they retired, or a
+    // bundle they made), without waiting for anyone to import it.
+    this.#ring.applyNotice(verifyNotice(notice), { trustedLocal: true });
+    this.refresh();
     await this.#o.onAuthorChange?.({
       kind: "notice_created",
       keyId,
@@ -1555,14 +1569,31 @@ export class FsSkillLoader implements SkillLoader {
    * under the bundle-link rules). It blocks, immediately: installed skills from a revoked key
    * show `blocked` at the next load, and no staged card can install it.
    */
-  importNotice(text: string): {
+  importNotice(
+    text: string,
+    opts: { preview?: boolean } = {},
+  ): {
     kind: "key" | "bundle";
     keyId: string;
     bundleHash?: string;
     reason: string;
     signer: { keyId: string; name: string };
+    applied: boolean;
+    names: string[];
+    alreadyRevoked: boolean;
+    text?: string;
   } {
     const v = verifyNotice(text);
+    const base = {
+      kind: v.notice.kind,
+      keyId: v.notice.keyId,
+      ...(v.notice.bundleHash === undefined ? {} : { bundleHash: v.notice.bundleHash }),
+      reason: v.notice.reason,
+      signer: { keyId: v.notice.signer.keyId, name: v.notice.signer.name },
+    };
+    // The same checks as applying, so a preview refuses what applying would refuse.
+    const preview = this.#ring.previewNotice(v);
+    if (opts.preview === true) return { ...base, applied: false, ...preview, text };
     const applied = this.#ring.applyNotice(v);
     this.#notify({
       kind: applied.kind === "key" ? "author_revoked" : "bundle_revoked",
@@ -1571,11 +1602,7 @@ export class FsSkillLoader implements SkillLoader {
       ...(applied.bundleHash === undefined ? {} : { treeHash: applied.bundleHash }),
     });
     this.refresh();
-    return {
-      ...applied,
-      reason: v.notice.reason,
-      signer: { keyId: v.notice.signer.keyId, name: v.notice.signer.name },
-    };
+    return { ...base, applied: true, ...preview };
   }
 
   /** Downloads a small file (a notice) under the bundle-link rules and this loader's fetch options. */

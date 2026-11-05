@@ -45,6 +45,8 @@ export interface ConnectorBundlesState {
   importFile: (file: File | undefined) => void;
   importLink: (url: string) => void;
   share: (server: McpServerStatus, authorName?: string) => void;
+  /** Sets a damaged record of shared connectors aside (`connectors.resetRecords`). */
+  resetRecords: () => void;
 }
 
 /** Saves the file the browser is handed; the Gateway made it, nothing here reads it. */
@@ -157,6 +159,17 @@ export function useConnectorBundles(
       );
     },
     importLink: (url) => review(call("connectors.proposeImport", { bundleUrl: url.trim() })),
+    resetRecords: () => {
+      reset();
+      call("connectors.resetRecords", {}).then(
+        (r) => {
+          mcp.reload();
+          setNotice(t("settings.connectorBundle.reset.done", { restored: r.restored }));
+        },
+        (err: unknown) =>
+          setError(t("settings.connectorBundle.reset.failed", { reason: messageOf(err) })),
+      );
+    },
     share: (server, authorName) => {
       reset();
       const args = {
@@ -235,6 +248,7 @@ export function ConnectorBundleImport({ state }: { state: ConnectorBundlesState 
   const fileId = useId();
   const linkId = useId();
   const [link, setLink] = useState("");
+  const [resetting, setResetting] = useState(false);
   return (
     <Group
       title={t("settings.connectorBundle.import.title")}
@@ -285,6 +299,29 @@ export function ConnectorBundleImport({ state }: { state: ConnectorBundlesState 
             </Button>
           </div>
         </form>
+        <div className="flex flex-col gap-1">
+          <h4 className="font-medium">{t("settings.connectorBundle.reset.title")}</h4>
+          <p className="text-callout text-muted-foreground">
+            {t("settings.connectorBundle.reset.hint")}
+          </p>
+          <div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (resetting) {
+                  setResetting(false);
+                  state.resetRecords();
+                } else setResetting(true);
+              }}
+            >
+              {resetting
+                ? t("settings.connectorBundle.reset.confirm")
+                : t("settings.connectorBundle.reset.go")}
+            </Button>
+          </div>
+        </div>
       </div>
     </Group>
   );

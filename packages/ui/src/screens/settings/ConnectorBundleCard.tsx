@@ -29,6 +29,10 @@ function signerLine(card: Card): { text: string; warn: boolean } {
       ),
       warn: s.signerChanged,
     };
+  if (s.status === "own" && s.retired === true)
+    return { text: t("settings.connectorBundle.signer.ownRetired"), warn: true };
+  if (s.retired === true && s.status !== "revoked")
+    return { text: t("settings.connectorBundle.signer.retired", { name }), warn: true };
   if (s.impersonates === true)
     return { text: t("settings.connectorBundle.signer.impersonates"), warn: true };
   if (s.nameChanged === true)
@@ -156,6 +160,29 @@ export function ConnectorBundleCard({
       </section>
 
       <WidenedBlock card={card} />
+      {card.update ? (
+        <section className="flex flex-col gap-1" data-testid="connector-carry">
+          {card.update.carried.length > 0 ? (
+            <p>
+              {t("settings.connectorBundle.carry.kept", {
+                names: card.update.carried.map((x) => show(x, 64)).join(", "),
+              })}
+            </p>
+          ) : null}
+          {card.update.cleared.length > 0 ? (
+            <>
+              <p role="alert" className="text-danger-text">
+                {t("settings.connectorBundle.carry.cleared", {
+                  names: card.update.cleared.map((x) => show(x, 64)).join(", "),
+                })}
+              </p>
+              <p className="text-callout text-muted-foreground">
+                {t("settings.connectorBundle.carry.vault")}
+              </p>
+            </>
+          ) : null}
+        </section>
+      ) : null}
 
       <p
         role={blocked ? "alert" : "status"}
@@ -163,8 +190,8 @@ export function ConnectorBundleCard({
         data-testid="connector-sandbox"
       >
         {blocked ? <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" /> : null}
-        {card.blocker === "scan"
-          ? t("settings.connectorBundle.blocker.scan")
+        {card.blocker === "scan" || card.blocker === "probe_failed"
+          ? t(`settings.connectorBundle.blocker.${card.blocker}`)
           : t(`settings.connectorBundle.sandbox.${card.sandbox}`)}
       </p>
 

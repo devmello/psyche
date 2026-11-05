@@ -1157,6 +1157,14 @@
         "sideEffecting": true
       },
       {
+        "description": "Side-effecting: sets aside an unreadable record of shared connectors (restoring the last good copy when there is one, else starting empty). Connectors that came from a file and have no record stay off until they are removed or imported again; it never starts anything.",
+        "name": "connectors.resetRecords",
+        "params": "#/$defs/ConnectorsResetRecordsParams",
+        "result": "#/$defs/ConnectorResetResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Side-effecting: sets allow / ask / deny per action; destructive and financial actions refuse allow.",
         "name": "connectors.setMatrix",
         "params": "#/$defs/ConnectorsSetMatrixParams",
@@ -12211,6 +12219,10 @@
           "description": "The name looks like the owner's own author name, with another key",
           "type": "boolean"
         },
+        "retired": {
+          "description": "The key was replaced by a rotation (the owner's own earlier key, or one the owner saw replaced): a new file it signs is suspect, and an own retired key is never `verified`",
+          "type": "boolean"
+        },
         "rotatedFrom": {
           "properties": {
             "keyId": {
@@ -14865,10 +14877,11 @@
           "type": "array"
         },
         "blocker": {
-          "description": "no_sandbox: this Gateway has no sandbox, so a command server is never run; scan: a high-severity finding",
+          "description": "no_sandbox: this Gateway has no sandbox, so a command server is never run; scan: a high-severity finding; probe_failed: the sandboxed first run (no network) could not start it",
           "enum": [
             "no_sandbox",
-            "scan"
+            "scan",
+            "probe_failed"
           ],
           "type": "string"
         },
@@ -14923,13 +14936,27 @@
             },
             "signerChanged": {
               "type": "boolean"
+            },
+            "carried": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "cleared": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             }
           },
           "required": [
             "installedBundleHash",
             "diff",
             "installedCommand",
-            "signerChanged"
+            "signerChanged",
+            "carried",
+            "cleared"
           ],
           "type": "object"
         }
@@ -15200,6 +15227,17 @@
       },
       "required": [
         "card"
+      ],
+      "type": "object"
+    },
+    "ConnectorResetResult": {
+      "properties": {
+        "restored": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "restored"
       ],
       "type": "object"
     },
@@ -15539,6 +15577,10 @@
       "required": [
         "connectorId"
       ],
+      "type": "object"
+    },
+    "ConnectorsResetRecordsParams": {
+      "properties": {},
       "type": "object"
     },
     "ConnectorsSetMatrixParams": {
@@ -39514,6 +39556,10 @@
           "maxLength": 2048,
           "minLength": 1,
           "type": "string"
+        },
+        "preview": {
+          "description": "Only check the notice and say what it would do (applied false, with the notice's text to apply); changes nothing",
+          "type": "boolean"
         }
       },
       "type": "object"
@@ -39551,13 +39597,33 @@
             "name"
           ],
           "type": "object"
+        },
+        "applied": {
+          "type": "boolean"
+        },
+        "names": {
+          "description": "Names the owner knows the key by",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "alreadyRevoked": {
+          "type": "boolean"
+        },
+        "text": {
+          "description": "On a preview: the verified notice, to apply",
+          "type": "string"
         }
       },
       "required": [
         "kind",
         "keyId",
         "reason",
-        "signer"
+        "signer",
+        "applied",
+        "names",
+        "alreadyRevoked"
       ],
       "type": "object"
     },

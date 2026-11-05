@@ -3245,7 +3245,8 @@ export interface ConnectorImportResult {
 export interface ConnectorBundleCard {
     /**
      * no_sandbox: this Gateway has no sandbox, so a command server is never run; scan: a
-     * high-severity finding
+     * high-severity finding; probe_failed: the sandboxed first run (no network) could not start
+     * it
      */
     blocker?: Blocker;
     /**
@@ -3297,9 +3298,10 @@ export interface ConnectorBundleCard {
 
 /**
  * no_sandbox: this Gateway has no sandbox, so a command server is never run; scan: a
- * high-severity finding
+ * high-severity finding; probe_failed: the sandboxed first run (no network) could not start
+ * it
  */
-export type Blocker = "no_sandbox" | "scan";
+export type Blocker = "no_sandbox" | "scan" | "probe_failed";
 
 export interface ConnectorBundleTool {
     name:       string;
@@ -3362,7 +3364,12 @@ export interface BundleSigner {
      * The key seen before when status is `changed`
      */
     previousKeyId?: string;
-    rotatedFrom?:   RotatedFrom;
+    /**
+     * The key was replaced by a rotation (the owner's own earlier key, or one the owner saw
+     * replaced): a new file it signs is suspect, and an own retired key is never `verified`
+     */
+    retired?:     boolean;
+    rotatedFrom?: RotatedFrom;
     /**
      * Differs from the key this skill was installed with (or it was signed and is no longer)
      */
@@ -3385,6 +3392,8 @@ export interface ToolCheck {
 }
 
 export interface ConnectorBundleCardUpdate {
+    carried:             string[];
+    cleared:             string[];
     diff:                string;
     installedBundleHash: string;
     installedCommand:    string[];
@@ -3467,6 +3476,10 @@ export interface MCPProbedTool {
 export interface Warning {
     code:   string;
     detail: string;
+}
+
+export interface ConnectorResetResult {
+    restored: boolean;
 }
 
 export interface ConnectorsCatalogueResult {
@@ -10103,7 +10116,12 @@ export interface SkillsAuthorsImportNoticeParams {
      * File name, for display
      */
     name?: string;
-    text?: string;
+    /**
+     * Only check the notice and say what it would do (applied false, with the notice's text to
+     * apply); changes nothing
+     */
+    preview?: boolean;
+    text?:    string;
     /**
      * An https link to the notice
      */
@@ -10111,14 +10129,24 @@ export interface SkillsAuthorsImportNoticeParams {
 }
 
 export interface SkillsAuthorsImportNoticeResult {
-    bundleHash?: string;
-    keyId:       string;
-    kind:        SkillsAuthorsCreateNoticeParamsKind;
+    alreadyRevoked: boolean;
+    applied:        boolean;
+    bundleHash?:    string;
+    keyId:          string;
+    kind:           SkillsAuthorsCreateNoticeParamsKind;
+    /**
+     * Names the owner knows the key by
+     */
+    names: string[];
     /**
      * The author's words: data, not instructions
      */
     reason: string;
     signer: SkillsAuthorsImportNoticeResultSigner;
+    /**
+     * On a preview: the verified notice, to apply
+     */
+    text?: string;
 }
 
 export interface SkillsAuthorsImportNoticeResultSigner {

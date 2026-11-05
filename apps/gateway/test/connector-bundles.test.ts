@@ -638,6 +638,9 @@ describe("updates", () => {
     const later = new Date(NOW.getTime() + 60_000);
     const same = await propose(s, buildConnectorBundle(model(), new Map(), key, later));
     expect(same.card.update?.widened).toBeUndefined();
+    // Same key, nothing wider: the value the owner gave is listed as kept.
+    expect(same.card.update?.carried).toEqual(["NOTES_DIR"]);
+    expect(same.card.update?.cleared).toEqual([]);
     expect(same.approval?.details).toMatchObject({ bundle: { update: true, widened: false } });
 
     const wide = await propose(
@@ -691,7 +694,10 @@ describe("updates", () => {
         transport: { env?: Record<string, string> };
       }[]
     ).find((c) => c.id === "notes-sync");
-    expect(entry?.transport.env?.NOTES_DIR).toBe("kept-plain");
+    // A wider command and network: nothing carries over, and the card said which would have.
+    expect(entry?.transport.env?.NOTES_DIR).toBe("");
+    expect(wide.card.update?.carried).toEqual([]);
+    expect(wide.card.update?.cleared).toEqual(["NOTES_DIR"]);
     expect(entry?.transport.env?.SECOND_TOKEN).toBe("");
     expect(
       JSON.parse(readFileSync(join(home, "connectors", "bundles.json"), "utf8")).servers[
@@ -712,8 +718,11 @@ describe("updates", () => {
     expect(other.card.signer).toMatchObject({ status: "changed", signerChanged: true });
     expect(other.card.update?.signerChanged).toBe(true);
     expect(other.card.findings.some((f) => f.rule === "signer-changed")).toBe(true);
-    const unsigned = await propose(s, buildConnectorBundle(model(), new Map(), undefined, later));
-    expect(unsigned.card.signer).toEqual({ status: "unsigned", signerChanged: true });
+    // A signed install is not replaced by an unsigned file at all.
+    const unsigned = await rejects(
+      propose(s, buildConnectorBundle(model(), new Map(), undefined, later)),
+    );
+    expect(unsigned.code).toBe("policy_denied");
     const older = await propose(
       s,
       buildConnectorBundle(model(), new Map(), ada, new Date(NOW.getTime() - 86_400_000)),
@@ -839,3 +848,294 @@ function readdirOnly(dir: string): string {
   const [only] = readdirSync(dir);
   return join(dir, only as string);
 }
+
+describe("review fixes", () => {
+  const entryOf = (s: Setup, id: string) =>
+    (
+      (getSetting(s.services.db, "mcp.servers")?.value ?? []) as {
+        id: string;
+        trust: string;
+        bundle?: { hash: string };
+        sandbox?: { denyRead?: string[]; allowRead?: string[] };
+        transport: { env?: Record<string, string>; command: string[] };
+      }[]
+    ).find((c) => c.id === id);
+
+  const give = async (s: Setup, id: string, name: string, value: string) => {
+    const all = (getSetting(s.services.db, "mcp.servers")?.value ?? []) as {
+      id: string;
+      transport: { env: Record<string, string> };
+    }[];
+    for (const e of all) if (e.id === id) e.transport.env[name] = value;
+    await s.owner.call("settings.set", { key: "mcp.servers", value: all }, ik());
+    await s.mcp.idle();
+  };
+
+  const poke = async (s: Setup) => {
+    s.services.publish("skills.changed", { type: "reloaded", added: [], removed: [], changed: [] });
+    await new Promise((r) => setTimeout(r, 50));
+    await s.mcp.idle();
+  };
+
+  it("M3: values carry to the same key's update, not to a new signer", async () => {
+    const s = await setup();
+    const ada = authorKey("Ada");
+    await install(s, await propose(s, buildConnectorBundle(model(), new Map(), ada, NOW)));
+    await give(s, "notes-sync", "NOTES_DIR", "kept");
+    const later = new Date(NOW.getTime() + 60_000);
+    // A different signer: nothing carries, and the card says which value was dropped.
+    const other = await propose(
+      s,
+      buildConnectorBundle(model(), new Map(), authorKey("Mallory"), later),
+    );
+    expect(other.card.update?.carried).toEqual([]);
+    expect(other.card.update?.cleared).toEqual(["NOTES_DIR"]);
+    await install(s, other);
+    expect(entryOf(s, "notes-sync")?.transport.env?.NOTES_DIR).toBe("");
+    expect(entryOf(s, "notes-sync")?.trust).toBe("unknown");
+  });
+
+  it("M3: a rotation carries values only to a successor the owner trusts", async () => {
+    const run = async (trusted: boolean) => {
+      const s = await setup();
+      const a = authorKey("Ada");
+      const b = authorKey("Ada");
+      await install(s, await propose(s, buildConnectorBundle(model(), new Map(), a, NOW)));
+      await give(s, "notes-sync", "NOTES_DIR", "kept");
+      const ring = new AuthorRing(join(home, "skills"));
+      ring.observe(b.author);
+      if (trusted) ring.setState(b.author.keyId, "trusted");
+      const statement = signRotation(a, b.author, NOW.toISOString());
+      const r = await propose(
+        s,
+        buildConnectorBundle(model(), new Map(), b, new Date(NOW.getTime() + 60_000), [statement]),
+      );
+      return r.card.update;
+    };
+    expect((await run(true))?.carried).toEqual(["NOTES_DIR"]);
+    for (const c of clients.splice(0)) c.close();
+    await composed?.stop("test");
+    composed = null;
+    expect((await run(false))?.carried).toEqual([]);
+  });
+
+  it("M5: a shared connector is never 'verified', whatever its command looks like", async () => {
+    const s = await setup();
+    const official = ["npx", "-y", "@modelcontextprotocol/server-everything"];
+    const mk = (id: string, extra: object) => ({
+      id,
+      name: id,
+      trust: "verified",
+      enabled: false,
+      transport: { kind: "stdio", command: official },
+      ...extra,
+    });
+    await s.owner.call(
+      "settings.set",
+      {
+        key: "mcp.servers",
+        value: [mk("plain", {}), mk("shared", { bundle: { hash: `sha256:${"a".repeat(64)}` } })],
+      },
+      ik(),
+    );
+    await s.mcp.idle();
+    const { servers } = await s.owner.call<{ servers: { id: string; trust: string }[] }>(
+      "mcp.status",
+      {},
+    );
+    expect(servers.find((x) => x.id === "plain")?.trust).toBe("verified");
+    expect(servers.find((x) => x.id === "shared")?.trust).toBe("unknown");
+  });
+
+  it("M5/L8: an imported connector is marked, unknown, and denied the places people keep their files", async () => {
+    const s = await setup();
+    await install(
+      s,
+      await propose(s, buildConnectorBundle(model(), new Map(), authorKey("Ada"), NOW)),
+    );
+    const e = entryOf(s, "notes-sync");
+    expect(e?.trust).toBe("unknown");
+    expect(e?.bundle?.hash).toMatch(/^sha256:/);
+    expect(e?.sandbox?.denyRead?.some((p) => p.endsWith("/Documents"))).toBe(true);
+    expect(e?.sandbox?.denyRead?.some((p) => p.endsWith("/Library/Mail"))).toBe(true);
+  });
+
+  it("M4/L10: the export card shows the whole command and who signs; a credential in it stops the export", async () => {
+    const s = await setup();
+    const longArg = `--note=${"x".repeat(700)}`;
+    const tail = "--last-argument";
+    const { proposal, approval } = await s.owner.call<{
+      proposal: McpProposal;
+      approval: { id: string };
+    }>(
+      "mcp.probe",
+      {
+        server: {
+          id: "longcmd",
+          name: "Long",
+          transport: { kind: "stdio", command: [process.execPath, SERVER, longArg, tail] },
+        },
+      },
+      ik(),
+    );
+    // The add card lists the command one argument per item.
+    const card = await s.owner.call<{ approval: { details: { argv?: string[] } } }>(
+      "approvals.get",
+      { approvalId: approval.id },
+    );
+    expect(card.approval.details.argv).toEqual([process.execPath, SERVER, longArg, tail]);
+    await approve(s.owner, approval.id);
+    await s.owner.call("mcp.add", { proposalId: proposal.id, approvalId: approval.id }, ik());
+    const first = await rejects(
+      s.handler("connectors.export").run(s.call(), { serverId: "longcmd", authorName: "Ada" }),
+    );
+    const detail = await s.owner.call<{ approval: { details: Record<string, unknown> } }>(
+      "approvals.get",
+      { approvalId: (first.details as { approvalId: string }).approvalId },
+    );
+    const d = detail.approval.details;
+    // Nothing cut off at 600 characters: the last argument is on the card, and who signs is named.
+    expect(String(d.command).endsWith(tail)).toBe(true);
+    expect((d.argv as string[]).at(-1)).toBe(tail);
+    expect(d).toMatchObject({ signAs: "Ada", newKey: true });
+    expect(String(d.note)).toMatch(/Names only/);
+
+    const secretish = ["--api", "key=", "Zk39xQ7vLm2PaR8sTu4WnY"].join("");
+    const leaky = await s.owner.call<{ proposal: McpProposal; approval: { id: string } }>(
+      "mcp.probe",
+      {
+        server: {
+          id: "leaky2",
+          name: "Leaky",
+          transport: { kind: "stdio", command: [process.execPath, SERVER, secretish] },
+        },
+      },
+      ik(),
+    );
+    await approve(s.owner, leaky.approval.id);
+    await s.owner.call(
+      "mcp.add",
+      { proposalId: leaky.proposal.id, approvalId: leaky.approval.id },
+      ik(),
+    );
+    const e = await rejects(
+      s.handler("connectors.export").run(s.call(), { serverId: "leaky2", authorName: "Ada" }),
+    );
+    expect(e.code).toBe("policy_denied");
+    expect(e.message).not.toContain("Zk39xQ7vLm2PaR8sTu4WnY");
+  });
+
+  it("L2: a tool that appears in the probe counts as wider even when the file's claims did not change", async () => {
+    const s = await setup();
+    const key = authorKey("Ada");
+    const claims = { tools: [{ name: "echo", sideEffect: "read" as const }] };
+    const v1 = buildConnectorBundle(
+      model({ command: "node", args: ["server.mjs"], ...claims }),
+      treeOf({ "server.mjs": ECHO_SOURCE }),
+      key,
+      NOW,
+    );
+    await install(s, await propose(s, v1));
+    const v2 = buildConnectorBundle(
+      model({ command: "node", args: ["server.mjs"], ...claims }),
+      treeOf({ "server.mjs": `process.argv.push("--write-tool");\n${ECHO_SOURCE}` }),
+      key,
+      new Date(NOW.getTime() + 60_000),
+    );
+    const r = await propose(s, v2);
+    expect(r.card.update?.widened?.tools).toEqual(["shout"]);
+    expect(r.card.update?.widened?.payload).toBe(true);
+    expect(r.card.toolCheck?.undeclared).toEqual(["shout"]);
+  });
+
+  it("L1: an update keeps the earlier keys an older file named", async () => {
+    const s = await setup();
+    const a = authorKey("Ada");
+    const b = authorKey("Ada");
+    const st = signRotation(a, b.author, NOW.toISOString());
+    await install(s, await propose(s, buildConnectorBundle(model(), new Map(), b, NOW, [st])));
+    await install(
+      s,
+      await propose(
+        s,
+        buildConnectorBundle(model(), new Map(), b, new Date(NOW.getTime() + 60_000)),
+      ),
+    );
+    const ledger = JSON.parse(readFileSync(join(home, "connectors", "bundles.json"), "utf8"));
+    expect(ledger.servers["notes-sync"].signerAncestors).toEqual([a.author.keyId]);
+  });
+
+  it("L3: a notice that lands while the card is open blocks the install", async () => {
+    const s = await setup();
+    const key = authorKey("Ada");
+    const text = buildConnectorBundle(model(), new Map(), key, NOW);
+    const r = await propose(s, text);
+    await approve(s.owner, (r.approval as { id: string }).id);
+    const ring = new AuthorRing(join(home, "skills"));
+    ring.observe(key.author);
+    ring.applyNotice(
+      verifyNotice(
+        buildNotice(
+          key,
+          {
+            kind: "bundle",
+            keyId: key.author.keyId,
+            bundleHash: verifyConnectorBundle(text).bundleHash,
+            reason: "bad",
+          },
+          NOW,
+        ),
+      ),
+    );
+    const e = await rejects(
+      s.owner.call(
+        "mcp.add",
+        {
+          proposalId: (r.proposal as McpProposal).id,
+          approvalId: (r.approval as { id: string }).id,
+        },
+        ik(),
+      ),
+    );
+    expect(e.code).toBe("policy_denied");
+    expect(s.services.tools.get("mcp__notes-sync__echo")).toBeUndefined();
+  });
+
+  it("L6: an unreadable record stops only the servers marked as from a file, and can be reset", async () => {
+    const s = await setup();
+    await addEcho(s);
+    await install(
+      s,
+      await propose(s, buildConnectorBundle(model(), new Map(), authorKey("Ada"), NOW)),
+    );
+    writeFileSync(join(home, "connectors", "bundles.json"), "{broken");
+    await poke(s);
+    expect(s.services.tools.get("mcp__notes-sync__echo")).toBeUndefined();
+    expect(s.services.tools.get("mcp__echo__echo")).toBeDefined();
+    // Resetting sets the broken file aside; the marked server stays off until removed or imported again.
+    const r = await s.owner.call<{ restored: boolean }>("connectors.resetRecords", {}, ik());
+    expect(r.restored).toBe(false);
+    await poke(s);
+    expect(s.services.tools.get("mcp__notes-sync__echo")).toBeUndefined();
+    expect(s.services.tools.get("mcp__echo__echo")).toBeDefined();
+    await s.owner.call("mcp.remove", { serverId: "notes-sync" }, ik());
+  });
+
+  it("L9: a connector the first run cannot start says so on the card, in plain words", async () => {
+    const s = await setup();
+    const text = buildConnectorBundle(
+      model({ command: process.execPath, args: ["-e", "process.exit(3)"] }),
+      new Map(),
+      authorKey("Ada"),
+      NOW,
+    );
+    const r = await propose(s, text);
+    expect(r.card.blocker).toBe("probe_failed");
+    expect(r.proposal).toBeUndefined();
+    expect(
+      r.card.findings.some(
+        (f) => f.rule === "probe-failed" && /no network and no secrets/.test(f.message),
+      ),
+    ).toBe(true);
+  });
+});

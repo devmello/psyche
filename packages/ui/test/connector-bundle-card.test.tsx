@@ -122,6 +122,8 @@ describe("shared connector card", () => {
           diff: "--- a/command\n+++ b/command\n-node server.mjs\n+node server.mjs --fast\n",
           installedCommand: ["node", "server.mjs"],
           signerChanged: false,
+          carried: ["KEPT_VAR"],
+          cleared: ["NOTES_DIR"],
         },
       }),
     );
@@ -136,6 +138,11 @@ describe("shared connector card", () => {
       within(widened).getByText(/Now node server\.mjs --fast\. Before: node server\.mjs/),
     ).toBeTruthy();
     expect(screen.getByText(/\+node server\.mjs --fast/)).toBeTruthy();
+    // Which of the owner's values stay and which must be entered again.
+    const carry = screen.getByTestId("connector-carry");
+    expect(carry.textContent).toMatch(/stay: KEPT_VAR/);
+    expect(carry.textContent).toMatch(/not carried over.*NOTES_DIR/);
+    expect(carry.textContent).toMatch(/stay in your vault/);
   });
 
   it("shows words the author wrote as data: control characters are removed", () => {
@@ -148,5 +155,19 @@ describe("shared connector card", () => {
     const region = screen.getByTestId("connector-bundle-card");
     expect(region.textContent).not.toContain(String.fromCharCode(0x202e));
     expect(region.textContent).not.toContain(String.fromCharCode(0));
+  });
+
+  it("says when the first run could not start it, and when the key is a retired one of yours", () => {
+    const { unmount } = renderCard(card({ blocker: "probe_failed" }));
+    expect(screen.getByTestId("connector-sandbox").textContent).toMatch(
+      /no network and no secrets, could not start it/,
+    );
+    unmount();
+    renderCard(
+      card({ signer: { status: "own", name: "Ada", signerChanged: false, retired: true } }),
+    );
+    expect(screen.getByTestId("connector-signer").textContent).toMatch(
+      /key of yours that you replaced/,
+    );
   });
 });

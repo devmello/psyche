@@ -85,12 +85,21 @@ export interface SkillsHandlers {
     },
     call?: unknown,
   ) => Promise<{ filename: string; notice: string }>;
-  "skills.authors.importNotice": (p: { name?: string; text?: string; url?: string }) => Promise<{
+  "skills.authors.importNotice": (p: {
+    name?: string;
+    text?: string;
+    url?: string;
+    preview?: boolean;
+  }) => Promise<{
     kind: "key" | "bundle";
     keyId: string;
     bundleHash?: string;
     reason: string;
     signer: { keyId: string; name: string };
+    applied: boolean;
+    names: string[];
+    alreadyRevoked: boolean;
+    text?: string;
   }>;
   "skills.setEnabled": (p: {
     name: string;
@@ -443,7 +452,7 @@ export function createSkillsHandlers(
           "give either the notice's text or a link, not both",
         );
       const text = p.text ?? (await loader.fetchLink(p.url as string, MAX_NOTICE_BYTES));
-      return loader.importNotice(text);
+      return loader.importNotice(text, p.preview === true ? { preview: true } : {});
     },
     async "skills.setEnabled"(p) {
       return { skill: await loader.setEnabled(p.name, p.enabled, p.source) };

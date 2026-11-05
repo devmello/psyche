@@ -132,8 +132,9 @@ function launcherFor(services: ComposeServices, setup: McpSetup): StdioLauncher 
  */
 function trustOf(c: PsycheMcpServerConfig): McpTrustTier {
   if (c.trust === "bundled") return "bundled";
-  // Code Psyche wrote for itself is never vouched for, whatever its command looks like.
-  if (c.madeBy === "psyche") return "unknown";
+  // Code Psyche wrote for itself, or that arrived in a shared file, is never vouched for,
+  // whatever its command looks like (an official-looking `npx` line proves nothing about a file).
+  if (c.madeBy === "psyche" || c.bundle !== undefined) return "unknown";
   const t = c.transport as Partial<PsycheMcpServerConfig["transport"]>;
   if (t.kind === "stdio" && Array.isArray(t.command)) {
     return mcpTrustFor({ kind: "stdio", command: t.command });

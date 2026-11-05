@@ -141,6 +141,7 @@ function SignerBlock({
   const name = show(signer.name ?? "", 64);
   const warn =
     signer.status === "changed" ||
+    signer.retired === true ||
     signer.signerChanged ||
     signer.impersonates === true ||
     signer.nameChanged === true;
@@ -153,6 +154,10 @@ function SignerBlock({
     text = t("settings.skills.signer.impersonates", { name });
   } else if (signer.nameChanged === true) {
     text = t("settings.skills.signer.nameChanged", { name });
+  } else if (signer.status === "own" && signer.retired === true) {
+    text = t("settings.skills.signer.ownRetired");
+  } else if (signer.retired === true && signer.status !== "revoked") {
+    text = t("settings.skills.signer.retired", { name });
   } else if (signer.status === "changed") {
     text = t(updating ? "settings.skills.signer.changedUpdate" : "settings.skills.signer.changed", {
       name,
