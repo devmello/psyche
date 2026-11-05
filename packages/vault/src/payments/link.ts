@@ -1,5 +1,5 @@
-import { execFile } from "node:child_process";
 import { fail } from "../errors.ts";
+import { cliBaseEnv, execCli } from "../external/cli.ts";
 
 /**
  * Stripe Link Agent Wallet, as Psyche uses it (security §4.9, feature G12): spend requests that
@@ -233,28 +233,19 @@ export class LinkCliWallet implements LinkWallet {
   }
 
   async #call(args: string[]): Promise<Json> {
-    const env: Record<string, string> = {
-      PATH: process.env.PATH ?? "/usr/bin:/bin",
-      HOME: process.env.HOME ?? "",
-      ...this.#o.env,
-    };
+    const env: Record<string, string> = { ...cliBaseEnv(), ...this.#o.env };
     const [file, argv] = this.#o.cli.endsWith(".js")
       ? [process.execPath, [this.#o.cli, ...args, "--format", "json"]]
       : [this.#o.cli, [...args, "--format", "json"]];
     const run =
       this.#o.run ??
       ((f: string, a: string[], e: Record<string, string>) =>
-        new Promise<string>((resolve, reject) => {
-          execFile(
-            f,
-            a,
-            { env: e, shell: false, timeout: this.#o.timeoutMs ?? 35 * 60_000, maxBuffer: 1 << 20 },
-            (err, stdout) =>
-              err === null
-                ? resolve(stdout)
-                : reject(Object.assign(new Error("link-cli failed"), { exitCode: err.code })),
-          );
-        }));
+        execCli(f, a, e, this.#o.timeoutMs ?? 35 * 60_000).then(
+          (r) => r.stdout,
+          (err: { code?: unknown }) => {
+            throw Object.assign(new Error("link-cli failed"), { exitCode: err.code });
+          },
+        ));
     let stdout: string;
     try {
       stdout = await run(file, argv, env);

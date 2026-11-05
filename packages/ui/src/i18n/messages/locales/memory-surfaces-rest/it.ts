@@ -1,0 +1,52 @@
+import type { Catalogue } from "../../index.ts";
+
+/** `memorySurfaces.*` strings (it); merged into `../it.ts`. */
+export const memorySurfacesRest: Partial<Catalogue> = {
+  "memorySurfaces.title": "Dove compare la memoria",
+  "memorySurfaces.description":
+    "Cosa {persona} può mostrare in Home, nel riepilogo quotidiano, nelle notifiche e in un riepilogo inviato a Telegram o a un altro canale. La pagina Memoria mostra sempre tutto ciò che non hai escluso.",
+  "memorySurfaces.loadLabel": "dove compare la memoria",
+  "memorySurfaces.surface.home": "Home",
+  "memorySurfaces.surface.brief": "Riepilogo quotidiano",
+  "memorySurfaces.surface.notification": "Notifiche",
+  "memorySurfaces.surface.channel": "Riepilogo inviato a un canale",
+  "memorySurfaces.tier.work.title": "Lavoro e cose da fare",
+  "memorySurfaces.tier.work.description":
+    "Progetti, corsi, cose da fare, come procedono, scadenze ed eventi dei tuoi calendari.",
+  "memorySurfaces.tier.work.notificationHint":
+    "I titoli compaiono solo per ciò che hai aggiunto tu. Altrimenti è un conteggio, come “1 cosa da fare in scadenza domani”.",
+  "memorySurfaces.tier.workMail.title": "Posta di lavoro",
+  "memorySurfaces.tier.workMail.description":
+    "Oggetti e mittenti della posta in una conversazione che hai collegato a un progetto o a una cosa da fare.",
+  "memorySurfaces.tier.people.title": "Fatti sulle persone",
+  "memorySurfaces.tier.people.description":
+    "Fatti su altre persone, come le conosci, di cosa avete parlato e Resta in contatto.",
+  "memorySurfaces.people.warning":
+    "I riepiloghi possono essere visti da chiunque veda il tuo schermo o il tuo Telegram.",
+  "memorySurfaces.birthdays.title": "Compleanni e anniversari",
+  "memorySurfaces.birthdays.label": "Mostra compleanni e anniversari",
+  "memorySurfaces.birthdays.hint":
+    "Solo le date, sotto “In arrivo” nel riepilogo e in Home. Mai in una notifica.",
+  "memorySurfaces.sensitive":
+    "Tutto ciò che è contrassegnato come sensibile, come salute o denaro, non compare mai fuori da Memoria.",
+  "memorySurfaces.kinds.title": "Quali tipi mostrare",
+  "memorySurfaces.kinds.description":
+    "Disattiva un tipo e resterà solo nella pagina Memoria. Per nascondere un singolo elemento, usa “Tieni privato” nella sua pagina.",
+  "memorySurfaces.kind.project": "Progetti",
+  "memorySurfaces.kind.course": "Corsi",
+  "memorySurfaces.kind.assignment": "Cose da fare",
+  "memorySurfaces.kind.event": "Eventi",
+  "memorySurfaces.sources.title": "Tieni fuori una fonte",
+  "memorySurfaces.sources.description":
+    "Ciò che si impara da una fonte che attivi resta nella pagina Memoria. Funziona in aggiunta agli interruttori qui sopra.",
+  "memorySurfaces.sources.label": "Non mostrare nulla di ciò che è stato imparato da {source}",
+  "memorySurfaces.source.mail": "Mail",
+  "memorySurfaces.source.messages": "Messaggi",
+  "memorySurfaces.source.notes": "Note",
+  "memorySurfaces.source.calendar": "Calendario",
+  "memorySurfaces.source.reminders": "Promemoria",
+  "memorySurfaces.source.chats": "Chat con Psyche",
+  "memorySurfaces.source.files": "File",
+  "memorySurfaces.source.transcripts": "Trascrizioni",
+  "memorySurfaces.source.contacts": "Contatti",
+};

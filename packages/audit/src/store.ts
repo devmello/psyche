@@ -12,6 +12,7 @@ import {
   writeSync,
 } from "node:fs";
 import { join } from "node:path";
+import { ensureOwnerOnly } from "@psyche/hostfs";
 import type { AuditEntry } from "@psyche/protocol";
 
 /**
@@ -93,7 +94,9 @@ export class FileAuditStore implements AuditStore {
     this.dir = dir;
     this.#fsync = options.fsync ?? true;
     mkdirSync(dir, { recursive: true, mode: DIR_MODE });
-    chmodSync(dir, DIR_MODE);
+    // Windows has no modes: an owner-only DACL on audit/, which the month files inherit.
+    if (process.platform === "win32") ensureOwnerOnly(dir);
+    else chmodSync(dir, DIR_MODE);
     this.#tail = this.#loadTail();
   }
 

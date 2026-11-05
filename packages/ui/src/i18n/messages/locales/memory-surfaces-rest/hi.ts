@@ -1,0 +1,52 @@
+import type { Catalogue } from "../../index.ts";
+
+/** `memorySurfaces.*` strings (hi); merged into `../hi.ts`. */
+export const memorySurfacesRest: Partial<Catalogue> = {
+  "memorySurfaces.title": "मेमोरी कहाँ दिखती है",
+  "memorySurfaces.description":
+    "{persona} होम पर, दैनिक ब्रीफ़ में, नोटिफ़िकेशन में और Telegram या किसी और चैनल पर भेजी ब्रीफ़ में क्या दिखा सकता है। मेमोरी पेज हमेशा वह सब दिखाता है जिसे आपने बाहर नहीं रखा।",
+  "memorySurfaces.loadLabel": "मेमोरी कहाँ दिखती है",
+  "memorySurfaces.surface.home": "होम",
+  "memorySurfaces.surface.brief": "दैनिक ब्रीफ़",
+  "memorySurfaces.surface.notification": "नोटिफ़िकेशन",
+  "memorySurfaces.surface.channel": "चैनल पर भेजी गई ब्रीफ़",
+  "memorySurfaces.tier.work.title": "काम और टू-डू",
+  "memorySurfaces.tier.work.description":
+    "प्रोजेक्ट, कोर्स, टू-डू, वे कैसे चल रहे हैं, देय तिथियाँ, और आपके अपने कैलेंडर के इवेंट।",
+  "memorySurfaces.tier.work.notificationHint":
+    "शीर्षक सिर्फ़ उन्हीं चीज़ों के दिखते हैं जो आपने खुद जोड़ीं। नहीं तो सिर्फ़ गिनती दिखती है, जैसे “कल 1 टू-डू देय”।",
+  "memorySurfaces.tier.workMail.title": "काम से जुड़ा मेल",
+  "memorySurfaces.tier.workMail.description":
+    "किसी प्रोजेक्ट या टू-डू से जोड़े गए थ्रेड के मेल के विषय और प्रेषक।",
+  "memorySurfaces.tier.people.title": "लोगों के बारे में तथ्य",
+  "memorySurfaces.tier.people.description":
+    "दूसरे लोगों के बारे में तथ्य, आप उन्हें कैसे जानते हैं, क्या बात हुई, और संपर्क में रहें।",
+  "memorySurfaces.people.warning":
+    "ब्रीफ़ वह कोई भी देख सकता है जो आपकी स्क्रीन या आपका Telegram देखता है।",
+  "memorySurfaces.birthdays.title": "जन्मदिन और वर्षगाँठ",
+  "memorySurfaces.birthdays.label": "जन्मदिन और वर्षगाँठ दिखाएँ",
+  "memorySurfaces.birthdays.hint":
+    "सिर्फ़ तारीखें, ब्रीफ़ में “आने वाला” के तहत और होम पर। नोटिफ़िकेशन में कभी नहीं।",
+  "memorySurfaces.sensitive":
+    "संवेदनशील के रूप में चिह्नित कुछ भी, जैसे स्वास्थ्य या पैसा, मेमोरी के बाहर कभी नहीं दिखता।",
+  "memorySurfaces.kinds.title": "कौन-से प्रकार दिखाएँ",
+  "memorySurfaces.kinds.description":
+    "किसी प्रकार को बंद करें और वह सिर्फ़ मेमोरी पेज पर रहेगा। किसी एक आइटम को छिपाने के लिए उसके पेज पर “निजी रखें” उपयोग करें।",
+  "memorySurfaces.kind.project": "प्रोजेक्ट",
+  "memorySurfaces.kind.course": "कोर्स",
+  "memorySurfaces.kind.assignment": "टू-डू",
+  "memorySurfaces.kind.event": "इवेंट",
+  "memorySurfaces.sources.title": "किसी स्रोत को बाहर रखें",
+  "memorySurfaces.sources.description":
+    "आपके चालू किए स्रोत से जो सीखा जाता है वह मेमोरी पेज पर रहता है। यह ऊपर के स्विच के अलावा काम करता है।",
+  "memorySurfaces.sources.label": "{source} से सीखा कुछ भी न दिखाएँ",
+  "memorySurfaces.source.mail": "मेल",
+  "memorySurfaces.source.messages": "संदेश",
+  "memorySurfaces.source.notes": "नोट्स",
+  "memorySurfaces.source.calendar": "कैलेंडर",
+  "memorySurfaces.source.reminders": "रिमाइंडर",
+  "memorySurfaces.source.chats": "Psyche के साथ चैट",
+  "memorySurfaces.source.files": "फ़ाइलें",
+  "memorySurfaces.source.transcripts": "ट्रांसक्रिप्ट",
+  "memorySurfaces.source.contacts": "संपर्क",
+};

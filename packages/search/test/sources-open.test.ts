@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, parse } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   type AppleSourceDeps,
@@ -143,6 +143,12 @@ describe("resolveGrantedFile", () => {
     const root = tmp();
     writeFileSync(join(root, "a.md"), "a");
     expect(resolveGrantedFile(join(root, "a.md"), ["/"])).toBeUndefined();
+    // The root of the file's own file system (`/`, or its drive's `C:\` on Windows).
+    expect(resolveGrantedFile(join(root, "a.md"), [parse(root).root])).toBeUndefined();
+    // Windows' root-relative form depends on the current drive: not absolute.
+    expect(
+      resolveGrantedFile(`\\${join(root, "a.md").slice(parse(root).root.length)}`, [root]),
+    ).toBe(undefined);
   });
 });
 

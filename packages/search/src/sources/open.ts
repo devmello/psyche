@@ -1,5 +1,5 @@
 import { realpathSync, statSync } from "node:fs";
-import { sep } from "node:path";
+import { parse, sep } from "node:path";
 
 /**
  * What it takes to open a source passage outside Psyche (docs/roadmap/future-features.md §1,
@@ -57,21 +57,32 @@ export const isInside = (child: string, root: string): boolean =>
   child === root || child.startsWith(root.endsWith(sep) ? root : root + sep);
 
 /**
+ * An absolute path: `/…`, and on Windows a drive (`C:\…`) or UNC (`\\server\share\…`) path. Not
+ * Windows' root-relative `\x` or drive-relative `C:x`, which depend on the current drive or folder.
+ */
+const absolute = (p: string): boolean =>
+  process.platform === "win32"
+    ? /^[A-Za-z]:[\\/]/.test(p) || /^[\\/]{2}[^\\/.?]/.test(p)
+    : p.startsWith("/");
+
+/**
  * `path` resolved to its real path (symlinks followed), when it is an existing regular file inside
  * one of the folders currently granted (also resolved). A link that leaves a granted folder, a
- * path with a NUL, a relative path, a folder and a file that is gone all give undefined.
+ * path with a NUL, a relative path, a folder and a file that is gone all give undefined. A file
+ * system root (`/`, `C:\`, a UNC share's root) is never a granted folder. Real paths come from the
+ * file system with its own spelling, so the comparison stays exact on Windows too.
  */
 export function resolveGrantedFile(
   path: unknown,
   grantedFolders: readonly string[],
 ): GrantedFile | undefined {
   if (typeof path !== "string" || path.length === 0 || path.length > 4096) return undefined;
-  if (!path.startsWith("/") || path.includes("\0")) return undefined;
+  if (!absolute(path) || path.includes("\0")) return undefined;
   const roots = [
     ...new Set(
       grantedFolders.flatMap((f) => {
-        const r = f.startsWith("/") && !f.includes("\0") ? real(f) : undefined;
-        return r === undefined || r === sep ? [] : [r];
+        const r = absolute(f) && !f.includes("\0") ? real(f) : undefined;
+        return r === undefined || parse(r).root === r ? [] : [r];
       }),
     ),
   ];

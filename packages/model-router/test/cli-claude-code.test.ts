@@ -1,4 +1,5 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { ModelEvent, ModelMessage, ModelRequest, ToolSpec } from "@psyche/protocol";
@@ -34,7 +35,9 @@ beforeEach(() => {
 });
 afterEach(async () => {
   for (const a of adapters.splice(0)) await a.close();
-  rmSync(dir, { recursive: true, force: true });
+  // Windows cannot remove a directory that is still a process's cwd: the CLI exits once its
+  // stdin's end is flushed, which needs the event loop, so retry asynchronously.
+  await rm(dir, { recursive: true, force: true, maxRetries: 10 });
 });
 
 function setup(scripts: string[], config: Partial<ProviderConfig> = {}) {

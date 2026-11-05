@@ -12,6 +12,7 @@ import {
   writeSync,
 } from "node:fs";
 import { join } from "node:path";
+import { ensureOwnerOnly, isOwnerOnly } from "@psyche/hostfs";
 import {
   type ApprovalRequestInput,
   type AuditLog,
@@ -267,8 +268,11 @@ export class PaymentBroker {
     this.#clock = options.clock ?? { now: () => Date.now() };
     this.#cards = join(options.home, "vault", "cards");
     this.#records = join(options.home, "vault", "payments");
-    for (const dir of [this.#cards, this.#records])
+    for (const dir of [this.#cards, this.#records]) {
       mkdirSync(dir, { recursive: true, mode: 0o700 });
+      // Windows has no modes: an owner-only DACL, which the card file Link writes inherits.
+      if (process.platform === "win32") ensureOwnerOnly(dir);
+    }
     for (const f of readdirSync(this.#records)) {
       if (!f.endsWith(".json")) continue;
       try {
@@ -604,7 +608,7 @@ export class PaymentBroker {
     } catch {
       return fail("internal", "Link wrote no card file");
     }
-    if ((st.mode & 0o077) !== 0) {
+    if (!isOwnerOnly(path, st)) {
       shred(path);
       return fail("internal", "the card file was not private (0600); it was destroyed");
     }

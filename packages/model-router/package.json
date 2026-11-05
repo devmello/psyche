@@ -25,6 +25,7 @@
     "@ai-sdk/provider": "4.0.33",
     "@openrouter/ai-sdk-provider": "3.1.0",
     "@psyche/assets": "workspace:*",
+    "@psyche/hostfs": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "ai": "7.0.152",
     "ollama-ai-provider-v2": "4.1.0",

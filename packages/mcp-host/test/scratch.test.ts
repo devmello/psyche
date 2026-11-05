@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { isOwnerOnly } from "@psyche/hostfs";
 import { afterAll, describe, expect, it } from "vitest";
 import { srtLauncher } from "../src/launcher.ts";
 import {
@@ -48,8 +49,10 @@ describe("scratch directories", () => {
     expect(Buffer.byteLength(socket)).toBeLessThan(104);
     expect(Buffer.byteLength(socket)).toBeLessThanOrEqual(MAX_SOCKET_PATH_BYTES);
     expect(scratch.startsWith(deepHome)).toBe(false);
-    expect((await stat(scratch)).mode & 0o777).toBe(0o700);
-    expect((await stat(dirname(scratch))).mode & 0o777).toBe(0o700);
+    for (const dir of [scratch, dirname(scratch)]) {
+      if (process.platform === "win32") expect(isOwnerOnly(dir)).toBe(true);
+      else expect((await stat(dir)).mode & 0o777).toBe(0o700);
+    }
     expect(p.cwd).toBe(scratch);
     // Only the scratch is writable; no other server's scratch is readable, only its own.
     const settings = JSON.parse(await readFile(p.args[1] as string, "utf8"));
@@ -61,25 +64,29 @@ describe("scratch directories", () => {
     await expect(stat(scratch)).rejects.toThrow();
   });
 
-  it("stays under the settings directory when a socket fits there", async () => {
-    // A short root: macOS's own temp dir is already ~50 bytes.
-    const root = await mkdtemp("/tmp/pfs-");
-    made.push(root);
-    const settingsDir = join(root, ".psyche", "mcp", "srt");
-    const launcher = srtLauncher({
-      srtPath: "/usr/local/bin/srt",
-      settingsDir,
-      psycheHome: join(root, ".psyche"),
-    });
-    const p = await launcher.prepare(spec);
-    const scratch = p.env.TMPDIR as string;
-    expect(dirname(scratch)).toBe(settingsDir);
-    expect(scratchFits(scratch)).toBe(true);
-    expect(Buffer.byteLength(join(scratch, MUX))).toBeLessThan(104);
-    const settings = JSON.parse(await readFile(p.args[1] as string, "utf8"));
-    expect(settings.filesystem.allowRead).toEqual([]);
-    await p.cleanup?.();
-  });
+  // srt and its `sun_path`-bound mux sockets exist on macOS and Linux only.
+  it.skipIf(process.platform === "win32")(
+    "stays under the settings directory when a socket fits there",
+    async () => {
+      // A short root: macOS's own temp dir is already ~50 bytes.
+      const root = await mkdtemp("/tmp/pfs-");
+      made.push(root);
+      const settingsDir = join(root, ".psyche", "mcp", "srt");
+      const launcher = srtLauncher({
+        srtPath: "/usr/local/bin/srt",
+        settingsDir,
+        psycheHome: join(root, ".psyche"),
+      });
+      const p = await launcher.prepare(spec);
+      const scratch = p.env.TMPDIR as string;
+      expect(dirname(scratch)).toBe(settingsDir);
+      expect(scratchFits(scratch)).toBe(true);
+      expect(Buffer.byteLength(join(scratch, MUX))).toBeLessThan(104);
+      const settings = JSON.parse(await readFile(p.args[1] as string, "utf8"));
+      expect(settings.filesystem.allowRead).toEqual([]);
+      await p.cleanup?.();
+    },
+  );
 
   it("gives every launch its own directory", async () => {
     const root = await mkdtemp(join(tmpdir(), "psy-uniq-"));

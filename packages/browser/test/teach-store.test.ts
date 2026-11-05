@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import {
   chmod,
   mkdir,
@@ -12,6 +13,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { isOwnerOnly } from "@psyche/hostfs";
 import {
   type BrowserTeachStep,
   Methods,
@@ -43,6 +45,23 @@ const steps: BrowserTeachStep[] = [
   { id: "s5", kind: "click", role: "button", name: "Export" },
 ];
 
+/** `mode` on macOS and Linux; on Windows, which has no modes, a DACL for this user only. */
+async function expectPrivate(path: string, mode: number): Promise<void> {
+  if (process.platform === "win32") expect(isOwnerOnly(path)).toBe(true);
+  else expect((await stat(path)).mode & 0o777).toBe(mode);
+}
+
+/** Opens a folder to other users: `0755`, or on Windows read access for `Users`. */
+async function loosen(path: string): Promise<void> {
+  if (process.platform !== "win32") {
+    await chmod(path, 0o755);
+    return;
+  }
+  const icacls = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "icacls.exe");
+  spawnSync(icacls, [path, "/grant", "*S-1-5-32-545:(OI)(CI)RX", "/q"], { windowsHide: true });
+  expect(isOwnerOnly(path)).toBe(false);
+}
+
 describe("kept recordings (design doc §5)", () => {
   let dir: string;
   let store: TeachKeptStore;
@@ -72,7 +91,7 @@ describe("kept recordings (design doc §5)", () => {
     expect(store.dir).not.toContain("library");
     const key = loadTeachKey(join(dir, "userData", "teach.key"));
     expect(key).toHaveLength(32);
-    expect((await stat(join(dir, "userData", "teach.key"))).mode & 0o777).toBe(0o600);
+    await expectPrivate(join(dir, "userData", "teach.key"), 0o600);
     expect(loadTeachKey(join(dir, "userData", "teach.key")).equals(key)).toBe(true);
   });
 
@@ -155,9 +174,9 @@ describe("kept recordings (design doc §5)", () => {
 
   it("expires after 90 days and fixes the folder's permissions", async () => {
     await store.keep("teach_abcdef123456", "x", steps);
-    await chmod(store.dir, 0o755);
+    await loosen(store.dir);
     await store.keep("teach_bbbbbbbbbb", "y", steps);
-    expect((await stat(store.dir)).mode & 0o777).toBe(0o700);
+    await expectPrivate(store.dir, 0o700);
     const later = new TeachKeptStore(store.dir, KEY, () => 5_000 + KEPT_RECORDING_TTL_MS + 1);
     expect(await later.list()).toEqual([]);
     expect(await readdir(store.dir)).toEqual([]);
@@ -165,8 +184,8 @@ describe("kept recordings (design doc §5)", () => {
 
   it("uses private permissions", async () => {
     await store.keep("teach_abcdef123456", "x", steps);
-    expect((await stat(store.dir)).mode & 0o777).toBe(0o700);
-    expect((await stat(join(store.dir, "teach_abcdef123456.json"))).mode & 0o777).toBe(0o600);
+    await expectPrivate(store.dir, 0o700);
+    await expectPrivate(join(store.dir, "teach_abcdef123456.json"), 0o600);
     expect(await readdir(store.dir)).toEqual(["teach_abcdef123456.json"]);
   });
 
@@ -298,7 +317,7 @@ describe("kept recordings are encrypted at rest (design doc §5)", () => {
     expect(back?.title).toBe("Weekly report");
     expect(back?.steps.find((s) => s.name === "From")?.value).toBe("2026-11-01");
     expect((await make().list()).map((r) => r.id)).toEqual([ID_A]);
-    expect((await stat(join(store.dir, `${ID_A}.json`))).mode & 0o777).toBe(0o600);
+    await expectPrivate(join(store.dir, `${ID_A}.json`), 0o600);
   });
 
   it("uses a new nonce for every write", async () => {

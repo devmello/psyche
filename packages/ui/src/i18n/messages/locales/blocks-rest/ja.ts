@@ -1,0 +1,196 @@
+import type { Catalogue } from "../../index.ts";
+
+/** blocks strings not covered elsewhere (ja); merged into `../ja.ts`. */
+export const blocksRest: Partial<Catalogue> = {
+  "blocks.lifeAnswer.label": "メール、メッセージ、ファイルからの回答",
+  "blocks.message.receipt":
+    "{status, select, approved {許可{scope, select, task {（このタスク）} site {（このサイト）} session {（このセッション）} always {（常時）} other {（1回のみ）}}} denied {拒否} expired {期限切れ} invalidated {無効} other {{status}}}: {summary}",
+  "blocks.message.showDetails": "詳細",
+  "blocks.message.hideDetails": "詳細を隠す",
+  "blocks.message.showDetailsOf": "{summary}の詳細を表示",
+  "blocks.message.hideDetailsOf": "{summary}の詳細を隠す",
+  "blocks.details.requestedFolder": "要求内容",
+  "blocks.details.folderReason": "理由",
+  "blocks.details.folderAccess": "アクセス",
+  "blocks.details.folderAccess.ro": "読み取り専用",
+  "blocks.details.folderAccess.rw": "読み書き",
+  "blocks.folder.title": "共有するフォルダ",
+  "blocks.folder.choose": "フォルダを選択…",
+  "blocks.folder.change": "別のフォルダを選択…",
+  "blocks.folder.blocked":
+    "{path}は共有できません。非公開データを含むか、システムフォルダです。別のフォルダを選択してください。",
+  "blocks.folder.notFound":
+    "Psycheは{path}にフォルダを見つけられませんでした。共有するフォルダを選択してください。",
+  "blocks.folder.pickTitle": "{persona}と共有するフォルダを選択",
+  "blocks.folder.pickError": "フォルダ選択を開けませんでした: {error}",
+  "blocks.folder.pathLabel": "フォルダのパス",
+  "blocks.folder.mustPick": "許可する前に、共有するフォルダを選択してください。",
+  "blocks.folder.scope":
+    "「このチャットのみ」は会話が終わるまで有効です。「常時」は、設定 → 権限 → アクセスで削除するまでフォルダを保持します。",
+  "blocks.folder.scope.once": "このチャットのみ",
+  "blocks.folder.scope.always": "常時（このフォルダとその配下）",
+  "blocks.folder.explain.ro": "{persona}がフォルダ内のファイルを読み取ろうとしています。",
+  "blocks.folder.explain.rw": "{persona}がフォルダ内のファイルを読み取り、変更しようとしています。",
+  "blocks.folder.readOnly": "読み取りのみ許可し、何も変更させない",
+  "blocks.message.to": "送信先",
+  "blocks.message.pick": "送信先を選択",
+  "blocks.message.group": "グループチャット · {count, plural, other {#人}}",
+  "blocks.message.weak":
+    "SMSまたはRCS: この番号を保証するのはAppleではなく通信事業者です。確認してください。",
+  "blocks.message.service.imessage": "iMessage",
+  "blocks.message.service.sms": "SMS",
+  "blocks.message.service.rcs": "RCS",
+  "blocks.message.service.unknown": "不明なサービス",
+  "blocks.message.text": "メッセージ",
+  "blocks.message.textLabel": "メッセージ本文。送信前に編集できます",
+  "blocks.message.exact": "このテキストが、この宛先にそのまま送信されます。",
+  "blocks.message.empty": "送信する内容を入力してください。",
+  "blocks.message.untrusted":
+    "この宛先は、あなたではなくPsycheが読み取った内容から提案されたものです。送信前に誰なのか確認してください。",
+  "blocks.folder.exact": "このフォルダとその中身のみが共有されます。",
+  "blocks.details.executable": "プログラム",
+  "blocks.details.network": "ネットワーク",
+  "blocks.details.networkNone": "なし",
+  "blocks.details.runsSandboxed":
+    "Mac上のサンドボックス内で実行: Psycheの保管庫、SSHキー、キーチェーン、ブラウザのプロファイルは読み取れません",
+  "blocks.details.runsNoSandbox":
+    "Mac上で実行されますが、サンドボックスが設定されていません（{reason}）",
+  "blocks.details.needed": "必要なもの",
+  "blocks.details.neededWhy": "理由",
+  "blocks.execHost.sandboxed":
+    "サンドボックス内で実行されます。このコマンド1回だけサンドボックスなしで実行するには、下に{word}と入力してください。",
+  "blocks.execHost.noSandbox":
+    "サンドボックスが設定されていないため、このコマンドはサンドボックスなしでしか実行できません。サンドボックスを設定するか、{word}と入力して今回のみサンドボックスなしで実行してください。",
+  "blocks.execHost.setUp": "サンドボックスを設定",
+  "blocks.execHost.typeLabel": "サンドボックスなしで実行するには{word}と入力",
+  "blocks.execHost.unsandboxedOnce": "サンドボックスなしの場合、「1回のみ許可」しか選べません。",
+  "blocks.execHost.mustType":
+    "許可するには{word}と入力するか、先にサンドボックスを設定してください。",
+  "blocks.permission.need.capability": "「このMacでコマンドを実行」をオンにする",
+  "blocks.permission.need.connector_action":
+    "{connector}が{group}の前に確認するようにする（現在は「拒否」です）",
+  "blocks.permission.need.connector": "{connector}を接続",
+  "blocks.permission.need.macos_access": "macOSのシステム設定で{connector}にアクセスを許可",
+  "blocks.permission.need.sandbox": "コマンド用のサンドボックスを設定",
+  "blocks.permission.need.folder": "フォルダ: {path}",
+  "blocks.permission.enableHint":
+    "「有効にする」は、設定でオフにするまで設定を変更します。各操作では引き続き確認します。",
+  "blocks.permission.checkHint":
+    "修正してから「もう一度確認」を選んでください。Psycheが確認し、チャットに伝えます。",
+  "blocks.permission.enable": "有効にする",
+  "blocks.permission.checkAgain": "もう一度確認",
+  "blocks.permission.openConnectors": "コネクタを開く",
+  "blocks.permission.openSystemSettings": "システム設定を開く",
+  "blocks.permission.setUpSandbox": "サンドボックスを設定",
+  "blocks.approval.scope.prepNotes": "準備メモは常に許可",
+  "blocks.liftFloor.title": "確認なしで許可しますか？",
+  "blocks.liftFloor.what": "{persona}は確認なしで{what}ことができます。",
+  "blocks.liftFloor.consequence.destructive": "削除したものは元に戻せない場合があります。",
+  "blocks.liftFloor.consequence.send":
+    "メッセージやメールはあなたの名前で送信され、取り消せません。",
+  "blocks.liftFloor.consequence.financial": "使ったお金や支払いは返金できない場合があります。",
+  "blocks.liftFloor.still":
+    "{persona}は、信頼できない内容を読み取った後や、手動モードでは毎回確認します。設定で変更できます。",
+  "blocks.liftFloor.confirm": "確認なしで許可",
+  "blocks.liftFloor.cardWhat": "これをもう一度実行（{summary}）",
+  "blocks.approval.taintSentence":
+    "このチャットの前半で{persona}は{what}{onlyOnce, select, true {ため、「1回のみ許可」しか選べません} other {}}。",
+  "blocks.approval.taintRead": "{list}を読み取りました",
+  "blocks.approval.taintUsed": "{list}を使用しました",
+  "blocks.approval.taintOther":
+    "{first, select, true {信頼できない内容を読み取りました} other {その他の信頼できない内容}}",
+  "blocks.approval.taintTranscript": "文字起こし",
+  "blocks.approval.taintAnd": "{head}と{last}",
+  "blocks.approval.taintDetails": "汚染元",
+  "blocks.approval.allowScope": "許可する期間",
+  "blocks.approval.sideEffect.none": "確認するだけ",
+  "blocks.approval.sideEffect.read": "情報を読み取る",
+  "blocks.approval.sideEffect.write": "何かを変更する",
+  "blocks.approval.sideEffect.destructive": "元に戻しにくい設定やデータを変更する",
+  "blocks.approval.sideEffect.financial": "お金に関わる",
+  "blocks.approval.whyMode": "{mode}モードでは、{effect}前に確認します。",
+  "blocks.details.params": "詳細",
+  "blocks.details.reason": "理由",
+  "blocks.approval.answerOnHost":
+    "{host}で回答するか、設定 → デバイスで、このコンピュータでの承認用にTouch IDを設定してください。",
+  "blocks.approval.rateLimited":
+    "1分間の承認回数が多すぎます。{seconds}秒後にもう一度お試しください。",
+  "blocks.approval.touchIdFailed": "Touch IDに失敗しました: {reason}。もう一度お試しください。",
+  "blocks.approval.touchIdFailedNoReason": "Touch IDに失敗しました。もう一度お試しください。",
+  "blocks.approval.touchIdInvalid": "Psycheは本人であることを確認できませんでした",
+  "blocks.approval.touchId.helperOffline":
+    "Psyche Helperが動作していないため、ここでTouch IDによる確認はできません。",
+  "blocks.approval.touchId.helperOutdated":
+    "このPsyche Helperは古いため、このウインドウからの承認を確認できません。Psycheをアップデートして、もう一度お試しください。",
+  "blocks.approval.touchId.noKey":
+    "このMacでは承認用のTouch IDがまだ設定されていません。設定 → デバイスで設定してください。キーを先に確認できます。",
+  "blocks.approval.touchId.invalidated":
+    "このMacのキーを設定した後でTouch IDが変更されたため、承認を確認できません。設定 → デバイスで設定し直してください。",
+  "blocks.approval.touchId.noUnsandboxed":
+    "サンドボックスなしでのコマンド実行は、このウインドウからTouch IDで承認できません。代わりにサンドボックスを設定してください",
+  "blocks.approval.touchId.openDevices": "設定 → デバイスを開く",
+  "blocks.approval.touchId.code": "コード {code}",
+  "blocks.approval.touchId.onceOnly": "このウインドウからのTouch ID承認は1回のみです。",
+  "blocks.approval.status.allowedOnceTouchId":
+    "1回のみ許可（このウインドウからのTouch ID承認は1回のみ）",
+  "blocks.approval.touchId.keyUnavailable":
+    "このビルドのPsyche HelperはTouch IDキーを保持できない（キーチェーンのアクセスグループがない）ため、このMacではTouch IDが必要なカードを承認できません。",
+  "blocks.approval.touchId.cancelled": "Touch IDがキャンセルされたため、何も承認されていません",
+  "blocks.approval.touchId.startHelper": "Psyche Helperを起動",
+  "blocks.question.answerLine": "↳ {answer}",
+  "blocks.sources.label": "情報源",
+  "blocks.sources.open": "{title}を開く",
+  "blocks.sources.untitled": "無題",
+  "blocks.sources.show": "情報源を表示",
+  "blocks.sources.hide": "情報源を隠す",
+  "blocks.sources.untrusted": "他の人からの内容です。指示ではなくデータとして扱われます。",
+  "blocks.sources.kind.mail": "メール",
+  "blocks.sources.kind.messages": "メッセージ",
+  "blocks.sources.kind.notes": "メモ",
+  "blocks.sources.kind.calendar": "カレンダー",
+  "blocks.sources.kind.library": "ライブラリ",
+  "blocks.sources.kind.other": "{source}",
+  "blocks.appLink.open": "{where}を開く",
+  "blocks.appLink.settings": "設定: {section}",
+  "blocks.markdown.taskDone": "完了",
+  "blocks.markdown.taskOpen": "未完了",
+  "blocks.workflow.label": "このワークフローをスケジュール",
+  "blocks.workflow.title": "「{title}」をスケジュールしますか？",
+  "blocks.workflow.runs": "{count, plural, other {スケジュール実行#件}}",
+  "blocks.workflow.runOf": "{name} · {when}（{timezone}）",
+  "blocks.workflow.does": "実行内容",
+  "blocks.workflow.approvals": "承認を求める内容",
+  "blocks.workflow.noApprovals": "承認は不要です。",
+  "blocks.workflow.notify":
+    "対応が必要なときに、{how, select, messages {メッセージで通知します} both {通知とメッセージで知らせます} other {通知でお知らせします}}。",
+  "blocks.workflow.obstacles": "知っておきたいこと",
+  "blocks.workflow.tainted":
+    "これはWebまたはコネクタの内容を読み取った後に計画されました。スケジュールする前に手順を確認してください。",
+  "blocks.workflow.skillOffer": "あとでこれらの手順をスキルとして保存することもできます。",
+  "blocks.workflow.confirm": "スケジュール",
+  "blocks.workflow.decline": "あとで",
+  "blocks.workflow.scheduling": "スケジュール中…",
+  "blocks.workflow.done":
+    "{count, plural, other {#回の実行}}をスケジュールしました。タスクで確認できます。",
+  "blocks.workflow.declined": "スケジュールしませんでした。",
+  "blocks.workflow.failed":
+    "スケジュールできませんでした。時刻を確認して、もう一度お試しください。",
+  "blocks.details.skillAction": "操作",
+  "blocks.details.skillActionValue":
+    "{action, select, update {{persona}が作成したスキルを変更} delete {{persona}が作成したスキルを削除} other {{persona}が書いた新しいスキルを追加}}",
+  "blocks.details.name": "名前",
+  "blocks.details.skillText": "手順",
+  "blocks.details.skillTextView": "全文を表示",
+  "blocks.details.connector.runtime": "実行",
+  "blocks.details.connector.runtimeValue":
+    "{persona}がこのコネクタを作成しました（バージョン{version}）",
+  "blocks.details.connector.command": "コマンド",
+  "blocks.details.connector.network": "接続先の要求",
+  "blocks.details.connector.networkNone": "ネットワークなし",
+  "blocks.details.connector.tools": "ツール",
+  "blocks.details.connector.files": "コード（{n}ファイル）",
+  "blocks.details.connector.file": "{path}（{bytes}バイト）",
+  "blocks.details.connector.provided": "Psycheが提供",
+  "blocks.details.connector.diff": "バージョン{version}からの変更",
+  "blocks.details.connector.suggested": "{persona}がレジストリからこのコネクタを提案しています",
+};

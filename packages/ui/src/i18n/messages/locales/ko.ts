@@ -1,11 +1,47 @@
 import type { Catalogue } from "../index.ts";
+import { agentRest } from "./agent-rest/ko.ts";
+import { auditRest } from "./audit-rest/ko.ts";
+import { automationChatRest } from "./automationChat-rest/ko.ts";
+import { blocksRest } from "./blocks-rest/ko.ts";
+import { bookRest } from "./book-rest/ko.ts";
 import { canvas } from "./canvas/ko.ts";
+import { canvasRest } from "./canvas-rest/ko.ts";
+import { capabilitiesRest } from "./capabilities-rest/ko.ts";
 import { charts } from "./charts/ko.ts";
+import { chatRest } from "./chat-rest/ko.ts";
+import { commonRest } from "./common-rest/ko.ts";
+import { dailyRest } from "./daily-rest/ko.ts";
+import { deckRest } from "./deck-rest/ko.ts";
+import { designRest } from "./design-rest/ko.ts";
+import { everythingRest } from "./everything-rest/ko.ts";
+import { galleryRest } from "./gallery-rest/ko.ts";
+import { homeRest } from "./home-rest/ko.ts";
 import { links } from "./links/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
+import { meetingRecordRest } from "./meetingRecord-rest/ko.ts";
+import { memoryRest } from "./memory-rest/ko.ts";
+import { memoryAdvancedRest } from "./memoryAdvanced-rest/ko.ts";
+import { memoryBasicsRest } from "./memoryBasics-rest/ko.ts";
+import { memoryPrivacyRest } from "./memoryPrivacy-rest/ko.ts";
+import { memoryReviewRest } from "./memoryReview-rest/ko.ts";
+import { memorySurfacesRest } from "./memorySurfaces-rest/ko.ts";
+import { memoryWorkRest } from "./memoryWork-rest/ko.ts";
+import { nudgesRest } from "./nudges-rest/ko.ts";
+import { onboardingRest } from "./onboarding-rest/ko.ts";
 import { overview } from "./overview/ko.ts";
 import { overviewGrowth } from "./overview-growth/ko.ts";
 import { overviewShared } from "./overview-shared/ko.ts";
+import { peopleRest } from "./people-rest/ko.ts";
+import { personDataRest } from "./personData-rest/ko.ts";
+import { researchRest } from "./research-rest/ko.ts";
+import { scheduledRest } from "./scheduled-rest/ko.ts";
+import { screensRest } from "./screens-rest/ko.ts";
+import { settingsRest } from "./settings-rest/ko.ts";
+import { shellRest } from "./shell-rest/ko.ts";
+import { specialistsRest } from "./specialists-rest/ko.ts";
+import { webRest } from "./web-rest/ko.ts";
+import { widgetsRest } from "./widgets-rest/ko.ts";
+import { workRest } from "./work-rest/ko.ts";
 import { workflows } from "./workflows/ko.ts";
 
 /** Korean catalogue (ko). Same ids as `en`; missing ids fall back to English. */
@@ -26,6 +62,42 @@ export const ko: Partial<Catalogue> = {
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
   ...charts,
+  ...widgetsRest,
+  ...automationChatRest,
+  ...scheduledRest,
+  ...researchRest,
+  ...homeRest,
+  ...meetingRecordRest,
+  ...designRest,
+  ...webRest,
+  ...specialistsRest,
+  ...workRest,
+  ...memorySurfacesRest,
+  ...memoryWorkRest,
+  ...memoryRest,
+  ...memoryPrivacyRest,
+  ...memoryAdvancedRest,
+  ...memoryBasicsRest,
+  ...everythingRest,
+  ...screensRest,
+  ...peopleRest,
+  ...personDataRest,
+  ...memoryReviewRest,
+  ...capabilitiesRest,
+  ...onboardingRest,
+  ...galleryRest,
+  ...shellRest,
+  ...nudgesRest,
+  ...dailyRest,
+  ...auditRest,
+  ...agentRest,
+  ...bookRest,
+  ...deckRest,
+  ...canvasRest,
+  ...blocksRest,
+  ...chatRest,
+  ...commonRest,
+  ...settingsRest,
   // common
   "common.cancel": "취소",
   "common.close": "닫기",
@@ -541,7 +613,8 @@ export const ko: Partial<Catalogue> = {
   "agent.sheet.approvals": "승인",
   "agent.sheet.soul": "소울 및 메모리",
   "agent.sheet.now.working": "{title} 작업 중 · {elapsed}",
-  "agent.sheet.now.waiting": "확인 대기 중 · 승인 {n, number}건",
+  "agent.sheet.now.waiting":
+    "확인 대기 중 · {approvals, plural, =0 {} other {승인 #건}}{both, select, true { · } other {}}{questions, plural, =0 {} other {질문 #건}}",
   "agent.sheet.now.idleNext": "대기 중 · 다음: {title} {when}",
   "agent.sheet.now.idle": "대기 중",
   "agent.sheet.now.memoryPaused": "메모리 일시 중지됨",

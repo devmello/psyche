@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { PassThrough } from "node:stream";
 import { createAgentLoop } from "@psyche/agent-core";
 import type {
@@ -427,12 +427,21 @@ describe("relay and hook scripts", () => {
     if (dir) rmSync(dir, { recursive: true, force: true });
   });
 
+  /**
+   * The scripts run in the Linux sandbox; here they run on the host with its own paths, quoted as
+   * JS strings (a Windows path has backslashes). A Unix socket is a named pipe on Windows.
+   */
+  const socketPath = (name: string) =>
+    process.platform === "win32"
+      ? `\\\\.\\pipe\\${basename(dir)}-${name}`
+      : join(dir, `${name}.sock`);
+
   async function hookDecision(socket: string, decide?: (req: { id: number }) => string) {
-    const relaySrc = RELAY.replaceAll("/tmp/psyche-gate.sock", socket).replaceAll(
-      "/tmp/psyche-gate-hook.mjs",
-      join(dir, "hook.mjs"),
+    const relaySrc = RELAY.replaceAll('"/tmp/psyche-gate.sock"', JSON.stringify(socket)).replaceAll(
+      '"/tmp/psyche-gate-hook.mjs"',
+      JSON.stringify(join(dir, "hook.mjs")),
     );
-    const hookSrc = HOOK.replaceAll("/tmp/psyche-gate.sock", socket);
+    const hookSrc = HOOK.replaceAll('"/tmp/psyche-gate.sock"', JSON.stringify(socket));
     const relay =
       decide === undefined
         ? undefined
@@ -481,7 +490,7 @@ describe("relay and hook scripts", () => {
 
   it("allow and deny travel from the host to Claude Code's hook; no relay means deny", async () => {
     dir = realpathSync(mkdtempSync(join(tmpdir(), "psyche-relay-")));
-    const socket = join(dir, "gate.sock");
+    const socket = socketPath("gate");
     const allowed = await hookDecision(socket, ({ id }) =>
       JSON.stringify({ id, decision: "allow" }),
     );
@@ -493,7 +502,7 @@ describe("relay and hook scripts", () => {
       permissionDecision: "deny",
       permissionDecisionReason: "Psyche did not allow this: owner said no",
     });
-    const unreachable = await hookDecision(join(dir, "missing.sock"));
+    const unreachable = await hookDecision(socketPath("missing"));
     expect(unreachable.hookSpecificOutput).toMatchObject({
       permissionDecision: "deny",
       permissionDecisionReason: "Psyche is not reachable",

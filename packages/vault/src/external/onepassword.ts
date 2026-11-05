@@ -1,6 +1,6 @@
-import { execFile } from "node:child_process";
 import type { ResolvedSecret } from "@psyche/protocol";
 import { fail } from "../errors.ts";
+import { cliBaseEnv, execCli } from "./cli.ts";
 
 /**
  * 1Password as an external, read-only credential source (feature G10; security §4.8 (a)).
@@ -87,31 +87,21 @@ export class OpCliSource implements OnePasswordSource {
 
   async #exec(args: string[]): Promise<string> {
     const handle = await this.#o.token();
-    const env: Record<string, string> = {
-      PATH: process.env.PATH ?? "/usr/bin:/bin",
-      HOME: process.env.HOME ?? "",
-    };
+    const env: Record<string, string> = cliBaseEnv();
     handle.use((t) => {
       env.OP_SERVICE_ACCOUNT_TOKEN = t;
     });
     const run =
       this.#o.run ??
       ((f: string, a: string[], e: Record<string, string>) =>
-        new Promise<string>((resolve, reject) => {
-          execFile(
-            f,
-            a,
-            { env: e, shell: false, timeout: this.#o.timeoutMs ?? 30_000, maxBuffer: 1 << 20 },
-            (err, stdout, stderr) =>
-              err === null
-                ? resolve(stdout)
-                : reject(
-                    Object.assign(new Error("op failed"), {
-                      notFound: /isn't an item|not found|no item/i.test(String(stderr)),
-                    }),
-                  ),
-          );
-        }));
+        execCli(f, a, e, this.#o.timeoutMs ?? 30_000).then(
+          (r) => r.stdout,
+          (err: { stderr?: string }) => {
+            throw Object.assign(new Error("op failed"), {
+              notFound: /isn't an item|not found|no item/i.test(err.stderr ?? ""),
+            });
+          },
+        ));
     try {
       return await run(this.#o.op, args, env);
     } catch (err) {

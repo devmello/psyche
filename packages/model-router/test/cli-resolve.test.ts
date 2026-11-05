@@ -1,6 +1,8 @@
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   accumulate,
@@ -23,12 +25,48 @@ let dir: string;
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "psyche-cli-resolve-"));
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+// Windows cannot remove a directory that is still a process's cwd: the CLI exits once its stdin's
+// end is flushed, which needs the event loop, so retry asynchronously.
+afterEach(() => rm(dir, { recursive: true, force: true, maxRetries: 10 }));
 
-/** A `claude` in `dir/<sub>` that runs the fake CLI with this Node (no `node` on PATH needed). */
+/**
+ * A `claude` in `dir/<sub>` that runs the fake CLI with this Node (no `node` on PATH needed). On
+ * Windows, what npm installs: a `claude.cmd` shim (cmd-shim's layout) whose package script loads
+ * the fake CLI; the adapter must run that script with Node, not the shim through `cmd.exe`.
+ */
 function install(sub: string, name = "claude"): string {
   const bin = join(dir, sub);
   mkdirSync(bin, { recursive: true });
+  if (process.platform === "win32") {
+    const pkg = join(bin, "node_modules", "fake-cli");
+    mkdirSync(pkg, { recursive: true });
+    writeFileSync(join(pkg, "cli.js"), `import(${JSON.stringify(pathToFileURL(FAKE).href)});\n`);
+    const path = join(bin, `${name}.cmd`);
+    writeFileSync(
+      path,
+      [
+        "@ECHO off",
+        "GOTO start",
+        ":find_dp0",
+        "SET dp0=%~dp0",
+        "EXIT /b",
+        ":start",
+        "SETLOCAL",
+        "CALL :find_dp0",
+        "",
+        'IF EXIST "%dp0%\\node.exe" (',
+        '  SET "_prog=%dp0%\\node.exe"',
+        ") ELSE (",
+        '  SET "_prog=node"',
+        "  SET PATHEXT=%PATHEXT:;.JS;=;%",
+        ")",
+        "",
+        'endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  "%dp0%\\node_modules\\fake-cli\\cli.js" %*',
+        "",
+      ].join("\r\n"),
+    );
+    return path;
+  }
   const path = join(bin, name);
   writeFileSync(path, `#!/bin/sh\nexec "${process.execPath}" "${FAKE}" "$@"\n`);
   chmodSync(path, 0o755);
@@ -76,31 +114,35 @@ describe("finding the subscription CLIs (#530)", () => {
     });
   });
 
-  it("asks the login shell last, keeping only an absolute executable path", async () => {
-    const path = install("only-in-zprofile");
-    const shell = join(dir, "fake-zsh");
-    writeFileSync(shell, `#!/bin/sh\necho "Welcome!"\necho "${path}"\n`);
-    chmodSync(shell, 0o755);
-    expect(
-      await resolveCli("claude", {
-        env: { PATH: LAUNCHD_PATH, HOME: join(dir, "h") },
-        knownDirs: [],
-        shell,
-      }),
-    ).toEqual({ path, source: "login_shell" });
+  // Windows has no login-shell lookup: a GUI app already inherits the owner's PATH.
+  it.skipIf(process.platform === "win32")(
+    "asks the login shell last, keeping only an absolute executable path",
+    async () => {
+      const path = install("only-in-zprofile");
+      const shell = join(dir, "fake-zsh");
+      writeFileSync(shell, `#!/bin/sh\necho "Welcome!"\necho "${path}"\n`);
+      chmodSync(shell, 0o755);
+      expect(
+        await resolveCli("claude", {
+          env: { PATH: LAUNCHD_PATH, HOME: join(dir, "h") },
+          knownDirs: [],
+          shell,
+        }),
+      ).toEqual({ path, source: "login_shell" });
 
-    const slow = join(dir, "slow-zsh");
-    writeFileSync(slow, "#!/bin/sh\nsleep 5\n");
-    chmodSync(slow, 0o755);
-    expect(
-      await resolveCli("claude", {
-        env: { PATH: LAUNCHD_PATH, HOME: join(dir, "h") },
-        knownDirs: [],
-        shell: slow,
-        timeoutMs: 100,
-      }),
-    ).toBeUndefined();
-  });
+      const slow = join(dir, "slow-zsh");
+      writeFileSync(slow, "#!/bin/sh\nsleep 5\n");
+      chmodSync(slow, 0o755);
+      expect(
+        await resolveCli("claude", {
+          env: { PATH: LAUNCHD_PATH, HOME: join(dir, "h") },
+          knownDirs: [],
+          shell: slow,
+          timeoutMs: 100,
+        }),
+      ).toBeUndefined();
+    },
+  );
 
   it("probes the CLI it found and shows its path", async () => {
     const path = install("homebrew/bin");
@@ -132,8 +174,13 @@ describe("finding the subscription CLIs (#530)", () => {
       },
     );
     expect(r).toMatchObject({ state: "unreachable" });
-    expect(r.error).toContain("PSYCHE_CLAUDE_PATH, PATH, /opt/homebrew/bin");
-    expect(r.error).toContain("login shell");
+    if (process.platform === "win32") {
+      expect(r.error).toContain(`PSYCHE_CLAUDE_PATH, PATH, ${join("~", ".local", "bin")}`);
+      expect(r.error).toContain(join("AppData", "Roaming", "npm"));
+    } else {
+      expect(r.error).toContain("PSYCHE_CLAUDE_PATH, PATH, /opt/homebrew/bin");
+      expect(r.error).toContain("login shell");
+    }
   });
 
   it("runs a turn through the CLI it found", async () => {

@@ -21,21 +21,27 @@ import { cliContextWindow } from "./catalog.ts";
 import { type CliPrompt, type CliSessionEnvelope, cliPrompt } from "./prompt.ts";
 import {
   cliChildPath,
+  cliLaunch,
   executable,
+  isCommandPath,
   knownCliDirs,
   type ResolveCliOptions,
   type ResolvedCli,
   resolveCli,
+  setEnvPath,
 } from "./resolve.ts";
 import { type CliItem, type CliLine, CliRun } from "./run.ts";
 
 /** Where we looked, for the "not installed" message. */
 export function notInstalled(dialect: CliDialect, command: string | undefined): string {
   const name = dialect.defaultCommand;
-  if (command?.includes("/")) {
+  if (command !== undefined && isCommandPath(command)) {
     return `${dialect.label} is not installed at ${command}`;
   }
-  return `${dialect.label} is not installed: \`${name}\` was not found in PSYCHE_${name.toUpperCase()}_PATH, PATH, ${knownCliDirs("~").slice(0, 5).join(", ")} or the login shell's PATH`;
+  const where = `PSYCHE_${name.toUpperCase()}_PATH, PATH, ${knownCliDirs("~").slice(0, 5).join(", ")}`;
+  // Windows has no login-shell lookup (resolve.ts).
+  const last = process.platform === "win32" ? "" : " or the login shell's PATH";
+  return `${dialect.label} is not installed: \`${name}\` was not found in ${where}${last}`;
 }
 
 /**
@@ -303,16 +309,21 @@ export class CliAdapter implements ModelProvider {
     }
     const env: NodeJS.ProcessEnv = { ...this.#env, ...this.dialect.env() };
     for (const k of this.dialect.stripEnv) delete env[k];
-    env.PATH = cliChildPath(
-      resolved.path,
-      this.#env,
-      this.#resolveOpts.home ?? this.#env.HOME ?? homedir(),
-    );
-    run = new CliRun({
-      command: resolved.path,
-      args: spec.args,
-      cwd: workdir,
+    setEnvPath(
       env,
+      cliChildPath(resolved.path, this.#env, this.#resolveOpts.home ?? this.#env.HOME ?? homedir()),
+    );
+    const launch = cliLaunch(resolved.path, env);
+    if (launch === undefined) {
+      this.#bridge.close(channel.id);
+      rmSync(configFile, { force: true });
+      throw new ModelCallError("model_not_found", notInstalled(this.dialect, this.config.command));
+    }
+    run = new CliRun({
+      command: launch.command,
+      args: [...launch.args, ...spec.args],
+      cwd: workdir,
+      env: { ...env, ...launch.env },
       stdin: spec.stdin,
     });
     if (spec.closeStdin) run.endStdin();
