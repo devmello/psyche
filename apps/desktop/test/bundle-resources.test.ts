@@ -14,7 +14,9 @@ import {
   BUNDLED_PLIST,
   bundleSources,
   copyBundleResources,
+  copyPinnedRequirements,
   HELPER_APP_NAME,
+  isGatewayFile,
   isMachO,
   skipOuterSigning,
   verifyNestedHelper,
@@ -117,5 +119,23 @@ describe("bundle resources", () => {
     };
     expect(() => verifyNestedHelper(helperApp, undefined, broken)).toThrow(/no valid signature/);
     expect(() => verifyNestedHelper(join(dir, "nope.app"), undefined, broken)).not.toThrow();
+  });
+
+  it("tells the Gateway's files apart and ships the pinned requirements next to them", () => {
+    const dir = mkdtempSync(join(tmpdir(), "psyche-bundle-"));
+    const res = join(dir, "Psyche.app", "Contents", "Resources");
+    expect(isGatewayFile(join(res, "psyched", "runtime", "node"))).toBe(true);
+    expect(isGatewayFile(join(res, "psyched", "app", "x.node"))).toBe(true);
+    expect(isGatewayFile(join(res, HELPER_APP_NAME, "Contents", "MacOS", "psyche-helper"))).toBe(
+      false,
+    );
+    expect(isGatewayFile(join(dir, "Psyche.app", "Contents", "MacOS", "Psyche"))).toBe(false);
+
+    const repo = join(dir, "repo");
+    mkdirSync(join(repo, "deploy", "macos"), { recursive: true });
+    expect(copyPinnedRequirements(repo, res)).toBe(false);
+    writeFileSync(join(repo, "deploy", "macos", "designated-requirements.txt"), "desktop\tx\n");
+    expect(copyPinnedRequirements(repo, res)).toBe(true);
+    expect(readFileSync(join(res, "designated-requirements.txt"), "utf8")).toBe("desktop\tx\n");
   });
 });

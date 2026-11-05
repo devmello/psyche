@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Entitlements for the files under Contents/Resources/psyched/ (the Gateway's Node runtime and its
+  native addons) when the release is signed with Psyche's own self-signed certificate. Only two keys:
+
+  - com.apple.security.cs.allow-jit: V8 needs it under the hardened runtime.
+  - com.apple.security.cs.disable-library-validation: the Node runtime loads better-sqlite3,
+    node-pty, sqlite-vec and onnxruntime as native addons. Without a team ID the hardened runtime
+    refuses them ("different Team IDs") even though they carry the same certificate. Measured on
+    macOS 27: the bundle check (psyched, with the bundle-check flag) fails with ERR_DLOPEN_FAILED without it and passes with it.
+
+  What it costs, plainly: the same as for the app (entitlements.self-signed.plist). Malware running as
+  the same user that can write inside a user-owned /Applications/Psyche.app can swap a dylib or addon
+  inside the bundle, and it then runs in the Gateway's Node process, where the vault key is. The
+  Electron fuses do not apply to this Node. Its launcher clears NODE_OPTIONS, NODE_PATH and
+  NODE_REPL_EXTERNAL_MODULE and preloads psyched-harden.cjs so the per-user module folders are not
+  searched. That is defence in depth, not a boundary: the LaunchAgent plist is user-writable and this
+  signed runtime/node can be run directly with any arguments, so nothing may trust its identity or
+  command line. The app's daily seal check (bundle-integrity.ts) is a tripwire for an attacker who
+  does not know about it, not containment. TCC access belongs to the app and to PsycheHelper.app, not
+  to this process. A Developer ID build does not use this file.
+-->
+<plist version="1.0">
+  <dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+  </dict>
+</plist>

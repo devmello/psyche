@@ -10,6 +10,10 @@
       "types": "./src/index.tsx",
       "default": "./src/index.tsx"
     },
+    "./i18n-core": {
+      "types": "./src/i18n/node.ts",
+      "default": "./src/i18n/node.ts"
+    },
     "./theme": {
       "types": "./src/theme/index.ts",
       "default": "./src/theme/index.ts"

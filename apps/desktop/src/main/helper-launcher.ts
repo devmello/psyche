@@ -30,6 +30,8 @@ export interface HelperLauncherOptions {
   /** True when `nodes.list` shows a `mac-helper` node online. */
   isPaired: () => Promise<boolean>;
   onState?: (s: HelperRunState) => void;
+  /** True while the app's own signature fails (bundle-integrity.ts): the helper is not started. */
+  blocked?: () => boolean;
   /** How long a launch may take to pair before it counts as offline (default 30 s). */
   pairTimeoutMs?: number;
   /** Least time between two relaunches after it went offline (default 60 s). */
@@ -68,6 +70,10 @@ export class HelperLauncher {
   /** Launches the helper unless it is already paired; resolves once it paired or timed out. */
   launch(): Promise<void> {
     if (this.state.kind === "unbundled") return Promise.resolve();
+    if (this.opts.blocked?.()) {
+      this.set({ kind: "offline", reason: "this copy of Psyche was modified" });
+      return Promise.resolve();
+    }
     this.launching ??= this.doLaunch().finally(() => {
       this.launching = undefined;
     });
@@ -98,7 +104,7 @@ export class HelperLauncher {
    * gone (it quit, crashed or was replaced by an update), at most once per `relaunchEveryMs`.
    */
   async onPresence(paired: boolean): Promise<void> {
-    if (this.state.kind === "unbundled") return;
+    if (this.state.kind === "unbundled" || this.opts.blocked?.()) return;
     if (paired) return this.set({ kind: "paired" });
     if (this.launching) return;
     const now = (this.opts.now ?? Date.now)();

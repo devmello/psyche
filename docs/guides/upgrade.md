@@ -37,7 +37,7 @@ With Compose, use `deploy/backup/verify.sh` instead. Details are in [backup-rest
 
 Pick the line that matches how you installed Psyche. The running Gateway keeps running for now.
 
-**Desktop app, automatic updates:** a Developer ID-signed app checks for updates itself. It applies one only after verifying the release's signed update manifest (`update-manifest.json`) with a release key built into the app, and the downloaded file's SHA-256; it never installs an older version. A verified update installs when you quit Psyche. Until a release key is built into the app, and in unsigned builds, automatic updates stay off: upgrade with one of the lines below.
+**Desktop app, automatic updates:** an app signed with Psyche's release certificate checks for updates itself (an ad-hoc or development build never does). It applies one only after verifying the release's signed update manifest (`update-manifest.json`) with a release key built into the app, and the downloaded file's SHA-256; it never installs an older version. A verified update installs when you quit Psyche. Until a release key is built into the app, and in ad-hoc or development builds, automatic updates stay off: upgrade with one of the lines below.
 
 **Desktop app with Homebrew:**
 

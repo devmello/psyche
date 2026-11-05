@@ -1,7 +1,6 @@
-import { execFile } from "node:child_process";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { app, autoUpdater } from "electron";
+import { claimedRequirement } from "./bundle-integrity.ts";
 import { TRUSTED_RELEASE_KEYS } from "./release-keys.ts";
 import {
   checkForVerifiedUpdate,
@@ -9,6 +8,13 @@ import {
   type UpdaterStateFile,
   writeUpdaterState,
 } from "./update-flow.ts";
+import {
+  bundleOfExecutable,
+  evaluateUpdaterGate,
+  inspectQuarantine,
+  readBundledPinned,
+  satisfiesRequirement,
+} from "./update-gate.ts";
 
 /**
  * Auto-update (feature A6; security §11). Before Squirrel.Mac sees anything, the updater fetches
@@ -17,11 +23,14 @@ import {
  * host, downloads the zip and checks its SHA-256 and size (update-flow.ts). Only the verified file
  * is offered to Squirrel, through a loopback feed; Squirrel then checks the code signature too.
  *
- * Off for unpackaged or unsigned builds, and while no release key is embedded.
+ * Off unless the running app's own signature satisfies the designated requirement pinned in
+ * deploy/macos/designated-requirements.txt (update-gate.ts: Psyche's self-signed release
+ * certificate, or a Developer ID later), and while no release key is embedded. Ad-hoc and
+ * development builds never update themselves.
  */
 
 export type UpdaterState =
-  | "disabled" // unpackaged, unsigned, or not macOS
+  | "disabled" // unpackaged, not macOS, or not signed with the pinned release certificate
   | "no_keys" // no release key embedded yet: updates stay off
   | "none" // up to date (or no manifest published)
   | "refused" // a manifest or artifact failed verification; nothing applied
@@ -38,21 +47,6 @@ export interface UpdaterOptions {
 
 function stderrLog(message: string): void {
   process.stderr.write(`[updater] ${message}\n`);
-}
-
-const execFileAsync = promisify(execFile);
-
-/** True for a macOS bundle signed with a Developer ID Application certificate. */
-async function isDeveloperIdSigned(): Promise<boolean> {
-  if (process.platform !== "darwin") return false;
-  // …/Psyche.app/Contents/MacOS/Psyche → …/Psyche.app
-  const bundle = join(app.getPath("exe"), "..", "..", "..");
-  try {
-    const { stderr } = await execFileAsync("/usr/bin/codesign", ["-dvv", bundle]);
-    return /^Authority=Developer ID Application:/m.test(stderr);
-  } catch {
-    return false;
-  }
 }
 
 let stopped = false;
@@ -82,6 +76,7 @@ export async function startUpdater(opts: UpdaterOptions = {}): Promise<UpdaterSt
         ...(state.code ? { code: state.code } : {}),
         ...(state.reason ? { reason: state.reason } : {}),
         ...(state.release ? { release: state.release } : {}),
+        ...(state.quarantine ? { quarantine: state.quarantine } : {}),
       });
     } catch {
       // The audit then reports the check as not run; the update itself is unaffected.
@@ -91,12 +86,29 @@ export async function startUpdater(opts: UpdaterOptions = {}): Promise<UpdaterSt
 }
 
 type RunResult = { state: UpdaterState } & Partial<
-  Pick<UpdaterStateFile, "code" | "reason" | "release">
+  Pick<UpdaterStateFile, "code" | "reason" | "release" | "quarantine">
 >;
 
 async function runUpdater(opts: UpdaterOptions): Promise<RunResult> {
   const log = opts.log ?? stderrLog;
-  if (stopped || !app.isPackaged || !(await isDeveloperIdSigned())) return { state: "disabled" };
+  if (stopped) return { state: "disabled" };
+  const gate = await evaluateUpdaterGate({
+    platform: process.platform,
+    isPackaged: app.isPackaged,
+    keyCount: TRUSTED_RELEASE_KEYS.length,
+    bundlePath: bundleOfExecutable(app.getPath("exe")),
+    readPinned: () => readBundledPinned(process.resourcesPath),
+    // The claimed requirement plus a shallow `codesign --verify --strict`, not the integrity verdict:
+    // a stray file in the bundle (a .DS_Store from Show Package Contents) must never block updates
+    // forever. Squirrel still checks the new bundle against the requirement itself.
+    satisfies: async (bundle, requirement) =>
+      (await claimedRequirement(bundle)) === requirement &&
+      (await satisfiesRequirement(bundle, requirement)),
+  });
+  if (!gate.run) {
+    if (gate.state === "no_keys") log(`${gate.why}: updates stay off`);
+    return { state: gate.state };
+  }
   const feed = opts.feedUrl ?? process.env.PSYCHE_UPDATE_FEED;
   const result = await checkForVerifiedUpdate({
     fetch,
@@ -106,6 +118,7 @@ async function runUpdater(opts: UpdaterOptions): Promise<RunResult> {
     ...(feed ? { feed } : {}),
     dir: join(app.getPath("temp"), "psyche-update"),
     log,
+    inspectDownload: (file) => inspectQuarantine(file),
   }).catch((err: unknown) => {
     log(`update check failed: ${err instanceof Error ? err.message : String(err)}`);
     return { state: "none" as const, reason: "check failed" };
@@ -136,7 +149,11 @@ async function runUpdater(opts: UpdaterOptions): Promise<RunResult> {
       });
       autoUpdater.setFeedURL({ url: served.feedUrl, serverType: "json" });
       autoUpdater.checkForUpdates();
-      return { state: "started", release: result.release };
+      return {
+        state: "started",
+        release: result.release,
+        ...(result.quarantine ? { quarantine: result.quarantine } : {}),
+      };
     }
   }
 }

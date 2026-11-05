@@ -13,18 +13,32 @@
 #                  (sandbox-image-versions.json) and comes back to main as a PR
 #   CLI            psyche-{darwin,linux}-{arm64,x64} single binaries (bun --compile) with the
 #                  version and the database migrations baked in (`psyche migrate --check`)
-#   Desktop        Psyche-<version>-{arm64,x64}.dmg + .sha256 (deploy/macos/make-dmg.sh; ad-hoc
-#                  signed without a Developer ID), with psyched and Psyche Helper bundled
+#   Desktop        the dmg and cli jobs BUILD, unsigned (ad-hoc), with no environment and no signing
+#                  secrets. One `sign` job (environment release) downloads them,
+#                  signs the apps inside out (deploy/macos/sign-bundle.sh, the same script
+#                  build-local.sh uses) with Psyche's own self-signed certificate
+#                  (deploy/macos/make-signing-cert.sh), checks them (codesign --verify --deep --strict,
+#                  the designated requirement, the hardened runtime and entitlements, the Electron
+#                  fuses, the size budgets), makes Psyche-<version>-{arm64,x64}.dmg + .sha256 and
+#                  the update zip, and signs the macOS CLI binaries. While its keychain is unlocked
+#                  it runs only codesign, ditto, hdiutil and our own scripts. Not notarized: a paid
+#                  Developer ID would add a notarize step to that job (design doc, Appendix A)
 #   Release        GitHub release with SHA256SUMS and notes from the changesets CHANGELOGs
 #   Homebrew       Casks/psyche.rb and Formula/psyche-cli.rb pushed to <owner>/homebrew-psyche
 #   Version PR     manual run with version_pr: changesets opens the "Version Packages" PR
 #
-# Without these secrets the macOS DMG and CLI binaries are signed ad-hoc, there is no update
-# manifest and the tap is not updated; every step skips cleanly (never echo them):
+# The macOS secrets below live in the `release` ENVIRONMENT (tags only, required reviewers), not in
+# repository secrets, used by the sign job alone. A publishing run FAILS that job without them (it never ships an
+# ad-hoc build); a manual dry run uses `release-dry-run`, has none, and builds ad-hoc without
+# publishing. Without RELEASE_SIGNING_KEY there is no update manifest and without the tap token the
+# tap is not updated; those steps skip cleanly (never echo any of them):
 #   MACOS_CERTIFICATE_P12_BASE64, MACOS_CERTIFICATE_PASSWORD, MACOS_SIGNING_IDENTITY
-#       Developer ID Application certificate; signs the app, the DMG and the macOS CLI binaries
-#   APPLE_API_KEY_P8_BASE64, APPLE_API_KEY_ID, APPLE_API_ISSUER
-#       App Store Connect API key for notarytool (notarize + staple)
+#       Psyche's self-signed release certificate (the psyche-release.p12 that
+#       deploy/macos/make-signing-cert.sh writes; MACOS_SIGNING_IDENTITY = its SHA-1 hash). Signs
+#       the app, the DMG and the macOS CLI binaries. A paid Developer ID certificate works in the
+#       same three secrets, as an optional later path.
+#   (No Apple API key is used: the release is not notarized, and the notes carry the "Open Anyway"
+#   section, deploy/macos/open-anyway.md.)
 #   HOMEBREW_TAP_TOKEN
 #       fine-grained token with contents:write on <owner>/homebrew-psyche only
 #   RELEASE_SIGNING_KEY  (environment "release", with required reviewers)
@@ -583,6 +597,7 @@ jobs:
     name: psyche ${{ matrix.target }}
     needs: version
     if: inputs.version_pr != true
+    # No environment and no signing secrets here: this job compiles third-party code. The `sign` job signs.
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -633,71 +648,26 @@ jobs:
           "$BIN" completion bash > /dev/null
           home="$(mktemp -d)"
           PSYCHE_HOME="$home" PSYCHE_PORT=1 "$BIN" migrate --check --json
-      - name: Sign and notarize (macOS, when secrets exist)
+      - name: Ad-hoc signature (macOS; arm64 runs no unsigned code; the sign job re-signs it)
         if: startsWith(matrix.target, 'darwin')
         env:
-          P12: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
-          P12_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
-          IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
-          API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
-          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           BIN: dist/psyche-${{ matrix.target }}
-          TARGET: ${{ matrix.target }}
         run: |
-          if [ -z "$P12" ] || [ -z "$IDENTITY" ]; then
-            # No Developer ID: sign ad-hoc, since arm64 macOS runs no unsigned code.
-            codesign --force --sign - "$BIN"
-            codesign --verify --strict "$BIN"
-            echo "::notice::No signing secrets; shipping an ad-hoc signed binary."
-            exit 0
-          fi
-          kc="$RUNNER_TEMP/signing.keychain-db"; kcpw="$(openssl rand -hex 16)"
-          security create-keychain -p "$kcpw" "$kc"
-          security set-keychain-settings -lut 900 "$kc"
-          security unlock-keychain -p "$kcpw" "$kc"
-          echo "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
-          security import "$RUNNER_TEMP/cert.p12" -k "$kc" -P "$P12_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$kcpw" "$kc" >/dev/null
-          security list-keychains -d user -s "$kc"
-          rm -f "$RUNNER_TEMP/cert.p12"
-          # Bun's JIT needs these under the hardened runtime.
-          cat > "$RUNNER_TEMP/entitlements.plist" <<'PLIST'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>com.apple.security.cs.allow-jit</key><true/>
-            <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
-            <key>com.apple.security.cs.disable-executable-page-protection</key><true/>
-            <key>com.apple.security.cs.allow-dyld-environment-variables</key><true/>
-            <key>com.apple.security.cs.disable-library-validation</key><true/>
-          </dict>
-          </plist>
-          PLIST
-          codesign --force --options runtime --timestamp --keychain "$kc" \
-            --entitlements "$RUNNER_TEMP/entitlements.plist" --sign "$IDENTITY" "$BIN"
-          codesign --verify --strict --verbose=2 "$BIN"
-          if [ "$TARGET" = "darwin-arm64" ]; then "$BIN" version --json; fi
-          if [ -n "$API_KEY_P8" ]; then
-            key="$RUNNER_TEMP/AuthKey.p8"
-            echo "$API_KEY_P8" | base64 --decode > "$key"
-            ditto -c -k --keepParent "$BIN" "$RUNNER_TEMP/notarize.zip"
-            xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" --wait \
-              --key "$key" --key-id "$API_KEY_ID" --issuer "$API_ISSUER"
-            rm -f "$key"
-          fi
-      - name: Upload
+          codesign --force --sign - "$BIN"
+          codesign --verify --strict "$BIN"
+      - name: Upload (macOS binaries are named unsigned-*; the sign job signs them and uploads the release copy)
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: psyche-${{ matrix.target }}
+          name: ${{ startsWith(matrix.target, 'darwin') && 'unsigned-' || '' }}psyche-${{ matrix.target }}
           path: dist/psyche-${{ matrix.target }}
           if-no-files-found: error
 
   dmg:
-    name: Psyche ${{ matrix.arch }} DMG
+    name: Psyche ${{ matrix.arch }} app (unsigned build)
     needs: version
     if: inputs.version_pr != true
+    # Builds an UNSIGNED (ad-hoc) app with no environment and no signing secrets: this job runs the whole
+    # dependency tree's build code. The `sign` job signs it, and makes the DMG and the update zip.
     # psyched bundles native addons and a Node runtime for the host's arch, so each arch builds on
     # a runner of that arch (deploy/scripts/build-psyched.mjs refuses a mismatch).
     runs-on: ${{ matrix.runner }}
@@ -730,56 +700,28 @@ jobs:
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: "0"
         run: pnpm install --frozen-lockfile
-      - name: Signing keychain and notarization key (when secrets exist)
-        env:
-          P12: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
-          P12_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
-          IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
-          API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
-          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-        run: |
-          if [ -z "$P12" ] || [ -z "$IDENTITY" ]; then
-            echo "::notice::No signing secrets; building an unsigned app and DMG."
-            exit 0
-          fi
-          kc="$RUNNER_TEMP/signing.keychain-db"; kcpw="$(openssl rand -hex 16)"
-          security create-keychain -p "$kcpw" "$kc"
-          security set-keychain-settings -lut 3600 "$kc"
-          security unlock-keychain -p "$kcpw" "$kc"
-          echo "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
-          security import "$RUNNER_TEMP/cert.p12" -k "$kc" -P "$P12_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$kcpw" "$kc" >/dev/null
-          security list-keychains -d user -s "$kc"
-          rm -f "$RUNNER_TEMP/cert.p12"
-          # apps/desktop/src/packaging/signing-config.ts and deploy/macos/make-dmg.sh read these.
-          echo "PSYCHE_SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
-          if [ -n "$API_KEY_P8" ]; then
-            echo "$API_KEY_P8" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
-            {
-              echo "APPLE_API_KEY=$RUNNER_TEMP/AuthKey.p8"
-              echo "APPLE_API_KEY_ID=$API_KEY_ID"
-              echo "APPLE_API_ISSUER=$API_ISSUER"
-            } >> "$GITHUB_ENV"
-          fi
       - name: Stamp the release version (the updater compares against it)
         env:
           VERSION: ${{ needs.version.outputs.version }}
         run: node -e 'const f="apps/desktop/package.json",fs=require("fs"),p=JSON.parse(fs.readFileSync(f));p.version=process.env.VERSION;fs.writeFileSync(f,JSON.stringify(p,null,2)+"\n")'
-      - name: Build the bundled Gateway (psyched) and Psyche Helper for Contents/Resources
+      - name: Build the bundled Gateway (psyched)
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          # apps/gateway/dist-bin/darwin-<arch>/psyched, started once against /healthz (--smoke).
+          node deploy/scripts/build-psyched.mjs --arch "$ARCH" --smoke
+      - name: Build Psyche Helper (ad-hoc) for Contents/Resources
         env:
           ARCH: ${{ matrix.arch }}
           PSYCHE_VERSION: ${{ needs.version.outputs.version }}
           # Leaves out the development-only Secure Enclave file-key fallback (security §10).
           PSYCHE_PUBLIC_RELEASE: "1"
         run: |
-          # apps/gateway/dist-bin/darwin-<arch>/psyched, started once against /healthz (--smoke).
-          node deploy/scripts/build-psyched.mjs --arch "$ARCH" --smoke
           deploy/macos/build-helper.sh --arch "$ARCH"
           # forge.config.ts copies both into the app (apps/desktop/src/packaging/bundle-resources.ts);
           # dist/PsycheHelper.app is the agreed helper path, passed explicitly.
           echo "PSYCHE_HELPER_APP=$PWD/apps/mac-helper/dist/PsycheHelper.app" >> "$GITHUB_ENV"
-      - name: Package Psyche.app (signed and notarized by electron-forge when configured)
+      - name: Package Psyche.app (ad-hoc; no signing identity exists in this job)
         env:
           ARCH: ${{ matrix.arch }}
         run: |
@@ -789,40 +731,235 @@ jobs:
             sleep 20
             pnpm --filter @psyche/desktop run package --arch="$ARCH"
           }
-      - name: Build the DMG (Developer ID signed, notarized and stapled when configured; else ad-hoc)
+      - name: Archive the unsigned app (ditto keeps symlinks and attributes)
         env:
           ARCH: ${{ matrix.arch }}
+        run: |
+          app="$(find apps/desktop/out -maxdepth 2 -name Psyche.app -path "*darwin-${ARCH}*" | head -n1)"
+          test -n "$app" || { echo "::error::no Psyche.app for $ARCH"; exit 1; }
+          mkdir -p unsigned
+          ditto -c -k --sequesterRsrc --keepParent "$app" "unsigned/unsigned-Psyche-${ARCH}.app.zip"
+      - name: Upload the unsigned app
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unsigned-psyche-app-${{ matrix.arch }}
+          path: unsigned/unsigned-Psyche-${{ matrix.arch }}.app.zip
+          if-no-files-found: error
+
+  sign:
+    name: Sign
+    needs: [version, cli, dmg]
+    # Same rule as the release job: the DMG matrix may lose its Intel leg in a pre-release.
+    if: >-
+      ${{ !cancelled() && inputs.version_pr != true
+      && needs.version.result == 'success' && needs.cli.result == 'success'
+      && (needs.dmg.result == 'success' || needs.version.outputs.prerelease == 'true') }}
+    # THE only job that sees the signing certificate. Secrets are secrets of the `release` environment
+    # (tags only, required reviewers), so a tag needs TWO approvals: this job and the `release` job (manifest signing, GitHub Release) both use the
+    # `release` environment; a manual dry run uses
+    # `release-dry-run`, which has none, and checks the unsigned build without publishing.
+    # While the keychain is unlocked this job runs only our own scripts and Apple's tools: codesign,
+    # ditto, hdiutil, security, find, file and shell. No package manager, no build tool, no
+    # dependency code. (Node runs deploy/scripts/size-budget.mjs and read-fuses.mjs: our files, with
+    # no imports beyond node:*.)
+    environment: ${{ (github.event_name == 'push' || inputs.dry_run == false) && 'release' || 'release-dry-run' }}
+    runs-on: macos-26
+    timeout-minutes: 45
+    outputs:
+      signed: ${{ steps.keychain.outputs.signed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node (our own scripts only; no install)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Download the unsigned builds
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: unsigned-*
+          path: unsigned
+          merge-multiple: true
+      - name: Unpack the apps
+        run: |
+          mkdir -p work
+          found=0
+          for z in unsigned/unsigned-Psyche-*.app.zip; do
+            [ -e "$z" ] || continue
+            arch="$(basename "$z" .app.zip)"; arch="${arch#unsigned-Psyche-}"
+            mkdir -p "work/$arch"
+            ditto -x -k "$z" "work/$arch"
+            test -d "work/$arch/Psyche.app" || { echo "::error::$z has no Psyche.app"; exit 1; }
+            found=$((found + 1))
+          done
+          test -d work/arm64/Psyche.app || { echo "::error::no Apple silicon app to sign"; exit 1; }
+          echo "unpacked $found app(s)"
+      - name: Signing keychain (self-signed release certificate)
+        id: keychain
+        env:
+          P12: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+        run: |
+          if [ -z "$P12" ] || [ -z "$IDENTITY" ]; then
+            if [ "$PUBLISH" = "true" ]; then
+              echo "::error::Publishing without the signing secrets (MACOS_CERTIFICATE_P12_BASE64, MACOS_SIGNING_IDENTITY): refusing to ship an ad-hoc build. Put them in the release environment."
+              exit 1
+            fi
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No signing secrets (dry run): the builds stay ad-hoc. Nothing here is published."
+            exit 0
+          fi
+          kc="$RUNNER_TEMP/signing.keychain-db"; kcpw="$(openssl rand -hex 16)"
+          security create-keychain -p "$kcpw" "$kc"
+          security set-keychain-settings -lut 1800 "$kc"
+          security unlock-keychain -p "$kcpw" "$kc"
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$kc" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$kcpw" "$kc" >/dev/null
+          rm -f "$RUNNER_TEMP/cert.p12"
+          # A self-signed certificate is never "valid" to find-identity (nothing trusts it), so list
+          # without -v. The identity must be the certificate's SHA-1 (40 hex digits).
+          if ! security find-identity -p codesigning "$kc" | grep -qiF "$IDENTITY"; then
+            echo "::error::MACOS_SIGNING_IDENTITY is not in the imported certificate (use the SHA-1 that make-signing-cert.sh printed)."
+            exit 1
+          fi
+          {
+            echo "PSYCHE_SIGN_IDENTITY=$IDENTITY"
+            echo "PSYCHE_SIGN_KEYCHAIN=$kc"
+            echo "PSYCHE_SIGN_TIMESTAMP=1"
+          } >> "$GITHUB_ENV"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+      - name: Sign the apps (deploy/macos/sign-bundle.sh, the script build-local.sh uses too)
+        if: steps.keychain.outputs.signed == 'true'
+        run: |
+          for app in work/*/Psyche.app; do
+            deploy/macos/sign-bundle.sh --app "$app" --identity "$PSYCHE_SIGN_IDENTITY" \
+              --keychain "$PSYCHE_SIGN_KEYCHAIN" --timestamp
+          done
+      - name: Sign the macOS CLI binaries
+        if: steps.keychain.outputs.signed == 'true'
+        run: |
+          # Bun's JIT needs these under the hardened runtime. These are the CLI's own entitlements,
+          # not the app's: the app-only checks below do not apply to the CLI binary.
+          cat > "$RUNNER_TEMP/entitlements.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>com.apple.security.cs.allow-jit</key><true/>
+            <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
+            <key>com.apple.security.cs.disable-executable-page-protection</key><true/>
+            <key>com.apple.security.cs.allow-dyld-environment-variables</key><true/>
+            <key>com.apple.security.cs.disable-library-validation</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          mkdir -p signed-cli
+          for f in unsigned/unsigned-psyche-darwin-*; do
+            [ -e "$f" ] || continue
+            out="signed-cli/${f#unsigned/unsigned-}"
+            cp "$f" "$out"
+            codesign --force --options runtime --timestamp --keychain "$PSYCHE_SIGN_KEYCHAIN" \
+              --entitlements "$RUNNER_TEMP/entitlements.plist" --sign "$PSYCHE_SIGN_IDENTITY" "$out"
+            codesign --verify --strict --verbose=2 "$out"
+          done
+      - name: Check the signed apps (signature, designated requirement, hardened runtime, entitlements, fuses, size)
+        run: |
+          for app in work/*/Psyche.app; do
+            echo "== $app"
+            # The seal is intact and every nested binary is signed (an ad-hoc dry run passes too).
+            codesign --verify --deep --strict --verbose=2 "$app"
+            # Designated requirement of the app and the helper, the same certificate on every Gateway
+            # binary, no LSFileQuarantineEnabled, the hardened runtime on everywhere, no
+            # allow-dyld-environment-variables or get-task-allow, and library validation kept on the
+            # helper. A publishing run is always checked; it cannot be ad-hoc (the keychain step refuses).
+            if [ -n "${PSYCHE_SIGN_IDENTITY:-}" ] || [ "$PUBLISH" = "true" ]; then
+              deploy/macos/check-designated-requirements.sh "$app"
+            else
+              echo "::notice::dry run, ad-hoc build: designated requirement not checked"
+            fi
+            # Electron fuses (forge.config.ts), read with our own script.
+            node deploy/scripts/read-fuses.mjs "$app" \
+              --expect RunAsNode=off --expect EnableNodeOptionsEnvironmentVariable=off \
+              --expect EnableNodeCliInspectArguments=off --expect EnableEmbeddedAsarIntegrityValidation=on \
+              --expect OnlyLoadAppFromAsar=on
+            # Size budgets (deploy/size-budget.json): the installed app, and the Gateway inside it.
+            node deploy/scripts/size-budget.mjs appMB "$app"
+            node deploy/scripts/size-budget.mjs psychedMB "$app/Contents/Resources/psyched"
+          done
+      - name: Build the DMGs from the signed apps (make-dmg.sh signs each with the same identity)
+        env:
           # The Finder window layout over the background (off by default outside CI).
           PSYCHE_DMG_LAYOUT: "1"
           VERSION: ${{ needs.version.outputs.version }}
         run: |
-          app="$(find apps/desktop/out -maxdepth 2 -name Psyche.app -path "*darwin-${ARCH}*" | head -n1)"
-          test -n "$app" || { echo "::error::no Psyche.app for $ARCH"; exit 1; }
-          deploy/macos/make-dmg.sh "$app" "$VERSION" "$ARCH" dist
-          # The zip Squirrel.Mac installs from; the signed update manifest names its SHA-256.
-          ditto -c -k --sequesterRsrc --keepParent "$app" "dist/Psyche-${VERSION}-darwin-${ARCH}.zip"
-      - name: Remove the notarization key
+          mkdir -p dist
+          for app in work/*/Psyche.app; do
+            arch="$(basename "$(dirname "$app")")"
+            deploy/macos/make-dmg.sh "$app" "$VERSION" "$arch" dist
+          done
+      - name: Lock and delete the signing keychain
         if: always()
-        run: rm -f "$RUNNER_TEMP/AuthKey.p8"
-      - name: Upload
+        run: |
+          # Right after the last thing that signs (the DMGs, the CLI binaries), not at the end of the job.
+          # The fixed path the keychain step creates, whatever state that step reached (it may have
+          # failed after create-keychain and before exporting PSYCHE_SIGN_KEYCHAIN).
+          kc="$RUNNER_TEMP/signing.keychain-db"
+          security lock-keychain "$kc" 2>/dev/null || true
+          security delete-keychain "$kc" 2>/dev/null || true
+          rm -f "$kc" "$RUNNER_TEMP/entitlements.plist" "$RUNNER_TEMP/cert.p12"
+      - name: Update zips, size checks and the CLI smoke test (the keychain is gone by now)
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          for app in work/*/Psyche.app; do
+            arch="$(basename "$(dirname "$app")")"
+            # The zip Squirrel.Mac installs from; the signed update manifest names its SHA-256. Written
+            # by ditto, so it carries no quarantine flag.
+            zip="dist/Psyche-${VERSION}-darwin-${arch}.zip"
+            ditto -c -k --sequesterRsrc --keepParent "$app" "$zip"
+            node deploy/scripts/size-budget.mjs dmgMB "dist/Psyche-${VERSION}-${arch}.dmg"
+            node deploy/scripts/size-budget.mjs dmgMB "$zip"
+          done
+          # Unsigned (dry run) CLI binaries ship as built; signed ones replace them.
+          mkdir -p signed-cli
+          for f in unsigned/unsigned-psyche-darwin-*; do
+            [ -e "$f" ] || continue
+            out="signed-cli/${f#unsigned/unsigned-}"
+            [ -e "$out" ] || cp "$f" "$out"
+          done
+          if [ -e signed-cli/psyche-darwin-arm64 ]; then
+            signed-cli/psyche-darwin-arm64 version --json | grep -F "\"$VERSION\""
+          fi
+      - name: Upload the DMGs and update zips
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: psyche-dmg-${{ matrix.arch }}
+          name: psyche-desktop-signed
           path: |
             dist/*.dmg
             dist/*.dmg.sha256
             dist/*.zip
           if-no-files-found: error
+      - name: Upload the macOS CLI binaries
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: psyche-cli-macos
+          path: signed-cli/psyche-darwin-*
+          if-no-files-found: error
 
   release:
     name: GitHub release
-    needs: [version, image-manifest, sandbox-image-manifest, cli, dmg]
+    needs: [version, image-manifest, sandbox-image-manifest, cli, dmg, sign]
     # Every needed job must succeed, except the DMG matrix in a pre-release, whose Intel leg may
     # fail (continue-on-error above); the "Desktop DMGs that shipped" step then requires arm64.
     if: >-
       ${{ !cancelled() && inputs.version_pr != true
       && needs.version.result == 'success' && needs.image-manifest.result == 'success'
       && needs.sandbox-image-manifest.result == 'success' && needs.cli.result == 'success'
+      && needs.sign.result == 'success'
       && (needs.dmg.result == 'success' || needs.version.outputs.prerelease == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -842,6 +979,15 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+      - name: Only the sign job's output ships (drop every unsigned build; a publishing run must be signed)
+        env:
+          SIGNED: ${{ needs.sign.outputs.signed }}
+        run: |
+          rm -f artifacts/unsigned-*
+          if [ "$PUBLISH" = "true" ] && [ "$SIGNED" != "true" ]; then
+            echo "::error::the sign job did not sign this release"; exit 1
+          fi
+          ls artifacts
       - name: Desktop DMGs that shipped (Apple silicon required; Intel optional for pre-releases)
         env:
           PRERELEASE: ${{ needs.version.outputs.prerelease }}
@@ -904,6 +1050,10 @@ jobs:
           (cd artifacts && sha256sum -- * > ../SHA256SUMS)
           cat SHA256SUMS
           node deploy/scripts/release-notes.mjs . "$TAG" "${IMAGE}@${DIGEST}" > notes.md
+          # The Mac app is self-signed and not notarized: say how to open it the first time.
+          # A publishing run is always signed with the release certificate (the dmg job refuses
+          # otherwise); a dry run is ad-hoc and its notes are never published.
+          if [ "$PUBLISH" = "true" ]; then { echo; cat deploy/macos/open-anyway.md; } >> notes.md; fi
           if [ "$INTEL_DMG" = "false" ]; then
             # Under the title: the Mac app in this pre-release is Apple silicon only.
             { head -n 1 notes.md; echo
