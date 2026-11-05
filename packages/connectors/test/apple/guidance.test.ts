@@ -51,5 +51,10 @@ describe("per-app guidance", () => {
     expect(text).toContain("Outlook");
     expect(text).toContain("three email addresses");
     expect(guidanceSection(["chrome:tabs"], (t) => t, "windows")).toContain("Edge");
+    // Microsoft 365 (with To Do) reads the same on both.
+    for (const platform of ["macos", "windows"] as const)
+      expect(guidanceSection(["microsoft"], (t) => t, platform)).toContain(
+        "`reminders_list_lists`",
+      );
   });
 });

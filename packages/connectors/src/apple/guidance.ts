@@ -84,6 +84,12 @@ export const APP_GUIDANCE: Readonly<Record<string, AppGuidance>> = {
       "`things_list` for Today, Inbox or a project before adding; `things_add` with a `when` date the owner gave.",
     never: "create a to-do in Reminders when the owner said Things, or the other way round.",
   },
+  microsoft: {
+    for: "the owner's Microsoft 365: Outlook mail and calendar, OneDrive files, and their to-dos in Microsoft To Do.",
+    prefer:
+      "`reminders_list_lists` to find the To Do list, then `reminders_list` with `overdue` / `dueToday` before asking what's due.",
+    never: "complete or delete a to-do matched only loosely; confirm the exact title or id first.",
+  },
   obsidian: {
     for: "the owner's Obsidian vault: Markdown notes in a folder they shared.",
     prefer:
@@ -92,11 +98,21 @@ export const APP_GUIDANCE: Readonly<Record<string, AppGuidance>> = {
   },
 };
 
+/** The Mac-only apps: no guidance on a Windows Host, where they never connect. */
+const MAC_ONLY: ReadonlySet<string> = new Set([
+  "apple:notes",
+  "apple:music",
+  "apple:safari",
+  "apple:shortcuts",
+  "things",
+]);
+
 /**
  * The same connector types when the Host's helper is the Windows one: Mail, Calendar, Contacts
  * and Reminders come from classic Outlook (no `message://` links, no EventKit, three emails a
  * contact), the tabs from Chrome, Edge or Brave, and the files from this PC. Types it does not
- * serve (Notes, Music, Safari, Shortcuts, Things) never connect there. Obsidian is the same.
+ * serve (Notes, Music, Safari, Shortcuts, Things) never connect there; the rest (Obsidian,
+ * Microsoft 365) read the same on both.
  */
 export const WINDOWS_APP_GUIDANCE: Readonly<Record<string, AppGuidance>> = {
   "apple:mail": {
@@ -156,7 +172,7 @@ export function guidanceSection(
   for (const type of [...new Set(types)].sort()) {
     const g =
       platform === "windows"
-        ? (WINDOWS_APP_GUIDANCE[type] ?? (type === "obsidian" ? APP_GUIDANCE[type] : undefined))
+        ? (WINDOWS_APP_GUIDANCE[type] ?? (MAC_ONLY.has(type) ? undefined : APP_GUIDANCE[type]))
         : APP_GUIDANCE[type];
     if (g === undefined) continue;
     lines.push(`${labelOf(type)}: For: ${g.for} Prefer: ${g.prefer} Never: ${g.never}`);
