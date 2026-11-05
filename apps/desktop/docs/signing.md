@@ -165,8 +165,8 @@ these sets is complete (`windowsSigning` in `src/packaging/signing-config.ts`):
 Everything is signed with SHA-256 only. The packager signs every `.exe`, `.dll` and `.node` under the
 app folder before the installer is made, so `Psyche.exe`, `resources\psyched\runtime\node.exe`, the
 native addons and `resources\win-helper\psyche-helper.exe` all carry the signature; the Squirrel
-maker then signs `Setup.exe` and the `Update.exe` it embeds. In CI (`desktop.yml`, job `windows`)
-the PFX comes from the `WINDOWS_CERTIFICATE_BASE64` and `WINDOWS_CERTIFICATE_PASSWORD` secrets, or
+maker then signs `Setup.exe` and the `Update.exe` it embeds. In CI (`desktop.yml`, job `windows`, and
+`release.yml`, job `windows`) the PFX comes from the `WINDOWS_CERTIFICATE_BASE64` and `WINDOWS_CERTIFICATE_PASSWORD` secrets, or
 Trusted Signing from the `AZURE_*` secrets; without them the job builds unsigned.
 
 Check a build:
@@ -242,3 +242,11 @@ once with the verified full package. The new version starts the next time Psyche
 `deploy/scripts/update-manifest.mjs build` adds the Windows files given `RELEASES`, the nupkgs and
 `Psyche-<version>-Setup.exe` (`--delta-base <version>` names the delta's base); the `artifacts`
 list keeps macOS files only, so Mac builds released before Windows support keep updating.
+
+The release workflow (`.github/workflows/release.yml`, job `windows`) builds with
+`deploy/windows/build-local.ps1 -Smoke`. When an earlier release has Windows files it downloads that
+release's `RELEASES` and full nupkg into a local folder and points `PSYCHE_SQUIRREL_REMOTE_RELEASES`
+at it (`file:///…/`: with a github.com URL Squirrel's SyncReleases would ask the API for the latest
+release instead), so Squirrel also makes a delta nupkg; the `release` job then builds the manifest
+with `--win-arch x64 --delta-base <that version>`. `build-local.ps1` copies only this version's
+nupkgs into `distsquirrel-win32-x64`.

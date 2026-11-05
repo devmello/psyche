@@ -15,6 +15,10 @@
 #                  version and the database migrations baked in (`psyche migrate --check`)
 #   Desktop        Psyche-<version>-{arm64,x64}.dmg + .sha256 (deploy/macos/make-dmg.sh; ad-hoc
 #                  signed without a Developer ID), with psyched and Psyche Helper bundled
+#   Windows        Psyche-<version>-Setup.exe, Psyche-<version>-win32-x64.zip and the Squirrel feed
+#                  (RELEASES, Psyche-<nuget-version>-full.nupkg, and a -delta.nupkg against the
+#                  previous Windows release when there is one) from deploy/windows/build-local.ps1;
+#                  Authenticode-signed when the Windows secrets exist, unsigned otherwise
 #   Release        GitHub release with SHA256SUMS and notes from the changesets CHANGELOGs
 #   Homebrew       Casks/psyche.rb and Formula/psyche-cli.rb pushed to <owner>/homebrew-psyche
 #   Version PR     manual run with version_pr: changesets opens the "Version Packages" PR
@@ -25,6 +29,11 @@
 #       Developer ID Application certificate; signs the app, the DMG and the macOS CLI binaries
 #   APPLE_API_KEY_P8_BASE64, APPLE_API_KEY_ID, APPLE_API_ISSUER
 #       App Store Connect API key for notarytool (notarize + staple)
+#   WINDOWS_CERTIFICATE_BASE64, WINDOWS_CERTIFICATE_PASSWORD
+#       Authenticode code-signing certificate (.pfx); or, without it, Azure Trusted Signing:
+#   AZURE_TRUSTED_SIGNING_ENDPOINT, _ACCOUNT, _PROFILE, _DLIB, AZURE_TENANT_ID, _CLIENT_ID, _CLIENT_SECRET
+#       (apps/desktop/docs/signing.md "Windows: Authenticode"). An unsigned Windows build installs
+#       but never updates itself (the updater requires a valid signature)
 #   HOMEBREW_TAP_TOKEN
 #       fine-grained token with contents:write on <owner>/homebrew-psyche only
 #   RELEASE_SIGNING_KEY  (environment "release", with required reviewers)
@@ -814,16 +823,134 @@ jobs:
             dist/*.zip
           if-no-files-found: error
 
+  windows:
+    name: Psyche Windows x64 installer
+    needs: version
+    if: inputs.version_pr != true
+    # psyched bundles native addons and node.exe for the host's arch, like the DMG legs.
+    runs-on: windows-latest
+    timeout-minutes: 75
+    # Windows is the newest platform: a pre-release ships without it when it fails to build (the
+    # notes say so); a stable release needs it.
+    continue-on-error: ${{ needs.version.outputs.prerelease == 'true' }}
+    outputs:
+      delta_base: ${{ steps.previous.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install (with the Electron binary)
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "0"
+        run: pnpm install --frozen-lockfile
+      - name: Rust toolchain (for apps/win-helper)
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - name: Stamp the release version (the updater compares against it)
+        shell: bash
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: node -e 'const f="apps/desktop/package.json",fs=require("fs"),p=JSON.parse(fs.readFileSync(f));p.version=process.env.VERSION;fs.writeFileSync(f,JSON.stringify(p,null,2)+"\n")'
+      - name: The previous Windows release, for a delta package (when there is one)
+        id: previous
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          prev=""
+          for tag in $(gh release list --repo "$GITHUB_REPOSITORY" --limit 30 --exclude-drafts --json tagName --jq '.[].tagName'); do
+            [ "$tag" = "$TAG" ] && continue
+            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qx RELEASES; then
+              prev="$tag"; break
+            fi
+          done
+          if [ -z "$prev" ]; then
+            echo "::notice::No earlier Windows release: this one ships the full package only."
+            exit 0
+          fi
+          dir="$RUNNER_TEMP/squirrel-previous"
+          mkdir -p "$dir"
+          gh release download "$prev" --repo "$GITHUB_REPOSITORY" --dir "$dir" --pattern RELEASES --pattern '*-full.nupkg'
+          ls -la "$dir"
+          # electron-winstaller's remoteReleases (forge.config.ts): Squirrel's SyncReleases copies
+          # RELEASES and the newest full package from this folder and releasify makes the delta. A
+          # local file:// folder, because a github.com URL makes SyncReleases ask the API for the
+          # latest release instead (which may have no Windows files).
+          echo "PSYCHE_SQUIRREL_REMOTE_RELEASES=file:///$(cygpath -m "$dir")/" >> "$GITHUB_ENV"
+          echo "version=${prev#v}" >> "$GITHUB_OUTPUT"
+      - name: Signing certificate (when the secret exists)
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+        run: |
+          if ($env:WINDOWS_CERTIFICATE_BASE64) {
+            $pfx = Join-Path $env:RUNNER_TEMP "psyche-signing.pfx"
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_BASE64))
+            "WINDOWS_CERTIFICATE_FILE=$pfx" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          } else {
+            Write-Host "::notice::No WINDOWS_CERTIFICATE_BASE64 secret: Trusted Signing when its secrets exist, else unsigned."
+          }
+      - name: Build psyched, the helper and the installer (signed when configured)
+        shell: pwsh
+        env:
+          PSYCHE_VERSION: ${{ needs.version.outputs.version }}
+          # Leaves out the development-only fallbacks, as for the DMG (security §10).
+          PSYCHE_PUBLIC_RELEASE: "1"
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          AZURE_TRUSTED_SIGNING_ACCOUNT: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT }}
+          AZURE_TRUSTED_SIGNING_PROFILE: ${{ secrets.AZURE_TRUSTED_SIGNING_PROFILE }}
+          AZURE_TRUSTED_SIGNING_DLIB: ${{ secrets.AZURE_TRUSTED_SIGNING_DLIB }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        # -Smoke starts the bundled Gateway once against /healthz, like --smoke for the DMG.
+        run: ./deploy/windows/build-local.ps1 -Smoke
+      - name: Remove the signing certificate
+        if: always()
+        shell: pwsh
+        run: Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $env:RUNNER_TEMP "psyche-signing.pfx")
+      - name: Collect the release files
+        shell: bash
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          mkdir -p release
+          cp "dist/Psyche-${VERSION}-Setup.exe" "dist/Psyche-${VERSION}-win32-x64.zip" release/
+          # This version's packages only (build-local.ps1 leaves out the synced previous one).
+          cp dist/squirrel-win32-x64/RELEASES dist/squirrel-win32-x64/*.nupkg release/
+          ls -la release
+          cat release/RELEASES
+      - name: Upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: psyche-windows-x64
+          path: release/*
+          if-no-files-found: error
+
   release:
     name: GitHub release
-    needs: [version, image-manifest, sandbox-image-manifest, cli, dmg]
-    # Every needed job must succeed, except the DMG matrix in a pre-release, whose Intel leg may
-    # fail (continue-on-error above); the "Desktop DMGs that shipped" step then requires arm64.
+    needs: [version, image-manifest, sandbox-image-manifest, cli, dmg, windows]
+    # Every needed job must succeed, except in a pre-release the DMG matrix, whose Intel leg may
+    # fail (continue-on-error above; the "Desktop DMGs that shipped" step then requires arm64), and
+    # the Windows installer ("Windows installer that shipped").
     if: >-
       ${{ !cancelled() && inputs.version_pr != true
       && needs.version.result == 'success' && needs.image-manifest.result == 'success'
       && needs.sandbox-image-manifest.result == 'success' && needs.cli.result == 'success'
-      && (needs.dmg.result == 'success' || needs.version.outputs.prerelease == 'true') }}
+      && (needs.dmg.result == 'success' || needs.version.outputs.prerelease == 'true')
+      && (needs.windows.result == 'success' || needs.version.outputs.prerelease == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # The update-manifest signing key lives in "release" (required reviewers, tags only; security
@@ -856,22 +983,45 @@ jobs:
           else
             echo "::error::no Intel DMG: a stable release needs both"; exit 1
           fi
+      - name: Windows installer that shipped (required for a stable release)
+        env:
+          PRERELEASE: ${{ needs.version.outputs.prerelease }}
+        run: |
+          if ls artifacts/Psyche-*-Setup.exe >/dev/null 2>&1 && [ -f artifacts/RELEASES ] \
+            && ls artifacts/Psyche-*-full.nupkg >/dev/null 2>&1; then
+            echo "WINDOWS=true" >> "$GITHUB_ENV"
+          elif [ "$PRERELEASE" = "true" ]; then
+            echo "::warning::no Windows installer; this pre-release ships without Windows"
+            echo "WINDOWS=false" >> "$GITHUB_ENV"
+          else
+            echo "::error::no Windows installer: a stable release needs it"; exit 1
+          fi
       - name: Signed update manifest (needs RELEASE_SIGNING_KEY in the release environment)
         env:
           SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
           VERSION: ${{ needs.version.outputs.version }}
           TAG: ${{ github.ref_name }}
           DIGEST: ${{ needs.image-manifest.outputs.digest }}
+          DELTA_BASE: ${{ needs.windows.outputs.delta_base }}
         run: |
           if [ -z "$SIGNING_KEY" ]; then
             echo "::warning::No RELEASE_SIGNING_KEY: no update manifest. Installed apps will not auto-update to this release."
             exit 0
           fi
           minimum="$(node -p 'require("./deploy/update-policy.json").minimumVersion')"
+          # Windows: platforms["win32-x64"] (RELEASES, the full nupkg, the installer, and the delta
+          # with the release it applies to); the macOS `artifacts` list is unchanged.
+          win=()
+          if [ "$WINDOWS" = "true" ]; then
+            win=(--win-arch x64 artifacts/RELEASES artifacts/Psyche-*-full.nupkg artifacts/Psyche-*-Setup.exe)
+            if [ -n "$DELTA_BASE" ] && ls artifacts/Psyche-*-delta.nupkg >/dev/null 2>&1; then
+              win+=(--delta-base "$DELTA_BASE" artifacts/Psyche-*-delta.nupkg)
+            fi
+          fi
           node deploy/scripts/update-manifest.mjs build --release "$VERSION" --minimum "$minimum" \
             --base "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/" \
             ${DIGEST:+--image "gateway=${IMAGE}@${DIGEST}"} \
-            artifacts/Psyche-*.zip artifacts/Psyche-*.dmg > artifacts/update-manifest.json
+            artifacts/Psyche-*.zip artifacts/Psyche-*.dmg "${win[@]}" > artifacts/update-manifest.json
           PSYCHE_RELEASE_SIGNING_KEY="$SIGNING_KEY" node deploy/scripts/update-manifest.mjs sign artifacts/update-manifest.json
           # Self-check against the public half of the key that just signed.
           pub="$(PSYCHE_RELEASE_SIGNING_KEY="$SIGNING_KEY" node -e 'const c=require("crypto");process.stdout.write(Buffer.from(c.createPublicKey(c.createPrivateKey(process.env.PSYCHE_RELEASE_SIGNING_KEY)).export({format:"jwk"}).x,"base64url").toString("base64"))')"
@@ -908,6 +1058,11 @@ jobs:
             # Under the title: the Mac app in this pre-release is Apple silicon only.
             { head -n 1 notes.md; echo
               echo "> **Mac app: Apple silicon only.** The Intel (x64) DMG did not build for this pre-release. On an Intel Mac, use the server image or the CLI, or wait for the next alpha."
+              tail -n +2 notes.md; } > notes.tmp && mv notes.tmp notes.md
+          fi
+          if [ "$WINDOWS" = "false" ]; then
+            { head -n 1 notes.md; echo
+              echo "> **No Windows installer.** It did not build for this pre-release. On Windows, build it from source (docs/guides/install.md) or wait for the next alpha."
               tail -n +2 notes.md; } > notes.tmp && mv notes.tmp notes.md
           fi
       - name: Keep SHA256SUMS for the tap
