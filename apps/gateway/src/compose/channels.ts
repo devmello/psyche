@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { requesterFromRoute } from "@psyche/agent-core";
 import {
@@ -626,6 +626,19 @@ interface Pending {
   requester: Requester;
   /** Forwarded or quoted third-party text inside it (#275). */
   taintSources?: TaintSource[];
+  /**
+   * What the inbound policy decided when it arrived (who wrote, when, in which chat). Kept with a
+   * held message so that, replayed after a restart, Psyche may answer it: the conversation record
+   * the reply authority needs lives in memory and is gone after one.
+   */
+  inbound?: {
+    channel: string;
+    account: string;
+    chatId: string;
+    senderId: string;
+    receivedAt: number;
+    isGroup: boolean;
+  };
 }
 
 export function composeChannels(
@@ -642,6 +655,69 @@ export function composeChannels(
   const replyTo = new Map<string, OutboundTarget>();
   const repliesSent = new Map<string, number>();
   const waiting = new Map<string, Pending[]>();
+  // The held messages are also on disk: the adapters move their cursors forward when a message
+  // arrives, so a message held in memory only would be gone for good if the process stops (an
+  // app update stops it). Written whenever the held set changes, replayed at start.
+  const heldFile = join(services.home, "state", "channels", "held.json");
+  const persistHeld = () => {
+    try {
+      if (waiting.size === 0) {
+        rmSync(heldFile, { force: true });
+        return;
+      }
+      mkdirSync(dirname(heldFile), { recursive: true, mode: 0o700 });
+      const items = [...waiting.entries()].flatMap(([threadId, list]) =>
+        list.map((pending) => ({ threadId, pending })),
+      );
+      const temp = `${heldFile}.tmp`;
+      writeFileSync(temp, JSON.stringify({ v: 1, items }), { mode: 0o600 });
+      chmodSync(temp, 0o600);
+      renameSync(temp, heldFile);
+    } catch (err) {
+      logger.warn("channel.held_not_saved", { code: PsycheError.from(err).code });
+    }
+  };
+  const loadHeld = () => {
+    let items: { threadId: unknown; pending: unknown }[];
+    try {
+      const raw = JSON.parse(readFileSync(heldFile, "utf8")) as { v?: unknown; items?: unknown };
+      if (raw.v !== 1 || !Array.isArray(raw.items)) return;
+      items = raw.items as typeof items;
+    } catch {
+      return; // none, or unreadable: nothing to replay
+    }
+    for (const { threadId, pending } of items) {
+      const p = pending as Partial<Pending> | null;
+      if (
+        typeof threadId !== "string" ||
+        p === null ||
+        typeof p !== "object" ||
+        typeof p.content !== "string" ||
+        typeof p.target?.channelId !== "string" ||
+        typeof p.target?.chatId !== "string" ||
+        p.requester === undefined
+      )
+        continue;
+      const list = waiting.get(threadId) ?? [];
+      list.push(p as Pending);
+      waiting.set(threadId, list);
+      // The owner's chat wrote this under the inbound policy before the restart: record it
+      // again so the reply authority lets Psyche answer it (its record is memory only).
+      if (p.inbound !== undefined) {
+        // The iMessage adapter only answers chats it has seen this run.
+        (
+          adapters.get(`${p.inbound.channel}:${p.inbound.account}`) as
+            | { adoptConversation?: (chatId: string) => void }
+            | undefined
+        )?.adoptConversation?.(p.inbound.chatId);
+        services.channelConversations.record({
+          message: p.inbound,
+          action: "deliver",
+          route: { role: "owner" },
+        } as Parameters<typeof services.channelConversations.record>[0]);
+      }
+    }
+  };
   // For the reply authority: each channel run's taint, and the sends in flight per conversation
   // (`<type>:<account>|<chatId>` → run id, or null for Gateway-composed text).
   const turns = new Map<string, TurnState>();
@@ -967,6 +1043,7 @@ export function composeChannels(
       const list = waiting.get(threadId) ?? [];
       list.push(pending);
       waiting.set(threadId, list);
+      persistHeld();
       return;
     }
     const events: Array<() => void> = [];
@@ -1016,6 +1093,8 @@ export function composeChannels(
     const next = list.shift() as Pending;
     if (list.length === 0) waiting.delete(threadId);
     startTurn(threadId, next);
+    // Off the disk only once the turn has started (or been held again): at worst it runs twice.
+    persistHeld();
   };
 
   async function onInbound(event: ChannelInboundEvent): Promise<void> {
@@ -1049,6 +1128,14 @@ export function composeChannels(
       content,
       requester: requesterFromRoute(route),
       ...(taintSources.length === 0 ? {} : { taintSources }),
+      inbound: {
+        channel: message.channel,
+        account: message.account,
+        chatId: message.chatId,
+        senderId: message.senderId,
+        receivedAt: message.receivedAt,
+        isGroup: message.isGroup,
+      },
     });
   }
 
@@ -1062,6 +1149,7 @@ export function composeChannels(
     switch (event.command?.name) {
       case "stop": {
         waiting.delete(thread.id);
+        persistHeld();
         const cancelled = await sessions.cancel(thread.id);
         await reply(target, cancelled ? "Stopped." : "Nothing is running.");
         return;
@@ -1257,6 +1345,9 @@ export function composeChannels(
       await service.init();
       await ensureWebChat();
       attachReady();
+      // Messages held before the last stop (an update restarts the Gateway) run now.
+      loadHeld();
+      for (const threadId of [...waiting.keys()]) drain(threadId);
       const every = setup.healthIntervalMs ?? DEFAULT_HEALTH_MS;
       if (every > 0) {
         let busy = false;

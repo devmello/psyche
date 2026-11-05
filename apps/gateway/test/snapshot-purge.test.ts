@@ -46,7 +46,7 @@ describe("purgePreUpdateSnapshots", () => {
 });
 
 describe("uninstall with data", () => {
-  it("purges the snapshots once the deletion is authorized, not before", async () => {
+  it("leaves the snapshots where they are: they travel to the Trash with the folder", async () => {
     const home = mkdtempSync(join(tmpdir(), "psy-purge-"));
     roots.push(home);
     const dir = fakeSnapshot(home);
@@ -70,7 +70,7 @@ describe("uninstall with data", () => {
     await (granted!.run as unknown as (c: Call, p: unknown) => Promise<unknown>)(call, {
       path: home,
     });
-    expect(existsSync(dir)).toBe(false);
+    expect(existsSync(dir)).toBe(true);
   });
 });
 

@@ -29,7 +29,7 @@ export function probeMigrations(
   const files = listMigrationFiles(dir);
   let sqlite: Database.Database;
   try {
-    sqlite = new Database(path, { fileMustExist: true });
+    sqlite = new Database(path, { fileMustExist: true, readonly: true });
   } catch (err) {
     return { state: "unknown", reason: err instanceof Error ? err.message : String(err) };
   }

@@ -3,7 +3,6 @@ import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
-import { purgePreUpdateSnapshots } from "../pre-update.ts";
 import type { ComposeServices } from "./services.ts";
 import { signGate } from "./skills.ts";
 
@@ -64,8 +63,8 @@ export function uninstallHandlers(
           subject: { scope: "uninstall" },
           data: { path: folder },
         });
-        // The safety copies of the data are part of the data: they go with it, not into the Trash.
-        purgePreUpdateSnapshots(home);
+        // The pre-update snapshots are inside the data folder, so they travel with it to the
+        // Trash and come back with it if the owner changes their mind. Nothing is deleted here.
         return { authorized: true as const };
       },
     },

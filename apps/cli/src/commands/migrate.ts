@@ -27,6 +27,11 @@ export const migrateCommands: CommandSpec[] = [
         type: "boolean",
         description: "Only check (the default; migrations apply at Gateway start)",
       },
+      "restored-by-hand": {
+        type: "boolean",
+        description:
+          "With --retry, after a restore that could not be finished and that you did yourself: forget it",
+      },
       retry: {
         type: "boolean",
         description:
@@ -40,8 +45,12 @@ export const migrateCommands: CommandSpec[] = [
         const note = join(ctx.home, "run", "update-failed.json");
         const had = existsSync(note);
         rmSync(note, { force: true });
+        // After a restore the Gateway could not finish, and only if the owner says they did it.
+        const marker = join(ctx.home, "run", "restore-in-progress.json");
+        const hadMarker = bool(opts, "restored-by-hand") && existsSync(marker);
+        if (bool(opts, "restored-by-hand")) rmSync(marker, { force: true });
         return {
-          data: { retry: true, cleared: had },
+          data: { retry: true, cleared: had, ...(hadMarker ? { restoredByHand: true } : {}) },
           human: had
             ? "Cleared the failed-update note. Start Psyche again to retry the update."
             : "There was no failed update to retry.",

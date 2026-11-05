@@ -456,6 +456,16 @@ export class IMessageAdapter implements ChannelAdapter {
     return node;
   }
 
+  /**
+   * A conversation Psyche was in before a restart (the Gateway held a message from it across an
+   * update and replays it): outbound sends to it are allowed again, as if it had just written.
+   * Only the Gateway's own held-message store calls this, for a chat that already wrote under the
+   * inbound policy.
+   */
+  adoptConversation(chatId: string): void {
+    this.#chats.add(chatId);
+  }
+
   /** The recipient a target resolves to: a known chat guid, or a 1:1 peer's bare handle. */
   #resolve(target: string): string {
     if (isBareHandle(target)) {

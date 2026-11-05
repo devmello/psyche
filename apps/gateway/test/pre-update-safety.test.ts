@@ -35,6 +35,7 @@ afterEach(() => {
 
 const M1 = "202601010000_test_one.sql";
 const M2 = "202601020000_test_two.sql";
+const M3 = "202601030000_test_three.sql";
 
 function setup() {
   const root = mkdtempSync(join(tmpdir(), "psy-safe-"));
@@ -122,20 +123,28 @@ describe("retention (M2)", () => {
     expect(listSnapshots(s.home)).toHaveLength(1);
   });
 
-  it("reuses the snapshot of a boot that never finished instead of copying half-migrated data", async () => {
+  it("reuses the snapshot of a boot that was cut short half way through its migrations", async () => {
     const s = setup();
-    s.put({ [M2]: "ALTER TABLE notes ADD COLUMN tag TEXT;" });
-    // The process died in the middle: the data was changed, no failure was recorded.
+    s.put({
+      [M2]: "ALTER TABLE notes ADD COLUMN tag TEXT;",
+      [M3]: "CREATE TABLE extra (id INTEGER);",
+    });
+    // The process died after the first of the two: M2 is applied, M3 is not, and the data was
+    // changed on the way. No failure was recorded.
+    const half = join(s.root, "half");
+    mkdirSync(half);
+    writeFileSync(join(half, M1), readFileSync(join(s.migrations, M1)));
+    writeFileSync(join(half, M2), readFileSync(join(s.migrations, M2)));
     const crashing = (path: string) => {
-      const d = openDb(path, { migrate: false, migrationsDir: s.migrations });
+      const d = openDb(path, { migrationsDir: half });
       d.sqlite.prepare("DELETE FROM notes").run();
       d.close();
       throw new Error("killed");
     };
+    // Make the snapshot first, as the real start does, then die.
     await expect(openDbWithSnapshot(base(s, { opener: crashing }))).rejects.toThrow("killed");
     expect(listSnapshots(s.home)).toHaveLength(1);
     expect(bodies(s.dbPath)).toEqual([]);
-    // The next start finds the same version and build with no good boot in between.
     (await openDbWithSnapshot(base(s, { now: at(5) }))).close();
     expect(listSnapshots(s.home)).toHaveLength(1);
     expect(bodies(s.dbPath)).toEqual(["keep me"]);

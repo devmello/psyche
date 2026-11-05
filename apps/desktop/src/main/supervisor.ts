@@ -512,10 +512,14 @@ export class GatewaySupervisor {
    * The splash's Retry after a failed update was undone: forget the note that makes the Gateway
    * refuse the same build on the same data, so the next start tries the update again.
    */
-  retryAfterUpdateFailure(): boolean {
+  retryAfterUpdateFailure(opts: { restoredByHand?: boolean } = {}): boolean {
     const note = join(this.opts.psycheHome, "run", "update-failed.json");
     const had = existsSync(note);
     rmSync(note, { force: true });
+    // Only for an owner who has put their data back themselves after a restore that could not
+    // be finished; without it the Gateway tries to finish that restore again.
+    if (opts.restoredByHand === true)
+      rmSync(join(this.opts.psycheHome, "run", "restore-in-progress.json"), { force: true });
     return had;
   }
 

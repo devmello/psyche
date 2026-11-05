@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MemoryCursorStore } from "@psyche/channels";
@@ -92,4 +92,62 @@ describe("channel messages during an update", () => {
     await vi.waitFor(() => expect(node.sends).toHaveLength(1), { timeout: 5000 });
     expect(node.sends[0]).toMatchObject({ text: "Hello from Psyche." });
   });
+
+  it("survives the restart the update causes: a held message is replayed at the next start", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-chan-gate-"));
+    const start = async (node: FakeMessagesNode, reply: string) =>
+      composeGateway({
+        logger: silentLogger,
+        retentionIntervalMs: 0,
+        background: false,
+        clock,
+        config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+        model: { provider: FakeModelProvider.script([say(reply)]), model: "fake/model" },
+        parts: [
+          (s) =>
+            composeChannels(s, {
+              imessage: { account: ACCOUNT, node: () => node, cursor: new MemoryCursorStore() },
+              healthIntervalMs: 0,
+            }),
+        ],
+      });
+    const first = new FakeMessagesNode();
+    composed = await start(first, "never sent");
+    const owner = await adminClient(composed.gateway);
+    clients.push(owner);
+    await owner.call(
+      "channels.configure",
+      {
+        type: "imessage",
+        account: ACCOUNT,
+        dmPolicy: "allowlist",
+        allowFrom: [OWNER],
+        ownerIds: [OWNER],
+      },
+      ik(),
+    );
+    await vi.waitFor(() =>
+      expect(first.invocations.some((i) => i.capability === "messages.watch")).toBe(true),
+    );
+    await owner.call("gateway.prepareUpdate", { waitMs: 0 });
+    first.receive({ from: OWNER, text: "remember to call mum" });
+    // On disk, not only in memory: the adapter has already moved its cursor past the message.
+    const held = join(home, "state", "channels", "held.json");
+    await vi.waitFor(() => expect(existsSync(held)).toBe(true));
+    expect(statSync(held).mode & 0o777).toBe(0o600);
+    expect(JSON.parse(readFileSync(held, "utf8")).items[0].pending.content).toContain("call mum");
+    expect(first.sends).toHaveLength(0);
+
+    // The update stops the process (here: stop, with the gate still closed).
+    for (const c of clients.splice(0)) c.close();
+    await composed.stop("update");
+    composed = null;
+
+    // The new build starts on the same data and answers it.
+    const second = new FakeMessagesNode();
+    composed = await start(second, "I will remind you.");
+    await vi.waitFor(() => expect(second.sends).toHaveLength(1), { timeout: 8000 });
+    expect(second.sends[0]).toMatchObject({ text: "I will remind you." });
+    await vi.waitFor(() => expect(existsSync(held)).toBe(false));
+  }, 30_000);
 });
