@@ -1,0 +1,18 @@
+{
+  "name": "@psyche/hostfs",
+  "version": "0.3.0-alpha.0",
+  "private": true,
+  "description": "Host file system rules that differ between macOS/Linux and Windows: owner-only files and host path comparison.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  }
+}
