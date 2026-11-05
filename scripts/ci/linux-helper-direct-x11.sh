@@ -29,5 +29,7 @@ dbus-run-session -- bash -c '
   openbox >/dev/null 2>&1 &
   gnome-text-editor --new-window >/dev/null 2>&1 &
   sleep 2
-  PSYCHE_E2E_X11=1 cargo test -p psyche-linux-computer --test x11_e2e -- --ignored --nocapture --test-threads=1
+  export PSYCHE_E2E_X11=1
+  cargo test -p psyche-linux-computer --test x11_e2e -- --ignored --nocapture --test-threads=1
+  cargo test -p psyche-helper --test direct_x11 -- --ignored --nocapture --test-threads=1
 '
