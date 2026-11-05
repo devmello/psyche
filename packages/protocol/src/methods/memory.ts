@@ -904,6 +904,15 @@ export const MemoryMethods = {
             "The source passages the answer cites, in order. `[n]` in the answer is the nth fact, `[Pn]` the nth passage",
         }),
       ),
+      answerId: Type.Optional(
+        Nullable(
+          Type.String({
+            maxLength: 64,
+            description:
+              'Opaque id of this answer, kept by the Gateway for a while for this device: "Open as a chat" names it in `chat.send.context` (kind `life_answer`). Null when there is no answer',
+          }),
+        ),
+      ),
       reason: Nullable(
         StringEnum(["no_model", "no_facts", "no_answer", "ungrounded", "model_failed"], {
           $id: "LifeAnswerReason",

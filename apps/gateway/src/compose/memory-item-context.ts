@@ -77,8 +77,8 @@ export function withMemoryEntityContext(
   next: ChatContextResolver,
   graph: () => GraphStore | undefined,
 ): ChatContextResolver {
-  return (ref) => {
-    if (ref.kind !== "memory_entity") return next(ref);
+  return (ref, caller) => {
+    if (ref.kind !== "memory_entity") return next(ref, caller);
     const g = graph();
     if (g === undefined) throw new PsycheError("unavailable", "Memory is not available here");
     return resolveMemoryEntityContext(ref, g);

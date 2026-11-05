@@ -8,6 +8,7 @@ import type {
   EventName,
   EventPayload,
   MemoryStore,
+  Message,
   ModelRef,
   PermissionBroker,
   TaintSource,
@@ -125,10 +126,36 @@ export interface ResolvedChatContext {
   preamble: string;
   /** The compact card the user message carries in the transcript. */
   block: Extract<Block, { type: "context" }>;
+  /** Carried by the user message instead of `block` when set (a life answer's own block). */
+  blocks?: Block[];
   taintSources: TaintSource[];
 }
 
-export type ChatContextResolver = (ref: ChatContextRef) => ResolvedChatContext;
+/** Who is sending and where: a context that depends on the connection or the chat's model reads it. */
+export interface ChatContextCaller {
+  deviceId: string;
+  role: "client" | "node";
+  /** The Psyche app on this Mac itself (not a paired phone or another window of a remote Host). */
+  desktopShell: boolean;
+  threadId: string;
+}
+
+/** `undefined`: nothing of this context may be used by this caller; the message goes without it. */
+export type ChatContextResolver = (
+  ref: ChatContextRef,
+  /** Always given by `chat.send`; the kinds that read the connection or the chat require it. */
+  caller?: ChatContextCaller,
+) => ResolvedChatContext | undefined;
+
+/**
+ * Message blocks that are read again for each reader (a life answer's citations): `scrub` is the
+ * composition root's, and without one a block that needs it is left out.
+ */
+export interface MessageScrub {
+  scrub:
+    | ((message: Message, who: { role: "client" | "node" | null; desktop: boolean }) => Message)
+    | null;
+}
 
 /** What the rest of the Gateway may ask of the LAN listener. */
 export interface LanControl {
@@ -218,6 +245,8 @@ export interface GatewayContext {
    * sets it; without one a send naming a context is refused.
    */
   readonly chatContext: { resolve: ChatContextResolver | null };
+  /** Per-reader pass over messages that carry a life answer (`chat.history`, `chat.message`, exports). */
+  readonly messageScrub: MessageScrub;
   serverOrigin(): string;
   /**
    * The origin a challenge to `peer` names and signs. A connection that came in through a proxy

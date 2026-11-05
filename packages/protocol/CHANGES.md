@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (cited answers, "Open as a chat")
+
+- `memory.life.answer` result: optional `answerId` (nullable string, opaque). The Gateway keeps the answer (text, cited fact and passage ids, the kind of model) in memory for a few hours, for the asking device only. It is not the answer's text and not a source.
+- `ChatContextRef.kind` and `ContextBlock.kind` gain `life_answer`. `chat.send.context` of that kind carries the `answerId` as `id`; the Gateway reads the answer and every id it cites again under the sending connection's rules and the chat's model, and ignores `title` and `scope`. A client cannot send answer text or ids. An unknown, stale or other device's id is `not_found`; an answer with no claim left for this connection sends the message without it.
+- New block `life_answer` (`LifeAnswerBlock`: `answerId`, `question`, `answer`, `model` of `cloud` or `local`, `factIds`, `passageIds`, `facts`, `passages`), carried by the user message that opens the chat. Stored with the answer and the ids only (`facts` and `passages` empty); `chat.history`, `chat.export` and the `chat.message` event fill `facts` and `passages` for the reading connection and cut the answer to the claims it may open (a remote device gets no Messages, Contacts or Memory source; `[n]` and `[Pn]` are renumbered). A block with no claim left is left out. `[n]` is the nth of `facts`, `[Pn]` the nth of `passages`; a chip opens its source with `search.document`.
 ### v1 additive — 2026-11-04 (teach by showing in the built-in browser, J8 phase 1)
 
 - New method `skills.drafts.fromRecording` (`operator.admin`, side-effecting): turns the owner's reviewed recording into a skill draft. Params `title` and `steps` (1 to 200 `BrowserTeachStep`); result `{ draft }`. A sensitive step carries no value; a value is accepted only on a `type` or `select` step with `keepValue: true` that is not sensitive and not an input (otherwise `invalid_params`). Page text in the steps is quoted as untrusted in the draft. Accepting it is the existing `skills.drafts.accept` (replay check, device-only `skill_install` card). Nothing starts or reads a recording over the protocol: the recorder is local to the desktop app.

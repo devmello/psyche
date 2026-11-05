@@ -494,3 +494,73 @@ const encode = (v: readonly number[]): Buffer => Buffer.from(new Float32Array(v)
 // Copied first: a blob's bytes need not sit on a 4-byte boundary.
 const decode = (b: Buffer, dims: number): number[] =>
   Array.from(new Float32Array(Uint8Array.from(b).buffer, 0, dims));
+
+/** What `narrowAnswer` keeps: the answer renumbered, and which of the original ids survived (1-based). */
+export interface NarrowedAnswer {
+  answer: string;
+  /** Original `[n]` numbers still cited, in the order of their new numbers. */
+  facts: number[];
+  /** Original `[Pn]` numbers still cited, in the order of their new numbers. */
+  passages: number[];
+}
+
+/**
+ * Cuts a finished answer (as `answerFromSources` renders it: `claim [1][P2].` joined by spaces)
+ * down to the claims that still stand. `keepFact(n)` / `keepPassage(n)` say whether the nth fact or
+ * passage may still be cited; `keepClaim` can refuse a claim's own text. A marker that fails is
+ * removed, and a claim left with no marker is dropped whole (no citation, no claim); the ones that
+ * stay are renumbered from 1 in order of first use. Nothing left gives an empty answer.
+ */
+export function narrowAnswer(
+  answer: string,
+  nFacts: number,
+  nPassages: number,
+  keepFact: (n: number) => boolean,
+  keepPassage: (n: number) => boolean,
+  keepClaim: (text: string) => boolean = () => true,
+): NarrowedAnswer {
+  interface Claim {
+    text: string;
+    end: string;
+    facts: number[];
+    passages: number[];
+  }
+  const claims: Claim[] = [];
+  let last = 0;
+  for (const m of answer.matchAll(MARKER_RUN)) {
+    const start = m.index ?? 0;
+    const text = answer
+      .slice(last, start)
+      .replace(/^[\s.!?;,]+/, "")
+      .trim();
+    last = start + m[0].length;
+    const facts = new Set<number>();
+    const passages = new Set<number>();
+    for (const n of m[0].matchAll(MARKER)) {
+      const k = Number(n[2]);
+      if (n[1] === "P") {
+        if (k >= 1 && k <= nPassages && keepPassage(k)) passages.add(k);
+      } else if (k >= 1 && k <= nFacts && keepFact(k)) facts.add(k);
+    }
+    if (text === "" || facts.size + passages.size === 0 || !keepClaim(text)) continue;
+    const end = /^[.!?。！？]/.exec(answer.slice(last))?.[0] ?? "";
+    claims.push({ text, end, facts: [...facts], passages: [...passages] });
+  }
+  const f = [...new Set(claims.flatMap((c) => c.facts))];
+  const p = [...new Set(claims.flatMap((c) => c.passages))];
+  const fPlace = new Map(f.map((n, i) => [n, i + 1]));
+  const pPlace = new Map(p.map((n, i) => [n, i + 1]));
+  return {
+    answer: claims
+      .map(
+        (c) =>
+          `${c.text} ${[
+            ...c.facts.map((n) => `[${fPlace.get(n)}]`),
+            ...c.passages.map((n) => `[P${pPlace.get(n)}]`),
+          ].join("")}${c.end}`,
+      )
+      .join(" "),
+    facts: f,
+    passages: p,
+  };
+}

@@ -14,6 +14,7 @@ import {
   type LifeEmbedder,
   MAX_ANSWER_PASSAGES,
   MAX_PASSAGES_TOTAL_CHARS,
+  narrowAnswer,
   passageSendable,
 } from "../src/graph/life-answer.ts";
 import { GraphStore } from "../src/graph/store.ts";
@@ -493,5 +494,50 @@ describe("what else reaches the prompt", () => {
     );
     // A title's full stop is not an end.
     expect((await run("Dr. Smith signs Friday [P1].")).answer).toBe("Dr. Smith signs Friday [P1].");
+  });
+});
+
+describe("narrowAnswer", () => {
+  const A = "Sam works at Initech [1]. The contract is ready Friday [P1][P2]. It was signed [P3].";
+  const all = () => true;
+
+  it("keeps everything when everything stands", () => {
+    expect(narrowAnswer(A, 1, 3, all, all)).toEqual({ answer: A, facts: [1], passages: [1, 2, 3] });
+  });
+
+  it("drops a claim left with no citation and renumbers what stays", () => {
+    const r = narrowAnswer(
+      A,
+      1,
+      3,
+      () => false,
+      (n) => n !== 1 && n !== 2,
+    );
+    expect(r).toEqual({ answer: "It was signed [P1].", facts: [], passages: [3] });
+  });
+
+  it("takes a marker off a claim that keeps another source", () => {
+    const r = narrowAnswer(A, 1, 3, all, (n) => n === 2);
+    expect(r.answer).toBe("Sam works at Initech [1]. The contract is ready Friday [P1].");
+    expect(r.passages).toEqual([2]);
+  });
+
+  it("refuses a claim by its own text, and gives nothing when nothing stands", () => {
+    expect(narrowAnswer(A, 1, 3, all, all, (t) => !t.includes("Sam")).facts).toEqual([]);
+    expect(
+      narrowAnswer(
+        A,
+        1,
+        3,
+        () => false,
+        () => false,
+      ),
+    ).toEqual({
+      answer: "",
+      facts: [],
+      passages: [],
+    });
+    // A marker that names nothing offered never counts.
+    expect(narrowAnswer("Ready [P9].", 0, 1, all, all).answer).toBe("");
   });
 });

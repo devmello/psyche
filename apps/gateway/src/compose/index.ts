@@ -78,6 +78,7 @@ import {
   type IssuedApproval,
   MEMORY_RECALL_MODE_SETTING,
   MEMORY_WORK_SETTING_KEY,
+  type Message,
   type ModelProvider,
   type ModelRef,
   type PermissionBroker,
@@ -101,6 +102,7 @@ import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
 import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
+import { personalizeMessageEvent } from "../message-scrub.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
@@ -1847,6 +1849,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // approval.created carries each approver's own surface token (issue #50, security §3.7):
   // only to devices that hold operator.approvals, and only their surface's token.
   gateway.bus.setPersonalizer((event, payload, sub) => {
+    // A life answer in a transcript is read again for each subscriber (a remote window gets no
+    // Messages chips); a subscriber with no identity (a Gateway part) is read as the least trusted.
+    if (event === "chat.message")
+      return personalizeMessageEvent(gateway.context, payload as { message: Message }, sub.reader);
     if (event !== "approval.created" || sub.deviceId === null) return undefined;
     if (!sub.scopes.includes("operator.approvals")) return undefined;
     const p = payload as { approval: { id: string } };
@@ -1889,7 +1895,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   for (const part of parts) await part.start?.(gateway);
   // Ask about this (Feed) and a search result in a side chat: `chat.send.context` names what the
   // agent reads as data (a search result by what the index holds, not what the window says).
-  gateway.context.chatContext.resolve = withMemoryEntityContext(
+  const baseChatContext = withMemoryEntityContext(
     chatContextResolver(
       feedContextResolver(proactive.feed.store),
       (id) => search.index.docOf(id),
@@ -1897,6 +1903,18 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ),
     () => people?.graph,
   );
+  // "Open as a chat" on a Search answer: the Gateway holds the answer and reads its citations
+  // again for this connection and this chat's model; every reader of the transcript gets the
+  // same pass (`chat.history`, `chat.export`, and the `chat.message` event through the bus).
+  everything.useThreadModel((threadId) => {
+    const ref = getThread(db, threadId)?.modelRef ?? modelPins.defaultModel?.();
+    return ref == null ? true : isCloudRef(ref);
+  });
+  gateway.context.chatContext.resolve = (ref, caller) =>
+    ref.kind === "life_answer"
+      ? everything.lifeChat.resolve(ref, caller)
+      : baseChatContext(ref, caller);
+  gateway.context.messageScrub.scrub = (message, who) => everything.lifeChat.scrub(message, who);
   await proactive.start();
   await ensureWeeklyCardAutomation(scheduler, {
     timezone: timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,

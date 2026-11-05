@@ -1,6 +1,7 @@
 /** Message blocks and cards: tool runs, approvals, questions, receipts, artifacts, wrap-ups (`blocks/`). */
 export const blocks = {
   "blocks.common.theAgent": "The agent",
+  "blocks.lifeAnswer.label": "Answer from your mail, messages and files",
   "blocks.common.hide": "Hide",
   "blocks.common.viewDiff": "View diff",
   "blocks.common.open": "Open",
