@@ -39,7 +39,7 @@ export function SpeechModelPanel({
     const total = w.totalBytes ?? w.downloadBytes;
     const received = w.receivedBytes ?? 0;
     const text = t("settings.voice.model.downloading", {
-      received: mb(received),
+      received: Math.round(received / 1_000_000),
       total: mb(total),
     });
     return (
@@ -54,7 +54,7 @@ export function SpeechModelPanel({
     const problem =
       w.serverError === "vcredist_missing"
         ? t("settings.voice.model.vcredist")
-        : w.serverError === "crash_loop" || w.serverError === "crashed"
+        : w.serverError === "crash_loop"
           ? t("settings.voice.model.crashed")
           : null;
     return (
