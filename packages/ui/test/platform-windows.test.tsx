@@ -82,6 +82,24 @@ describe("Windows copy (i18n/messages/variants/windows.ts)", () => {
     expect(platformTerm("presence")).toBe("Touch ID");
   });
 
+  it("words recording in an app for Windows: a Windows app, the recording pill, no Mac or menu bar", () => {
+    expect(t("web.teach.app.recordHint")).toContain("Mac app");
+    expect(t("web.teach.app.bar.body", { app: "Mail" })).toContain("menu bar");
+    setUiPlatform("windows");
+    expect(t("web.teach.app.recordHint")).toBe(
+      "Show Psyche how to do something in a Windows app you already allowed",
+    );
+    const bar = t("web.teach.app.bar.body", { app: "Notepad" });
+    expect(bar).toContain("Notepad only");
+    expect(bar).toContain("recording pill");
+    expect(bar).toContain("this PC");
+    expect(bar).not.toMatch(/Mac|menu bar/);
+    expect(t("web.teach.app.startFailed")).toContain("administrator");
+    expect(t("web.teach.app.startFailed")).not.toContain("Accessibility");
+    setUiPlatform("macos");
+    expect(t("web.teach.app.startFailed")).toContain("Accessibility");
+  });
+
   it("shows the English variant in a catalogue that has no Windows translation yet", () => {
     setActiveI18n(createI18n({ locale: "de-DE", language: "de" }));
     expect(t("web.remote.thisMac")).not.toBe("This PC");

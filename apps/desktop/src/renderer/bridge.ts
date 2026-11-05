@@ -26,8 +26,8 @@ import {
   type TeachAppChoiceView,
   type TeachAppStatusView,
   type TeachCapture,
-  type WindowChrome,
   type UninstallPlanView,
+  type WindowChrome,
 } from "@psyche/web/platform";
 import type { PsycheBridge } from "../preload.ts";
 
