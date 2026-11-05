@@ -1,4 +1,11 @@
-import { RAIL_ITEMS, type RailItem, t } from "@psyche/ui";
+import {
+  isWindows,
+  type KeyChord,
+  chordLabel as kitChordLabel,
+  RAIL_ITEMS,
+  type RailItem,
+  t,
+} from "@psyche/ui";
 
 /**
  * Keyboard map (docs/06 §4.11, feature E10) as data, so the shortcut sheet (⌘/), the command
@@ -33,19 +40,13 @@ export type ShortcutAction =
   | "quickEntry"
   | "pushToTalk";
 
-export interface KeyChord {
-  key: string;
-  mod?: boolean;
-  shift?: boolean;
-  alt?: boolean;
-  ctrl?: boolean;
-}
+export type { KeyChord };
 
 export interface Shortcut {
   action: ShortcutAction;
   /** Localized: read it when rendering, not at import. */
   readonly label: string;
-  chord: KeyChord;
+  readonly chord: KeyChord;
   /** `app`: handled in the window; `global`: registered by the desktop main process. */
   scope: "app" | "global";
   /** Fires even while typing in the composer or another text field. */
@@ -236,7 +237,10 @@ const BASE_SHORTCUTS: readonly Shortcut[] = [
     get label() {
       return t("web.shortcut.quickEntry");
     },
-    chord: { key: "Space", alt: true },
+    // Alt+Space opens the window menu on Windows; the desktop registers Ctrl+Alt+Space there.
+    get chord(): KeyChord {
+      return isWindows() ? { key: "Space", ctrl: true, alt: true } : { key: "Space", alt: true };
+    },
     scope: "global",
   },
   {
@@ -244,14 +248,17 @@ const BASE_SHORTCUTS: readonly Shortcut[] = [
     get label() {
       return t("web.shortcut.pushToTalk");
     },
-    chord: { key: "Fn" },
+    // fn never reaches Windows: hold-to-talk is Right Alt there (the "fn" setting's Windows key).
+    get chord(): KeyChord {
+      return { key: isWindows() ? t("voice.key.rightOption") : "Fn" };
+    },
     scope: "global",
   },
 ];
 
 /** ⌘1…: one chord per destination that has a digit in `RAIL_ITEMS`. */
 const GO_SHORTCUTS: readonly Shortcut[] = RAIL_ITEMS.flatMap((item) => {
-  const digit = item.shortcut?.match(/^⌘(\d)$/)?.[1];
+  const digit = item.digit === undefined ? undefined : String(item.digit);
   return digit === undefined
     ? []
     : [
@@ -308,17 +315,7 @@ export function matchShortcut(
   return null;
 }
 
-/** Human label for the shortcut sheet, e.g. "⌘⇧B" or "Ctrl+Shift+B". */
+/** Human label for the shortcut sheet, e.g. "⇧⌘B" or "Ctrl+Shift+B" (the kit's `chordLabel`). */
 export function chordLabel(c: KeyChord, mac: boolean): string {
-  const names: Record<string, string> = {
-    Escape: "Esc",
-    Enter: "Return",
-    Space: "Space",
-    Tab: "Tab",
-  };
-  const key = names[c.key] ?? (c.key.length === 1 ? c.key.toUpperCase() : c.key);
-  if (mac)
-    return `${c.ctrl ? "⌃" : ""}${c.alt ? "⌥" : ""}${c.shift ? "⇧" : ""}${c.mod ? "⌘" : ""}${key}`;
-  const parts = [c.mod || c.ctrl ? "Ctrl" : "", c.alt ? "Alt" : "", c.shift ? "Shift" : "", key];
-  return parts.filter(Boolean).join("+");
+  return kitChordLabel(c, mac ? "macos" : isWindows() ? "windows" : "other");
 }

@@ -36,12 +36,21 @@ async function invoke(channel: string, arg?: unknown): Promise<unknown> {
  * The window chrome main chose for this view (`--psyche-chrome=` launch argument, see
  * `main/windows.ts`): the main window draws its own title bar under the traffic lights.
  */
-function chromeFromArgv(argv: readonly string[]): {
-  titleBar: "inset" | "native";
+export interface ChromeFromArgv {
+  /**
+   * `inset`: macOS, traffic lights at `trafficLights`. `overlay`: Windows, caption buttons drawn
+   * by Windows on the right in a `titleBarOverlay.height` px Window Controls Overlay (lay out with
+   * `env(titlebar-area-*)`), `material` behind what the page leaves unpainted.
+   */
+  titleBar: "inset" | "overlay" | "native";
   trafficLights?: { x: number; y: number };
+  titleBarOverlay?: { height: number };
+  material?: "mica" | "acrylic" | "none";
   splash?: boolean;
   remote?: { hostName: string };
-} {
+}
+
+export function chromeFromArgv(argv: readonly string[]): ChromeFromArgv {
   const raw = argv.find((a) => a.startsWith("--psyche-chrome="))?.slice("--psyche-chrome=".length);
   try {
     const v = raw === undefined ? null : (JSON.parse(raw) as Record<string, unknown>);
@@ -52,6 +61,21 @@ function chromeFromArgv(argv: readonly string[]): {
       typeof host === "string" && host.length > 0 && host.length <= 64
         ? { remote: { hostName: host } }
         : {};
+    const m = v?.material;
+    const material: { material?: "mica" | "acrylic" | "none" } =
+      m === "mica" || m === "acrylic" || m === "none" ? { material: m } : {};
+    if (v?.titleBar === "overlay") {
+      const h = (v.titleBarOverlay as { height?: unknown } | undefined)?.height;
+      return {
+        titleBar: "overlay",
+        titleBarOverlay: {
+          height: typeof h === "number" && Number.isFinite(h) && h >= 24 && h <= 96 ? h : 40,
+        },
+        ...material,
+        ...splash,
+        ...remote,
+      };
+    }
     return v?.titleBar === "inset"
       ? {
           titleBar: "inset",
@@ -61,10 +85,33 @@ function chromeFromArgv(argv: readonly string[]): {
           ...splash,
           ...remote,
         }
-      : { titleBar: "native", ...splash, ...remote };
+      : { titleBar: "native", ...material, ...splash, ...remote };
   } catch {
     return { titleBar: "native" };
   }
+}
+
+/** `process.platform` as the page's CSS names it (`<html data-platform="windows">`). */
+export function platformAttribute(platform: string): "macos" | "windows" | "linux" {
+  return platform === "darwin" ? "macos" : platform === "win32" ? "windows" : "linux";
+}
+
+/**
+ * Marks the document before the page's own script runs, so platform CSS (the Windows caption
+ * buttons' reserved strip, Mica's transparent regions) applies from the first paint:
+ * `data-platform`, `data-titlebar` and, when there is one, `data-material`.
+ */
+function markDocument(chrome: ChromeFromArgv): void {
+  if (typeof document === "undefined") return;
+  const mark = () => {
+    const root = document.documentElement;
+    if (!root) return false;
+    root.dataset.platform = platformAttribute(process.platform);
+    root.dataset.titlebar = chrome.titleBar;
+    if (chrome.material !== undefined) root.dataset.material = chrome.material;
+    return true;
+  };
+  if (!mark()) document.addEventListener("DOMContentLoaded", mark, { once: true });
 }
 
 function listen<T>(channel: string, cb: (payload: T) => void): () => void {
@@ -75,9 +122,12 @@ function listen<T>(channel: string, cb: (payload: T) => void): () => void {
   };
 }
 
+const chrome = chromeFromArgv(process.argv);
+markDocument(chrome);
+
 const bridge = {
   platform: process.platform,
-  chrome: chromeFromArgv(process.argv),
+  chrome,
   gateway: {
     getStatus: () => invoke(IPC.getStatus),
     deviceId: () => invoke(IPC.getDeviceId),

@@ -88,7 +88,9 @@ export function linkProfileDir(
     mkdirSync(target, { recursive: true, mode: 0o700 });
     chmodSync(target, 0o700);
     mkdirSync(join(userData, "Partitions"), { recursive: true, mode: 0o700 });
-    symlinkSync(target, link, "dir");
+    // Windows: a junction, which (unlike a directory symlink) needs neither administrator rights
+    // nor Developer Mode; the target is an absolute local path, as junctions require.
+    symlinkSync(target, link, process.platform === "win32" ? "junction" : "dir");
     return "linked";
   } catch {
     return "failed";

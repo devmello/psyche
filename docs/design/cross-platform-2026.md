@@ -2,6 +2,8 @@
 
 Status: proposal (docs only), 2026-10-26, revised after the owner's decision. Nothing here changes code.
 
+Update 2026-11-05 (windows-app branch), built: Windows packaging, install and update (§2.2, §3 Auto-update and Packaging, §6 decision 5). `pnpm app:build` on Windows (`deploy/windows/build-local.ps1`) makes a Squirrel.Windows installer and a portable zip with the Gateway (`psyched`, its own Node 24 `node.exe`), the Rust helper and the web UI; Authenticode signing is env-gated (PFX or Azure Trusted Signing); `src/main/squirrel-events.ts` creates the shortcuts with AUMIDs `com.psyche.desktop` / `com.psyche.helper` and the helper's toast activator; the update manifest has a per-platform map (`darwin-arm64`, `darwin-x64`, `win32-x64`) with an unchanged verification path and a Squirrel.Windows apply step; the CLI supervises the Gateway with a Task Scheduler task (`\Psyche\Gateway`); `windows-latest` CI jobs exist in `ci.yml` and `desktop.yml`. Install layout and identity: `apps/desktop/docs/signing.md` "Windows". The rest of this document is unchanged.
+
 Scope decisions (owner):
 - **Desktop app targets macOS and, eventually, Windows. No Linux desktop support.**
 - The **Gateway may still run on Linux** in Docker or headless as a *server deployment* (today's `deploy/Dockerfile`, `docker-compose.yml`, `deploy/systemd`, CLI). That is not desktop support and gets no desktop work.

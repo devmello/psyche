@@ -15,6 +15,7 @@ import { MockGateway, type MockGatewayOptions } from "../data/mock-gateway.ts";
 import { createFixtureWorld, FIXTURE_NOW, type FixtureWorld, PERSONA } from "../fixtures/index.ts";
 import { activeI18n, setActiveI18n } from "../i18n/core.ts";
 import { I18nProvider } from "../i18n/I18nProvider.tsx";
+import { setUiPlatform, type UiPlatform } from "../lib/platform.ts";
 import { type UiSlots, UiSlotsProvider } from "../slots.tsx";
 
 /** Fixed clock for every story so countdowns and "2 h ago" are stable in snapshots. */
@@ -98,6 +99,35 @@ export function InLocale({
     <I18nProvider locale={locale} applyToDocument>
       {children}
     </I18nProvider>
+  );
+}
+
+/**
+ * Renders `children` as on `platform` (copy, shortcuts, `<html data-platform>`), then goes back
+ * to detection when it unmounts, so later stories in the same page read macOS again. Set during
+ * render: `t()` reads it synchronously.
+ */
+export function OnPlatform({
+  platform,
+  children,
+}: {
+  platform: UiPlatform;
+  children?: ReactNode;
+}): ReactElement {
+  setUiPlatform(platform);
+  useEffect(() => {
+    setUiPlatform(platform);
+    return () => setUiPlatform(undefined);
+  }, [platform]);
+  return <>{children}</>;
+}
+
+/** Storybook decorator form of `OnPlatform` (Windows stories). */
+export function withPlatform(platform: UiPlatform): Decorator {
+  return (Story) => (
+    <OnPlatform platform={platform}>
+      <Story />
+    </OnPlatform>
   );
 }
 

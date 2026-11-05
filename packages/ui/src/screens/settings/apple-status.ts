@@ -1,5 +1,6 @@
 import type { AppleLlmStatus } from "@psyche/protocol";
 import { t } from "../../i18n/core.ts";
+import { macOnlyAvailable, macOnlyLabel } from "../../lib/platform-copy.ts";
 import type { Tone } from "./shared.tsx";
 
 /**
@@ -10,6 +11,8 @@ import type { Tone } from "./shared.tsx";
 
 /** Short chip: ready, or the one thing that is missing. */
 export function appleState(status: AppleLlmStatus): { text: string; tone: Tone } {
+  // A Mac feature, on Windows: "Available on macOS", never a failure (cross-platform-2026 §4.3).
+  if (!macOnlyAvailable()) return { text: macOnlyLabel(), tone: "neutral" };
   if (status.available) return { text: t("settings.searchModel.apple.ready"), tone: "success" };
   switch (status.reason) {
     case "apple_intelligence_not_enabled":
@@ -26,6 +29,8 @@ export function appleState(status: AppleLlmStatus): { text: string; tone: Tone }
 
 /** The plain sentence for why it is off or unavailable; undefined when it is ready. */
 export function appleReason(status: AppleLlmStatus): string | undefined {
+  if (!macOnlyAvailable())
+    return t("platform.macOnlyHint", { name: t("settings.searchModel.appleName") });
   if (status.available) return undefined;
   switch (status.reason) {
     case "apple_intelligence_not_enabled":

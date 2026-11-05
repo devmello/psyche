@@ -359,11 +359,20 @@ export interface NotifyPort {
 /**
  * Desktop only: how the host window is framed. `inset` means the window has no native title
  * bar (macOS `hiddenInset`): the shell draws a drag bar and keeps content clear of the traffic
- * lights, whose top-left corner is `trafficLights` (CSS pixels in the window).
+ * lights, whose top-left corner is `trafficLights` (CSS pixels in the window). `overlay` is
+ * Windows' `titleBarStyle: "hidden"` with `titleBarOverlay`: Windows draws minimise, maximise and
+ * close at the top right, and the shell keeps clear of them with the Window Controls Overlay
+ * CSS environment (`env(titlebar-area-*)`, `TitleBar.tsx`).
  */
 export interface WindowChrome {
-  titleBar: "inset" | "native";
+  titleBar: "inset" | "overlay" | "native";
   trafficLights?: { x: number; y: number };
+  /**
+   * Windows 11's Mica backdrop is under the window (`backgroundMaterial: "mica"`): the page keeps
+   * its window background transparent where macOS would use vibrancy (the sidebar). Absent on
+   * Windows 10, or when main could not set it: everything stays opaque.
+   */
+  material?: "mica";
   /** The main window opens on the startup splash (#539); main decides at launch. */
   splash?: boolean;
   /**
@@ -510,7 +519,9 @@ export interface HelperPort {
 export interface BundledHelperIdentity {
   deviceId: string;
   keyId?: string;
-  kind?: "keychain" | "enclave_file";
+  /** `windows_hello` from the Windows helper; its `algorithm` is e.g. "RSA-2048". */
+  kind?: "keychain" | "enclave_file" | "windows_hello";
+  algorithm?: string;
   error?: string;
 }
 
@@ -531,8 +542,12 @@ export interface SystemDictationStatus {
   hotkeyTaken?: string;
 }
 
-/** Desktop only: macOS privacy permissions (issue #384). */
-export type PermissionKind = "accessibility" | "screenRecording" | "notifications";
+/**
+ * Desktop only: macOS privacy permissions (issue #384), and on Windows the microphone privacy
+ * toggle (`request("microphone")` opens Settings → Privacy & security → Microphone). Windows has
+ * no Accessibility or Screen Recording grant: main answers those `granted`.
+ */
+export type PermissionKind = "accessibility" | "screenRecording" | "notifications" | "microphone";
 export type PermissionState = "granted" | "denied" | "not_determined" | "unavailable";
 
 export interface PermissionsPort {

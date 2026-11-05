@@ -107,7 +107,9 @@ export async function desktopConnectParams(opts: {
     deviceId: opts.key.deviceId,
     publicKey: opts.key.publicKey,
     role: "client",
-    platform: platformFromNode(process.platform),
+    // `windows` is the protocol's DevicePlatform from the cross-platform change (gateway side);
+    // until that lands in @psyche/protocol this cast keeps the type check.
+    platform: platformFromNode(process.platform) as ConnectParams["platform"],
     deviceFamily: "desktop",
     name: `Psyche Desktop (${hostname()})`.slice(0, 64),
     ...(handshakeSecret ? { handshakeSecret } : {}),

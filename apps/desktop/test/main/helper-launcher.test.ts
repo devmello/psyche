@@ -29,6 +29,7 @@ function fake(opts: { pairsAfterOpen?: boolean; openCode?: number } = {}) {
   const launcher = new HelperLauncher({
     appPath,
     psycheHome: join(dir, "home"),
+    platform: "darwin",
     run,
     isPaired: async () => opened && (opts.pairsAfterOpen ?? true),
     onState: (s) => states.push(s),
@@ -43,11 +44,9 @@ function fake(opts: { pairsAfterOpen?: boolean; openCode?: number } = {}) {
 
 describe("HelperLauncher", () => {
   it("opens the bundled helper through LaunchServices, passing a non-default home", () => {
-    expect(openHelperArgs("/A/PsycheHelper.app", "/Users/me/.psyche", "/Users/me")).toEqual([
-      "-g",
-      "-j",
-      "/A/PsycheHelper.app",
-    ]);
+    expect(
+      openHelperArgs("/A/PsycheHelper.app", join("/Users/me", ".psyche"), "/Users/me"),
+    ).toEqual(["-g", "-j", "/A/PsycheHelper.app"]);
     expect(openHelperArgs("/A/PsycheHelper.app", "/tmp/h", "/Users/me")).toEqual([
       "-g",
       "-j",

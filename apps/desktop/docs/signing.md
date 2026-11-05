@@ -146,3 +146,87 @@ shasum -a 256 -c Psyche-<version>-<arch>.dmg.sha256
 
 TCC grants (Accessibility, Screen Recording, Microphone) are tied to the signature. An ad-hoc
 build gets a new identity with every release, so after an update macOS may ask for them again.
+
+## Windows: Authenticode
+
+Windows builds (`pnpm app:build` on Windows, `deploy/windows/build-local.ps1`) are **unsigned by
+default** and still install and run; SmartScreen warns about an unsigned installer ("Windows
+protected your PC" › More info › Run anyway). Authenticode signing switches on only when one of
+these sets is complete (`windowsSigning` in `src/packaging/signing-config.ts`):
+
+| Variable | Purpose |
+| --- | --- |
+| `WINDOWS_CERTIFICATE_FILE`, `WINDOWS_CERTIFICATE_PASSWORD` | A code-signing certificate as a `.pfx` file and its password. |
+| `WINDOWS_TIMESTAMP_SERVER` | Optional, with the PFX: the RFC 3161 timestamp server (default `http://timestamp.digicert.com`). |
+| `AZURE_TRUSTED_SIGNING_ENDPOINT`, `AZURE_TRUSTED_SIGNING_ACCOUNT`, `AZURE_TRUSTED_SIGNING_PROFILE`, `AZURE_TRUSTED_SIGNING_DLIB` | Azure Trusted Signing: the region endpoint (e.g. `https://eus.codesigning.azure.net`), the code signing account, the certificate profile and the path to `Azure.CodeSigning.Dlib.dll`. Used when the PFX pair is not set. |
+| `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | The service principal the dlib signs as (read by the dlib, not by Psyche). |
+| `WINDOWS_SIGNTOOL_PATH` | Optional: a Windows SDK `signtool.exe`. Trusted Signing needs one newer than the copy `@electron/windows-sign` vendors. |
+
+Everything is signed with SHA-256 only. The packager signs every `.exe`, `.dll` and `.node` under the
+app folder before the installer is made, so `Psyche.exe`, `resources\psyched\runtime\node.exe`, the
+native addons and `resources\win-helper\psyche-helper.exe` all carry the signature; the Squirrel
+maker then signs `Setup.exe` and the `Update.exe` it embeds. In CI (`desktop.yml`, job `windows`)
+the PFX comes from the `WINDOWS_CERTIFICATE_BASE64` and `WINDOWS_CERTIFICATE_PASSWORD` secrets, or
+Trusted Signing from the `AZURE_*` secrets; without them the job builds unsigned.
+
+Check a build:
+
+```powershell
+Get-AuthenticodeSignature "$env:LOCALAPPDATA\Psyche\app-<version>\Psyche.exe" | Format-List Status, SignerCertificate
+```
+
+The updater runs only on a Squirrel install whose `Psyche.exe` has a valid signature (`Status` is
+`Valid`), like the Developer ID requirement on macOS.
+
+### Install layout and identity
+
+Squirrel.Windows installs per user, without administrator rights:
+
+| Path | What |
+| --- | --- |
+| `%LOCALAPPDATA%\Psyche\Update.exe` | Squirrel (install, update, uninstall) |
+| `%LOCALAPPDATA%\Psyche\Psyche.exe` | Stub that starts the newest version; the shortcuts point here |
+| `%LOCALAPPDATA%\Psyche\app-<version>\Psyche.exe` | The app (`<version>` is the NuGet form, e.g. `0.3.0-alpha0`) |
+| `…\app-<version>\resources\app.asar` | The desktop and web UI |
+| `…\app-<version>\resources\psyched\` | The Gateway: `psyched.cmd`, `psyche.cmd`, `runtime\node.exe`, `app\`, `service-host.mjs`, `psyche-gateway.task.xml.template` |
+| `…\app-<version>\resources\win-helper\psyche-helper.exe` | Psyche Helper |
+| `…\app-<version>\resources\tray.ico` | The notification-area icon |
+| `%LOCALAPPDATA%\Psyche\packages\` | The installed nupkg, for delta updates |
+| `%APPDATA%\Psyche\` | The desktop's settings, web storage and caches |
+| `%USERPROFILE%\.psyche\` | `$PSYCHE_HOME`, as on macOS |
+
+The identity values are shared with the helper's build through `apps/win-helper/aumid.json`;
+changing one orphans existing shortcuts, toast settings and notification history:
+
+| | Value |
+| --- | --- |
+| App AppUserModelID | `com.psyche.desktop` (the app must call `app.setAppUserModelId` with it) |
+| Helper AppUserModelID | `com.psyche.helper` |
+| Helper toast activator CLSID | `{B1DFC43D-98FC-44C2-9C1B-F3C21D0871C6}` |
+
+`src/main/squirrel-events.ts` handles Squirrel's events before anything else in `main.ts` starts:
+
+- `--squirrel-install`: `Psyche.lnk` in the Start menu (`%APPDATA%\Microsoft\Windows\Start Menu\Programs`) and on the desktop, both on the stub with the app's AUMID; `Psyche Helper.lnk` in the Start menu on `psyche-helper.exe` with the helper's AUMID and toast activator CLSID; and the helper's toast identity as the helper itself registers it on every start (`apps/win-helper/src/notify/toast.rs`), so the first toast works before the helper ever ran: `HKCU\Software\Classes\CLSID\{…}` (`Psyche Helper toast activator`) with `LocalServer32` = `"…\psyche-helper.exe" -ToastActivated`, and `HKCU\Software\Classes\AppUserModelId\com.psyche.helper` with `DisplayName` = `Psyche` and `CustomActivator` = the CLSID.
+- `--squirrel-updated`: the same for the new version (the helper path changes with every `app-<version>`); the desktop shortcut only if it still exists. The helper keeps its versioned path rather than a copy at a fixed one, which a running helper would lock during an update; the helper rewrites `LocalServer32` itself when it starts but leaves an existing shortcut alone, which is why the hook refreshes both. Squirrel keeps the previous `app-<version>` until the next update, so a toast clicked in between still finds an executable.
+- `--squirrel-uninstall`: ends the Gateway's service host, deletes the `\Psyche\Gateway` task, ends other `Psyche.exe` and `psyche-helper.exe` processes, removes the three shortcuts, the CLSID and AppUserModelId keys and `HKCU\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\com.psyche.helper`. `%USERPROFILE%\.psyche` stays.
+
+The Gateway task `\Psyche\Gateway` (per user, at logon) runs
+`conhost.exe --headless <node.exe> <service-host.mjs> --home <PSYCHE_HOME> -- <psyched>`: the
+service host sets `PSYCHE_HOME`, appends to `$PSYCHE_HOME\logs\gateway.out.log` and `gateway.err.log`,
+restarts the Gateway when it exits and records `$PSYCHE_HOME\run\gateway-service.pid` and
+`gateway.pid`. `schtasks /End` ends only conhost, so stopping also ends that process tree.
+`apps/cli/src/supervisor.ts` renders the task; the bundle's `psyche-gateway.task.xml.template`
+is the same XML with `{{PSYCHED_DIR}}`, `{{PSYCHE_HOME}}` and `{{USER_ID}}` (`DOMAIN\user`), stored
+UTF-16 as `schtasks /Create /XML` expects.
+
+### Updates on Windows
+
+The signed manifest's `platforms["win32-x64"]` lists Squirrel's `RELEASES`, the full nupkg, an
+optional delta nupkg (with the `baseVersion` it applies to) and the installer. The updater verifies
+the manifest and the SHA-256 of `RELEASES` and the package, checks `RELEASES`' SHA-1 and size lines
+against the verified package, and hands Squirrel a local folder with exactly those files
+(`Update.exe --update <folder>` through Electron's `autoUpdater`). A delta that fails is retried
+once with the verified full package. The new version starts the next time Psyche starts.
+`deploy/scripts/update-manifest.mjs build` adds the Windows files given `RELEASES`, the nupkgs and
+`Psyche-<version>-Setup.exe` (`--delta-base <version>` names the delta's base); the `artifacts`
+list keeps macOS files only, so Mac builds released before Windows support keep updating.

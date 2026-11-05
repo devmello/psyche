@@ -1,4 +1,5 @@
 import type { ShortcutRegistry } from "../dictation/service.ts";
+import { registerFirst, screenAskShortcuts } from "../shortcuts.ts";
 
 /**
  * Settings → Voice & dictation → Ask about screen (docs/design/screen-ask-2026.md §6): whether
@@ -10,22 +11,28 @@ import type { ShortcutRegistry } from "../dictation/service.ts";
  */
 
 export const SCREEN_ASK_SETTING_KEYS = ["screenAsk.enabled", "screenAsk.shortcut"] as const;
-export const DEFAULT_SCREEN_ASK_SHORTCUT = "Alt+Shift+Space";
-const FALLBACK_SHORTCUT = "Control+Alt+Shift+Space";
+/**
+ * This OS's default: ⌥⇧Space (⌃⌥⇧Space when taken) on macOS, Ctrl+Alt+Shift+Space on Windows
+ * (`screenAskShortcuts`).
+ */
+export const DEFAULT_SCREEN_ASK_SHORTCUT = screenAskShortcuts()[0] as string;
 
 export interface ScreenAskSettings {
   enabled: boolean;
   shortcut: string;
 }
 
-export function parseScreenAskSettings(values: Record<string, unknown>): ScreenAskSettings {
+export function parseScreenAskSettings(
+  values: Record<string, unknown>,
+  platform: NodeJS.Platform = process.platform,
+): ScreenAskSettings {
   const raw = values["screenAsk.shortcut"];
   return {
     enabled: values["screenAsk.enabled"] !== false,
     shortcut:
       typeof raw === "string" && raw.trim() !== "" && raw.length <= 64
         ? raw
-        : DEFAULT_SCREEN_ASK_SHORTCUT,
+        : (screenAskShortcuts(platform)[0] as string),
   };
 }
 
@@ -41,15 +48,18 @@ export interface ScreenAskShortcutOptions {
    * Host (remote-gateway design §4.2).
    */
   disabled?: boolean;
+  /** Default `process.platform`: which default shortcut (and fallback) applies. */
+  platform?: NodeJS.Platform;
 }
 
 export class ScreenAskShortcut {
   readonly #o: ScreenAskShortcutOptions;
   #current = "";
-  #settings: ScreenAskSettings = { enabled: true, shortcut: DEFAULT_SCREEN_ASK_SHORTCUT };
+  #settings: ScreenAskSettings;
 
   constructor(opts: ScreenAskShortcutOptions) {
     this.#o = opts;
+    this.#settings = { enabled: true, shortcut: screenAskShortcuts(opts.platform)[0] as string };
   }
 
   /** The accelerator registered now ("" when off or taken). */
@@ -72,7 +82,7 @@ export class ScreenAskShortcut {
     } catch (err) {
       this.#o.warn?.(`could not read Ask about screen settings: ${String(err)}`);
     }
-    this.apply(parseScreenAskSettings(values));
+    this.apply(parseScreenAskSettings(values, this.#o.platform));
   }
 
   apply(requested: ScreenAskSettings): void {
@@ -115,20 +125,10 @@ export class ScreenAskShortcut {
     if (this.#current) shortcuts?.unregister(this.#current);
     this.#current = "";
     if (!accelerator || !shortcuts) return;
-    const tries =
-      accelerator === DEFAULT_SCREEN_ASK_SHORTCUT
-        ? [accelerator, FALLBACK_SHORTCUT]
-        : [accelerator];
-    for (const a of tries) {
-      try {
-        if (shortcuts.register(a, () => this.#o.trigger())) {
-          this.#current = a;
-          return;
-        }
-      } catch {
-        // An accelerator Electron can't parse: try the next, or stay unregistered.
-      }
-    }
+    const defaults = screenAskShortcuts(this.#o.platform);
+    const tries = accelerator === defaults[0] ? defaults : [accelerator];
+    this.#current = registerFirst(shortcuts, tries, () => this.#o.trigger());
+    if (this.#current !== "") return;
     this.#o.warn?.(`the Ask about screen shortcut ${accelerator} is taken by another app`);
   }
 }

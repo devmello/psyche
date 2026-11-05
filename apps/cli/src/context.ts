@@ -63,13 +63,16 @@ export class Ctx {
   /** A paired connection, opened on first use and closed by the runner. */
   async gateway(): Promise<GatewayClient> {
     if (this.client) return this.client;
-    if (this.deps.platform !== "darwin" && this.deps.platform !== "linux") {
+    const supported = ["darwin", "linux", "win32"];
+    if (!supported.includes(this.deps.platform)) {
       throw new CliError("usage", `Unsupported platform ${this.deps.platform}`);
     }
     const identity = loadOrCreateIdentity(this.home, this.deps.now());
     this.client = await GatewayClient.connect({
       wsUrl: wsUrl(this.gatewayUrl()),
       identity,
+      // DevicePlatform has no "windows" yet (packages/protocol); Windows devices pair as "linux",
+      // like the desktop app (apps/desktop/src/lib/device-key.ts), until the protocol adds it.
       platform: this.deps.platform === "darwin" ? "macos" : "linux",
       timeoutMs: this.opts.timeoutMs,
       ...(this.deps.createWebSocket ? { createWebSocket: this.deps.createWebSocket } : {}),

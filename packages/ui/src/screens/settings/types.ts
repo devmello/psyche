@@ -38,7 +38,8 @@ export interface ProviderInfo {
 /** macOS privacy (TCC) permission state as the shell reads it. */
 export type TccState = "granted" | "denied" | "not_determined";
 
-export type TccPermission = "accessibility" | "screenRecording" | "notifications";
+/** macOS privacy grants, and the one Windows asks for (the microphone privacy toggle). */
+export type TccPermission = "accessibility" | "screenRecording" | "notifications" | "microphone";
 
 /** `ask`: the owner has not chosen; each first use in a task asks (J5). */
 export type AppTier = "ask" | "off" | "read" | "interact";

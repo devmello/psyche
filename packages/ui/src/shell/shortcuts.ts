@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 import { t } from "../i18n/core.ts";
+import { keysLabel } from "../lib/keys.ts";
+import { isMac, isWindows } from "../lib/platform.ts";
 
 /**
  * The keyboard map (UI design §4.11), modelled on the Claude desktop shortcuts. `mod` is ⌘ on
@@ -27,8 +29,8 @@ export type ShortcutId =
 
 export interface Shortcut {
   id: ShortcutId;
-  /** Display form, e.g. "⌘K". */
-  keys: string;
+  /** Display form for this platform: "⌘K" on macOS, "Ctrl+K" elsewhere (`lib/keys.ts`). */
+  readonly keys: string;
   label: string;
   match: (e: KeyboardEvent, mac: boolean) => boolean;
   /** † Psyche additions to Claude's map. */
@@ -42,7 +44,9 @@ const key = (e: KeyboardEvent, k: string) => e.key.toLowerCase() === k;
 export const SHORTCUTS: readonly Shortcut[] = [
   {
     id: "palette",
-    keys: "⌘K",
+    get keys() {
+      return keysLabel("Mod+K");
+    },
     get label() {
       return t("shell.shortcut.palette");
     },
@@ -51,7 +55,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: "newSideChat",
-    keys: "⌘N",
+    get keys() {
+      return keysLabel("Mod+N");
+    },
     get label() {
       return t("shell.shortcut.newSideChat");
     },
@@ -59,7 +65,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: "closeThread",
-    keys: "⌘W",
+    get keys() {
+      return keysLabel("Mod+W");
+    },
     get label() {
       return t("shell.shortcut.closeThread");
     },
@@ -67,7 +75,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: "toggleThreadList",
-    keys: "⌘B",
+    get keys() {
+      return keysLabel("Mod+B");
+    },
     get label() {
       return t("shell.shortcut.toggleThreadList");
     },
@@ -75,7 +85,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: "compactSidebar",
-    keys: "⌥⌘B",
+    get keys() {
+      return keysLabel("Alt+Mod+B");
+    },
     get label() {
       return t("shell.shortcut.compactSidebar");
     },
@@ -85,7 +97,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: "cycleThreads",
-    keys: "⌃Tab",
+    get keys() {
+      return keysLabel("Ctrl+Tab");
+    },
     get label() {
       return t("shell.shortcut.cycleThreads");
     },
@@ -93,7 +107,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: "forkSelection",
-    keys: "⌘;",
+    get keys() {
+      return keysLabel("Mod+;");
+    },
     get label() {
       return t("shell.shortcut.forkSelection");
     },
@@ -101,7 +117,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: "stop",
-    keys: "Esc",
+    get keys() {
+      return keysLabel("Escape");
+    },
     get label() {
       return t("shell.shortcut.stop");
     },
@@ -109,7 +127,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: "cycleDisclosure",
-    keys: "⌃O",
+    get keys() {
+      return keysLabel("Ctrl+O");
+    },
     get label() {
       return t("shell.shortcut.cycleDisclosure");
     },
@@ -117,7 +137,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: "browserPane",
-    keys: "⌘⇧B",
+    get keys() {
+      return keysLabel("Mod+Shift+B");
+    },
     get label() {
       return t("shell.shortcut.browserPane");
     },
@@ -125,7 +147,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: "diffPane",
-    keys: "⌘⇧D",
+    get keys() {
+      return keysLabel("Mod+Shift+D");
+    },
     get label() {
       return t("shell.shortcut.diffPane");
     },
@@ -133,7 +157,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: "terminalPane",
-    keys: "⌃`",
+    get keys() {
+      return keysLabel("Ctrl+`");
+    },
     get label() {
       return t("shell.shortcut.terminalPane");
     },
@@ -141,7 +167,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: "permissionMode",
-    keys: "⌘⇧M",
+    get keys() {
+      return keysLabel("Mod+Shift+M");
+    },
     get label() {
       return t("shell.shortcut.permissionMode");
     },
@@ -149,7 +177,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: "modelPicker",
-    keys: "⌘⇧I",
+    get keys() {
+      return keysLabel("Mod+Shift+I");
+    },
     get label() {
       return t("shell.shortcut.modelPicker");
     },
@@ -157,7 +187,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: "activity",
-    keys: "⌘⇧A",
+    get keys() {
+      return keysLabel("Mod+Shift+A");
+    },
     get label() {
       return t("shell.shortcut.activity");
     },
@@ -166,7 +198,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: "approvals",
-    keys: "⌘⇧P",
+    get keys() {
+      return keysLabel("Mod+Shift+P");
+    },
     get label() {
       return t("shell.shortcut.approvals");
     },
@@ -175,7 +209,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: "closePane",
-    keys: "⌘\\",
+    get keys() {
+      return keysLabel("Mod+\\");
+    },
     get label() {
       return t("shell.shortcut.closePane");
     },
@@ -183,7 +219,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: "shortcutList",
-    keys: "⌘/",
+    get keys() {
+      return keysLabel("Mod+/");
+    },
     get label() {
       return t("shell.shortcut.shortcutList");
     },
@@ -192,7 +230,11 @@ export const SHORTCUTS: readonly Shortcut[] = [
 ];
 
 /** Keys handled inside cards rather than globally, listed in the shortcut sheet. */
-export const CARD_SHORTCUTS: readonly { keys: string; label: string; psyche?: true }[] = [
+export const CARD_SHORTCUTS: readonly {
+  readonly keys: string;
+  readonly label: string;
+  psyche?: true;
+}[] = [
   {
     keys: "1–9",
     get label() {
@@ -200,20 +242,27 @@ export const CARD_SHORTCUTS: readonly { keys: string; label: string; psyche?: tr
     },
   },
   {
-    keys: "⌘Return",
+    get keys() {
+      return keysLabel("Mod+Enter");
+    },
     get label() {
       return t("shell.shortcut.cardApprove");
     },
   },
   {
-    keys: "⌘D",
+    get keys() {
+      return keysLabel("Mod+D");
+    },
     get label() {
       return t("shell.shortcut.cardDeny");
     },
     psyche: true,
   },
   {
-    keys: "⌥Space",
+    // Alt+Space opens the window menu on Windows, so quick entry defaults to Ctrl+Alt+Space there.
+    get keys() {
+      return keysLabel(isWindows() ? "Ctrl+Alt+Space" : "Alt+Space");
+    },
     get label() {
       return t("shell.shortcut.quickEntry");
     },
@@ -230,9 +279,8 @@ export const CARD_SHORTCUTS: readonly { keys: string; label: string; psyche?: tr
   },
 ];
 
-export const isMac = (): boolean =>
-  typeof navigator !== "undefined" &&
-  /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+/** ⌘ is the command key: the platform module decides (`lib/platform.ts`). */
+export { isMac };
 
 /**
  * Binds the global shortcuts on `window`. Handlers that are absent are ignored. Esc is consumed

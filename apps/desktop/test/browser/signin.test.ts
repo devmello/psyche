@@ -104,7 +104,7 @@ describe("cookie promotion", () => {
     });
     expect(site.hosts).toEqual(["canvas.ucsc.edu", "login.ucsc.edu"]);
     expect(store.list().map((s) => s.origin)).toEqual(["https://canvas.ucsc.edu"]);
-    expect(statSync(signedInFile(home)).mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") expect(statSync(signedInFile(home)).mode & 0o777).toBe(0o600);
     // The file holds no cookie value.
     expect(readFileSync(signedInFile(home), "utf8")).not.toContain("v-canvas");
   });

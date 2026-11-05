@@ -10,6 +10,7 @@ import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { useGatewayQuery, useVmGuests } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
+import { macOnlyAvailable, macOnlyLabel } from "../../lib/platform-copy.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
 import {
@@ -256,7 +257,26 @@ export function VmPanel({
   );
 }
 
+/**
+ * VM mode runs a macOS guest (Virtualization.framework): on Windows the pane says it is a Mac
+ * feature instead of showing switches that can't work (cross-platform-2026 §4.3).
+ */
 export function VmSection({ now }: { now?: number }): ReactElement {
+  if (!macOnlyAvailable())
+    return (
+      <SectionFrame
+        title={t("settings.nav.vm")}
+        description={t("platform.macOnlyHint", { name: t("settings.nav.vm") })}
+      >
+        <p data-testid="vm-mac-only">
+          <StatusChip tone="neutral">{macOnlyLabel()}</StatusChip>
+        </p>
+      </SectionFrame>
+    );
+  return <VmSectionBody {...(now === undefined ? {} : { now })} />;
+}
+
+function VmSectionBody({ now }: { now?: number }): ReactElement {
   const form = useSettingsForm();
   const persona = usePersona();
   const nodes = useGatewayQuery("nodes.list", {});
