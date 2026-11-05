@@ -106,7 +106,7 @@ describe("an Anthropic key from Settings on the wire (#504)", () => {
     expect(probe?.headers["x-api-key"]).toBe(KEY);
     expect(probe?.headers["anthropic-version"]).toBe("2023-06-01");
     expect(probe?.headers.authorization).toBeUndefined();
-  });
+  }, 20_000); // composes a whole Gateway; 5 s is too tight when the suite runs in parallel
 
   it("uses the replacement after the key is entered again", async () => {
     answers["/v1/models"] = "list-models";

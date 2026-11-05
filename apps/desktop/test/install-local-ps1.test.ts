@@ -167,7 +167,8 @@ describe.skipIf(!windows)("install-local.ps1", () => {
   });
 });
 
-describe("pnpm app:install on Windows", () => {
+// Windows-only: the flag mapping is for the PowerShell script, spawned through powershell.exe.
+describe.skipIf(process.platform !== "win32")("pnpm app:install on Windows", () => {
   it("maps the macOS flags to the script's switches", () => {
     expect(toPowerShellArgs(["--reset", "--yes", "-y", "--keep-data", "--dry-run"])).toEqual([
       "-Reset",

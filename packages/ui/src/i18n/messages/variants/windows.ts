@@ -460,4 +460,17 @@ export const windows: Partial<Record<MessageId, string>> = {
   "platform.term.terminal": "Windows Terminal",
   "platform.term.alt": "Alt",
   "platform.term.mod": "Ctrl",
+  "web.security.banner.recovery":
+    "{count, plural, one {A security change asked for on this PC applies on {when} unless you cancel it.} other {# security changes asked for on this PC are waiting. The next applies on {when}.}}",
+  "web.security.alert.changed":
+    "A program on this PC changed {count, plural, one {1 security record} other {# security records}} without going through Psyche. Psyche put {count, plural, one {it} other {them}} back. If you did not do this, check the PC for unwanted software.",
+  "web.security.alert.untrusted":
+    "The check of Psyche's security records failed. New devices, security settings and Windows Hello approvals are blocked. Review your devices, then run psyched security reseal on the PC; it applies after 24 hours.",
+  "web.security.alert.firstAdmin":
+    "A command on this PC made {name} the first admin device. If that was not you, revoke it in Devices.",
+  "web.security.alert.requested": "Asked for on this PC: {action} Applies on {when}.",
+  "web.security.op.presenceReset":
+    "stop requiring Windows Hello or a passkey for security changes until a new key is registered.",
+  "web.security.needsApproval":
+    "Approve the card with Windows Hello or a passkey, then press the button again.",
 };

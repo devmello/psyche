@@ -170,7 +170,7 @@ describe("built-in web.search and web.fetch (#557)", () => {
         ["web.fetch", "untrusted"],
       ]),
     );
-  });
+  }, 20_000); // composes a whole Gateway; 5 s is too tight when the suite runs in parallel
 
   it("publishes the provider in effect and follows the owner's settings", async () => {
     const gw = await gateway(new FakeModelProvider(), network().setup, {
