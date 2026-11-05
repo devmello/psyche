@@ -114,13 +114,19 @@ public actor NotifiedLedger {
 extension TaskActivityContent {
     /// The content state for a task. The title is included only when the owner turned on
     /// "Task titles on the Lock Screen"; with it off nothing about the task but its progress leaves the app.
+    /// The island-only fields (`islandTitle`, `detail`, `asking`) are always filled: the Dynamic Island
+    /// shows only on an unlocked phone, and the activity never leaves it.
     public static func make(
-        task: RunningTask, status: TaskActivityStatus, showTitle: Bool, now: Date = .now, fallbackStart: Date? = nil
+        task: RunningTask, status: TaskActivityStatus, showTitle: Bool, now: Date = .now, fallbackStart: Date? = nil,
+        asking: String? = nil
     ) -> TaskActivityContent {
-        TaskActivityContent(
+        let detail = task.detail.trimmingCharacters(in: .whitespacesAndNewlines)
+        return TaskActivityContent(
             step: task.stepCount > 0 ? task.step : 0, stepCount: max(task.stepCount, 0), status: status,
             startedAt: task.startedAt ?? fallbackStart ?? now, endedAt: nil,
-            title: showTitle ? task.title : nil)
+            title: showTitle ? task.title : nil, islandTitle: task.title,
+            detail: detail.isEmpty ? nil : detail.prefix(1).uppercased() + detail.dropFirst(),
+            asking: status == .needsApproval ? asking : nil)
     }
 
     /// The same activity, finished: the timer stops and the title rule still applies.
@@ -128,6 +134,8 @@ extension TaskActivityContent {
         var copy = self
         copy.status = failed ? .failed : .done
         copy.endedAt = now
+        copy.asking = nil
+        copy.detail = failed ? "Open Psyche to see what went wrong" : nil
         if !failed, stepCount > 0 { copy.step = stepCount }
         return copy
     }

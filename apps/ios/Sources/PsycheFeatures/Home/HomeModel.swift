@@ -58,11 +58,12 @@ final class HomeModel {
         }
     }
 
-    func show(_ message: String) {
+    /// A quiet toast. Something that didn't work (Watch with Live Activities off) stays longer than a confirmation.
+    func show(_ message: String, seconds: Double = 2.5) {
         notice = message
         noticeTask?.cancel()
         noticeTask = Task {
-            try? await Task.sleep(for: .seconds(2.5))
+            try? await Task.sleep(for: .seconds(seconds))
             if !Task.isCancelled { notice = nil }
         }
     }

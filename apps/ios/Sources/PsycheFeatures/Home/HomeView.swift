@@ -155,7 +155,7 @@ struct HomeView: View {
     private func watch(_ task: RunningTask) {
         guard let alerts else { return }
         Task {
-            if let message = await alerts.watch(task) { model.show(message) }
+            if let message = await alerts.watch(task) { model.show(message, seconds: 5) }
         }
     }
 
