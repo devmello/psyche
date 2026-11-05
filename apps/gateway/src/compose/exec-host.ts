@@ -255,7 +255,12 @@ export function execHostSrtSettings(input: {
       ],
       allowRead: [...scratch.allowRead],
       allowWrite: [input.scratch, ...input.writable],
-      denyWrite: [input.psycheHome, h(".ssh"), h("Library", "Keychains")],
+      denyWrite: [
+        input.psycheHome,
+        h(".ssh"),
+        h("Library", "Keychains"),
+        h("Library", "Application Support", "Psyche"),
+      ],
     },
     network: {
       allowedDomains: [...input.allowedDomains],

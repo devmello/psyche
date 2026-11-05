@@ -2,9 +2,10 @@ import {
   type BrowserTeachStep,
   type SideEffect,
   type SkillDraftStep,
+  teachKey,
   teachRole,
 } from "@psyche/protocol";
-import { parse, stringify } from "yaml";
+import { stringify } from "yaml";
 
 /**
  * A skill made from a demonstration (teach by showing, docs/design/teach-by-showing-2026.md §4).
@@ -115,7 +116,7 @@ function stepLine(s: BrowserTeachStep, input: RecordingInput | undefined, i: num
     case "click":
       return `${n} click the ${fieldOf(s)}`;
     case "press":
-      return `${n} press ${oneLine(s.key ?? "Enter", 20)}${s.name === undefined ? "" : ` in the ${fieldOf(s)}`}`;
+      return `${n} press ${teachKey(s.key) || "Enter"}${s.name === undefined ? "" : ` in the ${fieldOf(s)}`}`;
     default: {
       const verb = s.kind === "select" ? "choose an option in" : "type into";
       if (s.sensitive === true)
@@ -237,20 +238,4 @@ export function recordingSkillText(input: RecordingSkillInput): string {
   });
   lines.push("```", "");
   return lines.join("\n");
-}
-
-/**
- * Was this `SKILL.md` made from a recording? (`metadata.psyche.proposedBy`.) Read at staging, so the
- * install proposal, the card and the lock entry carry it. A third-party skill can claim it too; the
- * only effect is that it is treated as the untrusted text it is.
- */
-export function isRecordingSkillText(text: string): boolean {
-  const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
-  if (m === null) return false;
-  try {
-    const fm = parse(m[1] ?? "") as { metadata?: { psyche?: { proposedBy?: unknown } } } | null;
-    return fm?.metadata?.psyche?.proposedBy === "owner-recording";
-  } catch {
-    return false;
-  }
 }

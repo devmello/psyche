@@ -224,7 +224,11 @@ export function teachCaptureScript(binding: string = TEACH_BINDING): string {
     send(d);
   }
   function onFocus(e) { if (e.isTrusted) note(e.target); }
-  // On window, in the capture phase, from the document-start script: before any page script.
+  // On window, in the capture phase. On a page loaded after Record this is the document-start
+  // script, so these run before the page's own listeners. On the page Record was pressed on, the
+  // script is injected after the page's own scripts: a listener the page registered earlier on
+  // window in the capture phase runs first, so the ever-password and text-security checks cover
+  // only what happens after injection.
   window.addEventListener("focusin", onFocus, true);
   window.addEventListener("click", onClick, true);
   window.addEventListener("change", onChange, true);

@@ -133,6 +133,8 @@ export function defaultDenyRead(psycheHome: string): string[] {
     h("Library", "Cookies"),
     h("Library", "Application Support", "Google", "Chrome"),
     h("Library", "Application Support", "Firefox"),
+    // The desktop app's user-data folder: its device key and the kept-recording signing key.
+    h("Library", "Application Support", "Psyche"),
     h("Library", "Safari"),
   ];
 }

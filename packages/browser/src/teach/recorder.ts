@@ -133,9 +133,13 @@ export class TeachRecorder {
   /** Execution contexts of our world that belong to the top frame. */
   #contexts = new Set<number>();
   #lastActionAt = Number.NEGATIVE_INFINITY;
-  /** The owner pressed Back, Forward or Reload in the pane: the next top-frame navigation is theirs. */
-  #ownerNavUntil = Number.NEGATIVE_INFINITY;
+  /**
+   * The owner pressed Back, Forward or Reload in the pane, and the host really navigated: the
+   * first top-frame navigation after that is theirs, if it lands on `url`.
+   */
+  #ownerNav: { until: number; url: string } | undefined;
   #skippedNavigations = 0;
+  #tearingDown: Promise<unknown> | undefined;
   #lastUrl = "";
   #endedBy: TeachRecording["endedBy"] = "stop";
 
@@ -197,6 +201,8 @@ export class TeachRecorder {
       this.#state = "ended";
       await this.#teardown();
     }
+    // A teardown started by the step limit may still be running.
+    await this.#tearingDown;
     return this.#take();
   }
 
@@ -210,13 +216,17 @@ export class TeachRecorder {
   }
 
   /**
-   * The owner used the pane's own Back, Forward or Reload (an event of the app, not of the page).
-   * A navigation within a few seconds after it is the owner's and gets a step. A navigation the
-   * page starts by itself (script, meta refresh, redirect) never does: a page could otherwise
-   * write steps into a recording by navigating.
+   * The owner used the pane's own Back, Forward or Reload (an event of the app, not of the page)
+   * and the host really navigated, to `expectedUrl` (the history entry, or the current address
+   * for Reload). The first top-frame navigation within a few seconds after it is the owner's, and
+   * gets a step only if it lands on that address. The window is used up by that first navigation
+   * whatever it is (a Reload, a page redirect, a script), and by a navigation within the document,
+   * so a page cannot ride it: a `location.assign` on load comes second, or lands elsewhere. A
+   * navigation the page starts by itself never gets a step.
    */
-  ownerNavigation(): void {
-    this.#ownerNavUntil = this.#now() + 3000;
+  ownerNavigation(expectedUrl: string): void {
+    const url = teachUrl(expectedUrl);
+    this.#ownerNav = url === "" ? undefined : { until: this.#now() + 3000, url };
   }
 
   /** The page's debugger went away: what was recorded stays available to `stop()`. */
@@ -305,6 +315,11 @@ export class TeachRecorder {
       this.#pending.clear();
       return;
     }
+    if (method === "Page.navigatedWithinDocument") {
+      // A same-document navigation (pushState, a hash) of the top frame uses up the owner's window.
+      if (p.frameId === undefined || p.frameId === this.#mainFrameId) this.#ownerNav = undefined;
+      return;
+    }
     if (method === "Page.frameNavigated") {
       const frame = p.frame as { id?: string; parentId?: string; url?: string } | undefined;
       if (frame === undefined || frame.parentId !== undefined) return;
@@ -336,14 +351,16 @@ export class TeachRecorder {
 
   #navigated(url: string): void {
     const clean = teachUrl(url);
+    // The owner's window is used up by the first top-frame navigation, whatever it is.
+    const window = this.#ownerNav;
+    this.#ownerNav = undefined;
     if (clean === "" || clean === this.#lastUrl) return;
     this.#lastUrl = clean;
     const now = this.#now();
     // The effect of a click or Enter is not a step of its own.
     if (now - this.#lastActionAt <= (this.#o.causedNavMs ?? 4000)) return;
-    // Only a navigation the owner made with the pane's own controls is a step.
-    if (now <= this.#ownerNavUntil) {
-      this.#ownerNavUntil = Number.NEGATIVE_INFINITY;
+    // Only a navigation the owner made with the pane's own controls, landing where the host sent it.
+    if (window !== undefined && now <= window.until && clean === window.url) {
       this.#add({ kind: "navigate", url: clean });
       return;
     }
@@ -422,8 +439,8 @@ export class TeachRecorder {
       if (this.#state === "recording") {
         this.#state = "ended";
         this.#endedBy = "limit";
-        void this.#teardown();
-        this.#o.onEnded?.("limit");
+        // The tab is freed (`onEnded`) only after the binding is gone.
+        this.#tearingDown = this.#teardown().finally(() => this.#o.onEnded?.("limit"));
       }
       return;
     }

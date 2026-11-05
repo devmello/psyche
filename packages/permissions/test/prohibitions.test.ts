@@ -290,6 +290,14 @@ describe("hard prohibitions", () => {
         expect(d, p).toMatchObject({ decision: "deny", rule: "prohibition:teach_recordings" });
       }
     }
+    // The app's own user-data folder holds the device key and the recordings' signing key.
+    for (const p of [
+      "/Users/o/Library/Application Support/Psyche/teach.key",
+      "/Users/o/Library/Application Support/Psyche/device-key.json",
+    ]) {
+      const d = await decide(["read_file", "read", path(p)]);
+      expect(d, p).toMatchObject({ decision: "deny", rule: "prohibition:system_credentials" });
+    }
     // The Library stays reachable: the recordings are not there.
     const lib = await decide(["read_file", "read", path("/Users/o/.psyche/library/teach/x.json")]);
     expect(lib.rule).not.toBe("prohibition:teach_recordings");

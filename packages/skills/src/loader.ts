@@ -40,7 +40,6 @@ import {
   type SkillCommand,
   toCommand,
 } from "./prompt.ts";
-import { isRecordingSkillText } from "./recording.ts";
 import {
   hasBlockingFindings,
   type SkillScanFinding,
@@ -497,6 +496,24 @@ export class FsSkillLoader implements SkillLoader {
     return e === undefined ? undefined : toSummary(e.details);
   }
 
+  /** Who made the winning skill of this name (the lock entry), for the drafting code. */
+  madeBy(name: string): "agent" | "recording" | undefined {
+    this.#fresh();
+    return this.#winners.get(name)?.details.madeBy;
+  }
+
+  /**
+   * Marks a staged proposal as made from a recording of web pages. The Gateway calls it from the
+   * draft record (`origin`), never from the skill's own text, which the owner can edit and a
+   * third-party skill can imitate. The install writes it into the lock entry.
+   */
+  markProposalAuthor(proposalId: string, author: "recording"): SkillProposal {
+    const staged = this.#proposals.get(proposalId);
+    if (staged === undefined) throw new PsycheError("not_found", "no such install proposal");
+    if (staged.proposal.scope === "home") staged.proposal.author = author;
+    return structuredClone(staged.proposal);
+  }
+
   /** The lesson lines of a skill's `LESSONS.md` that fit the budget, oldest first. */
   lessons(name: string): string[] {
     const dir = this.#o.workspaceDir;
@@ -794,10 +811,6 @@ export class FsSkillLoader implements SkillLoader {
       ...(update === undefined ? {} : { update }),
       expiresAt: this.#now() + (this.#o.proposalTtlMs ?? TTL_MS),
       manifest,
-      // A skill made from a recording carries web page text: it stays untrusted, whatever else.
-      ...(scope === "home" && isRecordingSkillText(text ?? "")
-        ? { author: "recording" as const }
-        : {}),
     };
     this.#proposals.set(id, { proposal, tree });
     return structuredClone(proposal);

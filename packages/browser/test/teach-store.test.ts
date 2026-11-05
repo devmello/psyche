@@ -1,5 +1,6 @@
 import {
   chmod,
+  mkdir,
   mkdtemp,
   readdir,
   readFile,
@@ -72,6 +73,41 @@ describe("kept recordings (design doc §5)", () => {
     expect(key).toHaveLength(32);
     expect((await stat(join(dir, "userData", "teach.key"))).mode & 0o777).toBe(0o600);
     expect(loadTeachKey(join(dir, "userData", "teach.key")).equals(key)).toBe(true);
+  });
+
+  it("seals the key with the keychain when it can, and never replaces a wrong or unreadable key", async () => {
+    const path = join(dir, "userData", "teach.key");
+    const wrap = {
+      seal: (k: Buffer) => Buffer.concat([Buffer.from("SEALED"), Buffer.from(k).reverse()]),
+      open: (b: Buffer) => {
+        if (!b.subarray(0, 6).equals(Buffer.from("SEALED"))) throw new Error("not sealed");
+        return Buffer.from(b.subarray(6)).reverse();
+      },
+    };
+    const key = loadTeachKey(path, wrap);
+    // On disk: the wrapped form, not the key.
+    const onDisk = await readFile(path);
+    expect(onDisk.includes(key)).toBe(false);
+    expect(loadTeachKey(path, wrap).equals(key)).toBe(true);
+    // A key in the wrong form is an error that leaves the file alone.
+    await writeFile(path, Buffer.alloc(10, 1));
+    expect(() => loadTeachKey(path, wrap)).toThrow("cannot be opened");
+    expect(() => loadTeachKey(path)).toThrow("wrong size");
+    expect((await readFile(path)).length).toBe(10);
+  });
+
+  it("opens the key file without following links, and creates it exclusively", async () => {
+    const path = join(dir, "userData2", "teach.key");
+    await mkdir(join(dir, "userData2"), { recursive: true });
+    const secret = join(dir, "elsewhere.key");
+    await writeFile(secret, Buffer.alloc(32, 5));
+    await symlink(secret, path);
+    expect(() => loadTeachKey(path)).toThrow("not a plain file");
+    // A link is also refused where the key does not exist yet (O_EXCL | O_NOFOLLOW).
+    await rm(path);
+    await symlink(join(dir, "nowhere.key"), path);
+    expect(() => loadTeachKey(path)).toThrow();
+    expect(await readFile(secret)).toEqual(Buffer.alloc(32, 5));
   });
 
   it("signs each file: an unsigned, edited or forged file is not listed and not opened", async () => {

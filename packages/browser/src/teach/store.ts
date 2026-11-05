@@ -1,5 +1,13 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { chmodSync, constants, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  constants,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { chmod, lstat, mkdir, open, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
@@ -43,16 +51,63 @@ export const KEPT_RECORDING_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const MAX_FILE_BYTES = 512 * 1024;
 const ID = /^teach_[a-z0-9]{8,32}$/;
 
-/** The signing key: 32 random bytes in a `0600` file, made on first use. Keep it outside the store's folder. */
-export function loadTeachKey(path: string): Buffer {
-  if (existsSync(path)) {
-    const key = readFileSync(path);
-    if (key.length === 32) return key;
+/** Wraps the key before it is written, with the OS keychain (Electron `safeStorage`). */
+export interface TeachKeySeal {
+  seal(key: Buffer): Buffer;
+  open(sealed: Buffer): Buffer;
+}
+
+/**
+ * The signing key: 32 random bytes, made on first use and kept outside the store's folder. With a
+ * `seal` (the desktop passes `safeStorage`) the file holds only the wrapped key, useless without
+ * the keychain. The file is opened with `O_NOFOLLOW` and created with `O_EXCL` (`0600`). A file
+ * that is the wrong size or cannot be opened is an error, never a quiet new key: a new key would
+ * orphan every kept recording and hide that something replaced the file.
+ */
+export function loadTeachKey(path: string, wrap?: TeachKeySeal): Buffer {
+  let st: ReturnType<typeof lstatSync> | undefined;
+  try {
+    st = lstatSync(path);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT")
+      throw new PsycheError("internal", "the recording key cannot be read");
+  }
+  if (st !== undefined) {
+    if (!st.isFile() || st.size > 4096)
+      throw new PsycheError("internal", "the recording key file is not a plain file");
+    let raw: Buffer;
+    try {
+      const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+      try {
+        raw = readFileSync(fd);
+      } finally {
+        closeSync(fd);
+      }
+    } catch {
+      throw new PsycheError("internal", "the recording key cannot be read");
+    }
+    let key: Buffer;
+    try {
+      key = wrap === undefined ? raw : wrap.open(raw);
+    } catch {
+      throw new PsycheError("internal", "the recording key cannot be opened");
+    }
+    if (key.length !== 32)
+      throw new PsycheError("internal", "the recording key has the wrong size");
+    return key;
   }
   const key = randomBytes(32);
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-  writeFileSync(path, key, { mode: 0o600 });
-  chmodSync(path, 0o600);
+  const fd = openSync(
+    path,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+    0o600,
+  );
+  try {
+    writeFileSync(fd, wrap === undefined ? key : wrap.seal(key));
+  } finally {
+    closeSync(fd);
+  }
   return key;
 }
 

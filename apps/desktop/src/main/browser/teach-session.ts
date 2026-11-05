@@ -182,9 +182,9 @@ export class TeachSession {
   }
 
   /** The owner used the pane's Back, Forward or Reload on this tab. */
-  ownerNavigated(tabId: string): void {
+  ownerNavigated(tabId: string, expectedUrl: string): void {
     const cur = this.#cur;
-    if (cur !== undefined && cur.tab.id === tabId) cur.rec.ownerNavigation();
+    if (cur !== undefined && cur.tab.id === tabId) cur.rec.ownerNavigation(expectedUrl);
   }
 
   /** The tab's debugger went away or the tab closed: keep what was recorded for review. */

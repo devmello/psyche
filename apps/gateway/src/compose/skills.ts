@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { attachRoutineDetector, PsycheAgentLoop } from "@psyche/agent-core";
 import { assetDir } from "@psyche/assets";
 import { redactSensitive } from "@psyche/audit";
-import { getThread } from "@psyche/db";
+import { getDevice, getThread } from "@psyche/db";
 import {
   PsycheError,
   type SkillLoader,
@@ -231,6 +231,7 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
     const table = createSkillsHandlers(fs, {
       broker: services.broker,
       surfaces: ["desktop", "web"],
+      deviceName: (id) => getDevice(services.db, id)?.name,
       onUpdate: (update) => publish("skills.updated", update),
       drafts,
     });

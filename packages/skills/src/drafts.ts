@@ -399,11 +399,13 @@ export class SkillDrafts {
       occurrences: Math.max(2, lessons.length),
       signature,
       redactions: 0,
-      tainted: false,
+      // An update of a skill made from a recording stays what it was: web page text, untrusted.
+      tainted: this.#o.loader.madeBy(skillName) === "recording",
       edited: false,
       status: "open",
       createdAt: at,
       updatedAt: at,
+      ...(this.#o.loader.madeBy(skillName) === "recording" ? { origin: "recording" as const } : {}),
       update: {
         skill: skillName,
         baseHash: base.hash,

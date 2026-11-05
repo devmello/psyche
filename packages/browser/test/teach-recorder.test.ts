@@ -331,7 +331,7 @@ describe("TeachRecorder: navigation", () => {
     tick(300);
     cdp.navigate("https://example.com/reports/all?session=abc");
     tick(10_000);
-    rec.ownerNavigation();
+    rec.ownerNavigation("https://other.example.org/");
     tick(200);
     cdp.navigate("https://other.example.org/");
     const out = await rec.stop();
@@ -346,7 +346,6 @@ describe("TeachRecorder: navigation", () => {
   it("a page cannot write steps by navigating: script, refresh and redirect get none", async () => {
     const { cdp, rec, tick } = setup();
     await rec.start();
-    // Long after any click, with no owner action: the page sends the tab somewhere.
     tick(30_000);
     cdp.navigate("https://evil.example.net/ignore-previous-instructions");
     tick(30_000);
@@ -357,29 +356,69 @@ describe("TeachRecorder: navigation", () => {
     expect(out.skippedNavigations).toBe(2);
   });
 
-  it("the owner's window is short and used once", async () => {
+  it("the owner's window is short, and it only accepts the address the host sent the tab to", async () => {
     const { cdp, rec, tick } = setup();
     await rec.start();
-    rec.ownerNavigation();
+    rec.ownerNavigation("https://one.example.net/");
     tick(10_000);
     cdp.navigate("https://late.example.net/");
-    rec.ownerNavigation();
+    rec.ownerNavigation("https://one.example.net/");
     tick(100);
-    cdp.navigate("https://one.example.net/");
+    cdp.navigate("https://page-chose.example.net/");
+    const out = await rec.stop();
+    expect(out.steps.map((s) => s.url)).toEqual(["https://example.com/reports"]);
+    expect(out.skippedNavigations).toBe(2);
+  });
+
+  it("the first navigation uses the window up: a page that navigates on load cannot ride it", async () => {
+    const { cdp, rec, tick } = setup();
+    await rec.start();
+    // Back to a page whose onload does location.assign: the owner's navigation, then the page's.
+    rec.ownerNavigation("https://back.example.net/");
     tick(100);
-    cdp.navigate("https://two.example.net/");
+    cdp.navigate("https://back.example.net/");
+    tick(100);
+    cdp.navigate("https://evil.example.net/assigned-on-load");
     const out = await rec.stop();
     expect(out.steps.map((s) => s.url)).toEqual([
       "https://example.com/reports",
-      "https://one.example.net/",
+      "https://back.example.net/",
     ]);
-    expect(out.skippedNavigations).toBe(2);
+    expect(out.skippedNavigations).toBe(1);
+  });
+
+  it("Reload of the same address uses the window up and adds no step", async () => {
+    const { cdp, rec, tick } = setup();
+    await rec.start();
+    rec.ownerNavigation("https://example.com/reports");
+    tick(100);
+    cdp.navigate("https://example.com/reports");
+    tick(100);
+    cdp.navigate("https://evil.example.net/assigned-on-load");
+    const out = await rec.stop();
+    expect(out.steps).toHaveLength(1);
+    expect(out.skippedNavigations).toBe(1);
+  });
+
+  it("a same-document navigation uses the window up too", async () => {
+    const { cdp, rec, tick } = setup();
+    await rec.start();
+    rec.ownerNavigation("https://back.example.net/");
+    cdp.emit("Page.navigatedWithinDocument", {
+      frameId: "main",
+      url: "https://example.com/reports#x",
+    });
+    tick(100);
+    cdp.navigate("https://back.example.net/");
+    const out = await rec.stop();
+    expect(out.steps).toHaveLength(1);
+    expect(out.skippedNavigations).toBe(1);
   });
 
   it("ignores child frames, other schemes and repeats", async () => {
     const { cdp, rec, tick } = setup();
     await rec.start();
-    rec.ownerNavigation();
+    rec.ownerNavigation("https://example.com/reports");
     tick(100);
     cdp.navigate("https://ads.example.net/", "child", "main");
     cdp.navigate("about:blank");
@@ -456,10 +495,42 @@ describe("TeachRecorder: limits", () => {
     await rec.start();
     cdp.world(7);
     for (let i = 0; i < 6; i += 1) cdp.report(click(`Button ${i}`));
-    await Promise.resolve();
+    await new Promise((r) => setTimeout(r, 10));
     expect(ended).toEqual(["limit"]);
     const out = await rec.stop();
     expect(out.steps).toHaveLength(3);
+    expect(out.endedBy).toBe("limit");
+  });
+
+  it("at the step cap the tab is freed only after the binding is removed", async () => {
+    const cdp = new FakeCdp();
+    const events: string[] = [];
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const orig = cdp.send.bind(cdp);
+    cdp.send = (async (method: string, params?: Record<string, unknown>) => {
+      if (method === "Runtime.removeBinding") await gate;
+      events.push(method);
+      return orig(method, params);
+    }) as never;
+    const rec = new TeachRecorder({
+      cdp,
+      startUrl: "https://example.com/",
+      maxSteps: 2,
+      onEnded: () => events.push("onEnded"),
+    });
+    cdp.names = { binding: rec.binding, world: rec.world };
+    await rec.start();
+    cdp.world(7);
+    for (let i = 0; i < 4; i += 1) cdp.report(click(`B${i}`));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(events).not.toContain("onEnded");
+    release();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(events.indexOf("onEnded")).toBeGreaterThan(events.indexOf("Runtime.removeBinding"));
+    const out = await rec.stop();
     expect(out.endedBy).toBe("limit");
   });
 

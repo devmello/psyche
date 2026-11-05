@@ -135,8 +135,16 @@ export function teachUrl(url: string): string {
     const path = u.pathname
       .split("/")
       .map((seg) => {
-        if (/^[A-Za-z0-9_-]{24,}$/.test(seg)) return "*";
-        return redactTeachText(seg);
+        // Decode first: `%40` hides an address from a pattern that looks for `@`.
+        let decoded = seg;
+        try {
+          decoded = decodeURIComponent(seg);
+        } catch {
+          // Not valid percent-encoding: judge it as it is.
+        }
+        if (/^[A-Za-z0-9_-]{24,}$/.test(decoded)) return "*";
+        const redacted = redactTeachText(decoded);
+        return redacted === decoded ? seg : redacted;
       })
       .join("/");
     return `${u.origin}${path}`.slice(0, 2048);
@@ -216,6 +224,23 @@ export function teachRole(role: string | undefined): string {
   return TEACH_ROLES.has(r) ? r : "generic";
 }
 
+/** The keys a recording keeps (the recorder only ever sends Enter); anything else is dropped. */
+export const TEACH_KEYS: ReadonlySet<string> = new Set([
+  "Enter",
+  "Tab",
+  "Escape",
+  "Space",
+  "Backspace",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+]);
+
+export function teachKey(key: string | undefined): string {
+  return key !== undefined && TEACH_KEYS.has(key) ? key : "";
+}
+
 /**
  * Digits, emails and tokens in page text a recording keeps (names, selectors, path segments): a
  * card number, an ID number, an address or a JWT in an element name is replaced, not stored.
@@ -247,7 +272,10 @@ export function sanitizeTeachSteps(steps: readonly BrowserTeachStep[]): BrowserT
     if (s.role !== undefined) out.role = teachRole(s.role);
     if (s.name !== undefined) out.name = redactTeachText(teachText(s.name, 200));
     if (s.selector !== undefined) out.selector = redactTeachText(teachText(s.selector, 300));
-    if (s.key !== undefined) out.key = teachText(s.key, 40);
+    if (s.key !== undefined) {
+      const key = teachKey(s.key);
+      if (key !== "") out.key = key;
+    }
     const typed = s.kind === "type" || s.kind === "select";
     const sensitive =
       s.sensitive === true ||
@@ -291,8 +319,8 @@ export function teachStepIssues(steps: readonly BrowserTeachStep[]): string[] {
       s.selector === undefined
     )
       issues.push(`${at}: it needs a name or a selector`);
-    if (s.kind === "press" && (s.key === undefined || s.key === ""))
-      issues.push(`${at}: a key press needs a key`);
+    if (s.kind === "press" && teachKey(s.key) === "")
+      issues.push(`${at}: a key press needs a known key`);
     if (
       s.sensitive === true &&
       (s.value !== undefined || s.keepValue === true || s.input !== undefined)

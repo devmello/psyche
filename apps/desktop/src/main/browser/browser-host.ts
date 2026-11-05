@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { loadTeachKey, TeachKeptStore } from "@psyche/browser/teach";
+import { loadTeachKey, TeachKeptStore, type TeachKeySeal } from "@psyche/browser/teach";
 import {
   type BridgeProfile,
   type BridgeTab,
@@ -11,6 +11,7 @@ import {
   BaseWindow,
   type DownloadItem,
   type Session,
+  safeStorage,
   session,
   type WebContents,
   WebContentsView,
@@ -135,6 +136,15 @@ interface Tab {
 const STATE_THROTTLE_MS = 50;
 /** Isolated world the sign-in check reads forms from; the page's own scripts cannot reach it. */
 const ISOLATED_WORLD = 1999;
+/** The keychain wrapping for the recording key (Electron `safeStorage`), when the OS offers it. */
+function keychainSeal(): TeachKeySeal | undefined {
+  if (!safeStorage.isEncryptionAvailable()) return undefined;
+  return {
+    seal: (key) => safeStorage.encryptString(key.toString("base64")),
+    open: (sealed) => Buffer.from(safeStorage.decryptString(sealed), "base64"),
+  };
+}
+
 export const DISCARD_AFTER_MS = 15 * 60_000;
 const DISCARD_CHECK_MS = 60_000;
 const HIGHLIGHT_MS = 600;
@@ -986,10 +996,16 @@ export class BrowserHost implements BridgeTabHost {
     }
   }
 
+  /** Tells a recording of this tab where a history step is about to go. */
+  private teachExpect(t: Tab, by: -1 | 1): void {
+    if (!this.teach.recording(t.id)) return;
+    const h = t.wc.navigationHistory;
+    const entry = h.getEntryAtIndex(h.getActiveIndex() + by);
+    if (entry !== undefined && typeof entry.url === "string")
+      this.teach.ownerNavigated(t.id, entry.url);
+  }
+
   async navigate(tabId: string, action: BrowserNav): Promise<void> {
-    // Back, Forward and Reload are the owner's own navigation: a recording keeps them as steps.
-    if (action === "back" || action === "forward" || action === "reload")
-      this.teach.ownerNavigated(tabId);
     const wasDiscarded = this.tabs.get(tabId)?.discarded === true;
     const t = this.need(tabId);
     // Restoring already loads the remembered URL; reload, stop and history have nothing more to do.
@@ -999,13 +1015,23 @@ export class BrowserHost implements BridgeTabHost {
     }
     const wc = t.wc;
     switch (action) {
+      // Back, Forward and Reload are the owner's own navigation: a recording keeps them as steps.
+      // The recorder is told only when the tab really navigates, and where to: it accepts the
+      // first top-frame navigation after this, and only if it lands on that address.
       case "back":
-        if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack();
+        if (wc.navigationHistory.canGoBack()) {
+          this.teachExpect(t, -1);
+          wc.navigationHistory.goBack();
+        }
         break;
       case "forward":
-        if (wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward();
+        if (wc.navigationHistory.canGoForward()) {
+          this.teachExpect(t, 1);
+          wc.navigationHistory.goForward();
+        }
         break;
       case "reload":
+        this.teach.ownerNavigated(t.id, wc.getURL());
         wc.reload();
         break;
       case "stop":

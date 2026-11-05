@@ -156,11 +156,11 @@ describe("TeachSession (owner-only recording in the built-in browser)", () => {
     tab.emit("Page.frameNavigated", {
       frame: { id: "main", url: "https://page.example.net/redirected" },
     });
-    session.ownerNavigated("tab_2");
+    session.ownerNavigated("tab_2", "https://page.example.net/other");
     tab.emit("Page.frameNavigated", {
       frame: { id: "main", url: "https://page.example.net/other" },
     });
-    session.ownerNavigated("tab_1");
+    session.ownerNavigated("tab_1", "https://owner.example.net/back");
     tab.emit("Page.frameNavigated", {
       frame: { id: "main", url: "https://owner.example.net/back" },
     });

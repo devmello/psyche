@@ -129,7 +129,7 @@ describe("teach page script", () => {
     expect(p.handlers.size).toBe(0);
   });
 
-  it("registers on window in the capture phase, so it runs before the page's own listeners", () => {
+  it("registers on window in the capture phase (before the page's listeners on pages loaded after Record)", () => {
     // `document.addEventListener` throws in this fake; getting here means it was never used.
     const p = page();
     expect(p.handlers.size).toBe(4);
