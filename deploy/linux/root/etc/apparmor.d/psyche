@@ -1,0 +1,13 @@
+# Psyche (deb and rpm). Ubuntu 23.10 and later stop an unconfined program from using the
+# user-namespace sandbox Chromium wants (kernel.apparmor_restrict_unprivileged_userns=1). This
+# profile gives that one permission to the installed Psyche binary, and confines nothing else.
+# /usr/lib/psyche is root-owned, so only the package manager can put a program at that path.
+# psyche-system-setup loads it only where AppArmor 4 is present (abi 4.0).
+abi <abi/4.0>,
+include <tunables/global>
+
+profile psyche /usr/lib/psyche/psyche flags=(unconfined) {
+  userns,
+
+  include if exists <local/psyche>
+}
