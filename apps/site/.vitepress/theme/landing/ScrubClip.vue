@@ -23,6 +23,10 @@ const props = defineProps<{
   phoneRatio?: number;
   scrub: boolean;
   progress: number;
+  /** A phone recording: the screen's own rounded corners, no window ring. */
+  phone?: boolean;
+  /** Plays only when asked (`play()`), e.g. on hover in a grid; never when scrolled into view. */
+  manual?: boolean;
 }>();
 const emit = defineEmits<{ time: [seconds: number]; duration: [seconds: number] }>();
 
@@ -162,7 +166,16 @@ function seekTo(t: number) {
   if (v.readyState >= 1) go();
   else v.addEventListener("loadedmetadata", go, { once: true });
 }
-defineExpose({ seekTo });
+/** For a manual clip: start or stop it (a grid card's hover); reduced motion still waits for Play. */
+function start() {
+  if (reduced.value || userPaused.value) return;
+  near.value = true;
+  play();
+}
+function stop() {
+  if (playing.value || wantPlay) pause();
+}
+defineExpose({ seekTo, start, stop });
 
 watch(near, async (n) => {
   if (!n) return;
@@ -192,7 +205,7 @@ onMounted(() => {
     (entries) => {
       for (const e of entries) {
         if (e.isIntersecting) near.value = true;
-        if (props.scrub || reduced.value || userPaused.value) continue;
+        if (props.scrub || props.manual || reduced.value || userPaused.value) continue;
         if (e.intersectionRatio >= 0.45) play();
         else if (playing.value) pause();
       }
@@ -215,7 +228,7 @@ onBeforeUnmount(() => {
   <div
     ref="box"
     class="clip"
-    :class="{ scrub }"
+    :class="{ scrub, phone }"
     :style="{ '--ratio': String(ratio), '--ratio-phone': String(phoneRatio ?? ratio) }"
   >
     <video
@@ -236,7 +249,7 @@ onBeforeUnmount(() => {
       <source v-if="near" :src="src" type="video/mp4" />
     </video>
     <button
-      v-if="!scrub"
+      v-if="!scrub && (!manual || reduced)"
       class="control"
       type="button"
       :aria-label="playing ? `Pause: ${label}` : `Play: ${label}`"
@@ -277,6 +290,15 @@ video {
   .clip {
     aspect-ratio: var(--ratio-phone);
   }
+}
+/* A phone's screen, as captured: its own corner radius and a dark hairline, no window frame. */
+.clip.phone {
+  border-radius: 13% / 6%;
+  background: #f9f8f6;
+  box-shadow:
+    0 0 0 1.5px oklch(0.25 0.004 80),
+    0 1px 2px oklch(0.2 0.01 80 / 0.1),
+    0 22px 44px -26px oklch(0.2 0.01 80 / 0.55);
 }
 .control {
   position: absolute;

@@ -38,6 +38,8 @@ const props = defineProps<{
   layout?: "side" | "center";
   /** A lamp hangs over this stage (the approvals band). */
   lamp?: boolean;
+  /** The recording is a phone's screen. */
+  phone?: boolean;
 }>();
 
 /** A step's text, with `backticks` around real paths and file names (set in mono). */
@@ -102,7 +104,7 @@ onBeforeUnmount(() => track.value?.removeEventListener("scene", onScene));
   <section
     ref="track"
     class="stage-track"
-    :class="[`from-${from ?? 'right'}`, `layout-${layout ?? 'side'}`]"
+    :class="[`from-${from ?? 'right'}`, `layout-${layout ?? 'side'}`, { 'has-phone': phone }]"
     data-scene="pin"
     data-enter
     data-exit
@@ -145,6 +147,7 @@ onBeforeUnmount(() => track.value?.removeEventListener("scene", onScene));
               :phone-ratio="phoneRatio"
               :scrub="scrub"
               :progress="progress"
+              :phone="phone"
               @time="(t) => (playTime = t)"
               @duration="(d) => (loaded = d)"
             />
@@ -388,6 +391,19 @@ h2 {
 }
 .pin .screen :deep(.clip) {
   width: 100%;
+}
+
+/* A phone's screen is narrow: the copy and the phone sit together in the middle of the sheet. */
+.pin .has-phone .body {
+  grid-template-columns: minmax(260px, 500px) auto;
+  justify-content: center;
+  column-gap: clamp(56px, 9vw, 160px);
+}
+.pin .has-phone.from-left .body {
+  grid-template-columns: auto minmax(260px, 500px);
+}
+.has-phone .fixture {
+  max-width: 24em;
 }
 
 /* ---------- Centred: the recording under the lamp, the copy beneath it ---------- */

@@ -2,6 +2,7 @@
 import { withBase } from "vitepress";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import CloseStack from "./CloseStack.vue";
+import DemoIndex from "./DemoIndex.vue";
 import DemoStage from "./DemoStage.vue";
 import SheetStack from "./SheetStack.vue";
 import { type SceneEngine, startScenes } from "./scroll-scenes";
@@ -113,7 +114,7 @@ onBeforeUnmount(() => {
             </a>
             <a class="btn quiet" :href="withBase('/get-started/')">Build it from source</a>
           </div>
-          <p class="status">Alpha 0.3 · macOS, built from source · Apache-2.0 · no telemetry</p>
+          <p class="status">Alpha 0.3 · macOS, built from source · iPhone app in development · Apache-2.0 · no telemetry</p>
         </div>
         <div class="gutter" aria-hidden="true" />
         <div class="page right">
@@ -130,33 +131,10 @@ onBeforeUnmount(() => {
     </section>
     </div>
 
-    <!-- Six things Psyche does, each shown by the app itself. The scroll is the playhead. -->
-    <DemoStage
-      id="brief-title"
-      title="Start the morning with what needs you."
-      where="Home"
-      clip="brief"
-      label="Psyche's Home: what needs you, a catch-up line opened to the message behind it, then the morning brief with numbered sources"
-      :ratio="1408 / 960"
-      :phone-ratio="720 / 1292"
-      :duration="13.54"
-      :beats="[
-        { at: 0, text: 'Approvals and questions that wait on you come first.' },
-        { at: 3.62, text: 'Catching up: what is due, and what moved since you last looked.' },
-        { at: 6.0, text: 'Each line opens the message it came from.' },
-        { at: 9.82, text: 'Then the brief, each line numbered to its source. The Feed behind it is still being finished.' },
-      ]"
-      :scrub="pinned"
-      :motion="motion"
-      from="right"
-    >
-      <p>What waits on you and what moved, each line with the message behind it.</p>
-      <template #foot><a class="more" :href="withBase('/using/feed-ideas-goals')"><span class="src">1</span>Home and the brief <span class="where">using/feed-ideas-goals</span></a></template>
-    </DemoStage>
-
+    <!-- What only Psyche does, each shown by the app itself. The scroll is the playhead. -->
     <DemoStage
       id="answer-title"
-      title="Ask, then open the source."
+      title="Answers that cite your own mail."
       where="Search, ⌘K"
       clip="answer"
       label="A question typed into Search, answered from memory with source chips; one chip opens the mail it came from"
@@ -171,108 +149,99 @@ onBeforeUnmount(() => {
       ]"
       :scrub="pinned"
       :motion="motion"
-      from="left"
+      from="right"
     >
-      <p>Search reads your threads, mail, messages, files and memory, indexed on this Mac.</p>
-      <template #foot><a class="more" :href="withBase('/using/memory')"><span class="src">2</span>How memory and search work <span class="where">using/memory</span></a></template>
+      <p>Search reads your threads, mail, messages, files and memory, indexed on this Mac. A claim that cites nothing is dropped.</p>
+      <template #foot><a class="more" :href="withBase('/using/memory')"><span class="src">1</span>How memory and search work <span class="where">using/memory</span></a></template>
     </DemoStage>
 
-    <!-- Approvals: the lights go down, and one sheet sits under the lamp. -->
-    <section class="night" data-scene="flow" data-end="0.15" data-exit aria-label="Approvals">
+    <DemoStage
+      id="live-title"
+      title="A running task lives in your Dynamic Island."
+      where="The iPhone app, a Live Activity"
+      clip="ios-live"
+      label="The iPhone app: Watch on a running task, then the task in the Dynamic Island step by step, turning amber when it asks to send the Q3 summary, with a notification"
+      :ratio="540 / 1174"
+      :duration="20.04"
+      :beats="[
+        { at: 0, text: 'Watch a running task from Home.' },
+        { at: 4.0, text: 'It follows you out of the app, into the Dynamic Island.' },
+        { at: 5.0, text: 'When it needs you, the island turns amber and asks.' },
+        { at: 9.0, text: 'The question arrives as a notification too.' },
+      ]"
+      :scrub="pinned"
+      :motion="motion"
+      from="left"
+      phone
+    >
+      <p>The task on your Mac, step by step on your iPhone's Lock Screen and Dynamic Island. The iPhone app is in development.</p>
+      <template #foot><a class="more" :href="withBase('/guides/remote-gateway')"><span class="src">2</span>Use Psyche from another computer <span class="where">guides/remote-gateway</span></a></template>
+    </DemoStage>
+
+    <!-- Under the lamp: a payment that waits for a face. -->
+    <section class="night" data-scene="flow" data-end="0.15" data-exit aria-label="Face ID approvals">
       <DemoStage
-        id="approve-title"
-        title="Nothing changes until you say so."
-        where="Chat, Dentist booking"
-        clip="approval"
-        label="A dentist booking waiting on two approvals: the card for filling a saved login, Allow once, and then the next card, an email to send"
-        :ratio="1408 / 960"
-        :phone-ratio="720 / 1140"
-        :duration="10.2"
+        id="faceid-title"
+        title="Payments wait for Face ID."
+        where="The iPhone app, an approval"
+        clip="ios-faceid"
+        label="The iPhone app: a payment approval for the electricity bill with amount, payee, site and card; Allow with Face ID, the Face ID check, then Allowed, your Mac has the answer"
+        :ratio="540 / 1174"
+        :duration="8.58"
         :beats="[
-          { at: 0, text: 'Wren is booking the dentist. Two steps wait on you.' },
-          { at: 2.9, text: 'The card names the exact login and site. Wren sees only a placeholder.' },
-          { at: 5.78, text: 'Allow once. The email still waits its turn.' },
-          { at: 7.4, text: 'Text from a page, an email or a file can never approve. Purchases also ask for Touch ID.' },
+          { at: 0, text: 'Your Bills automation wants to pay the electricity bill.' },
+          { at: 1.2, text: 'The card names the exact amount, payee, site and card.' },
+          { at: 3.6, text: 'Allow asks for Face ID on the phone that answers.' },
+          { at: 6.5, text: 'Allowed. Your Mac has the answer, and acts once.' },
         ]"
         :scrub="pinned"
         :motion="motion"
         from="right"
-        layout="center"
+        phone
         lamp
         class="lamplit"
       >
-        <p>Anything that sends, buys, fills a password or runs a command waits for a card bound to that exact action.</p>
+        <p>Purchases and sensitive actions are bound to one card and need your face. Text from a web page or an email can never approve anything.</p>
         <template #foot><a class="more" :href="withBase('/security/approvals-and-tiers')"><span class="src">3</span>Approvals and app tiers <span class="where">security/approvals-and-tiers</span></a></template>
       </DemoStage>
     </section>
 
     <DemoStage
-      id="memory-title"
-      title="It learns the people in your life, and checks with you."
-      where="Memory, Review and then Sam Lee"
-      clip="memory"
-      label="Memory's review list: facts found in mail with the words they came from, one confirmed; then Sam Lee's page with facts, sources and open loops"
+      id="teach-title"
+      title="Show it once. It becomes a skill."
+      where="The built-in browser, teach by showing"
+      clip="teach"
+      label="The review screen after recording a task in Psyche's browser: the steps in plain words, a name, a typed date turned into an input, then Save as a skill, waiting for approval"
       :ratio="1408 / 960"
-      :phone-ratio="720 / 1140"
-      :duration="13.63"
+      :duration="16.5"
       :beats="[
-        { at: 0, text: 'Wren proposes what it found in your mail, messages and notes.' },
-        { at: 2.7, text: 'Each fact shows the words it came from.' },
-        { at: 5.2, text: 'Nothing is remembered until you confirm it.' },
-        { at: 7.4, text: 'A person\'s page builds up: role, preferences and open loops, each with its source.' },
+        { at: 0, text: 'Record a task in Psyche\'s browser; the steps come back in plain words.' },
+        { at: 4.58, text: 'Give it a name.' },
+        { at: 6.31, text: 'Turn a value into an input it asks for each time.' },
+        { at: 12.7, text: 'Save makes a skill draft that waits for your approval.' },
       ]"
       :scrub="pinned"
       :motion="motion"
       from="left"
     >
-      <p>It learns who people are from what they write to you, and asks before it keeps anything.</p>
-      <template #foot><a class="more" :href="withBase('/guides/memory-and-persona')"><span class="src">4</span>Memory and persona <span class="where">guides/memory-and-persona</span></a></template>
+      <p>Passwords, card numbers and codes are never recorded, and other typed values stay hidden unless you keep them.</p>
+      <template #foot><a class="more" :href="withBase('/using/skills')"><span class="src">4</span>Skills <span class="where">using/skills</span></a></template>
     </DemoStage>
 
-    <DemoStage
-      id="devices-title"
-      title="Use it from your phone or another computer."
-      where="Settings, Devices &amp; nodes, then the iPhone app"
-      clip="devices"
-      label="Settings on the Mac: an iPad waiting to pair with a code to compare, and the paired iPhone and browser with what each may do. Then the iPhone app: an approval to add a calendar event, allowed, and the Mac has the answer"
-      :ratio="1600 / 806"
-      :phone-ratio="720 / 1292"
-      :duration="14.04"
-      :beats="[
-        { at: 0, text: 'A new device asks to pair, and waits for you on this Mac.' },
-        { at: 2.69, text: 'Check the same code shows on both, and choose what it may do.' },
-        { at: 5.3, text: 'Each device gets only what you chose: the iPhone answers approvals, a browser only reads and writes.' },
-        { at: 8.2, text: 'On the iPhone, the same approval. Allow, and your Mac has the answer.' },
-      ]"
-      :scrub="pinned"
-      :motion="motion"
-      from="right"
-    >
-      <p>Your Mac keeps the data; other devices are windows onto it. The iPhone app is in development.</p>
-      <template #foot><a class="more" :href="withBase('/guides/remote-gateway')"><span class="src">5</span>Use Psyche from another computer <span class="where">guides/remote-gateway</span></a></template>
-    </DemoStage>
-
-    <DemoStage
-      id="files-title"
-      title="Its memory is files you can open."
-      where="The agent sheet, Soul"
-      clip="files"
-      label="The agent sheet's files, SOUL.md, IDENTITY.md, USER.md, MEMORY.md and AGENTS.md; MEMORY.md opens as plain Markdown"
-      :ratio="1408 / 960"
-      :phone-ratio="588 / 840"
-      :duration="10.58"
-      :beats="[
-        { at: 0, text: 'Who Wren is, what it knows about you and what it remembers: Markdown files.' },
-        { at: 2.85, text: 'Open `MEMORY.md`. Plain text, rewritten each night, yours to edit.' },
-        { at: 6.86, text: 'All of it lives under `~/.psyche`, on this Mac.' },
-      ]"
-      :scrub="pinned"
-      :motion="motion"
-      from="left"
-    >
-      <p>No hosted service holds your threads or memory. Only model calls leave, to the provider you choose.</p>
-      <template #foot><a class="more" :href="withBase('/security/on-device')"><span class="src">6</span>What stays on your machine <span class="where">security/on-device</span></a></template>
-    </DemoStage>
+    <!-- The rest, on one sheet: smaller recordings, each of the real app. -->
+    <section class="leaf lit index-leaf" data-scene="flow" data-end="0.1" aria-labelledby="index-title">
+      <h2 id="index-title">Six more, each recorded from the app.</h2>
+      <DemoIndex
+        :items="[
+          { clip: 'memory', title: 'It learns people, and checks with you', line: 'Facts found in your mail come with the words they came from. Nothing is kept until you confirm.', where: 'Memory, Review', label: 'Memory review: facts with their quotes, one confirmed, then a person page', ratio: 1408 / 960 },
+          { clip: 'files', title: 'Its memory is files you can open', line: 'SOUL.md, USER.md and MEMORY.md are Markdown under ~/.psyche, rewritten each night and yours to edit.', where: 'The agent sheet, Soul', label: 'The agent sheet listing memory files, then MEMORY.md open as plain text', ratio: 1408 / 960 },
+          { clip: 'skill', title: 'Skills you can share, signed', line: 'A .psyche-skill file names who signed it and what it asks for before anything installs.', where: 'Settings, Skills', label: 'Importing a shared skill: the signer, its permissions and the full SKILL.md, then trusting the author', ratio: 1408 / 960 },
+          { clip: 'brief', title: 'Catch up with the source of each line', line: 'What is due and what moved since you looked, each line one tap from the message behind it.', where: 'Home', label: 'Home: Needs you, catch-up with a source opened, and the brief', ratio: 1408 / 960 },
+          { clip: 'devices', title: 'Pair a phone or another computer', line: 'A new device waits for you on the Mac, with a code to compare and exactly what it may do.', where: 'Settings, Devices and the iPhone app', label: 'Devices and nodes with a pairing request and paired devices, then the iPhone answering an approval', ratio: 1600 / 806 },
+          { clip: 'ios-genui', title: 'Native cards on the iPhone', line: 'Plans, files and questions from the agent draw as native iPhone views, not web pages.', where: 'The iPhone app, Chat', label: 'The iPhone chat with a question card, a file card and a plan checklist', ratio: 540 / 1174, phone: true },
+        ]"
+      />
+    </section>
 
     <!-- Honest status. -->
     <section class="leaf lit status-page" data-scene="flow" data-end="-0.6" aria-labelledby="status-title">
@@ -870,6 +839,16 @@ onBeforeUnmount(() => {
 .motion .night :deep(.lamp) {
   opacity: var(--dark);
 }
+/* The index sheet: its six recordings are dealt in turn as the sheet arrives. */
+.index-leaf h2 {
+  max-width: 22ch;
+}
+.motion .index-leaf :deep(.card) {
+  --k: clamp(0, calc((var(--q, 1) - var(--i) * 0.07) / 0.5), 1);
+  opacity: calc(0.15 + var(--k) * 0.85);
+  transform: translateY(calc((1 - var(--k)) * 44px));
+}
+
 /* Status: "Also works today" is checked off row by row; "Not yet" stays in pencil. */
 .status-page .columns li {
   border-bottom-color: transparent;
