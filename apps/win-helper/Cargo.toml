@@ -8,8 +8,8 @@ publish = false
 description = "Psyche Helper for Windows: the Windows node (named-pipe node protocol, toasts, Windows Hello, Credential Manager, OCR)"
 
 [workspace]
-members = [".", "crates/win-computer", "crates/win-dictation"]
-default-members = [".", "crates/win-computer", "crates/win-dictation"]
+members = [".", "crates/win-computer", "crates/win-dictation", "crates/win-vm"]
+default-members = [".", "crates/win-computer", "crates/win-dictation", "crates/win-vm"]
 resolver = "3"
 
 [[bin]]
