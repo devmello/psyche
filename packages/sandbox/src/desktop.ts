@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { Dirent } from "node:fs";
 import { readdir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { posix } from "node:path";
@@ -33,7 +34,8 @@ import { EGRESS_SHIM, PYTHON } from "./scripts.ts";
 
 const errors = {
   invalid: (message: string) => new PsycheError("invalid_params", message),
-  forbidden: (message: string) => new PsycheError("forbidden", message),
+  forbidden: (message: string, details?: Record<string, unknown>) =>
+    new PsycheError("forbidden", message, details === undefined ? {} : { details }),
   notFound: (message: string) => new PsycheError("not_found", message),
   unavailable: (message: string, details?: Record<string, unknown>) =>
     new PsycheError("unavailable", message, details === undefined ? {} : { details }),
@@ -66,7 +68,6 @@ const DESKTOP_SHM = "256m";
 
 const ID_RE = /^[a-z0-9]{1,16}$/;
 const SHARE_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
-const OVERLAY_RE = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/;
 const MEMORY_RE = /^([1-9][0-9]{0,4})([mg])$/;
 
 /** A file's identity as the kernel knows it: what a path pointed at when it was checked. */
@@ -81,15 +82,8 @@ export interface DesktopShare {
   /** Appears at `/shares/<name>`. */
   name: string;
   readOnly: boolean;
-  /**
-   * Paths inside the share (`.git`, `sub/.git`) mounted read-only on top of it. Set by
-   * `validateDesktopShares` for a read-write share that holds git data: a program in the
-   * container must not be able to plant hooks or change the config a host `git` would later run.
-   */
-  readOnlyPaths?: readonly string[];
   /** Recorded by `validateDesktopShares`; `start` compares it with what the engine mounted. */
   identity?: FileIdentity;
-  readOnlyIdentities?: Readonly<Record<string, FileIdentity>>;
 }
 
 export interface DesktopSpec {
@@ -206,37 +200,45 @@ const NEVER_UNDER_HOME = DESKTOP_NEVER_UNDER_HOME;
 const under = (child: string, root: string): boolean =>
   root === "/" ? true : child === root || child.startsWith(`${root}/`);
 
-/** How far and how wide the search for git data inside a read-write share goes. */
-const GIT_SCAN_DEPTH = 6;
+/** The search for git data in a read-write share: how many entries and how deep, at most. */
 const GIT_SCAN_ENTRIES = 50_000;
-const GIT_MAX_OVERLAYS = 16;
+const GIT_SCAN_DEPTH = 200;
 
 /**
- * The `.git` entries (folder or file) inside `root`, as paths relative to it. Links are never
- * followed. A `.git` that is itself a link, or a tree too large to search, refuses the share.
+ * Refuses a read-write share that holds a git repository anywhere in it: a `.git` folder, a `.git`
+ * file (a worktree or submodule) or a bare repository (a folder with `HEAD`, `objects/` and
+ * `refs/`). A program in the container could plant a `.git` (or change one) whose config
+ * (`core.fsmonitor`, `core.hooksPath`, hooks) runs on this computer the next time the owner uses
+ * git there. Searched in full, links never followed; a folder that cannot be read, or a tree too
+ * large to search, is refused too. A repository can still be shared read-only.
  */
-async function findGit(root: string): Promise<string[]> {
-  const found: string[] = [];
+async function assertNoGit(root: string): Promise<void> {
   let seen = 0;
-  const walk = async (dir: string, rel: string, depth: number): Promise<void> => {
-    const entries = await readdir(dir, { withFileTypes: true });
+  const refuse = (why: string) =>
+    errors.forbidden(
+      `${root} ${why}, so it is not shared read-write. Share it read-only; changes come back through "Copy to my computer".`,
+      { reason: "git_in_read_write_share" },
+    );
+  const walk = async (dir: string, depth: number): Promise<void> => {
+    if (depth > GIT_SCAN_DEPTH) throw refuse("is nested too deeply to check for git data");
+    let entries: Dirent[];
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      throw refuse("has a folder that can't be searched for git data");
+    }
+    const names = new Set(entries.map((e) => e.name));
+    if (names.has("HEAD") && names.has("objects") && names.has("refs")) {
+      throw refuse("holds a bare git repository");
+    }
     for (const e of entries) {
-      if (++seen > GIT_SCAN_ENTRIES) {
-        throw errors.forbidden(
-          `${root} is too large to check for git data, so it is not shared read-write`,
-        );
-      }
-      const path = rel === "" ? e.name : `${rel}/${e.name}`;
-      if (e.name === ".git") {
-        if (e.isSymbolicLink()) throw errors.forbidden(`${root}/${path} is a link`);
-        found.push(path);
-        continue;
-      }
-      if (e.isDirectory() && depth < GIT_SCAN_DEPTH) await walk(`${dir}/${e.name}`, path, depth + 1);
+      if (++seen > GIT_SCAN_ENTRIES) throw refuse("is too large to check for git data");
+      if (e.name === ".git") throw refuse("holds a git repository");
+      // A link is never followed (a directory entry that is a link is not a directory here).
+      if (e.isDirectory()) await walk(`${dir}/${e.name}`, depth + 1);
     }
   };
-  await walk(root, "", 0);
-  return found.sort();
+  await walk(root, 0);
 }
 
 const identityOf = async (path: string): Promise<FileIdentity> => {
@@ -329,20 +331,9 @@ export async function validateDesktopShares(
       out.push({ source, name: s.name, readOnly: true, identity });
       continue;
     }
-    // Read-write: git data inside stays read-only (an overlay on top), or the share is refused.
-    const git = await findGit(real);
-    if (git.length > GIT_MAX_OVERLAYS) {
-      throw errors.forbidden(`${source} holds too many git folders to share read-write`);
-    }
-    const readOnlyIdentities: Record<string, FileIdentity> = {};
-    for (const rel of git) readOnlyIdentities[rel] = await identityOf(`${real}/${rel}`);
-    out.push({
-      source,
-      name: s.name,
-      readOnly: false,
-      identity,
-      ...(git.length === 0 ? {} : { readOnlyPaths: git, readOnlyIdentities }),
-    });
+    // Read-write: only a folder with no git repository anywhere in it.
+    await assertNoGit(real);
+    out.push({ source, name: s.name, readOnly: false, identity });
   }
   return out.sort((a, b) => (a.name < b.name ? -1 : 1));
 }
@@ -387,16 +378,6 @@ export function desktopRunArgs(kind: DesktopBackendKind, spec: DesktopSpec): str
         "--mount",
         `type=bind,source=${s.source},target=${DESKTOP_SHARES_ROOT}/${s.name}${opts}${s.readOnly ? ",readonly" : ""}`,
       ];
-      // Parents first, then the read-only overlays on top of a read-write share.
-      for (const rel of s.readOnlyPaths ?? []) {
-        if (!OVERLAY_RE.test(rel) || rel.split("/").includes("..")) {
-          throw errors.forbidden(`overlay path ${JSON.stringify(rel)} is not allowed`);
-        }
-        out.push(
-          "--mount",
-          `type=bind,source=${s.source}/${rel},target=${DESKTOP_SHARES_ROOT}/${s.name}/${rel}${opts},readonly`,
-        );
-      }
       return out;
     }),
   ];
@@ -677,15 +658,6 @@ export class DesktopContainers {
         identity: sh.identity,
         readOnly: sh.readOnly,
       });
-      for (const rel of sh.readOnlyPaths ?? []) {
-        const id = sh.readOnlyIdentities?.[rel];
-        if (id === undefined) throw errors.invalid("a share was not validated");
-        expected.set(`${DESKTOP_SHARES_ROOT}/${sh.name}/${rel}`, {
-          source: `${sh.source}/${rel}`,
-          identity: id,
-          readOnly: true,
-        });
-      }
     }
     await this.#remove(backend, container);
     const now = this.#options.now ?? Date.now;
@@ -736,6 +708,7 @@ export class DesktopContainers {
     }
     try {
       await this.#verifyMounts(backend, container, expected);
+      await this.#verifyFromInside(backend, container, expected);
     } catch (err) {
       await this.#remove(backend, container);
       throw err;
@@ -786,6 +759,69 @@ export class DesktopContainers {
       if (m.RW !== !want.readOnly) throw bad(`${dest} has the wrong access`);
     }
     for (const dest of expected.keys()) if (!seen.has(dest)) throw bad(`${dest} is missing`);
+  }
+
+  /**
+   * The same check from the container's own point of view, which the engine's report cannot
+   * fake: each mounted path is the file that was validated (`stat` device and inode), and each
+   * read-only one is mounted `ro` and each read-write one is not (`/proc/self/mountinfo`).
+   */
+  async #verifyFromInside(
+    backend: DesktopBackend,
+    container: string,
+    expected: ReadonlyMap<string, ExpectedMount>,
+  ): Promise<void> {
+    const bad = (why: string) =>
+      errors.unavailable(`the separate desktop's mounts are not what was approved (${why})`, {
+        reason: "mount_mismatch",
+      });
+    const dests = [...expected.keys()];
+    const user = `${SANDBOX_UID}:${SANDBOX_GID}`;
+    const st = await this.#cli(backend, [
+      "exec",
+      "--user",
+      user,
+      container,
+      "stat",
+      "-c",
+      "%d:%i",
+      "--",
+      ...dests,
+    ]);
+    const ids = st.stdout.toString("utf8").trim().split("\n");
+    if (st.exitCode !== 0 || ids.length !== dests.length)
+      throw bad("cannot read the mounted files");
+    dests.forEach((dest, i) => {
+      const want = expected.get(dest);
+      if (want === undefined || ids[i] !== `${want.identity.dev}:${want.identity.ino}`) {
+        throw bad(`${dest} is a different file inside the container`);
+      }
+    });
+    const mi = await this.#cli(backend, [
+      "exec",
+      "--user",
+      user,
+      container,
+      "cat",
+      "/proc/self/mountinfo",
+    ]);
+    if (mi.exitCode !== 0) throw bad("cannot read the container's mount table");
+    // The last line for a mount point is the one on top.
+    const options = new Map<string, string[]>();
+    for (const line of mi.stdout.toString("utf8").split("\n")) {
+      const f = line.split(" ");
+      const point = f[4]?.replace(/\\([0-7]{3})/g, (_, o: string) =>
+        String.fromCharCode(Number.parseInt(o, 8)),
+      );
+      if (point !== undefined && f[5] !== undefined) options.set(point, f[5].split(","));
+    }
+    for (const [dest, want] of expected) {
+      const opts = options.get(dest);
+      if (opts === undefined) throw bad(`${dest} is not in the container's mount table`);
+      if (opts.includes("ro") !== want.readOnly) {
+        throw bad(`${dest} is mounted ${want.readOnly ? "read-write" : "read-only"} inside`);
+      }
+    }
   }
 
   /** Reads the cgroup limits from inside: `max` or a different number means they are not enforced. */
