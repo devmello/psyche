@@ -1,7 +1,14 @@
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { appendMessage, createThread, openDb, setSetting } from "@psyche/db";
+import {
+  appendMessage,
+  createThread,
+  getAgentThreadState,
+  openDb,
+  putAgentThreadState,
+  setSetting,
+} from "@psyche/db";
 import { GraphStore } from "@psyche/memory";
 import { EVERYTHING_MEMORY_SETTING_KEY, type Message } from "@psyche/protocol";
 import {
@@ -14,11 +21,19 @@ import {
 import { FakeClock, FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { composeEverything, EVERYTHING_LOCAL_CONFIRMED } from "../src/compose/everything.ts";
+import { SqliteThreadStateStore } from "../src/compose/thread-state.ts";
 import type { Call, ChatContextCaller } from "../src/context.ts";
 import { chatHandlers } from "../src/handlers/chat.ts";
 import { personalizeMessageEvent, readerOf, scrubMessage } from "../src/message-scrub.ts";
 import { GatedAgentLoop, RecordingBroker } from "./agent.ts";
-import { desktopClient, ik, newDeviceKey, startTestGateway, type TestGateway } from "./helpers.ts";
+import {
+  adminClient,
+  desktopClient,
+  ik,
+  newDeviceKey,
+  startTestGateway,
+  type TestGateway,
+} from "./helpers.ts";
 
 /**
  * "Open as a chat" for a Search answer (future-features §1): the chat starts with the answer and
@@ -58,9 +73,12 @@ const MSG: Seed = {
 };
 const Q = "when will the contract be ready";
 
-async function world(seeds: Seed[], opts: { cloudBlocked?: SourceId[] } = {}) {
+async function world(
+  seeds: Seed[],
+  opts: { cloudBlocked?: SourceId[]; db?: ReturnType<typeof openDb> } = {},
+) {
   const clock = new FakeClock(NOW);
-  const db = openDb(":memory:");
+  const db = opts.db ?? openDb(":memory:");
   const graph = new GraphStore({ sqlite: db.sqlite, clock });
   const provider = new FakeModelProvider({ id: "fake" });
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "psyche-lac-")));
@@ -832,5 +850,124 @@ describe("review fixes", () => {
     w.e.healTranscripts();
     expect(stored()).not.toContain("Friday");
     expect(stored()).toContain(Q);
+  });
+});
+
+describe("a thread whose model becomes a cloud model", () => {
+  it("rebuilds the saved preamble with the cloud rules before the next turn", async () => {
+    const w = await world([MAIL], { cloudBlocked: ["mail"] });
+    setSetting(w.db, EVERYTHING_LOCAL_CONFIRMED, "ollama/qwen");
+    w.on({ model: { default: { kind: "local", ref: "ollama/qwen" } } });
+    w.provider.enqueue(say("The contract will be ready on Friday [P1]."));
+    const r = await w.answer({ q: Q, passages: true });
+    // The chat runs on this Mac: the preamble keeps the claim that a cloud model may not read.
+    w.e.useThreadModel(
+      () => false,
+      () => true,
+    );
+    const ctx = w.e.lifeChat.resolve(openRef(r.answerId ?? ""), w.caller("desktop"));
+    expect(ctx?.preamble).toContain('built="local"');
+    expect(ctx?.preamble).toContain("Friday");
+    createThread(w.db, { id: "t1", kind: "side", title: "t", sessionKey: "t1" } as never);
+    appendMessage(
+      w.db,
+      {
+        threadId: "t1",
+        role: "user",
+        blocks: [ctx?.blocks?.[0] as never, { type: "text", md: Q }],
+        provenance: "owner",
+      },
+      { expectedWriterRunId: null },
+    );
+    putAgentThreadState(w.db, "t1", {
+      messages: [{ role: "user", parts: [{ type: "text", text: `${ctx?.preamble}\n\n${Q}` }] }],
+      checklist: [],
+    });
+    const store = new SqliteThreadStateStore(w.db, null, null, (id, state) =>
+      w.e.lifeChat.refreshState(id, state),
+    );
+    // Still local: loaded as it was.
+    expect(JSON.stringify(await store.load("t1"))).toContain("Friday");
+    // The model is pinned to a cloud one: the next load rebuilds, and keeps the owner's question.
+    w.e.useThreadModel(
+      () => true,
+      () => true,
+    );
+    const next = JSON.stringify(await store.load("t1"));
+    expect(next).not.toContain("Friday");
+    expect(next).not.toContain('built=\\"local\\"');
+    expect(next).toContain('built=\\"cloud\\"');
+    expect(next).toContain(Q);
+    // Saved back, so the check is cheap and the rebuild is not repeated.
+    expect(JSON.stringify(getAgentThreadState(w.db, "t1"))).not.toContain("Friday");
+    // A preamble built for the cloud is never loosened when the model goes back to a local one.
+    w.e.useThreadModel(
+      () => false,
+      () => true,
+    );
+    expect(JSON.stringify(await store.load("t1"))).not.toContain("Friday");
+  });
+});
+
+describe("a real forget heals the stored answers", () => {
+  let t: TestGateway;
+  afterEach(async () => {
+    await t?.cleanup();
+  });
+
+  it("memory.entities.forgetSaid through the mounted handler rewrites the stored block", async () => {
+    // The mounted handler is the real one from the everything part; it needs the Gateway's own
+    // database, so the Gateway starts first and the handler is bound to the part afterwards.
+    let late: Record<string, { run: (call: Call, params: never) => unknown }> = {};
+    t = await startTestGateway({
+      handlers: {
+        "memory.entities.forgetSaid": {
+          run: (call: Call, params: never) => late["memory.entities.forgetSaid"]?.run(call, params),
+        },
+      },
+    });
+    const w = await world([MAIL], { db: t.gateway.context.db });
+    late = (w.e.part().handlers ?? {}) as typeof late;
+    expect(late["memory.entities.forgetSaid"]).toBeDefined();
+    t.gateway.context.messageScrub.heal = () => w.e.healTranscripts();
+    w.learn("mail");
+    w.provider.enqueue(say("Sam works at Initech [1]. The contract will be ready on Friday [P1]."));
+    const r = await w.answer({
+      q: "where does sam work and when is the contract ready",
+      passages: true,
+    });
+    const ctx = w.e.lifeChat.resolve(openRef(r.answerId ?? ""), w.caller("desktop"));
+    const c = await adminClient(t.gateway);
+    try {
+      const { thread } = await c.call<{ thread: { id: string } }>(
+        "threads.create",
+        { kind: "side", title: "Sam" },
+        ik(),
+      );
+      const stored = appendMessage(
+        t.gateway.context.db,
+        {
+          threadId: thread.id,
+          role: "user",
+          blocks: [ctx?.blocks?.[0] as never, { type: "text", md: Q }],
+          provenance: "owner",
+        },
+        { expectedWriterRunId: null },
+      );
+      const blocks = () =>
+        (
+          t.gateway.context.db.sqlite
+            .prepare("SELECT blocks FROM messages WHERE id = ?")
+            .get(stored.id) as { blocks: string }
+        ).blocks;
+      expect(blocks()).toContain("Sam works at Initech");
+      const entityId = (r.facts[0] as unknown as { entity: { id: string } }).entity.id;
+      await c.call("memory.entities.forgetSaid", { id: entityId }, ik());
+      // The words that rested on the discarded fact are gone from the stored message.
+      expect(blocks()).not.toContain("Initech");
+      expect(blocks()).toContain("Friday");
+    } finally {
+      c.close();
+    }
   });
 });

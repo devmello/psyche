@@ -1216,7 +1216,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   parts.push(teaching.part);
   const loop = createAgentLoop({
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
-    state: new SqliteThreadStateStore(db, redactor, config.home),
+    state: new SqliteThreadStateStore(db, redactor, config.home, (threadId, state) =>
+      // A life-answer preamble built for a local model is rebuilt before a cloud model reads it.
+      everything.lifeChat.refreshState(threadId, state),
+    ),
     provider,
     model: modelRef,
     ...(utility === undefined ? {} : { utilityModel: utility }),

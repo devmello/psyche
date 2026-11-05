@@ -810,6 +810,17 @@ export function composeEverything(deps: EverythingDeps): Everything {
     // Fails closed: a thread's model is cloud until the composition root says it is not.
     threadIsCloud: (threadId) => threadIsCloud(threadId),
     threadIsNew: (threadId) => threadIsNew(threadId),
+    blockOf: (threadId) => {
+      const row = db.sqlite
+        .prepare(
+          "SELECT blocks FROM messages WHERE thread_id = ? AND blocks LIKE '%\"life_answer\"%' ORDER BY seq LIMIT 1",
+        )
+        .get(threadId) as { blocks: string } | undefined;
+      if (row === undefined) return undefined;
+      return (JSON.parse(row.blocks) as Block[]).find(
+        (b): b is Extract<Block, { type: "life_answer" }> => b.type === "life_answer",
+      );
+    },
     read: {
       // By id, so a fact older than the newest 2000 still resolves.
       facts: (ids) =>

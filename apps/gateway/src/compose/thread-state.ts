@@ -35,16 +35,25 @@ export class SqliteThreadStateStore implements ThreadStateStore {
   readonly #db: PsycheDb;
   readonly #masker: StringMasker | null;
   readonly #home: string | null;
+  readonly #refresh: ((threadId: string, state: ThreadState) => boolean) | null;
 
-  constructor(db: PsycheDb, masker: StringMasker | null = null, home: string | null = null) {
+  constructor(
+    db: PsycheDb,
+    masker: StringMasker | null = null,
+    home: string | null = null,
+    /** Called with a saved thread before a turn; true when it edited the state (saved back). */
+    refresh: ((threadId: string, state: ThreadState) => boolean) | null = null,
+  ) {
     this.#db = db;
     this.#masker = masker;
     this.#home = home;
+    this.#refresh = refresh;
   }
 
   async load(threadId: string): Promise<ThreadState | undefined> {
     const stored = getAgentThreadState(this.#db, threadId) as ThreadState | undefined;
     if (stored !== undefined && (stored.messages.length > 0 || stored.summary !== undefined)) {
+      if (this.#refresh?.(threadId, stored) === true) await this.save(threadId, stored);
       return stored;
     }
     return (await this.#rebuild(threadId)) ?? stored;
