@@ -110,10 +110,26 @@ describe("FilesPane", () => {
     expect(await within(tree).findByText(/This folder is no longer shared\./)).toBeTruthy();
   });
 
+  it("lists Windows drive and UNC grants and opens a Windows target", async () => {
+    setup({ target: "C:\\Users\\ada\\Documents\\Trips\\lisbon.md" }, (w) => {
+      w.settings["permissions.policy"] = {
+        folders: [
+          { path: "C:\\Users\\ada\\Documents", mode: "ro" },
+          { path: "\\\\nas\\share\\Photos", mode: "rw" },
+        ],
+      };
+    });
+    const tree = screen.getByRole("navigation", { name: "Shared folders" });
+    expect(await within(tree).findByRole("button", { name: /~\\Documents/ })).toBeTruthy();
+    expect(within(tree).getByRole("button", { name: /\\\\nas\\share\\Photos/ })).toBeTruthy();
+    expect(await screen.findByRole("region", { name: "Preview of lisbon.md" })).toBeTruthy();
+  });
+
   it("labels home folders with a tilde", () => {
     expect(displayPath("/Users/ada/Documents")).toBe("~/Documents");
     expect(displayPath("/home/ada")).toBe("~");
     expect(displayPath("/Volumes/Work")).toBe("/Volumes/Work");
+    expect(displayPath("C:\\Users\\ada\\Documents")).toBe("~\\Documents");
   });
 });
 

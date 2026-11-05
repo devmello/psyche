@@ -5,6 +5,7 @@ import {
   DICTATION_SETTING_KEYS,
   type DictationKey,
   type DictationSettings,
+  holdKeyOf,
   parseDictationSettings,
   type SystemDictation,
   sameKey,
@@ -29,6 +30,11 @@ export interface DictationStatus {
   accessibility: "granted" | "missing" | "unknown";
   watching: boolean;
   hotkeyTaken?: string;
+  /**
+   * Windows: the keyboard layout in use has AltGr, so Right Alt types characters there and makes
+   * a poor hold-to-talk key (Settings warns). Absent when unknown or not Windows.
+   */
+  altGrLayout?: boolean;
 }
 
 /** Electron's `globalShortcut`, narrowed for tests. */
@@ -54,6 +60,8 @@ export interface DictationServiceOptions {
   onVoiceEnabled?: (on: boolean) => void;
   /** Default `process.platform`: which key names share a physical key (Windows). */
   platform?: NodeJS.Platform;
+  /** Windows: whether the keyboard layout in use has AltGr (`psyche-helper --keyboard-layout`). */
+  altGrLayout?: () => Promise<boolean | undefined>;
 }
 
 /** Settings that arm the voice conversation key (spec §6.4). */
@@ -62,8 +70,6 @@ export const VOICE_KEY_SETTING_KEYS = [
   "voice.conversation.key",
 ] as const;
 
-const VOICE_KEYS: readonly DictationKey[] = ["fn", "rightOption", "rightCommand"];
-
 /** The voice key, or null when voice conversation is off or the key collides with dictation's. */
 export function parseVoiceKey(
   values: Record<string, unknown>,
@@ -71,8 +77,7 @@ export function parseVoiceKey(
   platform: NodeJS.Platform = process.platform,
 ): DictationKey | null {
   if (values["voice.conversation.enabled"] !== true) return null;
-  const raw = values["voice.conversation.key"];
-  const key = VOICE_KEYS.includes(raw as DictationKey) ? (raw as DictationKey) : "rightCommand";
+  const key = holdKeyOf(values["voice.conversation.key"], "voice", platform);
   // On Windows `fn` and `rightOption` are both Right Alt: that is a collision too.
   return dictation.enabled && sameKey(key, dictation.key, platform) ? null : key;
 }
@@ -141,8 +146,13 @@ export class DictationService implements VoiceKeySource {
       this.#o.warn?.(`could not read voice settings: ${String(err)}`);
     }
     const platform = this.#o.platform ?? process.platform;
-    const settings = parseDictationSettings(values);
+    const settings = parseDictationSettings(values, platform);
     this.#voiceKey = parseVoiceKey(values, settings, platform);
+    if (platform === "win32" && this.#o.altGrLayout !== undefined) {
+      // Read again on each load: the owner may have switched layouts since.
+      const altGr = await this.#o.altGrLayout().catch(() => undefined);
+      if (altGr !== undefined) this.#update({ altGrLayout: altGr });
+    }
     this.#o.onVoiceEnabled?.(this.#voiceKey !== null);
     await this.apply(settings);
   }

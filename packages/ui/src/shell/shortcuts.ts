@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { t } from "../i18n/core.ts";
-import { keysLabel } from "../lib/keys.ts";
+import { isAltGraphText, keysLabel } from "../lib/keys.ts";
 import { isMac, isWindows } from "../lib/platform.ts";
 
 /**
@@ -296,6 +296,8 @@ export function useShortcuts(
     if (!enabled) return;
     const mac = isMac();
     const onKey = (e: KeyboardEvent) => {
+      // AltGr typing (a backslash on a German keyboard, "{" on a Czech one) is text, not Ctrl+Alt.
+      if (isAltGraphText(e, mac ? "macos" : "other")) return;
       for (const s of SHORTCUTS) {
         const h = ref.current[s.id];
         if (h !== undefined && s.match(e, mac)) {

@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-05 (Windows polish: hold-to-talk keys, host words)
+
+- `DictationKey` gains the Windows helper's keys at the end of the list: `rightCtrl`, `rightAlt`, `rightShift`, `rightWin`, `capsLock`, `scrollLock`, `pause`, `menu`, `insert`, `numLock`, `f13`…`f24` (`WINDOWS_DICTATION_KEYS`; the Mac's are `MAC_DICTATION_KEYS`). The mac helper refuses them (`invalid_params`); the Swift `DictationKey` gains the cases (its switches have a `default`). `fn` and `rightOption` stay Right Alt on Windows and `rightCommand` Right Ctrl (`windowsHoldKey`). `defaultHoldKeys(windows)`: fn / Right ⌘ on a Mac, Right Ctrl (dictation) / Right Alt (voice) on Windows.
+- New browser-safe subpath `@psyche/protocol/host-words`: `hostWords(helperKind?, platform?)` names the Host in owner-facing text ("this Mac" / "this PC", "Touch ID" / "Windows Hello", "System Settings" / "Settings"…).
+
 ### v1 additive — 2026-11-05 (Windows: win-helper, named pipes, Windows Hello presence keys)
 
 - `DevicePlatform` gains `windows`; `NodeKind` gains `win-helper` (the Host's own Windows helper, `apps/win-helper`). Needs migration 202611050900 (the `devices.platform` and `nodes.kind` CHECKs). A `win-helper` is granted exactly like a `mac-helper`: only on the local node transport with the per-launch handshake secret, otherwise `remote`; it pairs only with the secret.

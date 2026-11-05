@@ -224,7 +224,7 @@ export const ja: Partial<Catalogue> = {
   "chat.composer.placeholder": "{persona}にメッセージ…",
   "chat.composer.label": "{persona}にメッセージ",
   "chat.composer.attach": "ファイルを添付",
-  "chat.composer.dictate": "音声入力（fnを長押し）",
+  "chat.composer.dictate": "音声入力（{key}を長押し）",
   "chat.composer.hintIdle": "/を入力するとコマンド",
   "chat.composer.hintFollowUp": "{persona}がこのターンを終えると送信されます",
   "chat.composer.hintSteer": "今すぐ送信して{persona}を誘導します",

@@ -1,9 +1,17 @@
-import type { ReactElement } from "react";
+import type { DictationKey } from "@psyche/protocol";
+import { type ReactElement, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Kbd } from "../../components/ui/kbd.tsx";
 import { t } from "../../i18n/core.ts";
 import { isWindows } from "../../lib/platform.ts";
-import { readVoiceSettings, VOICE_KEYS } from "../../voice/settings.ts";
+import {
+  effectiveHoldKey,
+  type HoldKeyRole,
+  holdKeyFromCode,
+  holdKeyLabel,
+  talkKeyChoices,
+} from "../../voice/hold-keys.ts";
+import { readVoiceSettings } from "../../voice/settings.ts";
 import { type ShortcutCheck, ShortcutRecorder, shortcutText } from "./ShortcutRecorder.tsx";
 import { SpeechModelGroup } from "./SpeechModel.tsx";
 import {
@@ -34,6 +42,8 @@ export interface SystemDictationStatus {
   accessibility: "granted" | "missing" | "unknown";
   watching: boolean;
   hotkeyTaken?: string;
+  /** Windows: the keyboard layout in use has AltGr, so Right Alt types characters there. */
+  altGrLayout?: boolean;
 }
 
 export interface SystemDictationProps {
@@ -148,25 +158,111 @@ export function ScreenAskGroup({
   );
 }
 
-const PTT_KEYS = ["fn", "rightOption", "rightCommand"] as const;
-
 /**
- * The key a stored hold-to-talk value means here. fn never reaches Windows, so there the "fn"
- * value (the default) is Right Alt, the same key as "rightOption"; Right Ctrl is "rightCommand".
- * The desktop's Windows key hook reads the setting the same way.
+ * The key a stored hold-to-talk value means here (`voice/hold-keys.ts`): on Windows a Mac name
+ * an older Settings stored is the key the helper holds for it (fn → Right Alt), and an unset key
+ * is Right Ctrl. The desktop's Windows key hook reads the setting the same way.
  */
-export function effectiveTalkKey(key: string): string {
-  return isWindows() && key === "fn" ? "rightOption" : key;
+export function effectiveTalkKey(key: unknown, role: HoldKeyRole = "dictation"): DictationKey {
+  return effectiveHoldKey(key, role);
 }
 
-/** The hold-to-talk keys this keyboard has: no fn on Windows. */
-export const talkKeys = (): readonly (typeof PTT_KEYS)[number][] =>
-  isWindows() ? ["rightOption", "rightCommand"] : PTT_KEYS;
-
-/** The push-to-talk key as printed or named on this keyboard; an unknown key shows as stored. */
-function keyLabel(key: string): string {
-  const known = PTT_KEYS.find((k) => k === effectiveTalkKey(key));
-  return known === undefined ? key : t(`settings.voice.key.${known}`);
+/**
+ * A hold-to-talk key: the keys this keyboard has as choices, and on Windows any other key that
+ * can be held (F13–F24, Right Shift, Insert…) by pressing it. Right Alt warns on an AltGr layout;
+ * Caps Lock says it keeps its state.
+ */
+function HoldKeyField({
+  label,
+  description,
+  value,
+  settingKey,
+  onChange,
+  taken,
+  altGrLayout,
+  labelOf = holdKeyLabel,
+}: {
+  label: string;
+  description?: string;
+  value: DictationKey;
+  settingKey: string;
+  onChange: (key: DictationKey) => void;
+  /** The other role's key: shown, not choosable. */
+  taken?: DictationKey;
+  altGrLayout?: boolean;
+  /** How an option reads (default: the key's name on this keyboard). */
+  labelOf?: (key: DictationKey) => string;
+}): ReactElement {
+  const [capturing, setCapturing] = useState(false);
+  const [refused, setRefused] = useState(false);
+  const choices = talkKeyChoices();
+  const keys = choices.includes(value) ? choices : [...choices, value];
+  const note =
+    value === "rightAlt" && altGrLayout === true
+      ? t("settings.voice.key.altGrWarning")
+      : value === "capsLock"
+        ? t("settings.voice.key.capsLockHint")
+        : null;
+  return (
+    <div className="flex flex-col gap-2">
+      <RadioField
+        label={label}
+        {...(description === undefined ? {} : { description })}
+        inline
+        value={value}
+        settingKey={settingKey}
+        onChange={onChange}
+        options={keys.map((k) => ({ value: k, label: labelOf(k), disabled: k === taken }))}
+      />
+      {isWindows() ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-callout text-muted-foreground">
+            {t("settings.voice.key.other")}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            aria-pressed={capturing}
+            onClick={() => {
+              setRefused(false);
+              setCapturing(!capturing);
+            }}
+            onBlur={() => setCapturing(false)}
+            onKeyDown={(e) => {
+              if (!capturing) return;
+              e.preventDefault();
+              e.stopPropagation();
+              if (e.key === "Escape") {
+                setCapturing(false);
+                return;
+              }
+              const key = holdKeyFromCode(e.code);
+              if (key === undefined || key === taken) {
+                setRefused(true);
+                return;
+              }
+              setRefused(false);
+              setCapturing(false);
+              onChange(key);
+            }}
+          >
+            {capturing ? t("settings.voice.key.pressNow") : t("settings.voice.key.press")}
+          </Button>
+          {refused ? (
+            <span role="alert" className="text-callout text-danger-text">
+              {t("settings.voice.key.cantUse")}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      {note ? (
+        <p className="text-callout text-muted-foreground" data-testid="hold-key-note">
+          {note}
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 function AccessibilityRow({
@@ -233,10 +329,11 @@ function AccessibilityRow({
 export function VoiceConversationGroup({
   values,
   onChange,
-}: Pick<SettingsFormProps, "values" | "onChange">): ReactElement {
+  altGrLayout,
+}: Pick<SettingsFormProps, "values" | "onChange"> & { altGrLayout?: boolean }): ReactElement {
   const v = readVoiceSettings(values);
-  const dictationKey = effectiveTalkKey(str(values, "voice.pushToTalk", "fn"));
-  const voiceKey = effectiveTalkKey(v.key);
+  const dictationKey = effectiveTalkKey(values["voice.pushToTalk"]);
+  const voiceKey = effectiveTalkKey(v.key, "voice");
   return (
     <Group title={t("voice.settings.title")}>
       <SwitchField
@@ -248,20 +345,22 @@ export function VoiceConversationGroup({
       />
       {v.enabled ? (
         <>
-          <RadioField
+          <HoldKeyField
             label={t("voice.settings.key")}
             description={
               voiceKey === dictationKey ? t("voice.settings.keyClash") : t("voice.settings.keyHint")
             }
-            inline
             value={voiceKey}
             settingKey="voice.conversation.key"
             onChange={(k) => onChange("voice.conversation.key", k)}
-            options={VOICE_KEYS.filter((k) => talkKeys().some((x) => x === k)).map((k) => ({
-              value: k,
-              label: t(`voice.key.${k}`),
-              disabled: k === dictationKey,
-            }))}
+            taken={dictationKey}
+            // A Mac names the voice keys by their glyphs (Right ⌘), as the pop-up does.
+            labelOf={(k) =>
+              !isWindows() && (k === "fn" || k === "rightOption" || k === "rightCommand")
+                ? t(`voice.key.${k}`)
+                : holdKeyLabel(k)
+            }
+            {...(altGrLayout === undefined ? {} : { altGrLayout })}
           />
           <SwitchField
             label={t("voice.settings.review")}
@@ -290,15 +389,16 @@ export function VoicePanel({
   onCheckScreenShortcut,
   onCheckQuickEntryShortcut,
 }: SettingsFormProps & LoadProps & SystemDictationProps): ReactElement {
-  const ptt = str(values, "voice.pushToTalk", "fn");
+  const ptt = effectiveTalkKey(values["voice.pushToTalk"]);
   const systemWide = bool(values, "voice.systemWide", true);
+  const altGrLayout = system?.altGrLayout;
   return (
     <SectionFrame
       needsApproval={needsApproval}
       title={t("settings.nav.voice")}
       description={
         <>
-          {t("settings.voice.hold")} <Kbd>{keyLabel(ptt)}</Kbd> {t("settings.voice.toDictate")}
+          {t("settings.voice.hold")} <Kbd>{holdKeyLabel(ptt)}</Kbd> {t("settings.voice.toDictate")}
         </>
       }
     >
@@ -312,13 +412,12 @@ export function VoicePanel({
           title={t("settings.voice.dictation")}
           description={t("settings.voice.dictationHint")}
         >
-          <RadioField
+          <HoldKeyField
             label={t("settings.key.voice.pushToTalk")}
-            inline
-            value={effectiveTalkKey(ptt)}
+            value={ptt}
             settingKey="voice.pushToTalk"
             onChange={(v) => onChange("voice.pushToTalk", v)}
-            options={talkKeys().map((k) => ({ value: k, label: keyLabel(k) }))}
+            {...(altGrLayout === undefined ? {} : { altGrLayout })}
           />
           <RadioField
             label={t("settings.voice.mode")}
@@ -339,7 +438,7 @@ export function VoicePanel({
               label={t("settings.key.voice.systemWide")}
               description={
                 <>
-                  {t("settings.voice.hold")} <Kbd>{keyLabel(ptt)}</Kbd>{" "}
+                  {t("settings.voice.hold")} <Kbd>{holdKeyLabel(ptt)}</Kbd>{" "}
                   {t("settings.voice.anyAppHint")}
                 </>
               }
@@ -376,7 +475,11 @@ export function VoicePanel({
             {...(onCheckScreenShortcut ? { onCheck: onCheckScreenShortcut } : {})}
           />
         ) : null}
-        <VoiceConversationGroup values={values} onChange={onChange} />
+        <VoiceConversationGroup
+          values={values}
+          onChange={onChange}
+          {...(altGrLayout === undefined ? {} : { altGrLayout })}
+        />
         <Advanced description={t("settings.voice.advancedHint")}>
           <Group title={t("settings.voice.engine")}>
             <RadioField

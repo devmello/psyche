@@ -12570,9 +12570,31 @@ public struct DictationKeyPayload: Codable, Sendable {
 }
 
 public enum DictationKey: String, Codable, Sendable {
+    case capsLock = "capsLock"
+    case f13 = "f13"
+    case f14 = "f14"
+    case f15 = "f15"
+    case f16 = "f16"
+    case f17 = "f17"
+    case f18 = "f18"
+    case f19 = "f19"
+    case f20 = "f20"
+    case f21 = "f21"
+    case f22 = "f22"
+    case f23 = "f23"
+    case f24 = "f24"
     case fn = "fn"
+    case insert = "insert"
+    case menu = "menu"
+    case numLock = "numLock"
+    case pause = "pause"
+    case rightAlt = "rightAlt"
     case rightCommand = "rightCommand"
+    case rightCtrl = "rightCtrl"
     case rightOption = "rightOption"
+    case rightShift = "rightShift"
+    case rightWin = "rightWin"
+    case scrollLock = "scrollLock"
 }
 
 public enum DictationKeyRole: String, Codable, Sendable {

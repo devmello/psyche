@@ -130,6 +130,7 @@ const contexts = new Map<string, CallContext>();
 const cancelled: { runId: string; reason: string }[] = [];
 const issued: IssuedApproval[] = [];
 let answer: "approve" | "deny" | "none" = "approve";
+let helperKind = "mac-helper";
 
 beforeEach(() => {
   broker = new FakePermissionBroker({ armDelayMs: 0 });
@@ -153,12 +154,14 @@ beforeEach(() => {
     return i;
   };
   helper = new FakeHelper();
+  helperKind = "mac-helper";
   connected = true;
   contexts.clear();
   cancelled.length = 0;
   cu = createComputerUse({
     broker,
-    helper: () => (connected ? { nodeId: helper.nodeId, client: helper } : undefined),
+    helper: () =>
+      connected ? { nodeId: helper.nodeId, client: helper, kind: helperKind } : undefined,
     context: (callId) => {
       const c = contexts.get(callId);
       if (c === undefined) throw new Error(`no context ${callId}`);
@@ -349,6 +352,15 @@ describe("computer-use agent tools (J1–J5)", () => {
     });
     expect(cancelled).toEqual([{ runId: "run_1", reason: "Stopped: you pressed Esc on the Mac" }]);
     expect(cu.sessions()).toEqual([]);
+  });
+
+  it("names the PC when the Windows helper reports Esc", async () => {
+    helperKind = "win-helper";
+    await call("computer.snapshot", { app: notes });
+    helper.stopNext = true;
+    const r = await call("computer.act", { app: notes, action: "type", text: "hi" });
+    expect(JSON.stringify(r.output)).toContain("you pressed Esc on the PC");
+    expect(cancelled).toEqual([{ runId: "run_1", reason: "Stopped: you pressed Esc on the PC" }]);
   });
 
   it("lets one session drive the computer and releases it when the run ends", async () => {

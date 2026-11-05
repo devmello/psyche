@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { type JsonObject, PsycheError, type ToolCallDescription } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { canonicalJSON, sha256 } from "../framework/binding.ts";
 import type {
   CatalogueEntry,
@@ -54,8 +55,7 @@ export const OBSIDIAN_CATALOGUE: CatalogueEntry = {
   type: "obsidian",
   id: "obsidian",
   label: "Obsidian",
-  description:
-    "Search and read the notes in an Obsidian vault on your Mac, add to today's daily note, and create notes. Uses the vault folder you share in Settings → File access.",
+  description: `Search and read the notes in an Obsidian vault on ${hostWords().yourDevice}, add to today's daily note, and create notes. Uses the vault folder you share in Settings → File access.`,
   category: "first_party",
   vendor: "Obsidian",
   auth: "none",

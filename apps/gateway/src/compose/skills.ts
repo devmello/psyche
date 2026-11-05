@@ -11,6 +11,7 @@ import {
   type SkillTrust,
   type ToolRegistration,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import {
   createSkillAuthorTools,
   createSkillLoader,
@@ -481,6 +482,6 @@ export function assertDesktopRecording(identity: { desktopShell?: true }): void 
   if (identity.desktopShell !== true)
     throw new PsycheError(
       "forbidden",
-      "recordings are made in the Psyche app on this Mac; this device cannot save one",
+      `recordings are made in the Psyche app on ${hostWords().thisDevice}; this device cannot save one`,
     );
 }

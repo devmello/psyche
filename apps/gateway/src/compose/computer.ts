@@ -15,6 +15,7 @@ import {
   type ToolRegistration,
   type ToolResult,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
@@ -122,40 +123,43 @@ export const SEND_APPS = [
 export { ATTENTION_WINDOW_MS };
 
 /**
- * The same apps as the Windows helper names them (`bundleId` is the AppUserModelID, or the
- * executable path for an app without one): executables, and AUMIDs by prefix.
+ * The same apps as the Windows helper names them: by the lowercase file name of the app's
+ * executable (`apps/win-helper/crates/win-computer/src/app_id.rs`), packaged (Store) apps
+ * included: their frame belongs to the hosted app's own process, so New Outlook is `olk.exe` and
+ * Mail is `hxoutlook.exe`, never an AppUserModelID. A full path (an older helper) still matches by
+ * its file name.
  */
 const SEND_EXES = [
+  // Mail
   "outlook.exe",
   "olk.exe",
+  "hxoutlook.exe",
+  "thunderbird.exe",
+  "mailbird.exe",
+  "mailclient.exe",
+  // Chat
   "slack.exe",
   "discord.exe",
+  "discordptb.exe",
+  "discordcanary.exe",
   "whatsapp.exe",
+  "whatsapp.root.exe",
   "telegram.exe",
   "signal.exe",
   "messenger.exe",
   "ms-teams.exe",
   "teams.exe",
-  "thunderbird.exe",
-];
-const SEND_AUMID_PREFIXES = [
-  "microsoft.outlookforwindows_",
-  "microsoft.office.outlook",
-  "com.squirrel.slack.",
-  "com.squirrel.discord.",
-  "5319275a.whatsappdesktop_",
-  "telegramdesktop",
-  "org.whispersystems.signal-desktop",
-  "facebook.messenger",
-  "msteams_8wekyb3d8bbwe!",
-  "microsoft.windowscommunicationsapps_",
+  "element.exe",
+  "viber.exe",
+  // Phone Link sends texts from the paired phone.
+  "phoneexperiencehost.exe",
 ];
 
 export function isSendApp(app: string): boolean {
-  const id = app.toLowerCase();
+  const id = app.trim().toLowerCase();
   if (SEND_APPS.some((a) => a.toLowerCase() === id)) return true;
   const exe = id.split(/[\\/]/).pop() ?? "";
-  return SEND_EXES.includes(exe) || SEND_AUMID_PREFIXES.some((p) => id.startsWith(p));
+  return SEND_EXES.includes(exe);
 }
 
 /** Return / Enter (with or without cmd), and Mail's cmd+shift+D: send in a messaging app. */
@@ -323,6 +327,8 @@ const NoParams = Type.Object({}, { additionalProperties: false });
 export interface HelperNode {
   nodeId: string;
   client: NodeClient;
+  /** `mac-helper` / `win-helper`: "the Mac" or "the PC" in what the owner reads. */
+  kind?: string;
 }
 
 export interface ComputerDeps {
@@ -457,8 +463,8 @@ const MENU_ROLES = new Set(["menuitem", "menubaritem", "menubutton", "popupbutto
 /** Elements remembered for describing and checking actions (bounded). */
 const MAX_ELEMENTS = 20_000;
 
-const STOPPED =
-  "Computer use stopped: you pressed Esc on the Mac. The run is cancelled; nothing else was done.";
+const stopped = (kind?: string) =>
+  `Computer use stopped: you pressed Esc on ${hostWords(kind).theDevice}. The run is cancelled; nothing else was done.`;
 
 export function createComputerUse(deps: ComputerDeps): ComputerUse {
   const now = deps.now ?? Date.now;
@@ -538,7 +544,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     if (node === undefined) {
       throw new PsycheError(
         "unavailable",
-        "The Psyche helper is not running on a Mac, so computer use is unavailable.",
+        `The Psyche helper is not running on ${hostWords().thisDevice}, so computer use is unavailable.`,
         { retryable: true },
       );
     }
@@ -724,10 +730,16 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       }
       const err = fail(res.error ?? { code: "internal", message: "the helper failed" });
       if (err.code === "cancelled" && reasonOf(err) === "user_stopped") {
-        // Esc on the Mac (J5): the helper already ended the session; stop the run too.
+        // Esc on the Host (J5): the helper already ended the session; stop the run too.
         if (session !== undefined) sessions.delete(session.id);
-        deps.cancelRun(ctx.threadId, ctx.runId, "Stopped: you pressed Esc on the Mac");
-        throw new PsycheError("cancelled", STOPPED, { details: { reason: "user_stopped" } });
+        deps.cancelRun(
+          ctx.threadId,
+          ctx.runId,
+          `Stopped: you pressed Esc on ${hostWords(node.kind).theDevice}`,
+        );
+        throw new PsycheError("cancelled", stopped(node.kind), {
+          details: { reason: "user_stopped" },
+        });
       }
       if (err.code === "approval_required" && approvalId === undefined && round === 0) {
         approvalId = await approveForHelper(
@@ -1039,7 +1051,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     def({
       name: "apps.list",
       description:
-        "Apps running on the Mac: bundle id, name, frontmost, and the computer-use tier in effect.",
+        "Apps running on this computer: app id (a bundle id on macOS, the exe name on Windows), name, frontmost, and the computer-use tier in effect.",
       schema: NoParams,
       sideEffect: "read",
       async run(_p, callId, signal) {
@@ -1442,7 +1454,9 @@ const TASK_FINISHED = new Set(["done", "failed", "cancelled"]);
 export function computerHelper(gateway: () => Gateway | undefined): () => HelperNode | undefined {
   return () => {
     const helper = gateway()?.context.nodes.hostHelper("computer.ax_tree");
-    return helper === undefined ? undefined : { nodeId: helper.info.id, client: helper.client };
+    return helper === undefined
+      ? undefined
+      : { nodeId: helper.info.id, client: helper.client, kind: helper.info.kind };
   };
 }
 

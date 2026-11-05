@@ -12,6 +12,7 @@ import {
   type SearchIndexStatus,
   type SearchModelEngine,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import {
   type AppleSourceDeps,
   appleAdapters,
@@ -776,7 +777,10 @@ function deferredSearch(
     encryption: waiting(),
   });
   const unavailable = (): never => {
-    throw new PsycheError("unavailable", `search is waiting for the Mac helper (${opener.reason})`);
+    throw new PsycheError(
+      "unavailable",
+      `search is waiting for ${hostWords().helper} (${opener.reason})`,
+    );
   };
   const delegate = (name: string, fallback: (p: never) => unknown) => ({
     run: (call: never, params: never) => {

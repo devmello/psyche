@@ -10,6 +10,10 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./apps": {
+      "types": "./src/apps.ts",
+      "default": "./src/apps.ts"
+    },
     "./cards": {
       "types": "./src/cards.ts",
       "default": "./src/cards.ts"

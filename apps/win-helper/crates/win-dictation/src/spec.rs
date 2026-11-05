@@ -146,7 +146,34 @@ pub(crate) mod schema {
     }
 }
 
-const KEYS: &[&str] = &["fn", "rightOption", "rightCommand"];
+/// Every hold-to-talk key name (`dictation::keys::KEY_NAMES`; `manifest_keys_match_the_table`).
+const KEYS: &[&str] = &[
+    "fn",
+    "rightOption",
+    "rightCommand",
+    "rightCtrl",
+    "rightAlt",
+    "rightShift",
+    "rightWin",
+    "capsLock",
+    "scrollLock",
+    "pause",
+    "menu",
+    "insert",
+    "numLock",
+    "f13",
+    "f14",
+    "f15",
+    "f16",
+    "f17",
+    "f18",
+    "f19",
+    "f20",
+    "f21",
+    "f22",
+    "f23",
+    "f24",
+];
 
 /// Every capability this crate serves, in manifest order (dictation, then speech).
 pub fn specs() -> Vec<CapabilitySpec> {
@@ -225,12 +252,12 @@ pub fn specs() -> Vec<CapabilitySpec> {
         },
         CapabilitySpec {
             name: "dictation.watch",
-            description: "Desktop dictation and voice only: stream {key, down, at, role?} while a hold-to-talk key goes down and up (low-level keyboard hook; fn = the configured key, Right Alt by default; rightOption = Right Alt; rightCommand = Right Ctrl). `keys` watches two keys with roles (dictation, voice); a single `key` has no role. Listen-only; a newer watch or key: null ends this one.".into(),
+            description: "Desktop dictation and voice only: stream {key, down, at, role?} while a hold-to-talk key goes down and up (low-level keyboard hook; the Mac names fn and rightOption = Right Alt, rightCommand = Right Ctrl; or a PC key by name: rightCtrl, rightAlt, rightShift, rightWin, capsLock (its lock state is put back after a hold), scrollLock, pause, menu, insert, numLock, f13–f24). `keys` watches two keys with roles (dictation, voice); a single `key` has no role. Listen-only; a newer watch or key: null ends this one.".into(),
             side_effect: SideEffect::Read,
             target_kind: None,
             input_schema: object(
                 vec![
-                    ("key", string(Some("Modifier to watch; null stops"), Some(KEYS), None)),
+                    ("key", string(Some("Key to watch; null stops"), Some(KEYS), None)),
                     (
                         "keys",
                         array(
@@ -350,6 +377,11 @@ pub fn specs() -> Vec<CapabilitySpec> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn manifest_keys_match_the_table() {
+        assert_eq!(KEYS, crate::dictation::keys::key_names().as_slice());
+    }
 
     #[test]
     fn names_and_schemas_match_the_mac_helper() {

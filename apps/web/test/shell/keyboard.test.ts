@@ -62,6 +62,29 @@ describe("keyboard map", () => {
     expect(matchShortcut(ev("d", { metaKey: true }, "KeyD"), { mac: true })).toBe("deny");
   });
 
+  it("never takes AltGr typing for a Ctrl+Alt shortcut", () => {
+    const win = { mac: false, inText: true };
+    const altGr = (key: string, code: string, state = true) =>
+      ev(
+        key,
+        { ctrlKey: true, altKey: true, getModifierState: (k) => state && k === "AltGraph" },
+        code,
+      );
+    // Czech / Hungarian AltGr+B types "{": not the compact sidebar.
+    expect(matchShortcut(altGr("{", "KeyB"), win)).toBeNull();
+    // Windows' own Ctrl+Alt = AltGr, reported without the modifier state.
+    expect(matchShortcut(altGr("{", "KeyB", false), win)).toBeNull();
+    // A dead key (AltGr+´ and the like) is text too.
+    expect(matchShortcut(altGr("Dead", "Equal"), win)).toBeNull();
+    // A real Ctrl+Alt+B (no AltGr meaning on this layout, or a Cyrillic layout) still works.
+    expect(matchShortcut(altGr("b", "KeyB", false), win)).toBe("toggleCompactSidebar");
+    expect(matchShortcut(altGr("и", "KeyB", false), win)).toBe("toggleCompactSidebar");
+    // Option on macOS changes `key` (⌥⌘B is "∫"); that stays a shortcut.
+    expect(
+      matchShortcut(ev("∫", { metaKey: true, altKey: true }, "KeyB"), { mac: true, inText: true }),
+    ).toBe("toggleCompactSidebar");
+  });
+
   it("labels chords", () => {
     expect(chordLabel({ key: "b", mod: true, shift: true }, true)).toBe("⇧⌘B");
     expect(chordLabel({ key: "b", mod: true, shift: true }, false)).toBe("Ctrl+Shift+B");
@@ -77,7 +100,7 @@ describe("keyboard map", () => {
       const quick = SHORTCUTS.find((s) => s.action === "quickEntry");
       expect(quick && chordLabel(quick.chord, false)).toBe("Ctrl+Alt+Space");
       const talk = SHORTCUTS.find((s) => s.action === "pushToTalk");
-      expect(talk && chordLabel(talk.chord, false)).toBe("Right Alt");
+      expect(talk && chordLabel(talk.chord, false)).toBe("Right Ctrl");
       const go = SHORTCUTS.filter((s) => s.action.startsWith("go:")).map((s) =>
         chordLabel(s.chord, false),
       );

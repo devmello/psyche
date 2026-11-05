@@ -6,6 +6,7 @@ import {
   type NodeInvokeResult,
   PsycheError,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
@@ -51,10 +52,14 @@ function unwrap(r: NodeInvokeResult): unknown {
   if (r.ok) return r.result;
   const e = r.error;
   const details = (e?.details ?? {}) as Record<string, unknown>;
-  throw new PsycheError((e?.code as never) ?? "internal", e?.message ?? "the Mac helper failed", {
-    details,
-    ...(e?.retryable === true ? { retryable: true } : {}),
-  });
+  throw new PsycheError(
+    (e?.code as never) ?? "internal",
+    e?.message ?? `${hostWords().helper} failed`,
+    {
+      details,
+      ...(e?.retryable === true ? { retryable: true } : {}),
+    },
+  );
 }
 
 interface Watch {

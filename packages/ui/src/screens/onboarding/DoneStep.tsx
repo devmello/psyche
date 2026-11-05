@@ -2,6 +2,8 @@ import { Loader } from "lucide-react";
 import { type ReactElement, useId } from "react";
 import { Avatar } from "../../avatar/Avatar.tsx";
 import { activeI18n, t } from "../../i18n/core.ts";
+import { isWindows } from "../../lib/platform.ts";
+import { effectiveHoldKey, holdKeyLabel } from "../../voice/hold-keys.ts";
 import { SCOPE_MODE_LABEL } from "../settings/ConnectorsSection.tsx";
 import { ToolCheckBadge } from "../settings/ModelSection.tsx";
 import { Facts, StatusChip } from "../settings/shared.tsx";
@@ -54,7 +56,13 @@ export function DoneStep({
           </p>
           {helperConnected ? (
             <p className="text-reading text-label-secondary" data-testid="onboarding-voice-hint">
-              {t("voice.onboarding.hint", { key: t("voice.key.rightCommand"), name: p.name })}
+              {t("voice.onboarding.hint", {
+                // The voice key's default: Right ⌘ on a Mac, Right Alt on Windows.
+                key: isWindows()
+                  ? holdKeyLabel(effectiveHoldKey(undefined, "voice"))
+                  : t("voice.key.rightCommand"),
+                name: p.name,
+              })}
             </p>
           ) : null}
         </div>

@@ -5,6 +5,7 @@ import {
   OCR_MIN_TEXT_CHARS,
   type OcrRecognizeResult,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import type { OcrText } from "@psyche/search";
 
 /**
@@ -48,7 +49,8 @@ export function helperRecognizer(
         },
         { timeoutMs: opts.timeoutMs ?? OCR_CALL_TIMEOUT_MS, signal },
       );
-      if (!res.ok) throw new Error(res.error?.message ?? "the Mac helper could not read the file");
+      if (!res.ok)
+        throw new Error(res.error?.message ?? `${hostWords().helper} could not read the file`);
       const out = res.result as OcrRecognizeResult;
       if (out.refusal !== undefined) return undefined;
       const text = out.pages

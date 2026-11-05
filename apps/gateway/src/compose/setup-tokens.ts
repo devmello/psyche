@@ -14,6 +14,7 @@ import {
   type MethodResult,
   PsycheError,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 
@@ -139,7 +140,7 @@ export function setupTokenHandlers(deps: {
           if (origin === null) {
             throw new PsycheError(
               "unavailable",
-              "Set gateway.publicOrigin (the Tailscale address of this Mac) before making a pairing link",
+              `Set gateway.publicOrigin (the Tailscale address of ${hostWords().thisDevice}) before making a pairing link`,
             );
           }
           gatewayUrl = new URL(origin).origin;
@@ -159,8 +160,8 @@ export function setupTokenHandlers(deps: {
           throw new PsycheError(
             "unavailable",
             lan
-              ? "This Mac's network address or name cannot go in a pairing link"
-              : "This Mac's address or name cannot go in a pairing link; check gateway.publicOrigin",
+              ? `This ${hostWords().device}'s network address or name cannot go in a pairing link`
+              : `This ${hostWords().device}'s address or name cannot go in a pairing link; check gateway.publicOrigin`,
           );
         }
         const { token, record } = createSetupToken(db, {

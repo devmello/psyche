@@ -1,4 +1,6 @@
+import { DEVICE_ONLY_TEXT } from "@psyche/permissions/cards";
 import type { ApprovalRequestInput } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { describe, expect, it } from "vitest";
 import { approvalRef } from "../src/format/approval-card.ts";
 import { FRIEND, harness, OWNER, sentTexts } from "./helpers.ts";
@@ -135,12 +137,12 @@ describe("approvals over chat", () => {
     }
     expect(h.adapter.sent.filter((s) => s.kind === "approval_buttons")).toHaveLength(0);
     // Each chat got the header and a pointer to the Mac: never the arguments, never buttons.
-    const pointers = sentTexts(h).filter((t) => t.endsWith("Answer this on your Mac."));
+    const pointers = sentTexts(h).filter((t) => t.endsWith(DEVICE_ONLY_TEXT));
     expect(pointers).toEqual([
-      "Pay · financial\nAnswer this on your Mac.",
-      "Fill credential · write\nAnswer this on your Mac.",
-      "Run command on this Mac · write\nAnswer this on your Mac.",
-      "Write file · destructive\nAnswer this on your Mac.",
+      `Pay · financial\n${DEVICE_ONLY_TEXT}`,
+      `Fill credential · write\n${DEVICE_ONLY_TEXT}`,
+      `Run command on ${hostWords().thisDevice} · write\n${DEVICE_ONLY_TEXT}`,
+      `Write file · destructive\n${DEVICE_ONLY_TEXT}`,
     ]);
     for (const t of sentTexts(h)) {
       expect(t).not.toContain("alice@example.org");

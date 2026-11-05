@@ -5,9 +5,15 @@ import { join } from "node:path";
 import { setSetting } from "@psyche/db";
 import { approvalCode, presenceChallenge } from "@psyche/permissions";
 import type { ApprovalRequest } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { composeHelper, helperErrorFields, helperPresenceMessage } from "../src/compose/helper.ts";
+import {
+  approvalNotificationCard,
+  composeHelper,
+  helperErrorFields,
+  helperPresenceMessage,
+} from "../src/compose/helper.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { silentLogger } from "../src/log.ts";
 import { FakeNode, type FakeNodeHandler, pairNodeDevice } from "./fake-node.ts";
@@ -96,6 +102,7 @@ async function setup(
     register?: boolean;
     kind?: string;
     allowDevFileKey?: boolean;
+    family?: "mac-helper" | "win-helper";
   } = {},
 ) {
   home = mkdtempSync(join(tmpdir(), "psyche-touchid-"));
@@ -118,6 +125,7 @@ async function setup(
       secret: composed.gateway.handshakeSecret,
       handlers: helperHandlers(key, opts.confirm, opts.kind),
       deviceId: helperDevice,
+      ...(opts.family === undefined ? {} : { deviceFamily: opts.family }),
     });
     nodes.push(node);
     await vi.waitFor(() =>
@@ -266,6 +274,54 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
     expect(await reasonOf({ confirm: () => ({ signature: "x" }), register: false })).toMatchObject({
       code: "unavailable",
       details: { reason: "no_presence_key" },
+    });
+  });
+
+  it("names the helper's own presence check: Touch ID on a Mac, Windows Hello on a PC", async () => {
+    const messageOf = async (opts: Parameters<typeof setup>[0]) => {
+      const { c, admin } = await setup(opts);
+      const card = await authCard(c, admin);
+      await new Promise((r) => setTimeout(r, 450)); // past the arm delay
+      const r = await admin.request(
+        "approvals.approveWithTouchId",
+        { approvalId: card.approval.id, answerToken: card.token },
+        ik(),
+      );
+      await reset();
+      return (r as { error?: { message?: string } }).error?.message;
+    };
+    const confirm = () => ({ signature: "x" });
+    expect(await messageOf({ confirm, register: false })).toBe(
+      "Touch ID is not set up for approvals: register the helper's Touch ID key first",
+    );
+    expect(await messageOf({ confirm, register: false, family: "win-helper" })).toBe(
+      "Windows Hello is not set up for approvals: register the helper's Windows Hello key first",
+    );
+    const cancelled = () => {
+      throw Object.assign(new Error(""), { code: "cancelled" });
+    };
+    expect(await messageOf({ confirm: cancelled, family: "win-helper" })).toBe(
+      "Windows Hello was cancelled",
+    );
+    expect(await messageOf({ confirm: cancelled })).toBe("Touch ID was cancelled");
+    // Four Gateways in one case: give a loaded machine the time.
+  }, 30_000);
+
+  it("a long card's notification sends the owner to their Mac or PC", () => {
+    const long = {
+      kind: "policy_change",
+      summary: "x".repeat(4000),
+      sideEffect: "destructive",
+      taint: false,
+      details: { note: "y".repeat(4000) },
+    } as unknown as ApprovalRequest;
+    expect(approvalNotificationCard(long, hostWords("mac-helper"))).toMatchObject({
+      body: "Open Psyche on your Mac to review.",
+      approvable: false,
+    });
+    expect(approvalNotificationCard(long, hostWords("win-helper"))).toMatchObject({
+      body: "Open Psyche on your PC to review.",
+      approvable: false,
     });
   });
 

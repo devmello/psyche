@@ -104,6 +104,7 @@ import {
   helperCanHoldKeychain,
   helperPathFor,
   isHostHelperKind,
+  readAltGrLayout,
   readHelperIdentity,
 } from "./main/helper-launcher.ts";
 import { LoginItem, squirrelLayout } from "./main/login-item.ts";
@@ -561,18 +562,17 @@ function helperForThisGateway(): string | undefined {
   return perfProbe === undefined && thisMacGateway ? bundledHelperPath() : undefined;
 }
 
+/** Runs the bundled helper with flags that print one JSON line and exit. */
+const runHelperOnce = (file: string, args: string[], env: NodeJS.ProcessEnv) =>
+  new Promise<{ code: number; stdout: string }>((resolve) => {
+    execFile(file, args, { env, timeout: 15_000, windowsHide: true }, (err, stdout) => {
+      resolve({ code: err ? 1 : 0, stdout: String(stdout) });
+    });
+  });
+
 /** The bundled helper's own device id and Touch ID key id (`--print-identity`). */
 function bundledHelperIdentity(): Promise<HelperIdentity | undefined> {
-  return readHelperIdentity(
-    helperForThisGateway(),
-    home,
-    (file, args, env) =>
-      new Promise((resolve) => {
-        execFile(file, args, { env, timeout: 15_000, windowsHide: true }, (err, stdout) => {
-          resolve({ code: err ? 1 : 0, stdout: String(stdout) });
-        });
-      }),
-  );
+  return readHelperIdentity(helperForThisGateway(), home, runHelperOnce);
 }
 
 /**
@@ -1648,6 +1648,10 @@ void app.whenReady().then(async () => {
       : { shortcuts: globalShortcut }),
     warn: (m) => console.warn(`[dictation] ${m}`),
     onStatus: (s) => broadcast(IPC.dictationStatus, s),
+    // Windows: Settings warns when Right Alt is AltGr on the layout in use.
+    ...(process.platform === "win32"
+      ? { altGrLayout: () => readAltGrLayout(helperForThisGateway(), runHelperOnce) }
+      : {}),
     // Double-tapping the voice or dictation key opens "Ask about my screen", like the shortcut.
     onKeyDoubleTap: () => {
       if (!remoteGateway) screenAsk?.trigger("window");

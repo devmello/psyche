@@ -6,7 +6,14 @@ import { createDesktopLauncher, desktopInstalled } from "../src/compose/desktop-
 import { readSystemState } from "../src/compose/everything-probe.ts";
 import { powerReader, windowsPowerState } from "../src/compose/search-files.ts";
 import { isHostHelperCapabilityReachable, isUnreachableCapability } from "../src/handlers/nodes.ts";
-import { openExternalUrl, parseWindowsPower, windowsDesktopExe } from "../src/platform.ts";
+import {
+  openExternalUrl,
+  parseWindowsPower,
+  parseWindowsThermal,
+  readWindowsThermal,
+  windowsDesktopExe,
+  windowsThermalLevel,
+} from "../src/platform.ts";
 
 /** The Gateway's Windows branches, driven with fakes (no PowerShell, no browser, no app). */
 
@@ -58,6 +65,7 @@ describe("Windows power and idle state", () => {
         saver: false,
         idleMs: 30 * 60_000,
       }),
+      async () => "nominal",
     );
     expect(s).toEqual({
       onAc: false,
@@ -76,8 +84,20 @@ describe("Windows power and idle state", () => {
         noBattery: true,
         saver: false,
       }),
+      async () => "serious",
     );
-    expect(desktop).toMatchObject({ onAc: true, idleMinutes: 999 });
+    expect(desktop).toMatchObject({ onAc: true, idleMinutes: 999, thermal: "serious" });
+    // A thermal read that fails is nominal, never a reason to wait forever.
+    const noThermal = await readSystemState(
+      "win32",
+      exec,
+      () => 9,
+      async () => undefined,
+      async () => {
+        throw new Error("no powershell");
+      },
+    );
+    expect(noThermal.thermal).toBe("nominal");
     const failed = await readSystemState(
       "win32",
       exec,
@@ -85,6 +105,39 @@ describe("Windows power and idle state", () => {
       async () => undefined,
     );
     expect(failed.onAc).toBe(false);
+  });
+});
+
+describe("Windows thermal state for the nightly memory pass", () => {
+  it("grades the tightest thermal zone's passive limit like a Mac's CPU speed limit", () => {
+    expect(parseWindowsThermal("passive=100,100 perf=100")).toEqual({
+      passive: [100, 100],
+      perf: 100,
+    });
+    expect(windowsThermalLevel(parseWindowsThermal("passive=100,100 perf=100"))).toBe("nominal");
+    expect(windowsThermalLevel(parseWindowsThermal("passive=100,85 perf=100"))).toBe("fair");
+    expect(windowsThermalLevel(parseWindowsThermal("passive=60 perf=100"))).toBe("serious");
+    expect(windowsThermalLevel(parseWindowsThermal("passive=30 perf=100"))).toBe("critical");
+  });
+
+  it("falls back to the processors' performance limit without zones; unreadable is nominal", () => {
+    expect(parseWindowsThermal("passive= perf=70")).toEqual({ passive: [], perf: 70 });
+    expect(windowsThermalLevel(parseWindowsThermal("passive= perf=70"))).toBe("serious");
+    expect(windowsThermalLevel(parseWindowsThermal("passive= perf="))).toBe("nominal");
+    expect(windowsThermalLevel(parseWindowsThermal(""))).toBe("nominal");
+    expect(windowsThermalLevel(undefined)).toBe("nominal");
+  });
+
+  it("reads it with one PowerShell run, no admin rights", async () => {
+    const seen: string[][] = [];
+    const level = await readWindowsThermal(async (file, args) => {
+      seen.push([file, ...args]);
+      return "passive=90 perf=100\r\n";
+    });
+    expect(level).toBe("fair");
+    expect(seen[0]?.[0]).toMatch(/powershell\.exe$/i);
+    expect(seen[0]?.join(" ")).toContain("ThermalZoneInformation");
+    expect(seen[0]?.join(" ")).not.toContain("MSAcpi");
   });
 });
 
@@ -172,19 +225,28 @@ describe("Apple connectors off macOS", () => {
 });
 
 describe("Windows app identities", () => {
-  it("knows messaging apps by executable or AUMID, as the Windows helper names them", () => {
+  it("knows messaging apps by the lowercase executable the Windows helper names them by", () => {
     for (const id of [
       "slack.exe",
       "C:\\Users\\me\\AppData\\Local\\slack\\slack.exe",
       "ms-teams.exe",
       "olk.exe",
-      "5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App",
+      "outlook.exe",
+      "hxoutlook.exe",
+      "whatsapp.root.exe",
+      "telegram.exe",
+      "signal.exe",
+      "phoneexperiencehost.exe",
+      "Discord.exe",
       "com.tinyspeck.slackmacgap",
     ]) {
       expect(isSendApp(id), id).toBe(true);
     }
     expect(isSendApp("notepad.exe")).toBe(false);
+    expect(isSendApp("msedge.exe")).toBe(false);
     expect(isSendApp("C:\\slack.exe.bak\\notepad.exe")).toBe(false);
+    // AppUserModelIDs are reported next to the id, never as it.
+    expect(isSendApp("5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App")).toBe(false);
   });
 
   it("knows conference apps the same way", () => {
@@ -196,7 +258,7 @@ describe("Windows app identities", () => {
 });
 
 describe("what nodes.invoke can reach", () => {
-  it("never teach.* or chrome.* on any node, and on a Host helper only the notification permission and Settings' listings", () => {
+  it("never teach.* or chrome.* on any node, and on a Host helper only the notification permission, the permission reads and Settings' listings", () => {
     for (const cap of [
       "teach.start",
       "teach.stop",
@@ -211,6 +273,9 @@ describe("what nodes.invoke can reach", () => {
       expect(isHostHelperCapabilityReachable(cap), cap).toBe(false);
     }
     expect(isHostHelperCapabilityReachable("notify.authorization_status")).toBe(true);
+    // psyche doctor reads what the OS granted the helper (read-only, never prompts).
+    expect(isHostHelperCapabilityReachable("permissions.status")).toBe(true);
+    expect(isHostHelperCapabilityReachable("permissions.request")).toBe(false);
     // Settings' trusted-sources and Shortcuts cards: the names of lists, never their items.
     for (const cap of ["reminders.list_lists", "calendar.list_calendars", "shortcuts.list"])
       expect(isHostHelperCapabilityReachable(cap), cap).toBe(true);

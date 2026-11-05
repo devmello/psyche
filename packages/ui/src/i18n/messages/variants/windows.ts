@@ -79,6 +79,22 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.credentials.slot.safeStorage": "this PC's app storage (Windows data protection)",
   "settings.credentials.slot.keyFile": "a key file on this PC",
   "settings.credentials.moveToKeychain": "Move behind Windows Hello",
+  "settings.credentials.moveToKeychainNeeds":
+    "Needs a signed Windows helper and Windows Hello set up on this PC",
+  "settings.credentials.backend.keychain": "Credential Manager",
+  "settings.credentials.backendIn.keychain": "in Credential Manager",
+  "settings.permissions.never.browserPasswords":
+    "Read passwords saved in your browsers or Credential Manager",
+  "settings.skills.signer.originAgent":
+    "Written by an assistant on the sender's computer. Read it as unreviewed text, whoever signed it.",
+  "web.viewers.noSandbox":
+    "Previews of slides need the sandbox, and no container runtime (Docker or Podman) is available.",
+  "voice.settings.reviewHint":
+    "Keeps what Psyche heard in the pop-up so you can fix it and press Enter. Off, it's sent when you let go of the key.",
+  "settings.files.pathPlaceholder": "C:\\Users\\you\\Documents\\Taxes",
+  "settings.skills.pathPlaceholder": "C:\\Users\\you\\Downloads\\pdf-merge",
+  "settings.mail.notes.folder.placeholder": "C:\\Users\\you\\Documents\\Recordings",
+  "work.anchors.pathPlaceholder": "C:\\Users\\you\\School\\MATH21",
   "settings.credentials.keyFileExplainer":
     "The key that opens your vault is a file only your account can read. Moving it behind Windows Hello needs a signed Windows helper; this build's helper is not signed.",
   "settings.credentials.link.err.locked":
@@ -361,7 +377,7 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.voice.engine.systemHint": "Windows' on-device recognizer, through the Windows helper.",
   "onboarding.safety.touchId.setHint":
     "Approvals that need you ask for your face, fingerprint or PIN.",
-  "shell.shortcut.pushToTalkKeys": "Hold Right Alt",
+  "shell.shortcut.pushToTalkKeys": "Hold Right Ctrl",
   "platform.term.os": "Windows",
   "platform.term.device": "PC",
   "platform.term.thisDevice": "This PC",

@@ -175,7 +175,8 @@ describe("the sidebar toggle and the compact rail (#598)", () => {
     window.history.replaceState(null, "", "/feed");
     const { platform, storage } = platformWith();
     const { unmount } = render(<ShellApp platform={platform} />);
-    await press({ key: "∫", code: "KeyB", ctrlKey: true, altKey: true });
+    // Ctrl+Alt+B off macOS types no character (a symbol would be AltGr text, never the shortcut).
+    await press({ key: "b", code: "KeyB", ctrlKey: true, altKey: true });
     const shell = screen.getByTestId("shell");
     await waitFor(() => expect(shell.getAttribute("data-sidebar-mode")).toBe("rail"));
     expect(storage.get("shell.sidebar.mode")).toBe("rail");
@@ -188,7 +189,7 @@ describe("the sidebar toggle and the compact rail (#598)", () => {
     const again = screen.getByTestId("shell");
     expect(again.getAttribute("data-sidebar")).toBe("collapsed");
     expect(again.getAttribute("data-sidebar-mode")).toBe("rail");
-    await press({ key: "∫", code: "KeyB", ctrlKey: true, altKey: true });
+    await press({ key: "b", code: "KeyB", ctrlKey: true, altKey: true });
     await waitFor(() => expect(again.getAttribute("data-sidebar")).toBe("open"));
     expect(again.getAttribute("data-sidebar-mode")).toBe("full");
     expect(storage.get("shell.sidebar.mode")).toBe("full");

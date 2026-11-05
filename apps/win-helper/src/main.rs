@@ -36,7 +36,7 @@ mod app {
     use psyche_win_helper::{groups, permissions, presence, win};
     use serde_json::json;
 
-    const USAGE: &str = "usage: psyche-helper [--handshake-only [--challenge-only]] [--timeout <seconds>] [--manifest] [--build-info] [--print-identity]
+    const USAGE: &str = "usage: psyche-helper [--handshake-only [--challenge-only]] [--timeout <seconds>] [--manifest] [--build-info] [--print-identity] [--keyboard-layout]
 
   (no flags)        stay connected to the Gateway and serve capabilities (reconnects)
   --handshake-only  connect, pair, print the phase and exit (smoke test)
@@ -45,6 +45,8 @@ mod app {
   --build-info      print {\"presenceFileFallback\": false} and exit
   --print-identity  print {deviceId, presenceKeyId, presenceKeyKind} as JSON and exit (never prompts;
                     presenceError when no Windows Hello presence key exists yet)
+  --keyboard-layout print {layout, altGr} for the keyboard layout in use and exit (altGr: Right Alt
+                    is AltGr there, a poor hold-to-talk key)
 
 Environment: PSYCHE_HOME (default %USERPROFILE%\\.psyche), PSYCHE_NODE_SOCKET (a \\\\.\\pipe\\… path;
 default: the pipe named in $PSYCHE_HOME\\run\\node-socket, else \\\\.\\pipe\\psyche-node-<hash>).
@@ -57,6 +59,7 @@ Exit codes (--handshake-only): 0 handshake done, 2 pipe missing, 3 denied, 4 tim
         manifest: bool,
         build_info: bool,
         print_identity: bool,
+        keyboard_layout: bool,
     }
 
     fn parse() -> Result<Flags, i32> {
@@ -67,6 +70,7 @@ Exit codes (--handshake-only): 0 handshake done, 2 pipe missing, 3 denied, 4 tim
             manifest: false,
             build_info: false,
             print_identity: false,
+            keyboard_layout: false,
         };
         let mut args = std::env::args().skip(1);
         while let Some(arg) = args.next() {
@@ -90,6 +94,7 @@ Exit codes (--handshake-only): 0 handshake done, 2 pipe missing, 3 denied, 4 tim
                 "--manifest" => f.manifest = true,
                 "--build-info" => f.build_info = true,
                 "--print-identity" => f.print_identity = true,
+                "--keyboard-layout" => f.keyboard_layout = true,
                 "-h" | "--help" => {
                     println!("{USAGE}");
                     return Err(0);
@@ -130,6 +135,10 @@ Exit codes (--handshake-only): 0 handshake done, 2 pipe missing, 3 denied, 4 tim
                 "{}",
                 serde_json::to_string_pretty(&reg.manifest(HELPER_VERSION)).unwrap_or_default()
             );
+            return 0;
+        }
+        if flags.keyboard_layout {
+            println!("{}", psyche_win_dictation::keyboard_layout());
             return 0;
         }
         if flags.build_info {

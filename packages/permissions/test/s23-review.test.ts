@@ -1,3 +1,4 @@
+import { TOO_LONG_TEXT } from "@psyche/permissions/cards";
 import { sha256 } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import {
@@ -190,7 +191,7 @@ describe("design-12: card spoofing", () => {
     const huge = approval({ details: { argv: Array.from({ length: 400 }, (_, i) => `arg${i}`) } });
     const im = renderForSurface("imessage:+1555", huge);
     expect(im.buttons).toHaveLength(0);
-    expect(im.text).toContain("Open on your Mac to review.");
+    expect(im.text).toContain(TOO_LONG_TEXT);
   });
 });
 

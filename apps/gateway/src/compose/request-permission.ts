@@ -7,6 +7,7 @@ import {
   PsycheError,
   type ToolResult,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { Type } from "@sinclair/typebox";
 import { askForFolder } from "./folder-access.ts";
 
@@ -51,7 +52,7 @@ export interface RequestPermissionDeps {
 function cardText(need: MissingPermission): { summary: string; sideEffect: "write" | "none" } {
   switch (need.need) {
     case "capability":
-      return { summary: "Turn on: run commands on this Mac", sideEffect: "write" };
+      return { summary: `Turn on: run commands on ${hostWords().thisDevice}`, sideEffect: "write" };
     case "connector_action":
       return {
         summary: `Let ${need.connector} ask before ${need.group}`,
@@ -60,7 +61,10 @@ function cardText(need: MissingPermission): { summary: string; sideEffect: "writ
     case "connector":
       return { summary: `Connect ${need.connector}`, sideEffect: "none" };
     case "macos_access":
-      return { summary: `Give ${need.connector} access in System Settings`, sideEffect: "none" };
+      return {
+        summary: `Give ${need.connector} access in ${hostWords().systemSettings}`,
+        sideEffect: "none",
+      };
     case "sandbox":
       return { summary: "Set up the sandbox", sideEffect: "none" };
     case "folder":

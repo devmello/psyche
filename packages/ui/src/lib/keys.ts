@@ -85,3 +85,46 @@ export function modKey(
 ): boolean {
   return platform === "macos" ? e.metaKey : e.ctrlKey;
 }
+
+/** What `isAltGraphText` reads from a `KeyboardEvent`. */
+export interface AltGraphEventLike {
+  key: string;
+  code?: string;
+  ctrlKey: boolean;
+  altKey: boolean;
+  metaKey?: boolean;
+  getModifierState?: (key: string) => boolean;
+}
+
+/** The character a physical key types without modifiers on a US layout: `KeyB` → "b". */
+function plainKeyOf(code: string | undefined): string | undefined {
+  if (code === undefined) return undefined;
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3).toLowerCase();
+  if (/^Digit[0-9]$/.test(code)) return code.slice(5);
+  return undefined;
+}
+
+/**
+ * Whether a Ctrl+Alt key event is AltGr typing a character, not a shortcut. On Windows the right
+ * Alt key of many layouts (German, Polish, Czech, French…) is AltGr, which the browser reports as
+ * Ctrl+Alt (with the `AltGraph` modifier state), and Windows turns a held Ctrl+Alt into AltGr as
+ * well: AltGr+B is "{" on a Czech keyboard, AltGr+ß "\" on a German one. Such an event types text
+ * and must never fire Ctrl+Alt+B or Ctrl+\. A Ctrl+Alt chord whose key still is the plain key
+ * (`b` for `KeyB`, no AltGr meaning on this layout) stays a shortcut. Never on macOS: Option
+ * changes `key` there and ⌘ is the command key.
+ */
+export function isAltGraphText(e: AltGraphEventLike, platform: UiPlatform = uiPlatform()): boolean {
+  if (platform === "macos" || !e.ctrlKey || !e.altKey || e.metaKey === true) return false;
+  // Only keys that type something: AltGr+Esc or AltGr+Enter are not text.
+  if (e.key !== "Dead" && [...e.key].length !== 1) return false;
+  if (e.key === "Dead") return true;
+  // The key's own character: nothing was typed (this layout has no AltGr meaning for the key, or
+  // it was plain Ctrl+Alt), so it is the shortcut even when the AltGraph state is set.
+  const plain = plainKeyOf(e.code);
+  if (plain !== undefined && e.key.toLowerCase() === plain) return false;
+  if (e.getModifierState?.("AltGraph") === true) return true;
+  // Without the modifier state (an older engine, a synthesised event): a symbol other than the
+  // key's own is AltGr's. A letter is not taken for one, so Ctrl+Alt+B on a Cyrillic or Greek
+  // layout (key "и") still works as the shortcut.
+  return !/\p{L}/u.test(e.key);
+}

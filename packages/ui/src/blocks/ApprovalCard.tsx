@@ -24,6 +24,7 @@ import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { formatCountdown, formatRelative } from "../lib/format.ts";
 import { keysLabel } from "../lib/keys.ts";
+import { pathBasename } from "../lib/paths.ts";
 import { isMac } from "../lib/platform.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
@@ -253,10 +254,8 @@ function MessageCompose({
 
 const scopeLabel = (scope: GrantScope): string => t(`blocks.approval.scope.${scope}`);
 
-/** "Downloads" for `/Users/me/Downloads`. */
-function folderName(path: string): string {
-  return path.replace(/\/+$/, "").split("/").pop() || path;
-}
+/** "Downloads" for `/Users/me/Downloads` or `C:\Users\me\Downloads`. */
+const folderName = pathBasename;
 
 function originOf(approval: ApprovalRequest): string | null {
   if (approval.target?.kind === "origin") return approval.target.display ?? approval.target.value;

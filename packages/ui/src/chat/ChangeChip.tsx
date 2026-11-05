@@ -5,13 +5,14 @@ import { agentTimelineHref } from "../agent/AgentSheet.tsx";
 import { useChangeDiff, useChanges } from "../data/changes.ts";
 import { useStoreState } from "../data/provider.tsx";
 import { t } from "../i18n/core.ts";
+import { pathBasename } from "../lib/paths.ts";
 import { cn } from "../lib/utils.ts";
 import { useSlots } from "../slots.tsx";
 
 /** Last path segment or object name: what a chip names. */
 export function changeName(c: AuditChange): string {
   const target = c.target.path ?? c.target.object ?? c.target.connector ?? c.tool;
-  return target.split("/").filter(Boolean).at(-1) ?? target;
+  return pathBasename(target);
 }
 
 /** A unified diff, one coloured line each; `dir="ltr"` because code and paths read left to right. */

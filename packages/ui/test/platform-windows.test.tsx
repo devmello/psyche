@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { appCap } from "@psyche/permissions/apps";
+import { render, renderHook, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { IntlMessageFormat } from "intl-messageformat";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -11,17 +12,22 @@ import {
 import { createI18n, setActiveI18n, t } from "../src/i18n/core.ts";
 import { en, type MessageId } from "../src/i18n/messages/index.ts";
 import { windows } from "../src/i18n/messages/variants/windows.ts";
-import { chordLabel, keysLabel, parseChord } from "../src/lib/keys.ts";
+import { chordLabel, isAltGraphText, keysLabel, parseChord } from "../src/lib/keys.ts";
 import { normalizePlatform, setUiPlatform, uiPlatform } from "../src/lib/platform.ts";
 import { platformTerm } from "../src/lib/platform-copy.ts";
 import { CAPABILITIES, isAvailable } from "../src/screens/onboarding/capabilities.ts";
 import { ConnectorsStep } from "../src/screens/onboarding/OnboardingSteps.tsx";
-import { ComputerUsePanel } from "../src/screens/settings/ComputerUseSection.tsx";
+import {
+  ComputerUsePanel,
+  LOCKED_APPS,
+  lockedApps,
+  WINDOWS_LOCKED_APPS,
+} from "../src/screens/settings/ComputerUseSection.tsx";
 import { offeredCatalog } from "../src/screens/settings/connector-catalog.tsx";
 import { DevicesPanel } from "../src/screens/settings/DevicesSection.tsx";
 import { MacHelperStatusRow } from "../src/screens/settings/MacHelperStatus.tsx";
 import { presenceKeyText } from "../src/screens/settings/TouchIdKeySetup.tsx";
-import { SHORTCUTS } from "../src/shell/shortcuts.ts";
+import { SHORTCUTS, useShortcuts } from "../src/shell/shortcuts.ts";
 
 afterEach(() => {
   setUiPlatform(undefined);
@@ -97,6 +103,95 @@ describe("Windows copy (i18n/messages/variants/windows.ts)", () => {
   });
 });
 
+/**
+ * Messages that name macOS things on purpose, so Windows reads them as written: Mac-only features
+ * (hidden or "Available on macOS" there), labels for a Mac device or key, and copy only a Mac
+ * renders. Everything else that names a Mac needs a Windows variant.
+ */
+const ABOUT_MACOS = new Set<string>([
+  // iMessage / SMS channel: Apple vouches for iMessage senders.
+  "blocks.message.weak",
+  // Rendered on macOS only (MapLibre's Mac help text; the ⌘L keycap behind isMac()).
+  "map.gesture.mac",
+  "shell.search.keyCmdL",
+  // Apple's on-device model (Search, Everything memory).
+  "settings.searchModel.apple",
+  "settings.searchModel.appleName",
+  "settings.searchModel.appleHint",
+  "settings.searchModel.apple.why.off",
+  "settings.searchModel.apple.why.os",
+  "settings.searchModel.apple.why.device",
+  "settings.searchModel.apple.why.notReady",
+  "settings.searchModel.apple.ready",
+  "settings.searchModel.apple.needsAi",
+  "everything.model.apple",
+  "everything.model.appleHint",
+  // The sandbox Mac (VM guests).
+  "settings.key.vm.enabled",
+  "settings.key.vm.resetPerTask",
+  "settings.vm.phase.installing",
+  "settings.vm.description",
+  "settings.vm.sandboxMac",
+  "settings.vm.between",
+  "settings.vm.credentialsHint",
+  "settings.vm.noReports",
+  // Apple apps (Notes, Reminders, Calendar, Mail, Safari, Shortcuts) and their macOS grants.
+  "settings.connectors.catalog.appleNotes",
+  "settings.connectors.app.safari",
+  "settings.connectors.grant.allowed",
+  "settings.connect.notAskedYet",
+  "settings.connect.noPrompt",
+  "gallery.builtin.appleNotes",
+  "settings.searchSources.hint.notes",
+  "settings.shortcuts.loading",
+  "settings.shortcuts.noHelper",
+  // Apple's container runtime (macOS 26 on Apple silicon).
+  "settings.sandbox.runtime.appleContainer",
+  "settings.sandbox.missing.appleContainer",
+  "settings.sandbox.step.downloadLink",
+  // A Mac device, its helper and its keys, named as such wherever they are listed.
+  "settings.devices.platform.macos",
+  "settings.devices.nodeKind.macHelper",
+  "settings.devices.thisMacAdmin",
+  "settings.devices.presenceKey.keychain",
+  "settings.devices.presenceKey.enclaveFile",
+  "settings.devices.presenceKey.unknown",
+  "settings.devices.touchId.allowDevFileKey",
+  "settings.devices.touchId.devFileKey",
+  "web.about.appleSilicon",
+  // "Available on macOS" itself.
+  "platform.macOnly",
+  "platform.macOnlyHint",
+]);
+
+/**
+ * Mac wording whose Windows copy belongs to work in progress elsewhere; add an id here only
+ * until its variant lands.
+ */
+const PENDING_ELSEWHERE = new Set<string>([]);
+
+const MAC_ONLY_TERMS =
+  /\bMac(?:s|'s)?\b|macOS|Touch ID|[Kk]eychain|Finder|Safari|⌘|⌥|\bOption\b|\bDock\b|menu bar|System Settings|\bApple\b/;
+
+describe("Windows variants cover every Mac-specific message", () => {
+  it("has a Windows variant for each message that names a Mac, unless it is about macOS", () => {
+    const missing = (Object.entries(en) as [MessageId, string][])
+      .filter(([id, msg]) => MAC_ONLY_TERMS.test(msg) && windows[id] === undefined)
+      .map(([id]) => id)
+      .filter((id) => !ABOUT_MACOS.has(id) && !PENDING_ELSEWHERE.has(id));
+    expect(missing).toEqual([]);
+  });
+
+  it("keeps the allowlists to messages that exist and still need them", () => {
+    for (const id of [...ABOUT_MACOS, ...PENDING_ELSEWHERE]) {
+      const msg = en[id as MessageId];
+      expect(msg, id).toBeDefined();
+      expect(MAC_ONLY_TERMS.test(msg), id).toBe(true);
+      expect(windows[id as MessageId], `${id} has a Windows variant now`).toBeUndefined();
+    }
+  });
+});
+
 describe("Windows shortcuts", () => {
   it("writes chords as text with Ctrl, Alt and Shift on Windows, glyphs on macOS", () => {
     expect(chordLabel({ key: "b", mod: true, shift: true }, "windows")).toBe("Ctrl+Shift+B");
@@ -111,6 +206,48 @@ describe("Windows shortcuts", () => {
     expect(keys.compactSidebar).toBe("Ctrl+Alt+B");
     expect(keys.cycleThreads).toBe("Ctrl+Tab");
     expect(Object.values(keys).join(" ")).not.toMatch(/[⌘⌥⌃⇧]/);
+  });
+
+  it("reads AltGr typing as text, never as a Ctrl+Alt shortcut", () => {
+    const e = (key: string, code: string, altGraph?: boolean) => ({
+      key,
+      code,
+      ctrlKey: true,
+      altKey: true,
+      ...(altGraph === undefined
+        ? {}
+        : { getModifierState: (k: string) => k === "AltGraph" && altGraph }),
+    });
+    expect(isAltGraphText(e("\\", "Minus"), "windows")).toBe(true); // German AltGr+ß
+    expect(isAltGraphText(e("{", "KeyB"), "windows")).toBe(true); // Czech AltGr+B
+    expect(isAltGraphText(e("ł", "KeyL", true), "windows")).toBe(true); // Polish AltGr+L
+    expect(isAltGraphText(e("Dead", "BracketRight"), "windows")).toBe(true);
+    expect(isAltGraphText(e("b", "KeyB", false), "windows")).toBe(false);
+    // An AltGr layout without an AltGr meaning for B types nothing: still the shortcut.
+    expect(isAltGraphText(e("b", "KeyB", true), "windows")).toBe(false);
+    expect(isAltGraphText(e("Escape", "Escape", true), "windows")).toBe(false);
+    expect(isAltGraphText(e("∫", "KeyB"), "macos")).toBe(false);
+    expect(
+      isAltGraphText({ key: "\\", code: "Backslash", ctrlKey: true, altKey: false }, "windows"),
+    ).toBe(false);
+  });
+
+  it("does not close the pane or open the terminal when AltGr types \\ or `", () => {
+    setUiPlatform("windows");
+    const closePane = vi.fn();
+    const terminalPane = vi.fn();
+    const shortcutList = vi.fn();
+    renderHook(() => useShortcuts({ closePane, terminalPane, shortcutList }));
+    const press = (init: KeyboardEventInit) =>
+      window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, ...init }));
+    press({ key: "\\", code: "Minus", ctrlKey: true, altKey: true });
+    press({ key: "`", code: "Equal", ctrlKey: true, altKey: true });
+    press({ key: "/", code: "Digit7", ctrlKey: true, altKey: true });
+    expect(closePane).not.toHaveBeenCalled();
+    expect(terminalPane).not.toHaveBeenCalled();
+    expect(shortcutList).not.toHaveBeenCalled();
+    press({ key: "\\", code: "Backslash", ctrlKey: true });
+    expect(closePane).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -201,6 +338,39 @@ describe("Windows in Settings and onboarding", () => {
       screen.getByRole("button", { name: "Open Windows Settings for Microphone" }),
     );
     expect(open).toHaveBeenCalledWith("microphone");
+  });
+
+  it("lists the apps the Gateway locks on Windows, by their executables, with the enforced caps", () => {
+    setUiPlatform("windows");
+    render(
+      <ComputerUsePanel
+        values={{
+          "computerUse.enabled": true,
+          "computerUse.apps": [{ id: "notepad.exe", name: "Notepad", tier: "ask" }],
+        }}
+        onChange={vi.fn()}
+        persona="Wren"
+        tcc={{}}
+      />,
+    );
+    const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-locked="true"]'));
+    const text = rows.map((r) => r.textContent ?? "");
+    expect(text.some((r) => r.includes("Microsoft Edge") && r.includes("Read only (fixed)"))).toBe(
+      true,
+    );
+    expect(
+      text.some((r) => r.includes("Windows Terminal") && r.includes("Click only (fixed)")),
+    ).toBe(true);
+    expect(screen.queryByText("Safari")).toBeNull();
+    // Each row's cap is the one @psyche/permissions enforces for that id.
+    for (const a of WINDOWS_LOCKED_APPS.filter((x) => x.id !== "banking")) {
+      expect(a.id).toMatch(/^[a-z0-9 ._-]+\.exe$/);
+      expect(a.locked?.cap, a.id).toBe(appCap(a.id).cap);
+    }
+    for (const a of LOCKED_APPS.filter((x) => x.id !== "banking")) {
+      expect(a.locked?.cap, a.id).toBe(appCap(a.id).cap);
+    }
+    expect(lockedApps("macos")).toBe(LOCKED_APPS);
   });
 
   it("restarts the helper from its status row and says when it did not start", async () => {

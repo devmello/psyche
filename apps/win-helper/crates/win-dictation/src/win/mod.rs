@@ -5,6 +5,7 @@ pub(crate) mod clipboard;
 pub(crate) mod dictation;
 pub(crate) mod hook;
 pub(crate) mod input;
+pub(crate) mod layout;
 pub(crate) mod media;
 pub(crate) mod privacy;
 pub(crate) mod process;

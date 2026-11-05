@@ -246,7 +246,24 @@ export {
 export { groupFingerprint } from "./lib/fingerprint.ts";
 // Formatting helpers.
 export * from "./lib/format.ts";
-export { chordLabel, type KeyChord, keysLabel, modKey, parseChord } from "./lib/keys.ts";
+export {
+  type AltGraphEventLike,
+  chordLabel,
+  isAltGraphText,
+  type KeyChord,
+  keysLabel,
+  modKey,
+  parseChord,
+} from "./lib/keys.ts";
+// Host paths (POSIX, drive and UNC) for labels; `displayPath` comes with the Files pane.
+export {
+  isAbsolutePath,
+  joinPath,
+  type PathFlavor,
+  pathBasename,
+  pathDirname,
+  pathFlavor,
+} from "./lib/paths.ts";
 export {
   applyPlatformAttribute,
   isWindows,

@@ -43,6 +43,9 @@ const UNREACHABLE =
 const CLIENT_REACHABLE: ReadonlySet<string> = new Set([
   "notify.authorization_status",
   "notify.request_authorization",
+  // What the OS granted the helper, and its version and signing (`psyche doctor`): read-only,
+  // never prompts.
+  "permissions.status",
 ]);
 
 /**

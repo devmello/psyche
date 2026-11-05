@@ -51,6 +51,7 @@ import {
   type ToolRegistration,
   type ToolRegistry,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { isIncognito } from "@psyche/search";
 import type { Call, HandlerDef } from "../context.ts";
 import type { PublicRoute } from "../http.ts";
@@ -347,7 +348,7 @@ export function composeBrowser(
       // Fails at once (#556): nothing waits for a desktop that may never connect.
       throw new PsycheError(
         "unavailable",
-        "the browser needs the Psyche desktop app: open it on the Mac that runs the Gateway, then try again",
+        `the browser needs the Psyche desktop app: open it on ${hostWords().theDevice} that runs the Gateway, then try again`,
         { retryable: true, details: { reason: "no_desktop" } },
       );
     }

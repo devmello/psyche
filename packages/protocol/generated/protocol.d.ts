@@ -3999,7 +3999,7 @@ export interface DictationKeyPayload {
     role?: DictationKeyRole;
 }
 
-export type DictationKey = "fn" | "rightOption" | "rightCommand";
+export type DictationKey = "fn" | "rightOption" | "rightCommand" | "rightCtrl" | "rightAlt" | "rightShift" | "rightWin" | "capsLock" | "scrollLock" | "pause" | "menu" | "insert" | "numLock" | "f13" | "f14" | "f15" | "f16" | "f17" | "f18" | "f19" | "f20" | "f21" | "f22" | "f23" | "f24";
 
 export type DictationKeyRole = "dictation" | "voice";
 

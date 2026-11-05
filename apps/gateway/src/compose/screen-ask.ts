@@ -17,6 +17,7 @@ import {
   type TaintSource,
   type ToolRegistration,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { Type } from "@sinclair/typebox";
 import type { Call, HandlerDef, ResolvedScreen } from "../context.ts";
 import { expireScreenFrames, removeScreenFrame, SCREEN_TAG } from "../retention.ts";
@@ -62,10 +63,14 @@ interface Held {
 function unwrap(r: NodeInvokeResult): unknown {
   if (r.ok) return r.result;
   const e = r.error;
-  throw new PsycheError((e?.code as never) ?? "internal", e?.message ?? "the Mac helper failed", {
-    details: (e?.details ?? {}) as Record<string, unknown>,
-    ...(e?.retryable === true ? { retryable: true } : {}),
-  });
+  throw new PsycheError(
+    (e?.code as never) ?? "internal",
+    e?.message ?? `${hostWords().helper} failed`,
+    {
+      details: (e?.details ?? {}) as Record<string, unknown>,
+      ...(e?.retryable === true ? { retryable: true } : {}),
+    },
+  );
 }
 
 /** Strips anything that could close the context block early, and control characters. */

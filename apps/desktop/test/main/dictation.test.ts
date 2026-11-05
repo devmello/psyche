@@ -261,8 +261,11 @@ describe("system-wide dictation controller (J9, Q2)", () => {
       }),
     ).toEqual({ enabled: false, key: "rightOption", mode: "toggle", hotkey: "Control+Alt+D" });
     expect(
-      parseDictationSettings({ "voice.pushToTalk": "capsLock", "voice.mode": 3 }),
+      parseDictationSettings({ "voice.pushToTalk": "capsLock", "voice.mode": 3 }, "darwin"),
     ).toMatchObject({ key: "fn", mode: "hold" });
+    expect(parseDictationSettings({ "voice.pushToTalk": "Caps" }, "win32")).toMatchObject({
+      key: "rightCtrl",
+    });
   });
 });
 

@@ -111,6 +111,15 @@ pub(crate) fn send_ctrl_v() -> bool {
     ])
 }
 
+/// Caps Lock tapped once: puts back the lock state a Caps Lock hold toggled (hold-to-talk).
+pub(crate) fn send_caps_lock_tap() -> bool {
+    use crate::dictation::keys::VK_CAPITAL;
+    send(&[
+        key(VK_CAPITAL, scan(VK_CAPITAL), KEYBD_EVENT_FLAGS(0)),
+        key(VK_CAPITAL, scan(VK_CAPITAL), KEYEVENTF_KEYUP),
+    ])
+}
+
 /// An unassigned key tapped while Alt or Win is held, so their release opens no menu.
 pub(crate) fn send_menu_mask() -> bool {
     send(&[

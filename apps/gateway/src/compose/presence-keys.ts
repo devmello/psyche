@@ -1,6 +1,7 @@
 import { constants, createHash, createPublicKey, type KeyObject, verify } from "node:crypto";
 import { getDevice, getSetting, type PsycheDb, setSetting } from "@psyche/db";
 import { type AuditLog, PsycheError } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import type { Call, HandlerDef } from "../context.ts";
 import { requireFreshPresence } from "../presence-gate.ts";
 import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
@@ -241,7 +242,7 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
         if (typeof params.expectKeyId !== "string") {
           throw new PsycheError(
             "invalid_params",
-            "Registering a Touch ID key needs the key id the Psyche Helper shows (expectKeyId)",
+            `Registering a ${hostWords().presence} key needs the key id the Psyche Helper shows (expectKeyId)`,
           );
         }
         const nodeId = deps.helperNode(deviceId);

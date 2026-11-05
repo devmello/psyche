@@ -26,6 +26,8 @@ export {
   ComputerUseSection,
   type ComputerUseSectionProps,
   LOCKED_APPS,
+  lockedApps,
+  WINDOWS_LOCKED_APPS,
 } from "./ComputerUseSection.tsx";
 export {
   alwaysAsks,

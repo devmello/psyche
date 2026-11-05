@@ -1,4 +1,5 @@
 import type { ApprovalRequest, InputRequest, JsonObject, Question } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 
 /**
  * Approval card text (security §3.7 "Delivery", S23 design-12). Every surface renders a fixed
@@ -104,7 +105,7 @@ export function punycodeHosts(text: string): string {
 
 const KIND_TITLES: Record<string, string> = {
   exec: "Run command in sandbox",
-  exec_host: "Run command on this Mac",
+  exec_host: `Run command on ${hostWords().thisDevice}`,
   send_email: "Send email",
   calendar_write: "Change calendar",
   message_send: "Send message",
@@ -194,10 +195,13 @@ export const SURFACE_LIMITS: Record<CardSurfaceKind, number> = {
   chat: 1000,
 };
 
-/** Second line of a card a chat surface may not answer (security §3.7, §9). */
-export const DEVICE_ONLY_TEXT = "Answer this on your Mac.";
+/**
+ * Second line of a card a chat surface may not answer (security §3.7, §9). "your Mac" / "your PC"
+ * by the Host's platform (`@psyche/protocol/host-words`).
+ */
+export const DEVICE_ONLY_TEXT = `Answer this on ${hostWords().yourDevice}.`;
 /** Second line of a card that did not fit its surface. */
-export const TOO_LONG_TEXT = "Open on your Mac to review.";
+export const TOO_LONG_TEXT = `Open on ${hostWords().yourDevice} to review.`;
 
 export interface RenderedCard {
   text: string;
