@@ -72,6 +72,8 @@ import {
 import type { Call, HandlerDef } from "../context.ts";
 import { MAIN_SESSION_KEY } from "../handlers/threads.ts";
 import { type WebhookRoute, webhookRoute } from "../http.ts";
+import { sealedChannelStore } from "../security/sealed-stores.ts";
+import { ensureSecurityState, stateSealFor } from "../security/state-seal.ts";
 import type { Gateway } from "../server.ts";
 import type { TxHooks } from "../session/controller.ts";
 import { channelSecretHandlers, vaultChannelSecret } from "./channel-secrets.ts";
@@ -650,6 +652,7 @@ export function composeChannels(
   const iso = () => new Date(clock.now()).toISOString();
   let gateway: Gateway | null = null;
   let stopWatchingGate: (() => void) | undefined;
+  let stopWatchingSeal: (() => void) | undefined;
 
   // Where each channel-started run replies, and inbound turns waiting for a busy thread.
   const replyTo = new Map<string, OutboundTarget>();
@@ -811,7 +814,10 @@ export function composeChannels(
     deliver: (event: ChannelInboundEvent) => onInbound(event),
   };
   const service = new ChannelService({
-    store: new SqliteChannelStore(db),
+    // Allowlists, DM policies and owner identities are sealed security state: checked first.
+    store: sealedChannelStore(new SqliteChannelStore(db), stateSealFor(db), () =>
+      ensureSecurityState(db),
+    ),
     broker: services.broker,
     sink,
     clock,
@@ -1425,6 +1431,23 @@ export function composeChannels(
       unregisterSendTool ??= services.tools.register(sendTool);
       unsubscribe = gw.bus.subscribe(["operator.read"], onFrame);
       await service.init();
+      // The service caches channels as the seal let it read them; after a re-seal the narrowed
+      // ones are read again (M2).
+      const seal = stateSealFor(db);
+      if (seal !== undefined) {
+        let wasUntrusted = seal.untrusted() !== null;
+        stopWatchingSeal = seal.onChange(() => {
+          const untrusted = seal.untrusted() !== null;
+          if (wasUntrusted && !untrusted) {
+            void service
+              .init()
+              .catch((err: unknown) =>
+                logger.warn("channel.reload_failed", { code: PsycheError.from(err).code }),
+              );
+          }
+          wasUntrusted = untrusted;
+        });
+      }
       await ensureWebChat();
       attachReady();
       // Messages held before the last stop (an update restarts the Gateway) run once the
@@ -1454,6 +1477,8 @@ export function composeChannels(
     async stop() {
       stopWatchingGate?.();
       stopWatchingGate = undefined;
+      stopWatchingSeal?.();
+      stopWatchingSeal = undefined;
       unregisterSendTool?.();
       unregisterSendTool = undefined;
       if (timer !== null) clearInterval(timer);

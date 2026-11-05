@@ -64,6 +64,7 @@ import {
   ShortcutSheet,
 } from "./components/Overlays.tsx";
 import { PaneArea, type PaneRenderer } from "./components/Panes.tsx";
+import { SecurityStateBanner } from "./components/SecurityStateBanner.tsx";
 import {
   frameKind,
   hasInsetTitleBar,
@@ -1236,6 +1237,8 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
                   ? { onShowLogs: () => void platform.gateway.showLogs?.() }
                   : {})}
               />
+              {/* Security changes made outside Psyche, on every screen (security-state-integrity §7.3). */}
+              {status.phase === "paired" ? <SecurityStateBanner platform={platform} /> : null}
               <RouteTransition>
                 {onChat ? (
                   // Keyed by the route's thread: `/chat` stays one view while the main chat loads.

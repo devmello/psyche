@@ -32,6 +32,7 @@ import { people } from "./people/ar.ts";
 import { research } from "./research/ar.ts";
 import { scheduled } from "./scheduled/ar.ts";
 import { screens } from "./screens/ar.ts";
+import { securityState } from "./security-state/ar.ts";
 import { selfConnectors } from "./self-connectors/ar.ts";
 import { settings } from "./settings/ar.ts";
 import { settingsLanguage } from "./settings-language/ar.ts";
@@ -3330,4 +3331,6 @@ export const ar: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "من أتمتتك {name}",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
+  ...securityState,
 };
