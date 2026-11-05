@@ -85,7 +85,14 @@ describe("vault.* through the dispatcher (keychain slot via the Mac helper)", ()
     });
     vault.attach(t.gateway.context.nodes);
     const gw = t;
-    cleanups.push(() => gw.cleanup());
+    // The vault and the database this test opened close before the folder goes (Windows cannot
+    // delete an open file).
+    cleanups.push(async () => {
+      await gw.gateway.stop("test");
+      vault.stop();
+      db.close();
+      rmSync(home, { recursive: true, force: true });
+    });
     expect(vault.slot).toBe("keychain");
 
     const admin: TestClient = await adminClient(gw.gateway);
