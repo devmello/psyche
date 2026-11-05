@@ -328,6 +328,18 @@ export function StartupSplash({
       }
     }
   }
+  if (
+    host === undefined &&
+    run?.kind === "stopped" &&
+    run.restoreInterrupted === true &&
+    gateway.restoredByHand !== undefined
+  ) {
+    actionViews.push({
+      id: "restoredByHand",
+      text: t("web.splash.restoredByHand"),
+      onClick: () => run1(gateway.restoredByHand?.()),
+    });
+  }
   const reload = () => {
     void gateways?.list().then(setSaved, () => undefined);
   };

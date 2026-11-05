@@ -477,6 +477,7 @@ export const web = {
   "web.splash.remote.tokenRefused": "{host} refused this pairing link.",
   "web.splash.remote.tokenRefusedReason":
     "It was already used, has expired or was revoked. Make a new one on {host} and add it again.",
+  "web.splash.restoredByHand": "I put my data back myself",
   "web.splash.remote.switch": "Switch Gateway",
   "web.splash.remote.useThisMac": "Use This Mac",
   "web.splash.remote.pairAgain": "Forget and pair again",

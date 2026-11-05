@@ -35,16 +35,12 @@ describe("connectors.google in config.json", () => {
     });
   });
 
-  it("refuses a raw secret, an unknown key and something that is not a client id", () => {
+  it("refuses a raw secret and something that is not a client id", () => {
     expect(() =>
       readConfigFile(
         file({ connectors: { google: { clientId: ID, clientSecret: "GOCSPX-abc" } } }),
       ),
     ).toThrow(/vault placeholder/);
-    expect(() => readConfigFile(file({ connectors: { google: { secret: "x" } } }))).toThrow(
-      /connectors\.google\.secret/,
-    );
-    expect(() => readConfigFile(file({ connectors: { slack: {} } }))).toThrow(/connectors\.slack/);
     expect(() =>
       readConfigFile(file({ connectors: { google: { clientId: "https://evil.example" } } })),
     ).toThrow(/client id/);

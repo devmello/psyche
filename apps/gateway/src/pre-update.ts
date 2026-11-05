@@ -1,0 +1,1339 @@
+import { createHash } from "node:crypto";
+import {
+  chmodSync,
+  closeSync,
+  copyFileSync,
+  existsSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  readSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { backupsDir } from "@psyche/backup";
+import {
+  backupDatabaseFile,
+  MigrationError,
+  type OpenDbOptions,
+  openDb,
+  type PsycheDb,
+  probeMigrations,
+  takeExclusiveFileLock,
+} from "@psyche/db";
+import { PsycheError } from "@psyche/protocol";
+import { serverBuild } from "./build-info.ts";
+import type { Logger } from "./log.ts";
+
+/**
+ * The snapshot in front of pending migrations (updates design §2.7, gap G2).
+ *
+ * Migrations run forward-only at boot, and nothing could undo one. So when the database has
+ * migrations the new build will apply (or cannot be read, which is treated as "maybe"), every
+ * database and `config.json` are copied first into
+ * `$PSYCHE_HOME/backups/pre-update/<from>-to-<to>-<time>/`. If a migration then fails, the
+ * snapshot is put back and the Gateway refuses to start with a plain message, instead of running
+ * on a half-migrated database.
+ *
+ * - SQLite files are copied with SQLite's online backup API (consistent under WAL). A file that
+ *   is not plain SQLite (the memory store is encrypted) is copied as is, with its `-wal` and
+ *   `-journal` (checksummed; never the rebuildable `-shm`), which is safe because nothing has
+ *   opened it yet at this point of the boot. The small key files that open those stores are
+ *   copied too (`EXTRA_FILES`).
+ * - Everything is fsynced (files, then folders) before a migration starts and after a restore.
+ * - A restore is crash-atomic: `run/restore-in-progress.json` names the snapshot before any file
+ *   is touched, each file is placed through a temp file and a rename, and the next boot finishes
+ *   a restore that was cut short before doing anything else.
+ * - Retention (§2.7.4): the newest {@link DEFAULT_KEEP} are kept; an older one goes only after
+ *   14 days, only after a successful boot, and never one newer than the last good boot. A boot
+ *   that never succeeded reuses its snapshot instead of copying half-migrated data again.
+ * - Not copied: `workspace/`, `library/`, `browser/` (large, never migrated), `state/teach` (the
+ *   owner's recordings) and `security/` (revocations must replay after a restore).
+ *
+ * Not encrypted beyond what the files already are: it sits beside the live files, with the same
+ * exposure. It is not `psyche backup`, which stays the portable, encrypted copy.
+ */
+
+export const PRE_UPDATE_DIR = "pre-update";
+export const MANIFEST_FILE = "manifest.json";
+/** Written beside the Gateway's other run files when a migration failed and was undone. */
+export const UPDATE_FAILED_FILE = join("run", "update-failed.json");
+/** Names the snapshot being put back; present only while a restore is under way. */
+export const RESTORE_MARKER_FILE = join("run", "restore-in-progress.json");
+/** Present while a snapshot or migrations are running; the desktop waits longer meanwhile. */
+export const UPDATE_PROGRESS_FILE = join("run", "update-progress.json");
+/** Where the Gateway remembers which build last opened this data, and the last good snapshot. */
+export const LAST_BOOT_FILE = join("state", "last-boot.json");
+export const DEFAULT_KEEP = 2;
+/** Design §2.7.4: an older snapshot is deleted only after this long. */
+export const PRUNE_AFTER_MS = 14 * 24 * 3_600_000;
+/** Files a restore moved aside (the owner's data, as it was) are kept this long. */
+export const DISPLACED_KEEP_MS = 30 * 24 * 3_600_000;
+const SQLITE_MAGIC = Buffer.from("SQLite format 3\0", "latin1");
+/** `-shm` is a rebuildable index and is never copied. */
+const SIDECARS = ["-wal", "-journal"] as const;
+const ALL_SIDECARS = ["-wal", "-shm", "-journal"] as const;
+const DB_NAME = /\.(sqlite3?|db)$/;
+/** Folders searched for databases; `state/teach` holds the owner's recordings and is skipped. */
+const DB_ROOTS = ["state", "vault"] as const;
+const SKIP_DIRS = new Set([join("state", "teach")]);
+/** The small files that open the stores: without them a restored database cannot be read. */
+export const EXTRA_FILES = [
+  "vault/slots.json",
+  "state/memory.key.json",
+  "state/memory.key.escrow.json",
+  "state/search.key.json",
+] as const;
+
+export interface SnapshotSidecar {
+  suffix: (typeof SIDECARS)[number];
+  bytes: number;
+  sha256: string;
+}
+
+export interface SnapshotEntry {
+  /** Home-relative path (forward slashes) of the live file. */
+  rel: string;
+  kind: "sqlite" | "file";
+  bytes: number;
+  sha256: string;
+  /** Set for a file outside `$PSYCHE_HOME` (a `PSYCHE_DB` override): where it lives, absolute. */
+  abs?: string;
+  /** Where it is inside the snapshot (`files/...`). */
+  stored: string;
+  /** Copied beside a `file` entry (an encrypted store's write-ahead log). */
+  sidecars?: SnapshotSidecar[];
+}
+
+export interface SnapshotManifest {
+  format: "psyche-pre-update";
+  version: 1;
+  /** Monotonic: the newest snapshot has the highest. Retention sorts by this, not by the clock. */
+  seq: number;
+  createdAt: string;
+  from: string;
+  to: string;
+  build?: string;
+  /** The migration ids this update was about to apply (empty when the probe could not tell). */
+  pending: string[];
+  /** Why the migrations could not be listed, when they could not. */
+  probe?: string;
+  /**
+   * Fingerprints of the live main database (the file and its log) when it matched this snapshot:
+   * when it was taken, and after each restore from it. A start that finds the live data
+   * fingerprinted here knows nothing changed since, and needs neither a new copy nor a restore.
+   */
+  liveFingerprints?: string[];
+  entries: SnapshotEntry[];
+}
+
+export interface SnapshotRequest {
+  home: string;
+  /** The main database (`config.dbPath`); copied wherever it is. */
+  dbPath: string;
+  from: string;
+  to: string;
+  build?: string;
+  pending: string[];
+  probe?: string;
+  now?: () => Date;
+}
+
+/**
+ * SHA-256 of a file, streamed in 1 MiB pieces: a database can be larger than Node will read
+ * into one buffer (2 GiB), and even a smaller one should not sit in memory, here or anywhere
+ * the snapshot hashes or compares a file.
+ */
+export function sha256File(path: string): string {
+  const hash = createHash("sha256");
+  const buffer = Buffer.allocUnsafe(1 << 20);
+  const fd = openSync(path, "r");
+  try {
+    for (;;) {
+      const n = readSync(fd, buffer, 0, buffer.length, null);
+      if (n === 0) break;
+      hash.update(buffer.subarray(0, n));
+    }
+  } finally {
+    closeSync(fd);
+  }
+  return hash.digest("hex");
+}
+const sha256 = sha256File;
+
+/** The main database's identity for "has it changed": its file and its write-ahead log. */
+export function liveFingerprint(dbPath: string): string | undefined {
+  if (!existsSync(dbPath)) return undefined;
+  const h = createHash("sha256");
+  h.update(sha256File(dbPath));
+  // An empty log is what merely opening the file leaves behind: it says nothing about the data.
+  for (const suffix of ["-wal", "-journal"])
+    if (existsSync(dbPath + suffix) && statSync(dbPath + suffix).size > 0)
+      h.update(`${suffix}:${sha256File(dbPath + suffix)}`);
+  return h.digest("hex");
+}
+
+function rememberFingerprint(dir: string, dbPath: string): void {
+  try {
+    const fp = liveFingerprint(dbPath);
+    const m = readSnapshot(dir);
+    if (fp === undefined || m === undefined) return;
+    const fingerprints = [...new Set([...(m.liveFingerprints ?? []), fp])];
+    writeJsonDurable(join(dir, MANIFEST_FILE), { ...m, liveFingerprints: fingerprints });
+  } catch {
+    // Only the shortcut is lost; the next start takes a copy.
+  }
+}
+
+// --- durable file helpers -------------------------------------------------------------------
+
+/**
+ * fsync. On macOS this flushes to the drive, not through its cache (that needs `fcntl(F_FULLFSYNC)`,
+ * which Node does not expose); the order of operations (files, then folders, then the rename, the
+ * marker before the restore) is what the guarantees rest on.
+ */
+function fsyncPath(path: string): void {
+  let fd: number | undefined;
+  try {
+    fd = openSync(path, "r");
+    fsyncSync(fd);
+  } catch {
+    // Some filesystems refuse to sync a directory; the rename still happened.
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+}
+
+function fsyncTree(dir: string): void {
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) fsyncTree(p);
+    else fsyncPath(p);
+  }
+  fsyncPath(dir);
+}
+
+/** Copies `from` to `target` through a temp file and a rename, 0600, synced. */
+function placeFile(from: string, target: string): void {
+  mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
+  const temp = `${target}.restoring`;
+  copyFileSync(from, temp);
+  chmodSync(temp, 0o600);
+  fsyncPath(temp);
+  renameSync(temp, target);
+  fsyncPath(dirname(target));
+}
+
+function writeJsonDurable(path: string, value: unknown): void {
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  const temp = `${path}.tmp`;
+  writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  fsyncPath(temp);
+  renameSync(temp, path);
+  fsyncPath(dirname(path));
+}
+
+function isPlainSqlite(path: string): boolean {
+  const fd = openSync(path, "r");
+  try {
+    const head = Buffer.alloc(SQLITE_MAGIC.length);
+    return readSync(fd, head, 0, head.length, 0) === head.length && head.equals(SQLITE_MAGIC);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** Every database file under `state/` and `vault/` (never a `-wal`, `-shm` or `-journal`). */
+export function findDatabases(home: string): string[] {
+  const out: string[] = [];
+  const walk = (rel: string): void => {
+    const abs = join(home, rel);
+    let names: string[];
+    try {
+      names = readdirSync(abs);
+    } catch {
+      return;
+    }
+    for (const name of names.sort()) {
+      const childRel = join(rel, name);
+      let st: ReturnType<typeof statSync>;
+      try {
+        st = statSync(join(home, childRel));
+      } catch {
+        continue;
+      }
+      if (st.isDirectory()) {
+        if (!SKIP_DIRS.has(childRel)) walk(childRel);
+      } else if (st.isFile() && DB_NAME.test(name) && st.size > 0) {
+        out.push(childRel.split(sep).join("/"));
+      }
+    }
+  };
+  for (const root of DB_ROOTS) walk(root);
+  return out;
+}
+
+function safeName(v: string): string {
+  return v.replace(/[^A-Za-z0-9._+-]/g, "_").slice(0, 40) || "unknown";
+}
+
+export function preUpdateDir(home: string): string {
+  return join(backupsDir(home), PRE_UPDATE_DIR);
+}
+
+function nextSeq(home: string): number {
+  return listSnapshots(home).reduce((max, s) => Math.max(max, s.manifest.seq), 0) + 1;
+}
+
+/**
+ * Copies every database, the key files that open them, and `config.json` into a new snapshot
+ * folder (0700, files 0600), syncs it, and returns its path. The folder is built under a
+ * temporary name and renamed when complete, so a snapshot that exists is a whole one. Throws if
+ * anything could not be copied.
+ */
+export async function createSnapshot(req: SnapshotRequest): Promise<string> {
+  const at = (req.now ?? (() => new Date()))();
+  const root = preUpdateDir(req.home);
+  mkdirSync(root, { recursive: true, mode: 0o700 });
+  chmodSync(backupsDir(req.home), 0o700);
+  chmodSync(root, 0o700);
+  // The folders just created are named in their parents: sync those too, or a power cut could
+  // lose the whole snapshot tree after the migration began.
+  fsyncPath(backupsDir(req.home));
+  fsyncPath(req.home);
+  const seq = nextSeq(req.home);
+  const fingerprint = liveFingerprint(resolve(req.dbPath));
+  let name = `${safeName(req.from)}-to-${safeName(req.to)}-${at.toISOString().replace(/[:.]/g, "-")}`;
+  if (existsSync(join(root, name))) name = `${name}-${seq}`;
+  const temp = join(root, `.partial-${name}`);
+  rmSync(temp, { recursive: true, force: true });
+  mkdirSync(join(temp, "files"), { recursive: true, mode: 0o700 });
+  try {
+    const entries: SnapshotEntry[] = [];
+    const sources: { rel: string; abs: string; outside: boolean; forceFile: boolean }[] = [];
+    const seen = new Set<string>();
+    const add = (given: string, forceFile = false): void => {
+      const abs = resolve(given);
+      if (seen.has(abs) || !existsSync(abs)) return;
+      seen.add(abs);
+      const rel = relative(req.home, abs);
+      const outside = rel.startsWith("..") || isAbsolute(rel);
+      sources.push({ rel: outside ? abs : rel.split(sep).join("/"), abs, outside, forceFile });
+    };
+    add(req.dbPath);
+    for (const rel of findDatabases(req.home)) add(join(req.home, rel));
+    for (const rel of EXTRA_FILES) add(join(req.home, rel), true);
+    add(join(req.home, "config.json"), true);
+    for (const source of sources) {
+      const stored = source.outside
+        ? join(
+            "files",
+            "_external",
+            `${createHash("sha256").update(source.abs).digest("hex").slice(0, 12)}-${source.abs.split(sep).at(-1)}`,
+          )
+        : join("files", source.rel);
+      const dest = join(temp, stored);
+      mkdirSync(dirname(dest), { recursive: true, mode: 0o700 });
+      const plain = !source.forceFile && isPlainSqlite(source.abs);
+      const sidecars: SnapshotSidecar[] = [];
+      if (plain) {
+        await backupDatabaseFile(source.abs, dest);
+      } else {
+        copyFileSync(source.abs, dest);
+        for (const suffix of SIDECARS) {
+          if (!existsSync(source.abs + suffix)) continue;
+          copyFileSync(source.abs + suffix, dest + suffix);
+          chmodSync(dest + suffix, 0o600);
+          sidecars.push({
+            suffix,
+            bytes: statSync(dest + suffix).size,
+            sha256: sha256(dest + suffix),
+          });
+        }
+      }
+      chmodSync(dest, 0o600);
+      entries.push({
+        rel: source.rel,
+        kind: plain ? "sqlite" : "file",
+        bytes: statSync(dest).size,
+        sha256: sha256(dest),
+        ...(source.outside ? { abs: source.abs } : {}),
+        stored: stored.split(sep).join("/"),
+        ...(sidecars.length > 0 ? { sidecars } : {}),
+      });
+    }
+    const manifest: SnapshotManifest = {
+      format: "psyche-pre-update",
+      version: 1,
+      seq,
+      createdAt: at.toISOString(),
+      from: req.from,
+      to: req.to,
+      ...(req.build === undefined ? {} : { build: req.build }),
+      pending: req.pending,
+      ...(req.probe === undefined ? {} : { probe: req.probe }),
+      ...(fingerprint === undefined ? {} : { liveFingerprints: [fingerprint] }),
+      entries,
+    };
+    writeFileSync(join(temp, MANIFEST_FILE), `${JSON.stringify(manifest, null, 2)}\n`, {
+      mode: 0o600,
+    });
+    // On disk before a migration may start, files first and then the folders that name them.
+    fsyncTree(temp);
+    const final = join(root, name);
+    renameSync(temp, final);
+    fsyncPath(root);
+    return final;
+  } catch (err) {
+    rmSync(temp, { recursive: true, force: true });
+    throw err;
+  }
+}
+
+/** The manifest of a snapshot folder, or undefined when it is not a whole one. */
+export function readSnapshot(dir: string): SnapshotManifest | undefined {
+  try {
+    const m = JSON.parse(readFileSync(join(dir, MANIFEST_FILE), "utf8")) as SnapshotManifest;
+    return m.format === "psyche-pre-update" && m.version === 1 && Array.isArray(m.entries)
+      ? { ...m, seq: typeof m.seq === "number" ? m.seq : 0 }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Snapshot folders, newest first by sequence (never by the clock, which can move back). */
+export function listSnapshots(home: string): { dir: string; manifest: SnapshotManifest }[] {
+  const root = preUpdateDir(home);
+  if (!existsSync(root)) return [];
+  const out: { dir: string; manifest: SnapshotManifest }[] = [];
+  for (const name of readdirSync(root)) {
+    if (name.startsWith(".")) continue;
+    const manifest = readSnapshot(join(root, name));
+    if (manifest !== undefined) out.push({ dir: join(root, name), manifest });
+  }
+  return out.sort(
+    (a, b) => b.manifest.seq - a.manifest.seq || (a.dir < b.dir ? 1 : a.dir > b.dir ? -1 : 0),
+  );
+}
+
+export interface PruneOptions {
+  keep?: number;
+  now?: Date;
+  /** Older than this to be deleted (default 14 days). */
+  minAgeMs?: number;
+  /** The highest sequence of a boot that succeeded: nothing above it is ever deleted. */
+  goodSeq?: number;
+}
+
+/**
+ * Deletes half-made folders and snapshots that are beyond the newest `keep`, older than
+ * `minAgeMs`, and not newer than the last good boot. Call only after a successful boot.
+ */
+export function pruneSnapshots(home: string, opts: PruneOptions = {}): string[] {
+  const root = preUpdateDir(home);
+  if (!existsSync(root)) return [];
+  for (const name of readdirSync(root)) {
+    if (name.startsWith(".partial-")) rmSync(join(root, name), { recursive: true, force: true });
+    // Files a restore moved aside are kept as long as a snapshot would be.
+    if (name.startsWith(".displaced-")) {
+      const age = (opts.now ?? new Date()).getTime() - statSync(join(root, name)).mtimeMs;
+      if (age >= (opts.minAgeMs ?? DISPLACED_KEEP_MS))
+        rmSync(join(root, name), { recursive: true, force: true });
+    }
+  }
+  const keep = Math.max(1, opts.keep ?? DEFAULT_KEEP);
+  const minAge = opts.minAgeMs ?? PRUNE_AFTER_MS;
+  const nowMs = (opts.now ?? new Date()).getTime();
+  const removed: string[] = [];
+  listSnapshots(home).forEach((snap, i) => {
+    if (i < keep) return;
+    if (opts.goodSeq !== undefined && snap.manifest.seq > opts.goodSeq) return;
+    // A date that cannot be read is not "old", and one in the future is not older than now.
+    const created = Date.parse(snap.manifest.createdAt);
+    if (!Number.isFinite(created)) return;
+    if (Math.max(0, nowMs - created) < minAge) return;
+    rmSync(snap.dir, { recursive: true, force: true });
+    removed.push(snap.dir);
+  });
+  return removed;
+}
+
+/** Removes every pre-update snapshot (forget-everything, uninstall with data). */
+export function purgePreUpdateSnapshots(home: string): void {
+  rmSync(preUpdateDir(home), { recursive: true, force: true });
+}
+
+/**
+ * Puts a snapshot back. Every copy (and sidecar) is checked against its recorded checksum first,
+ * so a damaged snapshot changes nothing. Then, per file: the live file and its stale
+ * `-wal`/`-shm`/`-journal` are MOVED to `displaceTo` (never overwritten, so a restore that turns
+ * out to be wrong can be undone by hand), and the copy is placed through a temp file and a
+ * rename. Only paths inside `home` are written, plus the absolute ones in `allowAbsolute`
+ * (compared after resolving both sides); a manifest cannot point elsewhere. `onlyDatabases`
+ * leaves `config.json` and the key files alone: they do not change in a failed migration, and
+ * putting back an old copy would undo changes the owner made since. The Gateway must not have
+ * the files open. Use {@link restoreWithMarker} when a crash in the middle must be recoverable.
+ */
+export function restoreSnapshot(
+  dir: string,
+  home: string,
+  opts: RestoreOptions = {},
+): SnapshotManifest {
+  const planned = planRestore(dir, home, opts);
+  applyRestore(planned, opts.displaceTo, opts.overwrite === true);
+  return planned.manifest;
+}
+
+export interface RestoreOptions {
+  allowAbsolute?: readonly string[];
+  /** Restore the databases and their logs only. */
+  onlyDatabases?: boolean;
+  /** Where files that are replaced go (default: `backups/pre-update/.displaced-<snapshot>/`). */
+  displaceTo?: string;
+  /**
+   * The live files are the product of a migration that just failed under the lock, on top of
+   * exactly this snapshot: replace them in place instead of keeping a copy of the debris.
+   */
+  overwrite?: boolean;
+  now?: () => Date;
+  logger?: Logger;
+}
+
+interface RestorePlan {
+  home: string;
+  /** The snapshot folder's own (unique) name. */
+  name: string;
+  manifest: SnapshotManifest;
+  steps: { from: string; target: string; entry: SnapshotEntry }[];
+}
+
+/** The files that are not databases: put back only together with the databases, after a failure. */
+const SIDE_FILES: ReadonlySet<string> = new Set(["config.json", ...EXTRA_FILES]);
+
+/** Checks a snapshot and decides where each file goes; touches nothing. */
+function planRestore(dir: string, home: string, opts: RestoreOptions): RestorePlan {
+  const manifest = readSnapshot(dir);
+  if (manifest === undefined) throw new PsycheError("not_found", `${dir} is not a snapshot`);
+  const allowed = (opts.allowAbsolute ?? []).map((p) => resolve(p));
+  const entries = opts.onlyDatabases
+    ? manifest.entries.filter((e) => e.abs !== undefined || !SIDE_FILES.has(e.rel))
+    : manifest.entries;
+  const plan = entries.map((e) => {
+    const from = join(dir, e.stored);
+    const target = e.abs === undefined ? resolve(home, e.rel) : resolve(e.abs);
+    const rel = relative(resolve(home), target);
+    const inside = !rel.startsWith("..") && !isAbsolute(rel);
+    if (e.abs !== undefined ? !allowed.includes(target) : !inside)
+      throw new PsycheError("forbidden", `the snapshot names a path outside ${home}: ${e.rel}`);
+    if (!existsSync(from) || sha256(from) !== e.sha256)
+      throw new PsycheError("internal", `the snapshot copy of ${e.rel} is missing or damaged`);
+    for (const s of e.sidecars ?? []) {
+      if (!existsSync(from + s.suffix) || sha256(from + s.suffix) !== s.sha256)
+        throw new PsycheError("internal", `the snapshot copy of ${e.rel}${s.suffix} is damaged`);
+    }
+    return { from, target, entry: e };
+  });
+  return { home, name: basename(dir), manifest, steps: plan };
+}
+
+/**
+ * One folder per snapshot, named after the snapshot's own unique folder name: a start that
+ * crashes and is restarted over and over restores from the same snapshot every time, and must
+ * not move a fresh half-migrated database aside on each lap. (Never the sequence number: two
+ * snapshots can share one after a restore of `backups/`.)
+ */
+function displacedDirFor(home: string, snapshotName: string): string {
+  return join(preUpdateDir(home), `.displaced-${snapshotName}`);
+}
+
+/**
+ * Moves a live file out of the way instead of overwriting it. When the place it would go is
+ * taken (an earlier lap over the same snapshot) the live file is deleted only if it is byte for
+ * byte what is already there; otherwise it is kept too, as `<name>.latest`, replacing any
+ * earlier `.latest`, so a loop adds at most one more copy.
+ */
+function displace(home: string, file: string, dir: string): void {
+  if (!existsSync(file)) return;
+  const rel = relative(resolve(home), resolve(file));
+  const inside = !rel.startsWith("..") && !isAbsolute(rel);
+  const dest = join(
+    dir,
+    inside
+      ? rel
+      : join(
+          "_external",
+          `${createHash("sha256").update(file).digest("hex").slice(0, 12)}-${file.split(sep).at(-1)}`,
+        ),
+  );
+  mkdirSync(dirname(dest), { recursive: true, mode: 0o700 });
+  let target = dest;
+  if (existsSync(dest)) {
+    if (sha256File(file) === sha256File(dest)) {
+      rmSync(file, { force: true });
+      return;
+    }
+    target = `${dest}.latest`;
+  }
+  try {
+    renameSync(file, target);
+  } catch {
+    copyFileSync(file, target);
+    rmSync(file, { force: true });
+  }
+  fsyncPath(dirname(target));
+}
+
+/** Copies the snapshot's file beside its target, synced, without touching the target. */
+function stageFile(from: string, target: string): string {
+  mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
+  const temp = `${target}.restoring`;
+  copyFileSync(from, temp);
+  chmodSync(temp, 0o600);
+  fsyncPath(temp);
+  return temp;
+}
+
+function commitStaged(temp: string, target: string): void {
+  renameSync(temp, target);
+  fsyncPath(dirname(target));
+}
+
+function applyRestore(plan: RestorePlan, displaceTo?: string, overwrite = false): void {
+  const dir = displaceTo ?? displacedDirFor(plan.home, plan.name);
+  for (const { from, target, entry } of plan.steps) {
+    // Already the snapshot's copy (a restore that was cut short and is being finished): nothing
+    // to displace, only the stale logs to clear.
+    const same = existsSync(target) && sha256(target) === entry.sha256;
+    // Everything the snapshot puts back is copied beside its place FIRST: if the disk fills up
+    // here nothing live has been moved yet, so there is never a moment with no database.
+    const staged = same
+      ? []
+      : [
+          { temp: stageFile(from, target), target },
+          ...(entry.sidecars ?? []).map((sc) => ({
+            temp: stageFile(from + sc.suffix, target + sc.suffix),
+            target: target + sc.suffix,
+          })),
+        ];
+    if (!same && !overwrite) displace(plan.home, target, dir);
+    for (const suffix of ALL_SIDECARS) {
+      if (same || overwrite) rmSync(target + suffix, { force: true });
+      else displace(plan.home, target + suffix, dir);
+    }
+    for (const { temp, target: to } of staged) commitStaged(temp, to);
+    if (same)
+      for (const sc of entry.sidecars ?? []) placeFile(from + sc.suffix, target + sc.suffix);
+  }
+}
+
+interface RestoreMarker {
+  snapshot: string;
+  at: string;
+  onlyDatabases: boolean;
+  displaceTo: string;
+  overwrite?: boolean;
+}
+
+/**
+ * {@link restoreSnapshot}, preceded by a durable note naming the snapshot, so that a crash or
+ * power loss half way is finished by {@link finishPendingRestore} at the next boot.
+ */
+export function restoreWithMarker(
+  dir: string,
+  home: string,
+  opts: RestoreOptions = {},
+): SnapshotManifest {
+  // A damaged or foreign snapshot is refused before anything is written, marker included.
+  const planned = planRestore(dir, home, opts);
+  const at = (opts.now ?? (() => new Date()))();
+  const displaceTo = opts.displaceTo ?? displacedDirFor(home, planned.name);
+  const marker: RestoreMarker = {
+    snapshot: dir,
+    at: at.toISOString(),
+    onlyDatabases: opts.onlyDatabases === true,
+    displaceTo,
+    ...(opts.overwrite === true ? { overwrite: true } : {}),
+  };
+  writeJsonDurable(join(home, RESTORE_MARKER_FILE), marker);
+  applyRestore(planned, displaceTo, opts.overwrite === true);
+  rmSync(join(home, RESTORE_MARKER_FILE), { force: true });
+  fsyncPath(join(home, "run"));
+  if (existsSync(displaceTo))
+    opts.logger?.log("warn", "a restore moved files aside instead of overwriting them", {
+      folder: displaceTo,
+    });
+  return planned.manifest;
+}
+
+/** Inside `parent`, after resolving: the only place a marker may send a restore from. */
+function isInside(parent: string, child: string): boolean {
+  const rel = relative(resolve(parent), resolve(child));
+  return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
+}
+
+export interface FinishRestoreOptions {
+  /** The main database's path: the one absolute path a snapshot may restore (`PSYCHE_DB`). */
+  allowAbsolute?: readonly string[];
+  /** For the note the splash shows when the restore cannot be finished. */
+  build?: string;
+  version?: string;
+  now?: () => Date;
+  logger?: Logger;
+}
+
+function restoreInterruptedMessage(why: string): string {
+  return `Psyche was putting your data back after a failed update when it was interrupted, and could not finish (${why}). Your data from before the update is in backups/pre-update inside Psyche's data folder. Please don't open Psyche again until you have restored it. If you have put it back yourself, run "psyche migrate --retry --restored-by-hand".`;
+}
+
+/**
+ * Finishes a restore that a crash cut short; returns whether there was one. Fails closed: a
+ * marker that cannot be read or points outside the snapshot folder is not guessed at. The reason
+ * is written to `run/update-failed.json` so the start-up screen can show it.
+ */
+export function finishPendingRestore(home: string, opts: FinishRestoreOptions = {}): boolean {
+  const file = join(home, RESTORE_MARKER_FILE);
+  let text: string;
+  try {
+    text = readFileSync(file, "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
+    return refuseRestore(
+      home,
+      opts,
+      `the restore note cannot be read: ${PsycheError.from(err).message}`,
+    );
+  }
+  let marker: RestoreMarker;
+  try {
+    marker = JSON.parse(text) as RestoreMarker;
+    if (typeof marker.snapshot !== "string") throw new Error("no snapshot named");
+  } catch {
+    return refuseRestore(home, opts, "the restore note is damaged");
+  }
+  if (!isInside(preUpdateDir(home), marker.snapshot))
+    return refuseRestore(home, opts, "the restore note names a place outside the snapshots");
+  opts.logger?.log("warn", "finishing an interrupted restore of the pre-update snapshot");
+  try {
+    restoreSnapshot(marker.snapshot, home, {
+      allowAbsolute: opts.allowAbsolute ?? [],
+      onlyDatabases: marker.onlyDatabases === true,
+      ...(marker.overwrite === true ? { overwrite: true } : {}),
+      ...(typeof marker.displaceTo === "string" && isInside(preUpdateDir(home), marker.displaceTo)
+        ? { displaceTo: marker.displaceTo }
+        : {}),
+    });
+  } catch (err) {
+    return refuseRestore(home, opts, PsycheError.from(err).message);
+  }
+  rmSync(file, { force: true });
+  fsyncPath(join(home, "run"));
+  // A failed update whose data could not be put back is now put back: say so in its note.
+  const note = readUpdateFailure(home);
+  if (note !== undefined && note.restored === false) {
+    const message = updateFailedMessage(note.to, true);
+    try {
+      writeJsonDurable(join(home, UPDATE_FAILED_FILE), {
+        ...note,
+        restored: true,
+        message,
+        retryAfter:
+          note.kind === "environment"
+            ? new Date(
+                (opts.now ?? (() => new Date()))().getTime() + BACKOFF_START_MS,
+              ).toISOString()
+            : null,
+      } satisfies UpdateFailure);
+    } catch {
+      // The refusal for that build stands either way.
+    }
+  }
+  return true;
+}
+
+function refuseRestore(home: string, opts: FinishRestoreOptions, why: string): never {
+  const message = restoreInterruptedMessage(why);
+  try {
+    const at = (opts.now ?? (() => new Date()))().toISOString();
+    writeJsonDurable(join(home, UPDATE_FAILED_FILE), {
+      build: opts.build ?? "unknown",
+      key: "restore-interrupted",
+      kind: "deterministic",
+      attempts: 1,
+      retryAfter: null,
+      from: "unknown",
+      to: opts.version ?? "unknown",
+      migration: null,
+      at,
+      snapshot: null,
+      restored: false,
+      message,
+    } satisfies UpdateFailure);
+  } catch {
+    // The error below still stops the start.
+  }
+  throw new PsycheError("unavailable", message, { details: { reason: "restore_interrupted" } });
+}
+
+/**
+ * The owner's "I put it back myself": forgets an unfinishable restore and its note. Only for a
+ * person who has checked their data; nothing else calls it.
+ */
+export function clearInterruptedRestore(home: string): boolean {
+  const had = existsSync(join(home, RESTORE_MARKER_FILE));
+  rmSync(join(home, RESTORE_MARKER_FILE), { force: true });
+  if (readUpdateFailure(home)?.key === "restore-interrupted") clearUpdateFailure(home);
+  return had;
+}
+
+// --- the boot step --------------------------------------------------------------------------
+
+export interface UpdateFailure {
+  build: string;
+  /** What "the same failure" means: the build, or for a `dev` build version + pending migrations. */
+  key: string;
+  /** `deterministic`: the SQL or the data is at fault. `environment`: disk full, I/O, permissions. */
+  kind: "deterministic" | "environment";
+  attempts: number;
+  /** ISO time before which this key is not tried again; null = until the note is removed. */
+  retryAfter: string | null;
+  from: string;
+  to: string;
+  migration: string | null;
+  at: string;
+  snapshot: string | null;
+  restored: boolean;
+  /** What the owner is told (the desktop's splash shows it when the Gateway will not start). */
+  message: string;
+}
+
+export function readUpdateFailure(home: string): UpdateFailure | undefined {
+  try {
+    return JSON.parse(readFileSync(join(home, UPDATE_FAILED_FILE), "utf8")) as UpdateFailure;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The owner's "try again": removes the note so the next start attempts the update. */
+export function clearUpdateFailure(home: string): boolean {
+  const had = existsSync(join(home, UPDATE_FAILED_FILE));
+  rmSync(join(home, UPDATE_FAILED_FILE), { force: true });
+  return had;
+}
+
+/** What the owner is told. Plain words; the details stay in the log and `run/update-failed.json`. */
+export function updateFailedMessage(to: string, restored: boolean): string {
+  return restored
+    ? `Psyche ${to} couldn't update your data, so it put everything back the way it was and did not start. Nothing was lost. Install the previous version of Psyche to carry on, or wait for the next update.`
+    : `Psyche ${to} couldn't update your data and could not put it back automatically. Your data from before the update is in backups/pre-update inside Psyche's data folder. Please don't open Psyche again until you have restored it.`;
+}
+
+function unreadableFailedMessage(to: string): string {
+  return `Psyche ${to} couldn't update your data. The data could not be read when the update began, so it was left exactly as it is now, and a copy of how it was is in backups/pre-update inside Psyche's data folder. Please don't open Psyche again until you have checked it.`;
+}
+
+function snapshotFailedMessage(to: string): string {
+  return `Psyche ${to} needs to update your data, but couldn't make a safety copy first (is the disk full?), so it did not start. Nothing was changed. Free some space and choose Try again.`;
+}
+
+/** Errors that come from the machine, not from the migration: worth trying again later. */
+const ENVIRONMENT =
+  /database or disk is full|disk I\/O error|readonly database|unable to open database|no space left|SQLITE_(FULL|IOERR|READONLY|CANTOPEN)|\bE(NOSPC|ACCES|ROFS|IO|MFILE)\b/i;
+const LOCKED = /database is locked|SQLITE_BUSY|SQLITE_LOCKED/i;
+const BACKOFF_START_MS = 5 * 60_000;
+const BACKOFF_MAX_MS = 60 * 60_000;
+const DEV_BACKOFF_MS = 5 * 60_000;
+
+export interface OpenWithSnapshotOptions {
+  home: string;
+  dbPath: string;
+  /** The version and build of the code that is about to migrate. */
+  version: string;
+  build: string;
+  /** How many snapshots to keep (default 2). */
+  keep?: number;
+  /** Test hook: how old a snapshot must be to be deleted (default 14 days). */
+  minPruneAgeMs?: number;
+  now?: () => Date;
+  logger?: Logger;
+  /** Passed to `openDb` (the clock for row timestamps, a migrations folder in tests). */
+  open?: OpenDbOptions;
+  /** Test hook for the database opener. */
+  opener?: (path: string, opts?: OpenDbOptions) => PsycheDb;
+}
+
+interface LastBoot {
+  version: string;
+  build?: string;
+  /** The highest snapshot sequence at the last boot that succeeded. */
+  goodSeq: number;
+}
+
+function lastBoot(home: string): LastBoot | undefined {
+  try {
+    const v = JSON.parse(readFileSync(join(home, LAST_BOOT_FILE), "utf8")) as {
+      version?: unknown;
+      build?: unknown;
+      goodSeq?: unknown;
+    };
+    return typeof v.version === "string"
+      ? {
+          version: v.version,
+          ...(typeof v.build === "string" ? { build: v.build } : {}),
+          goodSeq: typeof v.goodSeq === "number" ? v.goodSeq : 0,
+        }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function recordBoot(home: string, version: string, build: string, at: Date): number {
+  const goodSeq = listSnapshots(home).reduce((max, s) => Math.max(max, s.manifest.seq), 0);
+  const prev = lastBoot(home);
+  if (prev?.version === version && prev.build === build && prev.goodSeq === goodSeq) return goodSeq;
+  try {
+    writeJsonDurable(join(home, LAST_BOOT_FILE), {
+      version,
+      build,
+      goodSeq,
+      at: at.toISOString(),
+    });
+  } catch {
+    // Only the next snapshot's name and retention depend on it.
+  }
+  return goodSeq;
+}
+
+function writeProgress(home: string, phase: "snapshot" | "migrating", build: string, at: Date) {
+  try {
+    writeJsonDurable(join(home, UPDATE_PROGRESS_FILE), { phase, build, at: at.toISOString() });
+  } catch {
+    // The splash just waits its usual time.
+  }
+}
+
+// --- one Gateway per data folder ------------------------------------------------------------
+
+/**
+ * Held (kernel-locked) by the one Gateway running on this data folder. The lock is an open file
+ * the kernel releases when the process exits however it dies (SIGKILL, power loss, a crash), so
+ * there is never a stale lock to recognise: a reboot, a recycled pid or a crash during start
+ * cannot leave it behind. The text inside (the owner's pid) is for diagnostics only.
+ */
+export const GATEWAY_LOCK_FILE = join("run", "gateway.lock");
+const lockedHomes = new Map<string, { release(): void }>();
+
+export interface GatewayLockOptions {
+  /** For the note the splash shows when another Gateway holds the folder. */
+  build?: string;
+  version?: string;
+  now?: () => Date;
+  /** Test hook: force the SQLite lock instead of the platform's. */
+  impl?: "exlock" | "sqlite";
+}
+
+/**
+ * Takes the Gateway lock for the life of this process, or throws when another process holds it
+ * (and says so in `run/update-failed.json`, which the start-up screen shows). The snapshot and
+ * restore code replaces files by name and copies encrypted stores as bytes: both assume nobody
+ * else has the data open. The same process may ask again, as tests that start several Gateways
+ * in turn do.
+ */
+export function acquireGatewayLock(home: string, opts: GatewayLockOptions = {}): void {
+  const file = join(home, GATEWAY_LOCK_FILE);
+  const key = resolve(file);
+  if (lockedHomes.has(key)) return;
+  mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+  const lock = takeExclusiveFileLock(file, opts.impl);
+  if (lock === null) {
+    let holder: number | undefined;
+    try {
+      holder = (JSON.parse(readFileSync(file, "utf8")) as { pid?: number }).pid;
+    } catch {
+      // The holder has not written its note yet, or it is unreadable.
+    }
+    const message = `Another Psyche Gateway${holder === undefined ? "" : ` (process ${holder})`} is already using this data folder, so this one did not start. Quit the other one first, or wait a moment and choose Try again.`;
+    // Never over a note about something else (a failed update, an unfinished restore): that one
+    // is what the owner needs to see once the other Gateway is gone.
+    const existing = readUpdateFailure(home);
+    if (existing === undefined || existing.key === "gateway-running") {
+      try {
+        writeJsonDurable(join(home, UPDATE_FAILED_FILE), {
+          build: opts.build ?? "unknown",
+          key: "gateway-running",
+          kind: "environment",
+          attempts: 1,
+          retryAfter: null,
+          from: "unknown",
+          to: opts.version ?? "unknown",
+          migration: null,
+          at: (opts.now ?? (() => new Date()))().toISOString(),
+          snapshot: null,
+          restored: true,
+          message,
+        } satisfies UpdateFailure);
+      } catch {
+        // The error below still stops the start.
+      }
+    }
+    throw new PsycheError("unavailable", message, { details: { reason: "gateway_running" } });
+  }
+  // The lock is ours: a note saying another Gateway held it is out of date.
+  if (readUpdateFailure(home)?.key === "gateway-running") clearUpdateFailure(home);
+  lock.writeNote(`${JSON.stringify({ pid: process.pid, at: new Date().toISOString() })}\n`);
+  lockedHomes.set(key, lock);
+}
+
+/** Test hook: lets go of this process's lock on a data folder. */
+export function releaseGatewayLock(home: string): void {
+  const key = resolve(join(home, GATEWAY_LOCK_FILE));
+  lockedHomes.get(key)?.release();
+  lockedHomes.delete(key);
+}
+
+/**
+ * What says this folder has held data before: a boot that succeeded, a snapshot, something a
+ * restore moved aside, or another database next to where the main one should be. Empty for a
+ * new install.
+ */
+function earlierDataEvidence(home: string, dbPath: string): string[] {
+  const found: string[] = [];
+  if (existsSync(join(home, LAST_BOOT_FILE))) found.push(LAST_BOOT_FILE);
+  if (listSnapshots(home).length > 0) found.push("backups/pre-update");
+  try {
+    for (const name of readdirSync(preUpdateDir(home)))
+      if (name.startsWith(".displaced-")) found.push(`backups/pre-update/${name}`);
+  } catch {
+    // No such folder.
+  }
+  for (const rel of findDatabases(home))
+    if (resolve(join(home, rel)) !== resolve(dbPath)) found.push(rel);
+  return found;
+}
+
+/**
+ * A missing main database is a new install, unless the folder shows it had one: a restore that
+ * could not finish can leave exactly that (the live file moved aside, its replacement never
+ * written). Opening would then quietly create an empty database and the owner would start on
+ * nothing. Refuse, say what is there, and leave the files alone.
+ */
+function refuseToStartEmpty(opts: OpenWithSnapshotOptions, now: () => Date): void {
+  if (existsSync(opts.dbPath)) return;
+  const evidence = earlierDataEvidence(opts.home, opts.dbPath);
+  if (evidence.length === 0) return;
+  const message = `Psyche's main database is missing, but this folder holds data from before (${evidence.slice(0, 3).join(", ")}). It did not start, so as not to begin again with an empty database. Put the database back (a copy is in backups/pre-update), then try again.`;
+  try {
+    writeJsonDurable(join(opts.home, UPDATE_FAILED_FILE), {
+      build: opts.build,
+      key: "data-missing",
+      kind: "deterministic",
+      attempts: 1,
+      retryAfter: null,
+      from: "unknown",
+      to: opts.version,
+      migration: null,
+      at: now().toISOString(),
+      snapshot: null,
+      restored: false,
+      message,
+    } satisfies UpdateFailure);
+  } catch {
+    // The error below still stops the start.
+  }
+  throw new PsycheError("unavailable", message, { details: { reason: "data_missing" } });
+}
+
+/**
+ * Opens the Gateway's database, migrating it, with the safety net: with migrations pending (or
+ * not readable) the data is snapshotted first; if they fail it is restored and the Gateway
+ * refuses to start. With nothing pending this is just `openDb`. `:memory:` databases skip all
+ * of it.
+ *
+ * Reusing a snapshot (the previous start of this build was cut short) needs positive evidence:
+ * the live `_migrations` holds some, not all, of that snapshot's pending migrations, and the
+ * data reads now. Without that the live data is a consistent state of its own (the owner may
+ * have run another version, or restored a backup, since), so it gets a fresh snapshot and is
+ * never overwritten.
+ */
+export async function openDbWithSnapshot(opts: OpenWithSnapshotOptions): Promise<PsycheDb> {
+  const open = opts.opener ?? openDb;
+  const now = opts.now ?? (() => new Date());
+  const keep = opts.keep ?? DEFAULT_KEEP;
+  if (opts.dbPath === ":memory:") return open(opts.dbPath, opts.open);
+
+  acquireGatewayLock(opts.home, { build: opts.build, version: opts.version, now });
+  finishPendingRestore(opts.home, {
+    allowAbsolute: [opts.dbPath],
+    build: opts.build,
+    version: opts.version,
+    now,
+    ...(opts.logger === undefined ? {} : { logger: opts.logger }),
+  });
+  refuseToStartEmpty(opts, now);
+  const probe = probeMigrations(opts.dbPath, opts.open?.migrationsDir ?? undefined);
+  const succeeded = (db: PsycheDb): PsycheDb => {
+    rmSync(join(opts.home, UPDATE_FAILED_FILE), { force: true });
+    rmSync(join(opts.home, UPDATE_PROGRESS_FILE), { force: true });
+    const goodSeq = recordBoot(opts.home, opts.version, opts.build, now());
+    // Only now, with a boot that worked, may older snapshots go.
+    try {
+      pruneSnapshots(opts.home, {
+        keep,
+        goodSeq,
+        now: now(),
+        ...(opts.minPruneAgeMs === undefined ? {} : { minAgeMs: opts.minPruneAgeMs }),
+      });
+    } catch {
+      // Retention is housekeeping.
+    }
+    return db;
+  };
+  if (probe.state === "none") return succeeded(open(opts.dbPath, opts.open));
+
+  const pending = probe.state === "pending" ? probe.ids : [];
+  const probeNote = probe.state === "unknown" ? probe.reason : undefined;
+  const key =
+    opts.build === "dev"
+      ? `dev:${opts.version}:${createHash("sha256")
+          .update(pending.join(",") || "unknown")
+          .digest("hex")
+          .slice(0, 12)}`
+      : opts.build;
+
+  // The same failure last time, and not yet time to try again: don't churn snapshots by trying
+  // every few seconds (launchd restarts a Gateway that exits). A newer build tries at once.
+  const failed = readUpdateFailure(opts.home);
+  if (failed !== undefined && failed.key === key) {
+    const wait =
+      failed.retryAfter === null ? Number.POSITIVE_INFINITY : Date.parse(failed.retryAfter);
+    if (now().getTime() < wait) {
+      throw new PsycheError("unavailable", failed.message, {
+        details: {
+          reason: "update_failed",
+          migration: failed.migration,
+          restored: failed.restored,
+        },
+      });
+    }
+  }
+  const attempts = failed !== undefined && failed.key === key ? failed.attempts : 0;
+
+  const from = lastBoot(opts.home)?.version ?? "unknown";
+  const recordFailure = (
+    f: Omit<UpdateFailure, "build" | "key" | "from" | "to" | "at" | "attempts" | "retryAfter">,
+  ) => {
+    const environment = f.kind === "environment";
+    const backoff = environment
+      ? Math.min(BACKOFF_MAX_MS, BACKOFF_START_MS * 2 ** attempts)
+      : opts.build === "dev"
+        ? DEV_BACKOFF_MS
+        : null;
+    const note: UpdateFailure = {
+      ...f,
+      build: opts.build,
+      key,
+      from,
+      to: opts.version,
+      at: now().toISOString(),
+      attempts: attempts + 1,
+      retryAfter:
+        backoff === null || !f.restored ? null : new Date(now().getTime() + backoff).toISOString(),
+    };
+    try {
+      writeJsonDurable(join(opts.home, UPDATE_FAILED_FILE), note);
+    } catch {
+      // The refusal still stands.
+    }
+  };
+
+  writeProgress(opts.home, "snapshot", opts.build, now());
+  let snapshot: string;
+  let snapshotManifest: SnapshotManifest | undefined;
+  try {
+    // A snapshot of this very build exists: was its start cut short, or is it just old?
+    const candidate = listSnapshots(opts.home).find(
+      (s) => s.manifest.to === opts.version && s.manifest.build === opts.build,
+    );
+    let reuse: { dir: string; manifest: SnapshotManifest } | undefined;
+    if (candidate !== undefined) {
+      const m = candidate.manifest;
+      if (probe.state === "unknown") {
+        // Unreadable now, as it was then: nothing has changed that a copy would add, and
+        // nothing is ever restored over data that cannot be read.
+        if (m.probe !== undefined) reuse = candidate;
+      } else if (
+        m.probe === undefined &&
+        m.pending.length > 0 &&
+        m.pending.length === probe.ids.length &&
+        m.pending.every((id) => probe.ids.includes(id)) &&
+        (() => {
+          const fp = liveFingerprint(opts.dbPath);
+          return fp !== undefined && (m.liveFingerprints ?? []).includes(fp);
+        })()
+      ) {
+        // The data is byte for byte what this snapshot was taken of (or put back to): nothing
+        // happened since, so a retry needs neither another copy nor a restore.
+        reuse = candidate;
+      } else if (m.probe === undefined && m.pending.length > 0) {
+        const applied = m.pending.filter((id) => !probe.ids.includes(id));
+        // A different build booted successfully after this snapshot was made (an intermediate
+        // release that knows only some of the migrations, say): the data has moved on since.
+        const lb = lastBoot(opts.home);
+        const movedOn = lb?.build !== undefined && lb.build !== opts.build && lb.goodSeq >= m.seq;
+        const cutShort =
+          !movedOn &&
+          applied.length > 0 &&
+          applied.length < m.pending.length &&
+          probe.ids.every((id) => m.pending.includes(id));
+        if (cutShort) {
+          try {
+            restoreWithMarker(candidate.dir, opts.home, {
+              allowAbsolute: [opts.dbPath],
+              onlyDatabases: true,
+              now,
+              ...(opts.logger === undefined ? {} : { logger: opts.logger }),
+            });
+            reuse = candidate;
+            rememberFingerprint(candidate.dir, opts.dbPath);
+            opts.logger?.log(
+              "info",
+              "pre-update snapshot reused after a start that was cut short",
+              {
+                to: opts.version,
+              },
+            );
+          } catch (err) {
+            // A damaged copy cannot be a rollback point; carry on with a fresh one.
+            opts.logger?.log("warn", "an earlier pre-update snapshot cannot be used", {
+              code: PsycheError.from(err).code,
+            });
+          }
+        }
+      }
+    }
+    if (reuse !== undefined) {
+      snapshot = reuse.dir;
+      snapshotManifest = reuse.manifest;
+    } else {
+      snapshot = await createSnapshot({
+        home: opts.home,
+        dbPath: opts.dbPath,
+        from,
+        to: opts.version,
+        build: opts.build,
+        pending,
+        ...(probeNote === undefined ? {} : { probe: probeNote }),
+        now,
+      });
+      snapshotManifest = readSnapshot(snapshot);
+      opts.logger?.log("info", "pre-update snapshot made", {
+        from,
+        to: opts.version,
+        pending: pending.length,
+      });
+    }
+  } catch (err) {
+    // Migrating without a way back is the risk this exists to remove: stop, and say why.
+    opts.logger?.log("error", "pre-update snapshot failed", {
+      code: PsycheError.from(err).code,
+      pending: pending.length,
+    });
+    rmSync(join(opts.home, UPDATE_PROGRESS_FILE), { force: true });
+    const message = snapshotFailedMessage(opts.version);
+    recordFailure({
+      kind: "environment",
+      migration: null,
+      snapshot: null,
+      restored: true,
+      message,
+    });
+    throw new PsycheError("unavailable", message, {
+      details: { reason: "snapshot_failed" },
+      cause: err,
+    });
+  }
+
+  writeProgress(opts.home, "migrating", opts.build, now());
+  try {
+    return succeeded(open(opts.dbPath, opts.open));
+  } catch (err) {
+    rmSync(join(opts.home, UPDATE_PROGRESS_FILE), { force: true });
+    // Another process holding the database is not a failed migration; nothing to undo.
+    if (!(err instanceof MigrationError) || LOCKED.test(err.message)) throw err;
+    // A snapshot of data that could not be read is not a rollback point once the data reads:
+    // putting it back would undo whatever repaired it.
+    const canRestore = snapshotManifest?.probe === undefined;
+    let restored = false;
+    if (canRestore) {
+      try {
+        // Under the lock, what is live now is the product of the migration that just failed on
+        // top of exactly this snapshot: replace it in place, keep no copy of the debris.
+        restoreWithMarker(snapshot, opts.home, {
+          allowAbsolute: [opts.dbPath],
+          overwrite: true,
+          now,
+          ...(opts.logger === undefined ? {} : { logger: opts.logger }),
+        });
+        rememberFingerprint(snapshot, opts.dbPath);
+        restored = true;
+      } catch (restoreErr) {
+        opts.logger?.log("error", "pre-update restore failed", {
+          code: PsycheError.from(restoreErr).code,
+        });
+      }
+    }
+    const message = canRestore
+      ? updateFailedMessage(opts.version, restored)
+      : unreadableFailedMessage(opts.version);
+    recordFailure({
+      kind: ENVIRONMENT.test(err.message) ? "environment" : "deterministic",
+      migration: err.migration ?? null,
+      snapshot,
+      restored,
+      message,
+    });
+    opts.logger?.log("error", restored ? "migration failed; data restored" : "migration failed", {
+      migration: err.migration ?? null,
+      restored,
+    });
+    throw new PsycheError("unavailable", message, {
+      details: { reason: "update_failed", migration: err.migration ?? null, restored },
+      cause: err,
+    });
+  }
+}
+
+/** `PSYCHE_PRE_UPDATE_KEEP`: how many pre-update snapshots to keep (1 to 20, default 2). */
+export function keepFromEnv(env: NodeJS.ProcessEnv = process.env): number {
+  const n = Number(env.PSYCHE_PRE_UPDATE_KEEP);
+  return Number.isInteger(n) && n >= 1 && n <= 20 ? n : DEFAULT_KEEP;
+}
+
+/**
+ * The Gateway's own database, opened the safe way: pending migrations are snapshotted first and
+ * undone if they fail (`openDbWithSnapshot`), with this build's version and the default retention
+ * (`PSYCHE_PRE_UPDATE_KEEP`).
+ */
+export function openGatewayDb(
+  config: { home: string; dbPath: string },
+  now: () => string,
+  logger?: Logger,
+): Promise<PsycheDb> {
+  const build = serverBuild();
+  return openDbWithSnapshot({
+    home: config.home,
+    dbPath: config.dbPath,
+    version: build.version,
+    build: build.build,
+    keep: keepFromEnv(),
+    open: { now },
+    ...(logger === undefined ? {} : { logger }),
+  });
+}

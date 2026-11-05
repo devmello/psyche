@@ -1485,6 +1485,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Desktop shell on the Host only (loopback, no Origin, the per-launch handshake secret): the same gate as `devices.setupToken.create`, so a paired remote device is refused. Stops the Gateway taking new chat turns and tasks (they answer `unavailable` with details.reason `updating`; messages to a busy chat still queue), waits up to waitMs for running turns and tasks, flushes the database and returns `ready`, together with a report of what is busy (running tasks, active chats, pending approvals, recordings). If no update follows within timeoutMs, service resumes by itself. Not side-effecting: calling it again is safe and moves the deadline.",
+        "name": "gateway.prepareUpdate",
+        "params": "#/$defs/GatewayPrepareUpdateParams",
+        "result": "#/$defs/PrepareUpdateResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Archives a goal and disables its check-ins. Side-effecting.",
         "name": "goals.archive",
         "params": "#/$defs/GoalsArchiveParams",
@@ -14552,6 +14560,9 @@
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
         },
+        "server": {
+          "$ref": "#/$defs/ServerBuild"
+        },
         "gatewayKey": {
           "description": "The Gateway's long-lived identity public key (base64url raw Ed25519). Clients pin it at first pair and refuse a different one (remote-gateway design §3.3)",
           "pattern": "^[A-Za-z0-9_-]{43}$",
@@ -20108,6 +20119,15 @@
           "description": "gateway.trustedProxy is on",
           "type": "boolean"
         },
+        "configWarnings": {
+          "description": "Keys in config.json that this version does not know: kept and ignored. Admins only; the Settings screen shows them so a misspelt setting is noticed",
+          "items": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
         "lan": {
           "properties": {
             "enabled": {
@@ -20249,6 +20269,32 @@
       "required": [
         "certSpki"
       ],
+      "type": "object"
+    },
+    "GatewayPrepareUpdateParams": {
+      "properties": {
+        "mode": {
+          "description": "`prepare` (default) stops new work and waits; `check` only reports what is busy; `cancel` resumes normal service now",
+          "enum": [
+            "prepare",
+            "check",
+            "cancel"
+          ],
+          "type": "string"
+        },
+        "waitMs": {
+          "description": "How long `prepare` waits for running turns and tasks to finish (default 30000). Then it answers ready anyway, naming what it left running",
+          "maximum": 120000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "timeoutMs": {
+          "description": "How long the Gateway stays closed to new work if no update follows (default 120000). It then resumes by itself",
+          "maximum": 600000,
+          "minimum": 5000,
+          "type": "integer"
+        }
+      },
       "type": "object"
     },
     "GatewayShutdownPayload": {
@@ -33436,6 +33482,57 @@
       ],
       "type": "object"
     },
+    "PrepareUpdateResult": {
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/UpdateGateState"
+        },
+        "ready": {
+          "description": "True when the Gateway has stopped taking new work and the wait is over: it can be stopped now",
+          "type": "boolean"
+        },
+        "deadline": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "busy": {
+          "$ref": "#/$defs/UpdateBusy"
+        },
+        "checkpointed": {
+          "description": "Turns still running when the wait ended. Not stopped here: a task's steps are checkpointed as they run and the task resumes after the restart; a chat turn is cancelled by the shutdown and recovered at the next start",
+          "properties": {
+            "tasks": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "chats": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "tasks",
+            "chats"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "state",
+        "ready",
+        "busy",
+        "checkpointed"
+      ],
+      "type": "object"
+    },
     "PresenceAssertion": {
       "properties": {
         "kind": {
@@ -38410,6 +38507,39 @@
         "trusted"
       ],
       "type": "string"
+    },
+    "ServerBuild": {
+      "properties": {
+        "version": {
+          "description": "The Gateway's version",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "build": {
+          "description": "Opaque build id from build-info.json (or PSYCHE_BUILD); \"dev\" when running from a checkout",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "commit": {
+          "description": "The git commit it was built from",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "envBuild": {
+          "description": "The build the LaunchAgent plist (PSYCHE_BUILD) says this process was started for, reported next to the bundle's build-info.json build when both exist. A claim, not a check: `build` is what counts",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "build"
+      ],
+      "type": "object"
     },
     "SettingEntry": {
       "properties": {
@@ -44924,6 +45054,95 @@
         "enabled"
       ],
       "type": "object"
+    },
+    "UpdateBusy": {
+      "properties": {
+        "runningTasks": {
+          "description": "Tasks with a turn running right now",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "activeChats": {
+          "description": "Chat (and automation) turns running right now",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "pendingApprovals": {
+          "description": "Approvals waiting for the owner; the runs parked on them resume after a restart",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "recordings": {
+          "description": "Recordings in progress that the Gateway knows of (a Mac app being recorded)",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tasks": {
+          "items": {
+            "properties": {
+              "id": {
+                "description": "ULID in production",
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              "title": {
+                "maxLength": 200,
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "title"
+            ],
+            "type": "object"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "chats": {
+          "items": {
+            "properties": {
+              "threadId": {
+                "description": "ULID in production",
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              "runId": {
+                "description": "ULID in production",
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "threadId",
+              "runId"
+            ],
+            "type": "object"
+          },
+          "maxItems": 20,
+          "type": "array"
+        }
+      },
+      "required": [
+        "runningTasks",
+        "activeChats",
+        "pendingApprovals",
+        "recordings",
+        "tasks",
+        "chats"
+      ],
+      "type": "object"
+    },
+    "UpdateGateState": {
+      "enum": [
+        "open",
+        "draining",
+        "ready"
+      ],
+      "type": "string"
     },
     "Usage": {
       "properties": {

@@ -584,6 +584,26 @@ export class ChannelService {
     await this.approvals.answerFromButton(channel, answer);
   }
 
+  /**
+   * Today's inbound policy for a message held across a restart: the channel as it is now, the
+   * identities, the allowlist and the rate limit, exactly as a live message gets them. `park`:
+   * the channel exists but its adapter is not attached yet (try again later); anything else
+   * that refuses is final.
+   */
+  reauthorizeHeld(
+    channelId: string,
+    message: InboundMessage,
+  ): { ok: true; route: RouteContext } | { ok: false; park: boolean } {
+    const channel = this.#channels.get(channelId);
+    if (channel === undefined) return { ok: false, park: false };
+    if (!this.#attached.has(channelId)) return { ok: false, park: true };
+    if (this.#admitInbound?.(channel, message) === false) return { ok: false, park: false };
+    const decision = authorizeInbound(channel, message, this.#identities);
+    return decision.action === "deliver"
+      ? { ok: true, route: decision.route }
+      : { ok: false, park: false };
+  }
+
   /** The inbound pipeline; adapters call it through `onInbound`. */
   async handleInbound(channelId: string, message: InboundMessage): Promise<void> {
     const channel = this.#channels.get(channelId);

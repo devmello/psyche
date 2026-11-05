@@ -70,6 +70,11 @@ export interface TaskWorkerPoolOptions {
   claim?: Pick<ClaimOptions, "origins" | "excludeOrigins" | "perParentLimit">;
   onError?: (error: unknown) => void;
   /**
+   * Asked before each claim: false leaves queued tasks queued (an app update is being prepared).
+   * Turns already running are not touched. `poke()` after it turns true again.
+   */
+  canClaim?: () => boolean;
+  /**
    * The host's run trace (docs/design/run-trace-2026.md §4.2): every turn's events, so a task
    * run is recorded like a chat turn (`runs`, `tool_calls`, `run_steps`). A failing hook never
    * fails the turn.
@@ -319,6 +324,7 @@ export class TaskWorkerPool {
     options: { owner?: string; taskId?: string } = {},
   ): Promise<TurnReport | undefined> {
     const { engine, loop } = this.#o;
+    if (this.#o.canClaim?.() === false) return undefined;
     const owner = options.owner ?? `${this.#o.owner}/0`;
     const claimOpts: ClaimOptions = {
       leaseMs: this.#o.leaseMs,

@@ -86,6 +86,7 @@ export const webRest: Partial<Catalogue> = {
   "web.splash.remote.tokenRefused": "{host}이(가) 이 페어링 링크를 거부했습니다.",
   "web.splash.remote.tokenRefusedReason":
     "이미 사용했거나 만료되었거나 해제되었습니다. {host}에서 새 링크를 만들어 다시 추가하십시오.",
+  "web.splash.restoredByHand": "데이터를 직접 복원했습니다",
   "web.splash.remote.switch": "Gateway 전환",
   "web.splash.remote.useThisMac": "이 Mac 사용",
   "web.splash.remote.pairAgain": "삭제하고 다시 페어링",

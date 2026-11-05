@@ -26,6 +26,8 @@ export interface GatewayChallengeView {
   /** LAN only: the SPKI pin the Gateway says it served, and its identity-key signature of it. */
   lanCertSpki?: string;
   lanCertSignature?: string;
+  /** Which build answered (unauthenticated: a hint for restarting your own Gateway, never trust). */
+  server?: { version: string; build: string };
 }
 
 export type GatewayVerdict =
@@ -56,6 +58,14 @@ export interface HandshakeStep {
   status?: StatusAction;
   /** The handshake reached a terminal phase (paired / pending / denied) or failed. */
   done?: boolean;
+}
+
+function serverView(value: unknown): Pick<GatewayChallengeView, "server"> | undefined {
+  if (!isRecord(value)) return undefined;
+  const { version, build } = value;
+  return typeof version === "string" && typeof build === "string"
+    ? { server: { version, build } }
+    : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -146,6 +156,7 @@ export class Handshake {
             ...(typeof gatewaySignature === "string" ? { gatewaySignature } : {}),
             ...(typeof lanCertSpki === "string" ? { lanCertSpki } : {}),
             ...(typeof lanCertSignature === "string" ? { lanCertSignature } : {}),
+            ...(serverView(payload.server) ?? {}),
           },
           this.params.publicKey,
         );

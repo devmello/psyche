@@ -90,6 +90,7 @@ export const webRest: Partial<Catalogue> = {
   "web.splash.remote.tokenRefused": "{host} a refusé ce lien de jumelage.",
   "web.splash.remote.tokenRefusedReason":
     "Il a déjà été utilisé, a expiré ou a été révoqué. Créez-en un nouveau sur {host} et ajoutez-le à nouveau.",
+  "web.splash.restoredByHand": "J’ai restauré mes données moi-même",
   "web.splash.remote.switch": "Changer de Gateway",
   "web.splash.remote.useThisMac": "Utiliser ce Mac",
   "web.splash.remote.pairAgain": "Oublier et jumeler à nouveau",
