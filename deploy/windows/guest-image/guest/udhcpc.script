@@ -1,0 +1,21 @@
+#!/bin/sh
+# busybox udhcpc hook: address, default route and DNS from the HNS NAT network's DHCP server.
+RESOLV=/run/psyche/resolv.conf
+case "$1" in
+  bound|renew)
+    busybox ip addr flush dev "$interface" 2>/dev/null
+    busybox ip addr add "$ip/${mask:-24}" dev "$interface"
+    if [ -n "${router:-}" ]; then
+      busybox ip route del default dev "$interface" 2>/dev/null
+      for r in $router; do busybox ip route add default via "$r" dev "$interface"; break; done
+    fi
+    : >"$RESOLV"
+    for d in ${dns:-}; do echo "nameserver $d" >>"$RESOLV"; done
+    [ -n "${domain:-}" ] && echo "search $domain" >>"$RESOLV"
+    ;;
+  deconfig)
+    busybox ip addr flush dev "$interface" 2>/dev/null
+    busybox ip link set "$interface" up
+    ;;
+esac
+exit 0
