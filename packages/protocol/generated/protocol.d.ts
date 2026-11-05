@@ -42,6 +42,10 @@ export interface AppLinkBlock {
 
 export type AppLinkBlockType = "app_link";
 
+export interface AppUninstallAuthorizeParams {
+    approvalId?: string;
+}
+
 /**
  * Free events are left out; blocks come in start order.
  */
@@ -11853,6 +11857,10 @@ export interface UIBlock {
 }
 
 export type UIBlockType = "ui";
+
+export interface UninstallAuthorized {
+    authorized: boolean;
+}
 
 export interface UsageRecord {
     cacheRead:  number;

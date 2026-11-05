@@ -18,7 +18,7 @@ From the code on `main` at `20190a17`:
 | Piece | Today | Where |
 | --- | --- | --- |
 | Build | `pnpm app:build`: psyched (official Node 24 runtime, SHA-256 checked, plus an esbuild bundle and native addons) → `PsycheHelper.app` → `Psyche.app` (electron-forge 8, Electron 44) → DMG | `deploy/macos/build-local.sh`, `deploy/scripts/build-psyched.mjs`, `deploy/macos/build-helper.sh`, `apps/desktop/forge.config.ts`, `deploy/macos/make-dmg.sh` |
-| Local install | `pnpm app:install` quits the app, boots out the agent, **wipes all data unless `--keep-data`**, swaps the bundle (copy beside it, then rename), verifies the signature and launches | `deploy/macos/install-local.sh` |
+| Local install | `pnpm app:install` quits the app, boots out the agent, keeps your data (wiping is an explicit `--reset`, which lists what it deletes and asks first), swaps the bundle (copy beside it, then rename), verifies the signature and launches | `deploy/macos/install-local.sh` |
 | Bundle layout | `Contents/Resources/psyched/` (Gateway plus its own Node), `Contents/Resources/PsycheHelper.app` (Swift, `com.psyche.helper`), the LaunchAgent template | `apps/desktop/src/packaging/bundle-resources.ts` |
 | Fuses | `RunAsNode` off, asar integrity on, `OnlyLoadAppFromAsar` on | `forge.config.ts` |
 | LaunchAgent | The desktop writes `~/Library/LaunchAgents/com.psyche.gateway.plist` from the template (`{{PSYCHED}}`, `{{PSYCHE_HOME}}`, plus `PSYCHE_VAULT_KEY_FILE`), runs `launchctl bootstrap`/`kickstart`, then waits for `/healthz`. It rewrites the plist only when its **content** changes. "Quit entirely" boots the agent out and removes the plist. | `apps/desktop/src/main/supervisor.ts` |

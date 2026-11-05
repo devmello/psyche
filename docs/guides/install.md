@@ -21,13 +21,15 @@ Pick one setup:
 
 ### 1. Install the desktop app
 
-With Homebrew:
+The usual way is the DMG. Download it from the [GitHub releases page](https://github.com/devmello/psyche/releases): `Psyche-<version>-arm64.dmg` for Apple silicon, `Psyche-<version>-x64.dmg` for Intel. The app needs nothing else on your Mac: no Node, no pnpm, no source checkout. It carries the Gateway (`psyched`, with its own Node runtime), the `psyche` CLI and Psyche Helper.
+
+**With Homebrew (once the tap is live).** The cask is written but the tap (`devmello/homebrew-psyche`) is not published yet, so use the DMG for now. When it is live:
 
 ```bash
 brew install --cask devmello/psyche/psyche
 ```
 
-Or download it from the [GitHub releases page](https://github.com/devmello/psyche/releases): `Psyche-<version>-arm64.dmg` for Apple silicon, `Psyche-<version>-x64.dmg` for Intel. The app needs nothing else on your Mac: no Node, no pnpm, no source checkout. It carries the Gateway (`psyched`, with its own Node runtime), the `psyche` CLI and Psyche Helper.
+The cask is marked `auto_updates`: Psyche updates itself in the background, so `brew upgrade` leaves it alone. See [Uninstall](#uninstall-on-your-mac) for `brew uninstall --zap`.
 
 Each DMG has a checksum file next to it (`Psyche-<version>-arm64.dmg.sha256`), and the release also has `SHA256SUMS` for every file. Download one of them into the same folder and check the DMG before you open it:
 
@@ -142,6 +144,58 @@ To start it again, point `psyche start` at the `psyched` in the app bundle (or s
 ```bash
 psyche start --psyched /Applications/Psyche.app/Contents/Resources/psyched/psyched
 ```
+
+## Uninstall on your Mac
+
+**From the app (recommended).** Open Settings › About › **Uninstall Psyche…**. The sheet lists exactly what will go before you confirm:
+
+- It stops and removes the Gateway LaunchAgent (`com.psyche.gateway`), stops Psyche Helper and turns off "Open at login".
+- It moves the app's files outside the bundle to the Trash: `~/Library/Application Support/Psyche`, caches, logs, preferences, saved state and web storage.
+- It moves `Psyche.app` to the Trash, then quits.
+- **Keep my data** is the default: `~/.psyche` (chats, memory, vault, backups) stays where it is, so installing Psyche again picks up where you left off.
+- **Delete my data** also moves `~/.psyche` to the Trash. Because it cannot be undone from inside Psyche once the Trash is emptied, it asks you to type `DELETE` and to confirm with Touch ID (or the approval card on this Mac). Back up first with `psyche backup create` if you want a copy.
+
+Nothing is deleted outright: everything goes to the Trash, so you can put it back until you empty it. The sheet is only offered by the Psyche app on the Mac that runs the Gateway, never from a window connected to another computer, and the agent cannot start it.
+
+**With Homebrew.** Once the tap is live:
+
+```bash
+brew uninstall --cask psyche          # stops the agent and removes the app, keeps your data
+brew uninstall --cask --zap psyche    # also moves the app's files and ~/.psyche to the Trash
+```
+
+`--zap` includes `~/.psyche`, so back it up first.
+
+**If the app won't launch.** Do the same steps by hand:
+
+```bash
+launchctl bootout "gui/$(id -u)/com.psyche.gateway"
+osascript -e 'tell application "Psyche" to quit'
+pkill -f PsycheHelper.app
+rm -f ~/Library/LaunchAgents/com.psyche.gateway.plist
+```
+
+Then drag `/Applications/Psyche.app` to the Trash. To remove the rest, move these to the Trash too (skip `~/.psyche` to keep your data):
+
+```
+~/Library/Application Support/Psyche
+~/Library/Application Support/com.psyche.helper
+~/Library/Caches/com.psyche.desktop
+~/Library/Caches/com.psyche.helper
+~/Library/Caches/Psyche
+~/Library/HTTPStorages/com.psyche.desktop
+~/Library/Logs/Psyche
+~/Library/Preferences/com.psyche.desktop.plist
+~/Library/Preferences/com.psyche.helper.plist
+~/Library/Saved Application State/com.psyche.desktop.savedState
+~/Library/Saved Application State/com.psyche.helper.savedState
+~/Library/WebKit/com.psyche.desktop
+~/.psyche
+```
+
+The vault and helper also keep items in your Keychain (`com.psyche.vault`, `com.psyche.helper.*`); without `~/.psyche` they are useless, and you can remove them in Keychain Access. To clear Psyche's privacy grants, run `tccutil reset All com.psyche.desktop` and `tccutil reset All com.psyche.helper`.
+
+**Building from source.** `pnpm app:install` (from a checkout) keeps your data by default. `pnpm app:install --reset` is the explicit wipe: it prints everything it will delete and asks you to type `RESET` (pass `--yes` to skip the question).
 
 ## On a Linux server with Docker Compose
 

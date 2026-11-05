@@ -1,7 +1,8 @@
 import { execFile, spawn } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { mkdir, readFile, realpath } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { homedir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import {
   type ApprovalRequest,
   isMethodName,
@@ -58,6 +59,7 @@ import {
   checkTeachApp,
   checkTeachId,
   checkTeachKeep,
+  checkUninstall,
   checkViewport,
   IPC,
   REMOTE_ONLY_CHANNELS,
@@ -122,6 +124,13 @@ import {
 } from "./main/supervisor.ts";
 import { threadRoute } from "./main/thread-route.ts";
 import { PsycheTray } from "./main/tray.ts";
+import {
+  DELETE_CONFIRM_WORD,
+  planUninstall,
+  runUninstall,
+  type UninstallDeps,
+  UninstallError,
+} from "./main/uninstall.ts";
 import { startUpdater } from "./main/updater.ts";
 import { canvasColor, wantsAnyWindowSize } from "./main/window-options.ts";
 import { type AppWindows, createAppWindows, preloadPath } from "./main/windows.ts";
@@ -506,6 +515,12 @@ function bundledHelperPath(): string | undefined {
   return app.isPackaged && process.platform === "darwin"
     ? join(process.resourcesPath, "PsycheHelper.app")
     : undefined;
+}
+
+/** `/Applications/Psyche.app` for a packaged macOS build (three levels above the executable), else null. */
+function installedBundlePath(): string | null {
+  if (!app.isPackaged || process.platform !== "darwin") return null;
+  return resolve(dirname(process.execPath), "..", "..");
 }
 
 function requireGateway(): GatewayConnection {
@@ -977,6 +992,58 @@ function registerIpc(): void {
     // The data folder is on the Host, not here (design §4.2: "Show in Finder" is Host-only).
     if (remoteGateway) throw new PsycheError("forbidden", "That folder is on the other computer");
     shell.showItemInFolder(home);
+  });
+  // Uninstall Psyche (design updates-and-install §3.5). Refused in a remote window (the channels
+  // are in REMOTE_REFUSED_CHANNELS), and "Delete my data" asks the Gateway for fresh presence.
+  const uninstallDeps = (): UninstallDeps => ({
+    userHome: homedir(),
+    psycheHome: home,
+    appBundlePath: installedBundlePath(),
+    helperAppPath: bundledHelperPath() ?? null,
+    uid: process.getuid?.() ?? 0,
+    exists: (p) => existsSync(p),
+    run: execRunner,
+    trashItem: (p) => shell.trashItem(p),
+    setOpenAtLogin: (v) => loginItem.set(v),
+    authorizeDelete: async (approvalId) => {
+      await requireGateway().call("app.uninstall.authorize", {
+        ...(approvalId === undefined ? {} : { approvalId }),
+      });
+    },
+    quit: () => {
+      quittingEntirely = true;
+      app.quit();
+    },
+    log: (m) => console.warn(`[uninstall] ${m}`),
+  });
+  const asPsycheError = (err: unknown): unknown =>
+    err instanceof UninstallError ? new PsycheError(err.code, err.message) : err;
+  handle(IPC.appUninstallPlan, (_event, arg) => {
+    const req = checkUninstall(IPC.appUninstallPlan, arg);
+    try {
+      const plan = planUninstall(uninstallDeps(), req.deleteData);
+      return {
+        stops: plan.stops.map(({ kind, label }) => ({ kind, label })),
+        trash: plan.trash.map(({ kind, path, label }) => ({ kind, path, label })),
+        confirmWord: DELETE_CONFIRM_WORD,
+      };
+    } catch (err) {
+      throw asPsycheError(err);
+    }
+  });
+  handle(IPC.appUninstall, async (_event, arg) => {
+    const req = checkUninstall(IPC.appUninstall, arg);
+    try {
+      const res = await runUninstall(uninstallDeps(), req);
+      if (res.failed.length > 0) {
+        throw new PsycheError(
+          "internal",
+          `Could not move ${res.failed.map((f) => f.path).join(", ")} to the Trash`,
+        );
+      }
+    } catch (err) {
+      throw asPsycheError(err);
+    }
   });
   handle(IPC.systemAppearanceGet, () => systemAppearance());
   handle(IPC.localeGet, () => ({

@@ -4,17 +4,24 @@
 #   sh deploy/macos/install-local.sh                 # newest dist/Psyche-*.dmg, else the packaged .app
 #   sh deploy/macos/install-local.sh dist/Psyche-0.3.0-alpha.0-arm64.dmg
 #   sh deploy/macos/install-local.sh apps/desktop/out/Psyche-darwin-arm64/Psyche.app
-#   pnpm app:install [source] [--keep-data] [--no-launch] [--dry-run]
+#   pnpm app:install [source] [--reset [--yes]] [--no-launch] [--dry-run]
 #
 # What it does: quits a running Psyche, boots the Gateway LaunchAgent out so nothing runs from the
-# old bundle, RESETS the app (every bit of data and cache, so the new build starts from scratch:
-# $PSYCHE_HOME (~/.psyche: state, vault, workspace, logs, backups), the desktop's Application
-# Support, caches, logs, preferences, saved state and web storage, the helper's preferences, the
-# LaunchAgent plist and the Keychain items the vault and helper keep), swaps the app atomically
-# (copy next to it, then rename), verifies the signature, and launches the new app, which installs
-# the LaunchAgent again and runs first-run onboarding. `--keep-data` installs over the existing data
-# instead. Privacy grants (TCC) are kept either way: a build signed with the same identity keeps
-# them; when the signing identity changes it says which `tccutil reset` to run.
+# old bundle, swaps the app atomically (copy next to it, then rename), verifies the signature, and
+# launches the new app, which installs the LaunchAgent again. YOUR DATA IS KEPT by default
+# ($PSYCHE_HOME, usually ~/.psyche, and the app's Application Support, preferences and Keychain
+# items are not touched). `--reset` instead wipes every bit of data and cache so the new build
+# starts from scratch and runs first-run onboarding: $PSYCHE_HOME (~/.psyche: state, vault,
+# workspace, logs, backups), the desktop's Application Support, caches, logs, preferences, saved
+# state and web storage, the helper's preferences, the LaunchAgent plist and the Keychain items the
+# vault and helper keep. It prints exactly what it will delete and asks you to type RESET first;
+# `--yes` skips the question (for scripts). `--keep-data` is accepted and does nothing (it is the
+# default). `--dry-run` changes nothing and prints what would happen. Privacy grants (TCC) are kept
+# either way: a build signed with the same identity keeps them; when the signing identity changes
+# it says which `tccutil reset` to run.
+#
+# Test overrides (never needed on a real Mac): PSYCHE_INSTALL_DIR replaces /Applications, HOME and
+# PSYCHE_HOME move the data, and tools are found through PATH, so a test can put fakes first.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -22,14 +29,17 @@ DEST="${PSYCHE_INSTALL_DIR:-/Applications}/Psyche.app"
 LABEL="com.psyche.gateway"
 LAUNCH=1
 DRY=0
-RESET=1
+RESET=0
+YES=0
 SRC=""
 for arg in "$@"; do
   case "$arg" in
     --no-launch) LAUNCH=0 ;;
     --dry-run) DRY=1 ;;
     --keep-data) RESET=0 ;;
-    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+    --reset) RESET=1 ;;
+    --yes|-y) YES=1 ;;
+    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
     -*) echo "unknown option: $arg" >&2; exit 64 ;;
     *) SRC="$arg" ;;
   esac
@@ -72,6 +82,46 @@ else
 fi
 codesign --verify --deep --strict "$APP" 2>/dev/null || { echo "the new app's signature does not verify; not installing" >&2; exit 1; }
 
+# 1b. --reset: work out exactly what would be deleted, show it, and ask before anything is stopped.
+RESET_PATHS=()
+RESET_KEYCHAIN=()
+if [ "$RESET" = 1 ]; then
+  PSYCHE_HOME_DIR="${PSYCHE_HOME:-$HOME/.psyche}"
+  case "$PSYCHE_HOME_DIR" in ""|/|"$HOME"|"$HOME/") echo "refusing to delete $PSYCHE_HOME_DIR as PSYCHE_HOME" >&2; exit 1 ;; esac
+  for path in \
+    "$PSYCHE_HOME_DIR" \
+    "$HOME/Library/Application Support/Psyche" \
+    "$HOME/Library/Application Support/com.psyche.helper" \
+    "$HOME/Library/Caches/com.psyche.desktop" \
+    "$HOME/Library/Caches/com.psyche.helper" \
+    "$HOME/Library/Caches/Psyche" \
+    "$HOME/Library/Logs/Psyche" \
+    "$HOME/Library/HTTPStorages/com.psyche.desktop" \
+    "$HOME/Library/WebKit/com.psyche.desktop" \
+    "$HOME/Library/Saved Application State/com.psyche.desktop.savedState" \
+    "$HOME/Library/Saved Application State/com.psyche.helper.savedState" \
+    "$HOME/Library/Preferences/com.psyche.desktop.plist" \
+    "$HOME/Library/Preferences/com.psyche.helper.plist" \
+    "$HOME/Library/LaunchAgents/$LABEL.plist"; do
+    if [ -e "$path" ]; then RESET_PATHS+=("$path"); fi
+  done
+  for svc in com.psyche.vault com.psyche.helper.items com.psyche.helper.identity com.psyche.helper.probe; do
+    if security find-generic-password -s "$svc" >/dev/null 2>&1; then RESET_KEYCHAIN+=("$svc"); fi
+  done
+  say "--reset will PERMANENTLY DELETE (not to the Trash):"
+  if [ "${#RESET_PATHS[@]}" -eq 0 ] && [ "${#RESET_KEYCHAIN[@]}" -eq 0 ]; then echo "    (nothing: no Psyche data was found)"; fi
+  for path in ${RESET_PATHS[@]+"${RESET_PATHS[@]}"}; do printf '    %s\n' "$path"; done
+  for svc in ${RESET_KEYCHAIN[@]+"${RESET_KEYCHAIN[@]}"}; do printf '    Keychain item(s) for service %s\n' "$svc"; done
+  if [ "$DRY" = 0 ] && [ "$YES" = 0 ]; then
+    if [ ! -t 0 ]; then echo "--reset needs a terminal to confirm; pass --yes to skip the question" >&2; exit 1; fi
+    printf 'Type RESET to delete the above, anything else to cancel: '
+    read -r answer || answer=""
+    [ "$answer" = "RESET" ] || { echo "cancelled; nothing was changed" >&2; exit 1; }
+  fi
+else
+  say "Keeping your data (pass --reset to wipe it first)"
+fi
+
 # 2. Stop what runs from the old bundle: the app, then the Gateway LaunchAgent (a plain Quit keeps
 #    it loaded; "Quit entirely" removes it). The new app bootstraps the agent again on launch.
 if pgrep -xq Psyche; then
@@ -91,37 +141,19 @@ if pgrep -f "$DEST/Contents/Resources/PsycheHelper.app" >/dev/null 2>&1; then
   run pkill -f "$DEST/Contents/Resources/PsycheHelper.app" || true
 fi
 
-# 3. Reset: everything the app, the Gateway and the helper keep on this Mac, so the new build runs
-#    first-run onboarding on a clean slate. Nothing here touches the TCC grants.
+# 3. Reset (only with --reset): everything the app, the Gateway and the helper keep on this Mac, so
+#    the new build runs first-run onboarding on a clean slate. Nothing here touches the TCC grants.
 if [ "$RESET" = 1 ]; then
-  PSYCHE_HOME_DIR="${PSYCHE_HOME:-$HOME/.psyche}"
-  case "$PSYCHE_HOME_DIR" in ""|/|"$HOME"|"$HOME/") echo "refusing to delete $PSYCHE_HOME_DIR as PSYCHE_HOME" >&2; exit 1 ;; esac
-  say "Resetting app data and caches (pass --keep-data to install over them)"
-  for path in \
-    "$PSYCHE_HOME_DIR" \
-    "$HOME/Library/Application Support/Psyche" \
-    "$HOME/Library/Application Support/com.psyche.helper" \
-    "$HOME/Library/Caches/com.psyche.desktop" \
-    "$HOME/Library/Caches/com.psyche.helper" \
-    "$HOME/Library/Caches/Psyche" \
-    "$HOME/Library/Logs/Psyche" \
-    "$HOME/Library/HTTPStorages/com.psyche.desktop" \
-    "$HOME/Library/WebKit/com.psyche.desktop" \
-    "$HOME/Library/Saved Application State/com.psyche.desktop.savedState" \
-    "$HOME/Library/Saved Application State/com.psyche.helper.savedState" \
-    "$HOME/Library/Preferences/com.psyche.desktop.plist" \
-    "$HOME/Library/Preferences/com.psyche.helper.plist" \
-    "$HOME/Library/LaunchAgents/$LABEL.plist"; do
-    [ -e "$path" ] || continue
+  say "Resetting app data and caches"
+  for path in ${RESET_PATHS[@]+"${RESET_PATHS[@]}"}; do
     printf '    removing %s\n' "$path"
     run rm -rf "$path"
   done
   # cfprefsd caches preference domains; forget them so a deleted plist does not come back.
   run defaults delete com.psyche.desktop >/dev/null 2>&1 || true
   run defaults delete com.psyche.helper >/dev/null 2>&1 || true
-  # Keychain items: the vault's key (Keychain slot) and the helper's stores. Several may exist per
-  # service (one per account), so delete until none is left.
-  for svc in com.psyche.vault com.psyche.helper.items com.psyche.helper.identity com.psyche.helper.probe; do
+  # Keychain items: several may exist per service (one per account), so delete until none is left.
+  for svc in ${RESET_KEYCHAIN[@]+"${RESET_KEYCHAIN[@]}"}; do
     n=0
     while security find-generic-password -s "$svc" >/dev/null 2>&1 && [ "$n" -lt 50 ]; do
       printf '    removing Keychain item %s\n' "$svc"

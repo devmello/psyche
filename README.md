@@ -27,7 +27,7 @@ pnpm install
 pnpm app:ship
 ```
 
-`pnpm app:ship` builds `dist/Psyche-*.dmg` and installs it into `/Applications`; `pnpm app:build` and `pnpm app:install` do each step on its own. Installing resets Psyche's local data, so pass `--keep-data` to keep it. Details are in [docs/guides/getting-started.md](docs/guides/getting-started.md).
+`pnpm app:ship` builds `dist/Psyche-*.dmg` and installs it into `/Applications`; `pnpm app:build` and `pnpm app:install` do each step on its own. Installing keeps Psyche's local data; pass `--reset` to wipe it for a from-scratch first run (it asks first). Details are in [docs/guides/getting-started.md](docs/guides/getting-started.md).
 
 **On a Linux server:** Docker Compose, with the Gateway on loopback. See [docs/guides/server-mode.md](docs/guides/server-mode.md). When releases are published, the DMG and image paths are in [docs/guides/install.md](docs/guides/install.md).
 

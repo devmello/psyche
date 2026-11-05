@@ -26,6 +26,7 @@ import {
   type TeachAppChoiceView,
   type TeachAppStatusView,
   type TeachCapture,
+  type UninstallPlanView,
 } from "@psyche/web/platform";
 import type { PsycheBridge } from "../preload.ts";
 
@@ -257,6 +258,9 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
     app: {
       info: () => b.app.info() as Promise<HostAppInfo>,
       revealHome: async () => void (await b.app.revealHome()),
+      uninstallPlan: (deleteData) =>
+        b.app.uninstallPlan({ deleteData }) as Promise<UninstallPlanView>,
+      uninstall: async (req) => void (await unwrapCall(b.app.uninstall(req))),
     },
     systemAppearance: {
       get: () => b.systemAppearance.get() as Promise<SystemAppearance>,

@@ -483,6 +483,27 @@ export interface AppInfoPort {
   info(): Promise<HostAppInfo>;
   /** Shows the data folder in Finder. Absent for a client of another computer's Gateway. */
   revealHome?(): Promise<void>;
+  /**
+   * Uninstall Psyche (design updates-and-install §3.5). Desktop shell on this Mac only: absent
+   * on the web and for a client of another computer's Gateway.
+   */
+  uninstallPlan?(deleteData: boolean): Promise<UninstallPlanView>;
+  /**
+   * Stops the agent and the helper, moves what the plan listed to the Trash, then quits. With
+   * `deleteData` it needs the typed word and fresh presence: the first call rejects with
+   * `approval_required` and `details.approvalId`; call again with that `approvalId` once approved.
+   */
+  uninstall?(req: { deleteData: boolean; confirm?: string; approvalId?: string }): Promise<void>;
+}
+
+/** What uninstalling would do right now, as main lists it. */
+export interface UninstallPlanView {
+  /** Everything that is stopped, unregistered or turned off. */
+  stops: { kind: string; label: string }[];
+  /** Everything moved to the Trash, as absolute paths. */
+  trash: { kind: string; path: string; label: string }[];
+  /** The word to type before deleting data. */
+  confirmWord: string;
 }
 
 export interface SystemAppearance {

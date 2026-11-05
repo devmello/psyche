@@ -509,6 +509,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Side-effecting, Psyche desktop shell on the Host only (forbidden for anything else), behind a device-only approval (fresh presence once a verifier exists; approval_required with details.approvalId, then retry with approvalId). Authorizes the desktop app to move the data folder to the Trash as part of uninstalling Psyche; it deletes nothing itself and the approval is consumed once. Audited.",
+        "name": "app.uninstall.authorize",
+        "params": "#/$defs/AppUninstallAuthorizeParams",
+        "result": "#/$defs/UninstallAuthorized",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Approves or denies with the single-use answer token delivered to this surface; deviceOnly and requiresAuthentication kinds are enforced by the Gateway. Not idempotency-keyed: the token is single-use.",
         "name": "approvals.answer",
         "params": "#/$defs/ApprovalAnswer",
@@ -4178,6 +4186,17 @@
         "type",
         "route"
       ],
+      "type": "object"
+    },
+    "AppUninstallAuthorizeParams": {
+      "properties": {
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
       "type": "object"
     },
     "AppleAlarm": {
@@ -44804,6 +44823,18 @@
       "required": [
         "type",
         "widgetId"
+      ],
+      "type": "object"
+    },
+    "UninstallAuthorized": {
+      "properties": {
+        "authorized": {
+          "const": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "authorized"
       ],
       "type": "object"
     },

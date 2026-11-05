@@ -298,7 +298,7 @@ onBeforeUnmount(() => {
       </div>
       <p class="fine">
         <code>pnpm app:ship</code> builds a DMG and installs it into /Applications. Installing
-        resets Psyche's local data; pass <code>--keep-data</code> to keep it.
+        keeps Psyche's local data; pass <code>--reset</code> to wipe it first.
       </p>
       <div class="actions">
         <a class="btn primary" :href="repo" rel="noopener">Star on GitHub</a>

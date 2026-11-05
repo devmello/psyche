@@ -23,7 +23,12 @@ describe("the preload bridge (#610)", () => {
     const bridge = exposed.psyche as {
       app: { info: () => Promise<unknown>; revealHome: () => Promise<unknown> };
     };
-    expect(Object.keys(bridge.app).sort()).toEqual(["info", "revealHome"]);
+    expect(Object.keys(bridge.app).sort()).toEqual([
+      "info",
+      "revealHome",
+      "uninstall",
+      "uninstallPlan",
+    ]);
     await bridge.app.info();
     expect(invoke).toHaveBeenLastCalledWith(IPC.appInfo, undefined);
     await bridge.app.revealHome();

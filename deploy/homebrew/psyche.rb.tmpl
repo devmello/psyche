@@ -18,26 +18,48 @@ cask "psyche" do
     strategy :github_latest
   end
 
+  # Psyche updates itself in the background (Settings > About); `brew upgrade` leaves it alone
+  # unless you pass --greedy, so the two never fight over the same app.
+  auto_updates true
+
   depends_on macos: ">= :sequoia"
 
   app "Psyche.app"
 
-  # The Gateway runs as a per-user LaunchAgent (feature A7); stop it before removing the app.
+  # The Gateway runs as a per-user LaunchAgent (feature A7); stop it and the helper before the
+  # app is removed.
   uninstall launchctl: "com.psyche.gateway",
-            quit:      "com.psyche.desktop"
+            quit:      [
+              "com.psyche.desktop",
+              "com.psyche.helper",
+            ]
 
-  # Your data in ~/.psyche (transcripts, memory, vault, backups) is never removed by Homebrew.
+  # `brew uninstall --zap` also removes what the app keeps outside the bundle. It matches the
+  # list in deploy/macos/install-local.sh and the in-app Uninstall Psyche sheet.
   zap trash: [
+    "~/Library/Application Support/com.psyche.helper",
     "~/Library/Application Support/Psyche",
+    "~/Library/Caches/com.psyche.desktop",
+    "~/Library/Caches/com.psyche.helper",
+    "~/Library/Caches/Psyche",
+    "~/Library/HTTPStorages/com.psyche.desktop",
     "~/Library/LaunchAgents/com.psyche.gateway.plist",
     "~/Library/Logs/Psyche",
     "~/Library/Preferences/com.psyche.desktop.plist",
+    "~/Library/Preferences/com.psyche.helper.plist",
     "~/Library/Saved Application State/com.psyche.desktop.savedState",
+    "~/Library/Saved Application State/com.psyche.helper.savedState",
+    "~/Library/WebKit/com.psyche.desktop",
+    # USER DATA: your chats, memory, vault and backups. Only `--zap` removes it, and it goes to
+    # the Trash, not straight to oblivion. Run `psyche backup create` first if you want a copy.
+    "~/.psyche",
   ]
 
   caveats <<~EOS
-    Psyche keeps your data in ~/.psyche. `brew uninstall --zap` does not delete it;
+    Psyche keeps your data in ~/.psyche. `brew uninstall` leaves it alone, but
+    `brew uninstall --zap` moves it to the Trash along with the app's other files;
     back it up first with `psyche backup create` if you want to keep it.
+    Psyche updates itself, so you do not need `brew upgrade` to stay current.
     Before upgrading: https://github.com/devmello/psyche/blob/main/docs/guides/upgrade.md
   EOS
 end

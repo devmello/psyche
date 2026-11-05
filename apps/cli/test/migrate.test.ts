@@ -170,6 +170,19 @@ describe("release scripts", () => {
     expect(cask).toContain(`arm:   "${"0".repeat(64)}"`);
     expect(cask).toContain('depends_on macos: ">= :sequoia"');
     expect(cask).toContain('uninstall launchctl: "com.psyche.gateway"');
+    expect(cask).toContain("auto_updates true");
+    for (const path of [
+      "~/Library/LaunchAgents/com.psyche.gateway.plist",
+      "~/Library/Application Support/Psyche",
+      "~/Library/Caches/com.psyche.desktop",
+      "~/Library/Logs/Psyche",
+      "~/Library/Preferences/com.psyche.desktop.plist",
+      "~/Library/Saved Application State/com.psyche.desktop.savedState",
+      "~/Library/Application Support/com.psyche.helper",
+      "~/.psyche",
+    ])
+      expect(cask, path).toContain(`"${path}"`);
+    expect(cask).toMatch(/# USER DATA[^\n]*\n[^\n]*\n\s*"~\/\.psyche"/);
     expect(formula).toContain(`releases/download/v1.2.3/psyche-linux-x64`);
     expect(formula).toContain(`sha256 "${"5".repeat(64)}"`);
     expect(`${cask}${formula}`).not.toMatch(/\{\{/);

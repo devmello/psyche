@@ -259,6 +259,10 @@ const bridge = {
   app: {
     info: () => invoke(IPC.appInfo),
     revealHome: () => invoke(IPC.appRevealHome),
+    /** Uninstall Psyche (main refuses it in a remote window). Run resolves the raw envelope. */
+    uninstallPlan: (p: { deleteData: boolean }) => invoke(IPC.appUninstallPlan, p),
+    uninstall: (p: { deleteData: boolean; confirm?: string; approvalId?: string }) =>
+      ipcRenderer.invoke(IPC.appUninstall, p) as Promise<Envelope>,
   },
   /** macOS Reduce Transparency and Increase Contrast (redesign §3.4, §8). */
   systemAppearance: {
