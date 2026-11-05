@@ -1,6 +1,7 @@
 {
   "psychedMB": 205,
   "psychedWin32MB": 240,
+  "psychedLinuxMB": 260,
   "appMB": 530,
   "dmgMB": 150,
   "gatewayIdleFootprintMB": 105,
