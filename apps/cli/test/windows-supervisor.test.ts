@@ -6,9 +6,10 @@ import { run } from "../src/cli.ts";
 import {
   GATEWAY_PID_FILE,
   installedPsychedWin32,
+  LEGACY_GATEWAY_TASK,
   readTaskXml,
   renderScheduledTaskXml,
-  SCHEDULED_TASK,
+  SERVICE_CONFIG_FILE,
   SERVICE_HOST_FILE,
   SERVICE_HOST_SCRIPT,
   SERVICE_PID_FILE,
@@ -28,6 +29,11 @@ import {
 
 afterEach(() => cleanupTempDirs());
 
+const SID = "S-1-5-21-1111111111-2222222222-3333333333-1001";
+const TASK = `\\Psyche\\Gateway-${SID}`;
+/** System32's `whoami /user /fo csv /nh`. */
+const WHOAMI = { stdout: `"desk\\me","${SID}"\r\n` };
+
 /** The task action's arguments, XML entities decoded (as Task Scheduler reads them). */
 function argumentsOf(x: string): string {
   const raw = /<Arguments>([^<]*)<\/Arguments>/.exec(x)?.[1] ?? "";
@@ -46,13 +52,14 @@ const input = {
   args: ["--max-semi-space-size=4", "C:\\x\\main.mjs"],
   psycheHome: "C:\\Users\\Me Too\\.psyche & <co>",
   userId: "DESK\\me",
+  taskName: TASK,
 };
 
-describe("scheduled task XML (\\Psyche\\Gateway)", () => {
+describe("scheduled task XML (\\Psyche\\Gateway-<SID>)", () => {
   it("runs the service host headless at logon, for this user only, with no time limit", () => {
     const x = renderScheduledTaskXml(input);
     expect(x.startsWith('<?xml version="1.0" encoding="UTF-16"?>')).toBe(true);
-    expect(x).toContain("<URI>\\Psyche\\Gateway</URI>");
+    expect(x).toContain(`<URI>${TASK}</URI>`);
     expect(x).toContain(
       "<LogonTrigger>\n      <Enabled>true</Enabled>\n      <UserId>DESK\\me</UserId>",
     );
@@ -129,6 +136,9 @@ describe("service commands on win32 (Task Scheduler)", () => {
       execScript: (cmd, args) => {
         const r = extra(cmd, args);
         if (r) return r;
+        if (/\\System32\\whoami\.exe$/i.test(cmd)) return WHOAMI;
+        // No \Psyche\Gateway from an earlier version.
+        if (cmd === "schtasks.exe" && args[0] === "/Query") return { code: 1 };
         if (cmd === "powershell.exe") return { stdout: `${state}\r\n` };
         if (cmd === "schtasks.exe" && args[0] === "/Create") state = "Ready";
         if (cmd === "schtasks.exe" && args[0] === "/Run") state = "Running";
@@ -142,17 +152,22 @@ describe("service commands on win32 (Task Scheduler)", () => {
   const schtasks = (deps: TestDeps) =>
     deps.execCalls.filter((c) => c.cmd === "schtasks.exe").map((c) => c.args);
 
-  it("start registers \\Psyche\\Gateway from $PSYCHE_HOME\\run and runs it", async () => {
+  it("start registers \\Psyche\\Gateway-<SID> from $PSYCHE_HOME\\run and runs it", async () => {
     state = "none";
     const { program, deps } = win();
     const { code, json } = await runJson(["start", "--no-wait"], deps);
     expect(code).toBe(0);
-    expect(json).toMatchObject({ started: true, file: SCHEDULED_TASK, program });
+    expect(json).toMatchObject({ started: true, file: TASK, program });
     const xmlFile = taskXmlPath(deps.home);
     expect(schtasks(deps)).toEqual([
-      ["/Create", "/TN", SCHEDULED_TASK, "/XML", xmlFile, "/F"],
-      ["/Run", "/TN", SCHEDULED_TASK],
+      ["/Query", "/TN", LEGACY_GATEWAY_TASK, "/XML"],
+      ["/Create", "/TN", TASK, "/XML", xmlFile, "/F"],
+      ["/Run", "/TN", TASK],
     ]);
+    expect(readTaskXml(xmlFile)).toContain(`<URI>${TASK}</URI>`);
+    // Get-ScheduledTask looks for this account's task, not the shared name.
+    const ps = deps.execCalls.find((c) => c.cmd === "powershell.exe");
+    expect(ps?.args.at(-1)).toContain(`-TaskPath '\\Psyche\\' -TaskName 'Gateway-${SID}'`);
     const xml = argumentsOf(readTaskXml(xmlFile) ?? "");
     const dir = join(program, "..");
     // The bundle's own node.exe runs the Gateway directly: no cmd.exe in between.
@@ -163,10 +178,60 @@ describe("service commands on win32 (Task Scheduler)", () => {
     );
     expect(existsSync(join(deps.home, "logs"))).toBe(true);
 
-    // Running and unchanged: nothing to do.
+    // Running and unchanged: nothing to do (beyond looking for the old shared task).
     deps.execCalls.length = 0;
     expect((await runJson(["start", "--no-wait"], deps)).code).toBe(0);
-    expect(schtasks(deps)).toEqual([]);
+    expect(schtasks(deps)).toEqual([["/Query", "/TN", LEGACY_GATEWAY_TASK, "/XML"]]);
+  });
+
+  /** `schtasks /Query /XML` of a \Psyche\Gateway registered for `principal` (trigger as SID). */
+  const legacyXml = (sid: string, principal: string) =>
+    `<Task><Triggers><LogonTrigger><UserId>${sid}</UserId></LogonTrigger></Triggers><Principals><Principal id="Author"><UserId>${principal}</UserId></Principal></Principals></Task>`;
+
+  it("start replaces this account's \\Psyche\\Gateway of an earlier version", async () => {
+    state = "none";
+    const { deps } = win((cmd, args) =>
+      cmd === "schtasks.exe" && args[0] === "/Query" && args[2] === LEGACY_GATEWAY_TASK
+        ? { stdout: legacyXml(SID, "DESK\\me") }
+        : undefined,
+    );
+    mkdirSync(join(deps.home, "run"), { recursive: true });
+    writeFileSync(join(deps.home, "run", SERVICE_PID_FILE), "4242");
+    const { code } = await runJson(["start", "--no-wait"], deps);
+    expect(code).toBe(0);
+    const calls = deps.execCalls
+      .filter((c) => c.cmd === "schtasks.exe" || c.cmd === "taskkill.exe")
+      .map((c) => [c.cmd, ...c.args]);
+    expect(calls).toEqual([
+      ["schtasks.exe", "/Query", "/TN", LEGACY_GATEWAY_TASK, "/XML"],
+      ["schtasks.exe", "/End", "/TN", LEGACY_GATEWAY_TASK],
+      ["taskkill.exe", "/PID", "4242", "/T", "/F"],
+      ["schtasks.exe", "/Delete", "/TN", LEGACY_GATEWAY_TASK, "/F"],
+      ["schtasks.exe", "/Create", "/TN", TASK, "/XML", taskXmlPath(deps.home), "/F"],
+      ["schtasks.exe", "/Run", "/TN", TASK],
+    ]);
+  });
+
+  it("start leaves another account's \\Psyche\\Gateway alone", async () => {
+    state = "none";
+    const { deps } = win((cmd, args) =>
+      cmd === "schtasks.exe" && args[0] === "/Query" && args[2] === LEGACY_GATEWAY_TASK
+        ? { stdout: legacyXml("S-1-5-21-1111111111-2222222222-3333333333-1002", "DESK\\you") }
+        : undefined,
+    );
+    expect((await runJson(["start", "--no-wait"], deps)).code).toBe(0);
+    expect(schtasks(deps)).toEqual([
+      ["/Query", "/TN", LEGACY_GATEWAY_TASK, "/XML"],
+      ["/Create", "/TN", TASK, "/XML", taskXmlPath(deps.home), "/F"],
+      ["/Run", "/TN", TASK],
+    ]);
+  });
+
+  it("start fails without this account's SID instead of guessing a task name", async () => {
+    state = "none";
+    const { deps } = win((cmd) => (/whoami\.exe$/i.test(cmd) ? { stdout: "" } : undefined));
+    expect(await run(["start", "--no-wait"], deps)).toBe(1);
+    expect(schtasks(deps).filter((a) => a[0] === "/Create")).toEqual([]);
   });
 
   it("stop ends the task and the service host's process tree; status reads the task state", async () => {
@@ -181,14 +246,16 @@ describe("service commands on win32 (Task Scheduler)", () => {
       installed: true,
       running: true,
       pid: 4343,
-      file: SCHEDULED_TASK,
+      file: TASK,
     });
     deps.execCalls.length = 0;
     await run(["stop", "--url", "http://127.0.0.1:1"], deps);
     expect(
-      deps.execCalls.map((c) => [c.cmd, ...c.args]).filter((c) => c[0] !== "powershell.exe"),
+      deps.execCalls
+        .map((c) => [c.cmd, ...c.args])
+        .filter((c) => c[0] === "schtasks.exe" || c[0] === "taskkill.exe"),
     ).toEqual([
-      ["schtasks.exe", "/End", "/TN", SCHEDULED_TASK],
+      ["schtasks.exe", "/End", "/TN", TASK],
       ["taskkill.exe", "/PID", "4242", "/T", "/F"],
       ["taskkill.exe", "/PID", "4343", "/T", "/F"],
     ]);
@@ -213,7 +280,9 @@ describe("service commands on win32 (Task Scheduler)", () => {
           ? { stdout: `${program.replace(/\.cmd$/, "")}\r\n${program}\r\n` }
           : cmd === "powershell.exe"
             ? { stdout: "none\r\n" }
-            : undefined,
+            : /whoami\.exe$/i.test(cmd)
+              ? WHOAMI
+              : undefined,
     });
     const { code, json } = await runJson(["start", "--no-wait"], deps);
     expect(code).toBe(0);
@@ -250,6 +319,72 @@ describe("SERVICE_HOST_SCRIPT", () => {
     // Started at least twice (the first run exited 1), each time with PSYCHE_HOME.
     expect(text.split(`home=${home}`).length).toBeGreaterThan(2);
     expect(readFileSync(join(home, "logs", "gateway.err.log"), "utf8")).toContain("err line");
+  }, 20_000);
+
+  it("hands the Gateway alone the vault key file named in run\\gateway-service.json", async () => {
+    const dir = tempDir();
+    const home = join(dir, "home");
+    mkdirSync(join(home, "run"), { recursive: true });
+    const keyFile = join(dir, "secrets dir", "vault.key");
+    writeFileSync(
+      join(home, "run", SERVICE_CONFIG_FILE),
+      JSON.stringify({ vaultKeyFile: keyFile }),
+    );
+    const host = join(dir, SERVICE_HOST_FILE);
+    writeFileSync(host, SERVICE_HOST_SCRIPT);
+    const prog = join(dir, "prog.mjs");
+    writeFileSync(
+      prog,
+      'console.log("key=" + process.env.PSYCHE_VAULT_KEY_FILE); setTimeout(() => process.exit(0), 50);',
+    );
+    const env = { ...process.env };
+    delete env.PSYCHE_VAULT_KEY_FILE;
+    const child = spawn(process.execPath, [host, "--home", home, "--", process.execPath, prog], {
+      stdio: "ignore",
+      env,
+    });
+    const out = join(home, "logs", "gateway.out.log");
+    const deadline = Date.now() + 15_000;
+    let text = "";
+    while (Date.now() < deadline && !text.includes("key=")) {
+      text = existsSync(out) ? readFileSync(out, "utf8") : "";
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    child.kill();
+    await new Promise((r) => child.once("exit", r));
+    expect(text).toContain(`key=${keyFile}`);
+    // The path is not on the service host's command line.
+    expect(child.spawnargs.join(" ")).not.toContain("vault.key");
+  }, 20_000);
+
+  it("passes no key file without a config (or with a broken one)", async () => {
+    const dir = tempDir();
+    const home = join(dir, "home");
+    mkdirSync(join(home, "run"), { recursive: true });
+    writeFileSync(join(home, "run", SERVICE_CONFIG_FILE), "{not json");
+    const host = join(dir, SERVICE_HOST_FILE);
+    writeFileSync(host, SERVICE_HOST_SCRIPT);
+    const prog = join(dir, "prog.mjs");
+    writeFileSync(
+      prog,
+      'console.log("key=" + (process.env.PSYCHE_VAULT_KEY_FILE ?? "none")); setTimeout(() => process.exit(0), 50);',
+    );
+    const env = { ...process.env };
+    delete env.PSYCHE_VAULT_KEY_FILE;
+    const child = spawn(process.execPath, [host, "--home", home, "--", process.execPath, prog], {
+      stdio: "ignore",
+      env,
+    });
+    const out = join(home, "logs", "gateway.out.log");
+    const deadline = Date.now() + 15_000;
+    let text = "";
+    while (Date.now() < deadline && !text.includes("key=")) {
+      text = existsSync(out) ? readFileSync(out, "utf8") : "";
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    child.kill();
+    await new Promise((r) => child.once("exit", r));
+    expect(text).toContain("key=none");
   }, 20_000);
 
   it("refuses a command line without --home and --", async () => {

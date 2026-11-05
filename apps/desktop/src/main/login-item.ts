@@ -16,6 +16,13 @@ export const OPEN_AT_LOGIN_KEY = "appearance.openAtLogin";
 
 export const BACKGROUND_ARG = "--background";
 
+/**
+ * Windows: the value name of the login item under `HKCU\…\CurrentVersion\Run` (Electron writes
+ * `name`, else the AppUserModelID) and, once the owner switches it off in Task Manager, under
+ * `…\Explorer\StartupApproved\Run`. The uninstall hook removes both (squirrel-events.ts).
+ */
+export const LOGIN_ITEM_NAME = "Psyche";
+
 /** Electron's login-item settings (the Windows-only keys included). */
 export interface LoginItemSettings {
   openAtLogin: boolean;
@@ -90,7 +97,7 @@ export function loginItemSettings(
 ): LoginItemSettings | undefined {
   if (platform === "darwin") return { openAtLogin: on, args: [BACKGROUND_ARG] };
   if (platform === "win32") {
-    return { openAtLogin: on, ...windowsLoginCommand(execPath, o), name: "Psyche" };
+    return { openAtLogin: on, ...windowsLoginCommand(execPath, o), name: LOGIN_ITEM_NAME };
   }
   return undefined;
 }

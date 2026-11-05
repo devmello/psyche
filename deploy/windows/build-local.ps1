@@ -103,7 +103,13 @@ $setup = Join-Path $squirrel "Psyche-$Version-Setup.exe"
 if (-not (Test-Path $setup)) { throw "no installer at $setup" }
 Copy-Item $setup (Join-Path $dist "Psyche-$Version-Setup.exe") -Force
 Copy-Item (Join-Path $squirrel "RELEASES") $feed -Force
-Get-ChildItem $squirrel -Filter "*.nupkg" | ForEach-Object { Copy-Item $_.FullName $feed -Force }
+# This version's packages only: with PSYCHE_SQUIRREL_REMOTE_RELEASES (a delta build) Squirrel also
+# leaves the previous release's full nupkg there. NuGet's version drops the dots after the dash
+# (electron-winstaller convertVersion: 0.3.0-alpha.0 -> 0.3.0-alpha0).
+$parts = $Version.Split('+')[0].Split('-')
+$nugetVersion = if ($parts.Count -gt 1) { "$($parts[0])-$((($parts[1..($parts.Count - 1)]) -join '-').Replace('.', ''))" } else { $parts[0] }
+Get-ChildItem $squirrel -Filter "Psyche-$nugetVersion-*.nupkg" | ForEach-Object { Copy-Item $_.FullName $feed -Force }
+if (-not (Test-Path (Join-Path $feed "Psyche-$nugetVersion-full.nupkg"))) { throw "no Psyche-$nugetVersion-full.nupkg in $squirrel" }
 $zip = Get-ChildItem (Join-Path $out "make\zip\win32\$Arch") -Filter "*.zip" | Select-Object -First 1
 if ($zip) { Copy-Item $zip.FullName (Join-Path $dist "Psyche-$Version-win32-$Arch.zip") -Force }
 

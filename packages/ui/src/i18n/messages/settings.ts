@@ -1989,6 +1989,11 @@ export const settings = {
   "settings.shortcut.press": "Press the shortcut…",
   "settings.shortcut.offClick": "Off. Click to record",
   "settings.shortcut.turnOff": "Turn off",
+  "settings.shortcut.useDefault": "Use default",
+  "settings.quickEntry.title": "Quick entry",
+  "settings.key.quickEntry.shortcut": "Shortcut",
+  "settings.quickEntry.shortcutHint":
+    "Opens the pop-up chat from any app. Unless you choose other keys, Psyche uses {keys}, or {fallback} when another app holds it.",
 
   // Skills the agent proposed from repeated routines (SkillDraftCard.tsx).
   "settings.skills.draft.effect.none": "no side effect",

@@ -8,6 +8,12 @@ import {
   type ShortcutCheck,
   ShortcutRecorder,
 } from "../src/screens/settings/ShortcutRecorder.tsx";
+import {
+  QUICK_ENTRY_SHORTCUT_KEY,
+  QuickEntryGroup,
+  quickEntryDefaults,
+  ScreenAskGroup,
+} from "../src/screens/settings/VoiceSection.tsx";
 
 const press = (
   code: string,
@@ -135,5 +141,119 @@ describe("ShortcutRecorder on Windows", () => {
     );
     expect(onCheck).not.toHaveBeenCalled();
     expect(screen.getByTestId("saved").textContent).toBe("Control+Alt+D");
+  });
+});
+
+/** Settings › Voice & dictation › Quick entry, saving into a plain values map. */
+function QuickEntryHarness({
+  initial = {},
+  onCheck,
+}: {
+  initial?: Record<string, unknown>;
+  onCheck?: (a: string) => Promise<ShortcutCheck>;
+}) {
+  const [values, setValues] = useState<Record<string, unknown>>(initial);
+  return (
+    <>
+      <QuickEntryGroup
+        values={values}
+        onChange={(k, v) => setValues((old) => ({ ...old, [k]: v }))}
+        {...(onCheck ? { onCheck } : {})}
+      />
+      <span data-testid="saved">{String(values[QUICK_ENTRY_SHORTCUT_KEY] ?? "(unset)")}</span>
+    </>
+  );
+}
+
+describe("quick entry's shortcut (quickEntry.shortcut)", () => {
+  afterEach(() => setUiPlatform(undefined));
+
+  it("shows Windows' default, Ctrl+Alt+Space, with Alt+Shift+Space as the fallback", () => {
+    setUiPlatform("windows");
+    expect(quickEntryDefaults()).toEqual(["Control+Alt+Space", "Alt+Shift+Space"]);
+    render(<QuickEntryHarness />);
+    expect(screen.getByRole("button", { name: "Shortcut Ctrl Alt Space" })).toBeTruthy();
+    expect(
+      screen.getByText(/Psyche uses Ctrl\+Alt\+Space, or Alt\+Shift\+Space when/),
+    ).toBeTruthy();
+    // The default is not "off": nothing to reset, and no Turn off.
+    expect(screen.queryByRole("button", { name: "Use default" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Turn off" })).toBeNull();
+  });
+
+  it("keeps macOS' default, ⌥Space", () => {
+    setUiPlatform("macos");
+    expect(quickEntryDefaults()).toEqual(["Alt+Space", "Control+Alt+Space"]);
+    render(<QuickEntryHarness />);
+    expect(screen.getByRole("button", { name: "Shortcut Option Space" })).toBeTruthy();
+  });
+
+  it("records its own default keys (reserved for quick entry, not by Windows)", async () => {
+    setUiPlatform("windows");
+    const onCheck = vi.fn(async () => "ok" as const);
+    render(
+      <QuickEntryHarness
+        initial={{ [QUICK_ENTRY_SHORTCUT_KEY]: "Control+Alt+Q" }}
+        onCheck={onCheck}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /^Shortcut/ }));
+    await userEvent.keyboard("{Control>}{Alt>} {/Alt}{/Control}");
+    await waitFor(() => expect(screen.getByTestId("saved").textContent).toBe("Control+Alt+Space"));
+    expect(onCheck).toHaveBeenCalledWith("Control+Alt+Space");
+  });
+
+  it("refuses Windows' own shortcuts (Win+…, Alt+Space, Alt+F4) without asking the shell", async () => {
+    setUiPlatform("windows");
+    const onCheck = vi.fn(async () => "ok" as const);
+    render(<QuickEntryHarness onCheck={onCheck} />);
+    const field = screen.getByRole("button", { name: /^Shortcut/ });
+    for (const [keys, by] of [
+      ["{Meta>} {/Meta}", "Win+Space is used by Windows"],
+      ["{Alt>} {/Alt}", "Alt+Space is used by the window menu"],
+      ["{Alt>}[F4]{/Alt}", "Alt+F4 is used by"],
+    ] as const) {
+      await userEvent.click(field);
+      await userEvent.keyboard(keys);
+      await waitFor(() => expect(screen.getByRole("status").textContent).toContain(by));
+    }
+    expect(onCheck).not.toHaveBeenCalled();
+    expect(screen.getByTestId("saved").textContent).toBe("(unset)");
+  });
+
+  it("goes back to the default with Use default (saved as unset), never off", async () => {
+    setUiPlatform("windows");
+    render(<QuickEntryHarness initial={{ [QUICK_ENTRY_SHORTCUT_KEY]: "Control+Alt+Q" }} />);
+    expect(screen.getByRole("button", { name: "Shortcut Ctrl Alt Q" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Use default" }));
+    expect(screen.getByTestId("saved").textContent).toBe("");
+    expect(screen.getByRole("button", { name: "Shortcut Ctrl Alt Space" })).toBeTruthy();
+  });
+
+  it("refuses a shortcut another app (or another Psyche shortcut) holds", async () => {
+    setUiPlatform("windows");
+    render(<QuickEntryHarness onCheck={async () => "taken"} />);
+    await userEvent.click(screen.getByRole("button", { name: /^Shortcut/ }));
+    await userEvent.keyboard("{Control>}{Shift>}k{/Shift}{/Control}");
+    await waitFor(() =>
+      expect(screen.getByRole("status").textContent).toBe(
+        "Ctrl+Shift+K is taken by another app. Pick another shortcut.",
+      ),
+    );
+    expect(screen.getByTestId("saved").textContent).toBe("(unset)");
+  });
+});
+
+describe("Ask about screen's default per platform", () => {
+  afterEach(() => setUiPlatform(undefined));
+
+  it("is Ctrl+Alt+Shift+Space on Windows and ⌥⇧Space on macOS", () => {
+    setUiPlatform("windows");
+    const { unmount } = render(<ScreenAskGroup values={{}} onChange={() => undefined} />);
+    expect(screen.getByRole("button", { name: "Shortcut Ctrl Alt Shift Space" })).toBeTruthy();
+    unmount();
+    setUiPlatform("macos");
+    render(<ScreenAskGroup values={{}} onChange={() => undefined} />);
+    expect(screen.getByRole("button", { name: "Shortcut Option Shift Space" })).toBeTruthy();
   });
 });

@@ -1,4 +1,12 @@
 export {
+  currentGatewayTaskName,
+  GATEWAY_TASK_FOLDER,
+  gatewayTaskLeaf,
+  gatewayTaskName,
+  LEGACY_GATEWAY_TASK,
+  taskBelongsTo,
+} from "./gateway-task.ts";
+export {
   envPath,
   type HostLaunch,
   hostLaunch,

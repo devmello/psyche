@@ -4,7 +4,7 @@ import { Kbd } from "../../components/ui/kbd.tsx";
 import { t } from "../../i18n/core.ts";
 import { isWindows } from "../../lib/platform.ts";
 import { readVoiceSettings, VOICE_KEYS } from "../../voice/settings.ts";
-import { type ShortcutCheck, ShortcutRecorder } from "./ShortcutRecorder.tsx";
+import { type ShortcutCheck, ShortcutRecorder, shortcutText } from "./ShortcutRecorder.tsx";
 import {
   Advanced,
   bool,
@@ -46,6 +46,54 @@ export interface SystemDictationProps {
   onCheckShortcut?: (accelerator: string) => Promise<ShortcutCheck>;
   /** Desktop: the same check for the Ask about screen shortcut. */
   onCheckScreenShortcut?: (accelerator: string) => Promise<ShortcutCheck>;
+  /** Desktop: the same check for the quick-entry shortcut. */
+  onCheckQuickEntryShortcut?: (accelerator: string) => Promise<ShortcutCheck>;
+}
+
+/** The desktop's quick-entry (pop-up chat) shortcut; unset means the OS default. */
+export const QUICK_ENTRY_SHORTCUT_KEY = "quickEntry.shortcut";
+
+/**
+ * What the desktop registers while `quickEntry.shortcut` is unset: the first of these that no
+ * other app holds (apps/desktop/src/main/shortcuts.ts `quickEntryShortcuts`). Windows' Alt+Space
+ * is every window's system menu, so it starts at Ctrl+Alt+Space there.
+ */
+export function quickEntryDefaults(): readonly [string, string] {
+  return isWindows()
+    ? ["Control+Alt+Space", "Alt+Shift+Space"]
+    : ["Alt+Space", "Control+Alt+Space"];
+}
+
+/** Ask about screen's default (apps/desktop/src/main/shortcuts.ts `screenAskShortcuts`). */
+export function screenAskDefault(): string {
+  return isWindows() ? "Control+Alt+Shift+Space" : "Alt+Shift+Space";
+}
+
+/** Quick entry, the pop-up chat (docs/06 §3.21): desktop only. */
+export function QuickEntryGroup({
+  values,
+  onChange,
+  onCheck,
+}: Pick<SettingsFormProps, "values" | "onChange"> & {
+  onCheck?: (accelerator: string) => Promise<ShortcutCheck>;
+}): ReactElement {
+  const [primary, fallback] = quickEntryDefaults();
+  return (
+    <Group title={t("settings.quickEntry.title")}>
+      <ShortcutRecorder
+        label={t("settings.key.quickEntry.shortcut")}
+        description={t("settings.quickEntry.shortcutHint", {
+          keys: shortcutText(primary),
+          fallback: shortcutText(fallback),
+        })}
+        value={str(values, QUICK_ENTRY_SHORTCUT_KEY, "")}
+        defaultValue={primary}
+        own="quickEntry"
+        onChange={(v) => onChange(QUICK_ENTRY_SHORTCUT_KEY, v)}
+        {...(onCheck ? { onCheck } : {})}
+      />
+    </Group>
+  );
 }
 
 /** Ask about my screen (docs/design/screen-ask-2026.md §6): desktop only. */
@@ -71,7 +119,7 @@ export function ScreenAskGroup({
           <ShortcutRecorder
             label={t("settings.key.screenAsk.shortcut")}
             description={t("settings.screenAsk.shortcutHint")}
-            value={str(values, "screenAsk.shortcut", "Alt+Shift+Space")}
+            value={str(values, "screenAsk.shortcut", screenAskDefault())}
             onChange={(v) => onChange("screenAsk.shortcut", v)}
             {...(onCheck ? { onCheck } : {})}
           />
@@ -239,6 +287,7 @@ export function VoicePanel({
   onRecheck,
   onCheckShortcut,
   onCheckScreenShortcut,
+  onCheckQuickEntryShortcut,
 }: SettingsFormProps & LoadProps & SystemDictationProps): ReactElement {
   const ptt = str(values, "voice.pushToTalk", "fn");
   const systemWide = bool(values, "voice.systemWide", true);
@@ -310,6 +359,13 @@ export function VoicePanel({
               {...(system.hotkeyTaken ? { takenNow: system.hotkeyTaken } : {})}
             />
           </Group>
+        ) : null}
+        {system ? (
+          <QuickEntryGroup
+            values={values}
+            onChange={onChange}
+            {...(onCheckQuickEntryShortcut ? { onCheck: onCheckQuickEntryShortcut } : {})}
+          />
         ) : null}
         {system ? (
           <ScreenAskGroup

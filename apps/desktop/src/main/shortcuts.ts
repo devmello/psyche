@@ -91,6 +91,24 @@ export class QuickEntryShortcut {
     this.#o.onChange?.(this.#current);
   }
 
+  /**
+   * Whether `accelerator` could be the quick-entry shortcut, asked before Settings saves it: the
+   * one registered now is fine; any other is registered for a moment to see whether another app
+   * holds it. "" (back to the default) is always fine.
+   */
+  check(accelerator: string): "ok" | "taken" | "invalid" {
+    if (accelerator === "" || accelerator === this.#current) return "ok";
+    const shortcuts = this.#o.shortcuts;
+    if (!shortcuts) return "ok";
+    try {
+      if (!shortcuts.register(accelerator, () => undefined)) return "taken";
+      shortcuts.unregister(accelerator);
+      return "ok";
+    } catch {
+      return "invalid";
+    }
+  }
+
   async load(): Promise<void> {
     try {
       const res = (await this.#o.call("settings.get", { keys: [QUICK_ENTRY_SHORTCUT_KEY] })) as {

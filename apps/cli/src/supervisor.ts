@@ -1,13 +1,20 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, posix, resolve, win32 } from "node:path";
+import {
+  GATEWAY_TASK_FOLDER,
+  gatewayTaskLeaf,
+  gatewayTaskName,
+  LEGACY_GATEWAY_TASK,
+  taskBelongsTo,
+} from "@psyche/hostfs";
 import { CliError } from "./errors.ts";
 import { type Exec, whereExe, which } from "./exec.ts";
 
 /**
  * Gateway supervision (feature A7, architecture §3.2): a per-user LaunchAgent on macOS, a
- * systemd user unit on Linux, a per-user Task Scheduler task (`\Psyche\Gateway`, at logon) on
- * Windows. Compose deployments are supervised by Docker (`restart:`), so the CLI only prints the
+ * systemd user unit on Linux, a per-user Task Scheduler task (`\Psyche\Gateway-<SID>`, at logon)
+ * on Windows. Compose deployments are supervised by Docker (`restart:`), so the CLI only prints the
  * command there.
  *
  * The plist is byte-identical to what the desktop writes for the same input
@@ -122,10 +129,11 @@ WantedBy=default.target
 
 /**
  * Windows (docs/guides/install.md "Windows"): the Gateway runs from a per-user Task Scheduler task
- * at `\Psyche\Gateway`, triggered at logon, the same task the desktop app installs
- * (apps/desktop/src/main/supervisor.ts). Task Scheduler has neither environment variables, log
- * redirection nor KeepAlive, and a console program it starts opens a console window, so the task
- * runs
+ * at `\Psyche\Gateway-<user SID>` (Task Scheduler names are machine-wide; @psyche/hostfs
+ * `gatewayTaskName`), triggered at logon, the same task the desktop app installs
+ * (apps/desktop/src/main/supervisor-windows.ts). Task Scheduler has neither environment variables,
+ * log redirection nor KeepAlive, and a console program it starts opens a console window, so the
+ * task runs
  *
  *   conhost.exe --headless <node.exe> <service-host.mjs> --home <PSYCHE_HOME> -- <program> <args…>
  *
@@ -134,23 +142,35 @@ WantedBy=default.target
  * and stderr to `$PSYCHE_HOME\logs\gateway.out.log` / `gateway.err.log`, restarts it when it exits
  * (KeepAlive) and records both pids in `$PSYCHE_HOME\run\gateway-service.pid` / `gateway.pid`.
  * `schtasks /End` only ends conhost, so stopping also ends the service host's process tree.
+ *
+ * The desktop app passes the vault's key file (`PSYCHE_VAULT_KEY_FILE`, as the macOS LaunchAgent
+ * does) through `$PSYCHE_HOME\run\gateway-service.json` (owner-only), which the service host reads
+ * at every start and hands to the Gateway's environment alone: the path is on no command line and
+ * in no other process's environment.
+ *
+ * The name was `\Psyche\Gateway` for every account before; `psyche start` and the desktop app
+ * replace that task when it belongs to this account (`migrateLegacyTask`).
  */
-export const SCHEDULED_TASK_FOLDER = "\\Psyche\\";
-export const SCHEDULED_TASK_NAME = "Gateway";
-export const SCHEDULED_TASK = `${SCHEDULED_TASK_FOLDER}${SCHEDULED_TASK_NAME}`;
-/** In the psyched bundle next to psyched.cmd: the task with {{PSYCHED_DIR}}, {{PSYCHE_HOME}}, {{USER_ID}}. */
+export const SCHEDULED_TASK_FOLDER = GATEWAY_TASK_FOLDER;
+export { LEGACY_GATEWAY_TASK };
+/**
+ * In the psyched bundle next to psyched.cmd: the task with {{PSYCHED_DIR}}, {{PSYCHE_HOME}},
+ * {{USER_ID}} and {{TASK_NAME}}.
+ */
 export const TASK_TEMPLATE_FILE = "psyche-gateway.task.xml.template";
 /** In the psyched bundle and, for `psyche start`, in `$PSYCHE_HOME\run`. */
 export const SERVICE_HOST_FILE = "service-host.mjs";
 export const SERVICE_PID_FILE = "gateway-service.pid";
 export const GATEWAY_PID_FILE = "gateway.pid";
+/** In `$PSYCHE_HOME\run`: what the desktop passes to the Gateway (`{"vaultKeyFile": "<path>"}`). */
+export const SERVICE_CONFIG_FILE = "gateway-service.json";
 
 /** The Gateway's supervisor inside the scheduled task. Kept free of imports outside node:. */
-export const SERVICE_HOST_SCRIPT = `// Psyche Gateway service host for the Windows scheduled task \\Psyche\\Gateway
+export const SERVICE_HOST_SCRIPT = `// Psyche Gateway service host for the Windows scheduled task \\Psyche\\Gateway-<SID>
 // (apps/cli/src/supervisor.ts SERVICE_HOST_SCRIPT; written by build-psyched.mjs and psyche start).
 //   node service-host.mjs --home <PSYCHE_HOME> -- <program> [args...]
 import { spawn } from "node:child_process";
-import { closeSync, mkdirSync, openSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const argv = process.argv.slice(2);
@@ -173,11 +193,27 @@ let child = null;
 let stopping = false;
 let quickExits = 0;
 
+// What the desktop app passes to the Gateway, read at every start (run\\${SERVICE_CONFIG_FILE},
+// owner-only): the vault's key file becomes PSYCHE_VAULT_KEY_FILE in the Gateway's environment
+// alone, as the LaunchAgent sets it on macOS; it is on no command line.
+function gatewayEnv() {
+  const env = { ...process.env, PSYCHE_HOME: home };
+  let cfg = null;
+  try {
+    cfg = JSON.parse(readFileSync(join(run, "${SERVICE_CONFIG_FILE}"), "utf8"));
+  } catch {
+    cfg = null;
+  }
+  const keyFile = cfg && typeof cfg === "object" ? cfg.vaultKeyFile : undefined;
+  if (typeof keyFile === "string" && keyFile !== "") env.PSYCHE_VAULT_KEY_FILE = keyFile;
+  return env;
+}
+
 function start() {
   const out = openSync(join(logs, "gateway.out.log"), "a");
   const err = openSync(join(logs, "gateway.err.log"), "a");
   const opts = {
-    env: { ...process.env, PSYCHE_HOME: home },
+    env: gatewayEnv(),
     stdio: ["ignore", out, err],
     windowsHide: true,
   };
@@ -233,6 +269,8 @@ export interface ScheduledTaskInput {
   psycheHome: string;
   /** `DOMAIN\user` the logon trigger and principal name. */
   userId: string;
+  /** The task's path (`gatewayTaskName`), the definition's URI. */
+  taskName: string;
 }
 
 /**
@@ -267,7 +305,7 @@ export function renderScheduledTaskXml(input: ScheduledTaskInput): string {
   <RegistrationInfo>
     <Author>Psyche</Author>
     <Description>Psyche Gateway (psyched). Installed by the Psyche app or psyche start; logs in ${xml(win32.join(input.psycheHome, "logs"))}.</Description>
-    <URI>${SCHEDULED_TASK}</URI>
+    <URI>${xml(input.taskName)}</URI>
   </RegistrationInfo>
   <Triggers>
     <LogonTrigger>
@@ -335,6 +373,31 @@ export function windowsUserId(env: NodeJS.ProcessEnv): string {
   const user = env.USERNAME ?? "";
   if (!user) throw new CliError("failure", "USERNAME is not set; cannot name the task's user");
   return env.USERDOMAIN ? `${env.USERDOMAIN}\\${user}` : user;
+}
+
+/**
+ * This account's SID, from System32's `whoami /user` (Git for Windows puts its own `whoami`
+ * first on PATH). It names the Gateway task (`gatewayTaskName`).
+ */
+export async function windowsUserSid(s: SupervisorEnv): Promise<string> {
+  const whoami = win32.join(s.env.SystemRoot ?? "C:\\Windows", "System32", "whoami.exe");
+  const r = await s.exec(whoami, ["/user", "/fo", "csv", "/nh"]);
+  const sid = /"(S-1-[0-9-]+)"\s*$/m.exec(r.stdout)?.[1];
+  if (r.code !== 0 || sid === undefined)
+    throw new CliError("failure", "whoami /user did not name this account's SID");
+  return sid;
+}
+
+/** This account's Gateway task: `\Psyche\Gateway-<SID>` and its name inside `\Psyche\`. */
+export interface GatewayTask {
+  name: string;
+  leaf: string;
+  sid: string;
+}
+
+export async function gatewayTask(s: SupervisorEnv): Promise<GatewayTask> {
+  const sid = await windowsUserSid(s);
+  return { name: gatewayTaskName(sid), leaf: gatewayTaskLeaf(sid), sid };
 }
 
 export type SupervisorKind = "launchd" | "systemd" | "taskscheduler" | "none";
@@ -480,12 +543,13 @@ export async function serviceState(s: SupervisorEnv): Promise<ServiceState> {
     } as ServiceState;
   }
   if (kind === "taskscheduler") {
-    const state = await taskState(s);
+    const task = await gatewayTask(s);
+    const state = await taskState(s, task);
     const pid = readPid(join(s.home, "run", GATEWAY_PID_FILE));
     return {
       kind,
       installed: state !== null,
-      file: SCHEDULED_TASK,
+      file: task.name,
       running: state === "running",
       ...(state === "running" && pid ? { pid } : {}),
       detail: state ?? "not installed",
@@ -501,10 +565,10 @@ const PS_ARGS = ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", 
  * The task's state from Task Scheduler (`ready`, `running`, `disabled`, `queued`), or null when
  * there is no task. Get-ScheduledTask's State is an enum name, not localized like schtasks' table.
  */
-export async function taskState(s: SupervisorEnv): Promise<string | null> {
+export async function taskState(s: SupervisorEnv, task: GatewayTask): Promise<string | null> {
   const r = await s.exec(POWERSHELL, [
     ...PS_ARGS,
-    `$t = Get-ScheduledTask -TaskPath '${SCHEDULED_TASK_FOLDER}' -TaskName '${SCHEDULED_TASK_NAME}' -ErrorAction SilentlyContinue; if ($t) { [string]$t.State } else { 'none' }`,
+    `$t = Get-ScheduledTask -TaskPath '${SCHEDULED_TASK_FOLDER}' -TaskName '${task.leaf}' -ErrorAction SilentlyContinue; if ($t) { [string]$t.State } else { 'none' }`,
   ]);
   const v = r.stdout.trim().toLowerCase();
   if (r.code !== 0 || !v || v === "none") return null;
@@ -521,8 +585,8 @@ function readPid(file: string): number | undefined {
 }
 
 /** Ends the task and the service host's tree (`schtasks /End` only ends conhost). */
-async function endTask(s: SupervisorEnv): Promise<void> {
-  await s.exec("schtasks.exe", ["/End", "/TN", SCHEDULED_TASK]);
+async function endTask(s: SupervisorEnv, name: string): Promise<void> {
+  await s.exec("schtasks.exe", ["/End", "/TN", name]);
   const host = readPid(join(s.home, "run", SERVICE_PID_FILE));
   if (host) await s.exec("taskkill.exe", ["/PID", String(host), "/T", "/F"]);
   const gw = readPid(join(s.home, "run", GATEWAY_PID_FILE));
@@ -533,6 +597,7 @@ async function endTask(s: SupervisorEnv): Promise<void> {
 export async function scheduledTaskInput(
   s: SupervisorEnv,
   program: string,
+  taskName: string,
 ): Promise<ScheduledTaskInput> {
   const serviceHost = join(s.home, "run", SERVICE_HOST_FILE);
   const userId = windowsUserId(s.env);
@@ -548,12 +613,21 @@ export async function scheduledTaskInput(
       args: ["--max-semi-space-size=4", "--disable-warning=ExperimentalWarning", gateway],
       psycheHome: s.home,
       userId,
+      taskName,
     };
   }
   const node = await whereExe(s.exec, "node");
   if (!node) throw new CliError("usage", "node is not on PATH; the Gateway task needs node.exe");
   const cmd = await serviceCommand(s, program);
-  return { node, serviceHost, program: cmd.program, args: cmd.args, psycheHome: s.home, userId };
+  return {
+    node,
+    serviceHost,
+    program: cmd.program,
+    args: cmd.args,
+    psycheHome: s.home,
+    userId,
+    taskName,
+  };
 }
 
 /** The XML last registered by `psyche start`, kept to tell whether the task changed. */
@@ -621,35 +695,60 @@ async function waitUnloaded(s: SupervisorEnv): Promise<void> {
 const NO_TASK = /cannot find|does not exist|not exist/i;
 
 /**
+ * The shared `\Psyche\Gateway` of earlier versions, when it runs as this account: ends it (and the
+ * service host's tree) and deletes it, so the per-user task replaces it. Another account's task is
+ * left alone (this account cannot normally even see it). True when one was removed.
+ */
+export async function migrateLegacyTask(s: SupervisorEnv, task: GatewayTask): Promise<boolean> {
+  const q = await s.exec("schtasks.exe", ["/Query", "/TN", LEGACY_GATEWAY_TASK, "/XML"]);
+  if (q.code !== 0) return false;
+  let userId: string | undefined;
+  try {
+    userId = windowsUserId(s.env);
+  } catch {
+    userId = undefined;
+  }
+  if (!taskBelongsTo(q.stdout, { sid: task.sid, ...(userId ? { userId } : {}) })) return false;
+  await endTask(s, LEGACY_GATEWAY_TASK);
+  check(
+    await s.exec("schtasks.exe", ["/Delete", "/TN", LEGACY_GATEWAY_TASK, "/F"]),
+    "schtasks /Delete",
+  );
+  return true;
+}
+
+/**
  * Windows: writes the service host and the task XML under `$PSYCHE_HOME\run`, registers the task
  * (again, when it changed) and runs it. Returns the task path.
  */
 async function startScheduledTask(s: SupervisorEnv, program: string): Promise<string> {
-  const input = await scheduledTaskInput(s, program);
+  const task = await gatewayTask(s);
+  const migrated = await migrateLegacyTask(s, task);
+  const input = await scheduledTaskInput(s, program, task.name);
   mkdirSync(join(s.home, "logs"), { recursive: true, mode: 0o700 });
   mkdirSync(join(s.home, "run"), { recursive: true, mode: 0o700 });
   if (readFileSafe(input.serviceHost) !== SERVICE_HOST_SCRIPT)
     writeFileSync(input.serviceHost, SERVICE_HOST_SCRIPT, { mode: 0o600 });
   const xmlFile = taskXmlPath(s.home);
   const content = renderScheduledTaskXml(input);
-  const state = await taskState(s);
-  const changed = state === null || readTaskXml(xmlFile) !== content;
+  const state = await taskState(s, task);
+  const changed = migrated || state === null || readTaskXml(xmlFile) !== content;
   if (changed) {
-    if (state === "running") await endTask(s); // the new definition takes over
+    if (state === "running") await endTask(s, task.name); // the new definition takes over
     writeTaskXml(xmlFile, content);
     check(
-      await s.exec("schtasks.exe", ["/Create", "/TN", SCHEDULED_TASK, "/XML", xmlFile, "/F"]),
+      await s.exec("schtasks.exe", ["/Create", "/TN", task.name, "/XML", xmlFile, "/F"]),
       "schtasks /Create",
     );
   } else if (state === "disabled") {
     check(
-      await s.exec("schtasks.exe", ["/Change", "/TN", SCHEDULED_TASK, "/ENABLE"]),
+      await s.exec("schtasks.exe", ["/Change", "/TN", task.name, "/ENABLE"]),
       "schtasks /Change /ENABLE",
     );
   }
   if (changed || state !== "running")
-    check(await s.exec("schtasks.exe", ["/Run", "/TN", SCHEDULED_TASK]), "schtasks /Run");
-  return SCHEDULED_TASK;
+    check(await s.exec("schtasks.exe", ["/Run", "/TN", task.name]), "schtasks /Run");
+  return task.name;
 }
 
 function readFileSafe(file: string): string | null {
@@ -726,8 +825,9 @@ export async function stopService(s: SupervisorEnv): Promise<void> {
     return;
   }
   if (kind === "taskscheduler") {
-    if ((await taskState(s)) === null) return; // nothing installed: already stopped
-    await endTask(s);
+    const task = await gatewayTask(s);
+    if ((await taskState(s, task)) === null) return; // nothing installed: already stopped
+    await endTask(s, task.name);
     return;
   }
   throw new CliError("failure", COMPOSE_HINT.replace("up -d", "stop gateway"));
@@ -747,11 +847,12 @@ export async function restartService(s: SupervisorEnv): Promise<void> {
     return;
   }
   if (kind === "taskscheduler") {
-    const state = await taskState(s);
+    const task = await gatewayTask(s);
+    const state = await taskState(s, task);
     if (state === null)
-      throw new CliError("failure", `No scheduled task ${SCHEDULED_TASK}; run \`psyche start\``);
-    await endTask(s);
-    const r = await s.exec("schtasks.exe", ["/Run", "/TN", SCHEDULED_TASK]);
+      throw new CliError("failure", `No scheduled task ${task.name}; run \`psyche start\``);
+    await endTask(s, task.name);
+    const r = await s.exec("schtasks.exe", ["/Run", "/TN", task.name]);
     check(r, "schtasks /Run");
     return;
   }
@@ -779,9 +880,10 @@ export async function resumeService(s: SupervisorEnv): Promise<void> {
     return;
   }
   if (kind === "taskscheduler") {
-    const r = await s.exec("schtasks.exe", ["/Run", "/TN", SCHEDULED_TASK]);
+    const task = await gatewayTask(s);
+    const r = await s.exec("schtasks.exe", ["/Run", "/TN", task.name]);
     if (r.code !== 0 && NO_TASK.test(r.stderr + r.stdout))
-      throw new CliError("failure", `No scheduled task ${SCHEDULED_TASK}; run \`psyche start\``);
+      throw new CliError("failure", `No scheduled task ${task.name}; run \`psyche start\``);
     check(r, "schtasks /Run");
     return;
   }

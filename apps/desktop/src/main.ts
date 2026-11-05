@@ -1157,8 +1157,12 @@ function registerIpc(): void {
   handle(IPC.dictationCheckHotkey, (_event, arg) => {
     const r = rec(IPC.dictationCheckHotkey, arg);
     const accelerator = str(IPC.dictationCheckHotkey, r.accelerator, "accelerator", 64);
-    // Settings checks each shortcut against the other's: neither may take the one in use, nor
-    // the quick-entry shortcut.
+    // Settings checks each shortcut against the others': none may take one in use.
+    if (r.purpose === "quickEntry") {
+      if (accelerator !== "" && accelerator === dictation?.hotkey) return "taken";
+      if (accelerator !== "" && accelerator === screenAskShortcut?.current) return "taken";
+      return quickEntryShortcut?.check(accelerator) ?? "ok";
+    }
     if (accelerator !== "" && accelerator === quickEntryShortcut?.current) return "taken";
     if (r.purpose === "screenAsk") {
       if (accelerator !== "" && accelerator === dictation?.hotkey) return "taken";
@@ -1699,11 +1703,11 @@ void app.whenReady().then(async () => {
       const res = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts);
       return res.response === 1;
     },
-    // Key-file slot unless the bundled helper can hold the Keychain (Touch ID) slot.
-    // (Windows' task cannot carry it: the service host sets PSYCHE_HOME only; the vault's slot
-    // there is the Gateway's own default.)
+    // Key-file slot unless the bundled helper can hold the Keychain (Touch ID) slot, which a
+    // Windows helper never can. macOS passes it in the LaunchAgent's environment; Windows in
+    // run\gateway-service.json, which the task's service host reads (supervisor-windows.ts).
     vaultKeyFile: async () =>
-      windows32 || (await helperCanHoldKeychain(bundledHelperPath(), execRunner))
+      (await helperCanHoldKeychain(bundledHelperPath(), execRunner))
         ? undefined
         : desktopVaultKeyFile(home),
     onState: (run) => {

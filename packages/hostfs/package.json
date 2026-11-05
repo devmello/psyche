@@ -2,7 +2,7 @@
   "name": "@psyche/hostfs",
   "version": "0.3.0-alpha.0",
   "private": true,
-  "description": "Host file system rules that differ between macOS/Linux and Windows: owner-only files and host path comparison.",
+  "description": "Host rules that differ between macOS/Linux and Windows: owner-only files, host path comparison and the per-user Windows Gateway task name.",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {

@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@psyche/browser": "workspace:*",
+    "@psyche/hostfs": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@psyche/ui": "workspace:*",
     "@psyche/viewers": "workspace:*",

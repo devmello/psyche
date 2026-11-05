@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { OWNER_FILE, privacyOf } from "@psyche/hostfs/testing";
 import { afterAll, describe, expect, it } from "vitest";
 import { renderScheduledTaskXml, writeTaskXml } from "../../../cli/src/supervisor.ts";
 import { chooseMode, devGatewayCommand, type Runner } from "../../src/main/supervisor.ts";
@@ -10,19 +11,25 @@ import {
   encodeTaskXml,
   fillTaskTemplate,
   GATEWAY_PID_FILE,
+  gatewayServiceConfig,
+  gatewayServiceConfigFile,
   gatewayTaskFile,
   isTemporaryLocation,
+  LEGACY_GATEWAY_TASK,
   parseCsvRow,
   parseLastResult,
   quoteWindowsArg,
-  SCHEDULED_TASK,
   SERVICE_PID_FILE,
   schtasks,
   splitWindowsArgs,
   TaskSchedulerSupervisor,
   taskProgram,
+  taskUri,
   windowsUserId,
 } from "../../src/main/supervisor-windows.ts";
+
+const SID = "S-1-5-21-1111111111-2222222222-3333333333-1001";
+const TASK = `\\Psyche\\Gateway-${SID}`;
 
 const dir = mkdtempSync(join(tmpdir(), "psy-wsup-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -41,6 +48,7 @@ function bundleTemplate(): string {
     ],
     psycheHome: "{{PSYCHE_HOME}}",
     userId: "{{USER_ID}}",
+    taskName: "{{TASK_NAME}}",
   });
 }
 
@@ -97,18 +105,18 @@ describe("Windows command lines", () => {
     expect(parseLastResult("")).toBeUndefined();
   });
 
-  it("uses the CLI's task, \\Psyche\\Gateway", () => {
-    expect(SCHEDULED_TASK).toBe("\\Psyche\\Gateway");
-    expect(schtasks.create("C:\\h\\run\\psyche-gateway.task.xml")).toEqual([
+  it("names the task it is given (this account's \\Psyche\\Gateway-<SID>)", () => {
+    expect(schtasks.create(TASK, "C:\\h\\run\\psyche-gateway.task.xml")).toEqual([
       "/Create",
       "/TN",
-      "\\Psyche\\Gateway",
+      TASK,
       "/XML",
       "C:\\h\\run\\psyche-gateway.task.xml",
       "/F",
     ]);
-    expect(schtasks.end()).toEqual(["/End", "/TN", "\\Psyche\\Gateway"]);
-    expect(schtasks.delete()).toEqual(["/Delete", "/TN", "\\Psyche\\Gateway", "/F"]);
+    expect(schtasks.end(TASK)).toEqual(["/End", "/TN", TASK]);
+    expect(schtasks.delete(TASK)).toEqual(["/Delete", "/TN", TASK, "/F"]);
+    expect(LEGACY_GATEWAY_TASK).toBe("\\Psyche\\Gateway");
     expect(gatewayTaskFile("C:\\h")).toBe(join("C:\\h", "run", "psyche-gateway.task.xml"));
   });
 
@@ -123,6 +131,7 @@ describe("the bundled task template", () => {
     psychedDir: "C:\\Users\\Ada & Co\\AppData\\Local\\Psyche\\app-0.3.0\\resources\\psyched",
     psycheHome: "C:\\Users\\Ada & Co\\.psyche",
     userId: "HOST\\Ada",
+    taskName: TASK,
   };
   const xml = fillTaskTemplate(bundleTemplate(), values);
 
@@ -131,7 +140,8 @@ describe("the bundled task template", () => {
     expect(xml).toContain("<UserId>HOST\\Ada</UserId>");
     expect(xml).not.toContain("Ada & Co");
     expect(taskProgram(xml)).toBe(`${values.psychedDir}\\runtime\\node.exe`);
-    expect(xml).toContain("<URI>\\Psyche\\Gateway</URI>");
+    expect(xml).toContain(`<URI>${TASK}</URI>`);
+    expect(taskUri(xml)).toBe(TASK);
     expect(xml).toContain("<LogonType>InteractiveToken</LogonType>");
     expect(xml).toContain("<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>");
     expect(xml).toMatch(/<Command>%SystemRoot%\\System32\\conhost\.exe<\/Command>/);
@@ -152,10 +162,15 @@ describe("the bundled task template", () => {
   });
 });
 
-/** A fake Task Scheduler and taskkill: registered after /Create, healthy once run. */
-function scheduler(o: { neverHealthy?: boolean; registered?: string } = {}) {
+/**
+ * A fake Task Scheduler and taskkill, by task name: registered after /Create, healthy once run.
+ * `registered` is this account's task, `legacy` a \\Psyche\\Gateway of an earlier version.
+ */
+function scheduler(o: { neverHealthy?: boolean; registered?: string; legacy?: string } = {}) {
   const calls: string[][] = [];
-  let registered = o.registered;
+  const tasks = new Map<string, string>();
+  if (o.registered !== undefined) tasks.set(TASK, o.registered);
+  if (o.legacy !== undefined) tasks.set(LEGACY_GATEWAY_TASK, o.legacy);
   let running = false;
   const run: Runner = async (file, args) => {
     const exe = (file.split("\\").pop() ?? file).toLowerCase();
@@ -166,14 +181,17 @@ function scheduler(o: { neverHealthy?: boolean; registered?: string } = {}) {
     }
     if (exe !== "schtasks.exe") return { code: 0, stdout: "", stderr: "" };
     const verb = args[0];
-    if (verb === "/Create") registered = decodeTaskXml(readFileSync(args[4] as string));
-    if (verb === "/Delete") registered = undefined;
-    if (verb === "/Run") running = registered !== undefined;
+    const name = args[2] as string;
+    if (verb === "/Create") tasks.set(name, decodeTaskXml(readFileSync(args[4] as string)));
+    if (verb === "/Delete") tasks.delete(name);
+    if (verb === "/Run") running = tasks.has(name);
+    if (verb === "/End") running = false;
     if (verb === "/Query") {
-      if (registered === undefined) return { code: 1, stdout: "", stderr: "not found" };
-      if (args.includes("/XML")) return { code: 0, stdout: registered, stderr: "" };
+      const xml = tasks.get(name);
+      if (xml === undefined) return { code: 1, stdout: "", stderr: "not found" };
+      if (args.includes("/XML")) return { code: 0, stdout: xml, stderr: "" };
       if (args.includes("/V"))
-        return { code: 0, stdout: '"H","\\Psyche\\Gateway","N/A","Ready","I","x","3"', stderr: "" };
+        return { code: 0, stdout: `"H","${name}","N/A","Ready","I","x","3"`, stderr: "" };
     }
     return { code: 0, stdout: "", stderr: "" };
   };
@@ -185,7 +203,8 @@ function scheduler(o: { neverHealthy?: boolean; registered?: string } = {}) {
     calls,
     run,
     fetch: fetchFn,
-    registered: () => registered,
+    registered: () => tasks.get(TASK),
+    legacy: () => tasks.get(LEGACY_GATEWAY_TASK),
     start: () => {
       running = true;
     },
@@ -216,6 +235,7 @@ function supervisor(b: ReturnType<typeof bundle>, f: ReturnType<typeof scheduler
     bundledNode: b.node,
     bundledTemplate: b.template,
     userId: "HOST\\ada",
+    userSid: SID,
     systemRoot: "C:\\Windows",
     // The test bundles live in the temp folder, which a real install never does.
     tempDir: join(dir, "elsewhere"),
@@ -228,7 +248,9 @@ function supervisor(b: ReturnType<typeof bundle>, f: ReturnType<typeof scheduler
 
 describe("TaskSchedulerSupervisor", () => {
   const verbs = (calls: string[][]) =>
-    calls.filter((c) => c[0] === "schtasks.exe").map((c) => c[1]);
+    calls.filter((c) => c[0] === "schtasks.exe" && c[3] !== LEGACY_GATEWAY_TASK).map((c) => c[1]);
+  const legacyCalls = (calls: string[][]) =>
+    calls.filter((c) => c[0] === "schtasks.exe" && c[3] === LEGACY_GATEWAY_TASK).map((c) => c[1]);
 
   it("registers the filled template, runs it and waits for /healthz; a second launch changes nothing", async () => {
     const b = bundle("fresh");
@@ -245,6 +267,9 @@ describe("TaskSchedulerSupervisor", () => {
     const stored = decodeTaskXml(readFileSync(gatewayTaskFile(b.home)));
     expect(stored).toBe(f.registered());
     expect(taskProgram(stored)).toBe(b.node);
+    expect(taskUri(stored)).toBe(TASK);
+    // Looked for an earlier version's shared task, found none, left it at that.
+    expect(legacyCalls(f.calls)).toEqual(["/Query"]);
     expect(existsSync(join(b.home, "logs"))).toBe(true);
 
     f.calls.length = 0;
@@ -269,6 +294,7 @@ describe("TaskSchedulerSupervisor", () => {
     const f = scheduler();
     const none = new TaskSchedulerSupervisor({
       mode: "taskscheduler",
+      userSid: SID,
       psycheHome: join(dir, "nobundle"),
       healthUrl: "http://127.0.0.1:1/healthz",
       bundledPsyched: join(dir, "nope"),
@@ -290,6 +316,20 @@ describe("TaskSchedulerSupervisor", () => {
     expect(verbs(g.calls)).toEqual(["/Query"]);
   });
 
+  it("without this account's SID it registers nothing (the name would collide)", async () => {
+    const b = bundle("nosid");
+    const f = scheduler();
+    // (The default asks whoami; "" stands for "it named nobody".)
+    const sup = supervisor(b, f, { userSid: "" });
+    await sup.ensureRunning();
+    expect(sup.getState()).toEqual({
+      kind: "stopped",
+      mode: "taskscheduler",
+      reason: "Windows did not say which account this is (whoami /user)",
+    });
+    expect(f.calls).toEqual([]);
+  });
+
   it("asks before taking over another copy's task; no means attach, yes replaces it", async () => {
     const other = bundle("other-copy");
     const mine = bundle("this-copy");
@@ -297,6 +337,7 @@ describe("TaskSchedulerSupervisor", () => {
       psychedDir: other.psyched,
       psycheHome: mine.home,
       userId: "HOST\\ada",
+      taskName: TASK,
     });
     for (const answer of [false, true]) {
       const f = scheduler({ registered: otherXml });
@@ -329,12 +370,13 @@ describe("TaskSchedulerSupervisor", () => {
     await sup.stopEverything();
     expect(f.registered()).toBeUndefined();
     expect(existsSync(gatewayTaskFile(b.home))).toBe(false);
-    const tail = f.calls.slice(-4).map((c) => c.join(" "));
+    const tail = f.calls.slice(-5).map((c) => c.join(" "));
     expect(tail).toEqual([
-      "schtasks.exe /End /TN \\Psyche\\Gateway",
+      `schtasks.exe /End /TN ${TASK}`,
       "taskkill.exe /PID 4100 /T /F",
       "taskkill.exe /PID 4200 /T /F",
-      "schtasks.exe /Delete /TN \\Psyche\\Gateway /F",
+      `schtasks.exe /Delete /TN ${TASK} /F`,
+      `schtasks.exe /Query /TN ${LEGACY_GATEWAY_TASK} /XML`,
     ]);
     expect(sup.getState()).toEqual({ kind: "stopped", mode: "taskscheduler", reason: "quit" });
 
@@ -343,11 +385,116 @@ describe("TaskSchedulerSupervisor", () => {
       psychedDir: other.psyched,
       psycheHome: join(dir, "quit2"),
       userId: "HOST\\ada",
+      taskName: TASK,
     });
     const g = scheduler({ registered: otherXml });
     const quitting = supervisor({ ...b, home: join(dir, "quit2") }, g);
     await quitting.stopEverything();
     expect(g.registered()).toBe(otherXml);
+  });
+
+  /** \\Psyche\\Gateway as an earlier version registered it, for `userId` (trigger as a SID). */
+  const legacyXml = (b: ReturnType<typeof bundle>, sid: string, userId: string) =>
+    fillTaskTemplate(bundleTemplate(), {
+      psychedDir: b.psyched,
+      psycheHome: b.home,
+      userId,
+      taskName: LEGACY_GATEWAY_TASK,
+    }).replace(/(<LogonTrigger>\s*<Enabled>true<\/Enabled>\s*<UserId>)[^<]*/, `$1${sid}`);
+
+  it("replaces this account's \\Psyche\\Gateway of an earlier version with the per-user task", async () => {
+    const b = bundle("migrate");
+    const f = scheduler({ legacy: legacyXml(bundle("migrate"), SID, "HOST\\ada") });
+    f.start(); // the old task's Gateway is up
+    mkdirSync(join(b.home, "run"), { recursive: true });
+    writeFileSync(join(b.home, "run", SERVICE_PID_FILE), "4100");
+    const asked: string[] = [];
+    const sup = supervisor(b, f, { confirmTakeover: async (p: string) => !!asked.push(p) });
+    await sup.ensureRunning();
+    // Same runtime: no question; the old task stops, goes, and the new one runs.
+    expect(asked).toEqual([]);
+    expect(f.legacy()).toBeUndefined();
+    expect(taskUri(f.registered() ?? "")).toBe(TASK);
+    expect(sup.getState()).toEqual({ kind: "running", mode: "taskscheduler" });
+    const order = f.calls
+      .filter((c) => c[0] !== "schtasks.exe" || c[1] !== "/Query")
+      .map((c) => c.slice(0, 4).join(" "));
+    expect(order).toEqual([
+      `schtasks.exe /End /TN ${LEGACY_GATEWAY_TASK}`,
+      "taskkill.exe /PID 4100 /T",
+      `schtasks.exe /Delete /TN ${LEGACY_GATEWAY_TASK}`,
+      `schtasks.exe /Create /TN ${TASK}`,
+      `schtasks.exe /Run /TN ${TASK}`,
+    ]);
+  });
+
+  it("leaves another account's \\Psyche\\Gateway alone", async () => {
+    const b = bundle("migrate-other");
+    const theirs = legacyXml(b, "S-1-5-21-1111111111-2222222222-3333333333-1002", "HOST\\bob");
+    const f = scheduler({ legacy: theirs });
+    const sup = supervisor(b, f);
+    await sup.ensureRunning();
+    expect(f.legacy()).toBe(theirs);
+    expect(legacyCalls(f.calls)).toEqual(["/Query"]);
+    expect(taskUri(f.registered() ?? "")).toBe(TASK);
+    await sup.stopEverything();
+    expect(f.legacy()).toBe(theirs);
+  });
+
+  it("asks before replacing this account's old task when it runs another copy", async () => {
+    const other = bundle("migrate-copy-other");
+    const mine = bundle("migrate-copy-mine");
+    const old = legacyXml(other, SID, "HOST\\ada");
+    const f = scheduler({ legacy: old });
+    const asked: string[] = [];
+    const sup = supervisor(mine, f, {
+      confirmTakeover: async (p: string) => {
+        asked.push(p);
+        return false;
+      },
+    });
+    await sup.ensureRunning();
+    expect(asked).toEqual([other.node]);
+    expect(f.legacy()).toBe(old);
+    expect(f.registered()).toBeUndefined();
+  });
+
+  it("passes the vault key file in run\\gateway-service.json, owner-only, and restarts for a change", async () => {
+    const b = bundle("vault");
+    const f = scheduler();
+    let keyFile: string | undefined = join(b.home, "secrets", "vault.key");
+    const sup = supervisor(b, f, { vaultKeyFile: async () => keyFile });
+    await sup.ensureRunning();
+    const cfg = gatewayServiceConfigFile(b.home);
+    expect(readFileSync(cfg, "utf8")).toBe(gatewayServiceConfig(keyFile));
+    expect(JSON.parse(readFileSync(cfg, "utf8"))).toEqual({ vaultKeyFile: keyFile });
+    expect(privacyOf(cfg)).toBe(OWNER_FILE);
+    // Not on the task's command line.
+    expect(f.registered()).not.toContain("vault.key");
+
+    // Unchanged: nothing restarts.
+    f.calls.length = 0;
+    await sup.ensureRunning();
+    expect(verbs(f.calls)).toEqual(["/Query", "/Query"]);
+
+    // Another key file: the task restarts so the service host reads it.
+    keyFile = join(b.home, "secrets", "other.key");
+    f.calls.length = 0;
+    await sup.ensureRunning();
+    expect(verbs(f.calls)).toEqual(["/Query", "/End", "/Run", "/Query"]);
+    expect(JSON.parse(readFileSync(cfg, "utf8"))).toEqual({ vaultKeyFile: keyFile });
+
+    // No key file (the vault has another slot): the file goes.
+    keyFile = undefined;
+    await sup.ensureRunning();
+    expect(existsSync(cfg)).toBe(false);
+
+    // Quit entirely removes it with the task.
+    keyFile = join(b.home, "secrets", "vault.key");
+    await sup.ensureRunning();
+    expect(existsSync(cfg)).toBe(true);
+    await sup.stopEverything();
+    expect(existsSync(cfg)).toBe(false);
   });
 
   it("remote mode starts nothing and never touches the task", async () => {

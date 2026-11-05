@@ -248,7 +248,7 @@ const bridge = {
     getStatus: () => invoke(IPC.dictationGetStatus),
     onStatus: (cb: (s: unknown) => void) => listen(IPC.dictationStatus, cb),
     recheck: () => invoke(IPC.dictationRecheck),
-    checkHotkey: (accelerator: string, purpose?: "dictation" | "screenAsk") =>
+    checkHotkey: (accelerator: string, purpose?: "dictation" | "screenAsk" | "quickEntry") =>
       invoke(IPC.dictationCheckHotkey, { accelerator, ...(purpose ? { purpose } : {}) }),
     openAccessibilitySettings: () => ipcRenderer.send(IPC.dictationOpenAccessibility),
   },

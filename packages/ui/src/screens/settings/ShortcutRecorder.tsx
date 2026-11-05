@@ -14,7 +14,7 @@ import { isMac, isWindows } from "../../lib/platform.ts";
 
 export type ShortcutCheck = "ok" | "taken" | "invalid";
 
-type ReservedBy =
+export type ReservedBy =
   | "spotlight"
   | "inputSource"
   | "appSwitcher"
@@ -67,11 +67,17 @@ export const RESERVED_SHORTCUTS_WINDOWS: Readonly<Record<string, ReservedBy>> = 
   "Control+Alt+Space": "quickEntry",
 };
 
-/** What reserves `accelerator` on this platform, or undefined when it is free to record. */
-export function reservedBy(accelerator: string): ReservedBy | undefined {
-  if (!isWindows()) return RESERVED_SHORTCUTS[accelerator];
-  if (accelerator.split("+").includes("Super")) return "windowsKey";
-  return RESERVED_SHORTCUTS_WINDOWS[accelerator];
+/**
+ * What reserves `accelerator` on this platform, or undefined when it is free to record. `own` is
+ * the recorder's own reservation (the quick-entry recorder may record quick entry's keys).
+ */
+export function reservedBy(accelerator: string, own?: ReservedBy): ReservedBy | undefined {
+  const by = !isWindows()
+    ? RESERVED_SHORTCUTS[accelerator]
+    : accelerator.split("+").includes("Super")
+      ? "windowsKey"
+      : RESERVED_SHORTCUTS_WINDOWS[accelerator];
+  return by === own ? undefined : by;
 }
 
 export const reservedByLabel = (by: ReservedBy): string => t(`settings.shortcut.reserved.${by}`);
@@ -168,21 +174,33 @@ export function shortcutText(accelerator: string): string {
 export function ShortcutRecorder({
   label,
   description,
-  value,
+  value: saved,
   onChange,
   onCheck,
   takenNow,
+  own,
+  defaultValue,
 }: {
   label: string;
   description?: string;
-  /** The saved accelerator; "" means off. */
+  /** The saved accelerator; "" means off (or `defaultValue`). */
   value: string;
   onChange: (accelerator: string) => void;
   /** Asks the shell whether another app holds the shortcut (desktop). */
   onCheck?: (accelerator: string) => Promise<ShortcutCheck>;
   /** The shell reported the saved shortcut as taken after registering it. */
   takenNow?: string;
+  /** This recorder's own reservation, which it may record (quick entry's keys for quick entry). */
+  own?: ReservedBy;
+  /**
+   * What "" means when the shortcut cannot be off: it shows these keys, and clearing it (the button
+   * or Delete) reads "Use default" and saves "".
+   */
+  defaultValue?: string;
 }): ReactElement {
+  const value = saved === "" && defaultValue !== undefined ? defaultValue : saved;
+  const clearable =
+    defaultValue === undefined ? value !== "" : saved !== "" && saved !== defaultValue;
   const id = useId();
   const [recording, setRecording] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -190,7 +208,7 @@ export function ShortcutRecorder({
 
   const accept = async (accelerator: string) => {
     setRecording(false);
-    const reserved = reservedBy(accelerator);
+    const reserved = reservedBy(accelerator, own);
     if (reserved !== undefined) {
       setRefused(
         t("settings.shortcut.usedBy", {
@@ -289,7 +307,7 @@ export function ShortcutRecorder({
             )}
           </span>
         </button>
-        {value && !recording ? (
+        {clearable && !recording ? (
           <Button
             type="button"
             variant="ghost"
@@ -299,7 +317,9 @@ export function ShortcutRecorder({
               onChange("");
             }}
           >
-            {t("settings.shortcut.turnOff")}
+            {defaultValue === undefined
+              ? t("settings.shortcut.turnOff")
+              : t("settings.shortcut.useDefault")}
           </Button>
         ) : null}
       </div>

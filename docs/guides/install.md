@@ -171,7 +171,7 @@ You can also double-click `Psyche-<version>-Setup.exe`. It installs Psyche for y
 
 ### 2. Open Psyche
 
-Open Psyche from the Start menu. The Gateway runs as a scheduled task for your user, `\Psyche\Gateway`, started when you sign in to Windows; it keeps running when you close the window. Its logs are in `%USERPROFILE%\.psyche\logs\` (`gateway.out.log`, `gateway.err.log`). Task Scheduler shows the task under **Task Scheduler Library › Psyche**.
+Open Psyche from the Start menu. The Gateway runs as a scheduled task for your user, `\Psyche\Gateway-<your SID>` (for example `\Psyche\Gateway-S-1-5-21-…-1001`; each Windows account that installs Psyche has its own), started when you sign in to Windows; it keeps running when you close the window. An install of an earlier version used `\Psyche\Gateway` for everyone; the app replaces that task with yours the first time it starts, when the old one is yours. Its logs are in `%USERPROFILE%\.psyche\logs\` (`gateway.out.log`, `gateway.err.log`). Task Scheduler shows the task under **Task Scheduler Library › Psyche**.
 
 To start it from the CLI instead, point `psyche start` at the `psyched.cmd` inside the install (the CLI also finds it on its own):
 
@@ -185,7 +185,7 @@ psyche start --psyched "$env:LOCALAPPDATA\Psyche\app-<version>\resources\psyched
 
 Psyche checks for updates when it starts, verifies them against the signed update manifest and installs them in the background; the new version opens the next time you start Psyche. Updates are off in builds without a signature or a release key.
 
-To uninstall, open **Settings › Apps › Installed apps**, find Psyche and choose **Uninstall**. That removes the app, its shortcuts and the `\Psyche\Gateway` task. Your data in `%USERPROFILE%\.psyche` stays; delete that folder to remove it too.
+To uninstall, open **Settings › Apps › Installed apps**, find Psyche and choose **Uninstall**. That removes the app, its shortcuts, your Gateway task, the **Open at login** entry and the `psyche://` link handler. Your data in `%USERPROFILE%\.psyche` stays; delete that folder to remove it too.
 
 ## On a Linux server with Docker Compose
 

@@ -5,8 +5,9 @@
 //                             against nodejs.org's SHASUMS256.txt, cached in %LOCALAPPDATA%
 //   psyched.cmd, psyche.cmd   cmd launchers (no PATH needed), the same flags as the sh ones
 //   psyche-gateway.task.xml.template
-//                             the Task Scheduler task (\Psyche\Gateway) with {{PSYCHED}},
-//                             {{PSYCHE_HOME}} and {{USER_ID}}, rendered like the LaunchAgent plist
+//                             the Task Scheduler task (\Psyche\Gateway-<SID>) with
+//                             {{PSYCHED_DIR}}, {{PSYCHE_HOME}}, {{USER_ID}} and {{TASK_NAME}},
+//                             rendered like the LaunchAgent plist
 //   app\node_modules          a flat (hoisted) copy of the external packages: no links at all.
 //                             Squirrel's nupkg (a zip) keeps neither symlinks nor junctions, and
 //                             the pnpm store's nesting pushes paths under %LOCALAPPDATA%\Psyche\

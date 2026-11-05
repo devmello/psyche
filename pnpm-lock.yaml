@@ -206,6 +206,9 @@ importers:
       '@psyche/backup':
         specifier: workspace:*
         version: link:../../packages/backup
+      '@psyche/hostfs':
+        specifier: workspace:*
+        version: link:../../packages/hostfs
       '@psyche/permissions':
         specifier: workspace:*
         version: link:../../packages/permissions
@@ -228,6 +231,9 @@ importers:
       '@psyche/browser':
         specifier: workspace:*
         version: link:../../packages/browser
+      '@psyche/hostfs':
+        specifier: workspace:*
+        version: link:../../packages/hostfs
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

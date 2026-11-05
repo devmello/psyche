@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { MakerSquirrel } from "@electron-forge/maker-squirrel";
 import { MakerZIP } from "@electron-forge/maker-zip";
@@ -149,7 +149,11 @@ const config: ForgeConfig = {
       ignore: skipOuterSigning,
     }),
   },
-  rebuildConfig: {},
+  // node-pty is N-API (node-addon-api): its prebuilds (darwin and win32, arm64 and x64) load in any
+  // Electron, and on Linux its install step compiles one that does too. Rebuilding it from source
+  // gains nothing and fails on Windows hosts without the Spectre-mitigated MSVC libraries, which
+  // its binding.gyp asks for. copyNodePty above ships the prebuild.
+  rebuildConfig: { ignoreModules: ["node-pty"] },
   // TODO(S22/C2): signed DMG and the release pipeline (manifest signed with the release key,
   // security §11). ZIP only until then.
   makers: [
@@ -165,9 +169,11 @@ const config: ForgeConfig = {
         exe: "Psyche.exe",
         setupExe: `Psyche-${version}-Setup.exe`,
         setupIcon: join(root, "assets", "icon.ico"),
-        // Programs and Features shows this icon; Squirrel fetches it once at install time.
-        iconUrl:
-          "https://raw.githubusercontent.com/devmello/psyche/main/apps/desktop/assets/icon.ico",
+        // Programs and Features shows <root>\app.ico. Squirrel downloads iconUrl into it after the
+        // install hook only while it is missing, and the hook copies resources\icon.ico there
+        // first (src/main/squirrel-events.ts), so an install fetches nothing and works offline.
+        // The nuspec needs a URL all the same: this file:// one is local and never the network.
+        iconUrl: pathToFileURL(join(root, "assets", "icon.ico")).href,
         noMsi: true,
         // The previous release's folder, for a delta nupkg (the release workflow sets it).
         ...(process.env.PSYCHE_SQUIRREL_REMOTE_RELEASES
