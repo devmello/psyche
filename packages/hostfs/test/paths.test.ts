@@ -17,6 +17,10 @@ describe("POSIX host paths (unchanged on every platform)", () => {
     expect(canonicalHostPath("/a/b/../c/", "darwin")).toBe("/a/c");
     expect(canonicalHostPath("/", "darwin")).toBe("/");
     expect(canonicalHostPath("/workspace", "win32")).toBe("/workspace");
+    // `//` is a POSIX root off Windows and a UNC prefix on it.
+    expect(canonicalHostPath("//a//b", "darwin")).toBe("/a/b");
+    expect(() => canonicalHostPath("//a//b", "win32")).toThrow(HostPathError);
+    expect(canonicalHostPath("//srv/share//b", "win32")).toBe("\\\\srv\\share\\b");
     expect(() => canonicalHostPath("a/b", "darwin")).toThrow(HostPathError);
     expect(() => canonicalHostPath("/a\0b", "darwin")).toThrow(HostPathError);
   });

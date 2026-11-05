@@ -48,7 +48,7 @@ export function isAbsoluteHostPath(
   p: string,
   platform: NodeJS.Platform = process.platform,
 ): boolean {
-  if (p.startsWith("/") && !p.startsWith("//")) return true;
+  if (p.startsWith("/") && (platform !== "win32" || !p.startsWith("//"))) return true;
   if (platform !== "win32") return false;
   const s = stripLongPrefix(p);
   return s !== undefined && (DRIVE_ABS.test(s) || UNC.test(s));
@@ -74,7 +74,7 @@ export function canonicalHostPath(
   platform: NodeJS.Platform = process.platform,
 ): string {
   if (input.includes("\0")) throw new HostPathError("NUL in path");
-  if (input.startsWith("/") && !input.startsWith("//")) {
+  if (input.startsWith("/") && (platform !== "win32" || !input.startsWith("//"))) {
     const p = posix.normalize(input);
     return p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p;
   }
