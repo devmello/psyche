@@ -5,18 +5,26 @@ import { canvas } from "./canvas/es.ts";
 import { charts } from "./charts/es.ts";
 import { chatA } from "./chat-a/es.ts";
 import { dailyA } from "./daily-a/es.ts";
+import { galleryA } from "./gallery-a/es.ts";
 import { links } from "./links/es.ts";
 import { mailMeetings } from "./mail-meetings/es.ts";
+import { memoryA } from "./memory-a/es.ts";
 import { overview } from "./overview/es.ts";
 import { overviewGrowth } from "./overview-growth/es.ts";
 import { overviewShared } from "./overview-shared/es.ts";
 import { settingsA } from "./settings-a/es.ts";
 import { settingsB } from "./settings-b/es.ts";
 import { settingsC } from "./settings-c/es.ts";
+import { settingsD } from "./settings-d/es.ts";
+import { settingsE } from "./settings-e/es.ts";
 import { workflows } from "./workflows/es.ts";
 
 /** Spanish catalogue (es). Same ids as `en`; missing ids fall back to English. */
 export const es: Partial<Catalogue> = {
+  ...memoryA,
+  ...galleryA,
+  ...settingsE,
+  ...settingsD,
   ...settingsC,
   ...settingsB,
   ...settingsA,
