@@ -695,7 +695,10 @@ mod tests {
         let absent = status_value(Ok(false), false, "device_not_present", "not_created");
         assert_eq!(absent["biometry"]["unavailableReason"], "not_available");
         let policy = status_value(Ok(false), false, "disabled_by_policy", "invalidated");
-        assert_eq!(policy["biometry"]["unavailableReason"], "disabled_by_policy");
+        assert_eq!(
+            policy["biometry"]["unavailableReason"],
+            "disabled_by_policy"
+        );
         assert_eq!(policy["sealingKey"], "invalidated");
 
         // Credential Manager fails: never "available"; the Win32 status travels.
