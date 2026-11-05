@@ -245,12 +245,15 @@ const config: ForgeConfig = {
             "Psyche is a private AI assistant that runs on your computer, with its Gateway as a background service.",
           bin: "psyche",
           license: "Apache-2.0",
+          // rpm sorts 0.3.0.alpha.0 above 0.3.0; with a tilde the release wins (rpm >= 4.10).
+          version: version.replace("-", "~"),
           homepage: "https://github.com/devmello/psyche",
           categories: ["Office", "Utility"],
           mimeType: ["x-scheme-handler/psyche", "x-scheme-handler/psyche-pair"],
           icon: linuxIcons as never,
           // Options electron-installer-redhat reads that the maker's types leave out.
           ...({
+            specTemplate: join(linuxDeploy, "psyche.spec.ejs"),
             desktopTemplate: join(linuxDeploy, "root", "usr", "share", "applications", "psyche.desktop"),
             scripts: {
               post: join(linuxDeploy, "scripts", "post"),
@@ -274,7 +277,8 @@ const config: ForgeConfig = {
           mimeType: ["x-scheme-handler/psyche", "x-scheme-handler/psyche-pair"],
           desktopFile: join(linuxDeploy, "psyche-appimage.desktop"),
           icon: { ...linuxIcons, default: "256x256" } as never,
-          compressor: "xz",
+          // The type2 runtime reads zstd and zlib squashfs, not xz.
+          compressor: "zstd",
         },
       },
       ["linux"],

@@ -28,7 +28,7 @@ while [ -L "$self" ]; do
 done
 here=$(cd "${self%/*}" && pwd)
 
-SANDBOX_DIR=/usr/local/lib/psyche
+SANDBOX_DIR=${PSYCHE_APPRUN_SANDBOX_DIR:-/usr/local/lib/psyche}
 SYSTEM_SANDBOX=$SANDBOX_DIR/chrome-sandbox
 KERNEL=${PSYCHE_APPRUN_PROC:-/proc/sys/kernel}
 
