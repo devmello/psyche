@@ -102,30 +102,10 @@ jobs:
           rustup toolchain install stable --profile minimal
           rustup default stable
 
-      - name: Signing certificate (only when the secret exists)
-        shell: pwsh
-        env:
-          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
-        run: |
-          if ($env:WINDOWS_CERTIFICATE_BASE64) {
-            $pfx = Join-Path $env:RUNNER_TEMP "psyche-signing.pfx"
-            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_BASE64))
-            "WINDOWS_CERTIFICATE_FILE=$pfx" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
-          } else {
-            Write-Host "No WINDOWS_CERTIFICATE_BASE64 secret: building unsigned"
-          }
-
+      # Unsigned and secret-free, like every build job: signing happens only in release.yml's
+      # `windows` job, in the `release` environment (apps/desktop/docs/signing.md).
       - name: Build the installer (deploy/windows/build-local.ps1)
         shell: pwsh
-        env:
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
-          AZURE_TRUSTED_SIGNING_ACCOUNT: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT }}
-          AZURE_TRUSTED_SIGNING_PROFILE: ${{ secrets.AZURE_TRUSTED_SIGNING_PROFILE }}
-          AZURE_TRUSTED_SIGNING_DLIB: ${{ secrets.AZURE_TRUSTED_SIGNING_DLIB }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
         run: |
           # Without the helper crate on the branch the package is built without it (dev only).
           $skip = if (Test-Path apps/win-helper/Cargo.toml) { @() } else { @("-SkipHelper") }
