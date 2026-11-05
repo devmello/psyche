@@ -1017,7 +1017,9 @@ export function ApprovalCard({
           >
             {touchIdFixFor === "start_helper"
               ? t("blocks.approval.touchId.startHelper")
-              : t("blocks.approval.touchId.openDevices")}
+              : touchIdFixFor === "restart_helper"
+                ? t("blocks.approval.touchId.restartHelper")
+                : t("blocks.approval.touchId.openDevices")}
           </Button>
         </div>
       ) : null}

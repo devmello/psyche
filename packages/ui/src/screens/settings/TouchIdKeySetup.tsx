@@ -13,7 +13,7 @@ export type PresenceKeyRow = MethodResult<"devices.presenceKey.list">["presenceK
 export interface BundledHelperKey {
   deviceId: string;
   keyId?: string;
-  kind?: "keychain" | "enclave_file";
+  kind?: "keychain" | "enclave_keychain_acl" | "enclave_file";
   error?: string;
 }
 
@@ -24,9 +24,28 @@ export const DEV_FILE_KEY_SETTING = "devices.presence.allowDevFileKey";
 export function presenceKeyText(k: { kind?: string | undefined }): string {
   return k.kind === "enclave_file"
     ? t("settings.devices.presenceKey.enclaveFile")
-    : k.kind === "keychain"
-      ? t("settings.devices.presenceKey.keychain")
-      : t("settings.devices.presenceKey.unknown");
+    : k.kind === "enclave_keychain_acl"
+      ? t("settings.devices.presenceKey.enclaveKeychainAcl")
+      : k.kind === "keychain"
+        ? t("settings.devices.presenceKey.keychain")
+        : t("settings.devices.presenceKey.unknown");
+}
+
+/** What the bundled helper's key problem means, in plain words. */
+function bundledErrorText(error: string | undefined): string {
+  return error === "presence_key_untrusted"
+    ? t("settings.devices.touchId.untrusted")
+    : error === "presence_key_access_denied"
+      ? t("settings.devices.touchId.accessDenied")
+      : error === "presence_key_wrong_location"
+        ? t("settings.devices.touchId.wrongLocation")
+        : error === "presence_key_interaction_not_allowed"
+          ? t("settings.devices.touchId.interactionNotAllowed")
+          : error === "presence_key_changed"
+            ? t("settings.devices.touchId.changed")
+            : error === "presence_key_acl_unavailable"
+              ? t("settings.devices.touchId.aclUnavailable")
+              : t("settings.devices.touchId.noBundledKey", { reason: error ?? "unknown" });
 }
 
 /** `0123 4567 89ab cdef …`: the start of a key id, grouped so the owner can compare it. */
@@ -46,7 +65,7 @@ export interface TouchIdKeySetupProps {
   bundled?: BundledHelperKey | null | undefined;
   allowDevFileKey: boolean;
   /** Registers the key: the bundled helper's (desktop) or the one with `expectKeyId`. */
-  onRegister: (expectKeyId?: string) => Promise<unknown>;
+  onRegister: (expectKeyId?: string, confirmReplacesKeyId?: string) => Promise<unknown>;
   onRemove: () => Promise<unknown>;
   onAllowDevFileKey: (on: boolean) => Promise<unknown>;
 }
@@ -70,6 +89,35 @@ export function TouchIdKeySetup({
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [replace, setReplace] = useState<{ previous: string; expect: string | undefined } | null>(
+    null,
+  );
+  /** Registers; when the Gateway needs the owner to confirm a replacement, asks naming the old key. */
+  const register = (expect?: string, confirm?: string) => {
+    setBusy(true);
+    setError(null);
+    (confirm !== undefined
+      ? onRegister(expect, confirm)
+      : expect !== undefined
+        ? onRegister(expect)
+        : onRegister()
+    ).then(
+      () => {
+        setBusy(false);
+        setReplace(null);
+      },
+      (err: unknown) => {
+        setBusy(false);
+        const d = (err as { details?: { reason?: unknown; replacesKeyId?: unknown } | null } | null)
+          ?.details;
+        if (d?.reason === "replace_confirmation_required" && typeof d.replacesKeyId === "string") {
+          setReplace({ previous: d.replacesKeyId, expect });
+          return;
+        }
+        setError(describeError(err));
+      },
+    );
+  };
   const act = (p: () => Promise<unknown>) => {
     setBusy(true);
     setError(null);
@@ -91,6 +139,24 @@ export function TouchIdKeySetup({
         <Button variant="outline" size="sm" disabled={busy} onClick={() => act(onRemove)}>
           {t("settings.devices.touchId.remove")}
         </Button>
+        {bundled !== undefined && bundled !== null && bundled.deviceId === deviceId ? (
+          bundled.error !== undefined ? (
+            <p className="basis-full" role="status" data-testid="bundled-key-problem">
+              {bundledErrorText(bundled.error)}
+            </p>
+          ) : bundled.keyId !== undefined && bundled.keyId !== registered.keyId ? (
+            <p
+              className="basis-full text-danger-text"
+              role="alert"
+              data-testid="bundled-key-mismatch"
+            >
+              {t("settings.devices.touchId.keyMismatch", {
+                shown: keyIdShort(bundled.keyId),
+                registered: keyIdShort(registered.keyId),
+              })}
+            </p>
+          ) : null
+        ) : null}
       </div>
     );
   } else if (bundled !== undefined && bundled !== null) {
@@ -99,7 +165,7 @@ export function TouchIdKeySetup({
       bundled.deviceId !== deviceId ? (
         <p data-testid="touch-id-not-bundled">{t("settings.devices.touchId.notBundled")}</p>
       ) : bundled.keyId === undefined ? (
-        <p>{t("settings.devices.touchId.noBundledKey", { reason: bundled.error ?? "unknown" })}</p>
+        <p data-testid="touch-id-no-key">{bundledErrorText(bundled.error)}</p>
       ) : (
         <div className="flex flex-col gap-2">
           <p>
@@ -123,7 +189,7 @@ export function TouchIdKeySetup({
               variant="outline"
               size="sm"
               disabled={busy || (fileKey && !allowDevFileKey)}
-              onClick={() => act(() => onRegister())}
+              onClick={() => register()}
             >
               {t("settings.devices.touchId.register")}
             </Button>
@@ -149,7 +215,7 @@ export function TouchIdKeySetup({
             variant="outline"
             size="sm"
             disabled={busy || !valid}
-            onClick={() => act(() => onRegister(typed.trim()))}
+            onClick={() => register(typed.trim())}
           >
             {t("settings.devices.touchId.register")}
           </Button>
@@ -164,6 +230,29 @@ export function TouchIdKeySetup({
     >
       {registered === undefined ? <p>{t("settings.devices.touchId.none")}</p> : null}
       {body}
+      {replace !== null ? (
+        <div
+          role="alert"
+          className="flex flex-col gap-2 text-danger-text"
+          data-testid="confirm-replace"
+        >
+          <p>
+            {t("settings.devices.touchId.confirmReplace", {
+              previous: keyIdShort(replace.previous),
+            })}
+          </p>
+          <div>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => register(replace.expect, replace.previous)}
+            >
+              {t("settings.devices.touchId.confirmReplaceButton")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
       {error ? (
         <p role="alert" className="text-danger-text">
           {error}

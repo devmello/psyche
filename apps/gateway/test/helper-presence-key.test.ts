@@ -62,7 +62,7 @@ function helperHandlers(key: ReturnType<typeof enclaveKey>) {
   const handlers: FakeNodeHandler[] = [
     {
       capability: { name: "presence.public_key", sideEffect: "read", streaming: false },
-      run: () => ({ publicKey: key.publicKey, keyId: key.keyId }),
+      run: () => ({ publicKey: key.publicKey, keyId: key.keyId, kind: "keychain" }),
     },
     {
       capability: { name: "notify.show", sideEffect: "write", streaming: false },

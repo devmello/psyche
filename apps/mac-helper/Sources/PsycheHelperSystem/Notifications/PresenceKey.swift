@@ -14,6 +14,13 @@ public protocol PresenceSigning: Sendable {
     func sign(challenge: String, reason: String) async throws -> PresenceSignature
     /// Where the key lives (keychain unless overridden); reported by `presence.public_key`.
     var keyKind: PresenceKeyKind { get }
+    /// Like `publicKey()` but read only: nil when no key exists yet, and never creates, deletes or
+    /// rewrites anything (`psyche-helper --print-identity`).
+    func existingPublicKey() throws -> (x963: Data, keyId: String)?
+}
+
+extension PresenceSigning {
+    public func existingPublicKey() throws -> (x963: Data, keyId: String)? { try publicKey() }
 }
 
 /// The Mac's Touch ID enrollment as an opaque hash (`LAContext.domainState.biometry.stateHash`):
@@ -59,7 +66,7 @@ public enum PresenceKeyErrors {
 /// `[.privateKeyUsage, .biometryCurrentSet]`, so every signature needs a current fingerprint.
 /// Like every data-protection keychain item it needs the keychain access group entitlement
 /// (provisioning profile); without it the key cannot be created (`missing_entitlement`) and the
-/// helper uses `EnclaveFilePresenceKey` instead (`PreferredPresenceKey`).
+/// helper uses `EnclaveKeychainAclPresenceKey` instead (`PreferredPresenceKey`).
 ///
 /// `secureEnclave: false` makes a non-permanent software key with the same algorithm, so tests run
 /// the real `SecKey` signing path without a Secure Enclave, Touch ID or entitlements.
@@ -153,6 +160,21 @@ public final class PresenceKey: PresenceSigning, @unchecked Sendable {
     }
 
     // MARK: PresenceSigning
+
+    /// Lookup only: nil when the keychain holds none (a build with no access group throws
+    /// `missing_entitlement` here, which is how `PreferredPresenceKey` moves on).
+    public func existingPublicKey() throws -> (x963: Data, keyId: String)? {
+        if !secureEnclave { return try publicKey() }
+        var ref: CFTypeRef?
+        let status = SecItemCopyMatching(lookupQuery(context: nil) as CFDictionary, &ref)
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess, let ref, let pub = SecKeyCopyPublicKey(ref as! SecKey) else {  // swiftlint:disable:this force_cast
+            throw KeychainStatus.error(from: KeychainOSStatusError(status))
+        }
+        var error: Unmanaged<CFError>?
+        guard let data = SecKeyCopyExternalRepresentation(pub, &error) as Data? else { throw Self.failure(error?.takeRetainedValue()) }
+        return (data, PresenceMessage.keyId(x963: data))
+    }
 
     public func publicKey() throws -> (x963: Data, keyId: String) {
         guard let pub = SecKeyCopyPublicKey(try privateKey()) else {
@@ -336,7 +358,7 @@ public enum PresenceCapabilities {
         Capability(CapabilitySpec(
             name: "presence.public_key",
             description: "The helper's Secure Enclave presence public key (P-256, X9.63 uncompressed, base64url), keyId (hex SHA-256 of it) and kind "
-                + "(keychain, or enclave_file on builds without a keychain access group). Created on first use; never prompts.",
+                + "(keychain; enclave_keychain_acl on builds without a keychain access group; enclave_file in development builds only). Created on first use by the running helper (`--print-identity` only reads); never shows Touch ID, but macOS may ask the owner whether this helper may use its keychain item after the signing certificate changed.",
             sideEffect: .read
         )) { _ in
             let (x963, keyId) = try key.publicKey()

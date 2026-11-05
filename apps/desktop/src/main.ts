@@ -118,6 +118,7 @@ import {
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
 import { HAS_UNSENT_TEXT, releaseHiddenAfterMs } from "./main/release.ts";
+import { confirmReplaceKey } from "./main/replace-key-dialog.ts";
 import { guardRestoredByHand } from "./main/restore-check.ts";
 import { ScreenAskWindow } from "./main/screen-ask/panel.ts";
 import { ScreenAskShortcut } from "./main/screen-ask/settings.ts";
@@ -1023,8 +1024,9 @@ function registerIpc(): void {
   handle(IPC.permissionsStatus, () => permissions.statusAll());
   handle(IPC.helperGetState, () => helper?.getState() ?? { kind: "unbundled" });
   // An approval card's "Start Psyche Helper": launch now (no relaunch throttle), wait to pair.
-  handle(IPC.helperLaunch, async () => {
-    await helper?.launch();
+  handle(IPC.helperLaunch, async (_e, arg) => {
+    if (arg === "restart") await helper?.restart();
+    else await helper?.launch();
     return helper?.getState() ?? { kind: "unbundled" };
   });
   // Touch ID from the window (security §3.7, §10): the main and Settings windows only, never a
@@ -1039,8 +1041,11 @@ function registerIpc(): void {
     approvalWindow(e);
     return (await bundledHelperIdentity()) ?? null;
   });
-  handle(IPC.touchIdRegister, async (e) => {
+  handle(IPC.touchIdRegister, async (e, arg) => {
     approvalWindow(e);
+    // The owner's confirmation that this replaces a named earlier key (see the Gateway method).
+    const confirmReplacesKeyId =
+      typeof arg === "string" && /^[0-9a-f]{64}$/.test(arg) ? arg : undefined;
     const id = await bundledHelperIdentity();
     if (id?.keyId === undefined) {
       throw new PsycheError(
@@ -1050,9 +1055,22 @@ function registerIpc(): void {
           : `The bundled Psyche Helper has no Touch ID key (${id.error ?? "unknown"})`,
       );
     }
+    // `confirmReplacesKeyId` is only an accident guard: any admin caller can send it. The owner's
+    // real confirmation is this native box, which main shows itself (not the renderer), naming both
+    // keys, before the parameter is forwarded.
+    if (confirmReplacesKeyId !== undefined) {
+      const ok = await confirmReplaceKey(
+        (o) => dialog.showMessageBox(o),
+        app.getLocale(),
+        confirmReplacesKeyId,
+        id.keyId,
+      );
+      if (!ok) throw new PsycheError("cancelled", "The Touch ID key was not replaced");
+    }
     return requireGateway().call("devices.presenceKey.register", {
       deviceId: id.deviceId,
       expectKeyId: id.keyId,
+      ...(confirmReplacesKeyId === undefined ? {} : { confirmReplacesKeyId }),
     });
   });
   handle(IPC.touchIdApprove, async (e, arg) => {

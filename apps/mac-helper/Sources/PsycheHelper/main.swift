@@ -11,15 +11,23 @@ import PsycheWire
 // grants belong to the helper (spike 04).
 
 let usage = """
-    usage: psyche-helper [--handshake-only [--challenge-only]] [--timeout <seconds>] [--manifest] [--build-info] [--print-identity]
+    usage: psyche-helper [--handshake-only [--challenge-only]] [--timeout <seconds>] [--manifest] [--build-info] [--print-identity] [--reset-presence-key] [--retire-legacy-presence-key]
 
       (no flags)        stay connected to the Gateway and serve capabilities (reconnects)
       --handshake-only  connect, pair, print the phase and exit (smoke test)
       --challenge-only  with --handshake-only: stop after the challenge
       --manifest        print the capability manifest as JSON and exit
-      --build-info      print {"presenceFileFallback": true|false} and exit (release builds: false)
+      --build-info      print {"presenceFileFallback": true|false} and exit (release builds: false; the keychain ACL key is in every build)
       --print-identity  print {deviceId, presenceKeyId, presenceKeyKind} as JSON and exit: what the
-                        desktop compares with the Gateway before it registers the Touch ID key
+                        desktop compares with the Gateway before it registers the Touch ID key;
+                        read only (never creates a key, never waits for a keychain prompt)
+      --reset-presence-key
+                        owner action: delete the Touch ID key kept in the login keychain (macOS may
+                        ask) and make a new one, then print its key id. Register it again in
+                        Settings → Devices. Quit Psyche Helper first.
+      --retire-legacy-presence-key
+                        delete the old development Touch ID key file (and its seal item). Run it
+                        after the new key is registered; the helper never does it by itself.
 
     Environment: PSYCHE_NODE_SOCKET (default $PSYCHE_HOME/run/node.sock), PSYCHE_HOME (default ~/.psyche).
     Exit codes (--handshake-only): 0 handshake done, 2 socket missing, 3 denied, 4 timeout, 1 other errors.
@@ -31,6 +39,8 @@ var verify = true
 var printManifest = false
 var printIdentity = false
 var printBuildInfo = false
+var resetPresenceKey = false
+var retireLegacy = false
 // `psyche-helper vsock-bridge CID:PORT`: stdin/stdout ⇄ vsock, the bridge psyche-node uses in a
 // macOS guest (PSYCHE_NODE_VSOCK_BRIDGE, VM mode L3). Handled before anything else starts.
 if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "vsock-bridge" {
@@ -71,6 +81,8 @@ while let arg = args.popFirst() {
     case "--manifest": printManifest = true
     case "--print-identity": printIdentity = true
     case "--build-info": printBuildInfo = true
+    case "--reset-presence-key": resetPresenceKey = true
+    case "--retire-legacy-presence-key": retireLegacy = true
     case "-h", "--help":
         print(usage)
         exit(0)
@@ -97,7 +109,46 @@ if printBuildInfo {
 
 // The desktop runs its bundled copy with --print-identity (a fixed path inside its own signed app)
 // to learn the device id and Touch ID key id it registers, independently of whatever node answers
-// on the Gateway socket (security §10). Read-only apart from creating them on first use.
+// on the Gateway socket (security §10). Creates only the device identity on first use, never a
+// Touch ID key (the running helper makes that).
+if retireLegacy {
+    do {
+        let removed = try PreferredPresenceKey.live().retireLegacyFileKey()
+        print(JSONValue.object(["removed": .array(removed.map { .string($0) })]).jsonString(pretty: false))
+        exit(0)
+    } catch let e as CapabilityError {
+        FileHandle.standardError.write(Data("retire failed: \(e.reason)\n".utf8))
+        exit(1)
+    } catch {
+        FileHandle.standardError.write(Data("retire failed\n".utf8))
+        exit(1)
+    }
+}
+
+if resetPresenceKey {
+    // Owner action only: refuse while the helper runs (its single-instance lock), then the real
+    // reset asks for an interactive terminal and macOS owner authentication.
+    // Both the per-$PSYCHE_HOME lock and the per-user one: no helper may be running for this user.
+    guard let resetLock = SingleInstanceLock.acquire(path: SingleInstanceLock.path()),
+          let resetUserLock = SingleInstanceLock.acquire(path: SingleInstanceLock.userPath())
+    else {
+        FileHandle.standardError.write(Data("Quit Psyche Helper first, then run this again.\n".utf8))
+        exit(1)
+    }
+    _ = (resetLock, resetUserLock)
+    do {
+        let made = try PreferredPresenceKey.live().resetByOwner(authorizing: LiveOwnerAuthorizer())
+        print(JSONValue.object(["presenceKeyId": .string(made.keyId)]).jsonString(pretty: false))
+        exit(0)
+    } catch let e as CapabilityError {
+        FileHandle.standardError.write(Data("reset failed: \(e.reason): \(e.message)\n".utf8))
+        exit(1)
+    } catch {
+        FileHandle.standardError.write(Data("reset failed\n".utf8))
+        exit(1)
+    }
+}
+
 if printIdentity {
     let quiet = HelperLog(echo: { _ in })
     var out: [String: JSONValue] = [:]
@@ -107,10 +158,17 @@ if printIdentity {
         FileHandle.standardError.write(Data("could not load the device identity\n".utf8))
         exit(1)
     }
+    // Read only and never interactive: this runs under the desktop's 15 s timeout, so it must not
+    // create, delete or rewrite a key, nor wait for a macOS keychain prompt.
+    SecKeychainSetUserInteractionAllowed(false)
     let presence = PreferredPresenceKey.live()
     do {
-        out["presenceKeyId"] = .string(try presence.publicKey().keyId)
-        out["presenceKeyKind"] = .string(presence.keyKind.rawValue)
+        if let existing = try presence.existingPublicKey() {
+            out["presenceKeyId"] = .string(existing.keyId)
+            out["presenceKeyKind"] = .string(presence.keyKind.rawValue)
+        } else {
+            out["presenceError"] = .string("no_presence_key")
+        }
     } catch let e as CapabilityError {
         out["presenceError"] = .string(e.reason)
     } catch {
@@ -123,12 +181,16 @@ if printIdentity {
 // One helper per $PSYCHE_HOME: the desktop runs `open` on every start (docs/archive/status/s14.md
 // "Packaging"). Taken before the device identity loads, so a second copy touches nothing.
 var instanceLock: SingleInstanceLock?
+// The per-user lock a Touch ID key reset checks (any helper, any $PSYCHE_HOME). Best effort: a second
+// helper for another $PSYCHE_HOME may legitimately run, so failing to take it is not fatal.
+var userRunningLock: SingleInstanceLock?
 if !handshakeOnly {
     instanceLock = SingleInstanceLock.acquire(path: SingleInstanceLock.path())
     if instanceLock == nil {
         log.info("psyche-helper already running for this PSYCHE_HOME; exiting")
         exit(0)
     }
+    userRunningLock = SingleInstanceLock.acquire(path: SingleInstanceLock.userPath())
 }
 
 let identity: DeviceIdentity
@@ -197,6 +259,7 @@ for sig in [SIGTERM, SIGINT] {
         log.info("stopping")
         daemon.stop()
         instanceLock?.release()
+        userRunningLock?.release()
         exit(0)
     }
     source.resume()
