@@ -54,6 +54,8 @@ import {
 import { hostWords } from "@psyche/protocol/host-words";
 import { VaultTokenVault } from "@psyche/vault";
 import type { Call, HandlerDef } from "../context.ts";
+import { sealedConnectorStore } from "../security/sealed-stores.ts";
+import { stateSealFor } from "../security/state-seal.ts";
 import type { Gateway } from "../server.ts";
 import { createChangeRecorder } from "./changes.ts";
 import { connectorMatrixSync } from "./connector-matrix.ts";
@@ -69,6 +71,13 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  * (`services.calls.approvalFor`) reaches the registry's executor wrapper, which re-verifies the
  * approval binding right before dispatch and records a receipt for every write.
  */
+
+/** The connector store, behind the security-state seal when the connection has one (L1). */
+function connectorStoreFor(db: ComposeServices["db"]): ConnectorStore {
+  const store = new SqliteConnectorStore(db.sqlite);
+  const seal = stateSealFor(db);
+  return seal === undefined ? store : sealedConnectorStore(store, seal);
+}
 
 /** How often connected connectors sync (README: "run by the Gateway every 1–5 min"). */
 export const DEFAULT_SYNC_INTERVAL_MS = 3 * 60_000;
@@ -310,7 +319,9 @@ export function composeConnectors(
   const registry: ConnectorRegistry = new ConnectorRegistry({
     factories,
     extraCatalogue: setup.extraCatalogue ?? [...REMOTE_MCP_PRESETS, ...COMING_SOON],
-    store: setup.store ?? new SqliteConnectorStore(services.db.sqlite),
+    // L1: connector rows (scope mode, action matrix) are sealed: checked first, and while
+    // untrusted one the Gateway cannot vouch for is not loaded or run.
+    store: setup.store ?? connectorStoreFor(services.db),
     context: {
       clock: services.clock,
       fetch: setup.fetch ?? ((input, init) => fetch(input, init)),

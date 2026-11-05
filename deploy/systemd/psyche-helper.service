@@ -1,0 +1,11 @@
+# Managed by the Psyche desktop app, or packaged next to the Gateway's unit.
+# Started on demand by psyched (systemctl --user start psyche-helper.service); no [Install] section.
+[Unit]
+Description=Psyche Helper (computer use, on demand)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart="/usr/lib/psyche/resources/linux-helper/psyche-helper"
+Restart=no

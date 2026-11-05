@@ -83,6 +83,7 @@ import {
   type ModelRef,
   type PermissionBroker,
   PsycheError,
+  type SecurityAlert,
   type Task,
   TERMINAL_TASK_STATUSES,
 } from "@psyche/protocol";
@@ -106,6 +107,9 @@ import { createLogger } from "../log.ts";
 import { personalizeMessageEvent } from "../message-scrub.ts";
 import { openGatewayDb, purgePreUpdateSnapshots, releaseGatewayLock } from "../pre-update.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
+import { alertNotice, alertNotifyDecision } from "../security/alerts.ts";
+import { sealedPermissionStore } from "../security/sealed-stores.ts";
+import { StateSeal } from "../security/state-seal.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { BusySources, UpdateGate } from "../update-gate.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
@@ -526,7 +530,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   gwOptions.onSettingChanged = (c) => void changes.record(settingChange(c));
   // A restored backup's log is shorter than what this key anchored; the restore is audited with
   // the head it had (replayRevocations below consumes the marker).
-  if (existsSync(join(config.home, RESTORE_MARKER))) {
+  const restored = existsSync(join(config.home, RESTORE_MARKER));
+  if (restored) {
     const previous = anchorKey.forgetHead();
     if (previous !== undefined) {
       void audit
@@ -551,10 +556,25 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       })
       .catch(() => undefined);
   }
+  // The security-state seal, before revocations are replayed or policy is read: what changed
+  // outside the Gateway is undone now (docs/design/security-state-integrity-2026.md §7.1).
+  const seal =
+    gwOptions.securityState ??
+    (await StateSeal.open(db, {
+      home: config.home,
+      now: () => new Date(clock.now()),
+      log: gwOptions.logger,
+      audit,
+      restored,
+    }));
+  gwOptions.securityState = seal;
   // Revocations live outside the backup scope; a restored database cannot bring a revoked device
   // or grant back (S23 design-26). Replay before anything authenticates.
   const nowIso = () => new Date(clock.now()).toISOString();
-  const revocations = new RevocationLedger(config.home, nowIso);
+  // Lines are signed with the seal key, so the running seal replays only the Gateway's own.
+  const revocations = new RevocationLedger(config.home, nowIso, (line) =>
+    seal.signRevocation(line),
+  );
   const replay = replayRevocations(db.sqlite, config.home, nowIso);
   if (replay.unknownEpoch || replay.devicesRevoked + replay.grantsRevoked > 0) {
     void audit
@@ -577,6 +597,32 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     routing: () => ({ ...ownerRouting(), deviceTargets: deviceNotes.targets() }),
     adapters: [createDeviceSurface({ send: (id, toast) => deviceNotes.send(id, toast) })],
   });
+  // Every security alert reaches the owner's inbox: the desktop, the Mac's notification and the
+  // phone (the in-app banner reads `security.state.get`). An open alert raised again (one
+  // "changed outside" alert counts repeats) updates its notification at most every 10 minutes,
+  // and only its first delivery may break through quiet hours.
+  // Based on the alert's sealed `notified_at`, so a restart neither resets the limit nor lets a
+  // repeat break through quiet hours again.
+  const notifyAlert = (alert: SecurityAlert) => {
+    const decision = alertNotifyDecision(alert, seal.alerts.notifiedAt(alert.id), clock.now());
+    if (!decision.send) return;
+    const { title, body } = alertNotice(alert);
+    void notifier
+      .notify({
+        kind: "system",
+        title,
+        body,
+        route: "/settings/devices",
+        dedupeKey: `security-alert:${alert.id}`,
+        breakQuietHours: decision.breakQuietHours,
+      })
+      .then(
+        () => seal.alerts.markNotified(alert.id),
+        () => undefined,
+      );
+  };
+  seal.alerts.onAlert(notifyAlert);
+  for (const alert of seal.alerts.unnotified()) notifyAlert(alert);
   // The old "Files on this Mac" connector is File access now: move its folder into the grants.
   await migrateFilesConnector(db, config.home, folderAccessEnv(config.home));
   // One chat per automation: runs that each opened a chat of their own are filed under it.
@@ -624,13 +670,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     channelConversations: (ref) => channelConversations.get(ref),
     approvers: {
       async device(deviceId) {
+        seal.ensure();
         const d = getDevice(db, deviceId);
         if (d === undefined) return undefined;
+        // Untrusted security records: only what the seal still trusts this device with.
+        const authz = seal.authorizeDevice(d);
+        const scopes = authz.ok ? authz.scopes : [];
         // The mac helper answers only through its part's relay, on the `notification` surface.
         const viaPart = parts.some((p) => p.approver?.(deviceId) === true);
         return {
-          scopes: viaPart ? [...d.scopes, "operator.approvals"] : d.scopes,
-          ...(d.revokedAt ? { revoked: true } : {}),
+          scopes: viaPart && authz.ok ? [...scopes, "operator.approvals" as const] : scopes,
+          ...(d.revokedAt || !authz.ok ? { revoked: true } : {}),
         };
       },
       // Channel owners (S10) come from the channels part, when one is mounted.
@@ -641,15 +691,24 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         return false;
       },
     },
-    store: new SqlitePermissionStore(db.sqlite),
+    store: sealedPermissionStore(new SqlitePermissionStore(db.sqlite), seal),
     audit,
     notifier,
     clock,
     revocations,
     psycheHome: config.home,
     presence: {
-      verify: (assertion, challenge, deviceId) =>
-        (presenceByKind.get(assertion.kind) ?? presence).verify(assertion, challenge, deviceId),
+      // Presence fails closed while the security records are untrusted; the registered keys
+      // and passkeys it checks against are verified first.
+      verify: async (assertion, challenge, deviceId) => {
+        seal.ensure();
+        if (seal.untrusted() !== null) return false;
+        return (presenceByKind.get(assertion.kind) ?? presence).verify(
+          assertion,
+          challenge,
+          deviceId,
+        );
+      },
     },
     localProject: { check: (url) => localProject.check(url) },
     // The agent never acts on Psyche's own UI (prohibitions `gateway_origin`): every origin it is served on.

@@ -237,9 +237,13 @@ describe("remote approval", () => {
   });
 
   it("bootstraps the first admin with `psyched devices approve <code>` on the machine", async () => {
-    // The CLI opens the same SQLite file the Gateway uses.
+    // The CLI queues a request in the same SQLite file; the running Gateway applies it.
     const home = mkdtempSync(join(tmpdir(), "psyche-gw-"));
-    t = await startTestGateway({ home, config: { dbPath: join(home, "state", "psyche.sqlite") } });
+    t = await startTestGateway({
+      home,
+      config: { dbPath: join(home, "state", "psyche.sqlite") },
+      security: { pollMs: 20 },
+    });
     const key = newDeviceKey();
     const pending = await handshake(await client(), t.gateway.origin, { key, deviceId: "laptop" });
     const { code } = verified<{ code: string }>(pending);
@@ -247,7 +251,11 @@ describe("remote approval", () => {
     const prev = process.env.PSYCHE_HOME;
     process.env.PSYCHE_HOME = t.home;
     try {
-      expect(runCli(["devices", "approve", code.toLowerCase()], (l) => lines.push(l))).toBe(0);
+      expect(
+        await runCli(["devices", "approve", code.toLowerCase()], (l) => lines.push(l), {
+          pollMs: 20,
+        }),
+      ).toBe(0);
     } finally {
       if (prev === undefined) delete process.env.PSYCHE_HOME;
       else process.env.PSYCHE_HOME = prev;
