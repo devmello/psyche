@@ -121,9 +121,41 @@ export const SEND_APPS = [
 
 export { ATTENTION_WINDOW_MS };
 
+/**
+ * The same apps as the Windows helper names them (`bundleId` is the AppUserModelID, or the
+ * executable path for an app without one): executables, and AUMIDs by prefix.
+ */
+const SEND_EXES = [
+  "outlook.exe",
+  "olk.exe",
+  "slack.exe",
+  "discord.exe",
+  "whatsapp.exe",
+  "telegram.exe",
+  "signal.exe",
+  "messenger.exe",
+  "ms-teams.exe",
+  "teams.exe",
+  "thunderbird.exe",
+];
+const SEND_AUMID_PREFIXES = [
+  "microsoft.outlookforwindows_",
+  "microsoft.office.outlook",
+  "com.squirrel.slack.",
+  "com.squirrel.discord.",
+  "5319275a.whatsappdesktop_",
+  "telegramdesktop",
+  "org.whispersystems.signal-desktop",
+  "facebook.messenger",
+  "msteams_8wekyb3d8bbwe!",
+  "microsoft.windowscommunicationsapps_",
+];
+
 export function isSendApp(app: string): boolean {
   const id = app.toLowerCase();
-  return SEND_APPS.some((a) => a.toLowerCase() === id);
+  if (SEND_APPS.some((a) => a.toLowerCase() === id)) return true;
+  const exe = id.split(/[\\/]/).pop() ?? "";
+  return SEND_EXES.includes(exe) || SEND_AUMID_PREFIXES.some((p) => id.startsWith(p));
 }
 
 /** Return / Enter (with or without cmd), and Mail's cmd+shift+D: send in a messaging app. */

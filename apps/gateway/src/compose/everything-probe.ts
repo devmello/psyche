@@ -1,11 +1,13 @@
 import { execFile } from "node:child_process";
 import { freemem } from "node:os";
 import type { SystemState } from "@psyche/memory";
+import { readWindowsPower, type WindowsPower } from "../platform.ts";
 
 /**
  * The machine as the everything-memory gates see it (docs/design/everything-memory-2026.md §6.1,
- * decision 10). Read once when the nightly pass starts, from three short-lived system commands on
- * macOS. Anything that cannot be read errs toward "do not run a heavy job" for power and
+ * decision 10). Read once when the nightly pass starts, from short-lived system commands on
+ * macOS (`pmset`, `ioreg`) and one PowerShell read on Windows (`GetSystemPowerStatus`,
+ * `GetLastInputInfo`; Windows reports no thermal state to a normal user, so it is "nominal"). Anything that cannot be read errs toward "do not run a heavy job" for power and
  * temperature, and toward "idle" for input (the pass only runs inside quiet hours anyway).
  */
 
@@ -47,7 +49,21 @@ export async function readSystemState(
   platform: string = process.platform,
   exec: Exec = realExec,
   free: () => number = freemem,
+  windowsRead: () => Promise<WindowsPower | undefined> = () => readWindowsPower(),
 ): Promise<SystemState> {
+  if (platform === "win32") {
+    const p = await windowsRead().catch(() => undefined);
+    return {
+      // A failed read means "not sure": not on AC, so the pass waits. A desktop PC (no battery)
+      // is on AC whatever ACLineStatus says.
+      onAc: p === undefined ? false : p.noBattery || p.onAc === true,
+      ...(p?.batteryPct === undefined || p.noBattery ? {} : { batteryPct: p.batteryPct }),
+      lowPowerMode: p?.saver ?? false,
+      thermal: "nominal",
+      idleMinutes: p?.idleMs === undefined ? 999 : Math.floor(p.idleMs / 60_000),
+      freeMemBytes: free(),
+    };
+  }
   if (platform !== "darwin") {
     // A server or Linux box: no battery, no HID; the pass runs inside quiet hours only.
     return {

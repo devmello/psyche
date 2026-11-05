@@ -31,6 +31,22 @@ export interface KeychainStatus {
   biometry?: unknown;
 }
 
+/**
+ * The Windows helper's answer when Windows Hello was reset: the key that sealed its DPAPI-bound
+ * secrets is gone and nothing sealed under it can be read again. The vault treats it exactly like
+ * a missing item (`not_found`): a derived key is made again, and the vault key slot falls back to
+ * the recovery key.
+ */
+export const HELLO_KEY_INVALIDATED = "hello_key_invalidated";
+
+/** Whether a helper error means "the key is gone" (`hello_key_invalidated` as code or reason). */
+export function helperKeyInvalidated(
+  error: { code?: string; details?: unknown } | undefined,
+): boolean {
+  const reason = (error?.details as { reason?: unknown } | undefined)?.reason;
+  return error?.code === HELLO_KEY_INVALIDATED || reason === HELLO_KEY_INVALIDATED;
+}
+
 /** Invoke a helper capability; a failure becomes a `PsycheError` carrying the helper's reason. */
 export async function invokeHelper<T>(
   node: NodeClient,
@@ -39,6 +55,11 @@ export async function invokeHelper<T>(
 ): Promise<T> {
   const res = await node.invoke(capability, params);
   if (res.ok) return (res.result ?? {}) as T;
+  if (helperKeyInvalidated(res.error)) {
+    throw new PsycheError("not_found", `${capability} failed (${HELLO_KEY_INVALIDATED})`, {
+      details: { reason: HELLO_KEY_INVALIDATED },
+    });
+  }
   const code = (res.error?.code ?? "internal") as ErrorCode;
   const details = res.error?.details as { reason?: unknown } | undefined;
   const reason = typeof details?.reason === "string" ? details.reason : code;

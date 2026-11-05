@@ -6,10 +6,10 @@ import type { GraphStore } from "@psyche/memory";
 import {
   type AudioCapture,
   type CapturedAudio,
-  CONFERENCE_APP_BUNDLES,
   CONSENT_LINE,
   type FeedEvent,
   type FeedStore,
+  isConferenceApp,
   MeetingNotesService,
   MeetingRecorder,
   type MeetingRecording,
@@ -365,7 +365,7 @@ export class RecordMeeting {
     const running = this.#o.runningApps;
     if (running === undefined) return;
     const at = await running();
-    const watched = (at ?? []).filter((b) => CONFERENCE_APP_BUNDLES.includes(b));
+    const watched = (at ?? []).filter((b) => isConferenceApp(b));
     const active = this.#active;
     if (watched.length === 0 || active === null || active.recording !== recording) return;
     const timer = setInterval(() => {

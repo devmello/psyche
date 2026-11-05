@@ -15,6 +15,12 @@ import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { silentLogger } from "../src/log.ts";
 import { adminClient, handshake, ik, newDeviceKey, TestClient, wsUrlOf } from "./helpers.ts";
 
+/** The shell the target names: `/bin/sh`, or on Windows `cmd.exe` (always there; no `-l`). */
+const WIN = process.platform === "win32";
+const SHELL = WIN
+  ? (process.env.ComSpec ?? `${process.env.SystemRoot ?? "C:\\Windows"}\\System32\\cmd.exe`)
+  : "/bin/sh";
+
 /**
  * A terminal on the Host (remote-gateway design §4.2, R4): the Gateway runs the PTY, one device
  * owns each session. Every PTY here is a fake; nothing is spawned.
@@ -112,8 +118,9 @@ async function boot(
       hostName: () => "test-host",
       target: () => ({
         home,
-        userShell: "/bin/sh",
+        userShell: SHELL,
         env: {
+          ...(WIN ? { SystemRoot: process.env.SystemRoot, Path: "C:\\Windows\\System32" } : {}),
           PATH: "/usr/bin:/bin",
           LANG: "en_US.UTF-8",
           PSYCHE_HANDSHAKE_SECRET: "must-not-leak",
@@ -170,15 +177,19 @@ describe("a terminal on the Host: the round trip", () => {
     clients.push(desk);
     const s = await open(desk, { cwd: work });
     expect(s.target).toBe("host");
-    expect(s.label).toContain("sh");
+    expect(s.label).toContain(WIN ? "cmd.exe" : "sh");
     const pty = ptys[0] as FakePty;
     // The Host's own shell in the folder asked for, with a fixed environment.
-    expect(pty.file).toBe("/bin/sh");
-    expect(pty.args).toEqual(["-l"]);
+    expect(pty.file).toBe(SHELL);
+    expect(pty.args).toEqual(WIN ? [] : ["-l"]);
     expect(pty.options.cwd).toContain("work");
     expect(pty.options).toMatchObject({ cols: 80, rows: 24 });
     expect(Object.keys(pty.options.env).sort()).toEqual(
-      ["COLORTERM", "HOME", "LANG", "LOGNAME", "PATH", "SHELL", "TERM", "TMPDIR", "USER"].sort(),
+      (WIN
+        ? // Windows: the system and profile variables the target has, never the rest.
+          ["COLORTERM", "HOME", "Path", "SystemRoot", "TEMP", "TERM", "TMP"]
+        : ["COLORTERM", "HOME", "LANG", "LOGNAME", "PATH", "SHELL", "TERM", "TMPDIR", "USER"]
+      ).sort(),
     );
     expect(JSON.stringify(pty.options.env)).not.toContain("must-not-leak");
 
@@ -230,7 +241,7 @@ describe("a terminal on the Host: the round trip", () => {
     const closed = await c.audit.list({ kind: "terminal.session.close" });
     expect(opened).toHaveLength(1);
     expect(closed).toHaveLength(1);
-    expect(opened[0]?.data).toMatchObject({ sessionId: s.sessionId, shell: "/bin/sh" });
+    expect(opened[0]?.data).toMatchObject({ sessionId: s.sessionId, shell: SHELL });
     expect(closed[0]?.data).toMatchObject({
       sessionId: s.sessionId,
       reason: "closed",

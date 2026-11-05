@@ -74,6 +74,7 @@ function start() {
     },
   } as never);
   stops.push(() => search.stop?.());
+  stops.push(() => db.close()); // after the part: Windows cannot delete an open file
   const run = async (method: string, params: unknown) => {
     const handler = search.handlers?.[method];
     if (handler === undefined) throw new Error(`no ${method}`);

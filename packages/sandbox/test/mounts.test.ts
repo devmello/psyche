@@ -81,7 +81,7 @@ describe("runner bind mounts (fake CLI)", () => {
     expect(flags[0]).toMatch(/^type=volume,source=psyche-ws-[0-9a-f]+,target=\/workspace$/);
     expect(flags.slice(1)).toEqual([
       `type=bind,source=${repo},target=/workspace/repo`,
-      `type=bind,source=${repo}/.git,target=/workspace/repo/.git,readonly`,
+      `type=bind,source=${join(repo, ".git")},target=/workspace/repo/.git,readonly`,
     ]);
     // The same mounts in another order are the same sandbox; other mounts are a conflict.
     expect((await runner.ensureSandbox(scope, { mounts: repoMounts().reverse() })).id).toBe(sbx.id);

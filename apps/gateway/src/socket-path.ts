@@ -3,6 +3,7 @@ import { chmodSync, lstatSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
+import { isNamedPipePath, namedPipePath, usesNamedPipes } from "@psyche/protocol/platform";
 
 /** `sun_path` holds 104 bytes on macOS and 108 on Linux, including the terminating NUL. */
 export const MAX_SOCKET_PATH_BYTES = process.platform === "darwin" ? 103 : 107;
@@ -17,7 +18,22 @@ export function socketPathFits(path: string): boolean {
  * falls back to a private per-user directory under the temp dir (`psyche-<uid>/<hash>.sock`).
  * Clients find the actual path in `$PSYCHE_HOME/run/node-socket`.
  */
-export function resolveNodeSocketPath(home: string, explicit: string | undefined): string {
+export function resolveNodeSocketPath(
+  home: string,
+  explicit: string | undefined,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  if (usesNamedPipes(platform)) {
+    // Windows: the node transport is a named pipe (`@psyche/protocol/platform`), never a file.
+    if (explicit === undefined) return namedPipePath("node", home);
+    if (!isNamedPipePath(explicit)) {
+      throw new PsycheError(
+        "invalid_params",
+        `PSYCHE_NODE_SOCKET must be a named pipe (\\\\.\\pipe\\name) on Windows, not ${explicit}`,
+      );
+    }
+    return explicit;
+  }
   if (explicit !== undefined) {
     if (!socketPathFits(explicit)) {
       throw new PsycheError(
@@ -47,12 +63,15 @@ export function resolveNodeSocketPath(home: string, explicit: string | undefined
  * helper whatever the guest declares. An explicit `PSYCHE_GUEST_SOCKET` that is too long is an
  * error. By default it sits next to the node socket (`node.sock` -> `guest.sock`, `<x>.sock` ->
  * `<x>-guest.sock`); when that does not fit the Gateway has no guest socket and VM guests cannot
- * connect (the Host helper still works). The Mac helper derives the same path.
+ * connect (the Host helper still works). The Mac helper derives the same path. Sandbox guest VMs
+ * are macOS only (Virtualization.framework): on Windows there is no guest socket at all.
  */
 export function resolveGuestSocketPath(
   nodeSocketPath: string,
   explicit: string | undefined,
+  platform: NodeJS.Platform = process.platform,
 ): string | null {
+  if (usesNamedPipes(platform)) return null;
   if (explicit !== undefined) {
     if (!socketPathFits(explicit)) {
       throw new PsycheError(
@@ -73,6 +92,7 @@ export function resolveGuestSocketPath(
  * not a symlink. Refuses a directory someone else prepared.
  */
 export function ensureSocketDir(socketPath: string, home: string): void {
+  if (isNamedPipePath(socketPath)) return; // a pipe lives in the pipe namespace, not a directory
   const dir = dirname(socketPath);
   if (dir === join(home, "run")) return;
   mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -87,7 +107,11 @@ export function ensureSocketDir(socketPath: string, home: string): void {
   chmodSync(dir, 0o700);
 }
 
-/** Records the socket path for local clients (the mac helper) in `$PSYCHE_HOME/run/node-socket`. */
+/**
+ * Records the node endpoint for local clients (the mac / win helper, psyche-node) in
+ * `$PSYCHE_HOME/run/node-socket`: a Unix socket path, or on Windows the named pipe
+ * (`\\.\pipe\psyche-node-<hash>`). One line, LF-terminated.
+ */
 export function writeSocketPointer(home: string, socketPath: string): void {
   const file = join(home, "run", "node-socket");
   writeFileSync(file, `${socketPath}\n`, { mode: 0o600 });

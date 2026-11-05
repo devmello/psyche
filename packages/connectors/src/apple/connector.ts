@@ -179,7 +179,7 @@ const LABEL: Record<AppleApp, string> = {
   contacts: "Apple Contacts",
   music: "Music (Apple Music and Spotify)",
   safari: "Safari",
-  chrome: "Google Chrome",
+  chrome: process.platform === "win32" ? "Chrome, Edge or Brave" : "Google Chrome",
   files: "Files on your Mac",
   shortcuts: "Shortcuts",
   things: "Things 3",
@@ -194,7 +194,10 @@ const DESCRIPTION: Record<AppleApp, string> = {
     "See the newest files in the folders you shared (like Downloads) and file them: move, rename or put them in the Trash. Only folders you shared in Settings → File access.",
   safari:
     "See the tabs open in Safari on your Mac and read the text of the page you're on; add pages to your Reading List.",
-  chrome: "See the tabs open in Google Chrome on your Mac (titles and addresses).",
+  chrome:
+    process.platform === "win32"
+      ? "See the tabs open in Chrome, Edge or Brave on this PC (titles and addresses)."
+      : "See the tabs open in Google Chrome on your Mac (titles and addresses).",
   music:
     "See what's playing in Music or Spotify on your Mac and control it (play, pause, skip, volume, shuffle); search your Music library and play a song, album, artist or playlist.",
   contacts:
@@ -1449,13 +1452,25 @@ const PERMISSION: Record<
   },
 };
 
+/**
+ * The grant an app needs on this platform. On Windows reading the browser's tabs needs none (the
+ * helper reads them through UI Automation, no Apple Events), so there is nothing to probe or ask.
+ */
+function permissionOf(app: AppleApp): (typeof PERMISSION)[AppleApp] {
+  const p = PERMISSION[app];
+  if (process.platform === "win32" && app === "chrome") {
+    return { ...p, kind: "none", probe: null, target: undefined };
+  }
+  return p;
+}
+
 /** What `config.permission` holds while the grant is missing (the UI's "Needs permission"). */
 export function applePermission(
   app: AppleApp,
   state: string,
   extra: { requested?: boolean; reason?: string } = {},
 ): Record<string, string | boolean> {
-  const p = PERMISSION[app];
+  const p = permissionOf(app);
   return {
     kind: p.kind,
     ...(p.target === undefined ? {} : { target: p.target }),
@@ -1682,7 +1697,7 @@ class AppleConnector implements Connector {
     // Only what this helper actually offers counts as granted.
     const scopes = entry.scopes[input.scopeMode].filter((c) => h.capabilities.includes(c));
     const base = { account: h.name ?? "This Mac", scopes };
-    const p = PERMISSION[this.#app];
+    const p = permissionOf(this.#app);
     const action = input.config.permissionAction;
     const config = (permission: unknown) => ({
       nodeId: h.nodeId,
@@ -1770,7 +1785,7 @@ class AppleConnector implements Connector {
 
   /** The grant's state without prompting: `granted`, `denied`, `notDetermined` or `unknown`. */
   async #grant(h: AppleHelper): Promise<string> {
-    const p = PERMISSION[this.#app];
+    const p = permissionOf(this.#app);
     if (p.kind === "none") return "granted";
     if (!h.capabilities.includes("permissions.status")) return "unknown";
     const res = await h.invoke(

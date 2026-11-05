@@ -1,4 +1,3 @@
-import { createPublicKey, type KeyObject, verify } from "node:crypto";
 import { getSetting, listDevices } from "@psyche/db";
 import {
   approvalCode,
@@ -14,6 +13,7 @@ import {
   chatLinkRoute,
   type ErrorCode,
   type IssuedApproval,
+  isHostHelperKind,
   type NodeInfo,
   PsycheError,
   type Surface,
@@ -21,7 +21,13 @@ import {
 import type { Call } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import { surfaceOf } from "./handlers.ts";
-import { DEV_FILE_KEY_SETTING, HelperPresenceKeys, presenceKeyHandlers } from "./presence-keys.ts";
+import {
+  DEV_FILE_KEY_SETTING,
+  HelperPresenceKeys,
+  parsePresenceKey,
+  presenceKeyHandlers,
+  verifyPresenceSignature,
+} from "./presence-keys.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -53,32 +59,23 @@ export function helperPresenceMessage(challenge: string): Buffer {
 
 export interface HelperSetup {
   /**
-   * The owner-registered presence key of a helper device: a Secure Enclave P-256 public key in
-   * X9.63 uncompressed form (`SecKeyCopyExternalRepresentation`), base64url. No key → presence
+   * The owner-registered presence key of a helper device, base64url: a mac-helper's Secure
+   * Enclave P-256 public key in X9.63 uncompressed form (`SecKeyCopyExternalRepresentation`), or a
+   * win-helper's Windows Hello RSA key (>= 2048 bits) as SPKI DER. No key → presence
    * approvals answered from that helper are refused. Default: the keys registered with
    * `devices.presenceKey.register` (issue #253); tests may pass their own.
    */
   presenceKeys?: (deviceId: string) => string | undefined;
 }
 
-function p256Key(b64url: string): KeyObject {
-  const raw = Buffer.from(b64url, "base64url");
-  if (raw.length !== 65 || raw[0] !== 0x04) throw new Error("not an uncompressed P-256 point");
-  return createPublicKey({
-    key: {
-      kty: "EC",
-      crv: "P-256",
-      x: raw.subarray(1, 33).toString("base64url"),
-      y: raw.subarray(33).toString("base64url"),
-    },
-    format: "jwk",
-  });
-}
-
-/** Verifies `kind: "helper"` assertions: ECDSA P-256 / SHA-256 (DER) by the device's registered key. */
+/**
+ * Verifies `kind: "helper"` assertions by the device's registered key: ECDSA P-256 / SHA-256 (DER)
+ * for a mac-helper key, RSA PKCS#1 v1.5 / SHA-256 for a win-helper (Windows Hello) key; the
+ * format is read from the key itself (`parsePresenceKey`).
+ */
 export function helperPresenceVerifier(
   keys: HelperSetup["presenceKeys"],
-  /** Whether `deviceId` is the Host's own connected Mac helper (`NodeRegistry.hostHelperOfDevice`). */
+  /** Whether `deviceId` is the Host's own connected helper (`NodeRegistry.hostHelperOfDevice`). */
   isHostHelperDevice: (deviceId: string) => boolean,
 ): PresenceVerifier {
   return {
@@ -89,11 +86,12 @@ export function helperPresenceVerifier(
       if (!isHostHelperDevice(deviceId)) return false;
       const registered = keys?.(deviceId);
       if (registered === undefined) return false;
+      const parsed = parsePresenceKey(registered);
+      if (parsed === null) return false;
       try {
-        return verify(
-          "sha256",
+        return verifyPresenceSignature(
+          parsed,
           helperPresenceMessage(challenge),
-          { key: p256Key(registered), dsaEncoding: "der" },
           Buffer.from(assertion.signature, "base64url"),
         );
       } catch {
@@ -243,8 +241,8 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     // A reconnect replaces the connection: drop the old subscription first. A node that is no
     // longer (or never was) the Host's helper must not keep one alive either.
     detach(node.id);
-    if (stopped || node.kind !== "mac-helper" || node.status !== "online") return;
-    // The kind says `mac-helper`; the registry says whether it is the Host's own.
+    if (stopped || !isHostHelperKind(node.kind) || node.status !== "online") return;
+    // The kind says `mac-helper` / `win-helper`; the registry says whether it is the Host's own.
     if (gateway?.context.nodes.isHostHelper(node.id) !== true) return;
     const names = new Set(node.capabilities.map((c) => c.name));
     if (!names.has("notify.show") || !names.has("notify.subscribe")) return;
@@ -407,7 +405,9 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     invoke: async (nodeId, capability) => {
       const c = client(nodeId);
       if (c === undefined) return { ok: false, error: { code: "unavailable", message: "gone" } };
-      return c.invoke(capability, {}, { timeoutMs: 10_000 });
+      // The Windows helper's first `presence.public_key` creates the Hello key credential, which
+      // shows a Windows Hello prompt: give the owner as long as a Touch ID confirm.
+      return c.invoke(capability, {}, { timeoutMs: CONFIRM_TIMEOUT_MS });
     },
     now: () => new Date(services.clock.now()),
     allowDevFileKey: () => getSetting(services.db, DEV_FILE_KEY_SETTING)?.value === true,

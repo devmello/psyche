@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import type { AgentToolRegistration, TurnContextProvider } from "@psyche/agent-core";
 import { getSetting, getThread, type PsycheDb, setSetting } from "@psyche/db";
 import {
@@ -48,6 +47,7 @@ import {
   SqliteSearchIndex,
 } from "@psyche/search";
 import type { Call, HandlerDef } from "../context.ts";
+import { accountFullName } from "../platform.ts";
 import type { Gateway } from "../server.ts";
 import { everythingSettings } from "./everything.ts";
 import { mountParamsOnly } from "./handlers.ts";
@@ -130,22 +130,19 @@ export interface PeopleDeps {
   register: (tool: AgentToolRegistration) => () => unknown;
   /** Deterministic pass interval (§5.1, default 15 minutes); 0 disables the timer (tests). */
   pollIntervalMs?: number;
-  /** The owner's name for their own card (USER.md's Name); absent or empty falls back to the Mac account. */
+  /** The owner's name for their own card (USER.md's Name); absent or empty falls back to the computer account. */
   ownerName?: () => Promise<string | undefined> | string | undefined;
   /** Debounce of the after-run model pass (§5.2, default 5 minutes); 0 leaves it to `afterRun()`. */
   afterRunDelayMs?: number;
   logger?: { log(level: "warn", msg: string, fields?: Record<string, unknown>): void };
 }
 
-/** The macOS account's full name (`id -F`), else nothing; never throws. */
+/**
+ * The computer account's full name (macOS `id -F`, the Windows account's Full Name), else
+ * nothing; never throws (`platform.ts` `accountFullName`).
+ */
 export function macAccountName(): string | undefined {
-  try {
-    if (process.platform !== "darwin") return undefined;
-    const out = execFileSync("id", ["-F"], { encoding: "utf8", timeout: 2000 }).trim();
-    return out === "" ? undefined : out;
-  } catch {
-    return undefined;
-  }
+  return accountFullName();
 }
 
 export const DEFAULT_GRAPH_POLL_MS = 15 * 60_000;
@@ -491,9 +488,11 @@ export function composePeople(deps: PeopleDeps): People {
   const resolveOwnerName = async (): Promise<string> => {
     if (ownerNameCache !== undefined) return ownerNameCache;
     const fromProfile = await Promise.resolve(deps.ownerName?.()).catch(() => undefined);
-    const name = [fromProfile, macAccountName()]
-      .map((n) => n?.trim())
-      .find((n) => n !== undefined && n !== "" && n.length <= 200);
+    const usable = (n: string | undefined) => {
+      const t = n?.trim();
+      return t !== undefined && t !== "" && t.length <= 200 ? t : undefined;
+    };
+    const name = usable(fromProfile) ?? usable(macAccountName());
     if (name !== undefined) ownerNameCache = name;
     return name ?? "Me";
   };

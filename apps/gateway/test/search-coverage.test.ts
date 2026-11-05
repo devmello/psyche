@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { setSetting } from "@psyche/db";
 import type { SearchSourcesStatus } from "@psyche/protocol";
 import {
@@ -57,7 +57,8 @@ describe("files source", () => {
     const indexer = new SourceIndexer(index, [adapter], { config: () => config, pauseMs: 0 });
     const ids = () =>
       (index.db.prepare("SELECT id FROM search_docs ORDER BY id").all() as { id: string }[]).map(
-        (r) => r.id.replace(`files:${root}/`, ""),
+        // Document ids hold the native path; compare them with "/" on every OS.
+        (r) => r.id.replace(`files:${root}${sep}`, "").replaceAll(sep, "/"),
       );
     return {
       root,

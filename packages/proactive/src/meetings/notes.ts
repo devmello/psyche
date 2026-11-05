@@ -208,7 +208,7 @@ export class MeetingNotesService {
     const name =
       input.title ??
       input.path
-        .split("/")
+        .split(/[\\/]/) // a Windows path too
         .pop()
         ?.replace(/\.[^.]+$/, "") ??
       "Recording";

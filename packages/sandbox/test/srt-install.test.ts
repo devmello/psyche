@@ -78,26 +78,30 @@ describe("pins", () => {
 });
 
 describe("installSrt", () => {
-  it("verifies, unpacks into <home>/tools/srt/<version> (0700) and writes a launcher", async () => {
-    const h = await newHome();
-    const { deps, urls } = registry();
-    const r = await installSrt(deps, { home: h, nodePath: "/App/runtime/node", pins: PINS });
-    expect(urls).toEqual(PINS.map(tarballUrl));
-    expect(r.dir).toBe(srtInstallDir(h, "9.9.9"));
-    expect(r.path).toBe(join(r.dir, "bin", "srt"));
-    expect(((await stat(r.dir)).mode & 0o777).toString(8)).toBe("700");
-    expect(((await stat(join(h, "tools"))).mode & 0o777).toString(8)).toBe("700");
-    expect((await stat(r.path)).mode & 0o111).not.toBe(0);
-    const launcher = await readFile(r.path, "utf8");
-    expect(launcher).toContain("'/App/runtime/node'");
-    expect(launcher).toContain(
-      join(r.dir, "node_modules", "@anthropic-ai", "sandbox-runtime", "dist", "cli.js"),
-    );
-    expect(await readFile(join(r.dir, "node_modules", "zod", "dist", "cli.js"), "utf8")).toBe(
-      "fake zod tarball",
-    );
-    expect(installedSrtVersion(h, r.path)).toBe("9.9.9");
-  });
+  // srt (Seatbelt / bubblewrap) has no Windows build; the Gateway refuses to install it there.
+  it.skipIf(process.platform === "win32")(
+    "verifies, unpacks into <home>/tools/srt/<version> (0700) and writes a launcher",
+    async () => {
+      const h = await newHome();
+      const { deps, urls } = registry();
+      const r = await installSrt(deps, { home: h, nodePath: "/App/runtime/node", pins: PINS });
+      expect(urls).toEqual(PINS.map(tarballUrl));
+      expect(r.dir).toBe(srtInstallDir(h, "9.9.9"));
+      expect(r.path).toBe(join(r.dir, "bin", "srt"));
+      expect(((await stat(r.dir)).mode & 0o777).toString(8)).toBe("700");
+      expect(((await stat(join(h, "tools"))).mode & 0o777).toString(8)).toBe("700");
+      expect((await stat(r.path)).mode & 0o111).not.toBe(0);
+      const launcher = await readFile(r.path, "utf8");
+      expect(launcher).toContain("'/App/runtime/node'");
+      expect(launcher).toContain(
+        join(r.dir, "node_modules", "@anthropic-ai", "sandbox-runtime", "dist", "cli.js"),
+      );
+      expect(await readFile(join(r.dir, "node_modules", "zod", "dist", "cli.js"), "utf8")).toBe(
+        "fake zod tarball",
+      );
+      expect(installedSrtVersion(h, r.path)).toBe("9.9.9");
+    },
+  );
 
   it("fails closed on an integrity mismatch: nothing unpacked, nothing left behind", async () => {
     const h = await newHome();
@@ -132,12 +136,15 @@ describe("installSrt", () => {
 });
 
 describe("helpers", () => {
-  it("recognises only a launcher inside the tools folder", () => {
-    expect(installedSrtVersion("/h", "/h/tools/srt/0.0.81/bin/srt")).toBe("0.0.81");
-    expect(installedSrtVersion("/h", "/opt/homebrew/bin/srt")).toBeNull();
-    expect(installedSrtVersion("/h", "/h/tools/srt/0.0.81/evil")).toBeNull();
-    expect(installedSrtVersion("/h", undefined)).toBeNull();
-  });
+  it.skipIf(process.platform === "win32")(
+    "recognises only a launcher inside the tools folder",
+    () => {
+      expect(installedSrtVersion("/h", "/h/tools/srt/0.0.81/bin/srt")).toBe("0.0.81");
+      expect(installedSrtVersion("/h", "/opt/homebrew/bin/srt")).toBeNull();
+      expect(installedSrtVersion("/h", "/h/tools/srt/0.0.81/evil")).toBeNull();
+      expect(installedSrtVersion("/h", undefined)).toBeNull();
+    },
+  );
   it("quotes paths in the launcher", () => {
     expect(launcherScript("/a b/it's/node", "/e.js")).toContain(
       `'/a b/it'\\''s/node' '/e.js' "$@"`,

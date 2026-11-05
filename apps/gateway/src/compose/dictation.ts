@@ -17,7 +17,7 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  *
  * Inserted text is the owner's keystrokes into another app: it never reaches the agent, a thread
  * or memory, and these methods skip the Permission Broker's agent gates the way typing on the
- * keyboard does. Two rules keep that safe: only a desktop device (platform `macos`) may call
+ * keyboard does. Two rules keep that safe: only the desktop shell (macOS or Windows) may call
  * them, and `nodes.invoke` / agent tools can never reach `dictation.*` (`isUnreachableCapability`).
  * The helper refuses secure fields and Psyche's windows and never presses Return. The receipt
  * names the app and the length, never the text.
@@ -79,7 +79,7 @@ export function composeDictation() {
     const requireNode = (capability: string): NodeClient => {
       const node = dictationNode(() => gateway, capability);
       if (!node) {
-        throw new PsycheError("unavailable", "the Psyche helper is not running on this Mac", {
+        throw new PsycheError("unavailable", "the Psyche helper is not running on this computer", {
           retryable: true,
         });
       }

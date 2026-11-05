@@ -1,6 +1,6 @@
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { FakeModelProvider } from "@psyche/testing";
 import type { BitwardenSource } from "@psyche/vault";
 import { afterEach, describe, expect, it } from "vitest";
@@ -27,7 +27,8 @@ function fakeBw(dir: string): { bin: string; data: string } {
   const data = join(dir, "bw-data");
   mkdirSync(data);
   writeFileSync(join(data, "session"), SESSION);
-  const bin = join(dir, "bw");
+  // On Windows a script needs a launcher: `hostLaunch` runs a .cjs one with Node (as npm's bw).
+  const bin = join(dir, process.platform === "win32" ? "bw.cjs" : "bw");
   writeFileSync(
     bin,
     `#!/usr/bin/env node
@@ -130,9 +131,11 @@ describe("Bitwarden in the composition (G11)", () => {
     home = mkdtempSync(join(tmpdir(), "psyche-bw-"));
     const bin = join(home, "bin");
     mkdirSync(bin);
-    writeFileSync(join(bin, "bw"), "#!/bin/sh\n");
-    chmodSync(join(bin, "bw"), 0o755);
-    expect(binaryOnPath("bw", `relative/dir:${bin}`)).toBe(join(bin, "bw"));
+    // Windows finds `bw` by its PATHEXT extension (the CLI ships as bw.exe; npm makes bw.cmd).
+    const file = process.platform === "win32" ? "bw.cmd" : "bw";
+    writeFileSync(join(bin, file), "#!/bin/sh\n");
+    chmodSync(join(bin, file), 0o755);
+    expect(binaryOnPath("bw", ["relative/dir", bin].join(delimiter))).toBe(join(bin, file));
     expect(binaryOnPath("bw", "/nonexistent")).toBeUndefined();
   });
 });

@@ -1,6 +1,7 @@
 import { getNode } from "@psyche/db";
 import {
   type ErrorPayload,
+  isHostHelperKind,
   type JsonObject,
   type NodeEventParams,
   type NodeResultParams,
@@ -25,11 +26,14 @@ import { paramsHash } from "../idempotency.ts";
  * JXA, Shortcuts, open / focus), `computer.*` (sessions and per-app tiers), `messages.*`
  * (the iMessage channel's reply authority), `notify.*` (the Gateway's approval notifications),
  * `ocr.*` (search ingest's Vision OCR) and `llm.*` (the model router's Apple on-device model).
- * `presence.*` is the helper's Touch ID key: only the Gateway picks what it signs (a window's
- * approval, `approvals.approveWithTouchId`) and reads the key it registers.
+ * `presence.*` is the helper's Touch ID / Windows Hello key: only the Gateway picks what it signs
+ * (a window's approval, `approvals.approveWithTouchId`) and reads the key it registers.
+ * `teach.*` records the owner's own clicks, keys and screen to make a skill; `chrome.*` reads the
+ * owner's open browser tabs: on any node, never through `nodes.invoke` (the Host helper's are
+ * already behind the allowlist below; this keeps a remote node's out too).
  */
 const UNREACHABLE =
-  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation|apps|computer|messages|notify|screen|ocr|llm|presence)([^a-z0-9]|$)/;
+  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation|apps|computer|messages|notify|screen|ocr|llm|presence|teach|chrome)([^a-z0-9]|$)/;
 
 /**
  * The helper's own notification permission, which the desktop's onboarding and Settings read and
@@ -42,7 +46,7 @@ const CLIENT_REACHABLE: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * The Host's own Mac helper is reachable through `nodes.invoke` only for the capabilities in
+ * The Host's own helper (Mac or Windows) is reachable through `nodes.invoke` only for the capabilities in
  * `CLIENT_REACHABLE`. Everything else it offers (speech and the microphone, `vm.*`, the Apple
  * apps' data, Messages, reminders, calendar, contacts, ...) acts on the owner's Mac and has a
  * Gateway tool or method that describes it and asks; a deny list would miss whatever the helper
@@ -80,12 +84,12 @@ export const nodesHandlers: Record<string, HandlerDef> = {
       const node = getNode(ctx.db, params.nodeId);
       if (!node) throw new PsycheError("not_found", `node ${params.nodeId} not found`);
       if (
-        (node.kind === "mac-helper" || ctx.nodes.isHostHelper(node.id)) &&
+        (isHostHelperKind(node.kind) || ctx.nodes.isHostHelper(node.id)) &&
         !isHostHelperCapabilityReachable(params.capability)
       ) {
         throw new PsycheError(
           "forbidden",
-          `${params.capability} is not reachable through nodes.invoke on the Host's Mac helper`,
+          `${params.capability} is not reachable through nodes.invoke on the Host's ${node.kind === "win-helper" ? "Windows" : "Mac"} helper`,
         );
       }
       if (isUnreachableCapability(params.capability)) {

@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDb, type PsycheDb, setSetting } from "@psyche/db";
@@ -15,6 +15,7 @@ import {
 } from "../src/compose/computer-settings.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
 import { needsPresence } from "../src/handlers/settings.ts";
+import { expectPrivate } from "./helpers.ts";
 
 let home = "";
 let db: PsycheDb;
@@ -100,7 +101,7 @@ describe("Settings → Computer use → computer-use.json and broker tiers (J5, 
     const s = computerUseSettings(services());
     s.sync();
     expect(readFile()).toEqual({ version: 1, default: "off", apps: {}, caps: fixedCaps() });
-    expect(statSync(computerUsePath(home)).mode & 0o777).toBe(0o600);
+    expectPrivate(computerUsePath(home), 0o600);
     expect(policy.apps).toEqual({ "com.apple.finder": "read" });
 
     const entries = [

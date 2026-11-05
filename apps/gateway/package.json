@@ -31,6 +31,7 @@
     "@psyche/connectors": "workspace:*",
     "@psyche/db": "workspace:*",
     "@psyche/files": "workspace:*",
+    "@psyche/hostfs": "workspace:*",
     "@psyche/harnesses": "workspace:*",
     "@psyche/mcp-host": "workspace:*",
     "@psyche/memory": "workspace:*",
@@ -56,6 +57,9 @@
     "node-pty": "1.1.0",
     "ulid": "3.0.2",
     "ws": "8.22.0"
+  },
+  "optionalDependencies": {
+    "@napi-rs/canvas": "1.0.11"
   },
   "devDependencies": {
     "@psyche/testing": "workspace:*",

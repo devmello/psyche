@@ -5,8 +5,22 @@ import { defineMethod } from "./define.ts";
 
 /** `devices.*`: pairing and device management; every method needs `operator.admin` (security §10). */
 
-/** Hex SHA-256 of the helper's X9.63 public key, as the helper reports it. */
+/**
+ * Hex SHA-256 of the helper's public key bytes, as the helper reports it: the X9.63 point of a
+ * P-256 key (mac-helper), the SPKI DER of an RSA key (win-helper).
+ */
 const KeyId = Type.String({ pattern: "^[0-9a-f]{64}$" });
+
+/**
+ * The signature scheme of a helper presence key, both over `psyche.presence.helper.v1|<challenge>`:
+ * `p256-ecdsa-sha256` (mac-helper's Secure Enclave key, DER signatures; `publicKey` is the X9.63
+ * uncompressed point) or `rsa-2048-pkcs1-sha256` (win-helper's Windows Hello key, PKCS#1 v1.5;
+ * `publicKey` is SPKI DER, at least 2048 bits). Both base64url.
+ */
+export const PresenceKeyAlgorithm = StringEnum(["p256-ecdsa-sha256", "rsa-2048-pkcs1-sha256"], {
+  $id: "PresenceKeyAlgorithm",
+});
+export type PresenceKeyAlgorithm = Static<typeof PresenceKeyAlgorithm>;
 
 export const PresenceKeyInfo = Type.Object(
   {
@@ -17,9 +31,12 @@ export const PresenceKeyInfo = Type.Object(
      * Where the helper keeps it: `keychain` (data-protection keychain, bound to the helper's
      * access group), or `enclave_file` (a Secure Enclave key whose wrapped blob is a file, on
      * builds without a provisioning profile; any same-user process could ask it to sign behind
-     * its own Touch ID prompt, security §10). Absent for keys registered before it was reported.
+     * its own Touch ID prompt, security §10), or `windows_hello` (a Windows Hello key credential
+     * of the win-helper). Absent for keys registered before it was reported.
      */
-    kind: Type.Optional(StringEnum(["keychain", "enclave_file"])),
+    kind: Type.Optional(StringEnum(["keychain", "enclave_file", "windows_hello"])),
+    /** The key's signature scheme; absent for keys registered before it was reported (P-256). */
+    algorithm: Type.Optional(PresenceKeyAlgorithm),
   },
   { $id: "PresenceKeyInfo" },
 );
@@ -148,7 +165,7 @@ export const DevicesMethods = {
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Reads the helper's Secure Enclave presence key (`presence.public_key`) and registers it for that device when its key id equals expectKeyId, so its Touch ID answers verify. A Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
+      "Reads the helper's presence key (`presence.public_key`: the Secure Enclave P-256 key of a mac-helper, or the Windows Hello RSA key of a win-helper, `algorithm: rsa-2048-pkcs1-sha256`, SPKI DER of at least 2048 bits) and registers it for that device when its key id equals expectKeyId, so its Touch ID / Windows Hello answers verify. A Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
   }),
   "devices.presenceKey.remove": defineMethod({
     params: Type.Object({ deviceId: Id }),

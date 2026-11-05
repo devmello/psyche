@@ -1050,6 +1050,7 @@
 //   let pluginsSetEnabledResult = try? JSONDecoder().decode(PluginsSetEnabledResult.self, from: jsonData)
 //   let policyRule = try? JSONDecoder().decode(PolicyRule.self, from: jsonData)
 //   let presenceAssertion = try? JSONDecoder().decode(PresenceAssertion.self, from: jsonData)
+//   let presenceKeyAlgorithm = try? JSONDecoder().decode(PresenceKeyAlgorithm.self, from: jsonData)
 //   let presenceKeyInfo = try? JSONDecoder().decode(PresenceKeyInfo.self, from: jsonData)
 //   let probedModel = try? JSONDecoder().decode(ProbedModel.self, from: jsonData)
 //   let proposalUpdatedPayload = try? JSONDecoder().decode(ProposalUpdatedPayload.self, from: jsonData)
@@ -1177,6 +1178,7 @@
 //   let scheduledWarning = try? JSONDecoder().decode(ScheduledWarning.self, from: jsonData)
 //   let screenCapture = try? JSONDecoder().decode(ScreenCapture.self, from: jsonData)
 //   let screenCaptureMode = try? JSONDecoder().decode(ScreenCaptureMode.self, from: jsonData)
+//   let screenCaptureParams = try? JSONDecoder().decode(ScreenCaptureParams.self, from: jsonData)
 //   let screenCaptureRefusal = try? JSONDecoder().decode(ScreenCaptureRefusal.self, from: jsonData)
 //   let screenContext = try? JSONDecoder().decode(ScreenContext.self, from: jsonData)
 //   let screenContextParams = try? JSONDecoder().decode(ScreenContextParams.self, from: jsonData)
@@ -8436,6 +8438,7 @@ public enum DevicePlatform: String, Codable, Sendable {
     case linux = "linux"
     case macos = "macos"
     case web = "web"
+    case windows = "windows"
 }
 
 // MARK: - ChannelsAllowlistUpdateParams
@@ -12175,19 +12178,22 @@ public struct DevicesPresenceKeyListResult: Codable, Sendable {
 
 // MARK: - PresenceKeyInfo
 public struct PresenceKeyInfo: Codable, Sendable {
+    public let algorithm: PresenceKeyAlgorithm?
     public let deviceID: String
     public let keyID: String
     public let kind: PresenceKeyInfoKind?
     public let registeredAt: String
 
     public enum CodingKeys: String, CodingKey {
+        case algorithm = "algorithm"
         case deviceID = "deviceId"
         case keyID = "keyId"
         case kind = "kind"
         case registeredAt = "registeredAt"
     }
 
-    public init(deviceID: String, keyID: String, kind: PresenceKeyInfoKind? = nil, registeredAt: String) {
+    public init(algorithm: PresenceKeyAlgorithm? = nil, deviceID: String, keyID: String, kind: PresenceKeyInfoKind? = nil, registeredAt: String) {
+        self.algorithm = algorithm
         self.deviceID = deviceID
         self.keyID = keyID
         self.kind = kind
@@ -12195,9 +12201,15 @@ public struct PresenceKeyInfo: Codable, Sendable {
     }
 }
 
+public enum PresenceKeyAlgorithm: String, Codable, Sendable {
+    case p256EcdsaSha256 = "p256-ecdsa-sha256"
+    case rsa2048Pkcs1Sha256 = "rsa-2048-pkcs1-sha256"
+}
+
 public enum PresenceKeyInfoKind: String, Codable, Sendable {
     case enclaveFile = "enclave_file"
     case keychain = "keychain"
+    case windowsHello = "windows_hello"
 }
 
 // MARK: - DevicesPresenceKeyRegisterParams
@@ -12512,6 +12524,7 @@ public struct DictationTarget: Codable, Sendable {
 }
 
 public enum DictationRefusal: String, Codable, Sendable {
+    case elevatedTarget = "elevated_target"
     case focusChanged = "focus_changed"
     case noFocus = "no_focus"
     case notEditable = "not_editable"
@@ -23411,6 +23424,7 @@ public enum NodeKind: String, Codable, Sendable {
     case phone = "phone"
     case remote = "remote"
     case vmGuest = "vm-guest"
+    case winHelper = "win-helper"
 }
 
 public enum NodeStatus: String, Codable, Sendable {
@@ -27246,47 +27260,28 @@ public enum ScreenCaptureRefusal: String, Codable, Sendable {
     case secureField = "secure_field"
 }
 
-// MARK: - ScreenContextParams
-public struct ScreenContextParams: Codable, Sendable {
+// MARK: - ScreenCaptureParams
+public struct ScreenCaptureParams: Codable, Sendable {
+    public let frame: ScreenContextResult?
     public let maxHeight: Int?
     public let maxWidth: Int?
     public let mode: ScreenCaptureMode
     public let rect: ScreenRect?
 
     public enum CodingKeys: String, CodingKey {
+        case frame = "frame"
         case maxHeight = "maxHeight"
         case maxWidth = "maxWidth"
         case mode = "mode"
         case rect = "rect"
     }
 
-    public init(maxHeight: Int? = nil, maxWidth: Int? = nil, mode: ScreenCaptureMode, rect: ScreenRect? = nil) {
+    public init(frame: ScreenContextResult? = nil, maxHeight: Int? = nil, maxWidth: Int? = nil, mode: ScreenCaptureMode, rect: ScreenRect? = nil) {
+        self.frame = frame
         self.maxHeight = maxHeight
         self.maxWidth = maxWidth
         self.mode = mode
         self.rect = rect
-    }
-}
-
-// MARK: - ScreenRect
-public struct ScreenRect: Codable, Sendable {
-    public let height: Double
-    public let width: Double
-    public let x: Double
-    public let y: Double
-
-    public enum CodingKeys: String, CodingKey {
-        case height = "height"
-        case width = "width"
-        case x = "x"
-        case y = "y"
-    }
-
-    public init(height: Double, width: Double, x: Double, y: Double) {
-        self.height = height
-        self.width = width
-        self.x = x
-        self.y = y
     }
 }
 
@@ -27312,6 +27307,50 @@ public struct ScreenContextResult: Codable, Sendable {
         self.image = image
         self.refusal = refusal
         self.width = width
+    }
+}
+
+// MARK: - ScreenRect
+public struct ScreenRect: Codable, Sendable {
+    public let height: Double
+    public let width: Double
+    public let x: Double
+    public let y: Double
+
+    public enum CodingKeys: String, CodingKey {
+        case height = "height"
+        case width = "width"
+        case x = "x"
+        case y = "y"
+    }
+
+    public init(height: Double, width: Double, x: Double, y: Double) {
+        self.height = height
+        self.width = width
+        self.x = x
+        self.y = y
+    }
+}
+
+// MARK: - ScreenContextParams
+public struct ScreenContextParams: Codable, Sendable {
+    public let maxHeight: Int?
+    public let maxWidth: Int?
+    public let mode: ScreenCaptureMode
+    public let rect: ScreenRect?
+
+    public enum CodingKeys: String, CodingKey {
+        case maxHeight = "maxHeight"
+        case maxWidth = "maxWidth"
+        case mode = "mode"
+        case rect = "rect"
+    }
+
+    public init(maxHeight: Int? = nil, maxWidth: Int? = nil, mode: ScreenCaptureMode, rect: ScreenRect? = nil) {
+        self.maxHeight = maxHeight
+        self.maxWidth = maxWidth
+        self.mode = mode
+        self.rect = rect
     }
 }
 
@@ -30474,8 +30513,10 @@ public struct SpeechTranscribeFileResult: Codable, Sendable {
 
 public enum SpeechNodeEngine: String, Codable, Sendable {
     case dictationTranscriber = "dictationTranscriber"
+    case sapi = "sapi"
     case sfSpeech = "sfSpeech"
     case speechAnalyzer = "speechAnalyzer"
+    case windowsSpeech = "windowsSpeech"
 }
 
 // MARK: - TranscriptSegment

@@ -1,6 +1,7 @@
 import { PsycheError } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import {
+  hostPathsFor,
   validateArgv,
   validateCwd,
   validateEnv,
@@ -74,5 +75,20 @@ describe("request validation", () => {
     expect(code(() => validateScope({ kind: "task", id: "" }))).toBe("invalid_params");
     expect(code(() => validateScope({ kind: "host" as "task", id: "x" }))).toBe("invalid_params");
     expect(code(() => validateScope({ kind: "thread", id: "x" }))).toBeUndefined();
+  });
+});
+
+describe("Windows mount source paths", () => {
+  const host = hostPathsFor("win32");
+
+  it("takes drive paths only and compares them without case", () => {
+    expect(host.absolute("C:\\Users\\me\\repo")).toBe(true);
+    expect(host.absolute("C:/Users/me/repo")).toBe(false);
+    expect(host.absolute("\\\\server\\share\\x")).toBe(false);
+    expect(host.absolute("/workspace")).toBe(false);
+    expect(host.under("c:\\users\\me\\repo\\src", "C:\\Users\\Me\\Repo")).toBe(true);
+    expect(host.under("C:\\Users\\me\\repo2", "C:\\Users\\me\\repo")).toBe(false);
+    expect(host.isRoot("D:\\")).toBe(true);
+    expect(host.appData("C:\\Users\\me")).toBe("C:\\Users\\me\\AppData");
   });
 });

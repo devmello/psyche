@@ -25,6 +25,7 @@ import {
   type PermissionBroker,
   PsycheError,
 } from "@psyche/protocol";
+import { isNamedPipePath } from "@psyche/protocol/platform";
 import { type WebSocket, WebSocketServer } from "ws";
 import pkg from "../package.json" with { type: "json" };
 import type { PeerInfo } from "./auth.ts";
@@ -543,18 +544,25 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   const port = (http.address() as AddressInfo).port;
   origin = `http://${config.host.includes(":") ? `[${config.host}]` : config.host}:${port}`;
 
-  // Unix socket for local nodes (mac helper): NDJSON frames, mode 0600. A socket that still
-  // accepts connections belongs to another running Gateway: refuse instead of stealing it.
+  // Local node transport (mac / win helper, psyche-node): NDJSON frames. A Unix socket, mode
+  // 0600; on Windows a named pipe (no file, no mode: the handshake secret and the pipe's default
+  // DACL guard it, `@psyche/protocol/platform`). An endpoint that still accepts connections
+  // belongs to another running Gateway: refuse instead of stealing it.
+  const nodePipe = isNamedPipePath(config.nodeSocketPath);
+  const refuseTaken = async (): Promise<never> => {
+    await new Promise<void>((r) => http.close(() => r()));
+    if (!options.db) db.close();
+    throw new PsycheError(
+      "conflict",
+      `Another Gateway is already listening on ${config.nodeSocketPath}`,
+    );
+  };
   ensureSocketDir(config.nodeSocketPath, config.home);
-  if (existsSync(config.nodeSocketPath)) {
-    if (await socketIsLive(config.nodeSocketPath)) {
-      await new Promise<void>((r) => http.close(() => r()));
-      if (!options.db) db.close();
-      throw new PsycheError(
-        "conflict",
-        `Another Gateway is already listening on ${config.nodeSocketPath}`,
-      );
-    }
+  if (nodePipe) {
+    // A pipe vanishes with its server, so there is nothing stale to remove; only a live one.
+    if (await socketIsLive(config.nodeSocketPath)) await refuseTaken();
+  } else if (existsSync(config.nodeSocketPath)) {
+    if (await socketIsLive(config.nodeSocketPath)) await refuseTaken();
     rmSync(config.nodeSocketPath, { force: true });
   }
   // One server per node socket. The transport is fixed by the socket a stream arrived on, never
@@ -602,8 +610,15 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   // must find this launch's secret, never the previous one or none.
   const { path: secretPath } = writeHandshakeSecret(config.home, handshakeSecret);
   const nodeServer = serveNodes("unix");
-  await listenOn(nodeServer, config.nodeSocketPath);
-  chmodSync(config.nodeSocketPath, 0o600);
+  try {
+    await listenOn(nodeServer, config.nodeSocketPath);
+  } catch (err) {
+    // A pipe created between the check and now (a racing Gateway, or a squatter holding the
+    // name: libuv opens the first instance exclusively) is refused the same way.
+    if (nodePipe && (err as NodeJS.ErrnoException).code === "EADDRINUSE") await refuseTaken();
+    throw err;
+  }
+  if (!nodePipe) chmodSync(config.nodeSocketPath, 0o600);
   writeSocketPointer(config.home, config.nodeSocketPath);
   let guestServer: NetServer | null = null;
   if (config.guestSocketPath !== null) {
@@ -661,7 +676,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       if (guestServer !== null) await new Promise<void>((r) => guestServer?.close(() => r()));
       http.closeAllConnections();
       await new Promise<void>((r) => http.close(() => r()));
-      rmSync(config.nodeSocketPath, { force: true });
+      if (!nodePipe) rmSync(config.nodeSocketPath, { force: true });
       if (config.guestSocketPath !== null) rmSync(config.guestSocketPath, { force: true });
       rmSync(join(config.home, "run", "node-socket"), { force: true });
       removeHandshakeSecret(secretPath);

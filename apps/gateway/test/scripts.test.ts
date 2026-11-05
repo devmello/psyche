@@ -159,39 +159,44 @@ async function sum(
 }
 
 describe("run_script (build and run in the same turn)", () => {
-  it("shows the code on one card, runs it sandboxed after approval, output untrusted", async () => {
-    const env = await setup();
-    const { card, result } = await sum(env, "approve", ctx().c);
-    expect(card).toMatchObject({
-      kind: "skill_install",
-      surfaces: ["desktop"],
-      scopesOffered: ["once"],
-      taint: false,
-      details: { kind: "script_run", language: "node", network: [] },
-    });
-    expect(String(card.details.input)).toBe('{"a":2,"b":3}');
-    const [file] = card.details.files as { path: string; lines: string[] }[];
-    expect(file?.path).toBe("main.mjs");
-    expect(file?.lines.join("\n")).toBe(SUM);
-    expect(result.provenance).toBe("untrusted");
-    expect(result.output).toMatchObject({ exitCode: 0, stdout: "5", runs: 1 });
-    expect(result.output.hint).toBeUndefined();
-    // The run is in the change log (#985) with its approval and the code that ran.
-    expect(env.records).toMatchObject([
-      {
-        category: "command",
-        tool: "run_script",
-        action: "run",
-        approvalId: card.id,
-        after: SUM,
-        outcome: "ok",
-        threadId: "thr_1",
-      },
-    ]);
-    // Run again: it suggests keeping it.
-    const again = await sum(env, "approve", ctx().c);
-    expect(String(again.result.output.hint)).toContain("save_script_as_tool");
-  }, 60_000);
+  // The script runs under srt (Seatbelt / bubblewrap), which has no Windows build.
+  it.skipIf(process.platform === "win32")(
+    "shows the code on one card, runs it sandboxed after approval, output untrusted",
+    async () => {
+      const env = await setup();
+      const { card, result } = await sum(env, "approve", ctx().c);
+      expect(card).toMatchObject({
+        kind: "skill_install",
+        surfaces: ["desktop"],
+        scopesOffered: ["once"],
+        taint: false,
+        details: { kind: "script_run", language: "node", network: [] },
+      });
+      expect(String(card.details.input)).toBe('{"a":2,"b":3}');
+      const [file] = card.details.files as { path: string; lines: string[] }[];
+      expect(file?.path).toBe("main.mjs");
+      expect(file?.lines.join("\n")).toBe(SUM);
+      expect(result.provenance).toBe("untrusted");
+      expect(result.output).toMatchObject({ exitCode: 0, stdout: "5", runs: 1 });
+      expect(result.output.hint).toBeUndefined();
+      // The run is in the change log (#985) with its approval and the code that ran.
+      expect(env.records).toMatchObject([
+        {
+          category: "command",
+          tool: "run_script",
+          action: "run",
+          approvalId: card.id,
+          after: SUM,
+          outcome: "ok",
+          threadId: "thr_1",
+        },
+      ]);
+      // Run again: it suggests keeping it.
+      const again = await sum(env, "approve", ctx().c);
+      expect(String(again.result.output.hint)).toContain("save_script_as_tool");
+    },
+    60_000,
+  );
 
   it("a tainted turn's card is flagged and once only; a denial runs nothing", async () => {
     const env = await setup();
@@ -226,48 +231,53 @@ describe("run_script (build and run in the same turn)", () => {
     ).rejects.toThrow(/owner/);
   }, 60_000);
 
-  it("save_script_as_tool keeps it as a connector of its own, loaded on approval", async () => {
-    const env = await setup();
-    const { result } = await sum(env, "approve", ctx().c);
-    const { c, loaded } = ctx();
-    const seen = cardsSeen(env.owner);
-    const pending = env.run(
-      "save_script_as_tool",
-      {
-        scriptId: result.output.scriptId,
-        id: "adder",
-        name: "Adder",
-        toolName: "add",
-        description: "Adds a and b.",
-        inputSchema: {
-          type: "object",
-          properties: { a: { type: "number" }, b: { type: "number" } },
+  // Loading the kept tool starts it under srt (no Windows build).
+  it.skipIf(process.platform === "win32")(
+    "save_script_as_tool keeps it as a connector of its own, loaded on approval",
+    async () => {
+      const env = await setup();
+      const { result } = await sum(env, "approve", ctx().c);
+      const { c, loaded } = ctx();
+      const seen = cardsSeen(env.owner);
+      const pending = env.run(
+        "save_script_as_tool",
+        {
+          scriptId: result.output.scriptId,
+          id: "adder",
+          name: "Adder",
+          toolName: "add",
+          description: "Adds a and b.",
+          inputSchema: {
+            type: "object",
+            properties: { a: { type: "number" }, b: { type: "number" } },
+          },
         },
-      },
-      c,
-    );
-    const card = await nextCard(env.owner, seen);
-    expect(card.details).toMatchObject({
-      kind: "mcp_server",
-      madeBy: "psyche",
-      command: "node server.mjs",
-    });
-    const files = (card.details.files as { path: string }[]).map((f) => f.path).sort();
-    expect(files).toEqual(["manifest.json", "mcp-lite.mjs", "script.mjs", "server.mjs"]);
-    await answer(env.owner, card.id, "approve");
-    expect((await pending).output).toMatchObject({ status: "enabled", tool: "mcp__adder__add" });
-    await env.mcp.idle();
-    const registered = env.services.tools.get("mcp__adder__add");
-    expect(registered).toBeDefined();
-    expect(loaded).toEqual(["mcp__adder__add"]);
-    const out = await registered?.execute(
-      "c9",
-      { a: 4, b: 5 },
-      new AbortController().signal,
-      () => undefined,
-    );
-    expect(JSON.stringify(out?.output)).toContain("9");
-  }, 60_000);
+        c,
+      );
+      const card = await nextCard(env.owner, seen);
+      expect(card.details).toMatchObject({
+        kind: "mcp_server",
+        madeBy: "psyche",
+        command: "node server.mjs",
+      });
+      const files = (card.details.files as { path: string }[]).map((f) => f.path).sort();
+      expect(files).toEqual(["manifest.json", "mcp-lite.mjs", "script.mjs", "server.mjs"]);
+      await answer(env.owner, card.id, "approve");
+      expect((await pending).output).toMatchObject({ status: "enabled", tool: "mcp__adder__add" });
+      await env.mcp.idle();
+      const registered = env.services.tools.get("mcp__adder__add");
+      expect(registered).toBeDefined();
+      expect(loaded).toEqual(["mcp__adder__add"]);
+      const out = await registered?.execute(
+        "c9",
+        { a: 4, b: 5 },
+        new AbortController().signal,
+        () => undefined,
+      );
+      expect(JSON.stringify(out?.output)).toContain("9");
+    },
+    60_000,
+  );
 
   it("the wrapper quotes everything it embeds", () => {
     const src = wrapperSource({

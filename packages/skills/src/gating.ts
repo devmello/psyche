@@ -172,9 +172,29 @@ function anyOfText(requirements: readonly string[]): string {
   return `needs ${names.join(" or ")}${hints.length === 0 ? "" : ` (${hints.join("; ")})`}`;
 }
 
+/**
+ * `requires.os` values are Node's `process.platform` names (`darwin`, `linux`, `win32`); the
+ * names people write instead (`macos`, `mac`, `windows`, `win`) mean the same platform.
+ */
+const OS_ALIASES: Record<string, string> = {
+  macos: "darwin",
+  mac: "darwin",
+  osx: "darwin",
+  windows: "win32",
+  win: "win32",
+  win64: "win32",
+};
+
+export function osMatches(wanted: readonly string[], platform: string): boolean {
+  return wanted.some((os) => {
+    const v = os.trim().toLowerCase();
+    return (OS_ALIASES[v] ?? v) === platform;
+  });
+}
+
 export function evaluateGates(requires: SkillRequires, ctx: GateContext): GateResult {
   const missing: string[] = [];
-  if (requires.os.length > 0 && !requires.os.includes(ctx.platform))
+  if (requires.os.length > 0 && !osMatches(requires.os, ctx.platform))
     missing.push(`os: needs ${requires.os.join(" or ")}`);
   for (const bin of requires.bins) if (!ctx.hasBin(bin)) missing.push(`missing binary: ${bin}`);
   if (requires.anyBins.length > 0 && !requires.anyBins.some((b) => ctx.hasBin(b)))

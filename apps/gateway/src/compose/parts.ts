@@ -1,7 +1,7 @@
-import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type GoogleClientConfig, googleClientFrom, readConfigFile } from "../config.ts";
+import { openExternalUrl } from "../platform.ts";
 import { composeBackup } from "./backup.ts";
 import { type ComposedBrowser, composeBrowser } from "./browser.ts";
 import { channelsSetupFromEnv, composeChannels } from "./channels.ts";
@@ -241,10 +241,9 @@ export function partsFromEnv(
 
 function openConsent(services: ComposeServices, url: URL): void {
   if (url.protocol !== "https:") return;
-  if (process.platform === "darwin") {
-    execFile("open", [url.href], () => undefined);
-    return;
-  }
+  // macOS `open`, Windows `rundll32 url.dll,FileProtocolHandler` (no shell): the owner's browser
+  // on the computer running psyched, where the loopback redirect lands.
+  if (openExternalUrl(url)) return;
   // The link holds the PKCE challenge and state, never a secret; the loopback redirect only
   // completes on the machine running psyched.
   void services.notifier

@@ -383,11 +383,14 @@ export function composeConnectors(
   handlers["connectors.catalogue"] = {
     run: async () => ({
       // #529: nothing listed as available can fail with "no connector implementation".
-      entries: registry.catalogue().map((e) => ({
-        ...e,
-        available: e.available && implemented.has(e.id),
-        ...(e.id === "google" ? { configured: googleConfigured } : {}),
-      })),
+      entries: registry
+        .catalogue()
+        .filter((e) => !hideAppleEntry(e, appleHelper))
+        .map((e) => ({
+          ...e,
+          available: e.available && implemented.has(e.id),
+          ...(e.id === "google" ? { configured: googleConfigured } : {}),
+        })),
     }),
   };
   const custom = new CustomConnectors({
@@ -644,6 +647,22 @@ function freeTimeTool(services: ComposeServices, registry: ConnectorRegistry): T
  * always read the Host Mac's apps, never a second Mac that paired as a node
  * (`NodeRegistry.hostHelper`).
  */
+/**
+ * The Apple-app connectors (`apple:*`) are Mac-only (cross-platform design §4.3 rule 3): off
+ * macOS they leave the catalogue unless the Host's helper advertises one of their capabilities.
+ * The Windows helper never does, so a Windows Gateway (and a Linux server) lists none of them.
+ * On macOS they stay listed while the helper is still starting.
+ */
+export function hideAppleEntry(
+  entry: { id: string; scopes?: { read_act?: readonly string[] } },
+  helper: () => AppleHelper | undefined,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  if (!entry.id.startsWith("apple:") || platform === "darwin") return false;
+  const offered = new Set(helper()?.capabilities ?? []);
+  return !(entry.scopes?.read_act ?? []).some((c) => offered.has(c));
+}
+
 export function macHelper(gateway: () => Gateway | undefined): () => AppleHelper | undefined {
   return () => {
     const helper = gateway()?.context.nodes.hostHelper();

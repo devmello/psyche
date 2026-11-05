@@ -25,6 +25,12 @@ TypeRegistry.Set("StringEnum", (schema: unknown, value: unknown) => {
   return typeof value === "string" && s.enum.includes(value);
 });
 
+/**
+ * An absolute path on the Host: POSIX (`/…`) or a Windows drive path (`C:\\…`, `C:/…`). The
+ * Gateway still canonicalizes it and checks the folder grants; this only refuses relative paths.
+ */
+export const ABSOLUTE_HOST_PATH_PATTERN = "^(/|[A-Za-z]:[\\\\/])";
+
 export function StringEnum<const T extends readonly string[]>(
   values: T,
   options: SchemaOptions = {},

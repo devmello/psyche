@@ -343,6 +343,9 @@ importers:
       '@psyche/harnesses':
         specifier: workspace:*
         version: link:../../packages/harnesses
+      '@psyche/hostfs':
+        specifier: workspace:*
+        version: link:../../packages/hostfs
       '@psyche/mcp-host':
         specifier: workspace:*
         version: link:../../packages/mcp-host
@@ -422,12 +425,19 @@ importers:
       '@types/ws':
         specifier: 8.18.2
         version: 8.18.2
+    optionalDependencies:
+      '@napi-rs/canvas':
+        specifier: 1.0.11
+        version: 1.0.11
 
   apps/node:
     dependencies:
       '@psyche/browser':
         specifier: workspace:*
         version: link:../../packages/browser
+      '@psyche/hostfs':
+        specifier: workspace:*
+        version: link:../../packages/hostfs
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -533,6 +543,8 @@ importers:
       ws:
         specifier: 8.22.0
         version: 8.22.0
+
+  apps/win-helper: {}
 
   packages/agent-core:
     dependencies:

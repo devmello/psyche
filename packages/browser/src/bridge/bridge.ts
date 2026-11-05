@@ -13,6 +13,7 @@ import {
   validateBridgeEventPayload,
   validateBridgeParams,
 } from "@psyche/protocol";
+import { isNamedPipePath } from "@psyche/protocol/platform";
 import type { CdpTarget } from "../cdp/page.ts";
 import { checkCdpCommand } from "./allowlist.ts";
 import { FrameConnection } from "./framing.ts";
@@ -197,14 +198,18 @@ export function acceptBridgeStream(
   });
 }
 
-/** Unix-socket listener, mode 0600 in a 0700 directory. One desktop client at a time. */
+/**
+ * Unix-socket listener, mode 0600 in a 0700 directory; on Windows a named pipe
+ * (`\\.\pipe\psyche-<hash>-browser-bridge`, guarded by the handshake secret and the pipe's default DACL,
+ * `@psyche/protocol/platform`). One desktop client at a time.
+ */
 export class BridgeServer {
   #o: BridgeServerOptions;
   #server: Server | undefined;
   #current: BridgeClient | undefined;
 
   constructor(options: BridgeServerOptions) {
-    if (Buffer.byteLength(options.socketPath) > 103) {
+    if (!isNamedPipePath(options.socketPath) && Buffer.byteLength(options.socketPath) > 103) {
       throw new PsycheError(
         "invalid_params",
         "socket path exceeds the 104-byte macOS limit; set a shorter PSYCHE_HOME or PSYCHE_BROWSER_BRIDGE_SOCKET",
@@ -218,16 +223,19 @@ export class BridgeServer {
   }
 
   async listen(): Promise<void> {
-    const dir = dirname(this.#o.socketPath);
-    await mkdir(dir, { recursive: true, mode: 0o700 });
-    // The directory may be the per-user one under the temp dir: it must be ours and private.
-    const info = await lstat(dir);
-    const uid = process.getuid?.();
-    if (info.isSymbolicLink() || !info.isDirectory() || (uid !== undefined && info.uid !== uid)) {
-      throw new PsycheError("forbidden", `refusing bridge socket directory ${dir}: not private`);
+    const pipe = isNamedPipePath(this.#o.socketPath);
+    if (!pipe) {
+      const dir = dirname(this.#o.socketPath);
+      await mkdir(dir, { recursive: true, mode: 0o700 });
+      // The directory may be the per-user one under the temp dir: it must be ours and private.
+      const info = await lstat(dir);
+      const uid = process.getuid?.();
+      if (info.isSymbolicLink() || !info.isDirectory() || (uid !== undefined && info.uid !== uid)) {
+        throw new PsycheError("forbidden", `refusing bridge socket directory ${dir}: not private`);
+      }
+      if ((info.mode & 0o077) !== 0) await chmod(dir, 0o700);
+      await rm(this.#o.socketPath, { force: true });
     }
-    if ((info.mode & 0o077) !== 0) await chmod(dir, 0o700);
-    await rm(this.#o.socketPath, { force: true });
     const server = createServer((socket: Socket) => {
       acceptBridgeStream(socket, this.#o).then(
         (client) => {
@@ -248,7 +256,7 @@ export class BridgeServer {
     } finally {
       process.umask(oldMask);
     }
-    await chmod(this.#o.socketPath, 0o600);
+    if (!pipe) await chmod(this.#o.socketPath, 0o600);
   }
 
   async close(): Promise<void> {
@@ -257,6 +265,6 @@ export class BridgeServer {
       if (this.#server === undefined) resolve();
       else this.#server.close(() => resolve());
     });
-    await rm(this.#o.socketPath, { force: true });
+    if (!isNamedPipePath(this.#o.socketPath)) await rm(this.#o.socketPath, { force: true });
   }
 }

@@ -1277,7 +1277,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Reads the helper's Secure Enclave presence key (`presence.public_key`) and registers it for that device when its key id equals expectKeyId, so its Touch ID answers verify. A Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
+        "description": "Reads the helper's presence key (`presence.public_key`: the Secure Enclave P-256 key of a mac-helper, or the Windows Hello RSA key of a win-helper, `algorithm: rsa-2048-pkcs1-sha256`, SPKI DER of at least 2048 bits) and registers it for that device when its key id equals expectKeyId, so its Touch ID / Windows Hello answers verify. A Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
         "name": "devices.presenceKey.register",
         "params": "#/$defs/DevicesPresenceKeyRegisterParams",
         "result": "#/$defs/DevicesPresenceKeyRegisterResult",
@@ -2821,9 +2821,9 @@
         "sideEffecting": false
       },
       {
-        "description": "Desktop only: captures the frontmost window (or a box) and its text context once, on the owner's ask shortcut; the frame is stored as an untrusted Library item that expires unless sent.",
+        "description": "Desktop only: captures the frontmost window (or a box) and its text context once, on the owner's ask shortcut; the frame is stored as an untrusted Library item that expires unless sent. Without a Host helper offering screen.context, the desktop shell may pass its own capture as frame (JPEG, screenshot only).",
         "name": "screen.capture",
-        "params": "#/$defs/ScreenContextParams",
+        "params": "#/$defs/ScreenCaptureParams",
         "result": "#/$defs/ScreenCapture",
         "scope": "operator.write",
         "sideEffecting": false
@@ -2909,7 +2909,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges, notifications.quietHours) also needs operator.admin. Security keys (permissions, exec, vault, devices, gateway, owner identities, channel DM / allow policies) also need fresh user presence once the Gateway has a presence verifier: the first call fails approval_required with details.approvalId (a device-only policy_change card bound to the key and value); retry with that approvalId after approving. Once presence was enrolled, a Gateway whose verifiers can no longer verify fails presence_required instead of falling back to operator.admin alone. Side-effecting.",
+        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges, notifications.quietHours, quickEntry.shortcut) also needs operator.admin. Security keys (permissions, exec, vault, devices, gateway, owner identities, channel DM / allow policies) also need fresh user presence once the Gateway has a presence verifier: the first call fails approval_required with details.approvalId (a device-only policy_change card bound to the key and value); retry with that approvalId after approving. Once presence was enrolled, a Gateway whose verifiers can no longer verify fails presence_required instead of falling back to operator.admin alone. Side-effecting.",
         "name": "settings.set",
         "params": "#/$defs/SettingsSetParams",
         "result": "#/$defs/SettingsSetResult",
@@ -16893,7 +16893,8 @@
         "ios",
         "android",
         "web",
-        "linux"
+        "linux",
+        "windows"
       ],
       "type": "string"
     },
@@ -17370,7 +17371,8 @@
         "secure_field",
         "own_window",
         "not_editable",
-        "focus_changed"
+        "focus_changed",
+        "elevated_target"
       ],
       "type": "string"
     },
@@ -17383,6 +17385,7 @@
         "bundleId": {
           "anyOf": [
             {
+              "description": "macOS bundle id; on Windows the package family name of a packaged app, else its lowercase executable",
               "type": "string"
             },
             {
@@ -17396,7 +17399,7 @@
         "role": {
           "anyOf": [
             {
-              "description": "AX role of the focused element, e.g. AXTextArea",
+              "description": "AX role of the focused element (AXTextArea); on Windows its UI Automation control type (Edit, Document, …)",
               "type": "string"
             },
             {
@@ -17620,7 +17623,7 @@
           "description": "an absolute path in a granted folder",
           "maxLength": 4096,
           "minLength": 2,
-          "pattern": "^/",
+          "pattern": "^(/|[A-Za-z]:[\\\\/])",
           "type": "string"
         },
         "libraryPath": {
@@ -19331,7 +19334,7 @@
           "description": "an absolute path in a granted folder",
           "maxLength": 4096,
           "minLength": 2,
-          "pattern": "^/",
+          "pattern": "^(/|[A-Za-z]:[\\\\/])",
           "type": "string"
         },
         "offset": {
@@ -19376,7 +19379,7 @@
           "description": "an absolute path in a granted folder",
           "maxLength": 4096,
           "minLength": 2,
-          "pattern": "^/",
+          "pattern": "^(/|[A-Za-z]:[\\\\/])",
           "type": "string"
         },
         "libraryPath": {
@@ -31054,7 +31057,8 @@
         "mac-helper",
         "vm-guest",
         "remote",
-        "phone"
+        "phone",
+        "win-helper"
       ],
       "type": "string"
     },
@@ -32729,7 +32733,7 @@
         "path": {
           "maxLength": 4096,
           "minLength": 1,
-          "pattern": "^/",
+          "pattern": "^(/|[A-Za-z]:[\\\\/])",
           "type": "string"
         }
       },
@@ -32886,6 +32890,13 @@
       ],
       "type": "object"
     },
+    "PresenceKeyAlgorithm": {
+      "enum": [
+        "p256-ecdsa-sha256",
+        "rsa-2048-pkcs1-sha256"
+      ],
+      "type": "string"
+    },
     "PresenceKeyInfo": {
       "properties": {
         "deviceId": {
@@ -32906,9 +32917,13 @@
         "kind": {
           "enum": [
             "keychain",
-            "enclave_file"
+            "enclave_file",
+            "windows_hello"
           ],
           "type": "string"
+        },
+        "algorithm": {
+          "$ref": "#/$defs/PresenceKeyAlgorithm"
         }
       },
       "required": [
@@ -36584,6 +36599,33 @@
         "region"
       ],
       "type": "string"
+    },
+    "ScreenCaptureParams": {
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/ScreenCaptureMode"
+        },
+        "rect": {
+          "$ref": "#/$defs/ScreenRect"
+        },
+        "maxWidth": {
+          "maximum": 2560,
+          "minimum": 320,
+          "type": "integer"
+        },
+        "maxHeight": {
+          "maximum": 1600,
+          "minimum": 240,
+          "type": "integer"
+        },
+        "frame": {
+          "$ref": "#/$defs/ScreenContextResult"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "type": "object"
     },
     "ScreenCaptureRefusal": {
       "enum": [
@@ -40812,7 +40854,9 @@
       "enum": [
         "speechAnalyzer",
         "dictationTranscriber",
-        "sfSpeech"
+        "sfSpeech",
+        "windowsSpeech",
+        "sapi"
       ],
       "type": "string"
     },
