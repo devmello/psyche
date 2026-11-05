@@ -7,7 +7,7 @@ import {
   PSYCHE_LAUNCHER,
   PSYCHED_HARDEN,
   PSYCHED_LAUNCHER,
-// @ts-expect-error plain .mjs without types; importing it does not run the build.
+  // @ts-expect-error plain .mjs without types; importing it does not run the build.
 } from "../../../deploy/scripts/build-psyched.mjs";
 
 /**
