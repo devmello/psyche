@@ -88,7 +88,7 @@ install_profile() {
 
 install_sandbox() {
   # Only a real ELF file, so a bad payload cannot become a setuid root script.
-  [ -f "$1" ] && [ ! -L "$1" ] || die "chrome-sandbox is not a plain file"
+  if [ ! -f "$1" ] || [ -L "$1" ]; then die "chrome-sandbox is not a plain file"; fi
   [ "$(head -c 4 "$1" | od -An -c | tr -d ' ')" = '177ELF' ] || die "chrome-sandbox is not an ELF program"
   mkdir -p "$D$SANDBOX_DIR"
   put 4755 "$1" "$SANDBOX"
@@ -111,7 +111,7 @@ install_payload() {
     say "installed the sandbox helper at $SANDBOX"
   fi
   # deb and rpm: the design's name for the launcher (the makers link /usr/bin/psyche).
-  if [ -x "$D$APP_BIN" ] || [ -n "$D" -a -e "$D$APP_BIN" ]; then
+  if [ -x "$D$APP_BIN" ] || { [ -n "$D" ] && [ -e "$D$APP_BIN" ]; }; then
     mkdir -p "$D$(dirname "$BIN_LINK")"
     ln -sf "$APP_BIN" "$D$BIN_LINK"
   fi

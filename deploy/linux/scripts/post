@@ -1,0 +1,11 @@
+#!/bin/sh
+# rpm %post (install and upgrade): see scripts/postinst.
+APP=/usr/lib/psyche
+if [ -x "$APP/resources/psyche-system-setup" ] && [ -d "$APP/resources/system" ]; then
+  "$APP/resources/psyche-system-setup" install "$APP/resources/system" ||
+    echo "psyche: system setup did not finish; run: sudo $APP/resources/psyche-system-setup install $APP/resources/system" >&2
+fi
+if command -v update-desktop-database >/dev/null 2>&1; then
+  update-desktop-database -q /usr/share/applications || true
+fi
+exit 0

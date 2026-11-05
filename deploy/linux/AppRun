@@ -1,0 +1,115 @@
+#!/bin/sh
+# Psyche's launcher inside the AppImage (and, as psyche-apprun, beside the app in deb and rpm
+# installs). docs/design/linux-desktop-2026.md §2.1, §2.6.
+#
+#   psyche-apprun [args]            start the desktop app
+#   psyche-apprun --psyched [args]  start the Gateway (psyched) from the bundle, nothing else
+#   psyche-apprun --setup-system    one admin prompt that installs the polkit policy and, on Ubuntu
+#                                   23.10+, a root-owned setuid copy of Electron's chrome-sandbox
+#
+# The maker's own AppRun is a symlink to the app binary, so this script is the AppImage's `bin`
+# and starts the binary itself.
+#
+# Ubuntu 23.10+ (kernel.apparmor_restrict_unprivileged_userns=1) stops Chromium's user-namespace
+# sandbox for programs without an AppArmor profile, and an AppImage mounts at a random path no
+# profile can name. When that is the case this script starts Psyche only with a setuid chrome-sandbox
+# that --setup-system installed under /usr/local/lib/psyche, byte-identical to the one in this
+# image; otherwise it says what to do and exits. Psyche never runs with --no-sandbox.
+#
+# PSYCHE_APPRUN_PROC (tests only) is the folder read instead of /proc/sys/kernel. It can only make
+# this check pass or fail; a wrong answer ends in Chromium refusing to start, never in a weaker sandbox.
+set -eu
+
+self=$0
+case $self in */*) ;; *) self=./$self ;; esac
+while [ -L "$self" ]; do
+  link=$(readlink "$self")
+  case $link in /*) self=$link ;; *) self=${self%/*}/$link ;; esac
+done
+here=$(cd "${self%/*}" && pwd)
+
+SANDBOX_DIR=/usr/local/lib/psyche
+SYSTEM_SANDBOX=$SANDBOX_DIR/chrome-sandbox
+KERNEL=${PSYCHE_APPRUN_PROC:-/proc/sys/kernel}
+
+# Psyche X, in the owner's language (ar de es fr hi it ja ko pt zh; English otherwise).
+sandbox_message() {
+  lang=${LC_ALL:-${LC_MESSAGES:-${LANG:-en}}}
+  lang=${lang%%[_.@-]*}
+  case $lang in
+    ar) printf '%s' 'لا يستطيع Psyche تشغيل صندوق الحماية على هذا النظام. ثبّت حزمة deb بدلاً من ذلك، أو شغّل هذا الأمر مرة واحدة:' ;;
+    de) printf '%s' 'Psyche kann auf diesem System seine Sicherheits-Sandbox nicht starten. Installiere stattdessen das .deb-Paket oder führe einmalig diesen Befehl aus:' ;;
+    es) printf '%s' 'Psyche no puede iniciar su entorno aislado de seguridad en este sistema. Instala el paquete .deb o ejecuta esto una sola vez:' ;;
+    fr) printf '%s' 'Psyche ne peut pas démarrer son bac à sable de sécurité sur ce système. Installez plutôt le paquet .deb, ou exécutez une seule fois :' ;;
+    hi) printf '%s' 'इस सिस्टम पर Psyche अपना सुरक्षा सैंडबॉक्स शुरू नहीं कर सकता। इसके बजाय .deb पैकेज इंस्टॉल करें, या यह एक बार चलाएँ:' ;;
+    it) printf '%s' 'Psyche non riesce ad avviare la sandbox di sicurezza su questo sistema. Installa invece il pacchetto .deb oppure esegui una sola volta:' ;;
+    ja) printf '%s' 'このシステムでは Psyche のセキュリティサンドボックスを起動できません。代わりに .deb パッケージをインストールするか、次のコマンドを一度だけ実行してください:' ;;
+    ko) printf '%s' '이 시스템에서는 Psyche의 보안 샌드박스를 시작할 수 없습니다. 대신 .deb 패키지를 설치하거나 다음 명령을 한 번 실행하세요:' ;;
+    pt) printf '%s' 'O Psyche não consegue iniciar o sandbox de segurança neste sistema. Instale o pacote .deb ou execute uma única vez:' ;;
+    zh) printf '%s' 'Psyche 无法在此系统上启动安全沙盒。请改为安装 .deb 软件包，或运行一次以下命令：' ;;
+    *) printf '%s' "Psyche can't start its security sandbox on this system. Install the .deb package instead, or run this once:" ;;
+  esac
+}
+
+# True when this kernel stops an unprivileged program from creating the user namespace Chromium needs.
+userns_blocked() {
+  [ "$(cat "$KERNEL/apparmor_restrict_unprivileged_userns" 2>/dev/null || echo 0)" = 1 ] && return 0
+  [ "$(cat "$KERNEL/unprivileged_userns_clone" 2>/dev/null || echo 1)" = 0 ] && return 0
+  return 1
+}
+
+# True when the setuid copy --setup-system installed is root's, setuid, and the same file as ours.
+system_sandbox_ok() {
+  [ -f "$SYSTEM_SANDBOX" ] && [ ! -L "$SYSTEM_SANDBOX" ] || return 1
+  [ -u "$SYSTEM_SANDBOX" ] || return 1
+  [ "$(stat -c %u "$SYSTEM_SANDBOX" 2>/dev/null)" = 0 ] || return 1
+  cmp -s "$SYSTEM_SANDBOX" "$here/chrome-sandbox"
+}
+
+setup_system() {
+  command -v pkexec >/dev/null 2>&1 || {
+    echo "psyche: pkexec is not installed; install polkit and run this again" >&2
+    exit 1
+  }
+  script=$here/resources/psyche-system-setup
+  [ -f "$script" ] || {
+    echo "psyche: $script is missing" >&2
+    exit 1
+  }
+  # polkit's policy (if this build has one) and the sandbox copy; never the deb/rpm-only unit or profile.
+  set -- -C "$here" chrome-sandbox
+  if [ -d "$here/resources/system/usr/share/polkit-1" ]; then
+    set -- -C "$here/resources/system" usr/share/polkit-1 "$@"
+  else
+    echo "psyche: this build has no password-approval policy yet; installing the sandbox helper only" >&2
+  fi
+  tar -cf - "$@" | pkexec /bin/sh -c "$(cat "$script")" psyche-system-setup install-stdin
+}
+
+case ${1:-} in
+  --setup-system)
+    setup_system
+    exit $?
+    ;;
+  --psyched)
+    shift
+    exec "$here/resources/psyched/psyched" "$@"
+    ;;
+esac
+
+if userns_blocked; then
+  if system_sandbox_ok; then
+    CHROME_DEVEL_SANDBOX=$SYSTEM_SANDBOX
+    export CHROME_DEVEL_SANDBOX
+  else
+    cmd="${APPIMAGE:-Psyche.AppImage} --setup-system"
+    msg="$(sandbox_message) $cmd"
+    printf '%s\n' "$msg" >&2
+    if command -v notify-send >/dev/null 2>&1; then
+      notify-send --app-name=Psyche --icon=psyche Psyche "$msg" || true
+    fi
+    exit 1
+  fi
+fi
+
+exec "$here/psyche" "$@"

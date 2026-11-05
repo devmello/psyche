@@ -1,0 +1,13 @@
+#!/bin/sh
+# deb prerm: takes Psyche's system files out on removal (not on upgrade). Never touches user data
+# (~/.psyche, ~/.config/Psyche): that is the owner's call in Settings > About > Uninstall.
+set -e
+APP=/usr/lib/psyche
+case "${1:-}" in
+  remove | purge)
+    if [ -x "$APP/resources/psyche-system-setup" ]; then
+      "$APP/resources/psyche-system-setup" remove || true
+    fi
+    ;;
+esac
+exit 0
