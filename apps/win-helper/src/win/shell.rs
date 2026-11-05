@@ -171,6 +171,9 @@ pub struct StartApp {
 
 /// Every app in `shell:AppsFolder`.
 pub fn start_apps() -> Vec<StartApp> {
+    // The shell objects need an apartment on this thread: a thread that never joined one used
+    // the implicit MTA, and two such enumerations at once crashed (0xC0000005) in the tests.
+    crate::win::com::ensure_mta();
     let mut out = Vec::new();
     // SAFETY: COM enumeration; every string is freed by take_pwstr.
     unsafe {

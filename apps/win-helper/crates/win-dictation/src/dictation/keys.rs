@@ -85,7 +85,10 @@ static FN_KEY: AtomicU16 = AtomicU16::new(0);
 /// The virtual key `fn` stands for: [`set_fn_key`], else `PSYCHE_DICTATION_FN_KEY`, else Right Alt.
 pub fn fn_key() -> u16 {
     match FN_KEY.load(Ordering::Relaxed) {
-        0 => std::env::var("PSYCHE_DICTATION_FN_KEY").ok().and_then(|s| parse_key_name(&s)).unwrap_or(VK_RMENU),
+        0 => std::env::var("PSYCHE_DICTATION_FN_KEY")
+            .ok()
+            .and_then(|s| parse_key_name(&s))
+            .unwrap_or(VK_RMENU),
         vk => vk,
     }
 }
@@ -108,7 +111,11 @@ pub fn parse_key_name(s: &str) -> Option<u16> {
         "apps" | "menu" => Some(0x5D),
         "scrolllock" => Some(0x91),
         "pause" => Some(0x13),
-        other => other.strip_prefix('f').and_then(|n| n.parse::<u16>().ok()).filter(|n| (13..=24).contains(n)).map(|n| 0x7C + n - 13),
+        other => other
+            .strip_prefix('f')
+            .and_then(|n| n.parse::<u16>().ok())
+            .filter(|n| (13..=24).contains(n))
+            .map(|n| 0x7C + n - 13),
     };
     named.or_else(|| {
         let v = match s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")) {
@@ -124,7 +131,18 @@ pub fn parse_key_name(s: &str) -> Option<u16> {
 pub fn is_modifier(vk: u16) -> bool {
     matches!(
         vk,
-        VK_SHIFT | VK_CONTROL | VK_MENU | VK_CAPITAL | VK_LWIN | VK_RWIN | VK_LSHIFT | VK_RSHIFT | VK_LCONTROL | VK_RCONTROL | VK_LMENU | VK_RMENU
+        VK_SHIFT
+            | VK_CONTROL
+            | VK_MENU
+            | VK_CAPITAL
+            | VK_LWIN
+            | VK_RWIN
+            | VK_LSHIFT
+            | VK_RSHIFT
+            | VK_LCONTROL
+            | VK_RCONTROL
+            | VK_LMENU
+            | VK_RMENU
     )
 }
 
@@ -140,10 +158,20 @@ pub struct KeyEvent {
 
 impl KeyEvent {
     pub fn down(vk: u16) -> Self {
-        KeyEvent { vk, scan: 0, down: true, injected: false }
+        KeyEvent {
+            vk,
+            scan: 0,
+            down: true,
+            injected: false,
+        }
     }
     pub fn up(vk: u16) -> Self {
-        KeyEvent { vk, scan: 0, down: false, injected: false }
+        KeyEvent {
+            vk,
+            scan: 0,
+            down: false,
+            injected: false,
+        }
     }
 }
 
@@ -157,7 +185,11 @@ pub struct KeyTracker {
 
 impl KeyTracker {
     pub fn new(vk: u16) -> Self {
-        KeyTracker { vk, is_down: false, chorded: false }
+        KeyTracker {
+            vk,
+            is_down: false,
+            chorded: false,
+        }
     }
 
     pub fn is_down(&self) -> bool {
@@ -225,7 +257,11 @@ pub struct WatchedKey {
 
 impl WatchedKey {
     pub fn new(key: DictationKey, role: Option<KeyRole>) -> Self {
-        WatchedKey { key, role, vk: key.vk() }
+        WatchedKey {
+            key,
+            role,
+            vk: key.vk(),
+        }
     }
 }
 
@@ -251,7 +287,12 @@ pub struct KeySet {
 impl KeySet {
     pub fn new(watched: Vec<WatchedKey>) -> Self {
         let trackers = watched.iter().map(|w| KeyTracker::new(w.vk)).collect();
-        KeySet { watched, trackers, fake_lctrl: false, altgr: false }
+        KeySet {
+            watched,
+            trackers,
+            fake_lctrl: false,
+            altgr: false,
+        }
     }
 
     pub fn trackers(&self) -> &[KeyTracker] {
@@ -264,7 +305,11 @@ impl KeySet {
     }
 
     fn change(&self, i: usize, down: bool) -> KeyChange {
-        KeyChange { key: self.watched[i].key, role: self.watched[i].role, down }
+        KeyChange {
+            key: self.watched[i].key,
+            role: self.watched[i].role,
+            down,
+        }
     }
 
     /// Feeds one hook event. Injected events are ignored (ours included).
@@ -279,7 +324,13 @@ impl KeySet {
             return vec![];
         }
         let fake_before = std::mem::take(&mut self.fake_lctrl);
-        if ev.vk == VK_RMENU && ev.down && !self.trackers.iter().any(|t| t.vk == VK_RMENU && t.is_pressed()) {
+        if ev.vk == VK_RMENU
+            && ev.down
+            && !self
+                .trackers
+                .iter()
+                .any(|t| t.vk == VK_RMENU && t.is_pressed())
+        {
             self.altgr = fake_before;
         }
         let mut out = vec![];
@@ -348,18 +399,33 @@ pub struct WatchKeyParam {
 /// the same physical key (`fn` bound to Right Alt and `rightOption`).
 pub fn watch_plan(p: &WatchParams) -> Result<Vec<WatchedKey>, CapError> {
     let Some(keys) = &p.keys else {
-        return Ok(p.key.map(|k| vec![WatchedKey::new(k, None)]).unwrap_or_default());
+        return Ok(p
+            .key
+            .map(|k| vec![WatchedKey::new(k, None)])
+            .unwrap_or_default());
     };
     if !(1..=2).contains(&keys.len()) {
-        return Err(CapError::invalid_params("keys holds one or two keys", Some("keys")));
+        return Err(CapError::invalid_params(
+            "keys holds one or two keys",
+            Some("keys"),
+        ));
     }
-    let planned: Vec<WatchedKey> = keys.iter().map(|k| WatchedKey::new(k.key, Some(k.role))).collect();
+    let planned: Vec<WatchedKey> = keys
+        .iter()
+        .map(|k| WatchedKey::new(k.key, Some(k.role)))
+        .collect();
     if planned.len() == 2 {
         if planned[0].key == planned[1].key || planned[0].vk == planned[1].vk {
-            return Err(CapError::invalid_params("each key is watched once", Some("keys")));
+            return Err(CapError::invalid_params(
+                "each key is watched once",
+                Some("keys"),
+            ));
         }
         if planned[0].role == planned[1].role {
-            return Err(CapError::invalid_params("each role is used once", Some("keys")));
+            return Err(CapError::invalid_params(
+                "each role is used once",
+                Some("keys"),
+            ));
         }
     }
     Ok(planned)
@@ -370,7 +436,11 @@ mod tests {
     use super::*;
 
     fn set(keys: &[(DictationKey, Option<KeyRole>, u16)]) -> KeySet {
-        KeySet::new(keys.iter().map(|&(key, role, vk)| WatchedKey { key, role, vk }).collect())
+        KeySet::new(
+            keys.iter()
+                .map(|&(key, role, vk)| WatchedKey { key, role, vk })
+                .collect(),
+        )
     }
 
     fn ch(key: DictationKey, role: Option<KeyRole>, down: bool) -> KeyChange {
@@ -399,13 +469,19 @@ mod tests {
     #[test]
     fn single_key_press_hold_release() {
         let mut s = set(&[(DictationKey::RightCommand, None, VK_RCONTROL)]);
-        assert_eq!(s.handle(&KeyEvent::down(VK_RCONTROL)), [ch(DictationKey::RightCommand, None, true)]);
+        assert_eq!(
+            s.handle(&KeyEvent::down(VK_RCONTROL)),
+            [ch(DictationKey::RightCommand, None, true)]
+        );
         for _ in 0..5 {
             assert!(s.handle(&KeyEvent::down(VK_RCONTROL)).is_empty()); // held: repeats
         }
         assert!(s.handle(&KeyEvent::down(VK_LSHIFT)).is_empty()); // another modifier
         assert!(s.handle(&KeyEvent::up(VK_LSHIFT)).is_empty());
-        assert_eq!(s.handle(&KeyEvent::up(VK_RCONTROL)), [ch(DictationKey::RightCommand, None, false)]);
+        assert_eq!(
+            s.handle(&KeyEvent::up(VK_RCONTROL)),
+            [ch(DictationKey::RightCommand, None, false)]
+        );
         // Left Ctrl is a different key.
         assert!(s.handle(&KeyEvent::down(VK_LCONTROL)).is_empty());
     }
@@ -414,7 +490,10 @@ mod tests {
     fn chord_releases_and_swallows_the_release() {
         let mut s = set(&[(DictationKey::RightCommand, None, VK_RCONTROL)]);
         s.handle(&KeyEvent::down(VK_RCONTROL));
-        assert_eq!(s.handle(&KeyEvent::down(0x43)), [ch(DictationKey::RightCommand, None, false)]); // Ctrl+C
+        assert_eq!(
+            s.handle(&KeyEvent::down(0x43)),
+            [ch(DictationKey::RightCommand, None, false)]
+        ); // Ctrl+C
         assert!(s.handle(&KeyEvent::up(0x43)).is_empty());
         assert!(s.handle(&KeyEvent::up(VK_RCONTROL)).is_empty());
         assert!(s.handle(&KeyEvent::down(0x43)).is_empty());
@@ -423,12 +502,33 @@ mod tests {
     #[test]
     fn injected_events_are_ignored() {
         let mut s = set(&[(DictationKey::RightOption, None, VK_RMENU)]);
-        let inj = KeyEvent { vk: VK_RMENU, scan: 0x38, down: true, injected: true };
+        let inj = KeyEvent {
+            vk: VK_RMENU,
+            scan: 0x38,
+            down: true,
+            injected: true,
+        };
         assert!(s.handle(&inj).is_empty());
         s.handle(&KeyEvent::down(VK_RMENU));
         // Our own typing (injected unicode packets, the menu mask) never chords the hold.
-        assert!(s.handle(&KeyEvent { vk: 0xE7, scan: 0, down: true, injected: true }).is_empty());
-        assert!(s.handle(&KeyEvent { vk: VK_MENU_MASK, scan: 0, down: true, injected: true }).is_empty());
+        assert!(
+            s.handle(&KeyEvent {
+                vk: 0xE7,
+                scan: 0,
+                down: true,
+                injected: true
+            })
+            .is_empty()
+        );
+        assert!(
+            s.handle(&KeyEvent {
+                vk: VK_MENU_MASK,
+                scan: 0,
+                down: true,
+                injected: true
+            })
+            .is_empty()
+        );
         assert!(s.trackers()[0].is_down());
     }
 
@@ -436,18 +536,40 @@ mod tests {
     fn altgr_synthesized_left_ctrl_is_not_a_chord() {
         let mut s = set(&[(DictationKey::RightOption, None, VK_RMENU)]);
         // AltGr layouts: LCtrl (scan 0x21D) down, RAlt down, both repeat, both up.
-        let fake = |down| KeyEvent { vk: VK_LCONTROL, scan: ALTGR_FAKE_LCTRL_SCAN, down, injected: false };
+        let fake = |down| KeyEvent {
+            vk: VK_LCONTROL,
+            scan: ALTGR_FAKE_LCTRL_SCAN,
+            down,
+            injected: false,
+        };
         assert!(s.handle(&fake(true)).is_empty());
-        assert_eq!(s.handle(&KeyEvent { vk: VK_RMENU, scan: 0x38, down: true, injected: false }), [ch(DictationKey::RightOption, None, true)]);
+        assert_eq!(
+            s.handle(&KeyEvent {
+                vk: VK_RMENU,
+                scan: 0x38,
+                down: true,
+                injected: false
+            }),
+            [ch(DictationKey::RightOption, None, true)]
+        );
         assert!(s.handle(&fake(true)).is_empty());
         assert!(s.altgr_layout());
-        assert!(!s.wants_menu_mask(VK_RMENU), "AltGr never opens the menu bar");
+        assert!(
+            !s.wants_menu_mask(VK_RMENU),
+            "AltGr never opens the menu bar"
+        );
         assert!(s.handle(&fake(false)).is_empty());
-        assert_eq!(s.handle(&KeyEvent::up(VK_RMENU)), [ch(DictationKey::RightOption, None, false)]);
+        assert_eq!(
+            s.handle(&KeyEvent::up(VK_RMENU)),
+            [ch(DictationKey::RightOption, None, false)]
+        );
         // AltGr+E (€) is a chord, like Option+letter on the mac.
         s.handle(&fake(true));
         s.handle(&KeyEvent::down(VK_RMENU));
-        assert_eq!(s.handle(&KeyEvent::down(0x45)), [ch(DictationKey::RightOption, None, false)]);
+        assert_eq!(
+            s.handle(&KeyEvent::down(0x45)),
+            [ch(DictationKey::RightOption, None, false)]
+        );
         s.handle(&KeyEvent::up(VK_RMENU));
         // After switching to a layout without AltGr, a plain Right Alt hold is masked again.
         s.handle(&KeyEvent::down(VK_RMENU));
@@ -457,7 +579,14 @@ mod tests {
 
     #[test]
     fn menu_mask_only_for_bare_alt_or_win_holds() {
-        let mut s = set(&[(DictationKey::RightOption, None, VK_RMENU), (DictationKey::RightCommand, Some(KeyRole::Voice), VK_RCONTROL)]);
+        let mut s = set(&[
+            (DictationKey::RightOption, None, VK_RMENU),
+            (
+                DictationKey::RightCommand,
+                Some(KeyRole::Voice),
+                VK_RCONTROL,
+            ),
+        ]);
         assert!(!s.wants_menu_mask(VK_RMENU));
         s.handle(&KeyEvent::down(VK_RMENU));
         assert!(s.wants_menu_mask(VK_RMENU));
@@ -469,24 +598,52 @@ mod tests {
 
     #[test]
     fn two_keys_hold_independently() {
-        let mut s = set(&[(DictationKey::Fn, Some(KeyRole::Dictation), VK_RWIN), (DictationKey::RightOption, Some(KeyRole::Voice), VK_RMENU)]);
-        assert_eq!(s.handle(&KeyEvent::down(VK_RMENU)), [ch(DictationKey::RightOption, Some(KeyRole::Voice), true)]);
-        assert_eq!(s.handle(&KeyEvent::down(VK_RWIN)), [ch(DictationKey::Fn, Some(KeyRole::Dictation), true)]);
-        assert_eq!(s.handle(&KeyEvent::up(VK_RMENU)), [ch(DictationKey::RightOption, Some(KeyRole::Voice), false)]);
+        let mut s = set(&[
+            (DictationKey::Fn, Some(KeyRole::Dictation), VK_RWIN),
+            (DictationKey::RightOption, Some(KeyRole::Voice), VK_RMENU),
+        ]);
+        assert_eq!(
+            s.handle(&KeyEvent::down(VK_RMENU)),
+            [ch(DictationKey::RightOption, Some(KeyRole::Voice), true)]
+        );
+        assert_eq!(
+            s.handle(&KeyEvent::down(VK_RWIN)),
+            [ch(DictationKey::Fn, Some(KeyRole::Dictation), true)]
+        );
+        assert_eq!(
+            s.handle(&KeyEvent::up(VK_RMENU)),
+            [ch(DictationKey::RightOption, Some(KeyRole::Voice), false)]
+        );
         // A key press while fn is still held chords only fn.
-        assert_eq!(s.handle(&KeyEvent::down(0x26)), [ch(DictationKey::Fn, Some(KeyRole::Dictation), false)]);
+        assert_eq!(
+            s.handle(&KeyEvent::down(0x26)),
+            [ch(DictationKey::Fn, Some(KeyRole::Dictation), false)]
+        );
         assert!(s.handle(&KeyEvent::up(VK_RWIN)).is_empty());
         assert!(s.handle(&KeyEvent::down(0x26)).is_empty());
     }
 
     #[test]
     fn chord_while_both_held_releases_both_and_a_watched_non_modifier_is_not_a_chord() {
-        let mut s = set(&[(DictationKey::RightCommand, Some(KeyRole::Dictation), VK_RCONTROL), (DictationKey::Fn, Some(KeyRole::Voice), 0x7C)]);
+        let mut s = set(&[
+            (
+                DictationKey::RightCommand,
+                Some(KeyRole::Dictation),
+                VK_RCONTROL,
+            ),
+            (DictationKey::Fn, Some(KeyRole::Voice), 0x7C),
+        ]);
         s.handle(&KeyEvent::down(VK_RCONTROL));
         // fn bound to F13 (a non-modifier) pressed during the other hold: its own hold, no chord.
-        assert_eq!(s.handle(&KeyEvent::down(0x7C)), [ch(DictationKey::Fn, Some(KeyRole::Voice), true)]);
+        assert_eq!(
+            s.handle(&KeyEvent::down(0x7C)),
+            [ch(DictationKey::Fn, Some(KeyRole::Voice), true)]
+        );
         let both = s.handle(&KeyEvent::down(0x41));
-        assert_eq!(both.iter().map(|c| c.down).collect::<Vec<_>>(), [false, false]);
+        assert_eq!(
+            both.iter().map(|c| c.down).collect::<Vec<_>>(),
+            [false, false]
+        );
     }
 
     #[test]
@@ -496,7 +653,11 @@ mod tests {
         let mut downs = 0;
         for _ in 0..3 {
             for _ in 0..10 {
-                downs += s.handle(&KeyEvent::down(VK_RCONTROL)).iter().filter(|c| c.down).count();
+                downs += s
+                    .handle(&KeyEvent::down(VK_RCONTROL))
+                    .iter()
+                    .filter(|c| c.down)
+                    .count();
             }
             s.handle(&KeyEvent::up(VK_RCONTROL));
         }
@@ -508,13 +669,19 @@ mod tests {
         let mut s = set(&[(DictationKey::RightCommand, None, VK_RCONTROL)]);
         s.handle(&KeyEvent::down(VK_RCONTROL));
         assert!(s.resync(|_| true).is_empty());
-        assert_eq!(s.resync(|_| false), [ch(DictationKey::RightCommand, None, false)]);
+        assert_eq!(
+            s.resync(|_| false),
+            [ch(DictationKey::RightCommand, None, false)]
+        );
         assert!(s.resync(|_| false).is_empty());
         // A chorded press whose release was lost is cleared too, so the next press counts.
         s.handle(&KeyEvent::down(VK_RCONTROL));
         s.handle(&KeyEvent::down(0x41));
         assert!(s.resync(|_| false).is_empty());
-        assert_eq!(s.handle(&KeyEvent::down(VK_RCONTROL)), [ch(DictationKey::RightCommand, None, true)]);
+        assert_eq!(
+            s.handle(&KeyEvent::down(VK_RCONTROL)),
+            [ch(DictationKey::RightCommand, None, true)]
+        );
     }
 
     #[test]
@@ -534,17 +701,37 @@ mod tests {
 
     #[test]
     fn plan() {
-        let p = |v: serde_json::Value| watch_plan(&serde_json::from_value::<WatchParams>(v).unwrap());
+        let p =
+            |v: serde_json::Value| watch_plan(&serde_json::from_value::<WatchParams>(v).unwrap());
         let rc = |k, r| WatchedKey::new(k, r);
-        assert_eq!(p(serde_json::json!({"key": "rightCommand"})).unwrap(), [rc(DictationKey::RightCommand, None)]);
+        assert_eq!(
+            p(serde_json::json!({"key": "rightCommand"})).unwrap(),
+            [rc(DictationKey::RightCommand, None)]
+        );
         assert!(p(serde_json::json!({"key": null})).unwrap().is_empty());
         assert!(p(serde_json::json!({})).unwrap().is_empty());
         // keys wins over key.
         let two = p(serde_json::json!({"key": "fn", "keys": [{"key": "rightCommand", "role": "voice"}, {"key": "fn", "role": "dictation"}]})).unwrap();
-        assert_eq!(two, [rc(DictationKey::RightCommand, Some(KeyRole::Voice)), rc(DictationKey::Fn, Some(KeyRole::Dictation))]);
+        assert_eq!(
+            two,
+            [
+                rc(DictationKey::RightCommand, Some(KeyRole::Voice)),
+                rc(DictationKey::Fn, Some(KeyRole::Dictation))
+            ]
+        );
         let err = |v| p(v).unwrap_err().details["field"].clone();
-        assert_eq!(err(serde_json::json!({"keys": [{"key": "fn", "role": "voice"}, {"key": "fn", "role": "dictation"}]})), "keys");
-        assert_eq!(err(serde_json::json!({"keys": [{"key": "fn", "role": "voice"}, {"key": "rightCommand", "role": "voice"}]})), "keys");
+        assert_eq!(
+            err(
+                serde_json::json!({"keys": [{"key": "fn", "role": "voice"}, {"key": "fn", "role": "dictation"}]})
+            ),
+            "keys"
+        );
+        assert_eq!(
+            err(
+                serde_json::json!({"keys": [{"key": "fn", "role": "voice"}, {"key": "rightCommand", "role": "voice"}]})
+            ),
+            "keys"
+        );
         assert_eq!(err(serde_json::json!({"keys": []})), "keys");
         // fn defaults to Right Alt, so fn + rightOption is one physical key.
         set_fn_key(0);

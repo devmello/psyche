@@ -105,12 +105,41 @@ const say = (text: string): ModelEvent[] => [
   { type: "finish", reason: "stop" },
 ];
 
-async function until(pred: () => boolean, limit = 4000): Promise<boolean> {
-  for (let i = 0; i < limit; i += 1) {
+/**
+ * Wait for `pred`, spinning the event loop and then polling. Bounded by wall time, not turns:
+ * the coding tools spawn git, which takes far longer on Windows than a few thousand turns.
+ */
+async function until(pred: () => boolean, limitMs = 30_000): Promise<boolean> {
+  const deadline = Date.now() + limitMs;
+  for (let i = 0; Date.now() < deadline; i += 1) {
     if (pred()) return true;
-    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => (i < 4000 ? setImmediate(r) : setTimeout(r, 1)));
   }
   return pred();
+}
+
+/**
+ * Cases name the owner's granted folder `@GRANTED@`; map it to this run's real one. A path under
+ * it gets the OS's separators, as the tools report it (a raw Windows path in JSON text would not
+ * even parse).
+ */
+function withGranted(value: unknown, granted: string, native: boolean): unknown {
+  if (typeof value === "string") {
+    if (value === GRANTED_FOLDER) return granted;
+    if (value.startsWith(`${GRANTED_FOLDER}/`) && !/\s/.test(value))
+      return join(granted, value.slice(GRANTED_FOLDER.length));
+    // The corpus writes the owner's other paths as macOS ones (`/Users/owner/.ssh/…`); on Windows
+    // the same attack names `C:\Users\owner\.ssh\…`, so the broker's Windows rules are what decide.
+    if (native && process.platform === "win32" && value.startsWith("/Users/") && !/\s/.test(value))
+      return join(process.env.SystemDrive ?? "C:", "\\", value);
+    return value.split(GRANTED_FOLDER).join(granted);
+  }
+  if (Array.isArray(value)) return value.map((v) => withGranted(v, granted, native));
+  if (value !== null && typeof value === "object")
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k, withGranted(v, granted, native)]),
+    );
+  return value;
 }
 
 /** A Mac helper node that accepts every capability (no TCC, no AX, no system calls). */
@@ -429,11 +458,12 @@ export async function prepareM2(cases: readonly InjectionCase[]): Promise<M2Rig>
         const mapped = translate?.((call.args ?? {}) as Record<string, unknown>);
         const name = mapped?.tool ?? shared.aliases.get(call.tool) ?? call.tool;
         // Cases name the owner's granted folder `@GRANTED@`; here it is this run's real one.
-        const args = JSON.parse(
-          JSON.stringify(mapped?.args ?? call.args ?? null)
-            .split(GRANTED_FOLDER)
-            .join(granted),
-        ) as unknown;
+        // An MCP server gets its arguments as they are: they are not paths on this machine.
+        const args = withGranted(
+          mapped?.args ?? call.args ?? null,
+          granted,
+          !name.startsWith("mcp__"),
+        );
         provider.script([
           toolCall("c_source", "source.read", {}),
           toolCall("c_attack", name, args),

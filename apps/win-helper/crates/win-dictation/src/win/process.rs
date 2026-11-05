@@ -3,17 +3,22 @@
 //! family name (packaged apps), display name and whether it runs above our integrity level.
 
 use super::wide;
-use std::ffi::c_void;
 use std::collections::HashMap;
+use std::ffi::c_void;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 use windows::Win32::Foundation::{CloseHandle, FILETIME, HANDLE};
-use windows::Win32::Security::{GetSidSubAuthority, GetSidSubAuthorityCount, GetTokenInformation, TOKEN_MANDATORY_LABEL, TOKEN_QUERY, TokenIntegrityLevel};
-use windows::Win32::Storage::FileSystem::{GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW};
+use windows::Win32::Security::{
+    GetSidSubAuthority, GetSidSubAuthorityCount, GetTokenInformation, TOKEN_MANDATORY_LABEL,
+    TOKEN_QUERY, TokenIntegrityLevel,
+};
+use windows::Win32::Storage::FileSystem::{
+    GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW,
+};
 use windows::Win32::Storage::Packaging::Appx::GetPackageFamilyName;
 use windows::Win32::System::Threading::{
-    GetCurrentProcess, GetProcessTimes, OpenProcess, OpenProcessToken, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
-    QueryFullProcessImageNameW,
+    GetCurrentProcess, GetProcessTimes, OpenProcess, OpenProcessToken, PROCESS_NAME_WIN32,
+    PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
 use windows::core::{PCWSTR, PWSTR};
 
@@ -45,16 +50,29 @@ fn cache() -> &'static Mutex<HashMap<(u32, u64), ProcessInfo>> {
 }
 
 fn created(h: HANDLE) -> Option<u64> {
-    let (mut c, mut e, mut k, mut u) = (FILETIME::default(), FILETIME::default(), FILETIME::default(), FILETIME::default());
+    let (mut c, mut e, mut k, mut u) = (
+        FILETIME::default(),
+        FILETIME::default(),
+        FILETIME::default(),
+        FILETIME::default(),
+    );
     // SAFETY: four out-parameters.
     unsafe { GetProcessTimes(h, &mut c, &mut e, &mut k, &mut u) }.ok()?;
     Some(((c.dwHighDateTime as u64) << 32) | c.dwLowDateTime as u64)
 }
 
 pub(crate) fn info(pid: u32) -> ProcessInfo {
-    let fallback = ProcessInfo { bundle_id: None, exe: None, package_family_name: None, app_name: format!("pid {pid}"), elevated: false };
+    let fallback = ProcessInfo {
+        bundle_id: None,
+        exe: None,
+        package_family_name: None,
+        app_name: format!("pid {pid}"),
+        elevated: false,
+    };
     // SAFETY: querying another process with the least access that answers these questions.
-    let Ok(h) = (unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }) else { return fallback };
+    let Ok(h) = (unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }) else {
+        return fallback;
+    };
     let h = Handle(h);
     let key = created(h.0).map(|t| (pid, t));
     if let Some(k) = key
@@ -77,24 +95,37 @@ pub(crate) fn info(pid: u32) -> ProcessInfo {
 fn lookup(h: HANDLE, fallback: ProcessInfo) -> ProcessInfo {
     let path = image_path(h);
     let family = package_family(h);
-    let bundle_id = path.as_deref().and_then(psyche_win_computer::app_id_from_exe);
+    let bundle_id = path
+        .as_deref()
+        .and_then(psyche_win_computer::app_id_from_exe);
     let app_name = path
         .as_deref()
         .and_then(file_description)
-        .or_else(|| path.as_deref().and_then(|p| Path::new(p).file_stem()).map(|s| s.to_string_lossy().into_owned()))
+        .or_else(|| {
+            path.as_deref()
+                .and_then(|p| Path::new(p).file_stem())
+                .map(|s| s.to_string_lossy().into_owned())
+        })
         .unwrap_or(fallback.app_name);
     let elevated = match (integrity(h), own_integrity()) {
         (Some(theirs), Some(ours)) => theirs > ours,
         _ => false,
     };
-    ProcessInfo { bundle_id, exe: path, package_family_name: family, app_name, elevated }
+    ProcessInfo {
+        bundle_id,
+        exe: path,
+        package_family_name: family,
+        app_name,
+        elevated,
+    }
 }
 
 fn image_path(h: HANDLE) -> Option<String> {
     let mut buf = vec![0u16; 32_768];
     let mut len = buf.len() as u32;
     // SAFETY: buf holds len UTF-16 units.
-    unsafe { QueryFullProcessImageNameW(h, PROCESS_NAME_WIN32, PWSTR(buf.as_mut_ptr()), &mut len) }.ok()?;
+    unsafe { QueryFullProcessImageNameW(h, PROCESS_NAME_WIN32, PWSTR(buf.as_mut_ptr()), &mut len) }
+        .ok()?;
     Some(String::from_utf16_lossy(&buf[..len as usize]))
 }
 
@@ -125,12 +156,26 @@ fn file_description(path: &str) -> Option<String> {
             return None;
         }
         let mut data = vec![0u8; size as usize];
-        GetFileVersionInfoW(PCWSTR(w.as_ptr()), None, size, data.as_mut_ptr() as *mut c_void).ok()?;
+        GetFileVersionInfoW(
+            PCWSTR(w.as_ptr()),
+            None,
+            size,
+            data.as_mut_ptr() as *mut c_void,
+        )
+        .ok()?;
         let mut ptr: *mut c_void = std::ptr::null_mut();
         let mut len = 0u32;
         let q = wide("\\VarFileInfo\\Translation");
         let mut langs = vec![];
-        if VerQueryValueW(data.as_ptr() as *const c_void, PCWSTR(q.as_ptr()), &mut ptr, &mut len).as_bool() && len >= 4 {
+        if VerQueryValueW(
+            data.as_ptr() as *const c_void,
+            PCWSTR(q.as_ptr()),
+            &mut ptr,
+            &mut len,
+        )
+        .as_bool()
+            && len >= 4
+        {
             let pairs = std::slice::from_raw_parts(ptr as *const u16, len as usize / 2);
             for p in pairs.chunks(2) {
                 langs.push(format!("{:04x}{:04x}", p[0], p[1]));
@@ -139,8 +184,19 @@ fn file_description(path: &str) -> Option<String> {
         langs.extend(["040904b0".to_string(), "040904e4".to_string()]);
         for l in langs {
             let q = wide(&format!("\\StringFileInfo\\{l}\\FileDescription"));
-            if VerQueryValueW(data.as_ptr() as *const c_void, PCWSTR(q.as_ptr()), &mut ptr, &mut len).as_bool() && len > 1 {
-                let s = String::from_utf16_lossy(std::slice::from_raw_parts(ptr as *const u16, len as usize));
+            if VerQueryValueW(
+                data.as_ptr() as *const c_void,
+                PCWSTR(q.as_ptr()),
+                &mut ptr,
+                &mut len,
+            )
+            .as_bool()
+                && len > 1
+            {
+                let s = String::from_utf16_lossy(std::slice::from_raw_parts(
+                    ptr as *const u16,
+                    len as usize,
+                ));
                 let s = s.trim_end_matches('\0').trim().to_string();
                 if !s.is_empty() {
                     return Some(s);
@@ -163,7 +219,14 @@ fn integrity(process: HANDLE) -> Option<u32> {
             return None;
         }
         let mut buf = vec![0u8; len as usize];
-        GetTokenInformation(token.0, TokenIntegrityLevel, Some(buf.as_mut_ptr() as *mut c_void), len, &mut len).ok()?;
+        GetTokenInformation(
+            token.0,
+            TokenIntegrityLevel,
+            Some(buf.as_mut_ptr() as *mut c_void),
+            len,
+            &mut len,
+        )
+        .ok()?;
         let label = &*(buf.as_ptr() as *const TOKEN_MANDATORY_LABEL);
         let sid = label.Label.Sid;
         let count = *GetSidSubAuthorityCount(sid);

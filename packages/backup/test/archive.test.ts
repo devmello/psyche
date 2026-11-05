@@ -128,7 +128,9 @@ describe("backup library", () => {
     ).rejects.toThrow(/Cannot decrypt/);
   });
 
-  it("recipients mode round trip with an age identity", async () => {
+  // age encryption plus an archive of the fixture home: ~0.9 s alone on Windows, past vitest's
+  // 5 s default under the full parallel suite.
+  it("recipients mode round trip with an age identity", { timeout: 30_000 }, async () => {
     const identity = await generateIdentity();
     const recipient = await identityToRecipient(identity);
     const home = fixtureHome();

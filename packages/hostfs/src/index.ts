@@ -35,5 +35,6 @@ export {
   ensureOwnerOnly,
   isOwnerOnly,
   readDaclSddl,
+  readDaclsSddl,
   restrictToOwner,
 } from "./private.ts";

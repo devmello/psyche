@@ -27,7 +27,10 @@ impl Default for Timings {
 
 impl Timings {
     pub fn new(window: usize) -> Self {
-        Timings { window: window.max(1), samples: Mutex::new(HashMap::new()) }
+        Timings {
+            window: window.max(1),
+            samples: Mutex::new(HashMap::new()),
+        }
     }
 
     pub fn record(&self, m: Metric, ms: u64) {
@@ -41,13 +44,23 @@ impl Timings {
     }
 
     pub fn median(&self, m: Metric) -> Option<u64> {
-        let mut xs = self.samples.lock().unwrap_or_else(|e| e.into_inner()).get(&m).cloned().unwrap_or_default();
+        let mut xs = self
+            .samples
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&m)
+            .cloned()
+            .unwrap_or_default();
         if xs.is_empty() {
             return None;
         }
         xs.sort_unstable();
         let n = xs.len();
-        Some(if n % 2 == 1 { xs[n / 2] } else { (xs[n / 2 - 1] + xs[n / 2]) / 2 })
+        Some(if n % 2 == 1 {
+            xs[n / 2]
+        } else {
+            (xs[n / 2 - 1] + xs[n / 2]) / 2
+        })
     }
 
     /// Only measured metrics appear.
@@ -84,9 +97,15 @@ mod tests {
         for ms in [100, 300, 200, 900] {
             t.record(Metric::FirstPartial(SpeechPreset::Long), ms);
         }
-        assert_eq!(t.median(Metric::FirstPartial(SpeechPreset::Long)), Some(300));
+        assert_eq!(
+            t.median(Metric::FirstPartial(SpeechPreset::Long)),
+            Some(300)
+        );
         t.record(Metric::Finalize(SpeechPreset::Short), 40);
         t.record(Metric::Finalize(SpeechPreset::Short), 60);
-        assert_eq!(t.json(), json!({"firstPartialMs": {"long": 300}, "finalizeMs": {"short": 50}}));
+        assert_eq!(
+            t.json(),
+            json!({"firstPartialMs": {"long": 300}, "finalizeMs": {"short": 50}})
+        );
     }
 }

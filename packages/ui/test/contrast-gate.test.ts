@@ -3,6 +3,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_ACCENT_SEED, generateTheme, wcagContrast } from "../src/theme/generate.ts";
 
+/** This package's root: `vitest run` at the repository root does not change the cwd. */
+const PKG = `${import.meta.dirname}/..`;
+
 /**
  * The colour pairs the UI uses for text, focus rings and icons (docs/a11y-audit.md), gated at
  * WCAG AA in light and dark: 4.5:1 for text, 3:1 for focus indicators and meaningful icons. The
@@ -10,7 +13,7 @@ import { DEFAULT_ACCENT_SEED, generateTheme, wcagContrast } from "../src/theme/g
  * pairs the audit found failing.
  */
 
-const css = readFileSync(join(process.cwd(), "src/styles/semantic.css"), "utf8");
+const css = readFileSync(join(PKG, "src/styles/semantic.css"), "utf8");
 
 function scale(mode: "light" | "dark"): Record<string, string> {
   const [light = "", dark = ""] = css.split(':root[data-theme="dark"]');

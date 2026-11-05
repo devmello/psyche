@@ -19,8 +19,11 @@ import { DEFAULT_ACTIONS, paletteMatches } from "../src/shell/CommandPalette.tsx
 import { notificationRoute } from "../src/shell/notification-target.ts";
 import { destinationFor, RAIL_ITEMS } from "../src/shell/Rail.tsx";
 
+/** This package's root: `vitest run` at the repository root does not change the cwd. */
+const PKG = `${import.meta.dirname}/..`;
+
 // Vitest runs in packages/ui; the shell code the screens come from is two levels up.
-const read = (rel: string) => readFileSync(resolve(process.cwd(), "../..", rel), "utf8");
+const read = (rel: string) => readFileSync(resolve(PKG, "../..", rel), "utf8");
 
 /** Every route the sidebar's destinations or the palette open, as written. */
 const reachable = new Set<string>([

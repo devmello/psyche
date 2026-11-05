@@ -160,11 +160,13 @@ export interface HandshakeOptions {
   gatewayKey?: string;
   /** A setup token from a pairing link, presented in connect.verify. */
   setupToken?: string;
+  /** The DevicePlatform the device declares (default `macos`). */
+  platform?: "macos" | "windows" | "linux" | "ios" | "android" | "web";
 }
 
 export async function handshake(client: TestClient, origin: string, opts: HandshakeOptions = {}) {
   const key = opts.key ?? newDeviceKey();
-  const platform = "macos";
+  const platform = opts.platform ?? "macos";
   const deviceFamily = opts.deviceFamily ?? "desktop";
   const challengeRes = await client.request("connect", {
     protocolVersion: { min: 1, max: PROTOCOL_VERSION },
@@ -216,12 +218,14 @@ export async function desktopClient(
   gateway: Gateway,
   key = newDeviceKey(),
   deviceId?: string,
+  platform?: HandshakeOptions["platform"],
 ): Promise<TestClient> {
   const c = await TestClient.open(wsUrlOf(gateway));
   const r = await handshake(c, gateway.origin, {
     key,
     handshakeSecret: gateway.handshakeSecret,
     ...(deviceId ? { deviceId } : {}),
+    ...(platform ? { platform } : {}),
   });
   if ((r.verifyRes?.payload as { phase?: string } | undefined)?.phase !== "paired") {
     throw new Error(`desktop did not pair: ${JSON.stringify(r.verifyRes)}`);
