@@ -149,7 +149,11 @@ const config: ForgeConfig = {
       ignore: skipOuterSigning,
     }),
   },
-  rebuildConfig: {},
+  // node-pty is N-API (node-addon-api): its prebuilds (darwin and win32, arm64 and x64) load in any
+  // Electron, and on Linux its install step compiles one that does too. Rebuilding it from source
+  // gains nothing and fails on Windows hosts without the Spectre-mitigated MSVC libraries, which
+  // its binding.gyp asks for. copyNodePty above ships the prebuild.
+  rebuildConfig: { ignoreModules: ["node-pty"] },
   // TODO(S22/C2): signed DMG and the release pipeline (manifest signed with the release key,
   // security §11). ZIP only until then.
   makers: [
