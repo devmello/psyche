@@ -1,0 +1,22 @@
+[package]
+name = "psyche-helper"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+description = "Psyche Linux helper: a node that speaks the Psyche node protocol over the Gateway's node socket"
+
+[[bin]]
+name = "psyche-helper"
+path = "src/main.rs"
+
+[dependencies]
+base64 = "0.23.1"
+ed25519-dalek = "3.0.0"
+getrandom = "0.4.3"
+psyche-protocol = { version = "0.1.0", path = "../protocol" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha2 = "0.11.1"
+
+[dev-dependencies]
+tempfile = "3.27.0"

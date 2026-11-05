@@ -1,0 +1,4 @@
+[alias]
+xtask = "run --quiet --package xtask --"
+gen = "run --quiet --package xtask -- gen"
+gen-check = "run --quiet --package xtask -- gen-check"
