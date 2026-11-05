@@ -30,9 +30,18 @@ const SHORT_NAME = /^[^~.\\/]{1,6}~[0-9]+(?:\.[^.\\/]{0,3})?$/;
 // biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are what it refuses.
 const BAD_CHARS = /[<>"|?*\u0000-\u001f]/;
 
+/**
+ * JSON Schema `pattern` for an absolute host path in a tool's input: `^/` on macOS/Linux; on
+ * Windows a drive (`C:\`, `C:/`) or UNC (`\\server\share`) path. A POSIX path is not offered there:
+ * Windows would read `/x` as `\x` on the current drive.
+ */
+export function absoluteHostPathPattern(platform: NodeJS.Platform = process.platform): string {
+  return platform === "win32" ? "^(?:[A-Za-z]:[\\\\/]|[\\\\/]{2}[^\\\\/.?])" : "^/";
+}
+
 /** Whether `p` is in Windows host form (drive or UNC), whatever the platform. */
 export function isWin32HostPath(p: string): boolean {
-  return /^[A-Z]:\\/.test(p) || p.startsWith("\\\\");
+  return /^[A-Za-z]:\\/.test(p) || p.startsWith("\\\\");
 }
 
 /** The flavor of a canonical host path. */

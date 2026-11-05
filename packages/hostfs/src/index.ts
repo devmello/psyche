@@ -7,6 +7,7 @@ export {
   windowsLaunchable,
 } from "./launch.ts";
 export {
+  absoluteHostPathPattern,
   canonicalHostPath,
   foldHostPath,
   HostPathError,

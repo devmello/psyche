@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  absoluteHostPathPattern,
   canonicalHostPath,
   HostPathError,
   isAbsoluteHostPath,
@@ -106,6 +107,15 @@ describe("Windows host paths", () => {
     expect(isUnderHostPath("/Users/x/Docs", win("C:\\Users\\x"))).toBe(false);
     expect(isUnderHostPath(win("C:\\workspace"), "/workspace")).toBe(false);
     expect(isUnderHostPath(win("C:\\workspace"), "/")).toBe(false);
+  });
+
+  it("offers a tool-input pattern for the platform's absolute paths", () => {
+    const win = new RegExp(absoluteHostPathPattern("win32"));
+    for (const p of ["C:\\Users", "c:/Users", "\\\\srv\\share"]) expect(win.test(p), p).toBe(true);
+    for (const p of ["/Users", "Users", "C:Users", "\\\\.\\pipe\\x", "\\\\?\\C:\\x"]) {
+      expect(win.test(p), p).toBe(false);
+    }
+    expect(absoluteHostPathPattern("darwin")).toBe("^/");
   });
 
   it("joins, relativizes and writes slashes in the path's own form", () => {
