@@ -222,4 +222,10 @@ export const final202611: Partial<Catalogue> = {
   "web.teach.step.app.typeInput": "En {app}, escribe {input} en «{name}»",
   "web.teach.step.app.typeAsk": "En {app}, escribe en «{name}» lo que le indiques",
   "web.teach.step.app.typeSensitive": "En {app}, escribes tú mismo en «{name}»",
+  "app.integrity.title": "Los archivos de Psyche han cambiado",
+  "app.integrity.detail":
+    "Esta copia de Psyche ya no coincide con la firma con la que se publicó, así que algo puede haberla modificado. Hasta que la reinstales desde la descarga oficial, Psyche mantiene desactivadas las funciones de micrófono, pantalla, Apple Events, Contactos y Calendario. El servicio en segundo plano de Psyche (el Gateway) sigue funcionando.",
+  "app.integrity.blocked":
+    "Desactivado: esta copia de Psyche fue modificada. Reinstálala desde la descarga oficial.",
+  "app.integrity.ok": "Aceptar",
 };

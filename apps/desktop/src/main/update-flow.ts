@@ -45,12 +45,21 @@ export interface UpdateCheckDeps {
   /** Directory for the downloaded zip (0700). */
   dir: string;
   log(message: string): void;
+  /** Looks at the downloaded zip before it is kept (update-gate.ts `inspectQuarantine`). */
+  inspectDownload?(file: string): Promise<"absent" | "removed" | "unknown">;
 }
 
 export type UpdateCheck =
   | { state: "no_keys" }
   | { state: "none"; reason: string }
-  | { state: "ready"; release: string; file: string; mandatory: boolean }
+  | {
+      state: "ready";
+      release: string;
+      file: string;
+      mandatory: boolean;
+      /** Whether the download carried the quarantine flag (it should not: it is stripped if so). */
+      quarantine?: "absent" | "removed" | "unknown";
+    }
   | { state: "refused"; code: string; reason: string };
 
 async function getBytes(f: typeof fetch, url: string): Promise<Uint8Array | null> {
@@ -131,7 +140,19 @@ export async function checkForVerifiedUpdate(d: UpdateCheckDeps): Promise<Update
     d.log(
       `verified ${plan.artifact.name} for ${plan.release}${plan.mandatory ? " (required update)" : ""}`,
     );
-    return { state: "ready", release: plan.release, file, mandatory: plan.mandatory };
+    const quarantine = d.inspectDownload ? await d.inspectDownload(file) : undefined;
+    if (quarantine === "removed") {
+      d.log(
+        "the download carried com.apple.quarantine; removed it (the file matches the signed manifest)",
+      );
+    }
+    return {
+      state: "ready",
+      release: plan.release,
+      file,
+      mandatory: plan.mandatory,
+      ...(quarantine ? { quarantine } : {}),
+    };
   } catch (err) {
     if (err instanceof ManifestError)
       return { state: "refused", code: err.code, reason: err.message };
@@ -187,6 +208,8 @@ export interface UpdaterStateFile {
   code?: string;
   reason?: string;
   release?: string;
+  /** Whether the downloaded zip carried the quarantine flag: "absent" is the expected answer. */
+  quarantine?: "absent" | "removed" | "unknown";
 }
 
 export function writeUpdaterState(file: string, state: Omit<UpdaterStateFile, "version">): void {

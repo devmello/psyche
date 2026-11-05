@@ -221,4 +221,9 @@ export const final202611: Partial<Catalogue> = {
   "web.teach.step.app.typeInput": "{app}에서 ‘{name}’에 {input} 입력",
   "web.teach.step.app.typeAsk": "{app}에서 ‘{name}’에 지정한 내용 입력",
   "web.teach.step.app.typeSensitive": "{app}에서 ‘{name}’에는 직접 입력",
+  "app.integrity.title": "Psyche 파일이 변경되었습니다",
+  "app.integrity.detail":
+    "이 Psyche는 배포될 때의 서명과 더 이상 일치하지 않아, 무언가가 수정했을 수 있습니다. 공식 다운로드로 다시 설치하기 전까지 Psyche는 마이크, 화면, Apple 이벤트, 연락처, 캘린더 기능을 꺼 둡니다. Psyche의 백그라운드 서비스(Gateway)는 계속 실행됩니다.",
+  "app.integrity.blocked": "꺼짐: 이 Psyche는 수정되었습니다. 공식 다운로드로 다시 설치하세요.",
+  "app.integrity.ok": "확인",
 };

@@ -302,6 +302,27 @@ describe("checkForVerifiedUpdate and the loopback feed", () => {
     ).toEqual({ state: "no_keys" });
   });
 
+  it("looks at the download for a quarantine flag and reports what it found", async () => {
+    const k = fixtureKey();
+    const r = release("1.2.3", k.pem);
+    const seen: string[] = [];
+    const logs: string[] = [];
+    const out = await checkForVerifiedUpdate({
+      ...base,
+      log: (m) => logs.push(m),
+      fetch: host(r),
+      keys: [k.key],
+      dir: temp(),
+      inspectDownload: async (file) => {
+        seen.push(file);
+        return "removed";
+      },
+    });
+    expect(out).toMatchObject({ state: "ready", quarantine: "removed" });
+    if (out.state === "ready") expect(seen).toEqual([out.file]);
+    expect(logs.join("\n")).toMatch(/com\.apple\.quarantine/);
+  });
+
   it("does nothing when already on the latest version", async () => {
     const k = fixtureKey();
     const r = release("1.2.3", k.pem);

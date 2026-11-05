@@ -6,6 +6,8 @@ import { macSigningOptions, notarizeCredentials } from "../src/packaging/signing
 
 const SIGNING_VARS = [
   "PSYCHE_SIGN_IDENTITY",
+  "PSYCHE_SIGN_KEYCHAIN",
+  "PSYCHE_SIGN_TIMESTAMP",
   "APPLE_API_KEY",
   "APPLE_API_KEY_ID",
   "APPLE_API_ISSUER",
