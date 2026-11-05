@@ -13,6 +13,11 @@ import type { MessageId } from "../index.ts";
  *   catalogue shows the English variant rather than its Mac wording.
  */
 export const windows: Partial<Record<MessageId, string>> = {
+  "settings.trusted.title.reminders": "Your Outlook task lists",
+  "settings.trusted.none.reminders": "No Outlook task lists yet.",
+  "settings.trusted.loading": "Reading them from this PC…",
+  "settings.trusted.noHelper": "Open Psyche on your PC to list them: the helper reads them.",
+  "settings.trusted.failed": "Psyche couldn't read them from this PC.",
   "settings.links.description":
     "Where a link in a chat message, card or artifact opens. Ctrl+click always uses your default browser.",
   "errors.presence_required": "Confirm it's you with Windows Hello or a passkey first.",

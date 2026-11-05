@@ -196,7 +196,7 @@ describe("Windows app identities", () => {
 });
 
 describe("what nodes.invoke can reach", () => {
-  it("never teach.* or chrome.* on any node, and nothing but the notification permission on a Host helper", () => {
+  it("never teach.* or chrome.* on any node, and on a Host helper only the notification permission and Settings' listings", () => {
     for (const cap of [
       "teach.start",
       "teach.stop",
@@ -211,6 +211,11 @@ describe("what nodes.invoke can reach", () => {
       expect(isHostHelperCapabilityReachable(cap), cap).toBe(false);
     }
     expect(isHostHelperCapabilityReachable("notify.authorization_status")).toBe(true);
+    // Settings' trusted-sources and Shortcuts cards: the names of lists, never their items.
+    for (const cap of ["reminders.list_lists", "calendar.list_calendars", "shortcuts.list"])
+      expect(isHostHelperCapabilityReachable(cap), cap).toBe(true);
+    for (const cap of ["reminders.list", "calendar.list_events", "shortcuts.run", "notes.read"])
+      expect(isHostHelperCapabilityReachable(cap), cap).toBe(false);
     // Words that only start like a namespace are not that namespace.
     expect(isUnreachableCapability("teacher.list")).toBe(false);
   });
