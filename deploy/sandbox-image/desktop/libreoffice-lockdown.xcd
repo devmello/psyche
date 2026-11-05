@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  LibreOffice, for the separate desktop: macros are off and cannot be turned back on. /workspace
+  persists between tasks with the same grants, so a macro (or a macro-enabled document) left by one
+  task must not run in a later one. This file is read from the image's registry folder and sorts
+  after main.xcd; `oor:finalized="true"` makes every setting below read-only for the user layer
+  (the profile under /workspace), so a planted registrymodifications.xcu cannot override it.
+  MacroSecurityLevel 3 is "very high" (only signed macros from trusted locations);
+  DisableMacrosExecution switches macro execution off altogether.
+-->
+<oor:data xmlns:oor="http://openoffice.org/2001/registry" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <oor:component-data oor:name="Common" oor:package="org.openoffice.Office">
+    <node oor:name="Security">
+      <node oor:name="Scripting">
+        <prop oor:name="MacroSecurityLevel" oor:finalized="true"><value>3</value></prop>
+        <prop oor:name="DisableMacrosExecution" oor:finalized="true"><value>true</value></prop>
+      </node>
+    </node>
+  </oor:component-data>
+</oor:data>

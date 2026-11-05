@@ -29,7 +29,7 @@ cp apps/linux-helper/target/release/psyche-helper deploy/sandbox-image/desktop/p
 podman build --target desktop   --build-arg HELPER_SHA256=$(sha256sum deploy/sandbox-image/desktop/psyche-helper | cut -d" " -f1)   -t psyche-sandbox:desktop-dev deploy/sandbox-image
 ```
 
-`versions.json` lists `desktop`, but `publish.sh` and the release workflow do not publish it by default yet (their default variants are `core base full`); publishing it needs the helper binary in the release job.
+The release workflow builds and publishes `desktop` with the other three: each architecture's job builds the Linux helper natively, stages it at `desktop/psyche-helper` and passes its checksum to `publish.sh` as `PSYCHE_HELPER_SHA256`, without which `publish.sh` refuses to build this variant. `publish.sh`'s own default variants stay `core base full`; name `desktop` to build it by hand.
 
 ## Build locally
 
@@ -59,7 +59,7 @@ The workflow then runs `cosign verify` on all three digests against `signing` in
 A manual run with `dry_run` ticked, or a manual run from a branch, only runs `publish.sh --dry-run` (a manual run on a `v*` tag with `dry_run` unticked publishes, which is how to retry a failed release). Locally:
 
 ```bash
-deploy/sandbox-image/publish.sh --dry-run --version 0.2.0 core base full   # prints the commands; needs bash + jq
+deploy/sandbox-image/publish.sh --dry-run --version 0.2.0 core base full desktop   # prints the commands; needs bash + jq
 ```
 
 Apt packages are not snapshot-pinned, so two builds of the same commit are not byte-identical; the pinned digest in `versions.json` is what makes a run reproducible.
