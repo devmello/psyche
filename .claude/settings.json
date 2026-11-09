@@ -8,7 +8,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "f=\"$(git rev-parse --show-toplevel 2>/dev/null)/.claude/scripts/stop-verify.sh\"; [ -f \"$f\" ] && exec bash \"$f\"; exit 0",
+            "command": "f=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/scripts/stop-verify.sh\"; [ -f \"$f\" ] && exec bash \"$f\"; exit 0",
             "timeout": 1800
           }
         ]

@@ -13,8 +13,18 @@ set -o pipefail  # no -u: macOS bash 3.2 treats empty arrays as unbound
 
 input="$(cat)"
 [ "${PSYCHE_VERIFY_HOOK:-on}" = off ] && exit 0
+here="$(cd "$(dirname "$0")" && pwd)"
 
+# Hooks can run with the project's root folder as their working directory rather than the
+# session's worktree (seen in the 2026-11-09 trials), so use the session's cwd from the input.
+hook_cwd="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)"
+[ -n "$hook_cwd" ] && [ -d "$hook_cwd" ] && cd "$hook_cwd"
 top="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+# One line per invocation, in the shared git dir, so a hook that never fires (or skips) is visible.
+log="$(cd "$(git rev-parse --git-common-dir)" && pwd)/agent-verify/hook.log"
+mkdir -p "$(dirname "$log")"
+printf '%s\tcwd=%s\ttop=%s\tactive=%s\n' "$(date -u +%FT%TZ)" "$hook_cwd" "$top" \
+  "$(printf '%s' "$input" | jq -r '.stop_hook_active // false' 2>/dev/null)" >>"$log"
 case "$top" in */.claude/worktrees/*) ;; *) exit 0 ;; esac
 cd "$top" || exit 0
 
@@ -30,7 +40,10 @@ if [ -z "$( { git diff --name-only "$base"...HEAD; git diff --name-only HEAD; gi
   exit 0
 fi
 
-out="$(bash .claude/scripts/verify.sh --quiet 2>&1)"
+# The branch's own verify.sh if it has one (it may be newer), else the one next to this hook.
+vs=".claude/scripts/verify.sh"
+[ -f "$vs" ] || vs="$here/verify.sh"
+out="$(bash "$vs" --quiet 2>&1)"
 if [ $? -eq 0 ]; then
   echo "$hash" >"$state/passed"
   rm -f "$state/blocks"
