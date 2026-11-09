@@ -177,7 +177,11 @@ export function presenceChallenge(
   scope?: string,
 ): string {
   const base = `psyche.presence.v1|${approvalId}|${bindingHash}|${answerToken}`;
-  return sha256(scope === undefined || scope === "once" ? base : `${base}|scope:${scope}`);
+  const digest = sha256(scope === undefined || scope === "once" ? base : `${base}|scope:${scope}`);
+  // The Mac helper and WebAuthn both want the bare 64-hex digest, but `@psyche/audit`'s `sha256`
+  // carries a `sha256:` prefix. With it the helper's `isValidChallenge` (exactly 64 hex) refused
+  // every challenge, so no presence check could ever pass.
+  return digest.slice("sha256:".length);
 }
 
 const isChat = (s: Surface) => s.includes(":");
@@ -821,9 +825,19 @@ export class PsychePermissionBroker implements PermissionBroker {
     }
     const se = input.sideEffect;
     const deviceOnly = isDeviceOnly(input.kind, se, this.#policy.config.approvals?.deviceOnly);
+    // A host command the owner's own switch or manual mode makes ask, which the broker checked into
+    // the read-only class (§5.4), is not a risky approval: no Touch ID sheet for it. Taint (the
+    // request may come from untrusted content) and a missing sandbox (srt is what keeps it read-only
+    // at run time) keep the presence step.
+    const lowRiskHostRead =
+      input.kind === "exec_host" &&
+      se === "read" &&
+      !input.taint &&
+      input.context?.taint !== true &&
+      recent?.decision.rule !== "exec_host:no_sandbox";
     // A permission request that turns something on needs fresh presence, like the setting itself.
     const requiresAuthentication =
-      AUTH_KINDS.includes(input.kind) ||
+      (AUTH_KINDS.includes(input.kind) && !lowRiskHostRead) ||
       se === "financial" ||
       (input.kind === "permission_request" && se !== "none");
     // A non-owner requester never sees the card for their own request (security §9).

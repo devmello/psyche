@@ -134,22 +134,52 @@ describe("answer failures on the card", () => {
     });
     expect(why("helper_outdated")).toMatchObject({ kind: "touch_id_setup", fix: null });
     expect(why("presence_key_unavailable")).toMatchObject({ kind: "touch_id_setup", fix: null });
-    for (const [reason, fix] of [
-      ["presence_key_untrusted", "open_devices"],
-      ["presence_key_access_denied", null],
-      ["presence_key_changed", "restart_helper"],
-      ["presence_key_wrong_location", null],
-      ["presence_key_interaction_not_allowed", null],
-      ["presence_key_acl_unavailable", null],
-    ] as const) {
-      expect(why(reason)).toMatchObject({ kind: "touch_id_setup", fix });
+    // The retired keychain reasons are no longer known: they read as any other error.
+    for (const reason of [
+      "presence_key_untrusted",
+      "presence_key_access_denied",
+      "presence_key_changed",
+      "presence_key_wrong_location",
+      "presence_key_interaction_not_allowed",
+      "presence_key_acl_unavailable",
+    ]) {
+      expect(why(reason).kind).toBe("other");
     }
     expect(why("something_else").kind).toBe("other");
     expect(
       classifyAnswerError(
         new GatewayRequestError("approvals.approveWithTouchId", "cancelled", "x"),
       ),
-    ).toMatchObject({ kind: "presence_failed" });
+    ).toEqual({ kind: "cancelled" });
+    expect(
+      classifyAnswerError(
+        new GatewayRequestError("approvals.approveWithTouchId", "cancelled", "x", {
+          reason: "presence_cancelled",
+        }),
+      ),
+    ).toEqual({ kind: "cancelled" });
+  });
+
+  it("a cancelled system sheet says nothing: no alert, Allow works again", async () => {
+    const onAnswer = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new GatewayRequestError("approvals.approveWithTouchId", "cancelled", "x", {
+          reason: "presence_cancelled",
+        }),
+      )
+      .mockResolvedValue(undefined);
+    show(onAnswer, approval({ requiresAuthentication: true }));
+    await userEvent.click(allow());
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(allow().disabled).toBe(false));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(/cancel/i)).toBeNull();
+    expect((screen.getByRole("button", { name: /^Deny/ }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+    await userEvent.click(allow());
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(2));
   });
 
   function showWithFix(

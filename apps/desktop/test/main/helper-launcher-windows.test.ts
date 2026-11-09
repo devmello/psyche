@@ -75,6 +75,19 @@ describe("the Windows helper's location", () => {
     });
     expect(seen).toEqual([exe]);
     expect(id).toEqual({ deviceId: "dev_abcdefghijklmnopqrstuv" });
+    const hello = await readHelperIdentity(exe, "C:\\h", async () => ({
+      code: 0,
+      stdout: JSON.stringify({
+        deviceId: "dev_abcdefghijklmnopqrstuv",
+        presenceKeyId: "b".repeat(64),
+        presenceKeyKind: "windows_hello",
+      }),
+    }));
+    expect(hello).toEqual({
+      deviceId: "dev_abcdefghijklmnopqrstuv",
+      keyId: "b".repeat(64),
+      kind: "windows_hello",
+    });
     const never: Runner = async () => {
       throw new Error("codesign must not run on Windows");
     };

@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-09 (Mac approvals use the system owner sheet)
+
+- `PresenceKeyInfo.kind` gains `device_identity` and `PresenceKeyAlgorithm` gains `ed25519`: a Mac helper's presence key is now its own Ed25519 device key (the one the Gateway pinned at pairing), listed by `devices.presenceKey.list` with nothing to register. `keychain`, `enclave_keychain_acl`, `enclave_file` and `p256-ecdsa-sha256` are retired: still decoded, never produced or accepted.
+- `devices.presenceKey.register` on a Mac helper's device fails `conflict` with `details.reason` `no_key_needed`. A Windows Hello key still registers as before.
+- `approvals.approveWithTouchId`: a cancelled sheet fails `cancelled` with `details.reason` `presence_cancelled` and is not counted against the answerer; new `unavailable` reason `presence_busy`. The six `presence_key_*` keychain reasons are gone.
+
 ### v1 additive — 2026-11-05 (Linux separate desktop shares)
 
 - `ApprovalKind` gains `separate_desktop_share` (added at the end of the folder kinds): the owner picks a folder to show to the Linux separate desktop's container for one task. It answers like `folder_access` (`folderPath`, `folderMode`) but grants nothing on the Host: no file tool and no Settings entry gets the folder, and only `once` is offered. Device-only. Design: docs/design/linux-desktop-2026.md section 8.4.

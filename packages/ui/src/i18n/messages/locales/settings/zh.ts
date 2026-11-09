@@ -531,32 +531,18 @@ export const settings: Partial<Catalogue> = {
   "settings.data.recallState.cloudBlocked": "嵌入服务不被允许接收你的记忆，因此调用时只匹配字词。",
   "settings.data.recallState.textOnly": "没有可用的嵌入模型，因此调用时只匹配字词。",
   "settings.data.replayRetentionHint": "{persona}工作时看过的屏幕，用于时间线。关闭则不保留。",
-  "settings.devices.presenceKey.keychain": "Touch ID 密钥（钥匙串），由助手报告",
-  "settings.devices.presenceKey.enclaveKeychainAcl":
-    "Touch ID 密钥（Secure Enclave，仅 Psyche 助手无需 macOS 提示即可读取），由助手报告",
-  "settings.devices.presenceKey.enclaveFile":
-    "Touch ID 密钥（Secure Enclave 文件，此版本没有配置描述文件），由助手报告",
   "settings.devices.presenceKey.unknown": "Touch ID 密钥（助手未报告类型）",
+  "settings.devices.presenceKey.deviceIdentity":
+    "批准会使用 Touch ID 或你的 Mac 密码。无需任何设置。",
   "settings.devices.touchId.none":
     "还没有 Touch ID 密钥。注册密钥之前，需要 Touch ID 的卡片无法批准。",
   "settings.devices.touchId.bundled": "此 App 中的 Psyche 助手显示密钥",
   "settings.devices.touchId.notBundled": "此助手不是此 App 自带的那个，因此无法在此注册它的密钥。",
-  "settings.devices.touchId.untrusted":
-    "钥匙串中的 Touch ID 密钥未被使用，因为无法证明它属于 Psyche 助手。无害的原因之一是 Psyche 被移动或在别处重新安装：请把它移回“应用程序”并重新打开。否则请先退出 Psyche 助手，在“终端”中运行 /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key，然后注册新密钥。",
-  "settings.devices.touchId.accessDenied":
-    "macOS 未允许 Psyche 助手使用钥匙串中的 Touch ID 密钥。请重新运行 Psyche，仅当对话框写明 psyche-helper 时才选择“始终允许”（对其他程序绝不要选）。",
-  "settings.devices.touchId.wrongLocation":
-    "Psyche 助手未创建 Touch ID 密钥，因为它正从磁盘映像、“下载”或其他文件夹运行。请把 Psyche 移到“应用程序”，推出所有磁盘映像，然后从那里打开。",
   "settings.devices.touchId.keyMismatch":
     "此 App 中的 Psyche 助手现在显示的密钥是 {shown}，与已注册的 {registered} 不同。如果不是你自己重置了密钥，请视为可疑，不要注册它。",
   "settings.devices.touchId.confirmReplace":
     "这将替换已为这台 Mac 注册的 Touch ID 密钥 {previous}。仅当你自己重置了密钥时才替换。",
   "settings.devices.touchId.confirmReplaceButton": "替换密钥",
-  "settings.devices.touchId.interactionNotAllowed": "钥匙串目前无法请求权限。请解锁 Mac 后重试。",
-  "settings.devices.touchId.changed":
-    "Psyche 助手运行期间 Touch ID 密钥发生了变化。请退出 Psyche 助手并重新启动。",
-  "settings.devices.touchId.aclUnavailable":
-    "这台 Mac 的钥匙串不肯保存 Touch ID 密钥的访问列表。请重启 Psyche 助手再试。",
   "settings.devices.touchId.noBundledKey":
     "此 App 中的 Psyche 助手没有 Touch ID 密钥（{reason}）。",
   "settings.devices.touchId.register": "注册此密钥",
@@ -564,9 +550,6 @@ export const settings: Partial<Catalogue> = {
   "settings.devices.touchId.manualLabel": "密钥 ID",
   "settings.devices.touchId.manualHint":
     "在 Mac 上运行 psyche-helper --print-identity，并粘贴它输出的 presenceKeyId。",
-  "settings.devices.touchId.allowDevFileKey": "允许开发用的 Touch ID 密钥",
-  "settings.devices.touchId.devFileKey":
-    "此版本没有配置描述文件，所以它的密钥是 Secure Enclave 文件。任何以你的身份运行的 App 都可以借它自己的 Touch ID 提示请求签名。仅供开发使用。",
   "settings.files.execHost": "在这台 Mac 上运行命令",
   "settings.files.execHostHint":
     "让{persona}在你共享的文件夹中、在沙盒内运行命令。可能更改文件的命令会先询问你。",

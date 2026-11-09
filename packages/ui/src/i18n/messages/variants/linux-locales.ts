@@ -44,7 +44,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "تم السماح مرة واحدة (موافقات كلمة المرور من هذه النافذة صالحة لمرة واحدة فقط)",
       "blocks.approval.touchId.keyUnavailable":
         "لا يستطيع هذا الإصدار من مساعد Linux حفظ مفتاح موافقة، لذا لا يمكن الموافقة على البطاقات التي تحتاج إلى كلمة المرور على هذا الكمبيوتر.",
-      "blocks.approval.touchId.cancelled": "أُلغيت مطالبة كلمة المرور، لذا لم تتم الموافقة على شيء",
       "shell.shortcut.pushToTalkKeys": "اضغط مطوّلًا على Ctrl الأيمن",
       "settings.shared.needsPresence":
         "يحتاج تغيير «{label}» إلى موافقتك عبر كلمة المرور أو مفتاح مرور. وافق عليه في الإعدادات أو في إشعار Psyche، ثم غيّره مرة أخرى.",
@@ -438,8 +437,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Einmal erlaubt (Passwort-Genehmigungen aus diesem Fenster gelten nur einmal)",
       "blocks.approval.touchId.keyUnavailable":
         "Dieser Build des Linux-Helfers kann keinen Genehmigungsschlüssel speichern, daher lassen sich Karten, die dein Passwort brauchen, auf diesem Computer nicht genehmigen.",
-      "blocks.approval.touchId.cancelled":
-        "Die Passwortabfrage wurde abgebrochen, daher wurde nichts genehmigt",
       "shell.shortcut.pushToTalkKeys": "Ctrl rechts halten",
       "settings.shared.needsPresence":
         "Das Ändern von „{label}“ braucht deine Genehmigung mit deinem Passwort oder einem Passkey. Genehmige es in den Einstellungen oder in der Psyche-Mitteilung und ändere es dann erneut.",
@@ -854,8 +851,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Permitido una vez (las aprobaciones con contraseña desde esta ventana son de una sola vez)",
       "blocks.approval.touchId.keyUnavailable":
         "Esta versión del asistente de Linux no puede guardar una clave de aprobación, así que las tarjetas que necesitan tu contraseña no se pueden aprobar en este ordenador.",
-      "blocks.approval.touchId.cancelled":
-        "Se canceló la solicitud de contraseña, así que no se aprobó nada",
       "shell.shortcut.pushToTalkKeys": "Mantén pulsada Ctrl derecha",
       "settings.shared.needsPresence":
         "Cambiar «{label}» necesita tu aprobación con tu contraseña o una llave de acceso. Apruébalo en Ajustes o en la notificación de Psyche y vuelve a cambiarlo.",
@@ -1273,8 +1268,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Autorisé une fois (les approbations par mot de passe depuis cette fenêtre ne valent qu’une fois)",
       "blocks.approval.touchId.keyUnavailable":
         "Cette version de l’assistant Linux ne peut pas conserver de clé d’approbation, les cartes qui exigent votre mot de passe ne peuvent donc pas être approuvées sur cet ordinateur.",
-      "blocks.approval.touchId.cancelled":
-        "La demande de mot de passe a été annulée, rien n’a donc été approuvé",
       "shell.shortcut.pushToTalkKeys": "Maintenir Ctrl droite",
       "settings.shared.needsPresence":
         "Modifier « {label} » nécessite votre approbation avec votre mot de passe ou une clé d’accès. Approuvez-la dans Réglages ou dans la notification de Psyche, puis modifiez-le de nouveau.",
@@ -1689,7 +1682,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "एक बार अनुमति दी गई (इस विंडो से पासवर्ड स्वीकृतियाँ सिर्फ़ एक बार के लिए होती हैं)",
       "blocks.approval.touchId.keyUnavailable":
         "Linux हेल्पर का यह बिल्ड स्वीकृति कुंजी नहीं रख सकता, इसलिए जिन कार्डों को आपका पासवर्ड चाहिए उन्हें इस कंप्यूटर पर स्वीकृत नहीं किया जा सकता।",
-      "blocks.approval.touchId.cancelled": "पासवर्ड प्रॉम्प्ट रद्द किया गया, इसलिए कुछ भी स्वीकृत नहीं हुआ",
       "shell.shortcut.pushToTalkKeys": "दायाँ Ctrl दबाए रखें",
       "settings.shared.needsPresence":
         "“{label}” बदलने के लिए आपके पासवर्ड या पासकी से आपकी स्वीकृति चाहिए। इसे सेटिंग्ज़ में या Psyche सूचना में स्वीकृत करें, फिर इसे दोबारा बदलें।",
@@ -2080,8 +2072,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Consentito una volta (le approvazioni con password da questa finestra valgono una sola volta)",
       "blocks.approval.touchId.keyUnavailable":
         "Questa build dell’helper per Linux non può conservare una chiave di approvazione, quindi le schede che richiedono la tua password non possono essere approvate su questo computer.",
-      "blocks.approval.touchId.cancelled":
-        "La richiesta della password è stata annullata, quindi non è stato approvato nulla",
       "shell.shortcut.pushToTalkKeys": "Tieni premuto Ctrl destro",
       "settings.shared.needsPresence":
         "La modifica di “{label}” richiede la tua approvazione con la tua password o una passkey. Approvala nelle Impostazioni o nella notifica di Psyche, poi modificala di nuovo.",
@@ -2496,8 +2486,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "1回のみ許可（このウインドウからのパスワード承認は1回のみ）",
       "blocks.approval.touchId.keyUnavailable":
         "このビルドのLinuxヘルパーは承認キーを保持できないため、このコンピュータではパスワードが必要なカードを承認できません。",
-      "blocks.approval.touchId.cancelled":
-        "パスワードの入力がキャンセルされたため、何も承認されていません",
       "shell.shortcut.pushToTalkKeys": "右Ctrlを長押し",
       "settings.shared.needsPresence":
         "「{label}」の変更にはパスワードまたはパスキーによる承認が必要です。設定またはPsycheの通知で承認してから、もう一度変更してください。",
@@ -2908,7 +2896,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "한 번만 허용 (이 윈도우에서의 암호 승인은 한 번만 가능)",
       "blocks.approval.touchId.keyUnavailable":
         "이 빌드의 Linux 도우미는 승인 키를 보관할 수 없어 이 컴퓨터에서는 암호가 필요한 카드를 승인할 수 없습니다.",
-      "blocks.approval.touchId.cancelled": "암호 입력이 취소되어 아무것도 승인되지 않았습니다",
       "shell.shortcut.pushToTalkKeys": "오른쪽 Ctrl 길게 누르기",
       "settings.shared.needsPresence":
         "“{label}”을(를) 변경하려면 사용자 암호 또는 패스키로 승인해야 합니다. 설정이나 Psyche 알림에서 승인한 다음 다시 변경하십시오.",
@@ -3305,8 +3292,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Permitido uma vez (as aprovações por senha desta janela valem só uma vez)",
       "blocks.approval.touchId.keyUnavailable":
         "Esta versão do assistente do Linux não consegue guardar uma chave de aprovação, então os cartões que exigem a sua senha não podem ser aprovados neste computador.",
-      "blocks.approval.touchId.cancelled":
-        "O pedido de senha foi cancelado, então nada foi aprovado",
       "shell.shortcut.pushToTalkKeys": "Segure Ctrl direito",
       "settings.shared.needsPresence":
         "Alterar “{label}” precisa da sua aprovação com a sua senha ou uma chave-senha. Aprove nas Configurações ou na notificação do Psyche e depois altere novamente.",
@@ -3709,7 +3694,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "已允许一次（从此窗口进行的密码批准只有一次有效）",
       "blocks.approval.touchId.keyUnavailable":
         "此版本的 Linux 助手无法保存批准密钥，因此需要密码的卡片无法在这台电脑上批准。",
-      "blocks.approval.touchId.cancelled": "密码提示已取消，因此没有批准任何内容",
       "shell.shortcut.pushToTalkKeys": "按住右 Ctrl",
       "settings.shared.needsPresence":
         "更改“{label}”需要你通过密码或通行密钥批准。请在“设置”或 Psyche 通知中批准，然后再次更改。",

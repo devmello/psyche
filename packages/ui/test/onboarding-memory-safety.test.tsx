@@ -250,9 +250,6 @@ function port(initial: TouchIdStatus) {
     register: vi.fn(async () => {
       status = { ...status, registered: true };
     }),
-    allowDevFileKey: vi.fn(async (on: boolean) => {
-      status = { ...status, allowDevFileKey: on };
-    }),
   };
   return impl satisfies TouchIdSetupPort;
 }
@@ -273,18 +270,16 @@ function safety(
 }
 
 describe("Safety: Touch ID", () => {
-  it("registers the helper's key in one click and then says it is set up", async () => {
+  it("registers a Windows Hello key in one click and then says it is set up", async () => {
     const p = port({
-      identity: { deviceId: "d1", keyId: KEY_ID, kind: "keychain" },
+      identity: { deviceId: "d1", keyId: KEY_ID, kind: "windows_hello" },
       registered: false,
-      allowDevFileKey: false,
     });
     safety(p, { helperKind: "paired" });
     expect(await screen.findByTestId("touch-id-key-id")).toBeTruthy();
     expect(screen.getByTestId("touch-id-key-id").textContent).toContain("0123 4567 89ab cdef");
     const button = screen.getByRole("button", { name: "Register this key" });
     expect((button as HTMLButtonElement).disabled).toBe(false);
-    // A keychain key needs no development switch.
     expect(screen.queryByRole("switch")).toBeNull();
     await userEvent.click(button);
     expect(p.register).toHaveBeenCalledOnce();
@@ -292,32 +287,19 @@ describe("Safety: Touch ID", () => {
     expect(screen.queryByRole("button", { name: "Register this key" })).toBeNull();
   });
 
-  it("needs the development switch first on a build without a provisioning profile", async () => {
-    const p = port({
-      identity: { deviceId: "d1", keyId: KEY_ID, kind: "enclave_file" },
-      registered: false,
-      allowDevFileKey: false,
-    });
+  it("a paired Mac helper reads Set up with nothing to register", async () => {
+    const p = port({ identity: { deviceId: "d1" }, registered: true });
     safety(p, { helperKind: "paired" });
-    const register = await screen.findByRole("button", { name: "Register this key" });
-    expect((register as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getAllByText(/Secure Enclave file/).length).toBeGreaterThan(0);
-    await userEvent.click(screen.getByRole("switch", { name: "Allow a development Touch ID key" }));
-    expect(p.allowDevFileKey).toHaveBeenCalledWith(true);
-    await waitFor(() =>
-      expect(
-        (screen.getByRole("button", { name: "Register this key" }) as HTMLButtonElement).disabled,
-      ).toBe(false),
-    );
-    await userEvent.click(screen.getByRole("button", { name: "Register this key" }));
-    expect(p.register).toHaveBeenCalledOnce();
+    expect(await screen.findByText("Set up")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Register this key" })).toBeNull();
+    expect(screen.queryByRole("switch")).toBeNull();
+    expect(p.register).not.toHaveBeenCalled();
   });
 
   it("says when registering failed and offers it again", async () => {
     const p = port({
-      identity: { deviceId: "d1", keyId: KEY_ID, kind: "keychain" },
+      identity: { deviceId: "d1", keyId: KEY_ID, kind: "windows_hello" },
       registered: false,
-      allowDevFileKey: false,
     });
     p.register.mockRejectedValueOnce(new Error("the helper is not paired"));
     safety(p, { helperKind: "paired" });
@@ -327,7 +309,7 @@ describe("Safety: Touch ID", () => {
   });
 
   it("waits for a helper that is still starting, and checks again on request", async () => {
-    const p = port({ identity: { deviceId: "d1" }, registered: false, allowDevFileKey: false });
+    const p = port({ identity: { deviceId: "d1" }, registered: false });
     safety(p, { helperKind: "starting" });
     expect(await screen.findByText(/still starting/)).toBeTruthy();
     expect(screen.getByTestId("mac-helper-status")).toBeTruthy();
@@ -336,7 +318,7 @@ describe("Safety: Touch ID", () => {
   });
 
   it("shows no Touch ID row when the build bundles no helper or the host has no port", async () => {
-    const none = port({ identity: null, registered: false, allowDevFileKey: false });
+    const none = port({ identity: null, registered: false });
     safety(none);
     await waitFor(() => expect(none.status).toHaveBeenCalled());
     expect(screen.queryByText("Touch ID for approvals")).toBeNull();

@@ -543,7 +543,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Approves a requiresAuthentication card from the Psyche desktop window with Touch ID on this Mac (security §3.7), once: the Gateway checks the window's answer token, asks the paired helper (helperDeviceId when given) to run Touch ID with a sheet naming the approval and its code, and to sign the presence challenge for that token with its registered key, then answers through the same broker check. One sheet at a time; failed or cancelled sheets count against the rejected-answer cap. UNSANDBOXED is not available on this path. Desktop shell only. Fails unavailable with details.reason helper_offline, helper_outdated, no_presence_key, presence_key_unavailable or presence_key_invalidated; cancelled when the owner cancels Touch ID.",
+        "description": "Approves a requiresAuthentication card from the Psyche desktop window with the system's own owner sheet on this computer (security §3.7), once: the Gateway checks the window's answer token, asks the paired helper (helperDeviceId when given) to show the sheet (on a Mac: Touch ID, or the login password through Use Password) naming the approval and its code, and to sign the presence challenge for that token with its device key (a Windows helper: its registered Windows Hello key), then answers through the same broker check. One sheet at a time. A cancelled sheet is not an answer: it fails cancelled with details.reason presence_cancelled, the approval stays pending and nothing is counted against the answerer; other failed sheets count against the rejected-answer cap. UNSANDBOXED is not available on this path. Desktop shell only. Fails unavailable with details.reason helper_offline, helper_outdated, no_presence_key, presence_key_unavailable, presence_key_invalidated or presence_busy.",
         "name": "approvals.approveWithTouchId",
         "params": "#/$defs/ApprovalsApproveWithTouchIdParams",
         "result": "#/$defs/ApprovalsApproveWithTouchIdResult",
@@ -1327,7 +1327,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Lists the registered helper presence keys (Touch ID approvals, issue #253): device id and key id only.",
+        "description": "Lists the keys that verify helper presence answers: a Windows helper's registered Windows Hello key, and for each paired Mac helper its own device key (kind device_identity, nothing to register). Device id and key id only.",
         "name": "devices.presenceKey.list",
         "params": "#/$defs/DevicesPresenceKeyListParams",
         "result": "#/$defs/DevicesPresenceKeyListResult",
@@ -1335,7 +1335,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Reads the helper's presence key (`presence.public_key`: the Secure Enclave P-256 key of a mac-helper, or the Windows Hello RSA key of a win-helper, `algorithm: rsa-2048-pkcs1-sha256`, SPKI DER of at least 2048 bits) and registers it for that device when its key id equals expectKeyId, so its Touch ID / Windows Hello answers verify. A Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
+        "description": "Reads the Windows helper's presence key (`presence.public_key`: the Windows Hello RSA key, `algorithm: rsa-2048-pkcs1-sha256`, SPKI DER of at least 2048 bits) and registers it for that device when its key id equals expectKeyId, so its Windows Hello answers verify. A Mac helper needs no registration (its device key is its presence key): conflict with details.reason no_key_needed. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
         "name": "devices.presenceKey.register",
         "params": "#/$defs/DevicesPresenceKeyRegisterParams",
         "result": "#/$defs/DevicesPresenceKeyRegisterResult",
@@ -33790,7 +33790,8 @@
     "PresenceKeyAlgorithm": {
       "enum": [
         "p256-ecdsa-sha256",
-        "rsa-2048-pkcs1-sha256"
+        "rsa-2048-pkcs1-sha256",
+        "ed25519"
       ],
       "type": "string"
     },
@@ -33816,7 +33817,8 @@
             "keychain",
             "enclave_keychain_acl",
             "enclave_file",
-            "windows_hello"
+            "windows_hello",
+            "device_identity"
           ],
           "type": "string"
         },

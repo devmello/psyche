@@ -1,4 +1,4 @@
-import { getSetting, listDevices } from "@psyche/db";
+import { listDevices } from "@psyche/db";
 import {
   approvalCode,
   cardHeader,
@@ -23,7 +23,6 @@ import type { Call } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import { surfaceOf } from "./handlers.ts";
 import {
-  DEV_FILE_KEY_SETTING,
   HelperPresenceKeys,
   parsePresenceKey,
   presenceKeyHandlers,
@@ -39,16 +38,19 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  * The token never leaves the Gateway.
  *
  * Approvals that require authentication (purchase, credential fill, host exec, pairing, policy)
- * need a presence assertion: a Secure Enclave signature, made after Touch ID, over
- * `presenceChallenge(approvalId, bindingHash, answerToken)`, checked against a key the owner
- * registered for that helper. The helper's `authenticated: true` alone proves nothing (any
- * process holding the handshake secret can pair as a helper and send it), so without a signed
- * assertion and a registered key those approvals stay refused. Deny always works.
+ * need a presence assertion: the helper shows the system's owner sheet (LocalAuthentication:
+ * Touch ID, or the Mac login password through "Use Password"), and on success signs
+ * `presenceChallenge(approvalId, bindingHash, answerToken)` with its Ed25519 device key, the one
+ * this Gateway pinned at pairing. The helper's `authenticated: true` alone proves nothing (any
+ * process holding the handshake secret can pair as a helper and send it), so without a signature
+ * that verifies against the device's own key those approvals stay refused. Deny always works. A
+ * cancelled sheet is not an answer at all: the approval stays pending and nothing is counted
+ * against anyone.
  *
  * The desktop window has no key of its own, so Allow there (`approvals.approveWithTouchId`) asks
- * the helper to run Touch ID and sign the challenge for the window's own answer token
+ * the helper to show the sheet and sign the challenge for the window's own answer token
  * (`presence.confirm`). The Gateway picks the challenge and the card header the sheet names; the
- * broker checks the signature against the registered key exactly as for a notification answer.
+ * broker checks the signature against the helper's device key exactly as for a notification answer.
  */
 
 export const HELPER_SURFACE: Surface = "notification";
@@ -60,19 +62,18 @@ export function helperPresenceMessage(challenge: string): Buffer {
 
 export interface HelperSetup {
   /**
-   * The owner-registered presence key of a helper device, base64url: a mac-helper's Secure
-   * Enclave P-256 public key in X9.63 uncompressed form (`SecKeyCopyExternalRepresentation`), or a
-   * win-helper's Windows Hello RSA key (>= 2048 bits) as SPKI DER. No key → presence
-   * approvals answered from that helper are refused. Default: the keys registered with
-   * `devices.presenceKey.register` (issue #253); tests may pass their own.
+   * The key that verifies a helper device's presence answers, base64url: a mac-helper's own
+   * Ed25519 device key (32 raw bytes, as pinned at pairing), or a win-helper's registered Windows
+   * Hello RSA key (>= 2048 bits) as SPKI DER. No key → presence approvals answered from that helper
+   * are refused. Default: `HelperPresenceKeys.get`; tests may pass their own.
    */
   presenceKeys?: (deviceId: string) => string | undefined;
 }
 
 /**
- * Verifies `kind: "helper"` assertions by the device's registered key: ECDSA P-256 / SHA-256 (DER)
- * for a mac-helper key, RSA PKCS#1 v1.5 / SHA-256 for a win-helper (Windows Hello) key; the
- * format is read from the key itself (`parsePresenceKey`).
+ * Verifies `kind: "helper"` assertions by the device's key: Ed25519 for a mac-helper's device key,
+ * RSA PKCS#1 v1.5 / SHA-256 for a win-helper (Windows Hello) key; the format is read from the key
+ * itself (`parsePresenceKey`).
  */
 export function helperPresenceVerifier(
   keys: HelperSetup["presenceKeys"],
@@ -108,7 +109,7 @@ interface NotifyResponse {
   notificationId: string;
   actionId: string;
   authenticated?: boolean;
-  /** Proposed (S14 issue): the Secure Enclave signature over `helperPresenceMessage`. */
+  /** The helper's device-key signature over `helperPresenceMessage`, after the owner sheet. */
   presence?: { signature?: unknown; keyId?: unknown };
 }
 
@@ -129,7 +130,7 @@ interface Helper {
   /** `mac-helper` / `win-helper`: picks "Touch ID" or "Windows Hello" in what the owner reads. */
   kind: string;
   abort: AbortController;
-  /** The helper signs a window's approval after Touch ID (`presence.confirm`). */
+  /** The helper shows the owner sheet and signs a window's approval (`presence.confirm`). */
   confirms: boolean;
 }
 
@@ -140,24 +141,7 @@ export type TouchIdUnavailable =
   | "no_presence_key"
   | "presence_key_unavailable"
   | "presence_key_invalidated"
-  | KeyProblem;
-
-/** What the helper reports when its keychain key cannot be used; the card names the fix. */
-const KEY_PROBLEMS = {
-  presence_key_untrusted:
-    "The Touch ID key in the keychain cannot be shown to be Psyche Helper's, so it was not used; open Settings → Devices",
-  presence_key_access_denied:
-    "macOS did not let Psyche Helper use its Touch ID key in the keychain",
-  presence_key_changed:
-    "The Touch ID key changed while Psyche Helper was running; restart Psyche Helper",
-  presence_key_wrong_location:
-    "Psyche is running from a place where its Touch ID key cannot be kept; move Psyche to Applications",
-  presence_key_interaction_not_allowed:
-    "The keychain cannot ask for permission right now; unlock the Mac and try again",
-  presence_key_acl_unavailable:
-    "The keychain would not keep the Touch ID key's access list; restart Psyche Helper",
-} as const;
-type KeyProblem = keyof typeof KEY_PROBLEMS;
+  | "presence_busy";
 
 function touchIdUnavailable(reason: TouchIdUnavailable, message: string): PsycheError {
   return new PsycheError("unavailable", message, { details: { reason } });
@@ -327,6 +311,15 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       }
       return;
     }
+    // A cancelled or failed owner sheet is "not approved", quietly: nothing is answered, nothing is
+    // counted against anyone, and the card stays pending on every surface.
+    if (
+      decision === "approve" &&
+      d.approval.requiresAuthentication &&
+      (data.authenticated !== true || typeof data.presence?.signature !== "string")
+    ) {
+      return;
+    }
     const signature = data.presence?.signature;
     const presence: PresenceAssertion | undefined =
       decision === "approve" &&
@@ -392,7 +385,9 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
                 id: "approve",
                 label: "Approve",
                 destructive: false,
-                authenticationRequired: a.requiresAuthentication,
+                // The owner sheet comes from the helper, once; the system's own "unlock first"
+                // requirement would be a second prompt.
+                authenticationRequired: false,
                 textInput: false,
               },
               deny,
@@ -400,7 +395,7 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
           : [deny],
         approvalId: a.id,
         requireBiometry: a.requiresAuthentication,
-        // What the helper's presence key signs after Touch ID (proposed, S14 issue).
+        // What the helper's device key signs after the owner sheet.
         ...(a.requiresAuthentication
           ? { presenceChallenge: presenceChallenge(a.id, a.bindingHash, token) }
           : {}),
@@ -431,7 +426,7 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
   const handlers = presenceKeyHandlers({
     store: keyStore,
     audit: services.audit,
-    // A Touch ID key is registered only for the Host's own helper (never a node of another Mac
+    // A Windows Hello key is registered only for the Host's own helper (never a node of another PC
     // that happens to share the device id the caller names).
     helperNode: (deviceId) => gateway?.context.nodes.hostHelperOfDevice(deviceId)?.info.id,
     invoke: async (nodeId, capability) => {
@@ -442,7 +437,6 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       return c.invoke(capability, {}, { timeoutMs: CONFIRM_TIMEOUT_MS });
     },
     now: () => new Date(services.clock.now()),
-    allowDevFileKey: () => getSetting(services.db, DEV_FILE_KEY_SETTING)?.value === true,
   });
 
   /**
@@ -563,8 +557,23 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       const out = (res.result ?? {}) as { signature?: unknown; keyId?: unknown };
       if (!res.ok || typeof out.signature !== "string") {
         const f = helperErrorFields(res.error);
-        // Every failed confirm counts like a rejected answer, so a window cannot raise sheets
-        // without limit.
+        // Cancelling the sheet is not a failure: no audit entry, nothing counted against the
+        // answerer, and the approval stays pending. The card says nothing.
+        if (f.code === "cancelled") {
+          throw new PsycheError("cancelled", `${hw.presence} was cancelled`, {
+            details: { reason: "presence_cancelled" },
+          });
+        }
+        // The helper is already showing a sheet (an earlier approval): nothing was asked, so
+        // nothing is counted either.
+        if (f.reason === "presence_busy") {
+          throw touchIdUnavailable(
+            "presence_busy",
+            `${hw.presence} is already asking about another approval`,
+          );
+        }
+        // Every other failed confirm counts like a rejected answer, so a window cannot raise
+        // sheets without limit.
         const reject = (reason: string, code: ErrorCode, message: string, details?: object) =>
           services.rawBroker.rejectPresence({
             approvalId: a.id,
@@ -580,14 +589,9 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
             "unavailable",
             hw.os === "windows"
               ? "This Psyche Helper cannot keep a Windows Hello key on this PC"
-              : "This build of Psyche Helper cannot keep a Touch ID key (it has no keychain access group)",
+              : `This Psyche Helper cannot ask for ${hw.presence} on this ${hw.device}`,
             { reason: "presence_key_unavailable" },
           );
-        }
-        if (f.reason !== undefined && Object.hasOwn(KEY_PROBLEMS, f.reason)) {
-          return reject(f.reason, "unavailable", KEY_PROBLEMS[f.reason as KeyProblem], {
-            reason: f.reason,
-          });
         }
         if (f.reason === "presence_key_invalidated") {
           return reject(
@@ -597,8 +601,6 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
             { reason: "presence_key_invalidated" },
           );
         }
-        if (f.code === "cancelled")
-          return reject("presence_cancelled", "cancelled", `${hw.presence} was cancelled`);
         return reject(
           "presence_failed",
           "forbidden",

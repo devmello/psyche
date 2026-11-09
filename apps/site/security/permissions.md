@@ -97,7 +97,7 @@ The same policy holds your other choices:
 - **Apps.** Computer-use tiers per app. See [Approvals and tiers](/security/approvals-and-tiers).
 - **Connectors.** Per-connector actions, for example Gmail read allowed, send ask, Drive write denied.
 
-Changing any of these needs an admin device and, once a passkey or the helper's Touch ID key is registered, fresh proof that you are present.
+Changing any of these needs an admin device and, once a passkey or Psyche Helper's Touch ID sheet can confirm it, fresh proof that you are present.
 
 ## Learn more
 

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { FakeClock, sha256 } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { type BrokerEvent, type PolicyCall, presenceChallenge } from "../src/index.ts";
@@ -313,6 +314,20 @@ describe("approval lifecycle", () => {
     });
     expect(ok.status).toBe("approved");
     expect(seen).toContain(right);
+  });
+
+  it("the presence challenge is the bare 64-hex digest the helper and WebAuthn require", () => {
+    const hash = "a".repeat(64);
+    const once = presenceChallenge("apr_1", hash, "tok");
+    expect(once).toMatch(/^[0-9a-f]{64}$/);
+    expect(once).toBe(
+      createHash("sha256").update(`psyche.presence.v1|apr_1|${hash}|tok`).digest("hex"),
+    );
+    // A wider scope is bound into the challenge; `once` is the same as no scope.
+    const always = presenceChallenge("apr_1", hash, "tok", "always");
+    expect(always).toMatch(/^[0-9a-f]{64}$/);
+    expect(always).not.toBe(once);
+    expect(presenceChallenge("apr_1", hash, "tok", "once")).toBe(once);
   });
 
   it("verifyBinding consumes a once approval and audits a mismatch", async () => {

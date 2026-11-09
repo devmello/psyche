@@ -1,5 +1,12 @@
 import { constants, createHash, createPublicKey, type KeyObject, verify } from "node:crypto";
-import { getDevice, getSetting, type PsycheDb, setSetting } from "@psyche/db";
+import {
+  getDevice,
+  getDeviceFamily,
+  getSetting,
+  listDevices,
+  type PsycheDb,
+  setSetting,
+} from "@psyche/db";
 import { type AuditLog, PsycheError } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
 import type { Call, HandlerDef } from "../context.ts";
@@ -7,28 +14,25 @@ import { requireFreshPresence } from "../presence-gate.ts";
 import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
 
 /**
- * Registered helper presence keys (issue #253, security §3.7 / §12): the Secure Enclave P-256
- * key a paired Mac helper signs Touch ID answers with. The owner registers it from an admin
- * device (`devices.presenceKey.register`); the Gateway reads it from the connected helper's
- * `presence.public_key` and binds it to that device. A key counts only while its device is
- * paired and not revoked, so it is revoked with the device.
+ * The keys that verify a helper's presence answers (security §3.7, §12).
  *
- * Limit: any same-user process holding the handshake secret can pair as a helper (design-19), so
- * registration requires the key id the genuine helper shows (`expectKeyId`, mandatory): on the
- * desktop main reads it from the helper bundled in the app (`psyche-helper --print-identity`),
- * never from whichever node answered on the socket, until peer code signatures are checked.
+ * - **mac-helper: no key to register.** The Mac helper shows the system's own owner sheet
+ *   (LocalAuthentication, Touch ID or the Mac login password) and then signs the Gateway's
+ *   challenge with its Ed25519 device identity key, the one this Gateway pinned when the owner
+ *   approved the helper's pairing. So the verifying key is the device's own `publicKey`
+ *   (`HelperPresenceKeys.get`), with nothing to set up, nothing to keep in the keychain and
+ *   nothing that can go stale. It is revoked with the device. The signature proves the genuine
+ *   helper answered; the sheet is the proof that someone sat at the Mac. Limit: a process running
+ *   as the owner can read that key file and sign for the helper, or drive the helper into showing
+ *   the sheet; see security §3.7 and §10.
+ * - **win-helper: a registered Windows Hello key** (`devices.presenceKey.register`): the TPM-backed
+ *   RSA key of the helper's `KeyCredential`, registered by the owner from an admin device. A key
+ *   counts only while its device is paired and not revoked.
  *
- * `kind: enclave_keychain_acl`: a build without a provisioning profile (a self-signed release)
- * keeps its Secure Enclave key as a wrapped blob in a login-keychain item whose access list trusts
- * only the helper's designated requirement. Another program that reads it gets a macOS prompt, so
- * it is accepted in every build. Writing the item is not guarded, so the helper seals it; see
- * security §10 for what a same-user process can still do.
- *
- * Limit (`kind: enclave_file`): a development build may keep the blob as a plain file. Every
- * signature still needs Touch ID inside the Secure Enclave, but any same-user process can read the
- * blob and ask for one behind its own prompt and wording. Same trust boundary as the pairing limit
- * above; refused unless `devices.presence.allowDevFileKey` is on. Settings → Devices names the kind
- * so the owner knows which one is in use.
+ * Any same-user process holding the handshake secret can pair as a helper (design-19), so
+ * registering a Windows Hello key requires the key id the genuine helper shows (`expectKeyId`,
+ * mandatory): on the desktop main reads it from the helper bundled in the app, never from whichever
+ * node answered on the socket.
  */
 
 export const PRESENCE_KEYS_SETTING = `${INTERNAL_SETTING_PREFIX}presence.helperKeys`;
@@ -46,17 +50,7 @@ interface RemovedKey {
   removedAt: string;
 }
 
-/**
- * Lets a development build register its Secure Enclave file key (`kind: enclave_file`). A
- * `devices.*` security setting: changing it needs `operator.admin` and fresh presence (§10).
- */
-export const DEV_FILE_KEY_SETTING = "devices.presence.allowDevFileKey";
-
-export type PresenceKeyKind =
-  | "keychain"
-  | "enclave_keychain_acl"
-  | "enclave_file"
-  | "windows_hello";
+export type PresenceKeyKind = "device_identity" | "windows_hello";
 
 /** `PresenceKeyInfo` in the protocol. */
 export interface PresenceKeyInfo {
@@ -68,23 +62,20 @@ export interface PresenceKeyInfo {
 }
 
 interface StoredKey {
-  /** X9.63 uncompressed P-256 point, or SPKI DER of an RSA key; base64url. */
+  /** SPKI DER of an RSA key (Windows Hello); base64url. */
   publicKey: string;
   keyId: string;
   registeredAt: string;
   kind?: PresenceKeyKind;
-  /** Absent for keys stored before it was recorded (all P-256). */
   algorithm?: PresenceKeyAlgorithm;
 }
 
 function kindOf(v: unknown): PresenceKeyKind | undefined {
-  return v === "keychain" ||
-    v === "enclave_keychain_acl" ||
-    v === "enclave_file" ||
-    v === "windows_hello"
-    ? v
-    : undefined;
+  return v === "windows_hello" ? v : undefined;
 }
+
+/** The `deviceFamily` the Mac helper pins when it pairs. */
+export const MAC_HELPER_FAMILY = "mac-helper";
 
 export function presenceKeyId(publicKey: string): string {
   return createHash("sha256").update(Buffer.from(publicKey, "base64url")).digest("hex");
@@ -109,15 +100,36 @@ export class HelperPresenceKeys {
     return d !== undefined && d !== null && d.pairedAt !== null && !d.revokedAt;
   }
 
+  /**
+   * The Mac helper's own device key (Ed25519, as the Gateway pinned it at pairing) while its device
+   * is paired: the key its owner-sheet answers verify against. Undefined for any other device.
+   */
+  #deviceKey(deviceId: string): string | undefined {
+    const d = getDevice(this.#db, deviceId);
+    return d !== undefined &&
+      d.pairedAt !== null &&
+      !d.revokedAt &&
+      getDeviceFamily(this.#db, deviceId) === MAC_HELPER_FAMILY
+      ? d.publicKey
+      : undefined;
+  }
+
+  /** Whether `deviceId`'s verifying key is the Mac helper's own device key (nothing registered). */
+  isDeviceKey(deviceId: string): boolean {
+    return this.#deviceKey(deviceId) !== undefined;
+  }
+
   /** The public key that verifies `deviceId`'s answers, while the device is paired. */
   get(deviceId: string): string | undefined {
+    const own = this.#deviceKey(deviceId);
+    if (own !== undefined) return own;
     const k = this.#all()[deviceId];
     return k !== undefined && this.#live(deviceId) ? k.publicKey : undefined;
   }
 
   list(): PresenceKeyInfo[] {
-    return Object.entries(this.#all())
-      .filter(([deviceId]) => this.#live(deviceId))
+    const registered: PresenceKeyInfo[] = Object.entries(this.#all())
+      .filter(([deviceId]) => this.#live(deviceId) && this.#deviceKey(deviceId) === undefined)
       .map(([deviceId, k]) => ({
         deviceId,
         keyId: k.keyId,
@@ -125,6 +137,18 @@ export class HelperPresenceKeys {
         ...(k.kind === undefined ? {} : { kind: k.kind }),
         ...(k.algorithm === undefined ? {} : { algorithm: k.algorithm }),
       }));
+    // A Mac helper needs no registration: its device key is its presence key, listed so Settings
+    // can say so.
+    const own: PresenceKeyInfo[] = listDevices(this.#db)
+      .filter((d) => d.pairedAt !== null && getDeviceFamily(this.#db, d.id) === MAC_HELPER_FAMILY)
+      .map((d) => ({
+        deviceId: d.id,
+        keyId: presenceKeyId(d.publicKey),
+        registeredAt: d.pairedAt ?? "",
+        kind: "device_identity" as const,
+        algorithm: "ed25519" as const,
+      }));
+    return [...own, ...registered];
   }
 
   #removed(): Record<string, RemovedKey> {
@@ -188,12 +212,11 @@ export class HelperPresenceKeys {
 }
 
 /**
- * A helper presence key, parsed. Two formats, both base64url and both signing
- * `psyche.presence.helper.v1|<challenge>` with SHA-256:
- * - `p256-ecdsa-sha256`: the mac-helper's Secure Enclave key, an X9.63 uncompressed point (65
- *   bytes starting with 0x04); DER-encoded ECDSA signatures.
+ * A helper presence key, parsed. Two formats, both base64url, both signing
+ * `psyche.presence.helper.v1|<challenge>`:
+ * - `ed25519`: the mac-helper's device identity key, 32 raw bytes; 64-byte signatures.
  * - `rsa-2048-pkcs1-sha256`: the win-helper's Windows Hello key (`KeyCredential`), SPKI DER of an
- *   RSA key of at least 2048 bits; PKCS#1 v1.5 signatures.
+ *   RSA key of at least 2048 bits; PKCS#1 v1.5 / SHA-256 signatures.
  * The format is detected from the bytes; a declared `algorithm` must agree with them.
  */
 export interface ParsedPresenceKey {
@@ -201,34 +224,25 @@ export interface ParsedPresenceKey {
   key: KeyObject;
 }
 
-export type PresenceKeyAlgorithm = "p256-ecdsa-sha256" | "rsa-2048-pkcs1-sha256";
+export type PresenceKeyAlgorithm = "ed25519" | "rsa-2048-pkcs1-sha256";
 
 /** The smallest RSA modulus a presence key may have. */
 export const MIN_RSA_PRESENCE_BITS = 2048;
 
 export function parsePresenceKey(b64url: string, declared?: unknown): ParsedPresenceKey | null {
   if (!/^[A-Za-z0-9_-]+$/.test(b64url)) return null;
-  if (
-    declared !== undefined &&
-    declared !== "p256-ecdsa-sha256" &&
-    declared !== "rsa-2048-pkcs1-sha256"
-  ) {
+  if (declared !== undefined && declared !== "ed25519" && declared !== "rsa-2048-pkcs1-sha256") {
     return null;
   }
   const raw = Buffer.from(b64url, "base64url");
-  if (raw.length === 65 && raw[0] === 0x04) {
-    if (declared !== undefined && declared !== "p256-ecdsa-sha256") return null;
+  if (raw.length === 32) {
+    if (declared !== undefined && declared !== "ed25519") return null;
     try {
       const key = createPublicKey({
-        key: {
-          kty: "EC",
-          crv: "P-256",
-          x: raw.subarray(1, 33).toString("base64url"),
-          y: raw.subarray(33).toString("base64url"),
-        },
+        key: { kty: "OKP", crv: "Ed25519", x: raw.toString("base64url") },
         format: "jwk",
       });
-      return { algorithm: "p256-ecdsa-sha256", key };
+      return { algorithm: "ed25519", key };
     } catch {
       return null;
     }
@@ -255,8 +269,8 @@ export function verifyPresenceSignature(
   message: Buffer,
   signature: Buffer,
 ): boolean {
-  if (parsed.algorithm === "p256-ecdsa-sha256") {
-    return verify("sha256", message, { key: parsed.key, dsaEncoding: "der" }, signature);
+  if (parsed.algorithm === "ed25519") {
+    return signature.length === 64 && verify(null, message, parsed.key, signature);
   }
   return verify(
     "sha256",
@@ -276,8 +290,6 @@ export interface PresenceKeyDeps {
     capability: string,
   ): Promise<{ ok: boolean; result?: unknown; error?: { code: string; message: string } }>;
   now(): Date;
-  /** `devices.presence.allowDevFileKey`: a development build's file key may be registered. */
-  allowDevFileKey(): boolean;
 }
 
 export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, HandlerDef> {
@@ -312,6 +324,15 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
         },
       ) {
         const { deviceId } = params;
+        // A Mac helper signs with its device key, which the Gateway pinned at pairing: there is no
+        // second key to register, and a registered one would never be used.
+        if (deps.store.isDeviceKey(deviceId)) {
+          throw new PsycheError(
+            "conflict",
+            `This Mac's helper needs no ${hostWords().presence} key to register`,
+            { details: { reason: "no_key_needed" } },
+          );
+        }
         // The key id comes from the genuine helper, not from whatever node answers on the socket.
         if (typeof params.expectKeyId !== "string") {
           throw new PsycheError(
@@ -333,7 +354,7 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
           kind?: unknown;
           algorithm?: unknown;
         };
-        // P-256 (mac-helper) or RSA >= 2048 (win-helper); a declared algorithm must match the key.
+        // RSA >= 2048 (win-helper's Windows Hello key); a declared algorithm must match the key.
         const parsed =
           res.ok && typeof out.publicKey === "string"
             ? parsePresenceKey(out.publicKey, out.algorithm)
@@ -356,46 +377,14 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
             `The helper's key id is ${keyId}, not the one you expected; nothing was registered`,
           );
         }
-        // The kind is what the helper says about itself: advisory, not a binding. Only `expectKeyId`
-        // (the key id the genuine helper shows) binds the key. A kind this Gateway does not know is
-        // refused outright; a missing one and the development file key need the setting.
+        // Only a Windows Hello key credential (TPM-backed, a Hello gesture per signature) is
+        // registered: the RSA key Hello makes, reporting that kind. Anything else is refused.
         const kind = kindOf(out.kind);
-        if (out.kind !== undefined && kind === undefined) {
+        if (kind !== "windows_hello" || parsed.algorithm !== "rsa-2048-pkcs1-sha256") {
           throw new PsycheError(
             "forbidden",
-            "This helper's Touch ID key has a kind this Gateway does not know",
-            {
-              details: { reason: "unknown_key_kind" },
-            },
-          );
-        }
-        // A Windows Hello key credential (TPM-backed, a Hello gesture per signature) is a
-        // production key like the Mac's keychain ones, but only as the RSA key Hello makes: a
-        // P-256 key claiming the kind is refused, and so is an RSA key claiming a Mac kind.
-        const hello = parsed.algorithm === "rsa-2048-pkcs1-sha256";
-        if ((kind === "windows_hello") !== hello) {
-          throw new PsycheError(
-            "forbidden",
-            "This helper's presence key does not match the kind it reports",
+            "This helper's presence key is not a Windows Hello key, so it cannot be registered",
             { details: { reason: "key_kind_mismatch" } },
-          );
-        }
-        if (
-          kind !== "keychain" &&
-          kind !== "enclave_keychain_acl" &&
-          kind !== "windows_hello" &&
-          !deps.allowDevFileKey()
-        ) {
-          throw new PsycheError(
-            "forbidden",
-            kind === "enclave_file"
-              ? `This helper's Touch ID key is a development Secure Enclave file key; turn on ${DEV_FILE_KEY_SETTING} to register it`
-              : `This helper's Touch ID key has no kind; turn on ${DEV_FILE_KEY_SETTING} to register it`,
-            {
-              details: {
-                reason: kind === "enclave_file" ? "dev_file_key_off" : "missing_key_kind",
-              },
-            },
           );
         }
         // Which key this one replaces: the registered one, or the one a Remove just forgot. It is part
@@ -423,7 +412,7 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
         ) {
           throw new PsycheError(
             "conflict",
-            `This replaces the Touch ID key ${replaces.keyId.slice(0, 16)}… that was registered for this Mac before; confirm to continue`,
+            `This replaces the ${hostWords().presence} key ${replaces.keyId.slice(0, 16)}… that was registered for this computer before; confirm to continue`,
             {
               details: {
                 reason: "replace_confirmation_required",
@@ -440,12 +429,8 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
             name: "method:devices.presenceKey.register",
             summary:
               replaces === undefined
-                ? parsed.algorithm === "rsa-2048-pkcs1-sha256"
-                  ? "Register the Windows helper's Windows Hello key"
-                  : "Register the Mac helper's Touch ID key"
-                : parsed.algorithm === "rsa-2048-pkcs1-sha256"
-                  ? "REPLACE the Windows helper's Windows Hello key with a different one"
-                  : "REPLACE the Mac helper's Touch ID key with a different one",
+                ? "Register the Windows helper's Windows Hello key"
+                : "REPLACE the Windows helper's Windows Hello key with a different one",
             subject: {
               deviceId,
               keyId,
@@ -468,7 +453,7 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
         if (replacedKey()?.keyId !== replaces?.keyId) {
           throw new PsycheError(
             "conflict",
-            "The registered Touch ID key changed while this was waiting; start again",
+            `The registered ${hostWords().presence} key changed while this was waiting; start again`,
           );
         }
         const presenceKey = deps.store.set(

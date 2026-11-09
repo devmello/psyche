@@ -138,20 +138,7 @@ describe("Windows copy (i18n/messages/variants/windows.ts)", () => {
  */
 const ABOUT_MACOS = new Set<string>([
   // The Mac helper's Touch ID key in the login keychain (states only a mac-helper key reaches).
-  "blocks.approval.touchId.keyUntrusted",
-  "blocks.approval.touchId.keyAccessDenied",
-  "blocks.approval.touchId.keyChanged",
-  "blocks.approval.touchId.keyWrongLocation",
-  "blocks.approval.touchId.keyLocked",
-  "blocks.approval.touchId.keyAclUnavailable",
-  "settings.devices.presenceKey.enclaveKeychainAcl",
-  "settings.devices.touchId.untrusted",
-  "settings.devices.touchId.accessDenied",
-  "settings.devices.touchId.wrongLocation",
   "settings.devices.touchId.confirmReplace",
-  "settings.devices.touchId.interactionNotAllowed",
-  "settings.devices.touchId.changed",
-  "settings.devices.touchId.aclUnavailable",
   // The macOS bundle integrity check at start-up (main.ts runs it on macOS only).
   "app.integrity.detail",
   // iMessage / SMS channel: Apple vouches for iMessage senders.
@@ -189,11 +176,8 @@ const ABOUT_MACOS = new Set<string>([
   "settings.devices.platform.macos",
   "settings.devices.nodeKind.macHelper",
   "settings.devices.thisMacAdmin",
-  "settings.devices.presenceKey.keychain",
-  "settings.devices.presenceKey.enclaveFile",
   "settings.devices.presenceKey.unknown",
-  "settings.devices.touchId.allowDevFileKey",
-  "settings.devices.touchId.devFileKey",
+  "settings.devices.presenceKey.deviceIdentity",
   "web.about.appleSilicon",
   // "Available on macOS" itself.
   "platform.macOnly",
@@ -309,7 +293,8 @@ describe("Windows in Settings and onboarding", () => {
 
   it("names a key by its kind, not by the platform this window runs on", () => {
     setUiPlatform("windows");
-    expect(presenceKeyText({ kind: "keychain" })).toMatch(/^Touch ID key/);
+    expect(presenceKeyText({})).toMatch(/^Touch ID key/);
+    expect(presenceKeyText({ kind: "device_identity" })).toMatch(/Touch ID or your Mac password/);
     expect(presenceKeyText({}, "win-helper")).toBe("Windows Hello key, as reported by the helper");
     expect(presenceKeyText({ algorithm: "rs256" })).toMatch(/RSA-2048/);
     expect(presenceKeyText({ algorithm: "rsa-2048-pkcs1-sha256" })).toMatch(/RSA-2048/);

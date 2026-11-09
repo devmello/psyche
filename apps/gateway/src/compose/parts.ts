@@ -30,9 +30,9 @@ type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | Compos
  *   the `PSYCHE_SMS_*` variables are (`smsSetupFromEnv`);
  * - backups and the log viewer (`backup.*`, `logs.tail`); `PSYCHE_BACKUP_IDENTITY_FILE` lets
  *   `backup.verify` open recipient-encrypted archives;
- * - approvals on the Mac through a connected helper's notifications. No presence key is
- *   registered yet (the helper does not sign, S14 issue), so approvals that need Touch ID
- *   stay refused there; Approve / Deny works for the rest;
+ * - approvals on the Mac through a connected helper's notifications. Approvals that need
+ *   presence raise the helper's one owner sheet (Touch ID or the Mac password) and are signed
+ *   by the helper's device key; Approve / Deny works for the rest;
  * - VM mode (`PSYCHE_VM=off` skips it): the sandbox Mac's status as `vm.updated`, and Tasks
  *   whose workspace is `vm` running their commands in the guest;
  * - the sandbox's `exec` tool, only when a container backend is found or VM mode is on
@@ -210,7 +210,8 @@ export function partsFromEnv(
   // Read (and validated) at boot, so a bad token file stops psyched instead of a silent channel.
   const channels = channelsSetupFromEnv(env, (path) => readFileSync(path, "utf8"));
   parts.push((s) => composeChannels(s, channels));
-  // Touch ID answers verify against keys the owner registers (devices.presenceKey.*, #253).
+  // Touch ID answers verify against the Mac helper's own device key (nothing to register); a
+  // Windows helper's Windows Hello key is registered with devices.presenceKey.*.
   parts.push((s) => composeHelper(s));
   // Linux: the owner's password through polkit (linux design §9). Inert elsewhere.
   parts.push((s) => composePasswordPresence(s));

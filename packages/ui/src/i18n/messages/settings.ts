@@ -1465,12 +1465,10 @@ export const settings = {
   "settings.devices.keyLastSeenNever": "· last seen never",
   "settings.devices.lastSeen": "last seen {when}",
   "settings.devices.lastSeenNever": "last seen never",
-  "settings.devices.presenceKey.keychain": "Touch ID key (keychain), as reported by the helper",
-  "settings.devices.presenceKey.enclaveKeychainAcl":
-    "Touch ID key (Secure Enclave, readable only by Psyche Helper without a macOS prompt), as reported by the helper",
-  "settings.devices.presenceKey.enclaveFile":
-    "Touch ID key (Secure Enclave file, this build has no provisioning profile), as reported by the helper",
   "settings.devices.presenceKey.unknown": "Touch ID key (kind not reported by the helper)",
+  // A Mac helper has no key to register: it signs with its own device key after the system sheet.
+  "settings.devices.presenceKey.deviceIdentity":
+    "Approvals use Touch ID or your Mac password. Nothing to set up.",
   // A Windows helper's key: Windows Hello (a TPM-backed key; RSA-2048 today), as the helper reports it.
   "settings.devices.presenceKey.windowsHello":
     "Windows Hello key ({algorithm}), as reported by the helper",
@@ -1481,23 +1479,11 @@ export const settings = {
   "settings.devices.touchId.bundled": "The Psyche Helper in this app shows key",
   "settings.devices.touchId.notBundled":
     "This helper isn't the one bundled with this app, so its key can't be registered here.",
-  "settings.devices.touchId.untrusted":
-    "The Touch ID key in the keychain was not used because it can’t be shown to be Psyche Helper’s. A harmless cause is that Psyche was moved or reinstalled somewhere else: move it back to /Applications and open it again. Otherwise quit Psyche Helper first, then run /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key in Terminal, and register the new key.",
-  "settings.devices.touchId.accessDenied":
-    "macOS did not let Psyche Helper use its Touch ID key in the keychain. Run Psyche again and choose Always Allow only if the dialog names psyche-helper (never for another program).",
-  "settings.devices.touchId.wrongLocation":
-    "Psyche Helper made no Touch ID key because it is running from a disk image, Downloads or another folder. Move Psyche to /Applications, eject any disk image, and open it from there.",
   "settings.devices.touchId.keyMismatch":
     "The Psyche Helper in this app now shows key {shown}, not the registered {registered}. If you didn’t reset the key yourself, treat this as suspicious and don’t register it.",
   "settings.devices.touchId.confirmReplace":
     "This replaces the Touch ID key {previous} that was registered for this Mac. Replace it only if you reset the key yourself.",
   "settings.devices.touchId.confirmReplaceButton": "Replace key",
-  "settings.devices.touchId.interactionNotAllowed":
-    "The keychain can’t ask for permission right now. Unlock the Mac and try again.",
-  "settings.devices.touchId.changed":
-    "The Touch ID key changed while Psyche Helper was running. Quit Psyche Helper and start it again.",
-  "settings.devices.touchId.aclUnavailable":
-    "The keychain wouldn’t keep the Touch ID key’s access list on this Mac. Restart Psyche Helper to try again.",
   "settings.devices.touchId.noBundledKey":
     "The Psyche Helper in this app has no Touch ID key ({reason}).",
   "settings.devices.touchId.register": "Register this key",
@@ -1505,9 +1491,6 @@ export const settings = {
   "settings.devices.touchId.manualLabel": "Key id",
   "settings.devices.touchId.manualHint":
     "Run psyche-helper --print-identity on the Mac and paste the presenceKeyId it prints.",
-  "settings.devices.touchId.allowDevFileKey": "Allow a development Touch ID key",
-  "settings.devices.touchId.devFileKey":
-    "This build has no provisioning profile, so its key is a Secure Enclave file. Any app running as you could ask it to sign behind its own Touch ID prompt. For development only.",
   "settings.devices.revoked": "Revoked ({n, number})",
   "settings.devices.revokedItem": "{name}, revoked {when}",
   "settings.devices.nodes": "Nodes",

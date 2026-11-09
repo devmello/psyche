@@ -13011,11 +13011,13 @@ public struct PresenceKeyInfo: Codable, Sendable {
 }
 
 public enum PresenceKeyAlgorithm: String, Codable, Sendable {
+    case ed25519 = "ed25519"
     case p256EcdsaSha256 = "p256-ecdsa-sha256"
     case rsa2048Pkcs1Sha256 = "rsa-2048-pkcs1-sha256"
 }
 
 public enum PresenceKeyInfoKind: String, Codable, Sendable {
+    case deviceIdentity = "device_identity"
     case enclaveFile = "enclave_file"
     case enclaveKeychainACL = "enclave_keychain_acl"
     case keychain = "keychain"

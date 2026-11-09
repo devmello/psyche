@@ -1335,7 +1335,9 @@ function registerIpc(): void {
         "unavailable",
         id === undefined
           ? `This app has no bundled Psyche Helper to read the ${hostWords().presence} key from`
-          : `The bundled Psyche Helper has no ${hostWords().presence} key (${id.error ?? "unknown"})`,
+          : id.error === undefined && process.platform === "darwin"
+            ? `${hostWords().presence} on this Mac needs no key to register`
+            : `The bundled Psyche Helper has no ${hostWords().presence} key (${id.error ?? "unknown"})`,
       );
     }
     // `confirmReplacesKeyId` is only an accident guard: any admin caller can send it. The owner's

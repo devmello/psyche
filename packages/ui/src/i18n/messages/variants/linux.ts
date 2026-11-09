@@ -46,7 +46,6 @@ export const linux: Partial<Record<MessageId, string>> = {
     "Allowed once (password approvals from this window are once only)",
   "blocks.approval.touchId.keyUnavailable":
     "This build of the Linux helper can't keep an approval key, so cards that need your password can't be approved on this computer.",
-  "blocks.approval.touchId.cancelled": "The password prompt was cancelled, so nothing was approved",
   "shell.shortcut.pushToTalkKeys": "Hold Right Ctrl",
   "settings.shared.needsPresence":
     "Changing “{label}” needs your approval with your password or a passkey. Approve it in Settings or in the Psyche notification, then change it again.",

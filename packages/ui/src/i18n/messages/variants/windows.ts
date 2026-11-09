@@ -50,7 +50,6 @@ export const windows: Partial<Record<MessageId, string>> = {
     "Allowed once (Windows Hello approvals from this window are once only)",
   "blocks.approval.touchId.keyUnavailable":
     "This build of the Windows helper can't keep a Windows Hello key, so cards that need Windows Hello can't be approved on this PC.",
-  "blocks.approval.touchId.cancelled": "Windows Hello was cancelled, so nothing was approved",
   "settings.shared.needsPresence":
     "Changing “{label}” needs your approval with Windows Hello or a passkey. Approve it in Settings or in the Psyche notification, then change it again.",
   "settings.page.permissions.description":

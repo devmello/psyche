@@ -537,6 +537,9 @@ export function ApprovalCard({
         setLimitedUntil(Date.now() + failure.retryAfterSec * 1000);
         setLimitFailure(failure);
         setError(null);
+      } else if (failure.kind === "cancelled") {
+        // The owner cancelled the system sheet: not approved, and the card just stays as it was.
+        setError(null);
       } else {
         setError(answerFailureText(failure));
         if (failure.kind === "touch_id_setup") setTouchIdFixFor(failure.fix);

@@ -612,7 +612,7 @@ export interface BundledHelperIdentity {
   deviceId: string;
   keyId?: string;
   /** `windows_hello` from the Windows helper; its `algorithm` is e.g. "RSA-2048". */
-  kind?: "keychain" | "enclave_keychain_acl" | "enclave_file" | "windows_hello";
+  kind?: "windows_hello" | "device_identity";
   algorithm?: string;
   error?: string;
 }

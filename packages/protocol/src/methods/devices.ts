@@ -6,20 +6,22 @@ import { defineMethod } from "./define.ts";
 /** `devices.*`: pairing and device management; every method needs `operator.admin` (security §10). */
 
 /**
- * Hex SHA-256 of the helper's public key bytes, as the helper reports it: the X9.63 point of a
- * P-256 key (mac-helper), the SPKI DER of an RSA key (win-helper).
+ * Hex SHA-256 of the helper's public key bytes, as the Gateway lists it: the raw 32-byte Ed25519
+ * device key of a mac-helper, the SPKI DER of an RSA key (win-helper).
  */
 const KeyId = Type.String({ pattern: "^[0-9a-f]{64}$" });
 
 /**
- * The signature scheme of a helper presence key, both over `psyche.presence.helper.v1|<challenge>`:
- * `p256-ecdsa-sha256` (mac-helper's Secure Enclave key, DER signatures; `publicKey` is the X9.63
- * uncompressed point) or `rsa-2048-pkcs1-sha256` (win-helper's Windows Hello key, PKCS#1 v1.5;
- * `publicKey` is SPKI DER, at least 2048 bits). Both base64url.
+ * The signature scheme of a helper presence key, all over `psyche.presence.helper.v1|<challenge>`:
+ * `ed25519` (mac-helper's device identity key, 64-byte signatures; `publicKey` is the 32 raw bytes)
+ * or `rsa-2048-pkcs1-sha256` (win-helper's Windows Hello key, PKCS#1 v1.5; `publicKey` is SPKI DER,
+ * at least 2048 bits). Both base64url. `p256-ecdsa-sha256` is the retired Secure Enclave key of
+ * earlier Mac helpers: kept so older clients still decode it, never produced or accepted now.
  */
-export const PresenceKeyAlgorithm = StringEnum(["p256-ecdsa-sha256", "rsa-2048-pkcs1-sha256"], {
-  $id: "PresenceKeyAlgorithm",
-});
+export const PresenceKeyAlgorithm = StringEnum(
+  ["p256-ecdsa-sha256", "rsa-2048-pkcs1-sha256", "ed25519"],
+  { $id: "PresenceKeyAlgorithm" },
+);
 export type PresenceKeyAlgorithm = Static<typeof PresenceKeyAlgorithm>;
 
 export const PresenceKeyInfo = Type.Object(
@@ -28,17 +30,22 @@ export const PresenceKeyInfo = Type.Object(
     keyId: KeyId,
     registeredAt: IsoDateTime,
     /**
-     * Where the helper keeps it: `keychain` (data-protection keychain, bound to the helper's
-     * access group); `enclave_keychain_acl` (a Secure Enclave key whose wrapped blob is a
-     * login-keychain item only the helper may read, on builds without a provisioning profile); or
-     * `enclave_file` (the blob is a plain file, development builds only; any same-user process could
-     * ask it to sign behind its own Touch ID prompt, security §10); or `windows_hello` (a Windows Hello key credential of the
-     * win-helper). Absent for keys registered before it was reported.
+     * Whose key it is: `device_identity` (a mac-helper's own device key, pinned when the owner
+     * approved its pairing: nothing to register, listed so Settings can say so) or
+     * `windows_hello` (a Windows Hello key credential of the win-helper, registered by the owner).
+     * `keychain`, `enclave_keychain_acl` and `enclave_file` are the retired Mac Touch ID key
+     * locations: kept so older clients still decode them, never produced now.
      */
     kind: Type.Optional(
-      StringEnum(["keychain", "enclave_keychain_acl", "enclave_file", "windows_hello"]),
+      StringEnum([
+        "keychain",
+        "enclave_keychain_acl",
+        "enclave_file",
+        "windows_hello",
+        "device_identity",
+      ]),
     ),
-    /** The key's signature scheme; absent for keys registered before it was reported (P-256). */
+    /** The key's signature scheme. */
     algorithm: Type.Optional(PresenceKeyAlgorithm),
   },
   { $id: "PresenceKeyInfo" },
@@ -193,7 +200,7 @@ export const DevicesMethods = {
     result: Type.Object({ presenceKeys: Type.Array(PresenceKeyInfo) }),
     scope: "operator.admin",
     description:
-      "Lists the registered helper presence keys (Touch ID approvals, issue #253): device id and key id only.",
+      "Lists the keys that verify helper presence answers: a Windows helper's registered Windows Hello key, and for each paired Mac helper its own device key (kind device_identity, nothing to register). Device id and key id only.",
   }),
   "devices.presenceKey.register": defineMethod({
     params: Type.Object({
@@ -218,7 +225,7 @@ export const DevicesMethods = {
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Reads the helper's presence key (`presence.public_key`: the Secure Enclave P-256 key of a mac-helper, or the Windows Hello RSA key of a win-helper, `algorithm: rsa-2048-pkcs1-sha256`, SPKI DER of at least 2048 bits) and registers it for that device when its key id equals expectKeyId, so its Touch ID / Windows Hello answers verify. A Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
+      "Reads the Windows helper's presence key (`presence.public_key`: the Windows Hello RSA key, `algorithm: rsa-2048-pkcs1-sha256`, SPKI DER of at least 2048 bits) and registers it for that device when its key id equals expectKeyId, so its Windows Hello answers verify. A Mac helper needs no registration (its device key is its presence key): conflict with details.reason no_key_needed. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
   }),
   "devices.presenceKey.remove": defineMethod({
     params: Type.Object({ deviceId: Id }),

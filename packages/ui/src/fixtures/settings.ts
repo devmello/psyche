@@ -480,7 +480,7 @@ export function windowsPresenceKeys(): {
   deviceId: string;
   keyId: string;
   registeredAt: string;
-  kind?: "keychain" | "enclave_file";
+  kind?: "windows_hello";
 }[] {
   return [
     {

@@ -136,22 +136,8 @@ export const blocksRest: Partial<Catalogue> = {
     "Le approvazioni con Touch ID da questa finestra valgono una sola volta.",
   "blocks.approval.status.allowedOnceTouchId":
     "Consentito una volta (le approvazioni con Touch ID da questa finestra valgono una sola volta)",
-  "blocks.approval.touchId.keyUntrusted":
-    "La chiave Touch ID dell’helper di Psyche nel portachiavi non si può dimostrare sua, quindi non è stata usata. Apri Impostazioni → Dispositivi per vedere cosa fare.",
-  "blocks.approval.touchId.keyAccessDenied":
-    "macOS non ha permesso all’helper di Psyche di usare la sua chiave Touch ID. Riprova e scegli Consenti sempre solo se la finestra nomina psyche-helper.",
-  "blocks.approval.touchId.keyChanged":
-    "La chiave Touch ID è cambiata mentre l’helper di Psyche era in esecuzione. Esci dall’helper di Psyche e riavvialo.",
-  "blocks.approval.touchId.keyWrongLocation":
-    "Psyche è in esecuzione da un posto in cui la sua chiave Touch ID non può essere conservata (immagine disco, Download o un’altra cartella). Sposta Psyche in Applicazioni e aprilo da lì.",
-  "blocks.approval.touchId.keyLocked":
-    "Il portachiavi non può chiedere il permesso in questo momento. Sblocca il Mac e riprova.",
-  "blocks.approval.touchId.keyAclUnavailable":
-    "Il portachiavi non ha conservato l’elenco di accesso della chiave Touch ID su questo Mac. Riavvia l’helper di Psyche per riprovare.",
   "blocks.approval.touchId.keyUnavailable":
     "Questa build di Psyche Helper non può conservare una chiave Touch ID (non ha un gruppo di accesso al portachiavi), quindi le schede che richiedono Touch ID non possono essere approvate su questo Mac.",
-  "blocks.approval.touchId.cancelled":
-    "Touch ID è stato annullato, quindi non è stato approvato nulla",
   "blocks.approval.touchId.restartHelper": "Riavvia l’helper di Psyche",
   "blocks.approval.touchId.startHelper": "Avvia Psyche Helper",
   "blocks.question.answerLine": "↳ {answer}",

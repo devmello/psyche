@@ -562,34 +562,19 @@ export const settings: Partial<Catalogue> = {
   "settings.data.recallState.textOnly": "لا يتوفر نموذج تضمين، لذا يطابق الاسترجاع الكلمات فقط.",
   "settings.data.replayRetentionHint":
     "الشاشات التي نظر إليها {persona} أثناء العمل، من أجل الجدول الزمني. الإيقاف لا يحتفظ بشيء.",
-  "settings.devices.presenceKey.keychain": "مفتاح Touch ID (سلسلة المفاتيح)، كما أبلغ عنه المساعد",
-  "settings.devices.presenceKey.enclaveKeychainAcl":
-    "مفتاح Touch ID (Secure Enclave، لا يقرؤه دون نافذة تنبيه من macOS إلا مساعد Psyche)، كما أبلغ عنه المساعد",
-  "settings.devices.presenceKey.enclaveFile":
-    "مفتاح Touch ID (ملف Secure Enclave، لا يحتوي هذا الإصدار على ملف تعريف تجهيز)، كما أبلغ عنه المساعد",
   "settings.devices.presenceKey.unknown": "مفتاح Touch ID (لم يبلغ المساعد عن نوعه)",
+  "settings.devices.presenceKey.deviceIdentity":
+    "تستخدم الموافقات Touch ID أو كلمة مرور جهاز Mac. لا يلزم إعداد أي شيء.",
   "settings.devices.touchId.none":
     "لا مفتاح Touch ID بعد. لا يمكن الموافقة على البطاقات التي تحتاج إلى Touch ID حتى يُسجَّل مفتاح.",
   "settings.devices.touchId.bundled": "يعرض مساعد Psyche في هذا التطبيق المفتاح",
   "settings.devices.touchId.notBundled":
     "هذا المساعد ليس المضمَّن مع هذا التطبيق، لذا لا يمكن تسجيل مفتاحه هنا.",
-  "settings.devices.touchId.untrusted":
-    "لم يُستخدم مفتاح Touch ID في سلسلة المفاتيح لأنه لا يمكن إثبات أنه يخص مساعد Psyche. من الأسباب غير الضارة نقل Psyche أو إعادة تثبيته في مكان آخر: أعده إلى مجلد التطبيقات وافتحه مرة أخرى. وإلا فأغلق مساعد Psyche أولًا، ثم شغّل /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key في Terminal، وسجّل المفتاح الجديد.",
-  "settings.devices.touchId.accessDenied":
-    "لم يسمح macOS لمساعد Psyche باستخدام مفتاح Touch ID في سلسلة المفاتيح. شغّل Psyche مرة أخرى واختر السماح دائمًا فقط إذا ذكرت النافذة psyche-helper (وليس لأي برنامج آخر).",
-  "settings.devices.touchId.wrongLocation":
-    "لم ينشئ مساعد Psyche مفتاح Touch ID لأنه يعمل من صورة قرص أو مجلد التنزيلات أو مجلد آخر. انقل Psyche إلى مجلد التطبيقات، وأخرج أي صورة قرص، وافتحه من هناك.",
   "settings.devices.touchId.keyMismatch":
     "يعرض مساعد Psyche في هذا التطبيق الآن المفتاح {shown} وليس المسجَّل {registered}. إذا لم تُعد تعيين المفتاح بنفسك فاعتبر ذلك مريبًا ولا تسجّله.",
   "settings.devices.touchId.confirmReplace":
     "سيستبدل هذا مفتاح Touch ID ‏{previous} المسجَّل لهذا الـ Mac. لا تستبدله إلا إذا أعدت تعيين المفتاح بنفسك.",
   "settings.devices.touchId.confirmReplaceButton": "استبدال المفتاح",
-  "settings.devices.touchId.interactionNotAllowed":
-    "لا تستطيع سلسلة المفاتيح طلب الإذن الآن. افتح قفل الـ Mac وحاول مرة أخرى.",
-  "settings.devices.touchId.changed":
-    "تغيّر مفتاح Touch ID أثناء تشغيل مساعد Psyche. أغلق مساعد Psyche وشغّله مرة أخرى.",
-  "settings.devices.touchId.aclUnavailable":
-    "رفضت سلسلة المفاتيح حفظ قائمة الوصول لمفتاح Touch ID على هذا الـ Mac. أعد تشغيل مساعد Psyche للمحاولة مرة أخرى.",
   "settings.devices.touchId.noBundledKey":
     "لا يملك مساعد Psyche في هذا التطبيق مفتاح Touch ID ({reason}).",
   "settings.devices.touchId.register": "تسجيل هذا المفتاح",
@@ -597,9 +582,6 @@ export const settings: Partial<Catalogue> = {
   "settings.devices.touchId.manualLabel": "معرّف المفتاح",
   "settings.devices.touchId.manualHint":
     "شغّل psyche-helper --print-identity على جهاز Mac والصق presenceKeyId الذي يطبعه.",
-  "settings.devices.touchId.allowDevFileKey": "السماح بمفتاح Touch ID للتطوير",
-  "settings.devices.touchId.devFileKey":
-    "لا يحتوي هذا الإصدار على ملف تعريف تجهيز، لذا مفتاحه ملف Secure Enclave. يمكن لأي تطبيق يعمل باسمك أن يطلب منه التوقيع خلف مطالبة Touch ID الخاصة به. للتطوير فقط.",
   "settings.files.execHost": "تشغيل الأوامر على هذا الـ Mac",
   "settings.files.execHostHint":
     "يتيح لـ {persona} تشغيل الأوامر في مجلداتك المشتركة، داخل البيئة المعزولة. الأوامر التي قد تغيّر الملفات تسألك أولًا.",
