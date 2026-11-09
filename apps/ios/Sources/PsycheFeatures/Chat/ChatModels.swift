@@ -193,6 +193,8 @@ final class ThreadModel {
     // MARK: Applying events
 
     private func apply(_ event: ChatEvent) {
+        // Run changes feed the Live Activity (AlertCenter); the thread screen reads its own status.
+        if case .run = event { return }
         if case .delta(_, let itemID, let text) = event {
             // Deltas arrive faster than frames; they are folded together and laid out once per frame.
             pendingDeltas[itemID, default: ""] += text
@@ -234,6 +236,8 @@ final class ThreadModel {
         case .status(_, let status, let kind):
             thread.status = status
             thread.statusKind = kind
+        case .run:
+            break
         }
         phase = .loaded(thread)
         revision += 1

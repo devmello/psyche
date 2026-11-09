@@ -51,6 +51,14 @@ function detailsOf(err: unknown): Record<string, unknown> {
 export function classifyAnswerError(err: unknown): AnswerFailure {
   const code = errorCode(err);
   const details = detailsOf(err);
+  // The Gateway's per-device request budget (`details.scope`) is not the approvals' answer limit:
+  // naming it "too many approvals" told the owner something false. Say what it is.
+  if (
+    code === "rate_limited" &&
+    (details.scope === "requests" || details.scope === "side_effects")
+  ) {
+    return { kind: "other", text: describeError(err) };
+  }
   if (code === "rate_limited") {
     const n = Number(details.retryAfterSec);
     return { kind: "rate_limited", retryAfterSec: Number.isFinite(n) && n > 0 ? Math.ceil(n) : 60 };
