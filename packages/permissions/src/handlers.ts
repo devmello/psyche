@@ -128,13 +128,16 @@ export function createPermissionHandlers(
           details: { reason: "presence_invalid" },
         });
       }
-      const approval = await broker.answer({
-        ...params,
-        decidedBy: { deviceId: c.deviceId, surface: c.surface },
-        ...(c.local === true ? { local: true } : {}),
-        ...(presence === undefined ? {} : { presence: presence as PresenceAssertion }),
-        ...(typeof typedConfirmation === "string" ? { typedConfirmation } : {}),
-      });
+      const approval = await broker.answer(
+        {
+          ...params,
+          decidedBy: { deviceId: c.deviceId, surface: c.surface },
+          ...(presence === undefined ? {} : { presence: presence as PresenceAssertion }),
+          ...(typeof typedConfirmation === "string" ? { typedConfirmation } : {}),
+        },
+        // Only from the connection (`Caller.local`), never from what the client sent.
+        { local: c.local === true },
+      );
       const grant =
         approval.grantId == null
           ? null

@@ -183,11 +183,6 @@ export interface PolicyAnswerInput extends ApprovalAnswerInput {
   presence?: PresenceAssertion;
   /** The word the owner typed for a permanent deletion. */
   typedConfirmation?: string;
-  /**
-   * The Gateway vouches this call is the owner's own Host app or helper (loopback, per-launch
-   * secret): its refused answers are audited but never count toward the lockout cap.
-   */
-  local?: boolean;
 }
 
 export interface ScopeTtlConfig {

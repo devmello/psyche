@@ -343,16 +343,18 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
           }
         : undefined;
     try {
-      await services.rawBroker.answer({
-        approvalId: d.approval.id,
-        answerToken: d.token,
-        decision,
-        ...(decision === "approve" ? { scope: "once" as const } : {}),
-        decidedBy: { deviceId: h.deviceId, surface: HELPER_SURFACE },
-        // Only the Host's own helper is attached here (`isHostHelper`).
-        local: true,
-        ...(presence === undefined ? {} : { presence }),
-      });
+      await services.rawBroker.answer(
+        {
+          approvalId: d.approval.id,
+          answerToken: d.token,
+          decision,
+          ...(decision === "approve" ? { scope: "once" as const } : {}),
+          decidedBy: { deviceId: h.deviceId, surface: HELPER_SURFACE },
+          ...(presence === undefined ? {} : { presence }),
+          // Only the Host's own helper is attached here (`isHostHelper`).
+        },
+        { local: true },
+      );
     } catch (err) {
       // Refused answers are audited by the broker; the approval stays pending on the other surfaces.
       warn("approval answer from the helper notification refused", err);
@@ -627,20 +629,22 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       // The answer is the window's (its token, its surface); the presence is the helper's key,
       // so the helper device decides it, as for a notification answer. `once` only: the scope is
       // not part of the signed challenge, so the window cannot widen it.
-      const approval = await services.rawBroker.answer({
-        approvalId: a.id,
-        answerToken: params.answerToken,
-        decision: "approve",
-        scope: "once",
-        decidedBy: by,
-        local,
-        presence: {
-          kind: "helper",
-          deviceId: h.deviceId,
-          signature: out.signature,
-          ...(typeof out.keyId === "string" ? { payload: { keyId: out.keyId } } : {}),
+      const approval = await services.rawBroker.answer(
+        {
+          approvalId: a.id,
+          answerToken: params.answerToken,
+          decision: "approve",
+          scope: "once",
+          decidedBy: by,
+          presence: {
+            kind: "helper",
+            deviceId: h.deviceId,
+            signature: out.signature,
+            ...(typeof out.keyId === "string" ? { payload: { keyId: out.keyId } } : {}),
+          },
         },
-      });
+        { local },
+      );
       const grant =
         approval.grantId == null
           ? null

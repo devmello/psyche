@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PolicyCall } from "../src/index.ts";
+import { type Caller, createPermissionHandlers, type PolicyCall } from "../src/index.ts";
 import { approvers, makeBroker as baseBroker, CTX, call, origin } from "./helpers.ts";
 
 const scopes = {
@@ -202,23 +202,27 @@ describe("answer lockout counts guessing only", () => {
     h.clock.advance(500);
     for (let i = 0; i < 200; i += 1) {
       await expect(
-        h.broker.answer({
-          approvalId: issued.approval.id,
-          answerToken: `at_stale_${i}`,
-          decision: "approve",
-          decidedBy: by("dev_shell"),
-          local: true,
-        }),
+        h.broker.answer(
+          {
+            approvalId: issued.approval.id,
+            answerToken: `at_stale_${i}`,
+            decision: "approve",
+            decidedBy: by("dev_shell"),
+          },
+          { local: true },
+        ),
       ).rejects.toMatchObject({ code: "forbidden" });
     }
     expect((await h.audit.query({ kind: "approval.answer_rejected" })).length).toBe(200);
-    const ok = await h.broker.answer({
-      approvalId: issued.approval.id,
-      answerToken: issued.answerTokens.desktop ?? "",
-      decision: "deny",
-      decidedBy: by("dev_shell"),
-      local: true,
-    });
+    const ok = await h.broker.answer(
+      {
+        approvalId: issued.approval.id,
+        answerToken: issued.answerTokens.desktop ?? "",
+        decision: "deny",
+        decidedBy: by("dev_shell"),
+      },
+      { local: true },
+    );
     expect(ok.status).toBe("denied");
     // A remote device making the same mistakes is still stopped.
     const next = await request(h, write());
@@ -276,5 +280,75 @@ describe("answer lockout counts guessing only", () => {
         local: true,
       }),
     ).resolves.toBeDefined();
+  });
+
+  it("a client cannot claim to be local by sending the flag in its params", async () => {
+    const h = makeBroker();
+    const handlers = createPermissionHandlers(h.broker, h.audit);
+    const phone: Caller = {
+      deviceId: "dev_phone",
+      scopes: ["operator.read", "operator.approvals"],
+      surface: "desktop",
+    };
+    const issued = await request(h, write());
+    h.clock.advance(500);
+    // 200 guessed tokens, each claiming `local: true` (the schema lets extra keys through).
+    const codes: string[] = [];
+    for (let i = 0; i < 200; i += 1) {
+      const res = await handlers["approvals.answer"](
+        {
+          approvalId: issued.approval.id,
+          answerToken: `at_guess_${i}`,
+          decision: "approve",
+          local: true,
+        },
+        phone,
+      ).catch((e: { code: string }) => e);
+      codes.push((res as { code?: string }).code ?? "ok");
+    }
+    expect(codes).toContain("rate_limited");
+    expect(codes.filter((c) => c === "forbidden").length).toBeLessThanOrEqual(60);
+    // The same smuggled flag straight on the broker input (the chat path spreads its input too).
+    await expect(
+      h.broker.answer({
+        approvalId: issued.approval.id,
+        answerToken: "at_more",
+        decision: "approve",
+        decidedBy: by("dev_phone"),
+        local: true,
+      } as never),
+    ).rejects.toMatchObject({ code: "rate_limited" });
+    // A connection the Gateway vouched for is not limited by the same guesses.
+    const shell: Caller = { ...phone, deviceId: "dev_shell", local: true };
+    for (let i = 0; i < 100; i += 1) {
+      await expect(
+        handlers["approvals.answer"](
+          { approvalId: issued.approval.id, answerToken: `at_g_${i}`, decision: "approve" },
+          shell,
+        ),
+      ).rejects.toMatchObject({ code: "forbidden" });
+    }
+  });
+
+  it("a chat sender cannot claim to be local either", async () => {
+    const h = makeBroker({ approvers: approvers({ ...devices }, ["telegram:owner-1"]) });
+    const issued = await request(h, write());
+    h.clock.advance(500);
+    const chat = { channel: "telegram", senderId: "owner-1" } as never;
+    const codes: string[] = [];
+    for (let i = 0; i < 100; i += 1) {
+      const res = await h.broker
+        .answer({
+          approvalId: issued.approval.id,
+          answerToken: `at_guess_${i}`,
+          decision: "approve",
+          scope: "once",
+          decidedBy: chat,
+          local: true,
+        } as never)
+        .catch((e: { code: string }) => e);
+      codes.push((res as { code?: string }).code ?? "ok");
+    }
+    expect(codes).toContain("rate_limited");
   });
 });

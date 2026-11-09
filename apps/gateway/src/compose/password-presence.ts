@@ -712,15 +712,17 @@ export function composePasswordPresence(
       };
       // The answer is the window's (its token, its surface); `once` only, because the scope is
       // not part of what polkit confirmed.
-      const approval = await rawBroker.answer({
-        approvalId: a.id,
-        answerToken: params.answerToken,
-        decision: "approve",
-        scope: "once",
-        decidedBy: by,
-        local,
-        presence: { kind: "password", deviceId: by.deviceId, signature: nonce },
-      });
+      const approval = await rawBroker.answer(
+        {
+          approvalId: a.id,
+          answerToken: params.answerToken,
+          decision: "approve",
+          scope: "once",
+          decidedBy: by,
+          presence: { kind: "password", deviceId: by.deviceId, signature: nonce },
+        },
+        { local },
+      );
       // Audited only once the broker accepted the answer: a refused or late one is the broker's
       // own audit entry, and this one means "approved with the owner's password".
       try {

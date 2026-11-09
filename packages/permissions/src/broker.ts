@@ -1169,10 +1169,18 @@ export class PsychePermissionBroker implements PermissionBroker {
     );
   }
 
-  async answer(input: PolicyAnswerInput): Promise<ApprovalRequest> {
+  /**
+   * `trusted` is what the Gateway itself vouches for about the connection: it is a separate
+   * argument, never a field of `input`, because `input` is built from a client's params (or a chat
+   * message) and a client must not be able to claim it.
+   */
+  async answer(
+    input: PolicyAnswerInput,
+    trusted: { local?: boolean } = {},
+  ): Promise<ApprovalRequest> {
     this.#sweep();
     const by = input.decidedBy;
-    this.#markLocal(by, input.local);
+    this.#markLocal(by, trusted.local);
     const identity =
       "deviceId" in by ? `device:${by.deviceId}` : `channel:${by.channel}:${by.senderId}`;
     const id = input.approvalId;
