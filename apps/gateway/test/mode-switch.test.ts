@@ -169,12 +169,24 @@ describe("threads.update: Auto and the model", () => {
     expect(row?.modelRef).toBe("anthropic/claude-sonnet-5-5");
   });
 
-  it("keeps Auto off the smallest models: Haiku 5.5 gets the same refusal and offer", async () => {
-    const { run } = await updateThreadWith("anthropic/claude-haiku-5-5", {
+  it("allows Auto on the smallest tiers (owner decision, 2026-11-09)", async () => {
+    for (const model of [
+      "anthropic/claude-haiku-5-5",
+      "openai/gpt-6-luna",
+      "google/gemini-3.8-flash",
+    ]) {
+      const { db, thread, run } = await updateThreadWith(model, { permissionMode: "auto" });
+      await run();
+      expect(getThread(db, thread.id)?.permissionMode, model).toBe("auto");
+    }
+  });
+
+  it("still refuses an older generation with the same named refusal", async () => {
+    const { run } = await updateThreadWith("anthropic/claude-haiku-4-5", {
       permissionMode: "auto",
     });
     await expect(run()).rejects.toMatchObject({
-      details: { reason: "auto_model_not_allowed", model: "anthropic/claude-haiku-5-5" },
+      details: { reason: "auto_model_not_allowed", model: "anthropic/claude-haiku-4-5" },
     });
   });
 });

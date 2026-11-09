@@ -222,7 +222,7 @@ describe("ModelRouter", () => {
     expect(router.allowsAutoMode("ollama/qwen3.8:27b")).toBe(false);
   });
 
-  it("allows Auto on the current top-tier models, not small, older or local ones", () => {
+  it("allows Auto on the current models, the small tiers included, not older or local ones", () => {
     const { router } = setup();
     for (const ref of [
       "anthropic/claude-opus-5-5",
@@ -232,13 +232,15 @@ describe("ModelRouter", () => {
       "openai/gpt-6-sol",
       "openai/gpt-6.1-sol",
       "google/gemini-4-argon",
+      // The owner decided on 2026-11-09 to allow the smallest tiers too.
+      "anthropic/claude-haiku-5-5",
+      "openai/gpt-6-luna",
+      "google/gemini-3.8-flash",
     ]) {
       expect(router.allowsAutoMode(ref), ref).toBe(true);
     }
     for (const ref of [
-      "anthropic/claude-haiku-5-5",
-      "openai/gpt-6-luna",
-      "google/gemini-3.8-flash",
+      "anthropic/claude-haiku-4-5",
       "xai/grok-4.7",
       "deepseek/deepseek-v4-pro",
       "mistral/mistral-large-4",
@@ -268,16 +270,18 @@ describe("ModelRouter", () => {
     expect(router.allowsAutoMode("anthropic/claude-opus-5-5")).toBe(false);
     expect(router.allowsAutoMode("openai/gpt-6-sol")).toBe(false);
     expect(router.allowsAutoMode("anthropic-work/claude-opus-5-5")).toBe(true);
-    expect(router.allowsAutoMode("anthropic-work/claude-haiku-5-5")).toBe(false);
+    expect(router.allowsAutoMode("anthropic-work/claude-haiku-5-5")).toBe(true);
+    expect(router.allowsAutoMode("anthropic-work/claude-haiku-4-5")).toBe(false);
     for (const ref of [
       "claude-code/opus",
       "claude-code/sonnet",
+      "claude-code/haiku",
       "claude-code/default",
       "codex/default",
     ]) {
       expect(router.allowsAutoMode(ref), ref).toBe(true);
     }
-    expect(router.allowsAutoMode("claude-code/haiku")).toBe(false);
+    expect(router.allowsAutoMode("claude-code/opus-3")).toBe(false);
     expect(router.allowsAutoMode("codex/gpt-5.5")).toBe(false);
     expect(router.allowsAutoMode("not a ref")).toBe(false);
   });
