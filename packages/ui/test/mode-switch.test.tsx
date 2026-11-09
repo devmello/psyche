@@ -77,11 +77,11 @@ describe("autoModeSuggestion", () => {
           id: "claude-code",
           kind: "claude-code",
           keyConfigured: true,
-          models: refs("claude-code/claude-sonnet-5-5"),
+          models: refs("claude-code/sonnet"),
         },
       ],
     };
-    expect(autoModeSuggestion(l, "lmstudio/tiny-7b")).toBe("claude-code/claude-sonnet-5-5");
+    expect(autoModeSuggestion(l, "lmstudio/tiny-7b")).toBe("claude-code/sonnet");
   });
 
   it("offers an allowed model the owner has a key for, never an unkeyed or embedding one", () => {
@@ -182,7 +182,7 @@ describe("<ModeSwitch>", () => {
         onSelect={onSelect}
       />,
     );
-    await userEvent.click(screen.getByTestId("mode-switch-auto"));
+    await userEvent.click(screen.getByRole("radio", { name: /^auto$/i }));
     expect(onSelect).toHaveBeenCalledWith("auto", undefined);
     expect(await screen.findByTestId("mode-switch-explainer")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: /got it/i }));
@@ -200,16 +200,18 @@ describe("<ModeSwitch>", () => {
         onSelect={vi.fn().mockResolvedValue("saved")}
       />,
     );
-    await userEvent.click(screen.getByTestId("mode-switch-auto"));
-    await waitFor(() => expect(screen.getByTestId("mode-switch-auto")).toBeTruthy());
+    await userEvent.click(screen.getByRole("radio", { name: /^auto$/i }));
+    await waitFor(() => expect(screen.getByRole("radio", { name: /^auto$/i })).toBeTruthy());
     expect(screen.queryByTestId("mode-switch-explainer")).toBeNull();
   });
 
   it("marks the current mode and sets manual without any prompt", async () => {
     const onSelect = vi.fn().mockResolvedValue("saved");
     render(<ModeSwitch mode="auto" modelRef={null} listed={undefined} onSelect={onSelect} />);
-    expect(screen.getByTestId("mode-switch-auto").getAttribute("aria-checked")).toBe("true");
-    await userEvent.click(screen.getByTestId("mode-switch-manual"));
+    expect(screen.getByRole("radio", { name: /^auto$/i }).getAttribute("aria-checked")).toBe(
+      "true",
+    );
+    await userEvent.click(screen.getByRole("radio", { name: /^manual$/i }));
     expect(onSelect).toHaveBeenCalledWith("manual", undefined);
   });
 
@@ -223,7 +225,7 @@ describe("<ModeSwitch>", () => {
         onSelect={onSelect}
       />,
     );
-    await userEvent.click(screen.getByTestId("mode-switch-auto"));
+    await userEvent.click(screen.getByRole("radio", { name: /^auto$/i }));
     expect(onSelect).not.toHaveBeenCalled();
     await userEvent.click(await screen.findByTestId("mode-switch-take-offer"));
     expect(onSelect).toHaveBeenCalledWith("auto", "anthropic/claude-sonnet-5-5");
@@ -237,7 +239,7 @@ describe("<ModeSwitch>", () => {
     render(
       <ModeSwitch mode="balanced" modelRef="mystery/model" listed={listed} onSelect={onSelect} />,
     );
-    await userEvent.click(screen.getByTestId("mode-switch-auto"));
+    await userEvent.click(screen.getByRole("radio", { name: /^auto$/i }));
     expect(await screen.findByTestId("mode-switch-take-offer")).toBeTruthy();
   });
 
@@ -250,7 +252,7 @@ describe("<ModeSwitch>", () => {
         onSelect={vi.fn()}
       />,
     );
-    await userEvent.click(screen.getByTestId("mode-switch-auto"));
+    await userEvent.click(screen.getByRole("radio", { name: /^auto$/i }));
     expect(await screen.findByTestId("mode-switch-offer")).toBeTruthy();
     expect(screen.queryByTestId("mode-switch-take-offer")).toBeNull();
   });
@@ -264,7 +266,7 @@ describe("<ModeSwitch>", () => {
         onSelect={vi.fn().mockResolvedValue("failed")}
       />,
     );
-    await userEvent.click(screen.getByTestId("mode-switch-manual"));
+    await userEvent.click(screen.getByRole("radio", { name: /^manual$/i }));
     expect(await screen.findByText(/could not be saved as the default/i)).toBeTruthy();
   });
 
@@ -281,7 +283,7 @@ describe("<ModeSwitch>", () => {
         onSelect={onSelect}
       />,
     );
-    await userEvent.click(screen.getByTestId("mode-switch-auto"));
+    await userEvent.click(screen.getByRole("radio", { name: /^auto$/i }));
     const offer = await screen.findByTestId("mode-switch-offer");
     expect(offer.textContent).not.toMatch(/key/i);
   });

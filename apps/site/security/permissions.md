@@ -29,13 +29,13 @@ Each thread has a permission mode. Balanced is the default.
 | Plan | Only tools with no side effect run | Denied | Denied | Denied |
 | Manual | The first read of each new source asks | Ask every time; standing grants are ignored | Ask, once only | Ask, once only, on your device |
 | Balanced | The first read of each new source asks; sensitive sites always ask | Standing grants apply; otherwise ask | Ask, once or for this task | Ask, once only, on your device |
-| Auto | New ordinary sites are read without asking, unless the turn is tainted or the site is sensitive | Inside your grants, a classifier decides: routine runs, sensitive asks, prohibited is denied | Ask, once or for this task | Ask, once only, on your device |
+| Auto | New ordinary sites are read without asking, unless the turn is tainted or the site is sensitive | Inside your grants, a rules classifier decides: routine runs, sensitive asks, prohibited is denied | Ask, once or for this task | Ask, once only, on your device |
 
 A "new source" is a site, connector account, folder, app or MCP server the task has not touched yet. "Sensitive sites" is a built-in, editable list of banking, brokerage, government, health, password-manager, sign-in and webmail hosts.
 
 Change a thread's mode from the Manual / Balanced / Auto switch above the message box, or from the mode menu in the chat header. Choosing a mode applies at once, with no Touch ID or password, and, from the main chat, is remembered as the default for new chats (a new chat starts in Auto only if its model is on the list). Auto mode is offered only when the thread uses a model on the auto-mode allowlist; the Gateway refuses `auto` otherwise and drops an `auto` thread to Balanced if you switch to a model that is not on the list. Local models are not on the list by default.
 
-The Auto classifier sees only your own recent messages, the task's title, the tool name and the action's metadata. It never sees page text, screenshots, tool results or memory. If it is slow, unavailable or unsure, it answers "sensitive", so the broker asks.
+Auto's classifier is a set of deterministic rules today, not a model. It sees only your own recent messages, the task's title, the tool name and the action's metadata, never page text, screenshots, tool results or memory. Anything that changes access, shares, deletes or communicates outward, any bulk action, and any action with no request from you to match is "sensitive", so the broker asks. (A model-backed classifier exists in the code but the Gateway does not use it yet.)
 
 ::: warning Not applied yet
 `defaultMode` in the permission policy, and the "Default mode for new threads" choice in Settings → Permissions, are saved but not applied. New threads start in Balanced.
@@ -51,7 +51,7 @@ For each tool call, the broker walks these steps in order. The first step that g
 4. **Taint.** If this turn read untrusted content, an allow can become an ask, never the reverse. See [Untrusted content and taint](/security/taint).
 5. **Standing grants.** Allow when a live grant matches. A "once" approval matches only the exact arguments it was given for, and is used up.
 6. **The mode's default** from the table above.
-7. **The classifier**, in Auto mode only, for the writes left over.
+7. **The rules classifier**, in Auto mode only, for the writes left over.
 
 "Ask" puts an approval card in front of you and parks that action. Work that runs while nobody is watching, such as an automation, sets the action aside under Deferred, notifies you, and carries on without it.
 

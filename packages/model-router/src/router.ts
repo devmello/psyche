@@ -81,18 +81,30 @@ export interface ModelRouterOptions {
 }
 
 /**
- * The current top-tier tool-calling chat models of the three big labs, as the price catalog lists
- * them. Smaller models (Haiku, the luna and flash tiers), older generations, previews, local
- * models and any other provider stay at `balanced`: the owner can take the one-tap "Switch to
- * <model>" offer, or widen the list with `autoModeAllowlist`. Matching is on the provider id
- * (the ref prefix), as it always was.
+ * Which models may run Auto by default, matched on the provider's KIND and the model name, never
+ * on the provider id: a provider the owner named `anthropic` that is really an
+ * `anthropic-compatible` endpoint, or an `openai-compatible` one, gets nothing. These are the
+ * current top-tier tool-calling chat models of the three big labs and the frontier models of the
+ * two subscription CLIs (`default` is whatever the CLI's own default is). Smaller models (Haiku,
+ * the luna and flash tiers), older generations, previews, local models and other providers stay
+ * at `balanced`: the owner can take the one-tap "Switch to <model>" offer, or widen the list with
+ * `autoModeAllowlist` (which matches the full ref).
  */
-export const DEFAULT_AUTO_MODE_ALLOWLIST: RegExp[] = [
-  /^anthropic\/claude-(?:fable-5(?:-1)?|opus-5(?:-5)?|sonnet-5(?:-5)?)$/,
-  /^openai\/gpt-6-(?:astra|sol)$/,
-  /^openai\/gpt-6\.1-sol$/,
-  /^google\/gemini-4-argon$/,
+export const AUTO_MODE_KIND_RULES: readonly { kind: string; model: RegExp }[] = [
+  { kind: "anthropic", model: /^claude-(?:fable-5(?:-1)?|opus-5(?:-5)?|sonnet-5(?:-5)?)$/ },
+  { kind: "openai", model: /^(?:gpt-6-(?:astra|sol)|gpt-6\.1-sol)$/ },
+  { kind: "google", model: /^gemini-4-argon$/ },
+  { kind: "claude-code", model: /^(?:opus|sonnet|default)$/ },
+  { kind: "codex", model: /^default$/ },
 ];
+
+/**
+ * The same rules as full refs, for a Gateway that has no router to ask for a provider's kind (the
+ * default provider id of each kind is the kind itself).
+ */
+export const DEFAULT_AUTO_MODE_ALLOWLIST: RegExp[] = AUTO_MODE_KIND_RULES.map(
+  (r) => new RegExp(`^${r.kind}/${r.model.source.slice(1)}`),
+);
 
 interface Plan {
   chain: ModelRef[];
@@ -231,10 +243,26 @@ export class ModelRouter implements ModelProvider {
     return this.#threads.get(threadId);
   }
 
-  /** Whether a model may run threads in `auto` permission mode. */
+  /**
+   * Whether a model may run threads in `auto` permission mode: the owner's own allowlist if one
+   * is configured (full refs), else the default rules, matched on the provider's kind. A
+   * provider that is not a configured endpoint (a test fake, a custom provider) counts by its id.
+   */
   allowsAutoMode(ref: ModelRef): boolean {
-    const list = this.#o.autoModeAllowlist ?? DEFAULT_AUTO_MODE_ALLOWLIST;
-    return list.some((p) => (typeof p === "string" ? p === ref : p.test(ref)));
+    const own = this.#o.autoModeAllowlist;
+    if (own !== undefined)
+      return own.some((p) => (typeof p === "string" ? p === ref : p.test(ref)));
+    let parsed: { provider: string; model: string };
+    try {
+      parsed = parseModelRef(ref);
+    } catch {
+      return false;
+    }
+    const { provider: id, model } = parsed;
+    const configured = (this.#providers.get(id) as { config?: { kind?: string } } | undefined)
+      ?.config?.kind;
+    const kind = configured ?? id;
+    return AUTO_MODE_KIND_RULES.some((r) => r.kind === kind && r.model.test(model));
   }
 
   #bindingFor(role: ModelRole): RoleBinding | undefined {

@@ -1,6 +1,6 @@
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 import { createThread, getSetting, getThread, openDb, updateDevice } from "@psyche/db";
 import { DEFAULT_AUTO_MODE_ALLOWLIST } from "@psyche/model-router";
 import type { PresenceVerifier } from "@psyche/permissions";
@@ -75,18 +75,35 @@ describe("settings.set permissions.mode", () => {
     expect(getSetting(c.gateway.context.db, "permissions.mode")?.value).toBe("auto");
   });
 
-  it("applies while the security records are untrusted", async () => {
+  it("applies while the security records are really untrusted, and reads back", async () => {
     const { c, admin } = await boot();
-    // Report the records as untrusted to the presence gate (the seal itself is left alone).
-    const state = c.gateway.context.securityState as unknown as { untrusted: () => string | null };
+    const state = c.gateway.context.securityState;
     expect(state).toBeDefined();
-    state.untrusted = () => "tampered";
+    // Someone changed the seal outside Psyche: the state is untrusted. The owner's device is one
+    // the seal vouches for, so it keeps admin; a gated change would now fail `presence_required`.
+    const other = openDb(join(home, "psyche.db"), { migrate: false });
+    other.sqlite.prepare("UPDATE security_seal SET agg = ?").run("00".repeat(32));
+    other.close();
+    state?.ensure();
+    expect(state?.status().status).toBe("untrusted");
+    expect(
+      await admin.request(
+        "settings.set",
+        { key: "permissions.policy", value: { allow: [] } },
+        ik(),
+      ),
+    ).toMatchObject({ ok: false, error: { code: "presence_required" } });
+
     const res = await admin.request(
       "settings.set",
-      { key: "permissions.mode", value: "balanced" },
+      { key: "permissions.mode", value: "auto" },
       ik(),
     );
     expect(res).toMatchObject({ ok: true });
+    const got = await admin.call<{ settings: Record<string, unknown> }>("settings.get", {
+      keys: ["permissions.mode"],
+    });
+    expect(got.settings["permissions.mode"]).toBe("auto");
   });
 
   it("still needs operator.admin: a write-only device is refused", async () => {
@@ -166,54 +183,90 @@ describe("a tool call cannot switch the mode", () => {
   // The mode changes only through the owner's authenticated device (`settings.set` and
   // `threads.update` need a paired device's token). Nothing a tool or a model reaches may name
   // those methods, the setting, or write a thread's mode directly: a new tool that does must be
-  // reviewed, so this fails first. The Gateway's own thread handlers (compose/threads.ts) and the
-  // audit label (compose/changes.ts) are the only places in compose/ allowed to.
-  const PATTERNS = [
-    /permissions\.mode/,
-    /["']threads\.update["']/,
-    /["']settings\.set["']/,
-    /updateThread\([^)]*\bpermissionMode\b/s,
-    /setSetting\([^)]*permissions\.mode/s,
-  ];
+  // reviewed, so this fails first. The Gateway's own thread handlers (`compose/threads.ts`) and
+  // the audit label (`compose/changes.ts`) are the only files allowed to.
+  const NAMES = [/permissions\.mode/, /["']threads\.update["']/, /["']settings\.set["']/];
 
+  /** `updateThread(` with `permissionMode` within a few lines: nested parens, prebuilt patches. */
+  function writesThreadMode(text: string): boolean {
+    for (
+      let i = text.indexOf("updateThread(");
+      i !== -1;
+      i = text.indexOf("updateThread(", i + 1)
+    ) {
+      const window = text.slice(Math.max(0, i - 300), i + 500);
+      if (/\bpermissionMode\b/.test(window)) return true;
+    }
+    return false;
+  }
+
+  const touchesMode = (text: string): boolean =>
+    NAMES.some((re) => re.test(text)) || writesThreadMode(text);
+
+  /** Files under `dir` (relative to `root`, `/`-separated) that touch the mode, minus `skip`. */
   function scan(dir: string, root: string, skip: ReadonlySet<string>, out: string[]) {
+    if (!existsSync(dir)) {
+      out.push(`missing: ${relative(root, dir)}`);
+      return;
+    }
     for (const e of readdirSync(dir, { withFileTypes: true })) {
       const p = join(dir, e.name);
       if (e.isDirectory()) scan(p, root, skip, out);
-      else if (/\.(ts|tsx)$/.test(e.name) && !/\.test\./.test(e.name) && !skip.has(e.name)) {
-        const text = readFileSync(p, "utf8");
-        if (PATTERNS.some((re) => re.test(text))) out.push(p.slice(root.length + 1));
+      else if (/\.(ts|tsx)$/.test(e.name) && !/\.test\./.test(e.name)) {
+        const rel = relative(root, p).split(sep).join("/");
+        if (!skip.has(rel) && touchesMode(readFileSync(p, "utf8"))) out.push(rel);
       }
     }
   }
 
-  it("keeps the mode methods out of the agent, tool, skill and plugin packages", () => {
+  it("keeps the mode methods out of the packages a tool or a model reaches", () => {
     const root = join(__dirname, "../../../packages");
     const offenders: string[] = [];
-    for (const pkg of ["agent-core", "mcp-host", "skills", "plugins", "harnesses", "connectors"]) {
+    for (const pkg of [
+      "agent-core",
+      "mcp-host",
+      "skills",
+      "plugins",
+      "harnesses",
+      "connectors",
+      "channels",
+      "browser",
+      "proactive",
+      "scheduler",
+      "tasks",
+    ]) {
       scan(join(root, pkg, "src"), root, new Set(), offenders);
     }
     expect(offenders).toEqual([]);
   });
 
-  it("keeps them out of the Gateway's tool and composition code", () => {
+  it("keeps them out of the Gateway's tool, node, widget and session code", () => {
     const root = join(__dirname, "../src");
     const offenders: string[] = [];
-    scan(join(root, "compose"), root, new Set(["threads.ts", "changes.ts"]), offenders);
+    const skip = new Set(["compose/threads.ts", "compose/changes.ts"]);
+    for (const dir of ["compose", "widgets", "nodes", "session"]) {
+      scan(join(root, dir), root, skip, offenders);
+    }
     expect(offenders).toEqual([]);
+  });
+
+  it("skips by full path, so a same-named file elsewhere is still scanned", () => {
+    const root = join(__dirname, "../src");
+    const offenders: string[] = [];
+    scan(join(root, "compose"), root, new Set(["threads.ts"]), offenders);
+    expect(offenders).toContain("compose/threads.ts");
   });
 
   it("the scan catches what it is meant to", () => {
     for (const bad of [
       'call("threads.update", { permissionMode: "auto" })',
       'updateThread(db, id, { permissionMode: "auto" })',
+      "updateThread(db, thread.id, build({ a: (1) }), { permissionMode: next })",
+      "const patch = { permissionMode: next };\nupdateThread(db, id, patch);",
       'setSetting(db, "permissions.mode", "auto")',
-      "x.settings = 'permissions.mode'",
     ]) {
-      expect(
-        PATTERNS.some((re) => re.test(bad)),
-        bad,
-      ).toBe(true);
+      expect(touchesMode(bad), bad).toBe(true);
     }
+    expect(touchesMode('updateThread(db, id, { title: "x" })')).toBe(false);
   });
 });

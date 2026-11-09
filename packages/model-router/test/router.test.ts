@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   AiSdkAdapter,
   brokerKeySource,
+  createModelRouter,
   InMemoryProbeStore,
   InMemoryUsageRepository,
   ModelRouter,
@@ -247,6 +248,38 @@ describe("ModelRouter", () => {
     ]) {
       expect(router.allowsAutoMode(ref), ref).toBe(false);
     }
+  });
+
+  it("matches the default rules on the provider's kind, not its id", () => {
+    const router = createModelRouter(
+      {
+        providers: [
+          // A local endpoint the owner named like a hosted provider: it gets nothing.
+          { id: "anthropic", kind: "anthropic-compatible", baseURL: "http://127.0.0.1:9" },
+          { id: "openai", kind: "openai-compatible", baseURL: "http://127.0.0.1:9" },
+          // A real Anthropic provider under another id counts by its kind.
+          { id: "anthropic-work", kind: "anthropic" },
+          { id: "claude-code", kind: "claude-code" },
+          { id: "codex", kind: "codex" },
+        ],
+      },
+      { clock: new FakeClock() },
+    );
+    expect(router.allowsAutoMode("anthropic/claude-opus-5-5")).toBe(false);
+    expect(router.allowsAutoMode("openai/gpt-6-sol")).toBe(false);
+    expect(router.allowsAutoMode("anthropic-work/claude-opus-5-5")).toBe(true);
+    expect(router.allowsAutoMode("anthropic-work/claude-haiku-5-5")).toBe(false);
+    for (const ref of [
+      "claude-code/opus",
+      "claude-code/sonnet",
+      "claude-code/default",
+      "codex/default",
+    ]) {
+      expect(router.allowsAutoMode(ref), ref).toBe(true);
+    }
+    expect(router.allowsAutoMode("claude-code/haiku")).toBe(false);
+    expect(router.allowsAutoMode("codex/gpt-5.5")).toBe(false);
+    expect(router.allowsAutoMode("not a ref")).toBe(false);
   });
 
   it("embeds through the embedding role and reports the dimension", async () => {

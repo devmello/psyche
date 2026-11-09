@@ -1,5 +1,6 @@
 import { type ReactElement, useState } from "react";
 import { t } from "../i18n/core.ts";
+import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
 import {
   autoExplainerSeen,
   autoModeBlockedBy,
@@ -82,34 +83,15 @@ export function ModeSwitch({
 
   return (
     <div className="flex flex-col gap-1.5" data-testid="mode-switch">
-      <div
-        role="radiogroup"
-        aria-label={t("chat.modeSwitch.label")}
-        className="inline-flex w-fit gap-0.5 rounded-full bg-fill-secondary p-0.5"
-      >
-        {SWITCH_MODES.map((m) => {
-          const selected = mode === m;
-          return (
-            // biome-ignore lint/a11y/useSemanticElements: a segmented control; the group is a radiogroup
-            <button
-              key={m}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              disabled={disabled || busy}
-              data-testid={`mode-switch-${m}`}
-              className={`cursor-default rounded-full px-3 py-0.5 text-callout ${
-                selected
-                  ? "bg-surface-raised font-medium text-label-primary shadow-elevation-1"
-                  : "text-label-secondary hover:text-label-primary"
-              }`}
-              onClick={() => void choose(m)}
-            >
-              {LABEL[m]()}
-            </button>
-          );
-        })}
-      </div>
+      <SegmentedRadio<SwitchMode>
+        label={t("chat.modeSwitch.label")}
+        options={SWITCH_MODES.map((m) => ({ value: m, label: LABEL[m]() }))}
+        // Plan (or anything else) selects no segment.
+        value={mode as SwitchMode}
+        disabled={disabled || busy}
+        onChange={(m) => void choose(m)}
+        className="w-fit"
+      />
       {offer !== null ? (
         <p
           className="flex flex-wrap items-center gap-2 text-callout text-label-secondary"
