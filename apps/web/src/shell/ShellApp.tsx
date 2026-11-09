@@ -1121,6 +1121,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         thread={thread}
         onModeCycle={cycleMode}
         autoBlockedBy={autoBlockedBy}
+        listedModels={listedModels}
         onModelPicker={() => setOverlay("model")}
         focusToken={focusToken}
       />

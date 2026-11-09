@@ -1,5 +1,5 @@
 import { isUserSettingKey } from "@psyche/protocol";
-import { needsPresence } from "../handlers/settings.ts";
+import { needsPresence, OWNER_CHOICE_KEYS } from "../handlers/settings.ts";
 import { STATE_VERSION_KEY } from "../state-version.ts";
 
 /**
@@ -56,16 +56,23 @@ const OTHER_SEALED = new Set(["mcp.servers"]);
  * the presence-gated keys costs nothing and covers settings nobody listed here yet.
  */
 export function isSealedSettingKey(key: string): boolean {
-  if (INTERNAL_SEALED.has(key) || OTHER_SEALED.has(key) || needsPresence(key)) return true;
+  if (isSecuritySettingKey(key)) return true;
   return key !== STATE_VERSION_KEY && !isUserSettingKey(key);
 }
 
 /**
- * The settings that authorize something: the presence-gated keys, presence, LAN, `mcp.servers`.
+ * The settings that authorize something: the presence-gated keys, the owner-choice keys
+ * (`permissions.mode`), presence, LAN, `mcp.servers`.
  * While the seal is untrusted these read only a value the Gateway can vouch for.
  */
 export function isSecuritySettingKey(key: string): boolean {
-  return INTERNAL_SEALED.has(key) || OTHER_SEALED.has(key) || needsPresence(key);
+  return (
+    INTERNAL_SEALED.has(key) ||
+    OTHER_SEALED.has(key) ||
+    needsPresence(key) ||
+    // Changed without presence, but still authorizing: sealed and vouched like the rest.
+    OWNER_CHOICE_KEYS.includes(key)
+  );
 }
 
 /** The SQL function the settings predicate calls (registered on the Gateway's connection). */
