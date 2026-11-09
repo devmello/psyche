@@ -33,7 +33,9 @@ UI changes: if the brief asks for screenshots, use the browser preview or simula
 
 ## 4. Open the PR
 
-- Commit with a clear message ending in the `Co-Authored-By` line from `.claude/CLAUDE.md`.
+If the brief says not to push or not to open a PR (a dry run, an investigation, a local-only fix), stop after the local commit and go straight to the report.
+
+- Commit with a clear message ending in your session's `Co-Authored-By` line (see `.claude/CLAUDE.md`).
 - Push, then run `gh pr create --draft` with a body in this shape:
   - **What and why:** the cause and the fix, in plain words.
   - **Verification:** the verify.sh summary line and anything else you ran.

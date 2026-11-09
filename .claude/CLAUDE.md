@@ -27,7 +27,7 @@ One Opus session orchestrates: it dispatches builder sessions, verifies their wo
 
 **Git and PRs**
 - Branch from `origin/main` and merge `origin/main` in when needed. Never `git reset --soft` onto main, never use a bare `git stash`, never force-push someone else's branch.
-- Commits end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- Commits end with the `Co-Authored-By:` line from your session's attribution reminder, which names your own model (e.g. `Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>`).
 - PR bodies end with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 - Don't merge your own PR. The orchestrator merges after verification.
 
