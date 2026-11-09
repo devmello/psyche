@@ -255,7 +255,7 @@ struct SettingsSheet: View {
                 AwakeTodayRow(alerts: alerts, isOn: settings.stayConnectedWhileRunning)
             }
             Text(
-                "Keeps Psyche running in the background, with a silent audio session, only while a task you're watching runs or waits for you. It uses some battery, and stops on Low Power Mode or when the battery is below 20 percent and unplugged.",
+                "Keeps Psyche running in the background, with a silent audio session, only while a task or chat reply you're watching runs or waits for you. It uses some battery, and stops on Low Power Mode or when the battery is below 20 percent and unplugged.",
                 bundle: .module
             )
             .font(.footnote).foregroundStyle(PsycheColor.muted).padding(.horizontal, 2)

@@ -75,6 +75,22 @@ describe("answer failures on the card", () => {
     expect(classifyAnswerError(new Error("boom")).kind).toBe("other");
   });
 
+  it("the Gateway's request budget is not called an approvals limit", () => {
+    // `scope` marks the per-device request budget: it said "Too many approvals" while the owner
+    // had approved nothing, because a busy screen had used the budget up.
+    for (const scope of ["requests", "side_effects"]) {
+      const budget = new GatewayRequestError(
+        "approvals.answer",
+        "rate_limited",
+        "Too many requests from this device; slow down",
+        { scope, windowMs: 60_000, retryAfterSec: 30 },
+      );
+      const failure = classifyAnswerError(budget);
+      expect(failure.kind).toBe("other");
+      expect(failure).toMatchObject({ text: "Too many requests from this device; slow down" });
+    }
+  });
+
   it("a rate limit shows a countdown and disables Allow until it ends", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const onAnswer = vi

@@ -343,14 +343,18 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
           }
         : undefined;
     try {
-      await services.rawBroker.answer({
-        approvalId: d.approval.id,
-        answerToken: d.token,
-        decision,
-        ...(decision === "approve" ? { scope: "once" as const } : {}),
-        decidedBy: { deviceId: h.deviceId, surface: HELPER_SURFACE },
-        ...(presence === undefined ? {} : { presence }),
-      });
+      await services.rawBroker.answer(
+        {
+          approvalId: d.approval.id,
+          answerToken: d.token,
+          decision,
+          ...(decision === "approve" ? { scope: "once" as const } : {}),
+          decidedBy: { deviceId: h.deviceId, surface: HELPER_SURFACE },
+          ...(presence === undefined ? {} : { presence }),
+          // Only the Host's own helper is attached here (`isHostHelper`).
+        },
+        { local: true },
+      );
     } catch (err) {
       // Refused answers are audited by the broker; the approval stays pending on the other surfaces.
       warn("approval answer from the helper notification refused", err);
@@ -563,12 +567,15 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       const c = client(h.nodeId);
       if (c === undefined) throw touchIdUnavailable("helper_offline", "Psyche Helper went away");
       const by = { deviceId: h.deviceId, surface: surfaceOf(services.db, call.identity.deviceId) };
+      // The desktop shell on a loopback connection: its refused answers are audited, not counted.
+      const local = call.conn.peer.remoteLoopback;
       // Before any sheet: the token is this window's unused one, the card is armed, and this
       // answerer is not over its rate limit (a bad token counts against the rejected-answer cap).
       await services.rawBroker.precheckAnswer({
         approvalId: a.id,
         answerToken: params.answerToken,
         decidedBy: by,
+        local,
       });
       sheetsByApproval.set(a.id, [...recent, nowMs]);
       if (sheetsByApproval.size > 200) {
@@ -603,12 +610,14 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
             `${hw.presence} is already asking about another approval`,
           );
         }
-        // Every other failed confirm counts like a rejected answer, so a window cannot raise
-        // sheets without limit.
+        // Every other failed confirm is audited as a rejected answer. A failed or invalid presence
+        // counts toward the cap (a cancelled sheet or a missing key does not), so a window cannot
+        // keep raising sheets that fail; the owner's own loopback window is never locked out.
         const reject = (reason: string, code: ErrorCode, message: string, details?: object) =>
           services.rawBroker.rejectPresence({
             approvalId: a.id,
             decidedBy: by,
+            local,
             reason,
             code,
             message,
@@ -651,19 +660,22 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       // The answer is the window's (its token, its surface); the presence is the helper's key,
       // so the helper device decides it, as for a notification answer. `once` only: the scope is
       // not part of the signed challenge, so the window cannot widen it.
-      const approval = await services.rawBroker.answer({
-        approvalId: a.id,
-        answerToken: params.answerToken,
-        decision: "approve",
-        scope: "once",
-        decidedBy: by,
-        presence: {
-          kind: "helper",
-          deviceId: h.deviceId,
-          signature: out.signature,
-          ...(typeof out.keyId === "string" ? { payload: { keyId: out.keyId } } : {}),
+      const approval = await services.rawBroker.answer(
+        {
+          approvalId: a.id,
+          answerToken: params.answerToken,
+          decision: "approve",
+          scope: "once",
+          decidedBy: by,
+          presence: {
+            kind: "helper",
+            deviceId: h.deviceId,
+            signature: out.signature,
+            ...(typeof out.keyId === "string" ? { payload: { keyId: out.keyId } } : {}),
+          },
         },
-      });
+        { local },
+      );
       const grant =
         approval.grantId == null
           ? null

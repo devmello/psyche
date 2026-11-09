@@ -208,8 +208,43 @@ describe("the connected footer", () => {
     const before = calls().length;
     const run = g.world.runs[0] as Run;
     g.emit("run.updated", {
-      run: { ...run, status: "done", endedAt: "2026-10-18T10:13:00.000Z" },
+      run: { ...run, status: "done", endedAt: new Date().toISOString() },
     });
     await waitFor(() => expect(calls().length).toBeGreaterThan(before), { timeout: 3000 });
+  });
+
+  it("does not ask again when the store only loads runs that already finished", async () => {
+    let gateway: MockGateway | undefined;
+    render(
+      <StoryWorld onGateway={(g) => (gateway = g)}>
+        <ShellMotion>
+          <ConnectedSidebar
+            route="/feed"
+            onNavigate={() => {}}
+            activeThreadId={null}
+            onOpenThread={() => {}}
+            now={STORY_NOW}
+          />
+        </ShellMotion>
+      </StoryWorld>,
+    );
+    await screen.findByTestId("usage-footer");
+    const g = gateway as MockGateway;
+    const calls = () => g.calls.filter((c) => c.method === "usage.summary");
+    const before = calls().length;
+    const run = g.world.runs[0] as Run;
+    // A history load puts finished runs into the store after the footer mounted.
+    for (let i = 0; i < 5; i += 1) {
+      g.emit("run.updated", {
+        run: {
+          ...run,
+          id: `run_history_${i}`,
+          status: "done",
+          endedAt: "2026-10-01T10:00:00.000Z",
+        },
+      });
+    }
+    await new Promise((r) => setTimeout(r, 1200));
+    expect(calls().length).toBe(before);
   });
 });

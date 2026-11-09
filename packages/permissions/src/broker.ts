@@ -216,8 +216,29 @@ export function batchChildId(batchApprovalId: string, index: number): string {
   return `${batchApprovalId}.${index}`;
 }
 
-/** Rejected answers may be this many times the decision budget per minute before a lockout. */
+/** Guessing-shaped rejections may be this many times the decision budget per minute before a lockout. */
 const FAILURE_CAP_FACTOR = 6;
+
+/**
+ * The rejections that count toward the lockout cap: the ones a brute-force attempt produces — a
+ * guessed or reused answer token, an answer from the wrong place or by someone who may not
+ * decide, and a presence assertion or password that did not check out. Every other refusal
+ * (`late`, `not_armed`, `not_found`, `invalidated`, a cancelled sheet, a missing helper or key, a
+ * malformed request) is still audited, but it proves nothing about guessing: a client that
+ * retries a stale card must not lock the owner out of the cards that are still open.
+ */
+const GUESSING_REASONS: ReadonlySet<string> = new Set([
+  "unknown_token",
+  "replayed",
+  "surface_mismatch",
+  "not_approver",
+  "not_owner",
+  "device_only",
+  "presence_invalid",
+  "presence_failed",
+  "password_failed",
+  "password_from_client",
+]);
 
 export class PsychePermissionBroker implements PermissionBroker {
   readonly clock: Clock;
@@ -249,6 +270,8 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #answerTimes = new Map<string, number[]>();
   /** Rejected answers per identity: a much higher flood cap, so failures never eat the budget. */
   readonly #failureTimes = new Map<string, number[]>();
+  /** The `decidedBy` objects of calls the Gateway vouched for as the owner's own Host app. */
+  readonly #localBy = new WeakSet<object>();
   readonly #channelConversations: ChannelConversationLookup | undefined;
   readonly #replyTimes = new Map<string, number[]>();
   readonly #folderAccess: PermissionBrokerOptions["folderAccess"];
@@ -1001,12 +1024,28 @@ export class PsychePermissionBroker implements PermissionBroker {
    * Seconds until the identity may answer again, or 0 when under the limit. Peeks only: attempts
    * that fail authentication or validation never use the budget (see `#recordAnswer`).
    */
-  #retryAfterSec(identity: string): number {
+  #retryAfterSec(identity: string, local: boolean): number {
     const limit = this.#policy.config.approvals?.answersPerMinute ?? 10;
     return Math.max(
       this.#windowWait(this.#answerTimes, identity, limit),
-      this.#windowWait(this.#failureTimes, identity, limit * FAILURE_CAP_FACTOR),
+      // A vouched local call is not held back by guesses made under the same device id.
+      local ? 0 : this.#windowWait(this.#failureTimes, identity, limit * FAILURE_CAP_FACTOR),
     );
+  }
+
+  /**
+   * A call the Gateway vouched for as the owner's own Host app or helper (`local`: the desktop
+   * shell or Host helper on a loopback connection with the per-launch secret). Its refused answers
+   * are audited but never lock it out. Marked on the call's own `decidedBy` object, so it holds
+   * for this call only and a device id alone (another connection reusing a key) never earns it.
+   */
+  #markLocal(by: object, local: boolean | undefined): void {
+    if (local === true) this.#localBy.add(by);
+    else this.#localBy.delete(by);
+  }
+
+  #isLocal(by: DecidedBy): boolean {
+    return this.#localBy.has(by);
   }
 
   #windowWait(map: Map<string, number[]>, identity: string, limit: number): number {
@@ -1034,7 +1073,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     message: string,
     details?: unknown,
   ): Promise<never> {
-    if (reason !== "rate_limited") {
+    if (GUESSING_REASONS.has(reason) && !this.#isLocal(by)) {
       const identity =
         "deviceId" in by ? `device:${by.deviceId}` : `channel:${by.channel}:${by.senderId}`;
       const failures = this.#failureTimes.get(identity) ?? [];
@@ -1059,17 +1098,21 @@ export class PsychePermissionBroker implements PermissionBroker {
    * Checks an answer before a host asks the owner for presence out of band (the desktop window's
    * Touch ID through the helper, security §3.7): the answerer is not rate limited, the approval is
    * pending and armed, and the token is an unused one for `decidedBy.surface`. Throws what
-   * `answer` would (each refusal counts against the rejected-answer cap); records nothing else.
+   * `answer` would (a refusal that looks like guessing counts against the rejected-answer cap, the
+   * rest are only audited); records nothing else.
    */
   async precheckAnswer(input: {
     approvalId: string;
     answerToken: string;
     decidedBy: { deviceId: string; surface: Surface };
+    /** The Gateway vouches this is the owner's own Host app or helper. */
+    local?: boolean;
   }): Promise<ApprovalRequest> {
     this.#sweep();
     const by = input.decidedBy;
+    this.#markLocal(by, input.local);
     const id = input.approvalId;
-    const retryAfterSec = this.#retryAfterSec(`device:${by.deviceId}`);
+    const retryAfterSec = this.#retryAfterSec(`device:${by.deviceId}`, this.#isLocal(by));
     if (retryAfterSec > 0)
       return this.#reject(
         undefined,
@@ -1105,16 +1148,20 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   /**
    * An out-of-band presence step failed (Touch ID cancelled, failed or unavailable): audited as a
-   * rejected answer and counted against the answerer's cap, like a bad assertion would be.
+   * rejected answer. A failed or invalid presence counts against the answerer's cap like a bad
+   * assertion would; a cancelled sheet or a missing helper or key does not.
    */
   async rejectPresence(input: {
     approvalId: string;
     decidedBy: { deviceId: string; surface: Surface };
+    /** The Gateway vouches this is the owner's own Host app or helper. */
+    local?: boolean;
     reason: string;
     code: ErrorCode;
     message: string;
     details?: unknown;
   }): Promise<never> {
+    this.#markLocal(input.decidedBy, input.local);
     const rec = this.#store.getApproval(input.approvalId);
     return this.#reject(
       rec,
@@ -1127,13 +1174,22 @@ export class PsychePermissionBroker implements PermissionBroker {
     );
   }
 
-  async answer(input: PolicyAnswerInput): Promise<ApprovalRequest> {
+  /**
+   * `trusted` is what the Gateway itself vouches for about the connection: it is a separate
+   * argument, never a field of `input`, because `input` is built from a client's params (or a chat
+   * message) and a client must not be able to claim it.
+   */
+  async answer(
+    input: PolicyAnswerInput,
+    trusted: { local?: boolean } = {},
+  ): Promise<ApprovalRequest> {
     this.#sweep();
     const by = input.decidedBy;
+    this.#markLocal(by, trusted.local);
     const identity =
       "deviceId" in by ? `device:${by.deviceId}` : `channel:${by.channel}:${by.senderId}`;
     const id = input.approvalId;
-    const retryAfterSec = this.#retryAfterSec(identity);
+    const retryAfterSec = this.#retryAfterSec(identity, this.#isLocal(by));
     if (retryAfterSec > 0)
       return this.#reject(
         undefined,
