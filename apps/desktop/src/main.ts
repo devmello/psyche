@@ -2451,6 +2451,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("will-quit", () => {
+  stopHelperForQuit();
   dictation?.dispose();
   screenAskShortcut?.dispose();
   quickEntryShortcut?.dispose();
@@ -2459,7 +2460,25 @@ app.on("will-quit", () => {
   globalShortcut.unregisterAll();
 });
 
+/**
+ * Every real quit ends the bundled helper (⌘Q, the menu bar or Dock, "Quit Psyche entirely", an
+ * update or restart relaunch, uninstall); closing the last window while the app stays in the menu
+ * bar never gets here. The Gateway is not touched: "Quit Psyche" leaves it running, "Quit entirely"
+ * boots it out (`quitEntirely`). Runs from both `before-quit` and `will-quit`; the second call finds
+ * the launcher latched and the helper gone. A second copy that exits at once (single-instance lock)
+ * has no launcher, so it never stops the first copy's helper.
+ */
+function stopHelperForQuit(): void {
+  try {
+    const res = helper?.stopForQuit();
+    if (res === "killed" || res === "still-running") console.warn(`[helper] quit: ${res}`);
+  } catch (err) {
+    console.warn(`[helper] could not stop the helper on quit: ${String(err)}`);
+  }
+}
+
 app.on("before-quit", () => {
+  stopHelperForQuit();
   windows?.setQuitting();
   dockPolicy.dispose();
   for (const id of [...terminalOwners.keys()]) closeHostTerminal(id);
