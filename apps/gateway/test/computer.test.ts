@@ -1125,6 +1125,50 @@ describe("computer-use agent tools (J1–J5)", () => {
       },
     );
 
+    it("a typed space on a focused Pay button asks before it goes out", async () => {
+      await call("computer.snapshot", { app: notes });
+      helper.calls.length = 0;
+      issued.length = 0;
+      // `key tab` landed on Pay (Tab itself activates nothing); then a space would press it.
+      helper.focus = { role: "AXButton", labels: ["Pay"], window: "Notes" };
+      answer = "deny";
+      expect(await call("computer.act", { app: notes, action: "type", text: " " })).toMatchObject({
+        isError: true,
+        output: { error: { code: "policy_denied" } },
+      });
+      expect(financial()).toHaveLength(1);
+      expect(sent("computer.type")).toHaveLength(0);
+    });
+
+    it("a space in the first piece of split text is checked before its first Tab", async () => {
+      await call("computer.snapshot", { app: notes });
+      helper.calls.length = 0;
+      issued.length = 0;
+      helper.focus = { role: "AXButton", labels: ["Place order"], window: "Notes" };
+      helper.focusAfterTab = { role: "AXTextField", labels: ["Note"], window: "Notes" };
+      answer = "deny";
+      await call("computer.act", { app: notes, action: "type", text: "a b\tc\n" });
+      expect(financial()).toHaveLength(1);
+      expect(sent("computer.type")).toHaveLength(0);
+    });
+
+    it("a space typed into a text or search field stays a tap", async () => {
+      await call("computer.snapshot", { app: shop });
+      helper.calls.length = 0;
+      issued.length = 0;
+      helper.focus = { role: "AXTextField", labels: ["Name on card"], window: "Checkout" };
+      await call("computer.act", { app: shop, action: "type", text: "a b" });
+      helper.focus = {
+        role: "AXTextField",
+        subrole: "AXSearchField",
+        labels: ["Search"],
+        window: "Checkout",
+      };
+      await call("computer.act", { app: shop, action: "type", text: "red shoes" });
+      expect(financial()).toHaveLength(0);
+      expect(sent("computer.type").map((c) => c.params.text)).toEqual(["a b", "red shoes"]);
+    });
+
     it("tabbing between ordinary fields types every piece with no card", async () => {
       await call("computer.snapshot", { app: notes });
       helper.calls.length = 0;

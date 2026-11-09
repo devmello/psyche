@@ -247,6 +247,8 @@ export function isMoneyText(text: string | undefined): boolean {
 function sentenceMoves(sentence: string): boolean {
   const words = moneyWords(sentence);
   if (words.length === 0) return false;
+  // "Quotes a swap of ETH for USDC", "Estimates the fee": a quote or an estimate moves nothing.
+  if (DRY_RUN_LEADS.has(words[0] ?? "")) return false;
   const joined = words.join(" ");
   if (words.length <= 6 && WHOLE_LABELS.has(joined)) return true;
   if (PAY_WITH.test(joined)) return true;
@@ -361,6 +363,19 @@ const READING_VERBS = new Set([
   "estimate",
   "calculate",
   "history",
+]);
+/** A sentence that starts with one of these only quotes, estimates or previews. */
+const DRY_RUN_LEADS = new Set([
+  "quote",
+  "quotes",
+  "estimate",
+  "estimates",
+  "preview",
+  "previews",
+  "simulate",
+  "simulates",
+  "calculate",
+  "calculates",
 ]);
 /** Anywhere in a tool's name, these mean it only estimates. */
 const DRY_RUN_WORDS = new Set(["estimate", "quote", "preview", "simulate", "calculate", "dryrun"]);

@@ -467,6 +467,12 @@ interface ResolvedTarget {
 }
 
 /** A text field where Return submits the form (search fields excepted: they only search). */
+/** Any field that takes characters, search fields included: a space there is a character. */
+function takesText(t: ResolvedTarget): boolean {
+  const role = (t.role ?? "").toLowerCase().replace(/^ax/, "");
+  return ["textfield", "textarea", "combobox", "textbox", "searchbox"].includes(role);
+}
+
 function isTextEntry(t: ResolvedTarget): boolean {
   const role = (t.role ?? "").toLowerCase().replace(/^ax/, "");
   if (!["textfield", "textarea", "combobox", "textbox", "searchbox"].includes(role)) return false;
@@ -959,7 +965,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     const submits =
       p.action === "key"
         ? activatingKey(p.keys ?? "")
-        : p.action === "type" && /[\r\n]/.test(p.text ?? "");
+        : // A typed space presses a focused button too (after `key tab`, say).
+          p.action === "type" && /[\r\n ]/.test(p.text ?? "");
     if (!submits || describeAct(p).sideEffect === "financial") return undefined;
     const params: Record<string, unknown> =
       p.action === "type" && p.ref !== undefined
@@ -968,8 +975,15 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     const t = await resolveFor(p, params, callId, signal, "focus_unchecked");
     if (t === undefined) return undefined;
     // Space only presses a control; in a text field it is a character.
-    const mode = p.action === "key" && keyName(p.keys ?? "") === "space" ? "activate" : "submit";
-    if (mode === "activate" && isTextEntry(t)) return undefined;
+    const mode =
+      p.action === "key"
+        ? keyName(p.keys ?? "") === "space"
+          ? "activate"
+          : "submit"
+        : /[\r\n]/.test(p.text ?? "")
+          ? "submit"
+          : "activate";
+    if (mode === "activate" && takesText(t)) return undefined;
     const verdict = moneyVerdict(p.app, t, mode);
     if (verdict === undefined) return undefined;
     return askFinancial(
@@ -996,7 +1010,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     const t = await resolveFor(p, { focused: true }, callId, signal, "focus_unchecked");
     if (t === undefined) return undefined;
     const mode = /[\r\n]/.test(piece) ? "submit" : "activate";
-    if (mode === "activate" && isTextEntry(t)) return undefined;
+    if (mode === "activate" && takesText(t)) return undefined;
     const verdict = moneyVerdict(p.app, t, mode);
     if (verdict === undefined) return undefined;
     return askFinancial(

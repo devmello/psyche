@@ -126,6 +126,8 @@ const ORDINARY_TOOLS: [string, string | undefined][] = [
   ["send_code", "Send a login token"],
   ["send_dm", "Sends a direct message with a coin emoji"],
   ["trade_in_estimate", "Estimates a trade-in value"],
+  ["swap_quote", "Quotes a swap of ETH for USDC"],
+  ["estimate_fee", "Estimates the fee to send 0.1 ETH"],
   ["transfer_token", "Transfers an API token to another workspace"],
 ];
 
