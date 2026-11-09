@@ -474,6 +474,37 @@ function isTextEntry(t: ResolvedTarget): boolean {
   return !/\bsearch\b/i.test(t.labels[0] ?? "");
 }
 
+/**
+ * Typed text that moves focus and then may activate whatever has it: a Tab (or a line break) with
+ * a later Return, line break or space. The helper sends each `\t` and `\n` as a real key, so one
+ * focus check before the whole call would see the field, not the button Tab lands on.
+ */
+export function movesFocusThenActivates(text: string): boolean {
+  const first = text.search(/[\t\r\n]/);
+  return first !== -1 && /[\r\n ]/.test(text.slice(first + 1));
+}
+
+/**
+ * Splits typed text after each Tab and line break: `"x\t\n"` → `["x\t", "\n"]`,
+ * `"\t\t\r"` → `["\t", "\t", "\r"]`. Each piece then starts where focus is, so the Gateway can
+ * check what it activates before it goes out. A `\r\n` stays one break.
+ */
+export function splitAtFocusMoves(text: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i] ?? "";
+    cur += ch;
+    if (ch === "\r" && text[i + 1] === "\n") continue;
+    if (ch === "\t" || ch === "\n" || ch === "\r") {
+      out.push(cur);
+      cur = "";
+    }
+  }
+  if (cur !== "") out.push(cur);
+  return out;
+}
+
 /** The key of a chord (`cmd+return` → `return`). */
 function keyName(keys: string): string {
   return (
@@ -948,6 +979,74 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       p.action === "key" ? `What ${p.keys} activates in ${p.app}` : `The field the text submits`,
       verdict.label,
     );
+  }
+
+  /**
+   * A piece of typed text that starts after a Tab or line break moved focus: what has focus now is
+   * what a Return, line break or space in it activates. A space in a text field is a character.
+   * Fails closed when the helper cannot say.
+   */
+  async function moneyAfterFocusMove(
+    p: ActParams,
+    piece: string,
+    callId: string,
+    signal: AbortSignal,
+  ): Promise<string | undefined> {
+    if (!/[\r\n ]/.test(piece) || describeAct(p).sideEffect === "financial") return undefined;
+    const t = await resolveFor(p, { focused: true }, callId, signal, "focus_unchecked");
+    if (t === undefined) return undefined;
+    const mode = /[\r\n]/.test(piece) ? "submit" : "activate";
+    if (mode === "activate" && isTextEntry(t)) return undefined;
+    const verdict = moneyVerdict(p.app, t, mode);
+    if (verdict === undefined) return undefined;
+    return askFinancial(
+      p,
+      callId,
+      signal,
+      "What the typed text activates after Tab",
+      verdict.label,
+    );
+  }
+
+  /**
+   * `type` with a Tab or line break before an activating character: typed piece by piece, with a
+   * focus check before each piece, so `"x\t\n"` cannot tab onto Pay and press it. The first
+   * piece goes to the ref (or the focused field) like any `type`; the rest to whatever has focus.
+   */
+  async function typeInPieces(
+    p: ActParams,
+    callId: string,
+    signal: AbortSignal,
+  ): Promise<{ res: NodeInvokeResult; approvalId?: string }> {
+    const pieces = splitAtFocusMoves(p.text ?? "");
+    let last: { res: NodeInvokeResult; approvalId?: string } | undefined;
+    let financial: string | undefined;
+    for (const [i, piece] of pieces.entries()) {
+      const { ref: _ref, expect: _expect, ...focused } = p;
+      const pp: ActParams = i === 0 ? { ...p, text: piece } : { ...focused, text: piece };
+      const approval =
+        i === 0
+          ? await moneyUnderFocus(pp, callId, signal)
+          : await moneyAfterFocusMove(p, piece, callId, signal);
+      const { capability, params } = actCapability(pp);
+      const r = await invoke(
+        callId,
+        {
+          tool: "computer.act",
+          capability,
+          params,
+          session: true,
+          approval: { app: p.app, action: p.action, tierRequired: actTier(p) },
+          ...(approval === undefined ? {} : { approvalId: approval }),
+        },
+        signal,
+      );
+      financial = approval ?? financial;
+      last = r;
+    }
+    if (last === undefined) throw new PsycheError("invalid_params", "type needs text");
+    const approvalId = financial ?? last.approvalId;
+    return { res: last.res, ...(approvalId === undefined ? {} : { approvalId }) };
   }
 
   interface Invocation {
@@ -1516,21 +1615,28 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         // A payment card was classed from the call itself: the app is showing a payment.
         if (describeAct(p).sideEffect === "financial") markMoney(p.app);
         // A point carries no label the Gateway saw, and a key or a typed newline activates
-        // whatever has focus: ask the helper what the action lands on first.
-        const financialApproval =
-          (await moneyUnderPoint(p, callId, signal)) ?? (await moneyUnderFocus(p, callId, signal));
-        const { res, approvalId } = await invoke(
-          callId,
-          {
-            tool: "computer.act",
-            capability,
-            params,
-            session: true,
-            approval: { app: p.app, action: p.action, tierRequired: actTier(p) },
-            ...(financialApproval === undefined ? {} : { approvalId: financialApproval }),
-          },
-          signal,
-        );
+        // whatever has focus: ask the helper what the action lands on first. Typed text that
+        // tabs and then activates is checked piece by piece.
+        const { res, approvalId } =
+          p.action === "type" && movesFocusThenActivates(p.text ?? "")
+            ? await typeInPieces(p, callId, signal)
+            : await (async () => {
+                const financialApproval =
+                  (await moneyUnderPoint(p, callId, signal)) ??
+                  (await moneyUnderFocus(p, callId, signal));
+                return invoke(
+                  callId,
+                  {
+                    tool: "computer.act",
+                    capability,
+                    params,
+                    session: true,
+                    approval: { app: p.app, action: p.action, tierRequired: actTier(p) },
+                    ...(financialApproval === undefined ? {} : { approvalId: financialApproval }),
+                  },
+                  signal,
+                );
+              })();
         const receiptId = await receipt(
           callId,
           capability,

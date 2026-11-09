@@ -71,6 +71,8 @@ const ORDINARY_LABELS = [
   "Transfer",
   "Move to folder",
   "Version 2.5 notes. Send feedback",
+  "Send token",
+  "Resend code",
 ];
 
 describe("isMoneyText on labels", () => {
@@ -100,6 +102,9 @@ const PAYMENT_TOOLS: [string, string | undefined][] = [
   ["wire", "Sends a wire"],
   ["send", "Sends USDC to an address"],
   ["send_eth", "Sends 0.1 ETH. Gas is paid by the wallet"],
+  ["transfer_tokens", "Transfers ERC20 tokens to an address"],
+  ["send", "Sends 5 tokens from the wallet"],
+  ["swap", "Swaps one token for another"],
 ];
 const ORDINARY_TOOLS: [string, string | undefined][] = [
   ["git_checkout", "Checks out a branch"],
@@ -116,6 +121,12 @@ const ORDINARY_TOOLS: [string, string | undefined][] = [
   ["move_issue", "Moves an issue to another project"],
   ["transfer_ownership", "Transfers ownership of a repository"],
   ["deploy_token", "Rotates the deploy token"],
+  ["send_token", "Sends a verification token by email"],
+  ["send_otp", "Sends a one-time passcode"],
+  ["send_code", "Send a login token"],
+  ["send_dm", "Sends a direct message with a coin emoji"],
+  ["trade_in_estimate", "Estimates a trade-in value"],
+  ["transfer_token", "Transfers an API token to another workspace"],
 ];
 
 describe("tool names and descriptions", () => {

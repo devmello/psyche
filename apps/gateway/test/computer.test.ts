@@ -51,6 +51,8 @@ class FakeHelper implements NodeClient {
   };
   /** What `computer.resolve_target` with `focused` reports: what has keyboard focus in the app. */
   focus: Record<string, unknown> = { role: "AXTextField", labels: ["Body"], window: "Notes" };
+  /** Where a Tab inside typed text moves focus (the helper sends `\t` as a real Tab key). */
+  focusAfterTab: Record<string, unknown> | undefined;
   /** An older helper without `computer.resolve_target`. */
   noResolve = false;
   /** A Mac helper from before `focused` (it answers a target-less call with invalid_params). */
@@ -132,6 +134,15 @@ class FakeHelper implements NodeClient {
         return {
           ok: true,
           result: { image: "AAAA", mimeType: "image/jpeg", width: 10, height: 10 },
+        };
+      case "computer.type":
+        if (this.focusAfterTab !== undefined && String(p.text ?? "").includes("\t")) {
+          this.focus = this.focusAfterTab;
+        }
+        return {
+          ok: true,
+          result: { status: "ok", method: "cgevent", app: this.pointApp ?? app },
+          receipt: { outcome: "ok", summary: "computer.type ok" },
         };
       case "apps.shortcut_run":
         return {
@@ -1089,6 +1100,50 @@ describe("computer-use agent tools (J1–J5)", () => {
       helper.focus = { role: "AXTextField", labels: ["Name on card"], window: "Checkout" };
       await call("computer.act", { app: shop, action: "key", keys: "space" });
       expect(financial()).toHaveLength(0);
+    });
+
+    it.each([
+      ["x\t\n", { role: "AXButton", labels: ["Pay"], window: "Notes" }, ["x\t"]],
+      ["\t ", { role: "AXButton", labels: ["Send USDC"], window: "Notes" }, ["\t"]],
+      ["\t\t\r", { role: "AXButton", labels: ["Place order"], window: "Notes" }, ["\t", "\t"]],
+    ])(
+      "typed %j that tabs onto a money control asks before it activates it",
+      async (text, after, typedBefore) => {
+        await call("computer.snapshot", { app: notes });
+        helper.calls.length = 0;
+        issued.length = 0;
+        helper.focus = { role: "AXTextField", labels: ["Body"], window: "Notes" };
+        helper.focusAfterTab = after;
+        answer = "deny";
+        expect(await call("computer.act", { app: notes, action: "type", text })).toMatchObject({
+          isError: true,
+          output: { error: { code: "policy_denied" } },
+        });
+        expect(financial()).toHaveLength(1);
+        // Typed up to the Tab, never the Return or space that would press the button.
+        expect(sent("computer.type").map((c) => c.params.text)).toEqual(typedBefore);
+      },
+    );
+
+    it("tabbing between ordinary fields types every piece with no card", async () => {
+      await call("computer.snapshot", { app: notes });
+      helper.calls.length = 0;
+      issued.length = 0;
+      helper.focus = { role: "AXTextField", labels: ["First name"], window: "Contacts" };
+      helper.focusAfterTab = { role: "AXTextField", labels: ["Last name"], window: "Contacts" };
+      await call("computer.act", { app: notes, action: "type", text: "Ada\tLove lace\n" });
+      expect(financial()).toHaveLength(0);
+      expect(sent("computer.type").map((c) => c.params.text)).toEqual(["Ada\t", "Love lace\n"]);
+    });
+
+    it("typed text that tabs then activates fails closed when focus cannot be read", async () => {
+      await call("computer.snapshot", { app: notes });
+      helper.calls.length = 0;
+      helper.noFocus = true;
+      expect(
+        await call("computer.act", { app: notes, action: "type", text: "x\t\n" }),
+      ).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
+      expect(sent("computer.type").map((c) => c.params.text)).toEqual(["x\t"]);
     });
 
     it("a bare Confirm or Withdraw counts only in a banking, wallet or payment window", async () => {

@@ -88,10 +88,6 @@ const MONEY_OBJECTS = new Set([
   "bitcoin",
   "btc",
   "eth",
-  "token",
-  "tokens",
-  "coin",
-  "coins",
   "order",
   "bid",
   "trade",
@@ -117,8 +113,40 @@ const MONEY_OBJECTS = new Set([
   "stablecoins",
 ]);
 /** An asset or a token is money where a wallet or an onchain address is involved. */
-const CHAIN_OBJECTS = new Set(["asset", "assets", "token", "tokens"]);
-const CHAIN_WORDS = new Set(["wallet", "wallets", "onchain", "blockchain", "chain"]);
+const CHAIN_OBJECTS = new Set(["asset", "assets", "token", "tokens", "coin", "coins"]);
+const CHAIN_WORDS = new Set([
+  "wallet",
+  "wallets",
+  "onchain",
+  "blockchain",
+  "chain",
+  "crypto",
+  "cryptocurrency",
+  "erc20",
+  "spl",
+  "defi",
+  "dex",
+]);
+/** A token or a coin next to these is a code or an emoji, never money. */
+const NOT_MONEY_TOKEN = new Set([
+  "verification",
+  "login",
+  "otp",
+  "auth",
+  "authentication",
+  "access",
+  "refresh",
+  "reset",
+  "api",
+  "session",
+  "security",
+  "emoji",
+  "magic",
+  "invite",
+  "bearer",
+  "deploy",
+  "csrf",
+]);
 /** Only after "pay": paying a bill pays, "send invoice" or "create invoice" does not. */
 const PAY_OBJECTS = new Set(["invoice", "bill", "balance", "fee", "fees", "tax", "taxes", "rent"]);
 const CARD_WORDS = new Set(["credit", "debit"]);
@@ -223,7 +251,11 @@ function sentenceMoves(sentence: string): boolean {
   if (words.length <= 6 && WHOLE_LABELS.has(joined)) return true;
   if (PAY_WITH.test(joined)) return true;
   const hasAmount = AMOUNT.test(sentence);
-  const onchain = words.some((w) => CHAIN_WORDS.has(w));
+  // A token or coin is money only with a crypto or wallet word, a ticker or an amount, and
+  // never next to "verification", "login", "emoji" and the like.
+  const notMoneyToken = words.some((w) => NOT_MONEY_TOKEN.has(w));
+  const onchain =
+    !notMoneyToken && (words.some((w) => CHAIN_WORDS.has(w) || TICKERS.has(w)) || hasAmount);
   for (let i = 0; i < words.length; i++) {
     const verb = verbOf(words[i] ?? "");
     if (verb === undefined) continue;
@@ -233,6 +265,15 @@ function sentenceMoves(sentence: string): boolean {
       const w = words[j] ?? "";
       if (MONEY_OBJECTS.has(w) && objectFits(verb, w, words[j + 1])) return true;
       if (onchain && CHAIN_OBJECTS.has(w) && CHAIN_VERBS.has(verb)) return true;
+      // Swapping, trading, buying or selling tokens or coins is a trade even with no wallet word.
+      if (
+        !notMoneyToken &&
+        CHAIN_OBJECTS.has(w) &&
+        TRADE_VERBS.has(verb) &&
+        w !== "asset" &&
+        w !== "assets"
+      )
+        return true;
       if (verb === "pay" && PAY_OBJECTS.has(w)) return true;
       if (CARD_WORDS.has(w) && words[j + 1] === "card") return true;
       // "Charges the card", "charge_card": charging a card is the payment.
@@ -245,6 +286,8 @@ function sentenceMoves(sentence: string): boolean {
   return false;
 }
 
+const TICKERS = new Set(["usdc", "usdt", "dai", "eurc", "sol", "eth", "btc", "bitcoin"]);
+const TRADE_VERBS = new Set(["swap", "trade", "buy", "sell"]);
 const CHAIN_VERBS = new Set([
   "transfer",
   "send",
@@ -288,7 +331,7 @@ function objectFits(verb: string, object: string, next?: string): boolean {
   if (object === "checkout" || object === "cart") {
     return ["complete", "confirm", "submit", "place", "pay", "execute"].includes(verb);
   }
-  if (object === "share" || object === "shares" || object === "token" || object === "tokens") {
+  if (object === "share" || object === "shares") {
     return ["buy", "sell", "swap", "trade", "transfer", "send", "place", "execute"].includes(verb);
   }
   if (object === "order" || object === "bid" || object === "trade") {
@@ -319,6 +362,8 @@ const READING_VERBS = new Set([
   "calculate",
   "history",
 ]);
+/** Anywhere in a tool's name, these mean it only estimates. */
+const DRY_RUN_WORDS = new Set(["estimate", "quote", "preview", "simulate", "calculate", "dryrun"]);
 /** A tool named for just one of these verbs (`sell_stock`, `pay_invoice`) moves money. */
 const NAME_VERBS = new Set([
   "pay",
@@ -344,6 +389,8 @@ export function isMoneyToolName(name: string | undefined): boolean {
   const words = moneyWords(name);
   const first = words[0];
   if (first === undefined || READING_VERBS.has(first)) return false;
+  // `trade_in_estimate`, `swap_quote`, `payment_preview`: an estimate or a dry run moves nothing.
+  if (words.some((w) => DRY_RUN_WORDS.has(w))) return false;
   // A tool named for one of these verbs alone or at either end (`sell_stock`, `stripe.refund`).
   for (const w of [first, words.at(-1)]) {
     const verb = w === undefined ? undefined : verbOf(w);
