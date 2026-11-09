@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Local verification for an agent's branch. GitHub Actions is locked by billing, so this is the gate.
 #
-# Usage: .claude/scripts/verify.sh [--base <ref>] [--related] [--swift] [--quiet]
-#   --base     compare against this ref (default: merge-base with origin/main)
-#   --related  also run vitest on tests related to the touched source files
+# Usage: .claude/scripts/verify.sh [--base <ref>] [--no-related] [--swift] [--quiet]
+#   --base        compare against this ref (default: merge-base with origin/main)
+#   --no-related  skip vitest on existing tests that import the touched source files (on by
+#                 default: builders twice broke existing tests they never ran, #1299 and #1300)
 #   --swift    also build and test touched Swift packages (waits for any other Swift build first)
 #   --quiet    print only the summary and failures
 #
@@ -22,13 +23,14 @@ set -o pipefail  # no -u: macOS bash 3.2 treats empty arrays as unbound
 cd "$(git rev-parse --show-toplevel)" || exit 2
 
 base=""
-related=0
+related=1
 swift=0
 quiet=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --base) base="$2"; shift 2 ;;
     --related) related=1; shift ;;
+    --no-related) related=0; shift ;;
     --swift) swift=1; shift ;;
     --quiet) quiet=1; shift ;;
     *) echo "verify.sh: unknown option $1" >&2; exit 2 ;;
@@ -81,16 +83,77 @@ for dir in $pkgs; do
   [ -n "$name" ] && run "typecheck:$name" pnpm --filter "$name" run typecheck
 done
 
-tests="$(echo "$changed" | grep -E '\.(test|spec)\.(ts|tsx|mts)$' || true)"
-if [ -n "$tests" ]; then
+# Tests, per touched package: the touched test files, plus (by default) every existing test in
+# that package whose import graph reaches a touched source file (`vitest related`, run from the
+# package so it stays inside it; repo-wide related on a widely imported file runs for many
+# minutes). Builders broke existing tests they never ran in #1299 and #1300; this catches that.
+# A failing file is re-run once (flake filter), then run on the merge base: failures that also
+# happen on the base are reported as pre-existing and do not fail the check.
+warn=()
+failed_files() { # failed_files <vitest json> -> absolute paths of failed test files
+  node -e 'try{const r=require(process.argv[1]);for(const t of r.testResults||[])if(t.status==="failed")console.log(t.name)}catch{}' "$1"
+}
+base_tree() { # base_tree -> path of a worktree at $base with deps installed (cached per commit)
+  local common sha dir
+  common="$(cd "$(git rev-parse --git-common-dir)" && pwd)/agent-verify/base"
+  sha="$(git rev-parse --short=12 "$base")"
+  dir="$common/$sha"
+  mkdir -p "$common"
+  find "$common" -mindepth 1 -maxdepth 1 -type d -mtime +2 -exec git worktree remove --force {} \; 2>/dev/null
+  if [ ! -f "$dir/.verify-ready" ]; then
+    git worktree add --detach "$dir" "$base" >/dev/null 2>&1 || [ -d "$dir" ] || return 1
+    (cd "$dir" && pnpm install --frozen-lockfile --prefer-offline >/dev/null 2>&1) || return 1
+    touch "$dir/.verify-ready"
+  fi
+  echo "$dir"
+}
+test_pkgs="$(echo "$changed" | grep -E '^(apps|packages)/[^/]+/.*\.(ts|tsx|mts)$' | grep -v '\.d\.ts$' | cut -d/ -f1-2 | sort -u)"
+for pkg in $test_pkgs; do
+  [ -f "$pkg/package.json" ] || continue
+  files="$(echo "$changed" | grep -E "^$pkg/.*\.(ts|tsx|mts)$" | grep -v '\.d\.ts$' | sed "s#^$pkg/##")"
+  tfiles="$(echo "$files" | grep -E '\.(test|spec)\.' || true)"
+  name="vitest:$pkg"
+  log="$logdir/${name//[^A-Za-z0-9_.-]/_}"
+  [ "$quiet" = 1 ] || echo "verify: $name"
   # shellcheck disable=SC2086
-  run vitest pnpm exec vitest run --maxWorkers=1 $tests
-fi
-if [ "$related" = 1 ]; then
-  srcs="$(echo "$changed" | grep -E '^(apps|packages)/.*\.(ts|tsx)$' | grep -vE '\.(test|spec)\.' || true)"
+  if [ "$related" = 1 ]; then
+    (cd "$pkg" && pnpm exec vitest related --run --passWithNoTests --maxWorkers=1 \
+      --reporter=default --reporter=json --outputFile.json="$log.json" $files) >"$log.log" 2>&1
+  elif [ -n "$tfiles" ]; then
+    (cd "$pkg" && pnpm exec vitest run --passWithNoTests --maxWorkers=1 \
+      --reporter=default --reporter=json --outputFile.json="$log.json" $tfiles) >"$log.log" 2>&1
+  else
+    continue
+  fi
+  [ $? -eq 0 ] && { pass+=("$name"); continue; }
+  bad="$(failed_files "$log.json")"
+  [ -n "$bad" ] || { fail+=("$name|$log.log"); continue; }  # crashed before reporting: real failure
   # shellcheck disable=SC2086
-  [ -n "$srcs" ] && run vitest-related pnpm exec vitest related --run --maxWorkers=1 $srcs
-fi
+  (cd "$pkg" && pnpm exec vitest run --maxWorkers=1 --reporter=default --reporter=json \
+    --outputFile.json="$log.rerun.json" $bad) >"$log.rerun.log" 2>&1 && { warn+=("$name: flaky, passed on re-run: $(echo $bad | xargs -n1 basename | paste -sd' ' -)"); pass+=("$name"); continue; }
+  bad="$(failed_files "$log.rerun.json")"
+  own=""
+  pre=""
+  if bt="$(base_tree)"; then
+    for f in $bad; do
+      rel="${f#"$PWD/"}"
+      if [ -f "$bt/$rel" ] && ! (cd "$bt/$pkg" && pnpm exec vitest run --maxWorkers=1 "${rel#"$pkg/"}") >/dev/null 2>&1; then
+        pre="$pre $(basename "$rel")"
+      else
+        own="$own $rel"
+      fi
+    done
+  else
+    own="$bad"
+    warn+=("$name: could not set up the base worktree to tell pre-existing failures apart")
+  fi
+  [ -n "$pre" ] && warn+=("$name: also failing on the base (pre-existing, not yours):$pre")
+  if [ -n "$own" ]; then fail+=("$name|$log.rerun.log"); else pass+=("$name"); fi
+done
+# Tests outside apps/ and packages/ (tests/acceptance, tests/integration): run what was touched.
+other="$(echo "$changed" | grep -E '^tests/.*\.(test|spec)\.(ts|tsx|mts)$' || true)"
+# shellcheck disable=SC2086
+[ -n "$other" ] && run vitest:tests pnpm exec vitest run --maxWorkers=1 $other
 
 if [ "$swift" = 1 ]; then
   for pkg in apps/mac-helper packages/protocol-swift; do
@@ -105,6 +168,7 @@ fi
 echo
 echo "verify: ${#pass[@]} passed, ${#fail[@]} failed (files checked: $(echo "$changed" | wc -l | tr -d ' '))"
 for p in "${pass[@]}"; do [ "$quiet" = 1 ] || echo "  ok    $p"; done
+for w in "${warn[@]}"; do echo "  note  $w"; done
 for f in "${fail[@]}"; do
   echo "  FAIL  ${f%%|*}  (log: ${f#*|})"
   tail -n 25 "${f#*|}" | sed 's/^/        /'

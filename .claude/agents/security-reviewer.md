@@ -28,7 +28,7 @@ Real protection must remain against:
 Method:
 1. `gh pr view <n> --repo devmello/psyche` and `gh pr diff <n>`. Read the surrounding code at `origin/main` for every trust boundary the diff touches.
 2. For each attack class, try to construct a concrete exploit path through the new code: inputs, a call sequence, and what the attacker gains. Check the tests too: did any assertion get weaker, or a negative test disappear?
-3. Verify locally: `git worktree add <scratch>/wt-<n> origin/<head>`, `pnpm install --frozen-lockfile --prefer-offline`, then `bash .claude/scripts/verify.sh --related`, plus `--swift` if Swift changed. Remove the worktree afterwards.
+3. Verify locally: `git worktree add <scratch>/wt-<n> origin/<head>`, `pnpm install --frozen-lockfile --prefer-offline`, then `bash .claude/scripts/verify.sh`, plus `--swift` if Swift changed. Remove the worktree afterwards.
 4. Report:
    - `VERDICT: fit to merge` or `VERDICT: blocking issues`;
    - numbered findings (severity, file:line, the exploit or failure scenario, the fix);

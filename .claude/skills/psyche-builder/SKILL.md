@@ -23,7 +23,7 @@ The orchestrator gave you a brief and usually a `/goal`. Your job is one focused
 
 ## 3. Verify (the loop)
 
-1. Run `bash .claude/scripts/verify.sh`, adding `--swift` if you touched Swift and `--related` if you changed shared source.
+1. Run `bash .claude/scripts/verify.sh`, adding `--swift` if you touched Swift. It runs your new tests and every existing test that imports the code you changed. Those existing tests are the ones builders most often break without noticing.
 2. Fix every failure and run it again. Repeat until it passes.
 3. Run `pnpm exec biome check --write <touched dirs>` last, after your final edit, then re-run verify.
 

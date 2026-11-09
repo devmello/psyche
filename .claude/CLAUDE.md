@@ -43,6 +43,6 @@ GitHub Actions is locked by billing, so local checks are the gate. `.claude/scri
 - typecheck for the touched packages;
 - the touched tests.
 
-Add `--swift` for Swift and `--related` for tests related to touched source.
+It also runs existing tests that import the source you touched; skip them only with `--no-related`. Add `--swift` for Swift.
 
 In a worktree, a Stop hook runs it whenever you finish with unverified changes. If it fails, you get the failures back and must fix them. It gives up after 3 tries, and then you must report the failure plainly. Never weaken or skip a test to get it passing.

@@ -48,7 +48,7 @@ Out of scope: <neighbouring areas other sessions own>
 1. **Builder self-check.** It runs `verify.sh` until it passes. The Stop hook enforces this. `/goal` keeps it going until the PR exists.
 2. **Orchestrator verify.** When a builder reports, don't trust the report:
    - `gh pr view <n>` and `gh pr diff <n>`: read the diff against "Done means".
-   - Throwaway worktree: `git worktree add <scratchpad>/wt-<n> origin/<head branch>` (the PR's real head ref, from `gh pr view --json headRefName`), then `pnpm install --frozen-lockfile --prefer-offline` and `bash .claude/scripts/verify.sh --related`, with `--swift` if needed. Remove the worktree after.
+   - Throwaway worktree: `git worktree add <scratchpad>/wt-<n> origin/<head branch>` (the PR's real head ref, from `gh pr view --json headRefName`), then `pnpm install --frozen-lockfile --prefer-offline` and `bash .claude/scripts/verify.sh`, with `--swift` if needed. Remove the worktree after.
    - For cheap, non-security PRs, delegate this to the `haiku-verifier` agent and read its verdict.
 3. **Independent review.** Every security, permissions, auth, crypto, sandbox or update PR goes to the `security-reviewer` agent (Opus), with concrete attack classes and the owner's relevant decisions. Never let the author review itself.
 4. **Send findings back.** Use `SendMessage` to the builder session, with numbered findings, file:line, and what "fixed" means. It fixes, verifies and reports. Then go back to step 2.
