@@ -25,7 +25,7 @@
     "@psyche/protocol": "workspace:*",
     "@psyche/sandbox": "workspace:*",
     "ulid": "3.0.2",
-    "ws": "8.22.0"
+    "ws": "8.22.1"
   },
   "devDependencies": {
     "@psyche/testing": "workspace:*",
