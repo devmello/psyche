@@ -132,6 +132,13 @@ export interface PermissionBrokerOptions {
   classifier?: ActionClassifier;
   localProject?: LocalProjectVerifier;
   psycheHome?: string;
+  /**
+   * True for a device that is the owner's own app or helper on the Host (the desktop shell, with
+   * its per-launch secret on this machine). Its rejected answers are audited but never lock it
+   * out: a bug in the owner's own client must not stop the owner approving. Remote devices
+   * (phone, browser, LAN) keep the lockout cap.
+   */
+  isLocalDevice?: (deviceId: string) => boolean;
   /** Gateway UI origins the agent may never act on (design-03, design-19). */
   gatewayOrigins?: string[];
   presence?: PresenceVerifier;
@@ -212,8 +219,29 @@ export function batchChildId(batchApprovalId: string, index: number): string {
   return `${batchApprovalId}.${index}`;
 }
 
-/** Rejected answers may be this many times the decision budget per minute before a lockout. */
+/** Guessing-shaped rejections may be this many times the decision budget per minute before a lockout. */
 const FAILURE_CAP_FACTOR = 6;
+
+/**
+ * The rejections that count toward the lockout cap: the ones a brute-force attempt produces — a
+ * guessed or reused answer token, an answer from the wrong place or by someone who may not
+ * decide, and a presence assertion or password that did not check out. Every other refusal
+ * (`late`, `not_armed`, `not_found`, `invalidated`, a cancelled sheet, a missing helper or key, a
+ * malformed request) is still audited, but it proves nothing about guessing: a client that
+ * retries a stale card must not lock the owner out of the cards that are still open.
+ */
+const GUESSING_REASONS: ReadonlySet<string> = new Set([
+  "unknown_token",
+  "replayed",
+  "surface_mismatch",
+  "not_approver",
+  "not_owner",
+  "device_only",
+  "presence_invalid",
+  "presence_failed",
+  "password_failed",
+  "password_from_client",
+]);
 
 export class PsychePermissionBroker implements PermissionBroker {
   readonly clock: Clock;
@@ -245,6 +273,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #answerTimes = new Map<string, number[]>();
   /** Rejected answers per identity: a much higher flood cap, so failures never eat the budget. */
   readonly #failureTimes = new Map<string, number[]>();
+  readonly #isLocalDevice: ((deviceId: string) => boolean) | undefined;
   readonly #channelConversations: ChannelConversationLookup | undefined;
   readonly #replyTimes = new Map<string, number[]>();
   readonly #folderAccess: PermissionBrokerOptions["folderAccess"];
@@ -270,6 +299,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#onEvent = options.onEvent;
     this.#revocations = options.revocations;
     this.#channelConversations = options.channelConversations;
+    this.#isLocalDevice = options.isLocalDevice;
     this.#folderAccess = options.folderAccess;
     const ulid = monotonicFactory();
     this.#newId = options.newId ?? ((prefix) => `${prefix}_${ulid(this.clock.now())}`);
@@ -1004,6 +1034,11 @@ export class PsychePermissionBroker implements PermissionBroker {
     );
   }
 
+  /** The owner's own Host app or helper: its refusals are audited, not counted. */
+  #isLocal(by: DecidedBy): boolean {
+    return "deviceId" in by && this.#isLocalDevice?.(by.deviceId) === true;
+  }
+
   #windowWait(map: Map<string, number[]>, identity: string, limit: number): number {
     const now = this.clock.now();
     const times = (map.get(identity) ?? []).filter((t) => t > now - 60_000);
@@ -1029,7 +1064,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     message: string,
     details?: unknown,
   ): Promise<never> {
-    if (reason !== "rate_limited") {
+    if (GUESSING_REASONS.has(reason) && !this.#isLocal(by)) {
       const identity =
         "deviceId" in by ? `device:${by.deviceId}` : `channel:${by.channel}:${by.senderId}`;
       const failures = this.#failureTimes.get(identity) ?? [];
@@ -1054,7 +1089,8 @@ export class PsychePermissionBroker implements PermissionBroker {
    * Checks an answer before a host asks the owner for presence out of band (the desktop window's
    * Touch ID through the helper, security §3.7): the answerer is not rate limited, the approval is
    * pending and armed, and the token is an unused one for `decidedBy.surface`. Throws what
-   * `answer` would (each refusal counts against the rejected-answer cap); records nothing else.
+   * `answer` would (a refusal that looks like guessing counts against the rejected-answer cap, the
+   * rest are only audited); records nothing else.
    */
   async precheckAnswer(input: {
     approvalId: string;
@@ -1100,7 +1136,8 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   /**
    * An out-of-band presence step failed (Touch ID cancelled, failed or unavailable): audited as a
-   * rejected answer and counted against the answerer's cap, like a bad assertion would be.
+   * rejected answer. A failed or invalid presence counts against the answerer's cap like a bad
+   * assertion would; a cancelled sheet or a missing helper or key does not.
    */
   async rejectPresence(input: {
     approvalId: string;

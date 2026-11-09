@@ -1,5 +1,5 @@
 import type { MethodResult } from "@psyche/protocol";
-import { type ReactElement, useEffect, useMemo } from "react";
+import { type ReactElement, useEffect, useMemo, useRef } from "react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "../components/ui/hover-card.tsx";
 import { useGatewayQuery, useStoreState } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
@@ -272,8 +272,15 @@ export function useUsageSummary(): UsageSummaryData | undefined {
     (s) => Object.values(s.runs).filter((r) => r.status !== "running" && r.endedAt).length,
   );
   const { reload } = q;
+  // The summary just loaded counts the runs already ended; only a run that ends after this
+  // mount (or after the runs list filled in) is worth a second request.
+  const seenEnded = useRef(ended);
   useEffect(() => {
-    if (ended === 0) return;
+    if (ended <= seenEnded.current) {
+      seenEnded.current = ended;
+      return;
+    }
+    seenEnded.current = ended;
     const timer = setTimeout(reload, 800);
     return () => clearTimeout(timer);
   }, [ended, reload]);

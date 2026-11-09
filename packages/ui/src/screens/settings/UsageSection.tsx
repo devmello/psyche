@@ -225,9 +225,14 @@ export function UsagePanel({ usage, loading, error, onRetry }: UsagePanelProps):
 export function UsageLivePanel({
   summary,
   loading = false,
+  error = null,
+  onRetry,
 }: {
   summary: UsageSummaryData | undefined;
   loading?: boolean;
+  /** Why `usage.summary` failed, in words. Shown with a retry instead of "not available". */
+  error?: string | null;
+  onRetry?: () => void;
 }): ReactElement {
   const month = summary?.month;
   const budget = summary?.budgetUsd ?? null;
@@ -236,7 +241,8 @@ export function UsageLivePanel({
       <LoadGate
         label={t("settings.usage.loadLabel")}
         loading={loading && summary === undefined}
-        error={null}
+        error={summary === undefined ? error : null}
+        {...(onRetry ? { onRetry } : {})}
       >
         {summary === undefined || month === undefined ? (
           <EmptyNotice text={t("settings.usage.unavailable")} />
@@ -314,7 +320,16 @@ function ConnectedUsage(): ReactElement {
     data && Array.isArray(data.byModel) && data.today && data.month
       ? (data as UsageSummaryData)
       : undefined;
-  return <UsageLivePanel summary={summary} loading={q.loading && q.error === null} />;
+  // A failed call says what failed (a rate limit, a refused scope, a timeout) and offers a retry;
+  // "not available" is for an answer that arrived without a summary in it.
+  return (
+    <UsageLivePanel
+      summary={summary}
+      loading={q.loading && q.error === null}
+      error={q.error}
+      onRetry={q.reload}
+    />
+  );
 }
 
 export interface UsageSectionProps extends LoadProps {

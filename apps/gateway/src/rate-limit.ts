@@ -29,6 +29,14 @@ export class RateLimiter {
     for (const key of [...this.#hits.keys()]) this.#recent(key);
   }
 
+  /** Whole seconds until `key` has room again (0 when it is under its limit now). */
+  retryAfterSec(key: string): number {
+    const hits = this.#recent(key);
+    if (hits.length < this.#limit) return 0;
+    const oldest = hits[hits.length - this.#limit] ?? this.#now();
+    return Math.max(1, Math.ceil((oldest + this.#windowMs - this.#now()) / 1000));
+  }
+
   record(key: string): void {
     const hits = this.#recent(key);
     hits.push(this.#now());

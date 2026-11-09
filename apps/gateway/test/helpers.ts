@@ -233,6 +233,25 @@ export async function desktopClient(
   return c;
 }
 
+/**
+ * A paired device that is not the desktop shell: it reconnects without the handshake secret, so
+ * it gets no local-app privileges (and no rate-limit exemption). Pair it once through the secret.
+ */
+export async function remoteClient(
+  gateway: Gateway,
+  key = newDeviceKey(),
+  deviceId = `remote-${Math.random().toString(36).slice(2)}`,
+): Promise<TestClient> {
+  const first = await desktopClient(gateway, key, deviceId);
+  first.close();
+  const c = await TestClient.open(wsUrlOf(gateway));
+  const r = await handshake(c, gateway.origin, { key, deviceId });
+  if ((r.verifyRes?.payload as { phase?: string } | undefined)?.phase !== "paired") {
+    throw new Error(`remote did not pair: ${JSON.stringify(r.verifyRes)}`);
+  }
+  return c;
+}
+
 /** A device the owner granted every operator scope (what `psyched devices grant` does). */
 export async function adminClient(gateway: Gateway): Promise<TestClient> {
   const key = newDeviceKey();

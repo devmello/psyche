@@ -27,6 +27,48 @@ const EMPTY_RUNS: readonly Run[] = [];
 const STEP_PAGE = 500;
 const MAX_PAGES = 4;
 
+/**
+ * `runs.get` for the traces in a chat. A long chat mounts one trace per run at once (hundreds of
+ * them), and a reconnect used to reload every one: that burst was thousands of requests a
+ * minute and drained the Gateway's per-device request budget, so Settings, Usage and Allow
+ * failed with "rate limited". Now each run is fetched once at a time, at most `MAX_RUN_LOADS`
+ * run at once, and a finished run whose steps the store already has is not fetched again on a
+ * refresh (nothing about a finished run changes behind the client's back; `run.step` and
+ * `run.updated` keep live ones current).
+ */
+const MAX_RUN_LOADS = 4;
+const inFlightRuns = new WeakMap<GatewayStore, Map<string, Promise<void>>>();
+let activeRunLoads = 0;
+const waitingRunLoads: (() => void)[] = [];
+
+async function withRunLoadSlot<T>(job: () => Promise<T>): Promise<T> {
+  if (activeRunLoads >= MAX_RUN_LOADS) {
+    await new Promise<void>((resolve) => waitingRunLoads.push(resolve));
+  } else {
+    activeRunLoads += 1;
+  }
+  try {
+    return await job();
+  } finally {
+    // Hand the slot straight to the next waiter, else free it.
+    const next = waitingRunLoads.shift();
+    if (next) next();
+    else activeRunLoads -= 1;
+  }
+}
+
+/** True when the store already has this run, finished, with its steps: nothing to refetch. */
+function runIsSettledInStore(store: GatewayStore, runId: string): boolean {
+  const s = store.getState();
+  const run = s.runs[runId];
+  return (
+    run !== undefined &&
+    run.status !== "running" &&
+    run.endedAt != null &&
+    (s.runSteps[runId]?.length ?? 0) > 0
+  );
+}
+
 /** Loads a run's steps after the last seq the store has, page by page. */
 async function loadSteps(store: GatewayStore, runId: string): Promise<void> {
   const version = store.version();
@@ -62,20 +104,33 @@ export function useRun(runId: string | null): LoadState & {
     runId === null ? EMPTY_STEPS : (s.runSteps[runId] ?? EMPTY_STEPS),
   );
   const runs = useStoreState((s) => s.runs);
-  const load = useLoader(runId === null ? null : `run:${runId}`, async (st) => {
+  const load = useLoader(runId === null ? null : `run:${runId}`, async (st, cause) => {
     if (runId === null) return;
-    const version = st.version();
-    const res = await st.call("runs.get", { runId });
-    st.update((s) =>
-      upsertRunSteps(
-        putMany(s, "runs", [res.run, ...res.children], version),
-        runId,
-        res.steps,
-        version,
-      ),
-    );
-    // runs.get returns the first 500; the rest page in.
-    if (res.steps.length >= STEP_PAGE) await loadSteps(st, runId);
+    if (cause === "refresh" && runIsSettledInStore(st, runId)) return;
+    // Several traces of one run share one request.
+    let byRun = inFlightRuns.get(st);
+    if (byRun === undefined) {
+      byRun = new Map();
+      inFlightRuns.set(st, byRun);
+    }
+    const pending = byRun.get(runId);
+    if (pending !== undefined) return pending;
+    const job = withRunLoadSlot(async () => {
+      const version = st.version();
+      const res = await st.call("runs.get", { runId });
+      st.update((s) =>
+        upsertRunSteps(
+          putMany(s, "runs", [res.run, ...res.children], version),
+          runId,
+          res.steps,
+          version,
+        ),
+      );
+      // runs.get returns the first 500; the rest page in.
+      if (res.steps.length >= STEP_PAGE) await loadSteps(st, runId);
+    }).finally(() => byRun.delete(runId));
+    byRun.set(runId, job);
+    return job;
   });
   const children = useMemo(
     () =>

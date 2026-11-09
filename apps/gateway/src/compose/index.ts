@@ -668,6 +668,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     return true;
   };
   const rawBroker = new PsychePermissionBroker({
+    // The owner's own Psyche app and helper on this Mac (the per-launch secret proves it): their
+    // refused answers are audited, but never lock them out of approving (broker.ts).
+    isLocalDevice: (deviceId) =>
+      [...(gatewayRef?.context.connections() ?? [])].some(
+        (c) =>
+          c.open &&
+          c.identity?.deviceId === deviceId &&
+          c.peer.remoteLoopback &&
+          (c.identity.desktopShell === true || c.identity.hostHelper === true),
+      ),
     folderAccess: {
       env: () => folderAccessEnv(config.home),
       // A folder shown to the separate desktop is judged by the container's own, wider list.

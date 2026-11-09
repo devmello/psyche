@@ -315,7 +315,7 @@ export class Connection implements LiveConnection {
     if (scope !== "none" && !have.includes(scope)) {
       throw new PsycheError("forbidden", `${method} requires scope ${scope}`);
     }
-    this.#rateLimit(identity.deviceId, method, spec.sideEffecting, params);
+    this.#rateLimit(identity, method, spec.sideEffecting, params);
     const def: HandlerDef | undefined = HANDLERS[method] ?? this.#ctx.extraHandlers[method];
     if (def === undefined) {
       throw new PsycheError("not_implemented", `${method} is not implemented yet`);
@@ -357,9 +357,21 @@ export class Connection implements LiveConnection {
   /**
    * Per-device budgets (security §10 "rate limits per device token"). Node-protocol frames are
    * exempt: a node streams `node.event`s for invocations the Gateway itself started.
+   *
+   * The Psyche desktop shell on this Mac is exempt too (`identity.desktopShell`: loopback, the
+   * per-launch handshake secret). It is the owner's own app on the owner's own machine, so a
+   * request budget protects nothing there, while one noisy screen used to drain the budget and
+   * make Settings, Usage and Allow fail as "rate limited". Every other device keeps its budget.
    */
-  #rateLimit(deviceId: string, method: string, sideEffecting: boolean, params: unknown): void {
+  #rateLimit(
+    identity: PairedIdentity,
+    method: string,
+    sideEffecting: boolean,
+    params: unknown,
+  ): void {
     if (method.startsWith("node.")) return;
+    if (identity.desktopShell === true && this.peer.remoteLoopback) return;
+    const deviceId = identity.deviceId;
     // Only calls that name a session this device owns; a guess at an id is charged like any call.
     if (STREAM_METHODS.has(method)) {
       const sessionId = (params as { sessionId?: unknown } | null)?.sessionId;
@@ -371,13 +383,22 @@ export class Connection implements LiveConnection {
       }
     }
     const { deviceRequests, deviceSideEffects } = this.#ctx;
-    if (
-      !deviceRequests.allowed(deviceId) ||
-      (sideEffecting && !deviceSideEffects.allowed(deviceId))
-    ) {
+    const requestsFull = !deviceRequests.allowed(deviceId);
+    const sideEffectsFull = sideEffecting && !deviceSideEffects.allowed(deviceId);
+    if (requestsFull || sideEffectsFull) {
+      const retryAfterSec = Math.max(
+        requestsFull ? deviceRequests.retryAfterSec(deviceId) : 0,
+        sideEffectsFull ? deviceSideEffects.retryAfterSec(deviceId) : 0,
+        1,
+      );
       throw new PsycheError("rate_limited", "Too many requests from this device; slow down", {
         retryable: true,
-        details: { scope: sideEffecting ? "side_effects" : "requests", windowMs: 60_000 },
+        // `scope` tells a client this is the request budget, not the approvals' answer limit.
+        details: {
+          scope: sideEffecting ? "side_effects" : "requests",
+          windowMs: 60_000,
+          retryAfterSec,
+        },
       });
     }
     deviceRequests.record(deviceId);
