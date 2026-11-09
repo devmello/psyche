@@ -19,6 +19,7 @@ import { final202611 } from "./final-2026-11/ar.ts";
 import { helperCheck } from "./helper-check/ar.ts";
 import { home } from "./home/ar.ts";
 import { links } from "./links/ar.ts";
+import { linuxAccess } from "./linux-access/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
 import { meetingRecord } from "./meeting-record/ar.ts";
 import { memoryPage } from "./memory-page/ar.ts";
@@ -3339,6 +3340,8 @@ export const ar: Partial<Catalogue> = {
   ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
 };

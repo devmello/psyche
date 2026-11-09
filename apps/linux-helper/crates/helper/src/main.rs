@@ -51,7 +51,9 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let registry = Registry::standard(BuildInfo::current());
+    let mut registry = Registry::standard(BuildInfo::current());
+    // Direct computer use (L5): registered here, connected to the desktop on the first call.
+    psyche_helper::direct::register(&mut registry);
     let mut daemon = Daemon::new(
         identity,
         registry,

@@ -19,6 +19,7 @@ import { galleryRest } from "./gallery-rest/ko.ts";
 import { helperCheck } from "./helper-check/ko.ts";
 import { homeRest } from "./home-rest/ko.ts";
 import { links } from "./links/ko.ts";
+import { linuxAccess } from "./linux-access/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ko.ts";
 import { memoryRest } from "./memory-rest/ko.ts";
@@ -3273,6 +3274,8 @@ export const ko: Partial<Catalogue> = {
   ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
 };
