@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -14,7 +14,10 @@ import type { Runner } from "./supervisor-base.ts";
  *
  *     /usr/bin/open -g -j [--env PSYCHE_HOME=<home>] <Resources>/PsycheHelper.app
  *
- *   `open` is idempotent and the helper keeps one instance per `$PSYCHE_HOME`.
+ *   `open` is idempotent and the helper keeps one instance per `$PSYCHE_HOME`. It has no
+ *   KeepAlive and nothing else relaunches it: only this class does. When the app quits, `stopForQuit`
+ *   ends it (SIGTERM to the verified pid) and latches this class so it stays down until the app is
+ *   opened again.
  * - **Windows**: `<resources>\win-helper\psyche-helper.exe` spawned detached in its own process
  *   (no console, outside the app's job object), so it keeps running after Psyche quits like a
  *   LaunchServices-launched app; `PSYCHE_HOME` goes in its environment. It holds a single-instance
@@ -148,8 +151,46 @@ export interface HelperLauncherOptions {
   sleep?: (ms: number) => Promise<void>;
   /** The pid in the helper's lock file (`<home>/run/helper.lock`); tests pass their own. */
   readPid?: () => number | undefined;
-  kill?: (pid: number, signal: "SIGTERM") => void;
+  kill?: (pid: number, signal: "SIGTERM" | "SIGKILL") => void;
+  /** `stopForQuit`: runs a program to completion, since a quit cannot wait on a promise. */
+  runSync?: (file: string, args: string[]) => { code: number; stdout: string };
+  /** `stopForQuit`: whether a pid is still a live process (default `kill(pid, 0)`). */
+  isAlive?: (pid: number) => boolean;
+  /** `stopForQuit`: blocks for `ms` (default `Atomics.wait`). */
+  sleepSync?: (ms: number) => void;
 }
+
+/** What `HelperLauncher.stopForQuit` found. */
+export type HelperStopResult =
+  /** Not a macOS bundled helper, or nothing to stop on this Gateway. */
+  | "not-applicable"
+  /** No live process of the bundled helper held the lock. */
+  | "not-running"
+  /** SIGTERM was sent and the process exited. */
+  | "stopped"
+  /** It was still there after the grace period, so it was killed. */
+  | "killed"
+  /** It was still there after SIGKILL too. */
+  | "still-running";
+
+const defaultRunSync: NonNullable<HelperLauncherOptions["runSync"]> = (file, args) => {
+  const res = spawnSync(file, args, { encoding: "utf8", timeout: 2_000 });
+  return { code: res.status ?? 1, stdout: res.stdout ?? "" };
+};
+
+const defaultIsAlive = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    // EPERM: it exists but is not ours.
+    return (err as NodeJS.ErrnoException).code === "EPERM";
+  }
+};
+
+const defaultSleepSync = (ms: number): void => {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+};
 
 function lockPid(psycheHome: string): number | undefined {
   try {
@@ -176,6 +217,8 @@ export class HelperLauncher {
   /** Windows: whether the signature check passed (true until it says otherwise). */
   private signature: Promise<boolean> | undefined;
   private signatureBad = false;
+  /** Set by `stopForQuit`: from then on nothing starts the helper (the app is going away). */
+  private stopped = false;
 
   constructor(opts: HelperLauncherOptions) {
     this.opts = opts;
@@ -235,7 +278,7 @@ export class HelperLauncher {
    * pair. Elsewhere the same as `launch`.
    */
   async restart(): Promise<void> {
-    if (this.state.kind === "unbundled") return;
+    if (this.state.kind === "unbundled" || this.stopped) return;
     if (!this.windows) return this.restartMac();
     await this.launching?.catch(() => undefined);
     const appPath = this.opts.appPath as string;
@@ -256,7 +299,7 @@ export class HelperLauncher {
 
   /** Launches the helper unless it is already paired; resolves once it paired or timed out. */
   launch(): Promise<void> {
-    if (this.state.kind === "unbundled") return Promise.resolve();
+    if (this.state.kind === "unbundled" || this.stopped) return Promise.resolve();
     if (this.opts.blocked?.()) {
       this.set({ kind: "offline", reason: "this copy of Psyche was modified" });
       return Promise.resolve();
@@ -294,6 +337,69 @@ export class HelperLauncher {
     await this.launch();
   }
 
+  /**
+   * The app is quitting (⌘Q, the menu bar or Dock, "Quit Psyche entirely", an update or restart
+   * relaunch): ends the helper this app started, so no PsycheHelper outlives it. Closing the
+   * window while the app lives on in the menu bar never comes here. A relaunched app starts the
+   * helper again the way any start does (`launch`, once the Gateway answers).
+   *
+   * Synchronous, because Electron's `before-quit` cannot wait. The pid comes from the helper's lock
+   * file, which keeps its last pid after the helper exits, so it is signalled only when `ps` names
+   * that pid's executable as exactly the bundled helper's: a reused pid is some other program and is
+   * left alone. SIGTERM first (the helper releases its locks and leaves its node session), SIGKILL
+   * only after `graceMs` (default 1.5 s) if the same verified process is still there. Latches the
+   * launcher first, so a `node.updated` that the helper's exit causes cannot start it again.
+   * macOS only: the Windows helper is meant to outlive the app (see the top of this file).
+   */
+  stopForQuit(graceMs = 1_500): HelperStopResult {
+    this.stopped = true;
+    const appPath = this.opts.appPath;
+    if (
+      this.state.kind === "unbundled" ||
+      appPath === undefined ||
+      (this.opts.platform ?? process.platform) !== "darwin"
+    ) {
+      return "not-applicable";
+    }
+    const pid = this.opts.readPid ? this.opts.readPid() : lockPid(this.opts.psycheHome);
+    if (pid === undefined) return "not-running";
+    const exe = helperExecutable(appPath);
+    const runSync = this.opts.runSync ?? defaultRunSync;
+    const isAlive = this.opts.isAlive ?? defaultIsAlive;
+    const kill = this.opts.kill ?? process.kill;
+    // The executable path is checked again before each signal: the pid must still be the helper's.
+    const isOurHelper = (): boolean => {
+      try {
+        const ps = runSync("/bin/ps", ["-p", String(pid), "-o", "comm="]);
+        return ps.code === 0 && ps.stdout.trim() === exe;
+      } catch {
+        return false;
+      }
+    };
+    if (!isOurHelper()) return "not-running";
+    try {
+      kill(pid, "SIGTERM");
+    } catch {
+      return "not-running";
+    }
+    const sleep = this.opts.sleepSync ?? defaultSleepSync;
+    const waitGone = (ms: number): boolean => {
+      for (let waited = 0; isAlive(pid); waited += 50) {
+        if (waited >= ms) return false;
+        sleep(50);
+      }
+      return true;
+    };
+    if (waitGone(graceMs)) return "stopped";
+    if (!isOurHelper()) return "stopped";
+    try {
+      kill(pid, "SIGKILL");
+    } catch {
+      return "stopped";
+    }
+    return waitGone(500) ? "killed" : "still-running";
+  }
+
   /** `fresh`: a restart, where the old helper's pairing must not count. */
   private async doLaunch(fresh = false): Promise<void> {
     const appPath = this.opts.appPath as string;
@@ -307,12 +413,14 @@ export class HelperLauncher {
     if (!(await this.signatureOk()) || this.signatureBad) {
       return this.set({ kind: "offline", reason: "the helper's signature is not valid" });
     }
+    if (this.stopped) return;
     this.lastLaunch = (this.opts.now ?? Date.now)();
     this.set({ kind: "starting" });
     const error = await this.start(appPath);
     if (error !== undefined) return this.set({ kind: "offline", reason: error });
     const deadline = (this.opts.now ?? Date.now)() + (this.opts.pairTimeoutMs ?? 30_000);
     for (;;) {
+      if (this.stopped) return;
       if (await this.opts.isPaired().catch(() => false)) return this.set({ kind: "paired" });
       if ((this.opts.now ?? Date.now)() >= deadline) break;
       await sleep(1_000);
@@ -325,7 +433,7 @@ export class HelperLauncher {
    * gone (it quit, crashed or was replaced by an update), at most once per `relaunchEveryMs`.
    */
   async onPresence(paired: boolean): Promise<void> {
-    if (this.state.kind === "unbundled" || this.opts.blocked?.()) return;
+    if (this.state.kind === "unbundled" || this.stopped || this.opts.blocked?.()) return;
     if (paired) return this.set({ kind: "paired" });
     if (this.launching) return;
     const now = (this.opts.now ?? Date.now)();
