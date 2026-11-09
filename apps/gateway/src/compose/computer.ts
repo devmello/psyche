@@ -89,6 +89,66 @@ export function isRiskyLabel(text: string | undefined): boolean {
   return RISKY_WORDS.some((w) => tokens.includes(` ${w} `));
 }
 
+/**
+ * Labels that move money: a click on one is a payment, the one class that needs the owner's
+ * presence (security §3.7). Whole words or phrases, case-insensitive. The helper's own list
+ * (`RiskLabels`) only decides that a press asks; this decides what the card is classed.
+ */
+const MONEY_PHRASES = [
+  "pay",
+  "pay now",
+  "make payment",
+  "send payment",
+  "send money",
+  "buy",
+  "buy now",
+  "purchase",
+  "confirm purchase",
+  "complete purchase",
+  "complete order",
+  "confirm order",
+  "place order",
+  "place your order",
+  "place my order",
+  "submit order",
+  "order now",
+  "checkout",
+  "check out",
+  "proceed to checkout",
+  "proceed to payment",
+  "transfer",
+  "transfer money",
+  "wire",
+  "withdraw",
+  "donate",
+  "subscribe",
+  "start trial",
+  "start free trial",
+  "add payment",
+  "book now",
+  "reserve now",
+  "reserve",
+  "book",
+  "order",
+];
+
+/**
+ * A label that moves money. Bare "book" and "order" count only as the whole label (a "Book"
+ * or "Order" button), not inside "Order history" or "Book a demo", which stay ordinary.
+ */
+export function isMoneyLabel(text: string | undefined): boolean {
+  if (text === undefined) return false;
+  const tokens = text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+  if (tokens === "") return false;
+  const whole = new Set(["book", "order", "reserve"]);
+  if (whole.has(tokens)) return true;
+  const padded = ` ${tokens} `;
+  return MONEY_PHRASES.some((w) => !whole.has(w) && padded.includes(` ${w} `));
+}
+
 /** Quit, close, delete: chords the helper refuses without an approval. */
 export function isRiskyChord(keys: string): boolean {
   const parts = keys
@@ -604,7 +664,12 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       action: fallback.action,
     };
     const hash = bindingHash("computer_action", fields);
-    const sideEffect = risky ? ("destructive" as const) : ("write" as const);
+    // A press whose label moves money is a payment: financial, so it needs presence.
+    const sideEffect = isMoneyLabel(label)
+      ? ("financial" as const)
+      : risky
+        ? ("destructive" as const)
+        : ("write" as const);
     const target = { kind: "app" as const, value: app };
     // The app the helper names may differ from the one the loop decided about: the broker's
     // rules (deny, hooks, paused tasks) get their say before any card is shown.
@@ -1007,7 +1072,10 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     return MENU_ROLES.has(role.replace(/^ax/, "")) ? "interact" : tier;
   }
 
-  /** What the owner sees and the broker classifies: risky labels and chords are destructive. */
+  /**
+   * What the owner sees and the broker classifies: risky labels and chords are destructive, and
+   * a label that moves money (Pay, Buy, Place order, Checkout, Transfer…) is financial.
+   */
   function describeAct(p: ActParams): ToolCallDescription {
     // Risk comes from what the snapshot showed, not only from what the agent copied: an element
     // the Gateway has not seen in this app, or a bare screen point, could be anything.
@@ -1038,8 +1106,18 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           : p.action === "menu"
             ? `Choose ${p.path ?? ""}`
             : `${p.action.replace("_", " ")}${label === undefined ? "" : ` “${label}”`}`;
+    const money =
+      isMoneyLabel(p.expect?.label) ||
+      isMoneyLabel(p.to?.expect?.label) ||
+      (p.ref !== undefined && isMoneyLabel(elements.get(p.ref)?.label)) ||
+      (p.action === "menu" && (p.path ?? "").split(">").some((seg) => isMoneyLabel(seg))) ||
+      (p.action === "press" && isMoneyLabel(p.press?.replace(/^custom:/, "")));
     return {
-      ...(risky ? { sideEffect: "destructive" as const } : {}),
+      ...(money
+        ? { sideEffect: "financial" as const }
+        : risky
+          ? { sideEffect: "destructive" as const }
+          : {}),
       kind: "computer_action",
       target: appTarget(p.app),
       // Data model §4.2 computer_action: app, tier, action, element ref, typed text.

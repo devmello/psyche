@@ -891,7 +891,7 @@ export const fr: Partial<Catalogue> = {
   "shell.usage.openHint": "Cliquez pour ouvrir Réglages → Utilisation.",
 
   "settings.shared.needsPresence":
-    "Modifier « {label} » nécessite votre approbation avec Touch ID ou une clé d’accès. Approuvez-la dans Réglages ou dans la notification de Psyche, puis modifiez-le de nouveau.",
+    "Modifier « {label} » nécessite votre approbation. Approuvez-la dans Réglages ou dans la notification de Psyche, puis modifiez-le de nouveau.",
   "settings.shared.saveFailed":
     "Psyche n’a pas pu enregistrer « {label} » ({reason}). Rien n’a changé.",
   "settings.shared.loading": "Chargement : {label}",

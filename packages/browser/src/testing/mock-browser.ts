@@ -2,6 +2,7 @@ import { PsycheError, type Unsubscribe } from "@psyche/protocol";
 import type { CdpTarget } from "../cdp/page.ts";
 import { encodePng } from "../cdp/png.ts";
 import type { AXNode, CaptureSnapshotResult, DocumentSnapshot } from "../cdp/types.ts";
+import { isPaymentField } from "../snapshot/dom.ts";
 import {
   FIXTURE_SITE,
   type FxAction,
@@ -805,6 +806,18 @@ export class MockTab implements CdpTarget {
               while (p !== undefined && p !== form) p = p.parent;
               return p === form && x.tag === "INPUT" && x.attrs.type === "password";
             });
+      const hasPayment =
+        form === undefined
+          ? undefined
+          : [...this.#doc.els.values()].some((x) => {
+              let p = x.parent;
+              while (p !== undefined && p !== form) p = p.parent;
+              return (
+                p === form &&
+                (x.tag === "INPUT" || x.tag === "SELECT") &&
+                isPaymentField(x.attrs.autocomplete, x.attrs.name, x.attrs.id)
+              );
+            });
       const value: Record<string, unknown> = {
         focused: this.#focused === el,
         tag: el.tag,
@@ -814,6 +827,7 @@ export class MockTab implements CdpTarget {
       if (el.attrs.autocomplete !== undefined) value.autocomplete = el.attrs.autocomplete;
       if (form?.attrs.action !== undefined) value.formAction = form.attrs.action;
       if (hasPassword !== undefined) value.formHasPassword = hasPassword;
+      if (hasPayment === true) value.formHasPaymentFields = true;
       return { result: { type: "object", value } };
     }
     if (fn.includes("psyche:download")) {

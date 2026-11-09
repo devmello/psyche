@@ -143,13 +143,13 @@ export function TouchIdRow({
       </Row>
     );
   } else if (identity.keyId === undefined) {
-    // The helper is still starting, or could not make a key.
+    // Not paired yet (a Mac's key is listed once it pairs; no reason is given), or it could not make a key.
     body = (
       <Row title={t("onboarding.safety.touchId")} action={again}>
         <p className={hint}>
-          {helper?.kind === "starting"
+          {helper?.kind === "starting" || identity.error === undefined
             ? t("onboarding.safety.touchId.starting")
-            : t("onboarding.safety.touchId.noKey", { reason: identity.error ?? "unknown" })}
+            : t("onboarding.safety.touchId.noKey", { reason: identity.error })}
         </p>
       </Row>
     );

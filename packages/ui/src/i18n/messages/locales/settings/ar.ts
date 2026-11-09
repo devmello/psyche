@@ -581,7 +581,7 @@ export const settings: Partial<Catalogue> = {
   "settings.devices.touchId.remove": "إزالة المفتاح",
   "settings.devices.touchId.manualLabel": "معرّف المفتاح",
   "settings.devices.touchId.manualHint":
-    "شغّل psyche-helper --print-identity على جهاز Mac والصق presenceKeyId الذي يطبعه.",
+    "شغّل psyche-helper --print-identity على الكمبيوتر والصق presenceKeyId الذي يطبعه.",
   "settings.files.execHost": "تشغيل الأوامر على هذا الـ Mac",
   "settings.files.execHostHint":
     "يتيح لـ {persona} تشغيل الأوامر في مجلداتك المشتركة، داخل البيئة المعزولة. الأوامر التي قد تغيّر الملفات تسألك أولًا.",

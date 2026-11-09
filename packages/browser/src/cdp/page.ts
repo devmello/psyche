@@ -88,6 +88,13 @@ export const FIELD_HELPER = `/* psyche:field */ function () {
     maxLength: input && this.maxLength > 0 ? this.maxLength : undefined,
     formAction: form ? form.action : undefined,
     formHasPassword: form ? form.querySelector('input[type="password"]') !== null : undefined,
+    formHasPaymentFields: form
+      ? Array.from(form.querySelectorAll("input,select")).some((f) => {
+          if (/(^|\\s)cc-/i.test(f.getAttribute("autocomplete") || "")) return true;
+          const words = ((f.getAttribute("name") || "") + " " + (f.id || "")).toLowerCase().split(/[^a-z0-9]+/);
+          return words.some((w) => ["card", "cardnumber", "cardnum", "cc", "ccnum", "ccnumber", "ccexp", "cvv", "cvv2", "cvc", "csc", "expiry", "expirydate"].includes(w));
+        })
+      : undefined,
   };
 }`;
 
@@ -102,6 +109,7 @@ export interface LiveField {
   maxLength?: number;
   formAction?: string;
   formHasPassword?: boolean;
+  formHasPaymentFields?: boolean;
 }
 
 /** The vault's view of an element (`FillElement`) from cached or live facts. */
@@ -133,6 +141,7 @@ function withLive(meta: ElementMeta, live: LiveField): ElementMeta {
   set("maxLength", live.maxLength);
   set("formAction", live.formAction);
   set("formHasPassword", live.formHasPassword);
+  set("formHasPaymentFields", live.formHasPaymentFields === true ? true : undefined);
   out.contentEditable = live.contentEditable === true;
   const ac = (live.autocomplete ?? "").toLowerCase();
   out.secure = meta.secure || live.type === "password" || /one-time-code|cc-/.test(ac);

@@ -11,7 +11,6 @@ export const passwordPresence: Partial<Catalogue> = {
     "한 번 허용됨(이 창에서의 비밀번호 승인은 한 번만 유효합니다)",
   "blocks.approval.password.noUnsandboxed":
     "샌드박스 없이 명령을 실행하는 것은 이 창에서 비밀번호로 승인할 수 없습니다. 대신 샌드박스를 설정하세요",
-  "blocks.approval.password.cancelled": "비밀번호 대화상자가 취소되어 아무것도 승인되지 않았습니다",
   "blocks.approval.password.failed":
     "비밀번호가 받아들여지지 않아 아무것도 승인되지 않았습니다. 다시 시도하세요.",
   "blocks.approval.password.unavailableHere":

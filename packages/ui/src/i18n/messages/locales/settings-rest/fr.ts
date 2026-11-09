@@ -641,7 +641,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.remove": "Supprimer la clé",
   "settings.devices.touchId.manualLabel": "ID de la clé",
   "settings.devices.touchId.manualHint":
-    "Exécutez psyche-helper --print-identity sur le Mac et collez la presenceKeyId affichée.",
+    "Exécutez psyche-helper --print-identity sur l’ordinateur et collez la presenceKeyId affichée.",
   "settings.files.execHost": "Exécuter des commandes sur ce Mac",
   "settings.files.execHostHint":
     "Permet à {persona} d’exécuter des commandes dans vos dossiers partagés, dans le bac à sable. Les commandes susceptibles de modifier des fichiers demandent d’abord votre accord.",

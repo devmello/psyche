@@ -45,8 +45,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "لا يستطيع هذا الإصدار من مساعد Linux حفظ مفتاح موافقة، لذا لا يمكن الموافقة على البطاقات التي تحتاج إلى كلمة المرور على هذا الكمبيوتر.",
       "shell.shortcut.pushToTalkKeys": "اضغط مطوّلًا على Ctrl الأيمن",
-      "settings.shared.needsPresence":
-        "يحتاج تغيير «{label}» إلى موافقتك عبر كلمة المرور أو مفتاح مرور. وافق عليه في الإعدادات أو في إشعار Psyche، ثم غيّره مرة أخرى.",
       "settings.page.permissions.description":
         "ما يجوز لـ {persona} فعله على هذا الكمبيوتر دون سؤال، وأين يتوقف دائمًا ليسألك.",
       "settings.page.data.description":
@@ -143,8 +141,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "لا مفتاح لكلمة المرور بعد. لا يمكن الموافقة على البطاقات التي تحتاج إلى كلمة المرور حتى يُسجَّل مفتاح.",
       "settings.devices.touchId.noBundledKey":
         "لا يملك مساعد Linux في هذا التطبيق مفتاح موافقة ({reason}).",
-      "settings.devices.touchId.manualHint":
-        "شغّل psyche-helper --print-identity على الكمبيوتر والصق presenceKeyId الذي يطبعه.",
       "settings.devices.noNodes":
         "لا عُقد. يظهر مساعد Linux هنا بمجرد تشغيل Psyche على هذا الكمبيوتر.",
       "settings.files.execHost": "تشغيل الأوامر على هذا الكمبيوتر",
@@ -438,8 +434,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Dieser Build des Linux-Helfers kann keinen Genehmigungsschlüssel speichern, daher lassen sich Karten, die dein Passwort brauchen, auf diesem Computer nicht genehmigen.",
       "shell.shortcut.pushToTalkKeys": "Ctrl rechts halten",
-      "settings.shared.needsPresence":
-        "Das Ändern von „{label}“ braucht deine Genehmigung mit deinem Passwort oder einem Passkey. Genehmige es in den Einstellungen oder in der Psyche-Mitteilung und ändere es dann erneut.",
       "settings.page.permissions.description":
         "Was {persona} auf diesem Computer ohne Nachfragen tun darf und wo es immer bei dir nachfragt.",
       "settings.page.data.description":
@@ -540,8 +534,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Noch kein Passwort-Schlüssel. Karten, die dein Passwort brauchen, lassen sich erst genehmigen, wenn einer registriert ist.",
       "settings.devices.touchId.noBundledKey":
         "Der Linux-Helfer in dieser App hat keinen Genehmigungsschlüssel ({reason}).",
-      "settings.devices.touchId.manualHint":
-        "Führe psyche-helper --print-identity auf dem Computer aus und füge die ausgegebene presenceKeyId ein.",
       "settings.devices.noNodes":
         "Keine Knoten. Der Linux-Helfer erscheint hier, sobald Psyche auf diesem Computer läuft.",
       "settings.files.execHost": "Befehle auf diesem Computer ausführen",
@@ -851,8 +843,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Esta versión del asistente de Linux no puede guardar una clave de aprobación, así que las tarjetas que necesitan tu contraseña no se pueden aprobar en este ordenador.",
       "shell.shortcut.pushToTalkKeys": "Mantén pulsada Ctrl derecha",
-      "settings.shared.needsPresence":
-        "Cambiar «{label}» necesita tu aprobación con tu contraseña o una llave de acceso. Apruébalo en Ajustes o en la notificación de Psyche y vuelve a cambiarlo.",
       "settings.page.permissions.description":
         "Lo que {persona} puede hacer en este ordenador sin preguntar, y dónde se detiene siempre a preguntarte.",
       "settings.page.data.description":
@@ -954,8 +944,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Aún no hay ninguna clave de contraseña. Las tarjetas que necesitan tu contraseña no se pueden aprobar hasta que se registre una.",
       "settings.devices.touchId.noBundledKey":
         "El asistente de Linux de esta app no tiene clave de aprobación ({reason}).",
-      "settings.devices.touchId.manualHint":
-        "Ejecuta psyche-helper --print-identity en el ordenador y pega el presenceKeyId que imprime.",
       "settings.devices.noNodes":
         "No hay nodos. El asistente de Linux aparece aquí en cuanto Psyche se ejecuta en este ordenador.",
       "settings.files.execHost": "Ejecutar comandos en este ordenador",
@@ -1268,8 +1256,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Cette version de l’assistant Linux ne peut pas conserver de clé d’approbation, les cartes qui exigent votre mot de passe ne peuvent donc pas être approuvées sur cet ordinateur.",
       "shell.shortcut.pushToTalkKeys": "Maintenir Ctrl droite",
-      "settings.shared.needsPresence":
-        "Modifier « {label} » nécessite votre approbation avec votre mot de passe ou une clé d’accès. Approuvez-la dans Réglages ou dans la notification de Psyche, puis modifiez-le de nouveau.",
       "settings.page.permissions.description":
         "Ce que {persona} peut faire sur cet ordinateur sans demander, et les cas où il vous demande toujours.",
       "settings.page.data.description":
@@ -1371,8 +1357,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Pas encore de clé de mot de passe. Les cartes qui exigent votre mot de passe ne peuvent pas être approuvées tant qu’aucune n’est enregistrée.",
       "settings.devices.touchId.noBundledKey":
         "L’assistant Linux de cette app n’a pas de clé d’approbation ({reason}).",
-      "settings.devices.touchId.manualHint":
-        "Exécutez psyche-helper --print-identity sur l’ordinateur et collez la presenceKeyId affichée.",
       "settings.devices.noNodes":
         "Aucun nœud. L’assistant Linux apparaît ici dès que Psyche s’exécute sur cet ordinateur.",
       "settings.files.execHost": "Exécuter des commandes sur cet ordinateur",
@@ -1681,8 +1665,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Linux हेल्पर का यह बिल्ड स्वीकृति कुंजी नहीं रख सकता, इसलिए जिन कार्डों को आपका पासवर्ड चाहिए उन्हें इस कंप्यूटर पर स्वीकृत नहीं किया जा सकता।",
       "shell.shortcut.pushToTalkKeys": "दायाँ Ctrl दबाए रखें",
-      "settings.shared.needsPresence":
-        "“{label}” बदलने के लिए आपके पासवर्ड या पासकी से आपकी स्वीकृति चाहिए। इसे सेटिंग्ज़ में या Psyche सूचना में स्वीकृत करें, फिर इसे दोबारा बदलें।",
       "settings.page.permissions.description":
         "इस कंप्यूटर पर {persona} बिना पूछे क्या कर सकता है, और कहाँ वह हमेशा रुककर आपसे पूछता है।",
       "settings.page.data.description":
@@ -1777,8 +1759,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "अभी कोई पासवर्ड कुंजी नहीं। जब तक कोई रजिस्टर नहीं होती, आपका पासवर्ड चाहने वाले कार्ड स्वीकृत नहीं हो सकते।",
       "settings.devices.touchId.noBundledKey":
         "इस ऐप के Linux हेल्पर के पास स्वीकृति कुंजी नहीं है ({reason})।",
-      "settings.devices.touchId.manualHint":
-        "कंप्यूटर पर psyche-helper --print-identity चलाएँ और जो presenceKeyId छपे उसे पेस्ट करें।",
       "settings.devices.noNodes":
         "कोई नोड नहीं। इस कंप्यूटर पर Psyche के चलने पर Linux हेल्पर यहाँ दिखाई देता है।",
       "settings.files.execHost": "इस कंप्यूटर पर कमांड चलाएँ",
@@ -2070,8 +2050,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Questa build dell’helper per Linux non può conservare una chiave di approvazione, quindi le schede che richiedono la tua password non possono essere approvate su questo computer.",
       "shell.shortcut.pushToTalkKeys": "Tieni premuto Ctrl destro",
-      "settings.shared.needsPresence":
-        "La modifica di “{label}” richiede la tua approvazione con la tua password o una passkey. Approvala nelle Impostazioni o nella notifica di Psyche, poi modificala di nuovo.",
       "settings.page.permissions.description":
         "Cosa {persona} può fare su questo computer senza chiedere, e dove si ferma sempre a chiederti.",
       "settings.page.data.description":
@@ -2171,8 +2149,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Ancora nessuna chiave password. Le schede che richiedono la tua password non possono essere approvate finché non ne registri una.",
       "settings.devices.touchId.noBundledKey":
         "L’helper per Linux in questa app non ha una chiave di approvazione ({reason}).",
-      "settings.devices.touchId.manualHint":
-        "Esegui psyche-helper --print-identity sul computer e incolla il presenceKeyId che stampa.",
       "settings.devices.noNodes":
         "Nessun nodo. L’helper per Linux compare qui quando Psyche è in esecuzione su questo computer.",
       "settings.files.execHost": "Esegui comandi su questo computer",
@@ -2483,8 +2459,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "このビルドのLinuxヘルパーは承認キーを保持できないため、このコンピュータではパスワードが必要なカードを承認できません。",
       "shell.shortcut.pushToTalkKeys": "右Ctrlを長押し",
-      "settings.shared.needsPresence":
-        "「{label}」の変更にはパスワードまたはパスキーによる承認が必要です。設定またはPsycheの通知で承認してから、もう一度変更してください。",
       "settings.page.permissions.description":
         "{persona}がこのコンピュータで確認なしにできること、必ず確認を求める場面を設定します。",
       "settings.page.data.description":
@@ -2585,8 +2559,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "パスワードのキーはまだありません。登録するまで、パスワードが必要なカードは承認できません。",
       "settings.devices.touchId.noBundledKey":
         "このアプリのLinuxヘルパーには承認キーがありません（{reason}）。",
-      "settings.devices.touchId.manualHint":
-        "コンピュータでpsyche-helper --print-identityを実行し、表示されるpresenceKeyIdを貼り付けてください。",
       "settings.devices.noNodes":
         "ノードはありません。このコンピュータでPsycheが動作すると、Linuxヘルパーがここに表示されます。",
       "settings.files.execHost": "このコンピュータでコマンドを実行",
@@ -2893,8 +2865,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "이 빌드의 Linux 도우미는 승인 키를 보관할 수 없어 이 컴퓨터에서는 암호가 필요한 카드를 승인할 수 없습니다.",
       "shell.shortcut.pushToTalkKeys": "오른쪽 Ctrl 길게 누르기",
-      "settings.shared.needsPresence":
-        "“{label}”을(를) 변경하려면 사용자 암호 또는 패스키로 승인해야 합니다. 설정이나 Psyche 알림에서 승인한 다음 다시 변경하십시오.",
       "settings.page.permissions.description":
         "{persona}가 이 컴퓨터에서 묻지 않고 할 수 있는 일과 항상 먼저 확인하는 경우를 설정합니다.",
       "settings.page.data.description":
@@ -2992,8 +2962,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "암호 키가 아직 없습니다. 등록하기 전에는 사용자 암호가 필요한 카드를 승인할 수 없습니다.",
       "settings.devices.touchId.noBundledKey":
         "이 앱의 Linux 도우미에 승인 키가 없습니다 ({reason}).",
-      "settings.devices.touchId.manualHint":
-        "컴퓨터에서 psyche-helper --print-identity를 실행하고 출력되는 presenceKeyId를 붙여넣으십시오.",
       "settings.devices.noNodes":
         "노드가 없습니다. Psyche가 이 컴퓨터에서 실행되면 Linux 도우미가 여기에 나타납니다.",
       "settings.files.execHost": "이 컴퓨터에서 명령 실행",
@@ -3288,8 +3256,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Esta versão do assistente do Linux não consegue guardar uma chave de aprovação, então os cartões que exigem a sua senha não podem ser aprovados neste computador.",
       "shell.shortcut.pushToTalkKeys": "Segure Ctrl direito",
-      "settings.shared.needsPresence":
-        "Alterar “{label}” precisa da sua aprovação com a sua senha ou uma chave-senha. Aprove nas Configurações ou na notificação do Psyche e depois altere novamente.",
       "settings.page.permissions.description":
         "O que {persona} pode fazer neste computador sem perguntar, e onde sempre para para perguntar a você.",
       "settings.page.data.description":
@@ -3388,8 +3354,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Ainda não há chave de senha. Cartões que exigem a sua senha não podem ser aprovados até uma ser registrada.",
       "settings.devices.touchId.noBundledKey":
         "O assistente do Linux deste app não tem chave de aprovação ({reason}).",
-      "settings.devices.touchId.manualHint":
-        "Execute psyche-helper --print-identity no computador e cole o presenceKeyId que ele imprime.",
       "settings.devices.noNodes":
         "Nenhum nó. O assistente do Linux aparece aqui quando o Psyche é executado neste computador.",
       "settings.files.execHost": "Executar comandos neste computador",
@@ -3690,8 +3654,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "此版本的 Linux 助手无法保存批准密钥，因此需要密码的卡片无法在这台电脑上批准。",
       "shell.shortcut.pushToTalkKeys": "按住右 Ctrl",
-      "settings.shared.needsPresence":
-        "更改“{label}”需要你通过密码或通行密钥批准。请在“设置”或 Psyche 通知中批准，然后再次更改。",
       "settings.page.permissions.description":
         "{persona}在这台电脑上无需询问就可执行的操作，以及它一定会停下来问你的地方。",
       "settings.page.data.description":
@@ -3779,8 +3741,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.data.encryptMemory.pending": "正在等待 Linux 助手提供密钥。",
       "settings.devices.touchId.none": "还没有密码密钥。注册密钥之前，需要你的密码的卡片无法批准。",
       "settings.devices.touchId.noBundledKey": "此 App 中的 Linux 助手没有批准密钥（{reason}）。",
-      "settings.devices.touchId.manualHint":
-        "在电脑上运行 psyche-helper --print-identity，并粘贴它输出的 presenceKeyId。",
       "settings.devices.noNodes": "没有节点。Psyche 在这台电脑上运行后，Linux 助手会出现在这里。",
       "settings.files.execHost": "在这台电脑上运行命令",
       "settings.files.execHostSwitch": "允许在这台电脑上运行命令",

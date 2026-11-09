@@ -210,7 +210,12 @@ function readServers(value: unknown, warn: (msg: string) => void): PsycheMcpServ
       continue;
     }
     seen.add(c.id);
-    out.push({ ...c, trust: trustOf(c as PsycheMcpServerConfig) } as PsycheMcpServerConfig);
+    const entry = { ...c, trust: trustOf(c as PsycheMcpServerConfig) } as PsycheMcpServerConfig;
+    // Only a real `true` counts: the owner's "this server handles money" switch.
+    if (entry.handlesMoney !== undefined && entry.handlesMoney !== true) {
+      Reflect.deleteProperty(entry, "handlesMoney");
+    }
+    out.push(entry);
   }
   return out;
 }

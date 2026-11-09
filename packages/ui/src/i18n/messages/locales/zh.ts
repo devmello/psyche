@@ -942,7 +942,7 @@ export const zh: Partial<Catalogue> = {
   "shell.usage.openHint": "点按打开“设置 → 用量”。",
 
   "settings.shared.needsPresence":
-    "更改“{label}”需要你通过 Touch ID 或通行密钥批准。请在“设置”或 Psyche 通知中批准，然后再次更改。",
+    "更改“{label}”需要你的批准。请在“设置”或 Psyche 通知中批准，然后再次更改。",
   "settings.shared.saveFailed": "Psyche 无法存储“{label}”（{reason}）。未做任何更改。",
   "settings.shared.loading": "正在载入{label}",
   "settings.shared.nothingChanged": "未做任何更改。",

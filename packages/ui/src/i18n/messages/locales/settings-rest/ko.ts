@@ -623,7 +623,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.remove": "키 삭제",
   "settings.devices.touchId.manualLabel": "키 ID",
   "settings.devices.touchId.manualHint":
-    "Mac에서 psyche-helper --print-identity를 실행하고 출력되는 presenceKeyId를 붙여넣으십시오.",
+    "컴퓨터에서 psyche-helper --print-identity를 실행하고 출력되는 presenceKeyId를 붙여넣으십시오.",
   "settings.files.execHost": "이 Mac에서 명령 실행",
   "settings.files.execHostHint":
     "{persona}가 공유 폴더에서 샌드박스로 명령을 실행할 수 있게 합니다. 파일을 변경할 수 있는 명령은 먼저 확인합니다.",

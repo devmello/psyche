@@ -2,6 +2,7 @@ import { type KeyObject, sign } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { listDevices } from "@psyche/db";
 import type { ApprovalKind, ApprovalRequest } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -36,7 +37,14 @@ afterEach(async () => {
 const sig = (key: KeyObject, challenge: string) =>
   sign(null, helperPresenceMessage(challenge), key).toString("base64url");
 
-async function setup() {
+/**
+ * `enroll`: the owner has deliberately enrolled a presence verifier (as a passkey would), so the
+ * gate is "ready". A paired Mac helper alone never does that (see bootstrap-admin test).
+ */
+async function setup(opts: { enroll?: boolean } = {}) {
+  const enrolled = new Set<string>();
+  let macKey: string | undefined;
+  let macDevice = "";
   home = mkdtempSync(join(tmpdir(), "psyche-payments-only-"));
   composed = await composeGateway({
     env: {},
@@ -45,11 +53,24 @@ async function setup() {
     background: false,
     config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
-    parts: [(s) => composeHelper(s)],
+    parts: [
+      (s) =>
+        composeHelper(
+          s,
+          opts.enroll === true
+            ? {
+                presenceKeys: (id) =>
+                  id === macDevice ? macKey : enrolled.has(id) ? "registered-key" : undefined,
+              }
+            : {},
+        ),
+    ],
   });
   const admin = await adminClient(composed.gateway);
   clients.push(admin);
+  for (const d of listDevices(composed.gateway.context.db)) enrolled.add(d.id);
   const key = newDeviceKey();
+  macKey = key.publicKey;
   const shown: Record<string, unknown>[] = [];
   const confirms: { challenge: string }[] = [];
   let respond: ((data: unknown) => void) | undefined;
@@ -82,6 +103,7 @@ async function setup() {
     },
   ];
   const helperDevice = `helper-${Math.random().toString(36).slice(2)}`;
+  macDevice = helperDevice;
   const node = await FakeNode.connect(composed.gateway.config.nodeSocketPath, {
     origin: composed.gateway.origin,
     secret: composed.gateway.handshakeSecret,
@@ -140,7 +162,7 @@ const answer = (admin: TestClient, a: { approval: ApprovalRequest; token: string
 
 describe("a tap approves everything that is not a payment", () => {
   it("credential fills, host commands and security settings: approvals.answer with no presence, no sheet", async () => {
-    const { admin, confirms, shown } = await setup();
+    const { admin, confirms, shown } = await setup({ enroll: true });
     for (const [kind, se] of [
       ["credential_fill", "write"],
       ["exec_host", "destructive"],
@@ -150,8 +172,8 @@ describe("a tap approves everything that is not a payment", () => {
       expect(a.approval.requiresAuthentication, kind).toBe(false);
       expect(await answer(admin, a), kind).toMatchObject({ ok: true });
     }
-    // A security setting: a paired Mac helper makes presence "ready", so the change needs a card,
-    // and the card is a tap.
+    // A security setting, once a verifier was enrolled: the change needs a card, and the card is a
+    // tap.
     const first = await admin.request(
       "settings.set",
       { key: "permissions.policy", value: { allow: [] } },
@@ -191,6 +213,11 @@ describe("a tap approves everything that is not a payment", () => {
     const notice = shown.find((s) => s.id === a.approval.id) as Record<string, unknown>;
     expect(notice.requireBiometry).toBeFalsy();
     expect(notice).not.toHaveProperty("presenceChallenge");
+    // A former presence kind still needs an unlocked Mac (nothing approved from a lock screen).
+    const approve = (notice.actions as { id: string; authenticationRequired: boolean }[]).find(
+      (x) => x.id === "approve",
+    );
+    expect(approve?.authenticationRequired).toBe(true);
     respond({ type: "notify.response", notificationId: a.approval.id, actionId: "approve" });
     await vi.waitFor(async () =>
       expect(
@@ -242,6 +269,11 @@ describe("a payment still needs presence", () => {
     await vi.waitFor(() => expect(shown.map((s) => s.id)).toContain(pay.approval.id));
     const notice = shown.find((s) => s.id === pay.approval.id) as Record<string, unknown>;
     expect(notice.requireBiometry).toBe(true);
+    // The payment's one prompt is the helper's owner sheet, not macOS's unlock requirement.
+    const approveAction = (
+      notice.actions as { id: string; authenticationRequired: boolean }[]
+    ).find((x) => x.id === "approve");
+    expect(approveAction?.authenticationRequired).toBe(false);
     const challenge = notice.presenceChallenge as string;
     expect(challenge).toMatch(/^[0-9a-f]{64}$/);
     const status = async () =>
@@ -267,7 +299,7 @@ describe("a payment still needs presence", () => {
 
 describe("enrolling a presence verifier still needs presence", () => {
   it("a device's first passkey raises a card that requires presence, and a bare tap is refused", async () => {
-    const { c } = await setup();
+    const { c } = await setup({ enroll: true });
     const phone = await desktopClient(c.gateway, newDeviceKey(), "phone-enroll");
     clients.push(phone);
     const first = await phone.request(

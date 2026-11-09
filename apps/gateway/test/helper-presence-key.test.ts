@@ -301,30 +301,20 @@ describe("a Mac helper's device key is its presence key", () => {
     const { c, admin, key, helperDevice } = await setup();
     const keys = new HelperPresenceKeys(c.gateway.context.db);
     expect(keys.get(helperDevice)).toBe(key.publicKey);
-    // Presence is enrolled as soon as a gated security change asks (a plain tap card now).
-    const tap = await admin.request(
-      "settings.set",
-      { key: "permissions.policy", value: { allow: [] } },
-      ik(),
-    );
-    expect(tap).toMatchObject({ ok: false, error: { code: "approval_required" } });
-    const tapId = (tap as { error: { details: { approvalId: string } } }).error.details.approvalId;
-    expect(
-      (await admin.call<{ approval: ApprovalRequest }>("approvals.get", { approvalId: tapId }))
-        .approval.requiresAuthentication,
-    ).toBe(false);
-
-    revokeDevice(c.gateway.context.db, helperDevice);
-    expect(keys.get(helperDevice)).toBeUndefined();
-    expect(await admin.call("devices.presenceKey.list", {})).toEqual({ presenceKeys: [] });
-    // With the only verifier gone, a plain security change is still one tap, not `presence_required`.
+    // Pairing the helper is not deliberate enrollment: the gate stays "off", so a security change
+    // needs only the admin device, and first-admin bootstrap is not shut off (bootstrap-admin).
     expect(
       await admin.request(
         "settings.set",
         { key: "permissions.policy", value: { allow: [] } },
         ik(),
       ),
-    ).toMatchObject({ ok: false, error: { code: "approval_required" } });
+    ).toMatchObject({ ok: true });
+    expect(c.gateway.context.presenceState()).toBe("off");
+
+    revokeDevice(c.gateway.context.db, helperDevice);
+    expect(keys.get(helperDevice)).toBeUndefined();
+    expect(await admin.call("devices.presenceKey.list", {})).toEqual({ presenceKeys: [] });
   });
 
   it("an unknown or disconnected device cannot register", async () => {

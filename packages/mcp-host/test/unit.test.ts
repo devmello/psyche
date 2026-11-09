@@ -11,6 +11,7 @@ import {
   diffTools,
   directLauncher,
   inspectTool,
+  looksFinancial,
   MemoryTokenStore,
   mcpCredentialTarget,
   mcpToolName,
@@ -82,6 +83,84 @@ describe("annotation policy", () => {
     expect(sideEffectFor(d, "unknown")).toBe("destructive");
     expect(sideEffectFor(d, "bundled")).toBe("destructive");
     expect(sideEffectFor(tool(), "bundled")).toBe("write");
+  });
+});
+
+describe("financial tools", () => {
+  it.each([
+    "pay_invoice",
+    "create_payment_intent",
+    "createPaymentIntent",
+    "charge-card",
+    "stripe.refund",
+    "transfer_funds",
+    "place_order",
+    "order_pizza",
+    "checkout",
+    "buy_ticket",
+    "subscribe",
+    "create_payout",
+    "withdraw",
+  ])("%s moves money", (name) => {
+    expect(looksFinancial({ name })).toBe(true);
+    expect(sideEffectFor(tool({ name }), "unknown")).toBe("financial");
+    expect(sideEffectFor(tool({ name }), "verified")).toBe("financial");
+    // A destructive hint cannot lower it.
+    expect(sideEffectFor(tool({ name, annotations: { destructiveHint: true } }), "unknown")).toBe(
+      "financial",
+    );
+  });
+
+  it.each([
+    "reorder_list",
+    "border_radius",
+    "list_orders",
+    "get_invoice",
+    "search_payments",
+    "describe_charge",
+    "echo",
+    "create_issue",
+    "payload_size",
+  ])("%s does not", (name) => {
+    expect(looksFinancial({ name })).toBe(false);
+    expect(sideEffectFor(tool({ name }), "unknown")).toBe("write");
+  });
+
+  it("reads the description for a money verb next to a money word", () => {
+    expect(
+      looksFinancial({ name: "run", description: "Charges the customer's credit card." }),
+    ).toBe(true);
+    expect(looksFinancial({ name: "run", description: "Transfers funds between accounts" })).toBe(
+      true,
+    );
+    expect(looksFinancial({ name: "run", description: "Sends 20 USD to the recipient" })).toBe(
+      true,
+    );
+    expect(looksFinancial({ name: "run", description: "Sends a message to a channel." })).toBe(
+      false,
+    );
+    expect(
+      looksFinancial({ name: "get_balance", description: "Charges nothing; reads funds." }),
+    ).toBe(false);
+  });
+
+  it("a bundled server's readOnlyHint still wins over the guess", () => {
+    const ro = tool({ name: "get_orders_summary", annotations: { readOnlyHint: true } });
+    expect(sideEffectFor(ro, "bundled")).toBe("read");
+    const money = tool({ name: "pay_bill", annotations: { readOnlyHint: true } });
+    expect(sideEffectFor(money, "bundled")).toBe("read");
+    // An unknown server's hint is only a hint: a payment is still a payment.
+    expect(sideEffectFor(money, "unknown")).toBe("financial");
+  });
+
+  it("the owner's handlesMoney switch makes every tool of the server financial", () => {
+    for (const trust of ["bundled", "verified", "unknown"] as const) {
+      expect(sideEffectFor(tool(), trust, { handlesMoney: true })).toBe("financial");
+      expect(
+        sideEffectFor(tool({ annotations: { readOnlyHint: true } }), trust, { handlesMoney: true }),
+      ).toBe("financial");
+      expect(sideEffectFor(tool(), trust, { handlesMoney: false })).toBe("write");
+    }
   });
 });
 

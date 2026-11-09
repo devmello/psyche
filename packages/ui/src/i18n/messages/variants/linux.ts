@@ -47,8 +47,6 @@ export const linux: Partial<Record<MessageId, string>> = {
   "blocks.approval.touchId.keyUnavailable":
     "This build of the Linux helper can't keep an approval key, so cards that need your password can't be approved on this computer.",
   "shell.shortcut.pushToTalkKeys": "Hold Right Ctrl",
-  "settings.shared.needsPresence":
-    "Changing “{label}” needs your approval with your password or a passkey. Approve it in Settings or in the Psyche notification, then change it again.",
   "settings.page.permissions.description":
     "What {persona} may do on this computer without asking, and where it always stops to ask you.",
   "settings.page.data.description":
@@ -147,8 +145,6 @@ export const linux: Partial<Record<MessageId, string>> = {
     "No password key yet. Cards that need your password can't be approved until one is registered.",
   "settings.devices.touchId.noBundledKey":
     "The Linux helper in this app has no approval key ({reason}).",
-  "settings.devices.touchId.manualHint":
-    "Run psyche-helper --print-identity on the computer and paste the presenceKeyId it prints.",
   "settings.devices.noNodes":
     "No nodes. The Linux helper appears here once Psyche runs on this computer.",
   "settings.files.execHost": "Run commands on this computer",

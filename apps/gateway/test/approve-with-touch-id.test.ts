@@ -438,8 +438,8 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
         { approvalId: approval.id, answerToken: token },
         ik(),
       );
-    // Far more cancels than the answer cap allows: never rate limited, never audited as rejected.
-    for (let i = 0; i < 25; i++) {
+    // Cancels are never audited as rejected answers and never use the answer cap.
+    for (let i = 0; i < 3; i++) {
       expect(await ask()).toMatchObject({
         ok: false,
         error: { code: "cancelled", details: { reason: "presence_cancelled" } },
@@ -456,6 +456,37 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
     // The owner tries again and this time passes the sheet: it still approves.
     cancel = false;
     expect(await ask()).toMatchObject({ ok: true, payload: { approval: { status: "approved" } } });
+  }, 30_000);
+
+  it("a few sheets per minute per approval, cancelled or not, then a quiet rate limit (prompt fatigue)", async () => {
+    let sheets = 0;
+    const { c, admin } = await setup({
+      confirm: () => {
+        sheets++;
+        throw Object.assign(new Error("The user cancelled authentication"), {
+          code: "cancelled",
+          details: { reason: "user_cancelled" },
+        });
+      },
+    });
+    const { approval, token } = await securityCard(admin);
+    const ask = () =>
+      admin.request(
+        "approvals.approveWithTouchId",
+        { approvalId: approval.id, answerToken: token },
+        ik(),
+      );
+    for (let i = 0; i < 4; i++) {
+      expect(await ask()).toMatchObject({ ok: false, error: { code: "cancelled" } });
+    }
+    const limited = await ask();
+    expect(limited).toMatchObject({
+      ok: false,
+      error: { code: "rate_limited", details: { retryAfterSec: expect.any(Number) } },
+    });
+    // The fifth never reached the helper, and nothing was audited as a rejected answer.
+    expect(sheets).toBe(4);
+    expect(await c.audit.query({ kind: "approval.answer_rejected" })).toHaveLength(0);
   }, 30_000);
 
   it("a helper already showing a sheet is busy, not a failure", async () => {

@@ -388,6 +388,23 @@ export const FIXTURE_SITE: FxSite = {
         },
       ],
     },
+    // A payment step whose form action and button say nothing about paying: only the card fields do.
+    "a/pay-step": {
+      title: "Payment details",
+      body: [
+        { kind: "heading", level: 1, text: "Payment details" },
+        {
+          kind: "form",
+          action: "/submit/step3",
+          method: "post",
+          children: [
+            { kind: "input", label: "Card number", name: "cardnumber", autocomplete: "cc-number" },
+            { kind: "input", label: "Security code", name: "cvv", autocomplete: "cc-csc" },
+            { kind: "button", text: "Continue", type: "submit" },
+          ],
+        },
+      ],
+    },
     "a/cart": {
       title: "Cart",
       body: [
@@ -518,6 +535,7 @@ export const REGRESSION_PAGES = [
   "a/untrusted",
   "a/upload",
   "a/checkout",
+  "a/pay-step",
   "a/cookies",
   "a/captcha",
   "a/spa",

@@ -295,6 +295,7 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
       }
       meta.formMethod = (form.attrs.method ?? "get").toLowerCase();
       meta.formHasPassword = dom.formHasPassword(form);
+      if (dom.formHasPaymentFields(form)) meta.formHasPaymentFields = true;
     }
     return meta;
   };

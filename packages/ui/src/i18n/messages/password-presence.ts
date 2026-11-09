@@ -8,8 +8,6 @@ export const passwordPresence = {
     "Allowed once (password approvals from this window are once only)",
   "blocks.approval.password.noUnsandboxed":
     "Running a command without the sandbox can't be approved with a password from this window. Set up the sandbox instead",
-  "blocks.approval.password.cancelled":
-    "The password dialog was cancelled, so nothing was approved",
   "blocks.approval.password.failed":
     "The password wasn't accepted, so nothing was approved. Try again.",
   "blocks.approval.password.unavailableHere":

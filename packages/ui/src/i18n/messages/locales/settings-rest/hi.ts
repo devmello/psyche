@@ -611,7 +611,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.remove": "कुंजी हटाएँ",
   "settings.devices.touchId.manualLabel": "कुंजी आईडी",
   "settings.devices.touchId.manualHint":
-    "Mac पर psyche-helper --print-identity चलाएँ और जो presenceKeyId छपे उसे पेस्ट करें।",
+    "कंप्यूटर पर psyche-helper --print-identity चलाएँ और जो presenceKeyId छपे उसे पेस्ट करें।",
   "settings.files.execHost": "इस Mac पर कमांड चलाएँ",
   "settings.files.execHostHint":
     "{persona} को आपके साझा फ़ोल्डर में, सैंडबॉक्स में कमांड चलाने देता है। जो कमांड फ़ाइलें बदल सकते हैं वे पहले आपसे पूछते हैं।",

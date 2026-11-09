@@ -2,7 +2,7 @@
 export const settings = {
   // Shared frames, states and the settings writer (shared.tsx).
   "settings.shared.needsPresence":
-    "Changing “{label}” needs your approval with Touch ID or a passkey. Approve it in Settings or in the Psyche notification, then change it again.",
+    "Changing “{label}” needs your approval. Approve it in Settings or in the Psyche notification, then change it again.",
   "settings.shared.saveFailed": "Psyche couldn't save “{label}” ({reason}). Nothing changed.",
   "settings.shared.loading": "Loading {label}",
   "settings.shared.nothingChanged": "Nothing was changed.",
@@ -1490,7 +1490,7 @@ export const settings = {
   "settings.devices.touchId.remove": "Remove key",
   "settings.devices.touchId.manualLabel": "Key id",
   "settings.devices.touchId.manualHint":
-    "Run psyche-helper --print-identity on the Mac and paste the presenceKeyId it prints.",
+    "Run psyche-helper --print-identity on the computer and paste the presenceKeyId it prints.",
   "settings.devices.revoked": "Revoked ({n, number})",
   "settings.devices.revokedItem": "{name}, revoked {when}",
   "settings.devices.nodes": "Nodes",

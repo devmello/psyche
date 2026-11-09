@@ -897,7 +897,7 @@ export const ja: Partial<Catalogue> = {
   "shell.usage.openHint": "クリックすると設定 → 使用状況を開きます。",
 
   "settings.shared.needsPresence":
-    "「{label}」の変更にはTouch IDまたはパスキーによる承認が必要です。設定またはPsycheの通知で承認してから、もう一度変更してください。",
+    "「{label}」の変更には承認が必要です。設定またはPsycheの通知で承認してから、もう一度変更してください。",
   "settings.shared.saveFailed":
     "Psycheは「{label}」を保存できませんでした（{reason}）。何も変更されていません。",
   "settings.shared.loading": "{label}を読み込み中",

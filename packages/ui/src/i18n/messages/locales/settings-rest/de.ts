@@ -644,7 +644,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.remove": "Schlüssel entfernen",
   "settings.devices.touchId.manualLabel": "Schlüssel-ID",
   "settings.devices.touchId.manualHint":
-    "Führe psyche-helper --print-identity auf dem Mac aus und füge die ausgegebene presenceKeyId ein.",
+    "Führe psyche-helper --print-identity auf dem Computer aus und füge die ausgegebene presenceKeyId ein.",
   "settings.files.execHost": "Befehle auf diesem Mac ausführen",
   "settings.files.execHostHint":
     "Lässt {persona} Befehle in deinen geteilten Ordnern in der Sandbox ausführen. Befehle, die Dateien ändern könnten, fragen vorher nach.",

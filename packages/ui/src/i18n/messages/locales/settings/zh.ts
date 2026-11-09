@@ -549,7 +549,7 @@ export const settings: Partial<Catalogue> = {
   "settings.devices.touchId.remove": "移除密钥",
   "settings.devices.touchId.manualLabel": "密钥 ID",
   "settings.devices.touchId.manualHint":
-    "在 Mac 上运行 psyche-helper --print-identity，并粘贴它输出的 presenceKeyId。",
+    "在这台电脑上运行 psyche-helper --print-identity，并粘贴它输出的 presenceKeyId。",
   "settings.files.execHost": "在这台 Mac 上运行命令",
   "settings.files.execHostHint":
     "让{persona}在你共享的文件夹中、在沙盒内运行命令。可能更改文件的命令会先询问你。",

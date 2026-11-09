@@ -630,7 +630,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.remove": "キーを削除",
   "settings.devices.touchId.manualLabel": "キーID",
   "settings.devices.touchId.manualHint":
-    "Macでpsyche-helper --print-identityを実行し、表示されるpresenceKeyIdを貼り付けてください。",
+    "コンピューターでpsyche-helper --print-identityを実行し、表示されるpresenceKeyIdを貼り付けてください。",
   "settings.files.execHost": "このMacでコマンドを実行",
   "settings.files.execHostHint":
     "{persona}が共有フォルダ内でサンドボックスを使ってコマンドを実行できるようにします。ファイルを変更する可能性のあるコマンドは先に確認します。",

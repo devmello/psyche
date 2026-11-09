@@ -117,7 +117,7 @@ export const settingsC: Partial<Catalogue> = {
   "settings.devices.touchId.remove": "Quitar clave",
   "settings.devices.touchId.manualLabel": "ID de la clave",
   "settings.devices.touchId.manualHint":
-    "Ejecuta psyche-helper --print-identity en el Mac y pega el presenceKeyId que imprime.",
+    "Ejecuta psyche-helper --print-identity en el ordenador y pega el presenceKeyId que imprime.",
   "settings.files.execHost": "Ejecutar comandos en este Mac",
   "settings.files.execHostHint":
     "Deja que {persona} ejecute comandos en tus carpetas compartidas, en el entorno aislado. Los comandos que podrían cambiar archivos preguntan antes.",

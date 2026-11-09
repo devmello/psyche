@@ -960,7 +960,7 @@ export const ar: Partial<Catalogue> = {
   "shell.usage.openHint": "انقر للانتقال إلى الإعدادات ← الاستخدام.",
 
   "settings.shared.needsPresence":
-    "يحتاج تغيير «{label}» إلى موافقتك عبر Touch ID أو مفتاح مرور. وافق عليه في الإعدادات أو في إشعار Psyche، ثم غيّره مرة أخرى.",
+    "يحتاج تغيير «{label}» إلى موافقتك. وافق عليه في الإعدادات أو في إشعار Psyche، ثم غيّره مرة أخرى.",
   "settings.shared.saveFailed": "تعذّر على Psyche حفظ «{label}» ({reason}). لم يتغيّر شيء.",
   "settings.shared.loading": "جارٍ تحميل {label}",
   "settings.shared.nothingChanged": "لم يتغيّر شيء.",

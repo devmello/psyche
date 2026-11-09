@@ -128,6 +128,42 @@ describe("MCP host in the Gateway (K5)", () => {
     expect(revoke).toHaveBeenCalledWith("echo", "removed");
   }, 30_000);
 
+  it("an owner's handlesMoney switch makes every tool of the server financial; junk values do not", async () => {
+    const { owner, mcp, services } = await setup(new FakeModelProvider());
+    await owner.call(
+      "settings.set",
+      {
+        key: MCP_SERVERS_SETTING,
+        value: [{ ...echoServer("bundled"), handlesMoney: true }],
+      },
+      ik(),
+    );
+    await mcp.idle();
+    const tool = services.tools.get("mcp__echo__echo");
+    expect(tool?.spec.sideEffect).toBe("financial");
+    // The broker gives that class the presence step.
+    const issued = await services.rawBroker.requestApproval({
+      kind: "connector_action",
+      summary: "Echo",
+      details: {},
+      bindingHash: "b".repeat(64),
+      grantKey: "g",
+      requestedBy: { runId: null, taskId: null, threadId: null },
+      sideEffect: tool?.spec.sideEffect ?? "write",
+      surfaces: ["desktop"],
+      scopesOffered: ["once"],
+      taint: false,
+    });
+    expect(issued.approval.requiresAuthentication).toBe(true);
+    await owner.call(
+      "settings.set",
+      { key: MCP_SERVERS_SETTING, value: [{ ...echoServer("bundled"), handlesMoney: "yes" }] },
+      ik(),
+    );
+    await mcp.idle();
+    expect(services.tools.get("mcp__echo__echo")?.spec.sideEffect).not.toBe("financial");
+  }, 30_000);
+
   it("a tools/list change revokes the server's grants bound to the old hash (design-28)", async () => {
     const { owner, mcp, services } = await setup(new FakeModelProvider());
     const revoke = vi.spyOn(services.rawBroker, "revokeMcpGrants");

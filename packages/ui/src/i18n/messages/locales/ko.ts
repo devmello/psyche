@@ -903,7 +903,7 @@ export const ko: Partial<Catalogue> = {
 
   // settings
   "settings.shared.needsPresence":
-    "“{label}”을(를) 변경하려면 Touch ID 또는 패스키로 승인해야 합니다. 설정이나 Psyche 알림에서 승인한 다음 다시 변경하십시오.",
+    "“{label}”을(를) 변경하려면 승인해야 합니다. 설정이나 Psyche 알림에서 승인한 다음 다시 변경하십시오.",
   "settings.shared.saveFailed":
     "Psyche가 “{label}”을(를) 저장할 수 없습니다({reason}). 변경된 것은 없습니다.",
   "settings.shared.loading": "{label} 로드 중",

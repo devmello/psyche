@@ -10,8 +10,11 @@ import type { ElementMeta } from "../types.ts";
  */
 
 const PURCHASE =
-  /\b(place (your |my )?order|buy( it)? now|complete (purchase|order|payment)|pay( now)?|confirm (and|&) pay|proceed to (checkout|payment)|check ?out|subscribe|start (my |your )?(free )?trial|purchase|add payment)\b/i;
-const PURCHASE_PATH = /\/(checkout|payment|pay|purchase|order|billing|cart\/submit)(\/|$|\?)/i;
+  /\b(place (your |my |the )?order|buy( it| this| now)?|complete (the )?(purchase|order|payment)|confirm (the |my |your )?(purchase|order|payment)|submit (the |my |your )?(order|payment)|pay( now)?|confirm (and|&) pay|proceed to (checkout|payment)|check ?out|subscribe|start (my |your )?(free )?trial|purchase|add payment|order now|book now|reserve now|make (a )?payment|send payment)\b/i;
+/** A label that is only "Book", "Order" or "Reserve": a bare action word is a purchase button. */
+const PURCHASE_WHOLE = /^(book|order|reserve|buy|pay|checkout|purchase)\.?$/i;
+const PURCHASE_PATH =
+  /\/(checkout|payment|payments|pay|purchase|order|orders|billing|cart\/submit|place-order|buy)(\/|$|\?|\.)/i;
 const CONSENT =
   /\b(accept all|accept (cookies|terms)|agree( and continue)?|i agree|allow all|authori[sz]e|grant access)\b/i;
 const DESTRUCTIVE =
@@ -65,7 +68,11 @@ export function classifyActivation(meta: ElementMeta | undefined): ActionClass {
   const name = meta.name;
   const formPath = meta.formAction === undefined ? "" : safePath(meta.formAction);
   if (MONEY.test(name)) return { sideEffect: "financial", kind: "purchase", reason: "moves money" };
-  if (PURCHASE.test(name) || (meta.submits && PURCHASE_PATH.test(formPath))) {
+  if (
+    PURCHASE.test(name) ||
+    PURCHASE_WHOLE.test(name.trim()) ||
+    (meta.submits && (PURCHASE_PATH.test(formPath) || meta.formHasPaymentFields === true))
+  ) {
     return { sideEffect: "financial", kind: "purchase", reason: "purchase path" };
   }
   if (CONSENT.test(name)) return { sideEffect: "destructive", reason: "consent or terms" };
@@ -85,7 +92,7 @@ export function classifyActivation(meta: ElementMeta | undefined): ActionClass {
 /** Submitting the element's form: Enter in a field, `type {submit: true}`, a submit button. */
 export function classifyFormSubmit(meta: ElementMeta): ActionClass {
   const formPath = meta.formAction === undefined ? "" : safePath(meta.formAction);
-  if (PURCHASE_PATH.test(formPath)) {
+  if (PURCHASE_PATH.test(formPath) || meta.formHasPaymentFields === true) {
     return { sideEffect: "financial", kind: "purchase", reason: "purchase path" };
   }
   return {

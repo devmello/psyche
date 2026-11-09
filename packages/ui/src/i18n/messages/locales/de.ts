@@ -926,7 +926,7 @@ export const de: Partial<Catalogue> = {
 
   // settings
   "settings.shared.needsPresence":
-    "Das Ändern von „{label}“ braucht deine Genehmigung mit Touch ID oder einem Passkey. Genehmige es in den Einstellungen oder in der Psyche-Mitteilung und ändere es dann erneut.",
+    "Das Ändern von „{label}“ braucht deine Genehmigung. Genehmige es in den Einstellungen oder in der Psyche-Mitteilung und ändere es dann erneut.",
   "settings.shared.saveFailed":
     "Psyche konnte „{label}“ nicht sichern ({reason}). Nichts wurde geändert.",
   "settings.shared.loading": "{label} wird geladen",

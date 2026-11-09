@@ -1,5 +1,6 @@
 import { listDevices } from "@psyche/db";
 import {
+  AUTH_KINDS,
   approvalCode,
   cardHeader,
   type PresenceAssertion,
@@ -173,6 +174,10 @@ function helperMessage(v: unknown, fallback: string): string {
   return line === "" ? fallback : line.slice(0, 200);
 }
 
+/** At most this many owner sheets per approval per minute (cancelled sheets count). */
+const MAX_SHEETS_PER_WINDOW = 4;
+const SHEET_WINDOW_MS = 60_000;
+
 /** How long the owner has to touch the sensor. */
 const CONFIRM_TIMEOUT_MS = 120_000;
 
@@ -221,6 +226,8 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     );
   /** A window is confirming with Touch ID now: one sheet at a time, whatever the card. */
   let confirming = false;
+  /** When each pending approval's owner sheet was raised from the window (prompt-fatigue cap). */
+  const sheetsByApproval = new Map<string, number[]>();
 
   /**
    * What the owner reads for the Host: the helper's kind when one is connected (`win-helper` →
@@ -385,9 +392,12 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
                 id: "approve",
                 label: "Approve",
                 destructive: false,
-                // The owner sheet comes from the helper, once; the system's own "unlock first"
-                // requirement would be a second prompt.
-                authenticationRequired: false,
+                // A payment's owner sheet comes from the helper, once; macOS's own "unlock first"
+                // requirement would be a second prompt. The kinds that used to need presence
+                // (host commands, credential fills, pairing, policy changes, scripts) are a tap
+                // now but still need an unlocked Mac: nothing is approved from a lock screen. This
+                // adds no Psyche prompt.
+                authenticationRequired: !a.requiresAuthentication && AUTH_KINDS.includes(a.kind),
                 textInput: false,
               },
               deny,
@@ -419,6 +429,7 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
 
   const keyStore = new HelperPresenceKeys(services.db);
   const presenceKeys = setup.presenceKeys ?? ((deviceId: string) => keyStore.get(deviceId));
+  const enrolledKeys = setup.presenceKeys ?? ((deviceId: string) => keyStore.registered(deviceId));
   const verifier = helperPresenceVerifier(
     presenceKeys,
     (deviceId) => gateway?.context.nodes.hostHelperOfDevice(deviceId) !== undefined,
@@ -529,9 +540,24 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     if (confirming) {
       throw new PsycheError("conflict", `${w.presence} is already asking about an approval`);
     }
+    // Against prompt fatigue: a few sheets per minute per pending payment, cancelled or not.
+    const nowMs = services.clock.now();
+    const recent = (sheetsByApproval.get(a.id) ?? []).filter((t) => nowMs - t < SHEET_WINDOW_MS);
+    if (recent.length >= MAX_SHEETS_PER_WINDOW) {
+      const retryAfterSec = Math.max(
+        1,
+        Math.ceil((SHEET_WINDOW_MS - (nowMs - (recent[0] ?? nowMs))) / 1000),
+      );
+      throw new PsycheError(
+        "rate_limited",
+        `${w.presence} was asked too many times for this approval. Try again in ${retryAfterSec} s`,
+        { details: { retryAfterSec } },
+      );
+    }
     // Taken before the first await, so two calls racing through the checks raise one sheet.
     confirming = true;
     try {
+      // Counted as soon as a sheet may be raised (after the checks below, before the helper is asked).
       const h = touchIdHelper(params.helperDeviceId);
       const hw = words(h.kind);
       const c = client(h.nodeId);
@@ -544,6 +570,11 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
         answerToken: params.answerToken,
         decidedBy: by,
       });
+      sheetsByApproval.set(a.id, [...recent, nowMs]);
+      if (sheetsByApproval.size > 200) {
+        for (const [id, ts] of sheetsByApproval)
+          if (ts.every((t) => nowMs - t >= SHEET_WINDOW_MS)) sheetsByApproval.delete(id);
+      }
       const res = await c.invoke(
         "presence.confirm",
         {
@@ -587,9 +618,7 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
           return reject(
             "presence_key_unavailable",
             "unavailable",
-            hw.os === "windows"
-              ? "This Psyche Helper cannot keep a Windows Hello key on this PC"
-              : `This Psyche Helper cannot ask for ${hw.presence} on this ${hw.device}`,
+            "This Psyche Helper cannot keep a Windows Hello key on this PC",
             { reason: "presence_key_unavailable" },
           );
         }
@@ -663,9 +692,13 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       verifier,
       // Ready only while some paired, non-revoked device has a registered key: without one no
       // assertion can pass, and gating security settings on it would lock the owner out.
+      // An auto-paired Mac helper's own device key is not deliberate enrollment: it counts for
+      // verifying a payment, but only a key the owner registered (a Windows Hello key) makes the
+      // gate "ready", so first-admin bootstrap and the sticky enrollment are not tripped by
+      // pairing the helper.
       ready: () =>
         listDevices(services.db).some(
-          (d) => d.pairedAt !== null && !d.revokedAt && presenceKeys(d.id) !== undefined,
+          (d) => d.pairedAt !== null && !d.revokedAt && enrolledKeys(d.id) !== undefined,
         ),
     },
     start(gw) {

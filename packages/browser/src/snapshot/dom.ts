@@ -178,6 +178,28 @@ export class DomIndex {
     return found;
   }
 
+  #payForms = new Map<number, boolean>();
+
+  /**
+   * The form holds a card field (autocomplete `cc-*`, or a name / id such as `card`, `cardnumber`,
+   * `cvv`, `cvc`, `expiry`): submitting it pays, whatever the button says.
+   */
+  formHasPaymentFields(form: DomNodeInfo): boolean {
+    const cached = this.#payForms.get(form.backendNodeId);
+    if (cached !== undefined) return cached;
+    let found = false;
+    for (const n of this.#byBackend.values()) {
+      if (n.docIndex !== form.docIndex || (n.tag !== "INPUT" && n.tag !== "SELECT")) continue;
+      if (this.formOf(n)?.backendNodeId !== form.backendNodeId) continue;
+      if (isPaymentField(n.attrs.autocomplete, n.attrs.name, n.attrs.id)) {
+        found = true;
+        break;
+      }
+    }
+    this.#payForms.set(form.backendNodeId, found);
+    return found;
+  }
+
   isSecure(info: DomNodeInfo): boolean {
     const type = (info.attrs.type ?? "").toLowerCase();
     if (info.tag === "INPUT" && type === "password") return true;
@@ -206,4 +228,40 @@ function rareStrings(
     if (v !== undefined && v >= 0) m.set(ni, strings[v] ?? "");
   });
   return m;
+}
+
+const PAYMENT_FIELD_WORDS = new Set([
+  "card",
+  "cardnumber",
+  "cardnum",
+  "cc",
+  "ccnum",
+  "ccnumber",
+  "ccexp",
+  "cvv",
+  "cvv2",
+  "cvc",
+  "csc",
+  "expiry",
+  "expirydate",
+]);
+
+/** A card field by its `autocomplete` (`cc-number`…) or its `name` / `id` (`card_number`, `cvv`). */
+export function isPaymentField(
+  autocomplete: string | undefined,
+  ...names: (string | undefined)[]
+): boolean {
+  if (
+    (autocomplete ?? "")
+      .toLowerCase()
+      .split(/\s+/)
+      .some((t) => t.startsWith("cc-"))
+  )
+    return true;
+  return names.some((n) =>
+    (n ?? "")
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .some((seg) => PAYMENT_FIELD_WORDS.has(seg)),
+  );
 }

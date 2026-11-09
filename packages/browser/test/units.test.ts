@@ -11,8 +11,14 @@ import { sniff } from "../src/downloads/sniff.ts";
 import { choosePartition, PartitionChooser } from "../src/origin/partition.ts";
 import { FileRecordingSink } from "../src/recording/recorder.ts";
 import { buildSnapshot } from "../src/snapshot/builder.ts";
+import { isPaymentField } from "../src/snapshot/dom.ts";
 import { RefRegistry } from "../src/snapshot/refs.ts";
-import { bindingHash, canonicalJson, classifyActivation } from "../src/tools/classify.ts";
+import {
+  bindingHash,
+  canonicalJson,
+  classifyActivation,
+  classifyFormSubmit,
+} from "../src/tools/classify.ts";
 
 const enc = (s: string) => new TextEncoder().encode(s);
 
@@ -340,6 +346,102 @@ describe("review regressions", () => {
     expect(classifyKeys("Tab", { ...base, name: "Place order" }).sideEffect).toBe("read");
     expect(classifyKeys("Enter", undefined).sideEffect).toBe("write");
   });
+  it("classifies every payment button and checkout form as financial", () => {
+    const btn = {
+      ref: "ref_1",
+      role: "button",
+      tag: "BUTTON",
+      inForm: false,
+      submits: false,
+      secure: false,
+      frameOrigin: "https://shop.example",
+      opensPopup: false,
+    };
+    for (const name of [
+      "Buy",
+      "Buy now",
+      "Buy it now",
+      "Send Payment",
+      "Place order",
+      "Place your order",
+      "Submit order",
+      "Book",
+      "Reserve",
+      "Order",
+      "Order now",
+      "Checkout",
+      "Check out",
+      "Pay",
+      "Pay now",
+      "Confirm purchase",
+      "Complete payment",
+      "Subscribe",
+      "Book now",
+    ]) {
+      expect(classifyActivation({ ...btn, name }).sideEffect, name).toBe("financial");
+      // A link styled as the same call to action is the same action.
+      expect(classifyActivation({ ...btn, role: "link", tag: "A", name }).sideEffect, name).toBe(
+        "financial",
+      );
+    }
+    // Ordinary words around them are not payments.
+    for (const name of [
+      "Order history",
+      "Book a demo",
+      "Reorder list",
+      "Payment history",
+      "Border",
+    ]) {
+      expect(classifyActivation({ ...btn, name }).sideEffect, name).not.toBe("financial");
+    }
+    // A submit inside a payment form pays, whatever the button says: by form action...
+    for (const action of [
+      "https://shop.example/checkout",
+      "https://shop.example/payments/confirm",
+      "https://shop.example/orders/new",
+      "https://shop.example/billing",
+      "https://shop.example/buy",
+    ]) {
+      expect(
+        classifyActivation({
+          ...btn,
+          name: "Continue",
+          submits: true,
+          inForm: true,
+          formAction: action,
+          formMethod: "post",
+        }).sideEffect,
+        action,
+      ).toBe("financial");
+    }
+    // ...or by card fields in the form (autocomplete cc-*, names card / cvv / expiry).
+    const cardForm = {
+      ...btn,
+      name: "Continue",
+      submits: true,
+      inForm: true,
+      formAction: "https://shop.example/step3",
+      formMethod: "post",
+      formHasPaymentFields: true,
+    };
+    expect(classifyActivation(cardForm)).toMatchObject({
+      sideEffect: "financial",
+      kind: "purchase",
+    });
+    expect(classifyFormSubmit({ ...cardForm, role: "textbox", tag: "INPUT" }).sideEffect).toBe(
+      "financial",
+    );
+    // The same form without card fields is an ordinary submit.
+    expect(classifyActivation({ ...cardForm, formHasPaymentFields: false }).sideEffect).toBe(
+      "write",
+    );
+    expect(isPaymentField("cc-number")).toBe(true);
+    expect(isPaymentField(undefined, "card_number")).toBe(true);
+    expect(isPaymentField(undefined, "cvv")).toBe(true);
+    expect(isPaymentField(undefined, "billing-expiry")).toBe(true);
+    expect(isPaymentField("email", "discard", "cardigan")).toBe(false);
+  });
+
   it("refuses clipboard chords", () => {
     expect(() => keyEvents("Meta+v")).toThrow(/clipboard/);
     expect(() => keyEvents("Control+c")).toThrow(/clipboard/);

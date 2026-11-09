@@ -88,7 +88,7 @@ export function stateUntrustedError(): PsycheError {
 export function presenceRequiredError(): PsycheError {
   return new PsycheError(
     "presence_required",
-    `This change needs ${hostWords().presence} or a passkey, and none can verify on this Gateway now. Register the helper's ${hostWords().presence} key or a passkey (or run \`psyched presence reset\` on the machine, which applies after 24 hours), then try again.`,
+    `This change needs ${hostWords().presence} or a passkey, and none can verify on this Gateway now. Connect Psyche Helper on this computer (a Windows PC also needs its Windows Hello key registered) or add a passkey, or run \`psyched presence reset\` on the machine, which applies after 24 hours, then try again.`,
     { details: { reason: "no_presence_verifier" } },
   );
 }

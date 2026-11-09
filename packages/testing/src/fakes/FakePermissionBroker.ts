@@ -442,7 +442,11 @@ export class FakePermissionBroker implements PermissionBroker {
     const se = input.sideEffect;
     const deviceOnly =
       DEVICE_ONLY_KINDS.includes(input.kind) || se === "destructive" || se === "financial";
-    const requiresAuthentication = AUTH_KINDS.includes(input.kind) || se === "financial";
+    // Presence is for payments only (matches the real broker).
+    const requiresAuthentication =
+      se === "financial" ||
+      input.kind === "purchase" ||
+      (input as { requireAuthentication?: boolean }).requireAuthentication === true;
     // A non-owner requester never sees the card for their own request (security §9).
     const requester = input.context?.requester;
     const own = new Set(requesterSurfaces(requester));

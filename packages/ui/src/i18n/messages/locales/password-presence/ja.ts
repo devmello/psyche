@@ -11,8 +11,6 @@ export const passwordPresence: Partial<Catalogue> = {
     "1回だけ許可しました（このウィンドウからのパスワード承認は1回限りです）",
   "blocks.approval.password.noUnsandboxed":
     "サンドボックスなしでコマンドを実行する操作は、このウィンドウからパスワードで承認できません。代わりにサンドボックスを設定してください",
-  "blocks.approval.password.cancelled":
-    "パスワードのダイアログがキャンセルされたため、何も承認されませんでした",
   "blocks.approval.password.failed":
     "パスワードが受け付けられなかったため、何も承認されませんでした。もう一度お試しください。",
   "blocks.approval.password.unavailableHere":

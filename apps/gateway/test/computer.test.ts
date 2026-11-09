@@ -18,6 +18,7 @@ import {
   type ComputerUse,
   createComputerUse,
   elementsIn,
+  isMoneyLabel,
   isRiskyChord,
   isRiskyLabel,
   isSendChord,
@@ -743,6 +744,72 @@ describe("computer-use agent tools (J1–J5)", () => {
     // Labels are bounded on cards.
     const long = act?.({ app: notes, action: "click", ref: "e2", expect: { role: "button" } });
     expect((long?.summary ?? "").length).toBeLessThan(MAX_LABEL_CHARS + 80);
+  });
+
+  it("classes a press on a money label financial, so the broker asks for presence", async () => {
+    await call("computer.snapshot", { app: notes });
+    const act = tools.get("computer.act")?.describeCall;
+    for (const label of [
+      "Pay",
+      "Pay now",
+      "Buy",
+      "Buy now",
+      "Place order",
+      "Checkout",
+      "Transfer",
+      "Send Payment",
+      "Confirm purchase",
+      "Subscribe",
+      "Book",
+      "Order",
+    ]) {
+      expect(
+        act?.({ app: notes, action: "click", ref: "e2", expect: { role: "button", label } })
+          ?.sideEffect,
+        label,
+      ).toBe("financial");
+    }
+    // A menu item and a custom press that move money are payments too.
+    expect(act?.({ app: notes, action: "menu", path: "Store > Buy Now" })?.sideEffect).toBe(
+      "financial",
+    );
+    expect(act?.({ app: notes, action: "press", press: "custom:Pay invoice" })?.sideEffect).toBe(
+      "financial",
+    );
+    // Ordinary risky labels stay destructive; "Order history" and "Book a demo" are not payments.
+    expect(
+      act?.({ app: notes, action: "click", ref: "e2", expect: { role: "button", label: "Delete" } })
+        ?.sideEffect,
+    ).toBe("destructive");
+    for (const label of ["Order history", "Book a demo", "Reorder list", "Payment history"]) {
+      expect(isMoneyLabel(label), label).toBe(false);
+    }
+    // End to end: the real broker gives that card the presence step; a delete is a tap.
+    const real = createPermissionBroker({
+      approvers: { device: async () => undefined, isOwnerSender: async () => false },
+    });
+    const card = async (label: string) => {
+      const d =
+        act?.({ app: notes, action: "click", ref: "e2", expect: { role: "button", label } }) ?? {};
+      const i = await real.requestApproval({
+        kind: "computer_action",
+        summary: label,
+        details: {},
+        bindingHash: `sha256:${"1".repeat(64)}`,
+        grantKey: "k",
+        requestedBy: { runId: "r", taskId: null, threadId: "t" },
+        sideEffect: d.sideEffect ?? "write",
+        surfaces: ["desktop"],
+        taint: false,
+      });
+      return i.approval;
+    };
+    expect(await card("Place order")).toMatchObject({
+      sideEffect: "financial",
+      requiresAuthentication: true,
+      scopesOffered: ["once"],
+    });
+    expect((await card("Delete")).requiresAuthentication).toBe(false);
   });
 
   it("matches the helper's risky labels and chords", () => {

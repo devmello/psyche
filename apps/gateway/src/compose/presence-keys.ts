@@ -114,6 +114,12 @@ export class HelperPresenceKeys {
       : undefined;
   }
 
+  /** The key the owner registered for `deviceId` (a Windows Hello key), while it is paired. */
+  registered(deviceId: string): string | undefined {
+    const k = this.#all()[deviceId];
+    return k !== undefined && this.#live(deviceId) ? k.publicKey : undefined;
+  }
+
   /** Whether `deviceId`'s verifying key is the Mac helper's own device key (nothing registered). */
   isDeviceKey(deviceId: string): boolean {
     return this.#deviceKey(deviceId) !== undefined;
