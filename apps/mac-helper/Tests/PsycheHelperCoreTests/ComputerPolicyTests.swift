@@ -369,6 +369,29 @@ struct TargetReportTests {
         #expect(o["labels"] == .array([]))
     }
 
+    @Test func reportsTheWindowAndPageForContext() {
+        let out = TargetReport.result(role: "AXTextField", labels: ["Name on card"], secure: false, app: "com.apple.Safari",
+                                      window: "  Checkout – Example Shop ", url: "https://shop.example/checkout", subrole: "AXSearchField")
+        guard case .object(let o) = out else { Issue.record("not an object"); return }
+        #expect(o["window"] == .string("Checkout – Example Shop"))
+        #expect(o["url"] == .string("https://shop.example/checkout"))
+        #expect(o["subrole"] == .string("AXSearchField"))
+    }
+
+    @Test func aSecureFieldStillReportsItsWindow() {
+        let out = TargetReport.result(role: "AXTextField", labels: ["PIN"], secure: true, app: "com.example.Bank", window: "Transfer funds")
+        guard case .object(let o) = out else { Issue.record("not an object"); return }
+        #expect(o["window"] == .string("Transfer funds"))
+        #expect(o["labels"] == .array([]))
+    }
+
+    @Test func noWindowMeansNoWindowKey() {
+        let out = TargetReport.result(role: "AXButton", labels: ["OK"], secure: false, app: "com.example.App", window: "   ")
+        guard case .object(let o) = out else { Issue.record("not an object"); return }
+        #expect(o["window"] == nil)
+        #expect(o["url"] == nil)
+    }
+
     @Test func aTargetWithNoLabelReportsNone() {
         let out = TargetReport.result(role: "AXGroup", labels: [], secure: false, app: "com.example.App")
         guard case .object(let o) = out else { Issue.record("not an object"); return }

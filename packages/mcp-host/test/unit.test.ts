@@ -150,6 +150,14 @@ describe("financial tools", () => {
     ["sell_stock", undefined],
     ["submit", "Submits the cart"],
     ["pay_invoice", undefined],
+    // Coinbase AgentKit, Stripe and wallet servers.
+    ["transfer", "Transfer an asset from the wallet to another onchain address"],
+    ["trade", "Trade a specified amount of a from asset to a to asset for the wallet"],
+    ["create_transfer", "Moves money between Stripe accounts"],
+    ["checkout_cart", undefined],
+    ["wire", "Sends a wire"],
+    ["send", "Sends USDC to an address"],
+    ["send_eth", "Sends 0.1 ETH to an address"],
   ])("%s (%s) is financial for every trust tier", (name, description) => {
     for (const trust of ["verified", "unknown"] as const) {
       expect(sideEffectFor(tool({ name, description }), trust)).toBe("financial");
@@ -165,6 +173,7 @@ describe("financial tools", () => {
     ["create_invoice", "Creates a draft invoice"],
     ["post_message", "Sends an adaptive card"],
     ["attach", "Adds a card attachment to the message"],
+    ["create_payment_link", "Creates a payment link to share with a customer"],
   ])("%s (%s) is an ordinary write, not a payment", (name, description) => {
     expect(sideEffectFor(tool({ name, description }), "unknown")).toBe("write");
   });

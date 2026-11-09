@@ -420,7 +420,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.tools.none": "이 서버에는 도구가 없습니다.",
   "settings.mcp.money.title": "결제",
   "settings.mcp.money.description":
-    "돈을 옮기는 도구는 매번 Touch ID나 비밀번호를 요청합니다. 이 서버의 어떤 도구가 그런지 알려 주세요.",
+    "돈을 옮기는 도구는 매번 결제를 확인하도록 요청합니다. 이 서버의 어떤 도구가 그런지 알려 주세요.",
   "settings.mcp.money.auto": "도구 이름으로 판단",
   "settings.mcp.money.autoHint":
     "Psyche가 도구의 이름과 설명을 보고 추측하며, 서버가 표현을 바꿔 피할 수 있습니다.",

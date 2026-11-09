@@ -47,6 +47,8 @@ const VERB_STEMS = [
   "refund",
   "subscribe",
   "create",
+  "move",
+  "checkout",
 ] as const;
 
 /** "pays", "paying", "sells", "selling" → the stem. */
@@ -103,7 +105,20 @@ const MONEY_OBJECTS = new Set([
   "euros",
   "payout",
   "payouts",
+  "wire",
+  "remittance",
+  // Crypto and stablecoin assets.
+  "usdc",
+  "usdt",
+  "dai",
+  "eurc",
+  "sol",
+  "stablecoin",
+  "stablecoins",
 ]);
+/** An asset or a token is money where a wallet or an onchain address is involved. */
+const CHAIN_OBJECTS = new Set(["asset", "assets", "token", "tokens"]);
+const CHAIN_WORDS = new Set(["wallet", "wallets", "onchain", "blockchain", "chain"]);
 /** Only after "pay": paying a bill pays, "send invoice" or "create invoice" does not. */
 const PAY_OBJECTS = new Set(["invoice", "bill", "balance", "fee", "fees", "tax", "taxes", "rent"]);
 const CARD_WORDS = new Set(["credit", "debit"]);
@@ -129,7 +144,8 @@ const AMOUNT_VERBS = new Set([
   "complete",
   "subscribe",
 ]);
-const AMOUNT = /[$€£¥]\s?\d|\b\d[\d,.]*\s?(usd|eur|gbp|dollars?|euros?|btc|eth)\b/i;
+const AMOUNT =
+  /[$€£¥]\s?\d|\b\d[\d,.]*\s?(usd|eur|gbp|dollars?|euros?|btc|eth|usdc|usdt|dai|eurc|sol)\b/i;
 
 /** A label that is nothing but a payment verb. */
 const WHOLE_LABELS = new Set([
@@ -178,10 +194,14 @@ const WHOLE_LABELS = new Set([
   "add funds",
   "execute trade",
   "pay with apple pay",
+  "confirm transfer",
+  "confirm withdrawal",
+  "confirm send",
 ]);
 
-/** "Pay with …" is a payment even with no object. */
-const PAY_WITH = /\bpay (with|using|via|by)\b/;
+/** "Pay with …" and "Buy with Apple Pay" are payments even with no object. */
+const PAY_WITH =
+  /\bpay (with|using|via|by)\b|\b(buy|purchase|check ?out|donate|subscribe|book|order) (with|using) (apple|google|amazon|shop) pay\b/;
 
 /**
  * Whether a control label, tool name or description says a payment happens. Labels and names are
@@ -189,7 +209,8 @@ const PAY_WITH = /\bpay (with|using|via|by)\b/;
  */
 export function isMoneyText(text: string | undefined): boolean {
   if (text === undefined || text.trim() === "") return false;
-  for (const sentence of text.split(/[.;:\n]+/)) {
+  // A dot between digits is a decimal ("Send 0.1 ETH"), not the end of a sentence.
+  for (const sentence of text.split(/[;:\n]+|\.(?!\d)|(?<!\d)\./)) {
     if (sentenceMoves(sentence)) return true;
   }
   return false;
@@ -202,6 +223,7 @@ function sentenceMoves(sentence: string): boolean {
   if (words.length <= 6 && WHOLE_LABELS.has(joined)) return true;
   if (PAY_WITH.test(joined)) return true;
   const hasAmount = AMOUNT.test(sentence);
+  const onchain = words.some((w) => CHAIN_WORDS.has(w));
   for (let i = 0; i < words.length; i++) {
     const verb = verbOf(words[i] ?? "");
     if (verb === undefined) continue;
@@ -209,7 +231,8 @@ function sentenceMoves(sentence: string): boolean {
     // Money object within the next four words, in order.
     for (let j = i + 1; j <= i + 5 && j < words.length; j++) {
       const w = words[j] ?? "";
-      if (MONEY_OBJECTS.has(w) && objectFits(verb, w)) return true;
+      if (MONEY_OBJECTS.has(w) && objectFits(verb, w, words[j + 1])) return true;
+      if (onchain && CHAIN_OBJECTS.has(w) && CHAIN_VERBS.has(verb)) return true;
       if (verb === "pay" && PAY_OBJECTS.has(w)) return true;
       if (CARD_WORDS.has(w) && words[j + 1] === "card") return true;
       // "Charges the card", "charge_card": charging a card is the payment.
@@ -222,10 +245,46 @@ function sentenceMoves(sentence: string): boolean {
   return false;
 }
 
+const CHAIN_VERBS = new Set([
+  "transfer",
+  "send",
+  "swap",
+  "trade",
+  "withdraw",
+  "deposit",
+  "buy",
+  "sell",
+  "bid",
+]);
+/** What "create" makes that is not itself a payment: a link, page or request to be paid later. */
+const NOT_A_PAYMENT_YET = new Set([
+  "link",
+  "links",
+  "page",
+  "pages",
+  "button",
+  "form",
+  "method",
+  "methods",
+  "request",
+  "requests",
+  "template",
+]);
+
 /** "checkout" and "cart" are objects of finishing verbs only; "share" of trading ones. */
-function objectFits(verb: string, object: string): boolean {
-  // "create" only creates a payment or a payout (`create_payment_intent`), never an invoice or order.
-  if (verb === "create") return ["payment", "payments", "payout", "payouts"].includes(object);
+function objectFits(verb: string, object: string, next?: string): boolean {
+  // "create" only creates a payment or a payout (`create_payment_intent`), never an invoice, an
+  // order or a payment link (`create_payment_link`: the link does not pay).
+  if (verb === "create") {
+    return (
+      ["payment", "payments", "payout", "payouts"].includes(object) &&
+      (next === undefined || !NOT_A_PAYMENT_YET.has(next))
+    );
+  }
+  // "Moves money between accounts"; "moves an issue" moves nothing of value.
+  if (verb === "move") return ["money", "funds", "cash", "payment", "payments"].includes(object);
+  // `checkout_cart`, "Checks out the order"; `git_checkout` has no object.
+  if (verb === "checkout") return ["cart", "order", "basket"].includes(object);
   if (object === "checkout" || object === "cart") {
     return ["complete", "confirm", "submit", "place", "pay", "execute"].includes(verb);
   }
@@ -272,6 +331,7 @@ const NAME_VERBS = new Set([
   "withdraw",
   "refund",
   "payout",
+  "trade",
 ]);
 
 /**
@@ -377,7 +437,8 @@ const SUBMIT_PATH_SEGMENTS = new Set([
  * verb that is not a submit.
  */
 export function isMoneyFormAction(method: string | undefined, action: string | undefined): boolean {
-  if (action === undefined || (method ?? "post").toLowerCase() === "get") return false;
+  // A form with no method is a GET (the HTML default), and a GET never pays.
+  if (action === undefined || (method ?? "get").toLowerCase() === "get") return false;
   let path = action;
   try {
     path = new URL(action, "https://example.invalid").pathname;
@@ -414,17 +475,20 @@ const AMBIGUOUS_LABELS = new Set([
   "place",
   "finish",
 ]);
+/** Money only on its own and only in a money context: "Withdraw" in a bank, not "Withdraw invitation". */
+const AMBIGUOUS_WHOLE = new Set(["withdraw", "transfer", "send now"]);
 
 export function isAmbiguousActionLabel(text: string | undefined): boolean {
   if (text === undefined) return false;
   const words = moneyWords(text);
+  if (AMBIGUOUS_WHOLE.has(words.join(" "))) return true;
   return words.length > 0 && words.length <= 2 && AMBIGUOUS_LABELS.has(words[0] ?? "");
 }
 
 const CONTEXT_PATH =
-  /\/(checkout|payments?|pay|purchase|billing|transfer|withdraw|send-money)(\/|$)/i;
+  /\/(checkout|payments?|pay|purchase|billing|transfers?|withdraw(al)?|send-money|wallet|banking)(\/|$)/i;
 const CONTEXT_TITLE =
-  /\b(checkout|check out|payment|billing|order summary|review (your |my )?order|pay(ing)? (now|for)|confirm (your )?(payment|order|purchase|transfer)|send money|transfer funds)\b/i;
+  /\b(checkout|check out|payment|billing|order summary|review (your |my )?order|pay(ing)? (now|for)|confirm (your )?(payment|order|purchase|transfer)|send money|transfer funds|wallet|banking|online banking|withdraw(al)?|send crypto)\b/i;
 
 /**
  * Whether a page or form is clearly about paying: it has card fields, its URL is a checkout or

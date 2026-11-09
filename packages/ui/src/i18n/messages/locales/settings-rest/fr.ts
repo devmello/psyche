@@ -431,7 +431,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.tools.none": "Ce serveur n’a aucun outil.",
   "settings.mcp.money.title": "Paiements",
   "settings.mcp.money.description":
-    "Un outil qui déplace de l’argent demande Touch ID ou ton mot de passe à chaque fois. Indique lesquels des outils de ce serveur le font.",
+    "Un outil qui déplace de l’argent te demande de confirmer le paiement à chaque fois. Indique lesquels des outils de ce serveur le font.",
   "settings.mcp.money.auto": "Décider d’après le nom de chaque outil",
   "settings.mcp.money.autoHint":
     "Psyche devine d’après le nom et la description de l’outil, qu’un serveur peut formuler pour y échapper.",

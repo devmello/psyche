@@ -425,7 +425,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.tools.none": "このサーバにはツールがありません。",
   "settings.mcp.money.title": "支払い",
   "settings.mcp.money.description":
-    "お金を動かすツールは、毎回 Touch ID またはパスワードを求めます。このサーバのどのツールが該当するかを指定します。",
+    "お金を動かすツールは、毎回支払いの確認を求めます。このサーバのどのツールが該当するかを指定します。",
   "settings.mcp.money.auto": "ツール名で判断",
   "settings.mcp.money.autoHint":
     "Psyche がツールの名前と説明から推測します。サーバは言い回しを変えてこれを避けられます。",

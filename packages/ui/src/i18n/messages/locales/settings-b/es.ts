@@ -153,7 +153,7 @@ export const settingsB: Partial<Catalogue> = {
   "settings.mcp.tools.none": "Este servidor no tiene herramientas.",
   "settings.mcp.money.title": "Pagos",
   "settings.mcp.money.description":
-    "Una herramienta que mueve dinero pide Touch ID o tu contraseña cada vez. Indica cuáles de las herramientas de este servidor lo hacen.",
+    "Una herramienta que mueve dinero te pide confirmar el pago cada vez. Indica cuáles de las herramientas de este servidor lo hacen.",
   "settings.mcp.money.auto": "Decidir por el nombre de cada herramienta",
   "settings.mcp.money.autoHint":
     "Psyche lo deduce del nombre y la descripción de la herramienta, que un servidor puede redactar para evitarlo.",

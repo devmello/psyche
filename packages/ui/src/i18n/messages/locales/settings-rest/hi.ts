@@ -413,7 +413,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.tools.none": "इस सर्वर में कोई टूल नहीं है।",
   "settings.mcp.money.title": "भुगतान",
   "settings.mcp.money.description":
-    "पैसे भेजने वाला टूल हर बार Touch ID या आपका पासवर्ड माँगता है। बताइए कि इस सर्वर के कौन-से टूल ऐसा करते हैं।",
+    "पैसे भेजने वाला टूल हर बार आपसे भुगतान की पुष्टि करवाता है। बताइए कि इस सर्वर के कौन-से टूल ऐसा करते हैं।",
   "settings.mcp.money.auto": "हर टूल के नाम से तय करें",
   "settings.mcp.money.autoHint":
     "Psyche टूल के नाम और विवरण से अंदाज़ा लगाता है, जिसे कोई सर्वर बदलकर बच सकता है।",

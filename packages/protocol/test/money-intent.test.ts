@@ -38,6 +38,12 @@ const PAYMENT_LABELS = [
   "Buy",
   "Donate",
   "Subscribe for $9.99 a month",
+  "Send 0.1 ETH",
+  "Pay 12.50 EUR",
+  "Send USDC",
+  "Confirm transfer",
+  "Buy with Apple Pay",
+  "Send 25 USDT",
 ];
 const ORDINARY_LABELS = [
   "Checkout",
@@ -61,6 +67,10 @@ const ORDINARY_LABELS = [
   "Create invoice",
   "Subscribe to channel",
   "Tip of the day",
+  "Withdraw",
+  "Transfer",
+  "Move to folder",
+  "Version 2.5 notes. Send feedback",
 ];
 
 describe("isMoneyText on labels", () => {
@@ -83,6 +93,13 @@ const PAYMENT_TOOLS: [string, string | undefined][] = [
   ["place_order", undefined],
   ["createPaymentIntent", "Charges the customer's credit card"],
   ["withdraw_funds", undefined],
+  ["transfer", "Transfer an asset from the wallet to another onchain address"],
+  ["trade", undefined],
+  ["create_transfer", "Moves money between Stripe accounts"],
+  ["checkout_cart", undefined],
+  ["wire", "Sends a wire"],
+  ["send", "Sends USDC to an address"],
+  ["send_eth", "Sends 0.1 ETH. Gas is paid by the wallet"],
 ];
 const ORDINARY_TOOLS: [string, string | undefined][] = [
   ["git_checkout", "Checks out a branch"],
@@ -95,6 +112,10 @@ const ORDINARY_TOOLS: [string, string | undefined][] = [
   ["attach", "Adds a card attachment to the message"],
   ["list_orders", "Lists the orders"],
   ["get_payment", "Reads a payment"],
+  ["create_payment_link", "Creates a payment link to share with a customer"],
+  ["move_issue", "Moves an issue to another project"],
+  ["transfer_ownership", "Transfers ownership of a repository"],
+  ["deploy_token", "Rotates the deploy token"],
 ];
 
 describe("tool names and descriptions", () => {
@@ -110,7 +131,10 @@ describe("browser forms and pages", () => {
   it("a POST to a transfer or checkout path pays; a GET or a search does not", () => {
     expect(isMoneyFormAction("post", "https://bank.example/transfer/submit")).toBe(true);
     expect(isMoneyFormAction("POST", "/checkout")).toBe(true);
-    expect(isMoneyFormAction(undefined, "/orders/create")).toBe(true);
+    expect(isMoneyFormAction("post", "/orders/create")).toBe(true);
+    // No method is a GET, the HTML default.
+    expect(isMoneyFormAction(undefined, "/orders/create")).toBe(false);
+    expect(isMoneyFormAction(undefined, "/checkout")).toBe(false);
     expect(isMoneyFormAction("get", "/orders/search")).toBe(false);
     expect(isMoneyFormAction("post", "/orders/search")).toBe(false);
     expect(isMoneyFormAction("get", "/checkout")).toBe(false);
@@ -139,6 +163,11 @@ describe("browser forms and pages", () => {
     expect(isAmbiguousActionLabel("Confirm")).toBe(true);
     expect(isAmbiguousActionLabel("Send")).toBe(true);
     expect(isAmbiguousActionLabel("Pay")).toBe(false);
+    // "Withdraw" on its own counts in a bank or wallet; "Withdraw invitation" never does.
+    expect(isAmbiguousActionLabel("Withdraw")).toBe(true);
+    expect(isAmbiguousActionLabel("Withdraw invitation")).toBe(false);
+    expect(isMoneyContext({ title: "Wallet" })).toBe(true);
+    expect(isMoneyContext({ url: "https://bank.example/banking/accounts" })).toBe(true);
     expect(isMoneyContext({ url: "https://shop.example/checkout/review" })).toBe(true);
     expect(isMoneyContext({ title: "Review your order" })).toBe(true);
     expect(isMoneyContext({ hasPaymentFields: true })).toBe(true);

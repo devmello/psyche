@@ -379,7 +379,7 @@ export const settings: Partial<Catalogue> = {
   "settings.mcp.tools.none": "لا أدوات لدى هذا الخادم.",
   "settings.mcp.money.title": "المدفوعات",
   "settings.mcp.money.description":
-    "الأداة التي تنقل الأموال تطلب Touch ID أو كلمة مرورك في كل مرة. حدّد أيًّا من أدوات هذا الخادم تفعل ذلك.",
+    "الأداة التي تنقل الأموال تطلب منك تأكيد الدفع في كل مرة. حدّد أيًّا من أدوات هذا الخادم تفعل ذلك.",
   "settings.mcp.money.auto": "القرار حسب اسم كل أداة",
   "settings.mcp.money.autoHint":
     "يخمّن Psyche من اسم الأداة ووصفها، ويمكن للخادم صياغتهما لتفادي ذلك.",

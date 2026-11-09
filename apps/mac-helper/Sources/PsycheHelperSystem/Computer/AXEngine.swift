@@ -256,6 +256,10 @@ final class AXEngine: @unchecked Sendable {
         var role: String?
         /// Labels of the hit element and up to two ancestors (for risk checks on point clicks).
         var labels: [String]
+        /// The title of the window the element is in, and its document (a browser's page URL).
+        var window: String? = nil
+        var url: String? = nil
+        var subrole: String? = nil
 
         /// True when the hit element is `key` or a descendant of it.
         func isInside(_ key: AXKey) -> Bool {
@@ -276,15 +280,33 @@ final class AXEngine: @unchecked Sendable {
         guard point.x.isFinite, point.y.isFinite,
               AXUIElementCopyElementAtPosition(sys, Float(point.x), Float(point.y), &hit) == .success, let hit, let pid = AX.pid(hit)
         else { return nil }
+        return describe(hit, pid: pid)
+    }
+
+    /// What keyboard input to `pid` would land on: its focused element, described like a hit (the
+    /// Gateway checks it before Return, Enter or Space activates it, or a typed newline submits).
+    static func focusTarget(pid: pid_t) -> Hit? {
+        let root = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(root, messagingTimeout)
+        guard let f = AX.element(AX.attr(root, "AXFocusedUIElement")) else { return nil }
+        return describe(f, pid: pid)
+    }
+
+    /// An element's role, its labels and those of up to two ancestors, and the window around it.
+    static func describe(_ el: AXUIElement, pid: pid_t) -> Hit {
         var labels: [String] = []
-        var cur: AXUIElement? = hit
+        var cur: AXUIElement? = el
         for _ in 0..<3 {
             guard let c = cur else { break }
             let a = AX.attrs(c, ["AXTitle", "AXDescription"])
             labels += [AX.string(a["AXTitle"]), AX.string(a["AXDescription"])].compactMap { $0 }.filter { !$0.isEmpty }
             cur = AX.element(AX.attr(c, "AXParent"))
         }
-        return Hit(pid: pid, element: hit, secure: AX.string(AX.attr(hit, "AXSubrole")) == "AXSecureTextField", role: AX.string(AX.attr(hit, "AXRole")), labels: labels)
+        let subrole = AX.string(AX.attr(el, "AXSubrole"))
+        let win = AX.element(AX.attr(el, "AXWindow"))
+        return Hit(pid: pid, element: el, secure: subrole == "AXSecureTextField", role: AX.string(AX.attr(el, "AXRole")), labels: labels,
+                   window: win.flatMap { AX.string(AX.attr($0, "AXTitle")) }, url: win.flatMap { AX.string(AX.attr($0, "AXDocument")) },
+                   subrole: subrole)
     }
 
     /// The app owning the element under a screen point (top-left origin).

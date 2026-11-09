@@ -1159,7 +1159,7 @@ export const settings = {
   "settings.mcp.tools.none": "This server has no tools.",
   "settings.mcp.money.title": "Payments",
   "settings.mcp.money.description":
-    "A tool that moves money asks for Touch ID or your password every time. Say which of this server's tools do.",
+    "A tool that moves money asks you to confirm the payment every time. Say which of this server's tools do.",
   "settings.mcp.money.auto": "Decide by each tool's name",
   "settings.mcp.money.autoHint":
     "Psyche guesses from the tool's name and description, which a server can word to avoid it.",

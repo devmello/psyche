@@ -365,7 +365,7 @@ export const settings: Partial<Catalogue> = {
   "settings.mcp.tools.none": "此服务器没有工具。",
   "settings.mcp.money.title": "付款",
   "settings.mcp.money.description":
-    "会转移资金的工具每次都需要 Touch ID 或你的密码。请说明此服务器的哪些工具属于这种情况。",
+    "会转移资金的工具每次都需要你确认付款。请说明此服务器的哪些工具属于这种情况。",
   "settings.mcp.money.auto": "按每个工具的名称判断",
   "settings.mcp.money.autoHint": "Psyche 根据工具的名称和描述来猜测，而服务器可以通过措辞来避开。",
   "settings.mcp.money.always": "所有工具都会转移资金",
