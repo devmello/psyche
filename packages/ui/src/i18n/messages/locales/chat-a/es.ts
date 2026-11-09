@@ -189,4 +189,16 @@ export const chatA: Partial<Catalogue> = {
   "chat.clear.clearing": "Borrando…",
   "chat.clear.done": "Chat borrado",
   "chat.clear.failed": "No se pudo borrar el chat: {reason}",
+  "chat.modeSwitch.label": "Modo de permisos",
+  "chat.modeSwitch.autoExplainer":
+    "Auto ejecuta las acciones rutinarias dentro de tus permisos y pregunta antes de cualquier cosa sensible. Los pagos siempre preguntan; tu lista de prohibidos siempre se rechaza.",
+  "chat.modeSwitch.gotIt": "Entendido",
+  "chat.modeSwitch.autoUnavailable": "Auto no puede usar {model}.",
+  "chat.modeSwitch.needsModel": "Auto necesita un modelo compatible.",
+  "chat.modeSwitch.switchModel": "Cambiar a {model} y usar Auto",
+  "chat.modeSwitch.noModel":
+    "Auto necesita un modelo compatible, como Claude, GPT o Gemini. Añade su clave en Ajustes.",
+  "chat.modeSwitch.failed": "No se pudo cambiar el modo: {reason}",
+  "chat.modeSwitch.notSaved":
+    "Cambiado para este chat, pero no se pudo guardar como predeterminado para los chats nuevos.",
 };

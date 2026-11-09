@@ -134,7 +134,11 @@ describe("web passkeys (issue #79)", () => {
     const { owner } = await setup();
     // No verifier ready yet: the old rule (operator.admin) applies.
     expect(
-      await owner.request("settings.set", { key: "permissions.mode", value: "manual" }, ik()),
+      await owner.request(
+        "settings.set",
+        { key: "permissions.policy", value: { allow: ["calendar.list"] } },
+        ik(),
+      ),
     ).toMatchObject({ ok: true });
 
     const a = new SoftAuthenticator(RP_ID, ORIGIN);
@@ -142,7 +146,7 @@ describe("web passkeys (issue #79)", () => {
     // Now a passkey can verify, so the security setting needs a presence-approved card.
     const first = await owner.request(
       "settings.set",
-      { key: "permissions.mode", value: "balanced" },
+      { key: "permissions.policy", value: { allow: ["calendar.list", "calendar.get"] } },
       ik(),
     );
     expect(first).toMatchObject({ ok: false, error: { code: "approval_required" } });
@@ -205,7 +209,11 @@ describe("web passkeys (issue #79)", () => {
     expect(answered).toMatchObject({ ok: true });
     const applied = await owner.request(
       "settings.set",
-      { key: "permissions.mode", value: "balanced", approvalId },
+      {
+        key: "permissions.policy",
+        value: { allow: ["calendar.list", "calendar.get"] },
+        approvalId,
+      },
       ik(),
     );
     expect(applied).toMatchObject({ ok: true });
