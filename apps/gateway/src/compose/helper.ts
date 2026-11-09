@@ -349,6 +349,8 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
         decision,
         ...(decision === "approve" ? { scope: "once" as const } : {}),
         decidedBy: { deviceId: h.deviceId, surface: HELPER_SURFACE },
+        // Only the Host's own helper is attached here (`isHostHelper`).
+        local: true,
         ...(presence === undefined ? {} : { presence }),
       });
     } catch (err) {
@@ -543,12 +545,15 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       const c = client(h.nodeId);
       if (c === undefined) throw touchIdUnavailable("helper_offline", "Psyche Helper went away");
       const by = { deviceId: h.deviceId, surface: surfaceOf(services.db, call.identity.deviceId) };
+      // The desktop shell on a loopback connection: its refused answers are audited, not counted.
+      const local = call.conn.peer.remoteLoopback;
       // Before any sheet: the token is this window's unused one, the card is armed, and this
       // answerer is not over its rate limit (a bad token counts against the rejected-answer cap).
       await services.rawBroker.precheckAnswer({
         approvalId: a.id,
         answerToken: params.answerToken,
         decidedBy: by,
+        local,
       });
       const res = await c.invoke(
         "presence.confirm",
@@ -563,12 +568,14 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       const out = (res.result ?? {}) as { signature?: unknown; keyId?: unknown };
       if (!res.ok || typeof out.signature !== "string") {
         const f = helperErrorFields(res.error);
-        // Every failed confirm counts like a rejected answer, so a window cannot raise sheets
-        // without limit.
+        // Every failed confirm is audited as a rejected answer. A failed or invalid presence counts
+        // toward the cap (a cancelled sheet or a missing key does not), so a window cannot keep
+        // raising sheets that fail; the owner's own loopback window is never locked out.
         const reject = (reason: string, code: ErrorCode, message: string, details?: object) =>
           services.rawBroker.rejectPresence({
             approvalId: a.id,
             decidedBy: by,
+            local,
             reason,
             code,
             message,
@@ -626,6 +633,7 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
         decision: "approve",
         scope: "once",
         decidedBy: by,
+        local,
         presence: {
           kind: "helper",
           deviceId: h.deviceId,

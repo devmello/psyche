@@ -227,21 +227,29 @@ export function UsageLivePanel({
   loading = false,
   error = null,
   onRetry,
+  errorCode = null,
 }: {
   summary: UsageSummaryData | undefined;
   loading?: boolean;
   /** Why `usage.summary` failed, in words. Shown with a retry instead of "not available". */
   error?: string | null;
   onRetry?: () => void;
+  /**
+   * The error's code. A Gateway that does not have the method (`unknown_method`,
+   * `not_implemented`) gets the plain "not available yet" notice and no Retry: trying again
+   * cannot help. Every other failure shows its real error.
+   */
+  errorCode?: string | null;
 }): ReactElement {
   const month = summary?.month;
   const budget = summary?.budgetUsd ?? null;
+  const methodMissing = errorCode === "unknown_method" || errorCode === "not_implemented";
   return (
     <SectionFrame title={t("settings.usage.title")} description={t("settings.usage.description")}>
       <LoadGate
         label={t("settings.usage.loadLabel")}
         loading={loading && summary === undefined}
-        error={summary === undefined ? error : null}
+        error={summary === undefined && !methodMissing ? error : null}
         {...(onRetry ? { onRetry } : {})}
       >
         {summary === undefined || month === undefined ? (
@@ -314,19 +322,21 @@ export function UsageLivePanel({
 function ConnectedUsage(): ReactElement {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const q = useGatewayQuery("usage.summary", { days: 7, timeZone });
-  // An older Gateway refuses the method: say so instead of loading forever.
+  // An older Gateway does not have the method (`unknown_method` / `not_implemented`): the panel
+  // says so plainly. Any other failure shows what failed, with a retry.
   const data = q.data as Partial<UsageSummaryData> | undefined;
   const summary =
     data && Array.isArray(data.byModel) && data.today && data.month
       ? (data as UsageSummaryData)
       : undefined;
   // A failed call says what failed (a rate limit, a refused scope, a timeout) and offers a retry;
-  // "not available" is for an answer that arrived without a summary in it.
+  // "not available" is for a Gateway without the method, or an answer with no summary in it.
   return (
     <UsageLivePanel
       summary={summary}
       loading={q.loading && q.error === null}
       error={q.error}
+      errorCode={q.errorCode ?? null}
       onRetry={q.reload}
     />
   );

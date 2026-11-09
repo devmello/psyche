@@ -75,6 +75,9 @@ function keepIdentity(result: unknown, always: boolean): unknown {
   return out;
 }
 
+/** The desktop shell's request budget, as a multiple of the plain per-device budget. */
+const SHELL_BUDGET_FACTOR = 10;
+
 const STREAM_METHODS: ReadonlySet<string> = new Set([
   "terminal.session.write",
   "terminal.session.resize",
@@ -358,10 +361,12 @@ export class Connection implements LiveConnection {
    * Per-device budgets (security §10 "rate limits per device token"). Node-protocol frames are
    * exempt: a node streams `node.event`s for invocations the Gateway itself started.
    *
-   * The Psyche desktop shell on this Mac is exempt too (`identity.desktopShell`: loopback, the
-   * per-launch handshake secret). It is the owner's own app on the owner's own machine, so a
-   * request budget protects nothing there, while one noisy screen used to drain the budget and
-   * make Settings, Usage and Allow fail as "rate limited". Every other device keeps its budget.
+   * The Psyche desktop shell on this Mac (`identity.desktopShell` on a loopback connection, with
+   * the per-launch handshake secret) is the owner's own app, so it gets `SHELL_BUDGET_FACTOR`
+   * times the budget: normal use never reaches it, while a runaway loop in the shell still cannot
+   * pin the Gateway. One noisy screen used to drain the plain budget and make Settings, Usage and
+   * Allow fail as "rate limited". Calls that name a session the caller does not own are charged
+   * at the plain budget for everyone, the shell included: that is probing, not normal traffic.
    */
   #rateLimit(
     identity: PairedIdentity,
@@ -370,32 +375,36 @@ export class Connection implements LiveConnection {
     params: unknown,
   ): void {
     if (method.startsWith("node.")) return;
-    if (identity.desktopShell === true && this.peer.remoteLoopback) return;
     const deviceId = identity.deviceId;
     // Only calls that name a session this device owns; a guess at an id is charged like any call.
+    let namesOwnSession = false;
     if (STREAM_METHODS.has(method)) {
       const sessionId = (params as { sessionId?: unknown } | null)?.sessionId;
-      if (
+      namesOwnSession =
         typeof sessionId === "string" &&
-        this.#ctx.terminalSessions.owns?.(deviceId, sessionId) === true
-      ) {
-        return;
-      }
+        this.#ctx.terminalSessions.owns?.(deviceId, sessionId) === true;
+      if (namesOwnSession) return;
     }
+    const probing = STREAM_METHODS.has(method) && !namesOwnSession;
+    const shell = identity.desktopShell === true && this.peer.remoteLoopback && !probing;
+    const factor = shell ? SHELL_BUDGET_FACTOR : 1;
     const { deviceRequests, deviceSideEffects } = this.#ctx;
-    const requestsFull = !deviceRequests.allowed(deviceId);
-    const sideEffectsFull = sideEffecting && !deviceSideEffects.allowed(deviceId);
+    const requestsLimit = deviceRequests.limit * factor;
+    const sideEffectsLimit = deviceSideEffects.limit * factor;
+    const requestsFull = !deviceRequests.allowed(deviceId, requestsLimit);
+    const sideEffectsFull = sideEffecting && !deviceSideEffects.allowed(deviceId, sideEffectsLimit);
     if (requestsFull || sideEffectsFull) {
       const retryAfterSec = Math.max(
-        requestsFull ? deviceRequests.retryAfterSec(deviceId) : 0,
-        sideEffectsFull ? deviceSideEffects.retryAfterSec(deviceId) : 0,
+        requestsFull ? deviceRequests.retryAfterSec(deviceId, requestsLimit) : 0,
+        sideEffectsFull ? deviceSideEffects.retryAfterSec(deviceId, sideEffectsLimit) : 0,
         1,
       );
       throw new PsycheError("rate_limited", "Too many requests from this device; slow down", {
         retryable: true,
-        // `scope` tells a client this is the request budget, not the approvals' answer limit.
+        // `scope` tells a client this is a request budget, not the approvals' answer limit; it
+        // names the budget that is full.
         details: {
-          scope: sideEffecting ? "side_effects" : "requests",
+          scope: sideEffectsFull ? "side_effects" : "requests",
           windowMs: 60_000,
           retryAfterSec,
         },

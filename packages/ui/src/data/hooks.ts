@@ -37,7 +37,7 @@ import type {
 } from "@psyche/protocol";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../i18n/core.ts";
-import { describeError } from "../i18n/errors.ts";
+import { errorCode as codeOf, describeError } from "../i18n/errors.ts";
 import type { ConnectionState } from "./client.ts";
 import { isEmptyUserChat } from "./empty-chat.ts";
 import type { OutboxItem } from "./outbox.ts";
@@ -71,6 +71,8 @@ export type LoadCause = "mount" | "refresh";
 export interface LoadState {
   loading: boolean;
   error: string | null;
+  /** The Gateway's error code behind `error` (`rate_limited`, `unknown_method`, …), when it has one. */
+  errorCode?: string | null;
   reload: () => void;
 }
 
@@ -89,6 +91,7 @@ export function useLoader(
   const store = useStore();
   const [loading, setLoading] = useState(key !== null && !store.detached);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const loadRef = useRef(load);
   loadRef.current = load;
   const [tick, setTick] = useState(0);
@@ -105,9 +108,15 @@ export function useLoader(
       setLoading(true);
       try {
         await loadRef.current(store, cause);
-        if (live) setError(null);
+        if (live) {
+          setError(null);
+          setErrorCode(null);
+        }
       } catch (err) {
-        if (live) setError(messageOf(err));
+        if (live) {
+          setError(messageOf(err));
+          setErrorCode(codeOf(err));
+        }
         throw err;
       } finally {
         if (live) setLoading(false);
@@ -126,7 +135,7 @@ export function useLoader(
   }, [key, store, tick]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
-  return { loading, error, reload };
+  return { loading, error, errorCode, reload };
 }
 
 // --- Connection -----------------------------------------------------------------------------

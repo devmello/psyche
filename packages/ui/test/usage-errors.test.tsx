@@ -30,4 +30,19 @@ describe("Settings → Usage when usage.summary fails", () => {
     await userEvent.click(screen.getByRole("button", { name: /try again|retry/i }));
     expect(await screen.findByRole("heading", { name: "This month" })).toBeTruthy();
   });
+
+  it("a Gateway without the method gets the plain notice and no retry", async () => {
+    render(
+      <StoryWorld
+        onGateway={(g: MockGateway) =>
+          g.failNext("usage.summary", "unknown_method", "Unknown method usage.summary")
+        }
+      >
+        <UsageSection />
+      </StoryWorld>,
+    );
+    expect(await screen.findByText("Usage isn't available from this Gateway yet.")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("button", { name: /try again|retry/i })).toBeNull();
+  });
 });

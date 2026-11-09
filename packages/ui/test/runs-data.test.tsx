@@ -70,16 +70,22 @@ describe("useRun load volume", () => {
     expect(runsGetCalls(gateway)).toHaveLength(31);
   });
 
-  it("a reconnect refresh does not refetch a finished run that is already loaded", async () => {
+  it("a refresh asks a finished run only for the steps after the last one it has", async () => {
     const { gateway, store, wrapper } = setup();
     const { result } = renderHook(() => useRun(R.done), { wrapper });
     await waitFor(() => expect(result.current.steps.length).toBeGreaterThan(0));
     expect(runsGetCalls(gateway)).toHaveLength(1);
+    const lastSeq = result.current.steps.at(-1)?.seq ?? 0;
+    const stepsCalls = () => gateway.calls.filter((c) => c.method === "runs.steps");
+    const stepsBefore = stepsCalls().length;
     await act(async () => {
       await store.refreshAll();
       await store.refreshAll();
     });
+    // No whole-run reload; one cheap steps call per refresh, from the last seq.
     expect(runsGetCalls(gateway)).toHaveLength(1);
+    expect(stepsCalls().length - stepsBefore).toBe(2);
+    expect(stepsCalls().at(-1)?.params).toMatchObject({ runId: R.done, afterSeq: lastSeq });
     // The owner's own reload still asks again.
     await act(async () => result.current.reload());
     await waitFor(() => expect(runsGetCalls(gateway)).toHaveLength(2));

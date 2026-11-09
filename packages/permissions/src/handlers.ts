@@ -29,6 +29,8 @@ export interface Caller {
   /** The surface this connection answers for (`desktop`, `web`, …). */
   surface: Surface;
   role?: "client" | "node" | "both";
+  /** This connection is the owner's own Host app (loopback, per-launch secret). */
+  local?: boolean;
 }
 
 /** The protocol's `audit.*` definitions (params, result, scope); the Gateway checks the same. */
@@ -119,6 +121,7 @@ export function createPermissionHandlers(
         await broker.rejectPresence({
           approvalId: params.approvalId,
           decidedBy: { deviceId: c.deviceId, surface: c.surface },
+          ...(c.local === true ? { local: true } : {}),
           reason: "password_from_client",
           code: "forbidden",
           message: "a password assertion cannot come from a client",
@@ -128,6 +131,7 @@ export function createPermissionHandlers(
       const approval = await broker.answer({
         ...params,
         decidedBy: { deviceId: c.deviceId, surface: c.surface },
+        ...(c.local === true ? { local: true } : {}),
         ...(presence === undefined ? {} : { presence: presence as PresenceAssertion }),
         ...(typeof typedConfirmation === "string" ? { typedConfirmation } : {}),
       });

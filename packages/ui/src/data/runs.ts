@@ -32,9 +32,8 @@ const MAX_PAGES = 4;
  * them), and a reconnect used to reload every one: that burst was thousands of requests a
  * minute and drained the Gateway's per-device request budget, so Settings, Usage and Allow
  * failed with "rate limited". Now each run is fetched once at a time, at most `MAX_RUN_LOADS`
- * run at once, and a finished run whose steps the store already has is not fetched again on a
- * refresh (nothing about a finished run changes behind the client's back; `run.step` and
- * `run.updated` keep live ones current).
+ * run at once, and a finished run the store already has is not fetched whole again on a refresh:
+ * only its steps after the last seq it holds (`runs.steps`), which catches a step the gap hid.
  */
 const MAX_RUN_LOADS = 4;
 const inFlightRuns = new WeakMap<GatewayStore, Map<string, Promise<void>>>();
@@ -57,7 +56,7 @@ async function withRunLoadSlot<T>(job: () => Promise<T>): Promise<T> {
   }
 }
 
-/** True when the store already has this run, finished, with its steps: nothing to refetch. */
+/** True when the store already has this run, finished, with its steps. */
 function runIsSettledInStore(store: GatewayStore, runId: string): boolean {
   const s = store.getState();
   const run = s.runs[runId];
@@ -106,7 +105,7 @@ export function useRun(runId: string | null): LoadState & {
   const runs = useStoreState((s) => s.runs);
   const load = useLoader(runId === null ? null : `run:${runId}`, async (st, cause) => {
     if (runId === null) return;
-    if (cause === "refresh" && runIsSettledInStore(st, runId)) return;
+    const settled = cause === "refresh" && runIsSettledInStore(st, runId);
     // Several traces of one run share one request.
     let byRun = inFlightRuns.get(st);
     if (byRun === undefined) {
@@ -116,6 +115,11 @@ export function useRun(runId: string | null): LoadState & {
     const pending = byRun.get(runId);
     if (pending !== undefined) return pending;
     const job = withRunLoadSlot(async () => {
+      if (settled) {
+        // The finishing `run.updated` may have arrived before the gap's last steps.
+        await loadSteps(st, runId);
+        return;
+      }
       const version = st.version();
       const res = await st.call("runs.get", { runId });
       st.update((s) =>

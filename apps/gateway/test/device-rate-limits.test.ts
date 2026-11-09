@@ -99,13 +99,40 @@ describe("per-device rate limits (security §10)", () => {
     });
   });
 
-  it("never limits the desktop shell on this computer", async () => {
+  it("gives the desktop shell on this computer ten times the budget, so normal use never trips", async () => {
     await setup({ deviceRequestsPerMinute: 2, deviceSideEffectsPerMinute: 2 });
     const desk = await desktopClient(t.gateway, newDeviceKey(), "shell");
     clients.push(desk);
-    for (let i = 0; i < 12; i++) {
-      expect((await desk.request("threads.list", {})).ok).toBe(true);
+    // Ten times the plain budget of two: twenty reads...
+    for (let i = 0; i < 20; i++) expect((await desk.request("threads.list", {})).ok).toBe(true);
+    // ...and a runaway loop in the shell still ends at the ceiling.
+    expect(await desk.request("threads.list", {})).toMatchObject({
+      ok: false,
+      error: { code: "rate_limited", details: { scope: "requests" } },
+    });
+  });
+
+  it("gives the shell ten times the side-effect budget too", async () => {
+    await setup({ deviceRequestsPerMinute: 100, deviceSideEffectsPerMinute: 2 });
+    const desk = await desktopClient(t.gateway, newDeviceKey(), "shell");
+    clients.push(desk);
+    for (let i = 0; i < 20; i++) {
       expect((await desk.request("threads.create", { kind: "side" }, ik())).ok).toBe(true);
     }
+    expect(await desk.request("threads.create", { kind: "side" }, ik())).toMatchObject({
+      ok: false,
+      error: { code: "rate_limited", details: { scope: "side_effects" } },
+    });
+  });
+
+  it("names the request budget when that is the one that filled", async () => {
+    await setup({ deviceRequestsPerMinute: 1, deviceSideEffectsPerMinute: 50 });
+    const c = await remoteClient(t.gateway, newDeviceKey(), "desk");
+    clients.push(c);
+    await c.request("threads.list", {});
+    expect(await c.request("threads.create", { kind: "side" }, ik())).toMatchObject({
+      ok: false,
+      error: { code: "rate_limited", details: { scope: "requests" } },
+    });
   });
 });

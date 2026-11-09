@@ -197,7 +197,7 @@ describe("answer lockout counts guessing only", () => {
   });
 
   it("the owner's own Host device is audited but never locked out", async () => {
-    const h = makeBroker({ isLocalDevice: (id) => id === "dev_shell" });
+    const h = makeBroker();
     const issued = await request(h, write());
     h.clock.advance(500);
     for (let i = 0; i < 200; i += 1) {
@@ -207,6 +207,7 @@ describe("answer lockout counts guessing only", () => {
           answerToken: `at_stale_${i}`,
           decision: "approve",
           decidedBy: by("dev_shell"),
+          local: true,
         }),
       ).rejects.toMatchObject({ code: "forbidden" });
     }
@@ -216,6 +217,7 @@ describe("answer lockout counts guessing only", () => {
       answerToken: issued.answerTokens.desktop ?? "",
       decision: "deny",
       decidedBy: by("dev_shell"),
+      local: true,
     });
     expect(ok.status).toBe("denied");
     // A remote device making the same mistakes is still stopped.
@@ -239,5 +241,40 @@ describe("answer lockout counts guessing only", () => {
         decidedBy: by("dev_phone"),
       }),
     ).rejects.toMatchObject({ code: "rate_limited" });
+  });
+
+  it("local is a property of the call, not of the device id", async () => {
+    const h = makeBroker();
+    const issued = await request(h, write());
+    h.clock.advance(500);
+    // The shell's device id, from a connection the Gateway did not vouch for (a reused key).
+    for (let i = 0; i < 60; i += 1) {
+      await h.broker
+        .answer({
+          approvalId: issued.approval.id,
+          answerToken: `at_bad_${i}`,
+          decision: "approve",
+          decidedBy: by("dev_shell"),
+        })
+        .catch(() => undefined);
+    }
+    await expect(
+      h.broker.answer({
+        approvalId: issued.approval.id,
+        answerToken: issued.answerTokens.desktop ?? "",
+        decision: "deny",
+        decidedBy: by("dev_shell"),
+      }),
+    ).rejects.toMatchObject({ code: "rate_limited" });
+    // The vouched call from the same id is not held back by those guesses (it is only subject to
+    // the answer budget), so the owner's own app is not locked out by someone else's mistakes.
+    await expect(
+      h.broker.precheckAnswer({
+        approvalId: issued.approval.id,
+        answerToken: issued.answerTokens.desktop ?? "",
+        decidedBy: by("dev_shell"),
+        local: true,
+      }),
+    ).resolves.toBeDefined();
   });
 });

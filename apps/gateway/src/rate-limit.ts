@@ -19,9 +19,14 @@ export class RateLimiter {
     return hits;
   }
 
-  /** `true` while `key` is under its limit. */
-  allowed(key: string): boolean {
-    return this.#recent(key).length < this.#limit;
+  /** The limit this limiter was built with. */
+  get limit(): number {
+    return this.#limit;
+  }
+
+  /** `true` while `key` is under its limit (or under `limit`, a different ceiling for this call). */
+  allowed(key: string, limit: number = this.#limit): boolean {
+    return this.#recent(key).length < limit;
   }
 
   /** Drops keys with no hits left in the window (memory bound for one-off keys). */
@@ -30,10 +35,10 @@ export class RateLimiter {
   }
 
   /** Whole seconds until `key` has room again (0 when it is under its limit now). */
-  retryAfterSec(key: string): number {
+  retryAfterSec(key: string, limit: number = this.#limit): number {
     const hits = this.#recent(key);
-    if (hits.length < this.#limit) return 0;
-    const oldest = hits[hits.length - this.#limit] ?? this.#now();
+    if (hits.length < limit) return 0;
+    const oldest = hits[hits.length - limit] ?? this.#now();
     return Math.max(1, Math.ceil((oldest + this.#windowMs - this.#now()) / 1000));
   }
 

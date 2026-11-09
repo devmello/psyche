@@ -268,22 +268,43 @@ export function UsageCard({
 export function useUsageSummary(): UsageSummaryData | undefined {
   const timeZone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC", []);
   const q = useGatewayQuery("usage.summary", { days: 7, timeZone });
-  const ended = useStoreState(
-    (s) => Object.values(s.runs).filter((r) => r.status !== "running" && r.endedAt).length,
-  );
+  const runs = useStoreState((s) => s.runs);
   const { reload } = q;
-  // The summary just loaded counts the runs already ended; only a run that ends after this
-  // mount (or after the runs list filled in) is worth a second request.
-  const seenEnded = useRef(ended);
+  // A run that finishes while the footer is mounted (first seen running, its `endedAt` changing,
+  // or arriving already ended with an `endedAt` after the mount) is worth a second request. A run
+  // the store merely loads, finished long ago (the chat's history filling in), was counted by the
+  // summary the first request returned.
+  const mountedAt = useRef(Date.now());
+  const firstSeen = useRef(new Map<string, string | null>());
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
-    if (ended <= seenEnded.current) {
-      seenEnded.current = ended;
-      return;
+    let finished = false;
+    for (const run of Object.values(runs)) {
+      const endedAt = run.status !== "running" && run.endedAt ? run.endedAt : null;
+      const seen = firstSeen.current.get(run.id);
+      if (seen === undefined) {
+        firstSeen.current.set(run.id, endedAt);
+        // 2 s of slack for a Gateway whose clock is a little behind this window's.
+        if (endedAt !== null && Date.parse(endedAt) >= mountedAt.current - 2000) finished = true;
+      } else if (endedAt !== null && seen !== endedAt) {
+        firstSeen.current.set(run.id, endedAt);
+        finished = true;
+      }
     }
-    seenEnded.current = ended;
-    const timer = setTimeout(reload, 800);
-    return () => clearTimeout(timer);
-  }, [ended, reload]);
+    if (finished && timer.current === undefined) {
+      timer.current = setTimeout(() => {
+        timer.current = undefined;
+        reload();
+      }, 800);
+    }
+  }, [runs, reload]);
+  useEffect(
+    () => () => {
+      if (timer.current !== undefined) clearTimeout(timer.current);
+      timer.current = undefined;
+    },
+    [],
+  );
   // An older Gateway refuses the method (unknown_method); show nothing rather than guess.
   const data = q.data as Partial<UsageSummaryData> | undefined;
   if (q.error || !data || !Array.isArray(data.days) || !data.today || !data.month) return undefined;

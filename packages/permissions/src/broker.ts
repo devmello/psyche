@@ -132,13 +132,6 @@ export interface PermissionBrokerOptions {
   classifier?: ActionClassifier;
   localProject?: LocalProjectVerifier;
   psycheHome?: string;
-  /**
-   * True for a device that is the owner's own app or helper on the Host (the desktop shell, with
-   * its per-launch secret on this machine). Its rejected answers are audited but never lock it
-   * out: a bug in the owner's own client must not stop the owner approving. Remote devices
-   * (phone, browser, LAN) keep the lockout cap.
-   */
-  isLocalDevice?: (deviceId: string) => boolean;
   /** Gateway UI origins the agent may never act on (design-03, design-19). */
   gatewayOrigins?: string[];
   presence?: PresenceVerifier;
@@ -273,7 +266,8 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #answerTimes = new Map<string, number[]>();
   /** Rejected answers per identity: a much higher flood cap, so failures never eat the budget. */
   readonly #failureTimes = new Map<string, number[]>();
-  readonly #isLocalDevice: ((deviceId: string) => boolean) | undefined;
+  /** The `decidedBy` objects of calls the Gateway vouched for as the owner's own Host app. */
+  readonly #localBy = new WeakSet<object>();
   readonly #channelConversations: ChannelConversationLookup | undefined;
   readonly #replyTimes = new Map<string, number[]>();
   readonly #folderAccess: PermissionBrokerOptions["folderAccess"];
@@ -299,7 +293,6 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#onEvent = options.onEvent;
     this.#revocations = options.revocations;
     this.#channelConversations = options.channelConversations;
-    this.#isLocalDevice = options.isLocalDevice;
     this.#folderAccess = options.folderAccess;
     const ulid = monotonicFactory();
     this.#newId = options.newId ?? ((prefix) => `${prefix}_${ulid(this.clock.now())}`);
@@ -1026,17 +1019,28 @@ export class PsychePermissionBroker implements PermissionBroker {
    * Seconds until the identity may answer again, or 0 when under the limit. Peeks only: attempts
    * that fail authentication or validation never use the budget (see `#recordAnswer`).
    */
-  #retryAfterSec(identity: string): number {
+  #retryAfterSec(identity: string, local: boolean): number {
     const limit = this.#policy.config.approvals?.answersPerMinute ?? 10;
     return Math.max(
       this.#windowWait(this.#answerTimes, identity, limit),
-      this.#windowWait(this.#failureTimes, identity, limit * FAILURE_CAP_FACTOR),
+      // A vouched local call is not held back by guesses made under the same device id.
+      local ? 0 : this.#windowWait(this.#failureTimes, identity, limit * FAILURE_CAP_FACTOR),
     );
   }
 
-  /** The owner's own Host app or helper: its refusals are audited, not counted. */
+  /**
+   * A call the Gateway vouched for as the owner's own Host app or helper (`local`: the desktop
+   * shell or Host helper on a loopback connection with the per-launch secret). Its refused answers
+   * are audited but never lock it out. Marked on the call's own `decidedBy` object, so it holds
+   * for this call only and a device id alone (another connection reusing a key) never earns it.
+   */
+  #markLocal(by: object, local: boolean | undefined): void {
+    if (local === true) this.#localBy.add(by);
+    else this.#localBy.delete(by);
+  }
+
   #isLocal(by: DecidedBy): boolean {
-    return "deviceId" in by && this.#isLocalDevice?.(by.deviceId) === true;
+    return this.#localBy.has(by);
   }
 
   #windowWait(map: Map<string, number[]>, identity: string, limit: number): number {
@@ -1096,11 +1100,14 @@ export class PsychePermissionBroker implements PermissionBroker {
     approvalId: string;
     answerToken: string;
     decidedBy: { deviceId: string; surface: Surface };
+    /** The Gateway vouches this is the owner's own Host app or helper. */
+    local?: boolean;
   }): Promise<ApprovalRequest> {
     this.#sweep();
     const by = input.decidedBy;
+    this.#markLocal(by, input.local);
     const id = input.approvalId;
-    const retryAfterSec = this.#retryAfterSec(`device:${by.deviceId}`);
+    const retryAfterSec = this.#retryAfterSec(`device:${by.deviceId}`, this.#isLocal(by));
     if (retryAfterSec > 0)
       return this.#reject(
         undefined,
@@ -1142,11 +1149,14 @@ export class PsychePermissionBroker implements PermissionBroker {
   async rejectPresence(input: {
     approvalId: string;
     decidedBy: { deviceId: string; surface: Surface };
+    /** The Gateway vouches this is the owner's own Host app or helper. */
+    local?: boolean;
     reason: string;
     code: ErrorCode;
     message: string;
     details?: unknown;
   }): Promise<never> {
+    this.#markLocal(input.decidedBy, input.local);
     const rec = this.#store.getApproval(input.approvalId);
     return this.#reject(
       rec,
@@ -1162,10 +1172,11 @@ export class PsychePermissionBroker implements PermissionBroker {
   async answer(input: PolicyAnswerInput): Promise<ApprovalRequest> {
     this.#sweep();
     const by = input.decidedBy;
+    this.#markLocal(by, input.local);
     const identity =
       "deviceId" in by ? `device:${by.deviceId}` : `channel:${by.channel}:${by.senderId}`;
     const id = input.approvalId;
-    const retryAfterSec = this.#retryAfterSec(identity);
+    const retryAfterSec = this.#retryAfterSec(identity, this.#isLocal(by));
     if (retryAfterSec > 0)
       return this.#reject(
         undefined,
