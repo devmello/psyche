@@ -69,7 +69,15 @@ struct EventMapper {
         case "notification.created", "notification.updated", "notification.resolved", "notification.opened",
              "feed.post", "feed.updated", "idea.updated", "goal.updated":
             return ([.changed(.home)], .none)
-        case "task.updated", "task.action", "run.updated", "specialist.spawned", "specialist.progress", "specialist.result":
+        case "run.updated":
+            // A chat run starting or ending is what a long reply's Live Activity follows; the rest is the same
+            // refetch hint every run change has always been.
+            var out: [LiveEvent] = []
+            if let run = p["run"], let thread = run["threadId"]?.string, let update = Self.runUpdate(from: run) {
+                out.append(.chat(.run(threadID: thread, update: update)))
+            }
+            return (out + [.changed(.activity), .changed(.home), .changed(.widgets)], .none)
+        case "task.updated", "task.action", "specialist.spawned", "specialist.progress", "specialist.result":
             // A task or specialist job can be what a pinned widget's bindings read, so widgets refetch too.
             return ([.changed(.activity), .changed(.home), .changed(.widgets)], .none)
         case "automation.updated":
@@ -100,6 +108,26 @@ struct EventMapper {
         default:
             return ([], .none)
         }
+    }
+}
+
+extension EventMapper {
+    /// `RunStatus`: running | done | failed | cancelled | awaiting_approval | awaiting_input. A status this build
+    /// does not know maps to nothing, so a newer Gateway never breaks an older phone.
+    static func runUpdate(from run: JSONValue) -> RunUpdate? {
+        let state: RunUpdate.State
+        switch run["status"]?.string {
+        case "running": state = .running
+        case "awaiting_approval", "awaiting_input": state = .waiting
+        case "done": state = .done
+        case "failed": state = .failed
+        case "cancelled": state = .cancelled
+        default: return nil
+        }
+        let kind = run["kind"]?.string
+        return RunUpdate(
+            state: state, startedAt: WireFormat.date(run["startedAt"]?.string), isChat: kind == nil || kind == "chat",
+            taskID: run["taskId"]?.string)
     }
 }
 

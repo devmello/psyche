@@ -17,6 +17,7 @@ struct ThreadView: View {
     @Environment(\.alerts) private var alerts
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.threadIsFrontmost) private var frontmost
 
     init(id: String, store: any PsycheBackend) {
         _model = State(initialValue: ThreadModel(id: id, store: store))
@@ -90,8 +91,9 @@ struct ThreadView: View {
         }
         #if os(iOS)
         // iPhone: a thread gets the whole height and the composer sits at the bottom, as in the mockup; back
-        // returns to the tabs. iPad keeps its sidebar.
-        .toolbarVisibility(sizeClass == .compact ? .hidden : .automatic, for: .tabBar)
+        // returns to the tabs. iPad keeps its sidebar. Only while this page is the one on screen: after a back
+        // swipe it can stay in the tree behind the list, and a hidden-bar preference would stay with it.
+        .toolbarVisibility(sizeClass == .compact && frontmost ? .hidden : .automatic, for: .tabBar)
         #endif
         .safeAreaInset(edge: .bottom) {
             Composer(
