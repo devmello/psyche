@@ -44,6 +44,8 @@ import {
   useChatFocusRequest,
 } from "./focus-request.ts";
 import { MessageView } from "./MessageView.tsx";
+import { ModeSwitch } from "./ModeSwitch.tsx";
+import { applyModeChoice } from "./mode-switch.ts";
 import { OfflineBanner } from "./OfflineBanner.tsx";
 import { OutboxQueue } from "./OutboxQueue.tsx";
 import { ComposerPrefill } from "./prefill.ts";
@@ -871,6 +873,23 @@ export function ChatThread({
                   }}
                 />
                 {notice ? <NoticeBar notice={notice} onDismiss={() => setNotice(null)} /> : null}
+                {view.thread ? (
+                  <ModeSwitch
+                    mode={view.thread.thread.permissionMode}
+                    modelRef={view.thread.thread.modelRef ?? null}
+                    listed={models.data}
+                    disabled={composerOff}
+                    onSelect={(m, ref) =>
+                      applyModeChoice(
+                        (method, params) =>
+                          call(method as "threads.update", params as { threadId: string }),
+                        threadId,
+                        m,
+                        ref,
+                      )
+                    }
+                  />
+                ) : null}
                 <VoiceComposer
                   threadId={threadId}
                   persona={persona.name}

@@ -195,4 +195,14 @@ export const chatRest: Partial<Catalogue> = {
   "chat.clear.mainOnly":
     "Vider fonctionne dans la discussion principale. Utilisez /new pour une nouvelle discussion annexe.",
   "chat.commands.clear.description": "Vider la discussion principale",
+  "chat.modeSwitch.label": "Mode d’autorisation",
+  "chat.modeSwitch.autoExplainer":
+    "Auto exécute les actions courantes dans le cadre de vos autorisations et demande avant tout ce qui est sensible. Les paiements et votre liste d’interdits demandent toujours.",
+  "chat.modeSwitch.gotIt": "Compris",
+  "chat.modeSwitch.autoUnavailable": "Auto ne peut pas utiliser {model}.",
+  "chat.modeSwitch.needsModel": "Auto nécessite un modèle compatible.",
+  "chat.modeSwitch.switchModel": "Passer à {model} et utiliser Auto",
+  "chat.modeSwitch.noModel":
+    "Auto nécessite un modèle compatible, comme Claude, GPT ou Gemini. Ajoutez sa clé dans les Réglages.",
+  "chat.modeSwitch.failed": "Impossible de changer le mode : {reason}",
 };

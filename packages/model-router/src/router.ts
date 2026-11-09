@@ -80,10 +80,20 @@ export interface ModelRouterOptions {
   autoModeAllowlist?: (string | RegExp)[];
 }
 
+/**
+ * The current tool-calling models of each provider's newest generation, from the price catalog.
+ * Auto should work on whatever the owner has configured, so this follows the catalog's current
+ * chat models rather than a short list; older generations, previews, local models and anything
+ * the catalog does not know stay at `balanced` (the owner can pin an allowlisted model in one
+ * tap, or widen the list with `autoModeAllowlist`).
+ */
 export const DEFAULT_AUTO_MODE_ALLOWLIST: RegExp[] = [
-  /^anthropic\/claude-(?:fable-5-1|opus-5-5|sonnet-5-5)$/,
-  /^openai\/gpt-6(?:\.1)?-(?:astra|sol)$/,
-  /^google\/gemini-4-argon$/,
+  /^anthropic\/claude-(?:fable-5(?:-1)?|opus-5(?:-5)?|sonnet-5(?:-5)?|haiku-5-5)$/,
+  /^openai\/gpt-6(?:\.1)?-(?:astra|luna|sol)$/,
+  /^google\/gemini-(?:4-argon|3\.8-flash)$/,
+  /^xai\/grok-4\.7$/,
+  /^deepseek\/deepseek-v4-pro$/,
+  /^mistral\/mistral-large-4$/,
 ];
 
 interface Plan {

@@ -188,4 +188,14 @@ export const chatRest: Partial<Catalogue> = {
   "chat.clear.mainOnly":
     "消去はメインチャットで使えます。新しいサイドチャットには/newを使ってください。",
   "chat.commands.clear.description": "メインチャットを消去",
+  "chat.modeSwitch.label": "権限モード",
+  "chat.modeSwitch.autoExplainer":
+    "Autoは許可の範囲内で日常的な操作を実行し、機密性のある操作の前に確認します。支払いと「決して行わない」リストは常に確認します。",
+  "chat.modeSwitch.gotIt": "了解",
+  "chat.modeSwitch.autoUnavailable": "Autoは{model}では使えません。",
+  "chat.modeSwitch.needsModel": "Autoには対応モデルが必要です。",
+  "chat.modeSwitch.switchModel": "{model}に切り替えてAutoを使う",
+  "chat.modeSwitch.noModel":
+    "AutoにはClaude、GPT、Geminiなどの対応モデルが必要です。設定でそのキーを追加してください。",
+  "chat.modeSwitch.failed": "モードを変更できませんでした: {reason}",
 };

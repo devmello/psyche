@@ -185,4 +185,14 @@ export const chatRest: Partial<Catalogue> = {
   "chat.clear.failed": "चैट साफ़ नहीं की जा सकी: {reason}",
   "chat.clear.mainOnly": "साफ़ करना मुख्य चैट में काम करता है। नई साइड चैट के लिए /new उपयोग करें।",
   "chat.commands.clear.description": "मुख्य चैट साफ़ करें",
+  "chat.modeSwitch.label": "अनुमति मोड",
+  "chat.modeSwitch.autoExplainer":
+    "ऑटो मोड आपकी दी गई अनुमतियों के भीतर रोज़मर्रा के काम चलाता है और किसी भी संवेदनशील काम से पहले पूछता है। भुगतान और आपकी ‘कभी नहीं’ सूची हमेशा पूछती है।",
+  "chat.modeSwitch.gotIt": "समझ गया",
+  "chat.modeSwitch.autoUnavailable": "ऑटो मोड {model} पर नहीं चल सकता।",
+  "chat.modeSwitch.needsModel": "ऑटो मोड के लिए समर्थित मॉडल चाहिए।",
+  "chat.modeSwitch.switchModel": "{model} पर जाएँ और ऑटो मोड इस्तेमाल करें",
+  "chat.modeSwitch.noModel":
+    "ऑटो मोड के लिए Claude, GPT या Gemini जैसा समर्थित मॉडल चाहिए। सेटिंग्स में उसकी कुंजी जोड़ें।",
+  "chat.modeSwitch.failed": "मोड बदला नहीं जा सका: {reason}",
 };

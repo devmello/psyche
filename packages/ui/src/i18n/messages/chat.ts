@@ -339,4 +339,14 @@ export const chat = {
   "chat.clear.failed": "Could not clear the chat: {reason}",
   "chat.clear.mainOnly": "Clear works in the main chat. Use /new for a fresh side chat.",
   "chat.commands.clear.description": "Clear the main chat",
+  "chat.modeSwitch.label": "Permission mode",
+  "chat.modeSwitch.autoExplainer":
+    "Auto runs routine actions inside your grants and asks before anything sensitive. Payments and your never list always ask.",
+  "chat.modeSwitch.gotIt": "Got it",
+  "chat.modeSwitch.autoUnavailable": "Auto can't run on {model}.",
+  "chat.modeSwitch.needsModel": "Auto needs a supported model.",
+  "chat.modeSwitch.switchModel": "Switch to {model} and use Auto",
+  "chat.modeSwitch.noModel":
+    "Auto needs a supported model such as Claude, GPT or Gemini. Add its key in Settings.",
+  "chat.modeSwitch.failed": "Could not change the mode: {reason}",
 } as const;

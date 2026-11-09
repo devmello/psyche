@@ -33,7 +33,7 @@ Each thread has a permission mode. Balanced is the default.
 
 A "new source" is a site, connector account, folder, app or MCP server the task has not touched yet. "Sensitive sites" is a built-in, editable list of banking, brokerage, government, health, password-manager, sign-in and webmail hosts.
 
-Change a thread's mode from the mode menu in the chat header. Auto mode is offered only when the thread uses a model on the auto-mode allowlist; the Gateway refuses `auto` otherwise and drops an `auto` thread to Balanced if you switch to a model that is not on the list. Local models are not on the list by default.
+Change a thread's mode from the Manual / Balanced / Auto switch above the message box, or from the mode menu in the chat header. Choosing a mode applies at once, with no Touch ID or password, and becomes the default for new chats. Auto mode is offered only when the thread uses a model on the auto-mode allowlist; the Gateway refuses `auto` otherwise and drops an `auto` thread to Balanced if you switch to a model that is not on the list. Local models are not on the list by default.
 
 The Auto classifier sees only your own recent messages, the task's title, the tool name and the action's metadata. It never sees page text, screenshots, tool results or memory. If it is slow, unavailable or unsure, it answers "sensitive", so the broker asks.
 

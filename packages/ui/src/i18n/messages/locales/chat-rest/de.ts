@@ -192,4 +192,14 @@ export const chatRest: Partial<Catalogue> = {
   "chat.clear.mainOnly":
     "Leeren funktioniert im Hauptchat. Nutze /new für einen frischen Nebenchat.",
   "chat.commands.clear.description": "Hauptchat leeren",
+  "chat.modeSwitch.label": "Berechtigungsmodus",
+  "chat.modeSwitch.autoExplainer":
+    "Auto führt Routineaktionen innerhalb deiner Freigaben aus und fragt vor allem Sensiblen nach. Zahlungen und deine Nie-Liste fragen immer nach.",
+  "chat.modeSwitch.gotIt": "Verstanden",
+  "chat.modeSwitch.autoUnavailable": "Auto kann {model} nicht verwenden.",
+  "chat.modeSwitch.needsModel": "Auto braucht ein unterstütztes Modell.",
+  "chat.modeSwitch.switchModel": "Zu {model} wechseln und Auto nutzen",
+  "chat.modeSwitch.noModel":
+    "Auto braucht ein unterstütztes Modell wie Claude, GPT oder Gemini. Füge seinen Schlüssel in den Einstellungen hinzu.",
+  "chat.modeSwitch.failed": "Der Modus konnte nicht geändert werden: {reason}",
 };

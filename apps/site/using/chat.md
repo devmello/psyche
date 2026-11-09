@@ -46,7 +46,7 @@ Supported providers: Anthropic, OpenAI, Google (Gemini), OpenRouter, any OpenAI-
 
 ### Permission mode
 
-Each thread has a permission mode: **manual**, **balanced** (the default), **auto** or **plan**. Change it from the shield menu in the chat header, or press ⇧⌘M to cycle. **auto** needs a model on the auto-mode allowlist; pick one with `/model` first. What each mode allows is in [Approvals and tiers](/security/approvals-and-tiers).
+Each thread has a permission mode: **manual**, **balanced** (the default), **auto** or **plan**. Change it from the shield menu in the chat header, or press ⇧⌘M to cycle. The Manual / Balanced / Auto switch above the message box sets it in one click, for this chat and as the default for new ones (the first time you pick Auto, a line explains it). **auto** runs only on a model on the auto-mode allowlist, which covers the current Claude, GPT and Gemini models; on any other model the switch offers "Switch to <model> and use Auto" with a model you have a key for. Payments and your never list still ask in every mode. What each mode allows is in [Approvals and tiers](/security/approvals-and-tiers).
 
 ### Slash commands
 

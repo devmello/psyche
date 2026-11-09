@@ -221,6 +221,30 @@ describe("ModelRouter", () => {
     expect(router.allowsAutoMode("ollama/qwen3.8:27b")).toBe(false);
   });
 
+  it("allows Auto on the current tool-calling models, not older ones or local ones", () => {
+    const { router } = setup();
+    for (const ref of [
+      "anthropic/claude-opus-5-5",
+      "anthropic/claude-sonnet-5-5",
+      "anthropic/claude-haiku-5-5",
+      "anthropic/claude-fable-5-1",
+      "anthropic/claude-sonnet-5",
+      "openai/gpt-6-luna",
+      "openai/gpt-6.1-sol",
+      "google/gemini-4-argon",
+    ]) {
+      expect(router.allowsAutoMode(ref), ref).toBe(true);
+    }
+    for (const ref of [
+      "anthropic/claude-sonnet-4-6",
+      "anthropic/claude-haiku-4-5",
+      "openai/gpt-4o",
+      "lmstudio/tiny-7b",
+    ]) {
+      expect(router.allowsAutoMode(ref), ref).toBe(false);
+    }
+  });
+
   it("embeds through the embedding role and reports the dimension", async () => {
     const { router } = setup();
     await router.setRole("embedding", { model: "alpha/embed" });

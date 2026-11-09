@@ -298,6 +298,23 @@ button {
   background: transparent;
   cursor: pointer;
 }
+.mode-switch {
+  padding: 4px 16px 0;
+  font-size: 13px;
+  color: var(--label-secondary);
+}
+.mode-switch p {
+  margin: 4px 0 0;
+}
+.mode-switch-group {
+  display: inline-flex;
+  gap: 4px;
+}
+.mode-switch-group .pill[aria-checked="true"] {
+  background: var(--fill-secondary);
+  color: var(--label-primary);
+  font-weight: 600;
+}
 .messages {
   flex: 1;
   overflow: auto;

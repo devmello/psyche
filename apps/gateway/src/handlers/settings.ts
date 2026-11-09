@@ -30,7 +30,17 @@ const PRESENCE_KEYS = [
   /^channels\.[^.]+\.(dmPolicy|allowFrom|groupAllowFrom)$/,
 ];
 
+/**
+ * The default permission mode for new threads is the owner's own choice, made from the app's mode
+ * switch or Settings, and applies at once: no presence, and no refusal while the security records
+ * are untrusted. What Auto may do stays bounded elsewhere: the model allowlist, the classifier,
+ * the never list and payments (which still ask with presence). Only the owner's authenticated
+ * device (`operator.admin`) can write it; a tool call has no path to this method.
+ */
+export const OWNER_CHOICE_KEYS: readonly string[] = ["permissions.mode"];
+
 export function needsPresence(key: string): boolean {
+  if (OWNER_CHOICE_KEYS.includes(key)) return false;
   const root = key.split(".")[0] ?? "";
   return PRESENCE_ROOTS.includes(root) || PRESENCE_KEYS.some((re) => re.test(key));
 }

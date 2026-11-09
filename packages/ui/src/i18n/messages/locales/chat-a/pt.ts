@@ -190,4 +190,14 @@ export const chatA: Partial<Catalogue> = {
   "chat.clear.clearing": "Limpando…",
   "chat.clear.done": "Chat limpo",
   "chat.clear.failed": "Não foi possível limpar o chat: {reason}",
+  "chat.modeSwitch.label": "Modo de permissão",
+  "chat.modeSwitch.autoExplainer":
+    "O Auto executa ações de rotina dentro das suas permissões e pergunta antes de qualquer coisa sensível. Pagamentos e a sua lista de proibidos sempre perguntam.",
+  "chat.modeSwitch.gotIt": "Entendi",
+  "chat.modeSwitch.autoUnavailable": "O Auto não pode usar {model}.",
+  "chat.modeSwitch.needsModel": "O Auto precisa de um modelo compatível.",
+  "chat.modeSwitch.switchModel": "Mudar para {model} e usar o Auto",
+  "chat.modeSwitch.noModel":
+    "O Auto precisa de um modelo compatível, como Claude, GPT ou Gemini. Adicione a chave dele em Ajustes.",
+  "chat.modeSwitch.failed": "Não foi possível mudar o modo: {reason}",
 };
