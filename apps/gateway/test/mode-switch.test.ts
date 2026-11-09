@@ -144,45 +144,76 @@ describe("threads.update: Auto and the model", () => {
   it("takes Auto and an allowed model in one call (the one-tap switch)", async () => {
     const { db, thread, run } = await updateThreadWith("lmstudio/tiny-7b", {
       permissionMode: "auto",
-      modelRef: "anthropic/claude-haiku-5-5",
+      modelRef: "anthropic/claude-sonnet-5-5",
     });
     await run();
     const row = getThread(db, thread.id);
     expect(row?.permissionMode).toBe("auto");
-    expect(row?.modelRef).toBe("anthropic/claude-haiku-5-5");
+    expect(row?.modelRef).toBe("anthropic/claude-sonnet-5-5");
   });
 
-  it("runs Auto on Haiku 5.5, which the old allowlist refused", async () => {
-    const { db, thread, run } = await updateThreadWith("anthropic/claude-haiku-5-5", {
+  it("keeps Auto off the smallest models: Haiku 5.5 gets the same refusal and offer", async () => {
+    const { run } = await updateThreadWith("anthropic/claude-haiku-5-5", {
       permissionMode: "auto",
     });
-    await run();
-    expect(getThread(db, thread.id)?.permissionMode).toBe("auto");
+    await expect(run()).rejects.toMatchObject({
+      details: { reason: "auto_model_not_allowed", model: "anthropic/claude-haiku-5-5" },
+    });
   });
 });
 
 describe("a tool call cannot switch the mode", () => {
   // The mode changes only through the owner's authenticated device (`settings.set` and
-  // `threads.update` need a paired device's token). No package a tool or a model reaches may name
-  // those methods or the setting: a new tool that does must be reviewed, so this fails first.
+  // `threads.update` need a paired device's token). Nothing a tool or a model reaches may name
+  // those methods, the setting, or write a thread's mode directly: a new tool that does must be
+  // reviewed, so this fails first. The Gateway's own thread handlers (compose/threads.ts) and the
+  // audit label (compose/changes.ts) are the only places in compose/ allowed to.
+  const PATTERNS = [
+    /permissions\.mode/,
+    /["']threads\.update["']/,
+    /["']settings\.set["']/,
+    /updateThread\([^)]*\bpermissionMode\b/s,
+    /setSetting\([^)]*permissions\.mode/s,
+  ];
+
+  function scan(dir: string, root: string, skip: ReadonlySet<string>, out: string[]) {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) scan(p, root, skip, out);
+      else if (/\.(ts|tsx)$/.test(e.name) && !/\.test\./.test(e.name) && !skip.has(e.name)) {
+        const text = readFileSync(p, "utf8");
+        if (PATTERNS.some((re) => re.test(text))) out.push(p.slice(root.length + 1));
+      }
+    }
+  }
+
   it("keeps the mode methods out of the agent, tool, skill and plugin packages", () => {
     const root = join(__dirname, "../../../packages");
     const offenders: string[] = [];
-    const walk = (dir: string) => {
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
-        const p = join(dir, e.name);
-        if (e.isDirectory()) walk(p);
-        else if (/\.(ts|tsx)$/.test(e.name) && !/\.test\./.test(e.name)) {
-          const text = readFileSync(p, "utf8");
-          if (/permissions\.mode|["']threads\.update["']|["']settings\.set["']/.test(text)) {
-            offenders.push(p.slice(root.length + 1));
-          }
-        }
-      }
-    };
     for (const pkg of ["agent-core", "mcp-host", "skills", "plugins", "harnesses", "connectors"]) {
-      walk(join(root, pkg, "src"));
+      scan(join(root, pkg, "src"), root, new Set(), offenders);
     }
     expect(offenders).toEqual([]);
+  });
+
+  it("keeps them out of the Gateway's tool and composition code", () => {
+    const root = join(__dirname, "../src");
+    const offenders: string[] = [];
+    scan(join(root, "compose"), root, new Set(["threads.ts", "changes.ts"]), offenders);
+    expect(offenders).toEqual([]);
+  });
+
+  it("the scan catches what it is meant to", () => {
+    for (const bad of [
+      'call("threads.update", { permissionMode: "auto" })',
+      'updateThread(db, id, { permissionMode: "auto" })',
+      'setSetting(db, "permissions.mode", "auto")',
+      "x.settings = 'permissions.mode'",
+    ]) {
+      expect(
+        PATTERNS.some((re) => re.test(bad)),
+        bad,
+      ).toBe(true);
+    }
   });
 });

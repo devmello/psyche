@@ -12,7 +12,8 @@ import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
  * `gateway.*`, the owner identities and the channel DM / allow policies. Besides
  * `operator.admin` they need fresh user presence: a device-only `policy_change` approval bound to
  * the exact key and value, which the broker only accepts with a verified presence assertion
- * (requiresAuthentication).
+ * (requiresAuthentication). The exception is {@link OWNER_CHOICE_KEYS}: security settings the
+ * owner changes with `operator.admin` alone, no presence step.
  */
 // `computerUse`: enabling computer use and raising an app's tier widen what the agent may do on
 // the Mac (security §12), like `permissions.apps`.
@@ -33,9 +34,11 @@ const PRESENCE_KEYS = [
 /**
  * The default permission mode for new threads is the owner's own choice, made from the app's mode
  * switch or Settings, and applies at once: no presence, and no refusal while the security records
- * are untrusted. What Auto may do stays bounded elsewhere: the model allowlist, the classifier,
- * the never list and payments (which still ask with presence). Only the owner's authenticated
- * device (`operator.admin`) can write it; a tool call has no path to this method.
+ * are untrusted. It stays a SECURITY setting for the seal (`isSecuritySettingKey`): out-of-band
+ * writes are undone, an untrusted state reads only a value the Gateway vouches for, and a re-seal
+ * never adopts one. What Auto may do stays bounded elsewhere: the model allowlist, the rules
+ * classifier, the never list (refused) and payments (which still ask). Only the owner's
+ * authenticated device (`operator.admin`) can write it; a tool call has no path to this method.
  */
 export const OWNER_CHOICE_KEYS: readonly string[] = ["permissions.mode"];
 

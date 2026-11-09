@@ -36,7 +36,54 @@ const listed: ListedModels = {
   roles: { primary: "lmstudio/tiny-7b" },
 };
 
+const refs = (...rs: string[]) => rs.map((ref) => ({ ref, autoMode: true }));
+
 describe("autoModeSuggestion", () => {
+  it("prefers the owner's utility model, then their primary, over anything else allowed", () => {
+    const l: ListedModels = {
+      providers: [
+        { keyConfigured: true, models: refs("anthropic/claude-sonnet-5-5") },
+        { keyConfigured: true, models: refs("openai/gpt-6-sol") },
+      ],
+      roles: { primary: "openai/gpt-6-sol", utility: "anthropic/claude-sonnet-5-5" },
+    };
+    expect(autoModeSuggestion(l, "lmstudio/x")).toBe("anthropic/claude-sonnet-5-5");
+    expect(autoModeSuggestion({ ...l, roles: { primary: "openai/gpt-6-sol" } }, "x/y")).toBe(
+      "openai/gpt-6-sol",
+    );
+  });
+
+  it("never picks a top-tier model by accident when a smaller allowed one is configured", () => {
+    const l: ListedModels = {
+      providers: [
+        {
+          keyConfigured: true,
+          models: refs("anthropic/claude-opus-5-5", "anthropic/claude-sonnet-5-5"),
+        },
+      ],
+      roles: { primary: "lmstudio/tiny-7b" },
+    };
+    expect(autoModeSuggestion(l, "lmstudio/tiny-7b")).toBe("anthropic/claude-sonnet-5-5");
+    const onlyTop: ListedModels = {
+      providers: [{ keyConfigured: true, models: refs("anthropic/claude-opus-5-5") }],
+    };
+    expect(autoModeSuggestion(onlyTop, null)).toBe("anthropic/claude-opus-5-5");
+  });
+
+  it("counts a subscription provider the Gateway reports as configured", () => {
+    const l: ListedModels = {
+      providers: [
+        {
+          id: "claude-code",
+          kind: "claude-code",
+          keyConfigured: true,
+          models: refs("claude-code/claude-sonnet-5-5"),
+        },
+      ],
+    };
+    expect(autoModeSuggestion(l, "lmstudio/tiny-7b")).toBe("claude-code/claude-sonnet-5-5");
+  });
+
   it("offers an allowed model the owner has a key for, never an unkeyed or embedding one", () => {
     expect(autoModeSuggestion(listed, "lmstudio/tiny-7b")).toBe("anthropic/claude-sonnet-5-5");
   });
@@ -86,9 +133,11 @@ describe("isAutoModelRefusal", () => {
 });
 
 describe("applyModeChoice", () => {
-  it("changes the chat, then remembers the choice as the default for new chats", async () => {
+  const main = { id: "t1", kind: "main" };
+
+  it("changes the chat, then saves the choice as the default for new chats from the main chat", async () => {
     const call = vi.fn().mockResolvedValue({});
-    await applyModeChoice(call, "t1", "auto", "anthropic/claude-sonnet-5-5");
+    expect(await applyModeChoice(call, main, "auto", "anthropic/claude-sonnet-5-5")).toBe("saved");
     expect(call).toHaveBeenNthCalledWith(1, "threads.update", {
       threadId: "t1",
       permissionMode: "auto",
@@ -100,16 +149,23 @@ describe("applyModeChoice", () => {
     });
   });
 
-  it("does not remember a choice the Gateway refused, and ignores a failed remember", async () => {
-    const refused = vi.fn().mockRejectedValueOnce(new Error("no"));
-    await expect(applyModeChoice(refused, "t1", "auto")).rejects.toThrow("no");
-    expect(refused).toHaveBeenCalledTimes(1);
+  it("does not write the global default from a side or incognito chat", async () => {
+    for (const kind of ["side", "incognito"]) {
+      const call = vi.fn().mockResolvedValue({});
+      expect(await applyModeChoice(call, { id: "t2", kind }, "auto")).toBe("skipped");
+      expect(call).toHaveBeenCalledTimes(1);
+    }
+  });
 
-    const noRemember = vi
-      .fn()
-      .mockResolvedValueOnce({})
-      .mockRejectedValueOnce(new Error("offline"));
-    await expect(applyModeChoice(noRemember, "t1", "manual")).resolves.toBeUndefined();
+  it("does not save a choice the Gateway refused", async () => {
+    const refused = vi.fn().mockRejectedValueOnce(new Error("no"));
+    await expect(applyModeChoice(refused, main, "auto")).rejects.toThrow("no");
+    expect(refused).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports when the default could not be saved (a device without admin rights)", async () => {
+    const call = vi.fn().mockResolvedValueOnce({}).mockRejectedValueOnce({ code: "forbidden" });
+    expect(await applyModeChoice(call, main, "manual")).toBe("failed");
   });
 });
 
@@ -117,7 +173,7 @@ describe("<ModeSwitch>", () => {
   beforeEach(() => localStorage.clear());
 
   it("switches mode in one click on an allowed model, with a first-time explainer", async () => {
-    const onSelect = vi.fn().mockResolvedValue(undefined);
+    const onSelect = vi.fn().mockResolvedValue("saved");
     render(
       <ModeSwitch
         mode="balanced"
@@ -141,7 +197,7 @@ describe("<ModeSwitch>", () => {
         mode="balanced"
         modelRef="anthropic/claude-sonnet-5-5"
         listed={listed}
-        onSelect={vi.fn().mockResolvedValue(undefined)}
+        onSelect={vi.fn().mockResolvedValue("saved")}
       />,
     );
     await userEvent.click(screen.getByTestId("mode-switch-auto"));
@@ -150,7 +206,7 @@ describe("<ModeSwitch>", () => {
   });
 
   it("marks the current mode and sets manual without any prompt", async () => {
-    const onSelect = vi.fn().mockResolvedValue(undefined);
+    const onSelect = vi.fn().mockResolvedValue("saved");
     render(<ModeSwitch mode="auto" modelRef={null} listed={undefined} onSelect={onSelect} />);
     expect(screen.getByTestId("mode-switch-auto").getAttribute("aria-checked")).toBe("true");
     await userEvent.click(screen.getByTestId("mode-switch-manual"));
@@ -158,7 +214,7 @@ describe("<ModeSwitch>", () => {
   });
 
   it("offers a one-tap model switch when the model cannot run Auto", async () => {
-    const onSelect = vi.fn().mockResolvedValue(undefined);
+    const onSelect = vi.fn().mockResolvedValue("saved");
     render(
       <ModeSwitch
         mode="balanced"
@@ -197,5 +253,36 @@ describe("<ModeSwitch>", () => {
     await userEvent.click(screen.getByTestId("mode-switch-auto"));
     expect(await screen.findByTestId("mode-switch-offer")).toBeTruthy();
     expect(screen.queryByTestId("mode-switch-take-offer")).toBeNull();
+  });
+
+  it("says the default was not saved when the device may not write it", async () => {
+    render(
+      <ModeSwitch
+        mode="balanced"
+        modelRef="anthropic/claude-sonnet-5-5"
+        listed={listed}
+        onSelect={vi.fn().mockResolvedValue("failed")}
+      />,
+    );
+    await userEvent.click(screen.getByTestId("mode-switch-manual"));
+    expect(await screen.findByText(/could not be saved as the default/i)).toBeTruthy();
+  });
+
+  it("does not tell the owner to add a key before the model list has loaded", async () => {
+    const onSelect = vi.fn().mockRejectedValue({
+      code: "forbidden",
+      details: { reason: "auto_model_not_allowed", model: "mystery/model" },
+    });
+    render(
+      <ModeSwitch
+        mode="balanced"
+        modelRef="mystery/model"
+        listed={undefined}
+        onSelect={onSelect}
+      />,
+    );
+    await userEvent.click(screen.getByTestId("mode-switch-auto"));
+    const offer = await screen.findByTestId("mode-switch-offer");
+    expect(offer.textContent).not.toMatch(/key/i);
   });
 });

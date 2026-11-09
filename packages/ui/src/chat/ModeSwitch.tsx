@@ -4,11 +4,13 @@ import {
   autoExplainerSeen,
   autoModeBlockedBy,
   autoModeSuggestion,
+  type DefaultSaved,
   isAutoModelRefusal,
   type ListedModels,
   markAutoExplainerSeen,
   SWITCH_MODES,
   type SwitchMode,
+  safeLocalStorage,
   shortModel,
 } from "./mode-switch.ts";
 
@@ -29,7 +31,7 @@ export interface ModeSwitchProps {
    * Applies the choice (this chat, and the default for new ones). `modelRef` is set when the
    * owner took the offer to switch models. Rejects with the Gateway's error.
    */
-  onSelect: (mode: SwitchMode, modelRef?: string) => Promise<void>;
+  onSelect: (mode: SwitchMode, modelRef?: string) => Promise<DefaultSaved>;
   disabled?: boolean;
 }
 
@@ -49,9 +51,11 @@ export function ModeSwitch({
   const [explainer, setExplainer] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [notSaved, setNotSaved] = useState(false);
 
   const choose = async (next: SwitchMode, pinned?: string): Promise<void> => {
     setError(null);
+    setNotSaved(false);
     if (next === "auto" && pinned === undefined) {
       const blocked = autoModeBlockedBy(listed, modelRef);
       if (blocked !== null) {
@@ -62,8 +66,9 @@ export function ModeSwitch({
     setOffer(null);
     setBusy(true);
     try {
-      await onSelect(next, pinned);
-      if (next === "auto" && !autoExplainerSeen(safeStorage())) setExplainer(true);
+      const saved = await onSelect(next, pinned);
+      if (saved === "failed") setNotSaved(true);
+      if (next === "auto" && !autoExplainerSeen(safeLocalStorage())) setExplainer(true);
     } catch (err) {
       const refusal = isAutoModelRefusal(err);
       if (refusal !== null) setOffer(refusal);
@@ -112,7 +117,16 @@ export function ModeSwitch({
           data-testid="mode-switch-offer"
         >
           {suggestion === null ? (
-            t("chat.modeSwitch.noModel")
+            // "Add its key" only once `models.list` has said what is configured.
+            listed === undefined ? (
+              offer.model === null ? (
+                t("chat.modeSwitch.needsModel")
+              ) : (
+                t("chat.modeSwitch.autoUnavailable", { model: shortModel(offer.model) })
+              )
+            ) : (
+              t("chat.modeSwitch.noModel")
+            )
           ) : (
             <>
               <span>
@@ -142,12 +156,17 @@ export function ModeSwitch({
             type="button"
             className="cursor-default rounded-sm bg-fill-secondary px-2 py-0.5 font-medium text-label-primary hover:bg-fill-primary"
             onClick={() => {
-              markAutoExplainerSeen(safeStorage());
+              markAutoExplainerSeen(safeLocalStorage());
               setExplainer(false);
             }}
           >
             {t("chat.modeSwitch.gotIt")}
           </button>
+        </p>
+      ) : null}
+      {notSaved ? (
+        <p role="status" className="text-callout text-label-secondary">
+          {t("chat.modeSwitch.notSaved")}
         </p>
       ) : null}
       {error !== null ? (
@@ -157,12 +176,4 @@ export function ModeSwitch({
       ) : null}
     </div>
   );
-}
-
-function safeStorage(): Storage | undefined {
-  try {
-    return typeof localStorage === "undefined" ? undefined : localStorage;
-  } catch {
-    return undefined;
-  }
 }

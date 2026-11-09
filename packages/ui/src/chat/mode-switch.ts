@@ -9,7 +9,9 @@
 export interface ListedModels {
   providers?: {
     id?: string;
+    kind?: string;
     local?: boolean;
+    /** A key is stored, or a subscription CLI is installed and signed in (the Gateway decides). */
     keyConfigured?: boolean;
     models?: {
       ref: string;
@@ -17,7 +19,7 @@ export interface ListedModels {
       capabilities?: { toolCalling?: boolean; embeddings?: boolean };
     }[];
   }[];
-  roles?: { primary?: string };
+  roles?: { primary?: string; utility?: string };
 }
 
 /** The modes the switch sets (plan mode keeps its own `/plan` command). */
@@ -49,11 +51,16 @@ export function autoModeBlockedBy(
   return null;
 }
 
+/** The top tier costs the most: offered only when nothing smaller that Auto allows is configured. */
+const TOP_TIER = /(?:fable|opus|mythos)/;
+
 /**
- * An allowed model the owner has configured, to offer when the current one cannot run Auto: it
- * has a key (or is a subscription), can call tools, is not an embedding model, and the Gateway
- * said `autoMode: true`. A model of the current model's provider comes first, then the primary
- * role's provider, then listing order. Null when none is configured.
+ * An allowed model the owner has configured, to offer when the current one cannot run Auto: the
+ * provider has a key (a subscription CLI counts once the Gateway reports it configured), the
+ * model can call tools, is not an embedding model, and the Gateway said `autoMode: true`.
+ * Order: the owner's utility model, then their primary model, then a model of the current
+ * model's provider, then listing order; a top-tier model (Fable, Opus) comes last so a tap never
+ * picks the most expensive one by accident. Null when none is configured.
  */
 export function autoModeSuggestion(
   listed: ListedModels | undefined,
@@ -70,7 +77,12 @@ export function autoModeSuggestion(
       if (m.autoMode !== true) continue;
       if (m.capabilities?.embeddings === true || m.capabilities?.toolCalling === false) continue;
       const i = preferred.indexOf(providerOf(m.ref));
-      candidates.push({ ref: m.ref, rank: (i === -1 ? preferred.length : i) * 1000 + order });
+      const own =
+        m.ref === listed?.roles?.utility ? 0 : m.ref === listed?.roles?.primary ? 1 : undefined;
+      const rank =
+        own ??
+        10 + (TOP_TIER.test(m.ref) ? 1000 : 0) + (i === -1 ? preferred.length : i) * 100 + order;
+      candidates.push({ ref: m.ref, rank });
     }
   });
   candidates.sort((a, b) => a.rank - b.rank);
@@ -110,19 +122,40 @@ export function markAutoExplainerSeen(storage: Pick<Storage, "setItem"> | undefi
   }
 }
 
-/** The calls one switch click makes; `call` is the chat's gateway call function. */
+/** The browser's local storage, or undefined when it is blocked (private windows, previews). */
+export function safeLocalStorage(): Storage | undefined {
+  try {
+    return typeof localStorage === "undefined" ? undefined : localStorage;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Whether the choice was also saved as the default for new chats. */
+export type DefaultSaved = "saved" | "skipped" | "failed";
+
+/**
+ * The calls one switch click makes; `call` is the chat's gateway call function. The chat itself
+ * changes first (a refusal throws and nothing else is written). Only the main chat saves the
+ * default for new chats: a side or incognito chat's choice stays with that chat. A device that
+ * may not write the default (no `operator.admin`) reports `failed` so the switch can say so.
+ */
 export async function applyModeChoice(
   call: (method: string, params: unknown) => Promise<unknown>,
-  threadId: string,
+  thread: { id: string; kind?: string },
   mode: SwitchMode,
   modelRef?: string,
-): Promise<void> {
+): Promise<DefaultSaved> {
   await call("threads.update", {
-    threadId,
+    threadId: thread.id,
     permissionMode: mode,
     ...(modelRef === undefined ? {} : { modelRef }),
   });
-  // The choice sticks for new chats and across restarts. This chat is already changed, so a
-  // failure to remember it is not worth an error.
-  await call("settings.set", { key: "permissions.mode", value: mode }).catch(() => {});
+  if (thread.kind !== "main") return "skipped";
+  try {
+    await call("settings.set", { key: "permissions.mode", value: mode });
+    return "saved";
+  } catch {
+    return "failed";
+  }
 }

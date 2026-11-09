@@ -183,7 +183,7 @@ export const chat: Partial<Catalogue> = {
   "chat.commands.clear.description": "清空主聊天",
   "chat.modeSwitch.label": "权限模式",
   "chat.modeSwitch.autoExplainer":
-    "自动模式会在你的授权范围内执行日常操作，遇到敏感操作时先询问。付款和你的“禁止”清单始终会询问。",
+    "自动模式会在你的授权范围内执行日常操作，遇到敏感操作时先询问。付款始终会询问；你的“禁止”清单始终会被拒绝。",
   "chat.modeSwitch.gotIt": "知道了",
   "chat.modeSwitch.autoUnavailable": "自动模式无法使用 {model}。",
   "chat.modeSwitch.needsModel": "自动模式需要受支持的模型。",
@@ -191,4 +191,5 @@ export const chat: Partial<Catalogue> = {
   "chat.modeSwitch.noModel":
     "自动模式需要 Claude、GPT 或 Gemini 等受支持的模型。请在设置中添加其密钥。",
   "chat.modeSwitch.failed": "无法更改模式：{reason}",
+  "chat.modeSwitch.notSaved": "已在此聊天中更改，但未能保存为新聊天的默认设置。",
 };

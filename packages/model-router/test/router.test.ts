@@ -221,23 +221,27 @@ describe("ModelRouter", () => {
     expect(router.allowsAutoMode("ollama/qwen3.8:27b")).toBe(false);
   });
 
-  it("allows Auto on the current tool-calling models, not older ones or local ones", () => {
+  it("allows Auto on the current top-tier models, not small, older or local ones", () => {
     const { router } = setup();
     for (const ref of [
       "anthropic/claude-opus-5-5",
       "anthropic/claude-sonnet-5-5",
-      "anthropic/claude-haiku-5-5",
       "anthropic/claude-fable-5-1",
       "anthropic/claude-sonnet-5",
-      "openai/gpt-6-luna",
+      "openai/gpt-6-sol",
       "openai/gpt-6.1-sol",
       "google/gemini-4-argon",
     ]) {
       expect(router.allowsAutoMode(ref), ref).toBe(true);
     }
     for (const ref of [
+      "anthropic/claude-haiku-5-5",
+      "openai/gpt-6-luna",
+      "google/gemini-3.8-flash",
+      "xai/grok-4.7",
+      "deepseek/deepseek-v4-pro",
+      "mistral/mistral-large-4",
       "anthropic/claude-sonnet-4-6",
-      "anthropic/claude-haiku-4-5",
       "openai/gpt-4o",
       "lmstudio/tiny-7b",
     ]) {

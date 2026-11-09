@@ -200,7 +200,7 @@ export const chatRest: Partial<Catalogue> = {
   "chat.commands.clear.description": "Cancella la chat principale",
   "chat.modeSwitch.label": "Modalità permessi",
   "chat.modeSwitch.autoExplainer":
-    "Auto esegue le azioni di routine entro i tuoi permessi e chiede prima di qualsiasi cosa delicata. I pagamenti e il tuo elenco dei divieti chiedono sempre.",
+    "Auto esegue le azioni di routine entro i tuoi permessi e chiede prima di qualsiasi cosa delicata. I pagamenti chiedono sempre; il tuo elenco dei divieti viene sempre rifiutato.",
   "chat.modeSwitch.gotIt": "Ho capito",
   "chat.modeSwitch.autoUnavailable": "Auto non può usare {model}.",
   "chat.modeSwitch.needsModel": "Auto richiede un modello supportato.",
@@ -208,4 +208,6 @@ export const chatRest: Partial<Catalogue> = {
   "chat.modeSwitch.noModel":
     "Auto richiede un modello supportato, come Claude, GPT o Gemini. Aggiungi la sua chiave in Impostazioni.",
   "chat.modeSwitch.failed": "Impossibile cambiare la modalità: {reason}",
+  "chat.modeSwitch.notSaved":
+    "Modificato per questa chat, ma non è stato possibile salvarlo come predefinito per le nuove chat.",
 };

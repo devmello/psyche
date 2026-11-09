@@ -81,19 +81,17 @@ export interface ModelRouterOptions {
 }
 
 /**
- * The current tool-calling models of each provider's newest generation, from the price catalog.
- * Auto should work on whatever the owner has configured, so this follows the catalog's current
- * chat models rather than a short list; older generations, previews, local models and anything
- * the catalog does not know stay at `balanced` (the owner can pin an allowlisted model in one
- * tap, or widen the list with `autoModeAllowlist`).
+ * The current top-tier tool-calling chat models of the three big labs, as the price catalog lists
+ * them. Smaller models (Haiku, the luna and flash tiers), older generations, previews, local
+ * models and any other provider stay at `balanced`: the owner can take the one-tap "Switch to
+ * <model>" offer, or widen the list with `autoModeAllowlist`. Matching is on the provider id
+ * (the ref prefix), as it always was.
  */
 export const DEFAULT_AUTO_MODE_ALLOWLIST: RegExp[] = [
-  /^anthropic\/claude-(?:fable-5(?:-1)?|opus-5(?:-5)?|sonnet-5(?:-5)?|haiku-5-5)$/,
-  /^openai\/gpt-6(?:\.1)?-(?:astra|luna|sol)$/,
-  /^google\/gemini-(?:4-argon|3\.8-flash)$/,
-  /^xai\/grok-4\.7$/,
-  /^deepseek\/deepseek-v4-pro$/,
-  /^mistral\/mistral-large-4$/,
+  /^anthropic\/claude-(?:fable-5(?:-1)?|opus-5(?:-5)?|sonnet-5(?:-5)?)$/,
+  /^openai\/gpt-6-(?:astra|sol)$/,
+  /^openai\/gpt-6\.1-sol$/,
+  /^google\/gemini-4-argon$/,
 ];
 
 interface Plan {

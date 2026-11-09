@@ -341,7 +341,7 @@ export const chat = {
   "chat.commands.clear.description": "Clear the main chat",
   "chat.modeSwitch.label": "Permission mode",
   "chat.modeSwitch.autoExplainer":
-    "Auto runs routine actions inside your grants and asks before anything sensitive. Payments and your never list always ask.",
+    "Auto runs routine actions inside your grants and asks before anything sensitive. Payments always ask; your never list is always refused.",
   "chat.modeSwitch.gotIt": "Got it",
   "chat.modeSwitch.autoUnavailable": "Auto can't run on {model}.",
   "chat.modeSwitch.needsModel": "Auto needs a supported model.",
@@ -349,4 +349,6 @@ export const chat = {
   "chat.modeSwitch.noModel":
     "Auto needs a supported model such as Claude, GPT or Gemini. Add its key in Settings.",
   "chat.modeSwitch.failed": "Could not change the mode: {reason}",
+  "chat.modeSwitch.notSaved":
+    "Changed for this chat, but it could not be saved as the default for new chats.",
 } as const;

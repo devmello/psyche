@@ -198,7 +198,7 @@ export const chat: Partial<Catalogue> = {
   "chat.commands.clear.description": "مسح الدردشة الرئيسية",
   "chat.modeSwitch.label": "وضع الأذونات",
   "chat.modeSwitch.autoExplainer":
-    "يُنفّذ الوضع التلقائي الإجراءات الروتينية ضمن صلاحياتك ويسأل قبل أي أمر حساس. تظل المدفوعات وقائمة «لا تفعل أبدًا» تطلب موافقتك دائمًا.",
+    "يُنفّذ الوضع التلقائي الإجراءات الروتينية ضمن صلاحياتك ويسأل قبل أي أمر حساس. تطلب المدفوعات موافقتك دائمًا، وتُرفض قائمة «لا تفعل أبدًا» دائمًا.",
   "chat.modeSwitch.gotIt": "فهمت",
   "chat.modeSwitch.autoUnavailable": "لا يمكن للوضع التلقائي العمل على {model}.",
   "chat.modeSwitch.needsModel": "يحتاج الوضع التلقائي إلى نموذج مدعوم.",
@@ -206,4 +206,6 @@ export const chat: Partial<Catalogue> = {
   "chat.modeSwitch.noModel":
     "يحتاج الوضع التلقائي إلى نموذج مدعوم مثل Claude أو GPT أو Gemini. أضف مفتاحه في الإعدادات.",
   "chat.modeSwitch.failed": "تعذّر تغيير الوضع: {reason}",
+  "chat.modeSwitch.notSaved":
+    "تم التغيير لهذه الدردشة، لكن تعذّر حفظه كإعداد افتراضي للدردشات الجديدة.",
 };

@@ -172,12 +172,14 @@ export {
   autoExplainerSeen,
   autoModeBlockedBy,
   autoModeSuggestion,
+  type DefaultSaved,
   isAutoModelRefusal,
   isSwitchMode,
   type ListedModels,
   markAutoExplainerSeen,
   SWITCH_MODES,
   type SwitchMode,
+  safeLocalStorage,
   shortModel,
 } from "./chat/mode-switch.ts";
 export { OfflineBanner } from "./chat/OfflineBanner.tsx";

@@ -189,7 +189,7 @@ export const chatRest: Partial<Catalogue> = {
   "chat.commands.clear.description": "메인 대화 지우기",
   "chat.modeSwitch.label": "권한 모드",
   "chat.modeSwitch.autoExplainer":
-    "자동 모드는 허용된 범위 안에서 일상적인 작업을 실행하고, 민감한 작업은 먼저 묻습니다. 결제와 ‘절대 안 함’ 목록은 항상 묻습니다.",
+    "자동 모드는 허용된 범위 안에서 일상적인 작업을 실행하고, 민감한 작업은 먼저 묻습니다. 결제는 항상 묻고, ‘절대 안 함’ 목록은 항상 거부됩니다.",
   "chat.modeSwitch.gotIt": "확인",
   "chat.modeSwitch.autoUnavailable": "자동 모드는 {model}에서 사용할 수 없습니다.",
   "chat.modeSwitch.needsModel": "자동 모드에는 지원되는 모델이 필요합니다.",
@@ -197,4 +197,5 @@ export const chatRest: Partial<Catalogue> = {
   "chat.modeSwitch.noModel":
     "자동 모드에는 Claude, GPT, Gemini 같은 지원 모델이 필요합니다. 설정에서 해당 키를 추가하세요.",
   "chat.modeSwitch.failed": "모드를 변경하지 못했습니다: {reason}",
+  "chat.modeSwitch.notSaved": "이 채팅에서는 변경했지만 새 채팅의 기본값으로 저장하지 못했습니다.",
 };

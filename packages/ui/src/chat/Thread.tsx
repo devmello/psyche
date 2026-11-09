@@ -203,6 +203,7 @@ export function ChatThread({
   // What the argument popup (`/model `, `/mode `) lists: the data this column already holds.
   const argModelRef = view.thread?.thread.modelRef ?? null;
   const argMode = view.thread?.thread.permissionMode;
+  const threadKind = view.thread?.thread.kind;
   const argContext = useMemo<ArgContext>(
     () => ({ models: models.data, modelRef: argModelRef, permissionMode: argMode }),
     [models.data, argModelRef, argMode],
@@ -883,7 +884,7 @@ export function ChatThread({
                       applyModeChoice(
                         (method, params) =>
                           call(method as "threads.update", params as { threadId: string }),
-                        threadId,
+                        { id: threadId, kind: threadKind },
                         m,
                         ref,
                       )

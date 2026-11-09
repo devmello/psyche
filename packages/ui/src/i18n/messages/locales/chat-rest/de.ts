@@ -194,7 +194,7 @@ export const chatRest: Partial<Catalogue> = {
   "chat.commands.clear.description": "Hauptchat leeren",
   "chat.modeSwitch.label": "Berechtigungsmodus",
   "chat.modeSwitch.autoExplainer":
-    "Auto führt Routineaktionen innerhalb deiner Freigaben aus und fragt vor allem Sensiblen nach. Zahlungen und deine Nie-Liste fragen immer nach.",
+    "Auto führt Routineaktionen innerhalb deiner Freigaben aus und fragt vor allem Sensiblen nach. Zahlungen fragen immer nach; deine Nie-Liste wird immer abgelehnt.",
   "chat.modeSwitch.gotIt": "Verstanden",
   "chat.modeSwitch.autoUnavailable": "Auto kann {model} nicht verwenden.",
   "chat.modeSwitch.needsModel": "Auto braucht ein unterstütztes Modell.",
@@ -202,4 +202,6 @@ export const chatRest: Partial<Catalogue> = {
   "chat.modeSwitch.noModel":
     "Auto braucht ein unterstütztes Modell wie Claude, GPT oder Gemini. Füge seinen Schlüssel in den Einstellungen hinzu.",
   "chat.modeSwitch.failed": "Der Modus konnte nicht geändert werden: {reason}",
+  "chat.modeSwitch.notSaved":
+    "Für diesen Chat geändert, konnte aber nicht als Standard für neue Chats gespeichert werden.",
 };

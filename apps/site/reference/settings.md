@@ -31,6 +31,7 @@ Who may change a setting:
 | Key | What it does | Default | Where to change | Source |
 | --- | --- | --- | --- | --- |
 | `permissions.policy` | The owner's permission policy: rules, folders, sites, apps, connectors, grant lifetimes and approval options. Fields are listed below. Applied without a restart. An invalid value is ignored with a warning. | `{ "defaultMode": "balanced" }` | Settings → Permissions; Settings → File access for folders | [compose/index.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/index.ts) |
+| `permissions.mode` | The default permission mode for new chats: `manual`, `balanced` or `auto`. A new chat starts in `auto` only if its model is on the auto-mode allowlist, otherwise in `balanced`. Changing it needs `operator.admin` but no Touch ID or password. | `balanced` | The mode switch above the message box; Settings → Permissions | [handlers/threads.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/handlers/threads.ts) |
 | `models.primary` | The model for chat and tasks (`provider/model`). Overrides `PSYCHE_MODEL`; re-applied at every start. | `PSYCHE_MODEL`, else none | Settings → Model & providers | [compose/model-settings.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/model-settings.ts) |
 | `models.utility` | The model for background jobs such as the Auto-mode classifier and the Feed. | `PSYCHE_UTILITY_MODEL`, else the primary model | Settings → Model & providers | [compose/model-settings.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/model-settings.ts) |
 | `computerUse.enabled` | Turns computer use on. While off, the computer-use tools are not offered and every app is off. | `false` | Settings → Computer use | [compose/computer-settings.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/computer-settings.ts) |
@@ -145,7 +146,7 @@ Read by the CLI (`psyche`):
 
 ## Written by the app, not read by the Gateway yet
 
-The Settings screen stores these keys, but the Gateway does not act on them yet: `permissions.mode` (default mode for new threads), `backup.schedule`, `vm.clipboard`, `vm.credentials`, `vm.shares`, `vault.backend`, `vault.fillDefault`, `data.replayRetentionDays`, `data.transcriptRecall` and `models.image`. The desktop app may read some of them itself. The full list of keys the app writes is in [setting-labels.ts](https://github.com/devmello/psyche/blob/main/packages/ui/src/screens/settings/setting-labels.ts).
+The Settings screen stores these keys, but the Gateway does not act on them yet: `backup.schedule`, `vm.clipboard`, `vm.credentials`, `vm.shares`, `vault.backend`, `vault.fillDefault`, `data.replayRetentionDays`, `data.transcriptRecall` and `models.image`. The desktop app may read some of them itself. The full list of keys the app writes is in [setting-labels.ts](https://github.com/devmello/psyche/blob/main/packages/ui/src/screens/settings/setting-labels.ts).
 
 ## Learn more
 

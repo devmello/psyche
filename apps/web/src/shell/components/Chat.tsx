@@ -9,6 +9,7 @@ import {
   markAutoExplainerSeen,
   SWITCH_MODES,
   type SwitchMode,
+  safeLocalStorage,
   shortModel,
   t,
 } from "@psyche/ui";
@@ -573,10 +574,13 @@ export function ModeSwitch(props: {
   const [offer, setOffer] = useState<{ model: string | null } | null>(null);
   const [explainer, setExplainer] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notSaved, setNotSaved] = useState(false);
   const modelRef = props.thread.modelRef ?? null;
 
   const choose = async (mode: SwitchMode, pinned?: string): Promise<void> => {
     setError(null);
+    setNotSaved(false);
     if (mode === "auto" && pinned === undefined) {
       const blocked = autoModeBlockedBy(props.listed, modelRef);
       if (blocked !== null) {
@@ -585,14 +589,23 @@ export function ModeSwitch(props: {
       }
     }
     setOffer(null);
+    setBusy(true);
     try {
-      await applyModeChoice((m, p) => store.call(m, p), props.thread.id, mode, pinned);
+      const saved = await applyModeChoice(
+        (m, p) => store.call(m, p),
+        { id: props.thread.id, kind: props.thread.kind },
+        mode,
+        pinned,
+      );
+      if (saved === "failed") setNotSaved(true);
       void store.refresh();
-      if (mode === "auto" && !autoExplainerSeen(window.localStorage)) setExplainer(true);
+      if (mode === "auto" && !autoExplainerSeen(safeLocalStorage())) setExplainer(true);
     } catch (err) {
       const refusal = isAutoModelRefusal(err);
       if (refusal !== null) setOffer(refusal);
       else setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
     }
   };
   const suggestion = offer === null ? null : autoModeSuggestion(props.listed, modelRef);
@@ -607,7 +620,7 @@ export function ModeSwitch(props: {
             type="button"
             role="radio"
             aria-checked={props.thread.permissionMode === m}
-            disabled={props.disabled}
+            disabled={props.disabled || busy}
             className="pill"
             data-testid={`mode-switch-${m}`}
             onClick={() => void choose(m)}
@@ -619,7 +632,16 @@ export function ModeSwitch(props: {
       {offer !== null ? (
         <p role="status" data-testid="mode-switch-offer">
           {suggestion === null ? (
-            t("chat.modeSwitch.noModel")
+            // "Add its key" only once `models.list` has said what is configured.
+            props.listed === undefined ? (
+              offer.model === null ? (
+                t("chat.modeSwitch.needsModel")
+              ) : (
+                t("chat.modeSwitch.autoUnavailable", { model: shortModel(offer.model) })
+              )
+            ) : (
+              t("chat.modeSwitch.noModel")
+            )
           ) : (
             <>
               {offer.model === null
@@ -644,7 +666,7 @@ export function ModeSwitch(props: {
             type="button"
             className="pill"
             onClick={() => {
-              markAutoExplainerSeen(window.localStorage);
+              markAutoExplainerSeen(safeLocalStorage());
               setExplainer(false);
             }}
           >
@@ -652,6 +674,7 @@ export function ModeSwitch(props: {
           </button>
         </p>
       ) : null}
+      {notSaved ? <p role="status">{t("chat.modeSwitch.notSaved")}</p> : null}
       {error !== null ? <p role="alert">{t("chat.modeSwitch.failed", { reason: error })}</p> : null}
     </div>
   );
