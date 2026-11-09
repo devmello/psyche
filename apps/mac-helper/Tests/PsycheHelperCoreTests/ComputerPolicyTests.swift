@@ -345,3 +345,34 @@ struct AttentionTests {
         #expect(!Attention.isSensitive("com.apple.Notes", settings: TierSettings()))
     }
 }
+
+@Suite("computer.resolve_target report")
+struct TargetReportTests {
+    @Test func reportsTheElementsLabelsFirstDeduplicatedAndCapped() {
+        let long = String(repeating: "x", count: 500)
+        let out = TargetReport.result(role: "AXButton", labels: ["  Place bid ", "Place bid", "", "Bidding", long], secure: false, app: "com.example.Auction")
+        guard case .object(let o) = out, case .array(let labels)? = o["labels"] else { Issue.record("not an object"); return }
+        #expect(o["label"] == .string("Place bid"))
+        #expect(o["role"] == .string("AXButton"))
+        #expect(o["app"] == .string("com.example.Auction"))
+        #expect(labels.count == 3)
+        #expect(labels.first == .string("Place bid"))
+        guard case .string(let last)? = labels.last else { Issue.record("no label"); return }
+        #expect(last.count == 200)
+    }
+
+    @Test func aSecureFieldReportsItsRoleButNoLabel() {
+        let out = TargetReport.result(role: "AXTextField", labels: ["Password"], secure: true, app: "com.example.App")
+        guard case .object(let o) = out else { Issue.record("not an object"); return }
+        #expect(o["secure"] == .bool(true))
+        #expect(o["label"] == nil)
+        #expect(o["labels"] == .array([]))
+    }
+
+    @Test func aTargetWithNoLabelReportsNone() {
+        let out = TargetReport.result(role: "AXGroup", labels: [], secure: false, app: "com.example.App")
+        guard case .object(let o) = out else { Issue.record("not an object"); return }
+        #expect(o["label"] == nil)
+        #expect(o["labels"] == .array([]))
+    }
+}

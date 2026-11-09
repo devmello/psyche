@@ -6080,15 +6080,16 @@ export interface MCPAddResult {
 }
 
 export interface MCPServerStatus {
-    connected: boolean;
-    enabled?:  boolean;
-    id:        string;
-    madeBy?:   MadeBy;
-    name:      string;
-    network:   boolean;
-    transport: TransportEnum;
-    trust:     Trust;
-    version?:  string;
+    connected:     boolean;
+    enabled?:      boolean;
+    handlesMoney?: boolean;
+    id:            string;
+    madeBy?:       MadeBy;
+    name:          string;
+    network:       boolean;
+    transport:     TransportEnum;
+    trust:         Trust;
+    version?:      string;
 }
 
 export type MadeBy = "psyche";
@@ -6127,6 +6128,18 @@ export interface MCPFilesWriteParams {
     content:  string;
     path:     string;
     serverId: string;
+}
+
+export interface MCPHandlesMoneySetParams {
+    approvalId?: string;
+    mode:        MemoTaskMode;
+    serverId:    string;
+}
+
+export type MemoTaskMode = "auto" | "always" | "never";
+
+export interface MCPHandlesMoneySetResult {
+    server: MCPServerStatus;
 }
 
 export interface MCPProbeParams {
@@ -12964,8 +12977,6 @@ export interface VoiceMemoSaveParams {
     task?:     MemoTaskMode;
     threadId?: string;
 }
-
-export type MemoTaskMode = "auto" | "always" | "never";
 
 export interface VoiceMemoSaveResult {
     /**

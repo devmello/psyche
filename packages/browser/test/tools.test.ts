@@ -128,6 +128,16 @@ describe("browser.* tools", () => {
       sideEffect: "financial",
       kind: "purchase",
     });
+    // Not a payment: an email CC, a library card and a card PIN are no card fields, and a "Where
+    // to buy" link only navigates.
+    await driver.navigate(tabId, desktop.browser.url("a/not-pay"));
+    const notPay = await driver.snapshot(tabId);
+    for (const name of ["Send", "Where to buy"]) {
+      const ref = notPay.refs.find((r) => r.name === name)?.ref ?? "";
+      expect(click?.describeCall?.({ tabId, target: { ref } })?.sideEffect, name).not.toBe(
+        "financial",
+      );
+    }
     await driver.navigate(tabId, desktop.browser.url("a/login"));
     const login = await driver.snapshot(tabId);
     const signIn = login.refs.find((r) => r.name === "Sign in")?.ref ?? "";

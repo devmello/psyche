@@ -70,6 +70,7 @@ There is no shopping connector in the Gateway. The agent compares prices and bui
 - **Calling an MCP tool** with a side effect: an "MCP tool" card with the server, the tool and the full arguments. Reads follow your permission mode: the first read from a new server in a task asks.
 - **Grants end when a server changes.** A standing grant is bound to the server's exact tool list. If the server changes its tools or their descriptions, grants for it are revoked and the agent asks again. Removing a server revokes all its grants.
 - **Per-tool rules.** You can set Allow, Ask or Deny for one MCP tool in the `permissions.policy` setting, under `connectors`, keyed by server id and tool name.
+- **Payments.** A tool that moves money asks every time, once only, with Touch ID or your password. Psyche judges by the tool's name and description (`send_money` and "Places a stock market order" count; `git_checkout`, `transfer_file` and "Sends an adaptive card" do not), but a server writes those words itself. In Settings → Connectors → a server → Payments you can say that every tool of it moves money, or that none does. Choosing "No tool moves money" lowers protection, so it asks for your approval first.
 - **After reading untrusted content**, writing or sending to a target you did not name asks even if a grant covers it. See [Untrusted content](/security/taint).
 
 ## Limits today

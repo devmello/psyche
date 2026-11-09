@@ -360,7 +360,6 @@ describe("review regressions", () => {
     for (const name of [
       "Buy",
       "Buy now",
-      "Buy it now",
       "Send Payment",
       "Place order",
       "Place your order",
@@ -369,19 +368,16 @@ describe("review regressions", () => {
       "Reserve",
       "Order",
       "Order now",
-      "Checkout",
-      "Check out",
       "Pay",
       "Pay now",
       "Confirm purchase",
       "Complete payment",
-      "Subscribe",
       "Book now",
     ]) {
       expect(classifyActivation({ ...btn, name }).sideEffect, name).toBe("financial");
-      // A link styled as the same call to action is the same action.
+      // A link only navigates: the control that submits is the payment (money-intent.test.ts).
       expect(classifyActivation({ ...btn, role: "link", tag: "A", name }).sideEffect, name).toBe(
-        "financial",
+        "read",
       );
     }
     // Ordinary words around them are not payments.
@@ -398,8 +394,9 @@ describe("review regressions", () => {
     for (const action of [
       "https://shop.example/checkout",
       "https://shop.example/payments/confirm",
-      "https://shop.example/orders/new",
-      "https://shop.example/billing",
+      "https://shop.example/orders",
+      "https://shop.example/orders/create",
+      "https://shop.example/transfer/submit",
       "https://shop.example/buy",
     ]) {
       expect(
@@ -435,11 +432,14 @@ describe("review regressions", () => {
     expect(classifyActivation({ ...cardForm, formHasPaymentFields: false }).sideEffect).toBe(
       "write",
     );
-    expect(isPaymentField("cc-number")).toBe(true);
-    expect(isPaymentField(undefined, "card_number")).toBe(true);
-    expect(isPaymentField(undefined, "cvv")).toBe(true);
-    expect(isPaymentField(undefined, "billing-expiry")).toBe(true);
-    expect(isPaymentField("email", "discard", "cardigan")).toBe(false);
+    expect(isPaymentField({ autocomplete: "cc-number" })).toBe(true);
+    expect(isPaymentField({ name: "card_number" })).toBe(true);
+    expect(isPaymentField({ name: "cvv" })).toBe(true);
+    expect(isPaymentField({ name: "card-expiry" })).toBe(true);
+    expect(isPaymentField({ autocomplete: "email", name: "discard", id: "cardigan" })).toBe(false);
+    expect(isPaymentField({ name: "cc" })).toBe(false);
+    expect(isPaymentField({ name: "library-card" })).toBe(false);
+    expect(isPaymentField({ name: "card_pin" })).toBe(false);
   });
 
   it("refuses clipboard chords", () => {

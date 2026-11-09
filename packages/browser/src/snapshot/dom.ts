@@ -1,3 +1,4 @@
+import { isPaymentField as isMoneyPaymentField } from "@psyche/protocol/money-intent";
 import type { CaptureSnapshotResult, DocumentSnapshot } from "../cdp/types.ts";
 import { tryOrigin } from "../origin/canonical.ts";
 
@@ -191,7 +192,7 @@ export class DomIndex {
     for (const n of this.#byBackend.values()) {
       if (n.docIndex !== form.docIndex || (n.tag !== "INPUT" && n.tag !== "SELECT")) continue;
       if (this.formOf(n)?.backendNodeId !== form.backendNodeId) continue;
-      if (isPaymentField(n.attrs.autocomplete, n.attrs.name, n.attrs.id)) {
+      if (isPaymentField(n.attrs)) {
         found = true;
         break;
       }
@@ -230,38 +231,23 @@ function rareStrings(
   return m;
 }
 
-const PAYMENT_FIELD_WORDS = new Set([
-  "card",
-  "cardnumber",
-  "cardnum",
-  "cc",
-  "ccnum",
-  "ccnumber",
-  "ccexp",
-  "cvv",
-  "cvv2",
-  "cvc",
-  "csc",
-  "expiry",
-  "expirydate",
-]);
-
-/** A card field by its `autocomplete` (`cc-number`…) or its `name` / `id` (`card_number`, `cvv`). */
-export function isPaymentField(
-  autocomplete: string | undefined,
-  ...names: (string | undefined)[]
-): boolean {
-  if (
-    (autocomplete ?? "")
-      .toLowerCase()
-      .split(/\s+/)
-      .some((t) => t.startsWith("cc-"))
-  )
-    return true;
-  return names.some((n) =>
-    (n ?? "")
-      .toLowerCase()
-      .split(/[^a-z0-9]+/)
-      .some((seg) => PAYMENT_FIELD_WORDS.has(seg)),
-  );
+/**
+ * A card field by its `autocomplete` (`cc-number`, `cc-exp`, `cc-csc`) or its name, id, label or
+ * placeholder (card number, security code, expiry): the shared rule (`money-intent`). Never `cc`
+ * alone (email CC), a library card or a card PIN.
+ */
+export function isPaymentField(attrs: {
+  autocomplete?: string | undefined;
+  name?: string | undefined;
+  id?: string | undefined;
+  placeholder?: string | undefined;
+  "aria-label"?: string | undefined;
+}): boolean {
+  return isMoneyPaymentField({
+    autocomplete: attrs.autocomplete,
+    name: attrs.name,
+    id: attrs.id,
+    placeholder: attrs.placeholder,
+    label: attrs["aria-label"],
+  });
 }

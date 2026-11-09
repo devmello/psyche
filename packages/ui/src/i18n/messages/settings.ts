@@ -1157,6 +1157,17 @@ export const settings = {
   "settings.mcp.tools.off": "This server is off. Turn it on to see its tools.",
   "settings.mcp.tools.notConnected": "This server isn't connected, so it lists no tools.",
   "settings.mcp.tools.none": "This server has no tools.",
+  "settings.mcp.money.title": "Payments",
+  "settings.mcp.money.description":
+    "A tool that moves money asks for Touch ID or your password every time. Say which of this server's tools do.",
+  "settings.mcp.money.auto": "Decide by each tool's name",
+  "settings.mcp.money.autoHint":
+    "Psyche guesses from the tool's name and description, which a server can word to avoid it.",
+  "settings.mcp.money.always": "Every tool moves money",
+  "settings.mcp.money.alwaysHint": "Every call to this server asks you to approve a payment.",
+  "settings.mcp.money.never": "No tool moves money",
+  "settings.mcp.money.neverHint":
+    "No call asks for a payment approval, whatever the tool is called. Only for a server that can't spend money.",
   "settings.mcp.secrets.title": "Secrets",
   "settings.mcp.secrets.intro":
     "Keys this server starts with. They stay in your vault; Psyche shows only whether each is set.",

@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-09 (the owner's word on whether an MCP server moves money)
+
+- New method `mcp.handlesMoney.set {serverId, mode: auto|always|never, approvalId?}` (`operator.admin`): `always` makes every tool of the server a payment, `never` makes none one whatever it is called, `auto` leaves it to the tool's name and description. Anything but `always` lowers protection and first answers `approval_required` with a `policy_change` card. `McpServerStatus` gains the optional `handlesMoney` boolean. The `mcp.servers` entry's `handlesMoney` is now `true`, `false` or absent.
+- New browser-safe subpath `@psyche/protocol/money-intent`: the one rule (a money verb with a money object or amount) that computer use, the browser and MCP share to decide `financial`.
+
 ### v1 additive — 2026-11-09 (Mac approvals use the system owner sheet)
 
 - `PresenceKeyInfo.kind` gains `device_identity` and `PresenceKeyAlgorithm` gains `ed25519`: a Mac helper's presence key is now its own Ed25519 device key (the one the Gateway pinned at pairing), listed by `devices.presenceKey.list` with nothing to register. `keychain`, `enclave_keychain_acl`, `enclave_file` and `p256-ecdsa-sha256` are retired: still decoded, never produced or accepted.

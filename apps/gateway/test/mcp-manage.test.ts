@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { type ComposedMcp, composeMcp, MCP_SERVERS_SETTING } from "../src/compose/mcp.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
+import { methodPresence } from "../src/presence-gate.ts";
 import { adminClient, ik, type TestClient } from "./helpers.ts";
 
 /** A configured server's detail: its tools, the on/off switch and its secrets, by name. */
@@ -208,6 +209,67 @@ describe("turning a server off", () => {
     await expect(
       owner.call("mcp.setEnabled", { serverId: "nope", enabled: false }, ik()),
     ).rejects.toThrow(/"code":"not_found"/);
+  });
+});
+
+describe("the owner's word on whether a server moves money", () => {
+  it("always makes every tool a payment, never makes none, auto lets the name decide", async () => {
+    const { owner, services, serve, stored, mcp } = await setup();
+    await serve(echo(["--write-tool"]));
+    const sideEffect = (tool: string) => services.tools.get(`mcp__echo__${tool}`)?.spec.sideEffect;
+    expect(sideEffect("shout")).toBe("destructive");
+
+    const always = await owner.call<{ server: McpServerStatus }>(
+      "mcp.handlesMoney.set",
+      { serverId: "echo", mode: "always" },
+      ik(),
+    );
+    expect(always.server.handlesMoney).toBe(true);
+    await mcp.idle();
+    expect((await stored())[0]).toMatchObject({ handlesMoney: true });
+    expect(sideEffect("echo")).toBe("financial");
+    expect(sideEffect("shout")).toBe("financial");
+    const status = await owner.call<{ servers: McpServerStatus[] }>("mcp.status", {});
+    expect(status.servers[0]?.handlesMoney).toBe(true);
+
+    const never = await owner.call<{ server: McpServerStatus }>(
+      "mcp.handlesMoney.set",
+      { serverId: "echo", mode: "never" },
+      ik(),
+    );
+    expect(never.server.handlesMoney).toBe(false);
+    await mcp.idle();
+    expect((await stored())[0]).toMatchObject({ handlesMoney: false });
+    expect(sideEffect("shout")).toBe("destructive");
+
+    const auto = await owner.call<{ server: McpServerStatus }>(
+      "mcp.handlesMoney.set",
+      { serverId: "echo", mode: "auto" },
+      ik(),
+    );
+    expect(auto.server).not.toHaveProperty("handlesMoney");
+    expect((await stored())[0]).not.toHaveProperty("handlesMoney");
+
+    await expect(
+      owner.call("mcp.handlesMoney.set", { serverId: "nope", mode: "always" }, ik()),
+    ).rejects.toThrow(/"code":"not_found"/);
+  }, 30_000);
+
+  it("lowering it needs an approved card once presence gates changes; raising it does not", () => {
+    expect(methodPresence("mcp.handlesMoney.set", { serverId: "echo", mode: "always" })).toBe(
+      undefined,
+    );
+    for (const mode of ["never", "auto"]) {
+      const gate = methodPresence("mcp.handlesMoney.set", {
+        serverId: "echo",
+        mode,
+        approvalId: "ap_1",
+      });
+      expect(gate?.action.name).toBe("method:mcp.handlesMoney.set");
+      expect(gate?.approvalId).toBe("ap_1");
+      // The card is bound to the server and the mode, not to the approval id.
+      expect(gate?.action.subject).toEqual({ serverId: "echo", mode });
+    }
   });
 });
 

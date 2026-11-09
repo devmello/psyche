@@ -186,6 +186,12 @@ export const PRESENCE_METHODS: Readonly<Record<string, (p: Params) => string | u
   // A setup token pairs a computer without a second approval, so making one is approving ahead.
   "devices.setupToken.create": (p) =>
     `Let a new computer pair itself${p.via === "lan" ? " from this network" : ""} with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
+  // Anything but "always" lowers protection: a server whose tools are not payments needs no
+  // presence on its calls. Raising it to "always" only adds friction and stays admin-only.
+  "mcp.handlesMoney.set": (p) =>
+    p.mode === "always"
+      ? undefined
+      : "Stop treating a tool server's tools as payments by their own say-so",
   "channels.configure": () => "Change a chat channel's access",
   "channels.allowlist.update": (p) =>
     Array.isArray(p.add) && p.add.length > 0 ? "Allow new chat senders" : undefined,

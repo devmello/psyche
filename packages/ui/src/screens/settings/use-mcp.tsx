@@ -6,12 +6,12 @@ import type {
   McpServerStatus,
   McpServerTool,
 } from "@psyche/protocol";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useContext, useEffect, useState } from "react";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { McpTrustCard } from "./McpTrustCard.tsx";
 import { TrustApproval } from "./SkillsSection.tsx";
-import { messageOf } from "./shared.tsx";
+import { approvalIdOf, messageOf, SettingsApprovalContext } from "./shared.tsx";
 
 /**
  * MCP servers in Settings → Connectors (#529; architecture §4.9, security §11). Adding one: a
@@ -239,6 +239,65 @@ export function useMcpTools(server: McpServerStatus, open: boolean): McpToolsSta
         .then(() => reload())
         .catch((err: unknown) => setActionError(messageOf(err)))
         .finally(() => setBusy(null));
+    },
+  };
+}
+
+/** The owner's word on whether a server's tools move money (`mcp.handlesMoney.set`). */
+export type McpMoneyMode = "auto" | "always" | "never";
+
+export interface McpMoneyState {
+  mode: McpMoneyMode;
+  busy: boolean;
+  /** A change that failed, in words. */
+  actionError: string | null;
+  set: (mode: McpMoneyMode) => void;
+}
+
+const moneyModeOf = (server: McpServerStatus): McpMoneyMode =>
+  server.handlesMoney === true ? "always" : server.handlesMoney === false ? "never" : "auto";
+
+/**
+ * Whether this server's tools are payments. Anything but "always" lowers protection, so the
+ * Gateway first answers `approval_required`: the change waits on the approval banner and is
+ * written again once the owner approves.
+ */
+export function useMcpMoney(server: McpServerStatus): McpMoneyState {
+  const call = useCall();
+  const requestApproval = useContext(SettingsApprovalContext);
+  const [mode, setMode] = useState<McpMoneyMode>(moneyModeOf(server));
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const fromServer = moneyModeOf(server);
+  useEffect(() => setMode(fromServer), [fromServer]);
+  return {
+    mode,
+    busy,
+    actionError,
+    set: (next) => {
+      const run = (approvalId?: string) =>
+        call("mcp.handlesMoney.set", {
+          serverId: server.id,
+          mode: next,
+          ...(approvalId === undefined ? {} : { approvalId }),
+        }).then(() => setMode(next));
+      setActionError(null);
+      setBusy(true);
+      run()
+        .catch((err: unknown) => {
+          const id = approvalIdOf(err);
+          if (id !== null && requestApproval) {
+            requestApproval({
+              key: "mcp.servers",
+              label: t("settings.mcp.money.title"),
+              approvalId: id,
+              retry: (approvalId) => run(approvalId),
+            });
+          } else {
+            setActionError(messageOf(err));
+          }
+        })
+        .finally(() => setBusy(false));
     },
   };
 }

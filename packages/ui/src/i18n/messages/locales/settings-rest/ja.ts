@@ -423,6 +423,17 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.tools.off": "このサーバはオフです。オンにするとツールが表示されます。",
   "settings.mcp.tools.notConnected": "このサーバは接続されていないため、ツールは表示されません。",
   "settings.mcp.tools.none": "このサーバにはツールがありません。",
+  "settings.mcp.money.title": "支払い",
+  "settings.mcp.money.description":
+    "お金を動かすツールは、毎回 Touch ID またはパスワードを求めます。このサーバのどのツールが該当するかを指定します。",
+  "settings.mcp.money.auto": "ツール名で判断",
+  "settings.mcp.money.autoHint":
+    "Psyche がツールの名前と説明から推測します。サーバは言い回しを変えてこれを避けられます。",
+  "settings.mcp.money.always": "すべてのツールがお金を動かす",
+  "settings.mcp.money.alwaysHint": "このサーバへの呼び出しはすべて、支払いの承認を求めます。",
+  "settings.mcp.money.never": "お金を動かすツールはない",
+  "settings.mcp.money.neverHint":
+    "ツール名に関係なく、支払いの承認は求めません。お金を使えないサーバにだけ使ってください。",
   "settings.mcp.secrets.title": "シークレット",
   "settings.mcp.secrets.intro":
     "このサーバが起動時に使うキーです。保管庫に保存され、Psycheには設定済みかどうかだけが表示されます。",

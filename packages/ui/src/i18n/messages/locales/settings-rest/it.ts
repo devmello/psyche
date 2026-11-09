@@ -430,6 +430,18 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.tools.off": "Questo server è disattivato. Attivalo per vederne gli strumenti.",
   "settings.mcp.tools.notConnected": "Questo server non è collegato, quindi non elenca strumenti.",
   "settings.mcp.tools.none": "Questo server non ha strumenti.",
+  "settings.mcp.money.title": "Pagamenti",
+  "settings.mcp.money.description":
+    "Uno strumento che sposta denaro chiede ogni volta Touch ID o la tua password. Indica quali strumenti di questo server lo fanno.",
+  "settings.mcp.money.auto": "Decidi dal nome di ogni strumento",
+  "settings.mcp.money.autoHint":
+    "Psyche deduce dal nome e dalla descrizione dello strumento, che un server può formulare per evitarlo.",
+  "settings.mcp.money.always": "Ogni strumento sposta denaro",
+  "settings.mcp.money.alwaysHint":
+    "Ogni chiamata a questo server ti chiede di approvare un pagamento.",
+  "settings.mcp.money.never": "Nessuno strumento sposta denaro",
+  "settings.mcp.money.neverHint":
+    "Nessuna chiamata chiede l’approvazione di un pagamento, comunque si chiami lo strumento. Solo per un server che non può spendere denaro.",
   "settings.mcp.secrets.title": "Segreti",
   "settings.mcp.secrets.intro":
     "Chiavi con cui parte questo server. Restano nel tuo vault; Psyche mostra solo se ciascuna è impostata.",

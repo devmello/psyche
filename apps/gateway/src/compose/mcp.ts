@@ -211,8 +211,9 @@ function readServers(value: unknown, warn: (msg: string) => void): PsycheMcpServ
     }
     seen.add(c.id);
     const entry = { ...c, trust: trustOf(c as PsycheMcpServerConfig) } as PsycheMcpServerConfig;
-    // Only a real `true` counts: the owner's "this server handles money" switch.
-    if (entry.handlesMoney !== undefined && entry.handlesMoney !== true) {
+    // Only a real boolean counts: the owner's "this server moves money" switch (`true`: always,
+    // `false`: never; absent: the guess decides).
+    if (entry.handlesMoney !== undefined && typeof entry.handlesMoney !== "boolean") {
       Reflect.deleteProperty(entry, "handlesMoney");
     }
     out.push(entry);
@@ -505,6 +506,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
       network: http || (c.sandbox?.allowedDomains?.length ?? 0) > 0,
       connected: registrations.has(c.id),
       ...(c.enabled === false ? { enabled: false } : {}),
+      ...(typeof c.handlesMoney === "boolean" ? { handlesMoney: c.handlesMoney } : {}),
       ...(c.madeBy === "psyche"
         ? { madeBy: "psyche" as const, ...(c.version === undefined ? {} : { version: c.version }) }
         : {}),

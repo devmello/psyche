@@ -429,6 +429,18 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.tools.notConnected":
     "Dieser Server ist nicht verbunden und listet daher keine Tools auf.",
   "settings.mcp.tools.none": "Dieser Server hat keine Tools.",
+  "settings.mcp.money.title": "Zahlungen",
+  "settings.mcp.money.description":
+    "Ein Tool, das Geld bewegt, verlangt jedes Mal Touch ID oder dein Passwort. Lege fest, welche Tools dieses Servers das tun.",
+  "settings.mcp.money.auto": "Nach dem Namen jedes Tools entscheiden",
+  "settings.mcp.money.autoHint":
+    "Psyche rät anhand von Name und Beschreibung des Tools; ein Server kann sie so formulieren, dass es nichts bemerkt.",
+  "settings.mcp.money.always": "Jedes Tool bewegt Geld",
+  "settings.mcp.money.alwaysHint":
+    "Jeder Aufruf dieses Servers verlangt deine Freigabe einer Zahlung.",
+  "settings.mcp.money.never": "Kein Tool bewegt Geld",
+  "settings.mcp.money.neverHint":
+    "Kein Aufruf verlangt eine Zahlungsfreigabe, egal wie das Tool heißt. Nur für einen Server, der kein Geld ausgeben kann.",
   "settings.mcp.secrets.title": "Geheimnisse",
   "settings.mcp.secrets.intro":
     "Schlüssel, mit denen dieser Server startet. Sie bleiben in deinem Tresor; Psyche zeigt nur, ob jeder gesetzt ist.",

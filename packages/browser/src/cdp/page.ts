@@ -11,6 +11,7 @@ import {
 import { canonicalizeUrl, tryOrigin } from "../origin/canonical.ts";
 import type { Hop, OriginPolicy } from "../origin/policy.ts";
 import { buildSnapshot, extractText, type FrameAx } from "../snapshot/builder.ts";
+import { isPaymentField } from "../snapshot/dom.ts";
 import { type RefEntry, RefRegistry } from "../snapshot/refs.ts";
 import type {
   ActionTarget,
@@ -88,12 +89,17 @@ export const FIELD_HELPER = `/* psyche:field */ function () {
     maxLength: input && this.maxLength > 0 ? this.maxLength : undefined,
     formAction: form ? form.action : undefined,
     formHasPassword: form ? form.querySelector('input[type="password"]') !== null : undefined,
-    formHasPaymentFields: form
-      ? Array.from(form.querySelectorAll("input,select")).some((f) => {
-          if (/(^|\\s)cc-/i.test(f.getAttribute("autocomplete") || "")) return true;
-          const words = ((f.getAttribute("name") || "") + " " + (f.id || "")).toLowerCase().split(/[^a-z0-9]+/);
-          return words.some((w) => ["card", "cardnumber", "cardnum", "cc", "ccnum", "ccnumber", "ccexp", "cvv", "cvv2", "cvc", "csc", "expiry", "expirydate"].includes(w));
-        })
+    // The form's fields as they are now (attributes only, never values): the Gateway side judges
+    // them with the shared card-field rule, so a page that adds a card field after the snapshot is
+    // still seen.
+    formFields: form
+      ? Array.from(form.querySelectorAll("input,select")).slice(0, 200).map((f) => ({
+          autocomplete: f.getAttribute("autocomplete") || undefined,
+          name: f.getAttribute("name") || undefined,
+          id: f.id || undefined,
+          placeholder: f.getAttribute("placeholder") || undefined,
+          "aria-label": f.getAttribute("aria-label") || undefined,
+        }))
       : undefined,
   };
 }`;
@@ -109,7 +115,14 @@ export interface LiveField {
   maxLength?: number;
   formAction?: string;
   formHasPassword?: boolean;
-  formHasPaymentFields?: boolean;
+  /** Attributes of the form's fields now; `formHasPaymentFields` is derived from them. */
+  formFields?: {
+    autocomplete?: string;
+    name?: string;
+    id?: string;
+    placeholder?: string;
+    "aria-label"?: string;
+  }[];
 }
 
 /** The vault's view of an element (`FillElement`) from cached or live facts. */
@@ -141,7 +154,10 @@ function withLive(meta: ElementMeta, live: LiveField): ElementMeta {
   set("maxLength", live.maxLength);
   set("formAction", live.formAction);
   set("formHasPassword", live.formHasPassword);
-  set("formHasPaymentFields", live.formHasPaymentFields === true ? true : undefined);
+  set(
+    "formHasPaymentFields",
+    live.formFields?.some((f) => isPaymentField(f)) === true ? true : undefined,
+  );
   out.contentEditable = live.contentEditable === true;
   const ac = (live.autocomplete ?? "").toLowerCase();
   out.secure = meta.secure || live.type === "password" || /one-time-code|cc-/.test(ac);

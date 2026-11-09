@@ -128,7 +128,7 @@ describe("MCP host in the Gateway (K5)", () => {
     expect(revoke).toHaveBeenCalledWith("echo", "removed");
   }, 30_000);
 
-  it("an owner's handlesMoney switch makes every tool of the server financial; junk values do not", async () => {
+  it("an owner's handlesMoney switch makes every tool of the server financial; junk values do not, false is kept", async () => {
     const { owner, mcp, services } = await setup(new FakeModelProvider());
     await owner.call(
       "settings.set",
@@ -158,6 +158,14 @@ describe("MCP host in the Gateway (K5)", () => {
     await owner.call(
       "settings.set",
       { key: MCP_SERVERS_SETTING, value: [{ ...echoServer("bundled"), handlesMoney: "yes" }] },
+      ik(),
+    );
+    await mcp.idle();
+    expect(services.tools.get("mcp__echo__echo")?.spec.sideEffect).not.toBe("financial");
+    // `false` is the owner's "never": kept, and the guess is off for that server.
+    await owner.call(
+      "settings.set",
+      { key: MCP_SERVERS_SETTING, value: [{ ...echoServer("bundled"), handlesMoney: false }] },
       ik(),
     );
     await mcp.idle();

@@ -1711,6 +1711,14 @@
         "sideEffecting": true
       },
       {
+        "description": "Side-effecting: the owner's word on whether a server's tools move money. always: every tool is financial (Touch ID or the Mac password on each call); never: none is, whatever its tools are called; auto: judged by each tool's name and description. Changing it restarts the server. Anything but always lowers protection and first answers approval_required with a device-only policy_change card; the retry with its approvalId is spent once. not_found for an unknown server.",
+        "name": "mcp.handlesMoney.set",
+        "params": "#/$defs/McpHandlesMoneySetParams",
+        "result": "#/$defs/McpHandlesMoneySetResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Side-effecting: starts the server sandboxed (srt or a container; never bare), lists its tools without registering them, stops it, and opens a device-only skill_install trust card (details.kind mcp_server) with the tools and network reach. unavailable when no sandbox launcher exists for a stdio server; conflict when the id is taken.",
         "name": "mcp.probe",
         "params": "#/$defs/McpProbeParams",
@@ -25663,6 +25671,45 @@
       ],
       "type": "object"
     },
+    "McpHandlesMoneySetParams": {
+      "properties": {
+        "serverId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "auto",
+            "always",
+            "never"
+          ],
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "serverId",
+        "mode"
+      ],
+      "type": "object"
+    },
+    "McpHandlesMoneySetResult": {
+      "properties": {
+        "server": {
+          "$ref": "#/$defs/McpServerStatus"
+        }
+      },
+      "required": [
+        "server"
+      ],
+      "type": "object"
+    },
     "McpProbeParams": {
       "properties": {
         "server": {
@@ -26057,6 +26104,9 @@
           "type": "boolean"
         },
         "enabled": {
+          "type": "boolean"
+        },
+        "handlesMoney": {
           "type": "boolean"
         },
         "madeBy": {

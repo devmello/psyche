@@ -418,6 +418,17 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.tools.off": "이 서버는 꺼져 있습니다. 켜면 도구가 표시됩니다.",
   "settings.mcp.tools.notConnected": "이 서버는 연결되어 있지 않아 도구가 표시되지 않습니다.",
   "settings.mcp.tools.none": "이 서버에는 도구가 없습니다.",
+  "settings.mcp.money.title": "결제",
+  "settings.mcp.money.description":
+    "돈을 옮기는 도구는 매번 Touch ID나 비밀번호를 요청합니다. 이 서버의 어떤 도구가 그런지 알려 주세요.",
+  "settings.mcp.money.auto": "도구 이름으로 판단",
+  "settings.mcp.money.autoHint":
+    "Psyche가 도구의 이름과 설명을 보고 추측하며, 서버가 표현을 바꿔 피할 수 있습니다.",
+  "settings.mcp.money.always": "모든 도구가 돈을 옮김",
+  "settings.mcp.money.alwaysHint": "이 서버에 대한 모든 호출이 결제 승인을 요청합니다.",
+  "settings.mcp.money.never": "어떤 도구도 돈을 옮기지 않음",
+  "settings.mcp.money.neverHint":
+    "도구 이름과 상관없이 결제 승인을 요청하지 않습니다. 돈을 쓸 수 없는 서버에만 사용하세요.",
   "settings.mcp.secrets.title": "시크릿",
   "settings.mcp.secrets.intro":
     "이 서버가 시작할 때 사용하는 키입니다. 보관함에 저장되며, Psyche에는 설정 여부만 표시됩니다.",

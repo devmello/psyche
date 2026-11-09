@@ -163,7 +163,7 @@ public enum ComputerCapabilities {
     }
 
     public static func make(_ cu: ComputerUse) -> [any CapabilityHandler] {
-        [axTree(cu), checkTarget(cu), axValue(cu), click(cu, "computer.click", count: 1, right: false), click(cu, "computer.double_click", count: 2, right: false),
+        [axTree(cu), checkTarget(cu), resolveTarget(cu), axValue(cu), click(cu, "computer.click", count: 1, right: false), click(cu, "computer.double_click", count: 2, right: false),
          click(cu, "computer.right_click", count: 1, right: true), press(cu), setValue(cu), select(cu), type(cu), key(cu), scroll(cu),
          drag(cu), menu(cu), endSession(cu)]
     }
@@ -231,6 +231,34 @@ public enum ComputerCapabilities {
                 result["hint"] = "The recorded element is not in the window. Ask the owner what to do."
             }
             return CapabilityOutput(.object(result))
+        }
+    }
+
+    /// What is under a ref or a screen point, without pressing anything. The Gateway asks before a
+    /// click by point so a control that moves money (Pay, Place bid, Sell...) is classed as a
+    /// payment even though the agent named only coordinates.
+    static func resolveTarget(_ cu: ComputerUse) -> Capability {
+        cap(cu, CapabilitySpec(
+            name: "computer.resolve_target",
+            description: "Read-only: the role and accessibility labels of the element under a ref or a screen point (x, y with app), before acting on it. Nothing is pressed. Untrusted app content.",
+            sideEffect: .read, targetKind: .app,
+            inputSchema: targetSchema(description: "resolve a target"),
+            permissions: [.accessibility]
+        )) { ctx in
+            let p = try ctx.decode(TargetParams.self)
+            if p.ref != nil || p.selector != nil {
+                let el = try await element(cu, ctx, p, intent: .read)
+                return CapabilityOutput(TargetReport.result(
+                    role: el.roleName, labels: [el.label].compactMap { $0 }, secure: el.info.isSecure, app: el.app.bundleId ?? el.app.name))
+            }
+            let (pt, target) = try await point(cu, ctx, p, intent: .read)
+            guard let hit = AXEngine.hitTest(pt) else {
+                throw CapabilityError(.conflict, reason: "hit_test_failed", "Nothing at \(Int(pt.x)),\(Int(pt.y))")
+            }
+            guard hit.pid == target.pid else {
+                throw CapabilityError(.conflict, reason: "occluded", "Another window covers \(Int(pt.x)),\(Int(pt.y)); bring \(target.name) forward and re-snapshot")
+            }
+            return CapabilityOutput(TargetReport.result(role: hit.role, labels: hit.labels, secure: hit.secure, app: target.bundleId ?? target.name))
         }
     }
 

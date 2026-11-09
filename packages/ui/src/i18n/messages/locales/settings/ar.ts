@@ -377,6 +377,17 @@ export const settings: Partial<Catalogue> = {
   "settings.mcp.tools.off": "هذا الخادم متوقف. شغّله لترى أدواته.",
   "settings.mcp.tools.notConnected": "هذا الخادم غير متصل، لذا لا يعرض أدوات.",
   "settings.mcp.tools.none": "لا أدوات لدى هذا الخادم.",
+  "settings.mcp.money.title": "المدفوعات",
+  "settings.mcp.money.description":
+    "الأداة التي تنقل الأموال تطلب Touch ID أو كلمة مرورك في كل مرة. حدّد أيًّا من أدوات هذا الخادم تفعل ذلك.",
+  "settings.mcp.money.auto": "القرار حسب اسم كل أداة",
+  "settings.mcp.money.autoHint":
+    "يخمّن Psyche من اسم الأداة ووصفها، ويمكن للخادم صياغتهما لتفادي ذلك.",
+  "settings.mcp.money.always": "كل الأدوات تنقل الأموال",
+  "settings.mcp.money.alwaysHint": "كل استدعاء لهذا الخادم يطلب منك الموافقة على دفعة.",
+  "settings.mcp.money.never": "لا أداة تنقل الأموال",
+  "settings.mcp.money.neverHint":
+    "لا يطلب أي استدعاء الموافقة على دفعة مهما كان اسم الأداة. لخادم لا يمكنه إنفاق المال فقط.",
   "settings.mcp.secrets.title": "الأسرار",
   "settings.mcp.secrets.intro":
     "مفاتيح يبدأ بها هذا الخادم. تبقى في خزنتك؛ ويعرض Psyche فقط ما إذا كان كل منها مضبوطًا.",

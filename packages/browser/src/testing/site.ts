@@ -405,6 +405,25 @@ export const FIXTURE_SITE: FxSite = {
         },
       ],
     },
+    // Fields that only look like card fields: email CC, a library card, a card PIN. No payment.
+    "a/not-pay": {
+      title: "New message",
+      body: [
+        { kind: "heading", level: 1, text: "New message" },
+        { kind: "link", text: "Where to buy", href: "/a/cart" },
+        {
+          kind: "form",
+          action: "/submit/message",
+          method: "post",
+          children: [
+            { kind: "input", label: "Cc", name: "cc" },
+            { kind: "input", label: "Library card", name: "library-card" },
+            { kind: "input", label: "PIN", name: "card_pin" },
+            { kind: "button", text: "Send", type: "submit" },
+          ],
+        },
+      ],
+    },
     "a/cart": {
       title: "Cart",
       body: [

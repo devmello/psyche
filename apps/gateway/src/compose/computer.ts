@@ -16,6 +16,7 @@ import {
   type ToolResult,
 } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
+import { isMoneyText } from "@psyche/protocol/money-intent";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
@@ -90,63 +91,15 @@ export function isRiskyLabel(text: string | undefined): boolean {
 }
 
 /**
- * Labels that move money: a click on one is a payment, the one class that needs the owner's
- * presence (security §3.7). Whole words or phrases, case-insensitive. The helper's own list
- * (`RiskLabels`) only decides that a press asks; this decides what the card is classed.
- */
-const MONEY_PHRASES = [
-  "pay",
-  "pay now",
-  "make payment",
-  "send payment",
-  "send money",
-  "buy",
-  "buy now",
-  "purchase",
-  "confirm purchase",
-  "complete purchase",
-  "complete order",
-  "confirm order",
-  "place order",
-  "place your order",
-  "place my order",
-  "submit order",
-  "order now",
-  "checkout",
-  "check out",
-  "proceed to checkout",
-  "proceed to payment",
-  "transfer",
-  "transfer money",
-  "wire",
-  "withdraw",
-  "donate",
-  "subscribe",
-  "start trial",
-  "start free trial",
-  "add payment",
-  "book now",
-  "reserve now",
-  "reserve",
-  "book",
-  "order",
-];
-
-/**
- * A label that moves money. Bare "book" and "order" count only as the whole label (a "Book"
- * or "Order" button), not inside "Order history" or "Book a demo", which stay ordinary.
+ * Whether a label moves money: a click on one is a payment, the one class that needs the owner's
+ * presence (security §3.7). The shared rule (`@psyche/protocol/money-intent`) wants a payment verb
+ * with a money object or an amount ("Send $50", "Place bid"), or a label that is nothing but a
+ * payment verb ("Pay", "Sell", "Tip"); "Checkout", "Transfer", "Subscribe", "Send" and "Apple Pay"
+ * alone are ordinary buttons. The helper's own list (`RiskLabels`) only decides that a press asks;
+ * this decides what the card is classed.
  */
 export function isMoneyLabel(text: string | undefined): boolean {
-  if (text === undefined) return false;
-  const tokens = text
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
-  if (tokens === "") return false;
-  const whole = new Set(["book", "order", "reserve"]);
-  if (whole.has(tokens)) return true;
-  const padded = ` ${tokens} `;
-  return MONEY_PHRASES.some((w) => !whole.has(w) && padded.includes(` ${w} `));
+  return isMoneyText(text);
 }
 
 /** Quit, close, delete: chords the helper refuses without an approval. */
@@ -739,6 +692,93 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     return approvalId;
   }
 
+  /**
+   * What a click or drag by screen point lands on, checked before it happens. A point is a last
+   * resort and carries no label the Gateway has seen, so the card could not say whether the
+   * control under it moves money. The helper resolves the real element there (its accessibility
+   * label and its ancestors', `computer.resolve_target`, read-only) and, when that label is a
+   * money action and the card was not a financial one, the click does not happen until a financial
+   * card (once only, with presence) is approved. Returns that card's id, or `undefined` when the
+   * target is not a money control or the card already was financial. A ref needs no check: its
+   * label comes from the snapshot and the helper refuses the call when it differs.
+   */
+  async function moneyUnderPoint(
+    p: ActParams,
+    callId: string,
+    signal: AbortSignal,
+  ): Promise<string | undefined> {
+    const points: { x: number; y: number }[] = [];
+    const point = (t: { ref?: string; x?: number; y?: number }) => {
+      if (t.ref === undefined && t.x !== undefined && t.y !== undefined) {
+        points.push({ x: t.x, y: t.y });
+      }
+    };
+    if (["click", "double_click", "right_click", "select", "press", "drag"].includes(p.action)) {
+      point(p);
+      if (p.action === "drag" && p.to !== undefined) point(p.to);
+    }
+    if (points.length === 0 || describeAct(p).sideEffect === "financial") return undefined;
+    for (const pt of points) {
+      let res: NodeInvokeResult;
+      try {
+        ({ res } = await invoke(
+          callId,
+          {
+            tool: "computer.act",
+            capability: "computer.resolve_target",
+            params: { ...pt, app: p.app },
+            session: true,
+            approval: { app: p.app, action: p.action, tierRequired: actTier(p) },
+          },
+          signal,
+        ));
+      } catch (err) {
+        const code = PsycheError.from(err).code;
+        if (
+          code === "not_found" ||
+          code === "not_implemented" ||
+          code === "unknown_method" ||
+          code === "invalid_params"
+        ) {
+          // The Windows and Linux helpers do not answer `computer.resolve_target` yet: their point
+          // clicks go ahead as before. The Mac helper ships with the app, so one that cannot say
+          // what is under the point is out of date: refuse rather than guess.
+          if (deps.helper()?.kind !== "mac-helper") continue;
+          throw new PsycheError(
+            "policy_denied",
+            "This Psyche helper cannot check what a click at a screen point lands on. Click by ref from a snapshot instead, or update the helper.",
+            { details: { reason: "point_unchecked" } },
+          );
+        }
+        throw err;
+      }
+      const r = (res.result ?? {}) as { label?: unknown; labels?: unknown };
+      const labels = [
+        ...(typeof r.label === "string" ? [r.label] : []),
+        ...(Array.isArray(r.labels)
+          ? r.labels.filter((l): l is string => typeof l === "string")
+          : []),
+      ];
+      const money = labels.find((l) => isMoneyLabel(l));
+      if (money === undefined) continue;
+      return approveForHelper(
+        callId,
+        "computer.act",
+        p,
+        new PsycheError(
+          "approval_required",
+          `The control at ${Math.round(pt.x)},${Math.round(pt.y)} is “${money.slice(0, MAX_LABEL_CHARS)}”, which moves money.`,
+          {
+            details: { reason: "money_label", app: p.app, tierRequired: actTier(p), label: money },
+          },
+        ),
+        { app: p.app, action: p.action, tierRequired: actTier(p) },
+        signal,
+      );
+    }
+    return undefined;
+  }
+
   interface Invocation {
     tool: string;
     capability: string;
@@ -748,6 +788,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     timeoutMs?: number;
     /** What an approval asked mid-call binds to. */
     approval: { app: string; action: string; tierRequired: string };
+    /** An approval obtained before the call (a financial card for a money label): used first. */
+    approvalId?: string;
   }
 
   /** Invoke the helper; on its approval request ask the owner once and retry. */
@@ -757,7 +799,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     signal: AbortSignal,
   ): Promise<{ res: NodeInvokeResult; session?: Session; approvalId?: string }> {
     const ctx = deps.context(callId);
-    let approvalId = ctx.approvalId;
+    let approvalId = inv.approvalId ?? ctx.approvalId;
     // #267: every action names the app the broker and the owner decided about, and the tier an
     // approval covered. The helper refuses when the app under a point or ref is another one, and
     // an approval for a click never becomes an interact allowance.
@@ -1300,6 +1342,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       async run(p, callId, signal) {
         // Refs must come from a snapshot of `p.app` (checked in `endpoint`).
         const { capability, params } = actCapability(p);
+        // A point carries no label the Gateway saw: ask the helper what is under it first.
+        const financialApproval = await moneyUnderPoint(p, callId, signal);
         const { res, approvalId } = await invoke(
           callId,
           {
@@ -1308,6 +1352,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
             params,
             session: true,
             approval: { app: p.app, action: p.action, tierRequired: actTier(p) },
+            ...(financialApproval === undefined ? {} : { approvalId: financialApproval }),
           },
           signal,
         );

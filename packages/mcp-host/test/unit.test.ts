@@ -95,10 +95,7 @@ describe("financial tools", () => {
     "stripe.refund",
     "transfer_funds",
     "place_order",
-    "order_pizza",
-    "checkout",
     "buy_ticket",
-    "subscribe",
     "create_payout",
     "withdraw",
   ])("%s moves money", (name) => {
@@ -142,6 +139,51 @@ describe("financial tools", () => {
     expect(
       looksFinancial({ name: "get_balance", description: "Charges nothing; reads funds." }),
     ).toBe(false);
+  });
+
+  // The owner's lists: friction only for payments, so precise both ways.
+  it.each<[string, string | undefined]>([
+    ["send_money", undefined],
+    ["execute_trade", undefined],
+    ["execute", "Places a stock market order"],
+    ["swap_tokens", undefined],
+    ["sell_stock", undefined],
+    ["submit", "Submits the cart"],
+    ["pay_invoice", undefined],
+  ])("%s (%s) is financial for every trust tier", (name, description) => {
+    for (const trust of ["verified", "unknown"] as const) {
+      expect(sideEffectFor(tool({ name, description }), trust)).toBe("financial");
+    }
+  });
+
+  it.each<[string, string | undefined]>([
+    ["git_checkout", "Checks out a branch"],
+    ["transfer_file", "Transfers a file to another folder"],
+    ["transfer_issue", "Moves an issue to another project"],
+    ["subscribe_to_channel", "Subscribes to a channel"],
+    ["set_sort_order", "Sets the sort order of a list"],
+    ["create_invoice", "Creates a draft invoice"],
+    ["post_message", "Sends an adaptive card"],
+    ["attach", "Adds a card attachment to the message"],
+  ])("%s (%s) is an ordinary write, not a payment", (name, description) => {
+    expect(sideEffectFor(tool({ name, description }), "unknown")).toBe("write");
+  });
+
+  it("handlesMoney false switches the guess off for that server; unset leaves it on", () => {
+    const pay = tool({ name: "send_money" });
+    expect(sideEffectFor(pay, "unknown")).toBe("financial");
+    expect(sideEffectFor(pay, "unknown", {})).toBe("financial");
+    expect(sideEffectFor(pay, "unknown", { handlesMoney: false })).toBe("write");
+    expect(sideEffectFor(pay, "bundled", { handlesMoney: false })).toBe("write");
+    expect(
+      sideEffectFor(
+        tool({ name: "send_money", annotations: { destructiveHint: true } }),
+        "unknown",
+        {
+          handlesMoney: false,
+        },
+      ),
+    ).toBe("destructive");
   });
 
   it("a bundled server's readOnlyHint still wins over the guess", () => {

@@ -363,6 +363,15 @@ export const settings: Partial<Catalogue> = {
   "settings.mcp.tools.off": "此服务器已关闭。开启后即可查看它的工具。",
   "settings.mcp.tools.notConnected": "此服务器未连接，因此没有列出任何工具。",
   "settings.mcp.tools.none": "此服务器没有工具。",
+  "settings.mcp.money.title": "付款",
+  "settings.mcp.money.description":
+    "会转移资金的工具每次都需要 Touch ID 或你的密码。请说明此服务器的哪些工具属于这种情况。",
+  "settings.mcp.money.auto": "按每个工具的名称判断",
+  "settings.mcp.money.autoHint": "Psyche 根据工具的名称和描述来猜测，而服务器可以通过措辞来避开。",
+  "settings.mcp.money.always": "所有工具都会转移资金",
+  "settings.mcp.money.alwaysHint": "对此服务器的每次调用都会请你批准一笔付款。",
+  "settings.mcp.money.never": "没有工具会转移资金",
+  "settings.mcp.money.neverHint": "无论工具叫什么，都不会要求付款批准。仅适用于不能花钱的服务器。",
   "settings.mcp.secrets.title": "密钥",
   "settings.mcp.secrets.intro":
     "此服务器启动时使用的密钥。它们保存在你的保险库中；Psyche 只显示每个密钥是否已设置。",

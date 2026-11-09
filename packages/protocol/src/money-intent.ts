@@ -46,6 +46,7 @@ const VERB_STEMS = [
   "charge",
   "refund",
   "subscribe",
+  "create",
 ] as const;
 
 /** "pays", "paying", "sells", "selling" → the stem. */
@@ -100,6 +101,8 @@ const MONEY_OBJECTS = new Set([
   "gbp",
   "dollars",
   "euros",
+  "payout",
+  "payouts",
 ]);
 /** Only after "pay": paying a bill pays, "send invoice" or "create invoice" does not. */
 const PAY_OBJECTS = new Set(["invoice", "bill", "balance", "fee", "fees", "tax", "taxes", "rent"]);
@@ -209,6 +212,8 @@ function sentenceMoves(sentence: string): boolean {
       if (MONEY_OBJECTS.has(w) && objectFits(verb, w)) return true;
       if (verb === "pay" && PAY_OBJECTS.has(w)) return true;
       if (CARD_WORDS.has(w) && words[j + 1] === "card") return true;
+      // "Charges the card", "charge_card": charging a card is the payment.
+      if (verb === "charge" && (w === "card" || w === "customer")) return true;
       if (w === "payment" && words[j + 1] === "card") return true;
       if (w === "bank" && words[j + 1] === "account") return true;
       if (w === "card" && words[j + 1] === "number") return true;
@@ -219,6 +224,8 @@ function sentenceMoves(sentence: string): boolean {
 
 /** "checkout" and "cart" are objects of finishing verbs only; "share" of trading ones. */
 function objectFits(verb: string, object: string): boolean {
+  // "create" only creates a payment or a payout (`create_payment_intent`), never an invoice or order.
+  if (verb === "create") return ["payment", "payments", "payout", "payouts"].includes(object);
   if (object === "checkout" || object === "cart") {
     return ["complete", "confirm", "submit", "place", "pay", "execute"].includes(verb);
   }
@@ -254,7 +261,18 @@ const READING_VERBS = new Set([
   "history",
 ]);
 /** A tool named for just one of these verbs (`sell_stock`, `pay_invoice`) moves money. */
-const NAME_VERBS = new Set(["pay", "buy", "purchase", "sell", "swap", "bid", "donate", "withdraw"]);
+const NAME_VERBS = new Set([
+  "pay",
+  "buy",
+  "purchase",
+  "sell",
+  "swap",
+  "bid",
+  "donate",
+  "withdraw",
+  "refund",
+  "payout",
+]);
 
 /**
  * Whether an MCP tool's name says it moves money: `send_money`, `execute_trade`, `swap_tokens`,
@@ -266,8 +284,12 @@ export function isMoneyToolName(name: string | undefined): boolean {
   const words = moneyWords(name);
   const first = words[0];
   if (first === undefined || READING_VERBS.has(first)) return false;
-  const verb = verbOf(first);
-  if (verb !== undefined && NAME_VERBS.has(verb)) return true;
+  // A tool named for one of these verbs alone or at either end (`sell_stock`, `stripe.refund`).
+  for (const w of [first, words.at(-1)]) {
+    const verb = w === undefined ? undefined : verbOf(w);
+    if (verb !== undefined && NAME_VERBS.has(verb)) return true;
+    if (w === "payout" || w === "payouts") return true;
+  }
   return sentenceMoves(words.join(" "));
 }
 
@@ -369,7 +391,9 @@ export function isMoneyFormAction(method: string | undefined, action: string | u
   const last = segs.at(-1);
   if (last === undefined) return false;
   if (MONEY_PATH_SEGMENTS.has(last)) return true;
-  return SUBMIT_PATH_SEGMENTS.has(last) && segs.slice(0, -1).some((s) => MONEY_PATH_SEGMENTS.has(s));
+  return (
+    SUBMIT_PATH_SEGMENTS.has(last) && segs.slice(0, -1).some((s) => MONEY_PATH_SEGMENTS.has(s))
+  );
 }
 
 /** Short labels that only mean "go on": money only inside a payment form or page. */
@@ -397,7 +421,8 @@ export function isAmbiguousActionLabel(text: string | undefined): boolean {
   return words.length > 0 && words.length <= 2 && AMBIGUOUS_LABELS.has(words[0] ?? "");
 }
 
-const CONTEXT_PATH = /\/(checkout|payments?|pay|purchase|billing|transfer|withdraw|send-money)(\/|$)/i;
+const CONTEXT_PATH =
+  /\/(checkout|payments?|pay|purchase|billing|transfer|withdraw|send-money)(\/|$)/i;
 const CONTEXT_TITLE =
   /\b(checkout|check out|payment|billing|order summary|review (your |my )?order|pay(ing)? (now|for)|confirm (your )?(payment|order|purchase|transfer)|send money|transfer funds)\b/i;
 

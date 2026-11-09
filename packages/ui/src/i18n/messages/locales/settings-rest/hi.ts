@@ -411,6 +411,17 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.tools.off": "यह सर्वर बंद है। इसके टूल देखने के लिए इसे चालू करें।",
   "settings.mcp.tools.notConnected": "यह सर्वर कनेक्ट नहीं है, इसलिए कोई टूल सूचीबद्ध नहीं करता।",
   "settings.mcp.tools.none": "इस सर्वर में कोई टूल नहीं है।",
+  "settings.mcp.money.title": "भुगतान",
+  "settings.mcp.money.description":
+    "पैसे भेजने वाला टूल हर बार Touch ID या आपका पासवर्ड माँगता है। बताइए कि इस सर्वर के कौन-से टूल ऐसा करते हैं।",
+  "settings.mcp.money.auto": "हर टूल के नाम से तय करें",
+  "settings.mcp.money.autoHint":
+    "Psyche टूल के नाम और विवरण से अंदाज़ा लगाता है, जिसे कोई सर्वर बदलकर बच सकता है।",
+  "settings.mcp.money.always": "हर टूल पैसे भेजता है",
+  "settings.mcp.money.alwaysHint": "इस सर्वर पर हर कॉल आपसे भुगतान की मंज़ूरी माँगती है।",
+  "settings.mcp.money.never": "कोई टूल पैसे नहीं भेजता",
+  "settings.mcp.money.neverHint":
+    "टूल का नाम जो भी हो, कोई कॉल भुगतान की मंज़ूरी नहीं माँगती। केवल ऐसे सर्वर के लिए जो पैसे खर्च नहीं कर सकता।",
   "settings.mcp.secrets.title": "गोपनीय मान",
   "settings.mcp.secrets.intro":
     "वे कुंजियाँ जिनके साथ यह सर्वर शुरू होता है। ये आपके वॉल्ट में रहती हैं; Psyche सिर्फ़ यह दिखाता है कि हर एक सेट है या नहीं।",

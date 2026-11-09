@@ -269,6 +269,8 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
       secure: info === undefined ? false : dom.isSecure(info),
       frameOrigin: doc?.origin ?? topOrigin,
       opensPopup: target === "_blank" || target === "_new",
+      pageUrl: doc?.url ?? input.url,
+      pageTitle: input.title,
     };
     const a = info?.attrs;
     if (a?.type !== undefined) meta.inputType = a.type.toLowerCase();

@@ -43,6 +43,14 @@ class FakeHelper implements NodeClient {
   pointApp: string | undefined;
   /** What `computer.check_target` answers (the recorded target in the window right now). */
   check: Record<string, unknown> = { status: "found", ref: "e2", role: "button", label: "Delete" };
+  /** What `computer.resolve_target` finds under a screen point (labels of the element and its parents). */
+  underPoint: { role?: string; label?: string; labels?: string[] } = {
+    role: "AXButton",
+    label: "Save",
+    labels: ["Save"],
+  };
+  /** An older helper without `computer.resolve_target`. */
+  noResolve = false;
 
   async info(): Promise<NodeInfo> {
     throw new Error("unused");
@@ -93,6 +101,11 @@ class FakeHelper implements NodeClient {
       this.allowed.add(app);
     }
     switch (capability) {
+      case "computer.resolve_target":
+        if (this.noResolve) {
+          return err({ code: "not_found", message: "unknown capability computer.resolve_target" });
+        }
+        return { ok: true, result: { ...this.underPoint, app, provenance: "untrusted" } };
       case "computer.ax_tree":
         return {
           ok: true,
@@ -755,11 +768,14 @@ describe("computer-use agent tools (J1–J5)", () => {
       "Buy",
       "Buy now",
       "Place order",
-      "Checkout",
-      "Transfer",
+      "Send $50",
+      "Confirm and send",
+      "Place bid",
+      "Sell",
+      "Swap",
+      "Tip",
       "Send Payment",
       "Confirm purchase",
-      "Subscribe",
       "Book",
       "Order",
     ]) {
@@ -781,8 +797,27 @@ describe("computer-use agent tools (J1–J5)", () => {
       act?.({ app: notes, action: "click", ref: "e2", expect: { role: "button", label: "Delete" } })
         ?.sideEffect,
     ).toBe("destructive");
-    for (const label of ["Order history", "Book a demo", "Reorder list", "Payment history"]) {
+    // Ordinary controls that share a word with a payment ask for a tap, not for presence.
+    for (const label of [
+      "Order history",
+      "Book a demo",
+      "Reorder list",
+      "Payment history",
+      "Checkout",
+      "Check Out Branch",
+      "Transfer",
+      "Subscribe",
+      "Withdraw invitation",
+      "Apple Pay",
+      "Send",
+      "Proceed to checkout",
+    ]) {
       expect(isMoneyLabel(label), label).toBe(false);
+      expect(
+        act?.({ app: notes, action: "click", ref: "e2", expect: { role: "button", label } })
+          ?.sideEffect,
+        label,
+      ).not.toBe("financial");
     }
     // End to end: the real broker gives that card the presence step; a delete is a tap.
     const real = createPermissionBroker({
@@ -810,6 +845,127 @@ describe("computer-use agent tools (J1–J5)", () => {
       scopesOffered: ["once"],
     });
     expect((await card("Delete")).requiresAuthentication).toBe(false);
+  });
+
+  describe("a click by screen point is checked against what is really there", () => {
+    const money = (calls: FakeHelper["calls"]) =>
+      calls.filter((c) => c.capability === "computer.click");
+
+    it("asks the helper what is under the point, and a plain control clicks on the existing approval", async () => {
+      const approval = await loopApproval("computer_action");
+      await call("computer.snapshot", { app: notes });
+      helper.underPoint = { role: "AXButton", label: "Save", labels: ["Save"] };
+      const out = await call(
+        "computer.act",
+        { app: notes, action: "click", x: 40, y: 50 },
+        { approvalId: approval },
+      );
+      expect(out).toBeDefined();
+      const caps = helper.calls.map((c) => c.capability);
+      expect(caps.indexOf("computer.resolve_target")).toBeGreaterThan(-1);
+      expect(caps.indexOf("computer.resolve_target")).toBeLessThan(caps.indexOf("computer.click"));
+      expect(
+        helper.calls.find((c) => c.capability === "computer.resolve_target")?.params,
+      ).toMatchObject({ x: 40, y: 50, app: notes });
+      expect(issued).toHaveLength(1); // only the loop's own approval
+      expect(money(helper.calls)).toHaveLength(1);
+    });
+
+    it.each([
+      ["Place bid", ["Place bid"]],
+      ["Sell", ["Sell"]],
+      ["Pay", ["Pay now"]],
+      ["Swap", ["Swap", "Exchange panel"]],
+    ])("%s under the point re-asks as a financial card before the click", async (label, labels) => {
+      const approval = await loopApproval("computer_action");
+      await call("computer.snapshot", { app: notes });
+      issued.length = 0;
+      helper.underPoint = { role: "AXButton", label, labels };
+      await call(
+        "computer.act",
+        { app: notes, action: "click", x: 40, y: 50 },
+        { approvalId: approval },
+      );
+      // A second, financial card (presence, once only) was asked for first...
+      expect(issued).toHaveLength(1);
+      expect(issued[0]?.approval).toMatchObject({
+        kind: "computer_action",
+        sideEffect: "financial",
+        scopesOffered: ["once"],
+      });
+      // ...and the click carried that card, not the loop's earlier tap.
+      const click = helper.calls.find((c) => c.capability === "computer.click");
+      expect(click?.approvalId).toBe(issued[0]?.approval.id);
+    });
+
+    it("does not click when the owner refuses the financial card", async () => {
+      const approval = await loopApproval("computer_action");
+      await call("computer.snapshot", { app: notes });
+      helper.underPoint = { role: "AXButton", label: "Place bid", labels: ["Place bid"] };
+      answer = "deny";
+      expect(
+        await call(
+          "computer.act",
+          { app: notes, action: "click", x: 40, y: 50 },
+          { approvalId: approval },
+        ),
+      ).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
+      expect(money(helper.calls)).toHaveLength(0);
+    });
+
+    it("checks the point end of a drag, and skips the check for a ref (its label is in the snapshot)", async () => {
+      await call("computer.snapshot", { app: notes });
+      helper.calls.length = 0;
+      await call("computer.act", {
+        app: notes,
+        action: "drag",
+        ref: "e2",
+        expect: { role: "button" },
+        to: { x: 5, y: 6 },
+      });
+      expect(helper.calls.filter((c) => c.capability === "computer.resolve_target")).toHaveLength(
+        1,
+      );
+      helper.calls.length = 0;
+      await call("computer.act", {
+        app: notes,
+        action: "click",
+        ref: "e2",
+        expect: { role: "button" },
+      });
+      expect(helper.calls.map((c) => c.capability)).not.toContain("computer.resolve_target");
+    });
+
+    it("refuses a point click when the helper cannot say what is under it", async () => {
+      await call("computer.snapshot", { app: notes });
+      helper.noResolve = true;
+      expect(
+        await call("computer.act", { app: notes, action: "click", x: 40, y: 50 }),
+      ).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
+      expect(money(helper.calls)).toHaveLength(0);
+    });
+
+    it("another computer's helper without the check clicks as before (not yet implemented there)", async () => {
+      helperKind = "win-helper";
+      await call("computer.snapshot", { app: notes });
+      helper.noResolve = true;
+      await call("computer.act", { app: notes, action: "click", x: 40, y: 50 });
+      expect(money(helper.calls)).toHaveLength(1);
+    });
+
+    it("a click already classed financial does not ask twice", async () => {
+      await call("computer.snapshot", { app: notes });
+      helper.calls.length = 0;
+      issued.length = 0;
+      helper.underPoint = { label: "Pay", labels: ["Pay"] };
+      const approval = await loopApproval("computer_action");
+      await call(
+        "computer.act",
+        { app: notes, action: "click", x: 1, y: 2, expect: { role: "button", label: "Pay" } },
+        { approvalId: approval },
+      );
+      expect(issued.filter((i) => i.approval.sideEffect === "financial")).toHaveLength(0);
+    });
   });
 
   it("matches the helper's risky labels and chords", () => {
