@@ -32,14 +32,14 @@ public final class AlertCenter {
     /// The thread on screen, so a foreground banner skips it.
     var visibleThread: @MainActor () -> String? = { nil }
 
-    private let store: any PsycheBackend
+    let store: any PsycheBackend
     private let notifier: any LocalNotifier
     private let activities: any ActivityHost
     private let connection: any AlertConnection
     private let ledger: NotifiedLedger
     private let isFixture: Bool
     var isFixtureMode: Bool { isFixture }
-    private var settings = PhoneSettings(
+    var settings = PhoneSettings(
         notifications: true, liveActivities: true, taskTitlesOnLockScreen: false, faceIDForApprovals: true)
     private var coalescer = UpdateCoalescer(interval: 1)
     /// Live Activity updates: a change goes out at most every few seconds, an unchanged one never.
@@ -53,9 +53,9 @@ public final class AlertCenter {
     private var activeIDs: Set<String> = []
     /// Whether the Gateway connection is live right now. False until the connection says so: nothing vouches for
     /// the state before that.
-    private var connectionLive = false
+    var connectionLive = false
     /// The next sync must give every activity a fresh stale date from fresh Gateway data (the app just opened).
-    private var refreshStaleOnNextSync = false
+    var refreshStaleOnNextSync = false
     /// `setKeepConnected` calls, applied one at a time in the order they were made.
     private let keepConnectedChanges: AsyncStream<Bool>.Continuation
     private var connectionWatcher: Task<Void, Never>?
@@ -73,13 +73,37 @@ public final class AlertCenter {
     private var titles: [String: String] = [:]
     private var delegate: NotificationDelegate?
 
+    // Chat replies that run long (AlertCenter+ChatTurns.swift).
+    let chatActivities: any ChatTurnActivityHost
+    /// How long a reply must have been going before it gets an activity.
+    let chatThreshold: TimeInterval
+    var chatTracker = ChatTurnTracker()
+    /// A changed status goes out at most this often.
+    var chatMinInterval: TimeInterval = 5
+    /// Chats with a Live Activity running.
+    var chatWatching: Set<String> = []
+    var chatContents: [String: ChatTurnContent] = [:]
+    var chatPushes: [String: Date] = [:]
+    var chatStaleDates: [String: Date] = [:]
+    var chatTitles: [String: String] = [:]
+    var chatStartTimers: [String: Task<Void, Never>] = [:]
+    var chatCatchUp: Task<Void, Never>?
+    /// Which chat each task belongs to, learned from the Gateway's runs and approvals: a chat whose task has its
+    /// own activity gets none of its own.
+    var taskThreads: [String: String] = [:]
+
     init(
         store: any PsycheBackend, notifier: any LocalNotifier, activities: any ActivityHost,
         connection: any AlertConnection, ledger: NotifiedLedger, isFixture: Bool = false,
         awakeAudio: any SilentAudio = NoSilentAudio(), deviceConditions: any DeviceConditions = NoDeviceConditions(),
         awakeLedger: AwakeTimeLedger = AwakeTimeLedger(directory: nil),
-        awakeCap: AwakeCapStore = AwakeCapStore(directory: nil), staleOverride: TimeInterval? = nil
+        awakeCap: AwakeCapStore = AwakeCapStore(directory: nil), staleOverride: TimeInterval? = nil,
+        chatActivities: any ChatTurnActivityHost = NoChatTurnActivityHost(),
+        chatThreshold: TimeInterval = ChatTurnTracker.longRunning
     ) {
+        self.chatActivities = chatActivities
+        self.chatThreshold = chatThreshold
+        chatWatching = Set(chatActivities.activeThreadIDs)
         let (changes, continuation) = AsyncStream<Bool>.makeStream(bufferingPolicy: .unbounded)
         keepConnectedChanges = continuation
         Task { [connection] in for await keep in changes { await connection.setKeepConnected(keep) } }
@@ -96,14 +120,17 @@ public final class AlertCenter {
             setKeepConnected: { [keepConnectedChanges] keep in keepConnectedChanges.yield(keep) },
             onStopped: { [weak self] reason in self?.awakeStopped(reason) })
         activities.observeChanges { [weak self] in self?.activitiesChangedBySystem() }
+        chatActivities.observeChanges { [weak self] in self?.chatActivitiesChangedBySystem() }
     }
 
     /// The real wiring. `client` is nil in fixture mode (`-psycheScenario`, "Try it without a Mac").
     public static func make(store: any PsycheBackend, client: GatewayClient?) -> AlertCenter {
         #if os(iOS)
         let host: any ActivityHost = SystemActivityHost()
+        let chatHost: any ChatTurnActivityHost = SystemChatTurnActivityHost()
         #else
         let host: any ActivityHost = NoActivityHost()
+        let chatHost: any ChatTurnActivityHost = NoChatTurnActivityHost()
         #endif
         // Fixtures keep their own ledger in memory: made-up data must not touch the real one.
         let ledger = NotifiedLedger(directory: client == nil ? nil : AppGroup.dataDirectory)
@@ -122,12 +149,19 @@ public final class AlertCenter {
         let seconds = UserDefaults.standard.double(forKey: "psycheStaleSeconds")
         if seconds > 0 { staleOverride = seconds }
         #endif
+        var chatThreshold = ChatTurnTracker.longRunning
+        #if DEBUG
+        // `-psycheChatTurnSeconds 4`: a chat reply earns its Live Activity after 4 seconds, to see it without waiting.
+        let turnSeconds = UserDefaults.standard.double(forKey: "psycheChatTurnSeconds")
+        if turnSeconds > 0 { chatThreshold = turnSeconds }
+        #endif
         return AlertCenter(
             store: store, notifier: SystemNotifier(),
             activities: host,
             connection: client.map { GatewayAlertConnection(client: $0) } ?? FixtureAlertConnection(),
             ledger: ledger, isFixture: client == nil, awakeAudio: audio, deviceConditions: conditions,
-            awakeLedger: awakeLedger, awakeCap: awakeCap, staleOverride: staleOverride)
+            awakeLedger: awakeLedger, awakeCap: awakeCap, staleOverride: staleOverride, chatActivities: chatHost,
+            chatThreshold: chatThreshold)
     }
 
     // MARK: - App hooks
@@ -158,6 +192,7 @@ public final class AlertCenter {
                 // says now, and only with a live connection (never by re-pushing what was shown before).
                 refreshStaleOnNextSync = true
                 requestSync()
+                await reconcileChatTurns()
             } else if awake?.isRunning != true {
                 // Leaving with nothing keeping the app awake: nothing can refresh the activity, so shorten its fuse.
                 await shortenStaleDates()
@@ -181,12 +216,20 @@ public final class AlertCenter {
         }
         observer = Task { [weak self] in
             guard let self else { return }
+            // Subscribed first: what happens while the first read is in flight (a reply started right at launch)
+            // must not be lost.
+            let events = self.store.events()
             await self.loadSettings()
             await self.sync(.baseline)
-            let events = self.store.events()
+            await self.reconcileChatTurns()
             for await event in events {
                 switch event {
-                case .changed(.home), .changed(.activity), .resynced: self.requestSync()
+                case .chat(let chat): await self.handleChat(chat)
+                case .changed(.threads): await self.reconcileChatTurns()
+                case .resynced:
+                    self.requestSync()
+                    await self.reconcileChatTurns()
+                case .changed(.home), .changed(.activity): self.requestSync()
                 case .changed(.settings):
                     await self.loadSettings()
                     await self.applySettings()
@@ -211,13 +254,14 @@ public final class AlertCenter {
         awake?.setSwitch(settings.stayConnectedWhileRunning && liveActivitiesOn)
     }
 
-    private var liveActivitiesOn: Bool { settings.notifications && settings.liveActivities }
+    var liveActivitiesOn: Bool { settings.notifications && settings.liveActivities }
 
     /// The owner flipped a toggle: end activities that are no longer allowed, and redraw the rest with or
     /// without the title.
     private func applySettings() async {
         if !liveActivitiesOn {
             for id in watching { await activities.end(taskID: id, final: nil, dismissAfter: 0) }
+            await endAllChatActivities()
             watching = []
             lastContent = [:]
             lastPush = [:]
@@ -227,6 +271,7 @@ public final class AlertCenter {
         } else {
             lastContent = [:]
             await sync(.live)
+            await startDueChatActivities()
         }
     }
 
@@ -266,6 +311,8 @@ public final class AlertCenter {
         titles[task.id] = task.title
         if offer?.id == task.id { offer = nil }
         if let fixtures = store as? FixtureBackend { await fixtures.startRunningDemo(taskID: task.id) }
+        // The task's own activity now shows this work: its chat must not show it a second time.
+        await endChatActivitiesCoveredByTasks()
         return nil
     }
 
@@ -296,6 +343,9 @@ public final class AlertCenter {
         // app may be suspended right after it, which would leave the island showing the old state.
         let vanished = previous.union(watching).subtracting(running)
         let recent = vanished.isEmpty ? [] : ((try? await store.activity())?.recent ?? [])
+        for item in home.needsYou {
+            if let task = item.taskID, let thread = item.threadID { taskThreads[task] = thread }
+        }
         activeIDs = running.union(home.needsYou.compactMap(\.taskID))
         await updateActivities(home: home, recent: recent)
         updateAwake()
@@ -358,6 +408,8 @@ public final class AlertCenter {
                 staleDates[id] = nil
             }
         }
+        await refreshChatFreshness()
+        await endChatActivitiesCoveredByTasks()
         if connectionLive { refreshStaleOnNextSync = false }
         scheduleStaleRefresh()
     }
@@ -365,9 +417,9 @@ public final class AlertCenter {
     // MARK: - Freshness
 
     /// Awake: the app is open or keeping itself awake, and the Gateway connection is live to vouch for the state.
-    private var isAwake: Bool { (appActive || awake?.isRunning == true) && connectionLive }
+    var isAwake: Bool { (appActive || awake?.isRunning == true) && connectionLive }
 
-    private func staleDate(from now: Date) -> Date {
+    func staleDate(from now: Date) -> Date {
         if let staleOverride { return now.addingTimeInterval(staleOverride) }
         return ActivityFreshness.staleDate(lastUpdate: now, awake: isAwake)
     }
@@ -394,10 +446,11 @@ public final class AlertCenter {
 
     /// While awake, one sleep until the earliest stale date is about to pass; then the unchanged activity gets a
     /// later one. Not a poll: it is re-armed only by an update and runs once per stale period.
-    private func scheduleStaleRefresh() {
+    func scheduleStaleRefresh() {
         staleRefresh?.cancel()
         staleRefresh = nil
-        guard staleOverride == nil, isAwake, let soonest = watching.compactMap({ staleDates[$0] }).min() else { return }
+        let stale = watching.compactMap { staleDates[$0] } + chatWatching.compactMap { chatStaleDates[$0] }
+        guard staleOverride == nil, isAwake, let soonest = stale.min() else { return }
         let delay = max(1, ActivityFreshness.refreshTime(forStaleDate: soonest).timeIntervalSinceNow)
         staleRefresh = Task { [weak self] in
             try? await Task.sleep(for: .seconds(delay))
@@ -415,6 +468,7 @@ public final class AlertCenter {
             guard let content = lastContent[id], let current = staleDates[id], short < current else { continue }
             await push(id, content, at: now, staleDate: short)
         }
+        await shortenChatStaleDates(to: short, at: now)
         staleRefresh?.cancel()
         staleRefresh = nil
     }
@@ -423,9 +477,14 @@ public final class AlertCenter {
 
     /// Tells the awake controller what is being watched: the system's list of activities, and how many of those
     /// the Gateway says are still running or waiting.
-    private func updateAwake() {
+    func updateAwake() {
         let systemWatched = Set(activities.activeTaskIDs)
-        awake?.setTasks(watched: systemWatched.count, active: systemWatched.intersection(activeIDs))
+        // A chat reply with an activity keeps the app awake like a watched task does, under its own key.
+        let chatWatched = Set(chatActivities.activeThreadIDs)
+        let chatRunning = Set(chatWatched.filter { chatTracker.turns[$0] != nil }.map { "chat:" + $0 })
+        awake?.setTasks(
+            watched: systemWatched.count + chatWatched.count,
+            active: systemWatched.intersection(activeIDs).union(chatRunning))
     }
 
     /// The owner dismissed an activity, or the system ended one.
@@ -439,13 +498,14 @@ public final class AlertCenter {
     /// away, leaves only the short fuse.
     private func awakeStopped(_ reason: StayAwake.StopReason) {
         scheduleStaleRefresh()
-        guard !watching.isEmpty else { return }
+        guard !watching.isEmpty || !chatWatching.isEmpty else { return }
         Task {
             if reason == .gatewayUnreachable || (reason == .hardCap && !appActive) {
                 let now = Date.now
                 for id in watching {
                     if let content = lastContent[id] { await push(id, content, at: now, staleDate: now) }
                 }
+                await markChatActivitiesStale(at: now)
             } else if !appActive {
                 await shortenStaleDates()
             }
