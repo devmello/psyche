@@ -206,7 +206,8 @@ describe("resolve (G4, G5, G7)", () => {
     });
     expect(issued.approval).toMatchObject({
       kind: "credential_fill",
-      requiresAuthentication: true,
+      // Presence is for payments only: filling a credential is a tap on a paired device.
+      requiresAuthentication: false,
       deviceOnly: true,
       surfaces: ["desktop", "notification"],
       details: {

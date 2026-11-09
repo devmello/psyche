@@ -712,6 +712,13 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
         listDevices(services.db).some(
           (d) => d.pairedAt !== null && !d.revokedAt && enrolledKeys(d.id) !== undefined,
         ),
+      // Whether a paired helper's key can sign a presence step, the auto-paired device key
+      // included. Paired, not connected: quitting the desktop (which stops the helper) must not
+      // switch the Mac-sheet requirement for adding a verifier off.
+      canVerify: () =>
+        listDevices(services.db).some(
+          (d) => d.pairedAt !== null && !d.revokedAt && presenceKeys(d.id) !== undefined,
+        ),
     },
     start(gw) {
       gateway = gw;

@@ -97,7 +97,7 @@ The same policy holds your other choices:
 - **Apps.** Computer-use tiers per app. See [Approvals and tiers](/security/approvals-and-tiers).
 - **Connectors.** Per-connector actions, for example Gmail read allowed, send ask, Drive write denied.
 
-Changing any of these needs an admin device and, once the Gateway has a presence verifier, an approved tap on the card.
+Changing any of these needs an admin device and, once you have added a presence verifier (a passkey, or a Windows Hello key), a tap on the card. The Mac helper's own key does not count as one, so on a Mac with neither, an admin device alone is enough and no card appears.
 
 ## Learn more
 

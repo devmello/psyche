@@ -18,6 +18,10 @@
       "types": "./src/host-words.ts",
       "default": "./src/host-words.ts"
     },
+    "./money-intent": {
+      "types": "./src/money-intent.ts",
+      "default": "./src/money-intent.ts"
+    },
     "./binding": {
       "types": "./src/binding.ts",
       "default": "./src/binding.ts"

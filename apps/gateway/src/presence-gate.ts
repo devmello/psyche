@@ -108,8 +108,13 @@ export async function requireFreshPresence(
 ): Promise<void> {
   if (call.ctx.securityState?.untrusted() != null) throw stateUntrustedError();
   const state = call.ctx.presenceState();
-  if (state === "off") return;
-  if (state === "unavailable" && opts.strong === true) throw presenceRequiredError();
+  const strong = opts.strong === true;
+  // Adding a verifier is gated by what can verify, not by what the owner enrolled: on a default
+  // Mac the helper's auto-paired key can sign the sheet, so a first passkey from a device with
+  // only `operator.approvals` must pass it too (`presenceCanVerify`, context.ts).
+  const canVerify = call.ctx.presenceCanVerify?.() ?? state !== "off";
+  if (state === "off" && !(strong && canVerify)) return;
+  if (strong && !canVerify) throw presenceRequiredError();
   let valueSha256: string;
   try {
     valueSha256 = hashCanonical((action.subject ?? null) as never);

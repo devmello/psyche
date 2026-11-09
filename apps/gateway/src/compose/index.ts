@@ -639,6 +639,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const parts: ComposedPart[] = [];
   const presenceByKind = new Map<string, PresenceVerifier>();
   const presenceReady: (() => boolean)[] = [];
+  const presenceCanVerify: (() => boolean)[] = [];
   // The localhost rule (security §3.10) needs OS probes a part supplies (the browser's dev
   // preview); until one does, no loopback origin is the owner's project.
   let localProject: LocalProjectVerifier = DENY_ALL_LOOPBACK;
@@ -1158,6 +1159,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     if (part.presence !== undefined) {
       presenceByKind.set(part.presence.kind, part.presence.verifier);
       presenceReady.push(part.presence.ready ?? (() => true));
+      presenceCanVerify.push(part.presence.canVerify ?? part.presence.ready ?? (() => true));
     }
     if (part.localProject !== undefined) {
       localProject = part.localProject;
@@ -2032,6 +2034,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // Security settings need fresh presence once a verifier can verify (security §10): an
     // explicit one, or a part's with a registered key (the helper without keys is not).
     settingsPresence: () => presence !== NO_PRESENCE || presenceReady.some((ready) => ready()),
+    // Adding a verifier must pass the Mac sheet whenever any verifier can verify, the auto-paired
+    // helper's device key included (`presenceCanVerify` in context.ts).
+    presenceCanVerify: () =>
+      presence !== NO_PRESENCE || presenceCanVerify.some((canVerify) => canVerify()),
     threadModels: modelPins,
     // Run trace §4.6: the one redactor, and credential-like URL parameters.
     traceRedact: (text) =>

@@ -11,7 +11,7 @@ import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { HelperPresenceKeys } from "../src/compose/presence-keys.ts";
 import { silentLogger } from "../src/log.ts";
 import { FakeNode, type FakeNodeHandler } from "./fake-node.ts";
-import { adminClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
+import { adminClient, desktopClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
 
 /**
  * A Mac helper needs no registered presence key: it signs with its own Ed25519 device key, the one
@@ -315,6 +315,49 @@ describe("a Mac helper's device key is its presence key", () => {
     revokeDevice(c.gateway.context.db, helperDevice);
     expect(keys.get(helperDevice)).toBeUndefined();
     expect(await admin.call("devices.presenceKey.list", {})).toEqual({ presenceKeys: [] });
+  });
+
+  it("on a default Mac a non-admin device's first passkey needs the Mac sheet, not just a tap", async () => {
+    const { c, helperDevice } = await setup();
+    // Default Mac: only the helper's auto-paired key exists, so the gate is "off" ...
+    expect(c.gateway.context.presenceState()).toBe("off");
+    // ... yet the helper can verify, so adding a verifier must pass its sheet.
+    expect(c.gateway.context.presenceCanVerify()).toBe(true);
+    // A device with read/write/approvals but not admin (a paired phone, a stolen token).
+    const phone = await desktopClient(c.gateway, newDeviceKey(), "phone-1");
+    clients.push(phone);
+    const first = await phone.request(
+      "passkeys.register.finish",
+      { ceremonyId: "c".repeat(32), response: {} },
+      ik(),
+    );
+    expect(first).toMatchObject({ ok: false, error: { code: "approval_required" } });
+    const approvalId = (first as { error: { details: { approvalId: string } } }).error.details
+      .approvalId;
+    const card = (await c.broker.get(approvalId)) as ApprovalRequest;
+    // The card needs the presence step; a plain tap is refused.
+    expect(card.requiresAuthentication).toBe(true);
+    const { token } = await phone
+      .call<{ token?: string; answerToken?: string }>("approvals.get", { approvalId })
+      .then((r) => ({ token: r.answerToken ?? r.token }));
+    const tap = await phone.request(
+      "approvals.answer",
+      { approvalId, decision: "approve", scope: "once", answerToken: token },
+      ik(),
+    );
+    expect(tap).toMatchObject({ ok: false });
+    // Still pending: nothing enrolled, and the retry with the unapproved card is refused.
+    expect((await c.broker.get(approvalId))?.status).toBe("pending");
+    expect(
+      await phone.request(
+        "passkeys.register.finish",
+        { ceremonyId: "c".repeat(32), response: {}, approvalId },
+        ik(),
+      ),
+    ).toMatchObject({
+      ok: false,
+    });
+    void helperDevice;
   });
 
   it("an unknown or disconnected device cannot register", async () => {
