@@ -316,6 +316,72 @@ describe("approval lifecycle", () => {
     expect(seen).toContain(right);
   });
 
+  it("only payments need presence: every other approval is a tap on its card", async () => {
+    let verifierCalls = 0;
+    const h = makeBroker({
+      presence: {
+        verify: async () => {
+          verifierCalls++;
+          return true;
+        },
+      },
+    });
+    // A financial action needs it (and a purchase kind does, whatever its side effect).
+    const pay = await request(
+      h,
+      call("purchase.checkout", "financial", origin("https://s.example")),
+      ["desktop"],
+    );
+    expect(pay.approval.requiresAuthentication).toBe(true);
+    // Credential fills, host commands, AppleScript, pairing and policy changes are taps.
+    for (const [kind, sideEffect] of [
+      ["credential_fill", "write"],
+      ["exec_host", "destructive"],
+      ["apple_script", "destructive"],
+      ["pairing", "write"],
+      ["policy_change", "destructive"],
+    ] as const) {
+      const issued = await h.broker.requestApproval({
+        kind,
+        summary: `a ${kind}`,
+        details: {},
+        bindingHash: sha256(kind),
+        grantKey: kind,
+        requestedBy: { runId: null, taskId: null, threadId: null },
+        sideEffect,
+        surfaces: ["desktop", "web"],
+        scopesOffered: ["once"],
+        taint: false,
+      });
+      expect(issued.approval.requiresAuthentication, kind).toBe(false);
+      h.clock.advance(500);
+      const done = await h.broker.answer({
+        approvalId: issued.approval.id,
+        answerToken: issued.answerTokens.web ?? "",
+        decision: "approve",
+        scope: "once",
+        decidedBy: { deviceId: "dev_web" },
+      });
+      expect(done.status, kind).toBe("approved");
+    }
+    expect(verifierCalls).toBe(0);
+    // The Gateway's gate for enrolling a presence verifier can force it on a non-payment card.
+    const forced = await h.broker.requestApproval({
+      kind: "policy_change",
+      summary: "Add a passkey",
+      details: {},
+      bindingHash: sha256("enroll"),
+      grantKey: "enroll",
+      requestedBy: { runId: null, taskId: null, threadId: null },
+      sideEffect: "destructive",
+      surfaces: ["desktop"],
+      scopesOffered: ["once"],
+      taint: false,
+      requireAuthentication: true,
+    });
+    expect(forced.approval.requiresAuthentication).toBe(true);
+  });
+
   it("the presence challenge is the bare 64-hex digest the helper and WebAuthn require", () => {
     const hash = "a".repeat(64);
     const once = presenceChallenge("apr_1", hash, "tok");

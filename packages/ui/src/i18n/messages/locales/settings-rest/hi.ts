@@ -594,7 +594,7 @@ export const settingsRest: Partial<Catalogue> = {
     "काम करते समय {persona} ने जो स्क्रीन देखीं, टाइमलाइन के लिए। बंद करने पर कोई नहीं रखी जाती।",
   "settings.devices.presenceKey.unknown": "Touch ID कुंजी (हेल्पर ने प्रकार नहीं बताया)",
   "settings.devices.presenceKey.deviceIdentity":
-    "स्वीकृतियाँ Touch ID या आपके Mac के पासवर्ड का उपयोग करती हैं। कुछ भी सेट अप करने की ज़रूरत नहीं है।",
+    "भुगतान Touch ID या आपके Mac के पासवर्ड का उपयोग करते हैं। कुछ भी सेट अप करने की ज़रूरत नहीं है।",
   "settings.devices.touchId.none":
     "अभी कोई Touch ID कुंजी नहीं। जब तक कोई रजिस्टर नहीं होती, Touch ID चाहने वाले कार्ड स्वीकृत नहीं हो सकते।",
   "settings.devices.touchId.bundled": "इस ऐप का Psyche Helper कुंजी दिखाता है",

@@ -449,6 +449,7 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
             },
           },
           params.approvalId,
+          { strong: true },
         );
         if (replacedKey()?.keyId !== replaces?.keyId) {
           throw new PsycheError(

@@ -74,7 +74,7 @@ describe("Linux copy (i18n/messages/variants/linux.ts)", () => {
     expect(t("web.remote.thisMac")).toBe("This Mac");
     setUiPlatform("linux");
     expect(t("web.remote.thisMac")).toBe("This computer");
-    expect(t("onboarding.safety.touchId")).toBe("Your password for approvals");
+    expect(t("onboarding.safety.touchId")).toBe("Your password for payments");
     expect(t("settings.about.revealHome")).toBe("Show in Files");
     expect(t("settings.model.ram.fits", { gb: 16, fits: "Qwen" })).toBe(
       "This computer has 16 GB, so Qwen fit.",

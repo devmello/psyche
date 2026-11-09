@@ -130,8 +130,8 @@ describe("web passkeys (issue #79)", () => {
     });
   });
 
-  it("turns on fresh presence for security settings and answers the card with a passkey", async () => {
-    const { owner } = await setup();
+  it("a passkey now makes security settings a tap, and answers a payment card with presence", async () => {
+    const { c, owner } = await setup();
     // No verifier ready yet: the old rule (operator.admin) applies.
     expect(
       await owner.request("settings.set", { key: "permissions.mode", value: "manual" }, ik()),
@@ -139,23 +139,44 @@ describe("web passkeys (issue #79)", () => {
 
     const a = new SoftAuthenticator(RP_ID, ORIGIN);
     expect(await register(owner, a)).toMatchObject({ ok: true });
-    // Now a passkey can verify, so the security setting needs a presence-approved card.
+    // Now a passkey can verify: a security setting needs a card, but only a tap (presence is for
+    // payments only).
     const first = await owner.request(
       "settings.set",
       { key: "permissions.mode", value: "balanced" },
       ik(),
     );
     expect(first).toMatchObject({ ok: false, error: { code: "approval_required" } });
-    const approvalId = (first.error as { details: { approvalId: string } }).details.approvalId;
-    const created = await owner.waitForEvent(
-      (e) =>
-        e.event === "approval.created" &&
-        (e.payload as { approval: { id: string } }).approval.id === approvalId,
-    );
-    const { approval, answerToken } = created.payload as {
-      approval: { id: string; bindingHash: string };
-      answerToken: string;
-    };
+    const tapId = (first.error as { details: { approvalId: string } }).details.approvalId;
+    expect(
+      (
+        await owner.call<{ approval: { requiresAuthentication: boolean } }>("approvals.get", {
+          approvalId: tapId,
+        })
+      ).approval.requiresAuthentication,
+    ).toBe(false);
+
+    // A payment needs the passkey.
+    const issued = await c.broker.requestApproval({
+      kind: "purchase",
+      summary: "Pay $5 to Example Shop",
+      details: {},
+      bindingHash: "d".repeat(64),
+      grantKey: "d".repeat(64),
+      requestedBy: { runId: null, taskId: null, threadId: null },
+      sideEffect: "financial",
+      surfaces: ["desktop", "web"],
+      scopesOffered: ["once"],
+      taint: false,
+    });
+    const approvalId = issued.approval.id;
+    const got = await owner.call<{
+      approval: { id: string; bindingHash: string; requiresAuthentication: boolean };
+      answerToken?: string;
+    }>("approvals.get", { approvalId });
+    const approval = got.approval;
+    const answerToken = got.answerToken ?? "";
+    expect(approval.requiresAuthentication).toBe(true);
     expect(answerToken).toBeTruthy();
     await new Promise((r) => setTimeout(r, 450)); // cards arm after 400 ms
 
@@ -203,12 +224,6 @@ describe("web passkeys (issue #79)", () => {
       presence,
     });
     expect(answered).toMatchObject({ ok: true });
-    const applied = await owner.request(
-      "settings.set",
-      { key: "permissions.mode", value: "balanced", approvalId },
-      ik(),
-    );
-    expect(applied).toMatchObject({ ok: true });
   });
 
   it("stops counting a revoked device's passkeys", async () => {

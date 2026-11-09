@@ -193,34 +193,27 @@ async function setup(
   return { c: composed, admin, key, deviceKey, hello, helperDevice };
 }
 
-/** A presence-gated change: a `policy_change` card that requires authentication. */
-async function securityCard(admin: TestClient) {
-  const first = await admin.request(
-    "settings.set",
-    { key: "permissions.policy", value: { allow: [] } },
-    ik(),
-  );
-  const approvalId = (first as { error: { details: { approvalId: string } } }).error.details
-    .approvalId;
-  const got = await admin.call<{ approval: ApprovalRequest; answerToken?: string }>(
-    "approvals.get",
-    { approvalId },
-  );
-  await new Promise((r) => setTimeout(r, 450)); // past the arm delay
-  return { approval: got.approval, token: got.answerToken ?? "" };
-}
+let cardN = 0;
 
-/** A card that requires authentication whether or not presence is enrolled yet. */
-async function authCard(c: ComposedGateway, admin: TestClient) {
+/**
+ * A card that requires presence: a payment (a financial `purchase` card; presence is for payments
+ * only), armed and with this window's answer token.
+ */
+async function paymentCard(
+  c: ComposedGateway,
+  admin: TestClient,
+  surfaces: ("desktop" | "web" | "notification")[] = ["desktop", "web"],
+) {
+  const hash = `${(++cardN).toString(16).padStart(2, "0")}${"b".repeat(62)}`;
   const issued = await c.gateway.context.broker.requestApproval({
-    kind: "policy_change",
-    summary: "Change a security setting",
+    kind: "purchase",
+    summary: "Pay $5 to Example Shop",
     details: {},
-    bindingHash: "b".repeat(64),
-    grantKey: "b".repeat(64),
+    bindingHash: hash,
+    grantKey: hash,
     requestedBy: { runId: null, taskId: null, threadId: null },
-    sideEffect: "destructive",
-    surfaces: ["desktop", "web"],
+    sideEffect: "financial",
+    surfaces,
     scopesOffered: ["once"],
     taint: false,
   });
@@ -228,7 +221,21 @@ async function authCard(c: ComposedGateway, admin: TestClient) {
     "approvals.get",
     { approvalId: issued.approval.id },
   );
-  return { approval: got.approval, token: got.answerToken ?? "" };
+  return { approval: got.approval, token: got.answerToken ?? "", issued };
+}
+
+/** A presence-gated card, armed (past the arm delay). */
+async function securityCard(admin: TestClient) {
+  if (composed === null) throw new Error("no gateway");
+  const card = await paymentCard(composed, admin);
+  await new Promise((r) => setTimeout(r, 450)); // past the arm delay
+  return { approval: card.approval, token: card.token };
+}
+
+/** A card that requires authentication whether or not presence is enrolled yet. */
+async function authCard(c: ComposedGateway, admin: TestClient) {
+  const { approval, token } = await paymentCard(c, admin);
+  return { approval, token };
 }
 
 async function reset(): Promise<void> {
@@ -548,17 +555,9 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
       ik(),
     );
     await new Promise((r) => setTimeout(r, 100));
-    const second = await admin.request(
-      "settings.set",
-      { key: "permissions.policy", value: { deny: [] } },
-      ik(),
-    );
-    const secondId = (second as { error: { details: { approvalId: string } } }).error.details
-      .approvalId;
-    const got = await admin.call<{ answerToken?: string }>("approvals.get", {
-      approvalId: secondId,
-    });
-    await new Promise((r) => setTimeout(r, 450));
+    const secondCard = await securityCard(admin);
+    const secondId = secondCard.approval.id;
+    const got = { answerToken: secondCard.token };
     expect(
       await admin.request(
         "approvals.approveWithTouchId",
@@ -582,17 +581,9 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
       },
     });
     const first = await securityCard(admin);
-    const second = await admin.request(
-      "settings.set",
-      { key: "permissions.policy", value: { deny: [] } },
-      ik(),
-    );
-    const secondId = (second as { error: { details: { approvalId: string } } }).error.details
-      .approvalId;
-    const got = await admin.call<{ answerToken?: string }>("approvals.get", {
-      approvalId: secondId,
-    });
-    await new Promise((r) => setTimeout(r, 450));
+    const secondCard = await securityCard(admin);
+    const secondId = secondCard.approval.id;
+    const got = { answerToken: secondCard.token };
     // Both sent before either is answered: no await between them.
     const a = admin.request(
       "approvals.approveWithTouchId",
@@ -739,6 +730,8 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
       .approvalId;
     const got = await admin.call<{ approval: ApprovalRequest }>("approvals.get", { approvalId });
     expect(got.approval.summary).toContain("REPLACE");
+    // Enrolling a presence verifier keeps the presence step (a payment-only rule everywhere else).
+    expect(got.approval.requiresAuthentication).toBe(true);
     expect(got.approval.details).toMatchObject({ replacesKeyId: key.keyId, keyId: other.keyId });
     // The same key again is a plain registration, not a replacement.
     helperKeyOverride = undefined;

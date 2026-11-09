@@ -321,13 +321,13 @@ describe("Safety: Touch ID", () => {
     const none = port({ identity: null, registered: false });
     safety(none);
     await waitFor(() => expect(none.status).toHaveBeenCalled());
-    expect(screen.queryByText("Touch ID for approvals")).toBeNull();
+    expect(screen.queryByText("Touch ID for payments")).toBeNull();
     expect(screen.queryByRole("button", { name: "Register this key" })).toBeNull();
   });
 
   it("shows no Touch ID row on the web", () => {
     safety(undefined);
-    expect(screen.queryByText("Touch ID for approvals")).toBeNull();
+    expect(screen.queryByText("Touch ID for payments")).toBeNull();
   });
 });
 

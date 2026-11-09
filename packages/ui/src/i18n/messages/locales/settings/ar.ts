@@ -564,7 +564,7 @@ export const settings: Partial<Catalogue> = {
     "الشاشات التي نظر إليها {persona} أثناء العمل، من أجل الجدول الزمني. الإيقاف لا يحتفظ بشيء.",
   "settings.devices.presenceKey.unknown": "مفتاح Touch ID (لم يبلغ المساعد عن نوعه)",
   "settings.devices.presenceKey.deviceIdentity":
-    "تستخدم الموافقات Touch ID أو كلمة مرور جهاز Mac. لا يلزم إعداد أي شيء.",
+    "تستخدم المدفوعات Touch ID أو كلمة مرور جهاز Mac. لا يلزم إعداد أي شيء.",
   "settings.devices.touchId.none":
     "لا مفتاح Touch ID بعد. لا يمكن الموافقة على البطاقات التي تحتاج إلى Touch ID حتى يُسجَّل مفتاح.",
   "settings.devices.touchId.bundled": "يعرض مساعد Psyche في هذا التطبيق المفتاح",

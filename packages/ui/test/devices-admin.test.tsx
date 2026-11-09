@@ -84,7 +84,7 @@ describe("Settings → Devices: which presence key the helper uses", () => {
       </StoryWorld>,
     );
     expect(screen.getByTestId("presence-key").textContent).toBe(
-      "Approvals use Touch ID or your Mac password. Nothing to set up.",
+      "Payments use Touch ID or your Mac password. Nothing to set up.",
     );
     rerender(
       <StoryWorld>

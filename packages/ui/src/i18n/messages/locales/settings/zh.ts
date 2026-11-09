@@ -533,7 +533,7 @@ export const settings: Partial<Catalogue> = {
   "settings.data.replayRetentionHint": "{persona}工作时看过的屏幕，用于时间线。关闭则不保留。",
   "settings.devices.presenceKey.unknown": "Touch ID 密钥（助手未报告类型）",
   "settings.devices.presenceKey.deviceIdentity":
-    "批准会使用 Touch ID 或你的 Mac 密码。无需任何设置。",
+    "付款会使用 Touch ID 或你的 Mac 密码。无需任何设置。",
   "settings.devices.touchId.none":
     "还没有 Touch ID 密钥。注册密钥之前，需要 Touch ID 的卡片无法批准。",
   "settings.devices.touchId.bundled": "此 App 中的 Psyche 助手显示密钥",

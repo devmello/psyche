@@ -77,17 +77,17 @@ export const onboardingRest: Partial<Catalogue> = {
     "朝の概要がオフのため、人物はまだどこにも表示されません。オンにすると表示されます。",
   "onboarding.safety.lead":
     "承認の届け方と、自動で実行される内容を設定します。ファイル、アプリ、画面へのアクセスはここでは尋ねません。{name}が初めて必要としたときにチャットで尋ねます。",
-  "onboarding.safety.touchId": "承認にTouch IDを使う",
+  "onboarding.safety.touchId": "支払いにTouch IDを使う",
   "onboarding.safety.touchId.checking": "Macヘルパーを確認しています…",
   "onboarding.safety.touchId.again": "もう一度確認",
   "onboarding.safety.touchId.set": "設定",
-  "onboarding.safety.touchId.setHint": "あなたの対応が必要な承認では、指紋を求めます。",
+  "onboarding.safety.touchId.setHint": "支払いでは、指紋かMacのパスワードを求めます。",
   "onboarding.safety.touchId.starting":
     "Macヘルパーはまだ起動中です。しばらくしてからもう一度確認してください。",
   "onboarding.safety.touchId.noKey": "MacヘルパーにTouch IDキーがありません（{reason}）。",
   "onboarding.safety.touchId.register": "このキーを登録",
   "onboarding.safety.touchId.hint":
-    "Macヘルパーのキーを一度登録しておくと、Touch IDで承認を確認できます。",
+    "Macヘルパーのキーを一度登録しておくと、Touch IDで支払いを確認できます。",
   "onboarding.safety.notifications": "通知",
   "onboarding.safety.asks":
     "{name}にこのMacでのコマンド実行を許可した場合、lsやcatのように読み取るだけのものはカードなしで実行されます。それ以外は先に確認します。",

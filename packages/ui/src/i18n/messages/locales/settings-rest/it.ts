@@ -625,7 +625,7 @@ export const settingsRest: Partial<Catalogue> = {
     "Le schermate che {persona} ha guardato mentre lavorava, per la Timeline. Se disattivato, non ne conserva nessuna.",
   "settings.devices.presenceKey.unknown": "Chiave Touch ID (tipo non indicato dall’helper)",
   "settings.devices.presenceKey.deviceIdentity":
-    "Le approvazioni usano Touch ID o la password del tuo Mac. Non c’è nulla da configurare.",
+    "I pagamenti usano Touch ID o la password del tuo Mac. Non c’è nulla da configurare.",
   "settings.devices.touchId.none":
     "Ancora nessuna chiave Touch ID. Le schede che richiedono Touch ID non possono essere approvate finché non ne registri una.",
   "settings.devices.touchId.bundled": "Il Psyche Helper in questa app mostra la chiave",

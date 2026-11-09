@@ -286,13 +286,13 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.model.kind.localHint": "يعمل على هذا الكمبيوتر؛ ولا يغادره شيء.",
       "onboarding.model.subscriptionNote":
         "يستخدم Psyche تطبيق Claude Code أو Codex المسجّل الدخول بالفعل على هذا الكمبيوتر، لذا لا يحتاج إلى مفتاح API ولا يخزّن أيًا منه. سجّل الدخول هناك أولًا إن لم تفعل.",
-      "onboarding.safety.touchId": "كلمة المرور للموافقات",
+      "onboarding.safety.touchId": "كلمة المرور للمدفوعات",
       "onboarding.safety.touchId.checking": "جارٍ فحص مساعد Linux…",
-      "onboarding.safety.touchId.setHint": "الموافقات التي تحتاج إليك تطلب كلمة المرور.",
+      "onboarding.safety.touchId.setHint": "المدفوعات تطلب كلمة المرور.",
       "onboarding.safety.touchId.starting": "ما زال مساعد Linux يبدأ. تحقق مجددًا بعد قليل.",
       "onboarding.safety.touchId.noKey": "ليس لدى مساعد Linux مفتاح موافقة ({reason}).",
       "onboarding.safety.touchId.hint":
-        "سجّل مفتاح مساعد Linux مرة واحدة ليتمكن من تأكيد الموافقات بكلمة المرور.",
+        "سجّل مفتاح مساعد Linux مرة واحدة ليتمكن من تأكيد المدفوعات بكلمة المرور.",
       "onboarding.safety.asks":
         "إذا سمحت لـ {name} بتشغيل الأوامر على هذا الكمبيوتر، فالأوامر التي تقرأ فقط مثل ls أو cat تعمل دون بطاقة. أما أي شيء آخر فيسألك أولًا.",
       "onboarding.done.touchId": "كلمة المرور",
@@ -693,15 +693,14 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.model.kind.localHint": "Läuft auf diesem Computer; nichts verlässt ihn.",
       "onboarding.model.subscriptionNote":
         "Psyche verwendet die auf diesem Computer bereits angemeldete Claude-Code- oder Codex-App, braucht also keinen API-Schlüssel und speichert keinen. Melde dich zuerst dort an, falls noch nicht geschehen.",
-      "onboarding.safety.touchId": "Dein Passwort für Genehmigungen",
+      "onboarding.safety.touchId": "Dein Passwort für Zahlungen",
       "onboarding.safety.touchId.checking": "Der Linux-Helper wird geprüft …",
-      "onboarding.safety.touchId.setHint":
-        "Genehmigungen, die dich brauchen, verlangen dein Passwort.",
+      "onboarding.safety.touchId.setHint": "Zahlungen verlangen dein Passwort.",
       "onboarding.safety.touchId.starting": "Der Linux-Helper startet noch. Prüfe gleich erneut.",
       "onboarding.safety.touchId.noKey":
         "Der Linux-Helper hat keinen Genehmigungsschlüssel ({reason}).",
       "onboarding.safety.touchId.hint":
-        "Registriere den Schlüssel des Linux-Helpers einmal, damit dein Passwort Genehmigungen bestätigen kann.",
+        "Registriere den Schlüssel des Linux-Helpers einmal, damit dein Passwort Zahlungen bestätigen kann.",
       "onboarding.safety.asks":
         "Erlaubst du {name}, Befehle auf diesem Computer auszuführen, laufen solche, die nur lesen, wie ls oder cat, ohne Karte. Alles andere fragt dich zuerst.",
       "onboarding.done.touchId": "Dein Passwort",
@@ -1107,15 +1106,15 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.model.kind.localHint": "Se ejecuta en este ordenador; nada sale de él.",
       "onboarding.model.subscriptionNote":
         "Psyche usa la app Claude Code o Codex con la sesión ya iniciada en este ordenador, así que no necesita ninguna clave de API ni guarda ninguna. Si aún no lo has hecho, inicia sesión allí primero.",
-      "onboarding.safety.touchId": "Tu contraseña para las aprobaciones",
+      "onboarding.safety.touchId": "Tu contraseña para los pagos",
       "onboarding.safety.touchId.checking": "Examinando el asistente de Linux…",
-      "onboarding.safety.touchId.setHint": "Las aprobaciones que te necesitan piden tu contraseña.",
+      "onboarding.safety.touchId.setHint": "Los pagos piden tu contraseña.",
       "onboarding.safety.touchId.starting":
         "El asistente de Linux aún se está iniciando. Vuelve a comprobar en un momento.",
       "onboarding.safety.touchId.noKey":
         "El asistente de Linux no tiene clave de aprobación ({reason}).",
       "onboarding.safety.touchId.hint":
-        "Registra una vez la clave del asistente de Linux para que tu contraseña pueda confirmar las aprobaciones.",
+        "Registra una vez la clave del asistente de Linux para que tu contraseña pueda confirmar los pagos.",
       "onboarding.safety.asks":
         "Si dejas que {name} ejecute comandos en este ordenador, los que solo leen, como ls o cat, se ejecutan sin tarjeta. Todo lo demás te pregunta antes.",
       "onboarding.done.touchId": "Tu contraseña",
@@ -1524,16 +1523,15 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.model.kind.localHint": "S’exécute sur cet ordinateur ; rien n’en sort.",
       "onboarding.model.subscriptionNote":
         "Psyche utilise l’app Claude Code ou Codex déjà connectée sur cet ordinateur ; il n’a donc besoin d’aucune clé API et n’en enregistre aucune. Connectez-vous d’abord là-bas si ce n’est pas fait.",
-      "onboarding.safety.touchId": "Votre mot de passe pour les approbations",
+      "onboarding.safety.touchId": "Votre mot de passe pour les paiements",
       "onboarding.safety.touchId.checking": "Examen de l’assistant Linux…",
-      "onboarding.safety.touchId.setHint":
-        "Les approbations qui ont besoin de vous demandent votre mot de passe.",
+      "onboarding.safety.touchId.setHint": "Les paiements demandent votre mot de passe.",
       "onboarding.safety.touchId.starting":
         "L’assistant Linux démarre encore. Vérifiez à nouveau dans un instant.",
       "onboarding.safety.touchId.noKey":
         "L’assistant Linux n’a pas de clé d’approbation ({reason}).",
       "onboarding.safety.touchId.hint":
-        "Enregistrez une seule fois la clé de l’assistant Linux pour que votre mot de passe puisse confirmer les approbations.",
+        "Enregistrez une seule fois la clé de l’assistant Linux pour que votre mot de passe puisse confirmer les paiements.",
       "onboarding.safety.asks":
         "Si vous autorisez {name} à exécuter des commandes sur cet ordinateur, celles qui ne font que lire, comme ls ou cat, s’exécutent sans carte. Tout le reste vous demande d’abord.",
       "onboarding.done.touchId": "Votre mot de passe",
@@ -1921,14 +1919,13 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.model.kind.localHint": "इसी कंप्यूटर पर चलता है; कुछ भी बाहर नहीं जाता।",
       "onboarding.model.subscriptionNote":
         "Psyche इस कंप्यूटर पर पहले से साइन इन किए गए Claude Code या Codex ऐप का उपयोग करता है, इसलिए इसे कोई API कुंजी नहीं चाहिए और यह कोई संग्रहीत नहीं करता। अगर आपने अभी तक नहीं किया है, तो पहले वहाँ साइन इन करें।",
-      "onboarding.safety.touchId": "स्वीकृतियों के लिए आपका पासवर्ड",
+      "onboarding.safety.touchId": "भुगतान के लिए आपका पासवर्ड",
       "onboarding.safety.touchId.checking": "Linux हेल्पर देखा जा रहा है…",
-      "onboarding.safety.touchId.setHint":
-        "जिन स्वीकृतियों में आपकी ज़रूरत होती है, वे आपका पासवर्ड मांगती हैं।",
+      "onboarding.safety.touchId.setHint": "भुगतान के लिए आपका पासवर्ड मांगा जाता है।",
       "onboarding.safety.touchId.starting": "Linux हेल्पर अभी शुरू हो रहा है। थोड़ी देर में फिर जाँचें।",
       "onboarding.safety.touchId.noKey": "Linux हेल्पर के पास स्वीकृति कुंजी नहीं है ({reason})।",
       "onboarding.safety.touchId.hint":
-        "Linux हेल्पर की कुंजी एक बार रजिस्टर करें, ताकि आपका पासवर्ड स्वीकृतियों की पुष्टि कर सके।",
+        "Linux हेल्पर की कुंजी एक बार रजिस्टर करें, ताकि आपका पासवर्ड भुगतानों की पुष्टि कर सके।",
       "onboarding.safety.asks":
         "अगर आप {name} को इस कंप्यूटर पर कमांड चलाने देते हैं, तो जो सिर्फ़ पढ़ते हैं, जैसे ls या cat, वे बिना कार्ड के चलते हैं। बाकी सब पहले आपसे पूछता है।",
       "onboarding.done.touchId": "आपका पासवर्ड",
@@ -2327,16 +2324,15 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.model.kind.localHint": "Viene eseguito su questo computer; nulla lo lascia.",
       "onboarding.model.subscriptionNote":
         "Psyche usa l’app Claude Code o Codex a cui hai già eseguito l’accesso su questo computer, quindi non richiede né memorizza alcuna chiave API. Se non l’hai ancora fatto, accedi prima lì.",
-      "onboarding.safety.touchId": "La tua password per le approvazioni",
+      "onboarding.safety.touchId": "La tua password per i pagamenti",
       "onboarding.safety.touchId.checking": "Controllo dell’helper per Linux…",
-      "onboarding.safety.touchId.setHint":
-        "Le approvazioni che richiedono te chiedono la tua password.",
+      "onboarding.safety.touchId.setHint": "I pagamenti chiedono la tua password.",
       "onboarding.safety.touchId.starting":
         "L’helper per Linux si sta ancora avviando. Ricontrolla tra un momento.",
       "onboarding.safety.touchId.noKey":
         "L’helper per Linux non ha una chiave di approvazione ({reason}).",
       "onboarding.safety.touchId.hint":
-        "Registra una volta la chiave dell’helper per Linux, così la tua password potrà confermare le approvazioni.",
+        "Registra una volta la chiave dell’helper per Linux, così la tua password potrà confermare i pagamenti.",
       "onboarding.safety.asks":
         "Se lasci che {name} esegua comandi su questo computer, quelli che si limitano a leggere, come ls o cat, vengono eseguiti senza scheda. Tutto il resto chiede prima a te.",
       "onboarding.done.touchId": "La tua password",
@@ -2744,14 +2740,14 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.model.kind.localHint": "このコンピュータ上で動作し、何も外に出ません。",
       "onboarding.model.subscriptionNote":
         "Psycheはこのコンピュータでサインイン済みのClaude CodeまたはCodexアプリを使用するため、APIキーは不要で、保存もしません。まだの場合は、先にそちらでサインインしてください。",
-      "onboarding.safety.touchId": "承認にパスワードを使う",
+      "onboarding.safety.touchId": "支払いにパスワードを使う",
       "onboarding.safety.touchId.checking": "Linuxヘルパーを確認しています…",
-      "onboarding.safety.touchId.setHint": "あなたの対応が必要な承認では、パスワードを求めます。",
+      "onboarding.safety.touchId.setHint": "支払いでは、パスワードを求めます。",
       "onboarding.safety.touchId.starting":
         "Linuxヘルパーはまだ起動中です。しばらくしてからもう一度確認してください。",
       "onboarding.safety.touchId.noKey": "Linuxヘルパーに承認キーがありません（{reason}）。",
       "onboarding.safety.touchId.hint":
-        "Linuxヘルパーのキーを一度登録しておくと、パスワードで承認を確認できます。",
+        "Linuxヘルパーのキーを一度登録しておくと、パスワードで支払いを確認できます。",
       "onboarding.safety.asks":
         "{name}にこのコンピュータでのコマンド実行を許可した場合、lsやcatのように読み取るだけのものはカードなしで実行されます。それ以外は先に確認します。",
       "onboarding.done.touchId": "パスワード",
@@ -3141,15 +3137,14 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.model.kind.localHint": "이 컴퓨터에서 실행되며 아무것도 밖으로 나가지 않습니다.",
       "onboarding.model.subscriptionNote":
         "Psyche는 이 컴퓨터에 이미 로그인된 Claude Code 또는 Codex 앱을 사용하므로 API 키가 필요 없고 저장하지도 않습니다. 아직 로그인하지 않았다면 먼저 그곳에서 로그인하십시오.",
-      "onboarding.safety.touchId": "승인에 사용자 암호 사용",
+      "onboarding.safety.touchId": "결제에 사용자 암호 사용",
       "onboarding.safety.touchId.checking": "Linux 도우미를 확인하는 중…",
-      "onboarding.safety.touchId.setHint":
-        "사용자의 확인이 필요한 승인에서는 사용자 암호를 요청합니다.",
+      "onboarding.safety.touchId.setHint": "결제에서는 사용자 암호를 요청합니다.",
       "onboarding.safety.touchId.starting":
         "Linux 도우미가 아직 시작 중입니다. 잠시 후 다시 확인하십시오.",
       "onboarding.safety.touchId.noKey": "Linux 도우미에 승인 키가 없습니다 ({reason}).",
       "onboarding.safety.touchId.hint":
-        "Linux 도우미의 키를 한 번 등록하면 사용자 암호로 승인을 확인할 수 있습니다.",
+        "Linux 도우미의 키를 한 번 등록하면 사용자 암호로 결제를 확인할 수 있습니다.",
       "onboarding.safety.asks":
         "{name}이(가) 이 컴퓨터에서 명령을 실행하도록 허용하면 ls나 cat처럼 읽기만 하는 명령은 카드 없이 실행됩니다. 그 밖의 명령은 먼저 확인합니다.",
       "onboarding.done.touchId": "사용자 암호",
@@ -3543,15 +3538,15 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.model.kind.localHint": "Roda neste computador; nada sai dele.",
       "onboarding.model.subscriptionNote":
         "O Psyche usa o app Claude Code ou Codex já conectado neste computador, então não precisa de chave de API e não guarda nenhuma. Faça login lá primeiro, se ainda não fez.",
-      "onboarding.safety.touchId": "Sua senha para aprovações",
+      "onboarding.safety.touchId": "Sua senha para pagamentos",
       "onboarding.safety.touchId.checking": "Examinando o assistente do Linux…",
-      "onboarding.safety.touchId.setHint": "Aprovações que precisam de você pedem sua senha.",
+      "onboarding.safety.touchId.setHint": "Os pagamentos pedem sua senha.",
       "onboarding.safety.touchId.starting":
         "O assistente do Linux ainda está iniciando. Verifique novamente em instantes.",
       "onboarding.safety.touchId.noKey":
         "O assistente do Linux não tem chave de aprovação ({reason}).",
       "onboarding.safety.touchId.hint":
-        "Registre uma vez a chave do assistente do Linux para que a sua senha possa confirmar aprovações.",
+        "Registre uma vez a chave do assistente do Linux para que a sua senha possa confirmar pagamentos.",
       "onboarding.safety.asks":
         "Se você deixar {name} executar comandos neste computador, os que só leem, como ls ou cat, rodam sem cartão. Todo o resto pergunta antes.",
       "onboarding.done.touchId": "Sua senha",
@@ -3917,12 +3912,12 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.model.kind.localHint": "在这台电脑上运行；任何内容都不会离开它。",
       "onboarding.model.subscriptionNote":
         "Psyche 使用这台电脑上已登录的 Claude Code 或 Codex App，因此不需要也不存储 API 密钥。如果尚未登录，请先在那里登录。",
-      "onboarding.safety.touchId": "用你的密码批准",
+      "onboarding.safety.touchId": "用你的密码付款",
       "onboarding.safety.touchId.checking": "正在检查 Linux 助手…",
-      "onboarding.safety.touchId.setHint": "需要你批准的操作会请你输入密码。",
+      "onboarding.safety.touchId.setHint": "付款会请你输入密码。",
       "onboarding.safety.touchId.starting": "Linux 助手仍在启动。请稍后再检查。",
       "onboarding.safety.touchId.noKey": "Linux 助手没有批准密钥（{reason}）。",
-      "onboarding.safety.touchId.hint": "注册一次 Linux 助手的密钥，你的密码才能确认批准。",
+      "onboarding.safety.touchId.hint": "注册一次 Linux 助手的密钥，你的密码才能确认付款。",
       "onboarding.safety.asks":
         "如果你让{name}在这台电脑上运行命令，只读取内容的命令（如 ls 或 cat）无需卡片即可运行。其他任何命令都会先询问你。",
       "onboarding.done.touchId": "你的密码",

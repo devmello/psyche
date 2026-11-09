@@ -627,7 +627,7 @@ export const settingsRest: Partial<Catalogue> = {
     "Die Bildschirme, die {persona} bei der Arbeit angesehen hat, für den Verlauf. Aus behält keine.",
   "settings.devices.presenceKey.unknown": "Touch-ID-Schlüssel (Art vom Helper nicht gemeldet)",
   "settings.devices.presenceKey.deviceIdentity":
-    "Freigaben verwenden Touch ID oder das Passwort deines Macs. Es muss nichts eingerichtet werden.",
+    "Zahlungen verwenden Touch ID oder das Passwort deines Macs. Es muss nichts eingerichtet werden.",
   "settings.devices.touchId.none":
     "Noch kein Touch-ID-Schlüssel. Karten, die Touch ID brauchen, lassen sich erst genehmigen, wenn einer registriert ist.",
   "settings.devices.touchId.bundled": "Der Psyche Helper in dieser App zeigt den Schlüssel",

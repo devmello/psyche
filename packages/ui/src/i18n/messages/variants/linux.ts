@@ -293,14 +293,14 @@ export const linux: Partial<Record<MessageId, string>> = {
   "onboarding.model.kind.localHint": "Runs on this computer; nothing leaves it.",
   "onboarding.model.subscriptionNote":
     "Psyche uses the Claude Code or Codex app already signed in on this computer, so it needs no API key and stores none. Sign in there first if you haven't.",
-  "onboarding.safety.touchId": "Your password for approvals",
+  "onboarding.safety.touchId": "Your password for payments",
   "onboarding.safety.touchId.checking": "Looking at the Linux helper…",
-  "onboarding.safety.touchId.setHint": "Approvals that need you ask for your password.",
+  "onboarding.safety.touchId.setHint": "Payments ask for your password.",
   "onboarding.safety.touchId.starting":
     "The Linux helper is still starting. Check again in a moment.",
   "onboarding.safety.touchId.noKey": "The Linux helper has no approval key ({reason}).",
   "onboarding.safety.touchId.hint":
-    "Register the Linux helper’s key once, so your password can confirm approvals.",
+    "Register the Linux helper’s key once, so your password can confirm payments.",
   "onboarding.safety.asks":
     "If you let {name} run commands on this computer, ones that only read, like ls or cat, run without a card. Anything else asks you first.",
   "onboarding.done.touchId": "Your password",

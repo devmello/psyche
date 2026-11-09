@@ -1468,7 +1468,7 @@ export const settings = {
   "settings.devices.presenceKey.unknown": "Touch ID key (kind not reported by the helper)",
   // A Mac helper has no key to register: it signs with its own device key after the system sheet.
   "settings.devices.presenceKey.deviceIdentity":
-    "Approvals use Touch ID or your Mac password. Nothing to set up.",
+    "Payments use Touch ID or your Mac password. Nothing to set up.",
   // A Windows helper's key: Windows Hello (a TPM-backed key; RSA-2048 today), as the helper reports it.
   "settings.devices.presenceKey.windowsHello":
     "Windows Hello key ({algorithm}), as reported by the helper",

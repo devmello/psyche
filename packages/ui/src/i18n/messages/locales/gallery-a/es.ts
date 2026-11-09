@@ -187,17 +187,17 @@ export const galleryA: Partial<Catalogue> = {
     "El resumen de la mañana está desactivado, así que las personas no aparecerán todavía. Actívalo para verlas.",
   "onboarding.safety.lead":
     "Cómo te llegan las aprobaciones y qué se ejecuta solo. Aquí no se pide acceso a tus archivos, apps ni pantalla: {name} lo pide en el chat la primera vez que lo necesita.",
-  "onboarding.safety.touchId": "Touch ID para las aprobaciones",
+  "onboarding.safety.touchId": "Touch ID para los pagos",
   "onboarding.safety.touchId.checking": "Examinando el ayudante del Mac…",
   "onboarding.safety.touchId.again": "Comprobar de nuevo",
   "onboarding.safety.touchId.set": "Configurar",
-  "onboarding.safety.touchId.setHint": "Las aprobaciones que te necesitan piden tu huella.",
+  "onboarding.safety.touchId.setHint": "Los pagos piden tu huella o la contraseña de tu Mac.",
   "onboarding.safety.touchId.starting":
     "El ayudante del Mac aún se está iniciando. Vuelve a comprobar en un momento.",
   "onboarding.safety.touchId.noKey": "El ayudante del Mac no tiene clave de Touch ID ({reason}).",
   "onboarding.safety.touchId.register": "Registrar esta clave",
   "onboarding.safety.touchId.hint":
-    "Registra una vez la clave del ayudante del Mac para que Touch ID pueda confirmar las aprobaciones.",
+    "Registra una vez la clave del ayudante del Mac para que Touch ID pueda confirmar los pagos.",
   "onboarding.safety.notifications": "Notificaciones",
   "onboarding.safety.asks":
     "Si dejas que {name} ejecute comandos en este Mac, los que solo leen, como ls o cat, se ejecutan sin tarjeta. Todo lo demás te pregunta antes.",

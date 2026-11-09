@@ -606,7 +606,7 @@ export const settingsRest: Partial<Catalogue> = {
     "작업 중 {persona}가 본 화면으로, 타임라인에 사용됩니다. 끄면 보관하지 않습니다.",
   "settings.devices.presenceKey.unknown": "Touch ID 키 (도우미가 종류를 보고하지 않음)",
   "settings.devices.presenceKey.deviceIdentity":
-    "승인에는 Touch ID 또는 Mac 암호를 사용합니다. 따로 설정할 것이 없습니다.",
+    "결제에는 Touch ID 또는 Mac 암호를 사용합니다. 따로 설정할 것이 없습니다.",
   "settings.devices.touchId.none":
     "Touch ID 키가 아직 없습니다. 등록하기 전에는 Touch ID가 필요한 카드를 승인할 수 없습니다.",
   "settings.devices.touchId.bundled": "이 앱의 Psyche Helper 키 표시",

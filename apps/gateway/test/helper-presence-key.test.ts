@@ -96,15 +96,25 @@ async function setup() {
   return { c: composed, admin, key, h, helperDevice };
 }
 
-/** A security setting change: a `policy_change` card that requires authentication. */
-async function securityCard(admin: TestClient) {
-  const first = await admin.request(
-    "settings.set",
-    { key: "permissions.policy", value: { allow: [] } },
-    ik(),
-  );
-  expect(first).toMatchObject({ ok: false, error: { code: "approval_required" } });
-  return (first as { error: { details: { approvalId: string } } }).error.details.approvalId;
+let cardN = 0;
+
+/** A card that needs presence: a payment (presence is for payments only). Returns its id. */
+async function securityCard(_admin: TestClient): Promise<string> {
+  if (composed === null) throw new Error("no gateway");
+  const hash = `${(++cardN).toString(16).padStart(2, "0")}${"c".repeat(62)}`;
+  const issued = await composed.broker.requestApproval({
+    kind: "purchase",
+    summary: "Pay $5 to Example Shop",
+    details: {},
+    bindingHash: hash,
+    grantKey: hash,
+    requestedBy: { runId: null, taskId: null, threadId: null },
+    sideEffect: "financial",
+    surfaces: ["desktop", "notification"],
+    taint: false,
+  });
+  expect(issued.approval.requiresAuthentication).toBe(true);
+  return issued.approval.id;
 }
 
 describe("a Mac helper's device key is its presence key", () => {
@@ -137,7 +147,7 @@ describe("a Mac helper's device key is its presence key", () => {
     });
     expect(await c.audit.query({ kind: "presence_key.registered" })).toHaveLength(0);
 
-    // A security setting needs presence at once; the card reaches the helper with a challenge.
+    // A payment needs presence; the card reaches the helper with a challenge.
     const approvalId = await securityCard(admin);
     await vi.waitFor(() => expect(h.shown.map((s) => s.id)).toContain(approvalId));
     const challenge = h.shown.find((s) => s.id === approvalId)?.presenceChallenge as string;
@@ -168,13 +178,6 @@ describe("a Mac helper's device key is its presence key", () => {
 
     answer(signChallenge(key.privateKey, challenge));
     await vi.waitFor(async () => expect(await status()).toBe("approved"));
-    expect(
-      await admin.request(
-        "settings.set",
-        { key: "permissions.policy", value: { allow: [] }, approvalId },
-        ik(),
-      ),
-    ).toMatchObject({ ok: true });
   });
 
   it("a cancelled owner sheet is not an answer: the card stays pending and nothing is counted", async () => {
@@ -285,7 +288,7 @@ describe("a Mac helper's device key is its presence key", () => {
     h.respond({ type: "notify.response", notificationId: approvalId, actionId: "default" });
     await vi.waitFor(() => expect(frames.join("\n")).toContain("notification.opened"));
     const opened = frames.map((f) => JSON.parse(f)).find((f) => f.event === "notification.opened");
-    // A settings approval has no chat, so the tap opens the approvals sheet.
+    // A payment from no chat opens the approvals sheet.
     expect(opened.payload).toEqual({ notificationId: approvalId, route: "/agent/approvals" });
     // The tap decides nothing.
     expect(
@@ -298,20 +301,30 @@ describe("a Mac helper's device key is its presence key", () => {
     const { c, admin, key, helperDevice } = await setup();
     const keys = new HelperPresenceKeys(c.gateway.context.db);
     expect(keys.get(helperDevice)).toBe(key.publicKey);
-    // Presence is enrolled as soon as the first security change asks for it.
-    await securityCard(admin);
+    // Presence is enrolled as soon as a gated security change asks (a plain tap card now).
+    const tap = await admin.request(
+      "settings.set",
+      { key: "permissions.policy", value: { allow: [] } },
+      ik(),
+    );
+    expect(tap).toMatchObject({ ok: false, error: { code: "approval_required" } });
+    const tapId = (tap as { error: { details: { approvalId: string } } }).error.details.approvalId;
+    expect(
+      (await admin.call<{ approval: ApprovalRequest }>("approvals.get", { approvalId: tapId }))
+        .approval.requiresAuthentication,
+    ).toBe(false);
 
     revokeDevice(c.gateway.context.db, helperDevice);
     expect(keys.get(helperDevice)).toBeUndefined();
     expect(await admin.call("devices.presenceKey.list", {})).toEqual({ presenceKeys: [] });
-    // With the only verifier gone, security changes fail closed.
+    // With the only verifier gone, a plain security change is still one tap, not `presence_required`.
     expect(
       await admin.request(
         "settings.set",
         { key: "permissions.policy", value: { allow: [] } },
         ik(),
       ),
-    ).toMatchObject({ ok: false, error: { code: "presence_required" } });
+    ).toMatchObject({ ok: false, error: { code: "approval_required" } });
   });
 
   it("an unknown or disconnected device cannot register", async () => {

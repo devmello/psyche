@@ -75,16 +75,16 @@ export const onboarding: Partial<Catalogue> = {
     "موجز الصباح متوقف، لذا لن يظهر الأشخاص في أي مكان بعد. فعّله لتراهم.",
   "onboarding.safety.lead":
     "كيف تصلك الموافقات وما يعمل من تلقاء نفسه. لا يُسأل هنا عن الوصول إلى ملفاتك وتطبيقاتك وشاشتك: يسأل {name} في الدردشة أول مرة يحتاج إليه.",
-  "onboarding.safety.touchId": "Touch ID للموافقات",
+  "onboarding.safety.touchId": "Touch ID للمدفوعات",
   "onboarding.safety.touchId.checking": "جارٍ فحص مساعد Mac…",
   "onboarding.safety.touchId.again": "تحقق مجددًا",
   "onboarding.safety.touchId.set": "إعداد",
-  "onboarding.safety.touchId.setHint": "الموافقات التي تحتاج إليك تطلب بصمتك.",
+  "onboarding.safety.touchId.setHint": "المدفوعات تطلب بصمتك أو كلمة مرور جهاز Mac.",
   "onboarding.safety.touchId.starting": "ما زال مساعد Mac يبدأ. تحقق مجددًا بعد قليل.",
   "onboarding.safety.touchId.noKey": "ليس لدى مساعد Mac مفتاح Touch ID ({reason}).",
   "onboarding.safety.touchId.register": "تسجيل هذا المفتاح",
   "onboarding.safety.touchId.hint":
-    "سجّل مفتاح مساعد Mac مرة واحدة ليتمكن Touch ID من تأكيد الموافقات.",
+    "سجّل مفتاح مساعد Mac مرة واحدة ليتمكن Touch ID من تأكيد المدفوعات.",
   "onboarding.safety.notifications": "الإشعارات",
   "onboarding.safety.asks":
     "إذا سمحت لـ {name} بتشغيل الأوامر على هذا الـ Mac، فالأوامر التي تقرأ فقط مثل ls أو cat تعمل دون بطاقة. أما أي شيء آخر فيسألك أولًا.",

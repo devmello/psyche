@@ -143,13 +143,14 @@ Run `computer.ax_tree` against each app with the window frontmost, then again in
 | 9.9 | Three clicks with no subscriber, then subscribe | All three arrive in order |
 | 9.10 | `notify.withdraw`; re-show the same id | Removed; replaced, not stacked |
 | 9.11a | `presence.public_key` | `kind: device_identity`, `algorithm: ed25519`, a 32-byte key equal to the helper's device public key (the one the Gateway paired); same on every call and after restart; no sheet, no keychain prompt |
-| 9.11e | Allow on a card that needs the owner in the Psyche window (a purchase, a credential fill) | One system sheet (Touch ID, with "Use Password…"), naming the card and its code ("approve code xxxx-xxxx: “…” in Psyche"), the same code the card shows; touching or typing the password approves it once, Cancel leaves it pending with no error and no second sheet; no notification and no keychain dialog |
-| 9.11f | Quit the helper, then Allow on a Touch ID card in the window | The card says Psyche Helper isn't running and offers Start Psyche Helper; after it pairs nothing is approved until Allow is clicked again |
+| 9.11e | Allow on a payment card in the Psyche window (a purchase) | One system sheet (Touch ID, with "Use Password…"), naming the card and its code ("approve code xxxx-xxxx: “…” in Psyche"), the same code the card shows; touching or typing the password approves it once, Cancel leaves it pending with no error and no second sheet; no notification and no keychain dialog |
+| 9.11f | Quit the helper, then Allow on a payment card in the window | The card says Psyche Helper isn't running and offers Start Psyche Helper; after it pairs nothing is approved until Allow is clicked again |
 | 9.11g | Psyche in front, a new approval arrives | The helper's banner still shows (`willPresent` returns banner, list, sound for non-passive kinds) |
 | 9.11b | Approval with `requireBiometry` + `presenceChallenge`; Approve | One system sheet; event has `presence {signature, keyId}`; the Gateway accepts it once, with no registration step |
 | 9.11c | Same, Cancel / wrong password / use the password instead of a finger | Cancel → `authenticated: false, authError: user_cancelled`, no presence, no second sheet; wrong finger or password retries inside the sheet; the Mac password approves; adding or removing a fingerprint changes nothing |
 | 9.11d | Self-signed build with no provisioning profile | Approvals still sign (the device identity is a file under `$PSYCHE_HOME/helper`), with no keychain dialog ("wants to access your keychain") at any point |
 | 9.11h | Self-signed build, update and reinstall | After reinstalling signed with another certificate or ad-hoc, the next approval signs with no prompt other than the owner sheet; `psyche-helper --print-identity` prints only `{deviceId}` and creates nothing |
+| 9.11j | Allow on any non-payment card (a credential fill, a host command) in the window and via the notification's Approve | One tap approves it: no system sheet, no helper signature, `presence.confirm` is never called |
 | 9.11 | S15's Notifier payload (`category`, `interruptionLevel`, `textInput` action) | Accepted; the text-input action becomes the reply field |
 
 ## 10. Speech (Q1)

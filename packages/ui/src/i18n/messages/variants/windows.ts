@@ -351,13 +351,13 @@ export const windows: Partial<Record<MessageId, string>> = {
   "onboarding.model.kind.localHint": "Runs on this PC; nothing leaves it.",
   "onboarding.model.subscriptionNote":
     "Psyche uses the Claude Code or Codex app already signed in on this PC, so it needs no API key and stores none. Sign in there first if you haven't.",
-  "onboarding.safety.touchId": "Windows Hello for approvals",
+  "onboarding.safety.touchId": "Windows Hello for payments",
   "onboarding.safety.touchId.checking": "Looking at the Windows helper…",
   "onboarding.safety.touchId.starting":
     "The Windows helper is still starting. Check again in a moment.",
   "onboarding.safety.touchId.noKey": "The Windows helper has no Windows Hello key ({reason}).",
   "onboarding.safety.touchId.hint":
-    "Register the Windows helper’s key once, so Windows Hello can confirm approvals.",
+    "Register the Windows helper’s key once, so Windows Hello can confirm payments.",
   "onboarding.safety.asks":
     "If you let {name} run commands on this PC, ones that only read, like ls or cat, run without a card. Anything else asks you first.",
   "onboarding.done.touchId": "Windows Hello",
@@ -441,8 +441,7 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.shortcut.key.Control": "Ctrl",
   "settings.voice.key.rightCommand": "Right Ctrl",
   "settings.voice.engine.systemHint": "Windows' on-device recognizer, through the Windows helper.",
-  "onboarding.safety.touchId.setHint":
-    "Approvals that need you ask for your face, fingerprint or PIN.",
+  "onboarding.safety.touchId.setHint": "Payments ask for your face, fingerprint or PIN.",
   "shell.shortcut.pushToTalkKeys": "Hold Right Ctrl",
   "platform.term.os": "Windows",
   "platform.term.device": "PC",

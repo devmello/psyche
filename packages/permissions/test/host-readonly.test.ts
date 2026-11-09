@@ -208,7 +208,7 @@ describe("the broker and the read-only class", () => {
     const d = await h.broker.decide(host(["date"]), { ...CTX, taint: true });
     expect(d).toMatchObject({ decision: "ask", sideEffect: "read", scopesOffered: ["once"] });
     const { approval } = await approve(h, host(["date"]), { ...CTX, taint: true }, "once");
-    expect(approval).toMatchObject({ deviceOnly: true, requiresAuthentication: true });
+    expect(approval).toMatchObject({ deviceOnly: true, requiresAuthentication: false });
     expect(approval.sideEffect).toBe("read");
   });
 
@@ -232,31 +232,6 @@ describe("the broker and the read-only class", () => {
     });
     await approve(off, host(["date"]), CTX, "once");
     expect((await off.broker.decide(host(["date"]), CTX)).decision).toBe("ask");
-  });
-
-  it("a read-only card the owner's switch or manual mode asks needs no presence; taint and a missing sandbox still do", async () => {
-    const off = makeBroker({
-      policy: { ...ON, exec: { execHostEnabled: true, readOnlyWithoutAsking: false } },
-    });
-    const quiet = await approve(off, host(["date"]), CTX, "once");
-    expect(quiet.approval).toMatchObject({ sideEffect: "read", requiresAuthentication: false });
-    // An ordinary host command is not read-only: presence stays.
-    const risky = await approve(off, host(["touch", "x"]), CTX, "once");
-    expect(risky.approval.requiresAuthentication).toBe(true);
-    // Taint: the request may come from untrusted content.
-    const tainted = await approve(off, host(["date"]), { ...CTX, taint: true }, "once");
-    expect(tainted.approval.requiresAuthentication).toBe(true);
-    // No srt: nothing keeps the command read-only at run time.
-    const on = makeBroker({ policy: ON });
-    const noSrt = call("exec_host", "destructive", undefined, {
-      params: { argv: ["date"], cwd: CWD },
-      meta: { hostCommand: "read_only", hostSandbox: "missing" },
-    });
-    const unsandboxed = await approve(on, noSrt, CTX, "once");
-    expect(unsandboxed.approval).toMatchObject({
-      sideEffect: "read",
-      requiresAuthentication: true,
-    });
   });
 
   it("without srt it asks, as a read", async () => {

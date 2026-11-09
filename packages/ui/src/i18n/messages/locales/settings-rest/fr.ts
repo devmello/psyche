@@ -624,7 +624,7 @@ export const settingsRest: Partial<Catalogue> = {
     "Les écrans que {persona} a regardés pendant son travail, pour la chronologie. Désactivé, aucun n’est conservé.",
   "settings.devices.presenceKey.unknown": "Clé Touch ID (type non signalé par l’assistant)",
   "settings.devices.presenceKey.deviceIdentity":
-    "Les approbations utilisent Touch ID ou le mot de passe de votre Mac. Il n’y a rien à configurer.",
+    "Les paiements utilisent Touch ID ou le mot de passe de votre Mac. Il n’y a rien à configurer.",
   "settings.devices.touchId.none":
     "Pas encore de clé Touch ID. Les cartes qui exigent Touch ID ne peuvent pas être approuvées tant qu’aucune n’est enregistrée.",
   "settings.devices.touchId.bundled": "Le Psyche Helper de cette app affiche la clé",

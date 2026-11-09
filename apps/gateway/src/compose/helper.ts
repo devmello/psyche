@@ -37,8 +37,8 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  * (over the long-lived `notify.subscribe`) becomes a broker answer with that surface's token.
  * The token never leaves the Gateway.
  *
- * Approvals that require authentication (purchase, credential fill, host exec, pairing, policy)
- * need a presence assertion: the helper shows the system's owner sheet (LocalAuthentication:
+ * Only payments (a purchase or any financial action: `requiresAuthentication`) need a presence
+ * assertion; every other approval is a tap on Approve. For a payment: the helper shows the system's owner sheet (LocalAuthentication:
  * Touch ID, or the Mac login password through "Use Password"), and on success signs
  * `presenceChallenge(approvalId, bindingHash, answerToken)` with its Ed25519 device key, the one
  * this Gateway pinned at pairing. The helper's `authenticated: true` alone proves nothing (any

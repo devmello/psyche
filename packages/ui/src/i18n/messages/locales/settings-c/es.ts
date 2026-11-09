@@ -100,7 +100,7 @@ export const settingsC: Partial<Catalogue> = {
     "Las pantallas que {persona} miró mientras trabajaba, para la cronología. Desactivado no guarda ninguna.",
   "settings.devices.presenceKey.unknown": "Clave de Touch ID (el ayudante no indica el tipo)",
   "settings.devices.presenceKey.deviceIdentity":
-    "Las aprobaciones usan Touch ID o la contraseña de tu Mac. No hay nada que configurar.",
+    "Los pagos usan Touch ID o la contraseña de tu Mac. No hay nada que configurar.",
   "settings.devices.touchId.none":
     "Aún no hay ninguna clave de Touch ID. Las tarjetas que necesitan Touch ID no se pueden aprobar hasta que se registre una.",
   "settings.devices.touchId.bundled": "El Psyche Helper de esta app muestra la clave",

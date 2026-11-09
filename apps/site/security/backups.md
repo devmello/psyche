@@ -53,7 +53,7 @@ The audit log's anchor head is also reset to the restored log, and the reset is 
 
 ## Deleting backups
 
-Settings › Backups lists the archives in `$PSYCHE_HOME/backups/`. Delete needs an admin device, and once a passkey or Psyche Helper's Touch ID sheet can confirm it, fresh proof that you are present.
+Settings › Backups lists the archives in `$PSYCHE_HOME/backups/`. Delete needs an admin device, and once the Gateway has a presence verifier, an approved tap on the card.
 
 ::: info Screenshot placeholder
 Settings › Backups with two archives, each showing its size, "encrypted", when it last verified, and Verify and Delete buttons.

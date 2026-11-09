@@ -825,21 +825,12 @@ export class PsychePermissionBroker implements PermissionBroker {
     }
     const se = input.sideEffect;
     const deviceOnly = isDeviceOnly(input.kind, se, this.#policy.config.approvals?.deviceOnly);
-    // A host command the owner's own switch or manual mode makes ask, which the broker checked into
-    // the read-only class (§5.4), is not a risky approval: no Touch ID sheet for it. Taint (the
-    // request may come from untrusted content) and a missing sandbox (srt is what keeps it read-only
-    // at run time) keep the presence step.
-    const lowRiskHostRead =
-      input.kind === "exec_host" &&
-      se === "read" &&
-      !input.taint &&
-      input.context?.taint !== true &&
-      recent?.decision.rule !== "exec_host:no_sandbox";
-    // A permission request that turns something on needs fresh presence, like the setting itself.
+    // Presence (the owner sheet, a passkey, the Linux password) is for payments only (owner's
+    // decision, 2026-11-09): a purchase or any financial action. Every other approval is a tap on
+    // a card, still bound to its answer token, binding hash and arm delay. The Gateway sets
+    // `requireAuthentication` itself for the one other case, enrolling a presence verifier.
     const requiresAuthentication =
-      (AUTH_KINDS.includes(input.kind) && !lowRiskHostRead) ||
-      se === "financial" ||
-      (input.kind === "permission_request" && se !== "none");
+      se === "financial" || input.kind === "purchase" || input.requireAuthentication === true;
     // A non-owner requester never sees the card for their own request (security §9).
     const requester = input.context?.requester;
     const own = new Set(requesterSurfaces(requester));

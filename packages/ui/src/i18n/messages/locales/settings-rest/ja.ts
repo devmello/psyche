@@ -613,7 +613,7 @@ export const settingsRest: Partial<Catalogue> = {
     "作業中に{persona}が見ていた画面で、タイムライン用です。オフにすると保持されません。",
   "settings.devices.presenceKey.unknown": "Touch IDキー（種類はヘルパーから報告されていません）",
   "settings.devices.presenceKey.deviceIdentity":
-    "承認にはTouch IDまたはMacのパスワードを使います。設定は不要です。",
+    "支払いにはTouch IDまたはMacのパスワードを使います。設定は不要です。",
   "settings.devices.touchId.none":
     "Touch IDキーはまだありません。登録するまで、Touch IDが必要なカードは承認できません。",
   "settings.devices.touchId.bundled": "このアプリのPsyche Helperのキーを表示",

@@ -72,7 +72,7 @@ describe("Windows copy (i18n/messages/variants/windows.ts)", () => {
     expect(t("web.remote.thisMac")).toBe("This Mac");
     setUiPlatform("windows");
     expect(t("web.remote.thisMac")).toBe("This PC");
-    expect(t("onboarding.safety.touchId")).toBe("Windows Hello for approvals");
+    expect(t("onboarding.safety.touchId")).toBe("Windows Hello for payments");
     expect(t("settings.about.revealHome")).toBe("Show in File Explorer");
     expect(t("settings.model.ram.fits", { gb: 16, fits: "Qwen" })).toBe(
       "This PC has 16 GB, so Qwen fit.",
