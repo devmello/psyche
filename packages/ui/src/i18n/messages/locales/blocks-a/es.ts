@@ -116,7 +116,7 @@ export const blocksA: Partial<Catalogue> = {
   "blocks.approval.answerOnHost":
     "Responde en {host}, o configura Touch ID para las aprobaciones en este ordenador en Ajustes → Dispositivos.",
   "blocks.approval.rateLimited":
-    "Demasiadas aprobaciones en un minuto. Inténtalo de nuevo en {seconds} s.",
+    "Demasiados intentos en un minuto. Inténtalo de nuevo en {seconds} s.",
   "blocks.approval.touchIdFailed": "Touch ID falló: {reason}. Inténtalo de nuevo.",
   "blocks.approval.touchIdFailedNoReason": "Touch ID falló. Inténtalo de nuevo.",
   "blocks.approval.touchIdInvalid": "Psyche no pudo verificar que fueras tú",

@@ -114,7 +114,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.answerOnHost":
     "{host}で回答するか、設定 → デバイスで、このコンピュータでの承認用にTouch IDを設定してください。",
   "blocks.approval.rateLimited":
-    "1分間の承認回数が多すぎます。{seconds}秒後にもう一度お試しください。",
+    "1分間の試行回数が多すぎます。{seconds}秒後にもう一度お試しください。",
   "blocks.approval.touchIdFailed": "Touch IDに失敗しました: {reason}。もう一度お試しください。",
   "blocks.approval.touchIdFailedNoReason": "Touch IDに失敗しました。もう一度お試しください。",
   "blocks.approval.touchIdInvalid": "Psycheは本人であることを確認できませんでした",

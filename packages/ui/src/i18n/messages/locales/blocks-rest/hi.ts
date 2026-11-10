@@ -108,7 +108,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.details.reason": "कारण",
   "blocks.approval.answerOnHost":
     "{host} पर जवाब दें, या सेटिंग्ज़ → डिवाइस में इस कंप्यूटर पर स्वीकृतियों के लिए Touch ID सेट अप करें।",
-  "blocks.approval.rateLimited": "एक मिनट में बहुत ज़्यादा स्वीकृतियाँ। {seconds} सेकंड में फिर कोशिश करें।",
+  "blocks.approval.rateLimited": "एक मिनट में बहुत ज़्यादा कोशिशें। {seconds} सेकंड में फिर कोशिश करें।",
   "blocks.approval.touchIdFailed": "Touch ID विफल: {reason}। फिर कोशिश करें।",
   "blocks.approval.touchIdFailedNoReason": "Touch ID विफल। फिर कोशिश करें।",
   "blocks.approval.touchIdInvalid": "Psyche यह सत्यापित नहीं कर सका कि यह आप हैं",

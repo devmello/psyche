@@ -104,7 +104,7 @@ export const blocks: Partial<Catalogue> = {
   "blocks.details.reason": "理由",
   "blocks.approval.answerOnHost":
     "请在 {host} 上回答，或在“设置 → 设备”中为这台电脑设置 Touch ID 批准。",
-  "blocks.approval.rateLimited": "一分钟内批准过多，请 {seconds} 秒后再试。",
+  "blocks.approval.rateLimited": "一分钟内尝试次数过多，请 {seconds} 秒后再试。",
   "blocks.approval.touchIdFailed": "Touch ID 失败：{reason}。请重试。",
   "blocks.approval.touchIdFailedNoReason": "Touch ID 失败，请重试。",
   "blocks.approval.touchIdInvalid": "Psyche 无法验证是你本人",

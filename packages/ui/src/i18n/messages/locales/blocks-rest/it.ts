@@ -116,7 +116,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.details.reason": "Motivo",
   "blocks.approval.answerOnHost":
     "Rispondi su {host}, oppure configura Touch ID per le approvazioni su questo computer in Impostazioni → Dispositivi.",
-  "blocks.approval.rateLimited": "Troppe approvazioni in un minuto. Riprova tra {seconds} s.",
+  "blocks.approval.rateLimited": "Troppi tentativi in un minuto. Riprova tra {seconds} s.",
   "blocks.approval.touchIdFailed": "Touch ID non riuscito: {reason}. Riprova.",
   "blocks.approval.touchIdFailedNoReason": "Touch ID non riuscito. Riprova.",
   "blocks.approval.touchIdInvalid": "Psyche non ha potuto verificare che fossi tu",
