@@ -43,6 +43,7 @@ const LABELLED_KEYS = [
   "computerUse.apps",
   "context.maxTokens",
   "exec.srtPath",
+  "devices.hostHelper.status",
   "context.compactAt",
   "context.keepRecentTurns",
   "teaching.enabled",

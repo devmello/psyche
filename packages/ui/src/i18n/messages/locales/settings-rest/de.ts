@@ -126,6 +126,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.appearance.openAtLogin": "Psyche bei der Anmeldung öffnen",
   "settings.key.browser.useSignedInSessions": "Meine angemeldeten Sitzungen verwenden",
   "settings.key.exec.srtPath": "Speicherort von srt",
+  "settings.key.devices.hostHelper.status": "Prüfung des Linux-Helfers",
   "settings.key.search.model.engine": "Modell für die Suche",
   "settings.key.search.semantic.enabled": "Semantische Suche (auf dem Gerät)",
   "settings.key.search.cards.enabled": "Kontextkarten für die Suche",
