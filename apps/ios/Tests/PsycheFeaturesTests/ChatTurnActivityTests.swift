@@ -17,6 +17,8 @@ private struct Quiet: LocalNotifier {
 @MainActor
 private final class RecordingChatHost: ChatTurnActivityHost {
     var enabled = true
+    /// iOS refusing `Activity.request` (the app is in the background): `start` returns false.
+    var refuseStarts = false
     var live: [String: ChatTurnContent] = [:]
     var starts: [(id: String, content: ChatTurnContent, stale: Date?)] = []
     var updates: [(id: String, content: ChatTurnContent, stale: Date?)] = []
@@ -24,7 +26,7 @@ private final class RecordingChatHost: ChatTurnActivityHost {
     var isEnabled: Bool { enabled }
     var activeThreadIDs: [String] { Array(live.keys) }
     func start(threadID: String, content: ChatTurnContent, staleDate: Date?) -> Bool {
-        guard enabled else { return false }
+        guard enabled, !refuseStarts else { return false }
         if live[threadID] != nil { return true }
         live[threadID] = content
         starts.append((threadID, content, staleDate))
@@ -293,6 +295,88 @@ struct ChatTurnActivityTests {
         #expect(rig.chat.starts.count == 1)
         #expect(rig.alerts.awake?.isRunning != true)
         #expect(!rig.audio.isPlaying)
+    }
+
+    // MARK: Leaving and returning
+
+    @Test func leavingTheAppMidReplyStartsTheActivityBeforeTheThreshold() async throws {
+        let rig = Rig(threshold: 30)
+        rig.alerts.setAppActive(true)
+        await rig.wait(0.1)
+        await rig.run("thr_q3", .running)
+        await rig.wait(0.05)
+        #expect(rig.chat.starts.isEmpty)  // in the foreground a young reply gets none
+        rig.alerts.setAppActive(false)
+        await rig.wait(0.2)
+        let start = try #require(rig.chat.starts.first)
+        #expect(start.id == "thr_q3")
+        #expect(rig.alerts.chatWatching == ["thr_q3"])
+        // The reply finishes fast: it ends the way a finished one does.
+        await rig.run("thr_q3", .done)
+        let end = try #require(rig.chat.ends.first)
+        #expect(end.dismissAfter == AlertCenter.doneLinger)
+        #expect(rig.alerts.chatWatching.isEmpty)
+    }
+
+    @Test func leavingWithAnActivityKeepsTheGatewayHeldForWatchedWork() async {
+        let rig = Rig(threshold: 30)
+        rig.alerts.setAppActive(true)
+        rig.alerts.awake?.setSwitch(true)
+        rig.alerts.awake?.setGateway(live: true)
+        await rig.wait(0.1)
+        await rig.run("thr_q3", .running)
+        rig.alerts.setAppActive(false)
+        await rig.wait(0.2)
+        #expect(rig.alerts.awake?.isRunning == true)
+    }
+
+    @Test func aShortReplyInTheForegroundNeverGetsAnActivity() async {
+        let rig = Rig(threshold: 30)
+        rig.alerts.setAppActive(true)
+        await rig.wait(0.1)
+        await rig.run("thr_q3", .running)
+        await rig.wait(0.2)
+        await rig.run("thr_q3", .done)
+        await rig.wait(0.1)
+        #expect(rig.chat.starts.isEmpty)
+        #expect(rig.chat.ends.isEmpty)
+    }
+
+    @Test func leavingWithNoReplyInFlightStartsNothing() async {
+        let rig = Rig(threshold: 30)
+        rig.alerts.setAppActive(true)
+        await rig.wait(0.1)
+        rig.alerts.setAppActive(false)
+        await rig.wait(0.2)
+        #expect(rig.chat.starts.isEmpty)
+    }
+
+    @Test func comingBackMidReplyStartsTheActivityForAReplyPastTheThreshold() async throws {
+        let chat = RecordingChatHost()
+        chat.enabled = false  // nothing could start while away
+        let rig = Rig(chat: chat)
+        await rig.run("thr_q3", .running)
+        await rig.wait(0.5)  // past the threshold
+        #expect(chat.starts.isEmpty)
+        chat.enabled = true
+        rig.alerts.setAppActive(true)
+        await rig.wait(0.3)
+        #expect(chat.starts.first?.id == "thr_q3")
+        #expect(rig.alerts.chatWatching == ["thr_q3"])
+    }
+
+    @Test func aRefusedRequestIsRetriedOnReturn() async throws {
+        let chat = RecordingChatHost()
+        chat.refuseStarts = true
+        let rig = Rig(chat: chat)
+        await rig.run("thr_q3", .running)
+        await rig.wait(0.5)  // the timer fires and iOS refuses
+        #expect(rig.alerts.chatWatching.isEmpty)
+        chat.refuseStarts = false
+        rig.alerts.setAppActive(true)
+        await rig.wait(0.3)
+        #expect(chat.starts.first?.id == "thr_q3")
+        #expect(rig.alerts.chatWatching == ["thr_q3"])
     }
 
     // MARK: Relaunch
