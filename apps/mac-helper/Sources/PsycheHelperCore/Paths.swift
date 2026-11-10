@@ -31,29 +31,61 @@ public enum HelperPaths {
     }
 
     /// The socket path from the Gateway's pointer file, or nil when there is no usable pointer. Read
-    /// defensively: it must be a small regular file owned by this user (not a symlink), and its
-    /// first line, trimmed, must be an absolute path that fits `sun_path`. Anything else is ignored
-    /// and the caller falls back to `run/node.sock`.
+    /// defensively, and anything that fails a check is ignored so the caller falls back to
+    /// `run/node.sock`:
+    /// - the file is opened with `O_NOFOLLOW | O_NONBLOCK` (no symlink, no blocking on a FIFO) and
+    ///   checked with `fstat` on that descriptor: a regular file owned by this user, 1–4096 bytes;
+    /// - its first line, trimmed, is an absolute path that fits `sun_path`, with no NUL;
+    /// - the socket's directory is private like the Gateway's `ensureSocketDir`: a real directory
+    ///   (not a symlink) owned by this user with no group or other permission bits. A stale pointer
+    ///   into a shared temp dir another account recreated is not followed.
     public static func readNodeSocketPointer(environment env: [String: String] = ProcessInfo.processInfo.environment) -> String? {
-        let file = nodeSocketPointerPath(environment: env)
-        var info = stat()
-        guard lstat(file, &info) == 0,
-              (info.st_mode & S_IFMT) == S_IFREG,
-              info.st_uid == getuid(),
-              info.st_size > 0, info.st_size <= Int64(maxPointerFileBytes)
-        else { return nil }
-        guard let handle = FileHandle(forReadingAtPath: file) else { return nil }
-        defer { try? handle.close() }
-        guard let data = try? handle.read(upToCount: maxPointerFileBytes),
+        guard let data = readPrivateSmallFile(nodeSocketPointerPath(environment: env), limit: maxPointerFileBytes),
               let text = String(data: data, encoding: .utf8)
         else { return nil }
         let firstLine = text.split(maxSplits: 1, omittingEmptySubsequences: false, whereSeparator: \.isNewline).first ?? ""
         let path = firstLine.trimmingCharacters(in: .whitespacesAndNewlines)
         guard path.hasPrefix("/"),
               !path.contains("\0"),
-              path.utf8.count <= maxSocketPathBytes
+              path.utf8.count <= maxSocketPathBytes,
+              isPrivateDirectory((path as NSString).deletingLastPathComponent)
         else { return nil }
         return path
+    }
+
+    /// The contents of a regular file owned by this user and at most `limit` bytes, read from one
+    /// descriptor (no check-then-open race), or nil.
+    static func readPrivateSmallFile(_ file: String, limit: Int) -> Data? {
+        let fd = open(file, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
+        guard fd >= 0 else { return nil }
+        defer { close(fd) }
+        var info = stat()
+        guard fstat(fd, &info) == 0,
+              (info.st_mode & S_IFMT) == S_IFREG,
+              info.st_uid == getuid(),
+              info.st_size > 0, info.st_size <= Int64(limit)
+        else { return nil }
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: limit + 1)
+        while data.count <= limit {
+            let n = buffer.withUnsafeMutableBytes { read(fd, $0.baseAddress, $0.count) }
+            if n < 0, errno == EINTR { continue }
+            guard n >= 0 else { return nil }
+            if n == 0 { break }
+            data.append(contentsOf: buffer[0..<n])
+        }
+        // The file grew after fstat: not the Gateway's one-line pointer.
+        guard !data.isEmpty, data.count <= limit else { return nil }
+        return data
+    }
+
+    /// A real directory (lstat: not a symlink) owned by this user, with `(mode & 0o077) == 0`.
+    static func isPrivateDirectory(_ dir: String) -> Bool {
+        var info = stat()
+        return lstat(dir, &info) == 0
+            && (info.st_mode & S_IFMT) == S_IFDIR
+            && info.st_uid == getuid()
+            && (info.st_mode & 0o077) == 0
     }
 
     /// Where the Gateway accepts relayed sandbox guests (`PSYCHE_GUEST_SOCKET`, else next to the

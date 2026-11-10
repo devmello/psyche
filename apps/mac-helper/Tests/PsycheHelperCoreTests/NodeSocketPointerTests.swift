@@ -22,11 +22,19 @@ private func cleanUp(_ home: String) {
     try? FileManager.default.removeItem(atPath: home)
 }
 
-/// A short absolute path that fits `sun_path`, shaped like the Gateway's fallback
-/// (`<tmp>/psyche-<uid>/<16 hex>.sock`).
-private func fallbackSocketPath() -> String {
+/// A private socket directory like the Gateway's fallback (`ensureSocketDir`: mode 0700, ours),
+/// short enough for `sun_path`.
+private func privateSocketDir(mode: mode_t = 0o700) throws -> String {
+    let dir = "/tmp/pptr-\(UInt32.random(in: 0...UInt32.max))"
+    try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: false)
+    chmod(dir, mode)
+    return dir
+}
+
+/// A socket path shaped like the Gateway's fallback (`<private dir>/<16 hex>.sock`).
+private func fallbackSocketPath(in dir: String) -> String {
     let hash = String(UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(16))
-    return "/tmp/psyche-\(getuid())/\(hash).sock"
+    return "\(dir)/\(hash).sock"
 }
 
 /// A listening AF_UNIX socket standing in for the Gateway's node socket.
@@ -54,8 +62,9 @@ private func listenUnix(_ path: String) -> Int32 {
 struct NodeSocketPointerTests {
     @Test func environmentWinsOverThePointer() throws {
         let home = try tempHome()
-        defer { cleanUp(home) }
-        try writePointer(home, fallbackSocketPath() + "\n")
+        let dir = try privateSocketDir()
+        defer { cleanUp(home); cleanUp(dir) }
+        try writePointer(home, fallbackSocketPath(in: dir) + "\n")
         let env = ["PSYCHE_HOME": home, "PSYCHE_NODE_SOCKET": "/x/n.sock"]
         #expect(HelperPaths.nodeSocketPath(environment: env) == "/x/n.sock")
         #expect(HelperPaths.guestSocketPath(environment: env) == "/x/n-guest.sock")
@@ -63,8 +72,9 @@ struct NodeSocketPointerTests {
 
     @Test func aValidPointerIsUsed() throws {
         let home = try tempHome(deep: true)
-        defer { cleanUp(home) }
-        let target = fallbackSocketPath()
+        let dir = try privateSocketDir()
+        defer { cleanUp(home); cleanUp(dir) }
+        let target = fallbackSocketPath(in: dir)
         try writePointer(home, target + "\n")
         #expect(HelperPaths.nodeSocketPointerPath(environment: ["PSYCHE_HOME": home]) == home + "/run/node-socket")
         #expect(HelperPaths.nodeSocketPath(environment: ["PSYCHE_HOME": home]) == target)
@@ -72,8 +82,9 @@ struct NodeSocketPointerTests {
 
     @Test func onlyTheFirstLineCountsAndItIsTrimmed() throws {
         let home = try tempHome()
-        defer { cleanUp(home) }
-        let target = fallbackSocketPath()
+        let dir = try privateSocketDir()
+        defer { cleanUp(home); cleanUp(dir) }
+        let target = fallbackSocketPath(in: dir)
         try writePointer(home, "  \(target) \r\n/other/path.sock\n")
         #expect(HelperPaths.nodeSocketPath(environment: ["PSYCHE_HOME": home]) == target)
     }
@@ -88,9 +99,15 @@ struct NodeSocketPointerTests {
 
     @Test func aSymlinkPointerIsIgnored() throws {
         let home = try tempHome()
-        defer { cleanUp(home) }
+        let dir = try privateSocketDir()
+        defer { cleanUp(home); cleanUp(dir) }
         let real = home + "/elsewhere"
-        try Data((fallbackSocketPath() + "\n").utf8).write(to: URL(fileURLWithPath: real))
+        try Data((fallbackSocketPath(in: dir) + "\n").utf8).write(to: URL(fileURLWithPath: real))
+        chmod(real, 0o600)
+        // The same contents as a regular file would be used, so only the symlink is refused.
+        try writePointer(home, fallbackSocketPath(in: dir) + "\n")
+        #expect(HelperPaths.readNodeSocketPointer(environment: ["PSYCHE_HOME": home]) != nil)
+        try FileManager.default.removeItem(atPath: home + "/run/node-socket")
         try FileManager.default.createSymbolicLink(atPath: home + "/run/node-socket", withDestinationPath: real)
         #expect(HelperPaths.readNodeSocketPointer(environment: ["PSYCHE_HOME": home]) == nil)
         #expect(HelperPaths.nodeSocketPath(environment: ["PSYCHE_HOME": home]) == home + "/run/node.sock")
@@ -121,8 +138,9 @@ struct NodeSocketPointerTests {
 
     @Test func aPathOfExactlyTheLimitIsUsed() throws {
         let home = try tempHome()
-        defer { cleanUp(home) }
-        let target = "/" + String(repeating: "a", count: HelperPaths.maxSocketPathBytes - 1)
+        let dir = try privateSocketDir()
+        defer { cleanUp(home); cleanUp(dir) }
+        let target = dir + "/" + String(repeating: "a", count: HelperPaths.maxSocketPathBytes - dir.utf8.count - 1)
         #expect(target.utf8.count == HelperPaths.maxSocketPathBytes)
         try writePointer(home, target + "\n")
         #expect(HelperPaths.nodeSocketPath(environment: ["PSYCHE_HOME": home]) == target)
@@ -130,8 +148,9 @@ struct NodeSocketPointerTests {
 
     @Test func anOversizedPointerFileIsIgnored() throws {
         let home = try tempHome()
-        defer { cleanUp(home) }
-        try writePointer(home, fallbackSocketPath() + "\n" + String(repeating: "x", count: 5000))
+        let dir = try privateSocketDir()
+        defer { cleanUp(home); cleanUp(dir) }
+        try writePointer(home, fallbackSocketPath(in: dir) + "\n" + String(repeating: "x", count: 5000))
         #expect(HelperPaths.nodeSocketPath(environment: ["PSYCHE_HOME": home]) == home + "/run/node.sock")
     }
 
@@ -139,9 +158,10 @@ struct NodeSocketPointerTests {
         // The Gateway derives the guest socket from the node socket it actually listens on
         // (`resolveGuestSocketPath`): `<hash>.sock` -> `<hash>-guest.sock` in the same directory.
         let home = try tempHome(deep: true)
-        defer { cleanUp(home) }
-        try writePointer(home, "/tmp/psyche-501/0123456789abcdef.sock\n")
-        #expect(HelperPaths.guestSocketPath(environment: ["PSYCHE_HOME": home]) == "/tmp/psyche-501/0123456789abcdef-guest.sock")
+        let dir = try privateSocketDir()
+        defer { cleanUp(home); cleanUp(dir) }
+        try writePointer(home, dir + "/0123456789abcdef.sock\n")
+        #expect(HelperPaths.guestSocketPath(environment: ["PSYCHE_HOME": home]) == dir + "/0123456789abcdef-guest.sock")
         // An explicit guest socket still wins.
         #expect(HelperPaths.guestSocketPath(environment: ["PSYCHE_HOME": home, "PSYCHE_GUEST_SOCKET": "/g.sock"]) == "/g.sock")
     }
@@ -151,9 +171,8 @@ struct NodeSocketPointerTests {
         defer { cleanUp(home) }
         // run/node.sock cannot fit in sun_path here; the Gateway would listen elsewhere.
         #expect((home + "/run/node.sock").utf8.count > HelperPaths.maxSocketPathBytes)
-        let dir = "/tmp/pptr-\(UInt32.random(in: 0...UInt32.max))"
-        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(atPath: dir) }
+        let dir = try privateSocketDir()
+        defer { cleanUp(dir) }
         let socketPath = dir + "/0123456789abcdef.sock"
         let listener = listenUnix(socketPath)
         #expect(listener >= 0)
@@ -164,5 +183,71 @@ struct NodeSocketPointerTests {
         #expect(resolved == socketPath)
         let conn = try UnixSocketConnection(path: resolved)
         conn.close()
+    }
+
+    @Test(arguments: [0o777 as mode_t, 0o755, 0o750, 0o701])
+    func aPointerIntoASharedDirectoryFallsBack(_ mode: mode_t) throws {
+        // A stale pointer into a temp dir someone else could have recreated is not followed.
+        let home = try tempHome(deep: true)
+        let dir = try privateSocketDir(mode: mode)
+        defer { cleanUp(home); cleanUp(dir) }
+        try writePointer(home, fallbackSocketPath(in: dir) + "\n")
+        #expect(HelperPaths.readNodeSocketPointer(environment: ["PSYCHE_HOME": home]) == nil)
+        #expect(HelperPaths.nodeSocketPath(environment: ["PSYCHE_HOME": home]) == home + "/run/node.sock")
+    }
+
+    @Test func aPointerThroughASymlinkedDirectoryFallsBack() throws {
+        let home = try tempHome(deep: true)
+        let dir = try privateSocketDir()
+        let link = "/tmp/pptr-link-\(UInt32.random(in: 0...UInt32.max))"
+        try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: dir)
+        defer { cleanUp(home); cleanUp(dir); cleanUp(link) }
+        try writePointer(home, link + "/0123456789abcdef.sock\n")
+        #expect(HelperPaths.nodeSocketPath(environment: ["PSYCHE_HOME": home]) == home + "/run/node.sock")
+    }
+
+    @Test func aPointerIntoAMissingDirectoryFallsBack() throws {
+        let home = try tempHome(deep: true)
+        defer { cleanUp(home) }
+        try writePointer(home, "/tmp/pptr-missing-\(UUID().uuidString)/0123456789abcdef.sock\n")
+        #expect(HelperPaths.nodeSocketPath(environment: ["PSYCHE_HOME": home]) == home + "/run/node.sock")
+    }
+
+    @Test func aFIFOPointerIsIgnoredWithoutBlocking() throws {
+        let home = try tempHome()
+        defer { cleanUp(home) }
+        #expect(mkfifo(home + "/run/node-socket", 0o600) == 0)
+        #expect(HelperPaths.readNodeSocketPointer(environment: ["PSYCHE_HOME": home]) == nil)
+        #expect(HelperPaths.nodeSocketPath(environment: ["PSYCHE_HOME": home]) == home + "/run/node.sock")
+    }
+}
+
+@Suite("Node socket peer check (getpeereid)")
+struct NodeSocketPeerTests {
+    @Test func aPeerRunningAsThisUserIsAccepted() throws {
+        let dir = try privateSocketDir()
+        defer { cleanUp(dir) }
+        let path = dir + "/n.sock"
+        let listener = listenUnix(path)
+        #expect(listener >= 0)
+        defer { close(listener) }
+        let conn = try UnixSocketConnection(path: path)
+        conn.close()
+        let explicit = try UnixSocketConnection(path: path, expectedPeerUID: getuid())
+        explicit.close()
+    }
+
+    @Test func aPeerRunningAsAnotherUserIsRefused() throws {
+        let dir = try privateSocketDir()
+        defer { cleanUp(dir) }
+        let path = dir + "/n.sock"
+        let listener = listenUnix(path)
+        #expect(listener >= 0)
+        defer { close(listener) }
+        let other = getuid() &+ 1
+        #expect(throws: NodeSocketError.peerNotOwner(path: path, uid: getuid())) {
+            try UnixSocketConnection(path: path, expectedPeerUID: other)
+        }
+        #expect(NodeSocketError.peerNotOwner(path: path, uid: 0).description.contains("owned by another user"))
     }
 }

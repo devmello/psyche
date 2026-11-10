@@ -5,6 +5,8 @@ public enum NodeSocketError: Error, Equatable, CustomStringConvertible {
     case socketMissing(path: String)
     case pathTooLong(path: String)
     case connectFailed(path: String, errno: Int32)
+    /// The process serving the socket runs as another user: never the owner's Gateway.
+    case peerNotOwner(path: String, uid: UInt32)
     case io(errno: Int32)
     case timedOut
     case closedByPeer
@@ -17,6 +19,8 @@ public enum NodeSocketError: Error, Equatable, CustomStringConvertible {
             return "Socket path is too long for AF_UNIX (\(path.utf8.count) bytes): \(path)"
         case .connectFailed(let path, let err):
             return "Could not connect to \(path): \(String(cString: strerror(err)))"
+        case .peerNotOwner(let path, let uid):
+            return "Refusing \(path): the socket is owned by another user (uid \(uid)), not this user's Gateway."
         case .io(let err):
             return "Socket I/O error: \(String(cString: strerror(err)))"
         case .timedOut:
@@ -40,7 +44,11 @@ public final class UnixSocketConnection: @unchecked Sendable {
         setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
     }
 
-    public convenience init(path: String) throws {
+    /// Connects to the socket at `path` and checks who serves it: the peer's effective uid
+    /// (`getpeereid`) must be `expectedPeerUID`, this user by default. The owner's Gateway always
+    /// runs as the owner, so this never refuses it; it stops the helper from handing its handshake
+    /// secret and capabilities to another account's process at a path it was pointed to.
+    public convenience init(path: String, expectedPeerUID: uid_t = getuid()) throws {
         guard FileManager.default.fileExists(atPath: path) else { throw NodeSocketError.socketMissing(path: path) }
         var addr = sockaddr_un()
         let pathBytes = Array(path.utf8)
@@ -65,6 +73,17 @@ public final class UnixSocketConnection: @unchecked Sendable {
             Darwin.close(fd)
             if err == ENOENT { throw NodeSocketError.socketMissing(path: path) }
             throw NodeSocketError.connectFailed(path: path, errno: err)
+        }
+        var peerUID: uid_t = 0
+        var peerGID: gid_t = 0
+        guard getpeereid(fd, &peerUID, &peerGID) == 0 else {
+            let err = errno
+            Darwin.close(fd)
+            throw NodeSocketError.connectFailed(path: path, errno: err)
+        }
+        guard peerUID == expectedPeerUID else {
+            Darwin.close(fd)
+            throw NodeSocketError.peerNotOwner(path: path, uid: peerUID)
         }
         self.init(fd: fd)
     }
