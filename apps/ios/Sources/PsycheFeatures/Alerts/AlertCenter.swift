@@ -185,7 +185,9 @@ public final class AlertCenter {
         let changed = appActive != active
         appActive = active
         guard changed else { return }
-        awake?.setForeground(active)
+        // Leaving: the app stays "in front" for the stay-awake audio until the early start below has run, because
+        // iOS refuses to start audio from the background.
+        if active { awake?.setForeground(true) }
         Task {
             if active {
                 // Open again: ask for fresh data. Each activity gets a fresh, longer fuse only from what the Gateway
@@ -193,7 +195,14 @@ public final class AlertCenter {
                 refreshStaleOnNextSync = true
                 requestSync()
                 await reconcileChatTurns()
-            } else if awake?.isRunning != true {
+                // A reply past the threshold whose request was refused in the background (or never made) gets it now.
+                await startDueChatActivities()
+            } else {
+                // Leaving: iOS refuses a request once the app is in the background, so start any in-flight reply's now.
+                await startChatActivitiesOnLeaving()
+                awake?.setForeground(appActive)
+            }
+            if !active, awake?.isRunning != true {
                 // Leaving with nothing keeping the app awake: nothing can refresh the activity, so shorten its fuse.
                 await shortenStaleDates()
             }

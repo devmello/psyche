@@ -86,9 +86,11 @@ extension AlertCenter {
         }
     }
 
-    func startChatActivityIfDue(_ id: String) async {
+    /// `early`: the app is leaving the foreground, the last moment iOS allows a request, so a reply still short of
+    /// the threshold gets its activity now (a background timer could not start one).
+    func startChatActivityIfDue(_ id: String, early: Bool = false) async {
         guard let turn = chatTracker.turns[id], !chatWatching.contains(id), liveActivitiesOn,
-              Date.now.timeIntervalSince(turn.startedAt) >= chatThreshold - 0.25 else { return }
+              early || Date.now.timeIntervalSince(turn.startedAt) >= chatThreshold - 0.25 else { return }
         guard !chatCoveredByTask(id) else { return }
         if chatTitles[id] == nil { await loadChatTitles() }
         // Awaiting the titles may have let the reply end or another path start the activity.
@@ -192,6 +194,11 @@ extension AlertCenter {
     func startDueChatActivities() async {
         for turn in chatTracker.turns.values { scheduleChatStart(turn) }
         for id in chatTracker.turns.keys { await startChatActivityIfDue(id) }
+    }
+
+    /// The app is leaving the foreground: every reply in flight gets its activity now, threshold or not.
+    func startChatActivitiesOnLeaving() async {
+        for id in chatTracker.turns.keys { await startChatActivityIfDue(id, early: true) }
     }
 
     /// The owner swiped one away, or the system ended it.

@@ -2,6 +2,7 @@ import Foundation
 import PsycheShared
 #if canImport(ActivityKit) && os(iOS)
 import ActivityKit
+import OSLog
 #endif
 
 /// The Live Activities for chat replies that run long: at most one per chat. A protocol so the engine can be
@@ -30,6 +31,7 @@ final class SystemChatTurnActivityHost: ChatTurnActivityHost {
     private var activities: [String: Activity<PsycheChatTurnAttributes>] = [:]
     private var changeHandler: (@MainActor () -> Void)?
     private var watched: Set<String> = []
+    private static let log = Logger(subsystem: "com.psyche.ios", category: "ChatTurnActivity")
 
     init() {
         // A relaunch finds the activities the system kept: adopt them, and end any beyond the first for a chat.
@@ -62,6 +64,8 @@ final class SystemChatTurnActivityHost: ChatTurnActivityHost {
             watchForEnd(activity)
             return true
         } catch {
+            // Only the id, never the chat's content. (iOS refuses a request made from the background.)
+            Self.log.error("Chat Live Activity request refused for \(threadID, privacy: .public): \(String(describing: error), privacy: .public)")
             return false
         }
     }
