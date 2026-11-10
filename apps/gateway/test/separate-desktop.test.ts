@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ToolRunContext } from "@psyche/agent-core";
@@ -680,8 +680,11 @@ describe("what the card for a shared folder says and does", () => {
       access: "read",
     });
     const req = fb.requested[0] as Record<string, unknown>;
+    // The card names the resolved folder (symlinks followed): on macOS /var is /private/var.
+    const resolved = realpathSync(docs);
     expect(req.kind).toBe("separate_desktop_share");
-    expect(req.summary).toBe(`Let the separate desktop read ${docs}`);
+    expect(req.summary).toBe(`Let the separate desktop read ${resolved}`);
+    expect((req.details as Record<string, unknown>).resolvedPath).toBe(resolved);
     expect(req.scopesOffered).toEqual(["once"]);
     expect(req.grantKey).toBe("separate_desktop_share|ro");
     expect((req.details as Record<string, unknown>).target).toBe("separate_desktop");
