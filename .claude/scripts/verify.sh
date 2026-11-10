@@ -87,11 +87,29 @@ done
 # that package whose import graph reaches a touched source file (`vitest related`, run from the
 # package so it stays inside it; repo-wide related on a widely imported file runs for many
 # minutes). Builders broke existing tests they never ran in #1299 and #1300; this catches that.
-# A failing file is re-run once (flake filter), then run on the merge base: failures that also
-# happen on the base are reported as pre-existing and do not fail the check.
+# A failing file is re-run once (flake filter), then run on the merge base: a file whose failing
+# tests (by name) all fail on the base too is reported as pre-existing and does not fail the
+# check. Any failing test the base doesn't share fails it.
 warn=()
 failed_files() { # failed_files <vitest json> -> absolute paths of failed test files
   node -e 'try{const r=require(process.argv[1]);for(const t of r.testResults||[])if(t.status==="failed")console.log(t.name)}catch{}' "$1"
+}
+# new_failures <branch json> <abs test file> <base json> -> the file's failing tests (full names)
+# that do not also fail on the base. Compared per test, not per file: in #1301 a file that already
+# failed on the base hid two new failures in it. A file that fails to load counts as one test,
+# "(file failed to load)". An unreadable base result counts every failure as new.
+new_failures() {
+  node -e '
+    const names = (t) => {
+      const f = (t.assertionResults || []).filter((a) => a.status === "failed").map((a) => a.fullName);
+      return f.length > 0 || t.status !== "failed" ? f : ["(file failed to load)"];
+    };
+    let br, bs;
+    try { br = require(process.argv[1]); } catch { process.exit(0); }
+    try { bs = new Set((require(process.argv[3]).testResults || []).flatMap(names)); } catch { bs = new Set(); }
+    for (const t of br.testResults || [])
+      if (t.name === process.argv[2]) for (const n of names(t)) if (!bs.has(n)) console.log(n);
+  ' "$1" "$2" "$3"
 }
 base_tree() { # base_tree -> path of a worktree at $base with deps installed (cached per commit)
   local common sha dir
@@ -132,15 +150,23 @@ for pkg in $test_pkgs; do
   (cd "$pkg" && pnpm exec vitest run --maxWorkers=1 --reporter=default --reporter=json \
     --outputFile.json="$log.rerun.json" $bad) >"$log.rerun.log" 2>&1 && { warn+=("$name: flaky, passed on re-run: $(echo $bad | xargs -n1 basename | paste -sd' ' -)"); pass+=("$name"); continue; }
   bad="$(failed_files "$log.rerun.json")"
+  [ -n "$bad" ] || { fail+=("$name|$log.rerun.log"); continue; }  # re-run crashed before reporting
   own=""
   pre=""
   if bt="$(base_tree)"; then
     for f in $bad; do
       rel="${f#"$PWD/"}"
-      if [ -f "$bt/$rel" ] && ! (cd "$bt/$pkg" && pnpm exec vitest run --maxWorkers=1 "${rel#"$pkg/"}") >/dev/null 2>&1; then
+      if [ ! -f "$bt/$rel" ]; then own="$own $rel"; continue; fi
+      bj="$log.base.json"
+      rm -f "$bj"
+      (cd "$bt/$pkg" && pnpm exec vitest run --maxWorkers=1 --reporter=json --outputFile.json="$bj" \
+        "${rel#"$pkg/"}") >/dev/null 2>&1
+      new="$(new_failures "$log.rerun.json" "$f" "$bj")"
+      if [ -z "$new" ]; then
         pre="$pre $(basename "$rel")"
       else
         own="$own $rel"
+        echo "$new" | sed "s#^#        new in $(basename "$rel"): #" >>"$log.rerun.log"
       fi
     done
   else

@@ -52,7 +52,10 @@ Out of scope: <neighbouring areas other sessions own>
    - For cheap, non-security PRs, delegate this to the `haiku-verifier` agent and read its verdict.
 3. **Independent review.** Every security, permissions, auth, crypto, sandbox or update PR goes to the `security-reviewer` agent (Opus), with concrete attack classes and the owner's relevant decisions. Never let the author review itself.
 4. **Send findings back.** Use `SendMessage` to the builder session, with numbered findings, file:line, and what "fixed" means. It fixes, verifies and reports. Then go back to step 2.
-5. **Escalate.** After 2 failed rounds on the same finding, or a builder that is stuck or confused: switch it up a tier (`set_session_model`) or start a fresh tier-X session with everything learned. Note the failure for `reflect`.
+   - **Classifier-like work:** have the reviewer write its probes as two lists, "must match" and "must not". Send them as rows for the builder's table test. In #1301 the two-way probe lists caught what three rounds of one-way fixes missed.
+   - **Owner decisions:** when you relay one that flips behaviour, tell the builder to grep the tests for the old expectation and run `verify.sh` before reporting. #1300 left `model-settings.test.ts` stale.
+   - **Re-reviews** read the whole diff since the last reviewed head, not only the listed findings. In #1299 R2 and #1301 R2–R4, a fix opened the next hole.
+5. **Escalate.** Escalate after 2 failed rounds on the same finding, after 2 rounds of blocking findings in one area even if each finding differs (#1301 was switched to Opus after R2), or when a builder is stuck or confused. Switch it up a tier (`set_session_model`) or start a fresh tier-X session with everything learned. Note the failure for `reflect`.
 
 ## 4. Merge
 

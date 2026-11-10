@@ -16,8 +16,10 @@ The last pass's date and last PR number are the top entry of `changelog.md` next
   - `gh pr list --repo devmello/psyche --state merged --search "merged:>=<date>" --limit 50 --json number,title,body,headRefName`
   - Pull each body's "Learnings", "Not verified" and "Noticed" sections.
 - **Review rounds:**
-  - `gh pr view <n> --comments`.
-  - The orchestrator's messages to builders. Find them with `mcp__ccd_session_mgmt__list_events` on linked sessions when available. Count how many fix rounds each PR needed and why.
+  - `gh pr view <n> --comments` is usually empty: reviews travel as `SendMessage`, not as GitHub comments.
+  - Read the orchestrator's messages to builders with `mcp__ccd_session_mgmt__list_events` on the builder session. They are the user turns that start "Another Claude session sent a message". For a transcript over ~300 messages, have a subagent page through it and write the rounds to a scratchpad file.
+  - Count the fix rounds each PR needed and why. Note which findings an earlier fix caused.
+  - Each commit's `Co-Authored-By` trailer shows which model built it.
 - **Verify failures:**
   - `cat "$(git rev-parse --git-common-dir)/agent-verify/failures.tsv"`: one line per hook block (time, branch, failing checks).
   - Group the lines by check name and branch.
