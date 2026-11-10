@@ -430,6 +430,18 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.tools.off": "Questo server è disattivato. Attivalo per vederne gli strumenti.",
   "settings.mcp.tools.notConnected": "Questo server non è collegato, quindi non elenca strumenti.",
   "settings.mcp.tools.none": "Questo server non ha strumenti.",
+  "settings.mcp.money.title": "Pagamenti",
+  "settings.mcp.money.description":
+    "Uno strumento che sposta denaro ti chiede ogni volta di confermare il pagamento. Indica quali strumenti di questo server lo fanno.",
+  "settings.mcp.money.auto": "Decidi dal nome di ogni strumento",
+  "settings.mcp.money.autoHint":
+    "Psyche deduce dal nome e dalla descrizione dello strumento, che un server può formulare per evitarlo.",
+  "settings.mcp.money.always": "Ogni strumento sposta denaro",
+  "settings.mcp.money.alwaysHint":
+    "Ogni chiamata a questo server ti chiede di approvare un pagamento.",
+  "settings.mcp.money.never": "Nessuno strumento sposta denaro",
+  "settings.mcp.money.neverHint":
+    "Nessuna chiamata chiede l’approvazione di un pagamento, comunque si chiami lo strumento. Solo per un server che non può spendere denaro.",
   "settings.mcp.secrets.title": "Segreti",
   "settings.mcp.secrets.intro":
     "Chiavi con cui parte questo server. Restano nel tuo vault; Psyche mostra solo se ciascuna è impostata.",
@@ -623,45 +635,26 @@ export const settingsRest: Partial<Catalogue> = {
     "Nessun modello di embedding disponibile, quindi il richiamo abbina solo le parole.",
   "settings.data.replayRetentionHint":
     "Le schermate che {persona} ha guardato mentre lavorava, per la Timeline. Se disattivato, non ne conserva nessuna.",
-  "settings.devices.presenceKey.keychain":
-    "Chiave Touch ID (portachiavi), come indicata dall’helper",
-  "settings.devices.presenceKey.enclaveKeychainAcl":
-    "Chiave Touch ID (Secure Enclave, leggibile senza richiesta di macOS solo dall’helper di Psyche), come indicata dall’helper",
-  "settings.devices.presenceKey.enclaveFile":
-    "Chiave Touch ID (file Secure Enclave, questa build non ha un profilo di provisioning), come indicata dall’helper",
   "settings.devices.presenceKey.unknown": "Chiave Touch ID (tipo non indicato dall’helper)",
+  "settings.devices.presenceKey.deviceIdentity":
+    "I pagamenti usano Touch ID o la password del tuo Mac. Non c’è nulla da configurare.",
   "settings.devices.touchId.none":
     "Ancora nessuna chiave Touch ID. Le schede che richiedono Touch ID non possono essere approvate finché non ne registri una.",
   "settings.devices.touchId.bundled": "Il Psyche Helper in questa app mostra la chiave",
   "settings.devices.touchId.notBundled":
     "Questo helper non è quello incluso in questa app, quindi la sua chiave non può essere registrata qui.",
-  "settings.devices.touchId.untrusted":
-    "La chiave Touch ID nel portachiavi non è stata usata perché non si può dimostrare che sia dell’helper di Psyche. Una causa innocua: Psyche è stato spostato o reinstallato altrove, rimettilo in /Applications e riaprilo. Altrimenti esci prima dall’helper di Psyche, esegui /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key nel Terminale e registra la nuova chiave.",
-  "settings.devices.touchId.accessDenied":
-    "macOS non ha permesso all’helper di Psyche di usare la sua chiave Touch ID nel portachiavi. Riavvia Psyche e scegli Consenti sempre solo se la finestra nomina psyche-helper (mai per un altro programma).",
-  "settings.devices.touchId.wrongLocation":
-    "L’helper di Psyche non ha creato una chiave Touch ID perché è in esecuzione da un’immagine disco, da Download o da un’altra cartella. Sposta Psyche in /Applications, espelli ogni immagine disco e aprilo da lì.",
   "settings.devices.touchId.keyMismatch":
     "L’helper di Psyche in questa app ora mostra la chiave {shown}, non quella registrata {registered}. Se non hai reimpostato tu la chiave, consideralo sospetto e non registrarla.",
   "settings.devices.touchId.confirmReplace":
     "Questo sostituisce la chiave Touch ID {previous} registrata per questo Mac. Sostituiscila solo se hai reimpostato tu la chiave.",
   "settings.devices.touchId.confirmReplaceButton": "Sostituisci la chiave",
-  "settings.devices.touchId.interactionNotAllowed":
-    "Il portachiavi non può chiedere il permesso in questo momento. Sblocca il Mac e riprova.",
-  "settings.devices.touchId.changed":
-    "La chiave Touch ID è cambiata mentre l’helper di Psyche era in esecuzione. Esci dall’helper di Psyche e riavvialo.",
-  "settings.devices.touchId.aclUnavailable":
-    "Il portachiavi non ha conservato l’elenco di accesso della chiave Touch ID su questo Mac. Riavvia l’helper di Psyche per riprovare.",
   "settings.devices.touchId.noBundledKey":
     "Il Psyche Helper in questa app non ha una chiave Touch ID ({reason}).",
   "settings.devices.touchId.register": "Registra questa chiave",
   "settings.devices.touchId.remove": "Rimuovi chiave",
   "settings.devices.touchId.manualLabel": "ID della chiave",
   "settings.devices.touchId.manualHint":
-    "Esegui psyche-helper --print-identity sul Mac e incolla il presenceKeyId che stampa.",
-  "settings.devices.touchId.allowDevFileKey": "Consenti una chiave Touch ID di sviluppo",
-  "settings.devices.touchId.devFileKey":
-    "Questa build non ha un profilo di provisioning, quindi la sua chiave è un file Secure Enclave. Qualsiasi app eseguita come te potrebbe chiederle di firmare dietro la sua richiesta Touch ID. Solo per lo sviluppo.",
+    "Esegui psyche-helper --print-identity sul computer e incolla il presenceKeyId che stampa.",
   "settings.files.execHost": "Esegui comandi su questo Mac",
   "settings.files.execHostHint":
     "Permette a {persona} di eseguire comandi nelle tue cartelle condivise, nella sandbox. I comandi che potrebbero modificare i file chiedono prima a te.",

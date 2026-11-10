@@ -137,6 +137,11 @@ export interface PolicyApprovalInput extends ApprovalRequestInput {
   call?: PolicyCall;
   context?: PolicyContext;
   typedConfirmation?: string;
+  /**
+   * Forces the presence step on a card that is not a payment: only the Gateway's own gate for
+   * enrolling a presence verifier (a passkey, a helper key) sets it. Payments need no flag.
+   */
+  requireAuthentication?: boolean;
   /** Taint sources shown on the card. */
   taintSources?: TaintSource[];
   /** `kind: "batch"`: the decided calls the one approval covers, in order (§8.1, #670). */

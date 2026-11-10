@@ -411,6 +411,17 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.tools.off": "यह सर्वर बंद है। इसके टूल देखने के लिए इसे चालू करें।",
   "settings.mcp.tools.notConnected": "यह सर्वर कनेक्ट नहीं है, इसलिए कोई टूल सूचीबद्ध नहीं करता।",
   "settings.mcp.tools.none": "इस सर्वर में कोई टूल नहीं है।",
+  "settings.mcp.money.title": "भुगतान",
+  "settings.mcp.money.description":
+    "पैसे भेजने वाला टूल हर बार आपसे भुगतान की पुष्टि करवाता है। बताइए कि इस सर्वर के कौन-से टूल ऐसा करते हैं।",
+  "settings.mcp.money.auto": "हर टूल के नाम से तय करें",
+  "settings.mcp.money.autoHint":
+    "Psyche टूल के नाम और विवरण से अंदाज़ा लगाता है, जिसे कोई सर्वर बदलकर बच सकता है।",
+  "settings.mcp.money.always": "हर टूल पैसे भेजता है",
+  "settings.mcp.money.alwaysHint": "इस सर्वर पर हर कॉल आपसे भुगतान की मंज़ूरी माँगती है।",
+  "settings.mcp.money.never": "कोई टूल पैसे नहीं भेजता",
+  "settings.mcp.money.neverHint":
+    "टूल का नाम जो भी हो, कोई कॉल भुगतान की मंज़ूरी नहीं माँगती। केवल ऐसे सर्वर के लिए जो पैसे खर्च नहीं कर सकता।",
   "settings.mcp.secrets.title": "गोपनीय मान",
   "settings.mcp.secrets.intro":
     "वे कुंजियाँ जिनके साथ यह सर्वर शुरू होता है। ये आपके वॉल्ट में रहती हैं; Psyche सिर्फ़ यह दिखाता है कि हर एक सेट है या नहीं।",
@@ -592,44 +603,26 @@ export const settingsRest: Partial<Catalogue> = {
     "कोई एम्बेडिंग मॉडल उपलब्ध नहीं है, इसलिए रिकॉल सिर्फ़ शब्द मिलाता है।",
   "settings.data.replayRetentionHint":
     "काम करते समय {persona} ने जो स्क्रीन देखीं, टाइमलाइन के लिए। बंद करने पर कोई नहीं रखी जाती।",
-  "settings.devices.presenceKey.keychain": "Touch ID कुंजी (कीचेन), जैसा हेल्पर ने बताया",
-  "settings.devices.presenceKey.enclaveKeychainAcl":
-    "Touch ID कुंजी (Secure Enclave, macOS प्रॉम्प्ट के बिना केवल Psyche हेल्पर पढ़ सकता है), जैसा हेल्पर ने बताया",
-  "settings.devices.presenceKey.enclaveFile":
-    "Touch ID कुंजी (Secure Enclave फ़ाइल, इस बिल्ड में प्रोविज़निंग प्रोफ़ाइल नहीं है), जैसा हेल्पर ने बताया",
   "settings.devices.presenceKey.unknown": "Touch ID कुंजी (हेल्पर ने प्रकार नहीं बताया)",
+  "settings.devices.presenceKey.deviceIdentity":
+    "भुगतान Touch ID या आपके Mac के पासवर्ड का उपयोग करते हैं। कुछ भी सेट अप करने की ज़रूरत नहीं है।",
   "settings.devices.touchId.none":
     "अभी कोई Touch ID कुंजी नहीं। जब तक कोई रजिस्टर नहीं होती, Touch ID चाहने वाले कार्ड स्वीकृत नहीं हो सकते।",
   "settings.devices.touchId.bundled": "इस ऐप का Psyche Helper कुंजी दिखाता है",
   "settings.devices.touchId.notBundled":
     "यह हेल्पर इस ऐप के साथ आया हेल्पर नहीं है, इसलिए इसकी कुंजी यहाँ रजिस्टर नहीं की जा सकती।",
-  "settings.devices.touchId.untrusted":
-    "कीचेन में मौजूद Touch ID कुंजी इस्तेमाल नहीं की गई, क्योंकि यह साबित नहीं हो सकता कि वह Psyche हेल्पर की है। एक हानिरहित कारण यह है कि Psyche को हटाकर कहीं और ले जाया गया या दोबारा इंस्टॉल किया गया: उसे वापस /Applications में रखें और फिर खोलें। नहीं तो पहले Psyche हेल्पर बंद करें, Terminal में /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key चलाएँ, और नई कुंजी पंजीकृत करें।",
-  "settings.devices.touchId.accessDenied":
-    "macOS ने Psyche हेल्पर को कीचेन की अपनी Touch ID कुंजी इस्तेमाल करने नहीं दी। Psyche फिर से चलाएँ और हमेशा अनुमति दें केवल तभी चुनें जब संवाद में psyche-helper का नाम हो (किसी और प्रोग्राम के लिए कभी नहीं)।",
-  "settings.devices.touchId.wrongLocation":
-    "Psyche हेल्पर ने Touch ID कुंजी नहीं बनाई, क्योंकि वह डिस्क इमेज, डाउनलोड या किसी और फ़ोल्डर से चल रहा है। Psyche को /Applications में ले जाएँ, कोई भी डिस्क इमेज निकालें और वहीं से खोलें।",
   "settings.devices.touchId.keyMismatch":
     "इस ऐप का Psyche हेल्पर अब कुंजी {shown} दिखा रहा है, पंजीकृत {registered} नहीं। अगर आपने कुंजी खुद रीसेट नहीं की, तो इसे संदिग्ध मानें और इसे पंजीकृत न करें।",
   "settings.devices.touchId.confirmReplace":
     "यह इस Mac के लिए पंजीकृत Touch ID कुंजी {previous} को बदल देगा। इसे तभी बदलें जब आपने कुंजी खुद रीसेट की हो।",
   "settings.devices.touchId.confirmReplaceButton": "कुंजी बदलें",
-  "settings.devices.touchId.interactionNotAllowed":
-    "कीचेन अभी अनुमति नहीं माँग सकता। Mac अनलॉक करें और फिर कोशिश करें।",
-  "settings.devices.touchId.changed":
-    "Psyche हेल्पर चलते समय Touch ID कुंजी बदल गई। Psyche हेल्पर बंद करके फिर शुरू करें।",
-  "settings.devices.touchId.aclUnavailable":
-    "इस Mac पर कीचेन ने Touch ID कुंजी की एक्सेस सूची नहीं रखी। दोबारा कोशिश के लिए Psyche हेल्पर को रीस्टार्ट करें।",
   "settings.devices.touchId.noBundledKey":
     "इस ऐप के Psyche Helper के पास Touch ID कुंजी नहीं है ({reason})।",
   "settings.devices.touchId.register": "यह कुंजी रजिस्टर करें",
   "settings.devices.touchId.remove": "कुंजी हटाएँ",
   "settings.devices.touchId.manualLabel": "कुंजी आईडी",
   "settings.devices.touchId.manualHint":
-    "Mac पर psyche-helper --print-identity चलाएँ और जो presenceKeyId छपे उसे पेस्ट करें।",
-  "settings.devices.touchId.allowDevFileKey": "डेवलपमेंट Touch ID कुंजी की अनुमति दें",
-  "settings.devices.touchId.devFileKey":
-    "इस बिल्ड में प्रोविज़निंग प्रोफ़ाइल नहीं है, इसलिए इसकी कुंजी एक Secure Enclave फ़ाइल है। आपके रूप में चल रहा कोई भी ऐप इसे अपने Touch ID प्रॉम्प्ट के पीछे साइन करने को कह सकता है। केवल डेवलपमेंट के लिए।",
+    "कंप्यूटर पर psyche-helper --print-identity चलाएँ और जो presenceKeyId छपे उसे पेस्ट करें।",
   "settings.files.execHost": "इस Mac पर कमांड चलाएँ",
   "settings.files.execHostHint":
     "{persona} को आपके साझा फ़ोल्डर में, सैंडबॉक्स में कमांड चलाने देता है। जो कमांड फ़ाइलें बदल सकते हैं वे पहले आपसे पूछते हैं।",

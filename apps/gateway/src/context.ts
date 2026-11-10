@@ -228,6 +228,13 @@ export interface GatewayContext {
    */
   readonly presenceState: () => PresenceState;
   /**
+   * Whether any verifier could verify a presence step now, including a Mac helper's auto-paired
+   * device key. Unlike `presenceState` (which only a registered key or a passkey turns on, so
+   * first-admin bootstrap and the sticky enrollment are not tripped by pairing the helper), this
+   * decides whether adding a verifier (`strong`) must still pass the Mac sheet.
+   */
+  readonly presenceCanVerify: () => boolean;
+  /**
    * The security-state seal (security/state-seal.ts): checked before authorizing reads; while it
    * is untrusted, presence and every widening call fail closed. Absent only in hand-built test
    * contexts.

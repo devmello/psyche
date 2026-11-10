@@ -902,7 +902,7 @@ export const it: Partial<Catalogue> = {
   "shell.usage.noWindow": "La finestra del limite del piano non è disponibile da questa CLI.",
   "shell.usage.openHint": "Fai clic per Impostazioni → Utilizzo.",
   "settings.shared.needsPresence":
-    "La modifica di “{label}” richiede la tua approvazione con Touch ID o una passkey. Approvala nelle Impostazioni o nella notifica di Psyche, poi modificala di nuovo.",
+    "La modifica di “{label}” richiede la tua approvazione. Approvala nelle Impostazioni o nella notifica di Psyche, poi modificala di nuovo.",
   "settings.shared.saveFailed":
     "Psyche non è riuscito a salvare “{label}” ({reason}). Nulla è cambiato.",
   "settings.shared.loading": "Caricamento di {label}",

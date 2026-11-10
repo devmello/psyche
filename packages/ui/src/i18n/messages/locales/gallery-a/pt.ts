@@ -185,17 +185,17 @@ export const galleryA: Partial<Catalogue> = {
     "O resumo da manhã está desativado, então as pessoas ainda não vão aparecer. Ative para vê-las.",
   "onboarding.safety.lead":
     "Como as aprovações chegam até você e o que roda sozinho. O acesso aos seus arquivos, apps e tela não é pedido aqui: {name} pede no chat na primeira vez que precisar.",
-  "onboarding.safety.touchId": "Touch ID para aprovações",
+  "onboarding.safety.touchId": "Touch ID para pagamentos",
   "onboarding.safety.touchId.checking": "Examinando o auxiliar do Mac…",
   "onboarding.safety.touchId.again": "Verificar novamente",
   "onboarding.safety.touchId.set": "Configurar",
-  "onboarding.safety.touchId.setHint": "Aprovações que precisam de você pedem sua digital.",
+  "onboarding.safety.touchId.setHint": "Os pagamentos pedem sua digital ou a senha do seu Mac.",
   "onboarding.safety.touchId.starting":
     "O auxiliar do Mac ainda está iniciando. Verifique novamente em instantes.",
   "onboarding.safety.touchId.noKey": "O auxiliar do Mac não tem chave do Touch ID ({reason}).",
   "onboarding.safety.touchId.register": "Registrar esta chave",
   "onboarding.safety.touchId.hint":
-    "Registre uma vez a chave do auxiliar do Mac para que o Touch ID possa confirmar aprovações.",
+    "Registre uma vez a chave do auxiliar do Mac para que o Touch ID possa confirmar pagamentos.",
   "onboarding.safety.notifications": "Notificações",
   "onboarding.safety.asks":
     "Se você deixar {name} executar comandos neste Mac, os que só leem, como ls ou cat, rodam sem cartão. Todo o resto pergunta antes.",

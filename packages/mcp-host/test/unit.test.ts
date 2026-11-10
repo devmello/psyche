@@ -11,6 +11,7 @@ import {
   diffTools,
   directLauncher,
   inspectTool,
+  looksFinancial,
   MemoryTokenStore,
   mcpCredentialTarget,
   mcpToolName,
@@ -82,6 +83,135 @@ describe("annotation policy", () => {
     expect(sideEffectFor(d, "unknown")).toBe("destructive");
     expect(sideEffectFor(d, "bundled")).toBe("destructive");
     expect(sideEffectFor(tool(), "bundled")).toBe("write");
+  });
+});
+
+describe("financial tools", () => {
+  it.each([
+    "pay_invoice",
+    "create_payment_intent",
+    "createPaymentIntent",
+    "charge-card",
+    "stripe.refund",
+    "transfer_funds",
+    "place_order",
+    "buy_ticket",
+    "create_payout",
+    "withdraw",
+  ])("%s moves money", (name) => {
+    expect(looksFinancial({ name })).toBe(true);
+    expect(sideEffectFor(tool({ name }), "unknown")).toBe("financial");
+    expect(sideEffectFor(tool({ name }), "verified")).toBe("financial");
+    // A destructive hint cannot lower it.
+    expect(sideEffectFor(tool({ name, annotations: { destructiveHint: true } }), "unknown")).toBe(
+      "financial",
+    );
+  });
+
+  it.each([
+    "reorder_list",
+    "border_radius",
+    "list_orders",
+    "get_invoice",
+    "search_payments",
+    "describe_charge",
+    "echo",
+    "create_issue",
+    "payload_size",
+  ])("%s does not", (name) => {
+    expect(looksFinancial({ name })).toBe(false);
+    expect(sideEffectFor(tool({ name }), "unknown")).toBe("write");
+  });
+
+  it("reads the description for a money verb next to a money word", () => {
+    expect(
+      looksFinancial({ name: "run", description: "Charges the customer's credit card." }),
+    ).toBe(true);
+    expect(looksFinancial({ name: "run", description: "Transfers funds between accounts" })).toBe(
+      true,
+    );
+    expect(looksFinancial({ name: "run", description: "Sends 20 USD to the recipient" })).toBe(
+      true,
+    );
+    expect(looksFinancial({ name: "run", description: "Sends a message to a channel." })).toBe(
+      false,
+    );
+    expect(
+      looksFinancial({ name: "get_balance", description: "Charges nothing; reads funds." }),
+    ).toBe(false);
+  });
+
+  // The owner's lists: friction only for payments, so precise both ways.
+  it.each<[string, string | undefined]>([
+    ["send_money", undefined],
+    ["execute_trade", undefined],
+    ["execute", "Places a stock market order"],
+    ["swap_tokens", undefined],
+    ["sell_stock", undefined],
+    ["submit", "Submits the cart"],
+    ["pay_invoice", undefined],
+    // Coinbase AgentKit, Stripe and wallet servers.
+    ["transfer", "Transfer an asset from the wallet to another onchain address"],
+    ["trade", "Trade a specified amount of a from asset to a to asset for the wallet"],
+    ["create_transfer", "Moves money between Stripe accounts"],
+    ["checkout_cart", undefined],
+    ["wire", "Sends a wire"],
+    ["send", "Sends USDC to an address"],
+    ["send_eth", "Sends 0.1 ETH to an address"],
+  ])("%s (%s) is financial for every trust tier", (name, description) => {
+    for (const trust of ["verified", "unknown"] as const) {
+      expect(sideEffectFor(tool({ name, description }), trust)).toBe("financial");
+    }
+  });
+
+  it.each<[string, string | undefined]>([
+    ["git_checkout", "Checks out a branch"],
+    ["transfer_file", "Transfers a file to another folder"],
+    ["transfer_issue", "Moves an issue to another project"],
+    ["subscribe_to_channel", "Subscribes to a channel"],
+    ["set_sort_order", "Sets the sort order of a list"],
+    ["create_invoice", "Creates a draft invoice"],
+    ["post_message", "Sends an adaptive card"],
+    ["attach", "Adds a card attachment to the message"],
+    ["create_payment_link", "Creates a payment link to share with a customer"],
+  ])("%s (%s) is an ordinary write, not a payment", (name, description) => {
+    expect(sideEffectFor(tool({ name, description }), "unknown")).toBe("write");
+  });
+
+  it("handlesMoney false switches the guess off for that server; unset leaves it on", () => {
+    const pay = tool({ name: "send_money" });
+    expect(sideEffectFor(pay, "unknown")).toBe("financial");
+    expect(sideEffectFor(pay, "unknown", {})).toBe("financial");
+    expect(sideEffectFor(pay, "unknown", { handlesMoney: false })).toBe("write");
+    expect(sideEffectFor(pay, "bundled", { handlesMoney: false })).toBe("write");
+    expect(
+      sideEffectFor(
+        tool({ name: "send_money", annotations: { destructiveHint: true } }),
+        "unknown",
+        {
+          handlesMoney: false,
+        },
+      ),
+    ).toBe("destructive");
+  });
+
+  it("a bundled server's readOnlyHint still wins over the guess", () => {
+    const ro = tool({ name: "get_orders_summary", annotations: { readOnlyHint: true } });
+    expect(sideEffectFor(ro, "bundled")).toBe("read");
+    const money = tool({ name: "pay_bill", annotations: { readOnlyHint: true } });
+    expect(sideEffectFor(money, "bundled")).toBe("read");
+    // An unknown server's hint is only a hint: a payment is still a payment.
+    expect(sideEffectFor(money, "unknown")).toBe("financial");
+  });
+
+  it("the owner's handlesMoney switch makes every tool of the server financial", () => {
+    for (const trust of ["bundled", "verified", "unknown"] as const) {
+      expect(sideEffectFor(tool(), trust, { handlesMoney: true })).toBe("financial");
+      expect(
+        sideEffectFor(tool({ annotations: { readOnlyHint: true } }), trust, { handlesMoney: true }),
+      ).toBe("financial");
+      expect(sideEffectFor(tool(), trust, { handlesMoney: false })).toBe("write");
+    }
   });
 });
 

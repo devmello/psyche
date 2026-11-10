@@ -502,13 +502,18 @@ export async function readAltGrLayout(
   }
 }
 
-/** What the bundled helper says about itself (`psyche-helper --print-identity`). */
+/**
+ * What the bundled helper says about itself (`psyche-helper --print-identity`). The Mac helper
+ * prints only its device id: it signs approvals with its device key, which the Gateway already
+ * holds from pairing, so there is no key to register. The Windows helper also prints its Windows
+ * Hello key id.
+ */
 export interface HelperIdentity {
   deviceId: string;
-  /** Hex SHA-256 of its Touch ID public key, when it has one. */
+  /** Hex SHA-256 of its Windows Hello public key, when it has one. */
   keyId?: string;
-  kind?: "keychain" | "enclave_keychain_acl" | "enclave_file";
-  /** Why it has no key (`missing_entitlement`, `presence_key_file`, …). */
+  kind?: "windows_hello";
+  /** Why it has no key (`missing_entitlement`, …). */
   error?: string;
 }
 
@@ -519,7 +524,7 @@ export type IdentityRunner = (
 ) => Promise<{ code: number; stdout: string }>;
 
 /**
- * The device id and Touch ID key id of the helper inside this app (security §10): main runs the
+ * The device id (and a Windows Hello key id) of the helper inside this app (security §10): main runs the
  * bundled executable itself, at a fixed path inside its own signed bundle, so the answer does not
  * come from whatever node paired on the Gateway's socket. Registration then requires this key id
  * (`expectKeyId`) and window approvals name this device (`helperDeviceId`). Undefined when not
@@ -547,12 +552,7 @@ export async function readHelperIdentity(
     typeof out.presenceKeyId === "string" && /^[0-9a-f]{64}$/.test(out.presenceKeyId)
       ? out.presenceKeyId
       : undefined;
-  const kind =
-    out.presenceKeyKind === "keychain" ||
-    out.presenceKeyKind === "enclave_keychain_acl" ||
-    out.presenceKeyKind === "enclave_file"
-      ? out.presenceKeyKind
-      : undefined;
+  const kind = out.presenceKeyKind === "windows_hello" ? out.presenceKeyKind : undefined;
   const error =
     typeof out.presenceError === "string" && /^[a-z][a-z0-9_]{0,63}$/.test(out.presenceError)
       ? out.presenceError

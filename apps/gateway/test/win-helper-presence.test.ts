@@ -20,7 +20,7 @@ import { adminClient, ik, type TestClient } from "./helpers.ts";
  * The Windows helper's presence key (apps/win-helper): a Windows Hello `KeyCredential`, RSA-2048,
  * reported by `presence.public_key` as base64url SPKI DER with `algorithm: rsa-2048-pkcs1-sha256`
  * and `kind: windows_hello`; it signs `psyche.presence.helper.v1|<challenge>` with RSASSA-PKCS1-v1_5
- * SHA-256. The Mac's P-256 keys keep working beside it.
+ * SHA-256. The Mac helper's Ed25519 device key keeps working beside it (no registration).
  */
 
 function helloKey(bits = 2048) {
@@ -44,6 +44,16 @@ function enclaveKey() {
   return { publicKey: raw.toString("base64url"), privateKey };
 }
 
+/** The Mac helper's device identity key: Ed25519, 32 raw public bytes, 64-byte signatures. */
+function edKey() {
+  const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+  const jwk = publicKey.export({ format: "jwk" }) as { x: string };
+  return { publicKey: jwk.x, privateKey };
+}
+
+const edSign = (key: KeyObject, challenge: string) =>
+  sign(null, helperPresenceMessage(challenge), key).toString("base64url");
+
 const rsaSign = (key: KeyObject, challenge: string) =>
   sign("sha256", helperPresenceMessage(challenge), {
     key,
@@ -57,21 +67,47 @@ describe("parsePresenceKey", () => {
     expect(parsePresenceKey(rsa.publicKey, "rsa-2048-pkcs1-sha256")?.algorithm).toBe(
       "rsa-2048-pkcs1-sha256",
     );
-    expect(parsePresenceKey(enclaveKey().publicKey)?.algorithm).toBe("p256-ecdsa-sha256");
     expect(parsePresenceKey(helloKey(4096).publicKey)?.algorithm).toBe("rsa-2048-pkcs1-sha256");
-    // An RSA key under 2048 bits, a declared algorithm that is not the key's, an EC key as SPKI,
-    // trailing bytes after the DER, and junk.
-    expect(parsePresenceKey(helloKey(1024).publicKey)).toBeNull();
-    expect(parsePresenceKey(rsa.publicKey, "p256-ecdsa-sha256")).toBeNull();
-    expect(parsePresenceKey(enclaveKey().publicKey, "rsa-2048-pkcs1-sha256")).toBeNull();
+    // The Mac helper's device key: 32 raw Ed25519 bytes.
+    const ed = edKey();
+    expect(parsePresenceKey(ed.publicKey)?.algorithm).toBe("ed25519");
+    expect(parsePresenceKey(ed.publicKey, "ed25519")?.algorithm).toBe("ed25519");
+    // A declared algorithm that is not the key's.
+    expect(parsePresenceKey(ed.publicKey, "rsa-2048-pkcs1-sha256")).toBeNull();
+    expect(parsePresenceKey(rsa.publicKey, "ed25519")).toBeNull();
     expect(parsePresenceKey(rsa.publicKey, "rsa-1024")).toBeNull();
+    // The retired Secure Enclave P-256 point is not accepted any more, declared or not.
+    expect(parsePresenceKey(enclaveKey().publicKey)).toBeNull();
+    expect(parsePresenceKey(enclaveKey().publicKey, "p256-ecdsa-sha256")).toBeNull();
+    expect(parsePresenceKey(enclaveKey().publicKey, "rsa-2048-pkcs1-sha256")).toBeNull();
+    // An RSA key under 2048 bits, an EC key as SPKI, trailing bytes after the DER, a wrong-length
+    // Ed25519 key, and junk.
+    expect(parsePresenceKey(helloKey(1024).publicKey)).toBeNull();
     const ecSpki = generateKeyPairSync("ec", { namedCurve: "P-256" })
       .publicKey.export({ format: "der", type: "spki" })
       .toString("base64url");
     expect(parsePresenceKey(ecSpki)).toBeNull();
     const padded = Buffer.concat([Buffer.from(rsa.publicKey, "base64url"), Buffer.from([0])]);
     expect(parsePresenceKey(padded.toString("base64url"))).toBeNull();
+    expect(parsePresenceKey(Buffer.alloc(31, 1).toString("base64url"))).toBeNull();
+    expect(parsePresenceKey(Buffer.alloc(33, 1).toString("base64url"))).toBeNull();
     expect(parsePresenceKey("not a key!")).toBeNull();
+  });
+
+  it("verifies Ed25519 signatures by the device key only", async () => {
+    const ed = edKey();
+    const other = edKey();
+    const verifier = helperPresenceVerifier(
+      () => ed.publicKey,
+      () => true,
+    );
+    const ok = (signature: string) =>
+      verifier.verify({ kind: "helper", deviceId: "d", signature }, "challenge-1", "d");
+    expect(await ok(edSign(ed.privateKey, "challenge-1"))).toBe(true);
+    expect(await ok(edSign(ed.privateKey, "challenge-2"))).toBe(false);
+    expect(await ok(edSign(other.privateKey, "challenge-1"))).toBe(false);
+    expect(await ok("")).toBe(false);
+    expect(await ok(Buffer.alloc(63).toString("base64url"))).toBe(false);
   });
 
   it("verifies PKCS#1 v1.5 signatures by the registered RSA key only", async () => {
@@ -230,7 +266,46 @@ describe("registering a win-helper's Windows Hello key", () => {
     ).rejects.toThrow(/no usable presence key/);
   });
 
-  it("refuses an RSA key declared as P-256", async () => {
+  it("refuses a registration without expectKeyId, and one whose key id differs", async () => {
+    const s = await setup((k) => ({
+      publicKey: k.publicKey,
+      keyId: k.keyId,
+      kind: "windows_hello",
+      algorithm: "rsa-2048-pkcs1-sha256",
+    }));
+    expect(
+      await s.admin.request("devices.presenceKey.register", { deviceId: s.deviceId }, ik()),
+    ).toMatchObject({ ok: false, error: { code: "invalid_params" } });
+    expect(
+      await s.admin.request(
+        "devices.presenceKey.register",
+        { deviceId: s.deviceId, expectKeyId: "f".repeat(64) },
+        ik(),
+      ),
+    ).toMatchObject({ ok: false, error: { code: "conflict" } });
+    expect(await s.admin.call("devices.presenceKey.list", {})).toEqual({ presenceKeys: [] });
+  });
+
+  it("refuses a Windows key that reports a Mac kind", async () => {
+    const s = await setup((k) => ({
+      publicKey: k.publicKey,
+      keyId: k.keyId,
+      kind: "enclave_keychain_acl",
+      algorithm: "rsa-2048-pkcs1-sha256",
+    }));
+    expect(
+      await s.admin.request(
+        "devices.presenceKey.register",
+        { deviceId: s.deviceId, expectKeyId: s.key.keyId },
+        ik(),
+      ),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "forbidden", details: { reason: "key_kind_mismatch" } },
+    });
+  });
+
+  it("refuses an RSA key declared as the retired P-256", async () => {
     const s = await setup((k) => ({
       publicKey: k.publicKey,
       keyId: k.keyId,

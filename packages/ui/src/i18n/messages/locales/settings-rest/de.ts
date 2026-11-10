@@ -429,6 +429,18 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.tools.notConnected":
     "Dieser Server ist nicht verbunden und listet daher keine Tools auf.",
   "settings.mcp.tools.none": "Dieser Server hat keine Tools.",
+  "settings.mcp.money.title": "Zahlungen",
+  "settings.mcp.money.description":
+    "Ein Tool, das Geld bewegt, lässt dich die Zahlung jedes Mal bestätigen. Lege fest, welche Tools dieses Servers das tun.",
+  "settings.mcp.money.auto": "Nach dem Namen jedes Tools entscheiden",
+  "settings.mcp.money.autoHint":
+    "Psyche rät anhand von Name und Beschreibung des Tools; ein Server kann sie so formulieren, dass es nichts bemerkt.",
+  "settings.mcp.money.always": "Jedes Tool bewegt Geld",
+  "settings.mcp.money.alwaysHint":
+    "Jeder Aufruf dieses Servers verlangt deine Freigabe einer Zahlung.",
+  "settings.mcp.money.never": "Kein Tool bewegt Geld",
+  "settings.mcp.money.neverHint":
+    "Kein Aufruf verlangt eine Zahlungsfreigabe, egal wie das Tool heißt. Nur für einen Server, der kein Geld ausgeben kann.",
   "settings.mcp.secrets.title": "Geheimnisse",
   "settings.mcp.secrets.intro":
     "Schlüssel, mit denen dieser Server startet. Sie bleiben in deinem Tresor; Psyche zeigt nur, ob jeder gesetzt ist.",
@@ -625,45 +637,26 @@ export const settingsRest: Partial<Catalogue> = {
     "Es ist kein Embedding-Modell verfügbar, daher gleicht der Abruf nur Wörter ab.",
   "settings.data.replayRetentionHint":
     "Die Bildschirme, die {persona} bei der Arbeit angesehen hat, für den Verlauf. Aus behält keine.",
-  "settings.devices.presenceKey.keychain":
-    "Touch-ID-Schlüssel (Schlüsselbund), vom Helper gemeldet",
-  "settings.devices.presenceKey.enclaveKeychainAcl":
-    "Touch-ID-Schlüssel (Secure Enclave, ohne macOS-Abfrage nur vom Psyche Helper lesbar), vom Helper gemeldet",
-  "settings.devices.presenceKey.enclaveFile":
-    "Touch-ID-Schlüssel (Secure-Enclave-Datei, dieser Build hat kein Provisioning-Profil), vom Helper gemeldet",
   "settings.devices.presenceKey.unknown": "Touch-ID-Schlüssel (Art vom Helper nicht gemeldet)",
+  "settings.devices.presenceKey.deviceIdentity":
+    "Zahlungen verwenden Touch ID oder das Passwort deines Macs. Es muss nichts eingerichtet werden.",
   "settings.devices.touchId.none":
     "Noch kein Touch-ID-Schlüssel. Karten, die Touch ID brauchen, lassen sich erst genehmigen, wenn einer registriert ist.",
   "settings.devices.touchId.bundled": "Der Psyche Helper in dieser App zeigt den Schlüssel",
   "settings.devices.touchId.notBundled":
     "Dieser Helper ist nicht der, der mit dieser App geliefert wurde, daher lässt sich sein Schlüssel hier nicht registrieren.",
-  "settings.devices.touchId.untrusted":
-    "Der Touch-ID-Schlüssel im Schlüsselbund wurde nicht verwendet, weil sich nicht belegen lässt, dass er vom Psyche Helper stammt. Eine harmlose Ursache: Psyche wurde verschoben oder woanders neu installiert, bringe es zurück nach /Applications und öffne es erneut. Sonst beende zuerst den Psyche Helper, führe /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key im Terminal aus und registriere den neuen Schlüssel.",
-  "settings.devices.touchId.accessDenied":
-    "macOS hat dem Psyche Helper die Nutzung seines Touch-ID-Schlüssels im Schlüsselbund nicht erlaubt. Starte Psyche neu und wähle „Immer erlauben“ nur, wenn der Dialog psyche-helper nennt (nie für ein anderes Programm).",
-  "settings.devices.touchId.wrongLocation":
-    "Der Psyche Helper hat keinen Touch-ID-Schlüssel angelegt, weil er aus einem Disk-Image, Downloads oder einem anderen Ordner läuft. Bewege Psyche nach /Applications, wirf Disk-Images aus und öffne es von dort.",
   "settings.devices.touchId.keyMismatch":
     "Der Psyche Helper in dieser App zeigt jetzt den Schlüssel {shown}, nicht den registrierten {registered}. Wenn du den Schlüssel nicht selbst zurückgesetzt hast, halte das für verdächtig und registriere ihn nicht.",
   "settings.devices.touchId.confirmReplace":
     "Dies ersetzt den für diesen Mac registrierten Touch-ID-Schlüssel {previous}. Ersetze ihn nur, wenn du den Schlüssel selbst zurückgesetzt hast.",
   "settings.devices.touchId.confirmReplaceButton": "Schlüssel ersetzen",
-  "settings.devices.touchId.interactionNotAllowed":
-    "Der Schlüsselbund kann gerade nicht um Erlaubnis fragen. Entsperre den Mac und versuche es erneut.",
-  "settings.devices.touchId.changed":
-    "Der Touch-ID-Schlüssel hat sich geändert, während der Psyche Helper lief. Beende den Psyche Helper und starte ihn neu.",
-  "settings.devices.touchId.aclUnavailable":
-    "Der Schlüsselbund hat die Zugriffsliste des Touch-ID-Schlüssels auf diesem Mac nicht behalten. Starte den Psyche Helper neu, um es erneut zu versuchen.",
   "settings.devices.touchId.noBundledKey":
     "Der Psyche Helper in dieser App hat keinen Touch-ID-Schlüssel ({reason}).",
   "settings.devices.touchId.register": "Diesen Schlüssel registrieren",
   "settings.devices.touchId.remove": "Schlüssel entfernen",
   "settings.devices.touchId.manualLabel": "Schlüssel-ID",
   "settings.devices.touchId.manualHint":
-    "Führe psyche-helper --print-identity auf dem Mac aus und füge die ausgegebene presenceKeyId ein.",
-  "settings.devices.touchId.allowDevFileKey": "Einen Entwicklungs-Touch-ID-Schlüssel erlauben",
-  "settings.devices.touchId.devFileKey":
-    "Dieser Build hat kein Provisioning-Profil, daher ist sein Schlüssel eine Secure-Enclave-Datei. Jede App, die als du läuft, könnte ihn hinter ihrer eigenen Touch-ID-Abfrage zum Signieren auffordern. Nur für die Entwicklung.",
+    "Führe psyche-helper --print-identity auf dem Computer aus und füge die ausgegebene presenceKeyId ein.",
   "settings.files.execHost": "Befehle auf diesem Mac ausführen",
   "settings.files.execHostHint":
     "Lässt {persona} Befehle in deinen geteilten Ordnern in der Sandbox ausführen. Befehle, die Dateien ändern könnten, fragen vorher nach.",

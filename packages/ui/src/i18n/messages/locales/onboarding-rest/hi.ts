@@ -76,16 +76,17 @@ export const onboardingRest: Partial<Catalogue> = {
     "सुबह की ब्रीफ़ बंद है, इसलिए लोग अभी कहीं नहीं दिखेंगे। उन्हें देखने के लिए इसे चालू करें।",
   "onboarding.safety.lead":
     "स्वीकृतियाँ आप तक कैसे पहुँचती हैं, और क्या अपने आप चलता है। फ़ाइलों, ऐप्स और स्क्रीन का एक्सेस यहाँ नहीं पूछा जाता: जब पहली बार ज़रूरत होती है तब {name} चैट में पूछता है।",
-  "onboarding.safety.touchId": "स्वीकृतियों के लिए Touch ID",
+  "onboarding.safety.touchId": "भुगतान के लिए Touch ID",
   "onboarding.safety.touchId.checking": "Mac हेल्पर देखा जा रहा है…",
   "onboarding.safety.touchId.again": "फिर से जाँचें",
   "onboarding.safety.touchId.set": "सेट अप करें",
-  "onboarding.safety.touchId.setHint": "जिन स्वीकृतियों में आपकी ज़रूरत होती है, वे आपका फ़िंगरप्रिंट मांगती हैं।",
+  "onboarding.safety.touchId.setHint":
+    "भुगतान के लिए आपका फ़िंगरप्रिंट या आपके Mac का पासवर्ड मांगा जाता है।",
   "onboarding.safety.touchId.starting": "Mac हेल्पर अभी शुरू हो रहा है। थोड़ी देर में फिर जाँचें।",
   "onboarding.safety.touchId.noKey": "Mac हेल्पर के पास Touch ID कुंजी नहीं है ({reason})।",
   "onboarding.safety.touchId.register": "यह कुंजी रजिस्टर करें",
   "onboarding.safety.touchId.hint":
-    "Mac हेल्पर की कुंजी एक बार रजिस्टर करें, ताकि Touch ID स्वीकृतियों की पुष्टि कर सके।",
+    "Mac हेल्पर की कुंजी एक बार रजिस्टर करें, ताकि Touch ID भुगतानों की पुष्टि कर सके।",
   "onboarding.safety.notifications": "नोटिफ़िकेशन",
   "onboarding.safety.asks":
     "अगर आप {name} को इस Mac पर कमांड चलाने देते हैं, तो जो सिर्फ़ पढ़ते हैं, जैसे ls या cat, वे बिना कार्ड के चलते हैं। बाकी सब पहले आपसे पूछता है।",

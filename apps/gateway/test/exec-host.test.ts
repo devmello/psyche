@@ -299,7 +299,8 @@ describe.skipIf(!posixHost)("exec_host: missing permission → request → retry
     expect(a).toMatchObject({
       kind: "permission_request",
       deviceOnly: true,
-      requiresAuthentication: true,
+      // Presence is for payments only: turning exec_host on is a tap.
+      requiresAuthentication: false,
       scopesOffered: ["once"],
       details: { need, reason: "run the tests" },
     });
@@ -372,7 +373,7 @@ describe.skipIf(!posixHost)("exec_host: missing permission → request → retry
 
     const pend = run(requestPermission(), { need: denied.missing, reason: "send it" }, ctx());
     const a = await pending();
-    expect(a.requiresAuthentication).toBe(true);
+    expect(a.requiresAuthentication).toBe(false);
     await answer(a.id);
     expect((await pend).output).toMatchObject({ granted: true });
     expect(connectorAsks).toEqual([["apple.mail", (denied.missing as { group: string }).group]]);

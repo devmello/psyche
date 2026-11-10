@@ -805,6 +805,16 @@ export class MockTab implements CdpTarget {
               while (p !== undefined && p !== form) p = p.parent;
               return p === form && x.tag === "INPUT" && x.attrs.type === "password";
             });
+      const formFields =
+        form === undefined
+          ? undefined
+          : [...this.#doc.els.values()]
+              .filter((x) => {
+                let p = x.parent;
+                while (p !== undefined && p !== form) p = p.parent;
+                return p === form && (x.tag === "INPUT" || x.tag === "SELECT");
+              })
+              .map((x) => ({ ...x.attrs }));
       const value: Record<string, unknown> = {
         focused: this.#focused === el,
         tag: el.tag,
@@ -814,6 +824,7 @@ export class MockTab implements CdpTarget {
       if (el.attrs.autocomplete !== undefined) value.autocomplete = el.attrs.autocomplete;
       if (form?.attrs.action !== undefined) value.formAction = form.attrs.action;
       if (hasPassword !== undefined) value.formHasPassword = hasPassword;
+      if (formFields !== undefined) value.formFields = formFields;
       return { result: { type: "object", value } };
     }
     if (fn.includes("psyche:download")) {

@@ -205,17 +205,17 @@ export const onboarding = {
     "The morning brief is off, so people won’t show up anywhere yet. Turn it on to see them.",
   "onboarding.safety.lead":
     "How approvals reach you, and what runs on its own. Access to your files, apps and screen is not asked here: {name} asks in chat the first time it needs it.",
-  "onboarding.safety.touchId": "Touch ID for approvals",
+  "onboarding.safety.touchId": "Touch ID for payments",
   "onboarding.safety.touchId.checking": "Looking at the Mac helper…",
   "onboarding.safety.touchId.again": "Check again",
   "onboarding.safety.touchId.set": "Set up",
-  "onboarding.safety.touchId.setHint": "Approvals that need you ask for your fingerprint.",
+  "onboarding.safety.touchId.setHint": "Payments ask for your fingerprint or Mac password.",
   "onboarding.safety.touchId.starting":
     "The Mac helper is still starting. Check again in a moment.",
   "onboarding.safety.touchId.noKey": "The Mac helper has no Touch ID key ({reason}).",
   "onboarding.safety.touchId.register": "Register this key",
   "onboarding.safety.touchId.hint":
-    "Register the Mac helper’s key once, so Touch ID can confirm approvals.",
+    "Register the Mac helper’s key once, so Touch ID can confirm payments.",
   "onboarding.safety.notifications": "Notifications",
   "onboarding.safety.asks":
     "If you let {name} run commands on this Mac, ones that only read, like ls or cat, run without a card. Anything else asks you first.",

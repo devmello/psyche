@@ -74,7 +74,7 @@ describe("Linux copy (i18n/messages/variants/linux.ts)", () => {
     expect(t("web.remote.thisMac")).toBe("This Mac");
     setUiPlatform("linux");
     expect(t("web.remote.thisMac")).toBe("This computer");
-    expect(t("onboarding.safety.touchId")).toBe("Your password for approvals");
+    expect(t("onboarding.safety.touchId")).toBe("Your password for payments");
     expect(t("settings.about.revealHome")).toBe("Show in Files");
     expect(t("settings.model.ram.fits", { gb: 16, fits: "Qwen" })).toBe(
       "This computer has 16 GB, so Qwen fit.",
@@ -162,20 +162,7 @@ describe("Linux copy (i18n/messages/variants/linux.ts)", () => {
  * renders. The same list the Windows test keeps.
  */
 const ABOUT_MACOS = new Set<string>([
-  "blocks.approval.touchId.keyUntrusted",
-  "blocks.approval.touchId.keyAccessDenied",
-  "blocks.approval.touchId.keyChanged",
-  "blocks.approval.touchId.keyWrongLocation",
-  "blocks.approval.touchId.keyLocked",
-  "blocks.approval.touchId.keyAclUnavailable",
-  "settings.devices.presenceKey.enclaveKeychainAcl",
-  "settings.devices.touchId.untrusted",
-  "settings.devices.touchId.accessDenied",
-  "settings.devices.touchId.wrongLocation",
   "settings.devices.touchId.confirmReplace",
-  "settings.devices.touchId.interactionNotAllowed",
-  "settings.devices.touchId.changed",
-  "settings.devices.touchId.aclUnavailable",
   // The macOS bundle integrity check at start-up (main.ts runs it on macOS only).
   "app.integrity.detail",
   // iMessage / SMS channel: Apple vouches for iMessage senders.
@@ -213,11 +200,8 @@ const ABOUT_MACOS = new Set<string>([
   "settings.devices.platform.macos",
   "settings.devices.nodeKind.macHelper",
   "settings.devices.thisMacAdmin",
-  "settings.devices.presenceKey.keychain",
-  "settings.devices.presenceKey.enclaveFile",
   "settings.devices.presenceKey.unknown",
-  "settings.devices.touchId.allowDevFileKey",
-  "settings.devices.touchId.devFileKey",
+  "settings.devices.presenceKey.deviceIdentity",
   "web.about.appleSilicon",
   // "Available on macOS" itself.
   "platform.macOnly",

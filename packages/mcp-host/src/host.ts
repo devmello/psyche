@@ -55,6 +55,14 @@ export interface PsycheMcpServerConfig extends McpServerConfig {
   version?: string;
   /** Hash of the approved code tree (`treeHash` of the files); checked before every start. */
   filesHash?: string;
+  /**
+   * The owner's word on whether this server moves money (payments, orders, transfers). `true`:
+   * every one of its tools is `financial`, so each call asks with the owner's presence. `false`:
+   * none is (the name and description guess is off for it). Unset: the guess decides. Only the
+   * owner sets it (`mcp.handlesMoney.set`, or the admin-only `mcp.servers` setting); lowering it
+   * needs a fresh approval.
+   */
+  handlesMoney?: boolean;
   /** The server's own names of tools the owner withholds from the agent (`registerMcpServerTools`'s `offer`). */
   disabledTools?: string[];
 }
@@ -731,7 +739,9 @@ export class PsycheMcpHost implements McpHost {
       name: mcpToolName(s.config.id, t.name),
       description: [t.title, t.description].filter((x) => x !== undefined && x !== "").join(": "),
       inputSchema: (t.inputSchema ?? { type: "object" }) as Record<string, unknown>,
-      sideEffect: sideEffectFor(t, s.config.trust),
+      sideEffect: sideEffectFor(t, s.config.trust, {
+        ...(s.config.handlesMoney === undefined ? {} : { handlesMoney: s.config.handlesMoney }),
+      }),
       provenanceOut: provenanceFor(s.config.trust),
       // The description and schema text are the server's words: untrusted unless the server
       // ships with Psyche (security §11, #281).

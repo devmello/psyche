@@ -2,11 +2,12 @@ import Foundation
 import PsycheHelperCore
 import PsycheHelperSystem
 import PsycheProtocol
+import PsycheWire
 import Testing
 
 @Suite("capability manifest")
 struct ManifestTests {
-    let runtime = HelperRuntime(log: HelperLog(echo: { _ in }), environment: ["PSYCHE_HOME": NSTemporaryDirectory()])
+    let runtime = HelperRuntime(identity: DeviceIdentity(), log: HelperLog(echo: { _ in }), environment: ["PSYCHE_HOME": NSTemporaryDirectory()])
 
     @Test func namesAreUniqueAndGrouped() {
         let names = runtime.registry.ordered.map(\.spec.name)
@@ -88,7 +89,7 @@ struct AttentionMonitorTests {
 @Suite("permissions.status for onboarding and doctor (packaging)")
 struct PermissionsStatusBundleTests {
     @Test func reportsEveryPermissionAndTheBundle() async throws {
-        let runtime = HelperRuntime(log: HelperLog(echo: { _ in }), environment: ["PSYCHE_HOME": NSTemporaryDirectory()])
+        let runtime = HelperRuntime(identity: DeviceIdentity(), log: HelperLog(echo: { _ in }), environment: ["PSYCHE_HOME": NSTemporaryDirectory()])
         let cap = try #require(runtime.registry["permissions.status"])
         let r = try await cap.invoke(InvocationContext(invocationId: "i", capability: "permissions.status", params: [:], approvalId: nil, emit: { _ in })).result
         let rows = try #require(r["permissions"]?.arrayValue)

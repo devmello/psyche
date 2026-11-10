@@ -98,45 +98,26 @@ export const settingsC: Partial<Catalogue> = {
     "Nenhum modelo de embeddings disponível, então a recuperação só compara palavras.",
   "settings.data.replayRetentionHint":
     "As telas que {persona} viu enquanto trabalhava, para a linha do tempo. Desativado não guarda nenhuma.",
-  "settings.devices.presenceKey.keychain":
-    "Chave do Touch ID (chaveiro), conforme informado pelo auxiliar",
-  "settings.devices.presenceKey.enclaveKeychainAcl":
-    "Chave do Touch ID (Secure Enclave, legível sem aviso do macOS apenas pelo auxiliar do Psyche), conforme informado pelo auxiliar",
-  "settings.devices.presenceKey.enclaveFile":
-    "Chave do Touch ID (arquivo do Secure Enclave, esta versão não tem perfil de provisionamento), conforme informado pelo auxiliar",
   "settings.devices.presenceKey.unknown": "Chave do Touch ID (tipo não informado pelo auxiliar)",
+  "settings.devices.presenceKey.deviceIdentity":
+    "Os pagamentos usam o Touch ID ou a senha do seu Mac. Não há nada para configurar.",
   "settings.devices.touchId.none":
     "Ainda não há chave do Touch ID. Cartões que exigem Touch ID não podem ser aprovados até uma ser registrada.",
   "settings.devices.touchId.bundled": "O Psyche Helper deste app mostra a chave",
   "settings.devices.touchId.notBundled":
     "Este auxiliar não é o que vem com este app, então a chave dele não pode ser registrada aqui.",
-  "settings.devices.touchId.untrusted":
-    "A chave do Touch ID no chaveiro não foi usada porque não é possível provar que é do auxiliar do Psyche. Uma causa inofensiva: o Psyche foi movido ou reinstalado em outro lugar; coloque-o de volta em /Applications e abra de novo. Caso contrário, feche primeiro o auxiliar do Psyche, execute /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key no Terminal e registre a nova chave.",
-  "settings.devices.touchId.accessDenied":
-    "O macOS não permitiu que o auxiliar do Psyche usasse sua chave do Touch ID no chaveiro. Abra o Psyche de novo e escolha Sempre permitir somente se a janela citar psyche-helper (nunca para outro programa).",
-  "settings.devices.touchId.wrongLocation":
-    "O auxiliar do Psyche não criou uma chave do Touch ID porque está rodando de uma imagem de disco, de Downloads ou de outra pasta. Mova o Psyche para /Applications, ejete qualquer imagem de disco e abra-o de lá.",
   "settings.devices.touchId.keyMismatch":
     "O auxiliar do Psyche neste app agora mostra a chave {shown}, não a registrada {registered}. Se você não redefiniu a chave, trate isso como suspeito e não a registre.",
   "settings.devices.touchId.confirmReplace":
     "Isto substitui a chave do Touch ID {previous} registrada para este Mac. Substitua-a somente se você mesmo redefiniu a chave.",
   "settings.devices.touchId.confirmReplaceButton": "Substituir a chave",
-  "settings.devices.touchId.interactionNotAllowed":
-    "O chaveiro não pode pedir permissão agora. Desbloqueie o Mac e tente de novo.",
-  "settings.devices.touchId.changed":
-    "A chave do Touch ID mudou enquanto o auxiliar do Psyche estava em execução. Feche o auxiliar do Psyche e inicie-o de novo.",
-  "settings.devices.touchId.aclUnavailable":
-    "O chaveiro não manteve a lista de acesso da chave do Touch ID neste Mac. Reinicie o auxiliar do Psyche para tentar de novo.",
   "settings.devices.touchId.noBundledKey":
     "O Psyche Helper deste app não tem chave do Touch ID ({reason}).",
   "settings.devices.touchId.register": "Registrar esta chave",
   "settings.devices.touchId.remove": "Remover chave",
   "settings.devices.touchId.manualLabel": "ID da chave",
   "settings.devices.touchId.manualHint":
-    "Execute psyche-helper --print-identity no Mac e cole o presenceKeyId que ele imprime.",
-  "settings.devices.touchId.allowDevFileKey": "Permitir uma chave do Touch ID de desenvolvimento",
-  "settings.devices.touchId.devFileKey":
-    "Esta versão não tem perfil de provisionamento, então a chave dela é um arquivo do Secure Enclave. Qualquer app executado como você poderia pedir que ela assine por trás do próprio aviso de Touch ID. Somente para desenvolvimento.",
+    "Execute psyche-helper --print-identity no computador e cole o presenceKeyId que ele imprime.",
   "settings.files.execHost": "Executar comandos neste Mac",
   "settings.files.execHostHint":
     "Deixa {persona} executar comandos nas suas pastas compartilhadas, na sandbox. Comandos que podem alterar arquivos perguntam antes.",

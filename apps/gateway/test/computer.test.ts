@@ -12,12 +12,13 @@ import type {
 } from "@psyche/protocol";
 import { namespacedGrantKey } from "@psyche/protocol";
 import { FakePermissionBroker } from "@psyche/testing";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ATTENTION_WINDOW_MS,
   type ComputerUse,
   createComputerUse,
   elementsIn,
+  isMoneyLabel,
   isRiskyChord,
   isRiskyLabel,
   isSendChord,
@@ -42,6 +43,20 @@ class FakeHelper implements NodeClient {
   pointApp: string | undefined;
   /** What `computer.check_target` answers (the recorded target in the window right now). */
   check: Record<string, unknown> = { status: "found", ref: "e2", role: "button", label: "Delete" };
+  /** What `computer.resolve_target` finds under a screen point (labels of the element and its parents). */
+  underPoint: { role?: string; label?: string; labels?: string[]; window?: string } = {
+    role: "AXButton",
+    label: "Save",
+    labels: ["Save"],
+  };
+  /** What `computer.resolve_target` with `focused` reports: what has keyboard focus in the app. */
+  focus: Record<string, unknown> = { role: "AXTextField", labels: ["Body"], window: "Notes" };
+  /** Where a Tab inside typed text moves focus (the helper sends `\t` as a real Tab key). */
+  focusAfterTab: Record<string, unknown> | undefined;
+  /** An older helper without `computer.resolve_target`. */
+  noResolve = false;
+  /** A Mac helper from before `focused` (it answers a target-less call with invalid_params). */
+  noFocus = false;
 
   async info(): Promise<NodeInfo> {
     throw new Error("unused");
@@ -92,6 +107,17 @@ class FakeHelper implements NodeClient {
       this.allowed.add(app);
     }
     switch (capability) {
+      case "computer.resolve_target":
+        if (this.noResolve) {
+          return err({ code: "not_found", message: "unknown capability computer.resolve_target" });
+        }
+        if (p.focused === true) {
+          if (this.noFocus) {
+            return err({ code: "invalid_params", message: "ref, selector or x/y is required" });
+          }
+          return { ok: true, result: { ...this.focus, app, provenance: "untrusted" } };
+        }
+        return { ok: true, result: { ...this.underPoint, app, provenance: "untrusted" } };
       case "computer.ax_tree":
         return {
           ok: true,
@@ -108,6 +134,15 @@ class FakeHelper implements NodeClient {
         return {
           ok: true,
           result: { image: "AAAA", mimeType: "image/jpeg", width: 10, height: 10 },
+        };
+      case "computer.type":
+        if (this.focusAfterTab !== undefined && String(p.text ?? "").includes("\t")) {
+          this.focus = this.focusAfterTab;
+        }
+        return {
+          ok: true,
+          result: { status: "ok", method: "cgevent", app: this.pointApp ?? app },
+          receipt: { outcome: "ok", summary: "computer.type ok" },
         };
       case "apps.shortcut_run":
         return {
@@ -743,6 +778,492 @@ describe("computer-use agent tools (J1–J5)", () => {
     // Labels are bounded on cards.
     const long = act?.({ app: notes, action: "click", ref: "e2", expect: { role: "button" } });
     expect((long?.summary ?? "").length).toBeLessThan(MAX_LABEL_CHARS + 80);
+  });
+
+  it("classes a press on a money label financial, so the broker asks for presence", async () => {
+    await call("computer.snapshot", { app: notes });
+    const act = tools.get("computer.act")?.describeCall;
+    for (const label of [
+      "Pay",
+      "Pay now",
+      "Buy",
+      "Buy now",
+      "Place order",
+      "Send $50",
+      "Confirm and send",
+      "Place bid",
+      "Sell",
+      "Swap",
+      "Tip",
+      "Send Payment",
+      "Confirm purchase",
+      "Book",
+      "Order",
+    ]) {
+      expect(
+        act?.({ app: notes, action: "click", ref: "e2", expect: { role: "button", label } })
+          ?.sideEffect,
+        label,
+      ).toBe("financial");
+    }
+    // A menu item and a custom press that move money are payments too.
+    expect(act?.({ app: notes, action: "menu", path: "Store > Buy Now" })?.sideEffect).toBe(
+      "financial",
+    );
+    expect(act?.({ app: notes, action: "press", press: "custom:Pay invoice" })?.sideEffect).toBe(
+      "financial",
+    );
+    // Ordinary risky labels stay destructive; "Order history" and "Book a demo" are not payments.
+    expect(
+      act?.({ app: notes, action: "click", ref: "e2", expect: { role: "button", label: "Delete" } })
+        ?.sideEffect,
+    ).toBe("destructive");
+    // Ordinary controls that share a word with a payment ask for a tap, not for presence.
+    for (const label of [
+      "Order history",
+      "Book a demo",
+      "Reorder list",
+      "Payment history",
+      "Checkout",
+      "Check Out Branch",
+      "Transfer",
+      "Subscribe",
+      "Withdraw invitation",
+      "Apple Pay",
+      "Send",
+      "Proceed to checkout",
+    ]) {
+      expect(isMoneyLabel(label), label).toBe(false);
+      expect(
+        act?.({ app: notes, action: "click", ref: "e2", expect: { role: "button", label } })
+          ?.sideEffect,
+        label,
+      ).not.toBe("financial");
+    }
+    // End to end: the real broker gives that card the presence step; a delete is a tap.
+    const real = createPermissionBroker({
+      approvers: { device: async () => undefined, isOwnerSender: async () => false },
+    });
+    const card = async (label: string) => {
+      const d =
+        act?.({ app: notes, action: "click", ref: "e2", expect: { role: "button", label } }) ?? {};
+      const i = await real.requestApproval({
+        kind: "computer_action",
+        summary: label,
+        details: {},
+        bindingHash: `sha256:${"1".repeat(64)}`,
+        grantKey: "k",
+        requestedBy: { runId: "r", taskId: null, threadId: "t" },
+        sideEffect: d.sideEffect ?? "write",
+        surfaces: ["desktop"],
+        taint: false,
+      });
+      return i.approval;
+    };
+    expect(await card("Place order")).toMatchObject({
+      sideEffect: "financial",
+      requiresAuthentication: true,
+      scopesOffered: ["once"],
+    });
+    expect((await card("Delete")).requiresAuthentication).toBe(false);
+  });
+
+  describe("a click by screen point is checked against what is really there", () => {
+    const money = (calls: FakeHelper["calls"]) =>
+      calls.filter((c) => c.capability === "computer.click");
+
+    it("asks the helper what is under the point, and a plain control clicks on the existing approval", async () => {
+      const approval = await loopApproval("computer_action");
+      await call("computer.snapshot", { app: notes });
+      helper.underPoint = { role: "AXButton", label: "Save", labels: ["Save"] };
+      const out = await call(
+        "computer.act",
+        { app: notes, action: "click", x: 40, y: 50 },
+        { approvalId: approval },
+      );
+      expect(out).toBeDefined();
+      const caps = helper.calls.map((c) => c.capability);
+      expect(caps.indexOf("computer.resolve_target")).toBeGreaterThan(-1);
+      expect(caps.indexOf("computer.resolve_target")).toBeLessThan(caps.indexOf("computer.click"));
+      expect(
+        helper.calls.find((c) => c.capability === "computer.resolve_target")?.params,
+      ).toMatchObject({ x: 40, y: 50, app: notes });
+      expect(issued).toHaveLength(1); // only the loop's own approval
+      expect(money(helper.calls)).toHaveLength(1);
+    });
+
+    it.each([
+      ["Place bid", ["Place bid"]],
+      ["Sell", ["Sell"]],
+      ["Pay", ["Pay now"]],
+      ["Swap", ["Swap", "Exchange panel"]],
+    ])("%s under the point re-asks as a financial card before the click", async (label, labels) => {
+      const approval = await loopApproval("computer_action");
+      await call("computer.snapshot", { app: notes });
+      issued.length = 0;
+      helper.underPoint = { role: "AXButton", label, labels };
+      await call(
+        "computer.act",
+        { app: notes, action: "click", x: 40, y: 50 },
+        { approvalId: approval },
+      );
+      // A second, financial card (presence, once only) was asked for first...
+      expect(issued).toHaveLength(1);
+      expect(issued[0]?.approval).toMatchObject({
+        kind: "computer_action",
+        sideEffect: "financial",
+        scopesOffered: ["once"],
+      });
+      // ...and the click carried that card, not the loop's earlier tap.
+      const click = helper.calls.find((c) => c.capability === "computer.click");
+      expect(click?.approvalId).toBe(issued[0]?.approval.id);
+    });
+
+    it("does not click when the owner refuses the financial card", async () => {
+      const approval = await loopApproval("computer_action");
+      await call("computer.snapshot", { app: notes });
+      helper.underPoint = { role: "AXButton", label: "Place bid", labels: ["Place bid"] };
+      answer = "deny";
+      expect(
+        await call(
+          "computer.act",
+          { app: notes, action: "click", x: 40, y: 50 },
+          { approvalId: approval },
+        ),
+      ).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
+      expect(money(helper.calls)).toHaveLength(0);
+    });
+
+    it("checks the point end of a drag, and skips the check for a ref (its label is in the snapshot)", async () => {
+      await call("computer.snapshot", { app: notes });
+      helper.calls.length = 0;
+      await call("computer.act", {
+        app: notes,
+        action: "drag",
+        ref: "e2",
+        expect: { role: "button" },
+        to: { x: 5, y: 6 },
+      });
+      expect(helper.calls.filter((c) => c.capability === "computer.resolve_target")).toHaveLength(
+        1,
+      );
+      helper.calls.length = 0;
+      await call("computer.act", {
+        app: notes,
+        action: "click",
+        ref: "e2",
+        expect: { role: "button" },
+      });
+      expect(helper.calls.map((c) => c.capability)).not.toContain("computer.resolve_target");
+    });
+
+    it("refuses a point click when the helper cannot say what is under it", async () => {
+      await call("computer.snapshot", { app: notes });
+      helper.noResolve = true;
+      expect(
+        await call("computer.act", { app: notes, action: "click", x: 40, y: 50 }),
+      ).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
+      expect(money(helper.calls)).toHaveLength(0);
+    });
+
+    it("another computer's helper without the check clicks as before (not yet implemented there)", async () => {
+      helperKind = "win-helper";
+      await call("computer.snapshot", { app: notes });
+      helper.noResolve = true;
+      await call("computer.act", { app: notes, action: "click", x: 40, y: 50 });
+      expect(money(helper.calls)).toHaveLength(1);
+    });
+
+    it("a click already classed financial does not ask twice", async () => {
+      await call("computer.snapshot", { app: notes });
+      helper.calls.length = 0;
+      issued.length = 0;
+      helper.underPoint = { label: "Pay", labels: ["Pay"] };
+      const approval = await loopApproval("computer_action");
+      await call(
+        "computer.act",
+        { app: notes, action: "click", x: 1, y: 2, expect: { role: "button", label: "Pay" } },
+        { approvalId: approval },
+      );
+      expect(issued.filter((i) => i.approval.sideEffect === "financial")).toHaveLength(0);
+    });
+  });
+
+  describe("keyboard activation and unlabelled targets are checked for payments", () => {
+    const sent = (cap: string) => helper.calls.filter((c) => c.capability === cap);
+    const financial = () => issued.filter((i) => i.approval.sideEffect === "financial");
+    const shop = "com.apple.Safari";
+
+    it.each([
+      ["return", { role: "AXButton", labels: ["Pay"], window: "Example Shop" }],
+      ["enter", { role: "AXButton", labels: ["Place order"], window: "Example Shop" }],
+      ["keypadenter", { role: "AXButton", labels: ["Confirm and pay"] }],
+      ["space", { role: "AXButton", labels: ["Send USDC"], window: "Wallet" }],
+    ])(
+      "%s on a focused money control re-asks as financial before the key goes out",
+      async (keys, focus) => {
+        await call("computer.snapshot", { app: shop });
+        helper.calls.length = 0;
+        issued.length = 0;
+        helper.focus = focus;
+        answer = "none";
+        const pending = call("computer.act", { app: shop, action: "key", keys });
+        await vi.waitFor(() => expect(financial()).toHaveLength(1));
+        // The card is pending: nothing was pressed.
+        expect(sent("computer.key")).toHaveLength(0);
+        expect(
+          helper.calls.find((c) => c.capability === "computer.resolve_target")?.params,
+        ).toMatchObject({
+          focused: true,
+          app: shop,
+        });
+        expect(financial()[0]?.approval).toMatchObject({
+          kind: "computer_action",
+          scopesOffered: ["once"],
+        });
+        const i = financial()[0];
+        if (i === undefined) throw new Error("no card");
+        await broker.answer({
+          approvalId: i.approval.id,
+          answerToken: i.answerTokens.desktop ?? "",
+          decision: "approve",
+          scope: "once",
+          decidedBy: { deviceId: "dev-owner", surface: "desktop" },
+        });
+        await pending;
+        expect(sent("computer.key")).toHaveLength(1);
+        expect(sent("computer.key")[0]?.approvalId).toBe(i.approval.id);
+      },
+    );
+
+    it("a typed newline in a payment form re-asks as financial, and a refusal types nothing", async () => {
+      await call("computer.snapshot", { app: shop });
+      helper.calls.length = 0;
+      issued.length = 0;
+      helper.focus = {
+        role: "AXTextField",
+        labels: ["Name on card"],
+        window: "Checkout – Example Shop",
+      };
+      answer = "deny";
+      expect(
+        await call("computer.act", { app: shop, action: "type", text: "Ada Lovelace\n" }),
+      ).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
+      expect(financial()).toHaveLength(1);
+      expect(sent("computer.type")).toHaveLength(0);
+    });
+
+    it("a typed newline into a ref'd field resolves that ref, with its expect", async () => {
+      await call("computer.snapshot", { app: notes });
+      helper.calls.length = 0;
+      helper.underPoint = { role: "AXTextField", labels: ["Amount"], window: "Transfer funds" };
+      answer = "deny";
+      await call("computer.act", {
+        app: notes,
+        action: "type",
+        ref: "e1",
+        expect: { role: "textarea", label: "Body" },
+        text: "50\r",
+      });
+      expect(
+        helper.calls.find((c) => c.capability === "computer.resolve_target")?.params,
+      ).toMatchObject({
+        ref: "e1",
+        expect: { role: "textarea", label: "Body" },
+      });
+      expect(financial()).toHaveLength(1);
+      expect(sent("computer.type")).toHaveLength(0);
+    });
+
+    it("Return in a search field, typing without a newline and other keys are untouched", async () => {
+      await call("computer.snapshot", { app: shop });
+      helper.calls.length = 0;
+      issued.length = 0;
+      helper.focus = {
+        role: "AXTextField",
+        subrole: "AXSearchField",
+        labels: ["Search"],
+        window: "Checkout",
+      };
+      await call("computer.act", { app: shop, action: "key", keys: "return" });
+      expect(financial()).toHaveLength(0);
+      expect(sent("computer.key")).toHaveLength(1);
+      helper.calls.length = 0;
+      await call("computer.act", { app: shop, action: "type", text: "hello" });
+      await call("computer.act", { app: shop, action: "key", keys: "tab" });
+      expect(sent("computer.resolve_target")).toHaveLength(0);
+      // Return in an ordinary window's text field goes ahead.
+      helper.focus = { role: "AXTextField", labels: ["Title"], window: "Notes" };
+      await call("computer.act", { app: notes, action: "key", keys: "return" });
+      expect(financial()).toHaveLength(0);
+      // Space in a text field is a character, even in a payment window.
+      helper.focus = { role: "AXTextField", labels: ["Name on card"], window: "Checkout" };
+      await call("computer.act", { app: shop, action: "key", keys: "space" });
+      expect(financial()).toHaveLength(0);
+    });
+
+    it.each([
+      ["x\t\n", { role: "AXButton", labels: ["Pay"], window: "Notes" }, ["x\t"]],
+      ["\t ", { role: "AXButton", labels: ["Send USDC"], window: "Notes" }, ["\t"]],
+      ["\t\t\r", { role: "AXButton", labels: ["Place order"], window: "Notes" }, ["\t", "\t"]],
+    ])(
+      "typed %j that tabs onto a money control asks before it activates it",
+      async (text, after, typedBefore) => {
+        await call("computer.snapshot", { app: notes });
+        helper.calls.length = 0;
+        issued.length = 0;
+        helper.focus = { role: "AXTextField", labels: ["Body"], window: "Notes" };
+        helper.focusAfterTab = after;
+        answer = "deny";
+        expect(await call("computer.act", { app: notes, action: "type", text })).toMatchObject({
+          isError: true,
+          output: { error: { code: "policy_denied" } },
+        });
+        expect(financial()).toHaveLength(1);
+        // Typed up to the Tab, never the Return or space that would press the button.
+        expect(sent("computer.type").map((c) => c.params.text)).toEqual(typedBefore);
+      },
+    );
+
+    it("a typed space on a focused Pay button asks before it goes out", async () => {
+      await call("computer.snapshot", { app: notes });
+      helper.calls.length = 0;
+      issued.length = 0;
+      // `key tab` landed on Pay (Tab itself activates nothing); then a space would press it.
+      helper.focus = { role: "AXButton", labels: ["Pay"], window: "Notes" };
+      answer = "deny";
+      expect(await call("computer.act", { app: notes, action: "type", text: " " })).toMatchObject({
+        isError: true,
+        output: { error: { code: "policy_denied" } },
+      });
+      expect(financial()).toHaveLength(1);
+      expect(sent("computer.type")).toHaveLength(0);
+    });
+
+    it("a space in the first piece of split text is checked before its first Tab", async () => {
+      await call("computer.snapshot", { app: notes });
+      helper.calls.length = 0;
+      issued.length = 0;
+      helper.focus = { role: "AXButton", labels: ["Place order"], window: "Notes" };
+      helper.focusAfterTab = { role: "AXTextField", labels: ["Note"], window: "Notes" };
+      answer = "deny";
+      await call("computer.act", { app: notes, action: "type", text: "a b\tc\n" });
+      expect(financial()).toHaveLength(1);
+      expect(sent("computer.type")).toHaveLength(0);
+    });
+
+    it("a space typed into a text or search field stays a tap", async () => {
+      await call("computer.snapshot", { app: shop });
+      helper.calls.length = 0;
+      issued.length = 0;
+      helper.focus = { role: "AXTextField", labels: ["Name on card"], window: "Checkout" };
+      await call("computer.act", { app: shop, action: "type", text: "a b" });
+      helper.focus = {
+        role: "AXTextField",
+        subrole: "AXSearchField",
+        labels: ["Search"],
+        window: "Checkout",
+      };
+      await call("computer.act", { app: shop, action: "type", text: "red shoes" });
+      expect(financial()).toHaveLength(0);
+      expect(sent("computer.type").map((c) => c.params.text)).toEqual(["a b", "red shoes"]);
+    });
+
+    it("tabbing between ordinary fields types every piece with no card", async () => {
+      await call("computer.snapshot", { app: notes });
+      helper.calls.length = 0;
+      issued.length = 0;
+      helper.focus = { role: "AXTextField", labels: ["First name"], window: "Contacts" };
+      helper.focusAfterTab = { role: "AXTextField", labels: ["Last name"], window: "Contacts" };
+      await call("computer.act", { app: notes, action: "type", text: "Ada\tLove lace\n" });
+      expect(financial()).toHaveLength(0);
+      expect(sent("computer.type").map((c) => c.params.text)).toEqual(["Ada\t", "Love lace\n"]);
+    });
+
+    it("typed text that tabs then activates fails closed when focus cannot be read", async () => {
+      await call("computer.snapshot", { app: notes });
+      helper.calls.length = 0;
+      helper.noFocus = true;
+      expect(
+        await call("computer.act", { app: notes, action: "type", text: "x\t\n" }),
+      ).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
+      expect(sent("computer.type").map((c) => c.params.text)).toEqual(["x\t"]);
+    });
+
+    it("a bare Confirm or Withdraw counts only in a banking, wallet or payment window", async () => {
+      await call("computer.snapshot", { app: notes });
+      issued.length = 0;
+      answer = "deny";
+      helper.focus = { role: "AXButton", labels: ["Confirm"], window: "Review transfer – Payment" };
+      await call("computer.act", { app: notes, action: "key", keys: "return" });
+      expect(financial()).toHaveLength(1);
+      issued.length = 0;
+      helper.underPoint = { role: "AXButton", labels: ["Withdraw"], window: "Wallet" };
+      await call("computer.act", { app: "com.example.Wallet", action: "click", x: 5, y: 5 });
+      expect(financial()).toHaveLength(1);
+      issued.length = 0;
+      answer = "approve";
+      helper.underPoint = { role: "AXButton", labels: ["Withdraw"], window: "Team invitations" };
+      await call("computer.act", { app: "com.example.Mail", action: "click", x: 5, y: 5 });
+      expect(financial()).toHaveLength(0);
+      helper.focus = { role: "AXButton", labels: ["Confirm"], window: "Rename file" };
+      await call("computer.act", { app: "com.apple.TextEdit", action: "key", keys: "return" });
+      expect(financial()).toHaveLength(0);
+    });
+
+    it("an unlabelled point in a checkout window asks as financial; in a plain window it clicks", async () => {
+      await call("computer.snapshot", { app: shop });
+      issued.length = 0;
+      answer = "deny";
+      helper.underPoint = { role: "AXGroup", labels: [], window: "Checkout" };
+      expect(
+        await call("computer.act", { app: shop, action: "click", x: 10, y: 20 }),
+      ).toMatchObject({ isError: true });
+      expect(financial()).toHaveLength(1);
+      expect(sent("computer.click")).toHaveLength(0);
+
+      issued.length = 0;
+      answer = "approve";
+      helper.underPoint = { role: "AXGroup", labels: [], window: "Untitled drawing" };
+      await call("computer.act", { app: "com.example.Canvas", action: "click", x: 10, y: 20 });
+      expect(financial()).toHaveLength(0);
+      expect(sent("computer.click")).toHaveLength(1);
+    });
+
+    it("an app where a payment was just seen keeps asking for unlabelled targets for a few minutes", async () => {
+      await call("computer.snapshot", { app: shop });
+      // A Pay control was seen under a point: the app now counts as showing a payment.
+      helper.underPoint = { role: "AXButton", labels: ["Pay"], window: "Example Shop" };
+      await call("computer.act", { app: shop, action: "click", x: 1, y: 1 });
+      issued.length = 0;
+      answer = "deny";
+      // The page re-renders as a canvas with no title: the unlabelled target still asks.
+      helper.underPoint = { role: "AXGroup", labels: [] };
+      await call("computer.act", { app: shop, action: "click", x: 2, y: 2 });
+      expect(financial()).toHaveLength(1);
+      // A labelled ordinary control in the same app is still a tap.
+      issued.length = 0;
+      answer = "approve";
+      helper.underPoint = { role: "AXButton", labels: ["Save"] };
+      await call("computer.act", { app: shop, action: "click", x: 3, y: 3 });
+      expect(financial()).toHaveLength(0);
+    });
+
+    it("a Mac helper that cannot report focus refuses the key; another computer's helper presses as before", async () => {
+      await call("computer.snapshot", { app: shop });
+      helper.calls.length = 0;
+      helper.noFocus = true;
+      expect(
+        await call("computer.act", { app: shop, action: "key", keys: "return" }),
+      ).toMatchObject({
+        isError: true,
+        output: { error: { code: "policy_denied", details: { reason: "focus_unchecked" } } },
+      });
+      expect(sent("computer.key")).toHaveLength(0);
+      helperKind = "win-helper";
+      await call("computer.act", { app: shop, action: "key", keys: "return" });
+      expect(sent("computer.key")).toHaveLength(1);
+    });
   });
 
   it("matches the helper's risky labels and chords", () => {

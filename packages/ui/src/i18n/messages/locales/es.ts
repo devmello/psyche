@@ -901,7 +901,7 @@ export const es: Partial<Catalogue> = {
   "shell.usage.openHint": "Haz clic para ir a Ajustes → Uso.",
 
   "settings.shared.needsPresence":
-    "Cambiar «{label}» necesita tu aprobación con Touch ID o una llave de acceso. Apruébalo en Ajustes o en la notificación de Psyche y vuelve a cambiarlo.",
+    "Cambiar «{label}» necesita tu aprobación. Apruébalo en Ajustes o en la notificación de Psyche y vuelve a cambiarlo.",
   "settings.shared.saveFailed": "Psyche no pudo guardar «{label}» ({reason}). No se cambió nada.",
   "settings.shared.loading": "Cargando {label}",
   "settings.shared.nothingChanged": "No se cambió nada.",

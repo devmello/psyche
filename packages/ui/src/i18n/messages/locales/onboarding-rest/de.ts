@@ -79,17 +79,17 @@ export const onboardingRest: Partial<Catalogue> = {
     "Die Morgenübersicht ist aus, daher erscheinen Personen noch nirgends. Schalte sie ein, um sie zu sehen.",
   "onboarding.safety.lead":
     "Wie Genehmigungen dich erreichen und was von selbst läuft. Der Zugriff auf deine Dateien, Apps und deinen Bildschirm wird hier nicht abgefragt: {name} fragt im Chat, wenn es ihn zum ersten Mal braucht.",
-  "onboarding.safety.touchId": "Touch ID für Genehmigungen",
+  "onboarding.safety.touchId": "Touch ID für Zahlungen",
   "onboarding.safety.touchId.checking": "Der Mac-Helper wird geprüft …",
   "onboarding.safety.touchId.again": "Erneut prüfen",
   "onboarding.safety.touchId.set": "Einrichten",
   "onboarding.safety.touchId.setHint":
-    "Genehmigungen, die dich brauchen, verlangen deinen Fingerabdruck.",
+    "Zahlungen verlangen deinen Fingerabdruck oder das Passwort deines Macs.",
   "onboarding.safety.touchId.starting": "Der Mac-Helper startet noch. Prüfe gleich erneut.",
   "onboarding.safety.touchId.noKey": "Der Mac-Helper hat keinen Touch-ID-Schlüssel ({reason}).",
   "onboarding.safety.touchId.register": "Diesen Schlüssel registrieren",
   "onboarding.safety.touchId.hint":
-    "Registriere den Schlüssel des Mac-Helpers einmal, damit Touch ID Genehmigungen bestätigen kann.",
+    "Registriere den Schlüssel des Mac-Helpers einmal, damit Touch ID Zahlungen bestätigen kann.",
   "onboarding.safety.notifications": "Mitteilungen",
   "onboarding.safety.asks":
     "Erlaubst du {name}, Befehle auf diesem Mac auszuführen, laufen solche, die nur lesen, wie ls oder cat, ohne Karte. Alles andere fragt dich zuerst.",

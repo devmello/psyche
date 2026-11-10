@@ -88,21 +88,33 @@ export function stateUntrustedError(): PsycheError {
 export function presenceRequiredError(): PsycheError {
   return new PsycheError(
     "presence_required",
-    `This change needs ${hostWords().presence} or a passkey, and none can verify on this Gateway now. Register the helper's ${hostWords().presence} key or a passkey (or run \`psyched presence reset\` on the machine, which applies after 24 hours), then try again.`,
+    `This change needs ${hostWords().presence} or a passkey, and none can verify on this Gateway now. Connect Psyche Helper on this computer (a Windows PC also needs its Windows Hello key registered) or add a passkey, or run \`psyched presence reset\` on the machine, which applies after 24 hours, then try again.`,
     { details: { reason: "no_presence_verifier" } },
   );
 }
 
-/** Fresh presence for one change; throws until an approved card for exactly it is consumed. */
+/**
+ * A security change needs an approved card for exactly it, consumed once. The card is a tap on a
+ * paired device (owner's decision, 2026-11-09: presence is for payments only). Enrolling a presence
+ * verifier is the exception (`strong`): a stolen admin device must not be able to add its own
+ * authenticator or key and then approve payments with it, so that card needs the presence step too
+ * and fails closed when no verifier can verify.
+ */
 export async function requireFreshPresence(
   call: Pick<Call, "ctx" | "identity">,
   action: FreshPresenceAction,
   approvalId: string | undefined,
+  opts: { strong?: boolean } = {},
 ): Promise<void> {
   if (call.ctx.securityState?.untrusted() != null) throw stateUntrustedError();
   const state = call.ctx.presenceState();
-  if (state === "off") return;
-  if (state === "unavailable") throw presenceRequiredError();
+  const strong = opts.strong === true;
+  // Adding a verifier is gated by what can verify, not by what the owner enrolled: on a default
+  // Mac the helper's auto-paired key can sign the sheet, so a first passkey from a device with
+  // only `operator.approvals` must pass it too (`presenceCanVerify`, context.ts).
+  const canVerify = call.ctx.presenceCanVerify?.() ?? state !== "off";
+  if (state === "off" && !(strong && canVerify)) return;
+  if (strong && !canVerify) throw presenceRequiredError();
   let valueSha256: string;
   try {
     valueSha256 = hashCanonical((action.subject ?? null) as never);
@@ -132,17 +144,23 @@ export async function requireFreshPresence(
       surfaces: ["desktop", "web", "notification"],
       scopesOffered: ["once"],
       taint: false,
+      ...(opts.strong === true ? { requireAuthentication: true } : {}),
     });
     // Like nodes.invoke: clients learn of the card (and their answer token) from the event.
     call.ctx.bus.publish("approval.created", { approval: issued.approval });
     throw new PsycheError(
       "approval_required",
-      `${action.summary} needs your approval with ${hostWords().presence} or a passkey`,
+      opts.strong === true
+        ? `${action.summary} needs your approval with ${hostWords().presence} or a passkey`
+        : `${action.summary} needs your approval`,
       { details: { approvalId: issued.approval.id } },
     );
   }
   const approval = await broker.get(approvalId);
-  if (approval?.kind !== "policy_change" || !approval.requiresAuthentication) {
+  if (
+    approval?.kind !== "policy_change" ||
+    (opts.strong === true && !approval.requiresAuthentication)
+  ) {
     throw new PsycheError("forbidden", "That approval is not a security-change approval");
   }
   const v = await broker.verifyBinding(approvalId, binding);
@@ -168,6 +186,12 @@ export const PRESENCE_METHODS: Readonly<Record<string, (p: Params) => string | u
   // A setup token pairs a computer without a second approval, so making one is approving ahead.
   "devices.setupToken.create": (p) =>
     `Let a new computer pair itself${p.via === "lan" ? " from this network" : ""} with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
+  // Anything but "always" lowers protection: a server whose tools are not payments needs no
+  // presence on its calls. Raising it to "always" only adds friction and stays admin-only.
+  "mcp.handlesMoney.set": (p) =>
+    p.mode === "always"
+      ? undefined
+      : "Stop treating a tool server's tools as payments by their own say-so",
   "channels.configure": () => "Change a chat channel's access",
   "channels.allowlist.update": (p) =>
     Array.isArray(p.add) && p.add.length > 0 ? "Allow new chat senders" : undefined,

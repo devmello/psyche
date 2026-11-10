@@ -177,7 +177,11 @@ export function presenceChallenge(
   scope?: string,
 ): string {
   const base = `psyche.presence.v1|${approvalId}|${bindingHash}|${answerToken}`;
-  return sha256(scope === undefined || scope === "once" ? base : `${base}|scope:${scope}`);
+  const digest = sha256(scope === undefined || scope === "once" ? base : `${base}|scope:${scope}`);
+  // The Mac helper and WebAuthn both want the bare 64-hex digest, but `@psyche/audit`'s `sha256`
+  // carries a `sha256:` prefix. With it the helper's `isValidChallenge` (exactly 64 hex) refused
+  // every challenge, so no presence check could ever pass.
+  return digest.slice("sha256:".length);
 }
 
 const isChat = (s: Surface) => s.includes(":");
@@ -844,11 +848,12 @@ export class PsychePermissionBroker implements PermissionBroker {
     }
     const se = input.sideEffect;
     const deviceOnly = isDeviceOnly(input.kind, se, this.#policy.config.approvals?.deviceOnly);
-    // A permission request that turns something on needs fresh presence, like the setting itself.
+    // Presence (the owner sheet, a passkey, the Linux password) is for payments only (owner's
+    // decision, 2026-11-09): a purchase or any financial action. Every other approval is a tap on
+    // a card, still bound to its answer token, binding hash and arm delay. The Gateway sets
+    // `requireAuthentication` itself for the one other case, enrolling a presence verifier.
     const requiresAuthentication =
-      AUTH_KINDS.includes(input.kind) ||
-      se === "financial" ||
-      (input.kind === "permission_request" && se !== "none");
+      se === "financial" || input.kind === "purchase" || input.requireAuthentication === true;
     // A non-owner requester never sees the card for their own request (security §9).
     const requester = input.context?.requester;
     const own = new Set(requesterSurfaces(requester));

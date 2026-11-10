@@ -16,6 +16,7 @@ import {
   type ToolResult,
 } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
+import { isAmbiguousActionLabel, isMoneyContext, isMoneyText } from "@psyche/protocol/money-intent";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
@@ -87,6 +88,18 @@ export function isRiskyLabel(text: string | undefined): boolean {
   if (text === undefined) return false;
   const tokens = ` ${text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ")} `;
   return RISKY_WORDS.some((w) => tokens.includes(` ${w} `));
+}
+
+/**
+ * Whether a label moves money: a click on one is a payment, the one class that needs the owner's
+ * presence (security §3.7). The shared rule (`@psyche/protocol/money-intent`) wants a payment verb
+ * with a money object or an amount ("Send $50", "Place bid"), or a label that is nothing but a
+ * payment verb ("Pay", "Sell", "Tip"); "Checkout", "Transfer", "Subscribe", "Send" and "Apple Pay"
+ * alone are ordinary buttons. The helper's own list (`RiskLabels`) only decides that a press asks;
+ * this decides what the card is classed.
+ */
+export function isMoneyLabel(text: string | undefined): boolean {
+  return isMoneyText(text);
 }
 
 /** Quit, close, delete: chords the helper refuses without an approval. */
@@ -435,6 +448,85 @@ function clip(text: string, max: number): string {
  */
 /** Longest label kept in the element map and on cards (characters). */
 export const MAX_LABEL_CHARS = 200;
+
+/**
+ * How long an app counts as showing a payment after a payment control, page or card was seen in
+ * it: an unlabelled control or a bare "Confirm" there is then treated as paying.
+ */
+export const MONEY_MEMORY_MS = 3 * 60_000;
+
+/** What `computer.resolve_target` reported: the element, its parents' labels and its window. */
+interface ResolvedTarget {
+  role?: string;
+  subrole?: string;
+  /** The element's own label first, then its parents'. */
+  labels: string[];
+  window?: string;
+  url?: string;
+  secure: boolean;
+}
+
+/** A text field where Return submits the form (search fields excepted: they only search). */
+/** Any field that takes characters, search fields included: a space there is a character. */
+function takesText(t: ResolvedTarget): boolean {
+  const role = (t.role ?? "").toLowerCase().replace(/^ax/, "");
+  return ["textfield", "textarea", "combobox", "textbox", "searchbox"].includes(role);
+}
+
+function isTextEntry(t: ResolvedTarget): boolean {
+  const role = (t.role ?? "").toLowerCase().replace(/^ax/, "");
+  if (!["textfield", "textarea", "combobox", "textbox", "searchbox"].includes(role)) return false;
+  if (role === "searchbox" || t.subrole === "AXSearchField") return false;
+  return !/\bsearch\b/i.test(t.labels[0] ?? "");
+}
+
+/**
+ * Typed text that moves focus and then may activate whatever has it: a Tab (or a line break) with
+ * a later Return, line break or space. The helper sends each `\t` and `\n` as a real key, so one
+ * focus check before the whole call would see the field, not the button Tab lands on.
+ */
+export function movesFocusThenActivates(text: string): boolean {
+  const first = text.search(/[\t\r\n]/);
+  return first !== -1 && /[\r\n ]/.test(text.slice(first + 1));
+}
+
+/**
+ * Splits typed text after each Tab and line break: `"x\t\n"` → `["x\t", "\n"]`,
+ * `"\t\t\r"` → `["\t", "\t", "\r"]`. Each piece then starts where focus is, so the Gateway can
+ * check what it activates before it goes out. A `\r\n` stays one break.
+ */
+export function splitAtFocusMoves(text: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i] ?? "";
+    cur += ch;
+    if (ch === "\r" && text[i + 1] === "\n") continue;
+    if (ch === "\t" || ch === "\n" || ch === "\r") {
+      out.push(cur);
+      cur = "";
+    }
+  }
+  if (cur !== "") out.push(cur);
+  return out;
+}
+
+/** The key of a chord (`cmd+return` → `return`). */
+function keyName(keys: string): string {
+  return (
+    keys
+      .toLowerCase()
+      .replace(/\s+/g, "")
+      .split("+")
+      .filter((k) => k !== "")
+      .at(-1) ?? ""
+  );
+}
+
+/** Return, Enter and Space press the focused control (or submit its form). */
+export function activatingKey(keys: string): boolean {
+  return ["return", "enter", "keypadenter", "space"].includes(keyName(keys));
+}
 /** Longest snapshot line the model reads; the rest is cut with an ellipsis. */
 export const MAX_SNAPSHOT_LINE_CHARS = 1_000;
 
@@ -587,6 +679,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     err: PsycheError,
     fallback: { app: string; action: string; tierRequired: string },
     signal: AbortSignal,
+    opts: { financial?: boolean } = {},
   ): Promise<string> {
     const ctx = deps.context(callId);
     const d = (err.details ?? {}) as { app?: unknown; tierRequired?: unknown; label?: unknown };
@@ -604,7 +697,13 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       action: fallback.action,
     };
     const hash = bindingHash("computer_action", fields);
-    const sideEffect = risky ? ("destructive" as const) : ("write" as const);
+    // A press whose label moves money is a payment: financial, so it needs presence.
+    const sideEffect =
+      opts.financial === true || isMoneyLabel(label)
+        ? ("financial" as const)
+        : risky
+          ? ("destructive" as const)
+          : ("write" as const);
     const target = { kind: "app" as const, value: app };
     // The app the helper names may differ from the one the loop decided about: the broker's
     // rules (deny, hooks, paused tasks) get their say before any card is shown.
@@ -674,6 +773,296 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     return approvalId;
   }
 
+  /** Apps where a payment control, page or card was seen lately (lowercased app → when). */
+  const moneySeen = new Map<string, number>();
+  const markMoney = (app: string) => moneySeen.set(app.toLowerCase(), now());
+  const recentMoney = (app: string) => {
+    const at = moneySeen.get(app.toLowerCase());
+    return at !== undefined && now() - at <= MONEY_MEMORY_MS;
+  };
+
+  /**
+   * Whether acting on a resolved target pays, and the words the card shows. A money label on the
+   * element or its parents pays. Otherwise the window decides: a window or page that is about
+   * paying (its title, its URL, a parent's label), or an app where a payment was seen in the last
+   * few minutes, makes an element with no label (canvas, poor accessibility), a bare "Confirm",
+   * "Send" or "Withdraw", and (for a key that submits) a text field other than search, a payment.
+   * Elsewhere the unknown goes ahead: presence is for payments only.
+   */
+  function moneyVerdict(
+    app: string,
+    t: ResolvedTarget,
+    mode: "activate" | "submit",
+  ): { label: string } | undefined {
+    const money = t.labels.find((l) => isMoneyLabel(l));
+    const context =
+      isMoneyContext({ title: t.window, url: t.url }) ||
+      t.labels.slice(1).some((l) => isMoneyContext({ title: l }));
+    if (money !== undefined || context) markMoney(app);
+    if (money !== undefined) return { label: money };
+    if (!context && !recentMoney(app)) return undefined;
+    const own = t.labels[0];
+    const where = t.window ?? app;
+    if (own === undefined) return { label: `an unlabelled control in “${where}”` };
+    if (isAmbiguousActionLabel(own)) return { label: own };
+    if (mode === "submit" && isTextEntry(t)) return { label: `${own} (submits the form)` };
+    return undefined;
+  }
+
+  /**
+   * Asks the helper what an action would land on (`computer.resolve_target`, read-only). An older
+   * Mac helper that cannot say fails closed with `reason`; the Windows and Linux helpers do not
+   * answer it yet, so their actions go ahead as before (`undefined`).
+   */
+  async function resolveFor(
+    p: ActParams,
+    params: Record<string, unknown>,
+    callId: string,
+    signal: AbortSignal,
+    reason: "point_unchecked" | "focus_unchecked",
+  ): Promise<ResolvedTarget | undefined> {
+    let res: NodeInvokeResult;
+    try {
+      ({ res } = await invoke(
+        callId,
+        {
+          tool: "computer.act",
+          capability: "computer.resolve_target",
+          params: { ...params, app: p.app },
+          session: true,
+          approval: { app: p.app, action: p.action, tierRequired: actTier(p) },
+        },
+        signal,
+      ));
+    } catch (err) {
+      const code = PsycheError.from(err).code;
+      if (
+        code === "not_found" ||
+        code === "not_implemented" ||
+        code === "unknown_method" ||
+        code === "invalid_params"
+      ) {
+        // The Windows and Linux helpers do not answer `computer.resolve_target` yet: their
+        // actions go ahead as before (security §3.7). The Mac helper ships with the app, so one
+        // that cannot say what the action lands on is out of date: refuse rather than guess.
+        if (deps.helper()?.kind !== "mac-helper") return undefined;
+        throw new PsycheError(
+          "policy_denied",
+          reason === "point_unchecked"
+            ? "This Psyche helper cannot check what a click at a screen point lands on. Click by ref from a snapshot instead, or update the helper."
+            : "This Psyche helper cannot check what a key press or a typed newline would activate. Update the helper.",
+          { details: { reason } },
+        );
+      }
+      throw err;
+    }
+    const r = (res.result ?? {}) as Record<string, unknown>;
+    const str = (v: unknown, max: number) =>
+      typeof v === "string" && v.trim() !== ""
+        ? sanitizeSnapshot(v.trim()).slice(0, max)
+        : undefined;
+    const labels = [
+      ...(typeof r.label === "string" ? [r.label] : []),
+      ...(Array.isArray(r.labels)
+        ? r.labels.filter((l): l is string => typeof l === "string")
+        : []),
+    ]
+      .map((l) => l.trim())
+      .filter((l, i, all) => l !== "" && all.indexOf(l) === i);
+    const role = str(r.role, 64);
+    const subrole = str(r.subrole, 64);
+    const window = str(r.window, 400);
+    const url = str(r.url, 2048);
+    return {
+      labels,
+      secure: r.secure === true,
+      ...(role === undefined ? {} : { role }),
+      ...(subrole === undefined ? {} : { subrole }),
+      ...(window === undefined ? {} : { window }),
+      ...(url === undefined ? {} : { url }),
+    };
+  }
+
+  /** The financial card for an action whose target pays; returns its id once approved. */
+  function askFinancial(
+    p: ActParams,
+    callId: string,
+    signal: AbortSignal,
+    where: string,
+    label: string,
+  ): Promise<string> {
+    markMoney(p.app);
+    return approveForHelper(
+      callId,
+      "computer.act",
+      p,
+      new PsycheError(
+        "approval_required",
+        `${where} is “${label.slice(0, MAX_LABEL_CHARS)}”, which moves money.`,
+        {
+          details: { reason: "money_label", app: p.app, tierRequired: actTier(p), label },
+        },
+      ),
+      { app: p.app, action: p.action, tierRequired: actTier(p) },
+      signal,
+      { financial: true },
+    );
+  }
+
+  /**
+   * What a click or drag by screen point lands on, checked before it happens. A point is a last
+   * resort and carries no label the Gateway has seen, so the card could not say whether the
+   * control under it moves money. The helper resolves the real element there (its accessibility
+   * label, its ancestors' and its window, `computer.resolve_target`, read-only) and, when it pays
+   * (`moneyVerdict`) and the card was not a financial one, the click does not happen until a
+   * financial card (once only, with presence) is approved. Returns that card's id, or `undefined`
+   * when the target does not pay or the card already was financial. A ref needs no check: its
+   * label comes from the snapshot and the helper refuses the call when it differs.
+   */
+  async function moneyUnderPoint(
+    p: ActParams,
+    callId: string,
+    signal: AbortSignal,
+  ): Promise<string | undefined> {
+    const points: { x: number; y: number }[] = [];
+    const point = (t: { ref?: string; x?: number; y?: number }) => {
+      if (t.ref === undefined && t.x !== undefined && t.y !== undefined) {
+        points.push({ x: t.x, y: t.y });
+      }
+    };
+    if (["click", "double_click", "right_click", "select", "press", "drag"].includes(p.action)) {
+      point(p);
+      if (p.action === "drag" && p.to !== undefined) point(p.to);
+    }
+    if (points.length === 0 || describeAct(p).sideEffect === "financial") return undefined;
+    for (const pt of points) {
+      const t = await resolveFor(p, pt, callId, signal, "point_unchecked");
+      if (t === undefined) continue;
+      const verdict = moneyVerdict(p.app, t, "activate");
+      if (verdict === undefined) continue;
+      return askFinancial(
+        p,
+        callId,
+        signal,
+        `The control at ${Math.round(pt.x)},${Math.round(pt.y)}`,
+        verdict.label,
+      );
+    }
+    return undefined;
+  }
+
+  /**
+   * Keyboard activation, checked before the key goes out: Return, Enter or Space presses the
+   * focused button, and Return or a typed newline submits the focused field's form. The helper
+   * describes what has keyboard focus in the app (`computer.resolve_target` with `focused`, or the
+   * ref a `type` names) and a payment there gets a financial card first, as for a point click.
+   */
+  async function moneyUnderFocus(
+    p: ActParams,
+    callId: string,
+    signal: AbortSignal,
+  ): Promise<string | undefined> {
+    const submits =
+      p.action === "key"
+        ? activatingKey(p.keys ?? "")
+        : // A typed space presses a focused button too (after `key tab`, say).
+          p.action === "type" && /[\r\n ]/.test(p.text ?? "");
+    if (!submits || describeAct(p).sideEffect === "financial") return undefined;
+    const params: Record<string, unknown> =
+      p.action === "type" && p.ref !== undefined
+        ? { ref: p.ref, ...(p.expect === undefined ? {} : { expect: p.expect }) }
+        : { focused: true };
+    const t = await resolveFor(p, params, callId, signal, "focus_unchecked");
+    if (t === undefined) return undefined;
+    // Space only presses a control; in a text field it is a character.
+    const mode =
+      p.action === "key"
+        ? keyName(p.keys ?? "") === "space"
+          ? "activate"
+          : "submit"
+        : /[\r\n]/.test(p.text ?? "")
+          ? "submit"
+          : "activate";
+    if (mode === "activate" && takesText(t)) return undefined;
+    const verdict = moneyVerdict(p.app, t, mode);
+    if (verdict === undefined) return undefined;
+    return askFinancial(
+      p,
+      callId,
+      signal,
+      p.action === "key" ? `What ${p.keys} activates in ${p.app}` : `The field the text submits`,
+      verdict.label,
+    );
+  }
+
+  /**
+   * A piece of typed text that starts after a Tab or line break moved focus: what has focus now is
+   * what a Return, line break or space in it activates. A space in a text field is a character.
+   * Fails closed when the helper cannot say.
+   */
+  async function moneyAfterFocusMove(
+    p: ActParams,
+    piece: string,
+    callId: string,
+    signal: AbortSignal,
+  ): Promise<string | undefined> {
+    if (!/[\r\n ]/.test(piece) || describeAct(p).sideEffect === "financial") return undefined;
+    const t = await resolveFor(p, { focused: true }, callId, signal, "focus_unchecked");
+    if (t === undefined) return undefined;
+    const mode = /[\r\n]/.test(piece) ? "submit" : "activate";
+    if (mode === "activate" && takesText(t)) return undefined;
+    const verdict = moneyVerdict(p.app, t, mode);
+    if (verdict === undefined) return undefined;
+    return askFinancial(
+      p,
+      callId,
+      signal,
+      "What the typed text activates after Tab",
+      verdict.label,
+    );
+  }
+
+  /**
+   * `type` with a Tab or line break before an activating character: typed piece by piece, with a
+   * focus check before each piece, so `"x\t\n"` cannot tab onto Pay and press it. The first
+   * piece goes to the ref (or the focused field) like any `type`; the rest to whatever has focus.
+   */
+  async function typeInPieces(
+    p: ActParams,
+    callId: string,
+    signal: AbortSignal,
+  ): Promise<{ res: NodeInvokeResult; approvalId?: string }> {
+    const pieces = splitAtFocusMoves(p.text ?? "");
+    let last: { res: NodeInvokeResult; approvalId?: string } | undefined;
+    let financial: string | undefined;
+    for (const [i, piece] of pieces.entries()) {
+      const { ref: _ref, expect: _expect, ...focused } = p;
+      const pp: ActParams = i === 0 ? { ...p, text: piece } : { ...focused, text: piece };
+      const approval =
+        i === 0
+          ? await moneyUnderFocus(pp, callId, signal)
+          : await moneyAfterFocusMove(p, piece, callId, signal);
+      const { capability, params } = actCapability(pp);
+      const r = await invoke(
+        callId,
+        {
+          tool: "computer.act",
+          capability,
+          params,
+          session: true,
+          approval: { app: p.app, action: p.action, tierRequired: actTier(p) },
+          ...(approval === undefined ? {} : { approvalId: approval }),
+        },
+        signal,
+      );
+      financial = approval ?? financial;
+      last = r;
+    }
+    if (last === undefined) throw new PsycheError("invalid_params", "type needs text");
+    const approvalId = financial ?? last.approvalId;
+    return { res: last.res, ...(approvalId === undefined ? {} : { approvalId }) };
+  }
+
   interface Invocation {
     tool: string;
     capability: string;
@@ -683,6 +1072,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     timeoutMs?: number;
     /** What an approval asked mid-call binds to. */
     approval: { app: string; action: string; tierRequired: string };
+    /** An approval obtained before the call (a financial card for a money label): used first. */
+    approvalId?: string;
   }
 
   /** Invoke the helper; on its approval request ask the owner once and retry. */
@@ -692,7 +1083,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     signal: AbortSignal,
   ): Promise<{ res: NodeInvokeResult; session?: Session; approvalId?: string }> {
     const ctx = deps.context(callId);
-    let approvalId = ctx.approvalId;
+    let approvalId = inv.approvalId ?? ctx.approvalId;
     // #267: every action names the app the broker and the owner decided about, and the tier an
     // approval covered. The helper refuses when the app under a point or ref is another one, and
     // an approval for a click never becomes an interact allowance.
@@ -1007,7 +1398,10 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     return MENU_ROLES.has(role.replace(/^ax/, "")) ? "interact" : tier;
   }
 
-  /** What the owner sees and the broker classifies: risky labels and chords are destructive. */
+  /**
+   * What the owner sees and the broker classifies: risky labels and chords are destructive, and
+   * a label that moves money (Pay, Buy, Place order, Checkout, Transfer…) is financial.
+   */
   function describeAct(p: ActParams): ToolCallDescription {
     // Risk comes from what the snapshot showed, not only from what the agent copied: an element
     // the Gateway has not seen in this app, or a bare screen point, could be anything.
@@ -1038,8 +1432,18 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           : p.action === "menu"
             ? `Choose ${p.path ?? ""}`
             : `${p.action.replace("_", " ")}${label === undefined ? "" : ` “${label}”`}`;
+    const money =
+      isMoneyLabel(p.expect?.label) ||
+      isMoneyLabel(p.to?.expect?.label) ||
+      (p.ref !== undefined && isMoneyLabel(elements.get(p.ref)?.label)) ||
+      (p.action === "menu" && (p.path ?? "").split(">").some((seg) => isMoneyLabel(seg))) ||
+      (p.action === "press" && isMoneyLabel(p.press?.replace(/^custom:/, "")));
     return {
-      ...(risky ? { sideEffect: "destructive" as const } : {}),
+      ...(money
+        ? { sideEffect: "financial" as const }
+        : risky
+          ? { sideEffect: "destructive" as const }
+          : {}),
       kind: "computer_action",
       target: appTarget(p.app),
       // Data model §4.2 computer_action: app, tier, action, element ref, typed text.
@@ -1222,17 +1626,31 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       async run(p, callId, signal) {
         // Refs must come from a snapshot of `p.app` (checked in `endpoint`).
         const { capability, params } = actCapability(p);
-        const { res, approvalId } = await invoke(
-          callId,
-          {
-            tool: "computer.act",
-            capability,
-            params,
-            session: true,
-            approval: { app: p.app, action: p.action, tierRequired: actTier(p) },
-          },
-          signal,
-        );
+        // A payment card was classed from the call itself: the app is showing a payment.
+        if (describeAct(p).sideEffect === "financial") markMoney(p.app);
+        // A point carries no label the Gateway saw, and a key or a typed newline activates
+        // whatever has focus: ask the helper what the action lands on first. Typed text that
+        // tabs and then activates is checked piece by piece.
+        const { res, approvalId } =
+          p.action === "type" && movesFocusThenActivates(p.text ?? "")
+            ? await typeInPieces(p, callId, signal)
+            : await (async () => {
+                const financialApproval =
+                  (await moneyUnderPoint(p, callId, signal)) ??
+                  (await moneyUnderFocus(p, callId, signal));
+                return invoke(
+                  callId,
+                  {
+                    tool: "computer.act",
+                    capability,
+                    params,
+                    session: true,
+                    approval: { app: p.app, action: p.action, tierRequired: actTier(p) },
+                    ...(financialApproval === undefined ? {} : { approvalId: financialApproval }),
+                  },
+                  signal,
+                );
+              })();
         const receiptId = await receipt(
           callId,
           capability,

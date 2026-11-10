@@ -2,7 +2,7 @@
 export const settings = {
   // Shared frames, states and the settings writer (shared.tsx).
   "settings.shared.needsPresence":
-    "Changing “{label}” needs your approval with Touch ID or a passkey. Approve it in Settings or in the Psyche notification, then change it again.",
+    "Changing “{label}” needs your approval. Approve it in Settings or in the Psyche notification, then change it again.",
   "settings.shared.saveFailed": "Psyche couldn't save “{label}” ({reason}). Nothing changed.",
   "settings.shared.loading": "Loading {label}",
   "settings.shared.nothingChanged": "Nothing was changed.",
@@ -1157,6 +1157,17 @@ export const settings = {
   "settings.mcp.tools.off": "This server is off. Turn it on to see its tools.",
   "settings.mcp.tools.notConnected": "This server isn't connected, so it lists no tools.",
   "settings.mcp.tools.none": "This server has no tools.",
+  "settings.mcp.money.title": "Payments",
+  "settings.mcp.money.description":
+    "A tool that moves money asks you to confirm the payment every time. Say which of this server's tools do.",
+  "settings.mcp.money.auto": "Decide by each tool's name",
+  "settings.mcp.money.autoHint":
+    "Psyche guesses from the tool's name and description, which a server can word to avoid it.",
+  "settings.mcp.money.always": "Every tool moves money",
+  "settings.mcp.money.alwaysHint": "Every call to this server asks you to approve a payment.",
+  "settings.mcp.money.never": "No tool moves money",
+  "settings.mcp.money.neverHint":
+    "No call asks for a payment approval, whatever the tool is called. Only for a server that can't spend money.",
   "settings.mcp.secrets.title": "Secrets",
   "settings.mcp.secrets.intro":
     "Keys this server starts with. They stay in your vault; Psyche shows only whether each is set.",
@@ -1465,12 +1476,10 @@ export const settings = {
   "settings.devices.keyLastSeenNever": "· last seen never",
   "settings.devices.lastSeen": "last seen {when}",
   "settings.devices.lastSeenNever": "last seen never",
-  "settings.devices.presenceKey.keychain": "Touch ID key (keychain), as reported by the helper",
-  "settings.devices.presenceKey.enclaveKeychainAcl":
-    "Touch ID key (Secure Enclave, readable only by Psyche Helper without a macOS prompt), as reported by the helper",
-  "settings.devices.presenceKey.enclaveFile":
-    "Touch ID key (Secure Enclave file, this build has no provisioning profile), as reported by the helper",
   "settings.devices.presenceKey.unknown": "Touch ID key (kind not reported by the helper)",
+  // A Mac helper has no key to register: it signs with its own device key after the system sheet.
+  "settings.devices.presenceKey.deviceIdentity":
+    "Payments use Touch ID or your Mac password. Nothing to set up.",
   // A Windows helper's key: Windows Hello (a TPM-backed key; RSA-2048 today), as the helper reports it.
   "settings.devices.presenceKey.windowsHello":
     "Windows Hello key ({algorithm}), as reported by the helper",
@@ -1481,33 +1490,18 @@ export const settings = {
   "settings.devices.touchId.bundled": "The Psyche Helper in this app shows key",
   "settings.devices.touchId.notBundled":
     "This helper isn't the one bundled with this app, so its key can't be registered here.",
-  "settings.devices.touchId.untrusted":
-    "The Touch ID key in the keychain was not used because it can’t be shown to be Psyche Helper’s. A harmless cause is that Psyche was moved or reinstalled somewhere else: move it back to /Applications and open it again. Otherwise quit Psyche Helper first, then run /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key in Terminal, and register the new key.",
-  "settings.devices.touchId.accessDenied":
-    "macOS did not let Psyche Helper use its Touch ID key in the keychain. Run Psyche again and choose Always Allow only if the dialog names psyche-helper (never for another program).",
-  "settings.devices.touchId.wrongLocation":
-    "Psyche Helper made no Touch ID key because it is running from a disk image, Downloads or another folder. Move Psyche to /Applications, eject any disk image, and open it from there.",
   "settings.devices.touchId.keyMismatch":
     "The Psyche Helper in this app now shows key {shown}, not the registered {registered}. If you didn’t reset the key yourself, treat this as suspicious and don’t register it.",
   "settings.devices.touchId.confirmReplace":
     "This replaces the Touch ID key {previous} that was registered for this Mac. Replace it only if you reset the key yourself.",
   "settings.devices.touchId.confirmReplaceButton": "Replace key",
-  "settings.devices.touchId.interactionNotAllowed":
-    "The keychain can’t ask for permission right now. Unlock the Mac and try again.",
-  "settings.devices.touchId.changed":
-    "The Touch ID key changed while Psyche Helper was running. Quit Psyche Helper and start it again.",
-  "settings.devices.touchId.aclUnavailable":
-    "The keychain wouldn’t keep the Touch ID key’s access list on this Mac. Restart Psyche Helper to try again.",
   "settings.devices.touchId.noBundledKey":
     "The Psyche Helper in this app has no Touch ID key ({reason}).",
   "settings.devices.touchId.register": "Register this key",
   "settings.devices.touchId.remove": "Remove key",
   "settings.devices.touchId.manualLabel": "Key id",
   "settings.devices.touchId.manualHint":
-    "Run psyche-helper --print-identity on the Mac and paste the presenceKeyId it prints.",
-  "settings.devices.touchId.allowDevFileKey": "Allow a development Touch ID key",
-  "settings.devices.touchId.devFileKey":
-    "This build has no provisioning profile, so its key is a Secure Enclave file. Any app running as you could ask it to sign behind its own Touch ID prompt. For development only.",
+    "Run psyche-helper --print-identity on the computer and paste the presenceKeyId it prints.",
   "settings.devices.revoked": "Revoked ({n, number})",
   "settings.devices.revokedItem": "{name}, revoked {when}",
   "settings.devices.nodes": "Nodes",

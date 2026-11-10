@@ -716,6 +716,8 @@
 //   let mCPAppResult = try? JSONDecoder().decode(MCPAppResult.self, from: jsonData)
 //   let mCPFilesReadParams = try? JSONDecoder().decode(MCPFilesReadParams.self, from: jsonData)
 //   let mCPFilesWriteParams = try? JSONDecoder().decode(MCPFilesWriteParams.self, from: jsonData)
+//   let mCPHandlesMoneySetParams = try? JSONDecoder().decode(MCPHandlesMoneySetParams.self, from: jsonData)
+//   let mCPHandlesMoneySetResult = try? JSONDecoder().decode(MCPHandlesMoneySetResult.self, from: jsonData)
 //   let mCPProbeParams = try? JSONDecoder().decode(MCPProbeParams.self, from: jsonData)
 //   let mCPProbeResult = try? JSONDecoder().decode(MCPProbeResult.self, from: jsonData)
 //   let mCPProbedTool = try? JSONDecoder().decode(MCPProbedTool.self, from: jsonData)
@@ -13011,11 +13013,13 @@ public struct PresenceKeyInfo: Codable, Sendable {
 }
 
 public enum PresenceKeyAlgorithm: String, Codable, Sendable {
+    case ed25519 = "ed25519"
     case p256EcdsaSha256 = "p256-ecdsa-sha256"
     case rsa2048Pkcs1Sha256 = "rsa-2048-pkcs1-sha256"
 }
 
 public enum PresenceKeyInfoKind: String, Codable, Sendable {
+    case deviceIdentity = "device_identity"
     case enclaveFile = "enclave_file"
     case enclaveKeychainACL = "enclave_keychain_acl"
     case keychain = "keychain"
@@ -18297,6 +18301,7 @@ public struct MCPAddResult: Codable, Sendable {
 public struct MCPServerStatus: Codable, Sendable {
     public let connected: Bool
     public let enabled: Bool?
+    public let handlesMoney: Bool?
     public let id: String
     public let madeBy: MadeBy?
     public let name: String
@@ -18308,6 +18313,7 @@ public struct MCPServerStatus: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case connected = "connected"
         case enabled = "enabled"
+        case handlesMoney = "handlesMoney"
         case id = "id"
         case madeBy = "madeBy"
         case name = "name"
@@ -18317,9 +18323,10 @@ public struct MCPServerStatus: Codable, Sendable {
         case version = "version"
     }
 
-    public init(connected: Bool, enabled: Bool? = nil, id: String, madeBy: MadeBy? = nil, name: String, network: Bool, transport: TransportEnum, trust: Trust, version: String? = nil) {
+    public init(connected: Bool, enabled: Bool? = nil, handlesMoney: Bool? = nil, id: String, madeBy: MadeBy? = nil, name: String, network: Bool, transport: TransportEnum, trust: Trust, version: String? = nil) {
         self.connected = connected
         self.enabled = enabled
+        self.handlesMoney = handlesMoney
         self.id = id
         self.madeBy = madeBy
         self.name = name
@@ -18426,6 +18433,44 @@ public struct MCPFilesWriteParams: Codable, Sendable {
         self.content = content
         self.path = path
         self.serverID = serverID
+    }
+}
+
+// MARK: - MCPHandlesMoneySetParams
+public struct MCPHandlesMoneySetParams: Codable, Sendable {
+    public let approvalID: String?
+    public let mode: MemoTaskMode
+    public let serverID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case mode = "mode"
+        case serverID = "serverId"
+    }
+
+    public init(approvalID: String? = nil, mode: MemoTaskMode, serverID: String) {
+        self.approvalID = approvalID
+        self.mode = mode
+        self.serverID = serverID
+    }
+}
+
+public enum MemoTaskMode: String, Codable, Sendable {
+    case always = "always"
+    case auto = "auto"
+    case never = "never"
+}
+
+// MARK: - MCPHandlesMoneySetResult
+public struct MCPHandlesMoneySetResult: Codable, Sendable {
+    public let server: MCPServerStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case server = "server"
+    }
+
+    public init(server: MCPServerStatus) {
+        self.server = server
     }
 }
 
@@ -36619,12 +36664,6 @@ public struct VoiceMemoSaveParams: Codable, Sendable {
         self.task = task
         self.threadID = threadID
     }
-}
-
-public enum MemoTaskMode: String, Codable, Sendable {
-    case always = "always"
-    case auto = "auto"
-    case never = "never"
 }
 
 // MARK: - VoiceMemoSaveResult

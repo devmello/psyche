@@ -208,7 +208,7 @@ describe("the broker and the read-only class", () => {
     const d = await h.broker.decide(host(["date"]), { ...CTX, taint: true });
     expect(d).toMatchObject({ decision: "ask", sideEffect: "read", scopesOffered: ["once"] });
     const { approval } = await approve(h, host(["date"]), { ...CTX, taint: true }, "once");
-    expect(approval).toMatchObject({ deviceOnly: true, requiresAuthentication: true });
+    expect(approval).toMatchObject({ deviceOnly: true, requiresAuthentication: false });
     expect(approval.sideEffect).toBe("read");
   });
 

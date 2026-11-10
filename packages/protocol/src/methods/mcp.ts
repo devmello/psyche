@@ -21,6 +21,11 @@ export const McpServerStatus = Type.Object(
     connected: Type.Boolean(),
     /** Turned off by the owner (`mcp.setEnabled`): kept in the config, not running. Default on. */
     enabled: Type.Optional(Type.Boolean()),
+    /**
+     * The owner's word on whether this server moves money (`mcp.handlesMoney.set`): `true` makes
+     * every tool a payment, `false` none; absent leaves it to the tool's name and description.
+     */
+    handlesMoney: Type.Optional(Type.Boolean()),
     /** Written by Psyche itself (its code is in `agent-connectors/<id>`); always tier `unknown`. */
     madeBy: Type.Optional(Type.Literal("psyche")),
     /** The agent-made server's version (from its manifest). */
@@ -275,6 +280,20 @@ export const McpMethods = {
     sideEffecting: true,
     description:
       "Side-effecting: offers a tool to the agent or withholds it (kept in the server's mcp.servers entry; the server keeps running and its grants stay). A tool the description scan blocked stays off. not_found for an unknown server or tool.",
+  }),
+  "mcp.handlesMoney.set": defineMethod({
+    params: Type.Object({
+      serverId: ServerId,
+      /** `always`: every tool is a payment. `never`: none is. `auto`: judged by name and description. */
+      mode: StringEnum(["auto", "always", "never"]),
+      /** Fresh approval: the `policy_change` card from a first `approval_required` call (any mode but `always`). */
+      approvalId: Type.Optional(Id),
+    }),
+    result: Type.Object({ server: McpServerStatus }, { $id: "McpHandlesMoneySetResult" }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: the owner's word on whether a server's tools move money. always: every tool is financial (Touch ID or the Mac password on each call); never: none is, whatever its tools are called; auto: judged by each tool's name and description. Changing it restarts the server. Anything but always lowers protection and first answers approval_required with a device-only policy_change card; the retry with its approvalId is spent once. not_found for an unknown server.",
   }),
   "mcp.setEnabled": defineMethod({
     params: Type.Object({ serverId: ServerId, enabled: Type.Boolean() }),

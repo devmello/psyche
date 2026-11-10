@@ -34,7 +34,7 @@ Targets: `PsycheProtocol`, `PsycheHelperCore` (pure logic), `PsycheHelperSystem`
 | Speech-to-text | `Speech/SFSpeechEngine.swift`, `SpeechAnalyzerEngine.swift` (macOS 26+), `SpeechTranscription.swift`, `SpeechAudio*.swift`, `LongFormTranscription.swift` | Speech, AVAudioEngine | `speech.transcribe_stream/transcribe_file/audio_push/prepare` |
 | TTS (being removed) | `Speech/SpeechSynthesis.swift` | AVSpeechSynthesizer | `speech.synthesize/voices/personal_voice.*` |
 | Keychain / Touch ID | `Keychain/KeychainVault.swift`, `KeychainBackend.swift`, `KeychainDeviceIdentityStore.swift`; `Core/Keychain/*` | SecItem, LocalAuthentication | `keychain.*`, `vault.unlock` |
-| Presence key | `Notifications/PresenceKey.swift` | Secure Enclave | `presence.public_key` |
+| Presence | `Notifications/PresenceKey.swift` | LocalAuthentication owner sheet + the device identity key | `presence.public_key`, `presence.confirm` |
 | Notifications | `Notifications/NotificationCenterBridge.swift` | UserNotifications | `notify.*` |
 | Contacts | `Contacts/ContactsCapabilities.swift`, `AppleApps/ContactsStoreBackend.swift` | Contacts | `contacts.*` |
 | Calendar / Reminders | `AppleApps/CalendarWatch.swift`, `AppleAppBackends.swift` | EventKit | `calendar.*`, `reminders.*` |

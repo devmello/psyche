@@ -429,6 +429,17 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.tools.off": "Ce serveur est désactivé. Activez-le pour voir ses outils.",
   "settings.mcp.tools.notConnected": "Ce serveur n’est pas connecté et ne liste donc aucun outil.",
   "settings.mcp.tools.none": "Ce serveur n’a aucun outil.",
+  "settings.mcp.money.title": "Paiements",
+  "settings.mcp.money.description":
+    "Un outil qui déplace de l’argent te demande de confirmer le paiement à chaque fois. Indique lesquels des outils de ce serveur le font.",
+  "settings.mcp.money.auto": "Décider d’après le nom de chaque outil",
+  "settings.mcp.money.autoHint":
+    "Psyche devine d’après le nom et la description de l’outil, qu’un serveur peut formuler pour y échapper.",
+  "settings.mcp.money.always": "Chaque outil déplace de l’argent",
+  "settings.mcp.money.alwaysHint": "Chaque appel à ce serveur te demande d’approuver un paiement.",
+  "settings.mcp.money.never": "Aucun outil ne déplace d’argent",
+  "settings.mcp.money.neverHint":
+    "Aucun appel ne demande l’approbation d’un paiement, quel que soit le nom de l’outil. Seulement pour un serveur qui ne peut pas dépenser d’argent.",
   "settings.mcp.secrets.title": "Secrets",
   "settings.mcp.secrets.intro":
     "Clés avec lesquelles ce serveur démarre. Elles restent dans votre coffre ; Psyche indique seulement si chacune est définie.",
@@ -622,44 +633,26 @@ export const settingsRest: Partial<Catalogue> = {
     "Aucun modèle d’embedding n’est disponible, le rappel ne fait donc correspondre que les mots.",
   "settings.data.replayRetentionHint":
     "Les écrans que {persona} a regardés pendant son travail, pour la chronologie. Désactivé, aucun n’est conservé.",
-  "settings.devices.presenceKey.keychain": "Clé Touch ID (trousseau), signalée par l’assistant",
-  "settings.devices.presenceKey.enclaveKeychainAcl":
-    "Clé Touch ID (Secure Enclave, lisible sans invite macOS uniquement par l’assistant Psyche), signalée par l’assistant",
-  "settings.devices.presenceKey.enclaveFile":
-    "Clé Touch ID (fichier Secure Enclave, cette version n’a pas de profil de provisionnement), signalée par l’assistant",
   "settings.devices.presenceKey.unknown": "Clé Touch ID (type non signalé par l’assistant)",
+  "settings.devices.presenceKey.deviceIdentity":
+    "Les paiements utilisent Touch ID ou le mot de passe de votre Mac. Il n’y a rien à configurer.",
   "settings.devices.touchId.none":
     "Pas encore de clé Touch ID. Les cartes qui exigent Touch ID ne peuvent pas être approuvées tant qu’aucune n’est enregistrée.",
   "settings.devices.touchId.bundled": "Le Psyche Helper de cette app affiche la clé",
   "settings.devices.touchId.notBundled":
     "Cet assistant n’est pas celui fourni avec cette app, sa clé ne peut donc pas être enregistrée ici.",
-  "settings.devices.touchId.untrusted":
-    "La clé Touch ID du trousseau n’a pas été utilisée, car rien ne prouve qu’elle appartient à l’assistant Psyche. Une cause bénigne : Psyche a été déplacé ou réinstallé ailleurs, remettez-le dans /Applications et rouvrez-le. Sinon, quittez d’abord l’assistant Psyche, lancez /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key dans le Terminal, puis enregistrez la nouvelle clé.",
-  "settings.devices.touchId.accessDenied":
-    "macOS n’a pas autorisé l’assistant Psyche à utiliser sa clé Touch ID du trousseau. Relancez Psyche et choisissez Toujours autoriser seulement si la fenêtre nomme psyche-helper (jamais pour un autre programme).",
-  "settings.devices.touchId.wrongLocation":
-    "L’assistant Psyche n’a pas créé de clé Touch ID, car il s’exécute depuis une image disque, Téléchargements ou un autre dossier. Déplacez Psyche dans /Applications, éjectez toute image disque et ouvrez-le depuis là.",
   "settings.devices.touchId.keyMismatch":
     "L’assistant Psyche de cette app affiche maintenant la clé {shown}, et non celle enregistrée {registered}. Si vous n’avez pas réinitialisé la clé vous-même, considérez cela comme suspect et ne l’enregistrez pas.",
   "settings.devices.touchId.confirmReplace":
     "Cela remplace la clé Touch ID {previous} enregistrée pour ce Mac. Ne la remplacez que si vous avez réinitialisé la clé vous-même.",
   "settings.devices.touchId.confirmReplaceButton": "Remplacer la clé",
-  "settings.devices.touchId.interactionNotAllowed":
-    "Le trousseau ne peut pas demander l’autorisation pour le moment. Déverrouillez le Mac et réessayez.",
-  "settings.devices.touchId.changed":
-    "La clé Touch ID a changé pendant l’exécution de l’assistant Psyche. Quittez l’assistant Psyche et relancez-le.",
-  "settings.devices.touchId.aclUnavailable":
-    "Le trousseau n’a pas conservé la liste d’accès de la clé Touch ID sur ce Mac. Relancez l’assistant Psyche pour réessayer.",
   "settings.devices.touchId.noBundledKey":
     "Le Psyche Helper de cette app n’a pas de clé Touch ID ({reason}).",
   "settings.devices.touchId.register": "Enregistrer cette clé",
   "settings.devices.touchId.remove": "Supprimer la clé",
   "settings.devices.touchId.manualLabel": "ID de la clé",
   "settings.devices.touchId.manualHint":
-    "Exécutez psyche-helper --print-identity sur le Mac et collez la presenceKeyId affichée.",
-  "settings.devices.touchId.allowDevFileKey": "Autoriser une clé Touch ID de développement",
-  "settings.devices.touchId.devFileKey":
-    "Cette version n’a pas de profil de provisionnement, sa clé est donc un fichier Secure Enclave. Toute app exécutée sous votre identité pourrait lui demander de signer derrière sa propre invite Touch ID. Pour le développement uniquement.",
+    "Exécutez psyche-helper --print-identity sur l’ordinateur et collez la presenceKeyId affichée.",
   "settings.files.execHost": "Exécuter des commandes sur ce Mac",
   "settings.files.execHostHint":
     "Permet à {persona} d’exécuter des commandes dans vos dossiers partagés, dans le bac à sable. Les commandes susceptibles de modifier des fichiers demandent d’abord votre accord.",

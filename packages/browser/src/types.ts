@@ -102,6 +102,11 @@ export interface ElementMeta {
   opensPopup: boolean;
   /** The containing form also holds a password field (login forms; vault field-class rule). */
   formHasPassword?: boolean;
+  /** The containing form holds card-number, expiry or security-code fields: a payment form. */
+  formHasPaymentFields?: boolean;
+  /** URL and title of the document the element lives in: a bare "Confirm" pays only on a payment page. */
+  pageUrl?: string;
+  pageTitle?: string;
   maxLength?: number;
   inputMode?: string;
   contentEditable?: boolean;

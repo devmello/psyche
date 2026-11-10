@@ -96,7 +96,7 @@ export interface BundledHelperKey {
   deviceId: string;
   keyId?: string;
   /** `windows_hello` from the Windows helper (with `algorithm`, e.g. "RSA-2048"). */
-  kind?: "keychain" | "enclave_keychain_acl" | "enclave_file" | "windows_hello";
+  kind?: "windows_hello" | "device_identity";
   algorithm?: string;
   error?: string;
 }
@@ -107,8 +107,6 @@ export interface TouchIdStatus {
   identity: BundledHelperKey | null;
   /** The Gateway holds this key for the helper. */
   registered: boolean;
-  /** `devices.presence.allowDevFileKey`. */
-  allowDevFileKey: boolean;
 }
 
 /** The desktop's Touch ID setup, in the steps Settings → Devices uses. Absent on the web. */
@@ -116,8 +114,6 @@ export interface TouchIdSetupPort {
   status(): Promise<TouchIdStatus>;
   /** Registers exactly the key the bundled helper reports. */
   register(): Promise<void>;
-  /** `devices.presence.allowDevFileKey`, for a build whose key lives in a Secure Enclave file. */
-  allowDevFileKey(on: boolean): Promise<void>;
 }
 
 /** Callbacks for the steps added by the first-run redesign; all optional (the step says so). */

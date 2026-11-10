@@ -237,21 +237,8 @@ export const blocks = {
   "blocks.approval.touchId.onceOnly": "Touch ID approvals from this window are once only.",
   "blocks.approval.status.allowedOnceTouchId":
     "Allowed once (Touch ID approvals from this window are once only)",
-  "blocks.approval.touchId.keyUntrusted":
-    "Psyche Helper’s Touch ID key in the keychain can’t be shown to be its own, so it wasn’t used. Open Settings → Devices to see what to do.",
-  "blocks.approval.touchId.keyAccessDenied":
-    "macOS didn’t let Psyche Helper use its Touch ID key. Try again and choose Always Allow only if the dialog names psyche-helper.",
-  "blocks.approval.touchId.keyChanged":
-    "The Touch ID key changed while Psyche Helper was running. Quit Psyche Helper and start it again.",
-  "blocks.approval.touchId.keyWrongLocation":
-    "Psyche is running from a place where its Touch ID key can’t be kept (a disk image, Downloads or another folder). Move Psyche to Applications and open it from there.",
-  "blocks.approval.touchId.keyLocked":
-    "The keychain can’t ask for permission right now. Unlock the Mac and try again.",
-  "blocks.approval.touchId.keyAclUnavailable":
-    "The keychain wouldn’t keep the Touch ID key’s access list on this Mac. Restart Psyche Helper to try again.",
   "blocks.approval.touchId.keyUnavailable":
     "This build of Psyche Helper can't keep a Touch ID key (it has no keychain access group), so cards that need Touch ID can't be approved on this Mac.",
-  "blocks.approval.touchId.cancelled": "Touch ID was cancelled, so nothing was approved",
   "blocks.approval.touchId.restartHelper": "Restart Psyche Helper",
   "blocks.approval.touchId.startHelper": "Start Psyche Helper",
   "blocks.approval.alsoSentTo": "Also sent to: {surfaces}. The first answer wins.",

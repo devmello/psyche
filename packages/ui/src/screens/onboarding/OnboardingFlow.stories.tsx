@@ -249,7 +249,6 @@ export const MemoryReview: Story = {
 const touchId = (status: TouchIdStatus): TouchIdSetupPort => ({
   status: () => Promise.resolve(status),
   register: () => Promise.resolve(),
-  allowDevFileKey: () => Promise.resolve(),
 });
 const keyId = "0123456789abcdef".repeat(4);
 
@@ -262,9 +261,8 @@ export const SafetyTouchIdReady: Story = {
     initial: { persona: wren },
     helper: { kind: "paired" },
     touchId: touchId({
-      identity: { deviceId: "d1", keyId, kind: "keychain" },
+      identity: { deviceId: "d1", keyId, kind: "device_identity" },
       registered: false,
-      allowDevFileKey: false,
     }),
   },
 };
@@ -274,21 +272,19 @@ export const SafetyTouchIdRegistered: Story = {
     initial: { persona: wren },
     helper: { kind: "paired" },
     touchId: touchId({
-      identity: { deviceId: "d1", keyId, kind: "keychain" },
+      identity: { deviceId: "d1", keyId, kind: "device_identity" },
       registered: true,
-      allowDevFileKey: false,
     }),
   },
 };
-export const SafetyTouchIdDevKey: Story = {
+export const SafetyWindowsHelloUnregistered: Story = {
   args: {
     defaultStep: "safety",
     initial: { persona: wren },
     helper: { kind: "paired" },
     touchId: touchId({
-      identity: { deviceId: "d1", keyId, kind: "enclave_file" },
+      identity: { deviceId: "d1", keyId, kind: "windows_hello" },
       registered: false,
-      allowDevFileKey: false,
     }),
   },
 };
@@ -300,7 +296,6 @@ export const SafetyHelperStarting: Story = {
     touchId: touchId({
       identity: { deviceId: "d1" },
       registered: false,
-      allowDevFileKey: false,
     }),
   },
 };

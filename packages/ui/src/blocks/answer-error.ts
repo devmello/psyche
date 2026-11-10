@@ -9,17 +9,11 @@ export type TouchIdFix = "start_helper" | "restart_helper" | "open_devices";
 const TOUCH_ID_SETUP: Record<string, { id: MessageId; fix: TouchIdFix | null }> = {
   helper_offline: { id: "blocks.approval.touchId.helperOffline", fix: "start_helper" },
   helper_outdated: { id: "blocks.approval.touchId.helperOutdated", fix: null },
-  // Registering a key happens in Settings → Devices, where the owner sees the key id first.
+  // A Windows helper's Windows Hello key: registered in Settings → Devices, where the owner sees
+  // the key id first. A Mac helper has no key to set up.
   no_presence_key: { id: "blocks.approval.touchId.noKey", fix: "open_devices" },
   presence_key_invalidated: { id: "blocks.approval.touchId.invalidated", fix: "open_devices" },
   presence_key_unavailable: { id: "blocks.approval.touchId.keyUnavailable", fix: null },
-  // The helper's keychain key, found wrong or unusable (security §10).
-  presence_key_untrusted: { id: "blocks.approval.touchId.keyUntrusted", fix: "open_devices" },
-  presence_key_access_denied: { id: "blocks.approval.touchId.keyAccessDenied", fix: null },
-  presence_key_changed: { id: "blocks.approval.touchId.keyChanged", fix: "restart_helper" },
-  presence_key_wrong_location: { id: "blocks.approval.touchId.keyWrongLocation", fix: null },
-  presence_key_interaction_not_allowed: { id: "blocks.approval.touchId.keyLocked", fix: null },
-  presence_key_acl_unavailable: { id: "blocks.approval.touchId.keyAclUnavailable", fix: null },
 };
 
 /**
@@ -36,6 +30,8 @@ const PASSWORD_REFUSAL: Record<string, MessageId> = {
 /** What went wrong answering a card, in the words the card shows. */
 export type AnswerFailure =
   | { kind: "rate_limited"; retryAfterSec: number }
+  /** The owner cancelled the system sheet: not approved, and nothing to say about it. */
+  | { kind: "cancelled" }
   | { kind: "presence_unavailable" }
   | { kind: "presence_failed"; reason: string | null }
   /** The window's Touch ID path is not ready: what is missing and the fix, when there is one. */
@@ -75,16 +71,14 @@ export function classifyAnswerError(err: unknown): AnswerFailure {
     return { kind: "other", text: t("blocks.approval.password.unreachable") };
   }
   if (code === "cancelled" && details.reason === "presence_cancelled") {
-    return { kind: "other", text: t("blocks.approval.password.cancelled") };
+    return { kind: "cancelled" };
   }
   if (code === "forbidden" && details.reason === "password_failed") {
     return { kind: "other", text: t("blocks.approval.password.failed") };
   }
   const setup = code === "unavailable" ? TOUCH_ID_SETUP[String(details.reason)] : undefined;
   if (setup !== undefined) return { kind: "touch_id_setup", text: t(setup.id), fix: setup.fix };
-  if (code === "cancelled") {
-    return { kind: "presence_failed", reason: t("blocks.approval.touchId.cancelled") };
-  }
+  if (code === "cancelled") return { kind: "cancelled" };
   if (code === "forbidden" && details.reason === "presence_invalid") {
     return { kind: "presence_failed", reason: t("blocks.approval.touchIdInvalid") };
   }
@@ -101,6 +95,8 @@ export function answerFailureText(f: AnswerFailure, secondsLeft?: number): strin
   switch (f.kind) {
     case "rate_limited":
       return t("blocks.approval.rateLimited", { seconds: secondsLeft ?? f.retryAfterSec });
+    case "cancelled":
+      return "";
     case "presence_unavailable":
       return t("settings.approval.presenceUnavailable");
     case "presence_failed":

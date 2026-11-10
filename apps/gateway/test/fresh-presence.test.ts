@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { updateDevice } from "@psyche/db";
-import { type PresenceVerifier, presenceChallenge } from "@psyche/permissions";
+import type { PresenceVerifier } from "@psyche/permissions";
 import type { ApprovalRequest } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
@@ -70,7 +70,33 @@ async function boot(
   return { c: composed, admin };
 }
 
-async function approveWithPresence(admin: TestClient, res: Record<string, unknown>) {
+/**
+ * Presence is for payments only: a security change is a plain tap on its card (no presence
+ * assertion, `requiresAuthentication` false), still bound to the exact change and spent once.
+ */
+async function approveWithTap(admin: TestClient, res: Record<string, unknown>) {
+  expect(res).toMatchObject({ ok: false, error: { code: "approval_required" } });
+  const approvalId = (res as { error: { details: { approvalId: string } } }).error.details
+    .approvalId;
+  const got = await admin.call<{ approval: ApprovalRequest; answerToken?: string }>(
+    "approvals.get",
+    { approvalId },
+  );
+  expect(got.approval).toMatchObject({ kind: "policy_change", requiresAuthentication: false });
+  const token = got.answerToken ?? "";
+  await new Promise((r) => setTimeout(r, 450)); // past the arm delay
+  expect(
+    await admin.request(
+      "approvals.answer",
+      { approvalId, answerToken: token, decision: "approve" },
+      ik(),
+    ),
+  ).toMatchObject({ ok: true });
+  return { approvalId, approval: got.approval };
+}
+
+/** The card that enrolling a presence verifier raises: it still needs presence. */
+async function strongCard(admin: TestClient, res: Record<string, unknown>) {
   expect(res).toMatchObject({ ok: false, error: { code: "approval_required" } });
   const approvalId = (res as { error: { details: { approvalId: string } } }).error.details
     .approvalId;
@@ -79,22 +105,7 @@ async function approveWithPresence(admin: TestClient, res: Record<string, unknow
     { approvalId },
   );
   expect(got.approval).toMatchObject({ kind: "policy_change", requiresAuthentication: true });
-  const token = got.answerToken ?? "";
-  await new Promise((r) => setTimeout(r, 450)); // past the arm delay
-  const challenge = presenceChallenge(approvalId, got.approval.bindingHash, token);
-  expect(
-    await admin.request(
-      "approvals.answer",
-      {
-        approvalId,
-        answerToken: token,
-        decision: "approve",
-        presence: { kind: "webauthn", deviceId: DEVICE, signature: `signed:${challenge}` },
-      },
-      ik(),
-    ),
-  ).toMatchObject({ ok: true });
-  return { approvalId, approval: got.approval };
+  return { approvalId, approval: got.approval, token: got.answerToken ?? "" };
 }
 
 describe("fresh presence on admin methods", () => {
@@ -104,7 +115,7 @@ describe("fresh presence on admin methods", () => {
       ok: true,
     });
     const first = await admin.request("memory.reset", {}, ik());
-    const { approvalId, approval } = await approveWithPresence(admin, first);
+    const { approvalId, approval } = await approveWithTap(admin, first);
     expect(approval.details).toMatchObject({ method: "memory.reset" });
 
     const key = ik();
@@ -125,7 +136,7 @@ describe("fresh presence on admin methods", () => {
     });
     const scopes = ["operator.read", "operator.write"];
     const first = await admin.request("devices.setupToken.create", { scopes });
-    const { approvalId, approval } = await approveWithPresence(admin, first);
+    const { approvalId, approval } = await approveWithTap(admin, first);
     expect(approval.details).toMatchObject({ method: "devices.setupToken.create" });
     // The card covers those scopes and no others: asking for admin with it is refused.
     expect(
@@ -151,7 +162,7 @@ describe("fresh presence on admin methods", () => {
     });
     const scopes = ["operator.read", "operator.write"];
     const first = await admin.request("devices.setupToken.create", { scopes });
-    const { approvalId } = await approveWithPresence(admin, first);
+    const { approvalId } = await approveWithTap(admin, first);
     // A second Host-shell admin presents device A's approved card.
     const keyB = newDeviceKey();
     (await desktopClient(c.gateway, keyB, "admin-b")).close();
@@ -185,7 +196,7 @@ describe("fresh presence on admin methods", () => {
 });
 
 describe("fail closed once presence was enrolled", () => {
-  it("losing the last verifier fails security changes presence_required, not admin-only", async () => {
+  it("losing the last verifier leaves security changes one tap, not admin-only and not presence_required", async () => {
     const keys = new Map<string, string>();
     const { admin } = await boot(undefined, [
       (s) => composeHelper(s, { presenceKeys: (id) => keys.get(id) }),
@@ -200,12 +211,39 @@ describe("fail closed once presence was enrolled", () => {
     await admin.call("devices.list", {});
     keys.delete(DEVICE);
 
-    const res = await policy();
-    expect(res).toMatchObject({ ok: false, error: { code: "presence_required" } });
-    expect(await admin.request("memory.reset", {}, ik())).toMatchObject({
-      ok: false,
-      error: { code: "presence_required" },
-    });
+    // Presence is for payments only: the change still needs its card, and a tap approves it.
+    const { approvalId } = await approveWithTap(admin, await policy());
+    expect(
+      await admin.request(
+        "settings.set",
+        { key: "permissions.policy", value: { allow: [] }, approvalId },
+        ik(),
+      ),
+    ).toMatchObject({ ok: true });
+    const mem = await admin.request("memory.reset", {}, ik());
+    expect(mem).toMatchObject({ ok: false, error: { code: "approval_required" } });
+  });
+
+  it("enrolling a presence verifier still fails closed with no verifier, and its card needs presence", async () => {
+    const keys = new Map<string, string>();
+    const { c } = await boot(undefined, [
+      (s) => composeHelper(s, { presenceKeys: (id) => keys.get(id) }),
+    ]);
+    const phone = await desktopClient(c.gateway, newDeviceKey(), "phone-strong");
+    clients.push(phone);
+    const finish = () =>
+      phone.request("passkeys.register.finish", { ceremonyId: "cer_x", response: {} }, ik());
+    // Presence ready (a verifier exists): the card for adding the first passkey needs presence.
+    keys.set(DEVICE, "registered-key");
+    const strong = await strongCard(phone, await finish());
+    await new Promise((r) => setTimeout(r, 450));
+    // A tap with no presence assertion is refused (no verifier is configured at the broker here,
+    // so the card's flag is what the UI/helper act on; the helper path is in helper-presence-key).
+    expect(strong.approval.requiresAuthentication).toBe(true);
+    // The last verifier goes: the enrollment stays sticky, so this fails closed.
+    await phone.call("devices.list", {}).catch(() => undefined);
+    keys.delete(DEVICE);
+    expect(await finish()).toMatchObject({ ok: false, error: { code: "presence_required" } });
   });
 
   it("psyched presence reset waits 24 hours in plain view, then clears the enrollment", async () => {

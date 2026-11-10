@@ -72,15 +72,15 @@ export const onboarding: Partial<Catalogue> = {
     "早间简报已关闭，因此人物暂时不会出现在任何地方。开启后即可看到。",
   "onboarding.safety.lead":
     "批准如何送达你，以及哪些事项会自行运行。这里不会询问对文件、App 和屏幕的访问权限：{name}首次需要时会在聊天中询问。",
-  "onboarding.safety.touchId": "用 Touch ID 批准",
+  "onboarding.safety.touchId": "用 Touch ID 付款",
   "onboarding.safety.touchId.checking": "正在检查 Mac 助手…",
   "onboarding.safety.touchId.again": "重新检查",
   "onboarding.safety.touchId.set": "设置",
-  "onboarding.safety.touchId.setHint": "需要你批准的操作会请你按指纹。",
+  "onboarding.safety.touchId.setHint": "付款会请你按指纹或输入 Mac 密码。",
   "onboarding.safety.touchId.starting": "Mac 助手仍在启动。请稍后再检查。",
   "onboarding.safety.touchId.noKey": "Mac 助手没有 Touch ID 密钥（{reason}）。",
   "onboarding.safety.touchId.register": "注册此密钥",
-  "onboarding.safety.touchId.hint": "注册一次 Mac 助手的密钥，Touch ID 才能确认批准。",
+  "onboarding.safety.touchId.hint": "注册一次 Mac 助手的密钥，Touch ID 才能确认付款。",
   "onboarding.safety.notifications": "通知",
   "onboarding.safety.asks":
     "如果你让{name}在这台 Mac 上运行命令，只读取内容的命令（如 ls 或 cat）无需卡片即可运行。其他任何命令都会先询问你。",

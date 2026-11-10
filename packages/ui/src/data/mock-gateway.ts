@@ -3126,6 +3126,12 @@ export class MockGateway implements GatewayClient {
       tool.enabled = p.enabled;
       return { tools: structuredClone(this.mcpDetailOf(p.serverId).tools) };
     },
+    "mcp.handlesMoney.set": (p) => {
+      const s = this.mcpServer(p.serverId);
+      if (p.mode === "auto") delete s.handlesMoney;
+      else s.handlesMoney = p.mode === "always";
+      return { server: structuredClone(s) };
+    },
     "mcp.setEnabled": (p) => {
       const s = this.mcpServer(p.serverId);
       if (p.enabled) delete s.enabled;

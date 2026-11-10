@@ -227,9 +227,6 @@ export async function saveMemory(call: Call, choices: MemoryChoices): Promise<vo
   }
 }
 
-/** `devices.presence.allowDevFileKey` (Gateway `DEV_FILE_KEY_SETTING`). */
-const DEV_FILE_KEY_SETTING = "devices.presence.allowDevFileKey";
-
 /** The desktop's Touch ID methods onboarding uses (`platform.helper.touchId`). */
 export interface HelperTouchId {
   identity(): Promise<BundledHelperKey | null>;
@@ -237,9 +234,11 @@ export interface HelperTouchId {
 }
 
 /**
- * Touch ID key setup for Safety, in the same Gateway calls Settings → Devices makes: the key the
- * bundled helper reports, whether the Gateway holds it, the development-key switch, and
- * registering exactly that key. Without a helper port (the web) there is no setup to offer.
+ * Presence key setup for Safety, in the same Gateway calls Settings → Devices makes: the key the
+ * bundled helper reports, whether the Gateway holds it, and registering exactly that key (a
+ * Windows Hello key). A Mac helper needs no key: the Gateway lists its own device key for it, so
+ * it reads as set up once the helper is paired. Without a helper port (the web) there is no setup
+ * to offer.
  */
 export function touchIdSetup(
   call: Call,
@@ -250,26 +249,21 @@ export function touchIdSetup(
     async status() {
       const identity = await helper.identity().catch(() => null);
       let registered = false;
-      if (identity?.keyId !== undefined) {
+      if (identity !== null) {
         const list = (await call("devices.presenceKey.list", {}).catch(() => ({
           presenceKeys: [],
-        }))) as { presenceKeys: { deviceId: string; keyId: string }[] };
+        }))) as { presenceKeys: { deviceId: string; keyId: string; kind?: string }[] };
         registered = list.presenceKeys.some(
-          (k) => k.deviceId === identity.deviceId && k.keyId === identity.keyId,
+          (k) =>
+            k.deviceId === identity.deviceId &&
+            (k.kind === "device_identity" ||
+              (identity.keyId !== undefined && k.keyId === identity.keyId)),
         );
       }
-      const dev = await readSettings(call, [DEV_FILE_KEY_SETTING]);
-      return { identity, registered, allowDevFileKey: dev[DEV_FILE_KEY_SETTING] === true };
+      return { identity, registered };
     },
     async register() {
       await helper.register();
-    },
-    async allowDevFileKey(on) {
-      await call(
-        "settings.set",
-        { key: DEV_FILE_KEY_SETTING, value: on },
-        { idempotencyKey: key("dev-file-key") },
-      );
     },
   };
 }

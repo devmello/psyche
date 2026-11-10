@@ -56,6 +56,7 @@ Psyche is alpha software (0.3). These parts of the design are not built, or only
 - `state/psyche.sqlite`, your workspace and the Library are not encrypted by Psyche. They rely on FileVault (or LUKS on Linux).
 - Per-task origin sets for the browser are honored by the broker, but nothing fills them yet.
 - The Gateway does not yet check the code signature of a local client. Any process running as you that can read the per-launch handshake secret can pair as the desktop or the helper, with read, write and approval scopes but never admin.
+- Payment approval (Touch ID or your Mac password) does not protect against a stolen or compromised admin device. That device can approve Mac-control actions with a tap, run a program as you, take over the helper's identity and sign the payment check itself. This is your choice from 2026-11-09, for usability. Revoke a lost admin device from another one. See [Approvals and tiers](/security/approvals-and-tiers).
 - Mobile TLS pinning is not built; there is no mobile client yet.
 - The auto-update check stays off until a release signing key is embedded in the app.
 

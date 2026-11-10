@@ -494,7 +494,7 @@ export class PolicyEngine {
         const floor = matrixFloor(kind, se, lifted);
         if (floor === undefined)
           allowances.push(
-            lifted && floorClass(kind, se) !== undefined
+            lifted && floorClass(kind, se) !== undefined && se !== "financial"
               ? { rule: `${rule}:override`, lifted: true }
               : { rule },
           );
@@ -502,7 +502,9 @@ export class PolicyEngine {
           floors.push({
             rule: `${rule}:floor`,
             reason: floor,
-            ...(floorClass(kind, se) === undefined ? {} : { grantLiftable: true as const }),
+            ...(floorClass(kind, se) === undefined || se === "financial"
+              ? {}
+              : { grantLiftable: true as const }),
           });
       }
     }
@@ -891,7 +893,7 @@ export class PolicyEngine {
       case "destructive":
         return ask(modeRule);
       case "financial":
-        return ask(modeRule, undefined, ["once", "always"]);
+        return ask(modeRule, undefined, ["once"]);
     }
   }
 

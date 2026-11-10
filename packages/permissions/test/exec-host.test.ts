@@ -41,7 +41,7 @@ describe("exec_host", () => {
     expect(d.missing).toEqual({ need: "folder", path: "/work/app", access: "read_write" });
   });
 
-  it("asks every call, device-only with presence, offering once or always", async () => {
+  it("asks every call, device-only, offering once or always, with a tap and no presence", async () => {
     const h = makeBroker({ policy: ON });
     const d = await h.broker.decide(host(["ls"]), CTX);
     expect(d.decision).toBe("ask");
@@ -49,7 +49,8 @@ describe("exec_host", () => {
     expect(d.scopesOffered).toEqual(["once", "always"]);
     const { approval } = await approve(h, host(["ls"]), CTX, "once");
     expect(approval.deviceOnly).toBe(true);
-    expect(approval.requiresAuthentication).toBe(true);
+    // Presence is for payments only: a host command is one tap on its card.
+    expect(approval.requiresAuthentication).toBe(false);
     // `once` covers nothing after it: the same command asks again.
     expect((await h.broker.decide(host(["ls"]), CTX)).decision).toBe("ask");
   });
@@ -153,7 +154,7 @@ describe("missing permissions", () => {
     expect(d.missing).toBeUndefined();
   });
 
-  it("permission requests are device-only, once only, and need presence only to turn on", async () => {
+  it("permission requests are device-only and once only, and need no presence", async () => {
     const h = makeBroker();
     const req = (sideEffect: "write" | "none") =>
       h.broker.requestApproval({
@@ -171,7 +172,7 @@ describe("missing permissions", () => {
     const on = await req("write");
     expect(on.approval).toMatchObject({
       deviceOnly: true,
-      requiresAuthentication: true,
+      requiresAuthentication: false,
       scopesOffered: ["once"],
       surfaces: ["desktop"],
     });

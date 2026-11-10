@@ -46,10 +46,7 @@ export const linux: Partial<Record<MessageId, string>> = {
     "Allowed once (password approvals from this window are once only)",
   "blocks.approval.touchId.keyUnavailable":
     "This build of the Linux helper can't keep an approval key, so cards that need your password can't be approved on this computer.",
-  "blocks.approval.touchId.cancelled": "The password prompt was cancelled, so nothing was approved",
   "shell.shortcut.pushToTalkKeys": "Hold Right Ctrl",
-  "settings.shared.needsPresence":
-    "Changing “{label}” needs your approval with your password or a passkey. Approve it in Settings or in the Psyche notification, then change it again.",
   "settings.page.permissions.description":
     "What {persona} may do on this computer without asking, and where it always stops to ask you.",
   "settings.page.data.description":
@@ -148,8 +145,6 @@ export const linux: Partial<Record<MessageId, string>> = {
     "No password key yet. Cards that need your password can't be approved until one is registered.",
   "settings.devices.touchId.noBundledKey":
     "The Linux helper in this app has no approval key ({reason}).",
-  "settings.devices.touchId.manualHint":
-    "Run psyche-helper --print-identity on the computer and paste the presenceKeyId it prints.",
   "settings.devices.noNodes":
     "No nodes. The Linux helper appears here once Psyche runs on this computer.",
   "settings.files.execHost": "Run commands on this computer",
@@ -294,14 +289,14 @@ export const linux: Partial<Record<MessageId, string>> = {
   "onboarding.model.kind.localHint": "Runs on this computer; nothing leaves it.",
   "onboarding.model.subscriptionNote":
     "Psyche uses the Claude Code or Codex app already signed in on this computer, so it needs no API key and stores none. Sign in there first if you haven't.",
-  "onboarding.safety.touchId": "Your password for approvals",
+  "onboarding.safety.touchId": "Your password for payments",
   "onboarding.safety.touchId.checking": "Looking at the Linux helper…",
-  "onboarding.safety.touchId.setHint": "Approvals that need you ask for your password.",
+  "onboarding.safety.touchId.setHint": "Payments ask for your password.",
   "onboarding.safety.touchId.starting":
     "The Linux helper is still starting. Check again in a moment.",
   "onboarding.safety.touchId.noKey": "The Linux helper has no approval key ({reason}).",
   "onboarding.safety.touchId.hint":
-    "Register the Linux helper’s key once, so your password can confirm approvals.",
+    "Register the Linux helper’s key once, so your password can confirm payments.",
   "onboarding.safety.asks":
     "If you let {name} run commands on this computer, ones that only read, like ls or cat, run without a card. Anything else asks you first.",
   "onboarding.done.touchId": "Your password",

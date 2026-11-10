@@ -917,7 +917,7 @@ export const hi: Partial<Catalogue> = {
   "shell.usage.openHint": "सेटिंग्ज़ → उपयोग के लिए क्लिक करें।",
 
   "settings.shared.needsPresence":
-    "“{label}” बदलने के लिए Touch ID या पासकी से आपकी स्वीकृति चाहिए। इसे सेटिंग्ज़ में या Psyche सूचना में स्वीकृत करें, फिर इसे दोबारा बदलें।",
+    "“{label}” बदलने के लिए आपकी स्वीकृति चाहिए। इसे सेटिंग्ज़ में या Psyche सूचना में स्वीकृत करें, फिर इसे दोबारा बदलें।",
   "settings.shared.saveFailed": "Psyche “{label}” सेव नहीं कर सका ({reason})। कुछ नहीं बदला।",
   "settings.shared.loading": "{label} लोड हो रहा है",
   "settings.shared.nothingChanged": "कुछ नहीं बदला गया।",

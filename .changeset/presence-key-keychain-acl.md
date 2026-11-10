@@ -1,6 +1,0 @@
----
-"@psyche/protocol": minor
-"@psyche/ui": minor
----
-
-Touch ID presence key kind `enclave_keychain_acl`: for builds without a provisioning profile (a self-signed release), the Secure Enclave key's wrapped blob lives in a login-keychain item with a helper-only access list, sealed and audited so the helper refuses anything it cannot vouch for (`presence_key_untrusted`, shown in Settings › Devices and on the approval card) and never repairs it silently. It makes no key from a translocated or non-Applications location, remembers that a key existed, and `psyche-helper --reset-presence-key` (Terminal, owner authentication, Psyche Helper quit) is the owner's reset. The Gateway accepts the `keychain` and `enclave_keychain_acl` kinds in every build, refuses unknown kinds, and needs `devices.presence.allowDevFileKey` for a missing kind or the development file key. A registration that replaces a different or removed key says REPLACE on the approval card (or asks the owner to confirm by naming the old key id via `confirmReplacesKeyId`) and is audited with the requesting device; Remove is audited too. `--print-identity` is read only. Old development file keys are kept until the owner runs `psyche-helper --retire-legacy-presence-key`; register again.

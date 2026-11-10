@@ -76,17 +76,17 @@ export const onboardingRest: Partial<Catalogue> = {
     "아침 브리핑이 꺼져 있어 사람은 아직 어디에도 표시되지 않습니다. 켜면 표시됩니다.",
   "onboarding.safety.lead":
     "승인이 전달되는 방식과 자동으로 실행되는 내용을 설정합니다. 파일, 앱, 화면에 대한 접근은 여기서 묻지 않으며, {name}이(가) 처음 필요할 때 대화에서 묻습니다.",
-  "onboarding.safety.touchId": "승인에 Touch ID 사용",
+  "onboarding.safety.touchId": "결제에 Touch ID 사용",
   "onboarding.safety.touchId.checking": "Mac 도우미를 확인하는 중…",
   "onboarding.safety.touchId.again": "다시 확인",
   "onboarding.safety.touchId.set": "설정",
-  "onboarding.safety.touchId.setHint": "사용자의 확인이 필요한 승인에서는 지문을 요청합니다.",
+  "onboarding.safety.touchId.setHint": "결제에서는 지문 또는 Mac 암호를 요청합니다.",
   "onboarding.safety.touchId.starting":
     "Mac 도우미가 아직 시작 중입니다. 잠시 후 다시 확인하십시오.",
   "onboarding.safety.touchId.noKey": "Mac 도우미에 Touch ID 키가 없습니다 ({reason}).",
   "onboarding.safety.touchId.register": "이 키 등록",
   "onboarding.safety.touchId.hint":
-    "Mac 도우미의 키를 한 번 등록하면 Touch ID로 승인을 확인할 수 있습니다.",
+    "Mac 도우미의 키를 한 번 등록하면 Touch ID로 결제를 확인할 수 있습니다.",
   "onboarding.safety.notifications": "알림",
   "onboarding.safety.asks":
     "{name}이(가) 이 Mac에서 명령을 실행하도록 허용하면 ls나 cat처럼 읽기만 하는 명령은 카드 없이 실행됩니다. 그 밖의 명령은 먼저 확인합니다.",

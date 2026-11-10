@@ -11,8 +11,6 @@ export const passwordPresence: Partial<Catalogue> = {
     "Einmal erlaubt (Passwort-Freigaben aus diesem Fenster gelten nur einmal)",
   "blocks.approval.password.noUnsandboxed":
     "Einen Befehl ohne Sandbox auszuführen, lässt sich aus diesem Fenster nicht mit einem Passwort freigeben. Richten Sie stattdessen die Sandbox ein",
-  "blocks.approval.password.cancelled":
-    "Der Passwortdialog wurde abgebrochen, daher wurde nichts freigegeben",
   "blocks.approval.password.failed":
     "Das Passwort wurde nicht akzeptiert, daher wurde nichts freigegeben. Versuchen Sie es erneut.",
   "blocks.approval.password.unavailableHere":

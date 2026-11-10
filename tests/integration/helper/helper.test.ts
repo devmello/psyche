@@ -129,32 +129,42 @@ describe("Touch ID approvals through the Mac helper", () => {
       interruptionLevel: "timeSensitive",
       presenceChallenge: presenceChallenge(a.id, a.bindingHash, token),
       actions: [
-        { id: "approve", authenticationRequired: true, destructive: false },
+        // The owner sheet is the helper's own, once: no extra system unlock on the button.
+        { id: "approve", authenticationRequired: false, destructive: false },
         { id: "deny", destructive: true },
       ],
     });
     expect(card.title).toBe("Pay · financial");
     expect(JSON.stringify(card)).not.toContain(token);
+    // The bare 64-hex digest the Swift helper accepts (a `sha256:` prefix made it refuse all).
+    expect(card.presenceChallenge).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it("refuses an approve without a presence assertion (the M1 helper's boolean only)", async () => {
+  it("does not approve without a presence assertion (the M1 helper's boolean only), and says nothing", async () => {
     helper = await connectHelper();
     const { approval } = await request();
     await armed();
     await helper.tap(approval.id, { actionId: "approve", unsigned: true });
     await settled();
     expect(await status(approval.id)).toBe("pending");
-    expect(await lastRejection(approval.id)).toBe("presence_required");
+    // Not an answer at all: nothing reaches the broker, so nothing is counted against anyone.
+    expect(await lastRejection(approval.id)).toBeUndefined();
   });
 
-  it("refuses an approve when Touch ID failed, even if the helper signed", async () => {
+  it("a cancelled or failed owner sheet is a quiet not-approved, and the card stays pending", async () => {
     helper = await connectHelper();
     const { approval } = await request();
     await armed();
-    await helper.tap(approval.id, { actionId: "approve", touchId: false });
+    for (let i = 0; i < 20; i++) {
+      await helper.tap(approval.id, { actionId: "approve", touchId: false });
+    }
     await settled();
     expect(await status(approval.id)).toBe("pending");
-    expect(await lastRejection(approval.id)).toBe("presence_required");
+    expect(await lastRejection(approval.id)).toBeUndefined();
+    // Not rate limited by the cancels: the real answer still approves.
+    await helper.tap(approval.id, { actionId: "approve" });
+    await settled();
+    expect(await status(approval.id)).toBe("approved");
   });
 
   it("approves with a valid assertion from the helper and withdraws the banner", async () => {

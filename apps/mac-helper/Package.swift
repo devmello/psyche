@@ -6,12 +6,6 @@ import PackageDescription
 // SwiftPM builds the executable only; .app bundling, Info.plist, entitlements and signing are S14's
 // (placeholders live in Support/).
 
-// The Secure Enclave plain-file key (security §10) is for development only: the release workflow
-// sets PSYCHE_PUBLIC_RELEASE=1, which leaves it out. Releases use the login-keychain ACL key
-// (`enclave_keychain_acl`), which needs no provisioning profile.
-let publicRelease = ProcessInfo.processInfo.environment["PSYCHE_PUBLIC_RELEASE"] == "1"
-let presenceSettings: [SwiftSetting] = publicRelease ? [] : [.define("PSYCHE_PRESENCE_FILE_FALLBACK")]
-
 let protocolProduct = Target.Dependency.product(name: "PsycheProtocol", package: "protocol-swift")
 let wireProduct = Target.Dependency.product(name: "PsycheWire", package: "protocol-swift")
 
@@ -33,7 +27,7 @@ let package = Package(
         .target(name: "PsycheHelperCore", dependencies: [protocolProduct, wireProduct]),
         // Live adapters over Apple frameworks (AX, CGEvent, ScreenCaptureKit, Keychain,
         // UserNotifications, Speech, AVFoundation, Apple Events) and the capability groups.
-        .target(name: "PsycheHelperSystem", dependencies: ["PsycheHelperCore", protocolProduct, wireProduct], swiftSettings: presenceSettings),
+        .target(name: "PsycheHelperSystem", dependencies: ["PsycheHelperCore", protocolProduct, wireProduct]),
         .executableTarget(name: "PsycheHelper", dependencies: ["PsycheHelperSystem", "PsycheHelperCore", protocolProduct, wireProduct]),
         .testTarget(name: "PsycheHelperCoreTests", dependencies: ["PsycheHelperCore", protocolProduct, wireProduct]),
         .testTarget(name: "PsycheHelperSystemTests", dependencies: ["PsycheHelperSystem", "PsycheHelperCore", protocolProduct, wireProduct]),

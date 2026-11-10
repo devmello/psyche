@@ -151,6 +151,17 @@ export const settingsB: Partial<Catalogue> = {
   "settings.mcp.tools.notConnected":
     "Este servidor no está conectado, así que no lista herramientas.",
   "settings.mcp.tools.none": "Este servidor no tiene herramientas.",
+  "settings.mcp.money.title": "Pagos",
+  "settings.mcp.money.description":
+    "Una herramienta que mueve dinero te pide confirmar el pago cada vez. Indica cuáles de las herramientas de este servidor lo hacen.",
+  "settings.mcp.money.auto": "Decidir por el nombre de cada herramienta",
+  "settings.mcp.money.autoHint":
+    "Psyche lo deduce del nombre y la descripción de la herramienta, que un servidor puede redactar para evitarlo.",
+  "settings.mcp.money.always": "Todas las herramientas mueven dinero",
+  "settings.mcp.money.alwaysHint": "Cada llamada a este servidor te pide aprobar un pago.",
+  "settings.mcp.money.never": "Ninguna herramienta mueve dinero",
+  "settings.mcp.money.neverHint":
+    "Ninguna llamada pide aprobar un pago, se llame como se llame la herramienta. Solo para un servidor que no puede gastar dinero.",
   "settings.mcp.secrets.title": "Secretos",
   "settings.mcp.secrets.intro":
     "Claves con las que arranca este servidor. Se quedan en tu bóveda; Psyche solo muestra si cada una está definida.",

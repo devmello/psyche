@@ -71,6 +71,10 @@ const isObj = (v: unknown): v is Record<string, unknown> =>
 /**
  * Entries of `mcp.servers` that came from a shared file are written back with the marker, tier,
  * transport, sandbox and working folder they had; an entry cannot claim the marker for itself.
+ *
+ * `handlesMoney` (whether a server's tools are payments) changes only through
+ * `mcp.handlesMoney.set`, which raises its own card: a raw write keeps the stored value for an
+ * existing server, and a new server may only turn it on (stricter), never off.
  */
 export function keepBundleProtections(stored: unknown, incoming: unknown): unknown {
   if (!Array.isArray(incoming)) return incoming;
@@ -80,7 +84,13 @@ export function keepBundleProtections(stored: unknown, incoming: unknown): unkno
   return incoming.map((e) => {
     if (!isObj(e) || typeof e.id !== "string") return e;
     const was = before.get(e.id);
-    const { bundle: _claimed, ...rest } = e;
+    const { bundle: _claimed, handlesMoney: claimedMoney, ...base } = e;
+    const rest: Record<string, unknown> = { ...base };
+    if (was === undefined) {
+      if (claimedMoney === true) rest.handlesMoney = true;
+    } else if (was.handlesMoney !== undefined) {
+      rest.handlesMoney = was.handlesMoney;
+    }
     if (was === undefined || !isObj(was.bundle)) return rest;
     // The command, arguments and variables are what was approved too; values are set through
     // `mcp.secrets.replace`, which writes the setting itself.
