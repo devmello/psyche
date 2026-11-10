@@ -62,7 +62,7 @@ The schema rejects unknown keys, so a typo cannot silently disable a rule. Defau
 | `approvals.ttlMinutes` | How long an approval card stays answerable | 30 | [broker.ts](https://github.com/devmello/psyche/blob/main/packages/permissions/src/broker.ts) |
 | `approvals.deviceOnly` | Extra approval kinds never sent to chat (the built-in set always applies) | none | [policy.ts](https://github.com/devmello/psyche/blob/main/packages/permissions/src/policy.ts) |
 | `approvals.chatScopes` | Scopes a chat answer may grant | `once` | [policy.ts](https://github.com/devmello/psyche/blob/main/packages/permissions/src/policy.ts) |
-| `approvals.answersPerMinute` | Rate limit on approval answers per identity | 10 | [broker.ts](https://github.com/devmello/psyche/blob/main/packages/permissions/src/broker.ts) |
+| `approvals.answersPerMinute` | Lockout base for refused, guessing-shaped approval answers per identity (×6 a minute); real decisions are never capped | 10 | [broker.ts](https://github.com/devmello/psyche/blob/main/packages/permissions/src/broker.ts) |
 | `deny`, `ask`, `allow` | Rules: `"<tool glob>"`, `"<tool glob>(<target glob>)"`, or `"<origin\|path\|recipient\|app\|account\|command>:<glob>"` | none | [policy.ts](https://github.com/devmello/psyche/blob/main/packages/permissions/src/policy.ts) |
 | `connectors` | Per connector, per action: `allow`, `ask` or `deny` | none | [policy.ts](https://github.com/devmello/psyche/blob/main/packages/permissions/src/policy.ts) |
 | `apps` | Per-app tier by bundle id; `computerUse.apps` is layered on top | none | [policy.ts](https://github.com/devmello/psyche/blob/main/packages/permissions/src/policy.ts) |
