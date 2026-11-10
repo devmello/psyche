@@ -217,7 +217,7 @@ export function batchChildId(batchApprovalId: string, index: number): string {
 }
 
 /**
- * Guessing-shaped rejections (a wrong token, a failed sheet, a missing presence assertion) per
+ * Guessing-shaped rejections (a wrong or replayed token, a failed sheet or password) per
  * identity per minute, as a multiple of `approvals.answersPerMinute`, before a lockout. Real
  * decisions are never capped: the owner tapping Allow on card after card must not trip anything
  * (owner decision 2026-11-09), and a decision needs the card's own one-time token anyway.
