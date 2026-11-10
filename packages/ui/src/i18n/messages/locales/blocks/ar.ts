@@ -108,7 +108,7 @@ export const blocks: Partial<Catalogue> = {
   "blocks.details.reason": "السبب",
   "blocks.approval.answerOnHost":
     "أجب على {host}، أو أعدّ Touch ID للموافقات على هذا الكمبيوتر في الإعدادات ← الأجهزة.",
-  "blocks.approval.rateLimited": "موافقات كثيرة جدًا في دقيقة. حاول مجددًا بعد {seconds} ث.",
+  "blocks.approval.rateLimited": "محاولات كثيرة جدًا في دقيقة. حاول مجددًا بعد {seconds} ث.",
   "blocks.approval.touchIdFailed": "فشل Touch ID: {reason}. حاول مجددًا.",
   "blocks.approval.touchIdFailedNoReason": "فشل Touch ID. حاول مجددًا.",
   "blocks.approval.touchIdInvalid": "تعذّر على Psyche التحقق من أنك أنت",

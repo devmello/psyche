@@ -1115,7 +1115,7 @@ export class PsychePermissionBroker implements PermissionBroker {
         by,
         "rate_limited",
         "rate_limited",
-        `Too many approvals in a minute. Try again in ${retryAfterSec} s`,
+        `Too many tries in a minute. Try again in ${retryAfterSec} s`,
         { retryAfterSec },
       );
     const rec = this.#store.getApproval(id);
@@ -1192,7 +1192,7 @@ export class PsychePermissionBroker implements PermissionBroker {
         by,
         "rate_limited",
         "rate_limited",
-        `Too many approvals in a minute. Try again in ${retryAfterSec} s`,
+        `Too many tries in a minute. Try again in ${retryAfterSec} s`,
         { retryAfterSec },
       );
     const rec = this.#store.getApproval(id);

@@ -117,7 +117,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.answerOnHost":
     "Antworte auf {host} oder richte unter Einstellungen → Geräte Touch ID für Genehmigungen auf diesem Computer ein.",
   "blocks.approval.rateLimited":
-    "Zu viele Genehmigungen in einer Minute. Versuche es in {seconds} s erneut.",
+    "Zu viele Versuche in einer Minute. Versuche es in {seconds} s erneut.",
   "blocks.approval.touchIdFailed": "Touch ID fehlgeschlagen: {reason}. Versuche es erneut.",
   "blocks.approval.touchIdFailedNoReason": "Touch ID fehlgeschlagen. Versuche es erneut.",
   "blocks.approval.touchIdInvalid": "Psyche konnte nicht bestätigen, dass du es warst",

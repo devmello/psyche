@@ -218,7 +218,7 @@ export const blocks = {
   "blocks.approval.alwaysUntil": "Always allow until",
   "blocks.approval.deny": "Deny",
   "blocks.approval.needsAuth": "Needs Touch ID or a passkey to approve.",
-  "blocks.approval.rateLimited": "Too many approvals in a minute. Try again in {seconds} s.",
+  "blocks.approval.rateLimited": "Too many tries in a minute. Try again in {seconds} s.",
   "blocks.approval.touchIdFailed": "Touch ID failed: {reason}. Try again.",
   "blocks.approval.touchIdFailedNoReason": "Touch ID failed. Try again.",
   "blocks.approval.touchIdInvalid": "Psyche couldn't verify it was you",

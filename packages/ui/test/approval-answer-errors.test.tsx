@@ -102,7 +102,7 @@ describe("answer failures on the card", () => {
     await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).click(allow());
     await waitFor(() =>
       expect(screen.getByRole("alert").textContent).toMatch(
-        /Too many approvals in a minute\. Try again in \d s\./,
+        /Too many tries in a minute\. Try again in \d s\./,
       ),
     );
     expect(allow().disabled).toBe(true);
@@ -110,7 +110,7 @@ describe("answer failures on the card", () => {
       vi.advanceTimersByTime(4000);
     });
     await waitFor(() => expect(allow().disabled).toBe(false));
-    expect(screen.queryByText(/Too many approvals/)).toBeNull();
+    expect(screen.queryByText(/Too many tries/)).toBeNull();
   });
 
   it("a Touch ID failure is shown on the card", async () => {

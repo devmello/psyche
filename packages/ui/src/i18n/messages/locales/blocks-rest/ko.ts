@@ -112,7 +112,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.answerOnHost":
     "{host}에서 답하거나 설정 → 기기에서 이 컴퓨터의 승인용 Touch ID를 설정하십시오.",
   "blocks.approval.rateLimited":
-    "1분 동안 승인 횟수가 너무 많습니다. {seconds}초 후에 다시 시도하십시오.",
+    "1분 동안 시도 횟수가 너무 많습니다. {seconds}초 후에 다시 시도하십시오.",
   "blocks.approval.touchIdFailed": "Touch ID에 실패했습니다: {reason}. 다시 시도하십시오.",
   "blocks.approval.touchIdFailedNoReason": "Touch ID에 실패했습니다. 다시 시도하십시오.",
   "blocks.approval.touchIdInvalid": "Psyche가 본인임을 확인하지 못했습니다",
