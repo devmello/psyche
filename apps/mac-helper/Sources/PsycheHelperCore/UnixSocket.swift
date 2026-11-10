@@ -48,6 +48,7 @@ public final class UnixSocketConnection: @unchecked Sendable {
     /// (`getpeereid`) must be `expectedPeerUID`, this user by default. The owner's Gateway always
     /// runs as the owner, so this never refuses it; it stops the helper from handing its handshake
     /// secret and capabilities to another account's process at a path it was pointed to.
+    /// `expectedPeerUID` is a test seam only: production callers must not pass it.
     public convenience init(path: String, expectedPeerUID: uid_t = getuid()) throws {
         guard FileManager.default.fileExists(atPath: path) else { throw NodeSocketError.socketMissing(path: path) }
         var addr = sockaddr_un()

@@ -125,8 +125,6 @@ struct NodeSocketPointerTests {
         "psyche-501/abc.sock\n", // not absolute
         "\n", // empty first line
         "", // empty file
-        "/" + String(repeating: "a", count: 103) + "\n", // 104 bytes: too long for sun_path
-        "/tmp/a\0b.sock\n", // embedded NUL
     ])
     func anUnusablePointerFallsBack(_ contents: String) throws {
         let home = try tempHome()
@@ -144,6 +142,28 @@ struct NodeSocketPointerTests {
         #expect(target.utf8.count == HelperPaths.maxSocketPathBytes)
         try writePointer(home, target + "\n")
         #expect(HelperPaths.nodeSocketPath(environment: ["PSYCHE_HOME": home]) == target)
+    }
+
+    @Test func theLengthAndNULChecksHoldInAPrivateDirectory() throws {
+        // Same private directory for every case, so only the length or NUL check can reject.
+        let home = try tempHome()
+        let dir = try privateSocketDir()
+        defer { cleanUp(home); cleanUp(dir) }
+        let env = ["PSYCHE_HOME": home]
+        let fits = dir + "/" + String(repeating: "a", count: HelperPaths.maxSocketPathBytes - dir.utf8.count - 1)
+        #expect(fits.utf8.count == 103)
+        try writePointer(home, fits + "\n")
+        #expect(HelperPaths.readNodeSocketPointer(environment: env) == fits)
+
+        let tooLong = fits + "a"
+        #expect(tooLong.utf8.count == 104)
+        try writePointer(home, tooLong + "\n")
+        #expect(HelperPaths.readNodeSocketPointer(environment: env) == nil)
+        #expect(HelperPaths.nodeSocketPath(environment: env) == home + "/run/node.sock")
+
+        try writePointer(home, dir + "/a\0b.sock\n")
+        #expect(HelperPaths.readNodeSocketPointer(environment: env) == nil)
+        #expect(HelperPaths.nodeSocketPath(environment: env) == home + "/run/node.sock")
     }
 
     @Test func anOversizedPointerFileIsIgnored() throws {
