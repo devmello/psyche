@@ -125,6 +125,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.appearance.openAtLogin": "Apri Psyche all’accesso",
   "settings.key.browser.useSignedInSessions": "Usa le mie sessioni con accesso effettuato",
   "settings.key.exec.srtPath": "Posizione di srt",
+  "settings.key.devices.hostHelper.status": "Controllo dell'assistente Linux",
   "settings.key.search.model.engine": "Modello per la ricerca",
   "settings.key.search.semantic.enabled": "Ricerca semantica (sul dispositivo)",
   "settings.key.search.cards.enabled": "Schede di contesto per la ricerca",

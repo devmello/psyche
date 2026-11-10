@@ -124,6 +124,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.appearance.openAtLogin": "ログイン時にPsycheを開く",
   "settings.key.browser.useSignedInSessions": "サインイン済みのセッションを使う",
   "settings.key.exec.srtPath": "srtの場所",
+  "settings.key.devices.hostHelper.status": "Linux ヘルパーの確認",
   "settings.key.search.model.engine": "検索用のモデル",
   "settings.key.search.semantic.enabled": "セマンティック検索（オンデバイス）",
   "settings.key.search.cards.enabled": "検索用のコンテキストカード",

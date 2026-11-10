@@ -172,6 +172,7 @@ export const settings = {
   "settings.key.browser.useSignedInSessions": "Use my signed-in sessions",
   "settings.key.computerUse.enabled": "Allow computer use",
   "settings.key.exec.srtPath": "srt location",
+  "settings.key.devices.hostHelper.status": "Linux helper check",
   "settings.key.computerUse.apps": "App access",
   "settings.key.context.maxTokens": "Context limit",
   "settings.key.search.model.engine": "Model for search",
