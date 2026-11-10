@@ -10,7 +10,11 @@ The orchestrator gave you a brief and usually a `/goal`. Your job is one focused
 ## 1. Understand before editing
 
 - Restate the task to yourself in one line. If the brief names files, read them first. Otherwise search: `grep -rn` on the user-visible string or error text is usually the fastest way in.
-- Check the domain skills under `.claude/skills/`. Use `psyche-i18n` for any string and `psyche-apple` for Swift, iOS or the Mac helper. Use any skill whose description matches your area.
+- Check the domain skills under `.claude/skills/`:
+  - `psyche-i18n` for any string;
+  - `psyche-apple` for Swift, iOS or the Mac helper;
+  - `psyche-permissions` for permissions, approvals, presence, the seal, the Auto allowlist or any payment or risk classifier;
+  - any other skill whose description matches your area.
 - Read `learnings.md` next to this file. It holds traps earlier builders hit.
 - If the brief is ambiguous or seems wrong once you read the code, say so in your report rather than guessing at something large. Small, obvious choices you just make, and you note them in the report.
 
@@ -18,6 +22,9 @@ The orchestrator gave you a brief and usually a `/goal`. Your job is one focused
 
 - Smallest change that fully solves it. Fix the cause, not the symptom, and say what the cause was.
 - Add or update tests that would have caught the bug or prove the feature works. Follow the patterns of the nearest existing test file.
+- **Behaviour changes break old tests.** If you change a rule, a default, an allowlist, an error code or copy a test asserts, `git grep` the tests for the old value and update them in the same commit. This includes an owner decision relayed mid-PR. Eight existing tests broke this way in #1299, #1300 and #1301. One was `model-settings.test.ts` after the small-models decision, left for the orchestrator to fix.
+- **Classifier-like work:** any rule that sorts inputs into "asks" and "doesn't ask", or "counts" and "doesn't count". Write a table-driven test with both lists before you change the rule: inputs that must match, and near-misses that share a word and must not. Every review finding becomes a row. See `psyche-permissions` §3.
+- **A fix that changes a shared predicate** (who is local, enrolled, ready, financial): list its callers and test one you didn't mean to change. Fixes opened new holes in #1299 and #1301. See `psyche-permissions` §2.
 - Keep to the brief's scope. Unrelated problems you notice go in the report under "Noticed", not in the diff.
 - Protocol changes: `pnpm protocol:gen`. If you add an enum value, update the Swift helper's exhaustive `switch` sites and the TS `Record<Kind, …>` maps.
 
@@ -54,4 +61,6 @@ End your turn with:
 
 No praise or filler. If something failed, say it failed.
 
-When the orchestrator sends review findings, fix them on the same branch, verify, push, and report again in the same shape.
+When the orchestrator sends review findings, fix them on the same branch, verify, push, and report again in the same shape:
+- Each finding gets a test that fails without your fix.
+- Run `verify.sh` on the whole branch after every round, even a one-line change. "This change doesn't touch them" is not a reason to skip the related tests (#1300's last round).
