@@ -20,7 +20,8 @@ let usage = """
       --print-identity  print {deviceId} as JSON and exit: the device id the desktop compares with the
                         Gateway before it asks this helper to confirm an approval; read only
 
-    Environment: PSYCHE_NODE_SOCKET (default $PSYCHE_HOME/run/node.sock), PSYCHE_HOME (default ~/.psyche).
+    Environment: PSYCHE_NODE_SOCKET (default: the path in $PSYCHE_HOME/run/node-socket, which the Gateway
+                 writes, else $PSYCHE_HOME/run/node.sock), PSYCHE_HOME (default ~/.psyche).
     Exit codes (--handshake-only): 0 handshake done, 2 socket missing, 3 denied, 4 timeout, 1 other errors.
     """
 
