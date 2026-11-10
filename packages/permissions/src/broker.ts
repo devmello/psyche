@@ -216,7 +216,12 @@ export function batchChildId(batchApprovalId: string, index: number): string {
   return `${batchApprovalId}.${index}`;
 }
 
-/** Guessing-shaped rejections may be this many times the decision budget per minute before a lockout. */
+/**
+ * Guessing-shaped rejections (a wrong or replayed token, a failed sheet or password) per
+ * identity per minute, as a multiple of `approvals.answersPerMinute`, before a lockout. Real
+ * decisions are never capped: the owner tapping Allow on card after card must not trip anything
+ * (owner decision 2026-11-09), and a decision needs the card's own one-time token anyway.
+ */
 const FAILURE_CAP_FACTOR = 6;
 
 /**
@@ -267,8 +272,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     string,
     { call: PolicyCall; ctx: PolicyContext; binding: Binding; decision: PolicyDecision; at: number }
   >();
-  readonly #answerTimes = new Map<string, number[]>();
-  /** Rejected answers per identity: a much higher flood cap, so failures never eat the budget. */
+  /** Rejected, guessing-shaped answers per identity: the only answer cap. */
   readonly #failureTimes = new Map<string, number[]>();
   /** The `decidedBy` objects of calls the Gateway vouched for as the owner's own Host app. */
   readonly #localBy = new WeakSet<object>();
@@ -1021,16 +1025,14 @@ export class PsychePermissionBroker implements PermissionBroker {
   }
 
   /**
-   * Seconds until the identity may answer again, or 0 when under the limit. Peeks only: attempts
-   * that fail authentication or validation never use the budget (see `#recordAnswer`).
+   * Seconds until the identity may answer again, or 0. Only guessing-shaped rejections count
+   * (`#reject`); real decisions never do, however many the owner makes in a minute.
    */
   #retryAfterSec(identity: string, local: boolean): number {
+    // A vouched local call is not held back by guesses made under the same device id.
+    if (local) return 0;
     const limit = this.#policy.config.approvals?.answersPerMinute ?? 10;
-    return Math.max(
-      this.#windowWait(this.#answerTimes, identity, limit),
-      // A vouched local call is not held back by guesses made under the same device id.
-      local ? 0 : this.#windowWait(this.#failureTimes, identity, limit * FAILURE_CAP_FACTOR),
-    );
+    return this.#windowWait(this.#failureTimes, identity, limit * FAILURE_CAP_FACTOR);
   }
 
   /**
@@ -1055,13 +1057,6 @@ export class PsychePermissionBroker implements PermissionBroker {
     if (times.length < limit) return 0;
     const oldest = times[times.length - limit] ?? now;
     return Math.max(1, Math.ceil((oldest + 60_000 - now) / 1000));
-  }
-
-  /** Counts a real decision: the answerer authenticated and every check passed. */
-  #recordAnswer(identity: string): void {
-    const times = this.#answerTimes.get(identity) ?? [];
-    times.push(this.clock.now());
-    this.#answerTimes.set(identity, times);
   }
 
   async #reject(
@@ -1483,8 +1478,6 @@ export class PsychePermissionBroker implements PermissionBroker {
         return this.#reject(rec, id, by, "compose_scope", "invalid_params", "sends are once only");
       }
     }
-
-    this.#recordAnswer(identity);
 
     // First authorized answer wins: re-read, check, mark the token and decide atomically.
     // Re-read the clock after the awaited approver and presence checks (review #14).

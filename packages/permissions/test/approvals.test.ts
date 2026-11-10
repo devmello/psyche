@@ -226,10 +226,29 @@ describe("approval lifecycle", () => {
     expect(ok.status).toBe("denied");
   });
 
-  it("rate-limits real decisions per identity with a retry-after (security §10)", async () => {
+  it("never caps real decisions: the owner can answer card after card (owner decision 2026-11-09)", async () => {
     const h = makeBroker();
     h.clock.advance(500);
-    for (let i = 0; i < 10; i += 1) {
+    // Far past the old 10-a-minute decision cap, all inside one minute, allows and denies mixed.
+    for (let i = 0; i < 40; i += 1) {
+      const issued = await request(h, write());
+      h.clock.advance(500); // the card arms; 40 cards still fit in one minute
+      const answered = await h.broker.answer({
+        approvalId: issued.approval.id,
+        answerToken: issued.answerTokens.desktop ?? "",
+        decision: i % 2 === 0 ? "approve" : "deny",
+        scope: "once",
+        decidedBy: { deviceId: "dev_mac" },
+      });
+      expect(answered.status).toBe(i % 2 === 0 ? "approved" : "denied");
+    }
+  });
+
+  it("still locks out a guessing identity, and real decisions don't count toward it", async () => {
+    const h = makeBroker();
+    h.clock.advance(500);
+    // Real decisions first: they must not shrink the guessing budget.
+    for (let i = 0; i < 20; i += 1) {
       const issued = await request(h, write());
       h.clock.advance(500);
       await h.broker.answer({
@@ -239,24 +258,35 @@ describe("approval lifecycle", () => {
         decidedBy: { deviceId: "dev_mac" },
       });
     }
-    const next = await request(h, write());
+    const target = await request(h, write());
     h.clock.advance(500);
+    // The default guessing cap is 10 x 6 = 60 wrong tokens a minute.
+    for (let i = 0; i < 60; i += 1) {
+      await expect(
+        h.broker.answer({
+          approvalId: target.approval.id,
+          answerToken: `wrong-${i}`,
+          decision: "approve",
+          scope: "once",
+          decidedBy: { deviceId: "dev_mac" },
+        }),
+      ).rejects.toThrow(/unknown answer token/);
+    }
     await expect(
       h.broker.answer({
-        approvalId: next.approval.id,
-        answerToken: next.answerTokens.desktop ?? "",
+        approvalId: target.approval.id,
+        answerToken: target.answerTokens.desktop ?? "",
         decision: "deny",
         decidedBy: { deviceId: "dev_mac" },
       }),
     ).rejects.toMatchObject({
       code: "rate_limited",
-      message: expect.stringMatching(/^Too many approvals in a minute\. Try again in \d+ s/),
       details: { retryAfterSec: expect.any(Number) },
     });
     h.clock.advance(61_000);
     const later = await h.broker.answer({
-      approvalId: next.approval.id,
-      answerToken: next.answerTokens.desktop ?? "",
+      approvalId: target.approval.id,
+      answerToken: target.answerTokens.desktop ?? "",
       decision: "deny",
       decidedBy: { deviceId: "dev_mac" },
     });
