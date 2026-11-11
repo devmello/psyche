@@ -9,5 +9,7 @@ Curated by the `reflect` skill from PR "Learnings" sections, verify failures and
 - Adding a protocol enum value breaks the Swift helper's exhaustive switches, and Linux CI never builds Swift. Grep `apps/mac-helper/Sources` for the enum. (2026-10-26)
 - `pgrep -f "<pattern>"` inside a command line that contains the same pattern matches itself and waits forever. (2026-10-19)
 - Some axe and story checks fail only on macOS (`landmark-unique`), so Linux CI can't see them. (2026-11-02)
-- On this Mac, `apps/gateway/test/separate-desktop.test.ts` (`/var` vs `/private/var`) and `linux-helper-peer-check.test.ts` fail on main too. verify.sh reports them as pre-existing, so don't spend a round on them. (2026-11-09, named in #1299, #1300 and #1301)
 - Never spread client `params` into a call that also carries server-decided trust flags (`local`, `decidedBy`, scope). A client can send the same key, and protocol schemas allow extra properties. Set trust fields only from the connection, after the spread or as a separate argument. (2026-11-09, #1299: `local: true` spoofing bypassed the approval lockout)
+- Don't keep a "fails on main" list here: it goes stale (#1307 and #1310 fixed the three that were listed). verify.sh reports base failures itself. To check one by hand, run the file in a clean checkout of `origin/main`. (2026-11-10)
+- `startTestGateway()` defaults `hostPlatform` to the machine's OS. A test that simulates a `linux-helper` must pass `hostPlatform: "linux"`, or it fails on macOS. Compare `tmpdir()` paths after `realpathSync` (`/var` vs `/private/var`). (2026-11-10, #1307)
+- Wording in the broker's error messages is user-visible: iOS shows the Gateway's English message for a failed approval answer. (2026-11-10, #1309)

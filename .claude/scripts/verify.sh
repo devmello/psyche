@@ -111,13 +111,30 @@ new_failures() {
       if (t.name === process.argv[2]) for (const n of names(t)) if (!bs.has(n)) console.log(n);
   ' "$1" "$2" "$3"
 }
+# base_unloadable <base json> <abs test file> -> prints "yes" when the base run could not tell us
+# anything about this file: no result at all, or the file failed to load (no assertions ran).
+# The new branch's failure is then "unknown whether pre-existing", not "new".
+base_unloadable() {
+  node -e '
+    let r; try { r = require(process.argv[1]); } catch { console.log("yes"); process.exit(0); }
+    const base = (r.testResults || []).find((t) => t.name.endsWith(process.argv[2]));
+    if (!base || (base.status === "failed" && (base.assertionResults || []).length === 0)) console.log("yes");
+  ' "$1" "$2"
+}
 base_tree() { # base_tree -> path of a worktree at $base with deps installed (cached per commit)
-  local common sha dir
-  common="$(cd "$(git rev-parse --git-common-dir)" && pwd)/agent-verify/base"
+  # Not under .git: Vite treats a `.git` path segment as denied, and vitest then cannot load
+  # setupFiles ("Cannot find module '/test/setup.ts'", #1309), so every failure looked new.
+  # The main checkout's .claude/worktrees/ is gitignored and has no `.git` segment.
+  local root common sha dir old
+  common="$(cd "$(git rev-parse --git-common-dir)" && pwd)"
+  root="${VERIFY_BASE_DIR:-$(dirname "$common")/.claude/worktrees/_verify-base}"
   sha="$(git rev-parse --short=12 "$base")"
-  dir="$common/$sha"
-  mkdir -p "$common"
-  find "$common" -mindepth 1 -maxdepth 1 -type d -mtime +2 -exec git worktree remove --force {} \; 2>/dev/null
+  dir="$root/$sha"
+  mkdir -p "$root"
+  for old in "$common"/agent-verify/base/*/; do  # drop trees from before the move
+    [ -d "$old" ] && { git worktree remove --force "$old" 2>/dev/null || rm -rf "$old"; }
+  done
+  find "$root" -mindepth 1 -maxdepth 1 -type d -mtime +2 -exec git worktree remove --force {} \; 2>/dev/null
   if [ ! -f "$dir/.verify-ready" ]; then
     git worktree add --detach "$dir" "$base" >/dev/null 2>&1 || [ -d "$dir" ] || return 1
     (cd "$dir" && pnpm install --frozen-lockfile --prefer-offline >/dev/null 2>&1) || return 1
@@ -167,6 +184,10 @@ for pkg in $test_pkgs; do
       else
         own="$own $rel"
         echo "$new" | sed "s#^#        new in $(basename "$rel"): #" >>"$log.rerun.log"
+        if [ -n "$(base_unloadable "$bj" "$rel")" ]; then  # still a failure, but say we can't tell
+          echo "        base could not run $(basename "$rel"): unknown whether these also fail on main, not proven new" >>"$log.rerun.log"
+          warn+=("$name: base could not run $(basename "$rel") (see its log); check by running it on origin/main")
+        fi
       fi
     done
   else
