@@ -42,7 +42,7 @@ Act on a pattern only if it occurred **at least twice**, or once with high cost:
 | A skill had it but builders still missed it | Move it up into the main steps, make it a checklist item, or add it to `verify.sh` if a script can catch it |
 | Several learnings say the same thing | Merge them into one sentence in the skill body, and delete the duplicates |
 | A recurring area has no skill (≥3 PRs touched it with repeat trouble) | Create `.claude/skills/<new-name>/SKILL.md` with a `description` that triggers on that area, and mention it in `psyche-builder` step 1 |
-| Advice is stale (the code moved, the tool changed, or the owner reversed a decision) | Fix or delete it. Verify against the current code first |
+| Advice is stale (the code moved, the tool changed, or the owner reversed a decision) | Fix or delete it. Verify against the current code first. For a "fails on main" note, run that file on `origin/main` (#1307 and #1310 fixed all three that were listed) |
 | The orchestrator's briefs keep missing something | Edit `orchestrate` (the brief template or loop steps) |
 | The reflection process itself was weak | Edit this file, and say why in the changelog |
 

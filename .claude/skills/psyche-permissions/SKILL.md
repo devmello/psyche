@@ -51,7 +51,15 @@ This covers any rule that sorts inputs into "asks" and "doesn't ask": money-inte
 
 **Write the probe table first.** Before you change a rule, write a table-driven test with two lists: inputs that must match, and near-misses that share a word and must not. The pattern is `packages/protocol/test/money-intent.test.ts`: `PAYMENT_LABELS` and `ORDINARY_LABELS` with `it.each`. Include amounts with decimals, tickers, keyboard paths, snake_case and camelCase tool names, and the reviewer's probes from every earlier round. Every review finding becomes a row that failed before your fix. In #1301, round 1 widened regexes one way only. Rounds 2 to 5 each found misses in the other direction, and the reviewers' two-way probe lists caught them.
 
-## 4. Tests to run
+## 4. Trust that moves to a new path or file
+
+If a client now trusts a different path (a socket, a pointer file, a config), the old `$PSYCHE_HOME` ownership no longer vouches for it. #1308 moved the helper's socket outside `$PSYCHE_HOME`, and the review found an impostor-Gateway risk: screen, computer use and `presence.confirm` signatures.
+- **Check the peer:** the process on the other end must be this user (`getpeereid` on the helper).
+- **Check the directory:** the target's parent must be a real directory (not a symlink) owned by this user, with `mode & 0o077 == 0`.
+- **One descriptor:** open with `O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC`, then `fstat` and read from that fd. `lstat` then open leaves a race.
+- **A new guard can mask old negative tests.** After you add one, build each reject case so only its own check can reject (a private directory for the NUL test, say), and add an accepted case at each boundary. Two old tests in #1308 stopped testing their own checks.
+
+## 5. Tests to run
 
 `verify.sh` runs the related tests. These suites break most often when this area changes:
 - **permissions:** `answer-lockout`;
@@ -62,4 +70,4 @@ If you change copy that names Touch ID, presence or approvals, also run `package
 
 ## Learnings
 
-(The `reflect` skill adds dated lines here.)
+- 2026-11-10: a "cross-window lockout" follow-up was unreachable, because `isDesktopShell` requires loopback. Uncapped chat answers (#1306) are by design: only guessing is limited. Check a security follow-up against main before building it.

@@ -2,6 +2,19 @@
 
 Newest first. The `reflect` skill reads the top entry to know where the last pass stopped.
 
+## 2026-11-10: reflect pass over #1305–#1310
+Six builder PRs: #1305 (iOS Live Activity), #1306 (broker answer cap), #1307 (two test fixes), #1308 (helper socket pointer, two security rounds), #1309 (rate-limit copy), #1310 (missing settings label).
+- **`verify.sh`: the base tree moved out of `.git`.** It lived in `.git/agent-verify/base/<sha>`. Vite treats a `.git` path segment as denied, so `packages/ui` tests there died with `Cannot find module '/test/setup.ts'` and every ui failure looked new. It now lives in `<main checkout>/.claude/worktrees/_verify-base/<sha>` (gitignored; `VERIFY_BASE_DIR` overrides), and old trees under `.git` are removed. When the base can't load a file, the log and a note say "base could not run … unknown", but the check still fails: nothing is loosened.
+  - Evidence: #1309 learnings. Reproduced: a passing ui test run from the old path fails with the error above, and passes from the worktree path.
+  - Tested with a committed failing test in `packages/ui` and `--base HEAD`: touching it without a new failure gives the pre-existing note, and adding a differently named failing test gives `new in …`.
+- **`psyche-builder`:** check `gh pr view --json state` before every push (#1309 and #1310: two commits stranded on a merged branch); say so when you widen scope; read the three verify.sh verdicts; delete `apps/ios/.build-ios` before verifying (#1305).
+- **`psyche-builder/learnings.md`:** removed the "fails on main" note for `separate-desktop` and `linux-helper-peer-check` (fixed by #1307; `setting-labels` by #1310). Replaced it with how to check a claim like that. Added the `startTestGateway` `hostPlatform` and `realpathSync` lessons (#1307) and that broker error text is user-visible (#1309).
+- **`psyche-permissions` §4 (new): trust that moves to a new path or file.** Check the peer and the directory, read from one descriptor, and recheck that older negative tests still isolate their own check. Evidence: the security review of #1308 (impostor Gateway, lstat/open race, two masked tests).
+- **`psyche-apple`:** helper pointer code pointers and the CRLF trap (#1308); Live Activities start on resign-active because `Activity.request` is refused in the background (#1305); a Touch ID diagnosis recipe using `/usr/bin/log show` on coreauth (orchestrator session, settled a "no sheet" report).
+- **`orchestrate`:** `preset` does not carry the model, so always pass `model` with it and confirm with `get_session`; proposal cards can't carry a preset; check follow-up lists against main first (two non-issues dropped); a merged builder can keep pushing, so tell it it's done.
+- **`reflect`:** a "fails on main" note is kept only after running the file on `origin/main`.
+- **Not changed:** `.claude/CLAUDE.md`. Proposal for the owner: add "before every push, check the PR isn't merged" to the Git rules. #1305's `simctl launch com.apple.mobilesafari` trick is in `psyche-apple`; the Swift `node-socket` "written on every start" fact is in the code, so no skill line.
+
 ## 2026-11-09: reflect pass over #1298–#1302
 All five builders predate the skills: they were Sonnet or Opus sessions with hand-written briefs and no `verify.sh`. So this pass can't judge how Haiku builders use the skills. The next pass is the first that can.
 - **New skill `psyche-permissions`.** It covers trust from the connection, changing a shared predicate, classifiers that must be precise both ways, the probe-table pattern, sealed owner-choice keys and the suites to run. `psyche-builder` step 1 now points to it.
