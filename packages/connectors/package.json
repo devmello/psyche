@@ -20,7 +20,7 @@
     "@psyche/permissions": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@sinclair/typebox": "0.34.52",
-    "turndown": "7.2.4",
+    "turndown": "7.2.5",
     "yaml": "2.9.1"
   },
   "devDependencies": {
