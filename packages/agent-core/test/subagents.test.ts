@@ -55,6 +55,10 @@ describe("subagents (C6)", () => {
     const child = h.provider.requests[1];
     expect(child?.messages).toHaveLength(1);
     expect(child?.messages[0]?.role).toBe("user");
+    // The limits and the report contract are in the brief the subagent reads.
+    const brief = child?.messages[0]?.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
+    expect(brief).toMatch(/cannot ask the owner questions, send messages or request approvals/);
+    expect(brief).toMatch(/that report is all the parent sees/);
     const tools = child?.tools?.map((t) => t.name) ?? [];
     for (const name of [
       "ask_user",
