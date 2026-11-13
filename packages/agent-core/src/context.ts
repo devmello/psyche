@@ -348,7 +348,7 @@ function attr(value: string): string {
 
 /** Opening or closing tags of a section fence or of the base prompt's own sections. */
 const NEUTRALISED_TAG =
-  /[<\uFF1C]\s*(\/?)\s*(section|instructions|permissions|secrets|memory|browser|working)\b/gi;
+  /[<\uFF1C\uFE64]\s*([/\uFF0F]?)\s*(section|instructions|permissions|secrets|memory|browser|working)\b/gi;
 
 /** Join sections into the system prompt. Each section is fenced so markers stay visible. */
 export function renderSystemPrompt(sections: readonly ContextSection[]): string {
@@ -362,7 +362,10 @@ export function renderSystemPrompt(sections: readonly ContextSection[]): string 
       ].join("");
       // Content cannot open or close a fence (untrusted daily-note lines, summaries), including
       // spaced and full-width look-alikes, and cannot forge the base prompt's own tags.
-      const body = s.text.replace(NEUTRALISED_TAG, "<$1\u200B$2");
+      const body = s.text.replace(
+        NEUTRALISED_TAG,
+        (_m, slash: string, name: string) => `<${slash === "" ? "" : "/"}\u200B${name}`,
+      );
       return `<section ${attrs} title="${attr(s.title)}">\n${body}\n</section>`;
     })
     .join("\n\n");
