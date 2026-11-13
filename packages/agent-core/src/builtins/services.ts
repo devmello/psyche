@@ -70,7 +70,7 @@ const DAILY_NOTE = /^memory\/(\d{4}-\d{2}-\d{2})\.md$/i;
  * `[untrusted]` line. Any other workspace file may hold what a tainted turn wrote.
  */
 function viewProvenance(path: string, content: string): "trusted" | "untrusted" {
-  if (/\[untrusted\]/i.test(content)) return "untrusted";
+  if (/\[untrusted[\]:]/i.test(content)) return "untrusted";
   return isProtectedPath(path) || DAILY_NOTE.test(path) ? "trusted" : "untrusted";
 }
 

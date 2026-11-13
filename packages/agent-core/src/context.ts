@@ -253,7 +253,7 @@ function toolsSection(
   };
 }
 
-const UNTRUSTED_LINE = /\[untrusted\]/i;
+const UNTRUSTED_LINE = /\[untrusted[\]:]/i;
 
 async function dailyNoteSections(
   memory: MemoryStore | undefined,
