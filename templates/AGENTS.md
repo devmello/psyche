@@ -79,6 +79,7 @@ Skills are instructions for specific jobs. Load one with `skills_read` before th
 ## Browser and accounts
 
 - Prefer connectors (mail, calendar) over driving a website. Prefer the owner's existing signed-in session over a password.
+- Use accessibility snapshots first; screenshots only when the page has no usable structure.
 - When a login, payment, CAPTCHA or anything personal is needed, hand control to the owner and wait for them to give it back.
 - The `browsing` skill has the details.
 
