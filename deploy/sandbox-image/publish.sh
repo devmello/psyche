@@ -95,6 +95,12 @@ done
 helper_sha="${PSYCHE_HELPER_SHA256:-}"
 for v in "${variants[@]}"; do
   if [ "$v" = desktop ]; then
+    # It carries a native helper binary, so it is built one platform at a time (--platform):
+    # a single multi-platform build would put one architecture's helper in both images.
+    if [ -z "$platform" ] && [ -z "$merge_dir" ]; then
+      echo "the desktop variant is built per platform: use --platform P --digests-dir D, then --merge D" >&2
+      exit 2
+    fi
     if [ "$dry_run" = 1 ] && [ -z "$helper_sha" ]; then helper_sha=dry-run; fi
     [[ "$helper_sha" =~ ^[0-9a-f]{64}$ || "$helper_sha" = dry-run ]] || {
       echo "the desktop variant needs PSYCHE_HELPER_SHA256 (the staged helper's sha256)" >&2

@@ -156,6 +156,93 @@ describe("deploy/sandbox-image/publish.sh split build (native per-arch runners, 
     expect(out).not.toContain("docker buildx build");
   });
 
+  describe("the desktop variant carries the Linux helper", () => {
+    const sha = "a".repeat(64);
+    const withSha = (...args: string[]) =>
+      spawnSync("bash", [script(), ...args], {
+        encoding: "utf8",
+        env: { ...process.env, PSYCHE_HELPER_SHA256: sha },
+      });
+
+    it.skipIf(!has("jq"))(
+      "is built per platform with the helper's checksum passed to the build",
+      () => {
+        const r = withSha(
+          "--dry-run",
+          "--version",
+          "1.2.3",
+          "--platform",
+          "linux/arm64",
+          "--digests-dir",
+          "/tmp/d",
+          "core",
+          "base",
+          "full",
+          "desktop",
+        );
+        expect(r.status, r.stderr).toBe(0);
+        const out = `${r.stdout}${r.stderr}`;
+        const builds = out.match(/\+ docker buildx build .*/g) ?? [];
+        expect(builds).toHaveLength(4);
+        // Only the desktop build gets the checksum.
+        expect(builds.filter((b) => b.includes(`HELPER_SHA256=${sha}`))).toHaveLength(1);
+        expect(builds.find((b) => b.includes("--target desktop"))).toContain(
+          `HELPER_SHA256=${sha}`,
+        );
+        expect(out).toContain("/tmp/d/desktop/linux-arm64");
+      },
+    );
+
+    it.skipIf(!has("jq"))("refuses a malformed checksum, even in a dry run", () => {
+      for (const bad of ["not-a-checksum", "A".repeat(64), "a".repeat(63)]) {
+        const r = spawnSync(
+          "bash",
+          [
+            script(),
+            "--dry-run",
+            "--version",
+            "1.2.3",
+            "--platform",
+            "linux/arm64",
+            "--digests-dir",
+            "/tmp/d",
+            "desktop",
+          ],
+          { encoding: "utf8", env: { ...process.env, PSYCHE_HELPER_SHA256: bad } },
+        );
+        expect(r.status, bad).toBe(2);
+        expect(r.stderr).toMatch(/PSYCHE_HELPER_SHA256/);
+      }
+    });
+
+    it.skipIf(!has("jq"))(
+      "is never one multi-platform build: it would put one architecture's helper in both",
+      () => {
+        const r = withSha("--dry-run", "--version", "1.2.3", "desktop");
+        expect(r.status).toBe(2);
+        expect(r.stderr).toMatch(/per platform/);
+      },
+    );
+
+    it.skipIf(!has("jq"))("is merged, signed and recorded with the others", () => {
+      const r = withSha(
+        "--dry-run",
+        "--version",
+        "1.2.3",
+        "--merge",
+        "/tmp/d",
+        "core",
+        "base",
+        "full",
+        "desktop",
+      );
+      expect(r.status, r.stderr).toBe(0);
+      const out = `${r.stdout}${r.stderr}`;
+      expect(out).toContain("ghcr.io/devmello/psyche-sandbox:1.2.3-desktop");
+      expect(out.match(/\+ cosign sign --yes/g)).toHaveLength(4);
+    });
+  });
+
   it.skipIf(!has("jq"))("refuses an unknown platform and a platform without a digests dir", () => {
     expect(run("--dry-run", "--platform", "linux/s390x", "--digests-dir", "/tmp/d").status).toBe(2);
     expect(run("--dry-run", "--platform", "linux/arm64").status).toBe(2);

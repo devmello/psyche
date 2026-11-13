@@ -271,10 +271,38 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     expect(exec("test -e /workspace/x.py && echo planted || echo missing").out.trim()).toBe(
       "planted",
     );
-    // The image's own services still activate (the folder it lists works).
+    // The image's own services still activate: an activatable name nobody owns yet (the dconf
+    // service) is started from the folder the bus does list.
+    expect(exec(`${bus} --dest=ca.desrt.dconf / org.freedesktop.DBus.Peer.Ping`).code).toBe(0);
+
+    // The daemons the Gateway trusts run with a home under /tmp; the rest keeps /workspace.
+    const homeOf = (comm: string) =>
+      exec(
+        `for p in /proc/[0-9]*; do read c < $p/comm; if [ "$c" = "${comm}" ]; then /usr/bin/grep -a -o -E '(HOME|XDG_[A-Z]+_HOME)=[^[:cntrl:]]*' $p/environ; fi; done`,
+      ).out;
+    for (const daemon of ["dbus-daemon", "Xvfb", "at-spi-bus-laun"]) {
+      const env = homeOf(daemon);
+      expect(env, daemon).toContain("HOME=/tmp/trusted-home");
+      expect(env, daemon).toContain("XDG_DATA_HOME=/tmp/trusted-home/data");
+      expect(env, daemon).toContain("XDG_CONFIG_HOME=/tmp/trusted-home/config");
+      expect(env, daemon).toContain("XDG_CACHE_HOME=/tmp/trusted-home/cache");
+      expect(env, daemon).not.toContain("/workspace");
+    }
+    // (The helper itself is not dumpable, so its environment can't be read; the container's
+    // init, which started it with the same environment, shows what it was given.)
+    expect(homeOf("tini")).toContain("HOME=/workspace");
+
+    // The lockdown files are in place: Firefox extensions blocked, LibreOffice macros locked off.
     expect(
-      exec(`${bus} --dest=org.a11y.Bus /org/a11y/bus org.freedesktop.DBus.Peer.Ping`).code,
-    ).toBe(0);
+      exec(
+        'grep -c \'"installation_mode": "blocked"\' /etc/firefox/policies/policies.json',
+      ).out.trim(),
+    ).toBe("1");
+    expect(
+      exec(
+        "grep -c '<prop .*finalized=\"true\"' /usr/lib/libreoffice/share/registry/zz-psyche-lockdown.xcd",
+      ).out.trim(),
+    ).toBe("2");
 
     // A long-lived app opens on the display and keeps its profile in the workspace (Firefox ESR uses ~/.config/mozilla).
     exec("DISPLAY=:1 nohup /usr/bin/firefox-esr --no-remote about:blank > /tmp/firefox.log 2>&1 &");

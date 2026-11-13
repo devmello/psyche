@@ -53,18 +53,29 @@ fi
 (printf '%s\n' "$token" > "$PSYCHE_HOME/run/handshake.secret") &
 token=
 
+# The daemons the Gateway trusts (the session bus, the accessibility bus, the X server) run with a
+# home of their own under /tmp, not /workspace: whatever a task leaves in /workspace (data, config,
+# cache) is never parsed by them. Apps and the helper keep HOME=/workspace.
+TRUSTED_HOME=/tmp/trusted-home
+/usr/bin/mkdir -p "$TRUSTED_HOME/data" "$TRUSTED_HOME/config" "$TRUSTED_HOME/cache"
+/usr/bin/chmod 0700 "$TRUSTED_HOME"
+trusted() {
+  HOME="$TRUSTED_HOME" XDG_DATA_HOME="$TRUSTED_HOME/data" XDG_CONFIG_HOME="$TRUSTED_HOME/config" \
+    XDG_CACHE_HOME="$TRUSTED_HOME/cache" "$@"
+}
+
 /usr/bin/mkdir -p /tmp/.X11-unix
 /usr/bin/chmod 1777 /tmp/.X11-unix 2> /dev/null || true
 
 # Its own config: service files from the image only, never from $XDG_DATA_HOME under /workspace.
-/usr/bin/dbus-daemon --config-file=/etc/psyche/dbus-session.conf --nofork --nopidfile --address="unix:path=$XDG_RUNTIME_DIR/bus" &
+trusted /usr/bin/dbus-daemon --config-file=/etc/psyche/dbus-session.conf --nofork --nopidfile --address="unix:path=$XDG_RUNTIME_DIR/bus" &
 export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
 
 # -ac: every process in this container is the same user and the same trust domain; the X socket
 # is not reachable from outside it, and there is no TCP listener.
-/usr/bin/Xvfb "$DISPLAY" -screen 0 1280x800x24 -nolisten tcp -ac &
+trusted /usr/bin/Xvfb "$DISPLAY" -screen 0 1280x800x24 -nolisten tcp -ac &
 
-/usr/libexec/at-spi-bus-launcher --launch-immediately &
+trusted /usr/libexec/at-spi-bus-launcher --launch-immediately &
 
 # Wait (at most 10 s) for the display and the session bus before the helper starts.
 i=0

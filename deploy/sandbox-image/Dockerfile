@@ -92,6 +92,7 @@ COPY --chown=0:0 --chmod=0755 desktop/psyche-helper /usr/local/bin/psyche-helper
 COPY --chown=0:0 --chmod=0755 desktop/entrypoint.sh /usr/local/lib/psyche/desktop-entrypoint.sh
 COPY --chown=0:0 --chmod=0644 desktop/firefox-policies.json /etc/firefox/policies/policies.json
 COPY --chown=0:0 --chmod=0644 desktop/dbus-session.conf /etc/psyche/dbus-session.conf
+COPY --chown=0:0 --chmod=0644 desktop/libreoffice-lockdown.xcd /usr/lib/libreoffice/share/registry/zz-psyche-lockdown.xcd
 RUN if [ -n "$HELPER_SHA256" ]; then \
       echo "$HELPER_SHA256  /usr/local/bin/psyche-helper" | sha256sum -c - ; \
     elif [ "$ALLOW_UNVERIFIED_HELPER" = "1" ]; then \
