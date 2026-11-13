@@ -2649,7 +2649,9 @@ export class MockGateway implements GatewayClient {
           updatedAt: this.now(),
           text: content.slice(0, 600),
           bytes: content.length,
-          provenance: /\[untrusted\]/i.test(content) ? ("untrusted" as const) : ("agent" as const),
+          provenance: /\[untrusted[\]:]/i.test(content)
+            ? ("untrusted" as const)
+            : ("agent" as const),
         })),
     }),
     "memory.notes.delete": (p) => {
