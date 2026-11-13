@@ -59,6 +59,7 @@ describe("subagents (C6)", () => {
     const brief = child?.messages[0]?.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
     expect(brief).toMatch(/cannot ask the owner questions, send messages or request approvals/);
     expect(brief).toMatch(/that report is all the parent sees/);
+    expect(brief).toMatch(/say what you would have asked and stop at that step/);
     const tools = child?.tools?.map((t) => t.name) ?? [];
     for (const name of [
       "ask_user",
