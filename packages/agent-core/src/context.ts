@@ -113,7 +113,7 @@ export interface AssembleInput {
 
 export interface AssembledContext {
   sections: ContextSection[];
-  /** Untrusted content entered through the prompt itself (e.g. an `[untrusted]` daily note line). */
+  /** Untrusted content entered through the prompt itself (e.g. an `[untrusted]` or `[untrusted:…]` daily note line). */
   untrusted: boolean;
 }
 
