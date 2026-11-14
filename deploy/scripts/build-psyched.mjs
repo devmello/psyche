@@ -1,11 +1,12 @@
 // Builds the self-contained Gateway bundle for Psyche.app (docs/archive/status/s22.md "Packaging layout").
 //
-//   node deploy/scripts/build-psyched.mjs [--arch arm64|x64] [--out <dir>] [--skip-web-build] [--smoke]
+//   node deploy/scripts/build-psyched.mjs [--platform darwin|linux|win32] [--arch arm64|x64] [--out <dir>] [--skip-web-build] [--smoke]
 //   node deploy/scripts/build-psyched.mjs --smoke-only [--out <dir>]     smoke an already built bundle
 //
-// Output: apps/gateway/dist-bin/<darwin|win32>-<arch>/psyched/ (the host's platform; on Windows
+// Output: apps/gateway/dist-bin/<darwin|linux|win32>-<arch>/psyched/ (the host's platform; on Windows
 // win32-bundle.mjs says what differs: node.exe, .cmd launchers, the Task Scheduler template and a
-// flat node_modules without links)
+// flat node_modules without links. On Linux: the linux-<arch> Node tarball, ELF addons, the
+// compile cache under $XDG_CACHE_HOME/psyche, no plist, and "platform" in build-info.json)
 //   psyched, psyche            /bin/sh launchers (no PATH needed): runtime/node + app/apps/*/dist/main.mjs
 //   runtime/node               the official Node build of the version deploy/scripts/node-pins.mjs pins,
 //                              SHA-256 checked against nodejs.org's SHASUMS256.txt
@@ -17,7 +18,8 @@
 //   com.psyche.gateway.plist.template   LaunchAgent with {{PSYCHED}} and {{PSYCHE_HOME}}
 //   build-info.json            {version, build, commit, node, arch, builtAt, bytes}
 //
-// The bundle's size is held to deploy/size-budget.json (psychedMB); the build fails above it.
+// The bundle's size is held to deploy/size-budget.json (psychedMB, psychedWin32MB, psychedLinuxMB);
+// the build fails above it.
 //
 // Native addons (better-sqlite3, node-pty, sqlite-vec, …) are installed for the host by pnpm, so
 // build each arch on a host of that arch (the release workflow uses an Intel runner for x64); the
@@ -74,6 +76,7 @@ const PRUNE = [
   "apps/desktop",
   "apps/mac-helper",
   "apps/win-helper",
+  "apps/linux-helper",
   "apps/web/src",
   "apps/web/testing",
   "apps/site",
@@ -84,10 +87,12 @@ const PRUNE = [
   "deploy/homebrew",
   "deploy/macos",
   "deploy/windows",
+  "deploy/linux",
   "deploy/scripts",
 ];
 
 const IS_WIN = platform() === "win32";
+const CROSS = process.env.PSYCHE_CROSS_ARCH === "1";
 
 /** pnpm is pnpm.cmd on Windows, which Node starts only through a shell. */
 function pnpm(args, opts = {}) {
@@ -150,15 +155,16 @@ export function pinnedNodeVersion(root = ROOT) {
   return v;
 }
 
-/** node-v<ver>-darwin-<arch>/bin/node, downloaded once into a cache and checked against SHASUMS256. */
-async function nodeRuntime(version, arch) {
+/** node-v<ver>-<darwin|linux>-<arch>/bin/node, downloaded once into a cache and checked against SHASUMS256. */
+async function nodeRuntime(version, arch, plat = "darwin") {
   const cache = join(
-    process.env.XDG_CACHE_HOME ?? join(homedir(), "Library", "Caches"),
+    process.env.XDG_CACHE_HOME ??
+      (plat === "linux" ? join(homedir(), ".cache") : join(homedir(), "Library", "Caches")),
     "psyche-build",
     "node",
   );
   mkdirSync(cache, { recursive: true });
-  const name = `node-v${version}-darwin-${arch}.tar.gz`;
+  const name = `node-v${version}-${plat}-${arch}.tar.gz`;
   const tarball = join(cache, name);
   const base = `https://nodejs.org/dist/v${version}/`;
   const sums = await (await fetch(`${base}SHASUMS256.txt`)).text();
@@ -173,9 +179,9 @@ async function nodeRuntime(version, arch) {
   }
   if (sha256(tarball) !== expected) throw new Error(`${name}: SHA-256 does not match nodejs.org`);
   const dir = mkdtempSync(join(tmpdir(), "psyche-node-"));
-  run("tar", ["-xzf", tarball, "-C", dir, `node-v${version}-darwin-${arch}/bin/node`]);
+  run("tar", ["-xzf", tarball, "-C", dir, `node-v${version}-${plat}-${arch}/bin/node`]);
   return {
-    node: join(dir, `node-v${version}-darwin-${arch}`, "bin", "node"),
+    node: join(dir, `node-v${version}-${plat}-${arch}`, "bin", "node"),
     cleanup: () => rmSync(dir, { recursive: true, force: true }),
   };
 }
@@ -239,16 +245,66 @@ export function pruneForeignPrebuilds(appDir, arch, plat = "darwin") {
   return removed;
 }
 
-/** Every .node file must be a Mach-O for `arch` (pnpm installs host binaries). */
-export function checkAddons(appDir, arch) {
-  const want = arch === "arm64" ? "arm64" : "x86_64";
+/** Every .node file must be a Mach-O (macOS) or ELF (Linux) for `arch` (pnpm installs host binaries). */
+export function checkAddons(appDir, arch, plat = "darwin") {
+  const want =
+    plat === "linux"
+      ? arch === "arm64"
+        ? "ARM aarch64"
+        : "x86-64"
+      : arch === "arm64"
+        ? "arm64"
+        : "x86_64";
   const bad = [];
   walk(appDir, (p) => {
     if (!p.endsWith(".node")) return;
     const out = execFileSync("/usr/bin/file", ["-b", p], { encoding: "utf8" });
-    if (!out.includes(want)) bad.push(`${p.slice(appDir.length + 1)}: ${out.trim()}`);
+    if (plat === "linux" && !out.startsWith("ELF"))
+      bad.push(`${p.slice(appDir.length + 1)}: ${out.trim()}`);
+    else if (!out.includes(want)) bad.push(`${p.slice(appDir.length + 1)}: ${out.trim()}`);
   });
   return bad;
+}
+
+/**
+ * Linux cross build: addons that compile at install (node-pty has no Linux prebuild) were built for
+ * the host. Rebuild them for `arch` with the cross toolchain (`g++-aarch64-linux-gnu` on Debian
+ * and Ubuntu); the addon check afterwards still refuses anything left over for the wrong arch.
+ */
+export function rebuildCompiledAddons(appDir, arch) {
+  const prefix = arch === "arm64" ? "aarch64-linux-gnu" : "x86_64-linux-gnu";
+  const store = join(appDir, "node_modules", ".pnpm");
+  const dirs = existsSync(store)
+    ? readdirSync(store)
+        .filter((n) => /^node-pty@/.test(n))
+        .map((n) => join(store, n, "node_modules", "node-pty"))
+    : [];
+  if (dirs.length === 0) return 0;
+  const gyp = join(
+    execFileSync("npm", ["root", "-g"], { encoding: "utf8" }).trim(),
+    "npm",
+    "node_modules",
+    "node-gyp",
+    "bin",
+    "node-gyp.js",
+  );
+  const env = {
+    ...process.env,
+    CC: `${prefix}-gcc`,
+    CXX: `${prefix}-g++`,
+    CC_target: `${prefix}-gcc`,
+    CXX_target: `${prefix}-g++`,
+    AR: `${prefix}-ar`,
+    LINK: `${prefix}-g++`,
+  };
+  for (const dir of dirs) {
+    rmSync(join(dir, "build"), { recursive: true, force: true });
+    run(process.execPath, [gyp, "rebuild", `--arch=${arch}`, `--target_arch=${arch}`], {
+      cwd: dir,
+      env,
+    });
+  }
+  return dirs.length;
 }
 
 /** `name` → `{ dir, deps }` for every workspace package in the exported tree. */
@@ -385,11 +441,35 @@ function stripRuntime(node) {
   run("codesign", ["--force", "--sign", "-", node]);
 }
 
+/**
+ * Linux: strips the Node runtime when the host can (GNU strip handles only its own architecture;
+ * a cross build keeps the symbols and says so). No signing step.
+ */
+function stripRuntimeLinux(node, arch) {
+  if (arch !== (hostArch() === "arm64" ? "arm64" : "x64")) {
+    process.stdout.write(
+      `kept the symbols of the ${arch} Node runtime (strip is for the host's architecture)\n`,
+    );
+    return;
+  }
+  run("strip", ["--strip-unneeded", node]);
+}
+
 // Node's compile cache (V8 code and stripped TypeScript) saves ≈ 150 ms of every start. It lives
 // in the per-user cache, outside the signed bundle, and only when HOME is known (launchd sets it).
 const COMPILE_CACHE = `if [ -z "\${NODE_COMPILE_CACHE:-}" ] && [ -n "\${HOME:-}" ]; then
   NODE_COMPILE_CACHE="$HOME/Library/Caches/com.psyche.gateway/node-compile-cache"
   export NODE_COMPILE_CACHE
+fi`;
+
+// Linux: the same cache under XDG_CACHE_HOME (else ~/.cache), outside the installed tree.
+const COMPILE_CACHE_LINUX = `if [ -z "\${NODE_COMPILE_CACHE:-}" ]; then
+  if [ -n "\${XDG_CACHE_HOME:-}" ]; then
+    NODE_COMPILE_CACHE="$XDG_CACHE_HOME/psyche/node-compile-cache"
+  elif [ -n "\${HOME:-}" ]; then
+    NODE_COMPILE_CACHE="$HOME/.cache/psyche/node-compile-cache"
+  fi
+  [ -z "\${NODE_COMPILE_CACHE:-}" ] || export NODE_COMPILE_CACHE
 fi`;
 
 // Both launchers find the bundle through any symlinks to them (`/usr/local/bin/psyche`).
@@ -551,6 +631,16 @@ unset NODE_OPTIONS NODE_PATH NODE_REPL_EXTERNAL_MODULE
 exec "$here/runtime/node" --disable-warning=ExperimentalWarning --require "$here/psyched-harden.cjs" "$here/app/apps/cli/dist/main.mjs" "$@"
 `;
 
+// The Linux launchers differ only in where the compile cache goes.
+export const PSYCHED_LAUNCHER_LINUX = PSYCHED_LAUNCHER.replace(
+  COMPILE_CACHE,
+  () => COMPILE_CACHE_LINUX,
+);
+export const PSYCHE_LAUNCHER_LINUX = PSYCHE_LAUNCHER.replace(
+  COMPILE_CACHE,
+  () => COMPILE_CACHE_LINUX,
+);
+
 async function smoke(bundle) {
   const home = mkdtempSync(join(IS_WIN ? tmpdir() : "/tmp", "psy-smoke-"));
   try {
@@ -595,14 +685,17 @@ async function main(argv) {
     return i === -1 ? undefined : argv[i + 1];
   };
   const arch = opt("--arch") ?? (hostArch() === "arm64" ? "arm64" : "x64");
-  const plat = platform();
-  if (plat !== "darwin" && plat !== "win32")
+  const plat = opt("--platform") ?? platform();
+  if (plat !== "darwin" && plat !== "win32" && plat !== "linux")
+    throw new Error("--platform must be darwin, linux or win32");
+  if (plat !== platform())
     throw new Error(
-      "build-psyched.mjs builds the macOS or the Windows bundle; run it on one of them",
+      `--platform ${plat} needs a ${plat} host: native addons are installed for the host`,
     );
-  if (arch !== (hostArch() === "arm64" ? "arm64" : "x64")) {
+  if (arch !== "arm64" && arch !== "x64") throw new Error("--arch must be arm64 or x64");
+  if (arch !== (hostArch() === "arm64" ? "arm64" : "x64") && !(plat === "linux" && CROSS)) {
     throw new Error(
-      `--arch ${arch} needs a ${arch} host: native addons are installed for the host`,
+      `--arch ${arch} needs a ${arch} host: native addons are installed for the host (Linux: PSYCHE_CROSS_ARCH=1 installs the other architecture's prebuilt addons)`,
     );
   }
   const out = resolve(opt("--out") ?? join(ROOT, "apps/gateway/dist-bin", `${plat}-${arch}`));
@@ -637,6 +730,11 @@ async function main(argv) {
       "@psyche/gateway...",
       "--filter",
       "@psyche/cli...",
+      // Linux cross build (PSYCHE_CROSS_ARCH=1): the other architecture's optional packages, and
+      // prebuild-install (better-sqlite3 and friends) fetches that architecture's binaries.
+      ...(CROSS && arch !== (hostArch() === "arm64" ? "arm64" : "x64")
+        ? ["--cpu", arch, "--os", "linux", "--libc", "glibc", "--config.sideEffectsCache=false"]
+        : []),
     ],
     {
       cwd: app,
@@ -645,9 +743,18 @@ async function main(argv) {
         CI: "1",
         ELECTRON_SKIP_BINARY_DOWNLOAD: "1",
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1",
+        ...(CROSS
+          ? { npm_config_arch: arch, npm_config_target_arch: arch, npm_config_platform: plat }
+          : {}),
       },
     },
   );
+
+  if (CROSS && arch !== (hostArch() === "arm64" ? "arm64" : "x64")) {
+    const n = rebuildCompiledAddons(app, arch);
+    process.stdout.write(`rebuilt ${n} compiled addon(s) for ${arch}
+`);
+  }
 
   // 3. The web client the Gateway serves at /.
   if (!argv.includes("--skip-web-build")) pnpm(["--filter", "@psyche/web", "build"], { cwd: ROOT });
@@ -694,7 +801,7 @@ async function main(argv) {
     if (links.length) throw new Error(`links left in the Windows bundle:\n${links.join("\n")}`);
     process.stdout.write(`hoisted ${hoisted} package(s) into a flat node_modules without links\n`);
   }
-  const bad = IS_WIN ? checkAddonsWin32(app, arch) : checkAddons(app, arch);
+  const bad = IS_WIN ? checkAddonsWin32(app, arch) : checkAddons(app, arch, plat);
   if (bad.length) throw new Error(`native addons for the wrong architecture:\n${bad.join("\n")}`);
 
   // 5. Runtime, launchers, service template (LaunchAgent plist / scheduled task), build info.
@@ -731,6 +838,19 @@ async function main(argv) {
     );
     const longest = longestPath(bundle);
     process.stdout.write(`longest path in the bundle: ${longest.length} chars (${longest})\n`);
+  } else if (plat === "linux") {
+    // No plist: the systemd user unit is rendered from deploy/linux/root at packaging time.
+    const rt = await nodeRuntime(version, arch, "linux");
+    try {
+      cpSync(rt.node, join(bundle, "runtime/node"));
+    } finally {
+      rt.cleanup();
+    }
+    chmodSync(join(bundle, "runtime/node"), 0o755);
+    stripRuntimeLinux(join(bundle, "runtime/node"), arch);
+    writeFileSync(join(bundle, "psyched"), PSYCHED_LAUNCHER_LINUX, { mode: 0o755 });
+    writeFileSync(join(bundle, "psyched-harden.cjs"), PSYCHED_HARDEN, { mode: 0o644 });
+    writeFileSync(join(bundle, "psyche"), PSYCHE_LAUNCHER_LINUX, { mode: 0o755 });
   } else {
     const rt = await nodeRuntime(version, arch);
     try {
@@ -764,15 +884,16 @@ async function main(argv) {
     .slice(0, 16);
   writeFileSync(
     join(bundle, "build-info.json"),
-    `${JSON.stringify({ version: appVersion, build, commit, node: version, arch, builtAt, bytes }, null, 2)}\n`,
+    `${JSON.stringify({ version: appVersion, build, commit, node: version, arch, ...(plat === "linux" ? { platform: "linux" } : {}), builtAt, bytes }, null, 2)}\n`,
   );
   process.stdout.write(
     `built ${bundle} (${(bytes / 1e6).toFixed(0)} MB, Node ${version}, ${plat}-${arch})\n`,
   );
   process.stdout.write(
-    `${checkBudget(IS_WIN ? "psychedWin32MB" : "psychedMB", treeSize(bundle))}\n`,
+    `${checkBudget(IS_WIN ? "psychedWin32MB" : plat === "linux" ? "psychedLinuxMB" : "psychedMB", treeSize(bundle))}\n`,
   );
 
+  // A cross build cannot run its own Node here.
   if (argv.includes("--smoke")) await smoke(bundle);
 }
 

@@ -1,8 +1,26 @@
 import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { app, autoUpdater } from "electron";
+import {
+  type ApplyResult,
+  applyLinuxUpdate,
+  nodeApplyFs,
+  previousArtifact,
+  type RollbackHooks,
+  rollbackLinux,
+  type StagedUpdate,
+} from "../packaging/linux-apply.ts";
+import type { UpdateGateway } from "../packaging/linux-gateway.ts";
+import {
+  detectInstallKind,
+  evaluateLinuxGate,
+  type InstallInfo,
+  linuxUpdatePaths,
+  type RunCommand,
+} from "../packaging/linux-install.ts";
+import { hostPlatform, isLinux } from "../platform/index.ts";
 import { claimedRequirement } from "./bundle-integrity.ts";
 import { TRUSTED_RELEASE_KEYS } from "./release-keys.ts";
 import {
@@ -34,12 +52,18 @@ import {
  *   running one (`%LOCALAPPDATA%\Psychepp-<version>`). The Psyche.exe stub and the shortcuts
  *   start the newest version, so like on a Mac the update takes effect when Psyche next starts.
  *
+ * - Linux (no Squirrel): the same check runs, the verified AppImage, deb or rpm (the one matching
+ *   how this copy was installed) waits in ~/.cache/psyche/updates, and `applyPendingLinuxUpdate`
+ *   applies it when the owner chooses "Restart to update" (src/packaging/linux-apply.ts).
+ *
  * Off for unpackaged builds and while no release key is embedded. On macOS, off unless the running
  * app's own signature satisfies the designated requirement pinned in
  * deploy/macos/designated-requirements.txt (update-gate.ts: Psyche's self-signed release
  * certificate, or a Developer ID later); ad-hoc and development builds never update themselves. On
  * Windows, off unless Psyche.exe has a valid Authenticode signature and was installed by Squirrel
- * (not the portable zip).
+ * (not the portable zip). On Linux, off unless
+ * this copy is an AppImage, or a deb or rpm under /usr/lib/psyche (a tarball or development build
+ * never updates itself).
  */
 
 export type UpdaterState =
@@ -47,7 +71,7 @@ export type UpdaterState =
   | "no_keys" // no release key embedded yet: updates stay off
   | "none" // up to date (or no manifest published)
   | "refused" // a manifest or artifact failed verification; nothing applied
-  | "started"; // a verified update is handed to Squirrel
+  | "started"; // a verified update is handed to Squirrel (macOS, Windows) or staged for the apply step (Linux)
 
 export interface UpdaterOptions {
   /** Overrides the feed (PSYCHE_UPDATE_FEED); still must be on the pinned release host. */
@@ -130,7 +154,157 @@ const servers: { close(): unknown }[] = [];
 export function stopUpdater(): void {
   stopped = true;
   for (const s of servers.splice(0)) void s.close();
-  autoUpdater.removeAllListeners();
+  linuxStaged = undefined;
+  // Electron has no auto-updater on Linux; there is nothing to detach.
+  if (!isLinux()) autoUpdater.removeAllListeners();
+}
+
+// -- Linux ------------------------------------------------------------------------------------
+
+/** What the desktop supplies for the Linux apply step; set once the Gateway supervisor exists. */
+export interface LinuxUpdateHost extends RollbackHooks {
+  /** `updateGateway(supervisor, () => gateway.call("gateway.prepareUpdate", ...))`. */
+  gateway: UpdateGateway;
+}
+
+let linuxHost: LinuxUpdateHost | undefined;
+let linuxInstall: InstallInfo | undefined;
+let linuxStaged: (StagedUpdate & { mandatory: boolean }) | undefined;
+
+export function setLinuxUpdateHost(host: LinuxUpdateHost): void {
+  linuxHost = host;
+}
+
+/** The verified update waiting for "Restart to update", if any. */
+export function pendingLinuxUpdate(): { release: string; mandatory: boolean } | undefined {
+  return linuxStaged && { release: linuxStaged.release, mandatory: linuxStaged.mandatory };
+}
+
+const nodeRun: RunCommand = (file, args) =>
+  new Promise((resolve, reject) => {
+    execFile(file, args, { encoding: "utf8", maxBuffer: 4 << 20 }, (err, stdout, stderr) => {
+      if (!err) return resolve({ code: 0, stdout, stderr });
+      const code = (err as { code?: unknown }).code;
+      if (typeof code === "number") return resolve({ code, stdout, stderr });
+      reject(err);
+    });
+  });
+
+function bundledBuild(): string | undefined {
+  try {
+    const info = JSON.parse(
+      readFileSync(join(process.resourcesPath, "psyched", "build-info.json"), "utf8"),
+    ) as { build?: unknown };
+    return typeof info.build === "string" ? info.build : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function linuxApplyDeps(log: (m: string) => void) {
+  if (!linuxHost) throw new Error("the Linux update host is not set");
+  const install = linuxInstall;
+  return {
+    install,
+    hooks: linuxHost,
+    deps: {
+      fs: nodeApplyFs,
+      run: nodeRun,
+      gateway: linuxHost.gateway,
+      paths: linuxUpdatePaths(process.env),
+      current: { version: app.getVersion(), build: bundledBuild() },
+      log,
+      relaunch: () => {
+        const args = process.argv.slice(1);
+        if (install?.appImagePath) app.relaunch({ execPath: install.appImagePath, args });
+        else app.relaunch({ args });
+        app.exit(0);
+      },
+    },
+  };
+}
+
+/** "Restart to update": applies the staged, verified update. */
+export async function applyPendingLinuxUpdate(
+  log: (m: string) => void = stderrLog,
+): Promise<ApplyResult> {
+  const { install, deps } = linuxApplyDeps(log);
+  if (!linuxStaged || !install) {
+    return { state: "failed", code: "missing_file", detail: "no update is staged" };
+  }
+  const { mandatory: _mandatory, ...staged } = linuxStaged;
+  const result = await applyLinuxUpdate(staged, install, deps);
+  if (result.state === "applied") linuxStaged = undefined;
+  return result;
+}
+
+/** The version "Go back to ..." restores, when a previous artifact is kept. */
+export async function linuxRollbackVersion(): Promise<string | undefined> {
+  if (!linuxInstall) return undefined;
+  const rec = await previousArtifact(nodeApplyFs, linuxUpdatePaths(process.env), linuxInstall.kind);
+  return rec?.version;
+}
+
+export async function rollbackLinuxUpdate(
+  log: (m: string) => void = stderrLog,
+): Promise<ApplyResult> {
+  const { install, deps, hooks } = linuxApplyDeps(log);
+  if (!install) {
+    return { state: "failed", code: "no_previous", detail: "not an AppImage, deb or rpm install" };
+  }
+  return rollbackLinux(install.kind, install.appImagePath, deps, hooks);
+}
+
+async function runLinuxUpdater(opts: UpdaterOptions, log: (m: string) => void): Promise<RunResult> {
+  linuxInstall = await detectInstallKind({
+    env: process.env,
+    execPath: app.getPath("exe"),
+    run: nodeRun,
+  });
+  const gate = evaluateLinuxGate({
+    platform: hostPlatform(),
+    isPackaged: app.isPackaged,
+    keyCount: TRUSTED_RELEASE_KEYS.length,
+    install: linuxInstall,
+  });
+  if (!gate.run) {
+    if (gate.state === "no_keys") log(`${gate.why}: updates stay off`);
+    return { state: gate.state };
+  }
+  const feed = opts.feedUrl ?? process.env.PSYCHE_UPDATE_FEED;
+  const result = await checkForVerifiedUpdate({
+    fetch,
+    currentVersion: app.getVersion(),
+    platform: "linux",
+    arch: process.arch,
+    installKind: gate.kind,
+    keys: TRUSTED_RELEASE_KEYS,
+    ...(feed ? { feed } : {}),
+    dir: linuxUpdatePaths(process.env).updatesDir,
+    log,
+  }).catch((err: unknown) => {
+    log(`update check failed: ${err instanceof Error ? err.message : String(err)}`);
+    return { state: "none" as const, reason: "check failed" };
+  });
+  switch (result.state) {
+    case "no_keys":
+      return { state: "no_keys" };
+    case "none":
+      return { state: "none", reason: result.reason };
+    case "refused":
+      log(`refused update (${result.code}): ${result.reason}`);
+      return { state: "refused", code: result.code, reason: result.reason };
+    case "ready":
+      if (stopped || !result.artifact) return { state: "disabled" };
+      linuxStaged = {
+        release: result.release,
+        file: result.file,
+        artifact: result.artifact,
+        mandatory: result.mandatory,
+      };
+      log(`Psyche ${result.release} is ready${result.mandatory ? " (required)" : ""}`);
+      return { state: "started", release: result.release };
+  }
 }
 
 export async function startUpdater(opts: UpdaterOptions = {}): Promise<UpdaterState> {
@@ -161,6 +335,7 @@ type RunResult = { state: UpdaterState } & Partial<
 async function runUpdater(opts: UpdaterOptions): Promise<RunResult> {
   const log = opts.log ?? stderrLog;
   if (stopped) return { state: "disabled" };
+  if (isLinux()) return runLinuxUpdater(opts, log);
   const blocked = await updaterGate(log);
   if (blocked) return blocked;
   const platform = process.platform === "win32" ? "win32" : "darwin";

@@ -7,6 +7,12 @@ import {
 } from "@psyche/db";
 import { DeviceScope, PsycheError, type DeviceScope as Scope } from "@psyche/protocol";
 import { resolveConfig } from "./config.ts";
+import {
+  acquireGatewayLock,
+  listSnapshots,
+  releaseGatewayLock,
+  restoreWithMarker,
+} from "./pre-update.ts";
 import { loadOrCreateGatewayIdentity, rotateGatewayIdentity } from "./identity.ts";
 import { DEFAULT_APPROVE_SCOPES } from "./security/recoveries.ts";
 
@@ -50,6 +56,9 @@ const USAGE = `usage:
   psyched security reseal                   accept the current security records after they
                                             failed their check
   psyched recovery cancel <id>              cancel a waiting request
+  psyched pre-update restore <version>      put back the data snapshot taken when updating from
+                                            <version> (the desktop's "Go back"; the Gateway must
+                                            be stopped; what it replaces is moved aside)
   psyched identity show                     the Gateway's identity key fingerprint (what a new
                                             computer shows next to its pairing code)
   psyched identity rotate                   make a new identity key: every computer that pinned the
@@ -182,6 +191,33 @@ export async function runCli(
       );
     }
     return 0;
+  }
+  if (group === "pre-update" && verb === "restore" && a !== undefined) {
+    // The desktop's "Go back to <version>" (updates design §2.5): the same snapshot and the same
+    // restore the Gateway uses after a failed migration, with the lock held so no Gateway has the
+    // data open. A restore that is cut short is finished at the next Gateway start.
+    const { home, dbPath } = resolveConfig();
+    const snapshot = listSnapshots(home).find((s) => s.manifest.from === a);
+    if (snapshot === undefined) {
+      out(`no data snapshot was taken when updating from ${a}: nothing to put back`);
+      return 0;
+    }
+    try {
+      acquireGatewayLock(home);
+    } catch (err) {
+      out(`error: ${err instanceof Error ? err.message : String(err)}`);
+      return CLI_EXIT.refused;
+    }
+    try {
+      restoreWithMarker(snapshot.dir, home, { allowAbsolute: [dbPath] });
+      out(`put back the data from before the update from ${a}`);
+      return 0;
+    } catch (err) {
+      out(`error: ${err instanceof Error ? err.message : String(err)}`);
+      return CLI_EXIT.refused;
+    } finally {
+      releaseGatewayLock(home);
+    }
   }
   const known =
     (group === "devices" && (verb === "list" || verb === "approve" || verb === "grant")) ||

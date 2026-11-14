@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import {
+  chmodSync,
   createReadStream,
   createWriteStream,
   mkdirSync,
@@ -15,6 +16,7 @@ import { dirname, join } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import {
+  type InstallKind,
   MANIFEST_FILE,
   type ManifestArtifact,
   ManifestError,
@@ -33,7 +35,9 @@ import {
  * - macOS: the zip, through a loopback JSON feed (Squirrel.Mac then checks the code signature);
  * - Windows: a local feed folder with Squirrel.Windows' RELEASES and the nupkg it names. RELEASES
  *   is checked against the verified nupkg (its SHA-1 and size, which Update.exe checks again) and
- *   cut down to the lines of the packages in the folder, so Update.exe reads nothing else.
+ *   cut down to the lines of the packages in the folder, so Update.exe reads nothing else;
+ * - Linux: the AppImage, deb or rpm matching how this copy was installed, verified and left in a
+ *   0700 directory for the apply step (src/packaging/linux-apply.ts).
  */
 
 /** Releases come only from here (security §11 "fetches only from the pinned release host"). */
@@ -46,6 +50,8 @@ export interface UpdateCheckDeps {
   arch: string;
   /** Defaults to darwin. */
   platform?: UpdatePlatform;
+  /** Linux: AppImage, deb or rpm, from how this copy runs (src/packaging/linux-install.ts). */
+  installKind?: InstallKind;
   keys: readonly ReleaseKey[];
   /** Where `update-manifest.json` and its `.sig` are fetched; must be on github.com/devmello/psyche/releases. */
   feed?: string;
@@ -63,8 +69,12 @@ export type UpdateCheck =
   | {
       state: "ready";
       release: string;
-      /** The verified zip (macOS) or nupkg (Windows). */
+      /** The verified zip (macOS), nupkg (Windows) or AppImage/deb/rpm (Linux). */
       file: string;
+      /** Linux: the manifest entry the file was verified against (its kind tells the apply step what to do). */
+      artifact?: ManifestArtifact;
+      /** Linux: the signed manifest that vouched for it, as fetched (rollback re-verifies it). */
+      manifest?: { bytes: Uint8Array; sig: string };
       mandatory: boolean;
       /** macOS: whether the download carried the quarantine flag (it should not: it is stripped if so). */
       quarantine?: "absent" | "removed" | "unknown";
@@ -146,6 +156,7 @@ export async function checkForVerifiedUpdate(d: UpdateCheckDeps): Promise<Update
       arch: d.arch,
       pinnedBase: pinned,
       platform: d.platform ?? "darwin",
+      ...(d.installKind ? { installKind: d.installKind } : {}),
     });
     if (plan.action === "none") return { state: "none", reason: plan.reason };
     mkdirSync(d.dir, { recursive: true, mode: 0o700 });
@@ -167,6 +178,22 @@ export async function checkForVerifiedUpdate(d: UpdateCheckDeps): Promise<Update
         file,
         mandatory: plan.mandatory,
         ...(quarantine ? { quarantine } : {}),
+      };
+    }
+    if (d.platform === "linux") {
+      chmodSync(d.dir, 0o700);
+      const file = join(d.dir, plan.artifact.name);
+      await downloadVerified(d.fetch, plan.url, plan.artifact, file);
+      d.log(
+        `verified ${plan.artifact.name} for ${plan.release}${plan.mandatory ? " (required update)" : ""}`,
+      );
+      return {
+        state: "ready",
+        release: plan.release,
+        file,
+        artifact: plan.artifact,
+        manifest: { bytes: manifestBytes, sig: sig ? Buffer.from(sig).toString("utf8") : "" },
+        mandatory: plan.mandatory,
       };
     }
     // Windows: a fresh feed folder per release, then RELEASES, then the package.

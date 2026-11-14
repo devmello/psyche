@@ -17,11 +17,15 @@ import { createHash, createPublicKey, verify } from "node:crypto";
  * Platforms. `artifacts` is the original list and holds macOS files only: Psyche builds before
  * Windows support check every entry of it and refuse a manifest with anything else there, so it
  * stays as it was. `platforms` (optional) maps `<platform>-<arch>` (`darwin-arm64`,
- * `darwin-x64`, `win32-x64`) to that platform's files; older builds ignore it. A Mac reads
+ * `darwin-x64`, `win32-x64`, `linux-x64`, `linux-arm64`) to that platform's files; older builds ignore it. A Mac reads
  * `platforms` when present and falls back to `artifacts`. Windows updates come only from
  * `platforms["win32-x64"]`: Squirrel's `RELEASES` list plus the full nupkg (and a delta nupkg
  * when it applies to the installed version). Keys and kinds this build does not know are skipped,
  * so a later platform or artifact kind does not make it refuse the manifest.
+ *
+ * Linux updates come only from `platforms["linux-<arch>"]`: an AppImage, a deb and an rpm. A copy
+ * takes the entry whose kind is how it was installed (`InstallKind`), so an AppImage never
+ * receives a deb and the reverse; an unknown install kind (a tarball, a dev build) gets none.
  */
 
 export const MANIFEST_FORMAT = "psyche-update-manifest";
@@ -35,12 +39,15 @@ export interface ReleaseKey {
   publicKey: string;
 }
 
-export type UpdatePlatform = "darwin" | "win32";
+export type UpdatePlatform = "darwin" | "win32" | "linux";
+
+/** How this copy of the app got onto a Linux machine; decides the artifact it updates to. */
+export type InstallKind = "appimage" | "deb" | "rpm";
 
 /**
  * zip / dmg: macOS (and the portable Windows zip). squirrel-releases: Squirrel.Windows' RELEASES
  * list. nupkg-full / nupkg-delta: the packages it names; a delta applies only to `baseVersion`.
- * setup: the Windows installer (first installs, never an update).
+ * setup: the Windows installer (first installs, never an update). appimage / deb / rpm: Linux.
  */
 export type ArtifactKind =
   | "zip"
@@ -48,7 +55,10 @@ export type ArtifactKind =
   | "squirrel-releases"
   | "nupkg-full"
   | "nupkg-delta"
-  | "setup";
+  | "setup"
+  | "appimage"
+  | "deb"
+  | "rpm";
 
 export interface ManifestArtifact {
   name: string;
@@ -67,6 +77,7 @@ export type PlatformArtifact = Omit<ManifestArtifact, "platform" | "arch">;
 export const PLATFORM_KINDS: Record<UpdatePlatform, readonly ArtifactKind[]> = {
   darwin: ["zip", "dmg"],
   win32: ["squirrel-releases", "nupkg-full", "nupkg-delta", "setup", "zip"],
+  linux: ["appimage", "deb", "rpm"],
 };
 
 export interface UpdateManifest {
@@ -196,7 +207,7 @@ function parseManifest(bytes: Uint8Array): UpdateManifest {
   return m as unknown as UpdateManifest;
 }
 
-const PLATFORM_KEY = /^(darwin|win32)-(arm64|x64)$/;
+const PLATFORM_KEY = /^(darwin|win32|linux)-(arm64|x64)$/;
 const SAFE_NAME = /^[A-Za-z0-9._-]+$/;
 
 /**
@@ -295,6 +306,8 @@ export interface UpdatePlanInput {
   arch: string;
   /** Defaults to darwin (the only platform before Windows support). */
   platform?: UpdatePlatform;
+  /** Linux only: the packaging this copy runs from. Without it a Linux copy has no update. */
+  installKind?: InstallKind;
   /** e.g. https://github.com/devmello/psyche/releases/download/ */
   pinnedBase: string;
 }
@@ -304,7 +317,7 @@ export type UpdatePlan =
   | {
       action: "update";
       release: string;
-      /** The main file: the zip on macOS, the full or delta nupkg on Windows. */
+      /** The main file: the zip on macOS, the full or delta nupkg on Windows, the AppImage/deb/rpm on Linux. */
       artifact: ManifestArtifact;
       url: string;
       mandatory: boolean;
@@ -336,6 +349,18 @@ export function planUpdate(m: UpdateManifest, input: UpdatePlanInput): UpdatePla
   if (platform === "darwin") {
     const artifact = list.find((a) => a.kind === "zip");
     if (!artifact) throw none();
+    const file = at(artifact);
+    return { action: "update", release: m.release, ...file, mandatory, files: [file] };
+  }
+  if (platform === "linux") {
+    // The artifact whose kind is the install kind; nothing else is ever offered.
+    const artifact = input.installKind ? list.find((a) => a.kind === input.installKind) : undefined;
+    if (!artifact) {
+      throw new ManifestError(
+        "no_artifact",
+        `no update for linux-${input.arch}-${input.installKind ?? "unknown"} in ${m.release}`,
+      );
+    }
     const file = at(artifact);
     return { action: "update", release: m.release, ...file, mandatory, files: [file] };
   }
