@@ -67,7 +67,7 @@ const DAILY_NOTE = /^memory\/(\d{4}-\d{2}-\d{2})\.md$/i;
 /**
  * `MemoryFile` carries no provenance, so only content whose origin is known reads as trusted:
  * the protected persona files (owner-approved writes only) and daily notes without an
- * `[untrusted]` line. Any other workspace file may hold what a tainted turn wrote.
+ * `[untrusted]` or `[untrusted:…]` line. Any other workspace file may hold what a tainted turn wrote.
  */
 function viewProvenance(path: string, content: string): "trusted" | "untrusted" {
   if (/\[untrusted[\]:]/i.test(content)) return "untrusted";

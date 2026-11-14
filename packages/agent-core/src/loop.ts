@@ -1501,7 +1501,7 @@ export class PsycheAgentLoop implements AgentLoop {
         title: `Role: ${job.role?.label ?? job.spec.role}`,
         text:
           job.role?.prompt ??
-          `You are the ${job.spec.role} specialist. Work on the task below and finish with specialist.report.`,
+          `You are the ${job.spec.role} specialist. Work on the task below on your own, check your result against what done looks like, and finish with specialist.report: what you did, what you found, and what you could not do or verify.`,
       });
     } else if (tools.some((t) => t.spec.name === "specialist.spawn")) {
       run.specialistsPrompt ??= (await this.#o.specialists?.promptSection()) ?? "";
@@ -3387,7 +3387,7 @@ export class PsycheAgentLoop implements AgentLoop {
     this.#subagents.set(id, info);
     const messages =
       input.context === "fork" ? answeredPrefix(structuredClone(parent.thread.messages)) : [];
-    const brief = `You are a subagent working for the agent of this conversation. Task: ${input.title}\n\n${input.brief}\n\nWork on your own: you cannot ask the owner questions, send messages or request approvals. Finish with a concise report of what you found or did; that report is all the parent sees.`;
+    const brief = `You are a subagent working for the agent of this conversation. Task: ${input.title}\n\n${input.brief}\n\nWork on your own and stay within this task; note anything else you spot in a sentence instead of acting on it. You cannot ask the owner questions, send messages or request approvals, so when a step needs one, say what you would have asked and stop at that step. Finish with a concise report of what you found or did, including what failed or what you could not verify; that report is all the parent sees.`;
     const update = (message: string) =>
       this.#toolEvent(parent, toolCallId, "subagent.spawn", "running", `Subagent: ${input.title}`, {
         message,
