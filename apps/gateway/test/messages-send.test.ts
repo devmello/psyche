@@ -371,7 +371,8 @@ describe("the card and the send", () => {
       s.ctx({ taint: true }),
     );
     await vi.waitFor(() => expect(s.issued).toHaveLength(1));
-    const reason = String((s.issued[0]?.approval.details as { reason?: unknown }).reason);
+    const details = s.issued[0]?.approval.details as { reason?: unknown } | undefined;
+    const reason = String(details?.reason);
     expect(reason).toContain("one time code");
     expect(reason).toContain("untrusted content");
     await s.respond("deny", {});
