@@ -44,6 +44,7 @@ import {
   type ImportFormat,
   type ImportOutcome,
 } from "./CredentialImport.tsx";
+import { useLinkSetupActions } from "./CredentialLinkSetup.tsx";
 import { PaymentsGroup, type PaymentsView } from "./CredentialPayments.tsx";
 import { bindingLabel, cardRefusal, credentialKindLabel } from "./credential-labels.ts";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
@@ -950,6 +951,7 @@ export function CredentialsSection({
   const call = useCall();
   const q = useGatewayQuery("vault.list", {});
   const pay = usePayments();
+  const linkActions = useLinkSetupActions(pay.reload);
   const [addError, setAddError] = useState<string | null>(null);
   const [itemError, setItemError] = useState<string | null>(null);
   const onUpdate = (c: CredentialMeta, patch: CredentialPatch): Promise<void> => {
@@ -1027,6 +1029,7 @@ export function CredentialsSection({
         onLinkExternal={onLinkExternal}
         payments={{
           configured: pay.data?.configured ?? true,
+          ...(pay.data?.setup ? { setup: { status: pay.data.setup, ...linkActions } } : {}),
           methods: pay.data?.methods ?? [],
           payments: pay.data?.payments ?? [],
           loading: pay.loading && pay.data === undefined,

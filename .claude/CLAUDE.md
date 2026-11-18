@@ -43,6 +43,10 @@ GitHub Actions is locked by billing, so local checks are the gate. `.claude/scri
 - typecheck for the touched packages;
 - the touched tests.
 
-It also runs existing tests that import the source you touched; skip them only with `--no-related`. Add `--swift` for Swift.
+**Don't overheat the owner's Mac (owner, 2026-11-18).** Checks are sized to the change:
+- **While working:** run only the test files you touched (`pnpm exec vitest run <files> --maxWorkers=1`). Never run the full check after every small fix.
+- **Once before opening the PR,** and once after the last review round: `bash .claude/scripts/verify.sh` (add `--swift` for Swift).
+- **The merge gate:** one run of `verify.sh --related` on the PR head, by the reviewer or the orchestrator, not both. It also runs existing tests that import the touched source. A docs, copy or i18n-only PR doesn't need `--related`.
+- Full checks run at low priority, one at a time on this Mac; others wait their turn.
 
-In a worktree, a Stop hook runs it whenever you finish with unverified changes. If it fails, you get the failures back and must fix them. It gives up after 3 tries, and then you must report the failure plainly. Never weaken or skip a test to get it passing.
+In a worktree, a Stop hook runs `verify.sh --quick` (lint, secrets, protocol and i18n checks: seconds) whenever you finish with unchecked changes. If it fails, you get the failures back and must fix them. It gives up after 3 tries, and then you must report the failure plainly. Never weaken or skip a test to get it passing.

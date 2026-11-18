@@ -36,6 +36,8 @@ export interface Harness {
   decisions: InboundDecisionEvent[];
   /** `onPairingDecided` calls, with how many texts the adapter had sent at that moment. */
   pairingDecisions: { event: PairingDecidedEvent; sentBefore: number }[];
+  /** What `onOutboundWithheld` reported (kinds only). */
+  withheld: { action: string; chatId: string; kinds: string[] }[];
 }
 
 let counter = 0;
@@ -61,8 +63,11 @@ export async function harness(
   const sleeps: number[] = [];
   const decisions: InboundDecisionEvent[] = [];
   const pairingDecisions: Harness["pairingDecisions"] = [];
+  const withheld: Harness["withheld"] = [];
   let sentCount = () => 0;
   const service = new ChannelService({
+    onOutboundWithheld: (e) =>
+      withheld.push({ action: e.action, chatId: e.chatId, kinds: e.kinds }),
     onInboundDecision: (e) => decisions.push(e),
     onPairingDecided: (event) => pairingDecisions.push({ event, sentBefore: sentCount() }),
     ...(options.admitInbound === undefined ? {} : { admitInbound: options.admitInbound }),
@@ -126,6 +131,7 @@ export async function harness(
     channel,
     decisions,
     pairingDecisions,
+    withheld,
   };
 }
 

@@ -127,7 +127,7 @@ Read by the Gateway (`psyched`):
 | `PSYCHE_BACKUP_IDENTITY_FILE` | age private key, so the app can verify age-encrypted backups | [compose/parts.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/parts.ts) |
 | `PSYCHE_TELEGRAM_BOT_TOKEN`, `PSYCHE_TELEGRAM_BOT_TOKEN_FILE`, `PSYCHE_TELEGRAM_BOT_USERNAME` | Telegram bot (prefer the file) | [compose/channels.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/channels.ts) |
 | `PSYCHE_IMESSAGE_ACCOUNT` | The Messages account to answer as (opt-in) | [compose/channels.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/channels.ts) |
-| `PSYCHE_LINK_CLI` | Path of the Stripe Link CLI | [compose/payments.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/payments.ts) |
+| `PSYCHE_LINK_CLI` | Path of the Stripe Link CLI: a developer override; the guided setup in Settings → Credentials → Payments saves the path without it | [compose/payments.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/payments.ts) |
 | `PSYCHE_BUNDLED_SKILLS` | Directory of bundled skills | [compose/skills.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/skills.ts) |
 
 Read by the CLI (`psyche`):

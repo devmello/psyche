@@ -125,6 +125,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.browser.useSignedInSessions": "로그인된 세션 사용",
   "settings.key.exec.srtPath": "srt 위치",
   "settings.key.devices.hostHelper.status": "Linux 도우미 확인",
+  "settings.key.devices.helper.availability": "Psyche Helper 연결",
   "settings.key.search.model.engine": "검색용 모델",
   "settings.key.search.semantic.enabled": "시맨틱 검색 (온디바이스)",
   "settings.key.search.cards.enabled": "검색용 컨텍스트 카드",

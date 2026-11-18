@@ -122,6 +122,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.browser.useSignedInSessions": "मेरे साइन-इन सत्र उपयोग करें",
   "settings.key.exec.srtPath": "srt का स्थान",
   "settings.key.devices.hostHelper.status": "Linux हेल्पर की जाँच",
+  "settings.key.devices.helper.availability": "Psyche Helper कनेक्शन",
   "settings.key.search.model.engine": "खोज के लिए मॉडल",
   "settings.key.search.semantic.enabled": "सिमेंटिक खोज (ऑन-डिवाइस)",
   "settings.key.search.cards.enabled": "खोज के लिए संदर्भ कार्ड",

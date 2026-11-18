@@ -326,6 +326,19 @@ export function Toasts(): ReactElement {
         >
           {toast.tone === "error" ? <span className="sr-only">{t("web.toast.error")}</span> : null}
           {toast.text}{" "}
+          {toast.action ? (
+            <button
+              type="button"
+              className="pill"
+              data-testid="toast-action"
+              onClick={() => {
+                toast.action?.run();
+                store.dismissToast(toast.id);
+              }}
+            >
+              {toast.action.label}
+            </button>
+          ) : null}{" "}
           <button
             type="button"
             className="pill"

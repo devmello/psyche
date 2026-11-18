@@ -17,6 +17,7 @@ import { everythingRest } from "./everything-rest/ja.ts";
 import { final202611 } from "./final-2026-11/ja.ts";
 import { galleryRest } from "./gallery-rest/ja.ts";
 import { helperCheck } from "./helper-check/ja.ts";
+import { helperOffline } from "./helper-offline/ja.ts";
 import { homeRest } from "./home-rest/ja.ts";
 import { links } from "./links/ja.ts";
 import { mailMeetings } from "./mail-meetings/ja.ts";
@@ -1223,8 +1224,68 @@ export const ja: Partial<Catalogue> = {
   "settings.credentials.payments.amountRefunded": "{total} · {refunded}返金済み",
   "settings.credentials.payments.title": "支払い",
   "settings.credentials.payments.loadLabel": "支払い",
-  "settings.credentials.payments.notConfigured":
-    "Stripe Linkが設定されていません。GatewayのマシンにLink CLIをインストールしてLinkにサインインし、PSYCHE_LINK_CLIを設定すると、ここに支払い方法が表示されます。",
+  "settings.credentials.payments.notConfigured": "このGatewayではStripe Linkが設定されていません。",
+  "settings.credentials.payments.setup.approvalLabel": "Stripe Linkのコマンドラインツール",
+  "settings.credentials.payments.setup.refused": "Psycheはそのプログラムを実行しません: {reason}。",
+  "settings.credentials.payments.setup.failed": "うまくいきませんでした: {reason}",
+  "settings.credentials.payments.setup.problem": "Psycheは{path}を実行しません: {reason}。",
+  "settings.credentials.payments.setup.recheck": "もう一度確認",
+  "settings.credentials.payments.setup.disconnect": "接続を解除",
+  "settings.credentials.payments.setup.disconnecting": "解除しています…",
+  "settings.credentials.payments.setup.disconnectConfirm.title": "Stripe Linkの接続を解除しますか?",
+  "settings.credentials.payments.setup.disconnectConfirm.body":
+    "PsycheはLink CLIを忘れ、保存したLinkのサインインを削除します。Linkのアカウントとカードには触れません。いつでも再接続できます。",
+  "settings.credentials.payments.setup.disconnectConfirm.go": "接続を解除",
+  "settings.credentials.payments.setup.disconnectConfirm.cancel": "接続したままにする",
+  "settings.credentials.payments.setup.envOverride":
+    "このGatewayはPSYCHE_LINK_CLIで起動されており、ここに保存したパスより優先されます。",
+  "settings.credentials.payments.setup.missing.title": "Linkのコマンドラインツールをインストール",
+  "settings.credentials.payments.setup.missing.body":
+    "PsycheはLink公式のコマンドラインツールを使ってStripe Linkで支払います。Gatewayを動かしているコンピューターで実行してから、もう一度確認してください。",
+  "settings.credentials.payments.setup.missing.region":
+    "エージェント向けのLink決済は米国とカナダで利用できます。",
+  "settings.credentials.payments.setup.found.title": "Link CLIが見つかりました",
+  "settings.credentials.payments.setup.found.body":
+    "インストールしたものを接続します。PsycheはStripe Linkとやり取りするためだけに、承認の後にのみ実行します。",
+  "settings.credentials.payments.setup.found.connect": "接続",
+  "settings.credentials.payments.setup.found.connecting": "接続しています…",
+  "settings.credentials.payments.setup.found.connectPath": "{path}を接続",
+  "settings.credentials.payments.setup.signedOut.title": "Linkにサインイン",
+  "settings.credentials.payments.setup.signedOut.body":
+    "PsycheはLink自身のページを開きます。サインインとこの端末の承認はそこで行います。Linkのパスワードはそこで入力し、Psycheには届きません。",
+  "settings.credentials.payments.setup.signedOut.go": "Linkでサインイン",
+  "settings.credentials.payments.setup.signedOut.starting": "開始しています…",
+  "settings.credentials.payments.setup.signingIn.title": "Linkでサインインを完了",
+  "settings.credentials.payments.setup.signingIn.body":
+    "Linkのページを開き、下のフレーズが表示されていることを確認して承認してください。",
+  "settings.credentials.payments.setup.signingIn.phrase": "フレーズ:",
+  "settings.credentials.payments.setup.signingIn.open": "Linkのページを開く",
+  "settings.credentials.payments.setup.signingIn.waiting": "Linkでの承認を待っています…",
+  "settings.credentials.payments.setup.connected": "{path}経由でStripe Linkに接続しています。",
+  "settings.credentials.payments.setup.connectedNoPath": "Stripe Linkに接続しています。",
+  "settings.credentials.payments.setup.reason.not_absolute": "パスが絶対パスではありません",
+  "settings.credentials.payments.setup.reason.missing": "存在しません",
+  "settings.credentials.payments.setup.reason.not_a_file": "リンクか、通常のファイルではありません",
+  "settings.credentials.payments.setup.reason.not_executable": "実行できません",
+  "settings.credentials.payments.setup.reason.wrong_owner": "別のユーザーのものです",
+  "settings.credentials.payments.setup.reason.writable": "他のユーザーが変更できます",
+  "settings.credentials.payments.setup.reason.parent_wrong_owner":
+    "上のフォルダが別のユーザーのものです",
+  "settings.credentials.payments.setup.reason.parent_writable":
+    "他のユーザーが上のフォルダを変更できます",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "Psyche 自身のフォルダ内にあります。代わりに npm で Link CLI をインストールしてください",
+  "settings.credentials.payments.setup.reason.not_link_cli":
+    "Link CLI のパッケージの一部ではありません",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "Volta のシムです。Volta 内の Link CLI のフォルダを使うか、npm でインストールしてください",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "支払いがまだ進行中です。完了してから接続を解除してください。",
+  "settings.credentials.payments.setup.force.title": "それでも接続を解除しますか？",
+  "settings.credentials.payments.setup.force.body":
+    "進行中: {payments}。それでも解除すると、Psyche は Link が許す範囲でキャンセルし、記録を破棄します。加盟店側の保留は自然に失効し、Psyche はもう報告できません。",
+  "settings.credentials.payments.setup.force.go": "それでも解除",
+  "settings.credentials.payments.setup.force.aPayment": "支払い1件",
   "settings.credentials.payments.noMethods":
     "Linkウォレットに支払い方法がありません。Linkアプリで追加してください。",
   "settings.credentials.payments.methods": "Linkの支払い方法",
@@ -3289,6 +3350,7 @@ export const ja: Partial<Catalogue> = {
   // password approvals on Linux (polkit)
   ...passwordPresence,
   ...helperCheck,
+  ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
   // Settings > Computer use > Separate desktop (Linux)

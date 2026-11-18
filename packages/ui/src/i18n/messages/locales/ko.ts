@@ -17,6 +17,7 @@ import { everythingRest } from "./everything-rest/ko.ts";
 import { final202611 } from "./final-2026-11/ko.ts";
 import { galleryRest } from "./gallery-rest/ko.ts";
 import { helperCheck } from "./helper-check/ko.ts";
+import { helperOffline } from "./helper-offline/ko.ts";
 import { homeRest } from "./home-rest/ko.ts";
 import { links } from "./links/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
@@ -1230,7 +1231,70 @@ export const ko: Partial<Catalogue> = {
   "settings.credentials.payments.title": "결제",
   "settings.credentials.payments.loadLabel": "결제",
   "settings.credentials.payments.notConfigured":
-    "Stripe Link가 설정되어 있지 않습니다. Gateway가 실행되는 컴퓨터에 Link CLI를 설치하고 Link에 로그인한 뒤 PSYCHE_LINK_CLI를 설정하면 Psyche가 여기에 결제 수단을 표시합니다.",
+    "이 Gateway에는 Stripe Link가 설정되어 있지 않습니다.",
+  "settings.credentials.payments.setup.approvalLabel": "Stripe Link 명령줄 도구",
+  "settings.credentials.payments.setup.refused":
+    "Psyche는 해당 프로그램을 실행하지 않습니다: {reason}.",
+  "settings.credentials.payments.setup.failed": "실패했습니다: {reason}",
+  "settings.credentials.payments.setup.problem":
+    "Psyche는 {path}을(를) 실행하지 않습니다: {reason}.",
+  "settings.credentials.payments.setup.recheck": "다시 확인",
+  "settings.credentials.payments.setup.disconnect": "연결 해제",
+  "settings.credentials.payments.setup.disconnecting": "해제하는 중…",
+  "settings.credentials.payments.setup.disconnectConfirm.title": "Stripe Link 연결을 해제할까요?",
+  "settings.credentials.payments.setup.disconnectConfirm.body":
+    "Psyche가 Link CLI를 잊고 저장된 Link 로그인을 삭제합니다. Link 계정과 카드는 그대로이며, 언제든 다시 연결할 수 있습니다.",
+  "settings.credentials.payments.setup.disconnectConfirm.go": "연결 해제",
+  "settings.credentials.payments.setup.disconnectConfirm.cancel": "연결 유지",
+  "settings.credentials.payments.setup.envOverride":
+    "이 Gateway는 PSYCHE_LINK_CLI로 시작되어 여기에 저장한 경로보다 우선합니다.",
+  "settings.credentials.payments.setup.missing.title": "Link 명령줄 도구 설치",
+  "settings.credentials.payments.setup.missing.body":
+    "Psyche는 Link의 공식 명령줄 도구로 Stripe Link를 통해 결제합니다. Gateway가 실행되는 컴퓨터에서 실행한 뒤 다시 확인하세요.",
+  "settings.credentials.payments.setup.missing.region":
+    "에이전트용 Link 결제는 미국과 캐나다에서 사용할 수 있습니다.",
+  "settings.credentials.payments.setup.found.title": "Link CLI를 찾았습니다",
+  "settings.credentials.payments.setup.found.body":
+    "설치한 것을 연결하세요. Psyche는 Stripe Link와 통신할 때만, 그리고 승인한 뒤에만 실행합니다.",
+  "settings.credentials.payments.setup.found.connect": "연결",
+  "settings.credentials.payments.setup.found.connecting": "연결하는 중…",
+  "settings.credentials.payments.setup.found.connectPath": "{path} 연결",
+  "settings.credentials.payments.setup.signedOut.title": "Link에 로그인",
+  "settings.credentials.payments.setup.signedOut.body":
+    "Psyche가 Link의 자체 페이지를 엽니다. 로그인과 이 기기 승인은 그곳에서 합니다. Link 비밀번호는 그곳에서만 입력하며 Psyche에는 전달되지 않습니다.",
+  "settings.credentials.payments.setup.signedOut.go": "Link로 로그인",
+  "settings.credentials.payments.setup.signedOut.starting": "시작하는 중…",
+  "settings.credentials.payments.setup.signingIn.title": "Link에서 로그인 마치기",
+  "settings.credentials.payments.setup.signingIn.body":
+    "Link 페이지를 열어 아래 문구가 표시되는지 확인한 뒤 승인하세요.",
+  "settings.credentials.payments.setup.signingIn.phrase": "문구:",
+  "settings.credentials.payments.setup.signingIn.open": "Link 페이지 열기",
+  "settings.credentials.payments.setup.signingIn.waiting": "Link에서 승인하기를 기다리는 중…",
+  "settings.credentials.payments.setup.connected":
+    "{path}을(를) 통해 Stripe Link에 연결되었습니다.",
+  "settings.credentials.payments.setup.connectedNoPath": "Stripe Link에 연결되었습니다.",
+  "settings.credentials.payments.setup.reason.not_absolute": "경로가 절대 경로가 아닙니다",
+  "settings.credentials.payments.setup.reason.missing": "존재하지 않습니다",
+  "settings.credentials.payments.setup.reason.not_a_file": "링크이거나 일반 파일이 아닙니다",
+  "settings.credentials.payments.setup.reason.not_executable": "실행할 수 없습니다",
+  "settings.credentials.payments.setup.reason.wrong_owner": "다른 사용자의 소유입니다",
+  "settings.credentials.payments.setup.reason.writable": "다른 사용자가 수정할 수 있습니다",
+  "settings.credentials.payments.setup.reason.parent_wrong_owner":
+    "상위 폴더가 다른 사용자의 소유입니다",
+  "settings.credentials.payments.setup.reason.parent_writable":
+    "다른 사용자가 상위 폴더를 수정할 수 있습니다",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "Psyche 자체 폴더 안에 있습니다. 대신 npm으로 Link CLI를 설치하세요",
+  "settings.credentials.payments.setup.reason.not_link_cli": "Link CLI 패키지에 속하지 않습니다",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "Volta의 shim입니다. Volta 안의 Link CLI 폴더를 사용하거나 npm으로 설치하세요",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "결제가 아직 진행 중입니다. 끝난 뒤에 연결을 해제하세요.",
+  "settings.credentials.payments.setup.force.title": "그래도 연결을 해제할까요?",
+  "settings.credentials.payments.setup.force.body":
+    "진행 중: {payments}. 그래도 해제하면 Psyche가 Link에서 허용하는 범위에서 취소하고 기록을 지웁니다. 가맹점의 보류는 저절로 만료되며 Psyche는 더 이상 보고할 수 없습니다.",
+  "settings.credentials.payments.setup.force.go": "그래도 해제",
+  "settings.credentials.payments.setup.force.aPayment": "결제 1건",
   "settings.credentials.payments.noMethods":
     "Link 지갑에 결제 수단이 없습니다. Link 앱에서 추가하십시오.",
   "settings.credentials.payments.methods": "Link 결제 수단",
@@ -3271,6 +3335,7 @@ export const ko: Partial<Catalogue> = {
   // password approvals on Linux (polkit)
   ...passwordPresence,
   ...helperCheck,
+  ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
   // Settings > Computer use > Separate desktop (Linux)

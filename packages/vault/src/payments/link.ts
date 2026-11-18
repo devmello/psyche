@@ -308,7 +308,15 @@ export class LinkCliWallet implements LinkWallet {
     if (input.paymentMethodId !== undefined)
       args.push("--payment-method-id", input.paymentMethodId);
     if (input.test === true) args.push("--test");
-    return parseSpendRequest(await this.#call(args));
+    const created = parseSpendRequest(await this.#call(args));
+    // Where the CLI does not ask for approval at creation (the reference documents it as the
+    // default, the README as this flag), ask now: the owner must approve before any card exists.
+    if (created.status !== "created") return created;
+    try {
+      return parseSpendRequest(await this.#call(["spend-request", "request-approval", created.id]));
+    } catch {
+      return created;
+    }
   }
 
   async retrieve(id: string, options: { wait?: boolean } = {}): Promise<SpendRequest> {

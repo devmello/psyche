@@ -98,7 +98,7 @@ import {
 } from "@psyche/scheduler";
 import { WEB_SEARCH_PROVIDER_SETTING, WEB_SEARCH_SEARXNG_SETTING } from "@psyche/search";
 import { createTaskHandlers, SqliteTaskEngine, TaskWorkerPool } from "@psyche/tasks";
-import { DerivedKeyStore, SecretRedactor, type Vault } from "@psyche/vault";
+import { DerivedKeyStore, type PaymentBroker, SecretRedactor, type Vault } from "@psyche/vault";
 import { type DocumentsHandle, documentBridge } from "../artifacts/bridge.ts";
 import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
@@ -118,6 +118,7 @@ import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attentio
 import { createAutoTitler } from "./auto-title.ts";
 import { withAutomationSpecialists } from "./automation-specialists.ts";
 import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
+import type { ComposedBrowser } from "./browser.ts";
 import { CallContexts } from "./call-context.ts";
 import { capabilityCatalogue, capabilityTools, deferToolFor } from "./capabilities.ts";
 import {
@@ -151,9 +152,11 @@ import {
   surfaceOf,
 } from "./handlers.ts";
 import { composeHarnesses } from "./harnesses.ts";
+import { HELPER_AVAILABILITY_SETTING, HelperAvailability } from "./helper-availability.ts";
 import { type HostTerminalOptions, hostTerminalPart } from "./host-terminal.ts";
 import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
+import { composeGuidedPayments, type LinkSetupOptions } from "./link-setup.ts";
 import type { ComposedMcp } from "./mcp.ts";
 import { memoryStoreStatus, resolveMemoryStore, setMemoryEncrypted } from "./memory-db.ts";
 import { withMemoryEntityContext } from "./memory-item-context.ts";
@@ -181,12 +184,13 @@ import { composeNudges } from "./nudges.ts";
 import { createOtherChats, type OtherChats } from "./other-chats.ts";
 import { PageReadHub } from "./page-reads.ts";
 import { composePasskeys } from "./passkeys.ts";
-import { composePayments, paymentsSetupFromEnv } from "./payments.ts";
+import { type ComposedPayments, type PaymentsSetup, paymentsSetupFromEnv } from "./payments.ts";
 import { composePeople, type People } from "./people.ts";
 import { graphSourceAdapters } from "./people-sources.ts";
 import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { folderAccessEnv, ownWorkdirs, protectedRoots } from "./protected-paths.ts";
+import { createPurchaseTool } from "./purchase-tool.ts";
 import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import {
@@ -311,6 +315,13 @@ export interface ComposeOptions
    * part with a `relay` delivers approvals beyond the in-app surfaces (chat, the Mac helper).
    */
   parts?: ReadonlyArray<(services: ComposeServices) => Promise<ComposedPart> | ComposedPart>;
+  /**
+   * Stripe Link payments. Default: the guided setup (Settings → Credentials → Payments), with
+   * `PSYCHE_LINK_CLI` as a dev override. A `wallet` replaces it (tests, the scenario runner);
+   * `link` tunes the guided setup (tests). Mount payments here, not as a part: the guided setup
+   * is always mounted and its `vault.payments.*` handlers would collide.
+   */
+  payments?: PaymentsSetup & { link?: LinkSetupOptions };
   /**
    * Speech (S17: dictation, voice memos, read-aloud, voices) is always mounted; this sets its
    * process runner prefix (default: `speechSetupFromEnv`).
@@ -1133,7 +1144,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     composeArtifacts,
     // Generative-UI widgets (generative-ui-2026): snapshots by id; tools arrive in P3.
     composeWidgets,
-    composePayments(paymentsSetupFromEnv(gwOptions.env)),
+    composeGuidedPayments(
+      gwOptions.payments ?? paymentsSetupFromEnv(gwOptions.env ?? process.env),
+      gwOptions.payments?.link,
+    ),
     // Web passkeys (issue #79): unavailable until gateway.publicOrigin is an https origin. A
     // caller-supplied `presence` verifier takes the passkey role instead.
     ...(presence === NO_PRESENCE ? [composePasskeys({ publicOrigin: config.publicOrigin })] : []),
@@ -1164,6 +1178,40 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     if (part.localProject !== undefined) {
       localProject = part.localProject;
       localProjectSupplied = true;
+    }
+  }
+  // The agent's purchase tool exists only with a wallet configured and a browser to pay in. With
+  // the guided setup the wallet is always there, so the tool follows whether a Link CLI is
+  // connected: it appears on connect and goes on disconnect, and no Pay card is ever raised for a
+  // payment that cannot happen.
+  const paymentsPart = parts.find((p): p is ComposedPayments & { payments: PaymentBroker } => {
+    return "payments" in p && p.payments !== undefined;
+  });
+  const browserPart = parts.find((p): p is ComposedBrowser => "ownsTab" in p && "devServers" in p);
+  if (paymentsPart !== undefined && browserPart !== undefined) {
+    const purchaseTool = createPurchaseTool({
+      payments: paymentsPart.payments,
+      driver: () => browserPart.driver,
+      ownsTab: (callId, tabId) => browserPart.ownsTab(callId, tabId),
+      calls,
+      approvals: broker,
+      redactor,
+      ...(gwOptions.env?.PSYCHE_LINK_TEST === "1" ? { test: true } : {}),
+    });
+    const availability = paymentsPart.availability;
+    if (availability === undefined) services.tools.register(purchaseTool);
+    else {
+      let unregister: (() => void) | undefined;
+      const follow = () => {
+        const on = availability.configured();
+        if (on && unregister === undefined) unregister = services.tools.register(purchaseTool);
+        else if (!on && unregister !== undefined) {
+          unregister();
+          unregister = undefined;
+        }
+      };
+      follow();
+      availability.onChange(follow);
     }
   }
   // The people graph's deterministic pass reads the connected apps through their tools (#732).
@@ -1477,9 +1525,23 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     (p): p is ComposedPart & { meetings: MeetingIngest } => "meetings" in p,
   );
   // S15: goal check-ins and the Feed run in-process; the heartbeat gets its 5k-token budget (O2).
+  // The Host helper's shared availability (one state for every helper-backed source and job): they
+  // skip quietly while it is offline, back off between attempts, and resume on reconnect.
+  const helperConnected = (): boolean => gatewayRef?.context.nodes.hostHelper() !== undefined;
+  const helperAvailability = new HelperAvailability(false, {
+    now: () => clock.now(),
+    log: (level, msg, fields) => gwOptions.logger?.log(level, msg, fields),
+    // The app's banner reads this setting (`settings.get`), so it follows the Gateway's own view.
+    onChange: (status) => {
+      publish("settings.changed", {
+        entries: [setSetting(db, HELPER_AVAILABILITY_SETTING, status)],
+      });
+    },
+  });
   const proactive = composeProactive({
     db,
     clock,
+    helper: { state: helperAvailability, connected: helperConnected },
     scheduler,
     notifier,
     tasks,
@@ -1700,6 +1762,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     connectors: async () => (connectorsPart === undefined ? [] : connectorsPart.registry.list()),
     tools: services.tools,
     messages: graphMessagesHelper,
+    helperOnline: () => {
+      helperAvailability.observe(helperConnected());
+      return helperAvailability.status().connected;
+    },
+    onContactsDenied: (denied) => helperAvailability.setContactsDenied(denied),
     // The Contacts source reads through the Host's own helper, like Messages.
     contacts: () => gatewayRef?.context.nodes.hostHelper("contacts.read")?.client,
     graph: () => (people?.settings().enabled === true ? people.graph : undefined),

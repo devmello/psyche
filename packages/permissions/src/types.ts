@@ -121,6 +121,8 @@ export interface PolicyDecision extends DecisionResult {
   typedConfirmation?: string;
   /** `ask` in an unattended run: queued, the run continues without the action. */
   deferred?: boolean;
+  /** The card goes to paired devices only, never a chat (a prohibition asked for it). */
+  deviceOnly?: true;
   /** Classifier label when the classifier ran. */
   classifier?: { label: ClassifierLabel; reason: string };
   /**
@@ -133,6 +135,11 @@ export interface PolicyDecision extends DecisionResult {
 export type ClassifierLabel = "routine" | "sensitive" | "prohibited";
 
 export interface PolicyApprovalInput extends ApprovalRequestInput {
+  /**
+   * Paired devices only, never a chat: set from the decision that asked (a prohibition such as
+   * `outbound_identifier`), so it holds even when no cached decision is found for the binding.
+   */
+  deviceOnly?: true;
   /** The decided call and context, persisted so `reissue()` re-evaluates the same inputs. */
   call?: PolicyCall;
   context?: PolicyContext;

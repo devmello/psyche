@@ -17,6 +17,7 @@ import { design } from "./design/zh.ts";
 import { deviceAccess } from "./device-access/zh.ts";
 import { final202611 } from "./final-2026-11/zh.ts";
 import { helperCheck } from "./helper-check/zh.ts";
+import { helperOffline } from "./helper-offline/zh.ts";
 import { home } from "./home/zh.ts";
 import { links } from "./links/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
@@ -1265,8 +1266,65 @@ export const zh: Partial<Catalogue> = {
   "settings.credentials.payments.amountRefunded": "{total} · 已退款 {refunded}",
   "settings.credentials.payments.title": "付款",
   "settings.credentials.payments.loadLabel": "付款",
-  "settings.credentials.payments.notConfigured":
-    "尚未设置 Stripe Link。请在运行 Gateway 的电脑上安装 Link CLI，登录 Link，并设置 PSYCHE_LINK_CLI；之后 Psyche 会在此显示你的付款方式。",
+  "settings.credentials.payments.notConfigured": "此 Gateway 尚未设置 Stripe Link。",
+  "settings.credentials.payments.setup.approvalLabel": "Stripe Link 命令行工具",
+  "settings.credentials.payments.setup.refused": "Psyche 不会运行该程序:{reason}。",
+  "settings.credentials.payments.setup.failed": "没有成功:{reason}",
+  "settings.credentials.payments.setup.problem": "Psyche 不会运行 {path}:{reason}。",
+  "settings.credentials.payments.setup.recheck": "重新检查",
+  "settings.credentials.payments.setup.disconnect": "断开连接",
+  "settings.credentials.payments.setup.disconnecting": "正在断开…",
+  "settings.credentials.payments.setup.disconnectConfirm.title": "断开 Stripe Link?",
+  "settings.credentials.payments.setup.disconnectConfirm.body":
+    "Psyche 会忘记 Link CLI,并删除已保存的 Link 登录。你的 Link 账户和银行卡不受影响,随时可以重新连接。",
+  "settings.credentials.payments.setup.disconnectConfirm.go": "断开连接",
+  "settings.credentials.payments.setup.disconnectConfirm.cancel": "保持连接",
+  "settings.credentials.payments.setup.envOverride":
+    "此 Gateway 是用 PSYCHE_LINK_CLI 启动的,它优先于这里保存的路径。",
+  "settings.credentials.payments.setup.missing.title": "安装 Link 命令行工具",
+  "settings.credentials.payments.setup.missing.body":
+    "Psyche 通过 Stripe Link 付款,使用 Link 自己的命令行工具。请在运行 Gateway 的电脑上执行下面的命令,然后重新检查。",
+  "settings.credentials.payments.setup.missing.region":
+    "面向代理的 Link 支付目前支持美国和加拿大。",
+  "settings.credentials.payments.setup.found.title": "已找到 Link CLI",
+  "settings.credentials.payments.setup.found.body":
+    "连接你安装的这一份。Psyche 只会为了与 Stripe Link 通信而运行它,并且只在你批准之后。",
+  "settings.credentials.payments.setup.found.connect": "连接",
+  "settings.credentials.payments.setup.found.connecting": "正在连接…",
+  "settings.credentials.payments.setup.found.connectPath": "连接 {path}",
+  "settings.credentials.payments.setup.signedOut.title": "登录 Link",
+  "settings.credentials.payments.setup.signedOut.body":
+    "Psyche 会打开 Link 自己的页面,你在那里登录并批准这台设备。Link 密码只在那里输入,不会到达 Psyche。",
+  "settings.credentials.payments.setup.signedOut.go": "使用 Link 登录",
+  "settings.credentials.payments.setup.signedOut.starting": "正在开始…",
+  "settings.credentials.payments.setup.signingIn.title": "在 Link 上完成登录",
+  "settings.credentials.payments.setup.signingIn.body":
+    "打开 Link 的页面,确认它显示下面的短语,然后批准。",
+  "settings.credentials.payments.setup.signingIn.phrase": "短语:",
+  "settings.credentials.payments.setup.signingIn.open": "打开 Link 页面",
+  "settings.credentials.payments.setup.signingIn.waiting": "正在等待你在 Link 中批准…",
+  "settings.credentials.payments.setup.connected": "已通过 {path} 连接到 Stripe Link。",
+  "settings.credentials.payments.setup.connectedNoPath": "已连接到 Stripe Link。",
+  "settings.credentials.payments.setup.reason.not_absolute": "路径不是绝对路径",
+  "settings.credentials.payments.setup.reason.missing": "它不存在",
+  "settings.credentials.payments.setup.reason.not_a_file": "它是链接,或不是普通文件",
+  "settings.credentials.payments.setup.reason.not_executable": "它无法运行",
+  "settings.credentials.payments.setup.reason.wrong_owner": "它属于其他用户",
+  "settings.credentials.payments.setup.reason.writable": "其他用户可以修改它",
+  "settings.credentials.payments.setup.reason.parent_wrong_owner": "上级文件夹属于其他用户",
+  "settings.credentials.payments.setup.reason.parent_writable": "其他用户可以修改上级文件夹",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "它位于 Psyche 自己的文件夹内；请改用 npm 安装 Link CLI",
+  "settings.credentials.payments.setup.reason.not_link_cli": "它不属于 Link CLI 软件包",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "它是 Volta 的 shim；请使用 Volta 下 Link CLI 自己的文件夹，或用 npm 安装",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "仍有一笔付款在进行中。请在完成后再断开连接。",
+  "settings.credentials.payments.setup.force.title": "仍要断开连接吗？",
+  "settings.credentials.payments.setup.force.body":
+    "仍在进行中：{payments}。如果仍要断开，Psyche 会在 Link 允许的范围内取消它并忘记它。商家处的预授权会自行失效，Psyche 将无法再上报。",
+  "settings.credentials.payments.setup.force.go": "仍要断开",
+  "settings.credentials.payments.setup.force.aPayment": "一笔付款",
   "settings.credentials.payments.noMethods": "你的 Link 钱包没有付款方式。请在 Link App 中添加。",
   "settings.credentials.payments.methods": "Link 付款方式",
   "settings.credentials.payments.default": "默认",
@@ -3243,6 +3301,7 @@ export const zh: Partial<Catalogue> = {
   // password approvals on Linux (polkit)
   ...passwordPresence,
   ...helperCheck,
+  ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
   // Settings > Computer use > Separate desktop (Linux)
