@@ -42,6 +42,22 @@ describe("hard prohibitions", () => {
     expect(d).toMatchObject({ decision: "deny", rule: "prohibition:password_typing" });
   });
 
+  it("a refusal for a secret the model would see or type says how to do it safely (vault)", async () => {
+    // Copy only: the rules above are unchanged, the refusal now names the vault path.
+    const typed = await decide(["browser.type", "write", origin("https://github.com")], {
+      params: { ref: "ref_3", text: "hunter2" },
+      meta: { field: { type: "password" } },
+    });
+    const pasted = await decide(["http.request", "write", origin("https://api.example.com")], {
+      params: { headers: { "x-api-key": j("sk-", "ant-", "q".repeat(30)) } },
+    });
+    for (const d of [typed, pasted]) {
+      expect(d.reason).toMatch(
+        /[Ss]tore (it|the password) in the vault and Psyche will fill it without seeing it$/,
+      );
+    }
+  });
+
   it("refuses a model-visible secret even if the owner pasted it", async () => {
     const d = await decide(["http.request", "write", origin("https://api.example.com")], {
       params: { headers: { "x-api-key": j("sk-", "ant-", "q".repeat(30)) } },

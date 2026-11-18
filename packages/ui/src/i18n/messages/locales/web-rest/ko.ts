@@ -53,6 +53,11 @@ export const webRest: Partial<Catalogue> = {
   "web.chat.autoUnavailable":
     "Auto를 사용할 수 없습니다: {model}은(는) Auto 모드 허용 목록에 없습니다. 사용하려면 다른 모델을 선택하십시오.",
   "web.toast.threadUpdateFailed": "Psyche가 해당 대화 설정을 변경하지 못했습니다.",
+  "web.toast.autoModelRefused":
+    "자동 모드는 목록에 있는 모델에서만 작동하며, {model}은(는) 자동 모드 목록에 없습니다. 허용된 모델을 고르거나 수동 또는 균형 모드를 사용하세요.",
+  "web.toast.autoModelRefusedNoModel":
+    "자동 모드는 목록에 있는 모델에서만 작동합니다. 먼저 모델 선택기에서 모델을 고르세요.",
+  "web.toast.switchModel": "모델 전환",
   "web.splash.remote.finding": "{host}을(를) 찾는 중…",
   "web.splash.remote.checking": "정말 {host}인지 확인하는 중…",
   "web.splash.remote.waiting": "{host}에서 승인을 기다리는 중…",

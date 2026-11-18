@@ -117,6 +117,52 @@ describe("ShellStore.updateThread", () => {
     expect(store.getState().toasts.map((t) => t.text)).toEqual([UNSUPPORTED]);
   });
 
+  it("says Auto works only on the listed models, names the model, and offers Switch model", async () => {
+    const gw = fakeGateway({
+      "threads.update": () => {
+        throw Object.assign(new Error("ignored"), {
+          code: "forbidden",
+          details: { reason: "auto_model_not_allowed", model: "lmstudio/tiny-7b" },
+        });
+      },
+    });
+    const store = new ShellStore(gw.port);
+    const onSwitchModel = vi.fn();
+    await expect(
+      store.updateThread("t1", { permissionMode: "auto" }, UNSUPPORTED, { onSwitchModel }),
+    ).resolves.toBe(false);
+    const [toast] = store.getState().toasts;
+    expect(toast?.text).toBe(
+      "Auto works only on the listed models, and tiny-7b isn't on the Auto-mode list. Pick an allowed model, or use Manual or Balanced.",
+    );
+    expect(toast?.tone).toBe("warn");
+    expect(toast?.action?.label).toBe("Switch model");
+    expect(onSwitchModel).not.toHaveBeenCalled();
+    toast?.action?.run();
+    expect(onSwitchModel).toHaveBeenCalledTimes(1);
+    expect(store.getState().unavailable).not.toContain("threads.update");
+  });
+
+  it("explains a refused Auto with no model pinned or configured, without the Gateway's English", async () => {
+    const gw = fakeGateway({
+      "threads.update": () => {
+        throw Object.assign(new Error("Auto mode needs a model on the auto-mode allowlist."), {
+          code: "forbidden",
+          details: { reason: "auto_model_not_allowed" },
+        });
+      },
+    });
+    const store = new ShellStore(gw.port);
+    await store.updateThread("t1", { permissionMode: "auto" }, UNSUPPORTED, {
+      onSwitchModel: () => undefined,
+    });
+    const [toast] = store.getState().toasts;
+    expect(toast?.text).toBe(
+      "Auto works only on the listed models. Pick one in the model picker first.",
+    );
+    expect(toast?.action?.label).toBe("Switch model");
+  });
+
   it("applies the change and refreshes on success", async () => {
     const gw = fakeGateway({
       "threads.update": () => ({ thread: {} }),

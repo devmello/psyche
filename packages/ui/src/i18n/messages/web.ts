@@ -421,6 +421,11 @@ export const web = {
   "web.toast.permissionModeUnsupported":
     "Changing the permission mode needs a newer version of Psyche.",
   "web.toast.threadUpdateFailed": "Psyche couldn't change that chat setting.",
+  "web.toast.autoModelRefused":
+    "Auto works only on the listed models, and {model} isn't on the Auto-mode list. Pick an allowed model, or use Manual or Balanced.",
+  "web.toast.autoModelRefusedNoModel":
+    "Auto works only on the listed models. Pick one in the model picker first.",
+  "web.toast.switchModel": "Switch model",
   "web.toast.modelUnsupported": "Picking a model needs a newer version of Psyche.",
   "web.palette.newSideChat": "New side chat",
   "web.palette.newIncognito": "New incognito chat (memory-only, 24 h)",

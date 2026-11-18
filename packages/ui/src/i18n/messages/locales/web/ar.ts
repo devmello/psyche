@@ -52,6 +52,11 @@ export const web: Partial<Catalogue> = {
   "web.chat.autoUnavailable":
     "الوضع التلقائي غير متاح: {model} ليس ضمن القائمة المسموح بها للوضع التلقائي. اختر نموذجًا آخر لاستخدامه.",
   "web.toast.threadUpdateFailed": "تعذّر على Psyche تغيير إعداد الدردشة هذا.",
+  "web.toast.autoModelRefused":
+    "يعمل الوضع التلقائي على النماذج المدرجة فقط، و{model} ليس ضمنها. اختر نموذجًا مسموحًا، أو استخدم اليدوي أو المتوازن.",
+  "web.toast.autoModelRefusedNoModel":
+    "يعمل الوضع التلقائي على النماذج المدرجة فقط. اختر نموذجًا من منتقي النماذج أولًا.",
+  "web.toast.switchModel": "تبديل النموذج",
   "web.splash.remote.finding": "جارٍ البحث عن {host}…",
   "web.splash.remote.checking": "جارٍ التأكد أنه فعلًا {host}…",
   "web.splash.remote.waiting": "بانتظار الموافقة على {host}…",
