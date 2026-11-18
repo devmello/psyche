@@ -1323,6 +1323,7 @@ export const zh: Partial<Catalogue> = {
   "settings.credentials.payments.setup.force.body":
     "仍在进行中：{payments}。如果仍要断开，Psyche 会在 Link 允许的范围内取消它并忘记它。商家处的预授权会自行失效，Psyche 将无法再上报。",
   "settings.credentials.payments.setup.force.go": "仍要断开",
+  "settings.credentials.payments.setup.force.aPayment": "一笔付款",
   "settings.credentials.payments.noMethods": "你的 Link 钱包没有付款方式。请在 Link App 中添加。",
   "settings.credentials.payments.methods": "Link 付款方式",
   "settings.credentials.payments.default": "默认",

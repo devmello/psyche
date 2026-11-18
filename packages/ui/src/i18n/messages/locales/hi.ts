@@ -1309,6 +1309,7 @@ export const hi: Partial<Catalogue> = {
   "settings.credentials.payments.setup.force.body":
     "अभी जारी है: {payments}। फिर भी डिस्कनेक्ट करने पर Psyche उसे वहीं रद्द करता है जहाँ Link अनुमति देता है और उसे भूल जाता है। व्यापारी के पास का होल्ड अपने आप समाप्त हो जाता है, और Psyche उसकी रिपोर्ट नहीं कर पाएगा।",
   "settings.credentials.payments.setup.force.go": "फिर भी डिस्कनेक्ट करें",
+  "settings.credentials.payments.setup.force.aPayment": "एक भुगतान",
   "settings.credentials.payments.noMethods":
     "आपके Link वॉलेट में कोई भुगतान विधि नहीं है। Link ऐप में एक जोड़ें।",
   "settings.credentials.payments.methods": "Link भुगतान विधियाँ",

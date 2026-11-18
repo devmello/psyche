@@ -556,6 +556,7 @@ export const settings = {
   "settings.credentials.payments.setup.force.body":
     "Still in progress: {payments}. If you disconnect anyway, Psyche cancels it where Link allows and forgets it. A hold at the merchant lapses on its own, and Psyche can no longer report it.",
   "settings.credentials.payments.setup.force.go": "Disconnect anyway",
+  "settings.credentials.payments.setup.force.aPayment": "a payment",
   "settings.credentials.payments.noMethods":
     "Your Link wallet has no payment methods. Add one in the Link app.",
   "settings.credentials.payments.methods": "Link payment methods",

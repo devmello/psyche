@@ -258,8 +258,13 @@ export function DisconnectLink({
               () => onDisconnect(),
               (err) => {
                 const names = openPaymentsOf(err);
-                if (names === null || names.length === 0) return false;
-                setOpen(names);
+                if (names === null) return false;
+                // A record without a merchant name still blocks: say "a payment".
+                setOpen(
+                  names.length > 0
+                    ? names
+                    : [t("settings.credentials.payments.setup.force.aPayment")],
+                );
                 return true;
               },
             )

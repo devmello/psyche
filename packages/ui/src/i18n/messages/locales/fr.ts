@@ -1283,6 +1283,7 @@ export const fr: Partial<Catalogue> = {
   "settings.credentials.payments.setup.force.body":
     "Toujours en cours : {payments}. Si vous déconnectez quand même, Psyche l'annule là où Link le permet et l'oublie. Une retenue chez le commerçant expire d'elle-même, et Psyche ne pourra plus la signaler.",
   "settings.credentials.payments.setup.force.go": "Déconnecter quand même",
+  "settings.credentials.payments.setup.force.aPayment": "un paiement",
   "settings.credentials.payments.noMethods":
     "Votre portefeuille Link n’a aucun moyen de paiement. Ajoutez-en un dans l’app Link.",
   "settings.credentials.payments.methods": "Moyens de paiement Link",

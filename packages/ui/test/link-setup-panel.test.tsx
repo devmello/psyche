@@ -115,6 +115,24 @@ describe("disconnecting while a payment is open", () => {
     await waitFor(() => expect(calls).toEqual([undefined, true]));
   });
 
+  it("still offers it when the open payment has no merchant name", async () => {
+    const nameless = Object.assign(new Error("conflict"), {
+      details: { reason: "payment_in_progress", open: 1, payments: [{ merchantName: "" }] },
+    });
+    const calls: (boolean | undefined)[] = [];
+    const onDisconnect = vi.fn(async (force?: boolean) => {
+      calls.push(force);
+      if (force !== true) throw nameless;
+    });
+    render(<DisconnectLink onDisconnect={onDisconnect} />);
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    const warning = await screen.findByRole("alert");
+    expect(warning.textContent).toContain("a payment");
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect anyway" }));
+    await waitFor(() => expect(calls).toEqual([undefined, true]));
+  });
+
   it("shows other failures as errors, without the force option", async () => {
     const onDisconnect = vi.fn(async () => {
       throw new Error("boom");

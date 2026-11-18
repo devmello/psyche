@@ -1349,6 +1349,7 @@ export const ar: Partial<Catalogue> = {
   "settings.credentials.payments.setup.force.body":
     "لا يزال قيد التنفيذ: {payments}. إذا فصلت الاتصال على أي حال، فسيلغيه Psyche حيثما يسمح Link وينساه. ينتهي الحجز لدى التاجر من تلقاء نفسه ولن يتمكن Psyche من الإبلاغ عنه بعد ذلك.",
   "settings.credentials.payments.setup.force.go": "فصل الاتصال على أي حال",
+  "settings.credentials.payments.setup.force.aPayment": "عملية دفع",
   "settings.credentials.payments.noMethods":
     "لا تحوي محفظة Link لديك أي طرق دفع. أضف واحدة في تطبيق Link.",
   "settings.credentials.payments.methods": "طرق الدفع في Link",

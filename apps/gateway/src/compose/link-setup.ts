@@ -13,7 +13,7 @@ import {
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, sep } from "node:path";
 import { deleteSettings, getSetting, type PsycheDb, setSetting } from "@psyche/db";
-import { hostLaunch } from "@psyche/hostfs";
+import { hostLaunch, shimTarget } from "@psyche/hostfs";
 import {
   type EventName,
   type EventPayload,
@@ -199,9 +199,15 @@ export function checkLinkCliPath(path: string, deps: PathDeps = {}, viaShim = fa
   if (st.isSymbolicLink() || !st.isFile()) return { ok: false, reason: "not_a_file" };
   const script = SCRIPT.test(real);
   const inPackage = () => packageNameOf(real) === "@stripe/link-cli";
-  // Windows has no owner or mode bits to read: the path must still be a real file.
-  if (platform === "win32")
-    return script && !inPackage() ? { ok: false, reason: "not_link_cli" } : { ok: true, real };
+  // Windows has no owner or mode bits to read, but the same rule holds: the Link CLI's own script,
+  // or an npm or pnpm `.cmd` shim whose target is one. `powershell.exe` or `cmd.exe` is neither.
+  if (platform === "win32") {
+    if (script) return inPackage() ? { ok: true, real } : { ok: false, reason: "not_link_cli" };
+    const target = !viaShim && /\.cmd$/i.test(real) ? shimTarget(real) : undefined;
+    if (target === undefined) return { ok: false, reason: "not_link_cli" };
+    const inner = checkLinkCliPath(target, deps, true);
+    return inner.ok && !SCRIPT.test(inner.real) ? { ok: false, reason: "not_link_cli" } : inner;
+  }
   const uid = "uid" in deps ? deps.uid : process.getuid?.();
   const trusted = (owner: number) => owner === 0 || owner === uid;
   if (!script && (st.mode & 0o111) === 0) return { ok: false, reason: "not_executable" };
@@ -560,6 +566,14 @@ export class LinkSetup {
     return this.wallet.inner !== undefined;
   }
 
+  readonly #changeListeners = new Set<() => void>();
+
+  /** Called whenever a CLI is connected or forgotten (the purchase tool follows this). */
+  onConfiguredChange(listener: () => void): () => void {
+    this.#changeListeners.add(listener);
+    return () => this.#changeListeners.delete(listener);
+  }
+
   #runnable(): { path: string } | { reason: LinkSetupReason; path: string } | undefined {
     const cli = this.cli();
     if (cli === undefined) return undefined;
@@ -597,6 +611,7 @@ export class LinkSetup {
               return (this.#o.run ?? runFile)(l.file, l.args, env, CLI_TIMEOUT_MS);
             },
           });
+    for (const l of this.#changeListeners) l();
   }
 
   async #exec(args: string[], timeoutMs = 60_000): Promise<string> {
@@ -888,6 +903,7 @@ export class LinkSetup {
 
   stop(): void {
     this.#stopPoll();
+    this.#changeListeners.clear();
   }
 }
 
@@ -910,6 +926,10 @@ export function composeGuidedPayments(
     });
     const part = composePayments({ ...rest, wallet: link.wallet })(services);
     link.broker = part.payments;
+    const availability = {
+      configured: () => link.configured(),
+      onChange: (l: () => void) => link.onConfiguredChange(l),
+    };
     const guard = (name: string): Record<string, HandlerDef> => {
       const h = part.handlers?.[name];
       return h === undefined
@@ -940,6 +960,7 @@ export function composeGuidedPayments(
     return {
       ...part,
       handlers,
+      availability,
       stop: async () => {
         link.stop();
         await part.stop?.();

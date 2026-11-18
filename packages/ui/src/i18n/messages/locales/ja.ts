@@ -1284,6 +1284,7 @@ export const ja: Partial<Catalogue> = {
   "settings.credentials.payments.setup.force.body":
     "進行中: {payments}。それでも解除すると、Psyche は Link が許す範囲でキャンセルし、記録を破棄します。加盟店側の保留は自然に失効し、Psyche はもう報告できません。",
   "settings.credentials.payments.setup.force.go": "それでも解除",
+  "settings.credentials.payments.setup.force.aPayment": "支払い1件",
   "settings.credentials.payments.noMethods":
     "Linkウォレットに支払い方法がありません。Linkアプリで追加してください。",
   "settings.credentials.payments.methods": "Linkの支払い方法",

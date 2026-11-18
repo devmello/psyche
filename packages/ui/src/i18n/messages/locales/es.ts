@@ -1301,6 +1301,7 @@ export const es: Partial<Catalogue> = {
   "settings.credentials.payments.setup.force.body":
     "Aún en curso: {payments}. Si desconectas de todos modos, Psyche lo cancela donde Link lo permita y lo olvida. Una retención en el comercio caduca sola y Psyche ya no podrá informar de ella.",
   "settings.credentials.payments.setup.force.go": "Desconectar de todos modos",
+  "settings.credentials.payments.setup.force.aPayment": "un pago",
   "settings.credentials.payments.noMethods":
     "Tu cartera Link no tiene métodos de pago. Añade uno en la app de Link.",
   "settings.credentials.payments.methods": "Métodos de pago de Link",

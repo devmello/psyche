@@ -20,6 +20,7 @@ type Scope = "operator.read" | "operator.write" | "operator.approvals" | "operat
 
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
+import { composeBrowser } from "../src/compose/browser.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import {
   checkLinkCliPath,
@@ -31,6 +32,7 @@ import {
   runFile,
   unwrapJson,
 } from "../src/compose/link-setup.ts";
+import type { ComposeServices } from "../src/compose/services.ts";
 import { adminClient, desktopClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
 
 const cleanups: (() => Promise<void> | void)[] = [];
@@ -269,6 +271,41 @@ describe("checkLinkCliPath", () => {
   });
 });
 
+describe("checkLinkCliPath on Windows", () => {
+  const win = { platform: "win32" as const };
+
+  it("accepts the Link CLI's own script and nothing that is not a script or a shim of one", () => {
+    const script = fakeCli("js");
+    expect(checkLinkCliPath(script, win)).toEqual({ ok: true, real: statRealpath(script) });
+    const cjs = fakeCli("cjs");
+    expect(checkLinkCliPath(cjs, win)).toMatchObject({ ok: true });
+    // A script of some other package is not the Link CLI.
+    const lone = join(tmp("psyche-win-lone-"), "x.js");
+    writeFileSync(lone, "1");
+    expect(checkLinkCliPath(lone, win)).toEqual({ ok: false, reason: "not_link_cli" });
+  });
+
+  it.each(["powershell.exe", "cmd.exe", "node.exe", "link-cli.exe"])(
+    "refuses %s as the Link CLI",
+    (name) => {
+      const fake = join(tmp("psyche-win-exe-"), name);
+      writeFileSync(fake, "MZ", { mode: 0o755 });
+      expect(checkLinkCliPath(fake, win)).toEqual({ ok: false, reason: "not_link_cli" });
+    },
+  );
+
+  it("refuses a `.cmd` file that is not an npm or pnpm shim of a Link CLI script", () => {
+    const dir = tmp("psyche-win-cmd-");
+    for (const body of ["@echo off\r\npowershell -Command %*\r\n", "", "calc.exe %*"]) {
+      writeFileSync(join(dir, "link-cli.cmd"), body);
+      expect(checkLinkCliPath(join(dir, "link-cli.cmd"), win)).toEqual({
+        ok: false,
+        reason: "not_link_cli",
+      });
+    }
+  });
+});
+
 describe("detecting the CLI", () => {
   it("finds link-cli on PATH and reports an unsafe one as refused", () => {
     const good = tmp("psyche-link-good-");
@@ -384,6 +421,8 @@ describe("guided setup in the composed Gateway", () => {
     statusTtlMs?: number;
     presence?: PresenceVerifier;
     run?: RunLink;
+    /** Receives the compose services (the tool registry, among others). */
+    onServices?: (services: ComposeServices) => void;
     /** Spend records on disk before the Gateway starts: [id, status, age in ms]. */
     spends?: [string, string, number, string?][];
   }
@@ -426,6 +465,18 @@ describe("guided setup in the composed Gateway", () => {
       model: { provider: new FakeModelProvider(), model: "fake/model" },
       vault: { keyFile, argon2: { memory: 64, passes: 1, parallelism: 1 } },
       ...(extra.presence === undefined ? {} : { presence: extra.presence }),
+      ...(extra.onServices === undefined
+        ? {}
+        : {
+            parts: [
+              (s: ComposeServices) => {
+                extra.onServices?.(s);
+                return {};
+              },
+              // The purchase tool also needs a browser to pay in.
+              (s: ComposeServices) => composeBrowser(s, { socketPath: false }),
+            ],
+          }),
       payments: {
         link: {
           detect: { env: { PATH: bin }, home: tmp("psyche-h-") },
@@ -546,6 +597,23 @@ describe("guided setup in the composed Gateway", () => {
       {},
     );
     expect(methods.methods[0]?.last4).toBe("1881");
+  });
+
+  it("offers the purchase tool only while a Link CLI is connected", async () => {
+    const cli = fakeCli();
+    let services: ComposeServices | undefined;
+    const { admin } = await bootAdmin(cli, { onServices: (s) => (services = s) });
+    const tool = () => services?.tools.get("checkout.pay_with_link");
+    // Nothing is set up: the tool is not there, so no Pay card can be raised for it.
+    expect(tool()).toBeUndefined();
+    await admin.call("payments.link.connect", { path: cli }, "k-c");
+    expect(tool()).toBeDefined();
+    expect(tool()?.spec.sideEffect).toBe("financial");
+    await admin.call("payments.link.disconnect", {}, "k-d");
+    expect(tool()).toBeUndefined();
+    // And it comes back when connected again.
+    await admin.call("payments.link.connect", { path: cli }, "k-c2");
+    expect(tool()).toBeDefined();
   });
 
   it("refuses to connect a planted script inside Psyche's folder", async () => {

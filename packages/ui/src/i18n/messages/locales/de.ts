@@ -1326,6 +1326,7 @@ export const de: Partial<Catalogue> = {
   "settings.credentials.payments.setup.force.body":
     "Läuft noch: {payments}. Wenn du trotzdem trennst, storniert Psyche die Zahlung, soweit Link es erlaubt, und vergisst sie. Eine Reservierung beim Händler verfällt von selbst, und Psyche kann sie nicht mehr melden.",
   "settings.credentials.payments.setup.force.go": "Trotzdem trennen",
+  "settings.credentials.payments.setup.force.aPayment": "eine Zahlung",
   "settings.credentials.payments.noMethods":
     "Dein Link-Wallet hat keine Zahlungsmethoden. Füge eine in der Link-App hinzu.",
   "settings.credentials.payments.methods": "Link-Zahlungsmethoden",
