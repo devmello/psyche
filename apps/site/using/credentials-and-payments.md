@@ -64,7 +64,16 @@ Settings → Credentials has "Connect 1Password" under "More ways to add". Linke
 
 Psyche never stores a card. Payments are designed to go through your Stripe Link wallet: the agent prepares a spend request with the merchant, items and total, you approve it on a purchase card and in Link, and a one-time card or token completes checkout.
 
-What you can do today: install Stripe's Link CLI, start the Gateway with `PSYCHE_LINK_CLI` pointing at it, and sign in to Link. Settings → Credentials then shows **Payments**: your wallet's payment methods and recent payments.
+Set it up in Settings → Credentials → **Payments**; no environment variable is needed:
+
+1. **Install the Link CLI.** Until Psyche finds it, the panel says "Install the Link command-line tool" and shows the command to run on the Mac that runs the Gateway: `npm install -g @stripe/link-cli`. Then choose **Check again**. Link payments for agents are available in the US and Canada.
+2. **Connect it.** Psyche looks in the usual npm and Homebrew places. It runs a program only if the file is a real file (not a link) owned by you or root, that other users can't write to, in folders that other users can't write to either; otherwise the panel says which of these failed. Choose **Connect** next to the copy you installed, and approve the card. Psyche checks the file again before every run, so a program that is swapped out later is not run.
+3. **Sign in on Link's page.** Choose **Sign in with Link**. Psyche shows a link to Link's own page and a short phrase: open the page, check that it shows the same phrase, and approve. You type your Link password there, never in Psyche, and Psyche never sees it. The sign-in is saved in `vault/link-auth.json` inside the Gateway's data folder, readable only by you.
+4. **Connected.** The panel shows your wallet's payment methods and recent payments. Payments switch on right away, with no restart.
+
+**Disconnect** signs out of Link, deletes the saved sign-in and forgets the CLI path. Your Link account and cards are not touched.
+
+Setting `PSYCHE_LINK_CLI` on the Gateway still works as a developer override and takes priority over the saved path. Changing the path is a security change, so the Gateway asks you to approve it and records it in the audit log.
 
 ### Travel holds
 
