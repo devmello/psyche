@@ -44,6 +44,8 @@ fi
 # The branch's own verify.sh if it has one (it may be newer), else the one next to this hook.
 vs=".claude/scripts/verify.sh"
 [ -f "$vs" ] || vs="$here/verify.sh"
+# A branch cut before --quick existed has a verify.sh that rejects it: use the one next to the hook.
+grep -q -- '--quick' "$vs" 2>/dev/null || vs="$here/verify.sh"
 # Quick checks only (lint, secrets, protocol, i18n): seconds, no typecheck or tests. The owner's
 # rule (2026-11-18): the full check runs once per PR, not every time an agent stops.
 out="$(bash "$vs" --quick --quiet 2>&1)"
