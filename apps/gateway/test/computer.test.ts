@@ -1042,6 +1042,50 @@ describe("computer-use agent tools (J1–J5)", () => {
       },
     );
 
+    it.each([
+      ["Confirm", true],
+      ["Send", true],
+      ["→", true],
+      ["Share", false],
+    ])(
+      "a web app whose page the helper cannot name: %s is refused unless it is ordinary (round 4)",
+      async (label, refused) => {
+        const webApp = "com.google.Chrome.app.unknown";
+        const orig = helper.invoke.bind(helper);
+        helper.invoke = async (capability, params, options) =>
+          capability === "computer.ax_tree"
+            ? {
+                ok: true,
+                result: {
+                  text: `window "App" snap=1\n  [e70] button "${label}"`,
+                  tier: "interact",
+                },
+              }
+            : orig(capability, params, options);
+        await call("computer.snapshot", { app: webApp });
+        helper.calls.length = 0;
+        // The helper resolves the element but reports no page address.
+        helper.underPoint = { role: "AXButton", label, labels: [label] };
+        answer = "approve";
+        const r = await call("computer.act", {
+          app: webApp,
+          action: "click",
+          ref: "e70",
+          expect: { role: "button", label },
+        });
+        if (refused) {
+          expect(r).toMatchObject({
+            isError: true,
+            output: { error: { code: "policy_denied", details: { reason: "page_unchecked" } } },
+          });
+          expect(money(helper.calls)).toHaveLength(0);
+        } else {
+          expect(r.isError).not.toBe(true);
+          expect(money(helper.calls).length).toBeGreaterThan(0);
+        }
+      },
+    );
+
     it("an ordinary click in a non-financial web app goes ahead (round 3)", async () => {
       const notion = "com.google.Chrome.app.notion";
       const orig = helper.invoke.bind(helper);

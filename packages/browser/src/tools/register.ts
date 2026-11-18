@@ -212,13 +212,18 @@ function controlOf(
     return { unreadable: true, ...(origin === undefined ? {} : { pageUrl: origin }) };
   const login =
     meta.formHasPassword === true &&
-    !isMoneyFlowPage(meta.pageUrl) &&
-    !isMoneyFlowPage(meta.pageTitle) &&
+    !isMoneyFlowPage(meta.pageUrl ?? origin, origin) &&
+    !isMoneyFlowPage(meta.pageTitle, meta.pageUrl ?? origin) &&
     !isVenueFormAction("post", meta.formAction);
   const formSubmit = enter && meta.inForm && !login;
+  // A search box, off a money-moving page: inside a transfer or a pay form Enter in any field,
+  // a payee search included, submits the payment, so it is not re-roled there.
+  const page = meta.pageUrl ?? origin;
   const search =
-    meta.inputType === "search" ||
-    /^(?:q|query|search|search_?query|keywords?)$/i.test(meta.fieldName ?? "");
+    (meta.inputType === "search" ||
+      /^(?:q|query|search|search_?query|keywords?)$/i.test(meta.fieldName ?? "")) &&
+    !isMoneyFlowPage(page, origin) &&
+    !isMoneyFlowPage(meta.pageTitle, page);
   return {
     labels: [meta.name],
     role: search && meta.role === "textbox" ? "searchbox" : meta.role,

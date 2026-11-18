@@ -20,6 +20,7 @@ import {
   financialBlock,
   isBrowserWebApp,
   isTradeOrTransferText,
+  looksLikeVenueStep,
 } from "@psyche/protocol/financial-block";
 import { hostWords } from "@psyche/protocol/host-words";
 import { isAmbiguousActionLabel, isMoneyContext, isMoneyText } from "@psyche/protocol/money-intent";
@@ -993,6 +994,19 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       "focus_unchecked",
     );
     if (t === undefined) return;
+    // A web app whose page the helper cannot name: a step-like or trade-like control there could be
+    // on a bank's page, so it is refused (fail closed); an ordinary control goes ahead.
+    if (
+      isBrowserWebApp(p.app) &&
+      (t.url === undefined || t.url === "") &&
+      [...labels, ...t.labels.slice(0, 1)].some((l) => looksLikeVenueStep(l))
+    ) {
+      throw new PsycheError(
+        "policy_denied",
+        "Psyche could not read which site this web app shows, and the control could be a payment or transfer step there. Do this one yourself.",
+        { details: { reason: "page_unchecked" } },
+      );
+    }
     await refuseFinancialBlock(p, { ...t, labels: [...labels, ...t.labels] }, "activate", callId);
   }
 

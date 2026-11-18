@@ -211,6 +211,23 @@ describe("browser tools: what the hard block reads", () => {
     ).toBe(false);
   });
 
+  it("Enter in a type=search payee field inside a transfer form is refused (round 4)", () => {
+    const bank = "https://secure.chase.com";
+    const payee = el("Payee", {
+      role: "textbox",
+      tag: "input",
+      inputType: "search",
+      fieldName: "q",
+      inForm: true,
+      formMethod: "post",
+      formAction: "https://secure.chase.com/svc/payments",
+      pageUrl: "https://secure.chase.com/transfers/new",
+    });
+    const d = tools(bank, { f: payee })("browser.press", { tabId: "t", keys: "Enter", ref: "f" });
+    expect(d.meta?.control?.role).toBe("textbox");
+    expect(blocked(bank, d)).toBe(true);
+  });
+
   it("Enter in a GET form that goes to another page on a venue is not refused", () => {
     const field = el("Symbol", {
       role: "textbox",

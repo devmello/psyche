@@ -511,6 +511,157 @@ const MUST_BLOCK: [string, FinancialAction][] = [
       formAction: "https://retail.onlinesbi.sbi/retail/transfer/confirm",
     },
   ],
+  // review round 4: a listing word after an act verb excuses nothing
+  [
+    "mercury Approve all transfers",
+    { origin: "https://app.mercury.com", labels: ["Approve all transfers"] },
+  ],
+  [
+    "mercury Approve my transfers",
+    { origin: "https://app.mercury.com", labels: ["Approve my transfers"] },
+  ],
+  [
+    "mercury Release pending transfers",
+    { origin: "https://app.mercury.com", labels: ["Release pending transfers"] },
+  ],
+  [
+    "mercury Approve scheduled transfers",
+    { origin: "https://app.mercury.com", labels: ["Approve scheduled transfers"] },
+  ],
+  [
+    "chase Submit all transfers",
+    { origin: "https://secure.chase.com", labels: ["Submit all transfers"] },
+  ],
+  [
+    "chase Send your transfers",
+    { origin: "https://secure.chase.com", labels: ["Send your transfers"] },
+  ],
+  [
+    "dialog Approve all transfers?",
+    { origin: "https://app.mercury.com", labels: ["Approve all transfers?"], role: "dialog" },
+  ],
+  // search-like fields on a money page
+  [
+    "Search on venmo /pay",
+    {
+      origin: "https://account.venmo.com",
+      pageUrl: "https://account.venmo.com/pay",
+      labels: ["Search"],
+      role: "textbox",
+      submits: true,
+      formMethod: "get",
+      formAction: "https://account.venmo.com/pay",
+    },
+  ],
+  [
+    "Find recipient on venmo /pay",
+    {
+      origin: "https://account.venmo.com",
+      pageUrl: "https://account.venmo.com/pay",
+      labels: ["Find recipient"],
+      role: "textbox",
+      submits: true,
+      formMethod: "get",
+      formAction: "https://account.venmo.com/pay",
+    },
+  ],
+  [
+    "Search payees on /transfers/new",
+    {
+      pageUrl: "https://secure.chase.com/transfers/new",
+      labels: ["Search payees"],
+      role: "textbox",
+      submits: true,
+      formMethod: "get",
+      formAction: "https://secure.chase.com/transfers/new",
+    },
+  ],
+  [
+    "cash app email field posting to alerts",
+    {
+      pageUrl: "https://cash.app/account",
+      labels: ["Email or $Cashtag"],
+      role: "textbox",
+      submits: true,
+      formMethod: "post",
+      formAction: "https://cash.app/api/alerts",
+    },
+  ],
+  // dialogs that start with a leave phrase and go on to an act
+  [
+    "dialog Leave this page? We will transfer $500 now.",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["Leave this page? We will transfer $500 now."],
+      role: "dialog",
+    },
+  ],
+  [
+    "dialog Leave this page, transfer $500 first",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["Leave this page, transfer $500 first"],
+      role: "dialog",
+    },
+  ],
+  [
+    "dialog Close this window to send $500",
+    { origin: "https://venmo.com", labels: ["Close this window to send $500"], role: "dialog" },
+  ],
+  [
+    "dialog Log out after you sell 10 AAPL?",
+    {
+      origin: "https://robinhood.com",
+      labels: ["Log out after you sell 10 AAPL?"],
+      role: "dialog",
+    },
+  ],
+  // signed-in routes and titles
+  [
+    "boa /business/transfers/wire Submit",
+    { pageUrl: "https://secure.bankofamerica.com/business/transfers/wire", labels: ["Submit"] },
+  ],
+  [
+    "revolut /us/transfer Continue",
+    { pageUrl: "https://app.revolut.com/us/transfer", labels: ["Continue"] },
+  ],
+  ["wise /en/send Continue", { pageUrl: "https://wise.com/en/send", labels: ["Continue"] }],
+  [
+    "ally /personal/transfers#/send Confirm",
+    { pageUrl: "https://www.ally.com/personal/transfers#/send", labels: ["Confirm"] },
+  ],
+  [
+    "title Transfer: review, Confirm",
+    { origin: "https://secure.chase.com", pageTitle: "Transfer: review", labels: ["Confirm"] },
+  ],
+  [
+    "title Buy or sell AAPL | Robinhood, Submit",
+    {
+      origin: "https://robinhood.com",
+      pageTitle: "Buy or sell AAPL | Robinhood",
+      labels: ["Submit"],
+    },
+  ],
+  [
+    "SBI fundtransferconfirm.htm Confirm",
+    { pageUrl: "https://retail.onlinesbi.sbi/retail/fundtransferconfirm.htm", labels: ["Confirm"] },
+  ],
+  // tabs and menus: only a one-word trade verb switches a panel
+  ["tab Buy now", { origin: "https://www.coinbase.com", labels: ["Buy now"], role: "tab" }],
+  ["menu Sell all", { origin: "https://robinhood.com", labels: ["Sell all"], role: "menu" }],
+  // rewards: points to the bank are money
+  [
+    "rewards Transfer rewards to checking",
+    { origin: "https://ultimaterewardspoints.chase.com", labels: ["Transfer rewards to checking"] },
+  ],
+  [
+    "invest-travel host is not a travel site",
+    { origin: "https://invest-travel.sofi.com", labels: ["Buy"] },
+  ],
+  [
+    "lone letter x on a brokerage",
+    { origin: "https://robinhood.com", labels: ["x"], role: "button" },
+  ],
 ];
 
 const MUST_NOT_BLOCK: [string, FinancialAction][] = [
@@ -865,6 +1016,90 @@ const MUST_NOT_BLOCK: [string, FinancialAction][] = [
   ],
   ["chase Recent transfers", { origin: "https://secure.chase.com", labels: ["Recent transfers"] }],
   ["chase Transfers (one word)", { origin: "https://secure.chase.com", labels: ["Transfers"] }],
+  // review round 4
+  [
+    "chase View all transfers",
+    { origin: "https://secure.chase.com", labels: ["View all transfers"] },
+  ],
+  [
+    "chase Cancel scheduled transfers",
+    { origin: "https://secure.chase.com", labels: ["Cancel scheduled transfers"] },
+  ],
+  [
+    "dialog Discard changes to this transfer?",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["Discard changes to this transfer?"],
+      role: "dialog",
+    },
+  ],
+  [
+    "wise blog money-transfer-review-2025 Next",
+    { pageUrl: "https://wise.com/blog/money-transfer-review-2025", labels: ["Next"] },
+  ],
+  [
+    "chase /personal/transfers/new-features Next",
+    { pageUrl: "https://www.chase.com/personal/transfers/new-features", labels: ["Next"] },
+  ],
+  [
+    "chase /personal/wire-transfers/how-to-start Continue",
+    { pageUrl: "https://www.chase.com/personal/wire-transfers/how-to-start", labels: ["Continue"] },
+  ],
+  [
+    "wise /learn/transfers/how-to-add-a-recipient Next",
+    { pageUrl: "https://www.wise.com/learn/transfers/how-to-add-a-recipient", labels: ["Next"] },
+  ],
+  [
+    "title Trade-in value | Chase Auto",
+    {
+      origin: "https://www.chase.com",
+      pageTitle: "Trade-in value | Chase Auto",
+      labels: ["Continue"],
+    },
+  ],
+  [
+    "title Buy a home | Chase",
+    { origin: "https://www.chase.com", pageTitle: "Buy a home | Chase", labels: ["Next"] },
+  ],
+  [
+    "chase search: What can we help you find?",
+    {
+      origin: "https://www.chase.com",
+      pageUrl: "https://www.chase.com/",
+      labels: ["What can we help you find?"],
+      role: "textbox",
+      submits: true,
+      formMethod: "get",
+      formAction: "https://www.chase.com/",
+    },
+  ],
+  [
+    "sofi newsletter email /email/subscribe?src=footer",
+    {
+      origin: "https://www.sofi.com",
+      pageUrl: "https://www.sofi.com/",
+      labels: ["Enter your email"],
+      role: "textbox",
+      submits: true,
+      formMethod: "post",
+      formAction: "https://www.sofi.com/email/subscribe?src=footer",
+    },
+  ],
+  ["chase × with spaces", { origin: "https://www.chase.com", labels: [" × "], role: "button" }],
+  [
+    "travel Transfer miles to partners",
+    { origin: "https://travel.chase.com", labels: ["Transfer miles to partners"] },
+  ],
+  ["coinbase Sell tab", { origin: "https://www.coinbase.com", labels: ["Sell"], role: "tab" }],
+  [
+    "shop dialog Leave this page and lose your cart?",
+    {
+      origin: "https://shop.example.com",
+      labels: ["Leave this page and lose your cart?"],
+      role: "dialog",
+    },
+  ],
+  ["robinhood pagination 2", { origin: "https://robinhood.com", labels: ["2"], role: "button" }],
 ];
 
 describe("financialBlock: must block", () => {

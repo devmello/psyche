@@ -753,8 +753,15 @@ export interface TextOptions {
   tab?: boolean;
 }
 
-/** Words before a plural that make it a list of past or planned moves, not the act. */
+/**
+ * Words that, when every word before a plural "transfers" is one of them, make the label a list
+ * of past or planned moves ("Recent transfers", "View all transfers", "Cancel scheduled
+ * transfers"). After an act verb they excuse nothing: "Approve all transfers" moves money.
+ */
 const LISTING_WORDS = new Set([
+  "show",
+  "cancel",
+  "stop",
   "recent",
   "past",
   "previous",
@@ -768,6 +775,11 @@ const LISTING_WORDS = new Set([
   "view",
   "see",
 ]);
+/** "Transfers" alone, or after nothing but listing words ("Recent transfers", "View all transfers"). */
+function isListingPlural(words: readonly string[], i: number): boolean {
+  return words.slice(0, i).every((w) => LISTING_WORDS.has(w));
+}
+
 /** What a rewards site moves that is not money ("Transfer points to partners"). */
 const REWARD_UNITS = new Set(["points", "miles", "rewards", "partners", "avios"]);
 
@@ -833,7 +845,7 @@ export function isTradeOrTransferText(
     }
     if (
       trades &&
-      opts.tab !== true &&
+      !(opts.tab === true && words.length === 1) &&
       (VENUE_TRADE_WORDS.has(w) ||
         (brokerage && opts.grouping !== true && BROKERAGE_ONLY_WORDS.has(w)))
     ) {
@@ -842,13 +854,16 @@ export function isTradeOrTransferText(
     }
     if (VENUE_MOVE_WORDS.has(w)) {
       if (next !== undefined && MOVE_NOT_ACTION.has(next)) continue;
-      if (w === "transfers") {
-        const prev = i > 0 ? words[i - 1] : undefined;
-        if (words.length === 1 || opts.grouping === true) continue;
-        if (prev !== undefined && LISTING_WORDS.has(prev)) continue;
-      }
+      if (w === "transfers" && (opts.grouping === true || isListingPlural(words, i))) continue;
       // "Transfer points" on a bank's rewards site moves points, not money.
-      if (opts.noTrade === true && next !== undefined && REWARD_UNITS.has(next)) continue;
+      // Points that go "to checking" become money in the bank: that still moves money.
+      if (
+        opts.noTrade === true &&
+        next !== undefined &&
+        REWARD_UNITS.has(next) &&
+        !/\bto (?:my |your |a |the )?(?:checking|savings|bank|account|card|cash)\b/.test(spaced)
+      )
+        continue;
       // A P2P "Send link" is a request for money; elsewhere a link or a code is sign-in.
       if (
         SEND_WORDS.has(w) &&
@@ -1053,6 +1068,8 @@ const FLOW_WORDS = new Set([
   "conferma",
   "verificar",
 ]);
+/** Whole segments that are an app's own step: the send or trade screen, never a topic page. */
+const VERB_SEGMENTS = new Set(["send", "withdraw", "buy", "sell", "swap", "sendmoney"]);
 /** A first path segment of a bank's public site: a product page, not the signed-in app. */
 const MARKETING_FIRST = new Set([
   "personal",
@@ -1136,7 +1153,7 @@ const GROUPING_ROLES =
 /** A tab or a menu that switches a panel ("Buy" | "Sell" on an order form): not a segmented radio. */
 const TAB_ROLES = /^(tab|menu|menubar|AXTabGroup|AXMenuBarItem)$/;
 /** A close button drawn as a glyph: it dismisses, it never trades. */
-const CLOSE_GLYPHS = new Set(["×", "✕", "✖", "⨯", "╳", "✗", "x", "X"]);
+const CLOSE_GLYPHS = new Set(["×", "✕", "✖", "⨯", "╳"]);
 /** Fields and containers clicked to type or to scroll, not to press. */
 const FIELD_ROLES =
   /^(textbox|searchbox|combobox|spinbutton|slider|scrollbar|textarea|AXTextField|AXTextArea|AXComboBox|AXSearchField|AXSlider|AXScrollArea|AXScrollBar)$/;
@@ -1181,12 +1198,19 @@ function isWalletHost(input: string | undefined): boolean {
 function isRewardsHost(input: string | undefined): boolean {
   const host = financialHost(input);
   if (host === undefined) return false;
-  const sub = host.split(".").slice(0, -2).join(".");
-  return /(rewards|points|travel)/.test(sub);
+  // The first label names the site: "ultimaterewardspoints", "rewards", "travel" (not "invest-travel").
+  const first = host.split(".").slice(0, -2)[0] ?? "";
+  return /^(?:ultimate)?(?:rewards?|points|travel)(?:points|portal|center)?$/.test(first);
 }
 
-/** Whether a label has a letter or a digit once invisible characters are gone. */
-const hasWord = (l: string): boolean => /[\p{L}\p{N}]/u.test(clean(l));
+/**
+ * Whether a label has a word once invisible characters are gone: a digit, or two letters. A lone
+ * letter ("x", "→ B") names nothing a person could check, so on a venue it is read as wordless.
+ */
+const hasWord = (l: string): boolean => {
+  const t = clean(l);
+  return /\p{N}/u.test(t) || (t.match(/\p{L}/gu) ?? []).length >= 2;
+};
 
 /**
  * Whether acting on this control is a trade or a transfer that no approval unlocks. Undefined
@@ -1253,15 +1277,21 @@ export function financialBlock(a: FinancialAction): FinancialBlock | undefined {
   // is unreadable, unless it is a search, or a GET that goes to another page. (A login form is
   // not marked as submitting by the browser, so it never gets here.)
   if (a.submits === true && a.role !== undefined && TEXT_FIELD_ROLES.test(a.role)) {
-    const flow = [a.pageUrl, a.pageTitle].some((c) => c !== undefined && pageSaysTransfer(c));
+    const flow =
+      isMoneyFlowPage(a.pageUrl, a.origin) || isMoneyFlowPage(a.pageTitle, a.pageUrl ?? a.origin);
     const field = clean(own ?? "").toLowerCase();
-    // A site search ("Search", "Search Chase") or a newsletter sign-up, off a money-moving page.
-    const search = !flow && /^(?:search|find|look ?up)\b/.test(field);
+    // A site search ("Search", "Search Chase", "What can we help you find?") or a newsletter
+    // sign-up, and only off a money-moving page: inside a transfer or a pay form, Enter in any
+    // field submits the payment.
+    const search = !flow && /\b(?:search|find|look ?up)\b/.test(field);
+    const p2p = venue === "p2p" || venue === "p2p_mixed";
     const newsletter =
       !flow &&
+      !p2p &&
       /\b(?:e-?mail|newsletter|subscribe)\b/.test(field) &&
+      !/\b(?:recipient|payee|phone|mobile|name|cashtag|to)\b|\$/.test(field) &&
       a.formAction !== undefined &&
-      /(?:newsletter|subscribe|sign-?up|notify|alerts?)(?:[/?#]|$)/i.test(a.formAction);
+      /(?:newsletter|subscribe|sign-?up|alerts?)(?:[/?#.-]|$)/i.test(a.formAction);
     if (!search && !newsletter && !getToAnotherPage(a.formMethod, a.formAction, a.pageUrl)) {
       return { venue, matched: "" };
     }
@@ -1301,26 +1331,62 @@ export function financialBlock(a: FinancialAction): FinancialBlock | undefined {
 }
 
 /**
+ * Whether a control's label could be a step of a trade or a transfer if it sat on a venue: a
+ * trade or move word for any kind of venue, a bare confirm step ("Confirm", "Bestätigen", "确认"),
+ * or no word at all. Computer use refuses such a click in a web app whose page it cannot read.
+ */
+export function looksLikeVenueStep(label: string | undefined): boolean {
+  if (label === undefined || !hasWord(label)) return true;
+  if ((["brokerage", "bank", "p2p"] as const).some((k) => isTradeOrTransferText(label, k))) {
+    return true;
+  }
+  const text = clean(label);
+  const words = wordsOf(text);
+  return (
+    (words.length > 0 && words.length <= 2 && words.some((w) => CONFIRM_LABEL.has(w))) ||
+    (text.length <= 8 && CONFIRM_CJK.some((w) => text.includes(w)))
+  );
+}
+
+/**
  * Leaving a page never moves money, whatever the dialog says it will lose ("Leave this page? Your
  * transfer won't be saved."). Only the page-leaving question itself is excused, and only when its
  * sentence does not go on to an act ("Leave your note blank and transfer $5,000 now?").
  */
 const DIALOG_LEAVES =
-  /^(?:(?:leave|exit|close) (?:this |the )?(?:page|site|screen|form|window)|discard (?:your |the |this )?(?:changes|draft|edits)|stay on (?:this |the )?page|log out|sign out)\b/;
+  /^(?:(?:leave|exit|close) (?:this |the )?(?:page|site|screen|form|window)|discard|stay on (?:this |the )?page|log out|sign out)\b/;
+
+/** What a leave or discard dialog says will be lost: never itself an act. */
+const LOSS_CLAUSES: readonly RegExp[] = [
+  /\b(?:your|the|this|any|all)? ?(?:[\p{L}\p{N}]+ ){0,3}(?:won t|wont|will not|isn t|is not|aren t|are not) (?:be )?(?:saved|kept|sent|submitted|finished)\b/gu,
+  /\b(?:your|the|this|any|all)? ?(?:[\p{L}\p{N}]+ ){0,3}(?:will be|is|are) (?:lost|discarded|cleared)\b/gu,
+  /\bunsaved (?:changes|edits)\b/gu,
+  /^\s*(?:changes|edits) (?:to|on|in) (?:your |the |this )?[\p{L}\p{N}]+\b/u,
+  /^\s*(?:and )?lose (?:your |the |this )?[\p{L}\p{N}]+\b/u,
+];
+
+function withoutLossClauses(text: string): string {
+  return LOSS_CLAUSES.reduce((t, re) => t.replace(re, " "), text);
+}
 
 /** A confirm dialog's sentence names a trade or a move of money, with the same exemptions as a label. */
 function dialogSaysAct(text: string, kind: VenueKind): boolean {
   const plain = clean(text).toLowerCase();
-  const words = wordsOf(plain);
-  const first = wordsOf(plain.split(/[?.!]/)[0] ?? "").join(" ");
-  if (DIALOG_LEAVES.test(first) && !/\b(?:and|then)\b/.test(first)) return false;
+  // A dialog that asks to leave or discard is excused only for what it says will be lost: the leave
+  // question and a "won't be saved" clause are taken out, and anything left is still read
+  // ("Leave this page? We will transfer $500 now." and "Close this window to send $500" act).
+  const joined = wordsOf(plain).join(" ");
+  const rest = DIALOG_LEAVES.test(joined)
+    ? withoutLossClauses(joined.replace(DIALOG_LEAVES, " "))
+    : joined;
+  const words = wordsOf(rest);
   const cjk = plain.replace(CJK_NOT_ACT, " ");
   if (VENUE_CJK.some((w) => cjk.includes(w))) return true;
   return words.some((w, i) => {
     const next = nextWord(words, i);
     if (VENUE_TRADE_WORDS.has(w)) return !(next !== undefined && TRADE_NOT_ACTION.has(next));
     if (!VENUE_MOVE_WORDS.has(w) || (w === "deposit" && kind === "bank")) return false;
-    if (w === "transfers" && i > 0 && LISTING_WORDS.has(words[i - 1] ?? "")) return false;
+    if (w === "transfers" && isListingPlural(words, i)) return false;
     if (next !== undefined && MOVE_NOT_ACTION.has(next)) return false;
     return !(SEND_WORDS.has(w) && next !== undefined && SEND_NOT_ACTION.has(next));
   });
@@ -1338,18 +1404,28 @@ function segmentWords(seg: string): string[] {
 /** Whether an address's path (or hash route), or a part of a title, says a transfer or a trade. */
 function pageSaysTransfer(text: string): boolean {
   let route: string | undefined;
-  try {
-    const u = new URL(text);
-    route = `${u.pathname}/${u.hash.startsWith("#") ? u.hash.slice(1) : ""}`;
-  } catch {
-    // a title
+  let hashRoute = "";
+  let host = "";
+  // Only an address with `://` is an address: "Transfer: review" is a title.
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(text.trim())) {
+    try {
+      const u = new URL(text.trim());
+      hashRoute = u.hash.startsWith("#") ? u.hash.slice(1) : "";
+      route = u.pathname;
+      host = u.hostname.toLowerCase();
+    } catch {
+      // not an address after all
+    }
   }
   if (route !== undefined) {
-    const segs = route
-      .normalize("NFKC")
-      .split(/[/?#]/)
-      .filter((s) => s !== "");
-    const lowers = segs.map((x) => x.toLowerCase());
+    const split = (r: string) =>
+      r
+        .normalize("NFKC")
+        .split(/[/?#]/)
+        .filter((x) => x !== "");
+    const pathSegs = split(route);
+    const segs = [...pathSegs, ...split(hashRoute)];
+    const lowers = pathSegs.map((x) => x.toLowerCase());
     const hit = (seg: string): boolean => {
       if (EXACT_SEGMENTS.has(seg.toLowerCase())) return true;
       const w = segmentWords(seg);
@@ -1362,19 +1438,29 @@ function pageSaysTransfer(text: string): boolean {
         return true;
       return STEM_PAIRS.some(([x, y]) => w.some((v, i) => v === x && w[i + 1] === y));
     };
+    const bare = (seg: string) => seg.toLowerCase().replace(/\.(?:html?|jsp|aspx?|php|do)$/, "");
+    // An old bank's page name glued in one word: "fundtransferconfirm.htm", "wiretransferreview.do".
+    const glued = (seg: string) =>
+      /(?:transfer|wire|withdraw|remit|payee)[a-z]*(?:confirm|review|verify|submit|authori[sz]e)/.test(
+        bare(seg),
+      );
+    if (segs.some(glued)) return true;
     const hits = segs.flatMap((seg, i) => (hit(seg) ? [i] : []));
     if (hits.length === 0) return false;
-    // A step of the flow after the money word ("/transfers/confirm", "transfer-review") is the
-    // flow, wherever it sits, even under "/support/" or "/help#/".
-    if (
-      hits.some((i) =>
-        segs.slice(i).some((seg) => segmentWords(seg).some((w) => FLOW_WORDS.has(w))),
-      )
-    ) {
-      return true;
-    }
-    // Otherwise an article, help or marketing page names a topic ("/personal/transfers-explained").
-    return !(lowers.some((x) => ARTICLE_SEGMENTS.has(x)) || MARKETING_FIRST.has(lowers[0] ?? ""));
+    // A step of the flow after the money word, as a whole segment ("/transfers/confirm",
+    // "#/transfer/new"), is the flow wherever it sits, even under "/support/" or "/help#/". A
+    // word inside an article's slug ("new-features", "how-to-add-a-recipient") is not a step.
+    if (hits.some((i) => segs.slice(i + 1).some((seg) => FLOW_WORDS.has(bare(seg))))) return true;
+    // An app verb as a whole segment ("/send", "#/send", "/withdraw") is the app, not a topic.
+    if (segs.some((seg) => VERB_SEGMENTS.has(bare(seg)))) return true;
+    // Otherwise an article, help or marketing page names a topic ("/personal/transfers-explained"):
+    // an article segment anywhere in the path, or a marketing first segment on the public site
+    // (the apex or www host), never on a signed-in host (secure., app., online.).
+    const publicHost = isPublicHost(host);
+    const article = lowers.some((x) => ARTICLE_SEGMENTS.has(x));
+    const marketing =
+      publicHost && (MARKETING_FIRST.has(lowers[0] ?? "") || LOCALE_SEGMENT.test(lowers[0] ?? ""));
+    return !(article || marketing);
   }
   // "Chase | Transfer money", "Capital One - Transfer Money": each part of the title.
   return clean(text)
@@ -1383,8 +1469,20 @@ function pageSaysTransfer(text: string): boolean {
     .some((part) => titleSaysAct(part.replace(/\s+/g, " ").trim()));
 }
 
-/** What follows a title's opening verb when it is a topic: "Wire instructions", "Buy vs. rent". */
-const TITLE_TOPIC = new Set(["vs", "versus", "or", "home", "house", "car", "property"]);
+/** What follows a title's opening verb when it is a topic: "Wire instructions", "Buy vs. rent", "Trade-in value". */
+const TITLE_TOPIC = new Set(["vs", "versus", "in", "home", "house", "car", "property"]);
+
+/** The bank's public site: the apex host or www, not a signed-in host such as secure. or app. */
+function isPublicHost(host: string): boolean {
+  if (host === "") return false;
+  const labels = host.replace(/^www\./, "").split(".");
+  if (labels.length <= 2) return true;
+  // A two-part public suffix: "wise.co.uk", "nubank.com.br".
+  return labels.length === 3 && (labels[1] ?? "").length <= 3 && (labels[2] ?? "").length <= 3;
+}
+
+/** A first segment that only names a language or a country ("/en/", "/en-us/", "/us/"). */
+const LOCALE_SEGMENT = /^[a-z]{2}(?:[-_][a-z]{2})?$/;
 
 function titleSaysAct(part: string): boolean {
   const m = TITLE_ACT.exec(part);
@@ -1395,7 +1493,26 @@ function titleSaysAct(part: string): boolean {
   return !(next !== undefined && (MOVE_NOT_ACTION.has(next) || TITLE_TOPIC.has(next)));
 }
 
-/** Whether a page's address or title says money is moving or a trade is being made. */
-export function isMoneyFlowPage(text: string | undefined): boolean {
-  return text !== undefined && text.trim() !== "" && pageSaysTransfer(text);
+/**
+ * Whether a page's address or title says money is moving or a trade is being made. On a P2P
+ * service (`origin`, or the address itself) the pay, send and request screens are flows too:
+ * Venmo's `/pay` is where money goes out.
+ */
+export function isMoneyFlowPage(text: string | undefined, origin?: string): boolean {
+  if (text === undefined || text.trim() === "") return false;
+  if (pageSaysTransfer(text)) return true;
+  const kind = venueOfHost(origin) ?? venueOfHost(text);
+  if (kind !== "p2p" && kind !== "p2p_mixed") return false;
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(text.trim())) return false;
+  try {
+    const u = new URL(text.trim());
+    return `${u.pathname}/${u.hash.slice(1)}`
+      .toLowerCase()
+      .split(/[/?#]/)
+      .some((seg) => P2P_FLOW_SEGMENTS.has(seg));
+  } catch {
+    return false;
+  }
 }
+
+const P2P_FLOW_SEGMENTS = new Set(["pay", "send", "request", "payment", "payments", "transfer"]);

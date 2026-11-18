@@ -415,6 +415,54 @@ const MUST_BLOCK: Row[] = [
     sideEffect: "write",
   },
   { name: "round 3: mcp__evm__transferFrom", tool: "mcp__evm__transferFrom", sideEffect: "write" },
+  // review round 4 (#1321): browser rows at the broker
+  browser("app.mercury.com", "Approve all transfers"),
+  browser("app.mercury.com", "Release pending transfers"),
+  browser("secure.chase.com", "Submit all transfers"),
+  browser("app.mercury.com", "Approve all transfers?", { role: "dialog" }),
+  browser("secure.chase.com", "Leave this page? We will transfer $500 now.", { role: "dialog" }),
+  browser("venmo.com", "Close this window to send $500", { role: "dialog" }),
+  browser("secure.bankofamerica.com", "Submit", {
+    pageUrl: "https://secure.bankofamerica.com/business/transfers/wire",
+  }),
+  browser("www.ally.com", "Confirm", { pageUrl: "https://www.ally.com/personal/transfers#/send" }),
+  browser("secure.chase.com", "Confirm", { pageTitle: "Transfer: review" }),
+  browser("www.coinbase.com", "Buy now", { role: "tab" }),
+  // review round 4 (#1321): the reviewer's tool-name probe list
+  {
+    name: "round 4: mcp__business_trading__place_order",
+    tool: "mcp__business_trading__place_order",
+    sideEffect: "write",
+  },
+  { name: "round 4: mcp__ibkr__get_raw", tool: "mcp__ibkr__get_raw", sideEffect: "write" },
+  {
+    name: "round 4: mcp__alpaca__get_orders_then_cancel",
+    tool: "mcp__alpaca__get_orders_then_cancel",
+    sideEffect: "write",
+  },
+  { name: "round 4: mcp__alpaca__orders", tool: "mcp__alpaca__orders", sideEffect: "write" },
+  {
+    name: "round 4: mcp__alpaca__create_orders",
+    tool: "mcp__alpaca__create_orders",
+    sideEffect: "write",
+  },
+  {
+    name: "round 4: mcp__kraken__get_private",
+    tool: "mcp__kraken__get_private",
+    sideEffect: "write",
+  },
+  { name: "round 4: mcp__alpaca__fetch_api", tool: "mcp__alpaca__fetch_api", sideEffect: "write" },
+  { name: "round 4: mcp__evm__approve_nft", tool: "mcp__evm__approve_nft", sideEffect: "write" },
+  {
+    name: "round 4: mcp__trading_bus__place_order",
+    tool: "mcp__trading_bus__place_order",
+    sideEffect: "write",
+  },
+  {
+    name: "round 4: mcp__ccxt__fetch_balance_and_withdraw",
+    tool: "mcp__ccxt__fetch_balance_and_withdraw",
+    sideEffect: "write",
+  },
   computer("com.robinhood.macos", "", { unreadable: true }),
   computer("com.google.Chrome", "Buy bitcoin"),
 ];
@@ -618,6 +666,46 @@ const MUST_NOT_BLOCK: Row[] = [
   },
   { name: "round 3: mcp__redis_broker__set", tool: "mcp__redis_broker__set", sideEffect: "write" },
   { name: "round 3: mcp__card_broker__list", tool: "mcp__card_broker__list", sideEffect: "write" },
+  // review round 4 (#1321): browser rows at the broker
+  browser("secure.chase.com", "Recent transfers"),
+  browser("secure.chase.com", "View all transfers"),
+  browser("secure.chase.com", "Cancel scheduled transfers"),
+  browser("secure.chase.com", "Discard changes to this transfer?", { role: "dialog" }),
+  browser("www.chase.com", "Next", {
+    pageUrl: "https://www.chase.com/personal/transfers/new-features",
+  }),
+  browser("www.chase.com", "Continue", { pageTitle: "Trade-in value | Chase Auto" }),
+  // review round 4 (#1321): the reviewer's tool-name probe list
+  {
+    name: "round 4: mcp__alpaca__get_orders",
+    tool: "mcp__alpaca__get_orders",
+    sideEffect: "write",
+  },
+  {
+    name: "round 4: mcp__alpaca__get_order_status",
+    tool: "mcp__alpaca__get_order_status",
+    sideEffect: "write",
+  },
+  {
+    name: "round 4: mcp__coinbase__list_open_orders",
+    tool: "mcp__coinbase__list_open_orders",
+    sideEffect: "write",
+  },
+  {
+    name: "round 4: mcp__omnibus-broker__publish",
+    tool: "mcp__omnibus-broker__publish",
+    sideEffect: "write",
+  },
+  {
+    name: "round 4: mcp__robinhood__get_portfolio",
+    tool: "mcp__robinhood__get_portfolio",
+    sideEffect: "write",
+  },
+  {
+    name: "round 4: mcp__ccxt__fetch_balance",
+    tool: "mcp__ccxt__fetch_balance",
+    sideEffect: "write",
+  },
   computer("com.apple.mail", "", { unreadable: true }),
 ];
 

@@ -305,22 +305,29 @@ for (const b of BANK_NAMESPACES) FINANCIAL_NAMESPACES.add(b);
 /** Inside a word ("mybroker"); "trading" only as a word of its own ("libtrading" is a library). */
 const GENERIC_FINANCIAL_PARTS = ["broker"];
 const GENERIC_FINANCIAL_TOKENS = ["trading", "broker", "brokerage"];
+/**
+ * Words of a namespace that say it is a message broker or a card game, matched as whole words
+ * (`mqtt-broker`, `pokemon_trading`), or as the end of one for a bus (`eventbus`, `omnibus`):
+ * "business_trading" and "trading_bus" are still trading.
+ */
 const NOT_FINANCIAL_QUALIFIERS = [
   "message",
+  "messages",
   "mqtt",
   "kafka",
   "rabbit",
+  "rabbitmq",
   "amqp",
   "nats",
   "redis",
-  "eventbus",
-  "bus",
   "pubsub",
   "queue",
   "card",
+  "cards",
   "pokemon",
   "tcg",
   "game",
+  "games",
   "yugioh",
   "magic",
 ];
@@ -434,7 +441,9 @@ export function isFinancialTransfer(tool: string): boolean {
   // and `alpaca-mcp-server` have the broker as one of their words.
   const compact = lower.replace(/[^a-z0-9]+/g, "");
   const tokens = toolWords(ns);
-  const qualified = NOT_FINANCIAL_QUALIFIERS.some((q) => compact.includes(q));
+  const qualified = tokens.some(
+    (t) => NOT_FINANCIAL_QUALIFIERS.includes(t) || (t.length > 3 && t.endsWith("bus")),
+  );
   const financial =
     FINANCIAL_NAMESPACES.has(compact) ||
     tokens.some((t) => FINANCIAL_NAMESPACES.has(t)) ||
