@@ -15,6 +15,11 @@ import {
   type ToolRegistration,
   type ToolResult,
 } from "@psyche/protocol";
+import {
+  FINANCIAL_BLOCK_REASON,
+  financialBlock,
+  isTradeOrTransferText,
+} from "@psyche/protocol/financial-block";
 import { hostWords } from "@psyche/protocol/host-words";
 import { isAmbiguousActionLabel, isMoneyContext, isMoneyText } from "@psyche/protocol/money-intent";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
@@ -100,6 +105,33 @@ export function isRiskyLabel(text: string | undefined): boolean {
  */
 export function isMoneyLabel(text: string | undefined): boolean {
   return isMoneyText(text);
+}
+
+/** Every label an act call names: the element's, the expected ones, a menu path, a custom press. */
+function controlLabels(p: ActParams, label: string | undefined): string[] {
+  return [
+    label,
+    p.expect?.label,
+    p.to?.expect?.label,
+    ...(p.action === "menu" ? (p.path ?? "").split(">").map((seg) => seg.trim()) : []),
+    ...(p.action === "press" ? [p.press?.replace(/^custom:/, "")] : []),
+  ].filter((l, i, all): l is string => typeof l === "string" && l !== "" && all.indexOf(l) === i);
+}
+
+/**
+ * An action that activates something the Gateway has not read: a click or drag by point, Return,
+ * Enter or Space, or typed text with a line break. On a trading, banking or P2P app that is
+ * refused (the helper's own reading, `refuseFinancialBlock`, covers a page in a browser app).
+ */
+function activatesUnseen(p: ActParams): boolean {
+  const pointed = (t: { ref?: string; x?: number; y?: number } | undefined) =>
+    t !== undefined && t.ref === undefined && (t.x !== undefined || t.y !== undefined);
+  if (["click", "double_click", "right_click", "select", "press", "drag"].includes(p.action)) {
+    if (pointed(p) || (p.action === "drag" && pointed(p.to))) return true;
+  }
+  if (p.action === "key") return activatingKey(p.keys ?? "");
+  if (p.action === "type") return /[\r\n]/.test(p.text ?? "");
+  return false;
 }
 
 /** Quit, close, delete: chords the helper refuses without an approval. */
@@ -883,6 +915,76 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     };
   }
 
+  /**
+   * The hard block on trading and moving money, checked on what an action actually lands on (the
+   * helper's reading of the element, its parents, its window and its page address). A match is
+   * refused here whatever the owner approved: the broker decides it as
+   * `prohibition:financial_transfer` (so it is audited) and the call stops before anything is sent
+   * to the helper. Not a payment: a checkout still gets its Pay card.
+   */
+  async function refuseFinancialBlock(
+    p: ActParams,
+    t: ResolvedTarget,
+    mode: "activate" | "submit",
+    callId: string,
+  ): Promise<void> {
+    const hit = financialBlock({
+      labels: t.labels,
+      ...(t.role === undefined ? {} : { role: t.role }),
+      submits: mode === "submit",
+      ...(t.url === undefined ? {} : { pageUrl: t.url }),
+      ...(t.window === undefined ? {} : { pageTitle: t.window }),
+      app: p.app,
+    });
+    if (hit === undefined) return;
+    const control = {
+      labels: t.labels,
+      ...(t.role === undefined ? {} : { role: t.role }),
+      submits: mode === "submit",
+      ...(t.url === undefined ? {} : { pageUrl: t.url }),
+      ...(t.window === undefined ? {} : { pageTitle: t.window }),
+    };
+    const fields = { tool: "computer.act", app: p.app, action: p.action };
+    const decision = await deps.broker.decide(
+      {
+        tool: "computer.act",
+        sideEffect: "financial",
+        targetKind: "app",
+        target: appTarget(p.app),
+        params: fields,
+        paramsHash: hashCanonical(fields),
+        kind: "computer_action",
+        meta: { app: p.app, action: p.action, control },
+      },
+      deps.context(callId),
+    );
+    throw new PsycheError("policy_denied", decision.reason ?? FINANCIAL_BLOCK_REASON, {
+      details: { rule: decision.rule ?? "prohibition:financial_transfer" },
+    });
+  }
+
+  /**
+   * A ref's label alone does not say which page it is on. When it reads like a trade or a
+   * transfer (on any kind of venue), ask the helper where the element is and apply the block.
+   */
+  async function blockUnderRef(p: ActParams, callId: string, signal: AbortSignal): Promise<void> {
+    if (p.ref === undefined) return;
+    const label = p.expect?.label ?? elements.get(p.ref)?.label;
+    const looksLikeTrade = (["brokerage", "bank", "p2p"] as const).some((k) =>
+      isTradeOrTransferText(label, k),
+    );
+    if (!looksLikeTrade) return;
+    const t = await resolveFor(
+      p,
+      { ref: p.ref, ...(p.expect === undefined ? {} : { expect: p.expect }) },
+      callId,
+      signal,
+      "focus_unchecked",
+    );
+    if (t === undefined) return;
+    await refuseFinancialBlock(p, { ...t, labels: [label ?? "", ...t.labels] }, "activate", callId);
+  }
+
   /** The financial card for an action whose target pays; returns its id once approved. */
   function askFinancial(
     p: ActParams,
@@ -938,6 +1040,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     for (const pt of points) {
       const t = await resolveFor(p, pt, callId, signal, "point_unchecked");
       if (t === undefined) continue;
+      await refuseFinancialBlock(p, t, "activate", callId);
       const verdict = moneyVerdict(p.app, t, "activate");
       if (verdict === undefined) continue;
       return askFinancial(
@@ -984,6 +1087,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           ? "submit"
           : "activate";
     if (mode === "activate" && takesText(t)) return undefined;
+    await refuseFinancialBlock(p, t, mode, callId);
     const verdict = moneyVerdict(p.app, t, mode);
     if (verdict === undefined) return undefined;
     return askFinancial(
@@ -1011,6 +1115,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     if (t === undefined) return undefined;
     const mode = /[\r\n]/.test(piece) ? "submit" : "activate";
     if (mode === "activate" && takesText(t)) return undefined;
+    await refuseFinancialBlock(p, t, mode, callId);
     const verdict = moneyVerdict(p.app, t, mode);
     if (verdict === undefined) return undefined;
     return askFinancial(
@@ -1462,6 +1567,12 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       meta: {
         app: p.app,
         action: actTier(p) === "interact" && tierFor(p.action) === "click" ? "menu" : p.action,
+        // What the hard block on trades and transfers reads: the labels this call names and
+        // whether it activates something the Gateway has not seen (a point, a key, a newline).
+        control: {
+          labels: controlLabels(p, label),
+          ...(activatesUnseen(p) ? { unreadable: true } : {}),
+        },
       },
       summary: `${unwatched(p.app) ? "While you're away: " : ""}${what} in ${p.app}`,
       details: {
@@ -1628,6 +1739,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         const { capability, params } = actCapability(p);
         // A payment card was classed from the call itself: the app is showing a payment.
         if (describeAct(p).sideEffect === "financial") markMoney(p.app);
+        await blockUnderRef(p, callId, signal);
         // A point carries no label the Gateway saw, and a key or a typed newline activates
         // whatever has focus: ask the helper what the action lands on first. Typed text that
         // tabs and then activates is checked piece by piece.

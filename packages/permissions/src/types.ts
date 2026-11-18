@@ -3,6 +3,7 @@ import type {
   ApprovalKind,
   ApprovalRequest,
   ApprovalRequestInput,
+  ControlFacts,
   DecisionContext,
   DecisionResult,
   GrantScope,
@@ -101,6 +102,8 @@ export interface CallMeta {
   /** MCP server and the `tools/list` hash the call was described with (grant subject, #279). */
   mcpServerId?: string;
   mcpToolsListHash?: string;
+  /** The control a browser or computer-use action lands on (the hard block on trades and transfers). */
+  control?: ControlFacts;
 }
 
 export interface PolicyCall extends ToolCallIntent {

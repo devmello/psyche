@@ -1848,7 +1848,8 @@ export const hi: Partial<Catalogue> = {
   "settings.permissions.never.secrets":
     "कोई पासवर्ड, कार्ड नंबर, बैंक खाता या सरकारी पहचान-पत्र टाइप करना जिसे यह देख सके",
   "settings.permissions.never.captcha": "CAPTCHA हल करना या बायपास करना",
-  "settings.permissions.never.money": "वित्तीय ट्रांसफ़र या ट्रेड करना",
+  "settings.permissions.never.money":
+    "सिक्योरिटीज़ या क्रिप्टो का ट्रेड करना, बैंक खातों के बीच पैसे भेजना या किसी व्यक्ति को पैसे भेजना, भले ही आप मंज़ूरी दें",
   "settings.permissions.never.delete": "बिना टाइप की गई पुष्टि के डेटा स्थायी रूप से डिलीट करना",
   "settings.permissions.never.injection": "वेब पेज, ईमेल या फ़ाइलों में मिले निर्देशों का पालन करना",
   "settings.permissions.never.accounts": "आपकी स्वीकृति के बिना तृतीय-पक्ष खाते बनाना",

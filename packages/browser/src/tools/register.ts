@@ -1,4 +1,5 @@
 import {
+  type ControlFacts,
   type CredentialBroker,
   type CredentialMeta,
   createValidator,
@@ -180,6 +181,31 @@ function def<S extends TSchema>(d: Def<S>): Def<S> {
   return d;
 }
 
+/** Enter or Space presses whatever has focus. */
+function activatesFocus(keys: string): boolean {
+  return keys
+    .toLowerCase()
+    .split(/\s+/)
+    .some((k) => k === "enter" || k === "space" || k === " ");
+}
+
+/** What the hard block on trades and transfers needs to know about the control. */
+function controlOf(meta: ElementMeta | undefined, origin: string | undefined): ControlFacts {
+  if (meta === undefined)
+    return { unreadable: true, ...(origin === undefined ? {} : { pageUrl: origin }) };
+  return {
+    labels: [meta.name],
+    role: meta.role,
+    submits: meta.submits,
+    ...(meta.formMethod === undefined ? {} : { formMethod: meta.formMethod }),
+    ...(meta.formAction === undefined ? {} : { formAction: meta.formAction }),
+    ...((meta.pageUrl ?? origin) === undefined
+      ? {}
+      : { pageUrl: (meta.pageUrl ?? origin) as string }),
+    ...(meta.pageTitle === undefined ? {} : { pageTitle: meta.pageTitle }),
+  };
+}
+
 function originTarget(url: string): ToolCallDescription {
   const origin = tryOrigin(url);
   return origin === undefined ? {} : { target: { kind: "origin", value: origin } };
@@ -230,6 +256,7 @@ export function browserToolDefs(deps: BrowserToolDeps) {
     const out: ToolCallDescription = { sideEffect: c.sideEffect, summary };
     const origin = d.tabOrigin(tabId);
     if (origin !== undefined) out.target = { kind: "origin", value: origin };
+    out.meta = { control: controlOf(meta, origin) };
     if (c.kind !== undefined) out.kind = c.kind;
     if (c.kind === "purchase" && origin !== undefined) {
       // The card lists merchant, items and total as the page shows them (INT-2), and the
@@ -263,6 +290,14 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       if (t !== undefined) out.target = t;
     }
     return out;
+  };
+  const originOfTab = (tabId: string): Pick<ToolCallDescription, "target"> => {
+    const origin = d.tabOrigin(tabId);
+    return origin === undefined ? {} : { target: { kind: "origin", value: origin } };
+  };
+  const pageOf = (tabId: string): { pageUrl?: string } => {
+    const origin = d.tabOrigin(tabId);
+    return origin === undefined ? {} : { pageUrl: origin };
   };
   const pageOut = (tabId: string, extra: Record<string, unknown> = {}) => {
     const tab = { tabId, origin: d.tabOrigin(tabId) ?? null };
@@ -488,7 +523,12 @@ export function browserToolDefs(deps: BrowserToolDeps) {
               p.target.ref,
               `Click ${d.peek(p.tabId, p.target.ref)?.name ?? p.target.ref}`,
             )
-          : { sideEffect: "write", summary: "Click at a point" },
+          : {
+              sideEffect: "write",
+              summary: "Click at a point",
+              ...originOfTab(p.tabId),
+              meta: { control: { unreadable: true, ...pageOf(p.tabId) } },
+            },
       run: async (p, { callId }) => {
         const tabId = await sessionTab(callId, p.tabId);
         const action =
@@ -548,7 +588,13 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       sideEffect: "read",
       describe: (p) =>
         p.ref === undefined
-          ? { sideEffect: classifyKeys(p.keys, undefined).sideEffect, summary: `Press ${p.keys}` }
+          ? {
+              sideEffect: classifyKeys(p.keys, undefined).sideEffect,
+              summary: `Press ${p.keys}`,
+              ...originOfTab(p.tabId),
+              // Enter or Space with no ref lands on whatever has focus: unreadable on a venue.
+              meta: { control: { unreadable: activatesFocus(p.keys), ...pageOf(p.tabId) } },
+            }
           : activation(p.tabId, p.ref, `Press ${p.keys}`, (meta) => classifyKeys(p.keys, meta)),
       run: async (p, { callId }) => {
         const o: { ref?: string } = {};

@@ -3,6 +3,11 @@ import { posix } from "node:path";
 import { cardDigits, findSensitiveNormalized as findSensitive } from "@psyche/audit";
 import { canonicalHostPath, isAbsoluteHostPath, slashHostPath } from "@psyche/hostfs";
 import { PLACEHOLDER_PATTERN, PROTECTED_MEMORY_FILES } from "@psyche/protocol";
+import {
+  FINANCIAL_BLOCK_REASON,
+  financialBlock,
+  isTradeOrTransferText,
+} from "@psyche/protocol/financial-block";
 import { dangerousEnvNames } from "./binding.ts";
 import {
   type CanonicalUrl,
@@ -170,10 +175,11 @@ const TRANSFER_PAIRS = [
   ["send", "payment"],
   ["send", "funds"],
   ["move", "money"],
-  ["submit", "order"],
-  ["place", "order"],
   ["create", "trade"],
 ];
+// `place_order` and `submit_order` alone are not here: a shop, a restaurant or a ticket seller has
+// them too. An order of stock or crypto is caught by `isTradeOrTransferText`, and any order on a
+// brokerage or exchange namespace by `FINANCIAL_NAMESPACES`.
 /** MCP servers / namespaces whose actions move money or trade. */
 const FINANCIAL_NAMESPACES = new Set([
   "bank",
@@ -195,6 +201,25 @@ const FINANCIAL_NAMESPACES = new Set([
   "fidelity",
   "wise",
   "revolut",
+  "ibkr",
+  "interactivebrokers",
+  "etrade",
+  "tdameritrade",
+  "tradestation",
+  "webull",
+  "vanguard",
+  "tradier",
+  "bitstamp",
+  "bybit",
+  "okx",
+  "kucoin",
+  "metamask",
+  "uniswap",
+  "ledger",
+  "remitly",
+  "westernunion",
+  "moneygram",
+  "zellepay",
 ]);
 
 export function isFinancialTransfer(tool: string): boolean {
@@ -202,8 +227,37 @@ export function isFinancialTransfer(tool: string): boolean {
   if (words.some((w) => TRANSFER_WORDS.has(w))) return true;
   if (TRANSFER_PAIRS.some(([a, b]) => words.includes(a ?? "") && words.includes(b ?? "")))
     return true;
+  // `buy_stock`, `sellShares`, `place_stock_order`, `send_bitcoin`, `swap_tokens`.
+  if (isTradeOrTransferText(tool)) return true;
   const ns = tool.startsWith("mcp__") ? (tool.split("__")[1] ?? "") : (tool.split(/[._]/)[0] ?? "");
-  return FINANCIAL_NAMESPACES.has(ns.toLowerCase());
+  // `interactive-brokers` and `cash_app` read as `interactivebrokers` and `cashapp`.
+  return FINANCIAL_NAMESPACES.has(ns.toLowerCase().replace(/[^a-z0-9]+/g, ""));
+}
+
+/**
+ * Whether a browser or computer-use action trades or moves money, from what the executor saw of
+ * the control, the page's host and the app (`@psyche/protocol/financial-block`). A model is never
+ * asked, and no approval changes it.
+ */
+export function isFinancialControl(call: PolicyCall): boolean {
+  const c = call.meta?.control;
+  const origin = call.target?.kind === "origin" ? call.target.value : undefined;
+  const app = call.meta?.app ?? (call.target?.kind === "app" ? call.target.value : undefined);
+  if (c === undefined && origin === undefined && app === undefined) return false;
+  return (
+    financialBlock({
+      labels: c?.labels,
+      role: c?.role,
+      submits: c?.submits,
+      formMethod: c?.formMethod,
+      formAction: c?.formAction,
+      pageUrl: c?.pageUrl,
+      pageTitle: c?.pageTitle,
+      unreadable: c?.unreadable,
+      app,
+      origin,
+    }) !== undefined
+  );
 }
 const PERMANENT_DELETE_TOOL =
   /(^|[._])(purge|expunge|empty_trash|delete_permanently|permanent_delete|permanently_delete|hard_delete|destroy|wipe|shred)([._]|$)/i;
@@ -488,8 +542,8 @@ export async function checkProhibitions(
   }
 
   // Financial transfers and trades.
-  if (isFinancialTransfer(tool)) {
-    return deny("financial_transfer", "Psyche never moves money or trades");
+  if (isFinancialTransfer(tool) || isFinancialControl(call)) {
+    return deny("financial_transfer", FINANCIAL_BLOCK_REASON);
   }
 
   // Loopback origins that are not the owner's own project (§3.10, design-03).

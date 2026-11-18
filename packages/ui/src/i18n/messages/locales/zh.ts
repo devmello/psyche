@@ -1835,7 +1835,8 @@ export const zh: Partial<Catalogue> = {
     "授权范围内的常规操作直接运行；分类器会对任何敏感操作询问。",
   "settings.permissions.never.secrets": "输入它能看到的密码、卡号、银行账号或政府证件号",
   "settings.permissions.never.captcha": "解答或绕过 CAPTCHA 验证",
-  "settings.permissions.never.money": "进行资金转账或交易",
+  "settings.permissions.never.money":
+    "即使你批准，也不会交易证券或加密货币、在银行账户之间转账，或向个人汇款",
   "settings.permissions.never.delete": "在没有输入确认的情况下永久删除数据",
   "settings.permissions.never.injection": "遵循网页、邮件或文件中的指令",
   "settings.permissions.never.accounts": "未经你批准创建第三方账户",

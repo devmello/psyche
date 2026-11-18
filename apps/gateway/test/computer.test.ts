@@ -567,6 +567,7 @@ describe("computer-use agent tools (J1–J5)", () => {
     expect(tools.get("computer.act")?.describeCall?.(click)?.meta).toEqual({
       app: notes,
       action: "click",
+      control: { labels: ["Body"] },
     });
     expect(await decide("computer.act", click)).toMatchObject({
       decision: "allow",
@@ -751,7 +752,11 @@ describe("computer-use agent tools (J1–J5)", () => {
       expect: { role: "popupbutton" },
     });
     expect(popup?.bindingFields).toMatchObject({ tierRequired: "interact" });
-    expect(popup?.meta).toEqual({ app: notes, action: "menu" });
+    expect(popup?.meta).toEqual({
+      app: notes,
+      action: "menu",
+      control: { labels: expect.any(Array) },
+    });
     const ok = act?.({ app: notes, action: "click", ref: "e41", expect: { role: "button" } });
     expect(ok?.bindingFields).toMatchObject({ tierRequired: "click" });
   });
@@ -998,7 +1003,7 @@ describe("computer-use agent tools (J1–J5)", () => {
       ["return", { role: "AXButton", labels: ["Pay"], window: "Example Shop" }],
       ["enter", { role: "AXButton", labels: ["Place order"], window: "Example Shop" }],
       ["keypadenter", { role: "AXButton", labels: ["Confirm and pay"] }],
-      ["space", { role: "AXButton", labels: ["Send USDC"], window: "Wallet" }],
+      ["space", { role: "AXButton", labels: ["Pay now"], window: "Wallet" }],
     ])(
       "%s on a focused money control re-asks as financial before the key goes out",
       async (keys, focus) => {
@@ -1103,8 +1108,31 @@ describe("computer-use agent tools (J1–J5)", () => {
     });
 
     it.each([
+      ["return", { role: "AXButton", labels: ["Send USDC"], window: "Wallet" }, shop],
+      ["return", { role: "AXButton", labels: ["Buy"], url: "https://www.robinhood.com/x" }, shop],
+      [
+        "return",
+        { role: "AXButton", labels: ["Transfer"], url: "https://secure.chase.com/" },
+        shop,
+      ],
+    ])(
+      "%s on a trade or transfer control is refused outright: no card, nothing pressed",
+      async (keys, focus, app) => {
+        await call("computer.snapshot", { app });
+        helper.calls.length = 0;
+        issued.length = 0;
+        helper.focus = focus;
+        answer = "approve";
+        const r = await call("computer.act", { app, action: "key", keys });
+        expect(r).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
+        expect(financial()).toHaveLength(0);
+        expect(sent("computer.key")).toHaveLength(0);
+      },
+    );
+
+    it.each([
       ["x\t\n", { role: "AXButton", labels: ["Pay"], window: "Notes" }, ["x\t"]],
-      ["\t ", { role: "AXButton", labels: ["Send USDC"], window: "Notes" }, ["\t"]],
+      ["\t ", { role: "AXButton", labels: ["Pay now"], window: "Notes" }, ["\t"]],
       ["\t\t\r", { role: "AXButton", labels: ["Place order"], window: "Notes" }, ["\t", "\t"]],
     ])(
       "typed %j that tabs onto a money control asks before it activates it",

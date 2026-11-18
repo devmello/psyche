@@ -99,6 +99,30 @@ export interface ToolCallMeta {
   hostCommand?: "read_only";
   /** With `hostCommand`: srt is not set up, so the command asks (the card offers UNSANDBOXED). */
   hostSandbox?: "missing";
+  /**
+   * What the executor saw of the control a browser or computer-use action lands on, so the broker
+   * can apply the hard block on trading and moving money (`prohibition:financial_transfer`,
+   * `@psyche/protocol/financial-block`) itself, from the call, without a model. Facts only; the
+   * venue comes from the page or app, never from the label alone.
+   */
+  control?: ControlFacts;
+}
+
+/** The control an action lands on (see `ToolCallMeta.control`). */
+export interface ControlFacts {
+  /** Own label first, then its parents' and the window's. */
+  labels?: string[];
+  role?: string;
+  submits?: boolean;
+  formMethod?: string;
+  formAction?: string;
+  pageUrl?: string;
+  pageTitle?: string;
+  /**
+   * The executor could not say what the action lands on (a click at a point, a key with no ref,
+   * a helper that cannot resolve the target). On a trading, banking or P2P venue that is refused.
+   */
+  unreadable?: boolean;
 }
 
 /**
