@@ -499,6 +499,11 @@ const MUST_BLOCK: Row[] = [
 const MUST_NOT_BLOCK: Row[] = [
   { name: "tool calendar.create", tool: "calendar.create", sideEffect: "write" },
   { name: "tool Link purchase", tool: "link.purchase", sideEffect: "financial" },
+  {
+    name: "the Stripe Link purchase tool (#1315)",
+    tool: "checkout.pay_with_link",
+    sideEffect: "financial",
+  },
   { name: "tool payments.link_spend", tool: "payments.link_spend", sideEffect: "financial" },
   { name: "tool shop.place_order", tool: "shop.place_order", sideEffect: "financial" },
   { name: "mcp restaurant place_order", tool: "mcp__tacos__place_order", sideEffect: "write" },
