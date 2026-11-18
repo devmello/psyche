@@ -107,3 +107,17 @@ Changing any of these needs an admin device and, once you have added a presence 
 - [Settings reference](/reference/settings)
 - [docs/05 §3, permission model](https://github.com/devmello/psyche/blob/main/docs/05-security-and-permissions.md#3-permission-model-specification)
 - [packages/permissions](https://github.com/devmello/psyche/tree/main/packages/permissions)
+
+## What Psyche never sends out
+
+Everything Psyche's agent writes to another service or person goes through one check that runs outside the model. It withholds:
+
+- credentials: private keys, API keys, bearer tokens, JWTs and passwords in URLs;
+- card numbers, and a card's CVV or expiry written next to one;
+- bank accounts: IBANs, and a US routing number written next to an account number;
+- government IDs: US Social Security, Canada SIN, UK National Insurance, India Aadhaar and passport numbers;
+- one-time codes ("verification code is 482913").
+
+Each pattern needs a checksum or a context word, so order numbers, tracking numbers, phone numbers, prices, dates, ZIP codes, hashes and UUIDs pass through.
+
+In your own chat (your Telegram or iMessage) the value is cut out and the reply says to open Psyche to see it. A message to anyone else, to a group, or any email reply is held: it is not sent, you get a notice in Psyche, and the audit log records a deny with the kind of value, never the value. Published test card numbers are not exempt here.

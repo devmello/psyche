@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { checkOutbound, type OutboundAudience, type OutboundVerdict } from "@psyche/permissions";
 import {
   type Channel,
   type ChannelAdapter,
@@ -40,6 +41,13 @@ import { INBOUND_VOICE_FORMAT } from "./voice.ts";
  * `createChannelsApi(service)` for the `channels.*` methods.
  */
 
+export interface OutboundWithheldEvent {
+  channel: Channel;
+  chatId: string;
+  action: "hold" | "redact";
+  kinds: Extract<OutboundVerdict, { kinds: unknown }>["kinds"];
+}
+
 export interface ChannelServiceOptions {
   store: ChannelStore;
   broker: PermissionBroker;
@@ -54,6 +62,11 @@ export interface ChannelServiceOptions {
   /** `commands.ownerAllowFrom` (qualified ids, `telegram:123`). */
   ownerAllowFrom?: string[];
   newId?: () => string;
+  /**
+   * Text the outbound check withheld (kinds only, never the value): `hold` was not sent, `redact`
+   * was sent with the value cut out. The Gateway audits it and tells the owner in the app.
+   */
+  onOutboundWithheld?: (event: OutboundWithheldEvent) => void;
   /** Jitter source for reconnect backoff. */
   random?: () => number;
   pairingRandom?: (max: number) => number;
@@ -120,6 +133,7 @@ export class ChannelService {
   #limiter: RateLimiter;
   #identities = new IdentityDirectory();
   #ownerAllowFrom: string[];
+  #onOutboundWithheld: ((event: OutboundWithheldEvent) => void) | undefined;
   #onInboundDecision: ((event: InboundDecisionEvent) => void) | undefined;
   #onPairingDecided: ((event: PairingDecidedEvent) => void) | undefined;
   #admitInbound: ((channel: Channel, message: InboundMessage) => boolean) | undefined;
@@ -139,6 +153,7 @@ export class ChannelService {
     this.#newId = options.newId ?? (() => randomUUID());
     this.#random = options.random ?? Math.random;
     this.#ownerAllowFrom = options.ownerAllowFrom ?? [];
+    this.#onOutboundWithheld = options.onOutboundWithheld;
     this.#onInboundDecision = options.onInboundDecision;
     this.#onPairingDecided = options.onPairingDecided;
     this.#admitInbound = options.admitInbound;
@@ -491,7 +506,24 @@ export class ChannelService {
     const caps = adapter.capabilities();
     const settings = channelSettings(channel);
     let format = options.format ?? "markdown";
-    let body = text;
+    // The outbound check runs on the whole text before it is rendered or chunked: a card number
+    // split across two chunks, or joined by Markdown, must not slip through.
+    const verdict = checkOutbound(text, this.#audienceOf(channel, target.chatId), (t) =>
+      renderMarkdown(t, "plain"),
+    );
+    let source = text;
+    if (verdict.action !== "allow") {
+      this.#onOutboundWithheld?.({
+        channel,
+        chatId: target.chatId,
+        action: verdict.action,
+        kinds: verdict.kinds,
+      });
+      if (verdict.action === "hold") return [];
+      source = verdict.text;
+      format = "plain";
+    }
+    let body = source;
     if (format === "markdown" && caps.markdown !== true) {
       body = renderMarkdown(text, "plain");
       format = "plain";
@@ -536,6 +568,18 @@ export class ChannelService {
       );
     }
     return results;
+  }
+
+  /**
+   * Who a chat is. Only the owner's own one-to-one chat on a non-email channel is `owner`; a group,
+   * another person and every email thread are `other` (held, not redacted).
+   */
+  #audienceOf(channel: Channel, chatId: string): OutboundAudience {
+    if (channel.type === "email") return "other";
+    const own =
+      channel.ownerIds.includes(chatId) ||
+      this.#identities.ownerAllowFrom.includes(`${channel.type}:${chatId}`);
+    return own ? "owner" : "other";
   }
 
   async #withRetry<T>(fn: () => Promise<T>, signal?: AbortSignal): Promise<T> {

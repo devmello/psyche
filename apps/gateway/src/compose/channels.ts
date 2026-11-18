@@ -828,6 +828,32 @@ export function composeChannels(
     ...(setup.speech === undefined ? {} : { speech: setup.speech }),
     ...(setup.pairingRandom === undefined ? {} : { pairingRandom: setup.pairingRandom }),
     ...(Array.isArray(storedOwners) ? { ownerAllowFrom: storedOwners.map(String) } : {}),
+    // The outbound check (security §3.9): kinds only in the audit log, never the value.
+    onOutboundWithheld: (event) => {
+      const held = event.action === "hold";
+      void services.audit
+        .append({
+          kind: "outbound.withheld",
+          actor: { type: "system" },
+          subject: { channelId: event.channel.id },
+          data: {
+            decision: held ? "deny" : "redact",
+            channelType: event.channel.type,
+            kinds: event.kinds,
+          },
+        })
+        .catch(() => undefined);
+      if (!held) return;
+      void services.notifier
+        .notify({
+          kind: "system",
+          title: "A message was held back",
+          body: `Psyche did not send a ${event.channel.type} message because it held ${event.kinds.join(", ").replaceAll("_", " ")}. Open Psyche to see it.`,
+          route: `/settings/channels/${event.channel.id}`,
+          dedupeKey: `outbound-held:${event.channel.id}`,
+        })
+        .catch(() => undefined);
+    },
     onInboundDecision: (event) => services.channelConversations.record(event),
     onPairingDecided: (event) => services.channelConversations.pairingDecided(event),
     // Security §10: 30/minute per sender by default (`gateway.rateLimits.inboundChatPerMinute`).
