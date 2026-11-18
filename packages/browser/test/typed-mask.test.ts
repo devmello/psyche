@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ResolvedSecret } from "@psyche/protocol";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { FsQuarantineWriter } from "../src/downloads/library.ts";
 import { CdpBridgeDriver } from "../src/drivers/cdp.ts";
 import { SECURE_MASK } from "../src/snapshot/builder.ts";
@@ -105,7 +105,7 @@ describe("values typed by a vault fill are masked in snapshots", () => {
     expect(after.text).not.toContain("737");
   });
 
-  it("does not mask other fields for a login fill, and lifts the card mask when the payment ends", async () => {
+  it("does not mask other fields for a login fill; the card mask lasts while the document does, 2 h at most", async () => {
     const a = desktop.browser.origin("a");
     const s = await driver.openSession({
       taskId: "task_mask_login",
@@ -125,9 +125,15 @@ describe("values typed by a vault fill are masked in snapshots", () => {
     expect((await driver.snapshot(t.id)).text).toContain("pat@example.com");
     await driver.fillSecret(t.id, ref("PIN"), secret(), a, undefined, { maskDocument: true });
     expect((await driver.snapshot(t.id)).text).not.toContain("pat@example.com");
-    driver.endDocumentMask(t.id);
-    const after = await driver.snapshot(t.id);
-    expect(after.text).toContain("pat@example.com");
-    expect(after.text).not.toContain("hunter2-secret");
+    // Nothing lifts it when the payment ends; the 2 h backstop does.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(Date.now() + 2 * 60 * 60_000 + 1000);
+      const after = await driver.snapshot(t.id);
+      expect(after.text).toContain("pat@example.com");
+      expect(after.text).not.toContain("hunter2-secret");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

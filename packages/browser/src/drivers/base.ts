@@ -748,9 +748,6 @@ export abstract class DriverBase implements BrowserDriverEx {
     });
     return this.#page(tabId).fillSecret(ref, secret, origin, accepts, options);
   }
-  endDocumentMask(tabId: string): void {
-    this.tabs.get(tabId)?.page.endDocumentMask();
-  }
   /** After an approved `new_origin`: unblock content or replay a stopped navigation. */
   retryBlocked(tabId: string): Promise<"unblocked" | "renavigated" | "unchanged"> {
     return this.#page(tabId).retryBlocked();

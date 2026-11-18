@@ -10,3 +10,14 @@ describe("card parameters in URLs", () => {
     expect(out).toContain("q=mug");
   });
 });
+
+describe("more card parameter names", () => {
+  it("masks security_code, ccv and expiration", () => {
+    const out = redactUrl(
+      "https://shop.example/pay?security_code=737&ccv=737&expiration=0431&q=mug",
+    );
+    expect(out).not.toContain("737");
+    expect(out).not.toContain("0431");
+    expect(out).toContain("q=mug");
+  });
+});

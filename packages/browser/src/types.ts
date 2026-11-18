@@ -256,12 +256,10 @@ export interface BrowserDriverEx extends BrowserDriver {
     accepts?: (element: FillElement) => FillElementCheck,
     /**
      * A payment card fill: every `<input>` value of this document (by loader, so a pushState
-     * route change keeps it) is masked in snapshots until `endDocumentMask`.
+     * route change keeps it) is masked in snapshots until the document goes away or 2 h pass.
      */
     options?: { maskDocument?: boolean },
   ): Promise<void>;
-  /** The card payment ended: stop masking the tab's input values document-wide. Never throws. */
-  endDocumentMask(tabId: string): void;
   /** Dev-preview tabs only (feature I12). */
   consoleMessages(tabId: string): ConsoleEntry[];
   networkLog(tabId: string): NetworkEntry[];

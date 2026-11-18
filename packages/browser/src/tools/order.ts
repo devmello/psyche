@@ -101,8 +101,18 @@ function parseLine(line: string): { depth: number; role: string; name?: string }
  *   codes; any other letter-prefixed dollar (`HK$`, `NZ$`, `R$`) is refused;
  * - one currency: a symbol and a code that disagree (`€12.00 USD`) are refused.
  */
-export function parseMoney(text: string): { amount?: string; currency?: string } {
-  const m = MONEY.exec(text);
+export function parseMoney(
+  cell: string,
+  /** The whole line or row the cell sits in: its codes and look-alikes count too. */
+  context?: string,
+): { amount?: string; currency?: string } {
+  // The amount is the cell's own; the checks look at the whole row around it.
+  const text = context ?? cell;
+  const at = context === undefined ? 0 : context.lastIndexOf(cell);
+  if (at < 0) return {};
+  const re = new RegExp(MONEY.source, "gi");
+  re.lastIndex = at;
+  const m = re.exec(text);
   if (m === null) return {};
   const s = m[0];
   const before = text.slice(0, m.index);
@@ -114,7 +124,9 @@ export function parseMoney(text: string): { amount?: string; currency?: string }
     // capitalised word one space before it (`HK $`, `NZ $`).
     if (/[A-Za-z]/.test(symbol) && SYMBOLS[symbol.toUpperCase()] === undefined) return {};
     if (/[\p{L}\p{M}\p{Cf}]$/u.test(before) || /\p{Cf}/u.test(before.slice(-3))) return {};
-    if (new RegExp(`(?:^|[^\\p{L}])\\p{Lu}{1,3}${SPACE}$`, "u").test(before)) return {};
+    // `HK $12`, or `HK | $12` across table cells.
+    const near = `${SPACE}?(?:\\|${SPACE}?)?$`;
+    if (new RegExp(`(?:^|[^\\p{L}])\\p{Lu}{1,3}${near}`, "u").test(before)) return {};
   }
   if (/\p{Cf}/u.test(s)) return {};
   // A negative or bracketed (accounting) total is a refund or a credit, never a payment.
@@ -152,6 +164,8 @@ export function readOrder(snapshotText: string, merchantOrigin: string): OrderSu
   let seller: string | undefined;
   let total: string | undefined;
   let totalText: string | undefined;
+  /** The cell or line the total amount is read from (the row's last amount). */
+  let totalCell: string | undefined;
   const items: OrderLine[] = [];
   let row: string[] | undefined;
   let rowDepth = -1;
@@ -164,8 +178,10 @@ export function readOrder(snapshotText: string, merchantOrigin: string): OrderSu
     const price = [...cells].reverse().find((c) => MONEY.test(c));
     if (TOTAL_LABEL.test(first) && price !== undefined) {
       total = clean(MONEY.exec(price)?.[0] ?? price, 40);
-      // The whole row: a currency code in another cell is part of the total.
-      totalText = clean(cells.join(" "), 120);
+      // The amount from the total's own cell; the whole row is quoted and checked (a currency
+      // code or look-alike in another cell still counts).
+      totalCell = clean(price);
+      totalText = clean(cells.join(" | "), 120);
       return;
     }
     if (price === undefined || NOT_ITEM.test(first) || first === "" || items.length >= 10) return;
@@ -199,6 +215,7 @@ export function readOrder(snapshotText: string, merchantOrigin: string): OrderSu
       if (m !== null) {
         total = clean(m[0], 40);
         totalText = clean(text);
+        totalCell = totalText;
       }
     }
   }
@@ -216,7 +233,7 @@ export function readOrder(snapshotText: string, merchantOrigin: string): OrderSu
       : {
           total,
           ...(totalText === undefined ? {} : { totalText }),
-          ...parseMoney(totalText ?? total),
+          ...parseMoney(totalCell ?? total, totalText),
         }),
     lineItemHash,
   };

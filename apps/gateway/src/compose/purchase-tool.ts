@@ -311,148 +311,141 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
         await deps.payments.cancel(id).catch(() => undefined);
         throw err;
       }
-      // Until the payment ends, every input value of the checkout document is masked in
-      // snapshots (the card was typed there); the finally below lifts it on every exit.
+      // From the first card field on, every input value of the checkout document is masked in
+      // snapshots until that document goes away (a real navigation) or 2 h pass; it is not lifted
+      // when the payment ends, because the model only reads the page after this tool returns.
+      let submit = "";
       try {
-        let submit = "";
-        try {
-          // The page may have moved while the owner approved in Link.
-          const cur = await locate(d, tabId, origin() ?? start);
-          check(cur);
-          const order: Array<[CardField, string | undefined]> = (
-            ["number", "exp", "exp_month", "exp_year", "cvc", "name", "postal"] as CardField[]
-          ).map((f) => [f, cur.fields[f]]);
-          for (const [field, ref] of order) {
-            if (ref === undefined) continue;
-            if (field === "exp" && cur.fields.exp === undefined) continue;
-            const meta = await d.describe(tabId, ref);
-            const el = elementOf(meta);
-            const at = origin();
-            if (at === undefined) refuse("the checkout page closed", "origin_changed");
-            const secret = await deps.payments.cardSecret({
-              spendRequestId: id,
-              field,
-              origin: at as string,
-              element: el,
-            });
-            try {
-              await d.fillSecret(
-                tabId,
-                ref,
-                secret,
-                at as string,
-                (live) =>
-                  cardFieldAccepts(field, {
-                    ...live,
-                    ...(el.fieldName === undefined ? {} : { fieldName: el.fieldName }),
-                  }),
-                { maskDocument: true },
-              );
-            } finally {
-              secret.dispose();
-            }
-          }
-          // Last look before the order is placed: same merchant, same order, same button.
-          const last = await locate(d, tabId, origin() ?? start);
-          check(last);
-          if (last.submit === undefined)
-            refuse("the checkout page shows no pay button", "no_pay_button");
-          submit = last.submit as string;
-        } catch (err) {
-          await deps.payments.cancel(id).catch(() => undefined);
-          throw err;
-        }
-        const total = showAmount(input.amount, input.currency.toUpperCase());
-        const paidWith = {
-          method: "stripe_link",
-          brand: card.card?.brand,
-          last4: card.card?.last4,
-        };
-        // From the click on, money may move: every failure ends as `unconfirmed` (a receipt, the
-        // Link request ended, the card shredded), never as nothing recorded.
-        const unconfirmed = async () => {
-          const receipt = await deps.payments
-            .unconfirmed(id, { toolCallId: callId })
-            .catch(() => undefined);
-          if (receipt === undefined) await deps.payments.cancel(id).catch(() => undefined);
-          return {
-            output: {
-              status: "unconfirmed",
-              seller: input.merchantName,
-              total,
-              paidWith,
-              linkSpendRequestId: id,
-              note: "The order was submitted but the page did not confirm it, so it may have gone through. Do not pay again; tell the owner to check the merchant's order page or email.",
-            },
-            provenance: "untrusted" as const,
-            ...(receipt === undefined ? {} : { receiptId: receipt.id }),
-          };
-        };
-        // Driver calls throw synchronously for a closed tab; `call` turns that into a rejection.
-        const call = <T>(f: () => Promise<T>): Promise<T> => Promise.resolve().then(f);
-        let page = "";
-        try {
-          await call(() => d.click(tabId, submit));
-          // The merchant's answer: poll up to settleMs for a confirmation or a decline.
-          const deadline = Date.now() + (deps.settleMs ?? 20_000);
-          for (;;) {
-            const read = await call(() => d.readText(tabId));
-            page = deps.redactor.redact(read.text).slice(0, 20_000);
-            if (CONFIRMED.test(page) || DECLINED.test(page) || Date.now() >= deadline) break;
-            const ms = Math.min(2000, Math.max(0, deadline - Date.now()));
-            await call(() => d.wait(tabId, { kind: "timeout", ms }));
-          }
-        } catch {
-          // The tab closed or the page stopped answering after the click.
-          return unconfirmed();
-        }
-        if (DECLINED.test(page) && !CONFIRMED.test(page)) {
-          const declined = await deps.payments
-            .decline(id, { code: "card_declined", toolCallId: callId })
-            .then(
-              () => true,
-              () => false,
+        // The page may have moved while the owner approved in Link.
+        const cur = await locate(d, tabId, origin() ?? start);
+        check(cur);
+        const order: Array<[CardField, string | undefined]> = (
+          ["number", "exp", "exp_month", "exp_year", "cvc", "name", "postal"] as CardField[]
+        ).map((f) => [f, cur.fields[f]]);
+        for (const [field, ref] of order) {
+          if (ref === undefined) continue;
+          if (field === "exp" && cur.fields.exp === undefined) continue;
+          const meta = await d.describe(tabId, ref);
+          const el = elementOf(meta);
+          const at = origin();
+          if (at === undefined) refuse("the checkout page closed", "origin_changed");
+          const secret = await deps.payments.cardSecret({
+            spendRequestId: id,
+            field,
+            origin: at as string,
+            element: el,
+          });
+          try {
+            await d.fillSecret(
+              tabId,
+              ref,
+              secret,
+              at as string,
+              (live) =>
+                cardFieldAccepts(field, {
+                  ...live,
+                  ...(el.fieldName === undefined ? {} : { fieldName: el.fieldName }),
+                }),
+              { maskDocument: true },
             );
-          // Only a payment still open can be unconfirmed; a recorded decline stands.
-          if (!declined && deps.payments.get(id)?.payment.state === "none") return unconfirmed();
-          throw new PsycheError(
-            "unavailable",
-            "the merchant declined the card; nothing was charged",
-            { details: { reason: "payment_declined" } },
-          );
+          } finally {
+            secret.dispose();
+          }
         }
-        if (!CONFIRMED.test(page)) return unconfirmed();
-        const ref = ORDER_REF.exec(page)?.[1];
+        // Last look before the order is placed: same merchant, same order, same button.
+        const last = await locate(d, tabId, origin() ?? start);
+        check(last);
+        if (last.submit === undefined)
+          refuse("the checkout page shows no pay button", "no_pay_button");
+        submit = last.submit as string;
+      } catch (err) {
+        await deps.payments.cancel(id).catch(() => undefined);
+        throw err;
+      }
+      const total = showAmount(input.amount, input.currency.toUpperCase());
+      const paidWith = {
+        method: "stripe_link",
+        brand: card.card?.brand,
+        last4: card.card?.last4,
+      };
+      // From the click on, money may move: every failure ends as `unconfirmed` (a receipt, the
+      // Link request ended, the card shredded), never as nothing recorded.
+      const unconfirmed = async () => {
         const receipt = await deps.payments
-          .complete(id, {
-            outcome: "success",
-            toolCallId: callId,
-            ...(ref === undefined ? {} : { orderNumber: ref }),
-          })
+          .unconfirmed(id, { toolCallId: callId })
           .catch(() => undefined);
-        if (receipt === undefined && deps.payments.get(id)?.payment.state === "none") {
-          return unconfirmed();
-        }
+        if (receipt === undefined) await deps.payments.cancel(id).catch(() => undefined);
         return {
           output: {
-            status: "paid",
+            status: "unconfirmed",
             seller: input.merchantName,
             total,
             paidWith,
-            ...(ref === undefined ? {} : { orderNumber: ref }),
             linkSpendRequestId: id,
-            ...(deps.test === true ? { testMode: true } : {}),
+            note: "The order was submitted but the page did not confirm it, so it may have gone through. Do not pay again; tell the owner to check the merchant's order page or email.",
           },
-          provenance: "untrusted",
+          provenance: "untrusted" as const,
           ...(receipt === undefined ? {} : { receiptId: receipt.id }),
         };
-      } finally {
-        try {
-          d.endDocumentMask(tabId);
-        } catch {
-          // The tab is gone: nothing left to mask.
+      };
+      // Driver calls throw synchronously for a closed tab; `call` turns that into a rejection.
+      const call = <T>(f: () => Promise<T>): Promise<T> => Promise.resolve().then(f);
+      let page = "";
+      try {
+        await call(() => d.click(tabId, submit));
+        // The merchant's answer: poll up to settleMs for a confirmation or a decline.
+        const deadline = Date.now() + (deps.settleMs ?? 20_000);
+        for (;;) {
+          const read = await call(() => d.readText(tabId));
+          page = deps.redactor.redact(read.text).slice(0, 20_000);
+          if (CONFIRMED.test(page) || DECLINED.test(page) || Date.now() >= deadline) break;
+          const ms = Math.min(2000, Math.max(0, deadline - Date.now()));
+          await call(() => d.wait(tabId, { kind: "timeout", ms }));
         }
+      } catch {
+        // The tab closed or the page stopped answering after the click.
+        return unconfirmed();
       }
+      if (DECLINED.test(page) && !CONFIRMED.test(page)) {
+        const declined = await deps.payments
+          .decline(id, { code: "card_declined", toolCallId: callId })
+          .then(
+            () => true,
+            () => false,
+          );
+        // Only a payment still open can be unconfirmed; a recorded decline stands.
+        if (!declined && deps.payments.get(id)?.payment.state === "none") return unconfirmed();
+        throw new PsycheError(
+          "unavailable",
+          "the merchant declined the card; nothing was charged",
+          { details: { reason: "payment_declined" } },
+        );
+      }
+      if (!CONFIRMED.test(page)) return unconfirmed();
+      const ref = ORDER_REF.exec(page)?.[1];
+      const receipt = await deps.payments
+        .complete(id, {
+          outcome: "success",
+          toolCallId: callId,
+          ...(ref === undefined ? {} : { orderNumber: ref }),
+        })
+        .catch(() => undefined);
+      if (receipt === undefined && deps.payments.get(id)?.payment.state === "none") {
+        return unconfirmed();
+      }
+      return {
+        output: {
+          status: "paid",
+          seller: input.merchantName,
+          total,
+          paidWith,
+          ...(ref === undefined ? {} : { orderNumber: ref }),
+          linkSpendRequestId: id,
+          ...(deps.test === true ? { testMode: true } : {}),
+        },
+        provenance: "untrusted",
+        ...(receipt === undefined ? {} : { receiptId: receipt.id }),
+      };
     },
   };
 }

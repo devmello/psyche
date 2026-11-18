@@ -164,6 +164,9 @@ function withLive(meta: ElementMeta, live: LiveField): ElementMeta {
   return out;
 }
 
+/** Backstop for the document-wide card mask: the card's own TTL (2 h). */
+const DOCUMENT_MASK_MS = 2 * 60 * 60_000;
+
 /** A document's identity for "was a secret filled here" (TM-29): the URL without its fragment. */
 function documentKey(url: string): string {
   const i = url.indexOf("#");
@@ -321,9 +324,10 @@ export class PageController {
   readonly #typedNodes = new Set<number>();
   /**
    * Documents (by loader id, which a pushState route change keeps) a payment card was typed into:
-   * every input value there is masked in snapshots until the payment ends (`endDocumentMask`).
+   * every input value there is masked in snapshots while that document lives, at most
+   * DOCUMENT_MASK_MS (a backstop: the loader normally ends first, on a real navigation).
    */
-  readonly #maskedLoaders = new Set<string>();
+  readonly #maskedLoaders = new Map<string, number>();
   /** Main-frame document requests since the current navigation started (0 = initial hop). */
   #docHops = 0;
 
@@ -966,7 +970,8 @@ export class PageController {
     };
     if (this.#o.redact !== undefined) input.redact = this.#o.redact;
     input.maskNodes = this.#typedNodes;
-    if (this.#maskedLoaders.has(this.#loaderId)) input.maskInputs = true;
+    const maskedAt = this.#maskedLoaders.get(this.#loaderId);
+    if (maskedAt !== undefined && Date.now() - maskedAt < DOCUMENT_MASK_MS) input.maskInputs = true;
     const snap = buildSnapshot(input);
     this.#needsSnapshot = false;
     this.#lastSnapshot = { text: snap.text, url: snap.url, loader: this.#loaderId };
@@ -1399,7 +1404,7 @@ export class PageController {
     this.#filledSinceNav = true;
     this.#filledDocs.add(documentKey(this.#url));
     this.#typedNodes.add(e.backendNodeId);
-    if (options.maskDocument === true) this.#maskedLoaders.add(loader);
+    if (options.maskDocument === true) this.#maskedLoaders.set(loader, Date.now());
     await secret.use(async (value) => {
       // Last look right before the value leaves (TM-28): agent in control, same document and
       // origin, the element still focused and still an acceptable field.
@@ -1424,11 +1429,6 @@ export class PageController {
         { details: { reason: "focus_moved_during_fill" } },
       );
     }
-  }
-
-  /** The card payment ended: input values are shown again (the typed nodes stay masked). */
-  endDocumentMask(): void {
-    this.#maskedLoaders.clear();
   }
 
   // --- waiting -----------------------------------------------------------------------------

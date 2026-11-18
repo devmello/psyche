@@ -391,7 +391,7 @@ describe("checkout.pay_with_link", () => {
     const row = ["- row", '  - cell "Total"', '  - cell "CAD"', '  - cell "$12.00"'].join("\n");
     const s = setup({ page: () => row });
     expect(s.tool.describeCall?.(s.params).summary).toContain(
-      "could not be read (the page says Total CAD $12.00)",
+      "could not be read (the page says Total | CAD | $12.00)",
     );
     s.approvals.set("ap1", {
       bindingHash: toolCallBindingHash(PURCHASE_TOOL, s.params, {
@@ -418,7 +418,7 @@ describe("checkout.pay_with_link", () => {
     });
   });
 
-  it("masks the checkout document only for the card fill, and lifts it when the payment ends", async () => {
+  it("masks the checkout document for the card fill and leaves it on when the payment ends", async () => {
     const s = setup();
     s.approve();
     await run(s);
@@ -427,11 +427,23 @@ describe("checkout.pay_with_link", () => {
       { maskDocument: true },
       { maskDocument: true },
     ]);
-    expect(s.maskEnded()).toBe(1);
+    expect(s.maskEnded()).toBe(0);
     const unconfirmed = setup({ after: "Processing…" });
     unconfirmed.approve();
     await run(unconfirmed);
-    expect(unconfirmed.maskEnded()).toBe(1);
+    expect(unconfirmed.maskEnded()).toBe(0);
+  });
+
+  it.each([
+    ["Total | $120.00 | $12.00", ["Total", "$120.00", "$12.00"]],
+    ["Total | Was $120.00 | $12.00", ["Total", "Was $120.00", "$12.00"]],
+    ["Total | 2 | $24.00", ["Total", "2", "$24.00"]],
+  ])("binds the total cell's amount in the row %s", (_name, cells) => {
+    const row = ["- row", ...cells.map((c) => `  - cell "${c}"`)].join("\n");
+    const order = readOrder(row, ORIGIN);
+    const want = cells[2] === "$24.00" ? 2400 : 1200;
+    expect(purchaseFields(order)).toMatchObject({ amountMinor: want, currency: "USD" });
+    expect(order.totalText).toBe(cells.join(" | "));
   });
 
   it("says when items could not be read", () => {
