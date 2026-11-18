@@ -484,6 +484,27 @@ export const FIXTURE_SITE: FxSite = {
         },
       ],
     },
+    // A card form that moves to a review step with pushState (same document, new URL).
+    "a/pay-spa": {
+      title: "Payment",
+      body: [
+        { kind: "heading", level: 1, text: "Payment" },
+        {
+          kind: "form",
+          action: "/submit/pay",
+          method: "post",
+          children: [
+            { kind: "input", label: "Security code", name: "cvv" },
+            { kind: "input", label: "Expiry", name: "expiry" },
+          ],
+        },
+        {
+          kind: "button",
+          text: "Review order",
+          onClick: { kind: "push_state", href: "/a/pay-spa/review" },
+        },
+      ],
+    },
     "a/overlay": {
       title: "Overlay",
       body: [

@@ -1137,6 +1137,12 @@ export class PaymentBroker {
   async cancel(spendRequestId: string): Promise<SpendRecord> {
     const rec = this.#ledger.get(spendRequestId);
     if (rec === undefined) return fail("not_found", "unknown spend request");
+    // A held, captured or declined payment is past cancelling: its record stands.
+    if (rec.payment.state !== "none") {
+      return fail("conflict", `cannot cancel a payment that is ${rec.payment.state}`, {
+        reason: `payment_${rec.payment.state}`,
+      });
+    }
     shred(this.#cardPath(spendRequestId));
     const sr = await this.#o.wallet.cancel(spendRequestId).catch(() => undefined);
     rec.status = sr?.status ?? "canceled";

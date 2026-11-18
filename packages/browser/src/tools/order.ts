@@ -37,9 +37,19 @@ export interface OrderSummary {
 // seen as one and refused, never read as US dollars.
 const MONEY =
   /(?:[A-Za-z]{1,3}\$|[$€£¥₹]|\b(?:USD|EUR|GBP|JPY|INR|CAD|AUD)\b)\s?\d[\d,.]*|\d[\d,.]*\s?(?:€|\b(?:USD|EUR|GBP|JPY|INR|CAD|AUD)\b)/i;
-const CODE = /\b(USD|EUR|GBP|JPY|INR|CAD|AUD)\b/gi;
+/** Every ISO 4217 code this runtime knows, so `HKD` or `CAD` anywhere on the line is seen. */
+const ISO_CODES = new Set<string>([
+  "USD",
+  "EUR",
+  "GBP",
+  "JPY",
+  "INR",
+  "CAD",
+  "AUD",
+  ...(typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("currency") : []),
+]);
 /** A digit group split by a space (`1 234`): a thousands style we do not read. */
-const SPACE = "[ \u00a0\u202f]";
+const SPACE = "[ \u00a0\u2007\u2009\u202f]";
 const TOTAL_LABEL =
   /^(?:order\s+total|grand\s+total|total(?:\s+due)?|amount\s+due|you\s+pay)\b\s*:?\s*/i;
 const NOT_ITEM =
@@ -98,20 +108,31 @@ export function parseMoney(text: string): { amount?: string; currency?: string }
   const before = text.slice(0, m.index);
   const after = text.slice(m.index + s.length);
   const symbol = /^(?:[A-Za-z]{1,3}\$|[$€£¥₹])/.exec(s)?.[0];
-  if (
-    symbol !== undefined &&
-    /[A-Za-z]/.test(symbol) &&
-    SYMBOLS[symbol.toUpperCase()] === undefined
-  ) {
-    return {};
+  if (symbol !== undefined) {
+    // Only the known symbols, and nothing that could make one a different currency: letters of
+    // any script or invisible format characters at the symbol (`НК$`, `HK\u200b$`), or a short
+    // capitalised word one space before it (`HK $`, `NZ $`).
+    if (/[A-Za-z]/.test(symbol) && SYMBOLS[symbol.toUpperCase()] === undefined) return {};
+    if (/[\p{L}\p{M}\p{Cf}]$/u.test(before) || /\p{Cf}/u.test(before.slice(-3))) return {};
+    if (new RegExp(`(?:^|[^\\p{L}])\\p{Lu}{1,3}${SPACE}$`, "u").test(before)) return {};
   }
+  if (/\p{Cf}/u.test(s)) return {};
+  // A negative or bracketed (accounting) total is a refund or a credit, never a payment.
+  if (new RegExp(`[-−‐‑–—(]${SPACE}?$`).test(before)) return {};
   const currencies = new Set<string>();
   if (symbol !== undefined) currencies.add(SYMBOLS[symbol.toUpperCase()] ?? "");
   if (/€$/.test(s)) currencies.add("EUR");
-  for (const c of s.matchAll(CODE)) currencies.add((c[1] ?? "").toUpperCase());
-  const next = new RegExp(`^${SPACE}?(USD|EUR|GBP|JPY|INR|CAD|AUD)\\b`, "i").exec(after)?.[1];
-  const prev = new RegExp(`\\b(USD|EUR|GBP|JPY|INR|CAD|AUD)${SPACE}?$`, "i").exec(before)?.[1];
-  for (const c of [next, prev]) if (c !== undefined) currencies.add(c.toUpperCase());
+  // Any currency code on the whole line or row must be the same one (`$100.00 HKD`,
+  // `Total (CAD): $12.00`, `€12.00 USD`).
+  for (const c of text.matchAll(/(?<![A-Za-z])[A-Za-z]{3}(?![A-Za-z])/g)) {
+    const code = c[0].toUpperCase();
+    if (
+      ISO_CODES.has(code) &&
+      (c[0] === code || code === s.match(/[A-Za-z]{3}/)?.[0]?.toUpperCase())
+    ) {
+      currencies.add(code);
+    }
+  }
   if (currencies.size > 1) return {};
   const currency = [...currencies][0];
   const token = /\d[\d,.]*/.exec(s)?.[0] ?? "";
@@ -143,7 +164,8 @@ export function readOrder(snapshotText: string, merchantOrigin: string): OrderSu
     const price = [...cells].reverse().find((c) => MONEY.test(c));
     if (TOTAL_LABEL.test(first) && price !== undefined) {
       total = clean(MONEY.exec(price)?.[0] ?? price, 40);
-      totalText = clean(price);
+      // The whole row: a currency code in another cell is part of the total.
+      totalText = clean(cells.join(" "), 120);
       return;
     }
     if (price === undefined || NOT_ITEM.test(first) || first === "" || items.length >= 10) return;

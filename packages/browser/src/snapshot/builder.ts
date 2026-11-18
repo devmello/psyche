@@ -185,8 +185,8 @@ export interface SnapshotInput {
   /** Nodes a secret was typed into: their values are masked like a password until navigation. */
   maskNodes?: ReadonlySet<number>;
   /**
-   * A secret was typed into this document recently: every field value is masked, so a form the
-   * page re-renders (a SPA remount, a back-forward restore) cannot show it on a new node.
+   * A payment card was typed into this document: every `<input>` value is masked, so a form the
+   * page re-renders (a SPA remount, a route change) cannot show it on a new node.
    */
   maskInputs?: boolean;
   fetchMs?: number;
@@ -416,7 +416,11 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
     const typedInto =
       (node.backendDOMNodeId !== undefined &&
         input.maskNodes?.has(node.backendDOMNodeId) === true) ||
-      (input.maskInputs === true && VALUE_ROLES.has(role));
+      // Document-wide: `<input>` values only, never editor content (a contenteditable body).
+      (input.maskInputs === true &&
+        VALUE_ROLES.has(role) &&
+        info?.tag.toLowerCase() === "input" &&
+        info.attrs.contenteditable === undefined);
     const secure = typedInto || (meta?.secure ?? (info === undefined ? false : dom.isSecure(info)));
     if (secure) states.push("secure");
     for (const s of states) line += ` [${s}]`;

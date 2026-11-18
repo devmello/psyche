@@ -88,6 +88,8 @@ function setup(
     frameOrigin?: string;
     disconnected?: boolean;
     closeAfterClick?: boolean;
+    /** Audit kind whose write throws (after the record is saved). */
+    auditThrows?: string;
   } = {},
 ) {
   const home = mkdtempSync(join(tmpdir(), "psyche-pay-"));
@@ -118,11 +120,18 @@ function setup(
     wallet,
     permissions,
     redactor,
-    audit: { append: async (e: unknown) => void audits.push(e) } as never,
+    audit: {
+      append: async (e: { kind?: string }) => {
+        if (e.kind === opts.auditThrows) throw new Error("audit disk full");
+        audits.push(e);
+      },
+    } as never,
   });
   const typed: string[] = [];
   const page = opts.page ?? (() => PAGE("$12.00"));
   let clicked = false;
+  let maskEnded = 0;
+  const fillOptions: unknown[] = [];
   let snaps = 0;
   const nextSnap = () => {
     snaps += 1;
@@ -159,13 +168,18 @@ function setup(
       secret: { use(f: (v: string) => unknown): unknown },
       _o: string,
       accepts: (e: never) => { ok: boolean },
+      options?: { maskDocument?: boolean },
     ) => {
+      fillOptions.push(options);
       // The live-element check handed to the browser refuses a non-card element.
       expect(accepts({ tagName: "div", frameOrigin: ORIGIN } as never).ok).toBe(false);
       await secret.use((v) => void typed.push(v));
     },
     click: async () => {
       clicked = true;
+    },
+    endDocumentMask: () => {
+      maskEnded += 1;
     },
     // A closed tab makes the real driver throw synchronously, not reject.
     wait: () => {
@@ -202,6 +216,8 @@ function setup(
       requestedBy: { taskId: "task1" },
     });
   return {
+    maskEnded: () => maskEnded,
+    fillOptions,
     tool,
     wallet,
     params,
@@ -298,6 +314,14 @@ describe("checkout.pay_with_link", () => {
     ["$1 234.00"],
     ["1 234.00 €"],
     ["€12.00 USD"],
+    ["HK $100.00"],
+    ["HK\u200b$100.00"],
+    ["НК$100.00"],
+    ["$100.00 HKD"],
+    ["(CAD) $12.00"],
+    ["-$12.00"],
+    ["($12.00)"],
+    ["$1\u2009234.00"],
   ])("refuses the ambiguous total %s before any spend request", async (total) => {
     const s = setup({ page: () => PAGE(total) });
     s.approve(total);
@@ -361,6 +385,53 @@ describe("checkout.pay_with_link", () => {
     expect(JSON.stringify(s.receipts)).toContain("purchase.unconfirmed");
     expect(s.wallet.cancelled).toBe(1);
     expect(existsSync(join(s.home, "vault", "cards", `${spend.spendRequestId}.json`))).toBe(false);
+  });
+
+  it("quotes the whole total row and refuses a currency code in another cell", async () => {
+    const row = ["- row", '  - cell "Total"', '  - cell "CAD"', '  - cell "$12.00"'].join("\n");
+    const s = setup({ page: () => row });
+    expect(s.tool.describeCall?.(s.params).summary).toContain(
+      "could not be read (the page says Total CAD $12.00)",
+    );
+    s.approvals.set("ap1", {
+      bindingHash: toolCallBindingHash(PURCHASE_TOOL, s.params, {
+        kind: "purchase",
+        bindingFields: purchaseFields(readOrder(row, ORIGIN)),
+      }),
+      scopeGranted: "once",
+      status: "approved",
+      kind: "purchase",
+      requestedBy: { taskId: "task1" },
+    });
+    await expect(run(s)).rejects.toMatchObject({ details: { reason: "total_unreadable" } });
+    expect(s.wallet.created).toBe(0);
+  });
+
+  it("reports a captured payment as paid when only the audit write failed, and never cancels it", async () => {
+    const s = setup({ auditThrows: "purchase.captured" });
+    s.approve();
+    const r = await run(s);
+    expect(r.output).toMatchObject({ status: "paid", orderNumber: "AC-1042" });
+    expect(s.wallet.cancelled).toBe(0);
+    await expect(s.payments.cancel("lsrq_t1")).rejects.toMatchObject({
+      details: { reason: "payment_captured" },
+    });
+  });
+
+  it("masks the checkout document only for the card fill, and lifts it when the payment ends", async () => {
+    const s = setup();
+    s.approve();
+    await run(s);
+    expect(s.fillOptions).toEqual([
+      { maskDocument: true },
+      { maskDocument: true },
+      { maskDocument: true },
+    ]);
+    expect(s.maskEnded()).toBe(1);
+    const unconfirmed = setup({ after: "Processing…" });
+    unconfirmed.approve();
+    await run(unconfirmed);
+    expect(unconfirmed.maskEnded()).toBe(1);
   });
 
   it("says when items could not be read", () => {

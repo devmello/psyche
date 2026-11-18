@@ -164,9 +164,6 @@ function withLive(meta: ElementMeta, live: LiveField): ElementMeta {
   return out;
 }
 
-/** How long field values stay masked in a document a secret was typed into (the card TTL). */
-const TYPED_MASK_MS = 2 * 60 * 60_000;
-
 /** A document's identity for "was a secret filled here" (TM-29): the URL without its fragment. */
 function documentKey(url: string): string {
   const i = url.indexOf("#");
@@ -322,8 +319,11 @@ export class PageController {
   #filledDocs = new Set<string>();
   /** Nodes a vault secret was typed into: masked in snapshots until the document changes. */
   readonly #typedNodes = new Set<number>();
-  /** Documents a secret was typed into, and when: their field values stay masked (TYPED_MASK_MS). */
-  readonly #typedDocs = new Map<string, number>();
+  /**
+   * Documents (by loader id, which a pushState route change keeps) a payment card was typed into:
+   * every input value there is masked in snapshots until the payment ends (`endDocumentMask`).
+   */
+  readonly #maskedLoaders = new Set<string>();
   /** Main-frame document requests since the current navigation started (0 = initial hop). */
   #docHops = 0;
 
@@ -966,8 +966,7 @@ export class PageController {
     };
     if (this.#o.redact !== undefined) input.redact = this.#o.redact;
     input.maskNodes = this.#typedNodes;
-    const typedAt = this.#typedDocs.get(documentKey(this.#url));
-    if (typedAt !== undefined && Date.now() - typedAt < TYPED_MASK_MS) input.maskInputs = true;
+    if (this.#maskedLoaders.has(this.#loaderId)) input.maskInputs = true;
     const snap = buildSnapshot(input);
     this.#needsSnapshot = false;
     this.#lastSnapshot = { text: snap.text, url: snap.url, loader: this.#loaderId };
@@ -1360,6 +1359,7 @@ export class PageController {
     secret: ResolvedSecret,
     origin: string,
     accepts?: (element: FillElement) => FillElementCheck,
+    options: { maskDocument?: boolean } = {},
   ): Promise<void> {
     this.#assertActionable();
     const want = canonicalizeUrl(origin).origin;
@@ -1399,7 +1399,7 @@ export class PageController {
     this.#filledSinceNav = true;
     this.#filledDocs.add(documentKey(this.#url));
     this.#typedNodes.add(e.backendNodeId);
-    this.#typedDocs.set(documentKey(this.#url), Date.now());
+    if (options.maskDocument === true) this.#maskedLoaders.add(loader);
     await secret.use(async (value) => {
       // Last look right before the value leaves (TM-28): agent in control, same document and
       // origin, the element still focused and still an acceptable field.
@@ -1424,6 +1424,11 @@ export class PageController {
         { details: { reason: "focus_moved_during_fill" } },
       );
     }
+  }
+
+  /** The card payment ended: input values are shown again (the typed nodes stay masked). */
+  endDocumentMask(): void {
+    this.#maskedLoaders.clear();
   }
 
   // --- waiting -----------------------------------------------------------------------------

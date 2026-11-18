@@ -736,6 +736,7 @@ export abstract class DriverBase implements BrowserDriverEx {
     secret: ResolvedSecret,
     origin: string,
     accepts?: (element: FillElement) => FillElementCheck,
+    options?: { maskDocument?: boolean },
   ): Promise<void> {
     // Never the value: the credential id, the element and the origin are all Activity sees.
     this.record(tabId, {
@@ -745,7 +746,10 @@ export abstract class DriverBase implements BrowserDriverEx {
       ...this.#elementOf(tabId, { ref }),
       detail: { credentialId: secret.credentialId, origin },
     });
-    return this.#page(tabId).fillSecret(ref, secret, origin, accepts);
+    return this.#page(tabId).fillSecret(ref, secret, origin, accepts, options);
+  }
+  endDocumentMask(tabId: string): void {
+    this.tabs.get(tabId)?.page.endDocumentMask();
   }
   /** After an approved `new_origin`: unblock content or replay a stopped navigation. */
   retryBlocked(tabId: string): Promise<"unblocked" | "renavigated" | "unchanged"> {
