@@ -41,3 +41,36 @@ describe("trading, banking and wallet apps are locked off with the hard block's 
     expect(appCap("com.chaseplanner.app").cap).not.toBe("off");
   });
 });
+
+/** #1321 round 2: a browser's other channels and its web apps are read-only like the browser. */
+describe("browser channels and web apps are read-only", () => {
+  it.each([
+    "com.google.Chrome.beta",
+    "com.google.Chrome.dev",
+    "com.google.Chrome.canary",
+    "com.google.Chrome.app.abcdefghijklmnop",
+    "com.microsoft.edgemac.Beta",
+    "com.microsoft.edgemac.Dev",
+    "com.microsoft.edgemac.Canary",
+    "com.brave.Browser.beta",
+    "com.brave.Browser.nightly",
+    "org.mozilla.firefoxdeveloperedition",
+    "org.mozilla.nightly",
+    "com.apple.SafariTechnologyPreview",
+    "com.apple.Safari.WebApp.1234ABCD",
+    "company.thebrowser.dia",
+    "app.zen-browser.zen",
+    "com.kagi.kagimacOS",
+    "com.duckduckgo.macos.browser",
+    "ai.perplexity.comet",
+    "com.openai.atlas",
+  ])("%s is capped at read", (id) => {
+    expect(appCap(id).cap).toBe("read");
+    expect(effectiveTier(id, "interact")).toMatchObject({ tier: "read", capped: true });
+  });
+
+  it("an app from the same vendor that is not a browser keeps its own tier", () => {
+    expect(appCap("org.mozilla.thunderbird").cap).toBe("interact");
+    expect(appCap("com.google.drivefs").cap).toBe("interact");
+  });
+});

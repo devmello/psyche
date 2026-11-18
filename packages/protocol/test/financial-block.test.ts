@@ -248,6 +248,184 @@ const MUST_BLOCK: [string, FinancialAction][] = [
   ["opensea Buy now", { origin: "https://opensea.io", labels: ["Buy now"] }],
   ["jpmorgan Transfer", { origin: "https://secure.jpmorgan.com", labels: ["Transfer"] }],
   ["trade republic Kaufen", { origin: "https://app.traderepublic.com", labels: ["Kaufen"] }],
+  // review round 2: confirm-step context (a regression from round 1)
+  [
+    "capitalone /accounts/transfer-money Confirm",
+    { pageUrl: "https://myaccounts.capitalone.com/accounts/transfer-money", labels: ["Confirm"] },
+  ],
+  [
+    "chase /payments/transfer-funds/review Confirm",
+    { pageUrl: "https://secure.chase.com/payments/transfer-funds/review", labels: ["Confirm"] },
+  ],
+  [
+    "chase #/dashboard/transfer-money/verify Confirm",
+    {
+      pageUrl: "https://secure.chase.com/web/auth/dashboard#/dashboard/transfer-money/verify",
+      labels: ["Confirm"],
+    },
+  ],
+  [
+    "chase /move-money/review Confirm",
+    { pageUrl: "https://secure.chase.com/move-money/review", labels: ["Confirm"] },
+  ],
+  [
+    "title Chase | Transfer money, Confirm",
+    {
+      origin: "https://secure.chase.com",
+      pageTitle: "Chase | Transfer money",
+      labels: ["Confirm"],
+    },
+  ],
+  [
+    "title Capital One - Transfer Money, Submit",
+    {
+      origin: "https://myaccounts.capitalone.com",
+      pageTitle: "Capital One - Transfer Money",
+      labels: ["Submit"],
+    },
+  ],
+  [
+    "schwab /app/trade-ticket Place",
+    { pageUrl: "https://client.schwab.com/app/trade-ticket", labels: ["Place"] },
+  ],
+  ["upbit 인증 후 출금", { origin: "https://upbit.com", labels: ["인증 후 출금"] }],
+  ["smbc 認証して振込", { origin: "https://www.smbc.co.jp", labels: ["認証して振込"] }],
+  ["hsbc 转账（说明）", { origin: "https://www.hsbc.com", labels: ["转账（说明）"] }],
+  [
+    "Buy 履歴 (English act, CJK read word)",
+    { origin: "https://robinhood.com", labels: ["Buy 履歴"] },
+  ],
+  // Enter in a GET or script form
+  [
+    "venmo note field Enter",
+    {
+      origin: "https://account.venmo.com",
+      pageUrl: "https://account.venmo.com/pay",
+      labels: ["What's it for?"],
+      role: "textbox",
+      submits: true,
+      formMethod: "get",
+      formAction: "https://account.venmo.com/pay",
+    },
+  ],
+  [
+    "chase Amount Enter on #/dashboard/transfer/add",
+    {
+      origin: "https://secure.chase.com",
+      pageUrl: "https://secure.chase.com/web/auth/dashboard#/dashboard/transfer/add",
+      labels: ["Amount"],
+      role: "textbox",
+      submits: true,
+      formMethod: "get",
+      formAction: "https://secure.chase.com/web/auth/dashboard",
+    },
+  ],
+  [
+    "Enter in a field of a form with no action",
+    { origin: "https://venmo.com", labels: ["Note"], role: "textbox", submits: true },
+  ],
+  // trade verbs are never exempted on a brokerage
+  ["robinhood Buy options", { origin: "https://robinhood.com", labels: ["Buy options"] }],
+  ["robinhood Sell options", { origin: "https://robinhood.com", labels: ["Sell options"] }],
+  ["robinhood Trade options", { origin: "https://robinhood.com", labels: ["Trade options"] }],
+  [
+    "robinhood Order 10 AAPL shares",
+    { origin: "https://robinhood.com", labels: ["Order 10 AAPL shares"] },
+  ],
+  [
+    "robinhood Submit AAPL order",
+    { origin: "https://robinhood.com", labels: ["Submit AAPL order"] },
+  ],
+  ["robinhood Place my order", { origin: "https://robinhood.com", labels: ["Place my order"] }],
+  ["uniswap Swap link", { origin: "https://app.uniswap.org", labels: ["Swap link"] }],
+  ["venmo Send link", { origin: "https://venmo.com", labels: ["Send link"] }],
+  ["venmo Pay & transfer", { origin: "https://venmo.com", labels: ["Pay & transfer"] }],
+  ["chase Transfer code", { origin: "https://www.chase.com", labels: ["Transfer code"] }],
+  [
+    "chase Send code and transfer $500",
+    { origin: "https://www.chase.com", labels: ["Send code and transfer $500"] },
+  ],
+  ["chase Order alone", { origin: "https://secure.chase.com", labels: ["Order"] }],
+  // roles and labels with no word
+  [
+    "robinhood generic with no name",
+    { origin: "https://robinhood.com", labels: [""], role: "generic" },
+  ],
+  ["robinhood img with no name", { origin: "https://robinhood.com", labels: [""], role: "img" }],
+  [
+    "robinhood AXGroup with no name",
+    { pageUrl: "https://robinhood.com/x", labels: [""], role: "AXGroup" },
+  ],
+  ["robinhood arrow button", { origin: "https://robinhood.com", labels: ["→"], role: "button" }],
+  [
+    "robinhood whitespace button",
+    { origin: "https://robinhood.com", labels: ["   "], role: "button" },
+  ],
+  [
+    "tab that submits Buy",
+    { origin: "https://robinhood.com", labels: ["Buy"], role: "tab", submits: true },
+  ],
+  ["chase tab Transfer", { origin: "https://www.chase.com", labels: ["Transfer"], role: "tab" }],
+  [
+    "segmented AXRadioButton Buy",
+    { pageUrl: "https://robinhood.com/x", labels: ["Buy"], role: "AXRadioButton" },
+  ],
+  [
+    "drag from a link to Buy",
+    {
+      origin: "https://robinhood.com",
+      pageUrl: "https://robinhood.com/x",
+      labels: ["Read more"],
+      role: "link",
+      href: "https://robinhood.com/news",
+      alsoLabels: ["Buy"],
+    },
+  ],
+  [
+    "drag from a tab to Buy",
+    { origin: "https://robinhood.com", labels: ["News"], role: "tab", alsoLabels: ["Buy"] },
+  ],
+  [
+    "drag onto a control with no name",
+    { origin: "https://robinhood.com", labels: ["Portfolio"], role: "heading", alsoLabels: [""] },
+  ],
+  [
+    "link that names the final step",
+    {
+      pageUrl: "https://robinhood.com/stocks/AAPL",
+      labels: ["Submit order"],
+      role: "link",
+      href: "https://robinhood.com/stocks/AAPL/order",
+    },
+  ],
+  // marks that NFKC leaves in place
+  ["combining dot in Buy", { origin: "https://robinhood.com", labels: ["Bu̇y"] }],
+  ["variation selector after Buy", { origin: "https://robinhood.com", labels: ["Buy️"] }],
+  ["Hangul filler in Transfer", { origin: "https://www.chase.com", labels: ["Transㅤfer"] }],
+  ["word joiner in Sell", { origin: "https://robinhood.com", labels: ["Se⁠ll"] }],
+  ["tag character in Transfer", { origin: "https://www.chase.com", labels: ["Trans\u{E0041}fer"] }],
+  // a wallet extension's own dialog
+  [
+    "MetaMask dialog Confirm transaction?",
+    {
+      origin: "chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn",
+      labels: ["Confirm transaction?"],
+      role: "dialog",
+    },
+  ],
+  [
+    "chase dialog Transfer $500 to savings?",
+    { origin: "https://www.chase.com", labels: ["Transfer $500 to savings?"], role: "dialog" },
+  ],
+  // iPhone and iPad apps on the Mac, and 発注
+  ["Coinbase iOS app", { app: "com.vilcsak.bitcoin2", labels: ["Send"] }],
+  ["Venmo iOS app", { app: "net.kortina.labs.Venmo", labels: ["Pay"] }],
+  ["PayPal iOS app", { app: "com.yourcompany.PPClient", labels: ["Send"] }],
+  ["Wise iOS app", { app: "com.transferwise.Transferwise", labels: ["Send"] }],
+  ["Binance iOS app", { app: "com.czzhao.binance", labels: ["Buy"] }],
+  ["Navy Federal iPad app", { app: "com.navyfederal.navyfederal", labels: ["Transfer"] }],
+  ["Exodus Send", { app: "com.electron.exodus", labels: ["Send"] }],
+  ["sbisec 発注", { origin: "https://site1.sbisec.co.jp", labels: ["発注"] }],
 ];
 
 const MUST_NOT_BLOCK: [string, FinancialAction][] = [
@@ -454,6 +632,78 @@ const MUST_NOT_BLOCK: [string, FinancialAction][] = [
     "wallet extension Back",
     { origin: "chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn", labels: ["Back"] },
   ],
+  // review round 2
+  [
+    "chase dialog: send a code",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["We will send a code to your phone. Continue?"],
+      role: "dialog",
+    },
+  ],
+  [
+    "chase dialog: leave page",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["Leave this page? Your transfer won't be saved."],
+      role: "dialog",
+    },
+  ],
+  [
+    "smbc 振込履歴 button",
+    { origin: "https://www.smbc.co.jp", labels: ["振込履歴"], role: "button" },
+  ],
+  [
+    "hsbc 转账记录 button",
+    { origin: "https://www.hsbc.com", labels: ["转账记录"], role: "button" },
+  ],
+  ["upbit 주문내역 button", { origin: "https://upbit.com", labels: ["주문내역"], role: "button" }],
+  ["zh 发送验证码", { origin: "https://www.binance.com", labels: ["发送验证码"] }],
+  [
+    "chase Next on an education article",
+    {
+      pageUrl: "https://www.chase.com/personal/education/how-to-trade-stocks",
+      labels: ["Next"],
+      role: "button",
+    },
+  ],
+  [
+    "Enter in a GET search form on robinhood",
+    {
+      origin: "https://robinhood.com",
+      pageUrl: "https://robinhood.com/",
+      labels: ["Search"],
+      role: "textbox",
+      submits: true,
+      formMethod: "get",
+      formAction: "https://robinhood.com/search",
+    },
+  ],
+  [
+    "Enter in a searchbox",
+    { origin: "https://robinhood.com", labels: ["Search"], role: "searchbox", submits: true },
+  ],
+  [
+    "chase rewards Buy gift card",
+    { origin: "https://ultimaterewardspoints.chase.com", labels: ["Buy gift card"] },
+  ],
+  ["amazon Place your order", { origin: "https://www.amazon.com", labels: ["Place your order"] }],
+  ["amazon Buy Now", { origin: "https://www.amazon.com", labels: ["Buy Now"] }],
+  [
+    "shop dialog Send your order now?",
+    { origin: "https://shop.example.com", labels: ["Send your order now?"], role: "dialog" },
+  ],
+  ["shop Sell my stock", { origin: "https://shop.example.com", labels: ["Sell my stock"] }],
+  [
+    "shop Buy in stock items",
+    { origin: "https://shop.example.com", labels: ["Buy in stock items"] },
+  ],
+  ["robinhood Invest tab", { origin: "https://robinhood.com", labels: ["Invest"], role: "tab" }],
+  [
+    "robinhood unnamed text field",
+    { origin: "https://robinhood.com", labels: [""], role: "textbox" },
+  ],
+  ["robinhood unnamed tab", { origin: "https://robinhood.com", labels: [""], role: "tab" }],
 ];
 
 describe("financialBlock: must block", () => {

@@ -192,6 +192,146 @@ const MUST_BLOCK: Row[] = [
     tool: "mcp__plaid__payment_initiation_create",
     sideEffect: "write",
   },
+  // review round 2 (#1321): browser rows at the broker
+  browser("myaccounts.capitalone.com", "Confirm", {
+    pageUrl: "https://myaccounts.capitalone.com/accounts/transfer-money",
+  }),
+  browser("secure.chase.com", "Confirm", {
+    pageUrl: "https://secure.chase.com/payments/transfer-funds/review",
+  }),
+  browser("secure.chase.com", "Confirm", { pageTitle: "Chase | Transfer money" }),
+  browser("client.schwab.com", "Place", { pageUrl: "https://client.schwab.com/app/trade-ticket" }),
+  browser("upbit.com", "인증 후 출금"),
+  browser("www.smbc.co.jp", "認証して振込"),
+  browser(
+    "account.venmo.com",
+    "What's it for?",
+    {
+      role: "textbox",
+      submits: true,
+      formMethod: "get",
+      formAction: "https://account.venmo.com/pay",
+      pageUrl: "https://account.venmo.com/pay",
+    },
+    "browser.press",
+  ),
+  browser("robinhood.com", "Buy options"),
+  browser("robinhood.com", "Sell options"),
+  browser("robinhood.com", "Order 10 AAPL shares"),
+  browser("robinhood.com", "", { role: "generic" }),
+  browser("robinhood.com", "→", { role: "button" }),
+  browser("robinhood.com", "Buy", { role: "tab", submits: true }),
+  browser("robinhood.com", "Bu\u0307y"),
+  browser("robinhood.com", "Buy\uFE0F"),
+  browser("secure.chase.com", "Trans\u3164fer"),
+  // review round 2 (#1321): the reviewer's tool-name probe list
+  {
+    name: "round 2: mcp__kalshi__create_order",
+    tool: "mcp__kalshi__create_order",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__my_ib_tools__order",
+    tool: "mcp__my_ib_tools__order",
+    sideEffect: "write",
+  },
+  { name: "round 2: mcp__alpaca__fetch", tool: "mcp__alpaca__fetch", sideEffect: "write" },
+  { name: "round 2: mcp__alpaca__query", tool: "mcp__alpaca__query", sideEffect: "write" },
+  {
+    name: "round 2: mcp__ccxt__fetch_and_create_order",
+    tool: "mcp__ccxt__fetch_and_create_order",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__robinhood__check_out",
+    tool: "mcp__robinhood__check_out",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__coinbase__preview_and_execute",
+    tool: "mcp__coinbase__preview_and_execute",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__ibkr__status_then_submit",
+    tool: "mcp__ibkr__status_then_submit",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__webull__get_or_place_order",
+    tool: "mcp__webull__get_or_place_order",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__alpaca__estimate_and_buy",
+    tool: "mcp__alpaca__estimate_and_buy",
+    sideEffect: "write",
+  },
+  { name: "round 2: mcp__ccxt__request", tool: "mcp__ccxt__request", sideEffect: "write" },
+  {
+    name: "round 2: mcp__robinhood__execute",
+    tool: "mcp__robinhood__execute",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__binance__new_order",
+    tool: "mcp__binance__new_order",
+    sideEffect: "write",
+  },
+  { name: "round 2: mcp__kraken__add_order", tool: "mcp__kraken__add_order", sideEffect: "write" },
+  {
+    name: "round 2: mcp__alpaca__liquidate_all",
+    tool: "mcp__alpaca__liquidate_all",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__hyperliquid__open_position",
+    tool: "mcp__hyperliquid__open_position",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__uniswap__exactInputSingle",
+    tool: "mcp__uniswap__exactInputSingle",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__wallet__sign_typed_data",
+    tool: "mcp__wallet__sign_typed_data",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__evm__write_contract",
+    tool: "mcp__evm__write_contract",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__evm__call_contract_function",
+    tool: "mcp__evm__call_contract_function",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__solana__transfer_sol",
+    tool: "mcp__solana__transfer_sol",
+    sideEffect: "write",
+  },
+  { name: "round 2: mcp__base__send_eth", tool: "mcp__base__send_eth", sideEffect: "write" },
+  {
+    name: "round 2: mcp__goat__approve_token",
+    tool: "mcp__goat__approve_token",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__stripe__create_transfer",
+    tool: "mcp__stripe__create_transfer",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__wise__create_quote_and_fund",
+    tool: "mcp__wise__create_quote_and_fund",
+    sideEffect: "write",
+  },
+  { name: "round 2: mcp__revolut__pay", tool: "mcp__revolut__pay", sideEffect: "write" },
+  { name: "round 2: mcp__chase__pay", tool: "mcp__chase__pay", sideEffect: "write" },
   computer("com.robinhood.macos", "", { unreadable: true }),
   computer("com.google.Chrome", "Buy bitcoin"),
 ];
@@ -290,6 +430,83 @@ const MUST_NOT_BLOCK: Row[] = [
   { name: "mcp robinhood get_quote", tool: "mcp__robinhood__get_quote", sideEffect: "read" },
   { name: "mcp coinbase get_balance", tool: "mcp__coinbase__get_balance", sideEffect: "read" },
   { name: "mcp wise get_rates", tool: "mcp__wise__get_rates", sideEffect: "read" },
+  // review round 2 (#1321): browser rows at the broker
+  browser("secure.chase.com", "We will send a code to your phone. Continue?", { role: "dialog" }),
+  browser("secure.chase.com", "Leave this page? Your transfer won't be saved.", { role: "dialog" }),
+  browser("ultimaterewardspoints.chase.com", "Buy gift card"),
+  browser(
+    "robinhood.com",
+    "Search",
+    {
+      role: "textbox",
+      submits: true,
+      formMethod: "get",
+      formAction: "https://robinhood.com/search",
+      pageUrl: "https://robinhood.com/",
+    },
+    "browser.press",
+  ),
+  browser("www.chase.com", "Next", {
+    pageUrl: "https://www.chase.com/personal/education/how-to-trade-stocks",
+  }),
+  browser("www.amazon.com", "Place your order"),
+  browser("shop.example.com", "Send your order now?", { role: "dialog" }),
+  // review round 2 (#1321): the reviewer's tool-name probe list
+  { name: "round 2: mcp__ibis__get", tool: "mcp__ibis__get", sideEffect: "write" },
+  {
+    name: "round 2: mcp__ibis__create_record",
+    tool: "mcp__ibis__create_record",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__mqtt-broker__publish",
+    tool: "mcp__mqtt-broker__publish",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__kafka_broker__send_message",
+    tool: "mcp__kafka_broker__send_message",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__message-broker__publish",
+    tool: "mcp__message-broker__publish",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__card_trading__list_cards",
+    tool: "mcp__card_trading__list_cards",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__pokemon_trading__create_listing",
+    tool: "mcp__pokemon_trading__create_listing",
+    sideEffect: "write",
+  },
+  { name: "round 2: mcp__tws_docs__search", tool: "mcp__tws_docs__search", sideEffect: "write" },
+  {
+    name: "round 2: mcp__libtrading__compile",
+    tool: "mcp__libtrading__compile",
+    sideEffect: "write",
+  },
+  { name: "round 2: mcp__gmail__send_email", tool: "mcp__gmail__send_email", sideEffect: "write" },
+  {
+    name: "round 2: mcp__plaid__get_transactions",
+    tool: "mcp__plaid__get_transactions",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__amazon__place_order",
+    tool: "mcp__amazon__place_order",
+    sideEffect: "write",
+  },
+  {
+    name: "round 2: mcp__slack__send_message",
+    tool: "mcp__slack__send_message",
+    sideEffect: "write",
+  },
+  { name: "round 2: mcp__twilio__send_sms", tool: "mcp__twilio__send_sms", sideEffect: "write" },
+  { name: "round 2: mcp__email__send", tool: "mcp__email__send", sideEffect: "write" },
   computer("com.apple.mail", "", { unreadable: true }),
 ];
 
@@ -359,5 +576,25 @@ describe("financial hard block: no approval or standing grant unlocks it", () =>
       CTX,
     );
     expect(d).toMatchObject({ decision: "deny", rule: "prohibition:financial_transfer" });
+  });
+});
+
+describe("financial hard block: uncapped browser apps (#1321 round 2)", () => {
+  it.each([
+    "com.google.Chrome.beta",
+    "com.google.Chrome.app.abcdef",
+    "com.apple.Safari.WebApp.1234",
+  ])("computer.act Confirm on a Chase transfer page in %s is refused", async (bundle) => {
+    const h = makeBroker({ policy: { allow: ["*"] } });
+    const c = call("computer.act", "write", app(bundle), {
+      kind: "computer_action",
+      meta: {
+        app: bundle,
+        action: "click",
+        control: { labels: ["Confirm"], role: "AXButton" },
+      },
+    } as never);
+    const d = await h.broker.decide(c, { ...CTX, permissionMode: "auto" });
+    expect(d).toMatchObject({ decision: "deny", rule: "app_tier:read" });
   });
 });

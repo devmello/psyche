@@ -141,6 +141,57 @@ describe("browser tools: what the hard block reads", () => {
     expect(blocked(bank, run("browser.press", { tabId: "t", keys: "Enter", ref: "f" }))).toBe(true);
   });
 
+  it("Enter in a GET or script form on a venue is refused (round 2: Venmo note, Chase amount)", () => {
+    const venmo = "https://account.venmo.com";
+    const note = el("What's it for?", {
+      role: "textbox",
+      tag: "input",
+      inForm: true,
+      formMethod: "get",
+      formAction: "https://account.venmo.com/pay",
+      pageUrl: "https://account.venmo.com/pay",
+    });
+    const amount = el("Amount", {
+      role: "textbox",
+      tag: "input",
+      inForm: true,
+      pageUrl: "https://secure.chase.com/web/auth/dashboard#/dashboard/transfer/add",
+    });
+    expect(
+      blocked(
+        venmo,
+        tools(venmo, { f: note })("browser.press", { tabId: "t", keys: "Enter", ref: "f" }),
+      ),
+    ).toBe(true);
+    const bank = "https://secure.chase.com";
+    expect(
+      blocked(
+        bank,
+        tools(bank, { f: amount })("browser.type", {
+          tabId: "t",
+          ref: "f",
+          text: "5",
+          submit: true,
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("Enter in a GET form that goes to another page on a venue is not refused", () => {
+    const field = el("Symbol", {
+      role: "textbox",
+      tag: "input",
+      inForm: true,
+      formMethod: "get",
+      formAction: "https://robinhood.com/search",
+      pageUrl: "https://robinhood.com/",
+    });
+    const run = tools(ROBIN, { f: field });
+    expect(blocked(ROBIN, run("browser.press", { tabId: "t", keys: "Enter", ref: "f" }))).toBe(
+      false,
+    );
+  });
+
   it("Enter in a login form (it holds a password) on a bank is not refused", () => {
     const bank = "https://secure.chase.com";
     const user = el("Username", {

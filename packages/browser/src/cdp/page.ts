@@ -74,12 +74,33 @@ export const FOCUS_HELPER = `/* psyche:focused */ function () {
 
 /**
  * Fixed helper: the element's live field facts and whether it is focused (TM-28). Attributes
- * only, never the value, so a page that changes `type` after the snapshot is judged as it is now.
+ * only, never a field's value, so a page that changes `type` after the snapshot is judged as it
+ * is now. `name` is the control's name as it reads now (aria-label, labelledby, its labels, a
+ * button's own text or value, title, alt), bounded: the hard block on trades judges a button the
+ * page renamed after the snapshot by this name.
  */
 export const FIELD_HELPER = `/* psyche:field */ function () {
   const form = this.form || null;
   const input = this.tagName === "INPUT";
+  const squash = (t) => String(t || "").replace(/\\s+/g, " ").trim().slice(0, 400);
+  const byIds = (ids) =>
+    String(ids || "")
+      .split(/\\s+/)
+      .map((id) => (id ? document.getElementById(id) : null))
+      .filter(Boolean)
+      .map((n) => n.textContent)
+      .join(" ");
+  const buttonish = input && /^(button|submit|reset|image)$/i.test(String(this.type || ""));
+  const name =
+    squash(this.getAttribute("aria-label")) ||
+    squash(byIds(this.getAttribute("aria-labelledby"))) ||
+    squash(this.labels ? Array.from(this.labels).map((l) => l.textContent).join(" ") : "") ||
+    (buttonish ? squash(this.value) : "") ||
+    (input ? "" : squash(this.textContent)) ||
+    squash(this.getAttribute("title")) ||
+    squash(this.getAttribute("alt"));
   return {
+    name: name || undefined,
     focused: document.activeElement === this,
     tag: this.tagName,
     type: input ? String(this.type || "text").toLowerCase() : undefined,
@@ -106,6 +127,8 @@ export const FIELD_HELPER = `/* psyche:field */ function () {
 
 /** What `FIELD_HELPER` returns. */
 export interface LiveField {
+  /** The control's name as the page shows it now; undefined when it has none the helper reads. */
+  name?: string;
   focused: boolean;
   tag: string;
   type?: string;
@@ -144,6 +167,8 @@ export function fillElementOf(meta: ElementMeta): FillElement {
 /** Cached snapshot facts with the live ones laid over them. */
 function withLive(meta: ElementMeta, live: LiveField): ElementMeta {
   const out: ElementMeta = { ...meta, tag: live.tag };
+  // A name the page shows now replaces the snapshot's (a button renamed after it was read).
+  if (typeof live.name === "string" && live.name !== "") out.name = live.name;
   const set = <K extends keyof ElementMeta>(k: K, v: ElementMeta[K] | undefined) => {
     if (v === undefined) delete out[k];
     else out[k] = v;

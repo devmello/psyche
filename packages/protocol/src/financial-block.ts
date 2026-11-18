@@ -223,6 +223,10 @@ const APP_VENUES: Record<VenueKind, readonly string[]> = {
     "com.exodus",
     "org.electrum",
     "com.crypto",
+    // iPhone and iPad apps running on the Mac keep their iOS bundle ids
+    "com.vilcsak.bitcoin2", // Coinbase
+    "com.czzhao.binance", // Binance
+    "com.electron.exodus", // Exodus desktop
   ],
   bank: [
     "com.chase",
@@ -236,9 +240,18 @@ const APP_VENUES: Record<VenueKind, readonly string[]> = {
     "com.revolut",
     "com.sofi",
     "com.usaa",
+    "com.navyfederal",
+    "com.transferwise", // Wise on iOS
   ],
-  p2p: ["com.venmo", "com.squareup.cash", "com.zellepay", "com.westernunion", "com.remitly"],
-  p2p_mixed: ["com.paypal"],
+  p2p: [
+    "com.venmo",
+    "net.kortina.labs.venmo", // Venmo on iOS
+    "com.squareup.cash",
+    "com.zellepay",
+    "com.westernunion",
+    "com.remitly",
+  ],
+  p2p_mixed: ["com.paypal", "com.yourcompany.ppclient"],
 };
 
 /** Every app prefix above, for the lists that must stay in step with it (`apps.ts` locks them off). */
@@ -294,9 +307,10 @@ const STOCK_NOT_SHARES =
 /** Phrases that trade or move money wherever they appear: no merchant checkout is labelled so. */
 const UNIVERSAL: readonly RegExp[] = [
   new RegExp(`\\b(buy|sell|short|trade|trading)\\s+(?:\\w+\\s+){0,2}${SECURITY_OBJECT}\\b`),
-  new RegExp(`\\b(buy|short|trade|trading)\\s+(?:\\w+\\s+){0,2}stock\\b${STOCK_NOT_SHARES}`),
+  // "Buy stock", "Buy 10 stock": the singular only right after the verb or a quantity, so "Buy in
+  // stock items" and "Sell my stock" (a shop's inventory) are not trades.
   new RegExp(
-    `\\bsell\\s+(?:my |all |your |the |some |\\d+ )(?:\\w+\\s+){0,1}stock\\b${STOCK_NOT_SHARES}`,
+    `\\b(buy|short|trade|trading)\\s+(?:(?:\\d[\\d.,]*|a|some|more|this)\\s+)?stock\\b${STOCK_NOT_SHARES}`,
   ),
   /\b(?:limit|market|stop|stop limit|stop loss|buy|sell)\s+order\b/,
   /\border ticket\b/,
@@ -417,8 +431,8 @@ const ARTICLES = new Set([
   "as",
 ]);
 const VENUE_MOVE_WORDS = new Set([
+  // "Transfers" (plural) names a section or a tab; the verb is singular.
   "transfer",
-  "transfers",
   "wire",
   "withdraw",
   "withdrawal",
@@ -489,6 +503,7 @@ const VENUE_CJK = [
   "売却",
   "購入",
   "注文",
+  "発注",
   "成行",
   "指値",
   "转账",
@@ -524,7 +539,7 @@ const VENUE_CJK = [
   "구매",
   "주문",
 ];
-/** A CJK label that is about a past or a status ("order history", "transfer record"), not the act. */
+/** What follows a CJK act and makes the pair a record of it ("振込履歴", "转账记录", "주문내역"). */
 const CJK_READS = [
   "履歴",
   "履歷",
@@ -542,15 +557,36 @@ const CJK_READS = [
   "狀態",
   "历史",
   "歷史",
-  "验证码",
-  "驗證碼",
-  "認証",
-  "인증",
   "説明",
   "说明",
+  "限度",
+  "限额",
+  "한도",
 ];
-/** A word that follows "send"/"transfer"/"order" and makes it not a transfer or order itself. */
-const NOT_THE_ACTION = new Set([
+/** A sign-in code sent by text: "发送验证码" sends a code, not money. */
+const CJK_SEND = ["发送", "發送", "送信", "보내기", "전송"];
+const CJK_CODES = [
+  "验证码",
+  "驗證碼",
+  "認証コード",
+  "確認コード",
+  "인증번호",
+  "인증 번호",
+  "인증코드",
+];
+const escapeRe = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** An act word directly followed by a record word, or a send of a sign-in code. */
+const CJK_NOT_ACT = new RegExp(
+  `(?:${VENUE_CJK.map(escapeRe).join("|")})(?:の|的|\\s)?(?:${CJK_READS.map(escapeRe).join("|")})|(?:${CJK_SEND.map(escapeRe).join("|")})(?:\\s)?(?:${CJK_CODES.map(escapeRe).join("|")})|(?:${CJK_CODES.map(escapeRe).join("|")})(?:\\s)?(?:${CJK_SEND.map(escapeRe).join("|")})`,
+  "g",
+);
+
+/**
+ * Words that, right after a move verb ("Send code", "Transfer history", "Wire instructions"),
+ * make the label about something else. Never applied to a trade verb on a brokerage: "Buy
+ * options" and "Sell options" trade.
+ */
+const MOVE_NOT_ACTION = new Set([
   "history",
   "status",
   "details",
@@ -587,7 +623,16 @@ const NOT_THE_ACTION = new Set([
   "pdf",
   "report",
   "reports",
-  // a code or a link sent for signing in, a menu, an article
+  "activity",
+  "instructions",
+  "types",
+  "type",
+  "rules",
+  "times",
+  "guide",
+]);
+/** A sign-in code or a link sent to the owner: only after "send", never after "transfer". */
+const SEND_NOT_ACTION = new Set([
   "code",
   "codes",
   "text",
@@ -596,23 +641,70 @@ const NOT_THE_ACTION = new Set([
   "passcode",
   "verification",
   "link",
-  "instructions",
-  "activity",
+  "message",
+  "messages",
+  "email",
+  "feedback",
+  "invite",
+  "invitation",
+]);
+/** After a trade verb: reading about trading, not a trade ("Trade ideas", "Trade confirmations"). */
+const TRADE_NOT_ACTION = new Set([
   "ideas",
+  "idea",
+  "history",
+  "status",
+  "details",
+  "confirmations",
+  "confirmation",
+  "statements",
+  "help",
+  "faq",
+  "guide",
+  "info",
+  "information",
+  "reports",
+  "report",
+  "activity",
   "types",
-  "type",
   "rules",
   "times",
-  "options",
-  "guide",
+  "hours",
+  "fees",
+  "limits",
 ]);
+const SEND_WORDS = new Set([
+  "send",
+  "enviar",
+  "envoyer",
+  "senden",
+  "invia",
+  "inviare",
+  "отправить",
+]);
+const SKIP_BETWEEN = new Set(["a", "an", "the", "my", "your", "our", "this", "that", "me", "you"]);
 
-/** Removes invisible format characters (soft hyphen, zero-width joiner, bidi marks) and Arabic marks. */
+/** The word after `i`, past articles and pronouns ("send a code", "send you a code"). */
+function nextWord(words: readonly string[], i: number): string | undefined {
+  let j = i + 1;
+  while (j < words.length && SKIP_BETWEEN.has(words[j] ?? "")) j++;
+  return words[j];
+}
+
+/** Removes invisible characters and stray marks a label can hide a word behind. */
 function clean(text: string): string {
-  return text
-    .normalize("NFKC")
-    .replace(/\p{Cf}/gu, "")
-    .replace(/[ً-ٰٟ]/g, "");
+  return (
+    text
+      .normalize("NFKC")
+      // format characters: soft hyphen, zero-width space and joiners, bidi controls, tag characters
+      .replace(/\p{Cf}/gu, "")
+      // variation selectors, Hangul fillers, the braille blank
+      .replace(/[︀-️\u{E0100}-\u{E01EF}ㅤᅟᅠﾠ⠀]/gu, "")
+      // a combining mark NFKC could not fold into a Latin, Greek or Cyrillic letter ("Bu̇y")
+      .replace(/(?<=[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}])\p{M}+/gu, "")
+      // Arabic short vowels
+      .replace(/[ً-ٰٟ]/g, "")
+  );
 }
 
 /** Words as `moneyWords` splits them, keeping combining marks (Hindi, Arabic vowels) in their word. */
@@ -626,12 +718,33 @@ function wordsOf(text: string): string[] {
     .filter((w) => w !== "");
 }
 
-/** A menu or a heading that only names a group of screens, not an act. */
+/** A menu or a heading that only names a group of screens, not an act (not on a P2P app). */
 const MENU_PHRASE = /^(?:pay\s*(?:&|and|\/)\s*transfer|transfer\s*(?:&|and|\/)\s*pay)$/;
 
 export interface TextOptions {
   /** The page says it is a trade page (crypto, stocks): needed for trade words on a mixed venue. */
   tradePage?: boolean;
+  /** A bank's rewards or travel site: buying a gift card there is a purchase, not a trade. */
+  noTrade?: boolean;
+  /** A tab or a menu: "Invest" names a section there, while "Buy" or "Transfer" still acts. */
+  grouping?: boolean;
+}
+
+/** Whether `words[i]` is "order" (in any of the languages) used as the act of placing one. */
+function isOrderAct(words: readonly string[], i: number, brokerage: boolean): boolean {
+  const next = words[i + 1];
+  if (next !== undefined && (TRADE_NOT_ACTION.has(next) || MOVE_NOT_ACTION.has(next))) return false;
+  if (words.length === 1 || next === "ticket") return true;
+  // "Place order", "Submit AAPL order", "Place my order", "Passer l'ordre".
+  let seen = 0;
+  for (let j = i - 1; j >= 0 && seen < 2; j--) {
+    const w = words[j] ?? "";
+    if (ARTICLES.has(w) || SKIP_BETWEEN.has(w)) continue;
+    if (ORDER_VERBS.has(w)) return true;
+    seen++;
+  }
+  // "Order 10 AAPL shares" on a brokerage.
+  return brokerage && i === 0 && next !== undefined && /^\d/.test(next);
 }
 
 /**
@@ -651,9 +764,10 @@ export function isTradeOrTransferText(
   const spaced = words.join(" ");
   if (UNIVERSAL.some((re) => re.test(norm) || re.test(spaced))) return true;
   if (kind === undefined) return false;
-  if (MENU_PHRASE.test(norm)) return false;
-  if (CJK_READS.some((w) => norm.includes(w))) return false;
-  if (VENUE_CJK.some((w) => norm.includes(w))) return true;
+  if (kind !== "p2p" && MENU_PHRASE.test(norm)) return false;
+  // A record of the act ("振込履歴") is not the act; what is left of the label still counts.
+  const cjk = norm.replace(CJK_NOT_ACT, " ");
+  if (VENUE_CJK.some((w) => cjk.includes(w))) return true;
   if (words.length === 0) return false;
   // Quotes, previews and lists move nothing.
   const first = words[0] ?? "";
@@ -663,7 +777,7 @@ export function isTradeOrTransferText(
     )
   )
     return false;
-  const trades = kind !== "p2p_mixed" || opts.tradePage === true;
+  const trades = (kind !== "p2p_mixed" || opts.tradePage === true) && opts.noTrade !== true;
   const brokerage = kind === "brokerage" || kind === "exchange";
   if (trades && brokerage && /\bclose (?:my |this |the |your )?positions?\b/.test(spaced)) {
     return true;
@@ -671,34 +785,31 @@ export function isTradeOrTransferText(
   // "Cash out" on a P2P app sends the balance to a bank.
   if (kind === "p2p" && /\bcash out\b/.test(spaced)) return true;
   for (const [i, w] of words.entries()) {
-    const next = words[i + 1];
-    const notAction = next !== undefined && NOT_THE_ACTION.has(next);
+    const next = nextWord(words, i);
     if (trades && ORDER_WORDS.has(w)) {
-      let j = i - 1;
-      while (j >= 0 && ARTICLES.has(words[j] ?? "")) j--;
-      const prev = j >= 0 ? words[j] : undefined;
-      const alone = words.length === 1;
-      if (
-        (alone || (prev !== undefined && ORDER_VERBS.has(prev)) || next === "ticket") &&
-        !notAction
-      )
-        return true;
+      if (isOrderAct(words, i, brokerage)) return true;
       continue;
     }
     if (
       trades &&
-      !notAction &&
-      (VENUE_TRADE_WORDS.has(w) || (brokerage && BROKERAGE_ONLY_WORDS.has(w)))
+      (VENUE_TRADE_WORDS.has(w) ||
+        (brokerage && opts.grouping !== true && BROKERAGE_ONLY_WORDS.has(w)))
     ) {
+      if (next !== undefined && TRADE_NOT_ACTION.has(next)) continue;
       return true;
     }
-    if (VENUE_MOVE_WORDS.has(w) && !notAction) {
-      // A word alone is enough on a venue, but "deposit" and "send" in a long sentence are not.
+    if (VENUE_MOVE_WORDS.has(w)) {
+      if (next !== undefined && MOVE_NOT_ACTION.has(next)) continue;
+      // A P2P "Send link" is a request for money; elsewhere a link or a code is sign-in.
       if (
-        (w === "deposit" || w === "send" || w === "enviar" || w === "envoyer") &&
-        words.length > 4
+        SEND_WORDS.has(w) &&
+        next !== undefined &&
+        SEND_NOT_ACTION.has(next) &&
+        !(kind === "p2p" && next === "link")
       )
         continue;
+      // A word alone is enough on a venue, but "deposit" and "send" in a long sentence are not.
+      if ((w === "deposit" || SEND_WORDS.has(w)) && words.length > 4) continue;
       // Banks and brokerages take deposits (a check, a paycheck): not a transfer out.
       if (w === "deposit" && kind === "bank") continue;
       return true;
@@ -805,8 +916,8 @@ const WALLET_ACTION_WORDS = new Set([
   "stake",
 ]);
 
-/** Path segments that say a transfer, a withdrawal, a wire or a trade is being made. */
-const CONTEXT_SEGMENTS = new Set([
+/** Path words that say money is being moved, inside a segment too ("transfer-money", "transferFunds"). */
+const MOVE_STEMS = new Set([
   "transfer",
   "transfers",
   "wire",
@@ -814,19 +925,7 @@ const CONTEXT_SEGMENTS = new Set([
   "withdraw",
   "withdrawal",
   "withdrawals",
-  "send",
-  "sendmoney",
-  "send-money",
   "zelle",
-  "pay-someone",
-  "trade",
-  "order-ticket",
-  "orderticket",
-  "place-order",
-  "placeorder",
-  "buy",
-  "sell",
-  "swap",
   "überweisung",
   "ueberweisung",
   "überweisungen",
@@ -843,9 +942,47 @@ const CONTEXT_SEGMENTS = new Set([
   "이체",
   "송금",
 ]);
-/** A title that opens with the act ("Transfer money", "Review your transfer", "Buy AAPL"). */
+/** Two-word segments: "send-money", "move-money", "trade-ticket", "order-ticket", "place-order". */
+const STEM_PAIRS: readonly (readonly [string, string])[] = [
+  ["send", "money"],
+  ["move", "money"],
+  ["pay", "someone"],
+  ["trade", "ticket"],
+  ["order", "ticket"],
+  ["place", "order"],
+];
+/** Segments that only count whole: "/buy" is a trade page, "/buy-the-dip-article" an article. */
+const EXACT_SEGMENTS = new Set([
+  "trade",
+  "buy",
+  "sell",
+  "swap",
+  "send",
+  "sendmoney",
+  "orderticket",
+  "placeorder",
+]);
+/** A site's articles and help: a path word there names a topic, not a step. */
+const ARTICLE_SEGMENTS = new Set([
+  "education",
+  "learn",
+  "learning",
+  "articles",
+  "article",
+  "news",
+  "blog",
+  "help",
+  "faq",
+  "insights",
+  "research",
+  "guides",
+  "guide",
+  "resources",
+  "support",
+]);
+/** A title (or a part of one after a separator) that opens with the act. */
 const TITLE_ACT =
-  /^(?:(?:review|confirm|new|make|start)\s+(?:a\s+|an\s+|your\s+|the\s+)?)?(?:transfers?|wire|withdraw|send money|zelle|trade|order ticket|place order|buy|sell|swap)\b/;
+  /^(?:(?:review|confirm|new|make|start)\s+(?:a\s+|an\s+|your\s+|the\s+)?)?(?:transfers?|wire|withdraw|send money|move money|zelle|trade|order ticket|place order|buy|sell|swap)\b/;
 
 export interface FinancialAction {
   /** Labels of the control and its parents, own label first. */
@@ -902,16 +1039,59 @@ function isNavigation(a: FinancialAction): boolean {
   return a.pageUrl === undefined || withoutFragment(a.href.trim()) !== withoutFragment(a.pageUrl);
 }
 
-/** Tabs and menus group screens; choosing one does not move money. */
+/** Tabs and menus group screens: only for an icon with no name there is a choice nothing reads. */
 const GROUPING_ROLES =
   /^(tab|tablist|menu|menubar|AXTabGroup|AXMenuBar|AXMenuBarItem|AXRadioButton)$/;
-/** Roles an empty-labelled control is still pressed through. */
-const PRESS_ROLES = /^(button|clickable|menuitem|link|AXButton|AXMenuItem|AXMenuButton|AXLink)$/;
+/** Fields and containers clicked to type or to scroll, not to press. */
+const FIELD_ROLES =
+  /^(textbox|searchbox|combobox|spinbutton|slider|scrollbar|textarea|AXTextField|AXTextArea|AXComboBox|AXSearchField|AXSlider|AXScrollArea|AXScrollBar)$/;
+/** A field Enter submits from; a search box or a combo box is a lookup. */
+const TEXT_FIELD_ROLES = /^(textbox|textarea|AXTextField|AXTextArea)$/;
+
+/** A GET form whose action is another page than the one it is on: a lookup that navigates. */
+function getToAnotherPage(
+  method: string | undefined,
+  action: string | undefined,
+  page: string | undefined,
+): boolean {
+  if ((method ?? "get").toLowerCase() !== "get" || action === undefined || page === undefined) {
+    return false;
+  }
+  try {
+    const x = new URL(action, page);
+    const y = new URL(page);
+    return x.origin !== y.origin || x.pathname !== y.pathname;
+  } catch {
+    return false;
+  }
+}
+
+/** A link labelled as the final step ("Submit order", "Confirm transfer") is a step, not navigation. */
+const STEP_VERBS = new Set([
+  "submit",
+  "confirm",
+  "place",
+  "execute",
+  "authorize",
+  "authorise",
+  "complete",
+]);
 
 function isWalletHost(input: string | undefined): boolean {
   const host = financialHost(input);
   return host !== undefined && WALLET_EXTENSIONS.includes(host);
 }
+
+/** A bank's rewards, points or travel site (`ultimaterewardspoints.chase.com`): a shop, not a desk. */
+function isRewardsHost(input: string | undefined): boolean {
+  const host = financialHost(input);
+  if (host === undefined) return false;
+  const sub = host.split(".").slice(0, -2).join(".");
+  return /(rewards|points|travel|shop|store)/.test(sub);
+}
+
+/** Whether a label has a letter or a digit once invisible characters are gone. */
+const hasWord = (l: string): boolean => /[\p{L}\p{N}]/u.test(clean(l));
 
 /**
  * Whether acting on this control is a trade or a transfer that no approval unlocks. Undefined
@@ -924,22 +1104,43 @@ export function financialBlock(a: FinancialAction): FinancialBlock | undefined {
   // An action the executor could not read, on a venue, could be the trade: refused, fail closed.
   if (a.unreadable === true) return venue === undefined ? undefined : { venue, matched: "" };
   const navigation = isNavigation(a);
-  const grouping = a.role !== undefined && GROUPING_ROLES.test(a.role);
+  const grouping = a.role !== undefined && GROUPING_ROLES.test(a.role) && a.submits !== true;
   const tradePage = [a.pageUrl, a.origin].some(
     (u) =>
       u !== undefined &&
       /(^|[/#?_-])(crypto|bitcoin|stocks?|invest|trade|buy|sell)([/#?_-]|$)/i.test(u),
   );
-  if (!navigation && !grouping) {
-    // The control's own label gets the venue's verbs; its parents (a heading, a window) only the
-    // phrases that are never anything else, so a Cancel button inside "Transfers" is not blocked.
-    const own = labels[0];
-    if (own !== undefined && isTradeOrTransferText(own, venue, { tradePage })) {
-      return { venue, matched: own };
-    }
-    for (const l of a.alsoLabels ?? []) {
-      if (isTradeOrTransferText(l, venue, { tradePage })) return { venue, matched: l };
-    }
+  const noTrade = venue === "bank" && (isRewardsHost(a.pageUrl) || isRewardsHost(a.origin));
+  const opts = {
+    tradePage,
+    noTrade,
+    grouping: a.role !== undefined && GROUPING_ROLES.test(a.role),
+  };
+  const own = labels[0];
+  // A page dialog: its sentence, read for any trade or move word (a "Leave this page?" never is).
+  if (a.role === "dialog") {
+    if (own === undefined) return undefined;
+    if (isTradeOrTransferText(own)) return { venue, matched: own };
+    if (venue === undefined) return undefined;
+    const wallet = isWalletHost(a.pageUrl) || isWalletHost(a.origin);
+    const says =
+      dialogSaysAct(own, venue) ||
+      (wallet && wordsOf(clean(own)).some((w) => WALLET_ACTION_WORDS.has(w)));
+    return says ? { venue, matched: own } : undefined;
+  }
+  // The control's own label gets the venue's verbs; a link that goes to another page only when it
+  // names the final step ("Submit order"), since "Buy" or "Transfer money" in a menu navigates.
+  if (own !== undefined && isTradeOrTransferText(own, venue, opts)) {
+    const step = STEP_VERBS.has(wordsOf(clean(own))[0] ?? "");
+    if (!navigation || step) return { venue, matched: own };
+  }
+  // The other end of a drag is pressed whatever the first end is.
+  for (const l of a.alsoLabels ?? []) {
+    if (isTradeOrTransferText(l, venue, opts)) return { venue, matched: l };
+  }
+  // Its parents (a heading, a window) only the phrases that are never anything else, so a Cancel
+  // button inside "Transfers" is not blocked.
+  if (!navigation) {
     for (const l of labels.slice(1)) {
       if (isTradeOrTransferText(l)) return { venue, matched: l };
     }
@@ -948,17 +1149,23 @@ export function financialBlock(a: FinancialAction): FinancialBlock | undefined {
   if (a.submits === true && isVenueFormAction(a.formMethod, a.formAction)) {
     return { venue, matched: a.formAction ?? "" };
   }
-  if (navigation || grouping) return undefined;
-  // A page dialog on a venue ("Sell 10 shares?"): its sentence is read for any trade or move word.
-  if (a.role === "dialog" && dialogSaysAct(labels[0] ?? "")) {
-    return { venue, matched: labels[0] ?? "" };
+  // A drag onto a control with no name: what it presses cannot be read.
+  if ((a.alsoLabels ?? []).some((l) => !hasWord(l))) return { venue, matched: "" };
+  if (navigation) return undefined;
+  // Enter in a text field submits its form, and a form's script may send anything: on a venue that
+  // is unreadable, unless it is a search, or a GET that goes to another page. (A login form is
+  // not marked as submitting by the browser, so it never gets here.)
+  if (a.submits === true && a.role !== undefined && TEXT_FIELD_ROLES.test(a.role)) {
+    if (!getToAnotherPage(a.formMethod, a.formAction, a.pageUrl)) return { venue, matched: "" };
   }
-  // A control that was read and has no name at all (an icon button) on a venue could be the
-  // trade: unreadable. An action that read no control (a scroll, a Tab key) has no labels.
+  // A control that was read and has no word in its name (an icon, an arrow) on a venue could be
+  // the trade: unreadable. An action that read no control (a scroll, a Tab key) has no labels;
+  // a field is clicked to type, and a tab or menu only groups screens.
   if (
     raw.length > 0 &&
-    (raw[0] ?? "").trim() === "" &&
-    (a.submits === true || a.role === undefined || PRESS_ROLES.test(a.role))
+    !hasWord(raw[0] ?? "") &&
+    !grouping &&
+    !(a.role !== undefined && FIELD_ROLES.test(a.role))
   ) {
     return { venue, matched: "" };
   }
@@ -984,30 +1191,66 @@ export function financialBlock(a: FinancialAction): FinancialBlock | undefined {
   return undefined;
 }
 
-/** A confirm dialog's sentence names a trade or a move of money anywhere in it. */
-function dialogSaysAct(text: string): boolean {
+/** Leaving or cancelling never moves money, whatever the dialog says it will lose. */
+const DIALOG_LEAVES = /^(?:leave|discard|cancel|stay|exit|close|log out|sign out|abandon|quit)\b/;
+
+/** A confirm dialog's sentence names a trade or a move of money, with the same exemptions as a label. */
+function dialogSaysAct(text: string, kind: VenueKind): boolean {
   const plain = clean(text).toLowerCase();
-  if (VENUE_CJK.some((w) => plain.includes(w))) return true;
-  return wordsOf(plain).some(
-    (w) => VENUE_TRADE_WORDS.has(w) || (VENUE_MOVE_WORDS.has(w) && w !== "deposit"),
-  );
+  const words = wordsOf(plain);
+  if (DIALOG_LEAVES.test(words.join(" "))) return false;
+  const cjk = plain.replace(CJK_NOT_ACT, " ");
+  if (VENUE_CJK.some((w) => cjk.includes(w))) return true;
+  return words.some((w, i) => {
+    const next = nextWord(words, i);
+    if (VENUE_TRADE_WORDS.has(w)) return !(next !== undefined && TRADE_NOT_ACTION.has(next));
+    if (!VENUE_MOVE_WORDS.has(w) || (w === "deposit" && kind === "bank")) return false;
+    if (next !== undefined && MOVE_NOT_ACTION.has(next)) return false;
+    return !(SEND_WORDS.has(w) && next !== undefined && SEND_NOT_ACTION.has(next));
+  });
 }
 
-/** Whether an address's path (or hash route), or a title that opens with the act, is a transfer or a trade. */
+/** The words of one path segment: split on `-`, `_`, `.` and camelCase. */
+function segmentWords(seg: string): string[] {
+  return seg
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[-_.\s]+/)
+    .filter((w) => w !== "");
+}
+
+/** Whether an address's path (or hash route), or a part of a title, says a transfer or a trade. */
 function pageSaysTransfer(text: string): boolean {
   let route: string | undefined;
   try {
     const u = new URL(text);
-    route = `${u.pathname}${u.hash.startsWith("#") ? u.hash.slice(1) : ""}`;
+    route = `${u.pathname}/${u.hash.startsWith("#") ? u.hash.slice(1) : ""}`;
   } catch {
     // a title
   }
   if (route !== undefined) {
-    return route
+    const segs = route
       .normalize("NFKC")
-      .toLowerCase()
       .split(/[/?#]/)
-      .some((seg) => CONTEXT_SEGMENTS.has(seg));
+      .filter((s) => s !== "");
+    if (segs.some((s) => ARTICLE_SEGMENTS.has(s.toLowerCase()))) return false;
+    return segs.some((seg) => {
+      const lower = seg.toLowerCase();
+      if (EXACT_SEGMENTS.has(lower)) return true;
+      const w = segmentWords(seg);
+      if (
+        w.some(
+          (x, i) =>
+            MOVE_STEMS.has(x) && !(w[i + 1] !== undefined && MOVE_NOT_ACTION.has(w[i + 1] ?? "")),
+        )
+      )
+        return true;
+      return STEM_PAIRS.some(([x, y]) => w.some((v, i) => v === x && w[i + 1] === y));
+    });
   }
-  return TITLE_ACT.test(clean(text).toLowerCase().replace(/\s+/g, " ").trim());
+  // "Chase | Transfer money", "Capital One - Transfer Money": each part of the title.
+  return clean(text)
+    .toLowerCase()
+    .split(/\s+[|–—:\-·]\s+|\s*[|–—·]\s*/)
+    .some((part) => TITLE_ACT.test(part.replace(/\s+/g, " ").trim()));
 }

@@ -192,8 +192,9 @@ function activatesFocus(keys: string): boolean {
 /**
  * What the hard block on trades and transfers needs to know about the control. `enter` is a press
  * of Enter inside a field: it submits the field's form, which the field's own `submits` (false for
- * a textbox) does not say. Such a form on a trading, banking or P2P site that carries no password
- * is read as unreadable: its action may be anything, so it is refused there.
+ * a textbox) does not say, so it is marked as submitting. The rule then refuses it on a trading,
+ * banking or P2P site unless the field is a search or the form is a GET to another page. A login
+ * form (it holds a password) is the exception: Enter there signs in, and it is not marked.
  */
 function controlOf(
   meta: ElementMeta | undefined,
@@ -202,7 +203,7 @@ function controlOf(
 ): ControlFacts {
   if (meta === undefined)
     return { unreadable: true, ...(origin === undefined ? {} : { pageUrl: origin }) };
-  const formSubmit = enter && meta.inForm;
+  const formSubmit = enter && meta.inForm && meta.formHasPassword !== true;
   return {
     labels: [meta.name],
     role: meta.role,
@@ -214,9 +215,6 @@ function controlOf(
       ? {}
       : { pageUrl: (meta.pageUrl ?? origin) as string }),
     ...(meta.pageTitle === undefined ? {} : { pageTitle: meta.pageTitle }),
-    ...(formSubmit && (meta.formMethod ?? "get") !== "get" && meta.formHasPassword !== true
-      ? { unreadable: true }
-      : {}),
   };
 }
 
@@ -266,8 +264,9 @@ export function browserToolDefs(deps: BrowserToolDeps) {
   };
   /**
    * The describe step judged the snapshot's cached name for the control; a page can rename a
-   * button between that and the click. The control is read again as the action goes out, and the
-   * hard block applies to what it says now.
+   * button between that and the click. The control is read again as the action goes out
+   * (`driver.describe`: the live name and form facts from `FIELD_HELPER` laid over the snapshot's),
+   * and the hard block applies to what it says now.
    */
   const guardFinancial = async (tabId: string, ref: string | undefined, enter = false) => {
     if (ref === undefined) return;

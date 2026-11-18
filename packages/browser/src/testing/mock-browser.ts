@@ -291,6 +291,14 @@ export class MockTab implements CdpTarget {
     for (const el of this.#doc.els.values()) if (el.attrs.name === name) el.attrs.type = type;
   }
 
+  /** Test hook: page script renames a control (its text or aria-label) after the snapshot. */
+  renameControl(from: string, to: string): void {
+    for (const el of this.#doc.els.values()) {
+      if (el.attrs["aria-label"] === from) el.attrs["aria-label"] = to;
+      else if (el.text === from) el.text = to;
+    }
+  }
+
   /** Test hook: page script moves focus to another field. */
   focusField(name: string): void {
     for (const el of this.#doc.els.values()) if (el.attrs.name === name) this.#focused = el;
@@ -820,6 +828,11 @@ export class MockTab implements CdpTarget {
         tag: el.tag,
         contentEditable: false,
       };
+      // The name as the page shows it now (aria-label, or a non-field's own text).
+      const textOf = (n: MockEl): string =>
+        [n.text ?? "", ...n.children.map(textOf)].join(" ").replace(/\s+/g, " ").trim();
+      const name = el.attrs["aria-label"] ?? (input ? "" : textOf(el));
+      if (name !== "") value.name = name.slice(0, 400);
       if (input) value.type = (el.attrs.type ?? "text").toLowerCase();
       if (el.attrs.autocomplete !== undefined) value.autocomplete = el.attrs.autocomplete;
       if (form?.attrs.action !== undefined) value.formAction = form.attrs.action;

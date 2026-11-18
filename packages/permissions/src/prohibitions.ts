@@ -187,6 +187,16 @@ const TRANSFER_PAIRS = [
   ["initiate", "ach"],
   ["payment", "initiation"],
   ["initiate", "payment"],
+  // Contract writes and token allowances (`write_contract`, `call_contract_function`,
+  // `approve_token`): they move tokens whatever the server is called.
+  ["write", "contract"],
+  ["call", "contract"],
+  ["execute", "contract"],
+  ["approve", "token"],
+  ["approve", "tokens"],
+  ["approve", "spender"],
+  ["approve", "allowance"],
+  ["increase", "allowance"],
 ];
 // `place_order` and `submit_order` alone are not here: a shop, a restaurant or a ticket seller has
 // them too. An order of stock or crypto is caught by `isTradeOrTransferText`, and any order on a
@@ -195,8 +205,6 @@ const TRANSFER_PAIRS = [
 const FINANCIAL_NAMESPACES = new Set([
   "bank",
   "banking",
-  "broker",
-  "brokerage",
   "crypto",
   "exchange",
   "wallet",
@@ -236,7 +244,6 @@ const FINANCIAL_NAMESPACES = new Set([
   "ccxt",
   "polymarket",
   "kalshi",
-  "trading",
   "hyperliquid",
   "tastytrade",
   "firstrade",
@@ -257,9 +264,117 @@ const FINANCIAL_NAMESPACES = new Set([
   "phantom",
   "dydx",
 ]);
-/** A namespace that contains one of these as part of a word (`mybroker`, `brokerage-api`) is financial. */
-const FINANCIAL_NAMESPACE_PARTS = ["broker", "brokerage"];
-/** A tool that only reads is not a trade, even on a brokerage's or an exchange's server. */
+/** Banks, by the name an MCP server for one would carry (`mcp__chase__pay`). */
+const BANK_NAMESPACES = [
+  "chase",
+  "bankofamerica",
+  "wellsfargo",
+  "citi",
+  "citibank",
+  "capitalone",
+  "usbank",
+  "pnc",
+  "tdbank",
+  "truist",
+  "hsbc",
+  "barclays",
+  "santander",
+  "scotiabank",
+  "cibc",
+  "commerzbank",
+  "bbva",
+  "sofi",
+  "chime",
+  "usaa",
+  "navyfederal",
+  "monzo",
+  "n26",
+  "starling",
+  "nubank",
+];
+for (const b of BANK_NAMESPACES) FINANCIAL_NAMESPACES.add(b);
+/**
+ * Words that are financial only on their own: a namespace containing "broker" (`mybroker`) or
+ * with the word "trading" is a brokerage's, unless another word says it is a message broker
+ * (`mqtt-broker`, `kafka_broker`) or a card game (`pokemon_trading`).
+ */
+/** Inside a word ("mybroker"); "trading" only as a word of its own ("libtrading" is a library). */
+const GENERIC_FINANCIAL_PARTS = ["broker"];
+const GENERIC_FINANCIAL_TOKENS = ["trading", "broker", "brokerage"];
+const NOT_FINANCIAL_QUALIFIERS = [
+  "message",
+  "mqtt",
+  "kafka",
+  "rabbit",
+  "amqp",
+  "nats",
+  "redis",
+  "event",
+  "pubsub",
+  "queue",
+  "card",
+  "pokemon",
+  "tcg",
+  "game",
+  "yugioh",
+  "magic",
+  "sports",
+];
+/**
+ * A tool that only reads is not a trade, even on a brokerage's or an exchange's server: its first
+ * word is one of these, it names what it reads, and no action word appears anywhere in it
+ * (`fetch_and_create_order`, `get_or_place_order` and a bare `fetch` or `query`, which can be
+ * any request, are not reads).
+ */
+const ACTION_WORDS = new Set([
+  "order",
+  "orders",
+  "buy",
+  "sell",
+  "execute",
+  "submit",
+  "place",
+  "create",
+  "send",
+  "pay",
+  "transfer",
+  "cancel",
+  "out",
+  "checkout",
+  "liquidate",
+  "open",
+  "close",
+  "fund",
+  "approve",
+  "sign",
+  "write",
+  "swap",
+  "withdraw",
+  "trade",
+  "new",
+  "add",
+  "confirm",
+  "call",
+  "invoke",
+  "request",
+  "post",
+  "put",
+  "delete",
+  "update",
+  "set",
+  "modify",
+  "replace",
+  "mint",
+  "burn",
+  "bridge",
+  "stake",
+  "deposit",
+  "then",
+  "and",
+  "or",
+]);
+/** A read verb that alone can be any request: it needs to name what it reads. */
+const GENERIC_READS = new Set(["fetch", "query", "request", "call"]);
 const READ_VERBS = new Set([
   "get",
   "list",
@@ -294,17 +409,26 @@ export function isFinancialTransfer(tool: string): boolean {
   // and `alpaca-mcp-server` have the broker as one of their words.
   const compact = lower.replace(/[^a-z0-9]+/g, "");
   const tokens = toolWords(ns);
+  const qualified = NOT_FINANCIAL_QUALIFIERS.some((q) => compact.includes(q));
   const financial =
     FINANCIAL_NAMESPACES.has(compact) ||
     tokens.some((t) => FINANCIAL_NAMESPACES.has(t)) ||
-    FINANCIAL_NAMESPACE_PARTS.some((part) => compact.includes(part));
+    (!qualified &&
+      (GENERIC_FINANCIAL_PARTS.some((part) => compact.includes(part)) ||
+        tokens.some((t) => GENERIC_FINANCIAL_TOKENS.includes(t))));
   if (!financial) return false;
   // A quote, a balance or a list of rates moves nothing: only the tool's own words say so.
   const own = tool.startsWith("mcp__")
     ? tool.split("__").slice(2).join("_")
     : tool.slice(ns.length);
-  const verb = toolWords(own)[0];
-  return !(verb !== undefined && READ_VERBS.has(verb));
+  const ownWords = toolWords(own);
+  const verb = ownWords[0];
+  const reads =
+    verb !== undefined &&
+    READ_VERBS.has(verb) &&
+    !(GENERIC_READS.has(verb) && ownWords.length === 1) &&
+    !ownWords.some((w) => ACTION_WORDS.has(w));
+  return !reads;
 }
 
 /**

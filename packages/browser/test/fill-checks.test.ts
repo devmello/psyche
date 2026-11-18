@@ -168,6 +168,20 @@ describe("fill checks on the live element (#291)", () => {
     expect(tab.fieldValue("username")).toBe("");
   });
 
+  it("#1321: describe reads a control's name as it is now, not the snapshot's", async () => {
+    const { tabId } = await loginPage();
+    const snap = await driver.snapshot(tabId);
+    const button = snap.refs.find((r) => r.role === "button");
+    expect(button).toBeDefined();
+    const ref = button?.ref ?? "";
+    const before = driver.peek(tabId, ref)?.name ?? "";
+    expect(before).not.toBe("");
+    desktop.tab(tabId).renameControl(before, "Transfer money");
+    // The cached snapshot still says the old name; the live read says the new one.
+    expect(driver.peek(tabId, ref)?.name).toBe(before);
+    expect((await driver.describe(tabId, ref)).name).toBe("Transfer money");
+  });
+
   it("still fills an unchanged password field", async () => {
     const { tabId, pass } = await loginPage();
     const r = await fill(tabId, pass);
