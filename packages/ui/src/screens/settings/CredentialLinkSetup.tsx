@@ -3,7 +3,7 @@ import { type ReactElement, type ReactNode, useContext, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { useCall } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
-import { SafeLink } from "../../links/SafeLink.tsx";
+import { useSlots } from "../../slots.tsx";
 import { approvalIdOf, messageOf, SettingsApprovalContext } from "./shared.tsx";
 
 /**
@@ -34,6 +34,9 @@ const REASONS: readonly LinkSetupReason[] = [
   "writable",
   "parent_wrong_owner",
   "parent_writable",
+  "in_psyche_home",
+  "not_link_cli",
+  "volta_shim",
 ];
 
 const isReason = (r: unknown): r is LinkSetupReason =>
@@ -46,6 +49,8 @@ export function reasonText(reason: LinkSetupReason): string {
 /** A refused path names its reason in `details.reason`; anything else is shown as the Gateway said. */
 export function setupErrorText(err: unknown): string {
   const reason = (err as { details?: { reason?: unknown } } | null)?.details?.reason;
+  if (reason === "payment_in_progress")
+    return t("settings.credentials.payments.setup.paymentInProgress");
   return isReason(reason)
     ? t("settings.credentials.payments.setup.refused", { reason: reasonText(reason) })
     : t("settings.credentials.payments.setup.failed", { reason: messageOf(err) });
@@ -206,6 +211,45 @@ export function DisconnectLink({
   );
 }
 
+/** Link's own sign-in page: https on link.com only, whatever the Gateway sent. */
+export function isLinkPage(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return (
+      u.protocol === "https:" &&
+      u.username === "" &&
+      (u.hostname === "link.com" || u.hostname.endsWith(".link.com"))
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The sign-in page always opens in the system browser, whatever "Open links in" says: Psyche's own
+ * browser is one the agent can drive, and the owner types their Link password on this page.
+ */
+function SignInLink({ href, children }: { href: string; children: ReactNode }): ReactElement {
+  const { openExternal } = useSlots();
+  // A page off Link's own host (the Gateway checks too) is shown but never offered to open.
+  if (!isLinkPage(href)) return <span className="text-label-tertiary">{children}</span>;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      className="text-accent-11 underline underline-offset-2"
+      onClick={(e) => {
+        e.preventDefault();
+        if (openExternal) void openExternal(href).catch(() => {});
+        else globalThis.open?.(href, "_blank", "noopener,noreferrer");
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
 /** Shown while Link is not connected: whichever step the owner is on. */
 export function LinkSetupPanel({ view }: { view: LinkSetupView }): ReactElement {
   const { status } = view;
@@ -286,9 +330,9 @@ export function LinkSetupPanel({ view }: { view: LinkSetupView }): ReactElement 
           <strong className="font-mono">{phrase}</strong>
         </p>
         <p>
-          <SafeLink href={verificationUrl} className="text-accent-11 underline underline-offset-2">
+          <SignInLink href={verificationUrl}>
             {t("settings.credentials.payments.setup.signingIn.open")}
-          </SafeLink>
+          </SignInLink>
         </p>
         <p role="status" className="text-footnote text-label-tertiary">
           {t("settings.credentials.payments.setup.signingIn.waiting")}

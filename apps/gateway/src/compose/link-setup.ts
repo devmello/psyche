@@ -5,11 +5,12 @@ import {
   lstatSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
   realpathSync,
   unlinkSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join } from "node:path";
+import { basename, dirname, isAbsolute, join, sep } from "node:path";
 import { deleteSettings, getSetting, type PsycheDb, setSetting } from "@psyche/db";
 import { hostLaunch } from "@psyche/hostfs";
 import {
@@ -22,8 +23,10 @@ import {
 import {
   LinkCliWallet,
   type LinkWallet,
+  type PaymentBroker,
   type PaymentMethod,
   type ReportOutcome,
+  SPEND_WAITING,
   type SpendLimits,
   type SpendRequest,
   type SpendRequestInput,
@@ -55,6 +58,11 @@ export interface PathDeps {
   /** The Gateway's user (default `process.getuid()`); files owned by it or root may run. */
   uid?: number | undefined;
   platform?: NodeJS.Platform;
+  /**
+   * `$PSYCHE_HOME`: nothing inside it may be run, because the agent can write there (a planted
+   * script under `workspace/` would otherwise pass as "owned by you").
+   */
+  psycheHome?: string | undefined;
   /** Test seam: `lstat` for a path. */
   lstat?: (path: string) => {
     uid: number;
@@ -75,10 +83,45 @@ function ancestors(real: string): string[] {
   }
 }
 
+/** Scripts Node runs for us; anything else must be a program with its execute bit set. */
+const SCRIPT = /\.(c|m)?js$/;
+
+const isUnder = (real: string, dir: string): boolean => real === dir || real.startsWith(dir + sep);
+
+function resolvedOr(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+}
+
+/** The nearest `package.json` above a script names the package it belongs to. */
+function packageNameOf(script: string): string | undefined {
+  let dir = dirname(script);
+  for (let i = 0; i < 8; i++) {
+    try {
+      const text = readFileSync(join(dir, "package.json"), "utf8");
+      if (text.length > 1 << 16) return undefined;
+      const name = (JSON.parse(text) as { name?: unknown }).name;
+      return typeof name === "string" ? name : undefined;
+    } catch {
+      // No package.json here (or not readable): look one folder up.
+    }
+    const up = dirname(dir);
+    if (up === dir) return undefined;
+    dir = up;
+  }
+  return undefined;
+}
+
 /**
  * Accepts a CLI path only when it resolves (every symlink followed once, here) to a real file
  * owned by the user or root, neither group- nor world-writable, and the same holds for every
  * folder above it. The returned path is the resolved one: later swaps of a symlink change nothing.
+ * It must also be outside `$PSYCHE_HOME`, and a script must belong to the `@stripe/link-cli`
+ * package (any other user-owned `.js` would otherwise pass). Volta's shim is refused: it runs
+ * whichever tool its own name says, not the file it was pointed at.
  */
 export function checkLinkCliPath(path: string, deps: PathDeps = {}): PathCheck {
   if (!isAbsolute(path)) return { ok: false, reason: "not_absolute" };
@@ -89,6 +132,10 @@ export function checkLinkCliPath(path: string, deps: PathDeps = {}): PathCheck {
     return { ok: false, reason: "missing" };
   }
   const platform = deps.platform ?? process.platform;
+  if (deps.psycheHome !== undefined && isUnder(real, resolvedOr(deps.psycheHome)))
+    return { ok: false, reason: "in_psyche_home" };
+  if (/^volta-(shim|migrate)(\.exe)?$/i.test(basename(real)))
+    return { ok: false, reason: "volta_shim" };
   const lstat = deps.lstat ?? ((p: string) => lstatSync(p));
   let st: ReturnType<NonNullable<PathDeps["lstat"]>>;
   try {
@@ -97,12 +144,13 @@ export function checkLinkCliPath(path: string, deps: PathDeps = {}): PathCheck {
     return { ok: false, reason: "missing" };
   }
   if (st.isSymbolicLink() || !st.isFile()) return { ok: false, reason: "not_a_file" };
+  if (SCRIPT.test(real) && packageNameOf(real) !== "@stripe/link-cli")
+    return { ok: false, reason: "not_link_cli" };
   // Windows has no owner or mode bits to read: the path must still be a real file.
   if (platform === "win32") return { ok: true, real };
   const uid = "uid" in deps ? deps.uid : process.getuid?.();
   const trusted = (owner: number) => owner === 0 || owner === uid;
-  if (!/\.(c|m)?js$/.test(real) && (st.mode & 0o111) === 0)
-    return { ok: false, reason: "not_executable" };
+  if (!SCRIPT.test(real) && (st.mode & 0o111) === 0) return { ok: false, reason: "not_executable" };
   if (!trusted(st.uid)) return { ok: false, reason: "wrong_owner" };
   if ((st.mode & 0o022) !== 0) return { ok: false, reason: "writable" };
   for (const dir of ancestors(real)) {
@@ -180,7 +228,7 @@ export type RunLink = (
   timeoutMs: number,
 ) => Promise<string>;
 
-const runFile: RunLink = (file, args, env, timeoutMs) =>
+export const runFile: RunLink = (file, args, env, timeoutMs) =>
   new Promise((resolve, reject) => {
     const launch = hostLaunch(file, env);
     if (launch === undefined) return reject(new Error("link-cli cannot be started"));
@@ -214,7 +262,29 @@ export function isLinkUrl(value: string): boolean {
   }
 }
 
-/** Finds the sign-in page and phrase in `auth login`'s JSON (field names are not fixed). */
+/**
+ * link-cli is built on incur: with `--format json` its `auth login` and `auth status` (async
+ * generators) print one buffered ARRAY of what they yielded (`[{"authenticated":true,…}]`), and a
+ * wrapped result is `{ok, data}`. Both come out as the object inside.
+ */
+export function unwrapJson(doc: unknown): unknown {
+  let v = doc;
+  for (let i = 0; i < 4; i++) {
+    if (Array.isArray(v)) {
+      const objects = v.filter((x) => x !== null && typeof x === "object");
+      if (objects.length === 0) return undefined;
+      v = objects[objects.length - 1];
+    } else if (v !== null && typeof v === "object" && "ok" in v && "data" in v) {
+      v = (v as { data: unknown }).data;
+    } else break;
+  }
+  return v;
+}
+
+/** The only keys a phrase is read from, in this order; never a `device_code` (a secret). */
+const PHRASE_KEYS = ["phrase", "usercode"] as const;
+
+/** Finds the sign-in page and phrase in `auth login`'s JSON (the page's field name is not fixed). */
 export function parseLogin(stdout: string): { url: string; phrase: string } | undefined {
   let doc: unknown;
   try {
@@ -224,7 +294,7 @@ export function parseLogin(stdout: string): { url: string; phrase: string } | un
   }
   const strings: [string, string][] = [];
   const walk = (v: unknown, key: string, depth: number) => {
-    if (depth > 4) return;
+    if (depth > 5) return;
     if (typeof v === "string") strings.push([key, v]);
     else if (v && typeof v === "object")
       for (const [k, x] of Object.entries(v as Record<string, unknown>)) walk(x, k, depth + 1);
@@ -235,14 +305,17 @@ export function parseLogin(stdout: string): { url: string; phrase: string } | un
     urls.find(([k]) => /url|uri|link/i.test(k)) ??
     urls[0])?.[1];
   if (url === undefined) return undefined;
-  const phrase =
-    strings.find(
-      ([k, v]) =>
-        /phrase|user_?code|verification_?code|code/i.test(k) &&
-        v.length > 0 &&
-        v.length <= 80 &&
-        !v.startsWith("http"),
-    )?.[1] ?? "";
+  const norm = (k: string) => k.toLowerCase().replace(/[_-]/g, "");
+  let phrase = "";
+  for (const want of PHRASE_KEYS) {
+    const hit = strings.find(
+      ([k, v]) => norm(k) === want && v.length > 0 && v.length <= 80 && !v.startsWith("http"),
+    );
+    if (hit !== undefined) {
+      phrase = hit[1];
+      break;
+    }
+  }
   return { url, phrase };
 }
 
@@ -297,6 +370,8 @@ export interface LinkSetupOptions extends PathDeps {
   run?: RunLink;
   pollMs?: number;
   loginMs?: number;
+  /** How long `auth status` is trusted (default 10 s); a test seam. */
+  statusTtlMs?: number;
 }
 
 const REASON_TEXT: Record<LinkSetupReason, string> = {
@@ -309,17 +384,52 @@ const REASON_TEXT: Record<LinkSetupReason, string> = {
   parent_wrong_owner: "A folder above that file belongs to another user",
   parent_writable:
     "A folder above that file can be changed by other users; remove group and other write access",
+  in_psyche_home: "That file is inside Psyche's own folder; install the Link CLI with npm instead",
+  not_link_cli: "That script is not part of the @stripe/link-cli package",
+  volta_shim:
+    "That is Volta's shim, which cannot be run this way; use the Link CLI's own folder under Volta, or install it with npm",
 };
+
+/** How long `auth status` is trusted: the Settings screen asks often, the CLI is a process. */
+const STATUS_TTL_MS = 10_000;
+/** A spend that is still being approved or paid; older than this it is a stale record. */
+const OPEN_SPEND_MS = 2 * 60 * 60_000;
+/** A hold stays open until it is captured or released. */
+const OPEN_HOLD_MS = 7 * 24 * 60 * 60_000;
+
+/** Spends that disconnecting now would strand (no way left to cancel, capture or report them). */
+export function countOpenSpends(broker: Pick<PaymentBroker, "list">, now: number): number {
+  let n = 0;
+  for (const p of broker.list({ limit: 200 })) {
+    const age = now - Date.parse(p.createdAt);
+    if (p.payment.state === "held") {
+      if (age < OPEN_HOLD_MS) n += 1;
+    } else if (
+      age < OPEN_SPEND_MS &&
+      (SPEND_WAITING.includes(p.status as never) ||
+        // Approved with the card revealed and nothing settled yet: the purchase is under way.
+        ((p.status === "approved" || p.status === "submitted") && p.payment.state === "none"))
+    ) {
+      n += 1;
+    }
+  }
+  return n;
+}
 
 export class LinkSetup {
   readonly wallet = new SwitchableWallet();
   readonly authFile: string;
+  /** Set by `composeGuidedPayments` once the broker exists: how many spends are still open. */
+  openSpends: (() => number) | undefined;
   readonly #s: ComposeServices;
   readonly #o: LinkSetupOptions;
-  #login: { url: string; phrase: string; expiresAt: number } | undefined;
+  #login: { url: string; phrase: string; expiresAt: number; deviceId: string } | undefined;
   #timer: ReturnType<typeof setInterval> | undefined;
   #polling = false;
   #db: PsycheDb;
+  #authCache: { at: number; value: boolean } | undefined;
+  #authInflight: Promise<boolean> | undefined;
+  #gen = 0;
 
   constructor(services: ComposeServices, options: LinkSetupOptions = {}) {
     this.#s = services;
@@ -327,6 +437,11 @@ export class LinkSetup {
     this.#db = services.db;
     this.authFile = join(services.home, "vault", "link-auth.json");
     this.#sync();
+  }
+
+  /** What the path and detection checks need: the options plus Psyche's own folder. */
+  #deps(): PathDeps {
+    return { ...this.#o, psycheHome: this.#s.home };
   }
 
   /** The CLI in use: the dev override, else the saved path if it still passes the check. */
@@ -345,13 +460,21 @@ export class LinkSetup {
     const cli = this.cli();
     if (cli === undefined) return undefined;
     if (cli.source === "env") return { path: cli.path };
-    const r = checkLinkCliPath(cli.path, this.#o);
+    const r = checkLinkCliPath(cli.path, this.#deps());
     return r.ok ? { path: r.real } : { reason: r.reason, path: cli.path };
+  }
+
+  /** Node runs a script (`.js`, `.mjs`, `.cjs`) itself; a program is started as it is. */
+  #launch(path: string, args: string[]): { file: string; args: string[] } {
+    return SCRIPT.test(path)
+      ? { file: process.execPath, args: [path, ...args] }
+      : { file: path, args };
   }
 
   /** Rebuilds the wallet from the saved config; called at start and on every change. */
   #sync(): void {
     const cli = this.cli();
+    this.#forgetAuth();
     this.wallet.inner =
       cli === undefined
         ? undefined
@@ -363,7 +486,11 @@ export class LinkSetup {
               const ok = this.#runnable();
               if (ok === undefined || "reason" in ok)
                 throw Object.assign(new Error("link-cli not allowed"), { exitCode: null });
-              return (this.#o.run ?? runFile)(file, args, env, CLI_TIMEOUT_MS);
+              // The wallet wraps a `.js` as `node <script> …`; start again from the path just
+              // checked, with the CLI's own arguments only.
+              const own = file === process.execPath ? args.slice(1) : args;
+              const l = this.#launch(ok.path, own);
+              return (this.#o.run ?? runFile)(l.file, l.args, env, CLI_TIMEOUT_MS);
             },
           });
   }
@@ -377,18 +504,13 @@ export class LinkSetup {
     } catch {
       // No auth file yet.
     }
-    const js = ok.path.endsWith(".js");
     const env = {
       PATH: process.env.PATH ?? "/usr/bin:/bin",
       HOME: process.env.HOME ?? "",
       LINK_AUTH_FILE: this.authFile,
     };
-    const out = await (this.#o.run ?? runFile)(
-      js ? process.execPath : ok.path,
-      js ? [ok.path, ...args, "--format", "json"] : [...args, "--format", "json"],
-      env,
-      timeoutMs,
-    );
+    const l = this.#launch(ok.path, [...args, "--format", "json"]);
+    const out = await (this.#o.run ?? runFile)(l.file, l.args, env, timeoutMs);
     this.#tighten();
     return out;
   }
@@ -403,19 +525,49 @@ export class LinkSetup {
     }
   }
 
-  async #signedIn(): Promise<boolean> {
+  #forgetAuth(): void {
+    this.#gen += 1;
+    this.#authCache = undefined;
+  }
+
+  /**
+   * Whether `auth status` says signed in. One process at a time (a second caller joins it), and
+   * the answer is kept for `STATUS_TTL_MS` unless `fresh` (the sign-in poll, the sign-in start).
+   */
+  async #signedIn(opts: { fresh?: boolean } = {}): Promise<boolean> {
+    const cached = this.#authCache;
+    if (
+      opts.fresh !== true &&
+      cached !== undefined &&
+      this.#s.clock.now() - cached.at < (this.#o.statusTtlMs ?? STATUS_TTL_MS)
+    )
+      return cached.value;
+    if (this.#authInflight !== undefined) return this.#authInflight;
+    const gen = this.#gen;
+    const run = (async (): Promise<boolean> => {
+      try {
+        const doc = unwrapJson(JSON.parse(await this.#exec(["auth", "status"]))) as {
+          authenticated?: unknown;
+        } | null;
+        return doc?.authenticated === true;
+      } catch {
+        return false;
+      }
+    })();
+    this.#authInflight = run;
     try {
-      const r = JSON.parse(await this.#exec(["auth", "status"])) as { authenticated?: unknown };
-      return r.authenticated === true;
-    } catch {
-      return false;
+      const value = await run;
+      if (gen === this.#gen) this.#authCache = { at: this.#s.clock.now(), value };
+      return value;
+    } finally {
+      if (this.#authInflight === run) this.#authInflight = undefined;
     }
   }
 
   async status(): Promise<LinkSetupStatus> {
     const cli = this.cli();
     const runnable = this.#runnable();
-    const det = detectLinkClis({ ...this.#o.detect, ...this.#o });
+    const det = detectLinkClis({ ...this.#o.detect, ...this.#deps() });
     const candidates = det.found.filter((p) => p !== cli?.path).map((path) => ({ path }));
     const bad = runnable !== undefined && "reason" in runnable ? runnable : undefined;
     const problem = bad ?? (cli === undefined ? det.rejected[0] : undefined);
@@ -426,6 +578,7 @@ export class LinkSetup {
     if (cli === undefined || bad !== undefined)
       return { state: candidates.length > 0 ? "cli_found" : "cli_missing", ...base };
     const withCli = { ...base, cli };
+    // While signing in, the poll is the only caller of the CLI: status never spawns it.
     if (this.#login !== undefined && this.#login.expiresAt > this.#s.clock.now()) {
       return {
         state: "signing_in",
@@ -444,9 +597,15 @@ export class LinkSetup {
     this.#s.publish("payments.link.changed" as EventName, { status } as EventPayload<EventName>);
   }
 
-  #audit(kind: string, data: Record<string, string>): void {
+  /** The audit entry names the device that asked; the sign-in poll reuses the starter's. */
+  #audit(kind: string, data: Record<string, string>, deviceId?: string): void {
     this.#s.audit
-      .append({ kind, actor: { type: "system" }, subject: { setting: "payments.linkCli" }, data })
+      .append({
+        kind,
+        actor: deviceId === undefined ? { type: "system" } : { type: "device", deviceId },
+        subject: { setting: "payments.linkCli" },
+        data,
+      })
       .catch(() => undefined);
   }
 
@@ -459,7 +618,7 @@ export class LinkSetup {
       throw new PsycheError("conflict", "PSYCHE_LINK_CLI is set on the Gateway and wins", {
         details: { reason: "env_override" },
       });
-    const r = checkLinkCliPath(path, this.#o);
+    const r = checkLinkCliPath(path, this.#deps());
     if (!r.ok)
       throw new PsycheError("invalid_params", REASON_TEXT[r.reason], {
         details: { reason: r.reason },
@@ -475,31 +634,35 @@ export class LinkSetup {
       approvalId,
     );
     // Re-checked after the card: the file is what runs, not what was approved a minute ago.
-    const again = checkLinkCliPath(r.real, this.#o);
+    const again = checkLinkCliPath(r.real, this.#deps());
     if (!again.ok)
       throw new PsycheError("invalid_params", REASON_TEXT[again.reason], {
         details: { reason: again.reason },
       });
     setSetting(this.#db, LINK_CLI_SETTING, { path: again.real });
     this.#sync();
-    this.#audit("payments.link_cli_connected", {
-      path: again.real,
-      deviceId: call.identity.deviceId,
-    });
+    this.#audit(
+      "payments.link_cli_connected",
+      { path: again.real, deviceId: call.identity.deviceId },
+      call.identity.deviceId,
+    );
     const status = await this.status();
     this.#changed(status);
     return status;
   }
 
-  async signIn(): Promise<LinkSetupStatus> {
+  async signIn(call: Call): Promise<LinkSetupStatus> {
     if (this.cli() === undefined || !this.configured()) throw NOT_SET_UP();
-    if (await this.#signedIn())
+    if (await this.#signedIn({ fresh: true }))
       throw new PsycheError("conflict", "Already signed in to Link", {
         details: { reason: "already_signed_in" },
       });
     let parsed: ReturnType<typeof parseLogin>;
     try {
-      parsed = parseLogin(await this.#exec(["auth", "login", "--client-name", "Psyche"]));
+      // Psyche pays through Link and needs nothing else: no financial-insights scopes.
+      parsed = parseLogin(
+        await this.#exec(["auth", "login", "--client-name", "Psyche", "--no-financial-insights"]),
+      );
     } catch {
       throw new PsycheError("unavailable", "The Link CLI could not start sign-in", {
         details: { reason: "link_cli_failed" },
@@ -509,7 +672,14 @@ export class LinkSetup {
       throw new PsycheError("unavailable", "Link did not return its sign-in page", {
         details: { reason: "link_signin_unreadable" },
       });
-    this.#login = { ...parsed, expiresAt: this.#s.clock.now() + (this.#o.loginMs ?? LOGIN_MS) };
+    const deviceId = call.identity.deviceId;
+    this.#login = {
+      ...parsed,
+      expiresAt: this.#s.clock.now() + (this.#o.loginMs ?? LOGIN_MS),
+      deviceId,
+    };
+    this.#forgetAuth();
+    this.#audit("payments.link_signin_started", { deviceId }, deviceId);
     this.#poll();
     return this.status();
   }
@@ -529,11 +699,12 @@ export class LinkSetup {
   async #tick(): Promise<void> {
     const login = this.#login;
     if (login === undefined) return this.#stopPoll();
-    const done = await this.#signedIn();
+    const done = await this.#signedIn({ fresh: true });
     if (!done && login.expiresAt > this.#s.clock.now()) return;
+    if (this.#login !== login) return;
     this.#login = undefined;
     this.#stopPoll();
-    if (done) this.#audit("payments.link_signed_in", {});
+    if (done) this.#audit("payments.link_signed_in", { deviceId: login.deviceId }, login.deviceId);
     this.#changed(await this.status());
   }
 
@@ -543,11 +714,20 @@ export class LinkSetup {
   }
 
   async disconnect(call: Call): Promise<LinkSetupStatus> {
+    // A payment under way needs the CLI to be cancelled, captured or reported: finish it first.
+    const open = this.openSpends?.() ?? 0;
+    if (open > 0)
+      throw new PsycheError("conflict", "A payment is still in progress; disconnect when it ends", {
+        details: { reason: "payment_in_progress", open },
+      });
+    const deviceId = call.identity.deviceId;
     this.#login = undefined;
     this.#stopPoll();
-    // Best effort at Link; the local file goes either way.
-    if (this.#runnable() !== undefined)
-      await this.#exec(["auth", "logout"], 30_000).catch(() => undefined);
+    // Best effort at Link; the local file goes either way, and a skipped or failed logout is audited.
+    let logout: string | undefined;
+    const runnable = this.#runnable();
+    if (runnable === undefined || "reason" in runnable) logout = "cli_unavailable";
+    else await this.#exec(["auth", "logout"], 30_000).catch(() => (logout = "cli_failed"));
     try {
       unlinkSync(this.authFile);
     } catch {
@@ -557,7 +737,9 @@ export class LinkSetup {
       throw new PsycheError("internal", "The Link auth file could not be removed");
     deleteSettings(this.#db, [LINK_CLI_SETTING]);
     this.#sync();
-    this.#audit("payments.link_disconnected", { deviceId: call.identity.deviceId });
+    if (logout !== undefined)
+      this.#audit("payments.link_logout_skipped", { reason: logout, deviceId }, deviceId);
+    this.#audit("payments.link_disconnected", { deviceId }, deviceId);
     const status = await this.status();
     this.#changed(status);
     return status;
@@ -586,6 +768,8 @@ export function composeGuidedPayments(
       ...(linkCli === undefined ? {} : { envCli: linkCli }),
     });
     const part = composePayments({ ...rest, wallet: link.wallet })(services);
+    const broker = part.payments;
+    if (broker !== undefined) link.openSpends = () => countOpenSpends(broker, services.clock.now());
     const guard = (name: string): Record<string, HandlerDef> => {
       const h = part.handlers?.[name];
       return h === undefined
@@ -608,7 +792,7 @@ export function composeGuidedPayments(
         run: (c: Call, p: { path: string; approvalId?: string }) =>
           link.connect(c, p.path, p.approvalId),
       } as HandlerDef,
-      "payments.link.signIn": { run: () => link.signIn() },
+      "payments.link.signIn": { run: (c: Call) => link.signIn(c) },
       "payments.link.disconnect": { run: (c: Call) => link.disconnect(c) },
     };
     return {

@@ -1315,6 +1315,14 @@ export const de: Partial<Catalogue> = {
     "ein übergeordneter Ordner gehört einem anderen Nutzer",
   "settings.credentials.payments.setup.reason.parent_writable":
     "andere Nutzer können einen übergeordneten Ordner ändern",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "es liegt im eigenen Ordner von Psyche; installiere das Link-CLI stattdessen mit npm",
+  "settings.credentials.payments.setup.reason.not_link_cli":
+    "es gehört nicht zum Link-CLI-Paket",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "es ist Voltas Shim; nimm den Ordner des Link-CLI unter Volta oder installiere es mit npm",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "Eine Zahlung läuft noch. Trenne die Verbindung, sobald sie abgeschlossen ist.",
   "settings.credentials.payments.noMethods":
     "Dein Link-Wallet hat keine Zahlungsmethoden. Füge eine in der Link-App hinzu.",
   "settings.credentials.payments.methods": "Link-Zahlungsmethoden",

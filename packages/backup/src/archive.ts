@@ -47,6 +47,8 @@ export const BACKUP_EXCLUDED = [
   "state/channels/held.json",
   // Which build last booted here: a fact about this folder's history, not part of the data.
   "state/last-boot.json",
+  // Stripe Link's sign-in, written in plain text by the Link CLI: the owner signs in again after a restore.
+  "vault/link-auth.json",
 ] as const;
 export const MANIFEST = "psyche-backup.json";
 const FORMAT = "psyche-backup";

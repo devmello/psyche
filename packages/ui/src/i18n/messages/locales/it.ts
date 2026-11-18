@@ -1281,6 +1281,14 @@ export const it: Partial<Catalogue> = {
     "una cartella superiore appartiene a un altro utente",
   "settings.credentials.payments.setup.reason.parent_writable":
     "altri utenti possono modificare una cartella superiore",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "si trova nella cartella di Psyche; installa invece la CLI di Link con npm",
+  "settings.credentials.payments.setup.reason.not_link_cli":
+    "non fa parte del pacchetto della CLI di Link",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "è lo shim di Volta; usa la cartella della CLI di Link sotto Volta o installala con npm",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "Un pagamento è ancora in corso. Disconnetti quando è finito.",
   "settings.credentials.payments.noMethods":
     "Il tuo wallet Link non ha metodi di pagamento. Aggiungine uno nell’app Link.",
   "settings.credentials.payments.methods": "Metodi di pagamento Link",

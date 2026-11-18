@@ -25222,12 +25222,15 @@ public struct Problem: Codable, Sendable {
 }
 
 public enum LinkSetupReason: String, Codable, Sendable {
+    case inPsycheHome = "in_psyche_home"
     case missing = "missing"
     case notAFile = "not_a_file"
     case notAbsolute = "not_absolute"
     case notExecutable = "not_executable"
+    case notLinkCLI = "not_link_cli"
     case parentWritable = "parent_writable"
     case parentWrongOwner = "parent_wrong_owner"
+    case voltaShim = "volta_shim"
     case writable = "writable"
     case wrongOwner = "wrong_owner"
 }

@@ -1312,6 +1312,14 @@ export const zh: Partial<Catalogue> = {
   "settings.credentials.payments.setup.reason.writable": "其他用户可以修改它",
   "settings.credentials.payments.setup.reason.parent_wrong_owner": "上级文件夹属于其他用户",
   "settings.credentials.payments.setup.reason.parent_writable": "其他用户可以修改上级文件夹",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "它位于 Psyche 自己的文件夹内；请改用 npm 安装 Link CLI",
+  "settings.credentials.payments.setup.reason.not_link_cli":
+    "它不属于 Link CLI 软件包",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "它是 Volta 的 shim；请使用 Volta 下 Link CLI 自己的文件夹，或用 npm 安装",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "仍有一笔付款在进行中。请在完成后再断开连接。",
   "settings.credentials.payments.noMethods": "你的 Link 钱包没有付款方式。请在 Link App 中添加。",
   "settings.credentials.payments.methods": "Link 付款方式",
   "settings.credentials.payments.default": "默认",

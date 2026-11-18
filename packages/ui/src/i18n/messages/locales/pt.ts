@@ -1245,6 +1245,14 @@ export const pt: Partial<Catalogue> = {
     "uma pasta acima pertence a outro usuário",
   "settings.credentials.payments.setup.reason.parent_writable":
     "outros usuários podem alterar uma pasta acima",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "está dentro da pasta do próprio Psyche; instale a CLI do Link com npm",
+  "settings.credentials.payments.setup.reason.not_link_cli":
+    "não faz parte do pacote da CLI do Link",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "é o shim do Volta; use a pasta da CLI do Link no Volta ou instale com npm",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "Há um pagamento em andamento. Desconecte quando ele terminar.",
   "settings.credentials.payments.noMethods":
     "Sua carteira Link não tem métodos de pagamento. Adicione um no app do Link.",
   "settings.credentials.payments.methods": "Métodos de pagamento do Link",

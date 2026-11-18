@@ -1272,6 +1272,14 @@ export const ja: Partial<Catalogue> = {
     "上のフォルダが別のユーザーのものです",
   "settings.credentials.payments.setup.reason.parent_writable":
     "他のユーザーが上のフォルダを変更できます",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "Psyche 自身のフォルダ内にあります。代わりに npm で Link CLI をインストールしてください",
+  "settings.credentials.payments.setup.reason.not_link_cli":
+    "Link CLI のパッケージの一部ではありません",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "Volta のシムです。Volta 内の Link CLI のフォルダを使うか、npm でインストールしてください",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "支払いがまだ進行中です。完了してから接続を解除してください。",
   "settings.credentials.payments.noMethods":
     "Linkウォレットに支払い方法がありません。Linkアプリで追加してください。",
   "settings.credentials.payments.methods": "Linkの支払い方法",

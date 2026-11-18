@@ -1282,6 +1282,14 @@ export const ko: Partial<Catalogue> = {
     "상위 폴더가 다른 사용자의 소유입니다",
   "settings.credentials.payments.setup.reason.parent_writable":
     "다른 사용자가 상위 폴더를 수정할 수 있습니다",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "Psyche 자체 폴더 안에 있습니다. 대신 npm으로 Link CLI를 설치하세요",
+  "settings.credentials.payments.setup.reason.not_link_cli":
+    "Link CLI 패키지에 속하지 않습니다",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "Volta의 shim입니다. Volta 안의 Link CLI 폴더를 사용하거나 npm으로 설치하세요",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "결제가 아직 진행 중입니다. 끝난 뒤에 연결을 해제하세요.",
   "settings.credentials.payments.noMethods":
     "Link 지갑에 결제 수단이 없습니다. Link 앱에서 추가하십시오.",
   "settings.credentials.payments.methods": "Link 결제 수단",

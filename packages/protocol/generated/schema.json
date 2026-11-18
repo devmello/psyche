@@ -25456,7 +25456,10 @@
         "wrong_owner",
         "writable",
         "parent_wrong_owner",
-        "parent_writable"
+        "parent_writable",
+        "in_psyche_home",
+        "not_link_cli",
+        "volta_shim"
       ],
       "type": "string"
     },

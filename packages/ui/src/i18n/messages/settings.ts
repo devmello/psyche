@@ -544,6 +544,14 @@ export const settings = {
     "a folder above it belongs to another user",
   "settings.credentials.payments.setup.reason.parent_writable":
     "other users can change a folder above it",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "it is inside Psyche's own folder; install the Link CLI with npm instead",
+  "settings.credentials.payments.setup.reason.not_link_cli":
+    "it is not part of the Link CLI package",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "it is Volta's shim; use the Link CLI's own folder under Volta, or install it with npm",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "A payment is still in progress. Disconnect once it has finished.",
   "settings.credentials.payments.noMethods":
     "Your Link wallet has no payment methods. Add one in the Link app.",
   "settings.credentials.payments.methods": "Link payment methods",

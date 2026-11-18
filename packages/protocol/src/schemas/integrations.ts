@@ -133,6 +133,11 @@ export const LinkSetupReason = StringEnum(
     "writable",
     "parent_wrong_owner",
     "parent_writable",
+    // Inside Psyche's own folder (the agent can write there), not in the Link CLI's package, or
+    // Volta's shim (which runs whichever tool its name says, not this file).
+    "in_psyche_home",
+    "not_link_cli",
+    "volta_shim",
   ],
   { $id: "LinkSetupReason" },
 );

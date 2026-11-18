@@ -8659,7 +8659,7 @@ export interface Problem {
     reason: LinkSetupReason;
 }
 
-export type LinkSetupReason = "not_absolute" | "missing" | "not_a_file" | "not_executable" | "wrong_owner" | "writable" | "parent_wrong_owner" | "parent_writable";
+export type LinkSetupReason = "not_absolute" | "missing" | "not_a_file" | "not_executable" | "wrong_owner" | "writable" | "parent_wrong_owner" | "parent_writable" | "in_psyche_home" | "not_link_cli" | "volta_shim";
 
 export interface SignInClass {
     expiresAt:       number;

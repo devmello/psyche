@@ -1338,6 +1338,14 @@ export const ar: Partial<Catalogue> = {
   "settings.credentials.payments.setup.reason.parent_wrong_owner": "مجلد أعلاه يعود إلى مستخدم آخر",
   "settings.credentials.payments.setup.reason.parent_writable":
     "يمكن لمستخدمين آخرين تعديل مجلد أعلاه",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "إنه داخل مجلد Psyche نفسه؛ ثبّت Link CLI باستخدام npm بدلًا من ذلك",
+  "settings.credentials.payments.setup.reason.not_link_cli":
+    "ليس جزءًا من حزمة Link CLI",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "إنه shim الخاص بـ Volta؛ استخدم مجلد Link CLI داخل Volta أو ثبّته باستخدام npm",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "لا تزال هناك عملية دفع قيد التنفيذ. افصل الاتصال بعد انتهائها.",
   "settings.credentials.payments.noMethods":
     "لا تحوي محفظة Link لديك أي طرق دفع. أضف واحدة في تطبيق Link.",
   "settings.credentials.payments.methods": "طرق الدفع في Link",

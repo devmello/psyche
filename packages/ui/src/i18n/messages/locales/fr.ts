@@ -1271,6 +1271,14 @@ export const fr: Partial<Catalogue> = {
     "un dossier parent appartient à un autre utilisateur",
   "settings.credentials.payments.setup.reason.parent_writable":
     "d'autres utilisateurs peuvent modifier un dossier parent",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "il se trouve dans le dossier de Psyche ; installez plutôt le CLI Link avec npm",
+  "settings.credentials.payments.setup.reason.not_link_cli":
+    "il ne fait pas partie du paquet du CLI Link",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "c'est le shim de Volta ; utilisez le dossier du CLI Link sous Volta ou installez-le avec npm",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "Un paiement est en cours. Déconnectez-vous une fois qu'il est terminé.",
   "settings.credentials.payments.noMethods":
     "Votre portefeuille Link n’a aucun moyen de paiement. Ajoutez-en un dans l’app Link.",
   "settings.credentials.payments.methods": "Moyens de paiement Link",
