@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Stop hook: the verification loop. When an agent tries to end its turn in a worktree with
-# unverified changes, run .claude/scripts/verify.sh. If it fails, block the stop and hand the
+# unverified changes, run .claude/scripts/verify.sh --quick (lint-level, seconds; the full check runs
+# once per PR, owner 2026-11-18). If it fails, block the stop and hand the
 # failures back so the agent fixes them. Then it tries to stop again, and this runs again.
 #
 # - Runs only inside a git worktree under .claude/worktrees/. The orchestrator's main checkout
@@ -43,7 +44,9 @@ fi
 # The branch's own verify.sh if it has one (it may be newer), else the one next to this hook.
 vs=".claude/scripts/verify.sh"
 [ -f "$vs" ] || vs="$here/verify.sh"
-out="$(bash "$vs" --quiet 2>&1)"
+# Quick checks only (lint, secrets, protocol, i18n): seconds, no typecheck or tests. The owner's
+# rule (2026-11-18): the full check runs once per PR, not every time an agent stops.
+out="$(bash "$vs" --quick --quiet 2>&1)"
 if [ $? -eq 0 ]; then
   echo "$hash" >"$state/passed"
   rm -f "$state/blocks"
