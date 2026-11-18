@@ -182,6 +182,8 @@ export interface ComposedBrowser extends ComposedPart {
   attach(client: BridgeClient): CdpBridgeDriver;
   /** The connected desktop's driver, if any. */
   readonly driver: CdpBridgeDriver | undefined;
+  /** Throws unless `tabId` is one of the running call's own tabs (the purchase tool's check). */
+  ownsTab(callId: string, tabId: string): Promise<void>;
   /** Live recordings per session key (task id or `thread:<id>`). */
   readonly recordings: ReadonlyMap<string, FileRecordingSink>;
   /** Reads recordings back for `browser.recordings.*`. */
@@ -768,6 +770,15 @@ export function composeBrowser(
     attach,
     get driver() {
       return driver;
+    },
+    async ownsTab(callId: string, tabId: string): Promise<void> {
+      const d = driver;
+      if (d === undefined) throw new PsycheError("unavailable", "the browser is not connected");
+      for (const sessionId of (await toolDeps.openSessions?.(callId)) ?? []) {
+        const tabs = await d.listTabs(sessionId).catch(() => []);
+        if (tabs.some((t) => t.id === tabId)) return;
+      }
+      throw new PsycheError("not_found", `tab ${tabId} is not one of this task's tabs`);
     },
     recordings,
     recordingStore,

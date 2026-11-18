@@ -98,7 +98,7 @@ import {
 } from "@psyche/scheduler";
 import { WEB_SEARCH_PROVIDER_SETTING, WEB_SEARCH_SEARXNG_SETTING } from "@psyche/search";
 import { createTaskHandlers, SqliteTaskEngine, TaskWorkerPool } from "@psyche/tasks";
-import { DerivedKeyStore, SecretRedactor, type Vault } from "@psyche/vault";
+import { DerivedKeyStore, type PaymentBroker, SecretRedactor, type Vault } from "@psyche/vault";
 import { type DocumentsHandle, documentBridge } from "../artifacts/bridge.ts";
 import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
@@ -118,6 +118,7 @@ import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attentio
 import { createAutoTitler } from "./auto-title.ts";
 import { withAutomationSpecialists } from "./automation-specialists.ts";
 import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
+import type { ComposedBrowser } from "./browser.ts";
 import { CallContexts } from "./call-context.ts";
 import { capabilityCatalogue, capabilityTools, deferToolFor } from "./capabilities.ts";
 import {
@@ -188,6 +189,7 @@ import { graphSourceAdapters } from "./people-sources.ts";
 import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { folderAccessEnv, ownWorkdirs, protectedRoots } from "./protected-paths.ts";
+import { createPurchaseTool } from "./purchase-tool.ts";
 import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import {
@@ -1176,6 +1178,24 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       localProject = part.localProject;
       localProjectSupplied = true;
     }
+  }
+  // The agent's purchase tool exists only with a wallet configured and a browser to pay in.
+  const paymentsBroker = parts.find((p): p is ComposedPart & { payments: PaymentBroker } => {
+    return "payments" in p && p.payments !== undefined;
+  })?.payments;
+  const browserPart = parts.find((p): p is ComposedBrowser => "ownsTab" in p && "devServers" in p);
+  if (paymentsBroker !== undefined && browserPart !== undefined) {
+    services.tools.register(
+      createPurchaseTool({
+        payments: paymentsBroker,
+        driver: () => browserPart.driver,
+        ownsTab: (callId, tabId) => browserPart.ownsTab(callId, tabId),
+        calls,
+        approvals: broker,
+        redactor,
+        ...(gwOptions.env?.PSYCHE_LINK_TEST === "1" ? { test: true } : {}),
+      }),
+    );
   }
   // The people graph's deterministic pass reads the connected apps through their tools (#732).
   const connectorsPart = parts.find(

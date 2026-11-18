@@ -44,6 +44,8 @@ export const BACKUP_ENTRIES = [
 /** Never in a backup: kept recordings of the owner's demonstrations (teach by showing). */
 export const BACKUP_EXCLUDED = [
   "state/teach",
+  // Link one-time card files (plaintext PAN / CVC while a payment is in flight).
+  "vault/cards",
   "state/channels/held.json",
   // Which build last booted here: a fact about this folder's history, not part of the data.
   "state/last-boot.json",
