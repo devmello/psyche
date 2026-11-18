@@ -67,6 +67,7 @@ export {
   cardDigits,
   cardIssuerValid,
   containsSensitive,
+  type FindOptions,
   findSensitive,
   findSensitiveNormalized,
   findSensitiveOriginal,

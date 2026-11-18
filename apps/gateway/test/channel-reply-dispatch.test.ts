@@ -3,7 +3,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MemoryCursorStore } from "@psyche/channels";
-import { bindingFor } from "@psyche/permissions";
+import { createThread, listMessagesPage, setSetting } from "@psyche/db";
+import { bindingFor, fillOutboundText, OUTBOUND_TEXT, outboundText } from "@psyche/permissions";
 import type { ModelEvent } from "@psyche/protocol";
 import { FakeMessagesNode, FakeModelProvider, fixtureSecret } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -11,6 +12,7 @@ import {
   type ComposedChannels,
   channelReplyAuthority,
   composeChannels,
+  noteHeldMessage,
   verifiedMessagesSends,
 } from "../src/compose/channels.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
@@ -44,7 +46,7 @@ afterEach(async () => {
   if (home) rmSync(home, { recursive: true, force: true });
 });
 
-async function setup(model: FakeModelProvider) {
+async function setup(model: FakeModelProvider, extra: Record<string, unknown> = {}) {
   home = mkdtempSync(join(tmpdir(), "psyche-imessage-"));
   const node = new FakeMessagesNode();
   let channels: ComposedChannels | undefined;
@@ -77,6 +79,7 @@ async function setup(model: FakeModelProvider) {
       dmPolicy: "allowlist",
       allowFrom: [OWNER],
       ownerIds: [OWNER],
+      ...extra,
     },
     ik(),
   );
@@ -120,6 +123,8 @@ describe("iMessage reply authority in the Gateway (N5)", () => {
     const { node, services } = await setup(
       FakeModelProvider.script([say(`Your card is ${card}, code 482913.`)]),
     );
+    // The notice follows the owner's language; pin it so the test does not depend on the Mac's.
+    setSetting(services.db, "ui.language", "en");
     node.receive({ from: OWNER, text: "what card do I use?" });
 
     await vi.waitFor(() => expect(node.sends).toHaveLength(1), { timeout: 5000 });
@@ -135,6 +140,24 @@ describe("iMessage reply authority in the Gateway (N5)", () => {
       kinds: ["card_number"],
     });
     expect(JSON.stringify(entry)).not.toContain(card.slice(0, 4));
+  });
+
+  it("a held message leaves a note in its thread, in the owner's language (§3.9)", async () => {
+    const { services } = await setup(new FakeModelProvider());
+    const thread = createThread(services.db, { kind: "channel", sessionKey: "held-test" });
+    const de = OUTBOUND_TEXT.de as NonNullable<(typeof OUTBOUND_TEXT)["de"]>;
+    const md = fillOutboundText(outboundText("de").threadNote, {
+      channel: "imessage",
+      kinds: ["passport"],
+    });
+    // A run that no longer owns the transcript: the note still lands, as nobody's.
+    const message = noteHeldMessage(services, thread.id, "run_gone", md);
+    expect(message).toMatchObject({ role: "system", provenance: "system" });
+    const page = listMessagesPage(services.db, thread.id);
+    expect(page.messages.map((m) => m.blocks)).toEqual([[{ type: "text", md }]]);
+    expect(md).toContain("imessage");
+    expect(md).toContain("passport");
+    expect(md.startsWith(de.threadNote.split("{channel}")[0] as string)).toBe(true);
   });
 
   it("refuses at dispatch a send whose text differs from what was approved", async () => {

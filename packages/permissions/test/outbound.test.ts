@@ -2,9 +2,12 @@ import { fixtureSecret } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import {
   checkOutbound,
+  fillOutboundText,
   OUTBOUND_TAIL_CHARS,
+  OUTBOUND_TEXT,
   OUTBOUND_WITHHELD_NOTICE,
   outboundTail,
+  outboundText,
 } from "../src/index.ts";
 
 // Assembled at runtime so the repo secret scans never match a tracked line.
@@ -81,5 +84,63 @@ describe("checkOutbound", () => {
   it("the tail keeps the last characters only", () => {
     expect(outboundTail("x".repeat(500))).toHaveLength(OUTBOUND_TAIL_CHARS);
     expect(outboundTail("short")).toBe("short");
+  });
+
+  it("a value inside the earlier message alone does not hold the next one", () => {
+    // The tail is what was already sent; only hits that reach into the new message count, in the
+    // plain reading and in the rendered one (review round 2, item 2).
+    const tail = `${CARD} see you`;
+    expect(checkOutbound("ok thanks", "other", (t) => t, { tail }).action).toBe("allow");
+    expect(checkOutbound("ok thanks", "other", (t) => t.toUpperCase(), { tail }).action).toBe(
+      "allow",
+    );
+  });
+
+  it("the tail reaches back over a long trailing chain of digits and keeps the card word", () => {
+    const sent = `${"words ".repeat(50)}card ${"1 ".repeat(40)}`;
+    const tail = outboundTail(sent);
+    expect(tail).toContain("card ");
+    expect(tail.endsWith("1 ".repeat(40))).toBe(true);
+    expect(tail.length).toBeLessThanOrEqual(240);
+    expect(outboundTail(`${"words ".repeat(50)}the end.`)).toHaveLength(OUTBOUND_TAIL_CHARS);
+  });
+
+  it("owner: keycap digits are cut out with their marks, leaving nothing behind", () => {
+    const keycaps = [...CARD].map((d) => `${d}\ufe0f\u20e3`).join("");
+    const v = checkOutbound(`pay ${keycaps} now`, "owner");
+    expect(v).toMatchObject({ action: "redact", text: `pay ${OUTBOUND_WITHHELD_NOTICE} now` });
+  });
+
+  it("owner: the notice is the one given, in the owner's language", () => {
+    const notice = OUTBOUND_TEXT.de?.notice ?? "";
+    const v = checkOutbound(`card ${spaced}`, "owner", (t) => t, { notice });
+    expect(v).toMatchObject({ action: "redact", text: `card ${notice}` });
+  });
+});
+
+describe("outbound text in every shipped language", () => {
+  const LANGS = ["en", "ar", "de", "es", "fr", "hi", "it", "ja", "ko", "pt", "zh"];
+
+  it("has every string in all 11 catalogues, with the placeholders intact", () => {
+    expect(Object.keys(OUTBOUND_TEXT).sort()).toEqual([...LANGS].sort());
+    for (const lang of LANGS) {
+      const t = OUTBOUND_TEXT[lang];
+      expect(t?.notice).toMatch(/Psyche/);
+      expect(t?.heldTitle).not.toBe("");
+      expect(t?.heldBody).toContain("{channel}");
+      expect(t?.threadNote).toContain("{channel}");
+      expect(t?.threadNote).toContain("{kinds}");
+    }
+  });
+
+  it("picks by language, falls back to the Mac's language for 'system', and to English", () => {
+    expect(outboundText("de").notice).toBe(OUTBOUND_TEXT.de?.notice);
+    expect(outboundText("pt-BR").notice).toBe(OUTBOUND_TEXT.pt?.notice);
+    expect(outboundText("system", "ja-JP").notice).toBe(OUTBOUND_TEXT.ja?.notice);
+    expect(outboundText(undefined, undefined).notice).toBe(OUTBOUND_WITHHELD_NOTICE);
+    expect(outboundText("xx").notice).toBe(OUTBOUND_WITHHELD_NOTICE);
+    expect(
+      fillOutboundText("{channel}: {kinds}", { channel: "imessage", kinds: ["passport"] }),
+    ).toBe("imessage: passport");
   });
 });

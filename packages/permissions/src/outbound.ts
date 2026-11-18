@@ -1,9 +1,4 @@
-import {
-  findSensitiveNormalized,
-  findSensitiveOriginal,
-  type SensitiveKind,
-  type SensitiveMatch,
-} from "@psyche/audit";
+import { findSensitiveOriginal, type SensitiveKind, type SensitiveMatch } from "@psyche/audit";
 
 /**
  * The outbound check (security §3.9): one deterministic function, outside the model, that every
@@ -29,6 +24,28 @@ export const OUTBOUND_WITHHELD_NOTICE = "[withheld: open Psyche to see it]";
 
 /** How much of the previous message is kept to catch a number split across two messages. */
 export const OUTBOUND_TAIL_CHARS = 40;
+/** How far back a trailing chain of digits is kept, so a long split number is whole. */
+export const OUTBOUND_TAIL_REACH = 200;
+
+/**
+ * Kinds a send tool may never carry, even with approval: credentials, cards and their codes, IBANs
+ * and US Social Security numbers. The others (one-time codes, passports, SIN, NI and Aadhaar numbers,
+ * a routing and account number) ask on a paired device instead (owner decision, review round 2).
+ */
+export const HARD_OUTBOUND_KINDS: ReadonlySet<SensitiveKind> = new Set<SensitiveKind>([
+  "private_key",
+  "api_key",
+  "bearer_token",
+  "jwt",
+  "url_credentials",
+  "card_number",
+  "card_security",
+  "iban",
+  "us_ssn",
+]);
+
+/** The outbound reading of the detectors: cards split by newlines, pipes, bullets and the like. */
+const OUTBOUND = { outbound: true } as const;
 
 export type OutboundVerdict =
   | { action: "allow" }
@@ -41,11 +58,26 @@ export interface OutboundOptions {
    * held): a number split across two messages is read as one.
    */
   tail?: string;
+  /** What replaces a cut value in the owner's chat, in the owner's language. */
+  notice?: string;
 }
 
-/** The part of a message worth remembering for the next one. */
+const CHAIN_CHAR = /[\d\s\p{Pd}|/_.·•:\u2212]/u;
+
+/**
+ * The part of a message worth remembering for the next one: the last 40 characters, reaching back
+ * over a trailing chain of digits and separators (up to 200 characters) and 40 more before it, so
+ * the start of a split number and the card word next to it are both kept.
+ */
 export function outboundTail(sent: string): string {
-  return sent.slice(-OUTBOUND_TAIL_CHARS);
+  let start = Math.max(0, sent.length - OUTBOUND_TAIL_CHARS);
+  const floor = Math.max(0, sent.length - OUTBOUND_TAIL_REACH);
+  let reached = false;
+  while (start > floor && CHAIN_CHAR.test(sent.charAt(start - 1))) {
+    start -= 1;
+    reached = true;
+  }
+  return sent.slice(reached ? Math.max(0, start - OUTBOUND_TAIL_CHARS) : start);
 }
 
 function mergeSpans(
@@ -73,17 +105,21 @@ export function checkOutbound(
   options: OutboundOptions = {},
 ): OutboundVerdict {
   const relevant = (m: SensitiveMatch) => audience === "other" || m.kind !== "one_time_code";
-  const lead = options.tail === undefined || options.tail === "" ? "" : `${options.tail}\n`;
-  const joined = (t: string) => lead + t;
+  const tail = options.tail ?? "";
+  const notice = options.notice ?? OUTBOUND_WITHHELD_NOTICE;
+  const lead = tail === "" ? "" : `${tail}\n`;
+  const renderedLead = tail === "" ? "" : `${render(tail)}\n`;
 
-  const scan = (t: string): SensitiveMatch[] => {
-    const whole = joined(t);
-    // Only what reaches into this message counts: the tail was already sent.
-    const hits = findSensitiveOriginal(whole).filter(relevant);
-    const own = hits.filter((m) => m.index + m.length > lead.length);
-    const shown = findSensitiveNormalized(joined(render(t))).filter(relevant);
-    return [...own, ...shown];
-  };
+  // Only what reaches into this message counts: the tail was already sent. The tail and the
+  // message are rendered apart, so a hit inside the rendered tail alone is not counted either.
+  const reaching = (prefix: string, body: string) =>
+    findSensitiveOriginal(prefix + body, OUTBOUND)
+      .filter(relevant)
+      .filter((m) => m.index + m.length > prefix.length);
+  const scan = (t: string): SensitiveMatch[] => [
+    ...reaching(lead, t),
+    ...reaching(renderedLead, render(t)),
+  ];
 
   const found = scan(text);
   if (found.length === 0) return { action: "allow" };
@@ -91,21 +127,18 @@ export function checkOutbound(
   if (audience === "other") return { action: "hold", kinds };
 
   // Cut exactly the matched spans out of the original text; everything else stays as written.
-  const spans = findSensitiveOriginal(joined(text))
-    .filter(relevant)
-    .filter((m) => m.index + m.length > lead.length)
-    .map((m) => {
-      const from = Math.max(m.index, lead.length) - lead.length;
-      return { index: from, length: m.index + m.length - lead.length - from };
-    });
+  const spans = reaching(lead, text).map((m) => {
+    const from = Math.max(m.index, lead.length) - lead.length;
+    return { index: from, length: m.index + m.length - lead.length - from };
+  });
   let out = "";
   let at = 0;
   for (const s of mergeSpans(spans)) {
-    out += text.slice(at, s.index) + OUTBOUND_WITHHELD_NOTICE;
+    out += text.slice(at, s.index) + notice;
     at = s.index + s.length;
   }
   out += text.slice(at);
   // A match that survives the cut (a form only the rendering reveals) means the whole message goes.
   const clean = scan(out).length === 0;
-  return { action: "redact", text: clean ? out : OUTBOUND_WITHHELD_NOTICE, kinds };
+  return { action: "redact", text: clean ? out : notice, kinds };
 }

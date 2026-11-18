@@ -118,9 +118,10 @@ const CVV_AFTER = /^[ \t,;|/-]{1,4}(\d{3,4})(?!\d)/;
 // One-time codes. A label that is only ever a login code ("verification code", "otp") may be
 // followed by the value directly; "your … code" and "the … code" need an "is" or a colon, and
 // words that name something else (a hotel confirmation, a gate or door code, a promo code) cancel it.
-const OTP_VALUE = "(?:G-)?(\\d{3}[ -]?\\d{3,5}|\\d{4,8})(?![\\dA-Za-z])";
+// The value: 6 digits, 3+3, 4–8 digits, or digits typed one apart ("4 8 2 9 1 3").
+const OTP_VALUE = "(?:G-)?(\\d{3}[ -]?\\d{3,5}|\\d{4,8}|\\d(?: \\d){3,7})(?![\\dA-Za-z])";
 const OTP_LABEL =
-  "(?:otp|one[- ]time[ \\t]+(?:code|password|passcode|pin)|(?:verification|security|login|log[- ]in|sign[- ]?in|auth(?:entication)?|2fa|mfa|authenticator)[ \\t]+(?:code|pin)|passcode)";
+  "(?:otp|one[- ]time[ \\t]+(?:code|password|passcode|pin)|(?:verification|security|login|log[- ]in|sign[- ]?in|auth(?:entication)?|2fa|mfa|authenticator)[ \\t]+(?:code|pin)|(?:password[ \\t]+)?reset[ \\t]+code|passcode)";
 const OTP_AFTER = new RegExp(
   `(?<![A-Za-z0-9])${OTP_LABEL}(?:[ \\t]+for[ \\t]+[A-Za-z0-9._-]{1,30})?\\s{0,3}(?:(?:is|was)[ \\t]{0,2})?[:=-]?\\s{0,3}${OTP_VALUE}`,
   "gi",
@@ -133,6 +134,9 @@ const THE_CODE = new RegExp(
   `(?<![A-Za-z0-9])the[ \\t]+((?:[A-Za-z0-9]+[ \\t]+){0,2})code[ \\t]{0,2}:\\s{0,3}${OTP_VALUE}`,
   "gi",
 );
+/** "the … code:" counts only for a login code ("the verification code: 482913"). */
+const LOGIN_WORD =
+  /(?<![A-Za-z])(?:verification|verify|login|log[ -]?in|sign[ -]?in|security|one[ -]time|2fa|mfa|otp|auth|authentication|reset)(?![A-Za-z])/i;
 const NOT_A_LOGIN_CODE =
   /^(?:.*\b)?(?:confirmation|booking|reservation|reference|order|tracking|access|gate|door|locker|promo|promotional|discount|coupon|voucher|gift|referral|zip|postal|area|country|hotel|flight|ticket|product|item|error|status|source)\b/i;
 const OTP_USE =
@@ -247,13 +251,13 @@ export function cardIssuerValid(d: string): boolean {
   if (n4 >= 3528 && n4 <= 3589) return len >= 16 && len <= 19; // JCB
   if (n2 === 36 || n2 === 38 || (n3 >= 300 && n3 <= 305) || n2 === 39) return len >= 14; // Diners
   if (n2 === 62) return len >= 16 && len <= 19; // UnionPay
-  if (n2 === 50 || (n2 >= 56 && n2 <= 69)) return len >= 12 && len <= 19; // Maestro
+  if (n2 === 50 || (n2 >= 56 && n2 <= 58) || d.startsWith("6")) return len === 16 || len === 19; // Maestro
   return false;
 }
 
 /** Card number digits (separators removed) when `candidate` is a Luhn-valid PAN of a real issuer. */
 export function cardDigits(candidate: string): string | undefined {
-  const digits = candidate.replace(/[\s\p{Pd}|/_,.·]/gu, "");
+  const digits = candidate.replace(/[\s\p{Pd}|/_,.·•:\u2212]/gu, "");
   if (digits.length < 13 || digits.length > 19) return undefined;
   if (/^(\d)\1+$/.test(digits)) return undefined;
   return luhnValid(digits) && cardIssuerValid(digits) ? digits : undefined;
@@ -264,10 +268,17 @@ const isDigitAt = (s: string, i: number) => {
   return c >= 48 && c <= 57;
 };
 
-/** Characters people put between card-number groups: space, newline, dash, pipe, slash, dot… */
+/** 13–19 digits, optionally grouped by single spaces, dots, tabs or dashes (the strict reading). */
+const CARD_CANDIDATE = /(?<!\d)\d(?:[ .\t-]?\d){12,18}(?!\d)/g;
+
+/**
+ * Characters people put between card-number groups in a message: spaces, dashes and minus signs,
+ * dots, underscores, bullets, colons, and (only next to a card word) newlines, pipes and slashes.
+ * Never a comma: lists of numbers ("ports = [5432, 6379, …]") are not cards.
+ */
 function isCardSep(ch: string): boolean {
   const c = ch.charCodeAt(0);
-  if (c < 128)
+  if (c < 128) {
     return (
       c === 32 ||
       (c >= 9 && c <= 13) ||
@@ -275,19 +286,25 @@ function isCardSep(ch: string): boolean {
       c === 124 ||
       c === 47 ||
       c === 95 ||
-      c === 44 ||
-      c === 46
+      c === 46 ||
+      c === 58
     );
-  return c === 0xb7 || /[\s\p{Pd}]/u.test(ch);
+  }
+  return c === 0xb7 || c === 0x2022 || c === 0x2212 || /[\s\p{Pd}]/u.test(ch);
 }
+/** Separators that also split lines, table cells and paths: a card word must be near. */
+const WEAK_SEP = /[\n\r\v\f|/\u2028\u2029]/;
+const CARD_WORD =
+  /(?<![A-Za-z])(?:cards?|visa|master ?card|amex|american express|cc|pan|credit|debit|discover|maestro|jcb|unionpay)(?![A-Za-z])/i;
 
 /**
- * Card numbers: digit groups joined by 1–3 separator characters, read as a chain. A card is a run of
- * whole groups totalling 13–19 digits with a Luhn checksum and a real issuer prefix, starting at the
- * beginning of a group (a short group such as "Step 2" or an expiry may come first) and either grouped the way
- * cards are (first group of 4, 6, 8 or 12+ digits) or evenly spaced ("4 1 1 1 …"). Order numbers like
- * "112-4567890-1234567" start with a short group and so are never read as cards. Linear: each start
- * looks at most 19 digits ahead.
+ * Card numbers in a message (the outbound reading): digit groups joined by 1–3 separator
+ * characters, read as a chain. A card is a run of whole groups totalling 13–19 digits with a Luhn
+ * checksum and a real issuer prefix, joined by one and the same separator, and either grouped the
+ * way cards are (first group of 4, 6, 8 or 12+ digits) or evenly spaced on one line ("4 1 1 1 …").
+ * A newline, pipe or slash separator needs a card word within 40 characters, so a column of
+ * numbers, a table or a grid is not a card. Order numbers like "112-4567890-1234567" start with a
+ * short group and are never read as cards. Linear: each start looks at most 19 digits ahead.
  */
 function cardMatches(text: string): { start: number; length: number }[] {
   const found: { start: number; length: number }[] = [];
@@ -332,23 +349,32 @@ function cardMatches(text: string): { start: number; length: number }[] {
       while (
         emax + 1 < count &&
         (off[emax + 2] as number) - (off[s] as number) <= 19 &&
-        !expiryGap(emax)
+        !expiryGap(emax) &&
+        gaps[emax] === gaps[s]
       ) {
         emax += 1;
       }
       // The slice may not end on the month of an expiry that follows it ("… 12/27").
       if (expiryGap(emax)) emax -= 1;
       const g0 = size(s);
+      const sep = gaps[s] ?? "";
       for (let e = emax; e >= s; e -= 1) {
         const total = (off[e + 1] as number) - (off[s] as number);
         if (total < 13) break;
         const grouped = g0 === 4 || g0 === 6 || g0 === 8 || g0 >= 12;
-        let even = g0 <= 3;
+        let even = g0 <= 3 && !/[\n\r\v\f\u2028\u2029]/.test(sep);
         for (let k = s + 1; even && k <= e; k += 1) {
           if (k < e ? size(k) !== g0 : size(k) > g0) even = false;
         }
         if (!grouped && !even) continue;
-        if (cardDigits(digits.slice(off[s], off[e + 1])) !== undefined) return e;
+        if (cardDigits(digits.slice(off[s], off[e + 1])) === undefined) continue;
+        if (e > s && WEAK_SEP.test(sep)) {
+          const from = gs[2 * s] as number;
+          const to = gs[2 * e + 1] as number;
+          const near = text.slice(Math.max(0, from - 40), from) + text.slice(to, to + 40);
+          if (!CARD_WORD.test(near)) continue;
+        }
+        return e;
       }
       return undefined;
     };
@@ -369,7 +395,25 @@ function cardMatches(text: string): { start: number; length: number }[] {
   return found;
 }
 
-export function findSensitive(text: string): SensitiveMatch[] {
+/** Card numbers in the strict reading (tool arguments, audit): single space, dot or dash only. */
+function strictCardMatches(text: string): { start: number; length: number }[] {
+  const found: { start: number; length: number }[] = [];
+  for (const m of text.matchAll(CARD_CANDIDATE)) {
+    if (cardDigits(m[0]) !== undefined) found.push({ start: m.index, length: m[0].length });
+  }
+  return found;
+}
+
+export interface FindOptions {
+  /**
+   * The outbound reading (messages Psyche sends): cards may be split by newlines, pipes, slashes,
+   * bullets or several spaces, and are found inside longer digit chains. The default, strict reading
+   * is what the hard prohibitions and audit redaction use: there a false match blocks a file write.
+   */
+  outbound?: boolean;
+}
+
+export function findSensitive(text: string, options: FindOptions = {}): SensitiveMatch[] {
   const out: SensitiveMatch[] = [];
   for (const { kind, re } of CREDENTIAL_PATTERNS) {
     for (const m of text.matchAll(re)) {
@@ -382,7 +426,7 @@ export function findSensitive(text: string): SensitiveMatch[] {
       out.push({ kind, index: m.index, length });
     }
   }
-  for (const span of cardMatches(text)) {
+  for (const span of options.outbound === true ? cardMatches(text) : strictCardMatches(text)) {
     out.push({ kind: "card_number", index: span.start, length: span.length });
   }
   for (const m of text.matchAll(IBAN_CANDIDATE)) {
@@ -522,6 +566,7 @@ function findIdentifiers(text: string, out: SensitiveMatch[]): void {
   for (const re of [YOUR_CODE, THE_CODE]) {
     for (const m of text.matchAll(re)) {
       if (NOT_A_LOGIN_CODE.test(m[1] as string)) continue;
+      if (re === THE_CODE && !LOGIN_WORD.test(m[1] as string)) continue;
       push("one_time_code", groupSpan(m), (m[2] as string).length);
     }
   }
@@ -587,18 +632,28 @@ export function scanView(text: string): ScanView {
  * Matches on the scan view, so full-width and Arabic-Indic, Persian or Devanagari digits, zero-width
  * joiners and similar encodings are caught. Indices refer to the view's text.
  */
-export function findSensitiveNormalized(text: string): SensitiveMatch[] {
-  return findSensitive(scanView(text).text);
+export function findSensitiveNormalized(text: string, options: FindOptions = {}): SensitiveMatch[] {
+  return findSensitive(scanView(text).text, options);
 }
 
-/** The same matches, with `index` and `length` in the original text (to cut exactly those spans). */
-export function findSensitiveOriginal(text: string): SensitiveMatch[] {
+/**
+ * The same matches, with `index` and `length` in the original text (to cut exactly those spans). A
+ * span runs on over characters that read as nothing (a keycap's U+FE0F U+20E3), so none is left.
+ */
+export function findSensitiveOriginal(text: string, options: FindOptions = {}): SensitiveMatch[] {
   const view = scanView(text);
-  const matches = findSensitive(view.text);
+  const matches = findSensitive(view.text, options);
   if (view.text === text) return matches;
   return matches.map((m) => {
     const from = view.start[m.index] as number;
-    const to = view.end[m.index + m.length - 1] as number;
+    let to = view.end[m.index + m.length - 1] as number;
+    while (to < text.length) {
+      const cp = text.codePointAt(to) as number;
+      if (cp < 128) break;
+      const ch = String.fromCodePoint(cp);
+      if (foldChar(ch) !== "") break;
+      to += ch.length;
+    }
     return { kind: m.kind, index: from, length: to - from };
   });
 }

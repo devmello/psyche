@@ -6,7 +6,7 @@ import {
   type PsychePermissionBroker,
 } from "@psyche/permissions";
 import type { MessagesChat, NodeClient, NodeInvokeOptions } from "@psyche/protocol";
-import { FakeClock, FakeNotifier } from "@psyche/testing";
+import { FakeClock, FakeNotifier, fixtureSecret } from "@psyche/testing";
 import { describe, expect, it, vi } from "vitest";
 import { verifiedMessagesSends } from "../src/compose/channels.ts";
 import { messagesSendTool, normalizeHandle } from "../src/compose/messages-send.ts";
@@ -346,16 +346,22 @@ describe("the card and the send", () => {
     expect(wrong).toMatchObject({ ok: false });
   });
 
-  it("withholds a text that holds a card, an id or a one-time code, without asking the owner", async () => {
+  it("withholds a text that holds a card or a key without asking; an id or a code goes on the device-only card", async () => {
     const s = setup([person("Dana", ["+15550101"])]);
     for (const text of [
-      `my passport number: ${["X123", "4567"].join("")}`,
-      "Your verification code is 482913",
+      `pay with ${fixtureSecret("link-virtual-card")}`,
+      `key ${["sk-", "ant-", "x".repeat(30)].join("")}`,
     ]) {
       const r = await s.run({ to: "Dana", text });
       expect(r.output).toMatchObject({ status: "withheld", sent: false });
     }
     expect(s.issued).toHaveLength(0);
+    const r = s.run({ to: "Dana", text: "Your verification code is 482913" });
+    await vi.waitFor(() => expect(s.issued).toHaveLength(1));
+    expect(s.issued[0]?.approval.deviceOnly).toBe(true);
+    expect(JSON.stringify(s.issued[0])).toContain("one time code");
+    await s.respond("deny", {});
+    await r;
   });
 
   it("stops after the per-turn limit instead of asking again", async () => {

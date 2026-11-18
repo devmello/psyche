@@ -93,7 +93,7 @@ describe("hard prohibitions", () => {
     expect(d.rule).toBe("prohibition:captcha");
   });
 
-  it("an email or message to someone is held when it carries a bank, id or one-time code value", async () => {
+  it("an email with a bank, id or one-time code value asks on a device; a card is refused", async () => {
     const send = (body: string) =>
       decide(["email.send", "destructive", { kind: "recipient", value: "a@example.org" }], {
         params: { body },
@@ -102,19 +102,44 @@ describe("hard prohibitions", () => {
       `passport number: ${j("X123", "4567")}`,
       `Routing number: ${j("0210", "00021")}, account number ${j("12345", "67890")}`,
       "Your verification code is 482913",
+      "Your password reset code is 482913",
       `SIN: ${j("130", "692", "544")}`,
     ]) {
       expect(await send(body)).toMatchObject({
-        decision: "deny",
-        rule: "prohibition:outbound_sensitive",
+        decision: "ask",
+        deviceOnly: true,
+        scopesOffered: ["once"],
       });
     }
-    // Ordinary text, with shapes that share digits and words, is not held by this rule.
+    // A card, an IBAN or a key: refused outright, approval or not.
+    const card = await send(`pay with ${TEST_CARD}`);
+    expect(card.decision).toBe("deny");
+    // Ordinary text, with shapes that share digits and words, is not caught by this rule.
     for (const body of [
       "Order 112-4567890-1234567 ships Friday; tracking 1Z999AA10123456784",
       "the source code is 100 lines; call +1 (415) 555-0132",
     ]) {
-      expect((await send(body)).rule).not.toBe("prohibition:outbound_sensitive");
+      const d = await send(body);
+      expect(d.rule).not.toMatch(/outbound/);
+      expect(d.deviceOnly).toBeUndefined();
+    }
+  });
+
+  it("number shapes in a file write are never a card (review round 2)", async () => {
+    const sudoku = Array.from({ length: 9 }, (_, r) =>
+      Array.from({ length: 9 }, (_, c) => ((r * 3 + Math.floor(r / 3) + c) % 9) + 1).join(" "),
+    ).join("\n");
+    const csv = `port\n${Array.from({ length: 50 }, (_, i) => String(4000 + ((i * 7919) % 6000))).join("\n")}`;
+    for (const content of [
+      "ports = [5432, 6379, 8080, 3000, 9092, 2181]",
+      sudoku,
+      csv,
+      "[5432,6379,8080,3000,9092,2181,4242,5555]",
+    ]) {
+      const d = await decide(["fs.write", "write", path("/Users/o/Projects/app/data.txt")], {
+        params: { path: "/Users/o/Projects/app/data.txt", content },
+      });
+      expect(d.rule).not.toBe("prohibition:card_entry");
     }
   });
 

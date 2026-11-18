@@ -121,6 +121,8 @@ export interface PolicyDecision extends DecisionResult {
   typedConfirmation?: string;
   /** `ask` in an unattended run: queued, the run continues without the action. */
   deferred?: boolean;
+  /** The card goes to paired devices only, never a chat (a prohibition asked for it). */
+  deviceOnly?: true;
   /** Classifier label when the classifier ran. */
   classifier?: { label: ClassifierLabel; reason: string };
   /**

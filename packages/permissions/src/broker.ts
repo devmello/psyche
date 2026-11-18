@@ -475,7 +475,8 @@ export class PsychePermissionBroker implements PermissionBroker {
       const deviceOnly =
         decision.decision === "ask" &&
         kind !== undefined &&
-        isDeviceOnly(kind, decision.sideEffect, this.#policy.config.approvals?.deviceOnly);
+        (decision.deviceOnly === true ||
+          isDeviceOnly(kind, decision.sideEffect, this.#policy.config.approvals?.deviceOnly));
       out.push({
         tool: call.tool,
         decision: deviceOnly ? "device-only" : decision.decision,
@@ -851,7 +852,9 @@ export class PsychePermissionBroker implements PermissionBroker {
         input.sideEffect = "read";
     }
     const se = input.sideEffect;
-    const deviceOnly = isDeviceOnly(input.kind, se, this.#policy.config.approvals?.deviceOnly);
+    const deviceOnly =
+      recent?.decision.deviceOnly === true ||
+      isDeviceOnly(input.kind, se, this.#policy.config.approvals?.deviceOnly);
     // Presence (the owner sheet, a passkey, the Linux password) is for payments only (owner's
     // decision, 2026-11-09): a purchase or any financial action. Every other approval is a tap on
     // a card, still bound to its answer token, binding hash and arm delay. The Gateway sets

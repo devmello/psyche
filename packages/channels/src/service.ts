@@ -73,6 +73,8 @@ export interface ChannelServiceOptions {
    * was sent with the value cut out. The Gateway audits it and tells the owner in the app.
    */
   onOutboundWithheld?: (event: OutboundWithheldEvent) => void;
+  /** What replaces a withheld value in the owner's chat, in the owner's language. */
+  outboundNotice?: () => string;
   /** Jitter source for reconnect backoff. */
   random?: () => number;
   pairingRandom?: (max: number) => number;
@@ -142,6 +144,7 @@ export class ChannelService {
   #identities = new IdentityDirectory();
   #ownerAllowFrom: string[];
   #onOutboundWithheld: ((event: OutboundWithheldEvent) => void) | undefined;
+  #outboundNotice: (() => string) | undefined;
   #onInboundDecision: ((event: InboundDecisionEvent) => void) | undefined;
   #onPairingDecided: ((event: PairingDecidedEvent) => void) | undefined;
   #admitInbound: ((channel: Channel, message: InboundMessage) => boolean) | undefined;
@@ -166,6 +169,7 @@ export class ChannelService {
     this.#random = options.random ?? Math.random;
     this.#ownerAllowFrom = options.ownerAllowFrom ?? [];
     this.#onOutboundWithheld = options.onOutboundWithheld;
+    this.#outboundNotice = options.outboundNotice;
     this.#onInboundDecision = options.onInboundDecision;
     this.#onPairingDecided = options.onPairingDecided;
     this.#admitInbound = options.admitInbound;
@@ -529,7 +533,7 @@ export class ChannelService {
       text,
       this.#audienceOf(channel, target.chatId),
       (t) => renderMarkdown(t, "plain"),
-      { tail },
+      { tail, ...(this.#outboundNotice === undefined ? {} : { notice: this.#outboundNotice() }) },
     );
     let source = text;
     if (verdict.action !== "allow") {
@@ -601,7 +605,9 @@ export class ChannelService {
    */
   #audienceOf(channel: Channel, chatId: string): OutboundAudience {
     if (channel.type === "email") return "other";
-    // WebChat is the owner's own paired devices and nobody else.
+    // WebChat is the owner's own paired devices and nobody else: `WebChatAdapter.receive` is called
+    // only for an authenticated, paired device of the owner (the chat id is its device id). This is
+    // safe only while that holds; if WebChat ever admits guests, resolve them like any other sender.
     if (channel.type === "webchat") return "owner";
     const ids = [chatId];
     if (channel.type === "imessage") {

@@ -49,7 +49,12 @@ import {
   getWidgets,
   updateThread,
 } from "@psyche/db";
-import { bindingFor, type ChannelReplyTurn } from "@psyche/permissions";
+import {
+  bindingFor,
+  type ChannelReplyTurn,
+  fillOutboundText,
+  outboundText,
+} from "@psyche/permissions";
 import {
   type Channel,
   type ChannelAdapter,
@@ -451,6 +456,36 @@ function discordSetupFromEnv(
  * (`turnFor`). The node only checks that an approval id is present, so the Gateway verifies and
  * spends it at dispatch against the actual send (`verifiedMessagesSends`).
  */
+/**
+ * The note a held message leaves in its conversation (security §3.9): the model reads it on its
+ * next turn and the owner sees it in the thread. While the turn that wrote the message still owns
+ * the transcript the note is its own to append; once it has finished, nobody owns it.
+ */
+export function noteHeldMessage(
+  services: Pick<ComposeServices, "db" | "publish">,
+  threadId: string,
+  writerRunId: string | null,
+  md: string,
+): Message | undefined {
+  const note = {
+    threadId,
+    role: "system" as const,
+    blocks: [{ type: "text" as const, md }],
+    provenance: "system" as const,
+    runId: null,
+  };
+  for (const writer of [writerRunId, null]) {
+    try {
+      const message = appendMessage(services.db, note, { expectedWriterRunId: writer });
+      services.publish("chat.message", { message }, threadId);
+      return message;
+    } catch {
+      // Owned by another run: try the next owner; the notification tells the owner anyway.
+    }
+  }
+  return undefined;
+}
+
 export function channelReplyAuthority(
   services: ComposeServices,
   turnFor: (recipient: string) => ChannelReplyTurn | undefined = () => undefined,
@@ -810,6 +845,14 @@ export function composeChannels(
   const publish = <E extends EventName>(event: E, payload: EventPayload<E>) =>
     services.publish(event, payload);
   const storedOwners = getSetting(db, "commands.ownerAllowFrom")?.value;
+  /** The outbound check's words in the owner's language (`ui.language`, else the Mac's). */
+  const ownerText = () => {
+    const chosen = getSetting(db, "ui.language")?.value;
+    return outboundText(
+      typeof chosen === "string" ? chosen : undefined,
+      Intl.DateTimeFormat().resolvedOptions().locale,
+    );
+  };
 
   const sink = {
     deliver: (event: ChannelInboundEvent) => onInbound(event),
@@ -829,6 +872,7 @@ export function composeChannels(
     ...(setup.speech === undefined ? {} : { speech: setup.speech }),
     ...(setup.pairingRandom === undefined ? {} : { pairingRandom: setup.pairingRandom }),
     ...(Array.isArray(storedOwners) ? { ownerAllowFrom: storedOwners.map(String) } : {}),
+    outboundNotice: () => ownerText().notice,
     // The outbound check (security §3.9): kinds only in the audit log, never the value.
     onOutboundWithheld: (event) => {
       const held = event.action === "hold";
@@ -845,7 +889,9 @@ export function composeChannels(
         })
         .catch(() => undefined);
       if (!held) return;
-      const what = event.kinds.join(", ").replaceAll("_", " ");
+      const words = ownerText();
+      const filled = (t: string) =>
+        fillOutboundText(t, { channel: event.channel.type, kinds: event.kinds });
       // The conversation the held message belonged to: its thread gets a note the model reads too, and
       // the notification opens that thread.
       const run = [...replyTo.entries()]
@@ -853,35 +899,13 @@ export function composeChannels(
         .find(([, t]) => t.channelId === event.channel.id && t.chatId === event.chatId);
       const threadId = run === undefined ? undefined : turns.get(run[0])?.threadId;
       if (threadId !== undefined) {
-        const note = {
-          threadId,
-          role: "system" as const,
-          blocks: [
-            {
-              type: "text" as const,
-              md: `Psyche did not send your last ${event.channel.type} message because it held ${what}. Tell the owner to send it themselves from the app, or leave the value out.`,
-            },
-          ],
-          provenance: "system" as const,
-          runId: null,
-        };
-        // While the turn that wrote the message still owns the transcript the note is its own to
-        // append; once it has finished, nobody owns it.
-        for (const writer of [run?.[0] ?? null, null]) {
-          try {
-            const message = appendMessage(db, note, { expectedWriterRunId: writer });
-            services.publish("chat.message", { message }, threadId);
-            break;
-          } catch {
-            // Owned by another run: try the next owner, and the notification tells the owner anyway.
-          }
-        }
+        noteHeldMessage(services, threadId, run?.[0] ?? null, filled(words.threadNote));
       }
       void services.notifier
         .notify({
           kind: "system",
-          title: "A message was held back",
-          body: `Psyche did not send a ${event.channel.type} message because it held ${what}. Open Psyche to see it.`,
+          title: words.heldTitle,
+          body: filled(words.heldBody),
           route:
             threadId === undefined ? `/settings/channels/${event.channel.id}` : `/chat/${threadId}`,
           dedupeKey: `outbound-held:${event.channel.id}:${event.chatId}`,

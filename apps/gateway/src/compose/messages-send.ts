@@ -5,6 +5,7 @@ import {
   type ComposeDetails,
   checkOutbound,
   composeBindingHash,
+  HARD_OUTBOUND_KINDS,
   readFinal,
 } from "@psyche/permissions";
 import {
@@ -237,15 +238,20 @@ async function send(
     });
   }
   // The outbound check (security §3.9): this tool raises its own approval, so the check runs here.
-  // The text goes to someone else; a credential, card, bank number, ID or one-time code is held.
+  // The text goes to someone else. A credential, card, IBAN or US Social Security number is never
+  // sent; a one-time code, passport, SIN, NI or Aadhaar number or bank routing and account number
+  // goes on the compose card, which is device-only and once (owner decision, review round 2).
   const verdict = checkOutbound(p.text, "other");
-  if (verdict.action === "hold") {
+  const hard =
+    verdict.action === "hold" ? verdict.kinds.filter((k) => HARD_OUTBOUND_KINDS.has(k)) : [];
+  if (hard.length > 0) {
     return done({
       status: "withheld",
       sent: false,
-      why: `the text holds ${verdict.kinds.join(", ").replaceAll("_", " ")}; Psyche does not send such values. Tell the owner to send it themselves, or leave the value out`,
+      why: `the text holds ${hard.join(", ").replaceAll("_", " ")}; Psyche does not send such values. Tell the owner to send it themselves, or leave the value out`,
     });
   }
+  const identifiers = verdict.action === "hold" ? verdict.kinds : [];
   const node = deps.node();
   if (node === undefined) {
     return done(
@@ -282,9 +288,13 @@ async function send(
       account: deps.account,
       recipient: only?.label ?? "choose below",
       compose: compose as never,
-      ...(ctx.taint
-        ? { reason: "This turn read untrusted content, so this send is once only." }
-        : {}),
+      ...(identifiers.length > 0
+        ? {
+            reason: `This message holds ${identifiers.join(", ").replaceAll("_", " ")}. Check the recipient before sending.`,
+          }
+        : ctx.taint
+          ? { reason: "This turn read untrusted content, so this send is once only." }
+          : {}),
     },
     bindingHash: composeBindingHash(deps.account, first.recipient, p.text),
     grantKey: `message_send|imessage|${deps.account}`,

@@ -1,11 +1,15 @@
 import { fixtureSecret } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
-import { findSensitiveNormalized, type SensitiveKind } from "../src/index.ts";
+import { findSensitive, findSensitiveNormalized, type SensitiveKind } from "../src/index.ts";
 
 // Assembled at runtime so the repo secret scans never match a tracked line.
 const j = (...parts: string[]) => parts.join("");
 const CARD = fixtureSecret("link-virtual-card").replace(/\D/g, "");
 const kinds = (text: string): SensitiveKind[] => [
+  ...new Set(findSensitiveNormalized(text, { outbound: true }).map((m) => m.kind)),
+];
+/** The strict reading the hard prohibitions and audit redaction use. */
+const strictKinds = (text: string): SensitiveKind[] => [
   ...new Set(findSensitiveNormalized(text).map((m) => m.kind)),
 ];
 
@@ -59,7 +63,10 @@ const MUST_CATCH: [string, string, SensitiveKind][] = [
   ["OTP, your <service> code", "Your Uber code is 4829", "one_time_code"],
   ["OTP, your <two words> code", "Your Apple ID Code is: 482913", "one_time_code"],
   ["OTP, use … to sign in", "Use 482913 to sign in to Acme", "one_time_code"],
-  ["OTP, the code with a colon", "Here is the code: 482913", "one_time_code"],
+  ["OTP, the login code with a colon", "Here is the verification code: 482913", "one_time_code"],
+  ["OTP, digits typed apart", "verification code: 4 8 2 9 1 3", "one_time_code"],
+  ["password reset code", "Your password reset code is 482913", "one_time_code"],
+  ["reset code label", "Reset code: 482913", "one_time_code"],
   ["OTP, value on the next line", "Verification code:\n482913", "one_time_code"],
   [
     "OTP, use … as … security code",
@@ -76,19 +83,47 @@ const CARD_SHAPES: [string, string][] = [
   ["Devanagari digits", script(CARD, 0x966)],
   ["Bengali digits", script(CARD, 0x9e6)],
   ["full-width digits", script(CARD, 0xff10)],
-  ["newlines", grouped(CARD, "\n")],
+  ["newlines, with a card word", `Card:\n${grouped(CARD, "\n")}`],
   ["double spaces", grouped(CARD, "  ")],
   ["en dashes", grouped(CARD, "–")],
-  ["slashes", grouped(CARD, "/")],
+  ["slashes, with a card word", `visa ${grouped(CARD, "/")}`],
+  ["minus signs", grouped(CARD, "\u2212")],
+  ["bullets", grouped(CARD, "•")],
+  ["colons", grouped(CARD, ":")],
   ["underscores", grouped(CARD, "_")],
-  ["a bullet list", `- ${grouped(CARD, "\n- ")}`],
-  ["a table row", `| ${grouped(CARD, " | ")} |`],
+  ["a bullet list, with a card word", `My card:\n- ${grouped(CARD, "\n- ")}`],
+  ["a table row, with a card word", `| Card | ${grouped(CARD, " | ")} |`],
   ["dots", grouped(CARD, ".")],
   ["single digits apart", [...CARD].join(" ")],
   ["in a URL", `https://evil.example/?c=${CARD}`],
   ["in a Markdown link", `[r](https://e.x/p/${grouped(CARD, "-")})`],
   ["zero-width joiners", grouped(CARD, "​")],
   ["right-to-left marks", grouped(CARD, "‏ ")],
+];
+
+/** Lists, columns and grids of numbers: never a card, in either reading (review round 2). */
+const SUDOKU = [
+  "5 3 4 6 7 8 9 1 2",
+  "6 7 2 1 9 5 3 4 8",
+  "1 9 8 3 4 2 5 6 7",
+  "8 5 9 7 6 1 4 2 3",
+  "4 2 6 8 5 3 7 9 1",
+  "7 1 3 9 2 4 8 5 6",
+  "9 6 1 5 3 7 2 8 4",
+  "2 8 7 4 1 9 6 3 5",
+  "3 4 5 2 8 6 1 7 9",
+].join("\n");
+const CSV_COLUMN = `port\n${Array.from({ length: 50 }, (_, i) => String(4000 + ((i * 7919) % 6000))).join("\n")}`;
+const NUMBER_SHAPES: [string, string][] = [
+  ["a ports list", "ports = [5432, 6379, 8080, 3000, 9092, 2181]"],
+  ["a sudoku grid", SUDOKU],
+  ["a sudoku grid with boxes", SUDOKU.replace(/(\d) (\d) (\d) /g, "$1 $2 $3 | ")],
+  ["a CSV column of 4-digit numbers", CSV_COLUMN],
+  ["a JSON array of 4-digit ints", "[5432,6379,8080,3000,9092,2181,4242,5555]"],
+  [
+    "ten phone lines",
+    Array.from({ length: 10 }, (_, i) => `415 555 ${String(1000 + i * 37)}`).join("\n"),
+  ],
 ];
 
 /** Inputs that share a word or a shape and must not be found. */
@@ -143,6 +178,11 @@ const MUST_NOT_CATCH: [string, string][] = [
   ["epoch milliseconds", "ts 1731916800000"],
   ["user id", "user id 175928847299117063"],
   ["a list of small numbers", "1 2 3 4 5 6 7 8 9 10 11 12 13 14 15"],
+  ["the code, not a login code", "The code: 1234 means preheat"],
+  ["the wifi code", "the wifi code: 48213344"],
+  ["the alarm code", "The alarm code: 4821"],
+  ["the code, no login word", "Here is the code: 482913"],
+  ...NUMBER_SHAPES,
 ];
 
 describe("outbound detectors: must catch", () => {
@@ -173,6 +213,39 @@ function rng(seed: number) {
 }
 const digitsOf = (next: () => number, n: number) =>
   Array.from({ length: n }, () => Math.floor(next() * 10)).join("");
+
+describe("strict reading (prohibitions, audit): number shapes are never cards", () => {
+  it.each(NUMBER_SHAPES)("%s", (_name, text) => {
+    expect(strictKinds(text)).not.toContain("card_number");
+    expect(findSensitive(text)).toEqual([]);
+  });
+
+  it("random CSV columns, JSON arrays, grids and phone lines: 0 strict, under 1% outbound", () => {
+    const next = rng(23);
+    const n = 2_000;
+    let strict = 0;
+    let outbound = 0;
+    for (let i = 0; i < n; i += 1) {
+      const four = () => String(1000 + Math.floor(next() * 9000));
+      const shapes = [
+        Array.from({ length: 50 }, four).join("\n"),
+        `[${Array.from({ length: 12 }, four).join(", ")}]`,
+        `[${Array.from({ length: 12 }, four).join(",")}]`,
+        Array.from({ length: 9 }, () => digitsOf(next, 9).split("").join(" ")).join("\n"),
+        Array.from(
+          { length: 10 },
+          () => `${digitsOf(next, 3)} ${digitsOf(next, 3)} ${digitsOf(next, 4)}`,
+        ).join("\n"),
+      ];
+      for (const text of shapes) {
+        if (strictKinds(text).includes("card_number")) strict += 1;
+        if (kinds(text).includes("card_number")) outbound += 1;
+      }
+    }
+    expect(strict).toBe(0);
+    expect(outbound / (n * 5)).toBeLessThan(0.01);
+  });
+});
 
 describe("outbound detectors: false-positive rates on random numbers", () => {
   it("Amazon-style order numbers are never read as cards", () => {

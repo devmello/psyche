@@ -116,17 +116,21 @@ What Psyche writes to another person goes through a check that runs outside the 
 - card numbers, and a card's CVV or expiry written next to one;
 - bank accounts: IBANs, and a US routing number written next to a labeled account number;
 - government IDs: US Social Security, Canada SIN, UK National Insurance, India Aadhaar and passport numbers, each with its label ("SIN:", "passport number");
-- one-time codes ("your verification code is 482913").
+- one-time codes, password-reset codes included ("your verification code is 482913"), because a reset code takes over an account.
 
-Cards are found by their number shape: 13 to 19 digits, grouped by spaces, dashes, dots, slashes, newlines or table pipes, with a real card issuer prefix and a valid checksum. The other values need a checksum or a context word, so order numbers, tracking numbers, phone numbers, prices, dates, ZIP codes, hashes and UUIDs pass through. Digits in other scripts (Arabic-Indic, Persian, Devanagari and the rest) and zero-width characters are read the same as ordinary digits.
+Cards in a message are found by their number shape: 13 to 19 digits with a real card issuer prefix and a valid checksum, grouped the way cards are and joined by one separator (spaces, dashes, dots, bullets, colons). A card split by newlines, table pipes or slashes counts only when a card word ("card", "Visa", "Amex"…) is within 40 characters, so a column of numbers, a table or a grid is not a card. The other values need a checksum or a context word, so order numbers, tracking numbers, phone numbers, prices, dates, ZIP codes, hashes and UUIDs pass through. Digits in other scripts (Arabic-Indic, Persian, Devanagari and the rest), keycap digits and zero-width characters are read the same as ordinary digits.
 
-**Where it runs.** Every message the channel service sends (Telegram, iMessage, Discord, Slack, SMS, WhatsApp, Signal, WebChat and email replies, and the approval cards in chat) goes through the full check. A number split across two messages sent to the same chat within a minute is read as one. The `messages_send` tool and email sends are stopped by the same check before they are approved. Calls to other tools, such as MCP servers and browser forms, get a narrower check for credentials, card numbers, IBANs and US Social Security numbers.
+**Where it runs.**
+
+- Every message the channel service sends (Telegram, iMessage, Discord, Slack, SMS, WhatsApp, Signal, WebChat, email replies and the approval cards in chat) goes through the full check. When the end of one message and the start of the next to the same chat, within a minute, form a number, they are read as one.
+- The `messages_send` tool and other email or message tools use the same check before anything is approved. A credential, a card, an IBAN or a Social Security number is refused outright. The other kinds (a one-time code, a passport, SIN, NI or Aadhaar number, a routing and account number) ask on a paired device, once, so you can still send your own accountant your routing number.
+- Other tool calls, such as file writes, MCP servers and browser forms, get a stricter reading for credentials, card numbers, IBANs and Social Security numbers. There a card is digits split only by a single space, dot or dash, so a list of ports or a grid of numbers in a file is never taken for a card.
 
 **What happens.**
 
-- In your own one-to-one chat (Telegram, iMessage, Discord, Slack, SMS, WebChat) the value is cut out and the reply says to open Psyche to see it. A one-time code is allowed there, since it goes to you. A card, a bank number, an ID and any credential are still cut out, because the chat service stores them.
-- A message to anyone else, to a group (including one you are in), or any email reply is held: it is not sent, the conversation gets a note telling Psyche why, and you get a notice in Psyche. Email is always held because a `From:` address is not verified.
+- In your own one-to-one chat (Telegram, iMessage, Discord, Slack, SMS, WebChat) the value is cut out and the reply says to open Psyche to see it, in your language. A one-time code is allowed there, since it goes to you. A card, a bank number, an ID and any credential are still cut out, because the chat service stores them.
+- A message to anyone else, to a group (including one you are in), or any email reply is held: it is not sent, the conversation gets a note telling Psyche why, and you get a notice in Psyche that opens the conversation. Email is always held, even to your own address, because a `From:` address is not verified.
 - The audit log records the decision and the kinds of value, never the value. Published test card numbers are not exempt here.
 
-**What it cannot see.** Digits spelled out as words, base64 or other encodings, reversed digits, and separators made of letters get through. This is a guard against a model that mixes up what is private, not against a model that is working to hide it.
+**What it cannot see.** Digits spelled out as words, base64 or other encodings, reversed digits, separators made of letters, and a card in irregular groups (say 3, 5, 4 and 4 digits) get through. This is a guard against a model that mixes up what is private, not against a model that is working to hide it.
 
