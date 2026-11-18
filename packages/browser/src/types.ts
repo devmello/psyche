@@ -254,6 +254,11 @@ export interface BrowserDriverEx extends BrowserDriver {
     origin: string,
     /** The vault's field-class rule, applied to the live element right before typing (TM-28). */
     accepts?: (element: FillElement) => FillElementCheck,
+    /**
+     * A payment card fill: every `<input>` value of this document (by loader, so a pushState
+     * route change keeps it) is masked in snapshots until the document goes away or 2 h pass.
+     */
+    options?: { maskDocument?: boolean },
   ): Promise<void>;
   /** Dev-preview tabs only (feature I12). */
   consoleMessages(tabId: string): ConsoleEntry[];
