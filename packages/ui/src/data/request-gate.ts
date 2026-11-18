@@ -2,12 +2,15 @@
  * The client's answer to the Gateway's per-device request budget. A `rate_limited` reply carries
  * `details.retryAfterSec`: until that time (plus a little jitter, so clients do not come back
  * together) the client holds its non-urgent reads, and retries the one it was answering. Settings,
- * security, approvals and audit reads are urgent and are never held, so the owner can always reach
- * their own settings while a chat is busy.
+ * security and approvals calls, and every cancel or stop, are urgent and are never held, so the
+ * owner can always reach their own settings and stop the agent while a chat is busy. Audit reads
+ * are background reads and wait like any other.
  */
 
 /** Methods that keep going while the device is rate limited. */
-const URGENT_PREFIXES = ["settings.", "security.", "approvals.", "audit."] as const;
+const URGENT_PREFIXES = ["settings.", "security.", "approvals."] as const;
+/** A user's Stop or Cancel (`chat.cancel`, `tasks.cancel`, `voice.stop`…) is never held. */
+const URGENT_SUFFIXES = [".cancel", ".stop"] as const;
 
 /** Used when a `rate_limited` reply carries no usable `retryAfterSec`. */
 export const DEFAULT_RETRY_AFTER_SEC = 5;
@@ -15,7 +18,10 @@ export const DEFAULT_RETRY_AFTER_SEC = 5;
 export const MAX_JITTER_MS = 1000;
 
 export function isUrgentMethod(method: string): boolean {
-  return URGENT_PREFIXES.some((prefix) => method.startsWith(prefix));
+  return (
+    URGENT_PREFIXES.some((prefix) => method.startsWith(prefix)) ||
+    URGENT_SUFFIXES.some((suffix) => method.endsWith(suffix))
+  );
 }
 
 /** `details.retryAfterSec` from a `rate_limited` reply, or the default when it is missing. */

@@ -128,6 +128,21 @@ describe("rate_limited replies", () => {
     await Promise.all([first, usage, settings]);
   });
 
+  it("holds audit reads through the pause but sends a Stop at once", async () => {
+    const { store, calls } = scripted([limited(10), ok, ok, ok]);
+    const first = store.call("runs.list", {}).catch(() => null);
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(calls).toEqual(["runs.list"]);
+    // Audit reads are background reads and wait; the user's Stop is never held.
+    const audit = store.call("audit.changes", {} as never).catch(() => null);
+    const stop = store.call("chat.cancel", {} as never).catch(() => null);
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(calls).toEqual(["runs.list", "chat.cancel"]);
+    await act(() => vi.advanceTimersByTimeAsync(11_000));
+    expect(calls).toEqual(["runs.list", "chat.cancel", "runs.list", "audit.changes"]);
+    await Promise.all([first, audit, stop]);
+  });
+
   it("gives up after a few tries instead of looping", async () => {
     const { store, calls } = scripted([limited(1)]);
     const outcome = store.call("runs.list", {}).then(
