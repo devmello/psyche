@@ -111,7 +111,7 @@ describe("checkLinkCliPath", () => {
     const me = statSync(real).uid;
     expect(checkLinkCliPath(real, { uid: me + 1 })).toEqual({ ok: false, reason: "wrong_owner" });
     // The file is the user's but a folder above it is not.
-    const dir = join(real, "..");
+    const dir = statRealpath(join(real, ".."));
     const lstat = (p: string) => {
       const s = statSync(p);
       return {
@@ -136,7 +136,8 @@ describe("detecting the CLI", () => {
     const real = fakeCli();
     symlinkSync(real, join(good, "link-cli"));
     const bad = tmp("psyche-link-bad-");
-    writeFileSync(join(bad, "link-cli"), "#!/bin/sh\n", { mode: 0o777 });
+    writeFileSync(join(bad, "link-cli"), "#!/bin/sh\n");
+    chmodSync(join(bad, "link-cli"), 0o777);
     const r = detectLinkClis({ env: { PATH: `${good}:${bad}` }, home: tmp("psyche-home-") });
     expect(r.found).toEqual([statRealpath(real)]);
     expect(r.rejected).toEqual([{ path: join(bad, "link-cli"), reason: "writable" }]);
@@ -220,15 +221,15 @@ describe("guided setup in the composed Gateway", () => {
 
     // Connect refuses an unsafe path, then saves a safe one, with no restart.
     chmodSync(cli, 0o666);
-    const unsafe = await admin.request("payments.link.connect", { path: cli });
+    const unsafe = await admin.request("payments.link.connect", { path: cli }, "k-connect-unsafe");
     expect(unsafe.error).toMatchObject({ code: "invalid_params", details: { reason: "writable" } });
     chmodSync(cli, 0o644);
-    const connected = await admin.call<LinkSetupStatus>("payments.link.connect", { path: cli });
+    const connected = await admin.call<LinkSetupStatus>("payments.link.connect", { path: cli }, "k-connect");
     expect(connected.state).toBe("signed_out");
     expect(connected.cli).toEqual({ path: statRealpath(cli), source: "saved" });
 
     // Sign-in returns Link's own page; the owner approves there; the Gateway notices.
-    const signing = await admin.call<LinkSetupStatus>("payments.link.signIn", {});
+    const signing = await admin.call<LinkSetupStatus>("payments.link.signIn", {}, "k-signin");
     expect(signing.state).toBe("signing_in");
     expect(signing.signIn).toMatchObject({
       verificationUrl: "https://login.link.com/device?c=1",
@@ -251,7 +252,7 @@ describe("guided setup in the composed Gateway", () => {
     expect(readFileSync(authFile, "utf8")).toContain(TOKEN);
 
     // Disconnect removes the token file and the saved path, and payments switch off at once.
-    const gone = await admin.call<LinkSetupStatus>("payments.link.disconnect", {});
+    const gone = await admin.call<LinkSetupStatus>("payments.link.disconnect", {}, "k-disconnect");
     expect(gone.state).toBe("cli_found");
     expect(gone.cli).toBeUndefined();
     expect(existsSync(authFile)).toBe(false);
@@ -262,12 +263,12 @@ describe("guided setup in the composed Gateway", () => {
   it("does not run a program that changed after it was connected", async () => {
     const cli = fakeCli();
     const { admin } = await boot(cli);
-    await admin.call("payments.link.connect", { path: cli });
+    await admin.call("payments.link.connect", { path: cli }, "k-connect-2");
     chmodSync(cli, 0o666);
     const res = await admin.request("vault.payments.methods", {});
     expect(res.ok).toBe(false);
     const st = await admin.call<LinkSetupStatus>("payments.link.status", {});
-    expect(st.problem).toEqual({ path: cli, reason: "writable" });
+    expect(st.problem).toEqual({ path: statRealpath(cli), reason: "writable" });
     expect(st.cli).toBeUndefined();
   });
 });
