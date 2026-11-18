@@ -1247,7 +1247,7 @@ export const it: Partial<Catalogue> = {
   "settings.credentials.payments.setup.missing.title":
     "Installa lo strumento da riga di comando di Link",
   "settings.credentials.payments.setup.missing.body":
-    "Psyche paga tramite Stripe Link con lo strumento da riga di comando di Link. Eseguilo sul Mac su cui gira il Gateway, poi controlla di nuovo.",
+    "Psyche paga tramite Stripe Link con lo strumento da riga di comando di Link. Eseguilo sul computer su cui gira il Gateway, poi controlla di nuovo.",
   "settings.credentials.payments.setup.missing.region":
     "I pagamenti Link per gli agenti sono disponibili negli Stati Uniti e in Canada.",
   "settings.credentials.payments.setup.found.title": "CLI di Link trovata",

@@ -1,7 +1,6 @@
 import {
   chmodSync,
   existsSync,
-  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -224,7 +223,11 @@ describe("guided setup in the composed Gateway", () => {
     const unsafe = await admin.request("payments.link.connect", { path: cli }, "k-connect-unsafe");
     expect(unsafe.error).toMatchObject({ code: "invalid_params", details: { reason: "writable" } });
     chmodSync(cli, 0o644);
-    const connected = await admin.call<LinkSetupStatus>("payments.link.connect", { path: cli }, "k-connect");
+    const connected = await admin.call<LinkSetupStatus>(
+      "payments.link.connect",
+      { path: cli },
+      "k-connect",
+    );
     expect(connected.state).toBe("signed_out");
     expect(connected.cli).toEqual({ path: statRealpath(cli), source: "saved" });
 

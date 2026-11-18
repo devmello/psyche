@@ -1213,7 +1213,7 @@ export const pt: Partial<Catalogue> = {
   "settings.credentials.payments.setup.missing.title":
     "Instale a ferramenta de linha de comando do Link",
   "settings.credentials.payments.setup.missing.body":
-    "O Psyche paga pelo Stripe Link usando a ferramenta de linha de comando do próprio Link. Execute no Mac onde o Gateway roda e verifique de novo.",
+    "O Psyche paga pelo Stripe Link usando a ferramenta de linha de comando do próprio Link. Execute no computador onde o Gateway roda e verifique de novo.",
   "settings.credentials.payments.setup.missing.region":
     "Os pagamentos do Link para agentes estão disponíveis nos EUA e no Canadá.",
   "settings.credentials.payments.setup.found.title": "CLI do Link encontrada",

@@ -142,15 +142,11 @@ export const LinkSetupStatus = Type.Object(
   {
     state: LinkSetupState,
     /** The CLI Psyche runs: saved in Settings (`saved`) or from `PSYCHE_LINK_CLI` (`env`). */
-    cli: Type.Optional(
-      Type.Object({ path: Type.String(), source: StringEnum(["saved", "env"]) }),
-    ),
+    cli: Type.Optional(Type.Object({ path: Type.String(), source: StringEnum(["saved", "env"]) })),
     /** Installs found in the usual places that passed the safety check, to confirm one. */
     candidates: Type.Array(Type.Object({ path: Type.String() })),
     /** Why the saved CLI, or an install found, was refused (never a reason to run it anyway). */
-    problem: Type.Optional(
-      Type.Object({ path: Type.String(), reason: LinkSetupReason }),
-    ),
+    problem: Type.Optional(Type.Object({ path: Type.String(), reason: LinkSetupReason })),
     /** While `signing_in`: Link's own page and the phrase it shows, to compare. */
     signIn: Type.Optional(
       Type.Object({

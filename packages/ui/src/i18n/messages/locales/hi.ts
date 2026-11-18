@@ -1266,7 +1266,7 @@ export const hi: Partial<Catalogue> = {
     "यह Gateway PSYCHE_LINK_CLI के साथ शुरू हुआ था, जो यहाँ सहेजे गए पाथ पर प्राथमिकता रखता है।",
   "settings.credentials.payments.setup.missing.title": "Link कमांड-लाइन टूल इंस्टॉल करें",
   "settings.credentials.payments.setup.missing.body":
-    "Psyche, Link के अपने कमांड-लाइन टूल से Stripe Link के ज़रिए भुगतान करता है। इसे उस Mac पर चलाएँ जिस पर Gateway चल रहा है, फिर दोबारा जाँचें।",
+    "Psyche, Link के अपने कमांड-लाइन टूल से Stripe Link के ज़रिए भुगतान करता है। इसे उस कंप्यूटर पर चलाएँ जिस पर Gateway चल रहा है, फिर दोबारा जाँचें।",
   "settings.credentials.payments.setup.missing.region":
     "एजेंटों के लिए Link भुगतान अमेरिका और कनाडा में उपलब्ध हैं।",
   "settings.credentials.payments.setup.found.title": "Link CLI मिल गया",

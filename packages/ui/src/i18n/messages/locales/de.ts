@@ -1282,7 +1282,7 @@ export const de: Partial<Catalogue> = {
     "Dieses Gateway wurde mit PSYCHE_LINK_CLI gestartet; das hat Vorrang vor dem hier gespeicherten Pfad.",
   "settings.credentials.payments.setup.missing.title": "Link-Befehlszeilenprogramm installieren",
   "settings.credentials.payments.setup.missing.body":
-    "Psyche bezahlt über Stripe Link mit dem eigenen Befehlszeilenprogramm von Link. Führe das auf dem Mac aus, auf dem das Gateway läuft, und prüfe dann erneut.",
+    "Psyche bezahlt über Stripe Link mit dem eigenen Befehlszeilenprogramm von Link. Führe das auf dem Rechner aus, auf dem das Gateway läuft, und prüfe dann erneut.",
   "settings.credentials.payments.setup.missing.region":
     "Link-Zahlungen für Agenten sind in den USA und in Kanada verfügbar.",
   "settings.credentials.payments.setup.found.title": "Link-CLI gefunden",

@@ -1249,7 +1249,7 @@ export const ko: Partial<Catalogue> = {
     "이 Gateway는 PSYCHE_LINK_CLI로 시작되어 여기에 저장한 경로보다 우선합니다.",
   "settings.credentials.payments.setup.missing.title": "Link 명령줄 도구 설치",
   "settings.credentials.payments.setup.missing.body":
-    "Psyche는 Link의 공식 명령줄 도구로 Stripe Link를 통해 결제합니다. Gateway가 실행되는 Mac에서 실행한 뒤 다시 확인하세요.",
+    "Psyche는 Link의 공식 명령줄 도구로 Stripe Link를 통해 결제합니다. Gateway가 실행되는 컴퓨터에서 실행한 뒤 다시 확인하세요.",
   "settings.credentials.payments.setup.missing.region":
     "에이전트용 Link 결제는 미국과 캐나다에서 사용할 수 있습니다.",
   "settings.credentials.payments.setup.found.title": "Link CLI를 찾았습니다",

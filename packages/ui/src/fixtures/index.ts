@@ -20,6 +20,7 @@ import type {
   Lesson,
   LibraryItem,
   LinkPaymentMethod,
+  LinkSetupStatus,
   MemoryClaim,
   MemoryFileInfo,
   Message,
@@ -147,6 +148,8 @@ export interface FixtureWorld {
   credentialUses: CredentialUse[];
   /** Stripe Link (`vault.payments.*`); absent methods → Link is not set up. */
   linkMethods?: LinkPaymentMethod[];
+  /** The guided Link setup (`payments.link.*`); absent → derived from `linkMethods`. */
+  linkSetup?: LinkSetupStatus;
   payments?: VaultPayment[];
   settings: Record<string, unknown>;
   /** Workspace file contents by workspace-relative path. */

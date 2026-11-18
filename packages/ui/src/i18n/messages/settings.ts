@@ -512,7 +512,7 @@ export const settings = {
     "This Gateway was started with PSYCHE_LINK_CLI, which takes priority over the path saved here.",
   "settings.credentials.payments.setup.missing.title": "Install the Link command-line tool",
   "settings.credentials.payments.setup.missing.body":
-    "Psyche pays through Stripe Link using Link's own command-line tool. Run this on the Mac that runs the Gateway, then check again.",
+    "Psyche pays through Stripe Link using Link's own command-line tool. Run this on the computer that runs the Gateway, then check again.",
   "settings.credentials.payments.setup.missing.region":
     "Link payments for agents are available in the US and Canada.",
   "settings.credentials.payments.setup.found.title": "Link CLI found",

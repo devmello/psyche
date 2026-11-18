@@ -1282,7 +1282,7 @@ export const zh: Partial<Catalogue> = {
     "此 Gateway 是用 PSYCHE_LINK_CLI 启动的,它优先于这里保存的路径。",
   "settings.credentials.payments.setup.missing.title": "安装 Link 命令行工具",
   "settings.credentials.payments.setup.missing.body":
-    "Psyche 通过 Stripe Link 付款,使用 Link 自己的命令行工具。请在运行 Gateway 的 Mac 上执行下面的命令,然后重新检查。",
+    "Psyche 通过 Stripe Link 付款,使用 Link 自己的命令行工具。请在运行 Gateway 的电脑上执行下面的命令,然后重新检查。",
   "settings.credentials.payments.setup.missing.region":
     "面向代理的 Link 支付目前支持美国和加拿大。",
   "settings.credentials.payments.setup.found.title": "已找到 Link CLI",

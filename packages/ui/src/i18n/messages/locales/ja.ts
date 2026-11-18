@@ -1240,7 +1240,7 @@ export const ja: Partial<Catalogue> = {
     "このGatewayはPSYCHE_LINK_CLIで起動されており、ここに保存したパスより優先されます。",
   "settings.credentials.payments.setup.missing.title": "Linkのコマンドラインツールをインストール",
   "settings.credentials.payments.setup.missing.body":
-    "PsycheはLink公式のコマンドラインツールを使ってStripe Linkで支払います。Gatewayを動かしているMacで実行してから、もう一度確認してください。",
+    "PsycheはLink公式のコマンドラインツールを使ってStripe Linkで支払います。Gatewayを動かしているコンピューターで実行してから、もう一度確認してください。",
   "settings.credentials.payments.setup.missing.region":
     "エージェント向けのLink決済は米国とカナダで利用できます。",
   "settings.credentials.payments.setup.found.title": "Link CLIが見つかりました",

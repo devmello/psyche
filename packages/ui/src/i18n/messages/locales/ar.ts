@@ -1307,7 +1307,7 @@ export const ar: Partial<Catalogue> = {
     "بدأ هذا الـ Gateway بالمتغير PSYCHE_LINK_CLI، وله الأولوية على المسار المحفوظ هنا.",
   "settings.credentials.payments.setup.missing.title": "ثبّت أداة سطر أوامر Link",
   "settings.credentials.payments.setup.missing.body":
-    "يدفع Psyche عبر Stripe Link باستخدام أداة سطر الأوامر الخاصة بـ Link. شغّل الأمر على جهاز Mac الذي يعمل عليه الـ Gateway ثم تحقق مرة أخرى.",
+    "يدفع Psyche عبر Stripe Link باستخدام أداة سطر الأوامر الخاصة بـ Link. شغّل الأمر على الجهاز الذي يعمل عليه الـ Gateway ثم تحقق مرة أخرى.",
   "settings.credentials.payments.setup.missing.region":
     "مدفوعات Link للوكلاء متاحة في الولايات المتحدة وكندا.",
   "settings.credentials.payments.setup.found.title": "تم العثور على Link CLI",
