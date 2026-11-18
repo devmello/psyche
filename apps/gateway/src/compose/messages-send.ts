@@ -4,6 +4,7 @@ import {
   type ComposeCandidate,
   type ComposeDetails,
   composeBindingHash,
+  outboundSendDecision,
   readFinal,
 } from "@psyche/permissions";
 import {
@@ -235,6 +236,19 @@ async function send(
       why: `already sent ${max} messages this turn; ask the owner before sending more`,
     });
   }
+  // The outbound check (security §3.9): this tool raises its own approval, so the check runs here.
+  // The text goes to someone else. A credential, card, IBAN or US Social Security number is never
+  // sent; a one-time code, passport, SIN, NI or Aadhaar number or bank routing and account number
+  // goes on the compose card, which is device-only and once (owner decision, review round 2).
+  const sendCheck = outboundSendDecision(p.text);
+  if (sendCheck.action === "deny") {
+    return done({
+      status: "withheld",
+      sent: false,
+      why: `the text holds ${sendCheck.kinds.join(", ").replaceAll("_", " ")}; Psyche does not send such values. Tell the owner to send it themselves, or leave the value out`,
+    });
+  }
+  const identifiers = sendCheck.action === "ask" ? sendCheck.kinds : [];
   const node = deps.node();
   if (node === undefined) {
     return done(
@@ -271,8 +285,17 @@ async function send(
       account: deps.account,
       recipient: only?.label ?? "choose below",
       compose: compose as never,
-      ...(ctx.taint
-        ? { reason: "This turn read untrusted content, so this send is once only." }
+      ...(identifiers.length > 0 || ctx.taint
+        ? {
+            reason: [
+              identifiers.length > 0
+                ? `This message holds ${identifiers.join(", ").replaceAll("_", " ")}. Check the recipient before sending.`
+                : "",
+              ctx.taint ? "This turn read untrusted content, so this send is once only." : "",
+            ]
+              .filter((r) => r !== "")
+              .join(" "),
+          }
         : {}),
     },
     bindingHash: composeBindingHash(deps.account, first.recipient, p.text),
