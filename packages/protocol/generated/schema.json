@@ -309,6 +309,11 @@
         "payload": "#/$defs/PairingRequestedPayload"
       },
       {
+        "description": "Stripe Link setup changed: a CLI was connected, sign-in finished or timed out, or Link was disconnected. Never a token.",
+        "name": "payments.link.changed",
+        "payload": "#/$defs/PaymentsLinkChangedPayload"
+      },
+      {
         "description": "IDENTITY.md changed: clients refresh the header; maybe regenerate the avatar.",
         "name": "persona.updated",
         "payload": "#/$defs/PersonaUpdatedPayload"
@@ -2645,6 +2650,38 @@
         "result": "#/$defs/OkResult",
         "scope": "operator.approvals",
         "sideEffecting": true
+      },
+      {
+        "description": "Saves the Link CLI Psyche may run, after checking that it resolves to a real file owned by the user or root and not writable by group or others, with the same for every parent folder. Running a program is a security change: needs fresh presence once the Gateway has a verifier (approval_required with details.approvalId, then retry with approvalId). Takes effect at once. Side-effecting.",
+        "name": "payments.link.connect",
+        "params": "#/$defs/PaymentsLinkConnectParams",
+        "result": "#/$defs/LinkSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Signs out of Link (best effort at Link, then deletes the auth file in the vault folder) and forgets the saved CLI. Narrowing, so admin only. Side-effecting.",
+        "name": "payments.link.disconnect",
+        "params": "#/$defs/PaymentsLinkDisconnectParams",
+        "result": "#/$defs/LinkSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Starts Link's sign-in with the connected CLI and returns Link's own page (signIn.verificationUrl) and the phrase to compare. The owner signs in on that page; Psyche never sees a password. The Gateway watches for the result and publishes payments.link.changed. Side-effecting.",
+        "name": "payments.link.signIn",
+        "params": "#/$defs/PaymentsLinkSignInParams",
+        "result": "#/$defs/LinkSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Where Stripe Link stands (Settings → Credentials → Payments): Link CLI not found, found, signed out, signing in or connected. Looks for the CLI in the usual npm locations and checks that it is safe to run; never installs anything. Carries no token.",
+        "name": "payments.link.status",
+        "params": "#/$defs/PaymentsLinkStatusParams",
+        "result": "#/$defs/LinkSetupStatus",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "A staged install (manifest, files, findings) for its approval card.",
@@ -25410,6 +25447,108 @@
       ],
       "type": "object"
     },
+    "LinkSetupReason": {
+      "enum": [
+        "not_absolute",
+        "missing",
+        "not_a_file",
+        "not_executable",
+        "wrong_owner",
+        "writable",
+        "parent_wrong_owner",
+        "parent_writable"
+      ],
+      "type": "string"
+    },
+    "LinkSetupState": {
+      "enum": [
+        "cli_missing",
+        "cli_found",
+        "signed_out",
+        "signing_in",
+        "connected"
+      ],
+      "type": "string"
+    },
+    "LinkSetupStatus": {
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/LinkSetupState"
+        },
+        "cli": {
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "saved",
+                "env"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "source"
+          ],
+          "type": "object"
+        },
+        "candidates": {
+          "items": {
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "problem": {
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "reason": {
+              "$ref": "#/$defs/LinkSetupReason"
+            }
+          },
+          "required": [
+            "path",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "signIn": {
+          "properties": {
+            "verificationUrl": {
+              "type": "string"
+            },
+            "phrase": {
+              "type": "string"
+            },
+            "expiresAt": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "verificationUrl",
+            "phrase",
+            "expiresAt"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "state",
+        "candidates"
+      ],
+      "type": "object"
+    },
     "LogLevel": {
       "enum": [
         "debug",
@@ -33214,6 +33353,48 @@
         "passkeyId",
         "reauth"
       ],
+      "type": "object"
+    },
+    "PaymentsLinkChangedPayload": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/LinkSetupStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "PaymentsLinkConnectParams": {
+      "properties": {
+        "path": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "PaymentsLinkDisconnectParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "PaymentsLinkSignInParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "PaymentsLinkStatusParams": {
+      "properties": {},
       "type": "object"
     },
     "PermissionMode": {

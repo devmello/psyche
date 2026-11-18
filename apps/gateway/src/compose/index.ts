@@ -154,6 +154,7 @@ import { composeHarnesses } from "./harnesses.ts";
 import { type HostTerminalOptions, hostTerminalPart } from "./host-terminal.ts";
 import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
+import { composeGuidedPayments } from "./link-setup.ts";
 import type { ComposedMcp } from "./mcp.ts";
 import { memoryStoreStatus, resolveMemoryStore, setMemoryEncrypted } from "./memory-db.ts";
 import { withMemoryEntityContext } from "./memory-item-context.ts";
@@ -181,7 +182,7 @@ import { composeNudges } from "./nudges.ts";
 import { createOtherChats, type OtherChats } from "./other-chats.ts";
 import { PageReadHub } from "./page-reads.ts";
 import { composePasskeys } from "./passkeys.ts";
-import { composePayments, paymentsSetupFromEnv } from "./payments.ts";
+import { paymentsSetupFromEnv } from "./payments.ts";
 import { composePeople, type People } from "./people.ts";
 import { graphSourceAdapters } from "./people-sources.ts";
 import { composePlugins } from "./plugins.ts";
@@ -311,6 +312,13 @@ export interface ComposeOptions
    * part with a `relay` delivers approvals beyond the in-app surfaces (chat, the Mac helper).
    */
   parts?: ReadonlyArray<(services: ComposeServices) => Promise<ComposedPart> | ComposedPart>;
+  /**
+   * Stripe Link payments. Default: the guided setup (Settings → Credentials → Payments), with
+   * `PSYCHE_LINK_CLI` as a dev override. A `wallet` replaces it (tests, the scenario runner);
+   * `link` tunes the guided setup (tests). Mount payments here, not as a part: the guided setup
+   * is always mounted and its `vault.payments.*` handlers would collide.
+   */
+  payments?: PaymentsSetup & { link?: LinkSetupOptions };
   /**
    * Speech (S17: dictation, voice memos, read-aloud, voices) is always mounted; this sets its
    * process runner prefix (default: `speechSetupFromEnv`).
@@ -1133,7 +1141,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     composeArtifacts,
     // Generative-UI widgets (generative-ui-2026): snapshots by id; tools arrive in P3.
     composeWidgets,
-    composePayments(paymentsSetupFromEnv(gwOptions.env)),
+    composeGuidedPayments(
+      gwOptions.payments ?? paymentsSetupFromEnv(gwOptions.env ?? process.env),
+      gwOptions.payments?.link,
+    ),
     // Web passkeys (issue #79): unavailable until gateway.publicOrigin is an https origin. A
     // caller-supplied `presence` verifier takes the passkey role instead.
     ...(presence === NO_PRESENCE ? [composePasskeys({ publicOrigin: config.publicOrigin })] : []),
