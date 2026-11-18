@@ -49,7 +49,7 @@ Act on a pattern only if it occurred **at least twice**, or once with high cost:
 ## 3. Guardrails (never break these)
 
 - **Hard rules stay.** Never remove or weaken anything in `.claude/CLAUDE.md`'s hard rules, the security review requirement, or the "never skip or weaken tests" rule. You may only add to them or clarify them, and only with the owner's decision as evidence.
-- **Never loosen verification.** `verify.sh` and `stop-verify.sh` may gain checks, but never lose one, and the 3-attempt cap stays. If a check is wrong, fix it so it still checks.
+- **Never loosen verification.** `verify.sh` and `stop-verify.sh` may gain checks, but never lose one, and the 3-attempt cap stays. If a check is wrong, fix it so it still checks. When it runs is the owner's call (2026-11-18): quick checks on stop, the full check once before the PR, and `--related` once at the merge gate. Don't add runs.
 - **Evidence or nothing.** Every edit cites its refs in the changelog. No speculative "best practices".
 - **Stay small.** Keep each SKILL.md under ~150 lines and each Learnings list under ~25 lines. Fold or prune instead of growing.
 - **Facts about the code** (paths, commands, function names) must be checked against current `origin/main` before you write them.
