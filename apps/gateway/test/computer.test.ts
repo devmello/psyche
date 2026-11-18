@@ -1008,6 +1008,71 @@ describe("computer-use agent tools (J1–J5)", () => {
       expect(money(helper.calls)).toHaveLength(0);
     });
 
+    it.each(["com.google.Chrome.app.abcdef", "com.apple.Safari.WebApp.1234"])(
+      "a ref Confirm in the web app %s is judged on the page it shows (round 3)",
+      async (webApp) => {
+        const orig = helper.invoke.bind(helper);
+        helper.invoke = async (capability, params, options) =>
+          capability === "computer.ax_tree"
+            ? {
+                ok: true,
+                result: {
+                  text: `window "Chase" snap=1\n  [e60] button "Confirm"`,
+                  tier: "interact",
+                },
+              }
+            : orig(capability, params, options);
+        await call("computer.snapshot", { app: webApp });
+        helper.calls.length = 0;
+        helper.underPoint = {
+          role: "AXButton",
+          label: "Confirm",
+          labels: ["Confirm"],
+          url: "https://secure.chase.com/web/auth/dashboard#/dashboard/transfers/confirm",
+        };
+        answer = "approve";
+        const r = await call("computer.act", {
+          app: webApp,
+          action: "click",
+          ref: "e60",
+          expect: { role: "button", label: "Confirm" },
+        });
+        expect(r).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
+        expect(money(helper.calls)).toHaveLength(0);
+      },
+    );
+
+    it("an ordinary click in a non-financial web app goes ahead (round 3)", async () => {
+      const notion = "com.google.Chrome.app.notion";
+      const orig = helper.invoke.bind(helper);
+      helper.invoke = async (capability, params, options) =>
+        capability === "computer.ax_tree"
+          ? {
+              ok: true,
+              result: { text: `window "Notion" snap=1\n  [e61] button "Share"`, tier: "interact" },
+            }
+          : orig(capability, params, options);
+      await call("computer.snapshot", { app: notion });
+      helper.calls.length = 0;
+      helper.underPoint = {
+        role: "AXButton",
+        label: "Share",
+        labels: ["Share"],
+        url: "https://www.notion.so/workspace/page",
+      };
+      answer = "approve";
+      const r = await call("computer.act", {
+        app: notion,
+        action: "click",
+        ref: "e61",
+        expect: { role: "button", label: "Share" },
+      });
+      expect(r.isError).not.toBe(true);
+      // The page was read before the click.
+      expect(helper.calls.map((c) => c.capability)).toContain("computer.resolve_target");
+      expect(money(helper.calls).length).toBeGreaterThan(0);
+    });
+
     it("checks the point end of a drag, and skips the check for a ref (its label is in the snapshot)", async () => {
       await call("computer.snapshot", { app: notes });
       helper.calls.length = 0;

@@ -91,12 +91,34 @@ export const FIELD_HELPER = `/* psyche:field */ function () {
       .map((n) => n.textContent)
       .join(" ");
   const buttonish = input && /^(button|submit|reset|image)$/i.test(String(this.type || ""));
+  // Text a person can see: hidden, aria-hidden and display:none or visibility:hidden parts are
+  // skipped, so a page cannot hide "Transfer" behind a visible "Done" (or the reverse). Bounded.
+  const visibleText = (root) => {
+    let out = "";
+    let seen = 0;
+    const walk = (n) => {
+      if (seen++ > 500 || out.length > 400) return;
+      if (n.nodeType === 3) {
+        out += n.textContent + " ";
+        return;
+      }
+      if (n.nodeType !== 1) return;
+      if (n !== root) {
+        if (n.hidden || n.getAttribute("aria-hidden") === "true") return;
+        const cs = getComputedStyle(n);
+        if (cs.display === "none" || cs.visibility === "hidden") return;
+      }
+      for (const c of n.childNodes) walk(c);
+    };
+    walk(root);
+    return out;
+  };
   const name =
     squash(this.getAttribute("aria-label")) ||
     squash(byIds(this.getAttribute("aria-labelledby"))) ||
     squash(this.labels ? Array.from(this.labels).map((l) => l.textContent).join(" ") : "") ||
     (buttonish ? squash(this.value) : "") ||
-    (input ? "" : squash(this.textContent)) ||
+    (input ? "" : squash(visibleText(this))) ||
     squash(this.getAttribute("title")) ||
     squash(this.getAttribute("alt"));
   return {

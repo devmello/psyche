@@ -332,6 +332,89 @@ const MUST_BLOCK: Row[] = [
   },
   { name: "round 2: mcp__revolut__pay", tool: "mcp__revolut__pay", sideEffect: "write" },
   { name: "round 2: mcp__chase__pay", tool: "mcp__chase__pay", sideEffect: "write" },
+  // review round 3 (#1321): the reviewer's tool-name probe list
+  {
+    name: "round 3: mcp__coinbase-agentkit__execute",
+    tool: "mcp__coinbase-agentkit__execute",
+    sideEffect: "write",
+  },
+  {
+    name: "round 3: mcp__wallet__sign_and_send",
+    tool: "mcp__wallet__sign_and_send",
+    sideEffect: "write",
+  },
+  {
+    name: "round 3: mcp__binance-mcp__new_order",
+    tool: "mcp__binance-mcp__new_order",
+    sideEffect: "write",
+  },
+  { name: "round 3: mcp__ccxt__createOrder", tool: "mcp__ccxt__createOrder", sideEffect: "write" },
+  { name: "round 3: mcp__webull-mcp__buy", tool: "mcp__webull-mcp__buy", sideEffect: "write" },
+  {
+    name: "round 3: mcp__alpaca__close_position",
+    tool: "mcp__alpaca__close_position",
+    sideEffect: "write",
+  },
+  {
+    name: "round 3: mcp__robinhood__liquidate",
+    tool: "mcp__robinhood__liquidate",
+    sideEffect: "write",
+  },
+  { name: "round 3: mcp__cashapp__pay", tool: "mcp__cashapp__pay", sideEffect: "write" },
+  { name: "round 3: mcp__venmo__pay", tool: "mcp__venmo__pay", sideEffect: "write" },
+  { name: "round 3: mcp__bank__ach", tool: "mcp__bank__ach", sideEffect: "write" },
+  {
+    name: "round 3: mcp__stripe__create_payout",
+    tool: "mcp__stripe__create_payout",
+    sideEffect: "write",
+  },
+  { name: "round 3: mcp__zelle-mcp__send", tool: "mcp__zelle-mcp__send", sideEffect: "write" },
+  { name: "round 3: mcp__brokerage__buy", tool: "mcp__brokerage__buy", sideEffect: "write" },
+  { name: "round 3: mcp__acme__buy_eth", tool: "mcp__acme__buy_eth", sideEffect: "write" },
+  {
+    name: "round 3: mcp__event-trading__place_order",
+    tool: "mcp__event-trading__place_order",
+    sideEffect: "write",
+  },
+  {
+    name: "round 3: mcp__sports-trading__place_bet",
+    tool: "mcp__sports-trading__place_bet",
+    sideEffect: "write",
+  },
+  {
+    name: "round 3: mcp__trading-bot__execute",
+    tool: "mcp__trading-bot__execute",
+    sideEffect: "write",
+  },
+  { name: "round 3: mcp__mybroker__execute", tool: "mcp__mybroker__execute", sideEffect: "write" },
+  { name: "round 3: mcp__alpaca__get", tool: "mcp__alpaca__get", sideEffect: "write" },
+  { name: "round 3: mcp__ccxt__fetch", tool: "mcp__ccxt__fetch", sideEffect: "write" },
+  {
+    name: "round 3: mcp__alpaca__get_and_buy",
+    tool: "mcp__alpaca__get_and_buy",
+    sideEffect: "write",
+  },
+  {
+    name: "round 3: mcp__kraken__query_private",
+    tool: "mcp__kraken__query_private",
+    sideEffect: "write",
+  },
+  {
+    name: "round 3: mcp__binance__check_out",
+    tool: "mcp__binance__check_out",
+    sideEffect: "write",
+  },
+  {
+    name: "round 3: mcp__wallet__sign_message",
+    tool: "mcp__wallet__sign_message",
+    sideEffect: "write",
+  },
+  {
+    name: "round 3: mcp__evm__approve_erc20",
+    tool: "mcp__evm__approve_erc20",
+    sideEffect: "write",
+  },
+  { name: "round 3: mcp__evm__transferFrom", tool: "mcp__evm__transferFrom", sideEffect: "write" },
   computer("com.robinhood.macos", "", { unreadable: true }),
   computer("com.google.Chrome", "Buy bitcoin"),
 ];
@@ -507,6 +590,34 @@ const MUST_NOT_BLOCK: Row[] = [
   },
   { name: "round 2: mcp__twilio__send_sms", tool: "mcp__twilio__send_sms", sideEffect: "write" },
   { name: "round 2: mcp__email__send", tool: "mcp__email__send", sideEffect: "write" },
+  // review round 3 (#1321): the reviewer's tool-name probe list
+  {
+    name: "round 3: mcp__coinbase__get_order_book",
+    tool: "mcp__coinbase__get_order_book",
+    sideEffect: "write",
+  },
+  {
+    name: "round 3: mcp__alpaca__get_open_orders",
+    tool: "mcp__alpaca__get_open_orders",
+    sideEffect: "write",
+  },
+  {
+    name: "round 3: mcp__alpaca__list_orders",
+    tool: "mcp__alpaca__list_orders",
+    sideEffect: "write",
+  },
+  {
+    name: "round 3: mcp__robinhood__get_closing_price",
+    tool: "mcp__robinhood__get_closing_price",
+    sideEffect: "write",
+  },
+  {
+    name: "round 3: mcp__eventbus-broker__publish",
+    tool: "mcp__eventbus-broker__publish",
+    sideEffect: "write",
+  },
+  { name: "round 3: mcp__redis_broker__set", tool: "mcp__redis_broker__set", sideEffect: "write" },
+  { name: "round 3: mcp__card_broker__list", tool: "mcp__card_broker__list", sideEffect: "write" },
   computer("com.apple.mail", "", { unreadable: true }),
 ];
 
@@ -579,22 +690,30 @@ describe("financial hard block: no approval or standing grant unlocks it", () =>
   });
 });
 
-describe("financial hard block: uncapped browser apps (#1321 round 2)", () => {
+describe("financial hard block: browser channels and web apps (#1321 rounds 2 and 3)", () => {
+  const act = (bundle: string) =>
+    call("computer.act", "write", app(bundle), {
+      kind: "computer_action",
+      meta: { app: bundle, action: "click", control: { labels: ["Confirm"], role: "AXButton" } },
+    } as never);
+
   it.each([
     "com.google.Chrome.beta",
-    "com.google.Chrome.app.abcdef",
-    "com.apple.Safari.WebApp.1234",
-  ])("computer.act Confirm on a Chase transfer page in %s is refused", async (bundle) => {
+    "com.microsoft.edgemac.Dev",
+    "org.mozilla.firefoxdeveloperedition",
+  ])("a browser channel (%s) is read-only, like the browser", async (bundle) => {
     const h = makeBroker({ policy: { allow: ["*"] } });
-    const c = call("computer.act", "write", app(bundle), {
-      kind: "computer_action",
-      meta: {
-        app: bundle,
-        action: "click",
-        control: { labels: ["Confirm"], role: "AXButton" },
-      },
-    } as never);
-    const d = await h.broker.decide(c, { ...CTX, permissionMode: "auto" });
+    const d = await h.broker.decide(act(bundle), { ...CTX, permissionMode: "auto" });
     expect(d).toMatchObject({ decision: "deny", rule: "app_tier:read" });
   });
+
+  it.each(["com.google.Chrome.app.notion", "com.apple.Safari.WebApp.1234"])(
+    "an installed web app (%s) keeps its tier: the gateway reads its page instead",
+    async (bundle) => {
+      const h = makeBroker({ policy: { allow: ["*"], apps: { [bundle]: "interact" } } });
+      const d = await h.broker.decide(act(bundle), { ...CTX, permissionMode: "auto" });
+      expect(d.rule ?? "").not.toMatch(/^app_tier:(read|off)$/);
+      expect(d.rule).not.toBe("prohibition:financial_transfer");
+    },
+  );
 });

@@ -18,6 +18,7 @@ import {
 import {
   FINANCIAL_BLOCK_REASON,
   financialBlock,
+  isBrowserWebApp,
   isTradeOrTransferText,
 } from "@psyche/protocol/financial-block";
 import { hostWords } from "@psyche/protocol/host-words";
@@ -969,7 +970,9 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
 
   /**
    * A ref's label alone does not say which page it is on. When it reads like a trade or a
-   * transfer (on any kind of venue), ask the helper where the element is and apply the block.
+   * transfer (on any kind of venue), ask the helper where the element is and apply the block. An
+   * installed web app (a Chrome PWA, a Safari web app) keeps the owner's tier, so the page it shows
+   * is read for every ref it acts on: a "Confirm" there is judged on the site's transfer page.
    */
   async function blockUnderRef(p: ActParams, callId: string, signal: AbortSignal): Promise<void> {
     if (p.ref === undefined) return;
@@ -981,7 +984,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     const looksLikeTrade = labels.some((l) =>
       (["brokerage", "bank", "p2p"] as const).some((k) => isTradeOrTransferText(l, k)),
     );
-    if (!looksLikeTrade) return;
+    if (!looksLikeTrade && !isBrowserWebApp(p.app)) return;
     const t = await resolveFor(
       p,
       { ref: p.ref, ...(p.expect === undefined ? {} : { expect: p.expect }) },

@@ -16,7 +16,12 @@ import {
   type WaitCondition,
 } from "@psyche/protocol";
 import { toolCallBindingHash } from "@psyche/protocol/binding";
-import { FINANCIAL_BLOCK_REASON, financialBlock } from "@psyche/protocol/financial-block";
+import {
+  FINANCIAL_BLOCK_REASON,
+  financialBlock,
+  isMoneyFlowPage,
+  isVenueFormAction,
+} from "@psyche/protocol/financial-block";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import { fillElementOf } from "../cdp/page.ts";
 import type { DevPreviewGate } from "../devpreview/gate.ts";
@@ -194,7 +199,9 @@ function activatesFocus(keys: string): boolean {
  * of Enter inside a field: it submits the field's form, which the field's own `submits` (false for
  * a textbox) does not say, so it is marked as submitting. The rule then refuses it on a trading,
  * banking or P2P site unless the field is a search or the form is a GET to another page. A login
- * form (it holds a password) is the exception: Enter there signs in, and it is not marked.
+ * form (it holds a password) is the exception: Enter there signs in, and it is not marked, unless
+ * the page or the form's action is a money flow (a "transaction password" step-up on a transfer).
+ * A field of `type=search` or named `q`, `query` or `search` is a search box.
  */
 function controlOf(
   meta: ElementMeta | undefined,
@@ -203,10 +210,18 @@ function controlOf(
 ): ControlFacts {
   if (meta === undefined)
     return { unreadable: true, ...(origin === undefined ? {} : { pageUrl: origin }) };
-  const formSubmit = enter && meta.inForm && meta.formHasPassword !== true;
+  const login =
+    meta.formHasPassword === true &&
+    !isMoneyFlowPage(meta.pageUrl) &&
+    !isMoneyFlowPage(meta.pageTitle) &&
+    !isVenueFormAction("post", meta.formAction);
+  const formSubmit = enter && meta.inForm && !login;
+  const search =
+    meta.inputType === "search" ||
+    /^(?:q|query|search|search_?query|keywords?)$/i.test(meta.fieldName ?? "");
   return {
     labels: [meta.name],
-    role: meta.role,
+    role: search && meta.role === "textbox" ? "searchbox" : meta.role,
     submits: meta.submits || formSubmit,
     ...(meta.href === undefined ? {} : { href: meta.href }),
     ...(meta.formMethod === undefined ? {} : { formMethod: meta.formMethod }),

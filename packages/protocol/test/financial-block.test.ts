@@ -426,6 +426,91 @@ const MUST_BLOCK: [string, FinancialAction][] = [
   ["Navy Federal iPad app", { app: "com.navyfederal.navyfederal", labels: ["Transfer"] }],
   ["Exodus Send", { app: "com.electron.exodus", labels: ["Send"] }],
   ["sbisec 発注", { origin: "https://site1.sbisec.co.jp", labels: ["発注"] }],
+  // review round 3: plural "transfers" is a move word again
+  [
+    "mercury Approve 3 transfers",
+    { origin: "https://app.mercury.com", labels: ["Approve 3 transfers"] },
+  ],
+  ["mercury Send transfers", { origin: "https://app.mercury.com", labels: ["Send transfers"] }],
+  [
+    "chase Schedule transfers",
+    { origin: "https://secure.chase.com", labels: ["Schedule transfers"] },
+  ],
+  [
+    "chase dialog Confirm 3 transfers?",
+    { origin: "https://secure.chase.com", labels: ["Confirm 3 transfers?"], role: "dialog" },
+  ],
+  [
+    "chase dialog Submit these transfers now?",
+    { origin: "https://secure.chase.com", labels: ["Submit these transfers now?"], role: "dialog" },
+  ],
+  // dialogs that start with a leave word but go on to an act
+  [
+    "dialog Close position and sell",
+    {
+      origin: "https://robinhood.com",
+      labels: ["Close position and sell 10 AAPL?"],
+      role: "dialog",
+    },
+  ],
+  [
+    "dialog Cancel order and sell at market",
+    {
+      origin: "https://robinhood.com",
+      labels: ["Cancel order and sell at market?"],
+      role: "dialog",
+    },
+  ],
+  [
+    "dialog Leave your note blank and transfer",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["Leave your note blank and transfer $5,000 now?"],
+      role: "dialog",
+    },
+  ],
+  [
+    "dialog Exit position? This will sell",
+    {
+      origin: "https://robinhood.com",
+      labels: ["Exit position? This will sell 10 shares."],
+      role: "dialog",
+    },
+  ],
+  // an article word inside a flow route
+  [
+    "/support/transfers/confirm Confirm",
+    { pageUrl: "https://secure.chase.com/support/transfers/confirm", labels: ["Confirm"] },
+  ],
+  [
+    "/resources/…#/dashboard/transfers/confirm Confirm",
+    {
+      pageUrl: "https://secure.chase.com/resources/web/auth/dashboard#/dashboard/transfers/confirm",
+      labels: ["Confirm"],
+    },
+  ],
+  [
+    "revolut /help#/transfer/confirm Confirm",
+    { pageUrl: "https://app.revolut.com/help#/transfer/confirm", labels: ["Confirm"] },
+  ],
+  [
+    "/transfer/new Continue",
+    { pageUrl: "https://secure.chase.com/transfer/new", labels: ["Continue"] },
+  ],
+  // send words on P2P
+  ["paypal Send invite", { origin: "https://www.paypal.com", labels: ["Send invite"] }],
+  ["shop subdomain of a bank Buy", { origin: "https://shop.sofi.com", labels: ["Buy"] }],
+  [
+    "SBI step-up: Enter in a transaction password field on a transfer page",
+    {
+      pageUrl: "https://retail.onlinesbi.sbi/retail/transfer/confirm",
+      labels: ["Transaction password"],
+      role: "textbox",
+      submits: true,
+      formMethod: "post",
+      formAction: "https://retail.onlinesbi.sbi/retail/transfer/confirm",
+    },
+  ],
 ];
 
 const MUST_NOT_BLOCK: [string, FinancialAction][] = [
@@ -704,6 +789,82 @@ const MUST_NOT_BLOCK: [string, FinancialAction][] = [
     { origin: "https://robinhood.com", labels: [""], role: "textbox" },
   ],
   ["robinhood unnamed tab", { origin: "https://robinhood.com", labels: [""], role: "tab" }],
+  // review round 3
+  [
+    "chase search box in a same-page form",
+    {
+      pageUrl: "https://www.chase.com/personal",
+      labels: ["Search"],
+      role: "textbox",
+      submits: true,
+      formMethod: "get",
+      formAction: "https://www.chase.com/personal",
+    },
+  ],
+  [
+    "ally newsletter email Enter",
+    {
+      origin: "https://www.ally.com",
+      pageUrl: "https://www.ally.com/",
+      labels: ["Email address"],
+      role: "textbox",
+      submits: true,
+      formMethod: "post",
+      formAction: "https://www.ally.com/newsletter",
+    },
+  ],
+  ["chase × close", { origin: "https://www.chase.com", labels: ["×"], role: "button" }],
+  ["chase ✕ close", { origin: "https://www.chase.com", labels: ["✕"], role: "button" }],
+  [
+    "rewards Transfer points",
+    { origin: "https://ultimaterewardspoints.chase.com", labels: ["Transfer points"] },
+  ],
+  ["coinbase Buy tab", { origin: "https://www.coinbase.com", labels: ["Buy"], role: "tab" }],
+  [
+    "chase /personal/transfers-explained Next",
+    { pageUrl: "https://www.chase.com/personal/transfers-explained", labels: ["Next"] },
+  ],
+  [
+    "chase /personal/international-wire-transfers Continue",
+    {
+      pageUrl: "https://www.chase.com/personal/international-wire-transfers",
+      labels: ["Continue"],
+    },
+  ],
+  [
+    "wise /us/send-money/ Continue",
+    { pageUrl: "https://wise.com/us/send-money/", labels: ["Continue"] },
+  ],
+  [
+    "chase /personal/zelle Continue",
+    { pageUrl: "https://www.chase.com/personal/zelle", labels: ["Continue"] },
+  ],
+  [
+    "wise blog article Next",
+    { pageUrl: "https://wise.com/blog/how-to-transfer-money-abroad", labels: ["Next"] },
+  ],
+  [
+    "title Wire instructions - Chase",
+    { origin: "https://www.chase.com", pageTitle: "Wire instructions - Chase", labels: ["Next"] },
+  ],
+  [
+    "title Buy vs. rent calculator | Chase",
+    {
+      origin: "https://www.chase.com",
+      pageTitle: "Buy vs. rent calculator | Chase",
+      labels: ["Next"],
+    },
+  ],
+  [
+    "title Sell your home: tips | Chase",
+    {
+      origin: "https://www.chase.com",
+      pageTitle: "Sell your home: tips | Chase",
+      labels: ["Continue"],
+    },
+  ],
+  ["chase Recent transfers", { origin: "https://secure.chase.com", labels: ["Recent transfers"] }],
+  ["chase Transfers (one word)", { origin: "https://secure.chase.com", labels: ["Transfers"] }],
 ];
 
 describe("financialBlock: must block", () => {

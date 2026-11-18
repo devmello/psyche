@@ -48,7 +48,6 @@ describe("browser channels and web apps are read-only", () => {
     "com.google.Chrome.beta",
     "com.google.Chrome.dev",
     "com.google.Chrome.canary",
-    "com.google.Chrome.app.abcdefghijklmnop",
     "com.microsoft.edgemac.Beta",
     "com.microsoft.edgemac.Dev",
     "com.microsoft.edgemac.Canary",
@@ -57,7 +56,6 @@ describe("browser channels and web apps are read-only", () => {
     "org.mozilla.firefoxdeveloperedition",
     "org.mozilla.nightly",
     "com.apple.SafariTechnologyPreview",
-    "com.apple.Safari.WebApp.1234ABCD",
     "company.thebrowser.dia",
     "app.zen-browser.zen",
     "com.kagi.kagimacOS",
@@ -67,6 +65,16 @@ describe("browser channels and web apps are read-only", () => {
   ])("%s is capped at read", (id) => {
     expect(appCap(id).cap).toBe("read");
     expect(effectiveTier(id, "interact")).toMatchObject({ tier: "read", capped: true });
+  });
+
+  it.each([
+    "com.google.Chrome.app.abcdefghijklmnop",
+    "com.google.Chrome.beta.app.notion",
+    "com.microsoft.edgemac.app.xyz",
+    "com.brave.Browser.app.abc",
+    "com.apple.Safari.WebApp.1234ABCD",
+  ])("an installed web app (%s) is not a browser and keeps interact", (id) => {
+    expect(appCap(id).cap).toBe("interact");
   });
 
   it("an app from the same vendor that is not a browser keeps its own tier", () => {

@@ -177,6 +177,40 @@ describe("browser tools: what the hard block reads", () => {
     ).toBe(true);
   });
 
+  it("Enter in a transaction-password step-up form on a transfer page is refused (round 3)", () => {
+    const sbi = "https://retail.onlinesbi.sbi";
+    const pass = el("Transaction password", {
+      role: "textbox",
+      tag: "input",
+      inForm: true,
+      formMethod: "post",
+      formAction: "https://retail.onlinesbi.sbi/retail/transfer/confirm",
+      formHasPassword: true,
+      pageUrl: "https://retail.onlinesbi.sbi/retail/transfer/confirm",
+    });
+    const run = tools(sbi, { f: pass });
+    expect(blocked(sbi, run("browser.press", { tabId: "t", keys: "Enter", ref: "f" }))).toBe(true);
+  });
+
+  it("Enter in a field of type=search in a same-page form on a bank is not refused", () => {
+    const bank = "https://www.chase.com";
+    const q = el("Search", {
+      role: "textbox",
+      tag: "input",
+      inputType: "search",
+      fieldName: "q",
+      inForm: true,
+      pageUrl: "https://www.chase.com/personal",
+      formAction: "https://www.chase.com/personal",
+    });
+    expect(
+      blocked(
+        bank,
+        tools(bank, { f: q })("browser.press", { tabId: "t", keys: "Enter", ref: "f" }),
+      ),
+    ).toBe(false);
+  });
+
   it("Enter in a GET form that goes to another page on a venue is not refused", () => {
     const field = el("Symbol", {
       role: "textbox",

@@ -196,6 +196,10 @@ const TRANSFER_PAIRS = [
   ["approve", "tokens"],
   ["approve", "spender"],
   ["approve", "allowance"],
+  ["approve", "erc20"],
+  ["approve", "erc721"],
+  ["approve", "erc1155"],
+  ["approve", "nft"],
   ["increase", "allowance"],
 ];
 // `place_order` and `submit_order` alone are not here: a shop, a restaurant or a ticket seller has
@@ -309,7 +313,8 @@ const NOT_FINANCIAL_QUALIFIERS = [
   "amqp",
   "nats",
   "redis",
-  "event",
+  "eventbus",
+  "bus",
   "pubsub",
   "queue",
   "card",
@@ -318,7 +323,6 @@ const NOT_FINANCIAL_QUALIFIERS = [
   "game",
   "yugioh",
   "magic",
-  "sports",
 ];
 /**
  * A tool that only reads is not a trade, even on a brokerage's or an exchange's server: its first
@@ -374,7 +378,28 @@ const ACTION_WORDS = new Set([
   "or",
 ]);
 /** A read verb that alone can be any request: it needs to name what it reads. */
-const GENERIC_READS = new Set(["fetch", "query", "request", "call"]);
+const GENERIC_READS = new Set(["fetch", "query", "request", "call", "get"]);
+/** What a passthrough reads: `query_private` on Kraken can add orders, `fetch_raw` anything. */
+const PASSTHROUGH_WORDS = new Set(["private", "raw", "any", "endpoint", "api", "rpc", "proxy"]);
+/** Read nouns that contain an action word: an order book, a list of open orders. */
+const READ_NOUNS: readonly (readonly string[])[] = [
+  ["order", "book"],
+  ["open", "orders"],
+  ["orders"],
+  ["order", "history"],
+  ["order", "status"],
+];
+
+/** The tool's words with the read nouns taken out (`get_open_orders` → `get`, `list_orders` → `list`). */
+function withoutReadNouns(words: readonly string[]): string[] {
+  const out = [...words];
+  for (const phrase of READ_NOUNS) {
+    for (let i = 0; i + phrase.length <= out.length; i++) {
+      if (phrase.every((w, k) => out[i + k] === w)) out.splice(i, phrase.length, "_read");
+    }
+  }
+  return out;
+}
 const READ_VERBS = new Set([
   "get",
   "list",
@@ -421,13 +446,13 @@ export function isFinancialTransfer(tool: string): boolean {
   const own = tool.startsWith("mcp__")
     ? tool.split("__").slice(2).join("_")
     : tool.slice(ns.length);
-  const ownWords = toolWords(own);
+  const ownWords = withoutReadNouns(toolWords(own));
   const verb = ownWords[0];
   const reads =
     verb !== undefined &&
     READ_VERBS.has(verb) &&
     !(GENERIC_READS.has(verb) && ownWords.length === 1) &&
-    !ownWords.some((w) => ACTION_WORDS.has(w));
+    !ownWords.some((w) => ACTION_WORDS.has(w) || PASSTHROUGH_WORDS.has(w));
   return !reads;
 }
 

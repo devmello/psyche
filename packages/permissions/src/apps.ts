@@ -1,4 +1,4 @@
-import { FINANCIAL_APP_PREFIXES } from "@psyche/protocol/financial-block";
+import { FINANCIAL_APP_PREFIXES, isBrowserWebApp } from "@psyche/protocol/financial-block";
 import type { AppTier } from "./policy.ts";
 
 /**
@@ -10,10 +10,11 @@ import type { AppTier } from "./policy.ts";
 export const TIER_RANK: Record<AppTier, number> = { off: 0, read: 1, click: 2, interact: 3 };
 
 export const BROWSER_APPS = [
-  // Each browser's channels and its installed web apps (`com.google.Chrome.beta`, `.dev`,
-  // `com.google.Chrome.app.<id>`, `com.apple.Safari.WebApp.<id>`): read-only like the browser,
-  // because a web page in them is acted on through the agent browser, where the hard block on
-  // trades and transfers reads the page (#1321 round 2).
+  // Each browser's channels (`com.google.Chrome.beta`, `.dev`, `.canary`, Edge Beta, Brave
+  // Nightly, Firefox Developer Edition, Safari Technology Preview…): read-only like the browser.
+  // Installed web apps (`com.google.Chrome.app.<id>`, `com.apple.Safari.WebApp.<id>`) are not
+  // browsers and keep the owner's tier (`isBrowserWebApp`); computer use reads the page they show
+  // before it acts there (#1321 round 3).
   "com.apple.Safari",
   "com.apple.Safari.*",
   "com.apple.SafariTechnologyPreview",
@@ -152,7 +153,7 @@ export function appCap(bundleId: string): { cap: AppTier; reason: string } {
         "password managers, banking, trading, system settings, notifications and security prompts are off",
     };
   }
-  if (matchesAny(bundleId, BROWSER_APPS)) {
+  if (matchesAny(bundleId, BROWSER_APPS) && !isBrowserWebApp(bundleId)) {
     return { cap: "read", reason: "browsers are read-only; the agent browser acts on the web" };
   }
   if (matchesAny(bundleId, TERMINAL_IDE_APPS)) {
