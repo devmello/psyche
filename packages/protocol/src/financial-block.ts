@@ -888,12 +888,71 @@ const JOINERS = new Set([
   "и",
 ]);
 
+/** Whether a move or a trade word follows "and", "&" or "then" ("View & transfer", "View and swap"). */
+function joinsAct(plain: string): boolean {
+  const words = wordsOf(plain.replace(/&|\+/g, " and "));
+  return words.some(
+    (w, i) =>
+      JOINERS.has(w) &&
+      i > 0 &&
+      [words[i + 1], words[i + 2]].some(
+        (x) =>
+          x !== undefined &&
+          (VENUE_MOVE_WORDS.has(x) || VENUE_TRADE_WORDS.has(x) || ACT_VERBS.has(x)),
+      ),
+  );
+}
+
 /** Trade verbs a read label names as a kind of thing ("View buy orders", "Check sell price"). */
 const TRADE_VERBS_READABLE = new Set(["buy", "sell", "trade", "swap"]);
+
+/**
+ * Verbs that turn a listing of moves into the act when they follow it ("Überweisungen absenden",
+ * "Tous les virements : effectuer", "Pending transfers: process now", "Recent transfers - repeat").
+ * The neutral steps (next, continue, done) are not here: "Next scheduled transfers" is a list.
+ */
+const LISTING_ACTS = new Set([
+  "absenden",
+  "abschicken",
+  "durchführen",
+  "durchfuehren",
+  "bestätigen",
+  "bestaetigen",
+  "effectuer",
+  "réaliser",
+  "realiser",
+  "confirmer",
+  "realizar",
+  "efectuar",
+  "confirmar",
+  "effettuare",
+  "confermare",
+  "conferma",
+  "efetuar",
+  "подтвердить",
+  "выполнить",
+  "process",
+  "run",
+  "repeat",
+  "complete",
+  "place",
+  "initiate",
+  "start",
+  "resend",
+  "retry",
+]);
 
 /** "Transfers" alone, or after nothing but listing words, with no act verb in the label. */
 function isListingPlural(words: readonly string[], i: number): boolean {
   if (words.some((w) => ACT_VERBS.has(w))) return false;
+  // An act verb after the plural is the act: "Pending transfers: process now". "Transfers in
+  // process" names a status.
+  if (
+    words
+      .slice(i + 1)
+      .some((w, k) => LISTING_ACTS.has(w) && !(w === "process" && words[i + k] === "in"))
+  )
+    return false;
   return words.slice(0, i).every((w) => LISTING_WORDS.has(w) || LISTING_WORDS_INTL.has(w));
 }
 
@@ -946,8 +1005,10 @@ export function isTradeOrTransferText(
       first,
     ) &&
     // A read verb first excuses the label unless an approval or a send follows it ("View &
-    // approve transfers"); "View buy orders" and "Check sell price" stay reads.
-    !words.slice(1).some((w) => ACT_VERBS.has(w) && !TRADE_VERBS_READABLE.has(w))
+    // approve transfers"), or a move or a trade is joined on after it ("Check and transfer $500",
+    // "Preview and buy now"). "View buy orders" and "Check sell price" stay reads.
+    !words.slice(1).some((w) => ACT_VERBS.has(w) && !TRADE_VERBS_READABLE.has(w)) &&
+    !joinsAct(plain)
   )
     return false;
   const trades = (kind !== "p2p_mixed" || opts.tradePage === true) && opts.noTrade !== true;
@@ -1345,6 +1406,18 @@ function isRewardsHost(input: string | undefined): boolean {
   return /^(?:ultimate)?(?:rewards?|points|travel)(?:points|portal|center)?$/.test(first);
 }
 
+/**
+ * A site where a card checkout is not how money is spent: a brokerage, an exchange, a P2P service
+ * or a bank (its rewards and travel sites excepted). Paying "Buy now" there with a one-time card
+ * buys crypto or sends money to a person, so the Link purchase tool is refused there outright.
+ * PayPal's checkout (`p2p_mixed`) stays a purchase.
+ */
+export function isNoCheckoutVenue(input: string | undefined): boolean {
+  const kind = venueOfHost(input);
+  if (kind === "brokerage" || kind === "exchange" || kind === "p2p") return true;
+  return kind === "bank" && !isRewardsHost(input);
+}
+
 /** Whether a label has a letter or a digit once invisible characters are gone. */
 const hasWord = (l: string): boolean => /[\p{L}\p{N}]/u.test(clean(l));
 
@@ -1520,6 +1593,10 @@ const DISCARDED_THINGS = new Set([
 /** The passive of a move in a dialog ("$500 will be transferred"). "Sent" is not here: a code is sent. */
 const PASSIVE_MOVES = new Set(["transferred", "wired", "withdrawn", "remitted", "überwiesen"]);
 
+/** Money as the subject of "will be sent" ("Your funds will be sent to John", "$500 will be sent"). */
+const MONEY_SENT =
+  /\b(?:funds|money|payment|payments|transfer|wire|amount|cash|balance|crypto|\d[\d.,]*(?: [a-z]{3})?)(?: [\p{L}\p{N}]+){0,2} (?:will be|is being|are being|will get|gets|get) sent\b/u;
+
 /** What a leave or discard dialog says will be lost: never itself an act. */
 const LOSS_CLAUSES: readonly RegExp[] = [
   /\b(?:your|the|this|any|all)? ?(?:[\p{L}\p{N}]+ ){0,3}(?:won t|wont|will not|isn t|is not|aren t|are not) (?:be )?(?:saved|kept|sent|submitted|finished)\b/gu,
@@ -1527,6 +1604,8 @@ const LOSS_CLAUSES: readonly RegExp[] = [
   /\bunsaved (?:changes|edits)\b/gu,
   /^\s*(?:changes|edits) (?:to|on|in) (?:your |the |this )?[\p{L}\p{N}]+\b/u,
   /^\s*(?:and )?lose (?:your |the |this )?[\p{L}\p{N}]+\b/u,
+  // "Funds already transferred are not affected": what leaving does not touch.
+  /\b(?:[\p{L}\p{N}]+ ){0,4}(?:are not|is not|aren t|isn t|will not be|won t be) affected\b/gu,
 ];
 
 function withoutLossClauses(text: string): string {
@@ -1551,8 +1630,11 @@ function dialogSaysAct(text: string, kind: VenueKind): boolean {
   ) {
     return false;
   }
-  // "$500 will be transferred": the passive of a move.
-  if (words.some((w) => PASSIVE_MOVES.has(w))) return true;
+  // "$500 will be transferred": the passive of a move. "Already transferred" is done, not an act.
+  if (words.some((w, i) => PASSIVE_MOVES.has(w) && words[i - 1] !== "already")) return true;
+  // "Your funds will be sent to John", "The payment will be sent anyway". "A code will be sent" is
+  // sign-in, so only money that is sent counts.
+  if (MONEY_SENT.test(words.join(" "))) return true;
   const cjk = plain.replace(CJK_NOT_ACT, " ");
   if (VENUE_CJK.some((w) => cjk.includes(w))) return true;
   return words.some((w, i) => {
@@ -1643,9 +1725,15 @@ function pageSaysTransfer(text: string, strongStep = false): boolean {
     const article = lowers.some((x) => ARTICLE_SEGMENTS.has(x));
     // A strong step ("Submit", "Confirm", "Approve") on a money path of the public site still acts;
     // only a neutral "Next" or "Continue" there reads a product page.
+    // A brokerage's or an exchange's own host is its app ("www.coinbase.com/en/withdraw-funds"): no
+    // marketing or locale excuse there.
+    const appHost = (["brokerage", "exchange"] as const).includes(
+      venueOfHost(host) as "brokerage" | "exchange",
+    );
     const marketing =
       !strongStep &&
       publicHost &&
+      !appHost &&
       (MARKETING_FIRST.has(lowers[0] ?? "") || LOCALE_SEGMENT.test(lowers[0] ?? ""));
     return !(article || marketing);
   }

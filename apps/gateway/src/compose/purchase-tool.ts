@@ -13,6 +13,11 @@ import {
 } from "@psyche/protocol";
 import { toolCallBindingHash } from "@psyche/protocol/binding";
 import {
+  FINANCIAL_BLOCK_REASON,
+  financialBlock,
+  isNoCheckoutVenue,
+} from "@psyche/protocol/financial-block";
+import {
   type CardField,
   cardFieldAccepts,
   formatAmount,
@@ -170,6 +175,34 @@ interface Located {
   order: OrderSummary;
   fields: Partial<Record<CardField, string>>;
   submit: string | undefined;
+  /** The pay button's name as the page shows it now. */
+  submitName: string | undefined;
+}
+
+/** The first pay button a snapshot's text names (`- button "Buy now" [ref=…]`). */
+function submitNameIn(text: string): string | undefined {
+  for (const m of text.matchAll(/^\s*- button "((?:[^"\\]|\\.)*)"/gm)) {
+    const name = (m[1] ?? "").replace(/\\(.)/g, "$1").trim();
+    if (SUBMIT_NAME.test(name)) return name;
+  }
+  return undefined;
+}
+
+/**
+ * The hard block on trades and transfers (`@psyche/protocol/financial-block`) for this tool: the
+ * pay button it will press, on the page it is on. A brokerage, an exchange, a P2P service or a
+ * bank refuses the tool outright; elsewhere the button's own words decide ("Buy now" at a shop is
+ * a purchase). Undefined when the payment may go ahead.
+ */
+function hardBlock(origin: string, pageUrl: string | undefined, submitName: string | undefined) {
+  if (isNoCheckoutVenue(origin) || isNoCheckoutVenue(pageUrl)) return { matched: "venue" };
+  return financialBlock({
+    labels: submitName === undefined ? [] : [submitName],
+    role: "button",
+    submits: true,
+    ...(pageUrl === undefined ? {} : { pageUrl }),
+    origin,
+  });
 }
 
 /** One snapshot: the order as the page shows it, the card inputs and the pay button. */
@@ -178,9 +211,11 @@ async function locate(d: BrowserDriverEx, tabId: string, origin: string): Promis
   const order = readOrder(snap.text, origin);
   const fields: Partial<Record<CardField, string>> = {};
   let submit: string | undefined;
+  let submitName: string | undefined;
   for (const r of snap.refs.slice(0, 250)) {
     if (r.role === "button" && submit === undefined && SUBMIT_NAME.test(r.name.trim())) {
       submit = r.ref;
+      submitName = r.name.trim();
       continue;
     }
     if (!["textbox", "spinbutton", "combobox", "searchbox"].includes(r.role)) continue;
@@ -190,7 +225,7 @@ async function locate(d: BrowserDriverEx, tabId: string, origin: string): Promis
       if (fields[f] === undefined && cardFieldAccepts(f, elementOf(meta)).ok) fields[f] = r.ref;
     }
   }
-  return { order, fields, submit };
+  return { order, fields, submit, submitName };
 }
 
 export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
@@ -201,8 +236,23 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
     if (d === undefined || typeof tabId !== "string" || origin === undefined) {
       return { kind: "purchase", sideEffect: "financial", summary: "Pay with Stripe Link" };
     }
-    const order = readOrder(d.peekSnapshot(tabId)?.text ?? "", origin);
+    const peek = d.peekSnapshot(tabId);
+    const order = readOrder(peek?.text ?? "", origin);
     const host = new URL(origin).host;
+    // What the hard block on trades and transfers reads (`prohibition:financial_transfer`): the
+    // pay button this tool will press, on this page. On a brokerage, an exchange, a P2P service or
+    // a bank the call is refused before any card is shown, whatever the button says.
+    const submitName = submitNameIn(peek?.text ?? "");
+    const pageUrl = peek?.url ?? origin;
+    const control =
+      isNoCheckoutVenue(origin) || isNoCheckoutVenue(pageUrl)
+        ? { unreadable: true, pageUrl }
+        : {
+            labels: submitName === undefined ? [] : [submitName],
+            role: "button",
+            submits: true,
+            pageUrl,
+          };
     // The amount is the one Link will charge, in the currency's own format; the page's words
     // sit beside it. An unreadable total is shown as such and the tool will refuse it.
     const money = moneyOf(order);
@@ -231,7 +281,13 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
       },
       bindingFields: purchaseFields(order),
       grantKey: `purchase|${origin}`,
+      meta: { control },
     };
+  };
+  const refuseTrade = (): never => {
+    throw new PsycheError("policy_denied", FINANCIAL_BLOCK_REASON, {
+      details: { rule: "prohibition:financial_transfer" },
+    });
   };
 
   const refuse = (message: string, reason: string): never => {
@@ -286,6 +342,8 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
       const start = origin();
       if (start === undefined) throw new PsycheError("conflict", "the tab has no page yet");
       const first = await locate(d, tabId, start);
+      // The hard block, on the live page, before a spend request exists.
+      if (hardBlock(start, start, first.submitName) !== undefined) refuseTrade();
       const hash = check(first);
       const input = inputOf(first.order, deps.test === true);
       for (const f of ["number", "cvc"] as const) {
@@ -357,6 +415,10 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
         check(last);
         if (last.submit === undefined)
           refuse("the checkout page shows no pay button", "no_pay_button");
+        // Last look for the hard block too: the page may have moved to a venue, or the button
+        // may now say something else. The spend request is cancelled below.
+        const at = origin() ?? start;
+        if (hardBlock(at, at, last.submitName) !== undefined) refuseTrade();
         submit = last.submit as string;
       } catch (err) {
         await deps.payments.cancel(id).catch(() => undefined);

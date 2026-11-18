@@ -492,6 +492,37 @@ const MUST_BLOCK: Row[] = [
     tool: "mcp__cards_trading__buy_stock",
     sideEffect: "write",
   },
+  // review round 6 (#1321): the Link purchase tool on a venue tab (what its describeCall gives)
+  {
+    name: "Link purchase tool on coinbase: Buy now",
+    tool: "checkout.pay_with_link",
+    sideEffect: "financial",
+    target: origin("https://www.coinbase.com"),
+    meta: { control: { unreadable: true, pageUrl: "https://www.coinbase.com" } },
+  },
+  {
+    name: "Link purchase tool on venmo: Pay",
+    tool: "checkout.pay_with_link",
+    sideEffect: "financial",
+    target: origin("https://venmo.com"),
+    meta: { control: { labels: ["Pay"], role: "button", submits: true } },
+  },
+  // review round 6 (#1321): read verb first, then a move or trade; listing plural, then an act
+  browser("secure.chase.com", "Check and transfer $500"),
+  browser("secure.chase.com", "View & transfer"),
+  browser("robinhood.com", "Preview and buy now"),
+  browser("www.coinbase.com", "View and swap"),
+  browser("www.commerzbank.de", "Überweisungen absenden"),
+  browser("www.commerzbank.de", "Alle Überweisungen abschicken"),
+  browser("www.bnpparibas.com", "Tous les virements : effectuer"),
+  browser("www.bbva.es", "Las transferencias pendientes: realizar"),
+  browser("www.revolut.com", "Все переводы подтвердить"),
+  browser("app.mercury.com", "Pending transfers: process now"),
+  browser("app.mercury.com", "Recent transfers - repeat"),
+  browser("app.mercury.com", "Scheduled transfers: run now"),
+  browser("www.coinbase.com", "Next", { pageUrl: "https://www.coinbase.com/en/withdraw-funds" }),
+  browser("secure.chase.com", "Your funds will be sent to John. Continue?", { role: "dialog" }),
+  browser("venmo.com", "Discard? The payment will be sent anyway.", { role: "dialog" }),
   computer("com.robinhood.macos", "", { unreadable: true }),
   computer("com.google.Chrome", "Buy bitcoin"),
 ];
@@ -499,10 +530,20 @@ const MUST_BLOCK: Row[] = [
 const MUST_NOT_BLOCK: Row[] = [
   { name: "tool calendar.create", tool: "calendar.create", sideEffect: "write" },
   { name: "tool Link purchase", tool: "link.purchase", sideEffect: "financial" },
+  // The Link purchase tool (#1315) at a merchant: its describeCall gives the pay button it presses.
   {
-    name: "the Stripe Link purchase tool (#1315)",
+    name: "Link purchase tool at a shop: Pay now",
     tool: "checkout.pay_with_link",
     sideEffect: "financial",
+    target: origin("https://shop.example.com"),
+    meta: { control: { labels: ["Pay now"], role: "button", submits: true } },
+  },
+  {
+    name: "Link purchase tool on PayPal's checkout: Pay Now",
+    tool: "checkout.pay_with_link",
+    sideEffect: "financial",
+    target: origin("https://www.paypal.com"),
+    meta: { control: { labels: ["Pay Now"], role: "button", submits: true } },
   },
   { name: "tool payments.link_spend", tool: "payments.link_spend", sideEffect: "financial" },
   { name: "tool shop.place_order", tool: "shop.place_order", sideEffect: "financial" },
@@ -746,6 +787,18 @@ const MUST_NOT_BLOCK: Row[] = [
   browser("wise.com", "Continue", { pageUrl: "https://wise.com/gb/send-money/" }),
   browser("secure.chase.com", "Discard this transfer?", { role: "dialog" }),
   browser("www.chase.com", "J", { role: "button" }),
+  // review round 6 (#1321)
+  browser("robinhood.com", "View buy orders"),
+  browser("robinhood.com", "Check sell price"),
+  browser("www.commerzbank.de", "Alle Überweisungen"),
+  browser("www.bbva.es", "Mis transferencias"),
+  browser("www.revolut.com", "Все переводы"),
+  browser("www.amazon.com", "View & buy again"),
+  browser("mail.google.com", "View and send"),
+  browser("shop.example.com", "Discard cart and pay?", { role: "dialog" }),
+  browser("secure.chase.com", "Leave this page? Funds already transferred are not affected.", {
+    role: "dialog",
+  }),
   {
     name: "round 5: mcp__rabbitmq-broker__publish",
     tool: "mcp__rabbitmq-broker__publish",

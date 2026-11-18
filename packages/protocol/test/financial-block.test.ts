@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type FinancialAction,
   financialBlock,
+  isNoCheckoutVenue,
   isTradeOrTransferText,
   venueOfApp,
   venueOfHost,
@@ -778,6 +779,93 @@ const MUST_BLOCK: [string, FinancialAction][] = [
   // one letter where it can be a key
   ["brokerage B button", { origin: "https://robinhood.com", labels: ["B"], role: "button" }],
   ["single CJK 買 on a bank", { origin: "https://www.smbc.co.jp", labels: ["買"], role: "button" }],
+  // review round 6: a read verb first, then a move or a trade joined on
+  [
+    "chase Check and transfer $500",
+    { origin: "https://secure.chase.com", labels: ["Check and transfer $500"] },
+  ],
+  ["chase View & transfer", { origin: "https://secure.chase.com", labels: ["View & transfer"] }],
+  [
+    "chase See and wire $5,000",
+    { origin: "https://secure.chase.com", labels: ["See and wire $5,000"] },
+  ],
+  [
+    "robinhood Preview and buy now",
+    { origin: "https://robinhood.com", labels: ["Preview and buy now"] },
+  ],
+  [
+    "robinhood Get quote and sell",
+    { origin: "https://robinhood.com", labels: ["Get quote and sell"] },
+  ],
+  ["coinbase View and swap", { origin: "https://www.coinbase.com", labels: ["View and swap"] }],
+  ["kraken Check & deposit", { origin: "https://www.kraken.com", labels: ["Check & deposit"] }],
+  [
+    "mercury View transfers then approve",
+    { origin: "https://app.mercury.com", labels: ["View transfers then approve"] },
+  ],
+  // review round 6: a listing plural, then an act verb
+  [
+    "de Überweisungen absenden",
+    { origin: "https://www.commerzbank.de", labels: ["Überweisungen absenden"] },
+  ],
+  [
+    "de Alle Überweisungen abschicken",
+    { origin: "https://www.commerzbank.de", labels: ["Alle Überweisungen abschicken"] },
+  ],
+  [
+    "fr Tous les virements : effectuer",
+    { origin: "https://www.bnpparibas.com", labels: ["Tous les virements : effectuer"] },
+  ],
+  [
+    "es Las transferencias pendientes: realizar",
+    { origin: "https://www.bbva.es", labels: ["Las transferencias pendientes: realizar"] },
+  ],
+  [
+    "ru Все переводы подтвердить",
+    { origin: "https://www.revolut.com", labels: ["Все переводы подтвердить"] },
+  ],
+  [
+    "mercury Pending transfers: process now",
+    { origin: "https://app.mercury.com", labels: ["Pending transfers: process now"] },
+  ],
+  [
+    "mercury Recent transfers - repeat",
+    { origin: "https://app.mercury.com", labels: ["Recent transfers - repeat"] },
+  ],
+  [
+    "mercury Scheduled transfers: run now",
+    { origin: "https://app.mercury.com", labels: ["Scheduled transfers: run now"] },
+  ],
+  // review round 6: an exchange's own host is its app, locale or not
+  [
+    "coinbase www /en/withdraw-funds Next",
+    { pageUrl: "https://www.coinbase.com/en/withdraw-funds", labels: ["Next"] },
+  ],
+  [
+    "robinhood www /us/en/transfer Continue",
+    { pageUrl: "https://robinhood.com/us/en/transfer", labels: ["Continue"] },
+  ],
+  // review round 6: money that will be sent
+  [
+    "dialog Your funds will be sent to John. Continue?",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["Your funds will be sent to John. Continue?"],
+      role: "dialog",
+    },
+  ],
+  [
+    "dialog Discard? The payment will be sent anyway.",
+    {
+      origin: "https://venmo.com",
+      labels: ["Discard? The payment will be sent anyway."],
+      role: "dialog",
+    },
+  ],
+  [
+    "dialog $500 will be sent today",
+    { origin: "https://secure.chase.com", labels: ["$500 will be sent today."], role: "dialog" },
+  ],
 ];
 
 const MUST_NOT_BLOCK: [string, FinancialAction][] = [
@@ -1266,6 +1354,51 @@ const MUST_NOT_BLOCK: [string, FinancialAction][] = [
     { pageUrl: "https://wise.com/gb/send-money/", labels: ["Continue"] },
   ],
   ["chase avatar J", { origin: "https://www.chase.com", labels: ["J"], role: "button" }],
+  // review round 6: reads, listings and the leave dialog stay allowed
+  ["robinhood Check sell price", { origin: "https://robinhood.com", labels: ["Check sell price"] }],
+  [
+    "de Alle Überweisungen",
+    { origin: "https://www.commerzbank.de", labels: ["Alle Überweisungen"] },
+  ],
+  ["es Mis transferencias", { origin: "https://www.bbva.es", labels: ["Mis transferencias"] }],
+  ["ru Все переводы", { origin: "https://www.revolut.com", labels: ["Все переводы"] }],
+  [
+    "mercury Transfers in process",
+    { origin: "https://app.mercury.com", labels: ["Transfers in process"] },
+  ],
+  ["amazon View & buy again", { origin: "https://www.amazon.com", labels: ["View & buy again"] }],
+  ["gmail View and send", { origin: "https://mail.google.com", labels: ["View and send"] }],
+  [
+    "shop dialog Discard cart and pay?",
+    { origin: "https://shop.example.com", labels: ["Discard cart and pay?"], role: "dialog" },
+  ],
+  [
+    "dialog Leave this page? Funds already transferred are not affected.",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["Leave this page? Funds already transferred are not affected."],
+      role: "dialog",
+    },
+  ],
+  [
+    "dialog A code will be sent to your phone",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["A code will be sent to your phone. Continue?"],
+      role: "dialog",
+    },
+  ],
+  [
+    "wise /us/send-money/ Continue",
+    { pageUrl: "https://wise.com/us/send-money/", labels: ["Continue"] },
+  ],
+  [
+    "coinbase www /en/learn/crypto-basics Next",
+    {
+      pageUrl: "https://www.coinbase.com/en/learn/crypto-basics/how-to-withdraw",
+      labels: ["Next"],
+    },
+  ],
 ];
 
 describe("financialBlock: must block", () => {
@@ -1277,6 +1410,27 @@ describe("financialBlock: must block", () => {
 describe("financialBlock: must not block", () => {
   it.each(MUST_NOT_BLOCK)("%s", (_name, a) => {
     expect(financialBlock(a)).toBeUndefined();
+  });
+});
+
+describe("isNoCheckoutVenue: where the Link purchase tool never pays", () => {
+  it.each([
+    "https://www.coinbase.com/buy",
+    "https://robinhood.com",
+    "https://venmo.com/pay",
+    "https://cash.app",
+    "https://secure.chase.com/web/auth",
+  ])("%s has no checkout", (url) => {
+    expect(isNoCheckoutVenue(url)).toBe(true);
+  });
+  it.each([
+    "https://shop.example.com/checkout",
+    "https://www.paypal.com/checkoutnow",
+    "https://www.amazon.com/gp/buy",
+    "https://ultimaterewardspoints.chase.com/travel",
+    undefined,
+  ])("%s may check out", (url) => {
+    expect(isNoCheckoutVenue(url)).toBe(false);
   });
 });
 
