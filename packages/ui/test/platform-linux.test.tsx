@@ -199,6 +199,8 @@ const ABOUT_MACOS = new Set<string>([
   // A Mac device, its helper and its keys, named as such wherever they are listed.
   "settings.devices.platform.macos",
   "settings.devices.nodeKind.macHelper",
+  // The Contacts hint shows only after the Mac helper reports a macOS Contacts permission error.
+  "platform.helper.contactsPermission",
   "settings.devices.thisMacAdmin",
   "settings.devices.presenceKey.unknown",
   "settings.devices.presenceKey.deviceIdentity",

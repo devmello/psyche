@@ -44,6 +44,7 @@ const LABELLED_KEYS = [
   "context.maxTokens",
   "exec.srtPath",
   "devices.hostHelper.status",
+  "devices.helper.availability",
   "context.compactAt",
   "context.keepRecentTurns",
   "teaching.enabled",
