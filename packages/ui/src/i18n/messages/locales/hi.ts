@@ -1300,8 +1300,7 @@ export const hi: Partial<Catalogue> = {
     "दूसरे उपयोगकर्ता उसके ऊपर का फ़ोल्डर बदल सकते हैं",
   "settings.credentials.payments.setup.reason.in_psyche_home":
     "वह Psyche के अपने फ़ोल्डर के अंदर है; इसके बजाय npm से Link CLI इंस्टॉल करें",
-  "settings.credentials.payments.setup.reason.not_link_cli":
-    "वह Link CLI पैकेज का हिस्सा नहीं है",
+  "settings.credentials.payments.setup.reason.not_link_cli": "वह Link CLI पैकेज का हिस्सा नहीं है",
   "settings.credentials.payments.setup.reason.volta_shim":
     "वह Volta का shim है; Volta के अंदर Link CLI का अपना फ़ोल्डर इस्तेमाल करें, या npm से इंस्टॉल करें",
   "settings.credentials.payments.setup.paymentInProgress":

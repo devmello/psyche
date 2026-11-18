@@ -1340,8 +1340,7 @@ export const ar: Partial<Catalogue> = {
     "يمكن لمستخدمين آخرين تعديل مجلد أعلاه",
   "settings.credentials.payments.setup.reason.in_psyche_home":
     "إنه داخل مجلد Psyche نفسه؛ ثبّت Link CLI باستخدام npm بدلًا من ذلك",
-  "settings.credentials.payments.setup.reason.not_link_cli":
-    "ليس جزءًا من حزمة Link CLI",
+  "settings.credentials.payments.setup.reason.not_link_cli": "ليس جزءًا من حزمة Link CLI",
   "settings.credentials.payments.setup.reason.volta_shim":
     "إنه shim الخاص بـ Volta؛ استخدم مجلد Link CLI داخل Volta أو ثبّته باستخدام npm",
   "settings.credentials.payments.setup.paymentInProgress":

@@ -1284,8 +1284,7 @@ export const ko: Partial<Catalogue> = {
     "다른 사용자가 상위 폴더를 수정할 수 있습니다",
   "settings.credentials.payments.setup.reason.in_psyche_home":
     "Psyche 자체 폴더 안에 있습니다. 대신 npm으로 Link CLI를 설치하세요",
-  "settings.credentials.payments.setup.reason.not_link_cli":
-    "Link CLI 패키지에 속하지 않습니다",
+  "settings.credentials.payments.setup.reason.not_link_cli": "Link CLI 패키지에 속하지 않습니다",
   "settings.credentials.payments.setup.reason.volta_shim":
     "Volta의 shim입니다. Volta 안의 Link CLI 폴더를 사용하거나 npm으로 설치하세요",
   "settings.credentials.payments.setup.paymentInProgress":

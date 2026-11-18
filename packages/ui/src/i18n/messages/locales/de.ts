@@ -1317,8 +1317,7 @@ export const de: Partial<Catalogue> = {
     "andere Nutzer können einen übergeordneten Ordner ändern",
   "settings.credentials.payments.setup.reason.in_psyche_home":
     "es liegt im eigenen Ordner von Psyche; installiere das Link-CLI stattdessen mit npm",
-  "settings.credentials.payments.setup.reason.not_link_cli":
-    "es gehört nicht zum Link-CLI-Paket",
+  "settings.credentials.payments.setup.reason.not_link_cli": "es gehört nicht zum Link-CLI-Paket",
   "settings.credentials.payments.setup.reason.volta_shim":
     "es ist Voltas Shim; nimm den Ordner des Link-CLI unter Volta oder installiere es mit npm",
   "settings.credentials.payments.setup.paymentInProgress":
