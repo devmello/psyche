@@ -7,6 +7,7 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
+  statSync,
   unlinkSync,
 } from "node:fs";
 import { homedir } from "node:os";
@@ -48,6 +49,8 @@ import type { ComposeServices } from "./services.ts";
  */
 
 export const LINK_CLI_SETTING = `${INTERNAL_SETTING_PREFIX}payments.linkCli`;
+/** When a forced disconnect gave up the open payments: records up to then no longer block. */
+export const LINK_ABANDONED_SETTING = `${INTERNAL_SETTING_PREFIX}payments.linkAbandonedBefore`;
 const LOGIN_MS = 5 * 60_000;
 const POLL_MS = 3_000;
 const CLI_TIMEOUT_MS = 35 * 60_000;
@@ -63,6 +66,8 @@ export interface PathDeps {
    * script under `workspace/` would otherwise pass as "owned by you").
    */
   psycheHome?: string | undefined;
+  /** Test seam: the identity (`dev`, `ino`) of a folder, to find `$PSYCHE_HOME` under any spelling. */
+  statDir?: (path: string) => { dev: bigint | number; ino: bigint | number };
   /** Test seam: `lstat` for a path. */
   lstat?: (path: string) => {
     uid: number;
@@ -116,14 +121,62 @@ function packageNameOf(script: string): string | undefined {
 }
 
 /**
+ * Whether `real` is inside `home`: by spelling, and by identity (`dev`, `ino`) of every folder above
+ * it. APFS ignores case and `/System/Volumes/Data/...` is a firmlink, so `~/.PSYCHE/...` or the
+ * firmlinked path is the same folder under a spelling a string comparison does not recognise.
+ */
+function insideHome(real: string, home: string, deps: PathDeps): boolean {
+  const h = resolvedOr(home);
+  if (isUnder(real, h)) return true;
+  const statDir = deps.statDir ?? ((p: string) => statSync(p, { bigint: true }));
+  const idOf = (p: string): string => {
+    const st = statDir(p);
+    return `${st.dev}:${st.ino}`;
+  };
+  let want: string;
+  try {
+    want = idOf(h);
+  } catch {
+    return false;
+  }
+  for (const dir of ancestors(real)) {
+    try {
+      if (idOf(dir) === want) return true;
+    } catch {
+      // Not readable: it cannot be the folder either.
+    }
+  }
+  return false;
+}
+
+/**
+ * The script a pnpm or npm shell shim starts (`exec node "$basedir/<script>" "$@"`), resolved from
+ * the shim's own folder; undefined for anything that is not such a shim.
+ */
+function shimScript(shim: string): string | undefined {
+  let text: string;
+  try {
+    text = readFileSync(shim, "utf8");
+  } catch {
+    return undefined;
+  }
+  if (text.length > 4096 || !/^#!\s*(?:\/usr\/bin\/env\s+)?(?:\/bin\/)?sh\b/.test(text))
+    return undefined;
+  const rel = /\bexec\s+node\s+"\$basedir\/([^"$`\\\n]+)"/.exec(text)?.[1];
+  return rel === undefined ? undefined : join(dirname(shim), rel);
+}
+
+/**
  * Accepts a CLI path only when it resolves (every symlink followed once, here) to a real file
  * owned by the user or root, neither group- nor world-writable, and the same holds for every
  * folder above it. The returned path is the resolved one: later swaps of a symlink change nothing.
- * It must also be outside `$PSYCHE_HOME`, and a script must belong to the `@stripe/link-cli`
- * package (any other user-owned `.js` would otherwise pass). Volta's shim is refused: it runs
- * whichever tool its own name says, not the file it was pointed at.
+ * It must also be outside `$PSYCHE_HOME` (under any spelling), and it must be a `.js`, `.mjs` or
+ * `.cjs` script inside the `@stripe/link-cli` package, or a pnpm or npm shim that starts one (the
+ * script is what is returned and run). Any other program, `/bin/sh` or `env` included, would run
+ * whatever the arguments say, so it is refused. Volta's shim is refused: it runs whichever tool its
+ * own name says, not the file it was pointed at.
  */
-export function checkLinkCliPath(path: string, deps: PathDeps = {}): PathCheck {
+export function checkLinkCliPath(path: string, deps: PathDeps = {}, viaShim = false): PathCheck {
   if (!isAbsolute(path)) return { ok: false, reason: "not_absolute" };
   let real: string;
   try {
@@ -132,7 +185,7 @@ export function checkLinkCliPath(path: string, deps: PathDeps = {}): PathCheck {
     return { ok: false, reason: "missing" };
   }
   const platform = deps.platform ?? process.platform;
-  if (deps.psycheHome !== undefined && isUnder(real, resolvedOr(deps.psycheHome)))
+  if (deps.psycheHome !== undefined && insideHome(real, deps.psycheHome, deps))
     return { ok: false, reason: "in_psyche_home" };
   if (/^volta-(shim|migrate)(\.exe)?$/i.test(basename(real)))
     return { ok: false, reason: "volta_shim" };
@@ -144,13 +197,14 @@ export function checkLinkCliPath(path: string, deps: PathDeps = {}): PathCheck {
     return { ok: false, reason: "missing" };
   }
   if (st.isSymbolicLink() || !st.isFile()) return { ok: false, reason: "not_a_file" };
-  if (SCRIPT.test(real) && packageNameOf(real) !== "@stripe/link-cli")
-    return { ok: false, reason: "not_link_cli" };
+  const script = SCRIPT.test(real);
+  const inPackage = () => packageNameOf(real) === "@stripe/link-cli";
   // Windows has no owner or mode bits to read: the path must still be a real file.
-  if (platform === "win32") return { ok: true, real };
+  if (platform === "win32")
+    return script && !inPackage() ? { ok: false, reason: "not_link_cli" } : { ok: true, real };
   const uid = "uid" in deps ? deps.uid : process.getuid?.();
   const trusted = (owner: number) => owner === 0 || owner === uid;
-  if (!SCRIPT.test(real) && (st.mode & 0o111) === 0) return { ok: false, reason: "not_executable" };
+  if (!script && (st.mode & 0o111) === 0) return { ok: false, reason: "not_executable" };
   if (!trusted(st.uid)) return { ok: false, reason: "wrong_owner" };
   if ((st.mode & 0o022) !== 0) return { ok: false, reason: "writable" };
   for (const dir of ancestors(real)) {
@@ -163,7 +217,12 @@ export function checkLinkCliPath(path: string, deps: PathDeps = {}): PathCheck {
     if (!trusted(ds.uid)) return { ok: false, reason: "parent_wrong_owner" };
     if ((ds.mode & 0o022) !== 0) return { ok: false, reason: "parent_writable" };
   }
-  return { ok: true, real };
+  if (script) return inPackage() ? { ok: true, real } : { ok: false, reason: "not_link_cli" };
+  // Not a script: only a shim that starts one (and that script passes every check itself).
+  const target = viaShim ? undefined : shimScript(real);
+  if (target === undefined) return { ok: false, reason: "not_link_cli" };
+  const inner = checkLinkCliPath(target, deps, true);
+  return inner.ok && !SCRIPT.test(inner.real) ? { ok: false, reason: "not_link_cli" } : inner;
 }
 
 export interface DetectOptions extends PathDeps {
@@ -316,7 +375,8 @@ export function parseLogin(stdout: string): { url: string; phrase: string } | un
       break;
     }
   }
-  return { url, phrase };
+  // Without a phrase the owner has nothing to compare on Link's page: do not start a sign-in.
+  return phrase === "" ? undefined : { url, phrase };
 }
 
 // --- The wallet the broker holds ----------------------------------------------------------
@@ -397,30 +457,74 @@ const OPEN_SPEND_MS = 2 * 60 * 60_000;
 /** A hold stays open until it is captured or released. */
 const OPEN_HOLD_MS = 7 * 24 * 60 * 60_000;
 
-/** Spends that disconnecting now would strand (no way left to cancel, capture or report them). */
-export function countOpenSpends(broker: Pick<PaymentBroker, "list">, now: number): number {
-  let n = 0;
-  for (const p of broker.list({ limit: 200 })) {
-    const age = now - Date.parse(p.createdAt);
-    if (p.payment.state === "held") {
-      if (age < OPEN_HOLD_MS) n += 1;
+/** What `vault/payments/<id>.json` holds that matters here (the broker's `SpendRecord`). */
+export interface SpendRow {
+  spendRequestId: string;
+  merchantName: string;
+  merchantHost: string;
+  status: string;
+  payment?: { state?: string };
+  createdAt: number;
+}
+
+const DEAD_SPEND: readonly string[] = ["failed", "denied", "expired", "canceled"];
+
+/**
+ * Spends that disconnecting now would strand (no way left to cancel, capture or report them):
+ * still being approved, or approved with the card out and nothing settled (2 h), or a hold that
+ * is neither captured nor released (7 days). Records at or before `abandonedBefore` were given up
+ * by a forced disconnect.
+ */
+export function openSpendsOf(
+  rows: Iterable<SpendRow>,
+  now: number,
+  abandonedBefore = 0,
+): SpendRow[] {
+  const open: SpendRow[] = [];
+  for (const p of rows) {
+    if (p.createdAt <= abandonedBefore) continue;
+    const age = now - p.createdAt;
+    const state = p.payment?.state ?? "none";
+    if (state === "held") {
+      if (!DEAD_SPEND.includes(p.status) && age < OPEN_HOLD_MS) open.push(p);
     } else if (
       age < OPEN_SPEND_MS &&
       (SPEND_WAITING.includes(p.status as never) ||
         // Approved with the card revealed and nothing settled yet: the purchase is under way.
-        ((p.status === "approved" || p.status === "submitted") && p.payment.state === "none"))
+        ((p.status === "approved" || p.status === "submitted") && state === "none"))
     ) {
-      n += 1;
+      open.push(p);
     }
   }
-  return n;
+  return open;
+}
+
+/** Every spend record that can still be open (older files cannot be: a change rewrites the file). */
+export function* readSpendRecords(dir: string, now: number): Iterable<SpendRow> {
+  let names: string[];
+  try {
+    names = readdirSync(dir);
+  } catch {
+    return;
+  }
+  for (const f of names) {
+    if (!f.endsWith(".json")) continue;
+    try {
+      const file = join(dir, f);
+      if (now - lstatSync(file).mtimeMs > OPEN_HOLD_MS) continue;
+      const rec = JSON.parse(readFileSync(file, "utf8")) as SpendRow;
+      if (typeof rec.spendRequestId === "string" && typeof rec.createdAt === "number") yield rec;
+    } catch {
+      // A damaged record is not a payment under way.
+    }
+  }
 }
 
 export class LinkSetup {
   readonly wallet = new SwitchableWallet();
   readonly authFile: string;
-  /** Set by `composeGuidedPayments` once the broker exists: how many spends are still open. */
-  openSpends: (() => number) | undefined;
+  /** Set by `composeGuidedPayments` once the broker exists: used to cancel open spends on force. */
+  broker: Pick<PaymentBroker, "cancel"> | undefined;
   readonly #s: ComposeServices;
   readonly #o: LinkSetupOptions;
   #login: { url: string; phrase: string; expiresAt: number; deviceId: string } | undefined;
@@ -713,13 +817,50 @@ export class LinkSetup {
     this.#timer = undefined;
   }
 
-  async disconnect(call: Call): Promise<LinkSetupStatus> {
-    // A payment under way needs the CLI to be cancelled, captured or reported: finish it first.
-    const open = this.openSpends?.() ?? 0;
-    if (open > 0)
+  #openSpends(): SpendRow[] {
+    const now = this.#s.clock.now();
+    const given = getSetting(this.#db, LINK_ABANDONED_SETTING)?.value as
+      | { before?: unknown }
+      | undefined;
+    const before = typeof given?.before === "number" ? given.before : 0;
+    return openSpendsOf(
+      readSpendRecords(join(this.#s.home, "vault", "payments"), now),
+      now,
+      before,
+    );
+  }
+
+  /**
+   * Signs out and forgets the CLI. A payment still open refuses it (`conflict`), because the CLI
+   * is what cancels, captures or reports it; `force` (admin only, audited) gives those payments up
+   * instead: they are cancelled where Link still allows it, and a hold at the merchant lapses on
+   * its own.
+   */
+  async disconnect(call: Call, force = false): Promise<LinkSetupStatus> {
+    const open = this.#openSpends();
+    if (open.length > 0 && !force)
       throw new PsycheError("conflict", "A payment is still in progress; disconnect when it ends", {
-        details: { reason: "payment_in_progress", open },
+        details: {
+          reason: "payment_in_progress",
+          open: open.length,
+          payments: open
+            .slice(0, 3)
+            .map((p) => ({ merchantName: p.merchantName, merchantHost: p.merchantHost })),
+        },
       });
+    if (open.length > 0) {
+      this.#audit(
+        "payments.link_disconnect_forced",
+        {
+          open: String(open.length),
+          spends: open.map((p) => p.spendRequestId).join(","),
+          deviceId: call.identity.deviceId,
+        },
+        call.identity.deviceId,
+      );
+      for (const p of open) await this.broker?.cancel(p.spendRequestId).catch(() => undefined);
+      setSetting(this.#db, LINK_ABANDONED_SETTING, { before: this.#s.clock.now() });
+    }
     const deviceId = call.identity.deviceId;
     this.#login = undefined;
     this.#stopPoll();
@@ -768,8 +909,7 @@ export function composeGuidedPayments(
       ...(linkCli === undefined ? {} : { envCli: linkCli }),
     });
     const part = composePayments({ ...rest, wallet: link.wallet })(services);
-    const broker = part.payments;
-    if (broker !== undefined) link.openSpends = () => countOpenSpends(broker, services.clock.now());
+    link.broker = part.payments;
     const guard = (name: string): Record<string, HandlerDef> => {
       const h = part.handlers?.[name];
       return h === undefined
@@ -793,7 +933,9 @@ export function composeGuidedPayments(
           link.connect(c, p.path, p.approvalId),
       } as HandlerDef,
       "payments.link.signIn": { run: (c: Call) => link.signIn(c) },
-      "payments.link.disconnect": { run: (c: Call) => link.disconnect(c) },
+      "payments.link.disconnect": {
+        run: (c: Call, p: { force?: boolean }) => link.disconnect(c, p.force === true),
+      } as HandlerDef,
     };
     return {
       ...part,

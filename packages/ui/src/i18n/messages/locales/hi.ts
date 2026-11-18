@@ -1305,6 +1305,10 @@ export const hi: Partial<Catalogue> = {
     "वह Volta का shim है; Volta के अंदर Link CLI का अपना फ़ोल्डर इस्तेमाल करें, या npm से इंस्टॉल करें",
   "settings.credentials.payments.setup.paymentInProgress":
     "एक भुगतान अभी जारी है। उसके पूरा होने के बाद डिस्कनेक्ट करें।",
+  "settings.credentials.payments.setup.force.title": "फिर भी डिस्कनेक्ट करें?",
+  "settings.credentials.payments.setup.force.body":
+    "अभी जारी है: {payments}। फिर भी डिस्कनेक्ट करने पर Psyche उसे वहीं रद्द करता है जहाँ Link अनुमति देता है और उसे भूल जाता है। व्यापारी के पास का होल्ड अपने आप समाप्त हो जाता है, और Psyche उसकी रिपोर्ट नहीं कर पाएगा।",
+  "settings.credentials.payments.setup.force.go": "फिर भी डिस्कनेक्ट करें",
   "settings.credentials.payments.noMethods":
     "आपके Link वॉलेट में कोई भुगतान विधि नहीं है। Link ऐप में एक जोड़ें।",
   "settings.credentials.payments.methods": "Link भुगतान विधियाँ",

@@ -1322,6 +1322,10 @@ export const de: Partial<Catalogue> = {
     "es ist Voltas Shim; nimm den Ordner des Link-CLI unter Volta oder installiere es mit npm",
   "settings.credentials.payments.setup.paymentInProgress":
     "Eine Zahlung läuft noch. Trenne die Verbindung, sobald sie abgeschlossen ist.",
+  "settings.credentials.payments.setup.force.title": "Trotzdem trennen?",
+  "settings.credentials.payments.setup.force.body":
+    "Läuft noch: {payments}. Wenn du trotzdem trennst, storniert Psyche die Zahlung, soweit Link es erlaubt, und vergisst sie. Eine Reservierung beim Händler verfällt von selbst, und Psyche kann sie nicht mehr melden.",
+  "settings.credentials.payments.setup.force.go": "Trotzdem trennen",
   "settings.credentials.payments.noMethods":
     "Dein Link-Wallet hat keine Zahlungsmethoden. Füge eine in der Link-App hinzu.",
   "settings.credentials.payments.methods": "Link-Zahlungsmethoden",

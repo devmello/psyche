@@ -2660,7 +2660,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Signs out of Link (best effort at Link, then deletes the auth file in the vault folder) and forgets the saved CLI. Narrowing, so admin only. Side-effecting.",
+        "description": "Signs out of Link (best effort at Link, then deletes the auth file in the vault folder) and forgets the saved CLI. Fails conflict (details.reason payment_in_progress, with the merchants) while a payment is open, unless force is true, which gives those payments up and is audited. Narrowing, so admin only. Side-effecting.",
         "name": "payments.link.disconnect",
         "params": "#/$defs/PaymentsLinkDisconnectParams",
         "result": "#/$defs/LinkSetupStatus",
@@ -33389,7 +33389,11 @@
       "type": "object"
     },
     "PaymentsLinkDisconnectParams": {
-      "properties": {},
+      "properties": {
+        "force": {
+          "type": "boolean"
+        }
+      },
       "type": "object"
     },
     "PaymentsLinkSignInParams": {

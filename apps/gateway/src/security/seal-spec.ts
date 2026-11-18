@@ -49,6 +49,7 @@ const INTERNAL_SEALED = new Set([
   "_presence.helperKeys",
   "_lan.networks",
   "_payments.linkCli",
+  "_payments.linkAbandonedBefore",
 ]);
 
 /** `mcp.servers` carries each server's trust tier, sandbox and launch command. */

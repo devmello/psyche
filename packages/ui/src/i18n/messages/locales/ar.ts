@@ -1345,6 +1345,10 @@ export const ar: Partial<Catalogue> = {
     "إنه shim الخاص بـ Volta؛ استخدم مجلد Link CLI داخل Volta أو ثبّته باستخدام npm",
   "settings.credentials.payments.setup.paymentInProgress":
     "لا تزال هناك عملية دفع قيد التنفيذ. افصل الاتصال بعد انتهائها.",
+  "settings.credentials.payments.setup.force.title": "هل تريد فصل الاتصال على أي حال؟",
+  "settings.credentials.payments.setup.force.body":
+    "لا يزال قيد التنفيذ: {payments}. إذا فصلت الاتصال على أي حال، فسيلغيه Psyche حيثما يسمح Link وينساه. ينتهي الحجز لدى التاجر من تلقاء نفسه ولن يتمكن Psyche من الإبلاغ عنه بعد ذلك.",
+  "settings.credentials.payments.setup.force.go": "فصل الاتصال على أي حال",
   "settings.credentials.payments.noMethods":
     "لا تحوي محفظة Link لديك أي طرق دفع. أضف واحدة في تطبيق Link.",
   "settings.credentials.payments.methods": "طرق الدفع في Link",

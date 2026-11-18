@@ -17,7 +17,8 @@ export interface LinkSetupView {
   status: LinkSetupStatus;
   onConnect: (path: string) => Promise<void>;
   onSignIn: () => Promise<void>;
-  onDisconnect: () => Promise<void>;
+  /** `force` gives up payments still open (only after a plain disconnect was refused). */
+  onDisconnect: (force?: boolean) => Promise<void>;
   /** Looks for the CLI again (after the owner installed it). */
   onRecheck: () => void;
 }
@@ -84,8 +85,8 @@ export function useLinkSetupActions(reload: () => void): Omit<LinkSetupView, "st
       await call("payments.link.signIn", {});
       reload();
     },
-    onDisconnect: async () => {
-      await call("payments.link.disconnect", {});
+    onDisconnect: async (force) => {
+      await call("payments.link.disconnect", force === true ? { force: true } : {});
       reload();
     },
     onRecheck: reload,
@@ -97,14 +98,19 @@ type Busy = "connect" | "signIn" | "disconnect" | null;
 function useAction() {
   const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState<string | null>(null);
-  const run = (what: Exclude<Busy, null>, fn: () => Promise<void>) => {
+  /** `handled` may take an error over (returns true); otherwise it is shown. */
+  const run = (
+    what: Exclude<Busy, null>,
+    fn: () => Promise<void>,
+    handled?: (err: unknown) => boolean,
+  ) => {
     setBusy(what);
     setError(null);
     fn().then(
       () => setBusy(null),
       (err: unknown) => {
         setBusy(null);
-        setError(setupErrorText(err));
+        if (handled?.(err) !== true) setError(setupErrorText(err));
       },
     );
   };
@@ -152,16 +158,31 @@ function EnvNote({ status }: { status: LinkSetupStatus }): ReactElement | null {
   ) : null;
 }
 
-/** Disconnect with a confirmation: it deletes the saved sign-in and the CLI path. */
+/** The merchants of payments still open, when the Gateway refused a disconnect for them. */
+export function openPaymentsOf(err: unknown): string[] | null {
+  const d = (err as { details?: { reason?: unknown; payments?: unknown } } | null)?.details;
+  if (d?.reason !== "payment_in_progress") return null;
+  return Array.isArray(d.payments)
+    ? d.payments
+        .map((p) => (p as { merchantName?: unknown } | null)?.merchantName)
+        .filter((n): n is string => typeof n === "string" && n !== "")
+    : [];
+}
+
+/**
+ * Disconnect with a confirmation: it deletes the saved sign-in and the CLI path. If a payment is
+ * still open the Gateway refuses, and only then is "Disconnect anyway" offered, naming the payment.
+ */
 export function DisconnectLink({
   onDisconnect,
   label,
 }: {
-  onDisconnect: () => Promise<void>;
+  onDisconnect: (force?: boolean) => Promise<void>;
   label?: string;
 }): ReactElement {
   const { busy, error, run } = useAction();
   const [confirming, setConfirming] = useState(false);
+  const [open, setOpen] = useState<string[] | null>(null);
   if (!confirming) {
     return (
       <span className="flex flex-col gap-1.5">
@@ -172,6 +193,46 @@ export function DisconnectLink({
         </span>
         <Failure text={error} />
       </span>
+    );
+  }
+  if (open !== null && open.length > 0) {
+    return (
+      <section
+        aria-label={t("settings.credentials.payments.setup.force.title")}
+        className="flex flex-col gap-2 rounded-md border border-separator px-3 py-2"
+      >
+        <p className="text-callout font-medium text-label-primary">
+          {t("settings.credentials.payments.setup.force.title")}
+        </p>
+        <p role="alert" className="text-callout text-label-secondary">
+          {t("settings.credentials.payments.setup.force.body", { payments: open.join(", ") })}
+        </p>
+        <Failure text={error} />
+        <span className="flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            disabled={busy !== null}
+            onClick={() => run("disconnect", () => onDisconnect(true))}
+          >
+            {busy === "disconnect"
+              ? t("settings.credentials.payments.setup.disconnecting")
+              : t("settings.credentials.payments.setup.force.go")}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="plain"
+            disabled={busy !== null}
+            onClick={() => {
+              setOpen(null);
+              setConfirming(false);
+            }}
+          >
+            {t("settings.credentials.payments.setup.disconnectConfirm.cancel")}
+          </Button>
+        </span>
+      </section>
     );
   }
   return (
@@ -191,7 +252,18 @@ export function DisconnectLink({
           type="button"
           size="sm"
           disabled={busy !== null}
-          onClick={() => run("disconnect", onDisconnect)}
+          onClick={() =>
+            run(
+              "disconnect",
+              () => onDisconnect(),
+              (err) => {
+                const names = openPaymentsOf(err);
+                if (names === null || names.length === 0) return false;
+                setOpen(names);
+                return true;
+              },
+            )
+          }
         >
           {busy === "disconnect"
             ? t("settings.credentials.payments.setup.disconnecting")

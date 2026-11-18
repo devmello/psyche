@@ -1289,6 +1289,10 @@ export const ko: Partial<Catalogue> = {
     "Volta의 shim입니다. Volta 안의 Link CLI 폴더를 사용하거나 npm으로 설치하세요",
   "settings.credentials.payments.setup.paymentInProgress":
     "결제가 아직 진행 중입니다. 끝난 뒤에 연결을 해제하세요.",
+  "settings.credentials.payments.setup.force.title": "그래도 연결을 해제할까요?",
+  "settings.credentials.payments.setup.force.body":
+    "진행 중: {payments}. 그래도 해제하면 Psyche가 Link에서 허용하는 범위에서 취소하고 기록을 지웁니다. 가맹점의 보류는 저절로 만료되며 Psyche는 더 이상 보고할 수 없습니다.",
+  "settings.credentials.payments.setup.force.go": "그래도 해제",
   "settings.credentials.payments.noMethods":
     "Link 지갑에 결제 수단이 없습니다. Link 앱에서 추가하십시오.",
   "settings.credentials.payments.methods": "Link 결제 수단",

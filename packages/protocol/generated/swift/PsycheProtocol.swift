@@ -25278,6 +25278,19 @@ public struct PaymentsLinkConnectParams: Codable, Sendable {
     }
 }
 
+// MARK: - PaymentsLinkDisconnectParams
+public struct PaymentsLinkDisconnectParams: Codable, Sendable {
+    public let force: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case force = "force"
+    }
+
+    public init(force: Bool? = nil) {
+        self.force = force
+    }
+}
+
 // MARK: - PersonaUpdatedPayload
 public struct PersonaUpdatedPayload: Codable, Sendable {
     public let avatarRequested: Bool
@@ -37898,7 +37911,6 @@ public typealias NodesListParams = [String: JSONAny]
 public typealias PasskeysListParams = [String: JSONAny]
 public typealias PasskeysReauthBeginParams = [String: JSONAny]
 public typealias PasskeysRegisterBeginParams = [String: JSONAny]
-public typealias PaymentsLinkDisconnectParams = [String: JSONAny]
 public typealias PaymentsLinkSignInParams = [String: JSONAny]
 public typealias PaymentsLinkStatusParams = [String: JSONAny]
 public typealias SandboxListParams = [String: JSONAny]

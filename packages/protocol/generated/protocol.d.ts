@@ -8674,6 +8674,10 @@ export interface PaymentsLinkConnectParams {
     path:        string;
 }
 
+export interface PaymentsLinkDisconnectParams {
+    force?: boolean;
+}
+
 export interface PersonaUpdatedPayload {
     avatarRequested: boolean;
     changed:         string[];

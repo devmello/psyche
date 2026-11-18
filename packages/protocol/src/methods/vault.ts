@@ -212,11 +212,14 @@ export const VaultMethods = {
       "Starts Link's sign-in with the connected CLI and returns Link's own page (signIn.verificationUrl) and the phrase to compare. The owner signs in on that page; Psyche never sees a password. The Gateway watches for the result and publishes payments.link.changed. Side-effecting.",
   }),
   "payments.link.disconnect": defineMethod({
-    params: Type.Object({}),
+    params: Type.Object({
+      /** Give up payments still open (cancelled where Link allows) instead of refusing. */
+      force: Type.Optional(Type.Boolean()),
+    }),
     result: LinkSetupStatus,
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Signs out of Link (best effort at Link, then deletes the auth file in the vault folder) and forgets the saved CLI. Narrowing, so admin only. Side-effecting.",
+      "Signs out of Link (best effort at Link, then deletes the auth file in the vault folder) and forgets the saved CLI. Fails conflict (details.reason payment_in_progress, with the merchants) while a payment is open, unless force is true, which gives those payments up and is audited. Narrowing, so admin only. Side-effecting.",
   }),
 } as const;

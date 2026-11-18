@@ -23,9 +23,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import {
   checkLinkCliPath,
-  countOpenSpends,
   detectLinkClis,
   isLinkUrl,
+  openSpendsOf,
   parseLogin,
   type RunLink,
   runFile,
@@ -66,7 +66,9 @@ const a = process.argv.slice(2);
 const out = (o) => process.stdout.write(JSON.stringify([o]));
 if (a[0] === "auth" && a[1] === "login") {
   if (!a.includes("--no-financial-insights")) { process.stderr.write("${TOKEN}"); process.exit(3); }
-  out({ verification_url: "https://login.link.com/device?c=1", phrase: "blue-otter-moon", device_code: "${DEVICE_CODE}" });
+  out(fs.existsSync(file + ".nophrase")
+    ? { verification_url: "https://login.link.com/device?c=1", device_code: "${DEVICE_CODE}" }
+    : { verification_url: "https://login.link.com/device?c=1", phrase: "blue-otter-moon", device_code: "${DEVICE_CODE}" });
 } else if (a[0] === "auth" && a[1] === "status") {
   if (fs.existsSync(file + ".approve") && !fs.existsSync(file)) fs.writeFileSync(file, JSON.stringify({ access_token: "${TOKEN}" }), { mode: 0o644 });
   out({ authenticated: fs.existsSync(file) });
@@ -166,6 +168,35 @@ describe("checkLinkCliPath", () => {
     expect(checkLinkCliPath(outside, { psycheHome: home })).toMatchObject({ ok: true });
   });
 
+  it("finds Psyche's folder under another spelling: by identity, not by string", () => {
+    // A firmlink or case-insensitive spelling is another path to the same folder, one a string
+    // comparison does not recognise: model it by making the package's folder report the identity
+    // of `$PSYCHE_HOME`, while the path itself shares no prefix with it.
+    const home = tmp("psyche-home-");
+    const script = fakeCli();
+    const packageRoot = statRealpath(join(script, "..", ".."));
+    const homeId = statSync(home, { bigint: true });
+    const statDir = (p: string) =>
+      p === packageRoot ? { dev: homeId.dev, ino: homeId.ino } : statSync(p, { bigint: true });
+    expect(checkLinkCliPath(script, { psycheHome: home })).toMatchObject({ ok: true });
+    expect(checkLinkCliPath(script, { psycheHome: home, statDir })).toEqual({
+      ok: false,
+      reason: "in_psyche_home",
+    });
+  });
+
+  it("refuses an upper-cased spelling of Psyche's folder where the disk ignores case", () => {
+    const home = tmp("psyche-home-");
+    const planted = fakeCli("js", join(home, "workspace", "x"));
+    const shouty = statRealpath(planted).toUpperCase();
+    // Only a case-insensitive filesystem (APFS by default) resolves the other spelling.
+    if (!existsSync(shouty)) return;
+    expect(checkLinkCliPath(shouty, { psycheHome: home })).toEqual({
+      ok: false,
+      reason: "in_psyche_home",
+    });
+  });
+
   it("runs only scripts of the @stripe/link-cli package, and `.mjs` and `.cjs` count as scripts", () => {
     // A user-owned script on its own, or in some other package, is not the Link CLI.
     const lone = join(tmp("psyche-lone-"), "x.js");
@@ -180,10 +211,54 @@ describe("checkLinkCliPath", () => {
       writeFileSync(join(real, "..", "..", "package.json"), "{}");
       expect(checkLinkCliPath(real)).toEqual({ ok: false, reason: "not_link_cli" });
     }
-    // A program (not a script) needs no package, only its execute bit.
+    // A native program is not the Link CLI, whatever its execute bit says: `sh auth status` or
+    // `env auth status` would run another program named `auth`.
     const bin = join(tmp("psyche-exe-"), "link-cli");
     writeFileSync(bin, "#!/bin/sh\n", { mode: 0o755 });
-    expect(checkLinkCliPath(bin)).toMatchObject({ ok: true });
+    expect(checkLinkCliPath(bin)).toEqual({ ok: false, reason: "not_link_cli" });
+  });
+
+  it.each(["/bin/sh", "/usr/bin/env"])("refuses %s as the Link CLI", (path) => {
+    if (!existsSync(path)) return;
+    expect(checkLinkCliPath(path)).toEqual({ ok: false, reason: "not_link_cli" });
+  });
+
+  describe("a pnpm or npm shim", () => {
+    const shim = (target: string) =>
+      `#!/bin/sh\nbasedir=$(dirname "$(echo "$0" | sed -e 's,\\,/,g')")\nif [ -x "$basedir/node" ]; then\n  exec "$basedir/node"  "$basedir/${target}" "$@"\nelse\n  exec node  "$basedir/${target}" "$@"\nfi\n`;
+
+    it("passes when its target is a script of the package, and returns the script", () => {
+      const pnpm = tmp("psyche-pnpm-");
+      const script = fakeCli(
+        "js",
+        join(pnpm, "global", "5", "node_modules", "@stripe", "link-cli"),
+      );
+      writeFileSync(
+        join(pnpm, "link-cli"),
+        shim("global/5/node_modules/@stripe/link-cli/dist/cli.js"),
+        { mode: 0o755 },
+      );
+      expect(checkLinkCliPath(join(pnpm, "link-cli"))).toEqual({
+        ok: true,
+        real: statRealpath(script),
+      });
+    });
+
+    it("is refused when its target is not such a script", () => {
+      const pnpm = tmp("psyche-pnpm-");
+      writeFileSync(join(pnpm, "other.js"), "1", { mode: 0o644 });
+      for (const target of ["other.js", "../../../bin/sh", "missing.js"]) {
+        writeFileSync(join(pnpm, "link-cli"), shim(target), { mode: 0o755 });
+        const r = checkLinkCliPath(join(pnpm, "link-cli"));
+        expect(r.ok, target).toBe(false);
+      }
+      // An ordinary shell script is not a shim.
+      writeFileSync(join(pnpm, "link-cli"), '#!/bin/sh\nexec /bin/sh "$@"\n', { mode: 0o755 });
+      expect(checkLinkCliPath(join(pnpm, "link-cli"))).toEqual({
+        ok: false,
+        reason: "not_link_cli",
+      });
+    });
   });
 
   it("refuses Volta's shim, which runs whichever tool its own name says", () => {
@@ -252,13 +327,12 @@ describe("Link's sign-in page", () => {
         JSON.stringify({ ...url, user_code: "WXYZ-1234", device_code: DEVICE_CODE, phrase: "a-b" }),
       ),
     ).toEqual({ url: "https://login.link.com/d", phrase: "a-b" });
-    // Keys that merely contain "code" are not phrases.
+    // Keys that merely contain "code" are not phrases, and without a phrase there is nothing to
+    // compare on Link's page: the sign-in is not started.
     for (const key of ["device_code", "verification_code", "code", "deviceCode"]) {
-      expect(parseLogin(JSON.stringify({ ...url, [key]: DEVICE_CODE }))).toEqual({
-        url: "https://login.link.com/d",
-        phrase: "",
-      });
+      expect(parseLogin(JSON.stringify({ ...url, [key]: DEVICE_CODE }))).toBeUndefined();
     }
+    expect(parseLogin(JSON.stringify({ ...url, phrase: "" }))).toBeUndefined();
   });
 });
 
@@ -275,22 +349,32 @@ describe("the JSON the CLI prints", () => {
 
 describe("open spends", () => {
   const now = Date.parse("2026-11-18T12:00:00Z");
-  const iso = (msAgo: number) => new Date(now - msAgo).toISOString();
   const spend = (status: string, state: string, msAgo: number) => ({
+    spendRequestId: "lsrq_x",
+    merchantName: "Shop",
+    merchantHost: "shop.example",
     status,
     payment: { state },
-    createdAt: iso(msAgo),
+    createdAt: now - msAgo,
   });
   it.each([
     ["waiting for approval", spend("pending_approval", "none", 60_000), 1],
     ["approved, card out, nothing settled", spend("approved", "none", 60_000), 1],
     ["a hold", spend("succeeded", "held", 60_000), 1],
+    ["a hold that was cancelled", spend("canceled", "held", 60_000), 0],
+    ["a hold older than a week", spend("succeeded", "held", 8 * 86_400_000), 0],
     ["finished", spend("succeeded", "captured", 60_000), 0],
     ["failed", spend("failed", "none", 60_000), 0],
     ["a stale waiting record", spend("pending_approval", "none", 3 * 3_600_000), 0],
   ])("%s", (_n, p, open) => {
-    const broker = { list: () => [p] } as never;
-    expect(countOpenSpends(broker, now)).toBe(open);
+    expect(openSpendsOf([p], now)).toHaveLength(open);
+  });
+
+  it("ignores what a forced disconnect gave up", () => {
+    expect(openSpendsOf([spend("pending_approval", "none", 60_000)], now, now)).toHaveLength(0);
+    expect(
+      openSpendsOf([spend("pending_approval", "none", 60_000)], now, now - 120_000),
+    ).toHaveLength(1);
   });
 });
 
@@ -301,7 +385,7 @@ describe("guided setup in the composed Gateway", () => {
     presence?: PresenceVerifier;
     run?: RunLink;
     /** Spend records on disk before the Gateway starts: [id, status, age in ms]. */
-    spends?: [string, string, number][];
+    spends?: [string, string, number, string?][];
   }
 
   async function boot(cli: string, extra: BootOptions = {}) {
@@ -313,7 +397,7 @@ describe("guided setup in the composed Gateway", () => {
     if (extra.spends) {
       const dir = join(home, "vault", "payments");
       mkdirSync(dir, { recursive: true, mode: 0o700 });
-      for (const [id, status, age] of extra.spends)
+      for (const [id, status, age, state] of extra.spends)
         writeFileSync(
           join(dir, `${id}.json`),
           JSON.stringify({
@@ -328,7 +412,7 @@ describe("guided setup in the composed Gateway", () => {
             approvalUrl: null,
             card: null,
             fundingSource: null,
-            payment: { state: "none", held: 0, captured: 0, refunded: 0, refs: {} },
+            payment: { state: state ?? "none", held: 0, captured: 0, refunded: 0, refs: {} },
             createdAt: Date.now() - age,
             revealedAt: null,
           }),
@@ -438,6 +522,21 @@ describe("guided setup in the composed Gateway", () => {
     expect(late.error).toMatchObject({ details: { reason: "payments_not_configured" } });
   });
 
+  it("does not start a sign-in without a phrase to compare", async () => {
+    const cli = fakeCli();
+    const { home, admin } = await bootAdmin(cli);
+    await admin.call("payments.link.connect", { path: cli }, "k-c");
+    writeFileSync(join(home, "vault", "link-auth.json.nophrase"), "");
+    const res = await admin.request("payments.link.signIn", {}, "k-s");
+    expect(res.error).toMatchObject({
+      code: "unavailable",
+      details: { reason: "link_signin_unreadable" },
+    });
+    expect((await admin.call<LinkSetupStatus>("payments.link.status", {})).state).toBe(
+      "signed_out",
+    );
+  });
+
   it("runs a `.mjs` CLI with node, which the wallet alone would start as a program", async () => {
     const cli = fakeCli("mjs");
     const { admin } = await bootAdmin(cli);
@@ -544,6 +643,91 @@ describe("guided setup in the composed Gateway", () => {
       const st = await admin.call<LinkSetupStatus>("payments.link.status", {});
       expect(st.cli).toEqual({ path: statRealpath(cli), source: "saved" });
       expect(existsSync(join(home, "vault", "payments", "lsrq_open1.json"))).toBe(true);
+    });
+
+    it("sees a hold that is older than the 200 newest records", async () => {
+      const cli = fakeCli();
+      const newer: [string, string, number][] = Array.from({ length: 205 }, (_, i) => [
+        `lsrq_done${i}`,
+        "succeeded",
+        1_000 + i,
+      ]);
+      const { admin } = await bootAdmin(cli, {
+        spends: [["lsrq_hold1", "succeeded", 3 * 86_400_000, "held"], ...newer],
+      });
+      await admin.call("payments.link.connect", { path: cli }, "k-c");
+      const res = await admin.request("payments.link.disconnect", {}, "k-d");
+      expect(res.error).toMatchObject({
+        code: "conflict",
+        details: { reason: "payment_in_progress" },
+      });
+    });
+
+    it("names the open payment in the refusal", async () => {
+      const cli = fakeCli();
+      const { admin } = await bootAdmin(cli, {
+        spends: [["lsrq_open2", "pending_approval", 1_000]],
+      });
+      await admin.call("payments.link.connect", { path: cli }, "k-c");
+      const res = await admin.request("payments.link.disconnect", {}, "k-d");
+      expect(res.error).toMatchObject({
+        details: { open: 1, payments: [{ merchantName: "Shop", merchantHost: "shop.example" }] },
+      });
+    });
+
+    it("`force` gives the open payments up, audits it, and they no longer block", async () => {
+      const cli = fakeCli();
+      const { composed } = await boot(cli, {
+        spends: [["lsrq_hold2", "succeeded", 60_000, "held"]],
+      });
+      const device = await pairDevice(composed, "admin-force", [
+        "operator.read",
+        "operator.write",
+        "operator.approvals",
+        "operator.admin",
+      ]);
+      await device.call("payments.link.connect", { path: cli }, "k-c");
+      expect(await device.request("payments.link.disconnect", {}, "k-d1")).toMatchObject({
+        ok: false,
+        error: { code: "conflict" },
+      });
+      const gone = await device.call<LinkSetupStatus>(
+        "payments.link.disconnect",
+        { force: true },
+        "k-d2",
+      );
+      expect(gone.cli).toBeUndefined();
+      await waitFor(
+        async () =>
+          (await composed.audit.query({ kind: "payments.link_disconnect_forced" })).length > 0,
+      );
+      const entry = (await composed.audit.query({ kind: "payments.link_disconnect_forced" }))[0];
+      expect(entry?.actor).toMatchObject({ type: "device", deviceId: "admin-force" });
+      expect(entry?.data).toMatchObject({ open: "1", spends: "lsrq_hold2" });
+      // Connected again, the given-up hold is not an open payment.
+      await device.call("payments.link.connect", { path: cli }, "k-c2");
+      expect(await device.request("payments.link.disconnect", {}, "k-d3")).toMatchObject({
+        ok: true,
+      });
+    });
+
+    it("`force` is for admins only", async () => {
+      const cli = fakeCli();
+      const { composed } = await boot(cli, { spends: [["lsrq_open3", "pending_approval", 1_000]] });
+      const admin = await pairDevice(composed, "admin-x", [
+        "operator.read",
+        "operator.write",
+        "operator.approvals",
+        "operator.admin",
+      ]);
+      await admin.call("payments.link.connect", { path: cli }, "k-c");
+      const reader = await pairDevice(composed, "reader-x", ["operator.read", "operator.write"]);
+      const res = await reader.request("payments.link.disconnect", { force: true }, ik());
+      expect((res.error as { code?: string } | undefined)?.code).toBe("forbidden");
+      expect((await admin.call<LinkSetupStatus>("payments.link.status", {})).cli).toBeDefined();
+      expect(await composed.audit.query({ kind: "payments.link_disconnect_forced" })).toHaveLength(
+        0,
+      );
     });
 
     it("goes through when the spends are finished or stale", async () => {

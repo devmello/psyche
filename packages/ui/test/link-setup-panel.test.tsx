@@ -1,7 +1,8 @@
 import type { LinkSetupStatus } from "@psyche/protocol";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  DisconnectLink,
   isLinkPage,
   LinkSetupPanel,
   type LinkSetupView,
@@ -84,5 +85,44 @@ describe("why a path or a disconnect was refused", () => {
     expect(setupErrorText({ details: { reason: "payment_in_progress" } })).toBe(
       "A payment is still in progress. Disconnect once it has finished.",
     );
+  });
+});
+
+describe("disconnecting while a payment is open", () => {
+  const refused = Object.assign(new Error("conflict"), {
+    details: {
+      reason: "payment_in_progress",
+      open: 1,
+      payments: [{ merchantName: "Acme Books", merchantHost: "acme.example" }],
+    },
+  });
+
+  it("offers `Disconnect anyway` only after a plain disconnect was refused, and names the payment", async () => {
+    const calls: (boolean | undefined)[] = [];
+    const onDisconnect = vi.fn(async (force?: boolean) => {
+      calls.push(force);
+      if (force !== true) throw refused;
+    });
+    render(<DisconnectLink onDisconnect={onDisconnect} />);
+    expect(screen.queryByRole("button", { name: "Disconnect anyway" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    expect(screen.queryByRole("button", { name: "Disconnect anyway" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    const warning = await screen.findByRole("alert");
+    expect(warning.textContent).toContain("Acme Books");
+    expect(calls).toEqual([undefined]);
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect anyway" }));
+    await waitFor(() => expect(calls).toEqual([undefined, true]));
+  });
+
+  it("shows other failures as errors, without the force option", async () => {
+    const onDisconnect = vi.fn(async () => {
+      throw new Error("boom");
+    });
+    render(<DisconnectLink onDisconnect={onDisconnect} />);
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    expect(await screen.findByText(/That didn't work/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Disconnect anyway" })).toBeNull();
   });
 });

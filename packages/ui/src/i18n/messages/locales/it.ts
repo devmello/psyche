@@ -1289,6 +1289,10 @@ export const it: Partial<Catalogue> = {
     "è lo shim di Volta; usa la cartella della CLI di Link sotto Volta o installala con npm",
   "settings.credentials.payments.setup.paymentInProgress":
     "Un pagamento è ancora in corso. Disconnetti quando è finito.",
+  "settings.credentials.payments.setup.force.title": "Disconnettere comunque?",
+  "settings.credentials.payments.setup.force.body":
+    "Ancora in corso: {payments}. Se disconnetti comunque, Psyche lo annulla dove Link lo consente e lo dimentica. Un blocco presso il negozio scade da solo e Psyche non potrà più segnalarlo.",
+  "settings.credentials.payments.setup.force.go": "Disconnetti comunque",
   "settings.credentials.payments.noMethods":
     "Il tuo wallet Link non ha metodi di pagamento. Aggiungine uno nell’app Link.",
   "settings.credentials.payments.methods": "Metodi di pagamento Link",

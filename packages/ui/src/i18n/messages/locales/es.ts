@@ -1297,6 +1297,10 @@ export const es: Partial<Catalogue> = {
     "es el shim de Volta; usa la carpeta de la CLI de Link dentro de Volta o instálala con npm",
   "settings.credentials.payments.setup.paymentInProgress":
     "Hay un pago en curso. Desconecta cuando termine.",
+  "settings.credentials.payments.setup.force.title": "¿Desconectar de todos modos?",
+  "settings.credentials.payments.setup.force.body":
+    "Aún en curso: {payments}. Si desconectas de todos modos, Psyche lo cancela donde Link lo permita y lo olvida. Una retención en el comercio caduca sola y Psyche ya no podrá informar de ella.",
+  "settings.credentials.payments.setup.force.go": "Desconectar de todos modos",
   "settings.credentials.payments.noMethods":
     "Tu cartera Link no tiene métodos de pago. Añade uno en la app de Link.",
   "settings.credentials.payments.methods": "Métodos de pago de Link",
