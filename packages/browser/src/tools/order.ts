@@ -29,8 +29,10 @@ export interface OrderSummary {
   lineItemHash: string;
 }
 
+// The number is taken whole (digits, commas and dots) so a separator style we do not read is seen
+// as such, never cut to a shorter amount; `parseMoney` then accepts only unambiguous shapes.
 const MONEY =
-  /(?:US\$|[$€£¥₹]|\b(?:USD|EUR|GBP|JPY|INR|CAD|AUD)\b)\s?\d[\d,]*(?:\.\d{1,2})?|\d[\d,]*(?:\.\d{1,2})?\s?(?:€|\b(?:USD|EUR|GBP|JPY|INR|CAD|AUD)\b)/i;
+  /(?:US\$|CA\$|AU\$|C\$|A\$|[$€£¥₹]|\b(?:USD|EUR|GBP|JPY|INR|CAD|AUD)\b)\s?\d[\d,.]*|\d[\d,.]*\s?(?:€|\b(?:USD|EUR|GBP|JPY|INR|CAD|AUD)\b)/i;
 const TOTAL_LABEL =
   /^(?:order\s+total|grand\s+total|total(?:\s+due)?|amount\s+due|you\s+pay)\b\s*:?\s*/i;
 const NOT_ITEM =
@@ -39,6 +41,10 @@ const SELLER = /^(?:seller|sold\s+by|merchant|store)\b\s*:?\s*/i;
 const SYMBOLS: Record<string, string> = {
   $: "USD",
   US$: "USD",
+  CA$: "CAD",
+  C$: "CAD",
+  AU$: "AUD",
+  A$: "AUD",
   "€": "EUR",
   "£": "GBP",
   "¥": "JPY",
@@ -69,14 +75,22 @@ function parseLine(line: string): { depth: number; role: string; name?: string }
   return { depth: (m[1] ?? "").length, role: m[2] ?? "", ...(name === undefined ? {} : { name }) };
 }
 
-function parseMoney(total: string): { amount?: string; currency?: string } {
+/**
+ * Amount and ISO currency of a printed price, or `{}` when the amount is ambiguous. Only `1234`,
+ * `1,234` style groups of three and a `.` with one or two decimals are read: `12,00`, `1.299,00`,
+ * `1,2345` and the like are refused rather than guessed (a wrong guess is a 100x payment).
+ */
+export function parseMoney(total: string): { amount?: string; currency?: string } {
   const m = MONEY.exec(total);
   if (m === null) return {};
   const text = m[0];
-  const digits = /\d[\d,]*(?:\.\d{1,2})?/.exec(text)?.[0]?.replace(/,/g, "");
+  const token = /\d[\d,.]*/.exec(text)?.[0]?.replace(/[.,]+$/, "") ?? "";
+  const digits = /^(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?$/.test(token)
+    ? token.replace(/,/g, "")
+    : undefined;
   const code =
     /\b(USD|EUR|GBP|JPY|INR|CAD|AUD)\b/i.exec(text)?.[1]?.toUpperCase() ??
-    SYMBOLS[/US\$|[$€£¥₹]/.exec(text)?.[0] ?? ""];
+    SYMBOLS[/US\$|CA\$|AU\$|C\$|A\$|[$€£¥₹]/i.exec(text)?.[0]?.toUpperCase() ?? ""];
   return {
     ...(digits === undefined ? {} : { amount: digits }),
     ...(code === undefined ? {} : { currency: code }),

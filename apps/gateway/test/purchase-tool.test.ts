@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readOrder } from "@psyche/browser";
+import { parseMoney, readOrder } from "@psyche/browser";
 import { PsycheError } from "@psyche/protocol";
 import { toolCallBindingHash } from "@psyche/protocol/binding";
 import { type LinkWallet, PaymentBroker, SecretRedactor, type SpendRequest } from "@psyche/vault";
@@ -35,6 +35,7 @@ class Wallet implements LinkWallet {
   created = 0;
   expYear = 2031;
   deleteFile = false;
+  cancelled = 0;
   async spendLimits() {
     return { currency: "usd", perTransaction: null, daily: null, thirtyDay: null };
   }
@@ -72,12 +73,22 @@ class Wallet implements LinkWallet {
     return { ...r, card: { brand: "visa", last4: "4242", expMonth: 4, expYear: this.expYear } };
   }
   async cancel(): Promise<SpendRequest> {
+    this.cancelled += 1;
     return { ...(await this.retrieve()), status: "canceled" };
   }
   async report() {}
 }
 
-function setup(opts: { page?: () => string; origin?: () => string; after?: string } = {}) {
+function setup(
+  opts: {
+    page?: () => string;
+    snapshotText?: (n: number) => string;
+    origin?: () => string;
+    after?: string;
+    frameOrigin?: string;
+    disconnected?: boolean;
+  } = {},
+) {
   const home = mkdtempSync(join(tmpdir(), "psyche-pay-"));
   dirs.push(home);
   const wallet = new Wallet();
@@ -111,11 +122,16 @@ function setup(opts: { page?: () => string; origin?: () => string; after?: strin
   const typed: string[] = [];
   const page = opts.page ?? (() => PAGE("$12.00"));
   let clicked = false;
+  let snaps = 0;
+  const nextSnap = () => {
+    snaps += 1;
+    return snaps;
+  };
   const driver = {
     tabOrigin: () => (opts.origin ?? (() => ORIGIN))(),
     peekSnapshot: () => ({ text: page(), url: ORIGIN }),
     snapshot: async () => ({
-      text: page(),
+      text: opts.snapshotText === undefined ? page() : opts.snapshotText(nextSnap()),
       refs: [
         { ref: "r1", role: "textbox", name: "Card number" },
         { ref: "r2", role: "textbox", name: "Expiry" },
@@ -130,7 +146,7 @@ function setup(opts: { page?: () => string; origin?: () => string; after?: strin
       tag: "INPUT",
       inputType: "text",
       autocomplete: { r1: "cc-number", r2: "cc-exp", r3: "cc-csc" }[ref] ?? "",
-      frameOrigin: (opts.origin ?? (() => ORIGIN))(),
+      frameOrigin: opts.frameOrigin ?? (opts.origin ?? (() => ORIGIN))(),
       inForm: true,
       submits: false,
       secure: true,
@@ -143,14 +159,8 @@ function setup(opts: { page?: () => string; origin?: () => string; after?: strin
       _o: string,
       accepts: (e: never) => { ok: boolean },
     ) => {
-      expect(
-        accepts({
-          tagName: "input",
-          type: "text",
-          autocomplete: "x",
-          frameOrigin: ORIGIN,
-        } as never),
-      ).toBeDefined();
+      // The live-element check handed to the browser refuses a non-card element.
+      expect(accepts({ tagName: "div", frameOrigin: ORIGIN } as never).ok).toBe(false);
       await secret.use((v) => void typed.push(v));
     },
     click: async () => {
@@ -163,7 +173,7 @@ function setup(opts: { page?: () => string; origin?: () => string; after?: strin
   };
   const tool = createPurchaseTool({
     payments,
-    driver: () => driver as never,
+    driver: () => (opts.disconnected === true ? undefined : (driver as never)),
     ownsTab: async () => {},
     calls: { context: () => ({ approvalId: "ap1" }) } as never,
     approvals: { get: async (id) => approvals.get(id) as never },
@@ -183,7 +193,19 @@ function setup(opts: { page?: () => string; origin?: () => string; after?: strin
       kind: "purchase",
       requestedBy: { taskId: "task1" },
     });
-  return { tool, wallet, params, approve, typed, receipts, audits, payments, home };
+  return {
+    tool,
+    wallet,
+    params,
+    approve,
+    typed,
+    receipts,
+    audits,
+    payments,
+    home,
+    approvals,
+    redactor,
+  };
 }
 
 const run = (s: ReturnType<typeof setup>) =>
@@ -253,6 +275,130 @@ describe("checkout.pay_with_link", () => {
     const r = await run(s);
     expect(r.output).toMatchObject({ status: "unconfirmed" });
     expect(JSON.stringify(r)).not.toContain(PAN);
+  });
+
+  it.each([["$12,00"], ["12,50 €"], ["1.299,00 €"], ["$1,2345"]])(
+    "refuses the ambiguous total %s before any spend request",
+    async (total) => {
+      const s = setup({ page: () => PAGE(total) });
+      s.approve(total);
+      await expect(run(s)).rejects.toMatchObject({ details: { reason: "total_unreadable" } });
+      expect(s.wallet.created).toBe(0);
+    },
+  );
+
+  it("reads prefixed dollars as their own currency and shows the charged amount on the card", () => {
+    expect(parseMoney("CA$15.00")).toEqual({ amount: "15.00", currency: "CAD" });
+    expect(parseMoney("A$15.00")).toEqual({ amount: "15.00", currency: "AUD" });
+    expect(parseMoney("$1,299.50")).toEqual({ amount: "1299.50", currency: "USD" });
+    const s = setup();
+    const d = s.tool.describeCall?.(s.params);
+    expect(d?.summary).toContain("$12.00 (the page says $12.00)");
+    expect(d?.summary).toContain("shop.example");
+    expect(d?.bindingFields).toMatchObject({ amountMinor: 1200, currency: "USD" });
+  });
+
+  it("says when items could not be read", () => {
+    const s = setup({ page: () => '- text "Total: $12.00"' });
+    expect(s.tool.describeCall?.(s.params).summary).toContain("items not checked on this page");
+  });
+
+  it("refuses when the order changes between Link approval and fill, and cancels", async () => {
+    const s = setup({ snapshotText: (n) => PAGE(n === 1 ? "$12.00" : "$99.00") });
+    s.approve();
+    await expect(run(s)).rejects.toMatchObject({ details: { reason: "order_changed" } });
+    expect(s.typed).toEqual([]);
+    expect(s.wallet.cancelled).toBe(1);
+  });
+
+  it("refuses when the order changes between fill and click, and cancels", async () => {
+    const s = setup({ snapshotText: (n) => PAGE(n <= 2 ? "$12.00" : "$99.00") });
+    s.approve();
+    await expect(run(s)).rejects.toMatchObject({ details: { reason: "order_changed" } });
+    expect(s.wallet.cancelled).toBe(1);
+  });
+
+  it("ends the Link request when the merchant declines", async () => {
+    const s = setup({ after: "Your card was declined." });
+    s.approve();
+    await expect(run(s)).rejects.toMatchObject({ details: { reason: "payment_declined" } });
+    expect(s.wallet.cancelled).toBe(1);
+  });
+
+  it("records an unconfirmed receipt, not a capture, when the page never confirms", async () => {
+    const s = setup({ after: "Processing…" });
+    s.approve();
+    await run(s);
+    expect(JSON.stringify(s.receipts)).toContain("purchase.unconfirmed");
+    expect(JSON.stringify(s.receipts)).not.toContain('"kind":"purchase","outcome":"ok"');
+    expect(s.wallet.cancelled).toBe(1);
+  });
+
+  it("refuses a card field in another frame and an http checkout", async () => {
+    const frame = setup({ frameOrigin: "https://js.stripe.com" });
+    frame.approve();
+    await expect(run(frame)).rejects.toMatchObject({ details: { reason: "card_field_in_frame" } });
+    expect(frame.typed).toEqual([]);
+    expect(frame.wallet.cancelled).toBe(1);
+    const http = setup({ origin: () => "http://shop.example" });
+    http.approve();
+    await expect(run(http)).rejects.toBeInstanceOf(PsycheError);
+    expect(http.wallet.created).toBe(0);
+  });
+
+  it("fails when the browser is disconnected", async () => {
+    const s = setup({ disconnected: true });
+    s.approve();
+    await expect(run(s)).rejects.toMatchObject({ code: "unavailable" });
+    expect(s.wallet.created).toBe(0);
+  });
+
+  it("lets only one of two concurrent calls on one approval create a spend request", async () => {
+    const s = setup();
+    s.approve();
+    const [a, b] = await Promise.allSettled([run(s), run(s)]);
+    expect([a.status, b.status].sort()).toEqual(["fulfilled", "rejected"]);
+    expect(s.wallet.created).toBe(1);
+  });
+
+  it("masks the CVC and expiry while in flight, and fills only the exact approved host", async () => {
+    const s = setup();
+    s.approvals.set("ap2", {
+      bindingHash: "sha256:x",
+      scopeGranted: "once",
+      status: "approved",
+      kind: "purchase",
+      requestedBy: { taskId: "t" },
+    });
+    const spend = await s.payments.authorizeDispatched(
+      "ap2",
+      {
+        merchantName: "shop.example",
+        merchantUrl: ORIGIN,
+        amount: 1200,
+        currency: "usd",
+        lineItems: [{ name: "Order", quantity: 1, unitAmount: 1200 }],
+      },
+      "sha256:x",
+    );
+    await s.payments.awaitCard(spend.spendRequestId);
+    expect(s.redactor.redact(`code ${CVC} exp 04/31`)).not.toMatch(/737|04\/31/);
+    const el = {
+      tagName: "input",
+      type: "text",
+      autocomplete: "cc-number",
+      frameOrigin: "https://evil.shop.example",
+    };
+    await expect(
+      s.payments.cardSecret({
+        spendRequestId: spend.spendRequestId,
+        field: "number",
+        origin: "https://evil.shop.example",
+        element: el,
+      }),
+    ).rejects.toMatchObject({ details: { reason: "merchant_mismatch" } });
+    await s.payments.cancel(spend.spendRequestId);
+    expect(s.redactor.redact(`code ${CVC}`)).toContain(CVC);
   });
 
   it("reads minor units", () => {

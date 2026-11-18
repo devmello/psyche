@@ -317,6 +317,8 @@ export class PageController {
    * can bring the value back, so screenshots and recording frames stay suppressed there.
    */
   #filledDocs = new Set<string>();
+  /** Nodes a vault secret was typed into: masked in snapshots until the document changes. */
+  readonly #typedNodes = new Set<number>();
   /** Main-frame document requests since the current navigation started (0 = initial hop). */
   #docHops = 0;
 
@@ -427,6 +429,7 @@ export class PageController {
         this.#worlds.clear();
         this.#dialog = undefined;
         this.#setSecure(false);
+        this.#typedNodes.clear();
         this.#filledSinceNav = this.#filledDocs.has(documentKey(frame.url));
         this.refs.setDocument(`${this.#loaderId}|${this.#url}`);
         this.#docHops = 0;
@@ -957,6 +960,7 @@ export class PageController {
       fetchMs,
     };
     if (this.#o.redact !== undefined) input.redact = this.#o.redact;
+    input.maskNodes = this.#typedNodes;
     const snap = buildSnapshot(input);
     this.#needsSnapshot = false;
     this.#lastSnapshot = { text: snap.text, url: snap.url, loader: this.#loaderId };
@@ -1387,6 +1391,7 @@ export class PageController {
     const before = await check();
     this.#filledSinceNav = true;
     this.#filledDocs.add(documentKey(this.#url));
+    this.#typedNodes.add(e.backendNodeId);
     await secret.use(async (value) => {
       // Last look right before the value leaves (TM-28): agent in control, same document and
       // origin, the element still focused and still an acceptable field.

@@ -182,6 +182,8 @@ export interface SnapshotInput {
   options?: SnapshotOptions;
   /** Vault redaction of known secret values (CredentialBroker.redact). */
   redact?: (text: string) => string;
+  /** Nodes a secret was typed into: their values are masked like a password until navigation. */
+  maskNodes?: ReadonlySet<number>;
   fetchMs?: number;
 }
 
@@ -406,7 +408,9 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
       else if (v === "mixed") states.push(`${s}=mixed`);
       else if (s === "expanded" && (v === false || v === "false")) states.push("collapsed");
     }
-    const secure = meta?.secure ?? (info === undefined ? false : dom.isSecure(info));
+    const typedInto =
+      node.backendDOMNodeId !== undefined && input.maskNodes?.has(node.backendDOMNodeId) === true;
+    const secure = typedInto || (meta?.secure ?? (info === undefined ? false : dom.isSecure(info)));
     if (secure) states.push("secure");
     for (const s of states) line += ` [${s}]`;
     const rawValue = axString(node.value);

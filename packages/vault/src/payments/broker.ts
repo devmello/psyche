@@ -265,6 +265,7 @@ export class PaymentBroker {
   readonly #ledger = new Map<string, SpendRecord>();
   /** Approvals a spend request is being created for, so two concurrent calls cannot both pay. */
   readonly #claimed = new Set<string>();
+  readonly #shortSecrets = new Map<string, string[]>();
 
   constructor(options: PaymentBrokerOptions) {
     this.#o = options;
@@ -334,6 +335,12 @@ export class PaymentBroker {
     } finally {
       closeSync(fd);
     }
+  }
+
+  /** Stop masking this payment's short values (CVC, expiry) once the card is gone. */
+  #forget(spendRequestId: string): void {
+    for (const v of this.#shortSecrets.get(spendRequestId) ?? []) this.#o.redactor.remove(v);
+    this.#shortSecrets.delete(spendRequestId);
   }
 
   #cardPath(id: string): string {
@@ -608,6 +615,12 @@ export class PaymentBroker {
     const masked = await this.#o.wallet.revealCard(spendRequestId, path);
     const card = this.#readCard(path);
     for (const v of [card.number, card.cvc]) this.#o.redactor.add(v, { sticky: true });
+    // The short values (CVC, expiry) are masked wherever they appear while this payment is live;
+    // they are dropped again when it ends so they do not mask ordinary text forever.
+    const mm = String(card.expMonth).padStart(2, "0");
+    const short = [card.cvc, `${mm}/${String(card.expYear).slice(-2)}`, `${mm}/${card.expYear}`];
+    this.#shortSecrets.set(spendRequestId, short);
+    for (const v of short) this.#o.redactor.add(v, { sticky: true, force: true });
     rec.card = masked.card;
     rec.revealedAt = this.#clock.now();
     this.#save(rec);
@@ -688,10 +701,8 @@ export class PaymentBroker {
     }
     const url = new URL(origin);
     const host = url.host;
-    if (
-      url.protocol !== "https:" ||
-      (host !== rec.merchantHost && !host.endsWith(`.${rec.merchantHost}`))
-    ) {
+    // The exact approved host: a subdomain is another site (it may be a customer's page).
+    if (url.protocol !== "https:" || host !== rec.merchantHost) {
       return fail("policy_denied", "the checkout is not on the approved merchant's site", {
         reason: "merchant_mismatch",
       });
@@ -772,6 +783,7 @@ export class PaymentBroker {
     t.check?.(rec);
     // The card is needed only until the merchant authorizes it.
     shred(this.#cardPath(spendRequestId));
+    this.#forget(spendRequestId);
     if (t.report !== undefined) {
       await this.#o.wallet
         .report({
@@ -984,10 +996,61 @@ export class PaymentBroker {
     });
   }
 
-  /** The merchant declined the card; nothing was charged. */
+  /** The merchant declined the card; nothing was charged. The Link request is ended too. */
   decline(
     spendRequestId: string,
     r: { code?: string; toolCallId?: string; payload?: JsonObject } = {},
+  ): Promise<Receipt> {
+    return this.#decline(spendRequestId, r).then(async (receipt) => {
+      await this.#o.wallet.cancel(spendRequestId).catch(() => undefined);
+      return receipt;
+    });
+  }
+
+  /**
+   * The order was submitted but the merchant's page never confirmed it: money may have moved.
+   * Records an `unconfirmed` receipt (outcome failed, never `captured`), shreds the card and ends
+   * the Link request so the card cannot be used again. The owner checks with the merchant.
+   */
+  async unconfirmed(
+    spendRequestId: string,
+    r: { toolCallId?: string; payload?: JsonObject } = {},
+  ): Promise<Receipt> {
+    const receipt = await this.#transition(spendRequestId, {
+      from: ["none"],
+      to: "none",
+      kind: "purchase.unconfirmed",
+      outcome: "failed",
+      apply: (rec) => {
+        rec.status = "canceled";
+      },
+      summary: (rec) =>
+        `Submitted to ${rec.merchantName} but not confirmed; check the merchant's order page before paying again${this.#cardTail(rec)}`,
+      ...(r.toolCallId === undefined ? {} : { toolCallId: r.toolCallId }),
+      payload: { outcome: "unconfirmed", ...r.payload },
+    });
+    await this.#o.wallet.cancel(spendRequestId).catch(() => undefined);
+    return receipt;
+  }
+
+  /**
+   * At Gateway start: a card revealed but never completed (a crash, a restart mid-payment) is
+   * cancelled in Link and shredded. Returns how many.
+   */
+  async recoverOrphans(): Promise<number> {
+    let n = 0;
+    for (const rec of [...this.#ledger.values()]) {
+      if (rec.status === "approved" && rec.revealedAt !== null && rec.payment.state === "none") {
+        await this.cancel(rec.spendRequestId).catch(() => undefined);
+        n += 1;
+      }
+    }
+    return n;
+  }
+
+  #decline(
+    spendRequestId: string,
+    r: { code?: string; toolCallId?: string; payload?: JsonObject },
   ): Promise<Receipt> {
     return this.#transition(spendRequestId, {
       from: ["none", "held"],
@@ -1083,6 +1146,7 @@ export class PaymentBroker {
     const rec = this.#ledger.get(spendRequestId);
     if (rec === undefined) return fail("not_found", "unknown spend request");
     shred(this.#cardPath(spendRequestId));
+    this.#forget(spendRequestId);
     const sr = await this.#o.wallet.cancel(spendRequestId).catch(() => undefined);
     rec.status = sr?.status ?? "canceled";
     this.#save(rec);

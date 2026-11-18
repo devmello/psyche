@@ -38,6 +38,7 @@ export {
   orderBinding,
   orderStillMatches,
   orderSummary,
+  parseMoney,
   readOrder,
 } from "./tools/order.ts";
 export {

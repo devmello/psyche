@@ -2,6 +2,7 @@ import {
   type BrowserDriverEx,
   type ElementMeta,
   type OrderSummary,
+  parseMoney,
   readOrder,
 } from "@psyche/browser";
 import {
@@ -89,44 +90,56 @@ export function toMinor(amount: string, currency: string): number | undefined {
   return Number.isSafeInteger(n) ? n : undefined;
 }
 
-/** What the card binds: the tab's origin, the amount and currency, the items and the source. */
+/** The total as Link will charge it: minor units from the unambiguous printed amount, or undefined. */
+export function moneyOf(order: OrderSummary): { minor: number; currency: string } | undefined {
+  if (order.amount === undefined || order.currency === undefined) return undefined;
+  const minor = toMinor(order.amount, order.currency);
+  return minor === undefined ? undefined : { minor, currency: order.currency };
+}
+
+/**
+ * What the card binds: the tab's origin, the minor-unit amount (not the page's string), currency,
+ * the seller if the page names one, the items read and the source.
+ */
 export function purchaseFields(order: OrderSummary) {
+  const money = moneyOf(order);
   return {
     merchantOrigin: order.merchantOrigin,
-    amount: order.amount ?? null,
-    currency: order.currency ?? null,
+    amountMinor: money?.minor ?? null,
+    currency: money?.currency ?? null,
+    seller: order.seller ?? null,
     lineItemHash: order.lineItemHash,
     paymentSource: "stripe_link",
   };
 }
 
 function inputOf(order: OrderSummary, test: boolean): PurchaseInput {
-  const currency = order.currency?.toLowerCase();
-  const amount =
-    order.amount === undefined || order.currency === undefined
-      ? undefined
-      : toMinor(order.amount, order.currency);
-  if (currency === undefined || amount === undefined) {
+  const money = moneyOf(order);
+  if (money === undefined) {
     throw new PsycheError("conflict", "the checkout total could not be read; ask the owner", {
       details: { reason: "total_unreadable" },
     });
   }
   const priced = order.items.flatMap((i) => {
-    const m = i.price === undefined ? undefined : /\d[\d,]*(?:\.\d{1,3})?/.exec(i.price)?.[0];
-    const unit = m === undefined ? undefined : toMinor(m.replace(/,/g, ""), order.currency ?? "");
+    const p = i.price === undefined ? {} : parseMoney(i.price);
+    const unit =
+      p.amount === undefined || p.currency !== money.currency
+        ? undefined
+        : toMinor(p.amount, money.currency);
     return unit === undefined ? [] : [{ name: i.name, quantity: 1, unitAmount: unit }];
   });
   const sum = priced.reduce((n, li) => n + li.unitAmount, 0);
   const lineItems =
-    priced.length > 0 && sum <= amount
+    priced.length > 0 && sum <= money.minor
       ? priced
-      : [{ name: "Order", quantity: 1, unitAmount: amount }];
+      : [{ name: "Order", quantity: 1, unitAmount: money.minor }];
+  // The merchant is the tab's host, which is bound; the page's own name is never sent to Link.
   const host = new URL(order.merchantOrigin).host;
   return {
-    merchantName: order.seller ?? host,
+    merchantName: host,
     merchantUrl: order.merchantOrigin,
-    amount,
-    currency,
+    amount: money.minor,
+    currency: money.currency.toLowerCase(),
     lineItems,
     ...(test ? { test: true } : {}),
   };
@@ -180,16 +193,28 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
     }
     const order = readOrder(d.peekSnapshot(tabId)?.text ?? "", origin);
     const host = new URL(origin).host;
-    const total = order.total ?? "an amount the page does not show";
+    // The amount is the one Link will charge, in the currency's own format; the page's words
+    // sit beside it. An unreadable total is shown as such and the tool will refuse it.
+    const money = moneyOf(order);
+    const said = order.total ?? "nothing";
+    const total =
+      money === undefined
+        ? `an amount that could not be read (the page says ${said})`
+        : `${formatAmount(money.minor, money.currency)} (the page says ${said})`;
+    const items = order.items.length === 0 ? "; items not checked on this page" : "";
+    const seller =
+      order.seller === undefined ? "" : ` (the page says the seller is "${order.seller}")`;
     return {
       kind: "purchase",
       sideEffect: "financial",
       target: { kind: "origin", value: origin },
-      summary: `Pay ${total} to ${order.seller ?? host} (${host}) with Stripe Link (one-time card), as shown on the page`,
+      summary: `Pay ${total} to ${host}${seller} with Stripe Link (one-time card)${items}`,
       details: {
-        merchant: order.seller ?? host,
+        merchant: host,
         merchantHost: host,
-        total: order.total ?? null,
+        total: money === undefined ? null : formatAmount(money.minor, money.currency),
+        pageTotal: order.total ?? null,
+        itemsChecked: order.items.length > 0,
         lineItems: order.items.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })),
         paymentSource: "Stripe Link (one-time card)",
         requiresAuthentication: true,
@@ -317,27 +342,30 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
         await deps.payments.cancel(id).catch(() => undefined);
         throw err;
       }
-      await d.wait(tabId, { kind: "timeout", ms: deps.settleMs ?? 5000 }).catch(() => undefined);
-      const text = deps.redactor.redact((await d.readText(tabId).catch(() => ({ text: "" }))).text);
-      const page = text.slice(0, 20_000);
+      // The merchant's answer: poll up to settleMs for a confirmation or a decline.
+      const deadline = Date.now() + (deps.settleMs ?? 20_000);
+      let page = "";
+      for (;;) {
+        page = deps.redactor
+          .redact((await d.readText(tabId).catch(() => ({ text: "" }))).text)
+          .slice(0, 20_000);
+        if (CONFIRMED.test(page) || DECLINED.test(page) || Date.now() >= deadline) break;
+        await d
+          .wait(tabId, { kind: "timeout", ms: Math.min(2000, Math.max(0, deadline - Date.now())) })
+          .catch(() => undefined);
+      }
       if (DECLINED.test(page) && !CONFIRMED.test(page)) {
-        await deps.payments.complete(id, {
-          outcome: "blocked",
-          tags: ["payment_declined"],
-          toolCallId: callId,
-        });
+        await deps.payments.decline(id, { code: "card_declined", toolCallId: callId });
         throw new PsycheError(
           "unavailable",
           "the merchant declined the card; nothing was charged",
-          {
-            details: { reason: "payment_declined" },
-          },
+          { details: { reason: "payment_declined" } },
         );
       }
       const ref = CONFIRMED.test(page) ? ORDER_REF.exec(page)?.[1] : undefined;
       if (!CONFIRMED.test(page)) {
-        // Unknown outcome: end the Link request so the card cannot be used again, and say so.
-        await deps.payments.cancel(id).catch(() => undefined);
+        // Money may have moved: a receipt says so, the Link request ends, the owner checks.
+        const receipt = await deps.payments.unconfirmed(id, { toolCallId: callId });
         return {
           output: {
             status: "unconfirmed",
@@ -345,9 +373,10 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
             total: formatAmount(input.amount, input.currency.toUpperCase()),
             paidWith: { method: "stripe_link", brand: card.card?.brand, last4: card.card?.last4 },
             linkSpendRequestId: id,
-            note: "The order was submitted but the page did not confirm it. Do not pay again; ask the owner to check the merchant's order page.",
+            note: "The order was submitted but the page did not confirm it, so it may have gone through. Do not pay again; tell the owner to check the merchant's order page or email.",
           },
           provenance: "untrusted",
+          receiptId: receipt.id,
         };
       }
       const receipt = await deps.payments.complete(id, {

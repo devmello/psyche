@@ -97,6 +97,8 @@ export function composePayments(
         unsubscribe = payments.onUpdate((payment) =>
           services.publish("vault.payment.updated", { payment }),
         );
+        // A card revealed but never completed (a crash mid-payment) is ended in Link and shredded.
+        void payments.recoverOrphans().catch(() => undefined);
         sweep();
         timer = setInterval(sweep, setup.sweepMs ?? SWEEP_MS);
         timer.unref?.();
