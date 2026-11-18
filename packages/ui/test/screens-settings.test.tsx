@@ -956,14 +956,13 @@ describe("Data controls", () => {
 });
 
 describe("Persona", () => {
-  it("picks a bundled creature and records a described change", async () => {
-    const { gateway } = setup({ defaultSection: "persona" });
-    await userEvent.click(await screen.findByRole("radio", { name: "Owl" }));
-    await waitFor(() => expect(settingValue(gateway(), "persona.creatureId")).toBe("owl"));
-    await userEvent.type(screen.getByLabelText("Describe a change"), "a tiny scarf");
-    await userEvent.click(screen.getByRole("button", { name: "Apply change" }));
-    await waitFor(() => expect(settingValue(gateway(), "persona.creature")).toBe("a tiny scarf"));
-    expect(screen.getByRole("status").textContent).toMatch(/Saved your description/);
+  // The creature picker and "Describe a change" saved to settings keys nothing reads, so the page
+  // no longer offers them; the name and look come from IDENTITY.md (settings-wiring covers the keys).
+  it("offers no creature picker or described change", async () => {
+    setup({ defaultSection: "persona" });
+    await screen.findByRole("heading", { level: 2 });
+    expect(screen.queryByRole("radio", { name: "Owl" })).toBeNull();
+    expect(screen.queryByLabelText("Describe a change")).toBeNull();
   });
 });
 

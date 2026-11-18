@@ -1,12 +1,8 @@
 import { Radio as RadioPrimitive } from "@base-ui/react/radio";
-import { Pencil } from "lucide-react";
-import { type ReactElement, useId, useState } from "react";
+import { type ReactElement, useId } from "react";
 import { Avatar } from "../../avatar/Avatar.tsx";
 import { CREATURES, getCreature } from "../../avatar/creatures/index.tsx";
-import { Button } from "../../components/ui/button.tsx";
-import { Label } from "../../components/ui/label.tsx";
 import { RadioGroup } from "../../components/ui/radio-group.tsx";
-import { Textarea } from "../../components/ui/textarea.tsx";
 import { t } from "../../i18n/core.ts";
 import { usePersona } from "../../slots.tsx";
 import {
@@ -16,11 +12,8 @@ import {
   LoadGate,
   type LoadProps,
   SectionFrame,
-  SettingHint,
   type SettingsFormProps,
   SwitchField,
-  str,
-  TextSetting,
   useSettingsForm,
 } from "./shared.tsx";
 
@@ -84,40 +77,19 @@ export function PersonaPanel({
   values,
   onChange,
   needsApproval,
-  onDescribeChange,
-  hasImageModel = false,
   loading,
   error,
   onRetry,
 }: PersonaPanelProps): ReactElement {
+  // The name and look come from IDENTITY.md (the `persona` slot). The name, tagline, emoji and
+  // creature fields used to save to settings keys nothing reads, so they are not shown (#dead-controls).
   const fallback = usePersona();
-  const name = str(values, "persona.name", fallback.name);
-  const creatureId = str(values, "persona.creatureId", fallback.creature);
-  const tagline = str(values, "persona.tagline", "");
-  const emoji = str(values, "persona.emoji", "");
-  const description = str(values, "persona.creature", "");
-  const [change, setChange] = useState("");
-  const [sent, setSent] = useState<string | null>(null);
-  const changeId = useId();
-
-  const submitChange = async () => {
-    const text = change.trim();
-    if (text === "") return;
-    if (onDescribeChange) await onDescribeChange(text);
-    else onChange("persona.creature", text);
-    setChange("");
-    setSent(
-      hasImageModel
-        ? t("settings.persona.redrawn", { name })
-        : t("settings.persona.savedForLater", { name }),
-    );
-  };
 
   return (
     <SectionFrame
       needsApproval={needsApproval}
       title={t("settings.persona.title")}
-      description={t("settings.persona.description", { name })}
+      description={t("settings.persona.description", { name: fallback.name })}
     >
       <LoadGate
         label={t("settings.persona.loadLabel")}
@@ -125,93 +97,10 @@ export function PersonaPanel({
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <div className="flex flex-wrap items-center gap-4 rounded-lg border border-gray-6 bg-gray-2 p-4">
-          <Avatar name={name} creature={creatureId} size={64} />
-          <div className="min-w-0 flex-1">
-            <p className="text-lg font-semibold">
-              {emoji ? `${emoji} ` : ""}
-              {name}
-            </p>
-            {tagline ? <p className="text-sm text-muted-foreground">{tagline}</p> : null}
-            {description ? (
-              <p className="mt-1 text-callout text-muted-foreground">
-                {t("settings.persona.describedAs", { description })}
-              </p>
-            ) : null}
-          </div>
+        <div className="flex items-center gap-4 rounded-lg border border-gray-6 bg-gray-2 p-4">
+          <Avatar name={fallback.name} creature={fallback.creature} size={64} />
+          <p className="text-lg font-semibold">{fallback.name}</p>
         </div>
-
-        <Group
-          title={t("settings.persona.identity")}
-          description={t("settings.persona.identityHint")}
-        >
-          <TextSetting
-            label={t("settings.key.persona.name")}
-            value={name}
-            maxLength={40}
-            settingKey="persona.name"
-            onCommit={(v) => onChange("persona.name", v === "" ? "Psyche" : v)}
-          />
-          <TextSetting
-            label={t("settings.key.persona.tagline")}
-            value={tagline}
-            maxLength={120}
-            placeholder={t("settings.persona.taglinePlaceholder")}
-            settingKey="persona.tagline"
-            onCommit={(v) => onChange("persona.tagline", v)}
-          />
-          <TextSetting
-            label={t("settings.key.persona.emoji")}
-            description={t("settings.persona.emojiHint")}
-            value={emoji}
-            maxLength={8}
-            settingKey="persona.emoji"
-            onCommit={(v) => onChange("persona.emoji", v)}
-          />
-        </Group>
-
-        <Group title={t("settings.persona.avatar")} description={t("settings.persona.avatarHint")}>
-          <CreaturePicker
-            value={creatureId}
-            personaName={name}
-            onChange={(v) => onChange("persona.creatureId", v)}
-          />
-          <SettingHint settingKey="persona.creatureId" />
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={changeId} className="gap-1.5">
-              <Pencil className="size-3.5" aria-hidden="true" />
-              {t("settings.persona.describeChange")}
-            </Label>
-            <p id={`${changeId}-desc`} className="text-callout text-muted-foreground">
-              {hasImageModel
-                ? t("settings.persona.describeHint")
-                : t("settings.persona.describeHintNoModel")}
-            </p>
-            <Textarea
-              id={changeId}
-              aria-describedby={`${changeId}-desc`}
-              value={change}
-              onChange={(e) => setChange(e.target.value)}
-              className="max-w-lg"
-            />
-            <div>
-              <Button
-                type="button"
-                size="sm"
-                disabled={change.trim() === ""}
-                onClick={() => void submitChange()}
-              >
-                {t("settings.persona.apply")}
-              </Button>
-            </div>
-            <SettingHint settingKey="persona.creature" />
-            {sent ? (
-              <p className="text-callout text-success-text" role="status">
-                {sent}
-              </p>
-            ) : null}
-          </div>
-        </Group>
 
         <Group
           title={t("settings.persona.whileWorking")}
@@ -219,7 +108,7 @@ export function PersonaPanel({
         >
           <SwitchField
             label={t("settings.key.agent.showReasoning")}
-            description={t("settings.persona.showReasoningHint", { persona: name })}
+            description={t("settings.persona.showReasoningHint", { persona: fallback.name })}
             checked={bool(values, "agent.showReasoning", true)}
             settingKey="agent.showReasoning"
             onChange={(v) => onChange("agent.showReasoning", v)}

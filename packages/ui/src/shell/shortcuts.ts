@@ -14,7 +14,6 @@ export type ShortcutId =
   | "toggleThreadList"
   | "compactSidebar"
   | "cycleThreads"
-  | "forkSelection"
   | "stop"
   | "cycleDisclosure"
   | "browserPane"
@@ -104,16 +103,6 @@ export const SHORTCUTS: readonly Shortcut[] = [
       return t("shell.shortcut.cycleThreads");
     },
     match: (e) => e.ctrlKey && e.key === "Tab",
-  },
-  {
-    id: "forkSelection",
-    get keys() {
-      return keysLabel("Mod+;");
-    },
-    get label() {
-      return t("shell.shortcut.forkSelection");
-    },
-    match: (e, m) => mod(e, m) && e.key === ";",
   },
   {
     id: "stop",

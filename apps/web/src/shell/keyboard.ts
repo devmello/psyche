@@ -24,7 +24,6 @@ export type ShortcutAction =
   | "toggleThreadList"
   | "toggleCompactSidebar"
   | "cycleThreads"
-  | "forkSelection"
   | "stop"
   | "cycleDisclosure"
   | "openBrowserPane"
@@ -108,14 +107,6 @@ const BASE_SHORTCUTS: readonly Shortcut[] = [
     chord: { key: "Tab", ctrl: true },
     scope: "app",
     inText: true,
-  },
-  {
-    action: "forkSelection",
-    get label() {
-      return t("web.shortcut.forkSelection");
-    },
-    chord: { key: ";", mod: true },
-    scope: "app",
   },
   {
     action: "stop",

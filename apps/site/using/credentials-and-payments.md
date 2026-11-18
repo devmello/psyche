@@ -83,7 +83,7 @@ The design covers finding a cheaper flight, holding it behind one purchase card,
 - **Holds, captures and refunds through Link are exercised only by the test scenarios,** in Link's test mode. Settings shows your Link wallet read only.
 - **Travel booking is not available.** The hold, ticket and cancel tools exist only in the test scenarios, against made-up airlines.
 - There is no button to set up the vault outside onboarding, and confirming that you saved the recovery key later is not possible.
-- "Where credentials are kept" and "Fill default" in Settings are saved but not used yet. "Move to Keychain" is disabled on unsigned builds.
+- "Move to Keychain" is disabled on unsigned builds.
 - Bitwarden and the system keychain as credential stores are not available.
 
 ## Learn more
