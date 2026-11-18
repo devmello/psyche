@@ -331,6 +331,19 @@ const NOT_FINANCIAL_QUALIFIERS = [
   "yugioh",
   "magic",
 ];
+/** Message buses by name, whole words only: "airbus" and "trading_bus" are not one. */
+const BUS_TOKENS = new Set([
+  "eventbus",
+  "servicebus",
+  "omnibus",
+  "messagebus",
+  "msgbus",
+  "databus",
+  "eventbridge",
+]);
+/** A tool verb that trades whatever the server calls itself. */
+const TRADE_ACTS = new Set(["buy", "sell", "order", "orders", "bet", "trade", "short", "swap"]);
+
 /**
  * A tool that only reads is not a trade, even on a brokerage's or an exchange's server: its first
  * word is one of these, it names what it reads, and no action word appears anywhere in it
@@ -441,9 +454,16 @@ export function isFinancialTransfer(tool: string): boolean {
   // and `alpaca-mcp-server` have the broker as one of their words.
   const compact = lower.replace(/[^a-z0-9]+/g, "");
   const tokens = toolWords(ns);
-  const qualified = tokens.some(
-    (t) => NOT_FINANCIAL_QUALIFIERS.includes(t) || (t.length > 3 && t.endsWith("bus")),
-  );
+  // The tool's own words, past the server name.
+  const own = tool.startsWith("mcp__")
+    ? tool.split("__").slice(2).join("_")
+    : tool.slice(ns.length);
+  const ownRaw = toolWords(own);
+  // A message bus or a card game is not a brokerage, but only while the tool does not trade:
+  // `trading_games_broker__buy` and `sports-trading__place_bet` still trade.
+  const trades = ownRaw.some((w) => TRADE_ACTS.has(w));
+  const qualified =
+    !trades && tokens.some((t) => NOT_FINANCIAL_QUALIFIERS.includes(t) || BUS_TOKENS.has(t));
   const financial =
     FINANCIAL_NAMESPACES.has(compact) ||
     tokens.some((t) => FINANCIAL_NAMESPACES.has(t)) ||
@@ -452,10 +472,7 @@ export function isFinancialTransfer(tool: string): boolean {
         tokens.some((t) => GENERIC_FINANCIAL_TOKENS.includes(t))));
   if (!financial) return false;
   // A quote, a balance or a list of rates moves nothing: only the tool's own words say so.
-  const own = tool.startsWith("mcp__")
-    ? tool.split("__").slice(2).join("_")
-    : tool.slice(ns.length);
-  const ownWords = withoutReadNouns(toolWords(own));
+  const ownWords = withoutReadNouns(ownRaw);
   const verb = ownWords[0];
   const reads =
     verb !== undefined &&

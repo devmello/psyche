@@ -452,8 +452,17 @@ const ARTICLES = new Set([
 const VENUE_MOVE_WORDS = new Set([
   "transfer",
   // "Approve 3 transfers", "Schedule transfers": a move word, except as a whole one-word label
-  // (a section or a tab) or after a word that makes it a list ("Recent transfers").
+  // (a section or a tab) or after a word that makes it a list ("Recent transfers"). The other
+  // languages' plurals are anchored the same way.
   "transfers",
+  "überweisungen",
+  "ueberweisungen",
+  "transferencias",
+  "transferências",
+  "virements",
+  "bonifici",
+  "trasferimenti",
+  "переводы",
   "wire",
   "withdraw",
   "withdrawal",
@@ -775,9 +784,117 @@ const LISTING_WORDS = new Set([
   "view",
   "see",
 ]);
-/** "Transfers" alone, or after nothing but listing words ("Recent transfers", "View all transfers"). */
+/** The plural move nouns: a list of moves as a label, the act only next to an act verb. */
+const PLURAL_MOVES = new Set([
+  "transfers",
+  "überweisungen",
+  "ueberweisungen",
+  "transferencias",
+  "transferências",
+  "virements",
+  "bonifici",
+  "trasferimenti",
+  "переводы",
+]);
+/** Listing words in the other shipped languages ("Alle Überweisungen", "Tous les virements"). */
+const LISTING_WORDS_INTL = new Set([
+  "alle",
+  "meine",
+  "letzte",
+  "geplante",
+  "todas",
+  "todos",
+  "mis",
+  "recientes",
+  "recentes",
+  "tous",
+  "toutes",
+  "mes",
+  "récents",
+  "tutti",
+  "tutte",
+  "miei",
+  "recenti",
+  "все",
+  "мои",
+  "le",
+  "la",
+  "les",
+  "las",
+  "los",
+  "i",
+  "gli",
+  "die",
+  "as",
+  "os",
+]);
+/**
+ * Verbs that make a label an act wherever they sit ("View & approve transfers", "All transfers:
+ * approve", "Alle Überweisungen freigeben"). A read verb first or a listing plural is excused only
+ * when none of these appears in the label.
+ */
+const ACT_VERBS = new Set([
+  "approve",
+  "release",
+  "submit",
+  "authorize",
+  "authorise",
+  "execute",
+  "confirm",
+  "send",
+  "pay",
+  "buy",
+  "sell",
+  "trade",
+  "swap",
+  "withdraw",
+  "freigeben",
+  "ausführen",
+  "ausfuehren",
+  "genehmigen",
+  "senden",
+  "aprobar",
+  "autorizar",
+  "ejecutar",
+  "enviar",
+  "aprovar",
+  "executar",
+  "valider",
+  "approuver",
+  "autoriser",
+  "exécuter",
+  "envoyer",
+  "approva",
+  "approvare",
+  "autorizza",
+  "esegui",
+  "invia",
+  "одобрить",
+  "отправить",
+]);
+
+/** Words that join a second act onto a label ("…and send now", "…then approve"). */
+const JOINERS = new Set([
+  "and",
+  "then",
+  "und",
+  "dann",
+  "y",
+  "luego",
+  "et",
+  "puis",
+  "e",
+  "poi",
+  "и",
+]);
+
+/** Trade verbs a read label names as a kind of thing ("View buy orders", "Check sell price"). */
+const TRADE_VERBS_READABLE = new Set(["buy", "sell", "trade", "swap"]);
+
+/** "Transfers" alone, or after nothing but listing words, with no act verb in the label. */
 function isListingPlural(words: readonly string[], i: number): boolean {
-  return words.slice(0, i).every((w) => LISTING_WORDS.has(w));
+  if (words.some((w) => ACT_VERBS.has(w))) return false;
+  return words.slice(0, i).every((w) => LISTING_WORDS.has(w) || LISTING_WORDS_INTL.has(w));
 }
 
 /** What a rewards site moves that is not money ("Transfer points to partners"). */
@@ -827,7 +944,10 @@ export function isTradeOrTransferText(
   if (
     ["get", "list", "view", "show", "see", "read", "check", "history", "quote", "preview"].includes(
       first,
-    )
+    ) &&
+    // A read verb first excuses the label unless an approval or a send follows it ("View &
+    // approve transfers"); "View buy orders" and "Check sell price" stay reads.
+    !words.slice(1).some((w) => ACT_VERBS.has(w) && !TRADE_VERBS_READABLE.has(w))
   )
     return false;
   const trades = (kind !== "p2p_mixed" || opts.tradePage === true) && opts.noTrade !== true;
@@ -854,7 +974,7 @@ export function isTradeOrTransferText(
     }
     if (VENUE_MOVE_WORDS.has(w)) {
       if (next !== undefined && MOVE_NOT_ACTION.has(next)) continue;
-      if (w === "transfers" && (opts.grouping === true || isListingPlural(words, i))) continue;
+      if (PLURAL_MOVES.has(w) && (opts.grouping === true || isListingPlural(words, i))) continue;
       // "Transfer points" on a bank's rewards site moves points, not money.
       // Points that go "to checking" become money in the bank: that still moves money.
       if (
@@ -874,7 +994,10 @@ export function isTradeOrTransferText(
       )
         continue;
       // A word alone is enough on a venue, but "deposit" and "send" in a long sentence are not.
-      if ((w === "deposit" || SEND_WORDS.has(w)) && words.length > 4) continue;
+      // ("Stop scheduled transfers and send now" still sends: after "and" or "then" it is the act.)
+      const before = i > 0 ? words[i - 1] : undefined;
+      const joinedAct = before !== undefined && JOINERS.has(before);
+      if ((w === "deposit" || SEND_WORDS.has(w)) && words.length > 4 && !joinedAct) continue;
       // Banks and brokerages take deposits (a check, a paycheck): not a transfer out.
       if (w === "deposit" && kind === "bank") continue;
       return true;
@@ -907,6 +1030,19 @@ export function isVenueFormAction(method: string | undefined, action: string | u
   if (VENUE_FORM_PATH.test(`/${last}`)) return true;
   return SUBMIT_SEG.test(last) && segs.slice(0, -1).some((s) => VENUE_FORM_PATH.test(`/${s}`));
 }
+
+/** Buttons that only move through pages: on the public site they read a product page. */
+const NEUTRAL_STEPS = new Set([
+  "next",
+  "continue",
+  "done",
+  "finish",
+  "weiter",
+  "continuar",
+  "continuer",
+  "continua",
+  "продолжить",
+]);
 
 /** A bare step button on a transfer or order page: "Confirm", "Submit", "Next", "Jetzt ausführen". */
 const CONFIRM_LABEL = new Set([
@@ -1047,6 +1183,10 @@ const ARTICLE_SEGMENTS = new Set([
 ]);
 /** The steps of a money flow: after a money word in a route they make it the flow itself. */
 const FLOW_WORDS = new Set([
+  "approve",
+  "release",
+  "send",
+  "pay",
   "confirm",
   "review",
   "verify",
@@ -1070,6 +1210,8 @@ const FLOW_WORDS = new Set([
 ]);
 /** Whole segments that are an app's own step: the send or trade screen, never a topic page. */
 const VERB_SEGMENTS = new Set(["send", "withdraw", "buy", "sell", "swap", "sendmoney"]);
+/** Words that may sit beside a flow word in a step segment ("send-now", "confirm-step"). */
+const STEP_FILLERS = new Set(["now", "step", "page", "screen", "1", "2", "3"]);
 /** A first path segment of a bank's public site: a product page, not the signed-in app. */
 const MARKETING_FIRST = new Set([
   "personal",
@@ -1203,14 +1345,19 @@ function isRewardsHost(input: string | undefined): boolean {
   return /^(?:ultimate)?(?:rewards?|points|travel)(?:points|portal|center)?$/.test(first);
 }
 
+/** Whether a label has a letter or a digit once invisible characters are gone. */
+const hasWord = (l: string): boolean => /[\p{L}\p{N}]/u.test(clean(l));
+
 /**
- * Whether a label has a word once invisible characters are gone: a digit, or two letters. A lone
- * letter ("x", "→ B") names nothing a person could check, so on a venue it is read as wordless.
+ * A label that is one letter and nothing else. On a brokerage or an exchange "B" or "S" can be a
+ * buy or sell key, and a single CJK character ("買") is a word: both are read as wordless there.
+ * A one-letter avatar on a bank ("J") is not.
  */
-const hasWord = (l: string): boolean => {
-  const t = clean(l);
-  return /\p{N}/u.test(t) || (t.match(/\p{L}/gu) ?? []).length >= 2;
-};
+function isLoneLetter(l: string, venue: VenueKind | undefined): boolean {
+  const t = clean(l).trim();
+  if ([...t].length !== 1 || !/\p{L}/u.test(t)) return false;
+  return venue === "brokerage" || venue === "exchange" || !/\p{Script=Latin}/u.test(t);
+}
 
 /**
  * Whether acting on this control is a trade or a transfer that no approval unlocks. Undefined
@@ -1301,7 +1448,7 @@ export function financialBlock(a: FinancialAction): FinancialBlock | undefined {
   // a field is clicked to type, and a tab or menu only groups screens.
   if (
     raw.length > 0 &&
-    !hasWord(raw[0] ?? "") &&
+    (!hasWord(raw[0] ?? "") || isLoneLetter(raw[0] ?? "", venue)) &&
     !CLOSE_GLYPHS.has(clean(raw[0] ?? "").trim()) &&
     !grouping &&
     !(a.role !== undefined && FIELD_ROLES.test(a.role))
@@ -1323,7 +1470,9 @@ export function financialBlock(a: FinancialAction): FinancialBlock | undefined {
     (ownText.length <= 8 && CONFIRM_CJK.some((w) => ownText.includes(w)));
   if (
     confirmLabel &&
-    [a.pageUrl, a.pageTitle, ...labels.slice(1)].some((c) => c !== undefined && pageSaysTransfer(c))
+    [a.pageUrl, a.pageTitle, ...labels.slice(1)].some(
+      (c) => c !== undefined && pageSaysTransfer(c, !ownWords.every((w) => NEUTRAL_STEPS.has(w))),
+    )
   ) {
     return { venue, matched: labels[0] ?? "" };
   }
@@ -1356,6 +1505,21 @@ export function looksLikeVenueStep(label: string | undefined): boolean {
 const DIALOG_LEAVES =
   /^(?:(?:leave|exit|close) (?:this |the )?(?:page|site|screen|form|window)|discard|stay on (?:this |the )?page|log out|sign out)\b/;
 
+/** What a discard dialog can throw away. */
+const DISCARDED_THINGS = new Set([
+  "transfer",
+  "transfers",
+  "payment",
+  "order",
+  "trade",
+  "wire",
+  "draft",
+  "changes",
+  "edits",
+]);
+/** The passive of a move in a dialog ("$500 will be transferred"). "Sent" is not here: a code is sent. */
+const PASSIVE_MOVES = new Set(["transferred", "wired", "withdrawn", "remitted", "überwiesen"]);
+
 /** What a leave or discard dialog says will be lost: never itself an act. */
 const LOSS_CLAUSES: readonly RegExp[] = [
   /\b(?:your|the|this|any|all)? ?(?:[\p{L}\p{N}]+ ){0,3}(?:won t|wont|will not|isn t|is not|aren t|are not) (?:be )?(?:saved|kept|sent|submitted|finished)\b/gu,
@@ -1380,13 +1544,22 @@ function dialogSaysAct(text: string, kind: VenueKind): boolean {
     ? withoutLossClauses(joined.replace(DIALOG_LEAVES, " "))
     : joined;
   const words = wordsOf(rest);
+  // "Discard this transfer?": what is discarded is not an act; anything more ("…and send $500") is.
+  if (
+    /^discard\b/.test(joined) &&
+    words.every((w) => SKIP_BETWEEN.has(w) || DISCARDED_THINGS.has(w))
+  ) {
+    return false;
+  }
+  // "$500 will be transferred": the passive of a move.
+  if (words.some((w) => PASSIVE_MOVES.has(w))) return true;
   const cjk = plain.replace(CJK_NOT_ACT, " ");
   if (VENUE_CJK.some((w) => cjk.includes(w))) return true;
   return words.some((w, i) => {
     const next = nextWord(words, i);
     if (VENUE_TRADE_WORDS.has(w)) return !(next !== undefined && TRADE_NOT_ACTION.has(next));
     if (!VENUE_MOVE_WORDS.has(w) || (w === "deposit" && kind === "bank")) return false;
-    if (w === "transfers" && isListingPlural(words, i)) return false;
+    if (PLURAL_MOVES.has(w) && isListingPlural(words, i)) return false;
     if (next !== undefined && MOVE_NOT_ACTION.has(next)) return false;
     return !(SEND_WORDS.has(w) && next !== undefined && SEND_NOT_ACTION.has(next));
   });
@@ -1402,7 +1575,7 @@ function segmentWords(seg: string): string[] {
 }
 
 /** Whether an address's path (or hash route), or a part of a title, says a transfer or a trade. */
-function pageSaysTransfer(text: string): boolean {
+function pageSaysTransfer(text: string, strongStep = false): boolean {
   let route: string | undefined;
   let hashRoute = "";
   let host = "";
@@ -1450,7 +1623,17 @@ function pageSaysTransfer(text: string): boolean {
     // A step of the flow after the money word, as a whole segment ("/transfers/confirm",
     // "#/transfer/new"), is the flow wherever it sits, even under "/support/" or "/help#/". A
     // word inside an article's slug ("new-features", "how-to-add-a-recipient") is not a step.
-    if (hits.some((i) => segs.slice(i + 1).some((seg) => FLOW_WORDS.has(bare(seg))))) return true;
+    // A segment made only of flow words ("send-now", "confirm-step") is a step too.
+    const step = (seg: string) => {
+      const w = segmentWords(bare(seg));
+      return (
+        FLOW_WORDS.has(bare(seg)) ||
+        (w.length > 0 &&
+          w.some((x) => FLOW_WORDS.has(x)) &&
+          w.every((x) => FLOW_WORDS.has(x) || STEP_FILLERS.has(x)))
+      );
+    };
+    if (hits.some((i) => segs.slice(i + 1).some(step))) return true;
     // An app verb as a whole segment ("/send", "#/send", "/withdraw") is the app, not a topic.
     if (segs.some((seg) => VERB_SEGMENTS.has(bare(seg)))) return true;
     // Otherwise an article, help or marketing page names a topic ("/personal/transfers-explained"):
@@ -1458,8 +1641,12 @@ function pageSaysTransfer(text: string): boolean {
     // (the apex or www host), never on a signed-in host (secure., app., online.).
     const publicHost = isPublicHost(host);
     const article = lowers.some((x) => ARTICLE_SEGMENTS.has(x));
+    // A strong step ("Submit", "Confirm", "Approve") on a money path of the public site still acts;
+    // only a neutral "Next" or "Continue" there reads a product page.
     const marketing =
-      publicHost && (MARKETING_FIRST.has(lowers[0] ?? "") || LOCALE_SEGMENT.test(lowers[0] ?? ""));
+      !strongStep &&
+      publicHost &&
+      (MARKETING_FIRST.has(lowers[0] ?? "") || LOCALE_SEGMENT.test(lowers[0] ?? ""));
     return !(article || marketing);
   }
   // "Chase | Transfer money", "Capital One - Transfer Money": each part of the title.
@@ -1475,10 +1662,10 @@ const TITLE_TOPIC = new Set(["vs", "versus", "in", "home", "house", "car", "prop
 /** The bank's public site: the apex host or www, not a signed-in host such as secure. or app. */
 function isPublicHost(host: string): boolean {
   if (host === "") return false;
-  const labels = host.replace(/^www\./, "").split(".");
-  if (labels.length <= 2) return true;
-  // A two-part public suffix: "wise.co.uk", "nubank.com.br".
-  return labels.length === 3 && (labels[1] ?? "").length <= 3 && (labels[2] ?? "").length <= 3;
+  // Exactly a listed domain or "www." plus it: `secure.pnc.com`, `banking.ing.de` and
+  // `olb.rbc.com` are signed-in hosts, whatever the length of the bank's name.
+  const bare = host.replace(/^www\./, "");
+  return Object.values(HOST_VENUES).some((list) => list.includes(bare));
 }
 
 /** A first segment that only names a language or a country ("/en/", "/en-us/", "/us/"). */

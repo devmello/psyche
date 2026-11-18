@@ -662,6 +662,122 @@ const MUST_BLOCK: [string, FinancialAction][] = [
     "lone letter x on a brokerage",
     { origin: "https://robinhood.com", labels: ["x"], role: "button" },
   ],
+  // review round 5: signed-in hosts of short-named banks are not the public site
+  [
+    "pnc secure /en/transfers Continue",
+    { pageUrl: "https://secure.pnc.com/en/transfers", labels: ["Continue"] },
+  ],
+  [
+    "ing banking /de/ueberweisung Weiter",
+    { pageUrl: "https://banking.ing.de/de/ueberweisung", labels: ["Weiter"] },
+  ],
+  [
+    "rbc olb /us/transfer Submit",
+    { pageUrl: "https://olb.rbc.com/us/transfer", labels: ["Submit"] },
+  ],
+  [
+    "m1 dashboard /personal/transfers Continue",
+    { pageUrl: "https://dashboard.m1.com/personal/transfers", labels: ["Continue"] },
+  ],
+  [
+    "key secure /business/wire Submit",
+    { pageUrl: "https://secure.key.com/business/wire", labels: ["Submit"] },
+  ],
+  [
+    "chase www /personal/transfers/zelle Submit (a strong step)",
+    { pageUrl: "https://www.chase.com/personal/transfers/zelle", labels: ["Submit"] },
+  ],
+  // a read verb first excuses nothing when an approval or a send follows
+  [
+    "View & approve transfers",
+    { origin: "https://app.mercury.com", labels: ["View & approve transfers"] },
+  ],
+  [
+    "See all transfers and approve",
+    { origin: "https://app.mercury.com", labels: ["See all transfers and approve"] },
+  ],
+  [
+    "View transfers to approve",
+    { origin: "https://app.mercury.com", labels: ["View transfers to approve"] },
+  ],
+  [
+    "All transfers: approve",
+    { origin: "https://app.mercury.com", labels: ["All transfers: approve"] },
+  ],
+  [
+    "Pending transfers - send now",
+    { origin: "https://app.mercury.com", labels: ["Pending transfers - send now"] },
+  ],
+  [
+    "Stop scheduled transfers and send now",
+    { origin: "https://app.mercury.com", labels: ["Stop scheduled transfers and send now"] },
+  ],
+  [
+    "Release my scheduled transfers",
+    { origin: "https://app.mercury.com", labels: ["Release my scheduled transfers"] },
+  ],
+  // other languages' plurals
+  [
+    "de Alle Überweisungen freigeben",
+    { origin: "https://www.commerzbank.de", labels: ["Alle Überweisungen freigeben"] },
+  ],
+  [
+    "de Überweisungen ausführen",
+    { origin: "https://www.commerzbank.de", labels: ["Überweisungen ausführen"] },
+  ],
+  [
+    "es Aprobar todas las transferencias",
+    { origin: "https://www.bbva.es", labels: ["Aprobar todas las transferencias"] },
+  ],
+  [
+    "fr Valider tous les virements",
+    { origin: "https://www.bnpparibas.com", labels: ["Valider tous les virements"] },
+  ],
+  [
+    "it Approva tutti i bonifici",
+    { origin: "https://www.hsbc.com", labels: ["Approva tutti i bonifici"] },
+  ],
+  [
+    "pt Aprovar todas as transferências",
+    { origin: "https://app.nubank.com.br", labels: ["Aprovar todas as transferências"] },
+  ],
+  // flow steps under help and support routes
+  [
+    "mercury /support#/transfers/approve Approve",
+    { pageUrl: "https://app.mercury.com/support#/transfers/approve", labels: ["Approve"] },
+  ],
+  [
+    "chase /help/transfers/send-now Confirm",
+    { pageUrl: "https://secure.chase.com/help/transfers/send-now", labels: ["Confirm"] },
+  ],
+  [
+    "chase #/transfer/confirm-step Confirm",
+    { pageUrl: "https://secure.chase.com/web/auth/#/transfer/confirm-step", labels: ["Confirm"] },
+  ],
+  // dialogs
+  [
+    "dialog Leave this page? $500 will be transferred.",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["Leave this page? $500 will be transferred."],
+      role: "dialog",
+    },
+  ],
+  [
+    "dialog Discard draft and send $500?",
+    { origin: "https://venmo.com", labels: ["Discard draft and send $500?"], role: "dialog" },
+  ],
+  [
+    "dialog Discard unsaved changes and transfer anyway?",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["Discard unsaved changes and transfer anyway?"],
+      role: "dialog",
+    },
+  ],
+  // one letter where it can be a key
+  ["brokerage B button", { origin: "https://robinhood.com", labels: ["B"], role: "button" }],
+  ["single CJK 買 on a bank", { origin: "https://www.smbc.co.jp", labels: ["買"], role: "button" }],
 ];
 
 const MUST_NOT_BLOCK: [string, FinancialAction][] = [
@@ -1100,6 +1216,56 @@ const MUST_NOT_BLOCK: [string, FinancialAction][] = [
     },
   ],
   ["robinhood pagination 2", { origin: "https://robinhood.com", labels: ["2"], role: "button" }],
+  // review round 5
+  ["mercury Recent transfers", { origin: "https://app.mercury.com", labels: ["Recent transfers"] }],
+  [
+    "mercury Show pending transfers",
+    { origin: "https://app.mercury.com", labels: ["Show pending transfers"] },
+  ],
+  [
+    "mercury Stop all transfers",
+    { origin: "https://app.mercury.com", labels: ["Stop all transfers"] },
+  ],
+  ["mercury See my transfers", { origin: "https://app.mercury.com", labels: ["See my transfers"] }],
+  [
+    "mercury Upcoming transfers",
+    { origin: "https://app.mercury.com", labels: ["Upcoming transfers"] },
+  ],
+  [
+    "mercury Your recent transfers",
+    { origin: "https://app.mercury.com", labels: ["Your recent transfers"] },
+  ],
+  [
+    "de Überweisungen (a section)",
+    { origin: "https://www.commerzbank.de", labels: ["Überweisungen"] },
+  ],
+  [
+    "de Alle Überweisungen (a list)",
+    { origin: "https://www.commerzbank.de", labels: ["Alle Überweisungen"] },
+  ],
+  [
+    "fr Mes virements (a list)",
+    { origin: "https://www.bnpparibas.com", labels: ["Mes virements"] },
+  ],
+  ["robinhood View buy orders", { origin: "https://robinhood.com", labels: ["View buy orders"] }],
+  [
+    "dialog Discard this transfer?",
+    { origin: "https://secure.chase.com", labels: ["Discard this transfer?"], role: "dialog" },
+  ],
+  [
+    "dialog Leave this page? Changes to your transfer will be lost.",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["Leave this page? Changes to your transfer will be lost."],
+      role: "dialog",
+    },
+  ],
+  ["chase www /en/zelle Next", { pageUrl: "https://www.chase.com/en/zelle", labels: ["Next"] }],
+  [
+    "wise /gb/send-money/ Continue",
+    { pageUrl: "https://wise.com/gb/send-money/", labels: ["Continue"] },
+  ],
+  ["chase avatar J", { origin: "https://www.chase.com", labels: ["J"], role: "button" }],
 ];
 
 describe("financialBlock: must block", () => {

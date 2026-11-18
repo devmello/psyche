@@ -463,6 +463,35 @@ const MUST_BLOCK: Row[] = [
     tool: "mcp__ccxt__fetch_balance_and_withdraw",
     sideEffect: "write",
   },
+  // review round 5 (#1321): browser rows at the broker
+  browser("secure.pnc.com", "Continue", { pageUrl: "https://secure.pnc.com/en/transfers" }),
+  browser("banking.ing.de", "Weiter", { pageUrl: "https://banking.ing.de/de/ueberweisung" }),
+  browser("olb.rbc.com", "Submit", { pageUrl: "https://olb.rbc.com/us/transfer" }),
+  browser("secure.key.com", "Submit", { pageUrl: "https://secure.key.com/business/wire" }),
+  browser("app.mercury.com", "View & approve transfers"),
+  browser("app.mercury.com", "See all transfers and approve"),
+  browser("www.commerzbank.de", "Alle Überweisungen freigeben"),
+  browser("www.bbva.es", "Aprobar todas las transferencias"),
+  browser("www.bnpparibas.com", "Valider tous les virements"),
+  browser("www.hsbc.com", "Approva tutti i bonifici"),
+  browser("app.mercury.com", "Approve", {
+    pageUrl: "https://app.mercury.com/support#/transfers/approve",
+  }),
+  {
+    name: "round 5: mcp__airbus_trading__place_order",
+    tool: "mcp__airbus_trading__place_order",
+    sideEffect: "write",
+  },
+  {
+    name: "round 5: mcp__trading_games_broker__buy",
+    tool: "mcp__trading_games_broker__buy",
+    sideEffect: "write",
+  },
+  {
+    name: "round 5: mcp__cards_trading__buy_stock",
+    tool: "mcp__cards_trading__buy_stock",
+    sideEffect: "write",
+  },
   computer("com.robinhood.macos", "", { unreadable: true }),
   computer("com.google.Chrome", "Buy bitcoin"),
 ];
@@ -704,6 +733,32 @@ const MUST_NOT_BLOCK: Row[] = [
   {
     name: "round 4: mcp__ccxt__fetch_balance",
     tool: "mcp__ccxt__fetch_balance",
+    sideEffect: "write",
+  },
+  // review round 5 (#1321)
+  browser("app.mercury.com", "Stop all transfers"),
+  browser("app.mercury.com", "Your recent transfers"),
+  browser("wise.com", "Continue", { pageUrl: "https://wise.com/gb/send-money/" }),
+  browser("secure.chase.com", "Discard this transfer?", { role: "dialog" }),
+  browser("www.chase.com", "J", { role: "button" }),
+  {
+    name: "round 5: mcp__rabbitmq-broker__publish",
+    tool: "mcp__rabbitmq-broker__publish",
+    sideEffect: "write",
+  },
+  {
+    name: "round 5: mcp__eventbus_broker__publish",
+    tool: "mcp__eventbus_broker__publish",
+    sideEffect: "write",
+  },
+  {
+    name: "round 5: mcp__omnibus_broker__send",
+    tool: "mcp__omnibus_broker__send",
+    sideEffect: "write",
+  },
+  {
+    name: "round 5: mcp__nats_broker__publish",
+    tool: "mcp__nats_broker__publish",
     sideEffect: "write",
   },
   computer("com.apple.mail", "", { unreadable: true }),
