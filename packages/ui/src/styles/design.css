@@ -515,13 +515,19 @@
   put it on the tokens: it rises on spring.smooth with an opacity fade over duration.medium, and
   leaves by fading at 0.7x without moving. Sonner's `height` and `box-shadow` transitions are
   dropped (§1.7). The selector is (0,3,0) so Sonner's runtime-injected stylesheet cannot win.
+  The stack offset still animates: Sonner positions every toast with `--y` (translateY of
+  `--offset`, `--lift` and `--toasts-before`) through `transform`, which stays in the list. What
+  now changes at once is the card height when the stack expands or collapses (§2.5).
 */
 [data-sonner-toaster] [data-sonner-toast][data-styled="true"] {
   transition-property: transform, opacity;
   transition-duration: var(--spring-smooth-duration), var(--duration-medium);
   transition-timing-function: var(--spring-smooth), var(--ease-enter);
 }
-[data-sonner-toaster] [data-sonner-toast][data-styled="true"][data-removed="true"] {
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"][data-removed="true"],
+[data-sonner-toaster]
+  [data-sonner-toast][data-styled="true"][data-removed="true"][data-front="false"][data-swipe-out="false"][data-expanded="false"] {
+  transition-property: transform, opacity;
   transition-duration: var(--duration-medium-exit), var(--duration-medium-exit);
   transition-timing-function: var(--ease-exit), var(--ease-exit);
 }

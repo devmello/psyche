@@ -96,32 +96,59 @@ describe("reduced motion swaps movement for opacity (docs/design/motion.md §7)"
   const reduced = (ui: React.ReactElement) =>
     render(<ThemeProvider settings={{ reduceMotion: true }}>{ui}</ThemeProvider>);
 
-  it("the sidebar and pane columns fade in place instead of sliding", () => {
-    const { container } = reduced(
-      <>
-        <SidebarPresence open testId="side">
+  // Each moment is rendered twice: with motion it must carry the movement (the positive control),
+  // and with reduced motion that same movement must be gone. A test that only checked the second
+  // would also pass when nothing is set at all.
+  const withMotion = (reduceMotion: boolean, ui: React.ReactElement) => (
+    <ThemeProvider settings={{ reduceMotion }}>{ui}</ThemeProvider>
+  );
+  const MOVES = /translate/;
+
+  it.each([
+    [
+      "the sidebar",
+      (open: boolean) => (
+        <SidebarPresence open={open} testId="moving">
           side
         </SidebarPresence>
-        <PanePresence testId="pane">pane</PanePresence>
-      </>,
-    );
-    const side = container.querySelector<HTMLElement>('[data-testid="side"]');
-    expect(side).not.toBeNull();
-    expect(side?.style.transform ?? "").not.toMatch(/translate/);
+      ),
+    ],
+    [
+      "a pane",
+      (open: boolean) => <PanePresence testId="moving">{open ? "pane" : null}</PanePresence>,
+    ],
+  ])("%s slides with motion and fades in place when reduced", (_name, make) => {
+    const seen: Record<string, { transform: string; opacity: string }> = {};
+    for (const reduceMotion of [false, true]) {
+      const view = render(withMotion(reduceMotion, make(false)));
+      view.rerender(withMotion(reduceMotion, make(true)));
+      const el = screen.getByTestId("moving");
+      seen[String(reduceMotion)] = { transform: el.style.transform, opacity: el.style.opacity };
+      view.unmount();
+    }
+    expect(seen.false?.transform).toMatch(MOVES);
+    expect(seen.true?.transform ?? "").not.toMatch(MOVES);
+    expect(seen.true?.opacity).toBe("0");
   });
 
-  it("a list item and a card enter without a rise", () => {
-    reduced(
-      <>
-        <ul>
-          <ListItem data-testid="row">row</ListItem>
-        </ul>
-        <FadeIn data-testid="card">card</FadeIn>
-      </>,
-    );
+  it("a list item and a card rise with motion and enter without a rise when reduced", () => {
+    const rises = /translateY\((?!0)/;
     for (const id of ["row", "card"]) {
-      const el = screen.getByTestId(id);
-      expect(el.style.transform).not.toMatch(/translateY\((?!0)/);
+      const ui = (
+        <>
+          <ul>
+            <ListItem data-testid="row">row</ListItem>
+          </ul>
+          <FadeIn data-testid="card">card</FadeIn>
+        </>
+      );
+      const full = render(withMotion(false, ui));
+      expect(screen.getByTestId(id).style.transform).toMatch(rises);
+      full.unmount();
+      const still = render(withMotion(true, ui));
+      expect(screen.getByTestId(id).style.transform).not.toMatch(rises);
+      expect(screen.getByTestId(id).style.opacity).toBe("0");
+      still.unmount();
     }
   });
 
@@ -152,5 +179,32 @@ describe("reduced motion swaps movement for opacity (docs/design/motion.md §7)"
       /data-reduce-motion="true"\] \[data-sonner-toaster\][^{]*\{\s*transition-property: opacity/,
     );
     expect(toast).toMatch(/data-removed="true"\] \{\s*transform: var\(--y, none\) !important/);
+  });
+
+  it("the toast stack offset still animates through transform and removal is on the tokens", () => {
+    const css = readFileSync(join(PKG, "src/styles/design.css"), "utf8");
+    const toast = css.slice(css.indexOf("Toasts (motion.md"));
+    // Sonner positions every toast with `--y` through `transform`: it must stay in the list.
+    expect(toast).toMatch(
+      /\[data-styled="true"\] \{\s*transition-property: transform, opacity;[^}]*spring-smooth-duration/,
+    );
+    // A collapsed back toast has a more specific Sonner rule (transform .5s, opacity .2s): the
+    // removal rule must also match it, or its exit would keep Sonner's hand-typed times.
+    expect(toast).toMatch(
+      /\[data-removed="true"\]\[data-front="false"\]\[data-swipe-out="false"\]\[data-expanded="false"\][^{]*\{[^}]*duration-medium-exit/,
+    );
+  });
+
+  it("the working pulse follows the in-app reduce-motion setting, not only the OS one", () => {
+    const hits = walk(join(PKG, "src"))
+      .filter((f) => f.endsWith(".tsx"))
+      .filter((f) => /motion-safe:animate-psy-working/.test(readFileSync(f, "utf8")))
+      .map((f) => relative(PKG, f));
+    expect(hits).toEqual([]);
+    for (const f of ["src/blocks/ToolRun.tsx", "src/widgets/WidgetDraft.tsx"]) {
+      expect(readFileSync(join(PKG, f), "utf8")).toMatch(
+        /animate-psy-working reduced:animate-none/,
+      );
+    }
   });
 });

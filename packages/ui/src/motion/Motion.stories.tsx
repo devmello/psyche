@@ -34,6 +34,7 @@ import { ListItem, Presence } from "./primitives.tsx";
  * item to "reduced" to see each one swap movement for an opacity fade. Used for the before and
  * after recordings; it has no visual baseline because it animates on purpose.
  */
+// Dev-only story: its strings are demo labels, not product copy, so they are exempt from i18n.
 function Showcase() {
   const [rows, setRows] = useState([1, 2, 3]);
   const [next, setNext] = useState(4);

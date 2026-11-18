@@ -41,7 +41,7 @@ const statusLabel = (status: ToolCallStatus): string => t(`blocks.toolRun.status
 
 const STATUS_DOT: Record<ToolCallStatus, string> = {
   pending: "bg-gray-8",
-  running: "bg-accent-9 motion-safe:animate-psy-working",
+  running: "bg-accent-9 animate-psy-working reduced:animate-none",
   ok: "bg-success",
   failed: "bg-danger",
   uncertain: "bg-approval",
