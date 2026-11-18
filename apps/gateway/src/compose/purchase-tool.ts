@@ -1,0 +1,373 @@
+import {
+  type BrowserDriverEx,
+  type ElementMeta,
+  type OrderSummary,
+  readOrder,
+} from "@psyche/browser";
+import {
+  type ApprovalRequest,
+  PsycheError,
+  type ToolCallDescription,
+  type ToolRegistration,
+} from "@psyche/protocol";
+import { toolCallBindingHash } from "@psyche/protocol/binding";
+import {
+  type CardField,
+  cardFieldAccepts,
+  formatAmount,
+  type PaymentBroker,
+  type PurchaseInput,
+  type SecretRedactor,
+} from "@psyche/vault";
+import type { CallContexts } from "./call-context.ts";
+
+/**
+ * `checkout.pay_with_link`: the agent pays for the checkout open in one of its browser tabs with
+ * Stripe Link's one-time card (feature G12). Money moves only through this path:
+ *
+ * 1. The loop describes the call from the tab (origin from the tab, merchant / items / total as
+ *    the page shows them) and asks the owner on a device-only `purchase` card, `once`.
+ * 2. After the tap the tool re-reads the checkout and refuses unless the order is exactly what
+ *    the card bound (`order_changed`, `origin_changed`), then has the `PaymentBroker` create the
+ *    Link spend request, wait for the owner's approval in Link and write the card to a 0600 file.
+ * 3. Card fields are typed by the browser's `fillSecret` from handles the broker makes after its
+ *    own origin / frame / field checks. Values never reach this module as strings, the model, the
+ *    transcript, logs, audit or the receipt: only brand and last4 do.
+ * 4. The order is submitted and the page's answer decides the receipt: paid, declined or
+ *    unconfirmed (cancelled in Link, nothing recorded as captured).
+ */
+
+export const PURCHASE_TOOL = "checkout.pay_with_link";
+
+export interface PurchaseToolDeps {
+  payments: PaymentBroker;
+  /** The connected desktop's browser driver, or undefined while none is connected. */
+  driver: () => BrowserDriverEx | undefined;
+  /** Throws unless `tabId` is one of the calling task's tabs. */
+  ownsTab: (callId: string, tabId: string) => Promise<void>;
+  calls: CallContexts;
+  /** The Permission Broker's `get`, to re-check the approval this call runs under. */
+  approvals: { get(id: string): Promise<ApprovalRequest | undefined> };
+  redactor: SecretRedactor;
+  /** Link test mode: test cards, no charge. */
+  test?: boolean;
+  /** How long to wait for the merchant's answer after submitting (default 20 s). */
+  settleMs?: number;
+}
+
+const CARD_FIELDS: CardField[] = [
+  "number",
+  "exp",
+  "exp_month",
+  "exp_year",
+  "cvc",
+  "name",
+  "postal",
+];
+const SUBMIT_NAME =
+  /^(?:pay\b|pay now|place (?:your )?order|complete (?:order|purchase)|submit (?:order|payment)|buy now|confirm (?:order|payment))/i;
+const DECLINED =
+  /\b(?:declined|payment (?:failed|was unsuccessful)|card (?:was )?(?:rejected|not accepted))\b/i;
+const CONFIRMED =
+  /\b(?:thank you for your (?:order|purchase)|order (?:confirmed|placed|received|complete)|payment (?:successful|received))\b/i;
+const ORDER_REF =
+  /\b(?:order|confirmation)\s*(?:number|no\.?|id|#)?\s*[:#]?\s*([A-Z0-9][A-Z0-9-]{3,31})\b/i;
+
+const EXPONENT: Record<string, number> = { JPY: 0, KRW: 0, KWD: 3, BHD: 3 };
+
+/** `12.50` + `USD` → 1250 minor units; undefined when it does not fit the currency's exponent. */
+export function toMinor(amount: string, currency: string): number | undefined {
+  const exp = EXPONENT[currency] ?? 2;
+  const m = /^(\d+)(?:\.(\d{1,3}))?$/.exec(amount);
+  if (m === null) return undefined;
+  const frac = m[2] ?? "";
+  if (frac.length > exp)
+    return /^0*$/.test(frac.slice(exp))
+      ? toMinor(`${m[1]}.${frac.slice(0, exp)}`, currency)
+      : undefined;
+  const n = Number(`${m[1]}${frac.padEnd(exp, "0")}`);
+  return Number.isSafeInteger(n) ? n : undefined;
+}
+
+/** What the card binds: the tab's origin, the amount and currency, the items and the source. */
+export function purchaseFields(order: OrderSummary) {
+  return {
+    merchantOrigin: order.merchantOrigin,
+    amount: order.amount ?? null,
+    currency: order.currency ?? null,
+    lineItemHash: order.lineItemHash,
+    paymentSource: "stripe_link",
+  };
+}
+
+function inputOf(order: OrderSummary, test: boolean): PurchaseInput {
+  const currency = order.currency?.toLowerCase();
+  const amount =
+    order.amount === undefined || order.currency === undefined
+      ? undefined
+      : toMinor(order.amount, order.currency);
+  if (currency === undefined || amount === undefined) {
+    throw new PsycheError("conflict", "the checkout total could not be read; ask the owner", {
+      details: { reason: "total_unreadable" },
+    });
+  }
+  const priced = order.items.flatMap((i) => {
+    const m = i.price === undefined ? undefined : /\d[\d,]*(?:\.\d{1,3})?/.exec(i.price)?.[0];
+    const unit = m === undefined ? undefined : toMinor(m.replace(/,/g, ""), order.currency ?? "");
+    return unit === undefined ? [] : [{ name: i.name, quantity: 1, unitAmount: unit }];
+  });
+  const sum = priced.reduce((n, li) => n + li.unitAmount, 0);
+  const lineItems =
+    priced.length > 0 && sum <= amount
+      ? priced
+      : [{ name: "Order", quantity: 1, unitAmount: amount }];
+  const host = new URL(order.merchantOrigin).host;
+  return {
+    merchantName: order.seller ?? host,
+    merchantUrl: order.merchantOrigin,
+    amount,
+    currency,
+    lineItems,
+    ...(test ? { test: true } : {}),
+  };
+}
+
+function elementOf(meta: ElementMeta) {
+  return {
+    tagName: meta.tag.toLowerCase(),
+    frameOrigin: meta.frameOrigin,
+    ...(meta.inputType === undefined ? {} : { type: meta.inputType }),
+    ...(meta.autocomplete === undefined ? {} : { autocomplete: meta.autocomplete.toLowerCase() }),
+    ...(meta.contentEditable === true ? { contentEditable: true } : {}),
+    ...(meta.fieldName === undefined ? {} : { fieldName: meta.fieldName }),
+  };
+}
+
+interface Located {
+  order: OrderSummary;
+  fields: Partial<Record<CardField, string>>;
+  submit: string | undefined;
+}
+
+/** One snapshot: the order as the page shows it, the card inputs and the pay button. */
+async function locate(d: BrowserDriverEx, tabId: string, origin: string): Promise<Located> {
+  const snap = await d.snapshot(tabId);
+  const order = readOrder(snap.text, origin);
+  const fields: Partial<Record<CardField, string>> = {};
+  let submit: string | undefined;
+  for (const r of snap.refs.slice(0, 250)) {
+    if (r.role === "button" && submit === undefined && SUBMIT_NAME.test(r.name.trim())) {
+      submit = r.ref;
+      continue;
+    }
+    if (!["textbox", "spinbutton", "combobox", "searchbox"].includes(r.role)) continue;
+    const meta = await d.describe(tabId, r.ref).catch(() => undefined);
+    if (meta === undefined) continue;
+    for (const f of CARD_FIELDS) {
+      if (fields[f] === undefined && cardFieldAccepts(f, elementOf(meta)).ok) fields[f] = r.ref;
+    }
+  }
+  return { order, fields, submit };
+}
+
+export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
+  const describeCall = (params: unknown): ToolCallDescription => {
+    const tabId = (params as { tabId?: unknown } | undefined)?.tabId;
+    const d = deps.driver();
+    const origin = typeof tabId === "string" ? d?.tabOrigin(tabId) : undefined;
+    if (d === undefined || typeof tabId !== "string" || origin === undefined) {
+      return { kind: "purchase", sideEffect: "financial", summary: "Pay with Stripe Link" };
+    }
+    const order = readOrder(d.peekSnapshot(tabId)?.text ?? "", origin);
+    const host = new URL(origin).host;
+    const total = order.total ?? "an amount the page does not show";
+    return {
+      kind: "purchase",
+      sideEffect: "financial",
+      target: { kind: "origin", value: origin },
+      summary: `Pay ${total} to ${order.seller ?? host} (${host}) with Stripe Link (one-time card), as shown on the page`,
+      details: {
+        merchant: order.seller ?? host,
+        merchantHost: host,
+        total: order.total ?? null,
+        lineItems: order.items.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })),
+        paymentSource: "Stripe Link (one-time card)",
+        requiresAuthentication: true,
+      },
+      bindingFields: purchaseFields(order),
+      grantKey: `purchase|${origin}`,
+    };
+  };
+
+  const refuse = (message: string, reason: string): never => {
+    throw new PsycheError("policy_denied", message, { details: { reason } });
+  };
+
+  return {
+    spec: {
+      name: PURCHASE_TOOL,
+      description:
+        "Pay for the checkout open in a browser tab with the owner's Stripe Link one-time card. Open the checkout page and read it first (browser.snapshot) so the order is on screen. The owner approves the exact merchant, items and total on their device; you never see card details. One approval pays once: if the total or merchant changes, ask again. Returns the card's brand and last four and the order reference.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["tabId"],
+        properties: { tabId: { type: "string", minLength: 1, maxLength: 200 } },
+      },
+      sideEffect: "financial",
+      targetKind: "origin",
+      provenanceOut: "untrusted",
+    },
+    describeCall,
+    async execute(callId, params) {
+      const tabId = (params as { tabId?: unknown }).tabId;
+      if (typeof tabId !== "string") throw new PsycheError("invalid_params", "tabId is required");
+      const ctx = deps.calls.context(callId);
+      const approvalId = ctx.approvalId;
+      if (approvalId === undefined) {
+        throw new PsycheError("approval_required", "paying needs the owner's purchase approval");
+      }
+      const d = deps.driver();
+      if (d === undefined) throw new PsycheError("unavailable", "the browser is not connected");
+      await deps.ownsTab(callId, tabId);
+      const approval = await deps.approvals.get(approvalId);
+      if (approval === undefined) throw new PsycheError("approval_required", "approval not found");
+      const origin = () => d.tabOrigin(tabId);
+      // Everything below is judged on a fresh read, never on what the model said or saw earlier.
+      const check = (loc: Located): string => {
+        const now = origin();
+        if (now === undefined || now !== loc.order.merchantOrigin) {
+          refuse("the checkout is not on the approved merchant's site", "origin_changed");
+        }
+        const hash = toolCallBindingHash(PURCHASE_TOOL, params, {
+          kind: "purchase",
+          bindingFields: purchaseFields(loc.order),
+        });
+        if (hash !== approval.bindingHash) {
+          refuse("the checkout no longer matches what the owner approved", "order_changed");
+        }
+        return hash;
+      };
+      const start = origin();
+      if (start === undefined) throw new PsycheError("conflict", "the tab has no page yet");
+      const first = await locate(d, tabId, start);
+      const hash = check(first);
+      const input = inputOf(first.order, deps.test === true);
+      for (const f of ["number", "cvc"] as const) {
+        if (first.fields[f] === undefined) {
+          refuse("the checkout page shows no card form to fill", "no_card_form");
+        }
+      }
+      if (
+        first.fields.exp === undefined &&
+        (first.fields.exp_month === undefined || first.fields.exp_year === undefined)
+      ) {
+        refuse("the checkout page shows no card form to fill", "no_card_form");
+      }
+      if (first.submit === undefined)
+        refuse("the checkout page shows no pay button", "no_pay_button");
+
+      const spend = await deps.payments.authorizeDispatched(approvalId, input, hash);
+      const id = spend.spendRequestId;
+      let card: Awaited<ReturnType<PaymentBroker["awaitCard"]>>;
+      try {
+        card = await deps.payments.awaitCard(id);
+      } catch (err) {
+        await deps.payments.cancel(id).catch(() => undefined);
+        throw err;
+      }
+      try {
+        // The page may have moved while the owner approved in Link.
+        const cur = await locate(d, tabId, origin() ?? start);
+        check(cur);
+        const order: Array<[CardField, string | undefined]> = (
+          ["number", "exp", "exp_month", "exp_year", "cvc", "name", "postal"] as CardField[]
+        ).map((f) => [f, cur.fields[f]]);
+        for (const [field, ref] of order) {
+          if (ref === undefined) continue;
+          if (field === "exp" && cur.fields.exp === undefined) continue;
+          const meta = await d.describe(tabId, ref);
+          const el = elementOf(meta);
+          const at = origin();
+          if (at === undefined) refuse("the checkout page closed", "origin_changed");
+          const secret = await deps.payments.cardSecret({
+            spendRequestId: id,
+            field,
+            origin: at as string,
+            element: el,
+          });
+          try {
+            await d.fillSecret(tabId, ref, secret, at as string, (live) =>
+              cardFieldAccepts(field, {
+                ...live,
+                ...(el.fieldName === undefined ? {} : { fieldName: el.fieldName }),
+              }),
+            );
+          } finally {
+            secret.dispose();
+          }
+        }
+        // Last look before the order is placed: same merchant, same order, same button.
+        const last = await locate(d, tabId, origin() ?? start);
+        check(last);
+        if (last.submit === undefined)
+          refuse("the checkout page shows no pay button", "no_pay_button");
+        await d.click(tabId, last.submit as string);
+      } catch (err) {
+        await deps.payments.cancel(id).catch(() => undefined);
+        throw err;
+      }
+      await d.wait(tabId, { kind: "timeout", ms: deps.settleMs ?? 5000 }).catch(() => undefined);
+      const text = deps.redactor.redact((await d.readText(tabId).catch(() => ({ text: "" }))).text);
+      const page = text.slice(0, 20_000);
+      if (DECLINED.test(page) && !CONFIRMED.test(page)) {
+        await deps.payments.complete(id, {
+          outcome: "blocked",
+          tags: ["payment_declined"],
+          toolCallId: callId,
+        });
+        throw new PsycheError(
+          "unavailable",
+          "the merchant declined the card; nothing was charged",
+          {
+            details: { reason: "payment_declined" },
+          },
+        );
+      }
+      const ref = CONFIRMED.test(page) ? ORDER_REF.exec(page)?.[1] : undefined;
+      if (!CONFIRMED.test(page)) {
+        // Unknown outcome: end the Link request so the card cannot be used again, and say so.
+        await deps.payments.cancel(id).catch(() => undefined);
+        return {
+          output: {
+            status: "unconfirmed",
+            seller: input.merchantName,
+            total: formatAmount(input.amount, input.currency.toUpperCase()),
+            paidWith: { method: "stripe_link", brand: card.card?.brand, last4: card.card?.last4 },
+            linkSpendRequestId: id,
+            note: "The order was submitted but the page did not confirm it. Do not pay again; ask the owner to check the merchant's order page.",
+          },
+          provenance: "untrusted",
+        };
+      }
+      const receipt = await deps.payments.complete(id, {
+        outcome: "success",
+        toolCallId: callId,
+        ...(ref === undefined ? {} : { orderNumber: ref }),
+      });
+      return {
+        output: {
+          status: "paid",
+          seller: input.merchantName,
+          total: formatAmount(input.amount, input.currency.toUpperCase()),
+          paidWith: { method: "stripe_link", brand: card.card?.brand, last4: card.card?.last4 },
+          ...(ref === undefined ? {} : { orderNumber: ref }),
+          linkSpendRequestId: id,
+          ...(deps.test === true ? { testMode: true } : {}),
+        },
+        provenance: "untrusted",
+        receiptId: receipt.id,
+      };
+    },
+  };
+}

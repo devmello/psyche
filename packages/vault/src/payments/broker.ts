@@ -241,6 +241,7 @@ export function cardFieldAccepts(
 }
 
 const WAITING: readonly SpendStatus[] = SPEND_WAITING;
+const CARD_TTL_MS = 2 * 60 * 60_000;
 
 /**
  * Payments through Stripe Link Agent Wallet (security §4.9, feature G12):
@@ -262,6 +263,8 @@ export class PaymentBroker {
   readonly #cards: string;
   readonly #records: string;
   readonly #ledger = new Map<string, SpendRecord>();
+  /** Approvals a spend request is being created for, so two concurrent calls cannot both pay. */
+  readonly #claimed = new Set<string>();
 
   constructor(options: PaymentBrokerOptions) {
     this.#o = options;
@@ -510,12 +513,22 @@ export class PaymentBroker {
         reason: reason ?? "approval_not_found",
       });
     }
-    return this.#createSpend(
-      approvalId,
-      approval.requestedBy.taskId ?? null,
-      input,
-      await this.resolveSource(input),
-    );
+    if (this.#claimed.has(approvalId)) {
+      return fail("approval_required", "the purchase is not approved as requested", {
+        reason: "approval_consumed",
+      });
+    }
+    this.#claimed.add(approvalId);
+    try {
+      return await this.#createSpend(
+        approvalId,
+        approval.requestedBy.taskId ?? null,
+        input,
+        await this.resolveSource(input),
+      );
+    } finally {
+      this.#claimed.delete(approvalId);
+    }
   }
 
   async #createSpend(
@@ -644,50 +657,85 @@ export class PaymentBroker {
   fillCard(
     opts: FocusedFillOptions & { spendRequestId: string; field: CardField },
   ): Promise<BrowserFillResult> {
-    return fillFocused(opts, async (origin, element) => {
-      const rec = this.#ledger.get(opts.spendRequestId);
-      if (
-        rec === undefined ||
-        rec.status !== "approved" ||
-        rec.revealedAt === null ||
-        rec.payment.state !== "none"
-      ) {
-        return fail("approval_required", "no approved Link card for this purchase", {
-          reason: "no_card",
-        });
-      }
-      const url = new URL(origin);
-      const host = url.host;
-      if (
-        url.protocol !== "https:" ||
-        (host !== rec.merchantHost && !host.endsWith(`.${rec.merchantHost}`))
-      ) {
-        return fail("policy_denied", "the checkout is not on the approved merchant's site", {
-          reason: "merchant_mismatch",
-        });
-      }
-      if (element.frameOrigin !== origin) {
-        return fail("policy_denied", "card fields in another frame are not filled", {
-          reason: "card_field_in_frame",
-        });
-      }
-      const check = cardFieldAccepts(opts.field, element);
-      if (!check.ok)
-        return fail("policy_denied", "the focused field is not that card field", {
-          reason: check.reason,
-        });
-      const value = this.#value(this.#readCard(this.#cardPath(rec.spendRequestId)), opts.field);
-      if (value === undefined)
-        return fail("not_found", `the card has no ${opts.field}`, { reason: "no_such_field" });
-      await this.#audit("purchase.card_filled", {
-        spendRequestId: rec.spendRequestId,
-        field: opts.field,
-        origin,
+    return fillFocused(opts, (origin, element) =>
+      this.cardSecret({ spendRequestId: opts.spendRequestId, field: opts.field, origin, element }),
+    );
+  }
+
+  /**
+   * The one-shot handle for one card field, after every check `fillCard` makes: the spend request
+   * is approved with a live (unexpired) card file, `origin` is the approved merchant's https site,
+   * the element sits in the top frame and looks like that card field. For a driver that types a
+   * `ResolvedSecret` itself (the agent browser): the value never becomes a string the caller holds.
+   */
+  async cardSecret(opts: {
+    spendRequestId: string;
+    field: CardField;
+    origin: string;
+    element: FocusedElement;
+  }): Promise<ResolvedSecret> {
+    const { origin, element } = opts;
+    const rec = this.#ledger.get(opts.spendRequestId);
+    if (
+      rec === undefined ||
+      rec.status !== "approved" ||
+      rec.revealedAt === null ||
+      rec.payment.state !== "none"
+    ) {
+      return fail("approval_required", "no approved Link card for this purchase", {
+        reason: "no_card",
       });
-      return new ResolvedSecret(value, {
-        credentialId: rec.spendRequestId,
-        target: { kind: "origin", value: origin },
+    }
+    const url = new URL(origin);
+    const host = url.host;
+    if (
+      url.protocol !== "https:" ||
+      (host !== rec.merchantHost && !host.endsWith(`.${rec.merchantHost}`))
+    ) {
+      return fail("policy_denied", "the checkout is not on the approved merchant's site", {
+        reason: "merchant_mismatch",
       });
+    }
+    if (element.frameOrigin !== origin) {
+      return fail("policy_denied", "card fields in another frame are not filled", {
+        reason: "card_field_in_frame",
+      });
+    }
+    const check = cardFieldAccepts(opts.field, element);
+    if (!check.ok)
+      return fail("policy_denied", "the focused field is not that card field", {
+        reason: check.reason,
+      });
+    const path = this.#cardPath(rec.spendRequestId);
+    if (this.#clock.now() - rec.revealedAt > (this.#o.cardTtlMs ?? CARD_TTL_MS)) {
+      shred(path);
+      return fail("approval_required", "the one-time card expired; ask for a new payment", {
+        reason: "card_expired",
+      });
+    }
+    const card = this.#readCard(path);
+    // Link's own expiry: a card past it is useless, and a file that says so is not trusted.
+    const now = new Date(this.#clock.now());
+    if (
+      card.expYear < now.getUTCFullYear() ||
+      (card.expYear === now.getUTCFullYear() && card.expMonth < now.getUTCMonth() + 1)
+    ) {
+      shred(path);
+      return fail("approval_required", "the one-time card expired; ask for a new payment", {
+        reason: "card_expired",
+      });
+    }
+    const value = this.#value(card, opts.field);
+    if (value === undefined)
+      return fail("not_found", `the card has no ${opts.field}`, { reason: "no_such_field" });
+    await this.#audit("purchase.card_filled", {
+      spendRequestId: rec.spendRequestId,
+      field: opts.field,
+      origin,
+    });
+    return new ResolvedSecret(value, {
+      credentialId: rec.spendRequestId,
+      target: { kind: "origin", value: origin },
     });
   }
 
@@ -1044,7 +1092,7 @@ export class PaymentBroker {
 
   /** Shred card files past their TTL and those with no live record. Returns how many. */
   sweep(): number {
-    const ttl = this.#o.cardTtlMs ?? 2 * 60 * 60_000;
+    const ttl = this.#o.cardTtlMs ?? CARD_TTL_MS;
     let n = 0;
     for (const f of readdirSync(this.#cards)) {
       const id = f.replace(/\.json$/, "");
