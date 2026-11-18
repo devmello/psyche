@@ -364,6 +364,20 @@ describe("the card and the send", () => {
     await r;
   });
 
+  it("a tainted turn's card keeps the taint reason next to the identifier reason", async () => {
+    const s = setup([person("Dana", ["+15550101"])]);
+    const r = s.run(
+      { to: "Dana", text: "Your verification code is 482913" },
+      s.ctx({ taint: true }),
+    );
+    await vi.waitFor(() => expect(s.issued).toHaveLength(1));
+    const reason = String((s.issued[0]?.approval.details as { reason?: unknown }).reason);
+    expect(reason).toContain("one time code");
+    expect(reason).toContain("untrusted content");
+    await s.respond("deny", {});
+    await r;
+  });
+
   it("stops after the per-turn limit instead of asking again", async () => {
     const s = setup([person("Dana", ["+15550101"])], [], 1);
     const first = s.run({ to: "Dana", text: "one" });

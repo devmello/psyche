@@ -852,7 +852,10 @@ export class PsychePermissionBroker implements PermissionBroker {
         input.sideEffect = "read";
     }
     const se = input.sideEffect;
+    // Device-only from the request itself, or from the decision that asked for it (the agent loop
+    // requests with the protocol's input type, which has no such flag, right after `decide`).
     const deviceOnly =
+      input.deviceOnly === true ||
       recent?.decision.deviceOnly === true ||
       isDeviceOnly(input.kind, se, this.#policy.config.approvals?.deviceOnly);
     // Presence (the owner sheet, a passkey, the Linux password) is for payments only (owner's

@@ -235,7 +235,10 @@ export function ibanValid(raw: string): boolean {
   return rem === 1;
 }
 
-/** Issuer prefixes (IIN ranges) and lengths of the major networks. */
+/**
+ * Issuer prefixes (IIN ranges) and lengths of the card networks, for the outbound reading only: it
+ * cuts false matches in prose. Never used to let a Luhn-valid number through the strict reading.
+ */
 export function cardIssuerValid(d: string): boolean {
   const n2 = Number(d.slice(0, 2));
   const n3 = Number(d.slice(0, 3));
@@ -251,16 +254,24 @@ export function cardIssuerValid(d: string): boolean {
   if (n4 >= 3528 && n4 <= 3589) return len >= 16 && len <= 19; // JCB
   if (n2 === 36 || n2 === 38 || (n3 >= 300 && n3 <= 305) || n2 === 39) return len >= 14; // Diners
   if (n2 === 62) return len >= 16 && len <= 19; // UnionPay
-  if (n2 === 50 || (n2 >= 56 && n2 <= 58) || d.startsWith("6")) return len === 16 || len === 19; // Maestro
+  if (n2 === 50 || (n2 >= 56 && n2 <= 58) || d.startsWith("6")) return len >= 12 && len <= 19; // Maestro, RuPay 60/65/508
+  if (n4 >= 2200 && n4 <= 2204) return len >= 16 && len <= 19; // Mir
+  if (n2 === 81) return len >= 16 && len <= 19; // RuPay, UnionPay (2020+)
+  if (n2 === 82) return len === 16; // RuPay
+  if (n4 === 9792) return len === 16; // Troy
+  if (d.startsWith("1")) return len === 15; // UATP
   return false;
 }
 
-/** Card number digits (separators removed) when `candidate` is a Luhn-valid PAN of a real issuer. */
+/**
+ * Card number digits (separators removed) when `candidate` is a Luhn-valid PAN, as on main. The
+ * outbound reading also asks `cardIssuerValid`; the strict reading does not, so no network is missed.
+ */
 export function cardDigits(candidate: string): string | undefined {
   const digits = candidate.replace(/[\s\p{Pd}|/_,.·•:\u2212]/gu, "");
   if (digits.length < 13 || digits.length > 19) return undefined;
   if (/^(\d)\1+$/.test(digits)) return undefined;
-  return luhnValid(digits) && cardIssuerValid(digits) ? digits : undefined;
+  return luhnValid(digits) ? digits : undefined;
 }
 
 const isDigitAt = (s: string, i: number) => {
@@ -344,7 +355,7 @@ function cardMatches(text: string): { start: number; length: number }[] {
       k + 1 < count && gaps[k]?.includes("/") === true && (size(k) <= 2 || size(k + 1) <= 2);
     const attempt = (s: number): number | undefined => {
       const first = digits.charCodeAt(off[s] as number) - 48;
-      if (first < 2 || first > 6) return undefined; // no card issuer here starts with 0, 1 or 7–9
+      if (first === 0 || first === 7) return undefined; // no card issuer here starts with 0 or 7
       let emax = s;
       while (
         emax + 1 < count &&
@@ -367,7 +378,8 @@ function cardMatches(text: string): { start: number; length: number }[] {
           if (k < e ? size(k) !== g0 : size(k) > g0) even = false;
         }
         if (!grouped && !even) continue;
-        if (cardDigits(digits.slice(off[s], off[e + 1])) === undefined) continue;
+        const pan = cardDigits(digits.slice(off[s], off[e + 1]));
+        if (pan === undefined || !cardIssuerValid(pan)) continue;
         if (e > s && WEAK_SEP.test(sep)) {
           const from = gs[2 * s] as number;
           const to = gs[2 * e + 1] as number;
@@ -395,7 +407,7 @@ function cardMatches(text: string): { start: number; length: number }[] {
   return found;
 }
 
-/** Card numbers in the strict reading (tool arguments, audit): single space, dot or dash only. */
+/** Card numbers in the strict reading (tool arguments, audit): single space, dot or dash, Luhn only. */
 function strictCardMatches(text: string): { start: number; length: number }[] {
   const found: { start: number; length: number }[] = [];
   for (const m of text.matchAll(CARD_CANDIDATE)) {

@@ -1,6 +1,12 @@
 import { fixtureSecret } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
-import { findSensitive, findSensitiveNormalized, type SensitiveKind } from "../src/index.ts";
+import {
+  findSensitive,
+  findSensitiveNormalized,
+  luhnValid,
+  redactSensitive,
+  type SensitiveKind,
+} from "../src/index.ts";
 
 // Assembled at runtime so the repo secret scans never match a tracked line.
 const j = (...parts: string[]) => parts.join("");
@@ -213,6 +219,36 @@ function rng(seed: number) {
 }
 const digitsOf = (next: () => number, n: number) =>
   Array.from({ length: n }, () => Math.floor(next() * 10)).join("");
+
+/** A Luhn-valid number of `length` digits starting with `prefix` (built at runtime, review r3). */
+function luhnNumber(prefix: string, length: number): string {
+  const body = (prefix + "3".repeat(length)).slice(0, length - 1);
+  for (let d = 0; d < 10; d += 1) if (luhnValid(`${body}${d}`)) return `${body}${d}`;
+  throw new Error("unreachable");
+}
+/** Networks beyond the big four: main's Luhn-only reading caught them, so both readings must. */
+const NETWORKS: [string, string][] = [
+  ["Mir", luhnNumber("2200", 16)],
+  ["RuPay 81", luhnNumber("8100", 16)],
+  ["RuPay 82", luhnNumber("8200", 16)],
+  ["UnionPay 81, 19 digits", luhnNumber("8171", 19)],
+  ["Troy", luhnNumber("9792", 16)],
+  ["UATP, 15 digits", luhnNumber("1100", 15)],
+  ["Maestro, 13 digits", luhnNumber("6759", 13)],
+  ["Maestro, 18 digits", luhnNumber("6763", 18)],
+  ["RuPay 508", luhnNumber("5085", 16)],
+];
+
+describe("every card network is caught by both readings (review round 3)", () => {
+  it.each(NETWORKS)("%s", (_name, pan) => {
+    const text = `card ${grouped(pan, " ")}`;
+    expect(strictKinds(text)).toContain("card_number");
+    expect(kinds(text)).toContain("card_number");
+    expect(strictKinds(`pay with ${pan} now`)).toContain("card_number");
+    // Audit redaction (receipts, the change journal, backups) cuts it too.
+    expect(redactSensitive(text)).not.toContain(pan.slice(0, 8));
+  });
+});
 
 describe("strict reading (prohibitions, audit): number shapes are never cards", () => {
   it.each(NUMBER_SHAPES)("%s", (_name, text) => {

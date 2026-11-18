@@ -1,4 +1,9 @@
-import { findSensitiveOriginal, type SensitiveKind, type SensitiveMatch } from "@psyche/audit";
+import {
+  findSensitiveNormalized,
+  findSensitiveOriginal,
+  type SensitiveKind,
+  type SensitiveMatch,
+} from "@psyche/audit";
 
 /**
  * The outbound check (security §3.9): one deterministic function, outside the model, that every
@@ -62,6 +67,17 @@ export interface OutboundOptions {
   notice?: string;
 }
 
+/**
+ * What goes between the earlier message and the new one, so a number split across them reads as
+ * the one number it is: nothing when the tail already ends in a separator, else the separator its
+ * last digit groups use ("4111 1111" + "1111 1111" joins with a space), else a space.
+ */
+function tailJoin(tail: string): string {
+  if (!/\d$/u.test(tail)) return /[\p{L}\p{N}]$/u.test(tail) ? " " : "";
+  const gap = /\d([\s\p{Pd}|/_.·•:\u2212]{1,3})\d+$/u.exec(tail);
+  return gap?.[1] ?? " ";
+}
+
 const CHAIN_CHAR = /[\d\s\p{Pd}|/_.·•:\u2212]/u;
 
 /**
@@ -107,8 +123,9 @@ export function checkOutbound(
   const relevant = (m: SensitiveMatch) => audience === "other" || m.kind !== "one_time_code";
   const tail = options.tail ?? "";
   const notice = options.notice ?? OUTBOUND_WITHHELD_NOTICE;
-  const lead = tail === "" ? "" : `${tail}\n`;
-  const renderedLead = tail === "" ? "" : `${render(tail)}\n`;
+  const lead = tail === "" ? "" : tail + tailJoin(tail);
+  const renderedTail = tail === "" ? "" : render(tail);
+  const renderedLead = renderedTail === "" ? "" : renderedTail + tailJoin(renderedTail);
 
   // Only what reaches into this message counts: the tail was already sent. The tail and the
   // message are rendered apart, so a hit inside the rendered tail alone is not counted either.
@@ -141,4 +158,28 @@ export function checkOutbound(
   // A match that survives the cut (a form only the rendering reveals) means the whole message goes.
   const clean = scan(out).length === 0;
   return { action: "redact", text: clean ? out : notice, kinds };
+}
+
+export type OutboundSendDecision =
+  | { action: "allow" }
+  | { action: "deny"; kinds: SensitiveKind[] }
+  | { action: "ask"; kinds: SensitiveKind[] };
+
+/**
+ * For tools that send to someone (`messages_send`, email and message tools): a hard kind found by
+ * the strict reading (the one the hard prohibitions use, as on main) is refused; anything else the
+ * outbound check holds, including a card only the broader outbound reading sees (digit rows aligned
+ * with two spaces, bullets), asks on a paired device instead of being refused outright.
+ */
+export function outboundSendDecision(text: string): OutboundSendDecision {
+  const strictHard = [
+    ...new Set(
+      findSensitiveNormalized(text)
+        .map((m) => m.kind)
+        .filter((k) => HARD_OUTBOUND_KINDS.has(k)),
+    ),
+  ];
+  if (strictHard.length > 0) return { action: "deny", kinds: strictHard };
+  const verdict = checkOutbound(text, "other");
+  return verdict.action === "hold" ? { action: "ask", kinds: verdict.kinds } : { action: "allow" };
 }

@@ -3,9 +3,8 @@ import {
   bodySha256,
   type ComposeCandidate,
   type ComposeDetails,
-  checkOutbound,
   composeBindingHash,
-  HARD_OUTBOUND_KINDS,
+  outboundSendDecision,
   readFinal,
 } from "@psyche/permissions";
 import {
@@ -241,17 +240,15 @@ async function send(
   // The text goes to someone else. A credential, card, IBAN or US Social Security number is never
   // sent; a one-time code, passport, SIN, NI or Aadhaar number or bank routing and account number
   // goes on the compose card, which is device-only and once (owner decision, review round 2).
-  const verdict = checkOutbound(p.text, "other");
-  const hard =
-    verdict.action === "hold" ? verdict.kinds.filter((k) => HARD_OUTBOUND_KINDS.has(k)) : [];
-  if (hard.length > 0) {
+  const sendCheck = outboundSendDecision(p.text);
+  if (sendCheck.action === "deny") {
     return done({
       status: "withheld",
       sent: false,
-      why: `the text holds ${hard.join(", ").replaceAll("_", " ")}; Psyche does not send such values. Tell the owner to send it themselves, or leave the value out`,
+      why: `the text holds ${sendCheck.kinds.join(", ").replaceAll("_", " ")}; Psyche does not send such values. Tell the owner to send it themselves, or leave the value out`,
     });
   }
-  const identifiers = verdict.action === "hold" ? verdict.kinds : [];
+  const identifiers = sendCheck.action === "ask" ? sendCheck.kinds : [];
   const node = deps.node();
   if (node === undefined) {
     return done(
@@ -288,13 +285,18 @@ async function send(
       account: deps.account,
       recipient: only?.label ?? "choose below",
       compose: compose as never,
-      ...(identifiers.length > 0
+      ...(identifiers.length > 0 || ctx.taint
         ? {
-            reason: `This message holds ${identifiers.join(", ").replaceAll("_", " ")}. Check the recipient before sending.`,
+            reason: [
+              identifiers.length > 0
+                ? `This message holds ${identifiers.join(", ").replaceAll("_", " ")}. Check the recipient before sending.`
+                : "",
+              ctx.taint ? "This turn read untrusted content, so this send is once only." : "",
+            ]
+              .filter((r) => r !== "")
+              .join(" "),
           }
-        : ctx.taint
-          ? { reason: "This turn read untrusted content, so this send is once only." }
-          : {}),
+        : {}),
     },
     bindingHash: composeBindingHash(deps.account, first.recipient, p.text),
     grantKey: `message_send|imessage|${deps.account}`,

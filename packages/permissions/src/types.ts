@@ -135,6 +135,11 @@ export interface PolicyDecision extends DecisionResult {
 export type ClassifierLabel = "routine" | "sensitive" | "prohibited";
 
 export interface PolicyApprovalInput extends ApprovalRequestInput {
+  /**
+   * Paired devices only, never a chat: set from the decision that asked (a prohibition such as
+   * `outbound_identifier`), so it holds even when no cached decision is found for the binding.
+   */
+  deviceOnly?: true;
   /** The decided call and context, persisted so `reissue()` re-evaluates the same inputs. */
   call?: PolicyCall;
   context?: PolicyContext;

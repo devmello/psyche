@@ -144,3 +144,32 @@ describe("outbound text in every shipped language", () => {
     ).toBe("imessage: passport");
   });
 });
+
+describe("a number split across two messages (review round 3)", () => {
+  const g = (d: string, sep: string) => d.match(/.{1,4}/g)?.join(sep) ?? d;
+  const PAIRS: [string, string, string][] = [
+    ["ungrouped halves", `my card is ${CARD.slice(0, 8)}`, CARD.slice(8)],
+    ["space-grouped halves", `my card is ${g(CARD.slice(0, 8), " ")}`, g(CARD.slice(8), " ")],
+    ["dash-grouped halves", `my card is ${g(CARD.slice(0, 8), "-")}`, g(CARD.slice(8), "-")],
+    ["three groups, then one", `card: ${g(CARD.slice(0, 12), " ")}`, CARD.slice(12)],
+    ["split inside a group", `Visa ${g(CARD.slice(0, 13), " ")}`, CARD.slice(13)],
+  ];
+  it.each(PAIRS)("%s", (_name, first, second) => {
+    expect(checkOutbound(second, "other").action).toBe("allow");
+    expect(checkOutbound(second, "other", (t) => t, { tail: outboundTail(first) }).action).toBe(
+      "hold",
+    );
+  });
+
+  it("two ordinary messages in a row are not joined into anything", () => {
+    for (const [first, second] of [
+      ["see you at 10", "30 minutes later"],
+      ["room 4111", "floor 2"],
+      ["thanks!", "1 more thing"],
+    ] as const) {
+      expect(checkOutbound(second, "other", (t) => t, { tail: outboundTail(first) }).action).toBe(
+        "allow",
+      );
+    }
+  });
+});

@@ -125,6 +125,31 @@ describe("hard prohibitions", () => {
     }
   });
 
+  it("card_entry blocks typing a RuPay or a Mir number into a form (review round 3)", async () => {
+    const luhn = (prefix: string, length: number) => {
+      const body = (prefix + "3".repeat(length)).slice(0, length - 1);
+      for (let d = 0; d < 10; d += 1) if (luhnValid(`${body}${d}`)) return `${body}${d}`;
+      throw new Error("unreachable");
+    };
+    for (const pan of [luhn("8100", 16), luhn("2200", 16), luhn("9792", 16), luhn("1100", 15)]) {
+      const d = await decide(["browser.type", "write", origin("https://shop.example.com")], {
+        params: { ref: "ref_3", text: pan },
+      });
+      expect(d).toMatchObject({ decision: "deny", rule: "prohibition:card_entry" });
+    }
+  });
+
+  it("an email body whose digit rows only the outbound reading reads as a card asks, not denies", async () => {
+    // Two-space aligned rows: no card for the strict reading, a card shape for the outbound one.
+    const rows = [TEST_CARD.match(/.{4}/g)?.join("  ") ?? "", "1200  3400  5600  7800"].join("\n");
+    const d = await decide(
+      ["email.send", "destructive", { kind: "recipient", value: "a@example.org" }],
+      { params: { body: `Totals\n${rows}` } },
+    );
+    expect(d).toMatchObject({ decision: "ask", deviceOnly: true });
+    expect(d.rule).not.toBe("prohibition:outbound_sensitive");
+  });
+
   it("number shapes in a file write are never a card (review round 2)", async () => {
     const sudoku = Array.from({ length: 9 }, (_, r) =>
       Array.from({ length: 9 }, (_, c) => ((r * 3 + Math.floor(r / 3) + c) % 9) + 1).join(" "),
