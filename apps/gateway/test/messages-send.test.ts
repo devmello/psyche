@@ -346,6 +346,18 @@ describe("the card and the send", () => {
     expect(wrong).toMatchObject({ ok: false });
   });
 
+  it("withholds a text that holds a card, an id or a one-time code, without asking the owner", async () => {
+    const s = setup([person("Dana", ["+15550101"])]);
+    for (const text of [
+      `my passport number: ${["X123", "4567"].join("")}`,
+      "Your verification code is 482913",
+    ]) {
+      const r = await s.run({ to: "Dana", text });
+      expect(r.output).toMatchObject({ status: "withheld", sent: false });
+    }
+    expect(s.issued).toHaveLength(0);
+  });
+
   it("stops after the per-turn limit instead of asking again", async () => {
     const s = setup([person("Dana", ["+15550101"])], [], 1);
     const first = s.run({ to: "Dana", text: "one" });

@@ -59,46 +59,86 @@ const CREDENTIAL_PATTERNS: { kind: SensitiveKind; re: RegExp }[] = [
   },
 ];
 
-/** 13–19 digits, optionally grouped by single spaces, dots, tabs or dashes. */
-const CARD_CANDIDATE = /(?<!\d)\d(?:[ .\t-]?\d){12,18}(?!\d)/g;
 const IBAN_CANDIDATE = /(?<![A-Za-z0-9])[A-Za-z]{2}\d{2}(?: ?[A-Za-z0-9]){11,30}(?![A-Za-z0-9])/g;
-const SSN_CANDIDATE = /(?<!\d)(?!000|666|9\d\d)\d{3}[- ](?!00)\d{2}[- ](?!0000)\d{4}(?!\d)/g;
+const SSN_CANDIDATE = /(?<!\d)(?!000|666|9\d\d)\d{3}[-. ](?!00)\d{2}[-. ](?!0000)\d{4}(?!\d)/g;
 
 // ---- government and bank identifiers (outbound check) --------------------------------------------
 // Each is anchored by a checksum, a context word or both, and by a lookbehind on its first class so
-// it can only start at the beginning of a run (linear time, see above).
+// it can only start at the beginning of a run (linear time, see above). Between a label and its
+// value there may be a few spaces, a newline, a colon or a table pipe ("Account:\n123", "| SSN | 078…").
+const JOIN = "[\\s|:#=.-]{0,4}";
+const LABEL_NUMBER = "(?:[\\s|]{0,2}(?:number|no|num|n[°º]|#|id))?";
 
 const ABA_CANDIDATE = /(?<![\d-])\d{9}(?![\d-])/g;
 /** A word that labels an account number, then the number (4–17 digits, single separators). */
-const ACCOUNT_LABELED =
-  /(?<![A-Za-z0-9])(?:account|acct|acc|a\/c|checking|savings)(?:[ \t]{0,2}(?:number|no|num|#))?\.?[ \t]{0,2}(?:is[ \t]{0,2})?[:#=-]?[ \t]{0,2}(\d(?:[ -]?\d){3,16})(?!\d)/gi;
-const ROUTING_WORD = /(?<![A-Za-z])(?:routing|aba|rtn|transit)(?![A-Za-z])/i;
-const NINE_GROUPED = /(?<!\d|\d[- ])\d{3}[- ]\d{3}[- ]\d{3}(?!\d|[- ]\d)/g;
-const SIN_LABELED =
-  /(?<![A-Za-z0-9])(?:sin|social insurance(?: number)?)[ \t]{0,2}(?:no|number|#)?\.?[ \t]{0,2}(?:is[ \t]{0,2})?[:#=-]?[ \t]{0,2}(\d{3}[ -]?\d{3}[ -]?\d{3})(?!\d)/gi;
-const PASSPORT =
-  /(?<![A-Za-z0-9])passport(?:[ \t]{0,2}(?:number|no|num|#|id))?\.?[ \t]{0,2}(?:is[ \t]{0,2})?[:#=-]?[ \t]{0,2}((?=[A-Za-z0-9]{0,8}\d)[A-Za-z0-9]{6,9})(?![A-Za-z0-9])/gi;
-const NINO =
-  /(?<![A-Za-z0-9])(?!BG|GB|NK|KN|TN|NT|ZZ)[A-CEGHJ-PR-TW-Z][A-CEGHJ-NPR-TW-Z][ ]?\d{2}[ ]?\d{2}[ ]?\d{2}[ ]?[A-D](?![A-Za-z0-9])/gi;
-const AADHAAR_GROUPED = /(?<!\d|\d[- ])[2-9]\d{3}[ -]\d{4}[ -]\d{4}(?!\d|[- ]\d)/g;
-const AADHAAR_LABELED =
-  /(?<![A-Za-z0-9])(?:aadhaar|aadhar|uidai|uid)[ \t]{0,2}(?:number|no|#|card)?\.?[ \t]{0,2}(?:is[ \t]{0,2})?[:#=-]?[ \t]{0,2}([2-9]\d{3}[ -]?\d{4}[ -]?\d{4})(?!\d)/gi;
-const CVV_LABELED =
-  /(?<![A-Za-z0-9])(?:cvv2?|cvc2?|cid|csc|cvn|security code|card code|verification value)(?:[ \t]{0,2}(?:number|no|#))?[ \t]{0,2}(?:is[ \t]{0,2})?[:#=-]?[ \t]{0,2}(\d{3,4})(?!\d)/gi;
-const EXPIRY_LABELED =
-  /(?<![A-Za-z0-9])(?:exp(?:iry|iration|ires)?|valid (?:thru|through|until)|good thru)(?:[ \t]{0,2}date)?[ \t.]{0,2}(?:is[ \t]{0,2})?[:#=-]?[ \t]{0,2}((?:0?[1-9]|1[0-2])[ \t]?[/-][ \t]?(?:\d{4}|\d{2}))(?!\d)/gi;
+const ACCOUNT_LABELED = new RegExp(
+  `(?<![A-Za-z0-9])(?:account|acct|acc|a\\/c|checking|savings)${LABEL_NUMBER}${JOIN}(?:is${JOIN})?(\\d(?:[ -]?\\d){3,16})(?!\\d)`,
+  "gi",
+);
+/** The routing label, directly before the nine digits ("routing number: 0210…") or after them. */
+const ROUTING_BEFORE =
+  /(?<![A-Za-z])(?:routing|aba|rtn)(?:[ \t]+(?:transit|number|no\.?|num|#))*[\s|:#=.-]{0,4}$/i;
+const ROUTING_AFTER =
+  /^[ \t(,:-]{0,3}(?:(?:is|as)[ \t]+)?(?:(?:my|our|the)[ \t]+)?(?:routing|aba|rtn)(?![A-Za-z])/i;
+const SSN_LABELED = new RegExp(
+  `(?<![A-Za-z0-9])(?:ssn|social security(?:[ \\t]+(?:number|no\\.?))?)${JOIN}(?:is${JOIN})?(\\d{3}[-. ]?\\d{2}[-. ]?\\d{4})(?!\\d)`,
+  "gi",
+);
+const SIN_LABELED = new RegExp(
+  `(?<![A-Za-z0-9])(?:sin|social insurance(?:[ \\t]+number)?)${LABEL_NUMBER}${JOIN}(?:is${JOIN})?(\\d{3}[ -]?\\d{3}[ -]?\\d{3})(?!\\d)`,
+  "gi",
+);
+const PASSPORT = new RegExp(
+  `(?<![A-Za-z0-9])passport${LABEL_NUMBER}${JOIN}(?:is${JOIN})?((?=[A-Za-z0-9]{0,8}\\d)[A-Za-z0-9]{6,9})(?![A-Za-z0-9])`,
+  "gi",
+);
+/** UK National Insurance number: the label is case-insensitive, the number is upper case. */
+const NINO_LABEL = new RegExp(
+  `(?<![A-Za-z0-9])(?:national insurance(?:[ \\t]+(?:number|no\\.?))?|NINO?|N\\.I\\.(?:[ \\t]+(?:number|no\\.?))?|NI(?:[ \\t]+(?:number|no\\.?))?)${JOIN}`,
+  "gi",
+);
+const NINO_VALUE =
+  /(?!BG|GB|NK|KN|TN|NT|ZZ)[A-CEGHJ-PR-TW-Z][A-CEGHJ-NPR-TW-Z][ ]?\d{2}[ ]?\d{2}[ ]?\d{2}[ ]?[A-D](?![A-Za-z0-9])/y;
+const AADHAAR_LABELED = new RegExp(
+  `(?<![A-Za-z0-9])(?:aadhaar|aadhar|uidai|uid)(?:[\\s|]{0,2}(?:number|no|card|#))?${JOIN}(?:is${JOIN})?([2-9]\\d{3}[ -]?\\d{4}[ -]?\\d{4})(?!\\d)`,
+  "gi",
+);
+const CVV_LABELED = new RegExp(
+  `(?<![A-Za-z0-9])(?:cvv2?|cvc2?|cid|csc|cvn|security code|card code|verification value)(?:[\\s|]{0,2}(?:number|no|#))?${JOIN}(?:is${JOIN})?(\\d{3,4})(?!\\d)`,
+  "gi",
+);
+const EXPIRY_LABELED = new RegExp(
+  `(?<![A-Za-z0-9])(?:exp(?:iry|iration|ires)?|valid (?:thru|through|until)|good thru)(?:[\\s|]{0,2}date)?${JOIN}(?:is${JOIN})?((?:0?[1-9]|1[0-2])[ \\t]?[/-][ \\t]?(?:\\d{4}|\\d{2}))(?!\\d)`,
+  "gi",
+);
 /** Straight after a card number: "… 12/27", then "… 123". */
 const EXPIRY_AFTER = /^[ \t,;|/-]{1,4}((?:0[1-9]|1[0-2])[ \t]?\/[ \t]?(?:\d{4}|\d{2}))(?!\d)/;
 const CVV_AFTER = /^[ \t,;|/-]{1,4}(\d{3,4})(?!\d)/;
 
+// One-time codes. A label that is only ever a login code ("verification code", "otp") may be
+// followed by the value directly; "your … code" and "the … code" need an "is" or a colon, and
+// words that name something else (a hotel confirmation, a gate or door code, a promo code) cancel it.
+const OTP_VALUE = "(?:G-)?(\\d{3}[ -]?\\d{3,5}|\\d{4,8})(?![\\dA-Za-z])";
 const OTP_LABEL =
-  "(?:otp|one[- ]time[ \\t]+(?:code|password|passcode|pin)|(?:verification|security|login|log[- ]in|sign[- ]?in|auth(?:entication)?|confirmation|access|reset|2fa|mfa|sms|authenticator)[ \\t]+(?:code|pin)|passcode|your[ \\t]+code)";
+  "(?:otp|one[- ]time[ \\t]+(?:code|password|passcode|pin)|(?:verification|security|login|log[- ]in|sign[- ]?in|auth(?:entication)?|2fa|mfa|authenticator)[ \\t]+(?:code|pin)|passcode)";
 const OTP_AFTER = new RegExp(
-  `(?<![A-Za-z0-9])${OTP_LABEL}(?:[ \\t]+for[ \\t]+[A-Za-z0-9._-]{1,30})?[ \\t]{0,2}(?:(?:is|was)[ \\t]{0,2})?[:=-]?[ \\t]{0,2}(?:G-)?(\\d{3}[ -]?\\d{3,5}|\\d{4,8})(?![\\dA-Za-z])`,
+  `(?<![A-Za-z0-9])${OTP_LABEL}(?:[ \\t]+for[ \\t]+[A-Za-z0-9._-]{1,30})?\\s{0,3}(?:(?:is|was)[ \\t]{0,2})?[:=-]?\\s{0,3}${OTP_VALUE}`,
   "gi",
 );
+const YOUR_CODE = new RegExp(
+  `(?<![A-Za-z0-9])your[ \\t]+((?:[A-Za-z0-9]+[ \\t]+){0,2})code[ \\t]{0,2}(?:(?:is|was)[ \\t]{0,2}:?|:)\\s{0,3}${OTP_VALUE}`,
+  "gi",
+);
+const THE_CODE = new RegExp(
+  `(?<![A-Za-z0-9])the[ \\t]+((?:[A-Za-z0-9]+[ \\t]+){0,2})code[ \\t]{0,2}:\\s{0,3}${OTP_VALUE}`,
+  "gi",
+);
+const NOT_A_LOGIN_CODE =
+  /^(?:.*\b)?(?:confirmation|booking|reservation|reference|order|tracking|access|gate|door|locker|promo|promotional|discount|coupon|voucher|gift|referral|zip|postal|area|country|hotel|flight|ticket|product|item|error|status|source)\b/i;
+const OTP_USE =
+  /(?<![A-Za-z0-9])use[ \t]+(\d{4,8})[ \t]+(?:to[ \t]+(?:sign|log)[ \t-]?in\b|to[ \t]+(?:verify|confirm|authenticate)\b|as[ \t]+(?:[A-Za-z]+[ \t]+){0,4}(?:code|otp|passcode)(?![A-Za-z]))/gi;
 const OTP_BEFORE =
-  /(?<![\d])(\d{4,8})(?![\dA-Za-z])[ \t]+(?:is|are)[ \t]+(?:your|the|ur)[ \t]+(?:[A-Za-z]+[ \t]+){0,2}(?:code|otp|passcode|pin)(?![A-Za-z])/gi;
+  /(?<![\d])(\d{4,8})(?![\dA-Za-z])[ \t]+(?:is|are)[ \t]+(?:your|ur)[ \t]+(?:[A-Za-z]+[ \t]+){0,2}(?:code|otp|passcode)(?![A-Za-z])/gi;
 
 /** US ABA routing number checksum (3-7-1 weights) and a valid Federal Reserve prefix. */
 export function abaValid(digits: string): boolean {
@@ -191,36 +231,142 @@ export function ibanValid(raw: string): boolean {
   return rem === 1;
 }
 
-/** Card number digits (separators removed) when `candidate` is a Luhn-valid PAN. */
+/** Issuer prefixes (IIN ranges) and lengths of the major networks. */
+export function cardIssuerValid(d: string): boolean {
+  const n2 = Number(d.slice(0, 2));
+  const n3 = Number(d.slice(0, 3));
+  const n4 = Number(d.slice(0, 4));
+  const n6 = Number(d.slice(0, 6));
+  const len = d.length;
+  if (d.startsWith("4")) return len === 13 || len === 16 || len === 19; // Visa
+  if ((n2 >= 51 && n2 <= 55) || (n4 >= 2221 && n4 <= 2720)) return len === 16; // Mastercard
+  if (n2 === 34 || n2 === 37) return len === 15; // Amex
+  if (n4 === 6011 || n2 === 65 || (n3 >= 644 && n3 <= 649) || (n6 >= 622126 && n6 <= 622925)) {
+    return len >= 16 && len <= 19; // Discover
+  }
+  if (n4 >= 3528 && n4 <= 3589) return len >= 16 && len <= 19; // JCB
+  if (n2 === 36 || n2 === 38 || (n3 >= 300 && n3 <= 305) || n2 === 39) return len >= 14; // Diners
+  if (n2 === 62) return len >= 16 && len <= 19; // UnionPay
+  if (n2 === 50 || (n2 >= 56 && n2 <= 69)) return len >= 12 && len <= 19; // Maestro
+  return false;
+}
+
+/** Card number digits (separators removed) when `candidate` is a Luhn-valid PAN of a real issuer. */
 export function cardDigits(candidate: string): string | undefined {
-  const digits = candidate.replace(/[ .\t-]/g, "");
+  const digits = candidate.replace(/[\s\p{Pd}|/_,.·]/gu, "");
   if (digits.length < 13 || digits.length > 19) return undefined;
   if (/^(\d)\1+$/.test(digits)) return undefined;
-  return luhnValid(digits) ? digits : undefined;
+  return luhnValid(digits) && cardIssuerValid(digits) ? digits : undefined;
+}
+
+const isDigitAt = (s: string, i: number) => {
+  const c = s.charCodeAt(i);
+  return c >= 48 && c <= 57;
+};
+
+/** Characters people put between card-number groups: space, newline, dash, pipe, slash, dot… */
+function isCardSep(ch: string): boolean {
+  const c = ch.charCodeAt(0);
+  if (c < 128)
+    return (
+      c === 32 ||
+      (c >= 9 && c <= 13) ||
+      c === 45 ||
+      c === 124 ||
+      c === 47 ||
+      c === 95 ||
+      c === 44 ||
+      c === 46
+    );
+  return c === 0xb7 || /[\s\p{Pd}]/u.test(ch);
 }
 
 /**
- * The Luhn-valid card number inside a digit run, which may have run into a following expiry or
- * code ("4111… 12/27") or a leading one: the longest group-aligned slice of 13–19 digits. The run
- * is at most 19 digits, so this stays bounded.
+ * Card numbers: digit groups joined by 1–3 separator characters, read as a chain. A card is a run of
+ * whole groups totalling 13–19 digits with a Luhn checksum and a real issuer prefix, starting at the
+ * beginning of a group (a short group such as "Step 2" or an expiry may come first) and either grouped the way
+ * cards are (first group of 4, 6, 8 or 12+ digits) or evenly spaced ("4 1 1 1 …"). Order numbers like
+ * "112-4567890-1234567" start with a short group and so are never read as cards. Linear: each start
+ * looks at most 19 digits ahead.
  */
-function cardWithin(run: string): { start: number; length: number } | undefined {
-  const isDigit = (i: number) => run.charCodeAt(i) >= 48 && run.charCodeAt(i) <= 57;
-  const starts: number[] = [];
-  const ends: number[] = [];
-  for (let i = 0; i < run.length; i += 1) {
-    if (!isDigit(i)) continue;
-    if (i === 0 || !isDigit(i - 1)) starts.push(i);
-    if (i === run.length - 1 || !isDigit(i + 1)) ends.push(i);
-  }
-  for (const s of starts) {
-    for (let k = ends.length - 1; k >= 0; k -= 1) {
-      const e = ends[k] as number;
-      if (e < s) break;
-      if (cardDigits(run.slice(s, e + 1)) !== undefined) return { start: s, length: e + 1 - s };
+function cardMatches(text: string): { start: number; length: number }[] {
+  const found: { start: number; length: number }[] = [];
+  const n = text.length;
+  let i = 0;
+  while (i < n) {
+    if (!isDigitAt(text, i) || (i > 0 && isDigitAt(text, i - 1))) {
+      i += 1;
+      continue;
+    }
+    const gs: number[] = []; // [start, end) pairs of the chain's digit groups
+    const gaps: string[] = [];
+    let digits = "";
+    let p = i;
+    for (;;) {
+      let q = p;
+      while (q < n && isDigitAt(text, q)) q += 1;
+      gs.push(p, q);
+      digits += text.slice(p, q);
+      let g = q;
+      while (g < n && g - q < 4 && isCardSep(text.charAt(g))) g += 1;
+      if (g - q >= 1 && g - q <= 3 && g < n && isDigitAt(text, g)) {
+        gaps.push(text.slice(q, g));
+        p = g;
+        continue;
+      }
+      i = q;
+      break;
+    }
+    const count = gs.length / 2;
+    if (digits.length < 13) continue;
+    const size = (k: number) => (gs[2 * k + 1] as number) - (gs[2 * k] as number);
+    const off = [0];
+    for (let k = 0; k < count; k += 1) off.push((off[k] as number) + size(k));
+    // A slash next to a short group is an expiry ("12/27"), not a separator inside a card.
+    const expiryGap = (k: number) =>
+      k + 1 < count && gaps[k]?.includes("/") === true && (size(k) <= 2 || size(k + 1) <= 2);
+    const attempt = (s: number): number | undefined => {
+      const first = digits.charCodeAt(off[s] as number) - 48;
+      if (first < 2 || first > 6) return undefined; // no card issuer here starts with 0, 1 or 7–9
+      let emax = s;
+      while (
+        emax + 1 < count &&
+        (off[emax + 2] as number) - (off[s] as number) <= 19 &&
+        !expiryGap(emax)
+      ) {
+        emax += 1;
+      }
+      // The slice may not end on the month of an expiry that follows it ("… 12/27").
+      if (expiryGap(emax)) emax -= 1;
+      const g0 = size(s);
+      for (let e = emax; e >= s; e -= 1) {
+        const total = (off[e + 1] as number) - (off[s] as number);
+        if (total < 13) break;
+        const grouped = g0 === 4 || g0 === 6 || g0 === 8 || g0 >= 12;
+        let even = g0 <= 3;
+        for (let k = s + 1; even && k <= e; k += 1) {
+          if (k < e ? size(k) !== g0 : size(k) > g0) even = false;
+        }
+        if (!grouped && !even) continue;
+        if (cardDigits(digits.slice(off[s], off[e + 1])) !== undefined) return e;
+      }
+      return undefined;
+    };
+    // Every group start is tried in turn: "Step 2: 4111 …" and "qty 2 4111 …" put short groups in
+    // front of the card. After a card, the search goes on after it.
+    let cur = 0;
+    while (cur < count) {
+      const e = attempt(cur);
+      if (e === undefined) {
+        cur += 1;
+        continue;
+      }
+      const start = gs[2 * cur] as number;
+      found.push({ start, length: (gs[2 * e + 1] as number) - start });
+      cur = e + 1;
     }
   }
-  return undefined;
+  return found;
 }
 
 export function findSensitive(text: string): SensitiveMatch[] {
@@ -236,11 +382,8 @@ export function findSensitive(text: string): SensitiveMatch[] {
       out.push({ kind, index: m.index, length });
     }
   }
-  for (const m of text.matchAll(CARD_CANDIDATE)) {
-    const span = cardWithin(m[0]);
-    if (span !== undefined) {
-      out.push({ kind: "card_number", index: m.index + span.start, length: span.length });
-    }
+  for (const span of cardMatches(text)) {
+    out.push({ kind: "card_number", index: span.start, length: span.length });
   }
   for (const m of text.matchAll(IBAN_CANDIDATE)) {
     // The candidate may run into a following word; take the longest prefix that validates.
@@ -265,36 +408,70 @@ function groupSpan(m: RegExpMatchArray): SensitiveMatch["index"] {
   return (m.index as number) + m[0].length - (m[1] as string).length;
 }
 
+/** Binary search: is any of the sorted `points` within `reach` of `at`, other than `at` itself? */
+function hasNear(points: readonly number[], at: number, reach: number): number | undefined {
+  let lo = 0;
+  let hi = points.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if ((points[mid] as number) < at - reach) lo = mid + 1;
+    else hi = mid;
+  }
+  for (let k = lo; k < points.length && (points[k] as number) <= at + reach; k += 1) {
+    if (points[k] !== at) return points[k];
+  }
+  return undefined;
+}
+
 function findIdentifiers(text: string, out: SensitiveMatch[]): void {
-  const push = (kind: SensitiveKind, index: number, length: number) =>
+  const pushed = new Set<string>();
+  const push = (kind: SensitiveKind, index: number, length: number) => {
+    pushed.add(`${kind}:${index}`);
     out.push({ kind, index, length });
-  const covers = (kind: SensitiveKind, index: number) =>
-    out.some((o) => o.kind === kind && o.index === index);
+  };
 
   // US bank account: a labeled routing number (ABA checksum) next to a labeled account number. A
   // routing number alone is public and an account word alone names utility bills, so neither counts.
-  const routing: { index: number }[] = [];
+  const routing: number[] = [];
   for (const m of text.matchAll(ABA_CANDIDATE)) {
     if (!abaValid(m[0])) continue;
-    const before = text.slice(Math.max(0, m.index - 24), m.index);
-    const after = text.slice(m.index + 9, m.index + 9 + 16);
-    if (ROUTING_WORD.test(before) || ROUTING_WORD.test(after)) routing.push({ index: m.index });
+    const before = text.slice(Math.max(0, m.index - 28), m.index);
+    const after = text.slice(m.index + 9, m.index + 9 + 24);
+    if (ROUTING_BEFORE.test(before) || ROUTING_AFTER.test(after)) routing.push(m.index);
   }
   if (routing.length > 0) {
     for (const m of text.matchAll(ACCOUNT_LABELED)) {
       const at = groupSpan(m);
-      const near = routing.find((r) => Math.abs(r.index - at) <= 150);
-      if (near === undefined || near.index === at) continue;
+      const near = hasNear(routing, at, 150);
+      if (near === undefined) continue;
       push("us_bank_account", at, (m[1] as string).length);
-      if (!covers("us_bank_account", near.index)) push("us_bank_account", near.index, 9);
+      if (!pushed.has(`us_bank_account:${near}`)) push("us_bank_account", near, 9);
     }
   }
 
   // A card's CVV and expiry, only next to a detected card (a lone "CVV 123" is not usable).
   const cards = out.filter((o) => o.kind === "card_number");
   if (cards.length > 0) {
-    const near = (index: number, length: number) =>
-      cards.some((c) => index < c.index + c.length + 100 && index + length > c.index - 100);
+    // Sorted, merged windows of 100 characters around each card, searched in log time.
+    const windows: [number, number][] = [];
+    for (const c of cards) {
+      const lo = c.index - 100;
+      const hi = c.index + c.length + 100;
+      const last = windows[windows.length - 1];
+      if (last !== undefined && lo <= last[1]) last[1] = Math.max(last[1], hi);
+      else windows.push([lo, hi]);
+    }
+    const near = (index: number, length: number) => {
+      let lo = 0;
+      let hi = windows.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (((windows[mid] as [number, number])[1] as number) <= index) lo = mid + 1;
+        else hi = mid;
+      }
+      const w = windows[lo];
+      return w !== undefined && w[0] < index + length;
+    };
     for (const re of [CVV_LABELED, EXPIRY_LABELED]) {
       for (const m of text.matchAll(re)) {
         const at = groupSpan(m);
@@ -319,25 +496,36 @@ function findIdentifiers(text: string, out: SensitiveMatch[]): void {
     }
   }
 
+  for (const m of text.matchAll(SSN_LABELED)) {
+    const digits = (m[1] as string).replace(/\D/g, "");
+    if (/^(?!000|666|9)\d{3}(?!00)\d{2}(?!0000)\d{4}$/.test(digits)) {
+      push("us_ssn", groupSpan(m), (m[1] as string).length);
+    }
+  }
   for (const m of text.matchAll(PASSPORT)) {
     push("passport", groupSpan(m), (m[1] as string).length);
   }
   for (const m of text.matchAll(SIN_LABELED)) {
     if (sinValid(m[1] as string)) push("ca_sin", groupSpan(m), (m[1] as string).length);
   }
-  for (const m of text.matchAll(NINE_GROUPED)) {
-    if (sinValid(m[0]) && !covers("ca_sin", m.index)) push("ca_sin", m.index, m[0].length);
+  for (const m of text.matchAll(NINO_LABEL)) {
+    NINO_VALUE.lastIndex = m.index + m[0].length;
+    const v = NINO_VALUE.exec(text);
+    if (v !== null) push("uk_nino", v.index, v[0].length);
   }
-  for (const m of text.matchAll(NINO)) push("uk_nino", m.index, m[0].length);
   for (const m of text.matchAll(AADHAAR_LABELED)) {
     if (aadhaarValid(m[1] as string)) push("in_aadhaar", groupSpan(m), (m[1] as string).length);
   }
-  for (const m of text.matchAll(AADHAAR_GROUPED)) {
-    if (aadhaarValid(m[0]) && !covers("in_aadhaar", m.index)) {
-      push("in_aadhaar", m.index, m[0].length);
+  for (const m of text.matchAll(OTP_AFTER)) {
+    push("one_time_code", groupSpan(m), (m[1] as string).length);
+  }
+  for (const re of [YOUR_CODE, THE_CODE]) {
+    for (const m of text.matchAll(re)) {
+      if (NOT_A_LOGIN_CODE.test(m[1] as string)) continue;
+      push("one_time_code", groupSpan(m), (m[2] as string).length);
     }
   }
-  for (const m of text.matchAll(OTP_AFTER)) {
+  for (const m of text.matchAll(OTP_USE)) {
     push("one_time_code", groupSpan(m), (m[1] as string).length);
   }
   for (const m of text.matchAll(OTP_BEFORE)) {
@@ -345,13 +533,74 @@ function findIdentifiers(text: string, out: SensitiveMatch[]): void {
   }
 }
 
+// ---- the scan view: what a reader sees, with the encodings that hide digits undone ----------------
+
+/** Digit value of a non-ASCII decimal digit: Unicode lays every set out as ten in a row from zero. */
+function digitValue(cp: number): number {
+  let zero = cp;
+  while (cp - zero < 60 && /^\p{Nd}$/u.test(String.fromCodePoint(zero - 1))) zero -= 1;
+  return (cp - zero) % 10;
+}
+
+function foldChar(ch: string): string {
+  let out = "";
+  for (const c of ch.normalize("NFKC")) {
+    const cp = c.codePointAt(0) as number;
+    if (cp < 128) out += c;
+    else if (/^[\p{Cf}\p{Mn}\p{Me}]$/u.test(c)) continue;
+    else if (/^\p{Nd}$/u.test(c)) out += String(digitValue(cp));
+    else out += c;
+  }
+  return out;
+}
+
+export interface ScanView {
+  /** NFKC form, format and combining marks removed, every decimal digit written 0–9. */
+  text: string;
+  /** For each UTF-16 unit of `text`: where its source character starts and ends in the original. */
+  start: number[];
+  end: number[];
+}
+
+const ASCII_ONLY = /^\p{ASCII}*$/u;
+
+export function scanView(text: string): ScanView {
+  if (ASCII_ONLY.test(text)) return { text, start: [], end: [] };
+  let out = "";
+  const start: number[] = [];
+  const end: number[] = [];
+  for (let i = 0; i < text.length; ) {
+    const cp = text.codePointAt(i) as number;
+    const width = cp > 0xffff ? 2 : 1;
+    const piece = cp < 128 ? text.charAt(i) : foldChar(text.slice(i, i + width));
+    for (let k = 0; k < piece.length; k += 1) {
+      start.push(i);
+      end.push(i + width);
+    }
+    out += piece;
+    i += width;
+  }
+  return { text: out, start, end };
+}
+
 /**
- * Matches on the NFKC form with format characters removed, so full-width digits, zero-width
- * joiners and similar encodings are caught. Indices refer to the normalized text.
+ * Matches on the scan view, so full-width and Arabic-Indic, Persian or Devanagari digits, zero-width
+ * joiners and similar encodings are caught. Indices refer to the view's text.
  */
 export function findSensitiveNormalized(text: string): SensitiveMatch[] {
-  const normalized = text.normalize("NFKC").replace(/[\p{Cf}]/gu, "");
-  return normalized === text ? findSensitive(text) : findSensitive(normalized);
+  return findSensitive(scanView(text).text);
+}
+
+/** The same matches, with `index` and `length` in the original text (to cut exactly those spans). */
+export function findSensitiveOriginal(text: string): SensitiveMatch[] {
+  const view = scanView(text);
+  const matches = findSensitive(view.text);
+  if (view.text === text) return matches;
+  return matches.map((m) => {
+    const from = view.start[m.index] as number;
+    const to = view.end[m.index + m.length - 1] as number;
+    return { kind: m.kind, index: from, length: to - from };
+  });
 }
 
 export function containsSensitive(text: string): boolean {
@@ -364,7 +613,7 @@ export const REDACTED = "[redacted]";
 export function redactSensitive(text: string): string {
   const matches = findSensitive(text);
   if (matches.length === 0) {
-    // Encoded forms (full-width digits, zero-width separators) redact the whole string.
+    // Encoded forms (full-width or Arabic-Indic digits, zero-width separators) redact the whole string.
     const hidden = findSensitiveNormalized(text)[0];
     return hidden === undefined ? text : `[redacted:${hidden.kind}]`;
   }

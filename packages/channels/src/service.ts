@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { checkOutbound, type OutboundAudience, type OutboundVerdict } from "@psyche/permissions";
+import {
+  checkOutbound,
+  type OutboundAudience,
+  type OutboundVerdict,
+  outboundTail,
+} from "@psyche/permissions";
 import {
   type Channel,
   type ChannelAdapter,
@@ -18,6 +23,7 @@ import {
   type TaintSource,
   type Unsubscribe,
 } from "@psyche/protocol";
+import { dmPeer } from "./adapters/imessage/mapping.ts";
 import { ChatApprovals, type DeliveryReport } from "./approvals.ts";
 import { type BUILTIN_COMMANDS, parseApprovalCommand, parseCommand } from "./commands.ts";
 import { chunkMessage } from "./format/chunk.ts";
@@ -115,6 +121,8 @@ interface Attached {
 }
 
 const MAX_SEND_RETRIES = 3;
+/** How long the end of a message is kept to read it together with the next one to the same chat. */
+const TAIL_WINDOW_MS = 60_000;
 
 export class ChannelService {
   readonly pairing: PairingService;
@@ -139,6 +147,10 @@ export class ChannelService {
   #admitInbound: ((channel: Channel, message: InboundMessage) => boolean) | undefined;
   #channels = new Map<string, Channel>();
   #attached = new Map<string, Attached>();
+  /** One-to-one chats the owner has written in (`<channelId>|<chatId>`): their replies are the owner's own. */
+  #ownerChats = new Set<string>();
+  /** The end of the last message sent per chat, so a number split across two messages is read as one. */
+  #tails = new Map<string, { text: string; at: number }>();
 
   constructor(options: ChannelServiceOptions) {
     this.#store = options.store;
@@ -507,9 +519,17 @@ export class ChannelService {
     const settings = channelSettings(channel);
     let format = options.format ?? "markdown";
     // The outbound check runs on the whole text before it is rendered or chunked: a card number
-    // split across two chunks, or joined by Markdown, must not slip through.
-    const verdict = checkOutbound(text, this.#audienceOf(channel, target.chatId), (t) =>
-      renderMarkdown(t, "plain"),
+    // split across two chunks, or joined by Markdown, must not slip through. The end of the last
+    // message to this chat is read with it, so a number split across two messages does not either.
+    const chatKey = `${channel.id}|${target.chatId}`;
+    const recent = this.#tails.get(chatKey);
+    const tail =
+      recent !== undefined && this.#clock.now() - recent.at < TAIL_WINDOW_MS ? recent.text : "";
+    const verdict = checkOutbound(
+      text,
+      this.#audienceOf(channel, target.chatId),
+      (t) => renderMarkdown(t, "plain"),
+      { tail },
     );
     let source = text;
     if (verdict.action !== "allow") {
@@ -523,9 +543,11 @@ export class ChannelService {
       source = verdict.text;
       format = "plain";
     }
+    if (this.#tails.size >= 500) this.#tails.clear();
+    this.#tails.set(chatKey, { text: outboundTail(source), at: this.#clock.now() });
     let body = source;
     if (format === "markdown" && caps.markdown !== true) {
-      body = renderMarkdown(text, "plain");
+      body = renderMarkdown(source, "plain");
       format = "plain";
     }
     const limit = caps.maxMessageChars ?? 4000;
@@ -571,14 +593,28 @@ export class ChannelService {
   }
 
   /**
-   * Who a chat is. Only the owner's own one-to-one chat on a non-email channel is `owner`; a group,
-   * another person and every email thread are `other` (held, not redacted).
+   * Who a chat is. Only the owner's own one-to-one chat is `owner`; a group, another person and
+   * every email thread (a `From:` is forgeable, so no address is the owner's) are `other`: held,
+   * not redacted. The owner's chat is known by the id the channel gives it: the owner's own id,
+   * the DM peer of an iMessage guid, or a chat the owner has written in (Discord and Slack DM
+   * channel ids, a WebChat device id).
    */
   #audienceOf(channel: Channel, chatId: string): OutboundAudience {
     if (channel.type === "email") return "other";
+    // WebChat is the owner's own paired devices and nobody else.
+    if (channel.type === "webchat") return "owner";
+    const ids = [chatId];
+    if (channel.type === "imessage") {
+      const peer = dmPeer(chatId);
+      if (peer !== undefined) ids.push(peer);
+    }
     const own =
-      channel.ownerIds.includes(chatId) ||
-      this.#identities.ownerAllowFrom.includes(`${channel.type}:${chatId}`);
+      this.#ownerChats.has(`${channel.id}|${chatId}`) ||
+      ids.some(
+        (id) =>
+          channel.ownerIds.includes(id) ||
+          this.#identities.ownerAllowFrom.includes(`${channel.type}:${id}`),
+      );
     return own ? "owner" : "other";
   }
 
@@ -677,6 +713,15 @@ export class ChannelService {
       return;
     }
     const { route } = decision;
+    // The owner's own one-to-one chat, as this channel names it (an iMessage guid, a Discord or Slack
+    // DM channel id, a WebChat device id): replies there are the owner's own.
+    if (
+      !message.isGroup &&
+      this.#identities.isOwner(senderRef(channel, message), channel.ownerIds)
+    ) {
+      if (this.#ownerChats.size >= 1000) this.#ownerChats.clear();
+      this.#ownerChats.add(`${channel.id}|${message.chatId}`);
+    }
     // Forwarded or edited text is never a command (design-22): only words the sender typed.
     const command =
       message.forwardedFrom === undefined && message.editOf === undefined

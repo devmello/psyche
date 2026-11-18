@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { MemoryCursorStore } from "@psyche/channels";
 import { bindingFor } from "@psyche/permissions";
 import type { ModelEvent } from "@psyche/protocol";
-import { FakeMessagesNode, FakeModelProvider } from "@psyche/testing";
+import { FakeMessagesNode, FakeModelProvider, fixtureSecret } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   type ComposedChannels,
@@ -113,6 +113,28 @@ describe("iMessage reply authority in the Gateway (N5)", () => {
     expect(
       receipts.some((r) => r.kind === "node.messages.send" && r.approvalId === approvalId),
     ).toBe(true);
+  });
+
+  it("the owner's own iMessage DM gets the redacted reply, and the audit entry holds kinds only (§3.9)", async () => {
+    const card = fixtureSecret("link-virtual-card");
+    const { node, services } = await setup(
+      FakeModelProvider.script([say(`Your card is ${card}, code 482913.`)]),
+    );
+    node.receive({ from: OWNER, text: "what card do I use?" });
+
+    await vi.waitFor(() => expect(node.sends).toHaveLength(1), { timeout: 5000 });
+    // The chat is `iMessage;-;<owner>`: the owner's, so the value is cut out and the rest is sent.
+    expect(node.sends[0]).toMatchObject({
+      chatId: OWNER_CHAT,
+      text: "Your card is [withheld: open Psyche to see it], code 482913.",
+    });
+    const entry = (await services.audit.list()).find((e) => e.kind === "outbound.withheld");
+    expect(entry?.data).toEqual({
+      decision: "redact",
+      channelType: "imessage",
+      kinds: ["card_number"],
+    });
+    expect(JSON.stringify(entry)).not.toContain(card.slice(0, 4));
   });
 
   it("refuses at dispatch a send whose text differs from what was approved", async () => {

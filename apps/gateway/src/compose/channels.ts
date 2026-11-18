@@ -40,6 +40,7 @@ import {
   webChatChannelDefaults,
 } from "@psyche/channels";
 import {
+  appendMessage,
   createThread,
   findThreadBySessionKey,
   getAgentThreadState,
@@ -844,13 +845,46 @@ export function composeChannels(
         })
         .catch(() => undefined);
       if (!held) return;
+      const what = event.kinds.join(", ").replaceAll("_", " ");
+      // The conversation the held message belonged to: its thread gets a note the model reads too, and
+      // the notification opens that thread.
+      const run = [...replyTo.entries()]
+        .reverse()
+        .find(([, t]) => t.channelId === event.channel.id && t.chatId === event.chatId);
+      const threadId = run === undefined ? undefined : turns.get(run[0])?.threadId;
+      if (threadId !== undefined) {
+        const note = {
+          threadId,
+          role: "system" as const,
+          blocks: [
+            {
+              type: "text" as const,
+              md: `Psyche did not send your last ${event.channel.type} message because it held ${what}. Tell the owner to send it themselves from the app, or leave the value out.`,
+            },
+          ],
+          provenance: "system" as const,
+          runId: null,
+        };
+        // While the turn that wrote the message still owns the transcript the note is its own to
+        // append; once it has finished, nobody owns it.
+        for (const writer of [run?.[0] ?? null, null]) {
+          try {
+            const message = appendMessage(db, note, { expectedWriterRunId: writer });
+            services.publish("chat.message", { message }, threadId);
+            break;
+          } catch {
+            // Owned by another run: try the next owner, and the notification tells the owner anyway.
+          }
+        }
+      }
       void services.notifier
         .notify({
           kind: "system",
           title: "A message was held back",
-          body: `Psyche did not send a ${event.channel.type} message because it held ${event.kinds.join(", ").replaceAll("_", " ")}. Open Psyche to see it.`,
-          route: `/settings/channels/${event.channel.id}`,
-          dedupeKey: `outbound-held:${event.channel.id}`,
+          body: `Psyche did not send a ${event.channel.type} message because it held ${what}. Open Psyche to see it.`,
+          route:
+            threadId === undefined ? `/settings/channels/${event.channel.id}` : `/chat/${threadId}`,
+          dedupeKey: `outbound-held:${event.channel.id}:${event.chatId}`,
         })
         .catch(() => undefined);
     },

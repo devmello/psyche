@@ -93,6 +93,31 @@ describe("hard prohibitions", () => {
     expect(d.rule).toBe("prohibition:captcha");
   });
 
+  it("an email or message to someone is held when it carries a bank, id or one-time code value", async () => {
+    const send = (body: string) =>
+      decide(["email.send", "destructive", { kind: "recipient", value: "a@example.org" }], {
+        params: { body },
+      });
+    for (const body of [
+      `passport number: ${j("X123", "4567")}`,
+      `Routing number: ${j("0210", "00021")}, account number ${j("12345", "67890")}`,
+      "Your verification code is 482913",
+      `SIN: ${j("130", "692", "544")}`,
+    ]) {
+      expect(await send(body)).toMatchObject({
+        decision: "deny",
+        rule: "prohibition:outbound_sensitive",
+      });
+    }
+    // Ordinary text, with shapes that share digits and words, is not held by this rule.
+    for (const body of [
+      "Order 112-4567890-1234567 ships Friday; tracking 1Z999AA10123456784",
+      "the source code is 100 lines; call +1 (415) 555-0132",
+    ]) {
+      expect((await send(body)).rule).not.toBe("prohibition:outbound_sensitive");
+    }
+  });
+
   it("never enters a card number, bank account or government id", async () => {
     const cases: [string, string][] = [
       [sample("card"), "prohibition:card_entry"],

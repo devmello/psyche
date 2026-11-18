@@ -3,6 +3,7 @@ import {
   bodySha256,
   type ComposeCandidate,
   type ComposeDetails,
+  checkOutbound,
   composeBindingHash,
   readFinal,
 } from "@psyche/permissions";
@@ -233,6 +234,16 @@ async function send(
     return done({
       status: "limit",
       why: `already sent ${max} messages this turn; ask the owner before sending more`,
+    });
+  }
+  // The outbound check (security §3.9): this tool raises its own approval, so the check runs here.
+  // The text goes to someone else; a credential, card, bank number, ID or one-time code is held.
+  const verdict = checkOutbound(p.text, "other");
+  if (verdict.action === "hold") {
+    return done({
+      status: "withheld",
+      sent: false,
+      why: `the text holds ${verdict.kinds.join(", ").replaceAll("_", " ")}; Psyche does not send such values. Tell the owner to send it themselves, or leave the value out`,
     });
   }
   const node = deps.node();
