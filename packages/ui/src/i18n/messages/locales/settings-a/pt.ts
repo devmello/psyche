@@ -76,6 +76,7 @@ export const settingsA: Partial<Catalogue> = {
   "settings.key.browser.useSignedInSessions": "Usar minhas sessões iniciadas",
   "settings.key.exec.srtPath": "Local do srt",
   "settings.key.devices.hostHelper.status": "Verificação do assistente do Linux",
+  "settings.key.devices.helper.availability": "Conexão do Psyche Helper",
   "settings.key.search.model.engine": "Modelo para a pesquisa",
   "settings.key.search.semantic.enabled": "Pesquisa semântica (no dispositivo)",
   "settings.key.search.cards.enabled": "Cartões de contexto para a pesquisa",

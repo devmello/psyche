@@ -328,6 +328,7 @@ export class PolicyEngine {
       grantId?: string;
       via?: PolicyDecision["via"];
       typedConfirmation?: string;
+      deviceOnly?: true;
       classifier?: PolicyDecision["classifier"];
     },
   ): Evaluation {
@@ -353,6 +354,7 @@ export class PolicyEngine {
       d.approvalKind = x.kind;
       d.scopesOffered = x.scopes ?? allowedScopes(x.se, x.kind);
       if (x.typedConfirmation !== undefined) d.typedConfirmation = x.typedConfirmation;
+      if (x.deviceOnly === true) d.deviceOnly = true;
       if (ctx.unattended === true) d.deferred = true;
     }
     return { decision: d, binding: x.binding };
@@ -436,8 +438,10 @@ export class PolicyEngine {
     if (prohibited?.effect === "deny") return done("deny", prohibited.id, prohibited.reason);
     const floors: Floor[] = [];
     let typedConfirmation: string | undefined;
+    let deviceOnly: true | undefined;
     if (prohibited !== undefined) {
       if (prohibited.effect === "confirm") typedConfirmation = prohibited.word;
+      if (prohibited.effect === "ask" && prohibited.deviceOnly === true) deviceOnly = true;
       floors.push({ rule: prohibited.id, reason: prohibited.reason, scopes: ["once"] });
     }
 
@@ -781,6 +785,7 @@ export class PolicyEngine {
               : ["once", "task", "site"],
         ),
         ...(typedConfirmation === undefined ? {} : { typedConfirmation }),
+        ...(deviceOnly === undefined ? {} : { deviceOnly }),
       });
 
     // Manual mode never consults grants or allowances for writes and above (step 5).

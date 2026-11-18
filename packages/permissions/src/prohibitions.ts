@@ -9,6 +9,8 @@ import {
   isTradeOrTransferText,
 } from "@psyche/protocol/financial-block";
 import { dangerousEnvNames } from "./binding.ts";
+import { SEND_KINDS } from "./connector-matrix.ts";
+import { outboundSendDecision } from "./outbound.ts";
 import {
   type CanonicalUrl,
   canonicalUrl,
@@ -28,7 +30,7 @@ import type { PolicyCall, PolicyContext } from "./types.ts";
 export type ProhibitionResult =
   | { effect: "deny"; id: string; reason: string }
   | { effect: "confirm"; id: string; reason: string; word: string }
-  | { effect: "ask"; id: string; reason: string };
+  | { effect: "ask"; id: string; reason: string; deviceOnly?: true };
 
 export interface LoopbackCheck {
   ok: boolean;
@@ -722,7 +724,7 @@ export async function checkProhibitions(
   if (path !== undefined && SYSTEM_CREDENTIAL_PATHS.some((re) => re.test(path))) {
     return deny(
       "system_credentials",
-      "keychains, browser profiles, SSH keys and CLI credentials are never read",
+      "keychains, browser profiles, SSH keys and CLI credentials are never read. To use a secret from one of them, store it in the vault and Psyche will fill it without seeing it",
     );
   }
 
@@ -739,7 +741,10 @@ export async function checkProhibitions(
       ["private_key", "api_key", "bearer_token", "jwt", "url_credentials"].includes(m.kind),
     );
     if (hit !== undefined) {
-      return deny("visible_secret", `a ${hit.kind} is visible in the arguments; use the vault`);
+      return deny(
+        "visible_secret",
+        `a ${hit.kind} is visible in the arguments; store it in the vault and Psyche will fill it without seeing it`,
+      );
     }
   }
 
@@ -770,7 +775,10 @@ export async function checkProhibitions(
     field?.type?.toLowerCase() === "password" ||
     /password/i.test(field?.autocomplete ?? "");
   if (TYPING_TOOL.test(tool) && passwordField) {
-    return deny("password_typing", "the agent never types into a password field");
+    return deny(
+      "password_typing",
+      "the agent never types into a password field. Store the password in the vault and Psyche will fill it without seeing it",
+    );
   }
 
   // Credential fills only into a matching field class (S23 design-01).
@@ -842,13 +850,45 @@ export async function checkProhibitions(
         if (m.kind === "card_number") {
           const digits = cardDigits(s.value.slice(m.index, m.index + m.length));
           if (digits !== undefined && isPublishedTestCard(digits) && loopbackOwned) continue;
-          return deny("card_entry", "card numbers are never entered; purchases go through Link");
+          return deny(
+            "card_entry",
+            "card numbers are never entered; purchases go through Link. Any other secret goes in the vault, and Psyche will fill it without seeing it",
+          );
         }
         if (m.kind === "iban")
           return deny("bank_account_entry", "bank account numbers are never entered");
         if (m.kind === "us_ssn")
           return deny("government_id_entry", "government identifiers are never entered");
       }
+    }
+  }
+
+  // What Psyche sends to another person or service goes through the one outbound check (security
+  // §3.9), the same function the channel service uses. The audience is another party: a tool call
+  // has no owner chat. Credentials, cards and their codes, IBANs and US Social Security numbers found
+  // by the strict reading are refused outright; the other kinds (one-time codes, passports, SIN, NI and Aadhaar numbers, a
+  // routing and account number) ask on a paired device, once, so the owner can still send their own
+  // accountant a routing number (owner decision, review round 2).
+  let outboundAsk: ProhibitionResult | undefined;
+  if ((SEND_KINDS as readonly string[]).includes(effectiveKind)) {
+    const asked = new Set<string>();
+    for (const s of params) {
+      const decision = outboundSendDecision(s.value);
+      if (decision.action === "deny") {
+        return deny(
+          "outbound_sensitive",
+          `the message holds ${decision.kinds.join(", ").replaceAll("_", " ")}; the owner sends such values themselves`,
+        );
+      }
+      if (decision.action === "ask") for (const k of decision.kinds) asked.add(k);
+    }
+    if (asked.size > 0) {
+      outboundAsk = {
+        effect: "ask",
+        id: "prohibition:outbound_identifier",
+        reason: `the message holds ${[...asked].join(", ").replaceAll("_", " ")}; approve on a paired device`,
+        deviceOnly: true,
+      };
     }
   }
 
@@ -897,7 +937,7 @@ export async function checkProhibitions(
       reason: "creating a third-party account needs approval",
     };
   }
-  return undefined;
+  return outboundAsk;
 }
 
 function execEnv(call: PolicyCall): Record<string, string> | undefined {

@@ -31,9 +31,10 @@ const MAX_PAGES = 4;
  * `runs.get` for the traces in a chat. A long chat mounts one trace per run at once (hundreds of
  * them), and a reconnect used to reload every one: that burst was thousands of requests a
  * minute and drained the Gateway's per-device request budget, so Settings, Usage and Allow
- * failed with "rate limited". Now each run is fetched once at a time, at most `MAX_RUN_LOADS`
- * run at once, and a finished run the store already has is not fetched whole again on a refresh:
- * only its steps after the last seq it holds (`runs.steps`), which catches a step the gap hid.
+ * failed with "rate limited". Now a trace loads only once it is on screen (`RunTrace` passes
+ * `enabled`), each run is fetched once at a time, at most `MAX_RUN_LOADS` run at once, and a
+ * finished run the store already has is not fetched whole again on a refresh: only its steps
+ * after the last seq it holds (`runs.steps`), which catches a step the gap hid.
  */
 const MAX_RUN_LOADS = 4;
 const inFlightRuns = new WeakMap<GatewayStore, Map<string, Promise<void>>>();
@@ -90,7 +91,10 @@ export type ExportRun = (
  * One run with its steps and helper runs (`runs.get`), live. `exportTrace` and `deleteTrace`
  * act on it ("Delete trace" keeps receipts).
  */
-export function useRun(runId: string | null): LoadState & {
+export function useRun(
+  runId: string | null,
+  options: { enabled?: boolean } = {},
+): LoadState & {
   run: Run | null;
   steps: readonly RunStep[];
   children: readonly Run[];
@@ -103,7 +107,9 @@ export function useRun(runId: string | null): LoadState & {
     runId === null ? EMPTY_STEPS : (s.runSteps[runId] ?? EMPTY_STEPS),
   );
   const runs = useStoreState((s) => s.runs);
-  const load = useLoader(runId === null ? null : `run:${runId}`, async (st, cause) => {
+  // A trace that is not on screen (`enabled: false`) loads nothing until it is.
+  const active = runId !== null && (options.enabled ?? true);
+  const load = useLoader(active ? `run:${runId}` : null, async (st, cause) => {
     if (runId === null) return;
     const settled = cause === "refresh" && runIsSettledInStore(st, runId);
     // Several traces of one run share one request.

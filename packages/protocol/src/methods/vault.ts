@@ -8,6 +8,7 @@ import {
   CredentialSecretInput,
   CredentialUse,
   LinkPaymentMethod,
+  LinkSetupStatus,
   OnePasswordRef,
   VaultPayment,
   VaultStatus,
@@ -183,5 +184,42 @@ export const VaultMethods = {
     result: Type.Object({ methods: Type.Array(LinkPaymentMethod) }),
     scope: "operator.read",
     description: "Lists the owner's Link payment methods (redacted) that can fund purchases.",
+  }),
+  "payments.link.status": defineMethod({
+    params: Type.Object({}),
+    result: LinkSetupStatus,
+    scope: "operator.read",
+    description:
+      "Where Stripe Link stands (Settings → Credentials → Payments): Link CLI not found, found, signed out, signing in or connected. Looks for the CLI in the usual npm locations and checks that it is safe to run; never installs anything. Carries no token.",
+  }),
+  "payments.link.connect": defineMethod({
+    params: Type.Object({
+      path: Type.String({ minLength: 1, maxLength: 1024 }),
+      approvalId: Type.Optional(Id),
+    }),
+    result: LinkSetupStatus,
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Saves the Link CLI Psyche may run, after checking that it resolves to a real file owned by the user or root and not writable by group or others, with the same for every parent folder. Running a program is a security change: needs fresh presence once the Gateway has a verifier (approval_required with details.approvalId, then retry with approvalId). Takes effect at once. Side-effecting.",
+  }),
+  "payments.link.signIn": defineMethod({
+    params: Type.Object({}),
+    result: LinkSetupStatus,
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Starts Link's sign-in with the connected CLI and returns Link's own page (signIn.verificationUrl) and the phrase to compare. The owner signs in on that page; Psyche never sees a password. The Gateway watches for the result and publishes payments.link.changed. Side-effecting.",
+  }),
+  "payments.link.disconnect": defineMethod({
+    params: Type.Object({
+      /** Give up payments still open (cancelled where Link allows) instead of refusing. */
+      force: Type.Optional(Type.Boolean()),
+    }),
+    result: LinkSetupStatus,
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Signs out of Link (best effort at Link, then deletes the auth file in the vault folder) and forgets the saved CLI. Fails conflict (details.reason payment_in_progress, with the merchants) while a payment is open, unless force is true, which gives those payments up and is audited. Narrowing, so admin only. Side-effecting.",
   }),
 } as const;

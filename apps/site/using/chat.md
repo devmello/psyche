@@ -80,7 +80,6 @@ Switching a thread's model or mode asks nothing, but some changes are refused: `
 - You cannot delete a single thread. Archive it, then use "Delete archived threads" in Settings → Data controls. Deleting a chat does not delete what the agent learned from it.
 - The "Export as Markdown / JSON / HTML" menu items do nothing; use `/export`. In the desktop app, whether `/export` saves a file is not confirmed.
 - When ⇧⌘M cannot switch to auto, the message wrongly says "Changing the permission mode needs a newer Gateway." The real reason is that the thread's model is not on the auto-mode allowlist.
-- The ⌘; "Fork selection" shortcut is listed but does nothing.
 - The model pill in the header appears only once a thread has its own model.
 - With adaptive thinking on Anthropic models, older versions failed a thread when its mode, model or tools changed between turns. This was fixed in 0.3.
 

@@ -761,6 +761,8 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         thread.id,
         { permissionMode },
         t("web.toast.permissionModeUnsupported"),
+        // A refused Auto offers the model picker: "Switch model" on the toast.
+        { onSwitchModel: () => setOverlay("model") },
       );
     },
     [thread, store],

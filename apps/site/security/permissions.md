@@ -37,8 +37,8 @@ Change a thread's mode from the Manual / Balanced / Auto switch above the messag
 
 Auto's classifier is a set of deterministic rules today, not a model. It sees only your own recent messages, the task's title, the tool name and the action's metadata, never page text, screenshots, tool results or memory. Anything that changes access, shares, deletes or communicates outward, any bulk action, and any action with no request from you to match is "sensitive", so the broker asks. (A model-backed classifier exists in the code but the Gateway does not use it yet.)
 
-::: warning Not applied yet
-`defaultMode` in the permission policy, and the "Default mode for new threads" choice in Settings → Permissions, are saved but not applied. New threads start in Balanced.
+::: info Default mode
+New threads start in the "Default mode for new threads" you choose in Settings → Permissions. `auto` applies only when the thread's model is on the auto-mode allowlist; otherwise a new thread starts in Balanced.
 :::
 
 ## How a decision is made
@@ -117,3 +117,30 @@ Payments and trades are different things. A purchase (a checkout, a bill on the 
 - sending money or crypto to a person (Venmo, Cash App, Zelle, a wallet address).
 
 It tells you to do it yourself. This applies to the browser, to computer use and to MCP tools. It does not use a model: Psyche looks at the site or app (a brokerage, exchange, bank or payments service, by its real domain) and at what the control says, in any of the ten languages. A look-alike such as `robinhood.com.evil.test` is not treated as Robinhood, and a real bank subdomain is. Reading a balance or your transactions is fine. Banks that also run a brokerage count for trades too: "Buy" on a bank site is refused like "Buy" at a brokerage. Sign-in codes ("Send code") and menus such as "Pay & transfer" are not trades.
+
+## What Psyche never sends out
+
+What Psyche writes to another person goes through a check that runs outside the model. It withholds:
+
+- credentials: private keys, API keys, bearer tokens, JWTs and passwords in URLs;
+- card numbers, and a card's CVV or expiry written next to one;
+- bank accounts: IBANs, and a US routing number written next to a labeled account number;
+- government IDs: US Social Security, Canada SIN, UK National Insurance, India Aadhaar and passport numbers, each with its label ("SIN:", "passport number");
+- one-time codes, password-reset codes included ("your verification code is 482913"), because a reset code takes over an account.
+
+Cards in a message are found by their number shape: 13 to 19 digits with a valid checksum and the prefix of a card network (Visa, Mastercard, Amex, Discover, JCB, Diners, UnionPay, Maestro, RuPay, Mir, Troy, UATP), grouped the way cards are and joined by one separator: spaces, dashes, dots, bullets or colons. A card number split by newlines, slashes, bullets in a list, or table pipes is caught only when a card word ("card", "Visa", "Amex"…) is within 40 characters of it, so a column of numbers, a table or a grid is not a card. The other values need a checksum or a context word, so order numbers, tracking numbers, phone numbers, prices, dates, ZIP codes, hashes and UUIDs pass through. Digits in other scripts (Arabic-Indic, Persian, Devanagari and the rest), keycap digits and zero-width characters are read the same as ordinary digits.
+
+**Where it runs.**
+
+- Every message the channel service sends (Telegram, iMessage, Discord, Slack, SMS, WhatsApp, Signal, WebChat, email replies and the approval cards in chat) goes through the full check. When one message ends with part of a number and the next one to the same chat, within a minute, carries on with it ("my card is 4111 1111", then "1111 1111"), the two parts are read as one number.
+- The `messages_send` tool and other email or message tools use the same check before anything is approved. A credential, a card, an IBAN or a Social Security number, as the strict reading below finds it, is refused outright; a card shape only the message reading finds (rows of numbers aligned with two spaces, say) asks on a paired device instead. The other kinds (a one-time code, a passport, SIN, NI or Aadhaar number, a routing and account number) ask on a paired device, once, so you can still send your own accountant your routing number.
+- Other tool calls, such as file writes, MCP servers and browser forms, get a stricter reading for credentials, card numbers, IBANs and Social Security numbers. There a card is 13 to 19 digits split only by a single space, dot or dash, with a valid checksum and no network check, so no card network is missed and a list of ports or a grid of numbers in a file is never taken for a card.
+
+**What happens.**
+
+- In your own one-to-one chat (Telegram, iMessage, Discord, Slack, SMS, WebChat) the value is cut out and the reply says to open Psyche to see it, in your language. A one-time code is allowed there, since it goes to you. A card, a bank number, an ID and any credential are still cut out, because the chat service stores them.
+- A message to anyone else, to a group (including one you are in), or any email reply is held: it is not sent, the conversation gets a note telling Psyche why, and you get a notice in Psyche that opens the conversation. Email is always held, even to your own address, because a `From:` address is not verified.
+- The audit log records the decision and the kinds of value, never the value. Published test card numbers are not exempt here.
+
+**What it cannot see.** Digits spelled out as words, base64 or other encodings, reversed digits, separators made of letters, and a card in irregular groups (say 3, 5, 4 and 4 digits) get through. This is a guard against a model that mixes up what is private, not against a model that is working to hide it.
+

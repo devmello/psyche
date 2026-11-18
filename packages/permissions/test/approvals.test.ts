@@ -15,6 +15,8 @@ import {
 
 const write = () => call("calendar.create", "write", origin("https://calendar.example.com"));
 
+const h0 = () => makeBroker();
+
 async function request(
   h: ReturnType<typeof makeBroker>,
   c: PolicyCall,
@@ -302,6 +304,28 @@ describe("approval lifecycle", () => {
     );
     expect(issued.approval.surfaces).toEqual(["desktop"]);
     expect(issued.approval.deviceOnly).toBe(true);
+  });
+
+  it("a send that carries a passport or a one-time code asks on a paired device only (§3.9)", async () => {
+    const send = (body: string) =>
+      call(
+        "gmail.send",
+        "write",
+        { kind: "recipient", value: "a@example.org" },
+        {
+          params: { body },
+        },
+      );
+    const passport = await request(h0(), send(`passport number: ${["X123", "4567"].join("")}`), [
+      "telegram:1",
+      "desktop",
+    ]);
+    expect(passport.approval.surfaces).toEqual(["desktop"]);
+    expect(passport.approval.deviceOnly).toBe(true);
+    // The same send without the value may reach the chat as usual.
+    const plain = await request(h0(), send("See you Tuesday."), ["telegram:1", "desktop"]);
+    expect(plain.approval.deviceOnly).toBe(false);
+    expect(plain.approval.surfaces).toContain("telegram:1");
   });
 
   it("presence is required and bound to the request when a verifier is configured (design-04)", async () => {

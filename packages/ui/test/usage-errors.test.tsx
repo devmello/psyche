@@ -14,18 +14,16 @@ describe("Settings → Usage when usage.summary fails", () => {
     render(
       <StoryWorld
         onGateway={(g: MockGateway) =>
-          g.failNext(
-            "usage.summary",
-            "rate_limited",
-            "Too many requests from this device; slow down",
-          )
+          g.failNext("usage.summary", "internal", "Usage could not be read just now")
         }
       >
         <UsageSection />
       </StoryWorld>,
     );
+    // A rate-limited read is retried by the client after the Gateway's retry-after (see
+    // request-gate.ts), so a single rate limit no longer reaches this screen as an error.
     const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toContain("Too many requests from this device; slow down");
+    expect(alert.textContent).toContain("Usage could not be read just now");
     expect(screen.queryByText("Usage isn't available from this Gateway yet.")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /try again|retry/i }));
     expect(await screen.findByRole("heading", { name: "This month" })).toBeTruthy();
