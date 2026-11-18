@@ -496,8 +496,68 @@ export const settings = {
   "settings.credentials.payments.description":
     "A one-time card, after you approve each purchase. Card numbers never reach Psyche.",
   "settings.credentials.payments.loadLabel": "payments",
-  "settings.credentials.payments.notConfigured":
-    "Stripe Link is not set up. Install the Link CLI on the Gateway's machine, sign in to Link, and set PSYCHE_LINK_CLI; Psyche then shows your payment methods here.",
+  "settings.credentials.payments.notConfigured": "Stripe Link is not set up on this Gateway.",
+  "settings.credentials.payments.setup.approvalLabel": "Stripe Link command-line tool",
+  "settings.credentials.payments.setup.refused": "Psyche won't run that program: {reason}.",
+  "settings.credentials.payments.setup.failed": "That didn't work: {reason}",
+  "settings.credentials.payments.setup.problem": "Psyche won't run {path}: {reason}.",
+  "settings.credentials.payments.setup.recheck": "Check again",
+  "settings.credentials.payments.setup.disconnect": "Disconnect",
+  "settings.credentials.payments.setup.disconnecting": "Disconnecting…",
+  "settings.credentials.payments.setup.disconnectConfirm.title": "Disconnect Stripe Link?",
+  "settings.credentials.payments.setup.disconnectConfirm.body":
+    "Psyche forgets the Link CLI and deletes its saved Link sign-in. Your Link account and cards are not touched, and you can connect again any time.",
+  "settings.credentials.payments.setup.disconnectConfirm.go": "Disconnect",
+  "settings.credentials.payments.setup.disconnectConfirm.cancel": "Stay connected",
+  "settings.credentials.payments.setup.envOverride":
+    "This Gateway was started with PSYCHE_LINK_CLI, which takes priority over the path saved here.",
+  "settings.credentials.payments.setup.missing.title": "Install the Link command-line tool",
+  "settings.credentials.payments.setup.missing.body":
+    "Psyche pays through Stripe Link using Link's own command-line tool. Run this on the computer that runs the Gateway, then check again.",
+  "settings.credentials.payments.setup.missing.region":
+    "Link payments for agents are available in the US and Canada.",
+  "settings.credentials.payments.setup.found.title": "Link CLI found",
+  "settings.credentials.payments.setup.found.body":
+    "Connect the copy you installed. Psyche runs it only to talk to Stripe Link, and only after you approve.",
+  "settings.credentials.payments.setup.found.connect": "Connect",
+  "settings.credentials.payments.setup.found.connecting": "Connecting…",
+  "settings.credentials.payments.setup.found.connectPath": "Connect {path}",
+  "settings.credentials.payments.setup.signedOut.title": "Sign in to Link",
+  "settings.credentials.payments.setup.signedOut.body":
+    "Psyche opens Link's own page, where you sign in and approve this device. You type your Link password there; it never reaches Psyche.",
+  "settings.credentials.payments.setup.signedOut.go": "Sign in with Link",
+  "settings.credentials.payments.setup.signedOut.starting": "Starting…",
+  "settings.credentials.payments.setup.signingIn.title": "Finish signing in on Link",
+  "settings.credentials.payments.setup.signingIn.body":
+    "Open Link's page and check that it shows the phrase below, then approve.",
+  "settings.credentials.payments.setup.signingIn.phrase": "Phrase:",
+  "settings.credentials.payments.setup.signingIn.open": "Open Link's page",
+  "settings.credentials.payments.setup.signingIn.waiting": "Waiting for you to approve in Link…",
+  "settings.credentials.payments.setup.connected": "Connected to Stripe Link through {path}.",
+  "settings.credentials.payments.setup.connectedNoPath": "Connected to Stripe Link.",
+  "settings.credentials.payments.setup.reason.not_absolute": "the path isn't absolute",
+  "settings.credentials.payments.setup.reason.missing": "it isn't there",
+  "settings.credentials.payments.setup.reason.not_a_file": "it is a link or not a regular file",
+  "settings.credentials.payments.setup.reason.not_executable": "it can't be run",
+  "settings.credentials.payments.setup.reason.wrong_owner": "it belongs to another user",
+  "settings.credentials.payments.setup.reason.writable": "other users can change it",
+  "settings.credentials.payments.setup.reason.parent_wrong_owner":
+    "a folder above it belongs to another user",
+  "settings.credentials.payments.setup.reason.parent_writable":
+    "other users can change a folder above it",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "it is inside Psyche's own folder; install the Link CLI with npm instead",
+  "settings.credentials.payments.setup.reason.not_link_cli":
+    "it is not part of the Link CLI package",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "it is Volta's shim; use the Link CLI's own folder under Volta, or install it with npm",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "A payment is still in progress. Disconnect once it has finished.",
+  "settings.credentials.payments.setup.force.title": "Disconnect anyway?",
+  "settings.credentials.payments.setup.force.body":
+    "Still in progress: {payments}. If you disconnect anyway, Psyche cancels it where Link allows and forgets it. A hold at the merchant lapses on its own, and Psyche can no longer report it.",
+  "settings.credentials.payments.setup.force.go": "Disconnect anyway",
+  "settings.credentials.payments.setup.force.aPayment": "a payment",
   "settings.credentials.payments.noMethods":
     "Your Link wallet has no payment methods. Add one in the Link app.",
   "settings.credentials.payments.methods": "Link payment methods",

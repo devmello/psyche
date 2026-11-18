@@ -1291,8 +1291,66 @@ export const ar: Partial<Catalogue> = {
   "settings.credentials.payments.amountRefunded": "{total} · استُردّ {refunded}",
   "settings.credentials.payments.title": "المدفوعات",
   "settings.credentials.payments.loadLabel": "المدفوعات",
-  "settings.credentials.payments.notConfigured":
-    "لم يتم إعداد Stripe Link. ثبّت واجهة Link على جهاز Gateway، وسجّل الدخول إلى Link، واضبط PSYCHE_LINK_CLI؛ عندها يعرض Psyche طرق الدفع هنا.",
+  "settings.credentials.payments.notConfigured": "لم يتم إعداد Stripe Link على هذا الـ Gateway.",
+  "settings.credentials.payments.setup.approvalLabel": "أداة سطر أوامر Stripe Link",
+  "settings.credentials.payments.setup.refused": "لن يشغّل Psyche هذا البرنامج: {reason}.",
+  "settings.credentials.payments.setup.failed": "لم تنجح العملية: {reason}",
+  "settings.credentials.payments.setup.problem": "لن يشغّل Psyche الملف {path}: {reason}.",
+  "settings.credentials.payments.setup.recheck": "تحقق مرة أخرى",
+  "settings.credentials.payments.setup.disconnect": "فصل الاتصال",
+  "settings.credentials.payments.setup.disconnecting": "جارٍ الفصل…",
+  "settings.credentials.payments.setup.disconnectConfirm.title": "فصل Stripe Link؟",
+  "settings.credentials.payments.setup.disconnectConfirm.body":
+    "ينسى Psyche أداة Link CLI ويحذف تسجيل دخول Link المحفوظ. لا يتأثر حسابك في Link ولا بطاقاتك، ويمكنك إعادة الاتصال في أي وقت.",
+  "settings.credentials.payments.setup.disconnectConfirm.go": "فصل الاتصال",
+  "settings.credentials.payments.setup.disconnectConfirm.cancel": "إبقاء الاتصال",
+  "settings.credentials.payments.setup.envOverride":
+    "بدأ هذا الـ Gateway بالمتغير PSYCHE_LINK_CLI، وله الأولوية على المسار المحفوظ هنا.",
+  "settings.credentials.payments.setup.missing.title": "ثبّت أداة سطر أوامر Link",
+  "settings.credentials.payments.setup.missing.body":
+    "يدفع Psyche عبر Stripe Link باستخدام أداة سطر الأوامر الخاصة بـ Link. شغّل الأمر على الجهاز الذي يعمل عليه الـ Gateway ثم تحقق مرة أخرى.",
+  "settings.credentials.payments.setup.missing.region":
+    "مدفوعات Link للوكلاء متاحة في الولايات المتحدة وكندا.",
+  "settings.credentials.payments.setup.found.title": "تم العثور على Link CLI",
+  "settings.credentials.payments.setup.found.body":
+    "اربط النسخة التي ثبّتها. يشغّلها Psyche فقط للتحدث مع Stripe Link، وبعد موافقتك فقط.",
+  "settings.credentials.payments.setup.found.connect": "اتصال",
+  "settings.credentials.payments.setup.found.connecting": "جارٍ الاتصال…",
+  "settings.credentials.payments.setup.found.connectPath": "اربط {path}",
+  "settings.credentials.payments.setup.signedOut.title": "تسجيل الدخول إلى Link",
+  "settings.credentials.payments.setup.signedOut.body":
+    "يفتح Psyche صفحة Link نفسها، حيث تسجّل الدخول وتوافق على هذا الجهاز. تكتب كلمة مرور Link هناك فقط ولا تصل إلى Psyche.",
+  "settings.credentials.payments.setup.signedOut.go": "تسجيل الدخول عبر Link",
+  "settings.credentials.payments.setup.signedOut.starting": "جارٍ البدء…",
+  "settings.credentials.payments.setup.signingIn.title": "أكمل تسجيل الدخول في Link",
+  "settings.credentials.payments.setup.signingIn.body":
+    "افتح صفحة Link وتأكد من أنها تعرض العبارة أدناه ثم وافق.",
+  "settings.credentials.payments.setup.signingIn.phrase": "العبارة:",
+  "settings.credentials.payments.setup.signingIn.open": "فتح صفحة Link",
+  "settings.credentials.payments.setup.signingIn.waiting": "بانتظار موافقتك في Link…",
+  "settings.credentials.payments.setup.connected": "متصل بـ Stripe Link عبر {path}.",
+  "settings.credentials.payments.setup.connectedNoPath": "متصل بـ Stripe Link.",
+  "settings.credentials.payments.setup.reason.not_absolute": "المسار ليس مسارًا مطلقًا",
+  "settings.credentials.payments.setup.reason.missing": "غير موجود",
+  "settings.credentials.payments.setup.reason.not_a_file": "إنه رابط أو ليس ملفًا عاديًا",
+  "settings.credentials.payments.setup.reason.not_executable": "لا يمكن تشغيله",
+  "settings.credentials.payments.setup.reason.wrong_owner": "يعود إلى مستخدم آخر",
+  "settings.credentials.payments.setup.reason.writable": "يمكن لمستخدمين آخرين تعديله",
+  "settings.credentials.payments.setup.reason.parent_wrong_owner": "مجلد أعلاه يعود إلى مستخدم آخر",
+  "settings.credentials.payments.setup.reason.parent_writable":
+    "يمكن لمستخدمين آخرين تعديل مجلد أعلاه",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "إنه داخل مجلد Psyche نفسه؛ ثبّت Link CLI باستخدام npm بدلًا من ذلك",
+  "settings.credentials.payments.setup.reason.not_link_cli": "ليس جزءًا من حزمة Link CLI",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "إنه shim الخاص بـ Volta؛ استخدم مجلد Link CLI داخل Volta أو ثبّته باستخدام npm",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "لا تزال هناك عملية دفع قيد التنفيذ. افصل الاتصال بعد انتهائها.",
+  "settings.credentials.payments.setup.force.title": "هل تريد فصل الاتصال على أي حال؟",
+  "settings.credentials.payments.setup.force.body":
+    "لا يزال قيد التنفيذ: {payments}. إذا فصلت الاتصال على أي حال، فسيلغيه Psyche حيثما يسمح Link وينساه. ينتهي الحجز لدى التاجر من تلقاء نفسه ولن يتمكن Psyche من الإبلاغ عنه بعد ذلك.",
+  "settings.credentials.payments.setup.force.go": "فصل الاتصال على أي حال",
+  "settings.credentials.payments.setup.force.aPayment": "عملية دفع",
   "settings.credentials.payments.noMethods":
     "لا تحوي محفظة Link لديك أي طرق دفع. أضف واحدة في تطبيق Link.",
   "settings.credentials.payments.methods": "طرق الدفع في Link",

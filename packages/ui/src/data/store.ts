@@ -826,6 +826,7 @@ export class GatewayStore {
       case "credential.updated":
         return invalidate(s, ["vault."]);
       case "vault.payment.updated":
+      case "payments.link.changed":
         return invalidate(s, ["vault.payments"]);
       case "skills.changed":
       case "skills.updated":

@@ -1250,8 +1250,67 @@ export const hi: Partial<Catalogue> = {
   "settings.credentials.payments.amountRefunded": "{total} · {refunded} वापस",
   "settings.credentials.payments.title": "भुगतान",
   "settings.credentials.payments.loadLabel": "भुगतान",
-  "settings.credentials.payments.notConfigured":
-    "Stripe Link सेट अप नहीं है। Gateway की मशीन पर Link CLI इंस्टॉल करें, Link में साइन इन करें, और PSYCHE_LINK_CLI सेट करें; फिर Psyche आपकी भुगतान विधियाँ यहाँ दिखाएगा।",
+  "settings.credentials.payments.notConfigured": "इस Gateway पर Stripe Link सेट अप नहीं है।",
+  "settings.credentials.payments.setup.approvalLabel": "Stripe Link कमांड-लाइन टूल",
+  "settings.credentials.payments.setup.refused": "Psyche वह प्रोग्राम नहीं चलाएगा: {reason}।",
+  "settings.credentials.payments.setup.failed": "यह नहीं हो पाया: {reason}",
+  "settings.credentials.payments.setup.problem": "Psyche {path} नहीं चलाएगा: {reason}।",
+  "settings.credentials.payments.setup.recheck": "फिर से जाँचें",
+  "settings.credentials.payments.setup.disconnect": "डिस्कनेक्ट करें",
+  "settings.credentials.payments.setup.disconnecting": "डिस्कनेक्ट हो रहा है…",
+  "settings.credentials.payments.setup.disconnectConfirm.title": "Stripe Link डिस्कनेक्ट करें?",
+  "settings.credentials.payments.setup.disconnectConfirm.body":
+    "Psyche Link CLI को भूल जाता है और सहेजा हुआ Link साइन-इन मिटा देता है। आपका Link खाता और कार्ड अछूते रहते हैं, और आप कभी भी दोबारा कनेक्ट कर सकते हैं।",
+  "settings.credentials.payments.setup.disconnectConfirm.go": "डिस्कनेक्ट करें",
+  "settings.credentials.payments.setup.disconnectConfirm.cancel": "कनेक्ट रहने दें",
+  "settings.credentials.payments.setup.envOverride":
+    "यह Gateway PSYCHE_LINK_CLI के साथ शुरू हुआ था, जो यहाँ सहेजे गए पाथ पर प्राथमिकता रखता है।",
+  "settings.credentials.payments.setup.missing.title": "Link कमांड-लाइन टूल इंस्टॉल करें",
+  "settings.credentials.payments.setup.missing.body":
+    "Psyche, Link के अपने कमांड-लाइन टूल से Stripe Link के ज़रिए भुगतान करता है। इसे उस कंप्यूटर पर चलाएँ जिस पर Gateway चल रहा है, फिर दोबारा जाँचें।",
+  "settings.credentials.payments.setup.missing.region":
+    "एजेंटों के लिए Link भुगतान अमेरिका और कनाडा में उपलब्ध हैं।",
+  "settings.credentials.payments.setup.found.title": "Link CLI मिल गया",
+  "settings.credentials.payments.setup.found.body":
+    "आपने जो कॉपी इंस्टॉल की है उसे कनेक्ट करें। Psyche उसे सिर्फ़ Stripe Link से बात करने के लिए चलाता है, और आपकी मंज़ूरी के बाद ही।",
+  "settings.credentials.payments.setup.found.connect": "कनेक्ट करें",
+  "settings.credentials.payments.setup.found.connecting": "कनेक्ट हो रहा है…",
+  "settings.credentials.payments.setup.found.connectPath": "{path} कनेक्ट करें",
+  "settings.credentials.payments.setup.signedOut.title": "Link में साइन इन करें",
+  "settings.credentials.payments.setup.signedOut.body":
+    "Psyche Link का अपना पेज खोलता है, जहाँ आप साइन इन करते हैं और इस डिवाइस को मंज़ूरी देते हैं। Link का पासवर्ड आप वहीं टाइप करते हैं; वह Psyche तक कभी नहीं पहुँचता।",
+  "settings.credentials.payments.setup.signedOut.go": "Link से साइन इन करें",
+  "settings.credentials.payments.setup.signedOut.starting": "शुरू हो रहा है…",
+  "settings.credentials.payments.setup.signingIn.title": "Link पर साइन-इन पूरा करें",
+  "settings.credentials.payments.setup.signingIn.body":
+    "Link का पेज खोलें, देखें कि उस पर नीचे दिया वाक्यांश दिख रहा है, फिर मंज़ूरी दें।",
+  "settings.credentials.payments.setup.signingIn.phrase": "वाक्यांश:",
+  "settings.credentials.payments.setup.signingIn.open": "Link का पेज खोलें",
+  "settings.credentials.payments.setup.signingIn.waiting": "Link में आपकी मंज़ूरी का इंतज़ार है…",
+  "settings.credentials.payments.setup.connected": "{path} के ज़रिए Stripe Link से कनेक्ट है।",
+  "settings.credentials.payments.setup.connectedNoPath": "Stripe Link से कनेक्ट है।",
+  "settings.credentials.payments.setup.reason.not_absolute": "पाथ पूर्ण (absolute) नहीं है",
+  "settings.credentials.payments.setup.reason.missing": "वह मौजूद नहीं है",
+  "settings.credentials.payments.setup.reason.not_a_file": "वह लिंक है या सामान्य फ़ाइल नहीं है",
+  "settings.credentials.payments.setup.reason.not_executable": "उसे चलाया नहीं जा सकता",
+  "settings.credentials.payments.setup.reason.wrong_owner": "वह किसी दूसरे उपयोगकर्ता का है",
+  "settings.credentials.payments.setup.reason.writable": "दूसरे उपयोगकर्ता उसे बदल सकते हैं",
+  "settings.credentials.payments.setup.reason.parent_wrong_owner":
+    "उसके ऊपर का फ़ोल्डर किसी दूसरे उपयोगकर्ता का है",
+  "settings.credentials.payments.setup.reason.parent_writable":
+    "दूसरे उपयोगकर्ता उसके ऊपर का फ़ोल्डर बदल सकते हैं",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "वह Psyche के अपने फ़ोल्डर के अंदर है; इसके बजाय npm से Link CLI इंस्टॉल करें",
+  "settings.credentials.payments.setup.reason.not_link_cli": "वह Link CLI पैकेज का हिस्सा नहीं है",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "वह Volta का shim है; Volta के अंदर Link CLI का अपना फ़ोल्डर इस्तेमाल करें, या npm से इंस्टॉल करें",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "एक भुगतान अभी जारी है। उसके पूरा होने के बाद डिस्कनेक्ट करें।",
+  "settings.credentials.payments.setup.force.title": "फिर भी डिस्कनेक्ट करें?",
+  "settings.credentials.payments.setup.force.body":
+    "अभी जारी है: {payments}। फिर भी डिस्कनेक्ट करने पर Psyche उसे वहीं रद्द करता है जहाँ Link अनुमति देता है और उसे भूल जाता है। व्यापारी के पास का होल्ड अपने आप समाप्त हो जाता है, और Psyche उसकी रिपोर्ट नहीं कर पाएगा।",
+  "settings.credentials.payments.setup.force.go": "फिर भी डिस्कनेक्ट करें",
+  "settings.credentials.payments.setup.force.aPayment": "एक भुगतान",
   "settings.credentials.payments.noMethods":
     "आपके Link वॉलेट में कोई भुगतान विधि नहीं है। Link ऐप में एक जोड़ें।",
   "settings.credentials.payments.methods": "Link भुगतान विधियाँ",
