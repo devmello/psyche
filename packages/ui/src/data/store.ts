@@ -96,6 +96,8 @@ export class GatewayStore {
    * was last loaded. A settled run is re-read on refresh only when it is in this set.
    */
   private readonly changedRuns = new Set<string>();
+  /** The outbox's retry after a send gave up on `rate_limited` (one at a time; see `scheduleOutboxRetry`). */
+  private outboxRetryTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
     client: GatewayClient,
@@ -190,11 +192,28 @@ export class GatewayStore {
         return await this.client.request(method, params, { idempotencyKey: item.key });
       } catch (err) {
         const code = (err as { code?: unknown } | null)?.code;
-        if (code !== "rate_limited" || attempt >= MAX_RATE_LIMIT_ATTEMPTS) throw err;
+        if (code !== "rate_limited") throw err;
         const until = this.gate.pause(retryAfterSecOf((err as { details?: unknown }).details));
+        if (attempt >= MAX_RATE_LIMIT_ATTEMPTS) {
+          // Still limited after a few tries: the message stays queued, and goes again once the pause is over.
+          this.scheduleOutboxRetry(until);
+          throw err;
+        }
         await this.gate.waitUntil(until);
       }
     }
+  }
+
+  /** One timer for the outbox's own retry after it gave up on a limited send; a later one replaces it. */
+  private scheduleOutboxRetry(at: number): void {
+    clearTimeout(this.outboxRetryTimer);
+    this.outboxRetryTimer = setTimeout(
+      () => {
+        this.outboxRetryTimer = undefined;
+        if (this.client.connectionState() === "open") void this.flushOutbox();
+      },
+      Math.max(0, at - Date.now()),
+    );
   }
 
   stop(): void {
@@ -204,6 +223,8 @@ export class GatewayStore {
     this.unsubscribe = [];
     clearTimeout(this.insightsTimer);
     this.insightsTimer = undefined;
+    clearTimeout(this.outboxRetryTimer);
+    this.outboxRetryTimer = undefined;
   }
 
   // --- Subscription (useSyncExternalStore) -----------------------------------------------------
@@ -415,8 +436,15 @@ export class GatewayStore {
     }
   }
 
+  /** Every loaded run counts as changed: events may have been missed, so each is re-read once. */
+  private markRunsChanged(): void {
+    for (const id of Object.keys(this.base.runs)) this.changedRuns.add(id);
+  }
+
   /** After a reconnect: old approval cards are stale until the Gateway re-issues them. */
   private async reconnected(): Promise<void> {
+    // Events were missed while the connection was down: a run may have settled then.
+    this.markRunsChanged();
     this.update((s) => {
       const stale: Record<string, true> = { ...s.staleApprovals };
       for (const a of Object.values(s.approvals)) if (a.status === "pending") stale[a.id] = true;
@@ -451,8 +479,7 @@ export class GatewayStore {
     if (e.event === "run.step") this.changedRuns.add(e.payload.runId);
     if (e.event === "run.updated") this.changedRuns.add(e.payload.run.id);
     if (gap) {
-      // Events were missed, so any run may have changed: each is re-read on the refresh below.
-      for (const id of Object.keys(this.base.runs)) this.changedRuns.add(id);
+      this.markRunsChanged();
       void this.refreshAll().catch(() => {});
     }
     if (INSIGHTS_EVENTS.has(e.event)) this.invalidateInsightsSoon();

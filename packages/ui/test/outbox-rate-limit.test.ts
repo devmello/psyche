@@ -21,12 +21,14 @@ const limited = (retryAfterSec: number) =>
 /** A client whose `chat.send` answers from a script, one entry per attempt. */
 function scriptedClient(replies: Array<() => Promise<unknown>>) {
   const sends: { key: string | undefined; content: string }[] = [];
+  const times: number[] = [];
   let next = 0;
   const client = {
     connectionState: () => "open",
     onConnectionState: () => () => undefined,
     subscribe: () => () => undefined,
     request: (_method: string, params: unknown, options?: { idempotencyKey?: string }) => {
+      times.push(Date.now());
       sends.push({
         key: options?.idempotencyKey,
         content: (params as { content: string }).content,
@@ -36,7 +38,21 @@ function scriptedClient(replies: Array<() => Promise<unknown>>) {
       return reply ? reply() : Promise.resolve({ messageId: "m1" });
     },
   } as unknown as GatewayClient;
-  return { client, sends };
+  return { client, sends, times };
+}
+
+/**
+ * Advances fake time in small steps until `p` settles. Small steps keep it from running past a
+ * retry the test wants to observe later (every pause is at least a second).
+ */
+async function untilSettled(p: Promise<unknown>): Promise<void> {
+  let done = false;
+  void p.finally(() => {
+    done = true;
+  });
+  for (let i = 0; i < 1_000 && !done; i += 1) {
+    await vi.advanceTimersByTimeAsync(100);
+  }
 }
 
 const refuse = (err: unknown) => () => Promise.reject(err);
@@ -76,15 +92,45 @@ describe("queued sends and rate_limited", () => {
     const store = new GatewayStore(client, { outbox });
 
     const flushing = store.flushOutbox();
-    await vi.advanceTimersByTimeAsync(60_000);
-    await flushing;
-
+    await untilSettled(flushing);
+    // Waiting out the last pause, then nothing: no failure counted, nothing shown as "not sent".
     expect(sends).toHaveLength(3);
     expect(new Set(sends.map((s) => s.key)).size).toBe(1);
-    // Still waiting for the next trigger, with no failure counted and nothing shown as "not sent".
     expect(outbox.items()).toHaveLength(1);
     expect(outbox.items()[0]?.failures).toBeUndefined();
     expect(store.getState().queue).toEqual([]);
+    store.stop();
+  });
+
+  it("after giving up, sends once after the gate pause under the same key, then stops", async () => {
+    const { client, sends, times } = scriptedClient([
+      refuse(limited(2)),
+      refuse(limited(2)),
+      refuse(limited(2)),
+      accept,
+    ]);
+    const outbox = new ChatOutbox(memoryStorage());
+    const item = outbox.enqueue({ threadId: "t1", content: "later" });
+    const store = new GatewayStore(client, { outbox });
+    store.start();
+
+    const flushing = store.flushOutbox();
+    await untilSettled(flushing);
+    expect(sends).toHaveLength(3);
+    const gaveUpAt = times.at(-1) ?? 0;
+    expect(outbox.items()).toHaveLength(1);
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(sends).toHaveLength(4);
+    // The retry waited for the pause that followed the last refusal (retryAfterSec = 2).
+    expect((times[3] ?? 0) - gaveUpAt).toBeGreaterThanOrEqual(2_000);
+    expect(sends.map((s) => s.key)).toEqual([item.key, item.key, item.key, item.key]);
+    expect(outbox.items()).toEqual([]);
+
+    // Nothing more is scheduled: no further sends after it went out.
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(sends).toHaveLength(4);
+    store.stop();
   });
 
   it("holds the messages behind a limited one, in order", async () => {

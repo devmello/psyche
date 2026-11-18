@@ -154,6 +154,46 @@ describe("useRun", () => {
   });
 });
 
+describe("runs after a reconnect", () => {
+  const runsGetFor = (gateway: MockGateway, runId: string) =>
+    gateway.calls.filter(
+      (c) => c.method === "runs.get" && (c.params as { runId: string }).runId === runId,
+    ).length;
+  const stepsCalls = (gateway: MockGateway) =>
+    gateway.calls.filter((c) => c.method === "runs.steps");
+
+  it("a run settled before the drop is re-read for the steps after its last seq only", async () => {
+    const { gateway, wrapper } = setup();
+    const { result } = renderHook(() => useRun(R.done), { wrapper });
+    await waitFor(() => expect(result.current.steps.length).toBeGreaterThan(0));
+    const lastSeq = result.current.steps.at(-1)?.seq ?? 0;
+    const stepsBefore = stepsCalls(gateway).length;
+    act(() => gateway.setConnection("offline"));
+    act(() => gateway.setConnection("open"));
+    await waitFor(() => expect(stepsCalls(gateway).length).toBeGreaterThan(stepsBefore));
+    const after = stepsCalls(gateway).slice(stepsBefore);
+    expect(after).toHaveLength(1);
+    expect(after[0]?.params).toMatchObject({ runId: R.done, afterSeq: lastSeq });
+    expect(runsGetFor(gateway, R.done)).toBe(1);
+  });
+
+  it("a run still running in the store, settled while the connection was down, is re-read", async () => {
+    const { gateway, wrapper } = setup();
+    const { result } = renderHook(() => useRun(R.live), { wrapper });
+    await waitFor(() => expect(result.current.steps).toHaveLength(3));
+    expect(runsGetFor(gateway, R.live)).toBe(1);
+    act(() => gateway.setConnection("offline"));
+    // The run finishes on the Gateway while no events reach the client.
+    const world = (gateway as unknown as { world: { runs: { id: string }[] } }).world;
+    world.runs = world.runs.map((r) =>
+      r.id === R.live ? { ...r, status: "done", endedAt: FIXTURE_NOW } : r,
+    );
+    act(() => gateway.setConnection("open"));
+    await waitFor(() => expect(result.current.run?.status).toBe("done"));
+    expect(runsGetFor(gateway, R.live)).toBe(2);
+  });
+});
+
 describe("useRunSteps", () => {
   it("follows run.step live: new steps, upserts and retained text that events never carry", async () => {
     const { gateway, store, wrapper } = setup();
