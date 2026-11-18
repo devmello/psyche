@@ -1264,7 +1264,57 @@ export const de: Partial<Catalogue> = {
   "settings.credentials.payments.title": "Zahlungen",
   "settings.credentials.payments.loadLabel": "Zahlungen",
   "settings.credentials.payments.notConfigured":
-    "Stripe Link ist nicht eingerichtet. Installiere die Link-CLI auf dem Rechner des Gateways, melde dich bei Link an und setze PSYCHE_LINK_CLI; Psyche zeigt deine Zahlungsmethoden dann hier an.",
+    "Stripe Link ist auf diesem Gateway nicht eingerichtet.",
+  "settings.credentials.payments.setup.approvalLabel": "Stripe-Link-Befehlszeilenprogramm",
+  "settings.credentials.payments.setup.refused":
+    "Psyche führt dieses Programm nicht aus: {reason}.",
+  "settings.credentials.payments.setup.failed": "Das hat nicht geklappt: {reason}",
+  "settings.credentials.payments.setup.problem": "Psyche führt {path} nicht aus: {reason}.",
+  "settings.credentials.payments.setup.recheck": "Erneut prüfen",
+  "settings.credentials.payments.setup.disconnect": "Trennen",
+  "settings.credentials.payments.setup.disconnecting": "Wird getrennt…",
+  "settings.credentials.payments.setup.disconnectConfirm.title": "Stripe Link trennen?",
+  "settings.credentials.payments.setup.disconnectConfirm.body":
+    "Psyche vergisst die Link-CLI und löscht die gespeicherte Link-Anmeldung. Dein Link-Konto und deine Karten bleiben unberührt, und du kannst dich jederzeit wieder verbinden.",
+  "settings.credentials.payments.setup.disconnectConfirm.go": "Trennen",
+  "settings.credentials.payments.setup.disconnectConfirm.cancel": "Verbunden bleiben",
+  "settings.credentials.payments.setup.envOverride":
+    "Dieses Gateway wurde mit PSYCHE_LINK_CLI gestartet; das hat Vorrang vor dem hier gespeicherten Pfad.",
+  "settings.credentials.payments.setup.missing.title": "Link-Befehlszeilenprogramm installieren",
+  "settings.credentials.payments.setup.missing.body":
+    "Psyche bezahlt über Stripe Link mit dem eigenen Befehlszeilenprogramm von Link. Führe das auf dem Mac aus, auf dem das Gateway läuft, und prüfe dann erneut.",
+  "settings.credentials.payments.setup.missing.region":
+    "Link-Zahlungen für Agenten sind in den USA und in Kanada verfügbar.",
+  "settings.credentials.payments.setup.found.title": "Link-CLI gefunden",
+  "settings.credentials.payments.setup.found.body":
+    "Verbinde die Kopie, die du installiert hast. Psyche startet sie nur, um mit Stripe Link zu sprechen, und erst nach deiner Freigabe.",
+  "settings.credentials.payments.setup.found.connect": "Verbinden",
+  "settings.credentials.payments.setup.found.connecting": "Wird verbunden…",
+  "settings.credentials.payments.setup.found.connectPath": "{path} verbinden",
+  "settings.credentials.payments.setup.signedOut.title": "Bei Link anmelden",
+  "settings.credentials.payments.setup.signedOut.body":
+    "Psyche öffnet die eigene Seite von Link, auf der du dich anmeldest und dieses Gerät freigibst. Dein Link-Passwort tippst du dort ein; es erreicht Psyche nie.",
+  "settings.credentials.payments.setup.signedOut.go": "Mit Link anmelden",
+  "settings.credentials.payments.setup.signedOut.starting": "Wird gestartet…",
+  "settings.credentials.payments.setup.signingIn.title": "Anmeldung bei Link abschließen",
+  "settings.credentials.payments.setup.signingIn.body":
+    "Öffne die Seite von Link, prüfe, dass sie die Wortfolge unten zeigt, und gib dann frei.",
+  "settings.credentials.payments.setup.signingIn.phrase": "Wortfolge:",
+  "settings.credentials.payments.setup.signingIn.open": "Seite von Link öffnen",
+  "settings.credentials.payments.setup.signingIn.waiting": "Warte auf deine Freigabe bei Link…",
+  "settings.credentials.payments.setup.connected": "Über {path} mit Stripe Link verbunden.",
+  "settings.credentials.payments.setup.connectedNoPath": "Mit Stripe Link verbunden.",
+  "settings.credentials.payments.setup.reason.not_absolute": "der Pfad ist nicht absolut",
+  "settings.credentials.payments.setup.reason.missing": "sie ist nicht vorhanden",
+  "settings.credentials.payments.setup.reason.not_a_file":
+    "sie ist ein Link oder keine normale Datei",
+  "settings.credentials.payments.setup.reason.not_executable": "sie lässt sich nicht ausführen",
+  "settings.credentials.payments.setup.reason.wrong_owner": "sie gehört einem anderen Nutzer",
+  "settings.credentials.payments.setup.reason.writable": "andere Nutzer können sie ändern",
+  "settings.credentials.payments.setup.reason.parent_wrong_owner":
+    "ein übergeordneter Ordner gehört einem anderen Nutzer",
+  "settings.credentials.payments.setup.reason.parent_writable":
+    "andere Nutzer können einen übergeordneten Ordner ändern",
   "settings.credentials.payments.noMethods":
     "Dein Link-Wallet hat keine Zahlungsmethoden. Füge eine in der Link-App hinzu.",
   "settings.credentials.payments.methods": "Link-Zahlungsmethoden",

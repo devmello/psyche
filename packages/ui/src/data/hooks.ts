@@ -17,6 +17,7 @@ import type {
   InputRequest,
   LibraryItem,
   LinkPaymentMethod,
+  LinkSetupStatus,
   Message,
   MethodName,
   MethodParams,
@@ -196,8 +197,10 @@ export function useGatewayQuery<M extends MethodName>(
 
 /** What `usePayments` keeps: Stripe Link's methods and recent spends, or "not set up". */
 export interface PaymentsData {
-  /** False when the Gateway answers `payments_not_configured`. */
+  /** True once Link is connected and signed in; false while it is being set up. */
   configured: boolean;
+  /** Where the guided Link setup stands (`payments.link.status`); absent on an older Gateway. */
+  setup?: LinkSetupStatus;
   methods: LinkPaymentMethod[];
   payments: VaultPayment[];
 }
@@ -207,9 +210,16 @@ function notConfigured(err: unknown): boolean {
   return e?.code === "unavailable" && e.details?.reason === "payments_not_configured";
 }
 
+/** An older Gateway without the guided setup answers `unknown_method` or `not_implemented`. */
+function noGuidedSetup(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  return code === "unknown_method" || code === "not_implemented";
+}
+
 /**
- * Stripe Link payments (G12) for Settings → Credentials: `vault.payments.methods` and
- * `vault.payments.list` together. Reloads on `vault.payment.updated`.
+ * Stripe Link payments (G12) for Settings → Credentials: the guided setup status, then
+ * `vault.payments.methods` and `vault.payments.list` once Link is connected. Reloads on
+ * `vault.payment.updated` and `payments.link.changed`.
  */
 export function usePayments(limit = 20): LoadState & { data: PaymentsData | undefined } {
   const key = `vault.payments:${limit}`;
@@ -217,15 +227,35 @@ export function usePayments(limit = 20): LoadState & { data: PaymentsData | unde
   const load = useLoader(`query:${key}`, async (store) => {
     const version = store.version();
     let data: PaymentsData;
+    let setup: LinkSetupStatus | undefined;
     try {
-      const [m, l] = await Promise.all([
-        store.call("vault.payments.methods", {}),
-        store.call("vault.payments.list", { limit }),
-      ]);
-      data = { configured: true, methods: m.methods, payments: l.payments };
+      setup = await store.call("payments.link.status", {});
     } catch (err) {
-      if (!notConfigured(err)) throw err;
-      data = { configured: false, methods: [], payments: [] };
+      if (!noGuidedSetup(err)) throw err;
+    }
+    if (setup !== undefined && setup.state !== "connected") {
+      data = { configured: false, setup, methods: [], payments: [] };
+    } else {
+      try {
+        const [m, l] = await Promise.all([
+          store.call("vault.payments.methods", {}),
+          store.call("vault.payments.list", { limit }),
+        ]);
+        data = {
+          configured: true,
+          ...(setup === undefined ? {} : { setup }),
+          methods: m.methods,
+          payments: l.payments,
+        };
+      } catch (err) {
+        if (!notConfigured(err)) throw err;
+        data = {
+          configured: false,
+          ...(setup === undefined ? {} : { setup }),
+          methods: [],
+          payments: [],
+        };
+      }
     }
     store.update((s) => ({
       ...s,
