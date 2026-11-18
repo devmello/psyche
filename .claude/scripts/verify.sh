@@ -1,21 +1,28 @@
 #!/usr/bin/env bash
 # Local verification for an agent's branch. GitHub Actions is locked by billing, so this is the gate.
 #
-# Usage: .claude/scripts/verify.sh [--base <ref>] [--no-related] [--swift] [--quiet]
-#   --base        compare against this ref (default: merge-base with origin/main)
-#   --no-related  skip vitest on existing tests that import the touched source files (on by
-#                 default: builders twice broke existing tests they never ran, #1299 and #1300)
+# Usage: .claude/scripts/verify.sh [--quick] [--related] [--base <ref>] [--swift] [--quiet]
+#   --quick    lint-level checks only (biome, secret-grep, protocol and i18n checks): seconds, no
+#              typecheck, no tests. The Stop hook uses this.
+#   --related  also run existing tests that import the touched source files (`vitest related`).
+#              The slowest stage: it is for the one merge-gate run of a PR, not for builders.
+#   --base     compare against this ref (default: merge-base with origin/main)
 #   --swift    also build and test touched Swift packages (waits for any other Swift build first)
 #   --quiet    print only the summary and failures
+#   (--no-related is accepted and is now the default.)
 #
 # Checks only what the branch touched:
 #   - biome on the touched files
 #   - secret-grep on the whole repo
 #   - protocol:check if packages/protocol changed
 #   - i18n:check if any TS/TSX or message file changed
-#   - typecheck for each touched package
-#   - vitest (one worker) on touched test files
+#   - typecheck for each touched package (not with --quick)
+#   - vitest (one worker) on touched test files (not with --quick)
 # Never runs `pnpm -w typecheck` or `pnpm -r test`.
+#
+# The owner's rule (2026-11-18): don't overheat the Mac with checks after every small fix. So the
+# full check runs at low priority (nice 10), and only one full check runs on this Mac at a time:
+# others wait their turn instead of running side by side.
 # Exit 0 means every check passed. On failure, it prints the failures, and the last
 # lines of each failing log are what the Stop hook feeds back to the agent.
 set -o pipefail  # no -u: macOS bash 3.2 treats empty arrays as unbound
@@ -23,12 +30,15 @@ set -o pipefail  # no -u: macOS bash 3.2 treats empty arrays as unbound
 cd "$(git rev-parse --show-toplevel)" || exit 2
 
 base=""
-related=1
+related=0
+quick=0
 swift=0
 quiet=0
+args=("$@")
 while [ $# -gt 0 ]; do
   case "$1" in
     --base) base="$2"; shift 2 ;;
+    --quick) quick=1; shift ;;
     --related) related=1; shift ;;
     --no-related) related=0; shift ;;
     --swift) swift=1; shift ;;
@@ -36,6 +46,27 @@ while [ $# -gt 0 ]; do
     *) echo "verify.sh: unknown option $1" >&2; exit 2 ;;
   esac
 done
+
+# Low priority for everything, so a check never fights the owner's own work for the CPU.
+if [ -z "${VERIFY_NICED:-}" ] && command -v nice >/dev/null; then
+  VERIFY_NICED=1 exec nice -n 10 bash "$0" "${args[@]}"
+fi
+
+# One full check at a time on this Mac. The lock lives in the shared git dir, so every worktree
+# sees it. A lock whose owner process is gone is taken over.
+if [ "$quick" = 0 ]; then
+  lock="$(cd "$(git rev-parse --git-common-dir)" && pwd)/agent-verify/full.lock"
+  mkdir -p "$(dirname "$lock")"
+  said=0
+  until mkdir "$lock" 2>/dev/null; do
+    holder="$(cat "$lock/pid" 2>/dev/null)"
+    if [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; then rm -rf "$lock"; continue; fi
+    [ "$said" = 1 ] || { echo "verify: another full check is running (pid ${holder:-?}); waiting for it to finish"; said=1; }
+    sleep 10
+  done
+  echo $$ >"$lock/pid"
+  trap 'rm -rf "$lock"' EXIT
+fi
 [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || echo HEAD)"
 
 logdir="$(git rev-parse --git-dir)/agent-verify"
@@ -75,6 +106,8 @@ if echo "$changed" | grep -qE '\.(ts|tsx)$|\.xcstrings$'; then
   run i18n-check pnpm run i18n:check
 fi
 
+warn=()
+if [ "$quick" = 0 ]; then
 # Typecheck each touched workspace package that has a typecheck script.
 pkgs="$(echo "$changed" | grep -E '^(apps|packages)/[^/]+/' | cut -d/ -f1-2 | sort -u)"
 for dir in $pkgs; do
@@ -90,7 +123,6 @@ done
 # A failing file is re-run once (flake filter), then run on the merge base: a file whose failing
 # tests (by name) all fail on the base too is reported as pre-existing and does not fail the
 # check. Any failing test the base doesn't share fails it.
-warn=()
 failed_files() { # failed_files <vitest json> -> absolute paths of failed test files
   node -e 'try{const r=require(process.argv[1]);for(const t of r.testResults||[])if(t.status==="failed")console.log(t.name)}catch{}' "$1"
 }
@@ -211,9 +243,13 @@ if [ "$swift" = 1 ]; then
 elif echo "$changed" | grep -qE '\.swift$'; then
   echo "verify: Swift files changed; run again with --swift to build and test them."
 fi
+fi  # quick
 
+mode="full"
+[ "$quick" = 1 ] && mode="quick"
+[ "$related" = 1 ] && [ "$quick" = 0 ] && mode="full + related"
 echo
-echo "verify: ${#pass[@]} passed, ${#fail[@]} failed (files checked: $(echo "$changed" | wc -l | tr -d ' '))"
+echo "verify ($mode): ${#pass[@]} passed, ${#fail[@]} failed (files checked: $(echo "$changed" | wc -l | tr -d ' '))"
 for p in "${pass[@]}"; do [ "$quiet" = 1 ] || echo "  ok    $p"; done
 for w in "${warn[@]}"; do echo "  note  $w"; done
 for f in "${fail[@]}"; do

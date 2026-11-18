@@ -84,6 +84,7 @@ export const settings: Partial<Catalogue> = {
   "settings.key.browser.useSignedInSessions": "使用我已登录的会话",
   "settings.key.exec.srtPath": "srt 位置",
   "settings.key.devices.hostHelper.status": "Linux 助手检查",
+  "settings.key.devices.helper.availability": "Psyche Helper 连接",
   "settings.key.search.model.engine": "搜索所用模型",
   "settings.key.search.semantic.enabled": "语义搜索（设备端）",
   "settings.key.search.cards.enabled": "搜索的上下文卡片",

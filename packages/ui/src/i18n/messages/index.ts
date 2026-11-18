@@ -19,6 +19,7 @@ import { deviceAccess } from "./device-access.ts";
 import { errors } from "./errors.ts";
 import { glass } from "./glass.ts";
 import { helperCheck } from "./helper-check.ts";
+import { helperOffline } from "./helper-offline.ts";
 import { home } from "./home.ts";
 import { links } from "./links.ts";
 import { mailMeetings } from "./mail-meetings.ts";
@@ -118,6 +119,7 @@ export const en = {
   ...platform,
   ...passwordPresence,
   ...helperCheck,
+  ...helperOffline,
   ...securityState,
   ...separateDesktop,
 } as const;

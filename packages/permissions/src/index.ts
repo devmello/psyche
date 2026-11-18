@@ -24,6 +24,8 @@ export * from "./host-readonly.ts";
 export * from "./kinds.ts";
 export * from "./message-compose.ts";
 export * from "./missing.ts";
+export * from "./outbound.ts";
+export * from "./outbound-text.ts";
 export * from "./policy.ts";
 export * from "./prohibitions.ts";
 export * from "./requester.ts";
