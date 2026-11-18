@@ -16,7 +16,7 @@ import {
   GatewayRequestError,
   newIdempotencyKey,
 } from "./client.ts";
-import type { ChatOutbox } from "./outbox.ts";
+import type { ChatOutbox, OutboxItem } from "./outbox.ts";
 import { RequestGate, retryAfterSecOf } from "./request-gate.ts";
 import {
   appendBlock,
@@ -91,6 +91,11 @@ export class GatewayStore {
   private readonly now: () => string;
   /** Holds non-urgent reads while the device is rate limited; shared by every loader. */
   private readonly gate = new RequestGate();
+  /**
+   * Runs an event changed (`run.step`, `run.updated`) or that a gap may have hid, since their trace
+   * was last loaded. A settled run is re-read on refresh only when it is in this set.
+   */
+  private readonly changedRuns = new Set<string>();
 
   constructor(
     client: GatewayClient,
@@ -126,6 +131,16 @@ export class GatewayStore {
     if (this.client.connectionState() === "open") void this.flushOutbox();
   }
 
+  /** True when an event (or a gap) says this run changed since its trace was last loaded. */
+  runChanged(runId: string): boolean {
+    return this.changedRuns.has(runId);
+  }
+
+  /** Called as a run's trace is loaded: events from now on count as changes again. */
+  markRunLoaded(runId: string): void {
+    this.changedRuns.delete(runId);
+  }
+
   /** The owner's "Send now" for a message that waited a day: confirms it, then sends. */
   async confirmOutbox(key: string): Promise<void> {
     this.outbox?.confirm(key);
@@ -140,11 +155,7 @@ export class GatewayStore {
   async flushOutbox(): Promise<void> {
     const outbox = this.outbox;
     if (outbox === undefined) return;
-    const result = await outbox.flush((item) =>
-      this.client.request("chat.send", item.params as MethodParams<"chat.send">, {
-        idempotencyKey: item.key,
-      }),
-    );
+    const result = await outbox.flush((item) => this.sendOutboxItem(item));
     if (result.dropped.length === 0) return;
     this.update((s) => ({
       ...s,
@@ -162,6 +173,28 @@ export class GatewayStore {
         ...s.queue,
       ],
     }));
+  }
+
+  /**
+   * One attempt series for a queued send. Every attempt carries the key the message was queued
+   * under, so the Gateway replays rather than re-runs it. A `rate_limited` reply waits out the
+   * shared gate pause and tries again, a few times at most; any other answer goes back to the
+   * outbox unchanged for it to classify.
+   */
+  private async sendOutboxItem(item: OutboxItem): Promise<unknown> {
+    const method = "chat.send";
+    const params = item.params as MethodParams<"chat.send">;
+    for (let attempt = 1; ; attempt += 1) {
+      await this.gate.admit(method);
+      try {
+        return await this.client.request(method, params, { idempotencyKey: item.key });
+      } catch (err) {
+        const code = (err as { code?: unknown } | null)?.code;
+        if (code !== "rate_limited" || attempt >= MAX_RATE_LIMIT_ATTEMPTS) throw err;
+        const until = this.gate.pause(retryAfterSecOf((err as { details?: unknown }).details));
+        await this.gate.waitUntil(until);
+      }
+    }
   }
 
   stop(): void {
@@ -415,7 +448,13 @@ export class GatewayStore {
         e,
       ),
     );
-    if (gap) void this.refreshAll().catch(() => {});
+    if (e.event === "run.step") this.changedRuns.add(e.payload.runId);
+    if (e.event === "run.updated") this.changedRuns.add(e.payload.run.id);
+    if (gap) {
+      // Events were missed, so any run may have changed: each is re-read on the refresh below.
+      for (const id of Object.keys(this.base.runs)) this.changedRuns.add(id);
+      void this.refreshAll().catch(() => {});
+    }
     if (INSIGHTS_EVENTS.has(e.event)) this.invalidateInsightsSoon();
   }
 

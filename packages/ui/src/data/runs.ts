@@ -33,8 +33,9 @@ const MAX_PAGES = 4;
  * minute and drained the Gateway's per-device request budget, so Settings, Usage and Allow
  * failed with "rate limited". Now a trace loads only once it is on screen (`RunTrace` passes
  * `enabled`), each run is fetched once at a time, at most `MAX_RUN_LOADS` run at once, and a
- * finished run the store already has is not fetched whole again on a refresh: only its steps
- * after the last seq it holds (`runs.steps`), which catches a step the gap hid.
+ * settled run (done, failed, cancelled) the store already has is not fetched again on a refresh
+ * at all, unless a `run.step` or `run.updated` (or a gap) changed it; then only its steps after
+ * the last seq it holds are asked for (`runs.steps`).
  */
 const MAX_RUN_LOADS = 4;
 const inFlightRuns = new WeakMap<GatewayStore, Map<string, Promise<void>>>();
@@ -57,14 +58,19 @@ async function withRunLoadSlot<T>(job: () => Promise<T>): Promise<T> {
   }
 }
 
-/** True when the store already has this run, finished, with its steps. */
+/**
+ * The statuses a run does not leave on its own (protocol `RunStatus`). `awaiting_approval` and
+ * `awaiting_input` are not settled: the run goes on once the owner answers.
+ */
+const SETTLED_RUN_STATUSES: ReadonlySet<string> = new Set(["done", "failed", "cancelled"]);
+
+/** True when the store already has this run, settled, with its steps. */
 function runIsSettledInStore(store: GatewayStore, runId: string): boolean {
   const s = store.getState();
   const run = s.runs[runId];
   return (
     run !== undefined &&
-    run.status !== "running" &&
-    run.endedAt != null &&
+    SETTLED_RUN_STATUSES.has(run.status) &&
     (s.runSteps[runId]?.length ?? 0) > 0
   );
 }
@@ -111,7 +117,6 @@ export function useRun(
   const active = runId !== null && (options.enabled ?? true);
   const load = useLoader(active ? `run:${runId}` : null, async (st, cause) => {
     if (runId === null) return;
-    const settled = cause === "refresh" && runIsSettledInStore(st, runId);
     // Several traces of one run share one request.
     let byRun = inFlightRuns.get(st);
     if (byRun === undefined) {
@@ -121,11 +126,15 @@ export function useRun(
     const pending = byRun.get(runId);
     if (pending !== undefined) return pending;
     const job = withRunLoadSlot(async () => {
-      if (settled) {
-        // The finishing `run.updated` may have arrived before the gap's last steps.
+      if (cause === "refresh" && runIsSettledInStore(st, runId)) {
+        // A settled run is not re-read unless an event (or a gap) said it changed.
+        if (!st.runChanged(runId)) return;
+        st.markRunLoaded(runId);
+        // The finishing `run.updated` may have arrived before the last steps: catch up.
         await loadSteps(st, runId);
         return;
       }
+      st.markRunLoaded(runId);
       const version = st.version();
       const res = await st.call("runs.get", { runId });
       st.update((s) =>

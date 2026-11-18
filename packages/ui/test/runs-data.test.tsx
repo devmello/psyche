@@ -70,25 +70,44 @@ describe("useRun load volume", () => {
     expect(runsGetCalls(gateway)).toHaveLength(31);
   });
 
-  it("a refresh asks a finished run only for the steps after the last one it has", async () => {
+  it("a settled run is fetched once across refreshes, and re-read only after an event changed it", async () => {
     const { gateway, store, wrapper } = setup();
     const { result } = renderHook(() => useRun(R.done), { wrapper });
     await waitFor(() => expect(result.current.steps.length).toBeGreaterThan(0));
     expect(runsGetCalls(gateway)).toHaveLength(1);
-    const lastSeq = result.current.steps.at(-1)?.seq ?? 0;
     const stepsCalls = () => gateway.calls.filter((c) => c.method === "runs.steps");
     const stepsBefore = stepsCalls().length;
     await act(async () => {
       await store.refreshAll();
       await store.refreshAll();
     });
-    // No whole-run reload; one cheap steps call per refresh, from the last seq.
+    // Nothing changed: a refresh asks for neither the run nor its steps.
     expect(runsGetCalls(gateway)).toHaveLength(1);
-    expect(stepsCalls().length - stepsBefore).toBe(2);
+    expect(stepsCalls()).toHaveLength(stepsBefore);
+    // A step event says the run changed: the next refresh asks for the steps after the last seq.
+    const last = result.current.steps.at(-1);
+    const lastSeq = last?.seq ?? 0;
+    act(() => gateway.setStep(last as NonNullable<typeof last>));
+    await act(async () => store.refreshAll());
+    expect(stepsCalls()).toHaveLength(stepsBefore + 1);
     expect(stepsCalls().at(-1)?.params).toMatchObject({ runId: R.done, afterSeq: lastSeq });
+    expect(runsGetCalls(gateway)).toHaveLength(1);
     // The owner's own reload still asks again.
     await act(async () => result.current.reload());
     await waitFor(() => expect(runsGetCalls(gateway)).toHaveLength(2));
+  });
+
+  it("a running run is re-fetched on every refresh", async () => {
+    const { gateway, store, wrapper } = setup();
+    const { result } = renderHook(() => useRun(R.live), { wrapper });
+    await waitFor(() => expect(result.current.steps).toHaveLength(3));
+    await act(async () => {
+      await store.refreshAll();
+      await store.refreshAll();
+    });
+    expect(
+      runsGetCalls(gateway).filter((c) => (c.params as { runId: string }).runId === R.live),
+    ).toHaveLength(3);
   });
 });
 
