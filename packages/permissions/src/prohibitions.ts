@@ -420,7 +420,7 @@ export async function checkProhibitions(
   if (path !== undefined && SYSTEM_CREDENTIAL_PATHS.some((re) => re.test(path))) {
     return deny(
       "system_credentials",
-      "keychains, browser profiles, SSH keys and CLI credentials are never read",
+      "keychains, browser profiles, SSH keys and CLI credentials are never read. To use a secret from one of them, store it in the vault and Psyche will fill it without seeing it",
     );
   }
 
@@ -437,7 +437,10 @@ export async function checkProhibitions(
       ["private_key", "api_key", "bearer_token", "jwt", "url_credentials"].includes(m.kind),
     );
     if (hit !== undefined) {
-      return deny("visible_secret", `a ${hit.kind} is visible in the arguments; use the vault`);
+      return deny(
+        "visible_secret",
+        `a ${hit.kind} is visible in the arguments; store it in the vault and Psyche will fill it without seeing it`,
+      );
     }
   }
 
@@ -468,7 +471,10 @@ export async function checkProhibitions(
     field?.type?.toLowerCase() === "password" ||
     /password/i.test(field?.autocomplete ?? "");
   if (TYPING_TOOL.test(tool) && passwordField) {
-    return deny("password_typing", "the agent never types into a password field");
+    return deny(
+      "password_typing",
+      "the agent never types into a password field. Store the password in the vault and Psyche will fill it without seeing it",
+    );
   }
 
   // Credential fills only into a matching field class (S23 design-01).
@@ -540,7 +546,10 @@ export async function checkProhibitions(
         if (m.kind === "card_number") {
           const digits = cardDigits(s.value.slice(m.index, m.index + m.length));
           if (digits !== undefined && isPublishedTestCard(digits) && loopbackOwned) continue;
-          return deny("card_entry", "card numbers are never entered; purchases go through Link");
+          return deny(
+            "card_entry",
+            "card numbers are never entered; purchases go through Link. Any other secret goes in the vault, and Psyche will fill it without seeing it",
+          );
         }
         if (m.kind === "iban")
           return deny("bank_account_entry", "bank account numbers are never entered");

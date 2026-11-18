@@ -1192,9 +1192,13 @@ export class PageController {
       });
     }
     if (looksLikeCardNumber(text)) {
-      throw new PsycheError("policy_denied", "card numbers are never typed in the browser", {
-        details: { reason: "card_number" },
-      });
+      throw new PsycheError(
+        "policy_denied",
+        "card numbers are never typed in the browser. Any other secret goes in the vault, and Psyche will fill it without seeing it",
+        {
+          details: { reason: "card_number" },
+        },
+      );
     }
     await this.#t.send("DOM.focus", { backendNodeId: e.backendNodeId });
     if (options.clear === true) {

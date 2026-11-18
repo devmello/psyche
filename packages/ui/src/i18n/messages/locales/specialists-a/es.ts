@@ -192,6 +192,11 @@ export const specialistsA: Partial<Catalogue> = {
   "web.chat.autoUnavailable":
     "Auto no está disponible: {model} no está en la lista de modelos permitidos para el modo automático. Elige otro modelo para usarlo.",
   "web.toast.threadUpdateFailed": "Psyche no pudo cambiar ese ajuste del chat.",
+  "web.toast.autoModelRefused":
+    "Auto solo funciona con los modelos de la lista, y {model} no está en ella. Elige un modelo permitido o usa Manual o Equilibrado.",
+  "web.toast.autoModelRefusedNoModel":
+    "Auto solo funciona con los modelos de la lista. Primero elige uno en el selector de modelos.",
+  "web.toast.switchModel": "Cambiar modelo",
   "web.splash.remote.finding": "Buscando {host}…",
   "web.splash.remote.checking": "Comprobando que realmente es {host}…",
   "web.splash.remote.waiting": "Esperando la aprobación en {host}…",
