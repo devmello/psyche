@@ -48,6 +48,8 @@ export function appleSearchSeams(o: {
   messages: () => MessagesHelper | undefined;
   /** Whether the Host's helper is connected now (`HelperAvailability`); absent = connected. */
   helperOnline?: () => boolean;
+  /** Told each time a Contacts read is refused for lack of permission, and when one succeeds. */
+  onContactsDenied?: (denied: boolean) => void;
   /**
    * The Host's Mac helper offering `contacts.list` and `contacts.read` (`NodeRegistry.hostHelper`,
    * the trusted in-process path; never the client-facing `nodes.invoke`).
@@ -133,7 +135,21 @@ export function appleSearchSeams(o: {
     },
     contacts: () => {
       const client = o.contacts?.();
-      return client === undefined ? undefined : helperCall(client);
+      if (client === undefined) return undefined;
+      const call = helperCall(client);
+      return async (capability, params, signal) => {
+        try {
+          const out = await call(capability, params, signal);
+          o.onContactsDenied?.(false);
+          return out;
+        } catch (err) {
+          // The helper's own refusal, in its words: "... does not have the Contacts permission".
+          if (err instanceof Error && /Contacts permission/i.test(err.message)) {
+            o.onContactsDenied?.(true);
+          }
+          throw err;
+        }
+      };
     },
     helperOnline: o.helperOnline,
     contactParent: (contact) => contactParent(o.graph?.(), contact),

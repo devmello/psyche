@@ -97,7 +97,12 @@ describe("HelperAvailability", () => {
     expect(h.a.shouldAttempt()).toBe(false);
     h.a.observe(true);
     expect(h.a.shouldAttempt()).toBe(true);
-    expect(h.a.status()).toEqual({ connected: true, failures: 0, retryAt: 0 });
+    expect(h.a.status()).toEqual({
+      connected: true,
+      failures: 0,
+      retryAt: 0,
+      contactsDenied: false,
+    });
     expect(h.logs.map((l) => l.msg)).toEqual([
       "helper offline: helper-backed sources and jobs are paused",
       "helper connected: helper-backed sources and jobs resume",
@@ -122,5 +127,26 @@ describe("HelperAvailability", () => {
     expect(h.a.shouldAttempt()).toBe(true);
     h.a.observe(false);
     expect(h.logs).toHaveLength(1);
+  });
+});
+
+describe("HelperAvailability notifications", () => {
+  it("reports every change to onChange, including the Contacts refusal", () => {
+    const seen: { connected: boolean; contactsDenied: boolean }[] = [];
+    const a = new HelperAvailability(true, {
+      now: () => 0,
+      onChange: (s) => seen.push({ connected: s.connected, contactsDenied: s.contactsDenied }),
+    });
+    a.noteFailure(needsHelper());
+    a.observe(true);
+    a.setContactsDenied(true);
+    a.setContactsDenied(true);
+    a.setContactsDenied(false);
+    expect(seen).toEqual([
+      { connected: false, contactsDenied: false },
+      { connected: true, contactsDenied: false },
+      { connected: true, contactsDenied: true },
+      { connected: true, contactsDenied: false },
+    ]);
   });
 });

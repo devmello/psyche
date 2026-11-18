@@ -6,5 +6,6 @@ export const helperOffline: Partial<Catalogue> = {
   "platform.helper.offline.text":
     "邮件、备忘录、日历、提醒事项以及依赖它们的工作，将等待其重新连接。",
   "platform.helper.offline.reconnect": "重新连接",
+  "platform.helper.contactsPermission": "通讯录需要在系统设置中允许 Psyche Helper 访问。",
   "platform.helper.offline.dismiss": "关闭",
 };

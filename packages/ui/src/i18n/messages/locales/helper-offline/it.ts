@@ -6,5 +6,7 @@ export const helperOffline: Partial<Catalogue> = {
   "platform.helper.offline.text":
     "Posta, Note, Calendario, Promemoria e il lavoro che ne dipende restano in attesa della riconnessione.",
   "platform.helper.offline.reconnect": "Riconnetti",
+  "platform.helper.contactsPermission":
+    "I Contatti richiedono il permesso per Psyche Helper nelle Impostazioni di Sistema.",
   "platform.helper.offline.dismiss": "Chiudi",
 };

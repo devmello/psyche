@@ -15,6 +15,8 @@ export interface HelperAvailabilityStatus {
   failures: number;
   /** Epoch ms of the next allowed attempt while offline (0 when connected or not backing off). */
   retryAt: number;
+  /** The helper answered the Contacts read with a missing-permission refusal (System Settings). */
+  contactsDenied: boolean;
 }
 
 export interface HelperAvailabilityOptions {
@@ -30,6 +32,9 @@ export interface HelperAvailabilityOptions {
 
 const MINUTE = 60_000;
 
+/** The setting the Gateway keeps the status in, for the app (`settings.get`). */
+export const HELPER_AVAILABILITY_SETTING = "devices.helper.availability";
+
 /** True for the error a helper-backed call throws when no Host helper offers the capability. */
 export function isNeedsHelper(err: unknown): boolean {
   if (err instanceof PsycheError) {
@@ -43,6 +48,7 @@ export class HelperAvailability {
   #connected: boolean;
   #failures = 0;
   #retryAt = 0;
+  #contactsDenied = false;
   readonly #now: () => number;
   readonly #log: NonNullable<HelperAvailabilityOptions["log"]>;
   readonly #baseMs: number;
@@ -59,7 +65,12 @@ export class HelperAvailability {
   }
 
   status(): HelperAvailabilityStatus {
-    return { connected: this.#connected, failures: this.#failures, retryAt: this.#retryAt };
+    return {
+      connected: this.#connected,
+      failures: this.#failures,
+      retryAt: this.#retryAt,
+      contactsDenied: this.#contactsDenied,
+    };
   }
 
   /** Whether a helper-backed read or job may run now: connected, or its back-off has passed. */
@@ -104,6 +115,13 @@ export class HelperAvailability {
     }
     this.#changed();
     return wasConnected;
+  }
+
+  /** The Contacts read was refused for lack of permission (or granted again). */
+  setContactsDenied(denied: boolean): void {
+    if (denied === this.#contactsDenied) return;
+    this.#contactsDenied = denied;
+    this.#changed();
   }
 
   #changed(): void {
