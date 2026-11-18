@@ -37,8 +37,8 @@ Change a thread's mode from the Manual / Balanced / Auto switch above the messag
 
 Auto's classifier is a set of deterministic rules today, not a model. It sees only your own recent messages, the task's title, the tool name and the action's metadata, never page text, screenshots, tool results or memory. Anything that changes access, shares, deletes or communicates outward, any bulk action, and any action with no request from you to match is "sensitive", so the broker asks. (A model-backed classifier exists in the code but the Gateway does not use it yet.)
 
-::: warning Not applied yet
-`defaultMode` in the permission policy, and the "Default mode for new threads" choice in Settings → Permissions, are saved but not applied. New threads start in Balanced.
+::: info Default mode
+New threads start in the "Default mode for new threads" you choose in Settings → Permissions. `auto` applies only when the thread's model is on the auto-mode allowlist; otherwise a new thread starts in Balanced.
 :::
 
 ## How a decision is made

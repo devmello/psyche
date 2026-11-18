@@ -71,10 +71,10 @@ Feed posts are written from untrusted content (web pages and feeds). Text in a s
 
 ## Limits today
 
-- The Feed header buttons **What should I write about** and **Schedule** do nothing yet. Edit `interests.md` directly; the brief time is fixed at 07:00.
+- Edit `interests.md` directly, or use **What should I write about** in the Feed header; the brief time is fixed at 07:00. **Schedule** opens Scheduled.
 - There is no screen to manage Feed sources; use the `feed.sources` setting. Bluesky, saved items and your connected accounts are not Feed sources yet, and there is no web search to fill gaps.
 - **Edit** on an idea is shown but disabled. Ideas do not use signals from connectors yet, since connectors cannot be connected.
-- On Goals, **Add a goal** does nothing; ask in chat instead. Deleting a goal is not available in the app.
+- On Goals, **Add a goal** opens the new-goal dialog. Deleting a goal is not available in the app.
 - The heartbeat check-in is not scheduled, so the agent does not check in on its own between briefs.
 
 ## Learn more
