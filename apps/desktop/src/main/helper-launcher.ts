@@ -147,6 +147,16 @@ export interface HelperLauncherOptions {
   pairTimeoutMs?: number;
   /** Least time between two relaunches after it went offline (default 60 s). */
   relaunchEveryMs?: number;
+  /**
+   * While offline, the launcher tries again on its own: the first retry after `retryBaseMs`
+   * (default 30 s), doubling each time a retry fails, never later than `retryMaxMs` (default
+   * 10 min). Without this a failed relaunch waited for the next presence event, which may never come.
+   */
+  retryBaseMs?: number;
+  retryMaxMs?: number;
+  /** Schedules a retry (default `setTimeout`, unref'd); tests pass their own. */
+  setTimer?: (fn: () => void, ms: number) => unknown;
+  clearTimer?: (handle: unknown) => void;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
   /** The pid in the helper's lock file (`<home>/run/helper.lock`); tests pass their own. */
@@ -219,6 +229,9 @@ export class HelperLauncher {
   private signatureBad = false;
   /** Set by `stopForQuit`: from then on nothing starts the helper (the app is going away). */
   private stopped = false;
+  /** The pending retry while offline, and how many retries have failed in a row. */
+  private retryTimer: unknown;
+  private retryFailures = 0;
 
   constructor(opts: HelperLauncherOptions) {
     this.opts = opts;
@@ -269,7 +282,36 @@ export class HelperLauncher {
   private set(s: HelperRunState): void {
     if (s.kind === this.state.kind && JSON.stringify(s) === JSON.stringify(this.state)) return;
     this.state = s;
+    this.syncRetry(s);
     this.opts.onState?.(s);
+  }
+
+  /** Offline: schedule the next attempt with back-off. Anything else cancels the pending one. */
+  private syncRetry(s: HelperRunState): void {
+    this.clearRetry();
+    if (s.kind !== "offline") {
+      if (s.kind === "paired") this.retryFailures = 0;
+      return;
+    }
+    // A modified app or a bad signature is not fixed by trying again.
+    if (this.stopped || /modified|signature/.test(s.reason ?? "")) return;
+    this.retryFailures += 1;
+    const base = this.opts.retryBaseMs ?? 30_000;
+    const max = this.opts.retryMaxMs ?? 10 * 60_000;
+    const delay = Math.min(max, base * 2 ** (this.retryFailures - 1));
+    const setTimer = this.opts.setTimer ?? ((fn, ms) => setTimeout(fn, ms).unref?.());
+    this.retryTimer = setTimer(() => {
+      this.retryTimer = undefined;
+      if (this.stopped || this.launching || this.opts.blocked?.()) return;
+      void this.launch();
+    }, delay);
+  }
+
+  private clearRetry(): void {
+    if (this.retryTimer === undefined) return;
+    const clear = this.opts.clearTimer ?? ((h) => clearTimeout(h as NodeJS.Timeout));
+    clear(this.retryTimer);
+    this.retryTimer = undefined;
   }
 
   /**
@@ -353,6 +395,7 @@ export class HelperLauncher {
    */
   stopForQuit(graceMs = 1_500): HelperStopResult {
     this.stopped = true;
+    this.clearRetry();
     const appPath = this.opts.appPath;
     if (
       this.state.kind === "unbundled" ||
