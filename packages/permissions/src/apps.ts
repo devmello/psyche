@@ -1,3 +1,4 @@
+import { FINANCIAL_APP_PREFIXES } from "@psyche/protocol/financial-block";
 import type { AppTier } from "./policy.ts";
 
 /**
@@ -89,15 +90,9 @@ export const LOCKED_OFF_APPS = [
   "com.apple.coreservices.uiagent",
   "com.apple.loginwindow",
   "com.dashlane.dashlanephonefinal",
-  "com.robinhood.*",
-  "com.coinbase.*",
-  "com.schwab.*",
-  "com.fidelity.*",
-  "com.etrade.*",
-  "com.webull.*",
-  "com.interactivebrokers.*",
-  "com.paypal.*",
-  "com.chase.*",
+  // Every brokerage, exchange, wallet, bank and P2P app the hard block on trades and transfers
+  // knows (`@psyche/protocol/financial-block`): one list, so the two cannot drift apart.
+  ...FINANCIAL_APP_PREFIXES.flatMap((prefix) => [prefix, `${prefix}.*`]),
   // Windows: password managers, Settings and the system's credential and consent prompts,
   // Psyche's own app and helper.
   "1password.exe",

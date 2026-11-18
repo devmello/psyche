@@ -3690,16 +3690,24 @@ function toolCallMeta(m: ToolCallMeta | undefined): ToolCallMeta | undefined {
 }
 
 /** The control facts with only strings, booleans and a bounded list of labels (hard block input). */
-function controlFacts(c: ControlFacts): ControlFacts {
+export function controlFacts(c: ControlFacts): ControlFacts {
   const str = (v: unknown, max = 2048) => (typeof v === "string" ? v.slice(0, max) : undefined);
-  const labels = Array.isArray(c.labels)
-    ? c.labels
-        .filter((l): l is string => typeof l === "string")
-        .slice(0, 12)
-        .map((l) => l.slice(0, 400))
-    : undefined;
+  // A label longer than the bound keeps its head and its tail: padding must not push a trailing
+  // "Buy" out of what the hard block reads.
+  const bound = (l: string) => (l.length <= 400 ? l : `${l.slice(0, 200)} ${l.slice(-200)}`);
+  const list = (v: unknown) =>
+    Array.isArray(v)
+      ? v
+          .filter((l): l is string => typeof l === "string")
+          .slice(0, 12)
+          .map(bound)
+      : undefined;
+  const labels = list(c.labels);
+  const alsoLabels = list(c.alsoLabels);
   const out: ControlFacts = {
     ...(labels === undefined ? {} : { labels }),
+    ...(alsoLabels === undefined ? {} : { alsoLabels }),
+    ...(str(c.href) === undefined ? {} : { href: str(c.href) as string }),
     ...(str(c.role, 64) === undefined ? {} : { role: str(c.role, 64) as string }),
     ...(c.submits === true ? { submits: true } : {}),
     ...(c.unreadable === true ? { unreadable: true } : {}),

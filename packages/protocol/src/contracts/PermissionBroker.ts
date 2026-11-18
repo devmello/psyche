@@ -112,8 +112,12 @@ export interface ToolCallMeta {
 export interface ControlFacts {
   /** Own label first, then its parents' and the window's. */
   labels?: string[];
+  /** Other controls the same action activates too (the far end of a drag), each judged as an own label. */
+  alsoLabels?: string[];
   role?: string;
   submits?: boolean;
+  /** A link's target as the page gave it; only a real web address counts as navigation. */
+  href?: string;
   formMethod?: string;
   formAction?: string;
   pageUrl?: string;

@@ -176,6 +176,17 @@ const TRANSFER_PAIRS = [
   ["send", "funds"],
   ["move", "money"],
   ["create", "trade"],
+  // On-chain and ACH sends: `send_transaction`, `sendTransaction`, `sign_tx`, `create_ach`.
+  ["send", "transaction"],
+  ["sign", "transaction"],
+  ["broadcast", "transaction"],
+  ["send", "tx"],
+  ["sign", "tx"],
+  ["create", "ach"],
+  ["send", "ach"],
+  ["initiate", "ach"],
+  ["payment", "initiation"],
+  ["initiate", "payment"],
 ];
 // `place_order` and `submit_order` alone are not here: a shop, a restaurant or a ticket seller has
 // them too. An order of stock or crypto is caught by `isTradeOrTransferText`, and any order on a
@@ -220,6 +231,54 @@ const FINANCIAL_NAMESPACES = new Set([
   "westernunion",
   "moneygram",
   "zellepay",
+  "ib",
+  "tws",
+  "ccxt",
+  "polymarket",
+  "kalshi",
+  "trading",
+  "hyperliquid",
+  "tastytrade",
+  "firstrade",
+  "trading212",
+  "degiro",
+  "etoro",
+  "saxo",
+  "moomoo",
+  "zerodha",
+  "bitfinex",
+  "bitget",
+  "mexc",
+  "bitpanda",
+  "bitso",
+  "upbit",
+  "bithumb",
+  "bitflyer",
+  "phantom",
+  "dydx",
+]);
+/** A namespace that contains one of these as part of a word (`mybroker`, `brokerage-api`) is financial. */
+const FINANCIAL_NAMESPACE_PARTS = ["broker", "brokerage"];
+/** A tool that only reads is not a trade, even on a brokerage's or an exchange's server. */
+const READ_VERBS = new Set([
+  "get",
+  "list",
+  "read",
+  "fetch",
+  "search",
+  "find",
+  "view",
+  "show",
+  "describe",
+  "lookup",
+  "query",
+  "check",
+  "quote",
+  "quotes",
+  "estimate",
+  "preview",
+  "history",
+  "status",
 ]);
 
 export function isFinancialTransfer(tool: string): boolean {
@@ -230,8 +289,22 @@ export function isFinancialTransfer(tool: string): boolean {
   // `buy_stock`, `sellShares`, `place_stock_order`, `send_bitcoin`, `swap_tokens`.
   if (isTradeOrTransferText(tool)) return true;
   const ns = tool.startsWith("mcp__") ? (tool.split("__")[1] ?? "") : (tool.split(/[._]/)[0] ?? "");
-  // `interactive-brokers` and `cash_app` read as `interactivebrokers` and `cashapp`.
-  return FINANCIAL_NAMESPACES.has(ns.toLowerCase().replace(/[^a-z0-9]+/g, ""));
+  const lower = ns.toLowerCase();
+  // `interactive-brokers` and `cash_app` read as `interactivebrokers` and `cashapp`; `robinhood-mcp`
+  // and `alpaca-mcp-server` have the broker as one of their words.
+  const compact = lower.replace(/[^a-z0-9]+/g, "");
+  const tokens = toolWords(ns);
+  const financial =
+    FINANCIAL_NAMESPACES.has(compact) ||
+    tokens.some((t) => FINANCIAL_NAMESPACES.has(t)) ||
+    FINANCIAL_NAMESPACE_PARTS.some((part) => compact.includes(part));
+  if (!financial) return false;
+  // A quote, a balance or a list of rates moves nothing: only the tool's own words say so.
+  const own = tool.startsWith("mcp__")
+    ? tool.split("__").slice(2).join("_")
+    : tool.slice(ns.length);
+  const verb = toolWords(own)[0];
+  return !(verb !== undefined && READ_VERBS.has(verb));
 }
 
 /**
@@ -247,8 +320,10 @@ export function isFinancialControl(call: PolicyCall): boolean {
   return (
     financialBlock({
       labels: c?.labels,
+      alsoLabels: c?.alsoLabels,
       role: c?.role,
       submits: c?.submits,
+      href: c?.href,
       formMethod: c?.formMethod,
       formAction: c?.formAction,
       pageUrl: c?.pageUrl,

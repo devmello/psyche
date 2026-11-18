@@ -107,10 +107,14 @@ export function isMoneyLabel(text: string | undefined): boolean {
   return isMoneyText(text);
 }
 
-/** Every label an act call names: the element's, the expected ones, a menu path, a custom press. */
-function controlLabels(p: ActParams, label: string | undefined): string[] {
+/**
+ * Every label an act call names, the one the Gateway saw in its own snapshot first: the agent's
+ * `expect.label` is its own word (the helper accepts a variant such as "Send (+1)"), so it never
+ * replaces what was read. Then the expected ones, a menu path, a custom press.
+ */
+function controlLabels(p: ActParams, seen: string | undefined): string[] {
   return [
-    label,
+    seen,
     p.expect?.label,
     p.to?.expect?.label,
     ...(p.action === "menu" ? (p.path ?? "").split(">").map((seg) => seg.trim()) : []),
@@ -969,9 +973,13 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
    */
   async function blockUnderRef(p: ActParams, callId: string, signal: AbortSignal): Promise<void> {
     if (p.ref === undefined) return;
-    const label = p.expect?.label ?? elements.get(p.ref)?.label;
-    const looksLikeTrade = (["brokerage", "bank", "p2p"] as const).some((k) =>
-      isTradeOrTransferText(label, k),
+    // The label the snapshot gave, then the agent's own expectation: either one that reads like a
+    // trade or a transfer is enough to look at where the element is.
+    const labels = [elements.get(p.ref)?.label, p.expect?.label].filter(
+      (l): l is string => typeof l === "string" && l !== "",
+    );
+    const looksLikeTrade = labels.some((l) =>
+      (["brokerage", "bank", "p2p"] as const).some((k) => isTradeOrTransferText(l, k)),
     );
     if (!looksLikeTrade) return;
     const t = await resolveFor(
@@ -982,7 +990,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       "focus_unchecked",
     );
     if (t === undefined) return;
-    await refuseFinancialBlock(p, { ...t, labels: [label ?? "", ...t.labels] }, "activate", callId);
+    await refuseFinancialBlock(p, { ...t, labels: [...labels, ...t.labels] }, "activate", callId);
   }
 
   /** The financial card for an action whose target pays; returns its id once approved. */
@@ -1036,11 +1044,15 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       point(p);
       if (p.action === "drag" && p.to !== undefined) point(p.to);
     }
-    if (points.length === 0 || describeAct(p).sideEffect === "financial") return undefined;
+    if (points.length === 0) return undefined;
+    // Already a payment card (the agent's `expect.label` said "Pay"): the hard block still reads
+    // what the point lands on, because the label is the agent's word, not the page's.
+    const alreadyFinancial = describeAct(p).sideEffect === "financial";
     for (const pt of points) {
       const t = await resolveFor(p, pt, callId, signal, "point_unchecked");
       if (t === undefined) continue;
       await refuseFinancialBlock(p, t, "activate", callId);
+      if (alreadyFinancial) continue;
       const verdict = moneyVerdict(p.app, t, "activate");
       if (verdict === undefined) continue;
       return askFinancial(
@@ -1070,7 +1082,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         ? activatingKey(p.keys ?? "")
         : // A typed space presses a focused button too (after `key tab`, say).
           p.action === "type" && /[\r\n ]/.test(p.text ?? "");
-    if (!submits || describeAct(p).sideEffect === "financial") return undefined;
+    if (!submits) return undefined;
+    const alreadyFinancial = describeAct(p).sideEffect === "financial";
     const params: Record<string, unknown> =
       p.action === "type" && p.ref !== undefined
         ? { ref: p.ref, ...(p.expect === undefined ? {} : { expect: p.expect }) }
@@ -1088,6 +1101,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           : "activate";
     if (mode === "activate" && takesText(t)) return undefined;
     await refuseFinancialBlock(p, t, mode, callId);
+    if (alreadyFinancial) return undefined;
     const verdict = moneyVerdict(p.app, t, mode);
     if (verdict === undefined) return undefined;
     return askFinancial(
@@ -1110,12 +1124,13 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     callId: string,
     signal: AbortSignal,
   ): Promise<string | undefined> {
-    if (!/[\r\n ]/.test(piece) || describeAct(p).sideEffect === "financial") return undefined;
+    if (!/[\r\n ]/.test(piece)) return undefined;
     const t = await resolveFor(p, { focused: true }, callId, signal, "focus_unchecked");
     if (t === undefined) return undefined;
     const mode = /[\r\n]/.test(piece) ? "submit" : "activate";
     if (mode === "activate" && takesText(t)) return undefined;
     await refuseFinancialBlock(p, t, mode, callId);
+    if (describeAct(p).sideEffect === "financial") return undefined;
     const verdict = moneyVerdict(p.app, t, mode);
     if (verdict === undefined) return undefined;
     return askFinancial(
@@ -1570,7 +1585,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         // What the hard block on trades and transfers reads: the labels this call names and
         // whether it activates something the Gateway has not seen (a point, a key, a newline).
         control: {
-          labels: controlLabels(p, label),
+          labels: controlLabels(p, p.ref === undefined ? undefined : elements.get(p.ref)?.label),
           ...(activatesUnseen(p) ? { unreadable: true } : {}),
         },
       },

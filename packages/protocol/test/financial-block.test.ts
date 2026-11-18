@@ -102,6 +102,152 @@ const MUST_BLOCK: [string, FinancialAction][] = [
   ],
   ["unlisted site, send bitcoin", { origin: "https://w.example", labels: ["Send Bitcoin"] }],
   ["parent heading names it", { origin: "https://w.example", labels: ["OK", "Send money"] }],
+  // review round 1: browser drag, Enter in a field, icon-only controls, links that are script
+  [
+    "drag from Buy to itself",
+    { origin: "https://robinhood.com", labels: ["Buy"], alsoLabels: ["Buy"], role: "button" },
+  ],
+  [
+    "drag whose far end is Buy",
+    { origin: "https://robinhood.com", labels: ["Chart"], alsoLabels: ["Buy"], role: "button" },
+  ],
+  [
+    "icon-only submit on a brokerage",
+    { origin: "https://robinhood.com", labels: [""], role: "button", submits: true },
+  ],
+  [
+    "icon-only button on a bank",
+    { origin: "https://secure.chase.com", labels: [""], role: "button" },
+  ],
+  [
+    "Buy link whose href is javascript:",
+    {
+      origin: "https://www.coinbase.com",
+      labels: ["Buy"],
+      role: "link",
+      href: "javascript:void(0)",
+    },
+  ],
+  [
+    "Buy link whose href is #",
+    {
+      origin: "https://www.coinbase.com",
+      pageUrl: "https://www.coinbase.com/trade",
+      labels: ["Buy"],
+      role: "link",
+      href: "https://www.coinbase.com/trade#",
+    },
+  ],
+  ["Buy link with no href", { origin: "https://www.coinbase.com", labels: ["Buy"], role: "link" }],
+  [
+    "page dialog on a brokerage",
+    { origin: "https://robinhood.com", labels: ["Sell 10 shares?"], role: "dialog" },
+  ],
+  [
+    "page dialog on P2P",
+    {
+      origin: "https://venmo.com",
+      labels: ["Are you sure you want to send $500 to Sam?"],
+      role: "dialog",
+    },
+  ],
+  // trade words on banks, P2P apps and mixed venues
+  ["chase Buy", { origin: "https://secure.chase.com", labels: ["Buy"] }],
+  ["chase Place order", { origin: "https://secure.chase.com", labels: ["Place order"] }],
+  ["sofi Buy", { origin: "https://www.sofi.com", labels: ["Buy"] }],
+  ["ally invest Sell", { origin: "https://live.invest.ally.com", labels: ["Sell"] }],
+  ["revolut Buy", { origin: "https://app.revolut.com", labels: ["Buy"] }],
+  ["ing Kaufen", { origin: "https://banking.ing.de", labels: ["Kaufen"] }],
+  ["cash app Buy", { origin: "https://cash.app", labels: ["Buy"] }],
+  ["cash app Cash Out", { origin: "https://cash.app", labels: ["Cash Out"] }],
+  [
+    "paypal crypto Buy",
+    {
+      origin: "https://www.paypal.com",
+      pageUrl: "https://www.paypal.com/myaccount/crypto/buy",
+      labels: ["Buy"],
+    },
+  ],
+  // brokerage-only words
+  ["robinhood Invest", { origin: "https://robinhood.com", labels: ["Invest"] }],
+  ["robinhood Close position", { origin: "https://robinhood.com", labels: ["Close position"] }],
+  ["robinhood Exercise", { origin: "https://robinhood.com", labels: ["Exercise"] }],
+  ["wealthfront Invest now", { origin: "https://www.wealthfront.com", labels: ["Invest now"] }],
+  // non-English confirm steps
+  [
+    "de Bestätigen on /ueberweisung",
+    {
+      origin: "https://www.commerzbank.de",
+      pageUrl: "https://www.commerzbank.de/ueberweisung",
+      labels: ["Bestätigen"],
+      role: "button",
+    },
+  ],
+  [
+    "es Confirmar on /transferencias/confirmar",
+    {
+      origin: "https://www.bbva.es",
+      pageUrl: "https://www.bbva.es/transferencias/confirmar",
+      labels: ["Confirmar"],
+      role: "button",
+    },
+  ],
+  [
+    "de Jetzt ausführen on /ueberweisung",
+    {
+      origin: "https://www.commerzbank.de",
+      pageUrl: "https://www.commerzbank.de/ueberweisung",
+      labels: ["Jetzt ausführen"],
+      role: "button",
+    },
+  ],
+  // more words in more languages
+  ["fr Passer l'ordre", { origin: "https://www.degiro.com", labels: ["Passer l'ordre"] }],
+  ["it Conferma ordine", { origin: "https://www.degiro.com", labels: ["Conferma ordine"] }],
+  ["es Confirmar orden", { origin: "https://www.degiro.com", labels: ["Confirmar orden"] }],
+  ["ja 購入する", { origin: "https://bitflyer.com", labels: ["購入する"] }],
+  ["zh 立即购买", { origin: "https://www.binance.com", labels: ["立即购买"] }],
+  ["zh 提币", { origin: "https://www.binance.com", labels: ["提币"] }],
+  ["zh 交易", { origin: "https://www.binance.com", labels: ["交易"] }],
+  ["zh 兑换", { origin: "https://www.binance.com", labels: ["兑换"] }],
+  ["zh 发送", { origin: "https://www.okx.com", labels: ["发送"] }],
+  ["ko 보내기", { origin: "https://www.upbit.com", labels: ["보내기"] }],
+  ["ko 구매", { origin: "https://www.upbit.com", labels: ["구매"] }],
+  ["hi पैसे भेजें", { origin: "https://www.hdfcbank.com", labels: ["पैसे भेजें"] }],
+  ["ar أرسل", { origin: "https://www.hsbc.com", labels: ["أرسل"] }],
+  ["ar اشترِ", { origin: "https://www.binance.com", labels: ["اشترِ"] }],
+  ["ru Отправить", { origin: "https://www.revolut.com", labels: ["Отправить"] }],
+  ["pt Pix", { origin: "https://nubank.com.br", labels: ["Pix"] }],
+  // invisible characters inside the word
+  ["soft hyphen", { origin: "https://secure.chase.com", labels: ["Trans­fer"] }],
+  ["zero-width space", { origin: "https://venmo.com", labels: ["P​ay"] }],
+  ["zero-width joiner", { origin: "https://robinhood.com", labels: ["B‍uy"] }],
+  // wallet extensions
+  [
+    "MetaMask Confirm",
+    {
+      origin: "chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn",
+      labels: ["Confirm"],
+      role: "button",
+    },
+  ],
+  [
+    "MetaMask Send",
+    { origin: "chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn", labels: ["Send"] },
+  ],
+  [
+    "Phantom Approve",
+    { origin: "chrome-extension://bfnaelmomeimhlpmgjnjophhpkkoljpa", labels: ["Approve"] },
+  ],
+  // venues that were not listed
+  ["merrill Buy", { origin: "https://olui2.fs.ml.com", labels: ["Buy"] }],
+  ["thinkorswim Buy", { origin: "https://trade.thinkorswim.com", labels: ["Buy"] }],
+  ["zelle.com Send", { origin: "https://www.zelle.com", labels: ["Send"] }],
+  ["transferwise Send", { origin: "https://transferwise.com", labels: ["Send"] }],
+  ["sushi Swap", { origin: "https://www.sushi.com", labels: ["Swap"] }],
+  ["opensea Buy now", { origin: "https://opensea.io", labels: ["Buy now"] }],
+  ["jpmorgan Transfer", { origin: "https://secure.jpmorgan.com", labels: ["Transfer"] }],
+  ["trade republic Kaufen", { origin: "https://app.traderepublic.com", labels: ["Kaufen"] }],
 ];
 
 const MUST_NOT_BLOCK: [string, FinancialAction][] = [
@@ -156,10 +302,33 @@ const MUST_NOT_BLOCK: [string, FinancialAction][] = [
   ],
   ["bank Confirm elsewhere", { pageUrl: "https://www.chase.com/security", labels: ["Confirm"] }],
   // navigation never trades
-  ["link Buy", { origin: "https://www.coinbase.com", labels: ["Buy"], role: "link" }],
+  [
+    "link Buy",
+    {
+      origin: "https://www.coinbase.com",
+      pageUrl: "https://www.coinbase.com/",
+      labels: ["Buy"],
+      role: "link",
+      href: "https://www.coinbase.com/buy",
+    },
+  ],
   [
     "link Transfer money",
-    { origin: "https://www.chase.com", labels: ["Transfer money"], role: "link" },
+    {
+      origin: "https://www.chase.com",
+      labels: ["Transfer money"],
+      role: "link",
+      href: "https://www.chase.com/transfers",
+    },
+  ],
+  [
+    "link Read more",
+    {
+      origin: "https://robinhood.com",
+      labels: ["Read more"],
+      role: "link",
+      href: "https://robinhood.com/us/en/learn/articles/x",
+    },
   ],
   ["AXLink Withdraw", { origin: "https://www.kraken.com", labels: ["Withdraw"], role: "AXLink" }],
   [
@@ -199,6 +368,92 @@ const MUST_NOT_BLOCK: [string, FinancialAction][] = [
   ["native mail app Send", { app: "com.apple.mail", labels: ["Send"] }],
   ["native banking-looking but not listed", { app: "com.example.budget", labels: ["Transfer"] }],
   ["empty", {}],
+  // review round 1: sign-in codes, menus, tabs and reading screens on a venue
+  ["chase Send code", { origin: "https://secure.chase.com", labels: ["Send code"] }],
+  ["chase Send text", { origin: "https://secure.chase.com", labels: ["Send text"] }],
+  ["wise Send code", { origin: "https://wise.com", labels: ["Send code"] }],
+  ["coinbase Send code", { origin: "https://www.coinbase.com", labels: ["Send code"] }],
+  [
+    "chase Pay & transfer menu",
+    { origin: "https://secure.chase.com", labels: ["Pay & transfer"], role: "button" },
+  ],
+  ["chase Pay and transfer", { origin: "https://secure.chase.com", labels: ["Pay and transfer"] }],
+  [
+    "chase Transfers tab",
+    { origin: "https://secure.chase.com", labels: ["Transfers"], role: "tab" },
+  ],
+  [
+    "chase Transfer activity",
+    { origin: "https://secure.chase.com", labels: ["Transfer activity"] },
+  ],
+  [
+    "chase Wire instructions",
+    { origin: "https://secure.chase.com", labels: ["Wire instructions"] },
+  ],
+  ["chase Transfer limits", { origin: "https://secure.chase.com", labels: ["Transfer limits"] }],
+  ["chase Deposit details", { origin: "https://secure.chase.com", labels: ["Deposit details"] }],
+  ["chase Deposit", { origin: "https://secure.chase.com", labels: ["Deposit"] }],
+  ["chase Pay card", { origin: "https://secure.chase.com", labels: ["Pay card"] }],
+  ["chase Order checks", { origin: "https://secure.chase.com", labels: ["Order checks"] }],
+  ["schwab Trade ideas", { origin: "https://www.schwab.com", labels: ["Trade ideas"] }],
+  [
+    "schwab Order types explained",
+    { origin: "https://www.schwab.com", labels: ["Order types explained"] },
+  ],
+  ["robinhood Sort order", { origin: "https://robinhood.com", labels: ["Sort order"] }],
+  ["robinhood Order card", { origin: "https://robinhood.com", labels: ["Order card"] }],
+  ["robinhood Cover", { origin: "https://robinhood.com", labels: ["Cover"] }],
+  [
+    "research article Done",
+    {
+      origin: "https://robinhood.com",
+      pageUrl: "https://robinhood.com/news/buy-the-dip-article",
+      labels: ["Done"],
+      role: "button",
+    },
+  ],
+  [
+    "trade confirmations statement Done",
+    {
+      origin: "https://www.schwab.com",
+      pageUrl: "https://www.schwab.com/accounts/statements/#/trade-confirmations",
+      labels: ["Done"],
+      role: "button",
+    },
+  ],
+  [
+    "Trading account overview Continue",
+    {
+      origin: "https://secure.chase.com",
+      pageTitle: "Trading account overview",
+      labels: ["Continue"],
+      role: "button",
+    },
+  ],
+  ["ja 注文履歴 tab", { origin: "https://www.etrade.com", labels: ["注文履歴"], role: "tab" }],
+  ["ja 注文履歴", { origin: "https://www.etrade.com", labels: ["注文履歴"] }],
+  ["ja 振込履歴", { origin: "https://www.smbc.co.jp", labels: ["振込履歴"] }],
+  ["zh 转账记录", { origin: "https://www.hsbc.com", labels: ["转账记录"] }],
+  ["ko 주문내역", { origin: "https://www.upbit.com", labels: ["주문내역"] }],
+  [
+    "stock photos",
+    { origin: "https://www.shutterstock.com", labels: ["Buy stock photo"], role: "button" },
+  ],
+  ["sell stock on an auction site", { origin: "https://www.ebay.com", labels: ["Sell stock"] }],
+  ["doordash Place order", { origin: "https://www.doordash.com", labels: ["Place order"] }],
+  ["gmail Send", { origin: "https://mail.google.com", labels: ["Send"] }],
+  ["godaddy Transfer domain", { origin: "https://www.godaddy.com", labels: ["Transfer domain"] }],
+  ["Transfer call", { origin: "https://voip.example.com", labels: ["Transfer call"] }],
+  ["wetransfer Transfer", { origin: "https://wetransfer.com", labels: ["Transfer"] }],
+  ["github Transfer repository", { origin: "https://github.com", labels: ["Transfer repository"] }],
+  ["github Transfer issue", { origin: "https://github.com", labels: ["Transfer issue"] }],
+  ["paypal Pay", { origin: "https://www.paypal.com", labels: ["Pay"] }],
+  ["paypal Agree & Pay", { origin: "https://www.paypal.com", labels: ["Agree & Pay"] }],
+  ["paypal Buy now at checkout", { origin: "https://www.paypal.com", labels: ["Buy now"] }],
+  [
+    "wallet extension Back",
+    { origin: "chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn", labels: ["Back"] },
+  ],
 ];
 
 describe("financialBlock: must block", () => {

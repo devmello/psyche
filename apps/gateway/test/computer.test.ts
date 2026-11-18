@@ -44,7 +44,13 @@ class FakeHelper implements NodeClient {
   /** What `computer.check_target` answers (the recorded target in the window right now). */
   check: Record<string, unknown> = { status: "found", ref: "e2", role: "button", label: "Delete" };
   /** What `computer.resolve_target` finds under a screen point (labels of the element and its parents). */
-  underPoint: { role?: string; label?: string; labels?: string[]; window?: string } = {
+  underPoint: {
+    role?: string;
+    label?: string;
+    labels?: string[];
+    window?: string;
+    url?: string;
+  } = {
     role: "AXButton",
     label: "Save",
     labels: ["Save"],
@@ -755,7 +761,7 @@ describe("computer-use agent tools (J1–J5)", () => {
     expect(popup?.meta).toEqual({
       app: notes,
       action: "menu",
-      control: { labels: expect.any(Array) },
+      control: { labels: ["Format"] },
     });
     const ok = act?.({ app: notes, action: "click", ref: "e41", expect: { role: "button" } });
     expect(ok?.bindingFields).toMatchObject({ tierRequired: "click" });
@@ -936,6 +942,69 @@ describe("computer-use agent tools (J1–J5)", () => {
           { approvalId: approval },
         ),
       ).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
+      expect(money(helper.calls)).toHaveLength(0);
+    });
+
+    it("a point click whose expect.label says Pay (already a payment card) is still under the hard block", async () => {
+      await call("computer.snapshot", { app: notes });
+      helper.calls.length = 0;
+      issued.length = 0;
+      // The agent calls it "Pay"; the helper finds a bank's Transfer under the point.
+      helper.underPoint = {
+        role: "AXButton",
+        label: "Transfer",
+        labels: ["Transfer"],
+        url: "https://secure.chase.com/",
+      };
+      answer = "approve";
+      const r = await call("computer.act", {
+        app: notes,
+        action: "click",
+        x: 40,
+        y: 50,
+        expect: { role: "AXButton", label: "Pay" },
+      });
+      expect(r).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
+      expect(money(helper.calls)).toHaveLength(0);
+    });
+
+    it("the agent's expect.label never replaces the label the snapshot gave", async () => {
+      const orig = helper.invoke.bind(helper);
+      helper.invoke = async (capability, params, options) =>
+        capability === "computer.ax_tree"
+          ? {
+              ok: true,
+              result: {
+                text: `window "Notes" snap=1\n  [e50] button "Transfer"`,
+                tier: "interact",
+              },
+            }
+          : orig(capability, params, options);
+      await call("computer.snapshot", { app: notes });
+      // The helper accepts a variant of the label, so the agent can send a harmless one.
+      const act = tools.get("computer.act")?.describeCall;
+      const d = act?.({
+        app: notes,
+        action: "click",
+        ref: "e50",
+        expect: { role: "button", label: "Done (+1)" },
+      });
+      expect(d?.meta).toMatchObject({ control: { labels: ["Transfer", "Done (+1)"] } });
+      helper.calls.length = 0;
+      helper.underPoint = {
+        role: "AXButton",
+        label: "Transfer",
+        labels: ["Transfer"],
+        url: "https://secure.chase.com/",
+      };
+      answer = "approve";
+      const r = await call("computer.act", {
+        app: notes,
+        action: "click",
+        ref: "e50",
+        expect: { role: "button", label: "Done (+1)" },
+      });
+      expect(r).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
       expect(money(helper.calls)).toHaveLength(0);
     });
 
