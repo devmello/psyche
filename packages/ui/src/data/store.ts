@@ -17,6 +17,7 @@ import {
   newIdempotencyKey,
 } from "./client.ts";
 import type { ChatOutbox } from "./outbox.ts";
+import { RequestGate, retryAfterSecOf } from "./request-gate.ts";
 import {
   appendBlock,
   INITIAL_STATE,
@@ -48,6 +49,17 @@ const scheduleFrame = (cb: () => void): number =>
 const cancelFrame = (id: number): void =>
   typeof cancelAnimationFrame === "function" ? cancelAnimationFrame(id) : clearTimeout(id);
 
+/** A read is sent at most this many times while the device keeps answering `rate_limited`. */
+const MAX_RATE_LIMIT_ATTEMPTS = 3;
+
+function toRequestError(method: string, err: unknown): GatewayRequestError {
+  if (err instanceof GatewayRequestError) return err;
+  if (err instanceof PsycheError)
+    return new GatewayRequestError(method, err.code, err.message, err.details);
+  const message = err instanceof Error ? err.message : String(err);
+  return new GatewayRequestError(method, "internal", message);
+}
+
 export class GatewayStore {
   readonly client: GatewayClient;
   /**
@@ -77,6 +89,8 @@ export class GatewayStore {
   private unsubscribe: Array<() => void> = [];
   private insightsTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly now: () => string;
+  /** Holds non-urgent reads while the device is rate limited; shared by every loader. */
+  private readonly gate = new RequestGate();
 
   constructor(
     client: GatewayClient,
@@ -206,17 +220,26 @@ export class GatewayStore {
 
   // --- Requests --------------------------------------------------------------------------------
 
-  /** Sends a request, adding an idempotency key when the method needs one. */
+  /**
+   * Sends a request, adding an idempotency key when the method needs one. The device's request
+   * budget is shared by every loader, so this is the one place that honours a `rate_limited`
+   * reply: non-urgent reads wait out `retryAfterSec` (see `request-gate.ts`), and a read that was
+   * limited is retried after that wait, a few times at most. A side effect is never sent twice.
+   */
   async call<M extends MethodName>(method: M, params: MethodParams<M>): Promise<MethodResult<M>> {
-    const options = requiresIdempotencyKey(method) ? { idempotencyKey: newIdempotencyKey() } : {};
-    try {
-      return await this.client.request(method, params, options);
-    } catch (err) {
-      if (err instanceof GatewayRequestError) throw err;
-      if (err instanceof PsycheError)
-        throw new GatewayRequestError(method, err.code, err.message, err.details);
-      const message = err instanceof Error ? err.message : String(err);
-      throw new GatewayRequestError(method, "internal", message);
+    const sideEffecting = requiresIdempotencyKey(method);
+    const options = sideEffecting ? { idempotencyKey: newIdempotencyKey() } : {};
+    for (let attempt = 1; ; attempt += 1) {
+      await this.gate.admit(method);
+      try {
+        return await this.client.request(method, params, options);
+      } catch (err) {
+        const error = toRequestError(method, err);
+        if (error.code !== "rate_limited") throw error;
+        const until = this.gate.pause(retryAfterSecOf(error.details));
+        if (sideEffecting || attempt >= MAX_RATE_LIMIT_ATTEMPTS) throw error;
+        await this.gate.waitUntil(until);
+      }
     }
   }
 
