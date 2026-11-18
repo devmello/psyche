@@ -4,6 +4,8 @@ import { cardDigits, findSensitiveNormalized as findSensitive } from "@psyche/au
 import { canonicalHostPath, isAbsoluteHostPath, slashHostPath } from "@psyche/hostfs";
 import { PLACEHOLDER_PATTERN, PROTECTED_MEMORY_FILES } from "@psyche/protocol";
 import { dangerousEnvNames } from "./binding.ts";
+import { SEND_KINDS } from "./connector-matrix.ts";
+import { outboundSendDecision } from "./outbound.ts";
 import {
   type CanonicalUrl,
   canonicalUrl,
@@ -23,7 +25,7 @@ import type { PolicyCall, PolicyContext } from "./types.ts";
 export type ProhibitionResult =
   | { effect: "deny"; id: string; reason: string }
   | { effect: "confirm"; id: string; reason: string; word: string }
-  | { effect: "ask"; id: string; reason: string };
+  | { effect: "ask"; id: string; reason: string; deviceOnly?: true };
 
 export interface LoopbackCheck {
   ok: boolean;
@@ -548,6 +550,35 @@ export async function checkProhibitions(
     }
   }
 
+  // What Psyche sends to another person or service goes through the one outbound check (security
+  // §3.9), the same function the channel service uses. The audience is another party: a tool call
+  // has no owner chat. Credentials, cards and their codes, IBANs and US Social Security numbers found
+  // by the strict reading are refused outright; the other kinds (one-time codes, passports, SIN, NI and Aadhaar numbers, a
+  // routing and account number) ask on a paired device, once, so the owner can still send their own
+  // accountant a routing number (owner decision, review round 2).
+  let outboundAsk: ProhibitionResult | undefined;
+  if ((SEND_KINDS as readonly string[]).includes(effectiveKind)) {
+    const asked = new Set<string>();
+    for (const s of params) {
+      const decision = outboundSendDecision(s.value);
+      if (decision.action === "deny") {
+        return deny(
+          "outbound_sensitive",
+          `the message holds ${decision.kinds.join(", ").replaceAll("_", " ")}; the owner sends such values themselves`,
+        );
+      }
+      if (decision.action === "ask") for (const k of decision.kinds) asked.add(k);
+    }
+    if (asked.size > 0) {
+      outboundAsk = {
+        effect: "ask",
+        id: "prohibition:outbound_identifier",
+        reason: `the message holds ${[...asked].join(", ").replaceAll("_", " ")}; approve on a paired device`,
+        deviceOnly: true,
+      };
+    }
+  }
+
   // Dangerous interpreter / loader variables in an exec env (design-14).
   if (effectiveKind === "exec" || effectiveKind === "exec_host") {
     const envVars = execEnv(call);
@@ -593,7 +624,7 @@ export async function checkProhibitions(
       reason: "creating a third-party account needs approval",
     };
   }
-  return undefined;
+  return outboundAsk;
 }
 
 function execEnv(call: PolicyCall): Record<string, string> | undefined {

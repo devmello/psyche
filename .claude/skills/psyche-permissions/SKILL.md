@@ -61,7 +61,7 @@ If a client now trusts a different path (a socket, a pointer file, a config), th
 
 ## 5. Tests to run
 
-`verify.sh` runs the related tests. These suites break most often when this area changes:
+`verify.sh --related` runs the related tests (run it once before the PR for changes here: permission code is widely imported). These suites break most often when this area changes:
 - **permissions:** `answer-lockout`;
 - **gateway:** `passkeys`, `remote-presence`, `payments-only-presence`, `seal-owner-choice` and the other `seal-*` suites, `mode-switch`, `computer`, `compose-mcp`, `device-rate-limits`;
 - **protocol:** `money-intent`.

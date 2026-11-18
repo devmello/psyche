@@ -152,6 +152,7 @@ import {
   surfaceOf,
 } from "./handlers.ts";
 import { composeHarnesses } from "./harnesses.ts";
+import { HELPER_AVAILABILITY_SETTING, HelperAvailability } from "./helper-availability.ts";
 import { type HostTerminalOptions, hostTerminalPart } from "./host-terminal.ts";
 import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
@@ -1524,9 +1525,23 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     (p): p is ComposedPart & { meetings: MeetingIngest } => "meetings" in p,
   );
   // S15: goal check-ins and the Feed run in-process; the heartbeat gets its 5k-token budget (O2).
+  // The Host helper's shared availability (one state for every helper-backed source and job): they
+  // skip quietly while it is offline, back off between attempts, and resume on reconnect.
+  const helperConnected = (): boolean => gatewayRef?.context.nodes.hostHelper() !== undefined;
+  const helperAvailability = new HelperAvailability(false, {
+    now: () => clock.now(),
+    log: (level, msg, fields) => gwOptions.logger?.log(level, msg, fields),
+    // The app's banner reads this setting (`settings.get`), so it follows the Gateway's own view.
+    onChange: (status) => {
+      publish("settings.changed", {
+        entries: [setSetting(db, HELPER_AVAILABILITY_SETTING, status)],
+      });
+    },
+  });
   const proactive = composeProactive({
     db,
     clock,
+    helper: { state: helperAvailability, connected: helperConnected },
     scheduler,
     notifier,
     tasks,
@@ -1747,6 +1762,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     connectors: async () => (connectorsPart === undefined ? [] : connectorsPart.registry.list()),
     tools: services.tools,
     messages: graphMessagesHelper,
+    helperOnline: () => {
+      helperAvailability.observe(helperConnected());
+      return helperAvailability.status().connected;
+    },
+    onContactsDenied: (denied) => helperAvailability.setContactsDenied(denied),
     // The Contacts source reads through the Host's own helper, like Messages.
     contacts: () => gatewayRef?.context.nodes.hostHelper("contacts.read")?.client,
     graph: () => (people?.settings().enabled === true ? people.graph : undefined),

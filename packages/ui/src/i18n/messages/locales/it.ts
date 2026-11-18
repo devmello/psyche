@@ -17,6 +17,7 @@ import { everythingRest } from "./everything-rest/it.ts";
 import { final202611 } from "./final-2026-11/it.ts";
 import { galleryRest } from "./gallery-rest/it.ts";
 import { helperCheck } from "./helper-check/it.ts";
+import { helperOffline } from "./helper-offline/it.ts";
 import { homeRest } from "./home-rest/it.ts";
 import { links } from "./links/it.ts";
 import { mailMeetings } from "./mail-meetings/it.ts";
@@ -3383,6 +3384,7 @@ export const it: Partial<Catalogue> = {
   // password approvals on Linux (polkit)
   ...passwordPresence,
   ...helperCheck,
+  ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
   // Settings > Computer use > Separate desktop (Linux)

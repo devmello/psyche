@@ -30,13 +30,14 @@ The orchestrator gave you a brief and usually a `/goal`. Your job is one focused
 
 ## 3. Verify (the loop)
 
-1. Run `bash .claude/scripts/verify.sh`, adding `--swift` if you touched Swift. It runs your new tests and every existing test that imports the code you changed. Those existing tests are the ones builders most often break without noticing.
-2. Fix every failure and run it again. Repeat until it passes.
-3. Run `pnpm exec biome check --write <touched dirs>` last, after your final edit, then re-run verify.
+The owner's rule (2026-11-18): don't overheat the Mac. Size checks to the change.
+1. While you work, run only the test files you touched: `pnpm exec vitest run <files> --maxWorkers=1`. Don't run `verify.sh` after every small fix.
+2. When the change is done, run `pnpm exec biome check --write <touched dirs>`, then `bash .claude/scripts/verify.sh` once (add `--swift` if you touched Swift). It typechecks the touched packages and runs the touched tests. Fix failures by re-running just the failing files, then run `verify.sh` once more before you push.
+3. If you changed widely imported code (a shared hook, store, protocol type or permission rule), also run `verify.sh --related` once before the PR. It runs every existing test that imports what you changed, which is where builders most often break things unnoticed (#1299, #1300). Otherwise the merge gate runs it.
 
 verify.sh compares your failures with a run on the merge base. "also failing on the base" is not your problem. "new in" is. "base could not run" means unknown: run that file yourself on `origin/main` before you call it pre-existing. Delete untracked build output first (`apps/ios/.build-ios`): biome lints it (#1305).
 
-The Stop hook re-runs verify when you try to finish with changes it hasn't seen pass. If it blocks you, fix what it reports. Never skip, weaken, `.skip` or delete a test to get it passing. If you truly cannot fix a failure after 3 attempts, stop and report it plainly.
+The Stop hook runs `verify.sh --quick` (lint, secrets, protocol, i18n; seconds) when you try to finish with changes it hasn't seen pass. If it blocks you, fix what it reports. Never skip, weaken, `.skip` or delete a test to get it passing. If you truly cannot fix a failure after 3 attempts, stop and report it plainly.
 
 UI changes: if the brief asks for screenshots, use the browser preview or simulator as it says. Never run the built Psyche.app.
 
@@ -67,4 +68,4 @@ No praise or filler. If something failed, say it failed.
 When the orchestrator sends review findings, fix them on the same branch, verify, push, and report again in the same shape:
 - Each finding gets a test that fails without your fix.
 - Check the PR is still open before you push (§4).
-- Run `verify.sh` on the whole branch after every round, even a one-line change. "This change doesn't touch them" is not a reason to skip the related tests (#1300's last round).
+- Each round: run the tests for what you changed, then `verify.sh` once before you push. Add `--related` when the round touched shared code; "this change doesn't touch them" was wrong in #1300's last round.

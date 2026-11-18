@@ -173,6 +173,7 @@ export const settings = {
   "settings.key.computerUse.enabled": "Allow computer use",
   "settings.key.exec.srtPath": "srt location",
   "settings.key.devices.hostHelper.status": "Linux helper check",
+  "settings.key.devices.helper.availability": "Psyche Helper connection",
   "settings.key.computerUse.apps": "App access",
   "settings.key.context.maxTokens": "Context limit",
   "settings.key.search.model.engine": "Model for search",

@@ -307,7 +307,8 @@ export function appleWorkSources(
       await apple.deps.refreshTrust?.("calendar", signal);
       const out = await call(
         "calendar_list_events",
-        { from: new Date(from).toISOString(), to: new Date(to).toISOString(), limit: 2000 },
+        // The helper reads at most 500 events and 366 days at once (`clampAppleParams` keeps both).
+        { from: new Date(from).toISOString(), to: new Date(to).toISOString(), limit: 500 },
         signal,
       );
       return eventRecords(list(out, "events"), owned("calendar"));
