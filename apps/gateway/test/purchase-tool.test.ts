@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseMoney, readOrder } from "@psyche/browser";
@@ -87,6 +87,7 @@ function setup(
     after?: string;
     frameOrigin?: string;
     disconnected?: boolean;
+    closeAfterClick?: boolean;
   } = {},
 ) {
   const home = mkdtempSync(join(tmpdir(), "psyche-pay-"));
@@ -166,10 +167,17 @@ function setup(
     click: async () => {
       clicked = true;
     },
-    wait: async () => {},
-    readText: async () => ({
-      text: clicked ? (opts.after ?? "Thank you for your order. Order number: AC-1042") : "",
-    }),
+    // A closed tab makes the real driver throw synchronously, not reject.
+    wait: () => {
+      if (opts.closeAfterClick === true && clicked) throw new PsycheError("not_found", "no tab");
+      return Promise.resolve();
+    },
+    readText: () => {
+      if (opts.closeAfterClick === true && clicked) throw new PsycheError("not_found", "no tab");
+      return Promise.resolve({
+        text: clicked ? (opts.after ?? "Thank you for your order. Order number: AC-1042") : "",
+      });
+    },
   };
   const tool = createPurchaseTool({
     payments,
@@ -277,15 +285,25 @@ describe("checkout.pay_with_link", () => {
     expect(JSON.stringify(r)).not.toContain(PAN);
   });
 
-  it.each([["$12,00"], ["12,50 €"], ["1.299,00 €"], ["$1,2345"]])(
-    "refuses the ambiguous total %s before any spend request",
-    async (total) => {
-      const s = setup({ page: () => PAGE(total) });
-      s.approve(total);
-      await expect(run(s)).rejects.toMatchObject({ details: { reason: "total_unreadable" } });
-      expect(s.wallet.created).toBe(0);
-    },
-  );
+  it.each([
+    ["$12,00"],
+    ["12,50 €"],
+    ["1.299,00 €"],
+    ["$1,2345"],
+    ["HK$100.00"],
+    ["NZ$12.00"],
+    ["MX$120.00"],
+    ["S$15.00"],
+    ["R$ 50.00"],
+    ["$1 234.00"],
+    ["1 234.00 €"],
+    ["€12.00 USD"],
+  ])("refuses the ambiguous total %s before any spend request", async (total) => {
+    const s = setup({ page: () => PAGE(total) });
+    s.approve(total);
+    await expect(run(s)).rejects.toMatchObject({ details: { reason: "total_unreadable" } });
+    expect(s.wallet.created).toBe(0);
+  });
 
   it("reads prefixed dollars as their own currency and shows the charged amount on the card", () => {
     expect(parseMoney("CA$15.00")).toEqual({ amount: "15.00", currency: "CAD" });
@@ -293,9 +311,56 @@ describe("checkout.pay_with_link", () => {
     expect(parseMoney("$1,299.50")).toEqual({ amount: "1299.50", currency: "USD" });
     const s = setup();
     const d = s.tool.describeCall?.(s.params);
-    expect(d?.summary).toContain("$12.00 (the page says $12.00)");
+    expect(d?.summary).toContain("US$12.00 (the page says Total: $12.00)");
     expect(d?.summary).toContain("shop.example");
     expect(d?.bindingFields).toMatchObject({ amountMinor: 1200, currency: "USD" });
+  });
+
+  it("quotes the page's whole total and never shows an unknown dollar as a known one", () => {
+    const s = setup({ page: () => '- text "Total: HK$100.00"' });
+    const summary = s.tool.describeCall?.(s.params).summary ?? "";
+    expect(summary).toContain("could not be read (the page says Total: HK$100.00)");
+    expect(summary).not.toContain("US$");
+    expect(parseMoney("Total: €12.00 USD")).toEqual({});
+    expect(parseMoney("1 234.00 €")).toEqual({ currency: "EUR" });
+  });
+
+  it("records unconfirmed and ends the Link request when the tab closes after Pay", async () => {
+    const s = setup({ closeAfterClick: true });
+    s.approve();
+    const r = await run(s);
+    expect(r.output).toMatchObject({ status: "unconfirmed" });
+    expect(r.receiptId).toBeDefined();
+    expect(JSON.stringify(s.receipts)).toContain("purchase.unconfirmed");
+    expect(s.wallet.cancelled).toBe(1);
+    expect(existsSync(join(s.home, "vault", "cards", "lsrq_t1.json"))).toBe(false);
+  });
+
+  it("records unconfirmed for a card left revealed by a restart", async () => {
+    const s = setup();
+    s.approvals.set("ap3", {
+      bindingHash: "sha256:y",
+      scopeGranted: "once",
+      status: "approved",
+      kind: "purchase",
+      requestedBy: { taskId: "t" },
+    });
+    const spend = await s.payments.authorizeDispatched(
+      "ap3",
+      {
+        merchantName: "shop.example",
+        merchantUrl: ORIGIN,
+        amount: 1200,
+        currency: "usd",
+        lineItems: [{ name: "Order", quantity: 1, unitAmount: 1200 }],
+      },
+      "sha256:y",
+    );
+    await s.payments.awaitCard(spend.spendRequestId);
+    expect(await s.payments.recoverOrphans()).toBe(1);
+    expect(JSON.stringify(s.receipts)).toContain("purchase.unconfirmed");
+    expect(s.wallet.cancelled).toBe(1);
+    expect(existsSync(join(s.home, "vault", "cards", `${spend.spendRequestId}.json`))).toBe(false);
   });
 
   it("says when items could not be read", () => {
@@ -382,7 +447,8 @@ describe("checkout.pay_with_link", () => {
       "sha256:x",
     );
     await s.payments.awaitCard(spend.spendRequestId);
-    expect(s.redactor.redact(`code ${CVC} exp 04/31`)).not.toMatch(/737|04\/31/);
+    // The short card values are not substring-masked: a total like $1,737.00 stays readable.
+    expect(s.redactor.redact("Total $1,737.00, ships 04/31")).toBe("Total $1,737.00, ships 04/31");
     const el = {
       tagName: "input",
       type: "text",
@@ -398,7 +464,6 @@ describe("checkout.pay_with_link", () => {
       }),
     ).rejects.toMatchObject({ details: { reason: "merchant_mismatch" } });
     await s.payments.cancel(spend.spendRequestId);
-    expect(s.redactor.redact(`code ${CVC}`)).toContain(CVC);
   });
 
   it("reads minor units", () => {

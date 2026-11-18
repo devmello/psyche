@@ -265,7 +265,6 @@ export class PaymentBroker {
   readonly #ledger = new Map<string, SpendRecord>();
   /** Approvals a spend request is being created for, so two concurrent calls cannot both pay. */
   readonly #claimed = new Set<string>();
-  readonly #shortSecrets = new Map<string, string[]>();
 
   constructor(options: PaymentBrokerOptions) {
     this.#o = options;
@@ -335,12 +334,6 @@ export class PaymentBroker {
     } finally {
       closeSync(fd);
     }
-  }
-
-  /** Stop masking this payment's short values (CVC, expiry) once the card is gone. */
-  #forget(spendRequestId: string): void {
-    for (const v of this.#shortSecrets.get(spendRequestId) ?? []) this.#o.redactor.remove(v);
-    this.#shortSecrets.delete(spendRequestId);
   }
 
   #cardPath(id: string): string {
@@ -615,12 +608,9 @@ export class PaymentBroker {
     const masked = await this.#o.wallet.revealCard(spendRequestId, path);
     const card = this.#readCard(path);
     for (const v of [card.number, card.cvc]) this.#o.redactor.add(v, { sticky: true });
-    // The short values (CVC, expiry) are masked wherever they appear while this payment is live;
-    // they are dropped again when it ends so they do not mask ordinary text forever.
-    const mm = String(card.expMonth).padStart(2, "0");
-    const short = [card.cvc, `${mm}/${String(card.expYear).slice(-2)}`, `${mm}/${card.expYear}`];
-    this.#shortSecrets.set(spendRequestId, short);
-    for (const v of short) this.#o.redactor.add(v, { sticky: true, force: true });
+    // The CVC and expiry are too short to mask as substrings without mangling ordinary text
+    // (`$1,737.00`): the browser masks them at the source instead, in the fields they were typed
+    // into (and every field of that document) in snapshots, and screenshots are suppressed.
     rec.card = masked.card;
     rec.revealedAt = this.#clock.now();
     this.#save(rec);
@@ -783,7 +773,6 @@ export class PaymentBroker {
     t.check?.(rec);
     // The card is needed only until the merchant authorizes it.
     shred(this.#cardPath(spendRequestId));
-    this.#forget(spendRequestId);
     if (t.report !== undefined) {
       await this.#o.wallet
         .report({
@@ -1035,13 +1024,16 @@ export class PaymentBroker {
 
   /**
    * At Gateway start: a card revealed but never completed (a crash, a restart mid-payment) is
-   * cancelled in Link and shredded. Returns how many.
+   * recorded `unconfirmed` (cancelled in Link, shredded) so the owner checks with the merchant. Returns how many.
    */
   async recoverOrphans(): Promise<number> {
     let n = 0;
     for (const rec of [...this.#ledger.values()]) {
       if (rec.status === "approved" && rec.revealedAt !== null && rec.payment.state === "none") {
-        await this.cancel(rec.spendRequestId).catch(() => undefined);
+        // Whether Pay was clicked is unknown: money may have moved, so it is recorded as such.
+        await this.unconfirmed(rec.spendRequestId, {
+          payload: { reason: "gateway_restart" },
+        }).catch(() => this.cancel(rec.spendRequestId).catch(() => undefined));
         n += 1;
       }
     }
@@ -1146,7 +1138,6 @@ export class PaymentBroker {
     const rec = this.#ledger.get(spendRequestId);
     if (rec === undefined) return fail("not_found", "unknown spend request");
     shred(this.#cardPath(spendRequestId));
-    this.#forget(spendRequestId);
     const sr = await this.#o.wallet.cancel(spendRequestId).catch(() => undefined);
     rec.status = sr?.status ?? "canceled";
     this.#save(rec);

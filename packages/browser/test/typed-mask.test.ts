@@ -50,4 +50,28 @@ describe("values typed by a vault fill are masked in snapshots", () => {
     expect(after.text).toContain(SECURE_MASK);
     expect(JSON.stringify(after.refs)).not.toContain(cvv);
   });
+
+  it("masks every field value in a document a secret was typed into (a re-rendered form)", async () => {
+    const a = desktop.browser.origin("a");
+    const s = await driver.openSession({
+      taskId: "task_mask_doc",
+      policy: { devPreview: true, readWritable: [a], readOnly: [] },
+    });
+    const t = await driver.openTab(s.id, desktop.browser.url("a/not-pay"));
+    const snap = await driver.snapshot(t.id);
+    const ref = (name: string) =>
+      snap.refs.find((r) => r.role === "textbox" && r.name.includes(name))?.ref as string;
+    await driver.fillSecret(
+      t.id,
+      ref("PIN"),
+      new ResolvedSecret("737", { credentialId: "pay", target: { kind: "origin", value: a } }),
+      a,
+    );
+    // Another node of the same document holding a card value, as a remounted form would.
+    await driver.type(t.id, ref("Library card"), "04/31");
+    const after = await driver.snapshot(t.id);
+    expect(after.text).not.toContain("737");
+    expect(after.text).not.toContain("04/31");
+    expect(JSON.stringify(after.refs)).not.toContain("04/31");
+  });
 });

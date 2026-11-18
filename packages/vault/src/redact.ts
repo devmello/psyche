@@ -132,9 +132,8 @@ export class SecretRedactor {
   }
 
   /** Track `value`. Values shorter than `minLength` are ignored (returns false). */
-  add(value: string, options: { sticky?: boolean; force?: boolean } = {}): boolean {
-    const min = options.force === true ? 1 : this.#min;
-    if ([...value].length < min) return false;
+  add(value: string, options: { sticky?: boolean } = {}): boolean {
+    if ([...value].length < this.#min) return false;
     const existing = this.#entries.get(value);
     if (existing !== undefined) {
       existing.sticky ||= options.sticky === true;
@@ -144,7 +143,7 @@ export class SecretRedactor {
     const fuzzy = norm.length >= this.#fuzzyMin ? [...new Set([norm, reverse(norm)])] : [];
     this.#entries.set(value, {
       forms: encodingsOf(value)
-        .filter((f) => f.length >= min)
+        .filter((f) => f.length >= this.#min)
         .sort((a, b) => b.length - a.length),
       fuzzy,
       sticky: options.sticky === true,

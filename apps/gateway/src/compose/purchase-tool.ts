@@ -90,6 +90,16 @@ export function toMinor(amount: string, currency: string): number | undefined {
   return Number.isSafeInteger(n) ? n : undefined;
 }
 
+/**
+ * The amount as the card shows it: the currency's own format, with the code spelled out for any
+ * `$` currency (`US$120.00`, `CA$15.00`), so a dollar sign never stands for an unstated currency.
+ */
+export function showAmount(minor: number, currency: string): string {
+  const f = formatAmount(minor, currency.toUpperCase());
+  if (!f.startsWith("$")) return f;
+  return `${currency.toUpperCase() === "USD" ? "US" : currency.toUpperCase()}${f}`;
+}
+
 /** The total as Link will charge it: minor units from the unambiguous printed amount, or undefined. */
 export function moneyOf(order: OrderSummary): { minor: number; currency: string } | undefined {
   if (order.amount === undefined || order.currency === undefined) return undefined;
@@ -196,11 +206,11 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
     // The amount is the one Link will charge, in the currency's own format; the page's words
     // sit beside it. An unreadable total is shown as such and the tool will refuse it.
     const money = moneyOf(order);
-    const said = order.total ?? "nothing";
+    const said = order.totalText ?? order.total ?? "nothing";
     const total =
       money === undefined
         ? `an amount that could not be read (the page says ${said})`
-        : `${formatAmount(money.minor, money.currency)} (the page says ${said})`;
+        : `${showAmount(money.minor, money.currency)} (the page says ${said})`;
     const items = order.items.length === 0 ? "; items not checked on this page" : "";
     const seller =
       order.seller === undefined ? "" : ` (the page says the seller is "${order.seller}")`;
@@ -212,7 +222,7 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
       details: {
         merchant: host,
         merchantHost: host,
-        total: money === undefined ? null : formatAmount(money.minor, money.currency),
+        total: money === undefined ? null : showAmount(money.minor, money.currency),
         pageTotal: order.total ?? null,
         itemsChecked: order.items.length > 0,
         lineItems: order.items.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })),
@@ -301,6 +311,7 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
         await deps.payments.cancel(id).catch(() => undefined);
         throw err;
       }
+      let submit = "";
       try {
         // The page may have moved while the owner approved in Link.
         const cur = await locate(d, tabId, origin() ?? start);
@@ -337,59 +348,81 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
         check(last);
         if (last.submit === undefined)
           refuse("the checkout page shows no pay button", "no_pay_button");
-        await d.click(tabId, last.submit as string);
+        submit = last.submit as string;
       } catch (err) {
         await deps.payments.cancel(id).catch(() => undefined);
         throw err;
       }
-      // The merchant's answer: poll up to settleMs for a confirmation or a decline.
-      const deadline = Date.now() + (deps.settleMs ?? 20_000);
-      let page = "";
-      for (;;) {
-        page = deps.redactor
-          .redact((await d.readText(tabId).catch(() => ({ text: "" }))).text)
-          .slice(0, 20_000);
-        if (CONFIRMED.test(page) || DECLINED.test(page) || Date.now() >= deadline) break;
-        await d
-          .wait(tabId, { kind: "timeout", ms: Math.min(2000, Math.max(0, deadline - Date.now())) })
+      const total = showAmount(input.amount, input.currency.toUpperCase());
+      const paidWith = { method: "stripe_link", brand: card.card?.brand, last4: card.card?.last4 };
+      // From the click on, money may move: every failure ends as `unconfirmed` (a receipt, the
+      // Link request ended, the card shredded), never as nothing recorded.
+      const unconfirmed = async () => {
+        const receipt = await deps.payments
+          .unconfirmed(id, { toolCallId: callId })
           .catch(() => undefined);
+        if (receipt === undefined) await deps.payments.cancel(id).catch(() => undefined);
+        return {
+          output: {
+            status: "unconfirmed",
+            seller: input.merchantName,
+            total,
+            paidWith,
+            linkSpendRequestId: id,
+            note: "The order was submitted but the page did not confirm it, so it may have gone through. Do not pay again; tell the owner to check the merchant's order page or email.",
+          },
+          provenance: "untrusted" as const,
+          ...(receipt === undefined ? {} : { receiptId: receipt.id }),
+        };
+      };
+      // Driver calls throw synchronously for a closed tab; `call` turns that into a rejection.
+      const call = <T>(f: () => Promise<T>): Promise<T> => Promise.resolve().then(f);
+      let page = "";
+      try {
+        await call(() => d.click(tabId, submit));
+        // The merchant's answer: poll up to settleMs for a confirmation or a decline.
+        const deadline = Date.now() + (deps.settleMs ?? 20_000);
+        for (;;) {
+          const read = await call(() => d.readText(tabId));
+          page = deps.redactor.redact(read.text).slice(0, 20_000);
+          if (CONFIRMED.test(page) || DECLINED.test(page) || Date.now() >= deadline) break;
+          const ms = Math.min(2000, Math.max(0, deadline - Date.now()));
+          await call(() => d.wait(tabId, { kind: "timeout", ms }));
+        }
+      } catch {
+        // The tab closed or the page stopped answering after the click.
+        return unconfirmed();
       }
       if (DECLINED.test(page) && !CONFIRMED.test(page)) {
-        await deps.payments.decline(id, { code: "card_declined", toolCallId: callId });
+        const declined = await deps.payments
+          .decline(id, { code: "card_declined", toolCallId: callId })
+          .then(
+            () => true,
+            () => false,
+          );
+        if (!declined) return unconfirmed();
         throw new PsycheError(
           "unavailable",
           "the merchant declined the card; nothing was charged",
           { details: { reason: "payment_declined" } },
         );
       }
-      const ref = CONFIRMED.test(page) ? ORDER_REF.exec(page)?.[1] : undefined;
-      if (!CONFIRMED.test(page)) {
-        // Money may have moved: a receipt says so, the Link request ends, the owner checks.
-        const receipt = await deps.payments.unconfirmed(id, { toolCallId: callId });
-        return {
-          output: {
-            status: "unconfirmed",
-            seller: input.merchantName,
-            total: formatAmount(input.amount, input.currency.toUpperCase()),
-            paidWith: { method: "stripe_link", brand: card.card?.brand, last4: card.card?.last4 },
-            linkSpendRequestId: id,
-            note: "The order was submitted but the page did not confirm it, so it may have gone through. Do not pay again; tell the owner to check the merchant's order page or email.",
-          },
-          provenance: "untrusted",
-          receiptId: receipt.id,
-        };
-      }
-      const receipt = await deps.payments.complete(id, {
-        outcome: "success",
-        toolCallId: callId,
-        ...(ref === undefined ? {} : { orderNumber: ref }),
-      });
+      if (!CONFIRMED.test(page)) return unconfirmed();
+      const ref = ORDER_REF.exec(page)?.[1];
+      const receipt = await deps.payments
+        .complete(id, {
+          outcome: "success",
+          toolCallId: callId,
+          ...(ref === undefined ? {} : { orderNumber: ref }),
+        })
+        .catch(() => undefined);
+      if (receipt === undefined) return unconfirmed();
       return {
         output: {
           status: "paid",
           seller: input.merchantName,
-          total: formatAmount(input.amount, input.currency.toUpperCase()),
-          paidWith: { method: "stripe_link", brand: card.card?.brand, last4: card.card?.last4 },
+          total,
+          paidWith,
           ...(ref === undefined ? {} : { orderNumber: ref }),
           linkSpendRequestId: id,
           ...(deps.test === true ? { testMode: true } : {}),

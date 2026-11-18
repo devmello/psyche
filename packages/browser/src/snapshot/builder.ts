@@ -184,6 +184,11 @@ export interface SnapshotInput {
   redact?: (text: string) => string;
   /** Nodes a secret was typed into: their values are masked like a password until navigation. */
   maskNodes?: ReadonlySet<number>;
+  /**
+   * A secret was typed into this document recently: every field value is masked, so a form the
+   * page re-renders (a SPA remount, a back-forward restore) cannot show it on a new node.
+   */
+  maskInputs?: boolean;
   fetchMs?: number;
 }
 
@@ -409,7 +414,9 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
       else if (s === "expanded" && (v === false || v === "false")) states.push("collapsed");
     }
     const typedInto =
-      node.backendDOMNodeId !== undefined && input.maskNodes?.has(node.backendDOMNodeId) === true;
+      (node.backendDOMNodeId !== undefined &&
+        input.maskNodes?.has(node.backendDOMNodeId) === true) ||
+      (input.maskInputs === true && VALUE_ROLES.has(role));
     const secure = typedInto || (meta?.secure ?? (info === undefined ? false : dom.isSecure(info)));
     if (secure) states.push("secure");
     for (const s of states) line += ` [${s}]`;
