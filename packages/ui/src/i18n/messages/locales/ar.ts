@@ -2628,7 +2628,6 @@ export const ar: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "تعذّر النسخ. حدد المفتاح وانسخه.",
   "onboarding.model.recoveryBody":
     "أنشأ Psyche خزنتك للتو. احفظ هذا المفتاح في مدير كلمات سر أو على ورقة: فهو يُعرض الآن فقط وهو السبيل الوحيد للعودة إلى الخزنة بعد استعادة أو فقدان خانة مفتاح.",
-  "onboarding.model.savedIt": "حفظته",
   "onboarding.model.subscriptionNote":
     "يستخدم Psyche تطبيق Claude Code أو Codex المسجّل الدخول بالفعل على هذا الـ Mac، لذا لا يحتاج إلى مفتاح API ولا يخزّن أيًا منه. سجّل الدخول هناك أولًا إن لم تفعل.",
   "onboarding.model.toolCheck": "فحص استدعاء الأدوات",

@@ -8,6 +8,7 @@ import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { t } from "../../i18n/core.ts";
 import { useCopy } from "../../lib/clipboard.ts";
 import { isWindows } from "../../lib/platform.ts";
+import { ConfirmRecoveryForm } from "../settings/ConfirmRecoveryForm.tsx";
 import {
   ConnectAccessChoice,
   needsSetup,
@@ -566,18 +567,10 @@ export function defaultModelChoice(kind: ProviderKind): ModelChoice {
 }
 
 /**
- * The vault's recovery key, shown once, with Copy. Onboarding asks for an "I saved it" tick
- * (`onSaved`); Settings leaves it out and confirms the key against the Gateway instead.
+ * The vault's recovery key, shown once, with Copy. It stays on screen until the owner confirms it
+ * by typing its last group back (`ConfirmRecoveryForm`, in both onboarding and Settings).
  */
-export function RecoveryKeyCard({
-  recoveryKey,
-  saved = false,
-  onSaved,
-}: {
-  recoveryKey: string;
-  saved?: boolean;
-  onSaved?: (saved: boolean) => void;
-}): ReactElement {
+export function RecoveryKeyCard({ recoveryKey }: { recoveryKey: string }): ReactElement {
   const clip = useCopy();
   return (
     <div
@@ -606,12 +599,6 @@ export function RecoveryKeyCard({
         ) : null}
       </div>
       <p className="text-callout text-label-secondary">{t("onboarding.model.recoveryBody")}</p>
-      {onSaved ? (
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={saved} onChange={(e) => onSaved(e.target.checked)} />
-          {t("onboarding.model.savedIt")}
-        </label>
-      ) : null}
     </div>
   );
 }
@@ -626,7 +613,7 @@ export function ModelStep({
   keyRefused = false,
   recoveryKey,
   recoverySaved = false,
-  onRecoverySaved,
+  onRecoveryConfirmed,
 }: {
   value: ModelChoice;
   onChange: (next: ModelChoice) => void;
@@ -637,11 +624,11 @@ export function ModelStep({
   keyError?: string | null;
   /** The key was stored but the provider refused it (the error already says what to do). */
   keyRefused?: boolean;
-  /** The vault's recovery key, when saving the key just created the vault. Shown once. */
+  /** The vault's recovery key, when saving the key just created the vault. Shown until confirmed. */
   recoveryKey?: string;
-  /** The owner confirmed saving it; required before leaving the step. */
+  /** The owner typed the key's last group back and the Gateway confirmed it. */
   recoverySaved?: boolean;
-  onRecoverySaved?: (saved: boolean) => void;
+  onRecoveryConfirmed?: () => void;
 }): ReactElement {
   const id = useId();
   const [key, setKey] = useState("");
@@ -799,12 +786,11 @@ export function ModelStep({
               did={keyRefused ? "" : t("onboarding.model.keyNotStored")}
             />
           ) : null}
-          {recoveryKey ? (
-            <RecoveryKeyCard
-              recoveryKey={recoveryKey}
-              saved={recoverySaved}
-              {...(onRecoverySaved ? { onSaved: onRecoverySaved } : {})}
-            />
+          {recoveryKey && !recoverySaved ? (
+            <div className="flex flex-col gap-2">
+              <RecoveryKeyCard recoveryKey={recoveryKey} />
+              <ConfirmRecoveryForm expectUnlocked onConfirmed={() => onRecoveryConfirmed?.()} />
+            </div>
           ) : null}
         </div>
       ) : null}

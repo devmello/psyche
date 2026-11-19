@@ -2579,7 +2579,6 @@ export const hi: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "कॉपी नहीं हो सकी। कुंजी चुनकर कॉपी करें।",
   "onboarding.model.recoveryBody":
     "Psyche ने अभी आपका वॉल्ट बनाया है। इस कुंजी को किसी पासवर्ड मैनेजर में या काग़ज़ पर सेव करें: यह केवल अभी दिखाई जाती है और रीस्टोर या कुंजी स्लॉट खो जाने के बाद वॉल्ट में वापस जाने का एकमात्र रास्ता है।",
-  "onboarding.model.savedIt": "मैंने इसे सेव कर लिया",
   "onboarding.model.subscriptionNote":
     "Psyche इस Mac पर पहले से साइन इन किए गए Claude Code या Codex ऐप का उपयोग करता है, इसलिए इसे कोई API कुंजी नहीं चाहिए और यह कोई संग्रहीत नहीं करता। अगर आपने अभी तक नहीं किया है, तो पहले वहाँ साइन इन करें।",
   "onboarding.model.toolCheck": "टूल-कॉलिंग जाँच",

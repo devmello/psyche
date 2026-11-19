@@ -2579,7 +2579,6 @@ export const ja: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "コピーできませんでした。キーを選択してコピーしてください。",
   "onboarding.model.recoveryBody":
     "Psycheは保管庫を作成しました。このキーをパスワードマネージャか紙に保存してください。表示されるのは今だけで、復元後やキースロットを失った後に保管庫に戻る唯一の手段です。",
-  "onboarding.model.savedIt": "保存しました",
   "onboarding.model.subscriptionNote":
     "PsycheはこのMacでサインイン済みのClaude CodeまたはCodexアプリを使用するため、APIキーは不要で、保存もしません。まだの場合は、先にそちらでサインインしてください。",
   "onboarding.model.toolCheck": "ツール呼び出しの確認",
