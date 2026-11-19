@@ -1078,6 +1078,7 @@ export interface ApprovalRequest {
     requestedAt:            string;
     requestedBy:            RequestedBy;
     requiresAuthentication: boolean;
+    riskClass?:             RiskClass;
     scopeGranted?:          GrantScope | null;
     scopesOffered:          GrantScope[];
     sideEffect?:            SideEffect;
@@ -1118,6 +1119,8 @@ export interface RequestedBy {
     threadId?:    null | string;
     toolCallId?:  string;
 }
+
+export type RiskClass = "routine" | "sensitive" | "prohibited";
 
 export type SideEffect = "none" | "read" | "write" | "destructive" | "financial";
 

@@ -7299,6 +7299,9 @@
         "taint": {
           "type": "boolean"
         },
+        "riskClass": {
+          "$ref": "#/$defs/RiskClass"
+        },
         "taintSources": {
           "items": {
             "$ref": "#/$defs/TaintSource"
@@ -35518,6 +35521,14 @@
       "enum": [
         "attribute_for_entity",
         "attribute_from_sender"
+      ],
+      "type": "string"
+    },
+    "RiskClass": {
+      "enum": [
+        "routine",
+        "sensitive",
+        "prohibited"
       ],
       "type": "string"
     },

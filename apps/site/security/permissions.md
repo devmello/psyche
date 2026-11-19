@@ -53,7 +53,7 @@ For each tool call, the broker walks these steps in order. The first step that g
 6. **The mode's default** from the table above.
 7. **The rules classifier**, in Auto mode only, for the writes left over.
 
-"Ask" puts an approval card in front of you and parks that action. Work that runs while nobody is watching, such as an automation, sets the action aside under Deferred, notifies you, and carries on without it.
+"Ask" puts an approval card in front of you and parks that action. Work that runs while nobody is watching, such as an automation, sets the action aside under Deferred, and carries on without it. The waiting actions are announced by one digest notice rather than one per action. Approving one resumes it. An action that expires is shown as expired and is never run late. Only the broker's routine class can be approved in bulk; sensitive and prohibited actions always need their own tap.
 
 Every decision is written to the audit log with the rule that decided it.
 

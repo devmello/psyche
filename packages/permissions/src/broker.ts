@@ -74,6 +74,7 @@ import { type CompiledPolicy, compilePolicy, type PolicyConfig } from "./policy.
 import { DENY_ALL_LOOPBACK, type LocalProjectVerifier } from "./prohibitions.ts";
 import { requesterKey, requesterSurfaces } from "./requester.ts";
 import type { RevocationLedger } from "./revocations.ts";
+import { riskClassFor } from "./risk.ts";
 import {
   MemoryPermissionStore,
   type PermissionStore,
@@ -139,6 +140,12 @@ export interface PermissionBrokerOptions {
   presenceFor?: "authentication" | "device_only";
   ttlMs?: number;
   armDelayMs?: number;
+  /**
+   * True for a card an unattended run is waiting on (Deferred). Such a card gets no card of its
+   * own in the notifier: the Gateway's automation digest announces them as one. The card, its
+   * expiry and its answer path are unchanged.
+   */
+  deferredApproval?: (approval: ApprovalRequest) => boolean | Promise<boolean>;
   onEvent?: (event: BrokerEvent) => void;
   newId?: (prefix: string) => string;
   /** Records grant revocations outside the backup scope (design-26). */
@@ -257,6 +264,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #presenceFor: "authentication" | "device_only";
   readonly #armDelayMs: number;
   readonly #ttlMs: number | undefined;
+  readonly #deferredApproval: PermissionBrokerOptions["deferredApproval"];
   readonly #onEvent: ((e: BrokerEvent) => void) | undefined;
   readonly #newId: (prefix: string) => string;
   readonly #revocations: RevocationLedger | undefined;
@@ -298,6 +306,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#presenceFor = options.presenceFor ?? "authentication";
     this.#armDelayMs = options.armDelayMs ?? APPROVAL_ARM_DELAY_MS;
     this.#ttlMs = options.ttlMs;
+    this.#deferredApproval = options.deferredApproval;
     this.#onEvent = options.onEvent;
     this.#revocations = options.revocations;
     this.#channelConversations = options.channelConversations;
@@ -936,6 +945,13 @@ export class PsychePermissionBroker implements PermissionBroker {
       grantId: null,
     };
     approval.sideEffect = se;
+    approval.riskClass = riskClassFor({
+      kind: input.kind,
+      sideEffect: se,
+      requiresAuthentication,
+      taint: approval.taint,
+      classifierLabel: recent?.decision.classifier?.label,
+    });
     if (approval.taint && sources !== undefined && sources.length > 0) {
       approval.taintSources = sources.map((s) => {
         const out: TaintSource = { sourceKind: sanitizeDisplay(s.sourceKind) };
@@ -994,6 +1010,8 @@ export class PsychePermissionBroker implements PermissionBroker {
       },
     );
     if (this.#notifier === undefined) return;
+    // A card an unattended run waits on is announced by the automation digest, not one by one.
+    if (await this.#isDeferred(a)) return;
     try {
       const n = await this.#notifier.notify({
         kind: "approval",
@@ -1012,6 +1030,16 @@ export class PsychePermissionBroker implements PermissionBroker {
       this.#notifications.set(a.id, n.id);
     } catch {
       // Delivery failure leaves the request pending in the approvals queue.
+    }
+  }
+
+  async #isDeferred(a: ApprovalRequest): Promise<boolean> {
+    if (this.#deferredApproval === undefined) return false;
+    try {
+      return (await this.#deferredApproval(a)) === true;
+    } catch {
+      // Unknown means a card of its own: an owner is never left without a notice.
+      return false;
     }
   }
 

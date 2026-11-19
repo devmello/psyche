@@ -147,6 +147,9 @@ export const TaintSource = Type.Object(
 );
 export type TaintSource = Static<typeof TaintSource>;
 
+export const RiskClass = StringEnum(["routine", "sensitive", "prohibited"], { $id: "RiskClass" });
+export type RiskClass = Static<typeof RiskClass>;
+
 /** Wire shape (data model §4.1, security §3.7). Answer tokens are never on the wire to clients that did not receive them. */
 export const ApprovalRequest = Type.Object(
   {
@@ -175,6 +178,11 @@ export const ApprovalRequest = Type.Object(
     deviceOnly: Type.Boolean(),
     requiresAuthentication: Type.Boolean(),
     taint: Type.Boolean(),
+    /**
+     * The broker's risk class for the card (the automation digest): `routine` only for a kind the
+     * broker allows in bulk, untainted and payment-free. Absent on older cards: not routine.
+     */
+    riskClass: Type.Optional(RiskClass),
     /** Where the taint came from (security §3.6, §3.11 `taint.sources`); present only when tainted. */
     taintSources: Type.Optional(Type.Array(TaintSource)),
     status: ApprovalStatus,

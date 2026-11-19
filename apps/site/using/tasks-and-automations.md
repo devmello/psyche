@@ -79,7 +79,9 @@ An automation runs with nobody watching. The agent is told so, and:
 Open the agent sheet, then **Approvals**, or press ⇧⌘P. It has four sections:
 
 - **Needs you:** full approval cards waiting for an answer.
-- **Deferred:** what unattended runs wanted to do but could not ask you, as "… wanted to …" rows. Approvals you can answer on this device show under Needs you instead.
+- **Deferred:** what unattended runs wanted to do but could not ask you. Each row shows the automation, the action, its risk (Routine or Sensitive) and when it was set aside, with **Approve** and **Decline**. **Approve all routine ones** approves only the Routine rows. Sensitive and prohibited actions always need their own tap, and a payment asks for Touch ID or your password as it always does. Approving resumes the automation's action; declining leaves it out.
+
+Automations do not raise one notice per action. Waiting actions share one notice, "N actions are waiting from your automations", raised when the first one waits and refreshed at most every four hours. When nothing is left waiting, the notice closes.
 - **Recent:** decisions from the last 7 days and where they were answered.
 - **Standing grants:** how many site, session and always grants are active.
 
@@ -90,7 +92,7 @@ Cards expire 30 minutes after they are issued. An expired card says "Expired. No
 - There is no form to create or edit an automation. Ask the agent, or use `/schedule`. **Edit** in Upcoming is not available, and there is no run history in the app or the CLI.
 - Delivering an automation's results to Telegram falls back to an in-app notification, and webhook delivery does nothing.
 - The heartbeat, a light check-in every 30 to 60 minutes, is built but not scheduled, so it does not run.
-- Some links in the agent sheet do nothing yet: **Open activity** on a task card, **Open task** on a Deferred row, and **Review in Permissions** under Standing grants. Open Activity with ⇧⌘A and Settings → Permissions directly.
+- Some links in the agent sheet do nothing yet: **Open activity** on a task card and **Review in Permissions** under Standing grants. Open Activity with ⇧⌘A and Settings → Permissions directly.
 - There is no `psyche` CLI command for Tasks.
 
 ## Learn more

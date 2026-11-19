@@ -76,6 +76,7 @@ import {
   type EventName,
   type EventPayload,
   type IssuedApproval,
+  isUnattendedTask,
   MEMORY_RECALL_MODE_SETTING,
   MEMORY_WORK_SETTING_KEY,
   type Message,
@@ -135,6 +136,7 @@ import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
 import { macHelper } from "./connectors.ts";
 import { createContext } from "./context.ts";
 import { composeConversion } from "./convert.ts";
+import { DeferredDigest } from "./deferred-digest.ts";
 import { composeDeviceNotifications, DeviceNotifications } from "./device-notify.ts";
 import { composeDictation } from "./dictation.ts";
 import { composeEverything, type Everything, everythingSettings } from "./everything.ts";
@@ -716,6 +718,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     notifier,
     clock,
     revocations,
+    // An unattended run's card is announced by the automation digest, not by its own notice.
+    deferredApproval: async (a) => {
+      const taskId = a.requestedBy.taskId;
+      return isUnattendedTask(taskId == null ? undefined : await tasks.get(taskId));
+    },
     psycheHome: config.home,
     presence: {
       // Presence fails closed while the security records are untrusted; the registered keys
@@ -774,6 +781,26 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       if (e.type === "approval.decided") teachingRef?.observeApproval(e.approval);
     } else if (e.type === "receipt.created") {
       publish("receipt.created", { receipt: e.receipt });
+    }
+  });
+  // One digest for every automation card waiting on the owner (see deferred-digest.ts).
+  const deferredDigest = new DeferredDigest({
+    broker,
+    notifier,
+    clock,
+    isDeferred: async (a) => {
+      const taskId = a.requestedBy.taskId;
+      return isUnattendedTask(taskId == null ? undefined : await tasks.get(taskId));
+    },
+  });
+  broker.subscribe((e) => {
+    if (
+      e.type === "approval.created" ||
+      e.type === "approval.decided" ||
+      e.type === "approval.expired" ||
+      e.type === "approval.invalidated"
+    ) {
+      void deferredDigest.refresh().catch(() => undefined);
     }
   });
 
