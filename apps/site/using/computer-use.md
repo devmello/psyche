@@ -75,7 +75,7 @@ Press **Esc** on your Mac. The run stops and says "Stopped: you pressed Esc on t
 - Reading your Messages history is not an agent tool; the Messages integration is used only by the iMessage channel (see [Channels](/using/channels)).
 - The 30-minute allowances live in the helper and are not shown in Settings.
 - Screenshots go to the model as data, which uses more context than it should.
-- Teach mode (recording a demonstration to replay) is not built.
+- **Teach by showing** is in the browser pane. Record a demonstration on a page; when you stop, you review its steps and can keep the recording. The pane can also record a Mac app. Kept recordings are listed in the pane.
 - On unsigned builds, macOS forgets Accessibility and Screen Recording each time you install a new build. Grant them again after an upgrade; `psyche doctor` warns about it.
 
 ## Learn more

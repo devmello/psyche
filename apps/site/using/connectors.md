@@ -48,9 +48,9 @@ With neither, stdio servers that are not bundled are refused and only remote ser
 
 ### Google, mail and others
 
-Settings → Connectors and onboarding's Connectors step list Google (Gmail, Calendar, Drive), Microsoft (Outlook, Calendar), Other email (IMAP), Apple Notes and Apple Reminders. None of them can be connected from there yet. In onboarding, use **Skip for now**. MCP servers are the exception: add them above.
+Settings → Connectors and onboarding's Connectors step list Google (Gmail, Calendar, Drive), Microsoft (Outlook, Calendar), Other email (IMAP), Apple Notes and Apple Reminders. Google connects from Settings with your own client. The others cannot be connected from there yet. In onboarding, use **Skip for now** for them. MCP servers are the exception: add them above.
 
-You can already prepare a Google Cloud OAuth client for when connecting works; the [Connectors guide](/guides/connectors) has the steps.
+Google connects with your own Google Cloud OAuth client. Paste its client ID in Settings → Connectors → Add connector → Google. The [Google guide](/guides/connectors-google) has the steps.
 
 ## What it can do
 
@@ -81,14 +81,14 @@ There is no shopping connector in the Gateway. The agent compares prices and bui
 
 ## Limits today
 
-- **Google cannot be connected.** The Gateway has the connector, but no screen or command offers the connect step.
+- **Google needs your own OAuth client.** Psyche has no Google client of its own. Add yours in Settings → Connectors → Add connector → Google. The [Google guide](/guides/connectors-google) has the Google Cloud steps.
 - **IMAP, SMTP and Fastmail (JMAP) mail are not available.** The code exists but the Gateway does not include it.
 - **Microsoft, Apple Notes and Apple Reminders** do not connect from Settings. Apple apps can be used through [Computer use](/using/computer-use).
 - **On Windows**, local mail, calendar and contacts (Outlook Mail, Outlook Calendar, Outlook Tasks and Outlook contacts) work only with classic Outlook. The new Outlook app has no local route; connect the Microsoft, Google or IMAP connector instead. Apple Notes, Messages and the other Apple apps do not exist there.
 - **On Windows, local (stdio) MCP servers cannot run under `srt`**, which has no Windows build. Set `PSYCHE_MCP_LAUNCHER=container` on the Gateway and run Docker or Podman to use them; the [sandbox PC](/using/vm-mode#on-windows-the-sandbox-pc) does not launch MCP servers. Remote (HTTP) servers are unaffected.
-- **Web search is not available.** Brave, Exa, Tavily and SearXNG are implemented, but the Gateway does not configure any of them. The agent opens pages in its browser instead.
+- **Web search: only Brave can be set from Settings.** Settings can save a Brave Search key. Exa, Tavily and SearXNG are implemented but cannot be set there. The agent opens pages in its browser instead.
 - **Custom HTTP headers and a working directory cannot be set from Settings yet.** Use `psyche config set mcp.servers` for those. OAuth sign-in for remote MCP servers has not been confirmed to work end to end.
-- Settings → Permissions has a Connector actions group (Allow, Ask or Deny per action). It stays empty because no connector can be connected, and the values it would save are not read by the Gateway yet.
+- Settings → Permissions has a Connector actions group (Allow, Ask or Deny per action). The Gateway reads these rules. The group is empty until a connector is connected.
 - A vault placeholder in a server's environment needs a credential-fill approval, which needs Touch ID or a passkey. Touch ID approvals cannot be approved in the desktop app yet (see [Credentials and payments](/using/credentials-and-payments)).
 - Drafting your own API connector from a description is not built.
 
