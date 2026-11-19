@@ -1645,10 +1645,10 @@ export const ar: Partial<Catalogue> = {
   "settings.channels.add.approvalLabel": "إضافة قناة",
   "settings.channels.add.envNote":
     "يجب أيضًا تشغيل Gateway مع ضبط {env} على هذا الحساب. يتم إعداد Telegram وiMessage وSignal والبريد الإلكتروني حيث يعمل Gateway؛ راجع وثائق القنوات.",
-  "settings.channels.add.added":
-    "تمت إضافة القناة وهي تعمل. راسل {persona} منها للحصول على رمز اقتران، ثم وافق عليه هنا.",
   "settings.channels.add.addedInactive":
     "تمت إضافة القناة لكنها لا تعمل بعد. اضبط {env} على هذا الحساب حيث يعمل Gateway ثم أعد تشغيله.",
+  "settings.channels.add.added":
+    "تمت إضافة القناة. تبدأ عندما يكون {env} في Gateway مضبوطًا على هذا الحساب. ثم راسل {persona} منها للحصول على رمز اقتران ووافق عليه هنا.",
   "settings.channels.identities": "روابط الهوية",
   "settings.channels.identitiesDescription":
     "شخص واحد عبر القنوات. لا تتغيّر الروابط إلا من جهاز مقترن.",

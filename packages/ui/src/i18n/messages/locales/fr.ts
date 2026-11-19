@@ -1593,10 +1593,10 @@ export const fr: Partial<Catalogue> = {
   "settings.channels.add.approvalLabel": "Ajout d'un canal",
   "settings.channels.add.envNote":
     "La Gateway doit aussi être lancée avec {env} défini sur ce compte. Telegram, iMessage, Signal et l'e-mail se configurent là où tourne la Gateway ; voir la documentation des canaux.",
-  "settings.channels.add.added":
-    "Canal ajouté et actif. Écrivez à {persona} depuis ce canal pour obtenir un code d'appairage, puis approuvez-le ici.",
   "settings.channels.add.addedInactive":
     "Canal ajouté, mais il ne tourne pas encore. Définissez {env} sur ce compte là où tourne la Gateway, puis relancez-la.",
+  "settings.channels.add.added":
+    "Canal ajouté. Il démarre dès que la Gateway a {env} défini sur ce compte. Écrivez ensuite à {persona} depuis ce canal pour obtenir un code d'appairage, puis approuvez-le ici.",
   "settings.channels.identities": "Liens d’identité",
   "settings.channels.identitiesDescription":
     "Une même personne sur plusieurs canaux. Les liens ne changent que depuis un appareil jumelé.",

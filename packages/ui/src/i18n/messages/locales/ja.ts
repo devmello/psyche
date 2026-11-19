@@ -1588,10 +1588,10 @@ export const ja: Partial<Catalogue> = {
   "settings.channels.add.approvalLabel": "チャンネルの追加",
   "settings.channels.add.envNote":
     "Gateway も、このアカウントを {env} に設定して起動する必要があります。Telegram、iMessage、Signal、メールは Gateway が動作する場所で設定します。チャンネルのドキュメントを参照してください。",
-  "settings.channels.add.added":
-    "チャンネルを追加し、動作しています。そこから {persona} にメッセージを送ってペアリングコードを受け取り、ここで承認してください。",
   "settings.channels.add.addedInactive":
     "チャンネルを追加しましたが、まだ動作していません。Gateway が動作する場所で {env} をこのアカウントに設定し、再起動してください。",
+  "settings.channels.add.added":
+    "チャンネルを追加しました。Gateway で {env} がこのアカウントに設定されると開始します。その後、そこから {persona} にメッセージを送ってペアリングコードを受け取り、ここで承認してください。",
   "settings.channels.identities": "IDの関連付け",
   "settings.channels.identitiesDescription":
     "複数のチャンネルにまたがる同一人物。関連付けはペアリングされたデバイスからのみ変更できます。",

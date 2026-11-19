@@ -1607,10 +1607,10 @@ export const hi: Partial<Catalogue> = {
   "settings.channels.add.approvalLabel": "चैनल जोड़ना",
   "settings.channels.add.envNote":
     "Gateway को इस खाते पर सेट {env} के साथ भी शुरू करना होगा। Telegram, iMessage, Signal और ईमेल वहीं सेट होते हैं जहाँ Gateway चलता है; चैनल दस्तावेज़ देखें।",
-  "settings.channels.add.added":
-    "चैनल जुड़ गया और चल रहा है। पेयरिंग कोड पाने के लिए इससे {persona} को संदेश भेजें, फिर यहाँ मंज़ूर करें।",
   "settings.channels.add.addedInactive":
     "चैनल जुड़ गया, लेकिन अभी चल नहीं रहा। जहाँ Gateway चलता है वहाँ {env} को इस खाते पर सेट करें, फिर उसे रीस्टार्ट करें।",
+  "settings.channels.add.added":
+    "चैनल जुड़ गया। यह तब शुरू होगा जब Gateway में {env} इस खाते पर सेट होगा। फिर पेयरिंग कोड पाने के लिए इससे {persona} को संदेश भेजें और यहाँ मंज़ूर करें।",
   "settings.channels.identities": "पहचान लिंक",
   "settings.channels.identitiesDescription":
     "चैनलों के पार एक ही व्यक्ति। लिंक केवल पेयर किए गए डिवाइस से बदलते हैं।",
