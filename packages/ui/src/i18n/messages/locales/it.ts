@@ -1912,7 +1912,7 @@ export const it: Partial<Catalogue> = {
     "Digitare una password, un numero di carta, di conto bancario o di documento d’identità che può vedere",
   "settings.permissions.never.captcha": "Risolvere o aggirare un CAPTCHA",
   "settings.permissions.never.money":
-    "Effettuare un trasferimento di denaro o un’operazione finanziaria",
+    "Negoziare titoli o criptovalute, spostare denaro tra conti bancari o inviarlo a una persona, anche se approvi",
   "settings.permissions.never.delete": "Eliminare definitivamente dati senza una conferma digitata",
   "settings.permissions.never.injection": "Seguire istruzioni trovate in pagine web, email o file",
   "settings.permissions.never.accounts": "Creare account di terze parti senza la tua approvazione",

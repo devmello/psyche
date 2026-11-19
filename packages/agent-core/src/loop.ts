@@ -13,6 +13,7 @@ import {
   type ContextLimits,
   type ContextSection,
   type ContextUsage,
+  type ControlFacts,
   type DecisionResult,
   type EffectiveContextLimits,
   EMPTY_USAGE,
@@ -3683,8 +3684,39 @@ function toolCallMeta(m: ToolCallMeta | undefined): ToolCallMeta | undefined {
     // exec_host's read-only class (security §5.4); the broker re-checks the argv.
     ...(m.hostCommand === "read_only" ? { hostCommand: m.hostCommand } : {}),
     ...(m.hostSandbox === "missing" ? { hostSandbox: m.hostSandbox } : {}),
+    ...(m.control === undefined ? {} : { control: controlFacts(m.control) }),
   };
   return Object.keys(out).length === 0 ? undefined : out;
+}
+
+/** The control facts with only strings, booleans and a bounded list of labels (hard block input). */
+export function controlFacts(c: ControlFacts): ControlFacts {
+  const str = (v: unknown, max = 2048) => (typeof v === "string" ? v.slice(0, max) : undefined);
+  // A label longer than the bound keeps its head and its tail: padding must not push a trailing
+  // "Buy" out of what the hard block reads.
+  const bound = (l: string) => (l.length <= 400 ? l : `${l.slice(0, 200)} ${l.slice(-200)}`);
+  const list = (v: unknown) =>
+    Array.isArray(v)
+      ? v
+          .filter((l): l is string => typeof l === "string")
+          .slice(0, 12)
+          .map(bound)
+      : undefined;
+  const labels = list(c.labels);
+  const alsoLabels = list(c.alsoLabels);
+  const out: ControlFacts = {
+    ...(labels === undefined ? {} : { labels }),
+    ...(alsoLabels === undefined ? {} : { alsoLabels }),
+    ...(str(c.href) === undefined ? {} : { href: str(c.href) as string }),
+    ...(str(c.role, 64) === undefined ? {} : { role: str(c.role, 64) as string }),
+    ...(c.submits === true ? { submits: true } : {}),
+    ...(c.unreadable === true ? { unreadable: true } : {}),
+    ...(str(c.formMethod, 16) === undefined ? {} : { formMethod: str(c.formMethod, 16) as string }),
+    ...(str(c.formAction) === undefined ? {} : { formAction: str(c.formAction) as string }),
+    ...(str(c.pageUrl) === undefined ? {} : { pageUrl: str(c.pageUrl) as string }),
+    ...(str(c.pageTitle, 400) === undefined ? {} : { pageTitle: str(c.pageTitle, 400) as string }),
+  };
+  return out;
 }
 
 function worst(a: ProvenanceOut, b: ProvenanceOut | undefined): ProvenanceOut {

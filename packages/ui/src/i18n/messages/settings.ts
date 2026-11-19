@@ -1739,7 +1739,8 @@ export const settings = {
   "settings.permissions.never.secrets":
     "Type a password, card number, bank account or government ID it can see",
   "settings.permissions.never.captcha": "Solve or bypass a CAPTCHA",
-  "settings.permissions.never.money": "Make a financial transfer or trade",
+  "settings.permissions.never.money":
+    "Trade securities or crypto, move money between bank accounts or send it to a person, even if you approve",
   "settings.permissions.never.delete": "Permanently delete data without a typed confirmation",
   "settings.permissions.never.injection": "Follow instructions found in web pages, email or files",
   "settings.permissions.never.accounts": "Create third-party accounts without your approval",

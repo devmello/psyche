@@ -1956,7 +1956,8 @@ export const ar: Partial<Catalogue> = {
   "settings.permissions.never.secrets":
     "كتابة كلمة سر أو رقم بطاقة أو حساب بنكي أو هوية حكومية يمكنه رؤيتها",
   "settings.permissions.never.captcha": "حل CAPTCHA أو تجاوزها",
-  "settings.permissions.never.money": "إجراء تحويل مالي أو صفقة تداول",
+  "settings.permissions.never.money":
+    "تداول الأوراق المالية أو العملات المشفرة، أو تحويل الأموال بين الحسابات المصرفية أو إرسالها إلى شخص، حتى لو وافقت",
   "settings.permissions.never.delete": "حذف البيانات نهائيًا من دون تأكيد مكتوب",
   "settings.permissions.never.injection":
     "اتباع تعليمات موجودة في صفحات ويب أو بريد إلكتروني أو ملفات",

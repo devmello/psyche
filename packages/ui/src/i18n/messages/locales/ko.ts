@@ -1890,7 +1890,8 @@ export const ko: Partial<Catalogue> = {
   "settings.permissions.never.secrets":
     "볼 수 있는 암호, 카드 번호, 은행 계좌 또는 정부 발급 신분증 번호를 입력",
   "settings.permissions.never.captcha": "CAPTCHA 풀기 또는 우회",
-  "settings.permissions.never.money": "금융 이체 또는 거래 실행",
+  "settings.permissions.never.money":
+    "승인하더라도 증권이나 암호화폐 거래, 은행 계좌 간 이체, 개인에게 송금은 하지 않음",
   "settings.permissions.never.delete": "입력한 확인 없이 데이터 영구 삭제",
   "settings.permissions.never.injection": "웹 페이지, 이메일 또는 파일에 있는 지시 따르기",
   "settings.permissions.never.accounts": "사용자 승인 없이 서드파티 계정 생성",

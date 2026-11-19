@@ -1867,7 +1867,8 @@ export const pt: Partial<Catalogue> = {
   "settings.permissions.never.secrets":
     "Digitar uma senha, número de cartão, conta bancária ou documento de identidade que ele consiga ver",
   "settings.permissions.never.captcha": "Resolver ou contornar um CAPTCHA",
-  "settings.permissions.never.money": "Fazer uma transferência ou operação financeira",
+  "settings.permissions.never.money":
+    "Negociar valores ou criptomoedas, mover dinheiro entre contas bancárias ou enviá-lo a uma pessoa, mesmo que você aprove",
   "settings.permissions.never.delete": "Apagar dados permanentemente sem uma confirmação digitada",
   "settings.permissions.never.injection":
     "Seguir instruções encontradas em páginas web, e-mails ou arquivos",
