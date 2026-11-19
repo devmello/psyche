@@ -352,7 +352,7 @@ function longPrefixOf(a: string, names: readonly string[]): boolean {
  * an operand, which are checked like any other. Don't drop a letter to save a card.
  */
 const VALUE_LETTERS: Record<string, string> = {
-  rg: "ABCEMTefgjmrt",
+  rg: "ABCEMTdefgjmrt",
   grep: "ABCDdefm",
   jq: "Lf",
   file: "fmFP",
@@ -368,6 +368,96 @@ const VALUE_LETTERS: Record<string, string> = {
 };
 /** Of those, the ones whose value is a path. */
 const PATH_LETTERS: Record<string, string> = { rg: "f", grep: "f", jq: "Lf", file: "fm" };
+/**
+ * Of VALUE_LETTERS, the letters whose SEPARATE value (`rg -t ts`) is skipped when counting
+ * operands. Unlike VALUE_LETTERS, a letter wrongly listed here hides an argument from the
+ * operand check, so each one is checked against the real tool's man page (BSD on macOS, GNU on
+ * Linux; the stricter reading where they differ). A letter not listed only costs a card.
+ * Not listed on purpose: `jq -f` (a boolean in jq 1.7, the program file is its first operand,
+ * which is path-checked either way) and `file -fmFP` (not needed; `-f` and `-m` ask anyway).
+ * tree's parser takes the value of every value letter in a cluster from the following arguments
+ * (see `clusterLetters`), so for tree each such letter counts.
+ */
+const SKIP_LETTERS: Record<string, string> = {
+  rg: "ABCEMTdefgjmrt",
+  grep: "ABCDdefm",
+  jq: "L",
+  head: "nc",
+  tail: "nc",
+  tree: "LPIoHT",
+  du: "dBt",
+};
+
+type Slot = "plain" | "path";
+
+/**
+ * Long options that take a value in the NEXT argument (`--type ts`), per tool, with one slot per
+ * value: a "path" slot is checked like an operand, a "plain" one (a type, a count, a glob, a
+ * variable name) is skipped. Exact names only: an abbreviation or an unlisted option keeps the
+ * default (the next argument is an operand). Options with an OPTIONAL value are left out, since
+ * the next argument is then an operand: BSD grep's `--context[=num]` and `--color[=when]`.
+ * Checked against ripgrep 14 `--help`, BSD grep (macOS, probed), jq 1.7 `--help`, tree 1.8's man
+ * page and GNU grep, head, tail and du man pages.
+ */
+const LONG_VALUES: Record<string, Record<string, readonly Slot[]>> = {
+  rg: {
+    "--after-context": ["plain"],
+    "--before-context": ["plain"],
+    "--context": ["plain"],
+    "--regexp": ["plain"],
+    "--glob": ["plain"],
+    "--iglob": ["plain"],
+    "--type": ["plain"],
+    "--type-not": ["plain"],
+    "--max-count": ["plain"],
+    "--max-depth": ["plain"],
+    "--max-filesize": ["plain"],
+    "--max-columns": ["plain"],
+    "--threads": ["plain"],
+    "--replace": ["plain"],
+    "--encoding": ["plain"],
+    "--sort": ["plain"],
+    "--sortr": ["plain"],
+    "--file": ["path"],
+    "--ignore-file": ["path"],
+  },
+  grep: {
+    "--after-context": ["plain"],
+    "--before-context": ["plain"],
+    "--regexp": ["plain"],
+    "--max-count": ["plain"],
+    "--binary-files": ["plain"],
+    "--directories": ["plain"],
+    "--devices": ["plain"],
+    "--include": ["plain"],
+    "--exclude": ["plain"],
+    "--exclude-dir": ["plain"],
+    "--label": ["plain"],
+    "--file": ["path"],
+  },
+  jq: {
+    "--arg": ["plain", "plain"],
+    "--argjson": ["plain", "plain"],
+    "--slurpfile": ["plain", "path"],
+    "--rawfile": ["plain", "path"],
+    "--indent": ["plain"],
+    "--library-path": ["path"],
+  },
+  head: { "--lines": ["plain"], "--bytes": ["plain"] },
+  tail: { "--lines": ["plain"], "--bytes": ["plain"] },
+  du: { "--max-depth": ["plain"], "--block-size": ["plain"], "--threshold": ["plain"] },
+  tree: {
+    "--charset": ["plain"],
+    "--filelimit": ["plain"],
+    "--sort": ["plain"],
+    "--timefmt": ["plain"],
+    "--gitfile": ["path"],
+    "--infofile": ["path"],
+    "--hintro": ["path"],
+    "--houtro": ["path"],
+  },
+};
+
 /** Short options that follow symbolic links, per tool. */
 const FOLLOW_LETTERS: Record<string, string> = {
   rg: "L",
@@ -434,20 +524,64 @@ function followsLinks(name: string, args: readonly string[]): boolean {
   return false;
 }
 
-/** Splits arguments into operands and notes an option that follows the first operand. */
+/**
+ * The values an option takes from the arguments that follow it, one slot each. Only an option
+ * with no attached value counts: `-t ts` has one slot, `-tts` and `--type=ts` have none.
+ */
+function valueSlots(name: string, a: string): Slot[] {
+  if (a.startsWith("--")) return [...(LONG_VALUES[name]?.[a] ?? [])];
+  const skippable = SKIP_LETTERS[name] ?? "";
+  const body = a.slice(1);
+  if (name === "tree") {
+    // Every value letter of the cluster takes the next argument, in order. The one exception is
+    // `-L` with attached digits (`-L2`, `-L2I x`): tree reads the digits as its value and takes
+    // nothing from the next argument, which stays an operand.
+    const slots: Slot[] = [];
+    for (let i = 0; i < body.length; i++) {
+      const c = body[i] as string;
+      if (c === "L" && /[0-9]/.test(body[i + 1] ?? "")) {
+        while (/[0-9]/.test(body[i + 1] ?? "")) i++;
+        continue;
+      }
+      if (skippable.includes(c)) slots.push("plain");
+    }
+    return slots;
+  }
+  const { flags, value } = clusterLetters(name, a);
+  const last = flags.slice(-1);
+  if (value !== "" || last === "" || !skippable.includes(last)) return [];
+  return [(PATH_LETTERS[name] ?? "").includes(last) ? "path" : "plain"];
+}
+
+/**
+ * Splits arguments into operands and notes an option that follows the first operand. The
+ * separate value of a known value option (`rg -t ts`) is not an operand, so it neither counts as
+ * the first one nor makes a later option "late". A "path" value goes to `pathValues`, to be
+ * checked like an operand. A value that starts with `-` is not skipped: it is read as the option
+ * it looks like (every flag scan sees it), as are `--` and everything after it.
+ */
 function scanArgs(
   name: string,
   args: readonly string[],
-): { operands: string[]; lateOption: boolean } {
+): { operands: string[]; lateOption: boolean; pathValues: string[] } {
   let afterDD = false;
   let seen = false;
   let late = false;
   let skip = false;
+  let pending: Slot[] = [];
   const operands: string[] = [];
+  const pathValues: string[] = [];
   for (const a of args) {
     if (skip) {
       skip = false;
       continue;
+    }
+    if (pending.length > 0) {
+      if (!a.startsWith("-")) {
+        if (pending.shift() === "path") pathValues.push(a);
+        continue;
+      }
+      pending = [];
     }
     if (!afterDD && a === "--") {
       afterDD = true;
@@ -456,12 +590,13 @@ function scanArgs(
     if (!afterDD && a.length > 1 && a.startsWith("-")) {
       if (seen && name !== "find") late = true;
       if (name === "sed" && (a === "-e" || a === "--expression")) skip = true;
+      pending = valueSlots(name, a);
       continue;
     }
     operands.push(a);
     seen = true;
   }
-  return { operands, lateOption: late };
+  return { operands, lateOption: late, pathValues };
 }
 
 /** The real path of `p`, following symlinks in the part that exists. */
@@ -484,7 +619,9 @@ function realish(p: string): string {
  * Does every path an any-argv command names resolve (symlinks followed) inside the grant folder?
  * Absolute paths, `..`, `~`, a hard-linked file, a FIFO or device, and a `find` with no start
  * path or a start path outside all fail. Every non-option argument counts, patterns included:
- * a pattern that looks like an outside path asks, never runs.
+ * a pattern that looks like an outside path asks, never runs. The separate value of an option
+ * known to take one (`rg -t ts`, `grep -A 3`) is not an operand, but one that names a path
+ * (`grep -f FILE`, `rg --ignore-file FILE`, `jq -L DIR`) is checked like one.
  */
 export function operandsInside(
   program: string,
@@ -500,8 +637,8 @@ export function operandsInside(
     return false;
   }
   if (!isUnder(cwdReal, folderReal)) return false;
-  let { operands } = scanArgs(name, args);
-  operands = [...operands, ...attachedValues(name, args)];
+  const scanned = scanArgs(name, args);
+  let operands = [...scanned.operands, ...scanned.pathValues, ...attachedValues(name, args)];
   if (name === "sed") {
     const haveE = args.some(
       (a) =>
