@@ -103,10 +103,10 @@ An automation's run does not wait for you: it sets the action aside and finishes
 
 ## Limits today
 
-- **Edit** in Upcoming is not available. Edit an automation from Scheduled, or ask the agent. There is no run history in the CLI.
+- **Edit** an automation from Scheduled. It opens the automation form. There is no run history in the CLI.
 - Delivering an automation's results to Telegram falls back to an in-app notification. Webhook delivery posts the run's output once you approve its card.
 - The heartbeat, a light check-in every 30 to 60 minutes, is built but not scheduled, so it does not run.
-- Some links in the agent sheet do nothing yet: **Open activity** on a task card and **Review in Permissions** under Standing grants. Open Activity with ⇧⌘A and Settings → Permissions directly.
+- **Open activity** on a task card opens the thread. Under Standing grants there is no "Review in Permissions" link. Open Activity with ⇧⌘A and Settings → Permissions directly.
 - There is no `psyche` CLI command for Tasks.
 
 ## Learn more

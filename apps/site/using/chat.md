@@ -77,7 +77,7 @@ Switching a thread's model or mode asks nothing, but some changes are refused: `
 ## Limits today
 
 - **Attachments are limited.** Use the attach button, drop a file on the composer or paste one. A message takes up to 8 files; images up to 5 MB and other files up to 25 MB. Images need a model that can see them. Files the composer does not accept, and files over the limit, are listed with the reason. Files in a shared folder are also available: see [Documents and files](/using/documents-and-files).
-- You cannot add or replace a provider key in Settings → Model & providers yet. Keys are stored only during onboarding, or set through the Gateway's environment.
+- You can add or replace a provider key in Settings → Model & providers. Keys saved there are stored in the vault.
 - You cannot delete a single thread. Archive it, then use "Delete archived threads" in Settings → Data controls. Deleting a chat does not delete what the agent learned from it.
 - The "Export as Markdown / JSON / HTML" menu items do nothing; use `/export`. In the desktop app, whether `/export` saves a file is not confirmed.
 - When a model is not on the auto-mode allowlist, Auto is refused with "Auto can't run on {model}." The switch offers your nearest allowed model in one tap.
