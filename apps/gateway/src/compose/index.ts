@@ -272,6 +272,7 @@ import {
   teachingSettings,
 } from "./teaching.ts";
 import { createThreadClear } from "./thread-clear.ts";
+import { endSessionQuietly } from "./thread-end.ts";
 import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
@@ -2402,7 +2403,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     rawBroker.attachFiles(threadId, paths, by);
   gateway.context.chatFiles.attached = (threadId) => rawBroker.attachedFiles(threadId);
   // Clear chat and delete end the conversation: its "Allow once" folders and attached files go.
-  gateway.context.threadEnded.add((threadId) => void rawBroker.endSession(threadId));
+  gateway.context.threadEnded.add(endSessionQuietly(rawBroker, gwOptions.logger));
   gateway.context.messageScrub.scrub = (message, who) => everything.lifeChat.scrub(message, who);
   await proactive.start();
   await ensureWeeklyCardAutomation(scheduler, {

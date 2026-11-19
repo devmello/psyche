@@ -87,7 +87,8 @@ export async function prepareAttachedFiles(
     let size: number;
     try {
       const st = await lstat(path);
-      if (st.isSymbolicLink() || !st.isFile()) throw new PsycheError("forbidden", STALE);
+      if (st.isSymbolicLink() || !st.isFile() || st.nlink !== 1)
+        throw new PsycheError("forbidden", STALE);
       size = st.size;
     } catch (err) {
       if (err instanceof PsycheError) throw err;

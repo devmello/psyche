@@ -21,6 +21,7 @@ import {
   path as policyPath,
 } from "../../../packages/permissions/test/helpers.ts";
 import { createThreadClear } from "../src/compose/thread-clear.ts";
+import { endSessionQuietly } from "../src/compose/thread-end.ts";
 import type { Call } from "../src/context.ts";
 import { chatHandlers } from "../src/handlers/chat.ts";
 import { threadsHandlers } from "../src/handlers/threads.ts";
@@ -300,7 +301,8 @@ describe("chat.attachFiles", () => {
     expect(await decide("write_file", "write", report)).toBe("folder:rw");
     expect(await decide("write_file", "write", sibling)).toBe("folder:rw");
     expect(broker.allSessionFolders()).toEqual([]);
-    expect(broker.attachedFiles(threadA)).toEqual([]);
+    // Still attached (the record), though no grant entry of its own remains.
+    expect(broker.attachedFiles(threadA)).toEqual([{ path: report }]);
   });
 
   it("leaves a wider read-write folder alone instead of narrowing it", async () => {
@@ -425,5 +427,92 @@ describe("chat.send attachedFiles", () => {
       code: "forbidden",
     });
     expect(sent).toEqual([]);
+  });
+});
+
+describe("a file inside an already granted folder", () => {
+  const clear = () =>
+    createThreadClear({
+      db,
+      audit: { append: async () => undefined } as never,
+      broker: { list: async () => [] } as never,
+      isRunning: () => false,
+    });
+
+  it("attaches and sends when the folder was granted first, and reads through the folder", async () => {
+    broker.setPolicy({ ...broker.policy, folders: [{ path: docs, mode: "ro" }] });
+    const res = await attach(threadA, [report]);
+    expect(res.files.map((f) => f.path)).toEqual([report]);
+    expect(broker.allSessionFolders()).toEqual([]);
+    await send(threadA, [{ path: report }]);
+    expect(String(sent[0]?.preamble)).toContain("report.txt");
+    expect((await readFile(threadA, report)).output.text).toBe("Q3 numbers");
+  });
+
+  it("sends before and after the folder is granted read-write", async () => {
+    await attach(threadA, [report]);
+    await send(threadA, [{ path: report }]);
+    broker.setPolicy({ ...broker.policy, folders: [{ path: docs, mode: "rw" }] });
+    await send(threadA, [{ path: report }]);
+    expect(sent).toHaveLength(2);
+    expect(await decide("write_file", "write", report)).toBe("folder:rw");
+  });
+
+  it("the record never grants a read: an unattached sibling is refused at send", async () => {
+    broker.setPolicy({ ...broker.policy, folders: [{ path: docs, mode: "ro" }] });
+    await attach(threadA, [report]);
+    await expect(send(threadA, [{ path: sibling }])).rejects.toMatchObject({ code: "forbidden" });
+  });
+
+  it("a covered file after Clear chat is refused at send (the record is gone)", async () => {
+    broker.setPolicy({ ...broker.policy, folders: [{ path: docs, mode: "ro" }] });
+    await attach(threadA, [report]);
+    await handlerOf(clear(), "threads.clear").run(desktop(), { threadId: threadA });
+    await expect(send(threadA, [{ path: report }])).rejects.toMatchObject({ code: "forbidden" });
+  });
+
+  it("a covered file whose folder is revoked in Settings is refused at read", async () => {
+    broker.setPolicy({ ...broker.policy, folders: [{ path: docs, mode: "ro" }] });
+    await attach(threadA, [report]);
+    broker.setPolicy({ ...broker.policy, folders: [] });
+    await expect(readFile(threadA, report)).rejects.toMatchObject({ code: "forbidden" });
+    expect(await decide("read_file", "read", report)).toBe("folder:not_granted");
+  });
+
+  it("the record ends after 24 hours", async () => {
+    broker.setPolicy({ ...broker.policy, folders: [{ path: docs, mode: "ro" }] });
+    await attach(threadA, [report]);
+    now += DAY + 1;
+    await expect(send(threadA, [{ path: report }])).rejects.toMatchObject({ code: "forbidden" });
+  });
+});
+
+describe("a hard link in the attached file's place", () => {
+  it("is refused at read and at send", async () => {
+    await attach(threadA, [swap]);
+    rmSync(swap);
+    linkSync(join(home, ".ssh", "id_ed25519"), swap);
+    await expect(readFile(threadA, swap)).rejects.toMatchObject({ code: "forbidden" });
+    await expect(send(threadA, [{ path: swap }])).rejects.toMatchObject({ code: "forbidden" });
+    rmSync(swap);
+  });
+});
+
+describe("ending a conversation never crashes the Gateway", () => {
+  it("logs and swallows a broker whose endSession rejects", async () => {
+    const logged: string[] = [];
+    const listener = endSessionQuietly(
+      { endSession: () => Promise.reject(new Error("audit store is down")) },
+      { log: (_level, msg, fields) => void logged.push(`${msg} ${fields?.error}`) },
+    );
+    expect(() => listener(threadA)).not.toThrow();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(logged).toEqual(["ending a conversation's grants failed audit store is down"]);
+    const synchronous = endSessionQuietly({
+      endSession: () => {
+        throw new Error("sync");
+      },
+    });
+    expect(() => synchronous(threadA)).not.toThrow();
   });
 });

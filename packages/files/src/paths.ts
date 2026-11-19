@@ -46,7 +46,10 @@ export function isUnder(child: string, root: string): boolean {
 
 function isRegularFile(path: string): boolean {
   try {
-    return lstatSync(path).isFile();
+    const st = lstatSync(path);
+    // A hard link is another name for a file that may be somewhere else (a swapped-in link to
+    // a key): an attached file has exactly one name.
+    return st.isFile() && st.nlink === 1;
   } catch {
     return false;
   }
