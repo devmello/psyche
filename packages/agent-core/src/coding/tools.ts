@@ -15,11 +15,14 @@ import {
 } from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "../registry.ts";
+import { assertContained, assertOneName } from "./contain.ts";
 import {
+  assertOwnRepository,
   BRANCH_PATTERN,
   capOutput,
   type GitRunner,
   git,
+  gitlinks,
   gitOk,
   parseStatus,
   REMOTE_PATTERN,
@@ -259,9 +262,12 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
       const ws = workspaces.open(ctx, root, grant.mode);
       let status: unknown = null;
       if (deps.git !== undefined && (await lstat(`${root}/.git`).catch(() => undefined))) {
-        status = await gitStatus(deps.git, root, ctx.signal).catch((e: Error) => ({
-          error: e.message,
-        }));
+        const runner = deps.git;
+        // A `.git` link or `gitdir:` file would show another repository's status, and a
+        // config with a program in it would run that program.
+        status = await assertOwnRepository(runner, root, ctx.signal)
+          .then(() => gitStatus(runner, root, ctx.signal))
+          .catch((e: Error) => ({ error: e.message }));
       }
       return {
         output: {
@@ -340,6 +346,9 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
     async run(p, ctx) {
       const ws = await workspace(ctx, p.root, "read");
       const full = resolveInRoot(ws.root, p.path);
+      // By its real path too: a link in the repository never reads outside it.
+      await assertContained(ws.root, full);
+      await assertOneName(full);
       const file = await readWhole(full, ctx);
       const lines = file.text === "" ? [] : file.text.replace(/\n$/, "").split("\n");
       const start = p.start_line ?? 1;
@@ -429,6 +438,7 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
       for (const f of patches) {
         cancelled(ctx);
         const full = resolveInRoot(ws.root, f.path);
+        await assertContained(ws.root, full);
         if (isGitInternal(ws.root, full)) {
           throw new PsycheError(
             "forbidden",
@@ -473,6 +483,7 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
             );
           }
         }
+        await assertContained(ws.root, f.full);
         await runFile(deps.files.write, { path: f.full, content: f.after }, ctx);
         written.push({
           path: f.rel,
@@ -621,10 +632,21 @@ function runTool(
       const ws = await workspace(ctx, p.root, "write");
       // The command's cwd must be the repository or a folder in it.
       const hostCwd = resolveInRoot(ws.root, p.cwd ?? ".");
+      await assertContained(ws.root, hostCwd);
       const network = p.network ?? "none";
       const scope = sandboxScopeOf(ws, network);
+      // `.git` is mounted by its host path, which the runtime resolves on the host: a link there
+      // (one a run planted in a folder without git) would mount whatever it points at.
       const gitDir = await lstat(`${ws.root}/.git`).then(
-        () => true,
+        (st) => {
+          if (st.isSymbolicLink()) {
+            throw new PsycheError(
+              "forbidden",
+              `${ws.root}/.git is a symlink; code.run never mounts it`,
+            );
+          }
+          return true;
+        },
         () => false,
       );
       const sandbox = await runner.ensureSandbox(scope, {
@@ -704,7 +726,7 @@ async function gitStatus(runner: GitRunner, root: string, signal?: AbortSignal) 
   const porcelain = await gitOk(
     runner,
     root,
-    ["status", "--porcelain=v1", "--branch", "--untracked-files=all"],
+    ["status", "--porcelain=v1", "--branch", "--untracked-files=all", "--ignore-submodules=all"],
     signal,
   );
   const remotes = await gitOk(runner, root, ["remote", "-v"], signal);
@@ -817,6 +839,7 @@ function gitTool(
       const writes = p.op === "commit" || p.op === "branch" || p.op === "push";
       const ws = await workspace(ctx, p.root, writes ? "write" : "read");
       const root = ws.root;
+      await assertOwnRepository(runner, root, ctx.signal);
       const sig = ctx.signal;
       const ok = (output: Record<string, unknown>, receiptId?: string): ToolResult => ({
         output,
@@ -825,7 +848,13 @@ function gitTool(
       });
       if (p.op === "status") return ok({ ...(await gitStatus(runner, root, sig)) });
       if (p.op === "diff") {
-        const paths = (p.paths ?? []).map((x) => relativeTo(root, resolveInRoot(root, x)));
+        const paths: string[] = [];
+        for (const x of p.paths ?? []) {
+          const full = resolveInRoot(root, x);
+          // Git takes a link as a link, never through one: only the last part may be a link.
+          await assertContained(root, full, { finalLink: "allow" });
+          paths.push(relativeTo(root, full));
+        }
         const out = await gitOk(
           runner,
           root,
@@ -834,6 +863,7 @@ function gitTool(
             "--no-ext-diff",
             "--no-textconv",
             "--no-color",
+            "--ignore-submodules=all",
             ...(p.staged === true ? ["--cached"] : []),
             "--",
             ...paths,
@@ -866,12 +896,25 @@ function gitTool(
         return ok({ commits });
       }
       if (p.op === "commit") {
-        const paths = (p.paths ?? ["."]).map((x) => {
+        const paths: string[] = [];
+        for (const x of p.paths ?? ["."]) {
           const full = resolveInRoot(root, x);
           if (isGitInternal(root, full)) throw new PsycheError("forbidden", `${x} is inside .git`);
-          return relativeTo(root, full);
-        });
+          await assertContained(root, full, { finalLink: "allow" });
+          paths.push(relativeTo(root, full));
+        }
         await gitOk(runner, root, ["add", "--all", "--", ...paths], sig);
+        // `add` stages a nested repository as a gitlink; a repository with one gets no code.git
+        // afterwards, so it is taken out of the index again and the commit is refused.
+        const nested = await gitlinks(runner, root, sig);
+        if (nested.length > 0) {
+          await gitOk(runner, root, ["update-index", "--force-remove", "--", ...nested], sig);
+          throw new PsycheError(
+            "forbidden",
+            `${nested.slice(0, 3).join(", ")} ${nested.length === 1 ? "is a" : "are"} nested repositor${nested.length === 1 ? "y" : "ies"}; repositories with submodules aren't supported by code.git yet, so nothing was committed (leave it out of paths, or add it to .gitignore)`,
+            { details: { reason: "submodules", paths: nested } },
+          );
+        }
         const staged = await git(runner, root, ["diff", "--cached", "--quiet"], sig);
         if (staged.exitCode === 0) throw new PsycheError("conflict", "nothing to commit");
         await gitOk(runner, root, ["commit", "--no-verify", "--quiet", "-m", p.message], sig);
@@ -970,7 +1013,18 @@ function gitTool(
       const pushed = await git(
         runner,
         root,
-        ["push", "--porcelain", "--no-verify", p.remote, `${p.commit}:refs/heads/${p.branch}`],
+        [
+          // The pushed remote's programs: git's own receive-pack, no proxy command.
+          "-c",
+          `remote.${p.remote}.receivepack=git-receive-pack`,
+          "-c",
+          "core.gitProxy=",
+          "push",
+          "--porcelain",
+          "--no-verify",
+          p.remote,
+          `${p.commit}:refs/heads/${p.branch}`,
+        ],
         sig,
       );
       const failed = pushed.exitCode !== 0;
