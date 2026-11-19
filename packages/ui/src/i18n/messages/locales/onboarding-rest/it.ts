@@ -56,6 +56,21 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.step.you": "Tu e il tuo agente",
   "onboarding.step.stuff": "Le tue cose",
   "onboarding.step.safety": "Sicurezza",
+  "onboarding.step.folders": "Cartelle",
+  "onboarding.folders.lead":
+    "Lascia che {name} legga le cartelle Documenti, Scrivania e Download. Sola lettura: {name} può vedere i file, mai modificarli o eliminarli. Non viene condiviso nulla se non lo selezioni.",
+  "onboarding.folders.group": "Cartelle da condividere, sola lettura",
+  "onboarding.folders.documents": "Documenti",
+  "onboarding.folders.desktop": "Scrivania",
+  "onboarding.folders.downloads": "Download",
+  "onboarding.folders.hint":
+    "Puoi cambiarlo in qualsiasi momento in Impostazioni, sotto Accesso ai file.",
+  "onboarding.folders.shareLater":
+    "Potrai condividere queste cartelle più tardi in Impostazioni → Accesso ai file.",
+  "onboarding.folders.openFileAccess": "Apri Accesso ai file",
+  "onboarding.folders.retry": "Riprova",
+  "onboarding.folders.continueWithout": "Continua senza condividere",
+  "onboarding.folders.failed": "Impossibile condividere queste cartelle: {reason}",
   "onboarding.you.lead": "Tutto in questa pagina è facoltativo e potrai cambiarlo più tardi.",
   "onboarding.you.agent": "Il tuo agente",
   "onboarding.you.customize": "Personalizza l’aspetto",

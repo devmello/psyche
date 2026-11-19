@@ -57,9 +57,10 @@ const NEVER_SEGMENTS: ReadonlySet<string> = new Set([
   "githooks",
   "skills",
   "prompts",
-  // pip reads `-r requirements/base.txt` as readily as `requirements.txt`.
+  // pip reads `-r requirements/base.txt` or `-r reqs/base.txt` as readily as `requirements.txt`.
   "requirements",
   "constraints",
+  "reqs",
 ]);
 
 /** macOS bundles: a folder that is an app, plugin or kernel extension. */
@@ -71,7 +72,8 @@ const BUNDLE_SEGMENT = /\.(?:app|bundle|framework|plugin|kext)$/;
  */
 const NEVER_NAMES =
   /^(?:dockerfile|containerfile|makefile|gnumakefile|justfile|rakefile|procfile|vagrantfile|claude|agent|agents|gemini|conventions|skill|copilot-instructions)(?:\.|$)/;
-const PIP_FILES = /^(?:requirements|constraints).*\.txt$|\.pip$|^pip\.conf$/;
+/** pip takes any file through `-r`: `dev-requirements.txt`, `test_constraints.txt`, `*.pip`. */
+const PIP_FILES = /(?:requirements|constraints).*\.txt$|\.pip$|^pip\.conf$/;
 
 const NON_ASCII = /[^\x20-\x7e]/;
 

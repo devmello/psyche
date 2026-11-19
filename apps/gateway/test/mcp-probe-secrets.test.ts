@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { setSetting } from "@psyche/db";
 import type { McpProposal } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -277,6 +278,29 @@ describe("a locked vault cannot leave the old secrets for a new server of the sa
     const old = (await listed(owner)).find((c) => c.slug === "old-key");
     expect(old).toBeDefined();
     expect(JSON.stringify(old?.bindings)).not.toContain("mcp:echo");
+  });
+
+  it("a retry unbinds only the items recorded at remove time, never a key stored since", async () => {
+    const owner = await setup();
+    await addKey(owner, "old-key", "mcp:echo");
+    const oldId = (await listed(owner)).find((c) => c.slug === "old-key") as unknown as {
+      id: string;
+    };
+    // What a remove under a locked vault leaves behind: the exact item ids still to unbind.
+    setSetting((lastServices as ComposeServices).db, "_mcp.pendingUnbind", {
+      echo: { ids: [oldId.id], unlisted: false },
+    });
+    // The owner has since stored a key for the new server of the same id.
+    await addKey(owner, "new-key", "mcp:echo");
+    // The re-add retries first; it must succeed, so the old item is no longer bound.
+    const r = await owner.call<{ proposal: McpProposal }>("mcp.probe", { server: plain }, ik());
+    expect(r.proposal.tools.length).toBeGreaterThan(0);
+    const after = await listed(owner);
+    expect(JSON.stringify(after.find((c) => c.slug === "old-key")?.bindings)).not.toContain(
+      "mcp:echo",
+    );
+    // The new key keeps its binding.
+    expect(JSON.stringify(after.find((c) => c.slug === "new-key")?.bindings)).toContain("mcp:echo");
   });
 
   it("does not block a re-add when nothing was left bound (positive control)", async () => {

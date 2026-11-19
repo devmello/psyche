@@ -587,51 +587,95 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     await releaseSecrets(serverId);
   };
 
-  /** Ids of removed servers whose vault items are not unbound yet (a locked vault). Kept in an internal setting. */
+  /**
+   * Removed servers whose vault items are not unbound yet (a locked vault), in an internal
+   * setting: the server id, and the exact vault item ids recorded at remove time. A retry
+   * unbinds only those, never "whatever is bound to `mcp:<id>` now", so a key the owner stores
+   * for a new server of the same id keeps its binding. `unlisted` is set when the vault could
+   * not even be listed at remove time; the retry then lists once and takes what is bound.
+   */
   const PENDING_KEY = "_mcp.pendingUnbind";
-  const pending = (): string[] => {
+  type Pending = Record<string, { ids: string[]; unlisted: boolean }>;
+  const pending = (): Pending => {
     const v = getSetting(services.db, PENDING_KEY)?.value;
-    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+    if (typeof v !== "object" || v === null || Array.isArray(v)) return {};
+    const out: Pending = {};
+    for (const [id, e] of Object.entries(v as Record<string, unknown>)) {
+      const r = e as { ids?: unknown; unlisted?: unknown } | null;
+      out[id] = {
+        ids: Array.isArray(r?.ids) ? r.ids.filter((x): x is string => typeof x === "string") : [],
+        unlisted: r?.unlisted === true,
+      };
+    }
+    return out;
   };
-  const setPending = (ids: string[]) => {
-    setSetting(services.db, PENDING_KEY, [...new Set(ids)].sort());
+  const savePending = (p: Pending) => {
+    setSetting(services.db, PENDING_KEY, p);
+  };
+  const boundTo = (item: { bindings: readonly unknown[] }, target: string) =>
+    item.bindings.filter((b) => (b as { connector?: unknown }).connector === target);
+
+  /** Unbinds `mcp:<id>` from one item. An item left with no bindings at all stays. */
+  const unbind = async (item: { id: string; bindings: readonly unknown[] }, target: string) => {
+    const rest = item.bindings.filter((b) => (b as { connector?: unknown }).connector !== target);
+    await services.vault.update(item.id, { bindings: rest as never });
   };
 
   /**
    * The vault items bound to `mcp:<id>` are unbound when the server goes, never deleted: they
    * stay in the vault for the owner to reuse or delete. One item failing does not stop the rest.
-   * When any unbind fails (a locked vault), the id is recorded and retried on unlock; until it is
-   * done, an Add under that id is refused (`assertReleased`), so the old secrets can't be filled
-   * into a new server of the same name.
+   * What could not be unbound is recorded and retried on unlock; until it is done an Add under
+   * that id is refused (`assertReleased`), so the old secrets can't be filled into a new server.
    */
   const releaseSecrets = async (serverId: string) => {
     const target = `mcp:${serverId}`;
-    let failed = false;
-    let items: Awaited<ReturnType<typeof services.vault.list>> = [];
-    try {
-      items = await services.vault.list();
-    } catch {
-      failed = true;
-    }
-    for (const item of items) {
-      const ours = item.bindings.filter((b) => "connector" in b && b.connector === target);
-      if (ours.length === 0) continue;
+    const state = pending();
+    let ids: string[];
+    let unlisted = false;
+    if (state[serverId] === undefined) {
+      // First attempt, at remove time: the ids are fixed here.
       try {
-        // An item left with no bindings at all stays.
-        const rest = item.bindings.filter((b) => !ours.includes(b));
-        await services.vault.update(item.id, { bindings: rest });
+        ids = (await services.vault.list())
+          .filter((i) => boundTo(i, target).length > 0)
+          .map((i) => i.id);
       } catch {
-        failed = true;
+        ids = [];
+        unlisted = true;
+      }
+    } else {
+      ids = [...(state[serverId]?.ids ?? [])];
+      unlisted = state[serverId]?.unlisted === true;
+      if (unlisted) {
+        try {
+          ids = (await services.vault.list())
+            .filter((i) => boundTo(i, target).length > 0)
+            .map((i) => i.id);
+          unlisted = false;
+        } catch {
+          // still locked
+        }
       }
     }
-    const others = pending().filter((id) => id !== serverId);
-    setPending(failed ? [...others, serverId] : others);
+    const failed: string[] = [];
+    for (const id of ids) {
+      try {
+        const item = await services.vault.get(id);
+        if (item === undefined) continue; // deleted by the owner meanwhile
+        if (boundTo(item, target).length > 0) await unbind(item, target);
+      } catch {
+        failed.push(id);
+      }
+    }
+    const next = pending();
+    if (failed.length > 0 || unlisted) next[serverId] = { ids: failed, unlisted };
+    else delete next[serverId];
+    savePending(next);
   };
 
   const assertReleased = async (serverId: string) => {
-    if (!pending().includes(serverId)) return;
+    if (pending()[serverId] === undefined) return;
     await releaseSecrets(serverId);
-    if (pending().includes(serverId)) {
+    if (pending()[serverId] !== undefined) {
       throw new PsycheError(
         "unavailable",
         "Unlock the vault to finish removing the old server first",
@@ -641,7 +685,7 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
   };
 
   const retryPending = async () => {
-    for (const id of pending()) await releaseSecrets(id);
+    for (const id of Object.keys(pending())) await releaseSecrets(id);
   };
 
   const handlers: Record<string, HandlerDef> = {

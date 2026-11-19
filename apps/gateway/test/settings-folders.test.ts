@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { openDb } from "@psyche/db";
+import { getSetting, openDb } from "@psyche/db";
 import { describe, expect, it } from "vitest";
 import type { Call } from "../src/context.ts";
 import { settingsHandlers } from "../src/handlers/settings.ts";
@@ -8,7 +8,12 @@ import { settingsHandlers } from "../src/handlers/settings.ts";
 
 function callWith(db: ReturnType<typeof openDb>): Call {
   return {
-    ctx: { db, config: { home: `${homedir()}/.psyche` }, bus: { bumpStateVersion: () => 1 } },
+    ctx: {
+      db,
+      config: { home: `${homedir()}/.psyche` },
+      bus: { bumpStateVersion: () => 1 },
+      presenceState: () => "off",
+    },
     identity: { scopes: ["operator.admin"] },
     emit: () => undefined,
   } as unknown as Call;
@@ -33,5 +38,46 @@ describe("settings.set permissions.policy folders", () => {
         }),
       ).rejects.toMatchObject({ code: "forbidden" });
     }
+  });
+
+  it("a ~ path goes through expand, the sensitive check and storage", async () => {
+    const db = openDb(":memory:");
+    await setRun(callWith(db), {
+      key: "permissions.policy",
+      value: { folders: [{ path: "~/Documents", mode: "ro" }] },
+    });
+    expect(getSetting(db, "permissions.policy")?.value).toEqual({
+      folders: [{ path: `${homedir()}/Documents`, mode: "ro" }],
+    });
+    // ~/Library expands to the sensitive root and is refused, so nothing more is stored.
+    await expect(
+      setRun(callWith(db), {
+        key: "permissions.policy",
+        value: {
+          folders: [
+            { path: "~/Documents", mode: "ro" },
+            { path: "~/Library", mode: "ro" },
+          ],
+        },
+      }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    expect(getSetting(db, "permissions.policy")?.value).toEqual({
+      folders: [{ path: `${homedir()}/Documents`, mode: "ro" }],
+    });
+  });
+
+  it("an old literal ~/x entry stays literal after an unrelated policy write", async () => {
+    const db = openDb(":memory:");
+    // Written before ~ expansion existed: stored as typed.
+    const { setSetting } = await import("@psyche/db");
+    setSetting(db, "permissions.policy", { folders: [{ path: "~/x", mode: "rw" }] });
+    await setRun(callWith(db), {
+      key: "permissions.policy",
+      value: { folders: [{ path: "~/x", mode: "rw" }], other: 1 },
+    });
+    expect(getSetting(db, "permissions.policy")?.value).toEqual({
+      folders: [{ path: "~/x", mode: "rw" }],
+      other: 1,
+    });
   });
 });

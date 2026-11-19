@@ -70,6 +70,7 @@ import {
   type ComposeFinal,
   composeBindingHash,
   readCompose,
+  readFinal,
   resolveCompose,
 } from "./message-compose.ts";
 import {
@@ -171,7 +172,7 @@ export interface PermissionBrokerOptions {
    * A restart revoked an approved set-aside card before any run used it (`reissue`): the resume
    * it promised will not happen, so the Gateway tells the owner instead of staying silent.
    */
-  onSetAsideRevoked?: (approval: ApprovalRequest) => void;
+  onSetAsideRevoked?: (approval: ApprovalRequest, how: { failed: boolean }) => void;
   onEvent?: (event: BrokerEvent) => void;
   newId?: (prefix: string) => string;
   /** Records grant revocations outside the backup scope (design-26). */
@@ -2123,9 +2124,13 @@ export class PsychePermissionBroker implements PermissionBroker {
     });
   }
 
-  /** Nothing has used this approval: no receipt names it and its grant (if any) has no use. */
+  /**
+   * Nothing has done this approval's action: no `ok` receipt names it (a failed one is not done)
+   * and its grant (if any) has no use.
+   */
   async #unused(a: ApprovalRequest): Promise<boolean> {
-    if ((await this.receipts.list({ approvalId: a.id })).length > 0) return false;
+    const receipts = await this.receipts.list({ approvalId: a.id });
+    if (receipts.some((r) => r.outcome === "ok")) return false;
     if (a.grantId != null) {
       const g = this.#store.getGrant(a.grantId);
       if (g !== undefined && g.grant.useCount > 0) return false;
@@ -2150,6 +2155,18 @@ export class PsychePermissionBroker implements PermissionBroker {
           return { ok: false, reason: "expired" };
         if (g.meta.maxUses !== null && g.grant.useCount >= g.meta.maxUses)
           return { ok: false, reason: "consumed" };
+      }
+      // A compose card binds what the owner left on it (`details.final`). Its stored hash must
+      // still be that message's: a card whose final text or recipient was lost or changed (a
+      // store that dropped the answer) never verifies, so the agent's draft is never sent.
+      const compose = a.kind === "message_send" ? readCompose(a.details) : undefined;
+      if (compose !== undefined) {
+        const final = readFinal(a.details);
+        if (
+          final === undefined ||
+          composeBindingHash(compose.account, final.recipient, final.text) !== a.bindingHash
+        )
+          return { ok: false, reason: "binding_mismatch" };
       }
       if (bindingHash !== a.bindingHash) return { ok: false, reason: "binding_mismatch" };
       if (a.scopeGranted === "once") {
@@ -2207,12 +2224,10 @@ export class PsychePermissionBroker implements PermissionBroker {
       if (rec.revoked) continue;
       const unconsumedOnce = rec.approval.scopeGranted === "once" && rec.consumedAt === null;
       // A set-aside card whose resume was not over lost it with the old process, whatever its
-      // scope: nothing used it yet (no receipt, no use of its grant). The owner is told once;
-      // the card's own authority ends (its standing grant, if any, stays).
-      const lostResume =
-        rec.approval.setAside === true &&
-        rec.consumedAt === null &&
-        (await this.#unused(rec.approval));
+      // scope: nothing did its action yet (no `ok` receipt, no use of its grant). That includes
+      // an action that ran and failed, and one whose receipt the old process never wrote. The
+      // owner is told once; the card's own authority ends (its standing grant, if any, stays).
+      const lostResume = rec.approval.setAside === true && (await this.#unused(rec.approval));
       if (!unconsumedOnce && !lostResume) continue;
       rec.revoked = true;
       this.#store.updateApproval(rec);
@@ -2223,8 +2238,9 @@ export class PsychePermissionBroker implements PermissionBroker {
         { reason: unconsumedOnce ? "gateway_restart_unconsumed" : "gateway_restart_set_aside" },
       );
       if (lostResume) {
+        const failed = (await this.receipts.list({ approvalId: rec.approval.id })).length > 0;
         try {
-          this.#onSetAsideRevoked?.(structuredClone(rec.approval));
+          this.#onSetAsideRevoked?.(structuredClone(rec.approval), { failed });
         } catch {
           // A failed notice never stops the restart.
         }

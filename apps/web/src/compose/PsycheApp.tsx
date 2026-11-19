@@ -723,6 +723,14 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
               completeOnboarding(platform, result).then(
                 () => {
                   reloadPersona();
+                  // The folders needed a card that cannot be answered here: land on File access.
+                  if (result.openFileAccess) {
+                    try {
+                      globalThis.history?.pushState(null, "", "/settings/files");
+                    } catch {
+                      // The shell then opens on the main chat.
+                    }
+                  }
                   setGate("ready");
                 },
                 (err: unknown) =>

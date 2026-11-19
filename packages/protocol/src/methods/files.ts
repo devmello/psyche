@@ -74,7 +74,24 @@ export type FileEntry = Static<typeof FileEntry>;
 export const ConversionTarget = StringEnum(["pdf", "thumbnail"], { $id: "ConversionTarget" });
 export type ConversionTarget = Static<typeof ConversionTarget>;
 
+export const StarterFolderId = StringEnum(["documents", "desktop", "downloads"], {
+  $id: "StarterFolderId",
+});
+export type StarterFolderId = Static<typeof StarterFolderId>;
+
 export const FilesMethods = {
+  "files.starterFolders": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({
+      folders: Type.Array(
+        Type.Object({ id: StarterFolderId, path: Type.String({ maxLength: 4096 }) }),
+        { maxItems: 3 },
+      ),
+    }),
+    scope: "operator.read",
+    description:
+      "The folders onboarding may offer to share read-only (Documents, Desktop, Downloads under the owner's home): only those that exist, are not sensitive roots (`assertFolderGrantable`) and are not already covered by a granted folder. Grants through `settings.set` of `permissions.policy`, never from here.",
+  }),
   "files.list": defineMethod({
     params: Type.Object({
       path: FileSourcePath,

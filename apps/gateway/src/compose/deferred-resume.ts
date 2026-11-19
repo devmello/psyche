@@ -35,7 +35,15 @@ export interface ResumeScheduler {
 }
 
 /** Why a promised resume did not do the action (the notice's `why`). */
-export type MissedReason = "not_reached" | "expired" | "paused" | "restart";
+export type MissedReason =
+  | "not_reached"
+  | "expired"
+  | "paused"
+  | "restart"
+  /** A restart cut the resume short, but the standing permission the owner gave stays. */
+  | "restart_kept"
+  /** The resumed action ran and failed (its receipt is not `ok`). */
+  | "failed";
 
 export interface DeferredResumeOptions {
   scheduler: ResumeScheduler;
@@ -65,17 +73,26 @@ interface Entry {
   automationId: string;
   state: EntryState;
   resumeTaskId?: string;
-  /** The action ran (its receipt, or a use of the grant the approval created). */
+  /** The action ran and succeeded (an `ok` receipt, or a use of the grant the approval made). */
   done: boolean;
+  /** The action ran but its receipt is not `ok`: it failed, or its outcome is unknown. */
+  failed: boolean;
 }
 
 /** English fallback of `notice.approvals.resumeMissed.body` (its `why`). */
+const ASK_AGAIN = "If it still needs it, it will ask again.";
 const MISSED_BODY: Record<MissedReason, string> = {
-  not_reached: "The automation ran again but did not reach the same action, so nothing was done.",
-  expired: "The approval ran out before the automation reached the action, so nothing was done.",
-  paused: "The automation is paused or was removed, so it did not run again and nothing was done.",
-  restart: "Psyche restarted before the automation could run again, so nothing was done.",
+  not_reached: `The automation ran again but did not reach the same action, so nothing was done. ${ASK_AGAIN}`,
+  expired: `The approval ran out before the automation reached the action, so nothing was done. ${ASK_AGAIN}`,
+  paused: `The automation is paused or was removed, so it did not run again and nothing was done. ${ASK_AGAIN}`,
+  restart: `Psyche restarted before the automation could run again, so nothing was done. ${ASK_AGAIN}`,
+  restart_kept:
+    "Psyche restarted before the automation could run again. The permission you gave stays, so its next run will do this without asking. To take it back, revoke it under Standing permissions in Approvals.",
+  failed: `The automation ran the action again, but it failed. See Activity for what went wrong. ${ASK_AGAIN}`,
 };
+
+/** A standing grant the owner gave on the card that still covers the next run. */
+const KEPT_SCOPES: ReadonlySet<string> = new Set(["always", "site"]);
 
 export class DeferredResume {
   readonly #o: DeferredResumeOptions;
@@ -98,12 +115,17 @@ export class DeferredResume {
   }
 
   /** The broker's `onSetAsideRevoked`: a restart ended an approval before any run used it. */
-  revokedAtRestart(a: ApprovalRequest): void {
+  revokedAtRestart(a: ApprovalRequest, how: { failed?: boolean } = {}): void {
     this.#serial(async () => {
       const taskId = a.requestedBy.taskId;
       const run = taskId == null ? undefined : this.#o.scheduler.runForTask(taskId);
       this.#entries.delete(a.id);
-      await this.#missed(a, run?.automationId, "restart");
+      // A task grant ended with its task and a session grant with the restart; an `always` or
+      // site grant stays, so the next run does this without asking: say that, not "ask again".
+      const kept = a.scopeGranted != null && KEPT_SCOPES.has(a.scopeGranted) && a.grantId != null;
+      // An action that ran and failed before the restart says so (the next run asks again).
+      const why: MissedReason = how.failed === true ? "failed" : kept ? "restart_kept" : "restart";
+      await this.#missed(a, run?.automationId, why);
     });
   }
 
@@ -129,9 +151,13 @@ export class DeferredResume {
         this.#serial(() => this.#approved(e.approval));
       }
     } else if (e.type === "receipt.created") {
+      // Done means it succeeded: a failed or uncertain receipt is reported as not done.
       const id = e.receipt.approvalId;
       const entry = id == null ? undefined : this.#entries.get(id);
-      if (entry !== undefined) entry.done = true;
+      if (entry !== undefined) {
+        if (e.receipt.outcome === "ok") entry.done = true;
+        else entry.failed = true;
+      }
     } else if (e.type === "grant.used") {
       // Approved with a standing scope: the resume run's call went through that grant.
       const id = e.grant.createdFromApprovalId;
@@ -193,6 +219,7 @@ export class DeferredResume {
       automationId: run.automationId,
       state: "waiting",
       done: false,
+      failed: false,
     });
     // A run in progress may still reach the call; its end starts the resume run otherwise.
     if (!this.#o.scheduler.isRunning(run.automationId)) await this.#start(run.automationId);
@@ -252,7 +279,7 @@ export class DeferredResume {
         const expired =
           e.approval.scopeGranted === "once" &&
           this.#o.clock.now() >= Date.parse(e.approval.expiresAt);
-        await this.#end(e, expired ? "expired" : "not_reached");
+        await this.#end(e, e.failed ? "failed" : expired ? "expired" : "not_reached");
       }
     }
     // Approved while that run was going and not reached by it: now start the resume run.
@@ -290,7 +317,7 @@ export class DeferredResume {
           name === ""
             ? "An approved automation action was not done"
             : `${name}: the approved action was not done`,
-        body: `${MISSED_BODY[why]} If it still needs it, it will ask again.`,
+        body: MISSED_BODY[why],
         message: {
           titleKey: RESUME_MISSED_TITLE_KEY,
           bodyKey: RESUME_MISSED_BODY_KEY,

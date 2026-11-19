@@ -640,6 +640,8 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     },
     start(gateway: Gateway) {
       void enqueue(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
+      // Unbinds a removed server's vault items that an earlier run could not (the vault was locked).
+      void adder.retryPending().catch(() => undefined);
       unsubscribe = gateway.bus.subscribe(["operator.read"], (frame) => {
         const f = JSON.parse(frame) as {
           event?: string;

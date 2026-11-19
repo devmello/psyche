@@ -35,7 +35,7 @@ function writeCall(path: string): PolicyCall {
  * decide → an approved set-aside card for this exact call? (`claim` + `verifyBinding`, then do
  * it and record its receipt) → otherwise set the action aside and finish without it.
  */
-function setup(plans: string[]) {
+function setup(plans: string[], opts: { failWrites?: boolean } = {}) {
   const clock = new FakeClock(T0);
   const db = openDb(":memory:");
   const notifier = new PsycheNotifier({ clock });
@@ -52,7 +52,7 @@ function setup(plans: string[]) {
       store: new SqlitePermissionStore(db.sqlite),
       policy: { folders: [{ path: "/Users/owner", mode: "rw" }] },
       canResume: (a) => r().canResume(a),
-      onSetAsideRevoked: (a) => r().revokedAtRestart(a),
+      onSetAsideRevoked: (a, how) => r().revokedAtRestart(a, how),
     });
   const broker = brokerFor(() => resume);
   const written: string[] = [];
@@ -90,10 +90,11 @@ function setup(plans: string[]) {
           });
           const v = id === undefined ? undefined : await broker.verifyBinding(id, d.bindingHash);
           if (v?.ok === true) {
-            written.push(path);
+            // The action runs; with `failWrites` it fails (a `failed` receipt).
+            if (opts.failWrites !== true) written.push(path);
             await broker.recordReceipt({
               kind: "file_write",
-              outcome: "ok",
+              outcome: opts.failWrites === true ? "failed" : "ok",
               summary: `Wrote ${path}`,
               taskId,
               approvalId: id ?? null,
@@ -457,5 +458,78 @@ describe("silent misses: the owner is told when a promised resume can't happen",
     // The revoked approval cannot be used by anything after the restart.
     expect((await after.broker.verifyBinding(card.id, card.bindingHash)).ok).toBe(false);
     h.release();
+  });
+});
+
+describe("follow-ups: a failed action is not done, and the restart notice is honest", () => {
+  it("a resumed action that ran and failed gets a 'failed' notice, not silence", async () => {
+    const h = setup([NOTES, NOTES], { failWrites: true });
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    await h.approve(card.id, tok.get(card.id) ?? "");
+    await h.settle();
+    expect(h.written).toEqual([]);
+    expect(await missed(h)).toEqual(["failed"]);
+    const n = (await h.notifier.list()).find(
+      (x) => x.message?.titleKey === RESUME_MISSED_TITLE_KEY,
+    );
+    expect(n?.body).toMatch(/it failed/);
+  });
+
+  it("positive control: a resumed action that succeeded gets no notice", async () => {
+    const h = setup([NOTES, NOTES]);
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    await h.approve(card.id, tok.get(card.id) ?? "");
+    await h.settle();
+    expect(h.written).toEqual([NOTES]);
+    expect(await missed(h)).toEqual([]);
+  });
+
+  async function lost(scope: "once" | "always", grantId: string | null) {
+    const h = setup([NOTES]);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    // As the broker reports it at boot: approved with that scope, its resume cut short.
+    h.resume.revokedAtRestart({ ...card, status: "approved", scopeGranted: scope, grantId });
+    await h.resume.idle();
+    return (await h.notifier.list()).find((x) => x.message?.titleKey === RESUME_MISSED_TITLE_KEY);
+  }
+
+  it("a standing approval that keeps its grant: the next run uses it, never 'ask again'", async () => {
+    const n = await lost("always", "grt_1");
+    expect(n?.message?.params?.why).toBe("restart_kept");
+    expect(n?.body).toMatch(/permission you gave stays/);
+    expect(n?.body).toMatch(/Standing permissions/);
+    expect(n?.body).not.toMatch(/ask again/);
+  });
+
+  it("a once approval: nothing was done, and it will ask again", async () => {
+    const n = await lost("once", null);
+    expect(n?.message?.params?.why).toBe("restart");
+    expect(n?.body).toMatch(/ask again/);
+    expect(n?.body).not.toMatch(/permission you gave stays/);
+  });
+
+  it("an approval whose action failed before the restart says it failed", async () => {
+    const h = setup([NOTES]);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    h.resume.revokedAtRestart(
+      { ...card, status: "approved", scopeGranted: "always" },
+      { failed: true },
+    );
+    await h.resume.idle();
+    expect(await missed(h)).toEqual(["failed"]);
   });
 });
