@@ -44,6 +44,8 @@ import type { CallContexts } from "./call-context.ts";
  */
 
 export const PURCHASE_TOOL = "checkout.pay_with_link";
+/** What a Stripe Link Pay card names as its source (`details.paymentSource`). */
+export const LINK_PAYMENT_SOURCE = "Stripe Link (one-time card)";
 
 export interface PurchaseToolDeps {
   payments: PaymentBroker;
@@ -202,15 +204,29 @@ function submitNameIn(text: string): string | undefined {
  * bank refuses the tool outright; elsewhere the button's own words decide ("Buy now" at a shop is
  * a purchase). Undefined when the payment may go ahead.
  */
-function hardBlock(origin: string, pageUrl: string | undefined, submitName: string | undefined) {
-  if (isNoCheckoutVenue(origin) || isNoCheckoutVenue(pageUrl)) return { matched: "venue" };
-  return financialBlock({
-    labels: submitName === undefined ? [] : [submitName],
-    role: "button",
-    submits: true,
-    ...(pageUrl === undefined ? {} : { pageUrl }),
-    origin,
-  });
+function hardBlock(
+  origin: string,
+  liveUrl: string | undefined,
+  snapUrl: string | undefined,
+  submitName: string | undefined,
+) {
+  if ([origin, liveUrl, snapUrl].some((u) => u !== undefined && isNoCheckoutVenue(u)))
+    return { matched: "venue" };
+  // The tab's live address decides PayPal.Me from PayPal's checkout: without one, a venue is
+  // unreadable and refused (a shop is not a venue, so it goes ahead).
+  if (liveUrl === undefined) return financialBlock({ unreadable: true, origin });
+  for (const pageUrl of [liveUrl, snapUrl]) {
+    if (pageUrl === undefined) continue;
+    const b = financialBlock({
+      labels: submitName === undefined ? [] : [submitName],
+      role: "button",
+      submits: true,
+      pageUrl,
+      origin,
+    });
+    if (b !== undefined) return b;
+  }
+  return undefined;
 }
 
 /** One snapshot: the order as the page shows it, the card inputs and the pay button. */
@@ -260,10 +276,16 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
     // What the hard block on trades and transfers reads (`prohibition:financial_transfer`): the
     // pay button this tool will press, on this page. On a brokerage, an exchange, a P2P service or
     // a bank the call is refused before any card is shown, whatever the button says.
+    // The address is the tab's live one (a route change included), never only the last snapshot's:
+    // with no live address the call is unreadable, which a venue refuses.
     const submitName = submitNameIn(peek?.text ?? "");
-    const pageUrl = peek?.url ?? origin;
+    const live = d.tabUrl(tabId);
+    const pageUrl = live ?? origin;
     const control =
-      isNoCheckoutVenue(origin) || isNoCheckoutVenue(pageUrl)
+      live === undefined ||
+      isNoCheckoutVenue(origin) ||
+      isNoCheckoutVenue(live) ||
+      (peek !== undefined && isNoCheckoutVenue(peek.url))
         ? { unreadable: true, pageUrl }
         : {
             labels: submitName === undefined ? [] : [submitName],
@@ -294,7 +316,7 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
         pageTotal: order.total ?? null,
         itemsChecked: order.items.length > 0,
         lineItems: order.items.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })),
-        paymentSource: "Stripe Link (one-time card)",
+        paymentSource: LINK_PAYMENT_SOURCE,
         requiresAuthentication: true,
       },
       bindingFields: purchaseFields(order),
@@ -362,7 +384,8 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
       if (start === undefined) throw new PsycheError("conflict", "the tab has no page yet");
       const first = await locate(d, tabId, start);
       // The hard block, on the live page, before a spend request exists.
-      if (hardBlock(start, first.url ?? start, first.submitName) !== undefined) refuseTrade();
+      if (hardBlock(start, d.tabUrl(tabId), first.url, first.submitName) !== undefined)
+        refuseTrade();
       const hash = check(first);
       const input = inputOf(first.order, deps.test === true);
       for (const f of ["number", "cvc"] as const) {
@@ -437,7 +460,7 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
         // Last look for the hard block too: the page may have moved to a venue, or the button
         // may now say something else. The spend request is cancelled below.
         const at = origin() ?? start;
-        if (hardBlock(at, last.url ?? at, last.submitName) !== undefined) refuseTrade();
+        if (hardBlock(at, d.tabUrl(tabId), last.url, last.submitName) !== undefined) refuseTrade();
         submit = last.submit as string;
       } catch (err) {
         await deps.payments.cancel(id).catch(() => undefined);

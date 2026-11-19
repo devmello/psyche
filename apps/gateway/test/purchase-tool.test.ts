@@ -99,6 +99,10 @@ function setup(
     url?: (n: number) => string;
     /** Whether Stripe Link is connected and signed in (absent: always). */
     ready?: () => boolean;
+    /** The tab's live address (default: the snapshot's, else the origin); undefined: unreadable. */
+    liveUrl?: (n: number) => string | undefined;
+    /** No snapshot read since the page loaded. */
+    noPeek?: boolean;
   } = {},
 ) {
   const home = mkdtempSync(join(tmpdir(), "psyche-pay-"));
@@ -148,10 +152,19 @@ function setup(
   };
   const driver = {
     tabOrigin: () => (opts.origin ?? (() => ORIGIN))(),
-    peekSnapshot: () => ({
-      text: `${page()}\n- button "${(opts.button ?? (() => "Pay now"))(0)}" [ref=r4]`,
-      url: opts.url === undefined ? (opts.origin ?? (() => ORIGIN))() : opts.url(0),
-    }),
+    tabUrl: () =>
+      opts.liveUrl !== undefined
+        ? opts.liveUrl(snaps)
+        : opts.url === undefined
+          ? (opts.origin ?? (() => ORIGIN))()
+          : opts.url(snaps),
+    peekSnapshot: () =>
+      opts.noPeek === true
+        ? undefined
+        : {
+            text: `${page()}\n- button "${(opts.button ?? (() => "Pay now"))(0)}" [ref=r4]`,
+            url: opts.url === undefined ? (opts.origin ?? (() => ORIGIN))() : opts.url(0),
+          },
     snapshot: async () => {
       const n = nextSnap();
       return {
@@ -604,12 +617,18 @@ describe("checkout.pay_with_link while Stripe Link is not ready", () => {
 });
 
 describe("checkout.pay_with_link and the hard block on trades and transfers", () => {
-  const decide = async (origin: string, button: string, url?: string) => {
+  const decide = async (
+    origin: string,
+    button: string,
+    url?: string,
+    extra: Parameters<typeof setup>[0] = {},
+  ) => {
     const s = setup({
       origin: () => origin,
       button: () => button,
       page: () => PAGE("$12.00"),
       ...(url === undefined ? {} : { url: () => url }),
+      ...extra,
     });
     const d = s.tool.describeCall?.(s.params);
     const clock = new FakeClock();
@@ -653,6 +672,9 @@ describe("checkout.pay_with_link and the hard block on trades and transfers", ()
     ["https://app.ramp.network", "Buy now"],
     ["https://global.transak.com", "Buy now"],
     ["https://pay.coinbase.com", "Pay now"],
+    ["https://crypto.link.com", "Buy now"],
+    ["https://widget.wert.io", "Pay"],
+    ["https://checkout.bitpay.com", "Pay"],
   ])("on %s (%s) it is refused before any card", async (origin, button) => {
     const d = await decide(origin, button);
     expect(d).toMatchObject({ decision: "deny", rule: "prohibition:financial_transfer" });
@@ -681,6 +703,64 @@ describe("checkout.pay_with_link and the hard block on trades and transfers", ()
     expect(d.decision).toBe("ask");
     expect(d.rule).not.toBe("prohibition:financial_transfer");
     expect(d.scopesOffered).toEqual(["once"]);
+  });
+
+  it("judges the tab's live address, not the last snapshot (#1332 N1)", async () => {
+    const P = "https://www.paypal.com";
+    // No snapshot since the page loaded: the live address is a PayPal.Me page.
+    expect(
+      await decide(P, "Pay", undefined, { noPeek: true, liveUrl: () => `${P}/paypalme/john/12` }),
+    ).toMatchObject({ decision: "deny", rule: "prohibition:financial_transfer" });
+    // A stale snapshot of the checkout, after a route change to PayPal.Me.
+    expect(
+      await decide(P, "Pay", `${P}/checkoutnow`, { liveUrl: () => `${P}/paypalme/john/12` }),
+    ).toMatchObject({ decision: "deny", rule: "prohibition:financial_transfer" });
+    // No readable live address on PayPal: unreadable, refused.
+    expect(
+      await decide(P, "Pay Now", `${P}/checkoutnow`, { liveUrl: () => undefined }),
+    ).toMatchObject({ decision: "deny", rule: "prohibition:financial_transfer" });
+    // A shop with no readable live address is not a venue: the Pay card still asks.
+    expect(
+      (await decide("https://shop.example.com", "Pay now", undefined, { liveUrl: () => undefined }))
+        .decision,
+    ).toBe("ask");
+    // The checkout itself, live and in the snapshot, still asks.
+    expect(
+      (await decide(P, "Pay Now", `${P}/checkoutnow`, { liveUrl: () => `${P}/checkoutnow` }))
+        .decision,
+    ).toBe("ask");
+  });
+
+  it("refuses at run time on PayPal with no readable live address, before any spend", async () => {
+    const s = setup({
+      origin: () => "https://www.paypal.com",
+      url: () => "https://www.paypal.com/checkoutnow",
+      liveUrl: () => undefined,
+    });
+    s.approve();
+    await expect(run(s)).rejects.toMatchObject({
+      code: "policy_denied",
+      details: { rule: "prohibition:financial_transfer" },
+    });
+    expect(s.wallet.created).toBe(0);
+    expect(s.clicked()).toBe(false);
+  });
+
+  it("refuses before the click when the live address moved to PayPal.Me, the snapshot stale", async () => {
+    // Every snapshot still shows the checkout; only the live address shows the route change.
+    const s = setup({
+      origin: () => "https://www.paypal.com",
+      url: () => "https://www.paypal.com/checkoutnow",
+      liveUrl: (n) =>
+        n >= 3 ? "https://www.paypal.com/paypalme/john/12" : "https://www.paypal.com/checkoutnow",
+    });
+    s.approve();
+    await expect(run(s)).rejects.toMatchObject({
+      code: "policy_denied",
+      details: { rule: "prohibition:financial_transfer" },
+    });
+    expect(s.clicked()).toBe(false);
+    expect(s.wallet.cancelled).toBeGreaterThan(0);
   });
 
   it("refuses before the click when the tab moved to a PayPal.Me page, and cancels in Link", async () => {

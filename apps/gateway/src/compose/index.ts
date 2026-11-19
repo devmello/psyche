@@ -190,7 +190,7 @@ import { graphSourceAdapters } from "./people-sources.ts";
 import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { folderAccessEnv, ownWorkdirs, protectedRoots } from "./protected-paths.ts";
-import { createPurchaseTool } from "./purchase-tool.ts";
+import { createPurchaseTool, LINK_PAYMENT_SOURCE } from "./purchase-tool.ts";
 import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import {
@@ -1212,9 +1212,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         else if (!on && unregister !== undefined) {
           unregister();
           unregister = undefined;
-          // A Pay card still open when Link goes away is withdrawn, never left to be approved.
+          // A Stripe Link Pay card still open when Link goes away is withdrawn, never left to be
+          // approved. Other purchase cards (a vault card at a shop, a connector) stay.
           void broker
-            .invalidatePendingOfKind("purchase", "payments_disconnected")
+            .invalidatePendingOfKind(
+              "purchase",
+              "payments_disconnected",
+              (a) => a.details?.paymentSource === LINK_PAYMENT_SOURCE,
+            )
             .catch(() => undefined);
         }
       };

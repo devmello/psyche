@@ -243,6 +243,11 @@ export interface BrowserDriverEx extends BrowserDriver {
   /** Current top-frame origin of a tab (canonical), or undefined before the first navigation. */
   tabOrigin(tabId: string): string | undefined;
   /**
+   * The tab's live top-frame address, path included (a `pushState` route change updates it), or
+   * undefined before the first navigation. The purchase tool judges PayPal.Me by its path.
+   */
+  tabUrl(tabId: string): string | undefined;
+  /**
    * Type a vault secret into `ref` (security §4.6): top-frame origin must equal `origin`, the
    * element must be the approved one, outside cross-origin frames, and the agent in control.
    * The value is never read back.

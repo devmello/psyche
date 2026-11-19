@@ -118,6 +118,24 @@ const HOST_VENUES: Record<VenueKind, readonly string[]> = {
     "guardarian.com",
     "coinmama.com",
     "sendwyre.com",
+    // Stripe's own on-ramp; link.com itself is Link's sign-in and wallet.
+    "crypto.link.com",
+    "wert.io",
+    "alchemypay.org",
+    "sardine.ai",
+    "kado.money",
+    "topperpay.com",
+    "utorg.pro",
+    "switchere.com",
+    "coinify.com",
+    "bitpay.com",
+    "strike.me",
+    "river.com",
+    "swanbitcoin.com",
+    "bitcoin.com",
+    "wirexapp.com",
+    "nexo.com",
+    "swapped.com",
     // Wallet extensions' own pages: `chrome-extension://<id>` has the id as its hostname.
     ...WALLET_EXTENSIONS,
   ],
@@ -318,26 +336,63 @@ export function venueOfHost(input: string | undefined): VenueKind | undefined {
   return undefined;
 }
 
-/** PayPal's person-to-person pages: PayPal.Me and the signed-in send and transfer screens. */
-const PAYPAL_P2P_PATH =
-  /^\/(?:[a-z]{2}(?:[-_][a-z]{2})?\/)?(?:paypalme(?:\/|$)|myaccount\/transfer(?:\/|$)|send)/i;
+/** PayPal's person-to-person segments: PayPal.Me, donations and money pools. */
+const PAYPAL_P2P_SEGMENTS = new Set([
+  "paypalme",
+  "paypal.me",
+  "donate",
+  "pools",
+  "pool",
+  "sendmoney",
+  "pay",
+]);
+
+/**
+ * Whether a PayPal address sends money to a person or out of the account: a `paypalme`,
+ * `donate`, `pools`, `send` or `send-…` segment anywhere in the path (any locale prefix, `/c2/`),
+ * `myaccount` followed by `transfer` or `money`, or the legacy `cmd=_send-money`. The path is
+ * percent-decoded once and repeated slashes are collapsed first.
+ */
+function isPaypalP2pPath(u: URL): boolean {
+  let path = u.pathname;
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    // keep it as it is
+  }
+  const segs = path
+    .toLowerCase()
+    .split("/")
+    .filter((x) => x !== "");
+  for (const [i, seg] of segs.entries()) {
+    if (PAYPAL_P2P_SEGMENTS.has(seg) || seg === "send" || seg.startsWith("send-")) return true;
+    if (seg === "myaccount" && ["transfer", "money"].includes(segs[i + 1] ?? "")) return true;
+  }
+  let query = u.search;
+  try {
+    query = decodeURIComponent(query);
+  } catch {
+    // keep it as it is
+  }
+  return /[?&]cmd=_send-money(?:&|$)/i.test(query);
+}
 
 /**
  * The venue of a page: its host's venue, except that a PayPal page that sends money to a person
- * (`/paypalme/…`, `/myaccount/transfer/…`, `/send…`) is P2P, not a checkout.
+ * or out of the account (`isPaypalP2pPath`) is P2P, not a checkout.
  */
 export function venueOfPage(input: string | undefined): VenueKind | undefined {
   const kind = venueOfHost(input);
   if (kind !== "p2p_mixed" || input === undefined) return kind;
   const host = financialHost(input);
   if (host === undefined || !hostIn(host, ["paypal.com"])) return kind;
-  let path = "";
+  let u: URL;
   try {
-    path = new URL(input.trim()).pathname;
+    u = new URL(input.trim());
   } catch {
     return kind;
   }
-  return PAYPAL_P2P_PATH.test(path) ? "p2p" : kind;
+  return isPaypalP2pPath(u) ? "p2p" : kind;
 }
 
 export function venueOfApp(bundleId: string | undefined): VenueKind | undefined {
@@ -926,32 +981,19 @@ const JOINERS = new Set([
 /** Whether a move or a trade word follows "and", "&" or "then" ("View & transfer", "View and swap"). */
 function joinsAct(plain: string): boolean {
   const words = wordsOf(plain.replace(/&|\+/g, " and "));
+  // No read-noun excuse here ("See buy and sell prices" is refused, an accepted over-block):
+  // every such excuse reopened "View and buy orders now" (#1332 review B2).
   return words.some(
     (w, i) =>
       JOINERS.has(w) &&
       i > 0 &&
-      [i + 1, i + 2].some((j) => {
-        const x = words[j];
-        if (x === undefined) return false;
-        if (!(VENUE_MOVE_WORDS.has(x) || VENUE_TRADE_WORDS.has(x) || ACT_VERBS.has(x)))
-          return false;
-        // "See buy and sell prices": the trade words name what is read.
-        const next = words[j + 1];
-        return !(next !== undefined && (READ_AFTER_TRADE.has(next) || TRADE_NOT_ACTION.has(next)));
-      }),
+      [words[i + 1], words[i + 2]].some(
+        (x) =>
+          x !== undefined &&
+          (VENUE_MOVE_WORDS.has(x) || VENUE_TRADE_WORDS.has(x) || ACT_VERBS.has(x)),
+      ),
   );
 }
-
-/** What a read label reads about a trade: "See buy and sell prices", "View buy and sell orders". */
-const READ_AFTER_TRADE = new Set([
-  "price",
-  "prices",
-  "quote",
-  "quotes",
-  "orders",
-  "rates",
-  "chart",
-]);
 
 /** Trade verbs a read label names as a kind of thing ("View buy orders", "Check sell price"). */
 const TRADE_VERBS_READABLE = new Set(["buy", "sell", "trade", "swap"]);
@@ -987,6 +1029,8 @@ const LISTING_ACTS = new Set([
   "complete",
   "place",
   "initiate",
+  // "Scheduled transfers start Monday" is refused too: an accepted over-block (#1332 review B3).
+  "start",
   "resend",
   "retry",
 ]);
@@ -1649,46 +1693,6 @@ const MONEY_SENT =
 const NOT_AFFECTED =
   /\b(?:[\p{L}\p{N}]+ ){0,4}(?:are not|is not|aren t|isn t|will not be|won t be) affected\b/gu;
 
-/** What a bank sends that is not money: "Your payment receipt will be sent by email". */
-const SENT_PAPERS = new Set([
-  "receipt",
-  "receipts",
-  "confirmation",
-  "confirmations",
-  "notice",
-  "notification",
-  "notifications",
-  "email",
-  "statement",
-  "statements",
-  "reminder",
-  "reminders",
-  "details",
-  "summary",
-  "code",
-]);
-
-/**
- * Money that will be sent, as a dialog says it. A receipt or a confirmation that will be sent is
- * not money, and at a bank a payment sent on a date and to no one ("Your payment will be sent on
- * 11/20") is a bill payment, which stays a payment.
- */
-function moneySent(text: string, kind: VenueKind): boolean {
-  for (const m of text.matchAll(new RegExp(MONEY_SENT.source, "gu"))) {
-    // "Your payment receipt will be sent", "A confirmation of your payment will be sent".
-    const before = text
-      .slice(0, m.index ?? 0)
-      .trim()
-      .split(" ")
-      .slice(-3);
-    if ([...m[0].split(" "), ...before].some((w) => SENT_PAPERS.has(w))) continue;
-    const after = text.slice((m.index ?? 0) + m[0].length);
-    if (kind === "bank" && /^ (?:on|by) /.test(after) && !/\bto\b/.test(after)) continue;
-    return true;
-  }
-  return false;
-}
-
 /** What a leave or discard dialog says will be lost: never itself an act. */
 const LOSS_CLAUSES: readonly RegExp[] = [
   /\b(?:your|the|this|any|all)? ?(?:[\p{L}\p{N}]+ ){0,3}(?:won t|wont|will not|isn t|is not|aren t|are not) (?:be )?(?:saved|kept|sent|submitted|finished)\b/gu,
@@ -1747,7 +1751,9 @@ function dialogSaysAct(text: string, kind: VenueKind): boolean {
   if (words.some((w, i) => PASSIVE_MOVES.has(w) && words[i - 1] !== "already")) return true;
   // "Your funds will be sent to John", "The payment will be sent anyway". "A code will be sent" is
   // sign-in, so only money that is sent counts.
-  if (moneySent(words.join(" "), kind)) return true;
+  // No bill-pay or receipt excuse: "Your payment will be sent on 11/20" is refused, an accepted
+  // over-block. Each excuse reopened money sent to a person (#1332 review B1).
+  if (MONEY_SENT.test(words.join(" "))) return true;
   const cjk = plain.replace(CJK_NOT_ACT, " ");
   if (VENUE_CJK.some((w) => cjk.includes(w))) return true;
   return words.some((w, i) => {

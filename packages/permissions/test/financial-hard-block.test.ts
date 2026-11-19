@@ -545,8 +545,45 @@ const MUST_BLOCK: Row[] = [
     meta: { control: { unreadable: true, pageUrl: "https://www.paypal.com/paypalme/john" } },
   },
   browser("venmo.com", "Leave this page? Send $500, balance is not affected.", { role: "dialog" }),
+  // #1332 review B1–B3: money that will be sent, joined trade words, "start" after a listing
+  browser("secure.chase.com", "Payment details: $500 will be sent to John. Confirm?", {
+    role: "dialog",
+  }),
+  browser("secure.chase.com", "Your receipt: $500 will be sent to John. OK?", { role: "dialog" }),
+  browser("wise.com", "Your money will be sent on Monday. Continue?", { role: "dialog" }),
+  browser("app.mercury.com", "Your payment will be sent by ACH on 11/20. Continue?", {
+    role: "dialog",
+  }),
+  browser("secure.chase.com", "$5,000 will be sent on 11/20 for John. OK?", { role: "dialog" }),
+  browser("robinhood.com", "Preview and sell orders now"),
+  browser("robinhood.com", "View and buy orders"),
+  browser("www.coinbase.com", "See and swap quotes"),
+  browser("secure.chase.com", "View and transfer orders"),
+  browser("app.mercury.com", "Scheduled transfers: start now"),
+  browser("app.mercury.com", "Pending transfers start"),
+  // #1332 review N2, N3
+  browser("www.paypal.com", "Pay $50", {
+    submits: true,
+    pageUrl: "https://www.paypal.com/us/en/myaccount/transfer/send",
+  }),
+  browser("www.paypal.com", "Pay", {
+    submits: true,
+    pageUrl: "https://www.paypal.com//paypalme/john/50",
+  }),
+  browser("crypto.link.com", "Buy now", { submits: true }),
   computer("com.robinhood.macos", "", { unreadable: true }),
   computer("com.google.Chrome", "Buy bitcoin"),
+];
+
+/**
+ * Accepted over-blocks (#1332 review): refused although no money goes to a person. They fail
+ * closed; each exemption tried for them reopened a real send. Do not "fix" them without the owner.
+ */
+const ACCEPTED_OVERBLOCKS: Row[] = [
+  browser("secure.chase.com", "Your payment will be sent on 11/20. Continue?", { role: "dialog" }),
+  browser("www.chase.com", "Your payment receipt will be sent by email. OK?", { role: "dialog" }),
+  browser("robinhood.com", "See buy and sell prices"),
+  browser("app.mercury.com", "Scheduled transfers start Monday"),
 ];
 
 const MUST_NOT_BLOCK: Row[] = [
@@ -809,11 +846,7 @@ const MUST_NOT_BLOCK: Row[] = [
   browser("wise.com", "Continue", { pageUrl: "https://wise.com/gb/send-money/" }),
   browser("secure.chase.com", "Discard this transfer?", { role: "dialog" }),
   browser("www.chase.com", "J", { role: "button" }),
-  // #1321 follow-ups: bank bill pay and receipts, reads and headings
-  browser("secure.chase.com", "Your payment will be sent on 11/20. Continue?", { role: "dialog" }),
-  browser("www.chase.com", "Your payment receipt will be sent by email. OK?", { role: "dialog" }),
-  browser("robinhood.com", "See buy and sell prices"),
-  browser("app.mercury.com", "Scheduled transfers start Monday"),
+  // #1321 follow-ups: PayPal's checkout stays a payment
   browser("www.paypal.com", "Pay Now", {
     submits: true,
     pageUrl: "https://www.paypal.com/checkoutnow?token=EC-1",
@@ -875,6 +908,15 @@ describe("financial hard block: refused on every path", () => {
       );
     }
   }
+});
+
+describe("financial hard block: accepted over-blocks (fail closed)", () => {
+  it.each(ACCEPTED_OVERBLOCKS.map((r) => [r.name, r] as const))("%s", async (_name, r) => {
+    const h = makeBroker({});
+    const c = call(r.tool, r.sideEffect ?? "write", r.target, { meta: r.meta } as never);
+    const d = await h.broker.decide(c, { ...CTX, permissionMode: "auto" });
+    expect(d).toMatchObject({ decision: "deny", rule: "prohibition:financial_transfer" });
+  });
 });
 
 describe("financial hard block: ordinary actions keep their own rule", () => {

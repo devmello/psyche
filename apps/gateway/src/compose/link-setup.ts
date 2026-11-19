@@ -438,6 +438,8 @@ export interface LinkSetupOptions extends PathDeps {
   loginMs?: number;
   /** How long `auth status` is trusted (default 10 s); a test seam. */
   statusTtlMs?: number;
+  /** First wait before asking `auth status` again after a failed start check (default 30 s). */
+  statusRetryMs?: number;
 }
 
 const REASON_TEXT: Record<LinkSetupReason, string> = {
@@ -458,6 +460,9 @@ const REASON_TEXT: Record<LinkSetupReason, string> = {
 
 /** How long `auth status` is trusted: the Settings screen asks often, the CLI is a process. */
 const STATUS_TTL_MS = 10_000;
+/** A failed start check is asked again after 30 s, then twice as long each time, up to 10 min. */
+const STATUS_RETRY_MS = 30_000;
+const STATUS_RETRY_MAX_MS = 10 * 60_000;
 /** A spend that is still being approved or paid; older than this it is a stale record. */
 const OPEN_SPEND_MS = 2 * 60 * 60_000;
 /** A hold stays open until it is captured or released. */
@@ -538,7 +543,8 @@ export class LinkSetup {
   #polling = false;
   #db: PsycheDb;
   #authCache: { at: number; value: boolean } | undefined;
-  #authInflight: Promise<boolean> | undefined;
+  #authInflight: Promise<boolean | undefined> | undefined;
+  #retry: ReturnType<typeof setTimeout> | undefined;
   #gen = 0;
 
   constructor(services: ComposeServices, options: LinkSetupOptions = {}) {
@@ -574,9 +580,24 @@ export class LinkSetup {
     return this.configured() && this.#authCache?.value === true;
   }
 
-  /** Asks `auth status` again (unless the last answer is fresh); the purchase tool follows it. */
-  refresh(): Promise<boolean> {
-    return this.#signedIn();
+  /**
+   * The start check: asks `auth status` once a CLI is saved, so a signed-in Link offers the
+   * purchase tool after a restart. When the CLI gives no answer (offline, slow, unreadable output)
+   * it asks again after 30 s, then twice as long each time up to 10 min, until Link answers or the
+   * CLI is disconnected.
+   */
+  startCheck(): void {
+    let wait = this.#o.statusRetryMs ?? STATUS_RETRY_MS;
+    const attempt = async () => {
+      this.#retry = undefined;
+      if (!this.configured()) return;
+      const answer = await this.#askStatus();
+      if (answer !== undefined || !this.configured()) return;
+      this.#retry = setTimeout(() => void attempt(), wait);
+      this.#retry.unref?.();
+      wait = Math.min(wait * 2, STATUS_RETRY_MAX_MS);
+    };
+    void attempt();
   }
 
   readonly #changeListeners = new Set<() => void>();
@@ -679,6 +700,8 @@ export class LinkSetup {
   /**
    * Whether `auth status` says signed in. One process at a time (a second caller joins it), and
    * the answer is kept for `STATUS_TTL_MS` unless `fresh` (the sign-in poll, the sign-in start).
+   * A run that gives no answer (a timeout, unreadable output) changes nothing: the last answer
+   * stands, so one slow run neither withdraws the purchase tool nor its open Pay cards.
    */
   async #signedIn(opts: { fresh?: boolean } = {}): Promise<boolean> {
     const cached = this.#authCache;
@@ -688,22 +711,30 @@ export class LinkSetup {
       this.#s.clock.now() - cached.at < (this.#o.statusTtlMs ?? STATUS_TTL_MS)
     )
       return cached.value;
+    return (await this.#askStatus()) ?? this.#authCache?.value ?? false;
+  }
+
+  /** One `auth status` run: true or false when Link answered, undefined when it did not. */
+  async #askStatus(): Promise<boolean | undefined> {
     if (this.#authInflight !== undefined) return this.#authInflight;
     const gen = this.#gen;
-    const run = (async (): Promise<boolean> => {
+    const run = (async (): Promise<boolean | undefined> => {
+      // A CLI that may not run (gone, swapped, unsafe) is a definite no.
+      const ok = this.#runnable();
+      if (ok === undefined || "reason" in ok) return false;
       try {
         const doc = unwrapJson(JSON.parse(await this.#exec(["auth", "status"]))) as {
           authenticated?: unknown;
         } | null;
         return doc?.authenticated === true;
       } catch {
-        return false;
+        return undefined;
       }
     })();
     this.#authInflight = run;
     try {
       const value = await run;
-      if (gen === this.#gen) {
+      if (value !== undefined && gen === this.#gen) {
         this.#authCache = { at: this.#s.clock.now(), value };
         this.#readyChanged();
       }
@@ -933,6 +964,8 @@ export class LinkSetup {
 
   stop(): void {
     this.#stopPoll();
+    if (this.#retry !== undefined) clearTimeout(this.#retry);
+    this.#retry = undefined;
     this.#changeListeners.clear();
   }
 }
@@ -961,8 +994,9 @@ export function composeGuidedPayments(
       ready: () => link.ready(),
       onChange: (l: () => void) => link.onConfiguredChange(l),
     };
-    // The purchase tool waits for Link's own answer: ask it once at start when a CLI is saved.
-    if (link.configured()) void link.refresh().catch(() => undefined);
+    // The purchase tool waits for Link's own answer: ask at start when a CLI is saved, and again
+    // with back-off while the CLI gives no answer.
+    link.startCheck();
     const guard = (name: string): Record<string, HandlerDef> => {
       const h = part.handlers?.[name];
       return h === undefined

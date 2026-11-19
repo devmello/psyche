@@ -447,6 +447,7 @@ describe("guided setup in the composed Gateway", () => {
     spends?: [string, string, number, string?][];
     /** Start on an existing `$PSYCHE_HOME` (a restart). */
     home?: string;
+    statusRetryMs?: number;
   }
 
   async function boot(cli: string, extra: BootOptions = {}) {
@@ -504,6 +505,7 @@ describe("guided setup in the composed Gateway", () => {
           detect: { env: { PATH: bin }, home: tmp("psyche-h-") },
           pollMs: extra.pollMs ?? 20,
           ...(extra.statusTtlMs === undefined ? {} : { statusTtlMs: extra.statusTtlMs }),
+          ...(extra.statusRetryMs === undefined ? {} : { statusRetryMs: extra.statusRetryMs }),
           ...(extra.run === undefined ? {} : { run: extra.run }),
         },
       },
@@ -646,25 +648,30 @@ describe("guided setup in the composed Gateway", () => {
     // A reference held from before the disconnect (the loop's tool list for this step) raises no
     // Pay card and pays nothing (#1323 N6).
     const held = tool();
-    // A Pay card still open at disconnect is withdrawn.
-    const issued = await composed.gateway.context.broker.requestApproval({
-      kind: "purchase",
-      summary: "Pay $5 to shop.example",
-      details: {},
-      bindingHash: "c".repeat(64),
-      grantKey: "purchase|https://shop.example",
-      requestedBy: { runId: null, taskId: null, threadId: null },
-      sideEffect: "financial",
-      surfaces: ["desktop"],
-      scopesOffered: ["once"],
-      taint: false,
-    });
+    // A Stripe Link Pay card still open at disconnect is withdrawn; a vault-card checkout card
+    // at a shop has nothing to do with Link and stays (#1332 N4).
+    const card = (hash: string, paymentSource: string) =>
+      composed.gateway.context.broker.requestApproval({
+        kind: "purchase",
+        summary: "Pay $5 to shop.example",
+        details: { paymentSource },
+        bindingHash: hash.repeat(64),
+        grantKey: "purchase|https://shop.example",
+        requestedBy: { runId: null, taskId: null, threadId: null },
+        sideEffect: "financial",
+        surfaces: ["desktop"],
+        scopesOffered: ["once"],
+        taint: false,
+      });
+    const issued = await card("c", "Stripe Link (one-time card)");
+    const other = await card("d", "Saved card");
     await admin.call("payments.link.disconnect", {}, "k-d");
     expect(tool()).toBeUndefined();
     await waitFor(
       async () =>
         (await composed.gateway.context.broker.get(issued.approval.id))?.status === "invalidated",
     );
+    expect((await composed.gateway.context.broker.get(other.approval.id))?.status).toBe("pending");
     expect(() => held?.describeCall?.({ tabId: "t1" })).toThrow(/not connected and signed in/);
     await expect(
       held?.execute(
@@ -722,6 +729,65 @@ describe("guided setup in the composed Gateway", () => {
     const st = await admin.call<LinkSetupStatus>("payments.link.status", {});
     expect(st.problem).toEqual({ path: statRealpath(cli), reason: "writable" });
     expect(st.cli).toBeUndefined();
+  });
+
+  /** A Link CLI whose `auth status` gives no answer (a timeout) while `failing()` says so. */
+  const flaky =
+    (failing: () => boolean, calls: string[] = []): RunLink =>
+    async (file, args, env, timeout) => {
+      const verb = args.filter((a) => !a.startsWith("-") && !a.endsWith(".js")).join(" ");
+      calls.push(verb);
+      if (verb.startsWith("auth status") && failing()) throw new Error("timed out");
+      return runFile(file, args, env, timeout);
+    };
+
+  it("keeps the last answer when `auth status` gives none (#1332 N4)", async () => {
+    const cli = fakeCli();
+    let services: ComposeServices | undefined;
+    let fail = false;
+    let failed = 0;
+    const { home, admin } = await bootAdmin(cli, {
+      onServices: (s) => (services = s),
+      run: flaky(() => fail && ++failed > 0),
+      statusTtlMs: 0,
+    });
+    const tool = () => services?.tools.get("checkout.pay_with_link");
+    const status = () => admin.call<LinkSetupStatus>("payments.link.status", {});
+    await admin.call("payments.link.connect", { path: cli }, "k-c");
+    await admin.call("payments.link.signIn", {}, "k-s");
+    writeFileSync(join(home, "vault", "link-auth.json.approve"), "");
+    await waitFor(async () => tool() !== undefined && (await status()).state === "connected");
+    // The CLI times out: the tool stays, and Settings still says connected.
+    fail = true;
+    expect((await status()).state).toBe("connected");
+    expect(failed).toBeGreaterThan(0);
+    expect(tool()).toBeDefined();
+  });
+
+  it("asks `auth status` again with back-off after a failed start check (#1332 N5)", async () => {
+    const cli = fakeCli();
+    const first = await bootAdmin(cli);
+    await first.admin.call("payments.link.connect", { path: cli }, "k-c");
+    await first.admin.call("payments.link.signIn", {}, "k-s");
+    writeFileSync(join(first.home, "vault", "link-auth.json.approve"), "");
+    await waitFor(
+      async () =>
+        (await first.admin.call<LinkSetupStatus>("payments.link.status", {})).state === "connected",
+    );
+    first.admin.close();
+    await first.stop();
+    // After the restart the first two checks time out; the third answers.
+    let services: ComposeServices | undefined;
+    const calls: string[] = [];
+    let failures = 2;
+    await boot(cli, {
+      home: first.home,
+      onServices: (s) => (services = s),
+      run: flaky(() => failures-- > 0, calls),
+      statusRetryMs: 20,
+    });
+    await waitFor(async () => services?.tools.get("checkout.pay_with_link") !== undefined);
+    expect(calls.filter((c) => c.startsWith("auth status")).length).toBe(3);
   });
 
   describe("how often the CLI is run", () => {
