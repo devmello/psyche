@@ -1659,6 +1659,16 @@ export const ar: Partial<Catalogue> = {
   "settings.mcp.command": "الأمر",
   "settings.mcp.domains": "المواقع التي يمكنه الوصول إليها",
   "settings.mcp.domainsHint": "أسماء مضيفين مفصولة بفواصل. اتركه فارغًا لمنع الشبكة.",
+  "settings.mcp.env.title": "متغيرات البيئة",
+  "settings.mcp.env.hint":
+    "قيم يحتاجها الخادم عند بدء التشغيل. الأسماء التي تبدو سرية (الرمز أو المفتاح أو كلمة المرور) تُحفظ في الخزنة.",
+  "settings.mcp.env.name": "اسم المتغير",
+  "settings.mcp.env.value": "القيمة",
+  "settings.mcp.env.namePlaceholder": "API_BASE_URL",
+  "settings.mcp.env.saved": "تم الحفظ",
+  "settings.mcp.env.add": "إضافة متغير",
+  "settings.mcp.env.badName":
+    "تستخدم الأسماء أحرفًا كبيرة وأرقامًا وشرطات سفلية، وتبدأ بحرف أو شرطة سفلية.",
   "settings.mcp.url": "عنوان URL للخادم",
   "settings.mcp.placeholder.command": "npx -y @modelcontextprotocol/server-everything",
   "settings.mcp.placeholder.domains": "api.example.com",

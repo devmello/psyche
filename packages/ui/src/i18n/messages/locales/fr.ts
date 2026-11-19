@@ -1606,6 +1606,16 @@ export const fr: Partial<Catalogue> = {
   "settings.mcp.domains": "Sites web qu’il peut joindre",
   "settings.mcp.domainsHint":
     "Noms d’hôte séparés par des virgules. Laissez vide pour aucun accès réseau.",
+  "settings.mcp.env.title": "Variables d'environnement",
+  "settings.mcp.env.hint":
+    "Valeurs dont le serveur a besoin au démarrage. Les noms qui ressemblent à des secrets (jeton, clé, mot de passe) sont enregistrés dans votre coffre.",
+  "settings.mcp.env.name": "Nom de la variable",
+  "settings.mcp.env.value": "Valeur",
+  "settings.mcp.env.namePlaceholder": "API_BASE_URL",
+  "settings.mcp.env.saved": "Enregistré",
+  "settings.mcp.env.add": "Ajouter une variable",
+  "settings.mcp.env.badName":
+    "Les noms utilisent des majuscules, des chiffres et des tirets bas, et commencent par une lettre ou un tiret bas.",
   "settings.mcp.url": "URL du serveur",
   "settings.mcp.placeholder.command": "npx -y @modelcontextprotocol/server-everything",
   "settings.mcp.placeholder.domains": "api.example.com",

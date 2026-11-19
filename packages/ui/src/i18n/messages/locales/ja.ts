@@ -1599,6 +1599,16 @@ export const ja: Partial<Catalogue> = {
   "settings.mcp.domains": "接続を許可するWebサイト",
   "settings.mcp.domainsHint":
     "ホスト名をカンマ区切りで入力します。空のままにするとネットワークを使用しません。",
+  "settings.mcp.env.title": "環境変数",
+  "settings.mcp.env.hint":
+    "サーバーの起動時に必要な値です。トークン、キー、パスワードなど秘密らしい名前の値はボールトに保存されます。",
+  "settings.mcp.env.name": "変数名",
+  "settings.mcp.env.value": "値",
+  "settings.mcp.env.namePlaceholder": "API_BASE_URL",
+  "settings.mcp.env.saved": "保存済み",
+  "settings.mcp.env.add": "変数を追加",
+  "settings.mcp.env.badName":
+    "名前は大文字、数字、アンダースコアを使い、英字またはアンダースコアで始めてください。",
   "settings.mcp.url": "サーバのURL",
   "settings.mcp.placeholder.command": "npx -y @modelcontextprotocol/server-everything",
   "settings.mcp.placeholder.domains": "api.example.com",

@@ -10,7 +10,11 @@ Connectors give the agent your accounts and tools: mail, calendar and files thro
 
 ### MCP servers
 
-Add servers with the `mcp.servers` setting, a JSON list. You need a device paired as admin; the CLI pairs as its own device the first time and prints a code to approve.
+Add servers in **Settings → Connectors → Add MCP server**, with no terminal needed. Choose a command (it runs sandboxed) or an HTTPS URL, give it a name, and for a command add any environment variables it needs. **Check server** starts it in the sandbox and lists its tools; nothing is added until you approve the trust card that shows what it can reach. Variables whose names look like secrets (token, key, password) are saved to your vault and are never shown again: the field then says Saved. Paste a server's JSON into the form to fill it in.
+
+Each server in the list shows whether it is connected, not working or paused. Its detail page lists its tools, lets you pause it or remove it (after a confirmation), and replaces its secret values. A server's command, URL or variable names cannot be edited in place yet: remove it and add it again.
+
+You can also add servers with the `mcp.servers` setting, a JSON list. You need a device paired as admin; the CLI pairs as its own device the first time and prints a code to approve.
 
 ```bash
 psyche config set mcp.servers '[{"id":"example","name":"Example","transport":{"kind":"http","url":"https://mcp.example.com/mcp"}}]'
@@ -42,7 +46,7 @@ With neither, stdio servers that are not bundled are refused and only remote ser
 
 ### Google, mail and others
 
-Settings → Connectors and onboarding's Connectors step list Google (Gmail, Calendar, Drive), Microsoft (Outlook, Calendar), Other email (IMAP), Apple Notes, Apple Reminders and MCP server. None of them can be connected from there yet. In onboarding, use **Skip for now**.
+Settings → Connectors and onboarding's Connectors step list Google (Gmail, Calendar, Drive), Microsoft (Outlook, Calendar), Other email (IMAP), Apple Notes and Apple Reminders. None of them can be connected from there yet. In onboarding, use **Skip for now**. MCP servers are the exception: add them above.
 
 You can already prepare a Google Cloud OAuth client for when connecting works; the [Connectors guide](/guides/connectors) has the steps.
 
@@ -81,7 +85,7 @@ There is no shopping connector in the Gateway. The agent compares prices and bui
 - **On Windows**, local mail, calendar and contacts (Outlook Mail, Outlook Calendar, Outlook Tasks and Outlook contacts) work only with classic Outlook. The new Outlook app has no local route; connect the Microsoft, Google or IMAP connector instead. Apple Notes, Messages and the other Apple apps do not exist there.
 - **On Windows, local (stdio) MCP servers cannot run under `srt`**, which has no Windows build. Set `PSYCHE_MCP_LAUNCHER=container` on the Gateway and run Docker or Podman to use them; the [sandbox PC](/using/vm-mode#on-windows-the-sandbox-pc) does not launch MCP servers. Remote (HTTP) servers are unaffected.
 - **Web search is not available.** Brave, Exa, Tavily and SearXNG are implemented, but the Gateway does not configure any of them. The agent opens pages in its browser instead.
-- **There is no screen for MCP servers.** Use `psyche config set mcp.servers`. OAuth sign-in for remote MCP servers has not been confirmed to work end to end.
+- **Custom HTTP headers and a working directory cannot be set from Settings yet.** Use `psyche config set mcp.servers` for those. OAuth sign-in for remote MCP servers has not been confirmed to work end to end.
 - Settings → Permissions has a Connector actions group (Allow, Ask or Deny per action). It stays empty because no connector can be connected, and the values it would save are not read by the Gateway yet.
 - A vault placeholder in a server's environment needs a credential-fill approval, which needs Touch ID or a passkey. Touch ID approvals cannot be approved in the desktop app yet (see [Credentials and payments](/using/credentials-and-payments)).
 - Drafting your own API connector from a description is not built.

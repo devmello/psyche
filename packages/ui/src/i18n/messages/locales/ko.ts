@@ -1602,6 +1602,16 @@ export const ko: Partial<Catalogue> = {
   "settings.mcp.domains": "접근 가능한 웹사이트",
   "settings.mcp.domainsHint":
     "쉼표로 구분한 호스트 이름입니다. 네트워크를 쓰지 않으려면 비워 두십시오.",
+  "settings.mcp.env.title": "환경 변수",
+  "settings.mcp.env.hint":
+    "서버가 시작할 때 필요한 값입니다. 토큰, 키, 비밀번호처럼 비밀로 보이는 이름의 값은 보관함에 저장됩니다.",
+  "settings.mcp.env.name": "변수 이름",
+  "settings.mcp.env.value": "값",
+  "settings.mcp.env.namePlaceholder": "API_BASE_URL",
+  "settings.mcp.env.saved": "저장됨",
+  "settings.mcp.env.add": "변수 추가",
+  "settings.mcp.env.badName":
+    "이름은 대문자, 숫자, 밑줄을 사용하고 문자 또는 밑줄로 시작해야 합니다.",
   "settings.mcp.url": "서버 URL",
   "settings.mcp.placeholder.command": "npx -y @modelcontextprotocol/server-everything",
   "settings.mcp.placeholder.domains": "api.example.com",
