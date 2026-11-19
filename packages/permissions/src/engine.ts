@@ -906,7 +906,7 @@ export class PolicyEngine {
           (ctx.requester === undefined || ctx.requester.role === "owner") &&
           d.trustedSite?.(origin) === true
         ) {
-          state.touched.add(tk);
+          // Never mark the origin touched: a touched origin is allowed later in a tainted turn.
           return done("allow", `${modeRule}:trusted_site`, undefined, { binding });
         }
         if (mode === "auto" && !tainted) {

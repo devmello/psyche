@@ -102,7 +102,7 @@ export const PolicyConfig = Type.Object(
     ),
     /** Sensitive categories: host globs that always ask for reads and pause when unwatched. */
     sensitiveOrigins: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
-    /** Optional sensitive categories, off unless true (Settings → Permissions). */
+    /** Optional sensitive categories, on unless false (Settings → Permissions). */
     sensitiveCategories: Type.Optional(
       Type.Object(
         {
@@ -155,6 +155,8 @@ export const DEFAULT_SENSITIVE_ORIGINS = [
   "*.vanguard.com",
   "*.robinhood.com",
   "*.coinbase.com",
+  "*.gov",
+  "*.gov.uk",
   "*.mychart.com",
   "*.1password.com",
   "*.bitwarden.com",
@@ -169,20 +171,22 @@ export const DEFAULT_SENSITIVE_ORIGINS = [
   "outlook.live.com",
   "outlook.office.com",
   "mail.yahoo.com",
+  "*.icloud.com",
 ];
 
 /**
- * Sensitive categories the owner may turn on (Settings → Permissions); off by default because a
- * public-records or cloud-storage read is a weak threat. A read of such a site asks only while its
- * category is on. Banks, health, email and password managers are not optional.
+ * Sensitive categories the owner may turn off (Settings → Permissions). Both are on by default:
+ * `.gov` holds tax, identity and health accounts and iCloud holds mail, photos and files. A
+ * category set to `false` drops its hosts from the sensitive list; anything else keeps them.
  */
 export const OPTIONAL_SENSITIVE_CATEGORIES = {
   government: ["*.gov", "*.gov.uk"],
   icloud: ["*.icloud.com"],
 } as const;
+export type OptionalSensitiveCategory = keyof typeof OPTIONAL_SENSITIVE_CATEGORIES;
+
 /** The owner's Settings toggles are the settings `permissions.sensitive.<category>` (boolean). */
 export const SENSITIVE_CATEGORY_SETTING_PREFIX = "permissions.sensitive.";
-export type OptionalSensitiveCategory = keyof typeof OPTIONAL_SENSITIVE_CATEGORIES;
 
 export const DEFAULT_POLICY: Required<Pick<PolicyConfig, "defaultMode">> & PolicyConfig = {
   defaultMode: "balanced",
@@ -352,16 +356,20 @@ export function compilePolicy(config: PolicyConfig = DEFAULT_POLICY): CompiledPo
     allow: (parsed.allow ?? []).map(parseRule),
     // A sensitive `*.chase.com` also covers `chase.com` itself (review #9); allow / deny rules keep
     // the strict "*. never covers the bare domain" reading.
-    sensitive: [
-      ...(parsed.sensitiveOrigins ?? DEFAULT_SENSITIVE_ORIGINS),
-      ...(Object.keys(OPTIONAL_SENSITIVE_CATEGORIES) as OptionalSensitiveCategory[]).flatMap((c) =>
-        parsed.sensitiveCategories?.[c] === true ? OPTIONAL_SENSITIVE_CATEGORIES[c] : [],
+    sensitive: (parsed.sensitiveOrigins ?? DEFAULT_SENSITIVE_ORIGINS)
+      .filter(
+        (g) =>
+          !(Object.keys(OPTIONAL_SENSITIVE_CATEGORIES) as OptionalSensitiveCategory[]).some(
+            (c) =>
+              parsed.sensitiveCategories?.[c] === false &&
+              (OPTIONAL_SENSITIVE_CATEGORIES[c] as readonly string[]).includes(g),
+          ),
+      )
+      .flatMap((g) =>
+        g.startsWith("*.")
+          ? [globToRegExp(g, "plain"), globToRegExp(g.slice(2), "plain")]
+          : [globToRegExp(g, "plain")],
       ),
-    ].flatMap((g) =>
-      g.startsWith("*.")
-        ? [globToRegExp(g, "plain"), globToRegExp(g.slice(2), "plain")]
-        : [globToRegExp(g, "plain")],
-    ),
     folders: (parsed.folders ?? [])
       .map((f) => ({ path: canonicalPath(f.path), mode: f.mode }))
       .sort((a, b) => b.path.length - a.path.length),

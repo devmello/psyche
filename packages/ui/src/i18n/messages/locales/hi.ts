@@ -2006,10 +2006,10 @@ export const hi: Partial<Catalogue> = {
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} और इसके सबडोमेन",
   "settings.permissions.sensitive.title": "संवेदनशील साइटें",
   "settings.permissions.sensitive.description":
-    "बैंक, स्वास्थ्य, ईमेल और पासवर्ड मैनेजर पढ़ने से पहले हमेशा पूछते हैं। आप इन श्रेणियों को भी जोड़ सकते हैं।",
+    "बैंक, स्वास्थ्य, ईमेल और पासवर्ड मैनेजर पढ़ने से पहले हमेशा पूछते हैं। सरकारी और iCloud साइटें भी पूछती हैं; बिना पूछे पढ़ने के लिए यहाँ वह श्रेणी बंद करें।",
   "settings.permissions.sensitive.governmentHint":
-    ".gov या .gov.uk पर समाप्त होने वाली साइटें। डिफ़ॉल्ट रूप से बंद।",
-  "settings.permissions.sensitive.icloudHint": "iCloud साइटें। डिफ़ॉल्ट रूप से बंद।",
+    ".gov या .gov.uk पर समाप्त होने वाली साइटें (कर, पहचान और स्वास्थ्य खाते)। डिफ़ॉल्ट रूप से चालू।",
+  "settings.permissions.sensitive.icloudHint": "iCloud साइटें (मेल, फ़ोटो, फ़ाइलें)। डिफ़ॉल्ट रूप से चालू।",
   "settings.permissions.noOrigins": "कोई स्थायी वेबसाइट अनुमति नहीं। नई साइटें पहले पूछती हैं।",
   "settings.permissions.scopeExpires": "{scope}, {date} को समाप्त",
   "settings.permissions.revokeNamed": "{name} निरस्त करें",

@@ -1992,10 +1992,11 @@ export const ja: Partial<Catalogue> = {
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} とそのサブドメイン",
   "settings.permissions.sensitive.title": "機密性の高いサイト",
   "settings.permissions.sensitive.description":
-    "銀行、医療、メール、パスワード管理は、読み取りの前に必ず確認します。これらのカテゴリも追加できます。",
+    "銀行、医療、メール、パスワード管理は、読み取りの前に必ず確認します。政府系サイトとiCloudも確認します。確認なしで読み取りたい場合は、ここでカテゴリをオフにしてください。",
   "settings.permissions.sensitive.governmentHint":
-    ".gov または .gov.uk で終わるサイト。初期設定ではオフです。",
-  "settings.permissions.sensitive.icloudHint": "iCloudのサイト。初期設定ではオフです。",
+    ".gov または .gov.uk で終わるサイト（税金、本人確認、医療のアカウント）。初期設定ではオンです。",
+  "settings.permissions.sensitive.icloudHint":
+    "iCloudのサイト（メール、写真、ファイル）。初期設定ではオンです。",
   "settings.permissions.noOrigins":
     "Webサイトへの継続的な許可はありません。新しいサイトは先に確認されます。",
   "settings.permissions.scopeExpires": "{scope}、{date}に期限切れ",

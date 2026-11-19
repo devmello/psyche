@@ -2014,11 +2014,11 @@ export const it: Partial<Catalogue> = {
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} e i suoi sottodomini",
   "settings.permissions.sensitive.title": "Siti sensibili",
   "settings.permissions.sensitive.description":
-    "Banche, salute, e-mail e gestori di password chiedono sempre prima di una lettura. Puoi aggiungere anche queste categorie.",
+    "Banche, salute, e-mail e gestori di password chiedono sempre prima di una lettura. Chiedono anche i siti governativi e iCloud; disattiva una categoria qui per leggerla senza chiedere.",
   "settings.permissions.sensitive.governmentHint":
-    "Siti che terminano con .gov o .gov.uk. Disattivato per impostazione predefinita.",
+    "Siti che terminano con .gov o .gov.uk (conti fiscali, di identità e sanitari). Attivo per impostazione predefinita.",
   "settings.permissions.sensitive.icloudHint":
-    "Siti iCloud. Disattivato per impostazione predefinita.",
+    "Siti iCloud (posta, foto, file). Attivo per impostazione predefinita.",
   "settings.permissions.noOrigins":
     "Nessuna autorizzazione permanente per siti web. I nuovi siti chiedono prima.",
   "settings.permissions.scopeExpires": "{scope}, scade {date}",

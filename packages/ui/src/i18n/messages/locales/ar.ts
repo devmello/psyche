@@ -2054,10 +2054,11 @@ export const ar: Partial<Catalogue> = {
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} ونطاقاته الفرعية",
   "settings.permissions.sensitive.title": "المواقع الحساسة",
   "settings.permissions.sensitive.description":
-    "تسأل البنوك والصحة والبريد الإلكتروني ومديرو كلمات المرور دائمًا قبل القراءة. يمكنك أيضًا إضافة هذه الفئات.",
+    "تسأل البنوك والصحة والبريد الإلكتروني ومديرو كلمات المرور دائمًا قبل القراءة. وكذلك المواقع الحكومية ومواقع iCloud؛ أوقف فئة هنا لقراءتها دون سؤال.",
   "settings.permissions.sensitive.governmentHint":
-    "المواقع التي تنتهي بـ .gov أو .gov.uk. متوقفة افتراضيًا.",
-  "settings.permissions.sensitive.icloudHint": "مواقع iCloud. متوقفة افتراضيًا.",
+    "المواقع التي تنتهي بـ .gov أو .gov.uk (حسابات الضرائب والهوية والصحة). مفعّلة افتراضيًا.",
+  "settings.permissions.sensitive.icloudHint":
+    "مواقع iCloud (البريد والصور والملفات). مفعّلة افتراضيًا.",
   "settings.permissions.noOrigins": "لا تصاريح دائمة لمواقع ويب. تسأل المواقع الجديدة أولًا.",
   "settings.permissions.scopeExpires": "{scope}، تنتهي {date}",
   "settings.permissions.revokeNamed": "إبطال {name}",

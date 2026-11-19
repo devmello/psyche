@@ -1837,10 +1837,10 @@ export const settings = {
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} and its subdomains",
   "settings.permissions.sensitive.title": "Sensitive sites",
   "settings.permissions.sensitive.description":
-    "Banks, health, email and password managers always ask before a read. You can add these categories too.",
+    "Banks, health, email and password managers always ask before a read. Government and iCloud sites ask too; turn one off here to read it without asking.",
   "settings.permissions.sensitive.governmentHint":
-    "Sites ending in .gov or .gov.uk. Off by default.",
-  "settings.permissions.sensitive.icloudHint": "iCloud sites. Off by default.",
+    "Sites ending in .gov or .gov.uk (tax, identity and health accounts). On by default.",
+  "settings.permissions.sensitive.icloudHint": "iCloud sites (mail, photos, files). On by default.",
   "settings.permissions.noOrigins": "No standing website grants. New sites ask first.",
   "settings.permissions.scopeExpires": "{scope}, expires {date}",
   "settings.permissions.revokeNamed": "Revoke {name}",

@@ -160,23 +160,23 @@ describe("Settings → Permissions: trusted sites", () => {
     expect(screen.getByText(/No trusted sites yet/)).toBeTruthy();
   });
 
-  it("the optional sensitive categories are off by default and toggle their own setting", async () => {
+  it("the optional sensitive categories are on by default and toggle their own setting", async () => {
     const { onChange } = panel([]);
     const gov = screen.getByRole("switch", { name: "Ask before reading government sites" });
     const icloud = screen.getByRole("switch", { name: "Ask before reading iCloud" });
-    expect(gov.getAttribute("aria-checked")).toBe("false");
-    expect(icloud.getAttribute("aria-checked")).toBe("false");
+    expect(gov.getAttribute("aria-checked")).toBe("true");
+    expect(icloud.getAttribute("aria-checked")).toBe("true");
     await userEvent.click(gov);
-    expect(onChange).toHaveBeenCalledWith("permissions.sensitive.government", true);
+    expect(onChange).toHaveBeenCalledWith("permissions.sensitive.government", false);
     expect(onChange).not.toHaveBeenCalledWith("permissions.sensitive.icloud", expect.anything());
   });
 
-  it("shows a category on when its setting is true (control for the default)", () => {
-    panel([], vi.fn(), vi.fn(), { "permissions.sensitive.icloud": true });
+  it("shows a category off when its setting is false (control for the default)", () => {
+    panel([], vi.fn(), vi.fn(), { "permissions.sensitive.icloud": false });
     expect(
       screen
         .getByRole("switch", { name: "Ask before reading iCloud" })
         .getAttribute("aria-checked"),
-    ).toBe("true");
+    ).toBe("false");
   });
 });

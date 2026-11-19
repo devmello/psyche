@@ -2062,10 +2062,11 @@ export const de: Partial<Catalogue> = {
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} und ihre Subdomains",
   "settings.permissions.sensitive.title": "Sensible Websites",
   "settings.permissions.sensitive.description":
-    "Banken, Gesundheit, E-Mail und Passwortmanager fragen vor dem Lesen immer. Du kannst diese Kategorien ebenfalls hinzufügen.",
+    "Banken, Gesundheit, E-Mail und Passwortmanager fragen vor dem Lesen immer. Auch Behörden- und iCloud-Websites fragen; schalte eine Kategorie hier aus, um sie ohne Nachfrage zu lesen.",
   "settings.permissions.sensitive.governmentHint":
-    "Websites mit .gov oder .gov.uk. Standardmäßig aus.",
-  "settings.permissions.sensitive.icloudHint": "iCloud-Websites. Standardmäßig aus.",
+    "Websites mit .gov oder .gov.uk (Steuer-, Identitäts- und Gesundheitskonten). Standardmäßig an.",
+  "settings.permissions.sensitive.icloudHint":
+    "iCloud-Websites (Mail, Fotos, Dateien). Standardmäßig an.",
   "settings.permissions.noOrigins":
     "Keine dauerhaften Website-Freigaben. Neue Websites fragen zuerst.",
   "settings.permissions.scopeExpires": "{scope}, läuft ab {date}",

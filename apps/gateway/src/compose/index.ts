@@ -2229,13 +2229,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       if (entry.key === WEB_SEARCH_PROVIDER_SETTING || entry.key === WEB_SEARCH_SEARXNG_SETTING)
         webTools.refresh();
       // The optional sensitive categories (Settings → Permissions) apply to the next call.
+      // Only this layer changes: connector matrices, lifted floors and Computer use tiers stay.
       if (entry.key.startsWith(SENSITIVE_CATEGORY_SETTING_PREFIX)) {
-        rawBroker.setPolicy(
-          hostPolicy(
-            validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger),
-            db,
-          ),
-        );
+        rawBroker.setPolicy({
+          ...rawBroker.policy,
+          sensitiveCategories: sensitiveCategoriesFrom(db),
+        });
         continue;
       }
       if (entry.key !== "permissions.policy") continue;
@@ -2443,17 +2442,25 @@ export { createLogger, surfaceOf };
  * (`/workspace`, the sandbox's) would grant read-write on a host `/workspace` to the host file
  * tools, so here no workspace root exists unless the owner names one (#287).
  */
+/**
+ * The owner's Settings switches for the sensitive categories (`permissions.sensitive.*`): both on
+ * unless the owner turned one off, so an install that never touched them keeps both.
+ */
+function sensitiveCategoriesFrom(db: PsycheDb): { government: boolean; icloud: boolean } {
+  const on = (k: string) =>
+    getSetting(db, `${SENSITIVE_CATEGORY_SETTING_PREFIX}${k}`)?.value !== false;
+  return { government: on("government"), icloud: on("icloud") };
+}
+
 function hostPolicy(p: PolicyConfig | undefined, db: PsycheDb): PolicyConfig {
   // Lifted floors come only from Settings' confirmed opt-in (`permissions.liftedFloors.<id>`,
   // connector-matrix.ts), never from a stored or imported policy (security §3.12).
   const { liftedFloors: _imported, sensitiveCategories: _stored, ...rest } = p ?? {};
-  // The optional sensitive categories are the owner's Settings toggles (`permissions.sensitive.*`,
-  // off unless true), not part of an imported policy.
-  const sensitiveCategories = {
-    government: getSetting(db, `${SENSITIVE_CATEGORY_SETTING_PREFIX}government`)?.value === true,
-    icloud: getSetting(db, `${SENSITIVE_CATEGORY_SETTING_PREFIX}icloud`)?.value === true,
+  return {
+    ...rest,
+    sensitiveCategories: sensitiveCategoriesFrom(db),
+    workspaceRoots: p?.workspaceRoots ?? [],
   };
-  return { ...rest, sensitiveCategories, workspaceRoots: p?.workspaceRoots ?? [] };
 }
 
 /**

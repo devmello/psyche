@@ -1986,10 +1986,11 @@ export const ko: Partial<Catalogue> = {
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} 및 하위 도메인",
   "settings.permissions.sensitive.title": "민감한 사이트",
   "settings.permissions.sensitive.description":
-    "은행, 건강, 이메일, 비밀번호 관리자는 읽기 전에 항상 묻습니다. 이 범주도 추가할 수 있습니다.",
+    "은행, 건강, 이메일, 비밀번호 관리자는 읽기 전에 항상 묻습니다. 정부 사이트와 iCloud도 묻습니다. 묻지 않고 읽으려면 여기서 해당 범주를 끄세요.",
   "settings.permissions.sensitive.governmentHint":
-    ".gov 또는 .gov.uk로 끝나는 사이트. 기본값은 꺼짐입니다.",
-  "settings.permissions.sensitive.icloudHint": "iCloud 사이트. 기본값은 꺼짐입니다.",
+    ".gov 또는 .gov.uk로 끝나는 사이트(세금, 신원, 건강 계정). 기본값은 켜짐입니다.",
+  "settings.permissions.sensitive.icloudHint":
+    "iCloud 사이트(메일, 사진, 파일). 기본값은 켜짐입니다.",
   "settings.permissions.noOrigins": "상시 허용된 웹사이트가 없습니다. 새 사이트는 먼저 묻습니다.",
   "settings.permissions.scopeExpires": "{scope}, {date} 만료",
   "settings.permissions.revokeNamed": "{name} 철회",

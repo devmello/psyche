@@ -31,6 +31,7 @@ import {
   type Surface,
   type ToolCallIntent,
 } from "@psyche/protocol";
+import { venueOfHost } from "@psyche/protocol/financial-block";
 import { monotonicFactory } from "ulid";
 import { type Binding, bindingFor, bindingHash, grantKeyHash } from "./binding.ts";
 import { cardHeader, sanitizeDetails, sanitizeDisplay } from "./cards.ts";
@@ -87,6 +88,7 @@ import {
   type StoredGrant,
 } from "./store.ts";
 import {
+  isSharedTenantHost,
   normalizeTrustedSite,
   type TrustedSite,
   TrustedSiteError,
@@ -628,6 +630,9 @@ export class PsychePermissionBroker implements PermissionBroker {
     try {
       const host = new URL(origin).hostname;
       if (isSensitiveHost(this.#policy, host)) return undefined;
+      // A brokerage, exchange or bank is never a quiet read, and a shared-tenant host would
+      // trust every tenant's pages at once.
+      if (venueOfHost(host) !== undefined || isSharedTenantHost(host)) return undefined;
       normalizeTrustedSite(origin);
       let subdomains = true;
       try {

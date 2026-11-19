@@ -1,3 +1,4 @@
+import { getPublicSuffix } from "tldts";
 import { canonicalUrl, isLoopbackName } from "./targets.ts";
 
 /**
@@ -37,67 +38,48 @@ export class TrustedSiteError extends Error {
   }
 }
 
-/** Generic second levels under which unrelated parties register names (`co.uk`, `com.au`). */
-const SECOND_LEVEL = new Set([
-  "co",
-  "com",
-  "org",
-  "net",
-  "gov",
-  "edu",
-  "ac",
-  "or",
-  "ne",
-  "go",
-  "mil",
+/** Multi-tenant platforms the list does not carry as suffixes (checked on top of it). */
+const EXTRA_SUFFIXES = new Set([
+  "run.app",
+  "deno.dev",
+  "up.railway.app",
+  "replit.app",
+  "gitbook.io",
+  "translate.goog",
+  "dweb.link",
 ]);
 
-/** Hosting and platform suffixes where each subdomain belongs to a different party. */
-const PRIVATE_SUFFIXES = new Set([
-  "github.io",
-  "githubusercontent.com",
-  "gitlab.io",
-  "herokuapp.com",
-  "vercel.app",
-  "netlify.app",
-  "pages.dev",
-  "workers.dev",
-  "web.app",
-  "firebaseapp.com",
-  "appspot.com",
-  "blogspot.com",
-  "wordpress.com",
-  "tumblr.com",
-  "substack.com",
-  "notion.site",
-  "amazonaws.com",
-  "cloudfront.net",
-  "azurewebsites.net",
-  "onrender.com",
-  "fly.dev",
-  "ngrok.io",
-  "ngrok-free.app",
-  "repl.co",
-  "glitch.me",
-  "myshopify.com",
-  "wixsite.com",
-  "weebly.com",
-  "webflow.io",
-  "surge.sh",
-  "duckdns.org",
-  "no-ip.org",
-  "dyndns.org",
-]);
-
-/** True for a host that is a suffix many parties register under (a conservative built-in list). */
+/**
+ * True for a host that is itself a public suffix, in the ICANN or the private section of the list
+ * (`co.uk`, `github.io`, `s3.amazonaws.com`, `run.app`, `kyoto.jp`), or whose suffix cannot be
+ * determined. Fails closed: a lookup that throws or returns nothing counts as a suffix.
+ */
 export function isPublicSuffixLike(host: string): boolean {
-  const labels = host.split(".");
-  if (labels.length === 1) return true;
-  if (PRIVATE_SUFFIXES.has(host)) return true;
-  const last = labels[labels.length - 1] ?? "";
-  const prev = labels[labels.length - 2] ?? "";
-  // `co.uk`, `com.au`, `gov.uk`: a two-letter country code under a generic second level.
-  return labels.length === 2 && last.length === 2 && SECOND_LEVEL.has(prev);
+  if (!host.includes(".")) return true;
+  try {
+    const suffix = getPublicSuffix(host, { allowPrivateDomains: true });
+    return suffix === null || suffix === undefined || suffix === host || EXTRA_SUFFIXES.has(host);
+  } catch {
+    return true;
+  }
+}
+
+/** Hosts whose tenants share one origin and differ by path: trust there covers every tenant. */
+const SHARED_PATH_HOSTS = new Set([
+  "storage.googleapis.com",
+  "raw.githubusercontent.com",
+  "gist.githubusercontent.com",
+  "docs.google.com",
+  "drive.google.com",
+  "sites.google.com",
+]);
+
+/** Path-style S3 endpoints (`s3.amazonaws.com`, `s3.us-east-1.amazonaws.com`, `s3-eu-west-1...`). */
+const S3_PATH_STYLE = /^s3[.-]([a-z0-9-]+\.)*amazonaws\.com(\.cn)?$/;
+
+/** No trust offer at all on these: exact-origin trust would already cover every tenant. */
+export function isSharedTenantHost(host: string): boolean {
+  return SHARED_PATH_HOSTS.has(host) || S3_PATH_STYLE.test(host);
 }
 
 function isIpLiteral(host: string): boolean {
@@ -126,7 +108,7 @@ export function normalizeTrustedSite(input: string, subdomains = false): Trusted
   }
   if (!u.host.includes("."))
     throw new TrustedSiteError("single_label", "a bare host name is not a site");
-  if (isPublicSuffixLike(u.host)) {
+  if (isPublicSuffixLike(u.host) || isSharedTenantHost(u.host)) {
     throw new TrustedSiteError("public_suffix", "a shared suffix cannot be trusted");
   }
   return { origin: u.origin, subdomains };

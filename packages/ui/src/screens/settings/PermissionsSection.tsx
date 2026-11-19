@@ -326,14 +326,14 @@ export function PermissionsPanel({
           <SwitchField
             label={t("settings.key.permissions.sensitive.government")}
             description={t("settings.permissions.sensitive.governmentHint")}
-            checked={bool(values, "permissions.sensitive.government", false)}
+            checked={bool(values, "permissions.sensitive.government", true)}
             settingKey="permissions.sensitive.government"
             onChange={(on) => onChange("permissions.sensitive.government", on)}
           />
           <SwitchField
             label={t("settings.key.permissions.sensitive.icloud")}
             description={t("settings.permissions.sensitive.icloudHint")}
-            checked={bool(values, "permissions.sensitive.icloud", false)}
+            checked={bool(values, "permissions.sensitive.icloud", true)}
             settingKey="permissions.sensitive.icloud"
             onChange={(on) => onChange("permissions.sensitive.icloud", on)}
           />

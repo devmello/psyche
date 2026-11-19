@@ -31,7 +31,7 @@ Each thread has a permission mode. Balanced is the default.
 | Balanced | The first read of each new source asks, unless you made it a trusted site; sensitive sites always ask | Standing grants apply; otherwise ask | Ask, once or for this task | Ask, once only, on your device |
 | Auto | New ordinary sites are read without asking, unless the turn is tainted or the site is sensitive | Inside your grants, a rules classifier decides: routine runs, sensitive asks, prohibited is denied | Ask, once or for this task | Ask, once only, on your device |
 
-A "new source" is a site, connector account, folder, app or MCP server the task has not touched yet. "Sensitive sites" is a built-in, editable list of banking, brokerage, health, password-manager, sign-in and webmail hosts. Government (`.gov`, `.gov.uk`) and iCloud sites are optional categories, off by default; turn them on in Settings → Permissions → Sensitive sites.
+A "new source" is a site, connector account, folder, app or MCP server the task has not touched yet. "Sensitive sites" is a built-in, editable list of banking, brokerage, health, password-manager, sign-in and webmail hosts. Government (`.gov`, `.gov.uk`) and iCloud sites are on that list by default, because they hold tax, identity, health and mail accounts. You can turn either category off in Settings → Permissions → Sensitive sites.
 
 Change a thread's mode from the Manual / Balanced / Auto switch above the message box, or from the mode menu in the chat header. Choosing a mode applies at once, with no Touch ID or password, and, from the main chat, is remembered as the default for new chats (a new chat starts in Auto only if its model is on the list). Auto mode is offered only when the thread uses a model on the auto-mode allowlist; the Gateway refuses `auto` otherwise and drops an `auto` thread to Balanced if you switch to a model that is not on the list. Local models are not on the list by default.
 
@@ -94,7 +94,7 @@ Settings → Permissions → Grants ledger, with one "site" grant for a travel s
 
 On the card for the first read of a site in Balanced mode, **Always for this site** adds that site to Settings → Permissions → Trusted sites. From then on, reads of that site (opening a page, taking a snapshot, reading page text, a GET fetch) don't ask, in any chat. You can also choose **this site and its subdomains**.
 
-A trusted site is exact: the scheme, host and port must all match, so `http://` or another port, a subdomain (unless you chose subdomains), the parent domain and look-alike or punycode names all still ask. Names are compared in lowercase punycode with a trailing dot removed. IP addresses, `localhost`, bare host names and shared suffixes such as `co.uk` or `github.io` can't be trusted, and a subdomain choice never covers a shared suffix.
+A trusted site is exact: the scheme, host and port must all match, so `http://` or another port, a subdomain (unless you chose subdomains), the parent domain and look-alike or punycode names all still ask. Names are compared in lowercase punycode with a trailing dot removed. IP addresses, `localhost`, bare host names, brokerage and bank hosts, hosts shared by many tenants (`s3.amazonaws.com`, `storage.googleapis.com`) and public suffixes from the Public Suffix List, including its private section (`co.uk`, `github.io`, `run.app`), can't be trusted, so a subdomain choice never covers one.
 
 A trusted site still asks when:
 

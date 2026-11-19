@@ -1988,9 +1988,10 @@ export const zh: Partial<Catalogue> = {
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} 及其子域名",
   "settings.permissions.sensitive.title": "敏感网站",
   "settings.permissions.sensitive.description":
-    "银行、健康、电子邮件和密码管理器在读取前始终会询问。你也可以加入这些类别。",
-  "settings.permissions.sensitive.governmentHint": "以 .gov 或 .gov.uk 结尾的网站。默认关闭。",
-  "settings.permissions.sensitive.icloudHint": "iCloud 网站。默认关闭。",
+    "银行、健康、电子邮件和密码管理器在读取前始终会询问。政府网站和 iCloud 也会询问；想不经询问直接读取，请在此关闭对应类别。",
+  "settings.permissions.sensitive.governmentHint":
+    "以 .gov 或 .gov.uk 结尾的网站（税务、身份和健康账户）。默认开启。",
+  "settings.permissions.sensitive.icloudHint": "iCloud 网站（邮件、照片、文件）。默认开启。",
   "settings.permissions.noOrigins": "没有长期的网站授权。新网站会先询问。",
   "settings.permissions.scopeExpires": "{scope}，{date}过期",
   "settings.permissions.revokeNamed": "撤销 {name}",

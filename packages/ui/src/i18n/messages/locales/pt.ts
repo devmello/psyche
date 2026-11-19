@@ -1970,10 +1970,11 @@ export const pt: Partial<Catalogue> = {
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} e seus subdomínios",
   "settings.permissions.sensitive.title": "Sites sensíveis",
   "settings.permissions.sensitive.description":
-    "Bancos, saúde, e-mail e gerenciadores de senhas sempre perguntam antes de uma leitura. Você também pode adicionar estas categorias.",
+    "Bancos, saúde, e-mail e gerenciadores de senhas sempre perguntam antes de uma leitura. Sites do governo e do iCloud também; desative uma categoria aqui para lê-la sem perguntar.",
   "settings.permissions.sensitive.governmentHint":
-    "Sites que terminam em .gov ou .gov.uk. Desativado por padrão.",
-  "settings.permissions.sensitive.icloudHint": "Sites do iCloud. Desativado por padrão.",
+    "Sites que terminam em .gov ou .gov.uk (contas de impostos, identidade e saúde). Ativado por padrão.",
+  "settings.permissions.sensitive.icloudHint":
+    "Sites do iCloud (e-mail, fotos, arquivos). Ativado por padrão.",
   "settings.permissions.noOrigins":
     "Nenhuma concessão permanente de site. Sites novos perguntam antes.",
   "settings.permissions.scopeExpires": "{scope}, expira {date}",
