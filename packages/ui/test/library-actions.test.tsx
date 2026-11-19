@@ -4,7 +4,11 @@ import { userEvent } from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { IDS } from "../src/fixtures/index.ts";
-import { itemActions, LibraryScreen } from "../src/screens/library/LibraryScreen.tsx";
+import {
+  itemActions,
+  type LibraryItemActions,
+  LibraryScreen,
+} from "../src/screens/library/LibraryScreen.tsx";
 import type { UiSlots } from "../src/slots.tsx";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
 
@@ -92,7 +96,8 @@ describe("which actions an item is offered", () => {
     onReveal: () => {},
     onSendToChat: () => {},
   };
-  const ids = (item: LibraryItem, actions = all) => itemActions(item, actions).map((e) => e.id);
+  const ids = (item: LibraryItem, actions: LibraryItemActions = all) =>
+    itemActions(item, actions).map((e) => e.id);
 
   it("does not offer Send to chat for audio, video or system files the chat cannot read", () => {
     expect(ids({ ...base, kind: "audio", name: "memo.m4a", mime: "audio/mp4" })).not.toContain(
