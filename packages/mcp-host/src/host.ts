@@ -65,6 +65,12 @@ export interface PsycheMcpServerConfig extends McpServerConfig {
   handlesMoney?: boolean;
   /** The server's own names of tools the owner withholds from the agent (`registerMcpServerTools`'s `offer`). */
   disabledTools?: string[];
+  /**
+   * `true`: a stdio server that is never stopped for being idle (it pushes notifications or
+   * subscriptions, or holds state that is costly to rebuild). Default: it stops after
+   * `idleStopMs` without a call and starts again on the next one.
+   */
+  keepAlive?: boolean;
 }
 
 /** An MRTR (2026-07-28) or legacy elicitation request, surfaced to the owner. */
@@ -121,6 +127,17 @@ export interface McpHostOptions {
   /** Handles elicitation (form / URL). Without it the host declares no elicitation capability. */
   inputRequester?: InputRequester;
   requestTimeoutMs?: number;
+  /**
+   * Stop a stdio server that has had no call for this long (default 10 minutes; `0` turns it off)
+   * to give its memory back. Its approved tool list stays pinned; the next call starts it again
+   * and re-lists, and a listing that differs revokes exactly as a live change does.
+   */
+  idleStopMs?: number;
+  /**
+   * Restart policy after a crash or a failed restart: the wait doubles from `baseMs` up to
+   * `maxMs`; after `maxAttempts` in a row the host gives up until `connect()` is called.
+   */
+  restart?: { baseMs?: number; maxMs?: number; maxAttempts?: number };
   /** Serialized size cap of one tool result returned to the agent. Default 256 KiB. */
   maxResultBytes?: number;
   fetch?: FetchLike;
@@ -166,12 +183,29 @@ interface ServerState {
   /** Bumped by every listing request and list_changed pin; only the latest listing is pinned. */
   listSeq: number;
   removed?: true;
+  /** Calls (and listings) running now: a server is never idle-stopped under one. */
+  inFlight: number;
+  idleTimer?: ReturnType<typeof setTimeout>;
+  /** The stdio process is down (idle stop or crash) and the next call may start it again. */
+  restartable: boolean;
+  /** Single-flight restart. */
+  waking?: Promise<void>;
+  /** Consecutive failed restarts and connections that died soon after starting. */
+  restartFailures: number;
+  nextRestartAt: number;
+  connectedAt: number;
 }
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_INPUT_ROUNDS = 4;
 const DEFAULT_MAX_RESULT_BYTES = 256 * 1024;
 const STDERR_TAIL = 8 * 1024;
+const DEFAULT_IDLE_STOP_MS = 10 * 60_000;
+const DEFAULT_RESTART_BASE_MS = 1_000;
+const DEFAULT_RESTART_MAX_MS = 60_000;
+const DEFAULT_RESTART_ATTEMPTS = 5;
+/** A connection that dies sooner than this after starting counts as a crash-loop step. */
+const HEALTHY_RUN_MS = 30_000;
 
 /**
  * MCP host (architecture §4.9, security §11) on TypeScript SDK v2. Each server gets one `Client`
@@ -242,6 +276,11 @@ export class PsycheMcpHost implements McpHost {
       stderr: "",
       generation: 0,
       listSeq: 0,
+      inFlight: 0,
+      restartable: false,
+      restartFailures: 0,
+      nextRestartAt: 0,
+      connectedAt: 0,
     };
     this.#servers.set(cfg.id, state);
     await this.connect(cfg.id);
@@ -251,6 +290,16 @@ export class PsycheMcpHost implements McpHost {
   /** (Re)connect a configured server. Failures leave it in `error` with a message. */
   async connect(serverId: string, signal?: AbortSignal): Promise<McpServerInfo> {
     const s = this.#get(serverId);
+    // An explicit reconnect clears the crash-loop state.
+    s.restartFailures = 0;
+    s.nextRestartAt = 0;
+    return this.#connect(s, signal);
+  }
+
+  async #connect(s: ServerState, signal?: AbortSignal): Promise<McpServerInfo> {
+    const serverId = s.config.id;
+    this.#clearIdle(s);
+    s.restartable = false;
     s.generation += 1;
     const generation = s.generation;
     await this.#disconnect(s);
@@ -267,6 +316,13 @@ export class PsycheMcpHost implements McpHost {
       client.onclose = () => {
         if (s.client !== client) return;
         delete s.client;
+        this.#clearIdle(s);
+        if (s.config.transport.kind === "stdio" && s.removed !== true) {
+          // The process died on its own: the next call may start it again, within the bounds.
+          if (Date.now() - s.connectedAt >= HEALTHY_RUN_MS) s.restartFailures = 0;
+          else s.restartFailures += 1;
+          this.#armRestart(s);
+        }
         s.status = "disconnected";
         this.#emit({ type: "status", serverId, status: "disconnected" });
       };
@@ -275,9 +331,11 @@ export class PsycheMcpHost implements McpHost {
       const version = client.getNegotiatedProtocolVersion();
       if (version !== undefined) s.protocolVersion = version;
       s.status = "connected";
+      s.connectedAt = Date.now();
       delete s.error;
       this.#emit({ type: "status", serverId, status: "connected" });
       await this.#refresh(s, signal);
+      this.#touch(s);
     } catch (err) {
       if (s.generation !== generation) return this.#info(s);
       await this.#disconnect(s);
@@ -294,6 +352,7 @@ export class PsycheMcpHost implements McpHost {
     this.#servers.delete(serverId);
     s.removed = true;
     s.generation += 1;
+    this.#clearIdle(s);
     await this.#disconnect(s);
     if (s.config.transport.kind === "http") {
       await this.#options.oauth?.tokenStore.clear(tokenKey(s.config.id, s.config.transport.url));
@@ -308,14 +367,15 @@ export class PsycheMcpHost implements McpHost {
 
   /** Fetches `tools/list` from the server (never a cache) and pins it. */
   async listTools(serverId: string): Promise<McpToolList> {
-    const s = this.#connected(serverId);
-    await this.#refresh(s);
+    const s = await this.#ready(serverId);
+    await this.#track(s, () => this.#refresh(s));
     return { tools: this.#specs(s), toolsListHash: s.hash as Sha256 };
   }
 
-  /** The pinned listing as ToolSpecs, without a round trip. */
+  /** The pinned listing as ToolSpecs, without a round trip (also while the server is stopped). */
   pinnedTools(serverId: string): McpToolList {
-    const s = this.#connected(serverId);
+    const s = this.#get(serverId);
+    if (s.hash === undefined || !(s.restartable || this.#isUp(s))) this.#connected(serverId);
     return { tools: this.#specs(s), toolsListHash: s.hash as Sha256 };
   }
 
@@ -326,7 +386,7 @@ export class PsycheMcpHost implements McpHost {
     options: McpCallOptions,
   ): Promise<McpToolResult> {
     if (options.signal?.aborted === true) throw new PsycheError("cancelled", "call aborted");
-    const s = this.#connected(serverId);
+    const s = await this.#ready(serverId);
     if (options.toolsListHash !== s.hash) {
       throw new PsycheError("conflict", "tools/list changed since approval (rug pull defense)", {
         details: { expected: options.toolsListHash, current: s.hash },
@@ -339,6 +399,7 @@ export class PsycheMcpHost implements McpHost {
       throw new PsycheError("invalid_params", "MCP tool arguments must be an object");
     }
     const provenance = provenanceFor(s.config.trust);
+    s.inFlight += 1;
     try {
       const result = await (s.client as Client).callTool(
         { name: tool, arguments: (args ?? {}) as Record<string, unknown> },
@@ -389,6 +450,9 @@ export class PsycheMcpHost implements McpHost {
         this.#emit({ type: "status", serverId, status: "error", error: s.error });
       }
       throw toPsycheError(err);
+    } finally {
+      s.inFlight -= 1;
+      this.#touch(s);
     }
   }
 
@@ -412,10 +476,11 @@ export class PsycheMcpHost implements McpHost {
     uri: string,
     signal?: AbortSignal,
   ): Promise<McpAppResource> {
-    const s = this.#connected(serverId);
+    const s = await this.#ready(serverId);
     if (!uri.startsWith("ui://") || !s.tools.some((t) => appResourceUri(t) === uri)) {
       throw new PsycheError("forbidden", "not a ui:// resource declared by this server's tools");
     }
+    s.inFlight += 1;
     try {
       const res = await (s.client as Client).readResource(
         { uri },
@@ -444,10 +509,14 @@ export class PsycheMcpHost implements McpHost {
       };
     } catch (err) {
       throw toPsycheError(err);
+    } finally {
+      s.inFlight -= 1;
+      this.#touch(s);
     }
   }
 
   async close(): Promise<void> {
+    for (const s of this.#servers.values()) this.#clearIdle(s);
     await Promise.all([...this.#servers.values()].map((s) => this.#disconnect(s)));
   }
 
@@ -781,6 +850,111 @@ export class PsycheMcpHost implements McpHost {
       s.status = "disconnected";
       this.#emit({ type: "status", serverId: s.config.id, status: "disconnected" });
     }
+  }
+
+  #isUp(s: ServerState): boolean {
+    return s.status === "connected" && s.client !== undefined && s.hash !== undefined;
+  }
+
+  /** Runs `fn` as activity: the server is not idle-stopped while it runs. */
+  async #track<T>(s: ServerState, fn: () => Promise<T>): Promise<T> {
+    s.inFlight += 1;
+    try {
+      return await fn();
+    } finally {
+      s.inFlight -= 1;
+      this.#touch(s);
+    }
+  }
+
+  #clearIdle(s: ServerState): void {
+    if (s.idleTimer !== undefined) clearTimeout(s.idleTimer);
+    delete s.idleTimer;
+  }
+
+  /** Re-arms the idle timer after activity. Only a connected stdio server without `keepAlive` has one. */
+  #touch(s: ServerState): void {
+    this.#clearIdle(s);
+    const ms = this.#options.idleStopMs ?? DEFAULT_IDLE_STOP_MS;
+    if (ms <= 0 || s.removed === true || s.config.keepAlive === true) return;
+    if (s.config.transport.kind !== "stdio" || !this.#isUp(s)) return;
+    const timer = setTimeout(() => {
+      delete s.idleTimer;
+      void this.#idleStop(s);
+    }, ms);
+    timer.unref?.();
+    s.idleTimer = timer;
+  }
+
+  async #idleStop(s: ServerState): Promise<void> {
+    if (s.removed === true || !this.#isUp(s)) return;
+    // Never under a running call: look again once it has finished.
+    if (s.inFlight > 0 || s.waking !== undefined) {
+      this.#touch(s);
+      return;
+    }
+    // The pinned listing and hash stay; only the process goes.
+    s.restartable = true;
+    s.restartFailures = 0;
+    s.nextRestartAt = 0;
+    s.generation += 1;
+    await this.#disconnect(s);
+  }
+
+  /** After a crash or a failed restart: allow another start after a backoff, or give up. */
+  #armRestart(s: ServerState): void {
+    const max = this.#options.restart?.maxAttempts ?? DEFAULT_RESTART_ATTEMPTS;
+    if (s.restartFailures >= max) {
+      s.restartable = false;
+      return;
+    }
+    const base = this.#options.restart?.baseMs ?? DEFAULT_RESTART_BASE_MS;
+    const cap = this.#options.restart?.maxMs ?? DEFAULT_RESTART_MAX_MS;
+    s.restartable = true;
+    s.nextRestartAt =
+      s.restartFailures === 0 ? 0 : Date.now() + Math.min(cap, base * 2 ** (s.restartFailures - 1));
+  }
+
+  /**
+   * A connected server for a call. A stdio server that was idle-stopped (or died) is started
+   * again first, and its listing is fetched and compared with the pinned one in `#connect`: a
+   * change emits `tools_changed` (grants revoked) and the caller's old hash then fails `conflict`.
+   */
+  async #ready(serverId: string): Promise<ServerState> {
+    const s = this.#get(serverId);
+    if (!this.#isUp(s) && s.restartable && s.config.transport.kind === "stdio") {
+      await this.#wake(s);
+    }
+    return this.#connected(serverId);
+  }
+
+  async #wake(s: ServerState): Promise<void> {
+    if (s.waking !== undefined) return s.waking;
+    if (Date.now() < s.nextRestartAt) {
+      throw new PsycheError(
+        "unavailable",
+        `server ${s.config.id} keeps failing to start; retrying later`,
+        { retryable: true },
+      );
+    }
+    const run = (async () => {
+      try {
+        await this.#connect(s);
+        if (!this.#isUp(s)) {
+          s.restartFailures += 1;
+          this.#armRestart(s);
+          if (!s.restartable) {
+            s.error = untrustedText(
+              `stopped restarting after ${s.restartFailures} failed starts; reconnect the server`,
+            );
+          }
+        }
+      } finally {
+        delete s.waking;
+      }
+    })();
+    s.waking = run;
+    return run;
   }
 
   #get(serverId: string): ServerState {
