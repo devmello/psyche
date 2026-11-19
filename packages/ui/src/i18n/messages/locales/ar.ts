@@ -34,6 +34,7 @@ import { passwordPresence } from "./password-presence/ar.ts";
 import { people } from "./people/ar.ts";
 import { research } from "./research/ar.ts";
 import { scheduled } from "./scheduled/ar.ts";
+import { scheduledForm } from "./scheduled-form/ar.ts";
 import { screens } from "./screens/ar.ts";
 import { securityState } from "./security-state/ar.ts";
 import { selfConnectors } from "./self-connectors/ar.ts";
@@ -123,6 +124,7 @@ export const ar: Partial<Catalogue> = {
   ...research,
   // scheduled: translated ids (i18n completion)
   ...scheduled,
+  ...scheduledForm,
   // automation-chat: translated ids (i18n completion)
   ...automationChat,
   // widgets: translated ids (i18n completion)
@@ -1733,6 +1735,29 @@ export const ar: Partial<Catalogue> = {
   "settings.webSearch.braveKey": "مفتاح Brave Search",
   "settings.webSearch.braveFromEnv": "مضبوط (PSYCHE_SEARCH_BRAVE_KEY)",
   "settings.webSearch.braveNone": "غير مضبوط (PSYCHE_SEARCH_BRAVE_KEY)",
+  "settings.apiKeys.title": "مفاتيح API",
+  "settings.apiKeys.description":
+    "مفاتيح مزوّدي النماذج والبحث على الويب، تُدخَل هنا بدلًا من الطرفية. يُحفَظ كل مفتاح مشفّرًا في الخزنة ولا يُعرَض مجددًا ويُستخدَم من الطلب التالي. المفتاح المضبوط في البيئة له الأولوية.",
+  "settings.apiKeys.name.anthropic": "Anthropic",
+  "settings.apiKeys.name.openai": "OpenAI",
+  "settings.apiKeys.name.google": "Google Gemini",
+  "settings.apiKeys.name.openrouter": "OpenRouter",
+  "settings.apiKeys.name.brave": "Brave Search",
+  "settings.apiKeys.field": "مفتاح API لـ {name}",
+  "settings.apiKeys.save": "حفظ",
+  "settings.apiKeys.saving": "جارٍ الحفظ…",
+  "settings.apiKeys.clear": "مسح",
+  "settings.apiKeys.none": "غير مضبوط",
+  "settings.apiKeys.vault": "محفوظ في الخزنة",
+  "settings.apiKeys.env": "مضبوط في البيئة (له الأولوية)",
+  "settings.apiKeys.envAndVault": "مضبوط في البيئة (له الأولوية)، ويُحتفَظ أيضًا بمفتاح محفوظ",
+  "settings.apiKeys.empty": "الصق مفتاحًا أولًا.",
+  "settings.apiKeys.whitespace": "لا يحتوي المفتاح على مسافات أو فواصل أسطر.",
+  "settings.apiKeys.failed": "تعذّر حفظ المفتاح: {reason}",
+  "settings.apiKeys.clearFailed": "تعذّر مسح المفتاح: {reason}",
+  "settings.apiKeys.locked": "الخزنة مقفلة. افتحها أولًا ثم احفظ مرة أخرى.",
+  "settings.credentials.managed.web_search": "مفتاح بحث على الويب",
+  "settings.webSearch.braveFromVault": "محفوظ في الخزنة",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",
   "settings.webSearch.provider.duckduckgo": "DuckDuckGo (بلا مفتاح، محدود المعدل)",
@@ -2782,6 +2807,7 @@ export const ar: Partial<Catalogue> = {
   "screens.library.moreFor": "مزيد من الإجراءات لـ {name}",
   "screens.library.quickLook": "نظرة سريعة",
   "screens.library.reveal": "إظهار في Finder",
+  "screens.library.revealFailed": "تعذّر عرض هذا الملف: {reason}",
   "screens.library.sendToChat": "إرسال إلى الدردشة",
   "screens.library.loading": "جارٍ تحميل المكتبة",
   "screens.library.loadFailed": "تعذّر على Psyche تحميل المكتبة",

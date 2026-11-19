@@ -38,6 +38,7 @@ import { passwordPresence } from "./password-presence/ko.ts";
 import { peopleRest } from "./people-rest/ko.ts";
 import { personDataRest } from "./personData-rest/ko.ts";
 import { researchRest } from "./research-rest/ko.ts";
+import { scheduledForm } from "./scheduled-form/ko.ts";
 import { scheduledRest } from "./scheduled-rest/ko.ts";
 import { screensRest } from "./screens-rest/ko.ts";
 import { securityState } from "./security-state/ko.ts";
@@ -71,6 +72,7 @@ export const ko: Partial<Catalogue> = {
   ...widgetsRest,
   ...automationChatRest,
   ...scheduledRest,
+  ...scheduledForm,
   ...researchRest,
   ...homeRest,
   ...meetingRecordRest,
@@ -1670,6 +1672,29 @@ export const ko: Partial<Catalogue> = {
   "settings.webSearch.braveKey": "Brave Search 키",
   "settings.webSearch.braveFromEnv": "설정됨 (PSYCHE_SEARCH_BRAVE_KEY)",
   "settings.webSearch.braveNone": "설정 안 됨 (PSYCHE_SEARCH_BRAVE_KEY)",
+  "settings.apiKeys.title": "API 키",
+  "settings.apiKeys.description":
+    "모델 제공업체와 웹 검색의 키를 터미널 대신 여기에서 입력합니다. 각 키는 암호화되어 보관함에 저장되고, 다시 표시되지 않으며, 다음 요청부터 사용됩니다. 환경 변수로 설정한 키가 우선합니다.",
+  "settings.apiKeys.name.anthropic": "Anthropic",
+  "settings.apiKeys.name.openai": "OpenAI",
+  "settings.apiKeys.name.google": "Google Gemini",
+  "settings.apiKeys.name.openrouter": "OpenRouter",
+  "settings.apiKeys.name.brave": "Brave Search",
+  "settings.apiKeys.field": "{name} API 키",
+  "settings.apiKeys.save": "저장",
+  "settings.apiKeys.saving": "저장 중…",
+  "settings.apiKeys.clear": "지우기",
+  "settings.apiKeys.none": "설정되지 않음",
+  "settings.apiKeys.vault": "보관함에 저장됨",
+  "settings.apiKeys.env": "환경 변수로 설정됨(우선 적용)",
+  "settings.apiKeys.envAndVault": "환경 변수로 설정됨(우선 적용). 저장된 키도 함께 보관됩니다",
+  "settings.apiKeys.empty": "먼저 키를 붙여 넣으세요.",
+  "settings.apiKeys.whitespace": "키에는 공백이나 줄바꿈이 없습니다.",
+  "settings.apiKeys.failed": "키를 저장하지 못했습니다: {reason}",
+  "settings.apiKeys.clearFailed": "키를 지우지 못했습니다: {reason}",
+  "settings.apiKeys.locked": "보관함이 잠겨 있습니다. 먼저 잠금을 해제한 뒤 다시 저장하세요.",
+  "settings.credentials.managed.web_search": "웹 검색 키",
+  "settings.webSearch.braveFromVault": "보관함에 저장됨",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",
   "settings.webSearch.provider.duckduckgo": "DuckDuckGo (키 없음, 요청 제한 있음)",
@@ -2725,6 +2750,7 @@ export const ko: Partial<Catalogue> = {
   "screens.library.moreFor": "{name}에 대한 추가 동작",
   "screens.library.quickLook": "훑어보기",
   "screens.library.reveal": "Finder에서 보기",
+  "screens.library.revealFailed": "이 파일을 보여 줄 수 없습니다: {reason}",
   "screens.library.sendToChat": "채팅으로 보내기",
   "screens.library.loading": "보관함 로드 중",
   "screens.library.loadFailed": "Psyche가 보관함을 로드할 수 없습니다",

@@ -23,4 +23,4 @@ Every user-visible string ships in all 10 languages in the same PR. `pnpm i18n:c
 
 ## Learnings
 
-(The `reflect` skill adds dated lines here.)
+- 2026-11-18: Gateway-sent text counts too: notifications, notices and channel messages. #1327 and #1333 shipped English-only notices. Find how neighbouring notices are localised and do the same in all 10 languages.

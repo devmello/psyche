@@ -509,6 +509,11 @@ export interface AppInfoPort {
   /** Shows the data folder in Finder. Absent for a client of another computer's Gateway. */
   revealHome?(): Promise<void>;
   /**
+   * Library → Reveal in Finder (or "Show in folder" on Windows and Linux) for one Library item.
+   * Desktop on this Mac's Gateway only; absent on the web and for a client of another computer.
+   */
+  revealLibraryItem?(itemId: string): Promise<void>;
+  /**
    * Uninstall Psyche (design updates-and-install §3.5). Desktop shell on this Mac only: absent
    * on the web and for a client of another computer's Gateway.
    */

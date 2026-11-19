@@ -228,3 +228,36 @@ export async function uploadFile(
   } while (offset < file.size);
   throw new Error("unreachable");
 }
+
+/** A Library item a chat is handed to attach (the Library's "Send to chat"). */
+export interface LibraryAttachItem {
+  id: string;
+  name: string;
+  mime: string;
+  size: number;
+}
+
+/**
+ * Library items as composer chips that are already uploaded (the item is in the Library), so the
+ * same admission rules apply as to picked files: a type the Gateway cannot read, an image for a
+ * model without vision, a file over the limit or no room left are refused with the reason.
+ */
+export function libraryChips(
+  items: readonly LibraryAttachItem[],
+  support: AttachSupport,
+  have: number,
+): { chips: AttachmentChip[]; refused: Refused[] } {
+  const { accepted, refused } = admitFiles(
+    items.map((i) => ({ name: i.name, type: i.mime, size: i.size, id: i.id })),
+    support,
+    have,
+  );
+  const chips = accepted.map(({ file, kind }) => ({
+    key: `attach-${file.id}`,
+    name: file.name,
+    kind,
+    status: "ready" as const,
+    itemId: file.id,
+  }));
+  return { chips, refused };
+}

@@ -34,6 +34,7 @@ import { passwordPresence } from "./password-presence/zh.ts";
 import { people } from "./people/zh.ts";
 import { research } from "./research/zh.ts";
 import { scheduled } from "./scheduled/zh.ts";
+import { scheduledForm } from "./scheduled-form/zh.ts";
 import { screens } from "./screens/zh.ts";
 import { securityState } from "./security-state/zh.ts";
 import { selfConnectors } from "./self-connectors/zh.ts";
@@ -123,6 +124,7 @@ export const zh: Partial<Catalogue> = {
   ...research,
   // scheduled: translated ids (i18n completion)
   ...scheduled,
+  ...scheduledForm,
   // automation-chat: translated ids (i18n completion)
   ...automationChat,
   // widgets: translated ids (i18n completion)
@@ -1687,6 +1689,29 @@ export const zh: Partial<Catalogue> = {
   "settings.webSearch.braveKey": "Brave Search 密钥",
   "settings.webSearch.braveFromEnv": "已设置（PSYCHE_SEARCH_BRAVE_KEY）",
   "settings.webSearch.braveNone": "未设置（PSYCHE_SEARCH_BRAVE_KEY）",
+  "settings.apiKeys.title": "API 密钥",
+  "settings.apiKeys.description":
+    "在这里而不是终端中输入模型提供商和网页搜索的密钥。每个密钥都会加密保存在保险库中，不会再次显示，并从下一次请求起生效。环境变量中设置的密钥优先。",
+  "settings.apiKeys.name.anthropic": "Anthropic",
+  "settings.apiKeys.name.openai": "OpenAI",
+  "settings.apiKeys.name.google": "Google Gemini",
+  "settings.apiKeys.name.openrouter": "OpenRouter",
+  "settings.apiKeys.name.brave": "Brave Search",
+  "settings.apiKeys.field": "{name} API 密钥",
+  "settings.apiKeys.save": "保存",
+  "settings.apiKeys.saving": "正在保存…",
+  "settings.apiKeys.clear": "清除",
+  "settings.apiKeys.none": "未设置",
+  "settings.apiKeys.vault": "已保存到保险库",
+  "settings.apiKeys.env": "已在环境变量中设置（优先）",
+  "settings.apiKeys.envAndVault": "已在环境变量中设置（优先）；同时保留已保存的密钥",
+  "settings.apiKeys.empty": "请先粘贴密钥。",
+  "settings.apiKeys.whitespace": "密钥不含空格或换行。",
+  "settings.apiKeys.failed": "无法保存密钥：{reason}",
+  "settings.apiKeys.clearFailed": "无法清除密钥：{reason}",
+  "settings.apiKeys.locked": "保险库已锁定。请先解锁，然后再保存。",
+  "settings.credentials.managed.web_search": "网页搜索密钥",
+  "settings.webSearch.braveFromVault": "已保存到保险库",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",
   "settings.webSearch.provider.duckduckgo": "DuckDuckGo（无需密钥，有频率限制）",
@@ -2700,6 +2725,7 @@ export const zh: Partial<Catalogue> = {
   "screens.library.moreFor": "{name} 的更多操作",
   "screens.library.quickLook": "快速查看",
   "screens.library.reveal": "在访达中显示",
+  "screens.library.revealFailed": "无法显示此文件：{reason}",
   "screens.library.sendToChat": "发送到聊天",
   "screens.library.loading": "正在载入资料库",
   "screens.library.loadFailed": "Psyche 无法载入资料库",

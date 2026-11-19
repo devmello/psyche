@@ -7,8 +7,8 @@ import { Facts, Group, SettingHint, type SettingsValues } from "./shared.tsx";
 /**
  * Web search for the agent's built-in `web.search` / `web.fetch` tools (#557), under Model &
  * providers: which provider to use, the SearXNG URL, and what is in effect. The Gateway writes
- * the read-only `search.web.status` setting; the Brave key comes from `PSYCHE_SEARCH_BRAVE_KEY`
- * and never reaches the client.
+ * the read-only `search.web.status` setting; the Brave key comes from `PSYCHE_SEARCH_BRAVE_KEY` or
+ * the vault (Settings → API keys) and never reaches the client.
  */
 
 export const WEB_SEARCH_KEYS = {
@@ -103,7 +103,9 @@ export function WebSearchSettingsGroup({
             value:
               status?.brave === "env"
                 ? t("settings.webSearch.braveFromEnv")
-                : t("settings.webSearch.braveNone"),
+                : status?.brave === "vault"
+                  ? t("settings.webSearch.braveFromVault")
+                  : t("settings.webSearch.braveNone"),
           },
         ]}
       />

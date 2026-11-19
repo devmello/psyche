@@ -38,6 +38,7 @@ import { passwordPresence } from "./password-presence/ja.ts";
 import { peopleRest } from "./people-rest/ja.ts";
 import { personDataRest } from "./personData-rest/ja.ts";
 import { researchRest } from "./research-rest/ja.ts";
+import { scheduledForm } from "./scheduled-form/ja.ts";
 import { scheduledRest } from "./scheduled-rest/ja.ts";
 import { screensRest } from "./screens-rest/ja.ts";
 import { securityState } from "./security-state/ja.ts";
@@ -71,6 +72,7 @@ export const ja: Partial<Catalogue> = {
   ...widgetsRest,
   ...automationChatRest,
   ...scheduledRest,
+  ...scheduledForm,
   ...researchRest,
   ...homeRest,
   ...meetingRecordRest,
@@ -1668,6 +1670,30 @@ export const ja: Partial<Catalogue> = {
   "settings.webSearch.braveKey": "Brave Searchのキー",
   "settings.webSearch.braveFromEnv": "設定済み（PSYCHE_SEARCH_BRAVE_KEY）",
   "settings.webSearch.braveNone": "未設定（PSYCHE_SEARCH_BRAVE_KEY）",
+  "settings.apiKeys.title": "APIキー",
+  "settings.apiKeys.description":
+    "モデルプロバイダとウェブ検索のキーを、ターミナルではなくここで入力します。キーは暗号化されて保管庫に保存され、二度と表示されず、次のリクエストから使われます。環境変数で設定されたキーが優先されます。",
+  "settings.apiKeys.name.anthropic": "Anthropic",
+  "settings.apiKeys.name.openai": "OpenAI",
+  "settings.apiKeys.name.google": "Google Gemini",
+  "settings.apiKeys.name.openrouter": "OpenRouter",
+  "settings.apiKeys.name.brave": "Brave Search",
+  "settings.apiKeys.field": "{name}のAPIキー",
+  "settings.apiKeys.save": "保存",
+  "settings.apiKeys.saving": "保存中…",
+  "settings.apiKeys.clear": "消去",
+  "settings.apiKeys.none": "未設定",
+  "settings.apiKeys.vault": "保管庫に保存済み",
+  "settings.apiKeys.env": "環境変数で設定済み（優先）",
+  "settings.apiKeys.envAndVault": "環境変数で設定済み（優先）。保存済みのキーも保持されています",
+  "settings.apiKeys.empty": "先にキーを貼り付けてください。",
+  "settings.apiKeys.whitespace": "キーにスペースや改行は含まれません。",
+  "settings.apiKeys.failed": "キーを保存できませんでした: {reason}",
+  "settings.apiKeys.clearFailed": "キーを消去できませんでした: {reason}",
+  "settings.apiKeys.locked":
+    "保管庫がロックされています。先にロックを解除してから、もう一度保存してください。",
+  "settings.credentials.managed.web_search": "ウェブ検索のキー",
+  "settings.webSearch.braveFromVault": "保管庫に保存済み",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",
   "settings.webSearch.provider.duckduckgo": "DuckDuckGo（キー不要、レート制限あり）",
@@ -2739,6 +2765,7 @@ export const ja: Partial<Catalogue> = {
   "screens.library.moreFor": "{name}のその他の操作",
   "screens.library.quickLook": "クイックルック",
   "screens.library.reveal": "Finderに表示",
+  "screens.library.revealFailed": "このファイルを表示できませんでした: {reason}",
   "screens.library.sendToChat": "チャットに送る",
   "screens.library.loading": "ライブラリを読み込み中",
   "screens.library.loadFailed": "Psycheはライブラリを読み込めませんでした",

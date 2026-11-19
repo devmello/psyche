@@ -38,6 +38,7 @@ import { passwordPresence } from "./password-presence/it.ts";
 import { peopleRest } from "./people-rest/it.ts";
 import { personDataRest } from "./person-data-rest/it.ts";
 import { researchRest } from "./research-rest/it.ts";
+import { scheduledForm } from "./scheduled-form/it.ts";
 import { scheduledRest } from "./scheduled-rest/it.ts";
 import { screensRest } from "./screens-rest/it.ts";
 import { securityState } from "./security-state/it.ts";
@@ -103,6 +104,7 @@ export const it: Partial<Catalogue> = {
   ...automationChatRest,
   ...widgetsRest,
   ...scheduledRest,
+  ...scheduledForm,
   ...settingsRest,
   "common.cancel": "Annulla",
   "common.close": "Chiudi",
@@ -1682,6 +1684,30 @@ export const it: Partial<Catalogue> = {
   "settings.webSearch.braveKey": "Chiave di Brave Search",
   "settings.webSearch.braveFromEnv": "Impostata (PSYCHE_SEARCH_BRAVE_KEY)",
   "settings.webSearch.braveNone": "Non impostata (PSYCHE_SEARCH_BRAVE_KEY)",
+  "settings.apiKeys.title": "Chiavi API",
+  "settings.apiKeys.description":
+    "Chiavi dei fornitori di modelli e della ricerca web, inserite qui invece che in un terminale. Ognuna è salvata cifrata nel caveau, non viene più mostrata e viene usata dalla richiesta successiva. Una chiave impostata nell’ambiente ha la precedenza.",
+  "settings.apiKeys.name.anthropic": "Anthropic",
+  "settings.apiKeys.name.openai": "OpenAI",
+  "settings.apiKeys.name.google": "Google Gemini",
+  "settings.apiKeys.name.openrouter": "OpenRouter",
+  "settings.apiKeys.name.brave": "Brave Search",
+  "settings.apiKeys.field": "Chiave API di {name}",
+  "settings.apiKeys.save": "Salva",
+  "settings.apiKeys.saving": "Salvataggio…",
+  "settings.apiKeys.clear": "Cancella",
+  "settings.apiKeys.none": "Non impostata",
+  "settings.apiKeys.vault": "Salvata nel caveau",
+  "settings.apiKeys.env": "Impostata nell’ambiente (ha la precedenza)",
+  "settings.apiKeys.envAndVault":
+    "Impostata nell’ambiente (ha la precedenza); viene conservata anche una chiave salvata",
+  "settings.apiKeys.empty": "Incolla prima una chiave.",
+  "settings.apiKeys.whitespace": "Una chiave non contiene spazi né a capo.",
+  "settings.apiKeys.failed": "Impossibile salvare la chiave: {reason}",
+  "settings.apiKeys.clearFailed": "Impossibile cancellare la chiave: {reason}",
+  "settings.apiKeys.locked": "Il caveau è bloccato. Sbloccalo prima, poi salva di nuovo.",
+  "settings.credentials.managed.web_search": "Una chiave di ricerca web",
+  "settings.webSearch.braveFromVault": "Salvata nel caveau",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",
   "settings.webSearch.provider.duckduckgo": "DuckDuckGo (senza chiave, con limiti di frequenza)",
@@ -2769,6 +2795,7 @@ export const it: Partial<Catalogue> = {
   "screens.library.moreFor": "Altre azioni per {name}",
   "screens.library.quickLook": "Visualizzazione rapida",
   "screens.library.reveal": "Mostra nel Finder",
+  "screens.library.revealFailed": "Impossibile mostrare questo file: {reason}",
   "screens.library.sendToChat": "Invia in chat",
   "screens.library.loading": "Caricamento della Libreria",
   "screens.library.loadFailed": "Psyche non è riuscito a caricare la Libreria",

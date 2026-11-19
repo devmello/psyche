@@ -330,6 +330,13 @@ const bridge = {
   sources: {
     open: (docId: string) => ipcRenderer.invoke(IPC.sourceOpen, { docId }) as Promise<Envelope>,
   },
+  /**
+   * Library → Reveal in Finder for one Library item id (this Mac's Gateway only). Main resolves the
+   * file itself and refuses anything outside the Library: no path travels from the renderer.
+   */
+  library: {
+    reveal: (itemId: string) => invoke(IPC.libraryReveal, { itemId }),
+  },
   /** Settings → About (#610): versions, platform, the data folder and the Gateway's origin. */
   app: {
     info: () => invoke(IPC.appInfo),

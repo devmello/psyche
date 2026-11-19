@@ -1,6 +1,15 @@
 import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { accessSync, constants, readFileSync, realpathSync, type Stats, statSync } from "node:fs";
+import {
+  accessSync,
+  constants,
+  existsSync,
+  lstatSync,
+  readFileSync,
+  realpathSync,
+  type Stats,
+  statSync,
+} from "node:fs";
 import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { homedir, userInfo } from "node:os";
 import { basename, dirname, isAbsolute, join, resolve, win32 } from "node:path";
@@ -44,7 +53,8 @@ import type { SrtResolver } from "./srt.ts";
  * Bounded like `exec`: a timeout, 128 KB per stream, output masked with the vault's redactor,
  * the process group killed on Esc / Stop.
  *
- * Read-only commands (`classifyHostCommand`: `date`, `ls`, `cat`, `wc`…; never git) are a `read`:
+ * Read-only commands (`classifyHostCommand`: `date`, `ls`, `cat`, `wc`…, and the read-only git
+ * subcommands, run hardened: see `readOnlyGitInvocation`) are a `read`:
  * the broker runs them without a card for an untainted owner turn outside `manual` mode
  * (`exec.readOnlyWithoutAsking`, on by default). They take the system binary only (SIP-protected
  * folders) and `PATH` limited to them, regular-file operands that stay inside the cwd after
@@ -136,16 +146,103 @@ function gitDriversOff(
   cwd: string,
   env: NodeJS.ProcessEnv,
   platform: NodeJS.Platform,
+  globals: readonly string[] = [],
 ): Promise<string[]> {
+  return new Promise((done, fail) => {
+    execFile(
+      git,
+      [...gitHardening(platform), ...globals, ...GIT_DRIVER_QUERY],
+      { cwd, env, timeout: 5_000, maxBuffer: 256 * 1024, windowsHide: true },
+      (err, stdout) => {
+        // Exit 1 means none are defined. Any other failure means the config could not be read,
+        // so the drivers it names cannot be switched off: the command does not run.
+        const code = (err as { code?: unknown } | null)?.code;
+        if (err !== null && code !== 1) {
+          fail(
+            new PsycheError(
+              "unavailable",
+              "git's config could not be read; the command was not run",
+            ),
+          );
+          return;
+        }
+        try {
+          done(gitDriverOverrides(String(stdout ?? "")));
+        } catch (e) {
+          fail(e); // a driver name `-c` cannot carry: fail closed
+        }
+      },
+    );
+  });
+}
+
+/** What git itself resolves from `cwd`: the git dir and the work tree, both absolute. */
+function gitProbe(
+  git: string,
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+  hardening: readonly string[],
+): Promise<{ gitDir: string; top: string } | undefined> {
   return new Promise((done) => {
     execFile(
       git,
-      [...gitHardening(platform), ...GIT_DRIVER_QUERY],
-      { cwd, env, timeout: 5_000, maxBuffer: 256 * 1024, windowsHide: true },
-      // Exit 1 means none are defined; stdout carries the names either way.
-      (_err, stdout) => done(gitDriverOverrides(String(stdout ?? ""))),
+      [...hardening, "rev-parse", "--absolute-git-dir", "--show-toplevel"],
+      { cwd, env, timeout: 5_000, maxBuffer: 64 * 1024, windowsHide: true },
+      (err, stdout) => {
+        const lines = String(stdout ?? "")
+          .split("\n")
+          .filter((l) => l !== "");
+        if (err !== null || lines.length !== 2) return done(undefined);
+        try {
+          done({
+            gitDir: realpathSync(lines[0] as string),
+            top: realpathSync(lines[1] as string),
+          });
+        } catch {
+          done(undefined);
+        }
+      },
     );
   });
+}
+
+/**
+ * Is the repository git opened from here one a quiet run may read? Its git dir is a plain
+ * `.git` directly under its work tree (so cwd is not itself a git dir, whose own config git would
+ * use), both lie inside the shared folder, its config redirects nothing, it borrows no object
+ * stores (alternates) and it has no submodules.
+ */
+export function quietGitRepoOk(
+  probe: { gitDir: string; top: string },
+  realCwd: string,
+  folderReal: string,
+): boolean {
+  const { gitDir, top } = probe;
+  if (basename(gitDir) !== ".git" || dirname(gitDir) !== top) return false;
+  if (!under(top, folderReal) || !under(realCwd, top)) return false;
+  if (lstatSync(gitDir, { throwIfNoEntry: false })?.isDirectory() !== true) return false;
+  try {
+    const config = readFileSync(join(gitDir, "config"), "utf8");
+    if (config.length > 1_000_000 || GIT_CONFIG_REDIRECT.test(config)) return false;
+  } catch {
+    return false;
+  }
+  if (lstatSync(join(gitDir, "commondir"), { throwIfNoEntry: false }) !== undefined) return false;
+  const objects = join(gitDir, "objects");
+  if (
+    lstatSync(join(objects, "info", "http-alternates"), { throwIfNoEntry: false }) !== undefined
+  ) {
+    return false;
+  }
+  // Any alternates at all ask: a store inside the folder can name further stores outside it.
+  if (lstatSync(join(objects, "info", "alternates"), { throwIfNoEntry: false }) !== undefined) {
+    return false;
+  }
+  // Submodules ask: `.gitmodules` (a committed file) can set `submodule.<name>.ignore = none`,
+  // and git then recurses with the submodule's own config, whose drivers are never checked.
+  if (lstatSync(join(top, ".gitmodules"), { throwIfNoEntry: false }) !== undefined) return false;
+  if (lstatSync(join(gitDir, "modules"), { throwIfNoEntry: false }) !== undefined) return false;
+  return true;
 }
 const MAX_TIMEOUT_MS = 10 * 60_000;
 const ENV_NAME = "^[A-Z][A-Z0-9_]{0,63}$";
@@ -536,6 +633,80 @@ function under(path: string, root: string): boolean {
   return path === root || path.startsWith(`${root}/`);
 }
 
+/** Config that makes a repository read outside its own folder, or pulls in other config files. */
+const GIT_CONFIG_REDIRECT = /^\s*(worktree\s*=|\[\s*include)/im;
+
+/**
+ * The root of the repository git would find from `realCwd`: the nearest `.git` going up, which
+ * must be a plain directory (not a file or symlink that points the repository elsewhere) whose
+ * config neither sets `core.worktree` nor includes other files. `undefined` means git there is
+ * not read-only: it asks. (security §5.4: a hostile checkout must not steer a quiet git.)
+ */
+export function gitRepoRoot(realCwd: string): string | undefined {
+  for (let dir = realCwd; ; dir = dirname(dir)) {
+    // A directory that looks like a bare repository (or is a `.git` itself) is a git dir to
+    // git's discovery, with its own config: not a plain checkout.
+    if (
+      lstatSync(join(dir, "HEAD"), { throwIfNoEntry: false }) !== undefined &&
+      lstatSync(join(dir, "objects"), { throwIfNoEntry: false }) !== undefined &&
+      lstatSync(join(dir, "refs"), { throwIfNoEntry: false }) !== undefined
+    ) {
+      return undefined;
+    }
+    const dotGit = join(dir, ".git");
+    const st = lstatSync(dotGit, { throwIfNoEntry: false });
+    if (st !== undefined) {
+      if (!st.isDirectory()) return undefined;
+      try {
+        const config = readFileSync(join(dotGit, "config"), "utf8");
+        if (config.length > 1_000_000 || GIT_CONFIG_REDIRECT.test(config)) return undefined;
+      } catch {
+        return undefined;
+      }
+      return dir;
+    }
+    if (dirname(dir) === dir) return undefined;
+  }
+}
+
+/** Recorded on a quiet read-only git's audit events. */
+export const GIT_AUDIT_REASON = "remembered: read-only git";
+
+/** Subcommands whose output goes through diff machinery: their drivers are switched off too. */
+const GIT_DIFFING = new Set(["diff", "log", "show"]);
+
+/**
+ * The env and argv of a read-only git (security §5.4), on top of `EXEC_HOST_GIT_HARDENING` and
+ * the repository's driver overrides: no system or global config (`GIT_CONFIG_NOSYSTEM`,
+ * `GIT_CONFIG_GLOBAL`), no pager (`GIT_PAGER`, `--no-pager`, which also beats `pager.<cmd>`), no
+ * optional locks (status does not rewrite the index), no prompts, no repository discovery above
+ * the granted folder, submodules ignored (their config and drivers are not the ones checked),
+ * and no external diff or textconv driver whatever the config says.
+ */
+export function readOnlyGitInvocation(
+  args: readonly string[],
+  folderRoot: string | undefined,
+): { env: Record<string, string>; globals: string[]; args: string[] } {
+  const [sub, ...rest] = args;
+  return {
+    env: {
+      GIT_CONFIG_NOSYSTEM: "1",
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_PAGER: "cat",
+      GIT_OPTIONAL_LOCKS: "0",
+      GIT_TERMINAL_PROMPT: "0",
+      ...(folderRoot === undefined ? {} : { GIT_CEILING_DIRECTORIES: dirname(folderRoot) }),
+    },
+    globals: ["--no-pager", "-c", "diff.ignoreSubmodules=all", "-c", "diff.submodule=short"],
+    args: [
+      ...(sub === undefined ? [] : [sub]),
+      ...(sub !== undefined && GIT_DIFFING.has(sub) ? ["--no-ext-diff", "--no-textconv"] : []),
+      ...(sub === "status" || sub === "diff" ? ["--ignore-submodules=all"] : []),
+      ...rest,
+    ],
+  };
+}
+
 /** Read-only programs that read their operands' contents: those must be regular files. */
 const READS_CONTENT = new Set(["cat", "head", "tail", "wc", "file"]);
 
@@ -564,6 +735,18 @@ export function readOnlyHost(
     return undefined;
   }
   if (!SYSTEM_BIN_DIRS.some((d) => under(resolved.executable, d))) return undefined;
+  if (c.program === "git") {
+    if (gitRepoRoot(cwd) === undefined) return undefined;
+    // /usr/bin/git is Apple's shim: without the Command Line Tools (or Xcode) it pops an
+    // install dialog, so the quiet path is not taken and the normal approval path applies.
+    if (
+      platform === "darwin" &&
+      !existsSync("/Library/Developer/CommandLineTools/usr/bin/git") &&
+      !existsSync("/Applications/Xcode.app/Contents/Developer/usr/bin/git")
+    ) {
+      return undefined;
+    }
+  }
   for (const operand of c.paths) {
     const abs = resolve(cwd, operand);
     let real: string;
@@ -675,7 +858,7 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
     name: "exec_host",
     description: windows
       ? "Run one Windows program (an argv array, no shell string: argv[0] is a .exe by absolute path or a name found in Windows' own folders, Git or Node; .cmd/.bat files are refused) on the owner's own PC, in a folder they granted, for their own files and projects (build, test, git). Prefer `exec` (the sandbox) whenever the work does not need the owner's real files. Windows has no sandbox for commands on the PC itself, so every call asks the owner on their card, showing the exact argv, cwd, env and executable, and runs only if they type UNSANDBOXED there (once). It gets no secrets. It is off until the owner turns it on: when a call is denied because it is off, or the cwd is outside granted folders, use request_permission with the `missing` object from the error, then retry."
-      : "Run one command (an argv array, no shell string) on the owner's own computer, in a folder they granted, for their own files and projects (build, test, git, scripts). Prefer `exec` (the sandbox container) whenever the work does not need the owner's real files. Calls ask the owner on their Mac, showing the exact argv, cwd, env and executable; read-only commands (date, pwd, whoami, uname, ls, cat, head, tail, wc, file, stat, which on files in the cwd) with no env and no allowedDomains run without asking unless the turn read untrusted content; git and everything else asks. It runs under srt (no secrets, no network unless `allowedDomains`). It is off until the owner turns it on: when a call is denied because it is off, or the cwd is outside granted folders, use request_permission with the `missing` object from the error, then retry.",
+      : "Run one command (an argv array, no shell string) on the owner's own computer, in a folder they granted, for their own files and projects (build, test, git, scripts). Prefer `exec` (the sandbox container) whenever the work does not need the owner's real files. Calls ask the owner on their Mac, showing the exact argv, cwd, env and executable; read-only commands (date, pwd, whoami, uname, ls, cat, head, tail, wc, file, stat, which on files in the cwd, and git status, log, diff, show, branch (list only), rev-parse, ls-files, blame, remote -v with no option before the subcommand, in a repository inside the folder) with no env and no allowedDomains run without asking unless the turn read untrusted content; every other git command and everything else asks. It runs under srt (no secrets, no network unless `allowedDomains`). It is off until the owner turns it on: when a call is denied because it is off, or the cwd is outside granted folders, use request_permission with the `missing` object from the error, then retry.",
     input: Input,
     // The broker lowers a call to `read` only when it re-checks the read-only class itself
     // (`describeCall` names it in `meta`); the tool as such stays `destructive`.
@@ -767,6 +950,26 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
         "This command is no longer read-only (a file operand leaves the folder or the binary changed); it was not run",
       );
     }
+    // A read-only git reads one repository, and it must be inside the granted folder: a folder
+    // shared inside a bigger repository would otherwise expose the history above it.
+    const readOnlyGit = readOnly && p.argv[0] === "git" && !windows;
+    let gitFolderRoot: string | undefined;
+    if (readOnlyGit) {
+      let folderReal = folder.path;
+      try {
+        folderReal = realpathSync(folder.path);
+      } catch {
+        // Keep the granted spelling.
+      }
+      const root = gitRepoRoot(real);
+      if (root !== undefined && under(root, folderReal)) gitFolderRoot = folderReal;
+      else if (quiet) {
+        throw new PsycheError(
+          "forbidden",
+          `The repository of ${real} is not inside the shared folder ${folder.path}; share the repository's own folder, or the command needs approval`,
+        );
+      }
+    }
     const unsandboxed = await approvedUnsandboxed(deps, ctx, resolved.sha256);
     const srt = await sandbox.fresh();
     if (!unsandboxed && windows) {
@@ -825,11 +1028,40 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
     let args = p.argv.slice(1);
     // Every git, carded or not: no program its config names (security §5.4).
     if (isGit(resolved.executable, p.argv[0], platform)) {
-      args = [
-        ...gitHardening(platform),
-        ...(await gitDriversOff(resolved.executable, real, env, platform)),
-        ...args,
-      ];
+      try {
+        // A read-only git also gets no system/global config, no pager and no diff drivers; the
+        // driver query runs with the same env, so it reads the same config the command will.
+        const ro = readOnlyGit ? readOnlyGitInvocation(args, gitFolderRoot) : undefined;
+        if (ro !== undefined) Object.assign(env, ro.env);
+        if (ro !== undefined && quiet) {
+          // Ask git itself which repository it opens from here (hardened like the run), and
+          // require a plain checkout inside the folder: not a git dir embedded in the tree, whose
+          // own config git would use instead of the one that was checked.
+          const probe = await gitProbe(resolved.executable, real, env, [
+            ...gitHardening(platform),
+            ...ro.globals,
+          ]);
+          if (
+            probe === undefined ||
+            gitFolderRoot === undefined ||
+            !quietGitRepoOk(probe, real, gitFolderRoot)
+          ) {
+            throw new PsycheError(
+              "forbidden",
+              "The repository git opens from here is not a plain checkout inside the shared folder (an embedded git dir, a redirecting config or outside alternates); the command needs approval",
+            );
+          }
+        }
+        args = [
+          ...gitHardening(platform),
+          ...(ro?.globals ?? []),
+          ...(await gitDriversOff(resolved.executable, real, env, platform, ro?.globals)),
+          ...(ro?.args ?? args),
+        ];
+      } catch (e) {
+        await cleanup();
+        throw e;
+      }
     }
     if (!unsandboxed && "path" in srt) {
       const profile = execHostSrtSettings({
@@ -859,6 +1091,7 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
           subject: { runId: ctx.runId, threadId: ctx.threadId },
           data: {
             runKey: id,
+            ...(readOnlyGit ? { reason: GIT_AUDIT_REASON } : {}),
             argv: p.argv,
             cwd: real,
             executable: resolved.executable,
@@ -911,6 +1144,7 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
             subject: { runId: ctx.runId, threadId: ctx.threadId },
             data: {
               runKey: id,
+              ...(readOnlyGit ? { reason: GIT_AUDIT_REASON } : {}),
               exitCode: result?.exitCode ?? null,
               outcome:
                 result === undefined

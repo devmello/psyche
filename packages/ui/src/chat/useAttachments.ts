@@ -7,6 +7,8 @@ import {
   attachmentIds,
   canAttach,
   chipsReducer,
+  type LibraryAttachItem,
+  libraryChips,
   type Refused,
   uploading,
 } from "./attachments.ts";
@@ -35,6 +37,8 @@ export interface UseAttachments {
   uploading: boolean;
   /** After a send: forget the chips. */
   clear: () => void;
+  /** Library items handed to this composer (Send to chat): ready chips, refused ones named. */
+  addItems: (items: readonly LibraryAttachItem[]) => void;
 }
 
 let nextKey = 0;
@@ -104,6 +108,16 @@ export function useAttachments(
     dispatch({ type: "clear" });
   }, []);
 
+  const addItems = useCallback((items: readonly LibraryAttachItem[]) => {
+    const { chips: added, refused: no } = libraryChips(
+      items,
+      supportRef.current,
+      chipsRef.current.length,
+    );
+    setRefused(no);
+    if (added.length > 0) dispatch({ type: "add", chips: added });
+  }, []);
+
   useEffect(
     () => () => {
       for (const a of aborts.current.values()) a.abort();
@@ -133,5 +147,6 @@ export function useAttachments(
     ids: attachmentIds(chips),
     uploading: uploading(chips),
     clear,
+    addItems,
   };
 }

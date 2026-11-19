@@ -152,7 +152,13 @@ export interface UiSlots {
   /** Navigate to an in-app route, e.g. `/agent/activity/<taskId>`. */
   navigate?: (route: string) => void;
   openArtifact?: (artifact: Artifact) => void;
+  /** Opens a Library item in the file viewer (the Files pane beside the view). */
   openLibraryItem?: (item: LibraryItem) => void;
+  /**
+   * Shows a Library item in Finder (desktop, this Mac's Gateway only; absent elsewhere, so the
+   * action is not offered). Rejects when the file is no longer in the Library.
+   */
+  revealLibraryItem?: (item: LibraryItem) => Promise<void>;
   openTask?: (task: Task) => void;
   openReceipt?: (receipt: Receipt) => void;
   /** Thumbnails and previews from `packages/viewers`. */

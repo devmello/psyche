@@ -5929,6 +5929,38 @@ export interface InsightEntity {
     openLoops:         number;
 }
 
+export interface KeysClearParams {
+    id: APIKeyID;
+}
+
+export type APIKeyID = "anthropic" | "openai" | "google" | "openrouter" | "brave";
+
+export interface KeysClearResult {
+    status: APIKeyStatus;
+}
+
+export interface APIKeyStatus {
+    configured: boolean;
+    id:         APIKeyID;
+    inVault:    boolean;
+    source:     APIKeyStatusSource | null;
+}
+
+export type APIKeyStatusSource = "env" | "vault";
+
+export interface KeysSetParams {
+    id:  APIKeyID;
+    key: string;
+}
+
+export interface KeysSetResult {
+    status: APIKeyStatus;
+}
+
+export interface KeysStatusResult {
+    keys: APIKeyStatus[];
+}
+
 export interface LearnedBlock {
     items: LearnedFact[];
     type:  LearnedBlockType;

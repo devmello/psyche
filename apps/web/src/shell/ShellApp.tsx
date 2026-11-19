@@ -311,6 +311,13 @@ export const openSideChatAction = (threadId: string, title?: string): LayoutActi
 /** Layout keys of screens that are not a chat start with this; they are never reported. */
 const VIEW_LAYOUT_PREFIX = "view:";
 
+/** The layout action that shows a Library item in the Files pane's viewer (Quick Look, Open). */
+export const openLibraryItemAction = (item: { path: string }): LayoutAction => ({
+  type: "open",
+  pane: "files",
+  target: `library:${item.path}`,
+});
+
 /** The layout action that shows an artifact in the canvas pane. */
 export const openArtifactAction = (artifactId: string, title?: string): LayoutAction => ({
   type: "open",
@@ -648,6 +655,14 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         if (platform.windows?.openSettings) platform.windows.openSettings(section);
         else navigate?.(`/settings/${section}`);
       },
+      openLibraryItem: (item) => dispatch(openLibraryItemAction(item)),
+      // Finder reveals only this Mac's own files: a client of another computer's Gateway has none.
+      ...(platform.app?.revealLibraryItem !== undefined && remoteHost === undefined
+        ? {
+            revealLibraryItem: (item) =>
+              platform.app?.revealLibraryItem?.(item.id) ?? Promise.resolve(),
+          }
+        : {}),
     }),
     [
       navigate,
@@ -658,6 +673,8 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       remoteHost,
       gatewaysPort,
       platform.windows,
+      platform.app,
+      dispatch,
     ],
   );
 

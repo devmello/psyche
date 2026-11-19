@@ -9,6 +9,7 @@ import type { MessageId } from "../index.ts";
 export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<MessageId, string>>>>> =
   {
     ar: {
+      "screens.library.reveal": "إظهار في المجلد",
       "settings.devices.nodeKind.hostHelper": "مساعد Linux",
       "settings.links.description":
         "المكان الذي يُفتح فيه رابط في رسالة أو بطاقة أو عنصر. النقر مع Ctrl يستخدم دائمًا المتصفح الافتراضي.",
@@ -303,7 +304,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.run.reason.not_idle": "ليس الآن: أنت تستخدم الكمبيوتر.",
       "everything.storage.note": "كل شيء مخزّن على هذا الكمبيوتر فقط.",
       "memoryWork.consent.k1": "لا شيء يغادر هذا الكمبيوتر. تُحسب التواريخ والحالات بالشيفرة.",
-      "screens.library.reveal": "إظهار في الملفات",
       "web.zoom.description":
         "حجم عرض التطبيق على هذا الكمبيوتر. يغيّر Ctrl+Plus وCtrl+Minus الإعداد نفسه، لذا يبقى بعد إعادة التشغيل؛ {min, number}–{max, number} ٪.",
       "web.transcriptMode.optionTitle": "{mode} (Ctrl+O للتنقل)",
@@ -395,6 +395,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "وافق على البطاقة بكلمة المرور أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
     },
     de: {
+      "screens.library.reveal": "Im Ordner zeigen",
       "settings.devices.nodeKind.hostHelper": "Linux-Helfer",
       "settings.links.description":
         "Wo ein Link in einer Chatnachricht, Karte oder einem Artefakt geöffnet wird. Ctrl+Klick nutzt immer deinen Standardbrowser.",
@@ -708,7 +709,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.storage.note": "Alles wird nur auf diesem Computer gespeichert.",
       "memoryWork.consent.k1":
         "Nichts verlässt diesen Computer. Daten und Status werden per Code ermittelt.",
-      "screens.library.reveal": "In Dateien zeigen",
       "web.zoom.description":
         "Wie groß die App auf diesem Computer dargestellt wird. Ctrl+Plus und Ctrl+Minus ändern dieselbe Einstellung, sodass sie einen Neustart überdauert; {min, number}–{max, number} %.",
       "web.transcriptMode.optionTitle": "{mode} (Ctrl+O schaltet durch)",
@@ -804,6 +804,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Bestätige die Karte mit deinem Passwort oder einem Passkey und tippe dann erneut auf die Taste.",
     },
     es: {
+      "screens.library.reveal": "Mostrar en la carpeta",
       "settings.devices.nodeKind.hostHelper": "Asistente de Linux",
       "settings.links.description":
         "Dónde se abre un enlace de un mensaje, tarjeta o artefacto. Ctrl+clic siempre usa tu navegador predeterminado.",
@@ -1118,7 +1119,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.storage.note": "Todo se guarda solo en este ordenador.",
       "memoryWork.consent.k1":
         "Nada sale de este ordenador. Las fechas y el estado los calcula código.",
-      "screens.library.reveal": "Mostrar en Archivos",
       "web.zoom.description":
         "El tamaño con que se muestra la app en este ordenador. Ctrl+Plus y Ctrl+Minus cambian el mismo ajuste, así que se conserva al reiniciar; {min, number}–{max, number} %.",
       "web.transcriptMode.optionTitle": "{mode} (Ctrl+O alterna)",
@@ -1216,6 +1216,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Aprueba la tarjeta con tu contraseña o una llave de acceso y vuelve a pulsar el botón.",
     },
     fr: {
+      "screens.library.reveal": "Afficher dans le dossier",
       "settings.devices.nodeKind.hostHelper": "Assistant Linux",
       "settings.links.description":
         "Où s’ouvre un lien d’un message, d’une carte ou d’un artefact. Ctrl+clic utilise toujours votre navigateur par défaut.",
@@ -1531,7 +1532,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.storage.note": "Tout est stocké uniquement sur cet ordinateur.",
       "memoryWork.consent.k1":
         "Rien ne quitte cet ordinateur. Les dates et statuts sont déterminés par du code.",
-      "screens.library.reveal": "Afficher dans Fichiers",
       "web.zoom.description":
         "La taille d’affichage de l’app sur cet ordinateur. Ctrl+Plus et Ctrl+Minus modifient le même réglage, qui survit donc à un redémarrage ; {min, number}–{max, number} %.",
       "web.transcriptMode.optionTitle": "{mode} (Ctrl+O pour passer au suivant)",
@@ -1631,6 +1631,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Approuvez la carte avec votre mot de passe ou une clé d’accès, puis appuyez de nouveau sur le bouton.",
     },
     hi: {
+      "screens.library.reveal": "फ़ोल्डर में दिखाएँ",
       "settings.devices.nodeKind.hostHelper": "Linux हेल्पर",
       "settings.links.description":
         "चैट संदेश, कार्ड या आर्टिफ़ैक्ट का लिंक कहाँ खुले। Ctrl+क्लिक हमेशा डिफ़ॉल्ट ब्राउज़र में खुलता है।",
@@ -1921,7 +1922,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.storage.note": "सब कुछ सिर्फ़ इसी कंप्यूटर पर सेव होता है।",
       "memoryWork.consent.k1":
         "इस कंप्यूटर से कुछ बाहर नहीं जाता। तारीखें और स्थिति कोड द्वारा निकाली जाती हैं।",
-      "screens.library.reveal": "फ़ाइलें में दिखाएँ",
       "web.zoom.description":
         "इस कंप्यूटर पर ऐप कितना बड़ा दिखता है। Ctrl+Plus और Ctrl+Minus इसी सेटिंग को बदलते हैं, इसलिए यह रीस्टार्ट के बाद भी बनी रहती है; {min, number}–{max, number} %।",
       "web.transcriptMode.optionTitle": "{mode} (Ctrl+O से बदलें)",
@@ -2014,6 +2014,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.needsApproval": "अपने पासवर्ड या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
     },
     it: {
+      "screens.library.reveal": "Mostra nella cartella",
       "settings.devices.nodeKind.hostHelper": "Assistente Linux",
       "settings.links.description":
         "Dove si apre un link in un messaggio, una scheda o un artefatto. Ctrl+clic usa sempre il browser predefinito.",
@@ -2324,7 +2325,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.storage.note": "Tutto è memorizzato solo su questo computer.",
       "memoryWork.consent.k1":
         "Nulla esce da questo computer. Date e stato sono calcolati dal codice.",
-      "screens.library.reveal": "Mostra in File",
       "web.zoom.description":
         "Quanto grande viene visualizzata l’app su questo computer. Ctrl+Più e Ctrl+Meno modificano la stessa impostazione, che sopravvive al riavvio; {min, number}–{max, number} %.",
       "web.transcriptMode.optionTitle": "{mode} (Ctrl+O per scorrere)",
@@ -2422,6 +2422,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Approva la scheda con la tua password o una passkey, poi premi di nuovo il pulsante.",
     },
     ja: {
+      "screens.library.reveal": "フォルダーで表示",
       "settings.devices.nodeKind.hostHelper": "Linux ヘルパー",
       "settings.links.description":
         "チャットのメッセージ、カード、アーティファクト内のリンクを開く場所です。Ctrl+クリックは常に既定のブラウザで開きます。",
@@ -2735,7 +2736,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.storage.note": "すべてこのコンピュータ上にのみ保存されます。",
       "memoryWork.consent.k1":
         "このコンピュータの外には何も出ません。日付とステータスはコードで算出されます。",
-      "screens.library.reveal": "ファイルで表示",
       "web.zoom.description":
         "このコンピュータでのアプリの表示サイズ。Ctrl+プラスとCtrl+マイナスも同じ設定を変更するため、再起動後も保持されます。{min, number}〜{max, number}%。",
       "web.transcriptMode.optionTitle": "{mode}（Ctrl+Oで切り替え）",
@@ -2830,6 +2830,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "パスワードまたはパスキーでカードを承認してから、もう一度ボタンを押してください。",
     },
     ko: {
+      "screens.library.reveal": "폴더에서 보기",
       "settings.devices.nodeKind.hostHelper": "Linux 도우미",
       "settings.links.description":
         "채팅 메시지, 카드, 아티팩트의 링크가 열리는 곳입니다. Ctrl+클릭은 항상 기본 브라우저로 엽니다.",
@@ -3128,7 +3129,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.storage.note": "모든 내용은 이 컴퓨터에만 저장됩니다.",
       "memoryWork.consent.k1":
         "이 컴퓨터 밖으로 아무것도 나가지 않습니다. 날짜와 상태는 코드로 계산됩니다.",
-      "screens.library.reveal": "파일에서 보기",
       "web.zoom.description":
         "이 컴퓨터에서 앱이 표시되는 크기입니다. Ctrl+Plus와 Ctrl+Minus도 같은 설정을 변경하므로 재시동 후에도 유지됩니다. {min, number}–{max, number}%.",
       "web.transcriptMode.optionTitle": "{mode} (Ctrl+O로 전환)",
@@ -3220,6 +3220,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "사용자 암호나 패스키로 카드를 승인한 다음 버튼을 다시 누르세요.",
     },
     pt: {
+      "screens.library.reveal": "Mostrar na pasta",
       "settings.devices.nodeKind.hostHelper": "Assistente do Linux",
       "settings.links.description":
         "Onde abre um link de uma mensagem, cartão ou artefato. Ctrl+clique sempre usa o navegador padrão.",
@@ -3526,7 +3527,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.storage.note": "Tudo é armazenado só neste computador.",
       "memoryWork.consent.k1":
         "Nada sai deste computador. Datas e status são calculados por código.",
-      "screens.library.reveal": "Mostrar em Arquivos",
       "web.zoom.description":
         "O tamanho em que o app é exibido neste computador. Ctrl+Mais e Ctrl+Menos alteram o mesmo ajuste, então ele é mantido após reiniciar; {min, number}–{max, number} %.",
       "web.transcriptMode.optionTitle": "{mode} (Ctrl+O alterna)",
@@ -3621,6 +3621,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Aprove o cartão com a sua senha ou uma chave-senha e toque no botão de novo.",
     },
     zh: {
+      "screens.library.reveal": "在文件夹中显示",
       "settings.devices.nodeKind.hostHelper": "Linux 助手",
       "settings.links.description":
         "聊天消息、卡片或制品中的链接在哪里打开。按住 Ctrl 点击始终使用默认浏览器。",
@@ -3892,7 +3893,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.run.reason.not_idle": "现在不行：你正在使用电脑。",
       "everything.storage.note": "所有内容都只存储在这台电脑上。",
       "memoryWork.consent.k1": "没有任何内容离开这台电脑。日期和状态由代码计算得出。",
-      "screens.library.reveal": "在“文件”中显示",
       "web.zoom.description":
         "App 在这台电脑上的显示大小。Ctrl+加号和 Ctrl+减号更改的是同一设置，因此重新启动后仍然保留；{min, number}–{max, number} %。",
       "web.transcriptMode.optionTitle": "{mode}（Ctrl+O 循环切换）",

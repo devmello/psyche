@@ -38,6 +38,7 @@ import { passwordPresence } from "./password-presence/hi.ts";
 import { peopleRest } from "./people-rest/hi.ts";
 import { personDataRest } from "./person-data-rest/hi.ts";
 import { researchRest } from "./research-rest/hi.ts";
+import { scheduledForm } from "./scheduled-form/hi.ts";
 import { scheduledRest } from "./scheduled-rest/hi.ts";
 import { screensRest } from "./screens-rest/hi.ts";
 import { securityState } from "./security-state/hi.ts";
@@ -103,6 +104,7 @@ export const hi: Partial<Catalogue> = {
   ...automationChatRest,
   ...widgetsRest,
   ...scheduledRest,
+  ...scheduledForm,
   ...settingsRest,
   "common.cancel": "रद्द करें",
   "common.close": "बंद करें",
@@ -1691,6 +1693,29 @@ export const hi: Partial<Catalogue> = {
   "settings.webSearch.braveKey": "Brave Search कुंजी",
   "settings.webSearch.braveFromEnv": "सेट है (PSYCHE_SEARCH_BRAVE_KEY)",
   "settings.webSearch.braveNone": "सेट नहीं (PSYCHE_SEARCH_BRAVE_KEY)",
+  "settings.apiKeys.title": "API कुंजियाँ",
+  "settings.apiKeys.description":
+    "मॉडल प्रदाताओं और वेब खोज की कुंजियाँ टर्मिनल में नहीं, यहीं दर्ज करें। हर कुंजी एन्क्रिप्ट होकर वॉल्ट में रखी जाती है, दोबारा नहीं दिखाई जाती और अगले अनुरोध से इस्तेमाल होती है। एनवायरनमेंट में सेट की गई कुंजी को प्राथमिकता मिलती है।",
+  "settings.apiKeys.name.anthropic": "Anthropic",
+  "settings.apiKeys.name.openai": "OpenAI",
+  "settings.apiKeys.name.google": "Google Gemini",
+  "settings.apiKeys.name.openrouter": "OpenRouter",
+  "settings.apiKeys.name.brave": "Brave Search",
+  "settings.apiKeys.field": "{name} की API कुंजी",
+  "settings.apiKeys.save": "सहेजें",
+  "settings.apiKeys.saving": "सहेजा जा रहा है…",
+  "settings.apiKeys.clear": "हटाएँ",
+  "settings.apiKeys.none": "सेट नहीं है",
+  "settings.apiKeys.vault": "वॉल्ट में सहेजी गई",
+  "settings.apiKeys.env": "एनवायरनमेंट में सेट (प्राथमिकता)",
+  "settings.apiKeys.envAndVault": "एनवायरनमेंट में सेट (प्राथमिकता); सहेजी हुई कुंजी भी रखी गई है",
+  "settings.apiKeys.empty": "पहले कोई कुंजी चिपकाएँ।",
+  "settings.apiKeys.whitespace": "कुंजी में स्पेस या नई पंक्तियाँ नहीं होतीं।",
+  "settings.apiKeys.failed": "कुंजी सहेजी नहीं जा सकी: {reason}",
+  "settings.apiKeys.clearFailed": "कुंजी हटाई नहीं जा सकी: {reason}",
+  "settings.apiKeys.locked": "वॉल्ट लॉक है। पहले उसे अनलॉक करें, फिर दोबारा सहेजें।",
+  "settings.credentials.managed.web_search": "वेब खोज की कुंजी",
+  "settings.webSearch.braveFromVault": "वॉल्ट में सहेजी गई",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",
   "settings.webSearch.provider.duckduckgo": "DuckDuckGo (बिना कुंजी, दर-सीमित)",
@@ -2736,6 +2761,7 @@ export const hi: Partial<Catalogue> = {
   "screens.library.moreFor": "{name} के लिए और कार्रवाइयाँ",
   "screens.library.quickLook": "क्विक लुक",
   "screens.library.reveal": "Finder में दिखाएँ",
+  "screens.library.revealFailed": "यह फ़ाइल दिखाई नहीं जा सकी: {reason}",
   "screens.library.sendToChat": "चैट में भेजें",
   "screens.library.loading": "लाइब्रेरी लोड हो रही है",
   "screens.library.loadFailed": "Psyche लाइब्रेरी लोड नहीं कर सका",

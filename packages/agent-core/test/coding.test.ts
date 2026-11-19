@@ -473,7 +473,6 @@ describe("gitDriverOverrides (security §5.4)", () => {
       "diff.pwn.textconv",
       "merge.ours.driver",
       "filter.lfs.smudge",
-      "filter.bad name.clean",
       "core.editor",
     ].join("\n");
     const out = gitDriverOverrides(listed);
@@ -489,8 +488,19 @@ describe("gitDriverOverrides (security §5.4)", () => {
     ]) {
       expect(out).toContain(v);
     }
-    expect(out.join(" ")).not.toContain("bad name");
     expect(out.join(" ")).not.toContain("core.editor");
     expect(out.filter((x) => x === "-c")).toHaveLength(out.length / 2);
+  });
+
+  it("fails closed on a driver name -c cannot carry (review of #1329)", () => {
+    for (const listed of [
+      "filter.a=b.clean",
+      "diff.c=d.textconv",
+      "filter.bad name.clean",
+      "filter.tab\tname.clean",
+      "merge.x =y.driver",
+    ]) {
+      expect(() => gitDriverOverrides(listed), listed).toThrow(/cannot be switched off/);
+    }
   });
 });

@@ -30,6 +30,7 @@ import { overviewShared } from "./overview-shared/de.ts";
 import { passwordPresence } from "./password-presence/de.ts";
 import { peopleRest } from "./people-rest/de.ts";
 import { researchRest } from "./research-rest/de.ts";
+import { scheduledForm } from "./scheduled-form/de.ts";
 import { scheduledRest } from "./scheduled-rest/de.ts";
 import { screensRest } from "./screens-rest/de.ts";
 import { securityState } from "./security-state/de.ts";
@@ -86,6 +87,7 @@ export const de: Partial<Catalogue> = {
   ...homeRest,
   ...researchRest,
   ...scheduledRest,
+  ...scheduledForm,
   ...widgetsRest,
   ...miscRest,
   // common
@@ -1723,6 +1725,31 @@ export const de: Partial<Catalogue> = {
   "settings.webSearch.braveKey": "Brave-Search-Schlüssel",
   "settings.webSearch.braveFromEnv": "Gesetzt (PSYCHE_SEARCH_BRAVE_KEY)",
   "settings.webSearch.braveNone": "Nicht gesetzt (PSYCHE_SEARCH_BRAVE_KEY)",
+  "settings.apiKeys.title": "API-Schlüssel",
+  "settings.apiKeys.description":
+    "Schlüssel für Modellanbieter und Websuche, direkt hier statt im Terminal eingegeben. Jeder wird verschlüsselt im Tresor gespeichert, nie wieder angezeigt und ab der nächsten Anfrage verwendet. Ein in der Umgebung gesetzter Schlüssel hat Vorrang.",
+  "settings.apiKeys.name.anthropic": "Anthropic",
+  "settings.apiKeys.name.openai": "OpenAI",
+  "settings.apiKeys.name.google": "Google Gemini",
+  "settings.apiKeys.name.openrouter": "OpenRouter",
+  "settings.apiKeys.name.brave": "Brave Search",
+  "settings.apiKeys.field": "API-Schlüssel für {name}",
+  "settings.apiKeys.save": "Speichern",
+  "settings.apiKeys.saving": "Speichern …",
+  "settings.apiKeys.clear": "Entfernen",
+  "settings.apiKeys.none": "Nicht gesetzt",
+  "settings.apiKeys.vault": "Im Tresor gespeichert",
+  "settings.apiKeys.env": "In der Umgebung gesetzt (hat Vorrang)",
+  "settings.apiKeys.envAndVault":
+    "In der Umgebung gesetzt (hat Vorrang); ein gespeicherter Schlüssel bleibt zusätzlich erhalten",
+  "settings.apiKeys.empty": "Füge zuerst einen Schlüssel ein.",
+  "settings.apiKeys.whitespace": "Ein Schlüssel enthält keine Leerzeichen oder Zeilenumbrüche.",
+  "settings.apiKeys.failed": "Der Schlüssel konnte nicht gespeichert werden: {reason}",
+  "settings.apiKeys.clearFailed": "Der Schlüssel konnte nicht entfernt werden: {reason}",
+  "settings.apiKeys.locked":
+    "Der Tresor ist gesperrt. Entsperre ihn zuerst und speichere dann erneut.",
+  "settings.credentials.managed.web_search": "Ein Websuche-Schlüssel",
+  "settings.webSearch.braveFromVault": "Im Tresor gespeichert",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",
   "settings.webSearch.provider.duckduckgo": "DuckDuckGo (ohne Schlüssel, ratenbegrenzt)",
@@ -2824,6 +2851,7 @@ export const de: Partial<Catalogue> = {
   "screens.library.moreFor": "Weitere Aktionen für {name}",
   "screens.library.quickLook": "Übersicht",
   "screens.library.reveal": "Im Finder zeigen",
+  "screens.library.revealFailed": "Diese Datei konnte nicht angezeigt werden: {reason}",
   "screens.library.sendToChat": "An Chat senden",
   "screens.library.loading": "Mediathek wird geladen",
   "screens.library.loadFailed": "Psyche konnte die Mediathek nicht laden",

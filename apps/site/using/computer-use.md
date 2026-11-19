@@ -8,7 +8,7 @@ With computer use on, the agent can work in the apps on your Mac: read what is i
 
 ## Turn it on
 
-1. Make sure Psyche Helper is running. It ships inside Psyche.app and starts with it; Settings → Devices & nodes shows its state.
+1. Make sure Psyche Helper is running. It ships inside Psyche.app and starts with it, and it stops when you quit Psyche. Settings → Devices & nodes shows its state.
 2. Open Settings → Computer use.
 3. Under macOS permissions, grant **Accessibility** (lets the agent click, type and use apps) and **Screen Recording** (lets it see app windows). Each row shows Granted, Denied or Not asked yet, with **Open System Settings**.
 4. Turn on **Allow computer use**. Off stops every app at once.

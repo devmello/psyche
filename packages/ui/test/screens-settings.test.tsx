@@ -698,6 +698,28 @@ describe("Credentials", () => {
     await waitFor(() => expect(callsOf(gateway(), "vault.delete")).toHaveLength(1));
   });
 
+  it("labels the Brave Search key as a web search key, not a model provider's", async () => {
+    setup(
+      { defaultSection: "credentials" },
+      {
+        edit: (w) => {
+          w.credentials = w.credentials.map((c) =>
+            c.id === IDS.credentials.github
+              ? {
+                  ...c,
+                  slug: "model-brave-search",
+                  managedBy: { kind: "model_provider", setting: "models", removable: false },
+                }
+              : c,
+          );
+        },
+      },
+    );
+    const table = await screen.findByRole("table", { name: "Stored credentials" });
+    expect(within(table).getByText("A web search key")).toBeTruthy();
+    expect(within(table).queryByText("A model provider's key")).toBeNull();
+  });
+
   it("imports a CSV export, reports skipped rows and never shows a value", async () => {
     const { gateway } = setup({ defaultSection: "credentials" });
     const table = await screen.findByRole("table", { name: "Stored credentials" });
@@ -956,12 +978,12 @@ describe("Data controls", () => {
 });
 
 describe("Persona", () => {
-  // The creature picker and "Describe a change" saved to settings keys nothing reads, so the page
-  // no longer offers them; the name and look come from IDENTITY.md (settings-wiring covers the keys).
-  it("offers no creature picker or described change", async () => {
+  // The creature picker saves to IDENTITY.md through memory.persona.edit (#1328). "Describe a
+  // change" needs a utility model and stays hidden.
+  it("offers the creature picker but no described change", async () => {
     setup({ defaultSection: "persona" });
     await screen.findByRole("heading", { level: 2 });
-    expect(screen.queryByRole("radio", { name: "Owl" })).toBeNull();
+    expect(await screen.findByRole("radio", { name: "Owl" })).toBeTruthy();
     expect(screen.queryByLabelText("Describe a change")).toBeNull();
   });
 });

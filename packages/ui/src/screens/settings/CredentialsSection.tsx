@@ -355,7 +355,7 @@ export function CredentialsPanel({
                           {managedOf(c) ? (
                             <span className="inline-flex items-center gap-1">
                               <span className="text-callout text-muted-foreground">
-                                {managedLabel(managedOf(c)?.kind ?? "connector")}
+                                {managedLabel(managedOf(c)?.kind ?? "connector", c.slug)}
                               </span>
                               {onOpenSetting ? (
                                 <RowMoreMenu
@@ -697,7 +697,12 @@ function managerName(c: CredentialMeta): string {
   return c.backend === "bitwarden" ? "Bitwarden" : "1Password"; // i18n-ignore: product names
 }
 
-const managedLabel = (kind: ManagedKind): string => t(`settings.credentials.managed.${kind}`);
+/** The Brave Search key is a `model_provider` item on the wire; it reads as a web search key. */
+const WEB_SEARCH_KEY_SLUG = "model-brave-search";
+const managedLabel = (kind: ManagedKind, slug?: string): string =>
+  slug === WEB_SEARCH_KEY_SLUG
+    ? t("settings.credentials.managed.web_search")
+    : t(`settings.credentials.managed.${kind}`);
 const settingLabel = (setting: ManagedSetting): string =>
   t(`settings.credentials.setting.${setting}`);
 

@@ -19,6 +19,7 @@ import { overviewGrowth } from "./overview-growth/es.ts";
 import { overviewShared } from "./overview-shared/es.ts";
 import { passwordPresence } from "./password-presence/es.ts";
 import { scheduledA } from "./scheduled-a/es.ts";
+import { scheduledForm } from "./scheduled-form/es.ts";
 import { securityState } from "./security-state/es.ts";
 import { separateDesktop } from "./separate-desktop/es.ts";
 import { settingsA } from "./settings-a/es.ts";
@@ -35,6 +36,7 @@ import { workflows } from "./workflows/es.ts";
 /** Spanish catalogue (es). Same ids as `en`; missing ids fall back to English. */
 export const es: Partial<Catalogue> = {
   ...scheduledA,
+  ...scheduledForm,
   ...homeA,
   ...teachA,
   ...specialistsA,
@@ -1702,6 +1704,30 @@ export const es: Partial<Catalogue> = {
   "settings.webSearch.braveKey": "Clave de Brave Search",
   "settings.webSearch.braveFromEnv": "Definida (PSYCHE_SEARCH_BRAVE_KEY)",
   "settings.webSearch.braveNone": "Sin definir (PSYCHE_SEARCH_BRAVE_KEY)",
+  "settings.apiKeys.title": "Claves de API",
+  "settings.apiKeys.description":
+    "Claves para los proveedores de modelos y la búsqueda web, que se introducen aquí en lugar de en un terminal. Cada una se guarda cifrada en la bóveda, no se vuelve a mostrar y se usa desde la siguiente solicitud. Una clave definida en el entorno tiene prioridad.",
+  "settings.apiKeys.name.anthropic": "Anthropic",
+  "settings.apiKeys.name.openai": "OpenAI",
+  "settings.apiKeys.name.google": "Google Gemini",
+  "settings.apiKeys.name.openrouter": "OpenRouter",
+  "settings.apiKeys.name.brave": "Brave Search",
+  "settings.apiKeys.field": "Clave de API de {name}",
+  "settings.apiKeys.save": "Guardar",
+  "settings.apiKeys.saving": "Guardando…",
+  "settings.apiKeys.clear": "Borrar",
+  "settings.apiKeys.none": "Sin definir",
+  "settings.apiKeys.vault": "Guardada en la bóveda",
+  "settings.apiKeys.env": "Definida en el entorno (tiene prioridad)",
+  "settings.apiKeys.envAndVault":
+    "Definida en el entorno (tiene prioridad); también se conserva una clave guardada",
+  "settings.apiKeys.empty": "Pega primero una clave.",
+  "settings.apiKeys.whitespace": "Una clave no tiene espacios ni saltos de línea.",
+  "settings.apiKeys.failed": "No se pudo guardar la clave: {reason}",
+  "settings.apiKeys.clearFailed": "No se pudo borrar la clave: {reason}",
+  "settings.apiKeys.locked": "La bóveda está bloqueada. Desbloquéala primero y vuelve a guardar.",
+  "settings.credentials.managed.web_search": "Una clave de búsqueda web",
+  "settings.webSearch.braveFromVault": "Guardada en la bóveda",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",
   "settings.webSearch.provider.duckduckgo": "DuckDuckGo (sin clave, con límite de solicitudes)",
@@ -2793,6 +2819,7 @@ export const es: Partial<Catalogue> = {
   "screens.library.moreFor": "Más acciones para {name}",
   "screens.library.quickLook": "Vista Rápida",
   "screens.library.reveal": "Mostrar en el Finder",
+  "screens.library.revealFailed": "No se pudo mostrar este archivo: {reason}",
   "screens.library.sendToChat": "Enviar al chat",
   "screens.library.loading": "Cargando la biblioteca",
   "screens.library.loadFailed": "Psyche no pudo cargar la biblioteca",

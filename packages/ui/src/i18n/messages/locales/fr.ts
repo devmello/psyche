@@ -30,6 +30,7 @@ import { overviewShared } from "./overview-shared/fr.ts";
 import { passwordPresence } from "./password-presence/fr.ts";
 import { peopleRest } from "./people-rest/fr.ts";
 import { researchRest } from "./research-rest/fr.ts";
+import { scheduledForm } from "./scheduled-form/fr.ts";
 import { scheduledRest } from "./scheduled-rest/fr.ts";
 import { screensRest } from "./screens-rest/fr.ts";
 import { securityState } from "./security-state/fr.ts";
@@ -86,6 +87,7 @@ export const fr: Partial<Catalogue> = {
   ...homeRest,
   ...researchRest,
   ...scheduledRest,
+  ...scheduledForm,
   ...widgetsRest,
   ...miscRest,
   "common.cancel": "Annuler",
@@ -1675,6 +1677,31 @@ export const fr: Partial<Catalogue> = {
   "settings.webSearch.braveKey": "Clé Brave Search",
   "settings.webSearch.braveFromEnv": "Définie (PSYCHE_SEARCH_BRAVE_KEY)",
   "settings.webSearch.braveNone": "Non définie (PSYCHE_SEARCH_BRAVE_KEY)",
+  "settings.apiKeys.title": "Clés d’API",
+  "settings.apiKeys.description":
+    "Clés des fournisseurs de modèles et de la recherche web, saisies ici plutôt que dans un terminal. Chacune est stockée chiffrée dans le coffre, n’est plus jamais affichée et sert dès la requête suivante. Une clé définie dans l’environnement est prioritaire.",
+  "settings.apiKeys.name.anthropic": "Anthropic",
+  "settings.apiKeys.name.openai": "OpenAI",
+  "settings.apiKeys.name.google": "Google Gemini",
+  "settings.apiKeys.name.openrouter": "OpenRouter",
+  "settings.apiKeys.name.brave": "Brave Search",
+  "settings.apiKeys.field": "Clé d’API {name}",
+  "settings.apiKeys.save": "Enregistrer",
+  "settings.apiKeys.saving": "Enregistrement…",
+  "settings.apiKeys.clear": "Effacer",
+  "settings.apiKeys.none": "Non définie",
+  "settings.apiKeys.vault": "Enregistrée dans le coffre",
+  "settings.apiKeys.env": "Définie dans l’environnement (prioritaire)",
+  "settings.apiKeys.envAndVault":
+    "Définie dans l’environnement (prioritaire) ; une clé enregistrée est aussi conservée",
+  "settings.apiKeys.empty": "Collez d’abord une clé.",
+  "settings.apiKeys.whitespace": "Une clé ne contient ni espaces ni sauts de ligne.",
+  "settings.apiKeys.failed": "Impossible d’enregistrer la clé : {reason}",
+  "settings.apiKeys.clearFailed": "Impossible d’effacer la clé : {reason}",
+  "settings.apiKeys.locked":
+    "Le coffre est verrouillé. Déverrouillez-le d’abord, puis enregistrez de nouveau.",
+  "settings.credentials.managed.web_search": "Une clé de recherche web",
+  "settings.webSearch.braveFromVault": "Enregistrée dans le coffre",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",
   "settings.webSearch.provider.duckduckgo": "DuckDuckGo (sans clé, débit limité)",
@@ -2763,6 +2790,7 @@ export const fr: Partial<Catalogue> = {
   "screens.library.moreFor": "Autres actions pour {name}",
   "screens.library.quickLook": "Coup d’œil",
   "screens.library.reveal": "Afficher dans le Finder",
+  "screens.library.revealFailed": "Impossible d’afficher ce fichier : {reason}",
   "screens.library.sendToChat": "Envoyer dans la discussion",
   "screens.library.loading": "Chargement de la bibliothèque",
   "screens.library.loadFailed": "Psyche n’a pas pu charger la bibliothèque",
