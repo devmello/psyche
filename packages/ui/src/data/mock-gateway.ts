@@ -2118,7 +2118,7 @@ export class MockGateway implements GatewayClient {
         | undefined;
       const hits = (policy?.folders ?? []).filter((f) => p.path.startsWith(`${f.path}/`));
       const best = hits.sort((a, b) => b.path.length - a.path.length)[0];
-      if (best === undefined) fail("forbidden", `${p.path} is outside every granted folder`);
+      if (best === undefined) return fail("forbidden", `${p.path} is outside every granted folder`);
       if (best.mode !== "rw") fail("forbidden", `${best.path} is granted read-only`);
       const node = this.world.files[p.path];
       const modifiedAt = this.now();
