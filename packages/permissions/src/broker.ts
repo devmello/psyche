@@ -871,10 +871,12 @@ export class PsychePermissionBroker implements PermissionBroker {
     let refused = inSystemRoot(path, env);
     if (!refused) {
       try {
-        const real = realpathSync(path);
+        // The native call, so `/.nofollow/..` links and case on disk show up; anything but a
+        // missing path leaves the real location unknown, which counts as refused.
+        const real = realpathSync.native(path);
         refused = real !== path && inSystemRoot(real, env);
-      } catch {
-        refused = false;
+      } catch (err) {
+        refused = (err as NodeJS.ErrnoException).code !== "ENOENT";
       }
     }
     this.#refusedMemo.set(path, refused);

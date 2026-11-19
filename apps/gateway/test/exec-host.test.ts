@@ -716,6 +716,26 @@ describe.skipIf(!posixHost)(
       expect(started).toEqual([]);
     });
 
+    it("a granted root swapped for a link into a system folder after the policy was set covers nothing", async () => {
+      on();
+      // The broker memoised the answer for this root when the policy was set (a real folder).
+      const swapped = join(home, "Projects", "swapped");
+      mkdirSync(swapped, { recursive: true });
+      setPolicy({ ...policy, folders: [...(policy.folders ?? []), { path: swapped, mode: "rw" }] });
+      expect(broker.grantedFolders().map((f) => f.path)).toContain(swapped);
+      // Swapped for a link to /usr (a stand-in for /opt/homebrew); only the link is touched.
+      spawnSync("/bin/rmdir", [swapped]);
+      symlinkSync("/usr", swapped);
+      expect(broker.grantedFolders().map((f) => f.path)).toContain(swapped);
+      const t = await quietHost();
+      const params = { argv: ["date"], cwd: swapped };
+      const d = await decide(t, params);
+      await expect(
+        run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+      ).rejects.toMatchObject({ code: "forbidden" });
+      expect(started).toEqual([]);
+    });
+
     it("env, allowedDomains or an absolute argv[0] keep the old card", async () => {
       on();
       const t = await quietHost();

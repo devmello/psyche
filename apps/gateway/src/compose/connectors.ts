@@ -222,7 +222,7 @@ function defaultFactories(
     obsidianFactory({
       access: async (path, mode) => {
         assertNotProtected(path, protectedRoots(services.home));
-        assertGranted(path, services.rawBroker.policy.folders ?? [], mode);
+        assertGranted(path, services.rawBroker.grantedFolders(), mode);
         await assertNoSymlinks(path);
       },
     }),
