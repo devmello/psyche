@@ -52,6 +52,10 @@ This covers any rule that sorts inputs into "asks" and "doesn't ask": money-inte
 
 **Write the probe table first.** Before you change a rule, write a table-driven test with two lists: inputs that must match, and near-misses that share a word and must not. The pattern is `packages/protocol/test/money-intent.test.ts`: `PAYMENT_LABELS` and `ORDINARY_LABELS` with `it.each`. Include amounts with decimals, tickers, keyboard paths, snake_case and camelCase tool names, and the reviewer's probes from every earlier round. Every review finding becomes a row that failed before your fix. In #1301, round 1 widened regexes one way only. Rounds 2 to 5 each found misses in the other direction, and the reviewers' two-way probe lists caught them.
 
+- **Check the host being read, not only the stored entry.** #1340 took 3 rounds: trust checks ran on the trusted host only, not on the host actually read.
+- **A new quiet allow must never feed another allow path.** #1340: a "trusted" quiet read marked the origin `touched`, so later tainted reads were allowed.
+- **Grant labels come from the full scope.** An "always" grant's label is derived from to+cc+bcc, not the first recipient (#1346). Redacted values never come back as input (#1343).
+
 ## 3b. Hardening fails closed, on the right target
 
 - **Unexpressible input means ask or refuse, never `continue`.** #1329: a git driver name that couldn't be expressed was skipped, `(.+)` missed empty names, and `status.ignoreSubmodules` was a config key git doesn't have. Check a config key or flag against the tool itself (`git config --help`, run it), not memory.
@@ -74,7 +78,7 @@ If a client now trusts a different path (a socket, a pointer file, a config), th
 - **gateway:** `passkeys`, `remote-presence`, `payments-only-presence`, `seal-owner-choice` and the other `seal-*` suites, `mode-switch`, `computer`, `compose-mcp`, `device-rate-limits`;
 - **protocol:** `money-intent`.
 
-If you change copy that names Touch ID, presence or approvals, also run `packages/ui/test/platform-*.test.tsx` (#1301 R3).
+If you change copy that names Touch ID, presence or approvals, also run `packages/ui/test/platform-*.test.tsx` (#1301 R3; #1338). UI tests for approvals and grants use the shapes in `psyche-builder` §2.
 
 ## Learnings
 
