@@ -529,10 +529,15 @@ export function createUserProfile(deps: UserProfileDeps) {
     }
     // Inside the window: hold this turn (the newest run id wins) and send the held turns together
     // when it ends. Nothing is sent per message.
-    // Redact before trimming to the cap: a vault value cut in half by the cap would no longer
-    // match the redactor, and its first half would reach the model. (`learn` redacts the joined
-    // text again; the placeholder is stable.)
-    h.texts.push(deps.redactor.redact(turn.ownerText).trim().slice(0, MAX_TEXT_CHARS));
+    // Hold the raw turns: they are joined, redacted once and only then cut to the cap (in
+    // `learn`). A vault value must never be cut, or redacted piecemeal, before the redactor sees
+    // it whole, or its pieces would reach the model. The buffer lives in memory for the window and
+    // is bounded: past twice the cap the oldest turn is dropped whole, never sliced.
+    h.texts.push(turn.ownerText);
+    let size = h.texts.reduce((n, t) => n + t.length, 0);
+    while (h.texts.length > 1 && size > 2 * MAX_TEXT_CHARS) {
+      size -= h.texts.shift()?.length ?? 0;
+    }
     h.turn = { ...turn, attached: turn.attached === true || h.turn?.attached === true };
     if (h.timer === undefined) {
       h.timer = setTimeout(() => void flushHeld(turn.threadId), Math.max(wait, 0));

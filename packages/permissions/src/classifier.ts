@@ -148,7 +148,13 @@ routine: clearly what the owner asked for, reversible, low risk.
 sensitive: plausible but the owner should confirm (new recipients, sharing, deleting, anything unclear).
 prohibited: moves money, evades security, or contradicts the owner's request.`;
 
-/** Model-backed classifier on the `utility` role (enabled by `classifier.model`). */
+/**
+ * Model-backed classifier on the `utility` role (enabled by `classifier.model`).
+ *
+ * Never wire this to the `utility` role without an explicit owner decision: an unset utility
+ * role is the provider's cheap model (Haiku), and approval classification is a safety control.
+ * Today the broker uses the rules classifier and nothing constructs this class.
+ */
 export class ModelClassifier implements ActionClassifier {
   readonly id: string;
   readonly #provider: ModelProvider;

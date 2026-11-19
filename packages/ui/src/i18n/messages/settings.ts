@@ -1804,7 +1804,7 @@ export const settings = {
   "settings.model.role.primary": "Primary",
   "settings.model.role.primaryHint": "Chat, tasks and tools",
   "settings.model.role.utility": "Utility",
-  "settings.model.role.utilityHint": "Titles, summaries and the auto-mode classifier",
+  "settings.model.role.utilityHint": "Titles, summaries, search cards and other background jobs",
   "settings.model.role.image": "Image",
   "settings.model.role.imageHint": "Avatar changes; none means the bundled creatures",
   "settings.model.addProvider": "Add a provider",

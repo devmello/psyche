@@ -36,8 +36,23 @@ export interface ModelMessage {
 export interface ModelRequest {
   model: ModelRef;
   system?: string;
+  /**
+   * Length of the leading part of `system` that stays the same from one owner turn to the next
+   * (base prompt, persona, skills index, tool guidance). The rest follows after a blank line
+   * (`system === stable + "\n\n" + volatile`): daily notes, the compaction summary and per-turn
+   * context. A provider with prompt caching sends the two parts as separate cached blocks;
+   * every other provider reads `system` whole.
+   */
+  systemStableLength?: number;
   messages: ModelMessage[];
   tools?: ToolSpec[];
+  /**
+   * Every tool this run loads on demand, loaded or not, in registration order. The loaded ones
+   * are also in `tools`. A provider with deferred tool loading (Anthropic `defer_loading`) sends
+   * all of them, so a load never changes the request prefix; every other provider ignores this
+   * and sends `tools`.
+   */
+  deferredTools?: ToolSpec[];
   toolChoice?: "auto" | "none" | "required" | { tool: string };
   maxOutputTokens?: number;
   temperature?: number;
@@ -55,7 +70,7 @@ export interface ModelRequest {
    */
   reasoning?: "off";
   /**
-   * Anthropic cache breakpoints. Unset: the system prompt and the last message are marked.
+   * Anthropic cache breakpoints. Unset: marked as usual (tools, system prompt, last message).
    * `none`: nothing is marked, for a one-shot call whose last message is unique and never read
    * again (the write premium would be paid for nothing).
    */

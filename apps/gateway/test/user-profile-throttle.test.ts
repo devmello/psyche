@@ -111,6 +111,35 @@ describe("profile learner batching", () => {
     }
   });
 
+  it("masks a 32-character key split 19/13 across two held turns: no key characters reach the model", async () => {
+    const s = setup({ minIntervalMs: 30_000 });
+    const key = "Qz7pLm2Xw9Rt4Kv8HsB3nD6fGj1YcE5u";
+    expect(key).toHaveLength(32);
+    s.redactor.add(key);
+    await s.turn("My sister is Maya."); // immediate; opens the window
+    await s.turn(`please use ${key.slice(0, 19)}`);
+    await s.turn(`${key.slice(19)} for the deploy`);
+    await vi.advanceTimersByTimeAsync(31_000);
+    expect(s.requests).toHaveLength(2);
+    const sent = s.texts().join("\n");
+    // No 6-character window of the key survives anywhere in what was sent.
+    for (let i = 0; i + 6 <= key.length; i++) expect(sent).not.toContain(key.slice(i, i + 6));
+  });
+
+  it("bounds the held buffer by dropping the oldest turn whole, never slicing one", async () => {
+    const s = setup({ minIntervalMs: 30_000 });
+    await s.turn("first, opens the window");
+    const big = (c: string) => `${c} ${c.repeat(2998)}`; // 3,000 characters
+    await s.turn(big("a"));
+    await s.turn(big("b"));
+    await s.turn(big("c"));
+    await vi.advanceTimersByTimeAsync(31_000);
+    const flushed = s.texts()[1] ?? "";
+    expect(flushed).not.toContain("a a");
+    expect(flushed).toContain("b b".slice(0, 1));
+    expect(flushed.length).toBeLessThanOrEqual(4_000);
+  });
+
   it("does not raise an unhandled rejection when the database is gone at flush time", async () => {
     const s = setup({ minIntervalMs: 30_000 });
     const rejections: unknown[] = [];

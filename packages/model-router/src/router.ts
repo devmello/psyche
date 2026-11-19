@@ -11,7 +11,7 @@ import {
   type Usage,
 } from "@psyche/protocol";
 import { AiSdkAdapter, type CallOutcome, type EmbedTaskOptions } from "./adapter.ts";
-import { isLocalKind, type ProviderKind } from "./config.ts";
+import { isFreeLocalProvider, isLocalKind, type ProviderKind } from "./config.ts";
 import {
   type CooldownPolicy,
   type CooldownState,
@@ -110,6 +110,9 @@ export const AUTO_MODE_KIND_RULES: readonly { kind: string; model: RegExp }[] = 
  * fallback to the primary chain, and jobs that must never bill the primary skip instead.
  * All of them are on the Auto-mode allowlist above, so the choice never widens it.
  */
+/** How long a derived cheap model that proved missing or forbidden stays off before it is tried again. */
+export const CHEAP_BAD_MS = 3_600_000;
+
 export const CHEAP_UTILITY_BY_KIND: Readonly<Record<string, string>> = {
   anthropic: "claude-haiku-5-5",
   "claude-code": "haiku",
@@ -177,8 +180,8 @@ export class ModelRouter implements ModelProvider {
   readonly #probes: ProbeStore;
   readonly #o: ModelRouterOptions;
   readonly #probing = new Map<ModelRef, Promise<ProbeResult>>();
-  /** Derived cheap utility models that failed as missing or forbidden; kept for the process. */
-  readonly #cheapBad = new Set<ModelRef>();
+  /** Derived cheap utility models that proved unusable, with the time the latch lapses. */
+  readonly #cheapBad = new Map<ModelRef, number>();
 
   constructor(options: ModelRouterOptions) {
     this.#o = options;
@@ -309,7 +312,19 @@ export class ModelRouter implements ModelProvider {
     const model = CHEAP_UTILITY_BY_KIND[config.kind];
     if (model === undefined) return undefined;
     const ref = `${id}/${model}`;
-    return this.#cheapBad.has(ref) ? undefined : { model: ref };
+    return this.#isCheapBad(ref) ? undefined : { model: ref };
+  }
+
+  #isCheapBad(ref: ModelRef): boolean {
+    const until = this.#cheapBad.get(ref);
+    if (until === undefined) return false;
+    if (this.#o.clock.now() < until) return true;
+    this.#cheapBad.delete(ref); // the latch lapsed: Haiku is tried again
+    return false;
+  }
+
+  #latchCheapBad(ref: ModelRef): void {
+    this.#cheapBad.set(ref, this.#o.clock.now() + CHEAP_BAD_MS);
   }
 
   /**
@@ -324,12 +339,12 @@ export class ModelRouter implements ModelProvider {
     const primary = this.#roles.get("primary");
     if (primary === undefined) return undefined;
     try {
-      const kind = (
+      const config = (
         this.#providers.get(parseModelRef(primary.model).provider) as {
-          config?: { kind?: ProviderKind };
+          config?: { kind: ProviderKind; baseURL?: string };
         }
-      )?.config?.kind;
-      return kind !== undefined && isLocalKind(kind) ? primary.model : undefined;
+      )?.config;
+      return config !== undefined && isFreeLocalProvider(config) ? primary.model : undefined;
     } catch {
       return undefined;
     }
@@ -489,9 +504,22 @@ export class ModelRouter implements ModelProvider {
       const pid = parseModelRef(ref).provider;
       return !this.#cooldowns.isCooling(providerKey(pid));
     });
-    const chain = plan.strict ? plan.chain.slice(0, 1) : live.length > 0 ? live : plan.chain;
+    // A call on the derived cheap model never goes to the primary's cross-provider fallbacks just
+    // because the shared provider is cooling: it tries the cheap model (and fails with its error).
+    const cheapCooling = plan.cheap !== undefined && !live.includes(plan.cheap);
+    const chain = plan.strict
+      ? plan.chain.slice(0, 1)
+      : cheapCooling
+        ? [plan.cheap as ModelRef]
+        : live.length > 0
+          ? live
+          : plan.chain;
     const tried: string[] = [];
     let last: ModelCallError | undefined;
+    // The cheap model failed `auth`: the key may be fine and the model forbidden, or the key may
+    // be the problem (a locked vault, a transient 401). Only the primary working on the same
+    // profile in this call tells them apart.
+    let cheapAuth: { profileId: string | undefined } | undefined;
 
     for (const ref of chain) {
       const pid = parseModelRef(ref).provider;
@@ -539,6 +567,14 @@ export class ModelRouter implements ModelProvider {
           if (fin.reason !== "cancelled") {
             this.#cooldowns.succeed(profileKey(pid, profileId));
             this.#cooldowns.succeed(providerKey(pid));
+            if (
+              cheapAuth !== undefined &&
+              plan.cheap !== undefined &&
+              ref !== plan.cheap &&
+              pid === parseModelRef(plan.cheap).provider &&
+              profileId === cheapAuth.profileId
+            )
+              this.#latchCheapBad(plan.cheap);
           }
           yield fin;
           return;
@@ -551,22 +587,26 @@ export class ModelRouter implements ModelProvider {
         last = err;
         tried.push(`${ref}${profileId === undefined ? "" : `#${profileId}`}: ${err.kind}`);
         const routing = ROUTING[err.kind];
-        // The derived cheap utility model is missing or forbidden here (a proxy, a key or plan
-        // without it): remember that for the process and move on to the primary chain, without
-        // cooling the provider (the primary shares it). Any other failure of the cheap model
-        // ends the call: it must not quietly bill the primary.
-        const cheapUnusable =
-          ref === plan.cheap && (err.kind === "model_not_found" || err.kind === "auth");
-        if (cheapUnusable) this.#cheapBad.add(ref);
-        if (ref === plan.cheap && !cheapUnusable) {
-          if (routing.cooldown) {
+        // The derived cheap utility model. `model_not_found`: it is not served here (a plan or
+        // workspace without it); latch it off for an hour and go to the primary chain. `auth`: try
+        // the primary, and latch only if it works on the same profile. Neither cools the provider
+        // (the primary shares it), and after text has streamed neither latches or cools: the call
+        // just ends. Any other failure of the cheap model ends the call: it must not quietly
+        // bill the primary.
+        if (ref === plan.cheap) {
+          const unusable = err.kind === "model_not_found" || err.kind === "auth";
+          if (unusable && !content) {
+            if (err.kind === "model_not_found") this.#latchCheapBad(ref);
+            else cheapAuth = { profileId };
+            break;
+          }
+          if (!unusable && routing.cooldown) {
             const key = routing.rotateProfile ? profileKey(pid, profileId) : providerKey(pid);
             this.#cooldowns.fail(key, err.kind, err.retryAfterSec);
           }
           yield { type: "finish", reason: "error", error: err.toFinishError() };
           return;
         }
-        if (cheapUnusable && !content) break;
         if (routing.cooldown) {
           const key = routing.rotateProfile ? profileKey(pid, profileId) : providerKey(pid);
           this.#cooldowns.fail(key, err.kind, err.retryAfterSec);
