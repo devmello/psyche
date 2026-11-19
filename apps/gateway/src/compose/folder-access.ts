@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "@psyche/agent-core";
 import { hashCanonical } from "@psyche/audit";
 import {
@@ -7,7 +8,12 @@ import {
   folderScopesOffered,
   resolveRequestedFolder,
 } from "@psyche/permissions";
-import { type PermissionBroker, PsycheError, type ToolResult } from "@psyche/protocol";
+import {
+  type PermissionBroker,
+  PsycheError,
+  type TaintSource,
+  type ToolResult,
+} from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 
 /**
@@ -99,33 +105,23 @@ export async function askForFolder(
     );
     if (waiting) return queued(requested.path);
   }
-  const binding = hashCanonical({
-    tool: "request_folder_access",
+  const issued = await issueFolderCard(deps, {
     path: p.path,
     reason: p.reason,
-    access: mode,
+    mode,
     resolved,
     threadId: ctx.threadId,
     callId: ctx.callId,
-  });
-  const issued = await deps.broker.requestApproval({
-    kind: "folder_access",
-    summary: `Share a folder: ${p.path}`.slice(0, 300),
-    details: { requestedPath: p.path, reason: p.reason, access: mode, ...resolved },
-    bindingHash: binding,
-    grantKey: `folder_access|${mode}`,
     requestedBy: {
       runId: ctx.runId,
       taskId: ctx.taskId ?? null,
       threadId: ctx.threadId,
       toolCallId: ctx.callId,
     },
-    sideEffect: mode === "rw" ? "write" : "read",
-    surfaces: [...deps.surfaces],
     // Unattended: "this conversation" ends with the run, so only a lasting answer is useful.
     scopesOffered: unattended && !ctx.taint ? ["always"] : folderScopesOffered(ctx.taint),
     taint: ctx.taint,
-    ...(ctx.taint && ctx.taintSources !== undefined ? { taintSources: [...ctx.taintSources] } : {}),
+    taintSources: ctx.taintSources,
   });
   if (unattended) return queued(requested.status === "missing" ? p.path : requested.path);
   const done = await deps.broker.awaitDecision(issued.approval.id, ctx.signal);
@@ -142,6 +138,90 @@ export async function askForFolder(
     },
     provenance: "trusted",
   };
+}
+
+/** The one `folder_access` card, shared by the tool and the chat's share button. */
+async function issueFolderCard(
+  deps: Pick<FolderAccessToolDeps, "broker" | "surfaces">,
+  c: {
+    path: string;
+    reason: string;
+    mode: "ro" | "rw";
+    resolved: Record<string, unknown>;
+    threadId: string;
+    callId: string;
+    requestedBy: {
+      runId: string | null;
+      taskId: string | null;
+      threadId: string;
+      toolCallId?: string;
+    };
+    scopesOffered: ("once" | "always")[];
+    taint: boolean;
+    taintSources?: readonly TaintSource[];
+  },
+) {
+  const binding = hashCanonical({
+    tool: "request_folder_access",
+    path: c.path,
+    reason: c.reason,
+    access: c.mode,
+    resolved: c.resolved,
+    threadId: c.threadId,
+    callId: c.callId,
+  });
+  return deps.broker.requestApproval({
+    kind: "folder_access",
+    summary: `Share a folder: ${c.path}`.slice(0, 300),
+    details: { requestedPath: c.path, reason: c.reason, access: c.mode, ...c.resolved },
+    bindingHash: binding,
+    grantKey: `folder_access|${c.mode}`,
+    requestedBy: c.requestedBy,
+    sideEffect: c.mode === "rw" ? "write" : "read",
+    surfaces: [...deps.surfaces],
+    scopesOffered: c.scopesOffered,
+    taint: c.taint,
+    ...(c.taint && c.taintSources !== undefined ? { taintSources: [...c.taintSources] } : {}),
+  });
+}
+
+/**
+ * The chat's "Share this folder (read only)" button (`files.requestShare`): the same card as the
+ * tool, raised for the owner's device outside an agent run. `path` is only the picker's hint;
+ * a granted folder that covers it answers at once. Never grants anything itself.
+ */
+export async function requestFolderShare(
+  deps: FolderAccessToolDeps,
+  p: { threadId: string; path: string; taint: boolean; taintSources?: readonly TaintSource[] },
+): Promise<{ status: "pending" | "already"; approvalId?: string }> {
+  const requested = await resolveRequestedFolder(p.path, deps.folderEnv?.() ?? {});
+  const covered = folderCovers(
+    deps.grantedFolders?.(p.threadId) ?? [],
+    requested.status === "missing" ? p.path : requested.path,
+    "ro",
+  );
+  if (covered !== undefined && requested.status !== "blocked") return { status: "already" };
+  const resolved =
+    requested.status === "missing"
+      ? { folderStatus: "missing" }
+      : {
+          folderStatus: requested.status,
+          resolvedPath: requested.path,
+          ...(requested.status === "blocked" ? { blockedReason: requested.reason } : {}),
+        };
+  const issued = await issueFolderCard(deps, {
+    path: p.path,
+    reason: "You chose to share this folder so the assistant can read it.",
+    mode: "ro",
+    resolved,
+    threadId: p.threadId,
+    callId: `share_${randomUUID()}`,
+    requestedBy: { runId: null, taskId: null, threadId: p.threadId },
+    scopesOffered: folderScopesOffered(p.taint),
+    taint: p.taint,
+    taintSources: p.taintSources,
+  });
+  return { status: "pending", approvalId: issued.approval.id };
 }
 
 /** What an unattended run is told: the card waits for the owner; go on without the folder. */

@@ -27,6 +27,7 @@ import { cn } from "../lib/utils.ts";
 import { McpAppPanel } from "../widgets/McpAppPanel.tsx";
 import { DiffBlock } from "./DiffBlock.tsx";
 import { DISCLOSURE_KEY, useDisclosure } from "./disclosure.tsx";
+import { ShareFolderForCall } from "./ShareFolderAction.tsx";
 import { ToolResultPreview } from "./ToolResultPreview.tsx";
 import type { ToolCallBlock } from "./types.ts";
 
@@ -162,6 +163,7 @@ export function ToolCallRow({
         </details>
       ) : null}
       {call ? <ToolResultPreview call={call} /> : null}
+      {call ? <ShareFolderForCall call={call} /> : null}
       {block.status === "ok" && block.tool.startsWith("mcp__") ? (
         <McpAppPanel tool={block.tool} />
       ) : null}

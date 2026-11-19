@@ -331,6 +331,11 @@ export const ja: Partial<Catalogue> = {
   "blocks.card.unknown": "Psyche はこの種類の項目をまだ表示できません（{type}）。",
   "specialists.block.label": "{role}の結果: {title}",
   "blocks.toolView.show": "結果を表示",
+  "blocks.toolRun.shareFolder": "このフォルダを共有（読み取り専用）",
+  "blocks.toolRun.shareWaiting": "カードでの回答を待っています",
+  "blocks.toolRun.shared": "共有しました。続けるにはもう一度依頼してください",
+  "blocks.toolRun.shareFailed":
+    "このフォルダの共有を依頼できませんでした。もう一度お試しください。",
   "blocks.toolView.loading": "結果を読み込み中…",
   "blocks.toolView.none": "この操作の結果は保存されていません。",
   "blocks.toolView.more": "ほか {count} 件",

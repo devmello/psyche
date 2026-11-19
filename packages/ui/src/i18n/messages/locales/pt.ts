@@ -293,6 +293,11 @@ export const pt: Partial<Catalogue> = {
   "blocks.card.unknown": "O Psyche ainda não consegue mostrar este tipo de item ({type}).",
   "specialists.block.label": "Resultado de {role}: {title}",
   "blocks.toolView.show": "Mostrar resultado",
+  "blocks.toolRun.shareFolder": "Compartilhar esta pasta (somente leitura)",
+  "blocks.toolRun.shareWaiting": "Aguardando sua resposta no cartão",
+  "blocks.toolRun.shared": "Compartilhada. Peça de novo para continuar",
+  "blocks.toolRun.shareFailed":
+    "Não foi possível pedir o compartilhamento desta pasta. Tente de novo.",
   "blocks.toolView.loading": "Carregando o resultado…",
   "blocks.toolView.none": "O resultado desta ação não é guardado.",
   "blocks.toolView.more": "{count, plural, one {mais #} other {mais #}}",

@@ -1197,6 +1197,10 @@ export class MockGateway implements GatewayClient {
   /** What `files.starterFolders` offers; empty unless a test or story sets it. */
   starterFolders: { id: "documents" | "desktop" | "downloads"; path: string }[] = [];
 
+  /** Every `files.requestShare` the mock saw; `shareAnswer` is what it replies (default: a card). */
+  shareRequests: { threadId: string; path: string; access: "read" }[] = [];
+  shareAnswer: "pending" | "already" = "pending";
+
   private keyStatuses() {
     return ["anthropic", "openai", "google", "openrouter", "brave"].map((id) => ({
       id: id as "anthropic" | "openai" | "google" | "openrouter" | "brave",
@@ -2051,6 +2055,12 @@ export class MockGateway implements GatewayClient {
       });
     },
     "files.starterFolders": () => ({ folders: this.starterFolders }),
+    "files.requestShare": (p) => {
+      this.shareRequests.push({ threadId: p.threadId, path: p.path, access: p.access });
+      return this.shareAnswer === "already"
+        ? { status: "already" as const }
+        : { status: "pending" as const, approvalId: "apr_share_1" };
+    },
     "files.list": (p) => {
       this.assertGranted(p.path);
       const node = this.world.files[p.path];

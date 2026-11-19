@@ -2,6 +2,7 @@ import { constants } from "node:fs";
 import { type FileHandle, lstat, open, readdir, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, resolve, sep } from "node:path";
+import { getAgentThreadState, getThread } from "@psyche/db";
 import {
   assertGranted,
   assertNoSymlinks,
@@ -19,9 +20,11 @@ import {
   type MethodParams,
   type MethodResult,
   PsycheError,
+  type TaintSource,
 } from "@psyche/protocol";
 import { mimeFromName } from "@psyche/viewers/core/detect";
 import type { Call, HandlerDef } from "../context.ts";
+import { type FolderAccessToolDeps, requestFolderShare } from "./folder-access.ts";
 import { folderAccessEnv, protectedRoots } from "./protected-paths.ts";
 
 /**
@@ -40,6 +43,8 @@ export interface FilesSetup {
   home: string;
   /** The owner's home directory (default: this user's); `files.starterFolders` looks under it. */
   userHome?: string;
+  /** What `files.requestShare` raises its folder card with (the tool's broker and surfaces). */
+  share?: FolderAccessToolDeps;
 }
 
 /** A file the caller may read: its real path and display name. */
@@ -239,9 +244,46 @@ async function starterFolders(setup: FilesSetup): Promise<MethodResult<"files.st
 }
 
 /** The handlers, for the dispatcher. */
+/**
+ * `files.requestShare`: the chat's share button. Admin devices only, read only, and it only
+ * raises the folder card: the owner's pick on the card is what is granted. The thread's taint
+ * comes from the Gateway (its saved state, or a turn still running, whose taint is not saved
+ * yet), never from the client.
+ */
+async function requestShare(
+  call: Call,
+  params: MethodParams<"files.requestShare">,
+  setup: FilesSetup,
+): Promise<MethodResult<"files.requestShare">> {
+  if (!call.identity.scopes.includes("operator.admin")) {
+    throw new PsycheError("forbidden", "sharing a folder requires operator.admin");
+  }
+  if ((params.access as string) !== "read") {
+    throw new PsycheError("invalid_params", "this button shares a folder read only");
+  }
+  if (setup.share === undefined) throw new PsycheError("unavailable", "sharing is not set up");
+  if (getThread(call.ctx.db, params.threadId) === undefined) {
+    throw new PsycheError("not_found", `thread ${params.threadId} not found`);
+  }
+  const saved = getAgentThreadState(call.ctx.db, params.threadId)?.taint as
+    | { sources?: TaintSource[] }
+    | undefined;
+  const taint = saved !== undefined || call.ctx.agent.isActive(params.threadId);
+  return requestFolderShare(setup.share, {
+    threadId: params.threadId,
+    path: params.path,
+    taint,
+    ...(saved?.sources === undefined ? {} : { taintSources: saved.sources }),
+  });
+}
+
 export function filesHandlers(setup: FilesSetup): Record<string, HandlerDef> {
   return {
     "files.starterFolders": { run: () => starterFolders(setup) },
+    "files.requestShare": {
+      run: (call: Call, params: MethodParams<"files.requestShare">) =>
+        requestShare(call, params, setup),
+    },
     "files.list": {
       run: (_call: Call, params: MethodParams<"files.list">) => listFolder(params, setup),
     },

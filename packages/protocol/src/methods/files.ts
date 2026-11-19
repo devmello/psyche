@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { ABSOLUTE_HOST_PATH_PATTERN, IsoDateTime, Nullable, StringEnum } from "../common.ts";
+import { ABSOLUTE_HOST_PATH_PATTERN, Id, IsoDateTime, Nullable, StringEnum } from "../common.ts";
 import { defineMethod } from "./define.ts";
 
 /**
@@ -91,6 +91,26 @@ export const FilesMethods = {
     scope: "operator.read",
     description:
       "The folders onboarding may offer to share read-only (Documents, Desktop, Downloads under the owner's home): only those that exist, are not sensitive roots (`assertFolderGrantable`) and are not already covered by a granted folder. Grants through `settings.set` of `permissions.policy`, never from here.",
+  }),
+  "files.requestShare": defineMethod({
+    params: Type.Object({
+      threadId: Id,
+      path: Type.String({
+        minLength: 1,
+        maxLength: 1024,
+        description:
+          "The folder the failed file tool named: a hint for the picker, never what is granted",
+      }),
+      access: Type.Literal("read"),
+    }),
+    result: Type.Object({
+      status: StringEnum(["pending", "already"]),
+      approvalId: Type.Optional(Id),
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "The \"Share this folder (read only)\" button on a file tool's outside-every-granted-folder error: raises the same `folder_access` approval card `request_folder_access` raises (same binding, native picker, Allow once / Always; a tainted thread is offered Allow once only) outside an agent run. `path` only pre-fills the card: the owner's pick is what is granted, and nothing is granted without the card. Read only: any other `access` is invalid_params. `pending` carries the card's `approvalId`; `already` when a granted folder covers the path. forbidden for a device without operator.admin; not_found for an unknown thread. Side-effecting.",
   }),
   "files.list": defineMethod({
     params: Type.Object({
