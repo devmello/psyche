@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import {
   accessSync,
   constants,
+  existsSync,
   lstatSync,
   readFileSync,
   realpathSync,
@@ -145,16 +146,108 @@ function gitDriversOff(
   cwd: string,
   env: NodeJS.ProcessEnv,
   platform: NodeJS.Platform,
+  globals: readonly string[] = [],
 ): Promise<string[]> {
+  return new Promise((done, fail) => {
+    execFile(
+      git,
+      [...gitHardening(platform), ...globals, ...GIT_DRIVER_QUERY],
+      { cwd, env, timeout: 5_000, maxBuffer: 256 * 1024, windowsHide: true },
+      (err, stdout) => {
+        // Exit 1 means none are defined. Any other failure means the config could not be read,
+        // so the drivers it names cannot be switched off: the command does not run.
+        const code = (err as { code?: unknown } | null)?.code;
+        if (err !== null && code !== 1) {
+          fail(
+            new PsycheError(
+              "unavailable",
+              "git's config could not be read; the command was not run",
+            ),
+          );
+          return;
+        }
+        try {
+          done(gitDriverOverrides(String(stdout ?? "")));
+        } catch (e) {
+          fail(e); // a driver name `-c` cannot carry: fail closed
+        }
+      },
+    );
+  });
+}
+
+/** What git itself resolves from `cwd`: the git dir and the work tree, both absolute. */
+function gitProbe(
+  git: string,
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+  hardening: readonly string[],
+): Promise<{ gitDir: string; top: string } | undefined> {
   return new Promise((done) => {
     execFile(
       git,
-      [...gitHardening(platform), ...GIT_DRIVER_QUERY],
-      { cwd, env, timeout: 5_000, maxBuffer: 256 * 1024, windowsHide: true },
-      // Exit 1 means none are defined; stdout carries the names either way.
-      (_err, stdout) => done(gitDriverOverrides(String(stdout ?? ""))),
+      [...hardening, "rev-parse", "--absolute-git-dir", "--show-toplevel"],
+      { cwd, env, timeout: 5_000, maxBuffer: 64 * 1024, windowsHide: true },
+      (err, stdout) => {
+        const lines = String(stdout ?? "")
+          .split("\n")
+          .filter((l) => l !== "");
+        if (err !== null || lines.length !== 2) return done(undefined);
+        try {
+          done({
+            gitDir: realpathSync(lines[0] as string),
+            top: realpathSync(lines[1] as string),
+          });
+        } catch {
+          done(undefined);
+        }
+      },
     );
   });
+}
+
+/**
+ * Is the repository git opened from here one a quiet run may read? Its git dir is a plain
+ * `.git` directly under its work tree (so cwd is not itself a git dir, whose own config git would
+ * use), both lie inside the shared folder, its config redirects nothing, and its object stores
+ * (alternates) are inside the folder too.
+ */
+export function quietGitRepoOk(
+  probe: { gitDir: string; top: string },
+  realCwd: string,
+  folderReal: string,
+): boolean {
+  const { gitDir, top } = probe;
+  if (basename(gitDir) !== ".git" || dirname(gitDir) !== top) return false;
+  if (!under(top, folderReal) || !under(realCwd, top)) return false;
+  if (lstatSync(gitDir, { throwIfNoEntry: false })?.isDirectory() !== true) return false;
+  try {
+    const config = readFileSync(join(gitDir, "config"), "utf8");
+    if (config.length > 1_000_000 || GIT_CONFIG_REDIRECT.test(config)) return false;
+  } catch {
+    return false;
+  }
+  if (lstatSync(join(gitDir, "commondir"), { throwIfNoEntry: false }) !== undefined) return false;
+  const objects = join(gitDir, "objects");
+  if (
+    lstatSync(join(objects, "info", "http-alternates"), { throwIfNoEntry: false }) !== undefined
+  ) {
+    return false;
+  }
+  const alt = join(objects, "info", "alternates");
+  if (lstatSync(alt, { throwIfNoEntry: false }) !== undefined) {
+    try {
+      for (const raw of readFileSync(alt, "utf8").split("\n")) {
+        const line = raw.trim();
+        if (line === "" || line.startsWith("#")) continue;
+        if (/["\\]/.test(line)) return false; // quoted or escaped paths: not worth parsing
+        if (!under(realpathSync(resolve(objects, line)), folderReal)) return false;
+      }
+    } catch {
+      return false;
+    }
+  }
+  return true;
 }
 const MAX_TIMEOUT_MS = 10 * 60_000;
 const ENV_NAME = "^[A-Z][A-Z0-9_]{0,63}$";
@@ -556,6 +649,15 @@ const GIT_CONFIG_REDIRECT = /^\s*(worktree\s*=|\[\s*include)/im;
  */
 export function gitRepoRoot(realCwd: string): string | undefined {
   for (let dir = realCwd; ; dir = dirname(dir)) {
+    // A directory that looks like a bare repository (or is a `.git` itself) is a git dir to
+    // git's discovery, with its own config: not a plain checkout.
+    if (
+      lstatSync(join(dir, "HEAD"), { throwIfNoEntry: false }) !== undefined &&
+      lstatSync(join(dir, "objects"), { throwIfNoEntry: false }) !== undefined &&
+      lstatSync(join(dir, "refs"), { throwIfNoEntry: false }) !== undefined
+    ) {
+      return undefined;
+    }
     const dotGit = join(dir, ".git");
     const st = lstatSync(dotGit, { throwIfNoEntry: false });
     if (st !== undefined) {
@@ -637,7 +739,18 @@ export function readOnlyHost(
     return undefined;
   }
   if (!SYSTEM_BIN_DIRS.some((d) => under(resolved.executable, d))) return undefined;
-  if (c.program === "git" && gitRepoRoot(cwd) === undefined) return undefined;
+  if (c.program === "git") {
+    if (gitRepoRoot(cwd) === undefined) return undefined;
+    // /usr/bin/git is Apple's shim: without the Command Line Tools (or Xcode) it pops an
+    // install dialog, so the quiet path is not taken and the normal approval path applies.
+    if (
+      platform === "darwin" &&
+      !existsSync("/Library/Developer/CommandLineTools/usr/bin/git") &&
+      !existsSync("/Applications/Xcode.app/Contents/Developer/usr/bin/git")
+    ) {
+      return undefined;
+    }
+  }
   for (const operand of c.paths) {
     const abs = resolve(cwd, operand);
     let real: string;
@@ -919,16 +1032,40 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
     let args = p.argv.slice(1);
     // Every git, carded or not: no program its config names (security §5.4).
     if (isGit(resolved.executable, p.argv[0], platform)) {
-      // A read-only git also gets no system/global config, no pager and no diff drivers; the
-      // driver query runs with the same env, so it reads the same config the command will.
-      const ro = readOnlyGit ? readOnlyGitInvocation(args, gitFolderRoot) : undefined;
-      if (ro !== undefined) Object.assign(env, ro.env);
-      args = [
-        ...gitHardening(platform),
-        ...(ro?.globals ?? []),
-        ...(await gitDriversOff(resolved.executable, real, env, platform)),
-        ...(ro?.args ?? args),
-      ];
+      try {
+        // A read-only git also gets no system/global config, no pager and no diff drivers; the
+        // driver query runs with the same env, so it reads the same config the command will.
+        const ro = readOnlyGit ? readOnlyGitInvocation(args, gitFolderRoot) : undefined;
+        if (ro !== undefined) Object.assign(env, ro.env);
+        if (ro !== undefined && quiet) {
+          // Ask git itself which repository it opens from here (hardened like the run), and
+          // require a plain checkout inside the folder: not a git dir embedded in the tree, whose
+          // own config git would use instead of the one that was checked.
+          const probe = await gitProbe(resolved.executable, real, env, [
+            ...gitHardening(platform),
+            ...ro.globals,
+          ]);
+          if (
+            probe === undefined ||
+            gitFolderRoot === undefined ||
+            !quietGitRepoOk(probe, real, gitFolderRoot)
+          ) {
+            throw new PsycheError(
+              "forbidden",
+              "The repository git opens from here is not a plain checkout inside the shared folder (an embedded git dir, a redirecting config or outside alternates); the command needs approval",
+            );
+          }
+        }
+        args = [
+          ...gitHardening(platform),
+          ...(ro?.globals ?? []),
+          ...(await gitDriversOff(resolved.executable, real, env, platform, ro?.globals)),
+          ...(ro?.args ?? args),
+        ];
+      } catch (e) {
+        await cleanup();
+        throw e;
+      }
     }
     if (!unsandboxed && "path" in srt) {
       const profile = execHostSrtSettings({

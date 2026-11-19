@@ -1019,6 +1019,98 @@ describe.skipIf(!posixHost)(
       );
     });
 
+    it("a driver name -c cannot carry refuses the run and runs nothing (review of #1329, B1)", async () => {
+      const cases: [string, string][] = [
+        ["eq", "a=b"],
+        ["space", "a b"],
+        ["tab", "a\tb"],
+        ["quote", 'a"b'],
+      ];
+      for (const [label, name] of cases) {
+        const dir = makeRepo(`gitro-name-${label}`);
+        if (dir === null) return;
+        const mark = marker(`name-${label}`);
+        writeFileSync(join(dir, ".gitattributes"), `* filter=${name.replace(/\s/g, "")} diff=x\n`);
+        gitIn(dir, "config", `filter.${name}.clean`, `touch ${mark}; cat`);
+        gitIn(dir, "config", `diff.${name}.textconv`, `touch ${mark}; cat`);
+        setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+        const t = await readyReal();
+        for (const argv of [
+          ["git", "status"],
+          ["git", "diff"],
+          ["git", "blame", "a.txt"],
+        ]) {
+          const params = { argv, cwd: dir };
+          const d = await decide(t, params);
+          const p = run(
+            t,
+            params,
+            ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+          );
+          if (label === "quote") {
+            // `-c` can carry a quote: switched off like any other name.
+            await p.catch(() => undefined);
+          } else {
+            await expect(p, `${label}: ${argv.join(" ")}`).rejects.toThrow(
+              /cannot be switched off/,
+            );
+          }
+          expect(existsSync(mark), `${label}: ${argv.join(" ")} ran the driver`).toBe(false);
+        }
+      }
+    });
+
+    it("a git dir embedded in the tree, or cwd inside .git, never runs quietly (B2)", async () => {
+      const dir = makeRepo("gitro-embedded");
+      if (dir === null) return;
+      const mark = marker("embedded");
+      // A committed subdirectory that looks like a bare repository: git opens it, with its own
+      // config (a worktree outside the folder, an fsmonitor payload).
+      const emb = join(dir, "emb");
+      mkdirSync(join(emb, "objects"), { recursive: true });
+      mkdirSync(join(emb, "refs"), { recursive: true });
+      writeFileSync(join(emb, "HEAD"), "ref: refs/heads/main\n");
+      writeFileSync(
+        join(emb, "config"),
+        `[core]\n\tworktree = ${outside}\n\tfsmonitor = "touch ${mark} #"\n`,
+      );
+      setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+      const t = await readyReal();
+      for (const cwd of [emb, join(dir, ".git"), join(dir, ".git", "refs")]) {
+        const params = { argv: ["git", "status"], cwd };
+        expect(described(t, params).meta, cwd).toBeUndefined();
+        expect((await decide(t, params)).decision, cwd).toBe("ask");
+      }
+      // Even if the description were fooled, the run asks git what it opens and refuses.
+      expect(existsSync(mark)).toBe(false);
+      expect(started).toEqual([]);
+    });
+
+    it("alternates pointing outside the folder refuse the quiet run (B2)", async () => {
+      const dir = makeRepo("gitro-alt");
+      if (dir === null) return;
+      mkdirSync(join(dir, ".git", "objects", "info"), { recursive: true });
+      writeFileSync(join(dir, ".git", "objects", "info", "alternates"), `${outside}\n`);
+      setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+      const t = await readyReal();
+      const params = { argv: ["git", "log"], cwd: dir };
+      const d = await decide(t, params);
+      await expect(
+        run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+      ).rejects.toMatchObject({ code: "forbidden" });
+      // Inside the folder is fine.
+      writeFileSync(
+        join(dir, ".git", "objects", "info", "alternates"),
+        `${join(dir, ".git", "objects")}\n`,
+      );
+      const ok = await run(
+        t,
+        params,
+        ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+      );
+      expect(ok.output).toMatchObject({ exitCode: 0 });
+    });
+
     it("blame runs quietly in an ordinary repository", async () => {
       const dir = makeRepo("gitro-blame");
       if (dir === null) return;
