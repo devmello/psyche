@@ -25,17 +25,116 @@ function fakePng(width: number, height: number, bytes: number): string {
   return b.toString("base64");
 }
 
+/**
+ * A GIF: logical screen `w`x`h` with a global colour table, a comment extension, then one image
+ * descriptor per frame `[left, top, width, height]` (with a local colour table on the second),
+ * each with a token LZW block.
+ */
+function gif(w: number, h: number, frames: [number, number, number, number][]): Buffer {
+  const u16 = (n: number) => [n & 255, n >> 8];
+  const parts: number[] = [...Buffer.from("GIF89a", "ascii"), ...u16(w), ...u16(h), 0x80, 0, 0];
+  parts.push(...Array(6).fill(0)); // 2-entry global colour table
+  parts.push(0x21, 0xfe, 3, 0x61, 0x62, 0x63, 0); // comment extension "abc"
+  frames.forEach(([l, t, fw, fh], i) => {
+    parts.push(0x2c, ...u16(l), ...u16(t), ...u16(fw), ...u16(fh), i === 1 ? 0x80 : 0);
+    if (i === 1) parts.push(...Array(6).fill(0));
+    parts.push(2, 2, 0x4c, 0x01, 0);
+  });
+  parts.push(0x3b);
+  return Buffer.from(parts);
+}
+
+/** A PNG signature, then `before` (a chunk ahead of IHDR, if any), then IHDR `w`x`h`. */
+function pngWith(w: number, h: number, before?: Buffer): Buffer {
+  const chunk = (type: string, data: Buffer) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    return Buffer.concat([len, Buffer.from(type, "ascii"), data, Buffer.alloc(4)]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    before ?? Buffer.alloc(0),
+    chunk("IHDR", ihdr),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+/** PR #1397 review round 4: PNG and GIF headers the decoder reads differently. */
+describe("strict PNG and GIF size", () => {
+  const fake = (type: string) => {
+    const b = Buffer.alloc(20);
+    b.writeUInt32BE(8, 0);
+    b.write(type, 4, "ascii");
+    b.writeUInt32BE(100, 8);
+    b.writeUInt32BE(100, 12);
+    return b;
+  };
+
+  it("reads a PNG whose first chunk is a 13-byte IHDR", () => {
+    expect(imageSize(pngWith(1440, 900))).toEqual({ width: 1440, height: 900 });
+  });
+
+  it.each(["prVt", "CgBI"])("refuses a PNG with an 8-byte %s chunk (100x100) before IHDR", (t) => {
+    expect(imageSize(pngWith(9000, 9000, fake(t)))).toBeUndefined();
+  });
+
+  it("refuses a PNG whose IHDR is not 13 bytes or whose signature is cut", () => {
+    const b = pngWith(100, 100);
+    b.writeUInt32BE(12, 8);
+    expect(imageSize(b)).toBeUndefined();
+    const sig = pngWith(100, 100);
+    sig[6] = 0;
+    expect(imageSize(sig)).toBeUndefined();
+  });
+
+  it("reads a GIF whose frames fit the logical screen", () => {
+    expect(
+      imageSize(
+        gif(640, 480, [
+          [0, 0, 640, 480],
+          [10, 10, 100, 100],
+        ]),
+      ),
+    ).toEqual({ width: 640, height: 480 });
+  });
+
+  it.each([
+    [
+      "a first frame larger than the screen (the reviewer's patched 9000x9000)",
+      [[0, 0, 9000, 9000]],
+    ],
+    [
+      "a later frame larger than the screen",
+      [
+        [0, 0, 100, 100],
+        [0, 0, 9000, 9000],
+      ],
+    ],
+    ["a frame placed past the screen's edge", [[50, 0, 100, 100]]],
+    ["no frame at all", []],
+  ] as [string, [number, number, number, number][]][])("refuses %s", (_name, frames) => {
+    expect(imageSize(gif(100, 100, frames))).toBeUndefined();
+  });
+
+  it("refuses a GIF with an unknown block", () => {
+    const b = gif(100, 100, [[0, 0, 100, 100]]);
+    b[19] = 0x99; // where the comment extension starts
+    expect(imageSize(b)).toBeUndefined();
+  });
+});
+
 describe("image token estimate", () => {
   it("reads sizes from PNG, GIF and JPEG headers", () => {
     expect(imageSize(Buffer.from(fakePng(1440, 900, 100), "base64"))).toEqual({
       width: 1440,
       height: 900,
     });
-    const gif = Buffer.from("GIF89a", "ascii");
-    expect(imageSize(Buffer.concat([gif, Buffer.from([0x40, 0x01, 0xf0, 0x00, 0, 0])]))).toEqual({
-      width: 320,
-      height: 240,
-    });
+    expect(imageSize(gif(320, 240, [[0, 0, 320, 240]]))).toEqual({ width: 320, height: 240 });
     const jpeg = Buffer.from([
       0xff, 0xd8, 0xff, 0xc0, 0, 17, 8, 0x02, 0x58, 0x03, 0x20, 3, 0, 0, 0, 0, 0, 0, 0,
     ]);

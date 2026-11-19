@@ -114,9 +114,10 @@ class ImageBudget {
     const outMime = sniffImageMime(shaped);
     const outSize = imageSize(shaped);
     if (outMime === undefined || outSize === undefined) return unreadable;
+    // A decoder that applies EXIF orientation 5-8 hands back width and height swapped.
+    const fits = (w: number, h: number) => outSize.width <= w && outSize.height <= h;
     if (
-      outSize.width > size.width ||
-      outSize.height > size.height ||
+      !(fits(size.width, size.height) || fits(size.height, size.width)) ||
       outSize.width * outSize.height > MAX_IMAGE_PIXELS
     )
       return unreadable;
