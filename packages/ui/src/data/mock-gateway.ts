@@ -2187,6 +2187,7 @@ export class MockGateway implements GatewayClient {
           (p.kind === undefined || i.kind === p.kind) &&
           (p.taskId === undefined || i.taskId === p.taskId) &&
           (p.threadId === undefined || i.threadId === p.threadId) &&
+          (p.quarantined === undefined || (i.quarantined === true) === p.quarantined) &&
           (p.query === undefined || i.name.toLowerCase().includes(p.query.toLowerCase())),
       ),
       nextCursor: null,
@@ -2228,6 +2229,18 @@ export class MockGateway implements GatewayClient {
     "library.delete": (p) => {
       this.world.library = this.world.library.filter((i) => i.id !== p.itemId);
       return { ok: true };
+    },
+    "library.quarantine.decide": (p) => {
+      const item = this.world.library.find((i) => i.id === p.itemId);
+      if (item === undefined) fail("not_found", `library item ${p.itemId} not found`);
+      if (item.quarantined !== true) fail("invalid_params", `${item.name} is not in quarantine`);
+      if (p.decision === "delete") {
+        this.world.library = this.world.library.filter((i) => i.id !== p.itemId);
+        return { ok: true, item: null };
+      }
+      const { quarantined: _q, ...released } = item;
+      this.world.library = this.world.library.map((i) => (i.id === p.itemId ? released : i));
+      return { ok: true, item: released };
     },
 
     // --- The teaching loop (T0 #678; docs/agent/teaching-loop-2026.md §7) ---------------

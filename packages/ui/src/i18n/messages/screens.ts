@@ -455,6 +455,8 @@ export const screens = {
   "screens.library.openLabel": "Open {name}{editor, select, true { in the editor} other {}}",
   "screens.library.openInEditor": "Open in editor",
   "screens.library.open": "Open",
+  "screens.library.deleteDownload": "Delete this download",
+  "screens.library.deleteFailed": "Psyche couldn't delete {name} ({reason}). It stays quarantined.",
   "screens.library.trust": "Trust this file",
   "screens.library.moreFor": "More actions for {name}",
   "screens.library.quickLook": "Quick Look",

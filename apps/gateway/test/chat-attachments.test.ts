@@ -157,7 +157,7 @@ describe("resolveAttachments", () => {
 describe("library.upload", () => {
   let handlers: ReturnType<typeof libraryHandlers>;
   beforeEach(() => {
-    handlers = libraryHandlers({ db, home });
+    handlers = libraryHandlers({ db, home, audit: { append: async () => undefined as never } });
   });
   const call = (deviceId = "dev_1") => ({ identity: { deviceId }, emit: () => undefined }) as never;
   const upload = (params: unknown, deviceId?: string) =>

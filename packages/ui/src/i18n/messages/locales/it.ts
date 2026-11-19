@@ -3028,6 +3028,8 @@ export const it: Partial<Catalogue> = {
   "screens.library.openLabel": "Apri {name}{editor, select, true { nell’editor} other {}}",
   "screens.library.openInEditor": "Apri nell’editor",
   "screens.library.open": "Apri",
+  "screens.library.deleteDownload": "Elimina questo download",
+  "screens.library.deleteFailed": "Psyche non è riuscito a eliminare {name} ({reason}). Resta in quarantena.",
   "screens.library.trust": "Considera attendibile questo file",
   "screens.library.moreFor": "Altre azioni per {name}",
   "screens.library.quickLook": "Visualizzazione rapida",

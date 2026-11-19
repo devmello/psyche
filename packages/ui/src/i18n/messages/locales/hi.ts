@@ -2979,6 +2979,8 @@ export const hi: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}{editor, select, true { एडिटर में} other {}} खोलें",
   "screens.library.openInEditor": "एडिटर में खोलें",
   "screens.library.open": "खोलें",
+  "screens.library.deleteDownload": "यह डाउनलोड हटाएँ",
+  "screens.library.deleteFailed": "Psyche {name} को हटा नहीं सका ({reason})। यह क्वारंटीन में ही रहेगा।",
   "screens.library.trust": "इस फ़ाइल पर भरोसा करें",
   "screens.library.moreFor": "{name} के लिए और कार्रवाइयाँ",
   "screens.library.quickLook": "क्विक लुक",

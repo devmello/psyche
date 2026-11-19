@@ -1,5 +1,5 @@
 import type { LibraryItem } from "@psyche/protocol";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -66,12 +66,21 @@ describe("Library item actions", () => {
     expect(await menuItem(user, "acme-intake-form.pdf", "Send to chat")).not.toBeNull();
   });
 
-  it("hides Trust while the app has no way to clear quarantine", async () => {
+  it("Trust is one plain tap: it releases the download through the Gateway, with no extra step", async () => {
     const { user } = setup(<LibraryScreen now={STORY_NOW} section="downloads" />);
     const invoice = (await screen.findByText("invoice.pdf")).closest("article") as HTMLElement;
     expect(within(invoice).getByText("Quarantined")).toBeTruthy();
-    expect(within(invoice).queryByRole("button", { name: "Trust this file" })).toBeNull();
-    expect(await menuItem(user, "invoice.pdf", "Trust this file")).toBeNull();
+    await user.click(within(invoice).getByRole("button", { name: "Trust this file" }));
+    expect(await screen.findByText("Trusted invoice.pdf.")).toBeTruthy();
+    expect(within(invoice).queryByText("Quarantined")).toBeNull();
+  });
+
+  it("offers Delete this download for a quarantined file, and removes it", async () => {
+    const { user } = setup(<LibraryScreen now={STORY_NOW} section="downloads" />);
+    const del = await menuItem(user, "invoice.pdf", "Delete this download");
+    expect(del).not.toBeNull();
+    await user.click(del as HTMLElement);
+    await waitFor(() => expect(screen.queryByText("invoice.pdf")).toBeNull());
   });
 });
 
@@ -112,6 +121,15 @@ describe("which actions an item is offered", () => {
   it("offers Quick Look and Reveal only for non-system files and only when passed", () => {
     expect(ids({ ...base, kind: "system", name: "SOUL.md" })).not.toContain("quick-look");
     expect(ids({ ...base, kind: "document" }, { onOpen: () => {} })).not.toContain("reveal");
+  });
+
+  it("offers Delete this download only for a quarantined file, and only when passed", () => {
+    const quarantined = { ...base, kind: "download" as const, quarantined: true };
+    expect(ids(quarantined)).not.toContain("delete-download");
+    expect(ids(quarantined, { ...all, onDeleteDownload: () => {} })).toContain("delete-download");
+    expect(
+      ids({ ...base, kind: "document" }, { ...all, onDeleteDownload: () => {} }),
+    ).not.toContain("delete-download");
   });
 
   it("offers Trust only for a quarantined file, and only when the app passes onTrust", () => {

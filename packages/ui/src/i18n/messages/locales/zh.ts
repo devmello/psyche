@@ -2939,6 +2939,8 @@ export const zh: Partial<Catalogue> = {
   "screens.library.openLabel": "{editor, select, true {在编辑器中打开 {name}} other {打开 {name}}}",
   "screens.library.openInEditor": "在编辑器中打开",
   "screens.library.open": "打开",
+  "screens.library.deleteDownload": "删除此下载",
+  "screens.library.deleteFailed": "Psyche 无法删除 {name}（{reason}）。它仍在隔离中。",
   "screens.library.trust": "信任此文件",
   "screens.library.moreFor": "{name} 的更多操作",
   "screens.library.quickLook": "快速查看",

@@ -2974,6 +2974,8 @@ export const ko: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}{editor, select, true {을(를) 편집기에서} other {}} 열기",
   "screens.library.openInEditor": "편집기에서 열기",
   "screens.library.open": "열기",
+  "screens.library.deleteDownload": "이 다운로드 삭제",
+  "screens.library.deleteFailed": "Psyche가 {name}을(를) 삭제하지 못했습니다({reason}). 격리 상태로 남아 있습니다.",
   "screens.library.trust": "이 파일 신뢰",
   "screens.library.moreFor": "{name}에 대한 추가 동작",
   "screens.library.quickLook": "훑어보기",

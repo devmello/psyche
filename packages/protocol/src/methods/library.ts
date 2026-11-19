@@ -1,5 +1,5 @@
 import { Type } from "@sinclair/typebox";
-import { Id } from "../common.ts";
+import { Id, Nullable, StringEnum } from "../common.ts";
 import { LibraryItem, LibraryItemKind } from "../schemas/surfaces.ts";
 import { defineMethod, nextCursor, OkResult, pageParams } from "./define.ts";
 
@@ -18,6 +18,8 @@ export const LibraryMethods = {
       threadId: Type.Optional(Id),
       taskId: Type.Optional(Id),
       query: Type.Optional(Type.String({ maxLength: 500 })),
+      /** `true`: only quarantined files (the Trust and quarantine view). */
+      quarantined: Type.Optional(Type.Boolean()),
       ...pageParams,
     }),
     result: Type.Object({ items: Type.Array(LibraryItem), ...nextCursor }),
@@ -60,5 +62,16 @@ export const LibraryMethods = {
     result: OkResult,
     scope: "operator.write",
     description: "Deletes a Library item and its file.",
+  }),
+  "library.quarantine.decide": defineMethod({
+    params: Type.Object({
+      itemId: Id,
+      decision: StringEnum(["trust", "delete"], { $id: "LibraryQuarantineDecision" }),
+    }),
+    result: Type.Object({ ok: Type.Literal(true), item: Nullable(LibraryItem) }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Decides a quarantined Library file: `trust` releases it from quarantine (the file stays where it is and is never opened for you; the OS download tag stays), `delete` removes it and its file. A plain tap from a paired admin device, no presence step. not_found for an unknown item, invalid_params for one that is not quarantined, conflict when a file to trust changed since it was quarantined. Audited with the deciding device. Side-effecting.",
   }),
 } as const;

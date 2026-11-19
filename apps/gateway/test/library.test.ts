@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -10,7 +11,7 @@ import {
   type PsycheDb,
   updateDevice,
 } from "@psyche/db";
-import { LibraryItem, PsycheError } from "@psyche/protocol";
+import { LibraryItem, Methods, PsycheError, requiresIdempotencyKey } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { Value } from "@sinclair/typebox/value";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -30,9 +31,19 @@ let home: string;
 let db: PsycheDb;
 
 let emitted: Array<{ event: string; payload: unknown }> = [];
+let audited: Array<{ kind: string; actor: unknown; data: unknown }> = [];
 
 const run = (method: string, params: unknown) => {
-  const h = libraryHandlers({ db, home })[method];
+  const h = libraryHandlers({
+    db,
+    home,
+    audit: {
+      append: async (e: { kind: string; actor: unknown; data: unknown }) => {
+        audited.push(e);
+        return undefined as never;
+      },
+    },
+  })[method];
   if (h === undefined) throw new Error(`no handler ${method}`);
   const call = {
     identity: { deviceId: "dev_1" },
@@ -70,6 +81,7 @@ beforeEach(async () => {
   await mkdir(join(home, "library"), { recursive: true });
   db = openDb(":memory:");
   emitted = [];
+  audited = [];
 });
 
 afterEach(async () => {
@@ -106,6 +118,95 @@ describe("library.list / library.get", () => {
     expect(out).toEqual(saved);
     expect(out.quarantined).toBe(true);
     expect(await codeOf(run("library.get", { itemId: "missing" }))).toBe("not_found");
+  });
+});
+
+describe("library.quarantine.decide", () => {
+  const quarantined = async (content = "payload") => {
+    const path = "quarantine/dl-1-setup.bin";
+    await mkdir(join(home, "library", "quarantine"), { recursive: true });
+    await writeFile(join(home, "library", path), content);
+    return insertLibraryItem(
+      db,
+      item({
+        kind: "download",
+        name: "setup.bin",
+        path,
+        origin: "download",
+        quarantined: true,
+        sha256: `sha256:${createHash("sha256").update("payload").digest("hex")}`,
+      }),
+    );
+  };
+
+  it("lists only quarantined files with the quarantined filter", async () => {
+    await quarantined();
+    insertLibraryItem(db, item({ name: "mine.txt", path: "uploads/mine.txt" }));
+    expect(await names({ quarantined: true })).toEqual(["setup.bin"]);
+    expect(await names({ quarantined: false })).toEqual(["mine.txt"]);
+  });
+
+  it("trust clears the flag, keeps the file, audits the device and never opens anything", async () => {
+    const q = await quarantined();
+    const out = await run("library.quarantine.decide", { itemId: q.id, decision: "trust" });
+    expect((out.item as LibraryItem).quarantined).toBeUndefined();
+    expect(getLibraryItem(db, q.id)?.quarantined).toBeUndefined();
+    expect(existsSync(join(home, "library", q.path))).toBe(true);
+    expect(audited).toEqual([
+      {
+        kind: "library.quarantine.trust",
+        actor: { type: "device", deviceId: "dev_1" },
+        data: { itemId: q.id, name: "setup.bin", sha256: q.sha256, path: q.path },
+      },
+    ]);
+    expect(emitted.at(-1)).toEqual({
+      event: "library.item.changed",
+      payload: { itemId: q.id, change: "updated" },
+    });
+    // Already released: not a quarantine decision any more.
+    expect(
+      await codeOf(run("library.quarantine.decide", { itemId: q.id, decision: "trust" })),
+    ).toBe("invalid_params");
+  });
+
+  it("refuses to trust bytes that changed after they were quarantined", async () => {
+    const q = await quarantined("tampered");
+    expect(
+      await codeOf(run("library.quarantine.decide", { itemId: q.id, decision: "trust" })),
+    ).toBe("conflict");
+    expect(getLibraryItem(db, q.id)?.quarantined).toBe(true);
+    expect(audited).toEqual([]);
+  });
+
+  it("delete removes the file and the row and audits the device", async () => {
+    const q = await quarantined();
+    const out = await run("library.quarantine.decide", { itemId: q.id, decision: "delete" });
+    expect(out).toEqual({ ok: true, item: null });
+    expect(getLibraryItem(db, q.id)).toBeUndefined();
+    expect(existsSync(join(home, "library", q.path))).toBe(false);
+    expect(audited[0]).toMatchObject({
+      kind: "library.quarantine.delete",
+      actor: { type: "device", deviceId: "dev_1" },
+    });
+  });
+
+  it("only decides quarantined files: an owner upload and an unknown id are refused", async () => {
+    const mine = insertLibraryItem(db, item({ name: "mine.txt", path: "uploads/mine.txt" }));
+    for (const decision of ["trust", "delete"] as const) {
+      expect(await codeOf(run("library.quarantine.decide", { itemId: mine.id, decision }))).toBe(
+        "invalid_params",
+      );
+    }
+    expect(getLibraryItem(db, mine.id)).toBeDefined();
+    expect(
+      await codeOf(run("library.quarantine.decide", { itemId: "nope", decision: "trust" })),
+    ).toBe("not_found");
+  });
+
+  it("requires the admin scope and an idempotency key", () => {
+    expect(Methods["library.quarantine.decide"].scope).toBe("operator.admin");
+    expect(requiresIdempotencyKey("library.quarantine.decide")).toBe(true);
+    expect(Methods["library.list"].scope).toBe("operator.read");
   });
 });
 

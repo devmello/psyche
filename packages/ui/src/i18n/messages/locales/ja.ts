@@ -2996,6 +2996,8 @@ export const ja: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}を{editor, select, true {エディタで} other {}}開く",
   "screens.library.openInEditor": "エディタで開く",
   "screens.library.open": "開く",
+  "screens.library.deleteDownload": "このダウンロードを削除",
+  "screens.library.deleteFailed": "Psyche は {name} を削除できませんでした（{reason}）。隔離されたままです。",
   "screens.library.trust": "このファイルを信頼",
   "screens.library.moreFor": "{name}のその他の操作",
   "screens.library.quickLook": "クイックルック",
