@@ -31,6 +31,8 @@ class RecordingNode implements NodeClient {
   resolve: Record<string, unknown> | undefined;
   /** The next mutating call answers as if the owner pressed Stop. */
   stopNext = false;
+  /** Every mutating call asks for the owner first (the app is on Ask: `tier_ask`). */
+  tierAsk = false;
   readonly nodeId: string;
   readonly name: string;
   constructor(name: string) {
@@ -75,6 +77,16 @@ class RecordingNode implements NodeClient {
       return {
         ok: false,
         error: { code: "cancelled", message: "stopped", details: { reason: "user_stopped" } },
+      };
+    }
+    if (this.tierAsk && options.approvalId === undefined && capability !== "computer.end_session") {
+      return {
+        ok: false,
+        error: {
+          code: "approval_required",
+          message: "the app is on Ask",
+          details: { reason: "tier_ask", app: p.app, tierRequired: "interact" },
+        },
       };
     }
     const label = (p.expect as { label?: string } | undefined)?.label;
@@ -589,5 +601,131 @@ describe("money checks on the separate desktop", () => {
     const r = await call("computer.act", { app: editor, action: "click", x: 1, y: 1 });
     expect(r.isError).toBeUndefined();
     expect(host.calls.some((c) => c.capability === "computer.click")).toBe(true);
+  });
+});
+
+/** Review of #1294 round 2, finding 2: every computer card names where the action happens. */
+describe("cards name the surface", () => {
+  const owner = { runId: "run_1", taskId: "task_1" };
+  const describeFor = (tool: string, params: unknown) =>
+    tools.get(tool)?.describeCall?.(params, owner);
+
+  it("prefixes every separate-desktop card and puts the surface in its details", async () => {
+    await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
+    const sd = { app: editor, surface: "separate_desktop" };
+    const cards = [
+      describeFor("computer.act", click("Save", "separate_desktop")),
+      describeFor("computer.snapshot", sd),
+      describeFor("computer.check_target", { ...sd, role: "button", name: "Save" }),
+      describeFor("computer.screenshot", { ...sd, reason: "a chart" }),
+      describeFor("apps.open", { ...sd, url: "file:///workspace/notes.txt" }),
+      describeFor("apps.focus", sd),
+    ];
+    for (const c of cards) {
+      expect(c?.summary).toMatch(/^In the separate desktop: /);
+      expect(c?.details).toMatchObject({ surface: "separate_desktop" });
+    }
+    expect(cards[0]?.summary).toBe("In the separate desktop: click “Save” in org.gnome.TextEditor");
+  });
+
+  it("names the separate desktop on the helper's own ask and on the payment card", async () => {
+    const broker = new FakePermissionBroker({ armDelayMs: 0 });
+    const issued: { summary: string; details: Record<string, unknown>; sideEffect: string }[] = [];
+    const request = broker.requestApproval.bind(broker);
+    broker.requestApproval = async (input) => {
+      issued.push({
+        summary: input.summary,
+        details: input.details as Record<string, unknown>,
+        sideEffect: input.sideEffect,
+      });
+      return request(input);
+    };
+    const cu2 = createComputerUse({
+      broker,
+      helper: () => ({ nodeId: "node-host", client: host, kind: "host-helper" }),
+      context: (id) => {
+        const c = contexts.get(id);
+        if (c === undefined) throw new Error(`no context ${id}`);
+        return c;
+      },
+      cancelRun: () => undefined,
+      surfaces: { separate_desktop: separateDesktopRouter(desktop) },
+    });
+    tools = new Map(cu2.registrations().map((r) => [r.spec.name, r]));
+    // The guest's app is on Ask: its own ask becomes the owner's card.
+    await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
+    guest.tierAsk = true;
+    await call("computer.act", click("Save", "separate_desktop"));
+    guest.tierAsk = false;
+    // A point that lands on a payment.
+    guest.resolve = { role: "button", labels: ["Pay $49.00"], window: "Checkout" };
+    await call("computer.act", {
+      app: editor,
+      action: "click",
+      x: 5,
+      y: 6,
+      surface: "separate_desktop",
+    });
+    expect(issued.length).toBeGreaterThanOrEqual(2);
+    for (const i of issued) {
+      expect(i.summary).toMatch(/^In the separate desktop: /);
+      expect(i.details).toMatchObject({ surface: "separate_desktop" });
+    }
+    expect(issued.some((i) => i.sideEffect === "financial")).toBe(true);
+  });
+
+  it("leaves a Mac's own desktop unnamed, and names this computer on a Linux Host", () => {
+    const mac = describeFor("computer.act", { ...click("Save", "direct"), surface: undefined });
+    expect(mac?.summary).toBe("click “Save” in org.gnome.TextEditor");
+    expect(mac?.details).not.toHaveProperty("surface");
+    const real = Object.getOwnPropertyDescriptor(process, "platform");
+    Object.defineProperty(process, "platform", { value: "linux", configurable: true });
+    try {
+      const linux = describeFor("computer.act", { ...click("Save", "direct"), surface: undefined });
+      expect(linux?.summary).toBe("On this computer: click “Save” in org.gnome.TextEditor");
+      expect(linux?.details).toMatchObject({ surface: "direct" });
+      expect(describeFor("apps.open", { app: editor })?.summary).toBe(
+        "On this computer: Open org.gnome.TextEditor",
+      );
+    } finally {
+      if (real !== undefined) Object.defineProperty(process, "platform", real);
+    }
+  });
+});
+
+/** Review of #1294 round 2, findings 5 and 6: taking a stale session's place. */
+describe("a stale separate-desktop session", () => {
+  it("yields to one Task only when two arrive together", async () => {
+    await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
+    clock += 3 * 60_000;
+    const [b, c] = await Promise.all([
+      call("computer.snapshot", { app: editor, surface: "separate_desktop" }, "task_2"),
+      call("computer.snapshot", { app: editor, surface: "separate_desktop" }, "task_3"),
+    ]);
+    const ok = [b, c].filter((r) => r.isError === undefined);
+    expect(ok).toHaveLength(1);
+    const refused = [b, c].find((r) => r.isError === true);
+    expect(refused === undefined ? undefined : errorOf(refused)?.code).toBe("conflict");
+    expect(desktop.released).toEqual(["task_1"]);
+    expect(cu.sessions()).toHaveLength(1);
+  });
+
+  it("is kept while its Task waits on the owner's card", async () => {
+    await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
+    // task_1 parks on a card the owner has not answered (its app is on Ask).
+    guest.tierAsk = true;
+    const parked = await call("computer.act", click("Save", "separate_desktop"));
+    guest.tierAsk = false;
+    expect(errorOf(parked)?.code).toBe("approval_required");
+    clock += 3 * 60_000;
+    const r = await call(
+      "computer.snapshot",
+      { app: editor, surface: "separate_desktop" },
+      "task_2",
+    );
+    expect(errorOf(r)).toMatchObject({ code: "conflict", details: { reason: "computer_busy" } });
+    // No yield, no release, no reset: task_1's workspace is intact for its approved action.
+    expect(desktop.released).toEqual([]);
+    expect(desktop.owner()).toBe("task_1");
   });
 });

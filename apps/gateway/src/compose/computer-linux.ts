@@ -9,7 +9,7 @@ import { COMPUTER_USE_ENABLED } from "./computer-settings.ts";
  * (`computerUse.*` is a security namespace, so only the owner's device changes the second one):
  *
  * - `computerUse.linux`, written here and read by the UI:
- *   `{ session, desktop, backend, allowed, a11yEnabled, warnings, checkedAt }`, from the Linux
+ *   `{ session, desktop, backend, allowed, a11yEnabled, killSwitch, warnings, checkedAt }`, from the Linux
  *   helper's `portal.status` and `a11y.status`. Refreshed when the helper comes online, after a
  *   computer-use session ends, after a revoke, and when `computerUse.enabled` changes.
  * - `computerUse.linuxRevoke`, written by the UI: an ISO timestamp set when the owner clicks
@@ -37,6 +37,11 @@ export interface LinuxAccessState {
   /** A restore token is stored: screen and input access stays allowed until revoked. */
   allowed: boolean;
   a11yEnabled: boolean | null;
+  /**
+   * The helper has a working Stop (the X11 Escape grab, or a watched portal session). False: it
+   * refuses computer use until one works. Null: the helper does not say (an older helper).
+   */
+  killSwitch: boolean | null;
   warnings: string[];
   checkedAt: string;
 }
@@ -130,6 +135,7 @@ export function createLinuxComputerState(deps: LinuxComputerStateDeps): LinuxCom
         a11y !== undefined && a11y.available === true && typeof a11y.enabled === "boolean"
           ? a11y.enabled
           : null,
+      killSwitch: typeof portal.killSwitch === "boolean" ? portal.killSwitch : null,
       warnings: Array.isArray(portal.warnings)
         ? portal.warnings.filter((w): w is string => typeof w === "string").slice(0, 8)
         : [],

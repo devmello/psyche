@@ -224,6 +224,11 @@ describe("Linux chords and send apps", () => {
     "im.riot.Riot",
     "whatsapp-for-linux",
     "teams-for-linux",
+    // Snap desktop ids (review of #1294 round 2, finding 1).
+    "thunderbird_thunderbird",
+    "Thunderbird_Thunderbird",
+    "signal-desktop_signal-desktop",
+    "telegram-desktop_telegram-desktop",
   ])("%s is a send app: Return sends", (app) => {
     expect(isSendApp(app)).toBe(true);
     expect(isSendChord(app, "Return")).toBe(true);
@@ -232,7 +237,15 @@ describe("Linux chords and send apps", () => {
   });
 
   it("does not take other Linux apps for send apps", () => {
-    for (const app of [editor, "firefox", "gnome-terminal", "libreoffice-writer"]) {
+    for (const app of [
+      editor,
+      "firefox",
+      "gnome-terminal",
+      "libreoffice-writer",
+      "chromium_chromium",
+      "libreoffice_writer",
+      "thunderbirdx_notes",
+    ]) {
       expect(isSendApp(app)).toBe(false);
     }
   });
@@ -583,12 +596,28 @@ describe("computerUse.linux and the account state", () => {
       backend: "portal",
       allowed: true,
       a11yEnabled: true,
+      // An older helper does not say whether it has a Stop.
+      killSwitch: null,
       warnings: [],
       checkedAt: "2026-11-05T12:00:00.000Z",
     });
     expect(published).toHaveLength(1);
     // Computer use is off: nothing asked the helper to expose app structure.
     expect(helper.calls.map((c) => c.capability)).toEqual(["portal.status", "a11y.status"]);
+  });
+
+  // Review of #1294 round 2, finding 7: Settings can say computer use is refused for want of a Stop.
+  it("passes on whether the helper has a working Stop", async () => {
+    const s = state();
+    helper.portal = { ...helper.portal, killSwitch: false };
+    await s.refresh();
+    expect(stored()).toMatchObject({ killSwitch: false });
+    helper.portal = { ...helper.portal, killSwitch: true };
+    await s.refresh();
+    expect(stored()).toMatchObject({ killSwitch: true });
+    helper.portal = { ...helper.portal, killSwitch: "yes" };
+    await s.refresh();
+    expect(stored()).toMatchObject({ killSwitch: null });
   });
 
   it("asks for app structure when it comes online while computer use is on", async () => {

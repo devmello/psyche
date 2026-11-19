@@ -80,6 +80,26 @@ export const BROWSER_APPS = [
   "falkon",
   "org.kde.falkon",
   "zen-browser",
+  // Linux snap, Flatpak and other browser ids (mirrors the helper's BROWSERS).
+  "chrome",
+  "brave",
+  "brave-browser-stable",
+  "google-chrome-unstable",
+  "microsoft-edge-beta",
+  "microsoft-edge-dev",
+  "torbrowser-launcher",
+  "mullvad-browser",
+  "chromium_chromium",
+  "brave_brave",
+  "firefox_firefox",
+  "io.github.ungoogled_software.ungoogled_chromium",
+  "org.torproject.torbrowser-launcher",
+  "com.github.micahflee.torbrowser-launcher",
+  "one.ablaze.floorp",
+  "com.opera.opera",
+  "waterfox",
+  "floorp",
+  "tor-browser",
 ];
 
 export const TERMINAL_IDE_APPS = [
@@ -165,6 +185,43 @@ export const TERMINAL_IDE_APPS = [
   "org.gnome.builder",
   "org.kde.kate",
   "org.kde.kdevelop",
+  // More Linux terminals, and editors and IDEs that run code (mirrors the helper).
+  "mate-terminal",
+  "io.elementary.terminal",
+  "guake",
+  "tilda",
+  "org.kde.yakuake",
+  "yakuake",
+  "terminology",
+  "sakura",
+  "rxvt-unicode",
+  "rxvt",
+  "urxvt",
+  "urxvtc",
+  "st",
+  "cool-retro-term",
+  "deepin-terminal",
+  "ghostty",
+  "com.raggesilver.blackbox",
+  "footclient",
+  "foot-server",
+  "vim",
+  "nvim",
+  "neovide",
+  "nvim-qt",
+  "geany",
+  "org.geany.geany",
+  "thonny",
+  "org.thonny.thonny",
+  "spyder",
+  "org.spyder_ide.spyder",
+  "qtcreator",
+  "org.qt-project.qtcreator",
+  "io.qt.qtcreator",
+  "eclipse",
+  "org.eclipse.java",
+  "codeblocks",
+  "org.codeblocks.codeblocks",
 ];
 
 /** Off, and the owner cannot raise them (chat or settings). */
@@ -269,6 +326,9 @@ export const LOCKED_OFF_APPS = [
   "coinbase*",
   "robinhood*",
   "revolut*",
+  // Linux password managers the helper also caps.
+  "lastpass",
+  "dashlane",
 ];
 
 /**
@@ -302,6 +362,7 @@ export const LAUNCHER_APPS = [
   "python3*",
   "idle",
   "idle3*",
+  "idle-python3*",
 ];
 
 /**
@@ -317,7 +378,25 @@ function matchesAny(bundleId: string, patterns: readonly string[]): boolean {
   });
 }
 
-export function appCap(bundleId: string): { cap: AppTier; reason: string } {
+/** A snap's desktop-file id: `<snap>_<app>` (one underscore, no dots, snapd's characters). */
+const SNAP_DESKTOP_ID = /^([a-z0-9][a-z0-9+-]*)_([a-z0-9][a-z0-9+-]*)$/;
+
+/**
+ * The ids an app id also stands for. A snap's desktop id `<snap>_<app>` (`thunderbird_thunderbird`,
+ * `chromium_chromium`) is that app and that snap too, so the fixed caps and the send rule judge
+ * every one of them (the Linux helper's `app_id::aliases` does the same). Dotted ids (Flatpak, Mac,
+ * `org.claws_mail.claws-mail`) are never split. An extra alias can only add a match.
+ */
+export function appIdAliases(appId: string): string[] {
+  const id = appId.trim().toLowerCase();
+  const m = SNAP_DESKTOP_ID.exec(id);
+  if (m === null) return [id];
+  const [, snap = "", app = ""] = m;
+  return [...new Set([id, app, snap])];
+}
+
+/** The fixed cap for one id, without aliases. */
+function capOf(bundleId: string): { cap: AppTier; reason: string } {
   if (matchesAny(bundleId, LOCKED_OFF_APPS)) {
     return {
       cap: "off",
@@ -335,6 +414,16 @@ export function appCap(bundleId: string): { cap: AppTier; reason: string } {
     return { cap: "click", reason: "terminals and IDEs are click-only" };
   }
   return { cap: "interact", reason: "" };
+}
+
+/** The highest tier an app can ever get: the strictest cap of the id and its aliases. */
+export function appCap(bundleId: string): { cap: AppTier; reason: string } {
+  let best = capOf(bundleId);
+  for (const alias of appIdAliases(bundleId).slice(1)) {
+    const c = capOf(alias);
+    if (TIER_RANK[c.cap] < TIER_RANK[best.cap]) best = c;
+  }
+  return best;
 }
 
 /** Tier an action needs. Unknown actions need `interact`. */

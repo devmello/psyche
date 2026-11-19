@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appCap, effectiveTier } from "../src/index.ts";
+import { appCap, appIdAliases, effectiveTier } from "../src/index.ts";
 
 /** Linux desktop-file ids (apps/linux-helper): the same fixed caps as the Mac and Windows lists. */
 describe("Linux fixed caps", () => {
@@ -178,4 +178,84 @@ describe("Linux program launchers", () => {
   ])("near miss %s keeps its tier", (id) => {
     expect(appCap(id).cap).not.toBe("off");
   });
+});
+
+/** Review of #1294 round 2, finding 1: snap desktop ids keep their app's caps. */
+describe("snap desktop ids", () => {
+  it.each([
+    ["thunderbird_thunderbird", ["thunderbird_thunderbird", "thunderbird"]],
+    ["chromium_chromium", ["chromium_chromium", "chromium"]],
+    ["firefox_beta", ["firefox_beta", "beta", "firefox"]],
+    ["Brave_Brave", ["brave_brave", "brave"]],
+  ])("%s also stands for its app and snap", (id, aliases) => {
+    expect(appIdAliases(id)).toEqual(aliases);
+  });
+
+  it.each([
+    "org.claws_mail.claws-mail",
+    "io.github.ungoogled_software.ungoogled_chromium",
+    "com.apple.Safari",
+    "a_b_c",
+    "_x",
+    "gnome-terminal",
+  ])("%s is not split", (id) => {
+    expect(appIdAliases(id)).toEqual([id.toLowerCase()]);
+  });
+
+  it.each([
+    "chromium_chromium",
+    "brave_brave",
+    "firefox_firefox",
+    "chrome",
+    "brave",
+    "io.github.ungoogled_software.ungoogled_chromium",
+    "one.ablaze.floorp",
+    "waterfox",
+    "tor-browser",
+    "mullvad-browser",
+  ])("browser %s is read-only", (id) => {
+    expect(appCap(id).cap).toBe("read");
+  });
+
+  it("the strictest alias wins", () => {
+    // A snap whose app part is a password manager is off, whatever its snap is called.
+    expect(appCap("whatever_keepassxc").cap).toBe("off");
+    expect(appCap("gnome-terminal_x").cap).toBe("click");
+    expect(appCap("thunderbird_thunderbird").cap).toBe("interact");
+  });
+});
+
+/** Review of #1294 round 2, finding 4: more terminals, code-running IDEs and launchers. */
+describe("more Linux caps", () => {
+  it.each([
+    "mate-terminal",
+    "io.elementary.terminal",
+    "guake",
+    "org.kde.yakuake",
+    "urxvt",
+    "com.mitchellh.ghostty",
+    "com.raggesilver.BlackBox",
+    "footclient",
+    "vim",
+    "nvim",
+    "org.geany.Geany",
+    "thonny",
+    "org.spyder_ide.spyder",
+    "org.qt-project.qtcreator",
+    "eclipse",
+    "codeblocks",
+  ])("%s is click-only", (id) => {
+    expect(appCap(id).cap).toBe("click");
+  });
+
+  it.each(["idle-python3.12", "idle-python3", "lastpass", "dashlane"])("%s is off", (id) => {
+    expect(appCap(id).cap).toBe("off");
+  });
+
+  it.each(["stellarium", "vimiv", "geany-plugins-doc", "org.gnome.TextEditor"])(
+    "near miss %s keeps interact",
+    (id) => {
+      expect(appCap(id).cap).toBe("interact");
+    },
+  );
 });

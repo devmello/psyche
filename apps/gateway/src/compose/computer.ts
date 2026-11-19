@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { hashCanonical } from "@psyche/audit";
 import type { CallContext } from "@psyche/browser";
 import { getSetting, listNodes } from "@psyche/db";
-import { bindingHash } from "@psyche/permissions";
+import { appIdAliases, bindingHash } from "@psyche/permissions";
 import {
   type ComputerSurface,
   createValidator,
@@ -280,7 +280,8 @@ const SEND_LINUX_IDS = new Set(
 export function isSendApp(app: string): boolean {
   const id = app.trim().toLowerCase();
   if (SEND_APPS.some((a) => a.toLowerCase() === id)) return true;
-  if (SEND_LINUX_IDS.has(id)) return true;
+  // A snap's `<snap>_<app>` id (`thunderbird_thunderbird`) is that app too.
+  if (appIdAliases(id).some((a) => SEND_LINUX_IDS.has(a))) return true;
   const exe = id.split(/[\\/]/).pop() ?? "";
   return SEND_EXES.includes(exe);
 }
@@ -844,28 +845,76 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
   }
 
   /**
+   * Whether the run or Task that owns `s` waits on one of the owner's cards (the loop's own card
+   * before a call, or a helper's ask during one). A failed look counts as waiting.
+   */
+  async function waitsOnOwner(s: Session): Promise<boolean> {
+    try {
+      const pending = await deps.broker.list({ status: "pending" });
+      return pending.some(
+        (a) =>
+          (s.taskId !== undefined && a.requestedBy.taskId === s.taskId) ||
+          (typeof a.requestedBy.runId === "string" && s.runIds.has(a.requestedBy.runId)),
+      );
+    } catch {
+      return true;
+    }
+  }
+
+  /** `acquire` calls per node and surface, one at a time (a yield awaits its router). */
+  const acquiring = new Map<string, Promise<unknown>>();
+
+  /**
    * One session drives the computer at a time per node and surface (J5); a stale one (helper idle
-   * release) yields.
+   * release) yields. Serialized per node and surface, so two Tasks never both take a stale
+   * session's place.
    */
   async function acquire(
     ctx: CallContext,
     node: Pick<HelperNode, "nodeId">,
     surface: ComputerSurface,
   ): Promise<Session> {
+    const key = `${node.nodeId}|${surface}`;
+    const run = (acquiring.get(key) ?? Promise.resolve()).then(() =>
+      acquireNow(ctx, node, surface),
+    );
+    const tail = run.catch(() => undefined);
+    acquiring.set(key, tail);
+    try {
+      return await run;
+    } finally {
+      if (acquiring.get(key) === tail) acquiring.delete(key);
+    }
+  }
+
+  async function acquireNow(
+    ctx: CallContext,
+    node: Pick<HelperNode, "nodeId">,
+    surface: ComputerSurface,
+  ): Promise<Session> {
     const id = sessionKey(ctx, surface);
-    for (const s of [...sessions.values()]) {
-      if (s.id === id || s.nodeId !== node.nodeId || s.surface !== surface) continue;
-      if (now() - s.lastUsed < SESSION_IDLE_MS) {
-        throw new PsycheError(
-          "conflict",
-          "Another task is using the computer right now. Wait for it to finish, or ask the owner.",
-          { details: { reason: "computer_busy" }, retryable: true },
-        );
+    const busy = () =>
+      new PsycheError(
+        "conflict",
+        "Another task is using the computer right now. Wait for it to finish, or ask the owner.",
+        { details: { reason: "computer_busy" }, retryable: true },
+      );
+    // Scanned again after every yield: the sessions can change while a router releases.
+    for (let yielded = true; yielded; ) {
+      yielded = false;
+      for (const s of [...sessions.values()]) {
+        if (s.id === id || s.nodeId !== node.nodeId || s.surface !== surface) continue;
+        if (now() - s.lastUsed < SESSION_IDLE_MS) throw busy();
+        // A routed surface holds its Task's workspace: a Task waiting on the owner's tap keeps it
+        // (no yield, no reset under an approved action).
+        if (s.surface !== "direct" && (await waitsOnOwner(s))) throw busy();
+        // A stale session yields. On a routed surface its router must hear of it, so the surface
+        // is released (the separate desktop's shares and internet tunnel go with its Task) before
+        // the next Task gets it.
+        await forget(s);
+        yielded = true;
+        break;
       }
-      // A stale session yields. On a routed surface its router must hear of it, so the surface is
-      // released (the separate desktop's shares and internet tunnel go with its Task) before the
-      // next Task gets it.
-      await forget(s);
     }
     let s = sessions.get(id);
     if (s === undefined || s.nodeId !== node.nodeId) {
@@ -1078,12 +1127,16 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     }
     const issued = await deps.broker.requestApproval({
       kind: "computer_action",
-      summary: risky
-        ? `${fallback.action} “${label ?? fallback.action}” in ${app}`
-        : `Let Psyche use ${app} for 30 minutes`,
+      summary: placed(
+        fallback.surface,
+        risky
+          ? `${fallback.action} “${label ?? fallback.action}” in ${app}`
+          : `Let Psyche use ${app} for 30 minutes`,
+      ),
       details: {
         app,
         action: fallback.action,
+        ...placeField(fallback.surface),
         tierRequired,
         ...(label === undefined ? {} : { label }),
         why: err.message,
@@ -1748,6 +1801,33 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
   /** A grant for one surface never covers another; the direct surface keeps the old keys. */
   const surfaceSuffix = (surface: ComputerSurface | undefined): string =>
     surface === undefined || surface === "direct" ? "" : `|${surface}`;
+  /**
+   * Where a card's action happens, named on every card (owner decision for #1294): the separate
+   * desktop or the virtual screen, or the Host itself when it is a Linux computer (which also has
+   * a separate desktop). A Mac's or PC's own desktop is the only one there and is not named.
+   */
+  const placeOf = (surface: ComputerSurface | undefined): string | undefined =>
+    surface === "separate_desktop"
+      ? "In the separate desktop"
+      : surface === "virtual_screen"
+        ? "On the virtual screen"
+        : hostOs(deps.helper()?.kind) === "linux"
+          ? `On ${hostWords(deps.helper()?.kind).thisDevice}`
+          : undefined;
+  const placed = (surface: ComputerSurface | undefined, summary: string): string => {
+    const where = placeOf(surface);
+    return where === undefined ? summary : `${where}: ${summary}`;
+  };
+  /** `surface` for a card's details, whenever the card names its place. */
+  const placeField = (surface: ComputerSurface | undefined): { surface?: ComputerSurface } =>
+    placeOf(surface) === undefined ? {} : { surface: surface ?? "direct" };
+  const placeDetails = (
+    surface: ComputerSurface | undefined,
+    details: Record<string, unknown> = {},
+  ): { details?: Record<string, unknown> } => {
+    const d = { ...details, ...placeField(surface) };
+    return Object.keys(d).length === 0 ? {} : { details: d };
+  };
 
   /**
    * An element target the helper may act on: a ref must come from a snapshot of `app` (the app
@@ -1971,10 +2051,14 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           ...(activatesUnseen(p) ? { unreadable: true } : {}),
         },
       },
-      summary: `${unwatched(p.app) ? "While you're away: " : ""}${what} in ${p.app}`,
+      summary: placed(
+        p.surface,
+        `${unwatched(p.app) ? "While you're away: " : ""}${what} in ${p.app}`,
+      ),
       details: {
         app: p.app,
         action: p.action,
+        ...placeField(p.surface),
         ...(label === undefined ? {} : { element: label }),
         ...(p.text === undefined ? {} : { text: p.text }),
         ...(p.keys === undefined ? {} : { keys: p.keys }),
@@ -2023,7 +2107,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           ...surfaceFields(p.surface),
         },
         grantKey: `${p.app}|read${surfaceSuffix(p.surface)}`,
-        summary: `Read ${p.app}`,
+        summary: placed(p.surface, `Read ${p.app}`),
+        ...placeDetails(p.surface),
       }),
       async run(p, callId, signal) {
         const { res, session } = await invoke(
@@ -2083,7 +2168,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           ...surfaceFields(p.surface),
         },
         grantKey: `${p.app}|read${surfaceSuffix(p.surface)}`,
-        summary: `Check the recorded step in ${p.app}`,
+        summary: placed(p.surface, `Check the recorded step in ${p.app}`),
+        ...placeDetails(p.surface),
       }),
       async run(p, callId, signal) {
         // A role is required (`generic` means any), unless it is a menu choice.
@@ -2201,8 +2287,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           ...surfaceFields(p.surface),
         },
         grantKey: `${p.app}|read${surfaceSuffix(p.surface)}`,
-        summary: `Look at ${p.app}`,
-        details: { app: p.app, reason: p.reason },
+        summary: placed(p.surface, `Look at ${p.app}`),
+        details: { app: p.app, reason: p.reason, ...placeField(p.surface) },
       }),
       async run(p, callId, signal) {
         const ctx = deps.context(callId);
@@ -2275,8 +2361,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           },
           grantKey: `${p.app}|click${surfaceSuffix(p.surface)}`,
           meta: { app: p.app, action: "open_app" },
-          summary: `Open ${p.app}`,
-          ...(p.url === undefined ? {} : { details: { app: p.app, url: p.url } }),
+          summary: placed(p.surface, `Open ${p.app}`),
+          ...placeDetails(p.surface, p.url === undefined ? {} : { app: p.app, url: p.url }),
         };
       },
       async run(p, callId, signal) {
@@ -2322,7 +2408,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         },
         grantKey: `${p.app}|click${surfaceSuffix(p.surface)}`,
         meta: { app: p.app, action: "focus" },
-        summary: `Focus ${p.app}`,
+        summary: placed(p.surface, `Focus ${p.app}`),
+        ...placeDetails(p.surface),
       }),
       async run(p, callId, signal) {
         const { res, approvalId } = await invoke(
