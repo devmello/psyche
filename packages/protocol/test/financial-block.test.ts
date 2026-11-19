@@ -1972,6 +1972,18 @@ describe("isNoCheckoutVenue: where the Link purchase tool never pays", () => {
     "https://www.paypal.com/pay?to=john",
     "https://www.paypal.com/donate/?hosted_button_id=X",
     "https://www.swapped.com",
+    // #1332 follow-up: one malformed escape, double encoding, suffixes and hash routes.
+    "https://www.paypal.com/%70aypalme/john/%ZZ",
+    "https://www.paypal.com/%70aypalme/john/%",
+    "https://www.paypal.com/cgi-bin/webscr?cmd=_send-money%",
+    "https://www.paypal.com/cgi-bin/webscr?x=%ZZ&cmd=_send-money",
+    "https://www.paypal.com/%2570aypalme/john",
+    "https://www.paypal.com/paypalme;x/john",
+    "https://www.paypal.com/paypalme./john",
+    "https://www.paypal.com/paypalme%20/john",
+    "https://www.paypal.com/#/paypalme/john",
+    "https://www.paypal.com/us/#/%70aypalme/john/%ZZ",
+    "https://www.paypal.com/#/myaccount/transfer/send",
   ])("%s has no checkout", (url) => {
     expect(isNoCheckoutVenue(url)).toBe(true);
   });
@@ -1985,6 +1997,11 @@ describe("isNoCheckoutVenue: where the Link purchase tool never pays", () => {
     "https://www.paypal.com/invoice/p/ABC",
     "https://www.paypal.com/cgi-bin/webscr?cmd=_xclick",
     "https://www.paypal.com/sendgrid",
+    "https://www.paypal.com/checkoutnow?token=EC-1&x=%",
+    "https://www.paypal.com/checkoutnow?token=%ZZ",
+    "https://www.paypal.com/webapps/hermes?token=EC-1&return=%",
+    "https://www.paypal.com/checkout/?token=100%",
+    "https://www.paypal.com/checkout/#/review",
     "https://www.amazon.com/gp/buy",
     "https://ultimaterewardspoints.chase.com/travel",
     undefined,

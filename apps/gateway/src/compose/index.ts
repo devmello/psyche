@@ -199,7 +199,7 @@ import { graphSourceAdapters } from "./people-sources.ts";
 import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { folderAccessEnv, ownWorkdirs, protectedRoots } from "./protected-paths.ts";
-import { createPurchaseTool, LINK_PAYMENT_SOURCE } from "./purchase-tool.ts";
+import { createPurchaseTool, LINK_PAYMENT_SOURCE, PURCHASE_TOOL } from "./purchase-tool.ts";
 import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import {
@@ -1291,7 +1291,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
             .invalidatePendingOfKind(
               "purchase",
               "payments_disconnected",
-              (a) => a.details?.paymentSource === LINK_PAYMENT_SOURCE,
+              // The fallback card (a tab with no origin) has no paymentSource: the loop always
+              // names the tool, so match that too.
+              (a) =>
+                a.details?.paymentSource === LINK_PAYMENT_SOURCE ||
+                a.details?.tool === PURCHASE_TOOL,
             )
             .catch(() => undefined);
         }
