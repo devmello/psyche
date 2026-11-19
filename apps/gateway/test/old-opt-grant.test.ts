@@ -20,7 +20,7 @@ const ctx = {
 
 describe("an old /opt/homebrew rw grant", () => {
   const broker = createPermissionBroker({
-    approvers: [],
+    approvers: { device: async () => undefined, isOwnerSender: async () => false },
     policy: {
       folders: [
         { path: "/opt/homebrew", mode: "rw" },
