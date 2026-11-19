@@ -19,7 +19,7 @@
     "@psyche/db": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@psyche/tasks": "workspace:*",
-    "cron-parser": "5.10.2"
+    "cron-parser": "5.10.6"
   },
   "devDependencies": {
     "@psyche/testing": "workspace:*",
