@@ -28,6 +28,8 @@ const INVISIBLE_ONE = new RegExp(INVISIBLE.source, "u");
 export function machineNameOk(name: unknown): name is string {
   return (
     typeof name === "string" &&
+    // A lone surrogate shows as U+FFFD and serde_json refuses its escape; the pattern can't see it.
+    name.isWellFormed() &&
     name.length >= 1 &&
     name.length <= 64 &&
     MACHINE_NAME_RE.test(name) &&

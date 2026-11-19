@@ -148,6 +148,8 @@ describe("machine names", () => {
 
   it("refuses non-strings", () => {
     expect(machineNameOk(5)).toBe(false);
+    for (const lone of ["a\udb40b", "a\udc00b", "ab\ud83d"])
+      expect(machineNameOk(lone)).toBe(false);
     expect(machineNameOk(undefined)).toBe(false);
   });
 });
