@@ -337,6 +337,20 @@ describe("memory map", () => {
   });
 
   describe("the cache never serves a stale map (the clock is frozen throughout)", () => {
+    it("doesn't keep a map built inside a transaction that rolls back", () => {
+      const sam = person("Sam");
+      graph.updateEntity(sam.id, { hidden: true });
+      expect(map().nodes).toEqual([]);
+      expect(() =>
+        env.db.sqlite.transaction(() => {
+          graph.updateEntity(sam.id, { hidden: false });
+          expect(map().nodes.map((n) => n.id)).toEqual([sam.id]);
+          throw new Error("roll back");
+        })(),
+      ).toThrow("roll back");
+      expect(map().nodes).toEqual([]);
+    });
+
     it("sees a retracted edge", () => {
       const sam = person("Sam");
       const kit = thing("project", "Kitchen");
@@ -485,5 +499,16 @@ describe("memory map", () => {
     const t1 = Date.now();
     expect(map({ limit: N })).toBe(m);
     expect(Date.now() - t1).toBeLessThan(built / 3 + 50);
+  });
+});
+
+describe("graphFingerprint", () => {
+  it("gives no fingerprint for a closed store, so the map builds without the cache", async () => {
+    const { openDb } = await import("@psyche/db");
+    const { graphFingerprint } = await import("../src/graph/map.ts");
+    const db = openDb(":memory:");
+    expect(graphFingerprint(db.sqlite)).toMatch(/:\d+:\d+$/);
+    db.close();
+    expect(graphFingerprint(db.sqlite)).toBeUndefined();
   });
 });

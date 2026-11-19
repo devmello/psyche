@@ -286,10 +286,14 @@ export function buildMemoryMap(db: Database.Database, opts: MemoryMapOptions = {
  * edge, interaction or participant can slip past it, whatever the clock says. It also moves for
  * writes to unrelated tables, which only costs a rebuild.
  */
-export function graphFingerprint(db: Database.Database): string {
-  const changes = (db.prepare("SELECT total_changes() AS n").get() as { n: number }).n;
+export function graphFingerprint(db: Database.Database): string | undefined {
+  // No fingerprint (so no cache) inside a transaction, which a rollback could undo without
+  // lowering total_changes(), or while the store is closed (the encrypted store before its key).
+  if (!db.open || db.inTransaction) return undefined;
+  const row = db.prepare("SELECT total_changes() AS n").get() as { n: number } | undefined;
+  if (row === undefined) return undefined;
   const other = db.pragma("data_version", { simple: true });
-  return `${changes}:${String(other)}`;
+  return `${db.name}:${row.n}:${String(other)}`;
 }
 
 /**
@@ -305,6 +309,7 @@ export function createMemoryMapBuilder(db: Database.Database) {
       [...(opts.kinds ?? ALL_KINDS)].sort(),
     ]);
     const fingerprint = graphFingerprint(db);
+    if (fingerprint === undefined) return buildMemoryMap(db, { ...opts, now });
     const hit = cache.get(key);
     if (hit !== undefined && hit.fingerprint === fingerprint && Math.abs(now - hit.at) < DAY_MS / 4)
       return hit.map;
