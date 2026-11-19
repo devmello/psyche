@@ -1051,7 +1051,8 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
       p.cwd,
       deps.folders(ctx.threadId),
       platform,
-      folderAccessEnv(deps.home),
+      // Home-relative refusals (~/Library, ~/.ssh, the CLI dirs) judged against the exec user's home.
+      { ...folderAccessEnv(deps.home), home: userHome },
     );
     // Hashed again right before it runs: a binary swapped after approval does not run.
     const described = describe(p, platform);

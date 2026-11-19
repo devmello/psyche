@@ -754,6 +754,28 @@ describe.skipIf(!posixHost)(
       expect(started).toEqual([]);
     });
 
+    it.each([
+      ["~/Library", ["Library"]],
+      ["~/.ssh", [".ssh"]],
+      ["~/.local/bin", [".local", "bin"]],
+    ])("a granted root swapped for a link to %s covers nothing", async (_label, parts) => {
+      on();
+      const target = join(home, ...parts);
+      mkdirSync(target, { recursive: true });
+      const swapped = join(home, "Projects", `swapped-${parts.join("-")}`);
+      mkdirSync(swapped, { recursive: true });
+      setPolicy({ ...policy, folders: [...(policy.folders ?? []), { path: swapped, mode: "rw" }] });
+      spawnSync("/bin/rmdir", [swapped]);
+      symlinkSync(target, swapped);
+      const t = await quietHost();
+      const params = { argv: ["date"], cwd: swapped };
+      const d = await decide(t, params);
+      await expect(
+        run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+      ).rejects.toMatchObject({ code: "forbidden" });
+      expect(started).toEqual([]);
+    });
+
     it("env, allowedDomains or an absolute argv[0] keep the old card", async () => {
       on();
       const t = await quietHost();
