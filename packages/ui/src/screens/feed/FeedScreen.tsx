@@ -1,5 +1,5 @@
 import type { FeedPost } from "@psyche/protocol";
-import { CalendarClock, CircleAlert, Loader, PenLine } from "lucide-react";
+import { CalendarClock, CircleAlert, Loader, PenLine, Rss } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAskAboutFeedItem } from "../../chat/ask-about.ts";
@@ -16,6 +16,7 @@ import { useSlots } from "../../slots.tsx";
 import { FeedSpecialistResults } from "../../specialists/FeedResults.tsx";
 import { FeedInstructionsSheet } from "./FeedInstructionsSheet.tsx";
 import { type FeedFeedbackValue, FeedPostCard } from "./FeedPostCard.tsx";
+import { FeedSourcesSheet } from "./FeedSourcesSheet.tsx";
 import { feedKind, feedTopic, primarySource } from "./feed-post.ts";
 import { ScreenSection, ToolbarLabel } from "./ScreenToolbar.tsx";
 
@@ -42,6 +43,8 @@ export interface FeedViewProps {
   onFeedback?: (post: FeedPost, feedback: FeedFeedbackValue | null, topic?: string) => void;
   onAsk?: (post: FeedPost) => void;
   onEditInstructions?: () => void;
+  /** Opens the Feed sources sheet ("Sources" in the Feed header). */
+  onEditSources?: () => void;
   onSchedule?: () => void;
   onGenerate?: () => void;
   onOpenRoute?: (route: string) => void;
@@ -82,6 +85,7 @@ export function FeedView({
   onFeedback,
   onAsk,
   onEditInstructions,
+  onEditSources,
   onSchedule,
   onGenerate,
   onOpenRoute,
@@ -229,6 +233,18 @@ export function FeedView({
 
   const actions = (
     <>
+      {onEditSources ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          title={t("screens.feed.sourcesEditor.button")}
+          onClick={onEditSources}
+        >
+          <Rss aria-hidden="true" />
+          <ToolbarLabel>{t("screens.feed.sourcesEditor.button")}</ToolbarLabel>
+        </Button>
+      ) : null}
       {onEditInstructions ? (
         <Button
           type="button"
@@ -403,6 +419,7 @@ export function FeedScreen({
 
   // The sheet opens at once and the route follows, so it works with or without a router.
   const [ownOpen, setOwnOpen] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const editorOpen = instructionsOpen ?? ownOpen;
   const editInstructions =
     onEditInstructions ??
@@ -429,6 +446,7 @@ export function FeedScreen({
         generating={generating}
         onFeedback={giveFeedback}
         onEditInstructions={editInstructions}
+        onEditSources={() => setSourcesOpen(true)}
         onSchedule={schedule}
         onGenerate={generate}
         onOpenRoute={(route) => navigate?.(route)}
@@ -443,6 +461,7 @@ export function FeedScreen({
         {...(onAsk ? { onAsk } : {})}
         {...(sourceFailures ? { sourceFailures } : {})}
       />
+      <FeedSourcesSheet open={sourcesOpen} onClose={() => setSourcesOpen(false)} />
       {onEditInstructions ? null : (
         <FeedInstructionsSheet
           open={editorOpen}

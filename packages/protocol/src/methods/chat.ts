@@ -61,12 +61,67 @@ export const QueuedMessage = Type.Object(
 );
 export type QueuedMessage = Static<typeof QueuedMessage>;
 
+/** Most files one message can carry (the composer shows the same limit). */
+export const MAX_ATTACHED_FILES = 8;
+
+/**
+ * A file the owner attached from disk (a native pick or a drop in the desktop app). The path is
+ * only a name: `chat.send` includes it only while `chat.attachFiles` holds a live read grant for
+ * exactly that file in the thread, so a client cannot attach what the owner did not pick.
+ */
+export const ChatAttachedFile = Type.Object(
+  { path: Type.String({ minLength: 1, maxLength: 4096 }) },
+  { $id: "ChatAttachedFile" },
+);
+export type ChatAttachedFile = Static<typeof ChatAttachedFile>;
+
+export const ChatAttachFilesResult = Type.Object(
+  {
+    files: Type.Array(
+      Type.Object({
+        path: Type.String(),
+        name: Type.String(),
+        size: Type.Integer({ minimum: 0 }),
+        type: Type.String(),
+      }),
+    ),
+    refused: Type.Array(
+      Type.Object({
+        path: Type.String(),
+        reason: StringEnum(["sensitive", "missing", "not_file", "invalid"]),
+      }),
+    ),
+  },
+  { $id: "ChatAttachFilesResult" },
+);
+
 export const ChatMethods = {
+  "chat.attachFiles": defineMethod({
+    params: Type.Object({
+      threadId: Id,
+      paths: Type.Array(Type.String({ minLength: 1, maxLength: 4096 }), {
+        minItems: 1,
+        maxItems: MAX_ATTACHED_FILES,
+      }),
+    }),
+    result: ChatAttachFilesResult,
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Desktop app only (the web shell has no real paths and uploads to the Library instead). The owner picked or dropped these files on a message: each gets a read-only grant for exactly that file (not its folder) in this thread, for 24 hours, until Clear chat or deletion of the thread, or until a restart. The pick is the approval, so there is no card; a file under a sensitive root (~/.ssh, ~/.psyche, ~/Library, ...), a folder or a missing file is refused and listed in `refused`. Returns name, size and type for the chip. forbidden outside the desktop app. Side-effecting.",
+  }),
   "chat.send": defineMethod({
     params: Type.Object({
       threadId: Id,
       content: MessageContent,
       attachments: Type.Optional(Type.Array(Id, { maxItems: 32, description: "Library item ids" })),
+      attachedFiles: Type.Optional(
+        Type.Array(ChatAttachedFile, {
+          maxItems: MAX_ATTACHED_FILES,
+          description:
+            "Files from disk the owner attached (desktop): only those `chat.attachFiles` granted in this thread are used; the agent sees their name, size and type and reads them with read_file",
+        }),
+      ),
       mode: Type.Optional(QueueMode),
       /**
        * Quote-reply (feature E5): the message this one answers, in the same thread. Stored as

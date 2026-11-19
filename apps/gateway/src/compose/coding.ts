@@ -84,7 +84,7 @@ export function composeCoding(services: ComposeServices, setup: CodingSetup = {}
   const git = setup.git === undefined ? hostGit() : setup.git;
   const tools = codingTools({
     files: { read, write },
-    folders: () => services.rawBroker.policy.folders ?? [],
+    folders: () => services.rawBroker.grantedFolders(),
     protectedRoots: () => protectedRoots(services.home),
     broker: services.broker,
     ...(setup.runner === undefined ? {} : { runner: setup.runner }),

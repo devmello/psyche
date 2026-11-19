@@ -371,6 +371,10 @@ describe("a pinned Host helper settles two helpers", () => {
     expect(getSetting(g.context.db, HOST_HELPER_STATUS_SETTING)?.value).toEqual({
       ambiguous: true,
       helpers: 2,
+      candidates: [
+        { deviceId: "helper-a", name: "Psyche helper", pairedAt: expect.any(String) },
+        { deviceId: "helper-b", name: "Psyche helper", pairedAt: expect.any(String) },
+      ],
     });
     await desk.waitForEvent(
       (e) =>

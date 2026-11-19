@@ -26,6 +26,7 @@ import { formatCountdown, formatRelative } from "../lib/format.ts";
 import { keysLabel } from "../lib/keys.ts";
 import { pathBasename } from "../lib/paths.ts";
 import { isMac } from "../lib/platform.ts";
+import { parseSendGrantKey, splitRecipients } from "../lib/send-grant.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
 import { easeLinear, fade, motionSpring, spring } from "../motion/index.ts";
@@ -64,7 +65,38 @@ export function focusApproval(approvalId: string): void {
 
 export type ApprovalChoice = "deny" | "once" | "task" | "site" | "always" | "session";
 
-type AllowScope = Exclude<ApprovalChoice, "deny">;
+/**
+ * `trust` / `trustSubdomains` are "Always for this site" (and its subdomains): sent as `once` plus
+ * `trustSite`, only on a first-read card that offers it (`details.trustSite`).
+ */
+type AllowScope = Exclude<ApprovalChoice, "deny"> | "trust" | "trustSubdomains" | "program";
+
+/** The origin a first-read card offers to trust, as the Gateway computed it. */
+function trustSiteOffer(
+  approval: ApprovalRequest,
+): { origin: string; display: string; subdomains: boolean } | null {
+  const o = (approval.details as Record<string, unknown>).trustSite;
+  if (typeof o !== "object" || o === null) return null;
+  const { origin, subdomains } = o as { origin?: unknown; subdomains?: unknown };
+  if (typeof origin !== "string" || !approval.scopesOffered.includes("once")) return null;
+  return { origin, display: origin.replace(/^https:\/\//, ""), subdomains: subdomains === true };
+}
+
+/**
+ * "Always allow <program> in <folder>" on a host-command card, as the Gateway computed it
+ * (`details.hostProgram`): sent as `once` plus `hostProgram`. `exact` when it covers only the
+ * argv shown (a program that can run other code), else any arguments of a read-only tool.
+ */
+function hostProgramOffer(
+  approval: ApprovalRequest,
+): { program: string; folder: string; exact: boolean } | null {
+  const o = (approval.details as Record<string, unknown>).hostProgram;
+  if (typeof o !== "object" || o === null) return null;
+  const { program, folder, argv } = o as { program?: unknown; folder?: unknown; argv?: unknown };
+  if (typeof program !== "string" || typeof folder !== "string") return null;
+  if (!approval.scopesOffered.includes("once")) return null;
+  return { program, folder, exact: Array.isArray(argv) };
+}
 
 export interface ApprovalCardProps {
   approval: ApprovalRequest;
@@ -92,6 +124,10 @@ export interface ApprovalCardProps {
       unsandboxed?: "UNSANDBOXED";
       editedText?: string;
       recipientChoice?: string;
+      /** "Always for this site" on a first-read card (sent with scope `once`). */
+      trustSite?: "origin" | "subdomains";
+      /** "Always allow <program> in <folder>" on a host-command card (sent with scope `once`). */
+      hostProgram?: true;
     },
   ) => unknown;
   /** Fixed clock (stories, tests). */
@@ -478,6 +514,8 @@ export function ApprovalCard({
     return () => clearTimeout(timer);
   }, [interactive, armDelayMs]);
   const site = originOf(approval);
+  const trustOffer = approval.status === "pending" ? trustSiteOffer(approval) : null;
+  const programOffer = approval.status === "pending" ? hostProgramOffer(approval) : null;
   // A send / destructive / financial card (§3.12): Always allow lifts its floor for this call
   // class, so it confirms first, and a tainted one never offers it (§3.6).
   const floor = floorClassOf(approval.kind, approval.sideEffect);
@@ -499,7 +537,19 @@ export function ApprovalCard({
       );
       return;
     }
-    const scope: GrantScope | undefined = decision === "deny" ? undefined : choice;
+    const trustSite =
+      decision === "approve" && choice === "trust"
+        ? ("origin" as const)
+        : decision === "approve" && choice === "trustSubdomains"
+          ? ("subdomains" as const)
+          : undefined;
+    const hostProgram = decision === "approve" && choice === "program";
+    const scope: GrantScope | undefined =
+      decision === "deny"
+        ? undefined
+        : trustSite !== undefined || hostProgram
+          ? "once"
+          : (choice as GrantScope);
     inFlight.current = true;
     setBusy(true);
     setError(null);
@@ -526,7 +576,11 @@ export function ApprovalCard({
               }
             : unsandboxed && decision === "approve"
               ? { unsandboxed: "UNSANDBOXED" }
-              : undefined,
+              : trustSite !== undefined
+                ? { trustSite }
+                : hostProgram
+                  ? { hostProgram: true as const }
+                  : undefined,
       );
       if (decision === "approve" && onceOnlyHere && scope !== undefined && scope !== "once") {
         setForcedOnce(true);
@@ -536,6 +590,9 @@ export function ApprovalCard({
       if (failure.kind === "rate_limited") {
         setLimitedUntil(Date.now() + failure.retryAfterSec * 1000);
         setLimitFailure(failure);
+        setError(null);
+      } else if (failure.kind === "cancelled") {
+        // The owner cancelled the system sheet: not approved, and the card just stays as it was.
         setError(null);
       } else {
         setError(answerFailureText(failure));
@@ -609,6 +666,37 @@ export function ApprovalCard({
     ...(offered.includes("site") && site !== null
       ? [{ value: "site" as const, label: `${scopeLabel("site")} ${site}` }]
       : []),
+    ...(trustOffer !== null
+      ? [
+          {
+            value: "trust" as const,
+            label: t("blocks.approval.scope.trustSite", { site: trustOffer.display }),
+          },
+          ...(trustOffer.subdomains
+            ? [
+                {
+                  value: "trustSubdomains" as const,
+                  label: t("blocks.approval.scope.trustSiteSubdomains", {
+                    site: trustOffer.display,
+                  }),
+                },
+              ]
+            : []),
+        ]
+      : []),
+    ...(programOffer !== null && !unsandboxed
+      ? [
+          {
+            value: "program" as const,
+            label: t(
+              programOffer.exact
+                ? "blocks.approval.scope.hostProgramExact"
+                : "blocks.approval.scope.hostProgram",
+              { program: programOffer.program, folder: programOffer.folder },
+            ),
+          },
+        ]
+      : []),
     // Typing UNSANDBOXED allows this run only, so no lasting scope is offered then.
     ...(offered.includes("session") && !unsandboxed
       ? [{ value: "session" as const, label: scopeLabel("session") }]
@@ -626,6 +714,25 @@ export function ApprovalCard({
         ]
       : []),
   ];
+  // An email send that offers Always keeps it for this recipient (the grant is keyed by the
+  // recipient list). Show it as a visible choice, not only as a menu entry. It sets the same
+  // `choice` as the menu, so the floor confirm and the answer are unchanged.
+  // The grant covers the whole recipient set (to, cc and bcc together). Name that set from the
+  // request's own target, the canonical list the grant is keyed by, so a bcc is never hidden.
+  const sendRecipients =
+    approval.kind === "send_email" && approval.target?.kind === "recipient"
+      ? splitRecipients(approval.target.value)
+      : [];
+  const sendAccount = parseSendGrantKey(approval.grantKey)?.account ?? null;
+  // Unticking falls back to the narrowest other offered scope; without one, there is no choice.
+  const narrowerScope = (["once", "task", "site", "session"] as const).find((s) =>
+    offered.includes(s),
+  );
+  const alwaysForRecipient =
+    sendRecipients.length > 0 &&
+    offered.includes("always") &&
+    narrowerScope !== undefined &&
+    !unsandboxed;
   const allowReady =
     offeredScopes.length > 0 &&
     (!isFolder || folder !== "") &&
@@ -756,6 +863,14 @@ export function ApprovalCard({
           </>
         ) : null}
       </p>
+      {approval.setAside === true ? (
+        // Nothing waits on a set-aside card: approving starts a resume run (deferred-resume.ts).
+        <p className="mt-2 text-callout text-label-secondary" data-testid="approval-set-aside">
+          {approval.status === "approved"
+            ? t("agent.approvals.setAsideApproved")
+            : t("agent.approvals.setAsideNote")}
+        </p>
+      ) : null}
 
       {/* Always mounted so screen readers announce the text when it appears (C7). */}
       <p
@@ -913,7 +1028,8 @@ export function ApprovalCard({
               onChange={(e) => {
                 const v = e.target.value.trim();
                 setTyped(v);
-                if (v === unsandboxedWord && choice === "always") setChoice("once");
+                if (v === unsandboxedWord && (choice === "always" || choice === "program"))
+                  setChoice("once");
               }}
               aria-label={t("blocks.execHost.typeLabel", { word: unsandboxedWord })}
               placeholder={unsandboxedWord}
@@ -1078,6 +1194,24 @@ export function ApprovalCard({
                 : t("blocks.approval.touchId.openDevices")}
           </Button>
         </div>
+      ) : null}
+
+      {interactive && alwaysForRecipient ? (
+        <label className="mt-3 flex items-center gap-2 text-callout text-label-primary">
+          <input
+            type="checkbox"
+            checked={choice === "always"}
+            disabled={busy}
+            onChange={(e) => setChoice(e.target.checked ? "always" : (narrowerScope ?? "once"))}
+            data-testid="always-recipient"
+          />
+          {sendAccount !== null
+            ? t("blocks.approval.alwaysRecipientFrom", {
+                recipients: sendRecipients.join(", "),
+                account: sendAccount,
+              })
+            : t("blocks.approval.alwaysRecipient", { recipients: sendRecipients.join(", ") })}
+        </label>
       ) : null}
 
       {interactive ? (

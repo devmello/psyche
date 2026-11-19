@@ -46,14 +46,20 @@ export function AccessListView({
     <ul aria-label={t("settings.access.listLabel", { persona })} className="flex flex-col">
       {entries.map((e) => {
         const folder = e.type === "folder";
-        const editable = folder && e.scope === "always" && e.path !== undefined && onFolderMode;
+        const refused = folder && e.refused === true;
+        const editable =
+          folder && !refused && e.scope === "always" && e.path !== undefined && onFolderMode;
         const meta = [
           scopeWord(e),
-          folder && !editable
-            ? e.mode === "rw"
-              ? t("settings.files.rw")
-              : t("settings.files.ro")
-            : null,
+          // A folder that is a sensitive root today (granted before the rule): it covers nothing.
+          refused ? t("blocks.folder.blocked", { path: e.path ?? e.label }) : null,
+          folder && !refused && e.file === true
+            ? t("settings.access.fileOnly")
+            : folder && !refused && !editable
+              ? e.mode === "rw"
+                ? t("settings.files.rw")
+                : t("settings.files.ro")
+              : null,
           e.lastUsedAt === undefined
             ? null
             : t("settings.access.used", { when: formatRelative(e.lastUsedAt, now) }),

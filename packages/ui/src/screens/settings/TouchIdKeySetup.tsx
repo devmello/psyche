@@ -4,7 +4,6 @@ import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
-import { SwitchField } from "./shared.tsx";
 
 /** A registered helper Touch ID key (`devices.presenceKey.list`). */
 export type PresenceKeyRow = MethodResult<"devices.presenceKey.list">["presenceKeys"][number];
@@ -14,13 +13,10 @@ export interface BundledHelperKey {
   deviceId: string;
   keyId?: string;
   /** `windows_hello` from the Windows helper (with `algorithm`, e.g. "RSA-2048"). */
-  kind?: "keychain" | "enclave_keychain_acl" | "enclave_file" | "windows_hello";
+  kind?: "windows_hello" | "device_identity";
   algorithm?: string;
   error?: string;
 }
-
-/** `devices.presence.allowDevFileKey` (Gateway `DEV_FILE_KEY_SETTING`). */
-export const DEV_FILE_KEY_SETTING = "devices.presence.allowDevFileKey";
 
 /** Key kinds a Windows helper reports for its Windows Hello key (KeyCredentialManager / TPM). */
 const WINDOWS_HELLO_KINDS = new Set(["windows_hello", "hello", "ngc", "tpm"]);
@@ -53,30 +49,14 @@ export function presenceKeyText(
     return k.algorithm
       ? t("settings.devices.presenceKey.windowsHello", { algorithm: algorithmName(k.algorithm) })
       : t("settings.devices.presenceKey.windowsHelloNoAlgorithm");
-  return k.kind === "enclave_file"
-    ? t("settings.devices.presenceKey.enclaveFile")
-    : k.kind === "enclave_keychain_acl"
-      ? t("settings.devices.presenceKey.enclaveKeychainAcl")
-      : k.kind === "keychain"
-        ? t("settings.devices.presenceKey.keychain")
-        : t("settings.devices.presenceKey.unknown");
+  return k.kind === "device_identity"
+    ? t("settings.devices.presenceKey.deviceIdentity")
+    : t("settings.devices.presenceKey.unknown");
 }
 
 /** What the bundled helper's key problem means, in plain words. */
 function bundledErrorText(error: string | undefined): string {
-  return error === "presence_key_untrusted"
-    ? t("settings.devices.touchId.untrusted")
-    : error === "presence_key_access_denied"
-      ? t("settings.devices.touchId.accessDenied")
-      : error === "presence_key_wrong_location"
-        ? t("settings.devices.touchId.wrongLocation")
-        : error === "presence_key_interaction_not_allowed"
-          ? t("settings.devices.touchId.interactionNotAllowed")
-          : error === "presence_key_changed"
-            ? t("settings.devices.touchId.changed")
-            : error === "presence_key_acl_unavailable"
-              ? t("settings.devices.touchId.aclUnavailable")
-              : t("settings.devices.touchId.noBundledKey", { reason: error ?? "unknown" });
+  return t("settings.devices.touchId.noBundledKey", { reason: error ?? "unknown" });
 }
 
 /** `0123 4567 89ab cdef …`: the start of a key id, grouped so the owner can compare it. */
@@ -96,28 +76,25 @@ export interface TouchIdKeySetupProps {
    * the key id the helper prints.
    */
   bundled?: BundledHelperKey | null | undefined;
-  allowDevFileKey: boolean;
   /** Registers the key: the bundled helper's (desktop) or the one with `expectKeyId`. */
   onRegister: (expectKeyId?: string, confirmReplacesKeyId?: string) => Promise<unknown>;
   onRemove: () => Promise<unknown>;
-  onAllowDevFileKey: (on: boolean) => Promise<unknown>;
 }
 
 /**
- * A helper's Touch ID key in Settings → Devices (security §10): the key it reports and its kind,
- * Remove (to recover after a fingerprint change), and registering a key only after the owner
- * sees its id: on the desktop the id the helper inside this app prints, never just whichever node
- * answered on the socket.
+ * A helper's presence key in Settings → Devices (security §10). A Mac helper has nothing to set up:
+ * it signs with its own device key after the system's owner sheet (Touch ID or the Mac password),
+ * so the row only says so. A Windows helper's Windows Hello key shows its kind and key id, Remove,
+ * and registering a key only after the owner sees its id: on the desktop the id the helper inside
+ * this app prints, never just whichever node answered on the socket.
  */
 export function TouchIdKeySetup({
   deviceId,
   nodeKind,
   registered,
   bundled,
-  allowDevFileKey,
   onRegister,
   onRemove,
-  onAllowDevFileKey,
 }: TouchIdKeySetupProps): ReactElement {
   const inputId = useId();
   const [typed, setTyped] = useState("");
@@ -164,6 +141,17 @@ export function TouchIdKeySetup({
     );
   };
 
+  if (nodeKind === "mac-helper" || registered?.kind === "device_identity") {
+    return (
+      <div
+        className="flex flex-col gap-1 text-callout text-muted-foreground"
+        data-testid="touch-id-key"
+      >
+        <p data-testid="presence-key">{t("settings.devices.presenceKey.deviceIdentity")}</p>
+      </div>
+    );
+  }
+
   let body: ReactElement;
   if (registered !== undefined) {
     body = (
@@ -194,7 +182,6 @@ export function TouchIdKeySetup({
       </div>
     );
   } else if (bundled !== undefined && bundled !== null) {
-    const fileKey = bundled.kind === "enclave_file";
     body =
       bundled.deviceId !== deviceId ? (
         <p data-testid="touch-id-not-bundled">{t("settings.devices.touchId.notBundled")}</p>
@@ -209,22 +196,8 @@ export function TouchIdKeySetup({
             </code>
           </p>
           <p data-testid="presence-key">{presenceKeyText(bundled, nodeKind)}</p>
-          {fileKey ? (
-            <SwitchField
-              label={t("settings.devices.touchId.allowDevFileKey")}
-              description={t("settings.devices.touchId.devFileKey")}
-              checked={allowDevFileKey}
-              disabled={busy}
-              onChange={(on) => act(() => onAllowDevFileKey(on))}
-            />
-          ) : null}
           <div>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={busy || (fileKey && !allowDevFileKey)}
-              onClick={() => register()}
-            >
+            <Button variant="outline" size="sm" disabled={busy} onClick={() => register()}>
               {t("settings.devices.touchId.register")}
             </Button>
           </div>

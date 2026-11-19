@@ -42,6 +42,11 @@ export const errors = {
   "errors.offline": "Psyche isn't reachable.",
   "errors.unknown": "Something went wrong.",
   // A more specific sentence for a code, chosen by the Gateway's `details.reason` (describeError).
+  "errors.reason.vault_removal_pending":
+    "Unlock the vault to finish removing the old server, then try again.",
+  "errors.reason.connected_with_other_client":
+    "Google is connected with another client. Disconnect Google first, then change the client.",
+  "errors.reason.secret_required": "A different client needs its own client secret.",
   "errors.reason.updating":
     "Psyche is about to restart to install an update. Try again in a moment.",
 } as const;

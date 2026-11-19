@@ -18,6 +18,32 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-18 (share the folder a file tool could not reach)
+
+- New method `files.requestShare {threadId, path, access: "read"}` → `{status: pending|already, approvalId?}` (`operator.admin`, side-effecting). It raises the same `folder_access` approval card as `request_folder_access` (same binding, native picker, Allow once / Always; a tainted thread is offered Allow once only), outside an agent run, for the chat's "Share this folder (read only)" button. `path` only pre-fills the card; the pick is what is granted. `access` is `read` only; nothing is granted without the card.
+### v1 additive — 2026-11-18 (opt-in onboarding folders)
+
+- New method `files.starterFolders {}` → `{folders: {id: documents|desktop|downloads, path}[]}` (`operator.read`): the folders onboarding may offer to share read only, i.e. those that exist, pass `assertFolderGrantable` and are not already covered by a granted folder. It grants nothing. New type `StarterFolderId`. `settings.set` of `permissions.policy` now expands a leading `~/` in a folder path to the owner's home before the sensitive-root check and storing.
+### v1 additive — 2026-11-18 (setup without a terminal: keys in Settings)
+
+- New methods `keys.status {}` → `{keys: ApiKeyStatus[]}`, `keys.set {id, key}` and `keys.clear {id}` → `{status}` (all `operator.admin`; set and clear are side-effecting). `id` is `anthropic | openai | google | openrouter | brave`. `ApiKeyStatus` is `{id, configured, source: env|vault|null, inVault}`: no key, no last characters. Keys live in the vault as Gateway-owned items; an environment variable still wins. Audited as `keys.set` / `keys.clear` with the provider id only.
+### v1 additive — 2026-11-18 (guided Stripe Link setup)
+
+- New methods `payments.link.status` (`operator.read`), `payments.link.connect {path, approvalId?}`, `payments.link.signIn` and `payments.link.disconnect` (`operator.admin`, side-effecting). `connect` answers `approval_required` first (a device-only `policy_change` card bound to the resolved CLI path) and `invalid_params` with `details.reason` (`LinkSetupReason`) for a path that is unsafe to run. Replaces the `PSYCHE_LINK_CLI`-only switch.
+- New event `payments.link.changed {status}` when the setup state changes (connected, sign-in finished, disconnected).
+- New types `LinkSetupState`, `LinkSetupReason` and `LinkSetupStatus`. The status never carries a token; `signIn` holds Link's own page address and the phrase to compare. `LinkSetupReason` also names `in_psyche_home`, `not_link_cli` and `volta_shim`. `payments.link.disconnect {force?}` fails `conflict` (`details.reason` `payment_in_progress`, with `open` and up to three `payments {merchantName, merchantHost}`) while a payment is still open; `force: true` (admin, audited) gives those payments up instead.
+
+### v1 additive — 2026-11-09 (the owner's word on whether an MCP server moves money)
+
+- New method `mcp.handlesMoney.set {serverId, mode: auto|always|never, approvalId?}` (`operator.admin`): `always` makes every tool of the server a payment, `never` makes none one whatever it is called, `auto` leaves it to the tool's name and description. Anything but `always` lowers protection and first answers `approval_required` with a `policy_change` card. `McpServerStatus` gains the optional `handlesMoney` boolean. The `mcp.servers` entry's `handlesMoney` is now `true`, `false` or absent.
+- New browser-safe subpath `@psyche/protocol/money-intent`: the one rule (a money verb with a money object or amount) that computer use, the browser and MCP share to decide `financial`.
+
+### v1 additive — 2026-11-09 (Mac approvals use the system owner sheet)
+
+- `PresenceKeyInfo.kind` gains `device_identity` and `PresenceKeyAlgorithm` gains `ed25519`: a Mac helper's presence key is now its own Ed25519 device key (the one the Gateway pinned at pairing), listed by `devices.presenceKey.list` with nothing to register. `keychain`, `enclave_keychain_acl`, `enclave_file` and `p256-ecdsa-sha256` are retired: still decoded, never produced or accepted.
+- `devices.presenceKey.register` on a Mac helper's device fails `conflict` with `details.reason` `no_key_needed`. A Windows Hello key still registers as before.
+- `approvals.approveWithTouchId`: a cancelled sheet fails `cancelled` with `details.reason` `presence_cancelled` and is not counted against the answerer; new `unavailable` reason `presence_busy`. The six `presence_key_*` keychain reasons are gone.
+
 ### v1 additive — 2026-11-05 (Linux separate desktop shares)
 
 - `ApprovalKind` gains `separate_desktop_share` (added at the end of the folder kinds): the owner picks a folder to show to the Linux separate desktop's container for one task. It answers like `folder_access` (`folderPath`, `folderMode`) but grants nothing on the Host: no file tool and no Settings entry gets the folder, and only `once` is offered. Device-only. Design: docs/design/linux-desktop-2026.md section 8.4.

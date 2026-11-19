@@ -77,8 +77,8 @@ export interface ModelSettingsSetup {
   /** Hosted keys kept in the vault (model-keys.ts): `models.setKey` and `keyConfigured`. */
   vaultKeys?: {
     has(providerId: string): boolean;
-    store(providerId: HostedModelKind, key: string): Promise<void>;
-    clear(providerId: HostedModelKind): Promise<boolean>;
+    store(providerId: HostedModelKind, key: string, deviceId?: string): Promise<void>;
+    clear(providerId: HostedModelKind, deviceId?: string): Promise<boolean>;
   };
 }
 
@@ -278,7 +278,7 @@ export function modelSettingsHandlers(setup: ModelSettingsSetup): Record<string,
     },
     "models.setKey": {
       async run(
-        _call: Call,
+        call: Call,
         params: MethodParams<"models.setKey">,
       ): Promise<MethodResult<"models.setKey">> {
         const config = configs.get(params.providerId);
@@ -295,7 +295,7 @@ export function modelSettingsHandlers(setup: ModelSettingsSetup): Record<string,
           );
         }
         try {
-          await setup.vaultKeys.store(config.id, params.key);
+          await setup.vaultKeys.store(config.id, params.key, call.identity.deviceId);
         } catch (err) {
           // Never let a raw error (which could quote its input) reach the dispatcher's log.
           if (err instanceof PsycheError && err.code !== "internal") throw err;
@@ -306,7 +306,7 @@ export function modelSettingsHandlers(setup: ModelSettingsSetup): Record<string,
     },
     "models.clearKey": {
       async run(
-        _call: Call,
+        call: Call,
         params: MethodParams<"models.clearKey">,
       ): Promise<MethodResult<"models.clearKey">> {
         const config = configs.get(params.providerId);
@@ -322,7 +322,7 @@ export function modelSettingsHandlers(setup: ModelSettingsSetup): Record<string,
             "this Gateway reads provider keys from its environment (PSYCHE_MODEL is set)",
           );
         }
-        await setup.vaultKeys.clear(config.id);
+        await setup.vaultKeys.clear(config.id, call.identity.deviceId);
         return { provider: await summary(config) };
       },
     },

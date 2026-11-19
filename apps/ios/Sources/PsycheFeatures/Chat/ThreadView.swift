@@ -15,8 +15,10 @@ struct ThreadView: View {
     @Environment(Router.self) private var router
     @Environment(Session.self) private var session
     @Environment(\.alerts) private var alerts
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let motion = MotionContext()
+    @Namespace private var glass
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.threadIsFrontmost) private var frontmost
 
     init(id: String, store: any PsycheBackend) {
         _model = State(initialValue: ThreadModel(id: id, store: store))
@@ -30,12 +32,19 @@ struct ThreadView: View {
                     ForEach(Array(thread.items.enumerated()), id: \.element.id) { index, item in
                         BlockView(item: item, context: context)
                             .padding(.top, index == 0 ? 0 : Self.gap(before: item, after: thread.items[index - 1]))
+                            // A reply, card or tool line fades in with an 8 pt rise. The reader's own message
+                            // does not move: sending is a frequent action and gets no motion (spec §3).
+                            .transition(Self.isUser(item) ? .identity : motion.transition(.rise))
                     }
                     if thread.statusKind == .running, !isStreaming(thread) {
                         WorkingRow(text: thread.status.isEmpty ? "Working" : thread.status)
                             .padding(.top, 14)
+                            .transition(motion.transition(.fade))
                     }
                 }
+                // Only an item arriving or leaving animates. Streamed text grows inside its own item (the id
+                // does not change), so tokens never trigger this: they are paced and faded by `StreamingText`.
+                .psycheAnimation(.smooth, value: thread.items.map(\.id))
                 .padding(.horizontal, PsycheMetrics.pagePadding)
                 .padding(.top, 12)
                 .padding(.bottom, 24)
@@ -43,6 +52,9 @@ struct ThreadView: View {
         }
         .scrollPosition($position)
         .defaultScrollAnchor(.bottom)
+        // Content that grows under a reader who is at the bottom (a streaming reply) stays anchored there in
+        // the same layout pass, instead of being chased by a scroll after the fact.
+        .defaultScrollAnchor(.bottom, for: .sizeChanges)
         .scrollDismissesKeyboard(.interactively)
         .onScrollPhaseChange { _, phase in scrolling = phase != .idle }
         .onScrollGeometryChange(for: Bool.self) { geometry in
@@ -56,20 +68,23 @@ struct ThreadView: View {
         }
         .overlay(alignment: .bottomTrailing) {
             if !pinned {
-                Button(action: jumpToLatest) {
-                    Image(systemName: "arrow.down")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(PsycheColor.text)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Circle())
+                GlassEffectContainer {
+                    Button(action: jumpToLatest) {
+                        Image(systemName: "arrow.down")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(PsycheColor.text)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Circle())
+                    }
+                    .glassEffect(.regular.interactive(), in: .circle)
+                    .glassEffectID("jump-to-latest", in: glass)
                 }
-                .glassEffect(.regular.interactive(), in: .circle)
                 .padding(.trailing, 16).padding(.bottom, 10)
-                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                .transition(motion.transition(.control))
                 .accessibilityLabel("Jump to latest")
             }
         }
-        .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: pinned)
+        .psycheAnimation(.snappy, value: pinned)
         .psycheScreen()
         .navigationTitle(model.phase.value?.title ?? "")
         .psycheInlineTitle()
@@ -90,8 +105,9 @@ struct ThreadView: View {
         }
         #if os(iOS)
         // iPhone: a thread gets the whole height and the composer sits at the bottom, as in the mockup; back
-        // returns to the tabs. iPad keeps its sidebar.
-        .toolbarVisibility(sizeClass == .compact ? .hidden : .automatic, for: .tabBar)
+        // returns to the tabs. iPad keeps its sidebar. Only while this page is the one on screen: after a back
+        // swipe it can stay in the tree behind the list, and a hidden-bar preference would stay with it.
+        .toolbarVisibility(sizeClass == .compact && frontmost ? .hidden : .automatic, for: .tabBar)
         #endif
         .safeAreaInset(edge: .bottom) {
             Composer(
@@ -145,7 +161,13 @@ struct ThreadView: View {
 
     private func jumpToLatest() {
         pinned = true
-        withAnimation(reduceMotion ? nil : .snappy) { position.scrollTo(edge: .bottom) }
+        // A smooth scroll of at most 300 ms; instant under Reduce Motion.
+        withAnimation(motion.layout(.smooth)) { position.scrollTo(edge: .bottom) }
+    }
+
+    private static func isUser(_ item: ChatItem) -> Bool {
+        if case .user = item { return true }
+        return false
     }
 
     private func isStreaming(_ thread: ChatThread) -> Bool {

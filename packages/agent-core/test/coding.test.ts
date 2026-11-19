@@ -369,6 +369,27 @@ describe("code.* tools (V10)", () => {
     );
     expect((await use("code.git", { root: repo, op: "log" })).output.commits).toHaveLength(1);
   });
+
+  it("a commit's paths are literal: pathspec magic cannot stage the rest of the tree (#1333)", async () => {
+    const { use } = setup();
+    await use("code.open", { path: repo });
+    writeFileSync(join(repo, "notes.md"), "notes\n");
+    writeFileSync(join(repo, ".envrc"), "export X=1\n");
+    writeFileSync(join(repo, "wip.ts"), "// the owner's unfinished work\n");
+    for (const magic of [":!notes.md", ":(exclude)notes.md", "*.ts"]) {
+      await expect(
+        use("code.git", { root: repo, op: "commit", message: "x", paths: [magic] }),
+      ).rejects.toMatchObject({ code: "conflict" });
+    }
+    expect(await sh(repo, "diff", "--cached", "--name-only")).toBe("");
+    expect((await use("code.git", { root: repo, op: "log" })).output.commits).toHaveLength(1);
+    // Positive control: a literal path commits exactly that file.
+    await use("code.git", { root: repo, op: "commit", message: "Notes", paths: ["notes.md"] });
+    expect(await sh(repo, "show", "--name-only", "--format=", "HEAD")).toBe("notes.md");
+    const left = await sh(repo, "status", "--porcelain");
+    expect(left).toContain(".envrc");
+    expect(left).toContain("wip.ts");
+  });
 });
 
 describe("patch paths on the card (#439)", () => {
@@ -473,7 +494,6 @@ describe("gitDriverOverrides (security §5.4)", () => {
       "diff.pwn.textconv",
       "merge.ours.driver",
       "filter.lfs.smudge",
-      "filter.bad name.clean",
       "core.editor",
     ].join("\n");
     const out = gitDriverOverrides(listed);
@@ -489,8 +509,19 @@ describe("gitDriverOverrides (security §5.4)", () => {
     ]) {
       expect(out).toContain(v);
     }
-    expect(out.join(" ")).not.toContain("bad name");
     expect(out.join(" ")).not.toContain("core.editor");
     expect(out.filter((x) => x === "-c")).toHaveLength(out.length / 2);
+  });
+
+  it("fails closed on a driver name -c cannot carry (review of #1329)", () => {
+    for (const listed of [
+      "filter.a=b.clean",
+      "diff.c=d.textconv",
+      "filter.bad name.clean",
+      "filter.tab\tname.clean",
+      "merge.x =y.driver",
+    ]) {
+      expect(() => gitDriverOverrides(listed), listed).toThrow(/cannot be switched off/);
+    }
   });
 });

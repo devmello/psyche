@@ -1,6 +1,8 @@
+import { basename } from "node:path";
 import { getWidgets, listAllMessages, listMessagesPage, listQueue } from "@psyche/db";
 import {
   type Block,
+  type ChatAttachedFile,
   type ChatContextRef,
   type ChatScreenRef,
   type Message,
@@ -12,6 +14,12 @@ import {
 import type { Call, HandlerDef, ResolvedChatContext, ResolvedScreen } from "../context.ts";
 import { readerOf, scrubMessage } from "../message-scrub.ts";
 import { claimWidgetClick } from "../widgets/rate.ts";
+import {
+  type AttachedFileInfo,
+  attachedFilesPreamble,
+  mimeOfName,
+  prepareAttachedFiles,
+} from "./chat-files.ts";
 import { requireThread } from "./threads.ts";
 
 const DEFAULT_PAGE = 100;
@@ -46,10 +54,16 @@ function send(
     screen?: ChatScreenRef;
     context?: ChatContextRef;
     fromWidget?: { widgetId: string };
+    attachedFiles?: ChatAttachedFile[];
   },
   mode: QueueMode | undefined,
 ) {
   requireThread(call, params.threadId);
+  // Checked and described by `prepareAttachedFiles`, before the transaction opened.
+  const attachedFiles = call.prepared as AttachedFileInfo[] | undefined;
+  if (params.attachedFiles?.length && attachedFiles === undefined) {
+    throw new PsycheError("internal", "attached files were not checked");
+  }
   // Ask about my screen: the capture's context, frame and taint (docs/design/screen-ask-2026.md).
   let screen: ResolvedScreen | undefined;
   if (params.screen !== undefined) {
@@ -111,13 +125,22 @@ function send(
             via: "widget" as const,
             ...(fromWidget.length === 0 ? {} : { taintSources: fromWidget }),
           }),
-      ...(screen === undefined && context === undefined
+      ...(screen === undefined && context === undefined && attachedFiles === undefined
         ? {}
         : {
-            preamble: [screen?.preamble, context?.preamble]
+            preamble: [
+              screen?.preamble,
+              context?.preamble,
+              attachedFiles === undefined ? undefined : attachedFilesPreamble(attachedFiles),
+            ]
               .filter((p): p is string => p !== undefined)
               .join("\n\n"),
-            taintSources: [...(screen?.taintSources ?? []), ...(context?.taintSources ?? [])],
+            // Attached files taint when read (read_file results are untrusted), not here.
+            ...(screen === undefined && context === undefined
+              ? {}
+              : {
+                  taintSources: [...(screen?.taintSources ?? []), ...(context?.taintSources ?? [])],
+                }),
           }),
       ...(screen === undefined ? {} : { images: screen.images }),
       ...(context === undefined ? {} : { contextBlocks: context.blocks ?? [context.block] }),
@@ -213,6 +236,8 @@ export function transcriptMarkdown(thread: Thread, messages: readonly Message[])
 export const chatHandlers: Record<string, HandlerDef> = {
   "chat.send": {
     transactional: true,
+    prepare: (call: Call, params: { threadId: string; attachedFiles?: ChatAttachedFile[] }) =>
+      prepareAttachedFiles(call, params),
     run: (
       call: Call,
       params: {
@@ -225,8 +250,40 @@ export const chatHandlers: Record<string, HandlerDef> = {
         screen?: ChatScreenRef;
         context?: ChatContextRef;
         fromWidget?: { widgetId: string };
+        attachedFiles?: ChatAttachedFile[];
       },
     ) => send(call, params, params.mode),
+  },
+  "chat.attachFiles": {
+    async run(call: Call, params: { threadId: string; paths: string[] }) {
+      // Real paths come from the desktop app on this Mac only; the web shell uploads instead.
+      if (call.identity.desktopShell !== true || !call.conn.peer.remoteLoopback) {
+        throw new PsycheError(
+          "forbidden",
+          "Attaching files from disk is only available in the desktop app",
+        );
+      }
+      requireThread(call, params.threadId);
+      const attach = call.ctx.chatFiles.attach;
+      if (attach === null) {
+        throw new PsycheError("unavailable", "Attaching files is not set up here");
+      }
+      const res = await attach(params.threadId, params.paths, {
+        deviceId: call.identity.deviceId,
+      });
+      const reasons: Record<string, "sensitive" | "missing" | "not_file"> = {
+        forbidden: "sensitive",
+        not_found: "missing",
+        invalid_params: "not_file",
+      };
+      return {
+        files: res.files.map((f) => {
+          const name = basename(f.path);
+          return { path: f.path, name, size: f.size, type: mimeOfName(name) };
+        }),
+        refused: res.refused.map((r) => ({ path: r.path, reason: reasons[r.reason] ?? "invalid" })),
+      };
+    },
   },
   "chat.greet": {
     transactional: true,

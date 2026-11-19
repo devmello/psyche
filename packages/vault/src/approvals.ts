@@ -59,9 +59,8 @@ export function fillBindingInput(req: {
 /**
  * The `credential_fill` ApprovalRequest for one fill (architecture §4.7, feature G7): item,
  * site, task and agent on the card; scope `once` by default with an opt-in `site` grant whose
- * key includes the field class (S23 design-01); device-only, and the OS notification must
- * require authentication (the broker sets `requiresAuthentication` for this kind; the flag is
- * repeated in `details` for surfaces that read it there).
+ * key includes the field class (S23 design-01); device-only. A fill is one tap on the card:
+ * presence is for payments only (the broker sets `requiresAuthentication` for those).
  */
 export function credentialFillApproval(req: CredentialFillRequest): ApprovalRequestInput {
   const binding = fillBindingInput(req);
@@ -86,7 +85,6 @@ export function credentialFillApproval(req: CredentialFillRequest): ApprovalRequ
         : { element: { tagName: req.element.tagName, type: req.element.type ?? "" } }),
       task: req.requestedBy.taskId,
       agent: req.requestedBy.agent ?? null,
-      requiresAuthentication: true,
     },
     bindingHash: credentialFillBindingHash(binding),
     grantKey: credentialFillGrantKey(binding, req.credential.kind),

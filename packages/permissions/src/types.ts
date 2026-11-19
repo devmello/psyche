@@ -3,6 +3,7 @@ import type {
   ApprovalKind,
   ApprovalRequest,
   ApprovalRequestInput,
+  ControlFacts,
   DecisionContext,
   DecisionResult,
   GrantScope,
@@ -96,11 +97,18 @@ export interface CallMeta {
   hostCommand?: "read_only";
   /** With `hostCommand`: srt is missing, so the read-only command asks. */
   hostSandbox?: "missing";
+  /**
+   * `exec_host`: the binary the Gateway resolved (real path, SHA-256) and the real cwd, for a
+   * standing program grant (`host-program.ts`). Set only where a sandbox is present.
+   */
+  hostProgram?: { executable: string; sha256: string; cwdReal?: string };
   /** MCP server trust tier. */
   mcpTier?: "bundled" | "verified" | "unknown";
   /** MCP server and the `tools/list` hash the call was described with (grant subject, #279). */
   mcpServerId?: string;
   mcpToolsListHash?: string;
+  /** The control a browser or computer-use action lands on (the hard block on trades and transfers). */
+  control?: ControlFacts;
 }
 
 export interface PolicyCall extends ToolCallIntent {
@@ -121,6 +129,8 @@ export interface PolicyDecision extends DecisionResult {
   typedConfirmation?: string;
   /** `ask` in an unattended run: queued, the run continues without the action. */
   deferred?: boolean;
+  /** The card goes to paired devices only, never a chat (a prohibition asked for it). */
+  deviceOnly?: true;
   /** Classifier label when the classifier ran. */
   classifier?: { label: ClassifierLabel; reason: string };
   /**
@@ -133,10 +143,20 @@ export interface PolicyDecision extends DecisionResult {
 export type ClassifierLabel = "routine" | "sensitive" | "prohibited";
 
 export interface PolicyApprovalInput extends ApprovalRequestInput {
+  /**
+   * Paired devices only, never a chat: set from the decision that asked (a prohibition such as
+   * `outbound_identifier`), so it holds even when no cached decision is found for the binding.
+   */
+  deviceOnly?: true;
   /** The decided call and context, persisted so `reissue()` re-evaluates the same inputs. */
   call?: PolicyCall;
   context?: PolicyContext;
   typedConfirmation?: string;
+  /**
+   * Forces the presence step on a card that is not a payment: only the Gateway's own gate for
+   * enrolling a presence verifier (a passkey, a helper key) sets it. Payments need no flag.
+   */
+  requireAuthentication?: boolean;
   /** Taint sources shown on the card. */
   taintSources?: TaintSource[];
   /** `kind: "batch"`: the decided calls the one approval covers, in order (§8.1, #670). */

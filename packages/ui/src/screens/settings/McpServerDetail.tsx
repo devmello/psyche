@@ -12,7 +12,7 @@ import { McpLoadingGroup, McpServerPanels } from "./McpServerPanels.tsx";
 import { presetText } from "./mcp-preset-build.ts";
 import { MCP_PRESETS } from "./mcp-presets.ts";
 import { Facts, Group, type Tone } from "./shared.tsx";
-import type { McpState } from "./use-mcp.tsx";
+import { type McpState, useMcpTest } from "./use-mcp.tsx";
 
 /**
  * One tool server's row and detail in Settings → Connectors. The row says what it is and whether
@@ -65,12 +65,57 @@ export function McpServerIcon({ server }: { server: McpServerStatus }): ReactEle
   return <ConnectorIcon type="mcp" {...(preset ? { icon: preset.icon } : {})} />;
 }
 
+/** Edit, and a check that the saved setup still works. Test changes nothing. */
+function McpEditTest({
+  server,
+  onEdit,
+}: {
+  server: McpServerStatus;
+  onEdit?: (() => void) | undefined;
+}): ReactElement {
+  const test = useMcpTest(server);
+  const paused = server.enabled === false;
+  return (
+    <Group title={t("settings.mcp.edit.group")}>
+      <div className="flex flex-wrap items-center gap-2">
+        {onEdit ? (
+          <Button type="button" variant="outline" size="sm" onClick={onEdit}>
+            {t("settings.mcp.edit.action")}
+          </Button>
+        ) : null}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={test.running || paused}
+          onClick={test.run}
+        >
+          {test.running ? t("settings.mcp.test.running") : t("settings.mcp.test.action")}
+        </Button>
+      </div>
+      <p className="text-callout text-label-secondary">
+        {paused ? t("settings.mcp.test.paused") : t("settings.mcp.test.hint")}
+      </p>
+      {test.result === null ? null : test.result.ok ? (
+        <p role="status" className="text-callout text-label-primary">
+          {t("settings.mcp.test.ok", { n: test.result.toolCount })}
+        </p>
+      ) : (
+        <p role="alert" className="text-callout text-danger-text">
+          {t("settings.mcp.test.failed", { reason: test.result.reason })}
+        </p>
+      )}
+    </Group>
+  );
+}
+
 export function McpServerDetail({
   server,
   mcp,
   bundles,
   onRemove,
   onSetEnabled,
+  onEdit,
   onTry,
   now,
 }: {
@@ -80,6 +125,8 @@ export function McpServerDetail({
   /** For the launch failure the last attempt left, shown with its next step. */
   mcp?: Pick<McpState, "reload" | "actionError" | "actionFailure">;
   onRemove?: (server: McpServerStatus) => void;
+  /** Opens the Add form prefilled with this server (Save runs `mcp.update`). */
+  onEdit?: (server: McpServerStatus) => void;
   /** Turns the server off (kept, not running) or back on. */
   onSetEnabled?: (server: McpServerStatus, enabled: boolean) => void;
   /** "Try it": fills the chat composer (a ready-made server has an example). */
@@ -136,6 +183,7 @@ export function McpServerDetail({
           ]}
         />
       </Group>
+      <McpEditTest server={server} {...(onEdit ? { onEdit: () => onEdit(server) } : {})} />
       <McpServerPanels
         server={server}
         {...(onSetEnabled ? { onSetEnabled: (on: boolean) => onSetEnabled(server, on) } : {})}

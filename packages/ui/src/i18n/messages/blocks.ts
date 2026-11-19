@@ -10,6 +10,10 @@ export const blocks = {
     "{status, select, pending {Pending} running {Running} waiting {Waiting} done {Done} failed {Failed} blocked {Blocked} cancelled {Cancelled} other {{status}}}{warning, select, yes {, outcome unknown} other {}}",
   "blocks.card.unknown": "Psyche can't show this kind of item yet ({type}).",
   "blocks.toolView.show": "Show result",
+  "blocks.toolRun.shareFolder": "Share this folder (read only)",
+  "blocks.toolRun.shareWaiting": "Waiting for your answer on the card",
+  "blocks.toolRun.shared": "Shared. Ask again to continue",
+  "blocks.toolRun.shareFailed": "Couldn't ask to share this folder. Try again.",
   "blocks.toolView.loading": "Loading the result…",
   "blocks.toolView.none": "The result isn't kept for this action.",
   "blocks.toolView.more": "{count, plural, one {# more} other {# more}}",
@@ -38,6 +42,7 @@ export const blocks = {
   "blocks.details.to": "To",
   "blocks.details.exactRecipient": "(exact recipient)",
   "blocks.details.cc": "Cc",
+  "blocks.details.bcc": "Bcc",
   "blocks.details.subject": "Subject",
   "blocks.details.body": "Body",
   "blocks.details.view": "View",
@@ -152,10 +157,17 @@ export const blocks = {
 
   "blocks.approval.scope.once": "Allow once",
   "blocks.approval.scope.task": "Allow for this task",
+  "blocks.approval.scope.trustSite": "Always for this site ({site})",
+  "blocks.approval.scope.trustSiteSubdomains": "Always for this site and its subdomains ({site})",
+  "blocks.approval.scope.hostProgram": "Always allow {program} in {folder}",
+  "blocks.approval.scope.hostProgramExact":
+    "Always allow {program} with exactly these arguments in {folder}",
   "blocks.approval.scope.site": "Allow for this site",
   "blocks.approval.scope.session": "Allow for this session",
   "blocks.approval.scope.always": "Always allow",
   "blocks.approval.scope.prepNotes": "Always for prep notes",
+  "blocks.approval.alwaysRecipient": "Always allow sending to {recipients}",
+  "blocks.approval.alwaysRecipientFrom": "Always allow sending to {recipients} from {account}",
   "blocks.liftFloor.title": "Allow without asking?",
   "blocks.liftFloor.what": "{persona} can {what} without asking.",
   "blocks.liftFloor.consequence.destructive": "Deleted items may not be recoverable.",
@@ -218,7 +230,7 @@ export const blocks = {
   "blocks.approval.alwaysUntil": "Always allow until",
   "blocks.approval.deny": "Deny",
   "blocks.approval.needsAuth": "Needs Touch ID or a passkey to approve.",
-  "blocks.approval.rateLimited": "Too many approvals in a minute. Try again in {seconds} s.",
+  "blocks.approval.rateLimited": "Too many tries in a minute. Try again in {seconds} s.",
   "blocks.approval.touchIdFailed": "Touch ID failed: {reason}. Try again.",
   "blocks.approval.touchIdFailedNoReason": "Touch ID failed. Try again.",
   "blocks.approval.touchIdInvalid": "Psyche couldn't verify it was you",
@@ -237,21 +249,8 @@ export const blocks = {
   "blocks.approval.touchId.onceOnly": "Touch ID approvals from this window are once only.",
   "blocks.approval.status.allowedOnceTouchId":
     "Allowed once (Touch ID approvals from this window are once only)",
-  "blocks.approval.touchId.keyUntrusted":
-    "Psyche Helper’s Touch ID key in the keychain can’t be shown to be its own, so it wasn’t used. Open Settings → Devices to see what to do.",
-  "blocks.approval.touchId.keyAccessDenied":
-    "macOS didn’t let Psyche Helper use its Touch ID key. Try again and choose Always Allow only if the dialog names psyche-helper.",
-  "blocks.approval.touchId.keyChanged":
-    "The Touch ID key changed while Psyche Helper was running. Quit Psyche Helper and start it again.",
-  "blocks.approval.touchId.keyWrongLocation":
-    "Psyche is running from a place where its Touch ID key can’t be kept (a disk image, Downloads or another folder). Move Psyche to Applications and open it from there.",
-  "blocks.approval.touchId.keyLocked":
-    "The keychain can’t ask for permission right now. Unlock the Mac and try again.",
-  "blocks.approval.touchId.keyAclUnavailable":
-    "The keychain wouldn’t keep the Touch ID key’s access list on this Mac. Restart Psyche Helper to try again.",
   "blocks.approval.touchId.keyUnavailable":
     "This build of Psyche Helper can't keep a Touch ID key (it has no keychain access group), so cards that need Touch ID can't be approved on this Mac.",
-  "blocks.approval.touchId.cancelled": "Touch ID was cancelled, so nothing was approved",
   "blocks.approval.touchId.restartHelper": "Restart Psyche Helper",
   "blocks.approval.touchId.startHelper": "Start Psyche Helper",
   "blocks.approval.alsoSentTo": "Also sent to: {surfaces}. The first answer wins.",

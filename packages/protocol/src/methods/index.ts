@@ -22,6 +22,7 @@ import { FilesMethods } from "./files.ts";
 import { GatewayMethods } from "./gateway.ts";
 import { GrantsMethods } from "./grants.ts";
 import { InsightsMethods } from "./insights.ts";
+import { KeysMethods } from "./keys.ts";
 import { FeedbackMethods, GrowthMethods, LessonsMethods } from "./learning.ts";
 import { LibraryMethods } from "./library.ts";
 import { LogsMethods } from "./logs.ts";
@@ -173,6 +174,7 @@ export const Methods = {
   ...BackupMethods,
   ...LogsMethods,
   ...ModelsMethods,
+  ...KeysMethods,
   ...UsageMethods,
   ...InsightsMethods,
   ...DailyMethods,

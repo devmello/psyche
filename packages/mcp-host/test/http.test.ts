@@ -21,6 +21,7 @@ async function setup(
   serverOptions: EchoServerOptions = {},
   hostOptions: ConstructorParameters<typeof PsycheMcpHost>[0] = {},
   trust: "bundled" | "verified" | "unknown" = "unknown",
+  serverConfig: { handlesMoney?: boolean } = {},
 ) {
   const server = await startEchoServer(serverOptions);
   const events: McpHostEvent[] = [];
@@ -38,7 +39,8 @@ async function setup(
     name: "Echo",
     trust,
     transport: { kind: "http", url: server.url },
-  });
+    ...serverConfig,
+  } as Parameters<PsycheMcpHost["addServer"]>[0]);
   return { server, host, info, events };
 }
 
@@ -183,6 +185,18 @@ describe("tools/list hashing and revocation", () => {
     const { toolsListHash } = await host.listTools("echo");
     const r = await host.callTool("echo", "echo", { text: 42 }, { toolsListHash });
     expect(r.isError).toBe(true);
+  });
+});
+
+describe("handlesMoney", () => {
+  it("makes every tool of the owner's server financial, and nothing else does", async () => {
+    const plain = await setup();
+    const before = (await plain.host.listTools("echo")).tools.map((t) => t.sideEffect);
+    expect(before).not.toContain("financial");
+    const { host } = await setup({}, {}, "unknown", { handlesMoney: true });
+    const { tools } = await host.listTools("echo");
+    expect(tools.length).toBeGreaterThan(0);
+    expect(tools.every((t) => t.sideEffect === "financial")).toBe(true);
   });
 });
 

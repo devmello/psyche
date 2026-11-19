@@ -5,11 +5,13 @@ import { dirname, resolve } from "node:path";
 import {
   canonicalHostPath,
   isAbsoluteHostPath,
+  isMacMagicPath,
   isUnderHostPath,
   isWin32HostPath,
   joinHostPath,
   sameHostPath,
 } from "@psyche/hostfs";
+import { CLI_HOME_DIRS } from "@psyche/model-router";
 import { PsycheError } from "@psyche/protocol";
 
 /**
@@ -22,6 +24,30 @@ import { PsycheError } from "@psyche/protocol";
 export interface FolderGrantEntry {
   path: string;
   mode: "ro" | "rw";
+  /**
+   * A single attached file (chat attachment), not a folder: it matches that exact path only, so
+   * a file replaced by a folder opens nothing inside it. Always `ro`.
+   */
+  file?: true;
+}
+
+/** Whether `entry` names `target` (a file entry: that exact path; a folder: it and what is inside). */
+export function entryMatches(entry: FolderGrantEntry, target: string): boolean {
+  return entry.file === true
+    ? sameHostPath(target, entry.path)
+    : isUnderHostPath(target, entry.path);
+}
+
+/**
+ * The entries that still do something: a file entry that a granted folder already covers is
+ * dropped (the longest root decides, so a read-only file entry would narrow a read-write folder,
+ * including one granted after the file was attached).
+ */
+export function effectiveEntries(entries: readonly FolderGrantEntry[]): FolderGrantEntry[] {
+  const folders = entries.filter((e) => e.file !== true);
+  return entries.filter(
+    (e) => e.file !== true || !folders.some((f) => isUnderHostPath(e.path, f.path)),
+  );
 }
 
 /** A folder grant whose lifetime is the conversation, not Settings. */
@@ -32,6 +58,13 @@ export interface SessionFolderGrant extends FolderGrantEntry {
 export interface FolderAccessEnv {
   /** The owner's home directory. */
   home?: string;
+  /**
+   * Compare POSIX paths without case (APFS and HFS+ are case-insensitive by default, so `/OPT`
+   * is `/opt`). Default: true on macOS. Windows paths are always compared without case.
+   */
+  caseInsensitive?: boolean;
+  /** Tests: the platform whose path rules apply (default `process.platform`). */
+  platform?: NodeJS.Platform;
   /** `$PSYCHE_HOME`. */
   psycheHome?: string;
   /** Extra protected locations (credential stores) as written; real paths are added too. */
@@ -65,6 +98,19 @@ const SUBTREE_ROOTS = [
   "/dev",
   "/cores",
   "/Applications",
+  // Installed software outside /usr: `/opt/homebrew` (Apple silicon Homebrew), `/opt/local`
+  // (MacPorts) and the rest of `/opt`. A read-write grant there lets `write_file` overwrite an
+  // executable (it keeps mode 0755), e.g. the `op` CLI Psyche runs unsandboxed. Intel Homebrew
+  // lives in `/usr/local`, already under `/usr`.
+  "/opt",
+  // Linux: packaged binaries and libraries (snap, the Nix store, /lib*, the boot files).
+  "/snap",
+  "/nix",
+  "/lib",
+  "/lib32",
+  "/lib64",
+  "/libx32",
+  "/boot",
 ];
 
 /**
@@ -132,6 +178,10 @@ const HOME_SENSITIVE = [
   ".netrc",
   ".psyche",
   ".Trash",
+  // Binaries Psyche runs unsandboxed (the subscription CLIs, `op`): a read-write grant on one
+  // would let `write_file` replace them, as `/opt/homebrew` would. The same list the CLI
+  // resolver searches, so a new installer directory is refused as soon as it is searched.
+  ...CLI_HOME_DIRS.map((segments) => segments.join("/")),
 ];
 
 /**
@@ -166,6 +216,35 @@ export function sensitiveRoots(env: FolderAccessEnv = {}): { exact: string[]; su
   return { exact: [...(win ? windowsExactRoots() : EXACT_ROOTS), home], subtree: [...subtree] };
 }
 
+/**
+ * Whether a folder that is already granted lies inside a system root (`/usr`, `/opt`, `/System`,
+ * `C:\\Windows`...), which `refuseFolder` would refuse today. Checked when a grant is used and
+ * listed, so a grant made before a root was refused (`/opt/homebrew`) stops covering anything.
+ * Narrower than `refuseFolder` on purpose: the home root and `$PSYCHE_HOME` keep their meaning
+ * for grants made earlier. Also covers the CLI binary folders in home (`~/.local/bin`...).
+ */
+export function inSystemRoot(given: string, env: FolderAccessEnv = {}): boolean {
+  let real: string;
+  try {
+    real = canonicalHostPath(given);
+  } catch {
+    return false;
+  }
+  if (isMacMagicPath(real, env.platform)) return true;
+  const ci = env.caseInsensitive ?? process.platform === "darwin";
+  const fold = (p: string): string => (ci && !isWin32HostPath(p) ? p.toLowerCase() : p);
+  const roots = process.platform === "win32" ? windowsSubtreeRoots() : SUBTREE_ROOTS;
+  if (roots.some((r) => under(fold(real), fold(r)))) return true;
+  // The CLI binary folders in home (`~/.local/bin`...), and a folder around one (`~/.local`), but
+  // not home itself or above: an older home grant keeps its meaning (see above).
+  const home = fold(resolve(env.home ?? homedir()));
+  const folded = fold(real);
+  return CLI_HOME_DIRS.some((segments) => {
+    const root = fold(joinHostPath(resolve(env.home ?? homedir()), segments.join("/")));
+    return under(folded, root) || (under(root, folded) && !under(home, folded));
+  });
+}
+
 export type FolderRefusal = "sensitive_root" | "contains_sensitive_root" | "not_absolute";
 
 /**
@@ -185,12 +264,20 @@ export function refuseFolder(given: string, env: FolderAccessEnv = {}): FolderRe
   }
   // On Windows a folder is a drive or UNC path: a POSIX path names nothing there.
   if (process.platform === "win32" && !isWin32HostPath(real)) return "not_absolute";
+  // `/.nofollow/<abs>`, `/.vol/..`, `/.resolve/..` (macOS) open another file past the checks below.
+  if (isMacMagicPath(real, env.platform)) return "sensitive_root";
   if (process.platform === "win32" && windowsVolumeRefused(real)) return "sensitive_root";
-  const { exact, subtree } = sensitiveRoots(env);
+  const roots = sensitiveRoots(env);
+  // macOS: `/OPT/Homebrew` names `/opt/homebrew`, so a POSIX path is compared lower-cased.
+  const ci = env.caseInsensitive ?? process.platform === "darwin";
+  const fold = (p: string): string => (ci && !isWin32HostPath(p) ? p.toLowerCase() : p);
+  real = fold(real);
+  const exact = roots.exact.map(fold);
+  const subtree = roots.subtree.map(fold);
   if (exact.some((r) => sameHostPath(r, real))) return "sensitive_root";
   // Only the roots that contain the exempt folder are lifted for it: a CLI workdir is never an
   // opening into `~/.ssh` or `~/Library` (those do not contain it).
-  const own = (env.ownDirs ?? []).map((d) => resolve(d)).find((d) => under(real, d));
+  const own = (env.ownDirs ?? []).map((d) => fold(resolve(d))).find((d) => under(real, d));
   // Its dot-folders hold the CLI's settings and tool token: never shared, even inside the exempt one.
   if (own !== undefined && real.slice(own.length + 1).startsWith(".")) return "sensitive_root";
   // Windows' temp folder lifts only `~\AppData`, and only for itself and what is inside it: the
@@ -252,6 +339,83 @@ export async function resolveFolderPick(raw: string, env: FolderAccessEnv = {}):
     });
   }
   return real;
+}
+
+const SENSITIVE_FILE_NAMES = new Set([
+  ".zsh_history",
+  ".bash_history",
+  ".sh_history",
+  ".python_history",
+  ".node_repl_history",
+  ".psql_history",
+  ".pgpass",
+  ".pypirc",
+  ".netrc",
+  "_netrc",
+  ".git-credentials",
+  ".npmrc",
+]);
+
+/** Credential and history files that are refused wherever they sit. */
+export function isSensitiveFileName(path: string): boolean {
+  const name = path.split(/[\\/]/).pop()?.toLowerCase() ?? "";
+  if (SENSITIVE_FILE_NAMES.has(name)) return true;
+  return /[\\/]\.cargo[\\/]credentials[^\\/]*$/i.test(path);
+}
+
+/**
+ * The real path of a FILE the owner attached to a chat message (a native pick or a drop). Same
+ * checks as a folder pick: symlinks and `..` are resolved first, so a link to `~/.ssh/id_ed25519`
+ * is judged as that file, and a file under a sensitive root is refused. Only regular files pass.
+ */
+export async function resolveFilePick(
+  raw: string,
+  env: FolderAccessEnv = {},
+): Promise<{ path: string; size: number }> {
+  if (raw.includes("\0") || !isAbsoluteHostPath(raw)) {
+    throw new PsycheError("invalid_params", "attach a file by its absolute path");
+  }
+  let real: string;
+  let size: number;
+  let nlink: number;
+  try {
+    real = await realpath(resolve(raw));
+    const st = await stat(real);
+    if (!st.isFile()) throw new PsycheError("invalid_params", `${raw} is not a file`);
+    size = st.size;
+    nlink = st.nlink;
+  } catch (err) {
+    if (err instanceof PsycheError) throw err;
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new PsycheError("not_found", `${raw} does not exist`);
+    }
+    throw err;
+  }
+  const protectedReal: string[] = [];
+  for (const p of env.protectedRoots ?? []) {
+    try {
+      protectedReal.push(await realpath(p));
+    } catch {
+      // Not there: the written path is enough.
+    }
+  }
+  const refusal = refuseFolder(real, {
+    ...env,
+    protectedRoots: [...(env.protectedRoots ?? []), ...protectedReal],
+  });
+  if (refusal !== undefined) {
+    throw new PsycheError("forbidden", `${real} cannot be shared with the agent`, {
+      details: { reason: refusal, path: real },
+    });
+  }
+  // Single files no folder grant could ever reach: credential and history files, and a hard link
+  // (realpath cannot see that `~/Documents/x` is `~/.ssh/id_ed25519`).
+  if (isSensitiveFileName(real) || nlink > 1) {
+    throw new PsycheError("forbidden", `${real} cannot be shared with the agent`, {
+      details: { reason: nlink > 1 ? "hard_link" : "sensitive_file", path: real },
+    });
+  }
+  return { path: real, size };
 }
 
 /** What the Gateway made of the folder the agent named, shown on the card as the pre-filled pick. */
@@ -333,7 +497,7 @@ export function folderCovers(
   const best = grants
     .filter((g) => {
       const root = canonical(g.path);
-      return root !== undefined && under(target, root);
+      return root !== undefined && entryMatches({ ...g, path: root }, target);
     })
     .sort((a, b) => b.path.length - a.path.length)[0];
   if (best === undefined) return undefined;
@@ -367,8 +531,14 @@ export async function assertFolderGrantable(
   let real = resolve(raw);
   try {
     real = await realpath(real);
-  } catch {
-    // Not there (yet): the normalised path is judged.
+  } catch (err) {
+    // Not there (yet): the normalised path is judged. Any other failure (`/.vol/..` gives ENOENT
+    // but opens; a loop; no permission) leaves the real path unknown, so nothing is granted.
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw new PsycheError("forbidden", `${real} cannot be shared with the agent`, {
+        details: { reason: "sensitive_root", path: real },
+      });
+    }
   }
   const protectedReal: string[] = [];
   for (const p of env.protectedRoots ?? []) {

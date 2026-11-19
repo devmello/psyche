@@ -5,6 +5,11 @@ import SwiftUI
 
 /// Chat is a split view: thread list and thread side by side on iPad, a stack on iPhone
 /// (docs/design/ios-app-2026.md §8, decision 5).
+extension EnvironmentValues {
+    /// False while a phone shows the thread list over a thread that is still alive in the detail column.
+    @Entry var threadIsFrontmost = true
+}
+
 struct ChatTab: View {
     @Environment(Router.self) private var router
     @Environment(\.backend) private var store
@@ -37,6 +42,10 @@ struct ChatTab: View {
             }
         }
         .tint(PsycheColor.inkText)
+        // The thread stays in the detail column after a back swipe (the selection is kept so the same row can be
+        // tapped again), so it must be told when it is no longer the visible page: a tab-bar preference from a
+        // page that is merely still in the tree would keep the bar hidden on the list.
+        .environment(\.threadIsFrontmost, column == .detail)
         .task { if router.selectedThread != nil { column = .detail } }
         .onChange(of: router.selectedThread) { _, id in column = id == nil ? .sidebar : .detail }
     }

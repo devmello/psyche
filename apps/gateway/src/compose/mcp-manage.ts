@@ -15,6 +15,10 @@ import type { ComposeServices } from "./services.ts";
  * - `mcp.tools` / `mcp.tools.set`: the tools it lists, and which the agent is offered. The owner's
  *   choice is `disabledTools` in the server's own `mcp.servers` entry, so it goes away with the
  *   server; changing it re-registers the tools and leaves the server (and its grants) running.
+ * - `mcp.handlesMoney.set`: the owner's word that a server's tools are all payments (`always`) or
+ *   never are (`never`), instead of the guess from each tool's name and description (`auto`).
+ *   Anything but `always` lowers protection, so the call needs an approved card first
+ *   (`PRESENCE_METHODS`).
  * - `mcp.setEnabled`: `enabled: false` in the entry keeps the server configured but not running.
  * - `mcp.secrets` / `mcp.secrets.replace`: env variables and the bearer token by name. Values live
  *   in the vault, bound to `mcp:<id>`; a result never carries one.
@@ -125,6 +129,24 @@ export function mcpManageHandlers(deps: McpManageDeps): Record<string, HandlerDe
         await write(entries.map((c) => (c.id === entry.id ? next : c)));
         await audit("mcp.tool_toggled", entry.id, { tool: params.tool, enabled: params.enabled });
         return { tools: toolsOf(params.serverId, next) ?? [] };
+      },
+    },
+    "mcp.handlesMoney.set": {
+      async run(_call, params: { serverId: string; mode: "auto" | "always" | "never" }) {
+        const { entries, entry } = find(params.serverId);
+        const next: PsycheMcpServerConfig = { ...entry };
+        if (params.mode === "auto") delete next.handlesMoney;
+        else next.handlesMoney = params.mode === "always";
+        if (entry.handlesMoney !== next.handlesMoney) {
+          // The server restarts with the new class (its tools re-register): answer now, the
+          // status follows.
+          await write(
+            entries.map((c) => (c.id === entry.id ? next : c)),
+            false,
+          );
+          await audit("mcp.handles_money_set", entry.id, { mode: params.mode });
+        }
+        return { server: deps.status(next) };
       },
     },
     "mcp.setEnabled": {

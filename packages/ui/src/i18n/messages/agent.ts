@@ -273,6 +273,24 @@ export const agent = {
   "agent.approvals.anAutomation": "An automation",
   "agent.approvals.wantedTo": "wanted to {what}",
   "agent.approvals.openTask": "Open task",
+  "agent.approvals.deferredHint":
+    "Actions your automations set aside. Approving one runs the automation again to do it. An expired one never runs late.",
+  "agent.approvals.approve": "Approve",
+  "agent.approvals.decline": "Decline",
+  "agent.approvals.approveRoutine": "Approve all routine ones ({n, number})",
+  "agent.approvals.riskRoutine": "Routine",
+  "agent.approvals.riskSensitive": "Sensitive",
+  "agent.approvals.setAside": "Set aside {when}",
+  "agent.approvals.answerElsewhere": "Answer where it was sent",
+  "agent.approvals.setAsideNote":
+    "An automation set this aside and carried on. Approving runs it again, and this goes ahead only if the run reaches this same action.",
+  "agent.approvals.setAsideApproved":
+    "Approved. The automation runs again and does this only if it reaches this same action. If it doesn't, you get a notice.",
+  "agent.approvals.resuming":
+    "Approved. Running {names} again. Each action goes ahead only if the run reaches it; if not, you get a notice.",
+  "agent.approvals.notResumable":
+    "This automation can't run again, so approving would do nothing. Decline it, or run the automation yourself.",
+  "agent.approvals.notRoutine": "That action needs its own approval. Approve it on its own card.",
   "agent.approvals.noRecent": "No decisions in the last 7 days.",
   "agent.schedule.once": "{weekday} {month} {day, number} {time}",
   "agent.schedule.every": "every {span}",

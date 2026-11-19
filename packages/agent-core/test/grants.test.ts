@@ -141,6 +141,18 @@ describe("standing grants reach executors (issue #86 follow-up)", () => {
       decisionRule: `grant:${grantId}`,
       approvalId: null,
     });
+    // Its receipt names no approval but carries the grant, so a resume can tell it succeeded.
+    const receipts = await h.broker.listReceipts({ toolCallId: "m2" });
+    expect(receipts).toEqual([
+      expect.objectContaining({
+        approvalId: null,
+        outcome: "ok",
+        payload: { grantId, bindingHash: second?.authority?.bindingHash },
+      }),
+    ]);
+    // The approved call names its approval (and the grant it created).
+    const m1 = await h.broker.listReceipts({ toolCallId: "m1" });
+    expect(m1).toEqual([expect.objectContaining({ approvalId: approval.id })]);
 
     // Revoked: the broker asks again, and a denied card dispatches nothing.
     await h.broker.revokeGrant(grantId as string);

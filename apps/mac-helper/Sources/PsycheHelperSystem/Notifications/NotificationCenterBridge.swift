@@ -203,7 +203,7 @@ public final class NotificationCenterBridge: NSObject, UNUserNotificationCenterD
             done.call()
             return
         }
-        let reason = Self.authReason(kind: info.kind)
+        let reason = Self.authReason(kind: info.kind, title: response.notification.request.content.title)
         let presence = self.presence
         _Concurrency.Task { [weak self] in
             let answer = await Self.answer(base, challenge: info.presenceChallenge, presence: presence, reason: reason)
@@ -212,32 +212,36 @@ public final class NotificationCenterBridge: NSObject, UNUserNotificationCenterD
         }
     }
 
-    /// Authenticates an answer. With a presence challenge, Touch ID for the presence key's access
-    /// control and the signature happen in one step (`authenticated` then means "signed"); without
-    /// a usable key it falls back to device-owner authentication and reports `presenceError`, which
-    /// the Gateway treats as no presence (issue #84).
+    /// Authenticates an answer with exactly one system sheet.
+    /// - With a presence challenge: the sheet is shown by `presence.sign`, which signs only after the
+    ///   owner passed it (`authenticated` then means "signed"). A cancelled or failed sheet is a
+    ///   plain "not approved" (`authenticated: false` plus the reason); there is never a second
+    ///   sheet. With no signer at all it reports `presenceError`, which the Gateway treats as no
+    ///   presence.
+    /// - Without one (a reply, say): plain device-owner authentication.
     static func answer(
         _ base: NotificationResponse, challenge: String?, presence: (any PresenceSigning)?, reason: String,
         authenticate: @Sendable (String) async -> String? = { await NotificationCenterBridge.authenticate(reason: $0) }
     ) async -> NotificationResponse {
         var answer = base
-        if let challenge, let presence {
+        if let challenge {
+            guard let presence else {
+                answer.authenticated = false
+                answer.presenceError = "presence_unavailable"
+                return answer
+            }
             do {
                 answer.presence = try await presence.sign(challenge: challenge, reason: reason)
                 answer.authenticated = true
-                return answer
-            } catch let e as CapabilityError where e.code == .cancelled || e.code == .forbidden {
-                // The owner cancelled or failed Touch ID: no answer is authenticated.
+            } catch let e as CapabilityError {
                 answer.authenticated = false
                 answer.authError = e.reason
-                return answer
-            } catch let e as CapabilityError {
-                answer.presenceError = e.reason
+                if e.code != .cancelled && e.code != .forbidden { answer.presenceError = e.reason }
             } catch {
+                answer.authenticated = false
                 answer.presenceError = "presence_failed"
             }
-        } else if challenge != nil {
-            answer.presenceError = "presence_unavailable"
+            return answer
         }
         let authError = await authenticate(reason)
         answer.authenticated = authError == nil
@@ -283,10 +287,16 @@ public final class NotificationCenterBridge: NSObject, UNUserNotificationCenterD
         }
     }
 
-    /// Shown in the Touch ID sheet; generic so it never echoes notification content.
-    static func authReason(kind: String) -> String {
+    /// Shown in the owner sheet. An approval names its card header (the Gateway's one-line title,
+    /// e.g. "Run a command on your Mac"), so the owner can tell what they confirm; other kinds stay
+    /// generic.
+    static func authReason(kind: String, title: String = "") -> String {
         switch kind {
-        case "approval": return "confirm your answer to a Psyche approval"
+        case "approval":
+            let oneLine = title.split(whereSeparator: \.isNewline).joined(separator: " ")
+                .filter { !$0.isASCII || $0.asciiValue.map { $0 >= 0x20 && $0 != 0x7F } == true }
+            if oneLine.isEmpty { return "confirm your answer to a Psyche approval" }
+            return "approve \u{201C}\(NotificationLimits.truncate(oneLine, max: PresenceCapabilities.maxSummary))\u{201D} in Psyche"
         case "input_needed": return "send your reply to Psyche"
         default: return "confirm this Psyche action"
         }

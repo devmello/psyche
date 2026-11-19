@@ -61,7 +61,7 @@ export {
   PsycheOAuthProvider,
 } from "./oauth.ts";
 export { PIPE_MAX_MESSAGE_BYTES, type PipeProcess, PipeTransport } from "./pipe-transport.ts";
-export { provenanceFor, requiresUserInteraction, sideEffectFor } from "./policy.ts";
+export { looksFinancial, provenanceFor, requiresUserInteraction, sideEffectFor } from "./policy.ts";
 export {
   describeMcpCall,
   type McpRegistration,

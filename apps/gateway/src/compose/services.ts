@@ -154,6 +154,12 @@ export interface ComposedPart {
     kind: PresenceAssertion["kind"];
     verifier: PresenceVerifier;
     ready?: () => boolean;
+    /**
+     * Whether it could verify a presence step now, an auto-paired key included. Adding a verifier
+     * (`strong`) needs the Mac sheet whenever this is true, even while `ready` is not (a default
+     * Mac). Absent: same as `ready`.
+     */
+    canVerify?: () => boolean;
   };
   /**
    * Decides whether a loopback origin is the owner's own project (security §3.10). The browser

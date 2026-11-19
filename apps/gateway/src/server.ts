@@ -123,6 +123,8 @@ export interface GatewayOptions {
     before: unknown;
     after: unknown;
     deviceId: string;
+    /** The change only narrowed what the agent may do, so it applied without an approval card. */
+    narrowing?: boolean;
   }) => void;
   /** Inject an open database (tests); defaults to SQLite at config.dbPath. */
   db?: PsycheDb;
@@ -142,6 +144,11 @@ export interface GatewayOptions {
    * it was true, it being false later fails them closed (`presence_required`).
    */
   settingsPresence?: () => boolean;
+  /**
+   * Whether any verifier could verify now, an auto-paired Mac helper's device key included
+   * (`presence-gate.ts`). Defaults to `settingsPresence`.
+   */
+  presenceCanVerify?: () => boolean;
   /**
    * The security-state seal (security/state-seal.ts). The composition root opens it before it
    * reads policy or replays revocations; without one, `startGateway` opens it itself.
@@ -333,6 +340,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     onSettingChanged: options.onSettingChanged ?? null,
     brokerPublishesReceipts: options.brokerPublishesReceipts ?? false,
     presenceState,
+    presenceCanVerify: options.presenceCanVerify ?? options.settingsPresence ?? (() => false),
     securityState: seal,
     threadModels: options.threadModels ?? null,
     deviceDisconnected: new Set<(deviceId: string) => void>(),
@@ -340,6 +348,8 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     chatScreen: { resolve: null },
     terminalSessions: { owns: null },
     chatContext: { resolve: null },
+    chatFiles: { attach: null, attached: null },
+    threadEnded: new Set(),
     messageScrub: { scrub: null, heal: null },
     limits,
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>

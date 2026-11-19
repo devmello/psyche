@@ -735,8 +735,6 @@ jobs:
         env:
           ARCH: ${{ matrix.arch }}
           PSYCHE_VERSION: ${{ needs.version.outputs.version }}
-          # Leaves out the development-only Secure Enclave file-key fallback (security §10).
-          PSYCHE_PUBLIC_RELEASE: "1"
         run: |
           deploy/macos/build-helper.sh --arch "$ARCH"
           # forge.config.ts copies both into the app (apps/desktop/src/packaging/bundle-resources.ts);
@@ -1054,8 +1052,6 @@ jobs:
         shell: pwsh
         env:
           PSYCHE_VERSION: ${{ needs.version.outputs.version }}
-          # Leaves out the development-only fallbacks, as for the DMG (security §10).
-          PSYCHE_PUBLIC_RELEASE: "1"
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
           AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
           AZURE_TRUSTED_SIGNING_ACCOUNT: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT }}
@@ -1180,8 +1176,6 @@ jobs:
         if: steps.helper.outputs.present == 'true'
         env:
           PSYCHE_VERSION: ${{ needs.version.outputs.version }}
-          # Leaves out the development-only fallbacks, as for the DMG (security section 10).
-          PSYCHE_PUBLIC_RELEASE: "1"
         run: cargo build --release --locked --manifest-path apps/linux-helper/Cargo.toml
       - name: Make the deb, the rpm and the AppImage
         if: steps.makers.outputs.present == 'true'

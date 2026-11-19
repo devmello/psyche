@@ -192,7 +192,7 @@ describe("readHelperIdentity (security review, finding 1)", () => {
         stdout: JSON.stringify({
           deviceId: "dev_abcdefghijklmnopqrstuv",
           presenceKeyId: "a".repeat(64),
-          presenceKeyKind: "enclave_file",
+          presenceKeyKind: "windows_hello",
         }),
       };
     });
@@ -206,8 +206,26 @@ describe("readHelperIdentity (security review, finding 1)", () => {
     expect(id).toEqual({
       deviceId: "dev_abcdefghijklmnopqrstuv",
       keyId: "a".repeat(64),
-      kind: "enclave_file",
+      kind: "windows_hello",
     });
+  });
+
+  it("a Mac helper prints only its device id; a retired Mac key kind is not read", async () => {
+    const appPath = app();
+    expect(
+      await readHelperIdentity(appPath, "/h", out({ deviceId: "dev_abcdefghijklmnopqrstuv" })),
+    ).toEqual({ deviceId: "dev_abcdefghijklmnopqrstuv" });
+    expect(
+      await readHelperIdentity(
+        appPath,
+        "/h",
+        out({
+          deviceId: "dev_abcdefghijklmnopqrstuv",
+          presenceKeyId: "a".repeat(64),
+          presenceKeyKind: "enclave_file",
+        }),
+      ),
+    ).toEqual({ deviceId: "dev_abcdefghijklmnopqrstuv", keyId: "a".repeat(64) });
   });
 
   it("trusts nothing malformed: no bundle, a failed run, a bad device id or key id", async () => {

@@ -60,8 +60,8 @@ export function floorLifted(lifted: readonly string[] | undefined, action: strin
 
 /**
  * Why an owner `allow` cannot lift the card for this call (the hard floors), or undefined. Sends,
- * destructive and financial calls ask unless the owner lifted the floor for this action (`lifted`,
- * the confirmed override; a plain `allow` never does); device-only and authentication kinds keep
+ * destructive calls ask unless the owner lifted the floor for this action (`lifted`, the confirmed
+ * override; a plain `allow` never does); financial calls always ask, lifted or not; device-only and authentication kinds keep
  * their cards with no override (security §3.7, §3.12, §9).
  */
 export function matrixFloor(
@@ -69,7 +69,9 @@ export function matrixFloor(
   sideEffect: SideEffect,
   lifted = false,
 ): string | undefined {
-  if (lifted && floorClass(kind, sideEffect) !== undefined) return undefined;
+  // The financial floor is never liftable: a payment always asks, whatever Settings says.
+  const floored = floorClass(kind, sideEffect);
+  if (lifted && floored !== undefined && floored !== "financial") return undefined;
   if (SEND_KINDS.includes(kind)) return "sends always ask";
   if (SEVERITY[sideEffect] >= SEVERITY.destructive) return `${sideEffect} actions always ask`;
   if (DEVICE_ONLY_KINDS.includes(kind) || AUTH_KINDS.includes(kind))

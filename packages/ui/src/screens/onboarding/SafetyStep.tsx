@@ -8,7 +8,7 @@ import { cn } from "../../lib/utils.ts";
 import { type MacHelperStatus, MacHelperStatusRow } from "../settings/MacHelperStatus.tsx";
 import { SandboxPcOnboarding } from "../settings/SandboxPcSection.tsx";
 import { SpeechModelRow } from "../settings/SpeechModel.tsx";
-import { CARD, CARD_ROWS, StatusChip, SwitchField } from "../settings/shared.tsx";
+import { CARD, CARD_ROWS, StatusChip } from "../settings/shared.tsx";
 import { keyIdShort, presenceKeyText } from "../settings/TouchIdKeySetup.tsx";
 import type { TccState } from "../settings/types.ts";
 import { WindowsAccessRows } from "../settings/WindowsAccess.tsx";
@@ -51,10 +51,11 @@ const tccOf = (a: PermissionAnswer): TccState =>
   a === "granted" ? "granted" : a === "denied" ? "denied" : "not_determined";
 
 /**
- * The helper's Touch ID key (security §10), registered once. The key shown is the one the helper
- * inside this app reports and the button registers exactly that key, as Settings → Devices does.
- * A build without a provisioning profile has a development key, which needs its own switch first.
- * Not shown when this build bundles no helper.
+ * The helper's presence key (security §10). A Mac helper signs with its own device key after the
+ * system's owner sheet, so there is nothing to register: the row reads "set up" as soon as the
+ * helper is paired. A Windows helper's Windows Hello key is registered once, and the button
+ * registers exactly the key the helper inside this app reports, as Settings → Devices does. Not
+ * shown when this build bundles no helper.
  */
 export function useTouchId(
   port: TouchIdSetupPort | undefined,
@@ -118,8 +119,7 @@ export function TouchIdRow({
   }
   if (status === "failed" || status.identity === null) return null;
 
-  const { identity, registered, allowDevFileKey } = status;
-  const devKey = identity.kind === "enclave_file";
+  const { identity, registered } = status;
   const again = (
     <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void read()}>
       {t("onboarding.safety.touchId.again")}
@@ -143,13 +143,13 @@ export function TouchIdRow({
       </Row>
     );
   } else if (identity.keyId === undefined) {
-    // The helper is still starting, or could not make a key.
+    // Not paired yet (a Mac's key is listed once it pairs; no reason is given), or it could not make a key.
     body = (
       <Row title={t("onboarding.safety.touchId")} action={again}>
         <p className={hint}>
-          {helper?.kind === "starting"
+          {helper?.kind === "starting" || identity.error === undefined
             ? t("onboarding.safety.touchId.starting")
-            : t("onboarding.safety.touchId.noKey", { reason: identity.error ?? "unknown" })}
+            : t("onboarding.safety.touchId.noKey", { reason: identity.error })}
         </p>
       </Row>
     );
@@ -163,7 +163,7 @@ export function TouchIdRow({
               type="button"
               size="sm"
               variant="outline"
-              disabled={busy || (devKey && !allowDevFileKey)}
+              disabled={busy}
               onClick={() => void act(() => port.register())}
             >
               {busy ? <Loader className="motion-safe:animate-spin" aria-hidden="true" /> : null}
@@ -177,15 +177,6 @@ export function TouchIdRow({
             <code className="font-mono">{keyIdShort(identity.keyId)}</code>
           </p>
         </Row>
-        {devKey ? (
-          <SwitchField
-            label={t("settings.devices.touchId.allowDevFileKey")}
-            description={t("settings.devices.touchId.devFileKey")}
-            checked={allowDevFileKey}
-            disabled={busy}
-            onChange={(on) => void act(() => port.allowDevFileKey(on))}
-          />
-        ) : null}
       </>
     );
   }

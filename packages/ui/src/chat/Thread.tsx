@@ -44,6 +44,8 @@ import {
   useChatFocusRequest,
 } from "./focus-request.ts";
 import { MessageView } from "./MessageView.tsx";
+import { ModeSwitch } from "./ModeSwitch.tsx";
+import { applyModeChoice } from "./mode-switch.ts";
 import { OfflineBanner } from "./OfflineBanner.tsx";
 import { OutboxQueue } from "./OutboxQueue.tsx";
 import { ComposerPrefill } from "./prefill.ts";
@@ -166,7 +168,7 @@ export function ChatThread({
   const view = useThread(threadId);
   const { fork, create, newChat } = useThreads();
   const call = useCall();
-  const { navigate, openArtifact } = useSlots();
+  const { navigate, openArtifact, pathOfFile } = useSlots();
   const { state: connection } = useConnection();
   const tasks = useStoreState((s) => s.tasks);
   const store = useStore();
@@ -201,13 +203,38 @@ export function ChatThread({
   // What the argument popup (`/model `, `/mode `) lists: the data this column already holds.
   const argModelRef = view.thread?.thread.modelRef ?? null;
   const argMode = view.thread?.thread.permissionMode;
+  const threadKind = view.thread?.thread.kind;
   const argContext = useMemo<ArgContext>(
     () => ({ models: models.data, modelRef: argModelRef, permissionMode: argMode }),
     [models.data, argModelRef, argMode],
   );
-  const attachments = useAttachments(support, (file, signal) =>
-    uploadFile(call as GatewayCall, file, { threadId, signal }),
+  const nativeAttach = useMemo(
+    () =>
+      pathOfFile === undefined
+        ? undefined
+        : {
+            pathOf: pathOfFile,
+            attach: (paths: string[]) => call("chat.attachFiles", { threadId, paths }),
+          },
+    [pathOfFile, call, threadId],
   );
+  const attachments = useAttachments(
+    support,
+    (file, signal) => uploadFile(call as GatewayCall, file, { threadId, signal }),
+    nativeAttach,
+  );
+  // "Send to chat" (the Library) hands items to this new chat's composer; it takes them once.
+  const handedItems = useStoreState((s) =>
+    s.composerAttachments?.threadId === threadId ? s.composerAttachments.items : null,
+  );
+  const addLibraryItems = attachments.addItems;
+  useEffect(() => {
+    if (handedItems === null) return;
+    addLibraryItems(handedItems);
+    store.update((s) =>
+      s.composerAttachments?.threadId === threadId ? { ...s, composerAttachments: null } : s,
+    );
+  }, [handedItems, addLibraryItems, store, threadId]);
 
   const display = useMemo<DisplayMessage[]>(() => {
     const byId = new Map(view.messages.map((m) => [m.id, m]));
@@ -332,6 +359,8 @@ export function ChatThread({
       const replyToMessageId = quoting?.id ?? null;
       // The finished uploads go with this message; the chips clear once it is on its way.
       const sentIds = attachments.ids;
+      const sentFiles = attachments.attachedFiles;
+      const sentChips = attachments.snapshot();
       const sentContext = askContext
         ? {
             ref: askContext.ref,
@@ -351,9 +380,15 @@ export function ChatThread({
             mode,
             replyToMessageId,
             ...(sentIds.length > 0 ? { attachments: sentIds } : {}),
+            ...(sentFiles.length > 0 ? { attachedFiles: sentFiles } : {}),
             ...(sentContext ? { context: sentContext } : {}),
           });
         } catch (err) {
+          // The chat was busy (a file cannot join a turn that is running): the chips come back.
+          const busy = err as { code?: string; details?: { reason?: string } };
+          if (busy.code === "conflict" && busy.details?.reason === "thread_busy") {
+            attachments.restore(sentChips);
+          }
           // The optimistic bubble is gone; keep the text one click from going out again.
           setSentAt(null);
           setNotice({
@@ -372,7 +407,11 @@ export function ChatThread({
       };
       // Waiting in the outbox is not working: the agent has not been told yet.
       const toOutbox =
-        outbox.enabled && connection !== "open" && !sentContext && sentIds.length === 0;
+        outbox.enabled &&
+        connection !== "open" &&
+        !sentContext &&
+        sentIds.length === 0 &&
+        sentFiles.length === 0;
       if (!queued && !toOutbox) setSentAt(Date.now());
       setQuoting(null);
       setMode("followUp");
@@ -385,7 +424,10 @@ export function ChatThread({
       mode,
       quoting,
       attachments.ids,
+      attachments.attachedFiles,
       attachments.clear,
+      attachments.restore,
+      attachments.snapshot,
       askContext,
       clearAskContext,
       outbox.enabled,
@@ -723,6 +765,14 @@ export function ChatThread({
           */}
           <ThreadPrimitive.Root className="@container/chat relative flex h-full min-h-0 min-w-[min(100%,var(--chat-min-width))] flex-1 flex-col overflow-hidden bg-canvas">
             {offline ? <OfflineBanner state={connection} waiting={outbox.enabled} /> : null}
+            {incognitoThread ? (
+              <p
+                role="note"
+                className="shrink-0 border-b border-dashed border-separator px-4 py-1.5 text-footnote text-label-secondary @xl/chat:px-6 @5xl/chat:px-10"
+              >
+                {t("chat.incognito.notice")}
+              </p>
+            ) : null}
             <ThreadPrimitive.Viewport
               ref={viewportRef}
               autoScroll={false}
@@ -871,6 +921,23 @@ export function ChatThread({
                   }}
                 />
                 {notice ? <NoticeBar notice={notice} onDismiss={() => setNotice(null)} /> : null}
+                {view.thread ? (
+                  <ModeSwitch
+                    mode={view.thread.thread.permissionMode}
+                    modelRef={view.thread.thread.modelRef ?? null}
+                    listed={models.data}
+                    disabled={composerOff}
+                    onSelect={(m, ref) =>
+                      applyModeChoice(
+                        (method, params) =>
+                          call(method as "threads.update", params as { threadId: string }),
+                        { id: threadId, kind: threadKind },
+                        m,
+                        ref,
+                      )
+                    }
+                  />
+                ) : null}
                 <VoiceComposer
                   threadId={threadId}
                   persona={persona.name}

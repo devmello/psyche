@@ -8,7 +8,7 @@ import {
 } from "@psyche/db";
 import { type AuditLog, type PermissionBroker, PsycheError, type Thread } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
-import { requireThread } from "../handlers/threads.ts";
+import { endConversation, requireThread } from "../handlers/threads.ts";
 import { usageKey } from "./context.ts";
 
 /**
@@ -81,6 +81,7 @@ export function createThreadClear(deps: ThreadClearDeps): Record<string, Handler
           return counts;
         })();
         ctx.bus.bumpStateVersion();
+        endConversation(ctx, thread.id);
 
         await deps.audit
           .append({

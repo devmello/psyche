@@ -164,13 +164,14 @@ struct ToolCallRow: View {
     let arguments: [ToolArgument]
     let result: String?
     @State private var expanded = false
+    private let motion = MotionContext()
 
     private var expandable: Bool { !arguments.isEmpty || result != nil }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Button {
-                withAnimation(.snappy(duration: 0.25)) { expanded.toggle() }
+                motion.perform(.snappy) { expanded.toggle() }
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: symbol).font(.caption).frame(width: 16)
@@ -209,7 +210,7 @@ struct ToolCallRow: View {
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(PsycheColor.fill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .transition(.opacity)
+                .transition(motion.transition(.fade))
             }
         }
     }
@@ -222,6 +223,7 @@ struct ProgressBlock: View {
     let title: String
     let steps: [ProgressStep]
     @State private var showAll = false
+    private let motion = MotionContext()
 
     private var doneCount: Int { steps.filter { $0.state == .done }.count }
     private var shown: [ProgressStep] {
@@ -256,7 +258,7 @@ struct ProgressBlock: View {
                 }
                 if steps.count > 5 {
                     Button(showAll ? "Show fewer" : "Show all \(steps.count)") {
-                        withAnimation(.snappy(duration: 0.25)) { showAll.toggle() }
+                        motion.perform(.snappy) { showAll.toggle() }
                     }
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(PsycheColor.inkText)
@@ -455,14 +457,17 @@ struct ApprovalBlock: View {
     let item: NeedsYouItem
     let resolution: String?
     let open: () -> Void
+    private let motion = MotionContext()
 
     var body: some View {
         PaperCard(padding: 14, radius: PsycheMetrics.approvalRadius, border: resolution == nil ? PsycheColor.amber : PsycheColor.hairline) {
             VStack(alignment: .leading, spacing: 8) {
                 if let resolution {
                     StatusDot(.done, resolution, textColor: PsycheColor.muted, font: .footnote.weight(.semibold))
+                        .transition(motion.transition(.fade))
                 } else {
                     StatusDot(.needsYou, "Needs your OK · \(item.approval?.kindLabel ?? "Approval")", font: .footnote.weight(.semibold))
+                        .transition(motion.transition(.fade))
                 }
                 Text(item.title).font(.callout.weight(.semibold)).foregroundStyle(PsycheColor.text)
                 if let summary = item.approval?.summary {
@@ -472,8 +477,11 @@ struct ApprovalBlock: View {
                     Button("Review", action: open)
                         .buttonStyle(.psycheOutline)
                         .padding(.top, 2)
+                        .transition(motion.transition(.fade))
                 }
             }
         }
+        // The card settling into its answered form is the approval's emphasis moment (spec §4.4).
+        .psycheAnimation(.emphasis, value: resolution)
     }
 }

@@ -62,16 +62,17 @@ struct GlassTextButton: View {
 /// The line that replaces the buttons once the Gateway took the answer.
 struct AnsweredLine: View {
     let text: String
+    /// A denied answer is a neutral mark: green and red are status colours, and Deny is a decision.
+    var denied = false
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "checkmark.circle.fill")
+            Image(systemName: denied ? "xmark.circle.fill" : "checkmark.circle.fill")
                 .font(.title3)
-                .foregroundStyle(PsycheColor.green)
+                .foregroundStyle(denied ? PsycheColor.muted : PsycheColor.green)
             Text(text).font(.callout.weight(.medium)).foregroundStyle(PsycheColor.text)
         }
         .frame(maxWidth: .infinity, minHeight: 52)
-        .transition(.opacity)
         .accessibilityElement(children: .combine)
     }
 }

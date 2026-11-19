@@ -176,7 +176,19 @@ export async function removeThread(call: Call, threadId: string): Promise<void> 
     deleteAgentThreadState(ctx.db, threadId);
     ctx.bus.bumpStateVersion();
   });
+  endConversation(ctx, threadId);
   ctx.bus.publish("thread.deleted", { threadId }, threadId);
+}
+
+/** The conversation is over (cleared or deleted): what was granted to it alone ends. */
+export function endConversation(ctx: Call["ctx"], threadId: string): void {
+  for (const listener of ctx.threadEnded) {
+    try {
+      listener(threadId);
+    } catch {
+      // A listener never fails the clear or the delete.
+    }
+  }
 }
 
 /**

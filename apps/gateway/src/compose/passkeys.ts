@@ -392,6 +392,7 @@ export function composePasskeys(setup: PasskeySetup = {}) {
                 details: { method: "passkeys.register.finish", deviceId },
               },
               params.approvalId,
+              { strong: true },
             );
           }
           const passkey = await get().registerFinish(deviceId, address(call), params as never);

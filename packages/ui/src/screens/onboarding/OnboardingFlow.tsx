@@ -1,3 +1,4 @@
+import type { StarterFolderId } from "@psyche/protocol";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { type ReactElement, useEffect, useId, useRef, useState } from "react";
 import { DEFAULT_CREATURE } from "../../avatar/creatures/index.tsx";
@@ -20,8 +21,10 @@ import {
   useImplementedTypes,
 } from "../settings/ConnectorsSection.tsx";
 import { ConnectProgress, permissionOf, useConnectorConnect } from "../settings/connect-flow.tsx";
+import { approvalIdOf } from "../settings/shared.tsx";
 import type { TccPermission } from "../settings/types.ts";
 import { DoneStep } from "./DoneStep.tsx";
+import { FoldersStep } from "./FoldersStep.tsx";
 import { HABIT_DEFAULTS, type HabitChoices } from "./habits.ts";
 import { MAIL_DEFAULTS, MailStep } from "./MailStep.tsx";
 import { MemoryStep } from "./MemoryStep.tsx";
@@ -48,7 +51,7 @@ import {
 import { DEFAULT_NAME, YouStep } from "./YouStep.tsx";
 
 /** Steps the owner may leave with "Skip for now" (the model is needed, Done is the end). */
-const SKIPPABLE: ReadonlySet<OnboardingStepId> = new Set(["you", "memory", "safety"]);
+const SKIPPABLE: ReadonlySet<OnboardingStepId> = new Set(["you", "memory", "folders", "safety"]);
 
 /**
  * Onboarding (UI design §3.19; docs/design/onboarding-2026.md): one centred column, a quiet step
@@ -75,6 +78,8 @@ export function stepLabel(step: OnboardingStepId): string {
       return t("onboarding.step.model");
     case "memory":
       return t("onboarding.step.memory");
+    case "folders":
+      return t("onboarding.step.folders");
     case "safety":
       return t("onboarding.step.safety");
     case "done":
@@ -120,6 +125,7 @@ export function OnboardingFlow({
   onCheckModel,
   helper,
   onVerify,
+  onShareFolders,
   macPermissions = true,
   onPreviewImport,
   onCommitImport,
@@ -173,8 +179,17 @@ export function OnboardingFlow({
   const connectors = accounts.filter((c) => (c.status ?? "connected") === "connected");
   // The mail and meetings switches show under the accounts once a mail account is connected (§7.5).
   const mailConnected = connectors.some((c) => MAIL_CONNECTOR_TYPES.has(c.type));
+  // The Folders step exists only where the Gateway offers a folder (`files.starterFolders`: an
+  // existing, shareable, not-yet-shared Documents, Desktop or Downloads).
+  const starter = useGatewayQuery("files.starterFolders", {});
+  const folderOptions = starter.data?.folders ?? [];
+  const [folderIds, setFolderIds] = useState<StarterFolderId[]>([]);
   // A re-run leaves out what it can (the model that is set); Done is always last.
-  const steps = ONBOARDING_STEP_IDS.filter((s) => s === "done" || !completed.includes(s));
+  const steps = ONBOARDING_STEP_IDS.filter(
+    (s) =>
+      s === "done" ||
+      (!completed.includes(s) && (s !== "folders" || (folderOptions.length > 0 && !rerun))),
+  );
   // A saved or routed id from the old twelve-step flow lands on the step that holds it now.
   const asked = normalizeStep(step ?? own) ?? "you";
   const current =
@@ -233,6 +248,8 @@ export function OnboardingFlow({
     headingRef.current?.focus();
   }, [current]);
 
+  // Only what is ticked and still offered; Skip clears the ticks, so nothing is written.
+  const sharedFolders = folderOptions.filter((o) => folderIds.includes(o.id));
   const result: OnboardingResult = {
     persona: {
       name,
@@ -250,6 +267,7 @@ export function OnboardingFlow({
     ...(mailConnected ? { mail } : {}),
     owner,
     ...(memorySkipped ? {} : { habits, memory }),
+    ...(sharedFolders.length === 0 ? {} : { sharedFolders }),
     ...(touchIdRegistered === undefined ? {} : { touchIdRegistered }),
   };
 
@@ -368,6 +386,28 @@ export function OnboardingFlow({
     : undefined;
 
   const isLast = current === "done";
+
+  // The ticked folders are written when the chat opens. A card the Gateway wants approved first
+  // is shown here with a retry, never dropped: the owner approves it, then tries again.
+  const [sharing, setSharing] = useState<{
+    busy: boolean;
+    approvalId: string | null;
+    error: string | null;
+  } | null>(null);
+  const openChat = async (approvalId?: string) => {
+    if (sharedFolders.length === 0 || !onShareFolders) {
+      onComplete(result);
+      return;
+    }
+    setSharing({ busy: true, approvalId: approvalId ?? null, error: null });
+    try {
+      await onShareFolders(sharedFolders, approvalId);
+      onComplete(result);
+    } catch (err) {
+      const id = approvalIdOf(err);
+      setSharing({ busy: false, approvalId: id, error: id ? null : describeError(err) });
+    }
+  };
 
   // Entering Done applies the model and checks the setup once per visit.
   const resultRef = useRef(result);
@@ -529,6 +569,14 @@ export function OnboardingFlow({
             {...(onCommitImport ? { onCommitImport } : {})}
           />
         ) : null}
+        {current === "folders" ? (
+          <FoldersStep
+            persona={name}
+            options={folderOptions}
+            ticked={folderIds}
+            onChange={setFolderIds}
+          />
+        ) : null}
         {current === "safety" ? (
           <SafetyStep
             persona={name}
@@ -559,7 +607,11 @@ export function OnboardingFlow({
             keyError={keyError}
             keyRefused={keyRefused}
             {...(recoveryKey
-              ? { recoveryKey, recoverySaved, onRecoverySaved: setRecoverySaved }
+              ? {
+                  recoveryKey,
+                  recoverySaved,
+                  onRecoveryConfirmed: () => setRecoverySaved(true),
+                }
               : {})}
             {...(ramGb === undefined ? {} : { ramGb })}
             {...(saveKey ? { onSaveKey: (k: string) => void saveKey(k) } : {})}
@@ -597,6 +649,7 @@ export function OnboardingFlow({
             onClick={() => {
               const next = steps[index + 1];
               if (current === "memory") setMemorySkipped(true);
+              if (current === "folders") setFolderIds([]);
               if (next) go(next);
             }}
           >
@@ -604,9 +657,53 @@ export function OnboardingFlow({
           </Button>
         ) : null}
         {isLast ? (
-          <Button type="button" size="lg" className="rounded-md" onClick={() => onComplete(result)}>
-            {t("onboarding.openChat")}
-          </Button>
+          <>
+            {sharing && !sharing.busy ? (
+              <p role="alert" className="me-auto text-callout text-label-secondary">
+                {sharing.approvalId
+                  ? t("onboarding.folders.shareLater")
+                  : t("onboarding.folders.failed", { reason: sharing.error ?? "" })}
+              </p>
+            ) : null}
+            {sharing && !sharing.busy ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-label-secondary"
+                onClick={() => {
+                  const { sharedFolders: _skipped, ...rest } = result;
+                  onComplete(rest);
+                }}
+              >
+                {t("onboarding.folders.continueWithout")}
+              </Button>
+            ) : null}
+            {sharing && !sharing.busy && sharing.approvalId ? (
+              <Button
+                type="button"
+                size="lg"
+                className="rounded-md"
+                onClick={() => {
+                  const { sharedFolders: _skipped, ...rest } = result;
+                  onComplete({ ...rest, openFileAccess: true });
+                }}
+              >
+                {t("onboarding.folders.openFileAccess")}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="lg"
+                className="rounded-md"
+                disabled={sharing?.busy === true}
+                onClick={() => void openChat()}
+              >
+                {sharing && !sharing.busy
+                  ? t("onboarding.folders.retry")
+                  : t("onboarding.openChat")}
+              </Button>
+            )}
+          </>
         ) : (
           <Button
             type="button"

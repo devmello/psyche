@@ -43,7 +43,8 @@ const ALL: GrantScope[] = ["once", "task", "site", "session", "always"];
  * - `none`: nothing (the target is new to the Task);
  * - `touched` (read only): the owner approved one read of this origin (`once`), so it is touched;
  * - `grant`: the owner approved with the strongest scope the class allows (§3.4): `always` for
- *   read / write / destructive / financial (the owner's confirmed Always allow, §3.12).
+ *   read / write / destructive (the owner's confirmed Always allow, §3.12). A payment has none:
+ *   it asks every time (owner's decision, 2026-11-09).
  */
 type Prior = "none" | "touched" | "grant";
 
@@ -59,7 +60,7 @@ const PRIORS: Record<SideEffect, Prior[]> = {
   read: ["none", "touched", "grant"],
   write: ["none", "grant"],
   destructive: ["none", "grant"],
-  financial: ["none", "grant"],
+  financial: ["none"], // a payment always asks: no standing grant can exist
 };
 
 const GRANT_SCOPE: Record<SideEffect, GrantScope> = {
@@ -67,7 +68,7 @@ const GRANT_SCOPE: Record<SideEffect, GrantScope> = {
   read: "always",
   write: "always",
   destructive: "always",
-  financial: "always", // §3.4, §3.12: financial only `once` or a confirmed `always`
+  financial: "once", // §3.4: a payment is `once` only, every time
 };
 
 const CASES: Case[] = MODES.flatMap((mode) =>
@@ -93,7 +94,7 @@ interface Expected {
 function scopesFor(mode: PermissionMode, se: SideEffect, taint = false): GrantScope[] {
   // §3.6, §3.12: a tainted destructive / financial card offers `once` only.
   if (taint && SEVERITY[se] >= SEVERITY.destructive) return ["once"];
-  if (se === "financial") return mode === "manual" ? ["once"] : ["once", "always"]; // §3.4
+  if (se === "financial") return ["once"]; // §3.4: a payment is once only
   if (se === "destructive") return mode === "manual" ? ["once"] : ["once", "task", "always"];
   if (mode === "manual") {
     // §3.2 manual/read: "first read of each new source asks (task / site offered)".
@@ -205,8 +206,7 @@ function checkShape(d: PolicyDecision, se: SideEffect): void {
     expect(d.scopesOffered?.length ?? 0).toBeGreaterThan(0);
     for (const s of d.scopesOffered ?? [])
       expect(allowedScopes(se, "connector_action")).toContain(s);
-    if (se === "financial")
-      for (const s of d.scopesOffered ?? []) expect(["once", "always"]).toContain(s);
+    if (se === "financial") expect(d.scopesOffered).toEqual(["once"]);
     if (se === "destructive")
       for (const s of d.scopesOffered ?? []) expect(["once", "task", "always"]).toContain(s);
   } else {
@@ -228,8 +228,8 @@ function checkExpected(d: PolicyDecision, e: Expected): void {
 
 describe("decision matrix: mode × side effect × taint × standing grant", () => {
   it("covers every combination", () => {
-    // 4 modes × (1 none + 3 read + 2 write + 2 destructive + 2 financial) × 2 taint.
-    expect(CASES).toHaveLength(80);
+    // 4 modes × (1 none + 3 read + 2 write + 2 destructive + 1 financial) × 2 taint.
+    expect(CASES).toHaveLength(72);
   });
 
   for (const kase of CASES) {
@@ -271,15 +271,11 @@ describe("matrix properties", () => {
     }
   });
 
-  it("financial is allowed only by the owner's confirmed always grant, never manual or tainted", async () => {
+  it("a payment is never allowed: every mode asks every time, once only", async () => {
     for (const kase of CASES.filter((c) => c.se === "financial")) {
       const d = await runCase(kase);
-      const allowed =
-        kase.prior === "grant" && !kase.taint && kase.mode !== "manual" && kase.mode !== "plan";
-      if (allowed) expect(d.rule, caseName(kase)).toMatch(/^grant:/);
-      else expect(d.decision, caseName(kase)).not.toBe("allow");
-      if (d.decision === "ask" && (kase.taint || kase.mode === "manual"))
-        expect(d.scopesOffered).toEqual(["once"]);
+      expect(d.decision, caseName(kase)).not.toBe("allow");
+      if (d.decision === "ask") expect(d.scopesOffered).toEqual(["once"]);
     }
   });
 
@@ -291,6 +287,9 @@ describe("matrix properties", () => {
     await expect(
       approve(h, call(TOOL, "financial", origin(SHOP)), SETUP_CTX, "session"),
     ).rejects.toThrow(/scope session not offered/);
+    await expect(
+      approve(h, call(TOOL, "financial", origin(SHOP)), SETUP_CTX, "always"),
+    ).rejects.toThrow(/scope always not offered/);
     await expect(
       approve(h, call(TOOL, "destructive", origin(SHOP)), SETUP_CTX, "session"),
     ).rejects.toThrow(/scope session not offered/);

@@ -24,6 +24,38 @@ struct EventMapperTests {
         }
     }
 
+    @Test func aChatRunMapsToARunUpdateAndStillHintsARefetch() async {
+        var m = mapper()
+        func run(_ status: String, kind: String? = nil, task: String? = nil) -> JSONValue {
+            var run: [String: JSONValue] = ["id": "r1", "threadId": "t1", "status": .string(status), "startedAt": "2026-11-09T10:00:00.000Z"]
+            if let kind { run["kind"] = .string(kind) }
+            if let task { run["taskId"] = .string(task) }
+            return .object(["run": .object(run)])
+        }
+        let running = await m.map(frame("run.updated", run("running")), ownDeviceID: "d").events
+        guard case .chat(.run(let thread, let update))? = running.first else { Issue.record("no run event"); return }
+        #expect(thread == "t1" && update.state == .running && update.isChat && update.taskID == nil)
+        #expect(update.startedAt == WireFormat.date("2026-11-09T10:00:00.000Z"))
+        #expect(running.contains(.changed(.home)) && running.contains(.changed(.activity)) && running.contains(.changed(.widgets)))
+        for (status, state) in [
+            ("awaiting_approval", RunUpdate.State.waiting), ("awaiting_input", .waiting), ("done", .done),
+            ("failed", .failed), ("cancelled", .cancelled),
+        ] {
+            let events = await m.map(frame("run.updated", run(status)), ownDeviceID: "d").events
+            guard case .chat(.run(_, let update))? = events.first else { Issue.record("no run event for \(status)"); return }
+            #expect(update.state == state)
+        }
+        // A task's run says which task it is, and is not a chat reply.
+        let task = await m.map(frame("run.updated", run("running", kind: "task", task: "task_1")), ownDeviceID: "d").events
+        guard case .chat(.run(_, let taskRun))? = task.first else { Issue.record("no task run"); return }
+        #expect(!taskRun.isChat && taskRun.taskID == "task_1")
+        // A status this build does not know, or no run at all, is only a refetch hint.
+        let unknown = await m.map(frame("run.updated", run("paused_for_tea")), ownDeviceID: "d").events
+        #expect(unknown == [.changed(.activity), .changed(.home), .changed(.widgets)])
+        let none = await m.map(frame("run.updated", .object([:])), ownDeviceID: "d").events
+        #expect(none == [.changed(.activity), .changed(.home), .changed(.widgets)])
+    }
+
     @Test func firstDeltaCreatesTheStreamingRowThenAppends() async {
         var m = mapper()
         let p: JSONValue = .object(["threadId": "t1", "messageId": "m1", "delta": "Hel"])

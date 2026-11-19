@@ -172,10 +172,10 @@ export const web = {
   "web.viewers.noPath": "This file has no path.",
   "web.shortcut.palette": "Command palette",
   "web.shortcut.newSideChat": "New side chat",
+  "web.shortcut.newIncognitoChat": "New incognito chat",
   "web.shortcut.closeThreadView": "Close thread view or pop-out",
   "web.shortcut.toggleThreadList": "Toggle thread list",
   "web.shortcut.cycleThreads": "Cycle threads",
-  "web.shortcut.forkSelection": "Fork selection into a side chat",
   "web.shortcut.stop": "Stop the run; release Take control",
   "web.shortcut.cycleDisclosure": "Cycle disclosure: status, actions, raw",
   "web.shortcut.openBrowserPane": "Browser pane",
@@ -215,7 +215,9 @@ export const web = {
   "web.threads.untitled": "Untitled",
   "web.threads.label": "Threads",
   "web.threads.newSideChatTitle": "New side chat (⌘N)",
+  "web.threads.newIncognitoChatTitle": "New incognito chat",
   "web.threads.newSideChat": "+ Side chat",
+  "web.threads.newIncognitoChat": "+ Incognito",
   "web.threads.searchLabel": "Search threads",
   "web.threads.searchPlaceholder": "Search",
   "web.threads.empty": "No side chats yet.",
@@ -421,6 +423,11 @@ export const web = {
   "web.toast.permissionModeUnsupported":
     "Changing the permission mode needs a newer version of Psyche.",
   "web.toast.threadUpdateFailed": "Psyche couldn't change that chat setting.",
+  "web.toast.autoModelRefused":
+    "Auto works only on the listed models, and {model} isn't on the Auto-mode list. Pick an allowed model, or use Manual or Balanced.",
+  "web.toast.autoModelRefusedNoModel":
+    "Auto works only on the listed models. Pick one in the model picker first.",
+  "web.toast.switchModel": "Switch model",
   "web.toast.modelUnsupported": "Picking a model needs a newer version of Psyche.",
   "web.palette.newSideChat": "New side chat",
   "web.palette.newIncognito": "New incognito chat (memory-only, 24 h)",
