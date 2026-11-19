@@ -52,6 +52,8 @@ export function hostGit(binary = "git"): GitRunner {
         LC_ALL: "C",
         // Discovery never climbs above the workspace into a repository around it.
         GIT_CEILING_DIRECTORIES: dirname(cwd),
+        // What agent-core asks for this command (a push: GIT_PROXY_COMMAND="").
+        ...options.env,
       };
       for (const k of [
         "GIT_DIR",
