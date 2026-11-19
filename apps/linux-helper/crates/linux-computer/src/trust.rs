@@ -12,6 +12,10 @@
 //! Used for:
 //! - `apps.open`: only a trusted desktop entry is launched ([`launchable_desktop_file`]), so an
 //!   entry the agent wrote under `~/.local/share/applications` never runs;
+//! - `apps.open` of a `DBusActivatable` entry: the session bus service (and systemd user unit)
+//!   that would start it must be trusted too ([`check_dbus_activation`]);
+//! - `apps.open` of a `Terminal=true` entry: an empty private config and cache dir
+//!   ([`launch_env`]), so `xdg-terminal-exec` reads nothing the agent wrote;
 //! - the separate desktop guest's `computer-use.json` ([`SettingsSource`]), which apps inside the
 //!   guest (same uid) must not be able to loosen.
 //!
@@ -265,6 +269,358 @@ pub fn trusted_program(fs: &dyn FsView, name: &str, own_uid: u32) -> Option<Path
         .filter(|d| check(fs, Path::new(d), own_uid).is_ok())
         .map(|d| Path::new(d).join(name))
         .find(|p| check(fs, p, own_uid).is_ok())
+}
+
+/// The environment `apps.open` gives `gio launch`, which the app inherits when GLib spawns it:
+/// the trusted `PATH` ([`trusted_search_path`]) and the switches that make Qt, GTK and Firefox
+/// export their accessibility trees.
+///
+/// For a `Terminal=true` entry (`private` is a fresh dir from [`private_launch_dir_ok`]) also
+/// an empty `XDG_CONFIG_HOME` and `XDG_CACHE_HOME` (round-4 review, finding 2). GLib 2.80 and
+/// later start such entries through `xdg-terminal-exec`, which reads
+/// `$XDG_CONFIG_HOME/<desktop>-xdg-terminals.list` and replays a command cached under
+/// `$XDG_CACHE_HOME/xdg-terminal-exec`, both of which the agent could write in the real home. The
+/// terminal and the program in it inherit the empty dirs, so they start with fresh config and
+/// cache (dconf-backed settings read their defaults); terminal entries are capped at click
+/// anyway. Other launches keep the owner's dirs: the app would inherit them too, and an app that
+/// keeps its settings under `~/.config` would start as if newly installed.
+pub fn launch_env(search_path: &str, private: Option<&Path>) -> Vec<(&'static str, OsString)> {
+    let mut env: Vec<(&'static str, OsString)> = vec![
+        ("PATH", search_path.into()),
+        ("ACCESSIBILITY_ENABLED", "1".into()),
+        ("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1".into()),
+        ("GNOME_ACCESSIBILITY", "1".into()),
+    ];
+    if let Some(dir) = private {
+        env.push(("XDG_CONFIG_HOME", dir.join("config").into_os_string()));
+        env.push(("XDG_CACHE_HOME", dir.join("cache").into_os_string()));
+    }
+    env
+}
+
+/// `$XDG_RUNTIME_DIR`, else `/run/user/<uid>` (where systemd puts it).
+fn runtime_dir(env: &dyn Fn(&str) -> Option<String>, own_uid: u32) -> PathBuf {
+    env("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(format!("/run/user/{own_uid}")))
+}
+
+/// Where the private dirs of terminal launches go: `<runtime dir>/psyche-helper` (per user,
+/// cleared at logout), or `/tmp/psyche-helper-<uid>` when there is no runtime dir. Each launch
+/// gets its own fresh subdir; [`private_launch_dir_ok`] vets it before gio runs.
+pub fn private_launch_root(
+    fs: &dyn FsView,
+    env: &dyn Fn(&str) -> Option<String>,
+    own_uid: u32,
+) -> PathBuf {
+    let run = runtime_dir(env, own_uid);
+    if run.is_absolute() && fs.lstat(&run).is_some() {
+        run.join("psyche-helper")
+    } else {
+        PathBuf::from(format!("/tmp/psyche-helper-{own_uid}"))
+    }
+}
+
+/// A dir only this account can use: a real dir (not a symlink), owned by `own_uid`, no group or
+/// world bits.
+fn private_dir_meta_ok(meta: &Meta, own_uid: u32) -> bool {
+    !meta.is_symlink
+        && meta.mode & 0o170000 == 0o040000
+        && meta.uid == own_uid
+        && meta.mode & 0o077 == 0
+}
+
+/// Whether `dir` is a launch dir as the helper just made it: it and its parent (the
+/// [`private_launch_root`]) are private dirs of this account, and it holds exactly the empty
+/// private dirs `config` and `cache`. Anything else (a planted symlink, a shared mode, files
+/// already inside) and the terminal launch is refused.
+pub fn private_launch_dir_ok(fs: &dyn FsView, dir: &Path, own_uid: u32) -> bool {
+    let ok = |p: &Path| {
+        fs.lstat(p)
+            .is_some_and(|m| private_dir_meta_ok(&m, own_uid))
+    };
+    let Some(parent) = dir.parent() else {
+        return false;
+    };
+    if !dir.is_absolute() || !ok(parent) || !ok(dir) {
+        return false;
+    }
+    let mut names: Vec<String> = fs
+        .list(dir)
+        .iter()
+        .filter_map(|p| p.file_name().map(|f| f.to_string_lossy().into_owned()))
+        .collect();
+    names.sort();
+    names == ["cache", "config"]
+        && names.iter().all(|n| {
+            let p = dir.join(n);
+            ok(&p) && fs.list(&p).is_empty()
+        })
+}
+
+/// Whether `name` is a well-known D-Bus name (GLib's `g_dbus_is_name`, not a unique `:1.2`
+/// name): two or more dot-separated elements of `[A-Za-z0-9_-]`, none empty or starting with a
+/// digit, at most 255 bytes. GLib only D-Bus-activates a `DBusActivatable` entry whose basename
+/// is one; otherwise it runs `Exec=`.
+pub fn is_bus_name(name: &str) -> bool {
+    if name.is_empty() || name.len() > 255 {
+        return false;
+    }
+    let parts: Vec<&str> = name.split('.').collect();
+    parts.len() >= 2
+        && parts.iter().all(|p| {
+            !p.is_empty()
+                && !p.as_bytes()[0].is_ascii_digit()
+                && p.bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+        })
+}
+
+/// The session bus's service dirs, in its search order: `$XDG_RUNTIME_DIR/dbus-1/services`,
+/// then `dbus-1/services` under `$XDG_DATA_HOME` and each `$XDG_DATA_DIRS` entry (with the
+/// Flatpak and snap export dirs sessions add there, as in
+/// [`app_id::DesktopIndex::default_dirs`]), then the built-in `/usr/local/share` and
+/// `/usr/share` ones.
+pub fn dbus_service_dirs(env: &dyn Fn(&str) -> Option<String>, own_uid: u32) -> Vec<PathBuf> {
+    let mut dirs = vec![runtime_dir(env, own_uid).join("dbus-1/services")];
+    dirs.extend(
+        app_id::DesktopIndex::default_dirs(env)
+            .into_iter()
+            .map(|d| d.join("dbus-1/services")),
+    );
+    dirs.push(PathBuf::from("/usr/local/share/dbus-1/services"));
+    dirs.push(PathBuf::from("/usr/share/dbus-1/services"));
+    dedup(dirs)
+}
+
+/// The systemd user manager's unit search path (`systemd.unit(5)`, user mode), in order.
+pub fn systemd_user_unit_dirs(env: &dyn Fn(&str) -> Option<String>, own_uid: u32) -> Vec<PathBuf> {
+    let home = env("HOME").unwrap_or_default();
+    let config_home =
+        PathBuf::from(env("XDG_CONFIG_HOME").unwrap_or_else(|| format!("{home}/.config")));
+    let data_home =
+        PathBuf::from(env("XDG_DATA_HOME").unwrap_or_else(|| format!("{home}/.local/share")));
+    let split = |v: String| -> Vec<PathBuf> {
+        v.split(':')
+            .filter(|d| !d.is_empty())
+            .map(PathBuf::from)
+            .collect()
+    };
+    let config_dirs = split(env("XDG_CONFIG_DIRS").unwrap_or_else(|| "/etc/xdg".into()));
+    let data_dirs =
+        split(env("XDG_DATA_DIRS").unwrap_or_else(|| "/usr/local/share:/usr/share".into()));
+    let run = runtime_dir(env, own_uid).join("systemd");
+    let mut dirs = vec![
+        config_home.join("systemd/user.control"),
+        run.join("user.control"),
+        run.join("transient"),
+        run.join("generator.early"),
+        config_home.join("systemd/user"),
+    ];
+    dirs.extend(config_dirs.iter().map(|d| d.join("systemd/user")));
+    dirs.push(PathBuf::from("/etc/systemd/user"));
+    dirs.push(run.join("user"));
+    dirs.push(PathBuf::from("/run/systemd/user"));
+    dirs.push(run.join("generator"));
+    dirs.push(data_home.join("systemd/user"));
+    dirs.extend(data_dirs.iter().map(|d| d.join("systemd/user")));
+    dirs.push(PathBuf::from("/usr/local/lib/systemd/user"));
+    dirs.push(PathBuf::from("/usr/lib/systemd/user"));
+    dirs.push(run.join("generator.late"));
+    dedup(dirs)
+}
+
+fn dedup(dirs: Vec<PathBuf>) -> Vec<PathBuf> {
+    let mut out: Vec<PathBuf> = Vec::new();
+    for d in dirs {
+        if !out.contains(&d) {
+            out.push(d);
+        }
+    }
+    out
+}
+
+/// `Name=` and `SystemdService=` from a D-Bus service file's `[D-BUS Service]` group.
+fn dbus_service_keys(text: &str) -> (Option<String>, Option<String>) {
+    let (mut name, mut unit) = (None, None);
+    let mut in_main = false;
+    for line in text.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            in_main = line == "[D-BUS Service]";
+            continue;
+        }
+        if !in_main || line.starts_with('#') {
+            continue;
+        }
+        if let Some((k, v)) = line.split_once('=') {
+            let v = v.trim().to_string();
+            match k.trim() {
+                "Name" => name = Some(v),
+                "SystemdService" => unit = Some(v).filter(|u| !u.is_empty()),
+                _ => {}
+            }
+        }
+    }
+    (name, unit)
+}
+
+const UNIT_KINDS: &[&str] = &[
+    "service",
+    "socket",
+    "target",
+    "timer",
+    "path",
+    "mount",
+    "automount",
+    "swap",
+    "slice",
+    "scope",
+    "device",
+];
+
+/// Whether an entry named `entry` in a unit dir changes what starting `unit` runs: the unit
+/// file itself (or an alias of that name), its template (`foo@.service` for `foo@x.service`),
+/// any `<unit>.d`, `.wants`, `.requires` or `.upholds` dir, a prefix drop-in dir
+/// (`org-gnome-.service.d`) or the drop-in dir for every unit of its type (`service.d`).
+fn unit_entry_affects(unit: &str, entry: &str) -> bool {
+    let (stem, kind) = match unit.rsplit_once('.') {
+        Some((s, k)) if UNIT_KINDS.contains(&k) => (s, k),
+        _ => (unit, "service"),
+    };
+    let mut names = vec![unit.to_string(), format!("{stem}.{kind}")];
+    if let Some((pre, _)) = stem.split_once('@') {
+        names.push(format!("{pre}@.{kind}"));
+    }
+    if names.iter().any(|n| {
+        entry == n
+            || entry
+                .strip_prefix(n.as_str())
+                .is_some_and(|rest| rest.starts_with('.'))
+    }) {
+        return true;
+    }
+    if entry == format!("{kind}.d") {
+        return true;
+    }
+    stem.char_indices()
+        .any(|(i, c)| c == '-' && entry == format!("{}.{kind}.d", &stem[..=i]))
+}
+
+/// `policy_denied/untrusted_dbus_activation`.
+fn untrusted_dbus(id: &str, name: &str, at: Option<&Path>, why: &'static str) -> CapError {
+    let message = if at.is_none() {
+        format!(
+            "{id} starts through D-Bus as {name}, and Psyche found no service file for it installed system-wide. A service file Psyche cannot vouch for could take its place, so the owner must open it."
+        )
+    } else {
+        format!(
+            "{id} starts through D-Bus as {name}, and a service file Psyche cannot vouch for could take its place, so the owner must open it."
+        )
+    };
+    let mut e = CapError::new(code::POLICY_DENIED, "untrusted_dbus_activation", message)
+        .detail("app", id)
+        .detail("busName", name)
+        .detail("why", why);
+    if let Some(p) = at {
+        e = e.detail("at", p.display().to_string());
+    }
+    e
+}
+
+/// The D-Bus side of `apps.open` (round-4 review, finding 3). For a `DBusActivatable=true`
+/// entry GLib skips `Exec=` and activates the bus name `file`'s basename gives; the session bus
+/// then runs the first service file that names it, and with `SystemdService=` a systemd user
+/// unit. `file` and `contents` are the trusted desktop file [`launchable_desktop_file`] picked.
+/// The launch is allowed only when:
+/// - a `<name>.service` with `Name=<name>` passes [`check`] in a service dir that passes it;
+/// - no service dir that fails [`check`] (`$XDG_RUNTIME_DIR`, `$XDG_DATA_HOME`, an untrusted
+///   `$XDG_DATA_DIRS` entry, user Flatpak exports) holds a `<name>.service` or any `.service`
+///   file whose `Name=` is `<name>` (the session bus does not insist on the file name there);
+///   nor does a trusted dir hold a `<name>.service` that fails [`check`];
+/// - with `SystemdService=<unit>`, no unit dir that fails [`check`] holds that unit, its
+///   template, or a drop-in or dependency dir for it ([`unit_entry_affects`]).
+///
+/// Not checked: entries that are not `DBusActivatable`, and basenames that are not bus names
+/// (GLib runs `Exec=` for both).
+pub fn check_dbus_activation(
+    fs: &dyn FsView,
+    env: &dyn Fn(&str) -> Option<String>,
+    id: &str,
+    file: &Path,
+    contents: &str,
+    own_uid: u32,
+) -> CapResult<()> {
+    if !app_id::desktop_entry_dbus_activatable(contents) {
+        return Ok(());
+    }
+    let Some(name) = file
+        .file_name()
+        .and_then(|f| f.to_str())
+        .and_then(|f| f.strip_suffix(".desktop"))
+        .filter(|n| is_bus_name(n))
+    else {
+        return Ok(());
+    };
+    let want = format!("{name}.service");
+    // The trusted service file the bus would use, and its `SystemdService=`.
+    let mut provider: Option<Option<String>> = None;
+    for dir in dbus_service_dirs(env, own_uid) {
+        let dir_trusted = check(fs, &dir, own_uid).is_ok();
+        let mut files = fs.list(&dir);
+        files.sort();
+        for f in files {
+            let Some(fname) = f.file_name().and_then(|x| x.to_str()) else {
+                continue;
+            };
+            if !fname.ends_with(".service") {
+                continue;
+            }
+            let by_file_name = fname == want;
+            if dir_trusted {
+                if !by_file_name {
+                    continue;
+                }
+                if check(fs, &f, own_uid).is_err() {
+                    return Err(untrusted_dbus(id, name, Some(&f), "untrusted_service_file"));
+                }
+                let (svc_name, unit) = fs
+                    .read(&f)
+                    .map(|b| dbus_service_keys(&String::from_utf8_lossy(&b)))
+                    .unwrap_or_default();
+                if provider.is_none() && svc_name.as_deref() == Some(name) {
+                    provider = Some(unit);
+                }
+            } else {
+                let names_it = by_file_name
+                    || fs.read(&f).is_some_and(|b| {
+                        dbus_service_keys(&String::from_utf8_lossy(&b)).0.as_deref() == Some(name)
+                    });
+                if names_it {
+                    return Err(untrusted_dbus(id, name, Some(&f), "user_service_file"));
+                }
+            }
+        }
+    }
+    let Some(unit) = provider else {
+        return Err(untrusted_dbus(id, name, None, "no_system_service"));
+    };
+    if let Some(unit) = unit {
+        for dir in systemd_user_unit_dirs(env, own_uid) {
+            if check(fs, &dir, own_uid).is_ok() {
+                continue;
+            }
+            for e in fs.list(&dir) {
+                if e.file_name()
+                    .and_then(|f| f.to_str())
+                    .is_some_and(|f| unit_entry_affects(&unit, f))
+                {
+                    return Err(untrusted_dbus(id, name, Some(&e), "user_systemd_unit"));
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Where the engine reads Settings → Computer use from.
@@ -801,6 +1157,436 @@ mod tests {
         // A gio this account could replace is not used, whatever the dir.
         fs.file("/usr/bin/gio", ME, 0o755, "");
         assert_eq!(trusted_program(&fs, "gio", ME), None);
+    }
+
+    #[test]
+    fn terminal_launches_get_an_empty_private_config_and_cache() {
+        let names = |env: &[(&'static str, OsString)]| -> Vec<&'static str> {
+            env.iter().map(|(k, _)| *k).collect()
+        };
+        let plain = launch_env("/usr/bin:/bin", None);
+        assert_eq!(
+            names(&plain),
+            [
+                "PATH",
+                "ACCESSIBILITY_ENABLED",
+                "QT_LINUX_ACCESSIBILITY_ALWAYS_ON",
+                "GNOME_ACCESSIBILITY"
+            ]
+        );
+        assert_eq!(plain[0].1, OsString::from("/usr/bin:/bin"));
+        let dir = Path::new("/run/user/1000/psyche-helper/terminal-1");
+        let term = launch_env("/usr/bin", Some(dir));
+        let get = |k: &str| term.iter().find(|(n, _)| *n == k).map(|(_, v)| v.clone());
+        assert_eq!(
+            get("XDG_CONFIG_HOME"),
+            Some(OsString::from(
+                "/run/user/1000/psyche-helper/terminal-1/config"
+            ))
+        );
+        assert_eq!(
+            get("XDG_CACHE_HOME"),
+            Some(OsString::from(
+                "/run/user/1000/psyche-helper/terminal-1/cache"
+            ))
+        );
+        assert_eq!(get("PATH"), Some(OsString::from("/usr/bin")));
+        // Data dirs (app lookup) are never redirected.
+        assert!(get("XDG_DATA_HOME").is_none() && get("XDG_DATA_DIRS").is_none());
+    }
+
+    #[test]
+    fn the_private_launch_dir_must_be_fresh_and_this_accounts_alone() {
+        let env = |run: Option<&'static str>| {
+            move |k: &str| match k {
+                "XDG_RUNTIME_DIR" => run.map(String::from),
+                _ => None,
+            }
+        };
+        let mut fs = MapFs::default();
+        fs.dirs("/run/user");
+        fs.set("/run/user/1000", ME, 0o40700);
+        assert_eq!(
+            private_launch_root(&fs, &env(Some("/run/user/1000")), ME),
+            PathBuf::from("/run/user/1000/psyche-helper")
+        );
+        // Unset: systemd's place; missing or relative: /tmp.
+        assert_eq!(
+            private_launch_root(&fs, &env(None), ME),
+            PathBuf::from("/run/user/1000/psyche-helper")
+        );
+        assert_eq!(
+            private_launch_root(&fs, &env(None), 1001),
+            PathBuf::from("/tmp/psyche-helper-1001")
+        );
+        assert_eq!(
+            private_launch_root(&fs, &env(Some("run")), ME),
+            PathBuf::from("/tmp/psyche-helper-1000")
+        );
+
+        let fresh = || {
+            let mut fs = MapFs::default();
+            fs.dirs("/run/user");
+            fs.set("/run/user/1000", ME, 0o40700);
+            fs.set("/run/user/1000/psyche-helper", ME, 0o40700);
+            fs.set("/run/user/1000/psyche-helper/t1", ME, 0o40700);
+            fs.set("/run/user/1000/psyche-helper/t1/config", ME, 0o40700);
+            fs.set("/run/user/1000/psyche-helper/t1/cache", ME, 0o40700);
+            fs
+        };
+        let dir = Path::new("/run/user/1000/psyche-helper/t1");
+        assert!(private_launch_dir_ok(&fresh(), dir, ME));
+        // Another account's, shared modes, a symlink, a file instead of a dir, extra or
+        // missing entries, a non-empty config dir: refused.
+        let cases: Vec<fn(&mut MapFs)> = vec![
+            |fs| {
+                fs.set("/run/user/1000/psyche-helper/t1", ROOT, 0o40700);
+            },
+            |fs| {
+                fs.set("/run/user/1000/psyche-helper", ME, 0o40755);
+            },
+            |fs| {
+                fs.set("/run/user/1000/psyche-helper/t1/cache", ME, 0o40770);
+            },
+            |fs| {
+                fs.link(
+                    "/run/user/1000/psyche-helper/t1/config",
+                    ME,
+                    "/home/me/.config",
+                );
+            },
+            |fs| {
+                fs.set("/run/user/1000/psyche-helper/t1/config", ME, 0o100600);
+            },
+            |fs| {
+                fs.set("/run/user/1000/psyche-helper/t1/extra", ME, 0o40700);
+            },
+            |fs| {
+                fs.nodes
+                    .remove(Path::new("/run/user/1000/psyche-helper/t1/cache"));
+            },
+            |fs| {
+                fs.file(
+                    "/run/user/1000/psyche-helper/t1/config/ubuntu-xdg-terminals.list",
+                    ME,
+                    0o600,
+                    "evil.desktop",
+                );
+            },
+        ];
+        for (i, case) in cases.iter().enumerate() {
+            let mut fs = fresh();
+            case(&mut fs);
+            assert!(!private_launch_dir_ok(&fs, dir, ME), "case {i}");
+        }
+        assert!(!private_launch_dir_ok(
+            &fresh(),
+            Path::new("/run/user/1000/psyche-helper/none"),
+            ME
+        ));
+    }
+
+    #[test]
+    fn bus_names_follow_glib() {
+        let long = format!("{}c", "ab.".repeat(100));
+        for ok in ["org.gnome.TextEditor", "org.x-y.App_2", "a.b"] {
+            assert!(is_bus_name(ok), "{ok}");
+        }
+        for bad in [
+            "",
+            "gedit",
+            "org..x",
+            "org.2x",
+            ":1.2",
+            "org.gnome.Text Editor",
+            "org.gnome.",
+            long.as_str(),
+        ] {
+            assert!(!is_bus_name(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn unit_entries_that_change_what_a_unit_runs() {
+        let u = "org-gnome-TextEditor.service";
+        for hit in [
+            "org-gnome-TextEditor.service",
+            "org-gnome-TextEditor.service.d",
+            "org-gnome-TextEditor.service.wants",
+            "org-gnome-TextEditor.service.requires",
+            "org-.service.d",
+            "org-gnome-.service.d",
+            "service.d",
+        ] {
+            assert!(unit_entry_affects(u, hit), "{hit}");
+        }
+        for miss in [
+            "org-gnome-Other.service",
+            "org-gnome-TextEditor.serviceX",
+            "socket.d",
+            "org-gnome-.socket.d",
+            "default.target.wants",
+        ] {
+            assert!(!unit_entry_affects(u, miss), "{miss}");
+        }
+        // Templates and a unit named without its type.
+        assert!(unit_entry_affects("app@x.service", "app@.service"));
+        assert!(unit_entry_affects("app@x.service", "app@.service.d"));
+        assert!(unit_entry_affects(
+            "gnome-text-editor",
+            "gnome-text-editor.service.d"
+        ));
+    }
+
+    const TEXT_EDITOR: &str = "/usr/share/applications/org.gnome.TextEditor.desktop";
+    const DBUS_ENTRY: &str =
+        "[Desktop Entry]\nType=Application\nExec=gnome-text-editor\nDBusActivatable=true\n";
+
+    fn dbus_home(fs: &mut MapFs) {
+        home(fs);
+        fs.dirs("/run/user");
+        fs.set("/run/user/1000", ME, 0o40700);
+        fs.file(TEXT_EDITOR, ROOT, 0o644, DBUS_ENTRY);
+    }
+
+    fn system_service(fs: &mut MapFs, systemd: Option<&str>) {
+        let unit = systemd
+            .map(|u| format!("SystemdService={u}\n"))
+            .unwrap_or_default();
+        fs.file(
+            "/usr/share/dbus-1/services/org.gnome.TextEditor.service",
+            ROOT,
+            0o644,
+            &format!("[D-BUS Service]\nName=org.gnome.TextEditor\nExec=/usr/bin/gnome-text-editor --gapplication-service\n{unit}"),
+        );
+    }
+
+    fn user_env(k: &str) -> Option<String> {
+        match k {
+            "HOME" => Some("/home/me".into()),
+            "XDG_RUNTIME_DIR" => Some("/run/user/1000".into()),
+            _ => None,
+        }
+    }
+
+    fn dbus_check(fs: &MapFs, contents: &str) -> CapResult<()> {
+        check_dbus_activation(
+            fs,
+            &user_env,
+            "org.gnome.texteditor",
+            Path::new(TEXT_EDITOR),
+            contents,
+            ME,
+        )
+    }
+
+    fn dbus_why(r: CapResult<()>) -> String {
+        let e = r.unwrap_err();
+        assert_eq!(
+            (e.code, e.reason.as_str()),
+            (code::POLICY_DENIED, "untrusted_dbus_activation")
+        );
+        assert!(e.message.contains("starts through D-Bus"), "{}", e.message);
+        assert!(e.message.contains("owner must open it"), "{}", e.message);
+        e.details
+            .get("why")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string()
+    }
+
+    #[test]
+    fn dbus_activation_table() {
+        // A trusted system service and no user one: launched.
+        let mut fs = MapFs::default();
+        dbus_home(&mut fs);
+        system_service(&mut fs, None);
+        assert!(dbus_check(&fs, DBUS_ENTRY).is_ok());
+        // Also in /usr/local/share and through a system Flatpak export.
+        let mut fs = MapFs::default();
+        dbus_home(&mut fs);
+        fs.file(
+            "/var/lib/flatpak/exports/share/dbus-1/services/org.gnome.TextEditor.service",
+            ROOT,
+            0o644,
+            "[D-BUS Service]\nName=org.gnome.TextEditor\nExec=/usr/bin/flatpak run org.gnome.TextEditor\n",
+        );
+        assert!(dbus_check(&fs, DBUS_ENTRY).is_ok());
+
+        // DBusActivatable=false (or absent): not checked, even with no service at all.
+        let mut fs = MapFs::default();
+        dbus_home(&mut fs);
+        let plain =
+            "[Desktop Entry]\nType=Application\nExec=gnome-text-editor\nDBusActivatable=false\n";
+        assert!(dbus_check(&fs, plain).is_ok());
+        // A basename that is not a bus name: GLib runs Exec=, so not checked either.
+        assert!(check_dbus_activation(
+            &fs,
+            &user_env,
+            "gedit",
+            Path::new("/usr/share/applications/gedit.desktop"),
+            DBUS_ENTRY,
+            ME
+        )
+        .is_ok());
+
+        // No system service at all.
+        assert_eq!(dbus_why(dbus_check(&fs, DBUS_ENTRY)), "no_system_service");
+        // A system file of that name that names another bus name does not count.
+        fs.file(
+            "/usr/share/dbus-1/services/org.gnome.TextEditor.service",
+            ROOT,
+            0o644,
+            "[D-BUS Service]\nName=org.gnome.Other\nExec=/usr/bin/x\n",
+        );
+        assert_eq!(dbus_why(dbus_check(&fs, DBUS_ENTRY)), "no_system_service");
+
+        // A user service file shadowing it in the data home, by file name or by Name= alone.
+        for (path, body) in [
+            (
+                "/home/me/.local/share/dbus-1/services/org.gnome.TextEditor.service",
+                "[D-BUS Service]\nName=org.gnome.TextEditor\nExec=/bin/sh -c evil\n",
+            ),
+            (
+                "/home/me/.local/share/dbus-1/services/zz-innocent.service",
+                "[D-BUS Service]\nName=org.gnome.TextEditor\nExec=/bin/sh -c evil\n",
+            ),
+            // The runtime dir.
+            (
+                "/run/user/1000/dbus-1/services/org.gnome.TextEditor.service",
+                "[D-BUS Service]\nName=org.gnome.TextEditor\nExec=/bin/sh -c evil\n",
+            ),
+            // A user Flatpak export.
+            (
+                "/home/me/.local/share/flatpak/exports/share/dbus-1/services/org.gnome.TextEditor.service",
+                "",
+            ),
+        ] {
+            let mut fs = MapFs::default();
+            dbus_home(&mut fs);
+            system_service(&mut fs, None);
+            fs.file(path, ME, 0o644, body);
+            assert_eq!(dbus_why(dbus_check(&fs, DBUS_ENTRY)), "user_service_file", "{path}");
+        }
+        // An unrelated user service is fine.
+        let mut fs = MapFs::default();
+        dbus_home(&mut fs);
+        system_service(&mut fs, None);
+        fs.file(
+            "/home/me/.local/share/dbus-1/services/org.example.Other.service",
+            ME,
+            0o644,
+            "[D-BUS Service]\nName=org.example.Other\nExec=/bin/true\n",
+        );
+        assert!(dbus_check(&fs, DBUS_ENTRY).is_ok());
+
+        // An untrusted dir smuggled into XDG_DATA_DIRS.
+        let mut fs = MapFs::default();
+        dbus_home(&mut fs);
+        system_service(&mut fs, None);
+        fs.set("/srv/shared", ROOT, 0o40777);
+        fs.file(
+            "/srv/shared/dbus-1/services/org.gnome.TextEditor.service",
+            ROOT,
+            0o644,
+            "",
+        );
+        let env = |k: &str| match k {
+            "XDG_DATA_DIRS" => Some("/srv/shared:/usr/share".into()),
+            _ => user_env(k),
+        };
+        assert_eq!(
+            dbus_why(check_dbus_activation(
+                &fs,
+                &env,
+                "org.gnome.texteditor",
+                Path::new(TEXT_EDITOR),
+                DBUS_ENTRY,
+                ME
+            )),
+            "user_service_file"
+        );
+
+        // The system file itself is this account's (in a root-owned dir).
+        let mut fs = MapFs::default();
+        dbus_home(&mut fs);
+        fs.file(
+            "/usr/share/dbus-1/services/org.gnome.TextEditor.service",
+            ME,
+            0o644,
+            "[D-BUS Service]\nName=org.gnome.TextEditor\nExec=/bin/sh\n",
+        );
+        assert_eq!(
+            dbus_why(dbus_check(&fs, DBUS_ENTRY)),
+            "untrusted_service_file"
+        );
+    }
+
+    #[test]
+    fn dbus_activation_through_a_systemd_user_unit() {
+        let unit = "app-org.gnome.TextEditor.service";
+        let ok = || {
+            let mut fs = MapFs::default();
+            dbus_home(&mut fs);
+            system_service(&mut fs, Some(unit));
+            fs.file(
+                &format!("/usr/lib/systemd/user/{unit}"),
+                ROOT,
+                0o644,
+                "[Service]\nExecStart=/usr/bin/gnome-text-editor\n",
+            );
+            fs
+        };
+        assert!(dbus_check(&ok(), DBUS_ENTRY).is_ok());
+        for path in [
+            format!("/home/me/.config/systemd/user/{unit}"),
+            format!("/home/me/.config/systemd/user/{unit}.d/override.conf"),
+            format!("/home/me/.local/share/systemd/user/{unit}"),
+            format!("/run/user/1000/systemd/user/{unit}"),
+            format!("/run/user/1000/systemd/user/{unit}.d/evil.conf"),
+            format!("/home/me/.config/systemd/user/{unit}.wants/evil.service"),
+            "/home/me/.config/systemd/user/app-.service.d/evil.conf".to_string(),
+            "/home/me/.config/systemd/user/service.d/evil.conf".to_string(),
+        ] {
+            let mut fs = ok();
+            fs.file(
+                &path,
+                ME,
+                0o644,
+                "[Service]\nExecStartPre=/bin/sh -c evil\n",
+            );
+            assert_eq!(
+                dbus_why(dbus_check(&fs, DBUS_ENTRY)),
+                "user_systemd_unit",
+                "{path}"
+            );
+        }
+        // Unrelated user units, and the same unit in /etc (root's): fine.
+        let mut fs = ok();
+        fs.file(
+            "/home/me/.config/systemd/user/syncthing.service",
+            ME,
+            0o644,
+            "",
+        );
+        fs.file(
+            &format!("/etc/systemd/user/{unit}.d/site.conf"),
+            ROOT,
+            0o644,
+            "",
+        );
+        assert!(dbus_check(&fs, DBUS_ENTRY).is_ok());
+        // Without SystemdService= the user units are not consulted.
+        let mut fs = MapFs::default();
+        dbus_home(&mut fs);
+        system_service(&mut fs, None);
+        fs.file(
+            &format!("/home/me/.config/systemd/user/{unit}"),
+            ME,
+            0o644,
+            "",
+        );
+        assert!(dbus_check(&fs, DBUS_ENTRY).is_ok());
     }
 
     #[test]

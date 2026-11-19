@@ -134,14 +134,16 @@ impl LinuxBackend {
     }
 
     /// The desktop entry `apps.open` may launch for `id` and the file to hand to `gio launch`:
-    /// the entry must be indexed (else `not_found/app_not_installed`), and the file XDG lookup
-    /// picks for it must be trusted (`policy_denied/untrusted_desktop_entry`, see
-    /// [`crate::trust`]). Notes `Terminal=true` from that very file, so the cap applies even when
-    /// the index parsed another one.
+    /// the entry must be indexed (else `not_found/app_not_installed`), the file XDG lookup picks
+    /// for it must be trusted (`policy_denied/untrusted_desktop_entry`, see [`crate::trust`]),
+    /// and for a `DBusActivatable` entry so must the session bus service that would start it
+    /// (`policy_denied/untrusted_dbus_activation`, [`crate::trust::check_dbus_activation`]).
+    /// Notes `Terminal=true` from that very file, so the cap applies even when the index parsed
+    /// another one; the returned flag picks the private config dirs ([`crate::trust::launch_env`]).
     fn trusted_desktop_file(
         &self,
         id: &str,
-    ) -> CapResult<(app_id::DesktopEntry, std::path::PathBuf)> {
+    ) -> CapResult<(app_id::DesktopEntry, std::path::PathBuf, bool)> {
         let index = self.desktop_index();
         let entry = index.get(id).cloned().ok_or_else(|| {
             CapError::new(
@@ -157,12 +159,68 @@ impl LinuxBackend {
         let own_uid = unsafe { libc::geteuid() };
         let fs = crate::trust::RealFs;
         let file = crate::trust::launchable_desktop_file(&fs, &dirs, &entry.id, own_uid)?;
-        if let Some(bytes) = crate::trust::FsView::read(&fs, &file) {
-            if app_id::desktop_entry_runs_in_terminal(&String::from_utf8_lossy(&bytes)) {
-                app_id::note_runs_in_terminal(&entry.id);
-            }
+        // The file is trusted, so what is read here is what gio reads.
+        let contents = crate::trust::FsView::read(&fs, &file)
+            .map(|b| String::from_utf8_lossy(&b).into_owned())
+            .unwrap_or_default();
+        let terminal = app_id::desktop_entry_runs_in_terminal(&contents);
+        if terminal {
+            app_id::note_runs_in_terminal(&entry.id);
         }
-        Ok((entry, file))
+        crate::trust::check_dbus_activation(
+            &fs,
+            &|k| (self.env)(k),
+            &entry.id,
+            &file,
+            &contents,
+            own_uid,
+        )?;
+        let terminal = terminal || app_id::runs_in_terminal(&entry.id);
+        Ok((entry, file, terminal))
+    }
+
+    /// A fresh, empty, private dir for one terminal launch (`config` and `cache` inside), under
+    /// [`crate::trust::private_launch_root`]. It is left in place: the terminal keeps using it
+    /// after gio returns, and the runtime dir is cleared at logout.
+    fn private_launch_dir(
+        &self,
+        fs: &crate::trust::RealFs,
+        own_uid: u32,
+    ) -> CapResult<std::path::PathBuf> {
+        use std::os::unix::fs::DirBuilderExt;
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let fail = |what: String| {
+            CapError::unavailable(
+                "launch_failed",
+                format!("Psyche could not prepare a private folder for this terminal app ({what}), so it did not open it"),
+            )
+        };
+        let root = crate::trust::private_launch_root(fs, &|k| (self.env)(k), own_uid);
+        let mut b = std::fs::DirBuilder::new();
+        b.mode(0o700);
+        match b.create(&root) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(e) => return Err(fail(e.to_string())),
+        }
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let dir = root.join(format!(
+            "terminal-{}-{nanos}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        // `create` fails if the name exists, so nothing planted is reused.
+        for d in [dir.clone(), dir.join("config"), dir.join("cache")] {
+            b.create(&d).map_err(|e| fail(e.to_string()))?;
+        }
+        if !crate::trust::private_launch_dir_ok(fs, &dir, own_uid) {
+            return Err(fail("not private".into()));
+        }
+        Ok(dir)
     }
 
     /// For Settings (`portal.status`'s `killSwitch`): X11, the last Escape grab worked (or none
@@ -343,12 +401,12 @@ impl Backend for LinuxBackend {
 
     fn launch(&self, id: &str, url: Option<&str>) -> CapResult<Value> {
         // Checked again here: the agent may have written a shadowing entry while a card waited.
-        let (entry, file) = self.trusted_desktop_file(id)?;
+        let (entry, file, terminal) = self.trusted_desktop_file(id)?;
         // Launch through GLib, which implements the Desktop Entry rules (field codes, DBus
         // activation, Terminal=true) and puts the app in its own scope. The accessibility
-        // switches make Qt, GTK and Firefox export their trees (design §6.1). `file` is the
-        // trusted entry XDG lookup picks; nothing on its path is writable by this account, so it
-        // is what gio reads.
+        // switches (`launch_env`) make Qt, GTK and Firefox export their trees (design §6.1).
+        // `file` is the trusted entry XDG lookup picks; nothing on its path is writable by this
+        // account, so it is what gio reads.
         // gio from the system dirs, and the system dirs as PATH: GLib resolves a bare `Exec=`
         // command (and the terminal) through PATH, which usually starts with ~/.local/bin.
         // SAFETY: geteuid has no preconditions and cannot fail.
@@ -360,15 +418,24 @@ impl Backend for LinuxBackend {
                 "gio (GLib) is not installed system-wide, so Psyche cannot open apps",
             )
         })?;
+        // A terminal entry gets an empty private XDG_CONFIG_HOME and XDG_CACHE_HOME, made and
+        // vetted right before gio runs (xdg-terminal-exec, see `launch_env`).
+        let private = if terminal {
+            Some(self.private_launch_dir(&fs, own_uid)?)
+        } else {
+            None
+        };
         let mut cmd = std::process::Command::new(gio);
         cmd.arg("launch").arg(&file);
-        cmd.env("PATH", crate::trust::trusted_search_path(&fs, own_uid));
         if let Some(u) = url {
             cmd.arg(u);
         }
-        cmd.env("ACCESSIBILITY_ENABLED", "1")
-            .env("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1")
-            .env("GNOME_ACCESSIBILITY", "1");
+        for (k, v) in crate::trust::launch_env(
+            &crate::trust::trusted_search_path(&fs, own_uid),
+            private.as_deref(),
+        ) {
+            cmd.env(k, v);
+        }
         let status = cmd
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())

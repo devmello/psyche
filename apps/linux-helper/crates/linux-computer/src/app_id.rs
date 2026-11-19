@@ -218,6 +218,20 @@ pub struct DesktopEntry {
 /// inside a terminal emulator, whose window takes input like a shell. Lenient on spacing and
 /// case (`Terminal = true`, `TERMINAL=True`, GLib's `1`): a false match only caps an app at click.
 pub fn desktop_entry_runs_in_terminal(contents: &str) -> bool {
+    desktop_entry_flag(contents, "Terminal")
+}
+
+/// Whether a `.desktop` file's `[Desktop Entry]` group says `DBusActivatable=true`. GLib then
+/// skips `Exec=` and activates the bus name the file's basename gives (see
+/// [`crate::trust::check_dbus_activation`]). Lenient like [`desktop_entry_runs_in_terminal`]: a
+/// false match only means the D-Bus service files are checked too.
+pub fn desktop_entry_dbus_activatable(contents: &str) -> bool {
+    desktop_entry_flag(contents, "DBusActivatable")
+}
+
+/// Whether any `key=true` (or `1`) line sits in the `[Desktop Entry]` group, key and value
+/// compared without case.
+fn desktop_entry_flag(contents: &str, key: &str) -> bool {
     let mut in_main = false;
     for line in contents.lines() {
         let line = line.trim();
@@ -229,7 +243,7 @@ pub fn desktop_entry_runs_in_terminal(contents: &str) -> bool {
             continue;
         }
         if let Some((k, v)) = line.split_once('=') {
-            if k.trim().eq_ignore_ascii_case("terminal") {
+            if k.trim().eq_ignore_ascii_case(key) {
                 let v = v.trim();
                 if v.eq_ignore_ascii_case("true") || v == "1" {
                     return true;
@@ -857,6 +871,32 @@ mod tests {
         assert!(!desktop_entry_runs_in_terminal(
             "[X-Other]\nTerminal=true\n[Desktop Entry]\nExec=x\n"
         ));
+    }
+
+    #[test]
+    fn dbus_activatable_in_the_main_group_only() {
+        let main = |body: &str| format!("[Desktop Entry]\nType=Application\nExec=x\n{body}\n");
+        assert!(desktop_entry_dbus_activatable(&main(
+            "DBusActivatable=true"
+        )));
+        assert!(desktop_entry_dbus_activatable(&main("DBusActivatable = 1")));
+        assert!(desktop_entry_dbus_activatable(&main(
+            "dbusactivatable=True"
+        )));
+        assert!(!desktop_entry_dbus_activatable(&main(
+            "DBusActivatable=false"
+        )));
+        assert!(!desktop_entry_dbus_activatable(&main(
+            "# DBusActivatable=true"
+        )));
+        assert!(!desktop_entry_dbus_activatable(&main("Terminal=true")));
+        assert!(!desktop_entry_dbus_activatable(
+            "[Desktop Entry]\nExec=x\n[Desktop Action new]\nDBusActivatable=true\n"
+        ));
+        // The two flags do not leak into each other.
+        assert!(!desktop_entry_runs_in_terminal(&main(
+            "DBusActivatable=true"
+        )));
     }
 
     #[test]
