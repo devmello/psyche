@@ -107,14 +107,45 @@ function optionsOf(metadata: ProviderMetadata | undefined): SharedV4ProviderOpti
   return structuredClone(metadata) as SharedV4ProviderOptions;
 }
 
+/**
+ * Provider kinds whose AI SDK adapter turns a multi-part tool result into one JSON string
+ * (`@ai-sdk/openai-compatible` 3.0.77 without `supportsMultiPartToolContent`, which llama.cpp and
+ * LM Studio also run on, and `ollama-ai-provider-v2` 4.1.0): an image there would reach the model
+ * as megabytes of base64 text. Their tool-result images become a note. Anthropic (and
+ * anthropic-compatible), OpenAI Responses, Google (both APIs) and OpenRouter carry them as images.
+ * Decided here, at convert time, so a thread that switches models after storing images is covered.
+ */
+const TEXT_ONLY_TOOL_RESULTS: ReadonlySet<string> = new Set([
+  "openai-compatible",
+  "llamacpp",
+  "lmstudio",
+  "ollama",
+]);
+
+/** True when `kind`'s adapter sends an image inside a tool result as an image. */
+export function toolResultImagesSupported(kind: string): boolean {
+  return !TEXT_ONLY_TOOL_RESULTS.has(kind);
+}
+
+const TOOL_IMAGE_NOT_SENT =
+  "[image not shown: this provider cannot take images inside tool results]";
+const TOOL_IMAGE_LINK = "[image omitted: a tool result cannot send an image link]";
+
 function convertToolResultOutput(
   part: Extract<ModelPart, { type: "tool_result" }>,
+  ctx: ConvertContext,
 ): LanguageModelV4ToolResultOutput {
   const { output } = part;
   if (part.isError === true) {
-    return typeof output === "string"
-      ? { type: "error-text", value: output }
-      : { type: "error-json", value: toJsonValue(output) };
+    // Error results go out as JSON text: a picture in one would be base64 text.
+    const safe = Array.isArray(output)
+      ? output.map((p) =>
+          isRecord(p) && p.type === "image" ? { type: "text", text: "[image omitted]" } : p,
+        )
+      : output;
+    return typeof safe === "string"
+      ? { type: "error-text", value: safe }
+      : { type: "error-json", value: toJsonValue(safe) };
   }
   if (typeof output === "string") return { type: "text", value: output };
   // A list of text / image parts (screenshots from computer use, rendered pages).
@@ -123,19 +154,19 @@ function convertToolResultOutput(
     output.length > 0 &&
     output.every((p) => isRecord(p) && (p.type === "text" || p.type === "image"))
   ) {
+    const images = toolResultImagesSupported(ctx.config.kind);
     const value: Extract<LanguageModelV4ToolResultOutput, { type: "content" }>["value"] = [];
     for (const p of output as Record<string, unknown>[]) {
       if (p.type === "text" && typeof p.text === "string")
         value.push({ type: "text", text: p.text });
-      else if (p.type === "image" && typeof p.mime === "string") {
-        if (typeof p.data === "string")
-          value.push({ type: "file", mediaType: p.mime, data: { type: "data", data: p.data } });
-        else if (typeof p.url === "string")
-          value.push({
-            type: "file",
-            mediaType: p.mime,
-            data: { type: "url", url: new URL(p.url) },
-          });
+      else if (p.type === "image") {
+        const mime = typeof p.mime === "string" ? p.mime : p.mimeType;
+        // A tool never has the provider fetch (or pass along) a URL.
+        if (typeof p.data !== "string") {
+          if (typeof p.url === "string") value.push({ type: "text", text: TOOL_IMAGE_LINK });
+        } else if (typeof mime !== "string") continue;
+        else if (!images) value.push({ type: "text", text: TOOL_IMAGE_NOT_SENT });
+        else value.push({ type: "file", mediaType: mime, data: { type: "data", data: p.data } });
       }
     }
     return { type: "content", value };
@@ -180,7 +211,11 @@ export function convertMessages(request: ModelRequest, ctx: ConvertContext): Lan
       type: "tool-result",
       toolCallId: p.callId,
       toolName: names.toProvider(name),
-      output: withToolReferences(convertToolResultOutput(p), toolReferences(p, name, plan), names),
+      output: withToolReferences(
+        convertToolResultOutput(p, c),
+        toolReferences(p, name, plan),
+        names,
+      ),
     };
   };
 

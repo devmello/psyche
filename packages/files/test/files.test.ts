@@ -98,7 +98,7 @@ describe("ported from the Gateway stand-in", () => {
     writeFileSync(join(granted, "big.txt"), "x".repeat(300 * 1024));
     const r = await run("read_file", { path: join(granted, "big.txt") });
     expect(r.output.truncated).toBe(true);
-    expect((r.output.text as string).length).toBe(256 * 1024);
+    expect((r.output.text as string).length).toBe(32 * 1024);
     const d = tools.write_file?.describeCall?.({ path: join(granted, "n.md"), content: "a" });
     expect(d).toMatchObject({ kind: "file_write", bindingFields: { operation: "overwrite" } });
     expect(readdirSync(granted)).not.toContain("n.md");
@@ -402,13 +402,18 @@ describe("limits and paging", () => {
     writeFileSync(join(granted, "u.txt"), text);
     const a = await run("read_file", { path: join(granted, "u.txt") });
     expect(a.output.truncated).toBe(true);
-    const b = await run("read_file", {
-      path: join(granted, "u.txt"),
-      offset: a.output.nextOffset,
-    });
-    expect(`${a.output.text}${b.output.text}`).toBe(text);
-    expect(b.output.truncated).toBe(false);
-    expect(a.output.sha256).toBe(b.output.sha256);
+    let got = String(a.output.text);
+    let last = a;
+    while (last.output.nextOffset !== undefined) {
+      last = await run("read_file", {
+        path: join(granted, "u.txt"),
+        offset: last.output.nextOffset,
+      });
+      got += String(last.output.text);
+    }
+    expect(got).toBe(text);
+    expect(last.output.truncated).toBe(false);
+    expect(a.output.sha256).toBe(last.output.sha256);
   });
 
   it("flags binary files and refuses oversized writes", async () => {
@@ -577,5 +582,68 @@ describe("a document write never leaves a runnable file (#1333 routine writes)",
     chmodSync(script, 0o755);
     await run("write_file", { path: script, content: "#!/bin/sh\n" });
     expect(modeOf(script)).toBe(0o755);
+  });
+});
+
+describe("read_file paging", () => {
+  it("reading a 600 KB file page by page covers every byte exactly once", async () => {
+    // Quotes, backslashes and multi-byte text grow when JSON-escaped: the worst case.
+    const line = 'say "héllo" \\ wörld ✓\n';
+    let body = "";
+    while (Buffer.byteLength(body) < 600 * 1024) body += line;
+    writeFileSync(join(granted, "paged.txt"), body);
+    const chunks: string[] = [];
+    let offset = 0;
+    for (let pages = 0; pages < 100; pages++) {
+      const r = await run("read_file", { path: join(granted, "paged.txt"), offset });
+      const text = r.output.text as string;
+      // What the loop's 50,000-character cap sees must fit whole.
+      expect(JSON.stringify(r.output).length).toBeLessThan(50_000);
+      chunks.push(text);
+      if (r.output.nextOffset === undefined) break;
+      expect(r.output.nextOffset).toBe(offset + Buffer.byteLength(text));
+      offset = r.output.nextOffset as number;
+    }
+    expect(chunks.join("")).toBe(body);
+  });
+});
+
+describe("read_file budget", () => {
+  it("sizes pages to the configured result budget, whole output included", async () => {
+    const body = 'q"\n\t'.repeat(30_000);
+    writeFileSync(join(granted, "b.txt"), body);
+    const budget = 10_000;
+    let offset = 0;
+    let got = "";
+    for (let i = 0; i < 200; i++) {
+      const r = await run(
+        "read_file",
+        { path: join(granted, "b.txt"), offset },
+        ctx({ resultBudgetChars: budget }),
+      );
+      expect(JSON.stringify(r.output).length).toBeLessThanOrEqual(budget);
+      got += String(r.output.text);
+      if (r.output.nextOffset === undefined) break;
+      offset = r.output.nextOffset as number;
+    }
+    expect(got).toBe(body);
+  });
+});
+
+describe("read_file shrink loop", () => {
+  it("returns when no cut fits the budget (fields alone over it), instead of spinning", async () => {
+    // Control characters escape to six characters each: the path alone outgrows a small budget.
+    const dir = join(granted, "\u0001".repeat(200), "\u0002".repeat(200));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "f.txt"), "abcdefgh".repeat(1_000));
+    const r = await run("read_file", { path: join(dir, "f.txt") }, ctx({ resultBudgetChars: 100 }));
+    expect(r.output.truncated).toBe(true);
+    expect(r.output.nextOffset as number).toBeGreaterThan(0);
+  });
+
+  it("describes document pages by what one call actually returns", () => {
+    const d = tools.read_file?.spec.description ?? "";
+    expect(d).not.toMatch(/about 6\dk characters/);
+    expect(d).toContain("up to 40k characters per call");
   });
 });

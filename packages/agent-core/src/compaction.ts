@@ -9,6 +9,7 @@ import type {
   ToolSpec,
 } from "@psyche/protocol";
 import { estimateMessagesTokens } from "./image-tokens.ts";
+import { outputAsText } from "./tool-output.ts";
 import { estimateTokens } from "./util.ts";
 
 export interface CompactionPolicy {
@@ -82,7 +83,8 @@ function renderPart(part: ModelPart, toolResultChars: number): string | undefine
     case "tool_call":
       return `[called ${part.name} ${JSON.stringify(part.input)}]`;
     case "tool_result": {
-      const raw = typeof part.output === "string" ? part.output : JSON.stringify(part.output);
+      // Pictures as `[image]`, so the summarizer reads the result's text and not its base64.
+      const raw = typeof part.output === "string" ? part.output : outputAsText(part.output);
       const text = (raw ?? "").slice(0, toolResultChars);
       const tag = part.provenance === "untrusted" ? "untrusted " : "";
       return `[${tag}result of ${part.name ?? part.callId}${part.isError === true ? " (error)" : ""}: ${text}]`;

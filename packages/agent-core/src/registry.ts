@@ -43,6 +43,8 @@ export interface ToolRunContext {
   /** Who asked for the turn (security §9); absent means the owner. */
   requester?: Requester;
   signal: AbortSignal;
+  /** Characters the loop keeps of this call's result (JSON-escaped); a paged tool sizes its page to it. */
+  resultBudgetChars?: number;
   onUpdate: (update: ToolUpdate) => void;
 }
 
