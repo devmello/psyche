@@ -1223,6 +1223,10 @@ export const it: Partial<Catalogue> = {
     "Lo strumento da riga di comando di 1Password è cambiato dopo la connessione. Controlla di nuovo.",
   "settings.credentials.onePassword.unsigned.body":
     "Il file op trovato da Psyche non è firmato da 1Password, quindi Psyche non lo eseguirà. Installa op da 1Password, poi controlla di nuovo.",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche ha trovato op, ma una cartella che lo contiene non è tua o può essere modificata da altri utenti, quindi Psyche non lo eseguirà. Rendi quelle cartelle tue e non scrivibili da gruppo o altri, poi controlla di nuovo.",
+  "settings.credentials.onePassword.repinned.notice":
+    "CLI di 1Password aggiornata e ricontrollata {when}",
   "settings.credentials.vault.confirm.title": "Conferma la tua chiave di recupero",
   "settings.credentials.vault.confirm.body":
     "Digita l’ultimo gruppo della chiave di recupero, la parte dopo l’ultimo trattino, per mostrare che l’hai salvata.",

@@ -1215,6 +1215,10 @@ export const fr: Partial<Catalogue> = {
     "L’outil en ligne de commande de 1Password a changé depuis votre connexion. Revérifiez.",
   "settings.credentials.onePassword.unsigned.body":
     "Le fichier op trouvé par Psyche n’est pas signé par 1Password, donc Psyche ne l’exécutera pas. Installez op depuis 1Password, puis revérifiez.",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche a trouvé op, mais un dossier qui le contient ne vous appartient pas ou peut être modifié par d’autres utilisateurs, donc Psyche ne l’exécutera pas. Faites de ces dossiers les vôtres, non modifiables par le groupe ou les autres, puis revérifiez.",
+  "settings.credentials.onePassword.repinned.notice":
+    "CLI 1Password mise à jour et revérifiée {when}",
   "settings.credentials.vault.confirm.title": "Confirmez votre clé de récupération",
   "settings.credentials.vault.confirm.body":
     "Saisissez le dernier groupe de votre clé de récupération, la partie après le dernier tiret, pour montrer que vous l’avez conservée.",

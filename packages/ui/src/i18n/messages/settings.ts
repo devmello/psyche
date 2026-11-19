@@ -438,6 +438,9 @@ export const settings = {
     "The 1Password command-line tool changed since you connected. Check again.",
   "settings.credentials.onePassword.unsigned.body":
     "The op file Psyche found is not signed by 1Password, so Psyche will not run it. Install op from 1Password, then check again.",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche found op, but a folder it sits in is not yours or can be changed by other users, so Psyche will not run it. Make those folders yours and not writable by group or others, then check again.",
+  "settings.credentials.onePassword.repinned.notice": "1Password CLI updated and re-checked {when}",
   "settings.credentials.vault.confirm.title": "Confirm your recovery key",
   "settings.credentials.vault.confirm.body":
     "Type the last group of your recovery key, the part after the final dash, to show that you saved it.",

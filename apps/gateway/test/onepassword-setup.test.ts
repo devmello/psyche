@@ -16,7 +16,12 @@ import type { OnePasswordSetupStatus, OnePasswordTestResult } from "@psyche/prot
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
-import { checkOpPath, type RunOp } from "../src/compose/onepassword-setup.ts";
+import {
+  checkOpPath,
+  OP_IDENTIFIER,
+  OP_REQUIREMENT,
+  type RunOp,
+} from "../src/compose/onepassword-setup.ts";
 import { releaseAllGatewayLocks } from "../src/pre-update.ts";
 import { adminClient, desktopClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
 
@@ -104,7 +109,9 @@ interface Boot {
   config?: boolean;
   home?: string;
   /** Plays `codesign --verify` for 1Password's team: true = signed by it. */
-  signed?: (path: string) => boolean;
+  signed?: (path: string, requirement: string) => boolean;
+  /** Holds the next codesign check until released (a slow check). */
+  hold?: { next?: Promise<void> };
   platform?: NodeJS.Platform;
 }
 
@@ -138,9 +145,12 @@ async function boot(b: Boot = {}) {
       path: b.path ?? opFolder(),
       dirs: [],
       platform: b.platform ?? "darwin",
-      codesign: async (p: string) => {
+      codesign: async (p: string, requirement: string) => {
         codesigns.push(p);
-        return (b.signed ?? (() => true))(p);
+        const h = b.hold?.next;
+        if (b.hold !== undefined) b.hold.next = undefined;
+        await h;
+        return (b.signed ?? (() => true))(p, requirement);
       },
     },
   });
@@ -630,6 +640,7 @@ describe("an upgrade moves the op file (R3)", () => {
     const s = await status(admin, true);
     expect(s).toMatchObject({ state: "signed_in", connected: true });
     expect(s.op?.path).toBe(realpathSync(join(c.root, "versions", "2", "op")));
+    expect(s.repinnedAt).toBeGreaterThan(0);
     const entries = await composed.audit.query({ kind: "vault.external_source" });
     expect(entries.some((e) => (e.data as { repinned?: boolean }).repinned === true)).toBe(true);
     // Now pinned to the new file: a second look does not re-pin again.
@@ -658,18 +669,20 @@ describe("an upgrade moves the op file (R3)", () => {
     expect(entries.some((e) => (e.data as { repinned?: boolean }).repinned === true)).toBe(false);
   });
 
-  it("does not re-pin when two candidates pass", async () => {
+  it("does not re-pin to a signed copy found through another PATH folder", async () => {
     const c = cask();
     c.install("1");
     c.point("1");
     const other = opFolder();
-    const { admin } = await boot({ path: `${c.stable}:${other}` });
+    const { admin, composed } = await boot({ path: `${c.stable}:${other}` });
     await admin.call("vault.onePassword.connect", {}, ik());
-    c.install("2");
-    c.point("2");
+    // The upgrade removed the old version and the symlink dangles; a signed op sits elsewhere.
     rmSync(join(c.root, "versions", "1"), { recursive: true });
     const s = await status(admin, true);
-    expect(s).toMatchObject({ state: "error", problem: "op_changed" });
+    expect(s).toMatchObject({ state: "error", connected: true, problem: "op_changed" });
+    expect(s.repinnedAt).toBeUndefined();
+    const entries = await composed.audit.query({ kind: "vault.external_source" });
+    expect(entries.some((e) => (e.data as { repinned?: boolean }).repinned === true)).toBe(false);
   });
 
   it("never re-pins where the signature is not checked", async () => {
@@ -732,5 +745,109 @@ describe("checkOpPath, tighter again (R2)", () => {
     const op = opIn(0o755);
     // Pretend the Gateway runs as another user: the folders (and the file) are not theirs.
     expect(checkOpPath(op, { uid: (process.getuid?.() ?? 1000) + 1 })).toBeUndefined();
+  });
+});
+
+describe("a re-pin cannot undo a Disconnect (B1)", () => {
+  it("a Disconnect made while the new file's signature is checked wins, also after a restart", async () => {
+    const root = tmp("psyche-race-");
+    chmodSync(root, 0o755);
+    const stable = join(root, "bin");
+    mkdirSync(stable);
+    const install = (v: string) => {
+      const d = join(root, "versions", v);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "op"), `#!/bin/sh\n# ${v}\n`, { mode: 0o755 });
+      chmodSync(join(d, "op"), 0o755);
+      rmSync(join(stable, "op"), { force: true });
+      symlinkSync(join(d, "op"), join(stable, "op"));
+    };
+    install("1");
+    const hold: { next?: Promise<void> } = {};
+    const { admin, composed, codesigns, home, stop } = await boot({ path: stable, hold });
+    const setOp = vi.spyOn(composed.vault, "setOnePassword");
+    await admin.call("vault.onePassword.connect", {}, ik());
+    install("2");
+    rmSync(join(root, "versions", "1"), { recursive: true });
+
+    // A fill finds the pinned file gone and starts to re-pin; its signature check is slow.
+    let release = () => {};
+    hold.next = new Promise<void>((r) => {
+      release = r;
+    });
+    const n = codesigns.length;
+    const fill = setOp.mock.calls[0]?.[0]?.readField({ vault: "V", item: "I" }, "password");
+    const settled = fill?.then(
+      () => "read",
+      (e: { details?: { reason?: string } }) => e.details?.reason,
+    );
+    while (codesigns.length === n) await new Promise((r) => setTimeout(r, 5));
+
+    await admin.call("vault.onePassword.disconnect", {}, ik());
+    release();
+    expect(await settled).toBe("op_changed");
+
+    expect((await status(admin, false)).connected).toBe(false);
+    expect(await composed.audit.query({ kind: "vault.external_source" })).toHaveLength(0);
+    await admin.close();
+    await stop("restart");
+    releaseAllGatewayLocks();
+    const again = await boot({ home, path: stable });
+    expect((await status(again.admin, false)).connected).toBe(false);
+  });
+});
+
+describe("the binary's identifier is pinned too (N1)", () => {
+  const identOf = (other: string) => (p: string, requirement: string) => {
+    const want = /identifier "([^"]+)"/.exec(requirement)?.[1];
+    return (p.startsWith(other) ? "com.agilebits.other" : OP_IDENTIFIER) === want;
+  };
+
+  it("asks for the identifier and the team", () => {
+    expect(OP_REQUIREMENT).toContain(`identifier "${OP_IDENTIFIER}" and anchor apple generic`);
+    expect(OP_REQUIREMENT).toContain('certificate leaf[subject.OU] = "2BUA8C4S2C"');
+  });
+
+  it("another binary signed by the same team with a different identifier is refused", async () => {
+    const other = opFolder();
+    const { admin, op } = await boot({
+      path: other,
+      signed: identOf(realpathSync(other)),
+    });
+    expect(await status(admin, true)).toMatchObject({ state: "error", problem: "op_unsigned" });
+    const res = await admin.request("vault.onePassword.connect", {}, ik());
+    expect(res.error).toMatchObject({ code: "conflict", details: { reason: "op_unsigned" } });
+    expect(op.calls).toHaveLength(0);
+  });
+
+  it("skips it for a genuine one further along PATH", async () => {
+    const other = opFolder();
+    const good = opFolder();
+    const { admin } = await boot({
+      path: `${other}:${good}`,
+      signed: identOf(realpathSync(other)),
+    });
+    const s = await status(admin, true);
+    expect(s.state).toBe("signed_in");
+    expect(s.op?.path).toBe(realpathSync(join(good, "op")));
+  });
+});
+
+describe("a refused folder is named (N4)", () => {
+  it("reports op_unsafe_folder, not not_installed, and does not loosen the rule", async () => {
+    const dir = opFolder();
+    chmodSync(dir, 0o775);
+    const { admin, op } = await boot({ path: dir });
+    const s = await status(admin, true);
+    expect(s).toMatchObject({ state: "error", problem: "op_unsafe_folder" });
+    expect(s.op).toBeUndefined();
+    const res = await admin.request("vault.onePassword.connect", {}, ik());
+    expect(res.error).toMatchObject({ code: "conflict", details: { reason: "op_unsafe_folder" } });
+    expect(op.calls).toHaveLength(0);
+  });
+
+  it("still says not_installed when there is no op at all", async () => {
+    const { admin } = await boot({ path: tmp("psyche-empty-") });
+    expect((await status(admin, true)).state).toBe("not_installed");
   });
 });

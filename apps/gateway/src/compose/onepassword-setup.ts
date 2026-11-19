@@ -46,7 +46,15 @@ const USUAL_DIRS = ["/opt/homebrew/bin", "/usr/local/bin"];
 const OP_TIMEOUT_MS = 30_000;
 const CACHE_MS = 60_000;
 /** 1Password's Apple developer team: `op` is signed by it. */
-const OP_REQUIREMENT = 'anchor apple generic and certificate leaf[subject.OU] = "2BUA8C4S2C"';
+const OP_TEAM = "2BUA8C4S2C";
+/**
+ * The code-signing identifier of the `op` binary. Not confirmed from 1Password's own docs (they
+ * name the team only); a crash report and a third-party catalogue show it as plain "op". The
+ * owner should check it on a real install with `codesign -dv "$(which op)"` (the `Identifier=`
+ * line) and fix this constant if it differs: a mismatch makes Psyche refuse a genuine `op`.
+ */
+export const OP_IDENTIFIER = "op";
+export const OP_REQUIREMENT = `identifier "${OP_IDENTIFIER}" and anchor apple generic and certificate leaf[subject.OU] = "${OP_TEAM}"`;
 
 export type RunOp = (
   file: string,
@@ -60,7 +68,7 @@ export interface OnePasswordSetupOptions {
   /** Test seam: runs `op`. Tests always inject a fake; the default is `execFile`, no shell. */
   run?: RunOp;
   /** Test seam: whether the file at `path` is signed by 1Password. Default: `codesign` (macOS). */
-  codesign?: (path: string) => Promise<boolean>;
+  codesign?: (path: string, requirement: string) => Promise<boolean>;
   platform?: NodeJS.Platform;
   /** Test seam: PATH to search (default `process.env.PATH`). */
   path?: string;
@@ -86,51 +94,72 @@ const idOf = (path: string): string => {
  * sticky root-owned one like /tmp aside), and it is not inside `$PSYCHE_HOME` under any spelling
  * (compared by (dev, ino), not by text).
  */
-export function checkOpPath(
+export type OpPathCheck = { real: string } | { bad: "file" | "folder" };
+
+export function inspectOpPath(
   path: string,
   deps: { uid?: number | undefined; psycheHome?: string | undefined } = {},
-): string | undefined {
+): OpPathCheck {
   try {
-    if (!isAbsolute(path)) return undefined;
+    if (!isAbsolute(path)) return { bad: "file" };
     const real = realpathSync(path);
     const st = statSync(real);
-    if (!st.isFile() || (st.mode & 0o111) === 0 || (st.mode & 0o022) !== 0) return undefined;
+    if (!st.isFile() || (st.mode & 0o111) === 0 || (st.mode & 0o022) !== 0) return { bad: "file" };
     const uid = deps.uid ?? process.getuid?.();
-    if (uid !== undefined && st.uid !== uid && st.uid !== 0) return undefined;
+    if (uid !== undefined && st.uid !== uid && st.uid !== 0) return { bad: "file" };
     const home = deps.psycheHome === undefined ? undefined : idOf(realpathSync(deps.psycheHome));
     for (const start of new Set([dirname(path), dirname(real)])) {
       for (let d = start; ; d = dirname(d)) {
         const dst = lstatSync(d);
         const sticky = (dst.mode & 0o1000) !== 0 && dst.uid === 0;
-        if ((dst.mode & 0o022) !== 0 && !sticky) return undefined;
-        if (uid !== undefined && dst.uid !== uid && dst.uid !== 0) return undefined;
-        if (home !== undefined && idOf(d) === home) return undefined;
+        if ((dst.mode & 0o022) !== 0 && !sticky) return { bad: "folder" };
+        if (uid !== undefined && dst.uid !== uid && dst.uid !== 0) return { bad: "folder" };
+        if (home !== undefined && idOf(d) === home) return { bad: "file" };
         if (dirname(d) === d) break;
       }
     }
-    return real;
+    return { real };
   } catch {
-    return undefined;
+    return { bad: "file" };
   }
 }
 
+export function checkOpPath(
+  path: string,
+  deps: { uid?: number | undefined; psycheHome?: string | undefined } = {},
+): string | undefined {
+  const r = inspectOpPath(path, deps);
+  return "real" in r ? r.real : undefined;
+}
+
+interface Candidates {
+  /** Each good file with the PATH entry it was found through. */
+  good: { via: string; real: string }[];
+  /** An `op` exists whose file is fine but a folder above it is not (or is someone else's). */
+  unsafeFolder: boolean;
+}
+
 /** Every `op` the PATH and the usual folders offer that passes the file checks, in order. */
-function opCandidates(o: OnePasswordSetupOptions): string[] {
+function opCandidates(o: OnePasswordSetupOptions): Candidates {
   const dirs = [...(o.path ?? process.env.PATH ?? "").split(delimiter), ...(o.dirs ?? USUAL_DIRS)];
-  const out: string[] = [];
+  const out: Candidates = { good: [], unsafeFolder: false };
   for (const dir of dirs) {
     if (!isAbsolute(dir)) continue;
-    const real = checkOpPath(join(dir, "op"), o);
-    if (real !== undefined && !out.includes(real)) out.push(real);
+    const r = inspectOpPath(join(dir, "op"), o);
+    if ("real" in r) {
+      if (!out.good.some((g) => g.real === r.real)) out.good.push({ via: dir, real: r.real });
+    } else if (r.bad === "folder") {
+      out.unsafeFolder = true;
+    }
   }
   return out;
 }
 
-const defaultCodesign = (path: string): Promise<boolean> =>
+const defaultCodesign = (path: string, requirement: string): Promise<boolean> =>
   new Promise((resolve) => {
     execFile(
       "/usr/bin/codesign",
-      ["--verify", "--strict", `-R=${OP_REQUIREMENT}`, path],
+      ["--verify", "--strict", `-R=${requirement}`, path],
       { timeout: 10_000, shell: false },
       (err) => resolve(err === null),
     );
@@ -161,11 +190,13 @@ function parseJson(text: string): unknown {
 
 const str = (v: unknown): string | undefined => (typeof v === "string" && v ? v : undefined);
 
-type Problem = "op_changed" | "op_unsigned";
+type Problem = "op_changed" | "op_unsigned" | "op_unsafe_folder";
 
 interface Detected {
   state: OnePasswordSetupState;
   op?: string;
+  /** The PATH entry `op` was found through (what Connect saves). */
+  via?: string;
   problem?: Problem;
   account?: { url: string; email: string };
 }
@@ -221,10 +252,14 @@ interface Pin {
   path: string;
   dev: string;
   ino: string;
+  /** The PATH entry the file was found through; a re-pin stays within it. */
+  via?: string;
   account?: string;
+  /** When the pin last moved to a new file by itself (an upgrade). */
+  repinnedAt?: number;
 }
 
-type Resolved = { ok: true; path: string } | { ok: false; problem?: Problem };
+type Resolved = { ok: true; path: string; via?: string } | { ok: false; problem?: Problem };
 
 const changed = (): PsycheError =>
   new PsycheError("unavailable", "the 1Password CLI changed: check the setup again", {
@@ -321,7 +356,9 @@ class OnePasswordSetup {
       path: v.path,
       dev: v.dev,
       ino: v.ino,
+      ...(typeof v.via === "string" ? { via: v.via } : {}),
       ...(typeof v.account === "string" ? { account: v.account } : {}),
+      ...(typeof v.repinnedAt === "number" ? { repinnedAt: v.repinnedAt } : {}),
     };
   }
 
@@ -337,7 +374,7 @@ class OnePasswordSetup {
     const key = `${st.dev}:${st.ino}:${st.size}:${st.ctimeNs}:${st.mtimeNs}`;
     const known = this.#signed.get(key);
     if (known !== undefined) return known;
-    const ok = await (this.#o.codesign ?? defaultCodesign)(real);
+    const ok = await (this.#o.codesign ?? defaultCodesign)(real, OP_REQUIREMENT);
     this.#signed.set(key, ok);
     return ok;
   }
@@ -345,40 +382,52 @@ class OnePasswordSetup {
   /** The file that may run: the pinned one when connected, else the first good candidate. */
   async #resolve(pin: Pin | undefined): Promise<Resolved> {
     if (pin !== undefined) {
-      const real = checkOpPath(pin.path, this.#o);
-      if (real === undefined || real !== pin.path || idOf(real) !== `${pin.dev}:${pin.ino}`)
+      const r = inspectOpPath(pin.path, this.#o);
+      if (!("real" in r) && r.bad === "folder") return { ok: false, problem: "op_unsafe_folder" };
+      if (!("real" in r) || r.real !== pin.path || idOf(r.real) !== `${pin.dev}:${pin.ino}`)
         return this.#repin(pin);
-      return (await this.#signedByVendor(real))
-        ? { ok: true, path: real }
+      return (await this.#signedByVendor(r.real))
+        ? { ok: true, path: r.real }
         : { ok: false, problem: "op_unsigned" };
     }
     const found = opCandidates(this.#o);
-    for (const real of found) {
-      if (await this.#signedByVendor(real)) return { ok: true, path: real };
+    for (const g of found.good) {
+      if (await this.#signedByVendor(g.real)) return { ok: true, path: g.real, via: g.via };
     }
-    return found.length > 0 ? { ok: false, problem: "op_unsigned" } : { ok: false };
+    if (found.good.length > 0) return { ok: false, problem: "op_unsigned" };
+    return found.unsafeFolder ? { ok: false, problem: "op_unsafe_folder" } : { ok: false };
   }
 
   /**
    * The pinned file is gone or different (an upgrade moves the version folder). On macOS, where
-   * the signature is checked, exactly one candidate that passes every check takes over the pin;
-   * anything else stays `op_changed` until the owner checks again.
+   * the signature is checked, the one candidate found through the same PATH entry that passes
+   * every check takes over the pin, but only if nothing else changed the setting while the
+   * signature was checked (a Disconnect, a Connect, another re-pin). Anything else stays
+   * `op_changed` until the owner checks again.
    */
   async #repin(pin: Pin): Promise<Resolved> {
+    const gen = this.#gen;
     const no: Resolved = { ok: false, problem: "op_changed" };
-    if (this.#os() !== "macos" || this.#byConfig()) return no;
+    if (this.#os() !== "macos" || this.#byConfig() || pin.via === undefined) return no;
     const good: string[] = [];
-    for (const real of opCandidates(this.#o)) {
-      if (await this.#signedByVendor(real)) good.push(real);
+    for (const g of opCandidates(this.#o).good) {
+      if (g.via === pin.via && (await this.#signedByVendor(g.real))) good.push(g.real);
     }
     const [path] = good;
     if (good.length !== 1 || path === undefined) return no;
+    const now = this.#pin();
+    if (gen !== this.#gen || now === undefined) return no;
+    // Another call already moved the pin to this very file: nothing to write.
+    if (now.path === path && now.path !== pin.path) return { ok: true, path };
+    if (JSON.stringify(now) !== JSON.stringify(pin)) return no;
     const [dev = "", ino = ""] = idOf(path).split(":");
     setSetting(this.#s.db, ONEPASSWORD_APP_SETTING, {
       path,
       dev,
       ino,
+      via: pin.via,
       ...(pin.account === undefined ? {} : { account: pin.account }),
+      repinnedAt: this.#now(),
     } satisfies Pin);
     this.#cache = undefined;
     this.#s.audit
@@ -408,6 +457,9 @@ class OnePasswordSetup {
       os: this.#os(),
       ...(this.#byConfig() ? { managedBy: "config" as const } : {}),
       ...(d.problem === undefined ? {} : { problem: d.problem }),
+      ...(this.#pin()?.repinnedAt === undefined || this.#byConfig()
+        ? {}
+        : { repinnedAt: this.#pin()?.repinnedAt as number }),
       ...(d.op === undefined ? {} : { op: { path: d.op } }),
       ...(d.account === undefined ? {} : { account: d.account }),
     };
@@ -421,7 +473,10 @@ class OnePasswordSetup {
       return { state: "error", problem: r.problem };
     }
     if (!runOpCommands) return { state: "found", op: r.path };
-    return probe(this.#o.run ?? defaultRun, r.path);
+    return {
+      ...(await probe(this.#o.run ?? defaultRun, r.path)),
+      ...(r.via === undefined ? {} : { via: r.via }),
+    };
   }
 
   async status(fresh: boolean): Promise<OnePasswordSetupStatus> {
@@ -495,6 +550,7 @@ class OnePasswordSetup {
       path: d.op,
       dev,
       ino,
+      ...(d.via === undefined ? {} : { via: d.via }),
       ...(d.account === undefined ? {} : { account: d.account.url }),
     };
     setSetting(this.#s.db, ONEPASSWORD_APP_SETTING, pin);

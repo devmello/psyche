@@ -1253,6 +1253,10 @@ export const zh: Partial<Catalogue> = {
     "自你连接以来，1Password 命令行工具发生了变化。请重新检查。",
   "settings.credentials.onePassword.unsigned.body":
     "Psyche 找到的 op 文件不是由 1Password 签名的，因此不会运行它。请从 1Password 安装 op，然后重新检查。",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche 找到了 op，但它所在的某个文件夹不属于你，或可被其他用户修改，因此不会运行它。请让这些文件夹归你所有，且不可被组或其他人写入，然后重新检查。",
+  "settings.credentials.onePassword.repinned.notice":
+    "1Password CLI 已更新，并已于 {when} 重新检查",
   "settings.credentials.vault.confirm.title": "确认你的恢复密钥",
   "settings.credentials.vault.confirm.body":
     "输入恢复密钥的最后一组（最后一个短横线之后的部分），以证明你已保存。",

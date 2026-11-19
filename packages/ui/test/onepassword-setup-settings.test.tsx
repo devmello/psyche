@@ -136,6 +136,21 @@ describe("the step for each state", () => {
     expect(button("Open the guide")).toBeTruthy();
   });
 
+  it("an unsafe folder is named, not reported as not installed", async () => {
+    setup({ state: "error", connected: false, os: "macos", problem: "op_unsafe_folder" });
+    const step = await screen.findByTestId("onepassword-step");
+    expect(step.textContent).toContain("a folder it sits in");
+    expect(step.textContent).not.toContain("cannot find");
+    expect(button("Check again")).toBeTruthy();
+  });
+
+  it("shows when the CLI was updated and re-checked by itself", async () => {
+    setup({ ...statuses.connected, repinnedAt: Date.UTC(2026, 10, 19, 12, 0, 0) });
+    const note = await screen.findByTestId("onepassword-repinned");
+    expect(note.textContent).toContain("1Password CLI updated and re-checked");
+    expect(note.textContent).toContain("2026");
+  });
+
   it("not integrated: names the exact app setting", async () => {
     setup(statuses.not_integrated);
     await check(userEvent.setup());

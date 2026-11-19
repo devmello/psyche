@@ -1221,6 +1221,10 @@ export const ko: Partial<Catalogue> = {
     "연결한 뒤 1Password 명령줄 도구가 변경되었습니다. 다시 확인하세요.",
   "settings.credentials.onePassword.unsigned.body":
     "Psyche가 찾은 op 파일은 1Password가 서명한 것이 아니므로 실행하지 않습니다. 1Password에서 op를 설치한 뒤 다시 확인하세요.",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche가 op를 찾았지만, 그것이 들어 있는 폴더가 내 소유가 아니거나 다른 사용자가 바꿀 수 있어 실행하지 않습니다. 해당 폴더를 내 소유로 하고 그룹이나 다른 사용자가 쓸 수 없게 한 뒤 다시 확인하세요.",
+  "settings.credentials.onePassword.repinned.notice":
+    "1Password CLI가 업데이트되어 {when}에 다시 확인했습니다",
   "settings.credentials.vault.confirm.title": "복구 키를 확인하세요",
   "settings.credentials.vault.confirm.body":
     "저장했는지 확인하기 위해 복구 키의 마지막 그룹, 즉 마지막 하이픈 뒤의 부분을 입력하세요.",

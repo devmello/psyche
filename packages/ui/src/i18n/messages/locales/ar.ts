@@ -1279,6 +1279,9 @@ export const ar: Partial<Catalogue> = {
     "تغيّرت أداة سطر أوامر 1Password منذ اتصالك. تحقق مرة أخرى.",
   "settings.credentials.onePassword.unsigned.body":
     "ملف op الذي وجده Psyche غير موقّع من 1Password، لذا لن يشغّله Psyche. ثبّت op من 1Password ثم تحقق مرة أخرى.",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "عثر Psyche على op، لكن أحد المجلدات التي يوجد فيها ليس ملكك أو يمكن لمستخدمين آخرين تغييره، لذا لن يشغّله Psyche. اجعل هذه المجلدات ملكك وغير قابلة للكتابة من المجموعة أو الآخرين، ثم تحقق مرة أخرى.",
+  "settings.credentials.onePassword.repinned.notice": "تم تحديث 1Password CLI وإعادة فحصه {when}",
   "settings.credentials.vault.confirm.title": "أكّد مفتاح الاسترداد",
   "settings.credentials.vault.confirm.body":
     "اكتب المجموعة الأخيرة من مفتاح الاسترداد، أي الجزء بعد الشرطة الأخيرة، لتُثبت أنك حفظته.",

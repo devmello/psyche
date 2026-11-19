@@ -1218,6 +1218,10 @@ export const ja: Partial<Catalogue> = {
     "接続後に 1Password のコマンドラインツールが変更されました。再確認してください。",
   "settings.credentials.onePassword.unsigned.body":
     "Psyche が見つけた op ファイルは 1Password の署名がないため、実行しません。1Password から op をインストールして、再確認してください。",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche は op を見つけましたが、それを含むフォルダがあなたのものではないか、他のユーザーが変更できるため、実行しません。それらのフォルダを自分のものにし、グループやその他のユーザーが書き込めないようにしてから、再確認してください。",
+  "settings.credentials.onePassword.repinned.notice":
+    "1Password CLI が更新され、{when} に再確認されました",
   "settings.credentials.vault.confirm.title": "復旧キーを確認",
   "settings.credentials.vault.confirm.body":
     "保存したことを確認するため、復旧キーの最後のグループ（最後のハイフンより後ろ）を入力してください。",

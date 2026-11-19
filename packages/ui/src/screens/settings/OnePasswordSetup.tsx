@@ -165,7 +165,9 @@ function Step({
             ? t("settings.credentials.onePassword.changed.body")
             : problem === "op_unsigned"
               ? t("settings.credentials.onePassword.unsigned.body")
-              : t(STEP_KEY[state])}
+              : problem === "op_unsafe_folder"
+                ? t("settings.credentials.onePassword.unsafeFolder.body")
+                : t(STEP_KEY[state])}
         </p>
       ) : null}
       {state === "not_installed" && status.os === "macos" ? (
@@ -176,6 +178,13 @@ function Step({
           {t("settings.credentials.onePassword.signedIn.body", {
             email: account.email,
             url: account.url,
+          })}
+        </p>
+      ) : null}
+      {connected && status.repinnedAt !== undefined ? (
+        <p className="text-callout text-muted-foreground" data-testid="onepassword-repinned">
+          {t("settings.credentials.onePassword.repinned.notice", {
+            when: new Date(status.repinnedAt).toLocaleString(),
           })}
         </p>
       ) : null}

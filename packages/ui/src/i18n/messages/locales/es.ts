@@ -1229,6 +1229,10 @@ export const es: Partial<Catalogue> = {
     "La herramienta de línea de comandos de 1Password cambió desde que te conectaste. Vuelve a comprobar.",
   "settings.credentials.onePassword.unsigned.body":
     "El archivo op que encontró Psyche no está firmado por 1Password, así que no lo ejecutará. Instala op desde 1Password y vuelve a comprobar.",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche encontró op, pero una carpeta que lo contiene no es tuya o puede ser modificada por otros usuarios, así que no lo ejecutará. Haz que esas carpetas sean tuyas y no se puedan escribir por grupo u otros, y vuelve a comprobar.",
+  "settings.credentials.onePassword.repinned.notice":
+    "CLI de 1Password actualizada y comprobada de nuevo {when}",
   "settings.credentials.vault.confirm.title": "Confirma tu clave de recuperación",
   "settings.credentials.vault.confirm.body":
     "Escribe el último grupo de tu clave de recuperación, la parte tras el último guion, para demostrar que la guardaste.",

@@ -1255,6 +1255,10 @@ export const de: Partial<Catalogue> = {
     "Das 1Password-Befehlszeilenwerkzeug hat sich seit dem Verbinden geändert. Prüfe erneut.",
   "settings.credentials.onePassword.unsigned.body":
     "Die gefundene op-Datei ist nicht von 1Password signiert, daher führt Psyche sie nicht aus. Installiere op von 1Password und prüfe dann erneut.",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche hat op gefunden, aber ein Ordner darüber gehört dir nicht oder kann von anderen geändert werden, daher führt Psyche es nicht aus. Mach diese Ordner zu deinen und nicht für Gruppe oder andere beschreibbar, dann prüfe erneut.",
+  "settings.credentials.onePassword.repinned.notice":
+    "1Password-CLI aktualisiert und {when} neu geprüft",
   "settings.credentials.vault.confirm.title": "Bestätige deinen Wiederherstellungsschlüssel",
   "settings.credentials.vault.confirm.body":
     "Gib die letzte Gruppe deines Wiederherstellungsschlüssels ein, also den Teil nach dem letzten Bindestrich, um zu zeigen, dass du ihn gesichert hast.",

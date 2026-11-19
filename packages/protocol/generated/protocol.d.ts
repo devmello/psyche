@@ -8765,13 +8765,14 @@ export interface OnePasswordTestResult {
 }
 
 export interface OnePasswordSetupStatus {
-    account?:   Account;
-    connected:  boolean;
-    managedBy?: ManagedByEnum;
-    op?:        OpClass;
-    os:         OS;
-    problem?:   ProblemEnum;
-    state:      OnePasswordSetupState;
+    account?:    Account;
+    connected:   boolean;
+    managedBy?:  ManagedByEnum;
+    op?:         OpClass;
+    os:          OS;
+    problem?:    ProblemEnum;
+    repinnedAt?: number;
+    state:       OnePasswordSetupState;
 }
 
 export interface Account {
@@ -8787,7 +8788,7 @@ export interface OpClass {
 
 export type OS = "macos" | "other";
 
-export type ProblemEnum = "op_changed" | "op_unsigned";
+export type ProblemEnum = "op_changed" | "op_unsigned" | "op_unsafe_folder";
 
 export type OnePasswordSetupState = "not_installed" | "found" | "not_integrated" | "locked" | "signed_in" | "error";
 

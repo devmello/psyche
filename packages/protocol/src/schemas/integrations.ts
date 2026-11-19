@@ -186,7 +186,9 @@ export const OnePasswordSetupStatus = Type.Object(
     /** Set when `credentials.onePassword` in config.json already supplies the source. */
     managedBy: Type.Optional(StringEnum(["config"])),
     /** Why a file was refused: it changed since Connect, or is not signed by 1Password. */
-    problem: Type.Optional(StringEnum(["op_changed", "op_unsigned"])),
+    problem: Type.Optional(StringEnum(["op_changed", "op_unsigned", "op_unsafe_folder"])),
+    /** When the pinned file last moved to a new `op` by itself (an upgrade), epoch ms. */
+    repinnedAt: Type.Optional(Type.Number()),
     /** Where the Gateway runs: the install command differs. */
     os: StringEnum(["macos", "other"]),
     /** The `op` Psyche would run (a real file that passed the safety check). */

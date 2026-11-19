@@ -1236,6 +1236,10 @@ export const hi: Partial<Catalogue> = {
     "आपके कनेक्ट करने के बाद 1Password का कमांड-लाइन टूल बदल गया है। दोबारा जाँचें।",
   "settings.credentials.onePassword.unsigned.body":
     "Psyche को मिली op फ़ाइल 1Password द्वारा साइन नहीं की गई है, इसलिए Psyche उसे नहीं चलाएगा। 1Password से op इंस्टॉल करें, फिर दोबारा जाँचें।",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche को op मिला, लेकिन उसे रखने वाला कोई फ़ोल्डर आपका नहीं है या दूसरे उपयोगकर्ता उसे बदल सकते हैं, इसलिए Psyche उसे नहीं चलाएगा। उन फ़ोल्डरों को अपना बनाएँ और ग्रुप या अन्य के लिए लिखने योग्य न रखें, फिर दोबारा जाँचें।",
+  "settings.credentials.onePassword.repinned.notice":
+    "1Password CLI अपडेट हुआ और {when} को दोबारा जाँचा गया",
   "settings.credentials.vault.confirm.title": "अपनी रिकवरी की की पुष्टि करें",
   "settings.credentials.vault.confirm.body":
     "यह दिखाने के लिए कि आपने इसे सेव किया है, अपनी रिकवरी की का आखिरी समूह लिखें, यानी आखिरी डैश के बाद का हिस्सा।",

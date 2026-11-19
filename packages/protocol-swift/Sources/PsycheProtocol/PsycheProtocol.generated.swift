@@ -25547,6 +25547,7 @@ public struct OnePasswordSetupStatus: Codable, Sendable {
     public let op: OpClass?
     public let os: OS
     public let problem: ProblemEnum?
+    public let repinnedAt: Double?
     public let state: OnePasswordSetupState
 
     public enum CodingKeys: String, CodingKey {
@@ -25556,16 +25557,18 @@ public struct OnePasswordSetupStatus: Codable, Sendable {
         case op = "op"
         case os = "os"
         case problem = "problem"
+        case repinnedAt = "repinnedAt"
         case state = "state"
     }
 
-    public init(account: Account? = nil, connected: Bool, managedBy: ManagedByEnum? = nil, op: OpClass? = nil, os: OS, problem: ProblemEnum? = nil, state: OnePasswordSetupState) {
+    public init(account: Account? = nil, connected: Bool, managedBy: ManagedByEnum? = nil, op: OpClass? = nil, os: OS, problem: ProblemEnum? = nil, repinnedAt: Double? = nil, state: OnePasswordSetupState) {
         self.account = account
         self.connected = connected
         self.managedBy = managedBy
         self.op = op
         self.os = os
         self.problem = problem
+        self.repinnedAt = repinnedAt
         self.state = state
     }
 }
@@ -25610,6 +25613,7 @@ public enum OS: String, Codable, Sendable {
 
 public enum ProblemEnum: String, Codable, Sendable {
     case opChanged = "op_changed"
+    case opUnsafeFolder = "op_unsafe_folder"
     case opUnsigned = "op_unsigned"
 }
 

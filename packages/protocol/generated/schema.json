@@ -33766,9 +33766,13 @@
         "problem": {
           "enum": [
             "op_changed",
-            "op_unsigned"
+            "op_unsigned",
+            "op_unsafe_folder"
           ],
           "type": "string"
+        },
+        "repinnedAt": {
+          "type": "number"
         },
         "os": {
           "enum": [
