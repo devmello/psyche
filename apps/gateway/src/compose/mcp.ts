@@ -360,6 +360,9 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
   const host = createMcpHost({
     ...(launcher === undefined ? {} : { launcher }),
     secrets,
+    // A server `add` checks before starting (agent-made code, a shared file's record, also one
+    // left under an unmarked entry's id) is never restarted by the host behind that check.
+    neverAutoStart: (c) => c.madeBy !== undefined || bundles.checkedAtStart(c),
     ...setup.hostOptions,
     onEvent: (event) => {
       grants.onEvent(event);

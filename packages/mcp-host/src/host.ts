@@ -19,6 +19,7 @@ import { startLoopbackReceiver } from "./loopback.ts";
 import { isValidServerId, MAX_TOOL_NAME_LENGTH, mcpToolName } from "./naming.ts";
 import { blockRegistration, type McpOAuthOptions, PsycheOAuthProvider } from "./oauth.ts";
 import { provenanceFor, requiresUserInteraction, sideEffectFor } from "./policy.ts";
+import { reResolvesOnLaunch } from "./runner.ts";
 import { loadedMcpSdk, loadMcpSdk, loadMcpStdioSdk } from "./sdk.ts";
 import { assertNoPlaceholders, resolveEnv, type SecretInjection } from "./secrets.ts";
 
@@ -68,7 +69,8 @@ export interface PsycheMcpServerConfig extends McpServerConfig {
   /**
    * `true`: a stdio server that is never stopped for being idle (it pushes notifications or
    * subscriptions, or holds state that is costly to rebuild). Default: it stops after
-   * `idleStopMs` without a call and starts again on the next one.
+   * `idleStopMs` without a call and starts again on the next one. Config only (the
+   * `mcp.servers` setting); Settings has no switch for it.
    */
   keepAlive?: boolean;
 }
@@ -130,14 +132,22 @@ export interface McpHostOptions {
   /**
    * Stop a stdio server that has had no call for this long (default 10 minutes; `0` turns it off)
    * to give its memory back. Its approved tool list stays pinned; the next call starts it again
-   * and re-lists, and a listing that differs revokes exactly as a live change does.
+   * and re-lists, and a listing that differs revokes exactly as a live change does. Servers the
+   * host never restarts by itself (`neverAutoStart`, an unpinned package runner such as
+   * `npx -y pkg`) and `keepAlive` servers are never stopped.
    */
   idleStopMs?: number;
   /**
    * Restart policy after a crash or a failed restart: the wait doubles from `baseMs` up to
-   * `maxMs`; after `maxAttempts` in a row the host gives up until `connect()` is called.
+   * `maxMs`; after `maxAttempts` in a row the server stays down for `cooldownMs` (default 10
+   * minutes), then the next call may try once more. Editing or re-adding it starts it at once.
    */
-  restart?: { baseMs?: number; maxMs?: number; maxAttempts?: number };
+  restart?: { baseMs?: number; maxMs?: number; maxAttempts?: number; cooldownMs?: number };
+  /**
+   * Servers the Gateway checks before every start, beyond the host's own rules: the host never
+   * stops them for being idle and never restarts them by itself, so no restart skips a check.
+   */
+  neverAutoStart?: (config: PsycheMcpServerConfig) => boolean;
   /** Serialized size cap of one tool result returned to the agent. Default 256 KiB. */
   maxResultBytes?: number;
   fetch?: FetchLike;
@@ -192,6 +202,8 @@ interface ServerState {
   waking?: Promise<void>;
   /** Consecutive failed restarts and connections that died soon after starting. */
   restartFailures: number;
+  /** Connections that died on their own (`onclose`): a start compares it to count a death once. */
+  deaths: number;
   nextRestartAt: number;
   connectedAt: number;
 }
@@ -204,6 +216,7 @@ const DEFAULT_IDLE_STOP_MS = 10 * 60_000;
 const DEFAULT_RESTART_BASE_MS = 1_000;
 const DEFAULT_RESTART_MAX_MS = 60_000;
 const DEFAULT_RESTART_ATTEMPTS = 5;
+const DEFAULT_RESTART_COOLDOWN_MS = 10 * 60_000;
 /** A connection that dies sooner than this after starting counts as a crash-loop step. */
 const HEALTHY_RUN_MS = 30_000;
 
@@ -282,6 +295,7 @@ export class PsycheMcpHost implements McpHost {
       inFlight: 0,
       restartable: false,
       restartFailures: 0,
+      deaths: 0,
       nextRestartAt: 0,
       connectedAt: 0,
     };
@@ -305,13 +319,15 @@ export class PsycheMcpHost implements McpHost {
     s.restartable = false;
     s.generation += 1;
     const generation = s.generation;
+    // A newer connect, a removal or the host's close drops this start's result.
+    const superseded = () => s.removed === true || this.#closed || s.generation !== generation;
     await this.#disconnect(s);
     try {
       const client =
         s.config.transport.kind === "stdio"
           ? await this.#connectStdio(s, signal)
           : await this.#connectHttp(s, signal);
-      if (s.removed === true || s.generation !== generation) {
+      if (superseded()) {
         // A newer connect or a removal superseded this one: do not leak the client / process.
         await client.close().catch(() => undefined);
         const own = this.#launchOf.get(client);
@@ -325,8 +341,9 @@ export class PsycheMcpHost implements McpHost {
         if (s.client !== client) return;
         delete s.client;
         this.#clearIdle(s);
-        if (s.config.transport.kind === "stdio" && s.removed !== true) {
+        if (s.config.transport.kind === "stdio" && s.removed !== true && !this.#closed) {
           // The process died on its own: the next call may start it again, within the bounds.
+          s.deaths += 1;
           if (Date.now() - s.connectedAt >= HEALTHY_RUN_MS) s.restartFailures = 0;
           else s.restartFailures += 1;
           this.#armRestart(s);
@@ -345,7 +362,7 @@ export class PsycheMcpHost implements McpHost {
       await this.#refresh(s, signal);
       this.#touch(s);
     } catch (err) {
-      if (s.generation !== generation) return this.#info(s);
+      if (superseded()) return this.#info(s);
       await this.#disconnect(s);
       s.status = "error";
       s.error = untrustedText(errorMessage(err));
@@ -359,6 +376,8 @@ export class PsycheMcpHost implements McpHost {
     if (s === undefined) return;
     this.#servers.delete(serverId);
     s.removed = true;
+    // Nothing may start it again, not even a call already waiting on the wake below.
+    s.restartable = false;
     s.generation += 1;
     this.#clearIdle(s);
     // A wake still starting must finish (and be cleaned up as superseded) before `forget`, or it
@@ -528,8 +547,19 @@ export class PsycheMcpHost implements McpHost {
 
   async close(): Promise<void> {
     this.#closed = true;
-    for (const s of this.#servers.values()) this.#clearIdle(s);
-    await Promise.all([...this.#servers.values()].map((s) => this.#disconnect(s)));
+    const all = [...this.#servers.values()];
+    for (const s of all) {
+      // A start in flight is superseded: it closes its own client and cleans up its own launch.
+      s.generation += 1;
+      s.restartable = false;
+      this.#clearIdle(s);
+    }
+    await Promise.all(
+      all.map(async (s) => {
+        await s.waking?.catch(() => undefined);
+        await this.#disconnect(s);
+      }),
+    );
   }
 
   // --- internals ------------------------------------------------------------------------------
@@ -653,34 +683,64 @@ export class PsycheMcpHost implements McpHost {
     if (launcher.open !== undefined) {
       // The launcher starts the process itself (sandbox container) and hands over its pipes.
       const opened = await launcher.open(spec, signal);
-      s.launch = opened.cleanup === undefined ? {} : { cleanup: opened.cleanup };
+      const launch: { cleanup?: () => Promise<void> } =
+        opened.cleanup === undefined ? {} : { cleanup: opened.cleanup };
+      s.launch = launch;
       opened.stderr?.on("data", (chunk: Buffer) => {
         s.stderr = (s.stderr + chunk.toString("utf8")).slice(-STDERR_TAIL);
       });
-      const client = this.#newClient(s);
-      this.#launchOf.set(client, s.launch);
-      await client.connect(opened.transport, this.#requestOptions(signal));
-      return client;
+      return this.#startClient(s, launch, () => opened.transport, signal);
     }
     if (launcher.prepare === undefined) {
       throw new PsycheError("internal", "launcher has neither prepare nor open");
     }
     const launch = await launcher.prepare(spec);
     s.launch = launch;
-    const transport = new StdioClientTransport({
-      command: launch.command,
-      args: launch.args,
-      env: launch.env,
-      stderr: "pipe",
-      ...(launch.cwd === undefined ? {} : { cwd: launch.cwd }),
-    });
-    transport.stderr?.on("data", (chunk: Buffer) => {
-      s.stderr = (s.stderr + chunk.toString("utf8")).slice(-STDERR_TAIL);
-    });
-    const client = this.#newClient(s);
-    this.#launchOf.set(client, launch);
-    await client.connect(transport, this.#requestOptions(signal));
-    return client;
+    return this.#startClient(
+      s,
+      launch,
+      () => {
+        const transport = new StdioClientTransport({
+          command: launch.command,
+          args: launch.args,
+          env: launch.env,
+          stderr: "pipe",
+          ...(launch.cwd === undefined ? {} : { cwd: launch.cwd }),
+        });
+        transport.stderr?.on("data", (chunk: Buffer) => {
+          s.stderr = (s.stderr + chunk.toString("utf8")).slice(-STDERR_TAIL);
+        });
+        return transport;
+      },
+      signal,
+    );
+  }
+
+  /**
+   * Connects a client over a launch's transport. A failed connect closes the client and cleans
+   * up its own launch: the caller may have been superseded meanwhile and no longer owns it.
+   */
+  async #startClient(
+    s: ServerState,
+    launch: { cleanup?: () => Promise<void> },
+    transport: () => Parameters<Client["connect"]>[0],
+    signal?: AbortSignal,
+  ): Promise<Client> {
+    let client: Client | undefined;
+    let t: Parameters<Client["connect"]>[0] | undefined;
+    try {
+      client = this.#newClient(s);
+      this.#launchOf.set(client, launch);
+      t = transport();
+      await client.connect(t, this.#requestOptions(signal));
+      return client;
+    } catch (err) {
+      await client?.close().catch(() => undefined);
+      await t?.close().catch(() => undefined);
+      if (s.launch === launch) delete s.launch;
+      await launch.cleanup?.().catch(() => undefined);
+      throw err;
+    }
   }
 
   async #connectHttp(s: ServerState, signal?: AbortSignal): Promise<Client> {
@@ -856,12 +916,16 @@ export class PsycheMcpHost implements McpHost {
   async #disconnect(s: ServerState): Promise<void> {
     // Take both before awaiting: a restart that begins meanwhile sets its own, which this stop
     // must not touch.
+    const generation = s.generation;
     const client = s.client;
     const launch = s.launch;
     delete s.client;
     delete s.launch;
     if (client !== undefined) await client.close().catch(() => undefined);
     await launch?.cleanup?.().catch(() => undefined);
+    // A slow stop (the SDK waits up to 4s for a process that ignores EOF) must not mark a
+    // connection that started meanwhile as disconnected.
+    if (s.generation !== generation && s.client !== undefined) return;
     if (s.status === "connected") {
       s.status = "disconnected";
       this.#emit({ type: "status", serverId: s.config.id, status: "disconnected" });
@@ -892,7 +956,7 @@ export class PsycheMcpHost implements McpHost {
   #touch(s: ServerState): void {
     this.#clearIdle(s);
     const ms = this.#options.idleStopMs ?? DEFAULT_IDLE_STOP_MS;
-    if (ms <= 0 || this.#closed || s.removed === true || neverIdleStop(s.config)) return;
+    if (ms <= 0 || this.#closed || s.removed === true || this.#neverIdleStop(s.config)) return;
     if (s.config.transport.kind !== "stdio" || !this.#isUp(s)) return;
     const timer = setTimeout(() => {
       delete s.idleTimer;
@@ -903,7 +967,9 @@ export class PsycheMcpHost implements McpHost {
   }
 
   async #idleStop(s: ServerState): Promise<void> {
-    if (s.removed === true || !this.#isUp(s)) return;
+    if (s.removed === true || this.#closed || !this.#isUp(s)) return;
+    // The Gateway's view can change after the start (a bundle record appears): look again.
+    if (this.#neverIdleStop(s.config)) return;
     // Never under a running call: look again once it has finished.
     if (s.inFlight > 0 || s.waking !== undefined) {
       this.#touch(s);
@@ -919,13 +985,21 @@ export class PsycheMcpHost implements McpHost {
 
   /** After a crash or a failed restart: allow another start after a backoff, or give up. */
   #armRestart(s: ServerState): void {
-    if (neverAutoStart(s.config)) {
+    if (s.removed === true || this.#closed || this.#neverAutoStart(s.config)) {
       s.restartable = false;
       return;
     }
     const max = this.#options.restart?.maxAttempts ?? DEFAULT_RESTART_ATTEMPTS;
     if (s.restartFailures >= max) {
-      s.restartable = false;
+      // A crash loop: down for the cool-down, then the next call may try once more (one more
+      // failure starts another cool-down). Editing or re-adding the server starts it at once.
+      const cooldown = this.#options.restart?.cooldownMs ?? DEFAULT_RESTART_COOLDOWN_MS;
+      s.restartable = true;
+      s.restartFailures = max - 1;
+      s.nextRestartAt = Date.now() + cooldown;
+      s.error = untrustedText(
+        `failed to start ${max} times in a row; it tries again in ${waitText(cooldown)}, or edit or re-add the server to start it now`,
+      );
       return;
     }
     const base = this.#options.restart?.baseMs ?? DEFAULT_RESTART_BASE_MS;
@@ -945,40 +1019,54 @@ export class PsycheMcpHost implements McpHost {
     const s = this.#get(serverId);
     // A restart in flight has set `client` already but has not compared the listing yet: no
     // call runs until it has.
-    if (s.waking !== undefined) await s.waking;
+    if (s.waking !== undefined) {
+      await s.waking;
+      // Removed or closed while this call waited: it must not start the server again.
+      this.#assertLive(s);
+    }
     if (!this.#isUp(s) && s.restartable && s.config.transport.kind === "stdio") {
       await this.#wake(s, signal);
+      this.#assertLive(s);
     }
-    return this.#connected(serverId);
+    // This server, not a replacement added under the same id meanwhile.
+    return this.#connectedState(s);
+  }
+
+  /** Throws once the server was removed or the host closed. */
+  #assertLive(s: ServerState): void {
+    if (this.#closed) throw new PsycheError("unavailable", "the MCP host is closed");
+    if (s.removed === true) throw new PsycheError("not_found", `server ${s.config.id} not found`);
   }
 
   async #wake(s: ServerState, signal?: AbortSignal): Promise<void> {
     if (s.waking !== undefined) return s.waking;
+    this.#assertLive(s);
     if (Date.now() < s.nextRestartAt) {
       throw new PsycheError(
         "unavailable",
-        `server ${s.config.id} keeps failing to start; retrying later`,
+        `server ${s.config.id} keeps failing to start; it tries again in ${waitText(s.nextRestartAt - Date.now())}, or edit or re-add the server to start it now`,
         { retryable: true },
       );
     }
     const run = (async () => {
+      const deaths = s.deaths;
       try {
         await this.#connect(s, signal);
-        if (!this.#isUp(s)) {
-          if (signal?.aborted === true) {
-            // A cancelled turn is not a crash: leave the server startable.
-            s.restartable = true;
-            return;
-          }
-          // A death after connecting was counted by `onclose`; a failed start is counted here.
-          if (s.status === "error") s.restartFailures += 1;
-          this.#armRestart(s);
-          if (!s.restartable) {
-            s.error = untrustedText(
-              `stopped restarting after ${s.restartFailures} failed starts; reconnect the server`,
-            );
-          }
+        if (s.removed === true || this.#closed) {
+          s.restartable = false;
+          return;
         }
+        if (this.#isUp(s)) return;
+        // A death after connecting was counted (and the restart armed) by `onclose`, which may
+        // also have given up: neither a cancel nor this start may count it again or undo that.
+        if (s.deaths !== deaths) return;
+        if (signal?.aborted === true) {
+          // A cancelled turn is not a crash: leave the server startable.
+          s.restartable = !this.#neverAutoStart(s.config);
+          return;
+        }
+        if (s.status === "error") s.restartFailures += 1;
+        this.#armRestart(s);
       } finally {
         delete s.waking;
       }
@@ -994,13 +1082,44 @@ export class PsycheMcpHost implements McpHost {
   }
 
   #connected(serverId: string): ServerState {
-    const s = this.#get(serverId);
-    if (s.status !== "connected" || s.client === undefined || s.hash === undefined) {
-      throw new PsycheError("unavailable", `server ${serverId} is not connected`, {
+    return this.#connectedState(this.#get(serverId));
+  }
+
+  #connectedState(s: ServerState): ServerState {
+    if (!this.#isUp(s)) {
+      throw new PsycheError("unavailable", `server ${s.config.id} is not connected`, {
         retryable: true,
       });
     }
     return s;
+  }
+
+  /**
+   * Servers the host never restarts by itself (idle stop or crash). A Psyche-made or shared-bundle
+   * server starts only after the Gateway re-checks its code (`filesHash`, the bundle record), which
+   * a restart here would skip; the Gateway's `neverAutoStart` adds whatever else its start path
+   * checks. A server with `{{cred:` env asks the owner for each secret at every start, so a
+   * restart would raise those cards again. An unpinned package runner (`npx -y pkg`) could fetch
+   * a newly published release on every restart.
+   */
+  #neverAutoStart(config: PsycheMcpServerConfig): boolean {
+    if (config.madeBy !== undefined || config.bundle !== undefined) return true;
+    const t = config.transport;
+    if (t.kind === "stdio") {
+      if (Object.values(t.env ?? {}).some((v) => v.includes("{{cred:"))) return true;
+      if (reResolvesOnLaunch(t.command)) return true;
+    }
+    try {
+      return this.#options.neverAutoStart?.(config) === true;
+    } catch {
+      // A check that cannot answer keeps the server running rather than restarting it unchecked.
+      return true;
+    }
+  }
+
+  /** Never idle-stopped: the above, and servers the owner marked `keepAlive`. */
+  #neverIdleStop(config: PsycheMcpServerConfig): boolean {
+    return config.keepAlive === true || this.#neverAutoStart(config);
   }
 
   #info(s: ServerState): McpServerInfo {
@@ -1024,21 +1143,14 @@ export class PsycheMcpHost implements McpHost {
   }
 }
 
-/**
- * Servers the host never restarts by itself (idle stop or crash). A Psyche-made or shared-bundle
- * server starts only after the Gateway re-checks its code (`filesHash`, the bundle record), which
- * a restart here would skip. A server with `{{cred:` env asks the owner for each secret at every
- * start, so a restart would raise those cards again.
- */
-function neverAutoStart(config: PsycheMcpServerConfig): boolean {
-  if (config.madeBy !== undefined || config.bundle !== undefined) return true;
-  const t = config.transport;
-  return t.kind === "stdio" && Object.values(t.env ?? {}).some((v) => v.includes("{{cred:"));
-}
-
-/** Never idle-stopped: the above, and servers the owner marked `keepAlive`. */
-function neverIdleStop(config: PsycheMcpServerConfig): boolean {
-  return config.keepAlive === true || neverAutoStart(config);
+/** A wait as words for a diagnostic: "45 seconds", "10 minutes". */
+function waitText(ms: number): string {
+  if (ms < 60_000) {
+    const sec = Math.max(1, Math.ceil(ms / 1000));
+    return sec === 1 ? "1 second" : `${sec} seconds`;
+  }
+  const min = Math.ceil(ms / 60_000);
+  return min === 1 ? "1 minute" : `${min} minutes`;
 }
 
 export const APP_MIME = "text/html;profile=mcp-app";

@@ -102,6 +102,11 @@ export interface ConnectorBundles {
   handlers: Record<string, HandlerDef>;
   /** Why an installed server from a bundle must not run (revoked, files changed), if so. */
   stale(entry: PsycheMcpServerConfig): Promise<string | undefined>;
+  /**
+   * Whether `stale` checks anything for this entry (a marked entry, or a record left under its
+   * id, or a record that cannot be read): the MCP host must not restart it without that check.
+   */
+  checkedAtStart(entry: PsycheMcpServerConfig): boolean;
   /** A server was added by hand or by Psyche: forget any record left under its id. */
   added(entry: PsycheMcpServerConfig): Promise<void>;
   /** A server was removed: forget its bundle record and its files. */
@@ -910,6 +915,18 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
     return undefined;
   };
 
+  /** Mirrors `stale`'s early returns: true wherever it would look at a record. */
+  const checkedAtStart = (entry: PsycheMcpServerConfig): boolean => {
+    if (entry.trust === "bundled" && entry.bundle === undefined) return false;
+    if (entry.bundle !== undefined) return true;
+    try {
+      return ledger.get(entry.id) !== undefined;
+    } catch {
+      // `stale` lets an unmarked server run then; a restart still waits for the next start.
+      return true;
+    }
+  };
+
   /** A server added by hand (or by Psyche) never inherits a record an earlier shared one left. */
   const added = async (entry: PsycheMcpServerConfig) => {
     if (entry.bundle !== undefined) return;
@@ -970,6 +987,7 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
       },
     },
     stale,
+    checkedAtStart,
     added,
     removed,
     exportConnector,

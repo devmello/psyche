@@ -68,6 +68,7 @@ export {
   type RegisterMcpToolsOptions,
   registerMcpServerTools,
 } from "./registry.ts";
+export { reResolvesOnLaunch } from "./runner.ts";
 export {
   type ResolvedRuntimeCommand,
   RUNTIME_MISSING_TEXT,

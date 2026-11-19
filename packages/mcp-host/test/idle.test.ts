@@ -213,6 +213,36 @@ describe("restart safety", () => {
     expect(approvals).toBe(1);
   });
 
+  it("never idle-stops an unpinned package runner; a pinned one stops and restarts", async () => {
+    // The fixture ignores extra arguments; the host reads the whole command line.
+    const cmd = (...tail: string[]) => ({
+      transport: {
+        kind: "stdio",
+        command: [process.execPath, SERVER, desc, starts, poison, ...tail],
+      },
+    });
+    const unpinned = await setup({}, cmd("npx", "-y", "@scope/pkg"));
+    const latest = await setup({}, cmd("npx", "-y", "pkg@latest"));
+    const pinned = await setup({}, cmd("npx", "-y", "@scope/pkg@1.2.3"));
+    await vi.advanceTimersByTimeAsync(IDLE * 3);
+    expect(await status(unpinned.host)).toBe("connected");
+    expect(await status(latest.host)).toBe("connected");
+    await stopped(pinned.host);
+  });
+
+  it("never idle-stops a server the Gateway's neverAutoStart names", async () => {
+    const seen: string[] = [];
+    const { host } = await setup({
+      neverAutoStart: (c) => {
+        seen.push(c.id);
+        return true;
+      },
+    });
+    await vi.advanceTimersByTimeAsync(IDLE * 3);
+    expect(await status(host)).toBe("connected");
+    expect(seen).toContain("mut");
+  });
+
   it("re-applies the same launch spec on a restart", async () => {
     const rec = recordingLauncher();
     const { host } = await setup(
@@ -337,12 +367,42 @@ describe("crash-loop bounds", () => {
     await expect(call()).rejects.toMatchObject({ code: "unavailable" });
     expect(startCount()).toBe(afterFirst + 2 * perAttempt);
 
-    // maxAttempts (3) reached: no more spawns however long we wait.
+    // maxAttempts (3) reached: down for the 10-minute cool-down, and the error says how it comes
+    // back (there is no "reconnect" action).
     await vi.advanceTimersByTimeAsync(60_000);
-    await expect(call()).rejects.toMatchObject({ code: "unavailable" });
+    await expect(call()).rejects.toMatchObject({
+      code: "unavailable",
+      message: expect.stringMatching(/tries again in 9 minutes, or edit or re-add the server/),
+    });
     expect(startCount()).toBe(afterFirst + 2 * perAttempt);
+    expect(host.describe("mut").error).toMatch(/tries again in 10 minutes/);
+    expect(host.describe("mut").error).not.toMatch(/reconnect/);
 
-    // An explicit reconnect clears the state once the server is healthy again.
+    // After the cool-down, one more try; it fails and the next cool-down begins.
+    await vi.advanceTimersByTimeAsync(9 * 60_000);
+    await expect(call()).rejects.toMatchObject({ code: "unavailable" });
+    expect(startCount()).toBe(afterFirst + 3 * perAttempt);
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    await expect(call()).rejects.toMatchObject({ code: "unavailable" });
+    expect(startCount()).toBe(afterFirst + 3 * perAttempt);
+    // A healthy server comes back on its own after the next cool-down.
+    await rm(poison);
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    expect((await call()).isError).toBe(false);
+    expect(startCount()).toBe(afterFirst + 4 * perAttempt);
+  });
+
+  it("an explicit connect clears the crash-loop state", async () => {
+    const { host } = await setup({ restart });
+    const { toolsListHash } = await host.listTools("mut");
+    await vi.advanceTimersByTimeAsync(IDLE);
+    appendFileSync(poison, "x");
+    const call = () => host.callTool("mut", "ping", {}, { toolsListHash });
+    for (let i = 0; i < 3; i += 1) {
+      await expect(call()).rejects.toMatchObject({ code: "unavailable" });
+      await vi.advanceTimersByTimeAsync(4000);
+    }
+    await expect(call()).rejects.toMatchObject({ code: "unavailable" });
     await rm(poison);
     expect((await host.connect("mut")).status).toBe("connected");
     expect((await call()).isError).toBe(false);
