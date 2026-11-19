@@ -2020,7 +2020,8 @@ export const fr: Partial<Catalogue> = {
   "settings.model.role.primary": "Principal",
   "settings.model.role.primaryHint": "Discussion, tâches et outils",
   "settings.model.role.utility": "Utilitaire",
-  "settings.model.role.utilityHint": "Titres, résumés et classificateur du mode auto",
+  "settings.model.role.utilityHint":
+    "Titres, résumés, cartes de recherche et autres tâches d'arrière-plan",
   "settings.model.role.image": "Image",
   "settings.model.role.imageHint":
     "Changements d’avatar ; « Aucun » signifie les créatures intégrées",

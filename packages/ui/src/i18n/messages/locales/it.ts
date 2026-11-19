@@ -2024,7 +2024,7 @@ export const it: Partial<Catalogue> = {
   "settings.model.role.primaryHint": "Chat, attività e strumenti",
   "settings.model.role.utility": "Di servizio",
   "settings.model.role.utilityHint":
-    "Titoli, riepiloghi e il classificatore della modalità automatica",
+    "Titoli, riepiloghi, schede di ricerca e altre attività in background",
   "settings.model.role.image": "Immagini",
   "settings.model.role.imageHint": "Modifiche all’avatar; con Nessuno si usano le creature incluse",
   "settings.model.addProvider": "Aggiungi un fornitore",

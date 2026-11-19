@@ -68,6 +68,12 @@ const MAX_FACTS = 5;
 const MAX_DOC_FACTS = 12;
 /** Characters of the owner's uploads the document prompt reads. */
 const MAX_DOC_CHARS = 24_000;
+/** Characters of the owner's typed words one learner call reads (a long paste holds no more facts). */
+export const MAX_TEXT_CHARS = 4_000;
+/** Output caps: five short facts, the same plus the work JSON, a document's twelve lines. */
+const MAX_OUT_TEXT = 400;
+const MAX_OUT_WORK = 800;
+const MAX_OUT_DOC = 900;
 const KINDS = new Set<LearnedFact["kind"]>([
   "name",
   "preference",
@@ -231,6 +237,12 @@ export interface UserProfileDeps {
   model: ModelRef;
   /** False when no utility model is configured: the evaluator never runs. */
   active: boolean;
+  /**
+   * At most one learner call per thread in this window (default 0: every turn). Turns that arrive
+   * sooner are held and sent together in one call when the window ends, so a quick back-and-forth
+   * costs one call, not one per message.
+   */
+  minIntervalMs?: number;
   redactor: SecretRedactor;
   audit: AuditLog;
   broker: PermissionBroker;
@@ -261,6 +273,7 @@ export function createUserProfile(deps: UserProfileDeps) {
     system = LEARN_SYSTEM,
     max = MAX_FACTS,
     raw?: (reply: string) => void,
+    maxOutputTokens = MAX_OUT_TEXT,
   ) => {
     let out = "";
     for await (const e of deps.provider.stream(
@@ -268,6 +281,11 @@ export function createUserProfile(deps: UserProfileDeps) {
         model: deps.model,
         system,
         messages: [{ role: "user", parts: [{ type: "text", text }] }],
+        // A short extraction: capped output, no thinking, and a unique tail that is never re-read.
+        maxOutputTokens,
+        effort: "low",
+        reasoning: "off",
+        cache: "none",
       },
       {},
     )) {
@@ -396,21 +414,18 @@ export function createUserProfile(deps: UserProfileDeps) {
     return written;
   };
 
-  const onOwnerTurn = async (turn: {
+  interface OwnerTurn {
     threadId: string;
     runId: string;
     taskId?: string;
     ownerText: string;
     /** The owner's message carried Library attachments. */
     attached?: boolean;
-  }) => {
-    if (!deps.active) return;
-    const config = userProfileConfig(db);
-    if (!config.enabled) return;
-    const thread = getThread(db, turn.threadId);
-    if (thread === undefined || thread.kind === "incognito") return;
+  }
+
+  const learn = async (turn: OwnerTurn, config: ReturnType<typeof userProfileConfig>) => {
     // Vault values never reach the utility model (the existing redactor).
-    const text = deps.redactor.redact(turn.ownerText).trim();
+    const text = deps.redactor.redact(turn.ownerText).trim().slice(0, MAX_TEXT_CHARS);
     // Work output is requested only when the graph is on and the message may be about work.
     // (An `ask` owner approves facts one card at a time, and work lines are not on that card.)
     const asksWork =
@@ -430,11 +445,15 @@ export function createUserProfile(deps: UserProfileDeps) {
               (r) => {
                 typedReply = r;
               },
+              MAX_OUT_WORK,
             )
           : await extract(text);
     const uploads =
       turn.attached === true ? deps.redactor.redact(await ownerUploads(turn.threadId)).trim() : "";
-    const fromDocs = uploads === "" ? [] : await extract(uploads, LEARN_DOC_SYSTEM, MAX_DOC_FACTS);
+    const fromDocs =
+      uploads === ""
+        ? []
+        : await extract(uploads, LEARN_DOC_SYSTEM, MAX_DOC_FACTS, undefined, MAX_OUT_DOC);
     const proposals = [...typed, ...fromDocs];
     if (asksWork) {
       await applyWork(turn.threadId, turn.runId, text, workOf(typedReply));
@@ -459,6 +478,71 @@ export function createUserProfile(deps: UserProfileDeps) {
     });
     const done = await deps.broker.awaitDecision(issued.approval.id);
     if (done.status === "approved") await write(turn.threadId, turn.runId, proposals);
+  };
+
+  /** Turns held back by `minIntervalMs`, per thread, with the timer that sends them. */
+  const held = new Map<
+    string,
+    { lastAt: number; texts: string[]; turn?: OwnerTurn; timer?: ReturnType<typeof setTimeout> }
+  >();
+
+  /** Everything that can refuse a turn, checked when it arrives and again when held turns run. */
+  const admit = (threadId: string) => {
+    if (!deps.active) return undefined;
+    const config = userProfileConfig(db);
+    if (!config.enabled) return undefined;
+    const thread = getThread(db, threadId);
+    if (thread === undefined || thread.kind === "incognito") return undefined;
+    return config;
+  };
+
+  const flushHeld = async (threadId: string) => {
+    // Runs from a timer with nobody awaiting it: nothing in here may reject (a closed database
+    // at flush time must not become an unhandled rejection that takes the Gateway down).
+    try {
+      const h = held.get(threadId);
+      if (h === undefined || h.turn === undefined) return;
+      if (h.timer !== undefined) clearTimeout(h.timer);
+      delete h.timer;
+      const turn = { ...h.turn, ownerText: h.texts.join("\n\n") };
+      h.texts = [];
+      delete h.turn;
+      h.lastAt = Date.now();
+      const config = admit(threadId);
+      if (config !== undefined) await learn(turn, config);
+    } catch {
+      // Learning is best-effort; the next turn tries again.
+    }
+  };
+
+  const onOwnerTurn = async (turn: OwnerTurn) => {
+    const config = admit(turn.threadId);
+    if (config === undefined) return;
+    const every = deps.minIntervalMs ?? 0;
+    if (every <= 0) return learn(turn, config);
+    const h = held.get(turn.threadId) ?? { lastAt: Number.NEGATIVE_INFINITY, texts: [] };
+    held.set(turn.threadId, h);
+    const wait = h.lastAt + every - Date.now();
+    if (wait <= 0 && h.turn === undefined) {
+      h.lastAt = Date.now();
+      return learn(turn, config);
+    }
+    // Inside the window: hold this turn (the newest run id wins) and send the held turns together
+    // when it ends. Nothing is sent per message.
+    // Hold the raw turns: they are joined, redacted once and only then cut to the cap (in
+    // `learn`). A vault value must never be cut, or redacted piecemeal, before the redactor sees
+    // it whole, or its pieces would reach the model. The buffer lives in memory for the window and
+    // is bounded: past twice the cap the oldest turn is dropped whole, never sliced.
+    h.texts.push(turn.ownerText);
+    let size = h.texts.reduce((n, t) => n + t.length, 0);
+    while (h.texts.length > 1 && size > 2 * MAX_TEXT_CHARS) {
+      size -= h.texts.shift()?.length ?? 0;
+    }
+    h.turn = { ...turn, attached: turn.attached === true || h.turn?.attached === true };
+    if (h.timer === undefined) {
+      h.timer = setTimeout(() => void flushHeld(turn.threadId), Math.max(wait, 0));
+      h.timer.unref?.();
+    }
   };
 
   const handlers = {

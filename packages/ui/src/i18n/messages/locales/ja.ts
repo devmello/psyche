@@ -2005,7 +2005,7 @@ export const ja: Partial<Catalogue> = {
   "settings.model.role.primary": "プライマリ",
   "settings.model.role.primaryHint": "チャット、タスク、ツール",
   "settings.model.role.utility": "ユーティリティ",
-  "settings.model.role.utilityHint": "タイトル、要約、自動モードの分類",
+  "settings.model.role.utilityHint": "タイトル、要約、検索カード、その他のバックグラウンド処理",
   "settings.model.role.image": "画像",
   "settings.model.role.imageHint": "アバターの変更。なしの場合は同梱の生き物を使います",
   "settings.model.addProvider": "プロバイダを追加",

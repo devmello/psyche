@@ -1981,7 +1981,8 @@ export const pt: Partial<Catalogue> = {
   "settings.model.role.primary": "Principal",
   "settings.model.role.primaryHint": "Conversa, tarefas e ferramentas",
   "settings.model.role.utility": "Utilitário",
-  "settings.model.role.utilityHint": "Títulos, resumos e o classificador do modo automático",
+  "settings.model.role.utilityHint":
+    "Títulos, resumos, cartões de busca e outras tarefas em segundo plano",
   "settings.model.role.image": "Imagem",
   "settings.model.role.imageHint": "Alterações de avatar; nenhum significa as criaturas incluídas",
   "settings.model.addProvider": "Adicionar um provedor",

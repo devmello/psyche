@@ -2070,7 +2070,7 @@ export const de: Partial<Catalogue> = {
   "settings.model.role.primaryHint": "Chat, Aufgaben und Werkzeuge",
   "settings.model.role.utility": "Hilfsmodell",
   "settings.model.role.utilityHint":
-    "Titel, Zusammenfassungen und der Klassifikator im Automatikmodus",
+    "Titel, Zusammenfassungen, Suchkarten und andere Hintergrundaufgaben",
   "settings.model.role.image": "Bild",
   "settings.model.role.imageHint": "Avatar-Änderungen; „Keines“ bedeutet die mitgelieferten Wesen",
   "settings.model.addProvider": "Anbieter hinzufügen",
