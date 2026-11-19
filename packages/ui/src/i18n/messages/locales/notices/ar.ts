@@ -50,4 +50,11 @@ export const notices: Partial<Catalogue> = {
     "{automation, select, none {لم يُنفَّذ إجراء أتمتة تمت الموافقة عليه} other {{automation}: لم يُنفَّذ الإجراء الذي تمت الموافقة عليه}}",
   "notice.approvals.resumeMissed.body":
     "عملت الأتمتة مرة أخرى لكنها لم تصل إلى الإجراء نفسه، لذا لم يُنفَّذ شيء. إن كانت لا تزال تحتاجه فستطلبه مرة أخرى.",
+  "notice.specialist.result.title":
+    "{outcome, select, done {{who} أنهى {title}} partial {توقف {who} مبكرًا في {title}} cancelled {تم إيقاف {who} في {title}} other {تعذّر على {who} إنهاء {title}}}",
+  "notice.specialist.result.body":
+    "{outcome, select, done {تم} partial {جزئي} cancelled {أُلغي} other {فشل}}{findings, plural, =0 {} one { · ملاحظة واحدة} two { · ملاحظتان} few { · # ملاحظات} many { · # ملاحظة} other { · # ملاحظة}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {أقل من دقيقة} other {# د}}",
+  "notice.mcp.changed.title": "خادم MCP {server} غيّر أدواته",
+  "notice.mcp.suspicious.title": "خادم MCP {server} فيه أوصاف أدوات مريبة",
+  "notice.mcp.review.body": "راجعها قبل استخدام هذا الخادم: {details}",
 };

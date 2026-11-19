@@ -50,4 +50,11 @@ export const notices: Partial<Catalogue> = {
     "{automation, select, none {承認した自動化の操作は行われませんでした} other {{automation}：承認した操作は行われませんでした}}",
   "notice.approvals.resumeMissed.body":
     "自動化は再実行されましたが、同じ操作に到達しなかったため何も行われませんでした。まだ必要な場合は、もう一度確認されます。",
+  "notice.specialist.result.title":
+    "{outcome, select, done {{who}が{title}を終えました} partial {{who}は{title}を途中で止めました} cancelled {{who}は{title}で停止されました} other {{who}は{title}を完了できませんでした}}",
+  "notice.specialist.result.body":
+    "{outcome, select, done {完了} partial {一部} cancelled {キャンセル} other {失敗}}{findings, plural, =0 {} other { · # 件の所見}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {1分未満} other {# 分}}",
+  "notice.mcp.changed.title": "MCP サーバー {server} のツールが変わりました",
+  "notice.mcp.suspicious.title": "MCP サーバー {server} のツールの説明が不審です",
+  "notice.mcp.review.body": "このサーバーを使う前に確認してください: {details}",
 };

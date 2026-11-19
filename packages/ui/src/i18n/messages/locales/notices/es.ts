@@ -52,4 +52,12 @@ export const notices: Partial<Catalogue> = {
     "{automation, select, none {No se hizo una acción aprobada de una automatización} other {{automation}: no se hizo la acción aprobada}}",
   "notice.approvals.resumeMissed.body":
     "La automatización se volvió a ejecutar pero no llegó a la misma acción, así que no se hizo nada. Si aún la necesita, volverá a preguntar.",
+  "notice.specialist.result.title":
+    "{outcome, select, done {{who} terminó {title}} partial {{who} se detuvo pronto en {title}} cancelled {{who} se detuvo en {title}} other {{who} no pudo terminar {title}}}",
+  "notice.specialist.result.body":
+    "{outcome, select, done {Listo} partial {Parcial} cancelled {Cancelado} other {Fallido}}{findings, plural, =0 {} one { · # hallazgo} other { · # hallazgos}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {menos de 1 min} other {# min}}",
+  "notice.mcp.changed.title": "El servidor MCP {server} cambió sus herramientas",
+  "notice.mcp.suspicious.title":
+    "El servidor MCP {server} tiene descripciones de herramientas sospechosas",
+  "notice.mcp.review.body": "Revísalo antes de usar este servidor: {details}",
 };

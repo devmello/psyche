@@ -65,6 +65,48 @@ describe("noticeText", () => {
     expect(out.body).toContain("Phone");
     expect(out.body).toContain("24 heures");
   });
+
+  it("words the specialist result and MCP review notices from their ids and values", () => {
+    const de = createI18n({ locale: "de-DE", language: "de" });
+    const done = noticeText(
+      {
+        ...fallback,
+        message: {
+          titleKey: "notice.specialist.result.title",
+          bodyKey: "notice.specialist.result.body",
+          params: {
+            who: "Researcher",
+            title: "Apartments",
+            outcome: "done",
+            findings: 2,
+            cost: "$0.12",
+            minutes: 3,
+          },
+        },
+      },
+      de,
+    );
+    expect(done.title).toBe("Researcher hat Apartments fertiggestellt");
+    expect(done.body).toBe("Fertig · 2 Befunde · $0.12 · 3 Min.");
+    const mcp = noticeText(
+      {
+        ...fallback,
+        message: {
+          titleKey: "notice.mcp.suspicious.title",
+          bodyKey: "notice.mcp.review.body",
+          params: { server: "echo", details: "lookup: x; Not offered to the agent: lookup" },
+        },
+      },
+      de,
+    );
+    expect(mcp.title).toBe("MCP-Server echo hat verdächtige Werkzeugbeschreibungen");
+    expect(mcp.body).toContain("lookup: x; Not offered to the agent: lookup");
+  });
+
+  it("still words an existing keyed notice beside the new ones", () => {
+    const de = createI18n({ locale: "de-DE", language: "de" });
+    expect(noticeText(keyed, de).title).toBe("Eine Aufgabe wartet auf dich");
+  });
 });
 
 describe("notice catalogue", () => {

@@ -47,4 +47,11 @@ export const notices: Partial<Catalogue> = {
     "{automation, select, none {已批准的自动化操作未执行} other {{automation}：已批准的操作未执行}}",
   "notice.approvals.resumeMissed.body":
     "自动化已再次运行，但没有到达相同的操作，因此什么也没做。如果仍然需要，它会再次请求。",
+  "notice.specialist.result.title":
+    "{outcome, select, done {{who}完成了{title}} partial {{who}在{title}上提前停止了} cancelled {{who}在{title}上被停止了} other {{who}未能完成{title}}}",
+  "notice.specialist.result.body":
+    "{outcome, select, done {已完成} partial {部分完成} cancelled {已取消} other {失败}}{findings, plural, =0 {} other { · # 项发现}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {不到 1 分钟} other {# 分钟}}",
+  "notice.mcp.changed.title": "MCP 服务器 {server} 的工具已变更",
+  "notice.mcp.suspicious.title": "MCP 服务器 {server} 的工具描述可疑",
+  "notice.mcp.review.body": "使用此服务器前请先检查：{details}",
 };

@@ -50,4 +50,11 @@ export const notices: Partial<Catalogue> = {
     "{automation, select, none {स्वचालन की मंज़ूर की गई कार्रवाई नहीं हुई} other {{automation}: मंज़ूर की गई कार्रवाई नहीं हुई}}",
   "notice.approvals.resumeMissed.body":
     "स्वचालन फिर से चला, लेकिन उसी कार्रवाई तक नहीं पहुँचा, इसलिए कुछ नहीं हुआ। अगर उसे अब भी इसकी ज़रूरत है, तो वह फिर से पूछेगा।",
+  "notice.specialist.result.title":
+    "{outcome, select, done {{who} ने {title} पूरा किया} partial {{who} ने {title} पर जल्दी रोक दिया} cancelled {{who} को {title} पर रोका गया} other {{who} {title} पूरा नहीं कर सका}}",
+  "notice.specialist.result.body":
+    "{outcome, select, done {पूरा} partial {आंशिक} cancelled {रद्द} other {विफल}}{findings, plural, =0 {} other { · # निष्कर्ष}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {1 मिनट से कम} other {# मिनट}}",
+  "notice.mcp.changed.title": "MCP सर्वर {server} ने अपने टूल बदले",
+  "notice.mcp.suspicious.title": "MCP सर्वर {server} में संदिग्ध टूल विवरण हैं",
+  "notice.mcp.review.body": "इस सर्वर का उपयोग करने से पहले देखें: {details}",
 };

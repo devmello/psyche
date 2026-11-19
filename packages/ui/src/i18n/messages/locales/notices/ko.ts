@@ -49,4 +49,11 @@ export const notices: Partial<Catalogue> = {
     "{automation, select, none {승인한 자동화 작업이 실행되지 않았습니다} other {{automation}: 승인한 작업이 실행되지 않았습니다}}",
   "notice.approvals.resumeMissed.body":
     "자동화가 다시 실행되었지만 같은 작업에 도달하지 않아 아무것도 하지 않았습니다. 여전히 필요하면 다시 요청합니다.",
+  "notice.specialist.result.title":
+    "{outcome, select, done {{who}이(가) {title}을(를) 마쳤습니다} partial {{who}이(가) {title}을(를) 일찍 멈췄습니다} cancelled {{who}의 {title} 작업이 중지되었습니다} other {{who}이(가) {title}을(를) 끝내지 못했습니다}}",
+  "notice.specialist.result.body":
+    "{outcome, select, done {완료} partial {일부 완료} cancelled {취소됨} other {실패}}{findings, plural, =0 {} other { · 발견 #건}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {1분 미만} other {#분}}",
+  "notice.mcp.changed.title": "MCP 서버 {server}의 도구가 바뀌었습니다",
+  "notice.mcp.suspicious.title": "MCP 서버 {server}의 도구 설명이 의심스럽습니다",
+  "notice.mcp.review.body": "이 서버를 쓰기 전에 확인하세요: {details}",
 };

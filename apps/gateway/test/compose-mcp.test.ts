@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { directLauncher } from "@psyche/mcp-host";
-import type { ModelEvent, ModelRequest } from "@psyche/protocol";
+import type { ModelEvent, ModelRequest, NoticeMessage } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
@@ -195,13 +195,22 @@ describe("MCP host in the Gateway (K5)", () => {
     expect(changed[1]).toMatch(/^sha256:/);
     expect(changed[1]).not.toBe(pinned);
     expect(changed[1]).not.toBe("removed");
-    // The owner sees what changed (#281).
-    await owner.waitForEvent(
+    // The owner sees what changed (#281), worded from message ids and values.
+    const notice = await owner.waitForEvent(
       (e) =>
         e.event === "notification.created" &&
         JSON.stringify(e.payload).includes("MCP server echo changed its tools"),
       10_000,
     );
+    expect(notice.payload).toMatchObject({
+      notification: {
+        message: {
+          titleKey: "notice.mcp.changed.title",
+          bodyKey: "notice.mcp.review.body",
+          params: { server: "echo" },
+        },
+      },
+    });
   }, 30_000);
 
   it("marks a non-bundled server's descriptions untrusted and withholds poisoned tools (#281)", async () => {
@@ -242,6 +251,14 @@ describe("MCP host in the Gateway (K5)", () => {
         JSON.stringify(e.payload).includes("suspicious tool descriptions"),
     );
     expect(JSON.stringify(notice.payload)).toContain("Not offered to the agent: mcp__echo__lookup");
+    const message = (notice.payload as { notification: { message: NoticeMessage } }).notification
+      .message;
+    expect(message).toMatchObject({
+      titleKey: "notice.mcp.suspicious.title",
+      bodyKey: "notice.mcp.review.body",
+      params: { server: "echo" },
+    });
+    expect(message.params?.details).toContain("Not offered to the agent: mcp__echo__lookup");
   });
 
   it("refuses a non-bundled stdio server without srt or a container", async () => {

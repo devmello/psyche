@@ -4,11 +4,25 @@ import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { Textarea } from "../../components/ui/textarea.tsx";
 import { t } from "../../i18n/core.ts";
-import { EMPTY_DRAFT, type McpDraft, splitCommand, toServerInput } from "./mcp-input.ts";
-import { type ImportedServer, type ImportResult, parseMcpJson, withImported } from "./mcp-json.ts";
+import { McpEnvRows } from "./McpEnvRows.tsx";
+import {
+  EMPTY_DRAFT,
+  envNamesValid,
+  isSecretEnvName,
+  type McpDraft,
+  splitCommand,
+  toServerInput,
+} from "./mcp-input.ts";
+import {
+  type ImportedServer,
+  type ImportResult,
+  parseMcpJson,
+  withEnvRows,
+  withImported,
+} from "./mcp-json.ts";
 import { SandboxNotice } from "./SandboxNotice.tsx";
 import { RadioField } from "./shared.tsx";
-import type { McpState } from "./use-mcp.tsx";
+import type { McpSecret, McpState } from "./use-mcp.tsx";
 
 /**
  * The "Custom MCP server" form inside Add connector (#529): a command (run sandboxed) or an HTTPS
@@ -47,8 +61,33 @@ export function McpAddForm({
     setJson("");
     setD({
       ...s.draft,
+      env: d.env ?? [],
       kind: s.draft.kind === "command" && !commandsAllowed ? "url" : s.draft.kind,
     });
+  };
+  /** Pasted keys and typed env values both go to the vault before the probe, never into config. */
+  const submit = () => {
+    const nonce = Math.random().toString(36).slice(2, 6);
+    let input = toServerInput(d);
+    let secrets: McpSecret[] = [];
+    if (imported && imported.draft.kind === d.kind) {
+      const r = withImported(input, imported, nonce);
+      input = r.input;
+      secrets = [...r.secrets];
+    }
+    const typed = withEnvRows(input, d.env, nonce);
+    input = typed.input;
+    secrets = [...secrets, ...typed.secrets];
+    if (typed.secrets.length > 0) {
+      // The values are stored: clear them from the form, so nothing reads back.
+      setD((prev) => ({
+        ...prev,
+        env: (prev.env ?? []).map((r) =>
+          isSecretEnvName(r.name.trim()) && r.value !== "" ? { ...r, value: "", saved: true } : r,
+        ),
+      }));
+    }
+    onCheck(input, secrets);
   };
   const readJson = (result: ImportResult) => {
     if (!result.ok) {
@@ -61,7 +100,9 @@ export function McpAddForm({
   };
   const ready =
     d.name.trim() !== "" &&
-    (d.kind === "url" ? /^https:\/\/\S+$/.test(d.url.trim()) : splitCommand(d.command).length > 0);
+    (d.kind === "url"
+      ? /^https:\/\/\S+$/.test(d.url.trim())
+      : splitCommand(d.command).length > 0 && envNamesValid(d.env));
   const importedNote = imported
     ? [
         imported.secrets.length > 0
@@ -185,6 +226,11 @@ export function McpAddForm({
               onChange={(e) => setD({ ...d, command: e.target.value })}
             />
           </div>
+          <McpEnvRows
+            id={id}
+            rows={d.env ?? []}
+            onChange={(env) => setD({ ...d, env: [...env] })}
+          />
           <div className="flex flex-col gap-1">
             <Label htmlFor={`${id}-domains`}>{t("settings.mcp.domains")}</Label>
             <Input
@@ -216,16 +262,7 @@ export function McpAddForm({
           type="button"
           size="sm"
           disabled={!ready || checking || (d.kind === "command" && !commandsAllowed)}
-          onClick={() => {
-            const input = toServerInput(d);
-            // Keys from pasted JSON go to the vault, and the config gets placeholders.
-            if (imported && imported.draft.kind === d.kind) {
-              const r = withImported(input, imported, Math.random().toString(36).slice(2, 6));
-              onCheck(r.input, r.secrets);
-            } else {
-              onCheck(input);
-            }
-          }}
+          onClick={submit}
         >
           {checking ? t("settings.mcp.checking") : t("settings.mcp.check")}
         </Button>

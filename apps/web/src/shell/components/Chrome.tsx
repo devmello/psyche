@@ -123,6 +123,7 @@ export function ThreadList(props: {
   currentThreadId: string | null;
   onOpen: (threadId: string) => void;
   onNew: () => void;
+  onNewIncognito?: () => void;
 }): ReactElement {
   const threads = useShellState((s) => s.threads);
   const searchId = useId();
@@ -154,6 +155,16 @@ export function ThreadList(props: {
         >
           {t("web.threads.newSideChat")}
         </button>
+        {props.onNewIncognito ? (
+          <button
+            type="button"
+            className="pill"
+            onClick={props.onNewIncognito}
+            title={t("web.threads.newIncognitoChatTitle")}
+          >
+            {t("web.threads.newIncognitoChat")}
+          </button>
+        ) : null}
       </div>
       <div className="threads-search">
         <label htmlFor={searchId} className="sr-only">

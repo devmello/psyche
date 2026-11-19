@@ -20,6 +20,7 @@ export type ShortcutAction =
   | GoAction
   | "palette"
   | "newSideChat"
+  | "newIncognitoChat"
   | "closeThreadView"
   | "toggleThreadList"
   | "toggleCompactSidebar"
@@ -69,6 +70,15 @@ const BASE_SHORTCUTS: readonly Shortcut[] = [
       return t("web.shortcut.newSideChat");
     },
     chord: { key: "n", mod: true },
+    scope: "app",
+    inText: true,
+  },
+  {
+    action: "newIncognitoChat",
+    get label() {
+      return t("web.shortcut.newIncognitoChat");
+    },
+    chord: { key: "n", mod: true, shift: true },
     scope: "app",
     inText: true,
   },

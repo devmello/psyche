@@ -54,4 +54,11 @@ export const notices = {
     "{automation, select, none {An approved automation action was not done} other {{automation}: the approved action was not done}}",
   "notice.approvals.resumeMissed.body":
     "The automation ran again but did not reach the same action, so nothing was done. If it still needs it, it will ask again.",
+  "notice.specialist.result.title":
+    "{outcome, select, done {{who} finished {title}} partial {{who} stopped early on {title}} cancelled {{who} was stopped on {title}} other {{who} couldn't finish {title}}}",
+  "notice.specialist.result.body":
+    "{outcome, select, done {Done} partial {Partial} cancelled {Cancelled} other {Failed}}{findings, plural, =0 {} one { · # finding} other { · # findings}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {under 1 min} other {# min}}",
+  "notice.mcp.changed.title": "MCP server {server} changed its tools",
+  "notice.mcp.suspicious.title": "MCP server {server} has suspicious tool descriptions",
+  "notice.mcp.review.body": "Review before you use this server: {details}",
 } as const;
