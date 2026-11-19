@@ -34,7 +34,7 @@ const LOOKALIKES: Readonly<Record<string, string>> = {
 const MARKER = /\[ ?(?:end[ _-]*of\b|untrusted ?:|attached[ _-]*(?:file|image|library|item))/g;
 
 export function defangFence(text: string): string {
-  if (!text.includes("[") && !/[^\u0000-\u007f]/.test(text)) return text;
+  if (!text.includes("[") && !/\P{ASCII}/u.test(text)) return text;
   let norm = "";
   const origin: number[] = []; // norm index -> UTF-16 index of the original character
   let at = 0;
