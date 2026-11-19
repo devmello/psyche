@@ -32,8 +32,10 @@ import { type FileProvenanceIndex, MemoryFileProvenance, readProvenance } from "
  * actually received (a bigger window was cut by the loop and the paged read skipped the rest).
  */
 export const MAX_READ_BYTES = 32 * 1024;
-/** Escaped (JSON) characters one page's `text` may take: leaves room under the cap for the fields. */
-const MAX_READ_JSON_CHARS = 44_000;
+/** The loop's default result cap (JSON characters); the run context says the configured one. */
+const DEFAULT_RESULT_BUDGET = 50_000;
+/** Room kept under the budget for the cut marker's worth of slack. */
+const BUDGET_SLACK = 64;
 /** What makes a folder a git directory (`is_git_directory`), plus its config. */
 const GIT_DIR_ENTRIES = new Set(["head", "objects", "refs", "config"]);
 
@@ -331,6 +333,7 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
     async run(p, ctx) {
       const path = canonicalTarget(p.path);
       granted(path, "read", ctx);
+      const budget = Math.max(2_000, ctx.resultBudgetChars ?? DEFAULT_RESULT_BUDGET);
       if (p.page !== undefined && p.offset !== undefined) {
         throw new PsycheError("invalid_params", "pass offset or page, not both");
       }
@@ -349,18 +352,33 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
             );
           }
           const bytes = await readAt(fh, 0, info.size);
-          const page = await extractDocument(format, bytes, {
-            offset: p.page !== undefined ? (p.page - 1) * UNIT_STRIDE : (p.offset ?? 0),
-            ...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
-          });
-          return {
-            output: {
+          const docHash = sha256(bytes);
+          const docOffset = p.page !== undefined ? (p.page - 1) * UNIT_STRIDE : (p.offset ?? 0);
+          // Page the document so the whole escaped result fits what the loop keeps.
+          let maxChars = Math.min(EXTRACT_LIMITS.chars, Math.floor(budget * 0.8));
+          let output: Record<string, unknown> = {};
+          for (let attempt = 0; attempt < 5; attempt++) {
+            const page = await extractDocument(format, bytes, {
+              offset: docOffset,
+              maxChars,
+              ...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
+            });
+            output = {
               path,
               bytes: info.size,
-              sha256: sha256(bytes),
+              sha256: docHash,
               ...page,
               truncated: page.nextOffset !== undefined,
-            },
+            };
+            const size = JSON.stringify(output).length;
+            if (size <= budget - BUDGET_SLACK || maxChars <= 1_000) break;
+            maxChars = Math.max(
+              1_000,
+              Math.floor((maxChars * (budget - BUDGET_SLACK)) / size) - 50,
+            );
+          }
+          return {
+            output,
             // Extracted text is never vouched for, whatever wrote the file (security §3.6).
             provenance: "untrusted",
           };
@@ -373,9 +391,9 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
         const whole = info.size <= MAX_EDIT_FILE_BYTES ? await fh.readFile() : undefined;
         let window: Buffer;
         if (whole !== undefined) {
-          window = whole.subarray(offset, offset + MAX_READ_BYTES);
+          window = whole.subarray(offset, offset + Math.min(MAX_READ_BYTES, budget));
         } else {
-          window = Buffer.alloc(Math.min(info.size - offset, MAX_READ_BYTES));
+          window = Buffer.alloc(Math.min(info.size - offset, MAX_READ_BYTES, budget));
           const { bytesRead } = await fh.read(window, 0, window.byteLength, offset);
           window = window.subarray(0, bytesRead);
         }
@@ -391,11 +409,17 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
         }
         const more = offset + window.byteLength < info.size;
         let end = more ? utf8Boundary(window, window.byteLength) : window.byteLength;
-        // Quotes, backslashes and control characters grow when escaped: shrink until the page fits.
-        while (
-          end > 0 &&
-          JSON.stringify(window.subarray(0, end).toString("utf8")).length > MAX_READ_JSON_CHARS
-        ) {
+        // Quotes, backslashes and control characters grow when escaped: shrink until the whole
+        // result (path and fields too) fits what the loop keeps, so `nextOffset` stays true.
+        const sized = (n: number) =>
+          JSON.stringify({
+            ...base,
+            offset,
+            truncated: true,
+            nextOffset: offset + n,
+            text: window.subarray(0, n).toString("utf8"),
+          }).length;
+        while (end > 0 && sized(end) > budget - BUDGET_SLACK) {
           end = utf8Boundary(window, Math.max(1, Math.floor(end * 0.9)));
         }
         const more2 = more || end < window.byteLength;

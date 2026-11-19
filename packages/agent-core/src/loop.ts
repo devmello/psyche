@@ -161,7 +161,14 @@ import {
   type ThreadState,
   type ThreadStateStore,
 } from "./state.ts";
-import { capToolOutput, isPartList, normalizeToolOutput, withoutImages } from "./tool-output.ts";
+import {
+  capToolOutput,
+  type ImageShaper,
+  isPartList,
+  keepRecentToolImages,
+  normalizeToolOutput,
+  withoutImages,
+} from "./tool-output.ts";
 import { TRUSTED_CONTEXT_CAP, type TurnContextProvider } from "./turn-context.ts";
 import {
   bindingHash,
@@ -257,6 +264,8 @@ export interface AgentLoopOptions {
   maxRunTokens?: number;
   /** Characters of one tool result sent to the model (default 50,000). */
   maxToolResultChars?: number;
+  /** Resizes a tool-result image before it is sent and kept (the Gateway passes `downscaleImage`). */
+  toolImageShaper?: ImageShaper;
   /**
    * `notify` calls one Task may make without a card (default 3; #307). An automation's run is
    * one Task, an attended turn outside a Task counts per run. The broker lets `notify` to the
@@ -1929,7 +1938,7 @@ export class PsycheAgentLoop implements AgentLoop {
     const request = {
       model: run.model,
       system,
-      messages: run.thread.messages,
+      messages: keepRecentToolImages(run.thread.messages),
       ...(tools.length === 0 ? {} : { tools }),
     };
     // The thread lets the router apply its `/model` pin (strict) and attribute usage.
@@ -2888,6 +2897,7 @@ export class PsycheAgentLoop implements AgentLoop {
       ...(g.authority === undefined ? {} : { authority: structuredClone(g.authority) }),
       ...(run.requester === undefined ? {} : { requester: structuredClone(run.requester) }),
       signal: run.abort.signal,
+      resultBudgetChars: this.#o.maxToolResultChars ?? 50_000,
       onUpdate: (update) => this.#toolEvent(run, call.id, call.name, "running", level1, update),
       turn: this.#turnApi(run, call.id),
     };
@@ -3011,7 +3021,7 @@ export class PsycheAgentLoop implements AgentLoop {
       type: "tool_result",
       callId: call.id,
       name: call.name,
-      output: await this.#shape(run, result.output),
+      output: await this.#shape(run, result.output, failed),
       ...(failed ? { isError: true } : {}),
       provenance: result.provenance,
     };
@@ -3024,8 +3034,11 @@ export class PsycheAgentLoop implements AgentLoop {
    * cannot read images gets a note), then an oversized result cut with a visible marker that keeps
    * its structure, head and tail (C2). Provenance stays on the part, so images are untrusted input too.
    */
-  async #shape(run: RunState, output: unknown): Promise<unknown> {
-    let shaped = normalizeToolOutput(output);
+  async #shape(run: RunState, output: unknown, failed: boolean): Promise<unknown> {
+    let shaped = await normalizeToolOutput(output, {
+      failed,
+      ...(this.#o.toolImageShaper === undefined ? {} : { shaper: this.#o.toolImageShaper }),
+    });
     if (isPartList(shaped) && shaped.some((p) => p.type === "image")) {
       if (!(await this.#canSeeImages(run.model))) shaped = withoutImages(shaped, run.model);
     }

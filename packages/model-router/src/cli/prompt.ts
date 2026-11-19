@@ -53,7 +53,12 @@ export interface CliPrompt {
 function outputText(output: unknown): string {
   if (typeof output === "string") return output;
   try {
-    return JSON.stringify(output);
+    // Pictures are never inlined as base64 text.
+    return JSON.stringify(output, (_k, v) =>
+      v !== null && typeof v === "object" && (v as { type?: unknown }).type === "image"
+        ? "[image]"
+        : v,
+    );
   } catch {
     return String(output);
   }

@@ -607,3 +607,25 @@ describe("read_file paging", () => {
     expect(chunks.join("")).toBe(body);
   });
 });
+
+describe("read_file budget", () => {
+  it("sizes pages to the configured result budget, whole output included", async () => {
+    const body = 'q"\n\t'.repeat(30_000);
+    writeFileSync(join(granted, "b.txt"), body);
+    const budget = 10_000;
+    let offset = 0;
+    let got = "";
+    for (let i = 0; i < 200; i++) {
+      const r = await run(
+        "read_file",
+        { path: join(granted, "b.txt"), offset },
+        ctx({ resultBudgetChars: budget }),
+      );
+      expect(JSON.stringify(r.output).length).toBeLessThanOrEqual(budget);
+      got += String(r.output.text);
+      if (r.output.nextOffset === undefined) break;
+      offset = r.output.nextOffset as number;
+    }
+    expect(got).toBe(body);
+  });
+});
