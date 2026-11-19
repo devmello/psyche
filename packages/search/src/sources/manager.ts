@@ -42,6 +42,8 @@ export interface SourceIndexerOptions {
   sweepEveryMs?: number;
   onChange?: () => void;
   onError?: (source: SourceId, err: unknown) => void;
+  /** A source that failed last time read a page again: the end of that failure's run. */
+  onRecover?: (source: SourceId) => void;
 }
 
 const DAY_MS = 86_400_000;
@@ -306,7 +308,7 @@ export class SourceIndexer {
           changed += await this.#forgetMissing(id, new Set(res.items.map((i) => i.nativeId)));
         this.#setMeta(`src.${id}.cursor`, JSON.stringify(res.cursor ?? null));
         this.#setMeta(`src.${id}.lastAt`, String(this.#o.now()));
-        this.#errors.delete(id);
+        if (this.#errors.delete(id)) this.#o.onRecover?.(id);
         if (changed > 0) this.#o.onChange?.();
         if (!res.hasMore) {
           this.#setMeta(`src.${id}.backfilled`, "1");
