@@ -71,6 +71,25 @@ const ARGS_OK: [string, string[]][] = [
   ["du", ["-sh", "."]],
   ["stat", ["f"]],
   ["file", ["f"]],
+  // A separate option value is not the first operand (so a later option is not "late").
+  ["rg", ["-t", "ts", "-i", "foo"]],
+  ["rg", ["--type", "ts", "-i", "foo", "."]],
+  ["grep", ["-A", "3", "-n", "foo", "."]],
+  ["grep", ["-C", "2", "-rn", "foo", "."]],
+  ["tree", ["-I", "node_modules", "-L", "2"]],
+  ["tree", ["-LI", "2", "x", "-a"]],
+  ["head", ["-n", "20", "-q", "f"]],
+  ["du", ["-d", "1", "-h", "."]],
+  ["jq", ["--arg", "k", "v", "-r", ".", "f"]],
+  ["rg", ["-d", "1", "-i", "foo"]],
+  ["rg", ["--max-count", "3", "-i", "foo"]],
+  ["rg", ["--regexp", "foo", "-i", "."]],
+  ["grep", ["--include", "*.ts", "-r", "foo", "."]],
+  ["tail", ["--lines", "5", "-q", "f"]],
+  ["du", ["--max-depth", "1", "-h", "."]],
+  ["tree", ["--sort", "name", "-a"]],
+  // A dash-led value is not skipped, but it is no danger flag either.
+  ["rg", ["-t", "-i", "foo"]],
 ];
 
 const ARGS_DANGEROUS: [string, string[]][] = [
@@ -181,6 +200,22 @@ const ARGS_DANGEROUS: [string, string[]][] = [
   ["file", ["-C", "-m", "magic"]],
   ["file", ["-z", "f"]],
   ["file", ["--compile"]],
+  // A separate value never hides a flag, an operand or a path (review of #1368, round 2).
+  ["rg", ["-t", "ts", "-L", "foo"]],
+  ["rg", ["-t", "ts", "--pre=./x.sh", "foo"]],
+  ["rg", ["--type", "ts", "--pre", "./x.sh", "foo"]],
+  ["rg", ["-t", "ts", "-z", "foo"]],
+  ["rg", ["-e", "--pre=./x.sh", "."]],
+  ["rg", ["-t", "ts", "foo", "-L"]],
+  ["grep", ["-A", "3", "-rS", "foo", "."]],
+  ["grep", ["-e", "-rS", "."]],
+  ["grep", ["-A", "3", "foo", ".", "-r"]],
+  ["tree", ["-I", "x", "-l", "."]],
+  ["tree", ["-LI", "2", "x", "-l"]],
+  ["du", ["-d", "1", "-L", "."]],
+  ["head", ["-n", "5", "f", "-q"]],
+  ["jq", ["--arg", "k", "v", ".", "f", "-r"]],
+  ["grep", ["--file", "pats", "-r", "foo", "--", "-x"]],
   // Not on the any-argv list at all.
   ["git", ["status"]],
   ["awk", ["BEGIN{system(1)}"]],
@@ -700,6 +735,7 @@ describe("exec_host program grant: every path stays inside the folder", () => {
     await allowProgram(h, host(["grep", "-r", "foo", "."]));
     await allowProgram(h, host(["du", "-s", "."]));
     await allowProgram(h, host(["jq", ".", "plain.txt"]));
+    await allowProgram(h, host(["head", "-n", "1", "plain.txt"]));
     return h;
   }
   const RUN: [string, string[]][] = [
@@ -716,6 +752,20 @@ describe("exec_host program grant: every path stays inside the folder", () => {
     ["rg", ["foo"]],
     ["rg", ["--ignore-file=plain.txt", "foo"]],
     ["du", ["-s", "sub"]],
+    // A separate option value is skipped, so the options after it are not late.
+    ["rg", ["-t", "ts", "-i", "foo"]],
+    ["rg", ["--type", "ts", "-i", "foo", "."]],
+    ["grep", ["-A", "3", "-n", "foo", "."]],
+    ["grep", ["-C", "2", "-rn", "foo", "."]],
+    ["tree", ["-I", "node_modules", "-L", "2"]],
+    ["tree", ["-LI", "2", "x", "-a"]],
+    ["head", ["-n", "20", "-q", "plain.txt"]],
+    ["du", ["-d", "1", "-h", "."]],
+    ["jq", ["--arg", "k", "v", "-r", ".", "plain.txt"]],
+    ["jq", ["--slurpfile", "k", "plain.txt", "-n", "1"]],
+    ["rg", ["--file", "plain.txt", "-i", "."]],
+    ["grep", ["-f", "plain.txt", "-r", "x", "."]],
+    ["jq", ["-L", "sub", "-n", "1"]],
   ];
   const ASK: [string, string[]][] = [
     ["ls", ["-la", join(HOME, ".aws")]],
@@ -756,6 +806,35 @@ describe("exec_host program grant: every path stays inside the folder", () => {
     ["jq", [`--library-path=${OUTSIDE}`, "-n", "1"]],
     ["jq", ["-L", OUTSIDE, "-n", "1"]],
     ["du", ["--files0-from=list"]],
+    // A separate value that names a path is checked like an operand.
+    ["grep", ["-f", "/etc/passwd", "-r", "x", "."]],
+    ["grep", ["-f", join(OUTSIDE, "pats"), "x"]],
+    ["grep", ["--file", join(OUTSIDE, "pats"), "x"]],
+    ["rg", ["--file", join(OUTSIDE, "pats"), "."]],
+    ["rg", ["-f", join(HOME, "pats"), "."]],
+    ["rg", ["--ignore-file", "/etc/passwd", "foo"]],
+    ["rg", ["--ignore-file", "../work2/x", "foo"]],
+    ["rg", ["-t", "ts", "--ignore-file", join(OUTSIDE, "ig"), "foo"]],
+    ["jq", ["-L", "/outside", "-n", 'import "x" as x; 1']],
+    ["jq", ["-nL", OUTSIDE, "1"]],
+    ["jq", ["--library-path", OUTSIDE, "-n", "1"]],
+    ["jq", ["--slurpfile", "k", join(HOME, "x.json"), "-n", "1"]],
+    ["jq", ["--rawfile", "k", "/etc/passwd", "-n", "1"]],
+    ["jq", ["--arg", "k", "v", "--rawfile", "r", "../work2/x", "-n", "1"]],
+    ["tree", ["--gitfile", "/etc/passwd", "-a"]],
+    // Flags and operands behind a separate value are still seen.
+    ["grep", ["-A", "3", "-rS", "foo", "."]],
+    ["rg", ["-t", "ts", "-L", "foo"]],
+    ["rg", ["-t", "ts", "--pre=./x.sh", "foo"]],
+    ["tree", ["-I", "x", "-l", "."]],
+    ["grep", ["-e", "-rS", "."]],
+    ["rg", ["-e", "--pre=./x.sh", "."]],
+    ["du", ["-d", "1", "-L", "."]],
+    ["rg", ["-t", "ts", "-i", "foo", "/etc"]],
+    ["grep", ["-A", "3", "-n", "foo", "/etc"]],
+    ["head", ["-n", "20", "-q", join(HOME, "x")]],
+    ["tree", ["-LI", "2", "x", "/"]],
+    ["jq", ["--arg", "k", "v", "-r", ".", join(HOME, "x.json")]],
   ];
   it.each(RUN)("%s %j runs quietly", async (name, args) => {
     const h = await grantedTools();
@@ -771,6 +850,40 @@ describe("exec_host program grant: every path stays inside the folder", () => {
     expect(operandsInside("jq", ["-Lsub", "-n", "1"], WORK, WORK)).toBe(true);
     expect(operandsInside("jq", [`-L${OUTSIDE}`, "-n", "1"], WORK, WORK)).toBe(false);
     expect(operandsInside("rg", [`-nf${OUTSIDE}/p`], WORK, WORK)).toBe(false);
+  });
+  it("a separate option value is skipped only where the option is known to take one", () => {
+    const inside = (name: string, args: string[]) => operandsInside(name, args, WORK, WORK);
+    // Known value options: a plain value is no operand, a path value is judged as one.
+    expect(inside("rg", ["-t", "/etc/passwd", "foo"])).toBe(true);
+    expect(inside("grep", ["-e", "/etc/passwd", "."])).toBe(true);
+    expect(inside("rg", ["--ignore-file", "plain.txt", "foo"])).toBe(true);
+    expect(inside("rg", ["--ignore-file", `${OUTSIDE}/x`, "foo"])).toBe(false);
+    expect(inside("grep", ["-f", `${OUTSIDE}/x`, "foo"])).toBe(false);
+    expect(inside("jq", ["-L", `${OUTSIDE}`, "-n", "1"])).toBe(false);
+    expect(inside("jq", ["--arg", "k", "/etc/passwd", "-n", "1"])).toBe(true);
+    expect(inside("jq", ["--rawfile", "k", "/etc/passwd", "-n", "1"])).toBe(false);
+    // Unknown or abbreviated long options, BSD's optional values, jq -f (a boolean in jq 1.7)
+    // and tools without a table keep the next argument as an operand.
+    expect(inside("rg", ["--typ", "/etc/passwd", "foo"])).toBe(false);
+    expect(inside("rg", ["--no-such", "/etc/passwd", "foo"])).toBe(false);
+    expect(inside("grep", ["--context", "/etc/passwd", "foo"])).toBe(false);
+    expect(inside("grep", ["--color", "/etc/passwd", "foo"])).toBe(false);
+    expect(inside("jq", ["-f", "/etc/passwd", "-n"])).toBe(false);
+    expect(inside("jq", ["--from-file", "/etc/passwd"])).toBe(false);
+    expect(inside("ls", ["-w", "/etc/passwd"])).toBe(false);
+    expect(inside("stat", ["-f", "/etc/passwd", "x"])).toBe(false);
+    expect(inside("file", ["-F", "/etc/passwd", "x"])).toBe(false);
+    // An attached value takes no slot; a dash-led value is not skipped.
+    expect(inside("rg", ["-tts", "/etc/passwd"])).toBe(false);
+    expect(inside("rg", ["--type=ts", "/etc/passwd"])).toBe(false);
+    expect(inside("rg", ["-t", "-/etc/x", "foo"])).toBe(true);
+    // tree: each value letter of a cluster takes one following argument, in order.
+    expect(inside("tree", ["-LI", "2", "x"])).toBe(true);
+    expect(inside("tree", ["-LI", "2", "x", "/etc"])).toBe(false);
+    expect(inside("tree", ["-LI", "2"])).toBe(true);
+    // Only as many values as the cluster has slots.
+    expect(inside("rg", ["-t", "ts", "/etc/passwd"])).toBe(false);
+    expect(inside("jq", ["--arg", "k", "v", "/etc/passwd"])).toBe(false);
   });
   it("a PSYCHE_HOME inside the shared folder refuses the folder (no offer)", async () => {
     const inside = makeBroker({
