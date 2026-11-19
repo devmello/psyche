@@ -544,6 +544,54 @@ describe("a restart reports every set-aside approval whose resume it cut short, 
     expect((await restart()).seen).toEqual([]);
   });
 
+  /** The same call again, as a resume run makes it: the `always` grant lets it through. */
+  async function throughGrant(h: Harness) {
+    const d = await h.broker.decide(call("conn.action", "write"), {
+      ...UNATTENDED,
+      runId: "run_resume",
+      taskId: "task_resume",
+      permissionMode: "balanced",
+    });
+    expect(d.decision).toBe("allow");
+    expect(d.grantId).toBeDefined();
+  }
+
+  it("a use of its grant whose call failed is not done: reported, as failed", async () => {
+    const { h, issued, restart } = await approved("always");
+    await throughGrant(h);
+    await h.broker.recordReceipt({
+      kind: "connector_action",
+      outcome: "failed",
+      summary: "failed",
+      taskId: "task_resume",
+      approvalId: null,
+    });
+    const r = await restart();
+    expect(r.seen).toEqual([issued.approval.id]);
+    expect(r.failed).toEqual([true]);
+  });
+
+  it("a use of its grant with no receipt yet is not done: reported", async () => {
+    const { h, issued, restart } = await approved("always");
+    await throughGrant(h);
+    const r = await restart();
+    expect(r.seen).toEqual([issued.approval.id]);
+    expect(r.failed).toEqual([false]);
+  });
+
+  it("positive control: a use of its grant whose call succeeded is done", async () => {
+    const { h, restart } = await approved("always");
+    await throughGrant(h);
+    await h.broker.recordReceipt({
+      kind: "connector_action",
+      outcome: "ok",
+      summary: "ok",
+      taskId: "task_resume",
+      approvalId: null,
+    });
+    expect((await restart()).seen).toEqual([]);
+  });
+
   it("positive control: a resume that is over (settled) is not reported", async () => {
     const { h, issued, restart } = await approved("always");
     h.broker.settleSetAside(issued.approval.id);

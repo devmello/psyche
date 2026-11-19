@@ -1,5 +1,6 @@
 import type { ApprovalRequest, InputRequest, JsonObject, Question } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
+import type { TaintSource } from "./types.ts";
 
 /**
  * Approval card text (security §3.7 "Delivery", S23 design-12). Every surface renders a fixed
@@ -413,4 +414,15 @@ export function approvalCode(bindingHash: string): string {
     .toLowerCase()
     .replace(/[^0-9a-f]/g, "")}00000000`;
   return `${hex.slice(0, 4)}-${hex.slice(4, 8)}`;
+}
+
+/** A tainted card's sources, display-safe: built when it is issued and again on a reload. */
+export function cardTaintSources(sources: readonly TaintSource[]): TaintSource[] {
+  return sources.map((s) => {
+    const out: TaintSource = { sourceKind: sanitizeDisplay(s.sourceKind) };
+    if (s.origin !== undefined) out.origin = sanitizeDisplay(s.origin);
+    if (s.sender !== undefined) out.sender = sanitizeDisplay(s.sender);
+    if (s.toolCallId !== undefined) out.toolCallId = s.toolCallId;
+    return out;
+  });
 }

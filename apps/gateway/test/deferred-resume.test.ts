@@ -29,13 +29,26 @@ function writeCall(path: string): PolicyCall {
   };
 }
 
+function connectorCall(path: string): PolicyCall {
+  const params = { path };
+  return {
+    tool: "conn.action",
+    sideEffect: "write",
+    params,
+    paramsHash: sha256(JSON.stringify(params)),
+  };
+}
+
 /**
  * The real broker, scheduler and DeferredResume, with a launcher that does what the agent loop
  * does for an unattended run (the loop's own part is tested in agent-core features.test.ts):
  * decide → an approved set-aside card for this exact call? (`claim` + `verifyBinding`, then do
  * it and record its receipt) → otherwise set the action aside and finish without it.
  */
-function setup(plans: string[], opts: { failWrites?: boolean } = {}) {
+function setup(
+  plans: string[],
+  opts: { failWrites?: boolean; noReceipt?: boolean; standing?: boolean } = {},
+) {
   const clock = new FakeClock(T0);
   const db = openDb(":memory:");
   const notifier = new PsycheNotifier({ clock });
@@ -71,16 +84,30 @@ function setup(plans: string[], opts: { failWrites?: boolean } = {}) {
         : Promise.resolve();
       const result = (async () => {
         const path = plans[i - 1] ?? NOTES;
-        const call = writeCall(path);
+        // `standing`: a connector action in balanced mode, whose card offers `always`.
+        const call = opts.standing === true ? connectorCall(path) : writeCall(path);
         const ctx = {
           threadId: request.threadId,
           runId: `run_${i}`,
           taskId,
-          permissionMode: "manual" as const,
+          permissionMode: opts.standing === true ? ("balanced" as const) : ("manual" as const),
           taint: false,
           unattended: true,
         };
         const d = await broker.decide(call, ctx);
+        if (d.decision === "allow" && d.grantId !== undefined) {
+          // A standing grant let the call through: the loop's receipt names no approval.
+          if (opts.failWrites !== true) written.push(path);
+          if (opts.noReceipt !== true) {
+            await broker.recordReceipt({
+              kind: "connector_action",
+              outcome: opts.failWrites === true ? "failed" : "ok",
+              summary: `Wrote ${path}`,
+              taskId,
+              approvalId: null,
+            });
+          }
+        }
         if (d.decision === "ask" && d.bindingHash !== undefined && d.approvalKind !== undefined) {
           const id = await resume.claim({
             taskId,
@@ -140,12 +167,12 @@ function setup(plans: string[], opts: { failWrites?: boolean } = {}) {
     if (e.event === "automation.run.finished") resume.onRunFinished(e.payload.run);
   });
   const pendingCards = () => broker.list({ status: "pending" });
-  const approve = async (id: string, token: string) =>
+  const approve = async (id: string, token: string, scope: "once" | "always" = "once") =>
     broker.answer({
       approvalId: id,
       answerToken: token,
       decision: "approve",
-      scope: "once",
+      scope,
       decidedBy: { deviceId: "dev_mac", surface: "desktop" },
     });
   /** Let the scheduler, the resume queue and the runs it starts settle. */
@@ -531,5 +558,72 @@ describe("follow-ups: a failed action is not done, and the restart notice is hon
     );
     await h.resume.idle();
     expect(await missed(h)).toEqual(["failed"]);
+  });
+});
+
+describe("follow-ups: a standing grant's use is done only when its call succeeded", () => {
+  async function viaGrant(opts: { failWrites?: boolean; noReceipt?: boolean }) {
+    const h = setup([NOTES, NOTES], { ...opts, standing: true });
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    expect(card.scopesOffered).toContain("always");
+    const done = await h.approve(card.id, tok.get(card.id) ?? "", "always");
+    expect(done.grantId).not.toBeNull();
+    await h.settle();
+    const n = (await h.notifier.list()).find(
+      (x) => x.message?.titleKey === RESUME_MISSED_TITLE_KEY,
+    );
+    return { h, n };
+  }
+
+  it("the grant let the call through and it failed: a failed notice, never 'ask again'", async () => {
+    const { h, n } = await viaGrant({ failWrites: true });
+    expect(h.written).toEqual([]);
+    expect(await missed(h)).toEqual(["failed_kept"]);
+    expect(n?.body).toMatch(/it failed/);
+    expect(n?.body).toMatch(/try again without asking/);
+    expect(n?.body).toMatch(/Standing permissions/);
+    expect(n?.body).not.toMatch(/ask again/);
+  });
+
+  it("the grant let the call through and no receipt came: not done either", async () => {
+    const { h } = await viaGrant({ noReceipt: true });
+    expect(await missed(h)).toEqual(["failed_kept"]);
+  });
+
+  it("positive control: the grant's call succeeded: done, no notice", async () => {
+    const { h, n } = await viaGrant({});
+    expect(h.written).toEqual([NOTES]);
+    expect(n).toBeUndefined();
+    expect(h.resume.pending()).toEqual([]);
+  });
+
+  it("a once approval that failed still says it will ask again", async () => {
+    const h = setup([NOTES, NOTES], { failWrites: true });
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    await h.approve(card.id, tok.get(card.id) ?? "", "once");
+    await h.settle();
+    expect(await missed(h)).toEqual(["failed"]);
+  });
+
+  it("a kept grant whose action failed before the restart: failed, with the kept wording", async () => {
+    const h = setup([NOTES]);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    h.resume.revokedAtRestart(
+      { ...card, status: "approved", scopeGranted: "always", grantId: "grt_1" },
+      { failed: true },
+    );
+    await h.resume.idle();
+    expect(await missed(h)).toEqual(["failed_kept"]);
   });
 });
