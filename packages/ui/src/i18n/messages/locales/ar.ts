@@ -1246,6 +1246,32 @@ export const ar: Partial<Catalogue> = {
   "settings.credentials.vault.setup.button": "إعداد الخزنة",
   "settings.credentials.vault.setup.failed": "لم يتم إنشاء الخزنة: {reason}",
   "settings.credentials.vault.setup.noSlot": "لا يوفّر هذا الـ Gateway خانة مفتاح للخزنة.",
+  "settings.credentials.onePassword.title": "1Password",
+  "settings.credentials.onePassword.intro":
+    "اسمح لـ Psyche بقراءة العناصر التي تربطها من 1Password. لا يحفظ Psyche أي كلمة مرور أو رمز من 1Password، ويطلب 1Password نفسه فتح القفل عند الحاجة.",
+  "settings.credentials.onePassword.check": "تحقق مرة أخرى",
+  "settings.credentials.onePassword.guide": "فتح الدليل",
+  "settings.credentials.onePassword.notInstalled.body":
+    "لا يعثر Psyche على أداة سطر أوامر 1Password ‏(op) على هذا الـ Mac. ثبّتها ثم تحقق مرة أخرى.",
+  "settings.credentials.onePassword.notIntegrated.body":
+    "في تطبيق 1Password افتح الإعدادات، واختر المطوّر، وفعّل «التكامل مع 1Password CLI». ثم تحقق مرة أخرى.",
+  "settings.credentials.onePassword.locked.body":
+    "افتح قفل تطبيق 1Password ووافق على الطلب إن ظهر. ثم تحقق مرة أخرى.",
+  "settings.credentials.onePassword.error.body":
+    "لم تستجب أداة سطر أوامر 1Password كما هو متوقع. تحقق مرة أخرى؛ وإن استمر الفشل فأعد تثبيت op.",
+  "settings.credentials.onePassword.signedIn.body":
+    "تم تسجيل الدخول إلى 1Password باسم {email} ({url}).",
+  "settings.credentials.onePassword.signedIn.connect": "استخدام 1Password في Psyche",
+  "settings.credentials.onePassword.connected.body":
+    "يقرأ Psyche عناصر 1Password التي تربطها عبر تطبيق 1Password. هي للقراءة فقط؛ ولا يُكتب أي شيء في 1Password.",
+  "settings.credentials.onePassword.test": "اختبار الاتصال",
+  "settings.credentials.onePassword.test.ok":
+    "تم الاتصال. {count, plural, one {عُثر على خزنة واحدة} two {عُثر على خزنتين} few {عُثر على # خزن} many {عُثر على # خزنة} other {عُثر على # خزنة}}.",
+  "settings.credentials.onePassword.test.failed": "لم ينجح الاختبار: {reason}",
+  "settings.credentials.onePassword.disconnect": "قطع الاتصال",
+  "settings.credentials.onePassword.config":
+    "تم إعداد 1Password في ملف config.json الخاص بالـ Gateway. غيّره هناك.",
+  "settings.credentials.onePassword.failed": "لم تنجح العملية: {reason}",
   "settings.credentials.vault.confirm.title": "أكّد مفتاح الاسترداد",
   "settings.credentials.vault.confirm.body":
     "اكتب المجموعة الأخيرة من مفتاح الاسترداد، أي الجزء بعد الشرطة الأخيرة، لتُثبت أنك حفظته.",

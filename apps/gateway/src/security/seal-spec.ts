@@ -50,6 +50,7 @@ const INTERNAL_SEALED = new Set([
   "_lan.networks",
   "_payments.linkCli",
   "_payments.linkAbandonedBefore",
+  "_credentials.onePasswordApp",
 ]);
 
 /** `mcp.servers` carries each server's trust tier, sandbox and launch command. */

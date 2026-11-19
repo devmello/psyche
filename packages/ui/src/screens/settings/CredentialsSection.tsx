@@ -47,6 +47,7 @@ import {
 import { useLinkSetupActions } from "./CredentialLinkSetup.tsx";
 import { PaymentsGroup, type PaymentsView } from "./CredentialPayments.tsx";
 import { bindingLabel, cardRefusal, credentialKindLabel } from "./credential-labels.ts";
+import { OnePasswordSetupPanel } from "./OnePasswordSetup.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
   EmptyNotice,
@@ -1021,6 +1022,7 @@ export function CredentialsSection({
   return (
     <div className="flex flex-col gap-3">
       <VaultProtection />
+      <OnePasswordSetupPanel />
       <CredentialsPanel
         credentials={q.data?.credentials ?? []}
         values={form.values}

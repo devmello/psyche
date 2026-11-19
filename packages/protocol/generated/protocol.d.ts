@@ -4008,7 +4008,7 @@ export interface CredentialMeta {
     id:                string;
     kind:              CredentialKind;
     lastUsedAt?:       null | string;
-    managedBy?:        ManagedBy;
+    managedBy?:        ManagedByClass;
     name:              string;
     ownerConnectorId?: null | string;
     slug:              string;
@@ -4026,7 +4026,7 @@ export interface CredentialBinding {
 
 export type CredentialKind = "login" | "api_key" | "oauth_token" | "ssh_key" | "note" | "payment_link" | "signing_key";
 
-export interface ManagedBy {
+export interface ManagedByClass {
     kind:      ManagedByKind;
     removable: boolean;
     setting:   Setting;
@@ -8758,6 +8758,32 @@ export interface OnePasswordRef {
     item:  string;
     vault: string;
 }
+
+export interface OnePasswordTestResult {
+    status:     OnePasswordSetupStatus;
+    vaultCount: number;
+}
+
+export interface OnePasswordSetupStatus {
+    account?:   Account;
+    connected:  boolean;
+    managedBy?: ManagedByEnum;
+    op?:        OpClass;
+    state:      OnePasswordSetupState;
+}
+
+export interface Account {
+    email: string;
+    url:   string;
+}
+
+export type ManagedByEnum = "config";
+
+export interface OpClass {
+    path: string;
+}
+
+export type OnePasswordSetupState = "not_installed" | "not_integrated" | "locked" | "signed_in" | "error";
 
 export type OSPermission = "a11yBus" | "screenCastPortal" | "remoteDesktopPortal" | "x11";
 

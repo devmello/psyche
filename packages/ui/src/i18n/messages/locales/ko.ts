@@ -1188,6 +1188,30 @@ export const ko: Partial<Catalogue> = {
   "settings.credentials.vault.setup.button": "금고 설정",
   "settings.credentials.vault.setup.failed": "금고를 만들지 못했습니다: {reason}",
   "settings.credentials.vault.setup.noSlot": "이 Gateway에는 금고용 키 슬롯이 없습니다.",
+  "settings.credentials.onePassword.title": "1Password",
+  "settings.credentials.onePassword.intro":
+    "1Password에서 연결한 항목을 Psyche가 읽을 수 있게 합니다. Psyche는 1Password 비밀번호나 토큰을 저장하지 않으며, 잠금 해제가 필요하면 1Password가 직접 묻습니다.",
+  "settings.credentials.onePassword.check": "다시 확인",
+  "settings.credentials.onePassword.guide": "가이드 열기",
+  "settings.credentials.onePassword.notInstalled.body":
+    "이 Mac에서 1Password 명령줄 도구(op)를 찾을 수 없습니다. 설치한 뒤 다시 확인하세요.",
+  "settings.credentials.onePassword.notIntegrated.body":
+    "1Password 앱에서 설정을 열고 개발자를 선택한 다음 1Password CLI와 통합을 켜세요. 그런 다음 다시 확인하세요.",
+  "settings.credentials.onePassword.locked.body":
+    "1Password 앱의 잠금을 해제하고, 요청이 나타나면 승인하세요. 그런 다음 다시 확인하세요.",
+  "settings.credentials.onePassword.error.body":
+    "1Password 명령줄 도구가 예상대로 응답하지 않았습니다. 다시 확인하고, 계속 실패하면 op를 다시 설치하세요.",
+  "settings.credentials.onePassword.signedIn.body": "{email}({url}) 계정으로 1Password에 로그인되어 있습니다.",
+  "settings.credentials.onePassword.signedIn.connect": "Psyche에서 1Password 사용",
+  "settings.credentials.onePassword.connected.body":
+    "Psyche는 연결한 1Password 항목을 1Password 앱을 통해 읽습니다. 읽기 전용이며 1Password에는 아무것도 쓰지 않습니다.",
+  "settings.credentials.onePassword.test": "연결 테스트",
+  "settings.credentials.onePassword.test.ok": "연결되었습니다. 보관함 {count, plural, other {#개}}를 찾았습니다.",
+  "settings.credentials.onePassword.test.failed": "테스트가 실패했습니다: {reason}",
+  "settings.credentials.onePassword.disconnect": "연결 해제",
+  "settings.credentials.onePassword.config":
+    "1Password는 Gateway의 config.json에서 설정되어 있습니다. 그곳에서 변경하세요.",
+  "settings.credentials.onePassword.failed": "작동하지 않았습니다: {reason}",
   "settings.credentials.vault.confirm.title": "복구 키를 확인하세요",
   "settings.credentials.vault.confirm.body":
     "저장했는지 확인하기 위해 복구 키의 마지막 그룹, 즉 마지막 하이픈 뒤의 부분을 입력하세요.",

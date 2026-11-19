@@ -46,6 +46,7 @@ export {
   BwCliSource,
   checkBitwardenRef,
 } from "./external/bitwarden.ts";
+export { cliBaseEnv, execCli } from "./external/cli.ts";
 export {
   checkRef,
   type OnePasswordField,

@@ -3732,6 +3732,38 @@
         "sideEffecting": true
       },
       {
+        "description": "Lets linked 1Password items be read through the 1Password app's CLI integration, once op answers signed in. Psyche finds op itself (a real file owned by the user or root that others cannot write, outside its own data folder) and takes no path from the caller. Read-only, takes effect at once, audited. conflict while credentials.onePassword in config.json supplies the source. Side-effecting.",
+        "name": "vault.onePassword.connect",
+        "params": "#/$defs/VaultOnePasswordConnectParams",
+        "result": "#/$defs/OnePasswordSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Stops reading 1Password through the app integration: linked items answer unavailable. Items already linked, and 1Password itself, are untouched. Side-effecting.",
+        "name": "vault.onePassword.disconnect",
+        "params": "#/$defs/VaultOnePasswordDisconnectParams",
+        "result": "#/$defs/OnePasswordSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Where the 1Password setup stands: op not installed, app integration off, locked, or signed in (with the account address and email). Runs op's account commands without a token; never reads an item or a secret. 1Password may show its own unlock prompt.",
+        "name": "vault.onePassword.status",
+        "params": "#/$defs/VaultOnePasswordStatusParams",
+        "result": "#/$defs/OnePasswordSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Test connection: lists the account's vaults through op and returns how many there are. A harmless read: no names, no items, no secret values.",
+        "name": "vault.onePassword.test",
+        "params": "#/$defs/VaultOnePasswordTestParams",
+        "result": "#/$defs/OnePasswordTestResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Lists Stripe Link payments, newest first, with their hold / capture / refund state and merchant references; brand and last4 only.",
         "name": "vault.payments.list",
         "params": "#/$defs/VaultPaymentsListParams",
@@ -33706,6 +33738,79 @@
       ],
       "type": "object"
     },
+    "OnePasswordSetupState": {
+      "enum": [
+        "not_installed",
+        "not_integrated",
+        "locked",
+        "signed_in",
+        "error"
+      ],
+      "type": "string"
+    },
+    "OnePasswordSetupStatus": {
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/OnePasswordSetupState"
+        },
+        "connected": {
+          "type": "boolean"
+        },
+        "managedBy": {
+          "enum": [
+            "config"
+          ],
+          "type": "string"
+        },
+        "op": {
+          "properties": {
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "type": "object"
+        },
+        "account": {
+          "properties": {
+            "url": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "url",
+            "email"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "state",
+        "connected"
+      ],
+      "type": "object"
+    },
+    "OnePasswordTestResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/OnePasswordSetupStatus"
+        },
+        "vaultCount": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "vaultCount"
+      ],
+      "type": "object"
+    },
     "OsPermission": {
       "enum": [
         "a11yBus",
@@ -47708,6 +47813,22 @@
         "reason",
         "status"
       ],
+      "type": "object"
+    },
+    "VaultOnePasswordConnectParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "VaultOnePasswordDisconnectParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "VaultOnePasswordStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "VaultOnePasswordTestParams": {
+      "properties": {},
       "type": "object"
     },
     "VaultPayment": {

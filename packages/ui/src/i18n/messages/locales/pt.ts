@@ -1154,6 +1154,31 @@ export const pt: Partial<Catalogue> = {
   "settings.credentials.vault.setup.failed": "O cofre não foi criado: {reason}",
   "settings.credentials.vault.setup.noSlot":
     "Este Gateway não oferece um espaço de chave para o cofre.",
+  "settings.credentials.onePassword.title": "1Password",
+  "settings.credentials.onePassword.intro":
+    "Deixe o Psyche ler os itens que você vincula do 1Password. O Psyche não guarda nenhuma senha nem token do 1Password, e é o próprio 1Password que pede para desbloquear quando precisa.",
+  "settings.credentials.onePassword.check": "Verificar de novo",
+  "settings.credentials.onePassword.guide": "Abrir o guia",
+  "settings.credentials.onePassword.notInstalled.body":
+    "O Psyche não encontra a ferramenta de linha de comando do 1Password (op) neste Mac. Instale-a e verifique de novo.",
+  "settings.credentials.onePassword.notIntegrated.body":
+    "No app do 1Password, abra Ajustes, escolha Desenvolvedor e ative Integrar com a CLI do 1Password. Depois verifique de novo.",
+  "settings.credentials.onePassword.locked.body":
+    "Desbloqueie o app do 1Password e aprove o pedido se ele aparecer. Depois verifique de novo.",
+  "settings.credentials.onePassword.error.body":
+    "A ferramenta de linha de comando do 1Password não respondeu como esperado. Verifique de novo; se continuar falhando, reinstale o op.",
+  "settings.credentials.onePassword.signedIn.body": "Conectado ao 1Password como {email} ({url}).",
+  "settings.credentials.onePassword.signedIn.connect": "Usar o 1Password no Psyche",
+  "settings.credentials.onePassword.connected.body":
+    "O Psyche lê os itens do 1Password que você vincula pelo app do 1Password. São somente leitura; nada é gravado no 1Password.",
+  "settings.credentials.onePassword.test": "Testar conexão",
+  "settings.credentials.onePassword.test.ok":
+    "Conectado. {count, plural, one {# cofre encontrado} other {# cofres encontrados}}.",
+  "settings.credentials.onePassword.test.failed": "O teste não funcionou: {reason}",
+  "settings.credentials.onePassword.disconnect": "Desconectar",
+  "settings.credentials.onePassword.config":
+    "O 1Password está configurado no config.json do Gateway. Altere lá.",
+  "settings.credentials.onePassword.failed": "Não funcionou: {reason}",
   "settings.credentials.vault.confirm.title": "Confirme sua chave de recuperação",
   "settings.credentials.vault.confirm.body":
     "Digite o último grupo da sua chave de recuperação, a parte depois do último hífen, para mostrar que você a salvou.",

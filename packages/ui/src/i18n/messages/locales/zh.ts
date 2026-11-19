@@ -1222,6 +1222,27 @@ export const zh: Partial<Catalogue> = {
   "settings.credentials.vault.setup.button": "设置保险库",
   "settings.credentials.vault.setup.failed": "未能创建保险库：{reason}",
   "settings.credentials.vault.setup.noSlot": "此 Gateway 没有可用于保险库的密钥槽。",
+  "settings.credentials.onePassword.title": "1Password",
+  "settings.credentials.onePassword.intro":
+    "让 Psyche 读取你从 1Password 关联的项目。Psyche 不保存任何 1Password 密码或令牌，需要解锁时由 1Password 自己询问你。",
+  "settings.credentials.onePassword.check": "重新检查",
+  "settings.credentials.onePassword.guide": "打开指南",
+  "settings.credentials.onePassword.notInstalled.body":
+    "Psyche 在这台 Mac 上找不到 1Password 命令行工具（op）。请先安装，然后重新检查。",
+  "settings.credentials.onePassword.notIntegrated.body":
+    "在 1Password 应用中打开“设置”，选择“开发者”，并打开“与 1Password CLI 集成”。然后重新检查。",
+  "settings.credentials.onePassword.locked.body": "解锁 1Password 应用，如果它请求授权就批准。然后重新检查。",
+  "settings.credentials.onePassword.error.body": "1Password 命令行工具没有按预期响应。请重新检查；如果仍然失败，请重新安装 op。",
+  "settings.credentials.onePassword.signedIn.body": "已以 {email}（{url}）登录 1Password。",
+  "settings.credentials.onePassword.signedIn.connect": "在 Psyche 中使用 1Password",
+  "settings.credentials.onePassword.connected.body":
+    "Psyche 通过 1Password 应用读取你关联的 1Password 项目。它们是只读的，不会向 1Password 写入任何内容。",
+  "settings.credentials.onePassword.test": "测试连接",
+  "settings.credentials.onePassword.test.ok": "已连接。找到 {count, plural, other {# 个保险库}}。",
+  "settings.credentials.onePassword.test.failed": "测试没有成功：{reason}",
+  "settings.credentials.onePassword.disconnect": "断开连接",
+  "settings.credentials.onePassword.config": "1Password 已在 Gateway 的 config.json 中设置。请在那里修改。",
+  "settings.credentials.onePassword.failed": "操作没有成功：{reason}",
   "settings.credentials.vault.confirm.title": "确认你的恢复密钥",
   "settings.credentials.vault.confirm.body":
     "输入恢复密钥的最后一组（最后一个短横线之后的部分），以证明你已保存。",

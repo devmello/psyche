@@ -61,6 +61,7 @@ import {
   type Milestone,
   type NodeInfo,
   type Notification,
+  type OnePasswordSetupStatus,
   type PairingRequest,
   PsycheError,
   type Receipt,
@@ -162,6 +163,8 @@ export interface MockWorld {
   linkMethods?: LinkPaymentMethod[];
   /** The guided Link setup (`payments.link.*`); absent → derived from `linkMethods`. */
   linkSetup?: LinkSetupStatus;
+  /** The guided 1Password setup (`vault.onePassword.*`); absent → `op` is not installed. */
+  onePassword?: { status: OnePasswordSetupStatus; vaultCount?: number };
   payments?: VaultPayment[];
   settings: Record<string, unknown>;
   memoryFiles: Record<string, string>;
@@ -356,8 +359,8 @@ const fakeHash = (text: string): `sha256:${string}` => {
 const MOCK_FRAME_PNG =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGPYsGEDAAQkAhG7+/aHAAAAAElFTkSuQmCC";
 
-const fail = (code: ErrorCode, message: string): never => {
-  throw new PsycheError(code, message);
+const fail = (code: ErrorCode, message: string, details?: Record<string, unknown>): never => {
+  throw new PsycheError(code, message, details === undefined ? undefined : { details });
 };
 
 export class MockGateway implements GatewayClient {
@@ -1020,6 +1023,11 @@ export class MockGateway implements GatewayClient {
   }
 
   /** Where the guided Link setup stands: set by the calls below, else read off the fixtures. */
+  private onePasswordOf(): NonNullable<MockWorld["onePassword"]> {
+    this.world.onePassword ??= { status: { state: "not_installed", connected: false } };
+    return this.world.onePassword;
+  }
+
   private linkStatus(): LinkSetupStatus {
     if (this.world.linkSetup !== undefined) return structuredClone(this.world.linkSetup);
     return this.world.linkMethods === undefined
@@ -3645,6 +3653,27 @@ export class MockGateway implements GatewayClient {
         ok: true,
         result: { shortcuts: this.world.shortcuts ?? appleShortcuts() },
       };
+    },
+    "vault.onePassword.status": () => this.onePasswordOf().status,
+    "vault.onePassword.test": () => {
+      const op = this.onePasswordOf();
+      if (op.status.state !== "signed_in")
+        fail("unavailable", "1Password is not ready", { reason: op.status.state });
+      return { status: op.status, vaultCount: op.vaultCount ?? 2 };
+    },
+    "vault.onePassword.connect": () => {
+      const op = this.onePasswordOf();
+      if (op.status.managedBy === "config")
+        fail("conflict", "config.json supplies 1Password", { reason: "managed_by_config" });
+      if (op.status.state !== "signed_in")
+        fail("conflict", "1Password is not signed in to the CLI yet", { reason: op.status.state });
+      op.status = { ...op.status, connected: true };
+      return op.status;
+    },
+    "vault.onePassword.disconnect": () => {
+      const op = this.onePasswordOf();
+      op.status = { ...op.status, connected: false };
+      return op.status;
     },
     "vault.status": () => ({ status: this.vaultOf().status }),
     "vault.setup": () => {

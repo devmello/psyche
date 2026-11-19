@@ -165,6 +165,41 @@ export const LinkSetupStatus = Type.Object(
 );
 export type LinkSetupStatus = Static<typeof LinkSetupStatus>;
 
+/**
+ * Where the 1Password setup stands (Settings → Credentials). `not_installed`: no safe `op` found;
+ * `not_integrated`: `op` finds no account, so the app's "Integrate with 1Password CLI" is off;
+ * `locked`: an account exists but 1Password is locked or signed out; `signed_in`: `op whoami`
+ * answers; `error`: `op` ran and failed some other way.
+ */
+export const OnePasswordSetupState = StringEnum(
+  ["not_installed", "not_integrated", "locked", "signed_in", "error"],
+  { $id: "OnePasswordSetupState" },
+);
+export type OnePasswordSetupState = Static<typeof OnePasswordSetupState>;
+
+export const OnePasswordSetupStatus = Type.Object(
+  {
+    state: OnePasswordSetupState,
+    /** Psyche reads linked items through the 1Password app on this Mac. */
+    connected: Type.Boolean(),
+    /** Set when `credentials.onePassword` in config.json already supplies the source. */
+    managedBy: Type.Optional(StringEnum(["config"])),
+    /** The `op` Psyche would run (a real file that passed the safety check). */
+    op: Type.Optional(Type.Object({ path: Type.String() })),
+    /** From `op whoami` when signed in: the account address and email, never a token. */
+    account: Type.Optional(Type.Object({ url: Type.String(), email: Type.String() })),
+  },
+  { $id: "OnePasswordSetupStatus" },
+);
+export type OnePasswordSetupStatus = Static<typeof OnePasswordSetupStatus>;
+
+/** The harmless read behind "Test connection": a count only, never names or values. */
+export const OnePasswordTestResult = Type.Object(
+  { status: OnePasswordSetupStatus, vaultCount: Type.Integer({ minimum: 0 }) },
+  { $id: "OnePasswordTestResult" },
+);
+export type OnePasswordTestResult = Static<typeof OnePasswordTestResult>;
+
 /** Brand / last4 of a card: the one-time Link card or its funding method. Never the number. */
 const MaskedCard = Type.Object({ brand: Type.String(), last4: Type.String({ maxLength: 4 }) });
 

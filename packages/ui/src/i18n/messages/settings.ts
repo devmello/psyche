@@ -406,6 +406,31 @@ export const settings = {
   "settings.credentials.vault.setup.button": "Set up the vault",
   "settings.credentials.vault.setup.failed": "The vault was not created: {reason}",
   "settings.credentials.vault.setup.noSlot": "This Gateway offers no key slot for the vault.",
+  "settings.credentials.onePassword.title": "1Password",
+  "settings.credentials.onePassword.intro":
+    "Let Psyche read the items you link from 1Password. Psyche stores no 1Password password or token, and 1Password asks you itself when it needs to unlock.",
+  "settings.credentials.onePassword.check": "Check again",
+  "settings.credentials.onePassword.guide": "Open the guide",
+  "settings.credentials.onePassword.notInstalled.body":
+    "Psyche cannot find the 1Password command-line tool (op) on this Mac. Install it, then check again.",
+  "settings.credentials.onePassword.notIntegrated.body":
+    "In the 1Password app, open Settings, choose Developer, and turn on Integrate with 1Password CLI. Then check again.",
+  "settings.credentials.onePassword.locked.body":
+    "Unlock the 1Password app and approve the request if it asks. Then check again.",
+  "settings.credentials.onePassword.error.body":
+    "The 1Password command-line tool did not answer as expected. Check again; if it keeps failing, reinstall op.",
+  "settings.credentials.onePassword.signedIn.body": "Signed in to 1Password as {email} ({url}).",
+  "settings.credentials.onePassword.signedIn.connect": "Use 1Password in Psyche",
+  "settings.credentials.onePassword.connected.body":
+    "Psyche reads the 1Password items you link through the 1Password app. They are read only; nothing is written to 1Password.",
+  "settings.credentials.onePassword.test": "Test connection",
+  "settings.credentials.onePassword.test.ok":
+    "Connected. Found {count, plural, one {# vault} other {# vaults}}.",
+  "settings.credentials.onePassword.test.failed": "The test did not work: {reason}",
+  "settings.credentials.onePassword.disconnect": "Disconnect",
+  "settings.credentials.onePassword.config":
+    "1Password is set up in the Gateway's config.json. Change it there.",
+  "settings.credentials.onePassword.failed": "That did not work: {reason}",
   "settings.credentials.vault.confirm.title": "Confirm your recovery key",
   "settings.credentials.vault.confirm.body":
     "Type the last group of your recovery key, the part after the final dash, to show that you saved it.",

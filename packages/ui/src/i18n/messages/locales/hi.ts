@@ -1204,6 +1204,32 @@ export const hi: Partial<Catalogue> = {
   "settings.credentials.vault.setup.button": "वॉल्ट सेट अप करें",
   "settings.credentials.vault.setup.failed": "वॉल्ट नहीं बना: {reason}",
   "settings.credentials.vault.setup.noSlot": "इस Gateway में वॉल्ट के लिए कोई की स्लॉट नहीं है।",
+  "settings.credentials.onePassword.title": "1Password",
+  "settings.credentials.onePassword.intro":
+    "आप 1Password से जो आइटम लिंक करते हैं, उन्हें Psyche पढ़ सकता है। Psyche कोई 1Password पासवर्ड या टोकन सहेजता नहीं है, और अनलॉक की ज़रूरत होने पर 1Password खुद आपसे पूछता है।",
+  "settings.credentials.onePassword.check": "फिर से जाँचें",
+  "settings.credentials.onePassword.guide": "गाइड खोलें",
+  "settings.credentials.onePassword.notInstalled.body":
+    "Psyche को इस Mac पर 1Password का कमांड-लाइन टूल (op) नहीं मिल रहा। उसे इंस्टॉल करें, फिर दोबारा जाँचें।",
+  "settings.credentials.onePassword.notIntegrated.body":
+    "1Password ऐप में सेटिंग्स खोलें, डेवलपर चुनें और “1Password CLI के साथ इंटीग्रेट करें” चालू करें। फिर दोबारा जाँचें।",
+  "settings.credentials.onePassword.locked.body":
+    "1Password ऐप अनलॉक करें और अनुरोध आए तो उसे मंज़ूर करें। फिर दोबारा जाँचें।",
+  "settings.credentials.onePassword.error.body":
+    "1Password के कमांड-लाइन टूल ने अपेक्षा के अनुसार जवाब नहीं दिया। दोबारा जाँचें; यदि फिर भी विफल हो, तो op को दोबारा इंस्टॉल करें।",
+  "settings.credentials.onePassword.signedIn.body":
+    "{email} ({url}) के रूप में 1Password में साइन इन है।",
+  "settings.credentials.onePassword.signedIn.connect": "Psyche में 1Password इस्तेमाल करें",
+  "settings.credentials.onePassword.connected.body":
+    "Psyche आपके लिंक किए 1Password आइटम 1Password ऐप के ज़रिए पढ़ता है। वे केवल पढ़े जाते हैं; 1Password में कुछ नहीं लिखा जाता।",
+  "settings.credentials.onePassword.test": "कनेक्शन जाँचें",
+  "settings.credentials.onePassword.test.ok":
+    "कनेक्ट हो गया। {count, plural, one {# वॉल्ट मिला} other {# वॉल्ट मिले}}।",
+  "settings.credentials.onePassword.test.failed": "जाँच सफल नहीं हुई: {reason}",
+  "settings.credentials.onePassword.disconnect": "डिस्कनेक्ट करें",
+  "settings.credentials.onePassword.config":
+    "1Password Gateway की config.json में सेट है। बदलाव वहीं करें।",
+  "settings.credentials.onePassword.failed": "यह काम नहीं किया: {reason}",
   "settings.credentials.vault.confirm.title": "अपनी रिकवरी की की पुष्टि करें",
   "settings.credentials.vault.confirm.body":
     "यह दिखाने के लिए कि आपने इसे सेव किया है, अपनी रिकवरी की का आखिरी समूह लिखें, यानी आखिरी डैश के बाद का हिस्सा।",

@@ -58,7 +58,11 @@ const CLI_FIELD: Record<OnePasswordField, string> = {
 export interface OpCliOptions {
   /** Trusted path to the `op` binary. */
   op: string;
-  token: TokenProvider;
+  /**
+   * The service-account token. Left out, `op` uses the 1Password app's CLI integration and the
+   * child gets no token at all.
+   */
+  token?: TokenProvider;
   timeoutMs?: number;
   /** Injected for tests. */
   run?: (file: string, args: string[], env: Record<string, string>) => Promise<string>;
@@ -81,16 +85,20 @@ export class OpCliSource implements OnePasswordSource {
       await this.#exec(["whoami", "--format", "json"]);
       return null;
     } catch {
-      return "op whoami failed: check the service-account token";
+      return this.#o.token === undefined
+        ? "op whoami failed: check that 1Password is unlocked and the CLI integration is on"
+        : "op whoami failed: check the service-account token";
     }
   }
 
   async #exec(args: string[]): Promise<string> {
-    const handle = await this.#o.token();
     const env: Record<string, string> = cliBaseEnv();
-    handle.use((t) => {
-      env.OP_SERVICE_ACCOUNT_TOKEN = t;
-    });
+    if (this.#o.token !== undefined) {
+      const handle = await this.#o.token();
+      handle.use((t) => {
+        env.OP_SERVICE_ACCOUNT_TOKEN = t;
+      });
+    }
     const run =
       this.#o.run ??
       ((f: string, a: string[], e: Record<string, string>) =>
