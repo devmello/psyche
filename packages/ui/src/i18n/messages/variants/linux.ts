@@ -402,4 +402,15 @@ export const linux: Partial<Record<MessageId, string>> = {
     "stop requiring your password or a passkey for security changes until a new key is registered.",
   "web.security.needsApproval":
     "Approve the card with your password or a passkey, then press the button again.",
+  "notice.security.changed.body":
+    "A program on this computer changed {count, plural, =1 {# security record} other {# security records}} (devices, keys, grants or settings) without going through Psyche{times, plural, =0 {} =1 {} other {, # times so far}}. Psyche put them back. If you did not do this, check the computer for unwanted software.",
+  "notice.security.untrusted.body":
+    "The check of Psyche's security records failed, so security changes, new devices and password approvals are blocked. Review your devices, then run psyched security reseal on this computer (it applies after 24 hours).",
+  "notice.security.firstAdmin.title": "A command on this computer made the first admin device",
+  "notice.security.firstAdmin.body":
+    "{device}{key, select, none {} other { (key {key})}} became the first admin device {via, select, desktop {from the Psyche app} other {through `psyched`}} on this computer. If that was not you, revoke it in Settings → Devices.",
+  "notice.security.recovery.title":
+    "{state, select, requested {A command on this computer asked for a security change} applied {A security change from this computer was applied} cancelled {A security change from this computer was cancelled} other {A security change from this computer could not be applied}}",
+  "notice.security.recovery.body":
+    "{op, select, approve {Approve the device {device}{key, select, none {} other { (key {key})}} with {scopes}.} grant {Give {device}{key, select, none {} other { (key {key})}} {scopes}.} presence {Turn off the password and passkey requirement for security changes until a new key is registered.} seal {Accept the current security records as they are.} other {A security change.}}{state, select, requested { It applies {when, select, none {in 24 hours} other {on {when}}} unless you cancel it in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
 };
