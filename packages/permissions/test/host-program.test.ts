@@ -36,6 +36,13 @@ const sha = (s: string) => `sha256:${createHash("sha256").update(s).digest("hex"
 
 const ARGS_OK: [string, string[]][] = [
   ["ls", ["-la"]],
+  // `--` followed only by operands, and long options that are not follow abbreviations.
+  ["grep", ["-r", "foo", "--", "a.txt"]],
+  ["rg", ["-e", "--", "TOKEN", "."]],
+  ["grep", ["--count", "foo", "f"]],
+  ["ls", ["--color=never"]],
+  ["tree", ["-L", "2", "."]],
+  ["tree", ["-a", "-I", "node_modules"]],
   ["ls", ["-R", "sub"]],
   ["cat", ["a.txt", "b.txt"]],
   ["head", ["-n", "5", "f"]],
@@ -53,7 +60,6 @@ const ARGS_OK: [string, string[]][] = [
   ["sed", ["-E", "-n", "/x/p", "f"]],
   ["sed", ["-e", "s/a/b/", "-e", "2d", "f"]],
   ["sed", ["-ne", "$p", "f"]],
-  ["sed", ["p", "--", "-f"]],
   ["ls", ["-R"]],
   ["grep", ["-r", "foo", "."]],
   ["rg", ["foo"]],
@@ -61,7 +67,6 @@ const ARGS_OK: [string, string[]][] = [
   ["rg", ["-f/var/folders/zz/pats"]],
   ["rg", ["-nf/var/folders/zz/pats"]],
   ["rg", ["--ignore-file=plain.txt", "foo"]],
-  ["ls", ["--", "-weird"]],
   ["tree", ["-L", "2"]],
   ["du", ["-sh", "."]],
   ["stat", ["f"]],
@@ -124,6 +129,31 @@ const ARGS_DANGEROUS: [string, string[]][] = [
   ["stat", ["-L", "f"]],
   ["file", ["-L", "f"]],
   ["sed", ["--follow-symlinks", "p"]],
+  // A `--` that is an option's value: the flags after it still apply (review of #1368).
+  ["rg", ["-e", "--", "--pre=./x.sh", "-e", "TOKEN", "."]],
+  ["rg", ["-g", "--", "--pre=./x.sh", "TOKEN"]],
+  ["rg", ["-e", "--", "--hostname-bin=./x.sh"]],
+  ["rg", ["-e", "--", "-z"]],
+  ["rg", ["-e", "--", "-L"]],
+  ["grep", ["-e", "--", "-rS", "-e", "TOKEN", "."]],
+  ["grep", ["-e", "--", "-f/etc/passwd", "."]],
+  ["grep", ["-e", "--", "--file=/etc/passwd", "."]],
+  ["du", ["-d", "--", "-L", "."]],
+  // A dash-led operand after a real `--` asks too: the checker can't tell the two apart.
+  ["sed", ["p", "--", "-f"]],
+  ["ls", ["--", "-weird"]],
+  // tree reads every letter of a cluster as a flag; a value letter takes the next argument.
+  ["tree", ["-Ll", "2", "."]],
+  ["tree", ["-L2l", "."]],
+  ["tree", ["-Pl", "x"]],
+  ["tree", ["-Il", "node_modules"]],
+  // GNU getopt_long takes any unique prefix of a long option.
+  ["grep", ["--der", "foo", "."]],
+  ["grep", ["--dereference-r", "foo", "."]],
+  ["ls", ["--deref"]],
+  ["du", ["--foll", "."]],
+  ["wc", ["--files0=list"]],
+  ["du", ["--files0-f=list"]],
   // A file naming the files to read: its entries are never checked.
   ["wc", ["--files0-from=list"]],
   ["du", ["--files0-from=list"]],
@@ -158,8 +188,10 @@ describe("anyArgvSafe: the danger flags, both ways", () => {
   it.each(ARGS_DANGEROUS)("%s %j asks", (program, args) => {
     expect(anyArgvSafe(program, args)).toBe(false);
   });
-  it("covers a flag only before `--` for rg, and judges the whole sed script", () => {
-    expect(anyArgvSafe("rg", ["foo", "--", "-z"])).toBe(true);
+  it("asks for any dash-led argument after `--`, and judges the whole sed script", () => {
+    // `--` may be an option's value (`rg -e -- -z`), so what follows it is never trusted.
+    expect(anyArgvSafe("rg", ["foo", "--", "-z"])).toBe(false);
+    expect(anyArgvSafe("rg", ["foo", "--", "z.txt"])).toBe(true);
     expect(sedScriptSafe("1,3{p;d}")).toBe(true);
     expect(sedScriptSafe("s/a/b/;w x")).toBe(false);
   });
@@ -666,7 +698,7 @@ describe("exec_host program grant: every path stays inside the folder", () => {
   }
   const RUN: [string, string[]][] = [
     ["ls", ["-la", "sub"]],
-    ["ls", ["--", "-weird"]],
+    ["ls", ["--", "weird"]],
     ["find", [".", "-name", "*.ts"]],
     ["find", ["sub", "-type", "f"]],
     ["sed", ["-n", "/x/p", "plain.txt"]],
