@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   linkSync,
   mkdirSync,
   mkdtempSync,
@@ -6,6 +7,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -552,5 +554,28 @@ describe("change reporting", () => {
       t.run("write_file", { path: join(readOnly, "x.md"), content: "no" }),
     ).rejects.toThrow();
     expect(seen).toHaveLength(0);
+  });
+});
+
+describe("a document write never leaves a runnable file (#1333 routine writes)", () => {
+  const modeOf = (p: string) => statSync(p).mode & 0o777;
+
+  it("drops the exec bits of an executable document it overwrites or edits", async () => {
+    const doc = join(granted, "notes.md");
+    writeFileSync(doc, "old hi");
+    chmodSync(doc, 0o755);
+    await run("write_file", { path: doc, content: "#!/bin/sh\necho hi\n" });
+    expect(modeOf(doc) & 0o111).toBe(0);
+    chmodSync(doc, 0o755);
+    await run("edit_file", { path: doc, old_string: "echo hi", new_string: "echo hello" });
+    expect(modeOf(doc) & 0o111).toBe(0);
+  });
+
+  it("positive control: a script (not a routine document) keeps its mode", async () => {
+    const script = join(granted, "run.sh");
+    writeFileSync(script, "old");
+    chmodSync(script, 0o755);
+    await run("write_file", { path: script, content: "#!/bin/sh\n" });
+    expect(modeOf(script)).toBe(0o755);
   });
 });

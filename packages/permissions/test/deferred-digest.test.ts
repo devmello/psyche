@@ -95,6 +95,47 @@ const MUST_BE_SENSITIVE = [
   `${REPO}/scripts/run.sh`,
   `${REPO}/notes`,
   `${HOME}/Notes/run.command`,
+  // Round 3: JSON and YAML are never routine (tool configs with commands in them).
+  `${REPO}/lefthook.json`,
+  `${REPO}/devbox.json`,
+  `${REPO}/simple-git-hooks.json`,
+  `${REPO}/importmap.json`,
+  `${REPO}/import_map.json`,
+  `${REPO}/cdk.json`,
+  `${REPO}/nodemon.json`,
+  `${REPO}/wrangler.json`,
+  `${REPO}/cypress.json`,
+  `${REPO}/workspace.json`,
+  `${REPO}/pnpm-workspace.yaml`,
+  `${REPO}/environment.yml`,
+  `${REPO}/electron-builder.yml`,
+  `${REPO}/data/people.json`,
+  `${REPO}/data/inventory.yaml`,
+  // pip requirement and constraint files.
+  `${REPO}/requirements.txt`,
+  `${REPO}/requirements-dev.txt`,
+  `${REPO}/requirements/base.txt`,
+  `${REPO}/constraints.txt`,
+  `${REPO}/deps.pip`,
+  `${HOME}/pip.conf`,
+  // Agent instruction files and folders.
+  `${REPO}/AGENT.md`,
+  `${REPO}/CONVENTIONS.md`,
+  `${REPO}/docs/SKILL.md`,
+  `${REPO}/skills/release/SKILL.md`,
+  `${REPO}/skills/notes.md`,
+  `${REPO}/prompts/review.md`,
+  `${REPO}/.github/copilot-instructions.md`,
+  `${REPO}/docs/copilot-instructions.md`,
+  `${REPO}/GEMINI.md`,
+  // `.gitattributes` points files at the owner's filter, diff and merge drivers.
+  `${REPO}/.gitattributes`,
+  // macOS bundles.
+  `${HOME}/Applications/Tool.app/Contents/MacOS/notes.md`,
+  `${HOME}/Notes/Thing.bundle/readme.md`,
+  `${REPO}/Kit.framework/notes.md`,
+  `${HOME}/Notes/Fx.plugin/notes.md`,
+  `${HOME}/Notes/Drv.kext/notes.md`,
   // Unicode that APFS folds onto the real file (U+017F long s), and other non-ASCII.
   `${REPO}/ſetup.py`,
   `${REPO}/package.jſon`,
@@ -116,8 +157,10 @@ const MAY_BE_ROUTINE = [
   `${HOME}/Notes/Makefile notes.md`,
   `${REPO}/docs/package.md`,
   `${HOME}/Notes/vscode/tasks.md`,
-  `${REPO}/data/people.json`,
-  `${REPO}/data/inventory.yaml`,
+  `${HOME}/Notes/report.txt`,
+  `${REPO}/data/rows.tsv`,
+  `${REPO}/docs/build.log`,
+  `${HOME}/Documents/slides.pptx`,
   `${HOME}/Documents/Report.PDF`,
   `${REPO}/.gitignore`,
   `${REPO}/.editorconfig`,
@@ -199,6 +242,11 @@ describe("riskClass from the decision that asked (real decide)", () => {
     ["a folder with a slash", { op: "commit", message: "m", paths: ["notes/"] }],
     ["a file that runs later", { op: "commit", message: "m", paths: ["notes/a.md", "Makefile"] }],
     ["a path out of the repo", { op: "commit", message: "m", paths: ["../x.md"] }],
+    ["pathspec magic :!", { op: "commit", message: "m", paths: [":!notes.md"] }],
+    ["pathspec magic :(exclude)", { op: "commit", message: "m", paths: [":(exclude)notes.md"] }],
+    ["a glob *", { op: "commit", message: "m", paths: ["*.md"] }],
+    ["a glob ?", { op: "commit", message: "m", paths: ["note?.md"] }],
+    ["a glob []", { op: "commit", message: "m", paths: ["[n]otes.md"] }],
     ["switching branch (rewrites the tree)", { op: "branch", name: "main" }],
   ])("a git write with %s is sensitive", async (_name, params) => {
     const h = mk();
@@ -424,6 +472,47 @@ describe("the Gateway's SQLite store keeps the class and the set-aside mark", ()
     await expect(answerAs(h, routine.issued)).rejects.toMatchObject({
       details: { reason: "not_resumable" },
     });
+  });
+});
+
+describe("a restart reports every set-aside approval whose resume it cut short, once", () => {
+  async function approved(scope: "once" | "always" | "task") {
+    const db = memoryDb();
+    const clock = new FakeClock();
+    const options = { policy: { folders: FOLDERS }, canResume: () => true };
+    const h = { broker: sqliteBroker(db, clock, options), clock } as unknown as Harness;
+    // Balanced mode with no path: the plain mode default offers standing scopes too.
+    const c = call("conn.action", "write");
+    const { issued } = await issue(h, c, { ...UNATTENDED, permissionMode: "balanced" });
+    clock.advance(500);
+    expect((await answerAs(h, issued, { scope })).status).toBe("approved");
+    const restart = async () => {
+      const seen: string[] = [];
+      const b = sqliteBroker(db, clock, { ...options, onSetAsideRevoked: (a) => seen.push(a.id) });
+      await b.reissue();
+      return { b, seen };
+    };
+    return { h, issued, restart };
+  }
+
+  it.each(["always", "task"] as const)("a %s approval gets the notice too", async (scope) => {
+    const { issued, restart } = await approved(scope);
+    expect((await restart()).seen).toEqual([issued.approval.id]);
+    // Reported once: the next restart has nothing more to say.
+    expect((await restart()).seen).toEqual([]);
+  });
+
+  it("a once approval gets the notice and is revoked", async () => {
+    const { issued, restart } = await approved("once");
+    const { b, seen } = await restart();
+    expect(seen).toEqual([issued.approval.id]);
+    expect((await b.verifyBinding(issued.approval.id, issued.approval.bindingHash)).ok).toBe(false);
+  });
+
+  it("positive control: a resume that is over (settled) is not reported", async () => {
+    const { h, issued, restart } = await approved("always");
+    h.broker.settleSetAside(issued.approval.id);
+    expect((await restart()).seen).toEqual([]);
   });
 });
 

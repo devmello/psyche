@@ -1941,6 +1941,30 @@ export class PsychePermissionBroker implements PermissionBroker {
     });
   }
 
+  /**
+   * The resume of a set-aside card is over: it did the action, or the owner was told it did not.
+   * A restart then has nothing to report for it (`onSetAsideRevoked`).
+   */
+  settleSetAside(approvalId: string): void {
+    this.#store.transaction(() => {
+      const rec = this.#store.getApproval(approvalId);
+      if (rec === undefined || rec.approval.setAside !== true || rec.revoked) return;
+      // The resume is over: the card's own authority ends (a standing grant it made stays).
+      rec.revoked = true;
+      this.#store.updateApproval(rec);
+    });
+  }
+
+  /** Nothing has used this approval: no receipt names it and its grant (if any) has no use. */
+  async #unused(a: ApprovalRequest): Promise<boolean> {
+    if ((await this.receipts.list({ approvalId: a.id })).length > 0) return false;
+    if (a.grantId != null) {
+      const g = this.#store.getGrant(a.grantId);
+      if (g !== undefined && g.grant.useCount > 0) return false;
+    }
+    return true;
+  }
+
   async verifyBinding(approvalId: string, bindingHash: string): Promise<BindingVerification> {
     this.#sweep();
     const now = this.clock.now();
@@ -2012,16 +2036,25 @@ export class PsychePermissionBroker implements PermissionBroker {
     // An approved `once` that was never dispatched belonged to a call parked in the previous
     // process; that call is gone, so the approval ends too (S23 design-09). Found by fuzzing.
     for (const rec of this.#store.listApprovals({ status: "approved" })) {
-      if (rec.approval.scopeGranted !== "once" || rec.consumedAt !== null || rec.revoked) continue;
+      if (rec.revoked) continue;
+      const unconsumedOnce = rec.approval.scopeGranted === "once" && rec.consumedAt === null;
+      // A set-aside card whose resume was not over lost it with the old process, whatever its
+      // scope: nothing used it yet (no receipt, no use of its grant). The owner is told once;
+      // the card's own authority ends (its standing grant, if any, stays).
+      const lostResume =
+        rec.approval.setAside === true &&
+        rec.consumedAt === null &&
+        (await this.#unused(rec.approval));
+      if (!unconsumedOnce && !lostResume) continue;
       rec.revoked = true;
       this.#store.updateApproval(rec);
       await this.#log(
         "approval.invalidated",
         { type: "system" },
         { approvalId: rec.approval.id },
-        { reason: "gateway_restart_unconsumed" },
+        { reason: unconsumedOnce ? "gateway_restart_unconsumed" : "gateway_restart_set_aside" },
       );
-      if (rec.approval.setAside === true) {
+      if (lostResume) {
         try {
           this.#onSetAsideRevoked?.(structuredClone(rec.approval));
         } catch {

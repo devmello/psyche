@@ -1397,6 +1397,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     scheduler,
     notifier,
     clock,
+    settle: (id) => broker.settleSetAside(id),
     // A built-in routine paused in Scheduled keeps `enabled`; it must not be resumed either.
     // `scheduledKv` is composed later; this runs only once the owner answers a card.
     isPaused: (a) => pausedRoutines(scheduledKv).has(routineOf(a).id),

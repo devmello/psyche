@@ -1,4 +1,5 @@
 import type { ApprovalKind, RiskClass, SideEffect } from "@psyche/protocol";
+import { routineWritePath } from "@psyche/protocol/routine-path";
 import { inferApprovalKind } from "./kinds.ts";
 import type { PolicyCall, PolicyContext, PolicyDecision } from "./types.ts";
 
@@ -23,99 +24,11 @@ export const ROUTINE_BULK_KINDS: ReadonlySet<ApprovalKind> = new Set<ApprovalKin
 /** The plain mode default for a write (engine step 6): nothing else asked. */
 const MODE_DEFAULT_WRITE = /^mode:(?:manual|balanced|auto)\/write$/;
 
-/**
- * Documents and data: what a write of may be bulk-approved. An allowlist, not a list of what
- * runs code: anything not named here (scripts, configs, dotfiles, binaries, unknown types) is
- * sensitive, so a new kind of file that runs later never slips in.
- */
-const ROUTINE_EXTENSIONS: ReadonlySet<string> = new Set([
-  "md",
-  "markdown",
-  "txt",
-  "rst",
-  "csv",
-  "tsv",
-  "json",
-  "yaml",
-  "yml",
-  "png",
-  "jpg",
-  "jpeg",
-  "gif",
-  "webp",
-  "svg",
-  "pdf",
-  "docx",
-  "xlsx",
-  "pptx",
-  "rtf",
-  "log",
-]);
+/** The document rule lives in `@psyche/protocol/routine-path`, shared with the file tools. */
+export { routineWritePath };
 
-/** The only leaf names that may start with a dot. */
-const INERT_DOTFILES: ReadonlySet<string> = new Set([
-  ".gitignore",
-  ".gitattributes",
-  ".editorconfig",
-]);
-
-/** Folders whose files are installed code, executables or app and tool state. */
-const NEVER_SEGMENTS: ReadonlySet<string> = new Set([
-  "node_modules",
-  "venv",
-  "site-packages",
-  "dist-packages",
-  "bin",
-  "sbin",
-  "library",
-  ".local",
-  ".config",
-]);
-
-/** Names that run things or steer agents although their type is a document or data. */
-const NEVER_NAMES =
-  /^(?:dockerfile|containerfile|makefile|gnumakefile|justfile|rakefile|procfile|vagrantfile|claude|agents|gemini|copilot-instructions)(?:\.|$)/;
-
-/** JSON files tools read as configuration with scripts, tasks or hooks in them. */
-const NEVER_JSON =
-  /^(?:package|package-lock|composer|deno|bunfig|turbo|nx|project|angular|lerna|devcontainer|launch|tasks|settings|manifest|app|vercel|netlify|renovate|firebase|tslint|eslint|biome|tsconfig.*|jsconfig.*|.*rc)\.json$/;
-
-/** YAML that CI, containers, hooks or task runners run. When unsure, not routine. */
-const NEVER_YAML =
-  /(?:workflow|compose|lefthook|pipeline|ci|cd|taskfile|tasks?|pre-commit|action|mkdocs|serverless|cloudbuild|buildspec|travis|circle|gitlab|drone|jenkins|bitbucket|azure|deploy|helm|chart|values|kustomization|playbook|ansible|hooks?|config|settings|app|codemagic|appveyor|wercker|buildkite|mise|devfile|skaffold|tilt|garden|dagger)/;
-
-const NON_ASCII = /[^\x20-\x7e]/;
-
-/**
- * True when a write to `path` may be bulk-approved: every segment is plain ASCII (after NFKC and
- * lower-casing, so `ſetup.py` reads as `setup.py` and is still refused), no segment is hidden
- * (`.x`) except three inert leaf names, no segment is installed code or tool state, and the file
- * is a document or data type that nothing runs. Everything else is false.
- */
-export function routineWritePath(path: string): boolean {
-  if (typeof path !== "string" || path === "") return false;
-  const folded = path.normalize("NFKC").toLowerCase();
-  if (NON_ASCII.test(path) || NON_ASCII.test(folded)) return false;
-  const parts = folded.split(/[\\/]+/).filter((p) => p !== "");
-  const name = parts.at(-1);
-  if (name === undefined) return false;
-  for (const [i, seg] of parts.entries()) {
-    if (seg.startsWith(".") && !(i === parts.length - 1 && INERT_DOTFILES.has(seg))) return false;
-    if (NEVER_SEGMENTS.has(seg)) return false;
-    if (seg === "workflows" || seg === "hooks" || seg === "githooks") return false;
-  }
-  if (INERT_DOTFILES.has(name)) return true;
-  if (NEVER_NAMES.test(name)) return false;
-  // `vite.config.json`, `x.config.yaml`: a tool's config, whatever its type.
-  if (/\.config\./.test(name) || name.startsWith("config.")) return false;
-  const dot = name.lastIndexOf(".");
-  if (dot <= 0) return false;
-  const ext = name.slice(dot + 1);
-  if (!ROUTINE_EXTENSIONS.has(ext)) return false;
-  if (ext === "json" && NEVER_JSON.test(name)) return false;
-  if ((ext === "yaml" || ext === "yml") && NEVER_YAML.test(name.slice(0, dot))) return false;
-  return true;
-}
+/** Pathspec magic or a glob: the path is not one literal file. */
+const PATHSPEC_MAGIC = /^:|[*?[]/;
 
 const joinPath = (root: string, rel: string) =>
   rel.startsWith("/") ? rel : `${root.replace(/\/+$/, "")}/${rel}`;
@@ -148,7 +61,14 @@ function writtenFiles(
     const out: string[] = [];
     // A folder has no document type, so the file rule refuses it too.
     for (const p of paths) {
-      if (typeof p !== "string" || p === "" || p === "." || p.endsWith("/") || p.includes(".."))
+      if (
+        typeof p !== "string" ||
+        p === "" ||
+        p === "." ||
+        p.endsWith("/") ||
+        p.includes("..") ||
+        PATHSPEC_MAGIC.test(p)
+      )
         return undefined;
       out.push(joinPath(targetPath, p));
     }

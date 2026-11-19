@@ -128,7 +128,12 @@ function setup(plans: string[]) {
     sessions: createDbSessionResolver(db),
     notifier,
   });
-  resume = new DeferredResume({ scheduler, notifier, clock });
+  resume = new DeferredResume({
+    scheduler,
+    notifier,
+    clock,
+    settle: (id) => broker.settleSetAside(id),
+  });
   broker.subscribe((e) => resume.onBrokerEvent(e));
   scheduler.subscribe((e) => {
     if (e.event === "automation.run.finished") resume.onRunFinished(e.payload.run);
@@ -159,7 +164,7 @@ function setup(plans: string[]) {
   const restart = async () => {
     let next!: DeferredResume;
     const b = brokerFor(() => next);
-    next = new DeferredResume({ scheduler, notifier, clock });
+    next = new DeferredResume({ scheduler, notifier, clock, settle: (id) => b.settleSetAside(id) });
     await b.reissue();
     await next.idle();
     return { broker: b, resume: next };
@@ -258,6 +263,9 @@ describe("Approve on a set-aside card resumes the automation (DeferredResume)", 
         params: { automation: "Weekly notes", why: "not_reached" },
       },
     });
+    // Told once: a restart afterwards does not report the same card again.
+    await h.restart();
+    expect(await missed(h)).toEqual(["not_reached"]);
   });
 
   it("approved while a run is going: that run's end starts the resume run", async () => {

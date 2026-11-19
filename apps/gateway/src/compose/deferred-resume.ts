@@ -43,6 +43,11 @@ export interface DeferredResumeOptions {
   clock: { now(): number };
   /** A built-in routine the owner paused in Scheduled (its `enabled` stays on). */
   isPaused?: (automation: Automation) => boolean;
+  /**
+   * The broker's `settleSetAside`: this card's resume is over (done, or the owner was told), so a
+   * restart has nothing more to say about it.
+   */
+  settle?: (approvalId: string) => void;
   /** Logged, never thrown: a failed resume becomes the "nothing was done" notice. */
   onError?: (error: unknown) => void;
 }
@@ -238,6 +243,7 @@ export class DeferredResume {
       if (e.automationId !== run.automationId) continue;
       if (e.done) {
         this.#entries.delete(e.approval.id);
+        this.#settle(e.approval.id);
         continue;
       }
       // Its resume run, or the run that took it, ended without the action: nothing was done.
@@ -256,6 +262,15 @@ export class DeferredResume {
   async #end(e: Entry, why: MissedReason = "not_reached"): Promise<void> {
     this.#entries.delete(e.approval.id);
     if (!e.done) await this.#missed(e.approval, e.automationId, why);
+    else this.#settle(e.approval.id);
+  }
+
+  #settle(approvalId: string): void {
+    try {
+      this.#o.settle?.(approvalId);
+    } catch (err) {
+      this.#o.onError?.(err);
+    }
   }
 
   async #missed(
@@ -263,6 +278,8 @@ export class DeferredResume {
     automationId: string | undefined,
     why: MissedReason,
   ): Promise<void> {
+    // Told once: a restart does not report it again.
+    this.#settle(a.id);
     const automation =
       automationId === undefined ? undefined : await this.#o.scheduler.get(automationId);
     const name = (automation?.title ?? "").slice(0, 120);
