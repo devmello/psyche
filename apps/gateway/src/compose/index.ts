@@ -748,7 +748,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // The scheduler is composed later; until then nothing can resume, so nothing is approved.
     canResume: async (a) => (await deferredResumeRef?.canResume(a)) === true,
     // A restart revoked an approved set-aside card: say the resume will not happen.
-    onSetAsideRevoked: (a) => deferredResumeRef?.revokedAtRestart(a),
+    onSetAsideRevoked: (a, how) => deferredResumeRef?.revokedAtRestart(a, how),
     psycheHome: config.home,
     presence: {
       // Presence fails closed while the security records are untrusted; the registered keys
