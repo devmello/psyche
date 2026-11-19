@@ -784,8 +784,9 @@ describe("follow-ups: a run that uses the grant as soon as it exists does it onc
    * The card is approved "always" while a second run of the automation is going, and that run
    * makes the same call through the new grant before the decision reaches DeferredResume.
    */
-  async function raced(opts: { failWrites?: boolean } = {}) {
-    const h = setup([NOTES, OTHER_PATH, NOTES], { standing: true, holdDecided: true, ...opts });
+  async function raced(opts: { failWrites?: boolean; unrelatedUses?: number } = {}) {
+    const { unrelatedUses, ...rest } = opts;
+    const h = setup([NOTES, OTHER_PATH, NOTES], { standing: true, holdDecided: true, ...rest });
     const tok = tokens(h);
     const a = await h.scheduler.create(automation);
     await h.scheduler.trigger(a.id);
@@ -814,6 +815,38 @@ describe("follow-ups: a run that uses the grant as soon as it exists does it onc
       approvalId: null,
       payload: { grantId: d.grantId ?? "", bindingHash: d.bindingHash ?? "" },
     });
+    if (unrelatedUses !== undefined) {
+      // The owner's own chat, in the same gap, works under an attended "always" grant (another
+      // connector action, so not the card's grant).
+      const chatCall: PolicyCall = { ...connectorCall(OTHER_PATH), tool: "chat.action" };
+      const chat = {
+        threadId: "thr_chat",
+        runId: "run_chat",
+        taskId: "task_chat",
+        permissionMode: "balanced" as const,
+        taint: false,
+      };
+      const ask = await h.broker.decide(chatCall, chat);
+      expect(ask.decision).toBe("ask");
+      const issued = await h.broker.requestApproval({
+        kind: ask.approvalKind ?? "connector_action",
+        summary: "Chat send",
+        details: {},
+        bindingHash: ask.bindingHash ?? "",
+        grantKey: ask.grantKey ?? "k",
+        requestedBy: { runId: chat.runId, taskId: chat.taskId, threadId: chat.threadId },
+        sideEffect: "write",
+        surfaces: ["desktop"],
+        taint: false,
+      });
+      expect(issued.approval.setAside).toBeUndefined();
+      await h.approve(issued.approval.id, tok.get(issued.approval.id) ?? "", "always");
+      for (let i = 0; i < unrelatedUses; i++) {
+        const u = await h.broker.decide(chatCall, chat);
+        expect(u.grantId).toBeDefined();
+        expect(u.grantId).not.toBe(d.grantId);
+      }
+    }
     // Only now does the decision arrive.
     h.deliverDecided();
     await h.resume.idle();
@@ -831,6 +864,14 @@ describe("follow-ups: a run that uses the grant as soon as it exists does it onc
     expect(h.written).toEqual([]);
     expect(await missed(h)).toEqual([]);
     expect(h.resume.pending()).toEqual([]);
+  });
+
+  it("300 uses of an attended grant in the gap do not evict the card's early use", async () => {
+    const { h, automationId } = await raced({ unrelatedUses: 300 });
+    expect(h.launches()).toBe(2);
+    expect(h.scheduler.runs(automationId).runs).toHaveLength(2);
+    expect(h.written).toEqual([]);
+    expect(await missed(h)).toEqual([]);
   });
 
   it("the going run's call through the grant failed: failed_kept, and no second try by a resume", async () => {

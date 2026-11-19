@@ -135,9 +135,16 @@ export type BrokerEvent =
   | { type: "grant.created" | "grant.revoked"; grant: Grant }
   /**
    * `taskId`: the task whose call went through the grant (none for a batch's own use);
-   * `bindingHash`: that call's binding (a grant covers a key, not one exact call).
+   * `bindingHash`: that call's binding (a grant covers a key, not one exact call);
+   * `fromSetAside`: the grant was made by approving a set-aside card (a resume may wait on it).
    */
-  | { type: "grant.used"; grant: Grant; taskId?: string; bindingHash: string }
+  | {
+      type: "grant.used";
+      grant: Grant;
+      taskId?: string;
+      bindingHash: string;
+      fromSetAside?: true;
+    }
   | { type: "receipt.created"; receipt: Receipt }
   | { type: "task.paused" | "task.downgraded"; taskId: string; reason: string };
 
@@ -747,11 +754,14 @@ export class PsychePermissionBroker implements PermissionBroker {
       next.grant.expiresAt = new Date(Math.min(now + ttl.sessionIdle, cap)).toISOString();
     }
     this.#store.updateGrant(next);
+    const from = next.grant.createdFromApprovalId;
+    const fromSetAside = from != null && this.#store.getApproval(from)?.approval.setAside === true;
     this.#emit({
       type: "grant.used",
       grant: next.grant,
       bindingHash,
       ...(taskId == null ? {} : { taskId }),
+      ...(fromSetAside ? { fromSetAside: true as const } : {}),
     });
     void this.#log(
       "grant.used",
@@ -1856,6 +1866,20 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#timers.get(id)?.();
     this.#timers.delete(id);
     const fa = decided.approval;
+    const { call, context } = decided.input;
+    if (fa.status === "approved" && call !== undefined && context !== undefined) {
+      const tk = targetKey(call);
+      if (tk !== undefined) {
+        const st = this.#task(context);
+        st.approvedTargets.add(tk);
+        st.touched.add(tk);
+      }
+    }
+    // Announced as soon as the answer is stored, before any await: a grant it made is usable
+    // from the commit on, so no use of it can come before its card's decision. No subscriber
+    // reads the audit rows written below; waiters (`awaitDecision`) and the notice resolve at
+    // the end, once the folder pick is applied.
+    this.#emit({ type: "approval.decided", approval: fa });
     if (fa.status === "approved" && folderPick !== undefined && fa.kind === "folder_access") {
       await this.#applyFolder(fa, folderPick, scope, by);
     }
@@ -1874,15 +1898,6 @@ export class PsychePermissionBroker implements PermissionBroker {
         },
         { path: folderPick.path, mode: folderPick.mode, taint: fa.taint },
       );
-    }
-    const { call, context } = decided.input;
-    if (fa.status === "approved" && call !== undefined && context !== undefined) {
-      const tk = targetKey(call);
-      if (tk !== undefined) {
-        const st = this.#task(context);
-        st.approvedTargets.add(tk);
-        st.touched.add(tk);
-      }
     }
     await this.#log(
       "approval.decided",
@@ -1919,7 +1934,7 @@ export class PsychePermissionBroker implements PermissionBroker {
         },
       );
     }
-    this.#settled(fa, "approval.decided");
+    this.#settled(fa, "approval.decided", { emitted: true });
     return structuredClone(fa);
   }
 
@@ -2095,8 +2110,9 @@ export class PsychePermissionBroker implements PermissionBroker {
   #settled(
     a: ApprovalRequest,
     type: "approval.decided" | "approval.expired" | "approval.invalidated",
+    opts: { emitted?: boolean } = {},
   ): void {
-    this.#emit({ type, approval: a });
+    if (opts.emitted !== true) this.#emit({ type, approval: a });
     const nid = this.#notifications.get(a.id);
     if (nid !== undefined) {
       this.#notifications.delete(a.id);
