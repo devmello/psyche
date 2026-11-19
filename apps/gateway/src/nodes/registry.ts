@@ -125,9 +125,9 @@ export class NodeRegistry {
     // connected) must not survive a restart. Quiet write: nobody is subscribed at startup, and
     // later changes publish through `#syncHostHelperStatus`.
     const stored = getSetting(ctx.db, HOST_HELPER_STATUS_SETTING)?.value as
-      | { ambiguous?: unknown }
+      | { ambiguous?: unknown; helpers?: unknown }
       | undefined;
-    if (stored !== undefined && stored.ambiguous !== false) {
+    if (stored !== undefined && (stored.ambiguous !== false || stored.helpers !== 0)) {
       setSetting(ctx.db, HOST_HELPER_STATUS_SETTING, { ambiguous: false, helpers: 0 });
     }
   }
@@ -230,17 +230,27 @@ export class NodeRegistry {
 
   /**
    * The live Host helpers the Gateway refuses to choose between: more than one, and none pinned
-   * (or the pin names none of them). Empty otherwise. Names are the device names the owner sees
-   * in Settings → Devices, so the notice can say which is which.
+   * (or the pin names none of them). Empty otherwise. `name` is what the helper calls itself (every
+   * Mac helper says the same thing, so it cannot tell two apart); `pairedAt` is the Gateway's own
+   * record of when that device was paired, which can.
    */
-  ambiguousHelpers(): { deviceId: string; nodeId: string; name: string }[] {
+  ambiguousHelpers(): {
+    deviceId: string;
+    nodeId: string;
+    name: string;
+    pairedAt: string | null;
+  }[] {
     const live = this.#liveHostHelpers();
     if (live.length <= 1 || this.#soleHostHelper() !== undefined) return [];
-    return live.map((e) => ({
-      deviceId: e.info.deviceId,
-      nodeId: e.info.id,
-      name: getDevice(this.#ctx.db, e.info.deviceId)?.name ?? e.info.deviceId,
-    }));
+    return live.map((e) => {
+      const device = getDevice(this.#ctx.db, e.info.deviceId);
+      return {
+        deviceId: e.info.deviceId,
+        nodeId: e.info.id,
+        name: device?.name ?? e.info.deviceId,
+        pairedAt: device?.pairedAt ?? null,
+      };
+    });
   }
 
   #failInvocations(connId: string, message: string): void {
@@ -329,7 +339,7 @@ export class NodeRegistry {
     const ambiguous = live.length > 1 && sole === undefined;
     const peerCheck = sole?.peerCheck;
     const peerCheckReason = sole?.peerCheckReason;
-    const publishedKey = `${peerCheck ?? ""}:${peerCheckReason ?? ""}`;
+    const publishedKey = `${live.length}:${peerCheck ?? ""}:${peerCheckReason ?? ""}`;
     const candidates = this.ambiguousHelpers();
     const candidatesKey = candidates
       .map((c) => c.deviceId)
@@ -359,7 +369,13 @@ export class NodeRegistry {
       helpers: live.length,
       ...(candidates.length === 0
         ? {}
-        : { candidates: candidates.map((c) => ({ deviceId: c.deviceId, name: c.name })) }),
+        : {
+            candidates: candidates.map((c) => ({
+              deviceId: c.deviceId,
+              name: c.name,
+              pairedAt: c.pairedAt,
+            })),
+          }),
       ...(peerCheck === undefined ? {} : { peerCheck }),
       ...(peerCheckReason === undefined ? {} : { peerCheckReason }),
     });
@@ -389,7 +405,8 @@ export class NodeRegistry {
 
   /** Whether `nodeId` is a live Host helper. */
   isHostHelper(nodeId: string): boolean {
-    return this.#live.get(nodeId)?.host === true;
+    const entry = this.#live.get(nodeId);
+    return entry?.host === true && entry.conn.open;
   }
 
   #hostHelperOf(entry: { conn: LiveConnection; info: NodeInfo }): HostHelper {

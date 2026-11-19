@@ -22,7 +22,16 @@ export interface HelperAvailabilityStatus {
    * Psyche will not guess between them (not because no helper is running). Empty otherwise. The
    * app names them and offers "use this one" (`devices.hostHelperDeviceId`).
    */
-  ambiguous: { deviceId: string; name: string }[];
+  ambiguous: HelperCandidate[];
+}
+
+/** A Host helper the Gateway will not choose between, with what it knows to tell it apart. */
+export interface HelperCandidate {
+  deviceId: string;
+  /** What the helper calls itself: a claim, the same for every Mac helper. */
+  name: string;
+  /** When the Gateway paired this device (ISO), or null. */
+  pairedAt: string | null;
 }
 
 export interface HelperAvailabilityOptions {
@@ -55,7 +64,7 @@ export class HelperAvailability {
   #failures = 0;
   #retryAt = 0;
   #contactsDenied = false;
-  #ambiguous: { deviceId: string; name: string }[] = [];
+  #ambiguous: HelperCandidate[] = [];
   readonly #now: () => number;
   readonly #log: NonNullable<HelperAvailabilityOptions["log"]>;
   readonly #baseMs: number;
@@ -133,12 +142,16 @@ export class HelperAvailability {
   }
 
   /** The helpers Psyche refuses to choose between (empty when there is no such conflict). */
-  setAmbiguous(helpers: { deviceId: string; name: string }[]): void {
+  setAmbiguous(helpers: HelperCandidate[]): void {
     const same =
       helpers.length === this.#ambiguous.length &&
       helpers.every((h, i) => h.deviceId === this.#ambiguous[i]?.deviceId);
     if (same) return;
-    this.#ambiguous = helpers.map((h) => ({ deviceId: h.deviceId, name: h.name }));
+    this.#ambiguous = helpers.map((h) => ({
+      deviceId: h.deviceId,
+      name: h.name,
+      pairedAt: h.pairedAt,
+    }));
     this.#changed();
   }
 

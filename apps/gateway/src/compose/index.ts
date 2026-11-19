@@ -1719,6 +1719,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       });
     },
   });
+  // A status left by the previous run (two helpers connected when it stopped) must not outlive
+  // it: no helper is connected yet. Quiet write; later changes publish through `onChange`.
+  setSetting(db, HELPER_AVAILABILITY_SETTING, helperAvailability.status());
   const proactive = composeProactive({
     db,
     clock,

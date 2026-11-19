@@ -199,7 +199,7 @@ describe("a helper on another computer", () => {
       key: HOST_HELPER_PIN_SETTING,
       value: "helper-c",
     });
-    expect(res.ok).not.toBe(true);
+    expect(res).toMatchObject({ ok: false, error: { code: "forbidden" } });
     expect(getSetting(g.context.db, HOST_HELPER_PIN_SETTING)?.value).toBeUndefined();
     expect(hostId(g)).toBeUndefined();
   });
@@ -219,6 +219,84 @@ describe("who may choose the Host helper", () => {
     );
     expect(res).toMatchObject({ ok: false, error: { code: "forbidden" } });
     expect(hostId(g)).toBeUndefined();
+  });
+});
+
+describe("the candidates the Gateway reports", () => {
+  it("carry the Gateway's own pairing time, and only a device that may read settings sees them", async () => {
+    const { g, desk } = await setup();
+    await helper(g, "a", "helper-a");
+    const b = await helper(g, "b", "helper-b");
+    const read = (await desk.request("settings.get", {
+      keys: [HOST_HELPER_STATUS_SETTING, HELPER_AVAILABILITY_SETTING],
+    })) as {
+      payload: { settings: Record<string, { candidates?: unknown[]; ambiguous?: unknown[] }> };
+    };
+    const settings = read.payload.settings;
+    expect(settings[HOST_HELPER_STATUS_SETTING]?.candidates).toEqual([
+      { deviceId: "helper-a", name: "Psyche helper", pairedAt: expect.any(String) },
+      { deviceId: "helper-b", name: "Psyche helper", pairedAt: expect.any(String) },
+    ]);
+    expect(settings[HELPER_AVAILABILITY_SETTING]?.ambiguous).toHaveLength(2);
+    // The helper's own connection has scope `node` only: no settings reads.
+    const res = await b.request("settings.get", { keys: [HOST_HELPER_STATUS_SETTING] });
+    expect(res).toMatchObject({ ok: false, error: { code: "forbidden" } });
+  });
+});
+
+describe("liveness and the pin as a tie-breaker", () => {
+  it("a connection that closed but has not detached yet is not a live helper", async () => {
+    const { g } = await setup();
+    const a = await helper(g, "a", "helper-a");
+    const b = await helper(g, "b", "helper-b");
+    expect(hostId(g)).toBeUndefined();
+    const conn = [...g.context.connections()].find((c) => c.identity?.deviceId === "helper-a");
+    expect(conn).toBeDefined();
+    Object.defineProperty(conn, "open", { get: () => false });
+    expect(g.context.nodes.hostHelpers().map((h) => h.info.id)).toEqual([b.nodeId]);
+    expect(hostId(g)).toBe(b.nodeId);
+    expect(g.context.nodes.isHostHelper(a.nodeId)).toBe(false);
+    expect(g.context.nodes.isHostHelper(b.nodeId)).toBe(true);
+    expect(g.context.nodes.ambiguousHelpers()).toEqual([]);
+  });
+
+  it("the pin settles a tie only: when the pinned helper leaves, the one left serves", async () => {
+    const { g, desk } = await setup();
+    const a = await helper(g, "a", "helper-a");
+    const b = await helper(g, "b", "helper-b");
+    await desk.request("settings.set", { key: HOST_HELPER_PIN_SETTING, value: "helper-a" }, ik());
+    expect(hostId(g)).toBe(a.nodeId);
+    await a.close();
+    await settle();
+    expect(hostId(g)).toBe(b.nodeId);
+    expect(status(g)).toMatchObject({ ambiguous: false, helpers: 1 });
+    // A new second helper is a tie again; the pin names a device that is gone, so nothing is chosen.
+    await helper(g, "c", "helper-c");
+    expect(hostId(g)).toBeUndefined();
+    expect(status(g).ambiguous).toBe(true);
+  });
+});
+
+describe("a Gateway restart", () => {
+  it("does not keep telling the app that two helpers are connected", async () => {
+    const { g } = await setup();
+    await helper(g, "a", "helper-a");
+    await helper(g, "b", "helper-b");
+    expect(availability(g).ambiguous).toHaveLength(2);
+    for (const n of nodes.splice(0)) await n.close().catch(() => undefined);
+    await composed?.stop("test");
+    composed = await composeGateway({
+      env: {},
+      logger: silentLogger,
+      retentionIntervalMs: 0,
+      background: false,
+      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      model: { provider: new FakeModelProvider(), model: "fake/model" },
+    });
+    const g2 = composed.gateway;
+    expect(g2.context.nodes.hostHelpers()).toEqual([]);
+    expect(availability(g2)).toMatchObject({ connected: false, ambiguous: [] });
+    expect(status(g2)).toMatchObject({ ambiguous: false, helpers: 0 });
   });
 });
 
