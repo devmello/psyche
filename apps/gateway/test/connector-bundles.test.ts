@@ -1584,3 +1584,60 @@ describe("third review fixes", () => {
     expect(e.message).toMatch(/more than 62 arguments/);
   });
 });
+
+describe("idle stops and restarts (PR #1401)", () => {
+  it("a server with a leftover bundle record but no marker is never stopped behind the start check", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-conn-bundles-"));
+    const keyFile = join(home, "vault.key");
+    writeFileSync(keyFile, Buffer.alloc(32, 7), { mode: 0o600 });
+    // A record left under "orphan" (a crash between two writes): `bundles.stale` checks it at
+    // every start the Gateway makes, so the host must not restart it on its own.
+    new ConnectorLedger(home).put({
+      serverId: "orphan",
+      bundleHash: `sha256:${"e".repeat(64)}`,
+      signerAncestors: [],
+      title: "x",
+      createdAt: NOW.toISOString(),
+      requests: model().requests,
+      treeHash: "sha256:x",
+    });
+    const server = (id: string) => ({
+      id,
+      name: id,
+      trust: "unknown",
+      transport: { kind: "stdio", command: [process.execPath, SERVER] },
+    });
+    const stops: string[] = [];
+    composed = await composeGateway({
+      retentionIntervalMs: 0,
+      background: false,
+      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      model: { provider: new FakeModelProvider(), model: "fake/model" },
+      vault: { keyFile, argon2: { memory: 64, passes: 1, parallelism: 1 } },
+      parts: [
+        (s) => {
+          // Already in the setting at startup: the first reconcile keeps the leftover record.
+          setSetting(s.db, "mcp.servers", [server("orphan"), server("plain")]);
+          return composeMcp(s, {
+            hostOptions: {
+              launcher: fakeSrt,
+              idleStopMs: 300,
+              onEvent: (e) => {
+                if (e.type === "status" && e.status === "disconnected") stops.push(e.serverId);
+              },
+            },
+          });
+        },
+      ],
+    });
+    await vi.waitFor(
+      () =>
+        expect(launches.map((l) => l.server)).toEqual(expect.arrayContaining(["orphan", "plain"])),
+      { timeout: 10_000 },
+    );
+    // The control is stopped for being idle; the one with a record keeps running.
+    await vi.waitFor(() => expect(stops).toContain("plain"), { timeout: 5_000 });
+    await new Promise((r) => setTimeout(r, 600));
+    expect(stops).not.toContain("orphan");
+  });
+});
