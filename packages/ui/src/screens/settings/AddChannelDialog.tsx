@@ -1,5 +1,5 @@
 import type { Channel, MethodParams } from "@psyche/protocol";
-import { type FormEvent, type ReactElement, useId, useState } from "react";
+import { type FormEvent, type ReactElement, useContext, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import {
   Dialog,
@@ -11,13 +11,17 @@ import {
 } from "../../components/ui/dialog.tsx";
 import { useCall } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
-import { messageOf } from "./shared.tsx";
+import { approvalIdOf, messageOf, SettingsApprovalContext } from "./shared.tsx";
 
 /**
  * Guided "Add a channel" (Settings → Channels). Uses the Gateway's own methods, in order:
- * `channels.secrets.set` for each transport token (sent in the request body, straight to the
- * vault, never in a URL and never echoed back), then `channels.configure` to create the channel
- * with the safe default policy (`pairing`: nobody is let in until the owner approves them).
+ * refuse a (type, account) that already has a channel (so a live channel's tokens are never
+ * replaced), `channels.secrets.set` for each transport token (sent in the request body, straight
+ * to the vault, never in a URL and never echoed back), then `channels.configure` to create the
+ * channel on the safe default policy (`pairing`: nobody is let in until the owner approves them).
+ * If creating fails, every token this flow stored is cleared again, so a failure leaves nothing
+ * behind. Creating a channel is a presence-gated change: on `approval_required` the tokens are
+ * cleared, the Settings approval banner takes over, and the same steps run again once approved.
  * Types whose token is not a vault secret (Telegram, iMessage, Signal, email) are set up where
  * the Gateway runs, so they are not offered here.
  */
@@ -41,12 +45,84 @@ const TYPE_NAME: Record<AddableType, string> = {
   whatsapp: "WhatsApp",
 };
 
+/** What the Gateway reads to start each transport; it must name the account added here. */
+const ENV: Record<AddableType, string> = {
+  slack: "PSYCHE_SLACK_WORKSPACE",
+  discord: "PSYCHE_DISCORD_ACCOUNT",
+  sms: "PSYCHE_SMS_FROM",
+  whatsapp: "PSYCHE_WHATSAPP_NUMBER",
+};
+
+/** SMS and WhatsApp accounts are the E.164 number (the same pattern the Gateway uses). */
+const E164 = /^\+\d{6,15}$/;
+const NEEDS_NUMBER: ReadonlySet<AddableType> = new Set(["sms", "whatsapp"]);
+
+export interface ChannelDraft {
+  type: AddableType;
+  account: string;
+  secrets: Partial<Record<SecretName, string>>;
+}
+
+export interface AddOutcome {
+  /** The channel exists but its transport is not running yet. */
+  inactive: boolean;
+  /** The Gateway variable that must name this account. */
+  env: string;
+}
+
+type CallFn = ReturnType<typeof useCall>;
+
+/**
+ * The steps behind Connect. Throws the Gateway's error (an `approval_required` among them) with
+ * nothing stored; resolves with what to tell the owner.
+ */
+export async function connectChannel(
+  call: CallFn,
+  draft: ChannelDraft,
+  approvalId?: string,
+): Promise<AddOutcome> {
+  const { type, account, secrets } = draft;
+  const { channels } = await call("channels.list", {});
+  if (channels.some((c) => c.type === type && c.account.toLowerCase() === account.toLowerCase())) {
+    throw new Error(t("settings.channels.add.exists", { type: TYPE_NAME[type], account }));
+  }
+  const stored: SecretName[] = [];
+  try {
+    for (const name of ADDABLE_CHANNELS[type]) {
+      await call("channels.secrets.set", {
+        type,
+        account,
+        name,
+        value: (secrets[name] ?? "").trim(),
+      });
+      stored.push(name);
+    }
+    const { channel } = await call("channels.configure", {
+      type,
+      account,
+      dmPolicy: "pairing",
+      ...(approvalId === undefined ? {} : { approvalId }),
+    });
+    // The transport only starts when the Gateway's environment names this account.
+    const now = await call("channels.get", { channelId: channel.id }).then(
+      (r) => r.channel,
+      () => channel,
+    );
+    return { inactive: now.status !== "active", env: ENV[type] };
+  } catch (err) {
+    for (const name of stored) {
+      await call("channels.secrets.clear", { type, account, name }).catch(() => undefined);
+    }
+    throw err;
+  }
+}
+
 export interface AddChannelDialogProps {
   open: boolean;
   persona: string;
   onClose: () => void;
-  /** Called once the channel exists, so the list reloads. */
-  onAdded: () => void;
+  /** Called once the channel exists, so the list reloads; `inactive` when it is not running yet. */
+  onAdded: (outcome: AddOutcome) => void;
 }
 
 export function AddChannelDialog({
@@ -57,6 +133,7 @@ export function AddChannelDialog({
 }: AddChannelDialogProps): ReactElement {
   const call = useCall();
   const id = useId();
+  const requestApproval = useContext(SettingsApprovalContext);
   const [type, setType] = useState<AddableType>("slack");
   const [account, setAccount] = useState("");
   const [secrets, setSecrets] = useState<Partial<Record<SecretName, string>>>({});
@@ -84,23 +161,33 @@ export function AddChannelDialog({
       return;
     }
     const acct = account.trim();
+    if (NEEDS_NUMBER.has(type) && !E164.test(acct)) {
+      setError(t("settings.channels.add.badNumber"));
+      return;
+    }
+    const draft: ChannelDraft = { type, account: acct, secrets: { ...secrets } };
     setBusy(true);
     setError(null);
     try {
-      for (const name of names) {
-        await call("channels.secrets.set", {
-          type,
-          account: acct,
-          name,
-          value: (secrets[name] ?? "").trim(),
-        });
-      }
-      await call("channels.configure", { type, account: acct, dmPolicy: "pairing" });
+      const outcome = await connectChannel(call, draft);
       // The tokens are dropped from memory once the Gateway has them.
       close();
-      onAdded();
+      onAdded(outcome);
     } catch (err) {
-      setError(t("settings.channels.add.failed", { reason: messageOf(err) }));
+      const approvalId = approvalIdOf(err);
+      if (approvalId !== null && requestApproval) {
+        // Creating a channel needs the owner's approval: the Settings banner shows the card and
+        // runs the same steps again once it is approved. Nothing is stored while it waits.
+        requestApproval({
+          key: "channels.add",
+          label: t("settings.channels.add.approvalLabel"),
+          approvalId,
+          retry: async (aid) => onAdded(await connectChannel(call, draft, aid)),
+        });
+        close();
+      } else {
+        setError(t("settings.channels.add.failed", { reason: messageOf(err) }));
+      }
     } finally {
       setBusy(false);
     }
@@ -179,7 +266,7 @@ export function AddChannelDialog({
             </div>
           ))}
           <p className="text-callout text-muted-foreground">
-            {t("settings.channels.add.otherTypes")}
+            {t("settings.channels.add.envNote", { env: ENV[type] })}
           </p>
           {error !== null ? (
             <p role="alert" className="text-callout text-danger-text">

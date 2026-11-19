@@ -450,9 +450,13 @@ export function ChannelsSection({ now }: { now?: number }): ReactElement {
         open={adding}
         persona={persona.name}
         onClose={() => setAdding(false)}
-        onAdded={() => {
+        onAdded={(outcome) => {
           reload();
-          toast(t("settings.channels.add.added", { persona: persona.name }));
+          toast(
+            outcome.inactive
+              ? t("settings.channels.add.addedInactive", { env: outcome.env })
+              : t("settings.channels.add.added", { persona: persona.name }),
+          );
         }}
       />
     </>

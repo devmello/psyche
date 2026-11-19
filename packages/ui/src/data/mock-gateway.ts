@@ -4019,6 +4019,10 @@ export class MockGateway implements GatewayClient {
     "channels.pairing.approve": (p) => ({ pairingRequest: this.decidePairing(p, "approved") }),
     "channels.pairing.deny": (p) => ({ pairingRequest: this.decidePairing(p, "denied") }),
     "channels.secrets.set": (p) => ({ set: [p.name] }),
+    "channels.secrets.clear": () => ({ set: [] }),
+    "channels.get": (p) => ({
+      channel: this.find(this.world.channels, p.channelId, "channel") as Channel,
+    }),
     "channels.configure": (p) => {
       const { channelId, approvalId: _approval, ...fields } = p;
       if (channelId === undefined) {
@@ -4035,7 +4039,7 @@ export class MockGateway implements GatewayClient {
           groupAllowFrom: fields.groupAllowFrom ?? [],
           requireMention: fields.requireMention ?? true,
           ownerIds: fields.ownerIds ?? [],
-          dmScope: fields.dmScope ?? "main",
+          dmScope: fields.dmScope ?? "per-channel-peer",
           nodeId: fields.nodeId ?? null,
           status: fields.status ?? "active",
           config: fields.config ?? {},

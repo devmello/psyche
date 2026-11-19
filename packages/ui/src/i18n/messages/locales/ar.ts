@@ -1628,22 +1628,27 @@ export const ar: Partial<Catalogue> = {
   "settings.channels.add.type": "القناة",
   "settings.channels.add.account.slack": "اسم مساحة العمل",
   "settings.channels.add.account.discord": "معرّف التطبيق",
-  "settings.channels.add.account.sms": "رقم الهاتف المرسِل",
-  "settings.channels.add.account.whatsapp": "معرّف رقم الهاتف",
   "settings.channels.add.secret.bot_token": "رمز البوت",
   "settings.channels.add.secret.app_token": "رمز التطبيق",
   "settings.channels.add.secret.auth_token": "رمز المصادقة",
   "settings.channels.add.secret.access_token": "رمز الوصول",
   "settings.channels.add.secret.app_secret": "سر التطبيق",
   "settings.channels.add.secret.verify_token": "رمز التحقق",
-  "settings.channels.add.otherTypes":
-    "يتم إعداد Telegram وiMessage وSignal والبريد الإلكتروني حيث يعمل Gateway. راجع وثائق القنوات.",
   "settings.channels.add.submit": "اتصال",
   "settings.channels.add.connecting": "جارٍ الاتصال",
   "settings.channels.add.missing": "املأ جميع الحقول للاتصال.",
   "settings.channels.add.failed": "تعذّر على Psyche إضافة القناة ({reason}). لم يتم تشغيلها.",
+  "settings.channels.add.account.sms": "رقم الإرسال (+15551234567)",
+  "settings.channels.add.account.whatsapp": "رقم واتساب (+15551234567)",
+  "settings.channels.add.badNumber": "أدخل الرقم بالصيغة الدولية، مثل +15551234567.",
+  "settings.channels.add.exists": "توجد قناة {type} للحساب {account} بالفعل، لذا لم يتغير شيء.",
+  "settings.channels.add.approvalLabel": "إضافة قناة",
+  "settings.channels.add.envNote":
+    "يجب أيضًا تشغيل Gateway مع ضبط {env} على هذا الحساب. يتم إعداد Telegram وiMessage وSignal والبريد الإلكتروني حيث يعمل Gateway؛ راجع وثائق القنوات.",
   "settings.channels.add.added":
-    "تمت إضافة القناة. راسل {persona} منها للحصول على رمز اقتران، ثم وافق عليه هنا.",
+    "تمت إضافة القناة وهي تعمل. راسل {persona} منها للحصول على رمز اقتران، ثم وافق عليه هنا.",
+  "settings.channels.add.addedInactive":
+    "تمت إضافة القناة لكنها لا تعمل بعد. اضبط {env} على هذا الحساب حيث يعمل Gateway ثم أعد تشغيله.",
   "settings.channels.identities": "روابط الهوية",
   "settings.channels.identitiesDescription":
     "شخص واحد عبر القنوات. لا تتغيّر الروابط إلا من جهاز مقترن.",

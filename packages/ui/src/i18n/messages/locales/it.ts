@@ -1579,23 +1579,30 @@ export const it: Partial<Catalogue> = {
   "settings.channels.add.type": "Canale",
   "settings.channels.add.account.slack": "Nome dello spazio di lavoro",
   "settings.channels.add.account.discord": "ID applicazione",
-  "settings.channels.add.account.sms": "Numero di telefono mittente",
-  "settings.channels.add.account.whatsapp": "ID numero di telefono",
   "settings.channels.add.secret.bot_token": "Token del bot",
   "settings.channels.add.secret.app_token": "Token dell'app",
   "settings.channels.add.secret.auth_token": "Token di autenticazione",
   "settings.channels.add.secret.access_token": "Token di accesso",
   "settings.channels.add.secret.app_secret": "Segreto dell'app",
   "settings.channels.add.secret.verify_token": "Token di verifica",
-  "settings.channels.add.otherTypes":
-    "Telegram, iMessage, Signal ed e-mail si configurano dove gira il Gateway. Vedi la documentazione dei canali.",
   "settings.channels.add.submit": "Collega",
   "settings.channels.add.connecting": "Connessione",
   "settings.channels.add.missing": "Compila tutti i campi per collegare.",
   "settings.channels.add.failed":
     "Psyche non è riuscito ad aggiungere il canale ({reason}). Non è attivo.",
+  "settings.channels.add.account.sms": "Numero mittente (+15551234567)",
+  "settings.channels.add.account.whatsapp": "Numero WhatsApp (+15551234567)",
+  "settings.channels.add.badNumber":
+    "Inserisci il numero in formato internazionale, ad esempio +15551234567.",
+  "settings.channels.add.exists":
+    "Esiste già un canale {type} per {account}, quindi non è cambiato nulla.",
+  "settings.channels.add.approvalLabel": "Aggiunta di un canale",
+  "settings.channels.add.envNote":
+    "Il Gateway deve anche essere avviato con {env} impostato su questo account. Telegram, iMessage, Signal ed e-mail si configurano dove gira il Gateway; vedi la documentazione dei canali.",
   "settings.channels.add.added":
-    "Canale aggiunto. Scrivi a {persona} da lì per ottenere un codice di abbinamento, poi approvalo qui.",
+    "Canale aggiunto e attivo. Scrivi a {persona} da lì per ottenere un codice di abbinamento, poi approvalo qui.",
+  "settings.channels.add.addedInactive":
+    "Canale aggiunto, ma non è ancora attivo. Imposta {env} su questo account dove gira il Gateway e riavvialo.",
   "settings.channels.identities": "Collegamenti di identità",
   "settings.channels.identitiesDescription":
     "Una sola persona attraverso i canali. I collegamenti si modificano solo da un dispositivo abbinato.",
