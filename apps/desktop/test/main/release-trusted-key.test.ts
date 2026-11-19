@@ -55,6 +55,31 @@ describe("trustedKeysFromSource", () => {
   });
 });
 
+describe("trustedKeysFromSource refuses keys outside the trusted array (review of #1400)", () => {
+  it("ignores a key in a trailing comment on a trusted line", () => {
+    const a = fresh().entry;
+    const b = fresh().entry;
+    const ts = `export const TRUSTED_RELEASE_KEYS = [\n  { keyId: "${a.keyId}", publicKey: "${a.publicKey}" }, // retired: { keyId: "${b.keyId}", publicKey: "${b.publicKey}" }\n];\n`;
+    expect(trustedKeysFromSource(ts).map((k) => k.keyId)).toEqual([a.keyId]);
+  });
+  it("ignores keys in a second const such as a revoked list", () => {
+    const a = fresh().entry;
+    const b = fresh().entry;
+    const ts = `export const TRUSTED_RELEASE_KEYS = [\n  { keyId: "${a.keyId}", publicKey: "${a.publicKey}" },\n];\nexport const REVOKED_RELEASE_KEYS = [\n  { keyId: "${b.keyId}", publicKey: "${b.publicKey}" },\n];\n`;
+    expect(trustedKeysFromSource(ts).map((k) => k.keyId)).toEqual([a.keyId]);
+  });
+  it("throws on an array that is not a plain list (a condition, a filter, a template)", () => {
+    const b = fresh().entry;
+    for (const ts of [
+      `export const TRUSTED_RELEASE_KEYS = env ? [{ keyId: "${b.keyId}", publicKey: "${b.publicKey}" }] : [];`,
+      `export const TRUSTED_RELEASE_KEYS = [...ALL.filter(Boolean), { keyId: "${b.keyId}", publicKey: "${b.publicKey}" }];`,
+      `export const TRUSTED_RELEASE_KEYS = [\`{ keyId: "${b.keyId}", publicKey: "${b.publicKey}" }\`];`,
+    ]) {
+      expect(() => trustedKeysFromSource(ts)).toThrow(/plain list|not closed/);
+    }
+  });
+});
+
 describe("verifyTrusted", () => {
   it("accepts a manifest signed by a trusted key", () => {
     const k = fresh();

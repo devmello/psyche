@@ -140,17 +140,74 @@ export function signManifest(bytes, privatePem) {
   })}\n`;
 }
 
+/** Source with comments removed, keeping string and template contents intact. */
+function stripComments(src) {
+  let out = "";
+  let i = 0;
+  let quote = null;
+  while (i < src.length) {
+    const c = src[i];
+    if (quote) {
+      out += c;
+      if (c === "\\") {
+        out += src[i + 1] ?? "";
+        i += 2;
+        continue;
+      }
+      if (c === quote) quote = null;
+      i++;
+    } else if (c === '"' || c === "'" || c === "`") {
+      quote = c;
+      out += c;
+      i++;
+    } else if (c === "/" && src[i + 1] === "/") {
+      while (i < src.length && src[i] !== "\n") i++;
+    } else if (c === "/" && src[i + 1] === "*") {
+      const close = src.indexOf("*/", i + 2);
+      i = close === -1 ? src.length : close + 2;
+    } else {
+      out += c;
+      i++;
+    }
+  }
+  return out;
+}
+
+const KEY_ENTRY =
+  /^\s*\{\s*keyId:\s*"([0-9a-f]{16})"\s*,\s*publicKey:\s*"([A-Za-z0-9+/]{43}=)"\s*,?\s*\}\s*,?/;
+
 /**
- * The {keyId, publicKey} pairs in apps/desktop/src/main/release-keys.ts (comments ignored). Only
- * public keys live there; nothing secret is read or printed.
+ * The {keyId, publicKey} pairs of `TRUSTED_RELEASE_KEYS` in apps/desktop/src/main/release-keys.ts.
+ * Only that array literal counts, and it must be a plain list of such objects: a key left in a
+ * comment, in another const (a revoked list), behind a condition or a filter, or in a template is
+ * never trusted, and an array of any other shape throws instead of guessing. Only public keys live
+ * there; nothing secret is read or printed.
  */
 export function trustedKeysFromSource(tsSource) {
-  const code = tsSource.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const code = stripComments(tsSource);
+  const decl = /\bTRUSTED_RELEASE_KEYS\b[^=]*=\s*\[/.exec(code);
+  if (!decl) {
+    if (/\bTRUSTED_RELEASE_KEYS\b/.test(code)) {
+      throw new Error(
+        "release-keys.ts: TRUSTED_RELEASE_KEYS must be a plain list of { keyId, publicKey } objects",
+      );
+    }
+    return [];
+  }
+  let body = code.slice(decl.index + decl[0].length);
+  const close = body.indexOf("]");
+  if (close === -1) throw new Error("release-keys.ts: TRUSTED_RELEASE_KEYS is not closed");
+  body = body.slice(0, close);
   const keys = [];
-  for (const m of code.matchAll(
-    /keyId:\s*"([0-9a-f]{16})"\s*,\s*publicKey:\s*"([A-Za-z0-9+/]{43}=)"/g,
-  )) {
+  while (body.trim() !== "") {
+    const m = KEY_ENTRY.exec(body);
+    if (!m) {
+      throw new Error(
+        "release-keys.ts: TRUSTED_RELEASE_KEYS must be a plain list of { keyId, publicKey } objects",
+      );
+    }
     keys.push({ keyId: m[1], publicKey: m[2] });
+    body = body.slice(m[0].length);
   }
   return keys;
 }
