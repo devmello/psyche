@@ -2252,6 +2252,10 @@ export class MockGateway implements GatewayClient {
         this.world.library = this.world.library.filter((i) => i.id !== p.itemId);
         return { ok: true, item: null };
       }
+      // The Gateway releases only files from outside; a meeting recording or voice note stays.
+      if (!["download", "channel", "connector"].includes(item.origin)) {
+        return fail("invalid_params", `${item.name} cannot be trusted; delete it instead`);
+      }
       const { quarantined: _q, ...released } = item;
       this.world.library = this.world.library.map((i) => (i.id === p.itemId ? released : i));
       return { ok: true, item: released };

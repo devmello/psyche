@@ -5,6 +5,7 @@ import {
   type PsycheDb,
   putAgentThreadState,
 } from "@psyche/db";
+import type { TaintSource } from "@psyche/permissions";
 import type { ModelMessage } from "@psyche/protocol";
 import { resolveAttachments } from "../session/attachments.ts";
 
@@ -71,6 +72,7 @@ export class SqliteThreadStateStore implements ThreadStateStore {
     const last = rows.at(-1);
     const history = last?.role === "user" ? rows.slice(0, -1) : rows;
     const out: ModelMessage[] = [];
+    const taint: TaintSource[] = [];
     for (const m of history) {
       if (m.role !== "user" && m.role !== "agent") continue;
       let text = m.blocks.flatMap((b) => (b.type === "text" ? [b.md] : [])).join("\n\n");
@@ -79,10 +81,15 @@ export class SqliteThreadStateStore implements ThreadStateStore {
       if (m.role === "user" && files.length > 0) {
         const attached =
           this.#home === null
-            ? { text: `[attached library items: ${files.join(", ")}]`, images }
+            ? {
+                text: `[attached library items: ${files.join(", ")}]`,
+                images,
+                taint: [] as TaintSource[],
+              }
             : await resolveAttachments(this.#db, this.#home, files);
         text = `${text}\n\n${attached.text}`;
         images = attached.images;
+        taint.push(...attached.taint);
       }
       if (text.trim() === "") continue;
       if (m.provenance === "untrusted")
@@ -97,7 +104,13 @@ export class SqliteThreadStateStore implements ThreadStateStore {
       if (prev?.role === role) prev.parts.push(...parts);
       else out.push({ role, parts });
     }
-    return out.length === 0 ? undefined : { messages: out, checklist: [] };
+    if (out.length === 0) return undefined;
+    // Third-party files re-read into the context keep the thread tainted, as they did live.
+    return {
+      messages: out,
+      checklist: [],
+      ...(taint.length === 0 ? {} : { taint: { sources: taint } }),
+    };
   }
 
   async save(threadId: string, state: ThreadState): Promise<void> {

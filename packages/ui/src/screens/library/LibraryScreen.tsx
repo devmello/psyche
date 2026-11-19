@@ -132,6 +132,11 @@ function ItemIcon({ item, className }: { item: LibraryItem; className?: string }
  * only when the app passes `onTrust`; the connected Library does (`library.quarantine.decide`, a
  * plain tap from an admin device, never a presence step). Delete is offered next to it.
  */
+/** Files from outside, the only ones the Gateway lets the owner release from quarantine. */
+export const canTrust = (item: LibraryItem): boolean =>
+  item.quarantined === true &&
+  (item.origin === "download" || item.origin === "channel" || item.origin === "connector");
+
 export function itemActions(item: LibraryItem, a: LibraryItemActions, taskTitle?: string | null) {
   const system = item.kind === "system";
   const list: { id: string; label: string; icon: ReactElement; run: () => void }[] = [];
@@ -196,7 +201,7 @@ export function itemActions(item: LibraryItem, a: LibraryItemActions, taskTitle?
       run: () => openTask(taskId),
     });
   }
-  if (item.quarantined === true && a.onTrust) {
+  if (canTrust(item) && a.onTrust) {
     const trust = a.onTrust;
     list.push({
       id: "trust",
@@ -385,7 +390,7 @@ export function LibraryItemView({
     </>
   );
   const trust =
-    quarantined && onTrust ? (
+    canTrust(item) && onTrust ? (
       <Button type="button" size="xs" variant="plain" onClick={() => onTrust(item)}>
         <ShieldCheck aria-hidden="true" />
         {t("screens.library.trust")}
