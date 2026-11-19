@@ -104,6 +104,40 @@ interface Entry {
   grantOutcome: Map<string, Receipt["outcome"]>;
 }
 
+interface GrantUse {
+  approvalId: string;
+  grantId: string;
+  taskId: string;
+  bindingHash: string;
+}
+
+/** A grant use or grant receipt held for a card whose entry does not exist yet. */
+interface EarlyEvent {
+  at: number;
+  use?: GrantUse;
+  receipt?: Receipt;
+}
+
+/** How long, and how many, early grant events are kept for an entry about to exist. */
+const EARLY_MS = 60_000;
+const EARLY_MAX = 256;
+
+/**
+ * A call went through the card's grant: kept per task, when it is the card's own action. Whose
+ * run it is is checked when the task finishes (`#finished`): the scheduler records a run's
+ * task only once its launch returns, after the first call may have gone through.
+ */
+function grantUse(entry: Entry, use: GrantUse): void {
+  if (use.bindingHash === entry.approval.bindingHash) entry.grantTasks.add(use.taskId);
+}
+
+/** A receipt naming the card's grant: kept per task, read when that task finishes as a run. */
+function grantReceipt(entry: Entry, r: Receipt): void {
+  if (r.taskId == null || receiptGrantBinding(r) !== entry.approval.bindingHash) return;
+  // A failure in the task is never hidden by another receipt.
+  if (entry.grantOutcome.get(r.taskId) !== "failed") entry.grantOutcome.set(r.taskId, r.outcome);
+}
+
 /** English fallback of `notice.approvals.resumeMissed.body` (its `why`). */
 const ASK_AGAIN = "If it still needs it, it will ask again.";
 const MISSED_BODY: Record<MissedReason, string> = {
@@ -142,6 +176,8 @@ function keptGrant(a: ApprovalRequest): boolean {
 export class DeferredResume {
   readonly #o: DeferredResumeOptions;
   readonly #entries = new Map<string, Entry>();
+  /** Grant uses and grant receipts seen before their card's entry existed (`#keepEarly`). */
+  #early: EarlyEvent[] = [];
   #queue: Promise<unknown> = Promise.resolve();
 
   constructor(options: DeferredResumeOptions) {
@@ -203,8 +239,9 @@ export class DeferredResume {
   /** Feed every broker event here. */
   onBrokerEvent(e: BrokerEvent): void {
     if (e.type === "approval.decided") {
+      // Synchronously: from here on a run's use of the card's grant finds its entry.
       if (e.approval.status === "approved" && e.approval.setAside === true) {
-        this.#serial(() => this.#approved(e.approval));
+        this.#approvedNow(e.approval);
       }
     } else if (e.type === "receipt.created") {
       // Done means it succeeded: a failed or uncertain receipt is reported as not done. A call
@@ -219,31 +256,85 @@ export class DeferredResume {
         else own.failed = true;
         return;
       }
-      // Kept per task: it counts when that task finishes as a run of this automation.
       const grantId = receiptGrantId(r);
       if (grantId === undefined || r.taskId == null) return;
+      let matched = false;
       for (const x of this.#entries.values()) {
         if (x.approval.grantId !== grantId) continue;
-        if (receiptGrantBinding(r) !== x.approval.bindingHash) continue;
-        // A failure in the task is never hidden by another receipt.
-        if (x.grantOutcome.get(r.taskId) !== "failed") x.grantOutcome.set(r.taskId, r.outcome);
+        matched = true;
+        grantReceipt(x, r);
+      }
+      // Its card's entry is not there yet, but its grant was just used: keep it for the entry.
+      if (!matched && this.#early.some((y) => y.use?.grantId === grantId)) {
+        this.#keepEarly({ receipt: structuredClone(r) });
       }
     } else if (e.type === "grant.used") {
       // Approved with a standing scope: a call went through that grant. Not done yet: done is
       // its `ok` receipt, never the use alone (the action can still fail). Only a run of this
       // automation doing this very action counts.
       const id = e.grant.createdFromApprovalId;
-      const entry = id == null ? undefined : this.#entries.get(id);
-      // Whose run it is is checked when the task finishes (`#finished`): the scheduler records
-      // a run's task only once its launch returns, after the first call may have gone through.
-      if (
-        entry !== undefined &&
-        e.taskId !== undefined &&
-        e.bindingHash === entry.approval.bindingHash
-      ) {
-        entry.grantTasks.add(e.taskId);
+      if (id == null || e.taskId === undefined) return;
+      const use = {
+        approvalId: id,
+        grantId: e.grant.id,
+        taskId: e.taskId,
+        bindingHash: e.bindingHash,
+      };
+      const entry = this.#entries.get(id);
+      if (entry !== undefined) grantUse(entry, use);
+      else if (this.#o.clock.now() - Date.parse(e.grant.createdAt) < EARLY_MS) {
+        // The broker stores the grant, then finishes the answer (audit writes) before it says
+        // the card was decided: a run already going can use the grant in between. Kept for the
+        // entry, so that use is not lost and no resume does the action a second time.
+        this.#keepEarly({ use });
       }
     }
+  }
+
+  #keepEarly(item: Omit<EarlyEvent, "at">): void {
+    const now = this.#o.clock.now();
+    while (this.#early.length > 0 && (this.#early[0]?.at ?? now) < now - EARLY_MS) {
+      this.#early.shift();
+    }
+    if (this.#early.length >= EARLY_MAX) this.#early.shift();
+    this.#early.push({ at: now, ...item });
+  }
+
+  /**
+   * The card was approved: its entry exists from now on, with the grant uses and receipts seen
+   * since its grant was stored. Starting the resume (or the notice) waits in the queue.
+   */
+  #approvedNow(a: ApprovalRequest): void {
+    if (this.#entries.has(a.id)) return;
+    const taskId = a.requestedBy.taskId;
+    const run = taskId == null ? undefined : this.#o.scheduler.runForTask(taskId);
+    if (run === undefined) {
+      // `canResume` refused this before the broker approved it; the automation went since.
+      this.#serial(() => this.#missed(a, undefined, "paused"));
+      return;
+    }
+    const entry: Entry = {
+      approval: a,
+      automationId: run.automationId,
+      state: "waiting",
+      done: false,
+      failed: false,
+      unknown: false,
+      grantTasks: new Set(),
+      grantOutcome: new Map(),
+    };
+    this.#entries.set(a.id, entry);
+    const rest: EarlyEvent[] = [];
+    for (const y of this.#early) {
+      if (y.use?.approvalId === a.id) grantUse(entry, y.use);
+      else rest.push(y);
+    }
+    this.#early = rest.filter((y) => {
+      if (y.receipt === undefined || receiptGrantId(y.receipt) !== a.grantId) return true;
+      grantReceipt(entry, y.receipt);
+      return false;
+    });
+    this.#serial(() => this.#approved(a));
   }
 
   /** Feed `automation.run.finished` here. */
@@ -286,26 +377,10 @@ export class DeferredResume {
   }
 
   async #approved(a: ApprovalRequest): Promise<void> {
-    if (this.#entries.has(a.id)) return;
-    const taskId = a.requestedBy.taskId;
-    const run = taskId == null ? undefined : this.#o.scheduler.runForTask(taskId);
-    if (run === undefined) {
-      // `canResume` refused this before the broker approved it; the automation went since.
-      await this.#missed(a, undefined, "paused");
-      return;
-    }
-    this.#entries.set(a.id, {
-      approval: a,
-      automationId: run.automationId,
-      state: "waiting",
-      done: false,
-      failed: false,
-      unknown: false,
-      grantTasks: new Set(),
-      grantOutcome: new Map(),
-    });
+    const entry = this.#entries.get(a.id);
+    if (entry === undefined || entry.state !== "waiting") return;
     // A run in progress may still reach the call; its end starts the resume run otherwise.
-    if (!this.#o.scheduler.isRunning(run.automationId)) await this.#start(run.automationId);
+    if (!this.#o.scheduler.isRunning(entry.automationId)) await this.#start(entry.automationId);
   }
 
   async #start(automationId: string): Promise<void> {
