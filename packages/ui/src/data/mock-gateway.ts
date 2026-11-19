@@ -2232,8 +2232,10 @@ export class MockGateway implements GatewayClient {
     },
     "library.quarantine.decide": (p) => {
       const item = this.world.library.find((i) => i.id === p.itemId);
-      if (item === undefined) fail("not_found", `library item ${p.itemId} not found`);
-      if (item.quarantined !== true) fail("invalid_params", `${item.name} is not in quarantine`);
+      if (item === undefined) return fail("not_found", `library item ${p.itemId} not found`);
+      if (item.quarantined !== true) {
+        return fail("invalid_params", `${item.name} is not in quarantine`);
+      }
       if (p.decision === "delete") {
         this.world.library = this.world.library.filter((i) => i.id !== p.itemId);
         return { ok: true, item: null };

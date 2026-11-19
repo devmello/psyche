@@ -3029,7 +3029,8 @@ export const fr: Partial<Catalogue> = {
   "screens.library.openInEditor": "Ouvrir dans l’éditeur",
   "screens.library.open": "Ouvrir",
   "screens.library.deleteDownload": "Supprimer ce téléchargement",
-  "screens.library.deleteFailed": "Psyche n'a pas pu supprimer {name} ({reason}). Il reste en quarantaine.",
+  "screens.library.deleteFailed":
+    "Psyche n'a pas pu supprimer {name} ({reason}). Il reste en quarantaine.",
   "screens.library.trust": "Faire confiance à ce fichier",
   "screens.library.moreFor": "Autres actions pour {name}",
   "screens.library.quickLook": "Coup d’œil",
