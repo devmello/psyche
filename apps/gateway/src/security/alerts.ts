@@ -1,5 +1,5 @@
 import type { PsycheDb } from "@psyche/db";
-import type { SecurityAlert, SecurityAlertKind } from "@psyche/protocol";
+import type { NoticeMessage, SecurityAlert, SecurityAlertKind } from "@psyche/protocol";
 
 /**
  * Security alerts (docs/design/security-state-integrity-2026.md §7.3): what the owner is shown,
@@ -243,7 +243,78 @@ export function alertNotifyDecision(
 }
 
 /** The English notification for an alert (the in-app banner uses the translated catalogue). */
-export function alertNotice(alert: SecurityAlert): { title: string; body: string } {
+export function alertNotice(alert: SecurityAlert): {
+  title: string;
+  body: string;
+  message: NoticeMessage;
+} {
+  return { ...alertNoticeEnglish(alert), message: alertMessage(alert) };
+}
+
+/** The same notice as message ids and values (`notice.security.*` in packages/ui). */
+export function alertMessage(alert: SecurityAlert): NoticeMessage {
+  const d = alert.details;
+  const key = d.deviceFingerprint?.replace(/^sha256:/, "").slice(0, 16);
+  const device = d.deviceName ?? "?";
+  const stateOf = (k: SecurityAlertKind) => k.replace("recovery_", "");
+  const ops: Record<string, string> = {
+    "devices.approve": "approve",
+    "devices.grant": "grant",
+    "presence.reset": "presence",
+    "seal.reset": "seal",
+  };
+  const op = ops[d.op ?? ""] ?? "other";
+  switch (alert.kind) {
+    case "state_changed_outside":
+      return {
+        titleKey: "notice.security.changed.title",
+        bodyKey: "notice.security.changed.body",
+        params: { count: (d.changes?.length ?? 0) + (d.more ?? 0), times: d.occurrences ?? 1 },
+      };
+    case "state_untrusted":
+      return {
+        titleKey: "notice.security.untrusted.title",
+        bodyKey: "notice.security.untrusted.body",
+      };
+    case "state_first_seal":
+      return {
+        titleKey: "notice.security.firstSeal.title",
+        bodyKey: "notice.security.firstSeal.body",
+        params: { devices: d.devices ?? 0 },
+      };
+    case "state_resealed":
+      return {
+        titleKey: "notice.security.resealed.title",
+        bodyKey: "notice.security.resealed.body",
+        params: { restored: d.restored ? "yes" : "no" },
+      };
+    case "local_first_admin":
+      return {
+        titleKey: "notice.security.firstAdmin.title",
+        bodyKey: "notice.security.firstAdmin.body",
+        params: { device, key: key ?? "none", via: d.via === "desktop" ? "desktop" : "cli" },
+      };
+    case "recovery_requested":
+    case "recovery_applied":
+    case "recovery_cancelled":
+    case "recovery_failed":
+      return {
+        titleKey: "notice.security.recovery.title",
+        bodyKey: "notice.security.recovery.body",
+        params: {
+          state: stateOf(alert.kind),
+          op,
+          device,
+          key: key ?? "none",
+          scopes: (d.scopes ?? []).join(", "),
+          when: d.notBefore === undefined ? "none" : new Date(d.notBefore).toUTCString(),
+          reason: d.reason === undefined || d.reason === "" ? "none" : d.reason,
+        },
+      };
+  }
+}
+
+function alertNoticeEnglish(alert: SecurityAlert): { title: string; body: string } {
   const d = alert.details;
   const when = d.notBefore === undefined ? "" : new Date(d.notBefore).toUTCString();
   switch (alert.kind) {

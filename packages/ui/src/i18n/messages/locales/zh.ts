@@ -25,6 +25,7 @@ import { meetingRecord } from "./meeting-record/zh.ts";
 import { memoryPage } from "./memory-page/zh.ts";
 import { memoryReview } from "./memory-review/zh.ts";
 import { memorySettings } from "./memory-settings/zh.ts";
+import { notices } from "./notices/zh.ts";
 import { nudges } from "./nudges/zh.ts";
 import { onboarding } from "./onboarding/zh.ts";
 import { overview } from "./overview/zh.ts";
@@ -3331,6 +3332,8 @@ export const zh: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Gateway-authored notices (inbox notifications, security alerts)
+  ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
 };

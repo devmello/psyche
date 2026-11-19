@@ -1009,6 +1009,7 @@
 //   let nodesInvokeResult = try? JSONDecoder().decode(NodesInvokeResult.self, from: jsonData)
 //   let nodesListParams = try? JSONDecoder().decode(NodesListParams.self, from: jsonData)
 //   let nodesListResult = try? JSONDecoder().decode(NodesListResult.self, from: jsonData)
+//   let noticeMessage = try? JSONDecoder().decode(NoticeMessage.self, from: jsonData)
 //   let notification = try? JSONDecoder().decode(Notification.self, from: jsonData)
 //   let notificationAction = try? JSONDecoder().decode(NotificationAction.self, from: jsonData)
 //   let notificationCreatedPayload = try? JSONDecoder().decode(NotificationCreatedPayload.self, from: jsonData)
@@ -24505,6 +24506,7 @@ public struct Notification: Codable, Sendable {
     public let delivered: [String: String]
     public let id: String
     public let kind: NotificationKind
+    public let message: NoticeMessage?
     public let readAt: String?
     public let resolvedAt: String?
     public let route: String?
@@ -24522,6 +24524,7 @@ public struct Notification: Codable, Sendable {
         case delivered = "delivered"
         case id = "id"
         case kind = "kind"
+        case message = "message"
         case readAt = "readAt"
         case resolvedAt = "resolvedAt"
         case route = "route"
@@ -24532,7 +24535,7 @@ public struct Notification: Codable, Sendable {
         case title = "title"
     }
 
-    public init(actions: [NotificationAction], approvalID: String? = nil, body: String, createdAt: String, delivered: [String: String], id: String, kind: NotificationKind, readAt: String? = nil, resolvedAt: String? = nil, route: String? = nil, staleAt: String? = nil, staleReason: String? = nil, surfaces: [String], taskID: String? = nil, title: String) {
+    public init(actions: [NotificationAction], approvalID: String? = nil, body: String, createdAt: String, delivered: [String: String], id: String, kind: NotificationKind, message: NoticeMessage? = nil, readAt: String? = nil, resolvedAt: String? = nil, route: String? = nil, staleAt: String? = nil, staleReason: String? = nil, surfaces: [String], taskID: String? = nil, title: String) {
         self.actions = actions
         self.approvalID = approvalID
         self.body = body
@@ -24540,6 +24543,7 @@ public struct Notification: Codable, Sendable {
         self.delivered = delivered
         self.id = id
         self.kind = kind
+        self.message = message
         self.readAt = readAt
         self.resolvedAt = resolvedAt
         self.route = route
@@ -24587,6 +24591,29 @@ public enum NotificationKind: String, Codable, Sendable {
     case taskFailed = "task_failed"
 }
 
+// MARK: - NoticeMessage
+public struct NoticeMessage: Codable, Sendable {
+    /// Message id of the body
+    public let bodyKey: String
+    /// Values for the placeholders. The Gateway has stripped control, format and bidirectional
+    /// characters from the strings; show them as plain text, never as markup.
+    public let params: [String: ExternalRef]?
+    /// Message id of the title, e.g. notice.browser.chrome.title
+    public let titleKey: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bodyKey = "bodyKey"
+        case params = "params"
+        case titleKey = "titleKey"
+    }
+
+    public init(bodyKey: String, params: [String: ExternalRef]? = nil, titleKey: String) {
+        self.bodyKey = bodyKey
+        self.params = params
+        self.titleKey = titleKey
+    }
+}
+
 // MARK: - NotificationDevicePayload
 public struct NotificationDevicePayload: Codable, Sendable {
     public let body: String
@@ -24594,6 +24621,7 @@ public struct NotificationDevicePayload: Codable, Sendable {
     public let id: String
     public let interruption: Interruption
     public let kind: NotificationKind
+    public let message: NoticeMessage?
     public let route: String?
     public let title: String
 
@@ -24603,16 +24631,18 @@ public struct NotificationDevicePayload: Codable, Sendable {
         case id = "id"
         case interruption = "interruption"
         case kind = "kind"
+        case message = "message"
         case route = "route"
         case title = "title"
     }
 
-    public init(body: String, createdAt: String, id: String, interruption: Interruption, kind: NotificationKind, route: String? = nil, title: String) {
+    public init(body: String, createdAt: String, id: String, interruption: Interruption, kind: NotificationKind, message: NoticeMessage? = nil, route: String? = nil, title: String) {
         self.body = body
         self.createdAt = createdAt
         self.id = id
         self.interruption = interruption
         self.kind = kind
+        self.message = message
         self.route = route
         self.title = title
     }

@@ -659,6 +659,11 @@ export function composeBrowser(
           kind: "input_needed",
           title: "Psyche needs you in the browser",
           body: `On ${host}, the agent asks: ${reason}. Take control in the browser pane, then hand it back.`,
+          message: {
+            titleKey: "notice.browser.takeover.title",
+            bodyKey: "notice.browser.takeover.body",
+            params: { host: String(host), reason: String(reason) },
+          },
           ...(req.taskId === undefined ? {} : { taskId: req.taskId }),
           route: "/settings/browser",
           dedupeKey: `browser-control:${req.tabId}`,

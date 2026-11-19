@@ -31,3 +31,4 @@ export {
 } from "./locale.ts";
 export { type Catalogue, en, type MessageId } from "./messages/index.ts";
 export { CATALOGUES } from "./messages/locales/index.ts";
+export { type NoticeText, noticeText } from "./notice.ts";
