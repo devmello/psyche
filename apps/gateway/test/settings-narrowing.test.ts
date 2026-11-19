@@ -451,6 +451,12 @@ const REVIEW_R2: Row[] = [
     { apps: { notes: "read", Notes: "off" }, deny: ["zzz-nothing"] },
   ],
   [
+    "B2 apps distinct ids swapped, junk deny elsewhere",
+    P,
+    { apps: { Mail: "off", Notes: "read" } },
+    { apps: { Notes: "read", Mail: "off" }, deny: ["zzz-nothing"] },
+  ],
+  [
     "B3 remove ro child with no ancestor entry",
     P,
     { folders: [ro(`${A}/secret`), rw("/other")] },
