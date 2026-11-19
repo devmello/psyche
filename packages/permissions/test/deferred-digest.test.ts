@@ -694,6 +694,33 @@ describe("a restart reports every set-aside approval whose resume it cut short, 
     expect((await restart()).seen).toEqual([]);
   });
 
+  it("a card found done at boot is settled: the next boot does not scan for it again", async () => {
+    const { h, issued, restart } = await approved("always");
+    await connectorReceipt(h, "ok", await throughGrant(h));
+    const first = await restart();
+    expect(first.seen).toEqual([]);
+    // Settled: its own authority ended (the standing grant it made stays).
+    expect((await first.b.get(issued.approval.id))?.status).toBe("approved");
+    const query = vi.spyOn(SqliteReceiptStore.prototype, "query");
+    try {
+      const second = await restart();
+      expect(second.seen).toEqual([]);
+      // No candidate is left, so no `since` query at all.
+      expect(query.mock.calls.filter(([f]) => f.since !== undefined)).toEqual([]);
+    } finally {
+      query.mockRestore();
+    }
+    expect((await first.b.listGrants()).some((g) => g.revokedAt == null)).toBe(true);
+  });
+
+  it("positive control: a card not found done stays a candidate until it is reported", async () => {
+    const { h, issued, restart } = await approved("always");
+    await throughGrant(h);
+    expect((await restart()).seen).toEqual([issued.approval.id]);
+    // Reported once, and settled with it: nothing more on the next boot.
+    expect((await restart()).seen).toEqual([]);
+  });
+
   it("the boot check reads the receipts once per boot, from the grants' creation on", async () => {
     const one = await approved("always");
     await throughGrant(one.h);

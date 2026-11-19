@@ -55,6 +55,11 @@ function setup(
     unrelatedOk?: boolean;
     /** The provider did not confirm the grant's call. */
     uncertain?: boolean;
+    /**
+     * Holds `approval.decided` back until `deliverDecided()`: the broker stores the grant, then
+     * finishes the answer before it announces the decision.
+     */
+    holdDecided?: boolean;
   } = {},
 ) {
   const clock = new FakeClock(T0);
@@ -189,7 +194,11 @@ function setup(
     clock,
     settle: (id) => broker.settleSetAside(id),
   });
-  broker.subscribe((e) => resume.onBrokerEvent(e));
+  const decided: Parameters<DeferredResume["onBrokerEvent"]>[0][] = [];
+  broker.subscribe((e) => {
+    if (opts.holdDecided === true && e.type === "approval.decided") decided.push(e);
+    else resume.onBrokerEvent(e);
+  });
   scheduler.subscribe((e) => {
     if (e.event === "automation.run.finished") resume.onRunFinished(e.payload.run);
   });
@@ -236,6 +245,10 @@ function setup(
     approve,
     settle,
     issued,
+    deliverDecided: () => {
+      for (const e of decided.splice(0)) resume.onBrokerEvent(e);
+    },
+    launches: () => n,
     holdRuns: (on: boolean) => {
       hold = on;
     },
@@ -765,3 +778,88 @@ describe("follow-ups: only this automation's own run of this very action counts"
     expect(n?.body).not.toMatch(/permission you gave stays/);
   });
 });
+
+describe("follow-ups: a run that uses the grant as soon as it exists does it once", () => {
+  /**
+   * The card is approved "always" while a second run of the automation is going, and that run
+   * makes the same call through the new grant before the decision reaches DeferredResume.
+   */
+  async function raced(opts: { failWrites?: boolean } = {}) {
+    const h = setup([NOTES, OTHER_PATH, NOTES], { standing: true, holdDecided: true, ...opts });
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    h.deliverDecided();
+    const card = await h.issued();
+    h.holdRuns(true);
+    await h.scheduler.trigger(a.id);
+    await new Promise((r) => setImmediate(r));
+    await h.approve(card.id, tok.get(card.id) ?? "", "always");
+    // The going run (task_2) sends it through the grant right away, with its receipt.
+    const d = await h.broker.decide(connectorCall(NOTES), {
+      threadId: "thr",
+      runId: "run_2",
+      taskId: "task_2",
+      permissionMode: "balanced",
+      taint: false,
+      unattended: true,
+    });
+    expect(d.decision).toBe("allow");
+    await h.broker.recordReceipt({
+      kind: "gmail.send",
+      outcome: opts.failWrites === true ? "failed" : "ok",
+      summary: "Sent",
+      taskId: "task_2",
+      approvalId: null,
+      payload: { grantId: d.grantId ?? "", bindingHash: d.bindingHash ?? "" },
+    });
+    // Only now does the decision arrive.
+    h.deliverDecided();
+    await h.resume.idle();
+    h.holdRuns(false);
+    h.release();
+    await h.settle();
+    return { h, card, automationId: a.id };
+  }
+
+  it("done once by the going run: no resume run does it a second time", async () => {
+    const { h, automationId } = await raced();
+    // Two runs only (the one that set it aside, the one that did it): no resume run.
+    expect(h.launches()).toBe(2);
+    expect(h.scheduler.runs(automationId).runs).toHaveLength(2);
+    expect(h.written).toEqual([]);
+    expect(await missed(h)).toEqual([]);
+    expect(h.resume.pending()).toEqual([]);
+  });
+
+  it("the going run's call through the grant failed: failed_kept, and no second try by a resume", async () => {
+    const { h } = await raced({ failWrites: true });
+    expect(h.launches()).toBe(2);
+    expect(await missed(h)).toEqual(["failed_kept"]);
+  });
+
+  it("positive control: without that call the resume run does it (once)", async () => {
+    const h = setup([NOTES, OTHER_PATH, NOTES], { standing: true, holdDecided: true });
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    h.deliverDecided();
+    const card = await h.issued();
+    h.holdRuns(true);
+    await h.scheduler.trigger(a.id);
+    await new Promise((r) => setImmediate(r));
+    await h.approve(card.id, tok.get(card.id) ?? "", "always");
+    h.deliverDecided();
+    await h.resume.idle();
+    h.holdRuns(false);
+    h.release();
+    await h.settle();
+    expect(h.launches()).toBe(3);
+    expect(h.written).toEqual([NOTES]);
+    expect(await missed(h)).toEqual([]);
+  });
+});
+
+const OTHER_PATH = "/Users/owner/Notes/other.md";

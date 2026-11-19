@@ -2290,7 +2290,15 @@ export class PsychePermissionBroker implements PermissionBroker {
       // an action that ran and failed, and one whose receipt the old process never wrote. The
       // owner is told once; the card's own authority ends (its standing grant, if any, stays).
       const lostResume = rec.approval.setAside === true && (await this.#unused(rec.approval, pool));
-      if (!unconsumedOnce && !lostResume) continue;
+      if (!unconsumedOnce && !lostResume) {
+        // A set-aside card whose action is done (an `ok` receipt): its resume is over. Settled,
+        // so it is not a candidate again and the next boot's receipt query starts later.
+        if (rec.approval.setAside === true) {
+          rec.revoked = true;
+          this.#store.updateApproval(rec);
+        }
+        continue;
+      }
       rec.revoked = true;
       this.#store.updateApproval(rec);
       await this.#log(
