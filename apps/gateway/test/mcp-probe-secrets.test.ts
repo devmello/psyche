@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { setSetting } from "@psyche/db";
 import type { McpProposal } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -52,7 +53,8 @@ async function setup() {
     parts: [
       (s) => {
         services = s;
-        return composeMcp(s, { hostOptions: { launcher: fakeSrt } });
+        lastMcp = composeMcp(s, { hostOptions: { launcher: fakeSrt } });
+        return lastMcp;
       },
     ],
   });
@@ -63,6 +65,7 @@ async function setup() {
   return owner;
 }
 let lastServices: ComposeServices | undefined;
+let lastMcp: ReturnType<typeof composeMcp> | undefined;
 
 async function answer(owner: TestClient, approvalId: string) {
   const { answerToken } = await owner.call<{ answerToken?: string }>("approvals.get", {
@@ -205,6 +208,114 @@ describe("removing a server unbinds its vault items", () => {
     // A new Add under the same id can't be handed the unbound items.
     await expect(
       withCards(owner, () => owner.call("mcp.probe", { server: server("only-echo") }, ik())),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/target does not match the credential's bindings/);
+  });
+});
+
+describe("the check label is explicit", () => {
+  it("a real server whose id looks like a probe id is not labelled a check", async () => {
+    const owner = await setup();
+    await addKey(owner, "gh-key", "mcp:github-probe-deadbeef");
+    const cards: unknown[] = [];
+    await withCards(
+      owner,
+      async () => {
+        seedMcpServers(lastServices as ComposeServices, [
+          {
+            id: "github-probe-deadbeef",
+            name: "Look-alike",
+            trust: "unknown",
+            transport: {
+              kind: "stdio",
+              command: [process.execPath, SERVER],
+              env: { API_KEY: "{{cred:gh-key}}" },
+            },
+          },
+        ]);
+        await lastMcp?.idle();
+      },
+      cards,
+    );
+    const text = JSON.stringify(cards);
+    expect(cards.length).toBeGreaterThan(0);
+    expect(text).toContain('"agent":"mcp:github-probe-deadbeef"');
+    expect(text).not.toContain("check");
+  });
+});
+
+describe("a locked vault cannot leave the old secrets for a new server of the same id", () => {
+  const listed = async (owner: TestClient) =>
+    (await owner.call<{ credentials: { slug: string; bindings: unknown[] }[] }>("vault.list", {}))
+      .credentials;
+  const plain = {
+    id: "echo",
+    name: "Echo",
+    transport: { kind: "stdio" as const, command: [process.execPath, SERVER] },
+  };
+
+  it("refuses a re-add until the vault is unlocked, then unbinds and allows it", async () => {
+    const owner = await setup();
+    await addKey(owner, "old-key", "mcp:echo");
+    seedMcpServers(lastServices as ComposeServices, [
+      {
+        id: "echo",
+        name: "Echo",
+        trust: "unknown",
+        enabled: false,
+        transport: { kind: "stdio", command: [process.execPath, SERVER] },
+      },
+    ]);
+    (composed as ComposedGateway).vault.lock("manual");
+    await owner.call("mcp.remove", { serverId: "echo" }, ik());
+    // The unbind could not run: the re-add is refused with a clear reason.
+    await expect(owner.call("mcp.probe", { server: plain }, ik())).rejects.toThrow(
+      /vault_removal_pending/,
+    );
+    await (composed as ComposedGateway).vault.unlock("test");
+    // Allowed now, and the old item is unbound (kept).
+    const r = await owner.call<{ proposal: McpProposal }>("mcp.probe", { server: plain }, ik());
+    expect(r.proposal.tools.map((t) => t.name)).toContain("echo");
+    const old = (await listed(owner)).find((c) => c.slug === "old-key");
+    expect(old).toBeDefined();
+    expect(JSON.stringify(old?.bindings)).not.toContain("mcp:echo");
+  });
+
+  it("a retry unbinds only the items recorded at remove time, never a key stored since", async () => {
+    const owner = await setup();
+    await addKey(owner, "old-key", "mcp:echo");
+    const oldId = (await listed(owner)).find((c) => c.slug === "old-key") as unknown as {
+      id: string;
+    };
+    // What a remove under a locked vault leaves behind: the exact item ids still to unbind.
+    setSetting((lastServices as ComposeServices).db, "_mcp.pendingUnbind", {
+      echo: { ids: [oldId.id], unlisted: false },
+    });
+    // The owner has since stored a key for the new server of the same id.
+    await addKey(owner, "new-key", "mcp:echo");
+    // The re-add retries first; it must succeed, so the old item is no longer bound.
+    const r = await owner.call<{ proposal: McpProposal }>("mcp.probe", { server: plain }, ik());
+    expect(r.proposal.tools.length).toBeGreaterThan(0);
+    const after = await listed(owner);
+    expect(JSON.stringify(after.find((c) => c.slug === "old-key")?.bindings)).not.toContain(
+      "mcp:echo",
+    );
+    // The new key keeps its binding.
+    expect(JSON.stringify(after.find((c) => c.slug === "new-key")?.bindings)).toContain("mcp:echo");
+  });
+
+  it("does not block a re-add when nothing was left bound (positive control)", async () => {
+    const owner = await setup();
+    seedMcpServers(lastServices as ComposeServices, [
+      {
+        id: "echo",
+        name: "Echo",
+        trust: "unknown",
+        enabled: false,
+        transport: { kind: "stdio", command: [process.execPath, SERVER] },
+      },
+    ]);
+    await owner.call("mcp.remove", { serverId: "echo" }, ik());
+    const r = await owner.call<{ proposal: McpProposal }>("mcp.probe", { server: plain }, ik());
+    expect(r.proposal.tools.length).toBeGreaterThan(0);
   });
 });

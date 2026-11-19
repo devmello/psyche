@@ -143,6 +143,8 @@ export const de: Partial<Catalogue> = {
   "errors.rate_limited": "Zu viele Anfragen; warte kurz und versuche es erneut.",
   "errors.timeout": "Psyche hat zu lange für eine Antwort gebraucht.",
   "errors.cancelled": "Es wurde abgebrochen.",
+  "errors.reason.vault_removal_pending":
+    "Entsperre den Tresor, um das Entfernen des alten Servers abzuschließen, und versuche es dann erneut.",
   "errors.reason.updating":
     "Psyche startet gleich neu, um ein Update zu installieren. Versuche es in einem Moment erneut.",
   "errors.unavailable": "Psyche kann das gerade nicht.",

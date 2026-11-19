@@ -230,6 +230,41 @@ describe("redactArgv", () => {
   });
 
   it.each([
+    [
+      ["node", "TOKEN=plainsecretvalue"],
+      ["node", "TOKEN=***"],
+    ],
+    [
+      ["node", "API_KEY=abc", "MODE=fast"],
+      ["node", "API_KEY=***", "MODE=fast"],
+    ],
+    [
+      ["node", "-k", "AbCdEfGhIj1234567890"],
+      ["node", "-k", "***"],
+    ],
+    [
+      ["node", "--mode=AbCdEfGhIj1234567890"],
+      ["node", "--mode=***"],
+    ],
+    [
+      ["node", "--access-token", "abc"],
+      ["node", "--access-token", "***"],
+    ],
+  ])("hides a secret that a name or a value gives away: %j", (argv, shown) => {
+    expect(redactArgv(argv)).toEqual(shown);
+  });
+
+  it.each([
+    [["node", "--auth-mode", "oauth"]],
+    [["node", "--key-name", "primary"]],
+    [["node", "--token-file", "/Users/me/token.txt"]],
+    [["node", "-k", "primary"]],
+    [["node", "FOO=bar", "--retries=3"]],
+  ])("does not over-redact: %j", (argv) => {
+    expect(redactArgv(argv)).toEqual(argv);
+  });
+
+  it.each([
     [["npx", "-y", "@modelcontextprotocol/server-filesystem", "/Users/me/Projects"]],
     [["node", "dist/server.js", "--port=8080", "--verbose"]],
     [["uvx", "mcp-server-git", "--repository", "/Users/me/repo"]],

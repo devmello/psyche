@@ -156,6 +156,8 @@ export const ja: Partial<Catalogue> = {
   "errors.rate_limited": "リクエストが多すぎます。しばらく待ってからもう一度お試しください。",
   "errors.timeout": "Psycheの応答に時間がかかりすぎました。",
   "errors.cancelled": "キャンセルされました。",
+  "errors.reason.vault_removal_pending":
+    "古いサーバーの削除を完了するには、保管庫のロックを解除してから、もう一度お試しください。",
   "errors.reason.updating":
     "Psycheはアップデートをインストールするため、まもなく再起動します。しばらくしてからもう一度お試しください。",
   "errors.unavailable": "Psycheは現在その操作を実行できません。",

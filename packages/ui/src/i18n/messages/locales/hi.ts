@@ -154,6 +154,8 @@ export const hi: Partial<Catalogue> = {
   "errors.rate_limited": "बहुत ज़्यादा अनुरोध; थोड़ा रुककर फिर से कोशिश करें।",
   "errors.timeout": "Psyche को जवाब देने में बहुत देर लगी।",
   "errors.cancelled": "इसे रद्द कर दिया गया।",
+  "errors.reason.vault_removal_pending":
+    "पुराने सर्वर को हटाने का काम पूरा करने के लिए वॉल्ट अनलॉक करें, फिर दोबारा कोशिश करें।",
   "errors.reason.updating":
     "Psyche अपडेट इंस्टॉल करने के लिए अभी रीस्टार्ट होने वाला है। थोड़ी देर में फिर से कोशिश करें।",
   "errors.unavailable": "Psyche अभी ऐसा नहीं कर सकता।",

@@ -159,6 +159,8 @@ export const ko: Partial<Catalogue> = {
   "errors.rate_limited": "요청이 너무 많습니다. 잠시 후 다시 시도하십시오.",
   "errors.timeout": "Psyche의 응답이 너무 오래 걸렸습니다.",
   "errors.cancelled": "취소되었습니다.",
+  "errors.reason.vault_removal_pending":
+    "이전 서버 제거를 마치려면 보관함 잠금을 해제한 뒤 다시 시도하세요.",
   "errors.reason.updating":
     "Psyche가 업데이트를 설치하기 위해 곧 다시 시작됩니다. 잠시 후 다시 시도하십시오.",
   "errors.unavailable": "Psyche가 지금은 해당 작업을 할 수 없습니다.",
