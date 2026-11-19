@@ -10,7 +10,7 @@ import { useCall } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import type { FolderGrant } from "../settings/types.ts";
 import type { FileRef } from "./FilesPane.tsx";
-import { clearDraft, getDraft, putDraft } from "./file-drafts.ts";
+import { clearDraft, draftEpoch, dropDraft, getDraft, putDraft } from "./file-drafts.ts";
 
 /**
  * Editing a text file in the Files pane (`files.write`). The frame loads the file and its etag,
@@ -121,6 +121,13 @@ export function FileEditFrame({
   const draftBase = useRef<string | null>(null);
   const [restored, setRestored] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  // The drop count this editor's drafts belong to. It moves on only after a remount has run the
+  // old editor's cleanup, so a draft the old editor reports as it unmounts is ignored.
+  const dropAt = useRef(draftEpoch(path));
+  // biome-ignore lint/correctness/useExhaustiveDependencies: epoch and fetchRev mark a new editor
+  useEffect(() => {
+    dropAt.current = draftEpoch(path);
+  }, [path, epoch, fetchRev]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: fetchRev is the reload trigger
   useEffect(() => {
     const ac = new AbortController();
@@ -231,7 +238,7 @@ export function FileEditFrame({
         return;
       }
       draftBase.current ??= etag.current;
-      putDraft(path, { content, etag: draftBase.current });
+      putDraft(path, { content, etag: draftBase.current }, dropAt.current);
     },
     [path],
   );
@@ -246,7 +253,7 @@ export function FileEditFrame({
 
   const reload = () => {
     draftBase.current = null;
-    clearDraft(path);
+    dropDraft(path);
     setRestored(false);
     setConflict(null);
     setProblem(null);
@@ -272,7 +279,7 @@ export function FileEditFrame({
   const overwrite = async () => {
     const content = pending.current;
     if (await save(content)) {
-      clearDraft(path);
+      dropDraft(path);
       setLoaded({ status: "ready", text: content });
       setEpoch((n) => n + 1);
       onDirtyChange(false);

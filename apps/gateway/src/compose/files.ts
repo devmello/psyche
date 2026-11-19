@@ -302,11 +302,18 @@ async function saveFile(
     constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
     mode,
   );
+  // The temp file's own inode: once it is the target, the save has happened.
+  let written: { dev: bigint; ino: bigint } | undefined;
+  const isOurs = async (): Promise<boolean> => {
+    if (written === undefined) return false;
+    const at = await lstat(target, { bigint: true }).catch(() => undefined);
+    return at !== undefined && at.dev === written.dev && at.ino === written.ino;
+  };
   try {
     await fh.writeFile(bytes);
     await fh.chmod(mode);
     await fh.sync();
-    const written = await fh.stat({ bigint: true });
+    written = await fh.stat({ bigint: true });
     // The last look before the swap. Every step above went through the folder's path, so a
     // folder swapped for a link meanwhile must not take the rename outside the grant.
     if (!sameHostPath(await realpath(dir), dir)) throw moved();
@@ -322,15 +329,22 @@ async function saveFile(
     try {
       await (setup.rename ?? rename)(tmp, target);
     } catch (err) {
-      // The folder was swapped between the checks and the rename: the temp name is gone from it.
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") throw moved();
-      throw err;
+      // A rename whose reply was lost (NFS, SMB retry) can report ENOENT after it happened: if
+      // the target is now our inode, the save went through.
+      if (!(await isOurs())) {
+        // The folder was swapped between the checks and the rename: the temp name is gone.
+        if ((err as NodeJS.ErrnoException).code === "ENOENT") throw moved();
+        throw err;
+      }
     }
   } catch (err) {
-    // Empty the file through its own descriptor, which a swapped path cannot redirect, so a
-    // temp file stranded in a moved folder holds none of the owner's text; then remove it.
-    await fh.truncate(0).catch(() => undefined);
-    await unlink(tmp).catch(() => undefined);
+    // Never empty the inode that is now the owner's saved file.
+    if (!(await isOurs())) {
+      // Empty the file through its own descriptor, which a swapped path cannot redirect, so a
+      // temp file stranded in a moved folder holds none of the owner's text; then remove it.
+      await fh.truncate(0).catch(() => undefined);
+      await unlink(tmp).catch(() => undefined);
+    }
     throw err;
   } finally {
     await fh.close().catch(() => undefined);

@@ -159,4 +159,36 @@ describe("files.write against a folder swapped for a link mid-save", () => {
     }
     expect(await readFile(join(rw, "sub-moved", "a.md"), "utf8")).toBe("# one\n");
   });
+
+  it("keeps a save whose rename happened but reported ENOENT (a lost NFS reply)", async () => {
+    const path = join(rw, "sub", "a.md");
+    const h = handlers(async (from, to) => {
+      await rename(from, to);
+      throw Object.assign(new Error("ENOENT: no such file"), { code: "ENOENT" });
+    });
+    const etag = await etagOf(h, path);
+    const res = await h["files.write"]?.run(call, {
+      path,
+      content: "SAVED TEXT",
+      ifMatch: etag,
+    } as never);
+    expect((res as { size: number }).size).toBe(10);
+    // Never truncated after it became the owner's file.
+    expect(await readFile(path, "utf8")).toBe("SAVED TEXT");
+    expect((await readdir(join(rw, "sub"))).filter((n) => n.endsWith(".tmp"))).toEqual([]);
+  });
+
+  it("still refuses a rename that failed with another error, and leaves the old file", async () => {
+    const path = join(rw, "sub", "a.md");
+    const h = handlers(async () => {
+      throw Object.assign(new Error("EIO"), { code: "EIO" });
+    });
+    const etag = await etagOf(h, path);
+    const err = await Promise.resolve(
+      h["files.write"]?.run(call, { path, content: "NEW", ifMatch: etag } as never),
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(await readFile(path, "utf8")).toBe("# one\n");
+    expect((await readdir(join(rw, "sub"))).filter((n) => n.endsWith(".tmp"))).toEqual([]);
+  });
 });

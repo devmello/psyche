@@ -33,7 +33,7 @@ import {
   type FileEditSession,
   fileEditKind,
 } from "./FileEditFrame.tsx";
-import { clearDraft, hasDraft, markLiveDirty } from "./file-drafts.ts";
+import { dropDraft, hasDraft, markLiveDirty } from "./file-drafts.ts";
 
 /**
  * Files pane (UI design §3.7, feature P4): the folders the owner granted (ro / rw) and the
@@ -522,7 +522,7 @@ export function FilesPaneView({
                     onClick={() => {
                       const go = leave;
                       setLeave(null);
-                      clearDraft(selected.path);
+                      dropDraft(selected.path);
                       go();
                     }}
                   >
