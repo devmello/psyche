@@ -1143,6 +1143,18 @@ export class MockGateway implements GatewayClient {
     return { task };
   }
 
+  /** Keys saved through `keys.set` (the mock keeps only that one is set, never the value). */
+  private savedKeys = new Set<string>();
+
+  private keyStatuses() {
+    return ["anthropic", "openai", "google", "openrouter", "brave"].map((id) => ({
+      id: id as "anthropic" | "openai" | "google" | "openrouter" | "brave",
+      configured: this.savedKeys.has(id),
+      source: this.savedKeys.has(id) ? ("vault" as const) : null,
+      inVault: this.savedKeys.has(id),
+    }));
+  }
+
   private modelProvider(id: string): ModelProviderSummary {
     const p = (this.world.modelProviders ?? []).find((x) => x.id === id);
     return p ?? fail("not_found", `no model provider "${id}"`);
@@ -2439,6 +2451,16 @@ export class MockGateway implements GatewayClient {
         } else known.capabilities = m.capabilities;
       }
       return { provider };
+    },
+    "keys.status": () => ({ keys: this.keyStatuses() }),
+    "keys.set": (p) => {
+      if (p.key.trim() === "") fail("invalid_params", "the key is empty");
+      this.savedKeys.add(p.id);
+      return { status: this.keyStatuses().find((k) => k.id === p.id) as never };
+    },
+    "keys.clear": (p) => {
+      this.savedKeys.delete(p.id);
+      return { status: this.keyStatuses().find((k) => k.id === p.id) as never };
     },
     "models.setKey": (p) => {
       const provider = this.modelProvider(p.providerId);

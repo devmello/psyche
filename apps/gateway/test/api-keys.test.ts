@@ -1,0 +1,238 @@
+import { randomBytes } from "node:crypto";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { SecretRedactor } from "@psyche/vault";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { apiKeyStatus, BRAVE_OWNER } from "../src/compose/api-keys.ts";
+import { type ComposedGateway, composeGateway, vaultModelSetup } from "../src/compose/index.ts";
+import { modelKeyOwner, vaultModelKeys } from "../src/compose/model-keys.ts";
+import type { WebToolsSetup } from "../src/compose/web-tools.ts";
+import { silentLogger } from "../src/log.ts";
+import { adminClient, ik, type TestClient } from "./helpers.ts";
+
+/** Setup without a terminal: `keys.status` / `keys.set` / `keys.clear`. */
+
+const ANTHROPIC = "sk-ant-api03-SECRETSECRETSECRET-wxyz";
+const BRAVE = "BSAbraveSECRETvalue9876";
+let home: string;
+let composed: ComposedGateway | undefined;
+const clients: TestClient[] = [];
+
+async function compose(
+  env: Record<string, string> = {},
+  web: WebToolsSetup = {},
+): Promise<ComposedGateway> {
+  const keyFile = join(home, "vault.key");
+  if (!existsSync(keyFile)) writeFileSync(keyFile, randomBytes(32), { mode: 0o600 });
+  composed = await composeGateway({
+    env: { PSYCHE_VAULT_KEY_FILE: keyFile, ...env },
+    logger: silentLogger,
+    retentionIntervalMs: 0,
+    background: false,
+    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    model: vaultModelSetup({}),
+    vault: { keyFile, argon2: { memory: 64, passes: 1, parallelism: 1 } },
+    web,
+  });
+  return composed;
+}
+
+async function client(gw: ComposedGateway): Promise<TestClient> {
+  const c = await adminClient(gw.gateway);
+  clients.push(c);
+  return c;
+}
+
+beforeEach(async () => {
+  home = await realpath(await mkdtemp(join(tmpdir(), "psyche-api-keys-")));
+});
+
+afterEach(async () => {
+  for (const c of clients.splice(0)) c.close();
+  await composed?.stop();
+  composed = undefined;
+  await rm(home, { recursive: true, force: true });
+});
+
+interface Status {
+  id: string;
+  configured: boolean;
+  source: "env" | "vault" | null;
+  inVault: boolean;
+}
+const statusOf = async (c: TestClient, id: string): Promise<Status> => {
+  const r = await c.call<{ keys: Status[] }>("keys.status", {});
+  const row = r.keys.find((k) => k.id === id);
+  if (row === undefined) throw new Error(`no status row for ${id}`);
+  return row;
+};
+
+describe("keys.*", () => {
+  it("round-trips set, status and clear, and never returns the key", async () => {
+    const gw = await compose();
+    await gw.vault.setup();
+    const c = await client(gw);
+    expect(await statusOf(c, "anthropic")).toEqual({
+      id: "anthropic",
+      configured: false,
+      source: null,
+      inVault: false,
+    });
+
+    const set = await c.call("keys.set", { id: "anthropic", key: ANTHROPIC }, ik());
+    expect(set).toEqual({
+      status: { id: "anthropic", configured: true, source: "vault", inVault: true },
+    });
+    const all = JSON.stringify(await c.call("keys.status", {}));
+    expect(all).not.toContain("SECRETSECRET");
+    expect(all).not.toContain("wxyz");
+    expect(JSON.stringify(set)).not.toContain("SECRET");
+    // models.list agrees, so the model picker and onboarding see the key.
+    const models = await c.call<{ providers: { id: string; keyConfigured: boolean }[] }>(
+      "models.list",
+      {},
+    );
+    expect(models.providers.find((p) => p.id === "anthropic")?.keyConfigured).toBe(true);
+
+    // Replacing is idempotent in effect: still one configured key.
+    await c.call("keys.set", { id: "anthropic", key: `${ANTHROPIC}-2` }, ik());
+    expect((await statusOf(c, "anthropic")).source).toBe("vault");
+
+    const cleared = await c.call("keys.clear", { id: "anthropic" }, ik());
+    expect(cleared).toEqual({
+      status: { id: "anthropic", configured: false, source: null, inVault: false },
+    });
+    // Clearing an absent key succeeds.
+    await c.call("keys.clear", { id: "anthropic" }, ik());
+    expect((await statusOf(c, "anthropic")).configured).toBe(false);
+  });
+
+  it("refuses an empty, spaced or wrong-shape key without echoing it", async () => {
+    const gw = await compose();
+    await gw.vault.setup();
+    const c = await client(gw);
+    for (const key of ["   ", "sk-ant-has space-inside", "not-an-anthropic-key-SECRETX"]) {
+      const res = await c.request("keys.set", { id: "anthropic", key }, ik());
+      expect(res.ok).toBe(false);
+      expect(JSON.stringify(res)).not.toContain("SECRETX");
+      expect(JSON.stringify(res)).not.toContain("inside");
+    }
+    const bad = await c.request("keys.set", { id: "brave", key: "has space" }, ik());
+    expect(bad.ok).toBe(false);
+    const unknown = await c.request("keys.set", { id: "nope", key: "abc" }, ik());
+    expect(unknown.ok).toBe(false);
+    expect((await statusOf(c, "anthropic")).configured).toBe(false);
+  });
+
+  it("audits kind and provider only, never the value", async () => {
+    const gw = await compose();
+    await gw.vault.setup();
+    const c = await client(gw);
+    await c.call("keys.set", { id: "anthropic", key: ANTHROPIC }, ik());
+    await c.call("keys.set", { id: "brave", key: BRAVE }, ik());
+    await c.call("keys.clear", { id: "brave" }, ik());
+    await c.call("keys.clear", { id: "brave" }, ik());
+    const sets = await gw.audit.query({ kind: "keys.set" });
+    expect(sets.map((e) => e.data)).toEqual([{ provider: "anthropic" }, { provider: "brave" }]);
+    const clears = await gw.audit.query({ kind: "keys.clear" });
+    // The second clear removed nothing and records nothing.
+    expect(clears.map((e) => e.data)).toEqual([{ provider: "brave" }]);
+    const everything = JSON.stringify(await gw.audit.query({}));
+    expect(everything).not.toContain("SECRETSECRET");
+    expect(everything).not.toContain(BRAVE);
+    // The key is not written in plain text under the Gateway's home either.
+    const walk = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+        e.isDirectory() ? walk(join(dir, e.name)) : e.isFile() ? [join(dir, e.name)] : [],
+      );
+    for (const f of walk(home)) {
+      const bytes = readFileSync(f);
+      expect(bytes.includes(ANTHROPIC), f).toBe(false);
+    }
+  });
+
+  it("lets an environment variable win over the vault, and reports the source", async () => {
+    const gw = await compose({ ANTHROPIC_API_KEY: "sk-ant-from-env-ENVSECRET" });
+    await gw.vault.setup();
+    const c = await client(gw);
+    expect(await statusOf(c, "anthropic")).toEqual({
+      id: "anthropic",
+      configured: true,
+      source: "env",
+      inVault: false,
+    });
+    await c.call("keys.set", { id: "anthropic", key: ANTHROPIC }, ik());
+    expect(await statusOf(c, "anthropic")).toEqual({
+      id: "anthropic",
+      configured: true,
+      source: "env",
+      inVault: true,
+    });
+    // Clearing the vault copy leaves the environment key in effect.
+    await c.call("keys.clear", { id: "anthropic" }, ik());
+    expect((await statusOf(c, "anthropic")).source).toBe("env");
+    expect(JSON.stringify(await c.call("keys.status", {}))).not.toContain("ENVSECRET");
+  });
+
+  it("resolves env over vault for the model router, and the vault otherwise", async () => {
+    const gw = await compose();
+    await gw.vault.setup();
+    const c = await client(gw);
+    await c.call("keys.set", { id: "anthropic", key: ANTHROPIC }, ik());
+    const profile = {
+      id: `vault:${modelKeyOwner("anthropic")}`,
+      credential: `{{cred:${modelKeyOwner("anthropic")}}}`,
+    };
+    const target = { kind: "origin" as const, value: "https://api.anthropic.com" };
+    const vaultOnly = vaultModelKeys(() => gw.vault, {});
+    expect((await vaultOnly.resolve(profile, target))?.use((v) => v)).toBe(ANTHROPIC);
+    const withEnv = vaultModelKeys(() => gw.vault, { ANTHROPIC_API_KEY: " sk-ant-env-wins " });
+    expect((await withEnv.resolve(profile, target))?.use((v) => v)).toBe("sk-ant-env-wins");
+    // An env key is still bound to the provider's own origin.
+    await expect(
+      withEnv.resolve(profile, { kind: "origin", value: "https://evil.example" }),
+    ).rejects.toThrow(/bound to/);
+    expect(withEnv.redact("leak sk-ant-env-wins")).not.toContain("sk-ant-env-wins");
+    // The status helper agrees with the router.
+    expect(apiKeyStatus(gw.vault, { ANTHROPIC_API_KEY: "x" }, "anthropic").source).toBe("env");
+  });
+
+  it("uses a vault Brave key for web search at once, with no restart, and env still wins", async () => {
+    const tokens: (string | null)[] = [];
+    const web: WebToolsSetup = {
+      fetch: async (input, init) => {
+        tokens.push(new Headers(init?.headers).get("x-subscription-token"));
+        void input;
+        return new Response(JSON.stringify({ web: { results: [] } }), {
+          headers: { "content-type": "application/json" },
+        });
+      },
+    };
+    const gw = await compose({}, web);
+    await gw.vault.setup();
+    const c = await client(gw);
+    await c.call("keys.set", { id: "brave", key: BRAVE }, ik());
+    expect(await statusOf(c, "brave")).toMatchObject({ configured: true, source: "vault" });
+    expect(gw.vault.connectorItem(BRAVE_OWNER)).toBeDefined();
+    expect(gw.web.status().brave).toBe("vault");
+    await gw.web.search("node lts", 3, new AbortController().signal);
+    expect(tokens).toEqual([BRAVE]);
+    await c.call("keys.clear", { id: "brave" }, ik());
+    expect(gw.web.status().brave).toBeNull();
+  });
+
+  it("masks both vault and env keys with the redactor", () => {
+    const r = new SecretRedactor();
+    r.add(BRAVE, { sticky: true });
+    expect(r.redact(`header ${BRAVE} end`)).not.toContain(BRAVE);
+  });
+
+  it("masks an environment key in the Gateway's logs", async () => {
+    const gw = await compose({ PSYCHE_SEARCH_BRAVE_KEY: "BSAenvLEAKvalue123" });
+    expect(gw.redactor.redact("x BSAenvLEAKvalue123 y")).not.toContain("BSAenvLEAKvalue123");
+    const gw2Redacted = gw.redactor.redact("x sk-never-added y");
+    expect(gw2Redacted).toContain("sk-never-added");
+  });
+});

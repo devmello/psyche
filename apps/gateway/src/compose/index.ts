@@ -112,6 +112,7 @@ import { sealedPermissionStore } from "../security/sealed-stores.ts";
 import { StateSeal } from "../security/state-seal.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { BusySources, UpdateGate } from "../update-gate.ts";
+import { API_KEY_IDS, apiKeyHandlers, envKey } from "./api-keys.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { artifactContextProvider, composeArtifacts } from "./artifacts.ts";
 import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
@@ -169,6 +170,7 @@ import {
   clearModelKey,
   type HostedModelKind,
   hasModelKey,
+  isHostedModelKind,
   storeModelKey,
   untilPrimaryPicked,
   vaultModelKeys,
@@ -261,7 +263,7 @@ import { usageSummaryHandlers } from "./usage-summary.ts";
 import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 import type { ComposedVm } from "./vm.ts";
-import { composeWebTools, type WebToolsSetup } from "./web-tools.ts";
+import { type ComposedWebTools, composeWebTools, type WebToolsSetup } from "./web-tools.ts";
 import { ensureWeeklyCardAutomation, withWeeklyCard } from "./weekly-card.ts";
 import { composeWidgets } from "./widgets.ts";
 import { composeWork, workSettings } from "./work.ts";
@@ -390,6 +392,8 @@ export interface ComposedGateway {
   readonly vault: Vault;
   /** Shared by the vault, its payment broker and every output path that masks. */
   readonly redactor: SecretRedactor;
+  /** The built-in web search and page tools (provider state, in-process search). */
+  readonly web: ComposedWebTools;
   readonly parts: readonly ComposedPart[];
   stop(reason?: string): Promise<void>;
 }
@@ -797,9 +801,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     },
   );
 
+  // Environment keys win over the vault and are masked wherever the Gateway logs.
+  const keyEnv = gwOptions.env ?? process.env;
+  for (const id of API_KEY_IDS) {
+    const k = envKey(keyEnv, id);
+    if (k !== undefined) redactor.add(k, { sticky: true });
+  }
   const vaultKeys = "router" in model && model.vaultKeys === true;
   const modelSetup: ModelSetup = vaultKeys
-    ? { ...model, keys: vaultModelKeys(() => vault.vault) }
+    ? { ...model, keys: vaultModelKeys(() => vault.vault, keyEnv) }
     : model;
   // Bound below, once the Gateway's node registry exists.
   const appleHelper: { current: AppleHelper } = { current: () => undefined };
@@ -822,7 +832,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(vaultKeys
       ? {
           vaultKeys: {
-            has: (id: string) => hasModelKey(vault.vault, id),
+            has: (id: string) =>
+              hasModelKey(vault.vault, id) ||
+              (isHostedModelKind(id) && envKey(keyEnv, id) !== undefined),
             store: (id: HostedModelKind, key: string) => storeModelKey(vault.vault, id, key),
             clear: (id: HostedModelKind) => clearModelKey(vault.vault, id),
           },
@@ -1583,6 +1595,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       env: gwOptions.env ?? process.env,
       publish,
       redactor,
+      vault: () => vault.vault,
       ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
     },
     webSetup,
@@ -1997,6 +2010,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...attentionHandlers(attention),
     ...libraryHandlers({ db, home: config.home }),
     ...modelSettingsHandlers(modelSettings),
+    ...apiKeyHandlers({
+      vault: () => vault.vault,
+      env: keyEnv,
+      audit,
+      onChanged: (id) => {
+        if (id === "brave") webTools.refresh();
+      },
+    }),
     // The Overview's aggregates (docs/design/agent-overview-2026.md §6.2): read-only SQL.
     ...insightsHandlers({
       db,
@@ -2217,6 +2238,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     provider,
     vault: vault.vault,
     redactor,
+    web: webTools,
     parts,
     async stop(reason) {
       for (const part of [...parts].reverse()) await part.stop?.();

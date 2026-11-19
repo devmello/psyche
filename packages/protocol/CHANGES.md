@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-18 (setup without a terminal: keys in Settings)
+
+- New methods `keys.status {}` → `{keys: ApiKeyStatus[]}`, `keys.set {id, key}` and `keys.clear {id}` → `{status}` (all `operator.admin`; set and clear are side-effecting). `id` is `anthropic | openai | google | openrouter | brave`. `ApiKeyStatus` is `{id, configured, source: env|vault|null, inVault}`: no key, no last characters. Keys live in the vault as Gateway-owned items; an environment variable still wins. Audited as `keys.set` / `keys.clear` with the provider id only.
+
 ### v1 additive — 2026-11-09 (the owner's word on whether an MCP server moves money)
 
 - New method `mcp.handlesMoney.set {serverId, mode: auto|always|never, approvalId?}` (`operator.admin`): `always` makes every tool of the server a payment, `never` makes none one whatever it is called, `auto` leaves it to the tool's name and description. Anything but `always` lowers protection and first answers `approval_required` with a `policy_change` card. `McpServerStatus` gains the optional `handlesMoney` boolean. The `mcp.servers` entry's `handlesMoney` is now `true`, `false` or absent.

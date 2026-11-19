@@ -16,6 +16,8 @@
 //   let actionRule = try? JSONDecoder().decode(ActionRule.self, from: jsonData)
 //   let agentNote = try? JSONDecoder().decode(AgentNote.self, from: jsonData)
 //   let answerSource = try? JSONDecoder().decode(AnswerSource.self, from: jsonData)
+//   let aPIKeyID = try? JSONDecoder().decode(APIKeyID.self, from: jsonData)
+//   let aPIKeyStatus = try? JSONDecoder().decode(APIKeyStatus.self, from: jsonData)
 //   let appLinkBlock = try? JSONDecoder().decode(AppLinkBlock.self, from: jsonData)
 //   let appUninstallAuthorizeParams = try? JSONDecoder().decode(AppUninstallAuthorizeParams.self, from: jsonData)
 //   let appleAlarm = try? JSONDecoder().decode(AppleAlarm.self, from: jsonData)
@@ -679,6 +681,12 @@
 //   let insightTotals = try? JSONDecoder().decode(InsightTotals.self, from: jsonData)
 //   let insightsSummaryParams = try? JSONDecoder().decode(InsightsSummaryParams.self, from: jsonData)
 //   let insightsSummaryResult = try? JSONDecoder().decode(InsightsSummaryResult.self, from: jsonData)
+//   let keysClearParams = try? JSONDecoder().decode(KeysClearParams.self, from: jsonData)
+//   let keysClearResult = try? JSONDecoder().decode(KeysClearResult.self, from: jsonData)
+//   let keysSetParams = try? JSONDecoder().decode(KeysSetParams.self, from: jsonData)
+//   let keysSetResult = try? JSONDecoder().decode(KeysSetResult.self, from: jsonData)
+//   let keysStatusParams = try? JSONDecoder().decode(KeysStatusParams.self, from: jsonData)
+//   let keysStatusResult = try? JSONDecoder().decode(KeysStatusResult.self, from: jsonData)
 //   let learnedBlock = try? JSONDecoder().decode(LearnedBlock.self, from: jsonData)
 //   let learnedFact = try? JSONDecoder().decode(LearnedFact.self, from: jsonData)
 //   let lesson = try? JSONDecoder().decode(Lesson.self, from: jsonData)
@@ -17851,6 +17859,109 @@ public struct InsightEntity: Codable, Sendable {
         self.lastInteractionAt = lastInteractionAt
         self.name = name
         self.openLoops = openLoops
+    }
+}
+
+// MARK: - KeysClearParams
+public struct KeysClearParams: Codable, Sendable {
+    public let id: APIKeyID
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: APIKeyID) {
+        self.id = id
+    }
+}
+
+public enum APIKeyID: String, Codable, Sendable {
+    case anthropic = "anthropic"
+    case brave = "brave"
+    case google = "google"
+    case openai = "openai"
+    case openrouter = "openrouter"
+}
+
+// MARK: - KeysClearResult
+public struct KeysClearResult: Codable, Sendable {
+    public let status: APIKeyStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: APIKeyStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - APIKeyStatus
+public struct APIKeyStatus: Codable, Sendable {
+    public let configured: Bool
+    public let id: APIKeyID
+    public let inVault: Bool
+    public let source: APIKeyStatusSource?
+
+    public enum CodingKeys: String, CodingKey {
+        case configured = "configured"
+        case id = "id"
+        case inVault = "inVault"
+        case source = "source"
+    }
+
+    public init(configured: Bool, id: APIKeyID, inVault: Bool, source: APIKeyStatusSource? = nil) {
+        self.configured = configured
+        self.id = id
+        self.inVault = inVault
+        self.source = source
+    }
+}
+
+public enum APIKeyStatusSource: String, Codable, Sendable {
+    case env = "env"
+    case vault = "vault"
+}
+
+// MARK: - KeysSetParams
+public struct KeysSetParams: Codable, Sendable {
+    public let id: APIKeyID
+    public let key: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case key = "key"
+    }
+
+    public init(id: APIKeyID, key: String) {
+        self.id = id
+        self.key = key
+    }
+}
+
+// MARK: - KeysSetResult
+public struct KeysSetResult: Codable, Sendable {
+    public let status: APIKeyStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: APIKeyStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - KeysStatusResult
+public struct KeysStatusResult: Codable, Sendable {
+    public let keys: [APIKeyStatus]
+
+    public enum CodingKeys: String, CodingKey {
+        case keys = "keys"
+    }
+
+    public init(keys: [APIKeyStatus]) {
+        self.keys = keys
     }
 }
 
@@ -37726,6 +37837,7 @@ public typealias DictationTargetParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]
 public typealias GatewayInfoParams = [String: JSONAny]
 public typealias GrowthUpdatedPayload = [String: JSONAny]
+public typealias KeysStatusParams = [String: JSONAny]
 public typealias MCPStatusParams = [String: JSONAny]
 public typealias MeetingsRecordPushResult = [String: JSONAny]
 public typealias MeetingsRecordStatusParams = [String: JSONAny]
