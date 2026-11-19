@@ -162,6 +162,15 @@ export class NodeRegistry {
       this.#failInvocations(previous.conn.id, "replaced by a new connection");
       previous.conn.close("replaced by a new connection");
     }
+    // The owner's logs held no trace of a helper leaving or returning, which hid that "needs the
+    // Psyche helper" for days meant the helper process was simply not running.
+    this.#ctx.log.log("info", "node attached", {
+      nodeId: info.id,
+      kind: info.kind,
+      host: identity.hostHelper === true,
+      transport: conn.peer.transport,
+      replaced: previous !== undefined && previous.conn !== conn,
+    });
     bus.publish("node.updated", { node: info });
     this.#syncHostHelperStatus();
     return info;
@@ -171,6 +180,12 @@ export class NodeRegistry {
     for (const [nodeId, entry] of this.#live) {
       if (entry.conn !== conn) continue;
       this.#live.delete(nodeId);
+      this.#ctx.log.log("info", "node detached", {
+        nodeId,
+        kind: entry.info.kind,
+        host: entry.host,
+        remaining: this.#liveHostHelpers().length,
+      });
       this.#failInvocations(conn.id, "node disconnected");
       const node = setNodeStatus(this.#ctx.db, nodeId, "offline");
       if (node) this.#ctx.bus.publish("node.updated", { node });
