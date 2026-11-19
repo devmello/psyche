@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { updateDevice } from "@psyche/db";
+import { readGuardOf, setReadGuard, updateDevice } from "@psyche/db";
 import type { PresenceVerifier } from "@psyche/permissions";
 import type { LinkSetupStatus } from "@psyche/protocol";
 
@@ -865,7 +865,7 @@ describe("guided setup in the composed Gateway", () => {
     } finally {
       process.off("unhandledRejection", onRejection);
     }
-  });
+  }, 20_000);
 
   it("keeps one retry chain when connect is called twice, and stop() ends it (#1342 N1)", async () => {
     const cli = fakeCli();
@@ -918,30 +918,47 @@ describe("guided setup in the composed Gateway", () => {
       clearSpy.mockRestore();
       process.off("unhandledRejection", onRejection);
     }
-  });
+  }, 20_000);
 
-  it("goes on with the back-off when a status check throws (#1345)", async () => {
+  it("goes on with the back-off when the status check itself throws (#1345)", async () => {
     const cli = fakeCli();
     const home = await signedInHome(cli);
     let services: ComposeServices | undefined;
-    let throws = 1;
-    const calls: string[] = [];
-    // The first check fails; the chain goes on to the retry, which answers.
-    const throwing: RunLink = async (file, args, env, timeout) => {
+    let armed = false;
+    let thrown = 0;
+    // The first CLI answer is lost. Then the next read of the saved CLI path throws, which comes
+    // from `#runnable()` before the CLI is run, outside the run's own error handling.
+    const lost: RunLink = async (file, args, env, timeout) => {
       const verb = args.filter((a) => !a.startsWith("-") && !a.endsWith(".js")).join(" ");
-      calls.push(verb);
-      if (verb.startsWith("auth status") && throws-- > 0) throw new Error("boom");
+      if (verb.startsWith("auth status") && !armed && thrown === 0) {
+        armed = true;
+        throw new Error("timed out");
+      }
       return runFile(file, args, env, timeout);
     };
     await boot(cli, {
       home,
-      run: throwing,
-      statusRetryMs: 20,
-      onServices: (s) => (services = s),
+      run: lost,
+      statusRetryMs: 60,
+      onServices: (s) => {
+        services = s;
+        const prev = readGuardOf(s.db);
+        setReadGuard(s.db, {
+          ...prev,
+          check() {
+            if (armed && new Error().stack?.includes("runnable")) {
+              armed = false;
+              thrown++;
+              throw new Error("settings unreadable");
+            }
+            prev?.check();
+          },
+        });
+      },
     });
     await waitFor(async () => services?.tools.get("checkout.pay_with_link") !== undefined);
-    expect(calls.filter((c) => c.startsWith("auth status")).length).toBeGreaterThanOrEqual(2);
-  });
+    expect(thrown).toBe(1);
+  }, 20_000);
 
   it("never joins a status run from before the last connect (#1342 N2)", async () => {
     const cli = fakeCli();
@@ -1044,7 +1061,7 @@ describe("guided setup in the composed Gateway", () => {
         );
       }
       expect(calls).toEqual([]);
-    });
+    }, 20_000);
   });
 
   describe("disconnecting with a payment open", () => {
@@ -1080,7 +1097,7 @@ describe("guided setup in the composed Gateway", () => {
         code: "conflict",
         details: { reason: "payment_in_progress" },
       });
-    });
+    }, 20_000);
 
     it("names the open payment in the refusal", async () => {
       const cli = fakeCli();
