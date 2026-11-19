@@ -1,9 +1,7 @@
 import { safeFetch } from "@psyche/connectors";
 import { getSetting, type PsycheDb, setSetting } from "@psyche/db";
-import type { EventName, EventPayload, ToolRegistration } from "@psyche/protocol";
-import { ResolvedSecret } from "@psyche/protocol";
+import type { EventName, EventPayload, ResolvedSecret, ToolRegistration } from "@psyche/protocol";
 import {
-  BRAVE_ORIGIN,
   createWebTools,
   type FetchFn,
   parsePreference,
@@ -17,8 +15,9 @@ import {
   type WebToolsOptions,
   webSearchStatus,
 } from "@psyche/search";
-import type { SecretRedactor } from "@psyche/vault";
+import type { SecretRedactor, Vault } from "@psyche/vault";
 import type { Logger } from "../log.ts";
+import { BRAVE_OWNER, braveEnvSecret, braveVaultSecret } from "./api-keys.ts";
 
 /**
  * The built-in `web.search` / `web.fetch` tools (issue #557), always registered so the agent can
@@ -63,21 +62,41 @@ export function composeWebTools(
     env: Readonly<Record<string, string | undefined>>;
     publish: <E extends EventName>(event: E, payload: EventPayload<E>) => void;
     redactor?: SecretRedactor;
+    /** The vault: a Brave key set in Settings is read from it when the variable is unset. */
+    vault?: () => Vault | undefined;
     logger?: Logger;
   },
   setup: WebToolsSetup = {},
 ): ComposedWebTools {
-  const braveKey = deps.env[BRAVE_KEY_ENV]?.trim() ?? "";
+  const braveEnvKey = deps.env[BRAVE_KEY_ENV]?.trim() ?? "";
   // The key is masked wherever the Gateway logs; it only ever leaves in Brave's request header.
-  if (braveKey !== "") deps.redactor?.add(braveKey, { sticky: true });
+  // An environment key wins; otherwise the vault's (read per request, never kept here).
+  if (braveEnvKey !== "") deps.redactor?.add(braveEnvKey, { sticky: true });
+  const braveSource = (): "env" | "vault" | undefined =>
+    braveEnvKey !== ""
+      ? "env"
+      : deps.vault?.()?.connectorItem(BRAVE_OWNER) !== undefined
+        ? "vault"
+        : undefined;
+  const braveSecret = async (): Promise<ResolvedSecret> =>
+    braveSource() === "vault" && deps.vault !== undefined
+      ? braveVaultSecret(deps.vault)
+      : braveEnvSecret(braveEnvKey, BRAVE_KEY_ENV);
   const fetchFn: FetchFn = setup.fetch ?? ((input, init) => fetch(input, init));
   const limiter = setup.limiter ?? new RateLimiter();
 
   const status = (): WebSearchStatus => {
     const searxngUrl = parseSearxngUrl(getSetting(deps.db, WEB_SEARCH_SEARXNG_SETTING)?.value);
+    const preference = parsePreference(getSetting(deps.db, WEB_SEARCH_PROVIDER_SETTING)?.value);
+    const source = braveSource();
+    // Automatic mode never makes a search fail on a key it cannot read without an unlock (an
+    // agent must not raise that prompt): a Brave key in a locked vault is unavailable and the
+    // next provider is used. When the owner chose Brave, the "locked vault" error stays.
+    const unavailable =
+      source === "vault" && preference === "auto" && deps.vault?.()?.locked === true;
     return webSearchStatus({
-      preference: parsePreference(getSetting(deps.db, WEB_SEARCH_PROVIDER_SETTING)?.value),
-      ...(braveKey === "" ? {} : { braveKey: "env" as const }),
+      preference,
+      ...(source === undefined || unavailable ? {} : { braveKey: source }),
       ...(searxngUrl === undefined ? {} : { searxngUrl }),
     });
   };
@@ -99,11 +118,7 @@ export function composeWebTools(
       const s = status();
       return providerFor(s, {
         fetch: fetchFn,
-        braveKey: async () =>
-          new ResolvedSecret(braveKey, {
-            credentialId: `env:${BRAVE_KEY_ENV}`,
-            target: { kind: "origin", value: BRAVE_ORIGIN },
-          }),
+        braveKey: braveSecret,
         limiter,
       });
     },
@@ -114,11 +129,7 @@ export function composeWebTools(
   const search: ComposedWebTools["search"] = async (query, count, signal) => {
     const provider = providerFor(status(), {
       fetch: fetchFn,
-      braveKey: async () =>
-        new ResolvedSecret(braveKey, {
-          credentialId: `env:${BRAVE_KEY_ENV}`,
-          target: { kind: "origin", value: BRAVE_ORIGIN },
-        }),
+      braveKey: braveSecret,
       limiter,
     });
     if (provider === undefined) throw new Error("web search is turned off in Settings");

@@ -1644,6 +1644,30 @@
         "sideEffecting": false
       },
       {
+        "description": "Removes the vault's key for a provider or the web search key and returns its status. Idempotent: clearing an absent key succeeds. An environment variable is not touched. Audited (provider only). Side-effecting.",
+        "name": "keys.clear",
+        "params": "#/$defs/KeysClearParams",
+        "result": "#/$defs/KeysClearResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Stores a provider API key (anthropic, openai, google, openrouter) or the Brave Search key (brave) in the vault as a Gateway-owned item, replacing an earlier one, and returns its status. The Gateway uses it from the next request, no restart. An environment variable still wins when set. invalid_params for an empty key, one with whitespace or one the provider cannot accept; unavailable when the vault cannot be opened. Audited (provider only). Side-effecting; its params are never logged.",
+        "name": "keys.set",
+        "params": "#/$defs/KeysSetParams",
+        "result": "#/$defs/KeysSetResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Which provider API keys and the web search key are configured, and whether each comes from an environment variable or the vault. Never returns a key or any part of one.",
+        "name": "keys.status",
+        "params": "#/$defs/KeysStatusParams",
+        "result": "#/$defs/KeysStatusResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Deletes a Library item and its file.",
         "name": "library.delete",
         "params": "#/$defs/LibraryDeleteParams",
@@ -4303,6 +4327,65 @@
         "date",
         "provenance",
         "span"
+      ],
+      "type": "object"
+    },
+    "ApiKeyId": {
+      "anyOf": [
+        {
+          "const": "anthropic",
+          "type": "string"
+        },
+        {
+          "const": "openai",
+          "type": "string"
+        },
+        {
+          "const": "google",
+          "type": "string"
+        },
+        {
+          "const": "openrouter",
+          "type": "string"
+        },
+        {
+          "const": "brave",
+          "type": "string"
+        }
+      ]
+    },
+    "ApiKeyStatus": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ApiKeyId"
+        },
+        "configured": {
+          "type": "boolean"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "const": "env",
+              "type": "string"
+            },
+            {
+              "const": "vault",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "inVault": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "configured",
+        "source",
+        "inVault"
       ],
       "type": "object"
     },
@@ -24464,6 +24547,74 @@
       "maxLength": 128,
       "minLength": 1,
       "type": "string"
+    },
+    "KeysClearParams": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ApiKeyId"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "KeysClearResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/ApiKeyStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "KeysSetParams": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ApiKeyId"
+        },
+        "key": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "key"
+      ],
+      "type": "object"
+    },
+    "KeysSetResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/ApiKeyStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "KeysStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "KeysStatusResult": {
+      "properties": {
+        "keys": {
+          "items": {
+            "$ref": "#/$defs/ApiKeyStatus"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "keys"
+      ],
+      "type": "object"
     },
     "LearnedBlock": {
       "properties": {

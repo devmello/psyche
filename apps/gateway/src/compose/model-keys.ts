@@ -4,6 +4,7 @@ import {
   type ModelProvider,
   type ModelRequest,
   PsycheError,
+  ResolvedSecret,
 } from "@psyche/protocol";
 import type { Vault } from "@psyche/vault";
 
@@ -24,6 +25,14 @@ export const MODEL_API_ORIGIN: Record<HostedModelKind, string> = {
   openai: "https://api.openai.com",
   google: "https://generativelanguage.googleapis.com",
   openrouter: "https://openrouter.ai",
+};
+
+/** The variable each provider's key is also read from; it wins over the vault (owner setups). */
+export const MODEL_KEY_ENV: Record<HostedModelKind, string> = {
+  anthropic: "ANTHROPIC_API_KEY",
+  openai: "OPENAI_API_KEY",
+  google: "GOOGLE_GENERATIVE_AI_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
 };
 
 const LABEL: Record<HostedModelKind, string> = {
@@ -64,12 +73,31 @@ export function hasModelKey(vault: Vault, providerId: string): boolean {
 }
 
 /** The router's `KeySource` over those items. */
-export function vaultModelKeys(vault: () => Vault | undefined): KeySource {
+export function vaultModelKeys(
+  vault: () => Vault | undefined,
+  env: Readonly<Record<string, string | undefined>> = {},
+): KeySource {
+  const fromEnv = (provider: string): { name: string; value: string } | undefined => {
+    if (!isHostedModelKind(provider)) return undefined;
+    const name = MODEL_KEY_ENV[provider];
+    const value = env[name]?.trim();
+    return value === undefined || value === "" ? undefined : { name, value };
+  };
   return {
     async resolve(profile, target) {
       if (!profile.id.startsWith(PROFILE_PREFIX)) return undefined;
       const owner = profile.id.slice(PROFILE_PREFIX.length);
       const provider = owner.replace(/^model-/, "");
+      // An environment variable wins over the vault, but only for the provider's own origin.
+      const envKey = fromEnv(provider);
+      if (envKey !== undefined) {
+        if (target.value !== MODEL_API_ORIGIN[provider as HostedModelKind]) {
+          throw new PsycheError("policy_denied", `the ${provider} key is bound to its API origin`, {
+            details: { reason: "target_mismatch" },
+          });
+        }
+        return new ResolvedSecret(envKey.value, { credentialId: `env:${envKey.name}`, target });
+      }
       const v = vault();
       const item = v?.connectorItem(owner);
       if (v === undefined || item === undefined) {
@@ -98,7 +126,11 @@ export function vaultModelKeys(vault: () => Vault | undefined): KeySource {
       }
       return v.accessToken(item.id, owner);
     },
-    redact: (text) => vault()?.redact(text) ?? text,
+    redact: (text) =>
+      HOSTED_MODEL_KINDS.reduce((t, k) => {
+        const v = fromEnv(k)?.value;
+        return v === undefined ? t : t.split(v).join("•••");
+      }, vault()?.redact(text) ?? text),
   };
 }
 
