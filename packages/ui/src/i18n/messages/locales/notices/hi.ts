@@ -43,4 +43,11 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {{provider} कुंजी {action, select, changed {बदली गई} other {हटाई गई}}} other {{provider} API कुंजी {action, select, changed {बदली गई} other {हटाई गई}}}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {बदलाव} other {हटाना}} इस डिवाइस से हुआ: {device, select, none {एक डिवाइस} other {"{device}" ({platform}{paired, select, none {} other {, पेयर किया गया {paired}}})}}। अगर यह आपने नहीं किया, तो सेटिंग → डिवाइस में उस डिवाइस को रद्द करें।',
+  "notice.specialist.result.title":
+    "{outcome, select, done {{who} ने {title} पूरा किया} partial {{who} ने {title} पर जल्दी रोक दिया} cancelled {{who} को {title} पर रोका गया} other {{who} {title} पूरा नहीं कर सका}}",
+  "notice.specialist.result.body":
+    "{outcome, select, done {पूरा} partial {आंशिक} cancelled {रद्द} other {विफल}}{findings, plural, =0 {} other { · # निष्कर्ष}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {1 मिनट से कम} other {# मिनट}}",
+  "notice.mcp.changed.title": "MCP सर्वर {server} ने अपने टूल बदले",
+  "notice.mcp.suspicious.title": "MCP सर्वर {server} में संदिग्ध टूल विवरण हैं",
+  "notice.mcp.review.body": "इस सर्वर का उपयोग करने से पहले देखें: {details}",
 };

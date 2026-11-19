@@ -44,4 +44,11 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {A chave do {provider} foi {action, select, changed {alterada} other {removida}}} other {A chave de API do {provider} foi {action, select, changed {alterada} other {removida}}}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {Alterada} other {Removida}} por {device, select, none {um dispositivo} other {"{device}" ({platform}{paired, select, none {} other {, pareado em {paired}}})}}. Se não foi você, revogue o dispositivo em Ajustes → Dispositivos.',
+  "notice.specialist.result.title":
+    "{outcome, select, done {{who} terminou {title}} partial {{who} parou cedo em {title}} cancelled {{who} foi interrompido em {title}} other {{who} não conseguiu terminar {title}}}",
+  "notice.specialist.result.body":
+    "{outcome, select, done {Concluído} partial {Parcial} cancelled {Cancelado} other {Falhou}}{findings, plural, =0 {} one { · # achado} other { · # achados}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {menos de 1 min} other {# min}}",
+  "notice.mcp.changed.title": "O servidor MCP {server} mudou suas ferramentas",
+  "notice.mcp.suspicious.title": "O servidor MCP {server} tem descrições de ferramentas suspeitas",
+  "notice.mcp.review.body": "Revise antes de usar este servidor: {details}",
 };

@@ -43,4 +43,11 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {{provider} 키가 {action, select, changed {변경} other {삭제}}되었습니다} other {{provider} API 키가 {action, select, changed {변경} other {삭제}}되었습니다}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {변경} other {삭제}}한 기기: {device, select, none {기기} other {"{device}" ({platform}{paired, select, none {} other {, 페어링 날짜 {paired}}})}}. 직접 하신 일이 아니라면 설정 → 기기에서 이 기기를 해제하세요.',
+  "notice.specialist.result.title":
+    "{outcome, select, done {{who}이(가) {title}을(를) 마쳤습니다} partial {{who}이(가) {title}을(를) 일찍 멈췄습니다} cancelled {{who}의 {title} 작업이 중지되었습니다} other {{who}이(가) {title}을(를) 끝내지 못했습니다}}",
+  "notice.specialist.result.body":
+    "{outcome, select, done {완료} partial {일부 완료} cancelled {취소됨} other {실패}}{findings, plural, =0 {} other { · 발견 #건}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {1분 미만} other {#분}}",
+  "notice.mcp.changed.title": "MCP 서버 {server}의 도구가 바뀌었습니다",
+  "notice.mcp.suspicious.title": "MCP 서버 {server}의 도구 설명이 의심스럽습니다",
+  "notice.mcp.review.body": "이 서버를 쓰기 전에 확인하세요: {details}",
 };
