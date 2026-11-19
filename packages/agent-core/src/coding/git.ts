@@ -22,7 +22,12 @@ export interface GitRunner {
   run(
     cwd: string,
     args: readonly string[],
-    options?: { signal?: AbortSignal; timeoutMs?: number },
+    options?: {
+      signal?: AbortSignal;
+      timeoutMs?: number;
+      /** Set on top of the runner's own environment for this one command. */
+      env?: Readonly<Record<string, string>>;
+    },
   ): Promise<GitResult>;
 }
 
@@ -385,11 +390,17 @@ export function gitDirArgs(root: string): string[] {
   return [`--git-dir=${join(root, ".git")}`, `--work-tree=${root}`];
 }
 
+/**
+ * Runs `git <args>` in the repository at `cwd`: the driver and pin queries first, then the
+ * `.git` and config re-check, and nothing else between that re-check and the command (review of
+ * #1425 r3). `env` is set for the command alone.
+ */
 export async function git(
   runner: GitRunner,
   cwd: string,
   args: readonly string[],
   signal?: AbortSignal,
+  env?: Readonly<Record<string, string>>,
 ): Promise<GitResult> {
   const opts = signal === undefined ? {} : { signal };
   const pin = gitDirArgs(cwd);
@@ -401,10 +412,15 @@ export async function git(
     throw new PsycheError("conflict", "git config could not be read; the command was not run");
   }
   const pins = ownerPins(owner.exitCode === 0 ? owner.stdout : "");
-  // Again right before the command: the config may have changed since `assertOwnRepository`.
+  // Last, right before the command: the config may have changed since `assertOwnRepository`.
+  // A config written after this re-check still applies (one `config --list` long); the pins
+  // above hold the keys that name a program.
   await assertRealGitDir(cwd);
   await assertSafeLocalConfig(runner, cwd, signal);
-  return runner.run(cwd, [...GIT_HARDENING, ...pin, ...pins, ...off, ...args], opts);
+  return runner.run(cwd, [...GIT_HARDENING, ...pin, ...pins, ...off, ...args], {
+    ...opts,
+    ...(env === undefined ? {} : { env }),
+  });
 }
 
 /** Runs and throws on a non-zero exit, with git's own message. */

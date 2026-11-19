@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AgentToolRegistry, type ToolRunContext } from "@psyche/agent-core";
@@ -66,6 +66,49 @@ describe("hostGit", () => {
     const inSub = await git.run(sub, ["rev-parse", "--show-toplevel"]);
     expect(inSub.exitCode).not.toBe(0);
     expect(inSub.stdout).not.toContain(repo);
+  });
+});
+
+describe("hostGit push and core.gitProxy (review of #1425 r3)", () => {
+  it("a git:// push never runs a proxy command, not even the owner's global one", async () => {
+    const mark = join(dir, "PROXY_RAN");
+    const proxy = join(dir, "proxy.sh");
+    writeFileSync(proxy, `#!/bin/sh\ntouch "${mark}"\nexit 1\n`, { mode: 0o755 });
+    const globalCfg = join(dir, "global.gitconfig");
+    writeFileSync(globalCfg, `[core]\n\tgitProxy = ${proxy} for example.invalid\n`);
+    const saved = process.env.GIT_CONFIG_GLOBAL;
+    process.env.GIT_CONFIG_GLOBAL = globalCfg;
+    try {
+      const url = "git://example.invalid/x.git";
+      const id = ["-c", "user.name=Avery Lin", "-c", "user.email=owner@example.com"];
+      execFileSync("git", [...id, "commit", "--quiet", "--allow-empty", "-m", "one"], {
+        cwd: repo,
+      });
+      execFileSync("git", ["remote", "add", "origin", url], { cwd: repo });
+      const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo }).toString().trim();
+      // Control: plain git with this global config does run the proxy command.
+      await hostGit().run(repo, ["push", "--porcelain", "origin", `${head}:refs/heads/main`]);
+      expect(existsSync(mark)).toBe(true);
+      rmSync(mark);
+      const { s, registry } = services();
+      composeCoding(s, { git: hostGit() });
+      const run = (name: string, p: unknown) => registry.get(name)?.run?.(p, ctx);
+      await run("code.open", { path: repo });
+      const pushed = await run("code.git", {
+        root: repo,
+        op: "push",
+        remote: "origin",
+        remote_url: url,
+        branch: "main",
+        commit: head,
+      });
+      // `example.invalid` never resolves: the push fails, without the proxy.
+      expect(pushed?.isError).toBe(true);
+      expect(existsSync(mark)).toBe(false);
+    } finally {
+      if (saved === undefined) delete process.env.GIT_CONFIG_GLOBAL;
+      else process.env.GIT_CONFIG_GLOBAL = saved;
+    }
   });
 });
 
