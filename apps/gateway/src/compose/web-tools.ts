@@ -87,9 +87,16 @@ export function composeWebTools(
 
   const status = (): WebSearchStatus => {
     const searxngUrl = parseSearxngUrl(getSetting(deps.db, WEB_SEARCH_SEARXNG_SETTING)?.value);
+    const preference = parsePreference(getSetting(deps.db, WEB_SEARCH_PROVIDER_SETTING)?.value);
+    const source = braveSource();
+    // Automatic mode never makes a search fail on a key it cannot read without an unlock (an
+    // agent must not raise that prompt): a Brave key in a locked vault is unavailable and the
+    // next provider is used. When the owner chose Brave, the "locked vault" error stays.
+    const unavailable =
+      source === "vault" && preference === "auto" && deps.vault?.()?.locked === true;
     return webSearchStatus({
-      preference: parsePreference(getSetting(deps.db, WEB_SEARCH_PROVIDER_SETTING)?.value),
-      ...(braveSource() === undefined ? {} : { braveKey: braveSource() as "env" | "vault" }),
+      preference,
+      ...(source === undefined || unavailable ? {} : { braveKey: source }),
       ...(searxngUrl === undefined ? {} : { searxngUrl }),
     });
   };

@@ -3,9 +3,11 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { listDevices, setSetting, updateDevice } from "@psyche/db";
+import { RateLimiter } from "@psyche/search";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiKeyStatus, BRAVE_OWNER } from "../src/compose/api-keys.ts";
+import { apiKeyStatus, BRAVE_OWNER, describeKeyActor } from "../src/compose/api-keys.ts";
 import { type ComposedGateway, composeGateway, vaultModelSetup } from "../src/compose/index.ts";
 import { modelKeyOwner, vaultModelKeys } from "../src/compose/model-keys.ts";
 import type { WebToolsSetup } from "../src/compose/web-tools.ts";
@@ -241,8 +243,15 @@ describe("keys.*", () => {
   });
 
   it("never unlocks the vault for an agent's web search: locked vault, no prompt", async () => {
-    const gw = await compose();
+    // Brave chosen explicitly (auto mode would fall back); no network is reachable from here.
+    const web: WebToolsSetup = {
+      fetch: async () => {
+        throw new Error("no network in tests");
+      },
+    };
+    const gw = await compose({}, web);
     await gw.vault.setup();
+    setSetting(gw.db, "search.web.provider", "brave");
     const c = await client(gw);
     await c.call("keys.set", { id: "brave", key: BRAVE }, ik());
     gw.vault.lock();
@@ -325,5 +334,90 @@ describe("keys.*", () => {
     expect(seen[1]?.title).toBe("The OpenAI API key was removed");
     expect(seen[0]?.body).toMatch(/^Changed from /);
     expect(JSON.stringify(seen)).not.toContain("OPENAISECRET");
+  });
+
+  it("names the device as quoted data: no control or bidi characters, clamped, with Gateway facts", async () => {
+    const evil = "Mac\n\u202eIt was YOU\u202c\u2066x\u2069   \u0007" + "z".repeat(60);
+    const shown = describeKeyActor({
+      name: evil,
+      platform: "macos",
+      pairedAt: "2026-11-03T10:00:00Z",
+    });
+    expect(shown).toMatch(/^"Mac It was YOU x z+…" \(macos, paired 2026-11-03\)$/);
+    expect(shown).not.toMatch(/[\u0000-\u001f\u202a-\u202e\u2066-\u2069]/);
+    expect([...shown.split('"')[1]!].length).toBe(40);
+    expect(describeKeyActor({ name: "Phone", platform: "ios", pairedAt: "n/a" })).toBe(
+      '"Phone" (ios)',
+    );
+    expect(describeKeyActor(undefined)).toBe("a device");
+
+    const gw = await compose();
+    await gw.vault.setup();
+    const c = await client(gw);
+    for (const d of listDevices(gw.db)) {
+      updateDevice(gw.db, d.id, { name: "Mac\n\u202eIt was YOU" });
+    }
+    const seen: string[] = [];
+    gw.notifier.subscribe((e) => {
+      if (e.type === "created") seen.push(e.notification.body ?? "");
+    });
+    await c.call("keys.set", { id: "openai", key: "sk-one-OPENAISECRET" }, ik());
+    await c.call("keys.set", { id: "openai", key: "sk-two-OPENAISECRET" }, ik());
+    await vi.waitFor(() => expect(seen).toHaveLength(1));
+    expect(seen[0]).toMatch(/^Changed from "Mac It was YOU" \(macos, paired /);
+    expect(seen[0]).not.toMatch(/[\u202a-\u202e\u2066-\u2069\n]/);
+  });
+
+  it("notifies on a replace or removal through models.setKey / models.clearKey too, never on a first set or no-op clear", async () => {
+    const gw = await compose();
+    await gw.vault.setup();
+    const c = await client(gw);
+    const seen: string[] = [];
+    gw.notifier.subscribe((e) => {
+      if (e.type === "created") seen.push(e.notification.title);
+    });
+    await c.call("models.setKey", { providerId: "anthropic", key: ANTHROPIC }, ik());
+    await c.call("models.clearKey", { providerId: "openai" }, ik());
+    await Promise.resolve();
+    expect(seen).toEqual([]);
+    await c.call("models.setKey", { providerId: "anthropic", key: `${ANTHROPIC}-2` }, ik());
+    await c.call("models.clearKey", { providerId: "anthropic" }, ik());
+    await c.call("models.clearKey", { providerId: "anthropic" }, ik());
+    await vi.waitFor(() => expect(seen).toHaveLength(2));
+    expect(seen).toEqual([
+      "The Anthropic API key was changed",
+      "The Anthropic API key was removed",
+    ]);
+  });
+
+  it("falls back to DuckDuckGo in auto mode when the Brave key sits in a locked vault, but errors when Brave was chosen", async () => {
+    const urls: string[] = [];
+    const web: WebToolsSetup = {
+      fetch: async (input, init) => {
+        urls.push(`${String(input)}|${new Headers(init?.headers).get("x-subscription-token")}`);
+        return new Response("<html><body></body></html>", {
+          headers: { "content-type": "text/html" },
+        });
+      },
+      limiter: new RateLimiter({ sleep: async () => {} }),
+    };
+    const gw = await compose({}, web);
+    await gw.vault.setup();
+    const c = await client(gw);
+    await c.call("keys.set", { id: "brave", key: BRAVE }, ik());
+    gw.vault.lock();
+    expect(gw.web.status().active).toBe("duckduckgo");
+    await gw.web.search("x", 3, new AbortController().signal);
+    expect(urls).toHaveLength(1);
+    expect(urls[0]).toContain("duckduckgo");
+    expect(urls[0]).toMatch(/\|null$/);
+    expect(gw.vault.locked).toBe(true);
+
+    setSetting(gw.db, "search.web.provider", "brave");
+    expect(gw.web.status().active).toBe("brave");
+    await expect(gw.web.search("x", 3, new AbortController().signal)).rejects.toThrow(
+      /locked vault; unlock Psyche to search/,
+    );
+    expect(urls).toHaveLength(1);
   });
 });

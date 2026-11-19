@@ -112,7 +112,13 @@ import { sealedPermissionStore } from "../security/sealed-stores.ts";
 import { StateSeal } from "../security/state-seal.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { BusySources, UpdateGate } from "../update-gate.ts";
-import { API_KEY_IDS, API_KEY_LABEL, apiKeyHandlers, envKey } from "./api-keys.ts";
+import {
+  API_KEY_IDS,
+  API_KEY_LABEL,
+  apiKeyHandlers,
+  describeKeyActor,
+  envKey,
+} from "./api-keys.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { artifactContextProvider, composeArtifacts } from "./artifacts.ts";
 import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
@@ -824,6 +830,27 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const routed = providerFor(modelSetup, clock, db, config.home, () => appleHelper.current());
   const { model: modelRef, utility, router } = routed;
   const provider = vaultKeys && router !== undefined ? untilPrimaryPicked(router) : routed.provider;
+  // Tells the owner's devices a key was swapped or removed. It names the provider and the device
+  // (as quoted data, see describeKeyActor), never the key.
+  const noticeKeyChange = ({
+    id,
+    action,
+    deviceId,
+  }: {
+    id: keyof typeof API_KEY_LABEL;
+    action: "changed" | "removed";
+    deviceId: string;
+  }) => {
+    const what = `${API_KEY_LABEL[id]} ${id === "brave" ? "key" : "API key"}`;
+    void notifier
+      .notify({
+        kind: "system",
+        title: `The ${what} was ${action}`,
+        body: `${action === "changed" ? "Changed" : "Removed"} from ${describeKeyActor(getDevice(db, deviceId))}. If that was not you, revoke the device in Settings → Devices.`,
+        route: "/settings/devices",
+      })
+      .catch(() => undefined);
+  };
   const modelSettings: ModelSettingsSetup = {
     db,
     clock,
@@ -843,8 +870,22 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
             has: (id: string) =>
               hasModelKey(vault.vault, id) ||
               (isHostedModelKind(id) && envKey(keyEnv, id) !== undefined),
-            store: (id: HostedModelKind, key: string) => storeModelKey(vault.vault, id, key),
-            clear: (id: HostedModelKind) => clearModelKey(vault.vault, id),
+            // The same notice as keys.set / keys.clear: a replace or removal tells the owner, a
+            // first set or a no-op clear does not, whichever method wrote the item.
+            store: async (id: HostedModelKind, key: string, deviceId?: string) => {
+              const replaced = hasModelKey(vault.vault, id);
+              await storeModelKey(vault.vault, id, key);
+              if (replaced && deviceId !== undefined) {
+                noticeKeyChange({ id, action: "changed", deviceId });
+              }
+            },
+            clear: async (id: HostedModelKind, deviceId?: string) => {
+              const removed = await clearModelKey(vault.vault, id);
+              if (removed && deviceId !== undefined) {
+                noticeKeyChange({ id, action: "removed", deviceId });
+              }
+              return removed;
+            },
           },
         }
       : {}),
@@ -2045,20 +2086,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       onChanged: (id) => {
         if (id === "brave") webTools.refresh();
       },
-      onKeyReplaced: ({ id, action, deviceId }) => {
-        // Tells the owner's devices a key was swapped or removed. It names the provider and the
-        // device only, never the key.
-        const device = getDevice(db, deviceId)?.name ?? "a device";
-        const what = `${API_KEY_LABEL[id]} ${id === "brave" ? "key" : "API key"}`;
-        void notifier
-          .notify({
-            kind: "system",
-            title: `The ${what} was ${action}`,
-            body: `${action === "changed" ? "Changed" : "Removed"} from ${device}. If that was not you, revoke the device in Settings → Devices.`,
-            route: "/settings/devices",
-          })
-          .catch(() => undefined);
-      },
+      onKeyReplaced: noticeKeyChange,
     }),
     // The Overview's aggregates (docs/design/agent-overview-2026.md §6.2): read-only SQL.
     ...insightsHandlers({

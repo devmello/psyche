@@ -254,3 +254,23 @@ export function apiKeyHandlers(deps: ApiKeyHandlerDeps): Record<string, HandlerD
     },
   };
 }
+
+/**
+ * A device as the key-changed notice names it. A paired device picks its own name, so it is
+ * shown as quoted data: control and bidi characters are stripped, whitespace collapsed, the
+ * length clamped. The facts the Gateway holds itself (platform, pairing date) follow it.
+ */
+export function describeKeyActor(
+  device: { name: string; platform: string; pairedAt?: string | null | undefined } | undefined,
+): string {
+  if (device === undefined) return "a device";
+  const name = device.name
+    .replace(/[\p{Cc}\p{Cf}\u202a-\u202e\u2066-\u2069]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const clamped = [...name].length > 40 ? `${[...name].slice(0, 39).join("")}…` : name;
+  const paired = /^\d{4}-\d{2}-\d{2}/.test(device.pairedAt ?? "")
+    ? `, paired ${(device.pairedAt ?? "").slice(0, 10)}`
+    : "";
+  return `"${clamped}" (${device.platform}${paired})`;
+}
