@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { realpathSync } from "node:fs";
 import { basename } from "node:path";
 import { Receipts, sha256 } from "@psyche/audit";
 import { isUnderHostPath } from "@psyche/hostfs";
@@ -63,6 +64,7 @@ import {
   type FolderAccessEnv,
   type FolderGrantEntry,
   folderCovers,
+  inSystemRoot,
   refuseFolder,
   resolveFilePick,
   resolveFolderPick,
@@ -415,6 +417,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       task: (ctx) => this.#task(ctx),
       peekTask: (ctx) => this.#tasks.get(taskKey(ctx)),
       sessionFolders: (threadId) => this.sessionFolders(threadId),
+      folderRefused: (path) => this.#folderRefused(path),
       matchGrant: (key, kind, se, ctx, origin) => this.#matchGrant(key, kind, se, ctx, origin),
       useGrant: (rec, hash, ctx) => this.#useGrant(rec, hash, ctx?.taskId),
       trustedSite: (origin) => this.#trustedSite(origin),
@@ -828,6 +831,25 @@ export class PsychePermissionBroker implements PermissionBroker {
       roots: this.#hostProgram.roots ?? HOST_PROGRAM_ROOTS,
       inGrantedFolder: (path) => this.engine.folderFor(path, threadId) !== undefined,
     });
+  }
+
+  /**
+   * A granted folder inside a system root (`inSystemRoot`), as written or by its real path (a symlink).
+   * Such a folder covers nothing; Settings lists it as refused.
+   */
+  folderRefused(path: string): boolean {
+    return this.#folderRefused(path);
+  }
+
+  #folderRefused(path: string): boolean {
+    const env = this.#refuseEnv();
+    if (inSystemRoot(path, env)) return true;
+    try {
+      const real = realpathSync(path);
+      return real !== path && inSystemRoot(real, env);
+    } catch {
+      return false;
+    }
   }
 
   #refuseEnv(): FolderAccessEnv {

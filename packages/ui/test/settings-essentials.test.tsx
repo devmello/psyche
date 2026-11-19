@@ -135,6 +135,30 @@ describe("Access list", () => {
     expect(onRevoke).toHaveBeenCalledWith(expect.objectContaining({ id: "grant:g1" }));
   });
 
+  it("shows a folder that is a system folder today as refused, with Revoke", () => {
+    render(
+      <AccessListView
+        persona="Wren"
+        entries={[
+          {
+            id: "folder:always:/opt/homebrew",
+            type: "folder",
+            scope: "always",
+            label: "/opt/homebrew",
+            path: "/opt/homebrew",
+            mode: "rw",
+            refused: true,
+          },
+        ]}
+        onRevoke={vi.fn()}
+      />,
+    );
+    const list = screen.getByRole("list", { name: "What Wren can reach" });
+    expect(within(list).getByText(/\/opt\/homebrew can't be shared/)).toBeTruthy();
+    expect(within(list).queryByText(/Read and write/)).toBeNull();
+    expect(within(list).getByRole("button", { name: /Revoke/ })).toBeTruthy();
+  });
+
   it("says Psyche asks when nothing is granted yet", () => {
     render(<AccessListView persona="Wren" entries={[]} />);
     expect(screen.getByText(/it asks you in the chat/)).toBeTruthy();

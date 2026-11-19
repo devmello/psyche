@@ -1735,6 +1735,7 @@ public struct AccessEntry: Codable, Sendable {
     public let lastUsedAt: String?
     public let mode: FolderModeEnum?
     public let path: String?
+    public let refused: Bool?
     public let scope: AccessEntryScope
     public let since: String?
     public let threadID: String?
@@ -1749,13 +1750,14 @@ public struct AccessEntry: Codable, Sendable {
         case lastUsedAt = "lastUsedAt"
         case mode = "mode"
         case path = "path"
+        case refused = "refused"
         case scope = "scope"
         case since = "since"
         case threadID = "threadId"
         case type = "type"
     }
 
-    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, path: String? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, path: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
         self.file = file
         self.grantID = grantID
         self.id = id
@@ -1764,6 +1766,7 @@ public struct AccessEntry: Codable, Sendable {
         self.lastUsedAt = lastUsedAt
         self.mode = mode
         self.path = path
+        self.refused = refused
         self.scope = scope
         self.since = since
         self.threadID = threadID

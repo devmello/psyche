@@ -56,6 +56,11 @@ export interface SessionFolderGrant extends FolderGrantEntry {
 export interface FolderAccessEnv {
   /** The owner's home directory. */
   home?: string;
+  /**
+   * Compare POSIX paths without case (APFS and HFS+ are case-insensitive by default, so `/OPT`
+   * is `/opt`). Default: true on macOS. Windows paths are always compared without case.
+   */
+  caseInsensitive?: boolean;
   /** `$PSYCHE_HOME`. */
   psycheHome?: string;
   /** Extra protected locations (credential stores) as written; real paths are added too. */
@@ -89,6 +94,19 @@ const SUBTREE_ROOTS = [
   "/dev",
   "/cores",
   "/Applications",
+  // Installed software outside /usr: `/opt/homebrew` (Apple silicon Homebrew), `/opt/local`
+  // (MacPorts) and the rest of `/opt`. A read-write grant there lets `write_file` overwrite an
+  // executable (it keeps mode 0755), e.g. the `op` CLI Psyche runs unsandboxed. Intel Homebrew
+  // lives in `/usr/local`, already under `/usr`.
+  "/opt",
+  // Linux: packaged binaries and libraries (snap, the Nix store, /lib*, the boot files).
+  "/snap",
+  "/nix",
+  "/lib",
+  "/lib32",
+  "/lib64",
+  "/libx32",
+  "/boot",
 ];
 
 /**
@@ -190,6 +208,26 @@ export function sensitiveRoots(env: FolderAccessEnv = {}): { exact: string[]; su
   return { exact: [...(win ? windowsExactRoots() : EXACT_ROOTS), home], subtree: [...subtree] };
 }
 
+/**
+ * Whether a folder that is already granted lies inside a system root (`/usr`, `/opt`, `/System`,
+ * `C:\\Windows`...), which `refuseFolder` would refuse today. Checked when a grant is used and
+ * listed, so a grant made before a root was refused (`/opt/homebrew`) stops covering anything.
+ * Narrower than `refuseFolder` on purpose: the home root and `$PSYCHE_HOME` keep their meaning
+ * for grants made earlier.
+ */
+export function inSystemRoot(given: string, env: FolderAccessEnv = {}): boolean {
+  let real: string;
+  try {
+    real = canonicalHostPath(given);
+  } catch {
+    return false;
+  }
+  const ci = env.caseInsensitive ?? process.platform === "darwin";
+  const fold = (p: string): string => (ci && !isWin32HostPath(p) ? p.toLowerCase() : p);
+  const roots = process.platform === "win32" ? windowsSubtreeRoots() : SUBTREE_ROOTS;
+  return roots.some((r) => under(fold(real), fold(r)));
+}
+
 export type FolderRefusal = "sensitive_root" | "contains_sensitive_root" | "not_absolute";
 
 /**
@@ -210,11 +248,17 @@ export function refuseFolder(given: string, env: FolderAccessEnv = {}): FolderRe
   // On Windows a folder is a drive or UNC path: a POSIX path names nothing there.
   if (process.platform === "win32" && !isWin32HostPath(real)) return "not_absolute";
   if (process.platform === "win32" && windowsVolumeRefused(real)) return "sensitive_root";
-  const { exact, subtree } = sensitiveRoots(env);
+  const roots = sensitiveRoots(env);
+  // macOS: `/OPT/Homebrew` names `/opt/homebrew`, so a POSIX path is compared lower-cased.
+  const ci = env.caseInsensitive ?? process.platform === "darwin";
+  const fold = (p: string): string => (ci && !isWin32HostPath(p) ? p.toLowerCase() : p);
+  real = fold(real);
+  const exact = roots.exact.map(fold);
+  const subtree = roots.subtree.map(fold);
   if (exact.some((r) => sameHostPath(r, real))) return "sensitive_root";
   // Only the roots that contain the exempt folder are lifted for it: a CLI workdir is never an
   // opening into `~/.ssh` or `~/Library` (those do not contain it).
-  const own = (env.ownDirs ?? []).map((d) => resolve(d)).find((d) => under(real, d));
+  const own = (env.ownDirs ?? []).map((d) => fold(resolve(d))).find((d) => under(real, d));
   // Its dot-folders hold the CLI's settings and tool token: never shared, even inside the exempt one.
   if (own !== undefined && real.slice(own.length + 1).startsWith(".")) return "sensitive_root";
   // Windows' temp folder lifts only `~\AppData`, and only for itself and what is inside it: the

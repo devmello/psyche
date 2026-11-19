@@ -14,6 +14,7 @@ export interface AccessEntry {
     lastUsedAt?: string;
     mode?:       FolderModeEnum;
     path?:       string;
+    refused?:    boolean;
     scope:       AccessEntryScope;
     since?:      string;
     threadId?:   string;
