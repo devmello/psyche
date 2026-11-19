@@ -1168,6 +1168,16 @@ export const settings = {
   "settings.mcp.command": "Command",
   "settings.mcp.domains": "Websites it may reach",
   "settings.mcp.domainsHint": "Comma-separated host names. Leave empty for no network.",
+  "settings.mcp.env.title": "Environment variables",
+  "settings.mcp.env.hint":
+    "Values the server needs when it starts. Names that look like secrets (token, key, password) are saved to your vault.",
+  "settings.mcp.env.name": "Variable name",
+  "settings.mcp.env.value": "Value",
+  "settings.mcp.env.namePlaceholder": "API_BASE_URL",
+  "settings.mcp.env.saved": "Saved",
+  "settings.mcp.env.add": "Add variable",
+  "settings.mcp.env.badName":
+    "Names use capital letters, digits and underscores, and start with a letter or underscore.",
   "settings.mcp.url": "Server URL",
   "settings.mcp.placeholder.command": "npx -y @modelcontextprotocol/server-everything",
   "settings.mcp.placeholder.domains": "api.example.com",

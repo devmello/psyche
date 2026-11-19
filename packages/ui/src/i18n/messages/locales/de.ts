@@ -1652,6 +1652,16 @@ export const de: Partial<Catalogue> = {
   "settings.mcp.command": "Befehl",
   "settings.mcp.domains": "Websites, die er erreichen darf",
   "settings.mcp.domainsHint": "Hostnamen, durch Kommas getrennt. Leer lassen für kein Netzwerk.",
+  "settings.mcp.env.title": "Umgebungsvariablen",
+  "settings.mcp.env.hint":
+    "Werte, die der Server beim Start braucht. Namen, die nach Geheimnis klingen (Token, Schlüssel, Passwort), werden in deinem Tresor gespeichert.",
+  "settings.mcp.env.name": "Variablenname",
+  "settings.mcp.env.value": "Wert",
+  "settings.mcp.env.namePlaceholder": "API_BASE_URL",
+  "settings.mcp.env.saved": "Gespeichert",
+  "settings.mcp.env.add": "Variable hinzufügen",
+  "settings.mcp.env.badName":
+    "Namen verwenden Großbuchstaben, Ziffern und Unterstriche und beginnen mit einem Buchstaben oder Unterstrich.",
   "settings.mcp.url": "Server-URL",
   "settings.mcp.placeholder.command": "npx -y @modelcontextprotocol/server-everything",
   "settings.mcp.placeholder.domains": "api.example.com",
