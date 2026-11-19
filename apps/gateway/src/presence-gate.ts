@@ -1,7 +1,7 @@
 import { hashCanonical } from "@psyche/audit";
 import { getSetting, type PsycheDb, setSetting } from "@psyche/db";
 import { bindingHash } from "@psyche/permissions";
-import { type JsonObject, PsycheError } from "@psyche/protocol";
+import { type JsonObject, MACHINE_TOKENS_ENABLED, PsycheError } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
 import type { Call } from "./context.ts";
 import { INTERNAL_SETTING_PREFIX } from "./state-version.ts";
@@ -189,7 +189,9 @@ export const PRESENCE_METHODS: Readonly<Record<string, (p: Params) => string | u
   // own purpose-aware summary ("Let a new Linux computer pair itself as a computer Psyche can use").
   "devices.setupToken.create": (p) =>
     p.purpose === "machine"
-      ? undefined
+      ? MACHINE_TOKENS_ENABLED
+        ? `Let a new Linux computer pair itself${p.via === "lan" ? " from this network" : ""} as a computer Psyche can use`
+        : undefined
       : `Let a new computer pair itself${p.via === "lan" ? " from this network" : ""} with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
   // Anything but "always" lowers protection: a server whose tools are not payments needs no
   // presence on its calls. Raising it to "always" only adds friction and stays admin-only.

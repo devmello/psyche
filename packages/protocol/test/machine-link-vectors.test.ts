@@ -94,6 +94,21 @@ describe("machine names", () => {
     ["tag character", "lab\u{e0041}box"],
     ["C1 control", "lab\u0085box"],
     ["line separator", "lab box"],
+    ["braille blank only", "⠀"],
+    ["braille blank inside", "lab⠀box"],
+    ["Arabic number sign", "lab؀box"],
+    ["Arabic end of ayah", "lab۝box"],
+    ["Syriac abbreviation mark", "lab܏box"],
+    ["Arabic disputed end of ayah", "lab࣢box"],
+    ["Kaithi number sign above", "lab\u{110bd}box"],
+    ["musical symbol begin beam", "lab\u{1d173}box"],
+    ["shorthand format letter overlap", "lab\u{1bca0}box"],
+    ["Egyptian hieroglyph format", "lab\u{13430}box"],
+    ["variation selector supplement", "lab\u{e0100}box"],
+    ["object replacement", "lab￼box"],
+    ["ideographic space inside", "lab　box"],
+    ["no-break space inside", "lab box"],
+    ["only invisible characters", "⁠​⠀"],
     ["too long", "x".repeat(65)],
   ];
 

@@ -11,6 +11,7 @@ import {
   type DeviceScope,
   encodePairingLink,
   encodePairingLinkV2,
+  MACHINE_TOKENS_ENABLED,
   type MethodResult,
   PsycheError,
 } from "@psyche/protocol";
@@ -88,7 +89,7 @@ export function setupTokenHandlers(deps: {
         const { config, identity } = call.ctx;
         // `purpose: machine` is protocol groundwork (wave H0). Until the machine registry lands
         // (H3) nothing here may turn it into a device token, so it fails closed.
-        if (params.purpose === "machine") {
+        if (params.purpose === "machine" && !MACHINE_TOKENS_ENABLED) {
           throw new PsycheError(
             "unavailable",
             "Pairing a computer for Psyche to use is not available yet",

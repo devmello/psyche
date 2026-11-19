@@ -2065,7 +2065,7 @@ export const ar: Partial<Catalogue> = {
   "settings.model.role.primary": "الأساسي",
   "settings.model.role.primaryHint": "الدردشة والمهام والأدوات",
   "settings.model.role.utility": "المساعد",
-  "settings.model.role.utilityHint": "العناوين والملخصات ومصنّف الوضع التلقائي",
+  "settings.model.role.utilityHint": "العناوين والملخصات وبطاقات البحث ومهام الخلفية الأخرى",
   "settings.model.role.image": "الصور",
   "settings.model.role.imageHint": "تغييرات الصورة الرمزية؛ «لا شيء» يعني المخلوقات المضمّنة",
   "settings.model.addProvider": "إضافة مزوّد",

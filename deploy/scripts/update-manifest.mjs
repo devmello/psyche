@@ -25,7 +25,7 @@ import {
   verify,
 } from "node:crypto";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { basename } from "node:path";
+import { basename, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const FORMAT = "psyche-update-manifest";
@@ -33,8 +33,9 @@ const VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
 
 /**
  * Whether `classifyArtifact` knows the desktop Linux packages (`Psyche-<v>-linux-<arch>.deb|rpm|
- * AppImage`, L2). release.yml greps for `DESKTOP_LINUX_SUPPORT = true`; flip this with that
- * classification. The helper-only and server packages below are not the desktop's.
+ * AppImage`, L2). release.yml asks this script for the constant (it imports the module), so a
+ * comment cannot flip the gate; set it to true together with that classification. The
+ * helper-only and server packages below are not the desktop's.
  */
 export const DESKTOP_LINUX_SUPPORT = false;
 
@@ -106,6 +107,7 @@ export function buildManifest({
   winArch,
   deltaBase,
   linuxOnly = false,
+  noMac = false,
   now = new Date(),
 }) {
   if (!VERSION.test(release) || !VERSION.test(minimum))
@@ -129,11 +131,16 @@ export function buildManifest({
   const macUpdate = mac.some((a) => a.kind === "zip");
   const winUpdate =
     win.some((a) => a.kind === "squirrel-releases") && win.some((a) => a.kind === "nupkg-full");
-  // Every Mac client reads the latest manifest, so one with no Mac or Windows update would make
-  // them all refuse it. A Linux-only manifest needs the explicit --linux-only (never the release job).
-  if (!macUpdate && !winUpdate && !(linuxOnly && linux.length > 0))
+  // Every Mac client reads the latest manifest, so one with no Mac update (a Windows-only or
+  // Linux-only one) would make them all refuse it. Leaving the Mac out takes an explicit --no-mac,
+  // or --linux-only for a Linux-only manifest. The release job passes neither.
+  if (!macUpdate && !noMac && !(linuxOnly && linux.length > 0))
     throw new Error(
-      "no update among the artifacts: a Psyche-<version>-darwin-<arch>.zip, or RELEASES and a Psyche-<version>-full.nupkg (--linux-only allows a Linux-only manifest)",
+      "no Mac update among the artifacts: a Psyche-<version>-darwin-<arch>.zip is required (--no-mac, or --linux-only for a Linux-only manifest, allows leaving it out)",
+    );
+  if (!macUpdate && !winUpdate && linux.length === 0)
+    throw new Error(
+      "no update among the artifacts: a Psyche-<version>-darwin-<arch>.zip, or RELEASES and a Psyche-<version>-full.nupkg",
     );
   if (win.length && !winUpdate)
     throw new Error("Windows files without RELEASES and the full nupkg cannot update anyone");
@@ -169,18 +176,27 @@ export function signManifest(bytes, privatePem) {
 }
 
 /**
- * The {keyId, publicKey} pairs in apps/desktop/src/main/release-keys.ts (comments ignored). Only
- * public keys live there; nothing secret is read or printed.
+ * The keys the app trusts: `TRUSTED_RELEASE_KEYS` as the app itself evaluates it, by importing
+ * release-keys.ts (Node strips its types). Parsing the source could disagree with what the app
+ * runs (a key in a comment, a second list, a filter); importing cannot. Every entry must be a plain
+ * { keyId, publicKey } whose keyId matches its key, or this throws. Only public keys live there.
  */
-export function trustedKeysFromSource(tsSource) {
-  const code = tsSource.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-  const keys = [];
-  for (const m of code.matchAll(
-    /keyId:\s*"([0-9a-f]{16})"\s*,\s*publicKey:\s*"([A-Za-z0-9+/]{43}=)"/g,
-  )) {
-    keys.push({ keyId: m[1], publicKey: m[2] });
-  }
-  return keys;
+export async function loadTrustedKeys(keysFile) {
+  const mod = await import(`${pathToFileURL(resolve(keysFile)).href}?t=${Date.now()}`);
+  const list = mod.TRUSTED_RELEASE_KEYS;
+  if (!Array.isArray(list))
+    throw new Error("release-keys.ts: TRUSTED_RELEASE_KEYS is not an array");
+  return list.map((k, i) => {
+    const ok =
+      k !== null &&
+      typeof k === "object" &&
+      Object.keys(k).sort().join(",") === "keyId,publicKey" &&
+      /^[0-9a-f]{16}$/.test(k.keyId) &&
+      /^[A-Za-z0-9+/]{43}=$/.test(k.publicKey) &&
+      keyIdOf(Buffer.from(k.publicKey, "base64")) === k.keyId;
+    if (!ok) throw new Error(`release-keys.ts: entry ${i} is not a valid { keyId, publicKey }`);
+    return { keyId: k.keyId, publicKey: k.publicKey };
+  });
 }
 
 /**
@@ -188,14 +204,13 @@ export function trustedKeysFromSource(tsSource) {
  * release-keys.ts). A secret that is a different key than the one shipped in the app still
  * self-verifies, and every client would then refuse the release.
  */
-export function verifyTrusted(bytes, sigText, tsSource) {
+export function verifyTrusted(bytes, sigText, trusted) {
   let env;
   try {
     env = JSON.parse(sigText);
   } catch {
     return { ok: false, why: "the signature file is not JSON" };
   }
-  const trusted = trustedKeysFromSource(tsSource);
   if (trusted.length === 0) return { ok: false, why: "release-keys.ts holds no trusted key" };
   const key = trusted.find((k) => k.keyId === env.keyId);
   if (!key)
@@ -219,7 +234,7 @@ export function verifyManifest(bytes, sigText, publicKeyB64) {
   return verify(null, bytes, key, Buffer.from(env.signature, "base64"));
 }
 
-function main(argv) {
+async function main(argv) {
   const [cmd, ...rest] = argv;
   if (cmd === "keygen") {
     const out = rest[0];
@@ -245,6 +260,7 @@ function main(argv) {
       else if (a === "--win-arch") opts.winArch = rest[++i];
       else if (a === "--delta-base") opts.deltaBase = rest[++i];
       else if (a === "--linux-only") opts.linuxOnly = true;
+      else if (a === "--no-mac") opts.noMac = true;
       else if (a === "--image") {
         const [k, v] = String(rest[++i]).split("=");
         opts.images[k] = v;
@@ -274,7 +290,7 @@ function main(argv) {
     const r = verifyTrusted(
       readFileSync(file),
       readFileSync(`${file}.sig`, "utf8"),
-      readFileSync(keysFile, "utf8"),
+      await loadTrustedKeys(keysFile),
     );
     process.stdout.write(r.ok ? `ok (trusted key ${r.keyId})\n` : `UNTRUSTED: ${r.why}\n`);
     process.exit(r.ok ? 0 : 1);
@@ -283,10 +299,8 @@ function main(argv) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try {
-    main(process.argv.slice(2));
-  } catch (err) {
+  main(process.argv.slice(2)).catch((err) => {
     process.stderr.write(`update-manifest: ${err.message}\n`);
     process.exit(2);
-  }
+  });
 }

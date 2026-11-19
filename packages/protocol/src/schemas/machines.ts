@@ -1,5 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, Nullable, StringEnum } from "../common.ts";
+import { INVISIBLE } from "../pairing-link.ts";
 import { NodeStatus } from "./identity.ts";
 import { ComputerSurface } from "./tools.ts";
 
@@ -18,9 +19,10 @@ import { ComputerSurface } from "./tools.ts";
  * Rust.)
  */
 const BAD_NAME_CHARS =
-  "\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u061c\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb";
-export const MACHINE_NAME_PATTERN = `^(?!.*\\udb40[\\udc00-\\udc7f])[^${BAD_NAME_CHARS}\\s](?:[^${BAD_NAME_CHARS}]*[^${BAD_NAME_CHARS}\\s])?$`;
+  "\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc";
+export const MACHINE_NAME_PATTERN = `^(?!.*(?:\\udb40[\\udc00-\\uddef]|\\ud804\\udcbd|\\ud834[\\udd73-\\udd7a]|\\ud82f[\\udca0-\\udca3]|\\ud80d[\\udc30-\\udc3f]))[^${BAD_NAME_CHARS}\\s](?:[^${BAD_NAME_CHARS}]*[^${BAD_NAME_CHARS}\\s])?$`;
 const MACHINE_NAME_RE = new RegExp(MACHINE_NAME_PATTERN);
+const INVISIBLE_ONE = new RegExp(INVISIBLE.source, "u");
 
 /** Whether `name` is an acceptable machine name (1 to 64 characters, no hidden or control text). */
 export function machineNameOk(name: unknown): name is string {

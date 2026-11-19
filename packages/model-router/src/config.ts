@@ -121,6 +121,45 @@ export function isLocalKind(kind: ProviderKind): boolean {
   );
 }
 
+/** Whether a `baseURL` points at this machine or its link-local network (loopback, 169.254/16, fe80::/10). */
+export function isLoopbackOrLinkLocal(baseURL: string | undefined): boolean {
+  if (baseURL === undefined) return false;
+  let host: string;
+  try {
+    host = new URL(baseURL).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  if (host.startsWith("[") && host.endsWith("]")) host = host.slice(1, -1);
+  return (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host === "::1" ||
+    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host) ||
+    /^169\.254\.\d{1,3}\.\d{1,3}$/.test(host) ||
+    /^fe[89ab][0-9a-f]:/.test(host)
+  );
+}
+
+/**
+ * Whether a provider certainly costs nothing per call: an engine on this machine (Ollama,
+ * llama.cpp, LM Studio, Apple's model), or a `*-compatible` endpoint that is on loopback or
+ * link-local. A compatible endpoint elsewhere is often a paid remote service (Together, Groq,
+ * DeepSeek), so it does not count; `isLocalKind` is about timeouts and keys, not price.
+ */
+export function isFreeLocalProvider(config: { kind: ProviderKind; baseURL?: string }): boolean {
+  if (
+    config.kind === "ollama" ||
+    config.kind === "llamacpp" ||
+    config.kind === "lmstudio" ||
+    config.kind === "apple"
+  )
+    return true;
+  if (config.kind === "openai-compatible" || config.kind === "anthropic-compatible")
+    return isLoopbackOrLinkLocal(config.baseURL);
+  return false;
+}
+
 /** Kinds that drive the owner's subscription through its CLI: no key, no per-token cost. */
 export function isSubscriptionKind(kind: ProviderKind): boolean {
   return kind === "claude-code" || kind === "codex";

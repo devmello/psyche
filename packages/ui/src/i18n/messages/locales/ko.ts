@@ -2000,7 +2000,7 @@ export const ko: Partial<Catalogue> = {
   "settings.model.role.primary": "기본",
   "settings.model.role.primaryHint": "채팅, 작업 및 도구",
   "settings.model.role.utility": "유틸리티",
-  "settings.model.role.utilityHint": "제목, 요약 및 자동 모드 분류기",
+  "settings.model.role.utilityHint": "제목, 요약, 검색 카드 및 기타 백그라운드 작업",
   "settings.model.role.image": "이미지",
   "settings.model.role.imageHint": "아바타 변경, 없으면 내장 크리처 사용",
   "settings.model.addProvider": "제공업체 추가",

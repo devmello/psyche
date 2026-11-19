@@ -4,6 +4,12 @@ import Foundation
 import PsycheHelperCore
 import PsycheProtocol
 
+/// The session an in-progress computer action registered with `beginAction`, so `cap` can end it.
+final class InvocationScope: @unchecked Sendable {
+    @TaskLocal static var current: InvocationScope?
+    var session: String?
+}
+
 /// Shared state for computer use: AX engine, tier policy, session lock and Esc stop.
 public final class ComputerUse: @unchecked Sendable {
     let engine = AXEngine()
@@ -50,7 +56,9 @@ public final class ComputerUse: @unchecked Sendable {
             attention: attention, stop: stop, isActive: { [sessions] in sessions.activeSession != nil },
             onStop: { [weak self] in
                 guard let self else { return }
-                let stopped = self.taps.stopActive()
+                // Synchronous: trip the stop and drop the session. Tap removal (which takes the
+                // SessionTaps lock, possibly held for seconds by an install) runs off this callback.
+                let stopped = self.taps.stopActiveFromTap()
                 self.log.info("computer use stopped by Esc")
                 self.onUserStop?(stopped)
             })
@@ -68,6 +76,17 @@ public final class ComputerUse: @unchecked Sendable {
         reloadSettings()
         // Esc tap first, then the lock: no action runs without the Esc stop (SessionTaps.beginSession).
         try taps.beginSession(session)
+        // Mark the action in flight: its Esc stop outlives the idle timeout and `end_session`.
+        if let scope = InvocationScope.current, scope.session == nil {
+            scope.session = session
+            taps.beginInvocation(session)
+        }
+    }
+
+    func endInvocation(_ scope: InvocationScope) {
+        guard let session = scope.session else { return }
+        scope.session = nil
+        taps.endInvocation(session)
     }
 }
 
@@ -146,7 +165,14 @@ struct ActionOutcome {
 public enum ComputerCapabilities {
     /// A capability whose body runs as one stoppable invocation (Esc stops it, not later ones).
     static func cap(_ cu: ComputerUse, _ spec: CapabilitySpec, _ body: @escaping @Sendable (InvocationContext) async throws -> CapabilityOutput) -> Capability {
-        Capability(withApprovalParam(spec)) { ctx in try await cu.stop.run { try await body(ctx) } }
+        Capability(withApprovalParam(spec)) { ctx in
+            let scope = InvocationScope()
+            return try await InvocationScope.$current.withValue(scope) {
+                // However the body ends, the in-flight mark is cleared and a deferred end_session completes.
+                defer { cu.endInvocation(scope) }
+                return try await cu.stop.run { try await body(ctx) }
+            }
+        }
     }
 
     /// Every computer-use call may carry `approval {app, tier}`: what the Gateway's card covered (#267).
@@ -899,6 +925,10 @@ struct LiveSessionTapInstaller: SessionTapInstaller {
     let stop: StopSignal
     let isActive: @Sendable () -> Bool
     let onStop: @Sendable () -> Void
+
+    func failureAfterInstall(_ kind: SessionTapKind) -> SessionTapFailure {
+        AXIsProcessTrusted() ? .timeout : .permission
+    }
 
     func install(_ kind: SessionTapKind) -> (any SessionTapHandle)? {
         switch kind {

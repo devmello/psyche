@@ -410,6 +410,7 @@ function winRelease(
       "--base",
       `${PINNED}v${version}/`,
       ...(opts.deltaBase ? ["--delta-base", opts.deltaBase] : []),
+      ...(opts.macZip === false ? ["--no-mac"] : []),
       ...files,
     ],
     { encoding: "utf8" },
@@ -488,11 +489,37 @@ describe("per-platform manifests (Linux helper and server packages)", () => {
     return f;
   };
 
+  it("a manifest without a Mac update is refused unless --no-mac says so (Windows-only, too)", () => {
+    const releases = file("RELEASES");
+    const full = file("Psyche-1.4.0-full.nupkg");
+    const refused = build([releases, full]);
+    expect(refused.status).not.toBe(0);
+    expect(refused.stderr).toMatch(/no Mac update/);
+    expect(build(["--no-mac", releases, full]).status).toBe(0);
+    // --no-mac is not a way to publish nothing at all.
+    expect(build(["--no-mac", file("Psyche-1.4.0-Setup.exe")]).status).not.toBe(0);
+  });
+
+  it("release.yml's Linux gate reads the constant, not the text: it is off while the constant is false", () => {
+    const yml = readFileSync(
+      join(import.meta.dirname, "../../../../.github/workflows/release.yml"),
+      "utf8",
+    );
+    const gate = /if (node -e '[^']*DESKTOP_LINUX_SUPPORT[^']*'); then/.exec(yml)?.[1];
+    expect(gate, "the gate expression is in release.yml").toBeDefined();
+    expect(readFileSync(SCRIPT, "utf8")).toMatch(/^export const DESKTOP_LINUX_SUPPORT = false;$/m);
+    // The word and the assignment appear in the script's comments, as they did when a grep was fooled.
+    expect(readFileSync(SCRIPT, "utf8")).toContain("DESKTOP_LINUX_SUPPORT");
+    const root = resolve(import.meta.dirname, "../../../..");
+    const r = spawnSync("sh", ["-c", gate as string], { cwd: root, encoding: "utf8" });
+    expect(r.status).toBe(1);
+  });
+
   it("a Linux-only manifest needs the explicit --linux-only", () => {
     const good = file("psyche-helper-1.4.0-linux-x64.deb");
     const refused = build([good]);
     expect(refused.status).not.toBe(0);
-    expect(refused.stderr).toMatch(/no update among the artifacts/);
+    expect(refused.stderr).toMatch(/no Mac update/);
     const out = JSON.parse(build(["--linux-only", good]).stdout);
     expect(out.artifacts).toEqual([]);
     expect(out.platforms["linux-x64"].map((a: { name: string }) => a.name)).toEqual([

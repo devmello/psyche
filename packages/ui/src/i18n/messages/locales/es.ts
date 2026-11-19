@@ -2043,7 +2043,8 @@ export const es: Partial<Catalogue> = {
   "settings.model.role.primary": "Principal",
   "settings.model.role.primaryHint": "Chat, tareas y herramientas",
   "settings.model.role.utility": "Auxiliar",
-  "settings.model.role.utilityHint": "Títulos, resúmenes y el clasificador del modo automático",
+  "settings.model.role.utilityHint":
+    "Títulos, resúmenes, tarjetas de búsqueda y otras tareas en segundo plano",
   "settings.model.role.image": "Imagen",
   "settings.model.role.imageHint": "Cambios de avatar; ninguno significa las criaturas incluidas",
   "settings.model.addProvider": "Añadir un proveedor",

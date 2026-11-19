@@ -35,6 +35,14 @@ import {
   UNSAFE_TEXT,
 } from "./pairing-link.ts";
 
+/**
+ * Whether the Gateway may mint `purpose: "machine"` setup tokens. False until the machine registry
+ * (wave H3) lands. The handler's refusal and the presence gate both read this one constant, so
+ * turning minting on cannot leave it ungated: with it true the presence gate raises a card
+ * worded for a machine (see `presence-gate.ts`).
+ */
+export const MACHINE_TOKENS_ENABLED = false as boolean;
+
 export const MACHINE_LINK_PREFIX = "psyche-machine:v1:";
 
 export interface MachineLinkPayload {
@@ -84,10 +92,14 @@ function isNonPublicHost(hostname: string): boolean {
   if (bare.includes(":")) {
     const g = parseIpv6(bare);
     if (g === null) return true;
-    const first = g[0] ?? 0;
+    const [first = 0, second = 0] = g;
     return (
-      g.slice(0, 5).every((x) => x === 0) || // ::, ::1, ::a.b.c.d (compatible), ::ffff:a.b.c.d (mapped)
+      g.slice(0, 4).every((x) => x === 0) || // ::, ::1, ::a.b.c.d, ::ffff:a.b.c.d, ::ffff:0:a.b.c.d
+      (first === 0x64 && second === 0xff9b) || // 64:ff9b::/32 NAT64 (embeds an IPv4 address)
+      first === 0x2002 || // 2002::/16 6to4 (embeds an IPv4 address)
+      (first === 0x2001 && (second === 0 || second === 0x0db8)) || // Teredo, documentation
       (first & 0xffc0) === 0xfe80 || // fe80::/10 link-local
+      (first & 0xffc0) === 0xfec0 || // fec0::/10 site-local (deprecated)
       (first & 0xff00) === 0xff00 // ff00::/8 multicast
     );
   }
@@ -95,15 +107,21 @@ function isNonPublicHost(hostname: string): boolean {
     const v4 = parseIpv4(bare);
     if (v4 === null) return true;
     const [a, b] = v4;
+    const c = v4[2];
     return (
       a === 0 ||
       a === 127 ||
       a >= 224 ||
       (a === 169 && b === 254) ||
-      (a === 100 && b >= 64 && b <= 127)
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 198 && (b === 18 || b === 19)) || // benchmarking
+      (a === 192 && b === 0 && c === 2) || // TEST-NET-1
+      (a === 198 && b === 51 && c === 100) || // TEST-NET-2
+      (a === 203 && b === 0 && c === 113) // TEST-NET-3
     );
   }
-  return false;
+  // A single-label host (`gateway`) or `.internal` name has no public certificate.
+  return !h.includes(".") || h.endsWith(".internal");
 }
 
 /**
@@ -134,6 +152,8 @@ function canonicalGatewayOrigin(text: unknown, lan: boolean): string | null {
   ) {
     return null;
   }
+  // One spelling of a host only: no trailing dot, in either mode.
+  if (url.hostname.endsWith(".")) return null;
   if (lan ? lanHostKind(url.hostname) === null : isNonPublicHost(url.hostname)) return null;
   return url.origin;
 }
@@ -152,7 +172,13 @@ function hasDuplicateKey(body: string): boolean {
       let next = end + 1;
       while (next < body.length && /\s/.test(body[next] ?? "")) next++;
       if (depth === 1 && body[next] === ":") {
-        const key = body.slice(i + 1, end);
+        // JSON.parse and serde both decode escapes, so compare the decoded key.
+        let key = body.slice(i + 1, end);
+        try {
+          key = JSON.parse(body.slice(i, end + 1)) as string;
+        } catch {
+          // The body already parsed as JSON, so this cannot happen; keep the raw text.
+        }
         if (seen.has(key)) return true;
         seen.add(key);
       }

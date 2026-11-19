@@ -2001,7 +2001,7 @@ export const zh: Partial<Catalogue> = {
   "settings.model.role.primary": "主模型",
   "settings.model.role.primaryHint": "聊天、任务和工具",
   "settings.model.role.utility": "辅助模型",
-  "settings.model.role.utilityHint": "标题、摘要和自动模式分类器",
+  "settings.model.role.utilityHint": "标题、摘要、搜索卡片和其他后台任务",
   "settings.model.role.image": "图像模型",
   "settings.model.role.imageHint": "头像更改；“无”表示使用自带的生物",
   "settings.model.addProvider": "添加提供商",

@@ -246,6 +246,55 @@ describe("generateCard", () => {
     const res = await generateCard(source(), { provider: p, model: "anthropic/x" as never });
     expect(res.card).toBeUndefined();
   });
+
+  it("asks for a one-shot request: low effort, thinking off, no cache write", async () => {
+    const requests: Record<string, unknown>[] = [];
+    const p = {
+      id: "anthropic",
+      async *stream(req: Record<string, unknown>): AsyncIterable<ModelEvent> {
+        requests.push(req);
+        yield { type: "text_delta", text: JSON.stringify(good) } as ModelEvent;
+        yield { type: "finish", reason: "stop" } as ModelEvent;
+      },
+      async capabilities() {
+        return {} as never;
+      },
+    };
+    await generateCard(source(), { provider: p as never, model: "anthropic/x" as never });
+    expect(requests[0]).toMatchObject({
+      effort: "low",
+      reasoning: "off",
+      cache: "none",
+      maxOutputTokens: 1200,
+    });
+  });
+
+  it("counts a failed call's tokens, never 0: reported usage, else what it sent", async () => {
+    const failing = (events: ModelEvent[]) =>
+      ({
+        id: "anthropic",
+        async *stream(): AsyncIterable<ModelEvent> {
+          yield* events;
+        },
+        async capabilities() {
+          return {} as never;
+        },
+      }) as never;
+    const reported = await generateCard(source(), {
+      provider: failing([
+        { type: "usage", usage: { input: 1800, output: 40 } } as ModelEvent,
+        { type: "finish", reason: "error", error: "overloaded" } as ModelEvent,
+      ]),
+      model: "anthropic/x" as never,
+    });
+    expect(reported).toMatchObject({ error: "error", tokens: 1840 });
+    const unreported = await generateCard(source(), {
+      provider: failing([{ type: "finish", reason: "error", error: "boom" } as ModelEvent]),
+      model: "anthropic/x" as never,
+    });
+    expect(unreported.error).toBeDefined();
+    expect(unreported.tokens).toBeGreaterThan(MAIL.length / 4);
+  });
 });
 
 describe("cards in the index", () => {
@@ -433,6 +482,63 @@ describe("CardQueue", () => {
     expect((await s.queue.tick()).generated).toBe(0);
     s.advance(DAY);
     expect((await s.queue.tick()).generated).toBeGreaterThan(0);
+  });
+
+  it("makes no model call, backfills and queues nothing while a gate holds the tick", async () => {
+    const s = setup();
+    let held: "no_model" | "battery" | "low_power" | "not_idle" | undefined = "battery";
+    let calls = 0;
+    const queue = new CardQueue(s.index, {
+      enabled: () => true,
+      batchSize: 2,
+      backfillPerTick: 3,
+      now: () => NOW,
+      gate: async () => held,
+      async generate() {
+        calls++;
+        return { dropped: [], tokens: 100 };
+      },
+    });
+    for (let i = 0; i < 4; i++)
+      await s.index.index(
+        doc({ id: `g${i}`, kind: "library", title: `G${i}`, text: long(i), createdAt: NOW - i }),
+      );
+    for (const reason of ["battery", "low_power", "not_idle", "no_model"] as const) {
+      held = reason;
+      expect(await queue.tick()).toMatchObject({ generated: 0, backfilled: 0, paused: reason });
+    }
+    expect(calls).toBe(0);
+    expect(queue.status().queued).toBe(0);
+    // The gate opens: the same queue works again.
+    held = undefined;
+    expect(await queue.tick()).toMatchObject({ backfilled: 3 });
+    expect(calls).toBeGreaterThan(0);
+  });
+
+  it("charges failed calls against the daily budget and stops retrying a flaky provider", async () => {
+    const s = setup();
+    let calls = 0;
+    const queue = new CardQueue(s.index, {
+      enabled: () => true,
+      dailyTokenBudget: 2500,
+      batchSize: 5,
+      backfillPerTick: 5,
+      maxAttempts: 10,
+      now: () => NOW,
+      async generate() {
+        calls++;
+        return { dropped: [], tokens: 1000, error: "overloaded" };
+      },
+    });
+    for (let i = 0; i < 3; i++)
+      await s.index.index(
+        doc({ id: `f${i}`, kind: "library", title: `F${i}`, text: long(i), createdAt: NOW - i }),
+      );
+    const t1 = await queue.tick();
+    expect(t1).toMatchObject({ failed: 3, generated: 0, paused: "budget" });
+    expect(queue.status().tokensToday).toBe(3000);
+    expect((await queue.tick()).failed).toBe(0);
+    expect(calls).toBe(3);
   });
 
   it("does nothing while the setting is off and enqueues nothing", async () => {

@@ -334,20 +334,38 @@ public protocol KeyDownGate: AnyObject, Sendable {
 
 /// `DictationKeySet` plus the gate: the keyDown tap is enabled when a watched key goes down and
 /// disabled again when every key is up (a release, or a chord that ended the hold).
+///
+/// The keyDown tap is switched on from the flagsChanged callback, a different thread, so a key struck
+/// right after the modifier can slip past it. `lastKeyDownAge` (seconds since the system last saw a
+/// keyDown, from the system clock rather than the tap) closes that gap: `recheckChord` treats any
+/// keyDown since the modifier went down as a chord. The engine calls it on every modifier event; the
+/// watch also calls it shortly after a hold starts, before the desktop's hold threshold.
 public final class DictationKeyEngine: @unchecked Sendable {
     private let lock = NSLock()
     private var set: DictationKeySet
     private var gateOn = false
-    private let gate: any KeyDownGate
+    private var heldSince: Date?
+    /// Weak: the gate (the Watch) owns the engine, so a strong reference here would be a cycle.
+    private weak var gate: (any KeyDownGate)?
+    private let lastKeyDownAge: @Sendable () -> TimeInterval
+    private let now: @Sendable () -> Date
 
-    public init(_ watched: [DictationWatchedKey], gate: any KeyDownGate) {
+    public init(
+        _ watched: [DictationWatchedKey], gate: any KeyDownGate,
+        lastKeyDownAge: @escaping @Sendable () -> TimeInterval = { .infinity },
+        now: @escaping @Sendable () -> Date = { Date() }
+    ) {
         set = DictationKeySet(watched)
         self.gate = gate
+        self.lastKeyDownAge = lastKeyDownAge
+        self.now = now
     }
 
     public func flagsChanged(keyCode: Int64, flags: UInt64) -> [DictationKeyChange] {
         lock.withLock {
-            let out = set.flagsChanged(keyCode: keyCode, flags: flags)
+            // A chord whose keyDown the tap missed is a chord before this modifier event is judged.
+            var out = recheckChordLocked()
+            out += set.flagsChanged(keyCode: keyCode, flags: flags)
             sync()
             return out
         }
@@ -361,10 +379,26 @@ public final class DictationKeyEngine: @unchecked Sendable {
         }
     }
 
+    /// Ends the hold as a chord when the system saw a keyDown since the modifier went down.
+    public func recheckChord() -> [DictationKeyChange] {
+        lock.withLock {
+            let out = recheckChordLocked()
+            sync()
+            return out
+        }
+    }
+
+    private func recheckChordLocked() -> [DictationKeyChange] {
+        guard let since = heldSince, set.trackers.contains(where: { $0.isDown }) else { return [] }
+        guard lastKeyDownAge() < now().timeIntervalSince(since) else { return [] }
+        return set.keyDown()
+    }
+
     private func sync() {
         let want = set.trackers.contains { $0.isDown }
         guard want != gateOn else { return }
         gateOn = want
-        gate.setEnabled(want)
+        heldSince = want ? now() : nil
+        gate?.setEnabled(want)
     }
 }

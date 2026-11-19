@@ -2016,7 +2016,7 @@ export const hi: Partial<Catalogue> = {
   "settings.model.role.primary": "प्राथमिक",
   "settings.model.role.primaryHint": "चैट, टास्क और टूल",
   "settings.model.role.utility": "यूटिलिटी",
-  "settings.model.role.utilityHint": "शीर्षक, सारांश और ऑटो-मोड क्लासिफ़ायर",
+  "settings.model.role.utilityHint": "शीर्षक, सारांश, खोज कार्ड और अन्य बैकग्राउंड कार्य",
   "settings.model.role.image": "छवि",
   "settings.model.role.imageHint": "अवतार बदलाव; कोई नहीं का मतलब बंडल किए गए प्राणी",
   "settings.model.addProvider": "प्रदाता जोड़ें",

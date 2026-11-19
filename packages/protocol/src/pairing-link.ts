@@ -42,7 +42,7 @@ export const MAX_URL_LENGTH = 300;
 export const MAX_NAME_LENGTH = 64;
 // Invisible and format characters (zero-width, bidi, tag characters, the Hangul fillers that
 // render as blanks) that a name must not carry into a dialog.
-const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}\u3164\u115f\u1160]/gu;
+export const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}\u3164\u115f\u1160]/gu;
 // biome-ignore lint/suspicious/noControlCharactersInRegex: rejecting them is the point
 export const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/;
 

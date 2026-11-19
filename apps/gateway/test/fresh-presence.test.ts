@@ -3,14 +3,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { updateDevice } from "@psyche/db";
 import type { PresenceVerifier } from "@psyche/permissions";
-import type { ApprovalRequest } from "@psyche/protocol";
+import { type ApprovalRequest, MACHINE_TOKENS_ENABLED } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCli } from "../src/cli.ts";
 import { composeHelper } from "../src/compose/helper.ts";
 import { type ComposedGateway, type ComposeOptions, composeGateway } from "../src/compose/index.ts";
 import { silentLogger } from "../src/log.ts";
-import { PRESENCE_ENROLLED_SETTING, presenceStateFor } from "../src/presence-gate.ts";
+import {
+  PRESENCE_ENROLLED_SETTING,
+  PRESENCE_METHODS,
+  presenceStateFor,
+} from "../src/presence-gate.ts";
 import { desktopClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
 
 /**
@@ -164,6 +168,14 @@ describe("fresh presence on admin methods", () => {
       ok: false,
       error: { code: "unavailable" },
     });
+    // The refusal and the (absent) card are one decision: both read MACHINE_TOKENS_ENABLED. When
+    // it is turned on the gate must raise a card worded for a machine, so minting is never ungated.
+    const summary = PRESENCE_METHODS["devices.setupToken.create"]?.({ purpose: "machine" });
+    if (MACHINE_TOKENS_ENABLED) {
+      expect(summary).toMatch(/Linux computer/);
+    } else {
+      expect(summary).toBeUndefined();
+    }
     // A device token still raises its card as before.
     expect(
       await admin.request("devices.setupToken.create", { scopes: ["operator.read"] }),
