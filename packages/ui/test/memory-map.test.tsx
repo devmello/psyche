@@ -1,9 +1,12 @@
 import type { MemoryMap } from "@psyche/protocol";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import type { ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import type { ReactElement, ReactNode } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { GatewayProvider, GatewayStore, useGatewayQuery } from "../src/data/index.ts";
+import { MockGateway } from "../src/data/mock-gateway.ts";
 import type { FixtureWorld } from "../src/fixtures/index.ts";
+import { FIXTURE_NOW } from "../src/fixtures/index.ts";
 import { PEOPLE_IDS } from "../src/fixtures/people.ts";
 import { MEMORY_MAP_ROUTE, parseMemoryView } from "../src/memory-page/kinds.ts";
 import { MemoryScreen } from "../src/memory-page/MemoryScreen.tsx";
@@ -15,9 +18,11 @@ import {
   focusModel,
   groupOf,
   isSparse,
+  modelOverlap,
   neighbourhood,
   quietPeople,
   radiusOf,
+  sameMap,
   searchNodes,
 } from "../src/memory-page/map/map-model.ts";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
@@ -351,5 +356,77 @@ describe("the Map view of the Memory page", () => {
     setup(<MemoryScreen view="map" entity={PEOPLE_IDS.samLee} now={STORY_NOW} />);
     expect(await screen.findByTestId("memory-entity")).toBeTruthy();
     expect(screen.queryByTestId("memory-map")).toBeNull();
+  });
+});
+
+describe("a refetch of the map", () => {
+  it("is recognised as the same map, and kept by identity", () => {
+    expect(sameMap(MAP, structuredClone(MAP))).toBe(true);
+    const moved = structuredClone(MAP);
+    (moved.nodes[0] as N).weight = 0.9;
+    expect(sameMap(MAP, moved)).toBe(false);
+    expect(sameMap(MAP, { ...MAP, edges: MAP.edges.slice(1) })).toBe(false);
+  });
+
+  it("measures how much of the map is still there", () => {
+    const a = buildMapModel(MAP);
+    expect(modelOverlap(a, buildMapModel(structuredClone(MAP)))).toBe(1);
+    expect(modelOverlap(a, focusModel(a, "sam"))).toBeLessThan(0.8);
+    const grown = buildMapModel({ ...MAP, nodes: [...MAP.nodes, node("new", "person")] });
+    expect(modelOverlap(a, grown)).toBeGreaterThanOrEqual(0.8);
+    expect(
+      modelOverlap(a, buildMapModel({ nodes: [], edges: [], total: 0, truncated: false })),
+    ).toBe(0);
+  });
+
+  it("keeps the layout positions of the nodes it already had", () => {
+    const first = new ForceLayout({ radii: [6, 6, 6], links: [{ a: 0, b: 1, weight: 1 }] });
+    first.run(10_000);
+    const next = new ForceLayout({ radii: [6, 6, 6, 6], links: [{ a: 0, b: 1, weight: 1 }] });
+    for (let i = 0; i < 3; i++) {
+      next.x[i] = first.x[i] ?? 0;
+      next.y[i] = first.y[i] ?? 0;
+    }
+    next.alpha = 0.25;
+    next.run(10_000);
+    // The old nodes stay near where they were: the spiral start would put them far elsewhere.
+    expect(
+      Math.hypot((next.x[0] ?? 0) - (first.x[0] ?? 0), (next.y[0] ?? 0) - (first.y[0] ?? 0)),
+    ).toBeLessThan(60);
+  });
+});
+
+describe("memory map refetching", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("follows graph events on a 15 s timer, not on each one", async () => {
+    const gateway = new MockGateway({}, { now: () => FIXTURE_NOW });
+    const request = vi.spyOn(gateway, "request");
+    const store = new GatewayStore(gateway, { now: () => FIXTURE_NOW });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <GatewayProvider client={gateway} store={store}>
+        {children}
+      </GatewayProvider>
+    );
+    const calls = () => request.mock.calls.filter(([m]) => m === "memory.graph.map").length;
+    const { result } = renderHook(() => useGatewayQuery("memory.graph.map", { limit: 2000 }), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    expect(calls()).toBe(1);
+
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    act(() => {
+      for (let i = 0; i < 5; i++)
+        gateway.emit("memory.entity.updated", { id: "ent_x", kind: "person", changed: ["facts"] });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(14_000);
+    });
+    expect(calls()).toBe(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_500);
+    });
+    await waitFor(() => expect(calls()).toBe(2));
   });
 });

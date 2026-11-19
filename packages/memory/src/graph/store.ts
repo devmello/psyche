@@ -47,7 +47,7 @@ import { classifySensitivity } from "../extraction/sensitivity.ts";
 import { blockingKinds, looksLikeInstruction } from "../filters.ts";
 import { trustRank } from "../provenance.ts";
 import { safeName } from "./clean.ts";
-import { buildMemoryMap } from "./map.ts";
+import { createMemoryMapBuilder } from "./map.ts";
 import { blockHash, normalizeIdentifier, normalizeName, sha256, slugify } from "./normalize.ts";
 import {
   isWorkKind,
@@ -759,6 +759,7 @@ export function factKeyHash(attribute: string, value: string): string {
 export class GraphStore {
   readonly #db: Database.Database;
   readonly #clock: Clock;
+  #mapBuilder: ReturnType<typeof createMemoryMapBuilder> | undefined;
   readonly #newId: () => string;
   readonly #onEvent: ((e: GraphEvent) => void) | undefined;
   readonly #country: string;
@@ -3502,7 +3503,8 @@ export class GraphStore {
 
   /** The memory map: nodes and the relations the store already holds (read-only). */
   memoryMap(opts: { limit?: number; kinds?: GraphEntityKind[] } = {}): MemoryMap {
-    return buildMemoryMap(this.#db, { ...opts, now: this.#clock.now() });
+    this.#mapBuilder ??= createMemoryMapBuilder(this.#db);
+    return this.#mapBuilder({ ...opts, now: this.#clock.now() });
   }
 
   /** Every active entity (for cards and the nightly pass). */

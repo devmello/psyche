@@ -120,11 +120,125 @@ describe("memory map", () => {
     expect(map().edges).toEqual([]);
   });
 
-  it("a meeting tied to a project is met_in, even once", () => {
+  it("meetings about a project make a met_in edge only from two meetings", () => {
     const sam = person("Sam");
     const kit = thing("project", "Kitchen");
     interact("meeting", [sam.id], { subjects: [kit.id] });
+    expect(map().edges).toEqual([]);
+    interact("meeting", [sam.id], { subjects: [kit.id] });
     expect(kindBetween(map(), sam.id, kit.id)).toBe("met_in");
+  });
+
+  it("one meeting and one mail are shared interactions, not a met_in", () => {
+    const sam = person("Sam");
+    const kit = thing("project", "Kitchen");
+    interact("meeting", [sam.id], { subjects: [kit.id] });
+    interact("mail", [sam.id], { subjects: [kit.id] });
+    expect(kindBetween(map(), sam.id, kit.id)).toBe("co_mentioned");
+  });
+
+  it("a mass mail is judged on everyone on it, so `kinds` cannot reveal links", () => {
+    const people = Array.from({ length: 10 }, (_, i) => person(`P${i}`).id);
+    const topics = Array.from({ length: 5 }, (_, i) => thing("topic", `T${i}`).id);
+    interact("mail", people, { subjects: topics });
+    interact("mail", people, { subjects: topics });
+    expect(map().edges).toEqual([]);
+    expect(map({ kinds: ["person"] }).edges).toEqual([]);
+    expect(map({ kinds: ["topic"] }).edges).toEqual([]);
+  });
+
+  it("a long recipient list with a few known contacts links none of them", () => {
+    const known = [person("A").id, person("B").id, person("C").id];
+    // Twelve more people on the same mail: the whole list counts, not just the known three.
+    const extra = Array.from({ length: 12 }, (_, i) => person(`X${i}`).id);
+    interact("mail", [...known, ...extra]);
+    interact("mail", [...known, ...extra]);
+    expect(map({ kinds: ["person"] }).edges).toEqual([]);
+  });
+
+  it("only accepted, current edges count: pending, quarantined, discarded, expired and superseded do not", () => {
+    const sam = person("Sam");
+    const projects = [
+      "accepted",
+      "auto_accepted",
+      "edited",
+      "pending",
+      "quarantined",
+      "discarded",
+    ].map((review) => ({ review, p: thing("project", `Project ${review}`) }));
+    const insert = env.db.sqlite.prepare(
+      `INSERT INTO graph_edges (id, src, dst, rel, provenance, confidence, sources, valid_from, valid_to, superseded_by, retracted_at, created_at, updated_at, review)
+       VALUES (?, ?, ?, 'member_of', 'owner', 1, '[]', ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    for (const { review, p } of projects)
+      insert.run(
+        `edge_${review}`,
+        sam.id,
+        p.id,
+        iso(NOW - DAY),
+        null,
+        null,
+        null,
+        iso(NOW),
+        iso(NOW),
+        review,
+      );
+    const expired = thing("project", "Expired");
+    insert.run(
+      "edge_expired",
+      sam.id,
+      expired.id,
+      iso(NOW - 9 * DAY),
+      iso(NOW - DAY),
+      null,
+      null,
+      iso(NOW),
+      iso(NOW),
+      "accepted",
+    );
+    const old = thing("project", "Superseded");
+    insert.run(
+      "edge_old",
+      sam.id,
+      old.id,
+      iso(NOW - DAY),
+      null,
+      "edge_accepted",
+      null,
+      iso(NOW),
+      iso(NOW),
+      "accepted",
+    );
+    const m = map();
+    const linked = m.edges.map((e) => (e.a === sam.id ? e.b : e.a)).sort();
+    const want = projects
+      .filter((x) => ["accepted", "auto_accepted", "edited"].includes(x.review))
+      .map((x) => x.p.id)
+      .sort();
+    expect(linked).toEqual(want);
+  });
+
+  it("carries the private flag, like the list view", () => {
+    const secret = person("Secret");
+    const open = person("Open");
+    env.db.sqlite.prepare("UPDATE graph_entities SET private = 1 WHERE id = ?").run(secret.id);
+    const m = map();
+    expect(m.nodes.find((n) => n.id === secret.id)?.private).toBe(true);
+    expect(m.nodes.find((n) => n.id === open.id)?.private).toBeUndefined();
+  });
+
+  it("reuses a built map until the graph changes", () => {
+    const sam = person("Sam");
+    const first = map();
+    expect(map()).toBe(first);
+    expect(map({ limit: 10 })).not.toBe(first);
+    person("Dana");
+    const second = map();
+    expect(second).not.toBe(first);
+    expect(second.nodes.map((n) => n.id)).toContain(sam.id);
+    expect(second.nodes).toHaveLength(2);
+    interact("chat", [sam.id]);
+    expect(map()).not.toBe(second);
   });
 
   it("a model-guessed subject link makes no edge", () => {
@@ -222,22 +336,35 @@ describe("memory map", () => {
     expect(env.db.sqlite.prepare("SELECT count(*) AS n FROM graph_entities").get()).toEqual(before);
   });
 
-  it("handles a few thousand nodes quickly", () => {
-    const ids: string[] = [];
-    const insert = env.db.sqlite.prepare(
+  it("handles thousands of nodes and interactions within a time budget", () => {
+    const N = 3000;
+    const ent = env.db.sqlite.prepare(
       `INSERT INTO graph_entities (id, kind, name, sort_name, status, is_owner, pinned, hidden, project_type, private, title_untrusted, created_at, updated_at)
        VALUES (?, 'person', ?, ?, 'active', 0, 0, 0, 'project', 0, 0, ?, ?)`,
     );
+    const inter = env.db.sqlite.prepare(
+      `INSERT INTO graph_interactions (id, kind, source, external_ref, occurred_at, direction, created_at)
+       VALUES (?, 'mail', 'test', ?, ?, 'in', ?)`,
+    );
+    const part = env.db.sqlite.prepare(
+      "INSERT INTO graph_participants (interaction_id, entity_id, role) VALUES (?, ?, 'to')",
+    );
     env.db.sqlite.transaction(() => {
-      for (let i = 0; i < 3000; i++) {
-        const id = `ent_perf${i}`;
-        ids.push(id);
-        insert.run(id, `Person ${i}`, `person ${i}`, iso(NOW), iso(NOW));
+      for (let i = 0; i < N; i++)
+        ent.run(`ent_perf${i}`, `Person ${i}`, `person ${i}`, iso(NOW), iso(NOW));
+      for (let i = 0; i < 30_000; i++) {
+        inter.run(`int_perf${i}`, `x${i}`, iso(NOW - (i % 400) * DAY), iso(NOW));
+        for (let k = 0; k < 4; k++) part.run(`int_perf${i}`, `ent_perf${(i * 7 + k * 131) % N}`);
       }
     })();
     const t0 = Date.now();
-    const m = map({ limit: 3000 });
-    expect(m.nodes).toHaveLength(3000);
-    expect(Date.now() - t0).toBeLessThan(2000);
+    const m = map({ limit: N });
+    const built = Date.now() - t0;
+    expect(m.nodes).toHaveLength(N);
+    expect(m.edges.length).toBeGreaterThan(0);
+    expect(built).toBeLessThan(2500);
+    const t1 = Date.now();
+    expect(map({ limit: N })).toBe(m);
+    expect(Date.now() - t1).toBeLessThan(built / 3 + 50);
   });
 });

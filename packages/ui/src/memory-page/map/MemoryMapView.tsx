@@ -1,6 +1,6 @@
 import type { MemoryMap } from "@psyche/protocol";
 import { Network } from "lucide-react";
-import { type ReactElement, useId, useMemo, useState } from "react";
+import { type ReactElement, useId, useMemo, useRef, useState } from "react";
 import { EmptyState, ErrorState, LoadingCards } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
@@ -17,6 +17,7 @@ import {
   MAP_GROUPS,
   type MapGroup,
   quietPeople,
+  sameMap,
   searchNodes,
   topNodes,
 } from "./map-model.ts";
@@ -45,7 +46,20 @@ export function MemoryMapView({ onOpen }: MemoryMapViewProps): ReactElement {
   }
   if (q.data.nodes.length === 0)
     return <EmptyState icon={Network}>{t("memory.map.empty")}</EmptyState>;
-  return <MapWorkspace data={q.data} onOpen={onOpen} />;
+  return <StableMap data={q.data} onOpen={onOpen} />;
+}
+
+/** A refetch that returns the same map keeps the same object, so nothing is rebuilt or redrawn. */
+function StableMap({
+  data,
+  onOpen,
+}: {
+  data: MemoryMap;
+  onOpen: (id: string) => void;
+}): ReactElement {
+  const kept = useRef(data);
+  if (kept.current !== data && !sameMap(kept.current, data)) kept.current = data;
+  return <MapWorkspace data={kept.current} onOpen={onOpen} />;
 }
 
 function GroupGlyph({ group }: { group: MapGroup }): ReactElement {

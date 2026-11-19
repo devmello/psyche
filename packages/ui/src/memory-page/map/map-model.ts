@@ -185,3 +185,22 @@ export function topNodes(model: MapModel, n = 30): MapNode[] {
     .sort((a, b) => b.weight - a.weight || a.name.localeCompare(b.name))
     .slice(0, n);
 }
+
+/** Share of the new map's nodes that were already on the old one (1 for an unchanged map). */
+export function modelOverlap(prev: MapModel, next: MapModel): number {
+  if (next.nodes.length === 0) return prev.nodes.length === 0 ? 1 : 0;
+  let shared = 0;
+  for (const n of next.nodes) if (prev.index.has(n.id)) shared++;
+  const union = prev.nodes.length + next.nodes.length - shared;
+  return union === 0 ? 1 : shared / union;
+}
+
+/** True when two maps hold the same nodes and links with the same weights. */
+export function sameMap(a: MemoryMap, b: MemoryMap): boolean {
+  return (
+    a.total === b.total &&
+    a.truncated === b.truncated &&
+    JSON.stringify(a.nodes) === JSON.stringify(b.nodes) &&
+    JSON.stringify(a.edges) === JSON.stringify(b.edges)
+  );
+}

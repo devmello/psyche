@@ -12,18 +12,25 @@ import type Database from "better-sqlite3";
  *
  * - Nodes are active, visible entities except the owner (who would link to everything).
  * - Edges come from three real relations, never from a model: accepted `graph_edges`
- *   (works_on, met_in, related), people and subjects that appear in the same interactions
- *   (co_mentioned, needs two shared interactions), and attendees of a meeting that is tied to a
- *   project or event (met_in).
- * - Nothing here reads a fact, a body or an identifier: names, kinds and counts only.
+ *   (works_on, met_in, related) and people and subjects that appear in the same few interactions
+ *   (co_mentioned, and met_in for meetings about a project or event). Both need two shared
+ *   interactions.
+ * - Nothing here reads a fact or a body. A node carries its display name, which can itself be a
+ *   phone number or the first part of an email address when that is all Psyche knows; the list
+ *   view and `memory.entities.search` show the same names.
+ *
+ * Cost: everything is aggregated in SQL over the retention window, and a built map is kept until
+ * the graph changes, so an open map that refetches costs a handful of cheap count queries.
  */
 
 const DAY_MS = 86_400_000;
 const DEFAULT_LIMIT = 2000;
-/** An interaction with more participants than this (a mass mail) links nobody. */
+/** An interaction with more people and subjects than this (a mass mail) links nobody. */
 const MAX_GROUP = 12;
-/** Each node keeps its strongest few co-mention edges, so a hub stays readable. */
+/** Each node keeps its strongest few shared-interaction edges, so a hub stays readable. */
 const MAX_CO_PER_NODE = 6;
+/** Only interactions this recent count; the store keeps 540 days by default anyway. */
+const WINDOW_DAYS = 540;
 const ACCEPTED = "('accepted', 'auto_accepted', 'edited')";
 /** "Quiet": at least this many past interactions and none for this long. */
 const QUIET_MIN_INTERACTIONS = 3;
@@ -59,6 +66,7 @@ export interface MemoryMapOptions {
 
 const round = (n: number): number => Math.round(n * 1000) / 1000;
 const clamp01 = (n: number): number => Math.min(1, Math.max(0, n));
+const iso = (ms: number): string => new Date(ms).toISOString();
 
 export function pairKey(a: string, b: string): string {
   return a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`;
@@ -74,9 +82,10 @@ const KIND_RANK: Record<MemoryMapEdgeKind, number> = {
 
 export function buildMemoryMap(db: Database.Database, opts: MemoryMapOptions = {}): MemoryMap {
   const now = opts.now ?? Date.now();
-  const nowIso = new Date(now).toISOString();
+  const nowIso = iso(now);
   const limit = Math.min(Math.max(1, opts.limit ?? DEFAULT_LIMIT), 5000);
   const kinds = opts.kinds ?? ALL_KINDS;
+  const windowStart = iso(now - WINDOW_DAYS * DAY_MS);
 
   const rows = db
     .prepare(
@@ -87,21 +96,30 @@ export function buildMemoryMap(db: Database.Database, opts: MemoryMapOptions = {
     .all(...kinds) as NodeRow[];
   const ids = new Set(rows.map((r) => r.id));
 
-  // Per-entity interaction counts: all time, and a recency-weighted score over 180 days.
+  // Interaction counts per entity, bucketed by age, aggregated in SQL.
   const counts = new Map<string, { all: number; score: number }>();
-  const part = db
+  for (const r of db
     .prepare(
-      `SELECT p.entity_id AS id, i.occurred_at AS at FROM graph_participants p
-         JOIN graph_interactions i ON i.id = p.interaction_id`,
+      `SELECT p.entity_id AS id, count(*) AS n,
+              sum(i.occurred_at >= ?) AS c30,
+              sum(i.occurred_at >= ?) AS c90,
+              sum(i.occurred_at >= ?) AS c180
+         FROM graph_participants p JOIN graph_interactions i ON i.id = p.interaction_id
+        WHERE i.occurred_at >= ?
+        GROUP BY p.entity_id`,
     )
-    .iterate() as Iterable<{ id: string; at: string }>;
-  for (const r of part) {
+    .all(iso(now - 30 * DAY_MS), iso(now - 90 * DAY_MS), iso(now - 180 * DAY_MS), windowStart) as {
+    id: string;
+    n: number;
+    c30: number;
+    c90: number;
+    c180: number;
+  }[]) {
     if (!ids.has(r.id)) continue;
-    const c = counts.get(r.id) ?? { all: 0, score: 0 };
-    c.all++;
-    const age = (now - Date.parse(r.at)) / DAY_MS;
-    if (age <= 180) c.score += 0.5 ** (Math.max(0, age) / 30);
-    counts.set(r.id, c);
+    counts.set(r.id, {
+      all: r.n,
+      score: r.c30 + 0.5 * (r.c90 - r.c30) + 0.2 * (r.c180 - r.c90),
+    });
   }
 
   const loops = new Map<string, number>();
@@ -145,27 +163,42 @@ export function buildMemoryMap(db: Database.Database, opts: MemoryMapOptions = {
     add(e.src, e.dst, kind, 1 + clamp01(e.confidence) * 0.5);
   }
 
-  // Interactions with a small set of mapped participants and subjects.
+  // Small interactions only. The size is every person and subject on the interaction, counted
+  // before any filtering, so a long recipient list stays a mass mail whatever `kinds` says.
   const members = new Map<string, { kind: string; who: Set<string> }>();
-  const memberRows = db
+  for (const r of db
     .prepare(
-      `SELECT p.interaction_id AS iid, i.kind AS kind, p.entity_id AS id FROM graph_participants p
-         JOIN graph_interactions i ON i.id = p.interaction_id
-       UNION
-       SELECT s.interaction_id, i.kind, s.entity_id FROM graph_interaction_subjects s
-         JOIN graph_interactions i ON i.id = s.interaction_id WHERE s.linked_by != 'model'`,
+      `WITH m AS (
+         SELECT p.interaction_id AS iid, p.entity_id AS eid
+           FROM graph_participants p JOIN graph_interactions i ON i.id = p.interaction_id
+          WHERE i.occurred_at >= ?
+         UNION ALL
+         SELECT s.interaction_id, s.entity_id
+           FROM graph_interaction_subjects s JOIN graph_interactions i ON i.id = s.interaction_id
+          WHERE i.occurred_at >= ?
+       ), small AS (
+         SELECT iid FROM m GROUP BY iid HAVING count(DISTINCT eid) BETWEEN 2 AND ${MAX_GROUP}
+       )
+       SELECT small.iid AS iid, i.kind AS kind, x.eid AS eid
+         FROM small
+         JOIN graph_interactions i ON i.id = small.iid
+         JOIN (
+           SELECT interaction_id AS iid, entity_id AS eid FROM graph_participants
+           UNION ALL
+           SELECT interaction_id, entity_id FROM graph_interaction_subjects
+            WHERE linked_by IN ('rule', 'owner')
+         ) x ON x.iid = small.iid`,
     )
-    .iterate() as Iterable<{ iid: string; kind: string; id: string }>;
-  for (const r of memberRows) {
-    if (!ids.has(r.id)) continue;
+    .all(windowStart, windowStart) as { iid: string; kind: string; eid: string }[]) {
+    if (!ids.has(r.eid)) continue;
     const m = members.get(r.iid) ?? { kind: r.kind, who: new Set<string>() };
-    m.who.add(r.id);
+    m.who.add(r.eid);
     members.set(r.iid, m);
   }
   const kindOf = new Map(rows.map((r) => [r.id, r.kind] as const));
   const together = new Map<string, { a: string; b: string; n: number; meet: number }>();
   for (const { kind, who } of members.values()) {
-    if (who.size < 2 || who.size > MAX_GROUP) continue;
+    if (who.size < 2) continue;
     const list = [...who];
     for (let i = 0; i < list.length; i++) {
       for (let j = i + 1; j < list.length; j++) {
@@ -174,25 +207,28 @@ export function buildMemoryMap(db: Database.Database, opts: MemoryMapOptions = {
         const key = pairKey(a, b);
         const cur = together.get(key) ?? { a, b, n: 0, meet: 0 };
         cur.n++;
-        // A meeting between a person and a project or event they are about: "met in".
-        const pe = kindOf.get(a) === "person" ? kindOf.get(b) : kindOf.get(a);
-        const pp = kindOf.get(a) === "person" || kindOf.get(b) === "person";
-        if (kind === "meeting" && pp && (pe === "project" || pe === "event")) cur.meet++;
+        // A meeting between a person and a project or event they are about.
+        const ka = kindOf.get(a);
+        const kb = kindOf.get(b);
+        const personAbout =
+          (ka === "person" && (kb === "project" || kb === "event")) ||
+          (kb === "person" && (ka === "project" || ka === "event"));
+        if (kind === "meeting" && personAbout) cur.meet++;
         together.set(key, cur);
       }
     }
   }
-  // Keep each node's strongest co-mentions.
+  // Two shared interactions make a link; each node keeps its strongest few.
   const perNode = new Map<string, number>();
+  const used = (id: string) => perNode.get(id) ?? 0;
   const coSorted = [...together.values()]
-    .filter((t) => t.n >= 2 || t.meet >= 1)
-    .sort((x, y) => y.n - x.n || (x.a < y.a ? -1 : 1));
+    .filter((t) => t.n >= 2)
+    .sort((x, y) => y.n - x.n || (x.a < y.a ? -1 : x.a > y.a ? 1 : x.b < y.b ? -1 : 1));
   for (const t of coSorted) {
-    const used = (id: string) => perNode.get(id) ?? 0;
-    if (t.meet === 0 && (used(t.a) >= MAX_CO_PER_NODE || used(t.b) >= MAX_CO_PER_NODE)) continue;
+    if (used(t.a) >= MAX_CO_PER_NODE || used(t.b) >= MAX_CO_PER_NODE) continue;
     perNode.set(t.a, used(t.a) + 1);
     perNode.set(t.b, used(t.b) + 1);
-    if (t.meet > 0) add(t.a, t.b, "met_in", 1 + Math.min(2, t.meet) * 0.5);
+    if (t.meet >= 2) add(t.a, t.b, "met_in", 1 + Math.min(2, t.meet) * 0.5);
     else add(t.a, t.b, "co_mentioned", Math.min(3, t.n) * 0.4);
   }
 
@@ -204,7 +240,8 @@ export function buildMemoryMap(db: Database.Database, opts: MemoryMapOptions = {
   }
   const raw = rows.map((r) => {
     const c = counts.get(r.id);
-    const lastAge = r.last === null ? Infinity : (now - Date.parse(r.last)) / DAY_MS;
+    const lastAge =
+      r.last === null ? Number.POSITIVE_INFINITY : (now - Date.parse(r.last)) / DAY_MS;
     const recency = Number.isFinite(lastAge) ? 0.5 ** (Math.max(0, lastAge) / 45) : 0;
     const score =
       Math.log1p(c?.score ?? 0) * 1.5 +
@@ -241,4 +278,47 @@ export function buildMemoryMap(db: Database.Database, opts: MemoryMapOptions = {
   edges.sort((x, y) => (x.a < y.a ? -1 : x.a > y.a ? 1 : x.b < y.b ? -1 : x.b > y.b ? 1 : 0));
 
   return { nodes, edges, total: rows.length, truncated: rows.length > kept.length };
+}
+
+/** Cheap fingerprint of everything the map reads; equal fingerprints mean an equal map. */
+export function graphFingerprint(db: Database.Database): string {
+  const r = db
+    .prepare(
+      `SELECT
+         (SELECT count(*) || ':' || coalesce(max(updated_at), '') || ':' || coalesce(sum(pinned), 0)
+                 || ':' || coalesce(sum(hidden), 0) || ':' || coalesce(sum(private), 0)
+                 || ':' || coalesce(sum(status = 'active'), 0) FROM graph_entities) AS e,
+         (SELECT count(*) || ':' || coalesce(max(updated_at), '') || ':' || coalesce(max(rowid), 0)
+            FROM graph_edges) AS x,
+         (SELECT count(*) || ':' || coalesce(max(rowid), 0) FROM graph_interactions) AS i,
+         (SELECT coalesce(max(rowid), 0) FROM graph_participants) AS p,
+         (SELECT count(*) || ':' || coalesce(max(rowid), 0) FROM graph_interaction_subjects) AS s,
+         (SELECT count(*) || ':' || coalesce(sum(status IN ('open', 'suggested')), 0) FROM graph_loops) AS l`,
+    )
+    .get() as Record<string, string | number>;
+  return Object.values(r).join("|");
+}
+
+/**
+ * A map builder that remembers its last few results. A result is reused while the graph's
+ * fingerprint is unchanged and it is not a day old (recency and "quiet" move with the clock).
+ */
+export function createMemoryMapBuilder(db: Database.Database) {
+  const cache = new Map<string, { fingerprint: string; at: number; map: MemoryMap }>();
+  return (opts: MemoryMapOptions = {}): MemoryMap => {
+    const now = opts.now ?? Date.now();
+    const key = JSON.stringify([
+      opts.limit ?? DEFAULT_LIMIT,
+      [...(opts.kinds ?? ALL_KINDS)].sort(),
+    ]);
+    const fingerprint = graphFingerprint(db);
+    const hit = cache.get(key);
+    if (hit !== undefined && hit.fingerprint === fingerprint && Math.abs(now - hit.at) < DAY_MS / 4)
+      return hit.map;
+    const map = buildMemoryMap(db, { ...opts, now });
+    cache.delete(key);
+    cache.set(key, { fingerprint, at: now, map });
+    if (cache.size > 4) cache.delete(cache.keys().next().value as string);
+    return map;
+  };
 }

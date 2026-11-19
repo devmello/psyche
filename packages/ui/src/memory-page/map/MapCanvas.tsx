@@ -13,7 +13,7 @@ import {
   zoomAt,
 } from "./map-draw.ts";
 import { ForceLayout } from "./map-layout.ts";
-import type { MapModel, MapNode } from "./map-model.ts";
+import { type MapModel, type MapNode, modelOverlap } from "./map-model.ts";
 
 /** True when the OS asks for less motion. Read through a function so tests can stub it. */
 export function prefersReducedMotion(): boolean {
@@ -140,23 +140,53 @@ export function MapCanvas({
     if (again) rafRef.current = requestAnimationFrame(() => frameRef.current());
   };
 
-  // A new model: a new layout.
+  // A new model: a new layout, started from where the nodes already are. A refetch of the same
+  // map (same focus, mostly the same nodes) keeps the owner's view and selection; a focus or
+  // filter change refits.
+  const focusIdRef = useRef(focusId);
+  focusIdRef.current = focusId;
+  const lastFocusId = useRef(focusId);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: request is stable
   useEffect(() => {
-    modelRef.current = model;
+    const prev = modelRef.current;
+    const prevLayout = layoutRef.current;
     const layout = new ForceLayout({
       radii: model.nodes.map((n) => n.r),
       links: model.links.map((l) => ({ a: l.a, b: l.b, weight: l.weight })),
     });
+    let seeded = 0;
+    if (prevLayout !== null && prev !== model) {
+      model.nodes.forEach((node, i) => {
+        const j = prev.index.get(node.id);
+        if (j === undefined) return;
+        layout.x[i] = prevLayout.x[j] ?? 0;
+        layout.y[i] = prevLayout.y[j] ?? 0;
+        seeded++;
+      });
+    }
+    const continuing =
+      prevLayout !== null &&
+      lastFocusId.current === focusIdRef.current &&
+      modelOverlap(prev, model) >= 0.8;
+    if (seeded > 0) layout.alpha = continuing ? 0.25 : 0.5;
+    lastFocusId.current = focusIdRef.current;
+    modelRef.current = model;
     layoutRef.current = layout;
-    autoFit.current = true;
     setHover(null);
-    setSelected(null);
-    // Pre-warm a little so the first frame is not a spiral of dots.
-    if (!prefersReducedMotion()) layout.run(10);
-    const { w, h } = sizeRef.current;
-    if (w > 0) {
-      viewRef.current = fitView(layout.bounds(), w, h);
-      targetRef.current = { ...viewRef.current };
+    setSelected((cur) => {
+      if (!continuing || cur === null) return null;
+      const id = prev.nodes[cur]?.id;
+      return id === undefined ? null : (model.index.get(id) ?? null);
+    });
+    if (!continuing) {
+      autoFit.current = true;
+      // Pre-warm a little so the first frame is not a spiral of dots.
+      if (seeded === 0 && !prefersReducedMotion()) layout.run(10);
+      const { w, h } = sizeRef.current;
+      if (w > 0 && seeded === 0) {
+        viewRef.current = fitView(layout.bounds(), w, h);
+        targetRef.current = { ...viewRef.current };
+      }
     }
     request();
   }, [model, request]);
