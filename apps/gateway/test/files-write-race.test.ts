@@ -69,9 +69,9 @@ describe("files.write against a folder swapped for a link mid-save", () => {
   it("refuses, and writes nothing outside the grant", async () => {
     const path = join(rw, "sub", "a.md");
     const h = handlers();
-    const etag = (
-      (await h["files.read"]?.run(call, { path, length: 1 } as never)) as { etag: string }
-    ).etag;
+    const read = h["files.read"];
+    if (read === undefined) throw new Error("no files.read");
+    const etag = ((await read.run(call, { path, length: 1 } as never)) as { etag: string }).etag;
     hook.afterOpen = async () => {
       await rename(join(rw, "sub"), join(rw, "sub-moved"));
       await symlink(outside, join(rw, "sub"));
@@ -90,9 +90,9 @@ describe("files.write against a folder swapped for a link mid-save", () => {
   it("refuses when the temp file is not the one that was written", async () => {
     const path = join(rw, "sub", "a.md");
     const h = handlers();
-    const etag = (
-      (await h["files.read"]?.run(call, { path, length: 1 } as never)) as { etag: string }
-    ).etag;
+    const read = h["files.read"];
+    if (read === undefined) throw new Error("no files.read");
+    const etag = ((await read.run(call, { path, length: 1 } as never)) as { etag: string }).etag;
     hook.afterOpen = async (tmp) => {
       // Another process replaces the temp name with a file of its own.
       await rm(tmp);
