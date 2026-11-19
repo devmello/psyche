@@ -8,6 +8,7 @@ import type {
   NodeInfo,
   NodeInvokeOptions,
   NodeInvokeResult,
+  ToolCallAuthority,
   ToolRegistration,
 } from "@psyche/protocol";
 import { namespacedGrantKey } from "@psyche/protocol";
@@ -172,6 +173,8 @@ let connected: boolean;
 let cu: ComputerUse;
 let tools: Map<string, ToolRegistration>;
 const contexts = new Map<string, CallContext>();
+/** What authorized each call (`CallContexts.authorityFor`), when a test sets it. */
+const authorities = new Map<string, ToolCallAuthority>();
 const cancelled: { runId: string; reason: string }[] = [];
 const issued: IssuedApproval[] = [];
 let answer: "approve" | "deny" | "none" = "approve";
@@ -202,6 +205,7 @@ beforeEach(() => {
   helperKind = "mac-helper";
   connected = true;
   contexts.clear();
+  authorities.clear();
   cancelled.length = 0;
   cu = createComputerUse({
     broker,
@@ -212,6 +216,7 @@ beforeEach(() => {
       if (c === undefined) throw new Error(`no context ${callId}`);
       return c;
     },
+    authority: (callId) => authorities.get(callId),
     cancelRun: (_threadId, runId, reason) => cancelled.push({ runId, reason }),
   });
   tools = new Map(cu.registrations().map((r) => [r.spec.name, r]));
@@ -222,8 +227,10 @@ async function call(
   tool: string,
   params: unknown,
   ctx: Partial<CallContext> & { runId?: string } = {},
+  authority?: ToolCallAuthority,
 ) {
   const callId = `call_${++n}`;
+  if (authority !== undefined) authorities.set(callId, authority);
   contexts.set(callId, {
     toolCallId: callId,
     threadId: "th_1",
@@ -339,6 +346,30 @@ describe("computer-use agent tools (J1–J5)", () => {
       },
       approvalId,
     });
+  });
+
+  it("the receipt names the standing grant that let the action through, with its binding", async () => {
+    await call("computer.snapshot", { app: notes });
+    const approvalId = await loopApproval("computer_action");
+    const act = { app: notes, action: "click", ref: "e1", expect: { role: "textarea" } };
+    const r = await call(
+      "computer.act",
+      act,
+      { approvalId },
+      {
+        rule: `approval:${approvalId}`,
+        approvalId,
+        grantId: "grt_7",
+        bindingHash: "sha256:cc",
+        scope: "always",
+      },
+    );
+    const receipt = (await broker.listReceipts()).find((x) => x.id === r.receiptId);
+    expect(receipt?.payload).toEqual({ grantId: "grt_7", bindingHash: "sha256:cc" });
+    // Positive control: an action no grant authorized names none.
+    const plain = await call("computer.act", act, { approvalId });
+    const none = (await broker.listReceipts()).find((x) => x.id === plain.receiptId);
+    expect(none?.payload ?? null).toBeNull();
   });
 
   it("refuses refs without expect, refs of another app and credential typing", async () => {

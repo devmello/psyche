@@ -161,7 +161,9 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
         JSON.stringify({
           ...payload,
           // The standing grant that let it through (a resume's done check reads it).
-          ...(ctx.authority?.grantId === undefined ? {} : { grantId: ctx.authority.grantId }),
+          ...(ctx.authority?.grantId === undefined
+            ? {}
+            : { grantId: ctx.authority.grantId, bindingHash: ctx.authority.bindingHash }),
         }),
       ),
     });
@@ -632,6 +634,7 @@ function runTool(
           signal: ctx.signal,
           provenance: ctx.taint ? "untrusted" : "trusted",
           ...(ctx.taint ? { taintSources: [...(ctx.taintSources ?? [])] } : {}),
+          ...grantOf(ctx),
         });
       } finally {
         release?.();
@@ -983,4 +986,10 @@ function gitTool(
       };
     },
   });
+}
+
+/** The standing grant that let this call through, for the sandbox runner's own receipt. */
+function grantOf(ctx: ToolRunContext): { grant?: { id: string; bindingHash: string } } {
+  const a = ctx.authority;
+  return a?.grantId === undefined ? {} : { grant: { id: a.grantId, bindingHash: a.bindingHash } };
 }

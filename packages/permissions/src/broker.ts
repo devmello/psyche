@@ -80,7 +80,7 @@ import {
   type PolicyConfig,
 } from "./policy.ts";
 import { DENY_ALL_LOOPBACK, type LocalProjectVerifier } from "./prohibitions.ts";
-import { receiptGrantId } from "./receipt-grant.ts";
+import { receiptGrantBinding, receiptGrantId } from "./receipt-grant.ts";
 import { requesterKey, requesterSurfaces } from "./requester.ts";
 import type { RevocationLedger } from "./revocations.ts";
 import { riskClassFor } from "./risk.ts";
@@ -133,8 +133,11 @@ export type BrokerEvent =
       approval: ApprovalRequest;
     }
   | { type: "grant.created" | "grant.revoked"; grant: Grant }
-  /** `taskId`: the task whose call went through the grant (none for a batch's own use). */
-  | { type: "grant.used"; grant: Grant; taskId?: string }
+  /**
+   * `taskId`: the task whose call went through the grant (none for a batch's own use);
+   * `bindingHash`: that call's binding (a grant covers a key, not one exact call).
+   */
+  | { type: "grant.used"; grant: Grant; taskId?: string; bindingHash: string }
   | { type: "receipt.created"; receipt: Receipt }
   | { type: "task.paused" | "task.downgraded"; taskId: string; reason: string };
 
@@ -178,6 +181,12 @@ export interface PermissionBrokerOptions {
     approval: ApprovalRequest,
     how: { failed: boolean; unknown: boolean },
   ) => void;
+  /**
+   * Whether `taskId` is a run of the automation that set this card aside (the scheduler's
+   * `runForTask`). Only those runs' grant receipts can say the card's action was done at boot;
+   * without it none can (fail closed: the owner is told).
+   */
+  sameAutomation?: (approval: ApprovalRequest, taskId: string) => boolean;
   onEvent?: (event: BrokerEvent) => void;
   newId?: (prefix: string) => string;
   /** Records grant revocations outside the backup scope (design-26). */
@@ -299,6 +308,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #deferredApproval: PermissionBrokerOptions["deferredApproval"];
   readonly #canResume: PermissionBrokerOptions["canResume"];
   readonly #onSetAsideRevoked: PermissionBrokerOptions["onSetAsideRevoked"];
+  readonly #sameAutomation: PermissionBrokerOptions["sameAutomation"];
   readonly #onEvent: ((e: BrokerEvent) => void) | undefined;
   readonly #newId: (prefix: string) => string;
   readonly #revocations: RevocationLedger | undefined;
@@ -343,6 +353,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#deferredApproval = options.deferredApproval;
     this.#canResume = options.canResume;
     this.#onSetAsideRevoked = options.onSetAsideRevoked;
+    this.#sameAutomation = options.sameAutomation;
     this.#onEvent = options.onEvent;
     this.#revocations = options.revocations;
     this.#channelConversations = options.channelConversations;
@@ -736,7 +747,12 @@ export class PsychePermissionBroker implements PermissionBroker {
       next.grant.expiresAt = new Date(Math.min(now + ttl.sessionIdle, cap)).toISOString();
     }
     this.#store.updateGrant(next);
-    this.#emit({ type: "grant.used", grant: next.grant, ...(taskId == null ? {} : { taskId }) });
+    this.#emit({
+      type: "grant.used",
+      grant: next.grant,
+      bindingHash,
+      ...(taskId == null ? {} : { taskId }),
+    });
     void this.#log(
       "grant.used",
       { type: "system" },
@@ -2133,32 +2149,53 @@ export class PsychePermissionBroker implements PermissionBroker {
    * Nothing has done this approval's action: no `ok` receipt names it (a failed one is not done)
    * and its grant (if any) has no use.
    */
-  async #unused(a: ApprovalRequest): Promise<boolean> {
+  async #unused(a: ApprovalRequest, pool: readonly Receipt[]): Promise<boolean> {
     const receipts = await this.receipts.list({ approvalId: a.id });
     if (receipts.some((r) => r.outcome === "ok")) return false;
-    // A use of its grant is done only when that call succeeded too.
-    return !(await this.#grantReceipts(a)).some((r) => r.outcome === "ok");
+    // A use of its grant is done only when that very call succeeded too.
+    return !this.#grantReceipts(a, pool).some((r) => r.outcome === "ok");
   }
 
   /**
-   * The receipts of calls that went through the standing grant this approval made: each
-   * carries that grant's id (`receiptGrantId`), from the grant's creation on. Never matched by
-   * kind or task: an unrelated call's receipt says nothing about this one.
+   * Receipts that may say what the set-aside cards' grants did: one query per boot, from the
+   * earliest of their grants on (a card's grant is made by its own approval, so nothing older).
    */
-  async #grantReceipts(a: ApprovalRequest): Promise<Receipt[]> {
+  async #grantReceiptPool(recs: readonly StoredApproval[]): Promise<Receipt[]> {
+    let since: string | undefined;
+    for (const rec of recs) {
+      const a = rec.approval;
+      if (rec.revoked || a.setAside !== true || a.grantId == null) continue;
+      const created = this.#store.getGrant(a.grantId)?.grant.createdAt;
+      if (created !== undefined && (since === undefined || created < since)) since = created;
+    }
+    return since === undefined ? [] : await this.receipts.list({ since });
+  }
+
+  /**
+   * The receipts of calls that went through the standing grant this approval made AND were
+   * this card's action: the grant's id and the card's binding on the receipt (a grant covers a
+   * key, not one call), from a run of the card's own automation (an attended chat through the
+   * same grant is another action). Never matched by kind alone.
+   */
+  #grantReceipts(a: ApprovalRequest, pool: readonly Receipt[]): Receipt[] {
     if (a.grantId == null) return [];
     const g = this.#store.getGrant(a.grantId);
     if (g === undefined) return [];
-    const since = Date.parse(g.grant.createdAt);
-    return (await this.receipts.list({})).filter(
-      (r) => receiptGrantId(r) === a.grantId && Date.parse(r.createdAt) >= since,
+    const same = this.#sameAutomation;
+    return pool.filter(
+      (r) =>
+        receiptGrantId(r) === a.grantId &&
+        receiptGrantBinding(r) === a.bindingHash &&
+        r.createdAt >= g.grant.createdAt &&
+        r.taskId != null &&
+        same?.(a, r.taskId) === true,
     );
   }
 
-  /** Its grant let a call through (a use was counted). */
+  /** Its grant let this card's own call through (its last use bound to the card's binding). */
   #grantUsed(a: ApprovalRequest): boolean {
     const g = a.grantId == null ? undefined : this.#store.getGrant(a.grantId);
-    return g !== undefined && g.grant.useCount > 0;
+    return g !== undefined && g.grant.useCount > 0 && g.meta.lastUsedBindingHash === a.bindingHash;
   }
 
   async verifyBinding(approvalId: string, bindingHash: string): Promise<BindingVerification> {
@@ -2243,14 +2280,16 @@ export class PsychePermissionBroker implements PermissionBroker {
     for (const rec of pending) await this.#invalidate(rec, "gateway_restart");
     // An approved `once` that was never dispatched belonged to a call parked in the previous
     // process; that call is gone, so the approval ends too (S23 design-09). Found by fuzzing.
-    for (const rec of this.#store.listApprovals({ status: "approved" })) {
+    const approved = this.#store.listApprovals({ status: "approved" });
+    const pool = await this.#grantReceiptPool(approved);
+    for (const rec of approved) {
       if (rec.revoked) continue;
       const unconsumedOnce = rec.approval.scopeGranted === "once" && rec.consumedAt === null;
       // A set-aside card whose resume was not over lost it with the old process, whatever its
       // scope: nothing did its action yet (no `ok` receipt, no use of its grant). That includes
       // an action that ran and failed, and one whose receipt the old process never wrote. The
       // owner is told once; the card's own authority ends (its standing grant, if any, stays).
-      const lostResume = rec.approval.setAside === true && (await this.#unused(rec.approval));
+      const lostResume = rec.approval.setAside === true && (await this.#unused(rec.approval, pool));
       if (!unconsumedOnce && !lostResume) continue;
       rec.revoked = true;
       this.#store.updateApproval(rec);
@@ -2266,7 +2305,7 @@ export class PsychePermissionBroker implements PermissionBroker {
         // the grant's id (the old process died first, or the recorder cannot say).
         const ran = [
           ...(await this.receipts.list({ approvalId: rec.approval.id })),
-          ...(await this.#grantReceipts(rec.approval)),
+          ...this.#grantReceipts(rec.approval, pool),
         ];
         const failed = ran.some((r) => r.outcome === "failed");
         const unknown =
