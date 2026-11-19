@@ -1,3 +1,5 @@
+import { lstat } from "node:fs/promises";
+import { join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 
 /**
@@ -100,6 +102,33 @@ export function capOutput(text: string): { text: string; truncated: boolean } {
   return { text: b.subarray(0, GIT_OUTPUT_CAP).toString("utf8"), truncated: true };
 }
 
+/**
+ * Refuses unless `<root>/.git` is a real folder: not a link, not a `gitdir:` file, not missing.
+ * Git otherwise finds its repository by itself, and a planted `.git` link or file (an archive, a
+ * `code.run` in a folder without git) or a workspace inside a bigger repository would point it at
+ * history, an index and files outside the workspace. A subfolder of a repository gets no
+ * `code.git`: opening the repository root itself does.
+ */
+export async function assertOwnRepository(root: string): Promise<void> {
+  const st = await lstat(join(root, ".git")).catch(() => undefined);
+  if (st?.isDirectory() !== true) {
+    throw new PsycheError(
+      "forbidden",
+      "git works only in a workspace that is its own repository root (a real .git folder)",
+      { details: { reason: "not_own_repository" } },
+    );
+  }
+}
+
+/**
+ * The repository git uses, pinned to the root: `--git-dir` and `--work-tree` stop discovery, so
+ * git never reads a `.git` above the root or one a link or `gitdir:` file names. Callers check
+ * `assertOwnRepository` first.
+ */
+export function gitDirArgs(root: string): string[] {
+  return [`--git-dir=${join(root, ".git")}`, `--work-tree=${root}`];
+}
+
 export async function git(
   runner: GitRunner,
   cwd: string,
@@ -107,9 +136,10 @@ export async function git(
   signal?: AbortSignal,
 ): Promise<GitResult> {
   const opts = signal === undefined ? {} : { signal };
-  const drivers = await runner.run(cwd, [...GIT_HARDENING, ...GIT_DRIVER_QUERY], opts);
+  const pin = gitDirArgs(cwd);
+  const drivers = await runner.run(cwd, [...GIT_HARDENING, ...pin, ...GIT_DRIVER_QUERY], opts);
   const off = drivers.exitCode === 0 ? gitDriverOverrides(drivers.stdout) : [];
-  return runner.run(cwd, [...GIT_HARDENING, ...off, ...args], opts);
+  return runner.run(cwd, [...GIT_HARDENING, ...pin, ...off, ...args], opts);
 }
 
 /** Runs and throws on a non-zero exit, with git's own message. */

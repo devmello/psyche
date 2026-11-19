@@ -53,6 +53,18 @@ const ctx: ToolRunContext = {
   onUpdate: () => undefined,
 };
 
+describe("hostGit", () => {
+  it("never discovers a repository above the folder it runs in (review of #1425 r1)", async () => {
+    const sub = join(repo, "sub");
+    mkdirSync(sub);
+    const git = hostGit();
+    expect((await git.run(repo, ["rev-parse", "--show-toplevel"])).exitCode).toBe(0);
+    const inSub = await git.run(sub, ["rev-parse", "--show-toplevel"]);
+    expect(inSub.exitCode).not.toBe(0);
+    expect(inSub.stdout).not.toContain(repo);
+  });
+});
+
 describe("composeCoding", () => {
   it("registers code.* over the composed file tools; code.run only with a sandbox runner", async () => {
     const { s, registry } = services();

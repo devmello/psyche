@@ -1,6 +1,7 @@
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  linkSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -84,7 +85,8 @@ function fileTools(writes: string[]) {
   return { read, write };
 }
 
-const KEY = "-----BEGIN OPENSSH PRIVATE KEY-----\nAAAAKEYMATERIAL\n";
+// Split so the secret scan does not take the fixture for a key.
+const KEY = `${["-----BEGIN ", "OPENSSH PRIVATE KEY-----"].join("")}\nAAAAKEYMATERIAL\n`;
 const SECRET = "TOPSECRET-1395\n";
 
 let dir: string;
@@ -136,14 +138,17 @@ function ctx(over: Partial<ToolRunContext> = {}): ToolRunContext {
 }
 
 /** The grant is the repository alone: everything else in `dir` is outside it. */
-async function setup(folders: CodingFolderGrant[] = [{ path: repo, mode: "rw" }]) {
+async function setup(
+  folders: CodingFolderGrant[] = [{ path: repo, mode: "rw" }],
+  git: GitRunner = hostGit,
+) {
   const writes: string[] = [];
   const runner = new FakeSandboxRunner();
   const tools = codingTools({
     files: fileTools(writes),
     folders: () => folders,
     runner,
-    git: hostGit,
+    git,
   });
   const byName = new Map(tools.map((t) => [t.spec.name, t]));
   const use = async (name: string, params: unknown, c = ctx()) => {
@@ -336,5 +341,140 @@ describe("code.* and links in the repository", () => {
     await expect(use("code.read", { root: repo, path: ".ssh/id_test" })).rejects.toMatchObject(
       forbidden,
     );
+  });
+});
+
+/** Another repository next to the workspace, with history and a file the workspace must not see. */
+async function otherRepo(): Promise<string> {
+  const other = join(dir, "other");
+  mkdirSync(join(other, "sub"), { recursive: true });
+  writeFileSync(join(other, "private.txt"), SECRET);
+  writeFileSync(join(other, "sub", "a.txt"), "inside\n");
+  await sh(other, "init", "--quiet", "--initial-branch=main");
+  await sh(other, "config", "user.name", "X");
+  await sh(other, "config", "user.email", "x@example.com");
+  await sh(other, "config", "commit.gpgsign", "false");
+  await sh(other, "add", ".");
+  await sh(other, "commit", "--quiet", "-m", "private history TOPSECRET-LOG");
+  return other;
+}
+
+const NOT_OWN = /git works only in a workspace that is its own repository root/;
+
+describe("code.git uses only the workspace's own repository (review of #1425 r1)", () => {
+  /** Every read op refused with nothing of the other repository in the answer. */
+  async function refusesEveryOp(use: Awaited<ReturnType<typeof setup>>["use"], root: string) {
+    for (const params of [
+      { root, op: "status" },
+      { root, op: "log" },
+      { root, op: "diff" },
+      { root, op: "diff", staged: true },
+      { root, op: "commit", message: "x" },
+      { root, op: "branch", name: "evil", create: true },
+    ]) {
+      await expect(use("code.git", params), JSON.stringify(params)).rejects.toThrow(NOT_OWN);
+      await noLeak(use("code.git", params));
+    }
+  }
+
+  it("P2: a `.git` link to another repository", async () => {
+    const other = await otherRepo();
+    const plain = join(dir, "plain");
+    mkdirSync(plain);
+    writeFileSync(join(plain, "x.txt"), "x\n");
+    symlinkSync(join(other, ".git"), join(plain, ".git"));
+    const { use } = await setup([{ path: plain, mode: "rw" }]);
+    const opened = await use("code.open", { path: plain });
+    expect(opened.output.git).toEqual({ error: expect.stringMatching(NOT_OWN) });
+    expect(JSON.stringify(opened.output)).not.toContain("private.txt");
+    await refusesEveryOp(use, plain);
+    expect(await sh(other, "branch", "--list", "evil")).toBe("");
+  });
+
+  it("P3: a `gitdir:` file naming another repository (no link at all)", async () => {
+    const other = await otherRepo();
+    const plain = join(dir, "plain");
+    mkdirSync(plain);
+    writeFileSync(join(plain, ".git"), `gitdir: ${join(other, ".git")}\n`);
+    const { use } = await setup([{ path: plain, mode: "rw" }]);
+    const opened = await use("code.open", { path: plain });
+    expect(opened.output.git).toEqual({ error: expect.stringMatching(NOT_OWN) });
+    await refusesEveryOp(use, plain);
+  });
+
+  it("P4: a workspace that is a subfolder of a repository gets no code.git", async () => {
+    const other = await otherRepo();
+    writeFileSync(join(other, "private.txt"), `${SECRET}changed-OUTSIDE-WORKSPACE\n`);
+    const before = await sh(other, "rev-parse", "HEAD");
+    const sub = join(other, "sub");
+    const { use } = await setup([{ path: sub, mode: "rw" }]);
+    expect((await use("code.open", { path: sub })).output.git).toBeNull();
+    await refusesEveryOp(use, sub);
+    // Nothing was committed or staged in the repository around it.
+    expect(await sh(other, "rev-parse", "HEAD")).toBe(before);
+    expect(await sh(other, "diff", "--cached", "--name-only")).toBe("");
+  });
+
+  it("a `.git` planted after code.open (by a run in a folder without git) is refused", async () => {
+    const other = await otherRepo();
+    const plain = join(dir, "plain");
+    mkdirSync(plain);
+    const { use, runner } = await setup([{ path: plain, mode: "rw" }]);
+    await use("code.open", { path: plain });
+    await use("code.run", { root: plain, argv: ["true"] });
+    // What that run could leave in the read-write working tree: a `gitdir:` file, or a link.
+    expect(runner.execs).toHaveLength(1);
+    writeFileSync(join(plain, ".git"), `gitdir: ${join(other, ".git")}\n`);
+    await refusesEveryOp(use, plain);
+    rmSync(join(plain, ".git"));
+    symlinkSync(join(other, ".git"), join(plain, ".git"));
+    await refusesEveryOp(use, plain);
+  });
+
+  it("pins every git call to the root's own .git and work tree", async () => {
+    const calls: string[][] = [];
+    const recording: GitRunner = {
+      run: (cwd, args, o) => {
+        calls.push([cwd, ...args]);
+        return hostGit.run(cwd, args, o);
+      },
+    };
+    const { use } = await setup(undefined, recording);
+    await use("code.open", { path: repo });
+    await use("code.git", { root: repo, op: "log" });
+    await use("code.git", { root: repo, op: "diff", paths: ["src"] });
+    expect(calls.length).toBeGreaterThan(4);
+    for (const c of calls) {
+      expect(c[0]).toBe(repo);
+      expect(c).toContain(`--git-dir=${join(repo, ".git")}`);
+      expect(c).toContain(`--work-tree=${repo}`);
+    }
+  });
+});
+
+describe("files that are not one regular file (review of #1425 r1)", () => {
+  it("a hard link to a file outside is neither searched nor read", async () => {
+    linkSync(join(dir, ".ssh/id_test"), join(repo, "hl.txt"));
+    const { use, open } = await setup();
+    await open();
+    await noLeak(use("code.search", { root: repo, pattern: "OPENSSH" }));
+    expect((await use("code.search", { root: repo, pattern: "OPENSSH" })).output.hits).toEqual([]);
+    await expect(use("code.read", { root: repo, path: "hl.txt" })).rejects.toThrow(
+      /has other hard links/,
+    );
+    await noLeak(use("code.read", { root: repo, path: "hl.txt" }));
+    // Control: the file with one name still reads.
+    expect((await use("code.read", { root: repo, path: "src/add.js" })).output.totalLines).toBe(1);
+  });
+
+  it("a FIFO is refused at once, never opened and waited on", async () => {
+    execFileSync("mkfifo", [join(repo, "pipe")]);
+    const { use, open } = await setup();
+    await open();
+    await expect(use("code.read", { root: repo, path: "pipe" })).rejects.toMatchObject({
+      code: "invalid_params",
+    });
+    const hits = await use("code.search", { root: repo, pattern: "add" });
+    expect(hits.output.hits).toEqual(["src/add.js:1:export const add = (a, b) => a + b;"]);
   });
 });

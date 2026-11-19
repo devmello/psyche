@@ -56,6 +56,25 @@ export async function assertContained(
   }
 }
 
+/**
+ * A file read by name must be a regular file with exactly one name. A hard link is another name
+ * for a file that may live anywhere on the volume (a key next to the repository), and neither
+ * realpath nor `O_NOFOLLOW` can see it; anything else (a FIFO, a socket, a device) is not a file
+ * to read. A missing file is left to the reader's own `not_found`.
+ */
+export async function assertOneName(full: string): Promise<void> {
+  const st = await lstat(full).catch(missing);
+  if (st === undefined) return;
+  if (!st.isFile()) throw new PsycheError("invalid_params", `${full} is not a regular file`);
+  if (st.nlink > 1) {
+    throw new PsycheError(
+      "forbidden",
+      `${full} has other hard links; code.* reads only files with a single name`,
+      { details: { reason: "hard_link" } },
+    );
+  }
+}
+
 /** `ENOENT` / `ENOTDIR` mean "not there": nothing to follow. Anything else stays an error. */
 function missing(err: unknown): undefined {
   const code = (err as NodeJS.ErrnoException | undefined)?.code;

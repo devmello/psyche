@@ -15,8 +15,9 @@ import {
 } from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "../registry.ts";
-import { assertContained } from "./contain.ts";
+import { assertContained, assertOneName } from "./contain.ts";
 import {
+  assertOwnRepository,
   BRANCH_PATTERN,
   capOutput,
   type GitRunner,
@@ -243,9 +244,11 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
       const ws = workspaces.open(ctx, root, grant.mode);
       let status: unknown = null;
       if (deps.git !== undefined && (await lstat(`${root}/.git`).catch(() => undefined))) {
-        status = await gitStatus(deps.git, root, ctx.signal).catch((e: Error) => ({
-          error: e.message,
-        }));
+        const runner = deps.git;
+        // A `.git` link or `gitdir:` file would show another repository's status.
+        status = await assertOwnRepository(root)
+          .then(() => gitStatus(runner, root, ctx.signal))
+          .catch((e: Error) => ({ error: e.message }));
       }
       return {
         output: {
@@ -326,6 +329,7 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
       const full = resolveInRoot(ws.root, p.path);
       // By its real path too: a link in the repository never reads outside it.
       await assertContained(ws.root, full);
+      await assertOneName(full);
       const file = await readWhole(full, ctx);
       const lines = file.text === "" ? [] : file.text.replace(/\n$/, "").split("\n");
       const start = p.start_line ?? 1;
@@ -812,6 +816,7 @@ function gitTool(
       const writes = p.op === "commit" || p.op === "branch" || p.op === "push";
       const ws = workspace(ctx, p.root, writes ? "write" : "read");
       const root = ws.root;
+      await assertOwnRepository(root);
       const sig = ctx.signal;
       const ok = (output: Record<string, unknown>, receiptId?: string): ToolResult => ({
         output,

@@ -86,6 +86,16 @@ describe("ported from the Gateway stand-in", () => {
     });
   });
 
+  it("refuses a FIFO at once instead of waiting on its open (review of #1425 r1)", async () => {
+    const { execFileSync } = await import("node:child_process");
+    execFileSync("mkfifo", [join(granted, "pipe")]);
+    const started = Date.now();
+    await expect(run("read_file", { path: join(granted, "pipe") })).rejects.toMatchObject({
+      code: "invalid_params",
+    });
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
+
   it("refuses to write through a dangling symlink", async () => {
     symlinkSync(join(outside, "new.plist"), join(granted, "x.plist"));
     await expect(

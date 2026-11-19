@@ -91,16 +91,22 @@ export interface CodeSearchResult {
   truncated: boolean;
 }
 
+/**
+ * One file of the walk, or `undefined` to skip it. `O_NONBLOCK`: a file swapped for a FIFO after
+ * the listing does not hang a thread of the pool on open; `fstat` then skips anything that is not
+ * a regular file, and a file with other hard links (another name for a file anywhere on the
+ * volume, which no realpath shows).
+ */
 async function readSmall(path: string): Promise<Buffer | undefined> {
   let fh: Awaited<ReturnType<typeof open>>;
   try {
-    fh = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    fh = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   } catch {
     return undefined;
   }
   try {
     const st = await fh.stat();
-    if (!st.isFile() || st.size > CODE_SEARCH_LIMITS.fileBytes) return undefined;
+    if (!st.isFile() || st.nlink > 1 || st.size > CODE_SEARCH_LIMITS.fileBytes) return undefined;
     return await fh.readFile();
   } finally {
     await fh.close();
