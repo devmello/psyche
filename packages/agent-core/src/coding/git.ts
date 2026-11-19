@@ -32,9 +32,25 @@ export const GIT_OUTPUT_CAP = 128 * 1024;
 /**
  * Prefixed to every invocation. `--literal-pathspecs`: a path is a file name, never pathspec
  * magic, so `:!notes.md`, `:(exclude)…` or `*.md` in a commit's paths cannot widen what it stages.
+ * The submodule settings keep git out of every submodule: a submodule's own config (its
+ * `.git/config` or `.git/modules/<name>/config`) is never checked, and a `status`, `diff` or
+ * `switch` that looked inside one would run that config's filters on the host (review of #1425
+ * r2). `assertNoSubmodules` refuses such repositories as well.
  */
 export const GIT_HARDENING = [
   "--literal-pathspecs",
+  "-c",
+  "diff.ignoreSubmodules=all",
+  "-c",
+  "submodule.recurse=false",
+  "-c",
+  "push.recurseSubmodules=no",
+  "-c",
+  "fetch.recurseSubmodules=false",
+  "-c",
+  "status.submoduleSummary=false",
+  "-c",
+  "diff.submodule=short",
   "-c",
   "core.hooksPath=/dev/null",
   "-c",
@@ -115,6 +131,13 @@ export async function assertOwnRepository(
   root: string,
   signal?: AbortSignal,
 ): Promise<void> {
+  await assertRealGitDir(root);
+  await assertSafeLocalConfig(runner, root, signal);
+  await assertNoSubmodules(runner, root, signal);
+}
+
+/** `<root>/.git` is a real folder of its own: no link, no `gitdir:` file, no `commondir`. */
+async function assertRealGitDir(root: string): Promise<void> {
   const gitDir = join(root, ".git");
   const st = await lstat(gitDir).catch(() => undefined);
   if (st?.isDirectory() !== true) {
@@ -132,7 +155,58 @@ export async function assertOwnRepository(
       { details: { reason: "not_own_repository" } },
     );
   }
-  await assertSafeLocalConfig(runner, root, signal);
+}
+
+const NO_SUBMODULES = "repositories with submodules aren't supported by code.git yet";
+
+/**
+ * Refuses a repository with submodules: a `.git/modules` folder, or a gitlink (mode 160000) in
+ * the index. Git is kept out of submodules by `GIT_HARDENING`; this is the second wall, since a
+ * submodule's config is a place this module never checks.
+ */
+export async function assertNoSubmodules(
+  runner: GitRunner,
+  root: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (await lstat(join(root, ".git", "modules")).catch(() => undefined)) {
+    throw new PsycheError("forbidden", `${NO_SUBMODULES} (.git/modules exists)`, {
+      details: { reason: "submodules" },
+    });
+  }
+  const links = await gitlinks(runner, root, signal);
+  if (links.length > 0) {
+    throw new PsycheError("forbidden", `${NO_SUBMODULES} (${links.slice(0, 3).join(", ")})`, {
+      details: { reason: "submodules", paths: links },
+    });
+  }
+}
+
+/** Paths the index holds as gitlinks (submodules, or nested repositories `add` staged). */
+export async function gitlinks(
+  runner: GitRunner,
+  root: string,
+  signal?: AbortSignal,
+): Promise<string[]> {
+  // `--format` (git 2.38+) keeps the listing small; `--stage` is the fallback.
+  let r = await git(runner, root, ["ls-files", "-z", "--format=%(objectmode) %(path)"], signal);
+  let stage = false;
+  if (r.exitCode !== 0) {
+    r = await git(runner, root, ["ls-files", "-z", "--stage"], signal);
+    stage = true;
+  }
+  if (r.exitCode !== 0) {
+    throw new PsycheError(
+      "forbidden",
+      "the index could not be listed; code.git does not run there",
+    );
+  }
+  const out: string[] = [];
+  for (const entry of r.stdout.split("\0")) {
+    if (!entry.startsWith("160000 ")) continue;
+    out.push(stage ? entry.slice(entry.indexOf("\t") + 1) : entry.slice(7));
+  }
+  return out;
 }
 
 /**
@@ -255,18 +329,20 @@ const PINNED_QUERY = [
   "--show-scope",
   "-z",
   "--get-regexp",
-  "^(credential\\.helper|core\\.sshcommand|core\\.askpass)$",
+  "^(credential\\.helper|core\\.sshcommand|core\\.askpass|gpg\\.program|gpg\\.(openpgp|x509|ssh)\\.program)$",
 ] as const;
 const REPO_SCOPES = new Set(["local", "worktree", "command"]);
 
 /**
- * `-c` pairs that pin `credential.helper`, `core.sshCommand` and `core.askPass` to the values
- * the owner's own config gives them (system, global, the git binary's own): a repository's
- * config written after `assertOwnRepository` looked still cannot add a program. An empty
- * `credential.helper` resets the list, then the owner's helpers (the keychain) come back.
+ * `-c` pairs that pin the keys naming a program git runs (`credential.helper`,
+ * `core.sshCommand`, `core.askPass`, the signing programs) to the values the owner's own config
+ * gives them (system, global, the git binary's own), or git's defaults: a repository's config
+ * written after the last check still cannot add a program. An empty `credential.helper` resets
+ * the list, then the owner's helpers (the keychain) come back. `gpg.program` and
+ * `gpg.openpgp.program` name the same program, so both get the owner's last value of either.
  */
 export function ownerPins(listed: string): string[] {
-  const values = new Map<string, string[]>();
+  const entries: [string, string][] = [];
   const parts = listed.split("\0");
   for (let i = 0; i + 1 < parts.length; i += 2) {
     const scope = parts[i] ?? "";
@@ -274,19 +350,29 @@ export function ownerPins(listed: string): string[] {
     if (REPO_SCOPES.has(scope)) continue;
     const nl = entry.indexOf("\n");
     const key = (nl < 0 ? entry : entry.slice(0, nl)).toLowerCase();
-    const value = nl < 0 ? "" : entry.slice(nl + 1);
-    values.set(key, [...(values.get(key) ?? []), value]);
+    entries.push([key, nl < 0 ? "" : entry.slice(nl + 1)]);
   }
-  const helpers = values.get("credential.helper") ?? [];
-  const last = (k: string) => values.get(k)?.at(-1);
+  const all = (...keys: string[]) => entries.filter(([k]) => keys.includes(k)).map(([, v]) => v);
+  const last = (...keys: string[]) => all(...keys).at(-1);
+  const openpgp = last("gpg.program", "gpg.openpgp.program") || "gpg";
   return [
     "-c",
     "credential.helper=",
-    ...helpers.filter((h) => h !== "").flatMap((h) => ["-c", `credential.helper=${h}`]),
+    ...all("credential.helper")
+      .filter((h) => h !== "")
+      .flatMap((h) => ["-c", `credential.helper=${h}`]),
     "-c",
     `core.sshCommand=${last("core.sshcommand") || "ssh"}`,
     "-c",
     `core.askPass=${last("core.askpass") ?? ""}`,
+    "-c",
+    `gpg.program=${openpgp}`,
+    "-c",
+    `gpg.openpgp.program=${openpgp}`,
+    "-c",
+    `gpg.x509.program=${last("gpg.x509.program") || "gpgsm"}`,
+    "-c",
+    `gpg.ssh.program=${last("gpg.ssh.program") || "ssh-keygen"}`,
   ];
 }
 
@@ -315,6 +401,9 @@ export async function git(
     throw new PsycheError("conflict", "git config could not be read; the command was not run");
   }
   const pins = ownerPins(owner.exitCode === 0 ? owner.stdout : "");
+  // Again right before the command: the config may have changed since `assertOwnRepository`.
+  await assertRealGitDir(cwd);
+  await assertSafeLocalConfig(runner, cwd, signal);
   return runner.run(cwd, [...GIT_HARDENING, ...pin, ...pins, ...off, ...args], opts);
 }
 

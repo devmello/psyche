@@ -22,6 +22,7 @@ import {
   capOutput,
   type GitRunner,
   git,
+  gitlinks,
   gitOk,
   parseStatus,
   REMOTE_PATTERN,
@@ -704,7 +705,7 @@ async function gitStatus(runner: GitRunner, root: string, signal?: AbortSignal) 
   const porcelain = await gitOk(
     runner,
     root,
-    ["status", "--porcelain=v1", "--branch", "--untracked-files=all"],
+    ["status", "--porcelain=v1", "--branch", "--untracked-files=all", "--ignore-submodules=all"],
     signal,
   );
   const remotes = await gitOk(runner, root, ["remote", "-v"], signal);
@@ -841,6 +842,7 @@ function gitTool(
             "--no-ext-diff",
             "--no-textconv",
             "--no-color",
+            "--ignore-submodules=all",
             ...(p.staged === true ? ["--cached"] : []),
             "--",
             ...paths,
@@ -881,6 +883,17 @@ function gitTool(
           paths.push(relativeTo(root, full));
         }
         await gitOk(runner, root, ["add", "--all", "--", ...paths], sig);
+        // `add` stages a nested repository as a gitlink; a repository with one gets no code.git
+        // afterwards, so it is taken out of the index again and the commit is refused.
+        const nested = await gitlinks(runner, root, sig);
+        if (nested.length > 0) {
+          await gitOk(runner, root, ["update-index", "--force-remove", "--", ...nested], sig);
+          throw new PsycheError(
+            "forbidden",
+            `${nested.slice(0, 3).join(", ")} ${nested.length === 1 ? "is a" : "are"} nested repositor${nested.length === 1 ? "y" : "ies"}; repositories with submodules aren't supported by code.git yet, so nothing was committed (leave it out of paths, or add it to .gitignore)`,
+            { details: { reason: "submodules", paths: nested } },
+          );
+        }
         const staged = await git(runner, root, ["diff", "--cached", "--quiet"], sig);
         if (staged.exitCode === 0) throw new PsycheError("conflict", "nothing to commit");
         await gitOk(runner, root, ["commit", "--no-verify", "--quiet", "-m", p.message], sig);
@@ -979,7 +992,18 @@ function gitTool(
       const pushed = await git(
         runner,
         root,
-        ["push", "--porcelain", "--no-verify", p.remote, `${p.commit}:refs/heads/${p.branch}`],
+        [
+          // The pushed remote's programs: git's own receive-pack, no proxy command.
+          "-c",
+          `remote.${p.remote}.receivepack=git-receive-pack`,
+          "-c",
+          "core.gitProxy=",
+          "push",
+          "--porcelain",
+          "--no-verify",
+          p.remote,
+          `${p.commit}:refs/heads/${p.branch}`,
+        ],
         sig,
       );
       const failed = pushed.exitCode !== 0;

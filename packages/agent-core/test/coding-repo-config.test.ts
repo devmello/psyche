@@ -152,6 +152,12 @@ describe("ownerPins", () => {
       "core.sshcommand\ntouch /tmp/pwned",
       "command",
       "core.askpass\n/tmp/evil",
+      "global",
+      "gpg.program\n/opt/homebrew/bin/gpg",
+      "local",
+      "gpg.ssh.program\n/tmp/evil",
+      "local",
+      "gpg.openpgp.program\n/tmp/evil",
       "",
     ].join("\0");
     expect(ownerPins(listed)).toEqual([
@@ -163,10 +169,18 @@ describe("ownerPins", () => {
       "core.sshCommand=ssh -i ~/.ssh/work",
       "-c",
       "core.askPass=",
+      "-c",
+      "gpg.program=/opt/homebrew/bin/gpg",
+      "-c",
+      "gpg.openpgp.program=/opt/homebrew/bin/gpg",
+      "-c",
+      "gpg.x509.program=gpgsm",
+      "-c",
+      "gpg.ssh.program=ssh-keygen",
     ]);
   });
 
-  it("with nothing set: no helper, plain ssh, no askpass", () => {
+  it("with nothing set: no helper, plain ssh, no askpass, git's own signing programs", () => {
     expect(ownerPins("")).toEqual([
       "-c",
       "credential.helper=",
@@ -174,6 +188,14 @@ describe("ownerPins", () => {
       "core.sshCommand=ssh",
       "-c",
       "core.askPass=",
+      "-c",
+      "gpg.program=gpg",
+      "-c",
+      "gpg.openpgp.program=gpg",
+      "-c",
+      "gpg.x509.program=gpgsm",
+      "-c",
+      "gpg.ssh.program=ssh-keygen",
     ]);
   });
 });
@@ -227,6 +249,7 @@ beforeEach(async () => {
   await sh(repo, "config", "branch.main.remote", "origin");
   await sh(repo, "add", ".");
   await sh(repo, "commit", "--quiet", "-m", "initial");
+  clean = readFileSync(join(repo, ".git/config"), "utf8");
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -259,6 +282,8 @@ function setup() {
 
 /** Appends to the repository's own config, as a run in the working tree could. */
 const plant = (text: string) => appendFileSync(join(repo, ".git/config"), text);
+/** The config as `beforeEach` left it. */
+let clean = "";
 
 describe("code.git and the repository's own config", () => {
   it("allows an ordinary repository (remote, branch, user, core basics, a husky hooks path)", async () => {
@@ -313,19 +338,212 @@ describe("code.git and the repository's own config", () => {
     await expect(use("code.git", { root: repo, op: "status" })).rejects.toThrow(/commondir/);
   });
 
-  it("pins the program keys even when a config is written after the check", async () => {
-    // `git` below is what every op runs after assertOwnRepository: the check is skipped here.
-    plant(
-      `[core]\n\tsshCommand = touch ${pwned()}\n[credential]\n\thelper = "!touch ${pwned()}"\n`,
+  it("re-checks the config right before each command", async () => {
+    const use = setup();
+    await use("code.open", { path: repo });
+    // Written after code.open checked it: the next git call refuses before running anything.
+    plant(`[core]\n\tsshCommand = touch ${pwned()}\n`);
+    await expect(git(hostGit, repo, ["log", "--oneline"])).rejects.toThrow(
+      /this repository's own \.git\/config sets core\.sshcommand/,
     );
-    const ssh = await git(hostGit, repo, ["config", "--get", "core.sshCommand"]);
-    expect(ssh.stdout.trim()).not.toContain("touch");
-    const helpers = (await git(hostGit, repo, ["config", "--get-all", "credential.helper"])).stdout
+    await expect(use("code.git", { root: repo, op: "log" })).rejects.toMatchObject({
+      code: "forbidden",
+    });
+  });
+
+  it("pins the program keys even when the config changes between the check and the command", async () => {
+    const evil = `[core]\n\tsshCommand = touch ${pwned()}\n[credential]\n\thelper = "!touch ${pwned()}"\n[gpg]\n\tprogram = touch ${pwned()}\n[gpg "ssh"]\n\tprogram = touch ${pwned()}\n[gpg "x509"]\n\tprogram = touch ${pwned()}\n`;
+    /** Plants the config when the command itself starts: after every check `git` makes. */
+    const racing = (marker: string): GitRunner => ({
+      run: (cwd, args, o) => {
+        if (args.includes(marker)) plant(evil);
+        return hostGit.run(cwd, args, o);
+      },
+    });
+    const get = async (key: string) =>
+      (await git(racing("--get"), repo, ["config", "--get", key])).stdout.trim();
+    for (const key of ["core.sshCommand", "gpg.program", "gpg.ssh.program", "gpg.x509.program"]) {
+      writeFileSync(join(repo, ".git/config"), clean);
+      expect(await get(key), key).not.toContain("touch");
+    }
+    writeFileSync(join(repo, ".git/config"), clean);
+    const helpers = (
+      await git(racing("--get-all"), repo, ["config", "--get-all", "credential.helper"])
+    ).stdout
       .split("\n")
       .filter((l, i, all) => i < all.length - 1 || l !== "");
     // Git drops every helper before the last empty one: only the owner's come after it.
     const afterReset = helpers.slice(helpers.lastIndexOf("") + 1);
     expect(afterReset.join("\n")).not.toContain("touch");
     expect(() => readFileSync(pwned())).toThrow();
+  });
+
+  it("a push names git's own receive-pack and no proxy command for the pushed remote", async () => {
+    const remote = join(dir, "remote.git");
+    await sh(dir, "init", "--quiet", "--bare", remote);
+    await sh(repo, "remote", "set-url", "origin", remote);
+    const calls: string[][] = [];
+    const recording: GitRunner = {
+      run: (cwd, args, o) => {
+        calls.push([...args]);
+        return hostGit.run(cwd, args, o);
+      },
+    };
+    const tools = codingTools({
+      files: fileTools(),
+      folders: () => [{ path: repo, mode: "rw" }],
+      git: recording,
+    });
+    const t = (n: string) => tools.find((x) => x.spec.name === n) as AgentToolRegistration;
+    await t("code.open").run?.({ path: repo }, ctx());
+    const head = await sh(repo, "rev-parse", "HEAD");
+    const r = await t("code.git").run?.(
+      {
+        root: repo,
+        op: "push",
+        remote: "origin",
+        remote_url: remote,
+        branch: "main",
+        commit: head,
+      },
+      ctx(),
+    );
+    expect(r?.isError).toBeUndefined();
+    const push = calls.find((c) => c.includes("push")) as string[];
+    const i = push.indexOf("push");
+    expect(push.slice(i - 4, i)).toEqual([
+      "-c",
+      "remote.origin.receivepack=git-receive-pack",
+      "-c",
+      "core.gitProxy=",
+    ]);
+    expect(await sh(remote, "rev-parse", "refs/heads/main")).toBe(head);
+  });
+});
+
+/** A nested repository `sub` whose own config has a clean filter that leaves a mark. */
+async function nestedRepo(name: string, mark: string): Promise<string> {
+  const sub = join(repo, name);
+  mkdirSync(sub);
+  writeFileSync(join(sub, "f.txt"), "one\n");
+  writeFileSync(join(sub, ".gitattributes"), "* filter=x\n");
+  await sh(sub, "init", "--quiet", "--initial-branch=main");
+  await sh(sub, "config", "user.name", "X");
+  await sh(sub, "config", "user.email", "x@example.com");
+  await sh(sub, "config", "commit.gpgsign", "false");
+  await sh(sub, "add", ".");
+  await sh(sub, "commit", "--quiet", "-m", "sub");
+  // Only now the driver, in the submodule's own config (assertOwnRepository reads the top one).
+  await sh(sub, "config", "filter.x.clean", `sh -c 'touch ${mark}; cat'`);
+  return sub;
+}
+
+const marked = (m: string) => {
+  try {
+    readFileSync(m);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+describe("submodules (review of #1425 r2)", () => {
+  const SUBMODULES = /repositories with submodules aren't supported by code\.git yet/;
+  const mark = () => join(dir, "SUBMODULE_FILTER_RAN");
+
+  it("S1: a committed gitlink whose submodule has a filter: open, status and diff run nothing", async () => {
+    const sub = await nestedRepo("sub", mark());
+    await sh(repo, "add", "sub");
+    await sh(repo, "commit", "--quiet", "-m", "gitlink");
+    writeFileSync(join(sub, "f.txt"), "two\n");
+    const use = setup();
+    const opened = await use("code.open", { path: repo });
+    expect(opened.output.git).toEqual({ error: expect.stringMatching(SUBMODULES) });
+    for (const op of ["status", "diff", "log"]) {
+      await expect(use("code.git", { root: repo, op }), op).rejects.toThrow(SUBMODULES);
+    }
+    expect(marked(mark())).toBe(false);
+  });
+
+  it("S2: a commit never stages a nested repository, and status after it runs nothing", async () => {
+    const sub = await nestedRepo("nested", mark());
+    writeFileSync(join(sub, "f.txt"), "two\n");
+    writeFileSync(join(repo, "b.txt"), "b\n");
+    const use = setup();
+    await use("code.open", { path: repo });
+    const before = await sh(repo, "rev-parse", "HEAD");
+    await expect(
+      use("code.git", { root: repo, op: "commit", message: "add nested" }),
+    ).rejects.toThrow(/nested is a nested repository/);
+    expect(await sh(repo, "rev-parse", "HEAD")).toBe(before);
+    // Not left in the index as a gitlink: the repository still has code.git.
+    expect(await sh(repo, "ls-files", "--stage", "nested")).toBe("");
+    const status = await use("code.git", { root: repo, op: "status" });
+    expect(status.output).toMatchObject({ branch: "main" });
+    expect(marked(mark())).toBe(false);
+    // Leaving it out of the paths commits the rest.
+    const c = await use("code.git", { root: repo, op: "commit", message: "b", paths: ["b.txt"] });
+    expect(c.output.commit).toMatch(/^[0-9a-f]{40}$/);
+    expect(marked(mark())).toBe(false);
+  });
+
+  it("S3: submodule.recurse=true in the top config: a branch switch is refused and runs nothing", async () => {
+    await nestedRepo("sub", mark());
+    await sh(repo, "add", "sub");
+    await sh(repo, "commit", "--quiet", "-m", "gitlink");
+    await sh(repo, "branch", "other");
+    await sh(repo, "config", "submodule.recurse", "true");
+    const use = setup();
+    await use("code.open", { path: repo });
+    await expect(use("code.git", { root: repo, op: "branch", name: "other" })).rejects.toThrow(
+      SUBMODULES,
+    );
+    expect(marked(mark())).toBe(false);
+  });
+
+  it("refuses a repository with .git/modules", async () => {
+    mkdirSync(join(repo, ".git/modules/x"), { recursive: true });
+    const use = setup();
+    await use("code.open", { path: repo });
+    await expect(use("code.git", { root: repo, op: "status" })).rejects.toThrow(
+      /\.git\/modules exists/,
+    );
+  });
+
+  it("S4: the hardening and the argv keep status, diff and switch out of the submodule", async () => {
+    // `git` directly: the submodule refusal is skipped, only GIT_HARDENING and argv apply.
+    const sub = await nestedRepo("sub", mark());
+    await sh(repo, "add", "sub");
+    await sh(repo, "commit", "--quiet", "-m", "gitlink");
+    const run = async (args: string[]) => {
+      writeFileSync(join(sub, "f.txt"), `${args.join(" ")}\n`);
+      await git(hostGit, repo, args);
+      expect(marked(mark()), args.join(" ")).toBe(false);
+    };
+    // GIT_HARDENING's diff.ignoreSubmodules=all alone, for the commands code.git runs.
+    await run(["status", "--porcelain=v1", "--branch", "--untracked-files=all"]);
+    await run(["diff", "--no-ext-diff", "--no-textconv", "--no-color"]);
+    await run(["diff", "--cached", "--quiet"]);
+    // A `.gitmodules` with `ignore = none` beats that config, not the argv flag tools.ts passes.
+    writeFileSync(
+      join(repo, ".gitmodules"),
+      '[submodule "sub"]\n\tpath = sub\n\turl = ./sub\n\tignore = none\n',
+    );
+    await run([
+      "status",
+      "--porcelain=v1",
+      "--branch",
+      "--untracked-files=all",
+      "--ignore-submodules=all",
+    ]);
+    await run(["diff", "--no-ext-diff", "--no-textconv", "--no-color", "--ignore-submodules=all"]);
+    rmSync(join(repo, ".gitmodules"));
+    await sh(sub, "checkout", "--", "f.txt");
+    await sh(repo, "branch", "other");
+    await sh(repo, "config", "submodule.recurse", "true");
+    // The checkout above ran in the submodule itself (its filter is the setup's, not ours).
+    rmSync(mark(), { force: true });
+    await git(hostGit, repo, ["switch", "other"]);
+    expect(marked(mark())).toBe(false);
   });
 });
