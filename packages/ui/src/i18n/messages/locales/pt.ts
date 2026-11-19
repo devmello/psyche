@@ -1581,6 +1581,38 @@ export const pt: Partial<Catalogue> = {
   "settings.mcp.env.value": "Valor",
   "settings.mcp.env.namePlaceholder": "API_BASE_URL",
   "settings.mcp.env.saved": "Guardado",
+  "settings.mcp.updated": "{name} atualizado.",
+  "settings.mcp.edit.group": "Editar e testar",
+  "settings.mcp.edit.action": "Editar",
+  "settings.mcp.edit.title": "Editar {name}",
+  "settings.mcp.edit.intro":
+    "Mudar o que é executado ou onde ele se conecta pede a tua aprovação de novo. O servidor atual continua funcionando até você aprovar.",
+  "settings.mcp.edit.save": "Salvar alterações",
+  "settings.mcp.edit.loadFailed":
+    "Não foi possível carregar as configurações deste servidor. {reason}",
+  "settings.mcp.edit.locked":
+    "O comando e a conexão deste servidor não podem ser editados. Remova-o e adicione outro para mudá-los.",
+  "settings.mcp.test.action": "Testar conexão",
+  "settings.mcp.test.running": "Testando…",
+  "settings.mcp.test.hint": "Verifica de novo a configuração salva. Nada muda.",
+  "settings.mcp.test.paused": "Ative este servidor para testá-lo.",
+  "settings.mcp.test.ok":
+    "Funciona. {n, plural, one {# ferramenta disponível} other {# ferramentas disponíveis}}.",
+  "settings.mcp.test.failed": "Não funcionou: {reason}",
+  "settings.mcp.trust.updateTitle": "Atualizar {name}?",
+  "settings.mcp.trust.updateIntro":
+    "A Psyche executou a nova configuração no sandbox e encontrou estas ferramentas. O servidor atual continua funcionando até você aprovar.",
+  "settings.mcp.trust.change.title": "O que muda",
+  "settings.mcp.trust.change.none": "nenhum",
+  "settings.mcp.trust.change.was": "Antes: {value}",
+  "settings.mcp.trust.change.now": "Agora: {value}",
+  "settings.mcp.trust.change.command": "Comando",
+  "settings.mcp.trust.change.url": "Endereço",
+  "settings.mcp.trust.change.domains": "Domínios permitidos",
+  "settings.mcp.trust.change.auth": "Login",
+  "settings.mcp.trust.change.envAdded": "Variáveis adicionadas",
+  "settings.mcp.trust.change.envRemoved": "Variáveis removidas",
+  "settings.mcp.trust.change.envChanged": "Variáveis alteradas",
   "settings.mcp.env.add": "Adicionar variável",
   "settings.mcp.env.badName":
     "Os nomes usam letras maiúsculas, dígitos e sublinhados, e começam com uma letra ou sublinhado.",

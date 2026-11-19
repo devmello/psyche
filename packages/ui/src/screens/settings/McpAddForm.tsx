@@ -1,3 +1,4 @@
+import type { McpServerChanges, McpServerConfigView } from "@psyche/protocol";
 import { type ReactElement, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
@@ -6,7 +7,9 @@ import { Textarea } from "../../components/ui/textarea.tsx";
 import { t } from "../../i18n/core.ts";
 import { McpEnvRows } from "./McpEnvRows.tsx";
 import {
+  draftOf,
   EMPTY_DRAFT,
+  editChanges,
   envNamesValid,
   isSecretEnvName,
   type McpDraft,
@@ -34,6 +37,7 @@ export function McpAddForm({
   onCheck,
   onCancel,
   onSandboxReady,
+  edit,
 }: {
   commandsAllowed: boolean;
   checking: boolean;
@@ -41,12 +45,26 @@ export function McpAddForm({
   onCancel: () => void;
   /** After the guided sandbox setup: reload what the Gateway allows. */
   onSandboxReady?: (() => void) | undefined;
+  /**
+   * Editing a server already added: the form opens prefilled (secrets show "Saved", never a
+   * value) and Save runs the update flow instead of Check server.
+   */
+  edit?:
+    | {
+        config: McpServerConfigView;
+        onSave: (changes: McpServerChanges, secrets: McpSecret[]) => void;
+      }
+    | undefined;
 }): ReactElement {
   const id = useId();
-  const [d, setD] = useState<McpDraft>({
-    ...EMPTY_DRAFT,
-    kind: commandsAllowed ? "command" : "url",
-  });
+  const [d, setD] = useState<McpDraft>(
+    edit
+      ? draftOf(edit.config)
+      : {
+          ...EMPTY_DRAFT,
+          kind: commandsAllowed ? "command" : "url",
+        },
+  );
   const [pasting, setPasting] = useState(false);
   const [json, setJson] = useState("");
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -68,6 +86,22 @@ export function McpAddForm({
   /** Pasted keys and typed env values both go to the vault before the probe, never into config. */
   const submit = () => {
     const nonce = Math.random().toString(36).slice(2, 6);
+    if (edit) {
+      const r = editChanges(edit.config, d, nonce);
+      if (r.secrets.length > 0) {
+        // The values are stored: clear them from the form, so nothing reads back.
+        setD((prev) => ({
+          ...prev,
+          env: (prev.env ?? []).map((row) =>
+            isSecretEnvName(row.name.trim()) && row.value !== ""
+              ? { ...row, value: "", saved: true }
+              : row,
+          ),
+        }));
+      }
+      edit.onSave(r.changes, r.secrets);
+      return;
+    }
     let input = toServerInput(d);
     let secrets: McpSecret[] = [];
     if (imported && imported.draft.kind === d.kind) {
@@ -98,7 +132,9 @@ export function McpAddForm({
     if (result.servers.length === 1 && result.servers[0]) fill(result.servers[0]);
     else setChoices(result.servers);
   };
+  const dirty = edit ? Object.keys(editChanges(edit.config, d, "x").changes).length > 0 : true;
   const ready =
+    dirty &&
     d.name.trim() !== "" &&
     (d.kind === "url"
       ? /^https:\/\/\S+$/.test(d.url.trim())
@@ -118,9 +154,11 @@ export function McpAddForm({
     : [];
   return (
     <>
-      <p className="text-sm text-muted-foreground">{t("settings.mcp.addHint")}</p>
+      <p className="text-sm text-muted-foreground">
+        {edit ? t("settings.mcp.edit.intro") : t("settings.mcp.addHint")}
+      </p>
       <div className="flex flex-col gap-2">
-        {pasting ? (
+        {edit ? null : pasting ? (
           <>
             <Label htmlFor={`${id}-json`}>{t("settings.mcp.json.label")}</Label>
             <Textarea
@@ -192,25 +230,27 @@ export function McpAddForm({
           onChange={(e) => setD({ ...d, name: e.target.value })}
         />
       </div>
-      <RadioField
-        label={t("settings.mcp.how")}
-        value={d.kind}
-        onChange={(kind) => setD({ ...d, kind })}
-        options={[
-          {
-            value: "command",
-            label: t("settings.mcp.kind.command"),
-            hint: commandsAllowed
-              ? t("settings.mcp.kind.commandHint")
-              : t("settings.mcp.kind.commandUnavailable"),
-          },
-          {
-            value: "url",
-            label: t("settings.mcp.kind.url"),
-            hint: t("settings.mcp.kind.urlHint"),
-          },
-        ]}
-      />
+      {edit ? null : (
+        <RadioField
+          label={t("settings.mcp.how")}
+          value={d.kind}
+          onChange={(kind) => setD({ ...d, kind })}
+          options={[
+            {
+              value: "command",
+              label: t("settings.mcp.kind.command"),
+              hint: commandsAllowed
+                ? t("settings.mcp.kind.commandHint")
+                : t("settings.mcp.kind.commandUnavailable"),
+            },
+            {
+              value: "url",
+              label: t("settings.mcp.kind.url"),
+              hint: t("settings.mcp.kind.urlHint"),
+            },
+          ]}
+        />
+      )}
       {!commandsAllowed && onSandboxReady ? (
         <SandboxNotice message={t("settings.mcp.sandboxHelp")} onReady={onSandboxReady} />
       ) : null}
@@ -264,7 +304,11 @@ export function McpAddForm({
           disabled={!ready || checking || (d.kind === "command" && !commandsAllowed)}
           onClick={submit}
         >
-          {checking ? t("settings.mcp.checking") : t("settings.mcp.check")}
+          {checking
+            ? t("settings.mcp.checking")
+            : edit
+              ? t("settings.mcp.edit.save")
+              : t("settings.mcp.check")}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           {t("common.cancel")}

@@ -47,6 +47,8 @@ import {
   type LinkSetupStatus,
   type McpApp,
   type McpProposal,
+  type McpServerChanges,
+  type McpServerConfigView,
   type McpServerSecret,
   type McpServerStatus,
   type McpServerTool,
@@ -469,7 +471,14 @@ export class MockGateway implements GatewayClient {
     },
   };
 
-  private mcpProposals = new Map<string, { proposal: McpProposal; approvalId: string }>();
+  private mcpProposals = new Map<
+    string,
+    { proposal: McpProposal; approvalId: string; update?: McpServerChanges }
+  >();
+  /** What `mcp.config` shows, by server id (stories, tests); set when a server is added. */
+  private mcpConfigs = new Map<string, McpServerConfigView>();
+  /** Set to make `mcp.test` fail with this reason (stories, tests). */
+  mcpTestError: string | null = null;
   /** Code of the servers Psyche made (`mcp.files.*`), by server id then path. */
   private mcpFiles = new Map<string, Map<string, string>>();
   /** What an added server's detail shows: its tools (the owner's switches) and secrets by name. */
@@ -499,9 +508,25 @@ export class MockGateway implements GatewayClient {
   /** A server already added, with the tools and secrets its detail shows (stories, tests). */
   seedMcpServer(
     server: McpServerStatus,
-    detail: { tools?: McpServerTool[]; secrets?: McpServerSecret[] } = {},
+    detail: {
+      tools?: McpServerTool[];
+      secrets?: McpServerSecret[];
+      config?: Partial<McpServerConfigView>;
+    } = {},
   ): void {
     this.mcpServers.push(structuredClone(server));
+    this.mcpConfigs.set(server.id, {
+      id: server.id,
+      name: server.name,
+      kind: server.transport === "http" ? "url" : "command",
+      ...(server.transport === "http"
+        ? { url: "https://mcp.example.com/mcp" }
+        : { command: ["npx", "-y", server.id] }),
+      allowedDomains: [],
+      envNames: (detail.secrets ?? []).map((x) => x.name),
+      editable: true,
+      ...structuredClone(detail.config ?? {}),
+    });
     this.mcpDetail.set(server.id, {
       tools: structuredClone(detail.tools ?? []),
       secrets: structuredClone(detail.secrets ?? []),
@@ -3057,6 +3082,23 @@ export class MockGateway implements GatewayClient {
         fail("approval_required", "adding an MCP server needs its approved trust card");
       this.mcpProposals.delete(p.proposalId);
       const s = staged.proposal.server;
+      if (staged.update !== undefined) {
+        // An approved edit: the server takes the new config and keeps running.
+        const cfg = this.mcpConfigs.get(s.id);
+        const live = this.mcpServers.find((x) => x.id === s.id);
+        if (cfg === undefined || live === undefined) fail("not_found", `no MCP server ${s.id}`);
+        const ch = staged.update;
+        if (ch.name !== undefined) cfg.name = live.name = ch.name;
+        if (ch.command !== undefined) cfg.command = [...ch.command];
+        if (ch.url !== undefined) cfg.url = ch.url;
+        if (ch.allowedDomains !== undefined) cfg.allowedDomains = [...ch.allowedDomains];
+        for (const [k, v] of Object.entries(ch.env ?? {})) {
+          if (v === null) cfg.envNames = cfg.envNames.filter((n) => n !== k);
+          else if (!cfg.envNames.includes(k)) cfg.envNames.push(k);
+        }
+        live.connected = true;
+        return { server: structuredClone(live) };
+      }
       const made = this.mcpServers.find((x) => x.id === s.id && x.madeBy === "psyche");
       if (made !== undefined) {
         // An update of a connector Psyche wrote: the new code starts, the entry stays.
@@ -3074,6 +3116,15 @@ export class MockGateway implements GatewayClient {
       };
       this.mcpServers.push(server);
       const t = s.transport;
+      this.mcpConfigs.set(s.id, {
+        id: s.id,
+        name: s.name,
+        kind: t.kind === "stdio" ? "command" : "url",
+        ...(t.kind === "stdio" ? { command: [...t.command] } : { url: t.url }),
+        allowedDomains: [...(s.allowedDomains ?? [])],
+        envNames: t.kind === "stdio" ? Object.keys(t.env ?? {}) : [],
+        editable: true,
+      });
       this.mcpDetail.set(s.id, {
         tools: staged.proposal.tools.map((x) => ({
           name: x.name,
@@ -3186,6 +3237,106 @@ export class MockGateway implements GatewayClient {
       });
       this.mcpProposals.set(proposal.id, { proposal, approvalId: approval.id });
       return { proposal, approval };
+    },
+    "mcp.config": (p) => {
+      this.mcpServer(p.serverId);
+      const c = this.mcpConfigs.get(p.serverId) ?? fail("not_found", `no MCP server ${p.serverId}`);
+      return { config: structuredClone(c) };
+    },
+    "mcp.update": (p) => {
+      const live = this.mcpServer(p.id);
+      const cfg = this.mcpConfigs.get(p.id) ?? fail("not_found", `no MCP server ${p.id}`);
+      const { name, ...rest } = p.changes;
+      if (Object.keys(rest).length === 0) {
+        // Only the display name: applies at once, no card.
+        if (name !== undefined) cfg.name = live.name = name;
+        return { applied: true, server: structuredClone(live) };
+      }
+      const now = this.now();
+      const proposal: McpProposal = {
+        id: this.id("mcpp"),
+        server: {
+          id: p.id,
+          name: name ?? live.name,
+          transport:
+            cfg.kind === "url"
+              ? { kind: "http", url: rest.url ?? cfg.url ?? "https://mcp.example.com/mcp" }
+              : { kind: "stdio", command: rest.command ?? cfg.command ?? [] },
+        },
+        tools: [
+          {
+            name: "search_files",
+            description: "Search files by name.",
+            sideEffect: "read",
+            warnings: [],
+            blocked: false,
+          },
+        ],
+        toolsListHash: `sha256:${"d".repeat(64)}`,
+        network: { reaches: cfg.kind === "url", hosts: [] },
+        isolation: cfg.kind === "url" ? "remote" : "srt",
+        expiresAt: Date.parse(now) + 30 * 60_000,
+      };
+      const approval = this.requestApproval({
+        id: this.id("apr"),
+        kind: "skill_install",
+        summary: `Update MCP server "${live.name}"`,
+        details: {
+          kind: "mcp_server",
+          id: p.id,
+          name: live.name,
+          replaces: true,
+          tools: ["read search_files"],
+          change: {
+            fields: Object.keys(rest),
+            ...(rest.command === undefined
+              ? {}
+              : { oldCommand: (cfg.command ?? []).join(" "), newCommand: rest.command.join(" ") }),
+            ...(rest.url === undefined ? {} : { oldUrl: cfg.url ?? "", newUrl: rest.url }),
+            ...(rest.env === undefined
+              ? {}
+              : {
+                  envAdded: Object.entries(rest.env)
+                    .filter(([k, v]) => v !== null && !cfg.envNames.includes(k))
+                    .map(([k]) => k),
+                  envRemoved: Object.entries(rest.env)
+                    .filter(([, v]) => v === null)
+                    .map(([k]) => k),
+                }),
+          },
+        },
+        bindingHash: `sha256:${"e".repeat(64)}`,
+        grantKey: `sha256:${"f".repeat(64)}`,
+        requestedBy: { runId: null, taskId: null, threadId: null },
+        sideEffect: "destructive",
+        surfaces: ["desktop", "web"],
+        scopesOffered: ["once"],
+        deviceOnly: true,
+        requiresAuthentication: false,
+        taint: false,
+        status: "pending",
+        scopeGranted: null,
+        decidedBy: null,
+        requestedAt: now,
+        expiresAt: new Date(Date.parse(now) + 30 * 60_000).toISOString(),
+        decidedAt: null,
+        grantId: null,
+      });
+      this.mcpProposals.set(proposal.id, {
+        proposal,
+        approvalId: approval.id,
+        update: structuredClone(p.changes),
+      });
+      return { applied: false, server: structuredClone(live), proposal, approval };
+    },
+    "mcp.test": (p) => {
+      const s = this.mcpServer(p.id);
+      if (s.enabled === false) fail("unavailable", "the server is paused; turn it on to test it");
+      if (this.mcpTestError !== null) {
+        return { ok: false, toolCount: 0, tools: [] as string[], error: this.mcpTestError };
+      }
+      const tools = this.mcpDetailOf(p.id).tools.map((x) => x.name);
+      return { ok: true, toolCount: tools.length, tools };
     },
     "mcp.tools": (p) => {
       const s = this.mcpServer(p.serverId);

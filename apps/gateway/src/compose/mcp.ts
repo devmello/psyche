@@ -38,6 +38,7 @@ import { connectorBundles } from "./connector-bundles.ts";
 import { TURN_ON_SANDBOX_PC } from "./guest-sandbox.ts";
 import { type McpAdder, mcpAdder } from "./mcp-add.ts";
 import { mcpAppHandler } from "./mcp-app.ts";
+import { mcpEditHandlers } from "./mcp-edit.ts";
 import { mcpGrantRevocation } from "./mcp-grants.ts";
 import { mcpManageHandlers } from "./mcp-manage.ts";
 import { selfConnectorStore, selfConnectors } from "./self-connectors.ts";
@@ -377,9 +378,9 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
   /** The tool choices each running server's registrations were made with. */
   const offered = new Map<string, string>();
   const choices = (c: PsycheMcpServerConfig | undefined) => JSON.stringify(c?.disabledTools ?? []);
-  /** What a change of these does not need a restart for: tools re-register, a switch adds or removes. */
+  /** What a change of these does not need a restart for: tools re-register, a switch adds or removes, a rename. */
   const runKey = (c: PsycheMcpServerConfig) => {
-    const { disabledTools: _tools, enabled: _enabled, ...rest } = c;
+    const { disabledTools: _tools, enabled: _enabled, name: _name, ...rest } = c;
     return JSON.stringify(rest);
   };
   const add = async (config: PsycheMcpServerConfig) => {
@@ -582,6 +583,23 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
         running: (id) => registrations.has(id),
         withheld: (id, tool) => known.get(id)?.disabledTools?.includes(tool) === true,
         host,
+      }),
+      // Editing a server in place and testing an approved one.
+      ...mcpEditHandlers({
+        services,
+        settingKey: MCP_SERVERS_SETTING,
+        adder,
+        apply: (value) => {
+          void enqueue(value);
+          return Promise.resolve();
+        },
+        status: statusOf,
+        ping: async (id) =>
+          registrations.has(id)
+            ? (await host.listTools(id)).tools.map((t) =>
+                t.name.startsWith(`mcp__${id}__`) ? t.name.slice(`mcp__${id}__`.length) : t.name,
+              )
+            : undefined,
       }),
       // A server's detail (tools, on/off, secrets).
       ...mcpManageHandlers({
