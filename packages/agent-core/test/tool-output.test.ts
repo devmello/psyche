@@ -6,6 +6,7 @@ import {
   capToolOutput,
   estimateMessagesTokens,
   type ImageShaper,
+  ImageShaperBusy,
   isImageRejection,
   keepRecentToolImages,
   normalizeToolOutput,
@@ -711,5 +712,40 @@ describe("image rejection errors", () => {
     await runTurn(h, "look");
     expect(h.provider.requests).toHaveLength(3);
     expect(usages.at(-1)).toEqual({ promptTokens: 777, estimated: false });
+  });
+});
+
+/** #1426 review: a shaper that is busy gives a "busy" note; the run's signal reaches it. */
+describe("shaper busy and signal", () => {
+  it("an ImageShaperBusy refusal becomes a busy note, other failures stay unreadable", async () => {
+    const block = { blocks: [{ type: "image", data: PNG, mimeType: "image/png" }] };
+    expect(
+      await normalizeToolOutput(block, {
+        shaper: async () => {
+          throw new ImageShaperBusy();
+        },
+      }),
+    ).toEqual([{ type: "text", text: "[image omitted: busy]" }]);
+  });
+
+  it("the loop hands the run's abort signal to the shaper", async () => {
+    const seen: unknown[] = [];
+    const h = harness({
+      script: [calls({ id: "c1", name: "shot", input: {} }), say("ok")],
+      vision: true,
+      loop: {
+        toolImageShaper: async (b, m, signal) => {
+          seen.push(signal);
+          return copy(b, m);
+        },
+      },
+    });
+    h.loop.registry.register({
+      spec: spec("shot", "none"),
+      execute: async () => ({ output: SHAPES["browser.screenshot"], provenance: "untrusted" }),
+    });
+    await runTurn(h, "look");
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toBeInstanceOf(AbortSignal);
   });
 });

@@ -3,7 +3,14 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { IMAGE_MAX_EDGE, imageSize, MAX_IMAGE_PIXELS, MAX_IMAGE_SIDE_PX } from "@psyche/agent-core";
+import { inflateSync } from "node:zlib";
+import {
+  IMAGE_MAX_EDGE,
+  ImageShaperBusy,
+  imageSize,
+  MAX_IMAGE_PIXELS,
+  MAX_IMAGE_SIDE_PX,
+} from "@psyche/agent-core";
 
 const run = promisify(execFile);
 
@@ -45,36 +52,58 @@ export async function downscaleImage(
   }
 }
 
-/**
- * A tool's image (a screenshot, an MCP server's picture: untrusted bytes) decoded and written
- * again, its long edge cut to `maxEdge`: JPEG stays JPEG, everything else becomes PNG. Unlike
- * `downscaleImage` it never hands back the input. It throws when the image cannot be decoded or
- * no encoder is available (a Linux Gateway without `@napi-rs/canvas`), and the caller then sends
- * a note instead. A header over 8000 px or 40 MP is refused before any decoder runs, and the
- * header is parsed strictly (`imageSize`), so the decoder never sees a decompression bomb.
- */
 /** Tool images decoded at once in this process, whatever the number of parallel tool calls. */
 export const TOOL_IMAGE_DECODES = 2;
+/** Tool images that may wait for a decoder; one more is refused at once as busy. */
+export const TOOL_IMAGE_QUEUE = 8;
 /**
  * Pixels the in-process (canvas) decoder takes: it decodes inside psyched, so it is held below
  * the 40 MP that sips and WIC (separate processes) take. Screenshots are about 5 MP.
  */
 export const CANVAS_MAX_PIXELS = 16_000_000;
 
+export interface LimitOptions<A extends unknown[]> {
+  /** Calls that may wait; past it a call throws `busy()` at once instead of queueing. */
+  maxWaiting?: number;
+  busy?: () => Error;
+  /** The call's abort signal: a waiting call whose signal aborts leaves the queue and rejects. */
+  signalOf?: (args: A) => AbortSignal | undefined;
+}
+
 /**
- * `fn` with at most `limit` calls running at once; the rest wait in order. A call that throws
- * frees its slot like one that returns.
+ * `fn` with at most `limit` calls running at once; the rest wait in order, up to `maxWaiting`.
+ * A call that throws frees its slot like one that returns.
  */
 export function limitConcurrency<A extends unknown[], R>(
   fn: (...args: A) => Promise<R>,
   limit: number,
+  opts: LimitOptions<A> = {},
 ): Limited<A, R> {
   let running = 0;
   const waiting: (() => void)[] = [];
+  const aborted = (signal: AbortSignal) =>
+    signal.reason instanceof Error ? signal.reason : new DOMException("aborted", "AbortError");
   const limited = async (...args: A) => {
+    const signal = opts.signalOf?.(args);
+    if (signal?.aborted === true) throw aborted(signal);
     // A freed slot passes straight to the next waiter, so `running` never overshoots.
-    if (running >= limit) await new Promise<void>((resolve) => waiting.push(resolve));
-    else running++;
+    if (running >= limit) {
+      if (opts.maxWaiting !== undefined && waiting.length >= opts.maxWaiting)
+        throw opts.busy?.() ?? new Error("busy");
+      await new Promise<void>((resolve, reject) => {
+        const go = () => {
+          signal?.removeEventListener("abort", onAbort);
+          resolve();
+        };
+        const onAbort = () => {
+          const i = waiting.indexOf(go);
+          if (i >= 0) waiting.splice(i, 1);
+          reject(aborted(signal as AbortSignal));
+        };
+        signal?.addEventListener("abort", onAbort, { once: true });
+        waiting.push(go);
+      });
+    } else running++;
     try {
       return await fn(...args);
     } finally {
@@ -99,19 +128,27 @@ export type Limited<A extends unknown[], R> = ((...args: A) => Promise<R>) & {
  * a note instead. A header over 8000 px or 40 MP (16 MP for the in-process decoder) is refused
  * before any decoder runs, and the header is parsed strictly (`imageSize`), so the decoder never
  * sees a decompression bomb. At most `TOOL_IMAGE_DECODES` run at once in the process, however
- * many tool calls run in parallel. A JPEG's EXIF orientation is applied (Skia does it itself; on
- * the Mac, sips steps), then all metadata but the colour profile is removed.
+ * many tool calls run in parallel, and at most `TOOL_IMAGE_QUEUE` wait: past that it throws
+ * `ImageShaperBusy` at once, and a waiting call whose run aborts (`signal`) is dropped. A JPEG's
+ * EXIF orientation is applied (Skia does it itself; on the Mac, sips steps), then all metadata
+ * but a small colour profile is removed.
  */
 export const reencodeToolImage: Limited<
-  [bytes: Buffer, mime: string, maxEdge?: number, platform?: NodeJS.Platform],
+  [bytes: Buffer, mime: string, maxEdge?: number, platform?: NodeJS.Platform, signal?: AbortSignal],
   Buffer
-> = limitConcurrency(reencodeNow, TOOL_IMAGE_DECODES);
+> = limitConcurrency(reencodeNow, TOOL_IMAGE_DECODES, {
+  maxWaiting: TOOL_IMAGE_QUEUE,
+  busy: () => new ImageShaperBusy(),
+  signalOf: (args) => args[4],
+});
 
 async function reencodeNow(
   bytes: Buffer,
   mime: string,
   maxEdge: number = IMAGE_MAX_EDGE,
   platform: NodeJS.Platform = process.platform,
+  // Read by the limiter only: once a decode runs it finishes.
+  _signal?: AbortSignal,
 ): Promise<Buffer> {
   const size = imageSize(bytes);
   if (size === undefined) throw new Error("unreadable image header");
@@ -253,12 +290,45 @@ async function canvasReencode(
  */
 const PNG_KEEP = new Set(["IHDR", "PLTE", "tRNS", "sRGB", "iCCP", "cICP", "IDAT", "IEND"]);
 
+/** Largest colour profile kept: system profiles are a few hundred bytes (Display P3: 536). */
+export const ICC_MAX_BYTES = 8 * 1024;
+
+const isIccSegment = (b: Buffer, o: number) =>
+  b[o + 1] === 0xe2 && b.subarray(o + 4, o + 16).toString("latin1") === "ICC_PROFILE\u0000";
+
+/** Byte lengths of a JPEG's ICC_PROFILE APP2 segments before SOS (whole segments). */
+function jpegIccSegments(b: Buffer): number[] {
+  const out: number[] = [];
+  let o = 2;
+  while (o + 4 <= b.length && b[o] === 0xff && b[o + 1] !== 0xda) {
+    const len = b.readUInt16BE(o + 2);
+    if (isIccSegment(b, o)) out.push(2 + len);
+    o += 2 + len;
+  }
+  return out;
+}
+
 /**
- * An encoder's output with its metadata removed. PNG keeps IHDR, PLTE, tRNS, sRGB, iCCP, cICP,
- * IDAT and IEND (text, EXIF and time chunks go). JPEG drops COM and APP1-APP13 and APP15 (EXIF,
- * XMP, IPTC) except an APP2 that holds an ICC profile, and keeps APP0 (JFIF), APP14 (Adobe
- * colour transform) and everything the decoder needs; past SOS the data is copied as is. Throws
- * on output that does not parse.
+ * Whether a PNG iCCP chunk's data (name, NUL, method 0, zlib stream) is a profile small enough
+ * to keep: it must inflate to at most `ICC_MAX_BYTES`. Inflating stops at that size.
+ */
+function smallIccp(data: Buffer): boolean {
+  const nul = data.indexOf(0);
+  if (nul < 1 || nul > 79 || data[nul + 1] !== 0) return false;
+  try {
+    return inflateSync(data.subarray(nul + 2), { maxOutputLength: ICC_MAX_BYTES }).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * An encoder's output with its metadata removed. PNG keeps IHDR, PLTE, tRNS, sRGB, cICP, IDAT
+ * and IEND, and iCCP when it inflates to at most 8 KB (text, EXIF and time chunks go). JPEG
+ * drops COM and APP1-APP13 and APP15 (EXIF, XMP, IPTC), except an ICC profile APP2 that is the
+ * only one and at most 8 KB, and keeps APP0 (JFIF), APP14 (Adobe colour transform) and
+ * everything the decoder needs; past SOS the data is copied as is. A profile that does not
+ * qualify is dropped, and the colours fall back to sRGB. Throws on output that does not parse.
  */
 export function stripImageMetadata(b: Buffer): Buffer {
   if (b[0] === 0x89 && b.subarray(1, 4).toString("latin1") === "PNG") {
@@ -269,7 +339,8 @@ export function stripImageMetadata(b: Buffer): Buffer {
       const end = o + 12 + len;
       if (end > b.length) throw new Error("truncated PNG chunk");
       const type = b.subarray(o + 4, o + 8).toString("latin1");
-      if (PNG_KEEP.has(type)) kept.push(b.subarray(o, end));
+      const keep = type === "iCCP" ? smallIccp(b.subarray(o + 8, end - 4)) : PNG_KEEP.has(type);
+      if (keep) kept.push(b.subarray(o, end));
       o = end;
       if (type === "IEND") return Buffer.concat(kept);
     }
@@ -277,6 +348,10 @@ export function stripImageMetadata(b: Buffer): Buffer {
   }
   if (b[0] === 0xff && b[1] === 0xd8) {
     const kept: Buffer[] = [b.subarray(0, 2)];
+    // A profile is kept only whole in one small segment: sips copies a source's profile verbatim,
+    // so a multi-segment one could carry megabytes of arbitrary bytes past the strip.
+    const iccSegments = jpegIccSegments(b);
+    const keepIcc = iccSegments.length === 1 && (iccSegments[0] ?? 0) <= ICC_MAX_BYTES;
     let o = 2;
     while (o + 4 <= b.length) {
       if (b[o] !== 0xff) throw new Error("bad JPEG marker");
@@ -284,10 +359,10 @@ export function stripImageMetadata(b: Buffer): Buffer {
       if (marker === 0xda) return Buffer.concat([...kept, b.subarray(o)]);
       const end = o + 2 + b.readUInt16BE(o + 2);
       if (end > b.length) throw new Error("truncated JPEG segment");
-      const icc =
-        marker === 0xe2 && b.subarray(o + 4, o + 16).toString("latin1") === "ICC_PROFILE\u0000";
+      const icc = isIccSegment(b, o);
       const metadata =
-        marker === 0xfe || (marker >= 0xe1 && marker <= 0xef && marker !== 0xee && !icc);
+        marker === 0xfe ||
+        (marker >= 0xe1 && marker <= 0xef && marker !== 0xee && !(icc && keepIcc));
       if (!metadata) kept.push(b.subarray(o, end));
       o = end;
     }

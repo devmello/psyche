@@ -3124,6 +3124,7 @@ export class PsycheAgentLoop implements AgentLoop {
   async #shape(run: RunState, output: unknown, failed: boolean): Promise<unknown> {
     let shaped = await normalizeToolOutput(output, {
       failed,
+      signal: run.abort.signal,
       ...(this.#o.toolImageShaper === undefined ? {} : { shaper: this.#o.toolImageShaper }),
     });
     if (isPartList(shaped) && shaped.some((p) => p.type === "image")) {
