@@ -257,10 +257,13 @@ export function alertMessage(alert: SecurityAlert): NoticeMessage {
   const key = d.deviceFingerprint?.replace(/^sha256:/, "").slice(0, 16);
   const device = d.deviceName ?? "?";
   const stateOf = (k: SecurityAlertKind) => k.replace("recovery_", "");
-  const op =
-    { "devices.approve": "approve", "devices.grant": "grant", "presence.reset": "presence" }[
-      d.op ?? ""
-    ] ?? (d.op === "seal.reset" ? "seal" : "other");
+  const ops: Record<string, string> = {
+    "devices.approve": "approve",
+    "devices.grant": "grant",
+    "presence.reset": "presence",
+    "seal.reset": "seal",
+  };
+  const op = ops[d.op ?? ""] ?? "other";
   switch (alert.kind) {
     case "state_changed_outside":
       return {
