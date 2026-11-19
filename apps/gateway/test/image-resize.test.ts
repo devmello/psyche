@@ -1,7 +1,11 @@
 import { deflateSync } from "node:zlib";
 import { imageSize } from "@psyche/agent-core";
 import { describe, expect, it } from "vitest";
-import { downscaleImage, windowsPowerShell } from "../src/session/image-resize.ts";
+import {
+  downscaleImage,
+  reencodeToolImage,
+  windowsPowerShell,
+} from "../src/session/image-resize.ts";
 
 /** A solid-colour PNG of the given size, built by hand (no image library in the Gateway). */
 function png(width: number, height: number): Buffer {
@@ -37,6 +41,54 @@ function png(width: number, height: number): Buffer {
     chunk("IEND", Buffer.alloc(0)),
   ]);
 }
+
+/** A PNG with a valid signature and IHDR over a garbage body (PR #1397 review round 2, P1). */
+function corruptPng(width: number, height: number): Buffer {
+  const good = png(width, height);
+  const out = Buffer.alloc(4_000);
+  good.copy(out, 0, 0, 33);
+  for (let i = 33; i < out.length; i++) out[i] = (i * 31) & 0xff;
+  return out;
+}
+
+describe("reencodeToolImage", () => {
+  it("throws on a corrupt body under a valid header (Linux: canvas)", async () => {
+    await expect(
+      reencodeToolImage(corruptPng(800, 600), "image/png", 1568, "linux"),
+    ).rejects.toThrow();
+  });
+
+  it("re-encodes a good image on Linux with canvas, as new bytes", async () => {
+    const small = png(40, 30);
+    const out = await reencodeToolImage(small, "image/png", 1568, "linux");
+    expect(out).not.toBe(small);
+    expect(imageSize(out)).toEqual({ width: 40, height: 30 });
+  });
+
+  it.runIf(process.platform === "darwin")(
+    "macOS: sips re-encodes even a small image, cuts a big one, keeps JPEG as JPEG",
+    async () => {
+      const small = png(40, 30);
+      const out = await reencodeToolImage(small, "image/png");
+      expect(out).not.toBe(small);
+      expect(out.subarray(1, 4).toString("ascii")).toBe("PNG");
+      expect(imageSize(out)).toEqual({ width: 40, height: 30 });
+      const big = await reencodeToolImage(png(2000, 1000), "image/png");
+      expect(imageSize(big)).toEqual({ width: 1568, height: 784 });
+      const jpg = await reencodeToolImage(png(64, 48), "image/jpeg");
+      expect([jpg[0], jpg[1]]).toEqual([0xff, 0xd8]);
+    },
+    30_000,
+  );
+
+  it.runIf(process.platform === "darwin")(
+    "macOS: a corrupt body under a valid header throws instead of passing through",
+    async () => {
+      await expect(reencodeToolImage(corruptPng(800, 600), "image/png")).rejects.toThrow();
+    },
+    30_000,
+  );
+});
 
 describe("downscaleImage", () => {
   it("passes small images and GIFs through untouched", async () => {

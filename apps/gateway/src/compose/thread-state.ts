@@ -1,4 +1,9 @@
-import type { ThreadState, ThreadStateStore } from "@psyche/agent-core";
+import {
+  isCheckedImagePart,
+  keepRecentToolImages,
+  type ThreadState,
+  type ThreadStateStore,
+} from "@psyche/agent-core";
 import {
   getAgentThreadState,
   listAllMessages,
@@ -16,6 +21,12 @@ export interface StringMasker {
 function maskDeep(value: unknown, masker: StringMasker): unknown {
   if (typeof value === "string") return masker.redact(value);
   if (Array.isArray(value)) return value.map((v) => maskDeep(v, masker));
+  // Image bytes are not text: masking megabytes of base64 blocks the event loop, and a mask
+  // written into it would corrupt the image. Only data that checks out as an image is skipped.
+  if (isCheckedImagePart(value)) {
+    const { data, ...rest } = value as Record<string, unknown>;
+    return { ...(maskDeep(rest, masker) as Record<string, unknown>), data };
+  }
   if (value !== null && typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, maskDeep(v, masker)]),
@@ -101,7 +112,10 @@ export class SqliteThreadStateStore implements ThreadStateStore {
   }
 
   async save(threadId: string, state: ThreadState): Promise<void> {
-    const safe = this.#masker === null ? state : (maskDeep(state, this.#masker) as ThreadState);
+    // Older tool images are saved as their note: the stored thread holds at most a dozen.
+    const messages = keepRecentToolImages(state.messages);
+    const trimmed = messages === state.messages ? state : { ...state, messages };
+    const safe = this.#masker === null ? trimmed : (maskDeep(trimmed, this.#masker) as ThreadState);
     putAgentThreadState(this.#db, threadId, safe as unknown as Record<string, unknown>);
   }
 }

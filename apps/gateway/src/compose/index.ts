@@ -113,7 +113,7 @@ import { alertNotice, alertNotifyDecision } from "../security/alerts.ts";
 import { sealedPermissionStore } from "../security/sealed-stores.ts";
 import { StateSeal } from "../security/state-seal.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
-import { downscaleImage } from "../session/image-resize.ts";
+import { reencodeToolImage } from "../session/image-resize.ts";
 import { BusySources, UpdateGate } from "../update-gate.ts";
 import {
   API_KEY_IDS,
@@ -1567,8 +1567,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   teachingRef = teaching;
   parts.push(teaching.part);
   const loop = createAgentLoop({
-    // Screenshots and MCP images are cut to 1568 px before the model sees or the thread keeps them.
-    toolImageShaper: (bytes, mime) => downscaleImage(bytes, mime),
+    // Screenshots and MCP images are decoded and re-encoded (cut to 1568 px) before the model sees
+    // or the thread keeps them; one that cannot be decoded becomes a note.
+    toolImageShaper: (bytes, mime) => reencodeToolImage(bytes, mime),
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
     state: new SqliteThreadStateStore(db, redactor, config.home, (threadId, state) =>
       // A life-answer preamble built for a local model is rebuilt before a cloud model reads it.

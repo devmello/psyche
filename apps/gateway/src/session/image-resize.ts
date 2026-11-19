@@ -45,6 +45,76 @@ export async function downscaleImage(
   }
 }
 
+/**
+ * A tool's image (a screenshot, an MCP server's picture: untrusted bytes) decoded and written
+ * again, its long edge cut to `maxEdge`: JPEG stays JPEG, everything else becomes PNG. Unlike
+ * `downscaleImage` it never hands back the input. It throws when the image cannot be decoded or
+ * no encoder is available (a Linux Gateway without `@napi-rs/canvas`), and the caller then sends
+ * a note instead. The caller has already refused oversized dimensions from the header, so the
+ * decoder never sees a decompression bomb.
+ */
+export async function reencodeToolImage(
+  bytes: Buffer,
+  mime: string,
+  maxEdge: number = IMAGE_MAX_EDGE,
+  platform: NodeJS.Platform = process.platform,
+): Promise<Buffer> {
+  const size = imageSize(bytes);
+  if (size === undefined) throw new Error("unreadable image header");
+  const format = mime === "image/jpeg" ? "jpeg" : "png";
+  const edge = Math.min(maxEdge, Math.max(size.width, size.height));
+  if (platform === "win32") return wicReencode(bytes, edge, format);
+  if (platform !== "darwin") return canvasReencode(bytes, edge, format, size);
+  const dir = await mkdtemp(join(tmpdir(), "psyche-img-"));
+  try {
+    const input = join(dir, "in");
+    const output = join(dir, `out.${format === "jpeg" ? "jpg" : "png"}`);
+    await writeFile(input, bytes);
+    // sips exits 0 without writing anything for some unreadable inputs: the read below decides.
+    await run(
+      "/usr/bin/sips",
+      ["-s", "format", format, "-Z", String(edge), input, "--out", output],
+      {
+        timeout: 15_000,
+      },
+    );
+    const out = await readFile(output);
+    if (out.length === 0) throw new Error("empty image");
+    return out;
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+async function canvasReencode(
+  bytes: Buffer,
+  edge: number,
+  format: "png" | "jpeg",
+  size: { width: number; height: number },
+): Promise<Buffer> {
+  const { createCanvas, loadImage } = await import("@napi-rs/canvas");
+  const image = await loadImage(bytes);
+  const scale = edge / Math.max(size.width, size.height);
+  const width = Math.max(1, Math.round(size.width * scale));
+  const height = Math.max(1, Math.round(size.height * scale));
+  const canvas = createCanvas(width, height);
+  canvas.getContext("2d").drawImage(image, 0, 0, width, height);
+  const out = format === "png" ? await canvas.encode("png") : await canvas.encode("jpeg", 85);
+  if (out.length === 0) throw new Error("empty image");
+  return out;
+}
+
+async function wicReencode(bytes: Buffer, edge: number, format: "png" | "jpeg"): Promise<Buffer> {
+  const dir = await mkdtemp(join(tmpdir(), "psyche-img-"));
+  try {
+    const out = await runWic(dir, bytes, edge, format);
+    if (out.length === 0) throw new Error("empty image");
+    return out;
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
 const CANVAS_FORMATS: Record<string, "png" | "jpeg" | "webp"> = {
   "image/png": "png",
   "image/jpeg": "jpeg",
@@ -120,33 +190,43 @@ async function downscaleWithWic(bytes: Buffer, mime: string, maxEdge: number): P
   if (kind === undefined) return bytes;
   const dir = await mkdtemp(join(tmpdir(), "psyche-img-"));
   try {
-    const input = join(dir, "in");
-    const output = join(dir, "out");
-    const script = join(dir, "resize.ps1");
-    await writeFile(input, bytes);
-    await writeFile(script, WIC_SCRIPT, "utf8");
-    await run(
-      windowsPowerShell(),
-      [
-        "-NoLogo",
-        "-NoProfile",
-        "-NonInteractive",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        script,
-        input,
-        output,
-        String(maxEdge),
-        kind,
-      ],
-      { timeout: 20_000, windowsHide: true },
-    );
-    const out = await readFile(output);
+    const out = await runWic(dir, bytes, maxEdge, kind);
     return out.length > 0 && out.length < bytes.length * 4 ? out : bytes;
   } catch {
     return bytes;
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => undefined);
   }
+}
+
+/** Runs the WIC script in `dir` (a fresh private temp folder); the output file's bytes. */
+async function runWic(
+  dir: string,
+  bytes: Buffer,
+  maxEdge: number,
+  kind: "png" | "jpeg",
+): Promise<Buffer> {
+  const input = join(dir, "in");
+  const output = join(dir, "out");
+  const script = join(dir, "resize.ps1");
+  await writeFile(input, bytes);
+  await writeFile(script, WIC_SCRIPT, "utf8");
+  await run(
+    windowsPowerShell(),
+    [
+      "-NoLogo",
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      script,
+      input,
+      output,
+      String(maxEdge),
+      kind,
+    ],
+    { timeout: 20_000, windowsHide: true },
+  );
+  return readFile(output);
 }

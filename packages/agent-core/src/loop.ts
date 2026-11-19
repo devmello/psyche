@@ -172,6 +172,7 @@ import {
   keepRecentToolImages,
   normalizeToolOutput,
   withoutImages,
+  withoutToolImages,
 } from "./tool-output.ts";
 import { TRUSTED_CONTEXT_CAP, type TurnContextProvider } from "./turn-context.ts";
 import {
@@ -528,6 +529,16 @@ const INTERACTIVE = new Set(["ask_user", "exit_plan_mode"]);
  */
 const WAITS_FOR_OWNER = new Set(["request_permission", "request_folder_access"]);
 const NO_REPLY = "NO_REPLY";
+/** A provider's 400 about an image ("Could not process image", "Invalid image"…). */
+const IMAGE_REJECTED = /^bad_request:.*\bimage/i;
+
+interface ModelStep {
+  parts: ModelPart[];
+  text: string;
+  calls: { id: string; name: string; input: unknown }[];
+  finish: string;
+  error?: string;
+}
 const NO_APPROVAL_AUTHORITY =
   "needs the owner's approval, and subagents cannot ask: report what you would do and why";
 
@@ -953,6 +964,7 @@ export class PsycheAgentLoop implements AgentLoop {
       // The sources outlive the turn with the untrusted content that caused them.
       if (run.taint) run.thread.taint = { sources: dedupeSources(run.taintSources) };
       else delete run.thread.taint;
+      run.thread.messages = keepRecentToolImages(run.thread.messages);
       try {
         if (threadLoaded) await this.#state.save(threadId, run.thread);
       } catch (err) {
@@ -1048,6 +1060,8 @@ export class PsycheAgentLoop implements AgentLoop {
       }
       run.steps += 1;
       run.messageId = run.steps === 1 ? run.messageId : this.#ids.next("msg");
+      // Older tool images become notes in the thread itself, in batches (cache-stable prefix).
+      run.thread.messages = keepRecentToolImages(run.thread.messages);
       const { system, tools, cache } = await this.#prepare(run);
       const sent = run.thread.messages.slice();
       // A widget button's call is the first step (generative-ui-2026 §6.2); it is gated below
@@ -1961,18 +1975,35 @@ export class PsycheAgentLoop implements AgentLoop {
     }
   }
 
+  /**
+   * One model call. When the provider refuses the request over an image (a 400 that names one)
+   * before anything streamed, the thread's tool images become a note and the call is retried
+   * once: otherwise one unreadable image would fail every later turn of the thread.
+   */
   async #callModel(
     run: RunState,
     system: string,
     tools: ToolSpec[],
     cache: Partial<PromptCache> = {},
-  ): Promise<{
-    parts: ModelPart[];
-    text: string;
-    calls: { id: string; name: string; input: unknown }[];
-    finish: string;
-    error?: string;
-  }> {
+  ): Promise<ModelStep> {
+    const step = await this.#callModelOnce(run, system, tools, cache);
+    if (step.finish !== "error" || step.parts.length > 0) return step;
+    if (!IMAGE_REJECTED.test(step.error ?? "")) return step;
+    const stripped = withoutToolImages(
+      run.thread.messages,
+      "image removed: the model provider could not read it",
+    );
+    if (stripped === run.thread.messages) return step;
+    run.thread.messages = stripped;
+    return this.#callModelOnce(run, system, tools, cache);
+  }
+
+  async #callModelOnce(
+    run: RunState,
+    system: string,
+    tools: ToolSpec[],
+    cache: Partial<PromptCache> = {},
+  ): Promise<ModelStep> {
     const parts: ModelPart[] = [];
     const calls: { id: string; name: string; input: unknown }[] = [];
     let text = "";
@@ -1984,7 +2015,7 @@ export class PsycheAgentLoop implements AgentLoop {
       ...(cache.systemStableLength === undefined
         ? {}
         : { systemStableLength: cache.systemStableLength }),
-      messages: keepRecentToolImages(run.thread.messages),
+      messages: run.thread.messages,
       ...(tools.length === 0 ? {} : { tools }),
       // Only beside the tools they belong to: a tool-free call loads nothing.
       ...(tools.length === 0 ||

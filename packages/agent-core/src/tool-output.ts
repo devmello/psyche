@@ -18,10 +18,28 @@ export const MAX_RESULT_IMAGE_CHARS = 8_000_000;
 const MAX_IMAGE_EDGE = 2000;
 /** Base64 beyond this is refused without decoding it. */
 const MAX_DECODE_CHARS = 24_000_000;
-/** Tool images kept in a request; older ones become a note (the API takes 100 and 32 MB). */
-export const MAX_REQUEST_TOOL_IMAGES = 8;
+/**
+ * Pixel limits read from the header before anything decodes the image: a small file can claim a
+ * huge bitmap (a decompression bomb), and providers refuse over 8000 px anyway.
+ */
+export const MAX_IMAGE_SIDE_PX = 8000;
+export const MAX_IMAGE_PIXELS = 40_000_000;
+/**
+ * Tool images in a thread: past `TOOL_IMAGES_HIGH` (or `TOOL_IMAGE_CHARS_HIGH` of base64) the
+ * thread is cut back to the newest `TOOL_IMAGES_LOW` (within `TOOL_IMAGE_CHARS_LOW`), older ones
+ * become a note. Cutting in batches keeps the prompt-cache prefix byte-stable for several steps
+ * instead of rewriting it on every new screenshot (the API takes 100 images and 32 MB).
+ */
+export const TOOL_IMAGES_HIGH = 12;
+export const TOOL_IMAGES_LOW = 4;
+const TOOL_IMAGE_CHARS_HIGH = 24_000_000;
+const TOOL_IMAGE_CHARS_LOW = 16_000_000;
 
-/** Resizes an image (the Gateway injects `downscaleImage`); returns the bytes to send. */
+/**
+ * Decodes and re-encodes an image, resized to the provider's 1568 px (the Gateway injects
+ * `reencodeToolImage`). It must return new bytes and throw when it cannot read the image: the
+ * original bytes are never sent. Without a shaper, tool images become a note.
+ */
 export type ImageShaper = (bytes: Buffer, mime: string) => Promise<Buffer>;
 
 export interface NormalizeOptions {
@@ -59,39 +77,75 @@ class ImageBudget {
     this.o = o;
   }
 
+  /**
+   * One image from a tool, as base64. Checked in this order, each failure a note: canonical
+   * base64; PNG, JPEG, GIF or WebP by its bytes; header dimensions within 8000 px and 40 MP (before
+   * anything decodes it); then decoded and re-encoded by the shaper, whose output is checked again
+   * and is what goes out (never the original bytes); then the size and count budget.
+   */
   async take(data: string): Promise<ImagePart | TextPart> {
     if (this.o.failed === true) return note("image omitted from an error result");
     if (data.length > MAX_DECODE_CHARS) return note("image omitted: larger than the 5 MB limit");
-    const head = Buffer.from(data.slice(0, 87_384), "base64");
-    let mime = sniffImageMime(head);
-    if (mime === undefined) return note("image omitted: not a PNG, JPEG, GIF or WebP image");
-    let out = data;
-    if (this.o.shaper !== undefined) {
-      try {
-        const bytes = Buffer.from(data, "base64");
-        const sized = await this.o.shaper(bytes, mime);
-        if (sized !== bytes) {
-          const m = sniffImageMime(sized);
-          if (m !== undefined) {
-            mime = m;
-            out = sized.toString("base64");
-          }
-        }
-      } catch {
-        // The original goes on to the limits below.
-      }
+    if (!isCanonicalBase64(data)) return note("image omitted: not valid base64");
+    const bytes = Buffer.from(data, "base64");
+    // The whole buffer: a camera JPEG's size marker can sit far behind its EXIF and XMP.
+    const mime = sniffImageMime(bytes);
+    const size = imageSize(bytes);
+    if (mime === undefined || size === undefined)
+      return note("image omitted: not a PNG, JPEG, GIF or WebP image");
+    if (
+      size.width > MAX_IMAGE_SIDE_PX ||
+      size.height > MAX_IMAGE_SIDE_PX ||
+      size.width * size.height > MAX_IMAGE_PIXELS
+    )
+      return note(`image omitted: larger than ${MAX_IMAGE_SIDE_PX} px or 40 megapixels`);
+    if (this.o.shaper === undefined) return note("image omitted: images cannot be checked here");
+    let shaped: Buffer;
+    try {
+      shaped = await this.o.shaper(bytes, mime);
+    } catch {
+      return note("image omitted: it could not be read as an image");
     }
+    // A shaper that hands back its input did not re-encode it.
+    if (shaped === bytes) return note("image omitted: it could not be read as an image");
+    const outMime = sniffImageMime(shaped);
+    const outSize = imageSize(shaped);
+    if (outMime === undefined || outSize === undefined)
+      return note("image omitted: it could not be read as an image");
+    const out = shaped.toString("base64");
     if (out.length > MAX_IMAGE_BASE64_CHARS)
       return note("image omitted: larger than the 5 MB limit");
-    const size = imageSize(Buffer.from(out.slice(0, 87_384), "base64"));
-    if (size === undefined || Math.max(size.width, size.height) > MAX_IMAGE_EDGE)
+    if (Math.max(outSize.width, outSize.height) > MAX_IMAGE_EDGE)
       return note(`image omitted: longer than ${MAX_IMAGE_EDGE} px on a side`);
     if (this.count >= MAX_RESULT_IMAGES || this.chars + out.length > MAX_RESULT_IMAGE_CHARS)
       return note("image omitted: this result already carries the most images allowed");
     this.count++;
     this.chars += out.length;
-    return { type: "image", mime, data: out };
+    return { type: "image", mime: outMime, data: out };
   }
+}
+
+const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
+
+/**
+ * Standard, padded base64 with zero padding bits, nothing else: `Buffer.from` would quietly
+ * accept base64url, whitespace and junk, and send something other than what was checked.
+ */
+export function isCanonicalBase64(data: string): boolean {
+  if (data.length === 0 || data.length % 4 !== 0 || !BASE64.test(data)) return false;
+  const tail = data.slice(-4);
+  return Buffer.from(tail, "base64").toString("base64") === tail;
+}
+
+/**
+ * True for an image part whose data is canonical base64 of the PNG, JPEG, GIF or WebP its mime
+ * names (by the bytes). The thread store skips secret masking for such data: it is image bytes,
+ * and a mask written into it would corrupt the image.
+ */
+export function isCheckedImagePart(v: unknown): v is ImagePart {
+  if (!isRecord(v) || v.type !== "image" || typeof v.data !== "string") return false;
+  if (typeof v.mime !== "string" || !isCanonicalBase64(v.data)) return false;
+  return sniffImageMime(Buffer.from(v.data, "base64")) === v.mime;
 }
 
 const json = (v: unknown): TextPart => ({ type: "text", text: JSON.stringify(v) });
@@ -100,14 +154,16 @@ const json = (v: unknown): TextPart => ({ type: "text", text: JSON.stringify(v) 
  * Known image result shapes -> `[{type:"image"}, {type:"text"}]` parts:
  * - `{ base64, mime | mimeType, ...metadata }` (browser.screenshot, computer.screenshot);
  * - `{ blocks: [{ type: "image", data, mimeType }, ...], structured? }` (MCP results).
- * Images are checked by their bytes (png, jpeg, gif, webp only), resized by `shaper`, and held to
- * a size, dimension and count budget; one that fails becomes a note. Anything else comes back
- * unchanged.
+ * - a list that is already `[{ type: "text" | "image", ... }]` parts.
+ * Images are checked by their bytes (png, jpeg, gif, webp only), re-encoded by `shaper`, and held
+ * to a size, dimension and count budget; one that fails becomes a note, and so does an image link.
+ * Anything else comes back unchanged.
  */
 export async function normalizeToolOutput(
   output: unknown,
   opts: NormalizeOptions = {},
 ): Promise<unknown> {
+  if (Array.isArray(output)) return normalizePartList(output, new ImageBudget(opts));
   if (!isRecord(output)) return output;
   const budget = new ImageBudget(opts);
   if (typeof output.base64 === "string") {
@@ -137,6 +193,28 @@ export async function normalizeToolOutput(
   return output;
 }
 
+/**
+ * A raw part list gets the same image checks as any other shape: an image with base64 `data` goes
+ * through the budget, an image link becomes a note, and an image-typed object of another form
+ * (a Notion-style block) goes along as JSON text. Other lists come back unchanged.
+ */
+async function normalizePartList(output: unknown[], budget: ImageBudget): Promise<unknown> {
+  if (!looksLikePartList(output)) return output;
+  const parts: (ImagePart | TextPart)[] = [];
+  for (const p of output as Record<string, unknown>[]) {
+    if (p.type === "text")
+      parts.push(typeof p.text === "string" ? { type: "text", text: p.text } : json(p));
+    else if (typeof p.data === "string") parts.push(await budget.take(p.data));
+    else if (typeof p.url === "string")
+      parts.push(note("image omitted: a tool result cannot send an image link"));
+    else parts.push(json(p));
+  }
+  return parts;
+}
+
+const looksLikePartList = (v: unknown[]): boolean =>
+  v.length > 0 && v.every((p) => isRecord(p) && (p.type === "text" || p.type === "image"));
+
 /** True for a list of text / image parts, the form `normalizeToolOutput` produces. */
 export function isPartList(v: unknown): v is (ImagePart | TextPart)[] {
   return (
@@ -146,46 +224,95 @@ export function isPartList(v: unknown): v is (ImagePart | TextPart)[] {
   );
 }
 
+const outputOf = (p: unknown) =>
+  (p as { type?: unknown }).type === "tool_result" ? (p as { output?: unknown }).output : undefined;
+
 /**
- * The request's messages with all but the newest `keep` tool-result images replaced by a note, so
- * a long browsing session never reaches the API's image-count and payload limits. The thread is
- * not changed.
+ * Tool-result images in a thread, with hysteresis: while there are at most `TOOL_IMAGES_HIGH`
+ * (and at most 24M base64 characters) nothing changes; past that, all but the newest
+ * `TOOL_IMAGES_LOW` (within 16M characters) become a note. So a long browsing session stays
+ * within the API's image-count and payload limits, the thread (and what is saved of it) stays
+ * small, and the cached prompt prefix is rewritten once every several screenshots rather than on
+ * every one. Returns `messages` itself when nothing changes; otherwise a new array that shares
+ * every message it did not touch. Images the owner attached to their own messages are kept.
  */
-export function keepRecentToolImages<M extends { parts: readonly unknown[] }>(
-  messages: M[],
-  keep: number = MAX_REQUEST_TOOL_IMAGES,
-): M[] {
-  const outputOf = (p: unknown) =>
-    (p as { type?: unknown }).type === "tool_result"
-      ? (p as { output?: unknown }).output
-      : undefined;
-  const imagesOf = (m: M): number =>
-    m.parts.reduce<number>((n, p) => {
+export function keepRecentToolImages<M extends { parts: readonly unknown[] }>(messages: M[]): M[] {
+  const sizes: number[] = [];
+  for (const m of messages)
+    for (const p of m.parts) {
       const o = outputOf(p);
-      return isPartList(o) ? n + o.filter((x) => x.type === "image").length : n;
-    }, 0);
-  let total = 0;
-  for (const m of messages) total += imagesOf(m);
-  if (total <= keep) return messages;
-  let drop = total - keep;
+      if (isPartList(o)) for (const x of o) if (x.type === "image") sizes.push(x.data.length);
+    }
+  const chars = sizes.reduce((a, b) => a + b, 0);
+  if (sizes.length <= TOOL_IMAGES_HIGH && chars <= TOOL_IMAGE_CHARS_HIGH) return messages;
+  // The newest images that fit the low marks are kept, the rest (all older ones) noted.
+  let kept = 0;
+  let keptChars = 0;
+  let keepFrom = sizes.length;
+  for (let i = sizes.length - 1; i >= 0; i--) {
+    const len = sizes[i] ?? 0;
+    if (kept >= TOOL_IMAGES_LOW || keptChars + len > TOOL_IMAGE_CHARS_LOW) break;
+    kept++;
+    keptChars += len;
+    keepFrom = i;
+  }
+  let index = 0;
   return messages.map((m) => {
-    if (drop <= 0 || imagesOf(m) === 0) return m;
-    return {
-      ...m,
-      parts: m.parts.map((p) => {
-        const o = outputOf(p);
-        if (!isPartList(o)) return p;
-        return {
-          ...(p as object),
-          output: o.map((x) => {
-            if (x.type !== "image" || drop <= 0) return x;
-            drop--;
-            return note("earlier screenshot omitted");
-          }),
-        };
-      }),
-    };
+    if (index >= keepFrom) return m;
+    let changed = false;
+    const parts = m.parts.map((p) => {
+      const o = outputOf(p);
+      if (!isPartList(o) || !o.some((x) => x.type === "image")) return p;
+      changed = true;
+      return {
+        ...(p as object),
+        output: o.map((x) => {
+          if (x.type !== "image") return x;
+          return index++ < keepFrom ? note("earlier screenshot omitted") : x;
+        }),
+      };
+    });
+    return changed ? { ...m, parts } : m;
   });
+}
+
+/** JSON.stringify replacer that writes any image object as `"[image]"` (as the CLI prompt does). */
+export function imagePlaceholder(_key: string, v: unknown): unknown {
+  return v !== null && typeof v === "object" && (v as { type?: unknown }).type === "image"
+    ? "[image]"
+    : v;
+}
+
+/** A tool output as text with no picture data: a part list as its lines, anything else as JSON. */
+export function outputAsText(output: unknown): string {
+  if (isPartList(output))
+    return output.map((p) => (p.type === "image" ? "[image]" : p.text)).join("\n");
+  try {
+    return JSON.stringify(output, imagePlaceholder) ?? "";
+  } catch {
+    return String(output);
+  }
+}
+
+/** Every tool-result image replaced by `text` as a note; `messages` itself when there is none. */
+export function withoutToolImages<M extends { parts: readonly unknown[] }>(
+  messages: M[],
+  text: string,
+): M[] {
+  let changed = false;
+  const out = messages.map((m) => {
+    let touched = false;
+    const parts = m.parts.map((p) => {
+      const o = outputOf(p);
+      if (!isPartList(o) || !o.some((x) => x.type === "image")) return p;
+      touched = true;
+      return { ...(p as object), output: o.map((x) => (x.type === "image" ? note(text) : x)) };
+    });
+    if (!touched) return m;
+    changed = true;
+    return { ...m, parts };
+  });
+  return changed ? out : messages;
 }
 
 /** Pictures replaced by a note, for a model that cannot read images. */

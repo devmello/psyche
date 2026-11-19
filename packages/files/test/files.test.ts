@@ -629,3 +629,21 @@ describe("read_file budget", () => {
     expect(got).toBe(body);
   });
 });
+
+describe("read_file shrink loop", () => {
+  it("returns when no cut fits the budget (fields alone over it), instead of spinning", async () => {
+    // Control characters escape to six characters each: the path alone outgrows a small budget.
+    const dir = join(granted, "\u0001".repeat(200), "\u0002".repeat(200));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "f.txt"), "abcdefgh".repeat(1_000));
+    const r = await run("read_file", { path: join(dir, "f.txt") }, ctx({ resultBudgetChars: 100 }));
+    expect(r.output.truncated).toBe(true);
+    expect(r.output.nextOffset as number).toBeGreaterThan(0);
+  });
+
+  it("describes document pages by what one call actually returns", () => {
+    const d = tools.read_file?.spec.description ?? "";
+    expect(d).not.toMatch(/about 6\dk characters/);
+    expect(d).toContain("up to 40k characters per call");
+  });
+});

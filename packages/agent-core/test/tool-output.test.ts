@@ -1,14 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { cliPrompt } from "../../model-router/src/cli/prompt.ts";
 import { convertRequest } from "../../model-router/src/convert-request.ts";
+import { renderTranscript } from "../src/compaction.ts";
 import {
   capToolOutput,
   estimateMessagesTokens,
+  type ImageShaper,
   keepRecentToolImages,
   normalizeToolOutput,
 } from "../src/index.ts";
 import { estimateTokens } from "../src/util.ts";
 import { calls, harness, resultsIn, runTurn, say, spec } from "./harness.ts";
+
+/** Stands in for the Gateway's re-encoder: new bytes, same picture (the fakes are not real PNGs). */
+const copy: ImageShaper = async (b) => Buffer.from(b);
+const shaped = { shaper: copy };
 
 /** A PNG header for the given size, padded to `bytes` (a recorded-fixture stand-in for a screenshot). */
 function fakePng(width: number, height: number, bytes: number): string {
@@ -50,6 +56,7 @@ describe("images in tool results", () => {
       const h = harness({
         script: [calls({ id: "c1", name: "shot", input: {} }), say("ok")],
         vision: true,
+        loop: { toolImageShaper: copy },
       });
       h.loop.registry.register({
         spec: spec("shot", "none"),
@@ -81,6 +88,7 @@ describe("images in tool results", () => {
     const h = harness({
       script: [calls({ id: "c1", name: "shot", input: {} }), say("ok")],
       vision: false,
+      loop: { toolImageShaper: copy },
     });
     h.loop.registry.register({
       spec: spec("shot", "none"),
@@ -176,10 +184,10 @@ describe("image validation and budgets", () => {
       ["image/tiff", tiff],
       ["image/png", Buffer.from("not an image at all, just text").toString("base64")],
     ] as const) {
-      expect(kinds(await normalizeToolOutput({ mime, base64 }))).toEqual(["text"]);
+      expect(kinds(await normalizeToolOutput({ mime, base64 }, shaped))).toEqual(["text"]);
     }
     // Declared jpeg, bytes are a PNG: the part carries the sniffed type.
-    const out = (await normalizeToolOutput({ mime: "image/jpeg", base64: PNG })) as {
+    const out = (await normalizeToolOutput({ mime: "image/jpeg", base64: PNG }, shaped)) as {
       type: string;
       mime?: string;
     }[];
@@ -189,18 +197,25 @@ describe("image validation and budgets", () => {
   it("refuses an image over 5,242,880 base64 characters or 2000 px", async () => {
     const big = fakePng(1000, 1000, 4_000_000); // 5,333,336 base64 characters
     expect(big.length).toBeGreaterThan(5_242_880);
-    expect(kinds(await normalizeToolOutput({ mime: "image/png", base64: big }))).toEqual(["text"]);
+    expect(kinds(await normalizeToolOutput({ mime: "image/png", base64: big }, shaped))).toEqual([
+      "text",
+    ]);
     expect(
-      kinds(await normalizeToolOutput({ mime: "image/png", base64: fakePng(2880, 1800, 500) })),
+      kinds(
+        await normalizeToolOutput({ mime: "image/png", base64: fakePng(2880, 1800, 500) }, shaped),
+      ),
     ).toEqual(["text"]);
     expect(
-      kinds(await normalizeToolOutput({ mime: "image/jpeg", base64: jpeg(1999, 1000) })),
+      kinds(await normalizeToolOutput({ mime: "image/jpeg", base64: jpeg(1999, 1000) }, shaped)),
     ).toEqual(["image"]);
   });
 
   it("holds one result to four images", async () => {
     const block = { type: "image", data: PNG, mimeType: "image/png" };
-    const out = await normalizeToolOutput({ blocks: Array.from({ length: 6 }, () => block) });
+    const out = await normalizeToolOutput(
+      { blocks: Array.from({ length: 6 }, () => block) },
+      shaped,
+    );
     expect(kinds(out).filter((k) => k === "image")).toHaveLength(4);
     expect(kinds(out).filter((k) => k === "text")).toHaveLength(2);
   });
@@ -221,9 +236,9 @@ describe("image validation and budgets", () => {
     expect(out[0]?.data).toBe(small.toString("base64"));
   });
 
-  it("keeps the newest eight tool images in a request and notes the older ones", () => {
+  it("past twelve tool images, cuts back to the newest four and notes the older ones", () => {
     const shot = { type: "image" as const, mime: "image/png", data: "AA" };
-    const messages = Array.from({ length: 11 }, (_, i) => ({
+    const messages = Array.from({ length: 13 }, (_, i) => ({
       role: "tool" as const,
       parts: [
         {
@@ -233,13 +248,15 @@ describe("image validation and budgets", () => {
         },
       ],
     }));
+    expect(keepRecentToolImages(messages.slice(0, 12))).toEqual(messages.slice(0, 12));
     const out = keepRecentToolImages(messages);
     const imgs = (m: (typeof messages)[number]) =>
       ((m.parts[0]?.output ?? []) as { type: string }[]).filter((p) => p.type === "image").length;
-    expect(out.map(imgs)).toEqual([0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1]);
+    expect(out.map(imgs)).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1]);
     expect(JSON.stringify(out[0])).toContain("earlier screenshot omitted");
-    // The thread itself is not rewritten.
-    expect(messages.map(imgs)).toEqual(Array(11).fill(1));
+    // The input array is not mutated; callIds and order stay (tool_use / tool_result pairing).
+    expect(messages.map(imgs)).toEqual(Array(13).fill(1));
+    expect(out.map((m) => m.parts[0]?.callId)).toEqual(messages.map((m) => m.parts[0]?.callId));
   });
 
   it("an error result with images never sends base64 text to the provider", async () => {
@@ -316,5 +333,298 @@ describe("cap edge cases", () => {
       const obj = capToolOutput({ a: "😀".repeat(2_000), b: "x" }, keep + 400);
       expect(lone.test(JSON.stringify(obj))).toBe(false);
     }
+  });
+});
+
+/** PR #1397 review round 2: each probe, kept as a regression test. */
+describe("review round 2 probes", () => {
+  it("P1: a valid header over a corrupt body never goes out (the shaper decides, the original never)", async () => {
+    const corrupt = fakePng(800, 600, 4_000);
+    const block = { blocks: [{ type: "image", data: corrupt, mimeType: "image/png" }] };
+    // A shaper that cannot decode it throws (sips, canvas and WIC all do): a note.
+    const failing: ImageShaper = async () => {
+      throw new Error("cannot decode");
+    };
+    expect(await normalizeToolOutput(block, { shaper: failing })).toEqual([
+      { type: "text", text: "[image omitted: it could not be read as an image]" },
+    ]);
+    // A shaper that hands back its input did not re-encode: a note, not the original.
+    expect(kinds(await normalizeToolOutput(block, { shaper: async (b) => b }))).toEqual(["text"]);
+    // No shaper (an embedder without one): a note.
+    expect(kinds(await normalizeToolOutput(block))).toEqual(["text"]);
+    // What goes out is the shaper's output, base64-encoded afresh.
+    const fresh = Buffer.from(fakePng(400, 300, 900), "base64");
+    const out = (await normalizeToolOutput(block, { shaper: async () => fresh })) as {
+      data?: string;
+    }[];
+    expect(out[0]?.data).toBe(fresh.toString("base64"));
+  });
+
+  it("P1: refuses base64 that is not canonical (base64url, whitespace, stray padding bits)", async () => {
+    const good = fakePng(64, 64, 301);
+    expect(good.endsWith("=")).toBe(true);
+    const seen: number[] = [];
+    const shaper: ImageShaper = async (b) => {
+      seen.push(b.length);
+      return Buffer.from(b);
+    };
+    const variants = [
+      `${good.slice(0, 40)}-_${good.slice(42)}`,
+      `${good.slice(0, 40)}\n${good.slice(40)}`,
+      ` ${good}`,
+      good.replace(/=+$/, ""),
+      // Same bytes, but the last character carries non-zero padding bits.
+      `${good.slice(0, -4)}${good.slice(-4, -3)}${String.fromCharCode(good.charCodeAt(good.length - 3) + 1)}${good.slice(-2)}`,
+    ];
+    for (const data of variants) {
+      expect(data).not.toBe(good);
+      expect(await normalizeToolOutput({ mime: "image/png", base64: data }, { shaper })).toEqual([
+        { type: "text", text: "[image omitted: not valid base64]" },
+      ]);
+    }
+    expect(seen).toEqual([]);
+    expect(
+      kinds(await normalizeToolOutput({ mime: "image/png", base64: good }, { shaper })),
+    ).toEqual(["image"]);
+  });
+
+  it("P3: a 60000x60000 header is refused before the shaper ever sees it", async () => {
+    const seen: string[] = [];
+    const shaper: ImageShaper = async (b, m) => {
+      seen.push(`${m}:${b.length}`);
+      return Buffer.from(b);
+    };
+    for (const [w, h] of [
+      [60_000, 60_000],
+      [8_001, 100],
+      [100, 8_001],
+      [7_000, 7_000], // 49 MP: within 8000 px a side, over 40 MP
+    ] as const) {
+      const data = fakePng(w, h, 2_000);
+      const out = await normalizeToolOutput(
+        { blocks: [{ type: "image", data, mimeType: "image/png" }] },
+        { shaper },
+      );
+      expect(out).toEqual([
+        { type: "text", text: "[image omitted: larger than 8000 px or 40 megapixels]" },
+      ]);
+    }
+    expect(seen).toEqual([]);
+  });
+
+  it("P4: a camera JPEG with 64 KB of EXIF before its size marker is read, not refused", async () => {
+    const app = Buffer.alloc(65_535);
+    app.writeUInt16BE(65_535, 0);
+    const sof = Buffer.from([
+      0xff, 0xc0, 0x00, 0x11, 0x08, 0x02, 0x58, 0x03, 0x20, 0x03, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11,
+      1,
+    ]);
+    const jpg = Buffer.concat([
+      Buffer.from([0xff, 0xd8, 0xff, 0xe1]),
+      app,
+      Buffer.from([0xff, 0xe2, 0x00, 0x10]),
+      Buffer.alloc(14),
+      sof,
+      Buffer.alloc(1_000),
+    ]);
+    const out = await normalizeToolOutput(
+      { blocks: [{ type: "image", data: jpg.toString("base64"), mimeType: "image/jpeg" }] },
+      shaped,
+    );
+    expect(out).toEqual([expect.objectContaining({ type: "image", mime: "image/jpeg" })]);
+  });
+
+  it("P2: a raw part list gets the same checks and the 50k cap; image links are dropped", async () => {
+    const raw = [
+      ...Array.from({ length: 30 }, () => ({
+        type: "image",
+        mimeType: "image/svg+xml",
+        data: "PHN2Zz4=",
+      })),
+      { type: "image", mime: "image/png", data: "A".repeat(20_000_000) },
+      { type: "image", mime: "image/png", url: "http://169.254.169.254/latest" },
+      { type: "image", image: { type: "external", external: { url: "https://x.test/a.png" } } },
+      { type: "text", text: "z".repeat(200_000) },
+    ];
+    const capped = capToolOutput(await normalizeToolOutput(raw, shaped), 50_000);
+    const text = JSON.stringify(capped);
+    expect(text.length).toBeLessThan(60_000);
+    expect(text).not.toContain("AAAAAAAAAAAAAAAA");
+    expect(text).not.toContain("169.254.169.254");
+    expect(text).toContain("a tool result cannot send an image link");
+    expect(kinds(capped).filter((k) => k === "image")).toEqual([]);
+    // The error path: a failed call's raw part list goes out small too.
+    const failed = capToolOutput(
+      await normalizeToolOutput(raw, { failed: true, ...shaped }),
+      50_000,
+    );
+    const req = {
+      model: "m",
+      system: "s",
+      tools: [],
+      messages: [
+        {
+          role: "tool",
+          parts: [
+            { type: "tool_result", callId: "c", name: "plugin.x", output: failed, isError: true },
+          ],
+        },
+      ],
+    } as never;
+    const prompt = JSON.stringify(
+      convertRequest(req, {
+        config: { id: "anthropic", kind: "anthropic" as const },
+        modelId: "claude-haiku-5-5",
+      }).prompt,
+    );
+    expect(prompt.length).toBeLessThan(60_000);
+    // A raw list with a good image still sends it as an image.
+    const ok = await normalizeToolOutput(
+      [
+        { type: "text", text: "shot" },
+        { type: "image", mimeType: "image/png", data: PNG },
+      ],
+      shaped,
+    );
+    expect(kinds(ok)).toEqual(["text", "image"]);
+  });
+
+  it("P5: the cached prefix is rewritten once per batch of images, not on every screenshot", () => {
+    type M = { role: "tool"; parts: { type: "tool_result"; callId: string; output: unknown }[] };
+    const img = { type: "image", mime: "image/png", data: "x" };
+    let thread: M[] = [];
+    const rewrites: number[] = [];
+    const imagesKept: number[] = [];
+    const imagesIn = (m: M) =>
+      ((m.parts[0]?.output ?? []) as { type: string }[]).filter((p) => p.type === "image").length;
+    for (let i = 0; i < 40; i++) {
+      const before = thread.map((m) => JSON.stringify(m));
+      thread.push({
+        role: "tool",
+        parts: [
+          { type: "tool_result", callId: `c${i}`, output: [img, { type: "text", text: `t${i}` }] },
+        ],
+      });
+      // What the loop does before every model call: trim the thread itself.
+      thread = keepRecentToolImages(thread);
+      if (before.some((s, j) => s !== JSON.stringify(thread[j]))) rewrites.push(i);
+      imagesKept.push(thread.reduce((n, m) => n + imagesIn(m), 0));
+    }
+    // 40 screenshots: earlier messages change only at the cuts (the 13th, 22nd, 31st and 40th).
+    expect(rewrites).toEqual([12, 21, 30, 39]);
+    expect(Math.max(...imagesKept)).toBe(12);
+    expect(imagesKept.at(-1)).toBe(4);
+    // Pairing is kept: every tool_result keeps its callId, in order.
+    expect(thread.map((m) => m.parts[0]?.callId)).toEqual(
+      Array.from({ length: 40 }, (_, i) => `c${i}`),
+    );
+  });
+
+  it("cuts on payload too: past 24M characters of images, back to at most 16M", () => {
+    const big = { type: "image", mime: "image/png", data: "x".repeat(5_000_000) };
+    const thread = Array.from({ length: 5 }, (_, i) => ({
+      role: "tool" as const,
+      parts: [{ type: "tool_result" as const, callId: `c${i}`, output: [big] }],
+    }));
+    const out = keepRecentToolImages(thread);
+    expect(
+      out.filter((m) => JSON.stringify(m).includes("xxxx")).map((m) => m.parts[0]?.callId),
+    ).toEqual(["c2", "c3", "c4"]);
+  });
+
+  it("the loop trims the thread itself: no request carries more than twelve tool images", async () => {
+    const n = 20;
+    const h = harness({
+      script: [
+        ...Array.from({ length: n }, (_, i) => calls({ id: `c${i}`, name: "shot", input: {} })),
+        say("ok"),
+      ],
+      vision: true,
+      loop: { toolImageShaper: copy },
+    });
+    h.loop.registry.register({
+      spec: spec("shot", "none"),
+      execute: async () => ({ output: SHAPES["browser.screenshot"], provenance: "untrusted" }),
+    });
+    await runTurn(h, "look");
+    const count = (msgs: unknown) => (JSON.stringify(msgs).match(/"type":"image"/g) ?? []).length;
+    expect(h.provider.requests).toHaveLength(n + 1);
+    const counts = h.provider.requests.map((r) => count(r.messages));
+    expect(Math.max(...counts)).toBe(12);
+    expect(counts.at(-1)).toBeLessThanOrEqual(12);
+  });
+
+  it("a provider 400 naming an image strips the thread's tool images and retries once", async () => {
+    const h = harness({
+      script: [
+        calls({ id: "c1", name: "shot", input: {} }),
+        [
+          {
+            type: "finish",
+            reason: "error",
+            error: "bad_request: messages.2.content.0.image.source: Could not process image",
+          },
+        ],
+        say("ok"),
+      ],
+      vision: true,
+      loop: { toolImageShaper: copy },
+    });
+    h.loop.registry.register({
+      spec: spec("shot", "none"),
+      execute: async () => ({ output: SHAPES["browser.screenshot"], provenance: "untrusted" }),
+    });
+    await runTurn(h, "look");
+    expect(h.provider.requests).toHaveLength(3);
+    expect(JSON.stringify(h.provider.requests[1]?.messages)).toContain('"type":"image"');
+    const retry = JSON.stringify(h.provider.requests[2]?.messages);
+    expect(retry).not.toContain('"type":"image"');
+    expect(retry).toContain("image removed: the model provider could not read it");
+    expect(h.provider.remainingTurns).toBe(0);
+  });
+
+  it("any other provider error is not retried", async () => {
+    const h = harness({
+      script: [
+        calls({ id: "c1", name: "shot", input: {} }),
+        [{ type: "finish", reason: "error", error: "bad_request: tools.0.name is invalid" }],
+        say("never"),
+      ],
+      vision: true,
+      loop: { toolImageShaper: copy },
+    });
+    h.loop.registry.register({
+      spec: spec("shot", "none"),
+      execute: async () => ({ output: SHAPES["browser.screenshot"], provenance: "untrusted" }),
+    });
+    await runTurn(h, "look");
+    expect(h.provider.requests).toHaveLength(2);
+  });
+});
+
+describe("compaction transcript", () => {
+  it("renders a tool result's pictures as [image] and keeps its text", () => {
+    const text = renderTranscript(
+      [
+        {
+          role: "tool",
+          parts: [
+            {
+              type: "tool_result",
+              callId: "c1",
+              name: "browser.screenshot",
+              output: [
+                { type: "image", mime: "image/png", data: PNG },
+                { type: "text", text: '{"url":"https://example.test","title":"Checkout"}' },
+              ],
+            },
+          ],
+        },
+      ],
+      2_000,
+    );
+    expect(text).not.toContain(PNG.slice(0, 50));
+    expect(text).toContain("[image]");
+    expect(text).toContain("Checkout");
   });
 });
