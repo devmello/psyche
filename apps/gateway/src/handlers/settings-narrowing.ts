@@ -1,4 +1,4 @@
-import { canonicalPath, compilePolicy, isUnder } from "@psyche/permissions";
+import { canonicalPath, compilePolicy } from "@psyche/permissions";
 
 /**
  * Which security-setting changes may skip the approval card: only those that PROVABLY narrow what
@@ -17,11 +17,14 @@ const isObj = (v: Json): v is Record<string, Json> =>
 const isStrArray = (v: Json): v is string[] =>
   Array.isArray(v) && v.every((x) => typeof x === "string");
 
+/**
+ * Key order is kept on purpose: some readers take the FIRST matching entry (`sites`, `apps`), so
+ * a reordered record is a change, never "the same" (review #1354 r2 B2).
+ */
 function canon(v: Json): string {
   if (Array.isArray(v)) return `[${v.map(canon).join(",")}]`;
   if (isObj(v))
     return `{${Object.keys(v)
-      .sort()
       .map((k) => `${JSON.stringify(k)}:${canon(v[k])}`)
       .join(",")}}`;
   return JSON.stringify(v) ?? "undefined";
@@ -118,16 +121,12 @@ function foldersNarrower(stored: Json, next: Json): boolean {
     const before = was[i];
     if (before === undefined || f.mode > before.mode) return false;
   }
+  // Removing a read-only entry always raises the card: the subtree falls to whatever else covers
+  // it, and that includes this conversation's own folder grants, which this pure check cannot see
+  // (review #1354 r2 B3). Removing a read-write entry only ever narrows.
   const remaining = new Set(now.map((f) => f.path));
   for (const r of was) {
-    if (remaining.has(r.path) || r.mode === FOLDER_RANK.rw) continue;
-    // A removed read-only entry: the nearest remaining ancestor now decides its subtree.
-    let nearest: { path: string; mode: number } | undefined;
-    for (const a of now) {
-      if (isUnder(r.path, a.path) && (nearest === undefined || a.path.length > nearest.path.length))
-        nearest = a;
-    }
-    if (nearest !== undefined && nearest.mode > r.mode) return false;
+    if (!remaining.has(r.path) && r.mode === FOLDER_RANK.ro) return false;
   }
   return true;
 }

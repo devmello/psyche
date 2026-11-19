@@ -75,17 +75,25 @@ const FOLDERS = {
 };
 
 describe("narrowing security settings skip the card", () => {
-  it("folder policy: removal and rw to ro apply at once; adding or ro to rw raises the card", async () => {
+  it("folder policy: rw to ro applies at once; adding, ro to rw or removing a ro entry raises the card", async () => {
     const { admin, seed, stored } = await boot();
     seed("permissions.policy", FOLDERS);
 
-    const narrowed = { folders: [{ path: "/a", mode: "ro" }] };
+    // rw to ro applies at once; removing a read-only entry is not tried here (it raises the card,
+    // review #1354 r2 B3).
+    const narrowed = {
+      folders: [
+        { path: "/a", mode: "ro" },
+        { path: "/b", mode: "ro" },
+      ],
+    };
     expect(await set(admin, "permissions.policy", narrowed)).toMatchObject({ ok: true });
     expect(stored("permissions.policy")).toEqual(narrowed);
 
     // Positive control: widening the same setting still raises the card, and writes nothing.
     carded(await set(admin, "permissions.policy", FOLDERS));
     carded(await set(admin, "permissions.policy", { folders: [{ path: "/a", mode: "rw" }] }));
+    carded(await set(admin, "permissions.policy", { folders: [{ path: "/a", mode: "ro" }] }));
     expect(stored("permissions.policy")).toEqual(narrowed);
   });
 

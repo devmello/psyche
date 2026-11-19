@@ -383,14 +383,7 @@ const REVIEW: Row[] = [
 ];
 
 const REVIEW_SKIP: Row[] = [
-  [
-    "remove ro child with no ancestor entry",
-    P,
-    { folders: [ro(`${A}/secret`), rw("/other")] },
-    { folders: [rw("/other")] },
-  ],
   ["remove rw entry under rw parent", P, { folders: [rw(A), rw(`${A}/x`)] }, { folders: [rw(A)] }],
-  ["remove ro child under ro parent", P, { folders: [ro(A), ro(`${A}/x`)] }, { folders: [ro(A)] }],
   [
     "rw to ro in order, canonical path spelled differently",
     P,
@@ -438,6 +431,40 @@ const REVIEW_SKIP: Row[] = [
   ],
 ];
 
+/**
+ * Review #1354 r2. B2: a reorder that only changes key order of a first-match record, with the
+ * junk change in ANOTHER field, used to read as "unchanged". B3: removing a read-only entry can
+ * open its subtree to a conversation's own folder grant, which this check cannot see, so any
+ * read-only removal raises the card (these were skips before).
+ */
+const REVIEW_R2: Row[] = [
+  [
+    "B2 sites keys swapped, junk deny elsewhere",
+    P,
+    { sites: { "evil.example.com": "deny", "*.example.com": "allow" } },
+    { sites: { "*.example.com": "allow", "evil.example.com": "deny" }, deny: ["zzz-nothing"] },
+  ],
+  [
+    "B2 apps case variants reordered, junk deny elsewhere",
+    P,
+    { apps: { Notes: "off", notes: "read" } },
+    { apps: { notes: "read", Notes: "off" }, deny: ["zzz-nothing"] },
+  ],
+  [
+    "B3 remove ro child with no ancestor entry",
+    P,
+    { folders: [ro(`${A}/secret`), rw("/other")] },
+    { folders: [rw("/other")] },
+  ],
+  [
+    "B3 remove ro child under ro parent",
+    P,
+    { folders: [ro(A), ro(`${A}/x`)] },
+    { folders: [ro(A)] },
+  ],
+  ["B3 remove the only ro entry", P, { folders: [ro(`${A}/secret`)] }, { folders: [] }],
+];
+
 const REVIEW_CARD_ASK: Row[] = [
   [
     "N5 read to ask",
@@ -480,6 +507,10 @@ describe("isNarrowing", () => {
   });
 
   it.each(REVIEW_CARD_ASK)("ask tier needs a card: %s", (_n, key, stored, next) => {
+    expect(isNarrowing(key, stored, next)).toBe(false);
+  });
+
+  it.each(REVIEW_R2)("review r2 probe needs a card: %s", (_n, key, stored, next) => {
     expect(isNarrowing(key, stored, next)).toBe(false);
   });
 

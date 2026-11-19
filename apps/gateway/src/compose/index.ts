@@ -570,7 +570,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     const last = tightenedAt.get(deviceId);
     if (last !== undefined && now - last < 60 * 60 * 1000) return;
     tightenedAt.set(deviceId, now);
-    const device = keyActorParts(getDevice(db, deviceId))?.device ?? "none";
+    // The display name is the device's own choice, so add the start of its id: a compromised
+    // device cannot pass itself off as the owner's own by name alone.
+    const named = keyActorParts(getDevice(db, deviceId))?.device;
+    const device = named === undefined ? "none" : `${named} (${deviceId.slice(0, 8)})`;
     void notifier
       .notify({
         kind: "system",
