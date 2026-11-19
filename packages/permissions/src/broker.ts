@@ -356,6 +356,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #replyTimes = new Map<string, number[]>();
   readonly #folderAccess: PermissionBrokerOptions["folderAccess"];
   readonly #hostProgram: NonNullable<PermissionBrokerOptions["hostProgram"]>;
+  readonly #psycheHome: string | undefined;
   /** thread → folders allowed for that conversation only; gone at `/new` and at a restart. */
   readonly #sessionFolders = new Map<string, FolderGrantEntry[]>();
 
@@ -384,6 +385,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#channelConversations = options.channelConversations;
     this.#folderAccess = options.folderAccess;
     this.#hostProgram = options.hostProgram ?? {};
+    this.#psycheHome = options.psycheHome;
     const ulid = monotonicFactory();
     this.#newId = options.newId ?? ((prefix) => `${prefix}_${ulid(this.clock.now())}`);
     this.#bootId = options.bootId ?? this.#newId("boot");
@@ -814,7 +816,10 @@ export class PsychePermissionBroker implements PermissionBroker {
   }
 
   #refuseEnv(): FolderAccessEnv {
-    return this.#hostProgram.home === undefined ? {} : { home: this.#hostProgram.home };
+    return {
+      ...(this.#hostProgram.home === undefined ? {} : { home: this.#hostProgram.home }),
+      ...(this.#psycheHome === undefined ? {} : { psycheHome: this.#psycheHome }),
+    };
   }
 
   /** The folder an offer or a grant covers: a shared folder that is not home or a sensitive root. */

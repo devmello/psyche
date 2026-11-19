@@ -520,6 +520,19 @@ function browserProfiles(home: string): string[] {
 }
 
 /**
+ * Other places the owner's files and every app's temp files live: a program-grant run reads none
+ * of them (a link inside the folder could point there). Its own scratch directory is re-allowed.
+ */
+const CONFINED_DENY_READ = [
+  "/Volumes",
+  "/tmp",
+  "/private/tmp",
+  "/var/folders",
+  "/private/var/folders",
+  "/Users/Shared",
+];
+
+/**
  * The srt profile of one host command (security §5.3): Psyche's deny-read list, writes only to
  * the scratch directory and a read-write granted folder, network only to `allowedDomains`
  * through srt's proxies, every documented escape hatch off.
@@ -551,7 +564,7 @@ export function execHostSrtSettings(input: {
           h("Library", "Keychains"),
           ...browserProfiles(input.userHome),
           ...scratch.denyRead,
-          ...(input.confineRead === undefined ? [] : [input.userHome, "/Volumes"]),
+          ...(input.confineRead === undefined ? [] : [input.userHome, ...CONFINED_DENY_READ]),
         ]),
       ],
       allowRead: [
@@ -979,7 +992,14 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
   ): Promise<{ executable: string; sha256: string; folder: string } | undefined> {
     const id = ctx.authority?.grantId;
     if (ctx.approvalId !== undefined || id === undefined) return undefined;
-    if (deps.broker.listGrants === undefined) return undefined;
+    // Fail closed: a standing grant authorized this run, and without the ledger we cannot tell
+    // whether it was a program grant that must be confined.
+    if (deps.broker.listGrants === undefined) {
+      throw new PsycheError(
+        "unavailable",
+        "the grant ledger is not available; the command was not run",
+      );
+    }
     const grants = await deps.broker.listGrants({ kind: "exec_host" });
     const g = grants.find((x) => x.id === id);
     if (g === undefined) {

@@ -54,6 +54,13 @@ const ARGS_OK: [string, string[]][] = [
   ["sed", ["-e", "s/a/b/", "-e", "2d", "f"]],
   ["sed", ["-ne", "$p", "f"]],
   ["sed", ["p", "--", "-f"]],
+  ["ls", ["-R"]],
+  ["grep", ["-r", "foo", "."]],
+  ["rg", ["foo"]],
+  // `z` in the value of an option is not the -z flag.
+  ["rg", ["-f/var/folders/zz/pats"]],
+  ["rg", ["-nf/var/folders/zz/pats"]],
+  ["rg", ["--ignore-file=plain.txt", "foo"]],
   ["ls", ["--", "-weird"]],
   ["tree", ["-L", "2"]],
   ["du", ["-sh", "."]],
@@ -95,6 +102,32 @@ const ARGS_DANGEROUS: [string, string[]][] = [
   ["rg", ["-z", "foo"]],
   ["rg", ["-uz", "foo"]],
   ["rg", ["--search-zip", "foo"]],
+  // Flags that follow symbolic links can leave the folder through a link inside it.
+  ["rg", ["-L", "foo"]],
+  ["rg", ["--follow", "foo"]],
+  ["rg", ["-uL", "foo"]],
+  ["grep", ["-S", "foo", "."]],
+  ["grep", ["-rS", "foo", "."]],
+  ["grep", ["-R", "foo", "."]],
+  ["grep", ["-O", "foo", "."]],
+  ["grep", ["--dereference-recursive", "foo", "."]],
+  ["find", [".", "-follow", "-name", "x"]],
+  ["find", ["-L", "."]],
+  ["find", ["-H", "."]],
+  ["ls", ["-L"]],
+  ["ls", ["-LR"]],
+  ["ls", ["-H"]],
+  ["ls", ["--dereference"]],
+  ["tree", ["-l", "."]],
+  ["du", ["-L", "."]],
+  ["du", ["-H", "."]],
+  ["stat", ["-L", "f"]],
+  ["file", ["-L", "f"]],
+  ["sed", ["--follow-symlinks", "p"]],
+  // A file naming the files to read: its entries are never checked.
+  ["wc", ["--files0-from=list"]],
+  ["du", ["--files0-from=list"]],
+  ["file", ["-f", "list.txt"]],
   ["tree", ["-R", "-L", "1"]],
   ["tree", ["-H", "."]],
   // GNU getopt reads options after operands.
@@ -230,6 +263,9 @@ for (const d of [WORK, join(WORK, "sub"), WORK2, HOME, join(HOME, "proj"), SYS, 
   mkdirSync(d, { recursive: true });
 }
 const PROGRAMS = [
+  "jq",
+  "grep",
+  "du",
   "ls",
   "find",
   "sed",
@@ -257,6 +293,11 @@ symlinkSync(HOME, join(WORK, "escape"));
 writeFileSync(join(WORK, "a.txt"), "x");
 linkSync(join(WORK, "a.txt"), join(WORK, "b.txt"));
 writeFileSync(join(WORK, "plain.txt"), "x");
+// A link inside the shared folder to a place outside it, with a file behind it.
+const OUTSIDE = join(ROOT, "outside");
+mkdirSync(join(OUTSIDE, "deep"), { recursive: true });
+writeFileSync(join(OUTSIDE, "deep", "secret.txt"), "TOKEN");
+symlinkSync(OUTSIDE, join(WORK, "tmplink"));
 
 const SHA = (name: string) => sha(`${name}-v1`);
 const POLICY = {
@@ -618,6 +659,9 @@ describe("exec_host program grant: every path stays inside the folder", () => {
     await allowProgram(h, host(["sed", "-n", "p", "plain.txt"]));
     await allowProgram(h, host(["rg", "foo"]));
     await allowProgram(h, host(["tree", "-L", "1"]));
+    await allowProgram(h, host(["grep", "-r", "foo", "."]));
+    await allowProgram(h, host(["du", "-s", "."]));
+    await allowProgram(h, host(["jq", ".", "plain.txt"]));
     return h;
   }
   const RUN: [string, string[]][] = [
@@ -629,6 +673,11 @@ describe("exec_host program grant: every path stays inside the folder", () => {
     ["sed", ["-e", "s/a/b/", "plain.txt"]],
     ["rg", ["foo", "sub"]],
     ["tree", ["-L", "2"]],
+    ["ls", ["-R"]],
+    ["grep", ["-r", "foo", "."]],
+    ["rg", ["foo"]],
+    ["rg", ["--ignore-file=plain.txt", "foo"]],
+    ["du", ["-s", "sub"]],
   ];
   const ASK: [string, string[]][] = [
     ["ls", ["-la", join(HOME, ".aws")]],
@@ -648,6 +697,27 @@ describe("exec_host program grant: every path stays inside the folder", () => {
     ["tree", ["-R", "-L", "1"]],
     ["tree", ["-H", "."]],
     ["tree", ["/"]],
+    // A link inside the folder to outside: the flags that follow it ask.
+    ["rg", ["-L", "TOKEN", "."]],
+    ["rg", ["--follow", "TOKEN"]],
+    ["grep", ["-rS", "TOKEN", "."]],
+    ["grep", ["-R", "TOKEN", "."]],
+    ["grep", ["--dereference-recursive", "TOKEN", "."]],
+    ["find", [".", "-follow", "-name", "secret.txt"]],
+    ["find", ["-L", "."]],
+    ["ls", ["-LR", "."]],
+    ["tree", ["-l", "."]],
+    ["du", ["-L", "."]],
+    // Option values name paths too.
+    ["rg", [`--ignore-file=${join(HOME, "ignore")}`, "foo"]],
+    ["rg", [`--file=${join(OUTSIDE, "pats")}`, "."]],
+    ["rg", [`-f${join(OUTSIDE, "pats")}`, "."]],
+    ["rg", ["--ignore-file=../work2/x", "foo"]],
+    ["grep", [`--file=${join(HOME, "pats")}`, "-r", "."]],
+    ["jq", [`-L${OUTSIDE}`, "-n", "1"]],
+    ["jq", [`--library-path=${OUTSIDE}`, "-n", "1"]],
+    ["jq", ["-L", OUTSIDE, "-n", "1"]],
+    ["du", ["--files0-from=list"]],
   ];
   it.each(RUN)("%s %j runs quietly", async (name, args) => {
     const h = await grantedTools();
@@ -656,6 +726,22 @@ describe("exec_host program grant: every path stays inside the folder", () => {
   it.each(ASK)("%s %j asks", async (name, args) => {
     const h = await grantedTools();
     expect(await verdict(h, host([name, ...args]))).not.toBe("allow");
+  });
+  it("attached option values are paths too, in the folder or out of it", () => {
+    expect(operandsInside("rg", ["--ignore-file=plain.txt", "foo"], WORK, WORK)).toBe(true);
+    expect(operandsInside("rg", [`--ignore-file=${OUTSIDE}/x`, "foo"], WORK, WORK)).toBe(false);
+    expect(operandsInside("jq", ["-Lsub", "-n", "1"], WORK, WORK)).toBe(true);
+    expect(operandsInside("jq", [`-L${OUTSIDE}`, "-n", "1"], WORK, WORK)).toBe(false);
+    expect(operandsInside("rg", [`-nf${OUTSIDE}/p`], WORK, WORK)).toBe(false);
+  });
+  it("a PSYCHE_HOME inside the shared folder refuses the folder (no offer)", async () => {
+    const inside = makeBroker({
+      policy: POLICY as never,
+      psycheHome: join(WORK, ".psyche"),
+      ...OPTS,
+    } as never);
+    expect(offer(await card(inside, host(["ls"])))).toBeUndefined();
+    expect(offer(await card(harness(), host(["ls"])))).toBeDefined();
   });
   it("operandsInside judges the real path, with and without the files existing", () => {
     expect(operandsInside("ls", ["plain.txt", "not-there/x"], WORK, WORK)).toBe(true);
