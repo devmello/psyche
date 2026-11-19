@@ -413,7 +413,7 @@ describe("routineWritePath: the document allowlist (both lists)", () => {
 const answerAs = (
   h: Harness,
   issued: { approval: { id: string }; answerTokens: Record<string, string> },
-  extra: { bulk?: true; scope?: "once" | "always" } = {},
+  extra: { bulk?: true; scope?: "once" | "task" | "always" } = {},
 ) =>
   h.broker.answer({
     approvalId: issued.approval.id,
