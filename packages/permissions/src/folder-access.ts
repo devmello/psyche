@@ -169,6 +169,10 @@ const WINDOWS_HOME_SENSITIVE = [
   "_netrc",
   ".psyche",
   "NTUSER.DAT",
+  // What git runs on its own (hooks paths, fsmonitor, aliases), and a bin folder on PATH.
+  "bin",
+  ".gitconfig",
+  ".config/git",
 ];
 
 /** Under the home directory: refused with everything under them. */
@@ -184,11 +188,27 @@ const HOME_SENSITIVE = [
   ".netrc",
   ".psyche",
   ".Trash",
+  // What git runs on its own (`core.hooksPath`, `core.fsmonitor`, aliases), and `~/bin`, which
+  // shells put on PATH (review of #1294, round 4).
+  "bin",
+  ".gitconfig",
+  ".config/git",
   // Binaries Psyche runs unsandboxed (the subscription CLIs, `op`): a read-write grant on one
   // would let `write_file` replace them, as `/opt/homebrew` would. The same list the CLI
   // resolver searches, so a new installer directory is refused as soon as it is searched.
   ...CLI_HOME_DIRS.map((segments) => segments.join("/")),
 ];
+
+/**
+ * Linux: the config, data and cache folders, refused wholesale as `~/Library` is on macOS. A file
+ * written there runs code later: desktop entries, autostart, user services, Flatpak overrides,
+ * Python `.pth` files, app plug-ins and start-up scripts, shell extensions, the terminal lists
+ * and caches (review of #1294, round 4).
+ */
+const LINUX_HOME_SENSITIVE = [".config", ".local", ".cache"];
+
+/** Linux: runtime and kernel file systems (`/run/user/<uid>` holds D-Bus services and units). */
+const LINUX_SUBTREE_ROOTS = ["/run", "/proc", "/sys"];
 
 /**
  * Windows: the real long path of the owner's temp folder when it lies under `~\AppData` (the one
@@ -213,10 +233,13 @@ function under(child: string, root: string): boolean {
 /** The roots a pick may not equal or contain (and, for subtree roots, lie under). */
 export function sensitiveRoots(env: FolderAccessEnv = {}): { exact: string[]; subtree: string[] } {
   const win = process.platform === "win32";
+  const linux = !win && (env.platform ?? process.platform) === "linux";
   const home = resolve(env.home ?? homedir());
   const subtree = new Set<string>(win ? windowsSubtreeRoots() : SUBTREE_ROOTS);
+  if (linux) for (const root of LINUX_SUBTREE_ROOTS) subtree.add(root);
   for (const rel of win ? WINDOWS_HOME_SENSITIVE : HOME_SENSITIVE)
     subtree.add(joinHostPath(home, rel));
+  if (linux) for (const rel of LINUX_HOME_SENSITIVE) subtree.add(joinHostPath(home, rel));
   if (env.psycheHome !== undefined) subtree.add(resolve(env.psycheHome));
   for (const p of env.protectedRoots ?? []) subtree.add(resolve(p));
   return { exact: [...(win ? windowsExactRoots() : EXACT_ROOTS), home], subtree: [...subtree] };
@@ -239,7 +262,12 @@ export function inSystemRoot(given: string, env: FolderAccessEnv = {}): boolean 
   if (isMacMagicPath(real, env.platform)) return true;
   const ci = env.caseInsensitive ?? process.platform === "darwin";
   const fold = (p: string): string => (ci && !isWin32HostPath(p) ? p.toLowerCase() : p);
-  const roots = process.platform === "win32" ? windowsSubtreeRoots() : SUBTREE_ROOTS;
+  const win = process.platform === "win32";
+  const roots = win
+    ? windowsSubtreeRoots()
+    : (env.platform ?? process.platform) === "linux"
+      ? [...SUBTREE_ROOTS, ...LINUX_SUBTREE_ROOTS]
+      : SUBTREE_ROOTS;
   if (roots.some((r) => under(fold(real), fold(r)))) return true;
   // The CLI binary folders in home (`~/.local/bin`...), and a folder around one (`~/.local`), but
   // not home itself or above: an older home grant keeps its meaning (see above).

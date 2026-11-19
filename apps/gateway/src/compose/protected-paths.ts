@@ -14,24 +14,16 @@ import type { FolderAccessEnv } from "@psyche/permissions";
  * paths are compared as real paths.
  */
 /**
- * Linux: where a written file runs code as the owner later, outside every sandbox. A desktop entry
- * that `apps.open` or the desktop would launch, login and session autostart, user services, the
- * session's environment, D-Bus activation, the terminal `Terminal=true` entries open in, and the
- * shell start-up files (review of #1294, round 3).
+ * Linux: where a written file runs code as the owner later, outside every sandbox. The config,
+ * data and cache folders wholesale, as `~/Library` is on macOS (desktop entries, autostart, user
+ * services, D-Bus activation, Flatpak overrides, Python `.pth` files, app plug-ins and start-up
+ * scripts, shell extensions, the terminal lists and caches), and the shell and session start-up
+ * files (review of #1294, rounds 3 and 4).
  */
 export const LINUX_EXEC_PATHS: readonly (readonly string[])[] = [
-  [".local", "share", "applications"],
-  [".local", "share", "flatpak", "exports"],
-  [".local", "share", "dbus-1"],
-  [".local", "share", "xdg-terminals"],
-  [".local", "share", "systemd"],
-  [".config", "autostart"],
-  [".config", "systemd", "user"],
-  [".config", "environment.d"],
-  [".config", "xdg-terminals.list"],
-  [".config", "plasma-workspace", "env"],
-  [".config", "fish", "config.fish"],
-  [".config", "fish", "conf.d"],
+  [".config"],
+  [".local"],
+  [".cache"],
   [".bashrc"],
   [".bash_profile"],
   [".bash_login"],
@@ -47,6 +39,19 @@ export const LINUX_EXEC_PATHS: readonly (readonly string[])[] = [
   [".pam_environment"],
 ];
 
+/**
+ * Every platform: what git runs on its own (`core.hooksPath`, `core.fsmonitor`, aliases) and
+ * `~/bin`, which shells put on PATH.
+ */
+export const RUNS_CODE_PATHS: readonly (readonly string[])[] = [
+  ["bin"],
+  [".gitconfig"],
+  [".config", "git"],
+];
+
+/** Linux: the runtime and kernel file systems (`/run/user/<uid>` holds D-Bus services and units). */
+export const LINUX_SYSTEM_ROOTS: readonly string[] = ["/run", "/proc", "/sys"];
+
 export function protectedRoots(
   psycheHome: string,
   platform: NodeJS.Platform = process.platform,
@@ -55,10 +60,11 @@ export function protectedRoots(
   // The CLI binaries Psyche runs unsandboxed (`~/.local/share/claude`, `~/.bun`...): not writable
   // through a wide grant such as an older home-root one. Not in `defaultDenyRead`: MCP servers
   // run `npx` from `~/.npm-global`.
-  const cliDirs = CLI_HOME_DIRS.map((segments) => join(homedir(), ...segments));
-  const linux =
-    platform === "linux" ? LINUX_EXEC_PATHS.map((segments) => join(homedir(), ...segments)) : [];
-  for (const p of [...defaultDenyRead(psycheHome), ...cliDirs, ...linux]) {
+  const home = (segments: readonly string[]) => join(homedir(), ...segments);
+  const cliDirs = CLI_HOME_DIRS.map(home);
+  const runsCode = RUNS_CODE_PATHS.map(home);
+  const linux = platform === "linux" ? [...LINUX_EXEC_PATHS.map(home), ...LINUX_SYSTEM_ROOTS] : [];
+  for (const p of [...defaultDenyRead(psycheHome), ...cliDirs, ...runsCode, ...linux]) {
     out.add(p);
     try {
       out.add(realpathSync(p));
