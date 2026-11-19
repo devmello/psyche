@@ -333,6 +333,7 @@ export interface ThreadGroupProps {
   activeThreadId: string | null;
   onOpen: (threadId: string) => void;
   onNewSideChat?: () => void;
+  onNewIncognitoChat?: () => void;
   onExport?: (threadId: string, format: "markdown" | "json" | "html") => void;
   now?: number;
   /** Opens the filter field (⌘F inside the sidebar); bumps reveal it again. */
@@ -348,6 +349,7 @@ export function ThreadGroup({
   activeThreadId,
   onOpen,
   onNewSideChat,
+  onNewIncognitoChat,
   onExport,
   now: fixedNow,
   filterToken = 0,
@@ -430,6 +432,19 @@ export function ThreadGroup({
             className="text-label-secondary"
           >
             <Plus aria-hidden="true" />
+          </Button>
+        ) : null}
+        {onNewIncognitoChat ? (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={onNewIncognitoChat}
+            aria-label={t("shell.threads.newIncognitoChat")}
+            aria-keyshortcuts="Meta+Shift+N"
+            title={t("shell.threads.newIncognitoChat")}
+            className="text-label-secondary"
+          >
+            <EyeOff aria-hidden="true" />
           </Button>
         ) : null}
       </div>

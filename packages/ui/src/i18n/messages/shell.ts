@@ -2,6 +2,7 @@
 export const shell = {
   "shell.shortcut.palette": "Command palette",
   "shell.shortcut.newSideChat": "New side chat",
+  "shell.shortcut.newIncognitoChat": "New incognito chat",
   "shell.shortcut.closeThread": "Close thread view or pop-out",
   "shell.shortcut.toggleThreadList": "Toggle the sidebar",
   "shell.shortcut.compactSidebar": "Compact or full sidebar",
@@ -103,6 +104,7 @@ export const shell = {
   "shell.threads.filter": "Filter threads",
   "shell.threads.search": "Search threads",
   "shell.threads.newSideChat": "New side chat",
+  "shell.threads.newIncognitoChat": "New incognito chat",
   "shell.threads.loading": "Loading threads",
   "shell.threads.mainChat": "Main chat",
   "shell.threads.sideChats": "Side chats",

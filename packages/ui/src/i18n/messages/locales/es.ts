@@ -269,6 +269,8 @@ export const es: Partial<Catalogue> = {
 
   "chat.toolbar.label": "Barra de herramientas del chat",
   "chat.toolbar.incognito": "Incógnito",
+  "chat.incognito.notice":
+    "No se usa para la memoria, la búsqueda ni la actividad. Caduca en 24 h.",
   "chat.toolbar.view": "Vista de la transcripción",
   "chat.toolbar.view.status": "Solo estado",
   "chat.toolbar.view.actions": "Acciones",
@@ -778,6 +780,7 @@ export const es: Partial<Catalogue> = {
 
   "shell.shortcut.palette": "Paleta de comandos",
   "shell.shortcut.newSideChat": "Nueva conversación paralela",
+  "shell.shortcut.newIncognitoChat": "Nueva conversación de incógnito",
   "shell.shortcut.closeThread": "Cerrar la vista de conversación o la ventana flotante",
   "shell.shortcut.toggleThreadList": "Mostrar u ocultar la barra lateral",
   "shell.shortcut.compactSidebar": "Barra lateral compacta o completa",
@@ -849,6 +852,7 @@ export const es: Partial<Catalogue> = {
   "shell.threads.filter": "Filtrar conversaciones",
   "shell.threads.search": "Buscar conversaciones",
   "shell.threads.newSideChat": "Nueva conversación paralela",
+  "shell.threads.newIncognitoChat": "Nueva conversación de incógnito",
   "shell.threads.loading": "Cargando conversaciones",
   "shell.threads.mainChat": "Conversación principal",
   "shell.threads.sideChats": "Conversaciones paralelas",
@@ -3094,6 +3098,7 @@ export const es: Partial<Catalogue> = {
   "web.viewers.noPath": "Este archivo no tiene ruta.",
   "web.shortcut.palette": "Paleta de comandos",
   "web.shortcut.newSideChat": "Nueva conversación paralela",
+  "web.shortcut.newIncognitoChat": "Nueva conversación de incógnito",
   "web.shortcut.closeThreadView": "Cerrar la vista de conversación o la ventana flotante",
   "web.shortcut.toggleThreadList": "Mostrar u ocultar la lista de conversaciones",
   "web.shortcut.cycleThreads": "Recorrer las conversaciones",
@@ -3138,7 +3143,9 @@ export const es: Partial<Catalogue> = {
   "web.threads.untitled": "Sin título",
   "web.threads.label": "Conversaciones",
   "web.threads.newSideChatTitle": "Nueva conversación paralela (⌘N)",
+  "web.threads.newIncognitoChatTitle": "Nueva conversación de incógnito",
   "web.threads.newSideChat": "+ Conversación paralela",
+  "web.threads.newIncognitoChat": "+ Incógnito",
   "web.threads.searchLabel": "Buscar conversaciones",
   "web.threads.searchPlaceholder": "Buscar",
   "web.threads.empty": "Aún no hay conversaciones paralelas.",
