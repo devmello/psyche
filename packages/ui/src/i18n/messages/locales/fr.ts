@@ -334,6 +334,7 @@ export const fr: Partial<Catalogue> = {
   "blocks.details.to": "À",
   "blocks.details.exactRecipient": "(destinataire exact)",
   "blocks.details.cc": "Cc",
+  "blocks.details.bcc": "Cci",
   "blocks.details.subject": "Objet",
   "blocks.details.body": "Corps",
   "blocks.details.view": "Afficher",
@@ -376,6 +377,9 @@ export const fr: Partial<Catalogue> = {
   "blocks.approval.scope.site": "Autoriser pour ce site",
   "blocks.approval.scope.session": "Autoriser pour cette session",
   "blocks.approval.scope.always": "Toujours autoriser",
+  "blocks.approval.alwaysRecipient": "Toujours autoriser l’envoi à {recipients}",
+  "blocks.approval.alwaysRecipientFrom":
+    "Toujours autoriser l’envoi à {recipients} depuis {account}",
   "blocks.approval.scopeGranted.once": "autorisé une fois",
   "blocks.approval.scopeGranted.task": "autorisé pour cette tâche",
   "blocks.approval.scopeGranted.site": "autorisé pour ce site",
@@ -1977,6 +1981,7 @@ export const fr: Partial<Catalogue> = {
   "settings.permissions.subject.execIn": "{argv} dans {cwd}",
   "settings.permissions.subject.emailTo": "à {recipient}",
   "settings.permissions.subject.emailAny": "à n’importe quel destinataire",
+  "settings.permissions.subject.emailFrom": "à {recipients} depuis {account}",
   "settings.permissions.subject.calendarNamed": "calendrier {id}",
   "settings.permissions.subject.calendar": "calendrier",
   "settings.permissions.title": "Autorisations",
@@ -1995,6 +2000,10 @@ export const fr: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "{name} a changé sa liste d’outils depuis votre approbation ; Psyche a donc révoqué ses accords. Chaque action redemande jusqu’à ce que vous l’examiniez.",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "Destinataires toujours autorisés",
+  "settings.permissions.sendsHint":
+    "Les e-mails envoyés à ces destinataires partent sans demande. Retirez-en un pour être à nouveau invité à confirmer.",
+  "settings.permissions.noSends": "Aucun destinataire n’est réglé sur toujours autoriser.",
   "settings.permissions.origins": "Origines du navigateur",
   "settings.permissions.originsHint": "Sites que l’agent peut ouvrir sans demander.",
   "settings.permissions.noOrigins":

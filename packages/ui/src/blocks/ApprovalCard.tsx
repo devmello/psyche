@@ -26,6 +26,7 @@ import { formatCountdown, formatRelative } from "../lib/format.ts";
 import { keysLabel } from "../lib/keys.ts";
 import { pathBasename } from "../lib/paths.ts";
 import { isMac } from "../lib/platform.ts";
+import { parseSendGrantKey, splitRecipients } from "../lib/send-grant.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
 import { easeLinear, fade, motionSpring, spring } from "../motion/index.ts";
@@ -629,6 +630,25 @@ export function ApprovalCard({
         ]
       : []),
   ];
+  // An email send that offers Always keeps it for this recipient (the grant is keyed by the
+  // recipient list). Show it as a visible choice, not only as a menu entry. It sets the same
+  // `choice` as the menu, so the floor confirm and the answer are unchanged.
+  // The grant covers the whole recipient set (to, cc and bcc together). Name that set from the
+  // request's own target, the canonical list the grant is keyed by, so a bcc is never hidden.
+  const sendRecipients =
+    approval.kind === "send_email" && approval.target?.kind === "recipient"
+      ? splitRecipients(approval.target.value)
+      : [];
+  const sendAccount = parseSendGrantKey(approval.grantKey)?.account ?? null;
+  // Unticking falls back to the narrowest other offered scope; without one, there is no choice.
+  const narrowerScope = (["once", "task", "site", "session"] as const).find((s) =>
+    offered.includes(s),
+  );
+  const alwaysForRecipient =
+    sendRecipients.length > 0 &&
+    offered.includes("always") &&
+    narrowerScope !== undefined &&
+    !unsandboxed;
   const allowReady =
     offeredScopes.length > 0 &&
     (!isFolder || folder !== "") &&
@@ -1081,6 +1101,24 @@ export function ApprovalCard({
                 : t("blocks.approval.touchId.openDevices")}
           </Button>
         </div>
+      ) : null}
+
+      {interactive && alwaysForRecipient ? (
+        <label className="mt-3 flex items-center gap-2 text-callout text-label-primary">
+          <input
+            type="checkbox"
+            checked={choice === "always"}
+            disabled={busy}
+            onChange={(e) => setChoice(e.target.checked ? "always" : (narrowerScope ?? "once"))}
+            data-testid="always-recipient"
+          />
+          {sendAccount !== null
+            ? t("blocks.approval.alwaysRecipientFrom", {
+                recipients: sendRecipients.join(", "),
+                account: sendAccount,
+              })
+            : t("blocks.approval.alwaysRecipient", { recipients: sendRecipients.join(", ") })}
+        </label>
       ) : null}
 
       {interactive ? (

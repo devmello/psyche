@@ -13,6 +13,7 @@ import {
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { activeI18n, t } from "../../i18n/core.ts";
 import { formatDate, formatRelative } from "../../lib/format.ts";
+import { parseSendGrantKey, splitRecipients } from "../../lib/send-grant.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { useSlots } from "../../slots.tsx";
 import { ActionMatrix, type ActionRule, withMatrixOverrides } from "./ActionMatrix.tsx";
@@ -110,10 +111,20 @@ export function grantSubject(g: Grant): string {
     return cwd ? t("settings.permissions.subject.execIn", { argv, cwd }) : argv;
   }
   if (g.kind === "send_email") {
-    const recipient = text("recipient");
-    return recipient
-      ? t("settings.permissions.subject.emailTo", { recipient })
-      : t("settings.permissions.subject.emailAny");
+    // The broker stores `target` (the recipient set) and the account in the grant key; a send
+    // grant never reads as "any recipient".
+    const target = s.target as { kind?: unknown; value?: unknown } | undefined;
+    const key = parseSendGrantKey(g.grantKey);
+    const recipients =
+      target?.kind === "recipient" && typeof target.value === "string"
+        ? splitRecipients(target.value)
+        : (key?.recipients ?? []);
+    if (recipients.length === 0) return g.grantKey;
+    const list = recipients.join(", ");
+    const account = text("account") ?? key?.account ?? null;
+    return account
+      ? t("settings.permissions.subject.emailFrom", { recipients: list, account })
+      : t("settings.permissions.subject.emailTo", { recipient: list });
   }
   if (g.kind === "calendar_write") {
     const id = text("calendarId")?.trim();
@@ -163,6 +174,8 @@ export function PermissionsPanel({
   const [showProhibitions, setShowProhibitions] = useState(false);
   const mode = str(values, "permissions.mode", "balanced") as PermissionMode;
   const origins = grants.filter((g) => g.kind === "new_origin" && g.revokedAt === null);
+  // Per-recipient sends the owner chose "always" for; Remove asks again next time.
+  const sends = grants.filter((g) => g.kind === "send_email" && g.revokedAt === null);
   const active = grants.filter((g) => g.revokedAt === null);
   // Apple apps set their actions on their own card in Connectors, not here (#640).
   const rows = connectors.filter((c) => appleApp(c.type) === null);
@@ -263,6 +276,35 @@ export function PermissionsPanel({
             ) : null}
           </div>
         </Advanced>
+
+        <Group
+          title={t("settings.permissions.sendsTitle")}
+          description={t("settings.permissions.sendsHint")}
+        >
+          {sends.length === 0 ? (
+            <EmptyNotice text={t("settings.permissions.noSends")} />
+          ) : (
+            <ul className="flex flex-col gap-1.5">
+              {sends.map((g) => (
+                <li key={g.id} className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{grantSubject(g)}</span>
+                  {onRevoke ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      onClick={() => onRevoke(g)}
+                      disabled={revoking?.has(g.id) ?? false}
+                      aria-label={t("settings.permissions.revokeNamed", { name: grantSubject(g) })}
+                    >
+                      {t("settings.devices.revoke")}
+                    </Button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Group>
 
         <Group
           title={t("settings.permissions.origins")}

@@ -350,6 +350,7 @@ export const ja: Partial<Catalogue> = {
   "blocks.details.to": "宛先",
   "blocks.details.exactRecipient": "（厳密な宛先）",
   "blocks.details.cc": "Cc",
+  "blocks.details.bcc": "Bcc",
   "blocks.details.subject": "件名",
   "blocks.details.body": "本文",
   "blocks.details.view": "表示",
@@ -392,6 +393,8 @@ export const ja: Partial<Catalogue> = {
   "blocks.approval.scope.site": "このサイトで許可",
   "blocks.approval.scope.session": "このセッションで許可",
   "blocks.approval.scope.always": "常に許可",
+  "blocks.approval.alwaysRecipient": "{recipients} への送信を常に許可",
+  "blocks.approval.alwaysRecipientFrom": "{account} から {recipients} への送信を常に許可",
   "blocks.approval.scopeGranted.once": "1回だけ許可",
   "blocks.approval.scopeGranted.task": "このタスクで許可",
   "blocks.approval.scopeGranted.site": "このサイトで許可",
@@ -1962,6 +1965,7 @@ export const ja: Partial<Catalogue> = {
   "settings.permissions.subject.execIn": "{cwd}で{argv}",
   "settings.permissions.subject.emailTo": "{recipient}宛て",
   "settings.permissions.subject.emailAny": "任意の宛先",
+  "settings.permissions.subject.emailFrom": "{recipients} へ（{account}から）",
   "settings.permissions.subject.calendarNamed": "カレンダー{id}",
   "settings.permissions.subject.calendar": "カレンダー",
   "settings.permissions.title": "権限",
@@ -1979,6 +1983,10 @@ export const ja: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "{name}は承認後にツールリストを変更したため、Psycheはその許可を取り消しました。確認するまで、すべてのアクションを再度確認します。",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "常に許可している宛先",
+  "settings.permissions.sendsHint":
+    "これらの宛先へのメールは確認なしで送信されます。削除すると再度確認します。",
+  "settings.permissions.noSends": "常に許可に設定された宛先はありません。",
   "settings.permissions.origins": "ブラウザのオリジン",
   "settings.permissions.originsHint": "エージェントが確認なしで開けるサイト。",
   "settings.permissions.noOrigins":

@@ -348,6 +348,7 @@ export const it: Partial<Catalogue> = {
   "blocks.details.to": "A",
   "blocks.details.exactRecipient": "(destinatario esatto)",
   "blocks.details.cc": "Cc",
+  "blocks.details.bcc": "Ccn",
   "blocks.details.subject": "Oggetto",
   "blocks.details.body": "Corpo",
   "blocks.details.view": "Mostra",
@@ -390,6 +391,8 @@ export const it: Partial<Catalogue> = {
   "blocks.approval.scope.site": "Consenti per questo sito",
   "blocks.approval.scope.session": "Consenti per questa sessione",
   "blocks.approval.scope.always": "Consenti sempre",
+  "blocks.approval.alwaysRecipient": "Consenti sempre l’invio a {recipients}",
+  "blocks.approval.alwaysRecipientFrom": "Consenti sempre l’invio a {recipients} da {account}",
   "blocks.approval.scopeGranted.once": "consenti una volta",
   "blocks.approval.scopeGranted.task": "consenti per questa attività",
   "blocks.approval.scopeGranted.site": "consenti per questo sito",
@@ -1981,6 +1984,7 @@ export const it: Partial<Catalogue> = {
   "settings.permissions.subject.execIn": "{argv} in {cwd}",
   "settings.permissions.subject.emailTo": "a {recipient}",
   "settings.permissions.subject.emailAny": "a qualsiasi destinatario",
+  "settings.permissions.subject.emailFrom": "a {recipients} da {account}",
   "settings.permissions.subject.calendarNamed": "calendario {id}",
   "settings.permissions.subject.calendar": "calendario",
   "settings.permissions.title": "Permessi",
@@ -1999,6 +2003,10 @@ export const it: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "{name} ha cambiato il suo elenco di strumenti dopo la tua approvazione, quindi Psyche ne ha revocato le autorizzazioni. Ogni azione chiede di nuovo finché non lo esamini.",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "Destinatari sempre consentiti",
+  "settings.permissions.sendsHint":
+    "Le email a questi destinatari partono senza chiedere. Rimuovine uno per tornare a chiedere.",
+  "settings.permissions.noSends": "Nessun destinatario è impostato su consenti sempre.",
   "settings.permissions.origins": "Origini del browser",
   "settings.permissions.originsHint": "Siti che l’agente può aprire senza chiedere.",
   "settings.permissions.noOrigins":
