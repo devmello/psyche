@@ -2771,6 +2771,7 @@ export const ar: Partial<Catalogue> = {
   "screens.library.moreFor": "مزيد من الإجراءات لـ {name}",
   "screens.library.quickLook": "نظرة سريعة",
   "screens.library.reveal": "إظهار في Finder",
+  "screens.library.revealFailed": "تعذّر عرض هذا الملف: {reason}",
   "screens.library.sendToChat": "إرسال إلى الدردشة",
   "screens.library.loading": "جارٍ تحميل المكتبة",
   "screens.library.loadFailed": "تعذّر على Psyche تحميل المكتبة",

@@ -395,6 +395,7 @@ export const screens = {
   "screens.library.moreFor": "More actions for {name}",
   "screens.library.quickLook": "Quick Look",
   "screens.library.reveal": "Reveal in Finder",
+  "screens.library.revealFailed": "Couldn't show this file: {reason}",
   "screens.library.sendToChat": "Send to chat",
   "screens.library.openInChat": "Open in chat",
   "screens.library.openInViewer": "Open in viewer",

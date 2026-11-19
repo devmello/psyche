@@ -2690,6 +2690,7 @@ export const zh: Partial<Catalogue> = {
   "screens.library.moreFor": "{name} 的更多操作",
   "screens.library.quickLook": "快速查看",
   "screens.library.reveal": "在访达中显示",
+  "screens.library.revealFailed": "无法显示此文件：{reason}",
   "screens.library.sendToChat": "发送到聊天",
   "screens.library.loading": "正在载入资料库",
   "screens.library.loadFailed": "Psyche 无法载入资料库",

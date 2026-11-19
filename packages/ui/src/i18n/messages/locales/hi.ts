@@ -2725,6 +2725,7 @@ export const hi: Partial<Catalogue> = {
   "screens.library.moreFor": "{name} के लिए और कार्रवाइयाँ",
   "screens.library.quickLook": "क्विक लुक",
   "screens.library.reveal": "Finder में दिखाएँ",
+  "screens.library.revealFailed": "यह फ़ाइल दिखाई नहीं जा सकी: {reason}",
   "screens.library.sendToChat": "चैट में भेजें",
   "screens.library.loading": "लाइब्रेरी लोड हो रही है",
   "screens.library.loadFailed": "Psyche लाइब्रेरी लोड नहीं कर सका",

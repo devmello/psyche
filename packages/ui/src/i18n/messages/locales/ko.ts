@@ -2714,6 +2714,7 @@ export const ko: Partial<Catalogue> = {
   "screens.library.moreFor": "{name}에 대한 추가 동작",
   "screens.library.quickLook": "훑어보기",
   "screens.library.reveal": "Finder에서 보기",
+  "screens.library.revealFailed": "이 파일을 보여 줄 수 없습니다: {reason}",
   "screens.library.sendToChat": "채팅으로 보내기",
   "screens.library.loading": "보관함 로드 중",
   "screens.library.loadFailed": "Psyche가 보관함을 로드할 수 없습니다",

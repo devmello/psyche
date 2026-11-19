@@ -211,6 +211,18 @@ export function ChatThread({
   const attachments = useAttachments(support, (file, signal) =>
     uploadFile(call as GatewayCall, file, { threadId, signal }),
   );
+  // "Send to chat" (the Library) hands items to this new chat's composer; it takes them once.
+  const handedItems = useStoreState((s) =>
+    s.composerAttachments?.threadId === threadId ? s.composerAttachments.items : null,
+  );
+  const addLibraryItems = attachments.addItems;
+  useEffect(() => {
+    if (handedItems === null) return;
+    addLibraryItems(handedItems);
+    store.update((s) =>
+      s.composerAttachments?.threadId === threadId ? { ...s, composerAttachments: null } : s,
+    );
+  }, [handedItems, addLibraryItems, store, threadId]);
 
   const display = useMemo<DisplayMessage[]>(() => {
     const byId = new Map(view.messages.map((m) => [m.id, m]));
