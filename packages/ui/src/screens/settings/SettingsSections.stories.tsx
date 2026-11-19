@@ -231,6 +231,8 @@ const mcpState = (servers: McpState["servers"]): McpState => ({
   notice: null,
   review: null,
   check: noop,
+  update: noop,
+  updated: 0,
   remove: noop,
   setEnabled: noop,
 });
