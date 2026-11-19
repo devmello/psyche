@@ -1,6 +1,7 @@
 import { constants } from "node:fs";
 import { type FileHandle, lstat, open, readdir, realpath } from "node:fs/promises";
-import { basename, join, resolve } from "node:path";
+import { homedir } from "node:os";
+import { basename, join, resolve, sep } from "node:path";
 import {
   assertGranted,
   assertNoSymlinks,
@@ -10,6 +11,7 @@ import {
   type GrantedFolder,
   isUnder,
 } from "@psyche/files";
+import { assertFolderGrantable, folderCovers } from "@psyche/permissions";
 import {
   FILE_CHUNK_BYTES,
   FILE_LIST_PAGE,
@@ -20,7 +22,7 @@ import {
 } from "@psyche/protocol";
 import { mimeFromName } from "@psyche/viewers/core/detect";
 import type { Call, HandlerDef } from "../context.ts";
-import { protectedRoots } from "./protected-paths.ts";
+import { folderAccessEnv, protectedRoots } from "./protected-paths.ts";
 
 /**
  * `files.list` and `files.read` (feature P4; UI design §3.7): read-only access for the Files pane
@@ -36,6 +38,8 @@ export interface FilesSetup {
   folders: () => readonly GrantedFolder[];
   /** `$PSYCHE_HOME`; the Library is its `library/` folder. */
   home: string;
+  /** The owner's home directory (default: this user's); `files.starterFolders` looks under it. */
+  userHome?: string;
 }
 
 /** A file the caller may read: its real path and display name. */
@@ -184,9 +188,60 @@ async function readFile(
   }
 }
 
+const STARTER_FOLDERS = [
+  ["documents", "Documents"],
+  ["desktop", "Desktop"],
+  ["downloads", "Downloads"],
+] as const;
+
+/** Case-insensitive volumes (macOS, Windows) treat `documents` and `Documents` as one folder. */
+const FOLDS_CASE = process.platform === "darwin" || process.platform === "win32";
+
+const realOr = async (p: string): Promise<string> => realpath(p).catch(() => p);
+
+/**
+ * A granted folder already covers `path`: compared on real paths (realpath fixes the case of
+ * what exists) and, on a case-insensitive volume, without case for what does not.
+ */
+async function alreadyShared(grants: readonly GrantedFolder[], path: string): Promise<boolean> {
+  const real = await realOr(path);
+  const realGrants = await Promise.all(
+    grants.map(async (g) => ({ ...g, path: await realOr(g.path) })),
+  );
+  if (folderCovers(realGrants, real, "ro") !== undefined) return true;
+  if (!FOLDS_CASE) return false;
+  const c = real.toLowerCase();
+  return realGrants.some((g) => {
+    const a = g.path.toLowerCase().replace(/[\\/]+$/, "");
+    return c === a || c.startsWith(a + sep);
+  });
+}
+
+/**
+ * Documents, Desktop and Downloads for the onboarding step: only an existing folder that
+ * `assertFolderGrantable` accepts and no granted folder covers yet. Nothing is granted here.
+ */
+async function starterFolders(setup: FilesSetup): Promise<MethodResult<"files.starterFolders">> {
+  const userHome = setup.userHome ?? homedir();
+  const folders: MethodResult<"files.starterFolders">["folders"] = [];
+  for (const [id, name] of STARTER_FOLDERS) {
+    const path = join(userHome, name);
+    try {
+      if (!(await lstat(path)).isDirectory()) continue;
+      await assertFolderGrantable(path, { ...folderAccessEnv(setup.home), home: userHome });
+    } catch {
+      continue;
+    }
+    if (await alreadyShared(setup.folders(), path)) continue;
+    folders.push({ id, path });
+  }
+  return { folders };
+}
+
 /** The handlers, for the dispatcher. */
 export function filesHandlers(setup: FilesSetup): Record<string, HandlerDef> {
   return {
+    "files.starterFolders": { run: () => starterFolders(setup) },
     "files.list": {
       run: (_call: Call, params: MethodParams<"files.list">) => listFolder(params, setup),
     },

@@ -1500,6 +1500,14 @@
         "sideEffecting": false
       },
       {
+        "description": "The folders onboarding may offer to share read-only (Documents, Desktop, Downloads under the owner's home): only those that exist, are not sensitive roots (`assertFolderGrantable`) and are not already covered by a granted folder. Grants through `settings.set` of `permissions.policy`, never from here.",
+        "name": "files.starterFolders",
+        "params": "#/$defs/FilesStarterFoldersParams",
+        "result": "#/$defs/FilesStarterFoldersResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "The Gateway's identity key and fingerprint, the Host's name and whether it is set up to be reached from other computers (publicOrigin, trusted proxy). The Host's Settings shows the fingerprint next to a pairing request so the owner can compare it with the one the new computer shows.",
         "name": "gateway.info",
         "params": "#/$defs/GatewayInfoParams",
@@ -20402,6 +20410,38 @@
         "size",
         "offset",
         "bytes"
+      ],
+      "type": "object"
+    },
+    "FilesStarterFoldersParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "FilesStarterFoldersResult": {
+      "properties": {
+        "folders": {
+          "items": {
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/StarterFolderId"
+              },
+              "path": {
+                "maxLength": 4096,
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "path"
+            ],
+            "type": "object"
+          },
+          "maxItems": 3,
+          "type": "array"
+        }
+      },
+      "required": [
+        "folders"
       ],
       "type": "object"
     },
@@ -43549,6 +43589,14 @@
         "downloading",
         "ready",
         "error"
+      ],
+      "type": "string"
+    },
+    "StarterFolderId": {
+      "enum": [
+        "documents",
+        "desktop",
+        "downloads"
       ],
       "type": "string"
     },

@@ -6,6 +6,7 @@ export {
   isAvailable,
 } from "./capabilities.ts";
 export { DoneStep } from "./DoneStep.tsx";
+export { FoldersStep, type StarterFolderOption } from "./FoldersStep.tsx";
 export { HABIT_DEFAULTS, HABIT_KEYS, type HabitChoices, habitSettings } from "./habits.ts";
 export { MAIL_DEFAULTS, MailStep, mailSettings } from "./MailStep.tsx";
 export { MemoryStep } from "./MemoryStep.tsx";
