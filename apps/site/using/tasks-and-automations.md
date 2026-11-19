@@ -76,7 +76,7 @@ psyche automations resume <id>
 An automation runs with nobody watching. The agent is told so, and:
 
 - It cannot ask you questions; question cards are not offered to it.
-- Any action that needs approval is **not attempted**. It is queued, the run carries on without it, and you get one notification: "Approval needed: …".
+- Any action that needs approval is **not attempted**. It is set aside, the run carries on without it, and one notice covers every waiting action: "N actions are waiting from your automations".
 - If there is nothing worth telling you, the run ends silently.
 - Notifying you of the result needs no approval.
 
