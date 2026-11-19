@@ -106,7 +106,7 @@ Two parts of the Compose file are not used by the Gateway yet:
 `psyche start` installs the Gateway as a user service and waits for `/healthz`:
 
 - On Linux it writes `~/.config/systemd/user/psyche-gateway.service`, then runs `daemon-reload` and `enable --now`.
-- On macOS it writes `~/Library/LaunchAgents/com.psyche.gateway.plist` and starts it with `launchctl`. Its logs go to `$PSYCHE_HOME/logs/gateway.out.log` and `gateway.err.log`.
+- On macOS it writes `~/Library/LaunchAgents/com.psyche.gateway.plist` and starts it with `launchctl`. Its logs go to `$PSYCHE_HOME/logs/gateway.log`, which the Gateway rotates itself (10 MB, three files). `gateway.err.log` holds crash output only, and `gateway.out.log` holds stdout.
 - `psyche stop` stops it and keeps it stopped; `psyche restart` restarts it; `psyche status` reports health, the service state and the CLI's pairing.
 
 On Linux, keep a user service running after you log out:
@@ -303,7 +303,7 @@ The Gateway writes JSON lines with metadata only: never message bodies, tool arg
 | Where the Gateway runs | Where the logs go | How to read them |
 | --- | --- | --- |
 | A terminal | Standard error | In that terminal |
-| LaunchAgent (macOS) | `$PSYCHE_HOME/logs/gateway.out.log` and `gateway.err.log` | `psyche logs -n 200`, or `psyche logs -f` to follow |
+| LaunchAgent (macOS) | `$PSYCHE_HOME/logs/gateway.log` (crashes in `gateway.err.log`) | `psyche logs -n 200`, or `psyche logs -f` to follow |
 | systemd user unit | The journal | `psyche logs -f` (it reads `journalctl --user -u psyche-gateway`) |
 | Docker Compose | Container output | `docker compose -f deploy/docker-compose.yml logs gateway` |
 

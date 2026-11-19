@@ -32,6 +32,11 @@ type App = "mail" | "notes" | "calendar" | "reminders";
 const EMAIL = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
 /** The connector's words when the Host's helper is paired but cannot serve the read. */
 const NEEDS_HELPER = /needs the Psyche helper/;
+/**
+ * While blocked, one read is retried this often (a backstop for a pairing or approval that no event
+ * reported). A retry that is refused again keeps the block for another interval.
+ */
+export const HELPER_RETRY_MS = 30 * 60_000;
 const FACT_TOOL = {
   notes: "notes_folders",
   calendar: "calendar_list_calendars",
@@ -77,10 +82,13 @@ export function appleSearchSeams(o: {
     );
   const trust = new Map<string, TrustContext>();
   // Set when a read is refused with "needs the Psyche helper" while the Host's helper is still
-  // listed as connected (paired, not serving). Until the helper connects again, no Apple read is
-  // attempted: the sources and work signals skip quietly, and one failure is logged, not one per pass.
-  let helperBlocked = false;
-  const helperUp = (): boolean => !helperBlocked && o.helperOnline?.() !== false;
+  // listed as connected (paired, not serving). Until the helper is resumed (a connect, or an approved
+  // pairing: `resumeHelper`) or the retry interval passes, no Apple read is attempted: the sources
+  // and work signals skip quietly, and one failure is logged, not one per pass.
+  let blockedAt: number | undefined;
+  const helperUp = (): boolean =>
+    (blockedAt === undefined || o.now() - blockedAt >= HELPER_RETRY_MS) &&
+    o.helperOnline?.() !== false;
 
   const helperCall = (client: MessagesHelper): HelperCall => {
     return async (capability, params, signal) => {
@@ -98,9 +106,10 @@ export function appleSearchSeams(o: {
       try {
         res = await reg.execute(`search:${rec.id}:${tool}:${o.now()}`, params, signal, () => {});
       } catch (err) {
-        if (err instanceof Error && NEEDS_HELPER.test(err.message)) helperBlocked = true;
+        if (err instanceof Error && NEEDS_HELPER.test(err.message)) blockedAt = o.now();
         throw err;
       }
+      blockedAt = undefined;
       if (res.isError === true) throw new Error(`${tool} failed`);
       return res.output;
     };
@@ -160,7 +169,7 @@ export function appleSearchSeams(o: {
     },
     helperOnline: helperUp,
     resumeHelper: () => {
-      helperBlocked = false;
+      blockedAt = undefined;
     },
     contactParent: (contact) => contactParent(o.graph?.(), contact),
     ownAddresses: () =>
