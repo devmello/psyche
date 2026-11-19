@@ -29,6 +29,7 @@ import { memoryPrivacyRest } from "./memoryPrivacy-rest/ko.ts";
 import { memoryReviewRest } from "./memoryReview-rest/ko.ts";
 import { memorySurfacesRest } from "./memorySurfaces-rest/ko.ts";
 import { memoryWorkRest } from "./memoryWork-rest/ko.ts";
+import { notices } from "./notices/ko.ts";
 import { nudgesRest } from "./nudges-rest/ko.ts";
 import { onboardingRest } from "./onboarding-rest/ko.ts";
 import { overview } from "./overview/ko.ts";
@@ -3363,6 +3364,8 @@ export const ko: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Gateway-authored notices (inbox notifications, security alerts)
+  ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
 };

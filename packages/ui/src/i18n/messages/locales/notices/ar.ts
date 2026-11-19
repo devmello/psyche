@@ -1,0 +1,46 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Notices the Gateway authors (ar); merged into `../ar.ts`. */
+export const notices: Partial<Catalogue> = {
+  "notice.security.changed.title": "تراجع Psyche عن تغيير أمني أُجري خارج التطبيق",
+  "notice.security.changed.body":
+    "غيّر برنامج على هذا الـ Mac {count, plural, =1 {سجل أمان واحدًا} other {# من سجلات الأمان}} (الأجهزة أو المفاتيح أو الأذونات أو الإعدادات) دون المرور عبر Psyche{times, plural, =0 {} =1 {} other {، # مرات حتى الآن}}. أعاد Psyche كل شيء كما كان. إن لم تكن أنت من فعل ذلك، فافحص الـ Mac بحثًا عن برامج غير مرغوب فيها.",
+  "notice.security.untrusted.title": "لا يستطيع Psyche الوثوق بسجلات الأمان لديه",
+  "notice.security.untrusted.body":
+    "فشل فحص سجلات الأمان في Psyche، لذلك حُظرت التغييرات الأمنية والأجهزة الجديدة وموافقات Touch ID. راجع أجهزتك، ثم شغّل `psyched security reseal` على الـ Mac (يسري بعد 24 ساعة).",
+  "notice.security.firstSeal.title": "أصبح Psyche يفحص سجلات الأمان لديه الآن",
+  "notice.security.firstSeal.body":
+    "ختم Psyche {devices, plural, =1 {جهازًا مقترنًا واحدًا} other {# أجهزة مقترنة}} وإعدادات الأمان فيه. من الآن، يُلغى أي تغيير يجري خارج Psyche ويظهر هنا. راجع أجهزتك مرة واحدة.",
+  "notice.security.resealed.title":
+    "{restored, select, yes {خُتمت سجلات الأمان بعد الاستعادة} other {خُتمت سجلات الأمان من جديد}}",
+  "notice.security.resealed.body":
+    "{restored, select, yes {بدأ Psyche من نسخة احتياطية مستعادة وختم سجلات الأمان كما هي. إن لم تستعد نسخة احتياطية، فراجع أجهزتك.} other {ختم Psyche سجلات الأمان لديه من جديد بعد فترة الانتظار.}}",
+  "notice.security.firstAdmin.title": "أنشأ أمر على هذا الـ Mac أول جهاز مسؤول",
+  "notice.security.firstAdmin.body":
+    "أصبح {device}{key, select, none {} other { (المفتاح {key})}} أول جهاز مسؤول على هذا الـ Mac {via, select, desktop {من تطبيق Psyche} other {عبر `psyched`}}. إن لم تكن أنت من فعل ذلك، فألغِه من الإعدادات ← الأجهزة.",
+  "notice.security.recovery.title":
+    "{state, select, requested {طلب أمر على هذا الـ Mac تغييرًا أمنيًا} applied {طُبّق تغيير أمني صادر من هذا الـ Mac} cancelled {أُلغي تغيير أمني صادر من هذا الـ Mac} other {تعذّر تطبيق تغيير أمني صادر من هذا الـ Mac}}",
+  "notice.security.recovery.body":
+    "{op, select, approve {الموافقة على الجهاز {device}{key, select, none {} other { (المفتاح {key})}} بالأذونات {scopes}.} grant {منح {device}{key, select, none {} other { (المفتاح {key})}} الأذونات {scopes}.} presence {إيقاف اشتراط Touch ID ومفتاح المرور للتغييرات الأمنية حتى يُسجَّل مفتاح جديد.} seal {قبول سجلات الأمان الحالية كما هي.} other {تغيير أمني.}}{state, select, requested { سيُطبَّق {when, select, none {بعد 24 ساعة} other {في {when}}} ما لم تلغِه في Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
+  "notice.browser.chrome.title": "Psyche يتحكم في Chrome لديك",
+  "notice.browser.chrome.body":
+    "تستخدم مهمة ملف Chrome الخاص بـ Psyche الذي سجّلت الدخول فيه. عنوان نافذته “Psyche is driving this window”. يُغلق عند انتهاء المهمة، ويمكنك أيضًا إنهاء Chrome.",
+  "notice.browser.takeover.title": "يحتاجك Psyche في المتصفح",
+  "notice.browser.takeover.body":
+    "على {host}، يسأل الوكيل: {reason}. تولَّ التحكم في لوحة المتصفح ثم أعده إليه.",
+  "notice.connector.consent.title": "أكمل ربط Google",
+  "notice.connector.consent.body":
+    "افتح هذا الرابط على الكمبيوتر الذي يعمل عليه Psyche لمنح الوصول: {url}",
+  "notice.connector.changed.title": "تغيّر اتصال",
+  "notice.connector.changed.body":
+    "{reason, select, account_changed {يسجّل موصّل الدخول الآن إلى حساب مختلف. أُوقف العمل المرتبط بالحساب القديم.} disconnected {فُصل موصّل. أُوقف العمل الذي كان يحتاج إليه.} scope_changed {أصبح موصّل للقراءة فقط. أُوقفت الإجراءات المعلّقة عبره.} other {أُلغي وصول موصّل. سجّل الدخول من جديد لمواصلة استخدامه.}}",
+  "notice.connector.reconnect.title": "يلزم إعادة الاتصال",
+  "notice.connector.reconnect.body": "فقد موصّل إمكانية الوصول ويلزمك تسجيل الدخول من جديد.",
+  "notice.attention.paused.title": "مهمة تنتظرك",
+  "notice.attention.paused.body":
+    "توقفت مؤقتًا قبل {tool} على تطبيق أو موقع حساس إلى أن تعود إلى Psyche.",
+  "notice.apiKey.changed.title":
+    "{kind, select, brave {{action, select, changed {تم تغيير} other {تمت إزالة}} مفتاح {provider}} other {{action, select, changed {تم تغيير} other {تمت إزالة}} مفتاح API الخاص بـ {provider}}}",
+  "notice.apiKey.changed.body":
+    '{action, select, changed {التغيير} other {الإزالة}} من {device, select, none {جهاز} other {"{device}" ({platform}{paired, select, none {} other {، اقترن في {paired}}})}}. إن لم تكن أنت من فعل ذلك، فألغِ الجهاز من الإعدادات ← الأجهزة.',
+};

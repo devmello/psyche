@@ -1,0 +1,44 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Notices the Gateway authors (zh); merged into `../zh.ts`. */
+export const notices: Partial<Catalogue> = {
+  "notice.security.changed.title": "Psyche 撤销了在应用之外进行的安全更改",
+  "notice.security.changed.body":
+    "这台 Mac 上有程序绕过 Psyche 更改了 {count, plural, =1 {# 条安全记录} other {# 条安全记录}}（设备、密钥、授权或设置）{times, plural, =0 {} =1 {} other {，目前已发生 # 次}}。Psyche 已将它们恢复。如果不是你做的，请检查 Mac 上是否有不明软件。",
+  "notice.security.untrusted.title": "Psyche 无法信任它的安全记录",
+  "notice.security.untrusted.body":
+    "Psyche 对安全记录的检查未通过，因此安全更改、新设备和 Touch ID 批准都已被阻止。请检查你的设备，然后在 Mac 上运行 `psyched security reseal`（24 小时后生效）。",
+  "notice.security.firstSeal.title": "Psyche 现在会检查它的安全记录",
+  "notice.security.firstSeal.body":
+    "Psyche 已封存 {devices, plural, =1 {# 台已配对设备} other {# 台已配对设备}}及其安全设置。从现在起，在 Psyche 之外所做的更改会被撤销并显示在这里。请检查一次你的设备。",
+  "notice.security.resealed.title":
+    "{restored, select, yes {恢复后已封存安全记录} other {已重新封存安全记录}}",
+  "notice.security.resealed.body":
+    "{restored, select, yes {Psyche 从恢复的备份启动，并按现状封存了安全记录。如果你没有恢复过备份，请检查你的设备。} other {等待期结束后，Psyche 已重新封存安全记录。}}",
+  "notice.security.firstAdmin.title": "这台 Mac 上的命令创建了第一台管理员设备",
+  "notice.security.firstAdmin.body":
+    "{device}{key, select, none {} other {（密钥 {key}）}}已在这台 Mac 上{via, select, desktop {通过 Psyche 应用} other {通过 `psyched`}}成为第一台管理员设备。如果不是你做的，请在“设置 → 设备”中撤销。",
+  "notice.security.recovery.title":
+    "{state, select, requested {这台 Mac 上的命令请求了一项安全更改} applied {来自这台 Mac 的安全更改已应用} cancelled {来自这台 Mac 的安全更改已取消} other {来自这台 Mac 的安全更改无法应用}}",
+  "notice.security.recovery.body":
+    "{op, select, approve {以 {scopes} 权限批准设备 {device}{key, select, none {} other {（密钥 {key}）}}。} grant {授予 {device}{key, select, none {} other {（密钥 {key}）}} {scopes} 权限。} presence {在注册新密钥之前，关闭安全更改对 Touch ID 和通行密钥的要求。} seal {按现状接受当前的安全记录。} other {一项安全更改。}}{state, select, requested {将{when, select, none {在 24 小时后} other {于 {when}}}生效，除非你在 Psyche 中取消。} failed {{reason, select, none {} other { {reason}}}} other {}}",
+  "notice.browser.chrome.title": "Psyche 正在操作你的 Chrome",
+  "notice.browser.chrome.body":
+    "有任务正在使用你已登录的 Psyche Chrome 配置文件。窗口标题为“Psyche is driving this window”。任务完成后会关闭，你也可以退出 Chrome。",
+  "notice.browser.takeover.title": "Psyche 需要你在浏览器中协助",
+  "notice.browser.takeover.body":
+    "在 {host} 上，智能体询问：{reason}。请在浏览器窗格中接管操作，完成后再交还。",
+  "notice.connector.consent.title": "完成 Google 连接",
+  "notice.connector.consent.body": "请在运行 Psyche 的电脑上打开此链接以授予访问权限：{url}",
+  "notice.connector.changed.title": "连接已更改",
+  "notice.connector.changed.body":
+    "{reason, select, account_changed {某个连接器现在登录的是另一个账户。与旧账户绑定的工作已停止。} disconnected {某个连接器已断开。需要它的工作已停止。} scope_changed {某个连接器现在为只读。通过它待处理的操作已停止。} other {某个连接器的访问权限已被撤销。请重新登录以继续使用。}}",
+  "notice.connector.reconnect.title": "需要重新连接",
+  "notice.connector.reconnect.body": "某个连接器失去了访问权限，需要你重新登录。",
+  "notice.attention.paused.title": "有任务在等你",
+  "notice.attention.paused.body": "在敏感的应用或网站上，已在 {tool} 之前暂停，等你回到 Psyche。",
+  "notice.apiKey.changed.title":
+    "{kind, select, brave {{provider} 密钥已{action, select, changed {更改} other {移除}}} other {{provider} API 密钥已{action, select, changed {更改} other {移除}}}}",
+  "notice.apiKey.changed.body":
+    '{action, select, changed {更改} other {移除}}来自：{device, select, none {某台设备} other {"{device}" ({platform}{paired, select, none {} other {，配对于 {paired}}})}}。如果不是你做的，请在“设置 → 设备”中撤销该设备。',
+};

@@ -29,6 +29,7 @@ import { memoryRest } from "./memory-rest/it.ts";
 import { memoryReviewRest } from "./memory-review-rest/it.ts";
 import { memorySurfacesRest } from "./memory-surfaces-rest/it.ts";
 import { memoryWorkRest } from "./memory-work-rest/it.ts";
+import { notices } from "./notices/it.ts";
 import { nudgesRest } from "./nudges-rest/it.ts";
 import { onboardingRest } from "./onboarding-rest/it.ts";
 import { overview } from "./overview/it.ts";
@@ -3412,6 +3413,8 @@ export const it: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Gateway-authored notices (inbox notifications, security alerts)
+  ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
 };

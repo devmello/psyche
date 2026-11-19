@@ -8383,6 +8383,7 @@ export interface Notification {
     delivered:    { [key: string]: string };
     id:           string;
     kind:         NotificationKind;
+    message?:     NoticeMessage;
     readAt?:      null | string;
     resolvedAt?:  null | string;
     route?:       null | string;
@@ -8406,12 +8407,29 @@ export interface NotificationAction {
 
 export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system" | "specialist_result";
 
+export interface NoticeMessage {
+    /**
+     * Message id of the body
+     */
+    bodyKey: string;
+    /**
+     * Values for the placeholders. The Gateway has stripped control, format and bidirectional
+     * characters from the strings; show them as plain text, never as markup.
+     */
+    params?: { [key: string]: ExternalRef };
+    /**
+     * Message id of the title, e.g. notice.browser.chrome.title
+     */
+    titleKey: string;
+}
+
 export interface NotificationDevicePayload {
     body:         string;
     createdAt:    string;
     id:           string;
     interruption: Interruption;
     kind:         NotificationKind;
+    message?:     NoticeMessage;
     route?:       null | string;
     title:        string;
 }

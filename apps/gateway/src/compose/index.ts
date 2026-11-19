@@ -118,6 +118,7 @@ import {
   apiKeyHandlers,
   describeKeyActor,
   envKey,
+  keyActorParts,
 } from "./api-keys.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { artifactContextProvider, composeArtifacts } from "./artifacts.ts";
@@ -633,12 +634,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const notifyAlert = (alert: SecurityAlert) => {
     const decision = alertNotifyDecision(alert, seal.alerts.notifiedAt(alert.id), clock.now());
     if (!decision.send) return;
-    const { title, body } = alertNotice(alert);
+    const { title, body, message } = alertNotice(alert);
     void notifier
       .notify({
         kind: "system",
         title,
         body,
+        message,
         route: "/settings/devices",
         dedupeKey: `security-alert:${alert.id}`,
         breakQuietHours: decision.breakQuietHours,
@@ -842,9 +844,22 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     deviceId: string;
   }) => {
     const what = `${API_KEY_LABEL[id]} ${id === "brave" ? "key" : "API key"}`;
+    const actor = keyActorParts(getDevice(db, deviceId));
     void notifier
       .notify({
         kind: "system",
+        message: {
+          titleKey: "notice.apiKey.changed.title",
+          bodyKey: "notice.apiKey.changed.body",
+          params: {
+            provider: API_KEY_LABEL[id],
+            kind: id === "brave" ? "brave" : "api",
+            action,
+            device: actor?.device ?? "none",
+            platform: actor?.platform ?? "",
+            paired: actor?.paired ?? "none",
+          },
+        },
         title: `The ${what} was ${action}`,
         body: `${action === "changed" ? "Changed" : "Removed"} from ${describeKeyActor(getDevice(db, deviceId))}. If that was not you, revoke the device in Settings → Devices.`,
         route: "/settings/devices",
@@ -1154,6 +1169,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
             kind: "input_needed",
             title: "A task is waiting for you",
             body: `Paused before ${tool} on a sensitive app or site until you are back in Psyche.`,
+            message: {
+              titleKey: "notice.attention.paused.title",
+              bodyKey: "notice.attention.paused.body",
+              params: { tool },
+            },
             taskId,
             dedupeKey: `attention:${taskId}`,
             route: `/tasks/${taskId}`,

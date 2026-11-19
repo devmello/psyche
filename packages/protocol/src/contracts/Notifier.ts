@@ -1,5 +1,5 @@
 import type { Surface } from "../common.ts";
-import type { Notification, NotificationKind } from "../schemas/surfaces.ts";
+import type { NoticeMessage, Notification, NotificationKind } from "../schemas/surfaces.ts";
 import type { Unsubscribe } from "./Clock.ts";
 
 /**
@@ -13,6 +13,11 @@ export interface NotifyInput {
   kind: NotificationKind;
   title: string;
   body: string;
+  /**
+   * The same notice as message ids plus values, for clients to word in their own language.
+   * `title` and `body` stay the English fallback. The notifier cleans the values.
+   */
+  message?: NoticeMessage;
   taskId?: string;
   approvalId?: string;
   route?: string;
