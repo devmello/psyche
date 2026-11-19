@@ -667,7 +667,12 @@ describe("guided setup in the composed Gateway", () => {
     );
     expect(() => held?.describeCall?.({ tabId: "t1" })).toThrow(/not connected and signed in/);
     await expect(
-      held?.execute("call-1", { tabId: "t1" }) as Promise<unknown>,
+      held?.execute(
+        "call-1",
+        { tabId: "t1" },
+        new AbortController().signal,
+        () => {},
+      ) as Promise<unknown>,
     ).rejects.toMatchObject({ code: "unavailable", details: { reason: "payments_not_ready" } });
     // And it comes back once connected and signed in again (the token file is gone: sign in anew).
     await admin.call("payments.link.connect", { path: cli }, "k-c2");
