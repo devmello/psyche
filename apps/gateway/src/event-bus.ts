@@ -61,6 +61,8 @@ interface Subscriber {
   deviceId: string | null;
   /** Who is behind the sink; a part of the Gateway itself reads as the least trusted. */
   reader: Reader;
+  /** The last `seq` sent to this subscriber: its own count, so filtered events leave no gap. */
+  seq: number;
 }
 
 const NO_READER: Reader = { role: null, desktop: false };
@@ -81,7 +83,9 @@ function matches(filter: EventFilter | null, event: string, threadId: string | u
 
 /**
  * Event bus with `seq` and `stateVersion` (architecture §11, data model §11).
- * `seq` orders events within one Gateway process; `stateVersion` increases on every persisted
+ * `seq` is per subscriber: it counts the events that subscriber was sent, so an event it was not
+ * meant to receive (scope, filter, device) never shows as a gap and a client refreshes only for
+ * a real loss. `stateVersion` increases on every persisted
  * mutation and survives restarts (seeded from the database). Events are not replayed: a client
  * that sees a gap refreshes using `stateVersion`.
  */
@@ -117,7 +121,7 @@ export class EventBus {
     deviceId: string | null = null,
     reader: Reader = NO_READER,
   ): () => void {
-    this.#subscribers.set(sink, { scopes, filter: null, deviceId, reader });
+    this.#subscribers.set(sink, { scopes, filter: null, deviceId, reader, seq: 0 });
     return () => this.#subscribers.delete(sink);
   }
 
@@ -145,21 +149,24 @@ export class EventBus {
     ) as EventPayload<E>;
     this.#seq += 1;
     const requiredScope = eventScope(event);
-    const frame = JSON.stringify(eventFrame(event, payload, this.#seq, this.#stateVersion));
     for (const [sink, sub] of this.#subscribers) {
       if (requiredScope !== null && !sub.scopes.includes(requiredScope)) continue;
       if (!matches(sub.filter, event, threadId)) continue;
+      sub.seq += 1;
       const own = this.#personalizer?.(event, payload, {
         deviceId: sub.deviceId,
         scopes: sub.scopes,
         reader: sub.reader,
       });
       sink(
-        own === undefined
-          ? frame
-          : JSON.stringify(
-              eventFrame(event, own as EventPayload<E>, this.#seq, this.#stateVersion),
-            ),
+        JSON.stringify(
+          eventFrame(
+            event,
+            own === undefined ? payload : (own as EventPayload<E>),
+            sub.seq,
+            this.#stateVersion,
+          ),
+        ),
       );
     }
   }
@@ -178,12 +185,12 @@ export class EventBus {
   publishToDevice<E extends EventName>(deviceId: string, event: E, payload: EventPayload<E>): void {
     this.#seq += 1;
     const requiredScope = eventScope(event);
-    const frame = JSON.stringify(eventFrame(event, payload, this.#seq, this.#stateVersion));
     for (const [sink, sub] of this.#subscribers) {
       if (sub.deviceId !== deviceId) continue;
       if (requiredScope !== null && !sub.scopes.includes(requiredScope)) continue;
       if (!matches(sub.filter, event, undefined)) continue;
-      sink(frame);
+      sub.seq += 1;
+      sink(JSON.stringify(eventFrame(event, payload, sub.seq, this.#stateVersion)));
     }
   }
 }
