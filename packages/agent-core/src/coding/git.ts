@@ -52,6 +52,9 @@ export const GIT_DRIVER_QUERY = [
   "^(filter|diff|merge)\\.",
 ] as const;
 
+const UNSWITCHABLE =
+  "a git driver in this repository's config has a name that cannot be switched off; the command was not run";
+
 /**
  * `-c` pairs that switch off every driver `GIT_DRIVER_QUERY` listed: a `.gitattributes` line
  * (`* filter=x diff=x`) runs `filter.x.clean` / `process` on status and diff, `diff.x.textconv`
@@ -60,13 +63,16 @@ export const GIT_DRIVER_QUERY = [
 export function gitDriverOverrides(listed: string): string[] {
   const out = new Set<string>();
   for (const line of listed.split("\n")) {
-    const m = /^(filter|diff|merge)\.(.+)\.[^.]+$/i.exec(line.trim());
+    const m = /^(filter|diff|merge)\.(.*)\.[^.]+$/i.exec(line.trim());
+    // `(.*)`: an empty driver name (`[filter ""]`, listed as `filter..clean`) is a driver too,
+    // and `-c filter..clean=` switches it off.
+    // Keys without a subsection (`diff.renames`, `merge.conflictstyle`) name no driver.
     if (m === null) continue;
     const section = (m[1] as string).toLowerCase();
     const name = m[2] as string;
-    // A name git cannot take back in `-c` is left alone; git then refuses the override and the
-    // command fails rather than run the driver.
-    if (/[=\s]/.test(name)) continue;
+    // A name `-c` cannot carry (it splits on the first `=` and trims) gets no override, and
+    // leaving it out would let the driver run: fail closed, refuse the whole command.
+    if (/[=\s]/.test(name)) throw new PsycheError("forbidden", UNSWITCHABLE);
     const keys =
       section === "filter"
         ? ["clean=", "smudge=", "process=", "required=false"]
