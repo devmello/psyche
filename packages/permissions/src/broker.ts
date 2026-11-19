@@ -134,6 +134,9 @@ const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 
 /** Who may answer (security §3.7): paired devices with `operator.approvals`, owner-identity senders. */
+
+/** How long a folder whose real path failed to resolve (not ENOENT) stays refused before a new look. */
+const FOLDER_ERROR_RETRY_MS = 30_000;
 export interface ApproverDirectory {
   device(
     deviceId: string,
@@ -370,6 +373,8 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #sessionFolders = new Map<string, FolderGrantEntry[]>();
   /** `folderRefused` answers by path: the real path is resolved once, not on every call. */
   readonly #refusedMemo = new Map<string, boolean>();
+  /** Folders whose real path failed to resolve, refused until this time (ms since epoch). */
+  readonly #refusedRetryAt = new Map<string, number>();
   /** When an attached file's grant ends (`${threadId}\0${path}` -> epoch ms); see attachFiles. */
   readonly #fileGrantExpiry = new Map<string, number>();
   /**
@@ -448,6 +453,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   setPolicy(config: PolicyConfig): void {
     this.#policy = compilePolicy(config);
     this.#refusedMemo.clear();
+    this.#refusedRetryAt.clear();
     this.#warmRefusals();
   }
 
@@ -867,6 +873,9 @@ export class PsychePermissionBroker implements PermissionBroker {
   folderRefused(path: string): boolean {
     const known = this.#refusedMemo.get(path);
     if (known !== undefined) return known;
+    const retryAt = this.#refusedRetryAt.get(path);
+    if (retryAt !== undefined && Date.now() < retryAt) return true;
+    this.#refusedRetryAt.delete(path);
     const env = this.#refuseEnv();
     let refused = inSystemRoot(path, env);
     if (!refused) {
@@ -876,9 +885,12 @@ export class PsychePermissionBroker implements PermissionBroker {
         const real = realpathSync.native(path);
         refused = real !== path && inSystemRoot(real, env);
       } catch (err) {
-        // Refused for now, but not remembered: a mount that timed out at start (SMB, NFS) is
-        // judged again on the next look instead of staying refused until the policy changes.
-        if ((err as NodeJS.ErrnoException).code !== "ENOENT") return true;
+        // Refused for now, and remembered only briefly: a mount that timed out at start (SMB,
+        // NFS) is judged again within a minute, and a hung one is not looked up on every call.
+        if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+          this.#refusedRetryAt.set(path, Date.now() + FOLDER_ERROR_RETRY_MS);
+          return true;
+        }
       }
     }
     this.#refusedMemo.set(path, refused);

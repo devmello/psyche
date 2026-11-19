@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, realpath, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { makeBroker } from "./helpers.ts";
 
 /** `folderRefused` fails closed: only a missing path (ENOENT) may be judged as typed. */
@@ -27,12 +27,20 @@ describe.skipIf(process.platform === "win32")("folderRefused when the real path 
       policy: { folders: [{ path: flaky, mode: "rw" }] },
       hostProgram: { home },
     });
-    expect(h.broker.folderRefused(flaky)).toBe(true);
-    await rm(flaky);
-    await mkdir(flaky);
-    // No setPolicy in between: the error answer was not remembered.
-    expect(h.broker.folderRefused(flaky)).toBe(false);
-    expect(h.broker.grantedFolders()).toEqual([{ path: flaky, mode: "rw" }]);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      expect(h.broker.folderRefused(flaky)).toBe(true);
+      await rm(flaky);
+      await mkdir(flaky);
+      // Within the retry window the error answer holds (a hung mount isn't looked up each call).
+      expect(h.broker.folderRefused(flaky)).toBe(true);
+      // No setPolicy in between: after the window the folder is judged again.
+      vi.advanceTimersByTime(31_000);
+      expect(h.broker.folderRefused(flaky)).toBe(false);
+      expect(h.broker.grantedFolders()).toEqual([{ path: flaky, mode: "rw" }]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps a folder that does not exist yet", async () => {
