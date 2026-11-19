@@ -383,20 +383,26 @@ function isPaypalP2pPath(u: URL): boolean {
       .split("/")
       .map(cleanSegment)
       .filter((x) => x !== "");
-  const hasP2p = (segs: string[], bare: boolean): boolean => {
+  const hasP2p = (segs: string[]): boolean => {
     for (const [i, seg] of segs.entries()) {
-      // In a hash route only the first segment counts, and never the bare `pay` or `send…`
-      // words (`#/pay`, `#/send-otp` are steps of a checkout).
-      if (PAYPAL_P2P_SEGMENTS.has(seg) && (bare || seg !== "pay")) return true;
-      if (bare && (seg === "send" || seg.startsWith("send-"))) return true;
+      if (PAYPAL_P2P_SEGMENTS.has(seg) || seg === "send" || seg.startsWith("send-")) return true;
       if (seg === "myaccount" && ["transfer", "money"].includes(segs[i + 1] ?? "")) return true;
-      if (!bare) break;
     }
     return false;
   };
-  if (hasP2p(pathSegs(decodeEscapes(u.pathname)), true)) return true;
-  // A hash route counts only when it starts with `/` and its first segment is a P2P one.
-  if (hash.startsWith("/") && hasP2p(pathSegs((hash.split("?")[0] ?? "").slice(1)), false))
+  const pathSegments = pathSegs(decodeEscapes(u.pathname));
+  if (hasP2p(pathSegments)) return true;
+  // A hash route (`#/us/paypalme/john`, `#!paypalme`): its P2P words count at any position, but
+  // not the bare `pay`, `send` and `send-*` other than `send-money`, which are steps of a
+  // checkout (`#/pay`, `#/send-otp`, `#/send-code`).
+  const route = pathSegs(hash.replace(/^!/, "").replace(/\?/g, "/"));
+  for (const [i, seg] of route.entries()) {
+    if (seg !== "pay" && PAYPAL_P2P_SEGMENTS.has(seg)) return true;
+    if (seg === "send-money") return true;
+    if (seg === "myaccount" && ["transfer", "money"].includes(route[i + 1] ?? "")) return true;
+  }
+  // `/myaccount#/transfer/send`: the path ends in `myaccount`, the hash goes on from there.
+  if (pathSegments.at(-1) === "myaccount" && ["transfer", "money"].includes(route[0] ?? ""))
     return true;
   const query = `${decodeEscapes(u.search)}&${hash.includes("?") ? hash.slice(hash.indexOf("?")) : ""}`;
   return /[?&]cmd=_send-money(?:[&;%#]|$)/i.test(query);

@@ -19,7 +19,7 @@ import type { LinkSetupStatus } from "@psyche/protocol";
 type Scope = "operator.read" | "operator.write" | "operator.approvals" | "operator.admin";
 
 import { FakeModelProvider } from "@psyche/testing";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { composeBrowser } from "../src/compose/browser.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import {
@@ -873,19 +873,74 @@ describe("guided setup in the composed Gateway", () => {
     const rejections: unknown[] = [];
     const onRejection = (e: unknown) => rejections.push(e);
     process.on("unhandledRejection", onRejection);
+    // The retry timers: created, and not yet fired or cleared.
+    const pending = new Set<unknown>();
+    const realSet = globalThis.setTimeout;
+    const realClear = globalThis.clearTimeout;
+    const setSpy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+      fn: (...a: unknown[]) => void,
+      ms?: number,
+      ...rest: unknown[]
+    ) => {
+      if (!String(fn).includes("attempt()")) return realSet(fn, ms, ...rest);
+      const h: unknown = realSet(
+        (...a: unknown[]) => {
+          pending.delete(h);
+          fn(...a);
+        },
+        ms,
+        ...rest,
+      );
+      pending.add(h);
+      return h;
+    }) as typeof setTimeout);
+    const clearSpy = vi.spyOn(globalThis, "clearTimeout").mockImplementation(((h: never) => {
+      pending.delete(h);
+      realClear(h);
+    }) as typeof clearTimeout);
     try {
       const b = await bootAdmin(cli, { run: slowFailing(calls, 60), statusRetryMs: 10 });
-      await b.admin.call("payments.link.connect", { path: cli }, "k-c1");
-      await b.admin.call("payments.link.connect", { path: cli }, "k-c2");
+      // The second connect starts while the first one's check is still running.
+      const first = b.admin.call("payments.link.connect", { path: cli }, "k-c1");
+      await waitFor(async () => calls.some((c) => c.startsWith("auth status")));
+      const second = b.admin.call("payments.link.connect", { path: cli }, "k-c2");
+      await Promise.all([first, second]);
       await b.stop();
+      // No retry timer is left behind, not even one from the overlapped chain.
+      expect(pending.size).toBe(0);
       await new Promise((r) => setTimeout(r, 100));
       const seen = calls.length;
       await new Promise((r) => setTimeout(r, 400));
       expect(calls.length).toBe(seen);
       expect(rejections).toEqual([]);
     } finally {
+      setSpy.mockRestore();
+      clearSpy.mockRestore();
       process.off("unhandledRejection", onRejection);
     }
+  });
+
+  it("goes on with the back-off when a status check throws (#1345)", async () => {
+    const cli = fakeCli();
+    const home = await signedInHome(cli);
+    let services: ComposeServices | undefined;
+    let throws = 1;
+    const calls: string[] = [];
+    // The first check fails; the chain goes on to the retry, which answers.
+    const throwing: RunLink = async (file, args, env, timeout) => {
+      const verb = args.filter((a) => !a.startsWith("-") && !a.endsWith(".js")).join(" ");
+      calls.push(verb);
+      if (verb.startsWith("auth status") && throws-- > 0) throw new Error("boom");
+      return runFile(file, args, env, timeout);
+    };
+    await boot(cli, {
+      home,
+      run: throwing,
+      statusRetryMs: 20,
+      onServices: (s) => (services = s),
+    });
+    await waitFor(async () => services?.tools.get("checkout.pay_with_link") !== undefined);
+    expect(calls.filter((c) => c.startsWith("auth status")).length).toBeGreaterThanOrEqual(2);
   });
 
   it("never joins a status run from before the last connect (#1342 N2)", async () => {

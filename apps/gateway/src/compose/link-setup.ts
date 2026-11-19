@@ -597,17 +597,26 @@ export class LinkSetup {
     const me = ++this.#chain;
     const live = () => !this.#stopped && me === this.#chain;
     let wait = this.#o.statusRetryMs ?? STATUS_RETRY_MS;
-    const attempt = async () => {
+    const attempt = async (): Promise<void> => {
       if (!live()) return;
       this.#retry = undefined;
-      if (!this.configured()) return;
-      const answer = await this.#askStatus();
-      if (!live() || answer !== undefined || !this.configured()) return;
-      this.#retry = setTimeout(() => void attempt().catch(() => undefined), wait);
+      let answer: boolean | undefined;
+      try {
+        if (!this.configured()) return;
+        answer = await this.#askStatus();
+      } catch {
+        // An error is no answer: go on to the next back-off step below.
+      }
+      try {
+        if (!live() || answer !== undefined || !this.configured()) return;
+      } catch {
+        return;
+      }
+      this.#retry = setTimeout(() => void attempt(), wait);
       this.#retry.unref?.();
       wait = Math.min(wait * 2, STATUS_RETRY_MAX_MS);
     };
-    void attempt().catch(() => undefined);
+    void attempt();
   }
 
   readonly #changeListeners = new Set<() => void>();
