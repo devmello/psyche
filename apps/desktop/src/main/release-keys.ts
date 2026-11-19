@@ -6,7 +6,10 @@ import type { ReleaseKey } from "./update-manifest.ts";
  * §11 "Release key" for generation (`node deploy/scripts/update-manifest.mjs keygen`), storage and
  * rotation (add the new key here one release before signing with it, remove the old one after).
  *
- * Empty until the owner generates the first release key: with no trusted key the updater stays
- * off (it never applies an update it cannot verify).
+ * With no trusted key the updater stays off (it never applies an update it cannot verify).
  */
-export const TRUSTED_RELEASE_KEYS: readonly ReleaseKey[] = [];
+export const TRUSTED_RELEASE_KEYS: readonly ReleaseKey[] = [
+  // The owner's first release key, generated 2026-11-19. Its private half is held by the owner
+  // (password manager, and RELEASE_SIGNING_KEY in the GitHub `release` environment), never here.
+  { keyId: "37312dba0e2eddad", publicKey: "hbM9GyfYsfhRfSZX6E6QimBS7GqkV2CMlDpVdxolxNk=" },
+];

@@ -38,7 +38,7 @@ private struct ConnectingLine: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .animation(.default, value: visible)
+        .psycheFade(PsycheMotion.Duration.medium, value: visible)
         .task {
             try? await Task.sleep(for: .seconds(1.5))
             visible = true

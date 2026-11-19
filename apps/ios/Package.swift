@@ -51,7 +51,7 @@ let package = Package(
         ),
         .testTarget(name: "PsycheStoreTests", dependencies: ["PsycheStore", "PsycheShared"]),
         .testTarget(name: "PsycheWidgetTests", dependencies: ["PsycheBlocks", "PsycheStore"]),
-        .testTarget(name: "PsycheFeaturesTests", dependencies: ["PsycheFeatures", "PsycheStore"]),
+        .testTarget(name: "PsycheFeaturesTests", dependencies: ["PsycheFeatures", "PsycheDesign", "PsycheStore"]),
         .testTarget(name: "PsycheBlocksTests", dependencies: ["PsycheBlocks", "PsycheStore"]),
         .testTarget(
             name: "PsycheClientTests",
