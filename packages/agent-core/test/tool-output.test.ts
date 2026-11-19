@@ -8,6 +8,7 @@ import {
   type ImageShaper,
   keepRecentToolImages,
   normalizeToolOutput,
+  withoutToolImages,
 } from "../src/index.ts";
 import { estimateTokens } from "../src/util.ts";
 import { calls, harness, resultsIn, runTurn, say, spec } from "./harness.ts";
@@ -518,6 +519,18 @@ describe("review round 2 probes", () => {
     expect(thread.map((m) => m.parts[0]?.callId)).toEqual(
       Array.from({ length: 40 }, (_, i) => `c${i}`),
     );
+  });
+
+  it("leaves a malformed saved message alone instead of throwing", () => {
+    const odd = [
+      { role: "user", content: [{ type: "text", text: "old shape" }] },
+      {
+        role: "tool",
+        parts: [null, { type: "tool_result", callId: "c", output: [{ type: "image" }] }],
+      },
+    ] as unknown as { parts: unknown[] }[];
+    expect(keepRecentToolImages(odd)).toBe(odd);
+    expect(withoutToolImages(odd, "x")[0]).toBe(odd[0]);
   });
 
   it("cuts on payload too: past 24M characters of images, back to at most 16M", () => {

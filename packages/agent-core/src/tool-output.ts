@@ -224,8 +224,11 @@ export function isPartList(v: unknown): v is (ImagePart | TextPart)[] {
   );
 }
 
-const outputOf = (p: unknown) =>
-  (p as { type?: unknown }).type === "tool_result" ? (p as { output?: unknown }).output : undefined;
+/** A message's parts; none for a malformed one (an old or hand-edited saved thread). */
+const partsOf = (m: { parts: readonly unknown[] }): readonly unknown[] =>
+  Array.isArray(m.parts) ? m.parts : [];
+
+const outputOf = (p: unknown) => (isRecord(p) && p.type === "tool_result" ? p.output : undefined);
 
 /**
  * Tool-result images in a thread, with hysteresis: while there are at most `TOOL_IMAGES_HIGH`
@@ -239,9 +242,10 @@ const outputOf = (p: unknown) =>
 export function keepRecentToolImages<M extends { parts: readonly unknown[] }>(messages: M[]): M[] {
   const sizes: number[] = [];
   for (const m of messages)
-    for (const p of m.parts) {
+    for (const p of partsOf(m)) {
       const o = outputOf(p);
-      if (isPartList(o)) for (const x of o) if (x.type === "image") sizes.push(x.data.length);
+      if (!isPartList(o)) continue;
+      for (const x of o) if (x.type === "image") sizes.push(String(x.data ?? "").length);
     }
   const chars = sizes.reduce((a, b) => a + b, 0);
   if (sizes.length <= TOOL_IMAGES_HIGH && chars <= TOOL_IMAGE_CHARS_HIGH) return messages;
@@ -258,7 +262,7 @@ export function keepRecentToolImages<M extends { parts: readonly unknown[] }>(me
   }
   let index = 0;
   return messages.map((m) => {
-    if (index >= keepFrom) return m;
+    if (index >= keepFrom || !Array.isArray(m.parts)) return m;
     let changed = false;
     const parts = m.parts.map((p) => {
       const o = outputOf(p);
@@ -301,6 +305,7 @@ export function withoutToolImages<M extends { parts: readonly unknown[] }>(
 ): M[] {
   let changed = false;
   const out = messages.map((m) => {
+    if (!Array.isArray(m.parts)) return m;
     let touched = false;
     const parts = m.parts.map((p) => {
       const o = outputOf(p);
