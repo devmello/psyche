@@ -3,13 +3,8 @@ import { generateKeyPairSync } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-// @ts-expect-error plain .mjs release script
-import {
-  signManifest,
-  trustedKeysFromSource,
-  verifyTrusted,
-} from "../../../../deploy/scripts/update-manifest.mjs";
 import { TRUSTED_RELEASE_KEYS } from "../../src/main/release-keys.ts";
 import { keyIdOf } from "../../src/main/update-manifest.ts";
 
@@ -18,6 +13,17 @@ import { keyIdOf } from "../../src/main/update-manifest.ts";
 const SCRIPT = resolve(import.meta.dirname, "../../../../deploy/scripts/update-manifest.mjs");
 const KEYS_TS = resolve(import.meta.dirname, "../../src/main/release-keys.ts");
 const dirs: string[] = [];
+const { signManifest, trustedKeysFromSource, verifyTrusted } = (await import(
+  pathToFileURL(SCRIPT).href
+)) as {
+  signManifest: (bytes: Buffer, pem: string) => string;
+  trustedKeysFromSource: (ts: string) => { keyId: string; publicKey: string }[];
+  verifyTrusted: (
+    bytes: Buffer,
+    sig: string,
+    ts: string,
+  ) => { ok: boolean; keyId?: string; why?: string };
+};
 afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
