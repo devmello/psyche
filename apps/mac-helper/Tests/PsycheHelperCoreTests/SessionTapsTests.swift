@@ -1,0 +1,248 @@
+import Foundation
+import PsycheHelperCore
+import Testing
+
+// Fakes only: these tests never create a CGEvent tap, so no Accessibility prompt can appear.
+
+private final class Log: @unchecked Sendable {
+    private let lock = NSLock()
+    private var items: [String] = []
+    func add(_ s: String) { lock.withLock { items.append(s) } }
+    var all: [String] { lock.withLock { items } }
+}
+
+private final class Clock: @unchecked Sendable {
+    var now = Date(timeIntervalSince1970: 1_000_000)
+}
+
+private final class FakeHandle: SessionTapHandle, @unchecked Sendable {
+    let kind: SessionTapKind
+    let log: Log
+    let sessions: ComputerSessionLock
+    init(kind: SessionTapKind, log: Log, sessions: ComputerSessionLock) {
+        self.kind = kind
+        self.log = log
+        self.sessions = sessions
+    }
+    func remove() {
+        // Recorded with whether a session still held the lock: removal must come after the release.
+        log.add("remove \(kind) held=\(sessions.activeSession ?? "none")")
+    }
+}
+
+private final class FakeInstaller: SessionTapInstaller, @unchecked Sendable {
+    let log: Log
+    var sessions: ComputerSessionLock!
+    var escWorks = true
+    var attentionWorks = true
+    init(log: Log) { self.log = log }
+    func install(_ kind: SessionTapKind) -> (any SessionTapHandle)? {
+        if kind == .escStop, !escWorks { log.add("install esc FAILED"); return nil }
+        if kind == .attention, !attentionWorks { log.add("install attention FAILED"); return nil }
+        // Recorded with whether a session already held the lock: the tap must come first.
+        log.add("install \(kind) held=\(sessions.activeSession ?? "none")")
+        return FakeHandle(kind: kind, log: log, sessions: sessions)
+    }
+}
+
+private final class FakeTimers: @unchecked Sendable {
+    private let lock = NSLock()
+    private(set) var pending: [Int: @Sendable () -> Void] = [:]
+    private(set) var delays: [TimeInterval] = []
+    private var next = 0
+    var scheduler: SessionTapScheduler {
+        { [self] delay, fire in
+            lock.withLock {
+                next += 1
+                let id = next
+                pending[id] = fire
+                delays.append(delay)
+                return { [self] in lock.withLock { _ = pending.removeValue(forKey: id) } }
+            }
+        }
+    }
+    var armed: Int { lock.withLock { pending.count } }
+    func fireAll() {
+        let fires = lock.withLock { Array(pending.values) }
+        for f in fires { f() }
+    }
+}
+
+private struct Rig {
+    let clock = Clock()
+    let log = Log()
+    let timers = FakeTimers()
+    let installer: FakeInstaller
+    let sessions: ComputerSessionLock
+    let taps: SessionTaps
+
+    init(idleTimeout: TimeInterval = 120) {
+        let clock = clock
+        let installer = FakeInstaller(log: log)
+        let sessions = ComputerSessionLock(idleTimeout: idleTimeout, now: { clock.now })
+        installer.sessions = sessions
+        self.installer = installer
+        self.sessions = sessions
+        taps = SessionTaps(installer: installer, sessions: sessions, schedule: timers.scheduler)
+    }
+}
+
+@Suite("session-scoped event taps (R2)")
+struct SessionTapsTests {
+    @Test func nothingIsInstalledUntilASessionBegins() {
+        let rig = Rig()
+        #expect(rig.log.all.isEmpty)
+        #expect(!rig.taps.isInstalled)
+    }
+
+    @Test func theEscTapIsInstalledBeforeTheSessionLockIsTaken() throws {
+        let rig = Rig()
+        try rig.taps.beginSession("run-1")
+        // `held=none` at install time: the lock did not exist yet when the Esc tap went in.
+        #expect(rig.log.all == ["install escStop held=none", "install attention held=none"])
+        #expect(rig.sessions.activeSession == "run-1")
+        #expect(rig.taps.isInstalled)
+    }
+
+    @Test func aSessionNeverStartsWithoutTheEscStop() {
+        let rig = Rig()
+        rig.installer.escWorks = false
+        #expect(throws: CapabilityError.self) { try rig.taps.beginSession("run-1") }
+        #expect(rig.sessions.activeSession == nil)  // the lock was never taken
+        #expect(!rig.taps.isInstalled)
+        // Accessibility granted later: the next session installs it and starts.
+        rig.installer.escWorks = true
+        #expect(throws: Never.self) { try rig.taps.beginSession("run-2") }
+        #expect(rig.sessions.activeSession == "run-2")
+    }
+
+    @Test func attentionTapFailureDoesNotBlockTheSessionAndIsRetried() throws {
+        let rig = Rig()
+        rig.installer.attentionWorks = false
+        try rig.taps.beginSession("run-1")
+        #expect(rig.sessions.activeSession == "run-1")
+        rig.installer.attentionWorks = true
+        try rig.taps.beginSession("run-1")
+        #expect(rig.log.all.filter { $0.hasPrefix("install attention held") }.count == 1)
+    }
+
+    @Test func tapsAreInstalledOnceForManyActions() throws {
+        let rig = Rig()
+        for _ in 0..<5 { try rig.taps.beginSession("run-1") }
+        #expect(rig.log.all.count == 2)
+    }
+
+    @Test func releaseRemovesTheTapsAfterTheLockIsGone() throws {
+        let rig = Rig()
+        try rig.taps.beginSession("run-1")
+        rig.taps.release("run-1")
+        #expect(rig.log.all.suffix(2) == ["remove escStop held=none", "remove attention held=none"])
+        #expect(!rig.taps.isInstalled)
+        #expect(rig.timers.armed == 0)  // the idle timer is cancelled with the taps
+    }
+
+    @Test func releasingAnotherSessionKeepsTheTaps() throws {
+        let rig = Rig()
+        try rig.taps.beginSession("run-1")
+        rig.taps.release("some-other-run")
+        #expect(rig.taps.isInstalled)
+        #expect(rig.sessions.activeSession == "run-1")
+    }
+
+    @Test func escStopsTheSessionThenRemovesTheTaps() throws {
+        let rig = Rig()
+        try rig.taps.beginSession("run-1")
+        #expect(rig.taps.stopActive() == "run-1")
+        #expect(rig.log.all.suffix(2) == ["remove escStop held=none", "remove attention held=none"])
+        // The stopped run cannot carry on, and nothing is left installed for it.
+        #expect(throws: CapabilityError.self) { try rig.taps.beginSession("run-1") }
+        #expect(!rig.taps.isInstalled)
+        // A new run reinstalls the Esc stop first.
+        try rig.taps.beginSession("run-2")
+        #expect(rig.taps.isInstalled)
+        #expect(rig.sessions.activeSession == "run-2")
+    }
+
+    @Test func aBusyComputerRefusesTheSecondSessionAndKeepsTheFirstsTaps() throws {
+        let rig = Rig()
+        try rig.taps.beginSession("run-1")
+        #expect(throws: CapabilityError.self) { try rig.taps.beginSession("run-2") }
+        #expect(rig.taps.isInstalled)
+        #expect(rig.sessions.activeSession == "run-1")
+        #expect(rig.log.all.filter { $0.hasPrefix("remove") }.isEmpty)
+    }
+
+    @Test func aRefusedFirstSessionLeavesNoTapsBehind() throws {
+        let rig = Rig()
+        // A stopped session id is refused by the lock; the taps installed for it must not linger.
+        try rig.taps.beginSession("run-1")
+        _ = rig.taps.stopActive()
+        let before = rig.log.all.count
+        #expect(throws: CapabilityError.self) { try rig.taps.beginSession("run-1") }
+        #expect(!rig.taps.isInstalled)
+        #expect(rig.log.all.dropFirst(before).filter { $0.hasPrefix("remove") }.count == 2)
+    }
+
+    @Test func anIdleSessionExpiresAndTheTimerRemovesTheTaps() throws {
+        let rig = Rig(idleTimeout: 120)
+        try rig.taps.beginSession("run-1")
+        #expect(rig.timers.delays == [121])
+        // Before the idle timeout: the timer fires, the session is still active, taps stay and it re-arms.
+        rig.clock.now = rig.clock.now.addingTimeInterval(60)
+        rig.timers.fireAll()
+        #expect(rig.taps.isInstalled)
+        #expect(rig.timers.armed == 1)
+        // Past it: no explicit release ever came; the tap goes away by itself.
+        rig.clock.now = rig.clock.now.addingTimeInterval(200)
+        rig.timers.fireAll()
+        #expect(!rig.taps.isInstalled)
+        #expect(rig.timers.armed == 0)
+        #expect(rig.log.all.suffix(2) == ["remove escStop held=none", "remove attention held=none"])
+    }
+
+    @Test func aNewSessionAfterIdleExpiryGetsFreshTapsFirst() throws {
+        let rig = Rig(idleTimeout: 120)
+        try rig.taps.beginSession("run-1")
+        rig.clock.now = rig.clock.now.addingTimeInterval(500)
+        rig.timers.fireAll()
+        try rig.taps.beginSession("run-2")
+        let installs = rig.log.all.filter { $0.hasPrefix("install escStop") }
+        #expect(installs == ["install escStop held=none", "install escStop held=none"])
+        #expect(rig.taps.isInstalled)
+    }
+
+    @Test func aSessionThatStartsRightAfterAnExpiredOneKeepsItsTaps() throws {
+        // The idle timer for run-1 fires late, after run-2 already began: it must not remove run-2's taps.
+        let rig = Rig(idleTimeout: 120)
+        try rig.taps.beginSession("run-1")
+        rig.clock.now = rig.clock.now.addingTimeInterval(200)  // run-1 idle-expired, no timer ran yet
+        try rig.taps.beginSession("run-2")
+        rig.timers.fireAll()
+        #expect(rig.taps.isInstalled)
+        #expect(rig.sessions.activeSession == "run-2")
+        #expect(rig.log.all.filter { $0.hasPrefix("remove") }.isEmpty)
+    }
+}
+
+@Suite("attention seed from the idle clock")
+struct AttentionSeedTests {
+    private let now = Date(timeIntervalSince1970: 2_000_000)
+
+    @Test func ownerInputBeforeTheHelpersLastPostCounts() {
+        let seed = AttentionSeed.ownerInput(now: now, idle: 30, lastHelperPost: now.addingTimeInterval(-3_600))
+        #expect(seed == now.addingTimeInterval(-30))
+    }
+
+    @Test func aLastEventAtTheHelpersOwnPostIsNotTheOwner() {
+        let post = now.addingTimeInterval(-60)
+        #expect(AttentionSeed.ownerInput(now: now, idle: 60, lastHelperPost: post) == nil)  // the same instant
+        #expect(AttentionSeed.ownerInput(now: now, idle: 59.5, lastHelperPost: post) == nil)  // within the slack
+        #expect(AttentionSeed.ownerInput(now: now, idle: 58, lastHelperPost: post) == now.addingTimeInterval(-58))
+    }
+
+    @Test func nonsenseIdleValuesAreIgnored() {
+        for idle in [-1.0, .infinity, .nan] {
+            #expect(AttentionSeed.ownerInput(now: now, idle: idle, lastHelperPost: .distantPast) == nil)
+        }
+    }
+}

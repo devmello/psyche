@@ -171,6 +171,8 @@ runtime.start()
 // Inside a sandbox Mac guest: serve the host's guest.* requests on vsock 7000 (L3).
 GuestAgent.startIfGuest(log: log)
 let daemon = NodeDaemon(identity: identity, registry: runtime.registry, preflight: runtime.preflight, log: log)
+// The Gateway rewrites run/node-socket when it starts: reconnect at once instead of waiting out the backoff.
+nonisolated(unsafe) let gatewayUp = GatewayUpWatcher { daemon.gatewayMayBeUp() }
 let nodeThread = Thread { daemon.run() }
 nodeThread.name = "com.psyche.helper.node"
 nodeThread.start()

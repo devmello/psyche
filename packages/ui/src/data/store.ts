@@ -49,6 +49,13 @@ const scheduleFrame = (cb: () => void): number =>
 const cancelFrame = (id: number): void =>
   typeof cancelAnimationFrame === "function" ? cancelAnimationFrame(id) : clearTimeout(id);
 
+/**
+ * A seq gap refreshes every loader, but at most one refresh runs at a time, one more waits behind
+ * it, and a refresh never starts sooner than `GAP_REFRESH_MIN_MS` after the last one began.
+ */
+const GAP_REFRESH_DEBOUNCE_MS = 250;
+const GAP_REFRESH_MIN_MS = 2_000;
+
 /** A read is sent at most this many times while the device keeps answering `rate_limited`. */
 const MAX_RATE_LIMIT_ATTEMPTS = 3;
 
@@ -89,6 +96,10 @@ export class GatewayStore {
   private unsubscribe: Array<() => void> = [];
   private insightsTimer: ReturnType<typeof setTimeout> | undefined;
   private mapTimer: ReturnType<typeof setTimeout> | undefined;
+  private gapTimer: ReturnType<typeof setTimeout> | undefined;
+  private gapRunning = false;
+  private gapQueued = false;
+  private gapLastStart = Number.NEGATIVE_INFINITY;
   private readonly now: () => string;
   /** Holds non-urgent reads while the device is rate limited; shared by every loader. */
   private readonly gate = new RequestGate();
@@ -226,6 +237,9 @@ export class GatewayStore {
     this.insightsTimer = undefined;
     clearTimeout(this.mapTimer);
     this.mapTimer = undefined;
+    clearTimeout(this.gapTimer);
+    this.gapTimer = undefined;
+    this.gapQueued = false;
     clearTimeout(this.outboxRetryTimer);
     this.outboxRetryTimer = undefined;
   }
@@ -483,10 +497,43 @@ export class GatewayStore {
     if (e.event === "run.updated") this.changedRuns.add(e.payload.run.id);
     if (gap) {
       this.markRunsChanged();
-      void this.refreshAll().catch(() => {});
+      this.scheduleGapRefresh();
     }
     if (INSIGHTS_EVENTS.has(e.event)) this.invalidateInsightsSoon();
     if (MAP_EVENTS.has(e.event)) this.invalidateMapSoon();
+  }
+
+  /** Coalesces gap refreshes: one in flight, one trailing, spaced `GAP_REFRESH_MIN_MS` apart. */
+  private scheduleGapRefresh(): void {
+    if (this.gapRunning) {
+      this.gapQueued = true;
+      return;
+    }
+    if (this.gapTimer !== undefined) return;
+    const wait = Math.max(
+      GAP_REFRESH_DEBOUNCE_MS,
+      this.gapLastStart + GAP_REFRESH_MIN_MS - Date.now(),
+    );
+    this.gapTimer = setTimeout(() => {
+      this.gapTimer = undefined;
+      void this.runGapRefresh();
+    }, wait);
+  }
+
+  private async runGapRefresh(): Promise<void> {
+    this.gapRunning = true;
+    this.gapLastStart = Date.now();
+    try {
+      await this.refreshAll();
+    } catch {
+      // Each loader shows its own error.
+    } finally {
+      this.gapRunning = false;
+      if (this.gapQueued) {
+        this.gapQueued = false;
+        this.scheduleGapRefresh();
+      }
+    }
   }
 
   /**
