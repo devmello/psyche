@@ -1,4 +1,5 @@
 import type { AgentEvent, DispatchIntent } from "@psyche/protocol";
+import { FakeModelProvider } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { createAgentLoop } from "../src/index.ts";
 import {
@@ -83,8 +84,14 @@ describe("a card re-issued after a restart is reused by the recovered turn (#64)
     h.clock.advance(30_000);
     const [reissued] = await h.broker.reissue();
     expect(reissued?.approval.requestedBy.runId).toBe(dead.runId);
+    // Process 2 has its own connection to the model: process 1 is dead and cannot take its turns
+    // (in this test it still runs in-process, and its invalidated call would race for the script).
+    const provider2 = FakeModelProvider.script([
+      call("s2", "email.send", { to: "ana@example.com" }),
+      say("Sent."),
+    ]);
     const loop2 = createAgentLoop({
-      provider: h.provider,
+      provider: provider2,
       model: "fake/main",
       utilityModel: "fake/utility",
       broker: h.broker,
@@ -94,7 +101,6 @@ describe("a card re-issued after a restart is reused by the recovered turn (#64)
       ids: h.ids,
     });
     loop2.registry.register(tool);
-    h.provider.script([call("s2", "email.send", { to: "ana@example.com" }), say("Sent.")]);
     const events: AgentEvent[] = [];
     const done = (async () => {
       for await (const e of loop2.startTurn(

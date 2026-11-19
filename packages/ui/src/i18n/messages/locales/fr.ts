@@ -17,6 +17,7 @@ import { helperOffline } from "./helper-offline/fr.ts";
 import { homeRest } from "./home-rest/fr.ts";
 import { links } from "./links/fr.ts";
 import { mailMeetings } from "./mail-meetings/fr.ts";
+import { memoryMap } from "./memory-map/fr.ts";
 import { memoryRest } from "./memory-rest/fr.ts";
 import { memoryReviewRest } from "./memoryReview-rest/fr.ts";
 import { memorySurfacesRest } from "./memorySurfaces-rest/fr.ts";
@@ -48,6 +49,7 @@ import { workflows } from "./workflows/fr.ts";
 /** French catalogue (fr). Same ids as `en`; missing ids fall back to English. */
 export const fr: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,
@@ -862,6 +864,7 @@ export const fr: Partial<Catalogue> = {
   "shell.shortcuts.description":
     "† signale les ajouts de Psyche aux raccourcis de Claude pour ordinateur.",
   "shell.threads.needsYou": "Besoin de vous",
+  "shell.threads.nowOn": "En cours : {step}",
   "shell.threads.running": "En cours",
   "shell.threads.titleField": "Titre de la discussion",
   "shell.threads.incognito": "Incognito",
@@ -2017,7 +2020,8 @@ export const fr: Partial<Catalogue> = {
   "settings.model.role.primary": "Principal",
   "settings.model.role.primaryHint": "Discussion, tâches et outils",
   "settings.model.role.utility": "Utilitaire",
-  "settings.model.role.utilityHint": "Titres, résumés et classificateur du mode auto",
+  "settings.model.role.utilityHint":
+    "Titres, résumés, cartes de recherche et autres tâches d'arrière-plan",
   "settings.model.role.image": "Image",
   "settings.model.role.imageHint":
     "Changements d’avatar ; « Aucun » signifie les créatures intégrées",
@@ -3028,6 +3032,20 @@ export const fr: Partial<Catalogue> = {
   "screens.library.openLabel": "Ouvrir {name}{editor, select, true { dans l’éditeur} other {}}",
   "screens.library.openInEditor": "Ouvrir dans l’éditeur",
   "screens.library.open": "Ouvrir",
+  "screens.library.recording.description":
+    "Une relecture de ce que l'agent a fait dans le navigateur. Le contenu des pages a été masqué à l'enregistrement.",
+  "screens.library.recording.play": "Lire",
+  "screens.library.recording.pause": "Pause",
+  "screens.library.recording.step": "Étape {n} sur {total}",
+  "screens.library.recording.scrub": "Position dans l'enregistrement",
+  "screens.library.recording.steps": "Étapes",
+  "screens.library.recording.empty": "Cet enregistrement n'a aucune étape.",
+  "screens.library.recording.noFrame": "Aucune image pour cette étape.",
+  "screens.library.recording.frameAlt": "Le navigateur à l'étape {n}",
+  "screens.library.recording.loading": "Chargement de l'enregistrement",
+  "screens.library.recording.loadFailed":
+    "Psyche n'a pas pu charger cet enregistrement ({reason}).",
+  "screens.library.recording.notFound": "Cet enregistrement n'est plus disponible.",
   "screens.library.trust": "Faire confiance à ce fichier",
   "screens.library.moreFor": "Autres actions pour {name}",
   "screens.library.quickLook": "Coup d’œil",

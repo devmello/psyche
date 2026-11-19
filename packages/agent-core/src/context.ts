@@ -109,6 +109,36 @@ export interface AssembleInput {
   timeZone: string;
   summary?: { text: string; untrusted: boolean };
   budgets: ContextBudgets;
+  /**
+   * Yesterday's and today's notes read earlier (`readDailyNotes`). The loop reads them once per
+   * run, so an append during the run (the agent's own memory tool, another writer) does not
+   * rewrite the system prompt between steps. Read now when absent.
+   */
+  dailyNotes?: DailyNotes;
+}
+
+/** Yesterday's and today's daily-note sections, and whether they quote untrusted content. */
+export interface DailyNotes {
+  sections: ContextSection[];
+  untrusted: boolean;
+  /** The time they were read for: a re-read for the same notes passes it again. */
+  at: number;
+  /** Each note's text as read (end trimmed), or undefined when the file did not exist. */
+  files: { path: string; content: string | undefined }[];
+}
+
+/**
+ * True when `next` only adds to `prev`: the same notes, each either unchanged, newly created
+ * or grown at the end. An edited or deleted line, or a deleted note, is not an append.
+ */
+export function onlyAppended(prev: DailyNotes, next: DailyNotes): boolean {
+  if (prev.files.length !== next.files.length) return false;
+  return prev.files.every((before, i) => {
+    const after = next.files[i];
+    if (after === undefined || after.path !== before.path) return false;
+    if (before.content === undefined) return true;
+    return after.content?.startsWith(before.content) === true;
+  });
 }
 
 export interface AssembledContext {
@@ -255,15 +285,16 @@ function toolsSection(
 
 const UNTRUSTED_LINE = /\[untrusted[\]:]/i;
 
-async function dailyNoteSections(
+export async function readDailyNotes(
   memory: MemoryStore | undefined,
   now: number,
   timeZone: string,
   budget: number,
-): Promise<{ sections: ContextSection[]; untrusted: boolean }> {
+): Promise<DailyNotes> {
   const today = localDate(now, timeZone);
   const yesterday = localDate(now - 86_400_000, timeZone);
   const sections: ContextSection[] = [];
+  const files: DailyNotes["files"] = [];
   let untrusted = false;
   for (const [date, label] of [
     [yesterday, "Yesterday"],
@@ -271,6 +302,7 @@ async function dailyNoteSections(
   ] as const) {
     const path = `memory/${date}.md`;
     const file = memory === undefined ? undefined : await memory.readFile(path);
+    files.push({ path, content: file?.content.trimEnd() });
     if (file === undefined) {
       sections.push({
         id: `daily:${date}`,
@@ -300,7 +332,7 @@ async function dailyNoteSections(
       ...(hasUntrusted ? { untrusted: true } : {}),
     });
   }
-  return { sections, untrusted };
+  return { sections, untrusted, at: now, files };
 }
 
 /**
@@ -318,13 +350,10 @@ export async function assembleContext(input: AssembleInput): Promise<AssembledCo
   const skills = await skillsSection(input.skills, input.budgets.skillsIndex);
   if (skills !== undefined) sections.push(skills);
   sections.push(toolsSection(input.tools, input.permissionMode, input.runMode, input.deferred));
-  const daily = await dailyNoteSections(
-    input.memory,
-    input.now,
-    input.timeZone,
-    input.budgets.dailyNote,
-  );
-  sections.push(...daily.sections);
+  const daily =
+    input.dailyNotes ??
+    (await readDailyNotes(input.memory, input.now, input.timeZone, input.budgets.dailyNote));
+  sections.push(...structuredClone(daily.sections));
   if (input.summary !== undefined) {
     const raw = input.summary.text.trim();
     const { text, truncated } = applyBudget("compaction summary", raw, input.budgets.summary);
@@ -349,6 +378,37 @@ function attr(value: string): string {
 /** Opening or closing tags of a section fence or of the base prompt's own sections. */
 const NEUTRALISED_TAG =
   /[<\uFF1C\uFE64]\s*([/\uFF0F]?)\s*(section|instructions|permissions|secrets|memory|browser|working)\b/gi;
+
+/**
+ * Section kinds that make up the stable head of the system prompt: they change only when the
+ * owner edits a persona file or a skill, the tool set changes or the permission mode does.
+ * Everything from the first other section on (daily notes, the compaction summary, per-turn
+ * context, hook and plugin sections) is the volatile tail.
+ */
+const STABLE_KINDS: ReadonlySet<ContextSection["kind"]> = new Set([
+  "base",
+  "persona",
+  "skills",
+  "tools",
+]);
+
+/**
+ * The system prompt, plus the length of its stable head (`STABLE_KINDS`, up to the first other
+ * section). `system` is exactly `renderSystemPrompt(sections)`, so the model reads the same
+ * text; `system.slice(0, stableLength)` renders the head and the tail follows after a blank
+ * line. A provider with prompt caching sends them as two blocks and caches the head on its own.
+ */
+export function renderSystemParts(sections: readonly ContextSection[]): {
+  system: string;
+  stableLength: number;
+} {
+  let head = 0;
+  while (head < sections.length && STABLE_KINDS.has((sections[head] as ContextSection).kind)) {
+    head += 1;
+  }
+  const system = renderSystemPrompt(sections);
+  return { system, stableLength: renderSystemPrompt(sections.slice(0, head)).length };
+}
 
 /** Join sections into the system prompt. Each section is fenced so markers stay visible. */
 export function renderSystemPrompt(sections: readonly ContextSection[]): string {
