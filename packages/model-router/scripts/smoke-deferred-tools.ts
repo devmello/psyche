@@ -8,11 +8,12 @@
  * - a history where `load_tools` already loaded it, so its result carries a `tool_reference`.
  *
  * Prints `ok` when the API accepts the request, or the API's error, and nothing else. It costs
- * one Haiku call of a few hundred tokens. The owner runs it with their own key; agents don't:
+ * one Haiku call of a few hundred tokens. The owner runs it with their own key; agents don't.
+ * From the repo root, paste the key at the silent prompt, so it never lands in shell history:
  *
- *   cd packages/model-router
- *   ANTHROPIC_API_KEY=... node scripts/smoke-deferred-tools.ts
+ *   read -rs ANTHROPIC_API_KEY && export ANTHROPIC_API_KEY && pnpm --filter @psyche/model-router smoke:deferred-tools
  *
+ * Don't put the key on the command line (`ANTHROPIC_API_KEY=… node …`): history keeps it.
  * The key is read from the environment only and never printed. When it prints `ok`, turning on
  * `deferLoading` for the Anthropic provider is safe.
  */
@@ -90,7 +91,7 @@ function say(line: string): void {
 async function main(): Promise<number> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (apiKey === undefined || apiKey === "") {
-    say("error: set ANTHROPIC_API_KEY");
+    say("error: set ANTHROPIC_API_KEY (read -rs ANTHROPIC_API_KEY && export ANTHROPIC_API_KEY)");
     return 2;
   }
   // Checks the request really had the shape under test, without printing it.
