@@ -43,3 +43,14 @@ describe("file drafts: dropping", () => {
     expect(fire()).toBe(false);
   });
 });
+
+describe("file drafts: the desktop's release check", () => {
+  it("tells the desktop app while any draft is kept", () => {
+    const unsaved = (window as { psycheUnsavedFiles?: () => boolean }).psycheUnsavedFiles;
+    expect(unsaved?.()).toBe(false);
+    putDraft("/n/c.md", { content: "c", etag: "e" }, draftEpoch("/n/c.md"));
+    expect(unsaved?.()).toBe(true);
+    dropDraft("/n/c.md");
+    expect(unsaved?.()).toBe(false);
+  });
+});
