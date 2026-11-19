@@ -53,7 +53,61 @@ export async function downscaleImage(
  * a note instead. A header over 8000 px or 40 MP is refused before any decoder runs, and the
  * header is parsed strictly (`imageSize`), so the decoder never sees a decompression bomb.
  */
-export async function reencodeToolImage(
+/** Tool images decoded at once in this process, whatever the number of parallel tool calls. */
+export const TOOL_IMAGE_DECODES = 2;
+/**
+ * Pixels the in-process (canvas) decoder takes: it decodes inside psyched, so it is held below
+ * the 40 MP that sips and WIC (separate processes) take. Screenshots are about 5 MP.
+ */
+export const CANVAS_MAX_PIXELS = 16_000_000;
+
+/**
+ * `fn` with at most `limit` calls running at once; the rest wait in order. A call that throws
+ * frees its slot like one that returns.
+ */
+export function limitConcurrency<A extends unknown[], R>(
+  fn: (...args: A) => Promise<R>,
+  limit: number,
+): Limited<A, R> {
+  let running = 0;
+  const waiting: (() => void)[] = [];
+  const limited = async (...args: A) => {
+    // A freed slot passes straight to the next waiter, so `running` never overshoots.
+    if (running >= limit) await new Promise<void>((resolve) => waiting.push(resolve));
+    else running++;
+    try {
+      return await fn(...args);
+    } finally {
+      const next = waiting.shift();
+      if (next === undefined) running--;
+      else next();
+    }
+  };
+  return Object.assign(limited, { load: () => ({ running, waiting: waiting.length }) });
+}
+
+/** A concurrency-limited function; `load()` says how many calls run and wait right now. */
+export type Limited<A extends unknown[], R> = ((...args: A) => Promise<R>) & {
+  load(): { running: number; waiting: number };
+};
+
+/**
+ * A tool's image (a screenshot, an MCP server's picture: untrusted bytes) decoded and written
+ * again, its long edge cut to `maxEdge`: JPEG stays JPEG, everything else becomes PNG. Unlike
+ * `downscaleImage` it never hands back the input. It throws when the image cannot be decoded or
+ * no encoder is available (a Linux Gateway without `@napi-rs/canvas`), and the caller then sends
+ * a note instead. A header over 8000 px or 40 MP (16 MP for the in-process decoder) is refused
+ * before any decoder runs, and the header is parsed strictly (`imageSize`), so the decoder never
+ * sees a decompression bomb. At most `TOOL_IMAGE_DECODES` run at once in the process, however
+ * many tool calls run in parallel. A JPEG's EXIF orientation is applied (Skia does it itself; on
+ * the Mac, sips steps), then all metadata but the colour profile is removed.
+ */
+export const reencodeToolImage: Limited<
+  [bytes: Buffer, mime: string, maxEdge?: number, platform?: NodeJS.Platform],
+  Buffer
+> = limitConcurrency(reencodeNow, TOOL_IMAGE_DECODES);
+
+async function reencodeNow(
   bytes: Buffer,
   mime: string,
   maxEdge: number = IMAGE_MAX_EDGE,
@@ -72,31 +126,96 @@ export async function reencodeToolImage(
     // beforehand with certainty: a Linux Gateway sends no GIFs.
     if (bytes.subarray(0, 4).toString("latin1") === "GIF8")
       throw new Error("GIF is not decoded on this platform");
+    if (size.width * size.height > CANVAS_MAX_PIXELS)
+      throw new Error("image too large to decode in process");
     out = await canvasReencode(bytes, edge, format, size);
-  } else out = await sipsReencode(bytes, edge, format);
+  } else out = await sipsReencode(bytes, edge, format, jpegOrientation(bytes));
   if (out.length === 0) throw new Error("empty image");
   // Text, EXIF, XMP and comments in the source never ride along (sips copies PNG text chunks).
   return stripImageMetadata(out);
 }
 
-async function sipsReencode(bytes: Buffer, edge: number, format: "png" | "jpeg"): Promise<Buffer> {
+/**
+ * sips steps that turn EXIF orientation 2-8 upright, one sips call each: given `-r` and `-f`
+ * together, sips picks its own order. `-r` turns clockwise.
+ */
+const UPRIGHT: Record<number, string[][]> = {
+  2: [["-f", "horizontal"]],
+  3: [["-r", "180"]],
+  4: [["-f", "vertical"]],
+  5: [
+    ["-r", "90"],
+    ["-f", "horizontal"],
+  ],
+  6: [["-r", "90"]],
+  7: [
+    ["-r", "90"],
+    ["-f", "vertical"],
+  ],
+  8: [["-r", "270"]],
+};
+
+async function sipsReencode(
+  bytes: Buffer,
+  edge: number,
+  format: "png" | "jpeg",
+  orientation: number,
+): Promise<Buffer> {
   const dir = await mkdtemp(join(tmpdir(), "psyche-img-"));
   try {
     const input = join(dir, "in");
     const output = join(dir, `out.${format === "jpeg" ? "jpg" : "png"}`);
     await writeFile(input, bytes);
+    const [first = [], ...rest] = UPRIGHT[orientation] ?? [];
     // sips exits 0 and writes nothing for an input it skips ("not a valid file"): the read decides.
     await run(
       "/usr/bin/sips",
-      ["-s", "format", format, "-Z", String(edge), input, "--out", output],
-      {
-        timeout: 15_000,
-      },
+      ["-s", "format", format, "-Z", String(edge), ...first, input, "--out", output],
+      { timeout: 15_000 },
     );
+    for (const step of rest)
+      await run("/usr/bin/sips", [...step, output, "--out", output], { timeout: 15_000 });
     return await readFile(output);
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => undefined);
   }
+}
+
+/**
+ * A JPEG's EXIF orientation (1-8): the Orientation tag of IFD0 in its first `Exif` APP1 before
+ * SOS; 1 when there is none or it does not parse.
+ */
+export function jpegOrientation(b: Buffer): number {
+  if (b[0] !== 0xff || b[1] !== 0xd8) return 1;
+  let o = 2;
+  while (o + 4 <= b.length && b[o] === 0xff) {
+    const marker = b[o + 1] ?? 0;
+    if (marker === 0xda || marker === 0xd9) return 1;
+    const len = b.readUInt16BE(o + 2);
+    const body = o + 4;
+    if (marker === 0xe1 && b.subarray(body, body + 6).toString("latin1") === "Exif\u0000\u0000") {
+      const t = body + 6;
+      const end = Math.min(b.length, o + 2 + len);
+      const order = b.subarray(t, t + 2).toString("latin1");
+      if ((order !== "II" && order !== "MM") || t + 8 > end) return 1;
+      const u16 = (at: number) => (order === "II" ? b.readUInt16LE(at) : b.readUInt16BE(at));
+      const u32 = (at: number) => (order === "II" ? b.readUInt32LE(at) : b.readUInt32BE(at));
+      const ifd = t + u32(t + 4);
+      if (ifd + 2 > end) return 1;
+      const count = u16(ifd);
+      for (let i = 0; i < count; i++) {
+        const e = ifd + 2 + i * 12;
+        if (e + 12 > end) return 1;
+        if (u16(e) === 0x0112) {
+          const v = u16(e + 8);
+          return v >= 1 && v <= 8 ? v : 1;
+        }
+      }
+      return 1;
+    }
+    o += 2 + len;
+  }
+  return 1;
 }
 
 const overCaps = (s: { width: number; height: number }) =>
@@ -117,7 +236,7 @@ async function canvasReencode(
   const image = await loadImage(bytes);
   const same = image.width === size.width && image.height === size.height;
   const rotated = image.width === size.height && image.height === size.width;
-  if (!(same || rotated) || overCaps(image))
+  if (!(same || rotated) || overCaps(image) || image.width * image.height > CANVAS_MAX_PIXELS)
     throw new Error("decoded size differs from the header");
   const scale = edge / Math.max(image.width, image.height);
   const width = Math.max(1, Math.round(image.width * scale));
@@ -127,14 +246,19 @@ async function canvasReencode(
   return format === "png" ? await canvas.encode("png") : await canvas.encode("jpeg", 85);
 }
 
-/** PNG chunks an encoder's output keeps: the picture, its palette and its transparency. */
-const PNG_KEEP = new Set(["IHDR", "PLTE", "tRNS", "IDAT", "IEND"]);
+/**
+ * PNG chunks an encoder's output keeps: the picture, its palette, its transparency and its
+ * colour space (sRGB, an ICC profile or cICP code points: a Display P3 screenshot keeps its
+ * colours).
+ */
+const PNG_KEEP = new Set(["IHDR", "PLTE", "tRNS", "sRGB", "iCCP", "cICP", "IDAT", "IEND"]);
 
 /**
- * An encoder's output with its metadata removed. PNG keeps IHDR, PLTE, tRNS, IDAT and IEND
- * (text, EXIF, ICC and time chunks go). JPEG drops COM and APP1-APP13 and APP15 (EXIF, XMP,
- * IPTC) and keeps APP0 (JFIF), APP14 (Adobe colour transform) and everything the decoder
- * needs; past SOS the data is copied as is. Throws on output that does not parse.
+ * An encoder's output with its metadata removed. PNG keeps IHDR, PLTE, tRNS, sRGB, iCCP, cICP,
+ * IDAT and IEND (text, EXIF and time chunks go). JPEG drops COM and APP1-APP13 and APP15 (EXIF,
+ * XMP, IPTC) except an APP2 that holds an ICC profile, and keeps APP0 (JFIF), APP14 (Adobe
+ * colour transform) and everything the decoder needs; past SOS the data is copied as is. Throws
+ * on output that does not parse.
  */
 export function stripImageMetadata(b: Buffer): Buffer {
   if (b[0] === 0x89 && b.subarray(1, 4).toString("latin1") === "PNG") {
@@ -160,7 +284,10 @@ export function stripImageMetadata(b: Buffer): Buffer {
       if (marker === 0xda) return Buffer.concat([...kept, b.subarray(o)]);
       const end = o + 2 + b.readUInt16BE(o + 2);
       if (end > b.length) throw new Error("truncated JPEG segment");
-      const metadata = marker === 0xfe || (marker >= 0xe1 && marker <= 0xef && marker !== 0xee);
+      const icc =
+        marker === 0xe2 && b.subarray(o + 4, o + 16).toString("latin1") === "ICC_PROFILE\u0000";
+      const metadata =
+        marker === 0xfe || (marker >= 0xe1 && marker <= 0xef && marker !== 0xee && !icc);
       if (!metadata) kept.push(b.subarray(o, end));
       o = end;
     }

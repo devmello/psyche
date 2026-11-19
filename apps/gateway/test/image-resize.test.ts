@@ -1,10 +1,18 @@
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { imageSize, normalizeToolOutput } from "@psyche/agent-core";
 import { describe, expect, it } from "vitest";
 import {
+  CANVAS_MAX_PIXELS,
   downscaleImage,
+  jpegOrientation,
+  limitConcurrency,
   reencodeToolImage,
   stripImageMetadata,
+  TOOL_IMAGE_DECODES,
   windowsPowerShell,
 } from "../src/session/image-resize.ts";
 
@@ -386,4 +394,217 @@ describe("downscaleImage", () => {
       expect(await downscaleImage(big, "image/webp", 100, "win32")).toBe(big);
     },
   );
+});
+
+/** Follow-ups to #1397: decode concurrency, the in-process cap, colour profiles, orientation. */
+describe("tool image decodes at once", () => {
+  it("a limited shaper runs at most two slow calls at a time, and a failure frees its slot", async () => {
+    let running = 0;
+    let peak = 0;
+    const releases: (() => void)[] = [];
+    const slow = async (n: number) => {
+      running++;
+      peak = Math.max(peak, running);
+      await new Promise<void>((resolve) => releases.push(resolve));
+      running--;
+      if (n === 1) throw new Error("decode failed");
+      return n;
+    };
+    const limited = limitConcurrency(slow, 2);
+    const calls = Array.from({ length: 6 }, (_, i) => limited(i).catch((e: Error) => e.message));
+    await Promise.resolve();
+    expect(limited.load()).toEqual({ running: 2, waiting: 4 });
+    for (let i = 0; i < 6; i++) {
+      await new Promise((r) => setTimeout(r, 0));
+      releases.shift()?.();
+    }
+    expect(await Promise.all(calls)).toEqual([0, "decode failed", 2, 3, 4, 5]);
+    expect(peak).toBe(2);
+    expect(limited.load()).toEqual({ running: 0, waiting: 0 });
+  });
+
+  it.runIf(canvas !== undefined)(
+    "parallel tool calls share the process-wide limit of two",
+    async () => {
+      expect(TOOL_IMAGE_DECODES).toBe(2);
+      let peakRunning = 0;
+      let peakWaiting = 0;
+      const shaper = (b: Buffer, m: string) => {
+        const done = reencodeToolImage(b, m, 1568, "linux");
+        const load = reencodeToolImage.load();
+        peakRunning = Math.max(peakRunning, load.running);
+        peakWaiting = Math.max(peakWaiting, load.waiting);
+        return done;
+      };
+      const block = {
+        type: "image",
+        data: png(400, 300).toString("base64"),
+        mimeType: "image/png",
+      };
+      const results = await Promise.all(
+        Array.from({ length: 6 }, () => normalizeToolOutput({ blocks: [block] }, { shaper })),
+      );
+      expect(peakRunning).toBe(2);
+      expect(peakWaiting).toBeGreaterThan(0);
+      for (const r of results) expect(r).toEqual([expect.objectContaining({ type: "image" })]);
+      expect(reencodeToolImage.load()).toEqual({ running: 0, waiting: 0 });
+    },
+  );
+
+  it("the in-process decoder takes at most 16 MP; the out-of-process ones keep 40 MP", async () => {
+    expect(CANVAS_MAX_PIXELS).toBe(16_000_000);
+    await expect(
+      reencodeToolImage(pngHeader(5_000, 4_000), "image/png", 1568, "linux"),
+    ).rejects.toThrow("in process");
+    // sips gets to try (and refuses this header-only file as unreadable, not as too large).
+    await expect(
+      reencodeToolImage(pngHeader(5_000, 4_000), "image/png", 1568, "darwin"),
+    ).rejects.not.toThrow("too large");
+  });
+});
+
+describe("colour profiles survive the strip", () => {
+  it("keeps sRGB and iCCP in a PNG and an ICC APP2 in a JPEG; text and EXIF still go", () => {
+    const icc = Buffer.concat([
+      Buffer.from("Display P3\u0000\u0000", "latin1"),
+      deflateSync(Buffer.alloc(64)),
+    ]);
+    let p = withChunk(png(40, 30), pngChunk("tEXt", Buffer.from(`Comment\u0000${TEXT}`)), 33);
+    p = withChunk(p, pngChunk("iCCP", icc), 33);
+    p = withChunk(p, pngChunk("sRGB", Buffer.from([0])), 33);
+    const out = stripImageMetadata(p);
+    expect(out.includes("iCCP")).toBe(true);
+    expect(out.includes("sRGB")).toBe(true);
+    expect(out.includes("tEXt")).toBe(false);
+    expect(out.includes(TEXT)).toBe(false);
+
+    const app2 = (body: Buffer) => {
+      const s = Buffer.concat([Buffer.from([0xff, 0xe2, 0, 0]), body]);
+      s.writeUInt16BE(s.length - 2, 2);
+      return s;
+    };
+    const profile = app2(
+      Buffer.concat([Buffer.from("ICC_PROFILE\u0000\u0001\u0001", "latin1"), Buffer.alloc(32, 7)]),
+    );
+    const mpf = app2(
+      Buffer.concat([Buffer.from("MPF\u0000", "latin1"), Buffer.from(TEXT, "latin1")]),
+    );
+    const sof = Buffer.from([0xff, 0xc0, 0, 11, 8, 0, 30, 0, 40, 1, 1, 0x11, 0]);
+    const jpeg = Buffer.concat([
+      Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 4, 0x4a, 0x46]),
+      profile,
+      mpf,
+      sof,
+      Buffer.from([0xff, 0xda, 0, 8, 1, 1, 0, 0, 0x3f, 0, 0x12, 0x34, 0xff, 0xd9]),
+    ]);
+    const j = stripImageMetadata(withExif(jpeg, 6));
+    expect(j.includes(profile)).toBe(true);
+    expect(j.includes("MPF")).toBe(false);
+    expect(j.includes("Exif")).toBe(false);
+    expect(j.includes(TEXT)).toBe(false);
+  });
+
+  it.runIf(process.platform === "darwin")(
+    "macOS: a Display P3 screenshot keeps its profile through sips, as PNG and as JPEG",
+    async () => {
+      const dir = mkdtempSync(join(tmpdir(), "psyche-p3-"));
+      try {
+        writeFileSync(join(dir, "in.png"), png(40, 30));
+        execFileSync("/usr/bin/sips", [
+          "--embedProfile",
+          "/System/Library/ColorSync/Profiles/Display P3.icc",
+          join(dir, "in.png"),
+          "--out",
+          join(dir, "p3.png"),
+        ]);
+        const p3 = readFileSync(join(dir, "p3.png"));
+        expect(p3.includes("iCCP")).toBe(true);
+        const asPng = await reencodeToolImage(p3, "image/png");
+        expect(asPng.includes("iCCP")).toBe(true);
+        expect(asPng.includes("kCGColorSpaceDisplayP3")).toBe(true);
+        const asJpeg = await reencodeToolImage(
+          await reencodeToolImage(p3, "image/jpeg"),
+          "image/jpeg",
+        );
+        expect(asJpeg.includes("ICC_PROFILE")).toBe(true);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+    30_000,
+  );
+});
+
+/** Corner colours of an image's raw pixels (EXIF ignored): R, G, B, W or ? per corner. */
+async function corners(bytes: Buffer): Promise<string> {
+  const c = canvas as typeof import("@napi-rs/canvas");
+  const img = await c.loadImage(stripImageMetadata(bytes));
+  const cv = c.createCanvas(img.width, img.height);
+  const ctx = cv.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+  const at = (x: number, y: number) => {
+    const [r, g, b] = ctx.getImageData(x, y, 1, 1).data;
+    const bits = [r, g, b].map((v) => ((v ?? 0) > 128 ? 1 : 0)).join("");
+    return (
+      ({ "100": "R", "010": "G", "001": "B", "111": "W" } as Record<string, string>)[bits] ?? "?"
+    );
+  };
+  const w = img.width - 1;
+  const h = img.height - 1;
+  return `${img.width}x${img.height} ${at(3, 3)}${at(w - 3, 3)}${at(3, h - 3)}${at(w - 3, h - 3)}`;
+}
+
+describe("EXIF orientation is applied before the strip", () => {
+  /** 300x200, quadrants red, green / blue, white, as a JPEG with no EXIF. */
+  const quadrants = () => {
+    const c = (canvas as typeof import("@napi-rs/canvas")).createCanvas(300, 200);
+    const g = c.getContext("2d");
+    for (const [x, y, colour] of [
+      [0, 0, "#ff0000"],
+      [150, 0, "#00ff00"],
+      [0, 100, "#0000ff"],
+      [150, 100, "#ffffff"],
+    ] as const) {
+      g.fillStyle = colour;
+      g.fillRect(x, y, 150, 100);
+    }
+    return c.encodeSync("jpeg", 95);
+  };
+  // Corners TL TR BL BR as a viewer shows each orientation of the stored R G / B W picture.
+  const upright: Record<number, string> = {
+    1: "300x200 RGBW",
+    2: "300x200 GRWB",
+    3: "300x200 WBGR",
+    4: "300x200 BWRG",
+    5: "200x300 RBGW",
+    6: "200x300 BRWG",
+    7: "200x300 WGBR",
+    8: "200x300 GWRB",
+  };
+
+  it("reads the Orientation tag", () => {
+    const j = Buffer.from([0xff, 0xd8, 0xff, 0xda, 0, 2]);
+    for (let o = 1; o <= 8; o++) expect(jpegOrientation(withExif(j, o))).toBe(o);
+    expect(jpegOrientation(j)).toBe(1);
+    expect(jpegOrientation(png(4, 4))).toBe(1);
+  });
+
+  it.runIf(canvas !== undefined && process.platform === "darwin")(
+    "macOS: sips output is upright for Orientation 6 (and 2-8), with no EXIF left",
+    async () => {
+      const src = quadrants();
+      expect(await corners(src)).toBe(upright[1]);
+      for (let o = 2; o <= 8; o++) {
+        const out = await reencodeToolImage(withExif(src, o), "image/jpeg");
+        expect(out.includes("Exif")).toBe(false);
+        expect(`${o}: ${await corners(out)}`).toBe(`${o}: ${upright[o]}`);
+      }
+    },
+    60_000,
+  );
+
+  it.runIf(canvas !== undefined)("Linux: canvas output is upright for Orientation 6", async () => {
+    const out = await reencodeToolImage(withExif(quadrants(), 6), "image/jpeg", 1568, "linux");
+    expect(await corners(out)).toBe(upright[6]);
+  });
 });
