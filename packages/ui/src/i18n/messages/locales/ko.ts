@@ -1599,6 +1599,8 @@ export const ko: Partial<Catalogue> = {
   "settings.channels.add.replace": "저장된 토큰 교체",
   "settings.channels.add.statusFailed":
     "Psyche가 이미 저장된 토큰을 확인하지 못했습니다({reason}). 아무것도 바꾸지 않았습니다.",
+  "settings.channels.add.storedTyped":
+    "이 계정에는 이미 저장된 토큰이 있습니다. 입력한 토큰을 쓰려면 '저장된 토큰 교체'를 선택하거나 해당 칸을 비우세요. 아무것도 바꾸지 않았습니다.",
   "settings.channels.identities": "신원 연결",
   "settings.channels.identitiesDescription":
     "여러 채널에 걸친 한 사람입니다. 연결은 페어링된 기기에서만 변경됩니다.",

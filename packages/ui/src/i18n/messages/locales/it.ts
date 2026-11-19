@@ -1608,6 +1608,8 @@ export const it: Partial<Catalogue> = {
   "settings.channels.add.replace": "Sostituisci i token memorizzati",
   "settings.channels.add.statusFailed":
     "Psyche non è riuscito a controllare quali token sono già memorizzati ({reason}). Non è cambiato nulla.",
+  "settings.channels.add.storedTyped":
+    "Per questo account ci sono già token memorizzati. Seleziona «Sostituisci i token memorizzati» per usare quelli digitati, oppure svuota quei campi. Non è cambiato nulla.",
   "settings.channels.identities": "Collegamenti di identità",
   "settings.channels.identitiesDescription":
     "Una sola persona attraverso i canali. I collegamenti si modificano solo da un dispositivo abbinato.",

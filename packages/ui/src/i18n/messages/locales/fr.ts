@@ -1602,6 +1602,8 @@ export const fr: Partial<Catalogue> = {
   "settings.channels.add.replace": "Remplacer les jetons enregistrés",
   "settings.channels.add.statusFailed":
     "Psyche n'a pas pu vérifier quels jetons sont déjà enregistrés ({reason}). Rien n'a été modifié.",
+  "settings.channels.add.storedTyped":
+    "Des jetons sont déjà enregistrés pour ce compte. Cochez « Remplacer les jetons enregistrés » pour utiliser ceux saisis, ou videz ces champs. Rien n'a été modifié.",
   "settings.channels.identities": "Liens d’identité",
   "settings.channels.identitiesDescription":
     "Une même personne sur plusieurs canaux. Les liens ne changent que depuis un appareil jumelé.",

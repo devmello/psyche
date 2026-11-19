@@ -1654,6 +1654,8 @@ export const ar: Partial<Catalogue> = {
   "settings.channels.add.replace": "استبدال الرموز المحفوظة",
   "settings.channels.add.statusFailed":
     "تعذّر على Psyche التحقق من الرموز المحفوظة ({reason}). لم يتغير شيء.",
+  "settings.channels.add.storedTyped":
+    "توجد رموز محفوظة بالفعل لهذا الحساب. حدّد استبدال الرموز المحفوظة لاستخدام ما كتبته، أو امسح تلك الحقول. لم يتغير شيء.",
   "settings.channels.identities": "روابط الهوية",
   "settings.channels.identitiesDescription":
     "شخص واحد عبر القنوات. لا تتغيّر الروابط إلا من جهاز مقترن.",

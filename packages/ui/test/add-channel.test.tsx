@@ -256,7 +256,7 @@ describe("connectChannel", () => {
       connectChannel(call as never, {
         type: "slack",
         account: "Acme",
-        secrets: { bot_token: "a", app_token: "b" },
+        secrets: { app_token: "b" },
       }),
     ).rejects.toThrow("no");
     expect(cleared).toEqual(["app_token"]);
@@ -324,6 +324,53 @@ describe("connectChannel", () => {
     await waitFor(() => expect(onAdded).toHaveBeenCalled());
     expect(calls().filter(([m]) => m === "channels.secrets.set")).toEqual([
       ["channels.secrets.set", "bot_token"],
+      ["channels.secrets.set", "app_token"],
+    ]);
+  });
+
+  it("refuses to drop a token the owner typed for a name that is already stored", async () => {
+    // A leaked token is stored for the account; the owner types the rotated one without Replace.
+    const vault = new Map<string, string>([["bot_token", "LEAKED-OLD"]]);
+    const call = vi.fn(async (method: string, params: Record<string, unknown>) => {
+      if (method === "channels.list") return { channels: [] };
+      if (method === "channels.secrets.status") return { required: [], set: [...vault.keys()] };
+      if (method === "channels.secrets.set") vault.set(String(params.name), String(params.value));
+      return { set: [], channel: { id: "chn_1", status: "active" } };
+    });
+    await expect(
+      connectChannel(call as never, {
+        type: "discord",
+        account: "app-1",
+        secrets: { bot_token: "ROTATED-NEW" },
+      }),
+    ).rejects.toThrow(/already stored for this account/);
+    expect(vault.get("bot_token")).toBe("LEAKED-OLD");
+    expect(call.mock.calls.map((c) => c[0])).toEqual(["channels.list", "channels.secrets.status"]);
+    // Ticking Replace is the way to rotate it.
+    await connectChannel(call as never, {
+      type: "discord",
+      account: "app-1",
+      secrets: { bot_token: "ROTATED-NEW" },
+      replaceStored: true,
+    });
+    expect(vault.get("bot_token")).toBe("ROTATED-NEW");
+  });
+
+  it("clears what was typed into a field that turns off because its token is stored", async () => {
+    const { gateway, calls } = setup();
+    const form = await screen.findByRole("dialog");
+    await userEvent.type(within(form).getByLabelText("Workspace name"), "Acme");
+    await userEvent.type(within(form).getByLabelText("Bot token"), "ROTATED-NEW");
+    gateway().channelSecrets.set("slack|Acme", ["bot_token"]);
+    // Re-trigger the status read by editing the account.
+    await userEvent.type(within(form).getByLabelText("Workspace name"), "2");
+    await userEvent.type(within(form).getByLabelText("Workspace name"), "{Backspace}");
+    await within(form).findByLabelText("Replace stored tokens");
+    expect((within(form).getByLabelText("Bot token") as HTMLInputElement).value).toBe("");
+    await userEvent.type(within(form).getByLabelText("App token"), "xapp-2");
+    await userEvent.click(within(form).getByRole("button", { name: "Connect" }));
+    await waitFor(() => expect(calls().some(([m]) => m === "channels.configure")).toBe(true));
+    expect(calls().filter(([m]) => m === "channels.secrets.set")).toEqual([
       ["channels.secrets.set", "app_token"],
     ]);
   });

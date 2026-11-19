@@ -1569,6 +1569,8 @@ export const pt: Partial<Catalogue> = {
   "settings.channels.add.replace": "Substituir os tokens armazenados",
   "settings.channels.add.statusFailed":
     "O Psyche não conseguiu verificar quais tokens já estão armazenados ({reason}). Nada foi alterado.",
+  "settings.channels.add.storedTyped":
+    'Já há tokens armazenados para esta conta. Marque "Substituir os tokens armazenados" para usar os que você digitou, ou limpe esses campos. Nada foi alterado.',
   "settings.channels.identities": "Vínculos de identidade",
   "settings.channels.identitiesDescription":
     "Uma pessoa em vários canais. Os vínculos só mudam a partir de um dispositivo pareado.",

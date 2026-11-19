@@ -97,6 +97,13 @@ export async function connectChannel(
       throw new Error(t("settings.channels.add.statusFailed", { reason: messageOf(err) }));
     },
   );
+  // A token the owner typed for a name that is already stored is never dropped silently.
+  if (
+    draft.replaceStored !== true &&
+    ADDABLE_CHANNELS[type].some((n) => before.has(n) && (secrets[n] ?? "").trim() !== "")
+  ) {
+    throw new Error(t("settings.channels.add.storedTyped"));
+  }
   const stored: SecretName[] = [];
   try {
     for (const name of ADDABLE_CHANNELS[type]) {
@@ -186,6 +193,15 @@ export function AddChannelDialog({
     };
   }, [call, type, acct]);
   const keeping = (n: SecretName) => alreadyStored.includes(n) && !replace;
+  // A field that turns off while the owner keeps the stored token loses what was typed in it.
+  useEffect(() => {
+    if (replace || alreadyStored.length === 0) return;
+    setSecrets((cur) => {
+      const next = { ...cur };
+      for (const n of alreadyStored) delete next[n];
+      return Object.keys(next).length === Object.keys(cur).length ? cur : next;
+    });
+  }, [alreadyStored, replace]);
   const complete =
     acct !== "" && names.every((n) => keeping(n) || (secrets[n] ?? "").trim() !== "");
 

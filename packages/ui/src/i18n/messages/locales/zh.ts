@@ -1618,6 +1618,8 @@ export const zh: Partial<Catalogue> = {
   "settings.channels.add.storedNote": "此账号已存有：{names}。除非你选择替换，否则将原样使用。",
   "settings.channels.add.replace": "替换已存的令牌",
   "settings.channels.add.statusFailed": "Psyche 无法检查哪些令牌已存储（{reason}）。未做任何更改。",
+  "settings.channels.add.storedTyped":
+    "此账号已存有令牌。请勾选“替换已存的令牌”以使用你输入的令牌，或清空这些字段。未做任何更改。",
   "settings.channels.identities": "身份关联",
   "settings.channels.identitiesDescription": "跨渠道识别同一个人。关联只能从已配对的设备更改。",
   "settings.channels.identitiesFailed": "Psyche 无法载入身份关联（{reason}）。",

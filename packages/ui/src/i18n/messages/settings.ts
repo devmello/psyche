@@ -920,6 +920,8 @@ export const settings = {
   "settings.channels.add.replace": "Replace stored tokens",
   "settings.channels.add.statusFailed":
     "Psyche couldn't check which tokens are already stored ({reason}). Nothing was changed.",
+  "settings.channels.add.storedTyped":
+    "Tokens are already stored for this account. Tick Replace stored tokens to use the ones you typed, or clear those fields. Nothing was changed.",
   "settings.channels.identities": "Identity links",
   "settings.channels.identitiesDescription":
     "One person across channels. Links change only from a paired device.",

@@ -1649,6 +1649,8 @@ export const de: Partial<Catalogue> = {
   "settings.channels.add.replace": "Gespeicherte Tokens ersetzen",
   "settings.channels.add.statusFailed":
     "Psyche konnte nicht prüfen, welche Tokens schon gespeichert sind ({reason}). Es wurde nichts geändert.",
+  "settings.channels.add.storedTyped":
+    "Für dieses Konto sind bereits Tokens gespeichert. Hake „Gespeicherte Tokens ersetzen“ an, um die eingegebenen zu verwenden, oder leere die Felder. Es wurde nichts geändert.",
   "settings.channels.identities": "Identitätsverknüpfungen",
   "settings.channels.identitiesDescription":
     "Eine Person über Kanäle hinweg. Verknüpfungen ändern sich nur von einem gekoppelten Gerät aus.",

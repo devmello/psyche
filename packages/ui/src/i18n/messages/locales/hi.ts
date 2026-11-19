@@ -1616,6 +1616,8 @@ export const hi: Partial<Catalogue> = {
   "settings.channels.add.replace": "सहेजे गए टोकन बदलें",
   "settings.channels.add.statusFailed":
     "Psyche यह जाँच नहीं सका कि कौन से टोकन पहले से सहेजे हैं ({reason})। कुछ नहीं बदला गया।",
+  "settings.channels.add.storedTyped":
+    'इस खाते के लिए टोकन पहले से सहेजे हैं। आपके लिखे टोकन इस्तेमाल करने के लिए "सहेजे गए टोकन बदलें" चुनें, या वे फ़ील्ड खाली करें। कुछ नहीं बदला गया।',
   "settings.channels.identities": "पहचान लिंक",
   "settings.channels.identitiesDescription":
     "चैनलों के पार एक ही व्यक्ति। लिंक केवल पेयर किए गए डिवाइस से बदलते हैं।",

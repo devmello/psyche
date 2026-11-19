@@ -1597,6 +1597,8 @@ export const ja: Partial<Catalogue> = {
   "settings.channels.add.replace": "保存済みのトークンを置き換える",
   "settings.channels.add.statusFailed":
     "Psyche は保存済みのトークンを確認できませんでした（{reason}）。何も変更していません。",
+  "settings.channels.add.storedTyped":
+    "このアカウントには保存済みのトークンがあります。入力したトークンを使うには「保存済みのトークンを置き換える」にチェックを入れるか、その欄を空にしてください。何も変更していません。",
   "settings.channels.identities": "IDの関連付け",
   "settings.channels.identitiesDescription":
     "複数のチャンネルにまたがる同一人物。関連付けはペアリングされたデバイスからのみ変更できます。",
