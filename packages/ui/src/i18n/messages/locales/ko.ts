@@ -2974,7 +2974,8 @@ export const ko: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}{editor, select, true {을(를) 편집기에서} other {}} 열기",
   "screens.library.openInEditor": "편집기에서 열기",
   "screens.library.open": "열기",
-  "screens.library.recording.description": "에이전트가 브라우저에서 한 일을 다시 보여 줍니다. 페이지 내용은 녹화할 때 가려졌습니다.",
+  "screens.library.recording.description":
+    "에이전트가 브라우저에서 한 일을 다시 보여 줍니다. 페이지 내용은 녹화할 때 가려졌습니다.",
   "screens.library.recording.play": "재생",
   "screens.library.recording.pause": "일시정지",
   "screens.library.recording.step": "{total}단계 중 {n}단계",

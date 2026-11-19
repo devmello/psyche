@@ -3108,13 +3108,13 @@ export class MockGateway implements GatewayClient {
     }),
     "browser.recordings.get": (p) => {
       const r = (this.world.browserRecordings ?? []).find((x) => x.recording.id === p.recordingId);
-      if (r === undefined) fail("not_found", `recording ${p.recordingId} not found`);
+      if (r === undefined) return fail("not_found", `recording ${p.recordingId} not found`);
       return { recording: r.recording, events: r.events, frames: r.frames.map((f) => f.frame) };
     },
     "browser.recordings.frame": (p) => {
       const r = (this.world.browserRecordings ?? []).find((x) => x.recording.id === p.recordingId);
       const f = r?.frames.find((x) => x.frame.seq === p.seq);
-      if (f === undefined) fail("not_found", `frame ${p.seq} not found`);
+      if (f === undefined) return fail("not_found", `frame ${p.seq} not found`);
       return { frame: f.frame, mime: f.mime, data: f.data };
     },
     "browser.botAuth.status": () => ({ status: structuredClone(this.world.botAuth) }),

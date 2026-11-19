@@ -3027,7 +3027,8 @@ export const ar: Partial<Catalogue> = {
   "screens.library.openLabel": "فتح {name}{editor, select, true { في المحرر} other {}}",
   "screens.library.openInEditor": "فتح في المحرر",
   "screens.library.open": "فتح",
-  "screens.library.recording.description": "إعادة تشغيل لما فعله الوكيل في المتصفح. حُجب محتوى الصفحة عند التسجيل.",
+  "screens.library.recording.description":
+    "إعادة تشغيل لما فعله الوكيل في المتصفح. حُجب محتوى الصفحة عند التسجيل.",
   "screens.library.recording.play": "تشغيل",
   "screens.library.recording.pause": "إيقاف مؤقت",
   "screens.library.recording.step": "الخطوة {n} من {total}",

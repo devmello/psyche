@@ -455,7 +455,8 @@ export const screens = {
   "screens.library.openLabel": "Open {name}{editor, select, true { in the editor} other {}}",
   "screens.library.openInEditor": "Open in editor",
   "screens.library.open": "Open",
-  "screens.library.recording.description": "A replay of what the agent did in the browser. Page content was redacted when it was recorded.",
+  "screens.library.recording.description":
+    "A replay of what the agent did in the browser. Page content was redacted when it was recorded.",
   "screens.library.recording.play": "Play",
   "screens.library.recording.pause": "Pause",
   "screens.library.recording.step": "Step {n} of {total}",

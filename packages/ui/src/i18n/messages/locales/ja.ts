@@ -2996,7 +2996,8 @@ export const ja: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}を{editor, select, true {エディタで} other {}}開く",
   "screens.library.openInEditor": "エディタで開く",
   "screens.library.open": "開く",
-  "screens.library.recording.description": "エージェントがブラウザで行った操作のリプレイです。ページの内容は記録時に伏せられています。",
+  "screens.library.recording.description":
+    "エージェントがブラウザで行った操作のリプレイです。ページの内容は記録時に伏せられています。",
   "screens.library.recording.play": "再生",
   "screens.library.recording.pause": "一時停止",
   "screens.library.recording.step": "ステップ {n} / {total}",

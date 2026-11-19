@@ -3051,7 +3051,8 @@ export const es: Partial<Catalogue> = {
   "screens.library.openLabel": "Abrir {name}{editor, select, true { en el editor} other {}}",
   "screens.library.openInEditor": "Abrir en el editor",
   "screens.library.open": "Abrir",
-  "screens.library.recording.description": "Una reproducción de lo que hizo el agente en el navegador. El contenido de la página se ocultó al grabar.",
+  "screens.library.recording.description":
+    "Una reproducción de lo que hizo el agente en el navegador. El contenido de la página se ocultó al grabar.",
   "screens.library.recording.play": "Reproducir",
   "screens.library.recording.pause": "Pausa",
   "screens.library.recording.step": "Paso {n} de {total}",
