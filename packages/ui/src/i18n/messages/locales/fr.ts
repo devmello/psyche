@@ -862,6 +862,7 @@ export const fr: Partial<Catalogue> = {
   "shell.shortcuts.description":
     "† signale les ajouts de Psyche aux raccourcis de Claude pour ordinateur.",
   "shell.threads.needsYou": "Besoin de vous",
+  "shell.threads.nowOn": "En cours : {step}",
   "shell.threads.running": "En cours",
   "shell.threads.titleField": "Titre de la discussion",
   "shell.threads.incognito": "Incognito",
@@ -3028,6 +3029,20 @@ export const fr: Partial<Catalogue> = {
   "screens.library.openLabel": "Ouvrir {name}{editor, select, true { dans l’éditeur} other {}}",
   "screens.library.openInEditor": "Ouvrir dans l’éditeur",
   "screens.library.open": "Ouvrir",
+  "screens.library.recording.description":
+    "Une relecture de ce que l'agent a fait dans le navigateur. Le contenu des pages a été masqué à l'enregistrement.",
+  "screens.library.recording.play": "Lire",
+  "screens.library.recording.pause": "Pause",
+  "screens.library.recording.step": "Étape {n} sur {total}",
+  "screens.library.recording.scrub": "Position dans l'enregistrement",
+  "screens.library.recording.steps": "Étapes",
+  "screens.library.recording.empty": "Cet enregistrement n'a aucune étape.",
+  "screens.library.recording.noFrame": "Aucune image pour cette étape.",
+  "screens.library.recording.frameAlt": "Le navigateur à l'étape {n}",
+  "screens.library.recording.loading": "Chargement de l'enregistrement",
+  "screens.library.recording.loadFailed":
+    "Psyche n'a pas pu charger cet enregistrement ({reason}).",
+  "screens.library.recording.notFound": "Cet enregistrement n'est plus disponible.",
   "screens.library.trust": "Faire confiance à ce fichier",
   "screens.library.moreFor": "Autres actions pour {name}",
   "screens.library.quickLook": "Coup d’œil",

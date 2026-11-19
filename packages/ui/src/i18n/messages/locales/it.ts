@@ -873,6 +873,7 @@ export const it: Partial<Catalogue> = {
   "shell.shortcuts.description":
     "† indica le aggiunte di Psyche alla mappa dell’app Claude per desktop.",
   "shell.threads.needsYou": "Richiede la tua attenzione",
+  "shell.threads.nowOn": "Ora: {step}",
   "shell.threads.running": "In corso",
   "shell.threads.titleField": "Titolo del thread",
   "shell.threads.incognito": "Incognito",
@@ -3028,6 +3029,20 @@ export const it: Partial<Catalogue> = {
   "screens.library.openLabel": "Apri {name}{editor, select, true { nell’editor} other {}}",
   "screens.library.openInEditor": "Apri nell’editor",
   "screens.library.open": "Apri",
+  "screens.library.recording.description":
+    "Una riproduzione di ciò che l'agente ha fatto nel browser. Il contenuto delle pagine è stato oscurato in fase di registrazione.",
+  "screens.library.recording.play": "Riproduci",
+  "screens.library.recording.pause": "Pausa",
+  "screens.library.recording.step": "Passo {n} di {total}",
+  "screens.library.recording.scrub": "Posizione nella registrazione",
+  "screens.library.recording.steps": "Passi",
+  "screens.library.recording.empty": "Questa registrazione non ha passi.",
+  "screens.library.recording.noFrame": "Nessuna immagine per questo passo.",
+  "screens.library.recording.frameAlt": "Il browser al passo {n}",
+  "screens.library.recording.loading": "Caricamento della registrazione",
+  "screens.library.recording.loadFailed":
+    "Psyche non è riuscito a caricare questa registrazione ({reason}).",
+  "screens.library.recording.notFound": "Questa registrazione non è più disponibile.",
   "screens.library.trust": "Considera attendibile questo file",
   "screens.library.moreFor": "Altre azioni per {name}",
   "screens.library.quickLook": "Visualizzazione rapida",
