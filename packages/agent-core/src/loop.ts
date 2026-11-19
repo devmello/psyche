@@ -24,6 +24,7 @@ import {
   type ModelPart,
   type ModelProvider,
   type ModelRef,
+  type ModelRequest,
   type Notifier,
   namespacedGrantKey,
   type PermissionBroker,
@@ -90,9 +91,12 @@ import {
 import {
   assembleContext,
   type ContextBudgets,
+  type DailyNotes,
   DEFAULT_BASE_PROMPT,
   DEFAULT_CONTEXT_BUDGETS,
-  renderSystemPrompt,
+  onlyAppended,
+  readDailyNotes,
+  renderSystemParts,
 } from "./context.ts";
 import {
   DEFERRAL_CORE,
@@ -402,6 +406,12 @@ interface PendingQuestion {
   reject: (err: unknown) => void;
 }
 
+/** What the provider needs to keep its prompt cache across steps and turns (see `ModelRequest`). */
+interface PromptCache {
+  systemStableLength: number;
+  deferredTools: ToolSpec[];
+}
+
 interface RunState {
   /** Index in `thread.messages` where this turn's input starts (history before, current after). */
   turnStart: number;
@@ -412,6 +422,13 @@ interface RunState {
   limits?: EffectiveContextLimits;
   /** Turn context providers' sections, fetched on the run's first prompt (undefined until then). */
   provided?: ContextSection[];
+  /**
+   * Yesterday's and today's notes, read on the run's first prompt. An append later in the run
+   * (the agent's own memory tool, feed feedback) shows from the next run, so the system prompt
+   * and the provider's prompt cache stay the same from one step to the next. An edit or a
+   * deleted line replaces it at the next step (`onlyAppended`).
+   */
+  dailyNotes?: DailyNotes;
   runId: string;
   threadId: string;
   taskId?: string;
@@ -1031,7 +1048,7 @@ export class PsycheAgentLoop implements AgentLoop {
       }
       run.steps += 1;
       run.messageId = run.steps === 1 ? run.messageId : this.#ids.next("msg");
-      const { system, tools } = await this.#prepare(run);
+      const { system, tools, cache } = await this.#prepare(run);
       const sent = run.thread.messages.slice();
       // A widget button's call is the first step (generative-ui-2026 §6.2); it is gated below
       // exactly like a model's call. It is consumed here so a retry of the loop never re-proposes it.
@@ -1039,7 +1056,7 @@ export class PsycheAgentLoop implements AgentLoop {
       run.proposedCall = undefined;
       const step =
         proposed === undefined
-          ? await this.#callModel(run, system, tools)
+          ? await this.#callModel(run, system, tools, cache)
           : this.#proposedStep(proposed);
       if (step.parts.length > 0) run.thread.messages.push({ role: "assistant", parts: step.parts });
       run.emit({ type: "usage", runId: run.runId, usage: { ...run.usage } });
@@ -1425,7 +1442,9 @@ export class PsycheAgentLoop implements AgentLoop {
 
   // --- Context ----------------------------------------------------------------------------------
 
-  async #prepare(run: RunState): Promise<{ system: string; tools: ToolSpec[] }> {
+  async #prepare(
+    run: RunState,
+  ): Promise<{ system: string; tools: ToolSpec[]; cache: PromptCache }> {
     let built = await this.#assemble(run);
     const limits = await this.#limitsFor(run.threadId, run.model);
     run.limits = limits;
@@ -1457,13 +1476,19 @@ export class PsycheAgentLoop implements AgentLoop {
       messageCount: run.thread.messages.length,
       assembledAt: toIso(this.#clock.now()),
     });
-    return built;
+    return {
+      system: built.system,
+      tools: built.tools,
+      cache: { systemStableLength: built.systemStableLength, deferredTools: built.deferredTools },
+    };
   }
 
   async #assemble(run: RunState): Promise<{
     system: string;
+    systemStableLength: number;
     sections: ContextSection[];
     tools: ToolSpec[];
+    deferredTools: ToolSpec[];
   }> {
     const toggles = this.#o.toolToggles?.(run.threadId);
     let { tools, hidden } = this.registry.active({
@@ -1492,6 +1517,19 @@ export class PsycheAgentLoop implements AgentLoop {
     }
     let deferred: AgentToolRegistration[] = [];
     ({ tools, deferred } = this.#defer(run, tools, hidden));
+    // The run's notes, read again each step for the same dates. While they only grow, the
+    // run keeps its first read: appends show from the next run, so the system prompt and the
+    // prompt cache stay put. An edited or deleted line takes effect now, so a line the owner
+    // removed (an injected one, something to forget) is not shown for the rest of the run.
+    const notes = await readDailyNotes(
+      this.#o.memory,
+      run.dailyNotes?.at ?? this.#clock.now(),
+      this.#o.timeZone ?? "UTC",
+      this.#budgets.dailyNote,
+    );
+    if (run.dailyNotes === undefined || !onlyAppended(run.dailyNotes, notes)) {
+      run.dailyNotes = notes;
+    }
     const ctx = await assembleContext({
       basePrompt: this.#o.basePrompt ?? DEFAULT_BASE_PROMPT,
       ...(this.#o.memory === undefined ? {} : { memory: this.#o.memory }),
@@ -1504,6 +1542,7 @@ export class PsycheAgentLoop implements AgentLoop {
       timeZone: this.#o.timeZone ?? "UTC",
       ...(run.thread.summary === undefined ? {} : { summary: run.thread.summary }),
       budgets: this.#budgets,
+      dailyNotes: run.dailyNotes,
     });
     if (ctx.untrusted && !run.taintSources.some((s) => s.sourceKind === "context")) {
       this.#taint(run, { sourceKind: "context" });
@@ -1558,7 +1597,7 @@ export class PsycheAgentLoop implements AgentLoop {
           ...(toggles === undefined ? {} : { toggles }),
           allow: new Set(tools.map((t) => t.spec.name).filter((n) => allow.has(n))),
         }));
-        ({ tools } = this.#defer(run, tools, hidden));
+        ({ tools, deferred } = this.#defer(run, tools, hidden));
       }
     }
     run.provided ??= await this.#provideContext(run);
@@ -1577,10 +1616,13 @@ export class PsycheAgentLoop implements AgentLoop {
       );
       if (!known) this.#taint(run, { sourceKind: "tool_description", origin });
     }
+    const { system, stableLength } = renderSystemParts(sections);
     return {
-      system: renderSystemPrompt(sections),
+      system,
+      systemStableLength: stableLength,
       sections,
       tools: tools.map((t) => structuredClone(t.spec)),
+      deferredTools: deferred.map((t) => structuredClone(t.spec)),
     };
   }
 
@@ -1923,6 +1965,7 @@ export class PsycheAgentLoop implements AgentLoop {
     run: RunState,
     system: string,
     tools: ToolSpec[],
+    cache: Partial<PromptCache> = {},
   ): Promise<{
     parts: ModelPart[];
     text: string;
@@ -1935,11 +1978,20 @@ export class PsycheAgentLoop implements AgentLoop {
     let text = "";
     let finish = "stop";
     let error: string | undefined;
-    const request = {
+    const request: ModelRequest = {
       model: run.model,
       system,
+      ...(cache.systemStableLength === undefined
+        ? {}
+        : { systemStableLength: cache.systemStableLength }),
       messages: keepRecentToolImages(run.thread.messages),
       ...(tools.length === 0 ? {} : { tools }),
+      // Only beside the tools they belong to: a tool-free call loads nothing.
+      ...(tools.length === 0 ||
+      cache.deferredTools === undefined ||
+      cache.deferredTools.length === 0
+        ? {}
+        : { deferredTools: cache.deferredTools }),
     };
     // The thread lets the router apply its `/model` pin (strict) and attribute usage.
     const callOptions = { signal: run.abort.signal, threadId: run.threadId, runId: run.runId };
@@ -3330,8 +3382,10 @@ export class PsycheAgentLoop implements AgentLoop {
     });
     run.steps += 1;
     run.messageId = this.#ids.next("msg");
-    const { system } = await this.#prepare(run);
-    const step = await this.#callModel(run, system, []);
+    const { system, cache } = await this.#prepare(run);
+    const step = await this.#callModel(run, system, [], {
+      systemStableLength: cache.systemStableLength,
+    });
     if (step.parts.length > 0) run.thread.messages.push({ role: "assistant", parts: step.parts });
     await this.#specialistAccount(run);
     await host.report(

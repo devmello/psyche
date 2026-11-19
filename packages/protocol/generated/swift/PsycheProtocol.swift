@@ -873,6 +873,7 @@
 //   let memoryGraphDeleteSourceResult = try? JSONDecoder().decode(MemoryGraphDeleteSourceResult.self, from: jsonData)
 //   let memoryGraphForgetAllParams = try? JSONDecoder().decode(MemoryGraphForgetAllParams.self, from: jsonData)
 //   let memoryGraphForgetAllResult = try? JSONDecoder().decode(MemoryGraphForgetAllResult.self, from: jsonData)
+//   let memoryGraphMapParams = try? JSONDecoder().decode(MemoryGraphMapParams.self, from: jsonData)
 //   let memoryGraphStatusParams = try? JSONDecoder().decode(MemoryGraphStatusParams.self, from: jsonData)
 //   let memoryHit = try? JSONDecoder().decode(MemoryHit.self, from: jsonData)
 //   let memoryImportFormat = try? JSONDecoder().decode(MemoryImportFormat.self, from: jsonData)
@@ -903,6 +904,10 @@
 //   let memoryLoopsListResult = try? JSONDecoder().decode(MemoryLoopsListResult.self, from: jsonData)
 //   let memoryLoopsUpdateParams = try? JSONDecoder().decode(MemoryLoopsUpdateParams.self, from: jsonData)
 //   let memoryLoopsUpdateResult = try? JSONDecoder().decode(MemoryLoopsUpdateResult.self, from: jsonData)
+//   let memoryMap = try? JSONDecoder().decode(MemoryMap.self, from: jsonData)
+//   let memoryMapEdge = try? JSONDecoder().decode(MemoryMapEdge.self, from: jsonData)
+//   let memoryMapEdgeKind = try? JSONDecoder().decode(MemoryMapEdgeKind.self, from: jsonData)
+//   let memoryMapNode = try? JSONDecoder().decode(MemoryMapNode.self, from: jsonData)
 //   let memoryNotesDeleteParams = try? JSONDecoder().decode(MemoryNotesDeleteParams.self, from: jsonData)
 //   let memoryNotesDeleteResult = try? JSONDecoder().decode(MemoryNotesDeleteResult.self, from: jsonData)
 //   let memoryNotesListParams = try? JSONDecoder().decode(MemoryNotesListParams.self, from: jsonData)
@@ -21718,6 +21723,24 @@ public struct MemoryGraphForgetAllResult: Codable, Sendable {
     }
 }
 
+// MARK: - MemoryGraphMapParams
+public struct MemoryGraphMapParams: Codable, Sendable {
+    /// Only these entity kinds
+    public let kinds: [SearchEntityType]?
+    /// At most this many entities, most important first (default 2000)
+    public let limit: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case kinds = "kinds"
+        case limit = "limit"
+    }
+
+    public init(kinds: [SearchEntityType]? = nil, limit: Int? = nil) {
+        self.kinds = kinds
+        self.limit = limit
+    }
+}
+
 // MARK: - MemoryImportParams
 public struct MemoryImportParams: Codable, Sendable {
     public let content: String?
@@ -22274,6 +22297,99 @@ public struct MemoryLoopsUpdateResult: Codable, Sendable {
 
     public init(loop: GraphLoop) {
         self.loop = loop
+    }
+}
+
+// MARK: - MemoryMap
+public struct MemoryMap: Codable, Sendable {
+    public let edges: [MemoryMapEdge]
+    public let nodes: [MemoryMapNode]
+    /// Entities in the store before the cap
+    public let total: Int
+    /// The least important entities were left out
+    public let truncated: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case edges = "edges"
+        case nodes = "nodes"
+        case total = "total"
+        case truncated = "truncated"
+    }
+
+    public init(edges: [MemoryMapEdge], nodes: [MemoryMapNode], total: Int, truncated: Bool) {
+        self.edges = edges
+        self.nodes = nodes
+        self.total = total
+        self.truncated = truncated
+    }
+}
+
+// MARK: - MemoryMapEdge
+public struct MemoryMapEdge: Codable, Sendable {
+    public let a: String
+    public let b: String
+    public let kind: MemoryMapEdgeKind
+    /// Strength 0..1
+    public let weight: Double
+
+    public enum CodingKeys: String, CodingKey {
+        case a = "a"
+        case b = "b"
+        case kind = "kind"
+        case weight = "weight"
+    }
+
+    public init(a: String, b: String, kind: MemoryMapEdgeKind, weight: Double) {
+        self.a = a
+        self.b = b
+        self.kind = kind
+        self.weight = weight
+    }
+}
+
+/// works_on: member, stakeholder, employer or part-of relation; met_in: attended or shared a
+/// meeting about it; co_mentioned: appeared in several of the same interactions; related:
+/// any other accepted relation
+public enum MemoryMapEdgeKind: String, Codable, Sendable {
+    case coMentioned = "co_mentioned"
+    case metIn = "met_in"
+    case related = "related"
+    case worksOn = "works_on"
+}
+
+// MARK: - MemoryMapNode
+public struct MemoryMapNode: Codable, Sendable {
+    public let id: String
+    public let kind: SearchEntityType
+    public let lastInteractionAt: String?
+    public let name: String
+    public let pinned: Bool
+    public let memoryMapNodePrivate: Bool?
+    /// A person the owner used to be in touch with and has not heard from in a while
+    public let quiet: Bool?
+    /// Importance 0..1 from recency, frequency, pins, open loops and links
+    public let weight: Double
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case kind = "kind"
+        case lastInteractionAt = "lastInteractionAt"
+        case name = "name"
+        case pinned = "pinned"
+        case memoryMapNodePrivate = "private"
+        case quiet = "quiet"
+        case weight = "weight"
+    }
+
+    public init(id: String, kind: SearchEntityType, lastInteractionAt: String? = nil, name: String, pinned: Bool, memoryMapNodePrivate: Bool? = nil, quiet: Bool? = nil, weight: Double) {
+        self.id = id
+        self.kind = kind
+        self.lastInteractionAt = lastInteractionAt
+        self.name = name
+        self.pinned = pinned
+        self.memoryMapNodePrivate = memoryMapNodePrivate
+        self.quiet = quiet
+        self.weight = weight
     }
 }
 

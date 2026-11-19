@@ -53,10 +53,26 @@ export interface ProviderConfig {
   headers?: Record<string, string>;
   /** Defaults merged under the request's `providerOptions` for this provider. */
   defaultOptions?: JsonObject;
-  /** Anthropic: mark the system prompt and the last message as cache breakpoints (default true). */
+  /**
+   * Anthropic: cache breakpoints on the last tool sent up front, the system prompt's stable
+   * block and the last message (default true). See `prompt-cache.ts`.
+   */
   promptCaching?: boolean;
-  /** Anthropic: `"5m"` (default) or `"1h"` cache TTL. */
+  /** Anthropic: `"5m"` (default) or `"1h"` cache TTL for the last-message breakpoint. */
   cacheTtl?: "5m" | "1h";
+  /**
+   * Anthropic: TTL of the tools and stable-system breakpoints when the request marks a stable
+   * system block (default `"1h"`: that prefix is shared by every thread and outlives the gaps
+   * between owner messages). Never shorter than `cacheTtl`.
+   */
+  prefixCacheTtl?: "5m" | "1h";
+  /**
+   * Anthropic: send tools loaded on demand with `defer_loading` and reference them from
+   * `load_tools` results, so a load keeps the prompt cache (Claude 4.5 and later). Default
+   * false until `scripts/smoke-deferred-tools.ts` has passed against the real API: a request
+   * shape the API rejected would fail every turn.
+   */
+  deferLoading?: boolean;
   /**
    * Anthropic only: replace client tools named `memory` / `computer` with the provider-defined
    * `memory_20250818` / `computer_toolset_20260801` (architecture §4.4). Off by default.
@@ -103,6 +119,45 @@ export function isLocalKind(kind: ProviderKind): boolean {
     kind === "lmstudio" ||
     kind === "apple"
   );
+}
+
+/** Whether a `baseURL` points at this machine or its link-local network (loopback, 169.254/16, fe80::/10). */
+export function isLoopbackOrLinkLocal(baseURL: string | undefined): boolean {
+  if (baseURL === undefined) return false;
+  let host: string;
+  try {
+    host = new URL(baseURL).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  if (host.startsWith("[") && host.endsWith("]")) host = host.slice(1, -1);
+  return (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host === "::1" ||
+    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host) ||
+    /^169\.254\.\d{1,3}\.\d{1,3}$/.test(host) ||
+    /^fe[89ab][0-9a-f]:/.test(host)
+  );
+}
+
+/**
+ * Whether a provider certainly costs nothing per call: an engine on this machine (Ollama,
+ * llama.cpp, LM Studio, Apple's model), or a `*-compatible` endpoint that is on loopback or
+ * link-local. A compatible endpoint elsewhere is often a paid remote service (Together, Groq,
+ * DeepSeek), so it does not count; `isLocalKind` is about timeouts and keys, not price.
+ */
+export function isFreeLocalProvider(config: { kind: ProviderKind; baseURL?: string }): boolean {
+  if (
+    config.kind === "ollama" ||
+    config.kind === "llamacpp" ||
+    config.kind === "lmstudio" ||
+    config.kind === "apple"
+  )
+    return true;
+  if (config.kind === "openai-compatible" || config.kind === "anthropic-compatible")
+    return isLoopbackOrLinkLocal(config.baseURL);
+  return false;
 }
 
 /** Kinds that drive the owner's subscription through its CLI: no key, no per-token cost. */

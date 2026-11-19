@@ -17,6 +17,7 @@ import { helperOffline } from "./helper-offline/de.ts";
 import { homeRest } from "./home-rest/de.ts";
 import { links } from "./links/de.ts";
 import { mailMeetings } from "./mail-meetings/de.ts";
+import { memoryMap } from "./memory-map/de.ts";
 import { memoryRest } from "./memory-rest/de.ts";
 import { memoryReviewRest } from "./memoryReview-rest/de.ts";
 import { memorySurfacesRest } from "./memorySurfaces-rest/de.ts";
@@ -48,6 +49,7 @@ import { workflows } from "./workflows/de.ts";
 /** German catalogue (de). Same ids as `en`; missing ids fall back to English. */
 export const de: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,
@@ -897,6 +899,7 @@ export const de: Partial<Catalogue> = {
   "shell.shortcuts.addition": "Psyche-Ergänzung",
   "shell.shortcuts.description": "† markiert Psyche-Ergänzungen zur Claude-Desktop-Belegung.",
   "shell.threads.needsYou": "Braucht dich",
+  "shell.threads.nowOn": "Jetzt: {step}",
   "shell.threads.running": "Läuft",
   "shell.threads.titleField": "Thread-Titel",
   "shell.threads.incognito": "Inkognito",
@@ -2067,7 +2070,7 @@ export const de: Partial<Catalogue> = {
   "settings.model.role.primaryHint": "Chat, Aufgaben und Werkzeuge",
   "settings.model.role.utility": "Hilfsmodell",
   "settings.model.role.utilityHint":
-    "Titel, Zusammenfassungen und der Klassifikator im Automatikmodus",
+    "Titel, Zusammenfassungen, Suchkarten und andere Hintergrundaufgaben",
   "settings.model.role.image": "Bild",
   "settings.model.role.imageHint": "Avatar-Änderungen; „Keines“ bedeutet die mitgelieferten Wesen",
   "settings.model.addProvider": "Anbieter hinzufügen",
@@ -3091,6 +3094,19 @@ export const de: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}{editor, select, true { im Editor} other {}} öffnen",
   "screens.library.openInEditor": "Im Editor öffnen",
   "screens.library.open": "Öffnen",
+  "screens.library.recording.description":
+    "Eine Wiedergabe dessen, was der Agent im Browser getan hat. Seiteninhalte wurden bei der Aufnahme geschwärzt.",
+  "screens.library.recording.play": "Abspielen",
+  "screens.library.recording.pause": "Pause",
+  "screens.library.recording.step": "Schritt {n} von {total}",
+  "screens.library.recording.scrub": "Position in der Aufnahme",
+  "screens.library.recording.steps": "Schritte",
+  "screens.library.recording.empty": "Diese Aufnahme enthält keine Schritte.",
+  "screens.library.recording.noFrame": "Für diesen Schritt gibt es kein Bild.",
+  "screens.library.recording.frameAlt": "Der Browser bei Schritt {n}",
+  "screens.library.recording.loading": "Aufnahme wird geladen",
+  "screens.library.recording.loadFailed": "Psyche konnte diese Aufnahme nicht laden ({reason}).",
+  "screens.library.recording.notFound": "Diese Aufnahme ist nicht mehr verfügbar.",
   "screens.library.trust": "Dieser Datei vertrauen",
   "screens.library.moreFor": "Weitere Aktionen für {name}",
   "screens.library.quickLook": "Übersicht",

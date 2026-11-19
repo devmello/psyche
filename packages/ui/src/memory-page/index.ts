@@ -1,6 +1,15 @@
 export { Anchors, type AnchorsProps, ConnectedAnchors, type NewAnchor } from "./Anchors.tsx";
-export { entityHref, MEMORY_KINDS, type MemoryKind, memoryHref, parseMemoryKind } from "./kinds.ts";
+export {
+  entityHref,
+  MEMORY_KINDS,
+  MEMORY_MAP_ROUTE,
+  type MemoryKind,
+  memoryHref,
+  parseMemoryKind,
+  parseMemoryView,
+} from "./kinds.ts";
 export { MemoryScreen, type MemoryScreenProps } from "./MemoryScreen.tsx";
+export { MemoryMapView, type MemoryMapViewProps } from "./map/MemoryMapView.tsx";
 export { ConnectedTimeline, chipText, Timeline, type TimelineProps } from "./Timeline.tsx";
 export { WorkCard, type WorkCardProps } from "./WorkCard.tsx";
 export { QuickAdd, WorkDueTab } from "./WorkDue.tsx";
