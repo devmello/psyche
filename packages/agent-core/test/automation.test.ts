@@ -4,7 +4,17 @@ import {
   automationIntentProvider,
   classifyAutomationIntent,
 } from "../src/index.ts";
-import { blocks, call, harness, recorder, runTurn, say, spec, until } from "./harness.ts";
+import {
+  blocks,
+  call,
+  harness,
+  messagesText,
+  recorder,
+  runTurn,
+  say,
+  spec,
+  until,
+} from "./harness.ts";
 
 /** Task → automation: recognise, plan, trial-run through approvals, then one confirm card. */
 
@@ -111,7 +121,8 @@ describe("the Canvas example, with a mocked model and connectors", () => {
     expect(h.broker.issued).toHaveLength(2);
 
     // Recognised: the hint rode on the owner turn.
-    expect(h.provider.requests[0]?.system).toContain(AUTOMATION_HINT);
+    expect(messagesText(h.provider.requests[0])).toContain(AUTOMATION_HINT);
+    expect(h.provider.requests[0]?.system).not.toContain(AUTOMATION_HINT);
     expect(h.provider.requests[0]?.system).toContain("propose_automation");
     // Planned with update_plan.
     expect(blocks(events).some((b) => b.type === "checklist")).toBe(true);
@@ -141,7 +152,7 @@ describe("the Canvas example, with a mocked model and connectors", () => {
       loop: { contextProviders: [automationIntentProvider()] },
     });
     await runTurn(h, "what assignments are due today?");
-    expect(h.provider.requests[0]?.system ?? "").not.toContain(AUTOMATION_HINT);
+    expect(messagesText(h.provider.requests[0])).not.toContain(AUTOMATION_HINT);
 
     const h2 = harness({
       script: [

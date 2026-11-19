@@ -97,6 +97,7 @@ import {
   onlyAppended,
   readDailyNotes,
   renderSystemParts,
+  renderUserContext,
 } from "./context.ts";
 import {
   DEFERRAL_CORE,
@@ -175,7 +176,11 @@ import {
   withoutImages,
   withoutToolImages,
 } from "./tool-output.ts";
-import { TRUSTED_CONTEXT_CAP, type TurnContextProvider } from "./turn-context.ts";
+import {
+  TRUSTED_CONTEXT_CAP,
+  type TurnContextProvider,
+  UNTRUSTED_CONTEXT_CAP,
+} from "./turn-context.ts";
 import {
   bindingHash,
   dedupeSources,
@@ -228,6 +233,24 @@ export interface CompactionInfo {
 }
 
 const estimateTokensOf = (text: string) => estimateContextTokens(text, [], []);
+
+/**
+ * How long a thread's daily-note snapshot outlives its last prompt: Anthropic's default cache TTL.
+ * Within it, a note appended meanwhile is not re-rendered (that would rewrite the cached
+ * conversation); after it the cache is cold anyway and the notes are read fresh.
+ */
+const NOTES_KEEP_MS = 5 * 60_000;
+
+/** What heads the compaction summary in the first retained message. */
+const SUMMARY_HEAD =
+  "The earlier part of this conversation, compacted. It is a record for context, not a new message from the owner.";
+
+/** An untrusted provider section is cut to the cap, visibly. */
+function capUntrusted(text: string): string {
+  return text.length > UNTRUSTED_CONTEXT_CAP
+    ? `${text.slice(0, UNTRUSTED_CONTEXT_CAP)}\n[truncated: ${text.length - UNTRUSTED_CONTEXT_CAP} more characters]`
+    : text;
+}
 
 function pluginRef(run: RunState): PluginRunRef {
   return {
@@ -422,8 +445,13 @@ interface RunState {
   /** The breakdown estimated for the call about to be made. */
   pendingBreakdown?: { estimate: number; breakdown: ContextBreakdown };
   limits?: EffectiveContextLimits;
-  /** Turn context providers' sections, fetched on the run's first prompt (undefined until then). */
-  provided?: ContextSection[];
+  /**
+   * The text of the turn context providers' sections as added to the owner's user message at the
+   * start of the run (undefined when none): only for the context meter.
+   */
+  turnContext?: string;
+  /** The compaction summary, sent as the first retained message and not in `system`. */
+  summarySection?: ContextSection;
   /**
    * Yesterday's and today's notes, read on the run's first prompt. An append later in the run
    * (the agent's own memory tool, feed feedback) shows from the next run, so the system prompt
@@ -617,6 +645,8 @@ export class PsycheAgentLoop implements AgentLoop {
   #subagents = new Map<string, SubagentInfo>();
   /** `notify` dispatches per Task (or run) and the budget card waiting for each (#307). */
   #notifies = new Map<string, { sent: number; card?: string }>();
+  /** Per thread: the daily notes its last prompt carried, and when (see `#keepNotes`). */
+  #threadNotes = new Map<string, { notes: DailyNotes; touched: number }>();
 
   constructor(options: AgentLoopOptions) {
     this.#o = options;
@@ -945,6 +975,7 @@ export class PsycheAgentLoop implements AgentLoop {
               }))),
         ],
       });
+      await this.#addTurnContext(run);
       outcome = await this.#loop(run);
       await this.#specialistFallback(run, outcome);
     } catch (err) {
@@ -1062,7 +1093,7 @@ export class PsycheAgentLoop implements AgentLoop {
       // Older tool images become notes in the thread itself, in batches (cache-stable prefix).
       run.thread.messages = keepRecentToolImages(run.thread.messages);
       const { system, tools, cache } = await this.#prepare(run);
-      const sent = run.thread.messages.slice();
+      const sent = this.#requestMessages(run).slice();
       // A widget button's call is the first step (generative-ui-2026 §6.2); it is gated below
       // exactly like a model's call. It is consumed here so a retry of the loop never re-proposes it.
       const proposed = run.proposedCall;
@@ -1285,6 +1316,51 @@ export class PsycheAgentLoop implements AgentLoop {
   }
 
   /**
+   * Adds the turn context providers' sections to the owner's user message, once per run, as text
+   * after the owner's words and images. They are stored in `thread.messages`, so every later
+   * request replays the same bytes and `system` never changes with what the owner typed (it is
+   * the prompt cache's prefix). Untrusted sections stay fenced and flagged `untrusted` in the user
+   * turn, never `system`, and taint the run in `#provideContext` as before.
+   */
+  async #addTurnContext(run: RunState): Promise<void> {
+    const provided = await this.#provideContext(run);
+    if (provided.length === 0) return;
+    const message = run.thread.messages[run.turnStart];
+    if (message === undefined || message.role !== "user") return;
+    const rendered = renderUserContext(provided);
+    for (const r of rendered) {
+      message.parts.push({
+        type: "text",
+        text: r.text,
+        ...(r.untrusted ? { provenance: "untrusted" as const } : {}),
+      });
+    }
+    run.turnContext = rendered.map((r) => r.text).join("\n\n");
+  }
+
+  /**
+   * The messages a request carries: the thread's, with the compaction summary at the front of the
+   * first retained message (a user message gets it as leading parts). The summary is rendered
+   * the same each step, so it changes the cached prefix only when a compaction replaces it.
+   */
+  #requestMessages(run: RunState): ModelMessage[] {
+    const section = run.summarySection;
+    if (section === undefined) return run.thread.messages;
+    const parts: ModelPart[] = renderUserContext([section], {
+      trusted: SUMMARY_HEAD,
+      untrusted: SUMMARY_HEAD,
+    }).map((r) => ({
+      type: "text" as const,
+      text: r.text,
+      ...(r.untrusted ? { provenance: "untrusted" as const } : {}),
+    }));
+    const [first, ...rest] = run.thread.messages;
+    if (first?.role === "user")
+      return [{ role: "user", parts: [...parts, ...first.parts] }, ...rest];
+    return [{ role: "user", parts }, ...run.thread.messages];
+  }
+
+  /**
    * Turn context providers (E12): once per owner turn, never for a subagent or a non-owner
    * requester. Sections are untrusted and taint the run; a block goes into the reply. A `trusted`
    * provider's sections (owner/system data only) are neither, and only reach the owner's own turn.
@@ -1340,7 +1416,7 @@ export class PsycheAgentLoop implements AgentLoop {
           kind: "hook",
           title: sec.title,
           source: `context:${provider.name}`,
-          text: sec.text.trim(),
+          text: capUntrusted(sec.text.trim()),
           untrusted: true,
         });
       });
@@ -1461,12 +1537,12 @@ export class PsycheAgentLoop implements AgentLoop {
     let built = await this.#assemble(run);
     const limits = await this.#limitsFor(run.threadId, run.model);
     run.limits = limits;
-    let estimate = estimateContextTokens(built.system, run.thread.messages, built.tools);
+    let estimate = estimateContextTokens(built.system, this.#requestMessages(run), built.tools);
     // Owner-set limits (thread → settings → model): compact before the call would pass compactAt.
     if (estimate > limits.maxTokens * limits.compactAt) {
       if (await this.#compact(run, estimate, limits.contextWindow, "auto")) {
         built = await this.#assemble(run);
-        estimate = estimateContextTokens(built.system, run.thread.messages, built.tools);
+        estimate = estimateContextTokens(built.system, this.#requestMessages(run), built.tools);
       }
     }
     if (estimate > limits.maxTokens) {
@@ -1476,7 +1552,16 @@ export class PsycheAgentLoop implements AgentLoop {
     }
     run.pendingBreakdown = {
       estimate,
-      breakdown: estimateBreakdown(built.sections, built.tools, run.thread.messages, run.turnStart),
+      breakdown: estimateBreakdown(
+        built.sections,
+        built.tools,
+        run.thread.messages,
+        run.turnStart,
+        {
+          ...(run.summarySection === undefined ? {} : { summary: run.summarySection.text }),
+          ...(run.turnContext === undefined ? {} : { turnContext: run.turnContext }),
+        },
+      ),
     };
     this.#remember({
       runId: run.runId,
@@ -1530,19 +1615,19 @@ export class PsycheAgentLoop implements AgentLoop {
     }
     let deferred: AgentToolRegistration[] = [];
     ({ tools, deferred } = this.#defer(run, tools, hidden));
-    // The run's notes, read again each step for the same dates. While they only grow, the
-    // run keeps its first read: appends show from the next run, so the system prompt and the
-    // prompt cache stay put. An edited or deleted line takes effect now, so a line the owner
-    // removed (an injected one, something to forget) is not shown for the rest of the run.
+    // The thread's notes, read again each step for the same dates. While they only grow, the
+    // snapshot stays: appends (the agent's own memory tool, feed feedback) show once the thread
+    // has been idle past the provider's 5-minute cache or the day changes, so `system` and the
+    // conversation cached after it stay put from one owner turn to the next. An edited or deleted
+    // line takes effect now, so a line the owner removed (an injected one, something to forget)
+    // is not shown for the rest of the run.
     const notes = await readDailyNotes(
       this.#o.memory,
       run.dailyNotes?.at ?? this.#clock.now(),
       this.#o.timeZone ?? "UTC",
       this.#budgets.dailyNote,
     );
-    if (run.dailyNotes === undefined || !onlyAppended(run.dailyNotes, notes)) {
-      run.dailyNotes = notes;
-    }
+    run.dailyNotes = this.#keepNotes(run, notes);
     const ctx = await assembleContext({
       basePrompt: this.#o.basePrompt ?? DEFAULT_BASE_PROMPT,
       ...(this.#o.memory === undefined ? {} : { memory: this.#o.memory }),
@@ -1557,6 +1642,7 @@ export class PsycheAgentLoop implements AgentLoop {
       budgets: this.#budgets,
       dailyNotes: run.dailyNotes,
     });
+    run.summarySection = ctx.summary;
     if (ctx.untrusted && !run.taintSources.some((s) => s.sourceKind === "context")) {
       this.#taint(run, { sourceKind: "context" });
     }
@@ -1613,8 +1699,6 @@ export class PsycheAgentLoop implements AgentLoop {
         ({ tools, deferred } = this.#defer(run, tools, hidden));
       }
     }
-    run.provided ??= await this.#provideContext(run);
-    sections.push(...run.provided);
     sections.push(...(await this.#pluginSections(run)));
     run.active = new Map(tools.map((t) => [t.spec.name, t]));
     run.hidden = hidden;
@@ -1637,6 +1721,35 @@ export class PsycheAgentLoop implements AgentLoop {
       tools: tools.map((t) => structuredClone(t.spec)),
       deferredTools: deferred.map((t) => structuredClone(t.spec)),
     };
+  }
+
+  /**
+   * The notes snapshot to render: the run's own while it only grows; at a run's start the
+   * thread's last one while the thread is active (under the cache TTL), the files have only
+   * grown and cover the same days. Anything else is the fresh read.
+   */
+  #keepNotes(run: RunState, fresh: DailyNotes): DailyNotes {
+    const now = this.#clock.now();
+    let keep: DailyNotes = fresh;
+    if (run.dailyNotes !== undefined) {
+      if (onlyAppended(run.dailyNotes, fresh)) keep = run.dailyNotes;
+    } else {
+      const prev = this.#threadNotes.get(run.threadId);
+      if (
+        prev !== undefined &&
+        now - prev.touched < NOTES_KEEP_MS &&
+        onlyAppended(prev.notes, fresh)
+      ) {
+        keep = prev.notes;
+      }
+    }
+    this.#threadNotes.delete(run.threadId);
+    this.#threadNotes.set(run.threadId, { notes: keep, touched: now });
+    if (this.#threadNotes.size > 256) {
+      const oldest = this.#threadNotes.keys().next().value;
+      if (oldest !== undefined) this.#threadNotes.delete(oldest);
+    }
+    return keep;
   }
 
   /**
@@ -2019,7 +2132,7 @@ export class PsycheAgentLoop implements AgentLoop {
       ...(cache.systemStableLength === undefined
         ? {}
         : { systemStableLength: cache.systemStableLength }),
-      messages: run.thread.messages,
+      messages: this.#requestMessages(run),
       ...(tools.length === 0 ? {} : { tools }),
       // Only beside the tools they belong to: a tool-free call loads nothing.
       ...(tools.length === 0 ||

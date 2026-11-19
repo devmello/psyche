@@ -4,13 +4,17 @@ import type { Block, PermissionMode, RunMode, TaintSource } from "@psyche/protoc
  * Turn context providers (feature E12 "From your other chats", and anything like it): code the
  * Gateway trusts that adds context drawn from the owner's own data to a turn. A provider runs
  * once per owner turn, with the owner's words, never for a subagent or a non-owner requester.
- * Its sections are always fenced as untrusted (they quote other content) and taint the run with
- * the provider's source; its block, if any, is added to the reply so the owner sees what the
+ * Its sections go into the owner's user message (after their words, kept in the transcript so
+ * every later request replays the same bytes), never into `system`. They are fenced as untrusted
+ * (they quote other content) and taint the run with the provider's source; its block, if any, is added to the reply so the owner sees what the
  * turn drew on. A provider that fails or misses its deadline adds nothing.
  */
 
 /** Characters one trusted section may place in the prompt (three 300-character recall lines). */
 export const TRUSTED_CONTEXT_CAP = 1_200;
+
+/** Characters one untrusted section may place in the owner's user message. */
+export const UNTRUSTED_CONTEXT_CAP = 8_000;
 
 export interface TurnContextInput {
   threadId: string;

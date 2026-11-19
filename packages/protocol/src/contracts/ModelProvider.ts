@@ -11,7 +11,16 @@ import type { CallOptions } from "./Clock.ts";
 
 /** One part of a normalized message. */
 export type ModelPart =
-  | { type: "text"; text: string }
+  | {
+      type: "text";
+      text: string;
+      /**
+       * `untrusted` on text the owner did not write that sits in a user turn (recalled chats and
+       * artifacts, a compaction summary of untrusted content). A run that replays it is tainted.
+       * Providers ignore it.
+       */
+      provenance?: ProvenanceOut;
+    }
   | { type: "image"; mime: string; data?: string; url?: string }
   | { type: "tool_call"; id: string; name: string; input: unknown }
   | {

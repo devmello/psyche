@@ -16,6 +16,7 @@ import {
   call,
   type Harness,
   harness,
+  messagesText,
   recorder,
   runTurn,
   say,
@@ -79,7 +80,9 @@ describe("cache-stable prompt: the loop's requests", () => {
     expect(tail(r)).toContain("09:00 standup");
     // The tail starts after the blank line that joined the sections: the text is unchanged.
     expect(tail(r)?.startsWith("\n\n")).toBe(true);
-    expect(tail(r)).toContain("Ana prefers mornings");
+    // The recall is in the owner's user message after their words, not in `system`.
+    expect(tail(r)).not.toContain("Ana prefers mornings");
+    expect(messagesText(r)).toContain("Ana prefers mornings");
   });
 
   it("keeps the stable head across owner turns with different recall", async () => {
@@ -88,7 +91,9 @@ describe("cache-stable prompt: the loop's requests", () => {
     await runTurn(h, "draft a reply to Ana");
     const [r0, r1] = h.provider.requests;
     expect(head(r1)).toBe(head(r0));
-    expect(tail(r1)).not.toBe(tail(r0));
+    // What the owner typed changes the user turn, not `system`.
+    expect(r1?.system).toBe(r0?.system);
+    expect(messagesText(r1)).toContain('About "draft a reply to Ana"');
   });
 
   it("does not re-render a daily-note append until the next run (steps keep the same system)", async () => {
@@ -100,7 +105,18 @@ describe("cache-stable prompt: the loop's requests", () => {
     expect(s1?.system).not.toContain("standup moved");
     // Same run: the system prompt is byte-identical although today's note changed.
     expect(s2?.system).toBe(s1?.system);
-    // The next run reads the note again; only the volatile tail changes.
+    // The next run, soon after, keeps the thread's snapshot: the append was the agent's own
+    // tool call, already in its history, and re-rendering would rewrite the cached conversation.
+    expect(next?.system).toBe(s1?.system);
+  });
+
+  it("reads the notes fresh once the thread has been idle past the cache TTL", async () => {
+    const h = harness({ script: [call("c1", "note.append", {}), say("noted"), say("next")] });
+    withNoteTool(h);
+    await runTurn(h, "move standup");
+    h.clock.advance(6 * 60_000);
+    await runTurn(h, "what's on today?");
+    const [s1, , next] = h.provider.requests;
     expect(next?.system).toContain("standup moved to 10:00");
     expect(head(next)).toBe(head(s1));
   });
