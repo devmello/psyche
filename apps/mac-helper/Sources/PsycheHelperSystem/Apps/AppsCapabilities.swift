@@ -151,6 +151,8 @@ public enum AppsCapabilities {
             if category == .passwordManager || category == .finance {
                 throw CapabilityError(.policyDenied, reason: "tier_off", "Psyche does not open password managers or finance apps")
             }
+            // LaunchServices brings a running instance forward instead of the bundle named here.
+            if let bundleId { try CheckedLaunch.refuseRunningElsewhere(bundleId, expected: appURL) }
             let config = NSWorkspace.OpenConfiguration()
             config.activates = true
             let running: NSRunningApplication
@@ -171,6 +173,7 @@ public enum AppsCapabilities {
             } else {
                 running = try await NSWorkspace.shared.openApplication(at: appURL, configuration: config)
             }
+            try AppLaunchPolicy.checkLaunched(bundleId: bundleId ?? appURL.path, expected: appURL, launched: running.bundleURL)
             let name = running.localizedName ?? appURL.deletingPathExtension().lastPathComponent
             return CapabilityOutput(
                 [
@@ -237,9 +240,13 @@ public enum AppsCapabilities {
         )) { ctx in
             try cu.refuseWhileRecording()
             let p = try ctx.decode(ScriptParams.self)
-            try ScriptGuard.check(p.source, language: .appleScript, target: p.target, resolve: AppResolver.bundleId)
+            try ScriptGuard.check(p.source, language: .appleScript, target: p.target, resolve: AppResolver.bundleId,
+                                  cap: { cu.policy.fixedCap(for: $0) })
             let t = p.target ?? ""
-            try await AutomationPermission.ensure(bundleId: AppResolver.bundleId(t) ?? t, ask: true)
+            let id = AppResolver.bundleId(t) ?? t
+            try CheckedLaunch.checkScriptTarget(id)
+            try await AutomationPermission.ensure(bundleId: id, ask: true)
+            try CheckedLaunch.checkScriptTarget(id)
             let out = try await OutOfProcessScript.run(source: p.source, language: .appleScript, timeout: TimeInterval(min(300, max(1, p.timeoutSeconds ?? 60))))
             return scriptOutput(out, target: p.target, kind: "AppleScript")
         }
@@ -254,9 +261,13 @@ public enum AppsCapabilities {
         )) { ctx in
             try cu.refuseWhileRecording()
             let p = try ctx.decode(ScriptParams.self)
-            try ScriptGuard.check(p.source, language: .javaScript, target: p.target, resolve: AppResolver.bundleId)
+            try ScriptGuard.check(p.source, language: .javaScript, target: p.target, resolve: AppResolver.bundleId,
+                                  cap: { cu.policy.fixedCap(for: $0) })
             let t = p.target ?? ""
-            try await AutomationPermission.ensure(bundleId: AppResolver.bundleId(t) ?? t, ask: true)
+            let id = AppResolver.bundleId(t) ?? t
+            try CheckedLaunch.checkScriptTarget(id)
+            try await AutomationPermission.ensure(bundleId: id, ask: true)
+            try CheckedLaunch.checkScriptTarget(id)
             let out = try await OutOfProcessScript.run(source: p.source, language: .javaScript, timeout: TimeInterval(min(300, max(1, p.timeoutSeconds ?? 60))))
             return scriptOutput(out, target: p.target, kind: "JXA")
         }
@@ -369,15 +380,61 @@ enum LiveAppLookups {
 // MARK: - Script execution
 
 /// Resolves an app name or bundle id to an installed bundle id.
+/// The id is only a name here: `CheckedLaunch.checkScriptTarget` resolves it to a checked bundle
+/// (`AppLaunchPolicy`) before any script runs against it.
 enum AppResolver {
     static func bundleId(_ nameOrId: String) -> String? {
-        if nameOrId.contains("."), NSWorkspace.shared.urlForApplication(withBundleIdentifier: nameOrId) != nil { return nameOrId }
+        if nameOrId.contains("."), (try? CheckedLaunch.url(for: nameOrId)) != nil { return nameOrId }
         let name = nameOrId.hasSuffix(".app") ? nameOrId : nameOrId + ".app"
         guard !name.contains("/"), !name.contains("..") else { return nil }
         for dir in AppsCapabilities.appFolders {
-            if let id = Bundle(url: URL(fileURLWithPath: dir).appendingPathComponent(name))?.bundleIdentifier { return id }
+            let url = URL(fileURLWithPath: dir).appendingPathComponent(name)
+            if let id = LiveAppLookups.infoPlist(url)?["CFBundleIdentifier"] as? String { return id }
         }
         return nameOrId.contains(".") ? nameOrId : nil
+    }
+}
+
+/// Every place the helper launches an app, or sends one Apple Events, goes through here: the
+/// bundle is resolved and checked (`AppLaunchPolicy`), that exact bundle is what launches, and a
+/// running instance must be that bundle. Never "whatever LaunchServices prefers".
+enum CheckedLaunch {
+    /// The checked bundle for an id.
+    static func url(for bundleId: String) throws -> URL {
+        try AppLaunchPolicy.resolve(bundleId: bundleId, home: NSHomeDirectory(), lookups: LiveAppLookups.lookups)
+    }
+
+    static func runningURLs(_ bundleId: String) -> [URL?] {
+        NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).map(\.bundleURL)
+    }
+
+    static func refuseRunningElsewhere(_ bundleId: String, expected: URL) throws {
+        try AppLaunchPolicy.checkRunning(bundleId: bundleId, expected: expected, running: runningURLs(bundleId))
+    }
+
+    /// Before a script addresses `bundleId`: it resolves to a checked bundle, and a running
+    /// instance (which receives the Apple Events) is that bundle.
+    static func checkScriptTarget(_ bundleId: String) throws {
+        let url = try url(for: bundleId)
+        try refuseRunningElsewhere(bundleId, expected: url)
+    }
+
+    /// Launches the checked bundle when the id is not running (hidden in the background when
+    /// `hidden`), and checks what runs. Returns true when it launched.
+    @discardableResult
+    static func ensureRunning(_ bundleId: String, hidden: Bool) async throws -> Bool {
+        let url = try url(for: bundleId)
+        let running = runningURLs(bundleId)
+        if !running.isEmpty {
+            try AppLaunchPolicy.checkRunning(bundleId: bundleId, expected: url, running: running)
+            return false
+        }
+        let config = NSWorkspace.OpenConfiguration()
+        config.activates = !hidden
+        config.hides = hidden
+        let app = try await NSWorkspace.shared.openApplication(at: url, configuration: config)
+        try AppLaunchPolicy.checkLaunched(bundleId: bundleId, expected: url, launched: app.bundleURL)
+        return true
     }
 }
 

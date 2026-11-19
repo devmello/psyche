@@ -56,15 +56,95 @@ struct AppLaunchPolicyTests {
         #expect(reason("com.adobe.Photoshop", [FakeBundle(path: "/Applications/Adobe Photoshop/Photoshop.app", id: "com.adobe.Photoshop")]) == nil)
     }
 
-    /// Probe: an agent-written `Notes.app` in `~/Applications` claiming `com.apple.Notes`.
-    @Test func refusesALookalikeBesideTheRealApp() {
+    private func resolved(_ id: String, _ bundles: [FakeBundle]) -> String? {
+        try? AppLaunchPolicy.resolve(bundleId: id, home: home, lookups: lookups(bundles)).path
+    }
+
+    /// Probe: an agent-written `Notes.app` in `~/Applications` claiming `com.apple.Notes`. It
+    /// fails the checks, so it never competes: the real Notes opens.
+    @Test func aLookalikeNeverWinsOverTheRealApp() {
         let fake = FakeBundle(path: home + "/Applications/Notes.app", id: "com.apple.Notes")
-        #expect(reason("com.apple.Notes", [notes, fake]) == "app_ambiguous")
-        #expect(reason("com.apple.Notes", [fake, notes]) == "app_ambiguous")
-        // Two copies of a third-party app: LaunchServices would pick one by version.
+        #expect(resolved("com.apple.Notes", [notes, fake]) == notes.path)
+        #expect(resolved("com.apple.Notes", [fake, notes]) == notes.path)
+        // A signed-looking lookalike in a project folder is outside every launch folder.
+        var project = FakeBundle(path: home + "/Projects/x/Notes.app", id: "com.apple.Notes")
+        project.appleSigned = true
+        #expect(resolved("com.apple.Notes", [project, notes]) == notes.path)
+    }
+
+    /// Review r1, finding 2: Spotify keeps an updater copy in Application Support; dev builds sit
+    /// in DerivedData. Copies outside the launch folders are never launched, so they do not count.
+    @Test func copiesOutsideTheLaunchFoldersDoNotCount() {
+        let spotify = FakeBundle(path: "/Applications/Spotify.app", id: "com.spotify.client")
+        let updater = FakeBundle(path: home + "/Library/Application Support/Spotify/PersistentCache/Update/temp/Spotify.app", id: "com.spotify.client")
+        let derived = FakeBundle(path: home + "/Library/Developer/Xcode/DerivedData/X/Build/Products/Debug/Spotify.app", id: "com.spotify.client")
+        let downloads = FakeBundle(path: home + "/Downloads/Spotify.app", id: "com.spotify.client")
+        #expect(resolved("com.spotify.client", [updater, spotify, derived, downloads]) == spotify.path)
+        // Only such copies: refused with the reason the copy failed.
+        #expect(reason("com.spotify.client", [updater, downloads]) == "app_outside_applications")
+    }
+
+    @Test func picksByLaunchFolderAndRefusesOnlyATie() {
         let a = FakeBundle(path: "/Applications/Zephium.app", id: "app.zephium")
         let b = FakeBundle(path: home + "/Applications/Zephium.app", id: "app.zephium")
-        #expect(reason("app.zephium", [a, b]) == "app_ambiguous")
+        // /Applications beats ~/Applications, in either order.
+        #expect(resolved("app.zephium", [b, a]) == a.path)
+        #expect(resolved("app.zephium", [a, b]) == a.path)
+        // /System beats /Applications.
+        let sys = FakeBundle(path: "/System/Applications/Tool.app", id: "com.example.Tool")
+        let apps = FakeBundle(path: "/Applications/Tool.app", id: "com.example.Tool")
+        #expect(resolved("com.example.Tool", [apps, sys]) == sys.path)
+        // ~/Applications alone is fine.
+        #expect(resolved("app.zephium", [b]) == b.path)
+        // Two checked copies in one tier: refused, with both paths.
+        let c = FakeBundle(path: "/Applications/Utilities/Zephium.app", id: "app.zephium")
+        #expect(reason("app.zephium", [a, c]) == "app_ambiguous")
+        let d = FakeBundle(path: home + "/Applications/Old/Zephium.app", id: "app.zephium")
+        #expect(reason("app.zephium", [b, d]) == "app_ambiguous")
+        // A tie below the winner does not matter.
+        #expect(resolved("app.zephium", [a, b, d]) == a.path)
+    }
+
+    /// Review r1, finding 2: LaunchServices activates an instance that is already running.
+    @Test func aRunningCopyMustBeTheCheckedOne() throws {
+        let checked = URL(fileURLWithPath: "/Applications/Zephium.app")
+        try AppLaunchPolicy.checkRunning(bundleId: "app.zephium", expected: checked, running: [])
+        try AppLaunchPolicy.checkRunning(bundleId: "app.zephium", expected: checked,
+                                         running: [URL(fileURLWithPath: "/System/Volumes/Data/Applications/Zephium.app")])
+        for other: URL? in [URL(fileURLWithPath: home + "/Downloads/Zephium.app"), nil] {
+            #expect(throws: CapabilityError.self) {
+                try AppLaunchPolicy.checkRunning(bundleId: "app.zephium", expected: checked, running: [checked, other])
+            }
+        }
+        do {
+            try AppLaunchPolicy.checkRunning(bundleId: "app.zephium", expected: checked, running: [URL(fileURLWithPath: "/tmp/Z.app")])
+        } catch let e as CapabilityError {
+            #expect(e.reason == "app_running_elsewhere")
+        }
+        // After a launch, what came up must be the checked bundle.
+        try AppLaunchPolicy.checkLaunched(bundleId: "app.zephium", expected: checked, launched: checked)
+        do {
+            try AppLaunchPolicy.checkLaunched(bundleId: "app.zephium", expected: checked, launched: URL(fileURLWithPath: "/tmp/Z.app"))
+            Issue.record("a launch from elsewhere must be refused")
+        } catch let e as CapabilityError {
+            #expect(e.reason == "app_launched_elsewhere")
+        }
+        #expect(throws: CapabilityError.self) {
+            try AppLaunchPolicy.checkLaunched(bundleId: "app.zephium", expected: checked, launched: nil)
+        }
+    }
+
+    /// Review r1, finding 9: a script target capped by its Info.plist is refused.
+    @Test func scriptTargetsUseTheInfoPlistCap() {
+        let resolve: (String) -> String? = { $0 }
+        #expect(throws: CapabilityError.self) {
+            try ScriptGuard.checkTarget("app.example.term", resolve: resolve, cap: { $0 == "app.example.term" ? .click : .interact })
+        }
+        #expect((try? ScriptGuard.checkTarget("com.apple.Notes", resolve: resolve, cap: { _ in .interact })) == "com.apple.Notes")
+        #expect(throws: CapabilityError.self) {
+            try ScriptGuard.check("tell application id \"app.example.term\" to activate", language: .appleScript, target: "app.example.term",
+                                  resolve: resolve, cap: { _ in .click })
+        }
     }
 
     @Test func oneBundleInTwoSpellingsIsOneBundle() {

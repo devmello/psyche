@@ -68,6 +68,12 @@ describe("script and document pre-checks (#354)", () => {
     "file://localhost/tmp/X.app/.",
     "file:/tmp/X.app/.",
     "file:///tmp/X.app%2F.",
+    // Review r1, finding 8: the URL parser reads `\` as `/` in a file URL.
+    "file:///x/Evil.app\\.",
+    "file:///x/Evil.app\\",
+    "file:///x/Evil.app\\Contents\\..",
+    "file:///x/Evil.app%5C.",
+    "file:\\\\\\x\\Evil.app\\.",
   ])("refuses the bundle trick %s", (url) => {
     expect(reasonOf(() => assertOpenAllowed("com.apple.Preview", url))).toMatch(
       /^(executable_document|invalid_url)$/,
@@ -127,6 +133,28 @@ describe("script and document pre-checks (#354)", () => {
         ext,
       ).toBe("executable_document");
     }
+  });
+
+  // Review r1, finding 9: the Mac helper's cap from the app's Info.plist reaches script targets.
+  it("refuses a script target the helper reports capped, and only that one", () => {
+    const caps: Record<string, "click" | "interact"> = {
+      "app.example.term": "click",
+      "com.apple.notes": "interact",
+    };
+    const helperCap = (id: string) => caps[id];
+    expect(
+      reasonOf(() => assertScriptAllowed("app.example.term", "beep", "applescript", helperCap)),
+    ).toBe("script_target_capped");
+    expect(reasonOf(() => assertScriptAllowed("App.Example.Term", "beep", "jxa", helperCap))).toBe(
+      "script_target_capped",
+    );
+    expect(
+      reasonOf(() => assertScriptAllowed("com.apple.Notes", "beep", "applescript", helperCap)),
+    ).toBeUndefined();
+    // Not resolved yet: the id lists decide here, the helper checks again.
+    expect(
+      reasonOf(() => assertScriptAllowed("com.example.Other", "beep", "applescript", helperCap)),
+    ).toBeUndefined();
   });
 
   it("refuses opening documents that would run", () => {

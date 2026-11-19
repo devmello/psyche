@@ -250,6 +250,15 @@ function windowsTempDir(env: FolderAccessEnv, home: string): string | undefined 
   }
 }
 
+/**
+ * A POSIX path as APFS compares names by default: compatibility-normalized (`ſ` is `s`, `ﬁ` is
+ * `fi`, the Kelvin sign is `K`, NFD is NFC) and case-folded. Over-folding only refuses more.
+ * The same fold as `@psyche/files`' `foldPathName`.
+ */
+function foldName(p: string): string {
+  return p.normalize("NFKC").toUpperCase().toLowerCase().normalize("NFKC");
+}
+
 function under(child: string, root: string): boolean {
   if (root === "/") return !isWin32HostPath(child);
   return isUnderHostPath(child, root);
@@ -283,7 +292,7 @@ export function inSystemRoot(given: string, env: FolderAccessEnv = {}): boolean 
   }
   if (isMacMagicPath(real, env.platform)) return true;
   const ci = env.caseInsensitive ?? process.platform === "darwin";
-  const fold = (p: string): string => (ci && !isWin32HostPath(p) ? p.toLowerCase() : p);
+  const fold = (p: string): string => (ci && !isWin32HostPath(p) ? foldName(p) : p);
   const roots = process.platform === "win32" ? windowsSubtreeRoots() : SUBTREE_ROOTS;
   if (roots.some((r) => under(fold(real), fold(r)))) return true;
   // The CLI binary folders in home (`~/.local/bin`...), and a folder around one (`~/.local`), but
@@ -454,7 +463,7 @@ export function refuseFolder(given: string, env: FolderAccessEnv = {}): FolderRe
   const roots = sensitiveRoots(env);
   // macOS: `/OPT/Homebrew` names `/opt/homebrew`, so a POSIX path is compared lower-cased.
   const ci = env.caseInsensitive ?? process.platform === "darwin";
-  const fold = (p: string): string => (ci && !isWin32HostPath(p) ? p.toLowerCase() : p);
+  const fold = (p: string): string => (ci && !isWin32HostPath(p) ? foldName(p) : p);
   real = fold(real);
   const exact = roots.exact.map(fold);
   const subtree = roots.subtree.map(fold);

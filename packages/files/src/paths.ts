@@ -1,4 +1,4 @@
-import { lstatSync } from "node:fs";
+import { lstatSync, statSync } from "node:fs";
 import { lstat, realpath } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import {
@@ -174,26 +174,60 @@ export function assertNotProtected(
 }
 
 /**
+ * A path as a case- and normalization-insensitive disk compares names (APFS by default, NTFS
+ * for case): compatibility-normalized (`ſ` is `s`, `ﬁ` is `fi`, the Kelvin sign is `K`, an NFD
+ * `é` is the NFC one) and case-folded (`ß` is `ss`). Over-folding only refuses more.
+ */
+export function foldPathName(p: string): string {
+  return p.normalize("NFKC").toUpperCase().toLowerCase().normalize("NFKC");
+}
+
+/** `dev:ino` of what `p` leads to now, or undefined when it does not exist. */
+function fileIdentity(p: string): string | undefined {
+  try {
+    const st = statSync(p, { bigint: true });
+    return `${st.dev}:${st.ino}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * The write-protected root (`~/Applications`, `~/Library/LaunchAgents`, `~/.zshrc`...) that
- * `path` is, or lies under, else undefined. Compared without case on macOS and Windows, whose
- * disks ignore it by default: `~/library/launchagents` is the same folder.
+ * `path` is, or lies under, else undefined. Judged two ways, so no other spelling of a protected
+ * name reaches it (review r1: `.zſhrc` and `.proﬁle` opened `.zshrc` and `.profile` on APFS):
+ * - by name, folded as the disk folds it (`foldPathName`; byte for byte on Linux), which also
+ *   covers a file that does not exist yet;
+ * - by identity: the path or any existing folder above it is the same file (`dev:ino`) as an
+ *   existing protected root, however it is spelled (a hard link counts too).
  */
 export function writeProtectedRoot(
   path: string,
   writeRoots: readonly string[],
 ): string | undefined {
-  const fold = process.platform === "linux" ? (p: string) => p : (p: string) => p.toLowerCase();
+  const fold = process.platform === "linux" ? (p: string) => p : foldPathName;
   const target = fold(path);
+  const roots: string[] = [];
   for (const raw of writeRoots) {
-    let root: string;
     try {
-      root = canonicalTarget(raw);
+      roots.push(canonicalTarget(raw));
     } catch {
-      continue;
+      // A root that names nothing usable protects nothing.
     }
-    if (isUnder(target, fold(root))) return root;
   }
-  return undefined;
+  for (const root of roots) if (isUnder(target, fold(root))) return root;
+  const ids = new Map<string, string>();
+  for (const root of roots) {
+    const id = fileIdentity(root);
+    if (id !== undefined && !ids.has(id)) ids.set(id, root);
+  }
+  if (ids.size === 0) return undefined;
+  for (let p = path; ; p = dirname(p)) {
+    const id = fileIdentity(p);
+    const hit = id === undefined ? undefined : ids.get(id);
+    if (hit !== undefined) return hit;
+    if (dirname(p) === p) return undefined;
+  }
 }
 
 /**

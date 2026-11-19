@@ -1,4 +1,4 @@
-import { appCap } from "@psyche/permissions";
+import { type AppTier, appCap } from "@psyche/permissions";
 import { PsycheError } from "@psyche/protocol";
 
 /**
@@ -220,6 +220,11 @@ export function assertScriptAllowed(
   target: string,
   source: string,
   language: "applescript" | "jxa",
+  /**
+   * The cap the Mac helper reported for an app id (`apps.resolve`'s `fixedCap`: the id lists
+   * lowered by the app's Info.plist), when known: a shell-like app no list names is capped too.
+   */
+  helperCap?: (bundleId: string) => AppTier | undefined,
 ): void {
   const n = normalizedScript(source);
   const banned = (language === "applescript" ? APPLESCRIPT_BANNED : JXA_BANNED).find((t) =>
@@ -235,6 +240,14 @@ export function assertScriptAllowed(
   const cap = appCap(targetId);
   if (NEVER_TARGETS.includes(targetId) || cap.cap !== "interact") {
     deny("script_target_capped", cap.reason || `Scripts may not control ${target}`, { target });
+  }
+  const reported = helperCap?.(targetId);
+  if (reported !== undefined && reported !== "interact") {
+    deny(
+      "script_target_capped",
+      `${target} is a terminal, shell or developer tool (from its Info.plist): scripts may not control it`,
+      { target },
+    );
   }
   for (const addressed of addressedApps(source, language)) {
     if (addressed === DYNAMIC) {
@@ -264,7 +277,11 @@ export function assertOpenAllowed(app: string, url: string | undefined): void {
   if (last === undefined || last === "") {
     deny("executable_document", "Psyche opens files, not folders or bundles, as documents");
   }
-  if (segments.some((s) => s === "." || s === ".." || s.includes("/") || s.includes("\0"))) {
+  if (
+    segments.some(
+      (s) => s === "." || s === ".." || s.includes("/") || s.includes("\\") || s.includes("\0"),
+    )
+  ) {
     deny("invalid_url", "file URLs may not contain . or .. segments");
   }
   let path: string;
@@ -273,7 +290,11 @@ export function assertOpenAllowed(app: string, url: string | undefined): void {
   } catch {
     deny("invalid_url", "not a valid file URL");
   }
-  const name = path.split("/").at(-1) ?? "";
+  // And the name as the URL parser reads it (`\` is `/` in a file URL): never empty or `.`.
+  const name = path.split(/[\\/]/).at(-1) ?? "";
+  if (name === "" || name === "." || name === "..") {
+    deny("executable_document", "Psyche opens files, not folders or bundles, as documents");
+  }
   // Bidi controls and other invisible characters disguise a file's real extension.
   if (/\p{Cf}/u.test(name)) {
     deny("executable_document", "File names with hidden characters are not opened");
@@ -290,11 +311,12 @@ export function assertOpenAllowed(app: string, url: string | undefined): void {
  */
 export function rawFileSegments(url: string): string[] {
   const rest = url.replace(/^file:/i, "");
-  // `file:///p`, `file://localhost/p` and `file:/p` name the same path.
-  const afterHost = rest.startsWith("//") ? rest.slice(2).replace(/^[^/]*/, "") : rest;
+  // `file:///p`, `file://localhost/p` and `file:/p` name the same path; the URL parser reads `\`
+  // as `/` in a file URL, so both separate segments here.
+  const afterHost = /^[\\/]{2}/.test(rest) ? rest.slice(2).replace(/^[^/\\]*/, "") : rest;
   const path = afterHost.split(/[?#]/, 1)[0] ?? "";
   return path
-    .split("/")
+    .split(/[\\/]/)
     .slice(1)
     .map((seg) => {
       try {

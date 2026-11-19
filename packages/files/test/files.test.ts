@@ -20,6 +20,7 @@ import {
   type FileChange,
   type FileToolsOptions,
   fileTools,
+  foldPathName,
   type GrantedFolder,
   MemoryFileProvenance,
 } from "../src/index.ts";
@@ -391,6 +392,95 @@ describe("write-protected persistence locations (apps.open review, finding 2)", 
       const done = await run("write_file", { path, content: "ok" });
       expect(done.isError).toBeUndefined();
     }
+  });
+});
+
+describe("other spellings of a write-protected name (review r1, finding 1)", () => {
+  // `granted` stands in for an older home-root share again.
+  const writeRoots = () =>
+    [
+      ".zshrc",
+      ".zshenv",
+      ".profile",
+      ".bash_profile",
+      ".gitconfig",
+      "Library/LaunchAgents",
+      ".config/fish",
+      "Café",
+      "Kit",
+    ].map((rel) => join(granted, rel));
+  const setup = () => {
+    for (const rel of [".zshrc", ".profile", ".bash_profile", ".gitconfig"]) {
+      writeFileSync(join(granted, rel), "before");
+    }
+    mkdirSync(join(granted, "Library", "LaunchAgents"), { recursive: true });
+    mkdirSync(join(granted, ".config", "fish"), { recursive: true });
+    mkdirSync(join(granted, "Café"));
+    mkdirSync(join(granted, "Kit"));
+    ({ run } = toolset({ folders: () => folders, writeProtectedRoots: writeRoots }));
+  };
+
+  it("folds names as APFS does: compatibility forms, case and NFD", () => {
+    expect(foldPathName(".zſhrc")).toBe(".zshrc");
+    expect(foldPathName(".proﬁle")).toBe(".profile");
+    expect(foldPathName("Kit")).toBe("kit");
+    expect(foldPathName("Café")).toBe(foldPathName("Café"));
+    expect(foldPathName(".BASH_PROFILE")).toBe(".bash_profile");
+    expect(foldPathName("Straße")).toBe("strasse");
+    expect(foldPathName(".zshrc2")).not.toBe(".zshrc");
+  });
+
+  it
+    .skipIf(process.platform !== "darwin")
+    .each([
+      ".zſhrc",
+      ".zſhenv",
+      ".proﬁle",
+      ".baſh_proﬁle",
+      ".gitconﬁg",
+      ".ZSHRC",
+      "Library/LaunchAgentſ/x.plist",
+      "library/launchagents/x.plist",
+      ".config/ﬁsh/config.fish",
+      "Café/x.txt",
+      "Kit/x.txt",
+    ])("refuses writing %s", async (rel) => {
+    setup();
+    const path = join(granted, rel);
+    await expect(run("write_file", { path, content: "PWNED" })).rejects.toMatchObject({
+      code: "forbidden",
+      details: { reason: "protected_path" },
+    });
+    for (const f of [".zshrc", ".profile", ".bash_profile", ".gitconfig"]) {
+      expect(readFileSync(join(granted, f), "utf8"), f).toBe("before");
+    }
+  });
+
+  it.each([
+    ".zshrc2",
+    ".zsh_history",
+    ".profile.d/notes.md",
+    "ſomething.txt",
+    "notes-ﬁnal.md",
+    "Cafeteria/x.txt",
+    "Kitchen/x.txt",
+  ])("still writes %s", async (rel) => {
+    setup();
+    const path = join(granted, rel);
+    mkdirSync(join(path, ".."), { recursive: true });
+    const done = await run("write_file", { path, content: "ok" });
+    expect(done.isError).toBeUndefined();
+  });
+
+  it("refuses a write to another name of the same file (a hard link)", async () => {
+    setup();
+    const other = join(granted, "Projects", "innocent.txt");
+    mkdirSync(join(granted, "Projects"));
+    linkSync(join(granted, ".zshrc"), other);
+    await expect(run("write_file", { path: other, content: "PWNED" })).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    expect(readFileSync(join(granted, ".zshrc"), "utf8")).toBe("before");
   });
 });
 

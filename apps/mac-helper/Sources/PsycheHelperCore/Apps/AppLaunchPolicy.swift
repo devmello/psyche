@@ -43,28 +43,77 @@ public enum AppLaunchPolicy {
         return p
     }
 
-    /// The one bundle `bundleId` opens. Refuses an id no bundle has (`app_not_found`), an id two
-    /// or more bundles on disk claim (`app_ambiguous`: LaunchServices would pick by version, so a
-    /// lookalike could win), and a bundle that fails `check`.
+    /// Which launch folder a checked bundle is in: `/System` (0) before `/Applications` (1)
+    /// before `~/Applications` (2).
+    static func tier(_ path: String, home: String) -> Int {
+        if path.hasPrefix("/System/") { return 0 }
+        if path.hasPrefix("/Applications/") { return 1 }
+        return 2
+    }
+
+    /// The bundle `bundleId` opens: of the copies LaunchServices knows, only those that pass
+    /// `check` count (a copy in an updater cache, DerivedData or Downloads is never launched by
+    /// path, so it does not compete), and the one in the most trusted launch folder wins
+    /// (`/System` > `/Applications` > `~/Applications`). Refuses an id no checked bundle has (with
+    /// the reason the best other copy failed, else `app_not_found`) and two checked copies in the
+    /// same launch folder tier (`app_ambiguous`: LaunchServices would pick by version).
     public static func resolve(bundleId: String, home: String, lookups: Lookups) throws -> URL {
         var seen: [String] = []
         for url in lookups.candidates(bundleId) where lookups.exists(url) {
             let path = canonical(url)
             if !seen.contains(path) { seen.append(path) }
         }
-        guard let first = seen.first else {
+        var passed: [String] = []
+        var failure: (tier: Int, error: CapabilityError)?
+        for path in seen {
+            do {
+                try check(URL(fileURLWithPath: path), requestedId: bundleId, home: home, lookups: lookups)
+                passed.append(path)
+            } catch let e as CapabilityError {
+                // Report why the copy nearest a launch folder failed (a lookalike Apple app).
+                let rank = appFolders(home: home).contains(where: { path.hasPrefix($0 + "/") }) ? tier(path, home: home) : 3
+                if failure == nil || rank < failure!.tier { failure = (rank, e) }
+            }
+        }
+        guard let best = passed.map({ tier($0, home: home) }).min() else {
+            if let failure { throw failure.error }
             throw CapabilityError(.notFound, reason: "app_not_found", "No installed app matches \(bundleId)")
         }
-        if seen.count > 1 {
+        let tied = passed.filter { tier($0, home: home) == best }
+        if tied.count > 1 {
             throw CapabilityError(
                 .policyDenied, reason: "app_ambiguous",
-                "More than one app on this Mac says it is \(bundleId), so Psyche does not open it. Remove the copy you do not use.",
-                details: ["app": .string(bundleId), "paths": .array(seen.prefix(8).map { .string($0) })]
+                "More than one copy of \(bundleId) is installed in the same Applications folder, so Psyche does not pick one. Remove the copy you do not use.",
+                details: ["app": .string(bundleId), "paths": .array(tied.prefix(8).map { .string($0) })]
             )
         }
-        let url = URL(fileURLWithPath: first)
-        try check(url, requestedId: bundleId, home: home, lookups: lookups)
-        return url
+        return URL(fileURLWithPath: tied[0])
+    }
+
+    /// Before launching or scripting a checked bundle: LaunchServices activates (and Apple Events
+    /// reach) an instance that is already running, so every running instance of the id must be
+    /// the checked bundle. `running` holds their bundle paths (nil: unknown, refused).
+    public static func checkRunning(bundleId: String, expected: URL, running: [URL?]) throws {
+        let want = canonical(expected)
+        for url in running where url.map(canonical) != want {
+            throw CapabilityError(
+                .policyDenied, reason: "app_running_elsewhere",
+                "\(bundleId) is already running from \(url.map(canonical) ?? "an unknown place"), not \(want). Quit that copy and try again.",
+                details: ["app": .string(bundleId), "path": .string(url.map(canonical) ?? ""), "expected": .string(want)]
+            )
+        }
+    }
+
+    /// After a launch: the app that came up must be the checked bundle.
+    public static func checkLaunched(bundleId: String, expected: URL, launched: URL?) throws {
+        let want = canonical(expected)
+        guard launched.map(canonical) == want else {
+            throw CapabilityError(
+                .policyDenied, reason: "app_launched_elsewhere",
+                "\(bundleId) came up from \(launched.map(canonical) ?? "an unknown place"), not \(want)",
+                details: ["app": .string(bundleId), "path": .string(launched.map(canonical) ?? ""), "expected": .string(want)]
+            )
+        }
     }
 
     /// The rules every bundle passes before it is launched, however it was found:

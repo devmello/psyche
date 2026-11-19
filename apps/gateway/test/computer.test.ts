@@ -1,5 +1,6 @@
+import { hashCanonical } from "@psyche/audit";
 import type { CallContext } from "@psyche/browser";
-import { createPermissionBroker } from "@psyche/permissions";
+import { bindingHash, createPermissionBroker } from "@psyche/permissions";
 import type {
   ErrorPayload,
   IssuedApproval,
@@ -24,6 +25,7 @@ import {
   isRiskyLabel,
   isSendChord,
   MAX_LABEL_CHARS,
+  openBindingFields,
   sanitizeSnapshot,
   systemAppPath,
 } from "../src/compose/computer.ts";
@@ -66,7 +68,10 @@ class FakeHelper implements NodeClient {
   /** A Mac helper from before `focused` (it answers a target-less call with invalid_params). */
   noFocus = false;
   /** Where `apps.resolve` says an app id is installed (default: `/System/Applications/<Name>.app`). */
-  installed = new Map<string, { path: string; name?: string; bundleId?: string }>();
+  installed = new Map<
+    string,
+    { path: string; name?: string; bundleId?: string; fixedCap?: string }
+  >();
   /** An older Mac helper without `apps.resolve`. */
   noAppsResolve = false;
 
@@ -108,7 +113,12 @@ class FakeHelper implements NodeClient {
       }
     }
     const app = (p.app ?? p.bundleId ?? p.target) as string | undefined;
-    if (app !== undefined && this.ask.has(app) && !this.allowed.has(app)) {
+    if (
+      capability !== "apps.resolve" &&
+      app !== undefined &&
+      this.ask.has(app) &&
+      !this.allowed.has(app)
+    ) {
       if (options.approvalId === undefined) {
         return err({
           code: "approval_required",
@@ -165,7 +175,12 @@ class FakeHelper implements NodeClient {
         const at = this.installed.get(id) ?? { path: `/System/Applications/${name}.app` };
         return {
           ok: true,
-          result: { bundleId: at.bundleId ?? id, name: at.name ?? name, path: at.path },
+          result: {
+            bundleId: at.bundleId ?? id,
+            name: at.name ?? name,
+            path: at.path,
+            fixedCap: at.fixedCap ?? "interact",
+          },
         };
       }
       case "apps.shortcut_run":
@@ -753,6 +768,13 @@ describe("computer-use agent tools (J1–J5)", () => {
     const opens = () => helper.calls.filter((c) => c.capability === "apps.open");
     const zephium = "app.zephium";
     const userBundle = "/Users/owner/Applications/Zephium.app";
+    /** The binding the agent loop gives an `apps.open` call whose card named `path`. */
+    const loopBinding = (params: { app: string; url?: string }, path: string | undefined) =>
+      bindingHash("computer_action", {
+        tool: "apps.open",
+        paramsHash: hashCanonical(params),
+        fields: openBindingFields(params, path),
+      });
 
     it("shows the resolved app name and path on the card once the helper has resolved it", async () => {
       const first = tools.get("apps.open")?.describeCall?.({ app: notes });
@@ -827,12 +849,114 @@ describe("computer-use agent tools (J1–J5)", () => {
         {},
         {
           rule: "approval:ap_1",
-          bindingHash: "sha256:00",
+          bindingHash: loopBinding({ app: zephium }, userBundle),
           approvalId: "ap_1",
         },
       );
       expect(r.isError).toBeUndefined();
       expect(issued).toEqual([]);
+    });
+
+    // Review r1, finding 7: the cache can change between the gate and the run; only the
+    // approval's own binding says whether its card named the path.
+    it("asks when the approved card bound no path, whatever the cache says now", async () => {
+      helper.installed.set(zephium, { path: userBundle, name: "Zephium" });
+      answer = "deny";
+      await call("apps.open", { app: zephium }); // fills the cache with the path
+      issued.length = 0;
+      answer = "approve";
+      const r = await call(
+        "apps.open",
+        { app: zephium },
+        {},
+        {
+          rule: "approval:ap_3",
+          bindingHash: loopBinding({ app: zephium }, undefined),
+          approvalId: "ap_3",
+        },
+      );
+      expect(r.isError).toBeUndefined();
+      expect(issued).toHaveLength(1);
+      expect(issued[0]?.approval.summary).toContain(userBundle);
+    });
+
+    // Review r1, finding 6: an unattended Task resumes after the owner approves the path card.
+    it("lets a later unattended run use the card the owner approved for that bundle", async () => {
+      helper.installed.set(zephium, { path: userBundle, name: "Zephium" });
+      answer = "none";
+      const task = { unattended: true, taskId: "task_z" };
+      const first = await call("apps.open", { app: zephium }, { ...task, runId: "run_a" });
+      expect(first.output).toMatchObject({ error: { code: "approval_required" } });
+      expect(issued).toHaveLength(1);
+      // Another run before the owner answers keeps the same card queued.
+      const again = await call("apps.open", { app: zephium }, { ...task, runId: "run_b" });
+      expect(again.output).toMatchObject({ error: { code: "approval_required" } });
+      expect(issued).toHaveLength(1);
+      await broker.answer({
+        approvalId: issued[0]?.approval.id ?? "",
+        answerToken: issued[0]?.answerTokens.desktop ?? "",
+        decision: "approve",
+        scope: "once",
+        decidedBy: { deviceId: "dev-owner", surface: "desktop" },
+      });
+      const resumed = await call("apps.open", { app: zephium }, { ...task, runId: "run_c" });
+      expect(resumed.isError).toBeUndefined();
+      expect(issued).toHaveLength(1);
+      expect(opens()).toHaveLength(1);
+    });
+
+    it("does not let another conversation's approved card stand for this one after a restart", async () => {
+      helper.installed.set(zephium, { path: userBundle, name: "Zephium" });
+      answer = "none";
+      await call("apps.open", { app: zephium }, { unattended: true, taskId: "task_z" });
+      await broker.answer({
+        approvalId: issued[0]?.approval.id ?? "",
+        answerToken: issued[0]?.answerTokens.desktop ?? "",
+        decision: "approve",
+        scope: "once",
+        decidedBy: { deviceId: "dev-owner", surface: "desktop" },
+      });
+      // A fresh Gateway process (nothing confirmed in memory) and another thread's Task.
+      const fresh = createComputerUse({
+        broker,
+        helper: () => ({ nodeId: helper.nodeId, client: helper, kind: "mac-helper" }),
+        context: (id) => contexts.get(id) as CallContext,
+        cancelRun: () => undefined,
+      });
+      const reg = fresh.registrations().find((t) => t.spec.name === "apps.open");
+      contexts.set("call_other", {
+        toolCallId: "call_other",
+        threadId: "th_other",
+        runId: "run_x",
+        taskId: "task_other",
+        permissionMode: "balanced",
+        taint: false,
+        unattended: true,
+      });
+      const r = await reg?.execute(
+        "call_other",
+        { app: zephium },
+        new AbortController().signal,
+        () => undefined,
+      );
+      expect(r?.output).toMatchObject({ error: { code: "approval_required" } });
+      expect(issued).toHaveLength(2);
+    });
+
+    // Review r1, finding 9: the helper's Info.plist cap reaches script targets.
+    it("refuses scripts against an app the helper caps from its Info.plist", async () => {
+      const term = "app.example.term";
+      helper.installed.set(term, { path: "/Applications/Term.app", fixedCap: "click" });
+      const source = "beep";
+      const r = await call("apps.applescript", { target: term, source });
+      expect(r.output).toMatchObject({
+        error: { code: "policy_denied", details: { reason: "script_target_capped" } },
+      });
+      expect(helper.calls.map((c) => c.capability)).toEqual(["apps.resolve"]);
+      // Once known, the card is never shown: describe refuses it.
+      expect(() => tools.get("apps.applescript")?.describeCall?.({ target: term, source })).toThrow(
+        expect.objectContaining({ code: "policy_denied" }),
+      );
     });
 
     it("asks again when the id now opens another bundle than the card named", async () => {
@@ -845,7 +969,7 @@ describe("computer-use agent tools (J1–J5)", () => {
         {},
         {
           rule: "approval:ap_2",
-          bindingHash: "sha256:00",
+          bindingHash: loopBinding({ app: zephium }, "/System/Applications/zephium.app"),
           approvalId: "ap_2",
         },
       );

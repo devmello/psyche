@@ -1,8 +1,9 @@
 import { hashCanonical } from "@psyche/audit";
 import type { CallContext } from "@psyche/browser";
 import { getSetting } from "@psyche/db";
-import { bindingHash } from "@psyche/permissions";
+import { type AppTier, bindingHash } from "@psyche/permissions";
 import {
+  type ApprovalRequest,
   createValidator,
   type ErrorPayload,
   type NodeClient,
@@ -229,8 +230,9 @@ export function isSendChord(app: string, keys: string): boolean {
 
 // --- Schemas -------------------------------------------------------------------------------------
 
+const BUNDLE_ID_SHAPE = /^[A-Za-z0-9-]+(\.[A-Za-z0-9_-]+)+$/;
 const BundleId = Type.String({
-  pattern: "^[A-Za-z0-9-]+(\\.[A-Za-z0-9_-]+)+$",
+  pattern: BUNDLE_ID_SHAPE.source,
   maxLength: 200,
   description: "App bundle id, e.g. com.apple.Notes (apps.list shows them)",
 });
@@ -371,6 +373,26 @@ interface ResolvedApp {
   name: string;
   /** The bundle's real path. */
   path: string;
+  /** The helper's fixed cap for it: the id lists lowered by its Info.plist. */
+  fixedCap?: AppTier;
+}
+
+/**
+ * The `apps.open` binding fields the loop hashes with the call (`describeCall`): the app, the
+ * bundle path the card named when it knew one, and the document. Shared with the run, which
+ * recomputes them to tell whether the approved card named the path it resolves now.
+ */
+export function openBindingFields(
+  p: { app: string; url?: string },
+  path: string | undefined,
+): Record<string, string> {
+  return {
+    app: p.app,
+    tierRequired: "click",
+    action: "open_app",
+    ...(path === undefined ? {} : { path }),
+    ...(p.url === undefined ? {} : { urlSha256: hashCanonical(p.url) }),
+  };
 }
 
 /**
@@ -855,9 +877,19 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       if (oldest !== undefined) resolvedApps.delete(oldest);
     }
   };
-  /** Bundles (lowercased id + path) the owner approved on a card that named that path. */
-  const confirmedBundles = new Set<string>();
-  const bundleKey = (app: string, path: string) => `${app.toLowerCase()}\n${path}`;
+  /**
+   * The bundles the owner approved on a card that named their path, by that card's binding hash
+   * (`bundleFields`): a later open of the same bundle needs no second card. After a restart the
+   * approved card itself is found again by its binding (`confirmOpen`).
+   */
+  const confirmedBindings = new Set<string>();
+  const bundleFields = (app: string, path: string) => ({
+    tool: "apps.open",
+    app: app.toLowerCase(),
+    path,
+    tierRequired: "click",
+    action: "open_app",
+  });
 
   /**
    * Asks the Mac helper which bundle `app` opens (`apps.resolve`, read-only): the helper refuses
@@ -914,7 +946,19 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       typeof r.name === "string" && r.name.trim() !== ""
         ? sanitizeSnapshot(r.name.trim()).slice(0, 200)
         : (path.split("/").at(-1) ?? app).replace(/\.app$/i, "");
-    const resolved = { bundleId: app, name, path };
+    const fixedCap =
+      r.fixedCap === "off" ||
+      r.fixedCap === "read" ||
+      r.fixedCap === "click" ||
+      r.fixedCap === "interact"
+        ? r.fixedCap
+        : undefined;
+    const resolved: ResolvedApp = {
+      bundleId: app,
+      name,
+      path,
+      ...(fixedCap === undefined ? {} : { fixedCap }),
+    };
     rememberApp(resolved);
     return resolved;
   }
@@ -931,15 +975,11 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     signal: AbortSignal,
   ): Promise<void> {
     const ctx = deps.context(callId);
-    const fields = {
-      tool: "apps.open",
-      app: p.app,
-      path: r.path,
-      tierRequired: "click",
-      action: "open_app",
-      ...(p.url === undefined ? {} : { urlSha256: hashCanonical(p.url) }),
-    };
+    // The card is about the bundle: its binding is the app id and the path, whatever document
+    // it opens (the loop's own binding covers the document).
+    const fields = bundleFields(p.app, r.path);
     const hash = bindingHash("computer_action", fields);
+    if (confirmedBindings.has(hash)) return;
     const target = appTarget(p.app);
     const decision = await deps.broker.decide(
       {
@@ -959,38 +999,58 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     if (decision.decision === "deny") {
       throw new PsycheError("policy_denied", decision.reason ?? `denied by ${decision.rule}`);
     }
-    const issued = await deps.broker.requestApproval({
-      kind: "computer_action",
-      summary: `Open ${r.name} from ${r.path}`,
-      details: {
-        app: p.app,
-        name: r.name,
-        path: r.path,
-        action: "open_app",
-        tierRequired: "click",
-        ...(p.url === undefined ? {} : { url: p.url }),
-      },
-      bindingHash: hash,
-      grantKey: hash,
-      requestedBy: {
-        runId: ctx.runId,
-        taskId: ctx.taskId ?? null,
-        threadId: ctx.threadId,
-        toolCallId: callId,
-      },
-      sideEffect: "write",
-      targetKind: "app",
-      target,
-      surfaces: ["desktop", "notification"],
-      scopesOffered: ["once"],
-      taint: ctx.taint,
-      context: ctx,
-    });
+    // A later run of the same conversation or Task (an unattended Task resuming after the owner
+    // answered): the card the owner approved for this exact bundle counts, by its binding, once.
+    const mine = (a: ApprovalRequest) =>
+      a.kind === "computer_action" &&
+      a.bindingHash === hash &&
+      a.requestedBy.threadId === ctx.threadId &&
+      (ctx.taskId === undefined || a.requestedBy.taskId === ctx.taskId) &&
+      (!ctx.taint || a.taint);
+    for (const a of (await deps.broker.list({ status: "approved" })).filter(mine)) {
+      const verified = await deps.broker.verifyBinding(a.id, hash);
+      if (verified.ok) {
+        confirmedBindings.add(hash);
+        return;
+      }
+    }
+    // A card for it is still waiting: wait on that one (or keep it queued), never a second one.
+    const waiting = (await deps.broker.list({ status: "pending" })).find(mine);
+    const issued =
+      waiting !== undefined
+        ? { approval: waiting }
+        : await deps.broker.requestApproval({
+            kind: "computer_action",
+            summary: `Open ${r.name} from ${r.path}`,
+            details: {
+              app: p.app,
+              name: r.name,
+              path: r.path,
+              action: "open_app",
+              tierRequired: "click",
+              ...(p.url === undefined ? {} : { url: p.url }),
+            },
+            bindingHash: hash,
+            grantKey: hash,
+            requestedBy: {
+              runId: ctx.runId,
+              taskId: ctx.taskId ?? null,
+              threadId: ctx.threadId,
+              toolCallId: callId,
+            },
+            sideEffect: "write",
+            targetKind: "app",
+            target,
+            surfaces: ["desktop", "notification"],
+            scopesOffered: ["once"],
+            taint: ctx.taint,
+            context: ctx,
+          });
     const approvalId = issued.approval.id;
     if (ctx.unattended === true) {
       throw new PsycheError(
         "approval_required",
-        `Opening ${r.name} from ${r.path} needs your approval. The request is queued.`,
+        `Opening ${r.name} from ${r.path} needs your approval. The request is queued; the Task continues once you approve it.`,
         { details: { approvalId } },
       );
     }
@@ -1006,7 +1066,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         details: { approvalId },
       });
     }
-    confirmedBundles.add(bundleKey(p.app, r.path));
+    confirmedBindings.add(hash);
   }
 
   /** Apps where a payment control, page or card was seen lately (lowercased app → when). */
@@ -2087,13 +2147,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         return {
           kind: "computer_action",
           target: appTarget(p.app),
-          bindingFields: {
-            app: p.app,
-            tierRequired: "click",
-            action: "open_app",
-            ...(known === undefined ? {} : { path: known.path }),
-            ...(urlSha256 === undefined ? {} : { urlSha256 }),
-          },
+          bindingFields: openBindingFields(p, known?.path),
           // A grant for opening the app never covers opening a document with it, and a grant
           // for one document never covers another.
           grantKey: `${p.app}|click${urlSha256 === undefined ? "" : `|url:${urlSha256}`}`,
@@ -2119,16 +2173,25 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         // What the card could name (the last resolution), then the bundle the helper resolves
         // now: a bundle outside the system's app folders that no approved card named gets a
         // card of its own, and the helper opens exactly the bundle resolved here.
-        const shown = knownApp(p.app);
         const resolved = await resolveApp(p.app, callId, signal);
-        if (resolved !== undefined) {
-          const key = bundleKey(p.app, resolved.path);
+        if (resolved !== undefined && !systemAppPath(resolved.path)) {
+          // The loop's card named this path only when the approval the call ran on binds these
+          // exact arguments with this path (its own binding, not what the cache says now).
+          const auth = deps.authority?.(callId);
           const onCard =
-            shown?.path === resolved.path && deps.authority?.(callId)?.approvalId !== undefined;
-          if (onCard) confirmedBundles.add(key);
-          if (!systemAppPath(resolved.path) && !confirmedBundles.has(key)) {
-            await confirmOpen(p, resolved, callId, signal);
+            auth?.approvalId !== undefined &&
+            auth.bindingHash ===
+              bindingHash("computer_action", {
+                tool: "apps.open",
+                paramsHash: hashCanonical(p),
+                fields: openBindingFields(p, resolved.path),
+              });
+          if (onCard) {
+            confirmedBindings.add(
+              bindingHash("computer_action", bundleFields(p.app, resolved.path)),
+            );
           }
+          await confirmOpen(p, resolved, callId, signal);
         }
         const { res, approvalId } = await invoke(
           callId,
@@ -2187,7 +2250,12 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       sideEffect: "destructive",
       targetKind: "app",
       describe: (p) => {
-        assertScriptAllowed(p.target, p.source, p.language === "jxa" ? "jxa" : "applescript");
+        assertScriptAllowed(
+          p.target,
+          p.source,
+          p.language === "jxa" ? "jxa" : "applescript",
+          (id) => knownApp(id)?.fixedCap,
+        );
         return {
           sideEffect: "destructive",
           kind: "apple_script",
@@ -2202,7 +2270,14 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         };
       },
       async run(p, callId, signal) {
-        assertScriptAllowed(p.target, p.source, p.language === "jxa" ? "jxa" : "applescript");
+        const language = p.language === "jxa" ? "jxa" : "applescript";
+        assertScriptAllowed(p.target, p.source, language, (id) => knownApp(id)?.fixedCap);
+        // The target as the helper sees it now: a checked bundle, and its cap from its own
+        // Info.plist (a shell-like app no list names is refused here as well as in the helper).
+        if (BUNDLE_ID_SHAPE.test(p.target)) {
+          await resolveApp(p.target, callId, signal);
+          assertScriptAllowed(p.target, p.source, language, (id) => knownApp(id)?.fixedCap);
+        }
         const capability = p.language === "jxa" ? "apps.jxa" : "apps.applescript";
         const { res, approvalId } = await invoke(
           callId,

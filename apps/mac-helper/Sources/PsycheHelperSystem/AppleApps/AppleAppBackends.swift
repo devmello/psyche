@@ -571,16 +571,15 @@ enum ScriptHandler {
     }
 
     /// Launches the target in the background when needed (Automation can only be asked of a running app).
+    /// The bundle is resolved and checked (`CheckedLaunch`): an Applications-folder copy, Apple's
+    /// own for an Apple id, and a running instance must be that copy before a script reaches it.
     static func ensureRunning(_ bundleId: String) async throws {
-        if NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).isEmpty {
-            guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
-                throw CapabilityError(.notFound, reason: "app_not_installed", "\(bundleId) is not installed")
+        do {
+            if try await CheckedLaunch.ensureRunning(bundleId, hidden: true) {
+                try await _Concurrency.Task.sleep(nanoseconds: 1_000_000_000)
             }
-            let config = NSWorkspace.OpenConfiguration()
-            config.activates = false
-            config.hides = true
-            _ = try await NSWorkspace.shared.openApplication(at: url, configuration: config)
-            try await _Concurrency.Task.sleep(nanoseconds: 1_000_000_000)
+        } catch let e as CapabilityError where e.reason == "app_not_found" {
+            throw CapabilityError(.notFound, reason: "app_not_installed", "\(bundleId) is not installed")
         }
     }
 
