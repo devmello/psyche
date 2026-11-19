@@ -27,6 +27,7 @@ import { cn } from "../lib/utils.ts";
 import { McpAppPanel } from "../widgets/McpAppPanel.tsx";
 import { DiffBlock } from "./DiffBlock.tsx";
 import { DISCLOSURE_KEY, useDisclosure } from "./disclosure.tsx";
+import { ShareFolderForCall } from "./ShareFolderAction.tsx";
 import { ToolResultPreview } from "./ToolResultPreview.tsx";
 import type { ToolCallBlock } from "./types.ts";
 
@@ -41,7 +42,7 @@ const statusLabel = (status: ToolCallStatus): string => t(`blocks.toolRun.status
 
 const STATUS_DOT: Record<ToolCallStatus, string> = {
   pending: "bg-gray-8",
-  running: "bg-accent-9 animate-pulse",
+  running: "bg-accent-9 animate-psy-working reduced:animate-none",
   ok: "bg-success",
   failed: "bg-danger",
   uncertain: "bg-approval",
@@ -162,6 +163,7 @@ export function ToolCallRow({
         </details>
       ) : null}
       {call ? <ToolResultPreview call={call} /> : null}
+      {call ? <ShareFolderForCall call={call} /> : null}
       {block.status === "ok" && block.tool.startsWith("mcp__") ? (
         <McpAppPanel tool={block.tool} />
       ) : null}

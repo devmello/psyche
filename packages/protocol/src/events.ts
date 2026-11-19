@@ -25,6 +25,7 @@ import {
   Channel,
   Connector,
   CredentialMeta,
+  LinkSetupStatus,
   VaultPayment,
   VaultStatus,
 } from "./schemas/integrations.ts";
@@ -39,6 +40,7 @@ import {
   FeedPost,
   Goal,
   Idea,
+  NoticeMessage,
   Notification,
   NotificationKind,
   SettingEntry,
@@ -235,6 +237,7 @@ export const Events = {
       kind: NotificationKind,
       title: Type.String(),
       body: Type.String(),
+      message: Type.Optional(NoticeMessage),
       route: Nullable(Type.String()),
       interruption: StringEnum(["passive", "active", "timeSensitive"]),
       createdAt: Type.String(),
@@ -405,6 +408,11 @@ export const Events = {
     payload: Type.Object({ payment: VaultPayment }),
     description:
       "A Stripe Link payment changed: requested, card issued, held, captured, refunded, declined or released. Never card data.",
+  }),
+  "payments.link.changed": defineEvent({
+    payload: Type.Object({ status: LinkSetupStatus }),
+    description:
+      "Stripe Link setup changed: a CLI was connected, sign-in finished or timed out, or Link was disconnected. Never a token.",
   }),
   "question.updated": defineEvent({
     payload: Type.Object({ inputRequest: InputRequest }),

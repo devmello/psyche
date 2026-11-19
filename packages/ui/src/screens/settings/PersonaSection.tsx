@@ -1,12 +1,10 @@
 import { Radio as RadioPrimitive } from "@base-ui/react/radio";
-import { Pencil } from "lucide-react";
+import type { PersonaIdentity } from "@psyche/protocol";
 import { type ReactElement, useId, useState } from "react";
 import { Avatar } from "../../avatar/Avatar.tsx";
 import { CREATURES, getCreature } from "../../avatar/creatures/index.tsx";
-import { Button } from "../../components/ui/button.tsx";
-import { Label } from "../../components/ui/label.tsx";
 import { RadioGroup } from "../../components/ui/radio-group.tsx";
-import { Textarea } from "../../components/ui/textarea.tsx";
+import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { usePersona } from "../../slots.tsx";
 import {
@@ -15,11 +13,10 @@ import {
   Group,
   LoadGate,
   type LoadProps,
+  messageOf,
   SectionFrame,
-  SettingHint,
   type SettingsFormProps,
   SwitchField,
-  str,
   TextSetting,
   useSettingsForm,
 } from "./shared.tsx";
@@ -74,43 +71,30 @@ export function CreaturePicker({
 }
 
 export interface PersonaPanelProps extends SettingsFormProps, LoadProps {
-  /** Sends a natural-language change to the image model (or records it when there is none). */
-  onDescribeChange?: (text: string) => void | Promise<void>;
-  /** Whether an image model is configured, so "Describe a change" can redraw the avatar. */
-  hasImageModel?: boolean;
+  /** The persona from IDENTITY.md; the `persona` slot stands in until it loads. */
+  identity?: PersonaIdentity;
+  /** Saves persona fields through `memory.persona.edit`. Rejects with the Gateway's error. */
+  onSaveIdentity?: (fields: Partial<PersonaIdentity>) => Promise<void>;
+  /** The last save's failure, shown above the fields. */
+  saveError?: string | null;
 }
 
 export function PersonaPanel({
   values,
   onChange,
   needsApproval,
-  onDescribeChange,
-  hasImageModel = false,
   loading,
   error,
   onRetry,
+  identity,
+  onSaveIdentity,
+  saveError,
 }: PersonaPanelProps): ReactElement {
   const fallback = usePersona();
-  const name = str(values, "persona.name", fallback.name);
-  const creatureId = str(values, "persona.creatureId", fallback.creature);
-  const tagline = str(values, "persona.tagline", "");
-  const emoji = str(values, "persona.emoji", "");
-  const description = str(values, "persona.creature", "");
-  const [change, setChange] = useState("");
-  const [sent, setSent] = useState<string | null>(null);
-  const changeId = useId();
-
-  const submitChange = async () => {
-    const text = change.trim();
-    if (text === "") return;
-    if (onDescribeChange) await onDescribeChange(text);
-    else onChange("persona.creature", text);
-    setChange("");
-    setSent(
-      hasImageModel
-        ? t("settings.persona.redrawn", { name })
-        : t("settings.persona.savedForLater", { name }),
-    );
+  const name = identity?.name ?? fallback.name;
+  const creature = identity?.creature ?? fallback.creature;
+  const save = (fields: Partial<PersonaIdentity>) => {
+    if (onSaveIdentity) void onSaveIdentity(fields);
   };
 
   return (
@@ -126,19 +110,11 @@ export function PersonaPanel({
         {...(onRetry ? { onRetry } : {})}
       >
         <div className="flex flex-wrap items-center gap-4 rounded-lg border border-gray-6 bg-gray-2 p-4">
-          <Avatar name={name} creature={creatureId} size={64} />
-          <div className="min-w-0 flex-1">
-            <p className="text-lg font-semibold">
-              {emoji ? `${emoji} ` : ""}
-              {name}
-            </p>
-            {tagline ? <p className="text-sm text-muted-foreground">{tagline}</p> : null}
-            {description ? (
-              <p className="mt-1 text-callout text-muted-foreground">
-                {t("settings.persona.describedAs", { description })}
-              </p>
-            ) : null}
-          </div>
+          <Avatar name={name} creature={creature} size={64} />
+          <p className="text-lg font-semibold">
+            {identity?.emoji ? `${identity.emoji} ` : ""}
+            {name}
+          </p>
         </div>
 
         <Group
@@ -149,69 +125,36 @@ export function PersonaPanel({
             label={t("settings.key.persona.name")}
             value={name}
             maxLength={40}
-            settingKey="persona.name"
-            onCommit={(v) => onChange("persona.name", v === "" ? "Psyche" : v)}
+            // An empty name is refused by the Gateway; TextSetting then keeps the typed draft.
+            onCommit={(v) => {
+              if (v !== "") save({ name: v });
+            }}
           />
           <TextSetting
             label={t("settings.key.persona.tagline")}
-            value={tagline}
+            value={identity?.tagline ?? ""}
             maxLength={120}
             placeholder={t("settings.persona.taglinePlaceholder")}
-            settingKey="persona.tagline"
-            onCommit={(v) => onChange("persona.tagline", v)}
+            onCommit={(v) => save({ tagline: v })}
           />
           <TextSetting
             label={t("settings.key.persona.emoji")}
             description={t("settings.persona.emojiHint")}
-            value={emoji}
-            maxLength={8}
-            settingKey="persona.emoji"
-            onCommit={(v) => onChange("persona.emoji", v)}
+            value={identity?.emoji ?? ""}
+            maxLength={16}
+            onCommit={(v) => save({ emoji: v })}
           />
         </Group>
 
         <Group title={t("settings.persona.avatar")} description={t("settings.persona.avatarHint")}>
           <CreaturePicker
-            value={creatureId}
+            value={creature}
             personaName={name}
-            onChange={(v) => onChange("persona.creatureId", v)}
+            onChange={(id) => save({ creature: id })}
           />
-          <SettingHint settingKey="persona.creatureId" />
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={changeId} className="gap-1.5">
-              <Pencil className="size-3.5" aria-hidden="true" />
-              {t("settings.persona.describeChange")}
-            </Label>
-            <p id={`${changeId}-desc`} className="text-callout text-muted-foreground">
-              {hasImageModel
-                ? t("settings.persona.describeHint")
-                : t("settings.persona.describeHintNoModel")}
-            </p>
-            <Textarea
-              id={changeId}
-              aria-describedby={`${changeId}-desc`}
-              value={change}
-              onChange={(e) => setChange(e.target.value)}
-              className="max-w-lg"
-            />
-            <div>
-              <Button
-                type="button"
-                size="sm"
-                disabled={change.trim() === ""}
-                onClick={() => void submitChange()}
-              >
-                {t("settings.persona.apply")}
-              </Button>
-            </div>
-            <SettingHint settingKey="persona.creature" />
-            {sent ? (
-              <p className="text-callout text-success-text" role="status">
-                {sent}
-              </p>
-            ) : null}
-          </div>
         </Group>
+
+        {saveError ? <ErrorNotice what={saveError} did="" /> : null}
 
         <Group
           title={t("settings.persona.whileWorking")}
@@ -231,11 +174,37 @@ export function PersonaPanel({
 }
 
 export interface PersonaSectionProps {
+  /**
+   * "Describe a change" is not shown: nothing here sends it to the agent yet (it needs an image
+   * model or a chat path). Kept so the Settings screen's wiring does not change.
+   */
   onDescribeChange?: (text: string) => void | Promise<void>;
 }
 
-export function PersonaSection({ onDescribeChange }: PersonaSectionProps): ReactElement {
+export function PersonaSection(_props: PersonaSectionProps): ReactElement {
   const form = useSettingsForm();
+  const call = useCall();
+  const persona = useGatewayQuery("memory.persona.get", {});
+  // The result of the last save, shown at once; the web shell also refreshes from IDENTITY.md.
+  const [saved, setSaved] = useState<PersonaIdentity | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const identity = saved ?? persona.data?.identity;
+
+  const onSaveIdentity = async (fields: Partial<PersonaIdentity>) => {
+    setSaveError(null);
+    try {
+      const result = await call("memory.persona.edit", { fields });
+      setSaved(result.identity);
+    } catch (err) {
+      setSaveError(
+        t("settings.shared.saveFailed", {
+          label: t("settings.persona.title"),
+          reason: messageOf(err),
+        }),
+      );
+    }
+  };
+
   return (
     <div className="flex flex-col gap-3">
       <PersonaPanel
@@ -245,7 +214,9 @@ export function PersonaSection({ onDescribeChange }: PersonaSectionProps): React
         loading={form.loading && Object.keys(form.values).length === 0}
         error={form.error}
         onRetry={form.reload}
-        {...(onDescribeChange ? { onDescribeChange } : {})}
+        identity={identity}
+        onSaveIdentity={onSaveIdentity}
+        saveError={saveError}
       />
       {form.writeError ? <ErrorNotice what={form.writeError} did="" /> : null}
     </div>

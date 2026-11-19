@@ -15,7 +15,6 @@ import { readVoiceSettings } from "../../voice/settings.ts";
 import { type ShortcutCheck, ShortcutRecorder, shortcutText } from "./ShortcutRecorder.tsx";
 import { SpeechModelGroup } from "./SpeechModel.tsx";
 import {
-  Advanced,
   bool,
   ErrorNotice,
   Group,
@@ -480,34 +479,6 @@ export function VoicePanel({
           onChange={onChange}
           {...(altGrLayout === undefined ? {} : { altGrLayout })}
         />
-        <Advanced description={t("settings.voice.advancedHint")}>
-          <Group title={t("settings.voice.engine")}>
-            <RadioField
-              label={t("settings.key.voice.engine")}
-              hideLabel
-              value={str(values, "voice.engine", "local")}
-              settingKey="voice.engine"
-              onChange={(v) => onChange("voice.engine", v)}
-              options={[
-                {
-                  value: "local",
-                  label: t("settings.voice.engine.local"),
-                  hint: t("settings.voice.engine.localHint"),
-                },
-                {
-                  value: "system",
-                  label: t("settings.voice.engine.system"),
-                  hint: t("settings.voice.engine.systemHint"),
-                },
-                {
-                  value: "cloud",
-                  label: t("settings.voice.engine.cloud"),
-                  hint: t("settings.voice.engine.cloudHint"),
-                },
-              ]}
-            />
-          </Group>
-        </Advanced>
       </LoadGate>
     </SectionFrame>
   );

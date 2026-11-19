@@ -69,7 +69,7 @@ import {
 import { chatFileSlots } from "./attachments.tsx";
 import { ComposedCanvas } from "./canvas.tsx";
 import { FirstRun, onboardingRoute } from "./first-run.tsx";
-import { fixTouchId } from "./helper.tsx";
+import { DesktopHelperBanner, fixTouchId } from "./helper.tsx";
 import { kitClient } from "./kit-client.ts";
 import { renderLibraryThumbnail } from "./library-thumbnails.tsx";
 import { writeOnboarding } from "./onboarding.ts";
@@ -723,6 +723,14 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
               completeOnboarding(platform, result).then(
                 () => {
                   reloadPersona();
+                  // The folders needed a card that cannot be answered here: land on File access.
+                  if (result.openFileAccess) {
+                    try {
+                      globalThis.history?.pushState(null, "", "/settings/files");
+                    } catch {
+                      // The shell then opens on the main chat.
+                    }
+                  }
                   setGate("ready");
                 },
                 (err: unknown) =>
@@ -765,6 +773,8 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
       <AppearanceProvider systemLocale={systemLocale} system={systemAppearance}>
         <UiSlotsProvider value={uiSlots}>
           {body}
+          {/* The desktop's helper notice: offline → one dismissable banner with Reconnect. */}
+          <DesktopHelperBanner platform={platform} />
           <Toaster />
           {/* The startup splash is the main window's first content (#539). */}
           <ConnectedStartupSplash platform={platform} />

@@ -22,9 +22,17 @@
       "types": "./src/money-intent.ts",
       "default": "./src/money-intent.ts"
     },
+    "./financial-block": {
+      "types": "./src/financial-block.ts",
+      "default": "./src/financial-block.ts"
+    },
     "./binding": {
       "types": "./src/binding.ts",
       "default": "./src/binding.ts"
+    },
+    "./routine-path": {
+      "types": "./src/routine-path.ts",
+      "default": "./src/routine-path.ts"
     },
     "./schema.json": "./generated/schema.json"
   },

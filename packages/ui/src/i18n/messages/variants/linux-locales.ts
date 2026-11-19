@@ -9,6 +9,18 @@ import type { MessageId } from "../index.ts";
 export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<MessageId, string>>>>> =
   {
     ar: {
+      "notice.security.changed.body":
+        "غيّر برنامج على هذا الكمبيوتر {count, plural, =1 {سجل أمان واحدًا} other {# سجل أمان}} (الأجهزة والمفاتيح والصلاحيات أو الإعدادات) دون المرور عبر Psyche{times, plural, =0 {} =1 {} other {، # مرة حتى الآن}}. أعاد Psyche ما تغيّر كما كان. إن لم تكن أنت من فعل ذلك، فافحص الكمبيوتر بحثًا عن برامج غير مرغوب فيها.",
+      "notice.security.untrusted.body":
+        "فشل فحص سجلات الأمان في Psyche، لذلك تُحظر تغييرات الأمان والأجهزة الجديدة وموافقات كلمة المرور. راجع أجهزتك ثم شغّل psyched security reseal على هذا الكمبيوتر؛ يُطبَّق ذلك بعد 24 ساعة.",
+      "notice.security.firstAdmin.title": "أمر على هذا الكمبيوتر جعل أول جهاز مسؤول",
+      "notice.security.firstAdmin.body":
+        "{device}{key, select, none {} other { (المفتاح {key})}} أصبح أول جهاز مسؤول {via, select, desktop {من تطبيق Psyche} other {عبر `psyched`}} على هذا الكمبيوتر. إن لم تكن أنت من فعل ذلك، فألغِه من الإعدادات ← الأجهزة.",
+      "notice.security.recovery.title":
+        "{state, select, requested {طلب أمر على هذا الكمبيوتر تغييرًا أمنيًا} applied {طُبّق تغيير أمني من هذا الكمبيوتر} cancelled {أُلغي تغيير أمني من هذا الكمبيوتر} other {تعذّر تطبيق تغيير أمني من هذا الكمبيوتر}}",
+      "notice.security.recovery.body":
+        "{op, select, approve {وافِق على الجهاز {device}{key, select, none {} other { (المفتاح {key})}} مع {scopes}.} grant {امنح {device}{key, select, none {} other { (المفتاح {key})}} {scopes}.} presence {أوقِف طلب كلمة المرور أو مفتاح المرور لتغييرات الأمان حتى يُسجَّل مفتاح جديد.} seal {اقبل سجلات الأمان الحالية كما هي.} other {تغيير أمني.}}{state, select, requested { يُطبَّق {when, select, none {بعد 24 ساعة} other {في {when}}} ما لم تلغِه في Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
+      "screens.library.reveal": "إظهار في المجلد",
       "settings.devices.nodeKind.hostHelper": "مساعد Linux",
       "settings.links.description":
         "المكان الذي يُفتح فيه رابط في رسالة أو بطاقة أو عنصر. النقر مع Ctrl يستخدم دائمًا المتصفح الافتراضي.",
@@ -303,7 +315,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.run.reason.not_idle": "ليس الآن: أنت تستخدم الكمبيوتر.",
       "everything.storage.note": "كل شيء مخزّن على هذا الكمبيوتر فقط.",
       "memoryWork.consent.k1": "لا شيء يغادر هذا الكمبيوتر. تُحسب التواريخ والحالات بالشيفرة.",
-      "screens.library.reveal": "إظهار في الملفات",
       "web.zoom.description":
         "حجم عرض التطبيق على هذا الكمبيوتر. يغيّر Ctrl+Plus وCtrl+Minus الإعداد نفسه، لذا يبقى بعد إعادة التشغيل؛ {min, number}–{max, number} ٪.",
       "web.transcriptMode.optionTitle": "{mode} (Ctrl+O للتنقل)",
@@ -395,6 +406,19 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "وافق على البطاقة بكلمة المرور أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
     },
     de: {
+      "notice.security.changed.body":
+        "Ein Programm auf diesem Computer hat {count, plural, =1 {# Sicherheitseintrag} other {# Sicherheitseinträge}} (Geräte, Schlüssel, Freigaben oder Einstellungen) an Psyche vorbei geändert{times, plural, =0 {} =1 {} other {, bisher # Mal}}. Psyche hat {count, plural, =1 {ihn} other {sie}} wiederhergestellt. Wenn du das nicht warst, prüfe den Computer auf unerwünschte Software.",
+      "notice.security.untrusted.body":
+        "Die Prüfung von Psyches Sicherheitsdaten ist fehlgeschlagen, daher sind Sicherheitsänderungen, neue Geräte und Passwort-Freigaben gesperrt. Prüfe deine Geräte und führe dann auf diesem Computer psyched security reseal aus; das gilt nach 24 Stunden.",
+      "notice.security.firstAdmin.title":
+        "Ein Befehl auf diesem Computer hat das erste Admin-Gerät gemacht",
+      "notice.security.firstAdmin.body":
+        "{device}{key, select, none {} other { (Schlüssel {key})}} wurde {via, select, desktop {über die Psyche-App} other {über `psyched`}} auf diesem Computer zum ersten Admin-Gerät. Wenn du das nicht warst, widerrufe es unter Einstellungen → Geräte.",
+      "notice.security.recovery.title":
+        "{state, select, requested {Ein Befehl auf diesem Computer hat eine Sicherheitsänderung angefordert} applied {Eine Sicherheitsänderung von diesem Computer wurde angewendet} cancelled {Eine Sicherheitsänderung von diesem Computer wurde abgebrochen} other {Eine Sicherheitsänderung von diesem Computer konnte nicht angewendet werden}}",
+      "notice.security.recovery.body":
+        "{op, select, approve {Genehmige das Gerät {device}{key, select, none {} other { (Schlüssel {key})}} mit {scopes}.} grant {Gib {device}{key, select, none {} other { (Schlüssel {key})}} {scopes}.} presence {Verlange für Sicherheitsänderungen kein Passwort und keinen Passkey mehr, bis ein neuer Schlüssel registriert ist.} seal {Akzeptiere die aktuellen Sicherheitsdaten so, wie sie sind.} other {Eine Sicherheitsänderung.}}{state, select, requested { Sie gilt {when, select, none {in 24 Stunden} other {ab {when}}}, sofern du sie nicht in Psyche abbrichst.} failed {{reason, select, none {} other { {reason}}}} other {}}",
+      "screens.library.reveal": "Im Ordner zeigen",
       "settings.devices.nodeKind.hostHelper": "Linux-Helfer",
       "settings.links.description":
         "Wo ein Link in einer Chatnachricht, Karte oder einem Artefakt geöffnet wird. Ctrl+Klick nutzt immer deinen Standardbrowser.",
@@ -708,7 +732,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.storage.note": "Alles wird nur auf diesem Computer gespeichert.",
       "memoryWork.consent.k1":
         "Nichts verlässt diesen Computer. Daten und Status werden per Code ermittelt.",
-      "screens.library.reveal": "In Dateien zeigen",
       "web.zoom.description":
         "Wie groß die App auf diesem Computer dargestellt wird. Ctrl+Plus und Ctrl+Minus ändern dieselbe Einstellung, sodass sie einen Neustart überdauert; {min, number}–{max, number} %.",
       "web.transcriptMode.optionTitle": "{mode} (Ctrl+O schaltet durch)",
@@ -804,6 +827,19 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Bestätige die Karte mit deinem Passwort oder einem Passkey und tippe dann erneut auf die Taste.",
     },
     es: {
+      "notice.security.changed.body":
+        "Un programa de este ordenador cambió {count, plural, =1 {# registro de seguridad} other {# registros de seguridad}} (dispositivos, claves, permisos o ajustes) sin pasar por Psyche{times, plural, =0 {} =1 {} other {, # veces hasta ahora}}. Psyche {count, plural, =1 {lo restauró} other {los restauró}}. Si no fuiste tú, revisa el ordenador en busca de software no deseado.",
+      "notice.security.untrusted.body":
+        "La comprobación de los registros de seguridad de Psyche falló, así que los cambios de seguridad, los dispositivos nuevos y las aprobaciones con contraseña están bloqueados. Revisa tus dispositivos y luego ejecuta psyched security reseal en este ordenador; se aplica a las 24 horas.",
+      "notice.security.firstAdmin.title":
+        "Un comando en este ordenador creó el primer dispositivo administrador",
+      "notice.security.firstAdmin.body":
+        "{device}{key, select, none {} other { (clave {key})}} pasó a ser el primer dispositivo administrador {via, select, desktop {desde la app de Psyche} other {mediante `psyched`}} en este ordenador. Si no fuiste tú, revócalo en Ajustes → Dispositivos.",
+      "notice.security.recovery.title":
+        "{state, select, requested {Un comando en este ordenador pidió un cambio de seguridad} applied {Se aplicó un cambio de seguridad desde este ordenador} cancelled {Se canceló un cambio de seguridad desde este ordenador} other {No se pudo aplicar un cambio de seguridad desde este ordenador}}",
+      "notice.security.recovery.body":
+        "{op, select, approve {Aprueba el dispositivo {device}{key, select, none {} other { (clave {key})}} con {scopes}.} grant {Da a {device}{key, select, none {} other { (clave {key})}} {scopes}.} presence {Deja de exigir tu contraseña o una llave de acceso para los cambios de seguridad hasta que se registre una clave nueva.} seal {Acepta los registros de seguridad actuales tal como están.} other {Un cambio de seguridad.}}{state, select, requested { Se aplica {when, select, none {en 24 horas} other {el {when}}} salvo que lo canceles en Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
+      "screens.library.reveal": "Mostrar en la carpeta",
       "settings.devices.nodeKind.hostHelper": "Asistente de Linux",
       "settings.links.description":
         "Dónde se abre un enlace de un mensaje, tarjeta o artefacto. Ctrl+clic siempre usa tu navegador predeterminado.",
@@ -1118,7 +1154,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.storage.note": "Todo se guarda solo en este ordenador.",
       "memoryWork.consent.k1":
         "Nada sale de este ordenador. Las fechas y el estado los calcula código.",
-      "screens.library.reveal": "Mostrar en Archivos",
       "web.zoom.description":
         "El tamaño con que se muestra la app en este ordenador. Ctrl+Plus y Ctrl+Minus cambian el mismo ajuste, así que se conserva al reiniciar; {min, number}–{max, number} %.",
       "web.transcriptMode.optionTitle": "{mode} (Ctrl+O alterna)",
@@ -1216,6 +1251,19 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Aprueba la tarjeta con tu contraseña o una llave de acceso y vuelve a pulsar el botón.",
     },
     fr: {
+      "notice.security.changed.body":
+        "Un programme de cet ordinateur a modifié {count, plural, =1 {# donnée de sécurité} other {# données de sécurité}} (appareils, clés, autorisations ou réglages) sans passer par Psyche{times, plural, =0 {} =1 {} other {, # fois jusqu’ici}}. Psyche {count, plural, =1 {l’a rétablie} other {les a rétablies}}. Si ce n’était pas vous, recherchez un logiciel indésirable sur cet ordinateur.",
+      "notice.security.untrusted.body":
+        "La vérification des données de sécurité de Psyche a échoué, donc les modifications de sécurité, les nouveaux appareils et les approbations par mot de passe sont bloqués. Vérifiez vos appareils, puis exécutez psyched security reseal sur cet ordinateur ; cela s’applique après 24 heures.",
+      "notice.security.firstAdmin.title":
+        "Une commande sur cet ordinateur a créé le premier appareil administrateur",
+      "notice.security.firstAdmin.body":
+        "{device}{key, select, none {} other { (clé {key})}} est devenu le premier appareil administrateur {via, select, desktop {depuis l’application Psyche} other {via `psyched`}} sur cet ordinateur. Si ce n’était pas vous, révoquez-le dans Réglages → Appareils.",
+      "notice.security.recovery.title":
+        "{state, select, requested {Une commande sur cet ordinateur a demandé une modification de sécurité} applied {Une modification de sécurité venant de cet ordinateur a été appliquée} cancelled {Une modification de sécurité venant de cet ordinateur a été annulée} other {Une modification de sécurité venant de cet ordinateur n’a pas pu être appliquée}}",
+      "notice.security.recovery.body":
+        "{op, select, approve {Approuvez l’appareil {device}{key, select, none {} other { (clé {key})}} avec {scopes}.} grant {Donnez {scopes} à {device}{key, select, none {} other { (clé {key})}}.} presence {Ne plus exiger votre mot de passe ni une clé d’accès pour les modifications de sécurité jusqu’à l’enregistrement d’une nouvelle clé.} seal {Acceptez les données de sécurité actuelles telles quelles.} other {Une modification de sécurité.}}{state, select, requested { Elle s’applique {when, select, none {dans 24 heures} other {le {when}}} sauf si vous l’annulez dans Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
+      "screens.library.reveal": "Afficher dans le dossier",
       "settings.devices.nodeKind.hostHelper": "Assistant Linux",
       "settings.links.description":
         "Où s’ouvre un lien d’un message, d’une carte ou d’un artefact. Ctrl+clic utilise toujours votre navigateur par défaut.",
@@ -1531,7 +1579,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.storage.note": "Tout est stocké uniquement sur cet ordinateur.",
       "memoryWork.consent.k1":
         "Rien ne quitte cet ordinateur. Les dates et statuts sont déterminés par du code.",
-      "screens.library.reveal": "Afficher dans Fichiers",
       "web.zoom.description":
         "La taille d’affichage de l’app sur cet ordinateur. Ctrl+Plus et Ctrl+Minus modifient le même réglage, qui survit donc à un redémarrage ; {min, number}–{max, number} %.",
       "web.transcriptMode.optionTitle": "{mode} (Ctrl+O pour passer au suivant)",
@@ -1631,6 +1678,18 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Approuvez la carte avec votre mot de passe ou une clé d’accès, puis appuyez de nouveau sur le bouton.",
     },
     hi: {
+      "notice.security.changed.body":
+        "इस कंप्यूटर पर एक प्रोग्राम ने Psyche के बिना {count, plural, =1 {# सुरक्षा रिकॉर्ड} other {# सुरक्षा रिकॉर्ड}} बदल दिए (डिवाइस, कुंजियाँ, अनुमतियाँ या सेटिंग्स){times, plural, =0 {} =1 {} other {, अब तक # बार}}। Psyche ने {count, plural, =1 {उसे} other {उन्हें}} वापस पहले जैसा कर दिया। अगर यह आपने नहीं किया, तो कंप्यूटर में अनचाहे सॉफ़्टवेयर की जाँच करें।",
+      "notice.security.untrusted.body":
+        "Psyche के सुरक्षा रिकॉर्ड की जाँच विफल रही, इसलिए सुरक्षा बदलाव, नए डिवाइस और पासवर्ड से मंज़ूरी रोक दी गई हैं। अपने डिवाइस देखें, फिर इस कंप्यूटर पर psyched security reseal चलाएँ; यह 24 घंटे बाद लागू होता है।",
+      "notice.security.firstAdmin.title": "इस कंप्यूटर पर एक कमांड ने पहला एडमिन डिवाइस बना दिया",
+      "notice.security.firstAdmin.body":
+        "{device}{key, select, none {} other { (कुंजी {key})}} {via, select, desktop {Psyche ऐप से} other {`psyched` के जरिए}} इस कंप्यूटर पर पहला एडमिन डिवाइस बन गया। अगर यह आपने नहीं किया, तो सेटिंग्स → डिवाइस में उसे रद्द करें।",
+      "notice.security.recovery.title":
+        "{state, select, requested {इस कंप्यूटर पर एक कमांड ने सुरक्षा बदलाव माँगा} applied {इस कंप्यूटर से एक सुरक्षा बदलाव लागू किया गया} cancelled {इस कंप्यूटर से एक सुरक्षा बदलाव रद्द किया गया} other {इस कंप्यूटर से एक सुरक्षा बदलाव लागू नहीं हो सका}}",
+      "notice.security.recovery.body":
+        "{op, select, approve {डिवाइस {device}{key, select, none {} other { (कुंजी {key})}} को {scopes} के साथ मंज़ूरी दें।} grant {{device}{key, select, none {} other { (कुंजी {key})}} को {scopes} दें।} presence {नई कुंजी दर्ज होने तक सुरक्षा बदलावों के लिए पासवर्ड या पासकी न माँगें।} seal {मौजूदा सुरक्षा रिकॉर्ड जैसे हैं वैसे ही स्वीकार करें।} other {एक सुरक्षा बदलाव।}}{state, select, requested { यह {when, select, none {24 घंटे बाद} other {{when} को}} लागू होगा, जब तक आप इसे Psyche में रद्द न करें।} failed {{reason, select, none {} other { {reason}}}} other {}}",
+      "screens.library.reveal": "फ़ोल्डर में दिखाएँ",
       "settings.devices.nodeKind.hostHelper": "Linux हेल्पर",
       "settings.links.description":
         "चैट संदेश, कार्ड या आर्टिफ़ैक्ट का लिंक कहाँ खुले। Ctrl+क्लिक हमेशा डिफ़ॉल्ट ब्राउज़र में खुलता है।",
@@ -1921,7 +1980,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.storage.note": "सब कुछ सिर्फ़ इसी कंप्यूटर पर सेव होता है।",
       "memoryWork.consent.k1":
         "इस कंप्यूटर से कुछ बाहर नहीं जाता। तारीखें और स्थिति कोड द्वारा निकाली जाती हैं।",
-      "screens.library.reveal": "फ़ाइलें में दिखाएँ",
       "web.zoom.description":
         "इस कंप्यूटर पर ऐप कितना बड़ा दिखता है। Ctrl+Plus और Ctrl+Minus इसी सेटिंग को बदलते हैं, इसलिए यह रीस्टार्ट के बाद भी बनी रहती है; {min, number}–{max, number} %।",
       "web.transcriptMode.optionTitle": "{mode} (Ctrl+O से बदलें)",
@@ -2014,6 +2072,19 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.needsApproval": "अपने पासवर्ड या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
     },
     it: {
+      "notice.security.changed.body":
+        "Un programma su questo computer ha modificato {count, plural, =1 {# dato di sicurezza} other {# dati di sicurezza}} (dispositivi, chiavi, autorizzazioni o impostazioni) senza passare da Psyche{times, plural, =0 {} =1 {} other {, # volte finora}}. Psyche {count, plural, =1 {l’ha ripristinato} other {li ha ripristinati}}. Se non sei stato tu, controlla il computer per software indesiderato.",
+      "notice.security.untrusted.body":
+        "Il controllo dei dati di sicurezza di Psyche non è riuscito, quindi le modifiche di sicurezza, i nuovi dispositivi e le approvazioni con password sono bloccati. Controlla i tuoi dispositivi, poi esegui psyched security reseal su questo computer; si applica dopo 24 ore.",
+      "notice.security.firstAdmin.title":
+        "Un comando su questo computer ha creato il primo dispositivo amministratore",
+      "notice.security.firstAdmin.body":
+        "{device}{key, select, none {} other { (chiave {key})}} è diventato il primo dispositivo amministratore {via, select, desktop {dall’app Psyche} other {tramite `psyched`}} su questo computer. Se non sei stato tu, revocalo in Impostazioni → Dispositivi.",
+      "notice.security.recovery.title":
+        "{state, select, requested {Un comando su questo computer ha chiesto una modifica di sicurezza} applied {È stata applicata una modifica di sicurezza da questo computer} cancelled {È stata annullata una modifica di sicurezza da questo computer} other {Non è stato possibile applicare una modifica di sicurezza da questo computer}}",
+      "notice.security.recovery.body":
+        "{op, select, approve {Approva il dispositivo {device}{key, select, none {} other { (chiave {key})}} con {scopes}.} grant {Concedi a {device}{key, select, none {} other { (chiave {key})}} {scopes}.} presence {Non chiedere più la password o una passkey per le modifiche di sicurezza finché non viene registrata una nuova chiave.} seal {Accetta i dati di sicurezza attuali così come sono.} other {Una modifica di sicurezza.}}{state, select, requested { Si applica {when, select, none {dopo 24 ore} other {il {when}}}, a meno che tu non la annulli in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
+      "screens.library.reveal": "Mostra nella cartella",
       "settings.devices.nodeKind.hostHelper": "Assistente Linux",
       "settings.links.description":
         "Dove si apre un link in un messaggio, una scheda o un artefatto. Ctrl+clic usa sempre il browser predefinito.",
@@ -2324,7 +2395,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.storage.note": "Tutto è memorizzato solo su questo computer.",
       "memoryWork.consent.k1":
         "Nulla esce da questo computer. Date e stato sono calcolati dal codice.",
-      "screens.library.reveal": "Mostra in File",
       "web.zoom.description":
         "Quanto grande viene visualizzata l’app su questo computer. Ctrl+Più e Ctrl+Meno modificano la stessa impostazione, che sopravvive al riavvio; {min, number}–{max, number} %.",
       "web.transcriptMode.optionTitle": "{mode} (Ctrl+O per scorrere)",
@@ -2422,6 +2492,19 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Approva la scheda con la tua password o una passkey, poi premi di nuovo il pulsante.",
     },
     ja: {
+      "notice.security.changed.body":
+        "このコンピュータ上のプログラムが Psyche を通さずに、セキュリティ記録（デバイス、キー、権限または設定）を {count, plural, other {# 件}}変更しました{times, plural, =0 {} =1 {} other {（これまでに # 回）}}。Psyche は元に戻しました。心当たりがない場合は、コンピュータに不要なソフトウェアがないか確認してください。",
+      "notice.security.untrusted.body":
+        "Psyche のセキュリティ記録の確認に失敗したため、セキュリティ変更、新しいデバイス、パスワードによる承認はブロックされています。デバイスを確認してから、このコンピュータで psyched security reseal を実行してください。24 時間後に適用されます。",
+      "notice.security.firstAdmin.title":
+        "このコンピュータのコマンドにより、最初の管理者デバイスが作成されました",
+      "notice.security.firstAdmin.body":
+        "{device}{key, select, none {} other {（キー {key}）}}は、{via, select, desktop {Psyche アプリから} other {`psyched` を通じて}}このコンピュータで最初の管理者デバイスになりました。心当たりがない場合は、設定 → デバイスで取り消してください。",
+      "notice.security.recovery.title":
+        "{state, select, requested {このコンピュータのコマンドがセキュリティ変更を要求しました} applied {このコンピュータからのセキュリティ変更が適用されました} cancelled {このコンピュータからのセキュリティ変更が取り消されました} other {このコンピュータからのセキュリティ変更は適用できませんでした}}",
+      "notice.security.recovery.body":
+        "{op, select, approve {デバイス {device}{key, select, none {} other {（キー {key}）}} を {scopes} で承認してください。} grant {{device}{key, select, none {} other {（キー {key}）}} に {scopes} を付与してください。} presence {新しいキーが登録されるまで、セキュリティ変更にパスワードやパスキーを求めないようにします。} seal {現在のセキュリティ記録をそのまま受け入れてください。} other {セキュリティ変更。}}{state, select, requested { {when, select, none {24 時間後} other {{when}}}に適用されます。Psyche で取り消すこともできます。} failed {{reason, select, none {} other { {reason}}}} other {}}",
+      "screens.library.reveal": "フォルダーで表示",
       "settings.devices.nodeKind.hostHelper": "Linux ヘルパー",
       "settings.links.description":
         "チャットのメッセージ、カード、アーティファクト内のリンクを開く場所です。Ctrl+クリックは常に既定のブラウザで開きます。",
@@ -2735,7 +2818,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.storage.note": "すべてこのコンピュータ上にのみ保存されます。",
       "memoryWork.consent.k1":
         "このコンピュータの外には何も出ません。日付とステータスはコードで算出されます。",
-      "screens.library.reveal": "ファイルで表示",
       "web.zoom.description":
         "このコンピュータでのアプリの表示サイズ。Ctrl+プラスとCtrl+マイナスも同じ設定を変更するため、再起動後も保持されます。{min, number}〜{max, number}%。",
       "web.transcriptMode.optionTitle": "{mode}（Ctrl+Oで切り替え）",
@@ -2830,6 +2912,18 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "パスワードまたはパスキーでカードを承認してから、もう一度ボタンを押してください。",
     },
     ko: {
+      "notice.security.changed.body":
+        "이 컴퓨터의 프로그램이 Psyche를 거치지 않고 보안 기록(기기, 키, 권한 또는 설정) {count}건을 변경했습니다{times, plural, =0 {} =1 {} other {(지금까지 #회)}}. Psyche가 원래대로 되돌렸습니다. 본인이 한 일이 아니라면 컴퓨터에 원치 않는 소프트웨어가 있는지 확인하세요.",
+      "notice.security.untrusted.body":
+        "Psyche 보안 기록 확인에 실패해 보안 변경, 새 기기, 비밀번호 승인이 차단됩니다. 기기를 확인한 다음 이 컴퓨터에서 psyched security reseal을 실행하세요. 24시간 후에 적용됩니다.",
+      "notice.security.firstAdmin.title": "이 컴퓨터의 명령으로 첫 관리자 기기가 만들어졌습니다",
+      "notice.security.firstAdmin.body":
+        "{device}{key, select, none {} other { (키 {key})}}이(가) {via, select, desktop {Psyche 앱에서} other {`psyched`를 통해}} 이 컴퓨터의 첫 관리자 기기가 되었습니다. 본인이 한 일이 아니라면 설정 → 기기에서 취소하세요.",
+      "notice.security.recovery.title":
+        "{state, select, requested {이 컴퓨터의 명령으로 보안 변경이 요청되었습니다} applied {이 컴퓨터에서 요청한 보안 변경이 적용되었습니다} cancelled {이 컴퓨터에서 요청한 보안 변경이 취소되었습니다} other {이 컴퓨터에서 요청한 보안 변경을 적용하지 못했습니다}}",
+      "notice.security.recovery.body":
+        "{op, select, approve {{device}{key, select, none {} other { (키 {key})}} 기기를 {scopes} 조건으로 승인하세요.} grant {{device}{key, select, none {} other { (키 {key})}}에 {scopes}을(를) 부여하세요.} presence {새 키가 등록될 때까지 보안 변경에 비밀번호나 패스키를 요구하지 않습니다.} seal {현재 보안 기록을 그대로 받아들이세요.} other {보안 변경.}}{state, select, requested { {when, select, none {24시간 후} other {{when}}}에 적용되며, Psyche에서 취소할 수 있습니다.} failed {{reason, select, none {} other { {reason}}}} other {}}",
+      "screens.library.reveal": "폴더에서 보기",
       "settings.devices.nodeKind.hostHelper": "Linux 도우미",
       "settings.links.description":
         "채팅 메시지, 카드, 아티팩트의 링크가 열리는 곳입니다. Ctrl+클릭은 항상 기본 브라우저로 엽니다.",
@@ -3128,7 +3222,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.storage.note": "모든 내용은 이 컴퓨터에만 저장됩니다.",
       "memoryWork.consent.k1":
         "이 컴퓨터 밖으로 아무것도 나가지 않습니다. 날짜와 상태는 코드로 계산됩니다.",
-      "screens.library.reveal": "파일에서 보기",
       "web.zoom.description":
         "이 컴퓨터에서 앱이 표시되는 크기입니다. Ctrl+Plus와 Ctrl+Minus도 같은 설정을 변경하므로 재시동 후에도 유지됩니다. {min, number}–{max, number}%.",
       "web.transcriptMode.optionTitle": "{mode} (Ctrl+O로 전환)",
@@ -3220,6 +3313,19 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "사용자 암호나 패스키로 카드를 승인한 다음 버튼을 다시 누르세요.",
     },
     pt: {
+      "notice.security.changed.body":
+        "Um programa neste computador alterou {count, plural, =1 {# registro de segurança} other {# registros de segurança}} (dispositivos, chaves, permissões ou configurações) sem passar pelo Psyche{times, plural, =0 {} =1 {} other {, # vezes até agora}}. O Psyche os restaurou. Se não foi você, verifique se há software indesejado no computador.",
+      "notice.security.untrusted.body":
+        "A verificação dos registros de segurança do Psyche falhou, então alterações de segurança, novos dispositivos e aprovações por senha estão bloqueados. Revise seus dispositivos e depois execute psyched security reseal neste computador; isso é aplicado após 24 horas.",
+      "notice.security.firstAdmin.title":
+        "Um comando neste computador criou o primeiro dispositivo administrador",
+      "notice.security.firstAdmin.body":
+        "{device}{key, select, none {} other { (chave {key})}} tornou-se o primeiro dispositivo administrador {via, select, desktop {pelo app Psyche} other {por meio do `psyched`}} neste computador. Se não foi você, revogue-o em Configurações → Dispositivos.",
+      "notice.security.recovery.title":
+        "{state, select, requested {Um comando neste computador pediu uma alteração de segurança} applied {Uma alteração de segurança deste computador foi aplicada} cancelled {Uma alteração de segurança deste computador foi cancelada} other {Uma alteração de segurança deste computador não pôde ser aplicada}}",
+      "notice.security.recovery.body":
+        "{op, select, approve {Aprove o dispositivo {device}{key, select, none {} other { (chave {key})}} com {scopes}.} grant {Conceda {scopes} a {device}{key, select, none {} other { (chave {key})}}.} presence {Deixar de exigir sua senha ou uma chave de acesso para alterações de segurança até que uma nova chave seja registrada.} seal {Aceite os registros de segurança atuais como estão.} other {Uma alteração de segurança.}}{state, select, requested { Será aplicada {when, select, none {em 24 horas} other {em {when}}}, a menos que você a cancele no Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
+      "screens.library.reveal": "Mostrar na pasta",
       "settings.devices.nodeKind.hostHelper": "Assistente do Linux",
       "settings.links.description":
         "Onde abre um link de uma mensagem, cartão ou artefato. Ctrl+clique sempre usa o navegador padrão.",
@@ -3526,7 +3632,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.storage.note": "Tudo é armazenado só neste computador.",
       "memoryWork.consent.k1":
         "Nada sai deste computador. Datas e status são calculados por código.",
-      "screens.library.reveal": "Mostrar em Arquivos",
       "web.zoom.description":
         "O tamanho em que o app é exibido neste computador. Ctrl+Mais e Ctrl+Menos alteram o mesmo ajuste, então ele é mantido após reiniciar; {min, number}–{max, number} %.",
       "web.transcriptMode.optionTitle": "{mode} (Ctrl+O alterna)",
@@ -3621,6 +3726,18 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Aprove o cartão com a sua senha ou uma chave-senha e toque no botão de novo.",
     },
     zh: {
+      "notice.security.changed.body":
+        "这台电脑上的某个程序绕过 Psyche 更改了 {count} 条安全记录（设备、密钥、授权或设置）{times, plural, =0 {} =1 {} other {，累计 # 次}}。Psyche 已将其恢复。如果不是你做的，请检查这台电脑上是否有不需要的软件。",
+      "notice.security.untrusted.body":
+        "Psyche 的安全记录检查失败，因此安全更改、新设备和密码批准已被阻止。请检查你的设备，然后在这台电脑上运行 psyched security reseal；它将在 24 小时后生效。",
+      "notice.security.firstAdmin.title": "这台电脑上的一条命令创建了第一台管理员设备",
+      "notice.security.firstAdmin.body":
+        "{device}{key, select, none {} other {（密钥 {key}）}}{via, select, desktop {通过 Psyche 应用} other {通过 `psyched`}}在这台电脑上成为了第一台管理员设备。如果不是你做的，请在“设置 → 设备”中撤销它。",
+      "notice.security.recovery.title":
+        "{state, select, requested {这台电脑上的一条命令请求了安全更改} applied {这台电脑发起的安全更改已应用} cancelled {这台电脑发起的安全更改已取消} other {这台电脑发起的安全更改无法应用}}",
+      "notice.security.recovery.body":
+        "{op, select, approve {使用 {scopes} 批准设备 {device}{key, select, none {} other {（密钥 {key}）}}。} grant {向 {device}{key, select, none {} other {（密钥 {key}）}} 授予 {scopes}。} presence {在注册新密钥之前，安全更改不再需要你的密码或通行密钥。} seal {按原样接受当前的安全记录。} other {一项安全更改。}}{state, select, requested {将于 {when, select, none {24 小时后} other {{when}}} 生效，除非你在 Psyche 中取消。} failed {{reason, select, none {} other { {reason}}}} other {}}",
+      "screens.library.reveal": "在文件夹中显示",
       "settings.devices.nodeKind.hostHelper": "Linux 助手",
       "settings.links.description":
         "聊天消息、卡片或制品中的链接在哪里打开。按住 Ctrl 点击始终使用默认浏览器。",
@@ -3892,7 +4009,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "everything.run.reason.not_idle": "现在不行：你正在使用电脑。",
       "everything.storage.note": "所有内容都只存储在这台电脑上。",
       "memoryWork.consent.k1": "没有任何内容离开这台电脑。日期和状态由代码计算得出。",
-      "screens.library.reveal": "在“文件”中显示",
       "web.zoom.description":
         "App 在这台电脑上的显示大小。Ctrl+加号和 Ctrl+减号更改的是同一设置，因此重新启动后仍然保留；{min, number}–{max, number} %。",
       "web.transcriptMode.optionTitle": "{mode}（Ctrl+O 循环切换）",

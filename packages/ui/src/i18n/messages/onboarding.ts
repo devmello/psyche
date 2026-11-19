@@ -116,7 +116,6 @@ export const onboarding = {
   "onboarding.model.copyFailed": "Couldn't copy. Select the key and copy it.",
   "onboarding.model.recoveryBody":
     "Psyche just created your vault. Save this key in a password manager or on paper: it is shown only now and is the only way back into the vault after a restore or a lost key slot.",
-  "onboarding.model.savedIt": "I saved it",
   "onboarding.model.subscriptionNote":
     "Psyche uses the Claude Code or Codex app already signed in on this Mac, so it needs no API key and stores none. Sign in there first if you haven't.",
   "onboarding.model.toolCheck": "Tool-calling check",
@@ -182,6 +181,19 @@ export const onboarding = {
   "onboarding.step.you": "You and your agent",
   "onboarding.step.stuff": "Your stuff",
   "onboarding.step.safety": "Safety",
+  "onboarding.step.folders": "Folders",
+  "onboarding.folders.lead":
+    "Let {name} read your Documents, Desktop and Downloads. Read only: {name} can look at files there, never change or delete them. Nothing is shared unless you tick it.",
+  "onboarding.folders.group": "Folders to share, read only",
+  "onboarding.folders.documents": "Documents",
+  "onboarding.folders.desktop": "Desktop",
+  "onboarding.folders.downloads": "Downloads",
+  "onboarding.folders.hint": "You can change this any time in Settings, under File access.",
+  "onboarding.folders.shareLater": "You can share these folders later in Settings → File access.",
+  "onboarding.folders.openFileAccess": "Open File access",
+  "onboarding.folders.retry": "Try again",
+  "onboarding.folders.continueWithout": "Continue without sharing",
+  "onboarding.folders.failed": "Couldn't share these folders: {reason}",
   "onboarding.you.lead": "Everything on this page is optional, and you can change it later.",
   "onboarding.you.agent": "Your agent",
   "onboarding.you.customize": "Customize look",

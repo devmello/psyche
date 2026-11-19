@@ -74,12 +74,55 @@ export const FOCUS_HELPER = `/* psyche:focused */ function () {
 
 /**
  * Fixed helper: the element's live field facts and whether it is focused (TM-28). Attributes
- * only, never the value, so a page that changes `type` after the snapshot is judged as it is now.
+ * only, never a field's value, so a page that changes `type` after the snapshot is judged as it
+ * is now. `name` is the control's name as it reads now (aria-label, labelledby, its labels, a
+ * button's own text or value, title, alt), bounded: the hard block on trades judges a button the
+ * page renamed after the snapshot by this name.
  */
 export const FIELD_HELPER = `/* psyche:field */ function () {
   const form = this.form || null;
   const input = this.tagName === "INPUT";
+  const squash = (t) => String(t || "").replace(/\\s+/g, " ").trim().slice(0, 400);
+  const byIds = (ids) =>
+    String(ids || "")
+      .split(/\\s+/)
+      .map((id) => (id ? document.getElementById(id) : null))
+      .filter(Boolean)
+      .map((n) => n.textContent)
+      .join(" ");
+  const buttonish = input && /^(button|submit|reset|image)$/i.test(String(this.type || ""));
+  // Text a person can see: hidden, aria-hidden and display:none or visibility:hidden parts are
+  // skipped, so a page cannot hide "Transfer" behind a visible "Done" (or the reverse). Bounded.
+  const visibleText = (root) => {
+    let out = "";
+    let seen = 0;
+    const walk = (n) => {
+      if (seen++ > 500 || out.length > 400) return;
+      if (n.nodeType === 3) {
+        out += n.textContent + " ";
+        return;
+      }
+      if (n.nodeType !== 1) return;
+      if (n !== root) {
+        if (n.hidden || n.getAttribute("aria-hidden") === "true") return;
+        const cs = getComputedStyle(n);
+        if (cs.display === "none" || cs.visibility === "hidden") return;
+      }
+      for (const c of n.childNodes) walk(c);
+    };
+    walk(root);
+    return out;
+  };
+  const name =
+    squash(this.getAttribute("aria-label")) ||
+    squash(byIds(this.getAttribute("aria-labelledby"))) ||
+    squash(this.labels ? Array.from(this.labels).map((l) => l.textContent).join(" ") : "") ||
+    (buttonish ? squash(this.value) : "") ||
+    (input ? "" : squash(visibleText(this))) ||
+    squash(this.getAttribute("title")) ||
+    squash(this.getAttribute("alt"));
   return {
+    name: name || undefined,
     focused: document.activeElement === this,
     tag: this.tagName,
     type: input ? String(this.type || "text").toLowerCase() : undefined,
@@ -106,6 +149,8 @@ export const FIELD_HELPER = `/* psyche:field */ function () {
 
 /** What `FIELD_HELPER` returns. */
 export interface LiveField {
+  /** The control's name as the page shows it now; undefined when it has none the helper reads. */
+  name?: string;
   focused: boolean;
   tag: string;
   type?: string;
@@ -144,6 +189,8 @@ export function fillElementOf(meta: ElementMeta): FillElement {
 /** Cached snapshot facts with the live ones laid over them. */
 function withLive(meta: ElementMeta, live: LiveField): ElementMeta {
   const out: ElementMeta = { ...meta, tag: live.tag };
+  // A name the page shows now replaces the snapshot's (a button renamed after it was read).
+  if (typeof live.name === "string" && live.name !== "") out.name = live.name;
   const set = <K extends keyof ElementMeta>(k: K, v: ElementMeta[K] | undefined) => {
     if (v === undefined) delete out[k];
     else out[k] = v;
@@ -163,6 +210,9 @@ function withLive(meta: ElementMeta, live: LiveField): ElementMeta {
   out.secure = meta.secure || live.type === "password" || /one-time-code|cc-/.test(ac);
   return out;
 }
+
+/** Backstop for the document-wide card mask: the card's own TTL (2 h). */
+const DOCUMENT_MASK_MS = 2 * 60 * 60_000;
 
 /** A document's identity for "was a secret filled here" (TM-29): the URL without its fragment. */
 function documentKey(url: string): string {
@@ -317,6 +367,14 @@ export class PageController {
    * can bring the value back, so screenshots and recording frames stay suppressed there.
    */
   #filledDocs = new Set<string>();
+  /** Nodes a vault secret was typed into: masked in snapshots until the document changes. */
+  readonly #typedNodes = new Set<number>();
+  /**
+   * Documents (by loader id, which a pushState route change keeps) a payment card was typed into:
+   * every input value there is masked in snapshots while that document lives, at most
+   * DOCUMENT_MASK_MS (a backstop: the loader normally ends first, on a real navigation).
+   */
+  readonly #maskedLoaders = new Map<string, number>();
   /** Main-frame document requests since the current navigation started (0 = initial hop). */
   #docHops = 0;
 
@@ -427,6 +485,7 @@ export class PageController {
         this.#worlds.clear();
         this.#dialog = undefined;
         this.#setSecure(false);
+        this.#typedNodes.clear();
         this.#filledSinceNav = this.#filledDocs.has(documentKey(frame.url));
         this.refs.setDocument(`${this.#loaderId}|${this.#url}`);
         this.#docHops = 0;
@@ -957,6 +1016,9 @@ export class PageController {
       fetchMs,
     };
     if (this.#o.redact !== undefined) input.redact = this.#o.redact;
+    input.maskNodes = this.#typedNodes;
+    const maskedAt = this.#maskedLoaders.get(this.#loaderId);
+    if (maskedAt !== undefined && Date.now() - maskedAt < DOCUMENT_MASK_MS) input.maskInputs = true;
     const snap = buildSnapshot(input);
     this.#needsSnapshot = false;
     this.#lastSnapshot = { text: snap.text, url: snap.url, loader: this.#loaderId };
@@ -1177,9 +1239,13 @@ export class PageController {
       });
     }
     if (looksLikeCardNumber(text)) {
-      throw new PsycheError("policy_denied", "card numbers are never typed in the browser", {
-        details: { reason: "card_number" },
-      });
+      throw new PsycheError(
+        "policy_denied",
+        "card numbers are never typed in the browser. Any other secret goes in the vault, and Psyche will fill it without seeing it",
+        {
+          details: { reason: "card_number" },
+        },
+      );
     }
     await this.#t.send("DOM.focus", { backendNodeId: e.backendNodeId });
     if (options.clear === true) {
@@ -1349,6 +1415,7 @@ export class PageController {
     secret: ResolvedSecret,
     origin: string,
     accepts?: (element: FillElement) => FillElementCheck,
+    options: { maskDocument?: boolean } = {},
   ): Promise<void> {
     this.#assertActionable();
     const want = canonicalizeUrl(origin).origin;
@@ -1387,6 +1454,8 @@ export class PageController {
     const before = await check();
     this.#filledSinceNav = true;
     this.#filledDocs.add(documentKey(this.#url));
+    this.#typedNodes.add(e.backendNodeId);
+    if (options.maskDocument === true) this.#maskedLoaders.set(loader, Date.now());
     await secret.use(async (value) => {
       // Last look right before the value leaves (TM-28): agent in control, same document and
       // origin, the element still focused and still an acceptable field.

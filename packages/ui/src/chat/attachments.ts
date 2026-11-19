@@ -114,7 +114,7 @@ export function acceptFor(support: AttachSupport): string {
   ].join(",");
 }
 
-export type Refusal = "image" | "type" | "size" | "count";
+export type Refusal = "image" | "type" | "size" | "count" | "sensitive" | "unreadable";
 
 export interface Refused {
   name: string;
@@ -156,11 +156,31 @@ export interface AttachmentChip {
   status: "uploading" | "ready" | "error";
   /** The Library item, once uploaded. */
   itemId?: string;
+  /** A file from disk (desktop): the real path `chat.attachFiles` granted read-only. */
+  path?: string;
+}
+
+/**
+ * The desktop's way to attach a file in place: `pathOf` gives a dropped or picked file's real
+ * path (null when the host has none, e.g. a pasted image), `attach` is `chat.attachFiles`.
+ */
+export interface NativeAttach {
+  pathOf: (file: File) => string | null;
+  attach: (paths: string[]) => Promise<{
+    files: { path: string }[];
+    refused: { path: string; reason: string }[];
+  }>;
+}
+
+/** The refusal chat.attachFiles' reason becomes. */
+export function nativeRefusal(reason: string): Refusal {
+  return reason === "sensitive" ? "sensitive" : "unreadable";
 }
 
 export type ChipAction =
   | { type: "add"; chips: readonly AttachmentChip[] }
   | { type: "uploaded"; key: string; itemId: string }
+  | { type: "granted"; key: string; path: string }
   | { type: "failed"; key: string }
   | { type: "remove"; key: string }
   | { type: "clear" };
@@ -178,6 +198,12 @@ export function chipsReducer(
           ? { ...c, status: "ready", itemId: action.itemId }
           : c,
       );
+    case "granted":
+      return chips.map((c) =>
+        c.key === action.key && c.status === "uploading"
+          ? { ...c, status: "ready", path: action.path }
+          : c,
+      );
     case "failed":
       return chips.map((c) =>
         c.key === action.key && c.status === "uploading" ? { ...c, status: "error" } : c,
@@ -192,6 +218,13 @@ export function chipsReducer(
 /** The Library ids `chat.send` carries: the chips that finished uploading. */
 export function attachmentIds(chips: readonly AttachmentChip[]): string[] {
   return chips.flatMap((c) => (c.status === "ready" && c.itemId !== undefined ? [c.itemId] : []));
+}
+
+/** The files from disk the message carries: the chips whose read grant was made. */
+export function attachedPaths(chips: readonly AttachmentChip[]): { path: string }[] {
+  return chips.flatMap((c) =>
+    c.status === "ready" && c.path !== undefined ? [{ path: c.path }] : [],
+  );
 }
 
 /** Sending waits for the uploads; a failed chip does not block it (it is not sent). */
@@ -227,4 +260,37 @@ export async function uploadFile(
     }
   } while (offset < file.size);
   throw new Error("unreachable");
+}
+
+/** A Library item a chat is handed to attach (the Library's "Send to chat"). */
+export interface LibraryAttachItem {
+  id: string;
+  name: string;
+  mime: string;
+  size: number;
+}
+
+/**
+ * Library items as composer chips that are already uploaded (the item is in the Library), so the
+ * same admission rules apply as to picked files: a type the Gateway cannot read, an image for a
+ * model without vision, a file over the limit or no room left are refused with the reason.
+ */
+export function libraryChips(
+  items: readonly LibraryAttachItem[],
+  support: AttachSupport,
+  have: number,
+): { chips: AttachmentChip[]; refused: Refused[] } {
+  const { accepted, refused } = admitFiles(
+    items.map((i) => ({ name: i.name, type: i.mime, size: i.size, id: i.id })),
+    support,
+    have,
+  );
+  const chips = accepted.map(({ file, kind }) => ({
+    key: `attach-${file.id}`,
+    name: file.name,
+    kind,
+    status: "ready" as const,
+    itemId: file.id,
+  }));
+  return { chips, refused };
 }

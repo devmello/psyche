@@ -6,7 +6,7 @@ import {
   type PsychePermissionBroker,
 } from "@psyche/permissions";
 import type { MessagesChat, NodeClient, NodeInvokeOptions } from "@psyche/protocol";
-import { FakeClock, FakeNotifier } from "@psyche/testing";
+import { FakeClock, FakeNotifier, fixtureSecret } from "@psyche/testing";
 import { describe, expect, it, vi } from "vitest";
 import { verifiedMessagesSends } from "../src/compose/channels.ts";
 import { messagesSendTool, normalizeHandle } from "../src/compose/messages-send.ts";
@@ -344,6 +344,39 @@ describe("the card and the send", () => {
       { approvalId: d2.id },
     );
     expect(wrong).toMatchObject({ ok: false });
+  });
+
+  it("withholds a text that holds a card or a key without asking; an id or a code goes on the device-only card", async () => {
+    const s = setup([person("Dana", ["+15550101"])]);
+    for (const text of [
+      `pay with ${fixtureSecret("link-virtual-card")}`,
+      `key ${["sk-", "ant-", "x".repeat(30)].join("")}`,
+    ]) {
+      const r = await s.run({ to: "Dana", text });
+      expect(r.output).toMatchObject({ status: "withheld", sent: false });
+    }
+    expect(s.issued).toHaveLength(0);
+    const r = s.run({ to: "Dana", text: "Your verification code is 482913" });
+    await vi.waitFor(() => expect(s.issued).toHaveLength(1));
+    expect(s.issued[0]?.approval.deviceOnly).toBe(true);
+    expect(JSON.stringify(s.issued[0])).toContain("one time code");
+    await s.respond("deny", {});
+    await r;
+  });
+
+  it("a tainted turn's card keeps the taint reason next to the identifier reason", async () => {
+    const s = setup([person("Dana", ["+15550101"])]);
+    const r = s.run(
+      { to: "Dana", text: "Your verification code is 482913" },
+      s.ctx({ taint: true }),
+    );
+    await vi.waitFor(() => expect(s.issued).toHaveLength(1));
+    const details = s.issued[0]?.approval.details as { reason?: unknown } | undefined;
+    const reason = String(details?.reason);
+    expect(reason).toContain("one time code");
+    expect(reason).toContain("untrusted content");
+    await s.respond("deny", {});
+    await r;
   });
 
   it("stops after the per-turn limit instead of asking again", async () => {

@@ -309,6 +309,11 @@
         "payload": "#/$defs/PairingRequestedPayload"
       },
       {
+        "description": "Stripe Link setup changed: a CLI was connected, sign-in finished or timed out, or Link was disconnected. Never a token.",
+        "name": "payments.link.changed",
+        "payload": "#/$defs/PaymentsLinkChangedPayload"
+      },
+      {
         "description": "IDENTITY.md changed: clients refresh the header; maybe regenerate the avatar.",
         "name": "persona.updated",
         "payload": "#/$defs/PersonaUpdatedPayload"
@@ -999,6 +1004,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Desktop app only (the web shell has no real paths and uploads to the Library instead). The owner picked or dropped these files on a message: each gets a read-only grant for exactly that file (not its folder) in this thread, for 24 hours, until Clear chat or deletion of the thread, or until a restart. The pick is the approval, so there is no card; a file under a sensitive root (~/.ssh, ~/.psyche, ~/Library, ...), a folder or a missing file is refused and listed in `refused`. Returns name, size and type for the chip. forbidden outside the desktop app. Side-effecting.",
+        "name": "chat.attachFiles",
+        "params": "#/$defs/ChatAttachFilesParams",
+        "result": "#/$defs/ChatAttachFilesResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Cancels the active run (or the given run) in a thread.",
         "name": "chat.cancel",
         "params": "#/$defs/ChatCancelParams",
@@ -1141,6 +1154,22 @@
         "result": "#/$defs/ConnectorsGetCustomProposalResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Whether the owner's own Google OAuth client (Desktop app) is set up on this Gateway, and its client id. Never returns the client secret.",
+        "name": "connectors.googleClient",
+        "params": "#/$defs/ConnectorsGoogleClientParams",
+        "result": "#/$defs/GoogleClientStatus",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: saves the owner's Google OAuth client for Connect. The id is kept as an internal setting and the secret as a vault item bound to Google's token endpoint. invalid_params when the id is not a Google client id; unavailable while the vault is locked and a secret is given. A client set in config.json or the environment wins and is refused with conflict.",
+        "name": "connectors.googleClient.set",
+        "params": "#/$defs/ConnectorsGoogleClientSetParams",
+        "result": "#/$defs/ConnectorsGoogleClientSetResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
       },
       {
         "description": "Side-effecting: enables a staged custom connector; approval_required without its approved skill_install.",
@@ -1495,6 +1524,30 @@
         "sideEffecting": false
       },
       {
+        "description": "The \"Share this folder (read only)\" button on a file tool's outside-every-granted-folder error: raises the same `folder_access` approval card `request_folder_access` raises (same binding, native picker, Allow once / Always; a tainted thread is offered Allow once only) outside an agent run. `path` only pre-fills the card: the owner's pick is what is granted, and nothing is granted without the card. Read only: any other `access` is invalid_params. `pending` carries the card's `approvalId`; `already` when a granted folder covers the path. forbidden for a device without operator.admin; not_found for an unknown thread. Side-effecting.",
+        "name": "files.requestShare",
+        "params": "#/$defs/FilesRequestShareParams",
+        "result": "#/$defs/FilesRequestShareResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "The folders onboarding may offer to share read-only (Documents, Desktop, Downloads under the owner's home): only those that exist, are not sensitive roots (`assertFolderGrantable`) and are not already covered by a granted folder. Grants through `settings.set` of `permissions.policy`, never from here.",
+        "name": "files.starterFolders",
+        "params": "#/$defs/FilesStarterFoldersParams",
+        "result": "#/$defs/FilesStarterFoldersResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "The owner's own edit of an existing text file from the Files pane. Only a paired device with operator.admin can call it; no tool, agent, MCP server or channel reaches it, and it raises no approval card (the agent's write_file asks unless Auto mode or a grant allows it). The path must lie in a folder shared read & write (permissions.policy.folders, mode rw; a single attached file or a read-only folder never qualifies), go through no symlink, stay out of Psyche's home and the credential stores, and end in .md, .markdown, .txt, .csv. The file must exist, have one name and be writable by its owner. Content is UTF-8, at most 524288 bytes (invalid_params above that) so the request fits one frame. ifMatch must equal the file's current etag or the call fails with conflict. The write is atomic (temp file, then rename) and keeps the permission bits (setuid and setgid are dropped). Audited as files.write with the path and byte count, never the content. forbidden, not_found, invalid_params, conflict. Side-effecting.",
+        "name": "files.write",
+        "params": "#/$defs/FilesWriteParams",
+        "result": "#/$defs/FilesWriteResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "The Gateway's identity key and fingerprint, the Host's name and whether it is set up to be reached from other computers (publicOrigin, trusted proxy). The Host's Settings shows the fingerprint next to a pairing request so the owner can compare it with the one the new computer shows.",
         "name": "gateway.info",
         "params": "#/$defs/GatewayInfoParams",
@@ -1639,6 +1692,30 @@
         "sideEffecting": false
       },
       {
+        "description": "Removes the vault's key for a provider or the web search key and returns its status. Idempotent: clearing an absent key succeeds. An environment variable is not touched. Audited (provider only). Side-effecting.",
+        "name": "keys.clear",
+        "params": "#/$defs/KeysClearParams",
+        "result": "#/$defs/KeysClearResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Stores a provider API key (anthropic, openai, google, openrouter) or the Brave Search key (brave) in the vault as a Gateway-owned item, replacing an earlier one, and returns its status. The Gateway uses it from the next request, no restart. An environment variable still wins when set. invalid_params for an empty key, one with whitespace or one the provider cannot accept; unavailable when the vault cannot be opened. Audited (provider only). Side-effecting; its params are never logged.",
+        "name": "keys.set",
+        "params": "#/$defs/KeysSetParams",
+        "result": "#/$defs/KeysSetResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Which provider API keys and the web search key are configured, and whether each comes from an environment variable or the vault. Never returns a key or any part of one.",
+        "name": "keys.status",
+        "params": "#/$defs/KeysStatusParams",
+        "result": "#/$defs/KeysStatusResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Deletes a Library item and its file.",
         "name": "library.delete",
         "params": "#/$defs/LibraryDeleteParams",
@@ -1692,6 +1769,14 @@
         "params": "#/$defs/McpAppParams",
         "result": "#/$defs/McpAppResult",
         "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "A configured server's command or URL, allowed domains and env variable names, to prefill the edit form. Admin only because arguments are the owner's own text. Never a secret value. not_found for an unknown server.",
+        "name": "mcp.config",
+        "params": "#/$defs/McpConfigParams",
+        "result": "#/$defs/McpConfigResult",
+        "scope": "operator.admin",
         "sideEffecting": false
       },
       {
@@ -1767,6 +1852,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Checks an added server with its approved config: asks the running server for its tools, or, when it is on but not connected, starts the stored config once in the sandbox and stops it. Changes no config, raises no trust card and takes no config from the caller. Admin because it can start a process. not_found for an unknown server; unavailable (reason paused or not_running) for a paused server or one the Gateway does not run.",
+        "name": "mcp.test",
+        "params": "#/$defs/McpTestParams",
+        "result": "#/$defs/McpTestResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "A configured server's tools (name, description, side effect when annotated) and whether each is offered to the agent. Descriptions are server-authored: render as data. not_found for an unknown server.",
         "name": "mcp.tools",
         "params": "#/$defs/McpToolsParams",
@@ -1779,6 +1872,14 @@
         "name": "mcp.tools.set",
         "params": "#/$defs/McpToolsSetParams",
         "result": "#/$defs/McpToolsSetResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting: edits a server in place. A display name applies at once. Anything that changes what runs or where it connects (command, arguments, URL, auth, allowed domains, env names or secrets) is probed in the sandbox and opens the same device-only trust card as mcp.probe, showing the old and the new config; the old server keeps running until mcp.add with that approved card, which restarts it with the new config. Never applied silently. Not available for a Psyche-made, shared or built-in server (only its name). not_found for an unknown server; invalid_params when a field does not fit the server's kind.",
+        "name": "mcp.update",
+        "params": "#/$defs/McpUpdateParams",
+        "result": "#/$defs/McpUpdateResult",
         "scope": "operator.admin",
         "sideEffecting": true
       },
@@ -2645,6 +2746,38 @@
         "result": "#/$defs/OkResult",
         "scope": "operator.approvals",
         "sideEffecting": true
+      },
+      {
+        "description": "Saves the Link CLI Psyche may run, after checking that it resolves to a real file owned by the user or root and not writable by group or others, with the same for every parent folder. Running a program is a security change: needs fresh presence once the Gateway has a verifier (approval_required with details.approvalId, then retry with approvalId). Takes effect at once. Side-effecting.",
+        "name": "payments.link.connect",
+        "params": "#/$defs/PaymentsLinkConnectParams",
+        "result": "#/$defs/LinkSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Signs out of Link (best effort at Link, then deletes the auth file in the vault folder) and forgets the saved CLI. Fails conflict (details.reason payment_in_progress, with the merchants) while a payment is open, unless force is true, which gives those payments up and is audited. Narrowing, so admin only. Side-effecting.",
+        "name": "payments.link.disconnect",
+        "params": "#/$defs/PaymentsLinkDisconnectParams",
+        "result": "#/$defs/LinkSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Starts Link's sign-in with the connected CLI and returns Link's own page (signIn.verificationUrl) and the phrase to compare. The owner signs in on that page; Psyche never sees a password. The Gateway watches for the result and publishes payments.link.changed. Side-effecting.",
+        "name": "payments.link.signIn",
+        "params": "#/$defs/PaymentsLinkSignInParams",
+        "result": "#/$defs/LinkSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Where Stripe Link stands (Settings → Credentials → Payments): Link CLI not found, found, signed out, signing in or connected. Looks for the CLI in the usual npm locations and checks that it is safe to run; never installs anything. Carries no token.",
+        "name": "payments.link.status",
+        "params": "#/$defs/PaymentsLinkStatusParams",
+        "result": "#/$defs/LinkSetupStatus",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "A staged install (manifest, files, findings) for its approval card.",
@@ -3623,6 +3756,38 @@
         "sideEffecting": true
       },
       {
+        "description": "Lets linked 1Password items be read through the 1Password app's CLI integration, once op answers signed in. Psyche finds op itself (a real file owned by the user or root that others cannot write, outside its own data folder) and takes no path from the caller. Read-only, takes effect at once, audited. conflict while credentials.onePassword in config.json supplies the source. Side-effecting.",
+        "name": "vault.onePassword.connect",
+        "params": "#/$defs/VaultOnePasswordConnectParams",
+        "result": "#/$defs/OnePasswordSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Stops reading 1Password through the app integration: linked items answer unavailable. Items already linked, and 1Password itself, are untouched. Side-effecting.",
+        "name": "vault.onePassword.disconnect",
+        "params": "#/$defs/VaultOnePasswordDisconnectParams",
+        "result": "#/$defs/OnePasswordSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Where the 1Password setup stands: op not installed, app integration off, locked, or signed in (with the account address and email). Finds and checks the op file (state found) without running it; op's account commands run only with probe true, or while connected (cached 60 s). Never reads an item or a secret; 1Password may show its own unlock prompt.",
+        "name": "vault.onePassword.status",
+        "params": "#/$defs/VaultOnePasswordStatusParams",
+        "result": "#/$defs/OnePasswordSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Test connection: lists the account's vaults through op and returns how many there are. A harmless read: no names, no items, no secret values.",
+        "name": "vault.onePassword.test",
+        "params": "#/$defs/VaultOnePasswordTestParams",
+        "result": "#/$defs/OnePasswordTestResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Lists Stripe Link payments, newest first, with their hold / capture / refund state and merchant references; brand and last4 only.",
         "name": "vault.payments.list",
         "params": "#/$defs/VaultPaymentsListParams",
@@ -3891,9 +4056,15 @@
           ],
           "type": "string"
         },
+        "file": {
+          "type": "boolean"
+        },
         "path": {
           "maxLength": 4096,
           "type": "string"
+        },
+        "refused": {
+          "type": "boolean"
         },
         "threadId": {
           "description": "ULID in production",
@@ -4266,6 +4437,65 @@
         "date",
         "provenance",
         "span"
+      ],
+      "type": "object"
+    },
+    "ApiKeyId": {
+      "anyOf": [
+        {
+          "const": "anthropic",
+          "type": "string"
+        },
+        {
+          "const": "openai",
+          "type": "string"
+        },
+        {
+          "const": "google",
+          "type": "string"
+        },
+        {
+          "const": "openrouter",
+          "type": "string"
+        },
+        {
+          "const": "brave",
+          "type": "string"
+        }
+      ]
+    },
+    "ApiKeyStatus": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ApiKeyId"
+        },
+        "configured": {
+          "type": "boolean"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "const": "env",
+              "type": "string"
+            },
+            {
+              "const": "vault",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "inVault": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "configured",
+        "source",
+        "inVault"
       ],
       "type": "object"
     },
@@ -7007,6 +7237,17 @@
         "scope": {
           "$ref": "#/$defs/GrantScope"
         },
+        "trustSite": {
+          "enum": [
+            "origin",
+            "subdomains"
+          ],
+          "type": "string"
+        },
+        "hostProgram": {
+          "const": true,
+          "type": "boolean"
+        },
         "folderPath": {
           "maxLength": 4096,
           "minLength": 1,
@@ -7038,6 +7279,10 @@
         },
         "via": {
           "$ref": "#/$defs/InputVia"
+        },
+        "bulk": {
+          "const": true,
+          "type": "boolean"
         }
       },
       "required": [
@@ -7260,6 +7505,12 @@
           "type": "boolean"
         },
         "taint": {
+          "type": "boolean"
+        },
+        "riskClass": {
+          "$ref": "#/$defs/RiskClass"
+        },
+        "setAside": {
           "type": "boolean"
         },
         "taintSources": {
@@ -13810,6 +14061,104 @@
       ],
       "type": "object"
     },
+    "ChatAttachFilesParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "paths": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "threadId",
+        "paths"
+      ],
+      "type": "object"
+    },
+    "ChatAttachFilesResult": {
+      "properties": {
+        "files": {
+          "items": {
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "size": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "type": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "name",
+              "size",
+              "type"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "refused": {
+          "items": {
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "reason": {
+                "enum": [
+                  "sensitive",
+                  "missing",
+                  "not_file",
+                  "invalid"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "files",
+        "refused"
+      ],
+      "type": "object"
+    },
+    "ChatAttachedFile": {
+      "properties": {
+        "path": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
     "ChatBlockPayload": {
       "properties": {
         "threadId": {
@@ -14265,6 +14614,14 @@
             "type": "string"
           },
           "maxItems": 32,
+          "type": "array"
+        },
+        "attachedFiles": {
+          "description": "Files from disk the owner attached (desktop): only those `chat.attachFiles` granted in this thread are used; the agent sees their name, size and type and reads them with read_file",
+          "items": {
+            "$ref": "#/$defs/ChatAttachedFile"
+          },
+          "maxItems": 8,
           "type": "array"
         },
         "mode": {
@@ -15748,6 +16105,39 @@
       },
       "required": [
         "connector"
+      ],
+      "type": "object"
+    },
+    "ConnectorsGoogleClientParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "ConnectorsGoogleClientSetParams": {
+      "properties": {
+        "clientId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "clientSecret": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "clientId"
+      ],
+      "type": "object"
+    },
+    "ConnectorsGoogleClientSetResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/GoogleClientStatus"
+        }
+      },
+      "required": [
+        "status"
       ],
       "type": "object"
     },
@@ -20244,6 +20634,132 @@
       ],
       "type": "object"
     },
+    "FilesRequestShareParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "path": {
+          "description": "The folder the failed file tool named: a hint for the picker, never what is granted",
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "access": {
+          "const": "read",
+          "type": "string"
+        }
+      },
+      "required": [
+        "threadId",
+        "path",
+        "access"
+      ],
+      "type": "object"
+    },
+    "FilesRequestShareResult": {
+      "properties": {
+        "status": {
+          "enum": [
+            "pending",
+            "already"
+          ],
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "FilesStarterFoldersParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "FilesStarterFoldersResult": {
+      "properties": {
+        "folders": {
+          "items": {
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/StarterFolderId"
+              },
+              "path": {
+                "maxLength": 4096,
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "path"
+            ],
+            "type": "object"
+          },
+          "maxItems": 3,
+          "type": "array"
+        }
+      },
+      "required": [
+        "folders"
+      ],
+      "type": "object"
+    },
+    "FilesWriteParams": {
+      "properties": {
+        "path": {
+          "description": "an absolute path in a granted folder",
+          "maxLength": 4096,
+          "minLength": 2,
+          "pattern": "^(/|[A-Za-z]:[\\\\/])",
+          "type": "string"
+        },
+        "content": {
+          "description": "UTF-8 text",
+          "type": "string"
+        },
+        "ifMatch": {
+          "description": "the etag `files.read` returned; the file must still match",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "content",
+        "ifMatch"
+      ],
+      "type": "object"
+    },
+    "FilesWriteResult": {
+      "properties": {
+        "etag": {
+          "type": "string"
+        },
+        "modifiedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "etag",
+        "modifiedAt",
+        "size"
+      ],
+      "type": "object"
+    },
     "Frame": {
       "anyOf": [
         {
@@ -21182,6 +21698,40 @@
         "taskIds",
         "milestones",
         "links"
+      ],
+      "type": "object"
+    },
+    "GoogleClientStatus": {
+      "properties": {
+        "configured": {
+          "type": "boolean"
+        },
+        "clientId": {
+          "type": "string"
+        },
+        "hasSecret": {
+          "type": "boolean"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "const": "app",
+              "type": "string"
+            },
+            {
+              "const": "config",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "configured",
+        "hasSecret",
+        "source"
       ],
       "type": "object"
     },
@@ -24428,6 +24978,74 @@
       "minLength": 1,
       "type": "string"
     },
+    "KeysClearParams": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ApiKeyId"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "KeysClearResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/ApiKeyStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "KeysSetParams": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ApiKeyId"
+        },
+        "key": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "key"
+      ],
+      "type": "object"
+    },
+    "KeysSetResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/ApiKeyStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "KeysStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "KeysStatusResult": {
+      "properties": {
+        "keys": {
+          "items": {
+            "$ref": "#/$defs/ApiKeyStatus"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "keys"
+      ],
+      "type": "object"
+    },
     "LearnedBlock": {
       "properties": {
         "type": {
@@ -25410,6 +26028,111 @@
       ],
       "type": "object"
     },
+    "LinkSetupReason": {
+      "enum": [
+        "not_absolute",
+        "missing",
+        "not_a_file",
+        "not_executable",
+        "wrong_owner",
+        "writable",
+        "parent_wrong_owner",
+        "parent_writable",
+        "in_psyche_home",
+        "not_link_cli",
+        "volta_shim"
+      ],
+      "type": "string"
+    },
+    "LinkSetupState": {
+      "enum": [
+        "cli_missing",
+        "cli_found",
+        "signed_out",
+        "signing_in",
+        "connected"
+      ],
+      "type": "string"
+    },
+    "LinkSetupStatus": {
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/LinkSetupState"
+        },
+        "cli": {
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "saved",
+                "env"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "source"
+          ],
+          "type": "object"
+        },
+        "candidates": {
+          "items": {
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "problem": {
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "reason": {
+              "$ref": "#/$defs/LinkSetupReason"
+            }
+          },
+          "required": [
+            "path",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "signIn": {
+          "properties": {
+            "verificationUrl": {
+              "type": "string"
+            },
+            "phrase": {
+              "type": "string"
+            },
+            "expiresAt": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "verificationUrl",
+            "phrase",
+            "expiresAt"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "state",
+        "candidates"
+      ],
+      "type": "object"
+    },
     "LogLevel": {
       "enum": [
         "debug",
@@ -25631,6 +26354,30 @@
       },
       "required": [
         "available"
+      ],
+      "type": "object"
+    },
+    "McpConfigParams": {
+      "properties": {
+        "serverId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "serverId"
+      ],
+      "type": "object"
+    },
+    "McpConfigResult": {
+      "properties": {
+        "config": {
+          "$ref": "#/$defs/McpServerConfigView"
+        }
+      },
+      "required": [
+        "config"
       ],
       "type": "object"
     },
@@ -25924,6 +26671,159 @@
       ],
       "type": "object"
     },
+    "McpServerChanges": {
+      "properties": {
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        },
+        "command": {
+          "items": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array"
+        },
+        "env": {
+          "patternProperties": {
+            "^[A-Z_][A-Z0-9_]{0,63}$": {
+              "anyOf": [
+                {
+                  "maxLength": 4000,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "url": {
+          "maxLength": 2000,
+          "pattern": "^https://",
+          "type": "string"
+        },
+        "auth": {
+          "anyOf": [
+            {
+              "properties": {
+                "kind": {
+                  "const": "none",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "oauth",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "bearer",
+                  "type": "string"
+                },
+                "credential": {
+                  "pattern": "^\\{\\{cred:[a-z0-9][a-z0-9-]{0,63}(\\.[a-z]+)?\\}\\}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "credential"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "allowedDomains": {
+          "items": {
+            "maxLength": 253,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "McpServerConfigView": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "command",
+            "url"
+          ],
+          "type": "string"
+        },
+        "command": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "url": {
+          "type": "string"
+        },
+        "allowedDomains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "envNames": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "auth": {
+          "enum": [
+            "none",
+            "oauth",
+            "bearer"
+          ],
+          "type": "string"
+        },
+        "editable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "allowedDomains",
+        "envNames",
+        "editable"
+      ],
+      "type": "object"
+    },
     "McpServerInput": {
       "properties": {
         "id": {
@@ -26214,6 +27114,45 @@
       ],
       "type": "object"
     },
+    "McpTestParams": {
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "McpTestResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "toolCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ok",
+        "toolCount",
+        "tools"
+      ],
+      "type": "object"
+    },
     "McpToolsParams": {
       "properties": {
         "serverId": {
@@ -26279,6 +27218,44 @@
       },
       "required": [
         "tools"
+      ],
+      "type": "object"
+    },
+    "McpUpdateParams": {
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "changes": {
+          "$ref": "#/$defs/McpServerChanges"
+        }
+      },
+      "required": [
+        "id",
+        "changes"
+      ],
+      "type": "object"
+    },
+    "McpUpdateResult": {
+      "properties": {
+        "applied": {
+          "type": "boolean"
+        },
+        "server": {
+          "$ref": "#/$defs/McpServerStatus"
+        },
+        "proposal": {
+          "$ref": "#/$defs/McpProposal"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        }
+      },
+      "required": [
+        "applied",
+        "server"
       ],
       "type": "object"
     },
@@ -32091,6 +33068,39 @@
       ],
       "type": "object"
     },
+    "NoticeMessage": {
+      "properties": {
+        "titleKey": {
+          "description": "Message id of the title, e.g. notice.browser.chrome.title",
+          "type": "string"
+        },
+        "bodyKey": {
+          "description": "Message id of the body",
+          "type": "string"
+        },
+        "params": {
+          "description": "Values for the placeholders. The Gateway has stripped control, format and bidirectional characters from the strings; show them as plain text, never as markup.",
+          "patternProperties": {
+            "^(.*)$": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "titleKey",
+        "bodyKey"
+      ],
+      "type": "object"
+    },
     "Notification": {
       "properties": {
         "id": {
@@ -32107,6 +33117,9 @@
         },
         "body": {
           "type": "string"
+        },
+        "message": {
+          "$ref": "#/$defs/NoticeMessage"
         },
         "taskId": {
           "anyOf": [
@@ -32283,6 +33296,9 @@
         },
         "body": {
           "type": "string"
+        },
+        "message": {
+          "$ref": "#/$defs/NoticeMessage"
         },
         "route": {
           "anyOf": [
@@ -32863,6 +33879,99 @@
       ],
       "type": "object"
     },
+    "OnePasswordSetupState": {
+      "enum": [
+        "not_installed",
+        "found",
+        "not_integrated",
+        "locked",
+        "signed_in",
+        "error"
+      ],
+      "type": "string"
+    },
+    "OnePasswordSetupStatus": {
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/OnePasswordSetupState"
+        },
+        "connected": {
+          "type": "boolean"
+        },
+        "managedBy": {
+          "enum": [
+            "config"
+          ],
+          "type": "string"
+        },
+        "problem": {
+          "enum": [
+            "op_changed",
+            "op_unsigned",
+            "op_unsafe_folder"
+          ],
+          "type": "string"
+        },
+        "repinnedAt": {
+          "type": "number"
+        },
+        "os": {
+          "enum": [
+            "macos",
+            "other"
+          ],
+          "type": "string"
+        },
+        "op": {
+          "properties": {
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "type": "object"
+        },
+        "account": {
+          "properties": {
+            "url": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "url",
+            "email"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "state",
+        "connected",
+        "os"
+      ],
+      "type": "object"
+    },
+    "OnePasswordTestResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/OnePasswordSetupStatus"
+        },
+        "vaultCount": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "vaultCount"
+      ],
+      "type": "object"
+    },
     "OsPermission": {
       "enum": [
         "a11yBus",
@@ -33214,6 +34323,52 @@
         "passkeyId",
         "reauth"
       ],
+      "type": "object"
+    },
+    "PaymentsLinkChangedPayload": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/LinkSetupStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "PaymentsLinkConnectParams": {
+      "properties": {
+        "path": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "PaymentsLinkDisconnectParams": {
+      "properties": {
+        "force": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "PaymentsLinkSignInParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "PaymentsLinkStatusParams": {
+      "properties": {},
       "type": "object"
     },
     "PermissionMode": {
@@ -35330,6 +36485,13 @@
       "enum": [
         "attribute_for_entity",
         "attribute_from_sender"
+      ],
+      "type": "string"
+    },
+    "RiskClass": {
+      "enum": [
+        "routine",
+        "sensitive"
       ],
       "type": "string"
     },
@@ -42872,6 +44034,14 @@
       ],
       "type": "string"
     },
+    "StarterFolderId": {
+      "enum": [
+        "documents",
+        "desktop",
+        "downloads"
+      ],
+      "type": "string"
+    },
     "SurfaceAnswerToken": {
       "minLength": 1,
       "type": "string"
@@ -46804,6 +47974,26 @@
         "reason",
         "status"
       ],
+      "type": "object"
+    },
+    "VaultOnePasswordConnectParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "VaultOnePasswordDisconnectParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "VaultOnePasswordStatusParams": {
+      "properties": {
+        "probe": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "VaultOnePasswordTestParams": {
+      "properties": {},
       "type": "object"
     },
     "VaultPayment": {

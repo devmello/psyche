@@ -13,6 +13,7 @@ import {
   type ContextLimits,
   type ContextSection,
   type ContextUsage,
+  type ControlFacts,
   type DecisionResult,
   type EffectiveContextLimits,
   EMPTY_USAGE,
@@ -264,6 +265,19 @@ export interface AgentLoopOptions {
    */
   notifyBudget?: number;
   approvalSurfaces?: Surface[];
+  /**
+   * An unattended run that reaches an ask: the id of a card the owner approved after an earlier
+   * run of the same automation set this exact action aside (the Gateway's DeferredResume), or
+   * undefined. The hook hands each approval out once; the loop then checks it with
+   * `verifyBinding` against this call's own binding, so only the identical action goes ahead.
+   */
+  resumeApproval?: (q: {
+    runId: string;
+    taskId: string;
+    kind: ApprovalKind;
+    bindingHash: string;
+    taint: boolean;
+  }) => Promise<string | undefined>;
   /** Mode a thread moves to when its plan is approved (default `balanced`). */
   planExitMode?: PermissionMode;
   toolToggles?: (threadId: string) => Record<string, boolean> | undefined;
@@ -2532,6 +2546,22 @@ export class PsycheAgentLoop implements AgentLoop {
         decision.bindingHash ??
         intentBinding ??
         bindingHash(approvalKind, { tool: call.name, paramsHash: hash });
+      // A resume run: the owner approved this action after an earlier run set it aside. It goes
+      // ahead only when this call binds to exactly what was approved (verifyBinding, once).
+      const resumed = await this.#resumedApproval(run, approvalKind, binding);
+      if (resumed !== undefined) {
+        if (target !== undefined && target.value !== "") run.targets.add(target.value);
+        gated.approvalId = resumed.id;
+        gated.authority = {
+          rule: `approval:${resumed.id}`,
+          bindingHash: binding,
+          grantKey: resumed.grantKey,
+          approvalId: resumed.id,
+          ...(resumed.grantId == null ? {} : { grantId: resumed.grantId }),
+          ...(resumed.scopeGranted == null ? {} : { scope: resumed.scopeGranted }),
+        };
+        return { proceed: gated };
+      }
       // After a restart the broker re-issued the dead run's card for this exact call: the
       // recovered turn waits on that card instead of showing the owner a second one (#64).
       const adopted = await this.#reissuedCard(run, approvalKind, binding);
@@ -2570,6 +2600,8 @@ export class PsycheAgentLoop implements AgentLoop {
                 : { scopesOffered: decision.scopesOffered }),
             // Taint sources travel on `context`, where the Gateway can add what it knows (#71).
             taint: run.taint,
+            // Unattended: the run goes on without it; approving starts a resume run (Gateway).
+            ...(run.mode === "unattended" ? { setAside: true as const } : {}),
           })
         ).approval;
       const approvalId = approval.id;
@@ -2581,18 +2613,8 @@ export class PsycheAgentLoop implements AgentLoop {
       run.emit({ type: "approval_requested", runId: run.runId, approval });
       this.#block(run, { type: "approval", approvalId });
       if (run.mode === "unattended") {
-        // C8: no attempt; the request waits in the queue and the owner is notified (once).
-        if (adopted === undefined) {
-          await this.#o.notifier
-            ?.notify({
-              kind: "approval",
-              title: `Approval needed: ${approval.summary}`,
-              body: `An unattended run wants to ${approval.summary}.`,
-              approvalId,
-              ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
-            })
-            .catch(() => undefined);
-        }
+        // C8: no attempt; the request waits in the queue. No notice per card: the Gateway's
+        // automation digest announces every waiting card in one notice (deferred-digest.ts).
         const note = "deferred: queued for the owner's approval; continue without this action";
         this.#noteBlocked(run, call, note, gated);
         this.#toolEvent(
@@ -2651,6 +2673,30 @@ export class PsycheAgentLoop implements AgentLoop {
       this.#notifies.set(key, used);
     }
     return { proceed: gated };
+  }
+
+  /** The approved card a resume run may use for this exact call, checked and spent here. */
+  async #resumedApproval(
+    run: RunState,
+    kind: ApprovalKind,
+    binding: string,
+  ): Promise<ApprovalRequest | undefined> {
+    const hook = this.#o.resumeApproval;
+    if (hook === undefined || run.mode !== "unattended" || run.taskId === undefined) return;
+    if (run.subagent !== undefined) return;
+    if (run.requester !== undefined && run.requester.role !== "owner") return;
+    const id = await hook({
+      runId: run.runId,
+      taskId: run.taskId,
+      kind,
+      bindingHash: binding,
+      taint: run.taint,
+    }).catch(() => undefined);
+    if (id === undefined) return;
+    const verified = await this.#o.broker.verifyBinding(id, binding);
+    this.#checkAbort(run);
+    if (!verified.ok || verified.approval.kind !== kind) return;
+    return verified.approval;
   }
 
   /**
@@ -2917,6 +2963,12 @@ export class PsycheAgentLoop implements AgentLoop {
         taskId: run.taskId ?? null,
         toolCallId: call.id,
         approvalId: g.approvalId ?? null,
+        // The standing grant that let it through, so a resume can tell this call succeeded.
+        ...(g.authority?.grantId === undefined
+          ? {}
+          : {
+              payload: { grantId: g.authority.grantId, bindingHash: g.authority.bindingHash },
+            }),
       });
       result = { ...result, receiptId: receipt.id };
     }
@@ -3526,6 +3578,12 @@ export class PsycheAgentLoop implements AgentLoop {
         taskId: run.taskId ?? null,
         toolCallId: actionId,
         approvalId: g.approvalId ?? null,
+        // The standing grant that let it through, so a resume can tell this call succeeded.
+        ...(g.authority?.grantId === undefined
+          ? {}
+          : {
+              payload: { grantId: g.authority.grantId, bindingHash: g.authority.bindingHash },
+            }),
       });
       receiptId = receipt.id;
       this.#block(run, { type: "receipt", receiptId });
@@ -3683,8 +3741,39 @@ function toolCallMeta(m: ToolCallMeta | undefined): ToolCallMeta | undefined {
     // exec_host's read-only class (security §5.4); the broker re-checks the argv.
     ...(m.hostCommand === "read_only" ? { hostCommand: m.hostCommand } : {}),
     ...(m.hostSandbox === "missing" ? { hostSandbox: m.hostSandbox } : {}),
+    ...(m.control === undefined ? {} : { control: controlFacts(m.control) }),
   };
   return Object.keys(out).length === 0 ? undefined : out;
+}
+
+/** The control facts with only strings, booleans and a bounded list of labels (hard block input). */
+export function controlFacts(c: ControlFacts): ControlFacts {
+  const str = (v: unknown, max = 2048) => (typeof v === "string" ? v.slice(0, max) : undefined);
+  // A label longer than the bound keeps its head and its tail: padding must not push a trailing
+  // "Buy" out of what the hard block reads.
+  const bound = (l: string) => (l.length <= 400 ? l : `${l.slice(0, 200)} ${l.slice(-200)}`);
+  const list = (v: unknown) =>
+    Array.isArray(v)
+      ? v
+          .filter((l): l is string => typeof l === "string")
+          .slice(0, 12)
+          .map(bound)
+      : undefined;
+  const labels = list(c.labels);
+  const alsoLabels = list(c.alsoLabels);
+  const out: ControlFacts = {
+    ...(labels === undefined ? {} : { labels }),
+    ...(alsoLabels === undefined ? {} : { alsoLabels }),
+    ...(str(c.href) === undefined ? {} : { href: str(c.href) as string }),
+    ...(str(c.role, 64) === undefined ? {} : { role: str(c.role, 64) as string }),
+    ...(c.submits === true ? { submits: true } : {}),
+    ...(c.unreadable === true ? { unreadable: true } : {}),
+    ...(str(c.formMethod, 16) === undefined ? {} : { formMethod: str(c.formMethod, 16) as string }),
+    ...(str(c.formAction) === undefined ? {} : { formAction: str(c.formAction) as string }),
+    ...(str(c.pageUrl) === undefined ? {} : { pageUrl: str(c.pageUrl) as string }),
+    ...(str(c.pageTitle, 400) === undefined ? {} : { pageTitle: str(c.pageTitle, 400) as string }),
+  };
+  return out;
 }
 
 function worst(a: ProvenanceOut, b: ProvenanceOut | undefined): ProvenanceOut {

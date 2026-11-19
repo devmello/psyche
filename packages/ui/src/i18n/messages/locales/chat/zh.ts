@@ -50,6 +50,8 @@ export const chat: Partial<Catalogue> = {
     "{name}：Psyche 无法读取这类文件。请附加 PDF、Word、Excel、文本或图片文件",
   "chat.attach.refused.size": "{name} 太大，无法附加（图片 5 MB，文档 25 MB）",
   "chat.attach.refused.count": "{name}：每条消息最多附加 8 个文件",
+  "chat.attach.refused.sensitive": "{name} 位于受保护的位置，无法与 Psyche 共享",
+  "chat.attach.refused.unreadable": "无法附加 {name}。请确认它仍然存在，并且是文件而不是文件夹",
   "chat.message.fromWidget": "来自小组件",
   "chat.teach.notLikeThis": "不要这样",
   "chat.teach.dialog": "教教 Psyche",

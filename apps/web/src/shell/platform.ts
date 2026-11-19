@@ -438,6 +438,11 @@ export interface WindowChrome {
 export interface DialogPort {
   /** Opens the OS folder chooser; resolves to the folder's real path, or null when cancelled. */
   pickFolder(opts?: { title?: string }): Promise<string | null>;
+  /**
+   * The real path of a file the owner picked or dropped, or null when it has none (a pasted
+   * image). The chat attaches such a file in place instead of uploading its bytes.
+   */
+  pathOfFile?(file: File): string | null;
 }
 
 export interface KeyValueStore {
@@ -508,6 +513,11 @@ export interface AppInfoPort {
   info(): Promise<HostAppInfo>;
   /** Shows the data folder in Finder. Absent for a client of another computer's Gateway. */
   revealHome?(): Promise<void>;
+  /**
+   * Library → Reveal in Finder (or "Show in folder" on Windows and Linux) for one Library item.
+   * Desktop on this Mac's Gateway only; absent on the web and for a client of another computer.
+   */
+  revealLibraryItem?(itemId: string): Promise<void>;
   /**
    * Uninstall Psyche (design updates-and-install §3.5). Desktop shell on this Mac only: absent
    * on the web and for a client of another computer's Gateway.

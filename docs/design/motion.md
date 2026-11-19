@@ -1,8 +1,8 @@
 # Psyche motion system
 
-Status: proposal v1 (2026-10-25). It is part of [redesign-2026.md](redesign-2026.md) and replaces docs/06 §4.5 once accepted. Sources are listed at the end; [research/motion-systems.md](research/motion-systems.md) has the full notes with dates.
+Status: **accepted** (2026-11-18, by the orchestrator on the owner's motion-revamp request; proposal v1 written 2026-10-25). It is part of [redesign-2026.md](redesign-2026.md) and replaces docs/06 §4.5 once accepted. Sources are listed at the end; [research/motion-systems.md](research/motion-systems.md) has the full notes with dates.
 
-The constants live in `packages/ui/src/motion/tokens.ts` (a stub in this PR; workstream A wires it). Every number in this document comes from that file. Never hand-type a duration or curve in a component.
+The constants live in `packages/ui/src/motion/tokens.ts`, and `styles/motion.css` is generated from it (`pnpm --filter @psyche/ui gen:motion`). Every number in this document comes from that file. Never hand-type a duration or curve in a component.
 
 ## 1. Rules
 
@@ -68,6 +68,18 @@ Workstream A generates CSS custom properties from `tokens.ts`. CSS can't hand of
 - `--duration-*`
 - `--ease-*`
 - `--spring-snappy` / `--spring-smooth` as `linear()` approximations, with their settle times as `--spring-*-duration`. Chromium 113+ supports `linear()`, and Motion can emit duration-based springs as CSS.
+
+### 2.5 Acceptance notes (2026-11-18)
+
+The desktop motion pass that accepted this spec changed the following. Everything else in the document stands as written.
+
+- **Tokens added** for values that were hand-typed in CSS or TSX: `duration.shimmer` (1.5 s skeleton sweep), `duration.flash` (1.8 s landed-on highlight), `duration.orbLevel` and `duration.orbStagger` (listening orb), `duration.streamFade` (140 ms word fade), `cubicBezier()` for the few APIs that take a string. `--default-transition-duration` / `-timing-function` now read `--duration-micro` and `--ease-standard` (it was 120 ms and a literal curve). The generated CSS gained `--duration-pulse`, `-shimmer`, `-flash` and `-orb-level`.
+- **Forbidden properties removed (§1.7).** Nothing transitions `box-shadow`, `width` or `height` any more: buttons, chips, the segmented radio, the scroll thumb, the tab indicator (it translates; its width now changes instantly) and the Library tile (§3 forbids growing a shadow on hover; the tile takes a fill instead). The "needs you" avatar ring no longer animates `box-shadow`: a separate halo layer loops its opacity. The accent colour no longer animates through a custom property on `:root`; an accent change is instant.
+- **Reduced motion (§7):** `FadeIn`, `ListItem` and Home sections no longer carry the 8 px rise at all under reduced motion (Motion would still paint the `initial` offset for a frame); they fade for 150 ms. `useFadeRise()` is the one switch.
+- **Toasts** (§4.1): Sonner now runs on the tokens. It rises on `spring.smooth` with an opacity fade over `duration.medium`, and leaves by fading at 0.7× without moving. Reduced motion: opacity only, and a removed toast stays in place while it fades. The stack offset animates through `transform` (Sonner's `--y`). The one trade-off: Sonner's `height` transition is dropped (§1.7), so a card behind the front one changes height at once when the stack expands or collapses; this was not checked in a running app.
+- **Library grid to viewer:** no shared element. A Library item opens its viewer in a pane (the pane slide in §4.3, reduced: fade). Moving a tile into the pane would happen many times a day, so §4.4's rule for the thread list applies here too. Search result to chat is a route change (§4.5).
+- **Loops:** `animate-pulse` is gone. The one working pulse (`animate-psy-working`, 1.2 s, 40% → 100%, linear) is the only loop utility.
+- **Tests:** `packages/ui/test/motion-moments.test.tsx` bans hand-typed times and layout/paint properties in every stylesheet and in components, and checks the reduced form of each moment. The Storybook story `Motion/Showcase` exercises toasts, dialogs, sheets, popovers, menus and list insert/remove for recordings.
 
 ## 3. What animates and what never does
 

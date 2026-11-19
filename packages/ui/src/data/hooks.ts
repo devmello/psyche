@@ -17,6 +17,7 @@ import type {
   InputRequest,
   LibraryItem,
   LinkPaymentMethod,
+  LinkSetupStatus,
   Message,
   MethodName,
   MethodParams,
@@ -196,8 +197,10 @@ export function useGatewayQuery<M extends MethodName>(
 
 /** What `usePayments` keeps: Stripe Link's methods and recent spends, or "not set up". */
 export interface PaymentsData {
-  /** False when the Gateway answers `payments_not_configured`. */
+  /** True once Link is connected and signed in; false while it is being set up. */
   configured: boolean;
+  /** Where the guided Link setup stands (`payments.link.status`); absent on an older Gateway. */
+  setup?: LinkSetupStatus;
   methods: LinkPaymentMethod[];
   payments: VaultPayment[];
 }
@@ -207,9 +210,16 @@ function notConfigured(err: unknown): boolean {
   return e?.code === "unavailable" && e.details?.reason === "payments_not_configured";
 }
 
+/** An older Gateway without the guided setup answers `unknown_method` or `not_implemented`. */
+function noGuidedSetup(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  return code === "unknown_method" || code === "not_implemented";
+}
+
 /**
- * Stripe Link payments (G12) for Settings → Credentials: `vault.payments.methods` and
- * `vault.payments.list` together. Reloads on `vault.payment.updated`.
+ * Stripe Link payments (G12) for Settings → Credentials: the guided setup status, then
+ * `vault.payments.methods` and `vault.payments.list` once Link is connected. Reloads on
+ * `vault.payment.updated` and `payments.link.changed`.
  */
 export function usePayments(limit = 20): LoadState & { data: PaymentsData | undefined } {
   const key = `vault.payments:${limit}`;
@@ -217,15 +227,35 @@ export function usePayments(limit = 20): LoadState & { data: PaymentsData | unde
   const load = useLoader(`query:${key}`, async (store) => {
     const version = store.version();
     let data: PaymentsData;
+    let setup: LinkSetupStatus | undefined;
     try {
-      const [m, l] = await Promise.all([
-        store.call("vault.payments.methods", {}),
-        store.call("vault.payments.list", { limit }),
-      ]);
-      data = { configured: true, methods: m.methods, payments: l.payments };
+      setup = await store.call("payments.link.status", {});
     } catch (err) {
-      if (!notConfigured(err)) throw err;
-      data = { configured: false, methods: [], payments: [] };
+      if (!noGuidedSetup(err)) throw err;
+    }
+    if (setup !== undefined && setup.state !== "connected") {
+      data = { configured: false, setup, methods: [], payments: [] };
+    } else {
+      try {
+        const [m, l] = await Promise.all([
+          store.call("vault.payments.methods", {}),
+          store.call("vault.payments.list", { limit }),
+        ]);
+        data = {
+          configured: true,
+          ...(setup === undefined ? {} : { setup }),
+          methods: m.methods,
+          payments: l.payments,
+        };
+      } catch (err) {
+        if (!notConfigured(err)) throw err;
+        data = {
+          configured: false,
+          ...(setup === undefined ? {} : { setup }),
+          methods: [],
+          payments: [],
+        };
+      }
     }
     store.update((s) => ({
       ...s,
@@ -453,6 +483,7 @@ export function useThread(threadId: string | null) {
       replyToMessageId?: string | null,
       attachments?: readonly string[],
       context?: SendContext,
+      attachedFiles?: readonly { path: string }[],
     ) => {
       if (threadId === null) return;
       const pendingId = `pending-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -478,6 +509,9 @@ export function useThread(threadId: string | null) {
             ...(mode ? { mode } : {}),
             ...(replyToMessageId ? { replyToMessageId } : {}),
             ...(attachments && attachments.length > 0 ? { attachments: [...attachments] } : {}),
+            ...(attachedFiles && attachedFiles.length > 0
+              ? { attachedFiles: attachedFiles.map((f) => ({ path: f.path })) }
+              : {}),
             ...(context ? { context: context.ref } : {}),
           }),
       });
@@ -498,6 +532,8 @@ export function useThread(threadId: string | null) {
         replyToMessageId?: string | null;
         /** Library item ids (finished uploads) sent with the message. */
         attachments?: readonly string[];
+        /** Files from disk the owner attached (desktop); `chat.attachFiles` granted them. */
+        attachedFiles?: readonly { path: string }[];
         /** What the message is about (Feed "Ask about this"); sent at once, never queued. */
         context?: SendContext;
       } = {},
@@ -511,7 +547,8 @@ export function useThread(threadId: string | null) {
         store.outbox !== undefined &&
         store.getState().connection !== "open" &&
         !options.context &&
-        (options.attachments ?? []).length === 0
+        (options.attachments ?? []).length === 0 &&
+        (options.attachedFiles ?? []).length === 0
       ) {
         store.outbox.enqueue({
           threadId,
@@ -527,6 +564,7 @@ export function useThread(threadId: string | null) {
           options.replyToMessageId ?? null,
           options.attachments,
           options.context,
+          options.attachedFiles,
         );
         return;
       }
@@ -540,6 +578,9 @@ export function useThread(threadId: string | null) {
           ...(options.attachments && options.attachments.length > 0
             ? { attachments: options.attachments }
             : {}),
+          ...(options.attachedFiles && options.attachedFiles.length > 0
+            ? { attachedFiles: options.attachedFiles }
+            : {}),
         };
         store.update((s) => ({ ...s, queue: [...s.queue, item] }));
         return;
@@ -549,6 +590,8 @@ export function useThread(threadId: string | null) {
         view.running ? mode : undefined,
         options.replyToMessageId ?? null,
         options.attachments,
+        undefined,
+        options.attachedFiles,
       );
     },
     [store, threadId, view.running, sendNow],
@@ -563,7 +606,14 @@ export function useThread(threadId: string | null) {
     if (running || threadId === null || queued.length === 0) return;
     const next = store.takeQueued(threadId);
     if (next === null) return;
-    void sendNow(next.content, undefined, next.replyToMessageId, next.attachments).then(
+    void sendNow(
+      next.content,
+      undefined,
+      next.replyToMessageId,
+      next.attachments,
+      undefined,
+      next.attachedFiles,
+    ).then(
       () => store.sentQueued(next),
       () => store.failQueued(next),
     );
@@ -788,6 +838,12 @@ export interface ApprovalExtras {
   /** `messages_send` card: the text left in the editor and the recipient picked. */
   editedText?: string;
   recipientChoice?: string;
+  /** "Approve all routine ones": the Gateway refuses it on any card it did not class routine. */
+  bulk?: true;
+  /** "Always for this site" (with scope `once`) on a first-read card that offered it. */
+  trustSite?: "origin" | "subdomains";
+  /** "Always allow <program> in <folder>" on a host-command card (sent with scope `once`). */
+  hostProgram?: true;
 }
 
 export async function answerApproval(
@@ -860,6 +916,13 @@ export async function answerApproval(
           : {}),
         ...(decision === "approve" && extras?.recipientChoice !== undefined
           ? { recipientChoice: extras.recipientChoice }
+          : {}),
+        ...(decision === "approve" && extras?.bulk === true ? { bulk: true as const } : {}),
+        ...(decision === "approve" && extras?.trustSite !== undefined
+          ? { trustSite: extras.trustSite }
+          : {}),
+        ...(decision === "approve" && extras?.hostProgram === true
+          ? { hostProgram: true as const }
           : {}),
         ...(presence === undefined ? {} : { presence }),
       }),

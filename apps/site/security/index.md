@@ -35,7 +35,7 @@ A diagram of the three zones: untrusted content on top, executors in the middle,
 
 ## What Psyche never does
 
-Some actions are refused in every mode, whatever you or the content says. The agent never types a password, card number, bank account or government ID it can see; never solves a CAPTCHA; never makes a financial transfer or trade; never deletes data permanently without a typed confirmation; never follows instructions found in content; never changes its own permissions, grants or pairing from a tool call; and never reads Safari or Passwords.app credentials, your keychains, browser profiles, `~/.ssh` or cloud CLI credentials. The full list is in [docs/05 §3.9](https://github.com/devmello/psyche/blob/main/docs/05-security-and-permissions.md#39-hard-prohibitions-not-configurable) and in Settings → Permissions under Hard prohibitions.
+Some actions are refused in every mode, whatever you or the content says. The agent never types a password, card number, bank account or government ID it can see; never solves a CAPTCHA; never trades securities or crypto, moves money between bank accounts or sends it to a person, even if you approve; never deletes data permanently without a typed confirmation; never follows instructions found in content; never changes its own permissions, grants or pairing from a tool call; and never reads Safari or Passwords.app credentials, your keychains, browser profiles, `~/.ssh` or cloud CLI credentials. The full list is in [docs/05 §3.9](https://github.com/devmello/psyche/blob/main/docs/05-security-and-permissions.md#39-hard-prohibitions-not-configurable) and in Settings → Permissions under Hard prohibitions.
 
 ## Check your own install
 

@@ -8,6 +8,7 @@ import type {
   NodeInfo,
   NodeInvokeOptions,
   NodeInvokeResult,
+  ToolCallAuthority,
   ToolRegistration,
 } from "@psyche/protocol";
 import { namespacedGrantKey } from "@psyche/protocol";
@@ -44,7 +45,13 @@ class FakeHelper implements NodeClient {
   /** What `computer.check_target` answers (the recorded target in the window right now). */
   check: Record<string, unknown> = { status: "found", ref: "e2", role: "button", label: "Delete" };
   /** What `computer.resolve_target` finds under a screen point (labels of the element and its parents). */
-  underPoint: { role?: string; label?: string; labels?: string[]; window?: string } = {
+  underPoint: {
+    role?: string;
+    label?: string;
+    labels?: string[];
+    window?: string;
+    url?: string;
+  } = {
     role: "AXButton",
     label: "Save",
     labels: ["Save"],
@@ -166,6 +173,8 @@ let connected: boolean;
 let cu: ComputerUse;
 let tools: Map<string, ToolRegistration>;
 const contexts = new Map<string, CallContext>();
+/** What authorized each call (`CallContexts.authorityFor`), when a test sets it. */
+const authorities = new Map<string, ToolCallAuthority>();
 const cancelled: { runId: string; reason: string }[] = [];
 const issued: IssuedApproval[] = [];
 let answer: "approve" | "deny" | "none" = "approve";
@@ -196,6 +205,7 @@ beforeEach(() => {
   helperKind = "mac-helper";
   connected = true;
   contexts.clear();
+  authorities.clear();
   cancelled.length = 0;
   cu = createComputerUse({
     broker,
@@ -206,6 +216,7 @@ beforeEach(() => {
       if (c === undefined) throw new Error(`no context ${callId}`);
       return c;
     },
+    authority: (callId) => authorities.get(callId),
     cancelRun: (_threadId, runId, reason) => cancelled.push({ runId, reason }),
   });
   tools = new Map(cu.registrations().map((r) => [r.spec.name, r]));
@@ -216,8 +227,10 @@ async function call(
   tool: string,
   params: unknown,
   ctx: Partial<CallContext> & { runId?: string } = {},
+  authority?: ToolCallAuthority,
 ) {
   const callId = `call_${++n}`;
+  if (authority !== undefined) authorities.set(callId, authority);
   contexts.set(callId, {
     toolCallId: callId,
     threadId: "th_1",
@@ -333,6 +346,30 @@ describe("computer-use agent tools (J1–J5)", () => {
       },
       approvalId,
     });
+  });
+
+  it("the receipt names the standing grant that let the action through, with its binding", async () => {
+    await call("computer.snapshot", { app: notes });
+    const approvalId = await loopApproval("computer_action");
+    const act = { app: notes, action: "click", ref: "e1", expect: { role: "textarea" } };
+    const r = await call(
+      "computer.act",
+      act,
+      { approvalId },
+      {
+        rule: `approval:${approvalId}`,
+        approvalId,
+        grantId: "grt_7",
+        bindingHash: "sha256:cc",
+        scope: "always",
+      },
+    );
+    const receipt = (await broker.listReceipts()).find((x) => x.id === r.receiptId);
+    expect(receipt?.payload).toEqual({ grantId: "grt_7", bindingHash: "sha256:cc" });
+    // Positive control: an action no grant authorized names none.
+    const plain = await call("computer.act", act, { approvalId });
+    const none = (await broker.listReceipts()).find((x) => x.id === plain.receiptId);
+    expect(none?.payload ?? null).toBeNull();
   });
 
   it("refuses refs without expect, refs of another app and credential typing", async () => {
@@ -567,6 +604,7 @@ describe("computer-use agent tools (J1–J5)", () => {
     expect(tools.get("computer.act")?.describeCall?.(click)?.meta).toEqual({
       app: notes,
       action: "click",
+      control: { labels: ["Body"] },
     });
     expect(await decide("computer.act", click)).toMatchObject({
       decision: "allow",
@@ -751,7 +789,11 @@ describe("computer-use agent tools (J1–J5)", () => {
       expect: { role: "popupbutton" },
     });
     expect(popup?.bindingFields).toMatchObject({ tierRequired: "interact" });
-    expect(popup?.meta).toEqual({ app: notes, action: "menu" });
+    expect(popup?.meta).toEqual({
+      app: notes,
+      action: "menu",
+      control: { labels: ["Format"] },
+    });
     const ok = act?.({ app: notes, action: "click", ref: "e41", expect: { role: "button" } });
     expect(ok?.bindingFields).toMatchObject({ tierRequired: "click" });
   });
@@ -934,6 +976,178 @@ describe("computer-use agent tools (J1–J5)", () => {
       expect(money(helper.calls)).toHaveLength(0);
     });
 
+    it("a point click whose expect.label says Pay (already a payment card) is still under the hard block", async () => {
+      await call("computer.snapshot", { app: notes });
+      helper.calls.length = 0;
+      issued.length = 0;
+      // The agent calls it "Pay"; the helper finds a bank's Transfer under the point.
+      helper.underPoint = {
+        role: "AXButton",
+        label: "Transfer",
+        labels: ["Transfer"],
+        url: "https://secure.chase.com/",
+      };
+      answer = "approve";
+      const r = await call("computer.act", {
+        app: notes,
+        action: "click",
+        x: 40,
+        y: 50,
+        expect: { role: "AXButton", label: "Pay" },
+      });
+      expect(r).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
+      expect(money(helper.calls)).toHaveLength(0);
+    });
+
+    it("the agent's expect.label never replaces the label the snapshot gave", async () => {
+      const orig = helper.invoke.bind(helper);
+      helper.invoke = async (capability, params, options) =>
+        capability === "computer.ax_tree"
+          ? {
+              ok: true,
+              result: {
+                text: `window "Notes" snap=1\n  [e50] button "Transfer"`,
+                tier: "interact",
+              },
+            }
+          : orig(capability, params, options);
+      await call("computer.snapshot", { app: notes });
+      // The helper accepts a variant of the label, so the agent can send a harmless one.
+      const act = tools.get("computer.act")?.describeCall;
+      const d = act?.({
+        app: notes,
+        action: "click",
+        ref: "e50",
+        expect: { role: "button", label: "Done (+1)" },
+      });
+      expect(d?.meta).toMatchObject({ control: { labels: ["Transfer", "Done (+1)"] } });
+      helper.calls.length = 0;
+      helper.underPoint = {
+        role: "AXButton",
+        label: "Transfer",
+        labels: ["Transfer"],
+        url: "https://secure.chase.com/",
+      };
+      answer = "approve";
+      const r = await call("computer.act", {
+        app: notes,
+        action: "click",
+        ref: "e50",
+        expect: { role: "button", label: "Done (+1)" },
+      });
+      expect(r).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
+      expect(money(helper.calls)).toHaveLength(0);
+    });
+
+    it.each(["com.google.Chrome.app.abcdef", "com.apple.Safari.WebApp.1234"])(
+      "a ref Confirm in the web app %s is judged on the page it shows (round 3)",
+      async (webApp) => {
+        const orig = helper.invoke.bind(helper);
+        helper.invoke = async (capability, params, options) =>
+          capability === "computer.ax_tree"
+            ? {
+                ok: true,
+                result: {
+                  text: `window "Chase" snap=1\n  [e60] button "Confirm"`,
+                  tier: "interact",
+                },
+              }
+            : orig(capability, params, options);
+        await call("computer.snapshot", { app: webApp });
+        helper.calls.length = 0;
+        helper.underPoint = {
+          role: "AXButton",
+          label: "Confirm",
+          labels: ["Confirm"],
+          url: "https://secure.chase.com/web/auth/dashboard#/dashboard/transfers/confirm",
+        };
+        answer = "approve";
+        const r = await call("computer.act", {
+          app: webApp,
+          action: "click",
+          ref: "e60",
+          expect: { role: "button", label: "Confirm" },
+        });
+        expect(r).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
+        expect(money(helper.calls)).toHaveLength(0);
+      },
+    );
+
+    it.each([
+      ["Confirm", true],
+      ["Send", true],
+      ["→", true],
+      ["Share", false],
+    ])(
+      "a web app whose page the helper cannot name: %s is refused unless it is ordinary (round 4)",
+      async (label, refused) => {
+        const webApp = "com.google.Chrome.app.unknown";
+        const orig = helper.invoke.bind(helper);
+        helper.invoke = async (capability, params, options) =>
+          capability === "computer.ax_tree"
+            ? {
+                ok: true,
+                result: {
+                  text: `window "App" snap=1\n  [e70] button "${label}"`,
+                  tier: "interact",
+                },
+              }
+            : orig(capability, params, options);
+        await call("computer.snapshot", { app: webApp });
+        helper.calls.length = 0;
+        // The helper resolves the element but reports no page address.
+        helper.underPoint = { role: "AXButton", label, labels: [label] };
+        answer = "approve";
+        const r = await call("computer.act", {
+          app: webApp,
+          action: "click",
+          ref: "e70",
+          expect: { role: "button", label },
+        });
+        if (refused) {
+          expect(r).toMatchObject({
+            isError: true,
+            output: { error: { code: "policy_denied", details: { reason: "page_unchecked" } } },
+          });
+          expect(money(helper.calls)).toHaveLength(0);
+        } else {
+          expect(r.isError).not.toBe(true);
+          expect(money(helper.calls).length).toBeGreaterThan(0);
+        }
+      },
+    );
+
+    it("an ordinary click in a non-financial web app goes ahead (round 3)", async () => {
+      const notion = "com.google.Chrome.app.notion";
+      const orig = helper.invoke.bind(helper);
+      helper.invoke = async (capability, params, options) =>
+        capability === "computer.ax_tree"
+          ? {
+              ok: true,
+              result: { text: `window "Notion" snap=1\n  [e61] button "Share"`, tier: "interact" },
+            }
+          : orig(capability, params, options);
+      await call("computer.snapshot", { app: notion });
+      helper.calls.length = 0;
+      helper.underPoint = {
+        role: "AXButton",
+        label: "Share",
+        labels: ["Share"],
+        url: "https://www.notion.so/workspace/page",
+      };
+      answer = "approve";
+      const r = await call("computer.act", {
+        app: notion,
+        action: "click",
+        ref: "e61",
+        expect: { role: "button", label: "Share" },
+      });
+      expect(r.isError).not.toBe(true);
+      // The page was read before the click.
+      expect(helper.calls.map((c) => c.capability)).toContain("computer.resolve_target");
+      expect(money(helper.calls).length).toBeGreaterThan(0);
+    });
+
     it("checks the point end of a drag, and skips the check for a ref (its label is in the snapshot)", async () => {
       await call("computer.snapshot", { app: notes });
       helper.calls.length = 0;
@@ -998,7 +1212,7 @@ describe("computer-use agent tools (J1–J5)", () => {
       ["return", { role: "AXButton", labels: ["Pay"], window: "Example Shop" }],
       ["enter", { role: "AXButton", labels: ["Place order"], window: "Example Shop" }],
       ["keypadenter", { role: "AXButton", labels: ["Confirm and pay"] }],
-      ["space", { role: "AXButton", labels: ["Send USDC"], window: "Wallet" }],
+      ["space", { role: "AXButton", labels: ["Pay now"], window: "Wallet" }],
     ])(
       "%s on a focused money control re-asks as financial before the key goes out",
       async (keys, focus) => {
@@ -1103,8 +1317,31 @@ describe("computer-use agent tools (J1–J5)", () => {
     });
 
     it.each([
+      ["return", { role: "AXButton", labels: ["Send USDC"], window: "Wallet" }, shop],
+      ["return", { role: "AXButton", labels: ["Buy"], url: "https://www.robinhood.com/x" }, shop],
+      [
+        "return",
+        { role: "AXButton", labels: ["Transfer"], url: "https://secure.chase.com/" },
+        shop,
+      ],
+    ])(
+      "%s on a trade or transfer control is refused outright: no card, nothing pressed",
+      async (keys, focus, app) => {
+        await call("computer.snapshot", { app });
+        helper.calls.length = 0;
+        issued.length = 0;
+        helper.focus = focus;
+        answer = "approve";
+        const r = await call("computer.act", { app, action: "key", keys });
+        expect(r).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
+        expect(financial()).toHaveLength(0);
+        expect(sent("computer.key")).toHaveLength(0);
+      },
+    );
+
+    it.each([
       ["x\t\n", { role: "AXButton", labels: ["Pay"], window: "Notes" }, ["x\t"]],
-      ["\t ", { role: "AXButton", labels: ["Send USDC"], window: "Notes" }, ["\t"]],
+      ["\t ", { role: "AXButton", labels: ["Pay now"], window: "Notes" }, ["\t"]],
       ["\t\t\r", { role: "AXButton", labels: ["Place order"], window: "Notes" }, ["\t", "\t"]],
     ])(
       "typed %j that tabs onto a money control asks before it activates it",

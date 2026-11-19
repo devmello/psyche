@@ -44,7 +44,16 @@ export interface SealedTable {
  * Gateway-internal settings that authorize something (presence, LAN exposure). The rest of the
  * sealed settings are the security settings that need fresh presence (`needsPresence`).
  */
-const INTERNAL_SEALED = new Set(["_presence.enrolled", "_presence.helperKeys", "_lan.networks"]);
+const INTERNAL_SEALED = new Set([
+  "_presence.enrolled",
+  "_presence.helperKeys",
+  "_lan.networks",
+  "_payments.linkCli",
+  // Decides which OAuth app receives the owner's Google consent.
+  "_connectors.googleClient",
+  "_payments.linkAbandonedBefore",
+  "_credentials.onePasswordApp",
+]);
 
 /** `mcp.servers` carries each server's trust tier, sandbox and launch command. */
 const OTHER_SEALED = new Set(["mcp.servers"]);

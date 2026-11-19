@@ -370,7 +370,7 @@ export const windows: Partial<Record<MessageId, string>> = {
   "everything.run.reason.not_idle": "Not now: you are using the PC.",
   "everything.storage.note": "Everything is stored on this PC only.",
   "memoryWork.consent.k1": "Nothing leaves this PC. Dates and status are worked out by code.",
-  "screens.library.reveal": "Show in File Explorer",
+  "screens.library.reveal": "Show in folder",
   "web.zoom.description":
     "How large the app renders on this PC. Ctrl+Plus and Ctrl+Minus change the same setting, so it survives a restart; {min, number}–{max, number} %.",
   "web.transcriptMode.optionTitle": "{mode} (Ctrl+O cycles)",
@@ -469,4 +469,15 @@ export const windows: Partial<Record<MessageId, string>> = {
     "stop requiring Windows Hello or a passkey for security changes until a new key is registered.",
   "web.security.needsApproval":
     "Approve the card with Windows Hello or a passkey, then press the button again.",
+  "notice.security.changed.body":
+    "A program on this PC changed {count, plural, =1 {# security record} other {# security records}} (devices, keys, grants or settings) without going through Psyche{times, plural, =0 {} =1 {} other {, # times so far}}. Psyche put them back. If you did not do this, check the PC for unwanted software.",
+  "notice.security.untrusted.body":
+    "The check of Psyche's security records failed, so security changes, new devices and Windows Hello approvals are blocked. Review your devices, then run psyched security reseal on this PC (it applies after 24 hours).",
+  "notice.security.firstAdmin.title": "A command on this PC made the first admin device",
+  "notice.security.firstAdmin.body":
+    "{device}{key, select, none {} other { (key {key})}} became the first admin device {via, select, desktop {from the Psyche app} other {through `psyched`}} on this PC. If that was not you, revoke it in Settings → Devices.",
+  "notice.security.recovery.title":
+    "{state, select, requested {A command on this PC asked for a security change} applied {A security change from this PC was applied} cancelled {A security change from this PC was cancelled} other {A security change from this PC could not be applied}}",
+  "notice.security.recovery.body":
+    "{op, select, approve {Approve the device {device}{key, select, none {} other { (key {key})}} with {scopes}.} grant {Give {device}{key, select, none {} other { (key {key})}} {scopes}.} presence {Turn off the Windows Hello and passkey requirement for security changes until a new key is registered.} seal {Accept the current security records as they are.} other {A security change.}}{state, select, requested { It applies {when, select, none {in 24 hours} other {on {when}}} unless you cancel it in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
 };

@@ -73,6 +73,7 @@ import {
 } from "./lib/ipc.ts";
 import { LanDiscovery } from "./lib/lan-discovery.ts";
 import { createPinnedFetch, createPinnedWebSocket, PinnedChannel } from "./lib/lan-tls.ts";
+import { checkLibraryReveal, revealLibraryItem } from "./lib/library-reveal.ts";
 import { NotificationRelay } from "./lib/notify-relay.ts";
 import { createPairLinkInbox, isPairLinkUrl, PAIR_LINK_SCHEME } from "./lib/pair-link.ts";
 import { pairingEdge } from "./lib/pairing-edge.ts";
@@ -1401,6 +1402,18 @@ function registerIpc(): void {
       showItemInFolder: (path) => shell.showItemInFolder(path),
     }),
   );
+  // Library → Reveal in Finder: the renderer names an item id; main checks the file is in the Library.
+  handle(IPC.libraryReveal, async (_event, arg) => {
+    const { itemId } = checkLibraryReveal(arg);
+    const result = await revealLibraryItem(itemId, {
+      getItem: (id) => requireGateway().call("library.get", { itemId: id }),
+      libraryRoot: join(home, "library"),
+      showItemInFolder: (path) => shell.showItemInFolder(path),
+    });
+    if (result === "none")
+      throw new PsycheError("not_found", "That file is no longer in the Library");
+    return result;
+  });
   handle(IPC.appInfo, () =>
     appInfo({
       appVersion: app.getVersion(),

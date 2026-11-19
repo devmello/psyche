@@ -235,6 +235,7 @@ export async function accessEntries(broker: PsychePermissionBroker): Promise<Acc
       label: f.path,
       path: f.path,
       mode: f.mode,
+      ...(broker.folderRefused(f.path) ? { refused: true } : {}),
     });
   }
   for (const { threadId, entry } of broker.allSessionFolders()) {
@@ -245,6 +246,8 @@ export async function accessEntries(broker: PsychePermissionBroker): Promise<Acc
       label: entry.path,
       path: entry.path,
       mode: entry.mode,
+      ...(entry.file === true ? { file: true } : {}),
+      ...(broker.folderRefused(entry.path) ? { refused: true } : {}),
       threadId,
     });
   }

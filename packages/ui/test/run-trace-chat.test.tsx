@@ -1,7 +1,7 @@
 import type { Message, RunStep } from "@psyche/protocol";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildRows,
   STALL_MS,
@@ -16,6 +16,28 @@ import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { type createFixtureWorld, FIXTURE_NOW, IDS } from "../src/fixtures/index.ts";
 import { runTraceWorld, TRACE_IDS, traceRuns, traceSteps } from "../src/fixtures/runs.ts";
 import { StoryWorld } from "../src/stories/harness.tsx";
+
+/** Every trace is on screen in these tests: an observed element reports as intersecting at once. */
+class InView {
+  private readonly callback: IntersectionObserverCallback;
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback;
+  }
+  observe(target: Element) {
+    this.callback(
+      [{ isIntersecting: true, target } as IntersectionObserverEntry],
+      this as unknown as IntersectionObserver,
+    );
+  }
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+}
+
+beforeEach(() => vi.stubGlobal("IntersectionObserver", InView));
+afterEach(() => vi.unstubAllGlobals());
 
 const R = TRACE_IDS.runs;
 const NOW = Date.parse(FIXTURE_NOW);

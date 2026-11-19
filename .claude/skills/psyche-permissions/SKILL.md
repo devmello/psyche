@@ -5,7 +5,7 @@ description: Changing Psyche's permissions, approvals and trust code. Covers the
 
 # Permissions, approvals and classifiers
 
-Every PR here gets an independent security review. In the five PRs of 2026-11-09, the three in this area needed 2 to 5 fix rounds each (#1299, #1300, #1301). The traps below caused most of those rounds. Read them before the first edit.
+Every PR here gets an independent security review. #1299, #1300, #1301, #1354 and #1368 needed 2 to 5 fix rounds each. The traps below caused most of those rounds. Read them before the first edit.
 
 ## Where things live
 
@@ -47,9 +47,55 @@ This covers any rule that sorts inputs into "asks" and "doesn't ask": money-inte
 - **Fail closed:** if the target can't be read (an old helper, a Windows or Linux helper), refuse with `point_unchecked` or `focus_unchecked`. Don't let it through.
 - **Unlabelled targets:** treat them as unknown and use context: the window title or URL, the parent labels, a recent payment in the same app.
 - **An owner flag beats the heuristic:** a tool renamed to dodge the words still pays under `handlesMoney`. A raw `settings.set` must not be able to clear that flag.
+- **No whole-label or whole-route exemptions.** An early exit for a label, route or word class ("transfers", listing words, leave dialogs, article segments) un-blocks real flows. #1321 needed 7 rounds, most of them for this. Narrow the match instead, and add a row for the flow the exemption would have let through.
 - **Match on kind:** match on the provider's kind, never on an id a user can choose. #1300 R2: the id `anthropic` on an `anthropic-compatible` endpoint passed, and the real CLI refs didn't.
 
 **Write the probe table first.** Before you change a rule, write a table-driven test with two lists: inputs that must match, and near-misses that share a word and must not. The pattern is `packages/protocol/test/money-intent.test.ts`: `PAYMENT_LABELS` and `ORDINARY_LABELS` with `it.each`. Include amounts with decimals, tickers, keyboard paths, snake_case and camelCase tool names, and the reviewer's probes from every earlier round. Every review finding becomes a row that failed before your fix. In #1301, round 1 widened regexes one way only. Rounds 2 to 5 each found misses in the other direction, and the reviewers' two-way probe lists caught them.
+
+- **Check the host being read, not only the stored entry.** #1340 took 3 rounds: trust checks ran on the trusted host only, not on the host actually read.
+- **A new quiet allow must never feed another allow path.** #1340: a "trusted" quiet read marked the origin `touched`, so later tainted reads were allowed.
+- **Grant labels come from the full scope.** An "always" grant's label is derived from to+cc+bcc, not the first recipient (#1346). Redacted values never come back as input (#1343).
+
+## 3b. Hardening fails closed, on the right target
+
+- **Unexpressible input means ask or refuse, never `continue`.** #1329: a git driver name that couldn't be expressed was skipped, `(.+)` missed empty names, and `status.ignoreSubmodules` was a config key git doesn't have. Check a config key or flag against the tool itself (`git config --help`, run it), not memory.
+- **Validate what the tool will resolve, not what encloses it.** #1329 B2 checked the enclosing repo, not the repo git actually resolves (`-C`, `GIT_DIR`, alternates, submodules). Resolve first, then check that result.
+- **Every new action path gets checked against every existing prohibition.** #1315's purchase tool skipped #1321's hard block. When a PR adds a tool, route or channel that can act, list the prohibitions (money block, outbound check, read-only allowlist, presence) and add a test per prohibition through the new path.
+- **Presence stays payments-only.** #1327's agent search popped a vault unlock. Reads and searches never trigger Touch ID or a vault prompt.
+
+## 3c. Redacted reads, "is this narrower?" checks, receipts
+
+- **Redacted reads must not round-trip into writes.** When a getter redacts (env values, URL tokens, OAuth fields, bearer credentials), the raw setter for the same key must refuse, or merge-preserve every stored secret for existing ids. #1351 B1: `settings.get mcp.servers` then `settings.set` with the same value wiped secrets on every entry, and a one-field toggle did the same. Test it: get, set the same value, stored value unchanged. Check the CLI (`psyche config`) and `useSettings().set` too.
+- **A pure "is this narrower?" check must model how the engine resolves.** #1354 took three rounds (the orchestrator fixed r2). Probe through the real `decide()`, not only the pure function. Cover:
+  - longest-root folder matching, including session folder grants the check can't see, so removing a `ro` child under an `rw` parent widens;
+  - first-match order for `sites` and `apps`, and make sure the order check runs when order is the only change (an early `same()` skip hid it);
+  - `canonicalPath`, not raw strings;
+  - `compilePolicy` vs `parsePolicy`;
+  - settings nothing reads.
+  When in doubt, show the card.
+- **Match receipts to approvals by grant or approval id, never by kind and task.** Connector receipts carry `tool.action` kinds (`gmail.send`) and no `taskId`, so a kind+task match reports a successful action as failed (#1358 B1).
+
+## 3d. Exec, argv and path confinement (#1361, #1364, #1368, #1372)
+
+- **Name lists** (programs, files, keys) fold before matching: NFKC, then lower-case (`ſh`, `GIT`; APFS is case-insensitive), and resolve paths with `realpathSync.native`. Tests include those spellings.
+- **Path confinement covers every way a tool reads a path:** symlink-following flags (`-L`, `--follow`, `-R`, `-S`, `-follow`, `-H`) and path-valued options (`--file=`, `--ignore-file=`, `-f`, `--files0-from=`, `jq -L<dir>`), not just operands. Back it with an srt `denyRead` on the shared temp roots (`/private/tmp`, `/private/var/folders`, `/Users/Shared`), not only home.
+- **Argv classifiers (which arguments are option values):**
+  - `--` can itself be an option's value, so dash-led arguments after it are not trusted to be operands (#1368 r1, HIGH).
+  - Value letters with an attached value differ per tool: `tree -L2` takes nothing from the next argument, while `tree -L 2` does (#1372 r1). Never assume getopt.
+  - macOS tools accept GNU-style long-option abbreviations (`file --f=` is `--files-from`); prefixes of 3 or more characters count. With exact names only in a table, the abbreviation's value is path-checked as an operand, which fails closed. Keep it that way.
+  - Probe every value letter against the real binary on this Mac by passing an outside path as the "value", and record in the PR which table rows came from man pages only (#1372 r1 did this for rg 14, BSD grep, du, head, tail, jq, tree).
+  - Skipping a value (treating it as a plain slot) is a relaxation and needs its own security review. Unlisted options fail closed: the value counts as an operand and is path-checked.
+- **Lookups fail closed**, and map every subscriber before moving an emit (`psyche-builder` §2).
+- Keep each probe as a table row.
+
+## 3e. Grants with identity, attachments, vault slugs (#1366, #1373)
+
+- **A single-file grant matches by equality**, never as a path prefix: a prefix grant becomes a folder grant when the file is replaced by a directory (#1366 r1). At read time re-check it is a regular file with `nlink === 1` (hard links), and again at send.
+- **Expiry applies in every accessor** (the engine, the Settings list, the raw map), not one getter (#1366 r1).
+- **Clear chat and delete call `endSession` through the real handlers**, and tests go through those handlers, not the broker directly (#1366 r1). Catch and log failures (`thread-end.ts`).
+- **A "record" separate from a grant never grants a read.** Filter it by a live grant (a file entry or a covering folder) before promising a read, and a re-attach refreshes both expiries (#1366 r3, #1374).
+- **Third-party text into prompts:** filenames, paths and the like go in a fenced block with JSON-quoted values, tainted, never bare text framed as the owner's words (#1366 r1).
+- **Writing a vault item by slug:** first check the existing item is ours (kind, `ownerConnectorId`, exact bindings), as `mcp-manage.ts` does, otherwise use a fresh slug (#1373 r1). Changing a client must not silently reuse the old secret. Audit actors for admin calls are `{type: "device", deviceId}`, with no `name`.
 
 ## 4. Trust that moves to a new path or file
 
@@ -61,12 +107,12 @@ If a client now trusts a different path (a socket, a pointer file, a config), th
 
 ## 5. Tests to run
 
-`verify.sh` runs the related tests. These suites break most often when this area changes:
+`verify.sh --related` runs the related tests (run it once before the PR for changes here: permission code is widely imported). These suites break most often when this area changes:
 - **permissions:** `answer-lockout`;
 - **gateway:** `passkeys`, `remote-presence`, `payments-only-presence`, `seal-owner-choice` and the other `seal-*` suites, `mode-switch`, `computer`, `compose-mcp`, `device-rate-limits`;
 - **protocol:** `money-intent`.
 
-If you change copy that names Touch ID, presence or approvals, also run `packages/ui/test/platform-*.test.tsx` (#1301 R3).
+If you change copy that names Touch ID, presence or approvals, also run `packages/ui/test/platform-*.test.tsx` (#1301 R3; #1338). UI tests for approvals and grants use the shapes in `psyche-builder` §2.
 
 ## Learnings
 

@@ -123,6 +123,8 @@ export interface GatewayOptions {
     before: unknown;
     after: unknown;
     deviceId: string;
+    /** The change only narrowed what the agent may do, so it applied without an approval card. */
+    narrowing?: boolean;
   }) => void;
   /** Inject an open database (tests); defaults to SQLite at config.dbPath. */
   db?: PsycheDb;
@@ -346,6 +348,8 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     chatScreen: { resolve: null },
     terminalSessions: { owns: null },
     chatContext: { resolve: null },
+    chatFiles: { attach: null, attached: null },
+    threadEnded: new Set(),
     messageScrub: { scrub: null, heal: null },
     limits,
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>

@@ -8,6 +8,7 @@ import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { t } from "../../i18n/core.ts";
 import { useCopy } from "../../lib/clipboard.ts";
 import { isWindows } from "../../lib/platform.ts";
+import { ConfirmRecoveryForm } from "../settings/ConfirmRecoveryForm.tsx";
 import {
   ConnectAccessChoice,
   needsSetup,
@@ -565,6 +566,43 @@ export function defaultModelChoice(kind: ProviderKind): ModelChoice {
   };
 }
 
+/**
+ * The vault's recovery key, shown once, with Copy. It stays on screen until the owner confirms it
+ * by typing its last group back (`ConfirmRecoveryForm`, in both onboarding and Settings).
+ */
+export function RecoveryKeyCard({ recoveryKey }: { recoveryKey: string }): ReactElement {
+  const clip = useCopy();
+  return (
+    <div
+      className="mt-2 flex flex-col gap-1 rounded-lg border border-approval-border bg-approval-surface p-3"
+      data-testid="vault-recovery-key"
+    >
+      <p className="text-headline text-label-primary">{t("onboarding.model.recoveryTitle")}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <code className="font-mono text-sm break-all select-all">{recoveryKey}</code>
+        <Button
+          type="button"
+          size="xs"
+          variant="outline"
+          onClick={() => void clip.copy(recoveryKey)}
+        >
+          {clip.state === "copied" ? <Check aria-hidden="true" /> : null}
+          {clip.state === "copied" ? t("onboarding.model.copied") : t("onboarding.model.copy")}
+        </Button>
+        <span role="status" className="sr-only">
+          {clip.state === "copied" ? t("onboarding.model.copiedStatus") : ""}
+        </span>
+        {clip.state === "failed" ? (
+          <span className="text-callout text-danger-text" role="alert">
+            {t("onboarding.model.copyFailed")}
+          </span>
+        ) : null}
+      </div>
+      <p className="text-callout text-label-secondary">{t("onboarding.model.recoveryBody")}</p>
+    </div>
+  );
+}
+
 export function ModelStep({
   value,
   onChange,
@@ -575,7 +613,7 @@ export function ModelStep({
   keyRefused = false,
   recoveryKey,
   recoverySaved = false,
-  onRecoverySaved,
+  onRecoveryConfirmed,
 }: {
   value: ModelChoice;
   onChange: (next: ModelChoice) => void;
@@ -586,11 +624,11 @@ export function ModelStep({
   keyError?: string | null;
   /** The key was stored but the provider refused it (the error already says what to do). */
   keyRefused?: boolean;
-  /** The vault's recovery key, when saving the key just created the vault. Shown once. */
+  /** The vault's recovery key, when saving the key just created the vault. Shown until confirmed. */
   recoveryKey?: string;
-  /** The owner confirmed saving it; required before leaving the step. */
+  /** The owner typed the key's last group back and the Gateway confirmed it. */
   recoverySaved?: boolean;
-  onRecoverySaved?: (saved: boolean) => void;
+  onRecoveryConfirmed?: () => void;
 }): ReactElement {
   const id = useId();
   const [key, setKey] = useState("");
@@ -600,7 +638,6 @@ export function ModelStep({
   const known = models.some((m) => m.ref === value.modelRef);
   const picked = other || !known ? OTHER_MODEL : value.modelRef;
   const needsKey = value.kind === "cloud" || value.kind === "openrouter";
-  const clip = useCopy();
   return (
     <div className="flex flex-col gap-4">
       <RadioField
@@ -749,47 +786,10 @@ export function ModelStep({
               did={keyRefused ? "" : t("onboarding.model.keyNotStored")}
             />
           ) : null}
-          {recoveryKey ? (
-            <div
-              className="mt-2 flex flex-col gap-1 rounded-lg border border-approval-border bg-approval-surface p-3"
-              data-testid="vault-recovery-key"
-            >
-              <p className="text-headline text-label-primary">
-                {t("onboarding.model.recoveryTitle")}
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <code className="font-mono text-sm break-all select-all">{recoveryKey}</code>
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="outline"
-                  onClick={() => void clip.copy(recoveryKey)}
-                >
-                  {clip.state === "copied" ? <Check aria-hidden="true" /> : null}
-                  {clip.state === "copied"
-                    ? t("onboarding.model.copied")
-                    : t("onboarding.model.copy")}
-                </Button>
-                <span role="status" className="sr-only">
-                  {clip.state === "copied" ? t("onboarding.model.copiedStatus") : ""}
-                </span>
-                {clip.state === "failed" ? (
-                  <span className="text-callout text-danger-text" role="alert">
-                    {t("onboarding.model.copyFailed")}
-                  </span>
-                ) : null}
-              </div>
-              <p className="text-callout text-label-secondary">
-                {t("onboarding.model.recoveryBody")}
-              </p>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={recoverySaved}
-                  onChange={(e) => onRecoverySaved?.(e.target.checked)}
-                />
-                {t("onboarding.model.savedIt")}
-              </label>
+          {recoveryKey && !recoverySaved ? (
+            <div className="flex flex-col gap-2">
+              <RecoveryKeyCard recoveryKey={recoveryKey} />
+              <ConfirmRecoveryForm expectUnlocked onConfirmed={() => onRecoveryConfirmed?.()} />
             </div>
           ) : null}
         </div>

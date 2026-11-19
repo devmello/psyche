@@ -6,6 +6,7 @@ export interface AccessListResult {
 }
 
 export interface AccessEntry {
+    file?:       boolean;
     grantId?:    string;
     id:          string;
     kind?:       ApprovalKind;
@@ -13,6 +14,7 @@ export interface AccessEntry {
     lastUsedAt?: string;
     mode?:       FolderModeEnum;
     path?:       string;
+    refused?:    boolean;
     scope:       AccessEntryScope;
     since?:      string;
     threadId?:   string;
@@ -1012,13 +1014,16 @@ export interface AppleTabTextParams {
 export interface ApprovalAnswer {
     answerToken:      string;
     approvalId:       string;
+    bulk?:            boolean;
     decision:         ApprovalAnswerDecision;
     editedText?:      string;
     folderMode?:      FolderModeEnum;
     folderPath?:      string;
+    hostProgram?:     boolean;
     presence?:        PresenceAssertion;
     recipientChoice?: string;
     scope?:           GrantScope;
+    trustSite?:       TrustSite;
     unsandboxed?:     Unsandboxed;
     via?:             InputVia;
 }
@@ -1042,6 +1047,8 @@ export interface PresenceAssertion {
 export type PresenceAssertionKind = "webauthn" | "helper" | "password";
 
 export type GrantScope = "once" | "task" | "site" | "session" | "always";
+
+export type TrustSite = "origin" | "subdomains";
 
 export type Unsandboxed = "UNSANDBOXED";
 
@@ -1078,8 +1085,10 @@ export interface ApprovalRequest {
     requestedAt:            string;
     requestedBy:            RequestedBy;
     requiresAuthentication: boolean;
+    riskClass?:             RiskClass;
     scopeGranted?:          GrantScope | null;
     scopesOffered:          GrantScope[];
+    setAside?:              boolean;
     sideEffect?:            SideEffect;
     status:                 ApprovalStatus;
     summary:                string;
@@ -1118,6 +1127,8 @@ export interface RequestedBy {
     threadId?:    null | string;
     toolCallId?:  string;
 }
+
+export type RiskClass = "routine" | "sensitive";
 
 export type SideEffect = "none" | "read" | "write" | "destructive" | "financial";
 
@@ -2520,12 +2531,12 @@ export interface CatalogNeeds {
     inputs:  string[];
     network: string[];
     runsIn:  RunsIn;
-    signIn:  SignIn;
+    signIn:  SignInEnum;
 }
 
 export type RunsIn = "builtin" | "srt" | "remote";
 
-export type SignIn = "none" | "key" | "oauth";
+export type SignInEnum = "none" | "key" | "oauth";
 
 export type CatalogEntryStatus = "loaded" | "on_demand" | "installed" | "off" | "installable";
 
@@ -2772,6 +2783,30 @@ export interface ChannelsUpdatedPayload {
     channel: Channel;
     detail?: string;
 }
+
+export interface ChatAttachFilesParams {
+    paths:    string[];
+    threadId: string;
+}
+
+export interface ChatAttachFilesResult {
+    files:   ChatAttachFilesResultFile[];
+    refused: Refused[];
+}
+
+export interface ChatAttachFilesResultFile {
+    name: string;
+    path: string;
+    size: number;
+    type: string;
+}
+
+export interface Refused {
+    path:   string;
+    reason: RefusedReason;
+}
+
+export type RefusedReason = "sensitive" | "missing" | "not_file" | "invalid";
 
 export interface ChatBlockPayload {
     block:     Block;
@@ -3117,6 +3152,12 @@ export interface ChatReasoningPayload {
 
 export interface ChatSendParams {
     /**
+     * Files from disk the owner attached (desktop): only those `chat.attachFiles` granted in
+     * this thread are used; the agent sees their name, size and type and reads them with
+     * read_file
+     */
+    attachedFiles?: ChatAttachedFile[];
+    /**
      * Library item ids
      */
     attachments?:      string[];
@@ -3128,6 +3169,10 @@ export interface ChatSendParams {
     replyToMessageId?: string;
     screen?:           ChatScreenRef;
     threadId:          string;
+}
+
+export interface ChatAttachedFile {
+    path: string;
 }
 
 export interface ChatContextRef {
@@ -3598,16 +3643,16 @@ export interface TransportClass {
     command?: string[];
     env?:     { [key: string]: unknown };
     kind:     TransportEnum;
-    auth?:    Auth;
+    auth?:    TransportAuth;
     url?:     string;
 }
 
-export interface Auth {
-    kind:        AuthKind;
+export interface TransportAuth {
+    kind:        AuthEnum;
     credential?: string;
 }
 
-export type AuthKind = "none" | "oauth" | "bearer";
+export type AuthEnum = "none" | "oauth" | "bearer";
 
 export type TransportEnum = "stdio" | "http";
 
@@ -3863,6 +3908,24 @@ export interface ConnectorsGetResult {
     connector: Connector;
 }
 
+export interface ConnectorsGoogleClientSetParams {
+    clientId:      string;
+    clientSecret?: string;
+}
+
+export interface ConnectorsGoogleClientSetResult {
+    status: GoogleClientStatus;
+}
+
+export interface GoogleClientStatus {
+    clientId?:  string;
+    configured: boolean;
+    hasSecret:  boolean;
+    source:     GoogleClientStatusSource | null;
+}
+
+export type GoogleClientStatusSource = "app" | "config";
+
 export interface ConnectorsInstallCustomParams {
     approvalId: string;
     proposalId: string;
@@ -3964,7 +4027,7 @@ export interface CredentialMeta {
     id:                string;
     kind:              CredentialKind;
     lastUsedAt?:       null | string;
-    managedBy?:        ManagedBy;
+    managedBy?:        ManagedByClass;
     name:              string;
     ownerConnectorId?: null | string;
     slug:              string;
@@ -3982,7 +4045,7 @@ export interface CredentialBinding {
 
 export type CredentialKind = "login" | "api_key" | "oauth_token" | "ssh_key" | "note" | "payment_link" | "signing_key";
 
-export interface ManagedBy {
+export interface ManagedByClass {
     kind:      ManagedByKind;
     removable: boolean;
     setting:   Setting;
@@ -5111,6 +5174,56 @@ export interface FilesReadResult {
     size: number;
 }
 
+export interface FilesRequestShareParams {
+    access: FilesRequestShareParamsAccess;
+    /**
+     * The folder the failed file tool named: a hint for the picker, never what is granted
+     */
+    path:     string;
+    threadId: string;
+}
+
+export type FilesRequestShareParamsAccess = "read";
+
+export interface FilesRequestShareResult {
+    approvalId?: string;
+    status:      FilesRequestShareResultStatus;
+}
+
+export type FilesRequestShareResultStatus = "pending" | "already";
+
+export interface FilesStarterFoldersResult {
+    folders: Folder[];
+}
+
+export interface Folder {
+    id:   StarterFolderID;
+    path: string;
+}
+
+export type StarterFolderID = "documents" | "desktop" | "downloads";
+
+export interface FilesWriteParams {
+    /**
+     * UTF-8 text
+     */
+    content: string;
+    /**
+     * the etag `files.read` returned; the file must still match
+     */
+    ifMatch: string;
+    /**
+     * an absolute path in a granted folder
+     */
+    path: string;
+}
+
+export interface FilesWriteResult {
+    etag:       string;
+    modifiedAt: string;
+    size:       number;
+}
+
 export interface Frame {
     id?:             string;
     idempotencyKey?: string;
@@ -5180,7 +5293,7 @@ export interface LAN {
     /**
      * Interfaces the owner can pick: private IPv4 and IPv6 unique-local addresses only
      */
-    candidates: Candidate[];
+    candidates: LANCandidate[];
     /**
      * SHA-256 (base64url) of the LAN certificate's SPKI: the cert pin
      */
@@ -5214,7 +5327,7 @@ export interface LAN {
     problems: string[];
 }
 
-export interface Candidate {
+export interface LANCandidate {
     address:   string;
     isDefault: boolean;
     name:      string;
@@ -5926,6 +6039,38 @@ export interface InsightEntity {
     openLoops:         number;
 }
 
+export interface KeysClearParams {
+    id: APIKeyID;
+}
+
+export type APIKeyID = "anthropic" | "openai" | "google" | "openrouter" | "brave";
+
+export interface KeysClearResult {
+    status: APIKeyStatus;
+}
+
+export interface APIKeyStatus {
+    configured: boolean;
+    id:         APIKeyID;
+    inVault:    boolean;
+    source:     APIKeyStatusSource | null;
+}
+
+export type APIKeyStatusSource = "env" | "vault";
+
+export interface KeysSetParams {
+    id:  APIKeyID;
+    key: string;
+}
+
+export interface KeysSetResult {
+    status: APIKeyStatus;
+}
+
+export interface KeysStatusResult {
+    keys: APIKeyStatus[];
+}
+
 export interface LearnedBlock {
     items: LearnedFact[];
     type:  LearnedBlockType;
@@ -6120,6 +6265,28 @@ export interface MCPApp {
 
 export type ProvenanceEnum = "untrusted";
 
+export interface MCPConfigParams {
+    serverId: string;
+}
+
+export interface MCPConfigResult {
+    config: MCPServerConfigView;
+}
+
+export interface MCPServerConfigView {
+    allowedDomains: string[];
+    auth?:          AuthEnum;
+    command?:       string[];
+    editable:       boolean;
+    envNames:       string[];
+    id:             string;
+    kind:           TentacledKind;
+    name:           string;
+    url?:           string;
+}
+
+export type TentacledKind = "command" | "url";
+
 export interface MCPFilesReadParams {
     serverId: string;
 }
@@ -6197,6 +6364,17 @@ export interface MCPStatusResult {
 
 export type Launcher = "srt" | "container" | "vm" | "none";
 
+export interface MCPTestParams {
+    id: string;
+}
+
+export interface MCPTestResult {
+    error?:    string;
+    ok:        boolean;
+    toolCount: number;
+    tools:     string[];
+}
+
 export interface MCPToolsParams {
     serverId: string;
 }
@@ -6222,6 +6400,32 @@ export interface MCPToolsSetParams {
 
 export interface MCPToolsSetResult {
     tools: MCPServerTool[];
+}
+
+export interface MCPUpdateParams {
+    changes: MCPServerChanges;
+    id:      string;
+}
+
+export interface MCPServerChanges {
+    allowedDomains?: string[];
+    auth?:           MCPServerChangesAuth;
+    command?:        string[];
+    env?:            { [key: string]: unknown };
+    name?:           string;
+    url?:            string;
+}
+
+export interface MCPServerChangesAuth {
+    kind:        AuthEnum;
+    credential?: string;
+}
+
+export interface MCPUpdateResult {
+    applied:   boolean;
+    approval?: ApprovalRequest;
+    proposal?: MCPProposal;
+    server:    MCPServerStatus;
 }
 
 export interface MeetingNotesResult {
@@ -8088,12 +8292,12 @@ export interface MissingConnectorAction {
 export type MissingConnectorActionNeed = "connector_action";
 
 export interface MissingFolder {
-    access: Access;
+    access: MissingFolderAccess;
     need:   MissingFolderNeed;
     path:   string;
 }
 
-export type Access = "read" | "read_write";
+export type MissingFolderAccess = "read" | "read_write";
 
 export type MissingFolderNeed = "folder";
 
@@ -8106,7 +8310,7 @@ export interface MissingMacosAccess {
 export type MissingMacosAccessNeed = "macos_access";
 
 export interface MissingPermission {
-    access?:     Access;
+    access?:     MissingFolderAccess;
     need:        MissingPermissionNeed;
     path?:       string;
     capability?: GatedCapability;
@@ -8351,6 +8555,7 @@ export interface Notification {
     delivered:    { [key: string]: string };
     id:           string;
     kind:         NotificationKind;
+    message?:     NoticeMessage;
     readAt?:      null | string;
     resolvedAt?:  null | string;
     route?:       null | string;
@@ -8374,12 +8579,29 @@ export interface NotificationAction {
 
 export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system" | "specialist_result";
 
+export interface NoticeMessage {
+    /**
+     * Message id of the body
+     */
+    bodyKey: string;
+    /**
+     * Values for the placeholders. The Gateway has stripped control, format and bidirectional
+     * characters from the strings; show them as plain text, never as markup.
+     */
+    params?: { [key: string]: ExternalRef };
+    /**
+     * Message id of the title, e.g. notice.browser.chrome.title
+     */
+    titleKey: string;
+}
+
 export interface NotificationDevicePayload {
     body:         string;
     createdAt:    string;
     id:           string;
     interruption: Interruption;
     kind:         NotificationKind;
+    message?:     NoticeMessage;
     route?:       null | string;
     title:        string;
 }
@@ -8577,6 +8799,39 @@ export interface OnePasswordRef {
     vault: string;
 }
 
+export interface OnePasswordTestResult {
+    status:     OnePasswordSetupStatus;
+    vaultCount: number;
+}
+
+export interface OnePasswordSetupStatus {
+    account?:    Account;
+    connected:   boolean;
+    managedBy?:  ManagedByEnum;
+    op?:         OpClass;
+    os:          OS;
+    problem?:    ProblemEnum;
+    repinnedAt?: number;
+    state:       OnePasswordSetupState;
+}
+
+export interface Account {
+    email: string;
+    url:   string;
+}
+
+export type ManagedByEnum = "config";
+
+export interface OpClass {
+    path: string;
+}
+
+export type OS = "macos" | "other";
+
+export type ProblemEnum = "op_changed" | "op_unsigned" | "op_unsafe_folder";
+
+export type OnePasswordSetupState = "not_installed" | "found" | "not_integrated" | "locked" | "signed_in" | "error";
+
 export type OSPermission = "a11yBus" | "screenCastPortal" | "remoteDesktopPortal" | "x11";
 
 export interface PairingRequestedPayload {
@@ -8629,6 +8884,53 @@ export interface PasskeysRegisterFinishResult {
 export interface PasskeysRemoveParams {
     passkeyId: string;
     reauth:    PasskeyReauth;
+}
+
+export interface PaymentsLinkChangedPayload {
+    status: LinkSetupStatus;
+}
+
+export interface LinkSetupStatus {
+    candidates: LinkSetupStatusCandidate[];
+    cli?:       CLI;
+    problem?:   ProblemClass;
+    signIn?:    SignInClass;
+    state:      LinkSetupState;
+}
+
+export interface LinkSetupStatusCandidate {
+    path: string;
+}
+
+export interface CLI {
+    path:   string;
+    source: CLISource;
+}
+
+export type CLISource = "saved" | "env";
+
+export interface ProblemClass {
+    path:   string;
+    reason: LinkSetupReason;
+}
+
+export type LinkSetupReason = "not_absolute" | "missing" | "not_a_file" | "not_executable" | "wrong_owner" | "writable" | "parent_wrong_owner" | "parent_writable" | "in_psyche_home" | "not_link_cli" | "volta_shim";
+
+export interface SignInClass {
+    expiresAt:       number;
+    phrase:          string;
+    verificationUrl: string;
+}
+
+export type LinkSetupState = "cli_missing" | "cli_found" | "signed_out" | "signing_in" | "connected";
+
+export interface PaymentsLinkConnectParams {
+    approvalId?: string;
+    path:        string;
+}
+
+export interface PaymentsLinkDisconnectParams {
+    force?: boolean;
 }
 
 export interface PersonaUpdatedPayload {
@@ -12456,6 +12758,10 @@ export interface VaultLockedPayload {
 }
 
 export type VaultLockedPayloadReason = "manual" | "idle" | "sleep" | "screen_lock" | "shutdown";
+
+export interface VaultOnePasswordStatusParams {
+    probe?: boolean;
+}
 
 export interface VaultPaymentUpdatedPayload {
     payment: VaultPayment;

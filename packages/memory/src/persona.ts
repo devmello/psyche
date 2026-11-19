@@ -70,6 +70,48 @@ export function serializeIdentity(identity: Identity, body: string): string {
   return `---\n${stringify(data, { lineWidth: 0 }).trimEnd()}\n---\n${body}`;
 }
 
+/**
+ * Rewrites only the persona keys in `values` and, when given, the body; every other frontmatter
+ * line (unknown keys, comments, quoting) and the rest of the file stay byte-for-byte. A value is
+ * rendered by the YAML library, so it is quoted when it needs to be, and a newline cannot end the
+ * frontmatter early: callers pass one-line text (see `persona-edit.ts`).
+ */
+export function patchIdentityFile(
+  content: string,
+  values: Partial<Record<(typeof IDENTITY_KEYS)[number], string>>,
+  body?: string,
+): string {
+  const match = FRONTMATTER.exec(content);
+  if (match === null) {
+    const identity: Identity = { extra: {}, ...values };
+    return serializeIdentity(identity, body ?? content);
+  }
+  const yamlStart = content.indexOf("\n") + 1;
+  const yamlText = match[1] ?? "";
+  const yamlEnd = yamlStart + yamlText.length;
+  const lines = yamlText === "" ? [] : yamlText.split("\n");
+  for (const [key, value] of Object.entries(values)) {
+    if (value === undefined) continue;
+    const rendered = stringify({ [key]: value }, { lineWidth: 0 })
+      .trimEnd()
+      .split("\n");
+    const pattern = new RegExp(`^${key}\\s*:`);
+    let placed = false;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (!pattern.test(lines[i] ?? "")) continue;
+      // Drop the old value and any indented lines that continue it (a block scalar).
+      let end = i + 1;
+      while (end < lines.length && /^[ \t]/.test(lines[end] ?? "")) end++;
+      lines.splice(i, end - i, ...(placed ? [] : rendered));
+      placed = true;
+    }
+    if (!placed) lines.push(...rendered);
+  }
+  const rest = body ?? content.slice(match[0].length);
+  const newYaml = lines.join("\n");
+  return `${content.slice(0, yamlStart)}${newYaml}${content.slice(yamlEnd, match[0].length)}${rest}`;
+}
+
 // --- Template tokens ---------------------------------------------------------------------------
 
 /**

@@ -28,6 +28,7 @@ import {
   HEARTBEAT_TASK_BUDGET,
   hackerNewsSource,
   IdeasService,
+  type LaunchResult,
   lastMeetingNotes,
   MailWatcher,
   MeetingPrepService,
@@ -35,6 +36,7 @@ import {
   NOTES_CREATE_TOOL,
   NotesFolderWatcher,
   OFF_HOURS_POLL_MS,
+  type ProactiveJob,
   ProposalService,
   publicFetch,
   readDailySettings,
@@ -62,6 +64,7 @@ import type { Call, HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import { type CatchupDeps, composeCatchup } from "./catchup.ts";
 import { mountParamsOnly, surfaceOf } from "./handlers.ts";
+import { type HelperAvailability, isNeedsHelper } from "./helper-availability.ts";
 import { type ComposedMeetings, composeMeetings, graphPrepHooks } from "./meetings.ts";
 import { recordingsFolderIo } from "./notes-folder.ts";
 import type { GistSources } from "./people.ts";
@@ -130,6 +133,11 @@ export interface ProactiveSetup {
    * its changes become `calendar.changed` events while an event automation listens for them.
    */
   calendarHelper?: () => AppleHelper | undefined;
+  /**
+   * The Host helper's shared availability (`HelperAvailability`). Helper-backed jobs skip while it
+   * is offline and back off between attempts; absent = every job runs as before.
+   */
+  helper?: HelperBackoff;
   /** Post-meeting notes and Record meeting (§4.6); off without a registry. */
   meetings?: {
     home: string;
@@ -209,6 +217,34 @@ export interface ComposedProactive {
   stop(): void;
 }
 
+/** The shared Host-helper state and how to read the helper's presence now. */
+export interface HelperBackoff {
+  state: HelperAvailability;
+  connected: () => boolean;
+}
+
+/**
+ * A job that reads through the Host's helper: it skips (`no_reply`) while the helper is offline and
+ * its back-off has not passed, and a failure that says the helper is missing moves that back-off on.
+ */
+export function helperGated(job: ProactiveJob, helper: HelperBackoff | undefined): ProactiveJob {
+  if (helper === undefined) return job;
+  return {
+    name: job.name,
+    matches: (a) => job.matches(a),
+    run: async (request): Promise<LaunchResult> => {
+      helper.state.observe(helper.connected());
+      if (!helper.state.shouldAttempt()) return { status: "no_reply", summary: "helper offline" };
+      try {
+        return await job.run(request);
+      } catch (err) {
+        helper.state.noteFailure(err);
+        throw err;
+      }
+    },
+  };
+}
+
 export function composeProactive(setup: ProactiveSetup): ComposedProactive {
   const {
     db,
@@ -222,6 +258,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     publish,
     timeZone,
     logger,
+    helper,
     signals,
     skillUpdates,
     broker,
@@ -722,17 +759,24 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           feed.job(),
           ideas.job(),
           // Pause stops every mail and meeting job at once (Settings → Mail & meetings).
-          pausable(mailWatch.job(), paused),
-          ...(digest === undefined ? [] : [pausable(digest.job(), paused)]),
+          helperGated(pausable(mailWatch.job(), paused), helper),
+          ...(digest === undefined ? [] : [helperGated(pausable(digest.job(), paused), helper)]),
           ...(voice === undefined ? [] : [pausable(voice.job(), paused)]),
           ...(focus === undefined ? [] : [pausable(focus.job(), paused)]),
-          ...(meetingPrep === undefined ? [] : [pausable(meetingPrep.job(), paused)]),
-          ...(notesFolder === undefined ? [] : [pausable(notesFolder.job(), paused)]),
-          ...daily.jobs(),
+          ...(meetingPrep === undefined
+            ? []
+            : [helperGated(pausable(meetingPrep.job(), paused), helper)]),
+          ...(notesFolder === undefined
+            ? []
+            : [helperGated(pausable(notesFolder.job(), paused), helper)]),
+          ...daily.jobs().map((job) => helperGated(job, helper)),
         ],
         heartbeat: createTaskLauncher({ engine: tasks, pool, budget: HEARTBEAT_TASK_BUDGET }),
         onError: (err) =>
-          logger?.log("warn", "proactive job failed", { code: PsycheError.from(err).code }),
+          // A helper-offline failure is logged once by the availability state, not per job run.
+          isNeedsHelper(err)
+            ? undefined
+            : logger?.log("warn", "proactive job failed", { code: PsycheError.from(err).code }),
       }),
     syncWorkflowSchedules,
     offerWorkflowsOnUpgrade,

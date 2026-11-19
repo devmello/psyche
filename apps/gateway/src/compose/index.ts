@@ -61,6 +61,7 @@ import {
   RESTORE_MARKER,
   RevocationLedger,
   replayRevocations,
+  SENSITIVE_CATEGORY_SETTING_PREFIX,
   SqlitePermissionStore,
 } from "@psyche/permissions";
 import {
@@ -76,6 +77,7 @@ import {
   type EventName,
   type EventPayload,
   type IssuedApproval,
+  isUnattendedTask,
   MEMORY_RECALL_MODE_SETTING,
   MEMORY_WORK_SETTING_KEY,
   type Message,
@@ -98,7 +100,7 @@ import {
 } from "@psyche/scheduler";
 import { WEB_SEARCH_PROVIDER_SETTING, WEB_SEARCH_SEARXNG_SETTING } from "@psyche/search";
 import { createTaskHandlers, SqliteTaskEngine, TaskWorkerPool } from "@psyche/tasks";
-import { DerivedKeyStore, SecretRedactor, type Vault } from "@psyche/vault";
+import { DerivedKeyStore, type PaymentBroker, SecretRedactor, type Vault } from "@psyche/vault";
 import { type DocumentsHandle, documentBridge } from "../artifacts/bridge.ts";
 import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
@@ -112,12 +114,21 @@ import { sealedPermissionStore } from "../security/sealed-stores.ts";
 import { StateSeal } from "../security/state-seal.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { BusySources, UpdateGate } from "../update-gate.ts";
+import {
+  API_KEY_IDS,
+  API_KEY_LABEL,
+  apiKeyHandlers,
+  describeKeyActor,
+  envKey,
+  keyActorParts,
+} from "./api-keys.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { artifactContextProvider, composeArtifacts } from "./artifacts.ts";
 import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
 import { createAutoTitler } from "./auto-title.ts";
 import { withAutomationSpecialists } from "./automation-specialists.ts";
 import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
+import type { ComposedBrowser } from "./browser.ts";
 import { CallContexts } from "./call-context.ts";
 import { capabilityCatalogue, capabilityTools, deferToolFor } from "./capabilities.ts";
 import {
@@ -134,6 +145,8 @@ import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
 import { macHelper } from "./connectors.ts";
 import { createContext } from "./context.ts";
 import { composeConversion } from "./convert.ts";
+import { DeferredDigest } from "./deferred-digest.ts";
+import { DeferredResume } from "./deferred-resume.ts";
 import { composeDeviceNotifications, DeviceNotifications } from "./device-notify.ts";
 import { composeDictation } from "./dictation.ts";
 import { composeEverything, type Everything, everythingSettings } from "./everything.ts";
@@ -151,9 +164,11 @@ import {
   surfaceOf,
 } from "./handlers.ts";
 import { composeHarnesses } from "./harnesses.ts";
+import { HELPER_AVAILABILITY_SETTING, HelperAvailability } from "./helper-availability.ts";
 import { type HostTerminalOptions, hostTerminalPart } from "./host-terminal.ts";
 import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
+import { composeGuidedPayments, type LinkSetupOptions } from "./link-setup.ts";
 import type { ComposedMcp } from "./mcp.ts";
 import { memoryStoreStatus, resolveMemoryStore, setMemoryEncrypted } from "./memory-db.ts";
 import { withMemoryEntityContext } from "./memory-item-context.ts";
@@ -167,6 +182,7 @@ import {
   clearModelKey,
   type HostedModelKind,
   hasModelKey,
+  isHostedModelKind,
   storeModelKey,
   untilPrimaryPicked,
   vaultModelKeys,
@@ -178,15 +194,17 @@ import {
   settingsKeyValue,
 } from "./model-settings.ts";
 import { composeNudges } from "./nudges.ts";
+import { composeOnePasswordSetup, type OnePasswordSetupOptions } from "./onepassword-setup.ts";
 import { createOtherChats, type OtherChats } from "./other-chats.ts";
 import { PageReadHub } from "./page-reads.ts";
 import { composePasskeys } from "./passkeys.ts";
-import { composePayments, paymentsSetupFromEnv } from "./payments.ts";
+import { type ComposedPayments, type PaymentsSetup, paymentsSetupFromEnv } from "./payments.ts";
 import { composePeople, type People } from "./people.ts";
 import { graphSourceAdapters } from "./people-sources.ts";
 import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { folderAccessEnv, ownWorkdirs, protectedRoots } from "./protected-paths.ts";
+import { createPurchaseTool, LINK_PAYMENT_SOURCE, PURCHASE_TOOL } from "./purchase-tool.ts";
 import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import {
@@ -201,7 +219,12 @@ import { requestPermissionTool } from "./request-permission.ts";
 import { researchTools } from "./research.ts";
 import { withRunSnapshot } from "./run-snapshot.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
-import { createScheduledHandlers, pausedRoutines, withPausedRoutines } from "./scheduled.ts";
+import {
+  createScheduledHandlers,
+  pausedRoutines,
+  routineOf,
+  withPausedRoutines,
+} from "./scheduled.ts";
 import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
 import { scriptTools } from "./scripts.ts";
 import { type ComposedSearch, composeSearch, graphNames } from "./search.ts";
@@ -215,6 +238,7 @@ import { helperRecognizer } from "./search-ocr.ts";
 import { agentBlockedHit, canOpenGistSource, scrubCitations } from "./search-open.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import { agentLocalSearch, searchEverythingTool } from "./search-tool.ts";
+import { applySensitiveCategories, sensitiveCategoriesFrom } from "./sensitive-categories.ts";
 import { composeSeparateDesktop, separateDesktopFolderEnv } from "./separate-desktop.ts";
 import {
   type ApprovalRelay,
@@ -249,6 +273,7 @@ import {
   teachingSettings,
 } from "./teaching.ts";
 import { createThreadClear } from "./thread-clear.ts";
+import { endSessionQuietly } from "./thread-end.ts";
 import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
@@ -258,7 +283,7 @@ import { usageSummaryHandlers } from "./usage-summary.ts";
 import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 import type { ComposedVm } from "./vm.ts";
-import { composeWebTools, type WebToolsSetup } from "./web-tools.ts";
+import { type ComposedWebTools, composeWebTools, type WebToolsSetup } from "./web-tools.ts";
 import { ensureWeeklyCardAutomation, withWeeklyCard } from "./weekly-card.ts";
 import { composeWidgets } from "./widgets.ts";
 import { composeWork, workSettings } from "./work.ts";
@@ -311,6 +336,15 @@ export interface ComposeOptions
    * part with a `relay` delivers approvals beyond the in-app surfaces (chat, the Mac helper).
    */
   parts?: ReadonlyArray<(services: ComposeServices) => Promise<ComposedPart> | ComposedPart>;
+  /**
+   * Stripe Link payments. Default: the guided setup (Settings → Credentials → Payments), with
+   * `PSYCHE_LINK_CLI` as a dev override. A `wallet` replaces it (tests, the scenario runner);
+   * `link` tunes the guided setup (tests). Mount payments here, not as a part: the guided setup
+   * is always mounted and its `vault.payments.*` handlers would collide.
+   */
+  payments?: PaymentsSetup & { link?: LinkSetupOptions };
+  /** Tunes the guided 1Password setup (tests inject a fake `op` runner). */
+  onePasswordSetup?: OnePasswordSetupOptions;
   /**
    * Speech (S17: dictation, voice memos, read-aloud, voices) is always mounted; this sets its
    * process runner prefix (default: `speechSetupFromEnv`).
@@ -387,6 +421,8 @@ export interface ComposedGateway {
   readonly vault: Vault;
   /** Shared by the vault, its payment broker and every output path that masks. */
   readonly redactor: SecretRedactor;
+  /** The built-in web search and page tools (provider state, in-process search). */
+  readonly web: ComposedWebTools;
   readonly parts: readonly ComposedPart[];
   stop(reason?: string): Promise<void>;
 }
@@ -530,8 +566,36 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   // Parts that act on a setting the moment it changes (the separate desktop's reset).
   const settingListeners: ((c: { key: string; after: unknown }) => void)[] = [];
+  // A security change that only narrowed (no card) leaves one low-key notice per device and hour,
+  // so a compromised admin device cannot strip protections unseen.
+  const tightenedAt = new Map<string, number>();
+  const noticeTightened = (deviceId: string) => {
+    const now = clock.now();
+    const last = tightenedAt.get(deviceId);
+    if (last !== undefined && now - last < 60 * 60 * 1000) return;
+    tightenedAt.set(deviceId, now);
+    // The display name is the device's own choice, so add the start of its id: a compromised
+    // device cannot pass itself off as the owner's own by name alone.
+    const named = keyActorParts(getDevice(db, deviceId))?.device;
+    const device = named === undefined ? "none" : `${named} (${deviceId.slice(0, 8)})`;
+    void notifier
+      .notify({
+        kind: "system",
+        title: `Security settings were tightened from ${device === "none" ? "a device" : device}`,
+        body: "This only reduced what Psyche is allowed to do, so no approval was needed. If that was not you, revoke the device in Settings → Devices.",
+        message: {
+          titleKey: "notice.security.tightened.title",
+          bodyKey: "notice.security.tightened.body",
+          params: { device },
+        },
+        route: "/settings/devices",
+        dedupeKey: `security-tightened:${deviceId}:${Math.floor(now / (60 * 60 * 1000))}`,
+      })
+      .catch(() => undefined);
+  };
   gwOptions.onSettingChanged = (c) => {
     void changes.record(settingChange(c));
+    if (c.narrowing === true) noticeTightened(c.deviceId);
     for (const listener of settingListeners) listener(c);
   };
   // A restored backup's log is shorter than what this key anchored; the restore is audited with
@@ -612,12 +676,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const notifyAlert = (alert: SecurityAlert) => {
     const decision = alertNotifyDecision(alert, seal.alerts.notifiedAt(alert.id), clock.now());
     if (!decision.send) return;
-    const { title, body } = alertNotice(alert);
+    const { title, body, message } = alertNotice(alert);
     void notifier
       .notify({
         kind: "system",
         title,
         body,
+        message,
         route: "/settings/devices",
         dedupeKey: `security-alert:${alert.id}`,
         breakQuietHours: decision.breakQuietHours,
@@ -653,7 +718,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       entry,
     );
     const saved = setSetting(db, "permissions.policy", next);
-    rawBroker.setPolicy(hostPolicy(next));
+    rawBroker.setPolicy(hostPolicy(next, db));
     publish("settings.changed", { entries: [saved] });
   };
   // Revoking an `always` folder (Settings' access list) drops it from the same policy list.
@@ -664,10 +729,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     const kept = folders.filter((f) => f.path !== path);
     if (kept.length === folders.length) return false;
     const saved = setSetting(db, "permissions.policy", { ...current, folders: kept });
-    rawBroker.setPolicy(hostPolicy({ ...current, folders: kept }));
+    rawBroker.setPolicy(hostPolicy({ ...current, folders: kept }, db));
     publish("settings.changed", { entries: [saved] });
     return true;
   };
+  let deferredResumeRef: DeferredResume | undefined;
   const rawBroker = new PsychePermissionBroker({
     folderAccess: {
       env: () => folderAccessEnv(config.home),
@@ -705,6 +771,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     notifier,
     clock,
     revocations,
+    // An unattended run's card is announced by the automation digest, not by its own notice.
+    deferredApproval: async (a) => {
+      const taskId = a.requestedBy.taskId;
+      return isUnattendedTask(taskId == null ? undefined : await tasks.get(taskId));
+    },
+    // A set-aside card is approvable only when its automation can run again (deferred-resume.ts).
+    // The scheduler is composed later; until then nothing can resume, so nothing is approved.
+    canResume: async (a) => (await deferredResumeRef?.canResume(a)) === true,
+    // A restart revoked an approved set-aside card: say the resume will not happen.
+    onSetAsideRevoked: (a, how) => deferredResumeRef?.revokedAtRestart(a, how),
+    sameAutomation: (a, taskId) => deferredResumeRef?.sameAutomation(a, taskId) === true,
     psycheHome: config.home,
     presence: {
       // Presence fails closed while the security records are untrusted; the registered keys
@@ -726,7 +803,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       `http://localhost:${config.port}`,
       ...config.allowedOrigins.filter((o) => /^https?:\/\//.test(o)),
     ],
-    policy: hostPolicy((policy ?? storedPolicy) as PolicyConfig | undefined),
+    policy: hostPolicy((policy ?? storedPolicy) as PolicyConfig | undefined, db),
   });
   const broker = withRelay(tokens.wrap(rawBroker), relays, gwOptions.logger);
   // The teaching loop (#679) reads approval answers as implicit feedback; set once composed.
@@ -765,6 +842,26 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       publish("receipt.created", { receipt: e.receipt });
     }
   });
+  // One digest for every automation card waiting on the owner (see deferred-digest.ts).
+  const deferredDigest = new DeferredDigest({
+    broker,
+    notifier,
+    clock,
+    isDeferred: async (a) => {
+      const taskId = a.requestedBy.taskId;
+      return isUnattendedTask(taskId == null ? undefined : await tasks.get(taskId));
+    },
+  });
+  broker.subscribe((e) => {
+    if (
+      e.type === "approval.created" ||
+      e.type === "approval.decided" ||
+      e.type === "approval.expired" ||
+      e.type === "approval.invalidated"
+    ) {
+      void deferredDigest.refresh().catch(() => undefined);
+    }
+  });
 
   const vault = composeVault(
     {
@@ -794,15 +891,55 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     },
   );
 
+  // Environment keys win over the vault and are masked wherever the Gateway logs.
+  const keyEnv = gwOptions.env ?? process.env;
+  for (const id of API_KEY_IDS) {
+    const k = envKey(keyEnv, id);
+    if (k !== undefined) redactor.add(k, { sticky: true });
+  }
   const vaultKeys = "router" in model && model.vaultKeys === true;
   const modelSetup: ModelSetup = vaultKeys
-    ? { ...model, keys: vaultModelKeys(() => vault.vault) }
+    ? { ...model, keys: vaultModelKeys(() => vault.vault, keyEnv) }
     : model;
   // Bound below, once the Gateway's node registry exists.
   const appleHelper: { current: AppleHelper } = { current: () => undefined };
   const routed = providerFor(modelSetup, clock, db, config.home, () => appleHelper.current());
   const { model: modelRef, utility, router } = routed;
   const provider = vaultKeys && router !== undefined ? untilPrimaryPicked(router) : routed.provider;
+  // Tells the owner's devices a key was swapped or removed. It names the provider and the device
+  // (as quoted data, see describeKeyActor), never the key.
+  const noticeKeyChange = ({
+    id,
+    action,
+    deviceId,
+  }: {
+    id: keyof typeof API_KEY_LABEL;
+    action: "changed" | "removed";
+    deviceId: string;
+  }) => {
+    const what = `${API_KEY_LABEL[id]} ${id === "brave" ? "key" : "API key"}`;
+    const actor = keyActorParts(getDevice(db, deviceId));
+    void notifier
+      .notify({
+        kind: "system",
+        message: {
+          titleKey: "notice.apiKey.changed.title",
+          bodyKey: "notice.apiKey.changed.body",
+          params: {
+            provider: API_KEY_LABEL[id],
+            kind: id === "brave" ? "brave" : "api",
+            action,
+            device: actor?.device ?? "none",
+            platform: actor?.platform ?? "",
+            paired: actor?.paired ?? "none",
+          },
+        },
+        title: `The ${what} was ${action}`,
+        body: `${action === "changed" ? "Changed" : "Removed"} from ${describeKeyActor(getDevice(db, deviceId))}. If that was not you, revoke the device in Settings → Devices.`,
+        route: "/settings/devices",
+      })
+      .catch(() => undefined);
+  };
   const modelSettings: ModelSettingsSetup = {
     db,
     clock,
@@ -819,9 +956,25 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(vaultKeys
       ? {
           vaultKeys: {
-            has: (id: string) => hasModelKey(vault.vault, id),
-            store: (id: HostedModelKind, key: string) => storeModelKey(vault.vault, id, key),
-            clear: (id: HostedModelKind) => clearModelKey(vault.vault, id),
+            has: (id: string) =>
+              hasModelKey(vault.vault, id) ||
+              (isHostedModelKind(id) && envKey(keyEnv, id) !== undefined),
+            // The same notice as keys.set / keys.clear: a replace or removal tells the owner, a
+            // first set or a no-op clear does not, whichever method wrote the item.
+            store: async (id: HostedModelKind, key: string, deviceId?: string) => {
+              const replaced = hasModelKey(vault.vault, id);
+              await storeModelKey(vault.vault, id, key);
+              if (replaced && deviceId !== undefined) {
+                noticeKeyChange({ id, action: "changed", deviceId });
+              }
+            },
+            clear: async (id: HostedModelKind, deviceId?: string) => {
+              const removed = await clearModelKey(vault.vault, id);
+              if (removed && deviceId !== undefined) {
+                noticeKeyChange({ id, action: "removed", deviceId });
+              }
+              return removed;
+            },
           },
         }
       : {}),
@@ -900,8 +1053,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // No folder list means nothing is granted (#287), never "only the broker checks".
     // This conversation's "Allow once" folders count beside the owner's (request_folder_access).
     folders: (scope) => [
-      ...(rawBroker.policy.folders ?? []),
-      ...(scope === undefined ? [] : rawBroker.sessionFolders(scope.threadId)),
+      ...rawBroker.grantedFolders(),
+      ...(scope === undefined ? [] : rawBroker.liveSessionFolders(scope.threadId)),
     ],
     protectedRoots: () => protectedRoots(config.home),
     ownDirs: () => ownWorkdirs(config.home),
@@ -912,7 +1065,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // exec_host, a connector group set to deny, a connector, macOS access, the sandbox).
   const savePolicy = (next: PolicyConfig) => {
     const entry = setSetting(db, "permissions.policy", next);
-    rawBroker.setPolicy(hostPolicy(next));
+    rawBroker.setPolicy(hostPolicy(next, db));
     publish("settings.changed", { entries: [entry] });
   };
   // The Gateway's one srt lookup (`PSYCHE_SRT_PATH`, `exec.srtPath`, then found on this Mac):
@@ -927,8 +1080,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       surfaces: ["desktop", "web"],
       folderEnv: () => folderAccessEnv(config.home),
       grantedFolders: (threadId) => [
-        ...(rawBroker.policy.folders ?? []),
-        ...rawBroker.sessionFolders(threadId),
+        ...rawBroker.grantedFolders(),
+        ...rawBroker.liveSessionFolders(threadId),
       ],
       execHostEnabled: () => rawBroker.policy.exec?.execHostEnabled === true,
       enableExecHost: async () => {
@@ -973,8 +1126,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       broker: executorBroker,
       vault: vault.vault,
       folders: (threadId) => [
-        ...(rawBroker.policy.folders ?? []),
-        ...rawBroker.sessionFolders(threadId),
+        ...rawBroker.grantedFolders(),
+        ...rawBroker.liveSessionFolders(threadId),
       ],
       srt: execHostSrt,
       home: config.home,
@@ -1090,6 +1243,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
             kind: "input_needed",
             title: "A task is waiting for you",
             body: `Paused before ${tool} on a sensitive app or site until you are back in Psyche.`,
+            message: {
+              titleKey: "notice.attention.paused.title",
+              bodyKey: "notice.attention.paused.body",
+              params: { tool },
+            },
             taskId,
             dedupeKey: `attention:${taskId}`,
             route: `/tasks/${taskId}`,
@@ -1133,7 +1291,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     composeArtifacts,
     // Generative-UI widgets (generative-ui-2026): snapshots by id; tools arrive in P3.
     composeWidgets,
-    composePayments(paymentsSetupFromEnv(gwOptions.env)),
+    // Guided 1Password setup (Settings → Credentials): the CLI integration of the 1Password app.
+    composeOnePasswordSetup({
+      ...gwOptions.onePasswordSetup,
+      externalConfigured:
+        (vaultSetup?.onePassword ?? config.onePassword ?? undefined) !== undefined,
+    }),
+    composeGuidedPayments(
+      gwOptions.payments ?? paymentsSetupFromEnv(gwOptions.env ?? process.env),
+      gwOptions.payments?.link,
+    ),
     // Web passkeys (issue #79): unavailable until gateway.publicOrigin is an https origin. A
     // caller-supplied `presence` verifier takes the passkey role instead.
     ...(presence === NO_PRESENCE ? [composePasskeys({ publicOrigin: config.publicOrigin })] : []),
@@ -1164,6 +1331,57 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     if (part.localProject !== undefined) {
       localProject = part.localProject;
       localProjectSupplied = true;
+    }
+  }
+  // The agent's purchase tool exists only with a wallet configured and a browser to pay in. With
+  // the guided setup the wallet is always there, so the tool follows whether a Link CLI is
+  // connected: it appears on connect and goes on disconnect, and no Pay card is ever raised for a
+  // payment that cannot happen.
+  const paymentsPart = parts.find((p): p is ComposedPayments & { payments: PaymentBroker } => {
+    return "payments" in p && p.payments !== undefined;
+  });
+  const browserPart = parts.find((p): p is ComposedBrowser => "ownsTab" in p && "devServers" in p);
+  if (paymentsPart !== undefined && browserPart !== undefined) {
+    const availability = paymentsPart.availability;
+    const purchaseTool = createPurchaseTool({
+      payments: paymentsPart.payments,
+      driver: () => browserPart.driver,
+      ownsTab: (callId, tabId) => browserPart.ownsTab(callId, tabId),
+      calls,
+      approvals: broker,
+      redactor,
+      // Checked on every call too: a tool list built before a disconnect raises no Pay card.
+      ...(availability === undefined ? {} : { ready: () => availability.ready() }),
+      ...(gwOptions.env?.PSYCHE_LINK_TEST === "1" ? { test: true } : {}),
+    });
+    if (availability === undefined) services.tools.register(purchaseTool);
+    else {
+      let unregister: (() => void) | undefined;
+      const follow = () => {
+        // Connected and signed in: a saved CLI path alone is not enough (before sign-in, Link
+        // cannot pay).
+        const on = availability.ready();
+        if (on && unregister === undefined) unregister = services.tools.register(purchaseTool);
+        else if (!on && unregister !== undefined) {
+          unregister();
+          unregister = undefined;
+          // A Stripe Link Pay card still open when Link goes away is withdrawn, never left to be
+          // approved. Other purchase cards (a vault card at a shop, a connector) stay.
+          void broker
+            .invalidatePendingOfKind(
+              "purchase",
+              "payments_disconnected",
+              // The fallback card (a tab with no origin) has no paymentSource: the loop always
+              // names the tool, so match that too.
+              (a) =>
+                a.details?.paymentSource === LINK_PAYMENT_SOURCE ||
+                a.details?.tool === PURCHASE_TOOL,
+            )
+            .catch(() => undefined);
+        }
+      };
+      follow();
+      availability.onChange(follow);
     }
   }
   // The people graph's deterministic pass reads the connected apps through their tools (#732).
@@ -1214,6 +1432,25 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // Watches (O3) read public pages through the guarded fetch until S09 exports its own.
     watchFetch: publicFetch(),
     ...(timeZone === undefined ? {} : { defaultTimezone: timeZone }),
+  });
+  // Approve on a set-aside automation card starts a resume run that may do it once (deferred-resume.ts).
+  const deferredResume = new DeferredResume({
+    scheduler,
+    notifier,
+    clock,
+    settle: (id) => broker.settleSetAside(id),
+    // A built-in routine paused in Scheduled keeps `enabled`; it must not be resumed either.
+    // `scheduledKv` is composed later; this runs only once the owner answers a card.
+    isPaused: (a) => pausedRoutines(scheduledKv).has(routineOf(a).id),
+    onError: (err) =>
+      gwOptions.logger?.log("warn", "deferred resume failed", {
+        error: err instanceof Error ? err.message : String(err),
+      }),
+  });
+  deferredResumeRef = deferredResume;
+  broker.subscribe((e) => deferredResume.onBrokerEvent(e));
+  scheduler.subscribe((e) => {
+    if (e.event === "automation.run.finished") deferredResume.onRunFinished(e.payload.run);
   });
   // E12 "From your other chats": digests of the owner's chats, shared only with threads.otherChats on.
   const otherChats = createOtherChats({ db, audit, now: () => clock.now() });
@@ -1314,7 +1551,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       }),
       write: (next) => {
         const entry = setSetting(db, "permissions.policy", next);
-        rawBroker.setPolicy(hostPolicy(next as PolicyConfig));
+        rawBroker.setPolicy(hostPolicy(next as PolicyConfig, db));
         publish("settings.changed", { entries: [entry] });
       },
       owned: () => (getSetting(db, TEACHING_ASK_RULES_KEY)?.value as string[] | undefined) ?? [],
@@ -1343,6 +1580,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     clock,
     ...(timeZone === undefined ? {} : { timeZone }),
     approvalSurfaces: ["desktop", "web"],
+    resumeApproval: (q) => deferredResume.claim(q),
     skills: skills.loader,
     ...(compaction === undefined ? {} : { compaction }),
     contextProviders: [
@@ -1477,9 +1715,26 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     (p): p is ComposedPart & { meetings: MeetingIngest } => "meetings" in p,
   );
   // S15: goal check-ins and the Feed run in-process; the heartbeat gets its 5k-token budget (O2).
+  // The Host helper's shared availability (one state for every helper-backed source and job): they
+  // skip quietly while it is offline, back off between attempts, and resume on reconnect.
+  const helperConnected = (): boolean => gatewayRef?.context.nodes.hostHelper() !== undefined;
+  const helperAvailability = new HelperAvailability(false, {
+    now: () => clock.now(),
+    log: (level, msg, fields) => gwOptions.logger?.log(level, msg, fields),
+    // The app's banner reads this setting (`settings.get`), so it follows the Gateway's own view.
+    onChange: (status) => {
+      publish("settings.changed", {
+        entries: [setSetting(db, HELPER_AVAILABILITY_SETTING, status)],
+      });
+    },
+  });
+  // A status left by the previous run (two helpers connected when it stopped) must not outlive
+  // it: no helper is connected yet. Quiet write; later changes publish through `onChange`.
+  setSetting(db, HELPER_AVAILABILITY_SETTING, helperAvailability.status());
   const proactive = composeProactive({
     db,
     clock,
+    helper: { state: helperAvailability, connected: helperConnected },
     scheduler,
     notifier,
     tasks,
@@ -1526,7 +1781,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // The people graph while the owner has it on: prep's attendees and loops, notes' loops.
     graph: () => (people?.settings().enabled === true ? people.graph : undefined),
     // The recordings-folder watch reads only inside these (#953).
-    folders: () => rawBroker.policy.folders ?? [],
+    folders: () => rawBroker.grantedFolders(),
     ...(timeZone === undefined ? {} : { timeZone }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
@@ -1548,6 +1803,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       env: gwOptions.env ?? process.env,
       publish,
       redactor,
+      vault: () => vault.vault,
       ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
     },
     webSetup,
@@ -1654,7 +1910,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       sandbox: parts.find(
         (p): p is ComposedSandbox => "runner" in p && "egress" in p && "track" in p,
       ),
-      folders: () => rawBroker.policy.folders ?? [],
+      folders: () => rawBroker.grantedFolders(),
     }),
   );
   // A device that goes away ends the meeting recording it was capturing (§4.6).
@@ -1700,6 +1956,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     connectors: async () => (connectorsPart === undefined ? [] : connectorsPart.registry.list()),
     tools: services.tools,
     messages: graphMessagesHelper,
+    helperOnline: () => {
+      helperAvailability.observe(helperConnected());
+      return helperAvailability.status().connected;
+    },
+    onContactsDenied: (denied) => helperAvailability.setContactsDenied(denied),
     // The Contacts source reads through the Host's own helper, like Messages.
     contacts: () => gatewayRef?.context.nodes.hostHelper("contacts.read")?.client,
     graph: () => (people?.settings().enabled === true ? people.graph : undefined),
@@ -1737,7 +1998,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         ...(memoryLate === undefined ? {} : { ready: () => memoryLate.ready }),
       }),
       files: filesSourceDeps({
-        folders: () => rawBroker.policy.folders ?? [],
+        folders: () => rawBroker.grantedFolders(),
         // Vision OCR in the Mac helper (opt-in per source), one file at a time, on power only.
         ocr: { recognize: helperRecognizer(ocrHelper), power },
       }),
@@ -1855,9 +2116,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }),
   );
   // documents.convert: LibreOffice in its own sandbox on the full image (P4).
-  parts.push(
-    composeConversion({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
-  );
+  parts.push(composeConversion({ folders: () => rawBroker.grantedFolders(), home: config.home }));
   // app.uninstall.authorize: the presence gate in front of the uninstall sheet's "Delete my data".
   parts.push({ handlers: uninstallHandlers(services) });
   const handlers: Record<string, HandlerDef> = {
@@ -1953,10 +2212,33 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ...(gwOptions.logger === undefined ? {} : { log: gwOptions.logger }),
     }),
     ...changeHandlers({ audit }),
-    ...filesHandlers({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
+    ...filesHandlers({
+      folders: () => rawBroker.grantedFolders(),
+      home: config.home,
+      audit,
+      share: {
+        broker: executorBroker,
+        surfaces: ["desktop", "web"],
+        folderEnv: () => folderAccessEnv(config.home),
+        grantedFolders: (threadId) => [
+          ...rawBroker.grantedFolders(),
+          ...rawBroker.liveSessionFolders(threadId),
+        ],
+      },
+    }),
     ...attentionHandlers(attention),
     ...libraryHandlers({ db, home: config.home }),
     ...modelSettingsHandlers(modelSettings),
+    ...apiKeyHandlers({
+      vault: () => vault.vault,
+      env: keyEnv,
+      audit,
+      modelKeysInVault: vaultKeys,
+      onChanged: (id) => {
+        if (id === "brave") webTools.refresh();
+      },
+      onKeyReplaced: noticeKeyChange,
+    }),
     // The Overview's aggregates (docs/design/agent-overview-2026.md §6.2): read-only SQL.
     ...insightsHandlers({
       db,
@@ -2064,6 +2346,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     attention.observe(frame),
   );
   vault.attach(gateway.context.nodes);
+  // The helper's availability follows connect and disconnect directly: the banner clears and the
+  // paused sources and jobs resume the moment it returns, not at the next job run or search.
+  const syncHelperAvailability = (): void => {
+    helperAvailability.observe(helperConnected());
+    helperAvailability.setAmbiguous(gateway.context.nodes.ambiguousHelpers());
+  };
+  const unsubscribeHelperChange = gateway.context.nodes.onHostHelperChange(syncHelperAvailability);
+  syncHelperAvailability();
   // The owner's folder grants and rules apply without a restart (settings.set → broker policy).
   const unsubscribePolicy = gateway.bus.subscribe(["operator.read"], (frame) => {
     const f = JSON.parse(frame) as {
@@ -2076,9 +2366,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       if (entry.key === MEMORY_RECALL_MODE_SETTING) void memoryRecall.apply();
       if (entry.key === WEB_SEARCH_PROVIDER_SETTING || entry.key === WEB_SEARCH_SEARXNG_SETTING)
         webTools.refresh();
+      // The optional sensitive categories (Settings → Permissions) apply to the next call.
+      // Only this layer changes: connector matrices, lifted floors and Computer use tiers stay.
+      if (entry.key.startsWith(SENSITIVE_CATEGORY_SETTING_PREFIX)) {
+        applySensitiveCategories(rawBroker, db);
+        continue;
+      }
       if (entry.key !== "permissions.policy") continue;
       try {
-        rawBroker.setPolicy(hostPolicy((entry.value ?? {}) as PolicyConfig));
+        rawBroker.setPolicy(hostPolicy((entry.value ?? {}) as PolicyConfig, db));
       } catch (err) {
         gwOptions.logger?.log("warn", "invalid permissions.policy ignored", {
           code: PsycheError.from(err).code,
@@ -2122,6 +2418,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ref.kind === "life_answer"
       ? everything.lifeChat.resolve(ref, caller)
       : baseChatContext(ref, caller);
+  gateway.context.chatFiles.attach = (threadId, paths, by) =>
+    rawBroker.attachFiles(threadId, paths, by);
+  gateway.context.chatFiles.attached = (threadId) => rawBroker.attachedFiles(threadId);
+  // Clear chat and delete end the conversation: its "Allow once" folders and attached files go.
+  gateway.context.threadEnded.add(endSessionQuietly(rawBroker, gwOptions.logger));
   gateway.context.messageScrub.scrub = (message, who) => everything.lifeChat.scrub(message, who);
   await proactive.start();
   await ensureWeeklyCardAutomation(scheduler, {
@@ -2177,6 +2478,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     provider,
     vault: vault.vault,
     redactor,
+    web: webTools,
     parts,
     async stop(reason) {
       for (const part of [...parts].reverse()) await part.stop?.();
@@ -2187,6 +2489,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       scheduler.stop();
       memory.unwatch();
       unsubscribePolicy();
+      unsubscribeHelperChange();
       unsubscribeAttention();
       // Suspended subscription-CLI runs end with the Gateway.
       for (const p of router?.providers() ?? []) if (p instanceof CliAdapter) await p.close();
@@ -2280,11 +2583,15 @@ export { createLogger, surfaceOf };
  * (`/workspace`, the sandbox's) would grant read-write on a host `/workspace` to the host file
  * tools, so here no workspace root exists unless the owner names one (#287).
  */
-function hostPolicy(p: PolicyConfig | undefined): PolicyConfig {
+function hostPolicy(p: PolicyConfig | undefined, db: PsycheDb): PolicyConfig {
   // Lifted floors come only from Settings' confirmed opt-in (`permissions.liftedFloors.<id>`,
   // connector-matrix.ts), never from a stored or imported policy (security §3.12).
-  const { liftedFloors: _imported, ...rest } = p ?? {};
-  return { ...rest, workspaceRoots: p?.workspaceRoots ?? [] };
+  const { liftedFloors: _imported, sensitiveCategories: _stored, ...rest } = p ?? {};
+  return {
+    ...rest,
+    sensitiveCategories: sensitiveCategoriesFrom(db),
+    workspaceRoots: p?.workspaceRoots ?? [],
+  };
 }
 
 /**

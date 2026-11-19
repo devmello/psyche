@@ -2,8 +2,11 @@
 
 Curated by the `reflect` skill from PR "Learnings" sections, verify failures and review findings. Builders read this. Builders don't edit it directly: write learnings in your PR body instead. Each line says what happened, what to do, and where it came from.
 
-- zsh does not word-split `$files`. Run multi-file commands under `bash -c`, or use arrays. Otherwise vitest reports false failures. (2026-11-05)
+- zsh does not word-split `$files`. Run multi-file commands and probe loops under `bash -c`, or use arrays. Otherwise vitest reports false failures. (2026-11-05, #1372)
 - macOS has no `timeout` command. Don't wrap commands in it. (2026-11-05)
+- macOS `/bin/bash` is 3.2: no `mapfile`, use a `while read` loop (#1371). `sed -i` needs a suffix argument, `sed -i ''` (#1369). `rg` in the Bash tool is a shell function around the Claude binary, not a file on PATH (#1372). (2026-11-19)
+- Writing a heredoc'd script with absolute paths outside the worktree makes the shell tool refuse as "too complex": write it to the scratchpad and run it. The Write tool turns U+2028 in source into the literal character; use `\p{Zl}\p{Zp}` in regexes (#1366). (2026-11-19)
+- After renaming a prop, check the destructured names: a `ReferenceError` there surfaces in the UI as a generic error (#1369). In tests, `describeCall` reads the sandbox's last known state: call it once and wait a tick before expecting `meta.hostProgram` (#1368). (2026-11-19)
 - `@psyche/audit`'s `sha256` returns a `sha256:`-prefixed digest. Strip the prefix when another side expects bare hex: the helper's and WebAuthn's challenges. (2026-11-09)
 - Edit a test file after running biome and it can still fail lint on formatting. Run `biome check --write` as the very last step. (2026-10-26)
 - Adding a protocol enum value breaks the Swift helper's exhaustive switches, and Linux CI never builds Swift. Grep `apps/mac-helper/Sources` for the enum. (2026-10-26)

@@ -1,8 +1,10 @@
+import { lstatSync } from "node:fs";
 import { lstat, realpath } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import {
   canonicalHostPath,
   HostPathError,
+  isMacMagicPath,
   isUnderHostPath,
   isWin32HostPath,
   relativeHostPath,
@@ -14,6 +16,8 @@ import { PsycheError } from "@psyche/protocol";
 export interface GrantedFolder {
   path: string;
   mode: "ro" | "rw";
+  /** One attached file: it matches that exact path, and only while it is still a regular file. */
+  file?: true;
 }
 
 /**
@@ -24,7 +28,16 @@ export interface GrantedFolder {
  */
 export function canonicalTarget(p: string): string {
   if (p.includes("\0")) throw new PsycheError("invalid_params", "NUL in path");
-  if (process.platform !== "win32") return resolve(p);
+  if (process.platform !== "win32") {
+    const abs = resolve(p);
+    // `/.nofollow/<abs>` and `/.vol/..` open another file, past every root check below.
+    if (isMacMagicPath(abs)) {
+      throw new PsycheError("forbidden", `${p} is not a path Psyche can use`, {
+        details: { reason: "protected_path" },
+      });
+    }
+    return abs;
+  }
   try {
     const c = canonicalHostPath(p);
     // Windows would read `/x` as `\x` on the current drive: only drive and UNC paths name a file.
@@ -39,6 +52,17 @@ export function canonicalTarget(p: string): string {
 /** `child` equals `root` or lies under it, by whole segments (Windows paths without case). */
 export function isUnder(child: string, root: string): boolean {
   return isUnderHostPath(child, root);
+}
+
+function isRegularFile(path: string): boolean {
+  try {
+    const st = lstatSync(path);
+    // A hard link is another name for a file that may be somewhere else (a swapped-in link to
+    // a key): an attached file has exactly one name.
+    return st.isFile() && st.nlink === 1;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -56,8 +80,18 @@ export function assertGranted(
   // The longest matching root decides, as in the broker.
   let best: GrantedFolder | undefined;
   for (const f of folders) {
-    const root = canonicalTarget(f.path);
-    if (isUnder(path, root) && (best === undefined || root.length > best.path.length)) {
+    let root: string;
+    try {
+      root = canonicalTarget(f.path);
+    } catch {
+      // A stored grant that names nothing usable (`/.nofollow/..`) covers nothing.
+      continue;
+    }
+    // A file entry is that exact path, and only while it is still a regular file: a file
+    // replaced by a folder opens nothing inside it.
+    const hit = f.file === true ? isUnder(path, root) && isUnder(root, path) : isUnder(path, root);
+    if (hit && f.file === true && !isRegularFile(root)) continue;
+    if (hit && (best === undefined || root.length > best.path.length)) {
       best = { path: root, mode: f.mode };
     }
   }
@@ -97,6 +131,8 @@ export function isProtectedPath(
   roots: readonly string[] | undefined,
   ownDirs: readonly string[] = [],
 ): boolean {
+  // `/.nofollow/<abs>` opens `<abs>` past every root below: never a usable path on macOS.
+  if (isMacMagicPath(path)) return true;
   if (roots === undefined) return false;
   const own = ownDirs.map(canonicalTarget).find((d) => isUnder(path, d));
   for (const raw of roots) {
@@ -158,6 +194,8 @@ export function fsError(err: unknown, path: string): unknown {
   if (code === "ENOENT") return new PsycheError("not_found", `${path} does not exist`);
   if (code === "ENOTDIR") return new PsycheError("invalid_params", `${path} is not a folder`);
   if (code === "EISDIR") return new PsycheError("invalid_params", `${path} is a folder`);
+  if (code === "ENAMETOOLONG")
+    return new PsycheError("invalid_params", `${path} has a name that is too long`);
   // O_NOFOLLOW on a link swapped in after the check.
   if (code === "ELOOP" || code === "EMLINK") {
     return new PsycheError("forbidden", `${path} is a symlink; use the real path`);

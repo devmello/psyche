@@ -265,6 +265,11 @@ function openConsent(services: ComposeServices, url: URL): void {
     .notify({
       kind: "system",
       route: "/settings/connectors",
+      message: {
+        titleKey: "notice.connector.consent.title",
+        bodyKey: "notice.connector.consent.body",
+        params: { url: url.href },
+      },
       title: "Finish connecting Google",
       body: `Open this link on the computer running Psyche to grant access: ${url.href}`,
       dedupeKey: `connector:consent:${url.searchParams.get("state") ?? ""}`,

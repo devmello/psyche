@@ -40,25 +40,37 @@ Out of scope: <neighbouring areas other sessions own>
 ```
 
 - The `/goal` line must come first, so the session sets a goal. The goal evaluator only reads the conversation, so the condition has to be something the builder's messages can show, plus a turn cap.
+- Pass explicit file lists; an empty one runs a whole suite.
 - Before you dispatch a list of follow-ups, check each against main. Two of them were non-issues (see `psyche-permissions` learnings).
 - Put file paths and identifiers in backticks. Give every finding you already have, so the builder doesn't rediscover it.
 - `background` restates the product context and the owner's relevant decisions, for someone who has never seen this conversation.
 
 ## 3. The verification loop
 
-1. **Builder self-check.** It runs `verify.sh` until it passes. The Stop hook enforces this. `/goal` keeps it going until the PR exists.
+1. **Builder self-check.** It runs touched tests while working and `verify.sh` once before the PR. The Stop hook only runs `--quick`. `/goal` keeps it going until the PR exists. Owner rule (2026-11-18): don't overheat the Mac. One full check per PR head, and full checks queue one at a time.
 2. **Orchestrator verify.** When a builder reports, don't trust the report:
    - `gh pr view <n>` and `gh pr diff <n>`: read the diff against "Done means".
-   - Throwaway worktree: `git worktree add <scratchpad>/wt-<n> origin/<head branch>` (the PR's real head ref, from `gh pr view --json headRefName`), then `pnpm install --frozen-lockfile --prefer-offline` and `bash .claude/scripts/verify.sh`, with `--swift` if needed. Remove the worktree after.
+   - Throwaway worktree: `git worktree add <scratchpad>/wt-<n> origin/<head branch>` (the PR's real head ref, from `gh pr view --json headRefName`), then `pnpm install --frozen-lockfile --prefer-offline --ignore-scripts` (a plain install fails on better-sqlite3 here; if pnpm still reinstalls, set `pnpm_config_verify_deps_before_run=false`) and `bash .claude/scripts/verify.sh --related`, with `--swift` if needed. Remove the worktree after. This is the merge gate: run it once per PR head. If a `haiku-verifier` or `security-reviewer` already ran it on the same head SHA, read theirs instead of running it again. Docs, copy or i18n-only PRs need no `--related`.
    - For cheap, non-security PRs, delegate this to the `haiku-verifier` agent and read its verdict.
 3. **Independent review.** Every security, permissions, auth, crypto, sandbox or update PR goes to the `security-reviewer` agent (Opus), with concrete attack classes and the owner's relevant decisions. Never let the author review itself.
 4. **Send findings back.** Use `SendMessage` to the builder session, with numbered findings, file:line, and what "fixed" means. It fixes, verifies and reports. Then go back to step 2.
    - **Classifier-like work:** have the reviewer write its probes as two lists, "must match" and "must not". Send them as rows for the builder's table test. In #1301 the two-way probe lists caught what three rounds of one-way fixes missed.
    - **Owner decisions:** when you relay one that flips behaviour, tell the builder to grep the tests for the old expectation and run `verify.sh` before reporting. #1300 left `model-settings.test.ts` stale.
-   - **Re-reviews** read the whole diff since the last reviewed head, not only the listed findings. In #1299 R2 and #1301 R2–R4, a fix opened the next hole.
-5. **Escalate.** Escalate after 2 failed rounds on the same finding, after 2 rounds of blocking findings in one area even if each finding differs (#1301 was switched to Opus after R2), or when a builder is stuck or confused. Switch it up a tier (`set_session_model`) or start a fresh tier-X session with everything learned. Note the failure for `reflect`.
+   - **Narrowing or classifier checks:** ask the reviewer to probe through the real engine (`decide()`), not only the pure function (#1354 r1 to r3).
+   - **Re-reviews after a main merge** diff the PR's own first-parent commits, so the merge doesn't bury the fix (#1354 r2). They read the whole diff since the last reviewed head, not only the listed findings. In #1299 R2 and #1301 R2–R4, a fix opened the next hole.
+5. **Escalate.** Escalate after 2 failed rounds on the same finding, after 2 rounds of blocking findings in one area even if each finding differs (#1301 was switched to Opus after R2), or when a builder is stuck or confused. Switch it up a tier (`set_session_model`) or start a fresh tier-X session with everything learned. For a small, contained area, fix it yourself after the second blocking round: #1354 r2, #1368 r1 and #1372 r1 did, and the next round came back clean. Note the failure for `reflect`.
 
 ## 4. Merge
+
+- **Two PRs on the same UI or module:** before the second merges, merge `origin/main` into it and re-run the first PR's tests (#1325 and #1328 broke main until #1331).
+- **New action path:** for a PR that adds a tool or route that acts, put "check against every existing prohibition" into the review brief (#1315 skipped #1321's block).
+- **Brief wording by area:** decoder or redaction: three-way fuzz (before, main, head) with counts (#1342, #1345). Bulk-approval set: "allowlist". UI test of approvals or grants: "real Gateway shapes" (#1346). Persistence or a new approval/answer field: "real SQLite round trip" (#1333, #1355). Redacting getter: "the raw setter must refuse or merge-preserve" (#1351). Exec/path/name lists: "fold NFKC + case, `realpathSync.native`, path flags and option values, fail closed" (#1361); argv classifiers: "probe each value letter against the real binary, `--` as a value, abbreviations" (#1368, #1372). Event reordering: "subscriber map" (#1364). Grants: "equality match, nlink, expiry in every accessor, real handlers" (#1366). Vault writes: "check the slug is ours" (#1373).
+- **Merge gate:** full `verify.sh` runs touched tests and their same-named siblings only. A PR that changes widely imported or security code still needs `--related` once, or the importer tests named in the brief (#1361: 9 failures hid until the orchestrator ran them).
+- **Reviewer says "fit to merge" but lists medium non-blocking findings that contradict the PR's own claims** (docs or tests saying a grant ends at `/new` when it doesn't): send them back to the builder before merging (#1366 r1, fixed in r2 and r3).
+- **Conflict with main in a shared file** (`broker.ts`): resolve it in the builder's worktree, rerun the touched and sibling tests, and run one full verify.
+- **Stale base:** if a PR you dispatched overlaps one that merged after the builder started, tell it to merge `origin/main` and re-check fixtures before review (#1360).
+- **Message files:** a PR that adds English strings naming Mac or Touch ID is not "i18n only": the platform variants and `platform-linux/windows` tests must pass (#1338 broke main).
+- **Reviewers, verifiers and builders:** run verify in the foreground, report once, and don't wait with `pgrep -f` (load 26 from duplicate verifies; repeated reports). Say that `tsc` runs only via verify or alone (load 22 with overlapping full runs and loose `tsc`). Stagger dispatches so full verifies don't queue 45+ minutes.
 
 - Merge only after step 2 passes, plus step 3 for security PRs. Standing owner authorization (2026-11-05) covers this while Actions is locked: `gh pr merge <n> --merge --admin --match-head-commit <reviewed sha>`.
 - After a merge wave, check that main still builds for touched packages, and tell the owner in plain words what changed and what they must check by hand.

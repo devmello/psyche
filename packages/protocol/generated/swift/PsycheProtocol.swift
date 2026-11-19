@@ -16,6 +16,8 @@
 //   let actionRule = try? JSONDecoder().decode(ActionRule.self, from: jsonData)
 //   let agentNote = try? JSONDecoder().decode(AgentNote.self, from: jsonData)
 //   let answerSource = try? JSONDecoder().decode(AnswerSource.self, from: jsonData)
+//   let aPIKeyID = try? JSONDecoder().decode(APIKeyID.self, from: jsonData)
+//   let aPIKeyStatus = try? JSONDecoder().decode(APIKeyStatus.self, from: jsonData)
 //   let appLinkBlock = try? JSONDecoder().decode(AppLinkBlock.self, from: jsonData)
 //   let appUninstallAuthorizeParams = try? JSONDecoder().decode(AppUninstallAuthorizeParams.self, from: jsonData)
 //   let appleAlarm = try? JSONDecoder().decode(AppleAlarm.self, from: jsonData)
@@ -311,6 +313,9 @@
 //   let channelsSecretsStatusParams = try? JSONDecoder().decode(ChannelsSecretsStatusParams.self, from: jsonData)
 //   let channelsSecretsStatusResult = try? JSONDecoder().decode(ChannelsSecretsStatusResult.self, from: jsonData)
 //   let channelsUpdatedPayload = try? JSONDecoder().decode(ChannelsUpdatedPayload.self, from: jsonData)
+//   let chatAttachFilesParams = try? JSONDecoder().decode(ChatAttachFilesParams.self, from: jsonData)
+//   let chatAttachFilesResult = try? JSONDecoder().decode(ChatAttachFilesResult.self, from: jsonData)
+//   let chatAttachedFile = try? JSONDecoder().decode(ChatAttachedFile.self, from: jsonData)
 //   let chatBlockPayload = try? JSONDecoder().decode(ChatBlockPayload.self, from: jsonData)
 //   let chatCancelParams = try? JSONDecoder().decode(ChatCancelParams.self, from: jsonData)
 //   let chatCancelResult = try? JSONDecoder().decode(ChatCancelResult.self, from: jsonData)
@@ -379,6 +384,9 @@
 //   let connectorsGetCustomProposalResult = try? JSONDecoder().decode(ConnectorsGetCustomProposalResult.self, from: jsonData)
 //   let connectorsGetParams = try? JSONDecoder().decode(ConnectorsGetParams.self, from: jsonData)
 //   let connectorsGetResult = try? JSONDecoder().decode(ConnectorsGetResult.self, from: jsonData)
+//   let connectorsGoogleClientParams = try? JSONDecoder().decode(ConnectorsGoogleClientParams.self, from: jsonData)
+//   let connectorsGoogleClientSetParams = try? JSONDecoder().decode(ConnectorsGoogleClientSetParams.self, from: jsonData)
+//   let connectorsGoogleClientSetResult = try? JSONDecoder().decode(ConnectorsGoogleClientSetResult.self, from: jsonData)
 //   let connectorsInstallCustomParams = try? JSONDecoder().decode(ConnectorsInstallCustomParams.self, from: jsonData)
 //   let connectorsInstallCustomResult = try? JSONDecoder().decode(ConnectorsInstallCustomResult.self, from: jsonData)
 //   let connectorsListParams = try? JSONDecoder().decode(ConnectorsListParams.self, from: jsonData)
@@ -562,6 +570,12 @@
 //   let filesListResult = try? JSONDecoder().decode(FilesListResult.self, from: jsonData)
 //   let filesReadParams = try? JSONDecoder().decode(FilesReadParams.self, from: jsonData)
 //   let filesReadResult = try? JSONDecoder().decode(FilesReadResult.self, from: jsonData)
+//   let filesRequestShareParams = try? JSONDecoder().decode(FilesRequestShareParams.self, from: jsonData)
+//   let filesRequestShareResult = try? JSONDecoder().decode(FilesRequestShareResult.self, from: jsonData)
+//   let filesStarterFoldersParams = try? JSONDecoder().decode(FilesStarterFoldersParams.self, from: jsonData)
+//   let filesStarterFoldersResult = try? JSONDecoder().decode(FilesStarterFoldersResult.self, from: jsonData)
+//   let filesWriteParams = try? JSONDecoder().decode(FilesWriteParams.self, from: jsonData)
+//   let filesWriteResult = try? JSONDecoder().decode(FilesWriteResult.self, from: jsonData)
 //   let frame = try? JSONDecoder().decode(Frame.self, from: jsonData)
 //   let gatedCapability = try? JSONDecoder().decode(GatedCapability.self, from: jsonData)
 //   let gatewayInfo = try? JSONDecoder().decode(GatewayInfo.self, from: jsonData)
@@ -592,6 +606,7 @@
 //   let goalsMilestoneResult = try? JSONDecoder().decode(GoalsMilestoneResult.self, from: jsonData)
 //   let goalsUpdateParams = try? JSONDecoder().decode(GoalsUpdateParams.self, from: jsonData)
 //   let goalsUpdateResult = try? JSONDecoder().decode(GoalsUpdateResult.self, from: jsonData)
+//   let googleClientStatus = try? JSONDecoder().decode(GoogleClientStatus.self, from: jsonData)
 //   let grant = try? JSONDecoder().decode(Grant.self, from: jsonData)
 //   let grantScope = try? JSONDecoder().decode(GrantScope.self, from: jsonData)
 //   let grantsListParams = try? JSONDecoder().decode(GrantsListParams.self, from: jsonData)
@@ -679,6 +694,12 @@
 //   let insightTotals = try? JSONDecoder().decode(InsightTotals.self, from: jsonData)
 //   let insightsSummaryParams = try? JSONDecoder().decode(InsightsSummaryParams.self, from: jsonData)
 //   let insightsSummaryResult = try? JSONDecoder().decode(InsightsSummaryResult.self, from: jsonData)
+//   let keysClearParams = try? JSONDecoder().decode(KeysClearParams.self, from: jsonData)
+//   let keysClearResult = try? JSONDecoder().decode(KeysClearResult.self, from: jsonData)
+//   let keysSetParams = try? JSONDecoder().decode(KeysSetParams.self, from: jsonData)
+//   let keysSetResult = try? JSONDecoder().decode(KeysSetResult.self, from: jsonData)
+//   let keysStatusParams = try? JSONDecoder().decode(KeysStatusParams.self, from: jsonData)
+//   let keysStatusResult = try? JSONDecoder().decode(KeysStatusResult.self, from: jsonData)
 //   let learnedBlock = try? JSONDecoder().decode(LearnedBlock.self, from: jsonData)
 //   let learnedFact = try? JSONDecoder().decode(LearnedFact.self, from: jsonData)
 //   let lesson = try? JSONDecoder().decode(Lesson.self, from: jsonData)
@@ -704,6 +725,9 @@
 //   let lifeAnswerReason = try? JSONDecoder().decode(LifeAnswerReason.self, from: jsonData)
 //   let lifeFactHit = try? JSONDecoder().decode(LifeFactHit.self, from: jsonData)
 //   let linkPaymentMethod = try? JSONDecoder().decode(LinkPaymentMethod.self, from: jsonData)
+//   let linkSetupReason = try? JSONDecoder().decode(LinkSetupReason.self, from: jsonData)
+//   let linkSetupState = try? JSONDecoder().decode(LinkSetupState.self, from: jsonData)
+//   let linkSetupStatus = try? JSONDecoder().decode(LinkSetupStatus.self, from: jsonData)
 //   let logLevel = try? JSONDecoder().decode(LogLevel.self, from: jsonData)
 //   let logLine = try? JSONDecoder().decode(LogLine.self, from: jsonData)
 //   let logsTailParams = try? JSONDecoder().decode(LogsTailParams.self, from: jsonData)
@@ -714,6 +738,8 @@
 //   let mCPApp = try? JSONDecoder().decode(MCPApp.self, from: jsonData)
 //   let mCPAppParams = try? JSONDecoder().decode(MCPAppParams.self, from: jsonData)
 //   let mCPAppResult = try? JSONDecoder().decode(MCPAppResult.self, from: jsonData)
+//   let mCPConfigParams = try? JSONDecoder().decode(MCPConfigParams.self, from: jsonData)
+//   let mCPConfigResult = try? JSONDecoder().decode(MCPConfigResult.self, from: jsonData)
 //   let mCPFilesReadParams = try? JSONDecoder().decode(MCPFilesReadParams.self, from: jsonData)
 //   let mCPFilesWriteParams = try? JSONDecoder().decode(MCPFilesWriteParams.self, from: jsonData)
 //   let mCPHandlesMoneySetParams = try? JSONDecoder().decode(MCPHandlesMoneySetParams.self, from: jsonData)
@@ -727,6 +753,8 @@
 //   let mCPSecretsReplaceParams = try? JSONDecoder().decode(MCPSecretsReplaceParams.self, from: jsonData)
 //   let mCPSecretsReplaceResult = try? JSONDecoder().decode(MCPSecretsReplaceResult.self, from: jsonData)
 //   let mCPSecretsResult = try? JSONDecoder().decode(MCPSecretsResult.self, from: jsonData)
+//   let mCPServerChanges = try? JSONDecoder().decode(MCPServerChanges.self, from: jsonData)
+//   let mCPServerConfigView = try? JSONDecoder().decode(MCPServerConfigView.self, from: jsonData)
 //   let mCPServerInput = try? JSONDecoder().decode(MCPServerInput.self, from: jsonData)
 //   let mCPServerSecret = try? JSONDecoder().decode(MCPServerSecret.self, from: jsonData)
 //   let mCPServerStatus = try? JSONDecoder().decode(MCPServerStatus.self, from: jsonData)
@@ -735,10 +763,14 @@
 //   let mCPSetEnabledResult = try? JSONDecoder().decode(MCPSetEnabledResult.self, from: jsonData)
 //   let mCPStatusParams = try? JSONDecoder().decode(MCPStatusParams.self, from: jsonData)
 //   let mCPStatusResult = try? JSONDecoder().decode(MCPStatusResult.self, from: jsonData)
+//   let mCPTestParams = try? JSONDecoder().decode(MCPTestParams.self, from: jsonData)
+//   let mCPTestResult = try? JSONDecoder().decode(MCPTestResult.self, from: jsonData)
 //   let mCPToolsParams = try? JSONDecoder().decode(MCPToolsParams.self, from: jsonData)
 //   let mCPToolsResult = try? JSONDecoder().decode(MCPToolsResult.self, from: jsonData)
 //   let mCPToolsSetParams = try? JSONDecoder().decode(MCPToolsSetParams.self, from: jsonData)
 //   let mCPToolsSetResult = try? JSONDecoder().decode(MCPToolsSetResult.self, from: jsonData)
+//   let mCPUpdateParams = try? JSONDecoder().decode(MCPUpdateParams.self, from: jsonData)
+//   let mCPUpdateResult = try? JSONDecoder().decode(MCPUpdateResult.self, from: jsonData)
 //   let meetingActionItem = try? JSONDecoder().decode(MeetingActionItem.self, from: jsonData)
 //   let meetingAttendee = try? JSONDecoder().decode(MeetingAttendee.self, from: jsonData)
 //   let meetingNotes = try? JSONDecoder().decode(MeetingNotes.self, from: jsonData)
@@ -998,6 +1030,7 @@
 //   let nodesInvokeResult = try? JSONDecoder().decode(NodesInvokeResult.self, from: jsonData)
 //   let nodesListParams = try? JSONDecoder().decode(NodesListParams.self, from: jsonData)
 //   let nodesListResult = try? JSONDecoder().decode(NodesListResult.self, from: jsonData)
+//   let noticeMessage = try? JSONDecoder().decode(NoticeMessage.self, from: jsonData)
 //   let notification = try? JSONDecoder().decode(Notification.self, from: jsonData)
 //   let notificationAction = try? JSONDecoder().decode(NotificationAction.self, from: jsonData)
 //   let notificationCreatedPayload = try? JSONDecoder().decode(NotificationCreatedPayload.self, from: jsonData)
@@ -1031,6 +1064,9 @@
 //   let ocrRefusal = try? JSONDecoder().decode(OcrRefusal.self, from: jsonData)
 //   let okResult = try? JSONDecoder().decode(OkResult.self, from: jsonData)
 //   let onePasswordRef = try? JSONDecoder().decode(OnePasswordRef.self, from: jsonData)
+//   let onePasswordSetupState = try? JSONDecoder().decode(OnePasswordSetupState.self, from: jsonData)
+//   let onePasswordSetupStatus = try? JSONDecoder().decode(OnePasswordSetupStatus.self, from: jsonData)
+//   let onePasswordTestResult = try? JSONDecoder().decode(OnePasswordTestResult.self, from: jsonData)
 //   let oSPermission = try? JSONDecoder().decode(OSPermission.self, from: jsonData)
 //   let pairingRequest = try? JSONDecoder().decode(PairingRequest.self, from: jsonData)
 //   let pairingRequestedPayload = try? JSONDecoder().decode(PairingRequestedPayload.self, from: jsonData)
@@ -1046,6 +1082,11 @@
 //   let passkeysRegisterFinishParams = try? JSONDecoder().decode(PasskeysRegisterFinishParams.self, from: jsonData)
 //   let passkeysRegisterFinishResult = try? JSONDecoder().decode(PasskeysRegisterFinishResult.self, from: jsonData)
 //   let passkeysRemoveParams = try? JSONDecoder().decode(PasskeysRemoveParams.self, from: jsonData)
+//   let paymentsLinkChangedPayload = try? JSONDecoder().decode(PaymentsLinkChangedPayload.self, from: jsonData)
+//   let paymentsLinkConnectParams = try? JSONDecoder().decode(PaymentsLinkConnectParams.self, from: jsonData)
+//   let paymentsLinkDisconnectParams = try? JSONDecoder().decode(PaymentsLinkDisconnectParams.self, from: jsonData)
+//   let paymentsLinkSignInParams = try? JSONDecoder().decode(PaymentsLinkSignInParams.self, from: jsonData)
+//   let paymentsLinkStatusParams = try? JSONDecoder().decode(PaymentsLinkStatusParams.self, from: jsonData)
 //   let permissionMode = try? JSONDecoder().decode(PermissionMode.self, from: jsonData)
 //   let personRemoved = try? JSONDecoder().decode(PersonRemoved.self, from: jsonData)
 //   let personaIdentity = try? JSONDecoder().decode(PersonaIdentity.self, from: jsonData)
@@ -1136,6 +1177,7 @@
 //   let reviewItem = try? JSONDecoder().decode(ReviewItem.self, from: jsonData)
 //   let reviewItemChange = try? JSONDecoder().decode(ReviewItemChange.self, from: jsonData)
 //   let reviewNever = try? JSONDecoder().decode(ReviewNever.self, from: jsonData)
+//   let riskClass = try? JSONDecoder().decode(RiskClass.self, from: jsonData)
 //   let run = try? JSONDecoder().decode(Run.self, from: jsonData)
 //   let runBudget = try? JSONDecoder().decode(RunBudget.self, from: jsonData)
 //   let runFrame = try? JSONDecoder().decode(RunFrame.self, from: jsonData)
@@ -1391,6 +1433,7 @@
 //   let speechWhisperServerState = try? JSONDecoder().decode(SpeechWhisperServerState.self, from: jsonData)
 //   let speechWhisperSetup = try? JSONDecoder().decode(SpeechWhisperSetup.self, from: jsonData)
 //   let speechWhisperSetupState = try? JSONDecoder().decode(SpeechWhisperSetupState.self, from: jsonData)
+//   let starterFolderID = try? JSONDecoder().decode(StarterFolderID.self, from: jsonData)
 //   let taintSource = try? JSONDecoder().decode(TaintSource.self, from: jsonData)
 //   let target = try? JSONDecoder().decode(Target.self, from: jsonData)
 //   let targetKind = try? JSONDecoder().decode(TargetKind.self, from: jsonData)
@@ -1530,6 +1573,10 @@
 //   let vaultLockParams = try? JSONDecoder().decode(VaultLockParams.self, from: jsonData)
 //   let vaultLockResult = try? JSONDecoder().decode(VaultLockResult.self, from: jsonData)
 //   let vaultLockedPayload = try? JSONDecoder().decode(VaultLockedPayload.self, from: jsonData)
+//   let vaultOnePasswordConnectParams = try? JSONDecoder().decode(VaultOnePasswordConnectParams.self, from: jsonData)
+//   let vaultOnePasswordDisconnectParams = try? JSONDecoder().decode(VaultOnePasswordDisconnectParams.self, from: jsonData)
+//   let vaultOnePasswordStatusParams = try? JSONDecoder().decode(VaultOnePasswordStatusParams.self, from: jsonData)
+//   let vaultOnePasswordTestParams = try? JSONDecoder().decode(VaultOnePasswordTestParams.self, from: jsonData)
 //   let vaultPayment = try? JSONDecoder().decode(VaultPayment.self, from: jsonData)
 //   let vaultPaymentUpdatedPayload = try? JSONDecoder().decode(VaultPaymentUpdatedPayload.self, from: jsonData)
 //   let vaultPaymentsListParams = try? JSONDecoder().decode(VaultPaymentsListParams.self, from: jsonData)
@@ -1682,6 +1729,7 @@ public struct AccessListResult: Codable, Sendable {
 
 // MARK: - AccessEntry
 public struct AccessEntry: Codable, Sendable {
+    public let file: Bool?
     public let grantID: String?
     public let id: String
     public let kind: ApprovalKind?
@@ -1689,12 +1737,14 @@ public struct AccessEntry: Codable, Sendable {
     public let lastUsedAt: String?
     public let mode: FolderModeEnum?
     public let path: String?
+    public let refused: Bool?
     public let scope: AccessEntryScope
     public let since: String?
     public let threadID: String?
     public let type: AccessEntryType
 
     public enum CodingKeys: String, CodingKey {
+        case file = "file"
         case grantID = "grantId"
         case id = "id"
         case kind = "kind"
@@ -1702,13 +1752,15 @@ public struct AccessEntry: Codable, Sendable {
         case lastUsedAt = "lastUsedAt"
         case mode = "mode"
         case path = "path"
+        case refused = "refused"
         case scope = "scope"
         case since = "since"
         case threadID = "threadId"
         case type = "type"
     }
 
-    public init(grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, path: String? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, path: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+        self.file = file
         self.grantID = grantID
         self.id = id
         self.kind = kind
@@ -1716,6 +1768,7 @@ public struct AccessEntry: Codable, Sendable {
         self.lastUsedAt = lastUsedAt
         self.mode = mode
         self.path = path
+        self.refused = refused
         self.scope = scope
         self.since = since
         self.threadID = threadID
@@ -4010,40 +4063,49 @@ public struct AppleTabTextParams: Codable, Sendable {
 public struct ApprovalAnswer: Codable, Sendable {
     public let answerToken: String
     public let approvalID: String
+    public let bulk: Bool?
     public let decision: ApprovalAnswerDecision
     public let editedText: String?
     public let folderMode: FolderModeEnum?
     public let folderPath: String?
+    public let hostProgram: Bool?
     public let presence: PresenceAssertion?
     public let recipientChoice: String?
     public let scope: GrantScope?
+    public let trustSite: TrustSite?
     public let unsandboxed: Unsandboxed?
     public let via: InputVia?
 
     public enum CodingKeys: String, CodingKey {
         case answerToken = "answerToken"
         case approvalID = "approvalId"
+        case bulk = "bulk"
         case decision = "decision"
         case editedText = "editedText"
         case folderMode = "folderMode"
         case folderPath = "folderPath"
+        case hostProgram = "hostProgram"
         case presence = "presence"
         case recipientChoice = "recipientChoice"
         case scope = "scope"
+        case trustSite = "trustSite"
         case unsandboxed = "unsandboxed"
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
+    public init(answerToken: String, approvalID: String, bulk: Bool? = nil, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, hostProgram: Bool? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, trustSite: TrustSite? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
         self.answerToken = answerToken
         self.approvalID = approvalID
+        self.bulk = bulk
         self.decision = decision
         self.editedText = editedText
         self.folderMode = folderMode
         self.folderPath = folderPath
+        self.hostProgram = hostProgram
         self.presence = presence
         self.recipientChoice = recipientChoice
         self.scope = scope
+        self.trustSite = trustSite
         self.unsandboxed = unsandboxed
         self.via = via
     }
@@ -4091,6 +4153,11 @@ public enum GrantScope: String, Codable, Sendable {
     case session = "session"
     case site = "site"
     case task = "task"
+}
+
+public enum TrustSite: String, Codable, Sendable {
+    case origin = "origin"
+    case subdomains = "subdomains"
 }
 
 public enum Unsandboxed: String, Codable, Sendable {
@@ -4156,8 +4223,10 @@ public struct ApprovalRequest: Codable, Sendable {
     public let requestedAt: String
     public let requestedBy: RequestedBy
     public let requiresAuthentication: Bool
+    public let riskClass: RiskClass?
     public let scopeGranted: GrantScope?
     public let scopesOffered: [GrantScope]
+    public let setAside: Bool?
     public let sideEffect: SideEffect?
     public let status: ApprovalStatus
     public let summary: String
@@ -4183,8 +4252,10 @@ public struct ApprovalRequest: Codable, Sendable {
         case requestedAt = "requestedAt"
         case requestedBy = "requestedBy"
         case requiresAuthentication = "requiresAuthentication"
+        case riskClass = "riskClass"
         case scopeGranted = "scopeGranted"
         case scopesOffered = "scopesOffered"
+        case setAside = "setAside"
         case sideEffect = "sideEffect"
         case status = "status"
         case summary = "summary"
@@ -4195,7 +4266,7 @@ public struct ApprovalRequest: Codable, Sendable {
         case targetKind = "targetKind"
     }
 
-    public init(bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
+    public init(bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, riskClass: RiskClass? = nil, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], setAside: Bool? = nil, sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
         self.bindingHash = bindingHash
         self.decidedAt = decidedAt
         self.decidedBy = decidedBy
@@ -4211,8 +4282,10 @@ public struct ApprovalRequest: Codable, Sendable {
         self.requestedAt = requestedAt
         self.requestedBy = requestedBy
         self.requiresAuthentication = requiresAuthentication
+        self.riskClass = riskClass
         self.scopeGranted = scopeGranted
         self.scopesOffered = scopesOffered
+        self.setAside = setAside
         self.sideEffect = sideEffect
         self.status = status
         self.summary = summary
@@ -4296,6 +4369,11 @@ public struct RequestedBy: Codable, Sendable {
         self.threadID = threadID
         self.toolCallID = toolCallID
     }
+}
+
+public enum RiskClass: String, Codable, Sendable {
+    case routine = "routine"
+    case sensitive = "sensitive"
 }
 
 public enum SideEffect: String, Codable, Sendable {
@@ -8451,7 +8529,7 @@ public struct CatalogNeeds: Codable, Sendable {
     public let inputs: [String]
     public let network: [String]
     public let runsIn: RunsIn
-    public let signIn: SignIn
+    public let signIn: SignInEnum
 
     public enum CodingKeys: String, CodingKey {
         case inputs = "inputs"
@@ -8460,7 +8538,7 @@ public struct CatalogNeeds: Codable, Sendable {
         case signIn = "signIn"
     }
 
-    public init(inputs: [String], network: [String], runsIn: RunsIn, signIn: SignIn) {
+    public init(inputs: [String], network: [String], runsIn: RunsIn, signIn: SignInEnum) {
         self.inputs = inputs
         self.network = network
         self.runsIn = runsIn
@@ -8474,7 +8552,7 @@ public enum RunsIn: String, Codable, Sendable {
     case srt = "srt"
 }
 
-public enum SignIn: String, Codable, Sendable {
+public enum SignInEnum: String, Codable, Sendable {
     case key = "key"
     case none = "none"
     case oauth = "oauth"
@@ -9204,6 +9282,83 @@ public struct ChannelsUpdatedPayload: Codable, Sendable {
         self.channel = channel
         self.detail = detail
     }
+}
+
+// MARK: - ChatAttachFilesParams
+public struct ChatAttachFilesParams: Codable, Sendable {
+    public let paths: [String]
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case paths = "paths"
+        case threadID = "threadId"
+    }
+
+    public init(paths: [String], threadID: String) {
+        self.paths = paths
+        self.threadID = threadID
+    }
+}
+
+// MARK: - ChatAttachFilesResult
+public struct ChatAttachFilesResult: Codable, Sendable {
+    public let files: [ChatAttachFilesResultFile]
+    public let refused: [Refused]
+
+    public enum CodingKeys: String, CodingKey {
+        case files = "files"
+        case refused = "refused"
+    }
+
+    public init(files: [ChatAttachFilesResultFile], refused: [Refused]) {
+        self.files = files
+        self.refused = refused
+    }
+}
+
+// MARK: - ChatAttachFilesResultFile
+public struct ChatAttachFilesResultFile: Codable, Sendable {
+    public let name: String
+    public let path: String
+    public let size: Int
+    public let type: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case path = "path"
+        case size = "size"
+        case type = "type"
+    }
+
+    public init(name: String, path: String, size: Int, type: String) {
+        self.name = name
+        self.path = path
+        self.size = size
+        self.type = type
+    }
+}
+
+// MARK: - Refused
+public struct Refused: Codable, Sendable {
+    public let path: String
+    public let reason: RefusedReason
+
+    public enum CodingKeys: String, CodingKey {
+        case path = "path"
+        case reason = "reason"
+    }
+
+    public init(path: String, reason: RefusedReason) {
+        self.path = path
+        self.reason = reason
+    }
+}
+
+public enum RefusedReason: String, Codable, Sendable {
+    case invalid = "invalid"
+    case missing = "missing"
+    case notFile = "not_file"
+    case sensitive = "sensitive"
 }
 
 // MARK: - ChatBlockPayload
@@ -10199,6 +10354,10 @@ public struct ChatReasoningPayload: Codable, Sendable {
 
 // MARK: - ChatSendParams
 public struct ChatSendParams: Codable, Sendable {
+    /// Files from disk the owner attached (desktop): only those `chat.attachFiles` granted in
+    /// this thread are used; the agent sees their name, size and type and reads them with
+    /// read_file
+    public let attachedFiles: [ChatAttachedFile]?
     /// Library item ids
     public let attachments: [String]?
     public let content: String
@@ -10211,6 +10370,7 @@ public struct ChatSendParams: Codable, Sendable {
     public let threadID: String
 
     public enum CodingKeys: String, CodingKey {
+        case attachedFiles = "attachedFiles"
         case attachments = "attachments"
         case content = "content"
         case context = "context"
@@ -10222,7 +10382,8 @@ public struct ChatSendParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(attachments: [String]? = nil, content: String, context: ChatContextRef? = nil, fromWidget: ChatFromWidget? = nil, mode: QueueMode? = nil, redo: Redo? = nil, replyToMessageID: String? = nil, screen: ChatScreenRef? = nil, threadID: String) {
+    public init(attachedFiles: [ChatAttachedFile]? = nil, attachments: [String]? = nil, content: String, context: ChatContextRef? = nil, fromWidget: ChatFromWidget? = nil, mode: QueueMode? = nil, redo: Redo? = nil, replyToMessageID: String? = nil, screen: ChatScreenRef? = nil, threadID: String) {
+        self.attachedFiles = attachedFiles
         self.attachments = attachments
         self.content = content
         self.context = context
@@ -10232,6 +10393,19 @@ public struct ChatSendParams: Codable, Sendable {
         self.replyToMessageID = replyToMessageID
         self.screen = screen
         self.threadID = threadID
+    }
+}
+
+// MARK: - ChatAttachedFile
+public struct ChatAttachedFile: Codable, Sendable {
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case path = "path"
+    }
+
+    public init(path: String) {
+        self.path = path
     }
 }
 
@@ -11241,7 +11415,7 @@ public struct TransportClass: Codable, Sendable {
     public let command: [String]?
     public let env: [String: JSONAny]?
     public let kind: TransportEnum
-    public let auth: Auth?
+    public let auth: TransportAuth?
     public let url: String?
 
     public enum CodingKeys: String, CodingKey {
@@ -11252,7 +11426,7 @@ public struct TransportClass: Codable, Sendable {
         case url = "url"
     }
 
-    public init(command: [String]? = nil, env: [String: JSONAny]? = nil, kind: TransportEnum, auth: Auth? = nil, url: String? = nil) {
+    public init(command: [String]? = nil, env: [String: JSONAny]? = nil, kind: TransportEnum, auth: TransportAuth? = nil, url: String? = nil) {
         self.command = command
         self.env = env
         self.kind = kind
@@ -11261,9 +11435,9 @@ public struct TransportClass: Codable, Sendable {
     }
 }
 
-// MARK: - Auth
-public struct Auth: Codable, Sendable {
-    public let kind: AuthKind
+// MARK: - TransportAuth
+public struct TransportAuth: Codable, Sendable {
+    public let kind: AuthEnum
     public let credential: String?
 
     public enum CodingKeys: String, CodingKey {
@@ -11271,13 +11445,13 @@ public struct Auth: Codable, Sendable {
         case credential = "credential"
     }
 
-    public init(kind: AuthKind, credential: String? = nil) {
+    public init(kind: AuthEnum, credential: String? = nil) {
         self.kind = kind
         self.credential = credential
     }
 }
 
-public enum AuthKind: String, Codable, Sendable {
+public enum AuthEnum: String, Codable, Sendable {
     case bearer = "bearer"
     case none = "none"
     case oauth = "oauth"
@@ -11997,6 +12171,62 @@ public struct ConnectorsGetResult: Codable, Sendable {
     }
 }
 
+// MARK: - ConnectorsGoogleClientSetParams
+public struct ConnectorsGoogleClientSetParams: Codable, Sendable {
+    public let clientID: String
+    public let clientSecret: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case clientID = "clientId"
+        case clientSecret = "clientSecret"
+    }
+
+    public init(clientID: String, clientSecret: String? = nil) {
+        self.clientID = clientID
+        self.clientSecret = clientSecret
+    }
+}
+
+// MARK: - ConnectorsGoogleClientSetResult
+public struct ConnectorsGoogleClientSetResult: Codable, Sendable {
+    public let status: GoogleClientStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: GoogleClientStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - GoogleClientStatus
+public struct GoogleClientStatus: Codable, Sendable {
+    public let clientID: String?
+    public let configured: Bool
+    public let hasSecret: Bool
+    public let source: GoogleClientStatusSource?
+
+    public enum CodingKeys: String, CodingKey {
+        case clientID = "clientId"
+        case configured = "configured"
+        case hasSecret = "hasSecret"
+        case source = "source"
+    }
+
+    public init(clientID: String? = nil, configured: Bool, hasSecret: Bool, source: GoogleClientStatusSource? = nil) {
+        self.clientID = clientID
+        self.configured = configured
+        self.hasSecret = hasSecret
+        self.source = source
+    }
+}
+
+public enum GoogleClientStatusSource: String, Codable, Sendable {
+    case app = "app"
+    case config = "config"
+}
+
 // MARK: - ConnectorsInstallCustomParams
 public struct ConnectorsInstallCustomParams: Codable, Sendable {
     public let approvalID: String
@@ -12290,7 +12520,7 @@ public struct CredentialMeta: Codable, Sendable {
     public let id: String
     public let kind: CredentialKind
     public let lastUsedAt: String?
-    public let managedBy: ManagedBy?
+    public let managedBy: ManagedByClass?
     public let name: String
     public let ownerConnectorID: String?
     public let slug: String
@@ -12312,7 +12542,7 @@ public struct CredentialMeta: Codable, Sendable {
         case useCount = "useCount"
     }
 
-    public init(backend: Backend? = nil, bindings: [CredentialBinding], createdAt: String, id: String, kind: CredentialKind, lastUsedAt: String? = nil, managedBy: ManagedBy? = nil, name: String, ownerConnectorID: String? = nil, slug: String, updatedAt: String, useCount: Int) {
+    public init(backend: Backend? = nil, bindings: [CredentialBinding], createdAt: String, id: String, kind: CredentialKind, lastUsedAt: String? = nil, managedBy: ManagedByClass? = nil, name: String, ownerConnectorID: String? = nil, slug: String, updatedAt: String, useCount: Int) {
         self.backend = backend
         self.bindings = bindings
         self.createdAt = createdAt
@@ -12364,8 +12594,8 @@ public enum CredentialKind: String, Codable, Sendable {
     case sshKey = "ssh_key"
 }
 
-// MARK: - ManagedBy
-public struct ManagedBy: Codable, Sendable {
+// MARK: - ManagedByClass
+public struct ManagedByClass: Codable, Sendable {
     public let kind: ManagedByKind
     public let removable: Bool
     public let setting: Setting
@@ -15521,6 +15751,127 @@ public struct FilesReadResult: Codable, Sendable {
     }
 }
 
+// MARK: - FilesRequestShareParams
+public struct FilesRequestShareParams: Codable, Sendable {
+    public let access: FilesRequestShareParamsAccess
+    /// The folder the failed file tool named: a hint for the picker, never what is granted
+    public let path: String
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case access = "access"
+        case path = "path"
+        case threadID = "threadId"
+    }
+
+    public init(access: FilesRequestShareParamsAccess, path: String, threadID: String) {
+        self.access = access
+        self.path = path
+        self.threadID = threadID
+    }
+}
+
+public enum FilesRequestShareParamsAccess: String, Codable, Sendable {
+    case read = "read"
+}
+
+// MARK: - FilesRequestShareResult
+public struct FilesRequestShareResult: Codable, Sendable {
+    public let approvalID: String?
+    public let status: FilesRequestShareResultStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case status = "status"
+    }
+
+    public init(approvalID: String? = nil, status: FilesRequestShareResultStatus) {
+        self.approvalID = approvalID
+        self.status = status
+    }
+}
+
+public enum FilesRequestShareResultStatus: String, Codable, Sendable {
+    case already = "already"
+    case pending = "pending"
+}
+
+// MARK: - FilesStarterFoldersResult
+public struct FilesStarterFoldersResult: Codable, Sendable {
+    public let folders: [Folder]
+
+    public enum CodingKeys: String, CodingKey {
+        case folders = "folders"
+    }
+
+    public init(folders: [Folder]) {
+        self.folders = folders
+    }
+}
+
+// MARK: - Folder
+public struct Folder: Codable, Sendable {
+    public let id: StarterFolderID
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case path = "path"
+    }
+
+    public init(id: StarterFolderID, path: String) {
+        self.id = id
+        self.path = path
+    }
+}
+
+public enum StarterFolderID: String, Codable, Sendable {
+    case desktop = "desktop"
+    case documents = "documents"
+    case downloads = "downloads"
+}
+
+// MARK: - FilesWriteParams
+public struct FilesWriteParams: Codable, Sendable {
+    /// UTF-8 text
+    public let content: String
+    /// the etag `files.read` returned; the file must still match
+    public let ifMatch: String
+    /// an absolute path in a granted folder
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case content = "content"
+        case ifMatch = "ifMatch"
+        case path = "path"
+    }
+
+    public init(content: String, ifMatch: String, path: String) {
+        self.content = content
+        self.ifMatch = ifMatch
+        self.path = path
+    }
+}
+
+// MARK: - FilesWriteResult
+public struct FilesWriteResult: Codable, Sendable {
+    public let etag: String
+    public let modifiedAt: String
+    public let size: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case etag = "etag"
+        case modifiedAt = "modifiedAt"
+        case size = "size"
+    }
+
+    public init(etag: String, modifiedAt: String, size: Int) {
+        self.etag = etag
+        self.modifiedAt = modifiedAt
+        self.size = size
+    }
+}
+
 // MARK: - Frame
 public struct Frame: Codable, Sendable {
     public let id: String?
@@ -15688,7 +16039,7 @@ public struct LAN: Codable, Sendable {
     /// Bonjour `_psyche._tcp` is being advertised
     public let advertising: Bool
     /// Interfaces the owner can pick: private IPv4 and IPv6 unique-local addresses only
-    public let candidates: [Candidate]
+    public let candidates: [LANCandidate]
     /// SHA-256 (base64url) of the LAN certificate's SPKI: the cert pin
     public let certSpki: String?
     /// The `gateway.lan` setting is on
@@ -15720,7 +16071,7 @@ public struct LAN: Codable, Sendable {
         case problems = "problems"
     }
 
-    public init(advertising: Bool, candidates: [Candidate], certSpki: String? = nil, enabled: Bool, interfaces: [String], ipv6: Bool? = nil, listening: [Listening], origin: String? = nil, port: Int, problems: [String]) {
+    public init(advertising: Bool, candidates: [LANCandidate], certSpki: String? = nil, enabled: Bool, interfaces: [String], ipv6: Bool? = nil, listening: [Listening], origin: String? = nil, port: Int, problems: [String]) {
         self.advertising = advertising
         self.candidates = candidates
         self.certSpki = certSpki
@@ -15734,8 +16085,8 @@ public struct LAN: Codable, Sendable {
     }
 }
 
-// MARK: - Candidate
-public struct Candidate: Codable, Sendable {
+// MARK: - LANCandidate
+public struct LANCandidate: Codable, Sendable {
     public let address: String
     public let isDefault: Bool
     public let name: String
@@ -17854,6 +18205,109 @@ public struct InsightEntity: Codable, Sendable {
     }
 }
 
+// MARK: - KeysClearParams
+public struct KeysClearParams: Codable, Sendable {
+    public let id: APIKeyID
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: APIKeyID) {
+        self.id = id
+    }
+}
+
+public enum APIKeyID: String, Codable, Sendable {
+    case anthropic = "anthropic"
+    case brave = "brave"
+    case google = "google"
+    case openai = "openai"
+    case openrouter = "openrouter"
+}
+
+// MARK: - KeysClearResult
+public struct KeysClearResult: Codable, Sendable {
+    public let status: APIKeyStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: APIKeyStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - APIKeyStatus
+public struct APIKeyStatus: Codable, Sendable {
+    public let configured: Bool
+    public let id: APIKeyID
+    public let inVault: Bool
+    public let source: APIKeyStatusSource?
+
+    public enum CodingKeys: String, CodingKey {
+        case configured = "configured"
+        case id = "id"
+        case inVault = "inVault"
+        case source = "source"
+    }
+
+    public init(configured: Bool, id: APIKeyID, inVault: Bool, source: APIKeyStatusSource? = nil) {
+        self.configured = configured
+        self.id = id
+        self.inVault = inVault
+        self.source = source
+    }
+}
+
+public enum APIKeyStatusSource: String, Codable, Sendable {
+    case env = "env"
+    case vault = "vault"
+}
+
+// MARK: - KeysSetParams
+public struct KeysSetParams: Codable, Sendable {
+    public let id: APIKeyID
+    public let key: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case key = "key"
+    }
+
+    public init(id: APIKeyID, key: String) {
+        self.id = id
+        self.key = key
+    }
+}
+
+// MARK: - KeysSetResult
+public struct KeysSetResult: Codable, Sendable {
+    public let status: APIKeyStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: APIKeyStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - KeysStatusResult
+public struct KeysStatusResult: Codable, Sendable {
+    public let keys: [APIKeyStatus]
+
+    public enum CodingKeys: String, CodingKey {
+        case keys = "keys"
+    }
+
+    public init(keys: [APIKeyStatus]) {
+        self.keys = keys
+    }
+}
+
 // MARK: - LearnedBlock
 public struct LearnedBlock: Codable, Sendable {
     public let items: [LearnedFact]
@@ -18404,6 +18858,74 @@ public enum ProvenanceEnum: String, Codable, Sendable {
     case untrusted = "untrusted"
 }
 
+// MARK: - MCPConfigParams
+public struct MCPConfigParams: Codable, Sendable {
+    public let serverID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case serverID = "serverId"
+    }
+
+    public init(serverID: String) {
+        self.serverID = serverID
+    }
+}
+
+// MARK: - MCPConfigResult
+public struct MCPConfigResult: Codable, Sendable {
+    public let config: MCPServerConfigView
+
+    public enum CodingKeys: String, CodingKey {
+        case config = "config"
+    }
+
+    public init(config: MCPServerConfigView) {
+        self.config = config
+    }
+}
+
+// MARK: - MCPServerConfigView
+public struct MCPServerConfigView: Codable, Sendable {
+    public let allowedDomains: [String]
+    public let auth: AuthEnum?
+    public let command: [String]?
+    public let editable: Bool
+    public let envNames: [String]
+    public let id: String
+    public let kind: TentacledKind
+    public let name: String
+    public let url: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case allowedDomains = "allowedDomains"
+        case auth = "auth"
+        case command = "command"
+        case editable = "editable"
+        case envNames = "envNames"
+        case id = "id"
+        case kind = "kind"
+        case name = "name"
+        case url = "url"
+    }
+
+    public init(allowedDomains: [String], auth: AuthEnum? = nil, command: [String]? = nil, editable: Bool, envNames: [String], id: String, kind: TentacledKind, name: String, url: String? = nil) {
+        self.allowedDomains = allowedDomains
+        self.auth = auth
+        self.command = command
+        self.editable = editable
+        self.envNames = envNames
+        self.id = id
+        self.kind = kind
+        self.name = name
+        self.url = url
+    }
+}
+
+public enum TentacledKind: String, Codable, Sendable {
+    case command = "command"
+    case url = "url"
+}
+
 // MARK: - MCPFilesReadParams
 public struct MCPFilesReadParams: Codable, Sendable {
     public let serverID: String
@@ -18650,6 +19172,41 @@ public enum Launcher: String, Codable, Sendable {
     case vm = "vm"
 }
 
+// MARK: - MCPTestParams
+public struct MCPTestParams: Codable, Sendable {
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+// MARK: - MCPTestResult
+public struct MCPTestResult: Codable, Sendable {
+    public let error: String?
+    public let ok: Bool
+    public let toolCount: Int
+    public let tools: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case error = "error"
+        case ok = "ok"
+        case toolCount = "toolCount"
+        case tools = "tools"
+    }
+
+    public init(error: String? = nil, ok: Bool, toolCount: Int, tools: [String]) {
+        self.error = error
+        self.ok = ok
+        self.toolCount = toolCount
+        self.tools = tools
+    }
+}
+
 // MARK: - MCPToolsParams
 public struct MCPToolsParams: Codable, Sendable {
     public let serverID: String
@@ -18733,6 +19290,88 @@ public struct MCPToolsSetResult: Codable, Sendable {
 
     public init(tools: [MCPServerTool]) {
         self.tools = tools
+    }
+}
+
+// MARK: - MCPUpdateParams
+public struct MCPUpdateParams: Codable, Sendable {
+    public let changes: MCPServerChanges
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case changes = "changes"
+        case id = "id"
+    }
+
+    public init(changes: MCPServerChanges, id: String) {
+        self.changes = changes
+        self.id = id
+    }
+}
+
+// MARK: - MCPServerChanges
+public struct MCPServerChanges: Codable, Sendable {
+    public let allowedDomains: [String]?
+    public let auth: MCPServerChangesAuth?
+    public let command: [String]?
+    public let env: [String: JSONAny]?
+    public let name: String?
+    public let url: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case allowedDomains = "allowedDomains"
+        case auth = "auth"
+        case command = "command"
+        case env = "env"
+        case name = "name"
+        case url = "url"
+    }
+
+    public init(allowedDomains: [String]? = nil, auth: MCPServerChangesAuth? = nil, command: [String]? = nil, env: [String: JSONAny]? = nil, name: String? = nil, url: String? = nil) {
+        self.allowedDomains = allowedDomains
+        self.auth = auth
+        self.command = command
+        self.env = env
+        self.name = name
+        self.url = url
+    }
+}
+
+// MARK: - MCPServerChangesAuth
+public struct MCPServerChangesAuth: Codable, Sendable {
+    public let kind: AuthEnum
+    public let credential: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case credential = "credential"
+    }
+
+    public init(kind: AuthEnum, credential: String? = nil) {
+        self.kind = kind
+        self.credential = credential
+    }
+}
+
+// MARK: - MCPUpdateResult
+public struct MCPUpdateResult: Codable, Sendable {
+    public let applied: Bool
+    public let approval: ApprovalRequest?
+    public let proposal: MCPProposal?
+    public let server: MCPServerStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case applied = "applied"
+        case approval = "approval"
+        case proposal = "proposal"
+        case server = "server"
+    }
+
+    public init(applied: Bool, approval: ApprovalRequest? = nil, proposal: MCPProposal? = nil, server: MCPServerStatus) {
+        self.applied = applied
+        self.approval = approval
+        self.proposal = proposal
+        self.server = server
     }
 }
 
@@ -23590,7 +24229,7 @@ public enum MissingConnectorActionNeed: String, Codable, Sendable {
 
 // MARK: - MissingFolder
 public struct MissingFolder: Codable, Sendable {
-    public let access: Access
+    public let access: MissingFolderAccess
     public let need: MissingFolderNeed
     public let path: String
 
@@ -23600,14 +24239,14 @@ public struct MissingFolder: Codable, Sendable {
         case path = "path"
     }
 
-    public init(access: Access, need: MissingFolderNeed, path: String) {
+    public init(access: MissingFolderAccess, need: MissingFolderNeed, path: String) {
         self.access = access
         self.need = need
         self.path = path
     }
 }
 
-public enum Access: String, Codable, Sendable {
+public enum MissingFolderAccess: String, Codable, Sendable {
     case read = "read"
     case readWrite = "read_write"
 }
@@ -23641,7 +24280,7 @@ public enum MissingMacosAccessNeed: String, Codable, Sendable {
 
 // MARK: - MissingPermission
 public struct MissingPermission: Codable, Sendable {
-    public let access: Access?
+    public let access: MissingFolderAccess?
     public let need: MissingPermissionNeed
     public let path: String?
     public let capability: GatedCapability?
@@ -23659,7 +24298,7 @@ public struct MissingPermission: Codable, Sendable {
         case reason = "reason"
     }
 
-    public init(access: Access? = nil, need: MissingPermissionNeed, path: String? = nil, capability: GatedCapability? = nil, connector: String? = nil, group: String? = nil, reason: String? = nil) {
+    public init(access: MissingFolderAccess? = nil, need: MissingPermissionNeed, path: String? = nil, capability: GatedCapability? = nil, connector: String? = nil, group: String? = nil, reason: String? = nil) {
         self.access = access
         self.need = need
         self.path = path
@@ -24386,6 +25025,7 @@ public struct Notification: Codable, Sendable {
     public let delivered: [String: String]
     public let id: String
     public let kind: NotificationKind
+    public let message: NoticeMessage?
     public let readAt: String?
     public let resolvedAt: String?
     public let route: String?
@@ -24403,6 +25043,7 @@ public struct Notification: Codable, Sendable {
         case delivered = "delivered"
         case id = "id"
         case kind = "kind"
+        case message = "message"
         case readAt = "readAt"
         case resolvedAt = "resolvedAt"
         case route = "route"
@@ -24413,7 +25054,7 @@ public struct Notification: Codable, Sendable {
         case title = "title"
     }
 
-    public init(actions: [NotificationAction], approvalID: String? = nil, body: String, createdAt: String, delivered: [String: String], id: String, kind: NotificationKind, readAt: String? = nil, resolvedAt: String? = nil, route: String? = nil, staleAt: String? = nil, staleReason: String? = nil, surfaces: [String], taskID: String? = nil, title: String) {
+    public init(actions: [NotificationAction], approvalID: String? = nil, body: String, createdAt: String, delivered: [String: String], id: String, kind: NotificationKind, message: NoticeMessage? = nil, readAt: String? = nil, resolvedAt: String? = nil, route: String? = nil, staleAt: String? = nil, staleReason: String? = nil, surfaces: [String], taskID: String? = nil, title: String) {
         self.actions = actions
         self.approvalID = approvalID
         self.body = body
@@ -24421,6 +25062,7 @@ public struct Notification: Codable, Sendable {
         self.delivered = delivered
         self.id = id
         self.kind = kind
+        self.message = message
         self.readAt = readAt
         self.resolvedAt = resolvedAt
         self.route = route
@@ -24468,6 +25110,29 @@ public enum NotificationKind: String, Codable, Sendable {
     case taskFailed = "task_failed"
 }
 
+// MARK: - NoticeMessage
+public struct NoticeMessage: Codable, Sendable {
+    /// Message id of the body
+    public let bodyKey: String
+    /// Values for the placeholders. The Gateway has stripped control, format and bidirectional
+    /// characters from the strings; show them as plain text, never as markup.
+    public let params: [String: ExternalRef]?
+    /// Message id of the title, e.g. notice.browser.chrome.title
+    public let titleKey: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bodyKey = "bodyKey"
+        case params = "params"
+        case titleKey = "titleKey"
+    }
+
+    public init(bodyKey: String, params: [String: ExternalRef]? = nil, titleKey: String) {
+        self.bodyKey = bodyKey
+        self.params = params
+        self.titleKey = titleKey
+    }
+}
+
 // MARK: - NotificationDevicePayload
 public struct NotificationDevicePayload: Codable, Sendable {
     public let body: String
@@ -24475,6 +25140,7 @@ public struct NotificationDevicePayload: Codable, Sendable {
     public let id: String
     public let interruption: Interruption
     public let kind: NotificationKind
+    public let message: NoticeMessage?
     public let route: String?
     public let title: String
 
@@ -24484,16 +25150,18 @@ public struct NotificationDevicePayload: Codable, Sendable {
         case id = "id"
         case interruption = "interruption"
         case kind = "kind"
+        case message = "message"
         case route = "route"
         case title = "title"
     }
 
-    public init(body: String, createdAt: String, id: String, interruption: Interruption, kind: NotificationKind, route: String? = nil, title: String) {
+    public init(body: String, createdAt: String, id: String, interruption: Interruption, kind: NotificationKind, message: NoticeMessage? = nil, route: String? = nil, title: String) {
         self.body = body
         self.createdAt = createdAt
         self.id = id
         self.interruption = interruption
         self.kind = kind
+        self.message = message
         self.route = route
         self.title = title
     }
@@ -24961,6 +25629,109 @@ public struct OnePasswordRef: Codable, Sendable {
     }
 }
 
+// MARK: - OnePasswordTestResult
+public struct OnePasswordTestResult: Codable, Sendable {
+    public let status: OnePasswordSetupStatus
+    public let vaultCount: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+        case vaultCount = "vaultCount"
+    }
+
+    public init(status: OnePasswordSetupStatus, vaultCount: Int) {
+        self.status = status
+        self.vaultCount = vaultCount
+    }
+}
+
+// MARK: - OnePasswordSetupStatus
+public struct OnePasswordSetupStatus: Codable, Sendable {
+    public let account: Account?
+    public let connected: Bool
+    public let managedBy: ManagedByEnum?
+    public let op: OpClass?
+    public let os: OS
+    public let problem: ProblemEnum?
+    public let repinnedAt: Double?
+    public let state: OnePasswordSetupState
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case connected = "connected"
+        case managedBy = "managedBy"
+        case op = "op"
+        case os = "os"
+        case problem = "problem"
+        case repinnedAt = "repinnedAt"
+        case state = "state"
+    }
+
+    public init(account: Account? = nil, connected: Bool, managedBy: ManagedByEnum? = nil, op: OpClass? = nil, os: OS, problem: ProblemEnum? = nil, repinnedAt: Double? = nil, state: OnePasswordSetupState) {
+        self.account = account
+        self.connected = connected
+        self.managedBy = managedBy
+        self.op = op
+        self.os = os
+        self.problem = problem
+        self.repinnedAt = repinnedAt
+        self.state = state
+    }
+}
+
+// MARK: - Account
+public struct Account: Codable, Sendable {
+    public let email: String
+    public let url: String
+
+    public enum CodingKeys: String, CodingKey {
+        case email = "email"
+        case url = "url"
+    }
+
+    public init(email: String, url: String) {
+        self.email = email
+        self.url = url
+    }
+}
+
+public enum ManagedByEnum: String, Codable, Sendable {
+    case config = "config"
+}
+
+// MARK: - OpClass
+public struct OpClass: Codable, Sendable {
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case path = "path"
+    }
+
+    public init(path: String) {
+        self.path = path
+    }
+}
+
+public enum OS: String, Codable, Sendable {
+    case macos = "macos"
+    case other = "other"
+}
+
+public enum ProblemEnum: String, Codable, Sendable {
+    case opChanged = "op_changed"
+    case opUnsafeFolder = "op_unsafe_folder"
+    case opUnsigned = "op_unsigned"
+}
+
+public enum OnePasswordSetupState: String, Codable, Sendable {
+    case error = "error"
+    case found = "found"
+    case locked = "locked"
+    case notInstalled = "not_installed"
+    case notIntegrated = "not_integrated"
+    case signedIn = "signed_in"
+}
+
 public enum OSPermission: String, Codable, Sendable {
     case a11YBus = "a11yBus"
     case remoteDesktopPortal = "remoteDesktopPortal"
@@ -25122,6 +25893,164 @@ public struct PasskeysRemoveParams: Codable, Sendable {
     public init(passkeyID: String, reauth: PasskeyReauth) {
         self.passkeyID = passkeyID
         self.reauth = reauth
+    }
+}
+
+// MARK: - PaymentsLinkChangedPayload
+public struct PaymentsLinkChangedPayload: Codable, Sendable {
+    public let status: LinkSetupStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: LinkSetupStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - LinkSetupStatus
+public struct LinkSetupStatus: Codable, Sendable {
+    public let candidates: [LinkSetupStatusCandidate]
+    public let cli: CLI?
+    public let problem: ProblemClass?
+    public let signIn: SignInClass?
+    public let state: LinkSetupState
+
+    public enum CodingKeys: String, CodingKey {
+        case candidates = "candidates"
+        case cli = "cli"
+        case problem = "problem"
+        case signIn = "signIn"
+        case state = "state"
+    }
+
+    public init(candidates: [LinkSetupStatusCandidate], cli: CLI? = nil, problem: ProblemClass? = nil, signIn: SignInClass? = nil, state: LinkSetupState) {
+        self.candidates = candidates
+        self.cli = cli
+        self.problem = problem
+        self.signIn = signIn
+        self.state = state
+    }
+}
+
+// MARK: - LinkSetupStatusCandidate
+public struct LinkSetupStatusCandidate: Codable, Sendable {
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case path = "path"
+    }
+
+    public init(path: String) {
+        self.path = path
+    }
+}
+
+// MARK: - CLI
+public struct CLI: Codable, Sendable {
+    public let path: String
+    public let source: CLISource
+
+    public enum CodingKeys: String, CodingKey {
+        case path = "path"
+        case source = "source"
+    }
+
+    public init(path: String, source: CLISource) {
+        self.path = path
+        self.source = source
+    }
+}
+
+public enum CLISource: String, Codable, Sendable {
+    case env = "env"
+    case saved = "saved"
+}
+
+// MARK: - ProblemClass
+public struct ProblemClass: Codable, Sendable {
+    public let path: String
+    public let reason: LinkSetupReason
+
+    public enum CodingKeys: String, CodingKey {
+        case path = "path"
+        case reason = "reason"
+    }
+
+    public init(path: String, reason: LinkSetupReason) {
+        self.path = path
+        self.reason = reason
+    }
+}
+
+public enum LinkSetupReason: String, Codable, Sendable {
+    case inPsycheHome = "in_psyche_home"
+    case missing = "missing"
+    case notAFile = "not_a_file"
+    case notAbsolute = "not_absolute"
+    case notExecutable = "not_executable"
+    case notLinkCLI = "not_link_cli"
+    case parentWritable = "parent_writable"
+    case parentWrongOwner = "parent_wrong_owner"
+    case voltaShim = "volta_shim"
+    case writable = "writable"
+    case wrongOwner = "wrong_owner"
+}
+
+// MARK: - SignInClass
+public struct SignInClass: Codable, Sendable {
+    public let expiresAt: Double
+    public let phrase: String
+    public let verificationURL: String
+
+    public enum CodingKeys: String, CodingKey {
+        case expiresAt = "expiresAt"
+        case phrase = "phrase"
+        case verificationURL = "verificationUrl"
+    }
+
+    public init(expiresAt: Double, phrase: String, verificationURL: String) {
+        self.expiresAt = expiresAt
+        self.phrase = phrase
+        self.verificationURL = verificationURL
+    }
+}
+
+public enum LinkSetupState: String, Codable, Sendable {
+    case cliFound = "cli_found"
+    case cliMissing = "cli_missing"
+    case connected = "connected"
+    case signedOut = "signed_out"
+    case signingIn = "signing_in"
+}
+
+// MARK: - PaymentsLinkConnectParams
+public struct PaymentsLinkConnectParams: Codable, Sendable {
+    public let approvalID: String?
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case path = "path"
+    }
+
+    public init(approvalID: String? = nil, path: String) {
+        self.approvalID = approvalID
+        self.path = path
+    }
+}
+
+// MARK: - PaymentsLinkDisconnectParams
+public struct PaymentsLinkDisconnectParams: Codable, Sendable {
+    public let force: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case force = "force"
+    }
+
+    public init(force: Bool? = nil) {
+        self.force = force
     }
 }
 
@@ -35201,6 +36130,19 @@ public enum VaultLockedPayloadReason: String, Codable, Sendable {
     case sleep = "sleep"
 }
 
+// MARK: - VaultOnePasswordStatusParams
+public struct VaultOnePasswordStatusParams: Codable, Sendable {
+    public let probe: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case probe = "probe"
+    }
+
+    public init(probe: Bool? = nil) {
+        self.probe = probe
+    }
+}
+
 // MARK: - VaultPaymentUpdatedPayload
 public struct VaultPaymentUpdatedPayload: Codable, Sendable {
     public let payment: VaultPayment
@@ -37715,6 +38657,7 @@ public typealias BrowserRealChromeStatusParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
 public typealias ConnectorsCatalogueParams = [String: JSONAny]
+public typealias ConnectorsGoogleClientParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]
 public typealias DailyAutomationsTemplatesParams = [String: JSONAny]
 public typealias DevicesBootstrapAdminParams = [String: JSONAny]
@@ -37724,8 +38667,10 @@ public typealias DevicesRevokeSelfParams = [String: JSONAny]
 public typealias DevicesSetupTokenListParams = [String: JSONAny]
 public typealias DictationTargetParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]
+public typealias FilesStarterFoldersParams = [String: JSONAny]
 public typealias GatewayInfoParams = [String: JSONAny]
 public typealias GrowthUpdatedPayload = [String: JSONAny]
+public typealias KeysStatusParams = [String: JSONAny]
 public typealias MCPStatusParams = [String: JSONAny]
 public typealias MeetingsRecordPushResult = [String: JSONAny]
 public typealias MeetingsRecordStatusParams = [String: JSONAny]
@@ -37745,6 +38690,8 @@ public typealias NodesListParams = [String: JSONAny]
 public typealias PasskeysListParams = [String: JSONAny]
 public typealias PasskeysReauthBeginParams = [String: JSONAny]
 public typealias PasskeysRegisterBeginParams = [String: JSONAny]
+public typealias PaymentsLinkSignInParams = [String: JSONAny]
+public typealias PaymentsLinkStatusParams = [String: JSONAny]
 public typealias SandboxListParams = [String: JSONAny]
 public typealias SandboxSetupParams = [String: JSONAny]
 public typealias ScheduledListParams = [String: JSONAny]
@@ -37764,6 +38711,9 @@ public typealias TerminalSessionACKResult = [String: JSONAny]
 public typealias TerminalSessionResizeResult = [String: JSONAny]
 public typealias TerminalSessionWriteResult = [String: JSONAny]
 public typealias VaultLockParams = [String: JSONAny]
+public typealias VaultOnePasswordConnectParams = [String: JSONAny]
+public typealias VaultOnePasswordDisconnectParams = [String: JSONAny]
+public typealias VaultOnePasswordTestParams = [String: JSONAny]
 public typealias VaultPaymentsMethodsParams = [String: JSONAny]
 public typealias VaultStatusParams = [String: JSONAny]
 public typealias ViewLayoutParams = [String: JSONAny]

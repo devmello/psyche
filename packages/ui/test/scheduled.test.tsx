@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -27,17 +27,7 @@ function renderView(over: Partial<ScheduledViewProps> = {}) {
     onDelete: vi.fn(),
     onOpenSettings: vi.fn(),
     onEditInChat: vi.fn(),
-    onParseEdit: vi.fn(async (_i: unknown, text: string) => ({
-      draft: {
-        title: "Friday recap",
-        kind: "cron" as const,
-        schedule: "0 18 * * 5",
-        timezone: SCHEDULED_ZONE,
-        prompt: text,
-        humanSchedule: "Every Friday at 6:00 PM",
-      },
-    })),
-    onSaveEdit: vi.fn(async () => {}),
+    onEdit: vi.fn(),
     renderHistory: () => (
       <RunHistoryView
         runs={scheduledRuns()}
@@ -232,38 +222,13 @@ describe("pause, run now, delete", () => {
 });
 
 describe("edit", () => {
-  it("goes through the confirm card before it saves", async () => {
+  it("opens the automation form for an owner's one-time or repeating automation", async () => {
     const p = renderView();
-    const recap = row("Friday recap");
-    await userEvent.click(within(recap).getByRole("button", { name: "Edit Friday recap" }));
-    const box = within(recap).getByLabelText("Describe it again, with the schedule");
-    expect((box as HTMLTextAreaElement).value).toBe(
-      "Fridays 5:00 PM: Summarise what I shipped this week.",
+    await userEvent.click(
+      within(row("Friday recap")).getByRole("button", { name: "Edit Friday recap" }),
     );
-    fireEvent.change(box, { target: { value: "Fridays at 6, summarise what I shipped" } });
-    await userEvent.click(within(recap).getByRole("button", { name: "Review change" }));
-    expect(p.onParseEdit).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "auto_recap" }),
-      "Fridays at 6, summarise what I shipped",
-    );
-    const card = await within(recap).findByRole("region", { name: "Save this change?" });
-    expect(within(card).getByText("Every Friday at 6:00 PM")).toBeTruthy();
-    expect(p.onSaveEdit).not.toHaveBeenCalled();
-    await userEvent.click(within(card).getByRole("button", { name: "Save changes" }));
-    await waitFor(() =>
-      expect(p.onSaveEdit).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "auto_recap" }),
-        expect.objectContaining({ schedule: "0 18 * * 5" }),
-      ),
-    );
-  });
-
-  it("explains a sentence it cannot read", async () => {
-    renderView({ onParseEdit: async () => ({ error: "unparsed" }) });
-    const recap = row("Friday recap");
-    await userEvent.click(within(recap).getByRole("button", { name: "Edit Friday recap" }));
-    await userEvent.click(within(recap).getByRole("button", { name: "Review change" }));
-    expect((await within(recap).findByRole("alert")).textContent).toMatch(/couldn't turn that/);
+    expect(p.onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: "auto_recap" }));
+    expect(p.onEditInChat).not.toHaveBeenCalled();
   });
 
   it("changes a linked run in a chat, since the set is edited together", async () => {
@@ -274,7 +239,7 @@ describe("edit", () => {
       }),
     );
     expect(p.onEditInChat).toHaveBeenCalledWith(expect.objectContaining({ id: "auto_cart_add" }));
-    expect(p.onParseEdit).not.toHaveBeenCalled();
+    expect(p.onEdit).not.toHaveBeenCalled();
   });
 });
 

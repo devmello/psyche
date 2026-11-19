@@ -20,7 +20,14 @@ export const AccessEntry = Type.Object(
     label: Type.String({ maxLength: 600 }),
     /** Folders: read-only or read and change. */
     mode: Type.Optional(StringEnum(["ro", "rw"])),
+    /** A conversation row for one attached file, not a folder. */
+    file: Type.Optional(Type.Boolean()),
     path: Type.Optional(Type.String({ maxLength: 4096 })),
+    /**
+     * A folder row the Gateway no longer honours: it is a sensitive root today (`/opt`, `/usr`,
+     * `~/.ssh`...), so it covers nothing. Revoke is still offered.
+     */
+    refused: Type.Optional(Type.Boolean()),
     threadId: Type.Optional(Id),
     grantId: Type.Optional(Id),
     kind: Type.Optional(ApprovalKind),

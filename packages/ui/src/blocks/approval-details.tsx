@@ -492,34 +492,76 @@ export function ApprovalDetails({
       );
     }
     case "send_email": {
-      const to = Array.isArray(d.to) ? (d.to as string[]) : [str(d.to)];
+      // A Gateway card carries the message under `params` (the loop sends `{...details, params,
+      // target}`). The old top-level keys are kept as a fallback for older cards.
+      const p: Details =
+        typeof d.params === "object" && d.params !== null && !Array.isArray(d.params)
+          ? (d.params as Details)
+          : {};
+      const pick = (k: string): unknown => (p[k] !== undefined ? p[k] : d[k]);
+      const addresses = (k: string): string[] => {
+        const v = pick(k);
+        if (Array.isArray(v)) return strings(v);
+        return v === undefined || v === null || v === "" ? [] : [str(v)];
+      };
+      const to = addresses("to");
+      const cc = addresses("cc");
+      const bcc = addresses("bcc");
+      const attachments = pick("attachments");
       return (
         <dl>
           <Row label={t("blocks.details.to")}>
             {to.join(", ")}{" "}
             <span className="text-label-secondary">{t("blocks.details.exactRecipient")}</span>
           </Row>
-          {Array.isArray(d.cc) && d.cc.length > 0 ? (
-            <Row label={t("blocks.details.cc")}>{str(d.cc)}</Row>
-          ) : null}
-          <Row label={t("blocks.details.subject")}>{str(d.subject)}</Row>
-          {d.bodyPreview !== undefined || d.body !== undefined ? (
+          {cc.length > 0 ? <Row label={t("blocks.details.cc")}>{cc.join(", ")}</Row> : null}
+          {bcc.length > 0 ? <Row label={t("blocks.details.bcc")}>{bcc.join(", ")}</Row> : null}
+          <Row label={t("blocks.details.subject")}>{str(pick("subject"))}</Row>
+          {pick("body") !== undefined || d.bodyPreview !== undefined ? (
             <Row label={t("blocks.details.body")}>
-              <Expandable label={t("blocks.details.view")} text={str(d.body ?? d.bodyPreview)} />
+              <Expandable
+                label={t("blocks.details.view")}
+                text={str(pick("body") ?? d.bodyPreview)}
+              />
             </Row>
           ) : null}
-          {Array.isArray(d.attachments) && d.attachments.length > 0 ? (
+          {Array.isArray(attachments) && attachments.length > 0 ? (
             <Row label={t("blocks.details.attachments")}>
-              {(d.attachments as { name?: string }[])
+              {(attachments as { name?: string }[])
                 .map((a) => a.name ?? t("blocks.details.attachmentDefault"))
                 .join(", ")}
             </Row>
           ) : null}
-          <Row label={t("blocks.details.account")}>{str(d.account)}</Row>
+          <Row label={t("blocks.details.account")}>{str(pick("account"))}</Row>
           <Rest
             details={d}
-            shown={["to", "cc", "subject", "body", "bodyPreview", "attachments", "account"]}
+            shown={[
+              "params",
+              "target",
+              "to",
+              "cc",
+              "bcc",
+              "subject",
+              "body",
+              "bodyPreview",
+              "attachments",
+              "account",
+            ]}
           />
+          {/* The rest of the bound message (threadId, inReplyTo, references): a reply says so. */}
+          {(() => {
+            const shownKeys = new Set([
+              "to",
+              "cc",
+              "bcc",
+              "subject",
+              "body",
+              "attachments",
+              "account",
+            ]);
+            const rest = Object.fromEntries(Object.entries(p).filter(([k]) => !shownKeys.has(k)));
+            return Object.keys(rest).length > 0 ? <ParamRows params={rest} /> : null;
+          })()}
         </dl>
       );
     }

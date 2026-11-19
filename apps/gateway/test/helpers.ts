@@ -3,7 +3,7 @@ import { generateKeyPairSync, type KeyObject, sign } from "node:crypto";
 import { mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { updateDevice } from "@psyche/db";
+import { setSetting, updateDevice } from "@psyche/db";
 import { connectSigningPayload, PROTOCOL_VERSION } from "@psyche/protocol";
 import { expect } from "vitest";
 import WebSocket from "ws";
@@ -281,4 +281,22 @@ export function expectPrivate(path: string, mode: number): void {
   const icacls = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "icacls.exe");
   const acl = execFileSync(icacls, [path], { encoding: "utf8" });
   expect(acl).not.toMatch(/\b(Everyone|BUILTIN\\Users|Authenticated Users):/i);
+}
+
+/**
+ * Seeds the `mcp.servers` setting the way server code writes it (the client method
+ * `settings.set` refuses this key): straight to the database, then the change event the running
+ * MCP host reconciles from.
+ */
+export function seedMcpServers(
+  services: {
+    db: Parameters<typeof setSetting>[0];
+    publish: (event: never, payload: never) => void;
+  },
+  value: unknown,
+): void {
+  const entry = setSetting(services.db, "mcp.servers", value);
+  (services.publish as (event: string, payload: unknown) => void)("settings.changed", {
+    entries: [entry],
+  });
 }

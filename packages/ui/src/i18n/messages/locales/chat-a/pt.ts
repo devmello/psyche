@@ -55,6 +55,10 @@ export const chatA: Partial<Catalogue> = {
     "{name}: o Psyche não consegue ler este tipo de arquivo. Anexe um PDF, Word, Excel, texto ou imagem",
   "chat.attach.refused.size": "{name} é grande demais para anexar (imagens 5 MB, documentos 25 MB)",
   "chat.attach.refused.count": "{name}: é possível enviar até 8 arquivos com uma mensagem",
+  "chat.attach.refused.sensitive":
+    "{name} está em um local protegido e não pode ser compartilhado com o Psyche",
+  "chat.attach.refused.unreadable":
+    "Não foi possível anexar {name}. Verifique se ele ainda existe e se é um arquivo, não uma pasta",
   "chat.message.fromWidget": "De um widget",
   "chat.teach.notLikeThis": "Assim não",
   "chat.teach.dialog": "Ensinar o Psyche",

@@ -84,7 +84,7 @@ export const FILE_TOOLS = new Set([
  * command's cwd) get the same folder check as the file tools.
  */
 export const CODE_TOOLS = /^code\.(open|search|read|edit|run|git)$/;
-export const NAVIGATION_TOOLS = /^browser\.(navigate|open|new_tab|goto)$/;
+export const NAVIGATION_TOOLS = /^browser\.(navigate|open|open_tab|new_tab|goto)$/;
 export const BROWSER_WRITE_TOOLS =
   /^browser\.(click|type|select|fill|submit|press|drag|upload|key)$/;
 

@@ -5,6 +5,7 @@ import { basename, dirname, join } from "node:path";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "@psyche/agent-core";
 import { absoluteHostPathPattern } from "@psyche/hostfs";
 import { type ProvenanceOut, PsycheError } from "@psyche/protocol";
+import { routineWritePath } from "@psyche/protocol/routine-path";
 import { Type } from "@sinclair/typebox";
 import { cardDiff } from "./diff.ts";
 import {
@@ -200,6 +201,9 @@ async function atomicWrite(path: string, data: Uint8Array, check?: () => Promise
   } catch (err) {
     if (err instanceof PsycheError || (err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
   }
+  // A document the broker may bulk-approve a write of (routine) never keeps an exec bit, so a
+  // routine write can't leave something runnable, whatever the new content says (#1333).
+  if (routineWritePath(path)) mode &= ~0o111;
   const tmp = join(dirname(path), `.${basename(path)}.psyche-${randomUUID().slice(0, 8)}.tmp`);
   const fh = await open(
     tmp,

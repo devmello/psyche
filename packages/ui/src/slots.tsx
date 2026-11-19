@@ -152,7 +152,13 @@ export interface UiSlots {
   /** Navigate to an in-app route, e.g. `/agent/activity/<taskId>`. */
   navigate?: (route: string) => void;
   openArtifact?: (artifact: Artifact) => void;
+  /** Opens a Library item in the file viewer (the Files pane beside the view). */
   openLibraryItem?: (item: LibraryItem) => void;
+  /**
+   * Shows a Library item in Finder (desktop, this Mac's Gateway only; absent elsewhere, so the
+   * action is not offered). Rejects when the file is no longer in the Library.
+   */
+  revealLibraryItem?: (item: LibraryItem) => Promise<void>;
   openTask?: (task: Task) => void;
   openReceipt?: (receipt: Receipt) => void;
   /** Thumbnails and previews from `packages/viewers`. */
@@ -231,6 +237,12 @@ export interface UiSlots {
   remotePresence?: { hostName: string; hasPasskey: boolean };
   /** The host's native folder picker; resolves to the real path, or null when cancelled. */
   pickFolder?: (opts?: { title?: string }) => Promise<string | null>;
+  /**
+   * The real path of a picked or dropped file (desktop on This Mac), or null. With it the chat
+   * attaches the file in place (`chat.attachFiles`: a read-only grant for that file) instead of
+   * uploading it to the Library.
+   */
+  pathOfFile?: (file: File) => string | null;
   /** Persona shown in agent messages and cards. */
   persona?: { name: string; creature?: string; imageSrc?: string };
 }
