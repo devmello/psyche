@@ -1729,3 +1729,125 @@ describe("program-grant runs: folder-confined reads, folded git names", () => {
     expect(isGit("/usr/bin/gitk", undefined, "darwin")).toBe(false);
   });
 });
+
+describe.skipIf(!posixHost)("program grant: Always allow <program> in <folder> (run path)", () => {
+  const params = { argv: ["grep", "-r", "foo", "."], cwd: project };
+  const tool = (over: Record<string, unknown> = {}) =>
+    execHostTool({
+      broker: recording(),
+      vault: { redact: (t) => t },
+      folders: (threadId) => [...(broker.policy.folders ?? []), ...broker.sessionFolders(threadId)],
+      srt: { resolve: async () => srt },
+      home: psycheHome,
+      userHome: home,
+      driver,
+      audit: recordingAudit,
+      ...over,
+    });
+
+  /** The owner taps "Always allow grep in <folder>"; returns the grant-authorized context. */
+  async function granted(t: AgentToolRegistration) {
+    setPolicy({ folders: [{ path: project, mode: "rw" }], exec: { execHostEnabled: true } });
+    // The card reads the sandbox's last known state: let the first look finish.
+    t.describeCall?.(params);
+    await new Promise((r) => setTimeout(r, 20));
+    const a = await card(t, params);
+    expect(a.details).toMatchObject({ hostProgram: { program: "grep", argv: null } });
+    await answer(a.id, { hostProgram: true });
+    const d = await decide(t, params);
+    expect(d).toMatchObject({ decision: "allow" });
+    expect(d.rule).toMatch(/^grant:/);
+    const desc = t.describeCall?.(params) as ToolCallDescription;
+    return {
+      d,
+      authority: {
+        rule: d.rule,
+        bindingHash: d.bindingHash as string,
+        grantKey: namespacedGrantKey(t.spec.name, desc.grantKey as string),
+        grantId: d.grantId as string,
+        scope: "always",
+      } as never,
+    };
+  }
+
+  beforeEach(() => {
+    auditTrail.length = 0;
+  });
+
+  it("runs under srt confined to the folder: home and temp roots denied, writes only to scratch, audited", async () => {
+    const t = tool();
+    const { authority } = await granted(t);
+    const pend = run(t, params, ctx({ authority }));
+    await nextStart();
+    const fs = (started[0]?.settings as { filesystem: Record<string, string[]> } | undefined)
+      ?.filesystem as Record<string, string[]>;
+    expect(fs.denyRead).toEqual(
+      expect.arrayContaining([
+        home,
+        "/Volumes",
+        "/tmp",
+        "/private/tmp",
+        "/var/folders",
+        "/private/var/folders",
+        "/Users/Shared",
+      ]),
+    );
+    expect(fs.allowRead).toContain(realpathSync(project));
+    // Nothing is writable but the run's own scratch, although the folder is read-write.
+    expect(fs.allowWrite).toHaveLength(1);
+    // The scratch lives under a denied temp root: it is re-allowed for reading (allowRead wins
+    // over denyRead in srt, as scratch.ts relies on) and is the only writable place.
+    expect(fs.allowRead).toContain(fs.allowWrite?.[0]);
+    expect(auditTrail.map((e) => e.kind)).toEqual(["exec_host.program_run"]);
+    finish({ stdout: Buffer.from("ok") });
+    expect((await pend).output).toMatchObject({ exitCode: 0, sandboxed: true });
+    expect(auditTrail.map((e) => e.kind)).toEqual([
+      "exec_host.program_run",
+      "exec_host.program_run.done",
+    ]);
+  });
+
+  it("an ordinary exact grant is not confined (control)", async () => {
+    const t = tool();
+    setPolicy({ folders: [{ path: project, mode: "rw" }], exec: { execHostEnabled: true } });
+    const a = await card(t, echo);
+    await answer(a.id, {});
+    const pend = run(t, echo, ctx({ approvalId: a.id }));
+    await nextStart();
+    const fs = (started[0]?.settings as { filesystem: Record<string, string[]> } | undefined)
+      ?.filesystem as Record<string, string[]>;
+    expect(fs.denyRead).not.toContain(home);
+    finish({});
+    await pend;
+    expect(auditTrail).toHaveLength(0);
+  });
+
+  it("stops a run at the quiet class's cap (here shortened)", async () => {
+    const t = tool({ readOnlyTimeoutMs: 40 });
+    const { authority } = await granted(t);
+    const pend = run(t, { ...params, timeoutMs: 600_000 }, ctx({ authority }));
+    await nextStart();
+    const r = await pend;
+    expect(killed).toContain("SIGKILL");
+    expect(r.output).toMatchObject({ timedOut: true });
+  });
+
+  it("a revoked grant throws at run time, and nothing starts", async () => {
+    const t = tool();
+    const { d, authority } = await granted(t);
+    await broker.revokeGrant(d.grantId as string);
+    await expect(run(t, params, ctx({ authority }))).rejects.toThrow(/not live/);
+    expect(started).toHaveLength(0);
+  });
+
+  it("a path that now leaves the folder, or a missing ledger, throws instead of running", async () => {
+    const t = tool();
+    const { authority } = await granted(t);
+    await expect(
+      run(t, { argv: ["grep", "-r", "foo", "/etc"], cwd: project }, ctx({ authority })),
+    ).rejects.toThrow(/no longer fits|binding|mismatch/);
+    const bare = tool({ broker: { get: (id: string) => broker.get(id) } });
+    await expect(run(bare, params, ctx({ authority }))).rejects.toThrow(/ledger/);
+    expect(started).toHaveLength(0);
+  });
+});

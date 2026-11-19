@@ -274,8 +274,18 @@ const FIND_UNSAFE = new Set([
 export function anyArgvSafe(program: string, args: readonly string[]): boolean {
   const name = programName(program);
   if (!HOST_PROGRAM_ANY_ARGV.includes(name)) return false;
+  // Every check below stops at the first `--`. But an option that takes a value takes the next
+  // argument as-is, even `--` (`rg -e -- --pre=./x.sh`, `grep -e -- -rS`), so the flags after it
+  // still count. Any dash-led argument after a `--` is exact-argv: it gets a card.
+  const dd = args.indexOf("--");
+  if (dd !== -1 && args.slice(dd + 1).some((a) => a.startsWith("-"))) return false;
   // GNU tools read options after operands (`sed p f -e '1e id'`): a late option is exact-argv.
   if (scanArgs(name, args).lateOption) return false;
+  if (followsLinks(name, args)) return false;
+  // A list of files to read, named by a file: its entries are never checked.
+  if (args.some((a) => a !== "--" && /^--files0?-from/.test(a))) return false;
+  // rg's own parser takes no abbreviations (and has a real `--files`); GNU getopt_long does.
+  if (name !== "rg" && args.some((a) => longPrefixOf(a, LIST_LONG))) return false;
   switch (name) {
     case "find":
       return !args.some((a) => FIND_UNSAFE.has(a));
@@ -285,8 +295,11 @@ export function anyArgvSafe(program: string, args: readonly string[]): boolean {
       for (const a of args) {
         if (a === "--") break;
         if (/^--(pre|hostname-bin|search-zip)/.test(a)) return false;
-        // `-z` (decompress through external programs), also inside a cluster such as `-uz`.
-        if (has(a, "z")) return false;
+        // `-z` (decompress through external programs), also inside a cluster such as `-uz`, but
+        // not in the value of an option that takes one (`-f/var/folders/z`).
+        if (isOption(a) && !a.startsWith("--") && clusterLetters("rg", a).flags.includes("z")) {
+          return false;
+        }
       }
       return true;
     }
@@ -294,10 +307,131 @@ export function anyArgvSafe(program: string, args: readonly string[]): boolean {
       // `-o` writes a file; `-R` and `-H` write `00Tree.html` into directories.
       return !args.some((a) => a === "--output" || a.startsWith("--output=") || has(a, "oRH"));
     case "file":
-      return !args.some((a) => /^--(compile|uncompress|magic-file)/.test(a) || has(a, "CzZm"));
+      return !args.some(
+        (a) =>
+          /^--(compile|uncompress|magic-file)/.test(a) ||
+          longPrefixOf(a, FILE_UNSAFE_LONG) ||
+          has(a, "CzZmf"),
+      );
     default:
       return true;
   }
+}
+
+/** file's long options that write, decompress through other programs or load a magic file. */
+const FILE_UNSAFE_LONG = ["--compile", "--uncompress", "--uncompress-noreport", "--magic-file"];
+/** Long options that make a tool read its list of files from a file. */
+const LIST_LONG = ["--files0-from", "--files-from"];
+/** Long options that follow symbolic links. */
+const FOLLOW_LONG = [
+  "--dereference",
+  "--dereference-recursive",
+  "--dereference-args",
+  "--dereference-command-line",
+  "--dereference-command-line-symlink-to-dir",
+  "--follow",
+  "--follow-symlinks",
+];
+
+/**
+ * Is `a` one of `names`, or an abbreviation of one? GNU getopt_long accepts any unique prefix
+ * (`grep --der` is `--dereference-recursive`), so a prefix counts as the option itself. An
+ * ambiguous prefix makes the tool fail, so counting it too only costs a card.
+ */
+function longPrefixOf(a: string, names: readonly string[]): boolean {
+  if (!a.startsWith("--") || a === "--") return false;
+  const eq = a.indexOf("=");
+  const opt = eq === -1 ? a : a.slice(0, eq);
+  // `--f=` is already `--files-from` for macOS `file`; only `--` itself is no option.
+  return opt.length >= 3 && names.some((n) => n.startsWith(opt));
+}
+
+/**
+ * Short options that take a value, per tool (the value may be attached: `-fPATH`). A letter
+ * missing here only costs a card: the rest of its cluster is then read as flags and its value as
+ * an operand, which are checked like any other. Don't drop a letter to save a card.
+ */
+const VALUE_LETTERS: Record<string, string> = {
+  rg: "ABCEMTefgjmrt",
+  grep: "ABCDdefm",
+  jq: "Lf",
+  file: "fmFP",
+  head: "nc",
+  tail: "nc",
+  tree: "LPIoHT",
+  du: "dBt",
+  find: "",
+  ls: "",
+  wc: "",
+  stat: "",
+  sed: "",
+};
+/** Of those, the ones whose value is a path. */
+const PATH_LETTERS: Record<string, string> = { rg: "f", grep: "f", jq: "Lf", file: "fm" };
+/** Short options that follow symbolic links, per tool. */
+const FOLLOW_LETTERS: Record<string, string> = {
+  rg: "L",
+  grep: "SRO",
+  ls: "LH",
+  du: "LHD",
+  stat: "L",
+  file: "L",
+  tree: "l",
+};
+
+/**
+ * The letters of a short-option cluster up to and including the first one that takes a value;
+ * what follows that letter is its value, not more flags (`-f/var/folders/z` is `f` plus a path).
+ */
+function clusterLetters(name: string, a: string): { flags: string; value: string } {
+  const vals = VALUE_LETTERS[name] ?? "";
+  const body = a.slice(1);
+  // tree's parser is not getopt: a value letter takes the NEXT argument and the rest of the
+  // cluster is still flags (`tree -Ll 2` follows links). Every letter counts.
+  if (name === "tree") return { flags: body, value: "" };
+  for (let i = 0; i < body.length; i++) {
+    if (vals.includes(body[i] as string)) {
+      return { flags: body.slice(0, i + 1), value: body.slice(i + 1) };
+    }
+  }
+  return { flags: body, value: "" };
+}
+
+/** Is this token an option (before any `--`) of the command? */
+const isOption = (a: string) => a.length > 1 && a.startsWith("-");
+
+/** Option values written attached (`--x=v`, `-fv`): they name paths like operands do. */
+function attachedValues(name: string, args: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const a of args) {
+    if (a === "--") break;
+    if (!isOption(a)) continue;
+    if (a.startsWith("--")) {
+      const eq = a.indexOf("=");
+      // sed's `--expression=` is a script, not a path.
+      if (eq > 0 && !(name === "sed" && a.startsWith("--expression="))) out.push(a.slice(eq + 1));
+      continue;
+    }
+    if (name === "find" || name === "sed") continue;
+    const { flags, value } = clusterLetters(name, a);
+    const last = flags.slice(-1);
+    if (value !== "" && (PATH_LETTERS[name] ?? "").includes(last)) out.push(value);
+  }
+  return out;
+}
+
+/** Does any option follow symbolic links while walking? Those can leave the folder. */
+function followsLinks(name: string, args: readonly string[]): boolean {
+  for (const a of args) {
+    if (a === "--") break;
+    if (/^--(dereference|follow|follow-symlinks)/.test(a)) return true;
+    if (name !== "rg" && longPrefixOf(a, FOLLOW_LONG)) return true;
+    if (name === "find" && (a === "-follow" || /^-[HLP]*[HL][HLP]*$/.test(a))) return true;
+    if (!isOption(a) || a.startsWith("--")) continue;
+    const { flags } = clusterLetters(name, a);
+    if ([...flags].some((c) => (FOLLOW_LETTERS[name] ?? "").includes(c))) return true;
+  }
+  return false;
 }
 
 /** Splits arguments into operands and notes an option that follows the first operand. */
@@ -367,6 +501,7 @@ export function operandsInside(
   }
   if (!isUnder(cwdReal, folderReal)) return false;
   let { operands } = scanArgs(name, args);
+  operands = [...operands, ...attachedValues(name, args)];
   if (name === "sed") {
     const haveE = args.some(
       (a) =>

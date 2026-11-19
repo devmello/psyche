@@ -36,6 +36,13 @@ const sha = (s: string) => `sha256:${createHash("sha256").update(s).digest("hex"
 
 const ARGS_OK: [string, string[]][] = [
   ["ls", ["-la"]],
+  // `--` followed only by operands, and long options that are not follow abbreviations.
+  ["grep", ["-r", "foo", "--", "a.txt"]],
+  ["rg", ["-e", "--", "TOKEN", "."]],
+  ["grep", ["--count", "foo", "f"]],
+  ["ls", ["--color=never"]],
+  ["tree", ["-L", "2", "."]],
+  ["tree", ["-a", "-I", "node_modules"]],
   ["ls", ["-R", "sub"]],
   ["cat", ["a.txt", "b.txt"]],
   ["head", ["-n", "5", "f"]],
@@ -53,8 +60,13 @@ const ARGS_OK: [string, string[]][] = [
   ["sed", ["-E", "-n", "/x/p", "f"]],
   ["sed", ["-e", "s/a/b/", "-e", "2d", "f"]],
   ["sed", ["-ne", "$p", "f"]],
-  ["sed", ["p", "--", "-f"]],
-  ["ls", ["--", "-weird"]],
+  ["ls", ["-R"]],
+  ["grep", ["-r", "foo", "."]],
+  ["rg", ["foo"]],
+  // `z` in the value of an option is not the -z flag.
+  ["rg", ["-f/var/folders/zz/pats"]],
+  ["rg", ["-nf/var/folders/zz/pats"]],
+  ["rg", ["--ignore-file=plain.txt", "foo"]],
   ["tree", ["-L", "2"]],
   ["du", ["-sh", "."]],
   ["stat", ["f"]],
@@ -95,6 +107,63 @@ const ARGS_DANGEROUS: [string, string[]][] = [
   ["rg", ["-z", "foo"]],
   ["rg", ["-uz", "foo"]],
   ["rg", ["--search-zip", "foo"]],
+  // Flags that follow symbolic links can leave the folder through a link inside it.
+  ["rg", ["-L", "foo"]],
+  ["rg", ["--follow", "foo"]],
+  ["rg", ["-uL", "foo"]],
+  ["grep", ["-S", "foo", "."]],
+  ["grep", ["-rS", "foo", "."]],
+  ["grep", ["-R", "foo", "."]],
+  ["grep", ["-O", "foo", "."]],
+  ["grep", ["--dereference-recursive", "foo", "."]],
+  ["find", [".", "-follow", "-name", "x"]],
+  ["find", ["-L", "."]],
+  ["find", ["-H", "."]],
+  ["ls", ["-L"]],
+  ["ls", ["-LR"]],
+  ["ls", ["-H"]],
+  ["ls", ["--dereference"]],
+  ["tree", ["-l", "."]],
+  ["du", ["-L", "."]],
+  ["du", ["-H", "."]],
+  ["stat", ["-L", "f"]],
+  ["file", ["-L", "f"]],
+  ["sed", ["--follow-symlinks", "p"]],
+  // A `--` that is an option's value: the flags after it still apply (review of #1368).
+  ["rg", ["-e", "--", "--pre=./x.sh", "-e", "TOKEN", "."]],
+  ["rg", ["-g", "--", "--pre=./x.sh", "TOKEN"]],
+  ["rg", ["-e", "--", "--hostname-bin=./x.sh"]],
+  ["rg", ["-e", "--", "-z"]],
+  ["rg", ["-e", "--", "-L"]],
+  ["grep", ["-e", "--", "-rS", "-e", "TOKEN", "."]],
+  ["grep", ["-e", "--", "-f/etc/passwd", "."]],
+  ["grep", ["-e", "--", "--file=/etc/passwd", "."]],
+  ["du", ["-d", "--", "-L", "."]],
+  // A dash-led operand after a real `--` asks too: the checker can't tell the two apart.
+  ["sed", ["p", "--", "-f"]],
+  ["ls", ["--", "-weird"]],
+  // tree reads every letter of a cluster as a flag; a value letter takes the next argument.
+  ["tree", ["-Ll", "2", "."]],
+  ["tree", ["-L2l", "."]],
+  ["tree", ["-Pl", "x"]],
+  ["tree", ["-Il", "node_modules"]],
+  // GNU getopt_long takes any unique prefix of a long option.
+  ["grep", ["--der", "foo", "."]],
+  ["grep", ["--dereference-r", "foo", "."]],
+  ["ls", ["--deref"]],
+  ["du", ["--foll", "."]],
+  ["wc", ["--files0=list"]],
+  ["du", ["--files0-f=list"]],
+  ["file", ["--f=list.txt"]],
+  ["wc", ["--f=list"]],
+  ["du", ["--f=list"]],
+  ["file", ["--com"]],
+  ["file", ["--unc", "f"]],
+  ["file", ["--mag=m", "f"]],
+  // A file naming the files to read: its entries are never checked.
+  ["wc", ["--files0-from=list"]],
+  ["du", ["--files0-from=list"]],
+  ["file", ["-f", "list.txt"]],
   ["tree", ["-R", "-L", "1"]],
   ["tree", ["-H", "."]],
   // GNU getopt reads options after operands.
@@ -125,8 +194,10 @@ describe("anyArgvSafe: the danger flags, both ways", () => {
   it.each(ARGS_DANGEROUS)("%s %j asks", (program, args) => {
     expect(anyArgvSafe(program, args)).toBe(false);
   });
-  it("covers a flag only before `--` for rg, and judges the whole sed script", () => {
-    expect(anyArgvSafe("rg", ["foo", "--", "-z"])).toBe(true);
+  it("asks for any dash-led argument after `--`, and judges the whole sed script", () => {
+    // `--` may be an option's value (`rg -e -- -z`), so what follows it is never trusted.
+    expect(anyArgvSafe("rg", ["foo", "--", "-z"])).toBe(false);
+    expect(anyArgvSafe("rg", ["foo", "--", "z.txt"])).toBe(true);
     expect(sedScriptSafe("1,3{p;d}")).toBe(true);
     expect(sedScriptSafe("s/a/b/;w x")).toBe(false);
   });
@@ -230,6 +301,9 @@ for (const d of [WORK, join(WORK, "sub"), WORK2, HOME, join(HOME, "proj"), SYS, 
   mkdirSync(d, { recursive: true });
 }
 const PROGRAMS = [
+  "jq",
+  "grep",
+  "du",
   "ls",
   "find",
   "sed",
@@ -257,6 +331,11 @@ symlinkSync(HOME, join(WORK, "escape"));
 writeFileSync(join(WORK, "a.txt"), "x");
 linkSync(join(WORK, "a.txt"), join(WORK, "b.txt"));
 writeFileSync(join(WORK, "plain.txt"), "x");
+// A link inside the shared folder to a place outside it, with a file behind it.
+const OUTSIDE = join(ROOT, "outside");
+mkdirSync(join(OUTSIDE, "deep"), { recursive: true });
+writeFileSync(join(OUTSIDE, "deep", "secret.txt"), "TOKEN");
+symlinkSync(OUTSIDE, join(WORK, "tmplink"));
 
 const SHA = (name: string) => sha(`${name}-v1`);
 const POLICY = {
@@ -618,17 +697,25 @@ describe("exec_host program grant: every path stays inside the folder", () => {
     await allowProgram(h, host(["sed", "-n", "p", "plain.txt"]));
     await allowProgram(h, host(["rg", "foo"]));
     await allowProgram(h, host(["tree", "-L", "1"]));
+    await allowProgram(h, host(["grep", "-r", "foo", "."]));
+    await allowProgram(h, host(["du", "-s", "."]));
+    await allowProgram(h, host(["jq", ".", "plain.txt"]));
     return h;
   }
   const RUN: [string, string[]][] = [
     ["ls", ["-la", "sub"]],
-    ["ls", ["--", "-weird"]],
+    ["ls", ["--", "weird"]],
     ["find", [".", "-name", "*.ts"]],
     ["find", ["sub", "-type", "f"]],
     ["sed", ["-n", "/x/p", "plain.txt"]],
     ["sed", ["-e", "s/a/b/", "plain.txt"]],
     ["rg", ["foo", "sub"]],
     ["tree", ["-L", "2"]],
+    ["ls", ["-R"]],
+    ["grep", ["-r", "foo", "."]],
+    ["rg", ["foo"]],
+    ["rg", ["--ignore-file=plain.txt", "foo"]],
+    ["du", ["-s", "sub"]],
   ];
   const ASK: [string, string[]][] = [
     ["ls", ["-la", join(HOME, ".aws")]],
@@ -648,6 +735,27 @@ describe("exec_host program grant: every path stays inside the folder", () => {
     ["tree", ["-R", "-L", "1"]],
     ["tree", ["-H", "."]],
     ["tree", ["/"]],
+    // A link inside the folder to outside: the flags that follow it ask.
+    ["rg", ["-L", "TOKEN", "."]],
+    ["rg", ["--follow", "TOKEN"]],
+    ["grep", ["-rS", "TOKEN", "."]],
+    ["grep", ["-R", "TOKEN", "."]],
+    ["grep", ["--dereference-recursive", "TOKEN", "."]],
+    ["find", [".", "-follow", "-name", "secret.txt"]],
+    ["find", ["-L", "."]],
+    ["ls", ["-LR", "."]],
+    ["tree", ["-l", "."]],
+    ["du", ["-L", "."]],
+    // Option values name paths too.
+    ["rg", [`--ignore-file=${join(HOME, "ignore")}`, "foo"]],
+    ["rg", [`--file=${join(OUTSIDE, "pats")}`, "."]],
+    ["rg", [`-f${join(OUTSIDE, "pats")}`, "."]],
+    ["rg", ["--ignore-file=../work2/x", "foo"]],
+    ["grep", [`--file=${join(HOME, "pats")}`, "-r", "."]],
+    ["jq", [`-L${OUTSIDE}`, "-n", "1"]],
+    ["jq", [`--library-path=${OUTSIDE}`, "-n", "1"]],
+    ["jq", ["-L", OUTSIDE, "-n", "1"]],
+    ["du", ["--files0-from=list"]],
   ];
   it.each(RUN)("%s %j runs quietly", async (name, args) => {
     const h = await grantedTools();
@@ -656,6 +764,22 @@ describe("exec_host program grant: every path stays inside the folder", () => {
   it.each(ASK)("%s %j asks", async (name, args) => {
     const h = await grantedTools();
     expect(await verdict(h, host([name, ...args]))).not.toBe("allow");
+  });
+  it("attached option values are paths too, in the folder or out of it", () => {
+    expect(operandsInside("rg", ["--ignore-file=plain.txt", "foo"], WORK, WORK)).toBe(true);
+    expect(operandsInside("rg", [`--ignore-file=${OUTSIDE}/x`, "foo"], WORK, WORK)).toBe(false);
+    expect(operandsInside("jq", ["-Lsub", "-n", "1"], WORK, WORK)).toBe(true);
+    expect(operandsInside("jq", [`-L${OUTSIDE}`, "-n", "1"], WORK, WORK)).toBe(false);
+    expect(operandsInside("rg", [`-nf${OUTSIDE}/p`], WORK, WORK)).toBe(false);
+  });
+  it("a PSYCHE_HOME inside the shared folder refuses the folder (no offer)", async () => {
+    const inside = makeBroker({
+      policy: POLICY as never,
+      psycheHome: join(WORK, ".psyche"),
+      ...OPTS,
+    } as never);
+    expect(offer(await card(inside, host(["ls"])))).toBeUndefined();
+    expect(offer(await card(harness(), host(["ls"])))).toBeDefined();
   });
   it("operandsInside judges the real path, with and without the files existing", () => {
     expect(operandsInside("ls", ["plain.txt", "not-there/x"], WORK, WORK)).toBe(true);
