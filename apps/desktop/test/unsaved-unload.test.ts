@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("electron", () => ({ dialog: { showMessageBoxSync: vi.fn() } }));
-const { unloadChoice } = await import("../src/main/unsaved-unload.ts");
+const showMessageBoxSync = vi.fn();
+vi.mock("electron", () => ({ dialog: { showMessageBoxSync } }));
+vi.mock("@psyche/ui/i18n-core", () => ({
+  createI18n: () => ({ t: (k: string) => k }),
+}));
+const { askBeforeUnload, loadUnloadStrings, unloadChoice } = await import(
+  "../src/main/unsaved-unload.ts"
+);
 
 const words = { ask: "Discard unsaved changes?", discard: "Discard", keep: "Keep editing" };
 
@@ -37,5 +43,35 @@ describe("a hidden renderer with unsaved Files edits", () => {
   it("is freed when nothing is unsaved, or on a page without the Files pane", async () => {
     expect(await probe(false)).toBe(false);
     expect(await probe(undefined)).toBe(false);
+  });
+});
+
+describe("the will-prevent-unload wiring", () => {
+  const wire = (win: { isDestroyed: () => boolean; isVisible: () => boolean }) => {
+    let listener: ((e: { preventDefault: () => void }) => void) | undefined;
+    const contents = { on: (_n: string, fn: typeof listener) => (listener = fn) };
+    askBeforeUnload(contents as never, win as never);
+    return () => {
+      const event = { preventDefault: vi.fn() };
+      listener?.(event);
+      return event.preventDefault;
+    };
+  };
+  it("lets the unload go ahead on Discard and stops it on Keep editing", async () => {
+    loadUnloadStrings(() => "en");
+    await new Promise((r) => setTimeout(r, 0));
+    const win = { isDestroyed: () => false, isVisible: () => true };
+    const fire = wire(win);
+    showMessageBoxSync.mockReturnValueOnce(0);
+    expect(fire()).toHaveBeenCalled();
+    expect(showMessageBoxSync).toHaveBeenLastCalledWith(win, expect.anything());
+    showMessageBoxSync.mockReturnValueOnce(1);
+    expect(fire()).not.toHaveBeenCalled();
+  });
+  it("asks without a parent when the window is hidden or gone", () => {
+    const fire = wire({ isDestroyed: () => true, isVisible: () => false });
+    showMessageBoxSync.mockReturnValueOnce(1);
+    fire();
+    expect(showMessageBoxSync.mock.lastCall).toHaveLength(1);
   });
 });
