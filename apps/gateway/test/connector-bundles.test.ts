@@ -1,5 +1,13 @@
 import { generateKeyPairSync, sign } from "node:crypto";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -1659,5 +1667,63 @@ describe("idle stops and restarts (PR #1401)", () => {
     } finally {
       for (const r of reads) r.mockRestore();
     }
+  });
+
+  it("an unreadable ledger is not remembered: once fixed, the next call lets the server idle-stop", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-conn-bundles-"));
+    const keyFile = join(home, "vault.key");
+    writeFileSync(keyFile, Buffer.alloc(32, 7), { mode: 0o600 });
+    const ledgerFile = join(home, "connectors", "bundles.json");
+    mkdirSync(join(home, "connectors"), { recursive: true });
+    writeFileSync(ledgerFile, "{broken");
+    const stops: string[] = [];
+    let mcp: ComposedMcp | undefined;
+    composed = await composeGateway({
+      retentionIntervalMs: 0,
+      background: false,
+      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      model: { provider: new FakeModelProvider(), model: "fake/model" },
+      vault: { keyFile, argon2: { memory: 64, passes: 1, parallelism: 1 } },
+      parts: [
+        (s) => {
+          setSetting(s.db, "mcp.servers", [
+            {
+              id: "plain",
+              name: "plain",
+              trust: "unknown",
+              transport: { kind: "stdio", command: [process.execPath, SERVER] },
+            },
+          ]);
+          mcp = composeMcp(s, {
+            hostOptions: {
+              launcher: fakeSrt,
+              idleStopMs: 500,
+              onEvent: (e) => {
+                if (e.type === "status" && e.status === "disconnected") stops.push(e.serverId);
+              },
+            },
+          });
+          return mcp;
+        },
+      ],
+    });
+    const test = () => {
+      const handler = (mcp as ComposedMcp).handlers?.["mcp.test"] as unknown as
+        | { run: (call: Call, p: unknown) => Promise<{ ok: boolean }> }
+        | undefined;
+      if (handler === undefined) throw new Error("no mcp.test handler");
+      return handler.run({} as Call, { id: "plain" });
+    };
+    await vi.waitFor(() => expect(launches.map((l) => l.server)).toContain("plain"), {
+      timeout: 10_000,
+    });
+    await (mcp as ComposedMcp).idle();
+    // Unreadable: an unmarked server runs, but is never stopped behind a check it cannot pass.
+    await new Promise((r) => setTimeout(r, 900));
+    expect(stops).not.toContain("plain");
+    // The file is fixed (no reconcile, no write through the Gateway): the next call reads again.
+    rmSync(ledgerFile);
+    expect((await test()).ok).toBe(true);
+    await vi.waitFor(() => expect(stops).toContain("plain"), { timeout: 5_000 });
   });
 });

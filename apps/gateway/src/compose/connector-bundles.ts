@@ -175,7 +175,7 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
   const keys = new AuthorKeyStore(home);
   // `checkedAtStart` runs at every MCP call: it reads ids from a snapshot taken at most once per
   // reconcile (`resetStartChecks`) and again after any write to the ledger here.
-  let recorded: Set<string> | "unreadable" | undefined;
+  let recorded: Set<string> | undefined;
   const ledger = new WatchedLedger(
     home,
     () => services.clock.now(),
@@ -964,11 +964,12 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
       try {
         recorded = new Set(ledger.list().map((r) => r.serverId));
       } catch {
-        recorded = "unreadable";
+        // Unreadable: `stale` lets an unmarked server run then; a restart waits for the check.
+        // Not kept, so the next call reads again once the file is fixed.
+        return true;
       }
     }
-    // Unreadable: `stale` lets an unmarked server run then; a restart still waits for the next start.
-    return recorded === "unreadable" || recorded.has(entry.id);
+    return recorded.has(entry.id);
   };
 
   /** A server added by hand (or by Psyche) never inherits a record an earlier shared one left. */

@@ -1098,9 +1098,9 @@ export class PsycheMcpHost implements McpHost {
     if (s.waking !== undefined) return s.waking;
     this.#assertLive(s);
     // The Gateway's view can change while the server is stopped (a bundle record appears under
-    // its id): a server it must check before every start is not started here.
+    // its id): a server it must check before every start is not started here. `restartable` stays
+    // as it is, so a check that fails only for a moment (an unreadable ledger) strands nothing.
     if (this.#neverAutoStart(s.config)) {
-      s.restartable = false;
       throw new PsycheError(
         "unavailable",
         `server ${s.config.id} is stopped and starts again only through Psyche's checks; edit or re-add it`,

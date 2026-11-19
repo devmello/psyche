@@ -308,13 +308,14 @@ describe("the Gateway's checks while a server is stopped (round 3)", () => {
       message: expect.stringMatching(/starts again only through Psyche's checks/),
     });
     expect(startCount()).toBe(base);
-    // It stays down: a later call is refused without a start too, and the listing is gone.
+    // Refused while the check says so; the approved listing stays pinned meanwhile.
+    expect(host.pinnedTools("mut").toolsListHash).toBe(toolsListHash);
+    // A check that failed only for a moment (an unreadable ledger, #1421 review) strands nothing:
+    // once it passes, the next call starts the server.
     checked = false;
-    await expect(host.callTool("mut", "ping", {}, { toolsListHash })).rejects.toMatchObject({
-      code: "unavailable",
-    });
-    expect(startCount()).toBe(base);
-    expect(() => host.pinnedTools("mut")).toThrow();
+    const r = await host.callTool("mut", "ping", {}, { toolsListHash });
+    expect(r.isError).toBe(false);
+    expect(startCount()).toBeGreaterThan(base);
   });
 });
 
