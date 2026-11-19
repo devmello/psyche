@@ -365,6 +365,30 @@ const ScreenshotParams = Type.Object(
   { additionalProperties: false },
 );
 
+/** A bundle the helper resolved an app id to (`apps.resolve`). */
+interface ResolvedApp {
+  bundleId: string;
+  name: string;
+  /** The bundle's real path. */
+  path: string;
+}
+
+/**
+ * The system's app folders, which no agent write reaches (folder shares refuse them and the
+ * sandbox never writes there): `/System/Applications` and `/Applications` (and their
+ * `Utilities`), not inside another app. `~/Applications` is not one of them.
+ */
+export function systemAppPath(path: string): boolean {
+  if (path.split("/").some((s) => s === "." || s === "..")) return false;
+  const m = /^\/(?:System\/)?Applications\/(.+)$/.exec(path);
+  if (m === null) return false;
+  const inner = (m[1] ?? "").split("/");
+  return (
+    (inner.length === 1 && /\.app$/i.test(inner[0] ?? "")) ||
+    (inner.length === 2 && inner[0] === "Utilities" && /\.app$/i.test(inner[1] ?? ""))
+  );
+}
+
 const OpenParams = Type.Object(
   {
     app: BundleId,
@@ -812,6 +836,177 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       });
     }
     return approvalId;
+  }
+
+  /**
+   * What the helper's `apps.resolve` last said each app id opens (lowercased id → the bundle's
+   * name and real path), so an `apps.open` card can name the app and where it is installed. A
+   * hint for the card only: every run resolves again and opens exactly that bundle.
+   */
+  const resolvedApps = new Map<string, ResolvedApp>();
+  const RESOLVED_APPS_MAX = 512;
+  const knownApp = (app: string) => resolvedApps.get(app.toLowerCase());
+  const rememberApp = (r: ResolvedApp) => {
+    const key = r.bundleId.toLowerCase();
+    resolvedApps.delete(key);
+    resolvedApps.set(key, r);
+    if (resolvedApps.size > RESOLVED_APPS_MAX) {
+      const oldest = resolvedApps.keys().next().value;
+      if (oldest !== undefined) resolvedApps.delete(oldest);
+    }
+  };
+  /** Bundles (lowercased id + path) the owner approved on a card that named that path. */
+  const confirmedBundles = new Set<string>();
+  const bundleKey = (app: string, path: string) => `${app.toLowerCase()}\n${path}`;
+
+  /**
+   * Asks the Mac helper which bundle `app` opens (`apps.resolve`, read-only): the helper refuses
+   * an id that several bundles claim, an Apple id outside the system folders or without Apple's
+   * signature, and a bundle nested in another app. An older Mac helper that cannot say fails
+   * closed; the Windows and Linux helpers do not answer it yet (`undefined`, as before).
+   */
+  async function resolveApp(
+    app: string,
+    callId: string,
+    signal: AbortSignal,
+  ): Promise<ResolvedApp | undefined> {
+    let res: NodeInvokeResult;
+    try {
+      ({ res } = await invoke(
+        callId,
+        {
+          tool: "apps.open",
+          capability: "apps.resolve",
+          params: { bundleId: app },
+          session: false,
+          approval: { app, action: "open_app", tierRequired: "click" },
+        },
+        signal,
+      ));
+    } catch (err) {
+      const e = PsycheError.from(err);
+      // The helper's own answer that no app has this id stands.
+      if (reasonOf(e) === "app_not_found") throw err;
+      if (e.code === "not_found" || e.code === "not_implemented" || e.code === "unknown_method") {
+        if (deps.helper()?.kind !== "mac-helper") return undefined;
+        throw new PsycheError(
+          "policy_denied",
+          "This Psyche helper cannot say which app it would open. Update the helper.",
+          { details: { reason: "app_unresolved" } },
+        );
+      }
+      throw err;
+    }
+    const r = (res.result ?? {}) as Record<string, unknown>;
+    const path = typeof r.path === "string" ? r.path : undefined;
+    const bundleId = typeof r.bundleId === "string" ? r.bundleId : undefined;
+    if (path === undefined || !path.startsWith("/") || bundleId === undefined) {
+      throw new PsycheError("policy_denied", `The helper could not say which app ${app} opens`, {
+        details: { reason: "app_unresolved" },
+      });
+    }
+    if (bundleId.toLowerCase() !== app.toLowerCase()) {
+      throw new PsycheError("policy_denied", `${app} resolves to another app (${bundleId})`, {
+        details: { reason: "app_mismatch", app, actedApp: bundleId },
+      });
+    }
+    const name =
+      typeof r.name === "string" && r.name.trim() !== ""
+        ? sanitizeSnapshot(r.name.trim()).slice(0, 200)
+        : (path.split("/").at(-1) ?? app).replace(/\.app$/i, "");
+    const resolved = { bundleId: app, name, path };
+    rememberApp(resolved);
+    return resolved;
+  }
+
+  /**
+   * A once-only card naming the bundle `apps.open` is about to launch and where it is installed:
+   * asked when the bundle lies outside the system's app folders and no card the owner approved
+   * named that path. A standing grant or the app's tier never answers it.
+   */
+  async function confirmOpen(
+    p: Static<typeof OpenParams>,
+    r: ResolvedApp,
+    callId: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const ctx = deps.context(callId);
+    const fields = {
+      tool: "apps.open",
+      app: p.app,
+      path: r.path,
+      tierRequired: "click",
+      action: "open_app",
+      ...(p.url === undefined ? {} : { urlSha256: hashCanonical(p.url) }),
+    };
+    const hash = bindingHash("computer_action", fields);
+    const target = appTarget(p.app);
+    const decision = await deps.broker.decide(
+      {
+        tool: "apps.open",
+        sideEffect: "write",
+        targetKind: "app",
+        target,
+        params: fields,
+        paramsHash: hashCanonical(fields),
+        kind: "computer_action",
+        bindingHash: hash,
+        grantKey: hash,
+        meta: { app: p.app, action: "open_app" },
+      },
+      ctx,
+    );
+    if (decision.decision === "deny") {
+      throw new PsycheError("policy_denied", decision.reason ?? `denied by ${decision.rule}`);
+    }
+    const issued = await deps.broker.requestApproval({
+      kind: "computer_action",
+      summary: `Open ${r.name} from ${r.path}`,
+      details: {
+        app: p.app,
+        name: r.name,
+        path: r.path,
+        action: "open_app",
+        tierRequired: "click",
+        ...(p.url === undefined ? {} : { url: p.url }),
+      },
+      bindingHash: hash,
+      grantKey: hash,
+      requestedBy: {
+        runId: ctx.runId,
+        taskId: ctx.taskId ?? null,
+        threadId: ctx.threadId,
+        toolCallId: callId,
+      },
+      sideEffect: "write",
+      targetKind: "app",
+      target,
+      surfaces: ["desktop", "notification"],
+      scopesOffered: ["once"],
+      taint: ctx.taint,
+      context: ctx,
+    });
+    const approvalId = issued.approval.id;
+    if (ctx.unattended === true) {
+      throw new PsycheError(
+        "approval_required",
+        `Opening ${r.name} from ${r.path} needs your approval. The request is queued.`,
+        { details: { approvalId } },
+      );
+    }
+    const done = await deps.broker.awaitDecision(approvalId, signal);
+    if (done.status !== "approved") {
+      throw new PsycheError("policy_denied", `The owner did not allow it (${done.status}).`, {
+        details: { approvalId },
+      });
+    }
+    const verified = await deps.broker.verifyBinding(approvalId, hash);
+    if (!verified.ok) {
+      throw new PsycheError("policy_denied", `approval ${verified.reason}`, {
+        details: { approvalId },
+      });
+    }
+    confirmedBundles.add(bundleKey(p.app, r.path));
   }
 
   /** Apps where a payment control, page or card was seen lately (lowercased app → when). */
@@ -1886,14 +2081,29 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       targetKind: "app",
       describe: (p) => {
         assertOpenAllowed(p.app, p.url);
+        // The bundle the helper last resolved this id to: the card names it and its folder.
+        const known = knownApp(p.app);
+        const urlSha256 = p.url === undefined ? undefined : hashCanonical(p.url);
         return {
           kind: "computer_action",
           target: appTarget(p.app),
-          bindingFields: { app: p.app, tierRequired: "click", action: "open_app" },
-          grantKey: `${p.app}|click`,
+          bindingFields: {
+            app: p.app,
+            tierRequired: "click",
+            action: "open_app",
+            ...(known === undefined ? {} : { path: known.path }),
+            ...(urlSha256 === undefined ? {} : { urlSha256 }),
+          },
+          // A grant for opening the app never covers opening a document with it, and a grant
+          // for one document never covers another.
+          grantKey: `${p.app}|click${urlSha256 === undefined ? "" : `|url:${urlSha256}`}`,
           meta: { app: p.app, action: "open_app" },
-          summary: `Open ${p.app}`,
-          ...(p.url === undefined ? {} : { details: { app: p.app, url: p.url } }),
+          summary: `Open ${known?.name ?? p.app}`,
+          details: {
+            app: p.app,
+            ...(known === undefined ? {} : { name: known.name, path: known.path }),
+            ...(p.url === undefined ? {} : { url: p.url }),
+          },
         };
       },
       async run(p, callId, signal) {
@@ -1906,12 +2116,30 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
             "apps.open opens file: and mailto: URLs only; use the browser tools for web pages.",
           );
         }
+        // What the card could name (the last resolution), then the bundle the helper resolves
+        // now: a bundle outside the system's app folders that no approved card named gets a
+        // card of its own, and the helper opens exactly the bundle resolved here.
+        const shown = knownApp(p.app);
+        const resolved = await resolveApp(p.app, callId, signal);
+        if (resolved !== undefined) {
+          const key = bundleKey(p.app, resolved.path);
+          const onCard =
+            shown?.path === resolved.path && deps.authority?.(callId)?.approvalId !== undefined;
+          if (onCard) confirmedBundles.add(key);
+          if (!systemAppPath(resolved.path) && !confirmedBundles.has(key)) {
+            await confirmOpen(p, resolved, callId, signal);
+          }
+        }
         const { res, approvalId } = await invoke(
           callId,
           {
             tool: "apps.open",
             capability: "apps.open",
-            params: { bundleId: p.app, ...(p.url === undefined ? {} : { url: p.url }) },
+            params: {
+              bundleId: p.app,
+              ...(p.url === undefined ? {} : { url: p.url }),
+              ...(resolved === undefined ? {} : { expectPath: resolved.path }),
+            },
             session: false,
             approval: { app: p.app, action: "open_app", tierRequired: "click" },
           },

@@ -154,12 +154,46 @@ export function assertNotProtected(
   path: string,
   roots: readonly string[] | undefined,
   ownDirs: readonly string[] = [],
+  writeRoots?: readonly string[],
 ): void {
+  if (writeRoots !== undefined) {
+    const root = writeProtectedRoot(path, writeRoots);
+    if (root !== undefined) {
+      throw new PsycheError(
+        "forbidden",
+        `${path} is a protected location: Psyche never writes where code runs at login, in a shell or when an app opens`,
+        { details: { reason: "protected_path", root, access: "write" } },
+      );
+    }
+  }
   if (!isProtectedPath(path, roots, ownDirs)) return;
   const root = (roots ?? []).map(canonicalTarget).find((r) => isUnder(path, r));
   throw new PsycheError("forbidden", `${path} is a protected location`, {
     details: { reason: "protected_path", root },
   });
+}
+
+/**
+ * The write-protected root (`~/Applications`, `~/Library/LaunchAgents`, `~/.zshrc`...) that
+ * `path` is, or lies under, else undefined. Compared without case on macOS and Windows, whose
+ * disks ignore it by default: `~/library/launchagents` is the same folder.
+ */
+export function writeProtectedRoot(
+  path: string,
+  writeRoots: readonly string[],
+): string | undefined {
+  const fold = process.platform === "linux" ? (p: string) => p : (p: string) => p.toLowerCase();
+  const target = fold(path);
+  for (const raw of writeRoots) {
+    let root: string;
+    try {
+      root = canonicalTarget(raw);
+    } catch {
+      continue;
+    }
+    if (isUnder(target, fold(root))) return root;
+  }
+  return undefined;
 }
 
 /**

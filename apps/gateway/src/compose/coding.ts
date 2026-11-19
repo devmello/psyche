@@ -6,7 +6,7 @@ import {
   type GitRunner,
 } from "@psyche/agent-core";
 import type { SandboxRunner } from "@psyche/protocol";
-import { protectedRoots } from "./protected-paths.ts";
+import { protectedRoots, writeProtectedRoots } from "./protected-paths.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -86,7 +86,9 @@ export function composeCoding(services: ComposeServices, setup: CodingSetup = {}
     files: { read, write },
     // The coding tools follow the root themselves (search, git): a look within the fresh window.
     folders: () => services.rawBroker.freshGrantedFolders(),
-    protectedRoots: () => protectedRoots(services.home),
+    // A workspace is read and written (`code.edit`, `code.run` mounts it read-write): never one
+    // in or around a persistence location either.
+    protectedRoots: () => [...protectedRoots(services.home), ...writeProtectedRoots()],
     broker: services.broker,
     ...(setup.runner === undefined ? {} : { runner: setup.runner }),
     ...(setup.track === undefined ? {} : { track: setup.track }),

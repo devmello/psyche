@@ -25,6 +25,7 @@ import {
   isSendChord,
   MAX_LABEL_CHARS,
   sanitizeSnapshot,
+  systemAppPath,
 } from "../src/compose/computer.ts";
 
 /**
@@ -64,6 +65,10 @@ class FakeHelper implements NodeClient {
   noResolve = false;
   /** A Mac helper from before `focused` (it answers a target-less call with invalid_params). */
   noFocus = false;
+  /** Where `apps.resolve` says an app id is installed (default: `/System/Applications/<Name>.app`). */
+  installed = new Map<string, { path: string; name?: string; bundleId?: string }>();
+  /** An older Mac helper without `apps.resolve`. */
+  noAppsResolve = false;
 
   async info(): Promise<NodeInfo> {
     throw new Error("unused");
@@ -151,6 +156,18 @@ class FakeHelper implements NodeClient {
           result: { status: "ok", method: "cgevent", app: this.pointApp ?? app },
           receipt: { outcome: "ok", summary: "computer.type ok" },
         };
+      case "apps.resolve": {
+        if (this.noAppsResolve) {
+          return err({ code: "not_found", message: "unknown capability apps.resolve" });
+        }
+        const id = String(p.bundleId);
+        const name = id.split(".").at(-1) ?? id;
+        const at = this.installed.get(id) ?? { path: `/System/Applications/${name}.app` };
+        return {
+          ok: true,
+          result: { bundleId: at.bundleId ?? id, name: at.name ?? name, path: at.path },
+        };
+      }
       case "apps.shortcut_run":
         return {
           ok: true,
@@ -725,7 +742,150 @@ describe("computer-use agent tools (J1–J5)", () => {
     expect(helper.calls).toEqual([]);
     const ok = await call("apps.open", { app: notes });
     expect(ok.isError).toBeUndefined();
-    expect(helper.calls[0]).toMatchObject({ capability: "apps.open", params: { bundleId: notes } });
+    expect(helper.calls.map((c) => c.capability)).toEqual(["apps.resolve", "apps.open"]);
+    expect(helper.calls[1]).toMatchObject({
+      capability: "apps.open",
+      params: { bundleId: notes, expectPath: "/System/Applications/Notes.app" },
+    });
+  });
+
+  describe("apps.open names the bundle it launches (apps.open review, finding 1 and 3)", () => {
+    const opens = () => helper.calls.filter((c) => c.capability === "apps.open");
+    const zephium = "app.zephium";
+    const userBundle = "/Users/owner/Applications/Zephium.app";
+
+    it("shows the resolved app name and path on the card once the helper has resolved it", async () => {
+      const first = tools.get("apps.open")?.describeCall?.({ app: notes });
+      expect(first?.summary).toBe(`Open ${notes}`);
+      await call("apps.open", { app: notes });
+      const next = tools.get("apps.open")?.describeCall?.({ app: notes });
+      expect(next?.summary).toBe("Open Notes");
+      expect(next?.details).toMatchObject({
+        app: notes,
+        name: "Notes",
+        path: "/System/Applications/Notes.app",
+      });
+      expect(next?.bindingFields).toMatchObject({ path: "/System/Applications/Notes.app" });
+    });
+
+    it("binds a document into the grant key, so one grant never covers another file", () => {
+      const d = (url?: string) =>
+        tools.get("apps.open")?.describeCall?.({
+          app: "com.apple.Preview",
+          ...(url === undefined ? {} : { url }),
+        })?.grantKey;
+      const bare = d();
+      const a = d("file:///tmp/a.pdf");
+      const b = d("file:///tmp/b.pdf");
+      expect(bare).toBe("com.apple.Preview|click");
+      expect(a).toMatch(/^com\.apple\.Preview\|click\|url:sha256:/);
+      expect(new Set([bare, a, b]).size).toBe(3);
+    });
+
+    it("asks once, naming the path, before launching a bundle from ~/Applications", async () => {
+      helper.installed.set(zephium, { path: userBundle, name: "Zephium" });
+      const r = await call("apps.open", { app: zephium });
+      expect(r.isError).toBeUndefined();
+      expect(issued).toHaveLength(1);
+      expect(issued[0]?.approval).toMatchObject({
+        kind: "computer_action",
+        summary: `Open Zephium from ${userBundle}`,
+        details: { app: zephium, name: "Zephium", path: userBundle },
+        scopesOffered: ["once"],
+      });
+      expect(opens()[0]?.params).toMatchObject({ bundleId: zephium, expectPath: userBundle });
+      // The owner saw this bundle: the next open of it does not ask again.
+      await call("apps.open", { app: zephium });
+      expect(issued).toHaveLength(1);
+      expect(opens()).toHaveLength(2);
+    });
+
+    it("does not launch when the owner declines, and queues the card in unattended runs", async () => {
+      helper.installed.set(zephium, { path: userBundle });
+      answer = "deny";
+      const denied = await call("apps.open", { app: zephium });
+      expect(denied.output).toMatchObject({ error: { code: "policy_denied" } });
+      answer = "none";
+      const queued = await call("apps.open", { app: zephium }, { unattended: true });
+      expect(queued.output).toMatchObject({ error: { code: "approval_required" } });
+      expect(opens()).toEqual([]);
+    });
+
+    it("needs no second card when the loop's card already named that path", async () => {
+      helper.installed.set(zephium, { path: userBundle, name: "Zephium" });
+      // An earlier resolve (apps.resolve during another call) filled the card's path.
+      answer = "deny";
+      await call("apps.open", { app: zephium });
+      issued.length = 0;
+      answer = "approve";
+      expect(tools.get("apps.open")?.describeCall?.({ app: zephium })?.details).toMatchObject({
+        path: userBundle,
+      });
+      const r = await call(
+        "apps.open",
+        { app: zephium },
+        {},
+        {
+          rule: "approval:ap_1",
+          bindingHash: "sha256:00",
+          approvalId: "ap_1",
+        },
+      );
+      expect(r.isError).toBeUndefined();
+      expect(issued).toEqual([]);
+    });
+
+    it("asks again when the id now opens another bundle than the card named", async () => {
+      await call("apps.open", { app: zephium }); // resolves to /System/Applications/zephium.app
+      expect(issued).toEqual([]);
+      helper.installed.set(zephium, { path: userBundle });
+      await call(
+        "apps.open",
+        { app: zephium },
+        {},
+        {
+          rule: "approval:ap_2",
+          bindingHash: "sha256:00",
+          approvalId: "ap_2",
+        },
+      );
+      expect(issued).toHaveLength(1);
+      expect(issued[0]?.approval.summary).toContain(userBundle);
+    });
+
+    it("refuses when the helper resolves another id, and fails closed on an old Mac helper", async () => {
+      helper.installed.set(zephium, { path: "/Applications/Other.app", bundleId: "com.other" });
+      const other = await call("apps.open", { app: zephium });
+      expect(other.output).toMatchObject({
+        error: { code: "policy_denied", details: { reason: "app_mismatch" } },
+      });
+      helper.noAppsResolve = true;
+      const old = await call("apps.open", { app: notes });
+      expect(old.output).toMatchObject({
+        error: { code: "policy_denied", details: { reason: "app_unresolved" } },
+      });
+      expect(opens()).toEqual([]);
+      // The Windows and Linux helpers do not resolve yet: they open as before.
+      helperKind = "win-helper";
+      const win = await call("apps.open", { app: "notepad.exe" });
+      expect(win.isError).toBeUndefined();
+      expect(opens()[0]?.params).toEqual({ bundleId: "notepad.exe" });
+    });
+
+    it.each([
+      ["/System/Applications/Notes.app", true],
+      ["/System/Applications/Utilities/Terminal.app", true],
+      ["/Applications/Zephium.app", true],
+      ["/Applications/Utilities/Tool.app", true],
+      ["/Users/owner/Applications/Zephium.app", false],
+      ["/Applications/Adobe/Photoshop.app", false],
+      ["/Applications/Outer.app/Contents/Inner.app", false],
+      ["/Applications/../tmp/X.app", false],
+      ["/tmp/Applications/X.app", false],
+      ["/Applications/Notes", false],
+    ])("systemAppPath(%s) is %s", (path, expected) => {
+      expect(systemAppPath(path)).toBe(expected);
+    });
   });
 
   it("runs Shortcuts with the loop's approval and no session", async () => {

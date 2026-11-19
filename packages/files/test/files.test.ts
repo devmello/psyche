@@ -315,6 +315,85 @@ describe("protected locations (#285)", () => {
   });
 });
 
+describe("write-protected persistence locations (apps.open review, finding 2)", () => {
+  // `granted` stands in for an older home-root rw share: the folders below are its children.
+  const persistence = [
+    "Applications/Notes.app/Contents/Info.plist",
+    "Library/LaunchAgents/com.evil.plist",
+    "Library/Preferences/com.apple.Terminal.plist",
+    "Library/Services/Run.workflow/Contents/document.wflow",
+    "Library/Application Support/com.apple.backgroundtaskmanagementagent/backgrounditems.btm",
+    ".zshrc",
+    ".zprofile",
+    ".zshenv",
+    ".zlogin",
+    ".bashrc",
+    ".bash_profile",
+    ".profile",
+    ".config/fish/config.fish",
+    ".gitconfig",
+    ".ssh/authorized_keys",
+  ];
+  const writeRoots = () => [
+    ...[
+      "Applications",
+      "Library/LaunchAgents",
+      "Library/Preferences",
+      "Library/Services",
+      "Library/Application Support/com.apple.backgroundtaskmanagementagent",
+      ".zshrc",
+      ".zprofile",
+      ".zshenv",
+      ".zlogin",
+      ".bashrc",
+      ".bash_profile",
+      ".profile",
+      ".config/fish",
+      ".gitconfig",
+      ".ssh",
+    ].map((rel) => join(granted, rel)),
+  ];
+
+  it.each(persistence)("refuses a write to ~/%s under a granted rw folder", async (rel) => {
+    const path = join(granted, rel);
+    mkdirSync(join(path, ".."), { recursive: true });
+    writeFileSync(path, "before");
+    ({ run } = toolset({ folders: () => folders, writeProtectedRoots: writeRoots }));
+    await expect(run("write_file", { path, content: "after" })).rejects.toMatchObject({
+      code: "forbidden",
+      details: { reason: "protected_path", access: "write" },
+    });
+    await expect(
+      run("edit_file", { path, old_string: "before", new_string: "after" }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    expect(readFileSync(path, "utf8")).toBe("before");
+    // Reading there follows the grant as before.
+    const read = await run("read_file", { path });
+    expect(JSON.stringify(read.output)).toContain("before");
+  });
+
+  it("refuses a new file there and another spelling of the folder, and leaves near names alone", async () => {
+    ({ run } = toolset({ folders: () => folders, writeProtectedRoots: writeRoots }));
+    mkdirSync(join(granted, "Library", "LaunchAgents"), { recursive: true });
+    await expect(
+      run("write_file", { path: join(granted, "Library/LaunchAgents/new.plist"), content: "x" }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    if (process.platform === "darwin") {
+      // APFS ignores case by default: the same folder.
+      await expect(
+        run("write_file", { path: join(granted, "library/launchagents/new.plist"), content: "x" }),
+      ).rejects.toMatchObject({ code: "forbidden" });
+    }
+    // Near misses: a sibling with a shared prefix, a backup of an rc file, another app folder.
+    for (const rel of [".zshrc.bak", "Applications-notes/a.md", "Projects/.gitconfig.md"]) {
+      const path = join(granted, rel);
+      mkdirSync(join(path, ".."), { recursive: true });
+      const done = await run("write_file", { path, content: "ok" });
+      expect(done.isError).toBeUndefined();
+    }
+  });
+});
+
 describe("symlinks", () => {
   it("refuses edits and searches through links, and never searches into one", async () => {
     symlinkSync(join(outside, "secret.txt"), join(granted, "link.txt"));

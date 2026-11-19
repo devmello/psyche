@@ -145,6 +145,23 @@ const EXECUTABLE_EXTENSIONS = new Set([
   "py",
   "rb",
   "pl",
+  // Terminal sessions, internet and file locations (they open a URL or another file), more
+  // script and shell types, and installable bundles and profiles.
+  "term",
+  "webloc",
+  "inetloc",
+  "fileloc",
+  "pyw",
+  "pyc",
+  "php",
+  "csh",
+  "tcsh",
+  "ksh",
+  "fish",
+  "prefpane",
+  "saver",
+  "mobileconfig",
+  "action",
 ]);
 
 function deny(reason: string, message: string, details: Record<string, string> = {}): never {
@@ -240,6 +257,16 @@ export function assertOpenAllowed(app: string, url: string | undefined): void {
   const cap = appCap(app);
   if (cap.cap === "off") deny("tier_off", cap.reason || `${app} is off`);
   if (url === undefined || !/^file:/i.test(url)) return;
+  // The URL parser folds `X.app/.`, `X.app/%2e` and `X.app/Contents/..` into `X.app/`: judge the
+  // segments as written, so a bundle never passes as a nameless document.
+  const segments = rawFileSegments(url);
+  const last = segments.at(-1);
+  if (last === undefined || last === "") {
+    deny("executable_document", "Psyche opens files, not folders or bundles, as documents");
+  }
+  if (segments.some((s) => s === "." || s === ".." || s.includes("/") || s.includes("\0"))) {
+    deny("invalid_url", "file URLs may not contain . or .. segments");
+  }
   let path: string;
   try {
     path = decodeURIComponent(new URL(url).pathname);
@@ -255,4 +282,25 @@ export function assertOpenAllowed(app: string, url: string | undefined): void {
   if (cap.cap === "click" || EXECUTABLE_EXTENSIONS.has(ext)) {
     deny("executable_document", "Psyche does not open scripts or apps as documents");
   }
+}
+
+/**
+ * The path segments of a `file:` URL as written (percent-decoded, before any `.` or `..` is
+ * folded away), without the query or fragment. Throws `invalid_url` for an undecodable segment.
+ */
+export function rawFileSegments(url: string): string[] {
+  const rest = url.replace(/^file:/i, "");
+  // `file:///p`, `file://localhost/p` and `file:/p` name the same path.
+  const afterHost = rest.startsWith("//") ? rest.slice(2).replace(/^[^/]*/, "") : rest;
+  const path = afterHost.split(/[?#]/, 1)[0] ?? "";
+  return path
+    .split("/")
+    .slice(1)
+    .map((seg) => {
+      try {
+        return decodeURIComponent(seg);
+      } catch {
+        return deny("invalid_url", "not a valid file URL");
+      }
+    });
 }

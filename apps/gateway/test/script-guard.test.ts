@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { FakePermissionBroker } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { createComputerUse } from "../src/compose/computer.ts";
@@ -53,6 +54,79 @@ describe("script and document pre-checks (#354)", () => {
         ),
       ),
     ).toBeUndefined();
+  });
+
+  // apps.open review, finding 3: the URL parser folds these into `X.app/`, a nameless document.
+  it.each([
+    "file:///tmp/X.app/.",
+    "file:///tmp/X.app/%2e",
+    "file:///tmp/X.app/%2E/",
+    "file:///tmp/X.app/Contents/..",
+    "file:///tmp/X.app/Contents/%2e%2e",
+    "file:///tmp/Run.workflow/",
+    "file:///tmp/a/../X.scptd",
+    "file://localhost/tmp/X.app/.",
+    "file:/tmp/X.app/.",
+    "file:///tmp/X.app%2F.",
+  ])("refuses the bundle trick %s", (url) => {
+    expect(reasonOf(() => assertOpenAllowed("com.apple.Preview", url))).toMatch(
+      /^(executable_document|invalid_url)$/,
+    );
+  });
+
+  it.each([
+    "session.term",
+    "home.webloc",
+    "share.inetloc",
+    "doc.fileloc",
+    "gui.pyw",
+    "cache.pyc",
+    "index.php",
+    "x.csh",
+    "x.tcsh",
+    "x.ksh",
+    "config.fish",
+    "Evil.prefPane",
+    "Evil.saver",
+    "wifi.mobileconfig",
+    "Do.action",
+    "Run.workflow",
+    "Flow.shortcut",
+  ])("refuses opening %s", (name) => {
+    expect(reasonOf(() => assertOpenAllowed("com.apple.TextEdit", `file:///tmp/${name}`))).toBe(
+      "executable_document",
+    );
+  });
+
+  it.each([
+    "file:///tmp/report.pdf",
+    "file:///tmp/my.v2/report.pdf",
+    "file:///tmp/..notes.txt",
+    "file:///tmp/notes..txt",
+    "file:///tmp/term-paper.docx",
+    "file:///tmp/a%20b.txt",
+  ])("opens the plain document %s", (url) => {
+    expect(reasonOf(() => assertOpenAllowed("com.apple.Preview", url))).toBeUndefined();
+  });
+
+  it("keeps the document list in step with the Mac helper's", () => {
+    const swift = readFileSync(
+      new URL(
+        "../../mac-helper/Sources/PsycheHelperCore/Apps/AppLaunchPolicy.swift",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const block =
+      /executableExtensions: Set<String> = \[([\s\S]*?)\]/.exec(swift)?.[1] ?? "nothing found";
+    const helper = [...block.matchAll(/"([^"]+)"/g)].map((m) => m[1] ?? "");
+    expect(helper.length).toBeGreaterThan(20);
+    for (const ext of helper) {
+      expect(
+        reasonOf(() => assertOpenAllowed("com.apple.TextEdit", `file:///tmp/f.${ext}`)),
+        ext,
+      ).toBe("executable_document");
+    }
   });
 
   it("refuses opening documents that would run", () => {
