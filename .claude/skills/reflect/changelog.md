@@ -2,6 +2,16 @@
 
 Newest first. The `reflect` skill reads the top entry to know where the last pass stopped.
 
+## 2026-11-18: reflect pass over #1315–#1335
+Sixteen merged PRs: #1315, #1317, #1319–#1326, #1328–#1331, #1334, #1335. Evidence is the orchestrator's review reports (`review-1317`, `-1321` r1–r7, `-1323`, `-1327`, `-1329` r1–r3) and the merge log.
+- **`psyche-permissions` §3:** no whole-label or whole-route exemptions (#1321, 7 rounds).
+- **`psyche-permissions` §3b (new):** fail closed instead of skipping, validate the resolved target, check every new action path against existing prohibitions, presence stays payments-only (#1329 B1/B2 and r2, #1315 vs #1321, #1327).
+- **`psyche-builder`:** positive controls for negative tests (#1318, #1325, #1327, #1329); re-run both PRs' tests after merging main on shared UI (#1331); run verify in the foreground, avoid `pgrep -f` self-match, `--ignore-scripts` for fresh worktrees (load 26); report once.
+- **`orchestrate` §4:** merge-order re-test, new-action-path review brief, reviewer load and duplicate-report rules.
+- **`psyche-i18n`:** Gateway notices need all 10 languages (#1327, #1333).
+- **Agents:** `security-reviewer` gets the five checks above; `haiku-verifier` gets the absence-only, merge-order and English-only checks and report-once.
+- **Not changed:** no `verify.sh` change (no evidence a script could catch these); no stale advice found to prune. The `pgrep` line in `learnings.md` already existed, so builder and orchestrator text now points at it.
+
 ## 2026-11-10: reflect pass over #1305–#1310
 Six builder PRs: #1305 (iOS Live Activity), #1306 (broker answer cap), #1307 (two test fixes), #1308 (helper socket pointer, two security rounds), #1309 (rate-limit copy), #1310 (missing settings label).
 - **`verify.sh`: the base tree moved out of `.git`.** It lived in `.git/agent-verify/base/<sha>`. Vite treats a `.git` path segment as denied, so `packages/ui` tests there died with `Cannot find module '/test/setup.ts'` and every ui failure looked new. It now lives in `<main checkout>/.claude/worktrees/_verify-base/<sha>` (gitignored; `VERIFY_BASE_DIR` overrides), and old trees under `.git` are removed. When the base can't load a file, the log and a note say "base could not run … unknown", but the check still fails: nothing is loosened.

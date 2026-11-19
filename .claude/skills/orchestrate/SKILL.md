@@ -60,6 +60,10 @@ Out of scope: <neighbouring areas other sessions own>
 
 ## 4. Merge
 
+- **Two PRs on the same UI or module:** before the second merges, merge `origin/main` into it and re-run the first PR's tests (#1325 and #1328 broke main until #1331).
+- **New action path:** for a PR that adds a tool or route that acts, put "check against every existing prohibition" into the review brief (#1315 skipped #1321's block).
+- **Reviewers and verifiers:** tell them to run verify in the foreground, report once, and not to wait with `pgrep -f` (load 26 from duplicate verifies; repeated reports).
+
 - Merge only after step 2 passes, plus step 3 for security PRs. Standing owner authorization (2026-11-05) covers this while Actions is locked: `gh pr merge <n> --merge --admin --match-head-commit <reviewed sha>`.
 - After a merge wave, check that main still builds for touched packages, and tell the owner in plain words what changed and what they must check by hand.
 - Owner decisions found during review go to the owner. Don't decide them silently.
