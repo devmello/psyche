@@ -11,7 +11,14 @@ import { useSlots } from "../slots.tsx";
 import { EntityPage } from "./EntityPage.tsx";
 import { EverythingTab } from "./EverythingTab.tsx";
 import { EventsTab, MoreTab, ProjectsTab } from "./KindTabs.tsx";
-import { entityHref, MEMORY_KINDS, type MemoryKind, memoryHref } from "./kinds.ts";
+import {
+  entityHref,
+  MEMORY_KINDS,
+  MEMORY_MAP_ROUTE,
+  type MemoryKind,
+  memoryHref,
+} from "./kinds.ts";
+import { MemoryMapView } from "./map/MemoryMapView.tsx";
 import { ReviewTab } from "./ReviewTab.tsx";
 import { WorkDueTab } from "./WorkDue.tsx";
 
@@ -21,7 +28,7 @@ export interface MemoryScreenProps {
   /** `/memory?entity=<id>` opens that item's page. */
   entity?: string;
   /** `/memory/review`: the review queue, a tab at the end of the chip row. */
-  view?: "review";
+  view?: "review" | "map";
   /** `?add=1` on Work due or Projects: open with the add form showing (⌘K's Add to-do, Add project). */
   startAdding?: boolean;
   onNavigate?: (to: string) => void;
@@ -47,26 +54,35 @@ export function MemoryScreen({
   const queue = useGatewayQuery("memory.review.list", { state: ["pending"], limit: 200 });
   const pending = queue.data?.counts.pending ?? 0;
   const reviewing = view === "review" && !entity;
+  const mapping = view === "map" && !entity;
 
   return (
     <section aria-label={t("memory.page.title")} data-testid="memory">
       <ScreenToolbar
         title={t("memory.page.title")}
         actions={
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            title={t("memory.page.soul")}
-            onClick={() => navigate("/agent/soul")}
-          >
-            <ToolbarLabel>{t("memory.page.soul")}</ToolbarLabel>
-          </Button>
+          <>
+            <ViewToggle
+              map={mapping}
+              onChange={(map) => navigate(map ? MEMORY_MAP_ROUTE : memoryHref(kind))}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              title={t("memory.page.soul")}
+              onClick={() => navigate("/agent/soul")}
+            >
+              <ToolbarLabel>{t("memory.page.soul")}</ToolbarLabel>
+            </Button>
+          </>
         }
       />
       <ScreenColumn width="wide" className="gap-6">
         {entity ? (
           <EntityPage id={entity} now={now} onNavigate={navigate} />
+        ) : mapping ? (
+          <MemoryMapView onOpen={(id) => navigate(entityHref(id))} />
         ) : (
           <>
             <nav
@@ -145,5 +161,39 @@ export function MemoryScreen({
         )}
       </ScreenColumn>
     </section>
+  );
+}
+
+/** List | Map: two views of the same memory, not two places. */
+function ViewToggle({
+  map,
+  onChange,
+}: {
+  map: boolean;
+  onChange: (map: boolean) => void;
+}): ReactElement {
+  return (
+    <fieldset
+      aria-label={t("memory.page.view")}
+      className="m-0 flex min-w-0 items-center rounded-full border-0 bg-fill-quaternary p-0.5"
+      data-testid="memory-view-toggle"
+    >
+      {([false, true] as const).map((isMap) => (
+        <button
+          key={String(isMap)}
+          type="button"
+          aria-pressed={map === isMap}
+          onClick={() => map !== isMap && onChange(isMap)}
+          className={cn(
+            "h-6 rounded-full px-3 text-callout outline-none transition-colors duration-(--duration-micro) focus-visible:ring-2 focus-visible:ring-ring",
+            map === isMap
+              ? "bg-surface-raised text-label-primary shadow-elevation-1"
+              : "text-label-secondary",
+          )}
+        >
+          {t(isMap ? "memory.page.view.map" : "memory.page.view.list")}
+        </button>
+      ))}
+    </fieldset>
   );
 }

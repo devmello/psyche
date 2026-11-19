@@ -10,6 +10,9 @@
 //   node update-manifest.mjs sign <update-manifest.json>   writes <file>.sig with the key in
 //                                                            PSYCHE_RELEASE_SIGNING_KEY (PEM)
 //   node update-manifest.mjs verify <update-manifest.json> <publicKey-base64>
+//   node update-manifest.mjs verify-trusted <update-manifest.json> <release-keys.ts>
+//                                                          verifies against the key the .sig names,
+//                                                            which must be one the app trusts
 //
 // The signature covers the manifest file's exact bytes: `build` output is written once and never
 // reformatted after signing.
@@ -22,7 +25,7 @@ import {
   verify,
 } from "node:crypto";
 import { readFileSync, statSync, writeFileSync } from "node:fs";
-import { basename } from "node:path";
+import { basename, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const FORMAT = "psyche-update-manifest";
@@ -137,6 +140,54 @@ export function signManifest(bytes, privatePem) {
   })}\n`;
 }
 
+/**
+ * The keys the app trusts: `TRUSTED_RELEASE_KEYS` as the app itself evaluates it, by importing
+ * release-keys.ts (Node strips its types). Parsing the source could disagree with what the app
+ * runs (a key in a comment, a second list, a filter); importing cannot. Every entry must be a plain
+ * { keyId, publicKey } whose keyId matches its key, or this throws. Only public keys live there.
+ */
+export async function loadTrustedKeys(keysFile) {
+  const mod = await import(`${pathToFileURL(resolve(keysFile)).href}?t=${Date.now()}`);
+  const list = mod.TRUSTED_RELEASE_KEYS;
+  if (!Array.isArray(list))
+    throw new Error("release-keys.ts: TRUSTED_RELEASE_KEYS is not an array");
+  return list.map((k, i) => {
+    const ok =
+      k !== null &&
+      typeof k === "object" &&
+      Object.keys(k).sort().join(",") === "keyId,publicKey" &&
+      /^[0-9a-f]{16}$/.test(k.keyId) &&
+      /^[A-Za-z0-9+/]{43}=$/.test(k.publicKey) &&
+      keyIdOf(Buffer.from(k.publicKey, "base64")) === k.keyId;
+    if (!ok) throw new Error(`release-keys.ts: entry ${i} is not a valid { keyId, publicKey }`);
+    return { keyId: k.keyId, publicKey: k.publicKey };
+  });
+}
+
+/**
+ * Verify against the key the signature names, but only if the app trusts that key (it is in
+ * release-keys.ts). A secret that is a different key than the one shipped in the app still
+ * self-verifies, and every client would then refuse the release.
+ */
+export function verifyTrusted(bytes, sigText, trusted) {
+  let env;
+  try {
+    env = JSON.parse(sigText);
+  } catch {
+    return { ok: false, why: "the signature file is not JSON" };
+  }
+  if (trusted.length === 0) return { ok: false, why: "release-keys.ts holds no trusted key" };
+  const key = trusted.find((k) => k.keyId === env.keyId);
+  if (!key)
+    return {
+      ok: false,
+      why: `signed by key ${env.keyId}, which is not in release-keys.ts (trusted: ${trusted.map((k) => k.keyId).join(", ")})`,
+    };
+  if (!verifyManifest(bytes, sigText, key.publicKey))
+    return { ok: false, why: `the signature does not verify against trusted key ${key.keyId}` };
+  return { ok: true, keyId: key.keyId };
+}
+
 export function verifyManifest(bytes, sigText, publicKeyB64) {
   const env = JSON.parse(sigText);
   const raw = Buffer.from(publicKeyB64, "base64");
@@ -148,7 +199,7 @@ export function verifyManifest(bytes, sigText, publicKeyB64) {
   return verify(null, bytes, key, Buffer.from(env.signature, "base64"));
 }
 
-function main(argv) {
+async function main(argv) {
   const [cmd, ...rest] = argv;
   if (cmd === "keygen") {
     const out = rest[0];
@@ -195,14 +246,24 @@ function main(argv) {
     process.stdout.write(ok ? "ok\n" : "BAD SIGNATURE\n");
     process.exit(ok ? 0 : 1);
   }
-  throw new Error("commands: keygen, build, sign, verify");
+  if (cmd === "verify-trusted") {
+    const [file, keysFile] = rest;
+    if (!file || !keysFile)
+      throw new Error("usage: verify-trusted <update-manifest.json> <release-keys.ts>");
+    const r = verifyTrusted(
+      readFileSync(file),
+      readFileSync(`${file}.sig`, "utf8"),
+      await loadTrustedKeys(keysFile),
+    );
+    process.stdout.write(r.ok ? `ok (trusted key ${r.keyId})\n` : `UNTRUSTED: ${r.why}\n`);
+    process.exit(r.ok ? 0 : 1);
+  }
+  throw new Error("commands: keygen, build, sign, verify, verify-trusted");
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try {
-    main(process.argv.slice(2));
-  } catch (err) {
+  main(process.argv.slice(2)).catch((err) => {
     process.stderr.write(`update-manifest: ${err.message}\n`);
     process.exit(2);
-  }
+  });
 }

@@ -5,6 +5,30 @@ import PsycheWire
 /// Keeps the helper connected: connect → handshake → serve, reconnecting with capped exponential
 /// backoff when the Gateway restarts, while pairing is pending, or after a denial.
 public final class NodeDaemon: @unchecked Sendable {
+    /// What the Gateway rewrites when it starts: the socket pointer and the per-launch handshake secret.
+    /// Other files in `run/` (update progress, pid files) change all the time and say nothing about it.
+    public struct RunFingerprint: Sendable, Equatable {
+        public struct FileMark: Sendable, Equatable {
+            var inode: UInt64
+            var mtimeSec: Int
+            var mtimeNsec: Int
+        }
+        public var socket: FileMark?
+        public var secret: FileMark?
+
+        public static func read(environment: [String: String]) -> RunFingerprint {
+            RunFingerprint(
+                socket: mark(HelperPaths.nodeSocketPointerPath(environment: environment)),
+                secret: mark(HelperPaths.handshakeSecretPath(environment: environment)))
+        }
+
+        private static func mark(_ path: String) -> FileMark? {
+            var st = stat()
+            guard lstat(path, &st) == 0 else { return nil }
+            return FileMark(inode: UInt64(st.st_ino), mtimeSec: Int(st.st_mtimespec.tv_sec), mtimeNsec: Int(st.st_mtimespec.tv_nsec))
+        }
+    }
+
     public struct Backoff: Sendable, Equatable {
         public var initial: TimeInterval = 0.5
         public var max: TimeInterval = 30
@@ -15,6 +39,13 @@ public final class NodeDaemon: @unchecked Sendable {
         /// Delay before attempt `n` (0-based) after consecutive failures.
         public func delay(afterFailures n: Int) -> TimeInterval {
             Swift.min(max, initial * pow(2, Double(Swift.max(0, n))))
+        }
+
+        /// `delay` with equal jitter: half fixed, half random, so a Gateway restart does not bring
+        /// every client back in the same instant. `random` is in [0, 1); the result never exceeds `delay`.
+        public func jittered(_ delay: TimeInterval, random: Double) -> TimeInterval {
+            let r = Swift.min(Swift.max(random, 0), 1)
+            return delay / 2 + delay / 2 * r
         }
     }
 
@@ -34,11 +65,21 @@ public final class NodeDaemon: @unchecked Sendable {
     private let lock = NSLock()
     private var stopped = false
     private var current: FrameChannel?
+    // Reconnect waits block on this condition instead of polling: zero wakeups while waiting.
+    private let wait = NSCondition()
+    private var waiting = false
+    private var wakeRequested = false
+    private var lastWaitStart = Date.distantPast
+    private var waitFingerprint = RunFingerprint(socket: nil, secret: nil)
+    private var waitIsDenied = false
+    private let random: @Sendable () -> Double
 
     public init(
         identity: DeviceIdentity, registry: CapabilityRegistry, preflight: any PermissionPreflight, log: HelperLog,
-        environment: [String: String] = ProcessInfo.processInfo.environment, backoff: Backoff = Backoff()
+        environment: [String: String] = ProcessInfo.processInfo.environment, backoff: Backoff = Backoff(),
+        random: @escaping @Sendable () -> Double = { Double.random(in: 0..<1) }
     ) {
+        self.random = random
         self.identity = identity
         self.registry = registry
         self.preflight = preflight
@@ -52,20 +93,41 @@ public final class NodeDaemon: @unchecked Sendable {
         var failures = 0
         while !isStopped {
             let delay: TimeInterval
+            var denied = false
             switch runOnce() {
             case .served:
                 failures = 0
                 delay = backoff.initial
             case .pending:
-                delay = backoff.pendingRetry
+                delay = backoff.jittered(backoff.pendingRetry, random: random())
             case .denied:
-                delay = backoff.deniedRetry
+                denied = true
+                delay = backoff.jittered(backoff.deniedRetry, random: random())
             case .failed:
-                delay = backoff.delay(afterFailures: failures)
+                delay = backoff.jittered(backoff.delay(afterFailures: failures), random: random())
                 failures += 1
             }
-            sleepUnlessStopped(delay)
+            if sleepUnlessStopped(delay, denied: denied) { failures = 0 }  // woken by a Gateway-up signal: start the schedule over
         }
+    }
+
+    /// Something in `run/` changed. Cuts the current wait short and reconnects now only if the Gateway
+    /// really restarted: `run/node-socket` or `run/handshake.secret` is a different file or was
+    /// rewritten since the wait began. A denied or revoked wait (300 s) ends only on a new
+    /// `handshake.secret`, since a Gateway restart is what makes a denial worth retrying. Ignored while
+    /// connected, and at most once a second, so a noisy signal cannot spin the loop.
+    public func gatewayMayBeUp(now: Date = Date()) {
+        let seen = RunFingerprint.read(environment: environment)
+        wait.lock()
+        defer { wait.unlock() }
+        guard waiting, now.timeIntervalSince(lastWaitStart) >= 1 else { return }
+        if waitIsDenied {
+            guard seen.secret != waitFingerprint.secret else { return }
+        } else {
+            guard seen.socket != waitFingerprint.socket || seen.secret != waitFingerprint.secret else { return }
+        }
+        wakeRequested = true
+        wait.broadcast()
     }
 
     /// One connect → handshake → serve cycle.
@@ -116,6 +178,9 @@ public final class NodeDaemon: @unchecked Sendable {
         stopped = true
         let channel = current
         lock.unlock()
+        wait.lock()
+        wait.broadcast()
+        wait.unlock()
         channel?.shutdown()
     }
 
@@ -131,10 +196,23 @@ public final class NodeDaemon: @unchecked Sendable {
         lock.unlock()
     }
 
-    private func sleepUnlessStopped(_ seconds: TimeInterval) {
+    /// Waits up to `seconds` on a condition that `stop()` and `gatewayMayBeUp` signal. True if woken early
+    /// by the Gateway-up signal.
+    @discardableResult
+    func sleepUnlessStopped(_ seconds: TimeInterval, denied: Bool = false) -> Bool {
         let deadline = Date().addingTimeInterval(seconds)
-        while !isStopped, Date() < deadline {
-            Thread.sleep(forTimeInterval: Swift.min(0.25, deadline.timeIntervalSinceNow))
+        let fingerprint = RunFingerprint.read(environment: environment)
+        wait.lock()
+        defer { wait.unlock() }
+        waitFingerprint = fingerprint
+        waitIsDenied = denied
+        waiting = true
+        wakeRequested = false
+        lastWaitStart = Date()
+        defer { waiting = false }
+        while !isStopped, !wakeRequested, Date() < deadline {
+            _ = wait.wait(until: deadline)
         }
+        return wakeRequested && !isStopped
     }
 }

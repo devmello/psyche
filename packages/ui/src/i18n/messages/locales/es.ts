@@ -14,6 +14,7 @@ import { links } from "./links/es.ts";
 import { mailMeetings } from "./mail-meetings/es.ts";
 import { memoryA } from "./memory-a/es.ts";
 import { memoryB } from "./memory-b/es.ts";
+import { memoryMap } from "./memory-map/es.ts";
 import { notices } from "./notices/es.ts";
 import { overview } from "./overview/es.ts";
 import { overviewGrowth } from "./overview-growth/es.ts";
@@ -37,6 +38,7 @@ import { workflows } from "./workflows/es.ts";
 
 /** Spanish catalogue (es). Same ids as `en`; missing ids fall back to English. */
 export const es: Partial<Catalogue> = {
+  ...memoryMap,
   ...scheduledA,
   ...scheduledForm,
   ...homeA,
@@ -871,6 +873,7 @@ export const es: Partial<Catalogue> = {
   "shell.shortcuts.description":
     "† marca los atajos que Psyche añade al mapa de Claude para escritorio.",
   "shell.threads.needsYou": "Te necesita",
+  "shell.threads.nowOn": "Ahora: {step}",
   "shell.threads.running": "En ejecución",
   "shell.threads.titleField": "Título de la conversación",
   "shell.threads.incognito": "Incógnito",
@@ -2063,7 +2066,8 @@ export const es: Partial<Catalogue> = {
   "settings.model.role.primary": "Principal",
   "settings.model.role.primaryHint": "Chat, tareas y herramientas",
   "settings.model.role.utility": "Auxiliar",
-  "settings.model.role.utilityHint": "Títulos, resúmenes y el clasificador del modo automático",
+  "settings.model.role.utilityHint":
+    "Títulos, resúmenes, tarjetas de búsqueda y otras tareas en segundo plano",
   "settings.model.role.image": "Imagen",
   "settings.model.role.imageHint": "Cambios de avatar; ninguno significa las criaturas incluidas",
   "settings.model.addProvider": "Añadir un proveedor",
@@ -3074,6 +3078,19 @@ export const es: Partial<Catalogue> = {
   "screens.library.openLabel": "Abrir {name}{editor, select, true { en el editor} other {}}",
   "screens.library.openInEditor": "Abrir en el editor",
   "screens.library.open": "Abrir",
+  "screens.library.recording.description":
+    "Una reproducción de lo que hizo el agente en el navegador. El contenido de la página se ocultó al grabar.",
+  "screens.library.recording.play": "Reproducir",
+  "screens.library.recording.pause": "Pausa",
+  "screens.library.recording.step": "Paso {n} de {total}",
+  "screens.library.recording.scrub": "Posición en la grabación",
+  "screens.library.recording.steps": "Pasos",
+  "screens.library.recording.empty": "Esta grabación no tiene pasos.",
+  "screens.library.recording.noFrame": "No hay imagen para este paso.",
+  "screens.library.recording.frameAlt": "El navegador en el paso {n}",
+  "screens.library.recording.loading": "Cargando la grabación",
+  "screens.library.recording.loadFailed": "Psyche no pudo cargar esta grabación ({reason}).",
+  "screens.library.recording.notFound": "Esta grabación ya no está disponible.",
   "screens.library.trust": "Confiar en este archivo",
   "screens.library.moreFor": "Más acciones para {name}",
   "screens.library.quickLook": "Vista Rápida",
