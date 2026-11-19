@@ -7,6 +7,7 @@ import { folderAccessEnv } from "../compose/protected-paths.ts";
 import type { Call, HandlerDef } from "../context.ts";
 import { LAN_SETTING, parseLanSettings } from "../lan/settings.ts";
 import { requireFreshPresence } from "../presence-gate.ts";
+import { redactMcpServers } from "../redact.ts";
 import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
 
 /**
@@ -146,6 +147,11 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       const settings = Object.fromEntries(
         Object.entries(all).filter(([k]) => !k.startsWith(INTERNAL_SETTING_PREFIX)),
       );
+      // A tool server's env values, URL secrets and auth never leave the Gateway this way, for
+      // any device: `mcp.config` and `mcp.secrets` are how the owner sees them.
+      if ("mcp.servers" in settings) {
+        settings["mcp.servers"] = redactMcpServers(settings["mcp.servers"]);
+      }
       return { settings, stateVersion: call.ctx.bus.stateVersion };
     },
   },
@@ -153,6 +159,15 @@ export const settingsHandlers: Record<string, HandlerDef> = {
     // Not transactional: a security key first awaits the broker. The write itself is one row.
     async run(call: Call, params: { key: string; value: unknown; approvalId?: string }) {
       const { key } = params;
+      // Tool servers change only through the `mcp.*` methods. A whole-list write can't carry
+      // the secrets a read hides, and it would skip the trust card.
+      if (key === "mcp.servers") {
+        throw new PsycheError(
+          "invalid_params",
+          "Tool servers can't be written with settings.set. Use mcp.probe and mcp.add to add one, mcp.update to edit, mcp.setEnabled to pause or resume, and mcp.remove to remove.",
+          { details: { reason: "use_mcp_methods" } },
+        );
+      }
       // `gateway.lan` is stored in its normalized form, and a malformed or wildcard value is
       // refused before anything (including the presence card) is created for it.
       let value = key === LAN_SETTING ? parseLanSettings(params.value) : params.value;
@@ -169,10 +184,6 @@ export const settingsHandlers: Record<string, HandlerDef> = {
         value = expandPolicyFolders(value);
         await checkNewFolders(call, value);
       }
-      // A tool server that came from a shared file keeps its marker, tier and sandbox however the
-      // list is written: those only change by importing or removing it.
-      if (key === "mcp.servers")
-        value = keepBundleProtections(getSetting(call.ctx.db, key)?.value, value);
       // Fresh presence once a verifier was enrolled (helper Touch ID, passkeys); admin only before.
       if (needsPresence(key)) {
         await requireFreshPresence(
@@ -212,7 +223,11 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       }
       const stateVersion = call.ctx.bus.bumpStateVersion();
       call.emit("settings.changed", { entries: [entry] });
-      return { entry, stateVersion };
+      return {
+        entry:
+          entry.key === "mcp.servers" ? { ...entry, value: redactMcpServers(entry.value) } : entry,
+        stateVersion,
+      };
     },
   },
 };

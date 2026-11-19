@@ -2,6 +2,7 @@ import type { Grant } from "@psyche/protocol";
 import { ChevronRight } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ApprovalCard } from "../blocks/ApprovalCard.tsx";
+import { answerFailureText, classifyAnswerError } from "../blocks/answer-error.ts";
 import { PermissionActionsProvider } from "../blocks/permission-actions.tsx";
 import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
@@ -25,6 +26,7 @@ import { useNow } from "../lib/use-now.ts";
 import { routeLink } from "../overview/overviewLinks.ts";
 import { grantSubject } from "../screens/settings/PermissionsSection.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
+import { isCompactRoutine, routineDeferred, splitApprovals, writePath } from "./deferred-digest.ts";
 import { Row } from "./MissionControl.tsx";
 
 const RECENT_MS = 7 * 24 * 60 * 60 * 1000;
@@ -39,29 +41,18 @@ function decidedWhere(by: unknown): string {
 }
 
 /**
- * Splits pending approvals into the ones you can answer here (Needs you) and the ones an
- * unattended automation run could not ask for (Deferred, §3.15). The sheet's tab badge and the
- * panel's "Needs you" count both come from here, so they always agree.
+ * Splits pending approvals into full cards (Needs you) and the automation digest's rows
+ * (Deferred, §3.15). Deferred holds only an unattended run's cards that are either `routine`
+ * (compact row, bulk) or answered elsewhere. A sensitive, payment, folder, typed-word or compose
+ * card keeps the full ApprovalCard under Needs you with every gate. `needsYou` (the sheet's badge,
+ * Home) counts every card this window can answer, so the counts always agree.
  */
 export function useApprovalQueue() {
   const approvals = useApprovals();
   const tasks = useStoreState((s) => s.tasks);
   const threads = useStoreState((s) => s.threads);
   const { pending } = approvals;
-  const split = useMemo(() => {
-    const live: ApprovalView[] = [];
-    const deferred: ApprovalView[] = [];
-    for (const v of pending) {
-      const taskId = v.approval.requestedBy.taskId;
-      const task = taskId == null ? undefined : tasks[taskId];
-      // An automation's run, or a specialist an automation started (no parent run, §4.10).
-      const unattended =
-        task?.createdFrom === "automation" ||
-        (task?.createdFrom === "subagent" && task.specialist?.parentRunId === null);
-      (unattended && !v.canAnswer ? deferred : live).push(v);
-    }
-    return { live, deferred };
-  }, [pending, tasks]);
+  const split = useMemo(() => splitApprovals(pending, tasks), [pending, tasks]);
   return { ...approvals, ...split, tasks, threads };
 }
 
@@ -106,6 +97,148 @@ function Disclosure({
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-1">{children}</CollapsibleContent>
     </Collapsible>
+  );
+}
+
+/**
+ * The automation digest's list (Deferred): compact rows for an unattended run's `routine` cards,
+ * and a quiet row for a card answered on another device. Sensitive cards are never here: they
+ * keep the full ApprovalCard under Needs you. Approve and Decline answer through the same path as
+ * a card; "Approve all routine ones" sends `bulk: true`, which the Gateway checks per card.
+ * Approving a set-aside card starts a resume run, and the row says so instead of "done".
+ */
+export function DeferredList({
+  items,
+  tasks,
+  now,
+  answer,
+}: {
+  items: ApprovalView[];
+  tasks: ReturnType<typeof useApprovalQueue>["tasks"];
+  now: number;
+  answer: ReturnType<typeof useApprovalQueue>["answer"];
+}): ReactElement {
+  const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set());
+  const [error, setError] = useState<string | null>(null);
+  const [resuming, setResuming] = useState<readonly string[]>([]);
+  const routine = routineDeferred(items);
+  const titleOf = (v: ApprovalView) =>
+    tasks[v.approval.requestedBy.taskId ?? ""]?.title ?? t("agent.approvals.anAutomation");
+  const decide = async (views: ApprovalView[], decision: "approve" | "deny", bulk = false) => {
+    const ids = views.map((v) => v.approval.id);
+    setError(null);
+    setBusy((b) => new Set([...b, ...ids]));
+    const started: string[] = [];
+    for (const v of views) {
+      try {
+        await answer(
+          v.approval.id,
+          decision,
+          decision === "approve" ? "once" : undefined,
+          bulk ? { bulk: true } : undefined,
+        );
+        if (decision === "approve" && v.approval.setAside === true) started.push(titleOf(v));
+      } catch (e) {
+        setError(answerFailureText(classifyAnswerError(e)));
+      }
+    }
+    if (started.length > 0) setResuming((r) => [...new Set([...r, ...started])]);
+    setBusy((b) => new Set([...b].filter((id) => !ids.includes(id))));
+  };
+  return (
+    <div className="flex flex-col gap-2" data-testid="deferred-list">
+      {routine.length > 0 ? (
+        <div className="flex justify-end">
+          <Button
+            size="xs"
+            variant="outline"
+            disabled={busy.size > 0}
+            onClick={() => void decide(routine, "approve", true)}
+          >
+            {t("agent.approvals.approveRoutine", { n: routine.length })}
+          </Button>
+        </div>
+      ) : null}
+      <ul className="flex flex-col divide-y divide-separator text-body">
+        {items.map((v) => {
+          const id = v.approval.id;
+          const compact = isCompactRoutine(v.approval) && v.canAnswer && !v.stale;
+          const path = writePath(v.approval);
+          const rowBusy = busy.has(id);
+          return (
+            <li
+              key={id}
+              data-testid="deferred-row"
+              data-approval-id={id}
+              className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center"
+            >
+              <div className="min-w-0 flex-1">
+                <p>
+                  <span className="font-medium">{titleOf(v)}</span>{" "}
+                  <span className="text-label-secondary">
+                    {t("agent.approvals.wantedTo", { what: displaySummary(v.approval) })}
+                  </span>
+                </p>
+                {path === undefined ? null : (
+                  // The full path, never a basename: the owner sees where the write lands.
+                  <p
+                    className="break-all font-mono text-callout text-label-secondary"
+                    data-testid="deferred-path"
+                  >
+                    {path}
+                  </p>
+                )}
+                <p className="text-callout text-label-secondary">
+                  {compact ? t("agent.approvals.riskRoutine") : t("agent.approvals.riskSensitive")}{" "}
+                  ·{" "}
+                  {t("agent.approvals.setAside", {
+                    when: formatRelative(v.approval.requestedAt, now),
+                  })}
+                </p>
+              </div>
+              {compact ? (
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    disabled={rowBusy}
+                    onClick={() => void decide([v], "deny")}
+                  >
+                    {t("agent.approvals.decline")}
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="default"
+                    disabled={rowBusy}
+                    onClick={() => void decide([v], "approve")}
+                  >
+                    {t("agent.approvals.approve")}
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-callout text-label-secondary">
+                  {t("agent.approvals.answerElsewhere")}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {resuming.length === 0 ? null : (
+        <p
+          role="status"
+          className="text-callout text-label-secondary"
+          data-testid="deferred-resuming"
+        >
+          {t("agent.approvals.resuming", { names: resuming.join(", "), n: resuming.length })}
+        </p>
+      )}
+      {error === null ? null : (
+        <p role="alert" className="text-callout text-tomato-12">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -161,7 +294,7 @@ export function ApprovalsPanel({
     return () => cancelAnimationFrame(frame);
   }, [decided]);
   const overview = routeLink("/overview", slots.navigate);
-  const empty = live.length === 0 && questions.open.length === 0;
+  const empty = live.length === 0 && questions.open.length === 0 && deferred.length === 0;
 
   return (
     <div className="flex flex-col gap-5">
@@ -248,32 +381,8 @@ export function ApprovalsPanel({
           <h3 id="approvals-deferred" className="text-title-3 text-label-primary">
             {t("agent.approvals.deferredCount", { n: deferred.length })}
           </h3>
-          <ul className="flex flex-col divide-y divide-separator text-body">
-            {deferred.map((v) => {
-              const taskId = v.approval.requestedBy.taskId;
-              return (
-                <li key={v.approval.id} className="flex items-center gap-2 py-2">
-                  <span className="min-w-0 flex-1">
-                    <span className="font-medium">
-                      {tasks[taskId ?? ""]?.title ?? t("agent.approvals.anAutomation")}
-                    </span>{" "}
-                    <span className="text-label-secondary">
-                      {t("agent.approvals.wantedTo", { what: displaySummary(v.approval) })}
-                    </span>
-                  </span>
-                  {taskId ? (
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      onClick={() => slots.navigate?.("/overview#now")}
-                    >
-                      {t("agent.approvals.openTask")}
-                    </Button>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
+          <p className="text-callout text-label-secondary">{t("agent.approvals.deferredHint")}</p>
+          <DeferredList items={deferred} tasks={tasks} now={now} answer={answer} />
         </section>
       ) : null}
 

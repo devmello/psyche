@@ -44,6 +44,12 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {{provider} のキーが{action, select, changed {変更} other {削除}}されました} other {{provider} の API キーが{action, select, changed {変更} other {削除}}されました}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {変更} other {削除}}元: {device, select, none {デバイス} other {"{device}" ({platform}{paired, select, none {} other {、ペアリング日 {paired}}})}}。心当たりがない場合は、設定 → デバイスでこのデバイスを取り消してください。',
+  "notice.approvals.digest.title": "{count, plural, other {自動化の操作が#件待っています}}",
+  "notice.approvals.digest.body": "承認を開いて、承認または拒否してください",
+  "notice.approvals.resumeMissed.title":
+    "{automation, select, none {承認した自動化の操作は行われませんでした} other {{automation}：承認した操作は行われませんでした}}",
+  "notice.approvals.resumeMissed.body":
+    "{why, select, expired {自動化が操作に到達する前に承認の期限が切れたため、何も行われませんでした。まだ必要な場合は、もう一度確認されます。} paused {自動化が一時停止中か削除されたため、再実行されず、何も行われませんでした。まだ必要な場合は、もう一度確認されます。} restart {自動化が再実行される前にPsycheが再起動したため、何も行われませんでした。まだ必要な場合は、もう一度確認されます。} restart_kept {自動化が再実行される前にPsycheが再起動しました。与えた許可は残るため、次回の実行では確認なしでこれを行います。取り消すには、承認の常時許可から取り消してください。} failed {自動化は操作を再実行しましたが、失敗しました。原因はアクティビティで確認できます。まだ必要な場合は、もう一度確認されます。} other {自動化は再実行されましたが、同じ操作に到達しなかったため何も行われませんでした。まだ必要な場合は、もう一度確認されます。}}",
   "notice.specialist.result.title":
     "{outcome, select, done {{who}が{title}を終えました} partial {{who}は{title}を途中で止めました} cancelled {{who}は{title}で停止されました} other {{who}は{title}を完了できませんでした}}",
   "notice.specialist.result.body":

@@ -43,6 +43,13 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {{action, select, changed {تم تغيير} other {تمت إزالة}} مفتاح {provider}} other {{action, select, changed {تم تغيير} other {تمت إزالة}} مفتاح API الخاص بـ {provider}}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {التغيير} other {الإزالة}} من {device, select, none {جهاز} other {"{device}" ({platform}{paired, select, none {} other {، اقترن في {paired}}})}}. إن لم تكن أنت من فعل ذلك، فألغِ الجهاز من الإعدادات ← الأجهزة.',
+  "notice.approvals.digest.title":
+    "{count, plural, =1 {إجراء واحد من الأتمتة ينتظر} other {# إجراءات من الأتمتة تنتظر}}",
+  "notice.approvals.digest.body": "افتح الموافقات للموافقة عليها أو رفضها",
+  "notice.approvals.resumeMissed.title":
+    "{automation, select, none {لم يُنفَّذ إجراء أتمتة تمت الموافقة عليه} other {{automation}: لم يُنفَّذ الإجراء الذي تمت الموافقة عليه}}",
+  "notice.approvals.resumeMissed.body":
+    "{why, select, expired {انتهت صلاحية الموافقة قبل أن تصل الأتمتة إلى الإجراء، لذا لم يُنفَّذ شيء. إن كانت لا تزال تحتاجه فستطلبه مرة أخرى.} paused {الأتمتة متوقفة مؤقتًا أو أُزيلت، لذا لم تعمل مرة أخرى ولم يُنفَّذ شيء. إن كانت لا تزال تحتاجه فستطلبه مرة أخرى.} restart {أُعيد تشغيل Psyche قبل أن تعمل الأتمتة مرة أخرى، لذا لم يُنفَّذ شيء. إن كانت لا تزال تحتاجه فستطلبه مرة أخرى.} restart_kept {أُعيد تشغيل Psyche قبل أن تعمل الأتمتة مرة أخرى. يبقى الإذن الذي منحته، لذا سيفعل تشغيلها التالي هذا دون أن يسأل. لسحبه، ألغِه من الأذونات الدائمة في الموافقات.} failed {أعادت الأتمتة تنفيذ الإجراء، لكنه فشل. راجع النشاط لمعرفة ما حدث. إن كانت لا تزال تحتاجه فستطلبه مرة أخرى.} other {عملت الأتمتة مرة أخرى لكنها لم تصل إلى الإجراء نفسه، لذا لم يُنفَّذ شيء. إن كانت لا تزال تحتاجه فستطلبه مرة أخرى.}}",
   "notice.specialist.result.title":
     "{outcome, select, done {{who} أنهى {title}} partial {توقف {who} مبكرًا في {title}} cancelled {تم إيقاف {who} في {title}} other {تعذّر على {who} إنهاء {title}}}",
   "notice.specialist.result.body":

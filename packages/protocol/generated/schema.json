@@ -7197,6 +7197,10 @@
         },
         "via": {
           "$ref": "#/$defs/InputVia"
+        },
+        "bulk": {
+          "const": true,
+          "type": "boolean"
         }
       },
       "required": [
@@ -7419,6 +7423,12 @@
           "type": "boolean"
         },
         "taint": {
+          "type": "boolean"
+        },
+        "riskClass": {
+          "$ref": "#/$defs/RiskClass"
+        },
+        "setAside": {
           "type": "boolean"
         },
         "taintSources": {
@@ -36033,6 +36043,13 @@
       "enum": [
         "attribute_for_entity",
         "attribute_from_sender"
+      ],
+      "type": "string"
+    },
+    "RiskClass": {
+      "enum": [
+        "routine",
+        "sensitive"
       ],
       "type": "string"
     },

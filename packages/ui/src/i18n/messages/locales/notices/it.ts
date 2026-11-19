@@ -45,6 +45,13 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {La chiave {provider} è stata {action, select, changed {modificata} other {rimossa}}} other {La chiave API di {provider} è stata {action, select, changed {modificata} other {rimossa}}}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {Modificata} other {Rimossa}} da {device, select, none {un dispositivo} other {"{device}" ({platform}{paired, select, none {} other {, associato il {paired}}})}}. Se non sei stato tu, revoca il dispositivo in Impostazioni → Dispositivi.',
+  "notice.approvals.digest.title":
+    "{count, plural, =1 {# azione delle tue automazioni è in attesa} other {# azioni delle tue automazioni sono in attesa}}",
+  "notice.approvals.digest.body": "Apri Approvazioni per approvarle o rifiutarle",
+  "notice.approvals.resumeMissed.title":
+    "{automation, select, none {Un'azione approvata di un'automazione non è stata eseguita} other {{automation}: l'azione approvata non è stata eseguita}}",
+  "notice.approvals.resumeMissed.body":
+    "{why, select, expired {L'approvazione è scaduta prima che l'automazione arrivasse all'azione, quindi non è stato fatto nulla. Se ne ha ancora bisogno, chiederà di nuovo.} paused {L'automazione è in pausa o è stata rimossa, quindi non è stata eseguita di nuovo e non è stato fatto nulla. Se ne ha ancora bisogno, chiederà di nuovo.} restart {Psyche si è riavviato prima che l'automazione potesse essere eseguita di nuovo, quindi non è stato fatto nulla. Se ne ha ancora bisogno, chiederà di nuovo.} restart_kept {Psyche si è riavviato prima che l'automazione potesse essere eseguita di nuovo. Il permesso che hai dato resta, quindi la prossima esecuzione farà questo senza chiedere. Per ritirarlo, revocalo in Permessi permanenti, in Approvazioni.} failed {L'automazione ha eseguito di nuovo l'azione, ma non è riuscita. Guarda Attività per capire cosa è andato storto. Se ne ha ancora bisogno, chiederà di nuovo.} other {L'automazione è stata eseguita di nuovo ma non è arrivata alla stessa azione, quindi non è stato fatto nulla. Se ne ha ancora bisogno, chiederà di nuovo.}}",
   "notice.specialist.result.title":
     "{outcome, select, done {{who} ha finito {title}} partial {{who} si è fermato presto su {title}} cancelled {{who} è stato fermato su {title}} other {{who} non è riuscito a finire {title}}}",
   "notice.specialist.result.body":

@@ -54,7 +54,7 @@ export function useNowNext(fixedNow?: number): NowNext {
   if (status.needsYou > 0) {
     // What is waiting, by kind (the same split as the Approvals tab's list and Questions).
     const q = questions.open.length;
-    const a = queue.live.length > 0 || q > 0 ? queue.live.length : status.needsYou;
+    const a = queue.needsYou > 0 || q > 0 ? queue.needsYou : status.needsYou;
     return {
       kind: "waiting",
       text: t("agent.sheet.now.waiting", { approvals: a, questions: q, both: a > 0 && q > 0 }),

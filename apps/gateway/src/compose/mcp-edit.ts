@@ -10,8 +10,18 @@ import {
   PsycheError,
 } from "@psyche/protocol";
 import type { HandlerDef } from "../context.ts";
+import {
+  looksSecretName,
+  REDACTED,
+  redactText,
+  redactUrl,
+  scrubError,
+  urlHoldsMarker,
+} from "../redact.ts";
 import { canonical, inputOfAny, type McpAdder } from "./mcp-add.ts";
 import type { ComposeServices } from "./services.ts";
+
+export { REDACTED, redactText, redactUrl, urlHoldsMarker };
 
 /**
  * Editing a server in place, and testing one that is already approved (Settings → Connectors → a
@@ -109,69 +119,6 @@ export function applyChanges(
   return next;
 }
 
-/**
- * A URL as shown to the owner: no user info, no fragment, and every query value hidden (a token
- * often rides there). Unparseable input shows nothing.
- */
-export function redactUrl(raw: string): string {
-  try {
-    const u = new URL(raw);
-    const keys = [...new Set([...u.searchParams.keys()])];
-    const q =
-      keys.length === 0 ? "" : `?${keys.map((k) => `${encodeURIComponent(k)}=***`).join("&")}`;
-    return `${u.protocol}//${u.host}${u.pathname}${q}`;
-  } catch {
-    return "";
-  }
-}
-
-/** The marker `redactUrl` leaves where a value was hidden. */
-export const REDACTED = "***";
-
-/** True when a submitted address still holds the display marker in user info, a query value or the fragment. */
-export function urlHoldsMarker(raw: string): boolean {
-  try {
-    const u = new URL(raw);
-    const hidden = (v: string) => decodeURIComponent(v).includes(REDACTED);
-    return (
-      hidden(u.username) ||
-      hidden(u.password) ||
-      hidden(u.hash) ||
-      [...u.searchParams.values()].some((v) => v.includes(REDACTED))
-    );
-  } catch {
-    return false;
-  }
-}
-
-/** Text from a probe or a host (it can quote the stored address): every address is redacted. */
-export function redactText(text: string): string {
-  return text.replace(/https?:\/\/[^\s"'<>)\]]+/g, (m) => {
-    // Sentence punctuation after an address is not part of it.
-    const tail = /[.,;:!?]+$/.exec(m)?.[0] ?? "";
-    const url = tail === "" ? m : m.slice(0, -tail.length);
-    return `${redactUrl(url) || "[address]"}${tail}`;
-  });
-}
-
-function scrub(value: unknown): unknown {
-  if (typeof value === "string") return redactText(value);
-  if (Array.isArray(value)) return value.map(scrub);
-  if (value !== null && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, scrub(v)]));
-  }
-  return value;
-}
-
-/** The same error with every address in its words and details redacted. */
-function scrubError(err: unknown): PsycheError {
-  const e = PsycheError.from(err);
-  return new PsycheError(e.code, redactText(e.message), {
-    details: scrub(e.details),
-    retryable: e.retryable,
-  });
-}
-
 /** `McpServerInput` with nothing a caller did not send: env values and URL secrets hidden. */
 function redactedInput(input: McpServerInput): McpServerInput {
   const t = input.transport;
@@ -222,8 +169,12 @@ export function describeChange(prev: PsycheMcpServerConfig, next: PsycheMcpServe
         const x = new URL(a.url);
         const y = new URL(b.url);
         const keys = new Set([...x.searchParams.keys(), ...y.searchParams.keys()]);
+        // A key that is itself a secret (no value, a token-like name) is never listed.
         const changed = [...keys].filter(
           (k) =>
+            !looksSecretName(k) &&
+            !x.searchParams.getAll(k).includes("") &&
+            !y.searchParams.getAll(k).includes("") &&
             JSON.stringify(x.searchParams.getAll(k)) !== JSON.stringify(y.searchParams.getAll(k)),
         );
         if (changed.length > 0) out.queryChanged = changed;
@@ -269,10 +220,14 @@ export function mcpEditHandlers(deps: McpEditDeps): Record<string, HandlerDef> {
       .catch(() => undefined);
 
   // A probe failure can quote the stored address: redact it before it leaves.
-  const propose: McpAdder["propose"] = (input, extra) =>
-    deps.adder.propose(input, extra).catch((err: unknown) => {
-      throw scrubError(err);
-    });
+  const urlsOf = (...cs: PsycheMcpServerConfig[]): string[] =>
+    cs.flatMap((c) => (c.transport.kind === "http" ? [c.transport.url] : []));
+  const proposeFor =
+    (known: string[]): McpAdder["propose"] =>
+    (input, extra) =>
+      deps.adder.propose(input, extra).catch((err: unknown) => {
+        throw scrubError(err, known);
+      });
 
   return {
     "mcp.config": {
@@ -320,7 +275,7 @@ export function mcpEditHandlers(deps: McpEditDeps): Record<string, HandlerDef> {
         else delete next.handlesMoney;
         const base = sha(runIdentity(prev));
         const { fields, out } = describeChange(prev, next);
-        const { proposal, approval } = await propose(inputOfAny(next), {
+        const { proposal, approval } = await proposeFor(urlsOf(prev, next))(inputOfAny(next), {
           config: next,
           replace: true,
           summary: (found) =>
@@ -387,7 +342,7 @@ export function mcpEditHandlers(deps: McpEditDeps): Record<string, HandlerDef> {
             ok: false,
             toolCount: 0,
             tools: [] as string[],
-            error: clip(redactText(PsycheError.from(err).message)),
+            error: clip(redactText(PsycheError.from(err).message, urlsOf(entry))),
           };
         }
         if (!mcpEditable(entry)) {
@@ -409,7 +364,7 @@ export function mcpEditHandlers(deps: McpEditDeps): Record<string, HandlerDef> {
             ok: false,
             toolCount: 0,
             tools: [] as string[],
-            error: clip(redactText(PsycheError.from(err).message)),
+            error: clip(redactText(PsycheError.from(err).message, urlsOf(entry))),
           };
         }
       },
