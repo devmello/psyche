@@ -367,6 +367,8 @@ export const es: Partial<Catalogue> = {
   "blocks.approval.scope.site": "Permitir en este sitio",
   "blocks.approval.scope.session": "Permitir en esta sesión",
   "blocks.approval.scope.always": "Permitir siempre",
+  "blocks.approval.alwaysRecipient": "Permitir siempre enviar a {recipient}",
+  "blocks.approval.alwaysRecipientAny": "Permitir siempre para este destinatario",
   "blocks.approval.scopeGranted.once": "permitir una vez",
   "blocks.approval.scopeGranted.task": "permitir en esta tarea",
   "blocks.approval.scopeGranted.site": "permitir en este sitio",
@@ -2022,6 +2024,10 @@ export const es: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "{name} cambió su lista de herramientas desde que lo aprobaste, así que Psyche revocó sus permisos. Cada acción vuelve a preguntar hasta que lo revises.",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "Destinatarios siempre permitidos",
+  "settings.permissions.sendsHint":
+    "Los correos a estos destinatarios se envían sin preguntar. Quita uno para volver a preguntar.",
+  "settings.permissions.noSends": "Ningún destinatario está configurado para permitir siempre.",
   "settings.permissions.origins": "Orígenes del navegador",
   "settings.permissions.originsHint": "Sitios que el agente puede abrir sin preguntar.",
   "settings.permissions.noOrigins":

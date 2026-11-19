@@ -393,6 +393,8 @@ export const ko: Partial<Catalogue> = {
   "blocks.approval.scope.site": "이 사이트에 허용",
   "blocks.approval.scope.session": "이 세션에 허용",
   "blocks.approval.scope.always": "항상 허용",
+  "blocks.approval.alwaysRecipient": "{recipient}에게 보내기를 항상 허용",
+  "blocks.approval.alwaysRecipientAny": "이 수신자에게는 항상 허용",
   "blocks.approval.scopeGranted.once": "한 번만 허용",
   "blocks.approval.scopeGranted.task": "이 작업에 허용",
   "blocks.approval.scopeGranted.site": "이 사이트에 허용",
@@ -1972,6 +1974,10 @@ export const ko: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "{name}이(가) 승인 이후 도구 목록을 변경하여 Psyche가 허용을 철회했습니다. 검토할 때까지 모든 동작을 다시 묻습니다.",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "항상 허용된 수신자",
+  "settings.permissions.sendsHint":
+    "이 수신자에게 보내는 이메일은 묻지 않고 발송됩니다. 하나를 제거하면 다시 묻습니다.",
+  "settings.permissions.noSends": "항상 허용으로 설정된 수신자가 없습니다.",
   "settings.permissions.origins": "브라우저 출처",
   "settings.permissions.originsHint": "에이전트가 묻지 않고 열 수 있는 사이트입니다.",
   "settings.permissions.noOrigins": "상시 허용된 웹사이트가 없습니다. 새 사이트는 먼저 묻습니다.",

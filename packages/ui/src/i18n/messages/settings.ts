@@ -1822,6 +1822,10 @@ export const settings = {
   "settings.permissions.toolsChanged":
     "{name} changed its tool list since you approved it, so Psyche revoked its grants. Every action asks again until you review it.",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "Recipients you always allow",
+  "settings.permissions.sendsHint":
+    "Email sent to these recipients goes out without asking. Remove one to be asked again.",
+  "settings.permissions.noSends": "No recipient is set to always allow.",
   "settings.permissions.origins": "Browser origins",
   "settings.permissions.originsHint": "Sites the agent may open without asking.",
   "settings.permissions.noOrigins": "No standing website grants. New sites ask first.",

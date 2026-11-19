@@ -429,6 +429,8 @@ export const zh: Partial<Catalogue> = {
   "blocks.approval.scope.site": "允许用于此网站",
   "blocks.approval.scope.session": "允许用于本次会话",
   "blocks.approval.scope.always": "始终允许",
+  "blocks.approval.alwaysRecipient": "始终允许发送给 {recipient}",
+  "blocks.approval.alwaysRecipientAny": "始终允许发送给此收件人",
   "blocks.approval.scopeGranted.once": "允许一次",
   "blocks.approval.scopeGranted.task": "允许用于此任务",
   "blocks.approval.scopeGranted.site": "允许用于此网站",
@@ -1974,6 +1976,9 @@ export const zh: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "{name} 在你批准后更改了工具列表，因此 Psyche 撤销了它的授权。在你重新审核之前，每个操作都会再次询问。",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "始终允许的收件人",
+  "settings.permissions.sendsHint": "发给这些收件人的邮件无需询问即可发送。移除后将重新询问。",
+  "settings.permissions.noSends": "没有设置为始终允许的收件人。",
   "settings.permissions.origins": "浏览器来源",
   "settings.permissions.originsHint": "代理无需询问即可打开的网站。",
   "settings.permissions.noOrigins": "没有长期的网站授权。新网站会先询问。",

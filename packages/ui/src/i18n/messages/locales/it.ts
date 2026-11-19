@@ -390,6 +390,8 @@ export const it: Partial<Catalogue> = {
   "blocks.approval.scope.site": "Consenti per questo sito",
   "blocks.approval.scope.session": "Consenti per questa sessione",
   "blocks.approval.scope.always": "Consenti sempre",
+  "blocks.approval.alwaysRecipient": "Consenti sempre l’invio a {recipient}",
+  "blocks.approval.alwaysRecipientAny": "Consenti sempre per questo destinatario",
   "blocks.approval.scopeGranted.once": "consenti una volta",
   "blocks.approval.scopeGranted.task": "consenti per questa attività",
   "blocks.approval.scopeGranted.site": "consenti per questo sito",
@@ -1999,6 +2001,10 @@ export const it: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "{name} ha cambiato il suo elenco di strumenti dopo la tua approvazione, quindi Psyche ne ha revocato le autorizzazioni. Ogni azione chiede di nuovo finché non lo esamini.",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "Destinatari sempre consentiti",
+  "settings.permissions.sendsHint":
+    "Le email a questi destinatari partono senza chiedere. Rimuovine uno per tornare a chiedere.",
+  "settings.permissions.noSends": "Nessun destinatario è impostato su consenti sempre.",
   "settings.permissions.origins": "Origini del browser",
   "settings.permissions.originsHint": "Siti che l’agente può aprire senza chiedere.",
   "settings.permissions.noOrigins":

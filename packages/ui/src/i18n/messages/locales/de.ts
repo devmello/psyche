@@ -392,6 +392,8 @@ export const de: Partial<Catalogue> = {
   "blocks.approval.scope.site": "Für diese Website erlauben",
   "blocks.approval.scope.session": "Für diese Sitzung erlauben",
   "blocks.approval.scope.always": "Immer erlauben",
+  "blocks.approval.alwaysRecipient": "Senden an {recipient} immer erlauben",
+  "blocks.approval.alwaysRecipientAny": "Für diesen Empfänger immer erlauben",
   "blocks.approval.scopeGranted.once": "einmal erlauben",
   "blocks.approval.scopeGranted.task": "für diese Aufgabe erlauben",
   "blocks.approval.scopeGranted.site": "für diese Website erlauben",
@@ -2047,6 +2049,10 @@ export const de: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "{name} hat seine Werkzeugliste seit deiner Bestätigung geändert, daher hat Psyche seine Freigaben widerrufen. Jede Aktion fragt erneut, bis du sie überprüfst.",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "Empfänger, die immer erlaubt sind",
+  "settings.permissions.sendsHint":
+    "Mails an diese Empfänger gehen ohne Nachfrage raus. Entfernen, um wieder gefragt zu werden.",
+  "settings.permissions.noSends": "Kein Empfänger ist auf immer erlauben gesetzt.",
   "settings.permissions.origins": "Browser-Ursprünge",
   "settings.permissions.originsHint": "Websites, die der Agent ohne Nachfrage öffnen darf.",
   "settings.permissions.noOrigins":

@@ -156,6 +156,8 @@ export const blocks = {
   "blocks.approval.scope.session": "Allow for this session",
   "blocks.approval.scope.always": "Always allow",
   "blocks.approval.scope.prepNotes": "Always for prep notes",
+  "blocks.approval.alwaysRecipient": "Always allow sending to {recipient}",
+  "blocks.approval.alwaysRecipientAny": "Always allow for this recipient",
   "blocks.liftFloor.title": "Allow without asking?",
   "blocks.liftFloor.what": "{persona} can {what} without asking.",
   "blocks.liftFloor.consequence.destructive": "Deleted items may not be recoverable.",

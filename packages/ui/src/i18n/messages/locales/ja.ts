@@ -392,6 +392,8 @@ export const ja: Partial<Catalogue> = {
   "blocks.approval.scope.site": "このサイトで許可",
   "blocks.approval.scope.session": "このセッションで許可",
   "blocks.approval.scope.always": "常に許可",
+  "blocks.approval.alwaysRecipient": "{recipient} への送信を常に許可",
+  "blocks.approval.alwaysRecipientAny": "この宛先には常に許可",
   "blocks.approval.scopeGranted.once": "1回だけ許可",
   "blocks.approval.scopeGranted.task": "このタスクで許可",
   "blocks.approval.scopeGranted.site": "このサイトで許可",
@@ -1979,6 +1981,10 @@ export const ja: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "{name}は承認後にツールリストを変更したため、Psycheはその許可を取り消しました。確認するまで、すべてのアクションを再度確認します。",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "常に許可している宛先",
+  "settings.permissions.sendsHint":
+    "これらの宛先へのメールは確認なしで送信されます。削除すると再度確認します。",
+  "settings.permissions.noSends": "常に許可に設定された宛先はありません。",
   "settings.permissions.origins": "ブラウザのオリジン",
   "settings.permissions.originsHint": "エージェントが確認なしで開けるサイト。",
   "settings.permissions.noOrigins":

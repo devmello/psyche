@@ -629,6 +629,14 @@ export function ApprovalCard({
         ]
       : []),
   ];
+  // An email send that offers Always keeps it for this recipient (the grant is keyed by the
+  // recipient list). Show it as a visible choice, not only as a menu entry. It sets the same
+  // `choice` as the menu, so the floor confirm and the answer are unchanged.
+  const sendTo = Array.isArray(approval.details.to)
+    ? approval.details.to.filter((v): v is string => typeof v === "string")
+    : [];
+  const alwaysForRecipient =
+    approval.kind === "send_email" && offered.includes("always") && !unsandboxed;
   const allowReady =
     offeredScopes.length > 0 &&
     (!isFolder || folder !== "") &&
@@ -1081,6 +1089,21 @@ export function ApprovalCard({
                 : t("blocks.approval.touchId.openDevices")}
           </Button>
         </div>
+      ) : null}
+
+      {interactive && alwaysForRecipient ? (
+        <label className="mt-3 flex items-center gap-2 text-callout text-label-primary">
+          <input
+            type="checkbox"
+            checked={choice === "always"}
+            disabled={busy}
+            onChange={(e) => setChoice(e.target.checked ? "always" : "once")}
+            data-testid="always-recipient"
+          />
+          {sendTo.length === 1
+            ? t("blocks.approval.alwaysRecipient", { recipient: sendTo[0] ?? "" })
+            : t("blocks.approval.alwaysRecipientAny")}
+        </label>
       ) : null}
 
       {interactive ? (

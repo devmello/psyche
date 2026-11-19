@@ -396,6 +396,8 @@ export const hi: Partial<Catalogue> = {
   "blocks.approval.scope.site": "इस साइट के लिए अनुमति दें",
   "blocks.approval.scope.session": "इस सत्र के लिए अनुमति दें",
   "blocks.approval.scope.always": "हमेशा अनुमति दें",
+  "blocks.approval.alwaysRecipient": "{recipient} को भेजने की हमेशा अनुमति दें",
+  "blocks.approval.alwaysRecipientAny": "इस प्राप्तकर्ता के लिए हमेशा अनुमति दें",
   "blocks.approval.scopeGranted.once": "एक बार अनुमति",
   "blocks.approval.scopeGranted.task": "इस टास्क के लिए अनुमति",
   "blocks.approval.scopeGranted.site": "इस साइट के लिए अनुमति",
@@ -1992,6 +1994,10 @@ export const hi: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "आपकी स्वीकृति के बाद {name} ने अपनी टूल सूची बदल दी, इसलिए Psyche ने इसकी अनुमतियाँ निरस्त कर दीं। जब तक आप इसकी समीक्षा न करें, हर कार्रवाई फिर से पूछती है।",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "हमेशा अनुमति वाले प्राप्तकर्ता",
+  "settings.permissions.sendsHint":
+    "इन प्राप्तकर्ताओं को भेजे गए ईमेल बिना पूछे भेजे जाते हैं। फिर से पूछे जाने के लिए किसी एक को हटाएँ।",
+  "settings.permissions.noSends": "कोई भी प्राप्तकर्ता हमेशा अनुमति पर सेट नहीं है।",
   "settings.permissions.origins": "ब्राउज़र ऑरिजिन",
   "settings.permissions.originsHint": "वे साइटें जिन्हें एजेंट बिना पूछे खोल सकता है।",
   "settings.permissions.noOrigins": "कोई स्थायी वेबसाइट अनुमति नहीं। नई साइटें पहले पूछती हैं।",

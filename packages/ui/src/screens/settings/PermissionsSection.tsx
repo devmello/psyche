@@ -163,6 +163,8 @@ export function PermissionsPanel({
   const [showProhibitions, setShowProhibitions] = useState(false);
   const mode = str(values, "permissions.mode", "balanced") as PermissionMode;
   const origins = grants.filter((g) => g.kind === "new_origin" && g.revokedAt === null);
+  // Per-recipient sends the owner chose "always" for; Remove asks again next time.
+  const sends = grants.filter((g) => g.kind === "send_email" && g.revokedAt === null);
   const active = grants.filter((g) => g.revokedAt === null);
   // Apple apps set their actions on their own card in Connectors, not here (#640).
   const rows = connectors.filter((c) => appleApp(c.type) === null);
@@ -263,6 +265,35 @@ export function PermissionsPanel({
             ) : null}
           </div>
         </Advanced>
+
+        <Group
+          title={t("settings.permissions.sendsTitle")}
+          description={t("settings.permissions.sendsHint")}
+        >
+          {sends.length === 0 ? (
+            <EmptyNotice text={t("settings.permissions.noSends")} />
+          ) : (
+            <ul className="flex flex-col gap-1.5">
+              {sends.map((g) => (
+                <li key={g.id} className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{grantSubject(g)}</span>
+                  {onRevoke ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      onClick={() => onRevoke(g)}
+                      disabled={revoking?.has(g.id) ?? false}
+                      aria-label={t("settings.permissions.revokeNamed", { name: grantSubject(g) })}
+                    >
+                      {t("settings.devices.revoke")}
+                    </Button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Group>
 
         <Group
           title={t("settings.permissions.origins")}

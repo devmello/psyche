@@ -436,6 +436,8 @@ export const ar: Partial<Catalogue> = {
   "blocks.approval.scope.site": "السماح لهذا الموقع",
   "blocks.approval.scope.session": "السماح لهذه الجلسة",
   "blocks.approval.scope.always": "السماح دائمًا",
+  "blocks.approval.alwaysRecipient": "السماح دائمًا بالإرسال إلى {recipient}",
+  "blocks.approval.alwaysRecipientAny": "السماح دائمًا لهذا المستلم",
   "blocks.approval.scopeGranted.once": "سماح مرة واحدة",
   "blocks.approval.scopeGranted.task": "سماح لهذه المهمة",
   "blocks.approval.scopeGranted.site": "سماح لهذا الموقع",
@@ -2040,6 +2042,10 @@ export const ar: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "غيّر {name} قائمة أدواته منذ موافقتك عليه، لذا أبطل Psyche تصاريحه. يسأل كل إجراء مرة أخرى حتى تراجعه.",
   "settings.permissions.hash": "tools/list ‏{hash}…",
+  "settings.permissions.sendsTitle": "المستلمون المسموح لهم دائمًا",
+  "settings.permissions.sendsHint":
+    "تُرسل الرسائل إلى هؤلاء المستلمين دون سؤال. أزِل مستلمًا لتُسأل مجددًا.",
+  "settings.permissions.noSends": "لا يوجد مستلم مضبوط على السماح دائمًا.",
   "settings.permissions.origins": "مواقع المتصفح",
   "settings.permissions.originsHint": "المواقع التي يمكن للوكيل فتحها من دون سؤال.",
   "settings.permissions.noOrigins": "لا تصاريح دائمة لمواقع ويب. تسأل المواقع الجديدة أولًا.",
