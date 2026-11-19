@@ -3991,11 +3991,34 @@ export class MockGateway implements GatewayClient {
     "channels.identities.list": () => ({ identities: this.world.channelIdentities }),
     "channels.pairing.approve": (p) => ({ pairingRequest: this.decidePairing(p, "approved") }),
     "channels.pairing.deny": (p) => ({ pairingRequest: this.decidePairing(p, "denied") }),
+    "channels.secrets.set": (p) => ({ set: [p.name] }),
     "channels.configure": (p) => {
-      const { channelId, ...fields } = p;
-      const current =
-        channelId === undefined ? undefined : this.find(this.world.channels, channelId, "channel");
-      if (current === undefined) fail("not_implemented", "MockGateway does not create channels");
+      const { channelId, approvalId: _approval, ...fields } = p;
+      if (channelId === undefined) {
+        if (fields.type === undefined || fields.account === undefined) {
+          fail("invalid_params", "a new channel needs a type and an account");
+        }
+        const now = this.now();
+        const created: Channel = {
+          id: this.id("chn"),
+          type: fields.type,
+          account: fields.account,
+          dmPolicy: fields.dmPolicy ?? "pairing",
+          allowFrom: fields.allowFrom ?? [],
+          groupAllowFrom: fields.groupAllowFrom ?? [],
+          requireMention: fields.requireMention ?? true,
+          ownerIds: fields.ownerIds ?? [],
+          dmScope: fields.dmScope ?? "main",
+          nodeId: fields.nodeId ?? null,
+          status: fields.status ?? "active",
+          config: fields.config ?? {},
+          createdAt: now,
+          updatedAt: now,
+        };
+        this.world.channels = [...this.world.channels, created];
+        return { channel: created };
+      }
+      const current = this.find(this.world.channels, channelId, "channel");
       const channel: Channel = {
         ...(current as Channel),
         ...fields,
