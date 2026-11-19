@@ -79,12 +79,6 @@ import {
 } from "./policy.ts";
 import { DENY_ALL_LOOPBACK, type LocalProjectVerifier } from "./prohibitions.ts";
 import { requesterKey, requesterSurfaces } from "./requester.ts";
-import {
-  normalizeTrustedSite,
-  type TrustedSite,
-  TrustedSiteError,
-  trustedSiteCovers,
-} from "./trusted-sites.ts";
 import type { RevocationLedger } from "./revocations.ts";
 import {
   MemoryPermissionStore,
@@ -92,6 +86,12 @@ import {
   type StoredApproval,
   type StoredGrant,
 } from "./store.ts";
+import {
+  normalizeTrustedSite,
+  type TrustedSite,
+  TrustedSiteError,
+  trustedSiteCovers,
+} from "./trusted-sites.ts";
 import type {
   BatchChild,
   PolicyAnswerInput,

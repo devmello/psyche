@@ -223,6 +223,8 @@ export const settings = {
   "settings.key.models.providers": "Model providers",
   "settings.key.permissions.mode": "Default mode",
   "settings.key.permissions.policy": "Permission policy",
+  "settings.key.permissions.sensitive.government": "Ask before reading government sites",
+  "settings.key.permissions.sensitive.icloud": "Ask before reading iCloud",
   "settings.key.permissions.folders": "Shared folders",
   "settings.key.persona.name": "Name",
   "settings.key.persona.tagline": "Vibe or tagline",
@@ -1814,6 +1816,21 @@ export const settings = {
   "settings.permissions.hash": "tools/list {hash}…",
   "settings.permissions.origins": "Browser origins",
   "settings.permissions.originsHint": "Sites the agent may open without asking.",
+  "settings.permissions.trusted.title": "Trusted sites",
+  "settings.permissions.trusted.description":
+    "Psyche reads these sites without asking, in any chat. Writing, forms and sensitive sites still ask first.",
+  "settings.permissions.trusted.empty":
+    "No trusted sites yet. Choose “Always for this site” on a first-read request to add one.",
+  "settings.permissions.trusted.added": "Added {date}",
+  "settings.permissions.trusted.remove": "Remove",
+  "settings.permissions.trusted.removeNamed": "Remove {name} from trusted sites",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} and its subdomains",
+  "settings.permissions.sensitive.title": "Sensitive sites",
+  "settings.permissions.sensitive.description":
+    "Banks, health, email and password managers always ask before a read. You can add these categories too.",
+  "settings.permissions.sensitive.governmentHint":
+    "Sites ending in .gov or .gov.uk. Off by default.",
+  "settings.permissions.sensitive.icloudHint": "iCloud sites. Off by default.",
   "settings.permissions.noOrigins": "No standing website grants. New sites ask first.",
   "settings.permissions.scopeExpires": "{scope}, expires {date}",
   "settings.permissions.revokeNamed": "Revoke {name}",

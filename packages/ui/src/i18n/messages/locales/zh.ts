@@ -424,6 +424,8 @@ export const zh: Partial<Catalogue> = {
 
   "blocks.approval.scope.once": "允许一次",
   "blocks.approval.scope.task": "允许用于此任务",
+  "blocks.approval.scope.trustSite": "始终允许此网站（{site}）",
+  "blocks.approval.scope.trustSiteSubdomains": "始终允许此网站及其子域名（{site}）",
   "blocks.approval.scope.site": "允许用于此网站",
   "blocks.approval.scope.session": "允许用于本次会话",
   "blocks.approval.scope.always": "始终允许",
@@ -1030,6 +1032,8 @@ export const zh: Partial<Catalogue> = {
   "settings.key.models.providers": "模型提供商",
   "settings.key.permissions.mode": "默认模式",
   "settings.key.permissions.policy": "权限策略",
+  "settings.key.permissions.sensitive.government": "读取政府网站前先询问",
+  "settings.key.permissions.sensitive.icloud": "读取 iCloud 前先询问",
   "settings.key.permissions.folders": "共享文件夹",
   "settings.key.persona.name": "名称",
   "settings.key.persona.tagline": "气质或标语",
@@ -1963,6 +1967,20 @@ export const zh: Partial<Catalogue> = {
   "settings.permissions.hash": "tools/list {hash}…",
   "settings.permissions.origins": "浏览器来源",
   "settings.permissions.originsHint": "代理无需询问即可打开的网站。",
+  "settings.permissions.trusted.title": "信任的网站",
+  "settings.permissions.trusted.description":
+    "Psyche 会在任何聊天中直接读取这些网站，不再询问。写入、表单和敏感网站仍会先询问。",
+  "settings.permissions.trusted.empty":
+    "还没有信任的网站。在首次读取请求中选择“始终允许此网站”即可添加。",
+  "settings.permissions.trusted.added": "添加于 {date}",
+  "settings.permissions.trusted.remove": "移除",
+  "settings.permissions.trusted.removeNamed": "将 {name} 从信任的网站中移除",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} 及其子域名",
+  "settings.permissions.sensitive.title": "敏感网站",
+  "settings.permissions.sensitive.description":
+    "银行、健康、电子邮件和密码管理器在读取前始终会询问。你也可以加入这些类别。",
+  "settings.permissions.sensitive.governmentHint": "以 .gov 或 .gov.uk 结尾的网站。默认关闭。",
+  "settings.permissions.sensitive.icloudHint": "iCloud 网站。默认关闭。",
   "settings.permissions.noOrigins": "没有长期的网站授权。新网站会先询问。",
   "settings.permissions.scopeExpires": "{scope}，{date}过期",
   "settings.permissions.revokeNamed": "撤销 {name}",

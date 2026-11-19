@@ -349,6 +349,8 @@ export const pt: Partial<Catalogue> = {
   "blocks.details.binding": "Vínculo",
   "blocks.approval.scope.once": "Permitir uma vez",
   "blocks.approval.scope.task": "Permitir nesta tarefa",
+  "blocks.approval.scope.trustSite": "Sempre para este site ({site})",
+  "blocks.approval.scope.trustSiteSubdomains": "Sempre para este site e seus subdomínios ({site})",
   "blocks.approval.scope.site": "Permitir neste site",
   "blocks.approval.scope.session": "Permitir nesta sessão",
   "blocks.approval.scope.always": "Permitir sempre",
@@ -953,6 +955,8 @@ export const pt: Partial<Catalogue> = {
   "settings.key.models.providers": "Provedores de modelos",
   "settings.key.permissions.mode": "Modo padrão",
   "settings.key.permissions.policy": "Política de permissões",
+  "settings.key.permissions.sensitive.government": "Perguntar antes de ler sites do governo",
+  "settings.key.permissions.sensitive.icloud": "Perguntar antes de ler o iCloud",
   "settings.key.permissions.folders": "Pastas compartilhadas",
   "settings.key.persona.name": "Nome",
   "settings.key.persona.tagline": "Estilo ou slogan",
@@ -1944,6 +1948,21 @@ export const pt: Partial<Catalogue> = {
   "settings.permissions.hash": "tools/list {hash}…",
   "settings.permissions.origins": "Origens do navegador",
   "settings.permissions.originsHint": "Sites que o agente pode abrir sem perguntar.",
+  "settings.permissions.trusted.title": "Sites confiáveis",
+  "settings.permissions.trusted.description":
+    "A Psyche lê estes sites sem perguntar, em qualquer conversa. Escrever, formulários e sites sensíveis continuam perguntando antes.",
+  "settings.permissions.trusted.empty":
+    "Ainda não há sites confiáveis. Escolha “Sempre para este site” em uma primeira leitura para adicionar um.",
+  "settings.permissions.trusted.added": "Adicionado em {date}",
+  "settings.permissions.trusted.remove": "Remover",
+  "settings.permissions.trusted.removeNamed": "Remover {name} dos sites confiáveis",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} e seus subdomínios",
+  "settings.permissions.sensitive.title": "Sites sensíveis",
+  "settings.permissions.sensitive.description":
+    "Bancos, saúde, e-mail e gerenciadores de senhas sempre perguntam antes de uma leitura. Você também pode adicionar estas categorias.",
+  "settings.permissions.sensitive.governmentHint":
+    "Sites que terminam em .gov ou .gov.uk. Desativado por padrão.",
+  "settings.permissions.sensitive.icloudHint": "Sites do iCloud. Desativado por padrão.",
   "settings.permissions.noOrigins":
     "Nenhuma concessão permanente de site. Sites novos perguntam antes.",
   "settings.permissions.scopeExpires": "{scope}, expira {date}",

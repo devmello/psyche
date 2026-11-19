@@ -23,12 +23,12 @@ import {
   SEVERITY,
 } from "./kinds.ts";
 import { missingFor } from "./missing.ts";
-import { TRUSTED_SITE_READ_TOOLS } from "./trusted-sites.ts";
 import { type CompiledPolicy, isSensitiveHost, ruleMatches } from "./policy.ts";
 import { checkProhibitions, type LocalProjectVerifier } from "./prohibitions.ts";
 import { checkRequester } from "./requester.ts";
 import type { StoredGrant } from "./store.ts";
 import { canonicalPath, canonicalUrl, isUnder } from "./targets.ts";
+import { TRUSTED_SITE_READ_TOOLS } from "./trusted-sites.ts";
 import type { PolicyCall, PolicyContext, PolicyDecision } from "./types.ts";
 
 /**

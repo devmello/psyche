@@ -370,6 +370,9 @@ export const fr: Partial<Catalogue> = {
   "blocks.details.binding": "Liaison",
   "blocks.approval.scope.once": "Autoriser une fois",
   "blocks.approval.scope.task": "Autoriser pour cette tâche",
+  "blocks.approval.scope.trustSite": "Toujours pour ce site ({site})",
+  "blocks.approval.scope.trustSiteSubdomains":
+    "Toujours pour ce site et ses sous-domaines ({site})",
   "blocks.approval.scope.site": "Autoriser pour ce site",
   "blocks.approval.scope.session": "Autoriser pour cette session",
   "blocks.approval.scope.always": "Toujours autoriser",
@@ -978,6 +981,9 @@ export const fr: Partial<Catalogue> = {
   "settings.key.models.providers": "Fournisseurs de modèles",
   "settings.key.permissions.mode": "Mode par défaut",
   "settings.key.permissions.policy": "Politique d’autorisation",
+  "settings.key.permissions.sensitive.government":
+    "Demander avant de lire les sites gouvernementaux",
+  "settings.key.permissions.sensitive.icloud": "Demander avant de lire iCloud",
   "settings.key.permissions.folders": "Dossiers partagés",
   "settings.key.persona.name": "Nom",
   "settings.key.persona.tagline": "Humeur ou devise",
@@ -1982,6 +1988,21 @@ export const fr: Partial<Catalogue> = {
   "settings.permissions.hash": "tools/list {hash}…",
   "settings.permissions.origins": "Origines du navigateur",
   "settings.permissions.originsHint": "Sites que l’agent peut ouvrir sans demander.",
+  "settings.permissions.trusted.title": "Sites de confiance",
+  "settings.permissions.trusted.description":
+    "Psyche lit ces sites sans demander, dans toutes les conversations. L’écriture, les formulaires et les sites sensibles demandent toujours d’abord.",
+  "settings.permissions.trusted.empty":
+    "Aucun site de confiance pour l’instant. Choisissez « Toujours pour ce site » lors d’une première lecture pour en ajouter un.",
+  "settings.permissions.trusted.added": "Ajouté le {date}",
+  "settings.permissions.trusted.remove": "Retirer",
+  "settings.permissions.trusted.removeNamed": "Retirer {name} des sites de confiance",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} et ses sous-domaines",
+  "settings.permissions.sensitive.title": "Sites sensibles",
+  "settings.permissions.sensitive.description":
+    "Les banques, la santé, la messagerie et les gestionnaires de mots de passe demandent toujours avant une lecture. Vous pouvez aussi ajouter ces catégories.",
+  "settings.permissions.sensitive.governmentHint":
+    "Sites se terminant par .gov ou .gov.uk. Désactivé par défaut.",
+  "settings.permissions.sensitive.icloudHint": "Sites iCloud. Désactivé par défaut.",
   "settings.permissions.noOrigins":
     "Aucun accord permanent pour des sites web. Les nouveaux sites demandent d’abord.",
   "settings.permissions.scopeExpires": "{scope}, expire {date}",

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  DEFAULT_SENSITIVE_ORIGINS,
   compilePolicy,
+  DEFAULT_SENSITIVE_ORIGINS,
   isSensitiveHost,
   normalizeTrustedSite,
   type PolicyCall,
@@ -171,13 +171,16 @@ describe("Balanced reads of a trusted site", () => {
     ["fetch GET", (u) => fetchGet(u), SITE],
     ["fetch with an explicit GET", (u) => fetchGet(u, "GET"), SITE],
   ];
-  it.each(MUST_NOT_ASK)("a second %s of a trusted origin in a new task does not ask", async (_n, make, url) => {
-    const h = makeBroker();
-    await trust(h);
-    const d = await h.broker.decide(make(url), TASK2);
-    expect(d).toMatchObject({ decision: "allow", rule: "mode:balanced/read:trusted_site" });
-    expect(d.trace).not.toContain("step6:ask");
-  });
+  it.each(MUST_NOT_ASK)(
+    "a second %s of a trusted origin in a new task does not ask",
+    async (_n, make, url) => {
+      const h = makeBroker();
+      await trust(h);
+      const d = await h.broker.decide(make(url), TASK2);
+      expect(d).toMatchObject({ decision: "allow", rule: "mode:balanced/read:trusted_site" });
+      expect(d.trace).not.toContain("step6:ask");
+    },
+  );
 
   it("subdomains are covered when the owner picked this site and its subdomains", async () => {
     const h = makeBroker();
@@ -318,9 +321,7 @@ describe("Balanced reads of a trusted site", () => {
   it("a trailing dot is the same origin, not a look-alike", async () => {
     const h = makeBroker();
     await trust(h);
-    expect((await h.broker.decide(nav("https://docs.example.org."), TASK2)).decision).toBe(
-      "allow",
-    );
+    expect((await h.broker.decide(nav("https://docs.example.org."), TASK2)).decision).toBe("allow");
   });
 
   it("Manual mode still asks (control: Balanced does not)", async () => {
@@ -517,12 +518,21 @@ describe("optional sensitive categories", () => {
     expect(ON).not.toContain("*.icloud.com");
   });
 
-  const OFF_BY_DEFAULT = ["irs.gov", "www.usa.gov", "service.gov.uk", "icloud.com", "www.icloud.com"];
-  it.each(OFF_BY_DEFAULT)("%s is not sensitive by default (control: sensitive once its category is on)", (h) => {
-    expect(host(compilePolicy({}), h)).toBe(false);
-    const on = compilePolicy({ sensitiveCategories: { government: true, icloud: true } });
-    expect(host(on, h)).toBe(true);
-  });
+  const OFF_BY_DEFAULT = [
+    "irs.gov",
+    "www.usa.gov",
+    "service.gov.uk",
+    "icloud.com",
+    "www.icloud.com",
+  ];
+  it.each(OFF_BY_DEFAULT)(
+    "%s is not sensitive by default (control: sensitive once its category is on)",
+    (h) => {
+      expect(host(compilePolicy({}), h)).toBe(false);
+      const on = compilePolicy({ sensitiveCategories: { government: true, icloud: true } });
+      expect(host(on, h)).toBe(true);
+    },
+  );
 
   it("each category toggles only its own hosts", () => {
     const gov = compilePolicy({ sensitiveCategories: { government: true } });

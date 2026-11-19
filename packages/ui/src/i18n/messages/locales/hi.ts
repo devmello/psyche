@@ -391,6 +391,8 @@ export const hi: Partial<Catalogue> = {
 
   "blocks.approval.scope.once": "एक बार अनुमति दें",
   "blocks.approval.scope.task": "इस टास्क के लिए अनुमति दें",
+  "blocks.approval.scope.trustSite": "इस साइट के लिए हमेशा ({site})",
+  "blocks.approval.scope.trustSiteSubdomains": "इस साइट और इसके सबडोमेन के लिए हमेशा ({site})",
   "blocks.approval.scope.site": "इस साइट के लिए अनुमति दें",
   "blocks.approval.scope.session": "इस सत्र के लिए अनुमति दें",
   "blocks.approval.scope.always": "हमेशा अनुमति दें",
@@ -1006,6 +1008,8 @@ export const hi: Partial<Catalogue> = {
   "settings.key.models.providers": "मॉडल प्रदाता",
   "settings.key.permissions.mode": "डिफ़ॉल्ट मोड",
   "settings.key.permissions.policy": "अनुमति नीति",
+  "settings.key.permissions.sensitive.government": "सरकारी साइटें पढ़ने से पहले पूछें",
+  "settings.key.permissions.sensitive.icloud": "iCloud पढ़ने से पहले पूछें",
   "settings.key.permissions.folders": "साझा फ़ोल्डर",
   "settings.key.persona.name": "नाम",
   "settings.key.persona.tagline": "अंदाज़ या टैगलाइन",
@@ -1981,6 +1985,21 @@ export const hi: Partial<Catalogue> = {
   "settings.permissions.hash": "tools/list {hash}…",
   "settings.permissions.origins": "ब्राउज़र ऑरिजिन",
   "settings.permissions.originsHint": "वे साइटें जिन्हें एजेंट बिना पूछे खोल सकता है।",
+  "settings.permissions.trusted.title": "भरोसेमंद साइटें",
+  "settings.permissions.trusted.description":
+    "Psyche इन साइटों को किसी भी चैट में बिना पूछे पढ़ता है। लिखना, फ़ॉर्म और संवेदनशील साइटें पहले की तरह पहले पूछती रहेंगी।",
+  "settings.permissions.trusted.empty":
+    "अभी कोई भरोसेमंद साइट नहीं है। पहली बार पढ़ने के अनुरोध पर “इस साइट के लिए हमेशा” चुनकर एक जोड़ें।",
+  "settings.permissions.trusted.added": "{date} को जोड़ी गई",
+  "settings.permissions.trusted.remove": "हटाएँ",
+  "settings.permissions.trusted.removeNamed": "{name} को भरोसेमंद साइटों से हटाएँ",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} और इसके सबडोमेन",
+  "settings.permissions.sensitive.title": "संवेदनशील साइटें",
+  "settings.permissions.sensitive.description":
+    "बैंक, स्वास्थ्य, ईमेल और पासवर्ड मैनेजर पढ़ने से पहले हमेशा पूछते हैं। आप इन श्रेणियों को भी जोड़ सकते हैं।",
+  "settings.permissions.sensitive.governmentHint":
+    ".gov या .gov.uk पर समाप्त होने वाली साइटें। डिफ़ॉल्ट रूप से बंद।",
+  "settings.permissions.sensitive.icloudHint": "iCloud साइटें। डिफ़ॉल्ट रूप से बंद।",
   "settings.permissions.noOrigins": "कोई स्थायी वेबसाइट अनुमति नहीं। नई साइटें पहले पूछती हैं।",
   "settings.permissions.scopeExpires": "{scope}, {date} को समाप्त",
   "settings.permissions.revokeNamed": "{name} निरस्त करें",
