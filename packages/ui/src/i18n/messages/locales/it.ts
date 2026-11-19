@@ -24,6 +24,7 @@ import { mailMeetings } from "./mail-meetings/it.ts";
 import { meetingRecordRest } from "./meeting-record-rest/it.ts";
 import { memoryAdvancedRest } from "./memory-advanced-rest/it.ts";
 import { memoryBasicsRest } from "./memory-basics-rest/it.ts";
+import { memoryMap } from "./memory-map/it.ts";
 import { memoryPrivacyRest } from "./memory-privacy-rest/it.ts";
 import { memoryRest } from "./memory-rest/it.ts";
 import { memoryReviewRest } from "./memory-review-rest/it.ts";
@@ -56,6 +57,7 @@ import { workflows } from "./workflows/it.ts";
 /** Italian catalogue (it). Same ids as `en`; missing ids fall back to English. */
 export const it: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,
@@ -873,6 +875,7 @@ export const it: Partial<Catalogue> = {
   "shell.shortcuts.description":
     "† indica le aggiunte di Psyche alla mappa dell’app Claude per desktop.",
   "shell.threads.needsYou": "Richiede la tua attenzione",
+  "shell.threads.nowOn": "Ora: {step}",
   "shell.threads.running": "In corso",
   "shell.threads.titleField": "Titolo del thread",
   "shell.threads.incognito": "Incognito",
@@ -3031,6 +3034,20 @@ export const it: Partial<Catalogue> = {
   "screens.library.deleteDownload": "Elimina questo download",
   "screens.library.deleteFailed":
     "Psyche non è riuscito a eliminare {name} ({reason}). Resta in quarantena.",
+  "screens.library.recording.description":
+    "Una riproduzione di ciò che l'agente ha fatto nel browser. Il contenuto delle pagine è stato oscurato in fase di registrazione.",
+  "screens.library.recording.play": "Riproduci",
+  "screens.library.recording.pause": "Pausa",
+  "screens.library.recording.step": "Passo {n} di {total}",
+  "screens.library.recording.scrub": "Posizione nella registrazione",
+  "screens.library.recording.steps": "Passi",
+  "screens.library.recording.empty": "Questa registrazione non ha passi.",
+  "screens.library.recording.noFrame": "Nessuna immagine per questo passo.",
+  "screens.library.recording.frameAlt": "Il browser al passo {n}",
+  "screens.library.recording.loading": "Caricamento della registrazione",
+  "screens.library.recording.loadFailed":
+    "Psyche non è riuscito a caricare questa registrazione ({reason}).",
+  "screens.library.recording.notFound": "Questa registrazione non è più disponibile.",
   "screens.library.trust": "Considera attendibile questo file",
   "screens.library.moreFor": "Altre azioni per {name}",
   "screens.library.quickLook": "Visualizzazione rapida",

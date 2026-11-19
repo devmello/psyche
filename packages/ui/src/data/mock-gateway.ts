@@ -19,6 +19,9 @@ import {
   type Automation,
   type AutomationRun,
   type BotAuthStatus,
+  type BrowserRecording,
+  type BrowserRecordingEvent,
+  type BrowserRecordingFrame,
   buildPsycheTrace,
   type Channel,
   type ChannelIdentity,
@@ -110,7 +113,16 @@ import { emptyReview, type ReviewWorld, reviewHandlers } from "./mock-review.ts"
  * disconnects.
  */
 
+/** One agent browser recording (`browser.recordings.*`): its index and frame images. */
+export interface MockBrowserRecording {
+  recording: BrowserRecording;
+  events: BrowserRecordingEvent[];
+  frames: { frame: BrowserRecordingFrame; mime: "image/jpeg" | "image/png"; data: string }[];
+}
+
 export interface MockWorld {
+  /** Browser recordings (absent = none). */
+  browserRecordings?: MockBrowserRecording[];
   /** Everything memory's review queue (absent = empty). */
   review?: ReviewWorld;
   threads: ThreadListEntry[];
@@ -3104,6 +3116,21 @@ export class MockGateway implements GatewayClient {
     "devices.list": () => {
       if (!this.admin) fail("forbidden", "devices.list requires operator.admin");
       return { devices: this.world.devices };
+    },
+    "browser.recordings.list": () => ({
+      recordings: (this.world.browserRecordings ?? []).map((r) => r.recording),
+      nextCursor: null,
+    }),
+    "browser.recordings.get": (p) => {
+      const r = (this.world.browserRecordings ?? []).find((x) => x.recording.id === p.recordingId);
+      if (r === undefined) return fail("not_found", `recording ${p.recordingId} not found`);
+      return { recording: r.recording, events: r.events, frames: r.frames.map((f) => f.frame) };
+    },
+    "browser.recordings.frame": (p) => {
+      const r = (this.world.browserRecordings ?? []).find((x) => x.recording.id === p.recordingId);
+      const f = r?.frames.find((x) => x.frame.seq === p.seq);
+      if (f === undefined) return fail("not_found", `frame ${p.seq} not found`);
+      return { frame: f.frame, mime: f.mime, data: f.data };
     },
     "browser.botAuth.status": () => ({ status: structuredClone(this.world.botAuth) }),
     "browser.botAuth.rotate": () => {

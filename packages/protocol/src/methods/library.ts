@@ -72,6 +72,6 @@ export const LibraryMethods = {
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Decides a quarantined Library file: `trust` releases it from quarantine (the file stays where it is and is never opened for you; the OS download tag stays), `delete` removes it and its file. A plain tap from a paired admin device, no presence step. not_found for an unknown item, invalid_params for one that is not quarantined, conflict when a file to trust changed since it was quarantined. Audited with the deciding device. Side-effecting.",
+      "Decides a quarantined Library file: `trust` releases a download, channel or connector file from quarantine (invalid_params for any other origin, such as a meeting recording; the file stays where it is and is never opened for you; the OS download tag stays; its text stays untrusted data in chat and search), `delete` removes any quarantined item and its file. A plain tap from a paired admin device, no presence step. not_found for an unknown item, invalid_params for one that is not quarantined, conflict when a file to trust no longer matches the hash recorded at download (an integrity check). Audited with the deciding device. Side-effecting.",
   }),
 } as const;

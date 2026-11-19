@@ -22,6 +22,7 @@ import { home } from "./home/ar.ts";
 import { links } from "./links/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
 import { meetingRecord } from "./meeting-record/ar.ts";
+import { memoryMap } from "./memory-map/ar.ts";
 import { memoryPage } from "./memory-page/ar.ts";
 import { memoryReview } from "./memory-review/ar.ts";
 import { memorySettings } from "./memory-settings/ar.ts";
@@ -57,6 +58,7 @@ import { workflows } from "./workflows/ar.ts";
 /** Arabic catalogue (ar). Same ids as `en`; missing ids fall back to English. */
 export const ar: Partial<Catalogue> = {
   // common: translated ids (i18n completion)
+  ...memoryMap,
   ...common,
   // chat: translated ids (i18n completion)
   ...chat,
@@ -926,6 +928,7 @@ export const ar: Partial<Catalogue> = {
   "shell.shortcuts.addition": "إضافة من Psyche",
   "shell.shortcuts.description": "تشير † إلى إضافات Psyche على خريطة اختصارات Claude لسطح المكتب.",
   "shell.threads.needsYou": "بحاجة إليك",
+  "shell.threads.nowOn": "الآن: {step}",
   "shell.threads.running": "قيد التشغيل",
   "shell.threads.titleField": "عنوان المحادثة",
   "shell.threads.incognito": "متخفية",
@@ -3029,6 +3032,19 @@ export const ar: Partial<Catalogue> = {
   "screens.library.open": "فتح",
   "screens.library.deleteDownload": "احذف هذا التنزيل",
   "screens.library.deleteFailed": "تعذّر على Psyche حذف {name} ({reason}). يبقى في الحجر.",
+  "screens.library.recording.description":
+    "إعادة تشغيل لما فعله الوكيل في المتصفح. حُجب محتوى الصفحة عند التسجيل.",
+  "screens.library.recording.play": "تشغيل",
+  "screens.library.recording.pause": "إيقاف مؤقت",
+  "screens.library.recording.step": "الخطوة {n} من {total}",
+  "screens.library.recording.scrub": "الموضع في التسجيل",
+  "screens.library.recording.steps": "الخطوات",
+  "screens.library.recording.empty": "لا تحتوي هذه اللقطة على خطوات.",
+  "screens.library.recording.noFrame": "لا توجد صورة لهذه الخطوة.",
+  "screens.library.recording.frameAlt": "المتصفح عند الخطوة {n}",
+  "screens.library.recording.loading": "جارٍ تحميل التسجيل",
+  "screens.library.recording.loadFailed": "تعذّر على Psyche تحميل هذا التسجيل ({reason}).",
+  "screens.library.recording.notFound": "لم يعد هذا التسجيل متاحًا.",
   "screens.library.trust": "الوثوق بهذا الملف",
   "screens.library.moreFor": "مزيد من الإجراءات لـ {name}",
   "screens.library.quickLook": "نظرة سريعة",

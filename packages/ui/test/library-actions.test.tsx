@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
+import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { IDS } from "../src/fixtures/index.ts";
 import {
   itemActions,
@@ -12,9 +13,13 @@ import {
 import type { UiSlots } from "../src/slots.tsx";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
 
-function setup(ui: ReactElement, slots: UiSlots = {}) {
+function setup(ui: ReactElement, slots: UiSlots = {}, onGateway?: (g: MockGateway) => void) {
   const user = userEvent.setup();
-  render(<StoryWorld slots={{ navigate: vi.fn(), ...slots }}>{ui}</StoryWorld>);
+  render(
+    <StoryWorld slots={{ navigate: vi.fn(), ...slots }} {...(onGateway ? { onGateway } : {})}>
+      {ui}
+    </StoryWorld>,
+  );
   return { user };
 }
 
@@ -73,6 +78,18 @@ describe("Library item actions", () => {
     await user.click(within(invoice).getByRole("button", { name: "Trust this file" }));
     expect(await screen.findByText("Trusted invoice.pdf.")).toBeTruthy();
     expect(within(invoice).queryByText("Quarantined")).toBeNull();
+  });
+
+  it("hides Trust and Delete this download on a device without the admin scope", async () => {
+    const { user } = setup(<LibraryScreen now={STORY_NOW} section="downloads" />, undefined, (g) =>
+      g.failNext("devices.list", "forbidden"),
+    );
+    const invoice = (await screen.findByText("invoice.pdf")).closest("article") as HTMLElement;
+    await waitFor(() =>
+      expect(within(invoice).queryByRole("button", { name: "Trust this file" })).toBeNull(),
+    );
+    expect(await menuItem(user, "invoice.pdf", "Trust this file")).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Delete this download" })).toBeNull();
   });
 
   it("offers Delete this download for a quarantined file, and removes it", async () => {

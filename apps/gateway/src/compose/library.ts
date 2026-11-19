@@ -267,6 +267,13 @@ export interface LibrarySetup {
   audit: Pick<HashChainAuditLog, "append">;
 }
 
+/** What `trust` accepts: files that arrived from outside. Their origin stays untrusted after release. */
+const RELEASABLE_ORIGINS: ReadonlySet<LibraryItem["origin"]> = new Set([
+  "download",
+  "channel",
+  "connector",
+]);
+
 /** Hashes a stored file the way writers recorded it (`sha256:<hex>`), without following links. */
 async function hashStored(home: string, item: LibraryItem): Promise<string> {
   const root = await realpath(libraryRoot(home));
@@ -468,7 +475,8 @@ export function libraryHandlers(setup: LibrarySetup): Record<string, HandlerDef>
       },
     },
     // A plain tap from a paired admin device (approvals are button-only; Touch ID is for
-    // payments). Never opens, executes or moves the file: trust only clears the flag.
+    // payments). Never opens, executes or moves the file: trust only clears the flag. Releasing
+    // a file does not make its words the owner's: attachments and search read its origin.
     "library.quarantine.decide": {
       run: async (
         call: Call,
@@ -487,7 +495,15 @@ export function libraryHandlers(setup: LibrarySetup): Record<string, HandlerDef>
           call.emit("library.item.changed", { itemId: item.id, change: "deleted" });
           return { ok: true, item: null };
         }
-        // The bytes must still be the ones that were quarantined.
+        // Only files other people made can be released: for a meeting recording or an untrusted
+        // voice note the flag is the only marker that third-party speech is in it.
+        if (!RELEASABLE_ORIGINS.has(item.origin)) {
+          throw new PsycheError(
+            "invalid_params",
+            `${item.name} cannot be trusted; delete it instead`,
+          );
+        }
+        // Integrity check: the file on disk is still the one that was recorded at download.
         if ((await hashStored(home, item)) !== item.sha256) {
           throw new PsycheError(
             "conflict",

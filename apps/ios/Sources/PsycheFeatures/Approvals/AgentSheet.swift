@@ -15,6 +15,7 @@ struct AgentSheet: View {
     @State private var cancelling: RunningTask?
     @Environment(Router.self) private var router
     @Environment(Session.self) private var session
+    private let motion = MotionContext()
 
     init(store: any PsycheBackend) {
         _model = State(initialValue: AgentModel(store: store))
@@ -35,19 +36,26 @@ struct AgentSheet: View {
                 if let error = model.error {
                     StatusDot(.failed, error, textColor: PsycheColor.text)
                 }
-                switch segment {
-                case .soul:
-                    soul
-                default:
-                    PhaseView(phase: model.phase, skeleton: .skeleton, retry: model.load) { activity in
-                        switch segment {
-                        case .activity: activityView(activity)
-                        case .approvals: approvals(activity)
-                        default: upcoming(activity)
+                // Switching segments is a 150 ms crossfade in place; the content never slides.
+                ZStack(alignment: .top) {
+                    switch segment {
+                    case .soul:
+                        soul.transition(.opacity)
+                    default:
+                        PhaseView(phase: model.phase, skeleton: .skeleton, retry: model.load) { activity in
+                            switch segment {
+                            case .activity: activityView(activity)
+                            case .approvals: approvals(activity)
+                            default: upcoming(activity)
+                            }
                         }
+                        .transition(.opacity)
                     }
                 }
+                .psycheFade(PsycheMotion.Duration.short, value: segment)
             }
+            // Tasks and approvals arriving or leaving: fade, then the gap closes on the smooth spring.
+            .psycheAnimation(.smooth, value: model.phase.value.map(Self.identity))
             .padding(PsycheMetrics.pagePadding)
             .padding(.top, 8)
         }
@@ -68,6 +76,11 @@ struct AgentSheet: View {
         } message: { _ in
             Text("Psyche stops where it is. Work already done stays.")
         }
+    }
+
+    /// What the Activity lists hold, by id: a change is an item arriving or leaving, not a progress tick.
+    private static func identity(_ activity: AgentActivity) -> [String] {
+        activity.needsYou.map(\.id) + activity.now.map(\.id) + activity.nextUp.map(\.id) + activity.recent.map(\.id)
     }
 
     private var header: some View {
@@ -116,7 +129,7 @@ struct AgentSheet: View {
                 PaperCard {
                     ForEach(Array(activity.now.enumerated()), id: \.element.id) { index, task in
                         if index > 0 { HairlineDivider() }
-                        nowRow(task)
+                        nowRow(task).transition(motion.transition(.rise))
                     }
                 }
             }
@@ -143,11 +156,14 @@ struct AgentSheet: View {
                     title: item.title,
                     evidence: session.state.canAnswer ? [item.kind.label, item.source, item.time] : [item.kind.label, "reconnect to answer"],
                     showsChevron: session.state.canAnswer)
-                if session.state.canAnswer {
-                    Button { router.open(item) } label: { row }.buttonStyle(.plain)
-                } else {
-                    row
+                Group {
+                    if session.state.canAnswer {
+                        Button { router.open(item) } label: { row }.buttonStyle(.plain)
+                    } else {
+                        row
+                    }
                 }
+                .transition(motion.transition(.rise))
             }
         }
     }

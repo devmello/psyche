@@ -193,18 +193,23 @@ struct SearchView: View {
                 // The page title is drawn in the column like every other screen (the system's large title
                 // sits at the window edge and ignores the readable column on iPad).
                 PageHeader("Search")
-                if model.trimmed.isEmpty {
-                    idle
-                } else {
-                    switch model.phase {
-                    case .idle, .searching:
-                        if model.hasAnything { results } else { skeleton }
-                    case .done:
-                        if model.hasAnything { results } else { noResults }
-                    case .failed(let message):
-                        failed(message)
+                // Idle, loading, results, nothing and failed trade places with a 150 ms crossfade. Results
+                // themselves update in place, with no animation per keystroke (spec §4.2).
+                ZStack(alignment: .top) {
+                    if model.trimmed.isEmpty {
+                        idle.transition(.opacity)
+                    } else {
+                        switch model.phase {
+                        case .idle, .searching:
+                            if model.hasAnything { results.transition(.opacity) } else { skeleton.transition(.opacity) }
+                        case .done:
+                            if model.hasAnything { results.transition(.opacity) } else { noResults.transition(.opacity) }
+                        case .failed(let message):
+                            failed(message).transition(.opacity)
+                        }
                     }
                 }
+                .psycheFade(PsycheMotion.Duration.short, value: stage)
             }
             .padding(.horizontal, PsycheMetrics.pagePadding)
             .padding(.top, 8)
@@ -223,6 +228,18 @@ struct SearchView: View {
             if !model.trimmed.isEmpty { try? await Task.sleep(for: .milliseconds(250)) }
             guard !Task.isCancelled else { return }
             await model.run()
+        }
+    }
+
+    private enum Stage { case idle, loading, results, empty, failed }
+
+    /// Which state is on screen; only a change of this crossfades.
+    private var stage: Stage {
+        if model.trimmed.isEmpty { return .idle }
+        switch model.phase {
+        case .idle, .searching: return model.hasAnything ? .results : .loading
+        case .done: return model.hasAnything ? .results : .empty
+        case .failed: return .failed
         }
     }
 

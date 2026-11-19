@@ -60,6 +60,7 @@ import { useNow } from "../../lib/use-now.ts";
 import { cn } from "../../lib/utils.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { ScreenColumn, ScreenToolbar, ToolbarLabel } from "../feed/ScreenToolbar.tsx";
+import { BrowserRecordingViewer } from "./BrowserRecordingViewer.tsx";
 import {
   applyFilters,
   artifactIdOf,
@@ -947,6 +948,7 @@ export function LibraryScreen({
   const [own, setOwn] = useState<LibrarySection>("documents");
   const [layout, setLayout] = useState<"grid" | "list">("grid");
   const [filters, setFilters] = useState<LibraryFilters>(NO_FILTERS);
+  const [replaying, setReplaying] = useState<LibraryItem | null>(null);
   const [trusted, setTrusted] = useState<ReadonlySet<string>>(new Set());
   const section = controlled ?? own;
 
@@ -964,6 +966,21 @@ export function LibraryScreen({
 
   const call = useCall();
   const store = useStore();
+  // Trust and Delete this download need `operator.admin`. `devices.list` is admin-only, so a
+  // `forbidden` answer means this device cannot decide quarantine and the actions stay hidden.
+  const [canDecide, setCanDecide] = useState(true);
+  useEffect(() => {
+    let live = true;
+    call("devices.list", {}).then(
+      () => undefined,
+      (err: unknown) => {
+        if (live && (err as { code?: unknown } | null)?.code === "forbidden") setCanDecide(false);
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [call]);
   const openStandalone = (item: LibraryItem) => openLibraryItem?.(item);
   // Quick Look is the file viewer beside the view. "Reveal" is the desktop's Finder, offered only
   // where the app has one (the slot is absent on the web and for a remote Gateway).
@@ -1019,6 +1036,10 @@ export function LibraryScreen({
   };
 
   const open = (item: LibraryItem) => {
+    if (item.kind === "recording") {
+      setReplaying(item);
+      return;
+    }
     if (item.kind === "artifact") {
       openInChat(item);
       return;
@@ -1069,36 +1090,40 @@ export function LibraryScreen({
   };
 
   return (
-    <LibraryView
-      items={items}
-      section={section}
-      onSectionChange={(s) => {
-        setOwn(s);
-        setFilters(NO_FILTERS);
-        onSectionChange?.(s);
-      }}
-      layout={layout}
-      onLayoutChange={setLayout}
-      filters={filters}
-      onFiltersChange={setFilters}
-      taskTitles={taskTitles}
-      loading={library.loading && library.items.length === 0}
-      loadingDelayMs={150}
-      error={library.items.length === 0 ? library.error : null}
-      onRetry={library.reload}
-      persona={persona.name}
-      onOpenChat={() => navigate?.("/chat")}
-      now={now}
-      onOpen={open}
-      onOpenInChat={openInChat}
-      onOpenViewer={openStandalone}
-      onOpenTask={(id) => navigate?.(`/agent/activity/${id}`)}
-      {...(renderThumbnail ? { renderThumbnail } : {})}
-      onTrust={trust}
-      onDeleteDownload={deleteDownload}
-      {...(reveal ? { onReveal: reveal } : {})}
-      {...(quickLook ? { onQuickLook: quickLook } : {})}
-      {...(send ? { onSendToChat: send } : {})}
-    />
+    <>
+      <LibraryView
+        items={items}
+        section={section}
+        onSectionChange={(s) => {
+          setOwn(s);
+          setFilters(NO_FILTERS);
+          onSectionChange?.(s);
+        }}
+        layout={layout}
+        onLayoutChange={setLayout}
+        filters={filters}
+        onFiltersChange={setFilters}
+        taskTitles={taskTitles}
+        loading={library.loading && library.items.length === 0}
+        loadingDelayMs={150}
+        error={library.items.length === 0 ? library.error : null}
+        onRetry={library.reload}
+        persona={persona.name}
+        onOpenChat={() => navigate?.("/chat")}
+        now={now}
+        onOpen={open}
+        onOpenInChat={openInChat}
+        onOpenViewer={openStandalone}
+        onOpenTask={(id) => navigate?.(`/agent/activity/${id}`)}
+        {...(renderThumbnail ? { renderThumbnail } : {})}
+        {...(canDecide ? { onTrust: trust, onDeleteDownload: deleteDownload } : {})}
+        {...(reveal ? { onReveal: reveal } : {})}
+        {...(quickLook ? { onQuickLook: quickLook } : {})}
+        {...(send ? { onSendToChat: send } : {})}
+      />
+      {replaying !== null ? (
+        <BrowserRecordingViewer item={replaying} onClose={() => setReplaying(null)} />
+      ) : null}
+    </>
   );
 }

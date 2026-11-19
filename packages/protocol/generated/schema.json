@@ -2268,6 +2268,14 @@
         "sideEffecting": true
       },
       {
+        "description": "The memory map: entities sized by importance with the relations the store already holds (works on, met in, co-mentioned, other). Names and links only: no facts, bodies or identifiers. Read-only.",
+        "name": "memory.graph.map",
+        "params": "#/$defs/MemoryGraphMapParams",
+        "result": "#/$defs/MemoryMap",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Graph health: per-source counts and last ingest, last model pass, budget used, loop precision.",
         "name": "memory.graph.status",
         "params": "#/$defs/MemoryGraphStatusParams",
@@ -29724,6 +29732,25 @@
       ],
       "type": "object"
     },
+    "MemoryGraphMapParams": {
+      "properties": {
+        "limit": {
+          "description": "At most this many entities, most important first (default 2000)",
+          "maximum": 5000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "kinds": {
+          "description": "Only these entity kinds",
+          "items": {
+            "$ref": "#/$defs/GraphEntityKind"
+          },
+          "maxItems": 7,
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
     "MemoryGraphStatusParams": {
       "properties": {},
       "type": "object"
@@ -30455,6 +30482,132 @@
       },
       "required": [
         "loop"
+      ],
+      "type": "object"
+    },
+    "MemoryMap": {
+      "properties": {
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/MemoryMapNode"
+          },
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/MemoryMapEdge"
+          },
+          "type": "array"
+        },
+        "total": {
+          "description": "Entities in the store before the cap",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "truncated": {
+          "description": "The least important entities were left out",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "nodes",
+        "edges",
+        "total",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "MemoryMapEdge": {
+      "properties": {
+        "a": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "b": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/MemoryMapEdgeKind"
+        },
+        "weight": {
+          "description": "Strength 0..1",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "a",
+        "b",
+        "kind",
+        "weight"
+      ],
+      "type": "object"
+    },
+    "MemoryMapEdgeKind": {
+      "description": "works_on: member, stakeholder, employer or part-of relation; met_in: attended or shared a meeting about it; co_mentioned: appeared in several of the same interactions; related: any other accepted relation",
+      "enum": [
+        "works_on",
+        "met_in",
+        "co_mentioned",
+        "related"
+      ],
+      "type": "string"
+    },
+    "MemoryMapNode": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/GraphEntityKind"
+        },
+        "name": {
+          "type": "string"
+        },
+        "weight": {
+          "description": "Importance 0..1 from recency, frequency, pins, open loops and links",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "lastInteractionAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pinned": {
+          "type": "boolean"
+        },
+        "private": {
+          "type": "boolean"
+        },
+        "quiet": {
+          "description": "A person the owner used to be in touch with and has not heard from in a while",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "weight",
+        "pinned"
       ],
       "type": "object"
     },

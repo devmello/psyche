@@ -11,6 +11,7 @@ struct QuestionSheet: View {
     @Environment(\.backend) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var flow = AnswerFlow()
+    private let motion = MotionContext()
     @State private var optionID: String?
     @State private var text = ""
     @FocusState private var typing: Bool
@@ -99,6 +100,7 @@ struct QuestionSheet: View {
             switch flow.stage {
             case .answered(let text):
                 AnsweredLine(text: text)
+                    .transition(motion.transition(.receipt))
             case .failed(let message):
                 AnswerError(message: message, retry: { Task { await flow.retry() } }, cancel: flow.dismissError)
             case .review, .checking, .sending:
@@ -113,7 +115,7 @@ struct QuestionSheet: View {
         .padding(.top, 8)
         .padding(.bottom, 12)
         .background(PsycheColor.paper)
-        .animation(.default, value: flow.stage)
+        .psycheAnimation(flow.stage.isAnswered ? .emphasis : .micro, value: flow.stage)
     }
 
     private func send() {

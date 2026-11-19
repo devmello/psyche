@@ -70,7 +70,7 @@ extension View {
                     .overlay {
                         if highlighted { PsycheColor.inkText.opacity(0.10) }
                     }
-                    .animation(.default, value: highlighted)
+                    .psycheFade(PsycheMotion.Duration.medium, value: highlighted)
             }
             .overlay(alignment: .bottom) {
                 if !position.isLast { HairlineDivider().padding(.leading, 14) }

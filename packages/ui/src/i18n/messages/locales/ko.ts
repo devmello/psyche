@@ -22,6 +22,7 @@ import { homeRest } from "./home-rest/ko.ts";
 import { links } from "./links/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ko.ts";
+import { memoryMap } from "./memory-map/ko.ts";
 import { memoryRest } from "./memory-rest/ko.ts";
 import { memoryAdvancedRest } from "./memoryAdvanced-rest/ko.ts";
 import { memoryBasicsRest } from "./memoryBasics-rest/ko.ts";
@@ -56,6 +57,7 @@ import { workflows } from "./workflows/ko.ts";
 /** Korean catalogue (ko). Same ids as `en`; missing ids fall back to English. */
 export const ko: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,
@@ -871,6 +873,7 @@ export const ko: Partial<Catalogue> = {
   "shell.shortcuts.addition": "Psyche 추가 항목",
   "shell.shortcuts.description": "†는 Claude 데스크탑 단축키에 Psyche가 추가한 항목입니다.",
   "shell.threads.needsYou": "확인 필요",
+  "shell.threads.nowOn": "지금: {step}",
   "shell.threads.running": "실행 중",
   "shell.threads.titleField": "스레드 제목",
   "shell.threads.incognito": "시크릿",
@@ -2977,6 +2980,19 @@ export const ko: Partial<Catalogue> = {
   "screens.library.deleteDownload": "이 다운로드 삭제",
   "screens.library.deleteFailed":
     "Psyche가 {name}을(를) 삭제하지 못했습니다({reason}). 격리 상태로 남아 있습니다.",
+  "screens.library.recording.description":
+    "에이전트가 브라우저에서 한 일을 다시 보여 줍니다. 페이지 내용은 녹화할 때 가려졌습니다.",
+  "screens.library.recording.play": "재생",
+  "screens.library.recording.pause": "일시정지",
+  "screens.library.recording.step": "{total}단계 중 {n}단계",
+  "screens.library.recording.scrub": "녹화 내 위치",
+  "screens.library.recording.steps": "단계",
+  "screens.library.recording.empty": "이 녹화에는 단계가 없습니다.",
+  "screens.library.recording.noFrame": "이 단계에는 화면이 없습니다.",
+  "screens.library.recording.frameAlt": "{n}단계의 브라우저",
+  "screens.library.recording.loading": "녹화를 불러오는 중",
+  "screens.library.recording.loadFailed": "Psyche가 이 녹화를 불러오지 못했습니다({reason}).",
+  "screens.library.recording.notFound": "이 녹화는 더 이상 사용할 수 없습니다.",
   "screens.library.trust": "이 파일 신뢰",
   "screens.library.moreFor": "{name}에 대한 추가 동작",
   "screens.library.quickLook": "훑어보기",
