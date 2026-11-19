@@ -806,6 +806,11 @@ describe("the binary's identifier is pinned too (N1)", () => {
   it("asks for the identifier and the team", () => {
     expect(OP_REQUIREMENT).toContain(`identifier "${OP_IDENTIFIER}" and anchor apple generic`);
     expect(OP_REQUIREMENT).toContain('certificate leaf[subject.OU] = "2BUA8C4S2C"');
+    // Pinned verbatim: the codesign stub can't catch a wrong constant (round 4 of #1375).
+    expect(OP_IDENTIFIER).toBe("com.1password.op");
+    expect(OP_REQUIREMENT).toBe(
+      'identifier "com.1password.op" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "2BUA8C4S2C"',
+    );
   });
 
   it("another binary signed by the same team with a different identifier is refused", async () => {

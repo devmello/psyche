@@ -48,13 +48,15 @@ const CACHE_MS = 60_000;
 /** 1Password's Apple developer team: `op` is signed by it. */
 const OP_TEAM = "2BUA8C4S2C";
 /**
- * The code-signing identifier of the `op` binary. Not confirmed from 1Password's own docs (they
- * name the team only); a crash report and a third-party catalogue show it as plain "op". The
- * owner should check it on a real install with `codesign -dv "$(which op)"` (the `Identifier=`
- * line) and fix this constant if it differs: a mismatch makes Psyche refuse a genuine `op`.
+ * The code-signing identifier of the `op` binary: `com.1password.op`, read from the signatures of
+ * the official releases 2.24.0, 2.30.0 and 2.42.0 (cache.agilebits.com; `codesign -dv`, never run).
  */
-export const OP_IDENTIFIER = "op";
-export const OP_REQUIREMENT = `identifier "${OP_IDENTIFIER}" and anchor apple generic and certificate leaf[subject.OU] = "${OP_TEAM}"`;
+export const OP_IDENTIFIER = "com.1password.op";
+/**
+ * `op`'s own designated requirement, verbatim (verified with `codesign --verify --strict -R=` on
+ * 2.42.0): the identifier, Apple's anchor, the Developer ID markers and 1Password's team.
+ */
+export const OP_REQUIREMENT = `identifier "${OP_IDENTIFIER}" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "${OP_TEAM}"`;
 
 export type RunOp = (
   file: string,
