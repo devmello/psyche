@@ -2783,6 +2783,7 @@ export const es: Partial<Catalogue> = {
   "screens.library.moreFor": "Más acciones para {name}",
   "screens.library.quickLook": "Vista Rápida",
   "screens.library.reveal": "Mostrar en el Finder",
+  "screens.library.revealFailed": "No se pudo mostrar este archivo: {reason}",
   "screens.library.sendToChat": "Enviar al chat",
   "screens.library.loading": "Cargando la biblioteca",
   "screens.library.loadFailed": "Psyche no pudo cargar la biblioteca",

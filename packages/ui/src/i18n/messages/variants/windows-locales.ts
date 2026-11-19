@@ -8,6 +8,7 @@ export const WINDOWS_LOCALES: Readonly<
   Record<string, Readonly<Partial<Record<MessageId, string>>>>
 > = {
   ar: {
+    "screens.library.reveal": "إظهار في المجلد",
     "web.security.banner.recovery":
       "{count, plural, one {تغيير أمان طُلب على هذا الكمبيوتر سيُطبَّق في {when} ما لم تلغه.} two {تغييرا أمان طُلبا على هذا الكمبيوتر ينتظران. التالي يُطبَّق في {when}.} few {# تغييرات أمان طُلبت على هذا الكمبيوتر تنتظر. التالي يُطبَّق في {when}.} many {# تغيير أمان طُلب على هذا الكمبيوتر ينتظر. التالي يُطبَّق في {when}.} other {# تغيير أمان طُلب على هذا الكمبيوتر ينتظر. التالي يُطبَّق في {when}.}}",
     "web.security.alert.changed":
@@ -23,6 +24,7 @@ export const WINDOWS_LOCALES: Readonly<
       "وافق على البطاقة بـ Windows Hello أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
   },
   de: {
+    "screens.library.reveal": "Im Ordner zeigen",
     "web.security.banner.recovery":
       "{count, plural, one {Eine auf diesem PC angeforderte Sicherheitsänderung gilt ab {when}, wenn du sie nicht abbrichst.} other {# auf diesem PC angeforderte Sicherheitsänderungen warten. Die nächste gilt ab {when}.}}",
     "web.security.alert.changed":
@@ -38,6 +40,7 @@ export const WINDOWS_LOCALES: Readonly<
       "Bestätige die Karte mit Windows Hello oder einem Passkey und tippe dann erneut auf die Taste.",
   },
   es: {
+    "screens.library.reveal": "Mostrar en la carpeta",
     "web.security.banner.recovery":
       "{count, plural, one {Un cambio de seguridad pedido en este PC se aplica el {when} salvo que lo canceles.} other {# cambios de seguridad pedidos en este PC están en espera. El siguiente se aplica el {when}.}}",
     "web.security.alert.changed":
@@ -53,6 +56,7 @@ export const WINDOWS_LOCALES: Readonly<
       "Aprueba la tarjeta con Windows Hello o una llave de acceso y vuelve a pulsar el botón.",
   },
   fr: {
+    "screens.library.reveal": "Afficher dans le dossier",
     "web.security.banner.recovery":
       "{count, plural, one {Une modification de sécurité demandée sur ce PC s’applique le {when}, sauf si vous l’annulez.} other {# modifications de sécurité demandées sur ce PC sont en attente. La prochaine s’applique le {when}.}}",
     "web.security.alert.changed":
@@ -68,6 +72,7 @@ export const WINDOWS_LOCALES: Readonly<
       "Approuvez la carte avec Windows Hello ou une clé d’accès, puis appuyez de nouveau sur le bouton.",
   },
   hi: {
+    "screens.library.reveal": "फ़ोल्डर में दिखाएँ",
     "web.security.banner.recovery":
       "{count, plural, one {इस PC पर माँगा गया एक सुरक्षा बदलाव {when} को लागू होगा, जब तक आप इसे रद्द न करें।} other {इस PC पर माँगे गए # सुरक्षा बदलाव प्रतीक्षा में हैं। अगला {when} को लागू होगा।}}",
     "web.security.alert.changed":
@@ -82,6 +87,7 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.needsApproval": "Windows Hello या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
   },
   it: {
+    "screens.library.reveal": "Mostra nella cartella",
     "web.security.banner.recovery":
       "{count, plural, one {Una modifica di sicurezza richiesta su questo PC si applica il {when}, a meno che tu non la annulli.} other {# modifiche di sicurezza richieste su questo PC sono in attesa. La prossima si applica il {when}.}}",
     "web.security.alert.changed":
@@ -97,6 +103,7 @@ export const WINDOWS_LOCALES: Readonly<
       "Approva la scheda con Windows Hello o una passkey, poi premi di nuovo il pulsante.",
   },
   ja: {
+    "screens.library.reveal": "フォルダーで表示",
     "web.security.banner.recovery":
       "{count, plural, other {この PC で要求されたセキュリティ変更が # 件待機中です。次の変更はキャンセルしない限り {when} に適用されます。}}",
     "web.security.alert.changed":
@@ -112,6 +119,7 @@ export const WINDOWS_LOCALES: Readonly<
       "Windows Hello またはパスキーでカードを承認してから、もう一度ボタンを押してください。",
   },
   ko: {
+    "screens.library.reveal": "폴더에서 보기",
     "web.security.banner.recovery":
       "{count, plural, other {이 PC에서 요청된 보안 변경 #건이 대기 중입니다. 다음 변경은 취소하지 않으면 {when}에 적용됩니다.}}",
     "web.security.alert.changed":
@@ -127,6 +135,7 @@ export const WINDOWS_LOCALES: Readonly<
       "Windows Hello나 패스키로 카드를 승인한 다음 버튼을 다시 누르세요.",
   },
   pt: {
+    "screens.library.reveal": "Mostrar na pasta",
     "web.security.banner.recovery":
       "{count, plural, one {Uma alteração de segurança pedida neste PC será aplicada em {when}, a menos que você a cancele.} other {# alterações de segurança pedidas neste PC estão aguardando. A próxima será aplicada em {when}.}}",
     "web.security.alert.changed":
@@ -142,6 +151,7 @@ export const WINDOWS_LOCALES: Readonly<
       "Aprove o cartão com Windows Hello ou uma chave de acesso e toque no botão de novo.",
   },
   zh: {
+    "screens.library.reveal": "在文件夹中显示",
     "web.security.banner.recovery":
       "{count, plural, other {在这台 PC 上请求的 # 项安全更改正在等待。除非你取消，下一项将于 {when} 生效。}}",
     "web.security.alert.changed":

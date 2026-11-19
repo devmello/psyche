@@ -2814,6 +2814,7 @@ export const de: Partial<Catalogue> = {
   "screens.library.moreFor": "Weitere Aktionen für {name}",
   "screens.library.quickLook": "Übersicht",
   "screens.library.reveal": "Im Finder zeigen",
+  "screens.library.revealFailed": "Diese Datei konnte nicht angezeigt werden: {reason}",
   "screens.library.sendToChat": "An Chat senden",
   "screens.library.loading": "Mediathek wird geladen",
   "screens.library.loadFailed": "Psyche konnte die Mediathek nicht laden",

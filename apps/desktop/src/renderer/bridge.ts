@@ -304,6 +304,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
     app: {
       info: () => b.app.info() as Promise<HostAppInfo>,
       revealHome: async () => void (await b.app.revealHome()),
+      revealLibraryItem: async (itemId) => void (await b.library.reveal(itemId)),
       ...(b.chrome.uninstall === true
         ? {
             uninstallPlan: (req: { deleteData: boolean; removeKeychain?: boolean }) =>

@@ -370,7 +370,7 @@ export const windows: Partial<Record<MessageId, string>> = {
   "everything.run.reason.not_idle": "Not now: you are using the PC.",
   "everything.storage.note": "Everything is stored on this PC only.",
   "memoryWork.consent.k1": "Nothing leaves this PC. Dates and status are worked out by code.",
-  "screens.library.reveal": "Show in File Explorer",
+  "screens.library.reveal": "Show in folder",
   "web.zoom.description":
     "How large the app renders on this PC. Ctrl+Plus and Ctrl+Minus change the same setting, so it survives a restart; {min, number}–{max, number} %.",
   "web.transcriptMode.optionTitle": "{mode} (Ctrl+O cycles)",

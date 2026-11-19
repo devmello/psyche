@@ -2729,6 +2729,7 @@ export const ja: Partial<Catalogue> = {
   "screens.library.moreFor": "{name}のその他の操作",
   "screens.library.quickLook": "クイックルック",
   "screens.library.reveal": "Finderに表示",
+  "screens.library.revealFailed": "このファイルを表示できませんでした: {reason}",
   "screens.library.sendToChat": "チャットに送る",
   "screens.library.loading": "ライブラリを読み込み中",
   "screens.library.loadFailed": "Psycheはライブラリを読み込めませんでした",

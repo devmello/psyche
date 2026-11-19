@@ -311,7 +311,7 @@ export const linux: Partial<Record<MessageId, string>> = {
   "everything.run.reason.not_idle": "Not now: you are using the computer.",
   "everything.storage.note": "Everything is stored on this computer only.",
   "memoryWork.consent.k1": "Nothing leaves this computer. Dates and status are worked out by code.",
-  "screens.library.reveal": "Show in Files",
+  "screens.library.reveal": "Show in folder",
   "web.zoom.description":
     "How large the app renders on this computer. Ctrl+Plus and Ctrl+Minus change the same setting, so it survives a restart; {min, number}–{max, number} %.",
   "web.transcriptMode.optionTitle": "{mode} (Ctrl+O cycles)",
