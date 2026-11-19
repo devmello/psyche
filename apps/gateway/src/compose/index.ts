@@ -2246,7 +2246,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       },
     }),
     ...attentionHandlers(attention),
-    ...libraryHandlers({ db, home: config.home }),
+    ...libraryHandlers({ db, home: config.home, audit }),
     ...modelSettingsHandlers(modelSettings),
     ...apiKeyHandlers({
       vault: () => vault.vault,

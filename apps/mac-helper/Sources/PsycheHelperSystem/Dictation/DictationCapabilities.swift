@@ -240,7 +240,15 @@ public final class DictationKeyWatcher: @unchecked Sendable {
                 name: "com.psyche.helper.dictation-key"
             ) { _, event in
                 if event.getIntegerValueField(.eventSourceUserData) != Input.marker {
-                    for change in engine.flagsChanged(keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags.rawValue) {
+                    // The callback can run late: anchor the hold at when the modifier actually changed.
+                    var timebase = mach_timebase_info_data_t()
+                    mach_timebase_info(&timebase)
+                    let age = DictationEventAge.seconds(
+                        eventTicks: event.timestamp, nowTicks: mach_absolute_time(), numer: timebase.numer, denom: timebase.denom)
+                    for change in engine.flagsChanged(
+                        keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags.rawValue,
+                        eventAge: age)
+                    {
                         continuation.yield(change)
                     }
                 }

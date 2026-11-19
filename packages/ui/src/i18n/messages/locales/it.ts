@@ -1572,6 +1572,44 @@ export const it: Partial<Catalogue> = {
   "settings.channels.loadLabel": "i canali",
   "settings.channels.empty":
     "Ancora nessun canale. Collega Telegram, iMessage o Slack per contattare {persona} lontano da questo Mac.",
+  "settings.channels.add.button": "Aggiungi un canale",
+  "settings.channels.add.title": "Aggiungi un canale",
+  "settings.channels.add.description":
+    "Scegli dove si può raggiungere {persona}. I token vanno direttamente nel caveau e non vengono più mostrati.",
+  "settings.channels.add.type": "Canale",
+  "settings.channels.add.account.slack": "Nome dello spazio di lavoro",
+  "settings.channels.add.account.discord": "ID applicazione",
+  "settings.channels.add.secret.bot_token": "Token del bot",
+  "settings.channels.add.secret.app_token": "Token dell'app",
+  "settings.channels.add.secret.auth_token": "Token di autenticazione",
+  "settings.channels.add.secret.access_token": "Token di accesso",
+  "settings.channels.add.secret.app_secret": "Segreto dell'app",
+  "settings.channels.add.secret.verify_token": "Token di verifica",
+  "settings.channels.add.submit": "Collega",
+  "settings.channels.add.connecting": "Connessione",
+  "settings.channels.add.missing": "Compila tutti i campi per collegare.",
+  "settings.channels.add.failed":
+    "Psyche non è riuscito ad aggiungere il canale ({reason}). Non è attivo.",
+  "settings.channels.add.account.sms": "Numero mittente (+15551234567)",
+  "settings.channels.add.account.whatsapp": "Numero WhatsApp (+15551234567)",
+  "settings.channels.add.badNumber":
+    "Inserisci il numero in formato internazionale, ad esempio +15551234567.",
+  "settings.channels.add.exists":
+    "Esiste già un canale {type} per {account}, quindi non è cambiato nulla.",
+  "settings.channels.add.approvalLabel": "Aggiunta di un canale",
+  "settings.channels.add.envNote":
+    "Il Gateway deve anche essere avviato con {env} impostato su questo account. Telegram, iMessage, Signal ed e-mail si configurano dove gira il Gateway; vedi la documentazione dei canali.",
+  "settings.channels.add.addedInactive":
+    "Canale aggiunto, ma non è ancora attivo. Imposta {env} su questo account dove gira il Gateway e riavvialo.",
+  "settings.channels.add.added":
+    "Canale aggiunto. Parte quando il Gateway ha {env} impostato su questo account. Poi scrivi a {persona} da lì per ottenere un codice di abbinamento e approvalo qui.",
+  "settings.channels.add.storedNote":
+    "Già memorizzati per questo account: {names}. Vengono usati così come sono, a meno che tu non li sostituisca.",
+  "settings.channels.add.replace": "Sostituisci i token memorizzati",
+  "settings.channels.add.statusFailed":
+    "Psyche non è riuscito a controllare quali token sono già memorizzati ({reason}). Non è cambiato nulla.",
+  "settings.channels.add.storedTyped":
+    "Per questo account ci sono già token memorizzati. Seleziona «Sostituisci i token memorizzati» per usare quelli digitati, oppure svuota quei campi. Non è cambiato nulla.",
   "settings.channels.identities": "Collegamenti di identità",
   "settings.channels.identitiesDescription":
     "Una sola persona attraverso i canali. I collegamenti si modificano solo da un dispositivo abbinato.",
@@ -3031,6 +3069,9 @@ export const it: Partial<Catalogue> = {
   "screens.library.openLabel": "Apri {name}{editor, select, true { nell’editor} other {}}",
   "screens.library.openInEditor": "Apri nell’editor",
   "screens.library.open": "Apri",
+  "screens.library.deleteDownload": "Elimina questo download",
+  "screens.library.deleteFailed":
+    "Psyche non è riuscito a eliminare {name} ({reason}). Resta in quarantena.",
   "screens.library.recording.description":
     "Una riproduzione di ciò che l'agente ha fatto nel browser. Il contenuto delle pagine è stato oscurato in fase di registrazione.",
   "screens.library.recording.play": "Riproduci",

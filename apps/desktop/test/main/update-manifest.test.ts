@@ -1,6 +1,14 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createHash, generateKeyPairSync, type KeyObject, sign } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -410,6 +418,7 @@ function winRelease(
       "--base",
       `${PINNED}v${version}/`,
       ...(opts.deltaBase ? ["--delta-base", opts.deltaBase] : []),
+      ...(opts.macZip === false ? ["--no-mac"] : []),
       ...files,
     ],
     { encoding: "utf8" },
@@ -428,6 +437,144 @@ function winRelease(
     sig: readFileSync(`${file}.sig`, "utf8"),
   };
 }
+
+describe("per-platform manifests (Linux helper and server packages)", () => {
+  it("lists them under linux-<arch> and an existing Mac build still plans its zip", () => {
+    const k = fixtureKey();
+    const dir = temp();
+    const files = [
+      "Psyche-1.4.0-darwin-arm64.zip",
+      "psyche-helper-1.4.0-linux-x64.tar.zst",
+      "psyche-helper-1.4.0-linux-x64.deb",
+      "psyche-helper-1.4.0-linux-arm64.rpm",
+      "psyche-server-1.4.0-linux-x64.deb",
+    ].map((name) => {
+      const file = join(dir, name);
+      writeFileSync(file, Buffer.from(`${name} bytes`.repeat(50)));
+      return file;
+    });
+    const out = execFileSync(
+      process.execPath,
+      [SCRIPT, "build", "--release", "1.4.0", "--base", `${PINNED}v1.4.0/`, ...files],
+      { encoding: "utf8" },
+    );
+    const manifest = join(dir, "update-manifest.json");
+    writeFileSync(manifest, out);
+    execFileSync(process.execPath, [SCRIPT, "sign", manifest], {
+      env: { ...process.env, PSYCHE_RELEASE_SIGNING_KEY: k.pem },
+    });
+    const raw = JSON.parse(out);
+    expect(raw.artifacts.map((a: { platform: string }) => a.platform)).toEqual(["darwin"]);
+    expect(Object.keys(raw.platforms).sort()).toEqual(["darwin-arm64", "linux-arm64", "linux-x64"]);
+    expect(raw.platforms["linux-x64"].map((a: { kind: string }) => a.kind)).toEqual([
+      "helper-tar-zst",
+      "helper-deb",
+      "server-deb",
+    ]);
+    expect(raw.platforms["linux-arm64"].map((a: { kind: string }) => a.kind)).toEqual([
+      "helper-rpm",
+    ]);
+    const m = verifyManifest(readFileSync(manifest), readFileSync(`${manifest}.sig`, "utf8"), [
+      k.key,
+    ]);
+    expect(artifactsFor(m, "darwin", "arm64").map((a) => a.kind)).toEqual(["zip"]);
+    expect(
+      planUpdate(m, { currentVersion: "1.3.0", arch: "arm64", pinnedBase: PINNED }),
+    ).toMatchObject({ action: "update" });
+  });
+
+  const build = (args: string[]) =>
+    spawnSync(
+      process.execPath,
+      [SCRIPT, "build", "--release", "1.4.0", "--base", `${PINNED}v1.4.0/`, ...args],
+      {
+        encoding: "utf8",
+      },
+    );
+  const file = (name: string) => {
+    const f = join(temp(), name);
+    writeFileSync(f, "x");
+    return f;
+  };
+
+  it("a manifest without a Mac update is refused unless --no-mac says so (Windows-only, too)", () => {
+    const releases = file("RELEASES");
+    const full = file("Psyche-1.4.0-full.nupkg");
+    const refused = build([releases, full]);
+    expect(refused.status).not.toBe(0);
+    expect(refused.stderr).toMatch(/no Mac update/);
+    expect(build(["--no-mac", releases, full]).status).toBe(0);
+    // --no-mac is not a way to publish nothing at all.
+    expect(build(["--no-mac", file("Psyche-1.4.0-Setup.exe")]).status).not.toBe(0);
+  });
+
+  it("release.yml's Linux gate reads the constant, not the text: it is off while the constant is false", () => {
+    const yml = readFileSync(
+      join(import.meta.dirname, "../../../../.github/workflows/release.yml"),
+      "utf8",
+    );
+    const gate = /if (node -e '[^']*DESKTOP_LINUX_SUPPORT[^']*'); then/.exec(yml)?.[1];
+    expect(gate, "the gate expression is in release.yml").toBeDefined();
+    expect(readFileSync(SCRIPT, "utf8")).toMatch(/^export const DESKTOP_LINUX_SUPPORT = false;$/m);
+    // The word and the assignment appear in the script's comments, as they did when a grep was fooled.
+    expect(readFileSync(SCRIPT, "utf8")).toContain("DESKTOP_LINUX_SUPPORT");
+    const root = resolve(import.meta.dirname, "../../../..");
+    const r = spawnSync("sh", ["-c", gate as string], { cwd: root, encoding: "utf8" });
+    expect(r.status).toBe(1);
+
+    // On a copy with the constant flipped the same expression exits 0 ...
+    const src = readFileSync(SCRIPT, "utf8");
+    const flipped = src.replace(
+      /^export const DESKTOP_LINUX_SUPPORT = false;$/m,
+      "export const DESKTOP_LINUX_SUPPORT = true;",
+    );
+    expect(flipped).not.toBe(src);
+    const tmp = temp();
+    mkdirSync(join(tmp, "deploy/scripts"), { recursive: true });
+    writeFileSync(join(tmp, "deploy/scripts/update-manifest.mjs"), flipped);
+    expect(spawnSync("sh", ["-c", gate as string], { cwd: tmp, encoding: "utf8" }).status).toBe(0);
+    // ... and where the script cannot be imported at all it exits 2, which the job treats as a
+    // failure rather than as "no Linux support".
+    const empty = temp();
+    expect(spawnSync("sh", ["-c", gate as string], { cwd: empty, encoding: "utf8" }).status).toBe(
+      2,
+    );
+    // The job's shell turns exit 2 into a failed step and exit 1 into a warning.
+    expect(yml).toMatch(/gate=\$\?\n\s+if \[ "\$gate" -ne 1 \]; then\n\s+echo "::error::/);
+  });
+
+  it("a Linux-only manifest needs the explicit --linux-only", () => {
+    const good = file("psyche-helper-1.4.0-linux-x64.deb");
+    const refused = build([good]);
+    expect(refused.status).not.toBe(0);
+    expect(refused.stderr).toMatch(/no Mac update/);
+    const out = JSON.parse(build(["--linux-only", good]).stdout);
+    expect(out.artifacts).toEqual([]);
+    expect(out.platforms["linux-x64"].map((a: { name: string }) => a.name)).toEqual([
+      "psyche-helper-1.4.0-linux-x64.deb",
+    ]);
+  });
+
+  it("never drops a file it was given: unclassified names (desktop Linux packages, look-alikes) fail", () => {
+    const zip = file("Psyche-1.4.0-darwin-arm64.zip");
+    for (const name of [
+      "Psyche-1.4.0-linux-x64.deb",
+      "Psyche-1.4.0-linux-x64.rpm",
+      "Psyche-1.4.0-linux-x64.AppImage",
+      "psyche-helper-1.4.0-linux-x86_64.deb",
+    ]) {
+      const r = build([zip, file(name)]);
+      expect(r.status, name).not.toBe(0);
+      expect(r.stderr, name).toMatch(/cannot classify/);
+    }
+  });
+
+  it("skips an unmatched shell glob (it names no file), as release.yml can pass one", () => {
+    const zip = file("Psyche-1.4.0-darwin-arm64.zip");
+    const r = build([zip, "/nonexistent-dir/Psyche-*.dmg"]);
+    expect(r.status).toBe(0);
+  });
+});
 
 describe("per-platform manifests (Windows)", () => {
   it("keeps macOS-only artifacts where released Mac builds look, and lists every platform", () => {

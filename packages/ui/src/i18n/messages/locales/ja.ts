@@ -1562,6 +1562,43 @@ export const ja: Partial<Catalogue> = {
   "settings.channels.loadLabel": "チャンネル",
   "settings.channels.empty":
     "チャンネルはまだありません。Telegram、iMessage、Slackを接続すると、このMacから離れていても{persona}に連絡できます。",
+  "settings.channels.add.button": "チャンネルを追加",
+  "settings.channels.add.title": "チャンネルを追加",
+  "settings.channels.add.description":
+    "{persona} に連絡できる場所を選びます。トークンは直接保管庫に保存され、再表示されません。",
+  "settings.channels.add.type": "チャンネル",
+  "settings.channels.add.account.slack": "ワークスペース名",
+  "settings.channels.add.account.discord": "アプリケーション ID",
+  "settings.channels.add.secret.bot_token": "ボットトークン",
+  "settings.channels.add.secret.app_token": "アプリトークン",
+  "settings.channels.add.secret.auth_token": "認証トークン",
+  "settings.channels.add.secret.access_token": "アクセストークン",
+  "settings.channels.add.secret.app_secret": "アプリシークレット",
+  "settings.channels.add.secret.verify_token": "検証トークン",
+  "settings.channels.add.submit": "接続",
+  "settings.channels.add.connecting": "接続中",
+  "settings.channels.add.missing": "接続するにはすべての項目を入力してください。",
+  "settings.channels.add.failed":
+    "Psyche はチャンネルを追加できませんでした（{reason}）。有効にはなっていません。",
+  "settings.channels.add.account.sms": "送信元番号 (+15551234567)",
+  "settings.channels.add.account.whatsapp": "WhatsApp 番号 (+15551234567)",
+  "settings.channels.add.badNumber": "番号は国際形式で入力してください（例: +15551234567）。",
+  "settings.channels.add.exists":
+    "{account} 用の {type} チャンネルはすでにあるため、何も変更していません。",
+  "settings.channels.add.approvalLabel": "チャンネルの追加",
+  "settings.channels.add.envNote":
+    "Gateway も、このアカウントを {env} に設定して起動する必要があります。Telegram、iMessage、Signal、メールは Gateway が動作する場所で設定します。チャンネルのドキュメントを参照してください。",
+  "settings.channels.add.addedInactive":
+    "チャンネルを追加しましたが、まだ動作していません。Gateway が動作する場所で {env} をこのアカウントに設定し、再起動してください。",
+  "settings.channels.add.added":
+    "チャンネルを追加しました。Gateway で {env} がこのアカウントに設定されると開始します。その後、そこから {persona} にメッセージを送ってペアリングコードを受け取り、ここで承認してください。",
+  "settings.channels.add.storedNote":
+    "このアカウントには保存済み: {names}。置き換えない限り、そのまま使われます。",
+  "settings.channels.add.replace": "保存済みのトークンを置き換える",
+  "settings.channels.add.statusFailed":
+    "Psyche は保存済みのトークンを確認できませんでした（{reason}）。何も変更していません。",
+  "settings.channels.add.storedTyped":
+    "このアカウントには保存済みのトークンがあります。入力したトークンを使うには「保存済みのトークンを置き換える」にチェックを入れるか、その欄を空にしてください。何も変更していません。",
   "settings.channels.identities": "IDの関連付け",
   "settings.channels.identitiesDescription":
     "複数のチャンネルにまたがる同一人物。関連付けはペアリングされたデバイスからのみ変更できます。",
@@ -2999,6 +3036,9 @@ export const ja: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}を{editor, select, true {エディタで} other {}}開く",
   "screens.library.openInEditor": "エディタで開く",
   "screens.library.open": "開く",
+  "screens.library.deleteDownload": "このダウンロードを削除",
+  "screens.library.deleteFailed":
+    "Psyche は {name} を削除できませんでした（{reason}）。隔離されたままです。",
   "screens.library.recording.description":
     "エージェントがブラウザで行った操作のリプレイです。ページの内容は記録時に伏せられています。",
   "screens.library.recording.play": "再生",

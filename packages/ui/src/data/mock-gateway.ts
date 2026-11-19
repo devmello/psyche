@@ -383,6 +383,8 @@ const fail = (code: ErrorCode, message: string, details?: Record<string, unknown
 export class MockGateway implements GatewayClient {
   readonly world: MockWorld;
   readonly calls: RecordedCall[] = [];
+  /** Channel transport secrets by `type|account` (names only, like the Gateway). */
+  readonly channelSecrets = new Map<string, MethodParams<"channels.secrets.set">["name"][]>();
   /** A host's presence (a web passkey); tests set it to exercise approvals that need one. */
   presence?: GatewayClient["presence"];
   /** The desktop host: Touch ID cards go through `approvals.approveWithTouchId`. */
@@ -2199,6 +2201,7 @@ export class MockGateway implements GatewayClient {
           (p.kind === undefined || i.kind === p.kind) &&
           (p.taskId === undefined || i.taskId === p.taskId) &&
           (p.threadId === undefined || i.threadId === p.threadId) &&
+          (p.quarantined === undefined || (i.quarantined === true) === p.quarantined) &&
           (p.query === undefined || i.name.toLowerCase().includes(p.query.toLowerCase())),
       ),
       nextCursor: null,
@@ -2240,6 +2243,24 @@ export class MockGateway implements GatewayClient {
     "library.delete": (p) => {
       this.world.library = this.world.library.filter((i) => i.id !== p.itemId);
       return { ok: true };
+    },
+    "library.quarantine.decide": (p) => {
+      const item = this.world.library.find((i) => i.id === p.itemId);
+      if (item === undefined) return fail("not_found", `library item ${p.itemId} not found`);
+      if (item.quarantined !== true) {
+        return fail("invalid_params", `${item.name} is not in quarantine`);
+      }
+      if (p.decision === "delete") {
+        this.world.library = this.world.library.filter((i) => i.id !== p.itemId);
+        return { ok: true, item: null };
+      }
+      // The Gateway releases only files from outside; a meeting recording or voice note stays.
+      if (!["download", "channel", "connector"].includes(item.origin)) {
+        return fail("invalid_params", `${item.name} cannot be trusted; delete it instead`);
+      }
+      const { quarantined: _q, ...released } = item;
+      this.world.library = this.world.library.map((i) => (i.id === p.itemId ? released : i));
+      return { ok: true, item: released };
     },
 
     // --- The teaching loop (T0 #678; docs/agent/teaching-loop-2026.md §7) ---------------
@@ -4018,11 +4039,53 @@ export class MockGateway implements GatewayClient {
     "channels.identities.list": () => ({ identities: this.world.channelIdentities }),
     "channels.pairing.approve": (p) => ({ pairingRequest: this.decidePairing(p, "approved") }),
     "channels.pairing.deny": (p) => ({ pairingRequest: this.decidePairing(p, "denied") }),
+    "channels.secrets.set": (p) => {
+      const key = `${p.type}|${p.account}`;
+      const have = new Set(this.channelSecrets.get(key) ?? []);
+      have.add(p.name);
+      this.channelSecrets.set(key, [...have]);
+      return { set: [...have] };
+    },
+    "channels.secrets.clear": (p) => {
+      const key = `${p.type}|${p.account}`;
+      const left = (this.channelSecrets.get(key) ?? []).filter((n) => n !== p.name);
+      this.channelSecrets.set(key, left);
+      return { set: left };
+    },
+    "channels.secrets.status": (p) => ({
+      required: [],
+      set: this.channelSecrets.get(`${p.type}|${p.account}`) ?? [],
+    }),
+    "channels.get": (p) => ({
+      channel: this.find(this.world.channels, p.channelId, "channel") as Channel,
+    }),
     "channels.configure": (p) => {
-      const { channelId, ...fields } = p;
-      const current =
-        channelId === undefined ? undefined : this.find(this.world.channels, channelId, "channel");
-      if (current === undefined) fail("not_implemented", "MockGateway does not create channels");
+      const { channelId, approvalId: _approval, ...fields } = p;
+      if (channelId === undefined) {
+        if (fields.type === undefined || fields.account === undefined) {
+          return fail("invalid_params", "a new channel needs a type and an account");
+        }
+        const now = this.now();
+        const created: Channel = {
+          id: this.id("chn"),
+          type: fields.type,
+          account: fields.account,
+          dmPolicy: fields.dmPolicy ?? "pairing",
+          allowFrom: fields.allowFrom ?? [],
+          groupAllowFrom: fields.groupAllowFrom ?? [],
+          requireMention: fields.requireMention ?? true,
+          ownerIds: fields.ownerIds ?? [],
+          dmScope: fields.dmScope ?? "per-channel-peer",
+          nodeId: fields.nodeId ?? null,
+          status: fields.status ?? "active",
+          config: fields.config ?? {},
+          createdAt: now,
+          updatedAt: now,
+        };
+        this.world.channels = [...this.world.channels, created];
+        return { channel: created };
+      }
+      const current = this.find(this.world.channels, channelId, "channel");
       const channel: Channel = {
         ...(current as Channel),
         ...fields,
@@ -4062,7 +4125,10 @@ export class MockGateway implements GatewayClient {
       trustedProxy: true,
     }),
     "devices.setupToken.create": (p) => {
-      if (p.scopes.some((s) => (s as string) === "node")) {
+      const scopes = p.scopes ?? [];
+      if (p.purpose === "machine") fail("unavailable", "Pairing a computer is not available yet");
+      if (scopes.length === 0) fail("invalid_params", "scopes is required");
+      if (scopes.some((s) => (s as string) === "node")) {
         fail("invalid_params", "A setup token grants operator scopes only");
       }
       const now = this.now();
@@ -4072,7 +4138,7 @@ export class MockGateway implements GatewayClient {
       if (live.length >= 3) fail("rate_limited", "Too many unused setup tokens");
       const setupToken = {
         id: this.id("stk"),
-        scopes: [...new Set(p.scopes)],
+        scopes: [...new Set(scopes)],
         createdAt: now,
         expiresAt: new Date(Date.parse(now) + 10 * 60_000).toISOString(),
         usedAt: null,

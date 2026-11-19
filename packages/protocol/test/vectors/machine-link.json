@@ -1,0 +1,629 @@
+{
+  "about": "Shared vectors for psyche-machine:v1 (TS parseMachineLink here; the Rust helper's parser in H2 must agree). A case builds the link psyche-machine:v1: + base64url(no padding) of JSON. With `url`, the JSON is {gatewayUrl: url, gatewayKey: $KEY, [certPin: $PIN when pin], setupToken: $TOKEN, hostName: 'H'}; with `body`, the JSON text is used as written ($KEY, $TOKEN and $PIN are substituted first). `accept` cases must parse and return `gatewayUrl` as URL.origin; `refuse` cases must be refused (`problem` where it is fixed).",
+  "constants": {
+    "KEY": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
+    "TOKEN": "pst_BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    "PIN": "CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk"
+  },
+  "cases": [
+    {
+      "label": "tailscale origin",
+      "url": "https://a.ts.net",
+      "expect": "accept",
+      "gatewayUrl": "https://a.ts.net"
+    },
+    {
+      "label": "trailing slash is dropped",
+      "url": "https://a.ts.net/",
+      "expect": "accept",
+      "gatewayUrl": "https://a.ts.net"
+    },
+    {
+      "label": "tailnet name",
+      "url": "https://studio-mac.tail1234.ts.net",
+      "expect": "accept",
+      "gatewayUrl": "https://studio-mac.tail1234.ts.net"
+    },
+    {
+      "label": "explicit port",
+      "url": "https://a.ts.net:8443",
+      "expect": "accept",
+      "gatewayUrl": "https://a.ts.net:8443"
+    },
+    {
+      "label": "public IPv4",
+      "url": "https://8.8.8.8",
+      "expect": "accept",
+      "gatewayUrl": "https://8.8.8.8"
+    },
+    {
+      "label": "public IPv6",
+      "url": "https://[2606:4700::1111]",
+      "expect": "accept",
+      "gatewayUrl": "https://[2606:4700::1111]"
+    },
+    {
+      "label": "nopin: localhost dot",
+      "url": "https://localhost.",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: localhost",
+      "url": "https://localhost",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: 127.0.0.2",
+      "url": "https://127.0.0.2",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: 127.0.0.1",
+      "url": "https://127.0.0.1",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: 0.0.0.0",
+      "url": "https://0.0.0.0",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: [::]",
+      "url": "https://[::]",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: [::1]",
+      "url": "https://[::1]",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: long ::1",
+      "url": "https://[0:0:0:0:0:0:0:1]",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: mapped loopback",
+      "url": "https://[::ffff:127.0.0.1]",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: mapped private",
+      "url": "https://[::ffff:10.0.0.1]",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: link-local v4",
+      "url": "https://169.254.1.1",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: link-local v6",
+      "url": "https://[fe80::1]",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: CGNAT",
+      "url": "https://100.100.1.1",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: private v4",
+      "url": "https://10.0.0.1",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: unique-local v6",
+      "url": "https://[fd00::1]",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: multicast",
+      "url": "https://224.0.0.1",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: .local",
+      "url": "https://studio-mac.local",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: malformed .local underscore",
+      "url": "https://a_b.local",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: malformed .local dash",
+      "url": "https://-x.local",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: malformed .local double dot",
+      "url": "https://x.local..",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: upper-case .local dot",
+      "url": "https://studio.LOCAL.",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: punycode .local",
+      "url": "https://xn--stdio-kva.local",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: IDN .local",
+      "url": "https://stüdio.local",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: .localhost",
+      "url": "https://a.localhost",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: localhost.localdomain",
+      "url": "https://localhost.localdomain",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: hex IPv4",
+      "url": "https://0xa.0.0.1",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: short IPv4",
+      "url": "https://10.1",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: decimal IPv4",
+      "url": "https://167772161",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: zero-padded IPv4",
+      "url": "https://127.000.000.001",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: trailing dot",
+      "url": "https://a.ts.net./",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: port 0",
+      "url": "https://a.ts.net:0",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: default port written",
+      "url": "https://a.ts.net:443",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: upper-case host",
+      "url": "https://A.TS.NET",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: upper-case scheme",
+      "url": "HTTPS://a.ts.net",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: one slash",
+      "url": "https:/a.ts.net",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: no slashes",
+      "url": "https:a.ts.net",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: backslash",
+      "url": "https://a.ts.net\\",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: percent",
+      "url": "https://a.ts.net%2F",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: dot-dot path",
+      "url": "https://a.ts.net/..",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: path",
+      "url": "https://a.ts.net/x",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: query",
+      "url": "https://a.ts.net/?x=1",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: credentials",
+      "url": "https://u:p@a.ts.net",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: http",
+      "url": "http://a.ts.net",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: wss",
+      "url": "wss://a.ts.net",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "pin: private v4",
+      "url": "https://10.0.0.1",
+      "pin": true,
+      "expect": "accept",
+      "gatewayUrl": "https://10.0.0.1"
+    },
+    {
+      "label": "pin: private v4 trailing slash",
+      "url": "https://10.0.0.1/",
+      "pin": true,
+      "expect": "accept",
+      "gatewayUrl": "https://10.0.0.1"
+    },
+    {
+      "label": "pin: mdns with port",
+      "url": "https://studio.local:7979",
+      "pin": true,
+      "expect": "accept",
+      "gatewayUrl": "https://studio.local:7979"
+    },
+    {
+      "label": "pin: unique-local v6",
+      "url": "https://[fd00::1]",
+      "pin": true,
+      "expect": "accept",
+      "gatewayUrl": "https://[fd00::1]"
+    },
+    {
+      "label": "pin: max port",
+      "url": "https://192.168.1.1:65535",
+      "pin": true,
+      "expect": "accept",
+      "gatewayUrl": "https://192.168.1.1:65535"
+    },
+    {
+      "label": "pin: public name",
+      "url": "https://a.ts.net",
+      "pin": true,
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "pin: public IPv4",
+      "url": "https://8.8.8.8",
+      "pin": true,
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "pin: loopback",
+      "url": "https://127.0.0.1",
+      "pin": true,
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "pin: link-local v6",
+      "url": "https://[fe80::1]",
+      "pin": true,
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "pin: 172.32",
+      "url": "https://172.32.0.1",
+      "pin": true,
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "pin: hex IPv4",
+      "url": "https://0xa.0.0.1",
+      "pin": true,
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "pin: upper-case .local",
+      "url": "https://STUDIO.local",
+      "pin": true,
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "pin: default port written",
+      "url": "https://studio.local:443",
+      "pin": true,
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "pin: zone id",
+      "url": "https://[fd00::1%25en0]",
+      "pin": true,
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "pin: malformed .local underscore",
+      "url": "https://a_b.local",
+      "pin": true,
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "pin: malformed .local dash",
+      "url": "https://-x.local",
+      "pin": true,
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "pin: malformed .local double dot",
+      "url": "https://x.local..",
+      "pin": true,
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "duplicate gatewayUrl (last wins in JSON.parse, serde fails)",
+      "body": "{\"gatewayUrl\":\"https://evil.example\",\"gatewayUrl\":\"https://a.ts.net\",\"gatewayKey\":\"$KEY\",\"setupToken\":\"$TOKEN\",\"hostName\":\"H\"}",
+      "expect": "refuse",
+      "problem": "malformed"
+    },
+    {
+      "label": "duplicate certPin",
+      "body": "{\"gatewayUrl\":\"https://a.ts.net\",\"certPin\":\"$PIN\",\"certPin\":null,\"gatewayKey\":\"$KEY\",\"setupToken\":\"$TOKEN\",\"hostName\":\"H\"}",
+      "expect": "refuse",
+      "problem": "malformed"
+    },
+    {
+      "label": "__proto__ key",
+      "body": "{\"__proto__\":{\"certPin\":\"x\"},\"gatewayUrl\":\"https://a.ts.net\",\"gatewayKey\":\"$KEY\",\"setupToken\":\"$TOKEN\",\"hostName\":\"H\"}",
+      "expect": "refuse",
+      "problem": "extra_fields"
+    },
+    {
+      "label": "extra field",
+      "body": "{\"gatewayUrl\":\"https://a.ts.net\",\"gatewayKey\":\"$KEY\",\"setupToken\":\"$TOKEN\",\"hostName\":\"H\",\"scopes\":[\"operator.admin\"]}",
+      "expect": "refuse",
+      "problem": "extra_fields"
+    },
+    {
+      "label": "null certPin",
+      "body": "{\"gatewayUrl\":\"https://a.ts.net\",\"certPin\":null,\"gatewayKey\":\"$KEY\",\"setupToken\":\"$TOKEN\",\"hostName\":\"H\"}",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "numeric token",
+      "body": "{\"gatewayUrl\":\"https://a.ts.net\",\"gatewayKey\":\"$KEY\",\"setupToken\":5,\"hostName\":\"H\"}",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "bidi override in hostName",
+      "body": "{\"gatewayUrl\":\"https://a.ts.net\",\"gatewayKey\":\"$KEY\",\"setupToken\":\"$TOKEN\",\"hostName\":\"Studio\\u202eMac\"}",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "blank hostName",
+      "body": "{\"gatewayUrl\":\"https://a.ts.net\",\"gatewayKey\":\"$KEY\",\"setupToken\":\"$TOKEN\",\"hostName\":\"   \"}",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "short key",
+      "body": "{\"gatewayUrl\":\"https://a.ts.net\",\"gatewayKey\":\"abc\",\"setupToken\":\"$TOKEN\",\"hostName\":\"H\"}",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "not an object",
+      "body": "[1]",
+      "expect": "refuse",
+      "problem": "malformed"
+    },
+    {
+      "label": "nopin: NAT64 loopback",
+      "url": "https://[64:ff9b::7f00:1]",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: IPv4-translated loopback",
+      "url": "https://[::ffff:0:7f00:1]",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: 6to4 with embedded loopback",
+      "url": "https://[2002:7f00:1::1]",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: site-local v6",
+      "url": "https://[fec0::1]",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: documentation v6",
+      "url": "https://[2001:db8::1]",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: single-label host",
+      "url": "https://gateway",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: single-label host: local",
+      "url": "https://local",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: .internal name",
+      "url": "https://gw.internal",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: TEST-NET-1",
+      "url": "https://192.0.2.1",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: TEST-NET-2",
+      "url": "https://198.51.100.1",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: TEST-NET-3",
+      "url": "https://203.0.113.1",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: benchmark range",
+      "url": "https://198.18.0.1",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "pin: trailing dot",
+      "url": "https://studio.local.",
+      "pin": true,
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "pin: trailing dot with slash",
+      "url": "https://studio.local./",
+      "pin": true,
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "duplicate: escaped duplicate gatewayUrl, plain first",
+      "body": "{\"gatewayUrl\":\"https://evil.example\",\"\\u0067atewayUrl\":\"https://a.ts.net\",\"gatewayKey\":\"$KEY\",\"setupToken\":\"$TOKEN\",\"hostName\":\"H\"}",
+      "expect": "refuse",
+      "problem": "malformed"
+    },
+    {
+      "label": "duplicate: escaped duplicate gatewayUrl, escaped first",
+      "body": "{\"\\u0067atewayUrl\":\"https://evil.example\",\"gatewayUrl\":\"https://a.ts.net\",\"gatewayKey\":\"$KEY\",\"setupToken\":\"$TOKEN\",\"hostName\":\"H\"}",
+      "expect": "refuse",
+      "problem": "malformed"
+    },
+    {
+      "label": "duplicate: both escaped duplicate gatewayUrl",
+      "body": "{\"\\u0067atewayUrl\":\"https://evil.example\",\"\\u0067atewayUrl\":\"https://a.ts.net\",\"gatewayKey\":\"$KEY\",\"setupToken\":\"$TOKEN\",\"hostName\":\"H\"}",
+      "expect": "refuse",
+      "problem": "malformed"
+    },
+    {
+      "label": "nopin: discard prefix v6",
+      "url": "https://[100::1]",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: home.arpa",
+      "url": "https://printer.home.arpa",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: bare home.arpa",
+      "url": "https://home.arpa",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: .lan name",
+      "url": "https://nas.lan",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: .corp name",
+      "url": "https://gw.corp",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: .home name",
+      "url": "https://gw.home",
+      "expect": "refuse",
+      "problem": "bad_field"
+    }
+  ]
+}
