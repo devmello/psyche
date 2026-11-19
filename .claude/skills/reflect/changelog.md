@@ -2,6 +2,14 @@
 
 Newest first. The `reflect` skill reads the top entry to know where the last pass stopped.
 
+## 2026-11-19: reflect pass over #1366, #1368–#1374 (wave 4)
+Merged: #1366, #1368, #1369, #1370, #1371, #1372, #1373, #1374 (last pass: #1367). Evidence: `review-1366` r1–r3, `-1368` r1–r2, `-1372` r1, `-1373` r1, and the PR Learnings of #1366, #1368, #1369, #1371, #1372, #1373. #1366 took 3 rounds, #1368 2 (r1 HIGH), #1372 and #1373 had one non-blocking round.
+- **`psyche-permissions`:** §3d now holds the exec/argv/path rules (moved from `psyche-builder`) plus argv classifier rules: `--` as an option value, per-tool attached-value letters, long-option abbreviations, probing real binaries, relaxations need review (#1368 r1, #1372 r1). New §3e: grants with identity, expiry in every accessor, real handlers for `endSession`, a record never grants, fenced third-party text in prompts, vault slug ownership, device audit actors (#1366, #1373, #1374).
+- **`psyche-builder`:** fresh-worktree install (`--ignore-scripts`, `pnpm_config_verify_deps_before_run=false`, `PNPM_CONFIG_IGNORE_SCRIPTS`) (#1369, #1371, #1372, #1373); fire-and-forget `.catch` (#1366). Pruned: the name-list, path-confinement and exec bullets (now one pointer to permissions §3d), the two overlapping merge-main bullets, the sibling-tests paragraph and the fixtures bullet (shortened).
+- **`learnings.md`:** bash 3.2 and `sed -i ''`, `rg` is a function, heredoc and Write quirks, prop-rename and `describeCall` notes. The zsh word-split entry now also covers probe loops (#1371, #1369, #1372, #1366, #1368).
+- **`orchestrate`:** orchestrator-fix example refs; "fit to merge" with contradicting medium findings goes back to the builder (#1366 r1); conflict-in-shared-file recipe; install flags in the verify worktree; the two brief-wording bullets merged into one list with the new areas.
+- **Not changed:** #1370 and #1374 gave no new pattern beyond the record/grant rule.
+
 ## 2026-11-18 (d): reflect pass over #1360–#1365 (wave 3)
 Merged: #1360, #1361, #1362, #1363, #1364, #1365 (last pass: #1359). Evidence: `review-1361-r2`, `review-1364-r1` and the wave-3 notes in `followup-1323.md`. Only #1361 had blockers (B1–B4, r2 items); #1364 was clean in round 1.
 - **`verify.sh`:** full mode also runs the same-named test of each touched source file (`x.ts` -> `x.test.ts`, beside it or in `test/`). Light: a few files, no import graph. `--related` is unchanged. Evidence: #1361 passed verify with 9 `exec-host.test.ts` failures hidden. Never loses a check.

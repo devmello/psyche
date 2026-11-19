@@ -5,7 +5,7 @@ description: Changing Psyche's permissions, approvals and trust code. Covers the
 
 # Permissions, approvals and classifiers
 
-Every PR here gets an independent security review. #1299, #1300, #1301 and #1354 needed 2 to 5 fix rounds each. The traps below caused most of those rounds. Read them before the first edit.
+Every PR here gets an independent security review. #1299, #1300, #1301, #1354 and #1368 needed 2 to 5 fix rounds each. The traps below caused most of those rounds. Read them before the first edit.
 
 ## Where things live
 
@@ -75,9 +75,27 @@ This covers any rule that sorts inputs into "asks" and "doesn't ask": money-inte
   When in doubt, show the card.
 - **Match receipts to approvals by grant or approval id, never by kind and task.** Connector receipts carry `tool.action` kinds (`gmail.send`) and no `taskId`, so a kind+task match reports a successful action as failed (#1358 B1).
 
-## 3d. Exec and path confinement (#1361, #1364)
+## 3d. Exec, argv and path confinement (#1361, #1364, #1368, #1372)
 
-Rules live in `psyche-builder` §2: fold names (NFKC + case, `realpathSync.native`), cover symlink flags and path-valued options, `denyRead` the shared temp roots, fail closed on a missing lookup, and map every subscriber before moving an emit. Keep each probe as a table row.
+- **Name lists** (programs, files, keys) fold before matching: NFKC, then lower-case (`ſh`, `GIT`; APFS is case-insensitive), and resolve paths with `realpathSync.native`. Tests include those spellings.
+- **Path confinement covers every way a tool reads a path:** symlink-following flags (`-L`, `--follow`, `-R`, `-S`, `-follow`, `-H`) and path-valued options (`--file=`, `--ignore-file=`, `-f`, `--files0-from=`, `jq -L<dir>`), not just operands. Back it with an srt `denyRead` on the shared temp roots (`/private/tmp`, `/private/var/folders`, `/Users/Shared`), not only home.
+- **Argv classifiers (which arguments are option values):**
+  - `--` can itself be an option's value, so dash-led arguments after it are not trusted to be operands (#1368 r1, HIGH).
+  - Value letters with an attached value differ per tool: `tree -L2` takes nothing from the next argument, while `tree -L 2` does (#1372 r1). Never assume getopt.
+  - macOS tools accept GNU-style long-option abbreviations (`file --f=` is `--files-from`); prefixes of 3 or more characters count. With exact names only in a table, the abbreviation's value is path-checked as an operand, which fails closed. Keep it that way.
+  - Probe every value letter against the real binary on this Mac by passing an outside path as the "value", and record in the PR which table rows came from man pages only (#1372 r1 did this for rg 14, BSD grep, du, head, tail, jq, tree).
+  - Skipping a value (treating it as a plain slot) is a relaxation and needs its own security review. Unlisted options fail closed: the value counts as an operand and is path-checked.
+- **Lookups fail closed**, and map every subscriber before moving an emit (`psyche-builder` §2).
+- Keep each probe as a table row.
+
+## 3e. Grants with identity, attachments, vault slugs (#1366, #1373)
+
+- **A single-file grant matches by equality**, never as a path prefix: a prefix grant becomes a folder grant when the file is replaced by a directory (#1366 r1). At read time re-check it is a regular file with `nlink === 1` (hard links), and again at send.
+- **Expiry applies in every accessor** (the engine, the Settings list, the raw map), not one getter (#1366 r1).
+- **Clear chat and delete call `endSession` through the real handlers**, and tests go through those handlers, not the broker directly (#1366 r1). Catch and log failures (`thread-end.ts`).
+- **A "record" separate from a grant never grants a read.** Filter it by a live grant (a file entry or a covering folder) before promising a read, and a re-attach refreshes both expiries (#1366 r3, #1374).
+- **Third-party text into prompts:** filenames, paths and the like go in a fenced block with JSON-quoted values, tainted, never bare text framed as the owner's words (#1366 r1).
+- **Writing a vault item by slug:** first check the existing item is ours (kind, `ownerConnectorId`, exact bindings), as `mcp-manage.ts` does, otherwise use a fresh slug (#1373 r1). Changing a client must not silently reuse the old secret. Audit actors for admin calls are `{type: "device", deviceId}`, with no `name`.
 
 ## 4. Trust that moves to a new path or file
 
