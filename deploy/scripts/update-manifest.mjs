@@ -25,7 +25,7 @@ import {
   verify,
 } from "node:crypto";
 import { readFileSync, statSync, writeFileSync } from "node:fs";
-import { basename } from "node:path";
+import { basename, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const FORMAT = "psyche-update-manifest";
@@ -140,76 +140,28 @@ export function signManifest(bytes, privatePem) {
   })}\n`;
 }
 
-/** Source with comments removed, keeping string and template contents intact. */
-function stripComments(src) {
-  let out = "";
-  let i = 0;
-  let quote = null;
-  while (i < src.length) {
-    const c = src[i];
-    if (quote) {
-      out += c;
-      if (c === "\\") {
-        out += src[i + 1] ?? "";
-        i += 2;
-        continue;
-      }
-      if (c === quote) quote = null;
-      i++;
-    } else if (c === '"' || c === "'" || c === "`") {
-      quote = c;
-      out += c;
-      i++;
-    } else if (c === "/" && src[i + 1] === "/") {
-      while (i < src.length && src[i] !== "\n") i++;
-    } else if (c === "/" && src[i + 1] === "*") {
-      const close = src.indexOf("*/", i + 2);
-      i = close === -1 ? src.length : close + 2;
-    } else {
-      out += c;
-      i++;
-    }
-  }
-  return out;
-}
-
-const KEY_ENTRY =
-  /^\s*\{\s*keyId:\s*"([0-9a-f]{16})"\s*,\s*publicKey:\s*"([A-Za-z0-9+/]{43}=)"\s*,?\s*\}\s*,?/;
-
 /**
- * The {keyId, publicKey} pairs of `TRUSTED_RELEASE_KEYS` in apps/desktop/src/main/release-keys.ts.
- * Only that array literal counts, and it must be a plain list of such objects: a key left in a
- * comment, in another const (a revoked list), behind a condition or a filter, or in a template is
- * never trusted, and an array of any other shape throws instead of guessing. Only public keys live
- * there; nothing secret is read or printed.
+ * The keys the app trusts: `TRUSTED_RELEASE_KEYS` as the app itself evaluates it, by importing
+ * release-keys.ts (Node strips its types). Parsing the source could disagree with what the app
+ * runs (a key in a comment, a second list, a filter); importing cannot. Every entry must be a plain
+ * { keyId, publicKey } whose keyId matches its key, or this throws. Only public keys live there.
  */
-export function trustedKeysFromSource(tsSource) {
-  const code = stripComments(tsSource);
-  const decl = /\bTRUSTED_RELEASE_KEYS\b[^=]*=\s*\[/.exec(code);
-  if (!decl) {
-    if (/\bTRUSTED_RELEASE_KEYS\b/.test(code)) {
-      throw new Error(
-        "release-keys.ts: TRUSTED_RELEASE_KEYS must be a plain list of { keyId, publicKey } objects",
-      );
-    }
-    return [];
-  }
-  let body = code.slice(decl.index + decl[0].length);
-  const close = body.indexOf("]");
-  if (close === -1) throw new Error("release-keys.ts: TRUSTED_RELEASE_KEYS is not closed");
-  body = body.slice(0, close);
-  const keys = [];
-  while (body.trim() !== "") {
-    const m = KEY_ENTRY.exec(body);
-    if (!m) {
-      throw new Error(
-        "release-keys.ts: TRUSTED_RELEASE_KEYS must be a plain list of { keyId, publicKey } objects",
-      );
-    }
-    keys.push({ keyId: m[1], publicKey: m[2] });
-    body = body.slice(m[0].length);
-  }
-  return keys;
+export async function loadTrustedKeys(keysFile) {
+  const mod = await import(`${pathToFileURL(resolve(keysFile)).href}?t=${Date.now()}`);
+  const list = mod.TRUSTED_RELEASE_KEYS;
+  if (!Array.isArray(list))
+    throw new Error("release-keys.ts: TRUSTED_RELEASE_KEYS is not an array");
+  return list.map((k, i) => {
+    const ok =
+      k !== null &&
+      typeof k === "object" &&
+      Object.keys(k).sort().join(",") === "keyId,publicKey" &&
+      /^[0-9a-f]{16}$/.test(k.keyId) &&
+      /^[A-Za-z0-9+/]{43}=$/.test(k.publicKey) &&
+      keyIdOf(Buffer.from(k.publicKey, "base64")) === k.keyId;
+    if (!ok) throw new Error(`release-keys.ts: entry ${i} is not a valid { keyId, publicKey }`);
+    return { keyId: k.keyId, publicKey: k.publicKey };
+  });
 }
 
 /**
@@ -217,14 +169,13 @@ export function trustedKeysFromSource(tsSource) {
  * release-keys.ts). A secret that is a different key than the one shipped in the app still
  * self-verifies, and every client would then refuse the release.
  */
-export function verifyTrusted(bytes, sigText, tsSource) {
+export function verifyTrusted(bytes, sigText, trusted) {
   let env;
   try {
     env = JSON.parse(sigText);
   } catch {
     return { ok: false, why: "the signature file is not JSON" };
   }
-  const trusted = trustedKeysFromSource(tsSource);
   if (trusted.length === 0) return { ok: false, why: "release-keys.ts holds no trusted key" };
   const key = trusted.find((k) => k.keyId === env.keyId);
   if (!key)
@@ -248,7 +199,7 @@ export function verifyManifest(bytes, sigText, publicKeyB64) {
   return verify(null, bytes, key, Buffer.from(env.signature, "base64"));
 }
 
-function main(argv) {
+async function main(argv) {
   const [cmd, ...rest] = argv;
   if (cmd === "keygen") {
     const out = rest[0];
@@ -302,7 +253,7 @@ function main(argv) {
     const r = verifyTrusted(
       readFileSync(file),
       readFileSync(`${file}.sig`, "utf8"),
-      readFileSync(keysFile, "utf8"),
+      await loadTrustedKeys(keysFile),
     );
     process.stdout.write(r.ok ? `ok (trusted key ${r.keyId})\n` : `UNTRUSTED: ${r.why}\n`);
     process.exit(r.ok ? 0 : 1);
@@ -311,10 +262,8 @@ function main(argv) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try {
-    main(process.argv.slice(2));
-  } catch (err) {
+  main(process.argv.slice(2)).catch((err) => {
     process.stderr.write(`update-manifest: ${err.message}\n`);
     process.exit(2);
-  }
+  });
 }

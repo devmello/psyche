@@ -13,15 +13,16 @@ import { keyIdOf } from "../../src/main/update-manifest.ts";
 const SCRIPT = resolve(import.meta.dirname, "../../../../deploy/scripts/update-manifest.mjs");
 const KEYS_TS = resolve(import.meta.dirname, "../../src/main/release-keys.ts");
 const dirs: string[] = [];
-const { signManifest, trustedKeysFromSource, verifyTrusted } = (await import(
+type Key = { keyId: string; publicKey: string };
+const { signManifest, loadTrustedKeys, verifyTrusted } = (await import(
   pathToFileURL(SCRIPT).href
 )) as {
   signManifest: (bytes: Buffer, pem: string) => string;
-  trustedKeysFromSource: (ts: string) => { keyId: string; publicKey: string }[];
+  loadTrustedKeys: (file: string) => Promise<Key[]>;
   verifyTrusted: (
     bytes: Buffer,
     sig: string,
-    ts: string,
+    trusted: Key[],
   ) => { ok: boolean; keyId?: string; why?: string };
 };
 afterEach(() => {
@@ -36,46 +37,50 @@ function fresh() {
     entry: { keyId: keyIdOf(raw), publicKey: raw.toString("base64") },
   };
 }
-const source = (...e: { keyId: string; publicKey: string }[]) =>
-  `export const TRUSTED_RELEASE_KEYS = [\n${e
-    .map((k) => `  { keyId: "${k.keyId}", publicKey: "${k.publicKey}" },`)
-    .join("\n")}\n];\n`;
+const source = (...e: Key[]): Key[] => e;
 const bytes = Buffer.from('{"release":"1.2.3"}\n');
 
-describe("trustedKeysFromSource", () => {
-  it("reads exactly the keys the app ships", () => {
-    expect(trustedKeysFromSource(readFileSync(KEYS_TS, "utf8"))).toEqual(
+function keysFile(ts: string): string {
+  const dir = mkdtempSync(join(tmpdir(), "psyche-keys-"));
+  dirs.push(dir);
+  const file = join(dir, "release-keys.ts");
+  writeFileSync(file, ts);
+  return file;
+}
+
+describe("loadTrustedKeys reads what the app evaluates (reviews of #1400 and #1412)", () => {
+  it("reads exactly the keys the app ships", async () => {
+    expect(await loadTrustedKeys(KEYS_TS)).toEqual(
       TRUSTED_RELEASE_KEYS.map((k) => ({ keyId: k.keyId, publicKey: k.publicKey })),
     );
   });
-  it("ignores keys in comments", () => {
-    const k = fresh().entry;
-    const ts = `// { keyId: "${k.keyId}", publicKey: "${k.publicKey}" },\n/* { keyId: "${k.keyId}", publicKey: "${k.publicKey}" } */\n`;
-    expect(trustedKeysFromSource(ts)).toEqual([]);
-  });
-});
-
-describe("trustedKeysFromSource refuses keys outside the trusted array (review of #1400)", () => {
-  it("ignores a key in a trailing comment on a trusted line", () => {
+  it("never counts a key in a comment, a string, a second const, a filter or a slice", async () => {
     const a = fresh().entry;
     const b = fresh().entry;
-    const ts = `export const TRUSTED_RELEASE_KEYS = [\n  { keyId: "${a.keyId}", publicKey: "${a.publicKey}" }, // retired: { keyId: "${b.keyId}", publicKey: "${b.publicKey}" }\n];\n`;
-    expect(trustedKeysFromSource(ts).map((k) => k.keyId)).toEqual([a.keyId]);
+    const lit = (k: Key) => `{ keyId: "${k.keyId}", publicKey: "${k.publicKey}" }`;
+    for (const ts of [
+      `export const TRUSTED_RELEASE_KEYS = [\n  ${lit(a)}, // retired: ${lit(b)}\n];\n`,
+      `export const TRUSTED_RELEASE_KEYS = [${lit(a)}];\nexport const REVOKED_RELEASE_KEYS = [${lit(b)}];\n`,
+      `const note = "see TRUSTED_RELEASE_KEYS";\nexport const REVOKED = [${lit(b)}];\nexport const TRUSTED_RELEASE_KEYS = [${lit(a)}];\n`,
+      `const q = /'/;\n// export const TRUSTED_RELEASE_KEYS = [${lit(b)}];\nexport const TRUSTED_RELEASE_KEYS = [${lit(a)}];\n`,
+      `export const TRUSTED_RELEASE_KEYS = [${lit(a)}, ${lit(b)}].filter((k) => k.keyId !== "${b.keyId}");\n`,
+      `export const TRUSTED_RELEASE_KEYS = [${lit(a)}, ${lit(b)}].slice(0, 1);\n`,
+      `const LIST = [${lit(a)}];\nexport { LIST as TRUSTED_RELEASE_KEYS };\n`,
+    ]) {
+      expect((await loadTrustedKeys(keysFile(ts))).map((k) => k.keyId)).toEqual([a.keyId]);
+    }
   });
-  it("ignores keys in a second const such as a revoked list", () => {
+  it("throws on anything that is not a list of valid keys", async () => {
     const a = fresh().entry;
-    const b = fresh().entry;
-    const ts = `export const TRUSTED_RELEASE_KEYS = [\n  { keyId: "${a.keyId}", publicKey: "${a.publicKey}" },\n];\nexport const REVOKED_RELEASE_KEYS = [\n  { keyId: "${b.keyId}", publicKey: "${b.publicKey}" },\n];\n`;
-    expect(trustedKeysFromSource(ts).map((k) => k.keyId)).toEqual([a.keyId]);
-  });
-  it("throws on an array that is not a plain list (a condition, a filter, a template)", () => {
     const b = fresh().entry;
     for (const ts of [
-      `export const TRUSTED_RELEASE_KEYS = env ? [{ keyId: "${b.keyId}", publicKey: "${b.publicKey}" }] : [];`,
-      `export const TRUSTED_RELEASE_KEYS = [...ALL.filter(Boolean), { keyId: "${b.keyId}", publicKey: "${b.publicKey}" }];`,
-      `export const TRUSTED_RELEASE_KEYS = [\`{ keyId: "${b.keyId}", publicKey: "${b.publicKey}" }\`];`,
+      "export const OTHER = [];\n",
+      `export const TRUSTED_RELEASE_KEYS = { ...${JSON.stringify(a)} };\n`,
+      `export const TRUSTED_RELEASE_KEYS = [{ keyId: "${b.keyId}", publicKey: "${a.publicKey}" }];\n`,
+      `export const TRUSTED_RELEASE_KEYS = [{ ...${JSON.stringify(a)}, extra: 1 }];\n`,
+      `export const TRUSTED_RELEASE_KEYS = ["${a.publicKey}"];\n`,
     ]) {
-      expect(() => trustedKeysFromSource(ts)).toThrow(/plain list|not closed/);
+      await expect(loadTrustedKeys(keysFile(ts))).rejects.toThrow(/release-keys\.ts/);
     }
   });
 });
