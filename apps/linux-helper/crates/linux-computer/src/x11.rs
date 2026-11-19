@@ -339,6 +339,36 @@ impl X11 {
         None
     }
 
+    /// Whether no other client holds an active keyboard grab. A launcher (dmenu, rofi, a WM's
+    /// run prompt) grabs the keyboard without moving the input focus, so [`Self::focus_pid`]
+    /// still names the app while every key goes to the launcher. Probes by grabbing the keyboard
+    /// on the root (owner_events false, async, CurrentTime) and releasing it at once:
+    /// `AlreadyGrabbed` or `Frozen` (or any other non-success) means someone else holds it.
+    /// Our own passive Escape grab does not count: a client's own grabs never conflict with it.
+    pub fn keyboard_free(&self) -> CapResult<bool> {
+        let reply = self
+            .conn
+            .grab_keyboard(
+                false,
+                self.root,
+                x11rb::CURRENT_TIME,
+                GrabMode::ASYNC,
+                GrabMode::ASYNC,
+            )
+            .map_err(xerr)?
+            .reply()
+            .map_err(xerr)?;
+        if reply.status != xproto::GrabStatus::SUCCESS {
+            return Ok(false);
+        }
+        // Release before anything else is sent; `sync` makes sure the server has it.
+        self.conn
+            .ungrab_keyboard(x11rb::CURRENT_TIME)
+            .map_err(xerr)?;
+        self.conn.sync().map_err(xerr)?;
+        Ok(true)
+    }
+
     /// Raises and focuses a window of `pid` (EWMH `_NET_ACTIVE_WINDOW`). `Ok(true)` when it
     /// became the active window.
     pub fn activate(&self, pid: u32, index: Option<usize>) -> CapResult<bool> {

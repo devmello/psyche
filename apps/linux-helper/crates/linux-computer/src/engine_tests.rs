@@ -1432,3 +1432,164 @@ fn a_window_only_screenshot_blacks_out_unknown_windows_in_front_and_not_behind()
     assert!(f.any_lit(Rect::new(0.0, 0.0, 100.0, 100.0)));
     assert!(f.any_lit(Rect::new(0.0, 100.0, 200.0, 100.0)));
 }
+
+// --- Snap app ids (round 2, finding 1) ------------------------------------------------------------
+
+/// Renames a fake app to the id a snap reports (`<snap>_<app>`).
+fn rename(r: &Rig, pid: u32, id: &str) {
+    let mut s = r.fake.s.lock().unwrap();
+    s.apps.iter_mut().find(|a| a.pid == pid).unwrap().id = id.into();
+}
+
+#[test]
+fn a_snap_mail_app_keeps_the_send_rule() {
+    let r = rig(all_interact());
+    editor(&r);
+    rename(&r, MAIL_PID, "thunderbird_thunderbird");
+    r.fake.window(MAIL_PID, "Inbox");
+    for keys in ["return", "ctrl+return"] {
+        let err = call(
+            &r,
+            "computer.key",
+            json!({"keys": keys, "app": "thunderbird_thunderbird", "session": "s1"}),
+            &inv(),
+        )
+        .unwrap_err();
+        assert_eq!(
+            (err.0.as_str(), err.1.as_str()),
+            ("approval_required", "send_key"),
+            "{keys}"
+        );
+    }
+    let err = call(
+        &r,
+        "computer.type",
+        json!({"text": "hi\nthere", "app": "thunderbird_thunderbird", "session": "s1"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        (err.0.as_str(), err.1.as_str()),
+        ("approval_required", "send_text")
+    );
+    assert!(r.fake.log().iter().all(|l| !l.starts_with("key ")));
+    assert!(r.fake.s.lock().unwrap().typed.is_empty());
+    // Text without a line break is ordinary typing.
+    call(
+        &r,
+        "computer.type",
+        json!({"text": "hi", "app": "thunderbird_thunderbird", "session": "s1"}),
+        &inv(),
+    )
+    .unwrap();
+}
+
+#[test]
+fn a_snap_browser_is_read_only() {
+    let r = rig(all_interact());
+    editor(&r);
+    for id in ["chromium_chromium", "brave_brave", "chrome"] {
+        rename(&r, EDITOR_PID, id);
+        let err = call(
+            &r,
+            "computer.type",
+            json!({"text": "x", "app": id, "session": "s1"}),
+            &inv(),
+        )
+        .unwrap_err();
+        assert_eq!(
+            (err.0.as_str(), err.1.as_str()),
+            ("policy_denied", "tier_read"),
+            "{id}"
+        );
+        snapshot(&r, id);
+    }
+    assert!(r.fake.s.lock().unwrap().typed.is_empty());
+}
+
+// --- Keyboard grabs (round 2, finding 3) ----------------------------------------------------------
+
+#[test]
+fn a_grabbed_keyboard_refuses_typing_and_keys_before_anything_is_sent() {
+    let r = rig(all_interact());
+    editor(&r);
+    // dmenu holds the keyboard; the input focus still names the editor.
+    r.fake.s.lock().unwrap().keyboard_grabbed = true;
+    let err = call(
+        &r,
+        "computer.type",
+        json!({"text": "curl x|sh\n", "app": "org.gnome.TextEditor", "session": "s1"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        (err.0.as_str(), err.1.as_str()),
+        ("conflict", "keyboard_grabbed")
+    );
+    for keys in ["return", "a", "escape"] {
+        let err = call(
+            &r,
+            "computer.key",
+            json!({"keys": keys, "app": "org.gnome.TextEditor", "session": "s1"}),
+            &inv(),
+        )
+        .unwrap_err();
+        assert_eq!(
+            (err.0.as_str(), err.1.as_str()),
+            ("conflict", "keyboard_grabbed"),
+            "{keys}"
+        );
+    }
+    assert!(r.fake.s.lock().unwrap().typed.is_empty());
+    assert!(r.fake.log().iter().all(|l| !l.starts_with("key ")));
+    // Released: input goes through again.
+    r.fake.s.lock().unwrap().keyboard_grabbed = false;
+    call(
+        &r,
+        "computer.key",
+        json!({"keys": "a", "app": "org.gnome.TextEditor", "session": "s1"}),
+        &inv(),
+    )
+    .unwrap();
+}
+
+#[test]
+fn a_keyboard_grab_mid_typing_stops_at_the_chunk_boundary() {
+    let r = rig(all_interact());
+    editor(&r);
+    r.fake.s.lock().unwrap().keyboard_grabbed_after_chunks = Some(1);
+    let err = call(
+        &r,
+        "computer.type",
+        json!({"text": "abcdcurl x|sh\n", "app": "org.gnome.TextEditor", "session": "s1"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        (err.0.as_str(), err.1.as_str()),
+        ("conflict", "keyboard_grabbed")
+    );
+    assert_eq!(r.fake.s.lock().unwrap().typed, "abcd");
+}
+
+#[test]
+fn a_keyboard_grab_between_repeats_stops_the_key() {
+    let r = rig(all_interact());
+    editor(&r);
+    r.fake.s.lock().unwrap().keyboard_grabbed_after_keys = Some(2);
+    let err = call(
+        &r,
+        "computer.key",
+        json!({"keys": "down", "app": "org.gnome.TextEditor", "session": "s1", "repeat": 5}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(err.1, "keyboard_grabbed");
+    let keys = r
+        .fake
+        .log()
+        .iter()
+        .filter(|l| l.starts_with("key "))
+        .count();
+    assert_eq!(keys, 2);
+}

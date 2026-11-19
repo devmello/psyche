@@ -106,6 +106,9 @@ pub mod fixed_caps {
         PasswordManager,
         Finance,
         SystemAuthority,
+        /// Runs other programs (Wine, Java, Python, Bottles, Lutris): what it shows is not the
+        /// app the owner named, so it is off.
+        Launcher,
     }
 
     /// Psyche's own UI: the agent must never click its own approval cards or settings.
@@ -184,6 +187,28 @@ pub mod fixed_caps {
         "waterfox",
         "floorp",
         "tor-browser",
+        // Executable names (`/opt/google/chrome/chrome`, the Chromium snap's
+        // `.../chromium-browser/chrome`, `/opt/brave.com/brave/brave`).
+        "chrome",
+        "brave",
+        "brave-browser-stable",
+        "google-chrome-unstable",
+        "microsoft-edge-beta",
+        "microsoft-edge-dev",
+        "torbrowser-launcher",
+        "mullvad-browser",
+        // Snap desktop ids (`<snap>_<app>`; other snaps are matched by their `<app>` and
+        // `<snap>` aliases, see `app_id::aliases`).
+        "chromium_chromium",
+        "brave_brave",
+        "firefox_firefox",
+        // Flatpak ids.
+        "io.github.ungoogled_software.ungoogled_chromium",
+        "org.torproject.torbrowser-launcher",
+        "com.github.micahflee.torbrowser-launcher",
+        "one.ablaze.floorp",
+        "net.waterfox.waterfox",
+        "com.opera.opera",
     ];
 
     pub const TERMINALS_AND_IDES: &[&str] = &[
@@ -233,6 +258,75 @@ pub mod fixed_caps {
         "org.gnome.builder",
         "org.kde.kate",
         "org.kde.kdevelop",
+        // More terminals.
+        "mate-terminal",
+        "io.elementary.terminal",
+        "guake",
+        "tilda",
+        "org.kde.yakuake",
+        "yakuake",
+        "terminology",
+        "sakura",
+        "rxvt-unicode",
+        "rxvt",
+        "urxvt",
+        "urxvtc",
+        "st",
+        "cool-retro-term",
+        "deepin-terminal",
+        "ghostty",
+        "com.mitchellh.ghostty",
+        "com.raggesilver.blackbox",
+        "footclient",
+        "foot-server",
+        // Editors and IDEs that run code or shell commands (F5, `:!`).
+        "vim",
+        "nvim",
+        "neovide",
+        "nvim-qt",
+        "geany",
+        "org.geany.geany",
+        "thonny",
+        "org.thonny.thonny",
+        "spyder",
+        "org.spyder_ide.spyder",
+        "qtcreator",
+        "org.qt-project.qtcreator",
+        "io.qt.qtcreator",
+        "eclipse",
+        "org.eclipse.java",
+        "codeblocks",
+        "org.codeblocks.codeblocks",
+    ];
+
+    /// Programs that run other programs: Wine and its front ends, the Java and Mono runtimes,
+    /// Python and IDLE. Mirrors the Gateway's LAUNCHER_APPS (`@psyche/permissions` apps.ts).
+    pub const LAUNCHERS: &[&str] = &[
+        "wine",
+        "wine64",
+        "wine-*",
+        "org.winehq.*",
+        "winetricks",
+        "com.usebottles.bottles",
+        "bottles",
+        "net.lutris.lutris",
+        "lutris",
+        "playonlinux",
+        "q4wine",
+        "crossover",
+        "java",
+        "java-*",
+        "javaws",
+        "openjdk-*",
+        "icedtea-*",
+        "mono",
+        "mono-*",
+        "python",
+        "python2*",
+        "python3*",
+        "idle",
+        "idle3*",
+        "idle-python3*",
     ];
 
     pub const PASSWORD_MANAGERS: &[&str] = &[
@@ -281,26 +375,33 @@ pub mod fixed_caps {
         })
     }
 
+    /// The category of an app, testing every [`crate::app_id::aliases`] form of its id (a snap's
+    /// `chromium_chromium` is also `chromium`). Categories are tried strictest first, so the
+    /// strictest one any form matches wins. An installed desktop entry with `Terminal=true`
+    /// counts as a terminal.
     pub fn category(app_id: Option<&str>) -> Option<Category> {
-        let id = app_id?.to_lowercase();
-        // `foo.desktop` and `foo` are the same app.
-        let id = id.strip_suffix(".desktop").unwrap_or(&id);
-        if matches(PSYCHE, id) {
+        // `foo.desktop` and `foo` are the same app; ids compare lowercase.
+        let ids = crate::app_id::aliases(app_id?);
+        let any = |list: &[&str]| ids.iter().any(|id| matches(list, id));
+        if any(PSYCHE) {
             return Some(Category::Psyche);
         }
-        if matches(SYSTEM_AUTHORITY, id) {
+        if any(SYSTEM_AUTHORITY) {
             return Some(Category::SystemAuthority);
         }
-        if matches(PASSWORD_MANAGERS, id) {
+        if any(PASSWORD_MANAGERS) {
             return Some(Category::PasswordManager);
         }
-        if matches(FINANCE, id) {
+        if any(FINANCE) {
             return Some(Category::Finance);
         }
-        if matches(BROWSERS, id) {
+        if any(LAUNCHERS) {
+            return Some(Category::Launcher);
+        }
+        if any(BROWSERS) {
             return Some(Category::Browser);
         }
-        if matches(TERMINALS_AND_IDES, id) {
+        if any(TERMINALS_AND_IDES) || ids.iter().any(|id| crate::app_id::runs_in_terminal(id)) {
             return Some(Category::TerminalOrIde);
         }
         None
@@ -313,7 +414,8 @@ pub mod fixed_caps {
                 Category::Psyche
                 | Category::PasswordManager
                 | Category::Finance
-                | Category::SystemAuthority,
+                | Category::SystemAuthority
+                | Category::Launcher,
             ) => Tier::Off,
             Some(Category::Browser) => Tier::Read,
             Some(Category::TerminalOrIde) => Tier::Click,
@@ -412,19 +514,22 @@ impl TierSettings {
         })
     }
 
-    /// Cap from the file's `caps` (exact ids, or `prefix.*`).
+    /// Cap from the file's `caps` (exact ids, or `prefix.*`): the strictest over every
+    /// [`crate::app_id::aliases`] form of the id.
     pub fn file_cap(&self, bundle_id: Option<&str>) -> Tier {
-        let Some(id) = bundle_id.map(str::to_lowercase) else {
+        let Some(id) = bundle_id else {
             return Tier::Interact;
         };
         let mut cap = Tier::Interact;
-        for (pattern, t) in &self.caps {
-            let hit = match pattern.strip_suffix('*') {
-                Some(prefix) => id.starts_with(prefix),
-                None => &id == pattern,
-            };
-            if hit {
-                cap = cap.min(*t);
+        for id in crate::app_id::aliases(id) {
+            for (pattern, t) in &self.caps {
+                let hit = match pattern.strip_suffix('*') {
+                    Some(prefix) => id.starts_with(prefix),
+                    None => &id == pattern,
+                };
+                if hit {
+                    cap = cap.min(*t);
+                }
             }
         }
         cap
@@ -706,6 +811,9 @@ pub fn refusal(
         (Tier::Off, Some(SystemAuthority)) => {
             "Settings, notifications and security prompts are off limits for computer use."
         }
+        (Tier::Off, Some(Launcher)) => {
+            "Wine, Java, Python and other launchers run other programs, so they are off limits for computer use."
+        }
         (Tier::Read, Some(Browser)) => {
             "Browsers are read only; use the agent browser to act on the web."
         }
@@ -955,6 +1063,155 @@ mod tests {
         assert_eq!(fixed_caps::cap(Some("psyche")), Tier::Off);
         assert_eq!(fixed_caps::cap(Some(EDITOR)), Tier::Interact);
         assert_eq!(fixed_caps::cap(None), Tier::Interact);
+    }
+
+    #[test]
+    fn snap_and_flatpak_browsers_are_read_only() {
+        for id in [
+            "chrome",
+            "brave",
+            "chromium_chromium",
+            "brave_brave",
+            "firefox_firefox",
+            "firefox+beta_firefox",
+            "vivaldi_vivaldi-stable",
+            "org.mozilla.firefox",
+            "org.chromium.Chromium",
+            "com.google.Chrome",
+            "com.brave.Browser",
+            "com.microsoft.Edge",
+            "io.github.ungoogled_software.ungoogled_chromium",
+            "org.torproject.torbrowser-launcher",
+            "one.ablaze.floorp",
+            "net.waterfox.waterfox",
+            "io.gitlab.librewolf-community",
+            "com.vivaldi.Vivaldi",
+            "com.opera.Opera",
+        ] {
+            assert_eq!(fixed_caps::cap(Some(id)), Tier::Read, "{id}");
+        }
+        // Near misses keep interact.
+        for id in ["chromex", "org.chromium.chromiumx", "bravex", "x_chromex"] {
+            assert_eq!(fixed_caps::cap(Some(id)), Tier::Interact, "{id}");
+        }
+        // A snap of a terminal or IDE is capped like the deb (`code_code` is VS Code's snap).
+        assert_eq!(fixed_caps::cap(Some("code_code")), Tier::Click);
+        assert_eq!(fixed_caps::cap(Some("keepassxc_keepassxc")), Tier::Off);
+    }
+
+    #[test]
+    fn more_terminals_and_code_running_ides_are_click_only() {
+        for id in [
+            "mate-terminal",
+            "io.elementary.terminal",
+            "guake",
+            "tilda",
+            "org.kde.yakuake",
+            "yakuake",
+            "terminology",
+            "sakura",
+            "rxvt-unicode",
+            "urxvt",
+            "cool-retro-term",
+            "deepin-terminal",
+            "ghostty",
+            "com.mitchellh.ghostty",
+            "com.raggesilver.BlackBox",
+            "footclient",
+            "foot-server",
+            "vim",
+            "nvim",
+            "gvim",
+            "geany",
+            "org.geany.Geany",
+            "thonny",
+            "org.thonny.Thonny",
+            "spyder",
+            "org.spyder_ide.spyder",
+            "org.qt-project.qtcreator",
+            "qtcreator",
+            "eclipse",
+            "codeblocks",
+            "org.codeblocks.codeblocks",
+        ] {
+            assert_eq!(fixed_caps::cap(Some(id)), Tier::Click, "{id}");
+        }
+        for id in ["vimx", "geanyx", "org.gnome.texteditor", "eclipse-foo"] {
+            assert_eq!(fixed_caps::cap(Some(id)), Tier::Interact, "{id}");
+        }
+    }
+
+    #[test]
+    fn launchers_are_off() {
+        for id in [
+            "wine",
+            "wine64",
+            "wine-Programs-Notepad++",
+            "wine-desktop",
+            "org.winehq.Wine",
+            "winetricks",
+            "com.usebottles.bottles",
+            "bottles",
+            "net.lutris.Lutris",
+            "lutris",
+            "playonlinux",
+            "q4wine",
+            "crossover",
+            "java",
+            "java-17-openjdk",
+            "javaws",
+            "openjdk-21-java",
+            "icedtea-netx",
+            "mono",
+            "mono-runtime",
+            "python",
+            "python2.7",
+            "python3",
+            "python3.12",
+            "idle",
+            "idle3",
+            "idle-python3.12",
+        ] {
+            assert_eq!(fixed_caps::cap(Some(id)), Tier::Off, "{id}");
+            assert_eq!(
+                fixed_caps::category(Some(id)),
+                Some(fixed_caps::Category::Launcher),
+                "{id}"
+            );
+        }
+        for id in [
+            "winecellar",
+            "monodevelop",
+            "pythonista",
+            "javafx-scenebuilder",
+            "idlex",
+            "wined",
+        ] {
+            assert_eq!(fixed_caps::cap(Some(id)), Tier::Interact, "{id}");
+        }
+        let e = TierPolicy::new(
+            TierSettings::from_json(&json!({"default": "interact"})),
+            None,
+            None,
+        )
+        .authorize(Intent::Read, Some("wine"), "Wine", None)
+        .unwrap_err();
+        assert_eq!(e.reason, "tier_off");
+        assert!(e.message.contains("launchers"), "{}", e.message);
+    }
+
+    #[test]
+    fn file_caps_also_match_the_snap_aliases() {
+        let s = TierSettings::from_json(&json!({"caps": {"signal-desktop": "read"}}));
+        assert_eq!(
+            s.file_cap(Some("signal-desktop_signal-desktop")),
+            Tier::Read
+        );
+        assert_eq!(
+            cap_for(Some("signal-desktop_signal-desktop"), &s),
+            Tier::Read
+        );
+        assert_eq!(s.file_cap(Some("signal_x")), Tier::Interact);
     }
 
     #[test]

@@ -155,6 +155,20 @@ fn focus_moved(app: &AppInfo) -> CapError {
     .retryable()
 }
 
+/// `conflict/keyboard_grabbed`: another program (a launcher such as dmenu or rofi) holds the
+/// keyboard, so keys would reach it instead of the app the focus check names.
+fn keyboard_grabbed(app: &AppInfo) -> CapError {
+    CapError::new(
+        code::CONFLICT,
+        "keyboard_grabbed",
+        format!(
+            "Another program holds the keyboard (a launcher like dmenu or rofi, or a menu), so input to {} was not sent. Close it and retry.",
+            app.name
+        ),
+    )
+    .detail("app", app.id.as_str())
+}
+
 /// `conflict/focus_unknown`: nothing says which app has keyboard focus (an app that reports no
 /// focus to AT-SPI), so keyboard input is not sent: it could reach a terminal.
 fn focus_unknown(app: &AppInfo) -> CapError {
@@ -743,12 +757,18 @@ impl<B: Backend> Engine<B> {
     /// Keyboard input goes only to `app`'s own focused element.
     /// Unknown focus (an app that reports none to AT-SPI, a stale focus on Wayland) fails closed:
     /// XTest and portal input go wherever the real focus is, a terminal included.
+    /// Another client holding the keyboard (an X11 launcher such as dmenu) also fails closed: the
+    /// focus still names the app, but every key would go to the grabbing client.
     fn ensure_keyboard_target(&self, app: &AppInfo) -> CapResult<()> {
         match self.backend.keyboard_focus_pid() {
-            Some(p) if app.owns(p) => Ok(()),
-            Some(_) => Err(focus_moved(app)),
-            None => Err(focus_unknown(app)),
+            Some(p) if app.owns(p) => {}
+            Some(_) => return Err(focus_moved(app)),
+            None => return Err(focus_unknown(app)),
         }
+        if !self.backend.keyboard_free()? {
+            return Err(keyboard_grabbed(app));
+        }
+        Ok(())
     }
 
     /// Hit-tests a point before synthetic mouse input: it must land in `app` (and, for a ref, on

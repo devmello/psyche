@@ -45,6 +45,12 @@ pub struct State {
     /// After this many typed chunks, keyboard focus goes to an app the desktop cannot name (a
     /// terminal without AT-SPI): the focus pid becomes unknown.
     pub focus_lost_after_chunks: Option<usize>,
+    /// Another client holds the keyboard (an X11 launcher such as dmenu); focus is unchanged.
+    pub keyboard_grabbed: bool,
+    /// After this many typed chunks, another client grabs the keyboard.
+    pub keyboard_grabbed_after_chunks: Option<usize>,
+    /// After this many key presses, another client grabs the keyboard (Alt+P opening dmenu).
+    pub keyboard_grabbed_after_keys: Option<usize>,
 }
 
 pub struct Fake {
@@ -333,6 +339,9 @@ impl Backend for Fake {
     fn keyboard_focus_pid(&self) -> Option<u32> {
         self.s.lock().unwrap().focus_pid
     }
+    fn keyboard_free(&self) -> CapResult<bool> {
+        Ok(!self.s.lock().unwrap().keyboard_grabbed)
+    }
     fn activate(&self, app: &AppInfo, _w: Option<usize>, _stop: &StopSignal) -> CapResult<bool> {
         self.push(format!("activate {}", app.id));
         let mut s = self.s.lock().unwrap();
@@ -486,6 +495,9 @@ impl Backend for Fake {
                 if s.focus_lost_after_chunks == Some(i) {
                     s.focus_pid = None;
                 }
+                if s.keyboard_grabbed_after_chunks == Some(i) {
+                    s.keyboard_grabbed = true;
+                }
             }
             before()?;
             self.s.lock().unwrap().typed.push_str(chunk);
@@ -495,6 +507,11 @@ impl Backend for Fake {
     }
     fn key(&self, chord: &KeyChord, _stop: &StopSignal) -> CapResult<()> {
         self.push(format!("key {}", chord.name));
+        let mut s = self.s.lock().unwrap();
+        let keys = s.log.iter().filter(|l| l.starts_with("key ")).count();
+        if s.keyboard_grabbed_after_keys == Some(keys) {
+            s.keyboard_grabbed = true;
+        }
         Ok(())
     }
     fn scroll(&self, x: f64, y: f64, dx: i32, dy: i32, _stop: &StopSignal) -> CapResult<()> {

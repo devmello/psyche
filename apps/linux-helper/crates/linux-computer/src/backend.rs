@@ -171,6 +171,14 @@ pub trait Backend: TreeSource<Element: Send + 'static> + Send + Sync + 'static {
     fn windows(&self) -> Vec<WinInfo>;
     /// The pid of the process that has keyboard focus, if the desktop says.
     fn keyboard_focus_pid(&self) -> Option<u32>;
+    /// Whether no other client holds the keyboard. On X11 a launcher (dmenu, rofi) takes an
+    /// active keyboard grab without moving the input focus, so the focus check still names the
+    /// app while every key would go to the launcher. `Ok(false)` refuses keyboard input. The
+    /// default is `Ok(true)` for desktops where the compositor routes input and a client cannot
+    /// grab the keyboard (Wayland); the focus checks still apply there.
+    fn keyboard_free(&self) -> CapResult<bool> {
+        Ok(true)
+    }
     /// Brings the app (or one of its windows) forward. `Ok(true)` when focus moved, `Ok(false)`
     /// when it was only requested (GNOME on Wayland), an error for `focus_denied`.
     fn activate(&self, app: &AppInfo, window: Option<usize>, stop: &StopSignal) -> CapResult<bool>;

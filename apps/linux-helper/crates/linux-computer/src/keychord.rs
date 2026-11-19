@@ -292,13 +292,31 @@ pub mod send_keys {
         "hexchat",
         "pidgin",
         "org.gnome.empathy",
+        // Flatpak ids (mirrors the Gateway's SEND_LINUX_IDS).
+        "com.slack.slack",
+        "com.discordapp.discord",
+        "eu.betterbird.betterbird",
+        "betterbird",
+        "io.element.element",
+        "com.github.eneshecan.whatsappforlinux",
+        "claws-mail",
+        "org.claws_mail.claws-mail",
+        "com.getmailspring.mailspring",
+        "com.github.ientuaneb.teams-for-linux",
+        "dino",
+        "im.dino.dino",
+        "io.github.hexchat",
     ];
 
+    /// Whether the send rule covers `app_id`: any [`crate::app_id::aliases`] form of it (so the
+    /// snap's `thunderbird_thunderbird` is Thunderbird) is in [`APPS`], ignoring case.
     pub fn is_messaging_app(app_id: Option<&str>) -> bool {
-        match app_id {
-            Some(id) => APPS.iter().any(|a| a.eq_ignore_ascii_case(id)),
-            None => false,
-        }
+        let Some(id) = app_id else {
+            return false;
+        };
+        crate::app_id::aliases(id)
+            .iter()
+            .any(|id| APPS.iter().any(|a| a.eq_ignore_ascii_case(id)))
     }
 
     /// Return / KP_Enter with any modifiers, Ctrl+Shift+D, and Alt+S.
@@ -487,6 +505,24 @@ mod tests {
     fn send_keys() {
         assert!(send_keys::is_messaging_app(Some("Thunderbird")));
         assert!(!send_keys::is_messaging_app(Some("org.gnome.TextEditor")));
+        // Snap desktop ids (`<snap>_<app>`) and Flatpak ids, any case.
+        for id in [
+            "thunderbird_thunderbird",
+            "Slack_Slack",
+            "discord_discord",
+            "signal-desktop_signal-desktop",
+            "telegram-desktop_telegram-desktop",
+            "com.slack.Slack",
+            "com.discordapp.Discord",
+            "eu.betterbird.Betterbird",
+            "io.element.Element",
+            "com.github.eneshecan.WhatsAppForLinux",
+        ] {
+            assert!(send_keys::is_messaging_app(Some(id)), "{id}");
+        }
+        for id in ["thunderbirdx", "spotify_spotify", "com.slack.slackx"] {
+            assert!(!send_keys::is_messaging_app(Some(id)), "{id}");
+        }
         assert!(send_keys::is_send_chord(
             &KeyChord::parse("return").unwrap()
         ));

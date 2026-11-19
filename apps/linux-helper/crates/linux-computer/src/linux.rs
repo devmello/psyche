@@ -248,6 +248,15 @@ impl Backend for LinuxBackend {
         }
     }
 
+    fn keyboard_free(&self) -> CapResult<bool> {
+        match &self.path {
+            Path::X11(x) => x.keyboard_free(),
+            // The compositor routes input; a client cannot hold the keyboard. The focus checks
+            // still apply.
+            Path::Remote(_) => Ok(true),
+        }
+    }
+
     fn activate(
         &self,
         app: &AppInfo,
