@@ -16,7 +16,7 @@ There is nothing to turn on. Ask the agent to do something in the background ("k
 
 - **Starting one.** The agent asks with a "Start background task" card that shows the title and the goal. When you approve, a task card appears in the chat.
 - **The task card.** It shows the status: queued, running, needs your answer, awaiting approval, paused, done, failed or cancelled. Buttons: **Pause**, **Resume**, **Cancel** and **Retry**, depending on the status.
-- **Closing the window** does not stop a Task. "Quit Psyche (tasks keep running)" closes the app; the Gateway keeps working.
+- **Closing the window** does not stop a Task. "Quit Psyche (tasks keep running)" closes the app; the Gateway keeps working. Psyche Helper stops when you quit, so a task that needs it (computer use, Messages, dictation) cannot run until you open Psyche again.
 - **Restarts.** If the Gateway stops mid-task, the Task resumes when it starts again. An action that was in flight is marked "outcome unknown · not retried" and is never repeated by itself. Pending approval cards are issued again.
 - **Taint carries over.** A Task started after the agent read untrusted content starts marked as tainted, so its writes to new targets ask.
 

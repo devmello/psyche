@@ -67,7 +67,7 @@ Click **Search memory** in Soul & Memory. Results come from the workspace files 
 
 ## Limits today
 
-- **Dreaming does not run.** Nightly consolidation into `MEMORY.md` exists in the code, scheduled for 03:00, but the Gateway does not start it. Soul & Memory still says "Dreaming rewrites this file every night." under `MEMORY.md`; that is not true yet. `MEMORY.md` changes only when you edit it or approve an agent edit.
+- **Dreaming is deterministic.** At 03:00 each night, Psyche's Dreaming automation (in Scheduled) promotes facts that repeat across your daily notes into `MEMORY.md`, with their dates. It makes no model call and never changes a bullet you wrote without a source. `MEMORY.md` also changes when you edit it or approve an agent edit.
 - `MEMORY.md` is not added to the agent's prompt automatically.
 - The agent has no forget or remember tool of its own. Use `/forget` and `/remember`. There is no Forget button in Soul & Memory.
 - Settings → Persona edits the name, tagline, emoji and creature. Each save rewrites only those keys in `IDENTITY.md`, through the Gateway; the rest of the file stays as it was. Name is 1 to 40 characters, tagline up to 120, emoji one character. "Describe a change" is not offered yet.
