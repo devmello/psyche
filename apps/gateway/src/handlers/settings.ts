@@ -61,17 +61,25 @@ export function needsPresence(key: string): boolean {
 /** A folder newly added to the policy must not be a sensitive root (security §3.5). */
 async function checkNewFolders(call: Call, value: unknown): Promise<void> {
   const folders = (value as { folders?: unknown } | null)?.folders;
-  if (!Array.isArray(folders)) return;
-  const stored = (
-    getSetting(call.ctx.db, "permissions.policy")?.value as
-      | { folders?: { path?: unknown }[] }
-      | undefined
-  )?.folders;
-  const known = new Set((stored ?? []).map((f) => f.path));
+  const roots = (value as { workspaceRoots?: unknown } | null)?.workspaceRoots;
+  const storedPolicy = getSetting(call.ctx.db, "permissions.policy")?.value as
+    | { folders?: { path?: unknown }[]; workspaceRoots?: unknown[] }
+    | undefined;
   const home = call.ctx.config.home;
-  for (const f of folders as { path?: unknown }[]) {
-    if (typeof f?.path !== "string" || known.has(f.path)) continue;
-    await assertFolderGrantable(f.path, folderAccessEnv(home));
+  if (Array.isArray(folders)) {
+    const known = new Set((storedPolicy?.folders ?? []).map((f) => f.path));
+    for (const f of folders as { path?: unknown }[]) {
+      if (typeof f?.path !== "string" || known.has(f.path)) continue;
+      await assertFolderGrantable(f.path, folderAccessEnv(home));
+    }
+  }
+  // A workspace root is a folder grant (read-write, matched first): the same rules.
+  if (Array.isArray(roots)) {
+    const known = new Set(storedPolicy?.workspaceRoots ?? []);
+    for (const r of roots) {
+      if (typeof r !== "string" || known.has(r)) continue;
+      await assertFolderGrantable(r, folderAccessEnv(home));
+    }
   }
 }
 

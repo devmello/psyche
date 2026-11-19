@@ -1053,8 +1053,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // No folder list means nothing is granted (#287), never "only the broker checks".
     // This conversation's "Allow once" folders count beside the owner's (request_folder_access).
     folders: (scope) => [
-      ...(rawBroker.policy.folders ?? []),
-      ...(scope === undefined ? [] : rawBroker.sessionFolders(scope.threadId)),
+      ...rawBroker.grantedFolders(),
+      ...(scope === undefined ? [] : rawBroker.liveSessionFolders(scope.threadId)),
     ],
     protectedRoots: () => protectedRoots(config.home),
     ownDirs: () => ownWorkdirs(config.home),
@@ -1080,8 +1080,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       surfaces: ["desktop", "web"],
       folderEnv: () => folderAccessEnv(config.home),
       grantedFolders: (threadId) => [
-        ...(rawBroker.policy.folders ?? []),
-        ...rawBroker.sessionFolders(threadId),
+        ...rawBroker.grantedFolders(),
+        ...rawBroker.liveSessionFolders(threadId),
       ],
       execHostEnabled: () => rawBroker.policy.exec?.execHostEnabled === true,
       enableExecHost: async () => {
@@ -1126,8 +1126,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       broker: executorBroker,
       vault: vault.vault,
       folders: (threadId) => [
-        ...(rawBroker.policy.folders ?? []),
-        ...rawBroker.sessionFolders(threadId),
+        ...rawBroker.grantedFolders(),
+        ...rawBroker.liveSessionFolders(threadId),
       ],
       srt: execHostSrt,
       home: config.home,
@@ -1781,7 +1781,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // The people graph while the owner has it on: prep's attendees and loops, notes' loops.
     graph: () => (people?.settings().enabled === true ? people.graph : undefined),
     // The recordings-folder watch reads only inside these (#953).
-    folders: () => rawBroker.policy.folders ?? [],
+    folders: () => rawBroker.grantedFolders(),
     ...(timeZone === undefined ? {} : { timeZone }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
@@ -1910,7 +1910,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       sandbox: parts.find(
         (p): p is ComposedSandbox => "runner" in p && "egress" in p && "track" in p,
       ),
-      folders: () => rawBroker.policy.folders ?? [],
+      folders: () => rawBroker.grantedFolders(),
     }),
   );
   // A device that goes away ends the meeting recording it was capturing (§4.6).
@@ -1998,7 +1998,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         ...(memoryLate === undefined ? {} : { ready: () => memoryLate.ready }),
       }),
       files: filesSourceDeps({
-        folders: () => rawBroker.policy.folders ?? [],
+        folders: () => rawBroker.grantedFolders(),
         // Vision OCR in the Mac helper (opt-in per source), one file at a time, on power only.
         ocr: { recognize: helperRecognizer(ocrHelper), power },
       }),
@@ -2116,9 +2116,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }),
   );
   // documents.convert: LibreOffice in its own sandbox on the full image (P4).
-  parts.push(
-    composeConversion({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
-  );
+  parts.push(composeConversion({ folders: () => rawBroker.grantedFolders(), home: config.home }));
   // app.uninstall.authorize: the presence gate in front of the uninstall sheet's "Delete my data".
   parts.push({ handlers: uninstallHandlers(services) });
   const handlers: Record<string, HandlerDef> = {
@@ -2215,15 +2213,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }),
     ...changeHandlers({ audit }),
     ...filesHandlers({
-      folders: () => rawBroker.policy.folders ?? [],
+      folders: () => rawBroker.grantedFolders(),
       home: config.home,
       share: {
         broker: executorBroker,
         surfaces: ["desktop", "web"],
         folderEnv: () => folderAccessEnv(config.home),
         grantedFolders: (threadId) => [
-          ...(rawBroker.policy.folders ?? []),
-          ...rawBroker.sessionFolders(threadId),
+          ...rawBroker.grantedFolders(),
+          ...rawBroker.liveSessionFolders(threadId),
         ],
       },
     }),

@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import {
   canonicalHostPath,
   HostPathError,
+  isMacMagicPath,
   isUnderHostPath,
   isWin32HostPath,
   relativeHostPath,
@@ -27,7 +28,16 @@ export interface GrantedFolder {
  */
 export function canonicalTarget(p: string): string {
   if (p.includes("\0")) throw new PsycheError("invalid_params", "NUL in path");
-  if (process.platform !== "win32") return resolve(p);
+  if (process.platform !== "win32") {
+    const abs = resolve(p);
+    // `/.nofollow/<abs>` and `/.vol/..` open another file, past every root check below.
+    if (isMacMagicPath(abs)) {
+      throw new PsycheError("forbidden", `${p} is not a path Psyche can use`, {
+        details: { reason: "protected_path" },
+      });
+    }
+    return abs;
+  }
   try {
     const c = canonicalHostPath(p);
     // Windows would read `/x` as `\x` on the current drive: only drive and UNC paths name a file.
@@ -70,7 +80,13 @@ export function assertGranted(
   // The longest matching root decides, as in the broker.
   let best: GrantedFolder | undefined;
   for (const f of folders) {
-    const root = canonicalTarget(f.path);
+    let root: string;
+    try {
+      root = canonicalTarget(f.path);
+    } catch {
+      // A stored grant that names nothing usable (`/.nofollow/..`) covers nothing.
+      continue;
+    }
     // A file entry is that exact path, and only while it is still a regular file: a file
     // replaced by a folder opens nothing inside it.
     const hit = f.file === true ? isUnder(path, root) && isUnder(root, path) : isUnder(path, root);
@@ -115,6 +131,8 @@ export function isProtectedPath(
   roots: readonly string[] | undefined,
   ownDirs: readonly string[] = [],
 ): boolean {
+  // `/.nofollow/<abs>` opens `<abs>` past every root below: never a usable path on macOS.
+  if (isMacMagicPath(path)) return true;
   if (roots === undefined) return false;
   const own = ownDirs.map(canonicalTarget).find((d) => isUnder(path, d));
   for (const raw of roots) {

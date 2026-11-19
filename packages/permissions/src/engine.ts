@@ -111,6 +111,8 @@ export interface EngineDeps {
    * the check is made at use, not only when the grant was made (fail closed).
    */
   folderRefused?(path: string): boolean;
+  /** The same for a workspace root (`permissions.policy.workspaceRoots`). */
+  workspaceRefused?(path: string): boolean;
   /** The Task's state, created on first use (`decide`). */
   task(ctx: PolicyContext): TaskState;
   /** The Task's state if the broker has one, without creating it (`preview`). */
@@ -242,6 +244,7 @@ export class PolicyEngine {
   ): { path: string; mode: "ro" | "rw"; workspace: boolean } | undefined {
     const p = this.#d.policy();
     for (const root of p.workspaceRoots) {
+      if (this.#d.workspaceRefused?.(root) === true) continue;
       if (isUnder(path, root)) return { path: root, mode: "rw", workspace: true };
     }
     // The longest root decides, whether Settings or this conversation granted it.
