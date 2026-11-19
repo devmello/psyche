@@ -157,8 +157,10 @@ enum EscStopTap {
         keyCode == 53 && userData != Input.marker && flags.intersection([.maskCommand, .maskShift, .maskAlternate, .maskControl]).isEmpty
     }
 
-    static func install(stop: StopSignal, isActive: @escaping @Sendable () -> Bool, onStop: @escaping @Sendable () -> Void) -> (any SessionTapHandle)? {
-        RunLoopEventTap(
+    static func install(
+        stop: StopSignal, isActive: @escaping @Sendable () -> Bool, onStop: @escaping @Sendable () -> Void
+    ) -> Result<RunLoopEventTap, RunLoopEventTap.InstallFailure> {
+        RunLoopEventTap.create(
             place: .headInsertEventTap, options: .defaultTap, types: [.keyDown], qos: .userInteractive, name: "com.psyche.helper.esc-tap"
         ) { type, event in
             guard type == .keyDown,

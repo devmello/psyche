@@ -306,6 +306,66 @@ struct SessionTapsInFlightTests {
         #expect(!rig.taps.isInstalled)
     }
 
+    @Test func anActionIsMarkedInFlightAtomicallyWithTakingTheSession() throws {
+        let rig = Rig()
+        try rig.taps.beginSession("run-1", invocation: true)
+        // end_session lands right after the session is taken: the action is already counted.
+        rig.taps.release("run-1")
+        #expect(rig.taps.isInstalled)
+        #expect(rig.sessions.activeSession == "run-1")
+        rig.taps.endInvocation("run-1")
+        #expect(!rig.taps.isInstalled)
+    }
+
+    @Test func aNewActionOnAnEndingSessionIsRefused() throws {
+        let rig = Rig()
+        try rig.taps.beginSession("run-1", invocation: true)
+        rig.taps.release("run-1")
+        do { try rig.taps.beginSession("run-1", invocation: true); Issue.record("expected a throw") } catch let e as CapabilityError {
+            #expect(e.code == .conflict)
+            #expect(e.reason == "session_ending")
+        }
+        rig.taps.endInvocation("run-1")
+        #expect(!rig.taps.isInstalled)
+        try rig.taps.beginSession("run-2", invocation: true)  // a new run starts clean
+        #expect(rig.sessions.activeSession == "run-2")
+    }
+
+    @Test func anActionPastTheHardCapIsStoppedAndTheSessionReleased() throws {
+        let clock = Clock()
+        let log = Log()
+        let installer = FakeInstaller(log: log)
+        let sessions = ComputerSessionLock(idleTimeout: 120, maxInFlight: 1800, now: { clock.now })
+        installer.sessions = sessions
+        let timers = FakeTimers()
+        let taps = SessionTaps(installer: installer, sessions: sessions, schedule: timers.scheduler)
+        final class Tripped: @unchecked Sendable { var ids: [String] = [] }
+        let tripped = Tripped()
+        taps.onOverlong = { tripped.ids.append($0) }
+        try taps.beginSession("run-1", invocation: true)
+        clock.now = clock.now.addingTimeInterval(1700)
+        timers.fireAll()
+        #expect(taps.isInstalled)  // still within the cap
+        #expect(tripped.ids.isEmpty)
+        clock.now = clock.now.addingTimeInterval(200)  // 1900 s in flight
+        timers.fireAll()
+        #expect(tripped.ids == ["run-1"])
+        #expect(!taps.isInstalled)
+        #expect(sessions.activeSession == nil)
+        taps.endInvocation("run-1")  // the stopped action unwinds
+        #expect(throws: CapabilityError.self) { try taps.beginSession("run-1") }  // the run cannot carry on
+        try taps.beginSession("run-2")  // the computer is free for another run
+    }
+
+    @Test func aCreationFailureWhileTrustedIsNotRetryable() {
+        let sessions = ComputerSessionLock()
+        let taps = SessionTaps(installer: TimeoutInstaller(.createFailed), sessions: sessions)
+        do { try taps.beginSession("run-1"); Issue.record("expected a throw") } catch let e as CapabilityError {
+            #expect(e.reason == "esc_tap_failed")
+            #expect(!e.retryable)
+        } catch { Issue.record("unexpected \(error)") }
+    }
+
     @Test func anInstallTimeoutIsNotReportedAsMissingAccessibility() {
         let sessions = ComputerSessionLock()
         let timedOut = SessionTaps(installer: TimeoutInstaller(.timeout), sessions: sessions)

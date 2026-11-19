@@ -26,11 +26,41 @@ final class RunLoopEventTap: @unchecked Sendable, SessionTapHandle, KeyDownGate 
     private var loop: CFRunLoop?
     private var removed = false
 
-    init?(
+    /// Why a tap could not be installed.
+    enum InstallFailure: Error, Equatable {
+        case notTrusted  // no Accessibility
+        case createFailed  // trusted, but the system refused to create the tap
+        case timeout  // created, but the run-loop thread was not ready in time
+    }
+
+    convenience init?(
         place: CGEventTapPlacement, options: CGEventTapOptions, types: [CGEventType], qos: QualityOfService, name: String,
         startEnabled: Bool = true, handler: @escaping Handler
     ) {
-        guard AXIsProcessTrusted() else { return nil }
+        do {
+            try self.init(throwing: place, options: options, types: types, qos: qos, name: name, startEnabled: startEnabled, handler: handler)
+        } catch {
+            return nil
+        }
+    }
+
+    /// Like `init?`, with the reason a tap could not be installed.
+    static func create(
+        place: CGEventTapPlacement, options: CGEventTapOptions, types: [CGEventType], qos: QualityOfService, name: String,
+        startEnabled: Bool = true, handler: @escaping Handler
+    ) -> Result<RunLoopEventTap, InstallFailure> {
+        do {
+            return .success(try RunLoopEventTap(throwing: place, options: options, types: types, qos: qos, name: name, startEnabled: startEnabled, handler: handler))
+        } catch {
+            return .failure((error as? InstallFailure) ?? .createFailed)
+        }
+    }
+
+    private init(
+        throwing place: CGEventTapPlacement, options: CGEventTapOptions, types: [CGEventType], qos: QualityOfService, name: String,
+        startEnabled: Bool, handler: @escaping Handler
+    ) throws {
+        guard AXIsProcessTrusted() else { throw InstallFailure.notTrusted }
         let mask = types.reduce(CGEventMask(0)) { $0 | (1 << $1.rawValue) }
         let context = Context(handler: handler, wantEnabled: startEnabled)
         let refcon = Unmanaged.passRetained(context)  // released by the run-loop thread when it ends
@@ -50,7 +80,7 @@ final class RunLoopEventTap: @unchecked Sendable, SessionTapHandle, KeyDownGate 
             }, userInfo: refcon.toOpaque()
         ) else {
             refcon.release()
-            return nil
+            throw InstallFailure.createFailed
         }
         context.port = port
         self.context = context
@@ -83,7 +113,7 @@ final class RunLoopEventTap: @unchecked Sendable, SessionTapHandle, KeyDownGate 
         t.start()
         if ready.wait(timeout: .now() + 5) != .success {
             remove()
-            return nil
+            throw InstallFailure.timeout
         }
     }
 

@@ -114,6 +114,31 @@ struct DictationKeyEngineTests {
         #expect(gate.history == [true, false])
     }
 
+    @Test func aKeyDownBetweenTheModifierAndALateCallbackIsAChord() {
+        let gate = FakeGate()
+        let clock = Clock()
+        let e = clocked(gate, clock)
+        let t0 = clock.now  // fn goes down
+        clock.lastKeyDown = t0.addingTimeInterval(0.03)  // the arrow, before the callback ran
+        clock.now = t0.addingTimeInterval(0.08)  // the flagsChanged callback runs late
+        _ = e.flagsChanged(keyCode: fn, flags: fnMask, eventAge: 0.08)
+        clock.now = t0.addingTimeInterval(0.18)
+        #expect(e.recheckChord().map(\.down) == [false])
+    }
+
+    @Test func withoutTheEventAgeALateCallbackCannotTellKeyFromHold() {
+        // The old anchor (callback time): the same key looks like one struck before the hold.
+        let gate = FakeGate()
+        let clock = Clock()
+        let e = clocked(gate, clock)
+        let t0 = clock.now
+        clock.lastKeyDown = t0.addingTimeInterval(0.03)
+        clock.now = t0.addingTimeInterval(0.08)
+        _ = e.flagsChanged(keyCode: fn, flags: fnMask)
+        clock.now = t0.addingTimeInterval(0.18)
+        #expect(e.recheckChord().isEmpty)
+    }
+
     @Test func theEngineDoesNotKeepItsGateAlive() {
         var gate: FakeGate? = FakeGate()
         weak var weakGate = gate

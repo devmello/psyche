@@ -361,12 +361,14 @@ public final class DictationKeyEngine: @unchecked Sendable {
         self.now = now
     }
 
-    public func flagsChanged(keyCode: Int64, flags: UInt64) -> [DictationKeyChange] {
+    /// `eventAge` is how long ago the modifier event happened (the callback can run late); the hold is
+    /// anchored at the event's own time, so a keyDown struck before the callback ran still counts.
+    public func flagsChanged(keyCode: Int64, flags: UInt64, eventAge: TimeInterval = 0) -> [DictationKeyChange] {
         lock.withLock {
             // A chord whose keyDown the tap missed is a chord before this modifier event is judged.
             var out = recheckChordLocked()
             out += set.flagsChanged(keyCode: keyCode, flags: flags)
-            sync()
+            sync(anchorAge: max(0, eventAge))
             return out
         }
     }
@@ -394,11 +396,11 @@ public final class DictationKeyEngine: @unchecked Sendable {
         return set.keyDown()
     }
 
-    private func sync() {
+    private func sync(anchorAge: TimeInterval = 0) {
         let want = set.trackers.contains { $0.isDown }
         guard want != gateOn else { return }
         gateOn = want
-        heldSince = want ? now() : nil
+        heldSince = want ? now().addingTimeInterval(-anchorAge) : nil
         gate?.setEnabled(want)
     }
 }

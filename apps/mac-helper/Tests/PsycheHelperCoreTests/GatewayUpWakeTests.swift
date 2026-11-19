@@ -97,15 +97,59 @@ struct GatewayUpWakeTests {
     }
 }
 
+@Suite("early wake (review 1415 #6)")
+struct GatewayUpEarlyWakeTests {
+    private func daemon(_ home: String) -> NodeDaemon {
+        NodeDaemon(
+            identity: DeviceIdentity(), registry: CapabilityRegistry([]), preflight: NoPreflight(),
+            log: HelperLog(echo: { _ in }), environment: ["PSYCHE_HOME": home])
+    }
+
+    @Test func aRestartInTheFirstSecondOfAWaitIsNotDropped() async throws {
+        let home = try tempHome()
+        try write(home + "/run/node-socket", "/tmp/a.sock")
+        let d = daemon(home)
+        async let early: Bool = _Concurrency.Task.detached { d.sleepUnlessStopped(5) }.value
+        try await _Concurrency.Task.sleep(nanoseconds: 150_000_000)  // well inside the first second
+        try write(home + "/run/node-socket", "/tmp/b.sock")
+        d.gatewayMayBeUp()
+        let started = Date()
+        #expect(await early)
+        #expect(Date().timeIntervalSince(started) < 2)
+    }
+
+    @Test func aRestartThatLandedDuringTheFailedAttemptEndsTheWaitAtOnce() throws {
+        let home = try tempHome()
+        let d = daemon(home)
+        let before = NodeDaemon.RunFingerprint.read(environment: ["PSYCHE_HOME": home])  // taken before the attempt
+        try write(home + "/run/node-socket", "/tmp/b.sock")  // the Gateway came up while the attempt failed
+        let started = Date()
+        #expect(d.sleepUnlessStopped(30, baseline: before))
+        #expect(Date().timeIntervalSince(started) < 2)
+    }
+}
+
 @Suite("run/ watcher re-opens after the directory is recreated (review 1402 #5)")
 struct GatewayUpWatcherTests {
     @Test func aChangeInRunIsReported() async throws {
         let home = try tempHome()
         let hits = Counter()
         let watcher = GatewayUpWatcher(environment: ["PSYCHE_HOME": home], retryInterval: 0.1) { hits.bump() }
-        #expect(watcher != nil)
         try write(home + "/run/node-socket", "x")
         #expect(await eventually { hits.value > 0 })
+        withExtendedLifetime(watcher) {}
+    }
+
+    @Test func itWaitsForRunToAppearWhenItIsMissingAtStart() async throws {
+        let home = NSTemporaryDirectory() + "psyche-wake-\(UUID().uuidString)"  // no run/ yet
+        let hits = Counter()
+        let watcher = GatewayUpWatcher(environment: ["PSYCHE_HOME": home], retryInterval: 0.1) { hits.bump() }
+        try? await _Concurrency.Task.sleep(nanoseconds: 300_000_000)
+        try FileManager.default.createDirectory(atPath: home + "/run", withIntermediateDirectories: true)
+        #expect(await eventually { hits.value > 0 })  // opened, and told the daemon to look
+        let before = hits.value
+        try write(home + "/run/node-socket", "x")
+        #expect(await eventually { hits.value > before })
         withExtendedLifetime(watcher) {}
     }
 
@@ -113,7 +157,6 @@ struct GatewayUpWatcherTests {
         let home = try tempHome()
         let hits = Counter()
         let watcher = GatewayUpWatcher(environment: ["PSYCHE_HOME": home], retryInterval: 0.1) { hits.bump() }
-        #expect(watcher != nil)
         try FileManager.default.removeItem(atPath: home + "/run")
         try? await _Concurrency.Task.sleep(nanoseconds: 300_000_000)
         try FileManager.default.createDirectory(atPath: home + "/run", withIntermediateDirectories: true)

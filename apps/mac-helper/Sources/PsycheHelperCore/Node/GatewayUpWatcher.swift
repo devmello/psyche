@@ -17,15 +17,15 @@ public final class GatewayUpWatcher: @unchecked Sendable {
     private var source: DispatchSourceFileSystemObject?
     private var closed = false
 
-    /// nil when the directory does not exist yet (the daemon then relies on its backoff).
-    public init?(
+    /// If the directory does not exist yet, the watcher keeps retrying until it does.
+    public init(
         environment: [String: String] = ProcessInfo.processInfo.environment, retryInterval: TimeInterval = 2,
         onChange: @escaping @Sendable () -> Void
     ) {
         dir = (HelperPaths.nodeSocketPointerPath(environment: environment) as NSString).deletingLastPathComponent
         self.onChange = onChange
         self.retryInterval = retryInterval
-        guard open() else { return nil }
+        if !open() { queue.asyncAfter(deadline: .now() + retryInterval) { [weak self] in self?.attemptReopen() } }
     }
 
     private func open() -> Bool {

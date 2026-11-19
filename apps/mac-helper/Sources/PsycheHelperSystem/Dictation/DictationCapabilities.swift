@@ -240,7 +240,12 @@ public final class DictationKeyWatcher: @unchecked Sendable {
                 name: "com.psyche.helper.dictation-key"
             ) { _, event in
                 if event.getIntegerValueField(.eventSourceUserData) != Input.marker {
-                    for change in engine.flagsChanged(keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags.rawValue) {
+                    // The callback can run late: anchor the hold at when the modifier actually changed.
+                    let age = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .flagsChanged)
+                    for change in engine.flagsChanged(
+                        keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags.rawValue,
+                        eventAge: age.isFinite ? age : 0)
+                    {
                         continuation.yield(change)
                     }
                 }
