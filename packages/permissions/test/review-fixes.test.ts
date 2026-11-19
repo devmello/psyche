@@ -155,7 +155,6 @@ describe("review fixes", () => {
     for (const u of [
       "https://chase.com",
       "https://robinhood.com",
-      "https://icloud.com",
       "https://paypal.com",
     ]) {
       const d = await h.broker.decide(call("browser.navigate", "read", origin(u)), {

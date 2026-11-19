@@ -4033,6 +4033,7 @@ public struct ApprovalAnswer: Codable, Sendable {
     public let presence: PresenceAssertion?
     public let recipientChoice: String?
     public let scope: GrantScope?
+    public let trustSite: TrustSite?
     public let unsandboxed: Unsandboxed?
     public let via: InputVia?
 
@@ -4046,11 +4047,12 @@ public struct ApprovalAnswer: Codable, Sendable {
         case presence = "presence"
         case recipientChoice = "recipientChoice"
         case scope = "scope"
+        case trustSite = "trustSite"
         case unsandboxed = "unsandboxed"
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
+    public init(answerToken: String, approvalID: String, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, trustSite: TrustSite? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.decision = decision
@@ -4060,6 +4062,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         self.presence = presence
         self.recipientChoice = recipientChoice
         self.scope = scope
+        self.trustSite = trustSite
         self.unsandboxed = unsandboxed
         self.via = via
     }
@@ -4107,6 +4110,11 @@ public enum GrantScope: String, Codable, Sendable {
     case session = "session"
     case site = "site"
     case task = "task"
+}
+
+public enum TrustSite: String, Codable, Sendable {
+    case origin = "origin"
+    case subdomains = "subdomains"
 }
 
 public enum Unsandboxed: String, Codable, Sendable {
