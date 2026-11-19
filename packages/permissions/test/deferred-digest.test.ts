@@ -115,6 +115,9 @@ const MUST_BE_SENSITIVE = [
   `${REPO}/requirements.txt`,
   `${REPO}/requirements-dev.txt`,
   `${REPO}/requirements/base.txt`,
+  `${REPO}/dev-requirements.txt`,
+  `${REPO}/test_constraints.txt`,
+  `${REPO}/reqs/base.txt`,
   `${REPO}/constraints.txt`,
   `${REPO}/deps.pip`,
   `${HOME}/pip.conf`,
@@ -159,6 +162,7 @@ const MAY_BE_ROUTINE = [
   `${HOME}/Notes/vscode/tasks.md`,
   `${HOME}/Notes/report.txt`,
   `${REPO}/data/rows.tsv`,
+  `${REPO}/notes/reqs-meeting.md`,
   `${REPO}/docs/build.log`,
   `${HOME}/Documents/slides.pptx`,
   `${HOME}/Documents/Report.PDF`,
@@ -488,9 +492,16 @@ describe("a restart reports every set-aside approval whose resume it cut short, 
     expect((await answerAs(h, issued, { scope })).status).toBe("approved");
     const restart = async () => {
       const seen: string[] = [];
-      const b = sqliteBroker(db, clock, { ...options, onSetAsideRevoked: (a) => seen.push(a.id) });
+      const failed: boolean[] = [];
+      const b = sqliteBroker(db, clock, {
+        ...options,
+        onSetAsideRevoked: (a, how) => {
+          seen.push(a.id);
+          failed.push(how.failed);
+        },
+      });
       await b.reissue();
-      return { b, seen };
+      return { b, seen, failed };
     };
     return { h, issued, restart };
   }
@@ -507,6 +518,30 @@ describe("a restart reports every set-aside approval whose resume it cut short, 
     const { b, seen } = await restart();
     expect(seen).toEqual([issued.approval.id]);
     expect((await b.verifyBinding(issued.approval.id, issued.approval.bindingHash)).ok).toBe(false);
+  });
+
+  it("an action that ran and failed is not done: reported, as failed", async () => {
+    const { h, issued, restart } = await approved("always");
+    await h.broker.recordReceipt({
+      kind: "connector_action",
+      outcome: "failed",
+      summary: "failed",
+      approvalId: issued.approval.id,
+    });
+    const r = await restart();
+    expect(r.seen).toEqual([issued.approval.id]);
+    expect(r.failed).toEqual([true]);
+  });
+
+  it("positive control: an action that succeeded (an ok receipt) is not reported", async () => {
+    const { h, issued, restart } = await approved("always");
+    await h.broker.recordReceipt({
+      kind: "connector_action",
+      outcome: "ok",
+      summary: "ok",
+      approvalId: issued.approval.id,
+    });
+    expect((await restart()).seen).toEqual([]);
   });
 
   it("positive control: a resume that is over (settled) is not reported", async () => {
