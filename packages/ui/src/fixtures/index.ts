@@ -42,6 +42,7 @@ import type {
   ThreadListEntry,
   ToolCall,
   VaultPayment,
+  VaultStatus,
   Widget,
 } from "@psyche/protocol";
 import type { ReviewWorld } from "../data/mock-review.ts";
@@ -148,6 +149,8 @@ export interface FixtureWorld {
   credentialUses: CredentialUse[];
   /** Stripe Link (`vault.payments.*`); absent methods → Link is not set up. */
   linkMethods?: LinkPaymentMethod[];
+  /** The vault (`vault.status|setup|confirmRecovery|unlock`); absent → not implemented. */
+  vault?: { status: VaultStatus; recoveryKey?: string };
   /** The guided Link setup (`payments.link.*`); absent → derived from `linkMethods`. */
   linkSetup?: LinkSetupStatus;
   payments?: VaultPayment[];

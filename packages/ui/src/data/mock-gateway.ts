@@ -1004,8 +1004,8 @@ export class MockGateway implements GatewayClient {
   }
 
   private vaultOf(): NonNullable<MockWorld["vault"]> {
-    if (this.world.vault === undefined) fail("not_implemented", "MockGateway has no vault");
-    return this.world.vault;
+    const vault = this.world.vault;
+    return vault === undefined ? fail("not_implemented", "MockGateway has no vault") : vault;
   }
 
   /** Where the guided Link setup stands: set by the calls below, else read off the fixtures. */
