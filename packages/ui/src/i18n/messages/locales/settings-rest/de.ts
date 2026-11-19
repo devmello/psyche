@@ -128,6 +128,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.exec.srtPath": "Speicherort von srt",
   "settings.key.devices.hostHelper.status": "Prüfung des Linux-Helfers",
   "settings.key.devices.helper.availability": "Verbindung von Psyche Helper",
+  "settings.key.devices.hostHelperDeviceId": "Welcher Psyche Helper verwendet wird",
   "settings.key.search.model.engine": "Modell für die Suche",
   "settings.key.search.semantic.enabled": "Semantische Suche (auf dem Gerät)",
   "settings.key.search.cards.enabled": "Kontextkarten für die Suche",

@@ -102,6 +102,7 @@ describe("HelperAvailability", () => {
       failures: 0,
       retryAt: 0,
       contactsDenied: false,
+      ambiguous: [],
     });
     expect(h.logs.map((l) => l.msg)).toEqual([
       "helper offline: helper-backed sources and jobs are paused",
@@ -127,6 +128,25 @@ describe("HelperAvailability", () => {
     expect(h.a.shouldAttempt()).toBe(true);
     h.a.observe(false);
     expect(h.logs).toHaveLength(1);
+  });
+});
+
+describe("HelperAvailability ambiguity", () => {
+  it("reports the helpers it will not choose between, once per change", () => {
+    const seen: string[][] = [];
+    const a = new HelperAvailability(false, {
+      now: () => 0,
+      onChange: (s) => seen.push(s.ambiguous.map((h) => h.deviceId)),
+    });
+    const two = [
+      { deviceId: "a", name: "A", pairedAt: null },
+      { deviceId: "b", name: "B", pairedAt: null },
+    ];
+    a.setAmbiguous(two);
+    a.setAmbiguous(two);
+    expect(a.status().ambiguous).toEqual(two);
+    a.setAmbiguous([]);
+    expect(seen).toEqual([["a", "b"], []]);
   });
 });
 

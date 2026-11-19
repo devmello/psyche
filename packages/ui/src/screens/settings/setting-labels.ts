@@ -45,6 +45,7 @@ const LABELLED_KEYS = [
   "exec.srtPath",
   "devices.hostHelper.status",
   "devices.helper.availability",
+  "devices.hostHelperDeviceId",
   "context.compactAt",
   "context.keepRecentTurns",
   "teaching.enabled",

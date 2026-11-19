@@ -1719,6 +1719,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       });
     },
   });
+  // A status left by the previous run (two helpers connected when it stopped) must not outlive
+  // it: no helper is connected yet. Quiet write; later changes publish through `onChange`.
+  setSetting(db, HELPER_AVAILABILITY_SETTING, helperAvailability.status());
   const proactive = composeProactive({
     db,
     clock,
@@ -2335,6 +2338,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     attention.observe(frame),
   );
   vault.attach(gateway.context.nodes);
+  // The helper's availability follows connect and disconnect directly: the banner clears and the
+  // paused sources and jobs resume the moment it returns, not at the next job run or search.
+  const syncHelperAvailability = (): void => {
+    helperAvailability.observe(helperConnected());
+    helperAvailability.setAmbiguous(gateway.context.nodes.ambiguousHelpers());
+  };
+  const unsubscribeHelperChange = gateway.context.nodes.onHostHelperChange(syncHelperAvailability);
+  syncHelperAvailability();
   // The owner's folder grants and rules apply without a restart (settings.set → broker policy).
   const unsubscribePolicy = gateway.bus.subscribe(["operator.read"], (frame) => {
     const f = JSON.parse(frame) as {
@@ -2470,6 +2481,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       scheduler.stop();
       memory.unwatch();
       unsubscribePolicy();
+      unsubscribeHelperChange();
       unsubscribeAttention();
       // Suspended subscription-CLI runs end with the Gateway.
       for (const p of router?.providers() ?? []) if (p instanceof CliAdapter) await p.close();

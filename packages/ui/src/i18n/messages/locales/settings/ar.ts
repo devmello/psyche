@@ -91,6 +91,7 @@ export const settings: Partial<Catalogue> = {
   "settings.key.exec.srtPath": "موقع srt",
   "settings.key.devices.hostHelper.status": "فحص مساعد Linux",
   "settings.key.devices.helper.availability": "اتصال Psyche Helper",
+  "settings.key.devices.hostHelperDeviceId": "أي Psyche Helper يُستخدم",
   "settings.key.search.model.engine": "نموذج البحث",
   "settings.key.search.semantic.enabled": "البحث الدلالي (على الجهاز)",
   "settings.key.search.cards.enabled": "بطاقات السياق للبحث",
