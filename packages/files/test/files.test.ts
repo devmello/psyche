@@ -402,13 +402,18 @@ describe("limits and paging", () => {
     writeFileSync(join(granted, "u.txt"), text);
     const a = await run("read_file", { path: join(granted, "u.txt") });
     expect(a.output.truncated).toBe(true);
-    const b = await run("read_file", {
-      path: join(granted, "u.txt"),
-      offset: a.output.nextOffset,
-    });
-    expect(`${a.output.text}${b.output.text}`).toBe(text);
-    expect(b.output.truncated).toBe(false);
-    expect(a.output.sha256).toBe(b.output.sha256);
+    let got = String(a.output.text);
+    let last = a;
+    while (last.output.nextOffset !== undefined) {
+      last = await run("read_file", {
+        path: join(granted, "u.txt"),
+        offset: last.output.nextOffset,
+      });
+      got += String(last.output.text);
+    }
+    expect(got).toBe(text);
+    expect(last.output.truncated).toBe(false);
+    expect(a.output.sha256).toBe(last.output.sha256);
   });
 
   it("flags binary files and refuses oversized writes", async () => {

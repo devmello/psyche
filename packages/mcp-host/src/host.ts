@@ -785,7 +785,8 @@ export class PsycheMcpHost implements McpHost {
       return isImage ? IMAGE_BLOCK_BYTES : Buffer.byteLength(JSON.stringify(b));
     };
     const rest = Buffer.byteLength(JSON.stringify({ ...content, blocks: [] }));
-    if (content.blocks.reduce((n, b) => n + sizeOf(b), rest) <= max) return content;
+    if (content.blocks.reduce((n: number, b: unknown) => n + sizeOf(b), rest) <= max)
+      return content;
     const out: McpCallContent = { blocks: [], truncated: true };
     let used = 0;
     for (const b of content.blocks) {
