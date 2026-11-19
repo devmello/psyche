@@ -607,7 +607,11 @@ export function OnboardingFlow({
             keyError={keyError}
             keyRefused={keyRefused}
             {...(recoveryKey
-              ? { recoveryKey, recoverySaved, onRecoverySaved: setRecoverySaved }
+              ? {
+                  recoveryKey,
+                  recoverySaved,
+                  onRecoveryConfirmed: () => setRecoverySaved(true),
+                }
               : {})}
             {...(ramGb === undefined ? {} : { ramGb })}
             {...(saveKey ? { onSaveKey: (k: string) => void saveKey(k) } : {})}

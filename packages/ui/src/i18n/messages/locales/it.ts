@@ -2611,7 +2611,6 @@ export const it: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "Impossibile copiare. Seleziona la chiave e copiala.",
   "onboarding.model.recoveryBody":
     "Psyche ha appena creato la tua cassaforte. Salva questa chiave in un gestore di password o su carta: viene mostrata solo adesso ed è l’unico modo per rientrare nella cassaforte dopo un ripristino o la perdita di uno slot di chiave.",
-  "onboarding.model.savedIt": "L’ho salvata",
   "onboarding.model.subscriptionNote":
     "Psyche usa l’app Claude Code o Codex a cui hai già eseguito l’accesso su questo Mac, quindi non richiede né memorizza alcuna chiave API. Se non l’hai ancora fatto, accedi prima lì.",
   "onboarding.model.toolCheck": "Controllo della chiamata degli strumenti",

@@ -2559,7 +2559,6 @@ export const pt: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "Não foi possível copiar. Selecione a chave e copie.",
   "onboarding.model.recoveryBody":
     "O Psyche acabou de criar seu cofre. Salve esta chave em um gerenciador de senhas ou no papel: ela é mostrada só agora e é a única forma de voltar ao cofre após uma restauração ou a perda de um slot de chave.",
-  "onboarding.model.savedIt": "Eu salvei",
   "onboarding.model.subscriptionNote":
     "O Psyche usa o app Claude Code ou Codex já conectado neste Mac, então não precisa de chave de API e não guarda nenhuma. Faça login lá primeiro, se ainda não fez.",
   "onboarding.model.toolCheck": "Verificação de chamada de ferramentas",

@@ -2669,7 +2669,6 @@ export const de: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "Kopieren nicht möglich. Wähle den Schlüssel aus und kopiere ihn.",
   "onboarding.model.recoveryBody":
     "Psyche hat gerade deinen Tresor erstellt. Sichere diesen Schlüssel in einem Passwortmanager oder auf Papier: Er wird nur jetzt angezeigt und ist nach einer Wiederherstellung oder einem verlorenen Schlüsselplatz der einzige Weg zurück in den Tresor.",
-  "onboarding.model.savedIt": "Ich habe ihn gesichert",
   "onboarding.model.subscriptionNote":
     "Psyche verwendet die auf diesem Mac bereits angemeldete Claude-Code- oder Codex-App, braucht also keinen API-Schlüssel und speichert keinen. Melde dich zuerst dort an, falls noch nicht geschehen.",
   "onboarding.model.toolCheck": "Werkzeugaufruf-Prüfung",

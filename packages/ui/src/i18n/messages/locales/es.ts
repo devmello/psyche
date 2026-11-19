@@ -2636,7 +2636,6 @@ export const es: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "No se pudo copiar. Selecciona la clave y cópiala.",
   "onboarding.model.recoveryBody":
     "Psyche acaba de crear tu bóveda. Guarda esta clave en un gestor de contraseñas o en papel: solo se muestra ahora y es la única forma de volver a entrar en la bóveda tras una restauración o si se pierde una ranura de clave.",
-  "onboarding.model.savedIt": "La he guardado",
   "onboarding.model.subscriptionNote":
     "Psyche usa la app Claude Code o Codex con la sesión ya iniciada en este Mac, así que no necesita ninguna clave de API ni guarda ninguna. Si aún no lo has hecho, inicia sesión allí primero.",
   "onboarding.model.toolCheck": "Comprobación de llamadas a herramientas",

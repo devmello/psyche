@@ -2563,7 +2563,6 @@ export const ko: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "복사할 수 없습니다. 키를 선택하여 복사하십시오.",
   "onboarding.model.recoveryBody":
     "Psyche가 방금 금고를 만들었습니다. 이 키를 암호 관리자나 종이에 보관하십시오. 지금만 표시되며, 복원하거나 키 슬롯을 잃은 뒤 금고에 다시 들어갈 수 있는 유일한 방법입니다.",
-  "onboarding.model.savedIt": "저장했습니다",
   "onboarding.model.subscriptionNote":
     "Psyche는 이 Mac에 이미 로그인된 Claude Code 또는 Codex 앱을 사용하므로 API 키가 필요 없고 저장하지도 않습니다. 아직 로그인하지 않았다면 먼저 그곳에서 로그인하십시오.",
   "onboarding.model.toolCheck": "도구 호출 점검",

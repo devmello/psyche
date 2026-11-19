@@ -2544,7 +2544,6 @@ export const zh: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "无法拷贝。请选中密钥并手动拷贝。",
   "onboarding.model.recoveryBody":
     "Psyche 刚刚创建了你的保险库。请将此密钥保存在密码管理器中或写在纸上：它只显示这一次，是在恢复系统或丢失密钥槽后重新进入保险库的唯一途径。",
-  "onboarding.model.savedIt": "我已保存",
   "onboarding.model.subscriptionNote":
     "Psyche 使用这台 Mac 上已登录的 Claude Code 或 Codex App，因此不需要也不存储 API 密钥。如果尚未登录，请先在那里登录。",
   "onboarding.model.toolCheck": "工具调用检查",

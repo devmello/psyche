@@ -2609,7 +2609,6 @@ export const fr: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "Copie impossible. Sélectionnez la clé et copiez-la.",
   "onboarding.model.recoveryBody":
     "Psyche vient de créer votre coffre. Conservez cette clé dans un gestionnaire de mots de passe ou sur papier : elle n’est affichée que maintenant et c’est le seul moyen de rouvrir le coffre après une restauration ou la perte d’un emplacement de clé.",
-  "onboarding.model.savedIt": "Je l’ai conservée",
   "onboarding.model.subscriptionNote":
     "Psyche utilise l’app Claude Code ou Codex déjà connectée sur ce Mac ; il n’a donc besoin d’aucune clé API et n’en enregistre aucune. Connectez-vous d’abord là-bas si ce n’est pas fait.",
   "onboarding.model.toolCheck": "Test d’appel d’outils",
