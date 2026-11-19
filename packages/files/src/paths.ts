@@ -1,3 +1,4 @@
+import { lstatSync } from "node:fs";
 import { lstat, realpath } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import {
@@ -14,6 +15,8 @@ import { PsycheError } from "@psyche/protocol";
 export interface GrantedFolder {
   path: string;
   mode: "ro" | "rw";
+  /** One attached file: it matches that exact path, and only while it is still a regular file. */
+  file?: boolean;
 }
 
 /**
@@ -41,6 +44,14 @@ export function isUnder(child: string, root: string): boolean {
   return isUnderHostPath(child, root);
 }
 
+function isRegularFile(path: string): boolean {
+  try {
+    return lstatSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Defense in depth behind the broker: the canonical path must lie in a granted folder, and in
  * an `rw` one for a write. The broker already denies these calls (`folder:not_granted` /
@@ -57,7 +68,11 @@ export function assertGranted(
   let best: GrantedFolder | undefined;
   for (const f of folders) {
     const root = canonicalTarget(f.path);
-    if (isUnder(path, root) && (best === undefined || root.length > best.path.length)) {
+    // A file entry is that exact path, and only while it is still a regular file: a file
+    // replaced by a folder opens nothing inside it.
+    const hit = f.file === true ? isUnder(path, root) && isUnder(root, path) : isUnder(path, root);
+    if (hit && f.file === true && !isRegularFile(root)) continue;
+    if (hit && (best === undefined || root.length > best.path.length)) {
       best = { path: root, mode: f.mode };
     }
   }

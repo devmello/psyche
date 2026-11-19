@@ -141,6 +141,7 @@ export const settingsC: Partial<Catalogue> = {
   "settings.access.scope.conversation": "Este chat",
   "settings.access.scope.limited": "Por enquanto",
   "settings.access.used": "usado {when}",
+  "settings.access.fileOnly": "Um único arquivo · somente leitura",
   "settings.access.revokeNamed": "Revogar {name}",
   "settings.access.loadLabel": "ao que o Psyche pode ter acesso",
   "settings.access.loadFailed": "O Psyche não conseguiu carregar a que pode ter acesso ({reason}).",

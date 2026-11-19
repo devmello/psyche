@@ -583,6 +583,7 @@ export const settings: Partial<Catalogue> = {
   "settings.access.scope.conversation": "此聊天",
   "settings.access.scope.limited": "暂时",
   "settings.access.used": "{when}使用过",
+  "settings.access.fileOnly": "单个文件 · 只读",
   "settings.access.revokeNamed": "撤销{name}",
   "settings.access.loadLabel": "Psyche 能访问的内容",
   "settings.access.loadFailed": "Psyche 无法载入它能访问的内容（{reason}）。",

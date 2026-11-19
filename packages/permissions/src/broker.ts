@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { Receipts, sha256 } from "@psyche/audit";
+import { isUnderHostPath } from "@psyche/hostfs";
 import {
   APPROVAL_ARM_DELAY_MS,
   APPROVAL_TTL_MS,
@@ -57,6 +58,7 @@ import {
   trustedRead,
 } from "./engine.ts";
 import {
+  effectiveEntries,
   type FolderAccessEnv,
   type FolderGrantEntry,
   folderCovers,
@@ -383,7 +385,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       policy: () => this.#policy,
       task: (ctx) => this.#task(ctx),
       peekTask: (ctx) => this.#tasks.get(taskKey(ctx)),
-      sessionFolders: (threadId) => this.#sessionFolders.get(threadId) ?? [],
+      sessionFolders: (threadId) => this.sessionFolders(threadId),
       matchGrant: (key, kind, se, ctx, origin) => this.#matchGrant(key, kind, se, ctx, origin),
       useGrant: (rec, hash, ctx) => this.#useGrant(rec, hash, ctx?.taskId),
       trustedSite: (origin) => this.#trustedSite(origin),
@@ -1975,8 +1977,8 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   /** Every conversation's folders (`once`), for the access list in Settings. */
   allSessionFolders(): { threadId: string; entry: FolderGrantEntry }[] {
-    return [...this.#sessionFolders].flatMap(([threadId, roots]) =>
-      roots.map((entry) => ({ threadId, entry })),
+    return [...this.#sessionFolders.keys()].flatMap((threadId) =>
+      this.sessionFolders(threadId).map((entry) => ({ threadId, entry })),
     );
   }
 
@@ -1985,6 +1987,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     const roots = this.#sessionFolders.get(threadId) ?? [];
     const kept = roots.filter((r) => r.path !== path);
     if (kept.length === roots.length) return false;
+    this.#fileGrantExpiry.delete(`${threadId}\0${path}`);
     if (kept.length === 0) this.#sessionFolders.delete(threadId);
     else this.#sessionFolders.set(threadId, kept);
     await this.#log("folder.revoked", { type: "system" }, { threadId }, { path, scope: "once" });
@@ -1994,7 +1997,16 @@ export class PsychePermissionBroker implements PermissionBroker {
   /** Folders allowed for one conversation (`once`), for the file executors behind the broker. */
   sessionFolders(threadId: string): readonly FolderGrantEntry[] {
     this.#expireFileGrants(threadId);
-    return this.#sessionFolders.get(threadId) ?? [];
+    return effectiveEntries(this.#sessionFolders.get(threadId) ?? []).filter(
+      (e) =>
+        e.file !== true ||
+        !(this.policy.folders ?? []).some((f) => isUnderHostPath(e.path, f.path)),
+    );
+  }
+
+  /** The files attached to this conversation that are still live (not folders). */
+  attachedFiles(threadId: string): readonly FolderGrantEntry[] {
+    return this.sessionFolders(threadId).filter((e) => e.file === true);
   }
 
   /** Drops this conversation's attached-file grants whose 24 hours are over. */
@@ -2037,7 +2049,10 @@ export class PsychePermissionBroker implements PermissionBroker {
       try {
         const file = await resolveFilePick(raw, env);
         const covered = folderCovers(
-          [...(this.policy.folders ?? []), ...this.sessionFolders(threadId)],
+          [
+            ...(this.policy.folders ?? []),
+            ...this.sessionFolders(threadId).filter((e) => e.file !== true),
+          ],
           file.path,
           "ro",
         );
@@ -2045,7 +2060,7 @@ export class PsychePermissionBroker implements PermissionBroker {
           const roots = this.#sessionFolders.get(threadId) ?? [];
           this.#sessionFolders.set(threadId, [
             ...roots.filter((r) => r.path !== file.path),
-            { path: file.path, mode: "ro" },
+            { path: file.path, mode: "ro", file: true },
           ]);
           this.#fileGrantExpiry.set(
             `${threadId}\0${file.path}`,

@@ -14,7 +14,12 @@ import {
 import type { Call, HandlerDef, ResolvedChatContext, ResolvedScreen } from "../context.ts";
 import { readerOf, scrubMessage } from "../message-scrub.ts";
 import { claimWidgetClick } from "../widgets/rate.ts";
-import { attachedFilesPreamble, mimeOfName, resolveAttachedFiles } from "./chat-files.ts";
+import {
+  type AttachedFileInfo,
+  attachedFilesPreamble,
+  mimeOfName,
+  prepareAttachedFiles,
+} from "./chat-files.ts";
 import { requireThread } from "./threads.ts";
 
 const DEFAULT_PAGE = 100;
@@ -54,10 +59,11 @@ function send(
   mode: QueueMode | undefined,
 ) {
   requireThread(call, params.threadId);
-  const attachedFiles =
-    params.attachedFiles === undefined || params.attachedFiles.length === 0
-      ? undefined
-      : resolveAttachedFiles(call, params.threadId, params.attachedFiles);
+  // Checked and described by `prepareAttachedFiles`, before the transaction opened.
+  const attachedFiles = call.prepared as AttachedFileInfo[] | undefined;
+  if (params.attachedFiles?.length && attachedFiles === undefined) {
+    throw new PsycheError("internal", "attached files were not checked");
+  }
   // Ask about my screen: the capture's context, frame and taint (docs/design/screen-ask-2026.md).
   let screen: ResolvedScreen | undefined;
   if (params.screen !== undefined) {
@@ -230,6 +236,8 @@ export function transcriptMarkdown(thread: Thread, messages: readonly Message[])
 export const chatHandlers: Record<string, HandlerDef> = {
   "chat.send": {
     transactional: true,
+    prepare: (call: Call, params: { threadId: string; attachedFiles?: ChatAttachedFile[] }) =>
+      prepareAttachedFiles(call, params),
     run: (
       call: Call,
       params: {

@@ -678,6 +678,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.access.scope.conversation": "Cette discussion",
   "settings.access.scope.limited": "Pour l’instant",
   "settings.access.used": "utilisé {when}",
+  "settings.access.fileOnly": "Un seul fichier · lecture seule",
   "settings.access.revokeNamed": "Révoquer {name}",
   "settings.access.loadLabel": "ce à quoi Psyche peut accéder",
   "settings.access.loadFailed": "Psyche n’a pas pu charger ce à quoi il peut accéder ({reason}).",

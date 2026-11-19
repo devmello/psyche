@@ -667,6 +667,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.access.scope.conversation": "このチャット",
   "settings.access.scope.limited": "一時的",
   "settings.access.used": "{when}に使用",
+  "settings.access.fileOnly": "ファイル 1 つ · 読み取り専用",
   "settings.access.revokeNamed": "{name}を取り消す",
   "settings.access.loadLabel": "Psycheがアクセスできるもの",
   "settings.access.loadFailed": "Psycheはアクセスできるものを読み込めませんでした（{reason}）。",

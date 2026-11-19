@@ -369,7 +369,10 @@ export class MockGateway implements GatewayClient {
   private listeners = new Set<(e: GatewayEvent) => void>();
   private connListeners = new Set<(s: ConnectionState) => void>();
   private idempotent = new Map<string, unknown>();
-  private failures = new Map<string, { code: ErrorCode; message: string }>();
+  private failures = new Map<
+    string,
+    { code: ErrorCode; message: string; details?: Record<string, unknown> }
+  >();
   private latency: number;
   private now: () => string;
   private counter = 0;
@@ -557,6 +560,9 @@ export class MockGateway implements GatewayClient {
     const failure = this.failures.get(method);
     if (failure !== undefined) {
       this.failures.delete(method);
+      if (failure.details !== undefined) {
+        throw new PsycheError(failure.code, failure.message, { details: failure.details });
+      }
       fail(failure.code, failure.message);
     }
     const valid = validateParams(method, params);
@@ -614,8 +620,13 @@ export class MockGateway implements GatewayClient {
   }
 
   /** Makes the next call to `method` fail with `code`. */
-  failNext(method: MethodName, code: ErrorCode, message = `${method} failed`): void {
-    this.failures.set(method, { code, message });
+  failNext(
+    method: MethodName,
+    code: ErrorCode,
+    message = `${method} failed`,
+    details?: Record<string, unknown>,
+  ): void {
+    this.failures.set(method, { code, message, ...(details === undefined ? {} : { details }) });
   }
 
   /** Streams an agent reply as `chat.delta` chunks, then commits it with `chat.message`. */

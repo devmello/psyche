@@ -618,6 +618,7 @@ export const settings: Partial<Catalogue> = {
   "settings.access.scope.conversation": "هذه الدردشة",
   "settings.access.scope.limited": "مؤقتًا",
   "settings.access.used": "استُخدم {when}",
+  "settings.access.fileOnly": "ملف واحد · للقراءة فقط",
   "settings.access.revokeNamed": "إلغاء إذن {name}",
   "settings.access.loadLabel": "ما يستطيع Psyche الوصول إليه",
   "settings.access.loadFailed": "تعذّر على Psyche تحميل ما يستطيع الوصول إليه ({reason}).",

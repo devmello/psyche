@@ -360,6 +360,7 @@ export function ChatThread({
       // The finished uploads go with this message; the chips clear once it is on its way.
       const sentIds = attachments.ids;
       const sentFiles = attachments.attachedFiles;
+      const sentChips = attachments.snapshot();
       const sentContext = askContext
         ? {
             ref: askContext.ref,
@@ -383,6 +384,11 @@ export function ChatThread({
             ...(sentContext ? { context: sentContext } : {}),
           });
         } catch (err) {
+          // The chat was busy (a file cannot join a turn that is running): the chips come back.
+          const busy = err as { code?: string; details?: { reason?: string } };
+          if (busy.code === "conflict" && busy.details?.reason === "thread_busy") {
+            attachments.restore(sentChips);
+          }
           // The optimistic bubble is gone; keep the text one click from going out again.
           setSentAt(null);
           setNotice({
@@ -420,6 +426,8 @@ export function ChatThread({
       attachments.ids,
       attachments.attachedFiles,
       attachments.clear,
+      attachments.restore,
+      attachments.snapshot,
       askContext,
       clearAskContext,
       outbox.enabled,

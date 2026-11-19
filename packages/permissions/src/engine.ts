@@ -104,7 +104,7 @@ export interface DryRun {
 export interface EngineDeps {
   policy(): CompiledPolicy;
   /** Folders the owner allowed for one conversation only (`folder_access`, scope `once`). */
-  sessionFolders?(threadId: string): readonly { path: string; mode: "ro" | "rw" }[];
+  sessionFolders?(threadId: string): readonly { path: string; mode: "ro" | "rw"; file?: true }[];
   /** The Task's state, created on first use (`decide`). */
   task(ctx: PolicyContext): TaskState;
   /** The Task's state if the broker has one, without creating it (`preview`). */
@@ -241,7 +241,11 @@ export class PolicyEngine {
       ...p.folders,
       ...(threadId === undefined ? [] : (this.#d.sessionFolders?.(threadId) ?? [])),
     ].sort((a, b) => b.path.length - a.path.length);
-    for (const f of roots) if (isUnder(path, f.path)) return { ...f, workspace: false };
+    for (const f of roots) {
+      const hit =
+        f.file === true ? isUnder(path, f.path) && isUnder(f.path, path) : isUnder(path, f.path);
+      if (hit) return { ...f, workspace: false };
+    }
     return undefined;
   }
 

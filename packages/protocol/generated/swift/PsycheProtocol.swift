@@ -1716,6 +1716,7 @@ public struct AccessListResult: Codable, Sendable {
 
 // MARK: - AccessEntry
 public struct AccessEntry: Codable, Sendable {
+    public let file: Bool?
     public let grantID: String?
     public let id: String
     public let kind: ApprovalKind?
@@ -1729,6 +1730,7 @@ public struct AccessEntry: Codable, Sendable {
     public let type: AccessEntryType
 
     public enum CodingKeys: String, CodingKey {
+        case file = "file"
         case grantID = "grantId"
         case id = "id"
         case kind = "kind"
@@ -1742,7 +1744,8 @@ public struct AccessEntry: Codable, Sendable {
         case type = "type"
     }
 
-    public init(grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, path: String? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, path: String? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+        self.file = file
         self.grantID = grantID
         self.id = id
         self.kind = kind

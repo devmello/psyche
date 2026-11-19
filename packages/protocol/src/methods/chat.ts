@@ -108,7 +108,7 @@ export const ChatMethods = {
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Desktop app only (the web shell has no real paths and uploads to the Library instead). The owner picked or dropped these files on a message: each gets a read-only grant for exactly that file (not its folder) in this thread, for 24 hours or until the thread ends. The pick is the approval, so there is no card; a file under a sensitive root (~/.ssh, ~/.psyche, ~/Library, ...), a folder or a missing file is refused and listed in `refused`. Returns name, size and type for the chip. forbidden outside the desktop app.",
+      "Desktop app only (the web shell has no real paths and uploads to the Library instead). The owner picked or dropped these files on a message: each gets a read-only grant for exactly that file (not its folder) in this thread, for 24 hours, until Clear chat or deletion of the thread, or until a restart. The pick is the approval, so there is no card; a file under a sensitive root (~/.ssh, ~/.psyche, ~/Library, ...), a folder or a missing file is refused and listed in `refused`. Returns name, size and type for the chip. forbidden outside the desktop app.",
   }),
   "chat.send": defineMethod({
     params: Type.Object({

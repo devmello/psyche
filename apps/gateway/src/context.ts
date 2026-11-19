@@ -275,9 +275,9 @@ export interface GatewayContext {
   readonly chatContext: { resolve: ChatContextResolver | null };
   /**
    * Files attached from disk (desktop): `attach` grants the owner's picks read-only for one
-   * thread (the broker's `attachFiles`), `granted` lists the folders and files that thread may
-   * read. The composition root sets both; without them chat.attachFiles is unavailable and a
-   * send naming `attachedFiles` is refused.
+   * thread (the broker's `attachFiles`), `attached` lists the files it holds for that thread.
+   * The composition root sets both; without them chat.attachFiles is unavailable and a send
+   * naming `attachedFiles` is refused.
    */
   readonly chatFiles: {
     attach:
@@ -290,8 +290,15 @@ export interface GatewayContext {
           refused: { path: string; reason: string }[];
         }>)
       | null;
-    granted: ((threadId: string) => readonly { path: string; mode: "ro" | "rw" }[]) | null;
+    /** The files attached to the thread whose grant is still live (never folders). */
+    attached: ((threadId: string) => readonly { path: string }[]) | null;
   };
+  /**
+   * A thread's conversation ended (Clear chat, delete): whatever the broker holds for that
+   * conversation alone (its "Allow once" folders, attached files) ends with it. The composition
+   * root adds `broker.endSession`.
+   */
+  readonly threadEnded: Set<(threadId: string) => void>;
   /** Per-reader pass over messages that carry a life answer (`chat.history`, `chat.message`, exports). */
   readonly messageScrub: MessageScrub;
   serverOrigin(): string;
@@ -315,6 +322,8 @@ export interface Call {
   readonly conn: LiveConnection;
   readonly identity: PairedIdentity;
   readonly method: string;
+  /** What the handler's `prepare` returned. */
+  readonly prepared?: unknown;
   /**
    * Queues an event to publish after the request's transaction commits (architecture §4.2
    * step 6: committed before it is acknowledged). Outside a transaction it publishes at once.
@@ -328,6 +337,11 @@ export type Handler = (call: Call, params: never) => unknown;
 
 export interface HandlerDef {
   readonly run: Handler;
+  /**
+   * Async work that must finish before a transactional handler's transaction opens (file
+   * system checks): its result is `call.prepared`. A throw fails the call.
+   */
+  readonly prepare?: (call: Call, params: never) => Promise<unknown>;
   /**
    * The handler is synchronous and runs inside one SQLite transaction together with its
    * idempotency record; events and `afterCommit` work run only once it commits.

@@ -44,6 +44,10 @@ export interface UseAttachments {
   uploading: boolean;
   /** After a send: forget the chips. */
   clear: () => void;
+  /** The send was refused (the chat was busy): put the chips back. */
+  restore: (chips: readonly AttachmentChip[]) => void;
+  /** The chips now, for a send to keep until it is accepted. */
+  snapshot: () => readonly AttachmentChip[];
   /** Library items handed to this composer (Send to chat): ready chips, refused ones named. */
   addItems: (items: readonly LibraryAttachItem[]) => void;
 }
@@ -171,6 +175,11 @@ export function useAttachments(
     dispatch({ type: "clear" });
   }, []);
 
+  const restore = useCallback((back: readonly AttachmentChip[]) => {
+    if (back.length > 0) dispatch({ type: "add", chips: back });
+  }, []);
+  const snapshot = useCallback(() => chipsRef.current, []);
+
   const addItems = useCallback((items: readonly LibraryAttachItem[]) => {
     const { chips: added, refused: no } = libraryChips(
       items,
@@ -211,6 +220,8 @@ export function useAttachments(
     attachedFiles: attachedPaths(chips),
     uploading: uploading(chips),
     clear,
+    restore,
+    snapshot,
     addItems,
   };
 }

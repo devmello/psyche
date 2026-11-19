@@ -6,6 +6,7 @@ export interface AccessListResult {
 }
 
 export interface AccessEntry {
+    file?:       boolean;
     grantId?:    string;
     id:          string;
     kind?:       ApprovalKind;

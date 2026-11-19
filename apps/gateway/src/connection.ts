@@ -456,11 +456,15 @@ export class Connection implements LiveConnection {
     const events: Array<() => void> = [];
     const after: Array<() => void> = [];
     let inTx = false;
+    let prepared: unknown;
     const call: Call = {
       ctx,
       conn: this,
       identity,
       method,
+      get prepared() {
+        return prepared;
+      },
       emit: <E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string) => {
         const publish = () => ctx.bus.publish(event, payload, threadId);
         if (inTx) events.push(publish);
@@ -471,6 +475,7 @@ export class Connection implements LiveConnection {
         else fn();
       },
     };
+    if (def.prepare !== undefined) prepared = await def.prepare(call, params as never);
     if (!def.transactional) {
       const out = await def.run(call, params as never);
       this.#healAnswers(method);

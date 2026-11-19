@@ -660,6 +660,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.access.scope.conversation": "이 대화",
   "settings.access.scope.limited": "지금만",
   "settings.access.used": "{when}에 사용됨",
+  "settings.access.fileOnly": "파일 하나 · 읽기 전용",
   "settings.access.revokeNamed": "{name} 해제",
   "settings.access.loadLabel": "Psyche가 접근할 수 있는 항목",
   "settings.access.loadFailed": "Psyche가 접근 가능한 항목을 불러오지 못했습니다 ({reason}).",

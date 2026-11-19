@@ -327,6 +327,22 @@ describe("files from disk (desktop): attached in place, not uploaded", () => {
     );
   });
 
+  it("a send refused because the chat is busy puts the chips back", async () => {
+    const gw = mount({ caps: { vision: true }, pathOfFile });
+    const input = (await screen.findByTestId("attach-input")) as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [new File(["Q3"], "report.txt", { type: "text/plain" })] },
+    });
+    const chips = await screen.findByTestId("attach-chips");
+    await waitFor(() => expect(chips.querySelector("[data-status=ready]")).not.toBeNull());
+    gw().failNext("chat.send", "conflict", "the agent is busy", { reason: "thread_busy" });
+    await userEvent.type(screen.getByRole("textbox", { name: /^Message / }), "hi{Enter}");
+    await waitFor(() => expect(gw().calls.some((c) => c.method === "chat.send")).toBe(true));
+    const back = await screen.findByTestId("attach-chips");
+    expect(within(back).getByText("report.txt")).toBeTruthy();
+    await waitFor(() => expect(back.querySelector("[data-status=ready]")).not.toBeNull());
+  });
+
   it("a file without a path (a paste) is still uploaded", async () => {
     const gw = mount({ caps: { vision: true }, pathOfFile });
     const box = await screen.findByRole("textbox", { name: /^Message / });
