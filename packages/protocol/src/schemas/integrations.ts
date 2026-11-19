@@ -168,11 +168,12 @@ export type LinkSetupStatus = Static<typeof LinkSetupStatus>;
 /**
  * Where the 1Password setup stands (Settings → Credentials). `not_installed`: no safe `op` found;
  * `not_integrated`: `op` finds no account, so the app's "Integrate with 1Password CLI" is off;
- * `locked`: an account exists but 1Password is locked or signed out; `signed_in`: `op whoami`
+ * `found`: a safe `op` exists but nothing has run yet (opening the panel never runs `op` unless
+ * connected); `locked`: an account exists but 1Password is locked or signed out; `signed_in`: `op whoami`
  * answers; `error`: `op` ran and failed some other way.
  */
 export const OnePasswordSetupState = StringEnum(
-  ["not_installed", "not_integrated", "locked", "signed_in", "error"],
+  ["not_installed", "found", "not_integrated", "locked", "signed_in", "error"],
   { $id: "OnePasswordSetupState" },
 );
 export type OnePasswordSetupState = Static<typeof OnePasswordSetupState>;
@@ -184,6 +185,10 @@ export const OnePasswordSetupStatus = Type.Object(
     connected: Type.Boolean(),
     /** Set when `credentials.onePassword` in config.json already supplies the source. */
     managedBy: Type.Optional(StringEnum(["config"])),
+    /** Why a file was refused: it changed since Connect, or is not signed by 1Password. */
+    problem: Type.Optional(StringEnum(["op_changed", "op_unsigned"])),
+    /** Where the Gateway runs: the install command differs. */
+    os: StringEnum(["macos", "other"]),
     /** The `op` Psyche would run (a real file that passed the safety check). */
     op: Type.Optional(Type.Object({ path: Type.String() })),
     /** From `op whoami` when signed in: the account address and email, never a token. */

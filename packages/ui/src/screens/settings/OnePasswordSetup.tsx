@@ -23,6 +23,7 @@ const INSTALL_COMMAND = "brew install --cask 1password-cli";
 type Busy = "check" | "connect" | "test" | "disconnect" | null;
 
 const STEP_KEY = {
+  found: "settings.credentials.onePassword.found.body",
   not_installed: "settings.credentials.onePassword.notInstalled.body",
   not_integrated: "settings.credentials.onePassword.notIntegrated.body",
   locked: "settings.credentials.onePassword.locked.body",
@@ -37,7 +38,9 @@ export function OnePasswordSetupPanel(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [tested, setTested] = useState<number | null>(null);
 
-  const status: OnePasswordSetupStatus | undefined = q.data;
+  // What Check again found; the loaded status (which runs no `op`) until then.
+  const [probed, setProbed] = useState<OnePasswordSetupStatus | null>(null);
+  const status: OnePasswordSetupStatus | undefined = probed ?? q.data;
   const forbidden = q.errorCode === "forbidden";
 
   const run = (what: Exclude<Busy, null>, fn: () => Promise<unknown>): void => {
@@ -64,15 +67,18 @@ export function OnePasswordSetupPanel(): ReactElement {
     else globalThis.open?.(ONEPASSWORD_GUIDE_URL, "_blank", "noopener,noreferrer");
   };
 
-  const recheck = (): void => run("check", async () => q.reload());
+  const recheck = (): void =>
+    run("check", async () => setProbed(await call("vault.onePassword.status", { probe: true })));
   const connect = (): void =>
     run("connect", async () => {
       await call("vault.onePassword.connect", {});
+      setProbed(null);
       q.reload();
     });
   const disconnect = (): void =>
     run("disconnect", async () => {
       await call("vault.onePassword.disconnect", {});
+      setProbed(null);
       q.reload();
     });
   const test = (): void =>
@@ -146,7 +152,7 @@ function Step({
   onTest: () => void;
   onDisconnect: () => void;
 }): ReactElement {
-  const { state, connected, account } = status;
+  const { state, connected, account, problem } = status;
   if (status.managedBy === "config") {
     return <p className="text-callout">{t("settings.credentials.onePassword.config")}</p>;
   }
@@ -155,10 +161,14 @@ function Step({
     <div className="flex flex-col gap-2">
       {state !== "signed_in" ? (
         <p className="text-callout" data-testid="onepassword-step">
-          {t(STEP_KEY[state])}
+          {problem === "op_changed"
+            ? t("settings.credentials.onePassword.changed.body")
+            : problem === "op_unsigned"
+              ? t("settings.credentials.onePassword.unsigned.body")
+              : t(STEP_KEY[state])}
         </p>
       ) : null}
-      {state === "not_installed" ? (
+      {state === "not_installed" && status.os === "macos" ? (
         <code className="w-fit rounded bg-gray-4 px-2 py-1 text-footnote">{INSTALL_COMMAND}</code>
       ) : null}
       {signedIn && account ? (
@@ -181,7 +191,9 @@ function Step({
               {t("settings.credentials.onePassword.guide")}
             </Button>
             <Button type="button" size="sm" disabled={disabled} onClick={onCheck}>
-              {t("settings.credentials.onePassword.check")}
+              {state === "found"
+                ? t("settings.credentials.onePassword.checkNow")
+                : t("settings.credentials.onePassword.check")}
             </Button>
           </>
         ) : null}

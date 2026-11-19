@@ -1196,7 +1196,7 @@ export const it: Partial<Catalogue> = {
   "settings.credentials.onePassword.check": "Controlla di nuovo",
   "settings.credentials.onePassword.guide": "Apri la guida",
   "settings.credentials.onePassword.notInstalled.body":
-    "Psyche non trova lo strumento da riga di comando di 1Password (op) su questo Mac. Installalo, poi controlla di nuovo.",
+    "Psyche non trova lo strumento da riga di comando di 1Password (op) su questo computer. Installalo, poi controlla di nuovo.",
   "settings.credentials.onePassword.notIntegrated.body":
     "Nell’app 1Password apri Impostazioni, scegli Sviluppatore e attiva Integra con la CLI di 1Password. Poi controlla di nuovo.",
   "settings.credentials.onePassword.locked.body":
@@ -1216,6 +1216,13 @@ export const it: Partial<Catalogue> = {
   "settings.credentials.onePassword.config":
     "1Password è configurato nel config.json del Gateway. Modificalo lì.",
   "settings.credentials.onePassword.failed": "Non ha funzionato: {reason}",
+  "settings.credentials.onePassword.found.body":
+    "Psyche ha trovato lo strumento da riga di comando di 1Password. Scegli Controlla per vedere a che punto è la configurazione.",
+  "settings.credentials.onePassword.checkNow": "Controlla",
+  "settings.credentials.onePassword.changed.body":
+    "Lo strumento da riga di comando di 1Password è cambiato dopo la connessione. Controlla di nuovo.",
+  "settings.credentials.onePassword.unsigned.body":
+    "Il file op trovato da Psyche non è firmato da 1Password, quindi Psyche non lo eseguirà. Installa op da 1Password, poi controlla di nuovo.",
   "settings.credentials.vault.confirm.title": "Conferma la tua chiave di recupero",
   "settings.credentials.vault.confirm.body":
     "Digita l’ultimo gruppo della chiave di recupero, la parte dopo l’ultimo trattino, per mostrare che l’hai salvata.",

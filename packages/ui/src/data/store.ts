@@ -890,7 +890,8 @@ export class GatewayStore {
           "memory.catchup.",
         ]);
       case "credential.updated":
-        return invalidate(s, ["vault."]);
+        // The 1Password setup is not a credential: reloading it would run `op` again.
+        return invalidate(s, ["vault."], ["vault.onePassword."]);
       case "vault.payment.updated":
       case "payments.link.changed":
         return invalidate(s, ["vault.payments"]);
@@ -969,11 +970,15 @@ export function withAutomationRun(s: UiState, run: AutomationRun, started: boole
 }
 
 /** Marks generic queries whose method starts with one of `prefixes` as needing a reload. */
-function invalidate(s: UiState, prefixes: readonly string[]): UiState {
+function invalidate(
+  s: UiState,
+  prefixes: readonly string[],
+  except: readonly string[] = [],
+): UiState {
   let changed = false;
   const queries: Record<string, (typeof s.queries)[string]> = { ...s.queries };
   for (const [key, q] of Object.entries(queries)) {
-    if (prefixes.some((p) => key.startsWith(p))) {
+    if (prefixes.some((p) => key.startsWith(p)) && !except.some((p) => key.startsWith(p))) {
       queries[key] = { ...q, version: -1 };
       changed = true;
     }

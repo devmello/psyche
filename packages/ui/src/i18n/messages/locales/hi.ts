@@ -1210,7 +1210,7 @@ export const hi: Partial<Catalogue> = {
   "settings.credentials.onePassword.check": "फिर से जाँचें",
   "settings.credentials.onePassword.guide": "गाइड खोलें",
   "settings.credentials.onePassword.notInstalled.body":
-    "Psyche को इस Mac पर 1Password का कमांड-लाइन टूल (op) नहीं मिल रहा। उसे इंस्टॉल करें, फिर दोबारा जाँचें।",
+    "Psyche को इस कंप्यूटर पर 1Password का कमांड-लाइन टूल (op) नहीं मिल रहा। उसे इंस्टॉल करें, फिर दोबारा जाँचें।",
   "settings.credentials.onePassword.notIntegrated.body":
     "1Password ऐप में सेटिंग्स खोलें, डेवलपर चुनें और “1Password CLI के साथ इंटीग्रेट करें” चालू करें। फिर दोबारा जाँचें।",
   "settings.credentials.onePassword.locked.body":
@@ -1229,6 +1229,13 @@ export const hi: Partial<Catalogue> = {
   "settings.credentials.onePassword.config":
     "1Password Gateway की config.json में सेट है। बदलाव वहीं करें।",
   "settings.credentials.onePassword.failed": "यह काम नहीं किया: {reason}",
+  "settings.credentials.onePassword.found.body":
+    "Psyche को 1Password का कमांड-लाइन टूल मिल गया। सेटअप कहाँ तक हुआ है, यह देखने के लिए जाँचें चुनें।",
+  "settings.credentials.onePassword.checkNow": "जाँचें",
+  "settings.credentials.onePassword.changed.body":
+    "आपके कनेक्ट करने के बाद 1Password का कमांड-लाइन टूल बदल गया है। दोबारा जाँचें।",
+  "settings.credentials.onePassword.unsigned.body":
+    "Psyche को मिली op फ़ाइल 1Password द्वारा साइन नहीं की गई है, इसलिए Psyche उसे नहीं चलाएगा। 1Password से op इंस्टॉल करें, फिर दोबारा जाँचें।",
   "settings.credentials.vault.confirm.title": "अपनी रिकवरी की की पुष्टि करें",
   "settings.credentials.vault.confirm.body":
     "यह दिखाने के लिए कि आपने इसे सेव किया है, अपनी रिकवरी की का आखिरी समूह लिखें, यानी आखिरी डैश के बाद का हिस्सा।",

@@ -8769,6 +8769,8 @@ export interface OnePasswordSetupStatus {
     connected:  boolean;
     managedBy?: ManagedByEnum;
     op?:        OpClass;
+    os:         OS;
+    problem?:   ProblemEnum;
     state:      OnePasswordSetupState;
 }
 
@@ -8783,7 +8785,11 @@ export interface OpClass {
     path: string;
 }
 
-export type OnePasswordSetupState = "not_installed" | "not_integrated" | "locked" | "signed_in" | "error";
+export type OS = "macos" | "other";
+
+export type ProblemEnum = "op_changed" | "op_unsigned";
+
+export type OnePasswordSetupState = "not_installed" | "found" | "not_integrated" | "locked" | "signed_in" | "error";
 
 export type OSPermission = "a11yBus" | "screenCastPortal" | "remoteDesktopPortal" | "x11";
 
@@ -8846,7 +8852,7 @@ export interface PaymentsLinkChangedPayload {
 export interface LinkSetupStatus {
     candidates: LinkSetupStatusCandidate[];
     cli?:       CLI;
-    problem?:   Problem;
+    problem?:   ProblemClass;
     signIn?:    SignInClass;
     state:      LinkSetupState;
 }
@@ -8862,7 +8868,7 @@ export interface CLI {
 
 export type CLISource = "saved" | "env";
 
-export interface Problem {
+export interface ProblemClass {
     path:   string;
     reason: LinkSetupReason;
 }
@@ -12711,6 +12717,10 @@ export interface VaultLockedPayload {
 }
 
 export type VaultLockedPayloadReason = "manual" | "idle" | "sleep" | "screen_lock" | "shutdown";
+
+export interface VaultOnePasswordStatusParams {
+    probe?: boolean;
+}
 
 export interface VaultPaymentUpdatedPayload {
     payment: VaultPayment;

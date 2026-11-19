@@ -3748,7 +3748,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Where the 1Password setup stands: op not installed, app integration off, locked, or signed in (with the account address and email). Runs op's account commands without a token; never reads an item or a secret. 1Password may show its own unlock prompt.",
+        "description": "Where the 1Password setup stands: op not installed, app integration off, locked, or signed in (with the account address and email). Finds and checks the op file (state found) without running it; op's account commands run only with probe true, or while connected (cached 60 s). Never reads an item or a secret; 1Password may show its own unlock prompt.",
         "name": "vault.onePassword.status",
         "params": "#/$defs/VaultOnePasswordStatusParams",
         "result": "#/$defs/OnePasswordSetupStatus",
@@ -33741,6 +33741,7 @@
     "OnePasswordSetupState": {
       "enum": [
         "not_installed",
+        "found",
         "not_integrated",
         "locked",
         "signed_in",
@@ -33759,6 +33760,20 @@
         "managedBy": {
           "enum": [
             "config"
+          ],
+          "type": "string"
+        },
+        "problem": {
+          "enum": [
+            "op_changed",
+            "op_unsigned"
+          ],
+          "type": "string"
+        },
+        "os": {
+          "enum": [
+            "macos",
+            "other"
           ],
           "type": "string"
         },
@@ -33791,7 +33806,8 @@
       },
       "required": [
         "state",
-        "connected"
+        "connected",
+        "os"
       ],
       "type": "object"
     },
@@ -47824,7 +47840,11 @@
       "type": "object"
     },
     "VaultOnePasswordStatusParams": {
-      "properties": {},
+      "properties": {
+        "probe": {
+          "type": "boolean"
+        }
+      },
       "type": "object"
     },
     "VaultOnePasswordTestParams": {

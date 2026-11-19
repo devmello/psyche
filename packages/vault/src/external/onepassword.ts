@@ -63,6 +63,8 @@ export interface OpCliOptions {
    * child gets no token at all.
    */
   token?: TokenProvider;
+  /** The account address (`OP_ACCOUNT`) when the 1Password app has several. */
+  account?: string;
   timeoutMs?: number;
   /** Injected for tests. */
   run?: (file: string, args: string[], env: Record<string, string>) => Promise<string>;
@@ -93,6 +95,7 @@ export class OpCliSource implements OnePasswordSource {
 
   async #exec(args: string[]): Promise<string> {
     const env: Record<string, string> = cliBaseEnv();
+    if (this.#o.account !== undefined) env.OP_ACCOUNT = this.#o.account;
     if (this.#o.token !== undefined) {
       const handle = await this.#o.token();
       handle.use((t) => {
@@ -118,7 +121,7 @@ export class OpCliSource implements OnePasswordSource {
       }
       return fail("unavailable", "the 1Password CLI failed", { reason: "op_failed" });
     } finally {
-      env.OP_SERVICE_ACCOUNT_TOKEN = "";
+      if (this.#o.token !== undefined) env.OP_SERVICE_ACCOUNT_TOKEN = "";
     }
   }
 

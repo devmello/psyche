@@ -1188,7 +1188,7 @@ export const fr: Partial<Catalogue> = {
   "settings.credentials.onePassword.check": "Revérifier",
   "settings.credentials.onePassword.guide": "Ouvrir le guide",
   "settings.credentials.onePassword.notInstalled.body":
-    "Psyche ne trouve pas l’outil en ligne de commande de 1Password (op) sur ce Mac. Installez-le, puis revérifiez.",
+    "Psyche ne trouve pas l’outil en ligne de commande de 1Password (op) sur cet ordinateur. Installez-le, puis revérifiez.",
   "settings.credentials.onePassword.notIntegrated.body":
     "Dans l’app 1Password, ouvrez Réglages, choisissez Développeur et activez Intégrer à la CLI 1Password. Puis revérifiez.",
   "settings.credentials.onePassword.locked.body":
@@ -1208,6 +1208,13 @@ export const fr: Partial<Catalogue> = {
   "settings.credentials.onePassword.config":
     "1Password est configuré dans le config.json du Gateway. Modifiez-le là-bas.",
   "settings.credentials.onePassword.failed": "Cela n’a pas fonctionné : {reason}",
+  "settings.credentials.onePassword.found.body":
+    "Psyche a trouvé l’outil en ligne de commande de 1Password. Choisissez Vérifier pour voir où en est la configuration.",
+  "settings.credentials.onePassword.checkNow": "Vérifier",
+  "settings.credentials.onePassword.changed.body":
+    "L’outil en ligne de commande de 1Password a changé depuis votre connexion. Revérifiez.",
+  "settings.credentials.onePassword.unsigned.body":
+    "Le fichier op trouvé par Psyche n’est pas signé par 1Password, donc Psyche ne l’exécutera pas. Installez op depuis 1Password, puis revérifiez.",
   "settings.credentials.vault.confirm.title": "Confirmez votre clé de récupération",
   "settings.credentials.vault.confirm.body":
     "Saisissez le dernier groupe de votre clé de récupération, la partie après le dernier tiret, pour montrer que vous l’avez conservée.",

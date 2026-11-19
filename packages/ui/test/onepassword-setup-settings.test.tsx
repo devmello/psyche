@@ -15,24 +15,43 @@ afterEach(cleanup);
 
 const account = { url: "my.1password.com", email: "owner@example.com" };
 const statuses = {
-  not_installed: { state: "not_installed", connected: false },
+  not_installed: { state: "not_installed", connected: false, os: "macos" as const },
   not_integrated: {
     state: "not_integrated",
     connected: false,
+    os: "macos" as const,
     op: { path: "/opt/homebrew/bin/op" },
   },
-  locked: { state: "locked", connected: false, op: { path: "/opt/homebrew/bin/op" } },
-  error: { state: "error", connected: false, op: { path: "/opt/homebrew/bin/op" } },
+  locked: {
+    state: "locked",
+    connected: false,
+    os: "macos" as const,
+    op: { path: "/opt/homebrew/bin/op" },
+  },
+  error: {
+    state: "error",
+    connected: false,
+    os: "macos" as const,
+    op: { path: "/opt/homebrew/bin/op" },
+  },
   signed_in: {
     state: "signed_in",
     connected: false,
+    os: "macos" as const,
     op: { path: "/opt/homebrew/bin/op" },
     account,
   },
-  connected: { state: "signed_in", connected: true, op: { path: "/opt/homebrew/bin/op" }, account },
+  connected: {
+    state: "signed_in",
+    connected: true,
+    os: "macos" as const,
+    op: { path: "/opt/homebrew/bin/op" },
+    account,
+  },
   config: {
     state: "signed_in",
     connected: false,
+    os: "macos" as const,
     managedBy: "config",
     op: { path: "/opt/homebrew/bin/op" },
     account,
@@ -59,6 +78,11 @@ function setup(status: OnePasswordSetupStatus, extra: { fail?: (g: MockGateway) 
   return { gw: () => gw as unknown as MockGateway, openExternal };
 }
 
+/** Opening the panel runs no `op`; Check asks it. */
+async function check(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await user.click(await screen.findByRole("button", { name: "Check" }));
+}
+
 const button = (name: string) => screen.queryByRole("button", { name });
 const callsOf = (g: MockGateway, method: string) => g.calls.filter((c) => c.method === method);
 
@@ -75,8 +99,43 @@ describe("the step for each state", () => {
     expect(button("Use 1Password in Psyche")).toBeNull();
   });
 
+  it("found: opening the panel runs no op; Check is the first step", async () => {
+    const s = setup(statuses.signed_in);
+    expect((await screen.findByTestId("onepassword-step")).textContent).toContain(
+      "found the 1Password command-line tool",
+    );
+    expect(button("Check")).toBeTruthy();
+    expect(button("Use 1Password in Psyche")).toBeNull();
+    expect(button("Test connection")).toBeNull();
+    // The panel loaded without asking op anything.
+    const status = callsOf(s.gw(), "vault.onePassword.status");
+    expect(status.length).toBeGreaterThan(0);
+    expect(status.every((c) => (c.params as { probe?: boolean }).probe !== true)).toBe(true);
+  });
+
+  it("a changed or unsigned op: says so and offers Check again", async () => {
+    setup({ state: "error", connected: true, os: "macos", problem: "op_changed" });
+    expect((await screen.findByTestId("onepassword-step")).textContent).toContain(
+      "changed since you connected",
+    );
+    cleanup();
+    setup({ state: "error", connected: false, os: "macos", problem: "op_unsigned" });
+    expect((await screen.findByTestId("onepassword-step")).textContent).toContain(
+      "not signed by 1Password",
+    );
+    expect(button("Check again")).toBeTruthy();
+  });
+
+  it("off macOS the install command is not shown", async () => {
+    setup({ state: "not_installed", connected: false, os: "other" });
+    await screen.findByTestId("onepassword-step");
+    expect(screen.queryByText("brew install --cask 1password-cli")).toBeNull();
+    expect(button("Open the guide")).toBeTruthy();
+  });
+
   it("not integrated: names the exact app setting", async () => {
     setup(statuses.not_integrated);
+    await check(userEvent.setup());
     const step = await screen.findByTestId("onepassword-step");
     expect(step.textContent).toContain("Integrate with 1Password CLI");
     expect(step.textContent).toContain("Developer");
@@ -86,6 +145,7 @@ describe("the step for each state", () => {
 
   it("locked: unlock the app", async () => {
     setup(statuses.locked);
+    await check(userEvent.setup());
     expect((await screen.findByTestId("onepassword-step")).textContent).toContain(
       "Unlock the 1Password app",
     );
@@ -95,12 +155,14 @@ describe("the step for each state", () => {
 
   it("error: check again or reinstall op", async () => {
     setup(statuses.error);
+    await check(userEvent.setup());
     expect((await screen.findByTestId("onepassword-step")).textContent).toContain("reinstall op");
     expect(button("Check again")).toBeTruthy();
   });
 
   it("signed in: names the account and offers to use 1Password, plus the test", async () => {
     setup(statuses.signed_in);
+    await check(userEvent.setup());
     expect((await screen.findByTestId("onepassword-step")).textContent).toContain(
       "owner@example.com (my.1password.com)",
     );
@@ -136,16 +198,20 @@ describe("actions", () => {
 
   it("Check again asks the Gateway for the state again", async () => {
     const s = setup(statuses.locked);
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Check again" }));
+    await check(userEvent.setup());
     await waitFor(() =>
-      expect(callsOf(s.gw(), "vault.onePassword.status").length).toBeGreaterThan(1),
+      expect(
+        callsOf(s.gw(), "vault.onePassword.status").some(
+          (c) => (c.params as { probe?: boolean }).probe === true,
+        ),
+      ).toBe(true),
     );
   });
 
   it("Test connection shows a count and nothing else", async () => {
     const s = setup(statuses.signed_in);
     const user = userEvent.setup();
+    await check(user);
     await user.click(await screen.findByRole("button", { name: "Test connection" }));
     const ok = await screen.findByRole("status");
     expect(ok.textContent).toBe("Connected. Found 3 vaults.");
@@ -155,22 +221,24 @@ describe("actions", () => {
   it("connects, then disconnects, with plain calls (no presence step)", async () => {
     const s = setup(statuses.signed_in);
     const user = userEvent.setup();
+    await check(user);
     await user.click(await screen.findByRole("button", { name: "Use 1Password in Psyche" }));
     await screen.findByRole("button", { name: "Disconnect" });
     expect(button("Use 1Password in Psyche")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Disconnect" }));
-    await screen.findByRole("button", { name: "Use 1Password in Psyche" });
+    await screen.findByRole("button", { name: "Check" });
     expect(callsOf(s.gw(), "vault.onePassword.connect")).toHaveLength(1);
     expect(callsOf(s.gw(), "vault.onePassword.disconnect")).toHaveLength(1);
     // Nothing but empty params ever goes to the Gateway: no token, no path.
     for (const c of s.gw().calls.filter((x) => x.method.startsWith("vault.onePassword."))) {
-      expect(c.params).toEqual({});
+      expect(Object.keys(c.params as object).filter((k) => k !== "probe")).toEqual([]);
     }
   });
 
   it("a failed test shows the Gateway's sentence, not a raw error", async () => {
     const s = setup(statuses.signed_in);
     const user = userEvent.setup();
+    await check(user);
     await screen.findByRole("button", { name: "Test connection" });
     s.gw().failNext("vault.onePassword.test", "unavailable", "1Password could not list vaults");
     await user.click(screen.getByRole("button", { name: "Test connection" }));
@@ -188,5 +256,21 @@ describe("who may use it", () => {
     const alert = await screen.findByRole("alert");
     expect(within(alert).getByText("Only an administrator device can do this.")).toBeTruthy();
     expect(screen.queryAllByRole("button")).toHaveLength(0);
+  });
+});
+
+describe("credential events", () => {
+  it("do not reload the 1Password status (that would run op again)", async () => {
+    const s = setup(statuses.connected);
+    await screen.findByText(/read only/);
+    const before = callsOf(s.gw(), "vault.onePassword.status").length;
+    s.gw().emit("credential.updated", {
+      credentialId: "cred_1",
+      change: "rotated",
+      credential: null,
+      ownerConnectorId: null,
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(callsOf(s.gw(), "vault.onePassword.status")).toHaveLength(before);
   });
 });

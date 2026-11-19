@@ -1191,7 +1191,7 @@ export const ja: Partial<Catalogue> = {
   "settings.credentials.onePassword.check": "再確認",
   "settings.credentials.onePassword.guide": "ガイドを開く",
   "settings.credentials.onePassword.notInstalled.body":
-    "このMacで 1Password のコマンドラインツール（op）が見つかりません。インストールしてから再確認してください。",
+    "このコンピュータで 1Password のコマンドラインツール（op）が見つかりません。インストールしてから再確認してください。",
   "settings.credentials.onePassword.notIntegrated.body":
     "1Password アプリで「設定」を開き、「デベロッパー」を選んで「1Password CLI と連携」をオンにします。その後、再確認してください。",
   "settings.credentials.onePassword.locked.body":
@@ -1211,6 +1211,13 @@ export const ja: Partial<Catalogue> = {
   "settings.credentials.onePassword.config":
     "1Password は Gateway の config.json で設定されています。変更はそちらで行ってください。",
   "settings.credentials.onePassword.failed": "うまくいきませんでした：{reason}",
+  "settings.credentials.onePassword.found.body":
+    "Psyche は 1Password のコマンドラインツールを見つけました。「確認」を選ぶと、設定の進み具合がわかります。",
+  "settings.credentials.onePassword.checkNow": "確認",
+  "settings.credentials.onePassword.changed.body":
+    "接続後に 1Password のコマンドラインツールが変更されました。再確認してください。",
+  "settings.credentials.onePassword.unsigned.body":
+    "Psyche が見つけた op ファイルは 1Password の署名がないため、実行しません。1Password から op をインストールして、再確認してください。",
   "settings.credentials.vault.confirm.title": "復旧キーを確認",
   "settings.credentials.vault.confirm.body":
     "保存したことを確認するため、復旧キーの最後のグループ（最後のハイフンより後ろ）を入力してください。",

@@ -1194,7 +1194,7 @@ export const ko: Partial<Catalogue> = {
   "settings.credentials.onePassword.check": "다시 확인",
   "settings.credentials.onePassword.guide": "가이드 열기",
   "settings.credentials.onePassword.notInstalled.body":
-    "이 Mac에서 1Password 명령줄 도구(op)를 찾을 수 없습니다. 설치한 뒤 다시 확인하세요.",
+    "이 컴퓨터에서 1Password 명령줄 도구(op)를 찾을 수 없습니다. 설치한 뒤 다시 확인하세요.",
   "settings.credentials.onePassword.notIntegrated.body":
     "1Password 앱에서 설정을 열고 개발자를 선택한 다음 1Password CLI와 통합을 켜세요. 그런 다음 다시 확인하세요.",
   "settings.credentials.onePassword.locked.body":
@@ -1214,6 +1214,13 @@ export const ko: Partial<Catalogue> = {
   "settings.credentials.onePassword.config":
     "1Password는 Gateway의 config.json에서 설정되어 있습니다. 그곳에서 변경하세요.",
   "settings.credentials.onePassword.failed": "작동하지 않았습니다: {reason}",
+  "settings.credentials.onePassword.found.body":
+    "Psyche가 1Password 명령줄 도구를 찾았습니다. 확인을 선택하면 설정이 어디까지 되었는지 볼 수 있습니다.",
+  "settings.credentials.onePassword.checkNow": "확인",
+  "settings.credentials.onePassword.changed.body":
+    "연결한 뒤 1Password 명령줄 도구가 변경되었습니다. 다시 확인하세요.",
+  "settings.credentials.onePassword.unsigned.body":
+    "Psyche가 찾은 op 파일은 1Password가 서명한 것이 아니므로 실행하지 않습니다. 1Password에서 op를 설치한 뒤 다시 확인하세요.",
   "settings.credentials.vault.confirm.title": "복구 키를 확인하세요",
   "settings.credentials.vault.confirm.body":
     "저장했는지 확인하기 위해 복구 키의 마지막 그룹, 즉 마지막 하이픈 뒤의 부분을 입력하세요.",

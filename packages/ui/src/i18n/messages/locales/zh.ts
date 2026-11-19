@@ -1228,7 +1228,7 @@ export const zh: Partial<Catalogue> = {
   "settings.credentials.onePassword.check": "重新检查",
   "settings.credentials.onePassword.guide": "打开指南",
   "settings.credentials.onePassword.notInstalled.body":
-    "Psyche 在这台 Mac 上找不到 1Password 命令行工具（op）。请先安装，然后重新检查。",
+    "Psyche 在这台电脑上找不到 1Password 命令行工具（op）。请先安装，然后重新检查。",
   "settings.credentials.onePassword.notIntegrated.body":
     "在 1Password 应用中打开“设置”，选择“开发者”，并打开“与 1Password CLI 集成”。然后重新检查。",
   "settings.credentials.onePassword.locked.body":
@@ -1246,6 +1246,13 @@ export const zh: Partial<Catalogue> = {
   "settings.credentials.onePassword.config":
     "1Password 已在 Gateway 的 config.json 中设置。请在那里修改。",
   "settings.credentials.onePassword.failed": "操作没有成功：{reason}",
+  "settings.credentials.onePassword.found.body":
+    "Psyche 找到了 1Password 命令行工具。选择“检查”可查看设置进行到哪一步。",
+  "settings.credentials.onePassword.checkNow": "检查",
+  "settings.credentials.onePassword.changed.body":
+    "自你连接以来，1Password 命令行工具发生了变化。请重新检查。",
+  "settings.credentials.onePassword.unsigned.body":
+    "Psyche 找到的 op 文件不是由 1Password 签名的，因此不会运行它。请从 1Password 安装 op，然后重新检查。",
   "settings.credentials.vault.confirm.title": "确认你的恢复密钥",
   "settings.credentials.vault.confirm.body":
     "输入恢复密钥的最后一组（最后一个短横线之后的部分），以证明你已保存。",

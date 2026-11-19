@@ -1229,7 +1229,7 @@ export const de: Partial<Catalogue> = {
   "settings.credentials.onePassword.check": "Erneut prüfen",
   "settings.credentials.onePassword.guide": "Anleitung öffnen",
   "settings.credentials.onePassword.notInstalled.body":
-    "Psyche findet das 1Password-Befehlszeilenwerkzeug (op) auf diesem Mac nicht. Installiere es und prüfe dann erneut.",
+    "Psyche findet das 1Password-Befehlszeilenwerkzeug (op) auf diesem Computer nicht. Installiere es und prüfe dann erneut.",
   "settings.credentials.onePassword.notIntegrated.body":
     "Öffne in der 1Password-App die Einstellungen, wähle Entwickler und aktiviere „Mit 1Password-CLI integrieren“. Prüfe dann erneut.",
   "settings.credentials.onePassword.locked.body":
@@ -1248,6 +1248,13 @@ export const de: Partial<Catalogue> = {
   "settings.credentials.onePassword.config":
     "1Password ist in der config.json des Gateways eingerichtet. Ändere es dort.",
   "settings.credentials.onePassword.failed": "Das hat nicht funktioniert: {reason}",
+  "settings.credentials.onePassword.found.body":
+    "Psyche hat das 1Password-Befehlszeilenwerkzeug gefunden. Wähle „Prüfen“, um zu sehen, wie weit die Einrichtung ist.",
+  "settings.credentials.onePassword.checkNow": "Prüfen",
+  "settings.credentials.onePassword.changed.body":
+    "Das 1Password-Befehlszeilenwerkzeug hat sich seit dem Verbinden geändert. Prüfe erneut.",
+  "settings.credentials.onePassword.unsigned.body":
+    "Die gefundene op-Datei ist nicht von 1Password signiert, daher führt Psyche sie nicht aus. Installiere op von 1Password und prüfe dann erneut.",
   "settings.credentials.vault.confirm.title": "Bestätige deinen Wiederherstellungsschlüssel",
   "settings.credentials.vault.confirm.body":
     "Gib die letzte Gruppe deines Wiederherstellungsschlüssels ein, also den Teil nach dem letzten Bindestrich, um zu zeigen, dass du ihn gesichert hast.",

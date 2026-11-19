@@ -188,11 +188,11 @@ export const VaultMethods = {
     description: "Lists the owner's Link payment methods (redacted) that can fund purchases.",
   }),
   "vault.onePassword.status": defineMethod({
-    params: Type.Object({}),
+    params: Type.Object({ probe: Type.Optional(Type.Boolean()) }),
     result: OnePasswordSetupStatus,
     scope: "operator.admin",
     description:
-      "Where the 1Password setup stands: op not installed, app integration off, locked, or signed in (with the account address and email). Runs op's account commands without a token; never reads an item or a secret. 1Password may show its own unlock prompt.",
+      "Where the 1Password setup stands: op not installed, app integration off, locked, or signed in (with the account address and email). Finds and checks the op file (state found) without running it; op's account commands run only with probe true, or while connected (cached 60 s). Never reads an item or a secret; 1Password may show its own unlock prompt.",
   }),
   "vault.onePassword.test": defineMethod({
     params: Type.Object({}),

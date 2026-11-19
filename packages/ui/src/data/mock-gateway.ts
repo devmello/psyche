@@ -1024,7 +1024,9 @@ export class MockGateway implements GatewayClient {
 
   /** Where the guided Link setup stands: set by the calls below, else read off the fixtures. */
   private onePasswordOf(): NonNullable<MockWorld["onePassword"]> {
-    this.world.onePassword ??= { status: { state: "not_installed", connected: false } };
+    this.world.onePassword ??= {
+      status: { state: "not_installed", connected: false, os: "macos" },
+    };
     return this.world.onePassword;
   }
 
@@ -3654,7 +3656,19 @@ export class MockGateway implements GatewayClient {
         result: { shortcuts: this.world.shortcuts ?? appleShortcuts() },
       };
     },
-    "vault.onePassword.status": () => this.onePasswordOf().status,
+    "vault.onePassword.status": (p) => {
+      const { status } = this.onePasswordOf();
+      // Like the Gateway: opening the panel runs no `op` unless connected or asked to probe.
+      if (
+        p.probe === true ||
+        status.connected ||
+        status.problem !== undefined ||
+        status.state === "not_installed"
+      )
+        return status;
+      const { account: _a, ...rest } = status;
+      return { ...rest, state: "found" as const };
+    },
     "vault.onePassword.test": () => {
       const op = this.onePasswordOf();
       if (op.status.state !== "signed_in")

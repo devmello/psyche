@@ -1,10 +1,19 @@
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { updateDevice } from "@psyche/db";
 import type { OnePasswordSetupStatus, OnePasswordTestResult } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { checkOpPath, type RunOp } from "../src/compose/onepassword-setup.ts";
 import { releaseAllGatewayLocks } from "../src/pre-update.ts";
@@ -48,16 +57,19 @@ interface Script {
   whoami?: { url: string; email: string } | { fail: string; killed?: boolean };
   /** `op vault list --format json` */
   vaults?: unknown[] | { fail: string };
+  /** Holds `op account list` until released (a slow 1Password). */
+  gate?: Promise<void>;
 }
 
 function fakeOp(script: Script) {
-  const calls: { args: string[]; env: Record<string, string> }[] = [];
-  const run: RunOp = async (_file, args, env) => {
-    calls.push({ args, env });
+  const calls: { file: string; args: string[]; env: Record<string, string> }[] = [];
+  const run: RunOp = async (file, args, env) => {
+    calls.push({ file, args, env });
     const fail = (stderr: string, killed = false) =>
       Promise.reject(Object.assign(new Error("op failed"), { stderr, killed }));
     const key = args.slice(0, 2).join(" ");
     if (key === "account list") {
+      await script.gate;
       const a = script.accounts ?? [{ url: "my.1password.com", email: "owner@example.com" }];
       if (a === "none") return { stdout: "", stderr: NO_ACCOUNT };
       if ("fail" in a) return fail(a.fail);
@@ -90,6 +102,9 @@ interface Boot {
   path?: string;
   config?: boolean;
   home?: string;
+  /** Plays `codesign --verify` for 1Password's team: true = signed by it. */
+  signed?: (path: string) => boolean;
+  platform?: NodeJS.Platform;
 }
 
 async function boot(b: Boot = {}) {
@@ -97,6 +112,7 @@ async function boot(b: Boot = {}) {
   const keyFile = join(home, "vault.key");
   writeFileSync(keyFile, Buffer.alloc(32, 5), { mode: 0o600 });
   const op = fakeOp(b.script ?? {});
+  const codesigns: string[] = [];
   const composed: ComposedGateway = await composeGateway({
     env: {},
     retentionIntervalMs: 0,
@@ -116,7 +132,16 @@ async function boot(b: Boot = {}) {
           }
         : {}),
     },
-    onePasswordSetup: { run: op.run, path: b.path ?? opFolder(), dirs: [] },
+    onePasswordSetup: {
+      run: op.run,
+      path: b.path ?? opFolder(),
+      dirs: [],
+      platform: b.platform ?? "darwin",
+      codesign: async (p: string) => {
+        codesigns.push(p);
+        return (b.signed ?? (() => true))(p);
+      },
+    },
   });
   let stopped = false;
   const stop = async (why: string) => {
@@ -128,7 +153,7 @@ async function boot(b: Boot = {}) {
   if (b.home === undefined) await composed.vault.setup();
   const admin = await adminClient(composed.gateway);
   cleanups.push(() => admin.close());
-  return { composed, admin, op, home, stop };
+  return { composed, admin, op, home, stop, codesigns };
 }
 
 async function pairDevice(composed: ComposedGateway, id: string, scopes: string[]) {
@@ -140,12 +165,14 @@ async function pairDevice(composed: ComposedGateway, id: string, scopes: string[
   return c;
 }
 
-const status = (c: TestClient) => c.call<OnePasswordSetupStatus>("vault.onePassword.status", {});
+const status = (c: TestClient, probe = true) =>
+  c.call<OnePasswordSetupStatus>("vault.onePassword.status", { probe });
+const opRuns = (calls: { args: string[] }[]) => calls.filter((c) => c.args[0] === "account").length;
 
 describe("vault.onePassword.status: one answer per state", () => {
   it("not_installed: no op on PATH", async () => {
     const { admin, op } = await boot({ path: tmp("psyche-empty-") });
-    expect(await status(admin)).toEqual({ state: "not_installed", connected: false });
+    expect(await status(admin)).toEqual({ state: "not_installed", connected: false, os: "macos" });
     expect(op.calls).toHaveLength(0);
   });
 
@@ -351,5 +378,194 @@ describe("checkOpPath", () => {
     writeFileSync(join(open, "op"), "x", { mode: 0o755 });
     chmodSync(open, 0o777);
     expect(checkOpPath(join(open, "op"))).toBeUndefined();
+  });
+});
+
+describe("opening the panel is light (N2)", () => {
+  it("runs no op at all for an owner who has not connected, however often it is asked", async () => {
+    const { admin, op, codesigns } = await boot();
+    for (let i = 0; i < 5; i++) {
+      const s = await status(admin, false);
+      expect(s).toMatchObject({ state: "found", connected: false });
+      expect(s.account).toBeUndefined();
+    }
+    expect(op.calls).toHaveLength(0);
+    // The signature of the same file is checked once.
+    expect(codesigns).toHaveLength(1);
+  });
+
+  it("while connected, five status calls cost at most one round of op commands (60 s cache)", async () => {
+    const { admin, op } = await boot();
+    await admin.call("vault.onePassword.connect", {}, ik());
+    const before = opRuns(op.calls);
+    for (let i = 0; i < 5; i++) expect((await status(admin, false)).state).toBe("signed_in");
+    expect(opRuns(op.calls) - before).toBeLessThanOrEqual(1);
+  });
+
+  it("Check again (probe) always asks op", async () => {
+    const { admin, op } = await boot();
+    await status(admin, true);
+    await status(admin, true);
+    expect(opRuns(op.calls)).toBe(2);
+  });
+});
+
+describe("the op file is pinned (N1)", () => {
+  /** PATH = [planted, real]: the planted folder starts empty, so connect pins the real one. */
+  async function pinned(extra: Boot = {}) {
+    const planted = tmp("psyche-op-planted-");
+    chmodSync(planted, 0o755);
+    const real = opFolder();
+    const b = await boot({ path: `${planted}:${real}`, ...extra });
+    return { ...b, planted, real };
+  }
+
+  it("an op planted earlier on PATH after connect is not run", async () => {
+    const { admin, op, planted, real, composed } = await pinned();
+    const setOp = vi.spyOn(composed.vault, "setOnePassword");
+    await admin.call("vault.onePassword.connect", {}, ik());
+    writeFileSync(join(planted, "op"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    chmodSync(join(planted, "op"), 0o755);
+    op.calls.length = 0;
+
+    const s = await status(admin, true);
+    expect(s).toMatchObject({ state: "signed_in", connected: true });
+    for (const c of op.calls) expect(c.file).toBe(realpathSync(join(real, "op")));
+
+    // A fill reads through the pinned file too, with the connected account.
+    const source = setOp.mock.calls[0]?.[0];
+    expect(await source?.readField({ vault: "V", item: "I" }, "password")).toBe(SECRET);
+    const read = op.calls.find((c) => c.args[0] === "read");
+    expect(read?.file).toBe(realpathSync(join(real, "op")));
+    expect(read?.env.OP_ACCOUNT).toBe("my.1password.com");
+    expect(Object.keys(read?.env ?? {})).not.toContain("OP_SERVICE_ACCOUNT_TOKEN");
+  });
+
+  it("an op that is not signed by 1Password is refused at connect, and never run", async () => {
+    const { admin, op, composed } = await boot({ signed: () => false });
+    const s = await status(admin, true);
+    expect(s).toMatchObject({ state: "error", problem: "op_unsigned" });
+    const res = await admin.request("vault.onePassword.connect", {}, ik());
+    expect(res.error).toMatchObject({ code: "conflict", details: { reason: "op_unsigned" } });
+    expect(op.calls).toHaveLength(0);
+    expect((await status(admin, false)).connected).toBe(false);
+    expect(await composed.audit.query({ kind: "vault.onepassword_connected" })).toHaveLength(0);
+  });
+
+  it("only an unsigned candidate is skipped when a signed one follows", async () => {
+    const bad = opFolder();
+    const good = opFolder();
+    const { admin } = await boot({
+      path: `${bad}:${good}`,
+      signed: (p) => p.startsWith(realpathSync(good)),
+    });
+    const s = await status(admin, true);
+    expect(s.state).toBe("signed_in");
+    expect(s.op?.path).toBe(realpathSync(join(good, "op")));
+  });
+
+  it("a replaced binary is refused at run time and the vault source answers unavailable", async () => {
+    const { admin, real, op, composed } = await pinned();
+    const setOp = vi.spyOn(composed.vault, "setOnePassword");
+    await admin.call("vault.onePassword.connect", {}, ik());
+    const file = join(real, "op");
+    rmSync(file);
+    writeFileSync(file, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    chmodSync(file, 0o755);
+    op.calls.length = 0;
+
+    const s = await status(admin, true);
+    expect(s).toMatchObject({ state: "error", connected: true, problem: "op_changed" });
+    const source = setOp.mock.calls[0]?.[0];
+    await expect(source?.readField({ vault: "V", item: "I" }, "password")).rejects.toMatchObject({
+      code: "unavailable",
+      details: { reason: "op_changed" },
+    });
+    expect(op.calls).toHaveLength(0);
+    // Disconnect still works, and Connect pins the new file after a fresh look.
+    await admin.call("vault.onePassword.disconnect", {}, ik());
+    const again = await admin.call<OnePasswordSetupStatus>("vault.onePassword.connect", {}, ik());
+    expect(again.connected).toBe(true);
+  });
+
+  it("the same file changed in place is checked again, and refused when it lost its signature", async () => {
+    let signed = true;
+    const { admin, real, codesigns } = await pinned({ signed: () => signed });
+    await admin.call("vault.onePassword.connect", {}, ik());
+    const n = codesigns.length;
+    await status(admin, true);
+    expect(codesigns.length).toBe(n); // cached by (dev, ino, mtime)
+    signed = false;
+    const future = new Date(Date.now() + 60_000);
+    utimesSync(join(real, "op"), future, future);
+    const s = await status(admin, true);
+    expect(s).toMatchObject({ state: "error", problem: "op_unsigned" });
+    expect(codesigns.length).toBe(n + 1);
+  });
+
+  it("skips the signature check off macOS", async () => {
+    const { admin, codesigns } = await boot({ platform: "linux" });
+    expect((await status(admin, false)).os).toBe("other");
+    expect(codesigns).toHaveLength(0);
+  });
+});
+
+describe("races and records", () => {
+  it("a Disconnect during Connect's wait wins", async () => {
+    let release = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const { admin, op } = await boot({ script: { gate } });
+    const connecting = admin.request("vault.onePassword.connect", {}, ik());
+    while (op.calls.length === 0) await new Promise((r) => setTimeout(r, 5));
+    await admin.call("vault.onePassword.disconnect", {}, ik());
+    release();
+    const res = await connecting;
+    expect(res.error).toMatchObject({ code: "conflict", details: { reason: "changed" } });
+    expect((await status(admin, false)).connected).toBe(false);
+  });
+
+  it("a restart that reconnects is on the record as the app source", async () => {
+    const { admin, home, stop } = await boot();
+    await admin.call("vault.onePassword.connect", {}, ik());
+    await admin.close();
+    await stop("restart");
+    releaseAllGatewayLocks();
+    const again = await boot({ home });
+    const entries = await again.composed.audit.query({ kind: "vault.external_source" });
+    expect(entries.some((e) => (e.data as { kind?: string }).kind === "app")).toBe(true);
+    expect(JSON.stringify(entries)).not.toContain("owner@example.com");
+  });
+});
+
+describe("checkOpPath ancestors (N3)", () => {
+  it("refuses a world-writable folder anywhere above the file, not just its parent", () => {
+    const top = tmp("psyche-anc-");
+    const mid = join(top, "mid");
+    const bin = join(mid, "bin");
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, "op"), "x", { mode: 0o755 });
+    chmodSync(join(bin, "op"), 0o755);
+    expect(checkOpPath(join(bin, "op"))).toBeDefined();
+    chmodSync(mid, 0o777);
+    expect(checkOpPath(join(bin, "op"))).toBeUndefined();
+  });
+
+  it("finds Psyche's folder by identity, however the path is spelled", () => {
+    const root = tmp("psyche-alias-");
+    const home = join(root, "home");
+    mkdirSync(join(home, "workspace"), { recursive: true });
+    writeFileSync(join(home, "workspace", "op"), "x", { mode: 0o755 });
+    chmodSync(join(home, "workspace", "op"), 0o755);
+    const alias = join(root, "alias");
+    symlinkSync(home, alias);
+    expect(checkOpPath(join(alias, "workspace", "op"), { psycheHome: home })).toBeUndefined();
+    expect(checkOpPath(join(home, "workspace", "op"), { psycheHome: alias })).toBeUndefined();
+    // A sibling folder with a similar name is not Psyche's.
+    mkdirSync(join(root, "home2"));
+    writeFileSync(join(root, "home2", "op"), "x", { mode: 0o755 });
+    chmodSync(join(root, "home2", "op"), 0o755);
+    expect(checkOpPath(join(root, "home2", "op"), { psycheHome: home })).toBeDefined();
   });
 });

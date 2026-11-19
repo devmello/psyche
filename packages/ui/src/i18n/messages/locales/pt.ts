@@ -1160,7 +1160,7 @@ export const pt: Partial<Catalogue> = {
   "settings.credentials.onePassword.check": "Verificar de novo",
   "settings.credentials.onePassword.guide": "Abrir o guia",
   "settings.credentials.onePassword.notInstalled.body":
-    "O Psyche não encontra a ferramenta de linha de comando do 1Password (op) neste Mac. Instale-a e verifique de novo.",
+    "O Psyche não encontra a ferramenta de linha de comando do 1Password (op) neste computador. Instale-a e verifique de novo.",
   "settings.credentials.onePassword.notIntegrated.body":
     "No app do 1Password, abra Ajustes, escolha Desenvolvedor e ative Integrar com a CLI do 1Password. Depois verifique de novo.",
   "settings.credentials.onePassword.locked.body":
@@ -1179,6 +1179,13 @@ export const pt: Partial<Catalogue> = {
   "settings.credentials.onePassword.config":
     "O 1Password está configurado no config.json do Gateway. Altere lá.",
   "settings.credentials.onePassword.failed": "Não funcionou: {reason}",
+  "settings.credentials.onePassword.found.body":
+    "O Psyche encontrou a ferramenta de linha de comando do 1Password. Escolha Verificar para ver como está a configuração.",
+  "settings.credentials.onePassword.checkNow": "Verificar",
+  "settings.credentials.onePassword.changed.body":
+    "A ferramenta de linha de comando do 1Password mudou desde que você conectou. Verifique de novo.",
+  "settings.credentials.onePassword.unsigned.body":
+    "O arquivo op encontrado pelo Psyche não é assinado pelo 1Password, então o Psyche não o executará. Instale o op pelo 1Password e verifique de novo.",
   "settings.credentials.vault.confirm.title": "Confirme sua chave de recuperação",
   "settings.credentials.vault.confirm.body":
     "Digite o último grupo da sua chave de recuperação, a parte depois do último hífen, para mostrar que você a salvou.",

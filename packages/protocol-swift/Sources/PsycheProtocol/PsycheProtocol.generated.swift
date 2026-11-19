@@ -25545,6 +25545,8 @@ public struct OnePasswordSetupStatus: Codable, Sendable {
     public let connected: Bool
     public let managedBy: ManagedByEnum?
     public let op: OpClass?
+    public let os: OS
+    public let problem: ProblemEnum?
     public let state: OnePasswordSetupState
 
     public enum CodingKeys: String, CodingKey {
@@ -25552,14 +25554,18 @@ public struct OnePasswordSetupStatus: Codable, Sendable {
         case connected = "connected"
         case managedBy = "managedBy"
         case op = "op"
+        case os = "os"
+        case problem = "problem"
         case state = "state"
     }
 
-    public init(account: Account? = nil, connected: Bool, managedBy: ManagedByEnum? = nil, op: OpClass? = nil, state: OnePasswordSetupState) {
+    public init(account: Account? = nil, connected: Bool, managedBy: ManagedByEnum? = nil, op: OpClass? = nil, os: OS, problem: ProblemEnum? = nil, state: OnePasswordSetupState) {
         self.account = account
         self.connected = connected
         self.managedBy = managedBy
         self.op = op
+        self.os = os
+        self.problem = problem
         self.state = state
     }
 }
@@ -25597,8 +25603,19 @@ public struct OpClass: Codable, Sendable {
     }
 }
 
+public enum OS: String, Codable, Sendable {
+    case macos = "macos"
+    case other = "other"
+}
+
+public enum ProblemEnum: String, Codable, Sendable {
+    case opChanged = "op_changed"
+    case opUnsigned = "op_unsigned"
+}
+
 public enum OnePasswordSetupState: String, Codable, Sendable {
     case error = "error"
+    case found = "found"
     case locked = "locked"
     case notInstalled = "not_installed"
     case notIntegrated = "not_integrated"
@@ -25786,7 +25803,7 @@ public struct PaymentsLinkChangedPayload: Codable, Sendable {
 public struct LinkSetupStatus: Codable, Sendable {
     public let candidates: [LinkSetupStatusCandidate]
     public let cli: CLI?
-    public let problem: Problem?
+    public let problem: ProblemClass?
     public let signIn: SignInClass?
     public let state: LinkSetupState
 
@@ -25798,7 +25815,7 @@ public struct LinkSetupStatus: Codable, Sendable {
         case state = "state"
     }
 
-    public init(candidates: [LinkSetupStatusCandidate], cli: CLI? = nil, problem: Problem? = nil, signIn: SignInClass? = nil, state: LinkSetupState) {
+    public init(candidates: [LinkSetupStatusCandidate], cli: CLI? = nil, problem: ProblemClass? = nil, signIn: SignInClass? = nil, state: LinkSetupState) {
         self.candidates = candidates
         self.cli = cli
         self.problem = problem
@@ -25841,8 +25858,8 @@ public enum CLISource: String, Codable, Sendable {
     case saved = "saved"
 }
 
-// MARK: - Problem
-public struct Problem: Codable, Sendable {
+// MARK: - ProblemClass
+public struct ProblemClass: Codable, Sendable {
     public let path: String
     public let reason: LinkSetupReason
 
@@ -36003,6 +36020,19 @@ public enum VaultLockedPayloadReason: String, Codable, Sendable {
     case sleep = "sleep"
 }
 
+// MARK: - VaultOnePasswordStatusParams
+public struct VaultOnePasswordStatusParams: Codable, Sendable {
+    public let probe: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case probe = "probe"
+    }
+
+    public init(probe: Bool? = nil) {
+        self.probe = probe
+    }
+}
+
 // MARK: - VaultPaymentUpdatedPayload
 public struct VaultPaymentUpdatedPayload: Codable, Sendable {
     public let payment: VaultPayment
@@ -38572,7 +38602,6 @@ public typealias TerminalSessionWriteResult = [String: JSONAny]
 public typealias VaultLockParams = [String: JSONAny]
 public typealias VaultOnePasswordConnectParams = [String: JSONAny]
 public typealias VaultOnePasswordDisconnectParams = [String: JSONAny]
-public typealias VaultOnePasswordStatusParams = [String: JSONAny]
 public typealias VaultOnePasswordTestParams = [String: JSONAny]
 public typealias VaultPaymentsMethodsParams = [String: JSONAny]
 public typealias VaultStatusParams = [String: JSONAny]

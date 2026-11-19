@@ -1252,7 +1252,7 @@ export const ar: Partial<Catalogue> = {
   "settings.credentials.onePassword.check": "تحقق مرة أخرى",
   "settings.credentials.onePassword.guide": "فتح الدليل",
   "settings.credentials.onePassword.notInstalled.body":
-    "لا يعثر Psyche على أداة سطر أوامر 1Password ‏(op) على هذا الـ Mac. ثبّتها ثم تحقق مرة أخرى.",
+    "لا يعثر Psyche على أداة سطر أوامر 1Password ‏(op) على هذا الكمبيوتر. ثبّتها ثم تحقق مرة أخرى.",
   "settings.credentials.onePassword.notIntegrated.body":
     "في تطبيق 1Password افتح الإعدادات، واختر المطوّر، وفعّل «التكامل مع 1Password CLI». ثم تحقق مرة أخرى.",
   "settings.credentials.onePassword.locked.body":
@@ -1272,6 +1272,13 @@ export const ar: Partial<Catalogue> = {
   "settings.credentials.onePassword.config":
     "تم إعداد 1Password في ملف config.json الخاص بالـ Gateway. غيّره هناك.",
   "settings.credentials.onePassword.failed": "لم تنجح العملية: {reason}",
+  "settings.credentials.onePassword.found.body":
+    "عثر Psyche على أداة سطر أوامر 1Password. اختر «فحص» لمعرفة أين وصل الإعداد.",
+  "settings.credentials.onePassword.checkNow": "فحص",
+  "settings.credentials.onePassword.changed.body":
+    "تغيّرت أداة سطر أوامر 1Password منذ اتصالك. تحقق مرة أخرى.",
+  "settings.credentials.onePassword.unsigned.body":
+    "ملف op الذي وجده Psyche غير موقّع من 1Password، لذا لن يشغّله Psyche. ثبّت op من 1Password ثم تحقق مرة أخرى.",
   "settings.credentials.vault.confirm.title": "أكّد مفتاح الاسترداد",
   "settings.credentials.vault.confirm.body":
     "اكتب المجموعة الأخيرة من مفتاح الاسترداد، أي الجزء بعد الشرطة الأخيرة، لتُثبت أنك حفظته.",

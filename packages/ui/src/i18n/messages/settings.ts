@@ -431,6 +431,13 @@ export const settings = {
   "settings.credentials.onePassword.config":
     "1Password is set up in the Gateway's config.json. Change it there.",
   "settings.credentials.onePassword.failed": "That did not work: {reason}",
+  "settings.credentials.onePassword.found.body":
+    "Psyche found the 1Password command-line tool. Choose Check to see how far the setup is.",
+  "settings.credentials.onePassword.checkNow": "Check",
+  "settings.credentials.onePassword.changed.body":
+    "The 1Password command-line tool changed since you connected. Check again.",
+  "settings.credentials.onePassword.unsigned.body":
+    "The op file Psyche found is not signed by 1Password, so Psyche will not run it. Install op from 1Password, then check again.",
   "settings.credentials.vault.confirm.title": "Confirm your recovery key",
   "settings.credentials.vault.confirm.body":
     "Type the last group of your recovery key, the part after the final dash, to show that you saved it.",
