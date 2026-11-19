@@ -733,3 +733,107 @@ describe("subdomain trust checks the host being read (R2)", () => {
     expect((await h.broker.decide(nav("https://a.example.com"), TASK2)).decision).toBe("allow");
   });
 });
+
+describe("follow-up: multi-tenant apexes, more collectors, exact matches", () => {
+  const APEXES = [
+    "wordpress.com",
+    "tumblr.com",
+    "substack.com",
+    "medium.com",
+    "sharepoint.com",
+    "zendesk.com",
+    "atlassian.net",
+    "itch.io",
+    "blogger.com",
+    "notion.site",
+    "webflow.io",
+    "wixsite.com",
+    "squarespace.com",
+    "myshopify.com",
+    "glitch.me",
+    "replit.app",
+    "repl.co",
+  ];
+  // Already public or private suffixes on the list: refused outright, which is stricter still.
+  const SUFFIXES = [
+    "notion.site",
+    "webflow.io",
+    "wixsite.com",
+    "myshopify.com",
+    "replit.app",
+    "repl.co",
+  ];
+  const APEX_ONLY = APEXES.filter((h) => !SUFFIXES.includes(h));
+  it.each(APEX_ONLY)("%s: the exact origin is trustable, its subdomains are not", (h) => {
+    expect(() => normalizeTrustedSite(`https://${h}`)).not.toThrow();
+    expect(() => normalizeTrustedSite(`https://${h}`, true)).toThrow();
+    const exact = { origin: `https://${h}`, subdomains: false };
+    expect(trustedSiteCovers(exact, `https://${h}`)).toBe(true);
+    // Even an entry already stored with subdomains does not cover a tenant.
+    const stored = { origin: `https://${h}`, subdomains: true };
+    expect(trustedSiteCovers(stored, `https://evil.${h}`)).toBe(false);
+    expect(trustedSiteCovers(stored, `https://${h}`)).toBe(true);
+  });
+  it.each(SUFFIXES)("%s is a suffix on the list: refused with or without subdomains", (h) => {
+    expect(() => normalizeTrustedSite(`https://${h}`)).toThrow();
+    expect(() => normalizeTrustedSite(`https://${h}`, true)).toThrow();
+    expect(
+      trustedSiteCovers({ origin: `https://${h}`, subdomains: true }, `https://evil.${h}`),
+    ).toBe(false);
+  });
+
+  it("control: a tenant's own subdomains stay coverable", () => {
+    const site = normalizeTrustedSite("https://blog.wordpress.com", true);
+    expect(trustedSiteCovers(site, "https://a.blog.wordpress.com")).toBe(true);
+  });
+
+  const COLLECTORS = [
+    "interact.sh",
+    "oast.pro",
+    "oast.live",
+    "oast.site",
+    "oast.online",
+    "oast.fun",
+    "oast.me",
+    "burpcollaborator.net",
+    "canarytokens.com",
+    "requestcatcher.com",
+    "beeceptor.com",
+    "requestrepo.com",
+    "postb.in",
+    "transfer.sh",
+    "paste.ee",
+    "hastebin.com",
+  ];
+  it.each(COLLECTORS)("collector %s and its subdomains cannot be trusted or covered", (h) => {
+    expect(() => normalizeTrustedSite(`https://${h}`)).toThrow();
+    expect(() => normalizeTrustedSite(`https://abc.${h}`)).toThrow();
+    expect(trustedSiteCovers({ origin: `https://${h}`, subdomains: false }, `https://${h}`)).toBe(
+      false,
+    );
+  });
+
+  // Entries made before a list update (or by an older build) must stop working.
+  const STALE = [
+    "https://webhook.site",
+    "https://abc.ngrok.io",
+    "https://www.kraken.com",
+    "https://storage.googleapis.com",
+    "https://docs.google.com",
+    "https://s3.amazonaws.com",
+    "https://co.uk",
+    "https://router.local",
+  ];
+  it.each(STALE)("a stored exact entry for %s gets no quiet read", async (u) => {
+    expect(trustedSiteCovers({ origin: u, subdomains: false }, u)).toBe(false);
+    expect(trustedSiteCovers({ origin: u, subdomains: true }, u)).toBe(false);
+  });
+  it("control: a stored exact entry for an ordinary host still covers itself", () => {
+    expect(
+      trustedSiteCovers(
+        { origin: "https://example.com", subdomains: false },
+        "https://example.com",
+      ),
+    ).toBe(true);
+  });
+});
