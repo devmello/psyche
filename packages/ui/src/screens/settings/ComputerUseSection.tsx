@@ -7,6 +7,7 @@ import { t } from "../../i18n/core.ts";
 import { isWindows, type UiPlatform, uiPlatform } from "../../lib/platform.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { SegmentedRadio } from "./SegmentedRadio.tsx";
+import { isLinuxUi, SeparateDesktopGroup } from "./SeparateDesktopGroup.tsx";
 import {
   bool,
   EmptyNotice,
@@ -277,6 +278,8 @@ export function ComputerUsePanel({
             </>
           )}
         </Group>
+
+        {isLinuxUi() ? <SeparateDesktopGroup values={values} onChange={onChange} /> : null}
       </LoadGate>
     </SectionFrame>
   );

@@ -34,6 +34,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { requestChatFocus } from "../../chat/focus-request.ts";
+import { canSendToChat, useSendToChat } from "../../chat/send-to-chat.ts";
 import { DelayedSkeletons } from "../../components/DelayedSkeleton.tsx";
 import { EmptyState, ErrorState, useDelayedFlag } from "../../components/page.tsx";
 import { Badge } from "../../components/ui/badge.tsx";
@@ -121,8 +122,12 @@ function ItemIcon({ item, className }: { item: LibraryItem; className?: string }
   }
 }
 
-/** The actions one item offers, shared by its ⋯ menu and its context menu (§5.7). */
-function itemActions(item: LibraryItem, a: LibraryItemActions, taskTitle?: string | null) {
+/**
+ * The actions one item offers, shared by its ⋯ menu and its context menu (§5.7). Trust is offered
+ * only when the app passes `onTrust`: the Gateway has no method that clears quarantine yet, so
+ * the connected Library passes none and the action stays hidden (no permission default changes).
+ */
+export function itemActions(item: LibraryItem, a: LibraryItemActions, taskTitle?: string | null) {
   const system = item.kind === "system";
   const list: { id: string; label: string; icon: ReactElement; run: () => void }[] = [];
   if (item.kind === "artifact" && a.onOpenInChat) {
@@ -167,7 +172,7 @@ function itemActions(item: LibraryItem, a: LibraryItemActions, taskTitle?: strin
       run: () => reveal(item),
     });
   }
-  if (a.onSendToChat && !system) {
+  if (a.onSendToChat && !system && canSendToChat(item)) {
     const send = a.onSendToChat;
     list.push({
       id: "send",
@@ -400,8 +405,8 @@ export function LibraryItemView({
               onDoubleClick={() => onOpen?.(item)}
               onKeyDown={itemKeys(item, actions)}
               className={cn(
-                "relative flex aspect-[4/5] w-full items-center justify-center overflow-hidden rounded-sm bg-surface-raised shadow-elevation-1 transition-shadow outline-none",
-                "hover:shadow-elevation-2 focus-visible:ring-3 focus-visible:ring-ring/50",
+                "relative flex aspect-[4/5] w-full items-center justify-center overflow-hidden rounded-sm bg-surface-raised shadow-elevation-1 outline-none",
+                "hover:bg-fill-quaternary focus-visible:ring-3 focus-visible:ring-ring/50",
                 selected ? "ring-2 ring-accent-8" : "",
               )}
             >
@@ -920,7 +925,8 @@ export function LibraryScreen({
   now: fixedNow,
   renderThumbnail,
 }: LibraryScreenProps): ReactElement {
-  const { navigate, openLibraryItem } = useSlots();
+  const { navigate, openLibraryItem, revealLibraryItem } = useSlots();
+  const sendToChat = useSendToChat();
   const persona = usePersona();
   const library = useLibrary();
   const tasks = useTasks();
@@ -945,6 +951,19 @@ export function LibraryScreen({
 
   const call = useCall();
   const openStandalone = (item: LibraryItem) => openLibraryItem?.(item);
+  // Quick Look is the file viewer beside the view. "Reveal" is the desktop's Finder, offered only
+  // where the app has one (the slot is absent on the web and for a remote Gateway).
+  const quickLook = onQuickLook ?? (openLibraryItem ? openStandalone : undefined);
+  const reveal =
+    onReveal ??
+    (revealLibraryItem
+      ? (item: LibraryItem) => {
+          revealLibraryItem(item).catch((err: unknown) =>
+            toast.error(t("screens.library.revealFailed", { reason: describeError(err) })),
+          );
+        }
+      : undefined);
+  const send = onSendToChat ?? sendToChat;
   /** An artifact opens in the chat that made it; without one, in the viewer with a quiet note. */
   const openInChat = (item: LibraryItem) => {
     const artifactId = artifactIdOf(item);
@@ -1041,9 +1060,9 @@ export function LibraryScreen({
       onOpenTask={(id) => navigate?.(`/agent/activity/${id}`)}
       {...(renderThumbnail ? { renderThumbnail } : {})}
       {...(onTrust ? { onTrust: trust } : {})}
-      {...(onReveal ? { onReveal } : {})}
-      {...(onQuickLook ? { onQuickLook } : {})}
-      {...(onSendToChat ? { onSendToChat } : {})}
+      {...(reveal ? { onReveal: reveal } : {})}
+      {...(quickLook ? { onQuickLook: quickLook } : {})}
+      {...(send ? { onSendToChat: send } : {})}
     />
   );
 }

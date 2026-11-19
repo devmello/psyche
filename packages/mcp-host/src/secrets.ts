@@ -23,6 +23,8 @@ export interface SecretInjection {
     placeholder: string;
     envName: string;
     target: Target;
+    /** The server is being checked before the owner approves it (an Add, Edit or Test), not started. */
+    check?: boolean;
   }): Promise<string>;
 }
 

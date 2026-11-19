@@ -7,6 +7,7 @@ struct PsycheWidgets: WidgetBundle {
     var body: some Widget {
         NeedsYouWidget()
         TaskLiveActivity()
+        ChatTurnLiveActivity()
     }
 }
 

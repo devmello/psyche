@@ -48,10 +48,8 @@ const helloPort = (registered: boolean): TouchIdSetupPort => ({
         algorithm: "RSA-2048",
       },
       registered,
-      allowDevFileKey: false,
     }),
   register: () => Promise.resolve(),
-  allowDevFileKey: () => Promise.resolve(),
 });
 
 /** Onboarding's Safety step: Windows Hello, notifications, and what Windows asks for. */

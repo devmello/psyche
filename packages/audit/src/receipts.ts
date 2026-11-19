@@ -30,6 +30,8 @@ export interface ReceiptFilter {
   approvalId?: string;
   kind?: string;
   outcome?: Receipt["outcome"];
+  /** Created at or after this ISO time. */
+  since?: string;
   limit?: number;
 }
 
@@ -94,7 +96,8 @@ function matches(r: Receipt, f: ReceiptFilter): boolean {
     (f.toolCallId === undefined || r.toolCallId === f.toolCallId) &&
     (f.approvalId === undefined || r.approvalId === f.approvalId) &&
     (f.kind === undefined || r.kind === f.kind) &&
-    (f.outcome === undefined || r.outcome === f.outcome)
+    (f.outcome === undefined || r.outcome === f.outcome) &&
+    (f.since === undefined || r.createdAt >= f.since)
   );
 }
 
@@ -192,6 +195,10 @@ export class SqliteReceiptStore implements ReceiptStore {
     add("approval_id", f.approvalId);
     add("kind", f.kind);
     add("outcome", f.outcome);
+    if (f.since !== undefined) {
+      where.push("created_at >= ?");
+      params.push(f.since);
+    }
     const sql = `SELECT * FROM receipts${where.length > 0 ? ` WHERE ${where.join(" AND ")}` : ""}
       ORDER BY created_at, rowid${f.limit === undefined ? "" : " LIMIT ?"}`;
     if (f.limit !== undefined) params.push(f.limit);

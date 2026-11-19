@@ -10,7 +10,6 @@ export const passwordPresence: Partial<Catalogue> = {
     "एक बार अनुमति दी गई (इस विंडो से पासवर्ड द्वारा दी गई मंज़ूरी केवल एक बार के लिए होती है)",
   "blocks.approval.password.noUnsandboxed":
     "सैंडबॉक्स के बिना कमांड चलाने को इस विंडो से पासवर्ड द्वारा मंज़ूर नहीं किया जा सकता। इसके बजाय सैंडबॉक्स सेट करें",
-  "blocks.approval.password.cancelled": "पासवर्ड संवाद रद्द किया गया, इसलिए कुछ भी मंज़ूर नहीं हुआ",
   "blocks.approval.password.failed":
     "पासवर्ड स्वीकार नहीं हुआ, इसलिए कुछ भी मंज़ूर नहीं हुआ। फिर से कोशिश करें।",
   "blocks.approval.password.unavailableHere":

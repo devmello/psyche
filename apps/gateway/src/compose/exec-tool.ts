@@ -198,6 +198,10 @@ export function execTool(deps: ExecToolDeps): AgentToolRegistration {
           // What the command writes carries the turn's taint (S23 design-07).
           provenance: ctx.taint ? "untrusted" : "trusted",
           ...(ctx.taint ? { taintSources: [...(ctx.taintSources ?? [])] } : {}),
+          // The standing grant that let it through, for the runner's own receipt.
+          ...(ctx.authority?.grantId === undefined
+            ? {}
+            : { grant: { id: ctx.authority.grantId, bindingHash: ctx.authority.bindingHash } }),
         });
       } finally {
         filled?.dispose();

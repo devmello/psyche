@@ -1,7 +1,22 @@
 import { type DeviceScope, type EventName, type EventPayload, eventFrame } from "@psyche/protocol";
 import type { Reader } from "./message-scrub.ts";
+import { redactMcpServers } from "./redact.ts";
 
 export type FrameSink = (frame: string) => void;
+
+/** A `settings.changed` payload with the tool-server setting redacted (`redactMcpServers`). */
+export function redactSettingsPayload(payload: unknown): unknown {
+  const entries = (payload as { entries?: unknown } | null)?.entries;
+  if (!Array.isArray(entries)) return payload;
+  return {
+    ...(payload as object),
+    entries: entries.map((e: unknown) =>
+      (e as { key?: unknown } | null)?.key === "mcp.servers"
+        ? { ...(e as object), value: redactMcpServers((e as { value?: unknown }).value) }
+        : e,
+    ),
+  };
+}
 
 /** `events.subscribe` filters (data model §11); absent fields match everything. */
 export interface EventFilter {
@@ -122,7 +137,12 @@ export class EventBus {
    * Publishes to every subscriber holding the event's scope whose filter matches. `threadId`
    * is the thread the event belongs to, for `threadIds` filters.
    */
-  publish<E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string): void {
+  publish<E extends EventName>(event: E, rawPayload: EventPayload<E>, threadId?: string): void {
+    // No subscriber, a part of the Gateway included, is told a tool server's secrets: parts that
+    // act on `mcp.servers` read the stored value, not the event.
+    const payload = (
+      event === "settings.changed" ? redactSettingsPayload(rawPayload) : rawPayload
+    ) as EventPayload<E>;
     this.#seq += 1;
     const requiredScope = eventScope(event);
     const frame = JSON.stringify(eventFrame(event, payload, this.#seq, this.#stateVersion));

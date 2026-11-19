@@ -153,7 +153,7 @@ describe("vault.payments.* in the composed Gateway", () => {
       config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
       vault: { keyFile, argon2: TEST_ARGON2 },
-      parts: wallet === undefined ? [] : [composePayments({ wallet })],
+      ...(wallet === undefined ? {} : { payments: { wallet } }),
     });
     cleanups.push(() => composed.stop("test"));
     return composed;

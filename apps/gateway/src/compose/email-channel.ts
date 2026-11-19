@@ -13,7 +13,7 @@ import {
   type MailBackend,
   type MailSession,
 } from "@psyche/connectors";
-import { bindingFor } from "@psyche/permissions";
+import { bindingFor, checkOutbound } from "@psyche/permissions";
 import { type JsonObject, PsycheError, ResolvedSecret } from "@psyche/protocol";
 import type { ComposeServices } from "./services.ts";
 
@@ -118,6 +118,12 @@ export function mailEmailTransport(services: ComposeServices, setup: EmailSetup)
     },
 
     async send(reply: EmailReply, approvalId: string) {
+      // Defence in depth: the channel service already held this, but the transport is the last stop
+      // before the mail leaves, and a reply is always held, never redacted (security §3.9). The
+      // subject is not checked: it is the sender's own subject line, not Psyche's text.
+      if (checkOutbound(reply.text, "other").action !== "allow") {
+        throw new PsycheError("forbidden", "the reply holds a credential or personal identifier");
+      }
       const binding = bindingFor("message_send", {
         channel: "email",
         account,

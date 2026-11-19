@@ -65,3 +65,58 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && sh /usr/local/lib/psyche/harden.sh
 USER 1000:1000
+
+# desktop: a graphical Linux desktop for the "separate desktop" computer-use mode
+# (docs/design/linux-desktop-2026.md section 8). full (which already holds LibreOffice's layers)
+# + Xvfb, a private D-Bus session bus, the AT-SPI bus, Firefox ESR, a small file manager, and the
+# Linux helper (the one binary the Gateway pairs as kind "guest"). It keeps every sandbox rule:
+# UID/GID 1000 psyche, read-only rootfs (only /tmp and /workspace are written), no setuid/setgid
+# (harden.sh), no network unless the owner allows it for a Task (then only through the egress
+# proxy). The helper binary is not built here: stage it at desktop/psyche-helper before building
+# (see README.md); HELPER_SHA256, when given, must match it.
+FROM full AS desktop
+# The helper is the one program that holds the Gateway's trust inside the container, so its
+# checksum is required: a build without HELPER_SHA256 fails. A local dev build may skip the check
+# with --build-arg ALLOW_UNVERIFIED_HELPER=1; release and CI builds (publish.sh) never do.
+ARG HELPER_SHA256=
+ARG ALLOW_UNVERIFIED_HELPER=
+USER 0:0
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      adwaita-icon-theme at-spi2-core dbus dbus-daemon firefox-esr fonts-liberation \
+      libreoffice-calc libreoffice-gtk3 libreoffice-impress libreoffice-writer \
+      pcmanfm tini xvfb \
+ && rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /shares && chmod 0755 /shares
+COPY --chown=0:0 --chmod=0755 desktop/psyche-helper /usr/local/bin/psyche-helper
+COPY --chown=0:0 --chmod=0755 desktop/entrypoint.sh /usr/local/lib/psyche/desktop-entrypoint.sh
+COPY --chown=0:0 --chmod=0644 desktop/firefox-policies.json /etc/firefox/policies/policies.json
+COPY --chown=0:0 --chmod=0644 desktop/dbus-session.conf /etc/psyche/dbus-session.conf
+RUN if [ -n "$HELPER_SHA256" ]; then \
+      echo "$HELPER_SHA256  /usr/local/bin/psyche-helper" | sha256sum -c - ; \
+    elif [ "$ALLOW_UNVERIFIED_HELPER" = "1" ]; then \
+      echo "WARNING: the helper binary was not verified (ALLOW_UNVERIFIED_HELPER=1)" >&2 ; \
+    else \
+      echo "HELPER_SHA256 is required (or ALLOW_UNVERIFIED_HELPER=1 for a local dev build)" >&2 ; \
+      exit 1 ; \
+    fi \
+ && sh /usr/local/lib/psyche/harden.sh
+# The image's PATH starts with /workspace/.local/bin, which persists between tasks and is writable:
+# the desktop's PATH names only the image's own folders.
+ENV PATH=/usr/local/bin:/usr/bin:/bin
+# Apps keep their profile in /workspace (HOME), which is wiped when the grants change. What the
+# trusted daemons read is pinned to the image: no service, config or Python user-site file from
+# /workspace is looked at (see desktop/dbus-session.conf and entrypoint.sh).
+ENV HOME=/workspace     XDG_DATA_DIRS=/usr/share     XDG_CONFIG_DIRS=/etc/xdg     GSETTINGS_BACKEND=memory     PYTHONNOUSERSITE=1
+ENV XDG_RUNTIME_DIR=/tmp/run \
+    DISPLAY=:1 \
+    GNOME_ACCESSIBILITY=1 \
+    MOZ_ENABLE_WAYLAND=0 \
+    PSYCHE_NODE_SOCKET=/run/psyche/node.sock \
+    PSYCHE_HOME=/tmp/psyche \
+    PSYCHE_HELPER_STATE=/tmp/psyche-helper \
+    PSYCHE_HELPER_SURFACE=separate_desktop
+LABEL dev.psyche.sandbox.desktop="1"
+USER 1000:1000
+WORKDIR /workspace
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/lib/psyche/desktop-entrypoint.sh"]

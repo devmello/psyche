@@ -322,6 +322,19 @@ describe("the Gateway's specialist host (#683)", () => {
     expect(cards[0]).toMatchObject({
       title: "Researcher finished Apartments",
       body: "Done · 1 finding · under 1 min",
+      // The English text stays as the fallback; clients word it from these ids and values.
+      message: {
+        titleKey: "notice.specialist.result.title",
+        bodyKey: "notice.specialist.result.body",
+        params: {
+          who: "Researcher",
+          title: "Apartments",
+          outcome: "done",
+          findings: 1,
+          cost: "none",
+          minutes: 0,
+        },
+      },
       taskId: job.taskId,
       // Opens the specialist's chat thread (notification click-through, #1049).
       route: `/chat/${job.threadId}`,

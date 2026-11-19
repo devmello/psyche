@@ -9,17 +9,17 @@ import { connectSigningPayload, PROTOCOL_VERSION } from "@psyche/protocol";
 type Json = Record<string, any>;
 
 /**
- * A Secure Enclave stand-in (a P-256 key) or a Windows Hello one (RSA-2048), whose public half the
- * owner registers.
+ * The Mac helper's device identity key (Ed25519, what it signs presence with after the owner
+ * sheet) or a Windows Hello one (RSA-2048), whose public half the Gateway verifies against.
  */
 export interface PresenceKey {
   privateKey: KeyObject;
   /**
-   * base64url: the X9.63 uncompressed point (what `SecKeyCopyExternalRepresentation` returns),
-   * or for RSA the SPKI DER (`KeyCredential.RetrievePublicKey`).
+   * base64url: the 32 raw Ed25519 bytes (a Mac helper's device key), or for RSA the SPKI DER
+   * (`KeyCredential.RetrievePublicKey`).
    */
   publicKey: string;
-  algorithm?: "p256-ecdsa-sha256" | "rsa-2048-pkcs1-sha256";
+  algorithm?: "ed25519" | "rsa-2048-pkcs1-sha256";
 }
 
 /** A Windows Hello stand-in: RSA-2048, signatures PKCS#1 v1.5 / SHA-256 (apps/win-helper). */
@@ -33,14 +33,9 @@ export function newHelloKey(bits = 2048): PresenceKey {
 }
 
 export function newPresenceKey(): PresenceKey {
-  const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
   const jwk = publicKey.export({ format: "jwk" });
-  const raw = Buffer.concat([
-    Buffer.from([0x04]),
-    Buffer.from(String(jwk.x), "base64url"),
-    Buffer.from(String(jwk.y), "base64url"),
-  ]);
-  return { privateKey, publicKey: raw.toString("base64url") };
+  return { privateKey, publicKey: String(jwk.x), algorithm: "ed25519" };
 }
 
 export function signPresence(key: PresenceKey, challenge: string): string {
@@ -50,10 +45,7 @@ export function signPresence(key: PresenceKey, challenge: string): string {
       padding: constants.RSA_PKCS1_PADDING,
     }).toString("base64url");
   }
-  return sign("sha256", helperPresenceMessage(challenge), {
-    key: key.privateKey,
-    dsaEncoding: "der",
-  }).toString("base64url");
+  return sign(null, helperPresenceMessage(challenge), key.privateKey).toString("base64url");
 }
 
 /** NDJSON lines both ways: the node socket / pipe, or the WebSocket (one frame per message). */

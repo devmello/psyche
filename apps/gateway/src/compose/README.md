@@ -23,6 +23,6 @@
 | `meetings.ts` | Post-meeting notes and Record meeting (`meetings.*`, mail and meetings §4.6): notes from a Library recording or a consented recording, transcribed on the Mac through the speech part (`speech.transcribe_file`), "they owe you" loops into the people graph; the graph hooks of meeting prep (§4.5: attendees and open loops) |
 | `parts.ts` | the parts `psyched` mounts from its environment |
 
-Approvals that need Touch ID or a passkey are refused until a verifier accepts a real assertion (fail closed): helper assertions need a registered presence key, which nothing registers yet (#84); passkeys need S01 (#79).
+Approvals that need Touch ID or a passkey are refused until a verifier accepts a real assertion (fail closed): a Mac helper's assertion is its device key's signature after the system's owner sheet (nothing to register); a Windows helper's needs its registered Windows Hello key; passkeys are the web client's.
 
 Status, gaps and timings: [docs/archive/status/int-1.md](../../../../docs/archive/status/int-1.md), [docs/archive/status/int-2.md](../../../../docs/archive/status/int-2.md).

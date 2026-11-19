@@ -93,6 +93,12 @@ export const configCommands: CommandSpec[] = [
           human: `Set ${key} in config.json. Restart the Gateway (\`psyche restart\`) to apply it.`,
         };
       }
+      if (key === "mcp.servers") {
+        throw new CliError(
+          "usage",
+          "Tool servers can't be changed with config set. Add, edit, pause or remove them in Settings → Connectors (the mcp.* methods).",
+        );
+      }
       const res = await callOrUnavailable(await ctx.gateway(), "settings.set", { key, value });
       return { data: { source: "settings", ...(res as object) }, human: `Set ${key}` };
     },

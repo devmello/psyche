@@ -29,7 +29,6 @@ import {
 } from "./shared.tsx";
 import {
   type BundledHelperKey,
-  DEV_FILE_KEY_SETTING,
   type PresenceKeyRow,
   presenceKeyText,
   TouchIdKeySetup,
@@ -86,19 +85,17 @@ export interface DevicesPanelProps extends LoadProps {
   devices: readonly Device[];
   pairing: readonly PairingRequest[];
   nodes: readonly NodeInfo[];
-  /** Registered helper Touch ID keys; each shows on its helper's row with its kind. */
+  /** The helpers' presence keys (a Mac's own device key, a PC's Windows Hello key), each on its helper's row. */
   presenceKeys?: readonly PresenceKeyRow[];
   /** Touch ID key setup on each helper's row (absent: the keys are shown, nothing more). */
   touchId?: {
     bundled?: BundledHelperKey | null | undefined;
-    allowDevFileKey: boolean;
     onRegister: (
       deviceId: string,
       expectKeyId?: string,
       confirmReplacesKeyId?: string,
     ) => Promise<unknown>;
     onRemove: (deviceId: string) => Promise<unknown>;
-    onAllowDevFileKey: (on: boolean) => Promise<unknown>;
   };
   /** Linux: the Gateway's password-approval status (`devices.presence.status`); absent elsewhere. */
   passwordPresence?: PasswordPresenceRow | undefined;
@@ -303,12 +300,10 @@ export function DevicesPanel({
                       nodeKind={n.kind}
                       registered={presenceKeys.find((k) => k.deviceId === n.deviceId)}
                       bundled={touchId.bundled}
-                      allowDevFileKey={touchId.allowDevFileKey}
                       onRegister={(expect, confirm) =>
                         touchId.onRegister(n.deviceId, expect, confirm)
                       }
                       onRemove={() => touchId.onRemove(n.deviceId)}
-                      onAllowDevFileKey={touchId.onAllowDevFileKey}
                     />
                   ) : (
                     presenceKeys
@@ -499,7 +494,6 @@ export function DevicesSection({
   };
 }): ReactElement {
   const call = useCall();
-  const devSettingQ = useGatewayQuery("settings.get", { keys: [DEV_FILE_KEY_SETTING] });
   // Only a Linux Gateway records a peer check of its helper; elsewhere there is nothing to show.
   const hostStatusQ = useGatewayQuery("settings.get", { keys: [HOST_HELPER_STATUS_KEY] });
   const [bundled, setBundled] = useState<BundledHelperKey | null | undefined>(undefined);
@@ -531,7 +525,6 @@ export function DevicesSection({
   const settled = (p: Promise<unknown>) =>
     p.then((v) => {
       keysQ.reload();
-      devSettingQ.reload();
       return v;
     });
   const [actionError, setActionError] = useState<string | null>(null);
@@ -558,7 +551,6 @@ export function DevicesSection({
       {...(infoQ.data ? { gatewayFingerprint: infoQ.data.identity.fingerprint } : {})}
       touchId={{
         bundled: touchId ? bundled : undefined,
-        allowDevFileKey: devSettingQ.data?.settings?.[DEV_FILE_KEY_SETTING] === true,
         onRegister: (deviceId, expectKeyId, confirmReplacesKeyId) =>
           settled(
             touchId && expectKeyId === undefined
@@ -570,8 +562,6 @@ export function DevicesSection({
                 }),
           ),
         onRemove: (deviceId) => settled(call("devices.presenceKey.remove", { deviceId })),
-        onAllowDevFileKey: (on) =>
-          settled(call("settings.set", { key: DEV_FILE_KEY_SETTING, value: on })),
       }}
       loading={devicesQ.loading && devicesQ.data === undefined}
       error={devicesQ.error ?? nodesQ.error}

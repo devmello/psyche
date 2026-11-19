@@ -10,11 +10,11 @@ import { isMac, isWindows } from "../lib/platform.ts";
 export type ShortcutId =
   | "palette"
   | "newSideChat"
+  | "newIncognitoChat"
   | "closeThread"
   | "toggleThreadList"
   | "compactSidebar"
   | "cycleThreads"
-  | "forkSelection"
   | "stop"
   | "cycleDisclosure"
   | "browserPane"
@@ -64,6 +64,17 @@ export const SHORTCUTS: readonly Shortcut[] = [
     match: (e, m) => mod(e, m) && !e.shiftKey && key(e, "n"),
   },
   {
+    id: "newIncognitoChat",
+    get keys() {
+      return keysLabel("Mod+Shift+N");
+    },
+    get label() {
+      return t("shell.shortcut.newIncognitoChat");
+    },
+    psyche: true,
+    match: (e, m) => mod(e, m) && e.shiftKey && key(e, "n"),
+  },
+  {
     id: "closeThread",
     get keys() {
       return keysLabel("Mod+W");
@@ -104,16 +115,6 @@ export const SHORTCUTS: readonly Shortcut[] = [
       return t("shell.shortcut.cycleThreads");
     },
     match: (e) => e.ctrlKey && e.key === "Tab",
-  },
-  {
-    id: "forkSelection",
-    get keys() {
-      return keysLabel("Mod+;");
-    },
-    get label() {
-      return t("shell.shortcut.forkSelection");
-    },
-    match: (e, m) => mod(e, m) && e.key === ";",
   },
   {
     id: "stop",

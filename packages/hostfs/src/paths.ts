@@ -39,6 +39,17 @@ export function absoluteHostPathPattern(platform: NodeJS.Platform = process.plat
   return platform === "win32" ? "^(?:[A-Za-z]:[\\\\/]|[\\\\/]{2}[^\\\\/.?])" : "^/";
 }
 
+/**
+ * macOS resolves some root names to another file without a symlink: `/.nofollow/<abs>` opens
+ * `<abs>` (and `realpath` returns the string unchanged), `/.vol/<dev>/<ino>` opens an inode and
+ * `/.resolve/<n>/<path>` a path. Every lexical root check is blind to them, so on macOS a path
+ * whose first segment starts with a dot is never a place to share. Pure, no file system access.
+ */
+export function isMacMagicPath(p: string, platform: NodeJS.Platform = process.platform): boolean {
+  if (platform !== "darwin" || !p.startsWith("/")) return false;
+  return posix.normalize(p).startsWith("/.");
+}
+
 /** Whether `p` is in Windows host form (drive or UNC), whatever the platform. */
 export function isWin32HostPath(p: string): boolean {
   return /^[A-Za-z]:\\/.test(p) || p.startsWith("\\\\");

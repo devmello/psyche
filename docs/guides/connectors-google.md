@@ -10,7 +10,7 @@ What the connector can do once it is connected, and the scopes each choice asks 
 | --- | --- |
 | Configure your OAuth client on the Gateway | Works: `config.json` or environment variables (below) |
 | Start the sign-in, finish it in your browser, see the account and scopes | Works for clients of the Gateway API (`connectors.connect`, `connectors.list`, `connectors.updated`) |
-| Connect button in onboarding and Settings → Connectors | Not wired yet. It comes with the desktop app's connect step (S11) |
+| Paste your OAuth client and connect, in Settings → Connectors | Works: Add connector → Google (section 2, first way) |
 | Stay connected across Gateway restarts | Works: connections are kept in the Gateway's database, tokens in the vault |
 | Disconnect, which also revokes access at Google | Works (`connectors.disconnect`) |
 
@@ -31,6 +31,10 @@ It takes a few minutes, once.
 The client ID is not a secret. The client secret is not very secret either for a Desktop client (Google treats it as public), but Psyche still keeps it in the vault and never in a file or the repository.
 
 ## 2. Give the client to the Gateway
+
+**In the app.** Settings → Connectors → Add connector → Google. Paste the client ID, and the client secret if Google gave you one, then choose **Continue to sign in**. The ID is kept as a Gateway-internal setting. The secret goes into the vault as the item `google-oauth-client`, bound to Google's token endpoint, and is never shown again. Only an admin device can do this. A client set in `config.json` or the environment (below) wins, and the app shows it but does not replace it.
+
+**Or in files.** The same thing by hand:
 
 Store the client secret in the vault, bound to Google's token endpoint so it can only ever be sent there. The command asks for the secret at a hidden prompt:
 

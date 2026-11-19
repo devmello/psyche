@@ -3,6 +3,7 @@ export * from "./bridge.ts";
 export * from "./browser-teach.ts";
 export * from "./common.ts";
 export * from "./contracts/index.ts";
+export * from "./deferred.ts";
 export * from "./documents.ts";
 export * from "./errors.ts";
 export * from "./events.ts";

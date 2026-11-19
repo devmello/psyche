@@ -8,7 +8,10 @@ import {
   CredentialSecretInput,
   CredentialUse,
   LinkPaymentMethod,
+  LinkSetupStatus,
   OnePasswordRef,
+  OnePasswordSetupStatus,
+  OnePasswordTestResult,
   VaultPayment,
   VaultStatus,
 } from "../schemas/integrations.ts";
@@ -183,5 +186,72 @@ export const VaultMethods = {
     result: Type.Object({ methods: Type.Array(LinkPaymentMethod) }),
     scope: "operator.read",
     description: "Lists the owner's Link payment methods (redacted) that can fund purchases.",
+  }),
+  "vault.onePassword.status": defineMethod({
+    params: Type.Object({ probe: Type.Optional(Type.Boolean()) }),
+    result: OnePasswordSetupStatus,
+    scope: "operator.admin",
+    description:
+      "Where the 1Password setup stands: op not installed, app integration off, locked, or signed in (with the account address and email). Finds and checks the op file (state found) without running it; op's account commands run only with probe true, or while connected (cached 60 s). Never reads an item or a secret; 1Password may show its own unlock prompt.",
+  }),
+  "vault.onePassword.test": defineMethod({
+    params: Type.Object({}),
+    result: OnePasswordTestResult,
+    scope: "operator.admin",
+    description:
+      "Test connection: lists the account's vaults through op and returns how many there are. A harmless read: no names, no items, no secret values.",
+  }),
+  "vault.onePassword.connect": defineMethod({
+    params: Type.Object({}),
+    result: OnePasswordSetupStatus,
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Lets linked 1Password items be read through the 1Password app's CLI integration, once op answers signed in. Psyche finds op itself (a real file owned by the user or root that others cannot write, outside its own data folder) and takes no path from the caller. Read-only, takes effect at once, audited. conflict while credentials.onePassword in config.json supplies the source. Side-effecting.",
+  }),
+  "vault.onePassword.disconnect": defineMethod({
+    params: Type.Object({}),
+    result: OnePasswordSetupStatus,
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Stops reading 1Password through the app integration: linked items answer unavailable. Items already linked, and 1Password itself, are untouched. Side-effecting.",
+  }),
+  "payments.link.status": defineMethod({
+    params: Type.Object({}),
+    result: LinkSetupStatus,
+    scope: "operator.read",
+    description:
+      "Where Stripe Link stands (Settings → Credentials → Payments): Link CLI not found, found, signed out, signing in or connected. Looks for the CLI in the usual npm locations and checks that it is safe to run; never installs anything. Carries no token.",
+  }),
+  "payments.link.connect": defineMethod({
+    params: Type.Object({
+      path: Type.String({ minLength: 1, maxLength: 1024 }),
+      approvalId: Type.Optional(Id),
+    }),
+    result: LinkSetupStatus,
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Saves the Link CLI Psyche may run, after checking that it resolves to a real file owned by the user or root and not writable by group or others, with the same for every parent folder. Running a program is a security change: needs fresh presence once the Gateway has a verifier (approval_required with details.approvalId, then retry with approvalId). Takes effect at once. Side-effecting.",
+  }),
+  "payments.link.signIn": defineMethod({
+    params: Type.Object({}),
+    result: LinkSetupStatus,
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Starts Link's sign-in with the connected CLI and returns Link's own page (signIn.verificationUrl) and the phrase to compare. The owner signs in on that page; Psyche never sees a password. The Gateway watches for the result and publishes payments.link.changed. Side-effecting.",
+  }),
+  "payments.link.disconnect": defineMethod({
+    params: Type.Object({
+      /** Give up payments still open (cancelled where Link allows) instead of refusing. */
+      force: Type.Optional(Type.Boolean()),
+    }),
+    result: LinkSetupStatus,
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Signs out of Link (best effort at Link, then deletes the auth file in the vault folder) and forgets the saved CLI. Fails conflict (details.reason payment_in_progress, with the merchants) while a payment is open, unless force is true, which gives those payments up and is audited. Narrowing, so admin only. Side-effecting.",
   }),
 } as const;

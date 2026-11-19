@@ -9,7 +9,7 @@ public struct NotificationUserInfo: Sendable, Equatable {
     public var approvalId: String?
     public var requireBiometry: Bool
     public var destructiveActionIds: [String]
-    /// What the presence key signs after Touch ID (not a secret: the answer token stays in the Gateway).
+    /// What the device key signs after the owner sheet (not a secret: the answer token stays in the Gateway).
     public var presenceChallenge: String?
 
     public init(
@@ -81,7 +81,7 @@ public struct NotificationResponse: Sendable, Equatable {
     public var authenticated: Bool
     /// Machine reason when authentication was required and failed (`user_cancelled`, …).
     public var authError: String?
-    /// The Secure Enclave assertion over `PresenceMessage.bytes(challenge)` (issue #84).
+    /// The device-key assertion over `PresenceMessage.bytes(challenge)` (issue #84).
     public var presence: PresenceSignature?
     /// Why no assertion was made although one was asked for (e.g. `missing_entitlement`).
     public var presenceError: String?

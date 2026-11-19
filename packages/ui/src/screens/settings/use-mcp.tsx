@@ -1,17 +1,19 @@
 import { sanitizeDisplay } from "@psyche/permissions/cards";
 import type {
   McpProposal,
+  McpServerChanges,
+  McpServerConfigView,
   McpServerInput,
   McpServerSecret,
   McpServerStatus,
   McpServerTool,
 } from "@psyche/protocol";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useContext, useEffect, useState } from "react";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { McpTrustCard } from "./McpTrustCard.tsx";
 import { TrustApproval } from "./SkillsSection.tsx";
-import { messageOf } from "./shared.tsx";
+import { approvalIdOf, messageOf, SettingsApprovalContext } from "./shared.tsx";
 
 /**
  * MCP servers in Settings → Connectors (#529; architecture §4.9, security §11). Adding one: a
@@ -50,6 +52,17 @@ export interface McpState {
   /** The trust card under review, with its approval. */
   review: ReactNode;
   check: (input: McpServerInput, secrets?: readonly McpSecret[]) => void;
+  /**
+   * Saves an edit of a server (`mcp.update`). A display name applies at once; anything that
+   * changes what runs or where it connects opens the trust card (old → new) first.
+   */
+  update: (
+    server: McpServerStatus,
+    changes: McpServerChanges,
+    secrets?: readonly McpSecret[],
+  ) => void;
+  /** Counts finished edits (applied now, or approved on the card): the edit form closes on it. */
+  updated: number;
   remove: (server: McpServerStatus) => void;
   /** Turns a server off (kept in the list, not running) or back on. */
   setEnabled: (server: McpServerStatus, enabled: boolean) => void;
@@ -80,7 +93,10 @@ export function useMcp(now?: number): McpState {
     approvalId: string;
     /** Vault items stored for this probe; deleted unless the server is added. */
     credentialIds: readonly string[];
+    /** Set for an edit: what the card shows as old → new (`details.change` of the approval). */
+    change?: Record<string, unknown>;
   } | null>(null);
+  const [updated, setUpdated] = useState(0);
   const [checking, setChecking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionFailure, setActionFailure] = useState<McpLaunchFailure | null>(null);
@@ -106,7 +122,12 @@ export function useMcp(now?: number): McpState {
     call("mcp.add", { proposalId: current.proposal.id, approvalId: current.approvalId }).then(
       () => {
         q.reload();
-        setNotice(t("settings.mcp.added", { name: show(current.proposal.server.name) }));
+        if (current.change === undefined) {
+          setNotice(t("settings.mcp.added", { name: show(current.proposal.server.name) }));
+        } else {
+          setNotice(t("settings.mcp.updated", { name: show(current.proposal.server.name) }));
+          setUpdated((n) => n + 1);
+        }
       },
       (err: unknown) => {
         dropSecrets(current.credentialIds);
@@ -129,6 +150,7 @@ export function useMcp(now?: number): McpState {
       proposal === null ? null : (
         <McpTrustCard
           proposal={proposal.proposal}
+          {...(proposal.change === undefined ? {} : { change: proposal.change })}
           onCancel={() => {
             dropSecrets(proposal.credentialIds);
             setProposal(null);
@@ -164,6 +186,53 @@ export function useMcp(now?: number): McpState {
         }
         const r = await call("mcp.probe", { server: input });
         setProposal({ proposal: r.proposal, approvalId: r.approval.id, credentialIds: stored });
+      })()
+        .catch((err: unknown) => {
+          dropSecrets(stored);
+          setActionError(messageOf(err));
+          setActionFailure(launchFailureOf(err));
+        })
+        .finally(() => setChecking(false));
+    },
+    updated,
+    update: (server, changes, secrets = []) => {
+      setActionError(null);
+      setActionFailure(null);
+      setNotice(null);
+      setChecking(true);
+      const stored: string[] = [];
+      (async () => {
+        for (const k of secrets) {
+          const r = await call("vault.add", {
+            kind: "api_key",
+            name: k.name,
+            slug: k.slug,
+            bindings: [{ connector: `mcp:${server.id}` }],
+            secret: {
+              token: k.token,
+              ...(k.header ? { headerName: k.header.name, headerPrefix: k.header.prefix } : {}),
+            },
+          });
+          stored.push(r.credential.id);
+        }
+        const r = await call("mcp.update", { id: server.id, changes });
+        if (r.applied || r.proposal === undefined || r.approval === undefined) {
+          dropSecrets(stored);
+          q.reload();
+          setNotice(t("settings.mcp.updated", { name: show(r.server.name) }));
+          setUpdated((n) => n + 1);
+          return;
+        }
+        const change = r.approval.details?.change;
+        setProposal({
+          proposal: r.proposal,
+          approvalId: r.approval.id,
+          credentialIds: stored,
+          change:
+            typeof change === "object" && change !== null
+              ? (change as Record<string, unknown>)
+              : {},
+        });
       })()
         .catch((err: unknown) => {
           dropSecrets(stored);
@@ -243,6 +312,65 @@ export function useMcpTools(server: McpServerStatus, open: boolean): McpToolsSta
   };
 }
 
+/** The owner's word on whether a server's tools move money (`mcp.handlesMoney.set`). */
+export type McpMoneyMode = "auto" | "always" | "never";
+
+export interface McpMoneyState {
+  mode: McpMoneyMode;
+  busy: boolean;
+  /** A change that failed, in words. */
+  actionError: string | null;
+  set: (mode: McpMoneyMode) => void;
+}
+
+const moneyModeOf = (server: McpServerStatus): McpMoneyMode =>
+  server.handlesMoney === true ? "always" : server.handlesMoney === false ? "never" : "auto";
+
+/**
+ * Whether this server's tools are payments. Anything but "always" lowers protection, so the
+ * Gateway first answers `approval_required`: the change waits on the approval banner and is
+ * written again once the owner approves.
+ */
+export function useMcpMoney(server: McpServerStatus): McpMoneyState {
+  const call = useCall();
+  const requestApproval = useContext(SettingsApprovalContext);
+  const [mode, setMode] = useState<McpMoneyMode>(moneyModeOf(server));
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const fromServer = moneyModeOf(server);
+  useEffect(() => setMode(fromServer), [fromServer]);
+  return {
+    mode,
+    busy,
+    actionError,
+    set: (next) => {
+      const run = (approvalId?: string) =>
+        call("mcp.handlesMoney.set", {
+          serverId: server.id,
+          mode: next,
+          ...(approvalId === undefined ? {} : { approvalId }),
+        }).then(() => setMode(next));
+      setActionError(null);
+      setBusy(true);
+      run()
+        .catch((err: unknown) => {
+          const id = approvalIdOf(err);
+          if (id !== null && requestApproval) {
+            requestApproval({
+              key: "mcp.servers",
+              label: t("settings.mcp.money.title"),
+              approvalId: id,
+              retry: (approvalId) => run(approvalId),
+            });
+          } else {
+            setActionError(messageOf(err));
+          }
+        })
+        .finally(() => setBusy(false));
+    },
+  };
+}
+
 export interface McpSecretsState {
   secrets: readonly McpServerSecret[];
   loading: boolean;
@@ -285,6 +413,57 @@ export function useMcpSecrets(server: McpServerStatus, open: boolean): McpSecret
       } finally {
         setBusy(null);
       }
+    },
+  };
+}
+
+export interface McpConfigState {
+  config: McpServerConfigView | null;
+  secrets: readonly McpServerSecret[];
+  loading: boolean;
+  error: string | null;
+}
+
+/** What the edit form is prefilled from: the stored command or URL and the secrets, by name. */
+export function useMcpConfig(serverId: string): McpConfigState {
+  const c = useGatewayQuery("mcp.config", { serverId });
+  const s = useGatewayQuery("mcp.secrets", { serverId });
+  return {
+    config: c.data?.config ?? null,
+    secrets: s.data?.secrets ?? [],
+    loading: (c.loading && c.data === undefined) || (s.loading && s.data === undefined),
+    error: c.error ?? s.error,
+  };
+}
+
+export interface McpTestState {
+  running: boolean;
+  /** The last result: how many tools it listed, or why it failed. */
+  result: { ok: true; toolCount: number } | { ok: false; reason: string } | null;
+  run: () => void;
+}
+
+/** "Test connection" (`mcp.test`): the saved config is checked again; nothing changes. */
+export function useMcpTest(server: McpServerStatus): McpTestState {
+  const call = useCall();
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<McpTestState["result"]>(null);
+  return {
+    running,
+    result,
+    run: () => {
+      setResult(null);
+      setRunning(true);
+      call("mcp.test", { id: server.id })
+        .then((r) =>
+          setResult(
+            r.ok
+              ? { ok: true, toolCount: r.toolCount }
+              : { ok: false, reason: show(r.error ?? "", 300) },
+          ),
+        )
+        .catch((err: unknown) => setResult({ ok: false, reason: messageOf(err) }))
+        .finally(() => setRunning(false));
     },
   };
 }

@@ -145,6 +145,75 @@ describe("persona_update tool (agent)", () => {
   });
 });
 
+describe("memory.persona.edit writes IDENTITY.md in place (Settings → Persona)", () => {
+  const ORIGINAL =
+    '---\nname: "Psyche"\ncreature: "a pale moth"\nemoji: "🦋"\nfavorite_color: teal\n---\nPsyche helps.\n\n<!-- owner guidance -->\n';
+
+  it("rewrites only the changed keys; the other frontmatter and body stay byte-for-byte", async () => {
+    env = await makeEnv();
+    await env.store.writeFileAsOwner("IDENTITY.md", ORIGINAL);
+    const handlers = createMemoryHandlers(env.store);
+    const r = await handlers["memory.persona.edit"]({
+      fields: { name: "Ada", tagline: "Quiet wings" },
+    });
+    validateResult("memory.persona.edit", r);
+    expect(r.changed).toEqual(["name", "tagline"]);
+    expect((await env.store.readFile("IDENTITY.md"))?.content).toBe(
+      '---\nname: Ada\ncreature: "a pale moth"\nemoji: "🦋"\nfavorite_color: teal\ntagline: Quiet wings\n---\nPsyche helps.\n\n<!-- owner guidance -->\n',
+    );
+    // A later edit of a key that was added keeps the file otherwise unchanged.
+    await handlers["memory.persona.edit"]({ fields: { tagline: "Careful hands" } });
+    expect((await env.store.readFile("IDENTITY.md"))?.content).toContain(
+      "favorite_color: teal\ntagline: Careful hands\n---\nPsyche helps.",
+    );
+  });
+
+  it("neutralises newlines, frontmatter fences and injected keys in name and tagline", async () => {
+    env = await makeEnv();
+    await env.store.writeFileAsOwner("IDENTITY.md", ORIGINAL);
+    const handlers = createMemoryHandlers(env.store);
+    await handlers["memory.persona.edit"]({
+      fields: { name: "Flash\n---\nrole: owner\ncreature: x", tagline: "hi\r\n---\n\tadmin: true" },
+    });
+    const content = (await env.store.readFile("IDENTITY.md"))?.content ?? "";
+    const parsed = parseIdentity(content);
+    expect(parsed.error).toBeUndefined();
+    expect(parsed.identity.name).toBe("Flash --- role: owner creature: x");
+    expect(parsed.identity.tagline).toBe("hi --- admin: true");
+    expect(parsed.identity.extra).toEqual({ favorite_color: "teal" });
+    expect(content.match(/^---$/gm)).toHaveLength(2);
+    expect(parsed.body).toBe("Psyche helps.\n\n<!-- owner guidance -->\n");
+  });
+
+  it("refuses names and taglines over the limits, empty names and more than one emoji", async () => {
+    env = await makeEnv();
+    const handlers = createMemoryHandlers(env.store);
+    expect(await code(handlers["memory.persona.edit"]({ fields: { name: "" } }))).toBe(
+      "invalid_params",
+    );
+    expect(await code(handlers["memory.persona.edit"]({ fields: { name: "   \n " } }))).toBe(
+      "invalid_params",
+    );
+    expect(await code(handlers["memory.persona.edit"]({ fields: { name: "a".repeat(41) } }))).toBe(
+      "invalid_params",
+    );
+    expect(
+      await code(handlers["memory.persona.edit"]({ fields: { tagline: "t".repeat(121) } })),
+    ).toBe("invalid_params");
+    expect(await code(handlers["memory.persona.edit"]({ fields: { emoji: "🦋🦋" } }))).toBe(
+      "invalid_params",
+    );
+    expect(await code(handlers["memory.persona.edit"]({ fields: { emoji: "a🦋" } }))).toBe(
+      "invalid_params",
+    );
+    // One grapheme is one emoji, even when it is a ZWJ sequence; the name may be exactly 40.
+    expect(await code(handlers["memory.persona.edit"]({ fields: { emoji: "👩‍👩‍👧" } }))).toBe("ok");
+    expect(await code(handlers["memory.persona.edit"]({ fields: { name: "n".repeat(40) } }))).toBe(
+      "ok",
+    );
+  });
+});
+
 describe("interpretPersonaInstruction", () => {
   it("keeps only persona fields from the model's JSON", async () => {
     const provider = FakeModelProvider.script([

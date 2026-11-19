@@ -79,7 +79,7 @@ All page-derived output is `provenance: "untrusted"`, and credential-like URL pa
 - A form submit is `write` (`browser_submit`); a GET form is `read`. This covers a submit button, Enter in a form field and `type {submit: true}`.
 - A button outside a form is `write` unless its name only changes the view (show, more, next, close, …).
 - "Accept all", agree and authorize, delete, cancel and sign-up are `destructive`.
-- Buy, pay, transfer, checkout, place-order and checkout-path form actions are `financial` (`purchase`).
+- `financial` (`purchase`) is only the control that pays, by the shared rule in `@psyche/protocol/money-intent`: a button labelled as a payment (Pay, Place order, Place bid, Sell, Swap, Confirm and pay), a submit of a form with real card fields (`cc-number`, `cc-exp`, `cc-csc`, card number, security code), or a submit of a POST form to a payment path (`/checkout`, `/payment`, `/transfer/submit`, `/orders/create`). A bare Confirm, Send or Continue counts only on a page or form that is clearly payment or checkout. Links and GET forms never pay (Where to buy, Buy tickets, Pay bills, Proceed to checkout, `/orders/search`), and an email CC, a library card or a card PIN field is not a card field.
 - A write on an origin that is read-only in the task asks through the broker as a new target.
 
 Every click by ref is hit-tested first (`conflict {reason: "obscured"}` when another element or a frame covers the point).

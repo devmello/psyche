@@ -35,7 +35,7 @@ struct NotificationCapabilitiesTests {
         #expect(specs["notify.subscribe"]?.streaming == true)
         #expect(specs.values.filter { $0.name != "notify.subscribe" }.allSatisfy { !$0.streaming })
         let required = specs["notify.show"]?.inputSchema["required"]
-        #expect(required == ["body", "id", "kind", "title"])
+        #expect(required == ["body", "id", "title"])
     }
 
     @Test func unbundledBridgeIsUnavailable() async {

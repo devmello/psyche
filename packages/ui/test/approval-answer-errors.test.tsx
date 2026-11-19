@@ -75,6 +75,22 @@ describe("answer failures on the card", () => {
     expect(classifyAnswerError(new Error("boom")).kind).toBe("other");
   });
 
+  it("the Gateway's request budget is not called an approvals limit", () => {
+    // `scope` marks the per-device request budget: it said "Too many approvals" while the owner
+    // had approved nothing, because a busy screen had used the budget up.
+    for (const scope of ["requests", "side_effects"]) {
+      const budget = new GatewayRequestError(
+        "approvals.answer",
+        "rate_limited",
+        "Too many requests from this device; slow down",
+        { scope, windowMs: 60_000, retryAfterSec: 30 },
+      );
+      const failure = classifyAnswerError(budget);
+      expect(failure.kind).toBe("other");
+      expect(failure).toMatchObject({ text: "Too many requests from this device; slow down" });
+    }
+  });
+
   it("a rate limit shows a countdown and disables Allow until it ends", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const onAnswer = vi
@@ -86,7 +102,7 @@ describe("answer failures on the card", () => {
     await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).click(allow());
     await waitFor(() =>
       expect(screen.getByRole("alert").textContent).toMatch(
-        /Too many approvals in a minute\. Try again in \d s\./,
+        /Too many tries in a minute\. Try again in \d s\./,
       ),
     );
     expect(allow().disabled).toBe(true);
@@ -94,7 +110,7 @@ describe("answer failures on the card", () => {
       vi.advanceTimersByTime(4000);
     });
     await waitFor(() => expect(allow().disabled).toBe(false));
-    expect(screen.queryByText(/Too many approvals/)).toBeNull();
+    expect(screen.queryByText(/Too many tries/)).toBeNull();
   });
 
   it("a Touch ID failure is shown on the card", async () => {
@@ -134,22 +150,52 @@ describe("answer failures on the card", () => {
     });
     expect(why("helper_outdated")).toMatchObject({ kind: "touch_id_setup", fix: null });
     expect(why("presence_key_unavailable")).toMatchObject({ kind: "touch_id_setup", fix: null });
-    for (const [reason, fix] of [
-      ["presence_key_untrusted", "open_devices"],
-      ["presence_key_access_denied", null],
-      ["presence_key_changed", "restart_helper"],
-      ["presence_key_wrong_location", null],
-      ["presence_key_interaction_not_allowed", null],
-      ["presence_key_acl_unavailable", null],
-    ] as const) {
-      expect(why(reason)).toMatchObject({ kind: "touch_id_setup", fix });
+    // The retired keychain reasons are no longer known: they read as any other error.
+    for (const reason of [
+      "presence_key_untrusted",
+      "presence_key_access_denied",
+      "presence_key_changed",
+      "presence_key_wrong_location",
+      "presence_key_interaction_not_allowed",
+      "presence_key_acl_unavailable",
+    ]) {
+      expect(why(reason).kind).toBe("other");
     }
     expect(why("something_else").kind).toBe("other");
     expect(
       classifyAnswerError(
         new GatewayRequestError("approvals.approveWithTouchId", "cancelled", "x"),
       ),
-    ).toMatchObject({ kind: "presence_failed" });
+    ).toEqual({ kind: "cancelled" });
+    expect(
+      classifyAnswerError(
+        new GatewayRequestError("approvals.approveWithTouchId", "cancelled", "x", {
+          reason: "presence_cancelled",
+        }),
+      ),
+    ).toEqual({ kind: "cancelled" });
+  });
+
+  it("a cancelled system sheet says nothing: no alert, Allow works again", async () => {
+    const onAnswer = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new GatewayRequestError("approvals.approveWithTouchId", "cancelled", "x", {
+          reason: "presence_cancelled",
+        }),
+      )
+      .mockResolvedValue(undefined);
+    show(onAnswer, approval({ requiresAuthentication: true }));
+    await userEvent.click(allow());
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(allow().disabled).toBe(false));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(/cancel/i)).toBeNull();
+    expect((screen.getByRole("button", { name: /^Deny/ }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+    await userEvent.click(allow());
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(2));
   });
 
   function showWithFix(

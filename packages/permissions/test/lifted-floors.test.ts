@@ -29,7 +29,6 @@ const CASES: [string, string, SideEffect, ApprovalKind][] = [
   ["notes_delete", "notes.delete", "destructive", "connector_action"],
   ["mail_send", "mail.send", "write", "send_email"],
   ["imessage_send", "messages.send", "write", "message_send"],
-  ["pay_invoice", "billing.pay", "financial", "connector_action"],
 ];
 
 function broker(action: string, lifted: boolean) {
@@ -42,6 +41,23 @@ function broker(action: string, lifted: boolean) {
 }
 
 describe("liftable floors (§3.12)", () => {
+  it("the financial floor is never liftable: a payment asks, once only, whatever Settings says", async () => {
+    const h = broker("billing.pay", true);
+    const c = connectorCall("pay_invoice", "billing.pay", "financial", "connector_action");
+    const d = await h.broker.decide(c, CTX);
+    expect(d).toMatchObject({ decision: "ask", rule: `connector:${MAIL}/billing.pay:floor` });
+    expect(d.scopesOffered).toEqual(["once"]);
+    expect(d.via).toBeUndefined();
+    // Not by an `allow` alone, and not for a purchase card either.
+    const plain = broker("billing.pay", false);
+    expect((await plain.broker.decide(c, CTX)).decision).toBe("ask");
+    const buy = await h.broker.decide(
+      connectorCall("checkout", "shop.buy", "financial", "purchase"),
+      CTX,
+    );
+    expect(buy.decision).toBe("ask");
+  });
+
   it.each(CASES)("the confirmed override lifts the floor: %s", async (tool, action, se, kind) => {
     const h = broker(action, true);
     const d = await h.broker.decide(connectorCall(tool, action, se, kind), CTX);
@@ -178,13 +194,13 @@ describe("Always allow on a floored card (§3.4, §3.12)", () => {
     });
   });
 
-  it("a financial card offers once / always; a purchase card stays once", async () => {
+  it("a financial card and a purchase card both offer once only", async () => {
     const h = makeBroker();
     const pay = await h.broker.decide(
       connectorCall("pay_invoice", "billing.pay", "financial"),
       CTX,
     );
-    expect(pay.scopesOffered).toEqual(["once", "always"]);
+    expect(pay.scopesOffered).toEqual(["once"]);
     const buy = await h.broker.decide(
       connectorCall("checkout", "shop.buy", "financial", "purchase"),
       CTX,

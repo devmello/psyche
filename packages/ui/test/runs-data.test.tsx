@@ -36,6 +36,81 @@ function setup() {
 const fromBase64 = (b64: string) =>
   new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
 
+describe("useRun load volume", () => {
+  const runsGetCalls = (gateway: MockGateway) =>
+    gateway.calls.filter((c) => c.method === "runs.get");
+
+  it("many traces mounted at once load each run once and at most four at a time", async () => {
+    const { gateway, store, wrapper } = setup();
+    let active = 0;
+    let peak = 0;
+    const real = store.call.bind(store) as (m: string, p: unknown) => Promise<unknown>;
+    store.call = ((method: string, params: unknown) => {
+      if (method !== "runs.get") return real(method, params);
+      active += 1;
+      peak = Math.max(peak, active);
+      return real(method, params).finally(() => {
+        active -= 1;
+      });
+    }) as typeof store.call;
+    // 40 traces on screen: the same run in ten places, and others that do not exist.
+    const { result } = renderHook(
+      () => [
+        ...Array.from({ length: 10 }, () => useRun(R.done)),
+        ...Array.from({ length: 30 }, (_, i) => useRun(`run_missing_${i}`)),
+      ],
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.every((r) => !r.loading)).toBe(true));
+    expect(peak).toBeLessThanOrEqual(4);
+    const done = runsGetCalls(gateway).filter(
+      (c) => (c.params as { runId: string }).runId === R.done,
+    );
+    expect(done).toHaveLength(1);
+    expect(runsGetCalls(gateway)).toHaveLength(31);
+  });
+
+  it("a settled run is fetched once across refreshes, and re-read only after an event changed it", async () => {
+    const { gateway, store, wrapper } = setup();
+    const { result } = renderHook(() => useRun(R.done), { wrapper });
+    await waitFor(() => expect(result.current.steps.length).toBeGreaterThan(0));
+    expect(runsGetCalls(gateway)).toHaveLength(1);
+    const stepsCalls = () => gateway.calls.filter((c) => c.method === "runs.steps");
+    const stepsBefore = stepsCalls().length;
+    await act(async () => {
+      await store.refreshAll();
+      await store.refreshAll();
+    });
+    // Nothing changed: a refresh asks for neither the run nor its steps.
+    expect(runsGetCalls(gateway)).toHaveLength(1);
+    expect(stepsCalls()).toHaveLength(stepsBefore);
+    // A step event says the run changed: the next refresh asks for the steps after the last seq.
+    const last = result.current.steps.at(-1);
+    const lastSeq = last?.seq ?? 0;
+    act(() => gateway.setStep(last as NonNullable<typeof last>));
+    await act(async () => store.refreshAll());
+    expect(stepsCalls()).toHaveLength(stepsBefore + 1);
+    expect(stepsCalls().at(-1)?.params).toMatchObject({ runId: R.done, afterSeq: lastSeq });
+    expect(runsGetCalls(gateway)).toHaveLength(1);
+    // The owner's own reload still asks again.
+    await act(async () => result.current.reload());
+    await waitFor(() => expect(runsGetCalls(gateway)).toHaveLength(2));
+  });
+
+  it("a running run is re-fetched on every refresh", async () => {
+    const { gateway, store, wrapper } = setup();
+    const { result } = renderHook(() => useRun(R.live), { wrapper });
+    await waitFor(() => expect(result.current.steps).toHaveLength(3));
+    await act(async () => {
+      await store.refreshAll();
+      await store.refreshAll();
+    });
+    expect(
+      runsGetCalls(gateway).filter((c) => (c.params as { runId: string }).runId === R.live),
+    ).toHaveLength(3);
+  });
+});
+
 describe("useRun", () => {
   it("loads a done run with its steps in seq order, its helper, and no retained thinking text", async () => {
     const { wrapper } = setup();
@@ -76,6 +151,46 @@ describe("useRun", () => {
     await act(() => result.current.deleteTrace());
     expect(result.current.steps).toEqual([]);
     expect(result.current.run?.id).toBe(R.failed);
+  });
+});
+
+describe("runs after a reconnect", () => {
+  const runsGetFor = (gateway: MockGateway, runId: string) =>
+    gateway.calls.filter(
+      (c) => c.method === "runs.get" && (c.params as { runId: string }).runId === runId,
+    ).length;
+  const stepsCalls = (gateway: MockGateway) =>
+    gateway.calls.filter((c) => c.method === "runs.steps");
+
+  it("a run settled before the drop is re-read for the steps after its last seq only", async () => {
+    const { gateway, wrapper } = setup();
+    const { result } = renderHook(() => useRun(R.done), { wrapper });
+    await waitFor(() => expect(result.current.steps.length).toBeGreaterThan(0));
+    const lastSeq = result.current.steps.at(-1)?.seq ?? 0;
+    const stepsBefore = stepsCalls(gateway).length;
+    act(() => gateway.setConnection("offline"));
+    act(() => gateway.setConnection("open"));
+    await waitFor(() => expect(stepsCalls(gateway).length).toBeGreaterThan(stepsBefore));
+    const after = stepsCalls(gateway).slice(stepsBefore);
+    expect(after).toHaveLength(1);
+    expect(after[0]?.params).toMatchObject({ runId: R.done, afterSeq: lastSeq });
+    expect(runsGetFor(gateway, R.done)).toBe(1);
+  });
+
+  it("a run still running in the store, settled while the connection was down, is re-read", async () => {
+    const { gateway, wrapper } = setup();
+    const { result } = renderHook(() => useRun(R.live), { wrapper });
+    await waitFor(() => expect(result.current.steps).toHaveLength(3));
+    expect(runsGetFor(gateway, R.live)).toBe(1);
+    act(() => gateway.setConnection("offline"));
+    // The run finishes on the Gateway while no events reach the client.
+    const world = (gateway as unknown as { world: { runs: { id: string }[] } }).world;
+    world.runs = world.runs.map((r) =>
+      r.id === R.live ? { ...r, status: "done", endedAt: FIXTURE_NOW } : r,
+    );
+    act(() => gateway.setConnection("open"));
+    await waitFor(() => expect(result.current.run?.status).toBe("done"));
+    expect(runsGetFor(gateway, R.live)).toBe(2);
   });
 });
 

@@ -1,5 +1,8 @@
 import { randomBytes } from "node:crypto";
+import { realpathSync } from "node:fs";
+import { basename } from "node:path";
 import { Receipts, sha256 } from "@psyche/audit";
+import { isUnderHostPath } from "@psyche/hostfs";
 import {
   APPROVAL_ARM_DELAY_MS,
   APPROVAL_TTL_MS,
@@ -31,9 +34,10 @@ import {
   type Surface,
   type ToolCallIntent,
 } from "@psyche/protocol";
+import { venueOfHost } from "@psyche/protocol/financial-block";
 import { monotonicFactory } from "ulid";
-import { type Binding, bindingFor, bindingHash } from "./binding.ts";
-import { cardHeader, sanitizeDetails, sanitizeDisplay } from "./cards.ts";
+import { type Binding, bindingFor, bindingHash, grantKeyHash, readsCwdConfig } from "./binding.ts";
+import { cardHeader, cardTaintSources, sanitizeDetails, sanitizeDisplay } from "./cards.ts";
 import {
   CHANNEL_PAIRING_WINDOW_MS,
   CHANNEL_REPLIES_PER_MINUTE,
@@ -53,32 +57,68 @@ import {
   type TaskState,
   targetKey,
   taskKey,
+  trustedRead,
 } from "./engine.ts";
-import { type FolderAccessEnv, type FolderGrantEntry, resolveFolderPick } from "./folder-access.ts";
+import {
+  effectiveEntries,
+  type FolderAccessEnv,
+  type FolderGrantEntry,
+  folderCovers,
+  inSystemRoot,
+  refuseFolder,
+  resolveFilePick,
+  resolveFolderPick,
+} from "./folder-access.ts";
+import {
+  HOST_PROGRAM_ROOTS,
+  type HostProgramFacts,
+  type HostProgramGrant,
+  hostProgramCoverage,
+  hostProgramGrantCovers,
+  hostProgramRefusal,
+} from "./host-program.ts";
 import {
   AUTH_KINDS,
   allowedScopes,
   DEVICE_ONLY_KINDS,
   inferApprovalKind,
   isDeviceOnly,
+  isSeparateDesktopCredentialKey,
   SEVERITY,
 } from "./kinds.ts";
 import {
   type ComposeFinal,
   composeBindingHash,
   readCompose,
+  readFinal,
   resolveCompose,
 } from "./message-compose.ts";
-import { type CompiledPolicy, compilePolicy, type PolicyConfig } from "./policy.ts";
+import {
+  type CompiledPolicy,
+  compilePolicy,
+  isSensitiveHost,
+  type PolicyConfig,
+} from "./policy.ts";
 import { DENY_ALL_LOOPBACK, type LocalProjectVerifier } from "./prohibitions.ts";
+import { receiptGrantBinding, receiptGrantId } from "./receipt-grant.ts";
 import { requesterKey, requesterSurfaces } from "./requester.ts";
 import type { RevocationLedger } from "./revocations.ts";
+import { riskClassFor } from "./risk.ts";
 import {
   MemoryPermissionStore,
   type PermissionStore,
   type StoredApproval,
+  type StoredCardFields,
   type StoredGrant,
 } from "./store.ts";
+import { canonicalPath } from "./targets.ts";
+import {
+  isSharedTenantHost,
+  normalizeTrustedSite,
+  type TrustedSite,
+  TrustedSiteError,
+  trustedSiteCovers,
+} from "./trusted-sites.ts";
 import type {
   BatchChild,
   PolicyAnswerInput,
@@ -88,13 +128,15 @@ import type {
   PolicyContext,
   PolicyDecision,
   PresenceAssertion,
-  TaintSource,
 } from "./types.ts";
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 
 /** Who may answer (security §3.7): paired devices with `operator.approvals`, owner-identity senders. */
+
+/** How long a folder whose real path failed to resolve (not ENOENT) stays refused before a new look. */
+const FOLDER_ERROR_RETRY_MS = 30_000;
 export interface ApproverDirectory {
   device(
     deviceId: string,
@@ -114,12 +156,26 @@ export type BrokerEvent =
       type: "approval.decided" | "approval.expired" | "approval.invalidated";
       approval: ApprovalRequest;
     }
-  | { type: "grant.created" | "grant.used" | "grant.revoked"; grant: Grant }
+  | { type: "grant.created" | "grant.revoked"; grant: Grant }
+  /**
+   * `taskId`: the task whose call went through the grant (none for a batch's own use);
+   * `bindingHash`: that call's binding (a grant covers a key, not one exact call);
+   * `fromSetAside`: the grant was made by approving a set-aside card (a resume may wait on it).
+   */
+  | {
+      type: "grant.used";
+      grant: Grant;
+      taskId?: string;
+      bindingHash: string;
+      fromSetAside?: true;
+    }
   | { type: "receipt.created"; receipt: Receipt }
   | { type: "task.paused" | "task.downgraded"; taskId: string; reason: string };
 
 export interface PermissionBrokerOptions {
   approvers: ApproverDirectory;
+  /** "Always allow <program> in <folder>" (tests): where a granted binary may live, whose rules. */
+  hostProgram?: { roots?: readonly string[]; platform?: NodeJS.Platform; home?: string };
   store?: PermissionStore;
   audit?: AuditLog;
   receipts?: Receipts;
@@ -138,6 +194,32 @@ export interface PermissionBrokerOptions {
   presenceFor?: "authentication" | "device_only";
   ttlMs?: number;
   armDelayMs?: number;
+  /**
+   * True for a card an unattended run is waiting on (Deferred). Such a card gets no card of its
+   * own in the notifier: the Gateway's automation digest announces them as one. The card, its
+   * expiry and its answer path are unchanged.
+   */
+  deferredApproval?: (approval: ApprovalRequest) => boolean | Promise<boolean>;
+  /**
+   * For a card the agent loop set aside (`setAside`): true when a resume run of its automation
+   * can start once the card is approved. Absent or false refuses the approval (`not_resumable`),
+   * because approving would otherwise report success for an action that never runs.
+   */
+  canResume?: (approval: ApprovalRequest) => boolean | Promise<boolean>;
+  /**
+   * A restart revoked an approved set-aside card before any run used it (`reissue`): the resume
+   * it promised will not happen, so the Gateway tells the owner instead of staying silent.
+   */
+  onSetAsideRevoked?: (
+    approval: ApprovalRequest,
+    how: { failed: boolean; unknown: boolean },
+  ) => void;
+  /**
+   * Whether `taskId` is a run of the automation that set this card aside (the scheduler's
+   * `runForTask`). Only those runs' grant receipts can say the card's action was done at boot;
+   * without it none can (fail closed: the owner is told).
+   */
+  sameAutomation?: (approval: ApprovalRequest, taskId: string) => boolean;
   onEvent?: (event: BrokerEvent) => void;
   newId?: (prefix: string) => string;
   /** Records grant revocations outside the backup scope (design-26). */
@@ -151,11 +233,19 @@ export interface PermissionBrokerOptions {
    */
   folderAccess?: {
     env: () => FolderAccessEnv;
+    /**
+     * The places a `separate_desktop_share` pick is refused under (the container's own list,
+     * wider than `env`): the card and the mount judge by one list. Without it `env` is used.
+     */
+    separateDesktopEnv?: () => FolderAccessEnv;
     persist: (entry: FolderGrantEntry) => Promise<void>;
     /** Removes an `always` folder from Settings (the owner's revoke); true when it was there. */
     remove?: (path: string) => Promise<boolean>;
   };
 }
+
+/** How long an attached file stays readable in its conversation (it also ends with the thread). */
+export const ATTACH_GRANT_MS = 24 * 60 * 60 * 1000;
 
 type GrantFields = { grantFields?: JsonObject };
 
@@ -171,7 +261,11 @@ export function presenceChallenge(
   scope?: string,
 ): string {
   const base = `psyche.presence.v1|${approvalId}|${bindingHash}|${answerToken}`;
-  return sha256(scope === undefined || scope === "once" ? base : `${base}|scope:${scope}`);
+  const digest = sha256(scope === undefined || scope === "once" ? base : `${base}|scope:${scope}`);
+  // The Mac helper and WebAuthn both want the bare 64-hex digest, but `@psyche/audit`'s `sha256`
+  // carries a `sha256:` prefix. With it the helper's `isValidChallenge` (exactly 64 hex) refused
+  // every challenge, so no presence check could ever pass.
+  return digest.slice("sha256:".length);
 }
 
 const isChat = (s: Surface) => s.includes(":");
@@ -206,8 +300,34 @@ export function batchChildId(batchApprovalId: string, index: number): string {
   return `${batchApprovalId}.${index}`;
 }
 
-/** Rejected answers may be this many times the decision budget per minute before a lockout. */
+/**
+ * Guessing-shaped rejections (a wrong or replayed token, a failed sheet or password) per
+ * identity per minute, as a multiple of `approvals.answersPerMinute`, before a lockout. Real
+ * decisions are never capped: the owner tapping Allow on card after card must not trip anything
+ * (owner decision 2026-11-09), and a decision needs the card's own one-time token anyway.
+ */
 const FAILURE_CAP_FACTOR = 6;
+
+/**
+ * The rejections that count toward the lockout cap: the ones a brute-force attempt produces — a
+ * guessed or reused answer token, an answer from the wrong place or by someone who may not
+ * decide, and a presence assertion or password that did not check out. Every other refusal
+ * (`late`, `not_armed`, `not_found`, `invalidated`, a cancelled sheet, a missing helper or key, a
+ * malformed request) is still audited, but it proves nothing about guessing: a client that
+ * retries a stale card must not lock the owner out of the cards that are still open.
+ */
+const GUESSING_REASONS: ReadonlySet<string> = new Set([
+  "unknown_token",
+  "replayed",
+  "surface_mismatch",
+  "not_approver",
+  "not_owner",
+  "device_only",
+  "presence_invalid",
+  "presence_failed",
+  "password_failed",
+  "password_from_client",
+]);
 
 export class PsychePermissionBroker implements PermissionBroker {
   readonly clock: Clock;
@@ -221,6 +341,10 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #presenceFor: "authentication" | "device_only";
   readonly #armDelayMs: number;
   readonly #ttlMs: number | undefined;
+  readonly #deferredApproval: PermissionBrokerOptions["deferredApproval"];
+  readonly #canResume: PermissionBrokerOptions["canResume"];
+  readonly #onSetAsideRevoked: PermissionBrokerOptions["onSetAsideRevoked"];
+  readonly #sameAutomation: PermissionBrokerOptions["sameAutomation"];
   readonly #onEvent: ((e: BrokerEvent) => void) | undefined;
   readonly #newId: (prefix: string) => string;
   readonly #revocations: RevocationLedger | undefined;
@@ -236,14 +360,29 @@ export class PsychePermissionBroker implements PermissionBroker {
     string,
     { call: PolicyCall; ctx: PolicyContext; binding: Binding; decision: PolicyDecision; at: number }
   >();
-  readonly #answerTimes = new Map<string, number[]>();
-  /** Rejected answers per identity: a much higher flood cap, so failures never eat the budget. */
+  /** Rejected, guessing-shaped answers per identity: the only answer cap. */
   readonly #failureTimes = new Map<string, number[]>();
+  /** The `decidedBy` objects of calls the Gateway vouched for as the owner's own Host app. */
+  readonly #localBy = new WeakSet<object>();
   readonly #channelConversations: ChannelConversationLookup | undefined;
   readonly #replyTimes = new Map<string, number[]>();
   readonly #folderAccess: PermissionBrokerOptions["folderAccess"];
+  readonly #hostProgram: NonNullable<PermissionBrokerOptions["hostProgram"]>;
+  readonly #psycheHome: string | undefined;
   /** thread → folders allowed for that conversation only; gone at `/new` and at a restart. */
   readonly #sessionFolders = new Map<string, FolderGrantEntry[]>();
+  /** `folderRefused` answers by path: the real path is resolved once, not on every call. */
+  readonly #refusedMemo = new Map<string, boolean>();
+  /** Folders whose real path failed to resolve, refused until this time (ms since epoch). */
+  readonly #refusedRetryAt = new Map<string, number>();
+  /** When an attached file's grant ends (`${threadId}\0${path}` -> epoch ms); see attachFiles. */
+  readonly #fileGrantExpiry = new Map<string, number>();
+  /**
+   * Which files the owner attached in which conversation (`${threadId}\0${path}` -> epoch ms
+   * when the record ends). Separate from the grants: a file inside a granted folder gets no
+   * grant entry but is still attached. The record alone never grants a read.
+   */
+  readonly #attachRecords = new Map<string, number>();
 
   constructor(options: PermissionBrokerOptions) {
     this.clock = options.clock ?? { now: () => Date.now() };
@@ -261,10 +400,16 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#presenceFor = options.presenceFor ?? "authentication";
     this.#armDelayMs = options.armDelayMs ?? APPROVAL_ARM_DELAY_MS;
     this.#ttlMs = options.ttlMs;
+    this.#deferredApproval = options.deferredApproval;
+    this.#canResume = options.canResume;
+    this.#onSetAsideRevoked = options.onSetAsideRevoked;
+    this.#sameAutomation = options.sameAutomation;
     this.#onEvent = options.onEvent;
     this.#revocations = options.revocations;
     this.#channelConversations = options.channelConversations;
     this.#folderAccess = options.folderAccess;
+    this.#hostProgram = options.hostProgram ?? {};
+    this.#psycheHome = options.psycheHome;
     const ulid = monotonicFactory();
     this.#newId = options.newId ?? ((prefix) => `${prefix}_${ulid(this.clock.now())}`);
     this.#bootId = options.bootId ?? this.#newId("boot");
@@ -278,9 +423,13 @@ export class PsychePermissionBroker implements PermissionBroker {
       policy: () => this.#policy,
       task: (ctx) => this.#task(ctx),
       peekTask: (ctx) => this.#tasks.get(taskKey(ctx)),
-      sessionFolders: (threadId) => this.#sessionFolders.get(threadId) ?? [],
+      sessionFolders: (threadId) => this.sessionFolders(threadId),
+      folderRefused: (path) => this.folderRefused(path),
+      workspaceRefused: (path) => this.#workspaceRefused(path),
       matchGrant: (key, kind, se, ctx, origin) => this.#matchGrant(key, kind, se, ctx, origin),
-      useGrant: (rec, hash) => this.#useGrant(rec, hash),
+      useGrant: (rec, hash, ctx) => this.#useGrant(rec, hash, ctx?.taskId),
+      trustedSite: (origin) => this.#trustedSite(origin),
+      hostProgramGrant: (call, ctx) => this.#hostProgramGrant(call, ctx),
       hooks: options.hooks ?? [],
       classifier,
       localProject: options.localProject ?? DENY_ALL_LOOPBACK,
@@ -289,6 +438,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       onClassified: (ctx, call, label, reason, breaker) =>
         this.#onClassified(ctx, call, label, reason, breaker),
     });
+    this.#warmRefusals();
   }
 
   get bootId(): string {
@@ -302,6 +452,30 @@ export class PsychePermissionBroker implements PermissionBroker {
   /** Takes effect on the next call (feature F5). Never reachable from a tool (security §3.9). */
   setPolicy(config: PolicyConfig): void {
     this.#policy = compilePolicy(config);
+    this.#refusedMemo.clear();
+    this.#refusedRetryAt.clear();
+    this.#warmRefusals();
+  }
+
+  /**
+   * The folders the owner granted in Settings that still count: a folder `inSystemRoot` refuses
+   * today (granted before `/opt` was refused, say) is left out. Every consumer that reads the
+   * granted folders (file and exec executors, harness mounts, meetings, conversion) uses this,
+   * never the raw `policy.folders`.
+   */
+  grantedFolders(): NonNullable<PolicyConfig["folders"]> {
+    return (this.policy.folders ?? []).filter((f) => !this.folderRefused(f.path));
+  }
+
+  /** This conversation's folders and attached files that still count (see `grantedFolders`). */
+  liveSessionFolders(threadId: string): FolderGrantEntry[] {
+    return this.sessionFolders(threadId).filter((f) => !this.folderRefused(f.path));
+  }
+
+  /** Resolves each stored folder's real path once, here, not on every `decide` (a hung mount). */
+  #warmRefusals(): void {
+    for (const f of this.#policy.folders) this.folderRefused(f.path);
+    for (const r of this.#policy.workspaceRoots) this.#workspaceRefused(r);
   }
 
   subscribe(listener: (e: BrokerEvent) => void): () => void {
@@ -438,7 +612,8 @@ export class PsychePermissionBroker implements PermissionBroker {
       const deviceOnly =
         decision.decision === "ask" &&
         kind !== undefined &&
-        isDeviceOnly(kind, decision.sideEffect, this.#policy.config.approvals?.deviceOnly);
+        (decision.deviceOnly === true ||
+          isDeviceOnly(kind, decision.sideEffect, this.#policy.config.approvals?.deviceOnly));
       out.push({
         tool: call.tool,
         decision: deviceOnly ? "device-only" : decision.decision,
@@ -502,6 +677,8 @@ export class PsychePermissionBroker implements PermissionBroker {
     ctx: PolicyContext,
     origin: string | undefined,
   ) {
+    // A login typed into the separate desktop is never covered by a standing grant.
+    if (kind === "credential_fill" && isSeparateDesktopCredentialKey(grantKey)) return undefined;
     const now = this.clock.now();
     const allowed = allowedScopes(se, kind);
     for (const rec of this.#store.listGrants()) {
@@ -526,7 +703,342 @@ export class PsychePermissionBroker implements PermissionBroker {
     return undefined;
   }
 
-  #useGrant(rec: StoredGrant, bindingHash: string): StoredGrant {
+  /** The trusted-site entry of a grant, if it is one (its grant key must match its own fields). */
+  static trustedSiteOf(rec: StoredGrant): TrustedSite | undefined {
+    const t = (rec.grant.subject as { trustedSite?: { origin?: unknown; subdomains?: unknown } })
+      .trustedSite;
+    if (t === undefined || typeof t.origin !== "string") return undefined;
+    const site: TrustedSite = { origin: t.origin, subdomains: t.subdomains === true };
+    return rec.grant.kind === "new_origin" &&
+      rec.grant.grantKey === grantKeyHash("trusted_site", site)
+      ? site
+      : undefined;
+  }
+
+  /** Whether a live trusted-site entry of the owner covers this origin (Balanced reads). */
+  #trustedSite(origin: string): boolean {
+    const now = this.clock.now();
+    for (const rec of this.#store.listGrants()) {
+      const g = rec.grant;
+      if (g.revokedAt != null || (g.expiresAt != null && Date.parse(g.expiresAt) <= now)) continue;
+      if ((rec.meta.requesterId ?? null) !== null) continue;
+      const site = PsychePermissionBroker.trustedSiteOf(rec);
+      if (site !== undefined && trustedSiteCovers(site, origin)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * What a first-read card may offer as "Always for this site": the exact origin (server-computed
+   * from the call, never from the answer) when the read is a Balanced, untainted, owner read of a
+   * site that is not on the sensitive list and may be trusted at all.
+   */
+  #trustSiteOffer(
+    recent: { call: PolicyCall; ctx: PolicyContext } | undefined,
+    input: PolicyApprovalInput,
+    se: SideEffect,
+  ): { origin: string; subdomains: boolean } | undefined {
+    // The call the broker itself decided (never a caller-supplied one) names the origin.
+    const call = recent?.call;
+    const ctx = recent?.ctx;
+    if (call === undefined || ctx === undefined || se !== "read") return undefined;
+    if (call.sideEffect !== "read") return undefined;
+    if (ctx.permissionMode !== "balanced" || input.taint || ctx.taint === true) return undefined;
+    if (ctx.initiator === "mcp_app") return undefined;
+    if (ctx.requester !== undefined && ctx.requester.role !== "owner") return undefined;
+    if (!trustedRead(call) || call.target?.kind !== "origin") return undefined;
+    const origin = safeOrigin(call.target.value);
+    if (origin === undefined) return undefined;
+    try {
+      const host = new URL(origin).hostname;
+      if (isSensitiveHost(this.#policy, host)) return undefined;
+      // A brokerage, exchange or bank is never a quiet read, and a shared-tenant host would
+      // trust every tenant's pages at once.
+      if (venueOfHost(host) !== undefined || isSharedTenantHost(host)) return undefined;
+      normalizeTrustedSite(origin);
+      let subdomains = true;
+      try {
+        normalizeTrustedSite(origin, true);
+      } catch {
+        subdomains = false;
+      }
+      return { origin, subdomains };
+    } catch (e) {
+      if (e instanceof TrustedSiteError) return undefined;
+      throw e;
+    }
+  }
+
+  #newTrustedSiteGrant(
+    rec: StoredApproval,
+    offer: { origin: string },
+    subdomains: boolean,
+    by: DecidedBy,
+    now: number,
+  ): StoredGrant {
+    const a = rec.approval;
+    const site: TrustedSite = { origin: offer.origin, subdomains };
+    const grantKey = grantKeyHash("trusted_site", site);
+    return {
+      grant: {
+        id: this.#newId("grt"),
+        kind: "new_origin",
+        scope: "always",
+        grantKey,
+        subject: {
+          grantKey,
+          trustedSite: { ...site },
+          target: { kind: "origin", value: site.origin },
+          sideEffect: "read",
+        },
+        binding: null,
+        expiresAt: new Date(now + this.#ttl().always).toISOString(),
+        useCount: 0,
+        lastUsedAt: null,
+        createdFromApprovalId: a.id,
+        taskId: null,
+        createdAt: new Date(now).toISOString(),
+        revokedAt: null,
+      },
+      meta: {
+        sideEffect: "read",
+        sessionId: null,
+        threadId: null,
+        origin: null,
+        createdByDeviceId: "deviceId" in by ? by.deviceId : null,
+        maxUses: null,
+        lastUsedBindingHash: null,
+        revokedReason: null,
+        requesterId: null,
+      },
+    };
+  }
+
+  /** The program grant of a stored grant, if it is one (its key must match its own fields). */
+  static hostProgramOf(rec: StoredGrant): HostProgramGrant | undefined {
+    const h = (rec.grant.subject as { hostProgram?: Record<string, unknown> }).hostProgram;
+    if (h === undefined || h === null || typeof h !== "object") return undefined;
+    const { executable, sha256, folder, argv } = h;
+    if (typeof executable !== "string" || typeof sha256 !== "string" || typeof folder !== "string")
+      return undefined;
+    if (argv !== null && !(Array.isArray(argv) && argv.every((a) => typeof a === "string")))
+      return undefined;
+    const out: HostProgramGrant = { executable, sha256, folder, argv: argv as string[] | null };
+    return rec.grant.kind === "exec_host" &&
+      rec.grant.scope === "always" &&
+      rec.grant.grantKey === grantKeyHash("host_program", out)
+      ? out
+      : undefined;
+  }
+
+  /** What a host command is, for a program grant: the call's own params and the Gateway's meta. */
+  #hostFacts(call: PolicyCall): HostProgramFacts | undefined {
+    const hp = call.meta?.hostProgram;
+    const p = (call.params ?? {}) as {
+      argv?: unknown;
+      cwd?: unknown;
+      env?: unknown;
+      allowedDomains?: unknown;
+    };
+    if (hp === undefined || !Array.isArray(p.argv) || typeof p.cwd !== "string") return undefined;
+    if (p.env !== undefined && (typeof p.env !== "object" || p.env === null)) return undefined;
+    if (p.allowedDomains !== undefined && !Array.isArray(p.allowedDomains)) return undefined;
+    // The binding the engine hashed names the same binary, or the description is not trusted.
+    const b = (call.binding ?? {}) as { executable?: unknown; executableSha256?: unknown };
+    if (b.executable !== undefined && b.executable !== hp.executable) return undefined;
+    if (b.executableSha256 !== undefined && b.executableSha256 !== hp.sha256) return undefined;
+    return {
+      argv: p.argv as string[],
+      cwd: p.cwd,
+      env: p.env as Record<string, unknown> | undefined,
+      allowedDomains: p.allowedDomains as unknown[] | undefined,
+      executable: hp.executable,
+      sha256: hp.sha256,
+      cwdReal: hp.cwdReal,
+    };
+  }
+
+  #hostProgramRefusal(f: HostProgramFacts, threadId: string | undefined): string | undefined {
+    return hostProgramRefusal(f, {
+      platform: this.#hostProgram.platform ?? process.platform,
+      roots: this.#hostProgram.roots ?? HOST_PROGRAM_ROOTS,
+      inGrantedFolder: (path) => this.engine.folderFor(path, threadId) !== undefined,
+    });
+  }
+
+  /**
+   * A granted folder inside a system root (`inSystemRoot`), as written or by its real path (a symlink).
+   * Such a folder covers nothing; Settings lists it as refused.
+   */
+  folderRefused(path: string): boolean {
+    const known = this.#refusedMemo.get(path);
+    if (known !== undefined) return known;
+    const retryAt = this.#refusedRetryAt.get(path);
+    if (retryAt !== undefined && Date.now() < retryAt) return true;
+    this.#refusedRetryAt.delete(path);
+    const env = this.#refuseEnv();
+    let refused = inSystemRoot(path, env);
+    if (!refused) {
+      try {
+        // The native call, so `/.nofollow/..` links and case on disk show up; anything but a
+        // missing path leaves the real location unknown, which counts as refused.
+        const real = realpathSync.native(path);
+        refused = real !== path && inSystemRoot(real, env);
+      } catch (err) {
+        // Refused for now, and remembered only briefly: a mount that timed out at start (SMB,
+        // NFS) is judged again within a minute, and a hung one is not looked up on every call.
+        if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+          this.#refusedRetryAt.set(path, Date.now() + FOLDER_ERROR_RETRY_MS);
+          return true;
+        }
+      }
+    }
+    this.#refusedMemo.set(path, refused);
+    return refused;
+  }
+
+  /** A workspace root: refused like a grant would be (`refuseFolder`), or inside a system root. */
+  #workspaceRefused(path: string): boolean {
+    const key = `ws\0${path}`;
+    const known = this.#refusedMemo.get(key);
+    if (known !== undefined) return known;
+    const refused = refuseFolder(path, this.#refuseEnv()) !== undefined || this.folderRefused(path);
+    this.#refusedMemo.set(key, refused);
+    return refused;
+  }
+
+  #refuseEnv(): FolderAccessEnv {
+    return {
+      ...(this.#hostProgram.home === undefined ? {} : { home: this.#hostProgram.home }),
+      ...(this.#psycheHome === undefined ? {} : { psycheHome: this.#psycheHome }),
+    };
+  }
+
+  /** The folder an offer or a grant covers: a shared folder that is not home or a sensitive root. */
+  #hostProgramFolder(cwd: string, threadId: string | undefined): string | undefined {
+    let c: string;
+    try {
+      c = canonicalPath(cwd);
+    } catch {
+      return undefined;
+    }
+    const root = this.engine.folderFor(c, threadId)?.path;
+    if (root === undefined) return undefined;
+    return refuseFolder(root, this.#refuseEnv()) === undefined ? root : undefined;
+  }
+
+  /** A live program grant that covers this host command (security §5.4); never in a tainted turn. */
+  #hostProgramGrant(call: PolicyCall, ctx: PolicyContext): StoredGrant | undefined {
+    if (ctx.taint === true) return undefined;
+    if (ctx.requester !== undefined && ctx.requester.role !== "owner") return undefined;
+    const f = this.#hostFacts(call);
+    if (f === undefined || this.#hostProgramRefusal(f, ctx.threadId) !== undefined) {
+      return undefined;
+    }
+    // The folder must still be a shared one, and the command must run inside it.
+    if (this.#hostProgramFolder(f.cwd, ctx.threadId) === undefined) return undefined;
+    if (readsCwdConfig(f.executable) || readsCwdConfig(f.argv[0] as string)) return undefined;
+    const now = this.clock.now();
+    for (const rec of this.#store.listGrants()) {
+      const g = rec.grant;
+      if (g.revokedAt != null || (g.expiresAt != null && Date.parse(g.expiresAt) <= now)) continue;
+      if ((rec.meta.requesterId ?? null) !== null) continue;
+      const h = PsychePermissionBroker.hostProgramOf(rec);
+      if (h === undefined || !hostProgramGrantCovers(h, f)) continue;
+      // Granted folders can be revoked: the grant's own folder must still be shared.
+      if (this.engine.folderFor(h.folder, ctx.threadId) === undefined) continue;
+      if (refuseFolder(h.folder, this.#refuseEnv()) !== undefined) continue;
+      return rec;
+    }
+    return undefined;
+  }
+
+  /**
+   * What an `exec_host` card may offer as "Always allow <program> in <folder>": computed from the
+   * call the broker itself decided, never from the caller's details or the answer.
+   */
+  #hostProgramOffer(
+    recent: { call: PolicyCall; ctx: PolicyContext } | undefined,
+    input: PolicyApprovalInput,
+  ): (HostProgramGrant & { program: string }) | undefined {
+    const call = recent?.call;
+    const ctx = recent?.ctx;
+    if (call === undefined || ctx === undefined || input.kind !== "exec_host") return undefined;
+    if (ctx.permissionMode === "manual") return undefined;
+    if (input.taint || ctx.taint === true || ctx.initiator === "mcp_app") return undefined;
+    if (ctx.requester !== undefined && ctx.requester.role !== "owner") return undefined;
+    const f = this.#hostFacts(call);
+    if (f === undefined || this.#hostProgramRefusal(f, ctx.threadId) !== undefined) {
+      return undefined;
+    }
+    const folder = this.#hostProgramFolder(f.cwd, ctx.threadId);
+    if (folder === undefined) return undefined;
+    // A program that reads config from the working directory (git, make, npm…) never gets a
+    // folder-wide grant: the config can change under it, and a grant cannot bind its hashes.
+    if (readsCwdConfig(f.executable) || readsCwdConfig(f.argv[0] as string)) return undefined;
+    // Only the read tools that cannot run code: every other program keeps its exact grant.
+    if (hostProgramCoverage(f.argv, f.executable) !== "any") return undefined;
+    const any = true;
+    return {
+      program: basename(f.executable),
+      executable: f.executable,
+      sha256: f.sha256,
+      folder,
+      argv: any ? null : [...f.argv],
+    };
+  }
+
+  #newHostProgramGrant(
+    rec: StoredApproval,
+    offer: HostProgramGrant,
+    by: DecidedBy,
+    now: number,
+  ): StoredGrant {
+    const a = rec.approval;
+    const key: HostProgramGrant = {
+      executable: offer.executable,
+      sha256: offer.sha256,
+      folder: offer.folder,
+      argv: offer.argv,
+    };
+    const grantKey = grantKeyHash("host_program", key);
+    return {
+      grant: {
+        id: this.#newId("grt"),
+        kind: "exec_host",
+        scope: "always",
+        grantKey,
+        subject: {
+          grantKey,
+          hostProgram: { ...key, argv: key.argv === null ? null : [...key.argv] },
+          target: { kind: "command", value: basename(key.executable) },
+          sideEffect: "destructive",
+        },
+        binding: null,
+        // 30 days, like every other host-command grant.
+        expiresAt: new Date(now + this.#ttl().execHostAlways).toISOString(),
+        useCount: 0,
+        lastUsedAt: null,
+        createdFromApprovalId: a.id,
+        taskId: null,
+        createdAt: new Date(now).toISOString(),
+        revokedAt: null,
+      },
+      meta: {
+        sideEffect: "destructive",
+        sessionId: null,
+        threadId: null,
+        origin: null,
+        createdByDeviceId: "deviceId" in by ? by.deviceId : null,
+        maxUses: null,
+        lastUsedBindingHash: null,
+        revokedReason: null,
+        requesterId: null,
+      },
+    };
+  }
+
+  #useGrant(rec: StoredGrant, bindingHash: string, taskId?: string | null): StoredGrant {
     const now = this.clock.now();
     const next = structuredClone(rec);
     next.grant.useCount += 1;
@@ -539,7 +1051,15 @@ export class PsychePermissionBroker implements PermissionBroker {
       next.grant.expiresAt = new Date(Math.min(now + ttl.sessionIdle, cap)).toISOString();
     }
     this.#store.updateGrant(next);
-    this.#emit({ type: "grant.used", grant: next.grant });
+    const from = next.grant.createdFromApprovalId;
+    const fromSetAside = from != null && this.#store.getApproval(from)?.approval.setAside === true;
+    this.#emit({
+      type: "grant.used",
+      grant: next.grant,
+      bindingHash,
+      ...(taskId == null ? {} : { taskId }),
+      ...(fromSetAside ? { fromSetAside: true as const } : {}),
+    });
     void this.#log(
       "grant.used",
       { type: "system" },
@@ -792,7 +1312,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     return issued;
   }
 
-  #issue(raw: PolicyApprovalInput): IssuedApproval {
+  #issue(raw: PolicyApprovalInput, carry: { setAside?: boolean } = {}): IssuedApproval {
     const now = this.clock.now();
     const input: PolicyApprovalInput & GrantFields = structuredClone(raw);
     const recent = this.#recent.get(input.bindingHash);
@@ -812,12 +1332,18 @@ export class PsychePermissionBroker implements PermissionBroker {
         input.sideEffect = "read";
     }
     const se = input.sideEffect;
-    const deviceOnly = isDeviceOnly(input.kind, se, this.#policy.config.approvals?.deviceOnly);
-    // A permission request that turns something on needs fresh presence, like the setting itself.
+    // Device-only from the request itself, or from the decision that asked for it (the agent loop
+    // requests with the protocol's input type, which has no such flag, right after `decide`).
+    const deviceOnly =
+      input.deviceOnly === true ||
+      recent?.decision.deviceOnly === true ||
+      isDeviceOnly(input.kind, se, this.#policy.config.approvals?.deviceOnly);
+    // Presence (the owner sheet, a passkey, the Linux password) is for payments only (owner's
+    // decision, 2026-11-09): a purchase or any financial action. Every other approval is a tap on
+    // a card, still bound to its answer token, binding hash and arm delay. The Gateway sets
+    // `requireAuthentication` itself for the one other case, enrolling a presence verifier.
     const requiresAuthentication =
-      AUTH_KINDS.includes(input.kind) ||
-      se === "financial" ||
-      (input.kind === "permission_request" && se !== "none");
+      se === "financial" || input.kind === "purchase" || input.requireAuthentication === true;
     // A non-owner requester never sees the card for their own request (security §9).
     const requester = input.context?.requester;
     const own = new Set(requesterSurfaces(requester));
@@ -844,11 +1370,16 @@ export class PsychePermissionBroker implements PermissionBroker {
     // Taint always overrides standing grants (§3.6): a tainted folder request is never kept.
     // So is a tainted send, destructive or financial card: `once` only, never Always (§3.12).
     if (
-      (input.kind === "folder_access" || floorClass(input.kind, se) !== undefined) &&
+      (input.kind === "folder_access" ||
+        input.kind === "separate_desktop_share" ||
+        floorClass(input.kind, se) !== undefined) &&
       (input.taint || input.context?.taint === true)
     )
       scopesOffered = scopesOffered.filter((s) => s === "once");
     if (scopesOffered.length === 0) scopesOffered = ["once"];
+    if (input.kind === "credential_fill" && isSeparateDesktopCredentialKey(input.grantKey)) {
+      scopesOffered = ["once"];
+    }
 
     const details = sanitizeDetails(input.details) as JsonObject;
     if (input.typedConfirmation !== undefined) details.confirmationWord = input.typedConfirmation;
@@ -856,6 +1387,27 @@ export class PsychePermissionBroker implements PermissionBroker {
       details.requestedFor = sanitizeDisplay(
         `${requester.role}: ${requester.display ?? requester.identityId ?? requester.senderId ?? "unknown"}`,
       );
+    }
+    // Only the Gateway's own decision may offer it: a caller-supplied `details.trustSite` is dropped.
+    delete details.trustSite;
+    // Only the owner's answer sets these (`answer`): UNSANDBOXED typed on the card, the folder
+    // the picker picked, the compose card's final message. A caller's own are dropped, so a
+    // card nobody answered that way never runs unsandboxed or grants a folder.
+    delete details.unsandboxed;
+    delete details.granted;
+    delete details.final;
+    const trustOffer = this.#trustSiteOffer(recent, input, se);
+    if (trustOffer !== undefined) details.trustSite = { ...trustOffer };
+    delete details.hostProgram;
+    const programOffer = this.#hostProgramOffer(recent, input);
+    if (programOffer !== undefined) {
+      details.hostProgram = {
+        program: programOffer.program,
+        executable: programOffer.executable,
+        sha256: programOffer.sha256,
+        folder: programOffer.folder,
+        argv: programOffer.argv,
+      };
     }
     const sources = input.taintSources ?? input.context?.taintSources;
     if (sources !== undefined && sources.length > 0) {
@@ -885,15 +1437,46 @@ export class PsychePermissionBroker implements PermissionBroker {
       grantId: null,
     };
     approval.sideEffect = se;
-    if (approval.taint && sources !== undefined && sources.length > 0) {
-      approval.taintSources = sources.map((s) => {
-        const out: TaintSource = { sourceKind: sanitizeDisplay(s.sourceKind) };
-        if (s.origin !== undefined) out.origin = sanitizeDisplay(s.origin);
-        if (s.sender !== undefined) out.sender = sanitizeDisplay(s.sender);
-        if (s.toolCallId !== undefined) out.toolCallId = s.toolCallId;
-        return out;
-      });
+    // Keyed on the decision that asked (its rule), never on a label the ask path does not carry.
+    approval.riskClass = riskClassFor({
+      kind: input.kind,
+      sideEffect: se,
+      requiresAuthentication,
+      taint: approval.taint,
+      deviceOnly,
+      typedConfirmation: input.typedConfirmation !== undefined,
+      // Only the decision this run made counts: another run's ask under the same binding does not.
+      recent:
+        recent === undefined || recent.ctx.runId !== input.requestedBy.runId
+          ? undefined
+          : {
+              call: recent.call,
+              ctx: recent.ctx,
+              decision: recent.decision,
+              fields: recent.binding.fields,
+            },
+    });
+    // The agent loop set this action aside: it says so, and its unattended run asked through
+    // `decide` and went on without it. Nothing waits on the card, so approving it starts a resume
+    // run (`canResume`). A caller that awaits its card (webhook delivery) never sets the flag.
+    if (
+      carry.setAside === true ||
+      (input.setAside === true &&
+        recent?.decision.deferred === true &&
+        recent.ctx.unattended === true &&
+        recent.ctx.runId === input.requestedBy.runId &&
+        input.requestedBy.runId != null)
+    ) {
+      approval.setAside = true;
     }
+    if (approval.taint && sources !== undefined && sources.length > 0) {
+      approval.taintSources = cardTaintSources(sources);
+    }
+    // Kept with the stored input, so a SQLite store (no column for them) gives them back.
+    const card = input as PolicyApprovalInput & StoredCardFields;
+    card.cardRiskClass = approval.riskClass;
+    if (approval.setAside === true) card.cardSetAside = true;
+    else delete card.cardSetAside;
     if (input.targetKind !== undefined) approval.targetKind = input.targetKind;
     if (input.target !== undefined) approval.target = { ...input.target };
     if (input.fromLesson !== undefined) {
@@ -943,6 +1526,8 @@ export class PsychePermissionBroker implements PermissionBroker {
       },
     );
     if (this.#notifier === undefined) return;
+    // A card an unattended run waits on is announced by the automation digest, not one by one.
+    if (await this.#isDeferred(a)) return;
     try {
       const n = await this.#notifier.notify({
         kind: "approval",
@@ -964,6 +1549,25 @@ export class PsychePermissionBroker implements PermissionBroker {
     }
   }
 
+  async #canResumeCard(a: ApprovalRequest): Promise<boolean> {
+    if (this.#canResume === undefined) return false;
+    try {
+      return (await this.#canResume(a)) === true;
+    } catch {
+      return false;
+    }
+  }
+
+  async #isDeferred(a: ApprovalRequest): Promise<boolean> {
+    if (this.#deferredApproval === undefined) return false;
+    try {
+      return (await this.#deferredApproval(a)) === true;
+    } catch {
+      // Unknown means a card of its own: an owner is never left without a notice.
+      return false;
+    }
+  }
+
   #armExpiry(a: ApprovalRequest): void {
     const at = Date.parse(a.expiresAt);
     const c = this.clock as Clock & { setTimer?: (at: number, fn: () => void) => () => void };
@@ -980,15 +1584,29 @@ export class PsychePermissionBroker implements PermissionBroker {
   }
 
   /**
-   * Seconds until the identity may answer again, or 0 when under the limit. Peeks only: attempts
-   * that fail authentication or validation never use the budget (see `#recordAnswer`).
+   * Seconds until the identity may answer again, or 0. Only guessing-shaped rejections count
+   * (`#reject`); real decisions never do, however many the owner makes in a minute.
    */
-  #retryAfterSec(identity: string): number {
+  #retryAfterSec(identity: string, local: boolean): number {
+    // A vouched local call is not held back by guesses made under the same device id.
+    if (local) return 0;
     const limit = this.#policy.config.approvals?.answersPerMinute ?? 10;
-    return Math.max(
-      this.#windowWait(this.#answerTimes, identity, limit),
-      this.#windowWait(this.#failureTimes, identity, limit * FAILURE_CAP_FACTOR),
-    );
+    return this.#windowWait(this.#failureTimes, identity, limit * FAILURE_CAP_FACTOR);
+  }
+
+  /**
+   * A call the Gateway vouched for as the owner's own Host app or helper (`local`: the desktop
+   * shell or Host helper on a loopback connection with the per-launch secret). Its refused answers
+   * are audited but never lock it out. Marked on the call's own `decidedBy` object, so it holds
+   * for this call only and a device id alone (another connection reusing a key) never earns it.
+   */
+  #markLocal(by: object, local: boolean | undefined): void {
+    if (local === true) this.#localBy.add(by);
+    else this.#localBy.delete(by);
+  }
+
+  #isLocal(by: DecidedBy): boolean {
+    return this.#localBy.has(by);
   }
 
   #windowWait(map: Map<string, number[]>, identity: string, limit: number): number {
@@ -1000,13 +1618,6 @@ export class PsychePermissionBroker implements PermissionBroker {
     return Math.max(1, Math.ceil((oldest + 60_000 - now) / 1000));
   }
 
-  /** Counts a real decision: the answerer authenticated and every check passed. */
-  #recordAnswer(identity: string): void {
-    const times = this.#answerTimes.get(identity) ?? [];
-    times.push(this.clock.now());
-    this.#answerTimes.set(identity, times);
-  }
-
   async #reject(
     rec: StoredApproval | undefined,
     id: string,
@@ -1016,7 +1627,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     message: string,
     details?: unknown,
   ): Promise<never> {
-    if (reason !== "rate_limited") {
+    if (GUESSING_REASONS.has(reason) && !this.#isLocal(by)) {
       const identity =
         "deviceId" in by ? `device:${by.deviceId}` : `channel:${by.channel}:${by.senderId}`;
       const failures = this.#failureTimes.get(identity) ?? [];
@@ -1041,17 +1652,21 @@ export class PsychePermissionBroker implements PermissionBroker {
    * Checks an answer before a host asks the owner for presence out of band (the desktop window's
    * Touch ID through the helper, security §3.7): the answerer is not rate limited, the approval is
    * pending and armed, and the token is an unused one for `decidedBy.surface`. Throws what
-   * `answer` would (each refusal counts against the rejected-answer cap); records nothing else.
+   * `answer` would (a refusal that looks like guessing counts against the rejected-answer cap, the
+   * rest are only audited); records nothing else.
    */
   async precheckAnswer(input: {
     approvalId: string;
     answerToken: string;
     decidedBy: { deviceId: string; surface: Surface };
+    /** The Gateway vouches this is the owner's own Host app or helper. */
+    local?: boolean;
   }): Promise<ApprovalRequest> {
     this.#sweep();
     const by = input.decidedBy;
+    this.#markLocal(by, input.local);
     const id = input.approvalId;
-    const retryAfterSec = this.#retryAfterSec(`device:${by.deviceId}`);
+    const retryAfterSec = this.#retryAfterSec(`device:${by.deviceId}`, this.#isLocal(by));
     if (retryAfterSec > 0)
       return this.#reject(
         undefined,
@@ -1059,7 +1674,7 @@ export class PsychePermissionBroker implements PermissionBroker {
         by,
         "rate_limited",
         "rate_limited",
-        `Too many approvals in a minute. Try again in ${retryAfterSec} s`,
+        `Too many tries in a minute. Try again in ${retryAfterSec} s`,
         { retryAfterSec },
       );
     const rec = this.#store.getApproval(id);
@@ -1087,16 +1702,20 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   /**
    * An out-of-band presence step failed (Touch ID cancelled, failed or unavailable): audited as a
-   * rejected answer and counted against the answerer's cap, like a bad assertion would be.
+   * rejected answer. A failed or invalid presence counts against the answerer's cap like a bad
+   * assertion would; a cancelled sheet or a missing helper or key does not.
    */
   async rejectPresence(input: {
     approvalId: string;
     decidedBy: { deviceId: string; surface: Surface };
+    /** The Gateway vouches this is the owner's own Host app or helper. */
+    local?: boolean;
     reason: string;
     code: ErrorCode;
     message: string;
     details?: unknown;
   }): Promise<never> {
+    this.#markLocal(input.decidedBy, input.local);
     const rec = this.#store.getApproval(input.approvalId);
     return this.#reject(
       rec,
@@ -1109,13 +1728,22 @@ export class PsychePermissionBroker implements PermissionBroker {
     );
   }
 
-  async answer(input: PolicyAnswerInput): Promise<ApprovalRequest> {
+  /**
+   * `trusted` is what the Gateway itself vouches for about the connection: it is a separate
+   * argument, never a field of `input`, because `input` is built from a client's params (or a chat
+   * message) and a client must not be able to claim it.
+   */
+  async answer(
+    input: PolicyAnswerInput,
+    trusted: { local?: boolean } = {},
+  ): Promise<ApprovalRequest> {
     this.#sweep();
     const by = input.decidedBy;
+    this.#markLocal(by, trusted.local);
     const identity =
       "deviceId" in by ? `device:${by.deviceId}` : `channel:${by.channel}:${by.senderId}`;
     const id = input.approvalId;
-    const retryAfterSec = this.#retryAfterSec(identity);
+    const retryAfterSec = this.#retryAfterSec(identity, this.#isLocal(by));
     if (retryAfterSec > 0)
       return this.#reject(
         undefined,
@@ -1123,7 +1751,7 @@ export class PsychePermissionBroker implements PermissionBroker {
         by,
         "rate_limited",
         "rate_limited",
-        `Too many approvals in a minute. Try again in ${retryAfterSec} s`,
+        `Too many tries in a minute. Try again in ${retryAfterSec} s`,
         { retryAfterSec },
       );
     const rec = this.#store.getApproval(id);
@@ -1274,6 +1902,35 @@ export class PsychePermissionBroker implements PermissionBroker {
           `chat answers ${chatScopes.join(" / ")} only`,
         );
       }
+      // "Approve all routine ones" is checked here, not in a client filter: a bulk answer lands
+      // only on a card the broker itself classed routine (no payment, no device-only card).
+      if (
+        input.bulk === true &&
+        (a.riskClass !== "routine" || a.requiresAuthentication || a.deviceOnly || scope !== "once")
+      ) {
+        return this.#reject(
+          rec,
+          id,
+          by,
+          "bulk_not_routine",
+          "invalid_params",
+          "this action needs its own approval",
+          { reason: "not_routine" },
+        );
+      }
+      // A set-aside card has nobody waiting on it: approving it is only honest when a resume run
+      // can start that may do it (the Gateway's DeferredResume). Without one, refuse.
+      if (a.setAside === true && !(await this.#canResumeCard(a))) {
+        return this.#reject(
+          rec,
+          id,
+          by,
+          "not_resumable",
+          "unavailable",
+          "this automation can't run again, so approving would do nothing",
+          { reason: "not_resumable" },
+        );
+      }
       const word = rec.input.typedConfirmation;
       if (word !== undefined && input.typedConfirmation !== word) {
         return this.#reject(
@@ -1323,6 +1980,57 @@ export class PsychePermissionBroker implements PermissionBroker {
       }
     }
 
+    // "Always for this site": only a device answers it, only on a card that offered it, and the
+    // origin is the one the Gateway computed from the call (security §3.2).
+    let trustChoice: "origin" | "subdomains" | undefined;
+    if (input.trustSite !== undefined && input.decision === "approve") {
+      const offer = (a.details as { trustSite?: { origin?: unknown; subdomains?: unknown } })
+        .trustSite;
+      if (
+        chat ||
+        scope !== "once" ||
+        offer === undefined ||
+        typeof offer.origin !== "string" ||
+        (input.trustSite === "subdomains" && offer.subdomains !== true)
+      ) {
+        return this.#reject(
+          rec,
+          id,
+          by,
+          "trust_not_offered",
+          "invalid_params",
+          "this card does not offer to trust the site",
+        );
+      }
+      trustChoice = input.trustSite;
+    }
+
+    // "Always allow <program> in <folder>": a device answers it, on a card that offered it, with
+    // scope `once`; the program and folder are the Gateway's own, from the card (security §5.4).
+    let programChoice = false;
+    if (input.hostProgram === true && input.decision === "approve") {
+      const offer = (a.details as { hostProgram?: { executable?: unknown } }).hostProgram;
+      if (
+        chat ||
+        scope !== "once" ||
+        a.taint ||
+        a.kind !== "exec_host" ||
+        input.unsandboxed !== undefined ||
+        offer === undefined ||
+        typeof offer.executable !== "string"
+      ) {
+        return this.#reject(
+          rec,
+          id,
+          by,
+          "program_not_offered",
+          "invalid_params",
+          "this card does not offer to allow the program",
+        );
+      }
+      programChoice = true;
+    }
+
     // Security §5.4: `UNSANDBOXED` typed on an exec_host card runs that one command without srt.
     if (input.unsandboxed !== undefined) {
       if (input.decision !== "approve" || a.kind !== "exec_host" || scope !== "once") {
@@ -1339,7 +2047,10 @@ export class PsychePermissionBroker implements PermissionBroker {
 
     // The folder the owner picked is what is granted, never the agent's string (security §3.5).
     let folderPick: FolderGrantEntry | undefined;
-    if (input.decision === "approve" && a.kind === "folder_access") {
+    if (
+      input.decision === "approve" &&
+      (a.kind === "folder_access" || a.kind === "separate_desktop_share")
+    ) {
       if (this.#folderAccess === undefined || input.folderPath === undefined) {
         return this.#reject(
           rec,
@@ -1350,7 +2061,7 @@ export class PsychePermissionBroker implements PermissionBroker {
           "pick the folder to share",
         );
       }
-      if (scope === "once" && a.requestedBy.threadId == null) {
+      if (a.kind === "folder_access" && scope === "once" && a.requestedBy.threadId == null) {
         return this.#reject(
           rec,
           id,
@@ -1362,7 +2073,13 @@ export class PsychePermissionBroker implements PermissionBroker {
       }
       try {
         folderPick = {
-          path: await resolveFolderPick(input.folderPath, this.#folderAccess.env()),
+          path: await resolveFolderPick(
+            input.folderPath,
+            a.kind === "separate_desktop_share" &&
+              this.#folderAccess.separateDesktopEnv !== undefined
+              ? this.#folderAccess.separateDesktopEnv()
+              : this.#folderAccess.env(),
+          ),
           // The owner may narrow the request to read-only; nothing widens it.
           mode: a.details.access === "rw" && input.folderMode !== "ro" ? "rw" : "ro",
         };
@@ -1401,8 +2118,6 @@ export class PsychePermissionBroker implements PermissionBroker {
       }
     }
 
-    this.#recordAnswer(identity);
-
     // First authorized answer wins: re-read, check, mark the token and decide atomically.
     // Re-read the clock after the awaited approver and presence checks (review #14).
     const now = this.clock.now();
@@ -1437,8 +2152,12 @@ export class PsychePermissionBroker implements PermissionBroker {
             composeFinal.text,
           );
         }
-        if (fa.kind === "folder_access" && folderPick !== undefined) {
+        if (
+          (fa.kind === "folder_access" || fa.kind === "separate_desktop_share") &&
+          folderPick !== undefined
+        ) {
           // Not a ledger grant: `always` lives in Settings → File access, `once` in the thread.
+          // A separate-desktop share only records the pick here; `#applyFolder` is skipped for it.
           fa.details = { ...fa.details, granted: { ...folderPick } };
         } else if (fa.kind === "batch" && scope === "always") {
           // The one batch grant: prep notes only. It binds the calls' own key, not the batch's.
@@ -1452,6 +2171,41 @@ export class PsychePermissionBroker implements PermissionBroker {
           grant = this.#newGrant(fresh, scope, by, now);
           this.#store.insertGrant(grant);
           fa.grantId = grant.grant.id;
+        } else if (programChoice) {
+          const o = (fa.details as { hostProgram?: Record<string, unknown> }).hostProgram;
+          if (
+            o !== undefined &&
+            typeof o.executable === "string" &&
+            typeof o.sha256 === "string" &&
+            typeof o.folder === "string"
+          ) {
+            grant = this.#newHostProgramGrant(
+              fresh,
+              {
+                executable: o.executable,
+                sha256: o.sha256,
+                folder: o.folder,
+                argv: Array.isArray(o.argv) ? (o.argv as string[]) : null,
+              },
+              by,
+              now,
+            );
+            this.#store.insertGrant(grant);
+            fa.grantId = grant.grant.id;
+          }
+        } else if (trustChoice !== undefined) {
+          const offered = (fa.details as { trustSite?: { origin?: string } }).trustSite;
+          if (offered?.origin !== undefined) {
+            grant = this.#newTrustedSiteGrant(
+              fresh,
+              { origin: offered.origin },
+              trustChoice === "subdomains",
+              by,
+              now,
+            );
+            this.#store.insertGrant(grant);
+            fa.grantId = grant.grant.id;
+          }
         }
       }
       this.#store.updateApproval(fresh);
@@ -1468,9 +2222,6 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#timers.get(id)?.();
     this.#timers.delete(id);
     const fa = decided.approval;
-    if (fa.status === "approved" && folderPick !== undefined) {
-      await this.#applyFolder(fa, folderPick, scope, by);
-    }
     const { call, context } = decided.input;
     if (fa.status === "approved" && call !== undefined && context !== undefined) {
       const tk = targetKey(call);
@@ -1479,6 +2230,30 @@ export class PsychePermissionBroker implements PermissionBroker {
         st.approvedTargets.add(tk);
         st.touched.add(tk);
       }
+    }
+    // Announced as soon as the answer is stored, before any await: a grant it made is usable
+    // from the commit on, so no use of it can come before its card's decision. No subscriber
+    // reads the audit rows written below; waiters (`awaitDecision`) and the notice resolve at
+    // the end, once the folder pick is applied.
+    this.#emit({ type: "approval.decided", approval: fa });
+    if (fa.status === "approved" && folderPick !== undefined && fa.kind === "folder_access") {
+      await this.#applyFolder(fa, folderPick, scope, by);
+    }
+    if (
+      fa.status === "approved" &&
+      folderPick !== undefined &&
+      fa.kind === "separate_desktop_share"
+    ) {
+      // Not a host grant (nothing is applied or persisted); the audit trail records the decision.
+      await this.#log(
+        "separate_desktop.share_granted",
+        actorOf(by),
+        {
+          approvalId: fa.id,
+          ...(fa.requestedBy.taskId == null ? {} : { taskId: fa.requestedBy.taskId }),
+        },
+        { path: folderPick.path, mode: folderPick.mode, taint: fa.taint },
+      );
     }
     await this.#log(
       "approval.decided",
@@ -1515,7 +2290,7 @@ export class PsychePermissionBroker implements PermissionBroker {
         },
       );
     }
-    this.#settled(fa, "approval.decided");
+    this.#settled(fa, "approval.decided", { emitted: true });
     return structuredClone(fa);
   }
 
@@ -1559,8 +2334,8 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   /** Every conversation's folders (`once`), for the access list in Settings. */
   allSessionFolders(): { threadId: string; entry: FolderGrantEntry }[] {
-    return [...this.#sessionFolders].flatMap(([threadId, roots]) =>
-      roots.map((entry) => ({ threadId, entry })),
+    return [...this.#sessionFolders.keys()].flatMap((threadId) =>
+      this.sessionFolders(threadId).map((entry) => ({ threadId, entry })),
     );
   }
 
@@ -1569,6 +2344,8 @@ export class PsychePermissionBroker implements PermissionBroker {
     const roots = this.#sessionFolders.get(threadId) ?? [];
     const kept = roots.filter((r) => r.path !== path);
     if (kept.length === roots.length) return false;
+    this.#fileGrantExpiry.delete(`${threadId}\0${path}`);
+    this.#attachRecords.delete(`${threadId}\0${path}`);
     if (kept.length === 0) this.#sessionFolders.delete(threadId);
     else this.#sessionFolders.set(threadId, kept);
     await this.#log("folder.revoked", { type: "system" }, { threadId }, { path, scope: "once" });
@@ -1577,7 +2354,106 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   /** Folders allowed for one conversation (`once`), for the file executors behind the broker. */
   sessionFolders(threadId: string): readonly FolderGrantEntry[] {
-    return this.#sessionFolders.get(threadId) ?? [];
+    this.#expireFileGrants(threadId);
+    return effectiveEntries(this.#sessionFolders.get(threadId) ?? []).filter(
+      (e) =>
+        e.file !== true ||
+        !(this.policy.folders ?? []).some((f) => isUnderHostPath(e.path, f.path)),
+    );
+  }
+
+  /**
+   * The files the owner attached to this conversation whose 24 hours are not over and that some
+   * live grant still reads (a covering folder or the file's own entry). A record says "this file was picked here", never "may be read".
+   */
+  attachedFiles(threadId: string): readonly { path: string }[] {
+    const now = this.clock.now();
+    const out: { path: string }[] = [];
+    for (const [key, until] of this.#attachRecords) {
+      if (!key.startsWith(`${threadId}\0`)) continue;
+      if (until <= now) this.#attachRecords.delete(key);
+      else out.push({ path: key.slice(threadId.length + 1) });
+    }
+    // Only files something still lets the agent read (a folder that covers them, or the file's
+    // own entry): a revoked folder must not leave a message promising a file the agent cannot read.
+    const live = [...(this.policy.folders ?? []), ...this.sessionFolders(threadId)];
+    return out.filter((f) => folderCovers(live, f.path, "ro") !== undefined);
+  }
+
+  /** Drops this conversation's attached-file grants whose 24 hours are over. */
+  #expireFileGrants(threadId: string): void {
+    const roots = this.#sessionFolders.get(threadId);
+    if (roots === undefined) return;
+    const now = this.clock.now();
+    const kept = roots.filter((r) => {
+      const until = this.#fileGrantExpiry.get(`${threadId}\0${r.path}`);
+      if (until === undefined || until > now) return true;
+      this.#fileGrantExpiry.delete(`${threadId}\0${r.path}`);
+      return false;
+    });
+    if (kept.length === roots.length) return;
+    if (kept.length === 0) this.#sessionFolders.delete(threadId);
+    else this.#sessionFolders.set(threadId, kept);
+  }
+
+  /**
+   * Chat attachments picked natively (chat.attachFiles): the owner's own pick of exactly these
+   * FILES is the approval. Each is resolved to its real path and refused under a sensitive root
+   * (`resolveFilePick`); a file already covered by a granted folder is left alone (a read-only
+   * file entry would narrow a read-write folder, since the longest root decides). The grant is
+   * read-only, covers only that file path, and ends with the conversation (`endSession`) or after
+   * `ATTACH_GRANT_MS`. Without folder-access settings nothing is granted.
+   */
+  async attachFiles(
+    threadId: string,
+    paths: readonly string[],
+    by: { deviceId: string },
+  ): Promise<{
+    files: { path: string; size: number }[];
+    refused: { path: string; reason: string }[];
+  }> {
+    if (this.#folderAccess === undefined) fail("unavailable", "attaching files is not set up");
+    const env = this.#folderAccess.env();
+    const files: { path: string; size: number }[] = [];
+    const refused: { path: string; reason: string }[] = [];
+    for (const raw of paths) {
+      try {
+        const file = await resolveFilePick(raw, env);
+        const covered = folderCovers(
+          [
+            ...(this.policy.folders ?? []),
+            ...this.sessionFolders(threadId).filter((e) => e.file !== true),
+          ],
+          file.path,
+          "ro",
+        );
+        const recordKey = `${threadId}\0${file.path}`;
+        // A re-attach refreshes the record and the file grant together, so they stay equal.
+        this.#attachRecords.set(recordKey, this.clock.now() + ATTACH_GRANT_MS);
+        if (covered === undefined) {
+          const roots = this.#sessionFolders.get(threadId) ?? [];
+          this.#sessionFolders.set(threadId, [
+            ...roots.filter((r) => r.path !== file.path),
+            { path: file.path, mode: "ro", file: true },
+          ]);
+          this.#fileGrantExpiry.set(
+            `${threadId}\0${file.path}`,
+            this.clock.now() + ATTACH_GRANT_MS,
+          );
+          await this.#log(
+            "folder.granted",
+            actorOf(by),
+            { threadId },
+            { path: file.path, mode: "ro", scope: "once", attachment: true },
+          );
+        }
+        files.push(file);
+      } catch (err) {
+        if (!(err instanceof PsycheError)) throw err;
+        refused.push({ path: raw, reason: err.code });
+      }
+    }
+    return { files, refused };
   }
 
   /**
@@ -1691,8 +2567,9 @@ export class PsychePermissionBroker implements PermissionBroker {
   #settled(
     a: ApprovalRequest,
     type: "approval.decided" | "approval.expired" | "approval.invalidated",
+    opts: { emitted?: boolean } = {},
   ): void {
-    this.#emit({ type, approval: a });
+    if (opts.emitted !== true) this.#emit({ type, approval: a });
     const nid = this.#notifications.get(a.id);
     if (nid !== undefined) {
       this.#notifications.delete(a.id);
@@ -1727,6 +2604,73 @@ export class PsychePermissionBroker implements PermissionBroker {
     });
   }
 
+  /**
+   * The resume of a set-aside card is over: it did the action, or the owner was told it did not.
+   * A restart then has nothing to report for it (`onSetAsideRevoked`).
+   */
+  settleSetAside(approvalId: string): void {
+    this.#store.transaction(() => {
+      const rec = this.#store.getApproval(approvalId);
+      if (rec === undefined || rec.approval.setAside !== true || rec.revoked) return;
+      // The resume is over: the card's own authority ends (a standing grant it made stays).
+      rec.revoked = true;
+      this.#store.updateApproval(rec);
+    });
+  }
+
+  /**
+   * Nothing has done this approval's action: no `ok` receipt names it (a failed one is not done)
+   * and its grant (if any) has no use.
+   */
+  async #unused(a: ApprovalRequest, pool: readonly Receipt[]): Promise<boolean> {
+    const receipts = await this.receipts.list({ approvalId: a.id });
+    if (receipts.some((r) => r.outcome === "ok")) return false;
+    // A use of its grant is done only when that very call succeeded too.
+    return !this.#grantReceipts(a, pool).some((r) => r.outcome === "ok");
+  }
+
+  /**
+   * Receipts that may say what the set-aside cards' grants did: one query per boot, from the
+   * earliest of their grants on (a card's grant is made by its own approval, so nothing older).
+   */
+  async #grantReceiptPool(recs: readonly StoredApproval[]): Promise<Receipt[]> {
+    let since: string | undefined;
+    for (const rec of recs) {
+      const a = rec.approval;
+      if (rec.revoked || a.setAside !== true || a.grantId == null) continue;
+      const created = this.#store.getGrant(a.grantId)?.grant.createdAt;
+      if (created !== undefined && (since === undefined || created < since)) since = created;
+    }
+    return since === undefined ? [] : await this.receipts.list({ since });
+  }
+
+  /**
+   * The receipts of calls that went through the standing grant this approval made AND were
+   * this card's action: the grant's id and the card's binding on the receipt (a grant covers a
+   * key, not one call), from a run of the card's own automation (an attended chat through the
+   * same grant is another action). Never matched by kind alone.
+   */
+  #grantReceipts(a: ApprovalRequest, pool: readonly Receipt[]): Receipt[] {
+    if (a.grantId == null) return [];
+    const g = this.#store.getGrant(a.grantId);
+    if (g === undefined) return [];
+    const same = this.#sameAutomation;
+    return pool.filter(
+      (r) =>
+        receiptGrantId(r) === a.grantId &&
+        receiptGrantBinding(r) === a.bindingHash &&
+        r.createdAt >= g.grant.createdAt &&
+        r.taskId != null &&
+        same?.(a, r.taskId) === true,
+    );
+  }
+
+  /** Its grant let this card's own call through (its last use bound to the card's binding). */
+  #grantUsed(a: ApprovalRequest): boolean {
+    const g = a.grantId == null ? undefined : this.#store.getGrant(a.grantId);
+    return g !== undefined && g.grant.useCount > 0 && g.meta.lastUsedBindingHash === a.bindingHash;
+  }
+
   async verifyBinding(approvalId: string, bindingHash: string): Promise<BindingVerification> {
     this.#sweep();
     const now = this.clock.now();
@@ -1744,6 +2688,18 @@ export class PsychePermissionBroker implements PermissionBroker {
           return { ok: false, reason: "expired" };
         if (g.meta.maxUses !== null && g.grant.useCount >= g.meta.maxUses)
           return { ok: false, reason: "consumed" };
+      }
+      // A compose card binds what the owner left on it (`details.final`). Its stored hash must
+      // still be that message's: a card whose final text or recipient was lost or changed (a
+      // store that dropped the answer) never verifies, so the agent's draft is never sent.
+      const compose = a.kind === "message_send" ? readCompose(a.details) : undefined;
+      if (compose !== undefined) {
+        const final = readFinal(a.details);
+        if (
+          final === undefined ||
+          composeBindingHash(compose.account, final.recipient, final.text) !== a.bindingHash
+        )
+          return { ok: false, reason: "binding_mismatch" };
       }
       if (bindingHash !== a.bindingHash) return { ok: false, reason: "binding_mismatch" };
       if (a.scopeGranted === "once") {
@@ -1797,16 +2753,50 @@ export class PsychePermissionBroker implements PermissionBroker {
     for (const rec of pending) await this.#invalidate(rec, "gateway_restart");
     // An approved `once` that was never dispatched belonged to a call parked in the previous
     // process; that call is gone, so the approval ends too (S23 design-09). Found by fuzzing.
-    for (const rec of this.#store.listApprovals({ status: "approved" })) {
-      if (rec.approval.scopeGranted !== "once" || rec.consumedAt !== null || rec.revoked) continue;
+    const approved = this.#store.listApprovals({ status: "approved" });
+    const pool = await this.#grantReceiptPool(approved);
+    for (const rec of approved) {
+      if (rec.revoked) continue;
+      const unconsumedOnce = rec.approval.scopeGranted === "once" && rec.consumedAt === null;
+      // A set-aside card whose resume was not over lost it with the old process, whatever its
+      // scope: nothing did its action yet (no `ok` receipt, no use of its grant). That includes
+      // an action that ran and failed, and one whose receipt the old process never wrote. The
+      // owner is told once; the card's own authority ends (its standing grant, if any, stays).
+      const lostResume = rec.approval.setAside === true && (await this.#unused(rec.approval, pool));
+      if (!unconsumedOnce && !lostResume) {
+        // A set-aside card whose action is done (an `ok` receipt): its resume is over. Settled,
+        // so it is not a candidate again and the next boot's receipt query starts later.
+        if (rec.approval.setAside === true) {
+          rec.revoked = true;
+          this.#store.updateApproval(rec);
+        }
+        continue;
+      }
       rec.revoked = true;
       this.#store.updateApproval(rec);
       await this.#log(
         "approval.invalidated",
         { type: "system" },
         { approvalId: rec.approval.id },
-        { reason: "gateway_restart_unconsumed" },
+        { reason: unconsumedOnce ? "gateway_restart_unconsumed" : "gateway_restart_set_aside" },
       );
+      if (lostResume) {
+        // It ran and did not succeed. Failed: a receipt (its own, or its grant's) says so.
+        // Unknown: the provider did not confirm, or its grant was used and no receipt carries
+        // the grant's id (the old process died first, or the recorder cannot say).
+        const ran = [
+          ...(await this.receipts.list({ approvalId: rec.approval.id })),
+          ...this.#grantReceipts(rec.approval, pool),
+        ];
+        const failed = ran.some((r) => r.outcome === "failed");
+        const unknown =
+          !failed && (ran.some((r) => r.outcome === "uncertain") || this.#grantUsed(rec.approval));
+        try {
+          this.#onSetAsideRevoked?.(structuredClone(rec.approval), { failed, unknown });
+        } catch {
+          // A failed notice never stops the restart.
+        }
+      }
     }
     for (const g of this.#store.listGrants()) {
       if (
@@ -1840,7 +2830,8 @@ export class PsychePermissionBroker implements PermissionBroker {
       } else {
         input.scopesOffered = rec.approval.scopesOffered;
       }
-      const next = this.#issue(input);
+      // A re-issued set-aside card stays set aside: its run still goes on without it.
+      const next = this.#issue(input, { setAside: rec.approval.setAside === true });
       await this.#afterIssue(next.approval);
       issued.push(next);
     }
@@ -2090,6 +3081,27 @@ export class PsychePermissionBroker implements PermissionBroker {
     return closed;
   }
 
+  /**
+   * Withdraws the pending cards of one kind that `match` picks (`reason` is recorded): the
+   * Gateway withdraws open Stripe Link Pay cards when Link is disconnected or signed out, so none
+   * can be approved for a payment that cannot happen, and leaves every other card alone. Returns
+   * the cards it closed.
+   */
+  async invalidatePendingOfKind(
+    kind: ApprovalKind,
+    reason: string,
+    match: (a: ApprovalRequest) => boolean = () => true,
+  ): Promise<ApprovalRequest[]> {
+    this.#sweep();
+    const closed: ApprovalRequest[] = [];
+    for (const rec of this.#store.listApprovals({ status: "pending" })) {
+      if (rec.approval.kind !== kind || !match(structuredClone(rec.approval))) continue;
+      await this.#invalidate(rec, reason);
+      closed.push(structuredClone(rec.approval));
+    }
+    return closed;
+  }
+
   async revokeRunAuthority(runId: string): Promise<void> {
     for (const rec of this.#store.listApprovals()) {
       if (rec.approval.requestedBy.runId !== runId) continue;
@@ -2203,6 +3215,12 @@ export class PsychePermissionBroker implements PermissionBroker {
   endSession(threadId: string): Promise<Grant[]> {
     this.#tasks.delete(`thread:${threadId}`);
     this.#sessionFolders.delete(threadId);
+    for (const k of this.#fileGrantExpiry.keys()) {
+      if (k.startsWith(`${threadId}\0`)) this.#fileGrantExpiry.delete(k);
+    }
+    for (const k of this.#attachRecords.keys()) {
+      if (k.startsWith(`${threadId}\0`)) this.#attachRecords.delete(k);
+    }
     return this.#revokeWhere(
       (g) => g.grant.scope === "session" && g.meta.threadId === threadId,
       "session_ended",

@@ -11,7 +11,8 @@
   "variants": {
     "core": { "tag": "0.1.0-core", "digest": null },
     "base": { "tag": "0.1.0", "digest": null },
-    "full": { "tag": "0.1.0-full", "digest": null }
+    "full": { "tag": "0.1.0-full", "digest": null },
+    "desktop": { "tag": "0.1.0-desktop", "digest": null }
   },
   "signing": {
     "tool": "cosign",

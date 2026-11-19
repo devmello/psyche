@@ -560,6 +560,29 @@ export class SqliteScheduler implements Scheduler {
     return fired.filter((f) => !f.skipped).map((f) => f.scheduled);
   }
 
+  /**
+   * The automation and run whose task this is (a scheduled, manual or event run, or the
+   * specialist job one started), or undefined when no automation run launched it.
+   */
+  runForTask(taskId: string): { automationId: string; runId: string } | undefined {
+    const r = this.#db.sqlite
+      .prepare(
+        "SELECT id, automation_id FROM automation_runs WHERE task_id = ? ORDER BY started_at DESC, id DESC LIMIT 1",
+      )
+      .get(taskId) as { id: string; automation_id: string } | undefined;
+    if (r === undefined || this.#rowOrUndefined(r.automation_id) === undefined) return undefined;
+    return { automationId: r.automation_id, runId: r.id };
+  }
+
+  /** True while a run of the automation is in progress (a manual run would be refused). */
+  isRunning(automationId: string): boolean {
+    return (
+      this.#db.sqlite
+        .prepare("SELECT 1 FROM automation_runs WHERE automation_id = ? AND status = 'running'")
+        .get(automationId) !== undefined
+    );
+  }
+
   async runNow(id: string): Promise<ScheduledRun> {
     return (await this.trigger(id)).scheduled;
   }

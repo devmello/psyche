@@ -50,7 +50,7 @@ describe("Settings → Devices: the first admin", () => {
   });
 });
 
-describe("Settings → Devices: which Touch ID key the helper uses", () => {
+describe("Settings → Devices: which presence key the helper uses", () => {
   const helper = {
     id: "n1",
     deviceId: "d1",
@@ -59,52 +59,45 @@ describe("Settings → Devices: which Touch ID key the helper uses", () => {
     status: "online",
     lastHeartbeatAt: null,
   } as unknown as Parameters<typeof DevicesPanel>[0]["nodes"][number];
-  const key = (kind?: "keychain" | "enclave_keychain_acl" | "enclave_file") => ({
+  const winHelper = { ...helper, kind: "win-helper" } as typeof helper;
+  const key = (kind?: "device_identity" | "windows_hello") => ({
     deviceId: "d1",
     keyId: "a".repeat(64),
     registeredAt: "2026-11-02T10:00:00.000Z",
     ...(kind === undefined ? {} : { kind }),
   });
+  const touchId = () => ({
+    bundled: undefined,
+    onRegister: vi.fn(async () => undefined),
+    onRemove: vi.fn(async () => undefined),
+  });
 
-  it("names the keychain key and the Secure Enclave file in plain words", () => {
+  it("names the Mac's device key and the Windows Hello key in plain words", () => {
     const { rerender } = render(
       <StoryWorld>
         <DevicesPanel
           devices={[mac]}
           pairing={[]}
           nodes={[helper]}
-          presenceKeys={[key("keychain")]}
+          presenceKeys={[key("device_identity")]}
         />
       </StoryWorld>,
     );
     expect(screen.getByTestId("presence-key").textContent).toBe(
-      "Touch ID key (keychain), as reported by the helper",
+      "Payments use Touch ID or your Mac password. Nothing to set up.",
     );
     rerender(
       <StoryWorld>
         <DevicesPanel
           devices={[mac]}
           pairing={[]}
-          nodes={[helper]}
-          presenceKeys={[key("enclave_file")]}
+          nodes={[winHelper]}
+          presenceKeys={[{ ...key("windows_hello"), algorithm: "rsa-2048-pkcs1-sha256" }]}
         />
       </StoryWorld>,
     );
     expect(screen.getByTestId("presence-key").textContent).toBe(
-      "Touch ID key (Secure Enclave file, this build has no provisioning profile), as reported by the helper",
-    );
-    rerender(
-      <StoryWorld>
-        <DevicesPanel
-          devices={[mac]}
-          pairing={[]}
-          nodes={[helper]}
-          presenceKeys={[key("enclave_keychain_acl")]}
-        />
-      </StoryWorld>,
-    );
-    expect(screen.getByTestId("presence-key").textContent).toBe(
-      "Touch ID key (Secure Enclave, readable only by Psyche Helper without a macOS prompt), as reported by the helper",
+      "Windows Hello key (RSA-2048), as reported by the helper",
     );
     rerender(
       <StoryWorld>
@@ -113,14 +106,58 @@ describe("Settings → Devices: which Touch ID key the helper uses", () => {
     );
     expect(screen.queryByTestId("presence-key")).toBeNull();
   });
+
+  it("a Mac helper's row has nothing to register or remove, even with a key listed", () => {
+    const { rerender } = render(
+      <StoryWorld>
+        <DevicesPanel
+          devices={[mac]}
+          pairing={[]}
+          nodes={[helper]}
+          presenceKeys={[key("device_identity")]}
+          touchId={touchId()}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.getByTestId("presence-key").textContent).toContain("Nothing to set up");
+    expect(screen.queryByRole("button", { name: "Register this key" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Remove key" })).toBeNull();
+    rerender(
+      <StoryWorld>
+        <DevicesPanel
+          devices={[mac]}
+          pairing={[]}
+          nodes={[helper]}
+          presenceKeys={[]}
+          touchId={touchId()}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.getByTestId("presence-key").textContent).toContain("Nothing to set up");
+    expect(screen.queryByRole("button", { name: "Register this key" })).toBeNull();
+  });
 });
 
-describe("Settings → Devices: registering a Touch ID key (security review, finding 1)", () => {
+describe("Settings → Devices: registering a Windows Hello key (security review, finding 1)", () => {
   const KEY = "0123456789abcdef".repeat(4);
   const handlers = () => ({
     onRegister: vi.fn(async () => undefined),
     onRemove: vi.fn(async () => undefined),
-    onAllowDevFileKey: vi.fn(async () => undefined),
+  });
+
+  it("a Mac helper gets the one-line note and no buttons from TouchIdKeySetup itself", () => {
+    render(
+      <StoryWorld>
+        <TouchIdKeySetup
+          deviceId="dev_helper"
+          nodeKind="mac-helper"
+          bundled={{ deviceId: "dev_helper" }}
+          {...handlers()}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.getByTestId("presence-key").textContent).toContain("Nothing to set up");
+    expect(screen.queryByRole("button")).toBeNull();
   });
 
   it("desktop: shows the bundled helper's key id and registers exactly that", async () => {
@@ -129,8 +166,8 @@ describe("Settings → Devices: registering a Touch ID key (security review, fin
       <StoryWorld>
         <TouchIdKeySetup
           deviceId="dev_helper"
-          bundled={{ deviceId: "dev_helper", keyId: KEY, kind: "keychain" }}
-          allowDevFileKey={false}
+          nodeKind="win-helper"
+          bundled={{ deviceId: "dev_helper", keyId: KEY, kind: "windows_hello" }}
           {...h}
         />
       </StoryWorld>,
@@ -146,8 +183,8 @@ describe("Settings → Devices: registering a Touch ID key (security review, fin
       <StoryWorld>
         <TouchIdKeySetup
           deviceId="dev_rogue"
-          bundled={{ deviceId: "dev_helper", keyId: KEY, kind: "keychain" }}
-          allowDevFileKey={false}
+          nodeKind="win-helper"
+          bundled={{ deviceId: "dev_helper", keyId: KEY, kind: "windows_hello" }}
           {...handlers()}
         />
       </StoryWorld>,
@@ -156,92 +193,19 @@ describe("Settings → Devices: registering a Touch ID key (security review, fin
     expect(screen.queryByRole("button", { name: "Register this key" })).toBeNull();
   });
 
-  it("a development file key needs the owner's switch first, and says what it risks", async () => {
-    const h = handlers();
+  it("a bundled helper without a key says why, and nothing can be registered", () => {
     render(
       <StoryWorld>
         <TouchIdKeySetup
           deviceId="dev_helper"
-          bundled={{ deviceId: "dev_helper", keyId: KEY, kind: "enclave_file" }}
-          allowDevFileKey={false}
-          {...h}
-        />
-      </StoryWorld>,
-    );
-    expect(
-      (screen.getByRole("button", { name: "Register this key" }) as HTMLButtonElement).disabled,
-    ).toBe(true);
-    expect(document.body.textContent).toContain("Any app running as you could ask it to sign");
-    await userEvent.click(screen.getByRole("switch", { name: "Allow a development Touch ID key" }));
-    expect(h.onAllowDevFileKey).toHaveBeenCalledWith(true);
-  });
-
-  it("an untrusted keychain key is named in plain words and nothing can be registered", () => {
-    render(
-      <StoryWorld>
-        <TouchIdKeySetup
-          deviceId="dev_helper"
-          bundled={{ deviceId: "dev_helper", error: "presence_key_untrusted" }}
-          allowDevFileKey={false}
+          nodeKind="win-helper"
+          bundled={{ deviceId: "dev_helper", error: "missing_entitlement" }}
           {...handlers()}
         />
       </StoryWorld>,
     );
-    expect(screen.getByTestId("touch-id-no-key").textContent).toContain("--reset-presence-key");
+    expect(screen.getByTestId("touch-id-no-key").textContent).toContain("missing_entitlement");
     expect(screen.queryByRole("button", { name: "Register this key" })).toBeNull();
-  });
-
-  it("the untrusted copy names the full helper path and the quit step; access denied is careful", () => {
-    const { rerender } = render(
-      <StoryWorld>
-        <TouchIdKeySetup
-          deviceId="dev_helper"
-          bundled={{ deviceId: "dev_helper", error: "presence_key_untrusted" }}
-          allowDevFileKey={false}
-          {...handlers()}
-        />
-      </StoryWorld>,
-    );
-    const untrusted = screen.getByTestId("touch-id-no-key").textContent ?? "";
-    expect(untrusted).toContain(
-      "/Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper",
-    );
-    expect(untrusted).toContain("quit Psyche Helper first");
-    expect(untrusted).toContain("moved or reinstalled");
-    rerender(
-      <StoryWorld>
-        <TouchIdKeySetup
-          deviceId="dev_helper"
-          bundled={{ deviceId: "dev_helper", error: "presence_key_access_denied" }}
-          allowDevFileKey={false}
-          {...handlers()}
-        />
-      </StoryWorld>,
-    );
-    expect(screen.getByTestId("touch-id-no-key").textContent).toContain(
-      "only if the dialog names psyche-helper",
-    );
-  });
-
-  it("names the interaction, changed-while-running and ACL-unavailable key states", () => {
-    const text = (error: string) => {
-      const { unmount } = render(
-        <StoryWorld>
-          <TouchIdKeySetup
-            deviceId="dev_helper"
-            bundled={{ deviceId: "dev_helper", error }}
-            allowDevFileKey={false}
-            {...handlers()}
-          />
-        </StoryWorld>,
-      );
-      const out = screen.getByTestId("touch-id-no-key").textContent ?? "";
-      unmount();
-      return out;
-    };
-    expect(text("presence_key_interaction_not_allowed")).toContain("Unlock the Mac");
-    expect(text("presence_key_changed")).toContain("changed while Psyche Helper was running");
-    expect(text("presence_key_acl_unavailable")).toContain("access list");
   });
 
   it("shows the bundled helper's key problem and a key-id mismatch even while a key is registered", () => {
@@ -249,27 +213,27 @@ describe("Settings → Devices: registering a Touch ID key (security review, fin
       deviceId: "dev_helper",
       keyId: "a".repeat(64),
       registeredAt: "2026-11-02T10:00:00.000Z",
-      kind: "enclave_keychain_acl" as const,
+      kind: "windows_hello" as const,
     };
     const { rerender } = render(
       <StoryWorld>
         <TouchIdKeySetup
           deviceId="dev_helper"
+          nodeKind="win-helper"
           registered={registered}
-          bundled={{ deviceId: "dev_helper", error: "presence_key_untrusted" }}
-          allowDevFileKey={false}
+          bundled={{ deviceId: "dev_helper", error: "missing_entitlement" }}
           {...handlers()}
         />
       </StoryWorld>,
     );
-    expect(screen.getByTestId("bundled-key-problem").textContent).toContain("--reset-presence-key");
+    expect(screen.getByTestId("bundled-key-problem").textContent).toContain("missing_entitlement");
     rerender(
       <StoryWorld>
         <TouchIdKeySetup
           deviceId="dev_helper"
+          nodeKind="win-helper"
           registered={registered}
-          bundled={{ deviceId: "dev_helper", keyId: "b".repeat(64), kind: "enclave_keychain_acl" }}
-          allowDevFileKey={false}
+          bundled={{ deviceId: "dev_helper", keyId: "b".repeat(64), kind: "windows_hello" }}
           {...handlers()}
         />
       </StoryWorld>,
@@ -279,9 +243,9 @@ describe("Settings → Devices: registering a Touch ID key (security review, fin
       <StoryWorld>
         <TouchIdKeySetup
           deviceId="dev_helper"
+          nodeKind="win-helper"
           registered={registered}
-          bundled={{ deviceId: "dev_helper", keyId: "a".repeat(64), kind: "enclave_keychain_acl" }}
-          allowDevFileKey={false}
+          bundled={{ deviceId: "dev_helper", keyId: "a".repeat(64), kind: "windows_hello" }}
           {...handlers()}
         />
       </StoryWorld>,
@@ -304,8 +268,8 @@ describe("Settings → Devices: registering a Touch ID key (security review, fin
       <StoryWorld>
         <TouchIdKeySetup
           deviceId="dev_helper"
-          bundled={{ deviceId: "dev_helper", keyId: KEY, kind: "enclave_keychain_acl" }}
-          allowDevFileKey={false}
+          nodeKind="win-helper"
+          bundled={{ deviceId: "dev_helper", keyId: KEY, kind: "windows_hello" }}
           {...handlers()}
           onRegister={onRegister}
         />
@@ -322,7 +286,7 @@ describe("Settings → Devices: registering a Touch ID key (security review, fin
     const h = handlers();
     render(
       <StoryWorld>
-        <TouchIdKeySetup deviceId="dev_helper" allowDevFileKey={false} {...h} />
+        <TouchIdKeySetup deviceId="dev_helper" nodeKind="win-helper" {...h} />
       </StoryWorld>,
     );
     const register = screen.getByRole("button", { name: "Register this key" }) as HTMLButtonElement;
@@ -332,18 +296,19 @@ describe("Settings → Devices: registering a Touch ID key (security review, fin
     expect(h.onRegister).toHaveBeenCalledWith(KEY);
   });
 
-  it("a registered key can be removed (recovery after a fingerprint change)", async () => {
+  it("a registered key can be removed", async () => {
     const h = handlers();
     render(
       <StoryWorld>
         <TouchIdKeySetup
           deviceId="dev_helper"
+          nodeKind="win-helper"
           registered={{
             deviceId: "dev_helper",
             keyId: KEY,
             registeredAt: "2026-11-02T10:00:00.000Z",
+            kind: "windows_hello",
           }}
-          allowDevFileKey={false}
           {...h}
         />
       </StoryWorld>,

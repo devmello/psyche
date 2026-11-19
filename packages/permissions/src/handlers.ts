@@ -29,6 +29,8 @@ export interface Caller {
   /** The surface this connection answers for (`desktop`, `web`, …). */
   surface: Surface;
   role?: "client" | "node" | "both";
+  /** This connection is the owner's own Host app (loopback, per-launch secret). */
+  local?: boolean;
 }
 
 /** The protocol's `audit.*` definitions (params, result, scope); the Gateway checks the same. */
@@ -119,18 +121,23 @@ export function createPermissionHandlers(
         await broker.rejectPresence({
           approvalId: params.approvalId,
           decidedBy: { deviceId: c.deviceId, surface: c.surface },
+          ...(c.local === true ? { local: true } : {}),
           reason: "password_from_client",
           code: "forbidden",
           message: "a password assertion cannot come from a client",
           details: { reason: "presence_invalid" },
         });
       }
-      const approval = await broker.answer({
-        ...params,
-        decidedBy: { deviceId: c.deviceId, surface: c.surface },
-        ...(presence === undefined ? {} : { presence: presence as PresenceAssertion }),
-        ...(typeof typedConfirmation === "string" ? { typedConfirmation } : {}),
-      });
+      const approval = await broker.answer(
+        {
+          ...params,
+          decidedBy: { deviceId: c.deviceId, surface: c.surface },
+          ...(presence === undefined ? {} : { presence: presence as PresenceAssertion }),
+          ...(typeof typedConfirmation === "string" ? { typedConfirmation } : {}),
+        },
+        // Only from the connection (`Caller.local`), never from what the client sent.
+        { local: c.local === true },
+      );
       const grant =
         approval.grantId == null
           ? null
@@ -228,6 +235,7 @@ export async function accessEntries(broker: PsychePermissionBroker): Promise<Acc
       label: f.path,
       path: f.path,
       mode: f.mode,
+      ...(broker.folderRefused(f.path) ? { refused: true } : {}),
     });
   }
   for (const { threadId, entry } of broker.allSessionFolders()) {
@@ -238,6 +246,8 @@ export async function accessEntries(broker: PsychePermissionBroker): Promise<Acc
       label: entry.path,
       path: entry.path,
       mode: entry.mode,
+      ...(entry.file === true ? { file: true } : {}),
+      ...(broker.folderRefused(entry.path) ? { refused: true } : {}),
       threadId,
     });
   }

@@ -44,8 +44,10 @@ import {
   type ImportFormat,
   type ImportOutcome,
 } from "./CredentialImport.tsx";
+import { useLinkSetupActions } from "./CredentialLinkSetup.tsx";
 import { PaymentsGroup, type PaymentsView } from "./CredentialPayments.tsx";
 import { bindingLabel, cardRefusal, credentialKindLabel } from "./credential-labels.ts";
+import { OnePasswordSetupPanel } from "./OnePasswordSetup.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
   EmptyNotice,
@@ -59,6 +61,7 @@ import {
   type SettingsFormProps,
   useSettingsForm,
 } from "./shared.tsx";
+import { VaultSetupPanel } from "./VaultSetup.tsx";
 
 /** Credentials (UI design §3.18; architecture §4.7). Values never reach this screen. */
 
@@ -354,7 +357,7 @@ export function CredentialsPanel({
                           {managedOf(c) ? (
                             <span className="inline-flex items-center gap-1">
                               <span className="text-callout text-muted-foreground">
-                                {managedLabel(managedOf(c)?.kind ?? "connector")}
+                                {managedLabel(managedOf(c)?.kind ?? "connector", c.slug)}
                               </span>
                               {onOpenSetting ? (
                                 <RowMoreMenu
@@ -696,7 +699,12 @@ function managerName(c: CredentialMeta): string {
   return c.backend === "bitwarden" ? "Bitwarden" : "1Password"; // i18n-ignore: product names
 }
 
-const managedLabel = (kind: ManagedKind): string => t(`settings.credentials.managed.${kind}`);
+/** The Brave Search key is a `model_provider` item on the wire; it reads as a web search key. */
+const WEB_SEARCH_KEY_SLUG = "model-brave-search";
+const managedLabel = (kind: ManagedKind, slug?: string): string =>
+  slug === WEB_SEARCH_KEY_SLUG
+    ? t("settings.credentials.managed.web_search")
+    : t(`settings.credentials.managed.${kind}`);
 const settingLabel = (setting: ManagedSetting): string =>
   t(`settings.credentials.setting.${setting}`);
 
@@ -932,8 +940,15 @@ export function VaultProtectionPanel({ slots }: { slots: readonly string[] }): R
 function VaultProtection(): ReactElement | null {
   const q = useGatewayQuery("vault.status", {});
   const status = q.data?.status;
-  if (!status || status.state === "uninitialized") return null;
-  return <VaultProtectionPanel slots={status.slots} />;
+  if (!status) return null;
+  // One position for the setup panel in both states, so it keeps the recovery key it holds when
+  // the status refreshes from "uninitialized" to "unlocked".
+  return (
+    <>
+      {status.state === "uninitialized" ? null : <VaultProtectionPanel slots={status.slots} />}
+      <VaultSetupPanel status={status} onChanged={q.reload} />
+    </>
+  );
 }
 
 export function CredentialsSection({
@@ -950,6 +965,7 @@ export function CredentialsSection({
   const call = useCall();
   const q = useGatewayQuery("vault.list", {});
   const pay = usePayments();
+  const linkActions = useLinkSetupActions(pay.reload);
   const [addError, setAddError] = useState<string | null>(null);
   const [itemError, setItemError] = useState<string | null>(null);
   const onUpdate = (c: CredentialMeta, patch: CredentialPatch): Promise<void> => {
@@ -1006,6 +1022,7 @@ export function CredentialsSection({
   return (
     <div className="flex flex-col gap-3">
       <VaultProtection />
+      <OnePasswordSetupPanel />
       <CredentialsPanel
         credentials={q.data?.credentials ?? []}
         values={form.values}
@@ -1027,6 +1044,7 @@ export function CredentialsSection({
         onLinkExternal={onLinkExternal}
         payments={{
           configured: pay.data?.configured ?? true,
+          ...(pay.data?.setup ? { setup: { status: pay.data.setup, ...linkActions } } : {}),
           methods: pay.data?.methods ?? [],
           payments: pay.data?.payments ?? [],
           loading: pay.loading && pay.data === undefined,

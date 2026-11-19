@@ -1,10 +1,11 @@
+import type { StarterFolderId } from "@psyche/protocol";
 import type { ScopeMode } from "../settings/ConnectorsSection.tsx";
 import type { MacHelperStatus } from "../settings/MacHelperStatus.tsx";
 import type { ProviderKind, TccPermission, TccState, ToolCheck } from "../settings/types.ts";
 
 /** Onboarding (UI design §3.19): the steps, the shell callbacks and the result. */
 
-export type OnboardingStepId = "you" | "stuff" | "model" | "memory" | "safety" | "done";
+export type OnboardingStepId = "you" | "stuff" | "model" | "memory" | "folders" | "safety" | "done";
 
 /** Docs: docs/design/onboarding-2026.md §2. */
 export const ONBOARDING_STEP_IDS: readonly OnboardingStepId[] = [
@@ -12,6 +13,7 @@ export const ONBOARDING_STEP_IDS: readonly OnboardingStepId[] = [
   "stuff",
   "model",
   "memory",
+  "folders",
   "safety",
   "done",
 ];
@@ -96,7 +98,7 @@ export interface BundledHelperKey {
   deviceId: string;
   keyId?: string;
   /** `windows_hello` from the Windows helper (with `algorithm`, e.g. "RSA-2048"). */
-  kind?: "keychain" | "enclave_keychain_acl" | "enclave_file" | "windows_hello";
+  kind?: "windows_hello" | "device_identity";
   algorithm?: string;
   error?: string;
 }
@@ -107,8 +109,6 @@ export interface TouchIdStatus {
   identity: BundledHelperKey | null;
   /** The Gateway holds this key for the helper. */
   registered: boolean;
-  /** `devices.presence.allowDevFileKey`. */
-  allowDevFileKey: boolean;
 }
 
 /** The desktop's Touch ID setup, in the steps Settings → Devices uses. Absent on the web. */
@@ -116,8 +116,6 @@ export interface TouchIdSetupPort {
   status(): Promise<TouchIdStatus>;
   /** Registers exactly the key the bundled helper reports. */
   register(): Promise<void>;
-  /** `devices.presence.allowDevFileKey`, for a build whose key lives in a Secure Enclave file. */
-  allowDevFileKey(on: boolean): Promise<void>;
 }
 
 /** Callbacks for the steps added by the first-run redesign; all optional (the step says so). */
@@ -179,6 +177,13 @@ export interface OnboardingResult {
   habits?: import("./habits.ts").HabitChoices;
   /** Work tracking and people in the brief, when the Memory step was reached. */
   memory?: MemoryChoices;
+  /**
+   * The folders ticked on the opt-in Folders step (absolute paths from `files.starterFolders`).
+   * Absent or empty: nothing is written. The host adds them read only, never read-write.
+   */
+  sharedFolders?: { id: StarterFolderId; path: string }[];
+  /** Open Settings → File access once onboarding ends (the folders needed a card to be shared). */
+  openFileAccess?: boolean;
   /** The helper's Touch ID key was registered during setup (informational). */
   touchIdRegistered?: boolean;
 }
@@ -211,6 +216,15 @@ export interface OnboardingShellProps extends OnboardingExtrasProps {
    * and Done says they are set up in the desktop app. Default true.
    */
   macPermissions?: boolean;
+  /**
+   * Writes the ticked folders (read only) when the owner opens the chat. Rejects with
+   * `approval_required` (and `details.approvalId`) when the Gateway wants its approval card
+   * first; the flow then asks the owner to approve and calls again with that id.
+   */
+  onShareFolders?: (
+    folders: { id: StarterFolderId; path: string }[],
+    approvalId?: string,
+  ) => Promise<void>;
   /** Desktop: the bundled Mac helper's state, shown in Permissions; never blocks a step. */
   helper?: MacHelperStatus;
   /**

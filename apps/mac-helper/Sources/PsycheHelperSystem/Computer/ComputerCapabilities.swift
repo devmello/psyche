@@ -96,6 +96,8 @@ struct TargetParams: Decodable {
     var session: String?
     /// The app the call names (required for x/y targets, #267): the point must land in it.
     var app: String? = nil
+    /// `computer.resolve_target` only: describe the app's focused element instead of a target.
+    var focused: Bool? = nil
 }
 
 private func targetSchema(_ extra: [String: JSONValue] = [:], description: String) -> JSONValue {
@@ -163,7 +165,7 @@ public enum ComputerCapabilities {
     }
 
     public static func make(_ cu: ComputerUse) -> [any CapabilityHandler] {
-        [axTree(cu), checkTarget(cu), axValue(cu), click(cu, "computer.click", count: 1, right: false), click(cu, "computer.double_click", count: 2, right: false),
+        [axTree(cu), checkTarget(cu), resolveTarget(cu), axValue(cu), click(cu, "computer.click", count: 1, right: false), click(cu, "computer.double_click", count: 2, right: false),
          click(cu, "computer.right_click", count: 1, right: true), press(cu), setValue(cu), select(cu), type(cu), key(cu), scroll(cu),
          drag(cu), menu(cu), endSession(cu)]
     }
@@ -231,6 +233,53 @@ public enum ComputerCapabilities {
                 result["hint"] = "The recorded element is not in the window. Ask the owner what to do."
             }
             return CapabilityOutput(.object(result))
+        }
+    }
+
+    /// What is under a ref or a screen point, without pressing anything. The Gateway asks before a
+    /// click by point so a control that moves money (Pay, Place bid, Sell...) is classed as a
+    /// payment even though the agent named only coordinates.
+    static func resolveTarget(_ cu: ComputerUse) -> Capability {
+        cap(cu, CapabilitySpec(
+            name: "computer.resolve_target",
+            description: "Read-only: the role, accessibility labels and window of the element under a ref, a screen point (x, y with app), or the app's keyboard focus (focused: true with app), before acting on it. Nothing is pressed. Untrusted app content.",
+            sideEffect: .read, targetKind: .app,
+            inputSchema: targetSchema(["focused": Schema.boolean("Describe the app's focused element (what Return, Enter or Space would activate)")],
+                                      description: "resolve a target"),
+            permissions: [.accessibility]
+        )) { ctx in
+            let p = try ctx.decode(TargetParams.self)
+            if p.focused == true {
+                try cu.beginAction(session: p.session)
+                guard let named = p.app, !named.isEmpty else {
+                    throw CapabilityError.invalidParams("app is required with focused", field: "app")
+                }
+                let target = AXEngine.target(try AXEngine.findApp(named))
+                try cu.policy.authorize(.read, bundleId: target.bundleId, appName: target.name, approval: binding(ctx))
+                let app = target.bundleId ?? target.name
+                guard let hit = AXEngine.focusTarget(pid: target.pid) else {
+                    // Nothing focused: the Gateway treats it as unknown and decides by context.
+                    return CapabilityOutput(TargetReport.result(role: nil, labels: [], secure: false, app: app))
+                }
+                return CapabilityOutput(TargetReport.result(role: hit.role, labels: hit.labels, secure: hit.secure, app: app,
+                                                            window: hit.window, url: hit.url, subrole: hit.subrole))
+            }
+            if p.ref != nil || p.selector != nil {
+                let el = try await element(cu, ctx, p, intent: .read)
+                let around = AXEngine.describe(el.key.element, pid: el.app.pid)
+                return CapabilityOutput(TargetReport.result(
+                    role: el.roleName, labels: [el.label].compactMap { $0 } + around.labels.dropFirst(), secure: el.info.isSecure,
+                    app: el.app.bundleId ?? el.app.name, window: around.window, url: around.url, subrole: around.subrole))
+            }
+            let (pt, target) = try await point(cu, ctx, p, intent: .read)
+            guard let hit = AXEngine.hitTest(pt) else {
+                throw CapabilityError(.conflict, reason: "hit_test_failed", "Nothing at \(Int(pt.x)),\(Int(pt.y))")
+            }
+            guard hit.pid == target.pid else {
+                throw CapabilityError(.conflict, reason: "occluded", "Another window covers \(Int(pt.x)),\(Int(pt.y)); bring \(target.name) forward and re-snapshot")
+            }
+            return CapabilityOutput(TargetReport.result(role: hit.role, labels: hit.labels, secure: hit.secure, app: target.bundleId ?? target.name,
+                                                        window: hit.window, url: hit.url, subrole: hit.subrole))
         }
     }
 

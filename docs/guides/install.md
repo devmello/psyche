@@ -64,7 +64,7 @@ Unsigned builds also lose macOS permissions (Accessibility, Screen Recording, Mi
 
 ### 2. Open Psyche
 
-The first time you open the app, it installs the LaunchAgent `com.psyche.gateway` (pointing at the `psyched` inside the app) and starts the Gateway. It also starts Psyche Helper, which pairs itself with the Gateway, with no code to type. The Gateway keeps running when you close the window. Its logs are in `$PSYCHE_HOME/logs/`.
+The first time you open the app, it installs the LaunchAgent `com.psyche.gateway` (pointing at the `psyched` inside the app) and starts the Gateway. It also starts Psyche Helper, which pairs itself with the Gateway, with no code to type. The Gateway keeps running when you close the window; quitting Psyche (⌘Q, or Quit from the menu bar or Dock) also stops Psyche Helper, and it starts again the next time you open Psyche. Its logs are in `$PSYCHE_HOME/logs/`.
 
 Psyche asks for no macOS permissions at first launch. Each one is requested when you turn on a feature that needs it (Settings › Permissions lists them all).
 

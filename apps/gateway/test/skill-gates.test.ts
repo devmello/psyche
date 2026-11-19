@@ -105,7 +105,7 @@ describe("export gate", () => {
     expect(card?.kind).toBe("skill_install");
   });
 
-  it("with a presence verifier, a policy_change card bound to the skill and its hash is requested", async () => {
+  it("with a verifier, a tap-only policy_change card bound to the skill and its hash is requested", async () => {
     const r = rig({ presence: "ready" });
     const err = await rejects(r.gates.export?.(r.call, ACTION, undefined) as Promise<unknown>);
     expect(err.code).toBe("approval_required");
@@ -116,11 +116,13 @@ describe("export gate", () => {
       name: "tidy",
       treeHash: ACTION.treeHash,
     });
-    // With presence gone (the verifier lost) it fails closed rather than falling back.
+    // Presence is for payments only: the card is a tap, with no presence step.
+    expect(card?.requiresAuthentication).toBe(false);
+    // With the verifier lost it is still a tap card (not `presence_required`, not admin-only).
     const lost = rig({ presence: "unavailable" });
     expect(
       (await rejects(lost.gates.export?.(lost.call, ACTION, undefined) as Promise<unknown>)).code,
-    ).toBe("presence_required");
+    ).toBe("approval_required");
   });
 });
 
@@ -162,7 +164,7 @@ describe("the plain card is answered on the device that asked", () => {
 });
 
 describe("author trust gate", () => {
-  it("needs presence once a verifier exists, and fails closed when it is lost", async () => {
+  it("needs a tapped card once a verifier exists, and still a card when it is lost", async () => {
     const r = rig({ presence: "ready" });
     const action = { keyId: `sha256:${"c".repeat(64)}`, from: "seen", to: "trusted" };
     const err = await rejects(
@@ -176,11 +178,12 @@ describe("author trust gate", () => {
       keyId: action.keyId,
       to: "trusted",
     });
+    expect(card?.requiresAuthentication).toBe(false);
     const lost = rig({ presence: "unavailable" });
     expect(
       (await rejects(lost.gates.authorChange?.(lost.call, action, undefined) as Promise<unknown>))
         .code,
-    ).toBe("presence_required");
+    ).toBe("approval_required");
   });
 
   it("with no verifier it shows a device-only card, so trust never happens without one", async () => {
@@ -243,7 +246,7 @@ describe("rotating the author key and signing a notice use the same gate as an e
     }
   });
 
-  it("show a device-only card, and with a verifier ask for fresh presence; a lost verifier fails closed", async () => {
+  it("show a device-only card, and with a verifier ask for a tapped card; a lost verifier still asks for one", async () => {
     const r = rig();
     const err = await rejects(r.gates.rotate?.(r.call, ROTATE, undefined) as Promise<unknown>);
     expect(err.code).toBe("approval_required");
@@ -255,10 +258,11 @@ describe("rotating the author key and signing a notice use the same gate as an e
     const [pc] = await p.broker.list();
     expect(pc?.kind).toBe("policy_change");
     expect(pc?.details).toMatchObject({ kind: "skill_author_notice", noticeKind: "key" });
+    expect(pc?.requiresAuthentication).toBe(false);
     const lost = rig({ presence: "unavailable" });
     expect(
       (await rejects(lost.gates.rotate?.(lost.call, ROTATE, undefined) as Promise<unknown>)).code,
-    ).toBe("presence_required");
+    ).toBe("approval_required");
   });
 
   it("an approval for rotating is no use for signing a notice", async () => {

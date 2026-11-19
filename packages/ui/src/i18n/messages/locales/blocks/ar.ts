@@ -108,7 +108,7 @@ export const blocks: Partial<Catalogue> = {
   "blocks.details.reason": "السبب",
   "blocks.approval.answerOnHost":
     "أجب على {host}، أو أعدّ Touch ID للموافقات على هذا الكمبيوتر في الإعدادات ← الأجهزة.",
-  "blocks.approval.rateLimited": "موافقات كثيرة جدًا في دقيقة. حاول مجددًا بعد {seconds} ث.",
+  "blocks.approval.rateLimited": "محاولات كثيرة جدًا في دقيقة. حاول مجددًا بعد {seconds} ث.",
   "blocks.approval.touchIdFailed": "فشل Touch ID: {reason}. حاول مجددًا.",
   "blocks.approval.touchIdFailedNoReason": "فشل Touch ID. حاول مجددًا.",
   "blocks.approval.touchIdInvalid": "تعذّر على Psyche التحقق من أنك أنت",
@@ -127,21 +127,8 @@ export const blocks: Partial<Catalogue> = {
   "blocks.approval.touchId.onceOnly": "موافقات Touch ID من هذه النافذة صالحة لمرة واحدة فقط.",
   "blocks.approval.status.allowedOnceTouchId":
     "تم السماح مرة واحدة (موافقات Touch ID من هذه النافذة صالحة لمرة واحدة فقط)",
-  "blocks.approval.touchId.keyUntrusted":
-    "لا يمكن إثبات أن مفتاح Touch ID لمساعد Psyche في سلسلة المفاتيح يخصه، لذلك لم يُستخدم. افتح الإعدادات ← الأجهزة لمعرفة ما يجب فعله.",
-  "blocks.approval.touchId.keyAccessDenied":
-    "لم يسمح macOS لمساعد Psyche باستخدام مفتاح Touch ID الخاص به. حاول مرة أخرى واختر السماح دائمًا فقط إذا ذكرت النافذة psyche-helper.",
-  "blocks.approval.touchId.keyChanged":
-    "تغيّر مفتاح Touch ID أثناء تشغيل مساعد Psyche. أغلق مساعد Psyche وشغّله مرة أخرى.",
-  "blocks.approval.touchId.keyWrongLocation":
-    "يعمل Psyche من مكان لا يمكن فيه حفظ مفتاح Touch ID الخاص به (صورة قرص أو التنزيلات أو مجلد آخر). انقل Psyche إلى التطبيقات وافتحه من هناك.",
-  "blocks.approval.touchId.keyLocked":
-    "لا تستطيع سلسلة المفاتيح طلب الإذن الآن. افتح قفل الـ Mac وحاول مرة أخرى.",
-  "blocks.approval.touchId.keyAclUnavailable":
-    "رفضت سلسلة المفاتيح حفظ قائمة الوصول لمفتاح Touch ID على هذا الـ Mac. أعد تشغيل مساعد Psyche للمحاولة مرة أخرى.",
   "blocks.approval.touchId.keyUnavailable":
     "لا يستطيع هذا الإصدار من مساعد Psyche حفظ مفتاح Touch ID (لا توجد مجموعة وصول إلى سلسلة المفاتيح)، لذا لا يمكن الموافقة على البطاقات التي تحتاج إلى Touch ID على هذا الـ Mac.",
-  "blocks.approval.touchId.cancelled": "أُلغي Touch ID، لذا لم تتم الموافقة على شيء",
   "blocks.approval.touchId.restartHelper": "إعادة تشغيل مساعد Psyche",
   "blocks.approval.touchId.startHelper": "تشغيل مساعد Psyche",
   "blocks.question.answerLine": "↳ {answer}",

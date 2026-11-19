@@ -74,7 +74,7 @@ describe("owner-set limits", () => {
     expect(endOf(events)).toMatchObject({ outcome: "failed", error: "context_limit" });
     expect(h.provider.requests).toHaveLength(0);
     const capped = harness({
-      contextWindow: 2_000,
+      contextWindow: 4_000,
       script: [say("ok")],
       loop: { contextLimits: () => ({ maxTokens: 50_000 }) },
     });
@@ -96,7 +96,7 @@ describe("owner-set limits", () => {
     })) {
       // drain
     }
-    expect(u[0]?.limits).toMatchObject({ maxTokens: 2_000, contextWindow: 2_000 });
+    expect(u[0]?.limits).toMatchObject({ maxTokens: 4_000, contextWindow: 4_000 });
   });
 });
 

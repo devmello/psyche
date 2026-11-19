@@ -1,4 +1,4 @@
-import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
+import { contextBridge, type IpcRendererEvent, ipcRenderer, webUtils } from "electron";
 import { IPC } from "./lib/ipc.ts";
 
 /**
@@ -226,6 +226,14 @@ const bridge = {
   },
   dialogs: {
     pickFolder: (opts?: { title?: string }) => invoke(IPC.dialogPickFolder, opts ?? {}),
+    /** A picked or dropped File's real path ("" when it has none). */
+    pathOfFile: (file: File): string => {
+      try {
+        return webUtils.getPathForFile(file);
+      } catch {
+        return "";
+      }
+    },
   },
   /**
    * Voice conversation (V-G): the voice key going down / up from any app, and `lock` / `suspend`
@@ -329,6 +337,13 @@ const bridge = {
    */
   sources: {
     open: (docId: string) => ipcRenderer.invoke(IPC.sourceOpen, { docId }) as Promise<Envelope>,
+  },
+  /**
+   * Library → Reveal in Finder for one Library item id (this Mac's Gateway only). Main resolves the
+   * file itself and refuses anything outside the Library: no path travels from the renderer.
+   */
+  library: {
+    reveal: (itemId: string) => invoke(IPC.libraryReveal, { itemId }),
   },
   /** Settings → About (#610): versions, platform, the data folder and the Gateway's origin. */
   app: {

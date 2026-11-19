@@ -1,0 +1,2 @@
+# The Linux helper is staged here before building the desktop target; never committed.
+desktop/psyche-helper

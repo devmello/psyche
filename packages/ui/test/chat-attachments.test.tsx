@@ -151,7 +151,11 @@ describe("chips", () => {
   });
 });
 
-function mount(opts: { caps?: Record<string, unknown>; modelRef?: boolean }) {
+function mount(opts: {
+  caps?: Record<string, unknown>;
+  modelRef?: boolean;
+  pathOfFile?: (file: File) => string | null;
+}) {
   let gateway: MockGateway | undefined;
   render(
     <StoryWorld
@@ -162,6 +166,7 @@ function mount(opts: { caps?: Record<string, unknown>; modelRef?: boolean }) {
       onGateway={(g) => {
         gateway = g;
       }}
+      {...(opts.pathOfFile === undefined ? {} : { slots: { pathOfFile: opts.pathOfFile } })}
     >
       <div style={{ height: 900 }}>
         <ChatThread threadId={IDS.threads.main} now={STORY_NOW} />
@@ -252,5 +257,99 @@ describe("the composer's + button", () => {
       clipboardData: { files: [new File(["y"], "pasted.md", { type: "text/markdown" })] },
     });
     await waitFor(() => expect(within(chips).getByText("pasted.md")).toBeTruthy());
+  });
+});
+
+describe("files from disk (desktop): attached in place, not uploaded", () => {
+  const PATHS: Record<string, string> = {
+    "report.txt": "/Users/me/Documents/report.txt",
+    id_ed25519: "/Users/me/.ssh/id_ed25519",
+  };
+  const pathOfFile = (f: File) => PATHS[f.name] ?? null;
+
+  it("a drop adds a chip after chat.attachFiles, and send carries the reference", async () => {
+    const gw = mount({ caps: { vision: true }, pathOfFile });
+    const capsule = await screen.findByTestId("composer-capsule");
+    const report = new File(["Q3"], "report.txt", { type: "text/plain" });
+    fireEvent.drop(capsule, { dataTransfer: { files: [report], types: ["Files"] } });
+    const chips = await screen.findByTestId("attach-chips");
+    expect(within(chips).getByText("report.txt")).toBeTruthy();
+    await waitFor(() => expect(chips.querySelector("[data-status=ready]")).not.toBeNull());
+    const attach = gw().calls.find((c) => c.method === "chat.attachFiles");
+    expect(attach?.params).toMatchObject({
+      threadId: IDS.threads.main,
+      paths: ["/Users/me/Documents/report.txt"],
+    });
+    // Nothing was uploaded to the Library.
+    expect(gw().calls.some((c) => c.method === "library.upload")).toBe(false);
+
+    await userEvent.type(screen.getByRole("textbox", { name: /^Message / }), "summarize{Enter}");
+    await waitFor(() => expect(gw().calls.some((c) => c.method === "chat.send")).toBe(true));
+    const send = gw().calls.find((c) => c.method === "chat.send");
+    expect(send?.params).toMatchObject({
+      content: "summarize",
+      attachedFiles: [{ path: "/Users/me/Documents/report.txt" }],
+    });
+    expect(send?.params).not.toHaveProperty("attachments");
+    await waitFor(() => expect(screen.queryByTestId("attach-chips")).toBeNull());
+  });
+
+  it("removing the chip means the message does not carry the file", async () => {
+    const gw = mount({ caps: { vision: true }, pathOfFile });
+    const input = (await screen.findByTestId("attach-input")) as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [new File(["Q3"], "report.txt", { type: "text/plain" })] },
+    });
+    const chips = await screen.findByTestId("attach-chips");
+    await waitFor(() => expect(chips.querySelector("[data-status=ready]")).not.toBeNull());
+    await userEvent.click(within(chips).getByRole("button", { name: "Remove report.txt" }));
+    expect(screen.queryByTestId("attach-chips")).toBeNull();
+    await userEvent.type(screen.getByRole("textbox", { name: /^Message / }), "hi{Enter}");
+    await waitFor(() => expect(gw().calls.some((c) => c.method === "chat.send")).toBe(true));
+    expect(gw().calls.find((c) => c.method === "chat.send")?.params).not.toHaveProperty(
+      "attachedFiles",
+    );
+  });
+
+  it("a file the Gateway refuses gets no chip and the owner is told why", async () => {
+    const gw = mount({ caps: { vision: true }, pathOfFile });
+    const capsule = await screen.findByTestId("composer-capsule");
+    const key = new File(["k"], "id_ed25519", { type: "" });
+    fireEvent.drop(capsule, { dataTransfer: { files: [key], types: ["Files"] } });
+    await waitFor(() =>
+      expect(screen.getByTestId("attach-refused").textContent).toContain("protected place"),
+    );
+    expect(screen.queryByTestId("attach-chips")).toBeNull();
+    await userEvent.type(screen.getByRole("textbox", { name: /^Message / }), "hi{Enter}");
+    await waitFor(() => expect(gw().calls.some((c) => c.method === "chat.send")).toBe(true));
+    expect(gw().calls.find((c) => c.method === "chat.send")?.params).not.toHaveProperty(
+      "attachedFiles",
+    );
+  });
+
+  it("a send refused because the chat is busy puts the chips back", async () => {
+    const gw = mount({ caps: { vision: true }, pathOfFile });
+    const input = (await screen.findByTestId("attach-input")) as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [new File(["Q3"], "report.txt", { type: "text/plain" })] },
+    });
+    const chips = await screen.findByTestId("attach-chips");
+    await waitFor(() => expect(chips.querySelector("[data-status=ready]")).not.toBeNull());
+    gw().failNext("chat.send", "conflict", "the agent is busy", { reason: "thread_busy" });
+    await userEvent.type(screen.getByRole("textbox", { name: /^Message / }), "hi{Enter}");
+    await waitFor(() => expect(gw().calls.some((c) => c.method === "chat.send")).toBe(true));
+    const back = await screen.findByTestId("attach-chips");
+    expect(within(back).getByText("report.txt")).toBeTruthy();
+    await waitFor(() => expect(back.querySelector("[data-status=ready]")).not.toBeNull());
+  });
+
+  it("a file without a path (a paste) is still uploaded", async () => {
+    const gw = mount({ caps: { vision: true }, pathOfFile });
+    const box = await screen.findByRole("textbox", { name: /^Message / });
+    fireEvent.paste(box, {
+      clipboardData: { files: [new File(["y"], "pasted.md", { type: "text/markdown" })] },
+    });
+    await waitFor(() => expect(gw().calls.some((c) => c.method === "library.upload")).toBe(true));
+    expect(gw().calls.some((c) => c.method === "chat.attachFiles")).toBe(false);
   });
 });

@@ -276,7 +276,7 @@ describe("the Apple sources", () => {
       clock,
       people: { graph },
       apple: seams,
-      broker: { policy: { folders: [] } },
+      broker: { grantedFolders: () => [] },
     });
     const result = await work.run();
     expect(result.failed).toEqual([]);

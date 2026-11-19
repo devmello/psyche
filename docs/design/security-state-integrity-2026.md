@@ -2,6 +2,8 @@
 
 Status: design and first implementation (PR `claude/security-state-integrity`). Companion to [05-security-and-permissions.md](../05-security-and-permissions.md) (asset A6, §2, §10) and [08-roadmap.md](../08-roadmap.md).
 
+> **Update 2026-11-09.** The Mac helper's presence key described here (the Secure Enclave key, its login-keychain item, the access-list audit, the REPLACE card, `--reset-presence-key`) was removed: the owner reported it did not work and cost productivity. Mac presence is now the system's owner sheet (`LAContext` `.deviceOwnerAuthentication`: Touch ID or the Mac password) plus a signature by the helper's own device key, with nothing to register. The residual risk (a process running as the owner can read that key file or drive the helper) is in [05-security-and-permissions.md](../05-security-and-permissions.md) §3.7. This document is kept as the record of the same-user analysis.
+
 ## 1. The problem
 
 The threat model said Psyche protects its control plane (A6: devices, grants, policy, channel allowlists) against **local malware running as the owner**. An independent review showed that this did not hold:

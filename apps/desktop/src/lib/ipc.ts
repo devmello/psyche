@@ -117,6 +117,9 @@ export const IPC = {
   // Settings → About: versions, platform and the data folder (#610).
   appInfo: "psyche:app:info",
   appRevealHome: "psyche:app:reveal-home",
+  // Library → Reveal in Finder: the renderer names a Library item by id; main resolves its file and
+  // checks it is inside the Library before it reveals it (lib/library-reveal.ts).
+  libraryReveal: "psyche:library:reveal",
   // Settings → About → Uninstall Psyche: what would go, then do it. Main only; never a remote window.
   appUninstallPlan: "psyche:app:uninstall-plan",
   appUninstall: "psyche:app:uninstall",
@@ -448,6 +451,7 @@ export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
   IPC.dictationRecheck,
   IPC.dictationCheckHotkey,
   IPC.sourceOpen,
+  IPC.libraryReveal,
   IPC.appUninstallPlan,
   IPC.appUninstall,
 ]);

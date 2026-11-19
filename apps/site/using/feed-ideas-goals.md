@@ -31,7 +31,9 @@ The Feed shows the day's brief as post cards. Each post has a title, a body with
 - **More** has **Follow: topic**, **Not interested** and **Hide source**. Your feedback goes into the interest ledger, `interests.md`, at once, with an **Undo** toast.
 - Before the first brief, the Feed offers **Generate the first brief**, or you can wait until 07:00.
 
-Sources today are RSS and Atom feeds, Hacker News and arXiv. Hacker News and arXiv are on by default. Add RSS feeds with the `feed.sources` setting, for example:
+Sources today are RSS and Atom feeds, Hacker News and arXiv. Hacker News and arXiv are on by default. Use **Sources** in the Feed header to see the feeds the Feed reads, add one, edit its address, remove it (you confirm first), and turn Hacker News or arXiv on or off. Each change saves as you make it. Only an admin device can change sources.
+
+The same setting is in the CLI, for example:
 
 ```bash
 psyche config set feed.sources '{"rss":["https://example.com/feed.xml"],"hackerNews":true,"arxiv":false}'
@@ -71,10 +73,10 @@ Feed posts are written from untrusted content (web pages and feeds). Text in a s
 
 ## Limits today
 
-- The Feed header buttons **What should I write about** and **Schedule** do nothing yet. Edit `interests.md` directly; the brief time is fixed at 07:00.
-- There is no screen to manage Feed sources; use the `feed.sources` setting. Bluesky, saved items and your connected accounts are not Feed sources yet, and there is no web search to fill gaps.
+- Edit `interests.md` directly, or use **What should I write about** in the Feed header; the brief time is fixed at 07:00. **Schedule** opens Scheduled.
+- Feed sources do not show when each feed was last read or whether it failed, and a feed cannot be paused yet; remove it instead. Bluesky, saved items and your connected accounts are not Feed sources yet, and there is no web search to fill gaps.
 - **Edit** on an idea is shown but disabled. Ideas do not use signals from connectors yet, since connectors cannot be connected.
-- On Goals, **Add a goal** does nothing; ask in chat instead. Deleting a goal is not available in the app.
+- On Goals, **Add a goal** opens the new-goal dialog. **Delete goal…** in a goal's menu removes it from Goals: the goal is archived and its check-ins stop.
 - The heartbeat check-in is not scheduled, so the agent does not check in on its own between briefs.
 
 ## Learn more

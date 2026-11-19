@@ -1,3 +1,4 @@
+import { isPaymentField as isMoneyPaymentField } from "@psyche/protocol/money-intent";
 import type { CaptureSnapshotResult, DocumentSnapshot } from "../cdp/types.ts";
 import { tryOrigin } from "../origin/canonical.ts";
 
@@ -178,6 +179,28 @@ export class DomIndex {
     return found;
   }
 
+  #payForms = new Map<number, boolean>();
+
+  /**
+   * The form holds a card field (autocomplete `cc-*`, or a name / id such as `card`, `cardnumber`,
+   * `cvv`, `cvc`, `expiry`): submitting it pays, whatever the button says.
+   */
+  formHasPaymentFields(form: DomNodeInfo): boolean {
+    const cached = this.#payForms.get(form.backendNodeId);
+    if (cached !== undefined) return cached;
+    let found = false;
+    for (const n of this.#byBackend.values()) {
+      if (n.docIndex !== form.docIndex || (n.tag !== "INPUT" && n.tag !== "SELECT")) continue;
+      if (this.formOf(n)?.backendNodeId !== form.backendNodeId) continue;
+      if (isPaymentField(n.attrs)) {
+        found = true;
+        break;
+      }
+    }
+    this.#payForms.set(form.backendNodeId, found);
+    return found;
+  }
+
   isSecure(info: DomNodeInfo): boolean {
     const type = (info.attrs.type ?? "").toLowerCase();
     if (info.tag === "INPUT" && type === "password") return true;
@@ -206,4 +229,25 @@ function rareStrings(
     if (v !== undefined && v >= 0) m.set(ni, strings[v] ?? "");
   });
   return m;
+}
+
+/**
+ * A card field by its `autocomplete` (`cc-number`, `cc-exp`, `cc-csc`) or its name, id, label or
+ * placeholder (card number, security code, expiry): the shared rule (`money-intent`). Never `cc`
+ * alone (email CC), a library card or a card PIN.
+ */
+export function isPaymentField(attrs: {
+  autocomplete?: string | undefined;
+  name?: string | undefined;
+  id?: string | undefined;
+  placeholder?: string | undefined;
+  "aria-label"?: string | undefined;
+}): boolean {
+  return isMoneyPaymentField({
+    autocomplete: attrs.autocomplete,
+    name: attrs.name,
+    id: attrs.id,
+    placeholder: attrs.placeholder,
+    label: attrs["aria-label"],
+  });
 }

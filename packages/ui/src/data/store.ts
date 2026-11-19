@@ -16,7 +16,8 @@ import {
   GatewayRequestError,
   newIdempotencyKey,
 } from "./client.ts";
-import type { ChatOutbox } from "./outbox.ts";
+import type { ChatOutbox, OutboxItem } from "./outbox.ts";
+import { RequestGate, retryAfterSecOf } from "./request-gate.ts";
 import {
   appendBlock,
   INITIAL_STATE,
@@ -48,6 +49,17 @@ const scheduleFrame = (cb: () => void): number =>
 const cancelFrame = (id: number): void =>
   typeof cancelAnimationFrame === "function" ? cancelAnimationFrame(id) : clearTimeout(id);
 
+/** A read is sent at most this many times while the device keeps answering `rate_limited`. */
+const MAX_RATE_LIMIT_ATTEMPTS = 3;
+
+function toRequestError(method: string, err: unknown): GatewayRequestError {
+  if (err instanceof GatewayRequestError) return err;
+  if (err instanceof PsycheError)
+    return new GatewayRequestError(method, err.code, err.message, err.details);
+  const message = err instanceof Error ? err.message : String(err);
+  return new GatewayRequestError(method, "internal", message);
+}
+
 export class GatewayStore {
   readonly client: GatewayClient;
   /**
@@ -77,6 +89,15 @@ export class GatewayStore {
   private unsubscribe: Array<() => void> = [];
   private insightsTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly now: () => string;
+  /** Holds non-urgent reads while the device is rate limited; shared by every loader. */
+  private readonly gate = new RequestGate();
+  /**
+   * Runs an event changed (`run.step`, `run.updated`) or that a gap may have hid, since their trace
+   * was last loaded. A settled run is re-read on refresh only when it is in this set.
+   */
+  private readonly changedRuns = new Set<string>();
+  /** The outbox's retry after a send gave up on `rate_limited` (one at a time; see `scheduleOutboxRetry`). */
+  private outboxRetryTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
     client: GatewayClient,
@@ -112,6 +133,16 @@ export class GatewayStore {
     if (this.client.connectionState() === "open") void this.flushOutbox();
   }
 
+  /** True when an event (or a gap) says this run changed since its trace was last loaded. */
+  runChanged(runId: string): boolean {
+    return this.changedRuns.has(runId);
+  }
+
+  /** Called as a run's trace is loaded: events from now on count as changes again. */
+  markRunLoaded(runId: string): void {
+    this.changedRuns.delete(runId);
+  }
+
   /** The owner's "Send now" for a message that waited a day: confirms it, then sends. */
   async confirmOutbox(key: string): Promise<void> {
     this.outbox?.confirm(key);
@@ -126,11 +157,7 @@ export class GatewayStore {
   async flushOutbox(): Promise<void> {
     const outbox = this.outbox;
     if (outbox === undefined) return;
-    const result = await outbox.flush((item) =>
-      this.client.request("chat.send", item.params as MethodParams<"chat.send">, {
-        idempotencyKey: item.key,
-      }),
-    );
+    const result = await outbox.flush((item) => this.sendOutboxItem(item));
     if (result.dropped.length === 0) return;
     this.update((s) => ({
       ...s,
@@ -150,6 +177,45 @@ export class GatewayStore {
     }));
   }
 
+  /**
+   * One attempt series for a queued send. Every attempt carries the key the message was queued
+   * under, so the Gateway replays rather than re-runs it. A `rate_limited` reply waits out the
+   * shared gate pause and tries again, a few times at most; any other answer goes back to the
+   * outbox unchanged for it to classify.
+   */
+  private async sendOutboxItem(item: OutboxItem): Promise<unknown> {
+    const method = "chat.send";
+    const params = item.params as MethodParams<"chat.send">;
+    for (let attempt = 1; ; attempt += 1) {
+      await this.gate.admit(method);
+      try {
+        return await this.client.request(method, params, { idempotencyKey: item.key });
+      } catch (err) {
+        const code = (err as { code?: unknown } | null)?.code;
+        if (code !== "rate_limited") throw err;
+        const until = this.gate.pause(retryAfterSecOf((err as { details?: unknown }).details));
+        if (attempt >= MAX_RATE_LIMIT_ATTEMPTS) {
+          // Still limited after a few tries: the message stays queued, and goes again once the pause is over.
+          this.scheduleOutboxRetry(until);
+          throw err;
+        }
+        await this.gate.waitUntil(until);
+      }
+    }
+  }
+
+  /** One timer for the outbox's own retry after it gave up on a limited send; a later one replaces it. */
+  private scheduleOutboxRetry(at: number): void {
+    clearTimeout(this.outboxRetryTimer);
+    this.outboxRetryTimer = setTimeout(
+      () => {
+        this.outboxRetryTimer = undefined;
+        if (this.client.connectionState() === "open") void this.flushOutbox();
+      },
+      Math.max(0, at - Date.now()),
+    );
+  }
+
   stop(): void {
     this.starts = Math.max(0, this.starts - 1);
     if (this.starts > 0) return;
@@ -157,6 +223,8 @@ export class GatewayStore {
     this.unsubscribe = [];
     clearTimeout(this.insightsTimer);
     this.insightsTimer = undefined;
+    clearTimeout(this.outboxRetryTimer);
+    this.outboxRetryTimer = undefined;
   }
 
   // --- Subscription (useSyncExternalStore) -----------------------------------------------------
@@ -206,17 +274,26 @@ export class GatewayStore {
 
   // --- Requests --------------------------------------------------------------------------------
 
-  /** Sends a request, adding an idempotency key when the method needs one. */
+  /**
+   * Sends a request, adding an idempotency key when the method needs one. The device's request
+   * budget is shared by every loader, so this is the one place that honours a `rate_limited`
+   * reply: non-urgent reads wait out `retryAfterSec` (see `request-gate.ts`), and a read that was
+   * limited is retried after that wait, a few times at most. A side effect is never sent twice.
+   */
   async call<M extends MethodName>(method: M, params: MethodParams<M>): Promise<MethodResult<M>> {
-    const options = requiresIdempotencyKey(method) ? { idempotencyKey: newIdempotencyKey() } : {};
-    try {
-      return await this.client.request(method, params, options);
-    } catch (err) {
-      if (err instanceof GatewayRequestError) throw err;
-      if (err instanceof PsycheError)
-        throw new GatewayRequestError(method, err.code, err.message, err.details);
-      const message = err instanceof Error ? err.message : String(err);
-      throw new GatewayRequestError(method, "internal", message);
+    const sideEffecting = requiresIdempotencyKey(method);
+    const options = sideEffecting ? { idempotencyKey: newIdempotencyKey() } : {};
+    for (let attempt = 1; ; attempt += 1) {
+      await this.gate.admit(method);
+      try {
+        return await this.client.request(method, params, options);
+      } catch (err) {
+        const error = toRequestError(method, err);
+        if (error.code !== "rate_limited") throw error;
+        const until = this.gate.pause(retryAfterSecOf(error.details));
+        if (sideEffecting || attempt >= MAX_RATE_LIMIT_ATTEMPTS) throw error;
+        await this.gate.waitUntil(until);
+      }
     }
   }
 
@@ -359,8 +436,15 @@ export class GatewayStore {
     }
   }
 
+  /** Every loaded run counts as changed: events may have been missed, so each is re-read once. */
+  private markRunsChanged(): void {
+    for (const id of Object.keys(this.base.runs)) this.changedRuns.add(id);
+  }
+
   /** After a reconnect: old approval cards are stale until the Gateway re-issues them. */
   private async reconnected(): Promise<void> {
+    // Events were missed while the connection was down: a run may have settled then.
+    this.markRunsChanged();
     this.update((s) => {
       const stale: Record<string, true> = { ...s.staleApprovals };
       for (const a of Object.values(s.approvals)) if (a.status === "pending") stale[a.id] = true;
@@ -392,7 +476,12 @@ export class GatewayStore {
         e,
       ),
     );
-    if (gap) void this.refreshAll().catch(() => {});
+    if (e.event === "run.step") this.changedRuns.add(e.payload.runId);
+    if (e.event === "run.updated") this.changedRuns.add(e.payload.run.id);
+    if (gap) {
+      this.markRunsChanged();
+      void this.refreshAll().catch(() => {});
+    }
     if (INSIGHTS_EVENTS.has(e.event)) this.invalidateInsightsSoon();
   }
 
@@ -801,8 +890,10 @@ export class GatewayStore {
           "memory.catchup.",
         ]);
       case "credential.updated":
-        return invalidate(s, ["vault."]);
+        // The 1Password setup is not a credential: reloading it would run `op` again.
+        return invalidate(s, ["vault."], ["vault.onePassword."]);
       case "vault.payment.updated":
+      case "payments.link.changed":
         return invalidate(s, ["vault.payments"]);
       case "skills.changed":
       case "skills.updated":
@@ -879,11 +970,15 @@ export function withAutomationRun(s: UiState, run: AutomationRun, started: boole
 }
 
 /** Marks generic queries whose method starts with one of `prefixes` as needing a reload. */
-function invalidate(s: UiState, prefixes: readonly string[]): UiState {
+function invalidate(
+  s: UiState,
+  prefixes: readonly string[],
+  except: readonly string[] = [],
+): UiState {
   let changed = false;
   const queries: Record<string, (typeof s.queries)[string]> = { ...s.queries };
   for (const [key, q] of Object.entries(queries)) {
-    if (prefixes.some((p) => key.startsWith(p))) {
+    if (prefixes.some((p) => key.startsWith(p)) && !except.some((p) => key.startsWith(p))) {
       queries[key] = { ...q, version: -1 };
       changed = true;
     }

@@ -13,8 +13,6 @@ export const passwordPresence: Partial<Catalogue> = {
     "Permitido una vez (las aprobaciones con contraseña desde esta ventana son solo por una vez)",
   "blocks.approval.password.noUnsandboxed":
     "Ejecutar un comando sin el sandbox no se puede aprobar con contraseña desde esta ventana. Configura el sandbox en su lugar",
-  "blocks.approval.password.cancelled":
-    "Se canceló el diálogo de contraseña, así que no se aprobó nada",
   "blocks.approval.password.failed":
     "No se aceptó la contraseña, así que no se aprobó nada. Inténtalo de nuevo.",
   "blocks.approval.password.unavailableHere":

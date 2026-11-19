@@ -46,6 +46,10 @@ export function appleSearchSeams(o: {
   connectors: SourceDeps["connectors"];
   tools: SourceDeps["tools"];
   messages: () => MessagesHelper | undefined;
+  /** Whether the Host's helper is connected now (`HelperAvailability`); absent = connected. */
+  helperOnline?: () => boolean;
+  /** Told each time a Contacts read is refused for lack of permission, and when one succeeds. */
+  onContactsDenied?: (denied: boolean) => void;
   /**
    * The Host's Mac helper offering `contacts.list` and `contacts.read` (`NodeRegistry.hostHelper`,
    * the trusted in-process path; never the client-facing `nodes.invoke`).
@@ -70,6 +74,7 @@ export function appleSearchSeams(o: {
         o.tools.get(toolName(r.id, tool(r))) !== undefined,
     );
   const trust = new Map<string, TrustContext>();
+  const helperUp = (): boolean => o.helperOnline?.() !== false;
 
   const helperCall = (client: MessagesHelper): HelperCall => {
     return async (capability, params, signal) => {
@@ -98,7 +103,9 @@ export function appleSearchSeams(o: {
 
   const deps: AppleSourceDeps = {
     call: (app) => {
-      const rec = record(app);
+      // An Apple app's reads run through the Host's helper: while it is offline the app's record
+      // is there but nothing can be read, so no call (the sources say why, and jobs skip).
+      const rec = helperUp() ? record(app) : undefined;
       if (app === "reminders") {
         const backends = [
           ...(rec === undefined ? [] : [rec]),
@@ -128,8 +135,23 @@ export function appleSearchSeams(o: {
     },
     contacts: () => {
       const client = o.contacts?.();
-      return client === undefined ? undefined : helperCall(client);
+      if (client === undefined) return undefined;
+      const call = helperCall(client);
+      return async (capability, params, signal) => {
+        try {
+          const out = await call(capability, params, signal);
+          o.onContactsDenied?.(false);
+          return out;
+        } catch (err) {
+          // The helper's own refusal, in its words: "... does not have the Contacts permission".
+          if (err instanceof Error && /Contacts permission/i.test(err.message)) {
+            o.onContactsDenied?.(true);
+          }
+          throw err;
+        }
+      };
     },
+    helperOnline: o.helperOnline,
     contactParent: (contact) => contactParent(o.graph?.(), contact),
     ownAddresses: () =>
       records.flatMap((r) => (r.account !== null && EMAIL.test(r.account) ? [r.account] : [])),

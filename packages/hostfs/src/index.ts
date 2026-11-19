@@ -22,6 +22,7 @@ export {
   type HostPathFlavor,
   hostPathFlavor,
   isAbsoluteHostPath,
+  isMacMagicPath,
   isUnderHostPath,
   isWin32HostPath,
   joinHostPath,

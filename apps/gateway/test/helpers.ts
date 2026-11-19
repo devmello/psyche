@@ -3,7 +3,7 @@ import { generateKeyPairSync, type KeyObject, sign } from "node:crypto";
 import { mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { updateDevice } from "@psyche/db";
+import { setSetting, updateDevice } from "@psyche/db";
 import { connectSigningPayload, PROTOCOL_VERSION } from "@psyche/protocol";
 import { expect } from "vitest";
 import WebSocket from "ws";
@@ -233,6 +233,25 @@ export async function desktopClient(
   return c;
 }
 
+/**
+ * A paired device that is not the desktop shell: it reconnects without the handshake secret, so
+ * it gets no local-app privileges (and no rate-limit exemption). Pair it once through the secret.
+ */
+export async function remoteClient(
+  gateway: Gateway,
+  key = newDeviceKey(),
+  deviceId = `remote-${Math.random().toString(36).slice(2)}`,
+): Promise<TestClient> {
+  const first = await desktopClient(gateway, key, deviceId);
+  first.close();
+  const c = await TestClient.open(wsUrlOf(gateway));
+  const r = await handshake(c, gateway.origin, { key, deviceId });
+  if ((r.verifyRes?.payload as { phase?: string } | undefined)?.phase !== "paired") {
+    throw new Error(`remote did not pair: ${JSON.stringify(r.verifyRes)}`);
+  }
+  return c;
+}
+
 /** A device the owner granted every operator scope (what `psyched devices grant` does). */
 export async function adminClient(gateway: Gateway): Promise<TestClient> {
   const key = newDeviceKey();
@@ -262,4 +281,22 @@ export function expectPrivate(path: string, mode: number): void {
   const icacls = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "icacls.exe");
   const acl = execFileSync(icacls, [path], { encoding: "utf8" });
   expect(acl).not.toMatch(/\b(Everyone|BUILTIN\\Users|Authenticated Users):/i);
+}
+
+/**
+ * Seeds the `mcp.servers` setting the way server code writes it (the client method
+ * `settings.set` refuses this key): straight to the database, then the change event the running
+ * MCP host reconciles from.
+ */
+export function seedMcpServers(
+  services: {
+    db: Parameters<typeof setSetting>[0];
+    publish: (event: never, payload: never) => void;
+  },
+  value: unknown,
+): void {
+  const entry = setSetting(services.db, "mcp.servers", value);
+  (services.publish as (event: string, payload: unknown) => void)("settings.changed", {
+    entries: [entry],
+  });
 }
