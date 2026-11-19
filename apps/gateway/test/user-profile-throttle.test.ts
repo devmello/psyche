@@ -1,5 +1,6 @@
 import { createThread, openDb } from "@psyche/db";
 import type { ModelEvent, ModelProvider, ModelRequest } from "@psyche/protocol";
+import { SecretRedactor } from "@psyche/vault";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createUserProfile, LEARN_SYSTEM, MAX_TEXT_CHARS } from "../src/compose/user-profile.ts";
 
@@ -13,6 +14,7 @@ afterEach(() => vi.useRealTimers());
 
 function setup(over: { minIntervalMs?: number; kind?: "main" | "incognito" } = {}) {
   const db = openDb(":memory:");
+  const redactor = new SecretRedactor();
   const requests: ModelRequest[] = [];
   const provider: ModelProvider = {
     id: "fake",
@@ -31,7 +33,7 @@ function setup(over: { minIntervalMs?: number; kind?: "main" | "incognito" } = {
     model: "router/utility",
     active: true,
     ...(over.minIntervalMs === undefined ? {} : { minIntervalMs: over.minIntervalMs }),
-    redactor: { redact: (s: string) => s } as never,
+    redactor: redactor as never,
     audit: { append: async () => undefined } as never,
     broker: {} as never,
     surfaces: ["desktop"],
@@ -46,7 +48,7 @@ function setup(over: { minIntervalMs?: number; kind?: "main" | "incognito" } = {
       const part = r.messages[0]?.parts[0];
       return part?.type === "text" ? part.text : "";
     });
-  return { requests, turn, texts };
+  return { db, redactor, id, requests, turn, texts };
 }
 
 describe("profile learner request", () => {
@@ -91,6 +93,42 @@ describe("profile learner batching", () => {
     await s.turn("I prefer tea.");
     expect(s.requests).toHaveLength(3);
     expect(s.texts()[2]).toBe("I prefer tea.");
+  });
+
+  it("never sends part of a vault value, even one the 4,000-character cap cuts in half", async () => {
+    const s = setup({ minIntervalMs: 30_000 });
+    const secret = "Qz7pLm2Xw9Rt4Kv8";
+    s.redactor.add(secret);
+    const pad = "a ".repeat(1995); // the secret starts at offset 3990
+    await s.turn(`${pad}${secret} tail`); // immediate path
+    await s.turn(`${pad}${secret} tail`); // held, then flushed with the next
+    await s.turn("I live in Lisbon.");
+    await vi.advanceTimersByTimeAsync(31_000);
+    expect(s.requests).toHaveLength(2);
+    for (const text of s.texts()) {
+      expect(text).not.toContain(secret);
+      expect(text).not.toContain(secret.slice(0, 6));
+    }
+  });
+
+  it("does not raise an unhandled rejection when the database is gone at flush time", async () => {
+    const s = setup({ minIntervalMs: 30_000 });
+    const rejections: unknown[] = [];
+    const onRejection = (e: unknown) => rejections.push(e);
+    process.on("unhandledRejection", onRejection);
+    try {
+      await s.turn("My sister is Maya.");
+      await s.turn("My brother is Theo.");
+      s.db.close();
+      await vi.advanceTimersByTimeAsync(31_000);
+      await vi.advanceTimersByTimeAsync(0);
+      vi.useRealTimers();
+      await new Promise((r) => setTimeout(r, 10));
+    } finally {
+      process.off("unhandledRejection", onRejection);
+    }
+    expect(rejections).toEqual([]);
+    expect(s.requests).toHaveLength(1);
   });
 
   it("holds nothing from an incognito chat", async () => {

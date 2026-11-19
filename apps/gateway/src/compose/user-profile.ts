@@ -497,16 +497,22 @@ export function createUserProfile(deps: UserProfileDeps) {
   };
 
   const flushHeld = async (threadId: string) => {
-    const h = held.get(threadId);
-    if (h === undefined || h.turn === undefined) return;
-    if (h.timer !== undefined) clearTimeout(h.timer);
-    delete h.timer;
-    const turn = { ...h.turn, ownerText: h.texts.join("\n\n") };
-    h.texts = [];
-    delete h.turn;
-    h.lastAt = Date.now();
-    const config = admit(threadId);
-    if (config !== undefined) await learn(turn, config).catch(() => undefined);
+    // Runs from a timer with nobody awaiting it: nothing in here may reject (a closed database
+    // at flush time must not become an unhandled rejection that takes the Gateway down).
+    try {
+      const h = held.get(threadId);
+      if (h === undefined || h.turn === undefined) return;
+      if (h.timer !== undefined) clearTimeout(h.timer);
+      delete h.timer;
+      const turn = { ...h.turn, ownerText: h.texts.join("\n\n") };
+      h.texts = [];
+      delete h.turn;
+      h.lastAt = Date.now();
+      const config = admit(threadId);
+      if (config !== undefined) await learn(turn, config);
+    } catch {
+      // Learning is best-effort; the next turn tries again.
+    }
   };
 
   const onOwnerTurn = async (turn: OwnerTurn) => {
@@ -523,7 +529,10 @@ export function createUserProfile(deps: UserProfileDeps) {
     }
     // Inside the window: hold this turn (the newest run id wins) and send the held turns together
     // when it ends. Nothing is sent per message.
-    h.texts.push(turn.ownerText.slice(0, MAX_TEXT_CHARS));
+    // Redact before trimming to the cap: a vault value cut in half by the cap would no longer
+    // match the redactor, and its first half would reach the model. (`learn` redacts the joined
+    // text again; the placeholder is stable.)
+    h.texts.push(deps.redactor.redact(turn.ownerText).trim().slice(0, MAX_TEXT_CHARS));
     h.turn = { ...turn, attached: turn.attached === true || h.turn?.attached === true };
     if (h.timer === undefined) {
       h.timer = setTimeout(() => void flushHeld(turn.threadId), Math.max(wait, 0));

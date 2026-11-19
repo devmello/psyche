@@ -11,7 +11,7 @@ import {
   type Usage,
 } from "@psyche/protocol";
 import { AiSdkAdapter, type CallOutcome, type EmbedTaskOptions } from "./adapter.ts";
-import { isLocalKind } from "./config.ts";
+import { isLocalKind, type ProviderKind } from "./config.ts";
 import {
   type CooldownPolicy,
   type CooldownState,
@@ -128,6 +128,8 @@ interface Plan {
   strict: boolean;
   role: ModelRole | undefined;
   request: ModelRequest;
+  /** The derived cheap utility model leading the chain, if this call runs on it. */
+  cheap?: ModelRef;
 }
 
 export interface ProviderHealth {
@@ -175,6 +177,8 @@ export class ModelRouter implements ModelProvider {
   readonly #probes: ProbeStore;
   readonly #o: ModelRouterOptions;
   readonly #probing = new Map<ModelRef, Promise<ProbeResult>>();
+  /** Derived cheap utility models that failed as missing or forbidden; kept for the process. */
+  readonly #cheapBad = new Set<ModelRef>();
 
   constructor(options: ModelRouterOptions) {
     this.#o = options;
@@ -284,8 +288,10 @@ export class ModelRouter implements ModelProvider {
 
   /**
    * The cheap default for an unset utility role: the primary model's provider, with the model
-   * `CHEAP_UTILITY_BY_KIND` names for its kind. No fallbacks: a failing cheap model must not
-   * quietly move the work onto the primary model's price.
+   * `CHEAP_UTILITY_BY_KIND` names for its kind. Only for the provider's stock endpoint (a custom
+   * `baseURL` is a proxy or gateway that may not serve that model) and only until the cheap
+   * model has failed as missing or forbidden (`#cheapBad`): then the role is the primary again.
+   * Any other failure must not quietly move the work onto the primary model's price.
    */
   #cheapUtility(): RoleBinding | undefined {
     const primary = this.#roles.get("primary");
@@ -296,20 +302,37 @@ export class ModelRouter implements ModelProvider {
     } catch {
       return undefined;
     }
-    const provider = this.#providers.get(id);
-    if (provider === undefined) return undefined;
-    const kind = (provider as { config?: { kind?: string } }).config?.kind ?? id;
-    const model = CHEAP_UTILITY_BY_KIND[kind];
-    return model === undefined ? undefined : { model: `${id}/${model}` };
+    const config = (this.#providers.get(id) as { config?: { kind?: string; baseURL?: string } })
+      ?.config;
+    // Match on the adapter's kind, never on a provider id the owner chose.
+    if (config?.kind === undefined || config.baseURL !== undefined) return undefined;
+    const model = CHEAP_UTILITY_BY_KIND[config.kind];
+    if (model === undefined) return undefined;
+    const ref = `${id}/${model}`;
+    return this.#cheapBad.has(ref) ? undefined : { model: ref };
   }
 
   /**
-   * The concrete model of the `utility` role when it is not the primary's: the owner's pick, else
-   * the provider's cheap default. `undefined` means the role would fall back to the primary
-   * chain, so background jobs that must never bill it (search cards) skip.
+   * The concrete model of the `utility` role when it is not a paid fallback to the primary: the
+   * owner's pick, else the provider's cheap default, else the primary itself when it is local
+   * (free). `undefined` means the role would bill the primary, so background jobs that must
+   * never do that (search cards) skip.
    */
   utilityRef(): ModelRef | undefined {
-    return (this.#roles.get("utility") ?? this.#cheapUtility())?.model;
+    const own = this.#roles.get("utility") ?? this.#cheapUtility();
+    if (own !== undefined) return own.model;
+    const primary = this.#roles.get("primary");
+    if (primary === undefined) return undefined;
+    try {
+      const kind = (
+        this.#providers.get(parseModelRef(primary.model).provider) as {
+          config?: { kind?: ProviderKind };
+        }
+      )?.config?.kind;
+      return kind !== undefined && isLocalKind(kind) ? primary.model : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   #bindingFor(role: ModelRole): RoleBinding | undefined {
@@ -354,11 +377,24 @@ export class ModelRouter implements ModelProvider {
         throw new ModelCallError("model_not_found", `no model is bound to role ${role}`);
       // `strict` on a role ref pins the role's model: no fallbacks.
       const strict = options.strict === true;
+      // The derived cheap utility model leads the primary chain, but the chain is entered only
+      // when the cheap model is missing or forbidden (see `stream`): the cheap default must not
+      // turn compaction into a permanent failure where the primary works.
+      const primary = this.#roles.get("primary");
+      const cheap =
+        role === "utility" && this.#roles.get("utility") === undefined
+          ? this.#cheapUtility()?.model
+          : undefined;
+      const rest =
+        cheap !== undefined && primary !== undefined
+          ? [primary.model, ...(primary.fallbacks ?? [])]
+          : (binding.fallbacks ?? []);
       return {
-        chain: strict ? [binding.model] : [binding.model, ...(binding.fallbacks ?? [])],
+        chain: strict ? [binding.model] : [binding.model, ...rest],
         strict,
         role,
         request: req,
+        ...(cheap === undefined ? {} : { cheap }),
       };
     }
     return { chain: [req.model], strict: options.strict === true, role, request: req };
@@ -515,6 +551,22 @@ export class ModelRouter implements ModelProvider {
         last = err;
         tried.push(`${ref}${profileId === undefined ? "" : `#${profileId}`}: ${err.kind}`);
         const routing = ROUTING[err.kind];
+        // The derived cheap utility model is missing or forbidden here (a proxy, a key or plan
+        // without it): remember that for the process and move on to the primary chain, without
+        // cooling the provider (the primary shares it). Any other failure of the cheap model
+        // ends the call: it must not quietly bill the primary.
+        const cheapUnusable =
+          ref === plan.cheap && (err.kind === "model_not_found" || err.kind === "auth");
+        if (cheapUnusable) this.#cheapBad.add(ref);
+        if (ref === plan.cheap && !cheapUnusable) {
+          if (routing.cooldown) {
+            const key = routing.rotateProfile ? profileKey(pid, profileId) : providerKey(pid);
+            this.#cooldowns.fail(key, err.kind, err.retryAfterSec);
+          }
+          yield { type: "finish", reason: "error", error: err.toFinishError() };
+          return;
+        }
+        if (cheapUnusable && !content) break;
         if (routing.cooldown) {
           const key = routing.rotateProfile ? profileKey(pid, profileId) : providerKey(pid);
           this.#cooldowns.fail(key, err.kind, err.retryAfterSec);
