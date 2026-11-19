@@ -25,9 +25,10 @@ The main window: the left rail, the thread list with the main chat and two side 
 
 - **Main chat.** One persistent thread. It cannot be archived.
 - **Side chats.** Press ⌘N, or click "New side chat" in the thread list.
+- **Incognito chats.** Press ⇧⌘N, click "New incognito chat" in the thread list, or type `/incognito`. An incognito chat shows a badge and a line saying what is different. Nothing from it is written to memory or search, it is left out of your activity, and other chats cannot read it. Its messages are kept on your Mac until it expires 24 hours after it starts, and the model provider still receives them as in any chat.
 - **Thread menu (More).** Rename, Pin or Unpin, Archive or Restore. Archived chats sit in an "Archived (n)" group.
 - **Message menu (⋯).** **Reply** quotes a message, and the agent sees the quote. **Continue in a side chat** forks the conversation from that message into a new side chat. **Edit and resend** on your own message sends the edit in a side chat forked from there; the original chat keeps the original.
-- **Keyboard.** ⌘K opens the palette, ⌘B shows or hides the thread list, ⌃Tab cycles threads, ⌘/ lists every shortcut.
+- **Keyboard.** ⌘K opens the palette, ⌘N starts a side chat, ⇧⌘N starts an incognito chat, ⌘B shows or hides the thread list, ⌃Tab cycles threads, ⌘/ lists every shortcut.
 
 ### The composer
 

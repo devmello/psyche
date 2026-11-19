@@ -41,4 +41,11 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {{provider} 密钥已{action, select, changed {更改} other {移除}}} other {{provider} API 密钥已{action, select, changed {更改} other {移除}}}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {更改} other {移除}}来自：{device, select, none {某台设备} other {"{device}" ({platform}{paired, select, none {} other {，配对于 {paired}}})}}。如果不是你做的，请在“设置 → 设备”中撤销该设备。',
+  "notice.specialist.result.title":
+    "{outcome, select, done {{who}完成了{title}} partial {{who}在{title}上提前停止了} cancelled {{who}在{title}上被停止了} other {{who}未能完成{title}}}",
+  "notice.specialist.result.body":
+    "{outcome, select, done {已完成} partial {部分完成} cancelled {已取消} other {失败}}{findings, plural, =0 {} other { · # 项发现}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {不到 1 分钟} other {# 分钟}}",
+  "notice.mcp.changed.title": "MCP 服务器 {server} 的工具已变更",
+  "notice.mcp.suspicious.title": "MCP 服务器 {server} 的工具描述可疑",
+  "notice.mcp.review.body": "使用此服务器前请先检查：{details}",
 };

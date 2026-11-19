@@ -44,4 +44,11 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {{provider} のキーが{action, select, changed {変更} other {削除}}されました} other {{provider} の API キーが{action, select, changed {変更} other {削除}}されました}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {変更} other {削除}}元: {device, select, none {デバイス} other {"{device}" ({platform}{paired, select, none {} other {、ペアリング日 {paired}}})}}。心当たりがない場合は、設定 → デバイスでこのデバイスを取り消してください。',
+  "notice.specialist.result.title":
+    "{outcome, select, done {{who}が{title}を終えました} partial {{who}は{title}を途中で止めました} cancelled {{who}は{title}で停止されました} other {{who}は{title}を完了できませんでした}}",
+  "notice.specialist.result.body":
+    "{outcome, select, done {完了} partial {一部} cancelled {キャンセル} other {失敗}}{findings, plural, =0 {} other { · # 件の所見}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {1分未満} other {# 分}}",
+  "notice.mcp.changed.title": "MCP サーバー {server} のツールが変わりました",
+  "notice.mcp.suspicious.title": "MCP サーバー {server} のツールの説明が不審です",
+  "notice.mcp.review.body": "このサーバーを使う前に確認してください: {details}",
 };
