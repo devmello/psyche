@@ -40,6 +40,7 @@ Out of scope: <neighbouring areas other sessions own>
 ```
 
 - The `/goal` line must come first, so the session sets a goal. The goal evaluator only reads the conversation, so the condition has to be something the builder's messages can show, plus a turn cap.
+- Pass explicit file lists; an empty one runs a whole suite.
 - Before you dispatch a list of follow-ups, check each against main. Two of them were non-issues (see `psyche-permissions` learnings).
 - Put file paths and identifiers in backticks. Give every finding you already have, so the builder doesn't rediscover it.
 - `background` restates the product context and the owner's relevant decisions, for someone who has never seen this conversation.
@@ -62,6 +63,8 @@ Out of scope: <neighbouring areas other sessions own>
 
 - **Two PRs on the same UI or module:** before the second merges, merge `origin/main` into it and re-run the first PR's tests (#1325 and #1328 broke main until #1331).
 - **New action path:** for a PR that adds a tool or route that acts, put "check against every existing prohibition" into the review brief (#1315 skipped #1321's block).
+- **Briefs:** for a decoder or redaction change, ask for the three-way fuzz (before, main, head) with counts (#1342, #1345). For a bulk-approval set, say "allowlist". For a UI test of approvals or grants, say "real Gateway shapes" (#1346). For anything that persists, say "test the real store" (#1333).
+- **Message files:** a PR that adds English strings naming Mac or Touch ID is not "i18n only": the platform variants and `platform-linux/windows` tests must pass (#1338 broke main).
 - **Reviewers and verifiers:** tell them to run verify in the foreground, report once, and not to wait with `pgrep -f` (load 26 from duplicate verifies; repeated reports).
 
 - Merge only after step 2 passes, plus step 3 for security PRs. Standing owner authorization (2026-11-05) covers this while Actions is locked: `gh pr merge <n> --merge --admin --match-head-commit <reviewed sha>`.

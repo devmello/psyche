@@ -16,6 +16,10 @@ Every user-visible string ships in all 10 languages in the same PR. `pnpm i18n:c
 - Run `pnpm i18n:check` and make sure it passes. It reports missing keys and placeholder mismatches per language.
 - Errors that reach the owner should say what happened and what to do, not "isn't available".
 
+## Platform variants (Mac, Touch ID)
+
+An English string that names "Mac", "Touch ID" or "Finder" needs a Linux and a Windows variant in `packages/ui/src/i18n/messages/variants/*.ts`, in all 10 languages. Then run `packages/ui/test/platform-linux.test.tsx` and `platform-windows.test.tsx` by hand: `--related` does not pick them up for message files (`verify.sh` runs them when messages change). #1338 broke main this way.
+
 ## iOS
 
 - Strings live in `apps/ios/**/Localizable.xcstrings`, and `CFBundleLocalizations` lists the languages. Add every new key with all 10 translations.

@@ -2,6 +2,15 @@
 
 Newest first. The `reflect` skill reads the top entry to know where the last pass stopped.
 
+## 2026-11-18 (b): reflect pass over #1332–#1347
+Nine merged PRs: #1332, #1340–#1347 (#1333 still in review). Evidence: reviewer reports `review-1332-r2`, `-1333-r2`, `-1340` r1–r3, `-1342`, `-1343` r1–r3, `-1345` r1–r2, `-1346` r1–r2 and the orchestrator's notes in `followup-1323.md`.
+- **`verify.sh`:** runs `platform-linux`/`platform-windows` when `packages/ui/src/i18n/messages/**` changes (not in `--quick`). #1338 broke main because `--related` skips them.
+- **`psyche-i18n`:** platform-variant section (#1338).
+- **`psyche-builder` §2:** real-shape fixtures and real-store tests (#1346, #1333); allowlists over deny-lists and no round-tripping redacted values (#1333, #1343); three-way fuzz for decoders (#1342, #1345); guard empty file lists.
+- **`psyche-permissions` §3:** check the host being read, quiet allows never feed `touched`, grant labels from full scope (#1340 x3 rounds, #1346, #1343).
+- **`orchestrate`:** brief wording for those cases, message-file PRs are not "i18n only", explicit file lists.
+- **Not changed:** nothing pruned, no stale advice found.
+
 ## 2026-11-18: reflect pass over #1315–#1335
 Sixteen merged PRs: #1315, #1317, #1319–#1326, #1328–#1331, #1334, #1335. Evidence is the orchestrator's review reports (`review-1317`, `-1321` r1–r7, `-1323`, `-1327`, `-1329` r1–r3) and the merge log.
 - **`psyche-permissions` §3:** no whole-label or whole-route exemptions (#1321, 7 rounds).
