@@ -61,13 +61,18 @@ function KeyRow({
     const key = draft.trim();
     setBusy(true);
     setError(null);
-    // The draft never outlives the call: it is cleared whether or not the Gateway accepts it.
-    setDraft("");
     try {
       await call("keys.set", { id: status.id, key });
+      // The draft is dropped once the Gateway has it; a failed save keeps it to try again.
+      setDraft("");
       onChanged();
     } catch (err) {
-      setError(t("settings.apiKeys.failed", { reason: messageOf(err) }));
+      const reason = messageOf(err);
+      setError(
+        /vault is locked/i.test(reason)
+          ? t("settings.apiKeys.locked")
+          : t("settings.apiKeys.failed", { reason }),
+      );
     } finally {
       setBusy(false);
     }
@@ -95,7 +100,11 @@ function KeyRow({
         <input
           id={`${id}-key`}
           type="password"
-          autoComplete="off"
+          // Not a login: password managers must not offer to fill or save it.
+          autoComplete="new-password"
+          data-1p-ignore
+          data-lpignore="true"
+          data-bwignore
           spellCheck={false}
           aria-describedby={`${id}-status`}
           className="h-8 min-w-72 rounded-md border border-input bg-transparent px-2 text-sm"

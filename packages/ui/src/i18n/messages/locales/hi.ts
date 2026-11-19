@@ -1701,6 +1701,9 @@ export const hi: Partial<Catalogue> = {
   "settings.apiKeys.whitespace": "कुंजी में स्पेस या नई पंक्तियाँ नहीं होतीं।",
   "settings.apiKeys.failed": "कुंजी सहेजी नहीं जा सकी: {reason}",
   "settings.apiKeys.clearFailed": "कुंजी हटाई नहीं जा सकी: {reason}",
+  "settings.apiKeys.locked":
+    "वॉल्ट लॉक है। पहले उसे अनलॉक करें (माँगे जाने पर Touch ID या अपना पासवर्ड), फिर दोबारा सहेजें।",
+  "settings.credentials.managed.web_search": "वेब खोज की कुंजी",
   "settings.webSearch.braveFromVault": "वॉल्ट में सहेजी गई",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",

@@ -96,4 +96,30 @@ describe("API keys section", () => {
     expect(within(row).getByRole("alert").textContent).toBe("A key has no spaces or line breaks.");
     expect(callsOf(gateway(), "keys.set")).toEqual([]);
   });
+
+  it("keeps the pasted draft and says how to unlock when the vault is locked", async () => {
+    const gateway = setup();
+    const field = (await screen.findByLabelText("OpenAI API key")) as HTMLInputElement;
+    const row = screen.getByTestId("api-key-openai");
+    gateway().failNext("keys.set", "unavailable", "the vault is locked");
+    await userEvent.type(field, "sk-locked-try");
+    await userEvent.click(within(row).getByRole("button", { name: "Save" }));
+    expect((await within(row).findByRole("alert")).textContent).toMatch(/vault is locked/);
+    expect((screen.getByLabelText("OpenAI API key") as HTMLInputElement).value).toBe(
+      "sk-locked-try",
+    );
+    // After unlocking, the same draft saves and is then dropped.
+    await userEvent.click(within(row).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(within(row).getByText("Saved in the vault")).toBeTruthy());
+    expect((screen.getByLabelText("OpenAI API key") as HTMLInputElement).value).toBe("");
+  });
+
+  it("tells password managers to leave the key fields alone", async () => {
+    setup();
+    const field = await screen.findByLabelText("Anthropic API key");
+    expect(field.getAttribute("autocomplete")).toBe("new-password");
+    expect(field.hasAttribute("data-1p-ignore")).toBe(true);
+    expect(field.getAttribute("data-lpignore")).toBe("true");
+    expect(field.hasAttribute("data-bwignore")).toBe(true);
+  });
 });

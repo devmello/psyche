@@ -1693,6 +1693,9 @@ export const it: Partial<Catalogue> = {
   "settings.apiKeys.whitespace": "Una chiave non contiene spazi né a capo.",
   "settings.apiKeys.failed": "Impossibile salvare la chiave: {reason}",
   "settings.apiKeys.clearFailed": "Impossibile cancellare la chiave: {reason}",
+  "settings.apiKeys.locked":
+    "Il caveau è bloccato. Sbloccalo prima (con Touch ID o la tua password, quando richiesto), poi salva di nuovo.",
+  "settings.credentials.managed.web_search": "Una chiave di ricerca web",
   "settings.webSearch.braveFromVault": "Salvata nel caveau",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",

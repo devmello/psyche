@@ -41,6 +41,15 @@ export const API_KEY_ENV: Record<ApiKeyId, string> = {
   brave: "PSYCHE_SEARCH_BRAVE_KEY",
 };
 
+/** How a key is named in a notice to the owner. */
+export const API_KEY_LABEL: Record<ApiKeyId, string> = {
+  anthropic: "Anthropic",
+  openai: "OpenAI",
+  google: "Google Gemini",
+  openrouter: "OpenRouter",
+  brave: "Brave Search",
+};
+
 /** The vault owner id (and slug) of the Brave key; `model-` keeps it Gateway-owned. */
 export const BRAVE_OWNER = "model-brave-search";
 
@@ -95,11 +104,12 @@ export function normalizeBraveKey(raw: string): string {
   return key;
 }
 
-/** The Brave key as a one-shot secret: the vault item, unlocking a locked vault on first use. */
-export async function braveVaultSecret(
-  vault: () => Vault | undefined,
-  why = "Use your web search key",
-): Promise<ResolvedSecret> {
+/**
+ * The Brave key as a one-shot secret from the vault. An agent's web search must never raise the
+ * vault's Touch ID / password prompt (that is for payments only), so a locked vault is an error
+ * here and never an unlock. An environment key, when set, is used before this is reached.
+ */
+export async function braveVaultSecret(vault: () => Vault | undefined): Promise<ResolvedSecret> {
   const v = vault();
   const item = v?.connectorItem(BRAVE_OWNER);
   if (v === undefined || item === undefined) {
@@ -108,13 +118,11 @@ export async function braveVaultSecret(
     });
   }
   if (v.locked) {
-    try {
-      await v.unlock(why);
-    } catch {
-      throw new PsycheError("unavailable", "the vault is locked", {
-        details: { reason: "vault_locked" },
-      });
-    }
+    throw new PsycheError(
+      "unavailable",
+      "the web search key is in the locked vault; unlock Psyche to search",
+      { details: { reason: "vault_locked" } },
+    );
   }
   return v.accessToken(item.id, BRAVE_OWNER);
 }
@@ -155,7 +163,21 @@ export interface ApiKeyHandlerDeps {
   audit: Pick<HashChainAuditLog, "append">;
   /** Runs after a key was stored or cleared (web search re-reads its provider). */
   onChanged?: (id: ApiKeyId) => void;
+  /**
+   * False when the model keys come from the environment (`PSYCHE_MODEL`): `keys.set` and
+   * `keys.clear` for a model provider then refuse, like `models.setKey`. Brave is unaffected.
+   */
+  modelKeysInVault?: boolean;
+  /** Tells the owner a key was replaced or removed, without the key (the notify path). */
+  onKeyReplaced?: (change: {
+    id: ApiKeyId;
+    action: "changed" | "removed";
+    deviceId: string;
+  }) => void;
 }
+
+const ENV_MODE_ERROR =
+  "this Gateway reads provider keys from its environment (PSYCHE_MODEL is set)";
 
 /** `keys.*`. Params are never logged; the audit entry holds the provider id and action only. */
 export function apiKeyHandlers(deps: ApiKeyHandlerDeps): Record<string, HandlerDef> {
@@ -179,7 +201,11 @@ export function apiKeyHandlers(deps: ApiKeyHandlerDeps): Record<string, HandlerD
     },
     "keys.set": {
       async run(call: Call, params: MethodParams<"keys.set">): Promise<MethodResult<"keys.set">> {
+        if (params.id !== "brave" && deps.modelKeysInVault === false) {
+          throw new PsycheError("unavailable", ENV_MODE_ERROR);
+        }
         const v = open();
+        const replaced = hasVaultKey(v, params.id);
         try {
           if (params.id === "brave") await storeBraveKey(v, params.key);
           else await storeModelKey(v, params.id as HostedModelKind, params.key);
@@ -190,6 +216,13 @@ export function apiKeyHandlers(deps: ApiKeyHandlerDeps): Record<string, HandlerD
         }
         await audited(call, "set", params.id);
         deps.onChanged?.(params.id);
+        if (replaced) {
+          deps.onKeyReplaced?.({
+            id: params.id,
+            action: "changed",
+            deviceId: call.identity.deviceId,
+          });
+        }
         return { status: apiKeyStatus(v, deps.env, params.id) };
       },
     },
@@ -198,6 +231,9 @@ export function apiKeyHandlers(deps: ApiKeyHandlerDeps): Record<string, HandlerD
         call: Call,
         params: MethodParams<"keys.clear">,
       ): Promise<MethodResult<"keys.clear">> {
+        if (params.id !== "brave" && deps.modelKeysInVault === false) {
+          throw new PsycheError("unavailable", ENV_MODE_ERROR);
+        }
         const v = open();
         const removed =
           params.id === "brave"
@@ -207,6 +243,11 @@ export function apiKeyHandlers(deps: ApiKeyHandlerDeps): Record<string, HandlerD
         if (removed) {
           await audited(call, "clear", params.id);
           deps.onChanged?.(params.id);
+          deps.onKeyReplaced?.({
+            id: params.id,
+            action: "removed",
+            deviceId: call.identity.deviceId,
+          });
         }
         return { status: apiKeyStatus(v, deps.env, params.id) };
       },

@@ -1402,6 +1402,9 @@ export const settings = {
   "settings.apiKeys.whitespace": "A key has no spaces or line breaks.",
   "settings.apiKeys.failed": "The key could not be saved: {reason}",
   "settings.apiKeys.clearFailed": "The key could not be cleared: {reason}",
+  "settings.apiKeys.locked":
+    "The vault is locked. Unlock it first (Touch ID or your password, when asked), then save again.",
+  "settings.credentials.managed.web_search": "A web search key",
   "settings.webSearch.braveFromVault": "Saved in the vault",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",

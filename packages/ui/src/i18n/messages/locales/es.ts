@@ -1713,6 +1713,9 @@ export const es: Partial<Catalogue> = {
   "settings.apiKeys.whitespace": "Una clave no tiene espacios ni saltos de línea.",
   "settings.apiKeys.failed": "No se pudo guardar la clave: {reason}",
   "settings.apiKeys.clearFailed": "No se pudo borrar la clave: {reason}",
+  "settings.apiKeys.locked":
+    "La bóveda está bloqueada. Desbloquéala primero (con Touch ID o tu contraseña, cuando se pida) y vuelve a guardar.",
+  "settings.credentials.managed.web_search": "Una clave de búsqueda web",
   "settings.webSearch.braveFromVault": "Guardada en la bóveda",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",

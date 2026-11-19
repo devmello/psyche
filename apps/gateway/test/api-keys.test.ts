@@ -3,8 +3,8 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SecretRedactor } from "@psyche/vault";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { FakeModelProvider } from "@psyche/testing";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiKeyStatus, BRAVE_OWNER } from "../src/compose/api-keys.ts";
 import { type ComposedGateway, composeGateway, vaultModelSetup } from "../src/compose/index.ts";
 import { modelKeyOwner, vaultModelKeys } from "../src/compose/model-keys.ts";
@@ -223,16 +223,107 @@ describe("keys.*", () => {
     expect(gw.web.status().brave).toBeNull();
   });
 
-  it("masks both vault and env keys with the redactor", () => {
-    const r = new SecretRedactor();
-    r.add(BRAVE, { sticky: true });
-    expect(r.redact(`header ${BRAVE} end`)).not.toContain(BRAVE);
+  it("masks all five environment keys in the Gateway's own redactor, and nothing else", async () => {
+    const env = {
+      ANTHROPIC_API_KEY: "sk-ant-ENVLEAK-anthropic",
+      OPENAI_API_KEY: "sk-ENVLEAK-openai",
+      GOOGLE_GENERATIVE_AI_API_KEY: "AIza-ENVLEAK-google",
+      OPENROUTER_API_KEY: "sk-or-ENVLEAK-openrouter",
+      PSYCHE_SEARCH_BRAVE_KEY: "BSA-ENVLEAK-brave",
+    };
+    const gw = await compose(env);
+    for (const value of Object.values(env)) {
+      const masked = gw.redactor.redact(`header ${value} end`);
+      expect(masked, value).not.toContain(value);
+      expect(masked).toContain("header");
+    }
+    expect(gw.redactor.redact("x sk-never-added y")).toBe("x sk-never-added y");
   });
 
-  it("masks an environment key in the Gateway's logs", async () => {
-    const gw = await compose({ PSYCHE_SEARCH_BRAVE_KEY: "BSAenvLEAKvalue123" });
-    expect(gw.redactor.redact("x BSAenvLEAKvalue123 y")).not.toContain("BSAenvLEAKvalue123");
-    const gw2Redacted = gw.redactor.redact("x sk-never-added y");
-    expect(gw2Redacted).toContain("sk-never-added");
+  it("never unlocks the vault for an agent's web search: locked vault, no prompt", async () => {
+    const gw = await compose();
+    await gw.vault.setup();
+    const c = await client(gw);
+    await c.call("keys.set", { id: "brave", key: BRAVE }, ik());
+    gw.vault.lock();
+    let unlocks = 0;
+    const real = gw.vault.unlock.bind(gw.vault);
+    gw.vault.unlock = async (reason: string) => {
+      unlocks += 1;
+      return real(reason);
+    };
+    await expect(gw.web.search("node lts", 3, new AbortController().signal)).rejects.toThrow(
+      /locked vault; unlock Psyche to search/,
+    );
+    expect(unlocks).toBe(0);
+    expect(gw.vault.locked).toBe(true);
+  });
+
+  it("uses the environment Brave key while the vault is locked, with no unlock", async () => {
+    const tokens: (string | null)[] = [];
+    const web: WebToolsSetup = {
+      fetch: async (_input, init) => {
+        tokens.push(new Headers(init?.headers).get("x-subscription-token"));
+        return new Response(JSON.stringify({ web: { results: [] } }), {
+          headers: { "content-type": "application/json" },
+        });
+      },
+    };
+    const gw = await compose({ PSYCHE_SEARCH_BRAVE_KEY: "BSA-env-wins" }, web);
+    await gw.vault.setup();
+    gw.vault.lock();
+    await gw.web.search("x", 3, new AbortController().signal);
+    expect(tokens).toEqual(["BSA-env-wins"]);
+    expect(gw.vault.locked).toBe(true);
+  });
+
+  it("refuses model keys in env mode (PSYCHE_MODEL) like models.setKey; Brave still works", async () => {
+    const keyFile = join(home, "vault.key");
+    writeFileSync(keyFile, randomBytes(32), { mode: 0o600 });
+    composed = await composeGateway({
+      env: { PSYCHE_VAULT_KEY_FILE: keyFile },
+      logger: silentLogger,
+      retentionIntervalMs: 0,
+      background: false,
+      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      model: { provider: new FakeModelProvider([]), model: "fake/model" },
+      vault: { keyFile, argon2: { memory: 64, passes: 1, parallelism: 1 } },
+    });
+    await composed.vault.setup();
+    const c = await client(composed);
+    for (const method of ["keys.set", "keys.clear"] as const) {
+      const res = await c.request(
+        method,
+        method === "keys.set" ? { id: "openai", key: "sk-x" } : { id: "openai" },
+        ik(),
+      );
+      expect(res.ok).toBe(false);
+      expect(JSON.stringify(res)).toMatch(/PSYCHE_MODEL is set/);
+    }
+    await c.call("keys.set", { id: "brave", key: BRAVE }, ik());
+    expect((await statusOf(c, "brave")).source).toBe("vault");
+  });
+
+  it("tells the owner when a key is replaced or removed, never with the key", async () => {
+    const gw = await compose();
+    await gw.vault.setup();
+    const c = await client(gw);
+    const seen: { title: string; body: string }[] = [];
+    gw.notifier.subscribe((e) => {
+      if (e.type === "created") {
+        seen.push({ title: e.notification.title, body: e.notification.body ?? "" });
+      }
+    });
+    await c.call("keys.set", { id: "openai", key: "sk-first-OPENAISECRET" }, ik());
+    await Promise.resolve();
+    expect(seen).toEqual([]);
+    await c.call("keys.set", { id: "openai", key: "sk-second-OPENAISECRET" }, ik());
+    await c.call("keys.clear", { id: "openai" }, ik());
+    await c.call("keys.clear", { id: "openai" }, ik());
+    await vi.waitFor(() => expect(seen).toHaveLength(2));
+    expect(seen[0]?.title).toBe("The OpenAI API key was changed");
+    expect(seen[1]?.title).toBe("The OpenAI API key was removed");
+    expect(seen[0]?.body).toMatch(/^Changed from /);
+    expect(JSON.stringify(seen)).not.toContain("OPENAISECRET");
   });
 });

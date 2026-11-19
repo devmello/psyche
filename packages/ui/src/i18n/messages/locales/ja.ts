@@ -1678,6 +1678,9 @@ export const ja: Partial<Catalogue> = {
   "settings.apiKeys.whitespace": "キーにスペースや改行は含まれません。",
   "settings.apiKeys.failed": "キーを保存できませんでした: {reason}",
   "settings.apiKeys.clearFailed": "キーを消去できませんでした: {reason}",
+  "settings.apiKeys.locked":
+    "保管庫がロックされています。先にロックを解除（求められたら Touch ID またはパスワード）してから、もう一度保存してください。",
+  "settings.credentials.managed.web_search": "ウェブ検索のキー",
   "settings.webSearch.braveFromVault": "保管庫に保存済み",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",
