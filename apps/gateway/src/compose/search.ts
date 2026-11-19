@@ -46,6 +46,7 @@ import {
   tzOffsetMinutesAt,
 } from "@psyche/search";
 import type { HandlerDef } from "../context.ts";
+import { failureRuns } from "../failure-runs.ts";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
 import { DeferredOpen } from "./deferred-open.ts";
@@ -510,8 +511,17 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
         runOnBattery,
         ...(deps.backfillPauseMs === undefined ? {} : { pauseMs: deps.backfillPauseMs }),
         onChange: () => publishSources(),
-        onError: (source, err) =>
-          deps.logger?.log("warn", "search: a source failed", { source, err: String(err) }),
+        // Repeats of one failure are logged once, then counted hourly (`failureRuns`).
+        onError: (source, err) => {
+          const v = sourceFailures.fail(source, String(err));
+          if (v.log)
+            deps.logger?.log("warn", "search: a source failed", {
+              source,
+              err: String(err),
+              repeats: v.repeats,
+            });
+        },
+        onRecover: (source) => sourceFailures.ok(source),
       },
     );
   }
@@ -620,6 +630,8 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
   // Events are indexed one at a time in publish order (a thread before its messages).
   let queue: Promise<void> = Promise.resolve();
   let unsubscribe: (() => void) | undefined;
+  let unsubscribeHelper: (() => void) | undefined;
+  const sourceFailures = failureRuns({ now: () => deps.now() });
   const handlers: Record<string, HandlerDef> = {
     "search.query": {
       run: (_call, params: never) => api["search.query"](params, { viewer: OWNER }),
@@ -709,6 +721,12 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
     ...(sourceIndexer === undefined ? {} : { sources: sourceIndexer }),
     start(gw: Gateway) {
       gateway = gw;
+      // The Host's helper connected again: its Apple reads resume, and the sources pass runs now.
+      unsubscribeHelper = gw.context.nodes.onHostHelperChange(() => {
+        if (gw.context.nodes.hostHelper() === undefined) return;
+        deps.sources?.apple?.resumeHelper?.();
+        void sourceTick().catch(() => undefined);
+      });
       unsubscribe = gw.bus.subscribe(ALL_SCOPES, (frame) => {
         const f = JSON.parse(frame) as { event?: string; payload?: unknown };
         const event = f.event;
@@ -756,6 +774,8 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
     },
     async stop() {
       unsubscribe?.();
+      unsubscribeHelper?.();
+      unsubscribeHelper = undefined;
       if (memoryKick !== undefined) clearTimeout(memoryKick);
       stopPageReads?.();
       unsubscribe = undefined;
