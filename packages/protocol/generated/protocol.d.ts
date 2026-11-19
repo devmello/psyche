@@ -5114,6 +5114,17 @@ export interface FilesReadResult {
     size: number;
 }
 
+export interface FilesStarterFoldersResult {
+    folders: Folder[];
+}
+
+export interface Folder {
+    id:   StarterFolderID;
+    path: string;
+}
+
+export type StarterFolderID = "documents" | "desktop" | "downloads";
+
 export interface Frame {
     id?:             string;
     idempotencyKey?: string;

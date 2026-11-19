@@ -1194,6 +1194,9 @@ export class MockGateway implements GatewayClient {
   /** Keys saved through `keys.set` (the mock keeps only that one is set, never the value). */
   private savedKeys = new Set<string>();
 
+  /** What `files.starterFolders` offers; empty unless a test or story sets it. */
+  starterFolders: { id: "documents" | "desktop" | "downloads"; path: string }[] = [];
+
   private keyStatuses() {
     return ["anthropic", "openai", "google", "openrouter", "brave"].map((id) => ({
       id: id as "anthropic" | "openai" | "google" | "openrouter" | "brave",
@@ -2044,6 +2047,7 @@ export class MockGateway implements GatewayClient {
         restoredFrom: p.version,
       });
     },
+    "files.starterFolders": () => ({ folders: this.starterFolders }),
     "files.list": (p) => {
       this.assertGranted(p.path);
       const node = this.world.files[p.path];

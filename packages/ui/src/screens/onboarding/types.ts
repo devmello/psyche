@@ -1,10 +1,11 @@
+import type { StarterFolderId } from "@psyche/protocol";
 import type { ScopeMode } from "../settings/ConnectorsSection.tsx";
 import type { MacHelperStatus } from "../settings/MacHelperStatus.tsx";
 import type { ProviderKind, TccPermission, TccState, ToolCheck } from "../settings/types.ts";
 
 /** Onboarding (UI design §3.19): the steps, the shell callbacks and the result. */
 
-export type OnboardingStepId = "you" | "stuff" | "model" | "memory" | "safety" | "done";
+export type OnboardingStepId = "you" | "stuff" | "model" | "memory" | "folders" | "safety" | "done";
 
 /** Docs: docs/design/onboarding-2026.md §2. */
 export const ONBOARDING_STEP_IDS: readonly OnboardingStepId[] = [
@@ -12,6 +13,7 @@ export const ONBOARDING_STEP_IDS: readonly OnboardingStepId[] = [
   "stuff",
   "model",
   "memory",
+  "folders",
   "safety",
   "done",
 ];
@@ -175,6 +177,11 @@ export interface OnboardingResult {
   habits?: import("./habits.ts").HabitChoices;
   /** Work tracking and people in the brief, when the Memory step was reached. */
   memory?: MemoryChoices;
+  /**
+   * The folders ticked on the opt-in Folders step (absolute paths from `files.starterFolders`).
+   * Absent or empty: nothing is written. The host adds them read only, never read-write.
+   */
+  sharedFolders?: { id: StarterFolderId; path: string }[];
   /** The helper's Touch ID key was registered during setup (informational). */
   touchIdRegistered?: boolean;
 }

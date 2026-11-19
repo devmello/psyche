@@ -56,6 +56,15 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.step.you": "Vous et votre agent",
   "onboarding.step.stuff": "Vos affaires",
   "onboarding.step.safety": "Sécurité",
+  "onboarding.step.folders": "Dossiers",
+  "onboarding.folders.lead":
+    "Laisse {name} lire tes dossiers Documents, Bureau et Téléchargements. Lecture seule : {name} peut consulter les fichiers, jamais les modifier ni les supprimer. Rien n’est partagé sans que tu coches.",
+  "onboarding.folders.group": "Dossiers à partager, en lecture seule",
+  "onboarding.folders.documents": "Documents",
+  "onboarding.folders.desktop": "Bureau",
+  "onboarding.folders.downloads": "Téléchargements",
+  "onboarding.folders.hint":
+    "Tu peux le changer à tout moment dans Réglages, sous Accès aux fichiers.",
   "onboarding.you.lead":
     "Tout sur cette page est facultatif, et vous pourrez le modifier plus tard.",
   "onboarding.you.agent": "Votre agent",

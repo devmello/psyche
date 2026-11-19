@@ -564,6 +564,8 @@
 //   let filesListResult = try? JSONDecoder().decode(FilesListResult.self, from: jsonData)
 //   let filesReadParams = try? JSONDecoder().decode(FilesReadParams.self, from: jsonData)
 //   let filesReadResult = try? JSONDecoder().decode(FilesReadResult.self, from: jsonData)
+//   let filesStarterFoldersParams = try? JSONDecoder().decode(FilesStarterFoldersParams.self, from: jsonData)
+//   let filesStarterFoldersResult = try? JSONDecoder().decode(FilesStarterFoldersResult.self, from: jsonData)
 //   let frame = try? JSONDecoder().decode(Frame.self, from: jsonData)
 //   let gatedCapability = try? JSONDecoder().decode(GatedCapability.self, from: jsonData)
 //   let gatewayInfo = try? JSONDecoder().decode(GatewayInfo.self, from: jsonData)
@@ -1416,6 +1418,7 @@
 //   let speechWhisperServerState = try? JSONDecoder().decode(SpeechWhisperServerState.self, from: jsonData)
 //   let speechWhisperSetup = try? JSONDecoder().decode(SpeechWhisperSetup.self, from: jsonData)
 //   let speechWhisperSetupState = try? JSONDecoder().decode(SpeechWhisperSetupState.self, from: jsonData)
+//   let starterFolderID = try? JSONDecoder().decode(StarterFolderID.self, from: jsonData)
 //   let taintSource = try? JSONDecoder().decode(TaintSource.self, from: jsonData)
 //   let target = try? JSONDecoder().decode(Target.self, from: jsonData)
 //   let targetKind = try? JSONDecoder().decode(TargetKind.self, from: jsonData)
@@ -15552,6 +15555,41 @@ public struct FilesReadResult: Codable, Sendable {
         self.offset = offset
         self.size = size
     }
+}
+
+// MARK: - FilesStarterFoldersResult
+public struct FilesStarterFoldersResult: Codable, Sendable {
+    public let folders: [Folder]
+
+    public enum CodingKeys: String, CodingKey {
+        case folders = "folders"
+    }
+
+    public init(folders: [Folder]) {
+        self.folders = folders
+    }
+}
+
+// MARK: - Folder
+public struct Folder: Codable, Sendable {
+    public let id: StarterFolderID
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case path = "path"
+    }
+
+    public init(id: StarterFolderID, path: String) {
+        self.id = id
+        self.path = path
+    }
+}
+
+public enum StarterFolderID: String, Codable, Sendable {
+    case desktop = "desktop"
+    case documents = "documents"
+    case downloads = "downloads"
 }
 
 // MARK: - Frame
@@ -38232,6 +38270,7 @@ public typealias DevicesRevokeSelfParams = [String: JSONAny]
 public typealias DevicesSetupTokenListParams = [String: JSONAny]
 public typealias DictationTargetParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]
+public typealias FilesStarterFoldersParams = [String: JSONAny]
 public typealias GatewayInfoParams = [String: JSONAny]
 public typealias GrowthUpdatedPayload = [String: JSONAny]
 public typealias KeysStatusParams = [String: JSONAny]

@@ -18,6 +18,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-18 (opt-in onboarding folders)
+
+- New method `files.starterFolders {}` → `{folders: {id: documents|desktop|downloads, path}[]}` (`operator.read`): the folders onboarding may offer to share read only, i.e. those that exist, pass `assertFolderGrantable` and are not already covered by a granted folder. It grants nothing. New type `StarterFolderId`. `settings.set` of `permissions.policy` now expands a leading `~/` in a folder path to the owner's home before the sensitive-root check and storing.
 ### v1 additive — 2026-11-18 (setup without a terminal: keys in Settings)
 
 - New methods `keys.status {}` → `{keys: ApiKeyStatus[]}`, `keys.set {id, key}` and `keys.clear {id}` → `{status}` (all `operator.admin`; set and clear are side-effecting). `id` is `anthropic | openai | google | openrouter | brave`. `ApiKeyStatus` is `{id, configured, source: env|vault|null, inVault}`: no key, no last characters. Keys live in the vault as Gateway-owned items; an environment variable still wins. Audited as `keys.set` / `keys.clear` with the provider id only.

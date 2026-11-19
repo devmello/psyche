@@ -164,6 +164,15 @@ export const galleryA: Partial<Catalogue> = {
   "onboarding.step.you": "Tú y tu agente",
   "onboarding.step.stuff": "Tus cosas",
   "onboarding.step.safety": "Seguridad",
+  "onboarding.step.folders": "Carpetas",
+  "onboarding.folders.lead":
+    "Deja que {name} lea tus carpetas Documentos, Escritorio y Descargas. Solo lectura: {name} puede ver los archivos, nunca cambiarlos ni borrarlos. No se comparte nada si no lo marcas.",
+  "onboarding.folders.group": "Carpetas para compartir, solo lectura",
+  "onboarding.folders.documents": "Documentos",
+  "onboarding.folders.desktop": "Escritorio",
+  "onboarding.folders.downloads": "Descargas",
+  "onboarding.folders.hint":
+    "Puedes cambiarlo en cualquier momento en Ajustes, en Acceso a archivos.",
   "onboarding.you.lead": "Todo en esta página es opcional y puedes cambiarlo más tarde.",
   "onboarding.you.agent": "Tu agente",
   "onboarding.you.customize": "Personalizar el aspecto",
