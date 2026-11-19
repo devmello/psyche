@@ -1,5 +1,5 @@
 import type { Channel, MethodParams } from "@psyche/protocol";
-import { type FormEvent, type ReactElement, useContext, useId, useState } from "react";
+import { type FormEvent, type ReactElement, useContext, useEffect, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import {
   Dialog,
@@ -61,6 +61,8 @@ export interface ChannelDraft {
   type: AddableType;
   account: string;
   secrets: Partial<Record<SecretName, string>>;
+  /** Overwrite tokens already stored for this account; off keeps them as they are. */
+  replaceStored?: boolean;
 }
 
 export interface AddOutcome {
@@ -86,15 +88,26 @@ export async function connectChannel(
   if (channels.some((c) => c.type === type && c.account.toLowerCase() === account.toLowerCase())) {
     throw new Error(t("settings.channels.add.exists", { type: TYPE_NAME[type], account }));
   }
-  // Tokens already stored for this account (the CLI's two-step flow) are the owner's: a failed
-  // or approval-pending attempt must not delete them.
+  // Tokens already stored for this account (the CLI's two-step flow) are the owner's: they are
+  // kept unless the owner chose to replace them, and a failed or approval-pending attempt never
+  // deletes them. If the vault cannot be read, nothing is stored.
   const before = await call("channels.secrets.status", { type, account }).then(
     (r) => new Set<SecretName>(r.set),
-    () => new Set<SecretName>(),
+    (err: unknown) => {
+      throw new Error(t("settings.channels.add.statusFailed", { reason: messageOf(err) }));
+    },
   );
+  // A token the owner typed for a name that is already stored is never dropped silently.
+  if (
+    draft.replaceStored !== true &&
+    ADDABLE_CHANNELS[type].some((n) => before.has(n) && (secrets[n] ?? "").trim() !== "")
+  ) {
+    throw new Error(t("settings.channels.add.storedTyped"));
+  }
   const stored: SecretName[] = [];
   try {
     for (const name of ADDABLE_CHANNELS[type]) {
+      if (before.has(name) && draft.replaceStored !== true) continue;
       await call("channels.secrets.set", {
         type,
         account,
@@ -157,7 +170,40 @@ export function AddChannelDialog({
   const [error, setError] = useState<string | null>(null);
 
   const names = ADDABLE_CHANNELS[type];
-  const complete = account.trim() !== "" && names.every((n) => (secrets[n] ?? "").trim() !== "");
+  // Tokens already stored for this account: kept unless the owner ticks Replace.
+  const [alreadyStored, setAlreadyStored] = useState<SecretName[]>([]);
+  const [replace, setReplace] = useState(false);
+  const acct = account.trim();
+  useEffect(() => {
+    setAlreadyStored([]);
+    setReplace(false);
+    if (acct === "") return;
+    let live = true;
+    const timer = setTimeout(() => {
+      call("channels.secrets.status", { type, account: acct }).then(
+        (r) => {
+          if (live) setAlreadyStored(r.set);
+        },
+        () => undefined,
+      );
+    }, 300);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [call, type, acct]);
+  const keeping = (n: SecretName) => alreadyStored.includes(n) && !replace;
+  // A field that turns off while the owner keeps the stored token loses what was typed in it.
+  useEffect(() => {
+    if (replace || alreadyStored.length === 0) return;
+    setSecrets((cur) => {
+      const next = { ...cur };
+      for (const n of alreadyStored) delete next[n];
+      return Object.keys(next).length === Object.keys(cur).length ? cur : next;
+    });
+  }, [alreadyStored, replace]);
+  const complete =
+    acct !== "" && names.every((n) => keeping(n) || (secrets[n] ?? "").trim() !== "");
 
   const reset = () => {
     setAccount("");
@@ -176,12 +222,16 @@ export function AddChannelDialog({
       setError(t("settings.channels.add.missing"));
       return;
     }
-    const acct = account.trim();
     if (NEEDS_NUMBER.has(type) && !E164.test(acct)) {
       setError(t("settings.channels.add.badNumber"));
       return;
     }
-    const draft: ChannelDraft = { type, account: acct, secrets: { ...secrets } };
+    const draft: ChannelDraft = {
+      type,
+      account: acct,
+      secrets: { ...secrets },
+      replaceStored: replace,
+    };
     setBusy(true);
     setError(null);
     try {
@@ -260,6 +310,26 @@ export function AddChannelDialog({
               onChange={(e) => setAccount(e.target.value)}
             />
           </div>
+          {alreadyStored.length > 0 ? (
+            <div className="flex flex-col gap-1.5 rounded-md bg-fill-secondary p-3">
+              <p className="text-callout text-label-secondary">
+                {t("settings.channels.add.storedNote", {
+                  names: alreadyStored
+                    .map((n) => t(`settings.channels.add.secret.${n}`))
+                    .join(", "),
+                })}
+              </p>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={replace}
+                  disabled={busy}
+                  onChange={(e) => setReplace(e.target.checked)}
+                />
+                {t("settings.channels.add.replace")}
+              </label>
+            </div>
+          ) : null}
           {names.map((name) => (
             <div key={name} className="flex flex-col gap-1.5">
               <label htmlFor={`${id}-${name}`} className="font-medium text-foreground">
@@ -276,7 +346,7 @@ export function AddChannelDialog({
                 spellCheck={false}
                 className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
                 value={secrets[name] ?? ""}
-                disabled={busy}
+                disabled={busy || keeping(name)}
                 onChange={(e) => setSecrets((s) => ({ ...s, [name]: e.target.value }))}
               />
             </div>
