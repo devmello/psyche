@@ -1562,6 +1562,36 @@ export const ja: Partial<Catalogue> = {
   "settings.channels.loadLabel": "チャンネル",
   "settings.channels.empty":
     "チャンネルはまだありません。Telegram、iMessage、Slackを接続すると、このMacから離れていても{persona}に連絡できます。",
+  "settings.channels.add.button": "チャンネルを追加",
+  "settings.channels.add.title": "チャンネルを追加",
+  "settings.channels.add.description":
+    "{persona} に連絡できる場所を選びます。トークンは直接保管庫に保存され、再表示されません。",
+  "settings.channels.add.type": "チャンネル",
+  "settings.channels.add.account.slack": "ワークスペース名",
+  "settings.channels.add.account.discord": "アプリケーション ID",
+  "settings.channels.add.secret.bot_token": "ボットトークン",
+  "settings.channels.add.secret.app_token": "アプリトークン",
+  "settings.channels.add.secret.auth_token": "認証トークン",
+  "settings.channels.add.secret.access_token": "アクセストークン",
+  "settings.channels.add.secret.app_secret": "アプリシークレット",
+  "settings.channels.add.secret.verify_token": "検証トークン",
+  "settings.channels.add.submit": "接続",
+  "settings.channels.add.connecting": "接続中",
+  "settings.channels.add.missing": "接続するにはすべての項目を入力してください。",
+  "settings.channels.add.failed":
+    "Psyche はチャンネルを追加できませんでした（{reason}）。有効にはなっていません。",
+  "settings.channels.add.account.sms": "送信元番号 (+15551234567)",
+  "settings.channels.add.account.whatsapp": "WhatsApp 番号 (+15551234567)",
+  "settings.channels.add.badNumber": "番号は国際形式で入力してください（例: +15551234567）。",
+  "settings.channels.add.exists":
+    "{account} 用の {type} チャンネルはすでにあるため、何も変更していません。",
+  "settings.channels.add.approvalLabel": "チャンネルの追加",
+  "settings.channels.add.envNote":
+    "Gateway も、このアカウントを {env} に設定して起動する必要があります。Telegram、iMessage、Signal、メールは Gateway が動作する場所で設定します。チャンネルのドキュメントを参照してください。",
+  "settings.channels.add.added":
+    "チャンネルを追加し、動作しています。そこから {persona} にメッセージを送ってペアリングコードを受け取り、ここで承認してください。",
+  "settings.channels.add.addedInactive":
+    "チャンネルを追加しましたが、まだ動作していません。Gateway が動作する場所で {env} をこのアカウントに設定し、再起動してください。",
   "settings.channels.identities": "IDの関連付け",
   "settings.channels.identitiesDescription":
     "複数のチャンネルにまたがる同一人物。関連付けはペアリングされたデバイスからのみ変更できます。",

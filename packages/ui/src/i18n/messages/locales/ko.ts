@@ -1564,6 +1564,36 @@ export const ko: Partial<Catalogue> = {
   "settings.channels.loadLabel": "채널",
   "settings.channels.empty":
     "아직 채널이 없습니다. Telegram, iMessage 또는 Slack을 연결하면 이 Mac을 떠나서도 {persona}에게 연락할 수 있습니다.",
+  "settings.channels.add.button": "채널 추가",
+  "settings.channels.add.title": "채널 추가",
+  "settings.channels.add.description":
+    "{persona}에게 연락할 수 있는 곳을 선택하세요. 토큰은 바로 보관함에 저장되며 다시 표시되지 않습니다.",
+  "settings.channels.add.type": "채널",
+  "settings.channels.add.account.slack": "워크스페이스 이름",
+  "settings.channels.add.account.discord": "애플리케이션 ID",
+  "settings.channels.add.secret.bot_token": "봇 토큰",
+  "settings.channels.add.secret.app_token": "앱 토큰",
+  "settings.channels.add.secret.auth_token": "인증 토큰",
+  "settings.channels.add.secret.access_token": "액세스 토큰",
+  "settings.channels.add.secret.app_secret": "앱 시크릿",
+  "settings.channels.add.secret.verify_token": "확인 토큰",
+  "settings.channels.add.submit": "연결",
+  "settings.channels.add.connecting": "연결 중",
+  "settings.channels.add.missing": "연결하려면 모든 항목을 입력하세요.",
+  "settings.channels.add.failed":
+    "Psyche가 채널을 추가하지 못했습니다({reason}). 켜지지 않았습니다.",
+  "settings.channels.add.account.sms": "발신 번호 (+15551234567)",
+  "settings.channels.add.account.whatsapp": "WhatsApp 번호 (+15551234567)",
+  "settings.channels.add.badNumber": "국제 형식으로 번호를 입력하세요. 예: +15551234567",
+  "settings.channels.add.exists":
+    "{account}용 {type} 채널이 이미 있어서 아무것도 바꾸지 않았습니다.",
+  "settings.channels.add.approvalLabel": "채널 추가",
+  "settings.channels.add.envNote":
+    "Gateway도 {env}를 이 계정으로 설정한 상태로 시작해야 합니다. Telegram, iMessage, Signal, 이메일은 Gateway가 실행되는 곳에서 설정합니다. 채널 문서를 참고하세요.",
+  "settings.channels.add.added":
+    "채널을 추가했고 실행 중입니다. 해당 채널에서 {persona}에게 메시지를 보내 페어링 코드를 받은 뒤 여기서 승인하세요.",
+  "settings.channels.add.addedInactive":
+    "채널을 추가했지만 아직 실행되지 않습니다. Gateway가 실행되는 곳에서 {env}를 이 계정으로 설정한 뒤 다시 시작하세요.",
   "settings.channels.identities": "신원 연결",
   "settings.channels.identitiesDescription":
     "여러 채널에 걸친 한 사람입니다. 연결은 페어링된 기기에서만 변경됩니다.",

@@ -1586,6 +1586,36 @@ export const es: Partial<Catalogue> = {
   "settings.channels.loadLabel": "los canales",
   "settings.channels.empty":
     "Aún no hay canales. Conecta Telegram, iMessage o Slack para contactar con {persona} lejos de este Mac.",
+  "settings.channels.add.button": "Añadir un canal",
+  "settings.channels.add.title": "Añadir un canal",
+  "settings.channels.add.description":
+    "Elige dónde se puede contactar con {persona}. Los tokens van directamente a la caja fuerte y no se vuelven a mostrar.",
+  "settings.channels.add.type": "Canal",
+  "settings.channels.add.account.slack": "Nombre del espacio de trabajo",
+  "settings.channels.add.account.discord": "ID de la aplicación",
+  "settings.channels.add.secret.bot_token": "Token del bot",
+  "settings.channels.add.secret.app_token": "Token de la aplicación",
+  "settings.channels.add.secret.auth_token": "Token de autenticación",
+  "settings.channels.add.secret.access_token": "Token de acceso",
+  "settings.channels.add.secret.app_secret": "Secreto de la aplicación",
+  "settings.channels.add.secret.verify_token": "Token de verificación",
+  "settings.channels.add.submit": "Conectar",
+  "settings.channels.add.connecting": "Conectando",
+  "settings.channels.add.missing": "Rellena todos los campos para conectar.",
+  "settings.channels.add.failed": "Psyche no pudo añadir el canal ({reason}). No está activado.",
+  "settings.channels.add.account.sms": "Número de envío (+15551234567)",
+  "settings.channels.add.account.whatsapp": "Número de WhatsApp (+15551234567)",
+  "settings.channels.add.badNumber":
+    "Introduce el número en formato internacional, como +15551234567.",
+  "settings.channels.add.exists":
+    "Ya existe un canal de {type} para {account}, así que no se cambió nada.",
+  "settings.channels.add.approvalLabel": "Añadir un canal",
+  "settings.channels.add.envNote":
+    "El Gateway también debe iniciarse con {env} configurado para esta cuenta. Telegram, iMessage, Signal y el correo se configuran donde se ejecuta el Gateway; consulta la documentación de canales.",
+  "settings.channels.add.added":
+    "Canal añadido y en marcha. Escribe a {persona} desde él para recibir un código de vinculación y apruébalo aquí.",
+  "settings.channels.add.addedInactive":
+    "Canal añadido, pero aún no está en marcha. Configura {env} con esta cuenta donde se ejecuta el Gateway y reinícialo.",
   "settings.channels.identities": "Enlaces de identidad",
   "settings.channels.identitiesDescription":
     "Una misma persona en varios canales. Los enlaces solo se cambian desde un dispositivo enlazado.",

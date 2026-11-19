@@ -1583,6 +1583,34 @@ export const hi: Partial<Catalogue> = {
   "settings.channels.loadLabel": "चैनल",
   "settings.channels.empty":
     "अभी कोई चैनल नहीं। इस Mac से दूर रहते हुए {persona} तक पहुँचने के लिए Telegram, iMessage या Slack कनेक्ट करें।",
+  "settings.channels.add.button": "चैनल जोड़ें",
+  "settings.channels.add.title": "चैनल जोड़ें",
+  "settings.channels.add.description":
+    "चुनें कि {persona} से कहाँ संपर्क किया जा सकता है। टोकन सीधे वॉल्ट में जाते हैं और दोबारा नहीं दिखाए जाते।",
+  "settings.channels.add.type": "चैनल",
+  "settings.channels.add.account.slack": "वर्कस्पेस का नाम",
+  "settings.channels.add.account.discord": "एप्लिकेशन आईडी",
+  "settings.channels.add.secret.bot_token": "बॉट टोकन",
+  "settings.channels.add.secret.app_token": "ऐप टोकन",
+  "settings.channels.add.secret.auth_token": "ऑथ टोकन",
+  "settings.channels.add.secret.access_token": "एक्सेस टोकन",
+  "settings.channels.add.secret.app_secret": "ऐप सीक्रेट",
+  "settings.channels.add.secret.verify_token": "वेरिफ़ाई टोकन",
+  "settings.channels.add.submit": "कनेक्ट करें",
+  "settings.channels.add.connecting": "कनेक्ट हो रहा है",
+  "settings.channels.add.missing": "कनेक्ट करने के लिए सभी फ़ील्ड भरें।",
+  "settings.channels.add.failed": "Psyche चैनल जोड़ नहीं सका ({reason})। यह चालू नहीं है।",
+  "settings.channels.add.account.sms": "भेजने वाला नंबर (+15551234567)",
+  "settings.channels.add.account.whatsapp": "WhatsApp नंबर (+15551234567)",
+  "settings.channels.add.badNumber": "नंबर अंतरराष्ट्रीय प्रारूप में लिखें, जैसे +15551234567।",
+  "settings.channels.add.exists": "{account} के लिए {type} चैनल पहले से मौजूद है, इसलिए कुछ नहीं बदला गया।",
+  "settings.channels.add.approvalLabel": "चैनल जोड़ना",
+  "settings.channels.add.envNote":
+    "Gateway को इस खाते पर सेट {env} के साथ भी शुरू करना होगा। Telegram, iMessage, Signal और ईमेल वहीं सेट होते हैं जहाँ Gateway चलता है; चैनल दस्तावेज़ देखें।",
+  "settings.channels.add.added":
+    "चैनल जुड़ गया और चल रहा है। पेयरिंग कोड पाने के लिए इससे {persona} को संदेश भेजें, फिर यहाँ मंज़ूर करें।",
+  "settings.channels.add.addedInactive":
+    "चैनल जुड़ गया, लेकिन अभी चल नहीं रहा। जहाँ Gateway चलता है वहाँ {env} को इस खाते पर सेट करें, फिर उसे रीस्टार्ट करें।",
   "settings.channels.identities": "पहचान लिंक",
   "settings.channels.identitiesDescription":
     "चैनलों के पार एक ही व्यक्ति। लिंक केवल पेयर किए गए डिवाइस से बदलते हैं।",
