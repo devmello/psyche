@@ -159,6 +159,10 @@ export const ja: Partial<Catalogue> = {
   "errors.cancelled": "キャンセルされました。",
   "errors.reason.vault_removal_pending":
     "古いサーバーの削除を完了するには、保管庫のロックを解除してから、もう一度お試しください。",
+  "errors.reason.connected_with_other_client":
+    "Google は別のクライアントで接続されています。先に Google を切断してから、クライアントを変更してください。",
+  "errors.reason.secret_required":
+    "別のクライアントには、そのクライアント専用のシークレットが必要です。",
   "errors.reason.updating":
     "Psycheはアップデートをインストールするため、まもなく再起動します。しばらくしてからもう一度お試しください。",
   "errors.unavailable": "Psycheは現在その操作を実行できません。",

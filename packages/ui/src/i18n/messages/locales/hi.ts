@@ -157,6 +157,9 @@ export const hi: Partial<Catalogue> = {
   "errors.cancelled": "इसे रद्द कर दिया गया।",
   "errors.reason.vault_removal_pending":
     "पुराने सर्वर को हटाने का काम पूरा करने के लिए वॉल्ट अनलॉक करें, फिर दोबारा कोशिश करें।",
+  "errors.reason.connected_with_other_client":
+    "Google किसी दूसरे क्लाइंट से जुड़ा है। पहले Google को डिस्कनेक्ट करें, फिर क्लाइंट बदलें।",
+  "errors.reason.secret_required": "दूसरे क्लाइंट को अपना क्लाइंट सीक्रेट चाहिए।",
   "errors.reason.updating":
     "Psyche अपडेट इंस्टॉल करने के लिए अभी रीस्टार्ट होने वाला है। थोड़ी देर में फिर से कोशिश करें।",
   "errors.unavailable": "Psyche अभी ऐसा नहीं कर सकता।",

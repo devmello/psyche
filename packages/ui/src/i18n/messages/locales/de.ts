@@ -146,6 +146,9 @@ export const de: Partial<Catalogue> = {
   "errors.cancelled": "Es wurde abgebrochen.",
   "errors.reason.vault_removal_pending":
     "Entsperre den Tresor, um das Entfernen des alten Servers abzuschließen, und versuche es dann erneut.",
+  "errors.reason.connected_with_other_client":
+    "Google ist mit einem anderen Client verbunden. Trenne Google zuerst und ändere dann den Client.",
+  "errors.reason.secret_required": "Ein anderer Client braucht sein eigenes Client-Secret.",
   "errors.reason.updating":
     "Psyche startet gleich neu, um ein Update zu installieren. Versuche es in einem Moment erneut.",
   "errors.unavailable": "Psyche kann das gerade nicht.",

@@ -157,6 +157,9 @@ export const it: Partial<Catalogue> = {
   "errors.cancelled": "È stato annullato.",
   "errors.reason.vault_removal_pending":
     "Sblocca la cassaforte per completare la rimozione del vecchio server, poi riprova.",
+  "errors.reason.connected_with_other_client":
+    "Google è connesso con un altro client. Disconnetti prima Google, poi cambia il client.",
+  "errors.reason.secret_required": "Un client diverso richiede il proprio segreto del client.",
   "errors.reason.updating":
     "Psyche sta per riavviarsi per installare un aggiornamento. Riprova tra un momento.",
   "errors.unavailable": "Psyche non può farlo in questo momento.",

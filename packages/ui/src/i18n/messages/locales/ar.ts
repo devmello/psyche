@@ -197,6 +197,9 @@ export const ar: Partial<Catalogue> = {
   "errors.cancelled": "تم إلغاؤه.",
   "errors.reason.vault_removal_pending":
     "افتح قفل الخزنة لإكمال إزالة الخادم القديم، ثم حاول مرة أخرى.",
+  "errors.reason.connected_with_other_client":
+    "Google متصل بعميل آخر. افصل Google أولًا ثم غيّر العميل.",
+  "errors.reason.secret_required": "يحتاج العميل المختلف إلى سر عميل خاص به.",
   "errors.reason.updating": "سيعيد Psyche التشغيل الآن لتثبيت تحديث. حاول مرة أخرى بعد لحظة.",
   "errors.unavailable": "لا يستطيع Psyche القيام بذلك الآن.",
   "errors.approval_required": "يحتاج هذا إلى موافقتك أولًا.",

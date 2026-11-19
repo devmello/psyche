@@ -123,6 +123,9 @@ export const pt: Partial<Catalogue> = {
   "errors.cancelled": "Foi cancelado.",
   "errors.reason.vault_removal_pending":
     "Desbloqueie o cofre para concluir a remoção do servidor antigo e tente de novo.",
+  "errors.reason.connected_with_other_client":
+    "O Google está conectado com outro cliente. Desconecte o Google primeiro e depois troque o cliente.",
+  "errors.reason.secret_required": "Um cliente diferente precisa do próprio segredo do cliente.",
   "errors.reason.updating":
     "O Psyche vai reiniciar para instalar uma atualização. Tente novamente em instantes.",
   "errors.unavailable": "O Psyche não consegue fazer isso agora.",

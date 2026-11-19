@@ -143,6 +143,9 @@ export const fr: Partial<Catalogue> = {
   "errors.cancelled": "L’opération a été annulée.",
   "errors.reason.vault_removal_pending":
     "Déverrouille le coffre pour terminer la suppression de l'ancien serveur, puis réessaie.",
+  "errors.reason.connected_with_other_client":
+    "Google est connecté avec un autre client. Déconnectez d'abord Google, puis changez de client.",
+  "errors.reason.secret_required": "Un autre client a besoin de son propre secret client.",
   "errors.reason.updating":
     "Psyche va redémarrer pour installer une mise à jour. Réessayez dans un instant.",
   "errors.unavailable": "Psyche ne peut pas faire cela pour le moment.",

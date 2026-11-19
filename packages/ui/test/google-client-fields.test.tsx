@@ -124,6 +124,17 @@ describe("Connect Google in Settings", () => {
     expect(connectButton().disabled).toBe(false);
   });
 
+  it("shows the Gateway's reason when Google must be disconnected before the client changes", async () => {
+    const reason =
+      "Google is connected with another client. Disconnect Google first, then change the client.";
+    const s = setup(null, (g) => g.failNext("connectors.googleClient.set", "conflict", reason));
+    await pickGoogle();
+    await userEvent.type(await screen.findByLabelText("Client ID"), ID);
+    await userEvent.click(connectButton());
+    expect((await screen.findByRole("alert")).textContent).toContain("Disconnect Google first");
+    expect(s.calls("connectors.connect")).toHaveLength(0);
+  });
+
   it("a client saved here is reused: Connect is ready, and it can be swapped", async () => {
     const s = setup({ clientId: ID, hasSecret: true, source: "app" });
     await pickGoogle();

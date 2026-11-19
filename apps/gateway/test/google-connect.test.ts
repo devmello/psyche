@@ -170,9 +170,20 @@ describe("the Google client in Settings", () => {
       await c.call("connectors.list", {}),
       set,
       logged,
+      await gw.audit.query({}),
+      c.events,
     ]);
     expect(everything).not.toContain(SECRET);
     expect(everything).not.toContain("GOCSPX");
+    // The audit row names the paired device that changed the client, and no secret.
+    const rows = (await gw.audit.query({ kind: "connector.google_client_set" })) as {
+      actor: { type: string; deviceId?: string };
+      data: Record<string, unknown>;
+    }[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.actor.type).toBe("device");
+    expect(rows[0]?.actor.deviceId).toMatch(/^admin-/);
+    expect(rows[0]?.data).toMatchObject({ secretChanged: true });
     const catalogue = (await c.call("connectors.catalogue", {})) as {
       entries: { id: string; configured?: boolean }[];
     };
@@ -249,6 +260,153 @@ describe("the Google client in Settings", () => {
       code: "conflict",
       details: { reason: "client_from_config" },
     });
+  });
+});
+
+describe("the client's vault item", () => {
+  it.each([
+    ["an api_key bound to another origin", "api_key", [{ origin: "https://evil.example" }]],
+    [
+      "a login bound to Google's token endpoint",
+      "login",
+      [{ origin: "https://oauth2.googleapis.com" }],
+    ],
+    [
+      "an api_key with an extra binding",
+      "api_key",
+      [{ origin: "https://oauth2.googleapis.com" }, { host: "evil.example" }],
+    ],
+  ] as const)(
+    "never writes into the owner's item (%s); the secret lands in a fresh slug",
+    async (_name, kind, bindings) => {
+      const gw = await compose();
+      const c = await owner(gw);
+      const mine = await gw.vault.add({
+        kind,
+        name: "Google OAuth client",
+        bindings: [...bindings],
+        secret:
+          kind === "login"
+            ? { username: "me", password: "owner-password-1" }
+            : { token: "owner-token-1" },
+      });
+      expect(mine.slug).toBe(SLUG);
+      await c.call(
+        "connectors.googleClient.set",
+        { clientId: CLIENT_ID, clientSecret: SECRET },
+        ik(),
+      );
+
+      // The owner's item is exactly as it was.
+      const after = gw.vault.metaBySlug(SLUG);
+      expect(after).toMatchObject({
+        id: mine.id,
+        kind: mine.kind,
+        bindings: mine.bindings,
+        updatedAt: mine.updatedAt,
+      });
+      // The secret is in a new item bound only to Google's token endpoint.
+      const fresh = gw.vault.metaBySlug(`${SLUG}-2`);
+      expect(fresh).toMatchObject({
+        kind: "api_key",
+        bindings: [{ origin: "https://oauth2.googleapis.com" }],
+      });
+      expect(getSetting(gw.gateway.context.db, "_connectors.googleClient")?.value).toEqual({
+        clientId: CLIENT_ID,
+        clientSecret: `{{cred:${SLUG}-2}}`,
+      });
+      // Saving again reuses the fresh item instead of minting -3.
+      await c.call(
+        "connectors.googleClient.set",
+        { clientId: CLIENT_ID, clientSecret: `${SECRET}x` },
+        ik(),
+      );
+      expect(gw.vault.metaBySlug(`${SLUG}-3`)).toBeUndefined();
+    },
+  );
+
+  it("still reuses its own item on a second save", async () => {
+    const gw = await compose();
+    const c = await owner(gw);
+    await c.call(
+      "connectors.googleClient.set",
+      { clientId: CLIENT_ID, clientSecret: SECRET },
+      ik(),
+    );
+    const first = gw.vault.metaBySlug(SLUG);
+    await c.call(
+      "connectors.googleClient.set",
+      { clientId: CLIENT_ID, clientSecret: `${SECRET}2` },
+      ik(),
+    );
+    expect(gw.vault.metaBySlug(SLUG)?.id).toBe(first?.id);
+    expect(gw.vault.metaBySlug(`${SLUG}-2`)).toBeUndefined();
+  });
+});
+
+describe("changing the client", () => {
+  const OTHER = "9876543210-xyz.apps.googleusercontent.com";
+
+  it("a different client id needs its own secret; the old secret is never kept with it", async () => {
+    const gw = await compose();
+    const c = await owner(gw);
+    await c.call(
+      "connectors.googleClient.set",
+      { clientId: CLIENT_ID, clientSecret: SECRET },
+      ik(),
+    );
+    const res = await c.request("connectors.googleClient.set", { clientId: OTHER }, ik());
+    expect(res.error).toMatchObject({
+      code: "invalid_params",
+      details: { reason: "secret_required" },
+    });
+    expect(((await c.call("connectors.googleClient", {})) as { clientId: string }).clientId).toBe(
+      CLIENT_ID,
+    );
+
+    // With a new secret it goes through, and the stored placeholder is for the new secret.
+    const ok = (await c.call(
+      "connectors.googleClient.set",
+      { clientId: OTHER, clientSecret: `${SECRET}-other` },
+      ik(),
+    )) as { status: { clientId: string; hasSecret: boolean } };
+    expect(ok.status).toMatchObject({ clientId: OTHER, hasSecret: true });
+    // The same id with no secret keeps the one it has.
+    const same = (await c.call("connectors.googleClient.set", { clientId: OTHER }, ik())) as {
+      status: { hasSecret: boolean };
+    };
+    expect(same.status.hasSecret).toBe(true);
+  });
+
+  it("is refused while Google is connected with a different client, and allowed after disconnect", async () => {
+    const gw = await compose();
+    const c = await owner(gw);
+    await c.call("connectors.googleClient.set", SAVE, ik());
+    const { id, url } = await startConnect(c);
+    await approve(url);
+    await c.waitForEvent((f) => f.event === "connectors.updated" && statusOf(f) === "connected");
+
+    const res = await c.request(
+      "connectors.googleClient.set",
+      { clientId: OTHER, clientSecret: SECRET },
+      ik(),
+    );
+    expect(res.error).toMatchObject({
+      code: "conflict",
+      details: { reason: "connected_with_other_client" },
+    });
+    expect(((await c.call("connectors.googleClient", {})) as { clientId: string }).clientId).toBe(
+      CLIENT_ID,
+    );
+    expect(gw.vault.metaBySlug(SLUG)).toBeUndefined();
+    // The same client id can be saved again while connected.
+    await c.call("connectors.googleClient.set", SAVE, ik());
+
+    await c.call("connectors.disconnect", { connectorId: id }, ik());
+    await c.call("connectors.googleClient.set", { clientId: OTHER, clientSecret: SECRET }, ik());
+    expect(((await c.call("connectors.googleClient", {})) as { clientId: string }).clientId).toBe(
+      OTHER,
+    );
   });
 });
 
@@ -344,5 +502,49 @@ describe("Connect Google (loopback + PKCE against a fake Google)", () => {
     };
     expect(list.connectors.find((x) => x.id === id)?.status).toBe("disconnected");
     expect(JSON.stringify([c.events, logged])).not.toContain(REFRESH);
+  });
+
+  it("with a saved secret, connect asks the credential card once and sends the secret only to Google's token endpoint", async () => {
+    const gw = await compose();
+    const c = await owner(gw);
+    await c.call(
+      "connectors.googleClient.set",
+      { clientId: CLIENT_ID, clientSecret: SECRET },
+      ik(),
+    );
+    const { id, url } = await startConnect(c);
+    expect((await approve(url)).status).toBe(200);
+
+    // The token exchange waits for the owner's plain tap on the credential card.
+    let card: { id: string } | undefined;
+    for (let i = 0; i < 100 && card === undefined; i++) {
+      const pending = (await c.call("approvals.list", {})) as { approvals: { id: string }[] };
+      card = pending.approvals[0];
+      if (card === undefined) await new Promise((r) => setTimeout(r, 20));
+    }
+    if (card === undefined) throw new Error("no credential card");
+    expect(g.requests.filter((r) => r.body.includes("authorization_code"))).toHaveLength(0);
+    const { answerToken } = (await c.call("approvals.get", { approvalId: card.id })) as {
+      answerToken?: string;
+    };
+    await new Promise((r) => setTimeout(r, 450)); // cards arm after 400 ms
+    await c.call("approvals.answer", {
+      approvalId: card.id,
+      answerToken,
+      decision: "approve",
+      scope: "once",
+    });
+    await c.waitForEvent((f) => f.event === "connectors.updated" && statusOf(f) === "connected");
+
+    const exchange = g.requests.filter((r) => r.body.includes("authorization_code"));
+    expect(exchange).toHaveLength(1);
+    expect(exchange[0]?.url.href).toBe("https://oauth2.googleapis.com/token");
+    expect(new URLSearchParams(exchange[0]?.body).get("client_secret")).toBe(SECRET);
+    // The secret appears in no other request, and in nothing the owner can read back.
+    expect(g.requests.filter((r) => r.body.includes(SECRET) && r !== exchange[0])).toHaveLength(0);
+    expect(gw.vault.connectorItem(id)).toBeDefined();
+    expect(JSON.stringify([c.events, logged, await c.call("connectors.list", {})])).not.toContain(
+      SECRET,
+    );
   });
 });

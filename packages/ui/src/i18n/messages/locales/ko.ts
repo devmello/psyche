@@ -162,6 +162,9 @@ export const ko: Partial<Catalogue> = {
   "errors.cancelled": "취소되었습니다.",
   "errors.reason.vault_removal_pending":
     "이전 서버 제거를 마치려면 보관함 잠금을 해제한 뒤 다시 시도하세요.",
+  "errors.reason.connected_with_other_client":
+    "Google이 다른 클라이언트로 연결되어 있습니다. 먼저 Google 연결을 해제한 다음 클라이언트를 변경하세요.",
+  "errors.reason.secret_required": "다른 클라이언트에는 해당 클라이언트의 보안 비밀이 필요합니다.",
   "errors.reason.updating":
     "Psyche가 업데이트를 설치하기 위해 곧 다시 시작됩니다. 잠시 후 다시 시도하십시오.",
   "errors.unavailable": "Psyche가 지금은 해당 작업을 할 수 없습니다.",

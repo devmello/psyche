@@ -355,11 +355,23 @@ export function composeConnectors(
   }
   // #505: connect returns at once; an OAuth sign-in comes back pending with its consent page and
   // finishes as connectors.updated. The UI never shows Connected before tokens are stored.
-  const googleClient = googleClientStore(services, setup.google ?? {}, async (kind, data) => {
-    await services.audit
-      .append({ kind, actor: { type: "user", surface: "settings" }, data: data as never })
-      .catch(() => undefined);
-  });
+  const googleClient = googleClientStore(
+    services,
+    setup.google ?? {},
+    async (call, kind, data) => {
+      await services.audit
+        .append({
+          kind,
+          actor: { type: "device", deviceId: call.identity.deviceId },
+          data: data as never,
+        })
+        .catch(() => undefined);
+    },
+    async () =>
+      (await registry.list())
+        .filter((r) => r.type === "google" && r.status !== "disconnected")
+        .map((r) => (typeof r.config.clientId === "string" ? r.config.clientId : undefined)),
+  );
   Object.assign(handlers, googleClient.handlers);
   handlers["connectors.connect"] = {
     run: async (_call: Call, params: never) => {
