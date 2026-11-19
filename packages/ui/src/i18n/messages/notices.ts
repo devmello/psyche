@@ -1,0 +1,50 @@
+/**
+ * Notices the Gateway authors (inbox notifications and security alerts). The Gateway sends a
+ * `message` (title id, body id and values) next to its English `title` and `body`, and every
+ * client words it here, in the owner's language. The English text below is also what the Gateway
+ * sends as that fallback, so a change of wording here goes with a change in the Gateway's call.
+ * Values arrive cleaned of control and bidirectional characters (packages/notifications notice.ts).
+ */
+export const notices = {
+  "notice.security.changed.title": "Psyche undid a security change made outside the app",
+  "notice.security.changed.body":
+    "A program on this Mac changed {count, plural, =1 {# security record} other {# security records}} (devices, keys, grants or settings) without going through Psyche{times, plural, =0 {} =1 {} other {, # times so far}}. Psyche put them back. If you did not do this, check the Mac for unwanted software.",
+  "notice.security.untrusted.title": "Psyche cannot trust its security records",
+  "notice.security.untrusted.body":
+    "Psyche's check of its security records failed, so security changes, new devices and Touch ID approvals are blocked. Review your devices, then run `psyched security reseal` on the Mac (it applies after 24 hours).",
+  "notice.security.firstSeal.title": "Psyche now checks its security records",
+  "notice.security.firstSeal.body":
+    "Psyche sealed {devices, plural, =1 {# paired device} other {# paired devices}} and its security settings. From now on a change made outside Psyche is undone and shown here. Review your devices once.",
+  "notice.security.resealed.title":
+    "{restored, select, yes {Security records sealed after a restore} other {Security records sealed again}}",
+  "notice.security.resealed.body":
+    "{restored, select, yes {Psyche started from a restored backup and sealed its security records as they are. If you did not restore a backup, check your devices.} other {Psyche sealed its security records again after the waiting period.}}",
+  "notice.security.firstAdmin.title": "A command on this Mac made the first admin device",
+  "notice.security.firstAdmin.body":
+    "{device}{key, select, none {} other { (key {key})}} became the first admin device {via, select, desktop {from the Psyche app} other {through `psyched`}} on this Mac. If that was not you, revoke it in Settings → Devices.",
+  "notice.security.recovery.title":
+    "{state, select, requested {A command on this Mac asked for a security change} applied {A security change from this Mac was applied} cancelled {A security change from this Mac was cancelled} other {A security change from this Mac could not be applied}}",
+  "notice.security.recovery.body":
+    "{op, select, approve {Approve the device {device}{key, select, none {} other { (key {key})}} with {scopes}.} grant {Give {device}{key, select, none {} other { (key {key})}} {scopes}.} presence {Turn off the Touch ID and passkey requirement for security changes until a new key is registered.} seal {Accept the current security records as they are.} other {A security change.}}{state, select, requested { It applies {when, select, none {in 24 hours} other {on {when}}} unless you cancel it in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
+  "notice.browser.chrome.title": "Psyche is driving your Chrome",
+  "notice.browser.chrome.body":
+    "A task is using the Psyche Chrome profile, where you are signed in. Its window title says “Psyche is driving this window”. It closes when the task is done; you can also quit Chrome.",
+  "notice.browser.takeover.title": "Psyche needs you in the browser",
+  "notice.browser.takeover.body":
+    "On {host}, the agent asks: {reason}. Take control in the browser pane, then hand it back.",
+  "notice.connector.consent.title": "Finish connecting Google",
+  "notice.connector.consent.body":
+    "Open this link on the computer running Psyche to grant access: {url}",
+  "notice.connector.changed.title": "A connection changed",
+  "notice.connector.changed.body":
+    "{reason, select, account_changed {A connector now signs in to a different account. Work bound to the old account was stopped.} disconnected {A connector was disconnected. Work that needed it was stopped.} scope_changed {A connector is now read-only. Pending actions through it were stopped.} other {A connector's access was revoked. Sign in again to keep using it.}}",
+  "notice.connector.reconnect.title": "Reconnect needed",
+  "notice.connector.reconnect.body": "A connector lost access and needs you to sign in again.",
+  "notice.attention.paused.title": "A task is waiting for you",
+  "notice.attention.paused.body":
+    "Paused before {tool} on a sensitive app or site until you are back in Psyche.",
+  "notice.apiKey.changed.title":
+    "{kind, select, brave {The {provider} key was {action, select, changed {changed} other {removed}}} other {The {provider} API key was {action, select, changed {changed} other {removed}}}}",
+  "notice.apiKey.changed.body":
+    '{action, select, changed {Changed} other {Removed}} from {device, select, none {a device} other {"{device}" ({platform}{paired, select, none {} other {, paired {paired}}})}}. If that was not you, revoke the device in Settings → Devices.',
+} as const;

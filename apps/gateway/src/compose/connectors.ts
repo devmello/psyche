@@ -48,6 +48,7 @@ import {
   type CredentialBroker,
   type CredentialRevokedEvent,
   isMethodName,
+  type NoticeMessage,
   PsycheError,
   type ToolRegistration,
 } from "@psyche/protocol";
@@ -744,6 +745,11 @@ function onConnectorEvent(services: ComposeServices, event: ConnectorEvent): voi
       notify(services, {
         title: "A connection changed",
         body: invalidatedCopy(event.reason),
+        message: {
+          titleKey: "notice.connector.changed.title",
+          bodyKey: "notice.connector.changed.body",
+          params: { reason: event.reason },
+        },
         dedupeKey: `connector:${event.connectorId}:invalidated:${event.reason}`,
       });
       return;
@@ -757,6 +763,10 @@ function onConnectorEvent(services: ComposeServices, event: ConnectorEvent): voi
         notify(services, {
           title: "Reconnect needed",
           body: "A connector lost access and needs you to sign in again.",
+          message: {
+            titleKey: "notice.connector.reconnect.title",
+            bodyKey: "notice.connector.reconnect.body",
+          },
           dedupeKey: `connector:${event.connectorId}:needs_auth`,
         });
       }
@@ -796,7 +806,7 @@ function invalidatedCopy(reason: Extract<ConnectorEvent, { type: "invalidated" }
 
 function notify(
   services: ComposeServices,
-  input: { title: string; body: string; dedupeKey: string },
+  input: { title: string; body: string; message: NoticeMessage; dedupeKey: string },
 ): void {
   services.notifier
     .notify({ kind: "system", route: "/settings/connectors", ...input })

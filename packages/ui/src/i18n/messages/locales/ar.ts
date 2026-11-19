@@ -25,6 +25,7 @@ import { meetingRecord } from "./meeting-record/ar.ts";
 import { memoryPage } from "./memory-page/ar.ts";
 import { memoryReview } from "./memory-review/ar.ts";
 import { memorySettings } from "./memory-settings/ar.ts";
+import { notices } from "./notices/ar.ts";
 import { nudges } from "./nudges/ar.ts";
 import { onboarding } from "./onboarding/ar.ts";
 import { overview } from "./overview/ar.ts";
@@ -3436,6 +3437,8 @@ export const ar: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Gateway-authored notices (inbox notifications, security alerts)
+  ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
 };

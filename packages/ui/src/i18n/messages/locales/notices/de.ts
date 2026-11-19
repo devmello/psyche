@@ -1,0 +1,49 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Notices the Gateway authors (de); merged into `../de.ts`. */
+export const notices: Partial<Catalogue> = {
+  "notice.security.changed.title":
+    "Psyche hat eine Sicherheitsänderung rückgängig gemacht, die außerhalb der App erfolgte",
+  "notice.security.changed.body":
+    "Ein Programm auf diesem Mac hat {count, plural, =1 {# Sicherheitseintrag} other {# Sicherheitseinträge}} (Geräte, Schlüssel, Freigaben oder Einstellungen) geändert, ohne über Psyche zu gehen{times, plural, =0 {} =1 {} other {, bisher # Mal}}. Psyche hat sie wiederhergestellt. Wenn du das nicht warst, prüfe den Mac auf unerwünschte Software.",
+  "notice.security.untrusted.title": "Psyche kann seinen Sicherheitsdaten nicht vertrauen",
+  "notice.security.untrusted.body":
+    "Die Prüfung von Psyches Sicherheitsdaten ist fehlgeschlagen. Sicherheitsänderungen, neue Geräte und Touch-ID-Freigaben sind deshalb gesperrt. Prüfe deine Geräte und führe dann auf dem Mac `psyched security reseal` aus (es gilt nach 24 Stunden).",
+  "notice.security.firstSeal.title": "Psyche prüft jetzt seine Sicherheitsdaten",
+  "notice.security.firstSeal.body":
+    "Psyche hat {devices, plural, =1 {# gekoppeltes Gerät} other {# gekoppelte Geräte}} und seine Sicherheitseinstellungen versiegelt. Ab jetzt wird eine Änderung außerhalb von Psyche rückgängig gemacht und hier angezeigt. Prüfe deine Geräte einmal.",
+  "notice.security.resealed.title":
+    "{restored, select, yes {Sicherheitsdaten nach einer Wiederherstellung versiegelt} other {Sicherheitsdaten erneut versiegelt}}",
+  "notice.security.resealed.body":
+    "{restored, select, yes {Psyche wurde aus einem wiederhergestellten Backup gestartet und hat seine Sicherheitsdaten so versiegelt, wie sie sind. Wenn du kein Backup wiederhergestellt hast, prüfe deine Geräte.} other {Psyche hat seine Sicherheitsdaten nach der Wartezeit erneut versiegelt.}}",
+  "notice.security.firstAdmin.title":
+    "Ein Befehl auf diesem Mac hat das erste Admin-Gerät angelegt",
+  "notice.security.firstAdmin.body":
+    "{device}{key, select, none {} other { (Schlüssel {key})}} wurde auf diesem Mac {via, select, desktop {über die Psyche-App} other {über `psyched`}} das erste Admin-Gerät. Wenn du das nicht warst, widerrufe es unter Einstellungen → Geräte.",
+  "notice.security.recovery.title":
+    "{state, select, requested {Ein Befehl auf diesem Mac hat eine Sicherheitsänderung angefordert} applied {Eine Sicherheitsänderung von diesem Mac wurde angewendet} cancelled {Eine Sicherheitsänderung von diesem Mac wurde abgebrochen} other {Eine Sicherheitsänderung von diesem Mac konnte nicht angewendet werden}}",
+  "notice.security.recovery.body":
+    "{op, select, approve {Das Gerät {device}{key, select, none {} other { (Schlüssel {key})}} mit {scopes} freigeben.} grant {{device}{key, select, none {} other { (Schlüssel {key})}} {scopes} geben.} presence {Die Touch-ID- und Passkey-Pflicht für Sicherheitsänderungen ausschalten, bis ein neuer Schlüssel registriert ist.} seal {Die aktuellen Sicherheitsdaten so übernehmen, wie sie sind.} other {Eine Sicherheitsänderung.}}{state, select, requested { Sie gilt {when, select, none {in 24 Stunden} other {ab {when}}}, wenn du sie nicht in Psyche abbrichst.} failed {{reason, select, none {} other { {reason}}}} other {}}",
+  "notice.browser.chrome.title": "Psyche steuert dein Chrome",
+  "notice.browser.chrome.body":
+    "Eine Aufgabe nutzt das Psyche-Chrome-Profil, in dem du angemeldet bist. Der Fenstertitel lautet „Psyche is driving this window“. Es schließt sich, wenn die Aufgabe fertig ist; du kannst Chrome auch beenden.",
+  "notice.browser.takeover.title": "Psyche braucht dich im Browser",
+  "notice.browser.takeover.body":
+    "Auf {host} fragt der Agent: {reason}. Übernimm im Browserbereich die Steuerung und gib sie dann zurück.",
+  "notice.connector.consent.title": "Verbindung mit Google abschließen",
+  "notice.connector.consent.body":
+    "Öffne diesen Link auf dem Computer, auf dem Psyche läuft, um den Zugriff zu erlauben: {url}",
+  "notice.connector.changed.title": "Eine Verbindung hat sich geändert",
+  "notice.connector.changed.body":
+    "{reason, select, account_changed {Ein Connector meldet sich jetzt bei einem anderen Konto an. Arbeit, die ans alte Konto gebunden war, wurde gestoppt.} disconnected {Ein Connector wurde getrennt. Arbeit, die ihn brauchte, wurde gestoppt.} scope_changed {Ein Connector ist jetzt schreibgeschützt. Ausstehende Aktionen darüber wurden gestoppt.} other {Der Zugriff eines Connectors wurde widerrufen. Melde dich erneut an, um ihn weiter zu nutzen.}}",
+  "notice.connector.reconnect.title": "Erneut verbinden",
+  "notice.connector.reconnect.body":
+    "Ein Connector hat den Zugriff verloren. Melde dich erneut an.",
+  "notice.attention.paused.title": "Eine Aufgabe wartet auf dich",
+  "notice.attention.paused.body":
+    "Vor {tool} auf einer sensiblen App oder Website pausiert, bis du wieder in Psyche bist.",
+  "notice.apiKey.changed.title":
+    "{kind, select, brave {Der {provider}-Schlüssel wurde {action, select, changed {geändert} other {entfernt}}} other {Der {provider}-API-Schlüssel wurde {action, select, changed {geändert} other {entfernt}}}}",
+  "notice.apiKey.changed.body":
+    '{action, select, changed {Geändert} other {Entfernt}} von {device, select, none {einem Gerät} other {"{device}" ({platform}{paired, select, none {} other {, gekoppelt am {paired}}})}}. Wenn du das nicht warst, widerrufe das Gerät unter Einstellungen → Geräte.',
+};
