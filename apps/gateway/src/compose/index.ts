@@ -154,7 +154,7 @@ import { type ExecHostDeps, execHostTool } from "./exec-host.ts";
 import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
 import { migrateFilesConnector } from "./files-migration.ts";
-import { withFolder } from "./folder-access.ts";
+import { withFolder, withRecordedReal } from "./folder-access.ts";
 import { usesSandboxPc } from "./guest-sandbox.ts";
 import {
   mountParamsOnly,
@@ -713,9 +713,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const attention = new OwnerAttention(() => clock.now());
   // `Always allow` on a folder request lands in Settings → File access (permissions.policy.folders).
   const persistFolder = async (entry: FolderGrantEntry) => {
+    // A pick is already its real path: that is where the grant was made (`grantedRootRefused`).
     const next = withFolder(
       validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger) ?? {},
-      entry,
+      { ...entry, real: entry.path },
     );
     const saved = setSetting(db, "permissions.policy", next);
     rawBroker.setPolicy(hostPolicy(next, db));
@@ -733,6 +734,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     publish("settings.changed", { entries: [saved] });
     return true;
   };
+  // A Settings folder granted before real paths were recorded: the first real path the broker
+  // saw for it (while it still counted) is stored with it, so a later move survives a restart.
+  const recordFolderReal = (path: string, real: string) => {
+    const current = validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger);
+    const next = current === undefined ? undefined : withRecordedReal(current, path, real);
+    if (next === undefined) return;
+    const saved = setSetting(db, "permissions.policy", next);
+    rawBroker.setPolicy(hostPolicy(next, db));
+    publish("settings.changed", { entries: [saved] });
+  };
   let deferredResumeRef: DeferredResume | undefined;
   const rawBroker = new PsychePermissionBroker({
     folderAccess: {
@@ -741,6 +752,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       separateDesktopEnv: () => separateDesktopFolderEnv(config.home),
       persist: persistFolder,
       remove: forgetFolder,
+      recordReal: recordFolderReal,
     },
     channelConversations: (ref) => channelConversations.get(ref),
     approvers: {

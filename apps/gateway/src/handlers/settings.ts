@@ -1,3 +1,4 @@
+import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { normalize, sep } from "node:path";
 import { getSetting, getSettings, setSetting } from "@psyche/db";
@@ -81,6 +82,41 @@ async function checkNewFolders(call: Call, value: unknown): Promise<void> {
       await assertFolderGrantable(r, folderAccessEnv(home));
     }
   }
+}
+
+/**
+ * Each folder grant's real path (`real`), set here and never taken from the client: an entry the
+ * stored policy already has keeps what was recorded for it (a write that drops the field, from an
+ * older Settings, loses nothing); a new entry gets its real path now, or none when it does not
+ * exist yet (the broker records the first one it sees). A granted root whose real path later
+ * differs from this one covers nothing (`grantedRootRefused`), so a parent swapped for a link is
+ * caught as well as the root itself.
+ */
+export async function recordPolicyFolderReals(value: unknown, stored: unknown): Promise<unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
+  const folders = (value as { folders?: unknown }).folders;
+  if (!Array.isArray(folders)) return value;
+  const storedFolders = (stored as { folders?: unknown } | null | undefined)?.folders;
+  const known = new Map<string, string | undefined>();
+  if (Array.isArray(storedFolders)) {
+    for (const f of storedFolders as { path?: unknown; real?: unknown }[]) {
+      if (typeof f?.path !== "string") continue;
+      known.set(f.path, typeof f.real === "string" ? f.real : undefined);
+    }
+  }
+  const out: unknown[] = [];
+  for (const f of folders as unknown[]) {
+    if (typeof f !== "object" || f === null || typeof (f as { path?: unknown }).path !== "string") {
+      out.push(f);
+      continue;
+    }
+    const { real: _client, ...rest } = f as { path: string; real?: unknown };
+    let real: string | undefined;
+    if (known.has(rest.path)) real = known.get(rest.path);
+    else real = await realpath(rest.path).catch(() => undefined);
+    out.push(real === undefined ? rest : { ...rest, real });
+  }
+  return { ...value, folders: out };
 }
 
 /**
@@ -168,6 +204,7 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       if (key === "permissions.policy") {
         value = expandPolicyFolders(value, getSetting(call.ctx.db, key)?.value);
         await checkNewFolders(call, value);
+        value = await recordPolicyFolderReals(value, getSetting(call.ctx.db, key)?.value);
       }
       // Fresh presence once a verifier was enrolled (helper Touch ID, passkeys); admin only before.
       // A change that provably only narrows what the agent may do applies at once from an admin

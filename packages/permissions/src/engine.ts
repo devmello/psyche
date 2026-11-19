@@ -113,6 +113,11 @@ export interface EngineDeps {
   folderRefused?(path: string): boolean;
   /** The same for a workspace root (`permissions.policy.workspaceRoots`). */
   workspaceRefused?(path: string): boolean;
+  /**
+   * Called before each evaluation: a promise to wait for (briefly) while the granted roots'
+   * first looks at the disk are in flight, or undefined when there is nothing to wait for.
+   */
+  settleFolders?(threadId: string | undefined): Promise<void> | undefined;
   /** The Task's state, created on first use (`decide`). */
   task(ctx: PolicyContext): TaskState;
   /** The Task's state if the broker has one, without creating it (`preview`). */
@@ -315,6 +320,8 @@ export class PolicyEngine {
    * consumes no grant, calls no classifier and changes no Task state: it only reads.
    */
   async evaluate(original: PolicyCall, ctx: PolicyContext, dry?: DryRun): Promise<Evaluation> {
+    const settling = this.#d.settleFolders?.(ctx.threadId ?? undefined);
+    if (settling !== undefined) await settling;
     const trace: string[] = [];
     let call = original;
     let rewritten = false;

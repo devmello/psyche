@@ -1,6 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { realpathSync } from "node:fs";
-import { basename, dirname } from "node:path";
+import { basename } from "node:path";
 import { Receipts, sha256 } from "@psyche/audit";
 import { isUnderHostPath } from "@psyche/hostfs";
 import {
@@ -64,11 +63,13 @@ import {
   type FolderAccessEnv,
   type FolderGrantEntry,
   folderCovers,
+  grantedRootRefused,
   inSystemRoot,
+  lookupRootFacts,
+  type RootFacts,
   refuseFolder,
   resolveFilePick,
   resolveFolderPick,
-  rootMoved,
 } from "./folder-access.ts";
 import {
   HOST_PROGRAM_ROOTS,
@@ -136,8 +137,44 @@ const DAY = 24 * HOUR;
 
 /** Who may answer (security §3.7): paired devices with `operator.approvals`, owner-identity senders. */
 
-/** How long a folder whose real path failed to resolve (not ENOENT) stays refused before a new look. */
-const FOLDER_ERROR_RETRY_MS = 30_000;
+/**
+ * Granted roots are judged from a per-path cache of what is on disk (`lookupRootFacts`), never
+ * looked up synchronously on the decide path: a hung SMB or NFS mount must not freeze the event
+ * loop. Past `FOLDER_FRESH_MS` a read starts one asynchronous refresh (one in flight per path)
+ * and keeps the last verdict meanwhile; a root whose refresh has been outstanding for
+ * `FOLDER_STALE_CAP_MS` (a hung mount) is refused until one completes. (Measured from the
+ * refresh, not the last look, so a root nobody read for a while is not refused for the moment
+ * its refresh takes.) The executors still check live, at once.
+ */
+export const FOLDER_FRESH_MS = 5_000;
+export const FOLDER_STALE_CAP_MS = 60_000;
+/**
+ * How long an evaluation waits, once per lookup, for a look at a root with no usable answer (a
+ * new grant, a start, a root not read for longer than the cap).
+ */
+const FOLDER_FIRST_LOOK_WAIT_MS = 250;
+
+/** Resolves when `p` settles or after `ms`, whichever is first; never rejects. */
+function raceTimeout(p: Promise<unknown>, ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const t = setTimeout(resolve, ms);
+    (t as { unref?: () => void }).unref?.();
+    const done = (): void => {
+      clearTimeout(t);
+      resolve();
+    };
+    p.then(done, done);
+  });
+}
+
+interface RootLook {
+  /** What the last completed look found; "error" when it failed (refused until the next one). */
+  facts: RootFacts | "error";
+  /** When it completed (broker clock). */
+  checkedAt: number;
+  /** No look has completed yet: the verdict comes from the stored path alone. */
+  first?: true;
+}
 export interface ApproverDirectory {
   device(
     deviceId: string,
@@ -242,6 +279,11 @@ export interface PermissionBrokerOptions {
     persist: (entry: FolderGrantEntry) => Promise<void>;
     /** Removes an `always` folder from Settings (the owner's revoke); true when it was there. */
     remove?: (path: string) => Promise<boolean>;
+    /**
+     * Stores the real path first seen for a Settings folder granted before real paths were
+     * recorded (`permissions.policy.folders[].real`), so a later move is caught after a restart.
+     */
+    recordReal?: (path: string, real: string) => void | Promise<void>;
   };
 }
 
@@ -372,10 +414,21 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #psycheHome: string | undefined;
   /** thread → folders allowed for that conversation only; gone at `/new` and at a restart. */
   readonly #sessionFolders = new Map<string, FolderGrantEntry[]>();
-  /** `folderRefused` answers by path: the real path is resolved once, not on every call. */
+  /** The string-only parts of `folderRefused` and `#workspaceRefused`, by path (no filesystem). */
   readonly #refusedMemo = new Map<string, boolean>();
-  /** Folders whose real path failed to resolve, refused until this time (ms since epoch). */
-  readonly #refusedRetryAt = new Map<string, number>();
+  /** The last look at each granted root (`lookupRootFacts`), refreshed asynchronously. */
+  readonly #rootLooks = new Map<string, RootLook>();
+  /** One lookup in flight per path; `waited` once an evaluation has waited for it. */
+  readonly #rootLookups = new Map<
+    string,
+    { done: Promise<void>; waited: boolean; since: number }
+  >();
+  /** Verdicts from `#rootLooks` and the recorded real paths, until either changes. */
+  readonly #rootVerdicts = new Map<string, boolean>();
+  /** Real paths recorded in the policy (`folders[].real`), by stored and canonical path. */
+  #recordedReal = new Map<string, string>();
+  /** Real paths seen at a pick, or first seen for an older grant with none recorded. */
+  readonly #observedReal = new Map<string, string>();
   /** When an attached file's grant ends (`${threadId}\0${path}` -> epoch ms); see attachFiles. */
   readonly #fileGrantExpiry = new Map<string, number>();
   /**
@@ -427,6 +480,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       sessionFolders: (threadId) => this.sessionFolders(threadId),
       folderRefused: (path) => this.folderRefused(path),
       workspaceRefused: (path) => this.#workspaceRefused(path),
+      settleFolders: (threadId) => this.#settleFolders(threadId),
       matchGrant: (key, kind, se, ctx, origin) => this.#matchGrant(key, kind, se, ctx, origin),
       useGrant: (rec, hash, ctx) => this.#useGrant(rec, hash, ctx?.taskId),
       trustedSite: (origin) => this.#trustedSite(origin),
@@ -454,31 +508,149 @@ export class PsychePermissionBroker implements PermissionBroker {
   setPolicy(config: PolicyConfig): void {
     this.#policy = compilePolicy(config);
     this.#refusedMemo.clear();
-    // Retry windows survive a policy write: an unrelated write must not re-block on a hung mount.
+    // What is on disk (`#rootLooks`) survives a policy write; the verdicts depend on the
+    // recorded real paths, which may have changed.
+    this.#rootVerdicts.clear();
     this.#warmRefusals();
   }
 
   /**
    * The folders the owner granted in Settings that still count: a folder `inSystemRoot` refuses
-   * today (granted before `/opt` was refused, say) is left out. Every consumer that reads the
-   * granted folders (file and exec executors, harness mounts, meetings, conversion) uses this,
-   * never the raw `policy.folders`.
+   * today (granted before `/opt` was refused, say), or one that leads somewhere else than where
+   * it was granted (`grantedRootRefused`), is left out. Every consumer that reads the granted
+   * folders (file and exec executors, harness mounts, meetings, conversion) uses this, never the
+   * raw `policy.folders`. Each entry carries its recorded real path (`real`) when one is known,
+   * so an executor can compare it with the real path it looks up itself.
    */
   grantedFolders(): NonNullable<PolicyConfig["folders"]> {
-    return (this.policy.folders ?? []).filter((f) => !this.folderRefused(f.path));
+    return (this.policy.folders ?? [])
+      .filter((f) => !this.folderRefused(f.path))
+      .map((f) => this.#withReal(f));
   }
 
   /** This conversation's folders and attached files that still count (see `grantedFolders`). */
   liveSessionFolders(threadId: string): FolderGrantEntry[] {
-    return this.sessionFolders(threadId).filter((f) => !this.folderRefused(f.path));
+    return this.sessionFolders(threadId)
+      .filter((f) => !this.folderRefused(f.path))
+      .map((f) => this.#withReal(f));
   }
 
-  /** Resolves each stored folder's real path once, here, not on every `decide` (a hung mount). */
+  #withReal<F extends { path: string; real?: string }>(f: F): F {
+    const real = this.recordedReal(f.path);
+    return real === undefined || f.real === real ? f : { ...f, real };
+  }
+
+  /**
+   * The real path a granted root had when it was granted: recorded in the policy, seen at the
+   * pick, or the first one seen for an older grant. Undefined when nothing is known yet.
+   */
+  recordedReal(path: string): string | undefined {
+    return this.#recordedReal.get(path) ?? this.#observedReal.get(path);
+  }
+
+  /** Starts a look at every stored root (asynchronous: nothing here touches the disk). */
   #warmRefusals(): void {
+    const recorded = new Map<string, string>();
+    for (const f of this.#policy.config.folders ?? []) {
+      if (f.real === undefined) continue;
+      recorded.set(f.path, f.real);
+      try {
+        recorded.set(canonicalPath(f.path), f.real);
+      } catch {
+        // compilePolicy accepted it; nothing else to add.
+      }
+    }
+    this.#recordedReal = recorded;
+    for (const f of this.#policy.folders) this.folderRefused(f.path);
+    for (const r of this.#policy.workspaceRoots) this.#workspaceRefused(r);
+  }
+
+  /**
+   * Waits until every root lookup in flight has finished (tests, and the Gateway once at start).
+   * With `timeoutMs`, waits no longer than that.
+   */
+  async foldersSettled(timeoutMs?: number): Promise<void> {
+    for (;;) {
+      const pending = [...this.#rootLookups.values()].map((l) => l.done);
+      if (pending.length === 0) return;
+      if (timeoutMs === undefined) await Promise.all(pending);
+      else {
+        await raceTimeout(Promise.all(pending), timeoutMs);
+        return;
+      }
+    }
+  }
+
+  /**
+   * Before an evaluation: waits (at most `FOLDER_FIRST_LOOK_WAIT_MS`, once per lookup) for the
+   * looks at roots that have no usable answer yet: never looked at, or past the stale cap. On a
+   * healthy disk that is a fraction of a millisecond; a hung mount costs one short wait, after
+   * which the root is judged as `folderRefused` says. Undefined when there is nothing to wait for,
+   * so an evaluation does not yield for nothing.
+   */
+  #settleFolders(threadId: string | undefined): Promise<void> | undefined {
+    const paths = [
+      ...this.#policy.folders.map((f) => f.path),
+      ...this.#policy.workspaceRoots,
+      ...(threadId === undefined ? [] : this.sessionFolders(threadId).map((f) => f.path)),
+    ];
     const now = this.clock.now();
-    const waiting = (p: string): boolean => (this.#refusedRetryAt.get(p) ?? 0) > now;
-    for (const f of this.#policy.folders) if (!waiting(f.path)) this.folderRefused(f.path);
-    for (const r of this.#policy.workspaceRoots) if (!waiting(r)) this.#workspaceRefused(r);
+    const waits: Promise<void>[] = [];
+    for (const path of paths) {
+      this.folderRefused(path);
+      const look = this.#rootLooks.get(path);
+      const lookup = this.#rootLookups.get(path);
+      if (look === undefined || lookup === undefined || lookup.waited) continue;
+      if (look.first === true || now - look.checkedAt > FOLDER_STALE_CAP_MS) {
+        lookup.waited = true;
+        waits.push(lookup.done);
+      }
+    }
+    return waits.length === 0
+      ? undefined
+      : raceTimeout(Promise.all(waits), FOLDER_FIRST_LOOK_WAIT_MS);
+  }
+
+  /** Starts one asynchronous look at a root unless one is in flight. */
+  #lookAt(path: string): void {
+    if (this.#rootLookups.has(path)) return;
+    const done = lookupRootFacts(path, this.recordedReal(path) === undefined).then(
+      (facts) => this.#looked(path, facts),
+      () => this.#looked(path, "error"),
+    );
+    const entry = { done, waited: false, since: this.clock.now() };
+    this.#rootLookups.set(path, entry);
+    void done.finally(() => {
+      if (this.#rootLookups.get(path) === entry) this.#rootLookups.delete(path);
+    });
+  }
+
+  #looked(path: string, facts: RootFacts | "error"): void {
+    this.#rootLooks.set(path, { facts, checkedAt: this.clock.now() });
+    this.#rootVerdicts.delete(path);
+    // An older grant with nothing recorded: the first real path seen where it still counts is
+    // what later looks compare with (a parent swapped afterwards is caught), and it is stored.
+    if (facts === "error" || facts.real === undefined || this.recordedReal(path) !== undefined)
+      return;
+    if (this.folderRefused(path)) return;
+    this.#observedReal.set(path, facts.real);
+    this.#rootVerdicts.delete(path);
+    const inSettings = (this.#policy.config.folders ?? []).some((f) => f.path === path);
+    // Stored after this look is done (the store writes the policy, which calls `setPolicy`).
+    // If that fails it is still remembered for as long as the Gateway runs.
+    const real = facts.real;
+    if (inSettings) {
+      void Promise.resolve()
+        .then(() => this.#folderAccess?.recordReal?.(path, real))
+        .catch(() => {});
+    }
+  }
+
+  /** A root the owner just picked: its real path is known now, so no first look is needed. */
+  #pickedRoot(path: string): void {
+    this.#observedReal.set(path, path);
+    this.#rootLooks.set(path, { facts: { real: path, link: false }, checkedAt: this.clock.now() });
+    this.#rootVerdicts.delete(path);
   }
 
   subscribe(listener: (e: BrokerEvent) => void): () => void {
@@ -870,18 +1042,16 @@ export class PsychePermissionBroker implements PermissionBroker {
   }
 
   /**
-   * A granted folder inside a system root (`inSystemRoot`), as written or by its real path (a symlink).
-   * Such a folder covers nothing; Settings lists it as refused.
+   * Whether a granted root covers nothing now (`grantedRootRefused`): inside a system root as
+   * written or by its real path, or leading somewhere else than where it was granted. Settings
+   * lists such a folder as refused. Judged from the last look at the disk (`#rootLooks`), never
+   * a synchronous lookup: a look older than `FOLDER_FRESH_MS` starts an asynchronous refresh and
+   * the last verdict holds meanwhile; a failed look, or a refresh outstanding for
+   * `FOLDER_STALE_CAP_MS` (a hung mount), refuses. Before the first look completes the root is
+   * judged as written (an evaluation waits briefly for it, see `#settleFolders`).
    */
   folderRefused(path: string): boolean {
-    const retryAt = this.#refusedRetryAt.get(path);
-    if (retryAt !== undefined) {
-      if (this.clock.now() < retryAt) return true;
-      this.#refusedRetryAt.delete(path);
-    }
     const env = this.#refuseEnv();
-    // The string-only part is memoised; the real path is looked up on every call, so a root
-    // swapped for a link after the policy was set stops counting at once.
     const key = `sys\0${path}`;
     let named = this.#refusedMemo.get(key);
     if (named === undefined) {
@@ -889,23 +1059,23 @@ export class PsychePermissionBroker implements PermissionBroker {
       this.#refusedMemo.set(key, named);
     }
     if (named) return true;
-    try {
-      // The native call, so `/.nofollow/..` links and case on disk show up; anything but a
-      // missing path leaves the real location unknown, which counts as refused.
-      const real = realpathSync.native(path);
-      if (real === path) return false;
-      if (inSystemRoot(real, env)) return true;
-      // Moved to a different folder (not just spelled differently): it covers nothing.
-      return rootMoved(path, real, realpathSync.native(dirname(path)), env);
-    } catch (err) {
-      // Refused for now, and remembered only briefly: a mount that timed out (SMB, NFS) is
-      // judged again within a minute, and a hung one is not looked up on every call.
-      if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-        this.#refusedRetryAt.set(path, this.clock.now() + FOLDER_ERROR_RETRY_MS);
-        return true;
-      }
-      return false;
+    const now = this.clock.now();
+    let look = this.#rootLooks.get(path);
+    if (look === undefined) {
+      look = { facts: { link: false }, checkedAt: now, first: true };
+      this.#rootLooks.set(path, look);
+      this.#lookAt(path);
+    } else if (now - look.checkedAt > FOLDER_FRESH_MS) this.#lookAt(path);
+    const lookup = this.#rootLookups.get(path);
+    if (lookup !== undefined && now - lookup.since > FOLDER_STALE_CAP_MS) return true;
+    if (look.facts === "error") return true;
+    if (look.first === true) return grantedRootRefused(path, look.facts, undefined, env);
+    let verdict = this.#rootVerdicts.get(path);
+    if (verdict === undefined) {
+      verdict = grantedRootRefused(path, look.facts, this.recordedReal(path), env);
+      this.#rootVerdicts.set(path, verdict);
     }
+    return verdict;
   }
 
   /** A workspace root: refused like a grant would be (`refuseFolder`), or inside a system root. */
@@ -2324,6 +2494,7 @@ export class PsychePermissionBroker implements PermissionBroker {
         await this.#log("folder.persist_failed", actorOf(by), { approvalId: fa.id }, { ...pick });
       }
     }
+    this.#pickedRoot(pick.path);
     if (kept === "once" && threadId != null) {
       const roots = this.#sessionFolders.get(threadId) ?? [];
       this.#sessionFolders.set(threadId, [...roots.filter((r) => r.path !== pick.path), pick]);
@@ -2443,6 +2614,7 @@ export class PsychePermissionBroker implements PermissionBroker {
         // A re-attach refreshes the record and the file grant together, so they stay equal.
         this.#attachRecords.set(recordKey, this.clock.now() + ATTACH_GRANT_MS);
         if (covered === undefined) {
+          this.#pickedRoot(file.path);
           const roots = this.#sessionFolders.get(threadId) ?? [];
           this.#sessionFolders.set(threadId, [
             ...roots.filter((r) => r.path !== file.path),

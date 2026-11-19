@@ -226,6 +226,11 @@ function grantLabel(g: Grant): string {
  * this conversation's) and live standing grants. Folders come first, longest-lived first.
  */
 export async function accessEntries(broker: PsychePermissionBroker): Promise<AccessEntry[]> {
+  // Each folder's "refused" mark comes from the broker's last look at the disk: start a fresh
+  // look where one is due and give it a moment (never long: a hung mount must not hold Settings).
+  for (const f of broker.policy.folders ?? []) broker.folderRefused(f.path);
+  for (const { entry } of broker.allSessionFolders()) broker.folderRefused(entry.path);
+  await broker.foldersSettled(250);
   const out: AccessEntry[] = [];
   for (const f of broker.policy.folders ?? []) {
     out.push({

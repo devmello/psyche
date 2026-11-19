@@ -2,10 +2,20 @@ import { mkdir, mkdtemp, realpath, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { FOLDER_FRESH_MS } from "../src/broker.ts";
 import { rootMoved } from "../src/folder-access.ts";
-import { makeBroker } from "./helpers.ts";
+import { type Harness, makeBroker } from "./helpers.ts";
 
-/** `folderRefused` fails closed: only a missing path (ENOENT) may be judged as typed. */
+/**
+ * `folderRefused` fails closed: only a missing path (ENOENT) may be judged as typed. It answers
+ * from the broker's last look at the disk, refreshed asynchronously once it is older than
+ * `FOLDER_FRESH_MS`; `look` waits that long and lets the refresh land.
+ */
+async function look(h: Harness): Promise<void> {
+  h.clock.advance(FOLDER_FRESH_MS + 1);
+  h.broker.grantedFolders();
+  await h.broker.foldersSettled();
+}
 
 describe.skipIf(process.platform === "win32")("folderRefused when the real path is unknown", () => {
   it("refuses a granted folder whose realpath fails with anything but ENOENT", async () => {
@@ -16,6 +26,7 @@ describe.skipIf(process.platform === "win32")("folderRefused when the real path 
       policy: { folders: [{ path: loop, mode: "rw" }] },
       hostProgram: { home },
     });
+    await h.broker.foldersSettled();
     expect(h.broker.folderRefused(loop)).toBe(true);
     expect(h.broker.grantedFolders()).toEqual([]);
   });
@@ -28,15 +39,16 @@ describe.skipIf(process.platform === "win32")("folderRefused when the real path 
       policy: { folders: [{ path: flaky, mode: "rw" }] },
       hostProgram: { home },
     });
+    await h.broker.foldersSettled();
     expect(h.broker.folderRefused(flaky)).toBe(true);
     await rm(flaky);
     await mkdir(flaky);
-    // Within the retry window the error answer holds (a hung mount isn't looked up each call).
+    // Until the next look the failed answer holds (a hung mount isn't looked up on each call).
     expect(h.broker.folderRefused(flaky)).toBe(true);
-    // No setPolicy in between: after the window the folder is judged again.
-    h.clock.advance(31_000);
+    // No setPolicy in between: a later read looks again, and the folder counts.
+    await look(h);
     expect(h.broker.folderRefused(flaky)).toBe(false);
-    expect(h.broker.grantedFolders()).toEqual([{ path: flaky, mode: "rw" }]);
+    expect(h.broker.grantedFolders()).toEqual([{ path: flaky, mode: "rw", real: flaky }]);
   });
 
   it("keeps a folder that does not exist yet", async () => {
@@ -46,6 +58,8 @@ describe.skipIf(process.platform === "win32")("folderRefused when the real path 
       policy: { folders: [{ path: later, mode: "rw" }] },
       hostProgram: { home },
     });
+    expect(h.broker.folderRefused(later)).toBe(false);
+    await h.broker.foldersSettled();
     expect(h.broker.folderRefused(later)).toBe(false);
     expect(h.broker.grantedFolders()).toEqual([{ path: later, mode: "rw" }]);
   });
@@ -58,6 +72,7 @@ describe.skipIf(process.platform === "win32")("folderRefused when the real path 
       policy: { folders: [{ path: link, mode: "rw" }] },
       hostProgram: { home },
     });
+    await h.broker.foldersSettled();
     expect(h.broker.folderRefused(link)).toBe(true);
   });
 });
@@ -75,7 +90,7 @@ describe.skipIf(process.platform === "win32")(
       ["a shareable folder (~/Documents)", ["Documents"]],
       ["a sibling project", ["Projects", "other"]],
       ["a different volume-like folder", ["Volumes", "X"]],
-    ])("is refused at once when swapped for a link to %s", async (_l, parts) => {
+    ])("is refused by the next look when swapped for a link to %s", async (_l, parts) => {
       const { home, root } = await setup();
       const target = join(home, ...parts);
       await mkdir(target, { recursive: true });
@@ -84,9 +99,11 @@ describe.skipIf(process.platform === "win32")(
         policy: { folders: [{ path: root, mode: "rw" }] },
         hostProgram: { home },
       });
-      expect(h.broker.grantedFolders()).toEqual([{ path: root, mode: "rw" }]);
+      await h.broker.foldersSettled();
+      expect(h.broker.grantedFolders()).toEqual([{ path: root, mode: "rw", real: root }]);
       await rm(root, { recursive: true });
       await symlink(target, root);
+      await look(h);
       expect(h.broker.folderRefused(root)).toBe(true);
       expect(h.broker.grantedFolders()).toEqual([]);
     });
@@ -107,6 +124,11 @@ describe.skipIf(process.platform === "win32")(
         },
         hostProgram: { home },
       });
+      await h.broker.foldersSettled();
+      expect(h.broker.grantedFolders().map((f) => f.path)).toEqual([under, later]);
+      // The first real path seen is what later looks compare with.
+      expect(h.broker.recordedReal(under)).toBe(join(home, "real", "p"));
+      await look(h);
       expect(h.broker.grantedFolders().map((f) => f.path)).toEqual([under, later]);
     });
 
@@ -114,6 +136,9 @@ describe.skipIf(process.platform === "win32")(
       const dir = await mkdtemp("/tmp/psy-mv-tmp-");
       try {
         const h = makeBroker({ policy: { folders: [{ path: dir, mode: "rw" }] }, hostProgram: {} });
+        await h.broker.foldersSettled();
+        expect(h.broker.folderRefused(dir)).toBe(false);
+        await look(h);
         expect(h.broker.folderRefused(dir)).toBe(false);
       } finally {
         await rm(dir, { recursive: true });
@@ -124,21 +149,37 @@ describe.skipIf(process.platform === "win32")(
 
 describe("rootMoved spellings", () => {
   const ci = { caseInsensitive: true };
+  const cs = { caseInsensitive: false };
   it.each([
     ["/tmp/x", "/private/tmp/x", "/private/tmp", ci, false],
+    ["/tmp/x", "/tmp/x", "/private/tmp", ci, false],
     ["/var/x", "/private/var/x", "/private/var", ci, false],
+    ["/etc/x", "/private/etc/x", "/private/etc", ci, false],
     ["/Users/me/Projects/App", "/Users/me/projects/app", "/Users/me/Projects", ci, false],
     ["/Users/me/p", "/System/Volumes/Data/Users/me/p", "/Users/me", ci, false],
+    ["/Users/me/p", "/System/Volumes/Data/Users/me/q", "/Users/me", ci, true],
+    ["/tmp/x", "/private/var/folders/a/x", "/private/tmp", ci, true],
     ["/Users/me/p", "/Users/me/Documents", "/Users/me", ci, true],
     ["/Users/me/p", "/Volumes/X/p", "/Users/me", ci, true],
-    ["/Users/me/App", "/Users/me/app", "/Users/me", { caseInsensitive: false }, true],
+    ["/Users/me/a/root", "/Users/me/Documents/evil/root", "/Users/me/Documents/evil", ci, false],
+    ["/Users/me/App", "/Users/me/app", "/Users/me", cs, true],
+    // Review r1 finding 3: Windows paths fold case whatever the POSIX setting says.
+    ["C:\\Users\\o\\projects", "C:\\Users\\o\\Projects", "C:\\Users\\o", cs, false],
+    [
+      "c:\\users\\o\\projects\\app",
+      "C:\\Users\\o\\Projects\\App",
+      "C:\\Users\\o\\Projects",
+      cs,
+      false,
+    ],
+    ["C:\\Users\\o\\proj", "D:\\elsewhere\\proj", "C:\\Users\\o", cs, true],
   ])("%s -> %s", (stored, real, parent, env, moved) => {
     expect(rootMoved(stored, real, parent, env)).toBe(moved);
   });
 });
 
-describe.skipIf(process.platform === "win32")("retry window", () => {
-  it("uses the broker clock and survives an unrelated setPolicy", async () => {
+describe.skipIf(process.platform === "win32")("failed looks", () => {
+  it("use the broker clock, and an unrelated setPolicy keeps the last look", async () => {
     const home = await realpath(await mkdtemp(join(tmpdir(), "psy-rw-")));
     const flaky = join(home, "flaky");
     await symlink(flaky, flaky);
@@ -146,12 +187,14 @@ describe.skipIf(process.platform === "win32")("retry window", () => {
       policy: { folders: [{ path: flaky, mode: "rw" }] },
       hostProgram: { home },
     });
+    await h.broker.foldersSettled();
     expect(h.broker.folderRefused(flaky)).toBe(true);
     await rm(flaky);
     await mkdir(flaky);
     h.broker.setPolicy({ ...h.broker.policy });
+    await h.broker.foldersSettled();
     expect(h.broker.folderRefused(flaky)).toBe(true);
-    h.clock.advance(31_000);
+    await look(h);
     expect(h.broker.folderRefused(flaky)).toBe(false);
   });
 });

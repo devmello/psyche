@@ -83,7 +83,15 @@ export const PolicyConfig = Type.Object(
     folders: Type.Optional(
       Type.Array(
         Type.Object(
-          { path: Type.String({ minLength: 1 }), mode: StringEnum(["ro", "rw"]) },
+          {
+            path: Type.String({ minLength: 1 }),
+            mode: StringEnum(["ro", "rw"]),
+            /**
+             * The folder's real path when it was granted, set by the Gateway only (a pick, a
+             * Settings write, or the first look at an older grant). See `grantedRootRefused`.
+             */
+            real: Type.Optional(Type.String({ minLength: 1 })),
+          },
           { additionalProperties: false },
         ),
       ),

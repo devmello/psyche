@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { knownCliDirs } from "@psyche/model-router";
 import { beforeAll, describe, expect, it } from "vitest";
+import { FOLDER_FRESH_MS } from "../src/broker.ts";
 import {
   assertFolderGrantable,
   inSystemRoot,
@@ -194,19 +195,27 @@ describe.skipIf(WIN)("every reader of the granted folders sees the filter (3, 4,
     expect(d.rule).toBe("folder:workspace");
   });
 
-  it("a granted folder swapped for a link to /opt or to another folder stops counting at once", async () => {
+  it("a granted folder swapped for a link to /opt or to another folder stops counting by the next look", async () => {
     const root = join(home, "swap-root");
     await mkdir(root);
     const h = makeBroker({
       policy: { folders: [{ path: root, mode: "rw" }] },
       hostProgram: { home },
     });
+    await h.broker.foldersSettled();
     expect(h.broker.grantedFolders()).toHaveLength(1);
+    const look = async () => {
+      h.clock.advance(FOLDER_FRESH_MS + 1);
+      h.broker.grantedFolders();
+      await h.broker.foldersSettled();
+    };
     await rm(root, { recursive: true });
     await symlink("/opt", root);
+    await look();
     expect(h.broker.grantedFolders()).toHaveLength(0);
     await rm(root);
     await symlink(join(home, "Projects"), root);
+    await look();
     expect(h.broker.grantedFolders()).toHaveLength(0);
   });
 });

@@ -25,12 +25,13 @@ import {
   classifyHostCommand,
   type FolderAccessEnv,
   type FolderGrantEntry,
+  grantedRootRefused,
   hostProgramCoverage,
-  inSystemRoot,
+  lookupRootFacts,
   operandsInside,
   programName,
   READ_ONLY_RULE,
-  rootMoved,
+  type RootFacts,
   SYSTEM_BIN_DIRS,
 } from "@psyche/permissions";
 import {
@@ -649,25 +650,26 @@ async function grantedFolder(
   } catch {
     throw new PsycheError("not_found", `${cwd} does not exist`);
   }
-  // A granted root that became a link since the policy was set is judged by where it leads now:
-  // moved to any other folder (a system folder, ~/Documents, a sibling project, /Volumes/X) it
-  // covers nothing. Spelling moves (case, /tmp -> /private/tmp, the firmlinked Data volume) and a
-  // root that is still where it was keep their meaning, so an old home-root grant still works.
+  // Each granted root is looked up now, here (the broker's answer can be a few seconds old), and
+  // judged by `grantedRootRefused`: inside a system folder, leading to a place a grant would be
+  // refused (home, ~/Library, ~/.ssh, Psyche's data), or anywhere else than where it was granted
+  // (its recorded real path; a swapped parent too), it covers nothing. Spelling moves (case,
+  // /tmp -> /private/tmp, the firmlinked Data volume) and an unmoved root keep their meaning, so
+  // an old home-root grant still works. A root whose real path cannot be read is left out.
   const resolvedFolders = (
     await Promise.all(
-      folders.map(async (f) => {
-        const real = await realpath(f.path).catch(() => f.path);
-        let moved = false;
-        if (real !== f.path) {
-          const parent = await realpath(dirname(f.path)).catch(() => undefined);
-          moved = parent === undefined ? false : rootMoved(f.path, real, parent, env);
+      folders.map(async (f): Promise<FolderGrantEntry | undefined> => {
+        let facts: RootFacts;
+        try {
+          facts = await lookupRootFacts(f.path, f.real === undefined);
+        } catch {
+          return undefined;
         }
-        return { entry: { ...f, path: real }, moved };
+        if (grantedRootRefused(f.path, facts, f.real, env)) return undefined;
+        return { ...f, path: facts.real ?? f.path };
       }),
     )
-  )
-    .filter(({ entry, moved }) => !moved && !inSystemRoot(entry.path, env))
-    .map(({ entry }) => entry);
+  ).filter((f): f is FolderGrantEntry => f !== undefined);
   const folder = folderOf(real, resolvedFolders, platform);
   if (folder === undefined) {
     throw new PsycheError("forbidden", `${real} is outside every granted folder`, {

@@ -280,6 +280,20 @@ function queued(path: string): ToolResult {
   };
 }
 
+/**
+ * `permissions.policy.folders` with `real` recorded for the entry at `path` that has none yet
+ * (the broker's first look at an older grant), or undefined when there is nothing to record: no
+ * such entry, or one that already has a real path (that one is never replaced).
+ */
+export function withRecordedReal<
+  P extends { folders?: { path: string; mode: "ro" | "rw"; real?: string }[] },
+>(policy: P, path: string, real: string): P | undefined {
+  const folders = policy.folders ?? [];
+  const at = folders.findIndex((f) => f.path === path && f.real === undefined);
+  if (at === -1) return undefined;
+  return { ...policy, folders: folders.map((f, i) => (i === at ? { ...f, real } : f)) };
+}
+
 /** `permissions.policy.folders` with `entry` added (a wider mode replaces a narrower one). */
 export function withFolder<P extends { folders?: { path: string; mode: "ro" | "rw" }[] }>(
   policy: P,

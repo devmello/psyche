@@ -5,7 +5,11 @@ import type { AgentToolRegistration, ToolRunContext } from "@psyche/agent-core";
 import { fileTools } from "@psyche/files";
 import { createPermissionBroker, type PsychePermissionBroker } from "@psyche/permissions";
 import { beforeEach, describe, expect, it } from "vitest";
-import { requestFolderAccessTool, withFolder } from "../src/compose/folder-access.ts";
+import {
+  requestFolderAccessTool,
+  withFolder,
+  withRecordedReal,
+} from "../src/compose/folder-access.ts";
 
 /**
  * `request_folder_access` end to end below the loop: the tool raises the card, the owner's pick
@@ -269,6 +273,31 @@ describe("withFolder", () => {
     expect(withFolder(a, { path: "/x", mode: "ro" }).folders).toHaveLength(1);
     expect(withFolder(a, { path: "/x", mode: "rw" }).folders).toEqual([{ path: "/x", mode: "rw" }]);
     expect(withFolder(a, { path: "/x", mode: "ro" }).folders).toEqual([{ path: "/x", mode: "ro" }]);
+  });
+});
+
+/** PR #1395 r1: the broker's first look at an older grant is stored with it, never over one. */
+describe("withRecordedReal", () => {
+  const policy = {
+    other: 1,
+    folders: [
+      { path: "/a", mode: "rw" as const },
+      { path: "/b", mode: "ro" as const, real: "/real/b" },
+    ],
+  };
+  it("records a real path for an entry that has none, and keeps the rest of the policy", () => {
+    expect(withRecordedReal(policy, "/a", "/real/a")).toEqual({
+      other: 1,
+      folders: [
+        { path: "/a", mode: "rw", real: "/real/a" },
+        { path: "/b", mode: "ro", real: "/real/b" },
+      ],
+    });
+  });
+  it("never replaces a recorded one, and does nothing for a folder that is gone", () => {
+    expect(withRecordedReal(policy, "/b", "/elsewhere")).toBeUndefined();
+    expect(withRecordedReal(policy, "/gone", "/real/gone")).toBeUndefined();
+    expect(withRecordedReal({}, "/a", "/real/a")).toBeUndefined();
   });
 });
 
