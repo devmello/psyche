@@ -3872,6 +3872,24 @@ export interface ConnectorsGetResult {
     connector: Connector;
 }
 
+export interface ConnectorsGoogleClientSetParams {
+    clientId:      string;
+    clientSecret?: string;
+}
+
+export interface ConnectorsGoogleClientSetResult {
+    status: GoogleClientStatus;
+}
+
+export interface GoogleClientStatus {
+    clientId?:  string;
+    configured: boolean;
+    hasSecret:  boolean;
+    source:     GoogleClientStatusSource | null;
+}
+
+export type GoogleClientStatusSource = "app" | "config";
+
 export interface ConnectorsInstallCustomParams {
     approvalId: string;
     proposalId: string;

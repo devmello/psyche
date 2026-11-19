@@ -1148,6 +1148,22 @@
         "sideEffecting": false
       },
       {
+        "description": "Whether the owner's own Google OAuth client (Desktop app) is set up on this Gateway, and its client id. Never returns the client secret.",
+        "name": "connectors.googleClient",
+        "params": "#/$defs/ConnectorsGoogleClientParams",
+        "result": "#/$defs/GoogleClientStatus",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: saves the owner's Google OAuth client for Connect. The id is kept as an internal setting and the secret as a vault item bound to Google's token endpoint. invalid_params when the id is not a Google client id; unavailable while the vault is locked and a secret is given. A client set in config.json or the environment wins and is refused with conflict.",
+        "name": "connectors.googleClient.set",
+        "params": "#/$defs/ConnectorsGoogleClientSetParams",
+        "result": "#/$defs/ConnectorsGoogleClientSetResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Side-effecting: enables a staged custom connector; approval_required without its approved skill_install.",
         "name": "connectors.installCustom",
         "params": "#/$defs/ConnectorsInstallCustomParams",
@@ -15932,6 +15948,39 @@
       ],
       "type": "object"
     },
+    "ConnectorsGoogleClientParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "ConnectorsGoogleClientSetParams": {
+      "properties": {
+        "clientId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "clientSecret": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "clientId"
+      ],
+      "type": "object"
+    },
+    "ConnectorsGoogleClientSetResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/GoogleClientStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
     "ConnectorsInstallCustomParams": {
       "properties": {
         "proposalId": {
@@ -21442,6 +21491,40 @@
         "taskIds",
         "milestones",
         "links"
+      ],
+      "type": "object"
+    },
+    "GoogleClientStatus": {
+      "properties": {
+        "configured": {
+          "type": "boolean"
+        },
+        "clientId": {
+          "type": "string"
+        },
+        "hasSecret": {
+          "type": "boolean"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "const": "app",
+              "type": "string"
+            },
+            {
+              "const": "config",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "configured",
+        "hasSecret",
+        "source"
       ],
       "type": "object"
     },

@@ -2419,6 +2419,19 @@ export const zh: Partial<Catalogue> = {
   "settings.connect.noSignIn": "Gateway 未返回登录页面",
   "settings.connect.notConfigured":
     "此 Gateway 上尚未设置 {name}：它需要你自己的 OAuth 客户端（见 Psyche 文档中的“连接 Google”指南）。稍后可在“设置 → 连接器”中设置。",
+  "settings.googleClient.using": "正在使用你的 Google 客户端 {clientId}。",
+  "settings.googleClient.fromConfig": "它在 config.json 或环境变量中设置。",
+  "settings.googleClient.change": "使用其他客户端",
+  "settings.googleClient.help":
+    "Psyche 没有自己的 Google 客户端。请在你自己的 Google Cloud 项目中创建一次免费的桌面应用 OAuth 客户端，然后把它的 ID 粘贴到这里。",
+  "settings.googleClient.docs": "如何创建",
+  "settings.googleClient.id": "客户端 ID",
+  "settings.googleClient.idHint": "以 .apps.googleusercontent.com 结尾",
+  "settings.googleClient.invalid":
+    "这不是 Google 客户端 ID。它以 .apps.googleusercontent.com 结尾。",
+  "settings.googleClient.secret": "客户端密钥",
+  "settings.googleClient.secretHint": "保存在你的保险库中，只会发送给 Google。",
+  "settings.googleClient.saveFailed": "无法保存 Google 客户端：{reason}",
   "settings.connect.alreadyConnected": "{name} 已经连接。",
   "settings.connect.needsPermission": "{name} 已设置，但 macOS 尚未允许它。请在以下位置允许：",
   "settings.connect.openSystemSettings": "打开系统设置",

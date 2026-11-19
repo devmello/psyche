@@ -2451,6 +2451,19 @@ export const hi: Partial<Catalogue> = {
   "settings.connect.noSignIn": "Gateway ने साइन-इन पेज नहीं लौटाया",
   "settings.connect.notConfigured":
     "{name} अभी इस Gateway पर सेट अप नहीं है: इसे आपका अपना OAuth क्लाइंट चाहिए (Psyche के दस्तावेज़ों में Connecting Google गाइड)। इसे बाद में सेटिंग्ज़ → कनेक्टर में सेट अप करें।",
+  "settings.googleClient.using": "आपका Google क्लाइंट {clientId} इस्तेमाल हो रहा है।",
+  "settings.googleClient.fromConfig": "यह config.json या एनवायरनमेंट में सेट है।",
+  "settings.googleClient.change": "दूसरा क्लाइंट इस्तेमाल करें",
+  "settings.googleClient.help":
+    "Psyche का अपना कोई Google क्लाइंट नहीं है। अपने Google Cloud प्रोजेक्ट में एक बार मुफ़्त डेस्कटॉप-ऐप OAuth क्लाइंट बनाएँ, फिर उसकी ID यहाँ चिपकाएँ।",
+  "settings.googleClient.docs": "इसे कैसे बनाएँ",
+  "settings.googleClient.id": "क्लाइंट ID",
+  "settings.googleClient.idHint": ".apps.googleusercontent.com पर खत्म होती है",
+  "settings.googleClient.invalid":
+    "यह Google क्लाइंट ID नहीं है। यह .apps.googleusercontent.com पर खत्म होती है।",
+  "settings.googleClient.secret": "क्लाइंट सीक्रेट",
+  "settings.googleClient.secretHint": "आपके वॉल्ट में रखा जाता है और सिर्फ़ Google को भेजा जाता है।",
+  "settings.googleClient.saveFailed": "Google क्लाइंट सहेजा नहीं जा सका: {reason}",
   "settings.connect.alreadyConnected": "{name} पहले से कनेक्टेड है।",
   "settings.connect.needsPermission":
     "{name} सेट अप है, लेकिन macOS ने अभी इसकी अनुमति नहीं दी है। इसकी अनुमति यहाँ दें:",

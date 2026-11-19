@@ -2427,6 +2427,19 @@ export const pt: Partial<Catalogue> = {
   "settings.connect.noSignIn": "o Gateway não retornou uma página de login",
   "settings.connect.notConfigured":
     "{name} ainda não está configurado neste Gateway: precisa do seu próprio cliente OAuth (o guia Conectando o Google na documentação do Psyche). Configure depois em Ajustes → Conectores.",
+  "settings.googleClient.using": "Usando o seu cliente Google {clientId}.",
+  "settings.googleClient.fromConfig": "Está definido em config.json ou no ambiente.",
+  "settings.googleClient.change": "Usar outro cliente",
+  "settings.googleClient.help":
+    "O Psyche não tem um cliente Google próprio. Crie uma única vez um cliente OAuth gratuito do tipo aplicativo para computador no seu próprio projeto do Google Cloud e cole o ID dele aqui.",
+  "settings.googleClient.docs": "Como criar um",
+  "settings.googleClient.id": "ID do cliente",
+  "settings.googleClient.idHint": "Termina em .apps.googleusercontent.com",
+  "settings.googleClient.invalid":
+    "Isso não é um ID de cliente do Google. Ele termina em .apps.googleusercontent.com.",
+  "settings.googleClient.secret": "Segredo do cliente",
+  "settings.googleClient.secretHint": "Guardado no seu cofre e enviado somente ao Google.",
+  "settings.googleClient.saveFailed": "Não foi possível salvar o cliente Google: {reason}",
   "settings.connect.alreadyConnected": "{name} já está conectado.",
   "settings.connect.needsPermission":
     "{name} está configurado, mas o macOS ainda não o permitiu. Permita em",
