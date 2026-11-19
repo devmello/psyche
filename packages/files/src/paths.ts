@@ -176,6 +176,8 @@ export function fsError(err: unknown, path: string): unknown {
   if (code === "ENOENT") return new PsycheError("not_found", `${path} does not exist`);
   if (code === "ENOTDIR") return new PsycheError("invalid_params", `${path} is not a folder`);
   if (code === "EISDIR") return new PsycheError("invalid_params", `${path} is a folder`);
+  if (code === "ENAMETOOLONG")
+    return new PsycheError("invalid_params", `${path} has a name that is too long`);
   // O_NOFOLLOW on a link swapped in after the check.
   if (code === "ELOOP" || code === "EMLINK") {
     return new PsycheError("forbidden", `${path} is a symlink; use the real path`);

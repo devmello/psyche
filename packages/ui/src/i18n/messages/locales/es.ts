@@ -2982,6 +2982,32 @@ export const es: Partial<Catalogue> = {
   "screens.files.preview": "Previsualización",
   "screens.files.needsApp": "Las previsualizaciones necesitan la app de escritorio o la web.",
   "screens.files.pick": "Elige un archivo para previsualizarlo aquí.",
+  "screens.files.editReadOnly": "Solo lectura: esta carpeta se comparte sin edición.",
+  "screens.files.editOpening": "Abriendo {name} para editar",
+  "screens.files.editFailed": "Psyche no pudo abrir {name} para editar ({reason}).",
+  "screens.files.editNotText": "{name} no es texto UTF-8, así que no se puede editar aquí.",
+  "screens.files.unsaved": "Cambios sin guardar",
+  "screens.files.saved": "Guardado",
+  "screens.files.saving": "Guardando…",
+  "screens.files.discardAsk": "¿Descartar los cambios sin guardar?",
+  "screens.files.discard": "Descartar",
+  "screens.files.keepEditing": "Seguir editando",
+  "screens.files.conflict": "Este archivo cambió en el disco después de abrirlo.",
+  "screens.files.reload": "Volver a cargar",
+  "screens.files.overwrite": "Sobrescribir…",
+  "screens.files.overwriteAsk":
+    "¿Reemplazar la versión más reciente con tus cambios? Se perderá la versión más reciente.",
+  "screens.files.overwriteConfirm": "Sobrescribir",
+  "screens.files.saveFailed": "Psyche no pudo guardar {name} ({reason}).",
+  "screens.files.notSaved": "No guardado.",
+  "screens.files.editing": "Editando {name}",
+  "screens.files.editTooLarge":
+    "Solo vista: los archivos de más de 512 KB no se pueden editar aquí.",
+  "screens.files.saveTooLarge":
+    "Este cambio es demasiado grande para guardarlo desde aquí. Acorta el texto e inténtalo de nuevo.",
+  "screens.files.editMixedEol":
+    "{name} mezcla estilos de fin de línea, así que no se puede editar aquí.",
+  "screens.files.draftRestored": "Cambios sin guardar restaurados",
   "screens.library.section.documents": "Documentos",
   "screens.library.empty.documents":
     "Aún no hay documentos. Los archivos que el agente crea o recibe aparecen aquí.",

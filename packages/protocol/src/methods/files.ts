@@ -54,6 +54,18 @@ const chunkResult = {
   nextOffset: Nullable(Type.Integer({ minimum: 0 })),
 };
 
+/**
+ * The most text one `files.write` call saves (UTF-8 bytes). One frame is at most 1 MiB, JSON
+ * escaping can double the text, and a frame over the limit closes the socket: stay well under.
+ */
+export const FILE_WRITE_MAX_BYTES = 512 * 1024;
+
+/** The largest JSON-encoded `files.write` request a client may send (bytes). */
+export const FILE_WRITE_MAX_REQUEST_BYTES = 900 * 1000;
+
+/** The extensions `files.write` saves; the Files pane edits only these (Markdown, text, CSV). */
+export const FILE_WRITE_EXTENSIONS = [".md", ".markdown", ".txt", ".csv"] as const;
+
 export const FileEntryKind = StringEnum(["file", "folder", "other"], { $id: "FileEntryKind" });
 export type FileEntryKind = Static<typeof FileEntryKind>;
 
@@ -137,6 +149,23 @@ export const FilesMethods = {
     scope: "operator.read",
     description:
       "Reads a chunk of a file in a granted folder or the Library. invalid_params unless exactly one of path / libraryPath; forbidden outside them or through a symlink; not_found when missing.",
+  }),
+  "files.write": defineMethod({
+    params: Type.Object({
+      path: FileSourcePath,
+      content: Type.String({ description: "UTF-8 text" }),
+      ifMatch: Type.String({
+        description: "the etag `files.read` returned; the file must still match",
+      }),
+    }),
+    result: Type.Object({
+      etag: Type.String(),
+      modifiedAt: IsoDateTime,
+      size: Type.Integer({ minimum: 0 }),
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description: `The owner's own edit of an existing text file from the Files pane. Only a paired device with operator.admin can call it; no tool, agent, MCP server or channel reaches it, and it raises no approval card (the agent's write_file asks unless Auto mode or a grant allows it). The path must lie in a folder shared read & write (permissions.policy.folders, mode rw; a single attached file or a read-only folder never qualifies), go through no symlink, stay out of Psyche's home and the credential stores, and end in ${FILE_WRITE_EXTENSIONS.join(", ")}. The file must exist, have one name and be writable by its owner. Content is UTF-8, at most ${FILE_WRITE_MAX_BYTES} bytes (invalid_params above that) so the request fits one frame. ifMatch must equal the file's current etag or the call fails with conflict. The write is atomic (temp file, then rename) and keeps the permission bits (setuid and setgid are dropped). Audited as files.write with the path and byte count, never the content. forbidden, not_found, invalid_params, conflict. Side-effecting.`,
   }),
   "documents.convert": defineMethod({
     params: Type.Object({ ...fileSource, target: ConversionTarget, ...chunkParams }),

@@ -3021,6 +3021,33 @@ export const de: Partial<Catalogue> = {
   "screens.files.preview": "Vorschau",
   "screens.files.needsApp": "Vorschauen brauchen die Desktop- oder Web-App.",
   "screens.files.pick": "Wähle eine Datei, um sie hier in der Vorschau zu sehen.",
+  "screens.files.editReadOnly": "Nur lesbar: Dieser Ordner ist ohne Bearbeitung freigegeben.",
+  "screens.files.editOpening": "{name} wird zum Bearbeiten geöffnet",
+  "screens.files.editFailed": "Psyche konnte {name} nicht zum Bearbeiten öffnen ({reason}).",
+  "screens.files.editNotText": "{name} ist kein UTF-8-Text und lässt sich hier nicht bearbeiten.",
+  "screens.files.unsaved": "Nicht gesicherte Änderungen",
+  "screens.files.saved": "Gesichert",
+  "screens.files.saving": "Wird gesichert …",
+  "screens.files.discardAsk": "Nicht gesicherte Änderungen verwerfen?",
+  "screens.files.discard": "Verwerfen",
+  "screens.files.keepEditing": "Weiter bearbeiten",
+  "screens.files.conflict":
+    "Diese Datei wurde auf dem Datenträger geändert, nachdem du sie geöffnet hast.",
+  "screens.files.reload": "Neu laden",
+  "screens.files.overwrite": "Überschreiben …",
+  "screens.files.overwriteAsk":
+    "Die neuere Version durch deine Änderungen ersetzen? Die neuere Version geht verloren.",
+  "screens.files.overwriteConfirm": "Überschreiben",
+  "screens.files.saveFailed": "Psyche konnte {name} nicht sichern ({reason}).",
+  "screens.files.notSaved": "Nicht gesichert.",
+  "screens.files.editing": "{name} bearbeiten",
+  "screens.files.editTooLarge":
+    "Nur Ansicht: Dateien über 512 KB lassen sich hier nicht bearbeiten.",
+  "screens.files.saveTooLarge":
+    "Diese Änderung ist zu groß, um sie von hier zu sichern. Kürze den Text und versuche es erneut.",
+  "screens.files.editMixedEol":
+    "{name} mischt verschiedene Zeilenenden und lässt sich hier nicht bearbeiten.",
+  "screens.files.draftRestored": "Nicht gesicherte Änderungen wiederhergestellt",
   "screens.library.section.documents": "Dokumente",
   "screens.library.empty.documents":
     "Noch keine Dokumente. Dateien, die der Agent erstellt oder erhält, landen hier.",

@@ -5202,6 +5202,27 @@ export interface Folder {
 
 export type StarterFolderID = "documents" | "desktop" | "downloads";
 
+export interface FilesWriteParams {
+    /**
+     * UTF-8 text
+     */
+    content: string;
+    /**
+     * the etag `files.read` returned; the file must still match
+     */
+    ifMatch: string;
+    /**
+     * an absolute path in a granted folder
+     */
+    path: string;
+}
+
+export interface FilesWriteResult {
+    etag:       string;
+    modifiedAt: string;
+    size:       number;
+}
+
 export interface Frame {
     id?:             string;
     idempotencyKey?: string;

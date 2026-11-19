@@ -2902,6 +2902,32 @@ export const pt: Partial<Catalogue> = {
   "screens.files.preview": "Pré-visualização",
   "screens.files.needsApp": "As pré-visualizações precisam do app para desktop ou web.",
   "screens.files.pick": "Escolha um arquivo para pré-visualizá-lo aqui.",
+  "screens.files.editReadOnly": "Somente leitura: esta pasta é compartilhada sem edição.",
+  "screens.files.editOpening": "Abrindo {name} para edição",
+  "screens.files.editFailed": "O Psyche não conseguiu abrir {name} para edição ({reason}).",
+  "screens.files.editNotText": "{name} não é texto UTF-8, então não pode ser editado aqui.",
+  "screens.files.unsaved": "Alterações não salvas",
+  "screens.files.saved": "Salvo",
+  "screens.files.saving": "Salvando…",
+  "screens.files.discardAsk": "Descartar as alterações não salvas?",
+  "screens.files.discard": "Descartar",
+  "screens.files.keepEditing": "Continuar editando",
+  "screens.files.conflict": "Este arquivo mudou no disco depois que você o abriu.",
+  "screens.files.reload": "Recarregar",
+  "screens.files.overwrite": "Sobrescrever…",
+  "screens.files.overwriteAsk":
+    "Substituir a versão mais recente pelas suas alterações? A versão mais recente será perdida.",
+  "screens.files.overwriteConfirm": "Sobrescrever",
+  "screens.files.saveFailed": "O Psyche não conseguiu salvar {name} ({reason}).",
+  "screens.files.notSaved": "Não salvo.",
+  "screens.files.editing": "Editando {name}",
+  "screens.files.editTooLarge":
+    "Somente visualização: arquivos acima de 512 KB não podem ser editados aqui.",
+  "screens.files.saveTooLarge":
+    "Esta alteração é grande demais para ser salva daqui. Encurte o texto e tente de novo.",
+  "screens.files.editMixedEol":
+    "{name} mistura estilos de fim de linha, então não pode ser editado aqui.",
+  "screens.files.draftRestored": "Alterações não salvas restauradas",
   "screens.library.section.documents": "Documentos",
   "screens.library.empty.documents":
     "Nenhum documento ainda. Os arquivos que o agente cria ou recebe aparecem aqui.",

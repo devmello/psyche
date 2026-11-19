@@ -1,4 +1,10 @@
 export {
+  canEditPath,
+  type FileEditKind,
+  type FileEditSession,
+  fileEditKind,
+} from "./FileEditFrame.tsx";
+export {
   displayPath,
   type FileRef,
   FilesPane,
@@ -9,3 +15,9 @@ export {
   fileRefForTarget,
   libraryTarget,
 } from "./FilesPane.tsx";
+export {
+  hasLiveDirty,
+  markLiveDirty,
+  mayCloseFilesPane,
+  resetFileDrafts,
+} from "./file-drafts.ts";

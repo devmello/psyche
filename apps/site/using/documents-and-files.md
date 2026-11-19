@@ -84,7 +84,7 @@ Conversion needs a container runtime (Apple `container` on macOS 26 and later, o
 
 ## Limits today
 
-- Everything in the Files pane is view only. The Markdown editor (Rich, Source and Diff) and spreadsheet editing exist in the code, but the app does not turn them on yet. Edit files in another app, or ask the agent.
+- You can edit Markdown (`.md`, `.markdown`), text (`.txt`) and CSV files in the Files pane, and only in a folder you shared read & write. Press Edit, then Save. If the file changed on disk while you edited, Psyche offers Reload or Overwrite, and asks once more before it overwrites. Saving needs a paired device with admin rights, raises no approval card (it is you editing, as in Finder) and works on files up to 512 KB (larger ones are view only). Files you made read only in Finder are not overwritten. Excel (`.xlsx`) and other formats are view only, and so is everything in a folder shared read only or in the Library.
 - The Library has no text search box yet, and you cannot filter by tag. Use Search in the left rail or ⌘K.
 - Library actions such as "Trust this file", Quick Look, Reveal in Finder and Send to chat are not shown yet.
 - Files you attach in chat may not appear in the Library; the Gateway has no upload method for the Library yet.

@@ -2959,6 +2959,32 @@ export const fr: Partial<Catalogue> = {
   "screens.files.preview": "Aperçu",
   "screens.files.needsApp": "Les aperçus nécessitent l’app de bureau ou l’app web.",
   "screens.files.pick": "Choisissez un fichier pour l’afficher ici.",
+  "screens.files.editReadOnly": "Lecture seule : ce dossier est partagé sans modification.",
+  "screens.files.editOpening": "Ouverture de {name} pour modification",
+  "screens.files.editFailed": "Psyche n’a pas pu ouvrir {name} pour modification ({reason}).",
+  "screens.files.editNotText": "{name} n’est pas du texte UTF-8 ; il ne peut pas être modifié ici.",
+  "screens.files.unsaved": "Modifications non enregistrées",
+  "screens.files.saved": "Enregistré",
+  "screens.files.saving": "Enregistrement…",
+  "screens.files.discardAsk": "Abandonner les modifications non enregistrées ?",
+  "screens.files.discard": "Abandonner",
+  "screens.files.keepEditing": "Continuer à modifier",
+  "screens.files.conflict": "Ce fichier a changé sur le disque après son ouverture.",
+  "screens.files.reload": "Recharger",
+  "screens.files.overwrite": "Écraser…",
+  "screens.files.overwriteAsk":
+    "Remplacer la version plus récente par vos modifications ? La version plus récente sera perdue.",
+  "screens.files.overwriteConfirm": "Écraser",
+  "screens.files.saveFailed": "Psyche n’a pas pu enregistrer {name} ({reason}).",
+  "screens.files.notSaved": "Non enregistré.",
+  "screens.files.editing": "Modification de {name}",
+  "screens.files.editTooLarge":
+    "Affichage seul : les fichiers de plus de 512 Ko ne peuvent pas être modifiés ici.",
+  "screens.files.saveTooLarge":
+    "Cette modification est trop volumineuse pour être enregistrée d’ici. Raccourcissez le texte et réessayez.",
+  "screens.files.editMixedEol":
+    "{name} mélange plusieurs styles de fin de ligne ; il ne peut pas être modifié ici.",
+  "screens.files.draftRestored": "Modifications non enregistrées restaurées",
   "screens.library.section.documents": "Documents",
   "screens.library.empty.documents":
     "Aucun document pour l’instant. Les fichiers que l’agent crée ou reçoit arrivent ici.",
