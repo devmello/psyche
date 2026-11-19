@@ -866,44 +866,293 @@ describe.skipIf(!posixHost)(
       setPolicy({ folders: [{ path: repo, mode: "rw" }], exec: { execHostEnabled: true } });
     });
 
-    it("git asks for every reading subcommand a repo's config can turn into a program", async () => {
-      mkdirSync(repo, { recursive: true });
-      const git = (...a: string[]) => spawnSync("/usr/bin/git", a, { cwd: repo, env });
-      if (git("init", "-q").status !== 0) return; // no git on this machine
-      // What an untainted turn could write without a card before #1150's review: a filter, a
-      // textconv driver and a gpg program, each touching a marker outside the folder.
-      writeFileSync(join(repo, "a.txt"), "x\n");
-      git("add", "a.txt");
-      git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init");
-      writeFileSync(join(repo, "a.txt"), "changed\n");
-      writeFileSync(join(repo, ".gitattributes"), "* filter=pwn diff=pwn\n");
-      git("config", "filter.pwn.clean", `touch ${marker("filter")}; cat`);
-      git("config", "diff.pwn.textconv", `touch ${marker("textconv")}; cat`);
-      git("config", "gpg.program", `/bin/sh -c 'touch ${marker("gpg")}'`);
-      git("config", "log.showSignature", "true");
-      // The payload is real: plain git runs it.
-      git("diff");
-      expect(existsSync(marker("filter"))).toBe(true);
-      for (const m of ["filter", "textconv", "gpg"]) spawnSync("/bin/rm", ["-f", marker(m)]);
+    // The real program, started the way the tool starts it inside srt with the srt prefix dropped
+    // (the argv, env and hardening alone, without the sandbox's help).
+    const realDriver: CliDriver = {
+      start(file, args, options) {
+        const at = args.indexOf("--");
+        const [exe, ...rest] = at === -1 ? [file, ...args] : args.slice(at + 1);
+        const r = spawnSync(exe as string, rest, {
+          cwd: options?.cwd,
+          env: options?.env,
+          timeout: 20_000,
+        });
+        started.push({ file: exe as string, args: rest, ...(options ? { options } : {}) });
+        return {
+          pid: 1,
+          done: Promise.resolve({
+            exitCode: r.status,
+            signal: null,
+            stdout: r.stdout ?? Buffer.from(""),
+            stderr: r.stderr ?? Buffer.from(""),
+            stdoutTruncated: false,
+            stderrTruncated: false,
+            durationMs: 1,
+          }),
+          kill: () => undefined,
+        };
+      },
+      stream: () => {
+        throw new Error("not used");
+      },
+    };
+    const readyReal = async () => {
+      const t = execHostTool({
+        broker: recording(),
+        vault: { redact: (x) => x },
+        folders: () => broker.policy.folders ?? [],
+        srt: { resolve: async () => srt },
+        home: psycheHome,
+        userHome: home,
+        driver: realDriver,
+        audit: recordingAudit,
+      });
+      await new Promise((r) => setTimeout(r, 5));
+      return t;
+    };
+    const gitIn = (dir: string, ...a: string[]) =>
+      spawnSync("/usr/bin/git", a, { cwd: dir, env, encoding: "utf8" });
+    /** A repository with one commit and a working-tree change; null when git is missing here. */
+    const makeRepo = (name: string): string | null => {
+      const dir = join(home, "Projects", name);
+      mkdirSync(dir, { recursive: true });
+      if (gitIn(dir, "init", "-q").status !== 0) return null;
+      writeFileSync(join(dir, "a.txt"), "x\n");
+      gitIn(dir, "add", "a.txt");
+      gitIn(dir, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init");
+      writeFileSync(join(dir, "a.txt"), "changed\n");
+      return dir;
+    };
 
+    it("read-only git runs without a card and runs no program the repo's config names", async () => {
+      const dir = makeRepo("gitro-payloads");
+      if (dir === null) return; // no git on this machine
+      // What a hostile checkout carries: an fsmonitor hook, a clean filter, a textconv driver,
+      // an external diff, a gpg program, a pager, an ssh command: each touches a marker.
+      writeFileSync(join(dir, ".gitattributes"), "* filter=pwn diff=pwn\n");
+      gitIn(dir, "config", "core.fsmonitor", `touch ${marker("fsmonitor")} #`);
+      gitIn(dir, "config", "core.pager", `touch ${marker("pager")} #`);
+      gitIn(dir, "config", "core.sshCommand", `touch ${marker("ssh")} #`);
+      gitIn(dir, "config", "diff.external", `touch ${marker("external")} #`);
+      gitIn(dir, "config", "filter.pwn.clean", `touch ${marker("filter")}; cat`);
+      gitIn(dir, "config", "diff.pwn.textconv", `touch ${marker("textconv")}; cat`);
+      gitIn(dir, "config", "gpg.program", `/bin/sh -c 'touch ${marker("gpg")}'`);
+      gitIn(dir, "config", "log.showSignature", "true");
+      gitIn(dir, "config", "pager.status", `touch ${marker("pagerstatus")} #`);
+      const all = ["fsmonitor", "pager", "ssh", "external", "filter", "textconv", "gpg"];
+      const clean = () => {
+        for (const m of [...all, "pagerstatus"]) spawnSync("/bin/rm", ["-f", marker(m)]);
+      };
+      // The payloads are real: plain git runs them.
+      gitIn(dir, "status");
+      gitIn(dir, "diff");
+      expect(existsSync(marker("fsmonitor"))).toBe(true);
+      expect(existsSync(marker("filter"))).toBe(true);
+      clean();
+
+      setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+      const t = await readyReal();
+      const runs = [
+        ["git", "status"],
+        ["git", "status", "--short", "--branch"],
+        ["git", "log", "--oneline", "-5"],
+        ["git", "log", "--format=%h %s", "-n", "3"],
+        ["git", "diff"],
+        ["git", "diff", "--stat"],
+        ["git", "show", "HEAD", "--stat"],
+        ["git", "branch"],
+        ["git", "rev-parse", "HEAD"],
+        ["git", "ls-files"],
+        ["git", "remote", "-v"],
+      ];
+      auditTrail.length = 0;
+      for (const argv of runs) {
+        const params = { argv, cwd: dir };
+        expect(described(t, params).meta, argv.join(" ")).toMatchObject({
+          hostCommand: "read_only",
+        });
+        const d = await decide(t, params);
+        expect(d, argv.join(" ")).toMatchObject({ decision: "allow", rule: READ_ONLY_RULE });
+        const res = await run(
+          t,
+          params,
+          ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+        );
+        expect(
+          res.output,
+          `${argv.join(" ")}: ${(res.output as { stderr: string }).stderr}`,
+        ).toMatchObject({ exitCode: 0, outcome: "ok" });
+        for (const m of [...all, "pagerstatus"]) {
+          expect(existsSync(marker(m)), `${argv.join(" ")} ran the ${m} payload`).toBe(false);
+        }
+      }
+      // blame has no --no-textconv: with a textconv driver defined git refuses to run it (the
+      // override is empty) instead of running the driver. Either way no payload runs.
+      const blame = { argv: ["git", "blame", "a.txt"], cwd: dir };
+      const bd = await decide(t, blame);
+      await run(
+        t,
+        blame,
+        ctx({ authority: { rule: bd.rule, bindingHash: bd.bindingHash as string } }),
+      );
+      for (const m of [...all, "pagerstatus"])
+        expect(existsSync(marker(m)), `blame ${m}`).toBe(false);
+      const log = (await run(
+        t,
+        { argv: ["git", "log", "--oneline", "-5"], cwd: dir },
+        ctx({
+          authority: {
+            rule: READ_ONLY_RULE,
+            bindingHash: (
+              await decide(t, { argv: ["git", "log", "--oneline", "-5"], cwd: dir })
+            ).bindingHash as string,
+          },
+        }),
+      )) as { output: { stdout: string } };
+      expect(log.output.stdout).toContain("init");
+      // Every run is audited before and after, with the reason.
+      const begun = auditTrail.filter((e) => e.kind === "exec_host.read_only_run");
+      expect(begun.length).toBeGreaterThanOrEqual(runs.length);
+      for (const e of auditTrail) expect(e.data.reason).toBe("remembered: read-only git");
+      expect(auditTrail.filter((e) => e.kind === "exec_host.read_only_run.done").length).toBe(
+        begun.length,
+      );
+    });
+
+    it("blame runs quietly in an ordinary repository", async () => {
+      const dir = makeRepo("gitro-blame");
+      if (dir === null) return;
+      setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+      const t = await readyReal();
+      const params = { argv: ["git", "blame", "-L", "1,1", "a.txt"], cwd: dir };
+      const d = await decide(t, params);
+      expect(d.rule).toBe(READ_ONLY_RULE);
+      const res = await run(
+        t,
+        params,
+        ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+      );
+      expect(res.output).toMatchObject({ exitCode: 0, outcome: "ok" });
+    });
+
+    it("git that can write, execute or leave the folder asks (or is denied)", async () => {
+      const dir = makeRepo("gitro-asks");
+      if (dir === null) return;
+      setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
       const t = await ready();
       for (const argv of [
-        ["git", "status"],
-        ["git", "status", "-vv"],
-        ["git", "diff"],
+        ["git", "-c", "core.pager=sh", "status"],
+        ["git", "diff", "--output=/tmp/x"],
+        ["git", "log", "--ext-diff"],
+        ["git", "branch", "evil"],
+        ["git", "push"],
+        ["git", "-C", "/etc", "status"],
+        ["git", "status;", "rm", "-rf", "x"],
         ["git", "log", "--show-signature"],
         ["git", "log", "--format=%G?"],
-        ["git", "show", "--show-signature"],
+        ["git", "status", "-vv"],
         ["git", "branch", "--format=%(signature)"],
+        ["git", "remote", "add", "x", "https://example.com"],
+        ["/usr/bin/git", "status"],
       ]) {
-        const params = { argv, cwd: repo };
+        const params = { argv, cwd: dir };
         expect(described(t, params).meta, argv.join(" ")).toBeUndefined();
         const d = await decide(t, params);
         expect(d.decision, argv.join(" ")).toBe("ask");
         expect(d.sideEffect, argv.join(" ")).toBe("destructive");
       }
+      // Env or network take it out of the class too.
+      for (const extra of [{ env: { COLUMNS: "80" } }, { allowedDomains: ["example.com"] }]) {
+        const params = { argv: ["git", "status"], cwd: dir, ...extra };
+        expect(described(t, params).meta).toBeUndefined();
+        expect((await decide(t, params)).decision).toBe("ask");
+      }
+      // In a folder the owner has not shared: refused outright, never a quiet run.
+      const other = makeRepo("gitro-unshared");
+      if (other !== null) {
+        const d = await decide(t, { argv: ["git", "status"], cwd: other });
+        expect(d.decision).toBe("deny");
+      }
+      // Manual mode still asks for the plain read.
+      const plain = { argv: ["git", "status"], cwd: dir };
+      expect((await decide(t, plain, false, "manual")).decision).toBe("ask");
+      expect((await decide(t, plain, true)).decision).toBe("ask");
       expect(started).toEqual([]);
-      for (const m of ["filter", "textconv", "gpg"]) expect(existsSync(marker(m))).toBe(false);
+    });
+
+    it("a repository that redirects git (a .git file, core.worktree, include) never runs quietly", async () => {
+      const dir = makeRepo("gitro-redirect");
+      if (dir === null) return;
+      setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+      const t = await ready();
+      const params = { argv: ["git", "status"], cwd: dir };
+      expect(described(t, params).meta).toBeDefined();
+      const config = readFileSync(join(dir, ".git", "config"), "utf8");
+      for (const extra of ["[core]\n\tworktree = /\n", "[include]\n\tpath = /tmp/evil\n"]) {
+        writeFileSync(join(dir, ".git", "config"), config + extra);
+        expect(described(t, params).meta, extra).toBeUndefined();
+        expect((await decide(t, params)).decision).toBe("ask");
+      }
+      writeFileSync(join(dir, ".git", "config"), config);
+      expect(described(t, params).meta).toBeDefined();
+      // A `.git` file (gitdir: elsewhere) is not a plain repository either.
+      const linked = join(home, "Projects", "gitro-linked");
+      mkdirSync(linked, { recursive: true });
+      writeFileSync(join(linked, ".git"), `gitdir: ${join(dir, ".git")}\n`);
+      setPolicy({ folders: [{ path: linked, mode: "rw" }], exec: { execHostEnabled: true } });
+      expect(described(t, { argv: ["git", "status"], cwd: linked }).meta).toBeUndefined();
+      // No repository at all.
+      const bare = join(home, "Projects", "gitro-none");
+      mkdirSync(bare, { recursive: true });
+      setPolicy({ folders: [{ path: bare, mode: "rw" }], exec: { execHostEnabled: true } });
+      expect(described(t, { argv: ["git", "log"], cwd: bare }).meta).toBeUndefined();
+    });
+
+    it("a folder shared inside a bigger repository does not read the history above it", async () => {
+      const dir = makeRepo("gitro-parent");
+      if (dir === null) return;
+      const sub = join(dir, "sub");
+      mkdirSync(sub, { recursive: true });
+      setPolicy({ folders: [{ path: sub, mode: "rw" }], exec: { execHostEnabled: true } });
+      const t = await ready();
+      const params = { argv: ["git", "log", "--oneline"], cwd: sub };
+      const d = await decide(t, params);
+      expect(d.rule).toBe(READ_ONLY_RULE);
+      await expect(
+        run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+      ).rejects.toMatchObject({ code: "forbidden" });
+      expect(started).toEqual([]);
+    });
+
+    it("starts the system git with the hardened env and argv", async () => {
+      const dir = makeRepo("gitro-argv");
+      if (dir === null) return;
+      setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+      const t = await ready();
+      const params = { argv: ["git", "diff", "--stat"], cwd: dir };
+      const d = await decide(t, params);
+      const pending = run(
+        t,
+        params,
+        ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+      );
+      await nextStart();
+      finish({});
+      await pending;
+      const s = started[0] as (typeof started)[number];
+      const after = s.args.slice(s.args.indexOf("--") + 2);
+      expect(after).toEqual(expect.arrayContaining(["--no-pager", "core.fsmonitor=false"]));
+      expect(after.slice(-4)).toEqual(["diff", "--no-ext-diff", "--no-textconv", "--stat"]);
+      expect(s.options?.env).toMatchObject({
+        GIT_CONFIG_NOSYSTEM: "1",
+        GIT_CONFIG_GLOBAL: "/dev/null",
+        GIT_PAGER: "cat",
+        GIT_OPTIONAL_LOCKS: "0",
+        GIT_CEILING_DIRECTORIES: join(home, "Projects"),
+        PATH: "/usr/bin:/bin:/usr/sbin:/sbin",
+      });
+      // Nothing writable but scratch: the profile of every read-only run.
+      expect(JSON.stringify(s.settings)).not.toContain(dir);
     });
 
     it("':' arguments (HEAD:../x, :/) never run quietly", async () => {
@@ -1097,7 +1346,8 @@ describe.skipIf(!posixHost)(
       git("config", "diff.pwn.textconv", `touch ${marker("hardened")}; cat`);
       setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
       const t = await ready();
-      const params = { argv: ["git", "status"], cwd: dir };
+      // A git outside the read-only class (`--show-signature` asks), so it is carded.
+      const params = { argv: ["git", "log", "--show-signature"], cwd: dir };
       const a = await card(t, params);
       await answer(a.id);
       const out = run(t, params, ctx({ approvalId: a.id }));
@@ -1120,7 +1370,7 @@ describe.skipIf(!posixHost)(
         expect(inner, v).toContain(v);
       }
       // The owner's own argv comes last, unchanged.
-      expect(inner.slice(-1)).toEqual(["status"]);
+      expect(inner.slice(-2)).toEqual(["log", "--show-signature"]);
       expect(existsSync(marker("hardened"))).toBe(false);
     });
   },
