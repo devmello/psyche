@@ -129,7 +129,7 @@ export function editChanges(
   const name = d.name.trim();
   if (name !== was.name) changes.name = name;
   if (was.kind === "url") {
-    if (d.url.trim() !== (was.url ?? "")) changes.url = d.url.trim();
+    if (d.url.trim() !== "" && d.url.trim() !== (was.url ?? "")) changes.url = d.url.trim();
     return { changes, secrets };
   }
   const command = splitCommand(d.command);

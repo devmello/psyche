@@ -1205,6 +1205,12 @@ export const settings = {
   "settings.mcp.trust.change.envAdded": "Variables added",
   "settings.mcp.trust.change.envRemoved": "Variables removed",
   "settings.mcp.trust.change.envChanged": "Variables changed",
+  "settings.mcp.trust.change.query": "Address parameters changed",
+  "settings.mcp.trust.change.userinfo": "Sign-in details in the address",
+  "settings.mcp.trust.change.changed": "Changed",
+  "settings.mcp.edit.changeUrl": "Change address",
+  "settings.mcp.edit.urlHidden":
+    "Parts of this address are hidden. To change it, enter the full new address.",
   "settings.mcp.env.add": "Add variable",
   "settings.mcp.env.badName":
     "Names use capital letters, digits and underscores, and start with a letter or underscore.",

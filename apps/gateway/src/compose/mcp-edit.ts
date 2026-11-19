@@ -125,6 +125,53 @@ export function redactUrl(raw: string): string {
   }
 }
 
+/** The marker `redactUrl` leaves where a value was hidden. */
+export const REDACTED = "***";
+
+/** True when a submitted address still holds the display marker in user info, a query value or the fragment. */
+export function urlHoldsMarker(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    const hidden = (v: string) => decodeURIComponent(v).includes(REDACTED);
+    return (
+      hidden(u.username) ||
+      hidden(u.password) ||
+      hidden(u.hash) ||
+      [...u.searchParams.values()].some((v) => v.includes(REDACTED))
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Text from a probe or a host (it can quote the stored address): every address is redacted. */
+export function redactText(text: string): string {
+  return text.replace(/https?:\/\/[^\s"'<>)\]]+/g, (m) => {
+    // Sentence punctuation after an address is not part of it.
+    const tail = /[.,;:!?]+$/.exec(m)?.[0] ?? "";
+    const url = tail === "" ? m : m.slice(0, -tail.length);
+    return `${redactUrl(url) || "[address]"}${tail}`;
+  });
+}
+
+function scrub(value: unknown): unknown {
+  if (typeof value === "string") return redactText(value);
+  if (Array.isArray(value)) return value.map(scrub);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, scrub(v)]));
+  }
+  return value;
+}
+
+/** The same error with every address in its words and details redacted. */
+function scrubError(err: unknown): PsycheError {
+  const e = PsycheError.from(err);
+  return new PsycheError(e.code, redactText(e.message), {
+    details: scrub(e.details),
+    retryable: e.retryable,
+  });
+}
+
 /** `McpServerInput` with nothing a caller did not send: env values and URL secrets hidden. */
 function redactedInput(input: McpServerInput): McpServerInput {
   const t = input.transport;
@@ -137,7 +184,7 @@ function redactedInput(input: McpServerInput): McpServerInput {
 }
 
 /** What differs, by name only: never a value (a plain env value can hold a token). */
-function describeChange(prev: PsycheMcpServerConfig, next: PsycheMcpServerConfig) {
+export function describeChange(prev: PsycheMcpServerConfig, next: PsycheMcpServerConfig) {
   const a = prev.transport;
   const b = next.transport;
   const out: Record<string, unknown> = {};
@@ -169,6 +216,21 @@ function describeChange(prev: PsycheMcpServerConfig, next: PsycheMcpServerConfig
       fields.push("url");
       out.oldUrl = redactUrl(a.url);
       out.newUrl = redactUrl(b.url);
+      // What the redacted rows cannot show: which query parameters changed, and whether the
+      // user info did. Names only.
+      try {
+        const x = new URL(a.url);
+        const y = new URL(b.url);
+        const keys = new Set([...x.searchParams.keys(), ...y.searchParams.keys()]);
+        const changed = [...keys].filter(
+          (k) =>
+            JSON.stringify(x.searchParams.getAll(k)) !== JSON.stringify(y.searchParams.getAll(k)),
+        );
+        if (changed.length > 0) out.queryChanged = changed;
+        if (x.username !== y.username || x.password !== y.password) out.userinfoChanged = true;
+      } catch {
+        // an address that does not parse shows only the redacted rows
+      }
     }
     if (canonical(prev.auth ?? null) !== canonical(next.auth ?? null)) {
       fields.push("auth");
@@ -206,6 +268,12 @@ export function mcpEditHandlers(deps: McpEditDeps): Record<string, HandlerDef> {
       .append({ kind, actor: { type: "system" }, subject: { serverId }, data })
       .catch(() => undefined);
 
+  // A probe failure can quote the stored address: redact it before it leaves.
+  const propose: McpAdder["propose"] = (input, extra) =>
+    deps.adder.propose(input, extra).catch((err: unknown) => {
+      throw scrubError(err);
+    });
+
   return {
     "mcp.config": {
       run(_call, params: { serverId: string }) {
@@ -215,6 +283,13 @@ export function mcpEditHandlers(deps: McpEditDeps): Record<string, HandlerDef> {
     "mcp.update": {
       async run(_call, params: { id: string; changes: McpServerChanges }) {
         const prev = find(params.id);
+        if (params.changes.url !== undefined && urlHoldsMarker(params.changes.url)) {
+          throw new PsycheError(
+            "invalid_params",
+            "the address still has hidden parts (***); enter the full new address",
+            { details: { reason: "url_redacted" } },
+          );
+        }
         const next = applyChanges(prev, params.changes);
         const sameRun = canonical(runIdentity(prev)) === canonical(runIdentity(next));
         if (sameRun) {
@@ -245,7 +320,7 @@ export function mcpEditHandlers(deps: McpEditDeps): Record<string, HandlerDef> {
         else delete next.handlesMoney;
         const base = sha(runIdentity(prev));
         const { fields, out } = describeChange(prev, next);
-        const { proposal, approval } = await deps.adder.propose(inputOfAny(next), {
+        const { proposal, approval } = await propose(inputOfAny(next), {
           config: next,
           replace: true,
           summary: (found) =>
@@ -312,7 +387,7 @@ export function mcpEditHandlers(deps: McpEditDeps): Record<string, HandlerDef> {
             ok: false,
             toolCount: 0,
             tools: [] as string[],
-            error: clip(PsycheError.from(err).message),
+            error: clip(redactText(PsycheError.from(err).message)),
           };
         }
         if (!mcpEditable(entry)) {
@@ -334,7 +409,7 @@ export function mcpEditHandlers(deps: McpEditDeps): Record<string, HandlerDef> {
             ok: false,
             toolCount: 0,
             tools: [] as string[],
-            error: clip(PsycheError.from(err).message),
+            error: clip(redactText(PsycheError.from(err).message)),
           };
         }
       },

@@ -66,6 +66,8 @@ export function McpAddForm({
         },
   );
   const [pasting, setPasting] = useState(false);
+  /** Editing a URL server: the address stays hidden and untouched until the owner replaces it. */
+  const [changingUrl, setChangingUrl] = useState(false);
   const [json, setJson] = useState("");
   const [jsonError, setJsonError] = useState<string | null>(null);
   /** Servers found in the pasted JSON, when it holds more than one. */
@@ -293,8 +295,27 @@ export function McpAddForm({
             type="url"
             placeholder={t("settings.mcp.placeholder.url")}
             value={d.url}
+            readOnly={edit !== undefined && !changingUrl}
             onChange={(e) => setD({ ...d, url: e.target.value })}
           />
+          {edit !== undefined && !changingUrl ? (
+            <div className="flex flex-col items-start gap-1">
+              <p className="text-callout text-muted-foreground">
+                {t("settings.mcp.edit.urlHidden")}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setChangingUrl(true);
+                  setD({ ...d, url: "" });
+                }}
+              >
+                {t("settings.mcp.edit.changeUrl")}
+              </Button>
+            </div>
+          ) : null}
         </div>
       )}
       <div className="flex gap-2">

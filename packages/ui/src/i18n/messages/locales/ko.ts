@@ -1640,6 +1640,12 @@ export const ko: Partial<Catalogue> = {
   "settings.mcp.trust.change.envAdded": "추가된 변수",
   "settings.mcp.trust.change.envRemoved": "삭제된 변수",
   "settings.mcp.trust.change.envChanged": "변경된 변수",
+  "settings.mcp.trust.change.query": "변경된 주소 매개변수",
+  "settings.mcp.trust.change.userinfo": "주소에 포함된 로그인 정보",
+  "settings.mcp.trust.change.changed": "변경됨",
+  "settings.mcp.edit.changeUrl": "주소 변경",
+  "settings.mcp.edit.urlHidden":
+    "이 주소의 일부는 숨겨져 있습니다. 바꾸려면 새 주소 전체를 입력하세요.",
   "settings.mcp.env.add": "변수 추가",
   "settings.mcp.env.badName":
     "이름은 대문자, 숫자, 밑줄을 사용하고 문자 또는 밑줄로 시작해야 합니다.",

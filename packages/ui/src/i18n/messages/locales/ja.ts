@@ -1637,6 +1637,12 @@ export const ja: Partial<Catalogue> = {
   "settings.mcp.trust.change.envAdded": "追加した変数",
   "settings.mcp.trust.change.envRemoved": "削除した変数",
   "settings.mcp.trust.change.envChanged": "変更した変数",
+  "settings.mcp.trust.change.query": "変更したアドレスのパラメーター",
+  "settings.mcp.trust.change.userinfo": "アドレス内のサインイン情報",
+  "settings.mcp.trust.change.changed": "変更あり",
+  "settings.mcp.edit.changeUrl": "アドレスを変更",
+  "settings.mcp.edit.urlHidden":
+    "このアドレスの一部は非表示です。変更するには、新しいアドレス全体を入力してください。",
   "settings.mcp.env.add": "変数を追加",
   "settings.mcp.env.badName":
     "名前は大文字、数字、アンダースコアを使い、英字またはアンダースコアで始めてください。",

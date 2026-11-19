@@ -5,10 +5,14 @@ import { fileURLToPath } from "node:url";
 import { getSetting, setSetting } from "@psyche/db";
 import type { McpProposal } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+// Each test starts a Gateway and sandboxed child processes; a loaded Mac needs more than 5 s.
+vi.setConfig({ testTimeout: 60_000 });
+
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { type ComposedMcp, composeMcp, MCP_SERVERS_SETTING } from "../src/compose/mcp.ts";
-import { redactUrl } from "../src/compose/mcp-edit.ts";
+import { describeChange, redactText, redactUrl, urlHoldsMarker } from "../src/compose/mcp-edit.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
 import { adminClient, desktopClient, ik, type TestClient } from "./helpers.ts";
 
@@ -433,21 +437,25 @@ describe("review r1 fixes", () => {
   it.each([
     ["never", undefined],
     ["always", true],
-  ] as const)("N9: handlesMoney %s across an update", async (mode, kept) => {
-    const { owner, mcp, services } = await setup();
-    await addEcho(owner, mcp);
-    patchEcho(services, { handlesMoney: mode === "always" });
-    const r = await owner.call<UpdateResult>(
-      "mcp.update",
-      { id: "echo", changes: { allowedDomains: ["example.com"] } },
-      ik(),
-    );
-    await approve(owner, r.approval?.id as string);
-    await owner.call("mcp.add", { proposalId: r.proposal?.id, approvalId: r.approval?.id }, ik());
-    await mcp.idle();
-    const now = stored(services) as { handlesMoney?: boolean }[];
-    expect(now[0]?.handlesMoney).toBe(kept);
-  });
+  ] as const)(
+    "N9: handlesMoney %s across an update",
+    async (mode, kept) => {
+      const { owner, mcp, services } = await setup();
+      await addEcho(owner, mcp);
+      patchEcho(services, { handlesMoney: mode === "always" });
+      const r = await owner.call<UpdateResult>(
+        "mcp.update",
+        { id: "echo", changes: { allowedDomains: ["example.com"] } },
+        ik(),
+      );
+      await approve(owner, r.approval?.id as string);
+      await owner.call("mcp.add", { proposalId: r.proposal?.id, approvalId: r.approval?.id }, ik());
+      await mcp.idle();
+      const now = stored(services) as { handlesMoney?: boolean }[];
+      expect(now[0]?.handlesMoney).toBe(kept);
+    },
+    30_000,
+  );
 
   it("N9: an approval is a conflict after the server was deleted and added again", async () => {
     const { owner, mcp } = await setup();
@@ -475,5 +483,90 @@ describe("review r1 fixes", () => {
     await expect(
       owner.call("mcp.add", { proposalId: r.proposal?.id, approvalId: r.approval?.id }, ik()),
     ).rejects.toThrow(/"code":"conflict"/);
+  });
+});
+
+describe("review r2 fixes", () => {
+  const WEB = {
+    id: "web",
+    name: "Web",
+    trust: "unknown",
+    enabled: false,
+    transport: { kind: "http", url: "https://u:pw@api.example.com/mcp?token=SECRET123" },
+  };
+
+  it("R2-1: a submitted address that still holds the marker is refused, and nothing is stored", async () => {
+    const { owner, services } = await setup();
+    putEntries(services, [WEB]);
+    const before = stored(services);
+    for (const url of [
+      "https://u:pw@api.example.com/mcp/v2?token=***",
+      "https://***:***@api.example.com/mcp",
+      "https://api.example.com/mcp?a=1&token=***",
+      "https://api.example.com/mcp#***",
+    ]) {
+      await expect(owner.call("mcp.update", { id: "web", changes: { url } }, ik())).rejects.toThrow(
+        /"reason":"url_redacted"/,
+      );
+      expect(urlHoldsMarker(url)).toBe(true);
+    }
+    expect(stored(services)).toEqual(before);
+    // Positive controls: a full address passes the check.
+    expect(urlHoldsMarker("https://api.example.com/mcp/v2?token=NEWSECRET")).toBe(false);
+    expect(urlHoldsMarker("https://api.example.com/mcp?note=star*")).toBe(false);
+    // A full new address is not refused as redacted: it goes on to the probe (no server here),
+    // and the failure carries neither the stored token nor the new one.
+    const err = await owner
+      .call(
+        "mcp.update",
+        { id: "web", changes: { url: "https://127.0.0.1:9/mcp?token=NEW1" } },
+        ik(),
+      )
+      .catch((e: Error) => e.message);
+    expect(String(err)).not.toContain("url_redacted");
+    expect(String(err)).not.toContain("SECRET123");
+    expect(String(err)).not.toContain("NEW1");
+  });
+
+  it("R2-1: a name-only edit of a URL server keeps the stored address and token", async () => {
+    const { owner, services } = await setup();
+    putEntries(services, [WEB]);
+    await owner.call("mcp.update", { id: "web", changes: { name: "Web 2" } }, ik());
+    const now = stored(services) as { name: string; transport: { url: string } }[];
+    expect(now[0]?.name).toBe("Web 2");
+    expect(now[0]?.transport.url).toBe("https://u:pw@api.example.com/mcp?token=SECRET123");
+  });
+
+  it("R2-2: the card names changed query parameters and user info, never their values", () => {
+    const mk = (url: string) =>
+      ({ id: "w", name: "W", trust: "unknown", transport: { kind: "http", url } }) as never;
+    const a = mk("https://u:pw@h.example.com/mcp?key=A&same=1");
+    const b = mk("https://h.example.com/mcp?key=B&same=1");
+    const { out } = describeChange(a, b);
+    expect(out).toMatchObject({ queryChanged: ["key"], userinfoChanged: true });
+    expect(out.oldUrl).toBe("https://h.example.com/mcp?key=***&same=***");
+    expect(JSON.stringify(out)).not.toMatch(/pw|=A|=B/);
+    // Positive control: nothing differs in the query or user info, so neither is listed.
+    const c = describeChange(a, mk("https://u:pw@h.example.com/other?key=A&same=1")).out;
+    expect(c).not.toHaveProperty("queryChanged");
+    expect(c).not.toHaveProperty("userinfoChanged");
+  });
+
+  it("R2-3: addresses in error text are redacted", async () => {
+    expect(
+      redactText("failed to reach https://u:pw@api.example.com/mcp?token=SECRET123, retrying"),
+    ).toBe("failed to reach https://api.example.com/mcp?token=***, retrying");
+    expect(redactText("no address in this")).toBe("no address in this");
+    const { owner, services } = await setup();
+    putEntries(services, [
+      {
+        ...WEB,
+        enabled: true,
+        transport: { kind: "http", url: "https://127.0.0.1:9/mcp?token=SECRET123" },
+      },
+    ]);
+    const r = await owner.call<{ ok: boolean; error?: string }>("mcp.test", { id: "web" });
+    expect(r.ok).toBe(false);
+    expect(r.error ?? "").not.toContain("SECRET123");
   });
 });

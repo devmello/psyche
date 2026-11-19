@@ -1652,6 +1652,12 @@ export const it: Partial<Catalogue> = {
   "settings.mcp.trust.change.envAdded": "Variabili aggiunte",
   "settings.mcp.trust.change.envRemoved": "Variabili rimosse",
   "settings.mcp.trust.change.envChanged": "Variabili modificate",
+  "settings.mcp.trust.change.query": "Parametri dell'indirizzo modificati",
+  "settings.mcp.trust.change.userinfo": "Dati di accesso nell'indirizzo",
+  "settings.mcp.trust.change.changed": "Modificato",
+  "settings.mcp.edit.changeUrl": "Cambia indirizzo",
+  "settings.mcp.edit.urlHidden":
+    "Alcune parti di questo indirizzo sono nascoste. Per cambiarlo, inserisci il nuovo indirizzo completo.",
   "settings.mcp.env.add": "Aggiungi variabile",
   "settings.mcp.env.badName":
     "I nomi usano lettere maiuscole, cifre e trattini bassi, e iniziano con una lettera o un trattino basso.",

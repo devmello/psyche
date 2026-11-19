@@ -213,3 +213,54 @@ describe("A server whose command is fixed", () => {
     });
   });
 });
+
+describe("A URL server's address", () => {
+  const seedWeb = (g: MockGateway) =>
+    g.seedMcpServer(
+      {
+        id: "web",
+        name: "Web",
+        trust: "unknown",
+        transport: "http",
+        network: true,
+        connected: true,
+      },
+      { config: { url: "https://api.example.com/mcp?token=***" } },
+    );
+
+  it("stays hidden and untouched: a rename sends no url", async () => {
+    const gateway = setup(seedWeb);
+    await userEvent.click(await screen.findByRole("button", { name: "Open Web" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    const field = (await screen.findByLabelText("Server URL")) as HTMLInputElement;
+    expect(field.readOnly).toBe(true);
+    const name = screen.getByLabelText("Name");
+    await userEvent.clear(name);
+    await userEvent.type(name, "Web 2");
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByText("Updated Web 2.")).toBeTruthy();
+    expect(lastCall(gateway(), "mcp.update")?.params).toEqual({
+      id: "web",
+      changes: { name: "Web 2" },
+    });
+  });
+
+  it("Change address clears the field and sends only the full new address", async () => {
+    const gateway = setup(seedWeb);
+    await userEvent.click(await screen.findByRole("button", { name: "Open Web" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Change address" }));
+    const url = screen.getByLabelText("Server URL") as HTMLInputElement;
+    expect(url.value).toBe("");
+    expect(url.readOnly).toBe(false);
+    const save = screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    await userEvent.type(url, "https://api.example.com/v2?token=NEW");
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await screen.findByTestId("mcp-trust-card");
+    expect(lastCall(gateway(), "mcp.update")?.params).toEqual({
+      id: "web",
+      changes: { url: "https://api.example.com/v2?token=NEW" },
+    });
+  });
+});

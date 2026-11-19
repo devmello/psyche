@@ -81,6 +81,17 @@ function ChangeRows({ change }: { change: Record<string, unknown> }): ReactEleme
     ...("newAuth" in change
       ? [pair(t("settings.mcp.trust.change.auth"), text(change.oldAuth), text(change.newAuth))]
       : []),
+    ...(strings(change.queryChanged).length > 0
+      ? [list(t("settings.mcp.trust.change.query"), strings(change.queryChanged))]
+      : []),
+    ...(change.userinfoChanged === true
+      ? [
+          {
+            term: t("settings.mcp.trust.change.userinfo"),
+            value: t("settings.mcp.trust.change.changed"),
+          },
+        ]
+      : []),
     ...(strings(change.envAdded).length > 0
       ? [list(t("settings.mcp.trust.change.envAdded"), strings(change.envAdded))]
       : []),

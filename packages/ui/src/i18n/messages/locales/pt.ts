@@ -1613,6 +1613,12 @@ export const pt: Partial<Catalogue> = {
   "settings.mcp.trust.change.envAdded": "Variáveis adicionadas",
   "settings.mcp.trust.change.envRemoved": "Variáveis removidas",
   "settings.mcp.trust.change.envChanged": "Variáveis alteradas",
+  "settings.mcp.trust.change.query": "Parâmetros do endereço alterados",
+  "settings.mcp.trust.change.userinfo": "Dados de login no endereço",
+  "settings.mcp.trust.change.changed": "Alterado",
+  "settings.mcp.edit.changeUrl": "Alterar endereço",
+  "settings.mcp.edit.urlHidden":
+    "Partes deste endereço estão ocultas. Para mudá-lo, digite o endereço novo completo.",
   "settings.mcp.env.add": "Adicionar variável",
   "settings.mcp.env.badName":
     "Os nomes usam letras maiúsculas, dígitos e sublinhados, e começam com uma letra ou sublinhado.",

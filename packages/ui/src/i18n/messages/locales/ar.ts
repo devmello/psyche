@@ -1698,6 +1698,11 @@ export const ar: Partial<Catalogue> = {
   "settings.mcp.trust.change.envAdded": "متغيرات مضافة",
   "settings.mcp.trust.change.envRemoved": "متغيرات محذوفة",
   "settings.mcp.trust.change.envChanged": "متغيرات معدّلة",
+  "settings.mcp.trust.change.query": "معاملات العنوان التي تغيّرت",
+  "settings.mcp.trust.change.userinfo": "بيانات تسجيل الدخول في العنوان",
+  "settings.mcp.trust.change.changed": "تغيّر",
+  "settings.mcp.edit.changeUrl": "تغيير العنوان",
+  "settings.mcp.edit.urlHidden": "أجزاء من هذا العنوان مخفية. لتغييره، أدخل العنوان الجديد كاملًا.",
   "settings.mcp.env.add": "إضافة متغير",
   "settings.mcp.env.badName":
     "تستخدم الأسماء أحرفًا كبيرة وأرقامًا وشرطات سفلية، وتبدأ بحرف أو شرطة سفلية.",
