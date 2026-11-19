@@ -9,10 +9,24 @@ import PsycheHelperCore
 enum Input {
     static let marker: Int64 = 0x5053_5943_4845  // "PSYCHE"
 
+    /// When the helper last posted an event, so owner input can be told from the helper's own in the system's idle time.
+    static let lastPost = PostClock()
+
+    final class PostClock: @unchecked Sendable {
+        private let lock = NSLock()
+        private var at = Date.distantPast
+        func note() { lock.withLock { at = Date() } }
+        var value: Date { lock.withLock { at } }
+    }
+
+    /// Tests replace the poster so no event reaches the system.
+    nonisolated(unsafe) static var postHook: (@Sendable (CGEvent) -> Void)?
+
     private static func post(_ event: CGEvent?) {
         guard let event else { return }
+        lastPost.note()
         event.setIntegerValueField(.eventSourceUserData, value: marker)
-        event.post(tap: .cghidEventTap)
+        if let postHook { postHook(event) } else { event.post(tap: .cghidEventTap) }
     }
 
     private static var source: CGEventSource? { CGEventSource(stateID: .hidSystemState) }
@@ -46,8 +60,10 @@ enum Input {
                 e?.setIntegerValueField(.mouseEventClickState, value: Int64(i))
                 e?.flags = flags
             }
+            try stop.check()
             post(down)
             try pause(20, stop: stop)
+            try stop.check()
             post(up)
             if i < count { try pause(40, stop: stop) }
         }
@@ -90,6 +106,7 @@ enum Input {
         for down in [true, false] {
             let e = CGEvent(keyboardEventSource: src, virtualKey: chord.keyCode, keyDown: down)
             e?.flags = chord.flags
+            try stop.check()  // an Esc during the pause or the focus check posts nothing more
             post(e)
             try pause(20, stop: stop)
         }
@@ -124,6 +141,7 @@ enum Input {
         for chunk in TypingChunks.split(text) {
             try guardChunk()
             for down in [true, false] {
+                try stop.check()  // the guard can block in AX: a stop that landed meanwhile posts nothing
                 let e = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: down)
                 chunk.withUnsafeBufferPointer { buf in
                     e?.keyboardSetUnicodeString(stringLength: buf.count, unicodeString: buf.baseAddress)
@@ -135,65 +153,32 @@ enum Input {
     }
 }
 
-/// Global Esc stop (J5; security §12): an active event tap that consumes a bare Esc while a
+/// Global Esc stop (J5; security section 12): an active event tap that consumes a bare Esc while a
 /// computer-use session is running, so injected content cannot use it to dismiss dialogs, and trips
-/// the stop signal. Requires Accessibility (one grant covers listen and post, spike 04).
-final class EscStopTap: @unchecked Sendable {
-    private let stop: StopSignal
-    private let isActive: @Sendable () -> Bool
-    private let onStop: @Sendable () -> Void
-    private var tap: CFMachPort?
-    private var thread: Thread?
-
-    init(stop: StopSignal, isActive: @escaping @Sendable () -> Bool, onStop: @escaping @Sendable () -> Void) {
-        self.stop = stop
-        self.isActive = isActive
-        self.onStop = onStop
+/// the stop signal. `SessionTaps` installs it before a session takes its lock and removes it after
+/// the session ends, so no keystroke is filtered outside a session. Requires Accessibility (one
+/// grant covers listen and post, spike 04).
+enum EscStopTap {
+    /// A bare Esc (no modifiers) typed by the owner: not the helper's own event.
+    static func isOwnerEsc(keyCode: Int64, flags: CGEventFlags, userData: Int64) -> Bool {
+        keyCode == 53 && userData != Input.marker && flags.intersection([.maskCommand, .maskShift, .maskAlternate, .maskControl]).isEmpty
     }
 
-    /// Installs the tap on its own run-loop thread. Returns false without Accessibility.
-    @discardableResult
-    func start() -> Bool {
-        guard tap == nil, AXIsProcessTrusted() else { return false }
-        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
-        let refcon = Unmanaged.passRetained(self).toOpaque()  // the tap lives for the process
-        guard let port = CGEvent.tapCreate(
-            tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap, eventsOfInterest: mask,
-            callback: { _, type, event, refcon in
-                guard let refcon else { return Unmanaged.passUnretained(event) }
-                let me = Unmanaged<EscStopTap>.fromOpaque(refcon).takeUnretainedValue()
-                return me.handle(type: type, event: event)
-            }, userInfo: refcon
-        ) else { return false }
-        tap = port
-        let box = UncheckedSendable(port)
-        let t = Thread { [box] in
-            let port = box.value
-            let src = CFMachPortCreateRunLoopSource(nil, port, 0)
-            CFRunLoopAddSource(CFRunLoopGetCurrent(), src, .commonModes)
-            CGEvent.tapEnable(tap: port, enable: true)
-            CFRunLoopRun()
+    static func install(
+        stop: StopSignal, isActive: @escaping @Sendable () -> Bool, onStop: @escaping @Sendable () -> Void
+    ) -> Result<RunLoopEventTap, RunLoopEventTap.InstallFailure> {
+        RunLoopEventTap.create(
+            place: .headInsertEventTap, options: .defaultTap, types: [.keyDown], qos: .userInteractive, name: "com.psyche.helper.esc-tap"
+        ) { type, event in
+            guard type == .keyDown,
+                  isOwnerEsc(
+                    keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags,
+                    userData: event.getIntegerValueField(.eventSourceUserData)),
+                  isActive()
+            else { return Unmanaged.passUnretained(event) }
+            stop.trip()
+            onStop()
+            return nil  // consumed
         }
-        t.name = "com.psyche.helper.esc-tap"
-        t.qualityOfService = .userInteractive
-        thread = t
-        t.start()
-        return true
-    }
-
-    private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
-        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
-            return Unmanaged.passUnretained(event)
-        }
-        guard type == .keyDown,
-              event.getIntegerValueField(.keyboardEventKeycode) == 53,
-              event.getIntegerValueField(.eventSourceUserData) != Input.marker,
-              event.flags.intersection([.maskCommand, .maskShift, .maskAlternate, .maskControl]).isEmpty,
-              isActive()
-        else { return Unmanaged.passUnretained(event) }
-        stop.trip()
-        onStop()
-        return nil  // consumed
     }
 }

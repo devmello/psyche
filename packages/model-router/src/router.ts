@@ -11,7 +11,7 @@ import {
   type Usage,
 } from "@psyche/protocol";
 import { AiSdkAdapter, type CallOutcome, type EmbedTaskOptions } from "./adapter.ts";
-import { isLocalKind } from "./config.ts";
+import { isFreeLocalProvider, isLocalKind, type ProviderKind } from "./config.ts";
 import {
   type CooldownPolicy,
   type CooldownState,
@@ -103,6 +103,22 @@ export const AUTO_MODE_KIND_RULES: readonly { kind: string; model: RegExp }[] = 
 ];
 
 /**
+ * The cheap model each provider kind binds to the `utility` role while the owner has picked none.
+ * Titles, compaction, the evaluator, search cards and the profile learner run there, so they stay
+ * off the primary model's price. Only models that are known to exist and to be priced are
+ * listed; a kind that is not here (Codex, OpenAI, Google, local servers) keeps the old
+ * fallback to the primary chain, and jobs that must never bill the primary skip instead.
+ * All of them are on the Auto-mode allowlist above, so the choice never widens it.
+ */
+/** How long a derived cheap model that proved missing or forbidden stays off before it is tried again. */
+export const CHEAP_BAD_MS = 3_600_000;
+
+export const CHEAP_UTILITY_BY_KIND: Readonly<Record<string, string>> = {
+  anthropic: "claude-haiku-5-5",
+  "claude-code": "haiku",
+};
+
+/**
  * The same rules as full refs, for a Gateway that has no router to ask for a provider's kind (the
  * default provider id of each kind is the kind itself).
  */
@@ -115,6 +131,8 @@ interface Plan {
   strict: boolean;
   role: ModelRole | undefined;
   request: ModelRequest;
+  /** The derived cheap utility model leading the chain, if this call runs on it. */
+  cheap?: ModelRef;
 }
 
 export interface ProviderHealth {
@@ -162,6 +180,8 @@ export class ModelRouter implements ModelProvider {
   readonly #probes: ProbeStore;
   readonly #o: ModelRouterOptions;
   readonly #probing = new Map<ModelRef, Promise<ProbeResult>>();
+  /** Derived cheap utility models that proved unusable, with the time the latch lapses. */
+  readonly #cheapBad = new Map<ModelRef, number>();
 
   constructor(options: ModelRouterOptions) {
     this.#o = options;
@@ -269,11 +289,74 @@ export class ModelRouter implements ModelProvider {
     return AUTO_MODE_KIND_RULES.some((r) => r.kind === kind && r.model.test(model));
   }
 
+  /**
+   * The cheap default for an unset utility role: the primary model's provider, with the model
+   * `CHEAP_UTILITY_BY_KIND` names for its kind. Only for the provider's stock endpoint (a custom
+   * `baseURL` is a proxy or gateway that may not serve that model) and only until the cheap
+   * model has failed as missing or forbidden (`#cheapBad`): then the role is the primary again.
+   * Any other failure must not quietly move the work onto the primary model's price.
+   */
+  #cheapUtility(): RoleBinding | undefined {
+    const primary = this.#roles.get("primary");
+    if (primary === undefined) return undefined;
+    let id: string;
+    try {
+      id = parseModelRef(primary.model).provider;
+    } catch {
+      return undefined;
+    }
+    const config = (this.#providers.get(id) as { config?: { kind?: string; baseURL?: string } })
+      ?.config;
+    // Match on the adapter's kind, never on a provider id the owner chose.
+    if (config?.kind === undefined || config.baseURL !== undefined) return undefined;
+    const model = CHEAP_UTILITY_BY_KIND[config.kind];
+    if (model === undefined) return undefined;
+    const ref = `${id}/${model}`;
+    return this.#isCheapBad(ref) ? undefined : { model: ref };
+  }
+
+  #isCheapBad(ref: ModelRef): boolean {
+    const until = this.#cheapBad.get(ref);
+    if (until === undefined) return false;
+    if (this.#o.clock.now() < until) return true;
+    this.#cheapBad.delete(ref); // the latch lapsed: Haiku is tried again
+    return false;
+  }
+
+  #latchCheapBad(ref: ModelRef): void {
+    this.#cheapBad.set(ref, this.#o.clock.now() + CHEAP_BAD_MS);
+  }
+
+  /**
+   * The concrete model of the `utility` role when it is not a paid fallback to the primary: the
+   * owner's pick, else the provider's cheap default, else the primary itself when it is local
+   * (free). `undefined` means the role would bill the primary, so background jobs that must
+   * never do that (search cards) skip.
+   */
+  utilityRef(): ModelRef | undefined {
+    const own = this.#roles.get("utility") ?? this.#cheapUtility();
+    if (own !== undefined) return own.model;
+    const primary = this.#roles.get("primary");
+    if (primary === undefined) return undefined;
+    try {
+      const config = (
+        this.#providers.get(parseModelRef(primary.model).provider) as {
+          config?: { kind: ProviderKind; baseURL?: string };
+        }
+      )?.config;
+      return config !== undefined && isFreeLocalProvider(config) ? primary.model : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   #bindingFor(role: ModelRole): RoleBinding | undefined {
     const b = this.#roles.get(role);
     if (b !== undefined) return b;
-    // Utility and vision default to the primary chain; embedding and speech must be bound.
-    return role === "utility" || role === "vision" ? this.#roles.get("primary") : undefined;
+    // Utility is the provider's cheap model when it has one; utility and vision otherwise
+    // default to the primary chain. Embedding and speech must be bound.
+    if (role === "utility") return this.#cheapUtility() ?? this.#roles.get("primary");
+    return role === "vision" ? this.#roles.get("primary") : undefined;
   }
 
   async #plan(request: ModelRequest, options: RouterCallOptions): Promise<Plan> {
@@ -309,11 +392,24 @@ export class ModelRouter implements ModelProvider {
         throw new ModelCallError("model_not_found", `no model is bound to role ${role}`);
       // `strict` on a role ref pins the role's model: no fallbacks.
       const strict = options.strict === true;
+      // The derived cheap utility model leads the primary chain, but the chain is entered only
+      // when the cheap model is missing or forbidden (see `stream`): the cheap default must not
+      // turn compaction into a permanent failure where the primary works.
+      const primary = this.#roles.get("primary");
+      const cheap =
+        role === "utility" && this.#roles.get("utility") === undefined
+          ? this.#cheapUtility()?.model
+          : undefined;
+      const rest =
+        cheap !== undefined && primary !== undefined
+          ? [primary.model, ...(primary.fallbacks ?? [])]
+          : (binding.fallbacks ?? []);
       return {
-        chain: strict ? [binding.model] : [binding.model, ...(binding.fallbacks ?? [])],
+        chain: strict ? [binding.model] : [binding.model, ...rest],
         strict,
         role,
         request: req,
+        ...(cheap === undefined ? {} : { cheap }),
       };
     }
     return { chain: [req.model], strict: options.strict === true, role, request: req };
@@ -408,9 +504,22 @@ export class ModelRouter implements ModelProvider {
       const pid = parseModelRef(ref).provider;
       return !this.#cooldowns.isCooling(providerKey(pid));
     });
-    const chain = plan.strict ? plan.chain.slice(0, 1) : live.length > 0 ? live : plan.chain;
+    // A call on the derived cheap model never goes to the primary's cross-provider fallbacks just
+    // because the shared provider is cooling: it tries the cheap model (and fails with its error).
+    const cheapCooling = plan.cheap !== undefined && !live.includes(plan.cheap);
+    const chain = plan.strict
+      ? plan.chain.slice(0, 1)
+      : cheapCooling
+        ? [plan.cheap as ModelRef]
+        : live.length > 0
+          ? live
+          : plan.chain;
     const tried: string[] = [];
     let last: ModelCallError | undefined;
+    // The cheap model failed `auth`: the key may be fine and the model forbidden, or the key may
+    // be the problem (a locked vault, a transient 401). Only the primary working on the same
+    // profile in this call tells them apart.
+    let cheapAuth: { profileId: string | undefined } | undefined;
 
     for (const ref of chain) {
       const pid = parseModelRef(ref).provider;
@@ -458,6 +567,14 @@ export class ModelRouter implements ModelProvider {
           if (fin.reason !== "cancelled") {
             this.#cooldowns.succeed(profileKey(pid, profileId));
             this.#cooldowns.succeed(providerKey(pid));
+            if (
+              cheapAuth !== undefined &&
+              plan.cheap !== undefined &&
+              ref !== plan.cheap &&
+              pid === parseModelRef(plan.cheap).provider &&
+              profileId === cheapAuth.profileId
+            )
+              this.#latchCheapBad(plan.cheap);
           }
           yield fin;
           return;
@@ -470,6 +587,26 @@ export class ModelRouter implements ModelProvider {
         last = err;
         tried.push(`${ref}${profileId === undefined ? "" : `#${profileId}`}: ${err.kind}`);
         const routing = ROUTING[err.kind];
+        // The derived cheap utility model. `model_not_found`: it is not served here (a plan or
+        // workspace without it); latch it off for an hour and go to the primary chain. `auth`: try
+        // the primary, and latch only if it works on the same profile. Neither cools the provider
+        // (the primary shares it), and after text has streamed neither latches or cools: the call
+        // just ends. Any other failure of the cheap model ends the call: it must not quietly
+        // bill the primary.
+        if (ref === plan.cheap) {
+          const unusable = err.kind === "model_not_found" || err.kind === "auth";
+          if (unusable && !content) {
+            if (err.kind === "model_not_found") this.#latchCheapBad(ref);
+            else cheapAuth = { profileId };
+            break;
+          }
+          if (!unusable && routing.cooldown) {
+            const key = routing.rotateProfile ? profileKey(pid, profileId) : providerKey(pid);
+            this.#cooldowns.fail(key, err.kind, err.retryAfterSec);
+          }
+          yield { type: "finish", reason: "error", error: err.toFinishError() };
+          return;
+        }
         if (routing.cooldown) {
           const key = routing.rotateProfile ? profileKey(pid, profileId) : providerKey(pid);
           this.#cooldowns.fail(key, err.kind, err.retryAfterSec);

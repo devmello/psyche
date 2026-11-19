@@ -53,6 +53,7 @@ export function sanitizeToolName(name: string, rule: ToolNameRule = ANTHROPIC_TO
 interface RequestLike {
   tools?: readonly { name: string }[];
   messages: readonly { parts: readonly { type: string; name?: string }[] }[];
+  deferredTools?: readonly { name: string }[];
 }
 
 export class ToolNameMap {
@@ -73,6 +74,8 @@ export class ToolNameMap {
         if (p.type === "tool_call" && p.name !== undefined) map.toProvider(p.name);
       }
     }
+    // Last, so they never shift the names above: deferred tools may be sent too (prompt-cache.ts).
+    for (const t of request.deferredTools ?? []) map.toProvider(t.name);
     return map;
   }
 

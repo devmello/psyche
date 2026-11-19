@@ -136,6 +136,9 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.approval": "En attente de votre approbation : {summary}",
   "chat.steps.question": "Question posée : {question}",
   "chat.steps.answered": "Réponse donnée : {question}",
+  "chat.steps.earlier":
+    "{n, plural, one {# étape précédente terminée} other {# étapes précédentes terminées}}",
+  "chat.steps.needsYou": "Besoin de vous",
   "chat.steps.writing": "Rédaction de la réponse…",
   "chat.steps.thinking": "Réflexion : {text}",
   "chat.steps.thinkingEmpty": "Réflexion…",

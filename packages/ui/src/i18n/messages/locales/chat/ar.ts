@@ -134,6 +134,9 @@ export const chat: Partial<Catalogue> = {
   "chat.steps.approval": "بانتظار موافقتك: {summary}",
   "chat.steps.question": "سُئل: {question}",
   "chat.steps.answered": "أُجيب: {question}",
+  "chat.steps.earlier":
+    "{n, plural, zero {لا خطوات سابقة مكتملة} one {خطوة سابقة مكتملة} two {خطوتان سابقتان مكتملتان} few {# خطوات سابقة مكتملة} many {# خطوة سابقة مكتملة} other {# خطوة سابقة مكتملة}}",
+  "chat.steps.needsYou": "بانتظارك",
   "chat.steps.writing": "جارٍ كتابة الرد…",
   "chat.steps.thinking": "تفكير: {text}",
   "chat.steps.thinkingEmpty": "جارٍ التفكير…",

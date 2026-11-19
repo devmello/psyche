@@ -11,6 +11,7 @@ import {
   type DeviceScope,
   encodePairingLink,
   encodePairingLinkV2,
+  MACHINE_TOKENS_ENABLED,
   type MethodResult,
   PsycheError,
 } from "@psyche/protocol";
@@ -79,9 +80,25 @@ export function setupTokenHandlers(deps: {
     "devices.setupToken.create": {
       async run(
         call: Call,
-        params: { scopes: DeviceScope[]; via?: "address" | "lan" },
+        params: {
+          scopes?: DeviceScope[];
+          purpose?: "device" | "machine";
+          via?: "address" | "lan";
+        },
       ): Promise<MethodResult<"devices.setupToken.create">> {
         const { config, identity } = call.ctx;
+        // `purpose: machine` is protocol groundwork (wave H0). Until the machine registry lands
+        // (H3) nothing here may turn it into a device token, so it fails closed.
+        if (params.purpose === "machine" && !MACHINE_TOKENS_ENABLED) {
+          throw new PsycheError(
+            "unavailable",
+            "Pairing a computer for Psyche to use is not available yet",
+          );
+        }
+        if (params.scopes === undefined || params.scopes.length === 0) {
+          throw new PsycheError("invalid_params", "scopes is required");
+        }
+        const scopes = params.scopes;
         // The link is a secret that pairs a new device. Only the Host's own desktop shell may make
         // one (loopback, no Origin, the per-launch handshake secret): a remote device must never
         // mint a way in, even with admin and presence. With presence off the same rule holds.
@@ -165,7 +182,7 @@ export function setupTokenHandlers(deps: {
           );
         }
         const { token, record } = createSetupToken(db, {
-          scopes: params.scopes,
+          scopes,
           createdByDeviceId: call.identity.deviceId,
           certPin,
         });

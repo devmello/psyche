@@ -1331,9 +1331,16 @@ jobs:
           # update-manifest.mjs knows them (L2). Named Psyche-<version>-linux-<arch>.<ext>.
           linux=()
           if [ "$LINUX" = "true" ]; then
-            if grep -q '"linux"' deploy/scripts/update-manifest.mjs; then
+            # Exit 0: desktop Linux is classified. 1: it is not yet (a warning). 2: the script could
+            # not even be imported, which is a broken release, not "no Linux support".
+            if node -e 'import("./deploy/scripts/update-manifest.mjs").then((m) => process.exit(m.DESKTOP_LINUX_SUPPORT ? 0 : 1), () => process.exit(2))'; then
               linux=(artifacts/Psyche-*-linux-*.deb artifacts/Psyche-*-linux-*.rpm artifacts/Psyche-*-linux-*.AppImage)
             else
+              gate=$?
+              if [ "$gate" -ne 1 ]; then
+                echo "::error::deploy/scripts/update-manifest.mjs could not be loaded (exit $gate)"
+                exit 1
+              fi
               echo "::warning::deploy/scripts/update-manifest.mjs has no Linux support yet: the Linux packages ship without update-manifest entries."
             fi
           fi
@@ -1342,9 +1349,10 @@ jobs:
             ${DIGEST:+--image "gateway=${IMAGE}@${DIGEST}"} \
             artifacts/Psyche-*.zip artifacts/Psyche-*.dmg "${win[@]}" "${linux[@]}" > artifacts/update-manifest.json
           PSYCHE_RELEASE_SIGNING_KEY="$SIGNING_KEY" node deploy/scripts/update-manifest.mjs sign artifacts/update-manifest.json
-          # Self-check against the public half of the key that just signed.
-          pub="$(PSYCHE_RELEASE_SIGNING_KEY="$SIGNING_KEY" node -e 'const c=require("crypto");process.stdout.write(Buffer.from(c.createPublicKey(c.createPrivateKey(process.env.PSYCHE_RELEASE_SIGNING_KEY)).export({format:"jwk"}).x,"base64url").toString("base64"))')"
-          node deploy/scripts/update-manifest.mjs verify artifacts/update-manifest.json "$pub"
+          # The signature must verify against a key the app trusts (apps/desktop/src/main/release-keys.ts),
+          # not just against the secret's own public half: a secret that is not the shipped key
+          # would pass a self-check and then be refused by every client (unknown_key).
+          node deploy/scripts/update-manifest.mjs verify-trusted artifacts/update-manifest.json apps/desktop/src/main/release-keys.ts
           cat artifacts/update-manifest.json
       - name: Compose bundle with the Gateway image pinned by digest (#296)
         env:
@@ -1401,7 +1409,7 @@ jobs:
           PRERELEASE: ${{ needs.version.outputs.prerelease }}
         run: |
           flags=""
-          if [ "$PRERELEASE" = "true" ]; then flags="--prerelease"; fi
+          if [ "$PRERELEASE" = "true" ]; then flags="--prerelease"; else flags="--latest"; fi
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "Psyche $TAG" \
             --notes-file notes.md $flags SHA256SUMS artifacts/*
 

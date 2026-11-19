@@ -133,6 +133,11 @@ export function defaultDenyRead(psycheHome: string): string[] {
     h(".kube"),
     h(".config", "gh"),
     h(".config", "gcloud"),
+    // The owner's release signing key (security §11), until it is moved to a password manager and
+    // the file deleted; and the folder a local-signing setup would keep it in. Exact paths: srt
+    // deny rules are paths, and a broad home-wide glob for *.pem could not be checked here.
+    h("psyche-release-signing-key.pem"),
+    h(".psyche-release"),
     h("Library", "Keychains"),
     h("Library", "Cookies"),
     h("Library", "Application Support", "Google", "Chrome"),

@@ -2,6 +2,8 @@ import { ChevronRight } from "lucide-react";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
+import { RailLine, RailNode } from "../../chat/RailNode.tsx";
+import { glyphState } from "../../chat/run-progress.ts";
 import { t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
 import { Disclosure, fadeRise } from "../../motion/primitives.tsx";
@@ -29,6 +31,8 @@ export interface StepRowProps {
   /** Disclosure content (the preview, the parameters); the row gets a chevron when present. */
   children?: ReactNode;
   defaultOpen?: boolean;
+  /** Draw the rail line down to the next row (top-level rows of a live run). */
+  connect?: boolean;
   /** Enter with `fadeRise` (new live steps); off for rows already on screen. */
   enter?: boolean;
   className?: string;
@@ -54,6 +58,7 @@ export function StepRow({
   children,
   defaultOpen = false,
   enter = false,
+  connect = false,
   className,
 }: StepRowProps): ReactElement {
   const [open, setOpen] = useState(defaultOpen);
@@ -61,10 +66,19 @@ export function StepRow({
   const id = useId();
   const running = status === "running" || status === "thinking";
   const hasDetail = children !== undefined && children !== null;
+  const rail = glyphState(status);
+  const waiting = rail === "waiting";
   const motionProps = enter && !reduce ? fadeRise : {};
   const head = (
     <>
-      <StatusGlyph status={status} label={t(`design.status.${status}`)} morph />
+      {rail !== null ? (
+        <>
+          <RailNode state={rail} />
+          <span className="sr-only">{t(`design.status.${status}`)}</span>
+        </>
+      ) : (
+        <StatusGlyph status={status} label={t(`design.status.${status}`)} morph />
+      )}
       <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
         <span
           className={cn("truncate text-body text-label-primary", running && "psy-shimmer")}
@@ -90,6 +104,11 @@ export function StepRow({
         ) : null}
       </span>
       {accessory}
+      {waiting ? (
+        <span className="shrink-0 text-callout font-medium text-approval-text">
+          {t("chat.steps.needsYou")}
+        </span>
+      ) : null}
       {startedAt !== undefined ? (
         <LiveDuration
           startedAt={startedAt}
@@ -106,12 +125,17 @@ export function StepRow({
       // Rows slide to make room for an insert instead of jumping (C3).
       layout={reduce ? false : "position"}
       className={cn(
-        "flex flex-col",
+        "relative flex flex-col",
+        waiting && "my-0.5 rounded-md bg-approval-surface ring-1 ring-approval-border",
         level === 1 && "ms-5 border-s border-separator ps-3",
         className,
       )}
       data-step-status={status}
+      data-rail={rail ?? undefined}
     >
+      {connect && level === 0 ? (
+        <RailLine show state={rail ?? "done"} startClass="start-[11.5px]" />
+      ) : null}
       {hasDetail ? (
         <button
           type="button"

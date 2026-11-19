@@ -1,12 +1,14 @@
 import type { Channel, ChannelIdentity, DmPolicy, PairingRequest } from "@psyche/protocol";
 import { TriangleAlert } from "lucide-react";
 import { type ReactElement, useCallback, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "../../components/ui/button.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
+import { AddChannelDialog } from "./AddChannelDialog.tsx";
 import {
   EmptyNotice,
   ErrorNotice,
@@ -89,6 +91,8 @@ export interface ChannelsPanelProps extends LoadProps {
   onRequireMention?: (channel: Channel, on: boolean) => void;
   onApprove?: (request: PairingRequest) => void;
   onIgnore?: (request: PairingRequest) => void;
+  /** Opens the guided Add a channel flow; the button is absent without it. */
+  onAddChannel?: () => void;
   pairingError?: string | null;
   identitiesError?: string | null;
   actionError?: string | null;
@@ -104,6 +108,7 @@ export function ChannelsPanel({
   onRequireMention,
   onApprove,
   onIgnore,
+  onAddChannel,
   pairingError = null,
   identitiesError = null,
   actionError = null,
@@ -128,7 +133,16 @@ export function ChannelsPanel({
           <ErrorNotice what={actionError} did={t("settings.shared.nothingChanged")} />
         ) : null}
         {channels.length === 0 ? (
-          <EmptyNotice text={t("settings.channels.empty", { persona })} />
+          <EmptyNotice
+            text={t("settings.channels.empty", { persona })}
+            action={
+              onAddChannel ? (
+                <Button type="button" size="sm" onClick={onAddChannel}>
+                  {t("settings.channels.add.button")}
+                </Button>
+              ) : undefined
+            }
+          />
         ) : (
           channels.map((c) => (
             <ChannelCard
@@ -148,6 +162,14 @@ export function ChannelsPanel({
             />
           ))
         )}
+
+        {onAddChannel && channels.length > 0 ? (
+          <div>
+            <Button type="button" size="sm" variant="outline" onClick={onAddChannel}>
+              {t("settings.channels.add.button")}
+            </Button>
+          </div>
+        ) : null}
 
         <Group
           title={t("settings.channels.identities")}
@@ -390,6 +412,7 @@ export function ChannelsSection({ now }: { now?: number }): ReactElement {
   const pairingQ = useGatewayQuery("channels.pairing.list", { status: "pending" });
   const identitiesQ = useGatewayQuery("channels.identities.list", {});
   const [actionError, setActionError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
   const reload = useCallback(() => {
     channelsQ.reload();
     pairingQ.reload();
@@ -400,26 +423,42 @@ export function ChannelsSection({ now }: { now?: number }): ReactElement {
     p.then(reload, (err: unknown) => setActionError(channelError(action, err)));
   };
   return (
-    <ChannelsPanel
-      persona={persona.name}
-      channels={channelsQ.data?.channels ?? []}
-      pairing={pairingQ.data?.requests ?? []}
-      identities={identitiesQ.data?.identities ?? []}
-      loading={channelsQ.loading && channelsQ.data === undefined}
-      error={channelsQ.error}
-      onRetry={reload}
-      pairingError={pairingQ.error}
-      identitiesError={identitiesQ.error}
-      actionError={actionError}
-      onPolicyChange={(c, dmPolicy) =>
-        run("policy", call("channels.configure", { channelId: c.id, dmPolicy }))
-      }
-      onRequireMention={(c, requireMention) =>
-        run("mention", call("channels.configure", { channelId: c.id, requireMention }))
-      }
-      onApprove={(r) => run("approve", call("channels.pairing.approve", { requestId: r.id }))}
-      onIgnore={(r) => run("ignore", call("channels.pairing.deny", { requestId: r.id }))}
-      {...(now === undefined ? {} : { now })}
-    />
+    <>
+      <ChannelsPanel
+        persona={persona.name}
+        onAddChannel={() => setAdding(true)}
+        channels={channelsQ.data?.channels ?? []}
+        pairing={pairingQ.data?.requests ?? []}
+        identities={identitiesQ.data?.identities ?? []}
+        loading={channelsQ.loading && channelsQ.data === undefined}
+        error={channelsQ.error}
+        onRetry={reload}
+        pairingError={pairingQ.error}
+        identitiesError={identitiesQ.error}
+        actionError={actionError}
+        onPolicyChange={(c, dmPolicy) =>
+          run("policy", call("channels.configure", { channelId: c.id, dmPolicy }))
+        }
+        onRequireMention={(c, requireMention) =>
+          run("mention", call("channels.configure", { channelId: c.id, requireMention }))
+        }
+        onApprove={(r) => run("approve", call("channels.pairing.approve", { requestId: r.id }))}
+        onIgnore={(r) => run("ignore", call("channels.pairing.deny", { requestId: r.id }))}
+        {...(now === undefined ? {} : { now })}
+      />
+      <AddChannelDialog
+        open={adding}
+        persona={persona.name}
+        onClose={() => setAdding(false)}
+        onAdded={(outcome) => {
+          reload();
+          toast(
+            outcome.inactive
+              ? t("settings.channels.add.addedInactive", { env: outcome.env })
+              : t("settings.channels.add.added", { persona: persona.name, env: outcome.env }),
+          );
+        }}
+      />
+    </>
   );
 }
