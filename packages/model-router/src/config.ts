@@ -68,7 +68,9 @@ export interface ProviderConfig {
   prefixCacheTtl?: "5m" | "1h";
   /**
    * Anthropic: send tools loaded on demand with `defer_loading` and reference them from
-   * `load_tools` results, so a load keeps the prompt cache (default true; Claude 4.5 and later).
+   * `load_tools` results, so a load keeps the prompt cache (Claude 4.5 and later). Default
+   * false until `scripts/smoke-deferred-tools.ts` has passed against the real API: a request
+   * shape the API rejected would fail every turn.
    */
   deferLoading?: boolean;
   /**

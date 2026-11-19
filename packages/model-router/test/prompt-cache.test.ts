@@ -23,7 +23,10 @@ import { loadFixture, replayFetch } from "./helpers/replay.ts";
 
 const REF = "anthropic/claude-haiku-5-5";
 const KEY = { secret: fakeKey("anthropic-cache"), origin: "https://api.anthropic.com" };
-const CONFIG: ProviderConfig = { id: "anthropic", kind: "anthropic" };
+/** Deferred loading is off by default until a live smoke test; these tests turn it on. */
+const CONFIG: ProviderConfig = { id: "anthropic", kind: "anthropic", deferLoading: true };
+/** The shipped default: no `deferLoading`. */
+const DEFAULT: ProviderConfig = { id: "anthropic", kind: "anthropic" };
 
 const tool = (name: string, description = `The ${name} tool`): ToolSpec => ({
   ...weatherTool,
@@ -297,6 +300,27 @@ describe("cache-stable prompt: request bodies", () => {
     expect(breakpoints(off)).toEqual([]);
   });
 
+  it("by default sends loaded tools as before, with the split system and the same breakpoints", async () => {
+    const bodies = await Promise.all(turnWithLoad().map((r) => send(r, DEFAULT)));
+    const [b1, b2, b3] = bodies;
+    if (b1 === undefined || b2 === undefined || b3 === undefined) throw new Error("no body");
+    expect(JSON.stringify(bodies)).not.toContain("defer_loading");
+    expect(JSON.stringify(bodies)).not.toContain("tool_reference");
+    // The loaded tool is appended up front (the old behaviour) and holds the tools breakpoint.
+    expect(toolNamed(b2, "forecast")?.cache_control).toEqual({ type: "ephemeral", ttl: "1h" });
+    expect(toolNamed(b1, "forecast")).toBeUndefined();
+    for (const body of bodies) {
+      expect(breakpointProblems(body)).toEqual([]);
+      expect(breakpoints(body).map((b) => b.ttl)).toEqual(["1h", "1h", "5m"]);
+      expect(body.system).toHaveLength(2);
+    }
+    // Steps without a load keep the whole prefix. A load still rewrites from the appended tool
+    // on, as before: the earlier tools breakpoint is read, everything after it is written.
+    assertPrefixStable(b2, b3);
+    assertPrefixStable(b1, b2, 0);
+    expect(prefixDiff(b1, b2)?.next?.path).toBe(`tools[${CORE.length}]`);
+  });
+
   it("positions skip deferred tools and strip cache_control", async () => {
     const [s1] = turnWithLoad();
     const body = await send(s1 as Omit<ModelRequest, "model">);
@@ -323,8 +347,9 @@ describe("cache-stable prompt: other providers and models", () => {
     expect(o.prompt.filter((m) => m.role === "system")).toHaveLength(1);
   });
 
-  it("does not defer on a Claude model older than 4.5, or with deferLoading off", () => {
+  it("does not defer by default, on a Claude model older than 4.5, or with deferLoading off", () => {
     for (const [config, model] of [
+      [DEFAULT, "claude-haiku-5-5"],
       [CONFIG, "claude-3-7-sonnet-latest"],
       [{ ...CONFIG, deferLoading: false }, "claude-haiku-5-5"],
       [

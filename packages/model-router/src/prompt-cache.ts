@@ -9,9 +9,11 @@ import type { ProviderConfig } from "./config.ts";
  * - `system` goes as two blocks, the stable head (base prompt, persona, skills, tool guidance)
  *   and the volatile tail (daily notes, the compaction summary, per-turn context), split at
  *   `ModelRequest.systemStableLength`;
- * - tools loaded on demand are all sent with `defer_loading: true`, and a `load_tools` result
- *   names what it loaded with `tool_reference` blocks (the API's custom tool search). Deferred
- *   tools are outside the cached prefix, so a load no longer rewrites the whole cache;
+ * - with `deferLoading: true` (off by default until a live smoke test,
+ *   `scripts/smoke-deferred-tools.ts`), tools loaded on demand are all sent with
+ *   `defer_loading: true`, and a `load_tools` result names what it loaded with `tool_reference`
+ *   blocks (the API's custom tool search). Deferred tools are outside the cached prefix, so a
+ *   load no longer rewrites the whole cache. Off, a loaded tool is appended to `tools` as before;
  * - breakpoints: the last tool sent up front, the stable system block and the last message, so
  *   three of the API's four. The first two use `prefixCacheTtl` (1 hour by default) when the
  *   request has a stable head, the last one `cacheTtl`.
@@ -65,11 +67,13 @@ function resultNames(
   return out;
 }
 
-/** Whether this call sends `request.deferredTools` with `defer_loading` (Anthropic, Claude 4.5+). */
+/**
+ * Whether this call sends `request.deferredTools` with `defer_loading` (Anthropic, Claude 4.5+,
+ * `deferLoading: true`). Off by default: the request shape is checked against the docs and the
+ * provider package only, and a shape the API rejected would fail every turn.
+ */
 export function defersTools(config: ProviderConfig, modelId: string): boolean {
-  return (
-    config.kind === "anthropic" && config.deferLoading !== false && DEFER_LOADING.test(modelId)
-  );
+  return config.kind === "anthropic" && config.deferLoading === true && DEFER_LOADING.test(modelId);
 }
 
 /**

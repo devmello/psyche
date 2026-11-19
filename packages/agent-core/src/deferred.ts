@@ -8,9 +8,9 @@ import { defineTool, parseMcpToolName, type ToolRunContext } from "./registry.ts
  * `tool_search` / `load_tools` bring its full schema in. Loading is append-only per thread
  * (`ThreadState.loadedTools`): a loaded tool stays for the thread and goes to the end of the tool
  * list in load order, and the prompt's list of on-demand names does not change on a load, so a
- * provider's prefix cache is rewritten once per load and never reshuffled. A provider with
- * deferred loading (Anthropic, model-router `prompt-cache.ts`) also gets every deferrable tool in
- * `ModelRequest.deferredTools` and keeps its cache across a load.
+ * provider's prefix cache is rewritten once per load and never reshuffled. Every deferrable tool
+ * also goes in `ModelRequest.deferredTools`: a provider with deferred loading turned on
+ * (Anthropic `deferLoading`, model-router `prompt-cache.ts`) keeps its cache across a load.
  */
 
 /** `hidden` reason of a deferred tool; `#gate` loads it when the model calls it anyway. */
