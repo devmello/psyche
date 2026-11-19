@@ -299,7 +299,7 @@ export class DeferredResume {
     for (const e of [...this.#entries.values()]) {
       if (e.automationId !== run.automationId) continue;
       // Its grant let this run's call through and no receipt came: it ran, outcome unknown.
-      if (!e.done && e.grantTasks.delete(run.taskId)) e.failed = true;
+      if (!e.done && run.taskId != null && e.grantTasks.delete(run.taskId)) e.failed = true;
       if (e.done) {
         this.#entries.delete(e.approval.id);
         this.#settle(e.approval.id);
