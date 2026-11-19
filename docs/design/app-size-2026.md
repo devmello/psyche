@@ -203,3 +203,43 @@ With the library shipped and the fuse off, the installed app is 510 MiB and the 
 before `codesign`. `psyche-helper` goes from 29.7 to 10.1 MiB (31,145,840 to 10,632,096 bytes):
 `__LINKEDIT` (symbols) shrinks from 21.0 to 1.4 MiB, `__TEXT` is unchanged. Runtime RAM is
 unchanged. `PSYCHE_HELPER_STRIP=x` (strip -x) or `none` overrides it.
+
+## 2026-11-18: psychedMB 205 to 208
+
+The Gateway bundle (`Resources/psyched`, the `psychedMB` check) measured **210.4 MiB** on a real
+darwin-arm64 `build-psyched.mjs` run, over the 205 limit. Measurements were made with
+`PNPM_CONFIG_IGNORE_SCRIPTS=true`, which skips native install scripts; the `.node` prebuilds come from
+each package. The web client was built from source. Sizes are MiB.
+
+Breakdown after the node-pty cut below (206.6 MiB in total):
+
+| Part | MiB |
+|---|---|
+| `runtime/node` (the Gateway's Node 24.22.1) | 93.0 |
+| onnxruntime-node (one dylib after the dedupe) | 42.9 |
+| `app/apps/web` (web client JS: `core-*.js` 6.4, `es-*.js` 5.3) | 37.3 |
+| `app/apps/gateway` | 9.7 |
+| playwright-core | 7.4 |
+| pdfjs-dist | 7.3 |
+| better-sqlite3-multiple-ciphers / better-sqlite3 | 2.3 / 2.0 |
+| node-pty (prebuild only, after the cut) | about 0.2 |
+| `app/apps/cli` | 0.9 |
+
+**What grew since 8e40a20f4** (the 196 MiB record): the runtime dependencies added since then are
+node-pty (2026-11-04, ab06dbee3), bonjour-service (2026-11-04, 6333efbdd), dbus-next (2026-11-05,
+9aa542bdd), the `ai` upgrade from 7.0.143 to 7.0.152, and `tldts`. Their esbuild share is not
+measured separately. `@napi-rs/canvas` is deliberately dropped from the bundle (`DROP_PACKAGES` in
+`build-psyched.mjs`), so it is not part of the growth.
+
+**node-pty cut (applied in this change):** `deps/`, `src/`, `third_party/` (Windows conpty sources),
+`scripts/` and `binding.gyp` leave the bundle, about 3.9 MiB installed. `node-pty`'s `lib/utils.js`
+loads `build/Release`, then `prebuilds/<platform>-<arch>`, so the sources are never read on darwin.
+Measured: 210.4 to 206.6 MiB.
+
+**Why the budget is raised, not the runtime cut:** the owner prefers lower runtime RAM to a smaller
+app, so the separate Node runtime stays (see Phase 3). 208 leaves 1.4 MiB of headroom above the
+measured 206.6, so the next small growth still trips the check.
+
+**Open structural idea:** serve one copy of the web client JS to both `psyched` and the desktop
+renderer in `app.asar`. That is about 37 MiB across the two builds and would be the largest single
+saving left. It is a structural change and is not done here.
