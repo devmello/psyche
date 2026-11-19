@@ -533,8 +533,19 @@ function valueSlots(name: string, a: string): Slot[] {
   const skippable = SKIP_LETTERS[name] ?? "";
   const body = a.slice(1);
   if (name === "tree") {
-    // Every value letter of the cluster takes the next argument, in order.
-    return [...body].filter((c) => skippable.includes(c)).map(() => "plain");
+    // Every value letter of the cluster takes the next argument, in order. The one exception is
+    // `-L` with attached digits (`-L2`, `-L2I x`): tree reads the digits as its value and takes
+    // nothing from the next argument, which stays an operand.
+    const slots: Slot[] = [];
+    for (let i = 0; i < body.length; i++) {
+      const c = body[i] as string;
+      if (c === "L" && /[0-9]/.test(body[i + 1] ?? "")) {
+        while (/[0-9]/.test(body[i + 1] ?? "")) i++;
+        continue;
+      }
+      if (skippable.includes(c)) slots.push("plain");
+    }
+    return slots;
   }
   const { flags, value } = clusterLetters(name, a);
   const last = flags.slice(-1);

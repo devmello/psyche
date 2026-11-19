@@ -834,6 +834,9 @@ describe("exec_host program grant: every path stays inside the folder", () => {
     ["grep", ["-A", "3", "-n", "foo", "/etc"]],
     ["head", ["-n", "20", "-q", join(HOME, "x")]],
     ["tree", ["-LI", "2", "x", "/"]],
+    ["tree", ["-L2", "/"]],
+    ["tree", ["-L22", "/"]],
+    ["tree", ["-L2I", "x", "/"]],
     ["jq", ["--arg", "k", "v", "-r", ".", join(HOME, "x.json")]],
   ];
   it.each(RUN)("%s %j runs quietly", async (name, args) => {
@@ -881,6 +884,12 @@ describe("exec_host program grant: every path stays inside the folder", () => {
     expect(inside("tree", ["-LI", "2", "x"])).toBe(true);
     expect(inside("tree", ["-LI", "2", "x", "/etc"])).toBe(false);
     expect(inside("tree", ["-LI", "2"])).toBe(true);
+    // `-L` with attached digits takes nothing from the next argument (review of #1372).
+    expect(inside("tree", ["-L2", "/etc"])).toBe(false);
+    expect(inside("tree", ["-L22", "/etc"])).toBe(false);
+    expect(inside("tree", ["-L2I", "x", "/etc"])).toBe(false);
+    expect(inside("tree", ["-L2I", "x"])).toBe(true);
+    expect(inside("tree", ["-L2", "."])).toBe(true);
     // Only as many values as the cluster has slots.
     expect(inside("rg", ["-t", "ts", "/etc/passwd"])).toBe(false);
     expect(inside("jq", ["--arg", "k", "v", "/etc/passwd"])).toBe(false);
