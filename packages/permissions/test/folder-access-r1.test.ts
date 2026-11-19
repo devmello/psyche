@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { knownCliDirs } from "@psyche/model-router";
 import { beforeAll, describe, expect, it } from "vitest";
+import { FOLDER_FRESH_MS } from "../src/broker.ts";
 import {
   assertFolderGrantable,
   inSystemRoot,
@@ -194,19 +195,27 @@ describe.skipIf(WIN)("every reader of the granted folders sees the filter (3, 4,
     expect(d.rule).toBe("folder:workspace");
   });
 
-  it("resolves a granted folder's real path once, not on every call", async () => {
-    const link = join(home, "projects-link");
-    await symlink(join(home, "Projects"), link);
+  it("a granted folder swapped for a link to /opt or to another folder stops counting by the next look", async () => {
+    const root = join(home, "swap-root");
+    await mkdir(root);
     const h = makeBroker({
-      policy: { folders: [{ path: link, mode: "rw" }] },
+      policy: { folders: [{ path: root, mode: "rw" }] },
       hostProgram: { home },
     });
+    await h.broker.foldersSettled();
     expect(h.broker.grantedFolders()).toHaveLength(1);
-    // Retarget the link into /opt: the answer was resolved when the policy was set.
-    await rm(link);
-    await symlink("/opt", link);
-    expect(h.broker.grantedFolders()).toHaveLength(1);
-    h.broker.setPolicy({ folders: [{ path: link, mode: "rw" }] });
+    // One read through the fresh accessor (r2: a second read hid a stale first answer).
+    const look = async () => {
+      h.clock.advance(FOLDER_FRESH_MS + 1);
+      return (await h.broker.freshGrantedFolders()).map((f) => f.path);
+    };
+    await rm(root, { recursive: true });
+    await symlink("/opt", root);
+    expect(await look()).toEqual([]);
+    expect(h.broker.grantedFolders()).toHaveLength(0);
+    await rm(root);
+    await symlink(join(home, "Projects"), root);
+    expect(await look()).toEqual([]);
     expect(h.broker.grantedFolders()).toHaveLength(0);
   });
 });

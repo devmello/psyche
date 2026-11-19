@@ -1,6 +1,15 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -210,6 +219,39 @@ describe("code.* tools (V10)", () => {
     await expect(inside.use("code.open", { path: repo })).rejects.toMatchObject({
       code: "forbidden",
     });
+  });
+
+  it("closes a workspace whose root was swapped for a link after it was opened (PR #1395 r2, D)", async () => {
+    // The outer grant still covers the path lexically; only the live check of the root sees it.
+    const { use } = setup([{ path: dir, mode: "rw" }]);
+    await use("code.open", { path: repo });
+    const elsewhere = join(dir, "Documents");
+    mkdirSync(elsewhere);
+    writeFileSync(join(elsewhere, "secret.js"), "export const a - b = 1;\n");
+    renameSync(repo, join(dir, "repo-moved"));
+    symlinkSync(elsewhere, repo);
+    await expect(use("code.search", { root: repo, pattern: "a\\s-\\sb" })).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    await expect(use("code.read", { root: repo, path: "secret.js" })).rejects.toMatchObject({
+      code: "forbidden",
+    });
+  });
+
+  it("reads the granted folders through an async source (the broker's fresh read)", async () => {
+    const writes: string[] = [];
+    const tools = codingTools({
+      files: fileTools(writes),
+      folders: async () => [{ path: dir, mode: "rw" }],
+      git: hostGit,
+    });
+    const t = tools.find((x) => x.spec.name === "code.open") as AgentToolRegistration;
+    await expect(t.run?.({ path: repo }, ctx())).resolves.toMatchObject({
+      output: { root: repo },
+    });
+    const none = codingTools({ files: fileTools(writes), folders: async () => [], git: hostGit });
+    const t2 = none.find((x) => x.spec.name === "code.open") as AgentToolRegistration;
+    await expect(t2.run?.({ path: repo }, ctx())).rejects.toMatchObject({ code: "forbidden" });
   });
 
   it("searches and reads with root-relative paths, never outside the root", async () => {

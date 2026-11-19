@@ -262,9 +262,9 @@ const isProtected = (path: string): boolean => {
  */
 export function appleWorkSources(
   apple: AppleSearchSeams,
-  folders: () => readonly { path: string }[],
+  folders: () => readonly { path: string }[] | Promise<readonly { path: string }[]>,
 ): WorkSources {
-  const roots = () => folders().map((f) => f.path);
+  const roots = async () => (await folders()).map((f) => f.path);
   const owned = (app: "reminders" | "calendar") => (row: Obj) =>
     apple.deps.owned?.(app, row) === true;
   return {
@@ -315,9 +315,10 @@ export function appleWorkSources(
     },
     async files(anchored, since, signal) {
       const out: FileChangeRecord[] = [];
+      const granted = await roots();
       for (const root of anchored) {
         // Only inside a granted folder, and never a protected path: that is what "owner" means.
-        const owner = roots().some((g) => within(root, g)) && !isProtected(root);
+        const owner = granted.some((g) => within(root, g)) && !isProtected(root);
         if (!owner) continue;
         await sweep(root, since, signal, out, true);
       }
@@ -325,7 +326,7 @@ export function appleWorkSources(
     },
     async folders(signal) {
       const out: FolderRecord[] = [];
-      for (const root of roots()) {
+      for (const root of await roots()) {
         if (isProtected(root)) continue;
         await subfolders(root, signal, out);
       }
@@ -342,8 +343,14 @@ export interface WorkDeps {
   people: Pick<People, "graph">;
   /** The Apple seams (the same ones search reads through); absent in tests that inject sources. */
   apple?: AppleSearchSeams;
-  /** The folders the owner granted. */
-  broker?: { grantedFolders(): readonly { path: string }[] };
+  /**
+   * The folders the owner granted. The sweep follows the roots itself, so it reads them from a
+   * fresh look (`freshGrantedFolders`) when the broker offers one.
+   */
+  broker?: {
+    grantedFolders(): readonly { path: string }[];
+    freshGrantedFolders?(): Promise<readonly { path: string }[]>;
+  };
   /** Replaces the real sources (tests). */
   sources?: WorkSources;
   timeZone?: () => string;
@@ -398,7 +405,11 @@ export function composeWork(deps: WorkDeps): Work {
           files: async () => [],
           folders: async () => [],
         }
-      : appleWorkSources(deps.apple, () => deps.broker?.grantedFolders() ?? []));
+      : appleWorkSources(deps.apple, () => {
+          const b = deps.broker;
+          if (b === undefined) return [];
+          return b.freshGrantedFolders === undefined ? b.grantedFolders() : b.freshGrantedFolders();
+        }));
   const settings = () => workSettings(getSetting(db, MEMORY_WORK_SETTING_KEY)?.value);
   let running = false;
 

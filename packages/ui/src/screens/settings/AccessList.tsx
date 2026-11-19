@@ -24,6 +24,10 @@ export interface AccessListViewProps {
   /** Ids being revoked, for disabled buttons. */
   revoking?: ReadonlySet<string>;
   onRevoke?: (entry: AccessEntry) => void;
+  /** Ids being confirmed again, for disabled buttons. */
+  confirming?: ReadonlySet<string>;
+  /** Confirms again a folder that moved since it was shared (`access.confirmFolder`). */
+  onConfirm?: (entry: AccessEntry) => void;
   /** Read only / read and change for a folder kept until revoked (the policy). */
   onFolderMode?: (path: string, access: FolderGrant["access"]) => void;
 }
@@ -38,6 +42,8 @@ export function AccessListView({
   now = Date.now(),
   revoking,
   onRevoke,
+  confirming,
+  onConfirm,
   onFolderMode,
 }: AccessListViewProps): ReactElement {
   const id = useId();
@@ -47,12 +53,18 @@ export function AccessListView({
       {entries.map((e) => {
         const folder = e.type === "folder";
         const refused = folder && e.refused === true;
+        // Shared before Psyche recorded where each folder is, and it leads elsewhere now.
+        const moved = refused && e.moved === true && e.movedTo !== undefined;
         const editable =
           folder && !refused && e.scope === "always" && e.path !== undefined && onFolderMode;
         const meta = [
           scopeWord(e),
           // A folder that is a sensitive root today (granted before the rule): it covers nothing.
-          refused ? t("blocks.folder.blocked", { path: e.path ?? e.label }) : null,
+          moved
+            ? t("settings.access.moved", { path: e.movedTo ?? "" })
+            : refused
+              ? t("blocks.folder.blocked", { path: e.path ?? e.label })
+              : null,
           folder && !refused && e.file === true
             ? t("settings.access.fileOnly")
             : folder && !refused && !editable
@@ -97,6 +109,21 @@ export function AccessListView({
                 </NativeSelect>
               </>
             ) : null}
+            {moved && onConfirm ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="xs"
+                disabled={confirming?.has(e.id) ?? false}
+                onClick={() => onConfirm(e)}
+                aria-label={t("settings.access.confirmNamed", {
+                  name: e.path ?? e.label,
+                  path: e.movedTo ?? "",
+                })}
+              >
+                {t("settings.access.confirm")}
+              </Button>
+            ) : null}
             {onRevoke ? (
               <Button
                 type="button"
@@ -137,6 +164,7 @@ export function ConnectedAccessList({
     reload();
   }, [reloadKey]);
   const [revoking, setRevoking] = useState<ReadonlySet<string>>(new Set());
+  const [confirming, setConfirming] = useState<ReadonlySet<string>>(new Set());
   const [failed, setFailed] = useState<string | null>(null);
   if (list.data === undefined) {
     if (list.error !== null)
@@ -157,6 +185,22 @@ export function ConnectedAccessList({
         }),
       );
   };
+  const confirm = (e: AccessEntry) => {
+    setFailed(null);
+    setConfirming((s) => new Set([...s, e.id]));
+    // What the owner saw: the Gateway confirms only while the folder still leads there, and
+    // the list is read again either way (a folder re-pointed meanwhile shows its new place).
+    call("access.confirmFolder", { entryId: e.id, movedTo: e.movedTo ?? "" })
+      .then(() => list.reload())
+      .catch((err: unknown) => setFailed(messageOf(err)))
+      .finally(() =>
+        setConfirming((s) => {
+          const next = new Set(s);
+          next.delete(e.id);
+          return next;
+        }),
+      );
+  };
   return (
     <div className="flex flex-col gap-2">
       <AccessListView
@@ -164,6 +208,8 @@ export function ConnectedAccessList({
         persona={persona}
         revoking={revoking}
         onRevoke={revoke}
+        confirming={confirming}
+        onConfirm={confirm}
         {...(now === undefined ? {} : { now })}
         {...(onFolderMode ? { onFolderMode } : {})}
       />

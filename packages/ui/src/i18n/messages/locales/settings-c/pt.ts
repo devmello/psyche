@@ -146,6 +146,9 @@ export const settingsC: Partial<Catalogue> = {
   "settings.access.loadLabel": "ao que o Psyche pode ter acesso",
   "settings.access.loadFailed": "O Psyche não conseguiu carregar a que pode ter acesso ({reason}).",
   "settings.access.unchanged": "O acesso não mudou.",
+  "settings.access.moved": "Agora aponta para {path}: confirme só se você mesmo a moveu",
+  "settings.access.confirm": "Confirmar",
+  "settings.access.confirmNamed": "Confirmar {name} novamente em {path}",
   "settings.model.advancedHint": "Limites de contexto, modelos locais",
   "settings.permissions.subject.prepNotes": "Notas com o título “Prep:” (preparação de reuniões)",
   "settings.permissions.specificConnectors":

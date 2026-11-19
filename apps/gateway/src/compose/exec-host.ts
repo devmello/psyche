@@ -25,12 +25,13 @@ import {
   classifyHostCommand,
   type FolderAccessEnv,
   type FolderGrantEntry,
+  grantedRootRefused,
   hostProgramCoverage,
-  inSystemRoot,
+  lookupRootFacts,
   operandsInside,
   programName,
   READ_ONLY_RULE,
-  refuseFolder,
+  type RootFacts,
   SYSTEM_BIN_DIRS,
 } from "@psyche/permissions";
 import {
@@ -344,6 +345,13 @@ export interface ExecHostDeps {
   vault: { redact(text: string): string };
   /** The live granted folders for a conversation (Settings plus this chat's Allow once). */
   folders(threadId: string): readonly FolderGrantEntry[];
+  /**
+   * A live look at a granted root (the broker's `lookRootNow`): one lookup in flight per path
+   * shared with the broker's cache, bounded by a timeout, so a hung mount holds one libuv thread
+   * per path, not one per call. Undefined: the root cannot be read now (refused). Without it
+   * (tests) each call looks the roots up itself.
+   */
+  lookRoot?(path: string): Promise<RootFacts | undefined>;
   srt: SrtLookup;
   /** `$PSYCHE_HOME`: denied to the command; its settings and scratch live under it. */
   home: string;
@@ -642,6 +650,8 @@ async function grantedFolder(
   folders: readonly FolderGrantEntry[],
   platform: NodeJS.Platform = process.platform,
   env: FolderAccessEnv = {},
+  look: (path: string) => Promise<RootFacts | undefined> = (path) =>
+    lookupRootFacts(path).catch(() => undefined),
 ): Promise<{ real: string; folder: FolderGrantEntry }> {
   let real: string;
   try {
@@ -649,23 +659,22 @@ async function grantedFolder(
   } catch {
     throw new PsycheError("not_found", `${cwd} does not exist`);
   }
-  // A granted root that became a link since the policy was set (the broker's answer for it is
-  // memoised) is judged by where it leads now: into a system folder, or anywhere a grant would be
-  // refused (home itself, ~/Library, ~/.ssh, Psyche's own data), it covers nothing. A root that
-  // is still where it was keeps its meaning, so an old home-root grant still works.
+  // Each granted root is looked up now (the broker's answer can be seconds old), and
+  // judged by `grantedRootRefused`: inside a system folder, leading to a place a grant would be
+  // refused (home, ~/Library, ~/.ssh, Psyche's data), or anywhere else than where it was granted
+  // (its recorded real path; a swapped parent too), it covers nothing. Spelling moves (case,
+  // /tmp -> /private/tmp, the firmlinked Data volume) and an unmoved root keep their meaning, so
+  // an old home-root grant still works. A root whose real path cannot be read is left out.
   const resolvedFolders = (
     await Promise.all(
-      folders.map(async (f) => {
-        const real = await realpath(f.path).catch(() => f.path);
-        return { entry: { ...f, path: real }, moved: real !== f.path };
+      folders.map(async (f): Promise<FolderGrantEntry | undefined> => {
+        const facts = await look(f.path);
+        if (facts === undefined) return undefined;
+        if (grantedRootRefused(f.path, facts, f.real, env)) return undefined;
+        return { ...f, path: facts.real ?? f.path };
       }),
     )
-  )
-    .filter(
-      ({ entry, moved }) =>
-        !inSystemRoot(entry.path) && !(moved && refuseFolder(entry.path, env) !== undefined),
-    )
-    .map(({ entry }) => entry);
+  ).filter((f): f is FolderGrantEntry => f !== undefined);
   const folder = folderOf(real, resolvedFolders, platform);
   if (folder === undefined) {
     throw new PsycheError("forbidden", `${real} is outside every granted folder`, {
@@ -1053,6 +1062,9 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
       platform,
       // Home-relative refusals (~/Library, ~/.ssh, the CLI dirs) judged against the exec user's home.
       { ...folderAccessEnv(deps.home), home: userHome },
+      deps.lookRoot === undefined
+        ? undefined
+        : (path) => deps.lookRoot?.(path) ?? Promise.resolve(undefined),
     );
     // Hashed again right before it runs: a binary swapped after approval does not run.
     const described = describe(p, platform);

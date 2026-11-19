@@ -87,7 +87,9 @@ describe.skipIf(WIN)("installed-software roots", () => {
     await expect(assertFolderGrantable("/OPT/homebrew/bin", env)).rejects.toMatchObject({
       code: "forbidden",
     });
-    await expect(assertFolderGrantable(join(home, "Projects"), env)).resolves.toBeUndefined();
+    await expect(assertFolderGrantable(join(home, "Projects"), env)).resolves.toEqual(
+      expect.any(String),
+    );
   });
 
   it.runIf(existsSync("/opt"))("judges a symlink from home by where it leads", async () => {
