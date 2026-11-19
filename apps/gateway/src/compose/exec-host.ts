@@ -621,6 +621,8 @@ function folderOf(
 ): FolderGrantEntry | undefined {
   let best: FolderGrantEntry | undefined;
   for (const f of folders) {
+    // An attached file is not a place to run in.
+    if (f.file === true) continue;
     const root = trimSep(f.path, platform);
     if (within(path, root, platform)) {
       if (best === undefined || root.length > best.path.length) best = { ...f, path: root };

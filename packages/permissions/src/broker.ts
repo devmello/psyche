@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { basename } from "node:path";
 import { Receipts, sha256 } from "@psyche/audit";
+import { isUnderHostPath } from "@psyche/hostfs";
 import {
   APPROVAL_ARM_DELAY_MS,
   APPROVAL_TTL_MS,
@@ -58,9 +59,12 @@ import {
   trustedRead,
 } from "./engine.ts";
 import {
+  effectiveEntries,
   type FolderAccessEnv,
   type FolderGrantEntry,
+  folderCovers,
   refuseFolder,
+  resolveFilePick,
   resolveFolderPick,
 } from "./folder-access.ts";
 import {
@@ -235,6 +239,9 @@ export interface PermissionBrokerOptions {
   };
 }
 
+/** How long an attached file stays readable in its conversation (it also ends with the thread). */
+export const ATTACH_GRANT_MS = 24 * 60 * 60 * 1000;
+
 type GrantFields = { grantFields?: JsonObject };
 
 /**
@@ -359,6 +366,14 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #psycheHome: string | undefined;
   /** thread → folders allowed for that conversation only; gone at `/new` and at a restart. */
   readonly #sessionFolders = new Map<string, FolderGrantEntry[]>();
+  /** When an attached file's grant ends (`${threadId}\0${path}` -> epoch ms); see attachFiles. */
+  readonly #fileGrantExpiry = new Map<string, number>();
+  /**
+   * Which files the owner attached in which conversation (`${threadId}\0${path}` -> epoch ms
+   * when the record ends). Separate from the grants: a file inside a granted folder gets no
+   * grant entry but is still attached. The record alone never grants a read.
+   */
+  readonly #attachRecords = new Map<string, number>();
 
   constructor(options: PermissionBrokerOptions) {
     this.clock = options.clock ?? { now: () => Date.now() };
@@ -399,7 +414,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       policy: () => this.#policy,
       task: (ctx) => this.#task(ctx),
       peekTask: (ctx) => this.#tasks.get(taskKey(ctx)),
-      sessionFolders: (threadId) => this.#sessionFolders.get(threadId) ?? [],
+      sessionFolders: (threadId) => this.sessionFolders(threadId),
       matchGrant: (key, kind, se, ctx, origin) => this.#matchGrant(key, kind, se, ctx, origin),
       useGrant: (rec, hash, ctx) => this.#useGrant(rec, hash, ctx?.taskId),
       trustedSite: (origin) => this.#trustedSite(origin),
@@ -2242,8 +2257,8 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   /** Every conversation's folders (`once`), for the access list in Settings. */
   allSessionFolders(): { threadId: string; entry: FolderGrantEntry }[] {
-    return [...this.#sessionFolders].flatMap(([threadId, roots]) =>
-      roots.map((entry) => ({ threadId, entry })),
+    return [...this.#sessionFolders.keys()].flatMap((threadId) =>
+      this.sessionFolders(threadId).map((entry) => ({ threadId, entry })),
     );
   }
 
@@ -2252,6 +2267,8 @@ export class PsychePermissionBroker implements PermissionBroker {
     const roots = this.#sessionFolders.get(threadId) ?? [];
     const kept = roots.filter((r) => r.path !== path);
     if (kept.length === roots.length) return false;
+    this.#fileGrantExpiry.delete(`${threadId}\0${path}`);
+    this.#attachRecords.delete(`${threadId}\0${path}`);
     if (kept.length === 0) this.#sessionFolders.delete(threadId);
     else this.#sessionFolders.set(threadId, kept);
     await this.#log("folder.revoked", { type: "system" }, { threadId }, { path, scope: "once" });
@@ -2260,7 +2277,105 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   /** Folders allowed for one conversation (`once`), for the file executors behind the broker. */
   sessionFolders(threadId: string): readonly FolderGrantEntry[] {
-    return this.#sessionFolders.get(threadId) ?? [];
+    this.#expireFileGrants(threadId);
+    return effectiveEntries(this.#sessionFolders.get(threadId) ?? []).filter(
+      (e) =>
+        e.file !== true ||
+        !(this.policy.folders ?? []).some((f) => isUnderHostPath(e.path, f.path)),
+    );
+  }
+
+  /**
+   * The files the owner attached to this conversation whose 24 hours are not over, whether or not
+   * a folder grant covers them. A record says "this file was picked here", never "may be read".
+   */
+  attachedFiles(threadId: string): readonly { path: string }[] {
+    const now = this.clock.now();
+    const out: { path: string }[] = [];
+    for (const [key, until] of this.#attachRecords) {
+      if (!key.startsWith(`${threadId}\0`)) continue;
+      if (until <= now) this.#attachRecords.delete(key);
+      else out.push({ path: key.slice(threadId.length + 1) });
+    }
+    return out;
+  }
+
+  /** Drops this conversation's attached-file grants whose 24 hours are over. */
+  #expireFileGrants(threadId: string): void {
+    const roots = this.#sessionFolders.get(threadId);
+    if (roots === undefined) return;
+    const now = this.clock.now();
+    const kept = roots.filter((r) => {
+      const until = this.#fileGrantExpiry.get(`${threadId}\0${r.path}`);
+      if (until === undefined || until > now) return true;
+      this.#fileGrantExpiry.delete(`${threadId}\0${r.path}`);
+      return false;
+    });
+    if (kept.length === roots.length) return;
+    if (kept.length === 0) this.#sessionFolders.delete(threadId);
+    else this.#sessionFolders.set(threadId, kept);
+  }
+
+  /**
+   * Chat attachments picked natively (chat.attachFiles): the owner's own pick of exactly these
+   * FILES is the approval. Each is resolved to its real path and refused under a sensitive root
+   * (`resolveFilePick`); a file already covered by a granted folder is left alone (a read-only
+   * file entry would narrow a read-write folder, since the longest root decides). The grant is
+   * read-only, covers only that file path, and ends with the conversation (`endSession`) or after
+   * `ATTACH_GRANT_MS`. Without folder-access settings nothing is granted.
+   */
+  async attachFiles(
+    threadId: string,
+    paths: readonly string[],
+    by: { deviceId: string },
+  ): Promise<{
+    files: { path: string; size: number }[];
+    refused: { path: string; reason: string }[];
+  }> {
+    if (this.#folderAccess === undefined) fail("unavailable", "attaching files is not set up");
+    const env = this.#folderAccess.env();
+    const files: { path: string; size: number }[] = [];
+    const refused: { path: string; reason: string }[] = [];
+    for (const raw of paths) {
+      try {
+        const file = await resolveFilePick(raw, env);
+        const covered = folderCovers(
+          [
+            ...(this.policy.folders ?? []),
+            ...this.sessionFolders(threadId).filter((e) => e.file !== true),
+          ],
+          file.path,
+          "ro",
+        );
+        const recordKey = `${threadId}\0${file.path}`;
+        const recorded = this.#attachRecords.get(recordKey);
+        if (recorded === undefined || recorded <= this.clock.now()) {
+          this.#attachRecords.set(recordKey, this.clock.now() + ATTACH_GRANT_MS);
+        }
+        if (covered === undefined) {
+          const roots = this.#sessionFolders.get(threadId) ?? [];
+          this.#sessionFolders.set(threadId, [
+            ...roots.filter((r) => r.path !== file.path),
+            { path: file.path, mode: "ro", file: true },
+          ]);
+          this.#fileGrantExpiry.set(
+            `${threadId}\0${file.path}`,
+            this.clock.now() + ATTACH_GRANT_MS,
+          );
+          await this.#log(
+            "folder.granted",
+            actorOf(by),
+            { threadId },
+            { path: file.path, mode: "ro", scope: "once", attachment: true },
+          );
+        }
+        files.push(file);
+      } catch (err) {
+        if (!(err instanceof PsycheError)) throw err;
+        refused.push({ path: raw, reason: err.code });
+      }
+    }
+    return { files, refused };
   }
 
   /**
@@ -3022,6 +3137,12 @@ export class PsychePermissionBroker implements PermissionBroker {
   endSession(threadId: string): Promise<Grant[]> {
     this.#tasks.delete(`thread:${threadId}`);
     this.#sessionFolders.delete(threadId);
+    for (const k of this.#fileGrantExpiry.keys()) {
+      if (k.startsWith(`${threadId}\0`)) this.#fileGrantExpiry.delete(k);
+    }
+    for (const k of this.#attachRecords.keys()) {
+      if (k.startsWith(`${threadId}\0`)) this.#attachRecords.delete(k);
+    }
     return this.#revokeWhere(
       (g) => g.grant.scope === "session" && g.meta.threadId === threadId,
       "session_ended",

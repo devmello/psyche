@@ -22,6 +22,30 @@ import { PsycheError } from "@psyche/protocol";
 export interface FolderGrantEntry {
   path: string;
   mode: "ro" | "rw";
+  /**
+   * A single attached file (chat attachment), not a folder: it matches that exact path only, so
+   * a file replaced by a folder opens nothing inside it. Always `ro`.
+   */
+  file?: true;
+}
+
+/** Whether `entry` names `target` (a file entry: that exact path; a folder: it and what is inside). */
+export function entryMatches(entry: FolderGrantEntry, target: string): boolean {
+  return entry.file === true
+    ? sameHostPath(target, entry.path)
+    : isUnderHostPath(target, entry.path);
+}
+
+/**
+ * The entries that still do something: a file entry that a granted folder already covers is
+ * dropped (the longest root decides, so a read-only file entry would narrow a read-write folder,
+ * including one granted after the file was attached).
+ */
+export function effectiveEntries(entries: readonly FolderGrantEntry[]): FolderGrantEntry[] {
+  const folders = entries.filter((e) => e.file !== true);
+  return entries.filter(
+    (e) => e.file !== true || !folders.some((f) => isUnderHostPath(e.path, f.path)),
+  );
 }
 
 /** A folder grant whose lifetime is the conversation, not Settings. */
@@ -254,6 +278,83 @@ export async function resolveFolderPick(raw: string, env: FolderAccessEnv = {}):
   return real;
 }
 
+const SENSITIVE_FILE_NAMES = new Set([
+  ".zsh_history",
+  ".bash_history",
+  ".sh_history",
+  ".python_history",
+  ".node_repl_history",
+  ".psql_history",
+  ".pgpass",
+  ".pypirc",
+  ".netrc",
+  "_netrc",
+  ".git-credentials",
+  ".npmrc",
+]);
+
+/** Credential and history files that are refused wherever they sit. */
+export function isSensitiveFileName(path: string): boolean {
+  const name = path.split(/[\\/]/).pop()?.toLowerCase() ?? "";
+  if (SENSITIVE_FILE_NAMES.has(name)) return true;
+  return /[\\/]\.cargo[\\/]credentials[^\\/]*$/i.test(path);
+}
+
+/**
+ * The real path of a FILE the owner attached to a chat message (a native pick or a drop). Same
+ * checks as a folder pick: symlinks and `..` are resolved first, so a link to `~/.ssh/id_ed25519`
+ * is judged as that file, and a file under a sensitive root is refused. Only regular files pass.
+ */
+export async function resolveFilePick(
+  raw: string,
+  env: FolderAccessEnv = {},
+): Promise<{ path: string; size: number }> {
+  if (raw.includes("\0") || !isAbsoluteHostPath(raw)) {
+    throw new PsycheError("invalid_params", "attach a file by its absolute path");
+  }
+  let real: string;
+  let size: number;
+  let nlink: number;
+  try {
+    real = await realpath(resolve(raw));
+    const st = await stat(real);
+    if (!st.isFile()) throw new PsycheError("invalid_params", `${raw} is not a file`);
+    size = st.size;
+    nlink = st.nlink;
+  } catch (err) {
+    if (err instanceof PsycheError) throw err;
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new PsycheError("not_found", `${raw} does not exist`);
+    }
+    throw err;
+  }
+  const protectedReal: string[] = [];
+  for (const p of env.protectedRoots ?? []) {
+    try {
+      protectedReal.push(await realpath(p));
+    } catch {
+      // Not there: the written path is enough.
+    }
+  }
+  const refusal = refuseFolder(real, {
+    ...env,
+    protectedRoots: [...(env.protectedRoots ?? []), ...protectedReal],
+  });
+  if (refusal !== undefined) {
+    throw new PsycheError("forbidden", `${real} cannot be shared with the agent`, {
+      details: { reason: refusal, path: real },
+    });
+  }
+  // Single files no folder grant could ever reach: credential and history files, and a hard link
+  // (realpath cannot see that `~/Documents/x` is `~/.ssh/id_ed25519`).
+  if (isSensitiveFileName(real) || nlink > 1) {
+    throw new PsycheError("forbidden", `${real} cannot be shared with the agent`, {
+      details: { reason: nlink > 1 ? "hard_link" : "sensitive_file", path: real },
+    });
+  }
+  return { path: real, size };
+}
+
 /** What the Gateway made of the folder the agent named, shown on the card as the pre-filled pick. */
 export type RequestedFolder =
   | { status: "ok"; path: string }
@@ -333,7 +434,7 @@ export function folderCovers(
   const best = grants
     .filter((g) => {
       const root = canonical(g.path);
-      return root !== undefined && under(target, root);
+      return root !== undefined && entryMatches({ ...g, path: root }, target);
     })
     .sort((a, b) => b.path.length - a.path.length)[0];
   if (best === undefined) return undefined;

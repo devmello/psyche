@@ -49,11 +49,13 @@ export function AccessListView({
         const editable = folder && e.scope === "always" && e.path !== undefined && onFolderMode;
         const meta = [
           scopeWord(e),
-          folder && !editable
-            ? e.mode === "rw"
-              ? t("settings.files.rw")
-              : t("settings.files.ro")
-            : null,
+          folder && e.file === true
+            ? t("settings.access.fileOnly")
+            : folder && !editable
+              ? e.mode === "rw"
+                ? t("settings.files.rw")
+                : t("settings.files.ro")
+              : null,
           e.lastUsedAt === undefined
             ? null
             : t("settings.access.used", { when: formatRelative(e.lastUsedAt, now) }),

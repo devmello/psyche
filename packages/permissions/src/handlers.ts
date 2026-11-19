@@ -245,6 +245,7 @@ export async function accessEntries(broker: PsychePermissionBroker): Promise<Acc
       label: entry.path,
       path: entry.path,
       mode: entry.mode,
+      ...(entry.file === true ? { file: true } : {}),
       threadId,
     });
   }

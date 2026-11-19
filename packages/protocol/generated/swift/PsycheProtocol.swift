@@ -313,6 +313,9 @@
 //   let channelsSecretsStatusParams = try? JSONDecoder().decode(ChannelsSecretsStatusParams.self, from: jsonData)
 //   let channelsSecretsStatusResult = try? JSONDecoder().decode(ChannelsSecretsStatusResult.self, from: jsonData)
 //   let channelsUpdatedPayload = try? JSONDecoder().decode(ChannelsUpdatedPayload.self, from: jsonData)
+//   let chatAttachFilesParams = try? JSONDecoder().decode(ChatAttachFilesParams.self, from: jsonData)
+//   let chatAttachFilesResult = try? JSONDecoder().decode(ChatAttachFilesResult.self, from: jsonData)
+//   let chatAttachedFile = try? JSONDecoder().decode(ChatAttachedFile.self, from: jsonData)
 //   let chatBlockPayload = try? JSONDecoder().decode(ChatBlockPayload.self, from: jsonData)
 //   let chatCancelParams = try? JSONDecoder().decode(ChatCancelParams.self, from: jsonData)
 //   let chatCancelResult = try? JSONDecoder().decode(ChatCancelResult.self, from: jsonData)
@@ -1713,6 +1716,7 @@ public struct AccessListResult: Codable, Sendable {
 
 // MARK: - AccessEntry
 public struct AccessEntry: Codable, Sendable {
+    public let file: Bool?
     public let grantID: String?
     public let id: String
     public let kind: ApprovalKind?
@@ -1726,6 +1730,7 @@ public struct AccessEntry: Codable, Sendable {
     public let type: AccessEntryType
 
     public enum CodingKeys: String, CodingKey {
+        case file = "file"
         case grantID = "grantId"
         case id = "id"
         case kind = "kind"
@@ -1739,7 +1744,8 @@ public struct AccessEntry: Codable, Sendable {
         case type = "type"
     }
 
-    public init(grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, path: String? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, path: String? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+        self.file = file
         self.grantID = grantID
         self.id = id
         self.kind = kind
@@ -9262,6 +9268,83 @@ public struct ChannelsUpdatedPayload: Codable, Sendable {
     }
 }
 
+// MARK: - ChatAttachFilesParams
+public struct ChatAttachFilesParams: Codable, Sendable {
+    public let paths: [String]
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case paths = "paths"
+        case threadID = "threadId"
+    }
+
+    public init(paths: [String], threadID: String) {
+        self.paths = paths
+        self.threadID = threadID
+    }
+}
+
+// MARK: - ChatAttachFilesResult
+public struct ChatAttachFilesResult: Codable, Sendable {
+    public let files: [ChatAttachFilesResultFile]
+    public let refused: [Refused]
+
+    public enum CodingKeys: String, CodingKey {
+        case files = "files"
+        case refused = "refused"
+    }
+
+    public init(files: [ChatAttachFilesResultFile], refused: [Refused]) {
+        self.files = files
+        self.refused = refused
+    }
+}
+
+// MARK: - ChatAttachFilesResultFile
+public struct ChatAttachFilesResultFile: Codable, Sendable {
+    public let name: String
+    public let path: String
+    public let size: Int
+    public let type: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case path = "path"
+        case size = "size"
+        case type = "type"
+    }
+
+    public init(name: String, path: String, size: Int, type: String) {
+        self.name = name
+        self.path = path
+        self.size = size
+        self.type = type
+    }
+}
+
+// MARK: - Refused
+public struct Refused: Codable, Sendable {
+    public let path: String
+    public let reason: RefusedReason
+
+    public enum CodingKeys: String, CodingKey {
+        case path = "path"
+        case reason = "reason"
+    }
+
+    public init(path: String, reason: RefusedReason) {
+        self.path = path
+        self.reason = reason
+    }
+}
+
+public enum RefusedReason: String, Codable, Sendable {
+    case invalid = "invalid"
+    case missing = "missing"
+    case notFile = "not_file"
+    case sensitive = "sensitive"
+}
+
 // MARK: - ChatBlockPayload
 public struct ChatBlockPayload: Codable, Sendable {
     public let block: Block
@@ -10255,6 +10338,10 @@ public struct ChatReasoningPayload: Codable, Sendable {
 
 // MARK: - ChatSendParams
 public struct ChatSendParams: Codable, Sendable {
+    /// Files from disk the owner attached (desktop): only those `chat.attachFiles` granted in
+    /// this thread are used; the agent sees their name, size and type and reads them with
+    /// read_file
+    public let attachedFiles: [ChatAttachedFile]?
     /// Library item ids
     public let attachments: [String]?
     public let content: String
@@ -10267,6 +10354,7 @@ public struct ChatSendParams: Codable, Sendable {
     public let threadID: String
 
     public enum CodingKeys: String, CodingKey {
+        case attachedFiles = "attachedFiles"
         case attachments = "attachments"
         case content = "content"
         case context = "context"
@@ -10278,7 +10366,8 @@ public struct ChatSendParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(attachments: [String]? = nil, content: String, context: ChatContextRef? = nil, fromWidget: ChatFromWidget? = nil, mode: QueueMode? = nil, redo: Redo? = nil, replyToMessageID: String? = nil, screen: ChatScreenRef? = nil, threadID: String) {
+    public init(attachedFiles: [ChatAttachedFile]? = nil, attachments: [String]? = nil, content: String, context: ChatContextRef? = nil, fromWidget: ChatFromWidget? = nil, mode: QueueMode? = nil, redo: Redo? = nil, replyToMessageID: String? = nil, screen: ChatScreenRef? = nil, threadID: String) {
+        self.attachedFiles = attachedFiles
         self.attachments = attachments
         self.content = content
         self.context = context
@@ -10288,6 +10377,19 @@ public struct ChatSendParams: Codable, Sendable {
         self.replyToMessageID = replyToMessageID
         self.screen = screen
         self.threadID = threadID
+    }
+}
+
+// MARK: - ChatAttachedFile
+public struct ChatAttachedFile: Codable, Sendable {
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case path = "path"
+    }
+
+    public init(path: String) {
+        self.path = path
     }
 }
 

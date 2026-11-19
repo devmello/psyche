@@ -682,6 +682,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.access.scope.conversation": "Dieser Chat",
   "settings.access.scope.limited": "Vorerst",
   "settings.access.used": "verwendet {when}",
+  "settings.access.fileOnly": "Eine Datei · nur Lesen",
   "settings.access.revokeNamed": "{name} widerrufen",
   "settings.access.loadLabel": "worauf Psyche zugreifen kann",
   "settings.access.loadFailed": "Psyche konnte nicht laden, worauf es zugreifen kann ({reason}).",

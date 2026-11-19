@@ -77,6 +77,8 @@ export interface QueuedFollowUp {
   replyToMessageId: string | null;
   /** Library item ids sent with it. */
   attachments?: readonly string[];
+  /** Files from disk (desktop) the owner attached; sent as `attachedFiles`. */
+  attachedFiles?: readonly { path: string }[];
   /** Sending failed; the queue stops draining until the user retries or removes it. */
   failed?: boolean;
 }

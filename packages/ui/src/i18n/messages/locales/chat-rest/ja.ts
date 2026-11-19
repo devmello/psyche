@@ -52,6 +52,9 @@ export const chatRest: Partial<Catalogue> = {
   "chat.attach.refused.size":
     "{name}は大きすぎて添付できません（画像は5 MB、ドキュメントは25 MBまで）",
   "chat.attach.refused.count": "{name}: 1通のメッセージに添付できるのは8ファイルまでです",
+  "chat.attach.refused.sensitive": "{name} は保護された場所にあるため、Psyche と共有できません",
+  "chat.attach.refused.unreadable":
+    "{name} を添付できませんでした。ファイルがまだ存在し、フォルダではなくファイルであることを確認してください",
   "chat.message.fromWidget": "ウィジェットから",
   "chat.teach.notLikeThis": "こうではない",
   "chat.teach.dialog": "Psycheに教える",

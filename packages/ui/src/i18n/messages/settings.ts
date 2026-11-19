@@ -1704,6 +1704,7 @@ export const settings = {
   "settings.access.scope.conversation": "This chat",
   "settings.access.scope.limited": "For now",
   "settings.access.used": "used {when}",
+  "settings.access.fileOnly": "One file · read only",
   "settings.access.revokeNamed": "Revoke {name}",
   "settings.access.loadLabel": "what Psyche can reach",
   "settings.access.loadFailed": "Psyche couldn't load what it can reach ({reason}).",

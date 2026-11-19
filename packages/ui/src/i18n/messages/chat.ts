@@ -112,6 +112,9 @@ export const chat = {
     "{name}: Psyche can't read this kind of file. Attach a PDF, Word, Excel, text or image file",
   "chat.attach.refused.size": "{name} is too large to attach (images 5 MB, documents 25 MB)",
   "chat.attach.refused.count": "{name}: up to 8 files go with a message",
+  "chat.attach.refused.sensitive": "{name} is in a protected place and can't be shared with Psyche",
+  "chat.attach.refused.unreadable":
+    "{name} couldn't be attached. Check that it still exists and is a file, not a folder",
   // {key}: the push-to-talk key as Settings names it ("fn", "Right Ctrl", "Caps Lock").
   "chat.composer.dictate": "Dictate (hold {key})",
   "chat.composer.hintIdle": "Type / for commands",

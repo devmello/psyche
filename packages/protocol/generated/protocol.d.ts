@@ -6,6 +6,7 @@ export interface AccessListResult {
 }
 
 export interface AccessEntry {
+    file?:       boolean;
     grantId?:    string;
     id:          string;
     kind?:       ApprovalKind;
@@ -2782,6 +2783,30 @@ export interface ChannelsUpdatedPayload {
     detail?: string;
 }
 
+export interface ChatAttachFilesParams {
+    paths:    string[];
+    threadId: string;
+}
+
+export interface ChatAttachFilesResult {
+    files:   ChatAttachFilesResultFile[];
+    refused: Refused[];
+}
+
+export interface ChatAttachFilesResultFile {
+    name: string;
+    path: string;
+    size: number;
+    type: string;
+}
+
+export interface Refused {
+    path:   string;
+    reason: RefusedReason;
+}
+
+export type RefusedReason = "sensitive" | "missing" | "not_file" | "invalid";
+
 export interface ChatBlockPayload {
     block:     Block;
     messageId: string;
@@ -3126,6 +3151,12 @@ export interface ChatReasoningPayload {
 
 export interface ChatSendParams {
     /**
+     * Files from disk the owner attached (desktop): only those `chat.attachFiles` granted in
+     * this thread are used; the agent sees their name, size and type and reads them with
+     * read_file
+     */
+    attachedFiles?: ChatAttachedFile[];
+    /**
      * Library item ids
      */
     attachments?:      string[];
@@ -3137,6 +3168,10 @@ export interface ChatSendParams {
     replyToMessageId?: string;
     screen?:           ChatScreenRef;
     threadId:          string;
+}
+
+export interface ChatAttachedFile {
+    path: string;
 }
 
 export interface ChatContextRef {

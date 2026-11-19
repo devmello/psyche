@@ -648,6 +648,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.access.scope.conversation": "यह चैट",
   "settings.access.scope.limited": "फ़िलहाल",
   "settings.access.used": "{when} उपयोग हुआ",
+  "settings.access.fileOnly": "एक फ़ाइल · केवल पढ़ने के लिए",
   "settings.access.revokeNamed": "{name} रद्द करें",
   "settings.access.loadLabel": "Psyche कहाँ तक पहुँच सकता है",
   "settings.access.loadFailed": "Psyche यह लोड नहीं कर सका कि वह कहाँ तक पहुँच सकता है ({reason})।",

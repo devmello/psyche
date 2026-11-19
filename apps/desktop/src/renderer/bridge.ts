@@ -237,6 +237,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
     notify: { show: (n) => b.notify.show(n) },
     dialogs: {
       pickFolder: (opts) => b.dialogs.pickFolder(opts) as Promise<string | null>,
+      pathOfFile: (file) => b.dialogs.pathOfFile(file) || null,
     },
     permissions: {
       status: () =>

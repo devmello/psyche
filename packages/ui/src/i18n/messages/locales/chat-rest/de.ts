@@ -51,6 +51,10 @@ export const chatRest: Partial<Catalogue> = {
     "{name}: Psyche kann diese Dateiart nicht lesen. Hänge eine PDF-, Word-, Excel-, Text- oder Bilddatei an",
   "chat.attach.refused.size": "{name} ist zu groß zum Anhängen (Bilder 5 MB, Dokumente 25 MB)",
   "chat.attach.refused.count": "{name}: Pro Nachricht sind bis zu 8 Dateien möglich",
+  "chat.attach.refused.sensitive":
+    "{name} liegt an einem geschützten Ort und kann nicht mit Psyche geteilt werden",
+  "chat.attach.refused.unreadable":
+    "{name} konnte nicht angehängt werden. Prüfe, ob die Datei noch existiert und eine Datei, kein Ordner, ist",
   "chat.message.fromWidget": "Von Widget",
   "chat.teach.notLikeThis": "So nicht",
   "chat.teach.dialog": "Psyche etwas beibringen",

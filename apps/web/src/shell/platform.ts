@@ -438,6 +438,11 @@ export interface WindowChrome {
 export interface DialogPort {
   /** Opens the OS folder chooser; resolves to the folder's real path, or null when cancelled. */
   pickFolder(opts?: { title?: string }): Promise<string | null>;
+  /**
+   * The real path of a file the owner picked or dropped, or null when it has none (a pasted
+   * image). The chat attaches such a file in place instead of uploading its bytes.
+   */
+  pathOfFile?(file: File): string | null;
 }
 
 export interface KeyValueStore {

@@ -237,6 +237,12 @@ export interface UiSlots {
   remotePresence?: { hostName: string; hasPasskey: boolean };
   /** The host's native folder picker; resolves to the real path, or null when cancelled. */
   pickFolder?: (opts?: { title?: string }) => Promise<string | null>;
+  /**
+   * The real path of a picked or dropped file (desktop on This Mac), or null. With it the chat
+   * attaches the file in place (`chat.attachFiles`: a read-only grant for that file) instead of
+   * uploading it to the Library.
+   */
+  pathOfFile?: (file: File) => string | null;
   /** Persona shown in agent messages and cards. */
   persona?: { name: string; creature?: string; imageSrc?: string };
 }

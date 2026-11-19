@@ -1004,6 +1004,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Desktop app only (the web shell has no real paths and uploads to the Library instead). The owner picked or dropped these files on a message: each gets a read-only grant for exactly that file (not its folder) in this thread, for 24 hours, until Clear chat or deletion of the thread, or until a restart. The pick is the approval, so there is no card; a file under a sensitive root (~/.ssh, ~/.psyche, ~/Library, ...), a folder or a missing file is refused and listed in `refused`. Returns name, size and type for the chip. forbidden outside the desktop app.",
+        "name": "chat.attachFiles",
+        "params": "#/$defs/ChatAttachFilesParams",
+        "result": "#/$defs/ChatAttachFilesResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Cancels the active run (or the given run) in a thread.",
         "name": "chat.cancel",
         "params": "#/$defs/ChatCancelParams",
@@ -3991,6 +3999,9 @@
             "rw"
           ],
           "type": "string"
+        },
+        "file": {
+          "type": "boolean"
         },
         "path": {
           "maxLength": 4096,
@@ -13991,6 +14002,104 @@
       ],
       "type": "object"
     },
+    "ChatAttachFilesParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "paths": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "threadId",
+        "paths"
+      ],
+      "type": "object"
+    },
+    "ChatAttachFilesResult": {
+      "properties": {
+        "files": {
+          "items": {
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "size": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "type": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "name",
+              "size",
+              "type"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "refused": {
+          "items": {
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "reason": {
+                "enum": [
+                  "sensitive",
+                  "missing",
+                  "not_file",
+                  "invalid"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "files",
+        "refused"
+      ],
+      "type": "object"
+    },
+    "ChatAttachedFile": {
+      "properties": {
+        "path": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
     "ChatBlockPayload": {
       "properties": {
         "threadId": {
@@ -14446,6 +14555,14 @@
             "type": "string"
           },
           "maxItems": 32,
+          "type": "array"
+        },
+        "attachedFiles": {
+          "description": "Files from disk the owner attached (desktop): only those `chat.attachFiles` granted in this thread are used; the agent sees their name, size and type and reads them with read_file",
+          "items": {
+            "$ref": "#/$defs/ChatAttachedFile"
+          },
+          "maxItems": 8,
           "type": "array"
         },
         "mode": {
