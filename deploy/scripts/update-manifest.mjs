@@ -10,6 +10,9 @@
 //   node update-manifest.mjs sign <update-manifest.json>   writes <file>.sig with the key in
 //                                                            PSYCHE_RELEASE_SIGNING_KEY (PEM)
 //   node update-manifest.mjs verify <update-manifest.json> <publicKey-base64>
+//   node update-manifest.mjs verify-trusted <update-manifest.json> <release-keys.ts>
+//                                                          verifies against the key the .sig names,
+//                                                            which must be one the app trusts
 //
 // The signature covers the manifest file's exact bytes: `build` output is written once and never
 // reformatted after signing.
@@ -137,6 +140,46 @@ export function signManifest(bytes, privatePem) {
   })}\n`;
 }
 
+/**
+ * The {keyId, publicKey} pairs in apps/desktop/src/main/release-keys.ts (comments ignored). Only
+ * public keys live there; nothing secret is read or printed.
+ */
+export function trustedKeysFromSource(tsSource) {
+  const code = tsSource.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const keys = [];
+  for (const m of code.matchAll(
+    /keyId:\s*"([0-9a-f]{16})"\s*,\s*publicKey:\s*"([A-Za-z0-9+/]{43}=)"/g,
+  )) {
+    keys.push({ keyId: m[1], publicKey: m[2] });
+  }
+  return keys;
+}
+
+/**
+ * Verify against the key the signature names, but only if the app trusts that key (it is in
+ * release-keys.ts). A secret that is a different key than the one shipped in the app still
+ * self-verifies, and every client would then refuse the release.
+ */
+export function verifyTrusted(bytes, sigText, tsSource) {
+  let env;
+  try {
+    env = JSON.parse(sigText);
+  } catch {
+    return { ok: false, why: "the signature file is not JSON" };
+  }
+  const trusted = trustedKeysFromSource(tsSource);
+  if (trusted.length === 0) return { ok: false, why: "release-keys.ts holds no trusted key" };
+  const key = trusted.find((k) => k.keyId === env.keyId);
+  if (!key)
+    return {
+      ok: false,
+      why: `signed by key ${env.keyId}, which is not in release-keys.ts (trusted: ${trusted.map((k) => k.keyId).join(", ")})`,
+    };
+  if (!verifyManifest(bytes, sigText, key.publicKey))
+    return { ok: false, why: `the signature does not verify against trusted key ${key.keyId}` };
+  return { ok: true, keyId: key.keyId };
+}
+
 export function verifyManifest(bytes, sigText, publicKeyB64) {
   const env = JSON.parse(sigText);
   const raw = Buffer.from(publicKeyB64, "base64");
@@ -195,7 +238,19 @@ function main(argv) {
     process.stdout.write(ok ? "ok\n" : "BAD SIGNATURE\n");
     process.exit(ok ? 0 : 1);
   }
-  throw new Error("commands: keygen, build, sign, verify");
+  if (cmd === "verify-trusted") {
+    const [file, keysFile] = rest;
+    if (!file || !keysFile)
+      throw new Error("usage: verify-trusted <update-manifest.json> <release-keys.ts>");
+    const r = verifyTrusted(
+      readFileSync(file),
+      readFileSync(`${file}.sig`, "utf8"),
+      readFileSync(keysFile, "utf8"),
+    );
+    process.stdout.write(r.ok ? `ok (trusted key ${r.keyId})\n` : `UNTRUSTED: ${r.why}\n`);
+    process.exit(r.ok ? 0 : 1);
+  }
+  throw new Error("commands: keygen, build, sign, verify, verify-trusted");
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
