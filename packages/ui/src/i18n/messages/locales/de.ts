@@ -329,6 +329,11 @@ export const de: Partial<Catalogue> = {
   "blocks.card.unknown": "Psyche kann diese Art von Element noch nicht anzeigen ({type}).",
   "specialists.block.label": "Ergebnis ({role}): {title}",
   "blocks.toolView.show": "Ergebnis anzeigen",
+  "blocks.toolRun.shareFolder": "Diesen Ordner teilen (nur lesen)",
+  "blocks.toolRun.shareWaiting": "Warte auf deine Antwort auf der Karte",
+  "blocks.toolRun.shared": "Geteilt. Frag noch einmal, um fortzufahren",
+  "blocks.toolRun.shareFailed":
+    "Die Freigabe des Ordners konnte nicht angefragt werden. Versuche es erneut.",
   "blocks.toolView.loading": "Ergebnis wird geladen …",
   "blocks.toolView.none": "Das Ergebnis dieser Aktion wird nicht aufbewahrt.",
   "blocks.toolView.more": "{count, plural, one {# weiteres} other {# weitere}}",

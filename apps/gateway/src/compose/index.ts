@@ -2201,7 +2201,19 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ...(gwOptions.logger === undefined ? {} : { log: gwOptions.logger }),
     }),
     ...changeHandlers({ audit }),
-    ...filesHandlers({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
+    ...filesHandlers({
+      folders: () => rawBroker.policy.folders ?? [],
+      home: config.home,
+      share: {
+        broker: executorBroker,
+        surfaces: ["desktop", "web"],
+        folderEnv: () => folderAccessEnv(config.home),
+        grantedFolders: (threadId) => [
+          ...(rawBroker.policy.folders ?? []),
+          ...rawBroker.sessionFolders(threadId),
+        ],
+      },
+    }),
     ...attentionHandlers(attention),
     ...libraryHandlers({ db, home: config.home }),
     ...modelSettingsHandlers(modelSettings),

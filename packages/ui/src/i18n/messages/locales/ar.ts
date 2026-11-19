@@ -372,6 +372,10 @@ export const ar: Partial<Catalogue> = {
   "blocks.card.unknown": "لا يستطيع Psyche عرض هذا النوع من العناصر بعد ({type}).",
   "specialists.block.label": "نتيجة {role}: {title}",
   "blocks.toolView.show": "عرض النتيجة",
+  "blocks.toolRun.shareFolder": "مشاركة هذا المجلد (للقراءة فقط)",
+  "blocks.toolRun.shareWaiting": "في انتظار ردّك على البطاقة",
+  "blocks.toolRun.shared": "تمت المشاركة. اطلب مرة أخرى للمتابعة",
+  "blocks.toolRun.shareFailed": "تعذّر طلب مشاركة هذا المجلد. حاول مرة أخرى.",
   "blocks.toolView.loading": "جارٍ تحميل النتيجة…",
   "blocks.toolView.none": "لا يُحتفظ بنتيجة هذا الإجراء.",
   "blocks.toolView.more":

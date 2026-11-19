@@ -5119,6 +5119,24 @@ export interface FilesReadResult {
     size: number;
 }
 
+export interface FilesRequestShareParams {
+    access: FilesRequestShareParamsAccess;
+    /**
+     * The folder the failed file tool named: a hint for the picker, never what is granted
+     */
+    path:     string;
+    threadId: string;
+}
+
+export type FilesRequestShareParamsAccess = "read";
+
+export interface FilesRequestShareResult {
+    approvalId?: string;
+    status:      FilesRequestShareResultStatus;
+}
+
+export type FilesRequestShareResultStatus = "pending" | "already";
+
 export interface FilesStarterFoldersResult {
     folders: Folder[];
 }
@@ -8198,12 +8216,12 @@ export interface MissingConnectorAction {
 export type MissingConnectorActionNeed = "connector_action";
 
 export interface MissingFolder {
-    access: Access;
+    access: MissingFolderAccess;
     need:   MissingFolderNeed;
     path:   string;
 }
 
-export type Access = "read" | "read_write";
+export type MissingFolderAccess = "read" | "read_write";
 
 export type MissingFolderNeed = "folder";
 
@@ -8216,7 +8234,7 @@ export interface MissingMacosAccess {
 export type MissingMacosAccessNeed = "macos_access";
 
 export interface MissingPermission {
-    access?:     Access;
+    access?:     MissingFolderAccess;
     need:        MissingPermissionNeed;
     path?:       string;
     capability?: GatedCapability;

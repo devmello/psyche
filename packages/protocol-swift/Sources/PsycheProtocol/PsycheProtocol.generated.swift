@@ -564,6 +564,8 @@
 //   let filesListResult = try? JSONDecoder().decode(FilesListResult.self, from: jsonData)
 //   let filesReadParams = try? JSONDecoder().decode(FilesReadParams.self, from: jsonData)
 //   let filesReadResult = try? JSONDecoder().decode(FilesReadResult.self, from: jsonData)
+//   let filesRequestShareParams = try? JSONDecoder().decode(FilesRequestShareParams.self, from: jsonData)
+//   let filesRequestShareResult = try? JSONDecoder().decode(FilesRequestShareResult.self, from: jsonData)
 //   let filesStarterFoldersParams = try? JSONDecoder().decode(FilesStarterFoldersParams.self, from: jsonData)
 //   let filesStarterFoldersResult = try? JSONDecoder().decode(FilesStarterFoldersResult.self, from: jsonData)
 //   let frame = try? JSONDecoder().decode(Frame.self, from: jsonData)
@@ -15572,6 +15574,51 @@ public struct FilesReadResult: Codable, Sendable {
     }
 }
 
+// MARK: - FilesRequestShareParams
+public struct FilesRequestShareParams: Codable, Sendable {
+    public let access: FilesRequestShareParamsAccess
+    /// The folder the failed file tool named: a hint for the picker, never what is granted
+    public let path: String
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case access = "access"
+        case path = "path"
+        case threadID = "threadId"
+    }
+
+    public init(access: FilesRequestShareParamsAccess, path: String, threadID: String) {
+        self.access = access
+        self.path = path
+        self.threadID = threadID
+    }
+}
+
+public enum FilesRequestShareParamsAccess: String, Codable, Sendable {
+    case read = "read"
+}
+
+// MARK: - FilesRequestShareResult
+public struct FilesRequestShareResult: Codable, Sendable {
+    public let approvalID: String?
+    public let status: FilesRequestShareResultStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case status = "status"
+    }
+
+    public init(approvalID: String? = nil, status: FilesRequestShareResultStatus) {
+        self.approvalID = approvalID
+        self.status = status
+    }
+}
+
+public enum FilesRequestShareResultStatus: String, Codable, Sendable {
+    case already = "already"
+    case pending = "pending"
+}
+
 // MARK: - FilesStarterFoldersResult
 public struct FilesStarterFoldersResult: Codable, Sendable {
     public let folders: [Folder]
@@ -23964,7 +24011,7 @@ public enum MissingConnectorActionNeed: String, Codable, Sendable {
 
 // MARK: - MissingFolder
 public struct MissingFolder: Codable, Sendable {
-    public let access: Access
+    public let access: MissingFolderAccess
     public let need: MissingFolderNeed
     public let path: String
 
@@ -23974,14 +24021,14 @@ public struct MissingFolder: Codable, Sendable {
         case path = "path"
     }
 
-    public init(access: Access, need: MissingFolderNeed, path: String) {
+    public init(access: MissingFolderAccess, need: MissingFolderNeed, path: String) {
         self.access = access
         self.need = need
         self.path = path
     }
 }
 
-public enum Access: String, Codable, Sendable {
+public enum MissingFolderAccess: String, Codable, Sendable {
     case read = "read"
     case readWrite = "read_write"
 }
@@ -24015,7 +24062,7 @@ public enum MissingMacosAccessNeed: String, Codable, Sendable {
 
 // MARK: - MissingPermission
 public struct MissingPermission: Codable, Sendable {
-    public let access: Access?
+    public let access: MissingFolderAccess?
     public let need: MissingPermissionNeed
     public let path: String?
     public let capability: GatedCapability?
@@ -24033,7 +24080,7 @@ public struct MissingPermission: Codable, Sendable {
         case reason = "reason"
     }
 
-    public init(access: Access? = nil, need: MissingPermissionNeed, path: String? = nil, capability: GatedCapability? = nil, connector: String? = nil, group: String? = nil, reason: String? = nil) {
+    public init(access: MissingFolderAccess? = nil, need: MissingPermissionNeed, path: String? = nil, capability: GatedCapability? = nil, connector: String? = nil, group: String? = nil, reason: String? = nil) {
         self.access = access
         self.need = need
         self.path = path
