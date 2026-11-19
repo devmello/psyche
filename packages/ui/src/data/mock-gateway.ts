@@ -4035,7 +4035,10 @@ export class MockGateway implements GatewayClient {
       trustedProxy: true,
     }),
     "devices.setupToken.create": (p) => {
-      if (p.scopes.some((s) => (s as string) === "node")) {
+      const scopes = p.scopes ?? [];
+      if (p.purpose === "machine") fail("unavailable", "Pairing a computer is not available yet");
+      if (scopes.length === 0) fail("invalid_params", "scopes is required");
+      if (scopes.some((s) => (s as string) === "node")) {
         fail("invalid_params", "A setup token grants operator scopes only");
       }
       const now = this.now();
@@ -4045,7 +4048,7 @@ export class MockGateway implements GatewayClient {
       if (live.length >= 3) fail("rate_limited", "Too many unused setup tokens");
       const setupToken = {
         id: this.id("stk"),
-        scopes: [...new Set(p.scopes)],
+        scopes: [...new Set(scopes)],
         createdAt: now,
         expiresAt: new Date(Date.parse(now) + 10 * 60_000).toISOString(),
         usedAt: null,
