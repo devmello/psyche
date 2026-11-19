@@ -307,12 +307,19 @@ export function anyArgvSafe(program: string, args: readonly string[]): boolean {
       // `-o` writes a file; `-R` and `-H` write `00Tree.html` into directories.
       return !args.some((a) => a === "--output" || a.startsWith("--output=") || has(a, "oRH"));
     case "file":
-      return !args.some((a) => /^--(compile|uncompress|magic-file)/.test(a) || has(a, "CzZmf"));
+      return !args.some(
+        (a) =>
+          /^--(compile|uncompress|magic-file)/.test(a) ||
+          longPrefixOf(a, FILE_UNSAFE_LONG) ||
+          has(a, "CzZmf"),
+      );
     default:
       return true;
   }
 }
 
+/** file's long options that write, decompress through other programs or load a magic file. */
+const FILE_UNSAFE_LONG = ["--compile", "--uncompress", "--uncompress-noreport", "--magic-file"];
 /** Long options that make a tool read its list of files from a file. */
 const LIST_LONG = ["--files0-from", "--files-from"];
 /** Long options that follow symbolic links. */
@@ -335,7 +342,8 @@ function longPrefixOf(a: string, names: readonly string[]): boolean {
   if (!a.startsWith("--") || a === "--") return false;
   const eq = a.indexOf("=");
   const opt = eq === -1 ? a : a.slice(0, eq);
-  return opt.length > 3 && names.some((n) => n.startsWith(opt));
+  // `--f=` is already `--files-from` for macOS `file`; only `--` itself is no option.
+  return opt.length >= 3 && names.some((n) => n.startsWith(opt));
 }
 
 /**

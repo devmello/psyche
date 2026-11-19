@@ -154,6 +154,12 @@ const ARGS_DANGEROUS: [string, string[]][] = [
   ["du", ["--foll", "."]],
   ["wc", ["--files0=list"]],
   ["du", ["--files0-f=list"]],
+  ["file", ["--f=list.txt"]],
+  ["wc", ["--f=list"]],
+  ["du", ["--f=list"]],
+  ["file", ["--com"]],
+  ["file", ["--unc", "f"]],
+  ["file", ["--mag=m", "f"]],
   // A file naming the files to read: its entries are never checked.
   ["wc", ["--files0-from=list"]],
   ["du", ["--files0-from=list"]],
