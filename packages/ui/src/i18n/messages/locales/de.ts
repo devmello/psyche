@@ -1735,7 +1735,7 @@ export const de: Partial<Catalogue> = {
   "settings.apiKeys.failed": "Der Schlüssel konnte nicht gespeichert werden: {reason}",
   "settings.apiKeys.clearFailed": "Der Schlüssel konnte nicht entfernt werden: {reason}",
   "settings.apiKeys.locked":
-    "Der Tresor ist gesperrt. Entsperre ihn zuerst (mit Touch ID oder deinem Passwort, wenn danach gefragt wird) und speichere dann erneut.",
+    "Der Tresor ist gesperrt. Entsperre ihn zuerst und speichere dann erneut.",
   "settings.credentials.managed.web_search": "Ein Websuche-Schlüssel",
   "settings.webSearch.braveFromVault": "Im Tresor gespeichert",
   "settings.webSearch.provider.brave": "Brave Search",

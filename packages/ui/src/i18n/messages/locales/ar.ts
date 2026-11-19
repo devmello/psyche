@@ -1743,8 +1743,7 @@ export const ar: Partial<Catalogue> = {
   "settings.apiKeys.whitespace": "لا يحتوي المفتاح على مسافات أو فواصل أسطر.",
   "settings.apiKeys.failed": "تعذّر حفظ المفتاح: {reason}",
   "settings.apiKeys.clearFailed": "تعذّر مسح المفتاح: {reason}",
-  "settings.apiKeys.locked":
-    "الخزنة مقفلة. افتحها أولًا (بـ Touch ID أو كلمة مرورك عند الطلب) ثم احفظ مرة أخرى.",
+  "settings.apiKeys.locked": "الخزنة مقفلة. افتحها أولًا ثم احفظ مرة أخرى.",
   "settings.credentials.managed.web_search": "مفتاح بحث على الويب",
   "settings.webSearch.braveFromVault": "محفوظ في الخزنة",
   "settings.webSearch.provider.brave": "Brave Search",

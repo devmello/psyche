@@ -1653,8 +1653,7 @@ export const pt: Partial<Catalogue> = {
   "settings.apiKeys.whitespace": "Uma chave não tem espaços nem quebras de linha.",
   "settings.apiKeys.failed": "Não foi possível salvar a chave: {reason}",
   "settings.apiKeys.clearFailed": "Não foi possível limpar a chave: {reason}",
-  "settings.apiKeys.locked":
-    "O cofre está bloqueado. Desbloqueie-o primeiro (com Touch ID ou sua senha, quando pedido) e salve de novo.",
+  "settings.apiKeys.locked": "O cofre está bloqueado. Desbloqueie-o primeiro e salve de novo.",
   "settings.credentials.managed.web_search": "Uma chave de pesquisa na web",
   "settings.webSearch.braveFromVault": "Salva no cofre",
   "settings.webSearch.provider.brave": "Brave Search",

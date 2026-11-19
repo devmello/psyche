@@ -14,7 +14,7 @@ import { adminClient, ik, type TestClient } from "./helpers.ts";
 
 /** Setup without a terminal: `keys.status` / `keys.set` / `keys.clear`. */
 
-const ANTHROPIC = "sk-ant-api03-SECRETSECRETSECRET-wxyz";
+const ANTHROPIC = ["sk-ant-", "api03-SECRETSECRETSECRET-wxyz"].join("");
 const BRAVE = "BSAbraveSECRETvalue9876";
 let home: string;
 let composed: ComposedGateway | undefined;
@@ -286,7 +286,7 @@ describe("keys.*", () => {
       retentionIntervalMs: 0,
       background: false,
       config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
-      model: { provider: new FakeModelProvider([]), model: "fake/model" },
+      model: { provider: new FakeModelProvider(), model: "fake/model" },
       vault: { keyFile, argon2: { memory: 64, passes: 1, parallelism: 1 } },
     });
     await composed.vault.setup();

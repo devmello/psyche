@@ -1687,7 +1687,7 @@ export const fr: Partial<Catalogue> = {
   "settings.apiKeys.failed": "Impossible d’enregistrer la clé : {reason}",
   "settings.apiKeys.clearFailed": "Impossible d’effacer la clé : {reason}",
   "settings.apiKeys.locked":
-    "Le coffre est verrouillé. Déverrouillez-le d’abord (Touch ID ou votre mot de passe, si demandé), puis enregistrez de nouveau.",
+    "Le coffre est verrouillé. Déverrouillez-le d’abord, puis enregistrez de nouveau.",
   "settings.credentials.managed.web_search": "Une clé de recherche web",
   "settings.webSearch.braveFromVault": "Enregistrée dans le coffre",
   "settings.webSearch.provider.brave": "Brave Search",

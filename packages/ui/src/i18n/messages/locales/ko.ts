@@ -1680,8 +1680,7 @@ export const ko: Partial<Catalogue> = {
   "settings.apiKeys.whitespace": "키에는 공백이나 줄바꿈이 없습니다.",
   "settings.apiKeys.failed": "키를 저장하지 못했습니다: {reason}",
   "settings.apiKeys.clearFailed": "키를 지우지 못했습니다: {reason}",
-  "settings.apiKeys.locked":
-    "보관함이 잠겨 있습니다. 먼저 잠금을 해제한 뒤(요청 시 Touch ID 또는 비밀번호) 다시 저장하세요.",
+  "settings.apiKeys.locked": "보관함이 잠겨 있습니다. 먼저 잠금을 해제한 뒤 다시 저장하세요.",
   "settings.credentials.managed.web_search": "웹 검색 키",
   "settings.webSearch.braveFromVault": "보관함에 저장됨",
   "settings.webSearch.provider.brave": "Brave Search",

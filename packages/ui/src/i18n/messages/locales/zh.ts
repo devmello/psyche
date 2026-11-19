@@ -1698,7 +1698,7 @@ export const zh: Partial<Catalogue> = {
   "settings.apiKeys.whitespace": "密钥不含空格或换行。",
   "settings.apiKeys.failed": "无法保存密钥：{reason}",
   "settings.apiKeys.clearFailed": "无法清除密钥：{reason}",
-  "settings.apiKeys.locked": "保险库已锁定。请先解锁（需要时使用 Touch ID 或密码），然后再保存。",
+  "settings.apiKeys.locked": "保险库已锁定。请先解锁，然后再保存。",
   "settings.credentials.managed.web_search": "网页搜索密钥",
   "settings.webSearch.braveFromVault": "已保存到保险库",
   "settings.webSearch.provider.brave": "Brave Search",
