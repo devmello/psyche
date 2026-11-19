@@ -229,6 +229,31 @@ All of this applies when the OS has Reduce Motion on or Appearance → Reduce mo
 - Every animated component has a Storybook story rendered with `motion:reduced`. The axe and story test asserts that nothing has a `transform` animation running under reduced motion.
 - A layout-shift check: the composed-app e2e (CI only) records CLS while streaming a fixture conversation and opening a pane. The budget is 0.
 
+## 9. iOS implementation
+
+The iOS app (`apps/ios`) takes the same numbers from `Sources/PsycheDesign/Motion.swift` (`PsycheMotion`). No view types a duration, spring or curve: `MotionTokensTests` fails on one.
+
+| Spec | Swift |
+| --- | --- |
+| §2.1 durations | `PsycheMotion.Duration.*` |
+| §2.2 easing | `PsycheMotion.fade(_:ease:)`, `fadeOut(_:)` (tweens for opacity and colour only) |
+| §2.3 springs | `PsycheMotion.Spring` (`.spring(duration:bounce:)`, bounce 0 except snappy 0.10, emphasis 0.15, interactive 0.14) |
+| §4.1 enter / exit | `transition(.rise)`: fade + 8 pt rise in, plain fade out |
+| §6, §7 reduced motion | `MotionContext` (`private let motion = MotionContext()`): `animation(_:)` becomes a 150 ms ease, `layout(_:)` becomes instant, `transition(_:)` becomes opacity |
+
+Where each moment lives:
+
+| Moment | Where |
+| --- | --- |
+| A reply arriving, streaming | `ThreadView` (items rise in; the reader's own message does not; streamed text only fades by line in `FadeByLine`; the bottom anchor uses `defaultScrollAnchor(.bottom, for: .sizeChanges)`) |
+| Approval answered | `ApprovalSheet`, `QuestionSheet`, `ApprovalBlock`: `spring.emphasis` on the receipt, `sensoryFeedback` (success for Allow, a medium impact for Deny) |
+| Library → file | `LibraryView` rows and tiles are `matchedTransitionSource`; `LibraryItemView` uses `navigationTransition(.zoom)` |
+| Avatar → agent sheet | `AgentButton` is the zoom source; `MainTabs` gives the sheet the zoom destination |
+| Lists inserting and leaving | Home sections and rows, the agent sheet's Needs you and Now rows, composer chips, upload rows |
+| Skeleton → content | `PhaseView`: nothing for 150 ms, then the skeleton, then a 150 ms crossfade |
+| Tabs, search, segments | Pairing → tabs, search states and the agent sheet's segments crossfade in place; Library's section thumb moves on `spring.micro` |
+| Glass | `GlassEffectContainer` with `glassEffectID` in the composer and around Jump to latest |
+
 ## Sources
 
 - Apple HIG Motion (change log 2025-09-09): https://developer.apple.com/design/human-interface-guidelines/motion
