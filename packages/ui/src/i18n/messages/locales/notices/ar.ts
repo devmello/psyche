@@ -57,4 +57,8 @@ export const notices: Partial<Catalogue> = {
   "notice.mcp.changed.title": "خادم MCP {server} غيّر أدواته",
   "notice.mcp.suspicious.title": "خادم MCP {server} فيه أوصاف أدوات مريبة",
   "notice.mcp.review.body": "راجعها قبل استخدام هذا الخادم: {details}",
+  "notice.security.tightened.title":
+    "تم تشديد إعدادات الأمان من {device, select, none {أحد الأجهزة} other {{device}}}",
+  "notice.security.tightened.body":
+    "هذا قلّل فقط ما يُسمح لـ Psyche بفعله، لذلك لم تكن هناك حاجة إلى موافقة. إن لم تكن أنت، فألغِ ربط الجهاز من الإعدادات ← الأجهزة.",
 };
