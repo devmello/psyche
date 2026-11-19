@@ -55,11 +55,11 @@ export type NodeCapability = Static<typeof NodeCapability>;
  * `remote`. `isHostHelperKind` (node.ts) tests for both.
  */
 export const NodeKind = StringEnum(
-  ["mac-helper", "vm-guest", "remote", "phone", "win-helper", "host-helper", "guest"],
+  ["mac-helper", "vm-guest", "remote", "phone", "win-helper", "host-helper", "guest", "machine"],
   {
     $id: "NodeKind",
     description:
-      "win-helper: the Windows helper on the Host (the node socket plus the handshake secret). host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper inside a separate desktop (container or VM).",
+      "win-helper: the Windows helper on the Host (the node socket plus the handshake secret). host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper inside a separate desktop (container or VM). machine: a separate computer that runs only the helper and that the owner paired so the agent can use its screen, apps, shell and files (docs/design/linux-helper-only-2026.md). SECURITY: the owner's approval is the only way a device becomes a machine; a node can never declare this kind in its own handshake or manifest, and the Gateway sets it from the stored decision (wave H3).",
   },
 );
 export type NodeKind = Static<typeof NodeKind>;
@@ -89,6 +89,12 @@ export const PairingRequest = Type.Object(
   {
     id: Id,
     kind: StringEnum(["device", "channel-sender"]),
+    /**
+     * Device requests: what approving this request makes the device. Absent means `device` (an
+     * older Gateway never sets it). `machine` is the "wants to let Psyche use its screen, apps,
+     * shell and files" card; approving it is what makes the device a `machine` node (H3).
+     */
+    purpose: Type.Optional(StringEnum(["device", "machine"], { $id: "PairingPurpose" })),
     code: Type.String(),
     deviceId: Nullable(Id),
     channelId: Nullable(Id),

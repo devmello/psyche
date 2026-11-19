@@ -12,7 +12,7 @@ export interface AccessEntry {
     kind?:       ApprovalKind;
     label:       string;
     lastUsedAt?: string;
-    mode?:       FolderModeEnum;
+    mode?:       MachineFileMode;
     path?:       string;
     refused?:    boolean;
     scope:       AccessEntryScope;
@@ -23,7 +23,7 @@ export interface AccessEntry {
 
 export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "folder_access" | "separate_desktop_share" | "batch" | "permission_request";
 
-export type FolderModeEnum = "ro" | "rw";
+export type MachineFileMode = "ro" | "rw";
 
 export type AccessEntryScope = "always" | "conversation" | "limited";
 
@@ -1017,7 +1017,7 @@ export interface ApprovalAnswer {
     bulk?:            boolean;
     decision:         ApprovalAnswerDecision;
     editedText?:      string;
-    folderMode?:      FolderModeEnum;
+    folderMode?:      MachineFileMode;
     folderPath?:      string;
     hostProgram?:     boolean;
     presence?:        PresenceAssertion;
@@ -1082,6 +1082,7 @@ export interface ApprovalRequest {
     id:                     string;
     invalidatedReason?:     string;
     kind:                   ApprovalKind;
+    machine?:               ComputerMachineRef;
     requestedAt:            string;
     requestedBy:            RequestedBy;
     requiresAuthentication: boolean;
@@ -1116,6 +1117,11 @@ export interface FromLesson {
     because:    string;
     feedbackId: string;
     lessonId:   string;
+}
+
+export interface ComputerMachineRef {
+    deviceId: string;
+    name:     string;
 }
 
 export interface RequestedBy {
@@ -2706,6 +2712,7 @@ export interface PairingRequest {
      * Device requests: "sha256:" + hex SHA-256 of the raw Ed25519 public key the owner approves
      */
     publicKeyFingerprint?: string;
+    purpose?:              SetupTokenPurpose;
     /**
      * Device requests: peer address as the Gateway saw it
      */
@@ -2719,6 +2726,8 @@ export interface PairingRequest {
 }
 
 export type PairingRequestKind = "device" | "channel-sender";
+
+export type SetupTokenPurpose = "device" | "machine";
 
 export type PairingStatus = "pending" | "approved" | "denied" | "expired";
 
@@ -3239,8 +3248,6 @@ export interface CompactionBlock {
 
 export type CompactionBlockType = "compaction";
 
-export type ComputerSurface = "direct" | "virtual_screen" | "separate_desktop";
-
 export interface ConnectChallenge {
     expiresAt: string;
     /**
@@ -3324,14 +3331,14 @@ export interface ConnectPaired {
     deviceId:     string;
     nodeId?:      string;
     phase:        ConnectPairedPhase;
-    scopes:       DeviceScope[];
+    scopes:       SetupTokenInfoScope[];
     serverTime:   string;
     stateVersion: number;
 }
 
 export type ConnectPairedPhase = "paired";
 
-export type DeviceScope = "operator.read" | "operator.write" | "operator.approvals" | "operator.admin" | "node";
+export type SetupTokenInfoScope = "operator.read" | "operator.write" | "operator.approvals" | "operator.admin" | "node";
 
 export interface ConnectParams {
     capabilities?: NodeCapability[];
@@ -3371,7 +3378,7 @@ export interface ConnectResult {
     deviceId?:     string;
     nodeId?:       string;
     phase:         ConnectResultPhase;
-    scopes?:       DeviceScope[];
+    scopes?:       SetupTokenInfoScope[];
     serverTime?:   string;
     stateVersion?: number;
     /**
@@ -4195,7 +4202,7 @@ export interface Device {
     publicKey:  string;
     revokedAt?: null | string;
     role:       DeviceRole;
-    scopes:     DeviceScope[];
+    scopes:     SetupTokenInfoScope[];
 }
 
 export type DeviceRole = "client" | "node" | "both";
@@ -4210,7 +4217,7 @@ export interface DevicesApproveParams {
     /**
      * Owner-chosen scopes; never taken from the client
      */
-    scopes: DeviceScope[];
+    scopes: SetupTokenInfoScope[];
 }
 
 export interface DevicesApproveResult {
@@ -4309,12 +4316,15 @@ export interface DevicesRevokeSelfResult {
 
 export interface DevicesSetupTokenCreateParams {
     approvalId?: string;
+    purpose?:    SetupTokenPurpose;
     /**
      * What the computer that uses the token gets, chosen by the owner now; never `node`.
-     * `operator.admin` only when the owner ticks it
+     * `operator.admin` only when the owner ticks it. Required for purpose `device` (the
+     * default); omitted for purpose `machine`, whose scopes are always ["node"] (see
+     * setupTokenScopesFor)
      */
-    scopes: SetupTokenScope[];
-    via?:   SetupTokenVia;
+    scopes?: SetupTokenScope[];
+    via?:    SetupTokenVia;
 }
 
 export type SetupTokenScope = "operator.read" | "operator.write" | "operator.approvals" | "operator.admin";
@@ -4326,9 +4336,11 @@ export interface DevicesSetupTokenCreateResult {
     gatewayUrl:         string;
     hostName:           string;
     /**
-     * psyche-pair:v1 link (gatewayUrl, gatewayFingerprint, setupToken, hostName) for an
-     * address, or psyche-pair:v2 link (gatewayUrl, gatewayKey, certPin, setupToken, hostName)
-     * for the LAN; nothing else. The token appears only here, once
+     * For purpose machine, a psyche-machine:v1 link instead (gatewayUrl, gatewayKey, certPin?,
+     * setupToken, hostName). Otherwise: psyche-pair:v1 link (gatewayUrl, gatewayFingerprint,
+     * setupToken, hostName) for an address, or psyche-pair:v2 link (gatewayUrl, gatewayKey,
+     * certPin, setupToken, hostName) for the LAN; nothing else. The token appears only here,
+     * once
      */
     link:       string;
     setupToken: SetupTokenInfo;
@@ -4342,8 +4354,9 @@ export interface SetupTokenInfo {
     createdAt:       string;
     expiresAt:       string;
     id:              string;
+    purpose?:        SetupTokenPurpose;
     revokedAt?:      null | string;
-    scopes:          SetupTokenScope[];
+    scopes:          SetupTokenInfoScope[];
     status:          SetupTokenInfoStatus;
     usedAt?:         null | string;
     usedByDeviceId?: null | string;
@@ -5351,7 +5364,7 @@ export interface GatewayPrepareUpdateParams {
      * `prepare` (default) stops new work and waits; `check` only reports what is busy; `cancel`
      * resumes normal service now
      */
-    mode?: GatewayPrepareUpdateParamsMode;
+    mode?: Mode;
     /**
      * How long the Gateway stays closed to new work if no update follows (default 120000). It
      * then resumes by itself
@@ -5368,7 +5381,7 @@ export interface GatewayPrepareUpdateParams {
  * `prepare` (default) stops new work and waits; `check` only reports what is busy; `cancel`
  * resumes normal service now
  */
-export type GatewayPrepareUpdateParamsMode = "prepare" | "check" | "cancel";
+export type Mode = "prepare" | "check" | "cancel";
 
 export interface GatewayShutdownPayload {
     reason: string;
@@ -6213,6 +6226,70 @@ export interface LogLine {
     msg:        string;
     subsystem?: string;
     ts:         string;
+}
+
+export interface MachinesChangedPayload {
+    change:  MachineChange;
+    machine: MachineInfo;
+}
+
+export type MachineChange = "added" | "updated" | "removed";
+
+export interface MachineInfo {
+    account:          MachineAccount;
+    deviceId:         string;
+    display?:         MachineDisplay | null;
+    exec:             Exec;
+    files:            Files;
+    helperVersion?:   null | string;
+    id:               string;
+    lastSeenAt?:      null | string;
+    name:             string;
+    passwordlessSudo: boolean;
+    /**
+     * `linux` today
+     */
+    platform:    string;
+    policyOwner: MachinePolicyOwner;
+    status:      NodeStatus;
+    surfaces:    ComputerSurface[];
+}
+
+export type MachineAccount = "own" | "dedicated";
+
+export type MachineDisplay = "headless" | "desktop_session" | "container";
+
+export interface Exec {
+    contained: boolean;
+    enabled:   boolean;
+}
+
+export interface Files {
+    roots: MachineFileRoot[];
+}
+
+export interface MachineFileRoot {
+    mode: MachineFileMode;
+    path: string;
+}
+
+export type MachinePolicyOwner = "root" | "user";
+
+export type NodeStatus = "online" | "offline" | "degraded";
+
+export type ComputerSurface = "direct" | "virtual_screen" | "separate_desktop";
+
+export interface MachinesListResult {
+    machines: MachineInfo[];
+}
+
+export interface MachinesRenameParams {
+    id:   string;
+    name: string;
+}
+
+export interface MachinesRenameResult {
+    machine: MachineInfo;
 }
 
 export interface MCPAddParams {
@@ -8477,6 +8554,7 @@ export interface Receipt {
      * ApprovalKind vocabulary plus read kinds
      */
     kind:     string;
+    machine?: ComputerMachineRef;
     outcome:  ReceiptOutcome;
     payload?: { [key: string]: unknown } | null;
     /**
@@ -8509,11 +8587,13 @@ export interface NodeInfo {
  * win-helper: the Windows helper on the Host (the node socket plus the handshake secret).
  * host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux
  * linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper
- * inside a separate desktop (container or VM).
+ * inside a separate desktop (container or VM). machine: a separate computer that runs only
+ * the helper and that the owner paired so the agent can use its screen, apps, shell and
+ * files (docs/design/linux-helper-only-2026.md). SECURITY: the owner's approval is the only
+ * way a device becomes a machine; a node can never declare this kind in its own handshake
+ * or manifest, and the Gateway sets it from the stored decision (wave H3).
  */
-export type NodeKind = "mac-helper" | "vm-guest" | "remote" | "phone" | "win-helper" | "host-helper" | "guest";
-
-export type NodeStatus = "online" | "offline" | "degraded";
+export type NodeKind = "mac-helper" | "vm-guest" | "remote" | "phone" | "win-helper" | "host-helper" | "guest" | "machine";
 
 export interface NodesCapabilitiesParams {
     nodeId: string;
@@ -9554,6 +9634,7 @@ export interface RunStep {
     inputRequestId?: string;
     kind:            RunStepKind;
     label:           string;
+    machine?:        ComputerMachineRef;
     memoryPath?:     string;
     modelRef?:       string;
     parentStepId?:   string;

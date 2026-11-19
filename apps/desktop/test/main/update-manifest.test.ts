@@ -429,6 +429,71 @@ function winRelease(
   };
 }
 
+describe("per-platform manifests (Linux helper and server packages)", () => {
+  it("lists them under linux-<arch> and an existing Mac build still plans its zip", () => {
+    const k = fixtureKey();
+    const dir = temp();
+    const files = [
+      "Psyche-1.4.0-darwin-arm64.zip",
+      "psyche-helper-1.4.0-linux-x64.tar.zst",
+      "psyche-helper-1.4.0-linux-x64.deb",
+      "psyche-helper-1.4.0-linux-arm64.rpm",
+      "psyche-server-1.4.0-linux-x64.deb",
+    ].map((name) => {
+      const file = join(dir, name);
+      writeFileSync(file, Buffer.from(`${name} bytes`.repeat(50)));
+      return file;
+    });
+    const out = execFileSync(
+      process.execPath,
+      [SCRIPT, "build", "--release", "1.4.0", "--base", `${PINNED}v1.4.0/`, ...files],
+      { encoding: "utf8" },
+    );
+    const manifest = join(dir, "update-manifest.json");
+    writeFileSync(manifest, out);
+    execFileSync(process.execPath, [SCRIPT, "sign", manifest], {
+      env: { ...process.env, PSYCHE_RELEASE_SIGNING_KEY: k.pem },
+    });
+    const raw = JSON.parse(out);
+    expect(raw.artifacts.map((a: { platform: string }) => a.platform)).toEqual(["darwin"]);
+    expect(Object.keys(raw.platforms).sort()).toEqual(["darwin-arm64", "linux-arm64", "linux-x64"]);
+    expect(raw.platforms["linux-x64"].map((a: { kind: string }) => a.kind)).toEqual([
+      "helper-tar-zst",
+      "helper-deb",
+      "server-deb",
+    ]);
+    expect(raw.platforms["linux-arm64"].map((a: { kind: string }) => a.kind)).toEqual([
+      "helper-rpm",
+    ]);
+    const m = verifyManifest(readFileSync(manifest), readFileSync(`${manifest}.sig`, "utf8"), [
+      k.key,
+    ]);
+    expect(artifactsFor(m, "darwin", "arm64").map((a) => a.kind)).toEqual(["zip"]);
+    expect(
+      planUpdate(m, { currentVersion: "1.3.0", arch: "arm64", pinnedBase: PINNED }),
+    ).toMatchObject({ action: "update" });
+  });
+
+  it("a Linux-only release builds, and a look-alike name is not an artifact", () => {
+    const dir = temp();
+    const good = join(dir, "psyche-helper-1.4.0-linux-x64.deb");
+    const bad = join(dir, "psyche-helper-1.4.0-linux-x86_64.deb");
+    writeFileSync(good, "a");
+    writeFileSync(bad, "b");
+    const out = JSON.parse(
+      execFileSync(
+        process.execPath,
+        [SCRIPT, "build", "--release", "1.4.0", "--base", `${PINNED}v1.4.0/`, good, bad],
+        { encoding: "utf8" },
+      ),
+    );
+    expect(out.artifacts).toEqual([]);
+    expect(out.platforms["linux-x64"].map((a: { name: string }) => a.name)).toEqual([
+      "psyche-helper-1.4.0-linux-x64.deb",
+    ]);
+  });
+});
+
 describe("per-platform manifests (Windows)", () => {
   it("keeps macOS-only artifacts where released Mac builds look, and lists every platform", () => {
     const k = fixtureKey();

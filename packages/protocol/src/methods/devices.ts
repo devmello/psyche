@@ -99,6 +99,19 @@ export const SetupTokenScope = StringEnum(
 export type SetupTokenScope = Static<typeof SetupTokenScope>;
 
 /**
+ * What a setup token is for. `device` (the default, and what every token was before) pairs a
+ * computer's app with the operator scopes the owner chose. `machine` pairs a helper-only Linux
+ * computer as a `machine` node: its scopes are always exactly `["node"]`, never chosen by the
+ * caller, and its link is `psyche-machine:v1` (`machine-link.ts`). A `device` token never pairs a
+ * machine and a `machine` token never pairs a client. The Gateway side is wave H3.
+ */
+export const SetupTokenPurpose = StringEnum(["device", "machine"], { $id: "SetupTokenPurpose" });
+export type SetupTokenPurpose = Static<typeof SetupTokenPurpose>;
+
+/** The scopes a machine token carries: the `node` scope and nothing else. */
+export const MACHINE_TOKEN_SCOPES = ["node"] as const;
+
+/**
  * Where the computer that uses a setup token will connect. `address` (the default) uses
  * `gateway.publicOrigin` and makes a `psyche-pair:v1` link (a CA-certified address, for example
  * Tailscale). `lan` uses this Gateway's LAN address and certificate and makes a `psyche-pair:v2`
@@ -111,7 +124,14 @@ export type SetupTokenVia = Static<typeof SetupTokenVia>;
 export const SetupTokenInfo = Type.Object(
   {
     id: Id,
-    scopes: Type.Array(SetupTokenScope),
+    /** `node` appears only on a `purpose: machine` token. */
+    scopes: Type.Array(
+      StringEnum([...SetupTokenScope.enum, ...MACHINE_TOKEN_SCOPES], {
+        $id: "SetupTokenInfoScope",
+      }),
+    ),
+    /** Absent means `device`. */
+    purpose: Type.Optional(SetupTokenPurpose),
     createdAt: IsoDateTime,
     expiresAt: IsoDateTime,
     usedAt: Nullable(IsoDateTime),
@@ -236,11 +256,14 @@ export const DevicesMethods = {
   }),
   "devices.setupToken.create": defineMethod({
     params: Type.Object({
-      scopes: Type.Array(SetupTokenScope, {
-        minItems: 1,
-        description:
-          "What the computer that uses the token gets, chosen by the owner now; never `node`. `operator.admin` only when the owner ticks it",
-      }),
+      scopes: Type.Optional(
+        Type.Array(SetupTokenScope, {
+          minItems: 1,
+          description:
+            'What the computer that uses the token gets, chosen by the owner now; never `node`. `operator.admin` only when the owner ticks it. Required for purpose `device` (the default); omitted for purpose `machine`, whose scopes are always ["node"] (see setupTokenScopesFor)',
+        }),
+      ),
+      purpose: Type.Optional(SetupTokenPurpose),
       via: Type.Optional(SetupTokenVia),
       /** Fresh presence: the approved `policy_change` card from a first `approval_required` call. */
       approvalId: Type.Optional(Id),
@@ -249,7 +272,7 @@ export const DevicesMethods = {
       setupToken: SetupTokenInfo,
       link: Type.String({
         description:
-          "psyche-pair:v1 link (gatewayUrl, gatewayFingerprint, setupToken, hostName) for an address, or psyche-pair:v2 link (gatewayUrl, gatewayKey, certPin, setupToken, hostName) for the LAN; nothing else. The token appears only here, once",
+          "For purpose machine, a psyche-machine:v1 link instead (gatewayUrl, gatewayKey, certPin?, setupToken, hostName). Otherwise: psyche-pair:v1 link (gatewayUrl, gatewayFingerprint, setupToken, hostName) for an address, or psyche-pair:v2 link (gatewayUrl, gatewayKey, certPin, setupToken, hostName) for the LAN; nothing else. The token appears only here, once",
       }),
       version: Type.Optional(
         Type.Integer({

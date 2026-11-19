@@ -13,6 +13,7 @@ import {
   Target,
   TargetKind,
 } from "../common.ts";
+import { ComputerMachineRef } from "./machines.ts";
 
 /**
  * What a denied or failed call was missing (security §3.13): a tool error or a broker denial
@@ -173,6 +174,11 @@ export const ApprovalRequest = Type.Object(
     sideEffect: Type.Optional(SideEffect),
     targetKind: Type.Optional(TargetKind),
     target: Type.Optional(Target),
+    /**
+     * `computer_action`, `exec_host` and `folder_access` cards: the machine (not the Host) the
+     * action is for. Absent means the Host. The binding hash includes its `deviceId`.
+     */
+    machine: Type.Optional(ComputerMachineRef),
     surfaces: Type.Array(Surface),
     scopesOffered: Type.Array(GrantScope, { minItems: 1 }),
     deviceOnly: Type.Boolean(),
@@ -359,6 +365,8 @@ export const Receipt = Type.Object(
     summary: Type.String(),
     externalRefs: Type.Record(Type.String(), Type.Union([Type.String(), Type.Number()])),
     payload: Nullable(JsonObject),
+    /** The machine the action ran on; absent means the Host. */
+    machine: Type.Optional(ComputerMachineRef),
     createdAt: IsoDateTime,
   },
   { $id: "Receipt" },

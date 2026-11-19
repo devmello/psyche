@@ -52,6 +52,14 @@ export function classifyArtifact(name, winArch = "x64") {
     return { platform: "win32", kind: "setup", arch: winArch };
   const winZip = /^Psyche-.+-win32-(arm64|x64)\.zip$/.exec(name);
   if (winZip) return { platform: "win32", kind: "zip", arch: winZip[1] };
+  // The Linux helper-only and server packages (docs/design/linux-helper-only-2026.md, section 9):
+  // `psyche-helper-<v>-linux-<arch>.<tar.zst|deb|rpm>` and `psyche-server-<v>-linux-<arch>.<ext>`.
+  // Desktop builds skip platform keys and kinds they do not know, so these are invisible to them.
+  const linux = /^psyche-(helper|server)-.+-linux-(arm64|x64)\.(tar\.zst|deb|rpm)$/.exec(name);
+  if (linux) {
+    const ext = linux[3] === "tar.zst" ? "tar-zst" : linux[3];
+    return { platform: "linux", kind: `${linux[1]}-${ext}`, arch: linux[2] };
+  }
   const mac = /^Psyche-(.+?)-(?:darwin-)?(arm64|x64)\.(zip|dmg)$/.exec(name);
   if (mac) return { platform: "darwin", kind: mac[3], arch: mac[2] };
   return null;
@@ -97,17 +105,18 @@ export function buildManifest({
   const all = files.map((f) => artifactOf(f, { winArch, deltaBase })).filter(Boolean);
   const mac = all.filter((a) => a.platform === "darwin");
   const win = all.filter((a) => a.platform === "win32");
+  const linux = all.filter((a) => a.platform === "linux");
   const macUpdate = mac.some((a) => a.kind === "zip");
   const winUpdate =
     win.some((a) => a.kind === "squirrel-releases") && win.some((a) => a.kind === "nupkg-full");
-  if (!macUpdate && !winUpdate)
+  if (!macUpdate && !winUpdate && linux.length === 0)
     throw new Error(
-      "no update among the artifacts: a Psyche-<version>-darwin-<arch>.zip, or RELEASES and a Psyche-<version>-full.nupkg",
+      "no update among the artifacts: a Psyche-<version>-darwin-<arch>.zip, or RELEASES and a Psyche-<version>-full.nupkg, or a psyche-helper / psyche-server Linux package",
     );
   if (win.length && !winUpdate)
     throw new Error("Windows files without RELEASES and the full nupkg cannot update anyone");
   let platforms;
-  if (win.length) {
+  if (win.length || linux.length) {
     platforms = {};
     for (const { platform, arch, ...rest } of all) {
       const key = `${platform}-${arch}`;
