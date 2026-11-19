@@ -61,6 +61,8 @@ pub struct X11 {
     /// The Escape key's keycode.
     esc: u8,
     grabbed: AtomicBool,
+    /// The last attempt to grab Escape failed (another client holds it): no kill switch.
+    grab_failed: AtomicBool,
     last_touch: AtomicU64,
     started: Instant,
     on_stop: Arc<Mutex<Option<StopFn>>>,
@@ -160,6 +162,7 @@ impl X11 {
             }),
             esc,
             grabbed: AtomicBool::new(false),
+            grab_failed: AtomicBool::new(false),
             last_touch: AtomicU64::new(0),
             started: Instant::now(),
             on_stop: Arc::new(Mutex::new(None)),
@@ -654,9 +657,18 @@ impl X11 {
                 })
                 .and_then(|_| self.conn.flush().map_err(xerr));
             if r.is_err() {
-                // Someone else holds Escape: no kill switch here, so be loud and stay ungrabbed.
+                // Someone else holds Escape: no kill switch here, so be loud, release the masks
+                // that did grab, and stay ungrabbed. The engine refuses every action while the
+                // grab is not held (`kill_switch_unavailable`); the next call tries again.
+                for m in GRAB_MASKS {
+                    let _ = self.conn.ungrab_key(self.esc, self.root, ModMask::from(m));
+                }
+                let _ = self.conn.flush();
                 self.grabbed.store(false, Ordering::SeqCst);
-                crate_log("could not grab Escape; the kill switch is not available this session");
+                self.grab_failed.store(true, Ordering::SeqCst);
+                crate_log("could not grab Escape; the kill switch is not available, so computer use is refused");
+            } else {
+                self.grab_failed.store(false, Ordering::SeqCst);
             }
         }
     }
@@ -672,6 +684,11 @@ impl X11 {
 
     pub fn escape_grabbed(&self) -> bool {
         self.grabbed.load(Ordering::SeqCst)
+    }
+
+    /// The last grab attempt failed (for Settings; between sessions the grab is released).
+    pub fn escape_grab_failed(&self) -> bool {
+        self.grab_failed.load(Ordering::SeqCst)
     }
 
     // --- Capture ----------------------------------------------------------------------------

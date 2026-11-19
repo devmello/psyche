@@ -45,6 +45,13 @@ mod linux {
         ProcessEnv.get(key)
     }
 
+    /// The separate desktop's guest: the container image launches its helper with
+    /// `PSYCHE_HELPER_SURFACE=separate_desktop` (deploy/sandbox-image/Dockerfile). Only then does
+    /// the engine honour a call's `fileLocalLabel`; the Host's own helper never has it set.
+    fn is_separate_desktop_guest(env: &dyn Fn(&str) -> Option<String>) -> bool {
+        env("PSYCHE_HELPER_SURFACE").as_deref() == Some("separate_desktop")
+    }
+
     /// The engine, built on the first call. A failure (no graphical session) is not cached: the
     /// owner may log in, or start the session, and the next call tries again.
     #[derive(Default)]
@@ -114,6 +121,7 @@ mod linux {
             let backend = Arc::new(LinuxBackend::new(a11y, path));
             let home = psyche_home();
             let engine = Engine::new(backend, home.join("config").join("computer-use.json"));
+            engine.set_guest(is_separate_desktop_guest(&env_get));
             *guard = Some(engine.clone());
             Ok(engine)
         }
@@ -535,7 +543,21 @@ mod linux {
         if backend == "wlroots" {
             warnings.push("wlroots");
         }
-        json!({"session": kind.as_str(), "desktop": desktop, "backend": backend, "allowed": allowed, "active": active, "warnings": warnings})
+        // Whether the owner's Stop is in place: X11, the Escape grab did not fail (another client
+        // holding Escape means computer use is refused); a portal session, its `Closed` is
+        // watched (before the first session nothing is open yet, and a session whose Stop
+        // cannot be watched is refused when it opens). No other path has one.
+        let built = shared
+            .engine
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        let kill_switch = match backend {
+            "x11" => built.map_or(true, |e| e.backend.kill_switch_status()),
+            "portal" => !active || built.is_some_and(|e| e.backend.kill_switch_status()),
+            _ => false,
+        };
+        json!({"session": kind.as_str(), "desktop": desktop, "backend": backend, "allowed": allowed, "active": active, "warnings": warnings, "killSwitch": kill_switch})
     }
 
     enum Misc {
@@ -662,6 +684,7 @@ mod linux {
                 "health",
                 "computer.ax_tree",
                 "computer.check_target",
+                "computer.resolve_target",
                 "computer.ax_value",
                 "computer.click",
                 "computer.double_click",
@@ -779,6 +802,27 @@ mod linux {
                 Some("other")
             );
             assert_eq!(desktop_name(&env(&[])), None);
+        }
+
+        #[test]
+        fn only_the_separate_desktop_image_marks_the_helper_as_its_guest() {
+            let env = |pairs: &'static [(&'static str, &'static str)]| {
+                move |k: &str| {
+                    pairs
+                        .iter()
+                        .find(|(n, _)| *n == k)
+                        .map(|(_, v)| v.to_string())
+                }
+            };
+            assert!(is_separate_desktop_guest(&env(&[(
+                "PSYCHE_HELPER_SURFACE",
+                "separate_desktop"
+            )])));
+            assert!(!is_separate_desktop_guest(&env(&[])));
+            assert!(!is_separate_desktop_guest(&env(&[(
+                "PSYCHE_HELPER_SURFACE",
+                "host"
+            )])));
         }
 
         #[test]

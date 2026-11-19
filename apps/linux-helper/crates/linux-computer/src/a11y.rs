@@ -7,7 +7,7 @@
 //! snapshot builder asks for the info of one element and for its children, nothing more.
 
 use crate::app_id::{self, DesktopIndex, Evidence};
-use crate::backend::{ActError, AppInfo, ElementData, Hit};
+use crate::backend::{ActError, AppInfo, Described, ElementData, Hit};
 use crate::error::{code, CapError, CapResult};
 use crate::roles::{self, role, AtspiFacts};
 use crate::snapshot::{ElementInfo, Rect, TreeSource};
@@ -924,16 +924,26 @@ impl A11y {
         });
     }
 
-    /// The focused element: the tracker's, checked to still exist, else a bounded search of the
-    /// active windows (which then seeds the tracker).
+    /// The focused element: the tracker's, checked to still exist and to sit in a window that is
+    /// still the active one, else a bounded search of the active windows (which then seeds the
+    /// tracker). A stale tracker entry is dropped: when focus moves to an app that emits no focus
+    /// events (a terminal without AT-SPI), the old element may never say it lost focus, and
+    /// trusting it would let keyboard input go to that app.
     pub fn focused(&self, pid: Option<u32>) -> Option<Acc> {
         self.start_focus_tracker();
         let known = self.focus.lock().unwrap_or_else(|e| e.into_inner()).clone();
-        if let Some(a) = known.filter(|a| {
-            !state::has(&self.states_of(a), state::DEFUNCT) && self.role_of(a).is_some()
-        }) {
-            if pid.map_or(true, |p| self.pid_of_bus(&a.bus) == Some(p)) {
-                return Some(a);
+        if let Some(a) = known {
+            let alive =
+                !state::has(&self.states_of(&a), state::DEFUNCT) && self.role_of(&a).is_some();
+            if alive && self.in_active_window(&a) {
+                if pid.map_or(true, |p| self.pid_of_bus(&a.bus) == Some(p)) {
+                    return Some(a);
+                }
+            } else {
+                let mut f = self.focus.lock().unwrap_or_else(|e| e.into_inner());
+                if f.as_ref() == Some(&a) {
+                    *f = None;
+                }
             }
         }
         let roots: Vec<Acc> = match pid {
@@ -955,6 +965,13 @@ impl A11y {
             }
         }
         None
+    }
+
+    /// Whether the top-level window `acc` sits in is the active one. An element whose window
+    /// cannot be found counts as not active (fail closed).
+    fn in_active_window(&self, acc: &Acc) -> bool {
+        self.toplevel_of(acc, 0)
+            .is_some_and(|t| state::has(&self.states_of(&t), state::ACTIVE))
     }
 
     /// Finds the element with the `FOCUSED` state under `root`, bounded in visits and time.
@@ -999,6 +1016,49 @@ impl A11y {
         Some(cur)
     }
 
+    /// What `computer.resolve_target` reports beside the element itself: its ancestors' labels
+    /// (nearest first, up to the window), the window's title and the document's address.
+    pub fn describe(&self, acc: &Acc) -> Described {
+        Described {
+            ancestors: self
+                .parent_of(acc)
+                .map(|p| self.labels_up(&p))
+                .unwrap_or_default(),
+            window: self.toplevel_of(acc, 0).and_then(|t| self.name_of(&t)),
+            url: self.doc_url(acc),
+        }
+    }
+
+    /// The address of the document an element is in (a browser page): the nearest element, the
+    /// element itself or an ancestor, with the AT-SPI Document interface, and its `DocURL`
+    /// (Firefox, WebKitGTK) or `URI` / `URL` (Chromium) attribute.
+    pub fn doc_url(&self, acc: &Acc) -> Option<String> {
+        let mut cur = Some(acc.clone());
+        for _ in 0..40 {
+            let a = cur?;
+            if self.role_of(&a).is_some_and(is_window_role) {
+                return None;
+            }
+            if has_iface(&self.interfaces_of(&a), "Document") {
+                let attrs: HashMap<String, String> = self
+                    .call(&a, "org.a11y.atspi.Document", "GetAttributes", &())
+                    .unwrap_or_default();
+                let url = attrs
+                    .iter()
+                    .find(|(k, v)| {
+                        matches!(k.to_ascii_lowercase().as_str(), "docurl" | "uri" | "url")
+                            && !v.trim().is_empty()
+                    })
+                    .map(|(_, v)| v.trim().to_string());
+                if url.is_some() {
+                    return url;
+                }
+            }
+            cur = self.parent_of(&a);
+        }
+        None
+    }
+
     /// Labels of `acc` and its ancestors up to (excluding) the window.
     pub fn labels_up(&self, acc: &Acc) -> Vec<String> {
         let mut out = Vec::new();
@@ -1023,11 +1083,15 @@ impl A11y {
             role: role_n,
             ..Default::default()
         });
+        let around = self.describe(&a);
         Some(Hit {
             pid: self.pid_of_bus(&a.bus)?,
             role: Some(ax.role.to_string()),
+            subrole: ax.subrole.map(str::to_string),
             secure: roles::is_password(role_n),
             labels: self.labels_up(&a),
+            window: around.window,
+            url: around.url,
         })
     }
 

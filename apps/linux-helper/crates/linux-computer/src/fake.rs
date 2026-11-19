@@ -1,7 +1,7 @@
 //! A fake desktop for the engine's tests (and the helper's own tests): a few apps, a tree, and a
 //! log of every input call, so the checks below the model can be asserted without a display.
 
-use crate::backend::{ActError, AppInfo, Backend, ElementData, Frame, Hit, WinInfo};
+use crate::backend::{ActError, AppInfo, Backend, Described, ElementData, Frame, Hit, WinInfo};
 use crate::error::{code, CapError, CapResult};
 use crate::keychord::{KeyChord, Mods};
 use crate::roles::{role, AtspiFacts};
@@ -18,6 +18,8 @@ pub struct Node {
     pub children: Vec<u32>,
     pub frame: Option<Rect>,
     pub value: Option<String>,
+    /// The document address a browser's document node exposes (`DocURL`).
+    pub url: Option<String>,
 }
 
 #[derive(Default)]
@@ -38,10 +40,80 @@ pub struct State {
     pub focus_denied: bool,
     ///  on an element succeeds without the element taking focus.
     pub element_focus_ignored: bool,
+    /// The Stop is not in place (X11: another client holds Escape).
+    pub no_kill_switch: bool,
+    /// After this many typed chunks, keyboard focus goes to an app the desktop cannot name (a
+    /// terminal without AT-SPI): the focus pid becomes unknown.
+    pub focus_lost_after_chunks: Option<usize>,
 }
 
 pub struct Fake {
     pub s: Mutex<State>,
+}
+
+impl State {
+    fn parent_of(&self, id: u32) -> Option<u32> {
+        self.nodes
+            .iter()
+            .find(|(_, n)| n.children.contains(&id))
+            .map(|(p, _)| *p)
+    }
+
+    fn is_window(&self, id: u32) -> bool {
+        self.nodes
+            .get(&id)
+            .and_then(|n| n.data.as_ref())
+            .is_some_and(|d| d.facts.top_level)
+    }
+
+    fn title(&self, id: u32) -> Option<String> {
+        self.nodes
+            .get(&id)
+            .and_then(|n| n.data.as_ref())
+            .and_then(|d| d.info.title.clone())
+    }
+
+    /// Labels of the ancestors of `id`, nearest first, up to (not including) the window; then the
+    /// window's title and the nearest document address.
+    fn describe(&self, id: u32) -> Described {
+        let mut out = Described::default();
+        let mut url = self.nodes.get(&id).and_then(|n| n.url.clone());
+        let mut window = if self.is_window(id) {
+            self.title(id)
+        } else {
+            None
+        };
+        let mut cur = self.parent_of(id);
+        while let Some(p) = cur {
+            url = url.or_else(|| self.nodes.get(&p).and_then(|n| n.url.clone()));
+            if self.is_window(p) {
+                window = self.title(p);
+                break;
+            }
+            if let Some(t) = self.title(p) {
+                out.ancestors.push(t);
+            }
+            cur = self.parent_of(p);
+        }
+        out.window = window;
+        out.url = url;
+        out
+    }
+
+    /// The deepest node under a point in `root`'s subtree (frames as the tree reports them).
+    fn deepest_at(&self, root: u32, x: f64, y: f64) -> Option<u32> {
+        let n = self.nodes.get(&root)?;
+        if !n.frame.is_some_and(|f| f.contains(x, y)) {
+            return None;
+        }
+        Some(
+            n.children
+                .iter()
+                .rev()
+                .find_map(|c| self.deepest_at(*c, x, y))
+                .unwrap_or(root),
+        )
+    }
 }
 
 pub const EDITOR_PID: u32 = 100;
@@ -131,6 +203,7 @@ impl Fake {
                 children: vec![],
                 frame,
                 value: None,
+                url: None,
             },
         );
         if let Some(p) = parent {
@@ -188,6 +261,10 @@ impl Fake {
             .pid;
         self.set_pid(id, pid);
         id
+    }
+
+    pub fn set_url(&self, id: u32, url: &str) {
+        self.s.lock().unwrap().nodes.get_mut(&id).unwrap().url = Some(url.to_string());
     }
 
     pub fn log(&self) -> Vec<String> {
@@ -345,13 +422,38 @@ impl Backend for Fake {
         let w = s
             .windows
             .iter()
-            .find(|w| w.bounds.is_some_and(|b| b.contains(x, y)))?;
-        Some(Hit {
+            .find(|w| !w.minimized && w.bounds.is_some_and(|b| b.contains(x, y)))?;
+        let mut hit = Hit {
             pid: w.pid,
-            role: None,
             secure: s.focus_secure && s.focused_element.is_some(),
-            labels: vec![],
-        })
+            window: Some(w.title.clone()),
+            ..Hit::default()
+        };
+        // The element there, when the window's app exposes a tree (frames are screen points).
+        let el = s
+            .app_roots
+            .get(&w.pid)
+            .into_iter()
+            .flatten()
+            .find_map(|r| s.deepest_at(*r, x, y));
+        if let Some(id) = el {
+            let d = s.nodes[&id].data.clone().unwrap();
+            let ax = crate::roles::map_role(&d.facts);
+            let around = s.describe(id);
+            hit.role = Some(ax.role.to_string());
+            hit.subrole = ax.subrole.map(str::to_string);
+            hit.secure |= crate::roles::is_password(d.facts.role);
+            if !d.facts.top_level {
+                hit.labels = d.info.title.clone().into_iter().collect();
+                hit.labels.extend(around.ancestors);
+            }
+            hit.window = around.window.or(hit.window);
+            hit.url = around.url;
+        }
+        Some(hit)
+    }
+    fn describe(&self, e: &u32) -> Described {
+        self.s.lock().unwrap().describe(*e)
     }
     fn focused_is_secure(&self, _app: Option<&AppInfo>) -> bool {
         self.s.lock().unwrap().focus_secure
@@ -377,10 +479,16 @@ impl Backend for Fake {
         stop: &StopSignal,
         before: &mut dyn FnMut() -> CapResult<()>,
     ) -> CapResult<()> {
-        for chunk in crate::keychord::typing_chunks(text, 4) {
+        for (i, chunk) in crate::keychord::typing_chunks(text, 4).iter().enumerate() {
             stop.check()?;
+            {
+                let mut s = self.s.lock().unwrap();
+                if s.focus_lost_after_chunks == Some(i) {
+                    s.focus_pid = None;
+                }
+            }
             before()?;
-            self.s.lock().unwrap().typed.push_str(&chunk);
+            self.s.lock().unwrap().typed.push_str(chunk);
         }
         self.push(format!("typed {}", text.chars().count()));
         Ok(())
@@ -412,6 +520,9 @@ impl Backend for Fake {
     }
     fn displays(&self) -> Vec<Rect> {
         vec![Rect::new(0.0, 0.0, 1000.0, 200.0)]
+    }
+    fn kill_switch_ready(&self) -> bool {
+        !self.s.lock().unwrap().no_kill_switch
     }
 }
 

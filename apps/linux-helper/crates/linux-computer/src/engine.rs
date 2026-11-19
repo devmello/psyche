@@ -9,7 +9,7 @@
 //! and tiers are applied again; a point must land in the app the approval named; keyboard input
 //! goes only to the app's own focus and stops the moment focus leaves it.
 
-use crate::backend::{ActError, AppInfo, Backend, ElementData, Frame, WinInfo};
+use crate::backend::{ActError, AppInfo, Backend, Described, ElementData, Frame, WinInfo};
 use crate::error::{code, CapError, CapResult};
 use crate::hygiene::{self, AppRef};
 use crate::keychord::{send_keys, KeyChord, Mods};
@@ -26,7 +26,7 @@ use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use std::collections::HashSet;
 use std::path::PathBuf;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -133,6 +133,132 @@ fn not_responding(app: &str) -> CapError {
     CapError::unavailable("app_not_responding", format!("{app} is not responding")).retryable()
 }
 
+/// `policy_denied/point_unverifiable`: the desktop does not say where windows are, so a screen
+/// point cannot be checked against the app (and its approval). Never cleared by an approval.
+fn point_unverifiable(app: &str) -> CapError {
+    CapError::new(
+        code::POLICY_DENIED,
+        "point_unverifiable",
+        "This desktop does not tell Psyche where windows are, so it cannot check which app a screen point is in. Act by ref from computer.ax_tree, or use the keyboard (computer.key, computer.type).",
+    )
+    .detail("app", app)
+}
+
+/// `conflict/focus_moved`: keyboard focus is known to be in another app.
+fn focus_moved(app: &AppInfo) -> CapError {
+    CapError::new(
+        code::CONFLICT,
+        "focus_moved",
+        format!("Keyboard focus is no longer in {}; input stopped", app.name),
+    )
+    .detail("app", app.id.as_str())
+    .retryable()
+}
+
+/// `conflict/focus_unknown`: nothing says which app has keyboard focus (an app that reports no
+/// focus to AT-SPI), so keyboard input is not sent: it could reach a terminal.
+fn focus_unknown(app: &AppInfo) -> CapError {
+    CapError::new(
+        code::CONFLICT,
+        "focus_unknown",
+        format!(
+            "This desktop cannot say which app has keyboard focus, so input to {} was not sent. Click into {} (by ref) and retry.",
+            app.name, app.name
+        ),
+    )
+    .detail("app", app.id.as_str())
+}
+
+/// `unavailable/kill_switch_unavailable`: the owner's Stop is not in place (X11: another client
+/// holds Escape; Wayland: no screen-sharing session whose Stop is watched).
+fn kill_switch_unavailable() -> CapError {
+    CapError::unavailable(
+        "kill_switch_unavailable",
+        "The Stop for computer use is not available on this desktop (another program holds the Escape key, or the screen-sharing session's Stop is not watched), so Psyche does not act. Close the program that grabs Escape, then retry.",
+    )
+}
+
+/// What `computer.resolve_target` reports (the Mac helper's `TargetReport`).
+#[derive(Default)]
+pub struct TargetReport<'a> {
+    pub app: &'a str,
+    /// Role as the snapshot names it (`button`, `textfield`), without the subrole suffix.
+    pub role: Option<String>,
+    /// Mac subrole (`AXSearchField`, `AXSecureTextField`).
+    pub subrole: Option<String>,
+    /// The element's own label first, then its ancestors', nearest first.
+    pub labels: Vec<String>,
+    pub secure: bool,
+    pub window: Option<String>,
+    pub url: Option<String>,
+}
+
+const REPORT_MAX_LABELS: usize = 6;
+const REPORT_MAX_LABEL_CHARS: usize = 200;
+const REPORT_MAX_CONTEXT_CHARS: usize = 400;
+
+fn trimmed_cap(s: &str, max: usize) -> Option<String> {
+    let t = s.trim();
+    (!t.is_empty()).then(|| t.chars().take(max).collect())
+}
+
+/// Labels trimmed, capped at 200 characters, de-duplicated and empties dropped, in the order
+/// given, at most 6.
+pub fn report_labels(raw: &[String]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for l in raw {
+        let Some(c) = trimmed_cap(l, REPORT_MAX_LABEL_CHARS) else {
+            continue;
+        };
+        if !out.contains(&c) {
+            out.push(c);
+        }
+        if out.len() == REPORT_MAX_LABELS {
+            break;
+        }
+    }
+    out
+}
+
+/// `{app, provenance, role?, subrole?, window?, url?, labels, label?, secure?}`. A password field
+/// reports its role only: `secure: true`, no labels.
+pub fn target_report(r: &TargetReport<'_>) -> Value {
+    let mut o = Map::new();
+    o.insert("app".into(), json!(r.app));
+    o.insert("provenance".into(), json!("untrusted"));
+    if let Some(role) = r.role.as_deref().filter(|s| !s.is_empty()) {
+        o.insert("role".into(), json!(role));
+    }
+    if let Some(sub) = r.subrole.as_deref().filter(|s| !s.is_empty()) {
+        o.insert("subrole".into(), json!(sub));
+    }
+    if let Some(w) = r
+        .window
+        .as_deref()
+        .and_then(|w| trimmed_cap(w, REPORT_MAX_CONTEXT_CHARS))
+    {
+        o.insert("window".into(), json!(w));
+    }
+    if let Some(u) = r
+        .url
+        .as_deref()
+        .and_then(|u| trimmed_cap(u, REPORT_MAX_CONTEXT_CHARS))
+    {
+        o.insert("url".into(), json!(u));
+    }
+    if r.secure {
+        o.insert("secure".into(), json!(true));
+        o.insert("labels".into(), json!([]));
+        return Value::Object(o);
+    }
+    let labels = report_labels(&r.labels);
+    if let Some(first) = labels.first() {
+        o.insert("label".into(), json!(first));
+    }
+    o.insert("labels".into(), json!(labels));
+    Value::Object(o)
+}
+
 fn decode<T: DeserializeOwned>(params: &Value) -> CapResult<T> {
     let v = if params.is_null() {
         Value::Object(Map::new())
@@ -176,6 +302,8 @@ pub struct Engine<B: Backend> {
     settings_path: PathBuf,
     on_user_stop: Mutex<Option<UserStopFn>>,
     own_pid: u32,
+    /// This helper is the separate desktop's guest (see [`Engine::set_guest`]).
+    guest: AtomicBool,
 }
 
 const SNAPSHOT_BUDGET: Duration = Duration::from_secs(12);
@@ -195,6 +323,7 @@ impl<B: Backend> Engine<B> {
             settings_path,
             on_user_stop: Mutex::new(None),
             own_pid: std::process::id(),
+            guest: AtomicBool::new(false),
         });
         // The owner's last input comes from the backend's stop source (X11) or is unknown.
         let weak = Arc::downgrade(&engine);
@@ -226,6 +355,40 @@ impl<B: Backend> Engine<B> {
         }
     }
 
+    /// Marks this helper as the separate desktop's guest (the container's helper, launched with
+    /// `PSYCHE_HELPER_SURFACE=separate_desktop`). Only then is a call's `fileLocalLabel` honoured,
+    /// and only by the risky-label checks; the Host's own helper never sets it.
+    pub fn set_guest(&self, on: bool) {
+        self.guest.store(on, Ordering::SeqCst);
+    }
+
+    /// `fileLocalLabel`: the Gateway's word that the one risky label the guest reported on its
+    /// first try (a "Delete" that deletes a file inside the separate desktop, say) is fine to act
+    /// on. It clears a risky-label check only on the guest and only when every risky label the
+    /// check found is that label (trimmed). It is not an approval: tiers, allowances, sends, risky
+    /// chords, secure fields, points and app binding behave exactly as without it.
+    fn file_local_ok<'a>(&self, params: &Value, risky: impl IntoIterator<Item = &'a str>) -> bool {
+        if !self.guest.load(Ordering::SeqCst) {
+            return false;
+        }
+        let Some(allowed) = params
+            .get("fileLocalLabel")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        else {
+            return false;
+        };
+        let mut any = false;
+        for l in risky {
+            if l.trim() != allowed {
+                return false;
+            }
+            any = true;
+        }
+        any
+    }
+
     pub fn reload_settings(&self) {
         self.policy.update(TierSettings::load(&self.settings_path));
     }
@@ -236,6 +399,10 @@ impl<B: Backend> Engine<B> {
             Some(s) if !s.is_empty() && s.chars().count() <= 128 => {
                 self.reload_settings();
                 self.backend.check_desktop()?;
+                // No Stop, no input: the owner must always be able to cut computer use short.
+                if !self.backend.kill_switch_ready() {
+                    return Err(kill_switch_unavailable());
+                }
                 self.sessions.acquire(s)
             }
             _ => Err(CapError::invalid_params(
@@ -482,19 +649,20 @@ impl<B: Backend> Engine<B> {
             && self.binding(inv, params).is_none()
             && risk_labels::is_risky(el.label.as_deref(), custom)
         {
-            return Err(CapError::new(
-                code::APPROVAL_REQUIRED,
-                "risky_label",
-                "This control may delete, send or create data; this action needs approval.",
-            )
-            .detail(
-                "label",
-                el.label
-                    .clone()
-                    .or(custom.map(str::to_string))
-                    .unwrap_or_default(),
-            )
-            .detail("app", el.app.id.as_str()));
+            let reported = el
+                .label
+                .clone()
+                .or(custom.map(str::to_string))
+                .unwrap_or_default();
+            if !self.file_local_ok(params, [reported.as_str()]) {
+                return Err(CapError::new(
+                    code::APPROVAL_REQUIRED,
+                    "risky_label",
+                    "This control may delete, send or create data; this action needs approval.",
+                )
+                .detail("label", reported)
+                .detail("app", el.app.id.as_str()));
+            }
         }
         Ok(el)
     }
@@ -522,7 +690,12 @@ impl<B: Backend> Engine<B> {
             )
         })?;
         let named_id = crate::app_id::normalize(named);
-        let app = if self.backend.window_geometry_known() {
+        // Without window positions (GNOME on Wayland, a remote path) nothing can say which app a
+        // point is in: input would land on whatever is there, whatever the card named.
+        if !self.backend.window_geometry_known() {
+            return Err(point_unverifiable(named));
+        }
+        let app = {
             let win = self.window_at(x, y).ok_or_else(|| {
                 CapError::new(
                     code::NOT_FOUND,
@@ -548,34 +721,6 @@ impl<B: Backend> Engine<B> {
                 .detail("appAtPoint", app.id.as_str()));
             }
             app
-        } else {
-            // The desktop does not tell clients where windows are (GNOME on Wayland), so the app
-            // under a point cannot be verified. Allow it only into the focused app, and only with
-            // an approval that names that app (the Gateway treats a bare point as risky anyway).
-            let app = self.find_app(Some(named), None)?;
-            if !self
-                .backend
-                .windows()
-                .iter()
-                .any(|w| w.focused && w.pid == app.pid)
-            {
-                return Err(CapError::new(
-                    code::CONFLICT,
-                    "focus_moved",
-                    format!("{} is not the focused app, and this desktop cannot say which app is under a point", app.name),
-                )
-                .retryable());
-            }
-            if self.binding(inv, params).is_none() {
-                return Err(CapError::new(
-                    code::APPROVAL_REQUIRED,
-                    "point_unverified",
-                    "This desktop cannot say which app is under a screen point, so a click at a point needs approval.",
-                )
-                .detail("app", app.id.as_str())
-                .detail("label", "a point on the screen"));
-            }
-            app
         };
         let role = self.backend.hit_test(x, y).and_then(|h| h.role);
         let intent = intent.escalated(role.as_deref());
@@ -596,42 +741,37 @@ impl<B: Backend> Engine<B> {
     }
 
     /// Keyboard input goes only to `app`'s own focused element.
+    /// Unknown focus (an app that reports none to AT-SPI, a stale focus on Wayland) fails closed:
+    /// XTest and portal input go wherever the real focus is, a terminal included.
     fn ensure_keyboard_target(&self, app: &AppInfo) -> CapResult<()> {
-        if let Some(p) = self.backend.keyboard_focus_pid() {
-            if !app.owns(p) {
-                return Err(CapError::new(
-                    code::CONFLICT,
-                    "focus_moved",
-                    format!("Keyboard focus is no longer in {}; input stopped", app.name),
-                )
-                .retryable());
-            }
+        match self.backend.keyboard_focus_pid() {
+            Some(p) if app.owns(p) => Ok(()),
+            Some(_) => Err(focus_moved(app)),
+            None => Err(focus_unknown(app)),
         }
-        Ok(())
     }
 
     /// Hit-tests a point before synthetic mouse input: it must land in `app` (and, for a ref, on
     /// that element or inside it), and on nothing secure or risky without approval.
     fn check_hit(
         &self,
+        params: &Value,
         x: f64,
         y: f64,
         app: &AppInfo,
         el: Option<&Resolved<B::Element>>,
         approved: bool,
     ) -> CapResult<()> {
+        // Without window positions the pointer could land anywhere: never, approval or not.
+        if !self.backend.window_geometry_known() {
+            return Err(point_unverifiable(&app.id));
+        }
         let Some(hit) = self.backend.hit_test(x, y) else {
-            // Without a hit test (no geometry) the caller already required an approval or acts
-            // by ref on an element the tree placed there.
-            return if self.backend.window_geometry_known() {
-                Err(CapError::new(
-                    code::CONFLICT,
-                    "hit_test_failed",
-                    format!("Nothing to click at {},{}", x as i64, y as i64),
-                ))
-            } else {
-                Ok(())
-            };
+            return Err(CapError::new(
+                code::CONFLICT,
+                "hit_test_failed",
+                format!("Nothing to click at {},{}", x as i64, y as i64),
+            ));
         };
         if hit.pid != app.pid {
             return Err(CapError::new(
@@ -646,14 +786,20 @@ impl<B: Backend> Engine<B> {
         if hit.secure {
             return Err(CapError::secure_refusal());
         }
+        let risky: Vec<&str> = hit
+            .labels
+            .iter()
+            .map(String::as_str)
+            .filter(|l| risk_labels::is_risky(Some(l), None))
+            .collect();
         if el.is_none()
             && !approved
-            && hit
-                .labels
-                .iter()
-                .any(|l| risk_labels::is_risky(Some(l), None))
+            && !risky.is_empty()
+            && !self.file_local_ok(params, risky.iter().copied())
         {
-            return Err(CapError::new(code::APPROVAL_REQUIRED, "risky_label", "The control at this point may delete, send or create data; this click needs approval."));
+            return Err(CapError::new(code::APPROVAL_REQUIRED, "risky_label", "The control at this point may delete, send or create data; this click needs approval.")
+                .detail("label", risky[0])
+                .detail("app", app.id.as_str()));
         }
         Ok(())
     }
@@ -821,6 +967,136 @@ impl<B: Backend> Engine<B> {
         }
     }
 
+    /// `computer.resolve_target`: what is under a ref, a screen point or the app's keyboard focus,
+    /// read-only (nothing is pressed). The Gateway reads it before a click by point, a key that
+    /// activates (Return, Enter, Space) or typed newlines, to class a control that moves money as
+    /// a payment. Same session and checks as the action it precedes, at the `read` tier.
+    fn resolve_target(&self, inv: &Invocation, params: &Value) -> CapResult<CapOutput> {
+        let t: TargetParams = decode(params)?;
+        if t.focused == Some(true) {
+            return self.resolve_focused(inv, params, &t);
+        }
+        if t.ref_.is_some() || t.selector.is_some() {
+            let el = self.element(inv, params, &t, Intent::Read, None)?;
+            // The ref must be in the app the call names (a ref never carries one app's check to
+            // another).
+            if let Some(named) = t.app.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+                let id = crate::app_id::normalize(named);
+                if id != el.app.id && !el.app.name.eq_ignore_ascii_case(named) {
+                    return Err(CapError::new(
+                        code::INVALID_PARAMS,
+                        "ref_other_app",
+                        format!("{} belongs to {}, not {named}", el.ref_, el.app.name),
+                    )
+                    .detail("ref", el.ref_.as_str()));
+                }
+            }
+            let ax = crate::roles::map_role(&el.data.facts);
+            let around = self.backend.describe(&el.element);
+            let mut labels: Vec<String> = el.label.clone().into_iter().collect();
+            labels.extend(around.ancestors);
+            return Ok(CapOutput::plain(target_report(&TargetReport {
+                app: &el.app.id,
+                role: Some(text::role_name(ax.role, None)),
+                subrole: ax.subrole.map(str::to_string),
+                labels,
+                secure: is_secure(&el.data),
+                window: around.window,
+                url: around.url,
+            })));
+        }
+        let (x, y, app) = self.point(inv, params, &t, Intent::Read)?;
+        let hit = self.backend.hit_test(x, y).ok_or_else(|| {
+            CapError::new(
+                code::CONFLICT,
+                "hit_test_failed",
+                format!("Nothing at {},{}", x as i64, y as i64),
+            )
+        })?;
+        if hit.pid != app.pid {
+            return Err(CapError::new(
+                code::CONFLICT,
+                "occluded",
+                format!(
+                    "Another window covers {},{}; bring {} forward and re-snapshot",
+                    x as i64, y as i64, app.name
+                ),
+            ));
+        }
+        Ok(CapOutput::plain(target_report(&TargetReport {
+            app: &app.id,
+            role: hit.role.as_deref().map(|r| text::role_name(r, None)),
+            subrole: hit.subrole,
+            labels: hit.labels,
+            secure: hit.secure,
+            window: hit.window,
+            url: hit.url,
+        })))
+    }
+
+    /// `resolve_target {focused: true, app}`: the app's keyboard-focused element. Unknown focus is
+    /// reported as an empty target (the Gateway decides by context, and keyboard input is refused
+    /// anyway while focus is unknown); focus known to be in another app is refused.
+    fn resolve_focused(
+        &self,
+        inv: &Invocation,
+        params: &Value,
+        t: &TargetParams,
+    ) -> CapResult<CapOutput> {
+        self.begin_action(t.session.as_deref())?;
+        let named = t
+            .app
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| CapError::invalid_params("app is required with focused", Some("app")))?;
+        let app = self.find_app(Some(named), None)?;
+        self.policy.authorize(
+            Intent::Read,
+            Some(&app.id),
+            &app.name,
+            self.binding(inv, params).as_ref(),
+        )?;
+        let unknown = || {
+            Ok(CapOutput::plain(target_report(&TargetReport {
+                app: &app.id,
+                ..TargetReport::default()
+            })))
+        };
+        match self.backend.keyboard_focus_pid() {
+            None => return unknown(),
+            Some(p) if !app.owns(p) => return Err(focus_moved(&app)),
+            Some(_) => {}
+        }
+        let Some(e) = self.backend.focused_element(Some(&app)) else {
+            return unknown();
+        };
+        let Some(data) = self.backend.data(&e).filter(|d| d.pid == app.pid) else {
+            return unknown();
+        };
+        let options = self
+            .last
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .1
+            .clone();
+        let mut scratch = RefTable::default();
+        let label = SnapshotBuilder::new(&*self.backend, &mut scratch, options, None).label_for(&e);
+        let ax = crate::roles::map_role(&data.facts);
+        let around: Described = self.backend.describe(&e);
+        let mut labels: Vec<String> = label.into_iter().collect();
+        labels.extend(around.ancestors);
+        Ok(CapOutput::plain(target_report(&TargetReport {
+            app: &app.id,
+            role: Some(text::role_name(ax.role, None)),
+            subrole: ax.subrole.map(str::to_string),
+            labels,
+            secure: is_secure(&data),
+            window: around.window,
+            url: around.url,
+        })))
+    }
+
     fn ax_value(&self, inv: &Invocation, params: &Value) -> CapResult<CapOutput> {
         let p: ValueParams = decode(params)?;
         let el = self.resolve(&p.ref_)?;
@@ -907,7 +1183,7 @@ impl<B: Backend> Engine<B> {
             match self.center(&el) {
                 Ok((x, y)) => {
                     b.activate(&el.app, None, &self.stop)?;
-                    self.check_hit(x, y, &el.app, Some(&el), approved)?;
+                    self.check_hit(params, x, y, &el.app, Some(&el), approved)?;
                     b.click(x, y, count, right, mods, &self.stop)?;
                     Ok(Outcome::new(
                         "ok",
@@ -952,7 +1228,7 @@ impl<B: Backend> Engine<B> {
         } else {
             let (x, y, app) = self.point(inv, params, &p.t, intent)?;
             b.activate(&app, None, &self.stop)?;
-            self.check_hit(x, y, &app, None, approved)?;
+            self.check_hit(params, x, y, &app, None, approved)?;
             b.click(x, y, count, right, mods, &self.stop)?;
             Ok(Outcome::new(
                 "ok",
@@ -1175,6 +1451,9 @@ impl<B: Backend> Engine<B> {
             .detail("sideEffect", "destructive"));
         }
         self.backend.activate(&app, None, &self.stop)?;
+        // Focus must be known and in the app before the first key (unknown focus fails closed),
+        // and nothing is typed while a password field has it.
+        self.ensure_keyboard_target(&app)?;
         // Checked before every chunk: Tab / Return can move focus (into a password field, or out
         // of the app), and the dispatch layer refuses secure fields below the model.
         if self.backend.focused_is_secure(Some(&app)) {
@@ -1202,6 +1481,16 @@ impl<B: Backend> Engine<B> {
     fn key(&self, inv: &Invocation, params: &Value) -> CapResult<CapOutput> {
         let p: KeyParams = decode(params)?;
         let chord = KeyChord::parse(&p.keys)?;
+        // Desktop shortcuts (run dialogs, terminals, console switches, screenshots) are never
+        // sent: the input is global, so they would act outside the app. No approval clears this.
+        if chord.is_shell_chord() {
+            return Err(CapError::new(
+                code::POLICY_DENIED,
+                "shell_chord",
+                "That shortcut belongs to the desktop (a run dialog, a terminal, a launcher, a console switch or a screenshot), not to the app, so Psyche never sends it. Use apps.open, or act in the app by ref.",
+            )
+            .detail("keys", p.keys.as_str()));
+        }
         self.begin_action(p.session.as_deref())?;
         let app = self.find_app(p.app.as_deref(), None)?;
         self.policy.authorize(
@@ -1310,7 +1599,7 @@ impl<B: Backend> Engine<B> {
             ));
         }
         self.backend.activate(&app_a, None, &self.stop)?;
-        self.check_hit(ax, ay, &app_a, None, inv.approval_id.is_some())?;
+        self.check_hit(params, ax, ay, &app_a, None, inv.approval_id.is_some())?;
         self.backend.drag((ax, ay), (bx, by), &self.stop)?;
         Ok(Outcome::new("ok", "input", None, None, &app_a).output("drag"))
     }
@@ -1335,12 +1624,22 @@ impl<B: Backend> Engine<B> {
             &app.name,
             self.binding(inv, params).as_ref(),
         )?;
-        if inv.approval_id.is_none() && path.iter().any(|s| risk_labels::is_risky(Some(s), None)) {
+        let risky: Vec<&str> = path
+            .iter()
+            .map(String::as_str)
+            .filter(|s| risk_labels::is_risky(Some(s), None))
+            .collect();
+        if inv.approval_id.is_none()
+            && !risky.is_empty()
+            && !self.file_local_ok(params, risky.iter().copied())
+        {
             return Err(CapError::new(
                 code::APPROVAL_REQUIRED,
                 "risky_label",
                 "That menu item may delete, send or quit; it needs approval",
-            ));
+            )
+            .detail("label", risky[0])
+            .detail("app", app.id.as_str()));
         }
         let b = &*self.backend;
         b.begin_walk(Duration::from_secs(10));
@@ -1514,32 +1813,14 @@ impl<B: Backend> Engine<B> {
         }
         let mut screen = frame.screen;
         if p.window_only == Some(true) {
-            let w = windows
-                .iter()
-                .filter(|w| w.pid == app.pid && w.layer == 0 && !w.minimized)
-                .filter_map(|w| w.bounds)
-                .max_by(|a, b| {
-                    (a.w * a.h)
-                        .partial_cmp(&(b.w * b.h))
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                })
-                .ok_or_else(|| {
-                    CapError::new(
-                        code::NOT_FOUND,
-                        "no_window",
-                        format!("{} has no on-screen window with a known position", app.name),
-                    )
-                })?;
-            let s = frame.scale.max(0.01);
-            frame = crop(
-                &frame,
-                Rect::new(
-                    (w.x - frame.screen.x) * s,
-                    (w.y - frame.screen.y) * s,
-                    w.w * s,
-                    w.h * s,
-                ),
-            );
+            let (cropped, w) = window_only(frame, &refs, app.pid).ok_or_else(|| {
+                CapError::new(
+                    code::NOT_FOUND,
+                    "no_window",
+                    format!("{} has no on-screen window with a known position", app.name),
+                )
+            })?;
+            frame = cropped;
             screen = w;
         }
         let (w, h) = hygiene::scaled_size(frame.width, frame.height, max_w, max_h);
@@ -1566,6 +1847,7 @@ impl<B: Backend> Engine<B> {
             match name {
                 "computer.ax_tree" => self.ax_tree(inv, params),
                 "computer.check_target" => self.check_target(inv, params),
+                "computer.resolve_target" => self.resolve_target(inv, params),
                 "computer.ax_value" => self.ax_value(inv, params),
                 "computer.click" => self.click(inv, params, 1, false),
                 "computer.double_click" => self.click(inv, params, 2, false),
@@ -1676,6 +1958,44 @@ fn item_title<B: Backend>(b: &B, e: &B::Element, d: &ElementData) -> String {
         .unwrap_or_default()
 }
 
+/// The window-only capture of `pid`'s largest normal window: everything in front of it that the
+/// app does not own is blacked out first (an allowlist, [`hygiene::foreign_in_front`]), then the
+/// frame is cropped to it. `refs` is front to back. `None` when the app has no placed window.
+pub fn window_only(
+    mut frame: Frame,
+    refs: &[hygiene::WindowRef],
+    pid: u32,
+) -> Option<(Frame, Rect)> {
+    let (target, w) = refs
+        .iter()
+        .enumerate()
+        .filter(|(_, w)| w.pid == pid && w.layer == 0)
+        .map(|(i, w)| (i, w.bounds))
+        .max_by(|(_, a), (_, b)| {
+            (a.w * a.h)
+                .partial_cmp(&(b.w * b.h))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })?;
+    let s = frame.scale.max(0.01);
+    let local = |r: Rect| {
+        Rect::new(
+            (r.x - frame.screen.x) * s,
+            (r.y - frame.screen.y) * s,
+            r.w * s,
+            r.h * s,
+        )
+    };
+    let black: Vec<Rect> = hygiene::foreign_in_front(refs, target, pid)
+        .into_iter()
+        .map(local)
+        .collect();
+    let area = local(w);
+    for r in black {
+        frame.fill_black(r);
+    }
+    Some((crop(&frame, area), w))
+}
+
 fn crop(f: &Frame, r: Rect) -> Frame {
     let x0 = (r.x.max(0.0) as u32).min(f.width);
     let y0 = (r.y.max(0.0) as u32).min(f.height);
@@ -1772,6 +2092,8 @@ struct TargetParams {
     expect: Option<Expectation>,
     session: Option<String>,
     app: Option<String>,
+    /// `computer.resolve_target` only: describe the app's focused element.
+    focused: Option<bool>,
 }
 
 #[derive(Deserialize, Default)]

@@ -13,6 +13,7 @@
 //! | `forwarddelete` / `fwddelete` | Delete |
 //! | `help` | Insert |
 //! | `keypadenter` | KP_Enter |
+//! | `print` / `printscreen` / `prtsc`, `sysrq` | Print, Sys_Req: parsed only to be refused ([`KeyChord::is_shell_chord`]) |
 
 use crate::error::CapError;
 use unicode_segmentation::UnicodeSegmentation;
@@ -33,7 +34,11 @@ pub mod keysym {
     pub const END: u32 = 0xff57;
     pub const INSERT: u32 = 0xff63;
     pub const KP_ENTER: u32 = 0xff8d;
+    pub const SYS_REQ: u32 = 0xff15;
+    pub const PRINT: u32 = 0xff61;
     pub const F1: u32 = 0xffbe;
+    pub const F2: u32 = 0xffbf;
+    pub const F3: u32 = 0xffc0;
     pub const F4: u32 = 0xffc1;
     pub const SHIFT_L: u32 = 0xffe1;
     pub const CONTROL_L: u32 = 0xffe3;
@@ -99,6 +104,8 @@ fn code(key: &str) -> Option<u32> {
         "down" => DOWN,
         "up" => UP,
         "help" => INSERT,
+        "print" | "printscreen" | "prtsc" => PRINT,
+        "sysrq" => SYS_REQ,
         "=" | "-" | "]" | "[" | "'" | ";" | "\\" | "," | "/" | "." | "`" => {
             key.chars().next()? as u32
         }
@@ -183,6 +190,43 @@ impl KeyChord {
             return true;
         }
         m.ctrl && m.alt && matches!(self.keysym, keysym::DELETE | keysym::BACKSPACE)
+    }
+
+    /// Shortcuts that belong to the desktop, not to the app: refused on Linux whatever was
+    /// approved. XTest and portal input is global (the Mac helper posts per process, so Spotlight
+    /// is out of its reach), so these would open a run dialog, a terminal or a launcher, switch to
+    /// a text console, or take a screenshot outside the app the tier and the card were for:
+    ///
+    /// - Ctrl+Alt+anything: Ctrl+Alt+T (terminal), Ctrl+Alt+F1..F12 (console switch),
+    ///   Ctrl+Alt+Delete (log out / power dialog), Ctrl+Alt+Backspace, Ctrl+Alt+L (lock) and the
+    ///   desktops' other Ctrl+Alt bindings;
+    /// - Alt+F1 (GNOME Activities, KDE launcher), Alt+F2 (GNOME, Xfce and KRunner run dialogs),
+    ///   Alt+F3 (Xfce app finder, KRunner), Alt+Space (KRunner, the window menu), with or without
+    ///   Shift;
+    /// - Ctrl+Esc (Xfce and LXQt app menus, KDE System Activity);
+    /// - Print and Sys Req with any modifiers (screenshot tools, Alt+SysRq kernel keys).
+    ///
+    /// Not matched: Alt+F4 and Ctrl+F4 (close: asked, see [`Self::is_high_risk`]), Alt+Tab (a
+    /// window switch; the next keystroke's focus check stops input that is not in the app),
+    /// Alt+<letter> (menu mnemonics), Ctrl+<letter>, Ctrl+Shift+<letter>, F-keys alone.
+    pub fn is_shell_chord(&self) -> bool {
+        let m = self.mods;
+        if matches!(self.keysym, keysym::PRINT | keysym::SYS_REQ) {
+            return true;
+        }
+        if m.ctrl && m.alt {
+            return true;
+        }
+        if m.alt
+            && !m.ctrl
+            && matches!(
+                self.keysym,
+                keysym::F1 | keysym::F2 | keysym::F3 | keysym::SPACE
+            )
+        {
+            return true;
+        }
+        m.ctrl && !m.alt && self.keysym == keysym::ESCAPE
     }
 
     /// App-specific risk: in file managers, Delete and Ctrl+D move files to the trash.
@@ -380,6 +424,63 @@ mod tests {
         let del = KeyChord::parse("forwarddelete").unwrap();
         assert!(del.is_high_risk_in(Some("org.gnome.Nautilus")));
         assert!(!del.is_high_risk_in(Some("org.gnome.TextEditor")));
+    }
+
+    #[test]
+    fn desktop_shortcuts_are_shell_chords_and_near_misses_are_not() {
+        for shell in [
+            "alt+f2",
+            "opt+f2",
+            "alt+shift+f2",
+            "alt+space",
+            "alt+f1",
+            "alt+f3",
+            "ctrl+alt+t",
+            "cmd+opt+t",
+            "ctrl+alt+f1",
+            "ctrl+alt+f7",
+            "ctrl+alt+f12",
+            "ctrl+alt+forwarddelete",
+            "ctrl+alt+backspace",
+            "ctrl+alt+l",
+            "ctrl+alt+shift+a",
+            "ctrl+escape",
+            "print",
+            "printscreen",
+            "shift+print",
+            "alt+print",
+            "ctrl+prtsc",
+            "sysrq",
+            "alt+sysrq",
+        ] {
+            assert!(KeyChord::parse(shell).unwrap().is_shell_chord(), "{shell}");
+        }
+        for app in [
+            "alt+f4",
+            "ctrl+f4",
+            "ctrl+t",
+            "cmd+t",
+            "alt+tab",
+            "ctrl+shift+t",
+            "f2",
+            "f1",
+            "alt+f",
+            "ctrl+p",
+            "ctrl+space",
+            "shift+space",
+            "space",
+            "escape",
+            "shift+escape",
+            "alt+f5",
+            "ctrl+f2",
+            "shift+f10",
+            "return",
+            "cmd+q",
+        ] {
+            assert!(!KeyChord::parse(app).unwrap().is_shell_chord(), "{app}");
+        }
+        // Alt+F4 stays an approval, not a refusal.
+        assert!(KeyChord::parse("alt+f4").unwrap().is_high_risk());
     }
 
     #[test]

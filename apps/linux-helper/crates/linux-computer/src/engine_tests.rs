@@ -471,7 +471,9 @@ fn risky_chords_and_sends_need_approval() {
         Some(Rect::new(610.0, 10.0, 50.0, 20.0)),
         |_, _| {},
     );
-    for keys in ["cmd+q", "alt+f4", "cmd+w", "ctrl+alt+forwarddelete"] {
+    // (Ctrl+Alt+Delete used to be asked here; it is a desktop shortcut now, refused outright:
+    // see desktop_shortcuts_are_refused_even_with_an_approval.)
+    for keys in ["cmd+q", "alt+f4", "cmd+w", "shift+forwarddelete"] {
         let err = call(
             &r,
             "computer.key",
@@ -559,29 +561,58 @@ fn a_point_must_land_in_the_named_app() {
     assert!(r.fake.log().iter().any(|l| l.starts_with("click 50,50")));
 }
 
+/// F3: without window positions a point could land in any app, so every x/y target is refused,
+/// with or without an approval (this used to be allowed into the focused app on one approval).
 #[test]
-fn without_window_positions_a_point_needs_an_approval_and_the_focused_app() {
+fn without_window_positions_a_point_is_refused_even_with_an_approval() {
     let r = rig(all_interact());
     editor(&r);
+    let snap = snapshot(&r, "org.gnome.TextEditor");
+    let doc = ref_of(&snap, "Document");
     r.fake.s.lock().unwrap().geometry_known = false;
-    let p = json!({"x": 50.0, "y": 50.0, "app": "org.gnome.TextEditor", "session": "s1"});
-    assert_eq!(
-        call(&r, "computer.click", p.clone(), &inv()).unwrap_err().1,
-        "point_unverified"
-    );
-    let mut ok = p.clone();
-    ok["approval"] = json!({"app": "org.gnome.TextEditor", "tier": "interact"});
-    call(&r, "computer.click", ok, &approved()).unwrap();
-    // Not the focused app: refused even with an approval.
-    r.fake.s.lock().unwrap().windows[0].focused = false;
-    r.fake.s.lock().unwrap().windows[1].focused = true;
-    let mut again = p;
-    again["approval"] = json!({"app": "org.gnome.TextEditor", "tier": "interact"});
-    assert_eq!(
-        call(&r, "computer.click", again, &approved())
-            .unwrap_err()
-            .1,
-        "focus_moved"
+    let base = json!({"x": 50.0, "y": 50.0, "app": "org.gnome.TextEditor", "session": "s1"});
+    let mut with_approval = base.clone();
+    with_approval["approval"] = json!({"app": "org.gnome.TextEditor", "tier": "interact"});
+    for cap in [
+        "computer.click",
+        "computer.double_click",
+        "computer.right_click",
+        "computer.scroll",
+        "computer.resolve_target",
+    ] {
+        for (mut p, i) in [(base.clone(), inv()), (with_approval.clone(), approved())] {
+            if cap == "computer.scroll" {
+                p["dy"] = json!(-3);
+            }
+            let err = call(&r, cap, p, &i).unwrap_err();
+            assert_eq!(
+                (err.0.as_str(), err.1.as_str()),
+                ("policy_denied", "point_unverifiable"),
+                "{cap}"
+            );
+        }
+    }
+    // A drag: both ends, a point to a point and a ref to a point.
+    let approval = json!({"app": "org.gnome.TextEditor", "tier": "interact"});
+    for from in [
+        json!({"x": 50.0, "y": 50.0, "app": "org.gnome.TextEditor"}),
+        json!({"ref": doc, "expect": {"role": "textarea", "label": "Document"}}),
+    ] {
+        let p = json!({
+            "from": from,
+            "to": {"x": 60.0, "y": 60.0, "app": "org.gnome.TextEditor"},
+            "session": "s1",
+            "approval": approval,
+        });
+        assert_eq!(
+            call(&r, "computer.drag", p, &approved()).unwrap_err().1,
+            "point_unverifiable"
+        );
+    }
+    let log = r.fake.log().join("\n");
+    assert!(
+        !log.contains("click ") && !log.contains("scroll ") && !log.contains("drag "),
+        "{log}"
     );
 }
 
@@ -826,4 +857,578 @@ fn unknown_refs_and_capabilities_fail_cleanly() {
         .1,
         "app_not_running"
     );
+}
+
+// --- computer.resolve_target (F2) ----------------------------------------------------------------
+
+/// A checkout page in the editor's window: document > form > "Pay $49".
+fn checkout(r: &Rig) -> (u32, u32) {
+    let f = &r.fake;
+    let win = f.window(EDITOR_PID, "Checkout - Shop");
+    let doc = f.child(
+        win,
+        role::DOCUMENT_WEB,
+        "Shop",
+        Some(Rect::new(0.0, 0.0, 200.0, 200.0)),
+        |_, _| {},
+    );
+    f.set_url(doc, "https://shop.example/checkout");
+    let form = f.child(
+        doc,
+        role::FORM,
+        "  Payment  ",
+        Some(Rect::new(0.0, 0.0, 200.0, 200.0)),
+        |_, _| {},
+    );
+    let pay = f.child(
+        form,
+        role::PUSH_BUTTON,
+        "Pay $49",
+        Some(Rect::new(20.0, 100.0, 80.0, 30.0)),
+        |f, _| f.action_names = vec!["click".into()],
+    );
+    (win, pay)
+}
+
+#[test]
+fn resolve_target_reports_a_ref_its_parents_window_and_page_without_pressing() {
+    let r = rig(all_interact());
+    let (_, pay) = checkout(&r);
+    let snap = snapshot(&r, "org.gnome.TextEditor");
+    let pay_ref = ref_of(&snap, "Pay $49");
+    let p = json!({"ref": pay_ref, "expect": {"role": "button", "label": "Pay $49"}, "app": "org.gnome.TextEditor", "session": "s1"});
+    let out = call(&r, "computer.resolve_target", p.clone(), &inv()).unwrap();
+    assert_eq!(
+        out,
+        json!({
+            "app": "org.gnome.texteditor",
+            "provenance": "untrusted",
+            "role": "button",
+            "labels": ["Pay $49", "Payment", "Shop"],
+            "label": "Pay $49",
+            "window": "Checkout - Shop",
+            "url": "https://shop.example/checkout",
+        })
+    );
+    // Read-only: nothing was pressed, focused or clicked.
+    assert!(r.fake.log().is_empty(), "{:?}", r.fake.log());
+    // The session is required, as for the action it precedes.
+    let mut no_session = p.clone();
+    no_session.as_object_mut().unwrap().remove("session");
+    assert_eq!(
+        call(&r, "computer.resolve_target", no_session, &inv())
+            .unwrap_err()
+            .1,
+        "invalid_params"
+    );
+    // A changed element is refused like any ref call.
+    let mut changed = p.clone();
+    changed["expect"]["label"] = json!("Cancel");
+    assert_eq!(
+        call(&r, "computer.resolve_target", changed, &inv())
+            .unwrap_err()
+            .1,
+        "expectation_failed"
+    );
+    // So is one that is gone.
+    r.fake.s.lock().unwrap().nodes.remove(&pay);
+    assert_eq!(
+        call(&r, "computer.resolve_target", p, &inv())
+            .unwrap_err()
+            .1,
+        "stale_ref"
+    );
+}
+
+#[test]
+fn resolve_target_refuses_a_ref_of_another_app_and_reports_secure_fields_without_labels() {
+    let r = rig(all_interact());
+    editor(&r);
+    let tw = r.fake.window(TERMINAL_PID, "Terminal");
+    r.fake.child(
+        tw,
+        role::PUSH_BUTTON,
+        "Run",
+        Some(Rect::new(10.0, 10.0, 50.0, 20.0)),
+        |f, _| f.action_names = vec!["click".into()],
+    );
+    let term = snapshot(&r, "gnome-terminal");
+    let run = ref_of(&term, "Run");
+    let err = call(
+        &r,
+        "computer.resolve_target",
+        json!({"ref": run, "expect": {"role": "button", "label": "Run"}, "app": "org.gnome.TextEditor", "session": "s1"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(err.1, "ref_other_app");
+    let snap = snapshot(&r, "org.gnome.TextEditor");
+    let pw = ref_of(&snap, "Password");
+    let out = call(
+        &r,
+        "computer.resolve_target",
+        json!({"ref": pw, "expect": {"role": "textfield:secureTextField", "label": "Password"}, "app": "org.gnome.TextEditor", "session": "s1"}),
+        &inv(),
+    )
+    .unwrap();
+    assert_eq!(out["secure"], true);
+    assert_eq!(out["labels"], json!([]));
+    assert!(out.get("label").is_none());
+    assert_eq!(out["role"], "textfield");
+    assert_eq!(out["subrole"], "AXSecureTextField");
+    assert!(!out.to_string().contains("hunter2"));
+}
+
+#[test]
+fn resolve_target_by_point_uses_the_click_hit_test_and_its_app_binding() {
+    let r = rig(all_interact());
+    checkout(&r);
+    let out = call(
+        &r,
+        "computer.resolve_target",
+        json!({"x": 60.0, "y": 115.0, "app": "org.gnome.TextEditor", "session": "s1"}),
+        &inv(),
+    )
+    .unwrap();
+    assert_eq!(out["role"], "button");
+    assert_eq!(out["label"], "Pay $49");
+    assert_eq!(out["labels"], json!(["Pay $49", "Payment", "Shop"]));
+    assert_eq!(out["window"], "Checkout - Shop");
+    assert_eq!(out["url"], "https://shop.example/checkout");
+    // A point in another app's window than the one named: refused like a click there.
+    let err = call(
+        &r,
+        "computer.resolve_target",
+        json!({"x": 250.0, "y": 50.0, "app": "org.gnome.TextEditor", "session": "s1"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(err.1, "app_mismatch");
+    // An approval for another app does not carry over.
+    let err = call(
+        &r,
+        "computer.resolve_target",
+        json!({"x": 60.0, "y": 115.0, "app": "org.gnome.TextEditor", "session": "s1", "approval": {"app": "firefox", "tier": "read"}}),
+        &approved(),
+    )
+    .unwrap_err();
+    assert_eq!(err.1, "approval_app_mismatch");
+    assert!(r.fake.log().is_empty(), "{:?}", r.fake.log());
+}
+
+#[test]
+fn resolve_target_focused_reports_the_focus_or_nothing_and_refuses_another_apps_focus() {
+    let r = rig(all_interact());
+    let e = editor(&r);
+    let p = json!({"focused": true, "app": "org.gnome.TextEditor", "session": "s1"});
+    r.fake.s.lock().unwrap().focused_element = Some(e.text);
+    let out = call(&r, "computer.resolve_target", p.clone(), &inv()).unwrap();
+    assert_eq!(out["role"], "textarea");
+    assert_eq!(out["label"], "Document");
+    assert_eq!(out["window"], "Untitled");
+    // Focus unknown: an empty report, the Gateway decides by context.
+    r.fake.s.lock().unwrap().focus_pid = None;
+    let out = call(&r, "computer.resolve_target", p.clone(), &inv()).unwrap();
+    assert_eq!(
+        out,
+        json!({"app": "org.gnome.texteditor", "provenance": "untrusted", "labels": []})
+    );
+    // Focus known to be in another app: refused.
+    r.fake.s.lock().unwrap().focus_pid = Some(TERMINAL_PID);
+    let err = call(&r, "computer.resolve_target", p, &inv()).unwrap_err();
+    assert_eq!(
+        (err.0.as_str(), err.1.as_str()),
+        ("conflict", "focus_moved")
+    );
+    // The app is required.
+    let err = call(
+        &r,
+        "computer.resolve_target",
+        json!({"focused": true, "session": "s1"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(err.1, "invalid_params");
+    // Read tier for the app, with the usual approval rules.
+    let r = rig(json!({"version": 1, "default": "ask"}));
+    editor(&r);
+    let err = call(
+        &r,
+        "computer.resolve_target",
+        json!({"focused": true, "app": "org.gnome.TextEditor", "session": "s1"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(err.1, "tier_ask");
+    assert!(r.fake.log().is_empty());
+}
+
+#[test]
+fn target_report_labels_are_trimmed_capped_and_unique() {
+    use crate::engine::{report_labels, target_report, TargetReport};
+    let long = "x".repeat(300);
+    let raw: Vec<String> = [
+        " Pay ", "", "Pay", "  ", &long, "a", "b", "c", "d", "e", "f",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    let out = report_labels(&raw);
+    assert_eq!(out.len(), 6);
+    assert_eq!(out[0], "Pay");
+    assert_eq!(out[1].chars().count(), 200);
+    assert_eq!(&out[2..], ["a", "b", "c", "d"]);
+    let v = target_report(&TargetReport {
+        app: "firefox",
+        window: Some(format!("  {}  ", "w".repeat(500))),
+        labels: vec!["  ".into()],
+        ..TargetReport::default()
+    });
+    assert_eq!(v["window"].as_str().unwrap().chars().count(), 400);
+    assert_eq!(v["labels"], json!([]));
+    assert!(v.get("label").is_none() && v.get("role").is_none() && v.get("secure").is_none());
+}
+
+// --- Keyboard focus fails closed (F4) -------------------------------------------------------------
+
+#[test]
+fn focus_moving_to_an_app_without_accessibility_stops_typing_mid_text() {
+    let r = rig(all_interact());
+    editor(&r);
+    // After the first chunk, focus goes to a terminal that reports nothing to AT-SPI.
+    r.fake.s.lock().unwrap().focus_lost_after_chunks = Some(1);
+    let err = call(
+        &r,
+        "computer.type",
+        json!({"text": "abcdrm -rf ~\n", "app": "org.gnome.TextEditor", "session": "s1"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        (err.0.as_str(), err.1.as_str()),
+        ("conflict", "focus_unknown")
+    );
+    assert_eq!(r.fake.s.lock().unwrap().typed, "abcd");
+}
+
+#[test]
+fn unknown_focus_refuses_keys_and_typing_before_anything_is_sent() {
+    let r = rig(all_interact());
+    editor(&r);
+    {
+        let mut s = r.fake.s.lock().unwrap();
+        s.focus_pid = None;
+        // The desktop does not move focus either (activation only requested).
+        s.focus_denied = true;
+    }
+    for keys in ["return", "space", "a"] {
+        let err = call(
+            &r,
+            "computer.key",
+            json!({"keys": keys, "app": "org.gnome.TextEditor", "session": "s1"}),
+            &inv(),
+        )
+        .unwrap_err();
+        assert_eq!(err.1, "focus_unknown", "{keys}");
+    }
+    let err = call(
+        &r,
+        "computer.type",
+        json!({"text": "x", "app": "org.gnome.TextEditor", "session": "s1"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(err.1, "focus_unknown");
+    assert!(r.fake.log().iter().all(|l| !l.starts_with("key ")));
+    assert!(r.fake.s.lock().unwrap().typed.is_empty());
+}
+
+// --- Desktop shortcuts (F5) -----------------------------------------------------------------------
+
+#[test]
+fn desktop_shortcuts_are_refused_even_with_an_approval() {
+    let r = rig(all_interact());
+    editor(&r);
+    for keys in [
+        "alt+f2",
+        "alt+space",
+        "ctrl+alt+t",
+        "alt+f1",
+        "ctrl+alt+f3",
+        "ctrl+alt+forwarddelete",
+        "print",
+        "shift+print",
+    ] {
+        let p = json!({"keys": keys, "app": "org.gnome.TextEditor", "session": "s1"});
+        let mut with_approval = p.clone();
+        with_approval["approval"] = json!({"app": "org.gnome.TextEditor", "tier": "interact"});
+        for (p, i) in [(p, inv()), (with_approval, approved())] {
+            let err = call(&r, "computer.key", p, &i).unwrap_err();
+            assert_eq!(
+                (err.0.as_str(), err.1.as_str()),
+                ("policy_denied", "shell_chord"),
+                "{keys}"
+            );
+        }
+    }
+    assert!(r.fake.log().iter().all(|l| !l.starts_with("key ")));
+    // Near misses: Alt+F4 is still asked, Ctrl+T is sent.
+    assert_eq!(
+        call(
+            &r,
+            "computer.key",
+            json!({"keys": "alt+f4", "app": "org.gnome.TextEditor", "session": "s1"}),
+            &inv()
+        )
+        .unwrap_err()
+        .1,
+        "risky_chord"
+    );
+    call(
+        &r,
+        "computer.key",
+        json!({"keys": "ctrl+t", "app": "org.gnome.TextEditor", "session": "s1"}),
+        &inv(),
+    )
+    .unwrap();
+    assert!(r.fake.log().iter().any(|l| l == "key ctrl+t"));
+}
+
+// --- Kill switch (F6) -----------------------------------------------------------------------------
+
+#[test]
+fn without_a_kill_switch_nothing_is_sent() {
+    let r = rig(all_interact());
+    editor(&r);
+    let snap = snapshot(&r, "org.gnome.TextEditor");
+    let save = ref_of(&snap, "Save");
+    r.fake.s.lock().unwrap().no_kill_switch = true;
+    let calls = [
+        (
+            "computer.key",
+            json!({"keys": "a", "app": "org.gnome.TextEditor", "session": "s1"}),
+        ),
+        (
+            "computer.type",
+            json!({"text": "hi", "app": "org.gnome.TextEditor", "session": "s1"}),
+        ),
+        (
+            "computer.click",
+            json!({"x": 50.0, "y": 50.0, "app": "org.gnome.TextEditor", "session": "s1"}),
+        ),
+        (
+            "computer.click",
+            json!({"ref": save, "expect": {"role": "button", "label": "Save"}, "session": "s1"}),
+        ),
+    ];
+    for (cap, p) in calls.iter() {
+        let mut with_approval = p.clone();
+        with_approval["approval"] = json!({"app": "org.gnome.TextEditor", "tier": "interact"});
+        for (p, i) in [(p.clone(), inv()), (with_approval, approved())] {
+            let err = call(&r, cap, p, &i).unwrap_err();
+            assert_eq!(
+                (err.0.as_str(), err.1.as_str()),
+                ("unavailable", "kill_switch_unavailable"),
+                "{cap}"
+            );
+        }
+    }
+    assert!(r.fake.log().is_empty(), "{:?}", r.fake.log());
+    // Reading needs no session and still works.
+    snapshot(&r, "org.gnome.TextEditor");
+    // Once the Stop is back, actions are too.
+    r.fake.s.lock().unwrap().no_kill_switch = false;
+    for (cap, p) in calls.iter().take(1) {
+        call(&r, cap, p.clone(), &inv()).unwrap();
+    }
+}
+
+// --- fileLocalLabel on the separate desktop's guest (F7) -----------------------------------------
+
+#[test]
+fn the_guest_honours_file_local_label_only_for_that_exact_risky_label() {
+    let r = rig(all_interact());
+    editor(&r);
+    let snap = snapshot(&r, "org.gnome.TextEditor");
+    let del = ref_of(&snap, "Delete");
+    let by_ref = |label: &str| json!({"ref": del, "expect": {"role": "button", "label": "Delete"}, "session": "s1", "fileLocalLabel": label});
+    let at_point = |label: &str| json!({"x": 110.0, "y": 165.0, "app": "org.gnome.TextEditor", "session": "s1", "fileLocalLabel": label});
+    // The Host's own helper ignores the parameter.
+    for p in [by_ref("Delete"), at_point("Delete")] {
+        let err = call(&r, "computer.click", p, &inv()).unwrap_err();
+        assert_eq!(
+            (err.0.as_str(), err.1.as_str()),
+            ("approval_required", "risky_label")
+        );
+    }
+    r.engine.set_guest(true);
+    // The guest: a different label still asks, and says which label it found.
+    for p in [by_ref("Remove"), at_point("Save"), by_ref("")] {
+        let err = r.engine.invoke("computer.click", &p, &inv()).unwrap_err();
+        assert_eq!(err.reason, "risky_label");
+        assert_eq!(err.details["label"], "Delete");
+    }
+    // (A point click brings the app forward before its hit test; nothing is pressed or clicked.)
+    assert!(
+        r.fake
+            .log()
+            .iter()
+            .all(|l| !l.starts_with("perform ") && !l.starts_with("click ")),
+        "{:?}",
+        r.fake.log()
+    );
+    // The exact label (trimmed) passes the risky-label check, and only that check.
+    call(&r, "computer.click", by_ref(" Delete "), &inv()).unwrap();
+    call(&r, "computer.click", at_point("Delete"), &inv()).unwrap();
+    assert!(r.fake.log().iter().any(|l| l.starts_with("perform ")));
+    assert!(r.fake.log().iter().any(|l| l.starts_with("click 110,165")));
+    // A menu path: same rule (the fake has no menu bar, so a pass reaches the walk).
+    let menu = |label: &str| json!({"path": "File>Delete", "app": "org.gnome.TextEditor", "session": "s1", "fileLocalLabel": label});
+    assert_eq!(
+        call(&r, "computer.menu", menu("Quit"), &inv())
+            .unwrap_err()
+            .1,
+        "risky_label"
+    );
+    assert_eq!(
+        call(&r, "computer.menu", menu("Delete"), &inv())
+            .unwrap_err()
+            .1,
+        "no_menu_bar"
+    );
+}
+
+#[test]
+fn file_local_label_is_never_an_approval() {
+    let r = rig(all_interact());
+    editor(&r);
+    r.fake.window(MAIL_PID, "Inbox");
+    r.engine.set_guest(true);
+    // Risky chords and sends still ask.
+    let err = call(
+        &r,
+        "computer.key",
+        json!({"keys": "cmd+q", "app": "org.gnome.TextEditor", "session": "s1", "fileLocalLabel": "cmd+q"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(err.1, "risky_chord");
+    let err = call(
+        &r,
+        "computer.key",
+        json!({"keys": "return", "app": "thunderbird", "session": "s1", "fileLocalLabel": "Send"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(err.1, "send_key");
+    let err = call(
+        &r,
+        "computer.type",
+        json!({"text": "hi\n", "app": "thunderbird", "session": "s1", "fileLocalLabel": "Send"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(err.1, "send_text");
+    // Shell chords and unverifiable points are refused as always.
+    let err = call(
+        &r,
+        "computer.key",
+        json!({"keys": "alt+f2", "app": "org.gnome.TextEditor", "session": "s1", "fileLocalLabel": "alt+f2"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(err.1, "shell_chord");
+    assert!(r.fake.log().iter().all(|l| !l.starts_with("key ")));
+}
+
+#[test]
+fn file_local_label_records_no_allowance_on_ask_apps() {
+    let r = rig(json!({"version": 1, "default": "ask"}));
+    editor(&r);
+    r.engine.set_guest(true);
+    // With the old fabricated approval's binding but no approval id, plus the flag: still asks,
+    // and nothing is remembered for later calls.
+    let p = json!({
+        "text": "x",
+        "app": "org.gnome.TextEditor",
+        "session": "s1",
+        "fileLocalLabel": "Delete",
+        "approval": {"app": "org.gnome.TextEditor", "tier": "interact"},
+    });
+    for _ in 0..2 {
+        assert_eq!(
+            call(&r, "computer.type", p.clone(), &inv()).unwrap_err().1,
+            "tier_ask"
+        );
+    }
+    assert_eq!(
+        call(
+            &r,
+            "computer.ax_tree",
+            json!({"app": "org.gnome.TextEditor"}),
+            &inv()
+        )
+        .unwrap_err()
+        .1,
+        "tier_ask"
+    );
+    assert!(r.fake.s.lock().unwrap().typed.is_empty());
+}
+
+// --- Window-only screenshots are an allowlist (F8) ------------------------------------------------
+
+#[test]
+fn a_window_only_screenshot_blacks_out_unknown_windows_in_front_and_not_behind() {
+    use crate::backend::{Backend, WinInfo};
+    use crate::engine::window_only;
+    use crate::hygiene::WindowRef;
+    let r = rig(all_interact());
+    editor(&r);
+    let unknown = |id: u64, b: Rect| WinInfo {
+        id,
+        pid: id as u32,
+        title: String::new(),
+        bounds: Some(b),
+        layer: 0,
+        focused: false,
+        minimized: false,
+    };
+    {
+        let mut s = r.fake.s.lock().unwrap();
+        // A process AT-SPI does not know (no app id: a terminal without accessibility) in front
+        // of the editor, over its right half; another one behind it.
+        s.windows
+            .insert(0, unknown(999, Rect::new(100.0, 0.0, 150.0, 100.0)));
+        s.windows
+            .push(unknown(998, Rect::new(0.0, 100.0, 150.0, 100.0)));
+    }
+    let out = call(
+        &r,
+        "computer.screenshot",
+        json!({"app": "org.gnome.TextEditor", "windowOnly": true}),
+        &inv(),
+    )
+    .unwrap();
+    assert_eq!(out["screen"]["width"], 200.0);
+    let refs: Vec<WindowRef> = r
+        .fake
+        .windows()
+        .iter()
+        .filter(|w| !w.minimized)
+        .filter_map(|w| {
+            w.bounds.map(|b| WindowRef {
+                id: w.id,
+                pid: w.pid,
+                layer: w.layer,
+                bounds: b,
+                alpha: 1.0,
+            })
+        })
+        .collect();
+    let frame = r.fake.capture(None).unwrap();
+    let (f, area) = window_only(frame, &refs, EDITOR_PID).unwrap();
+    assert_eq!(area, Rect::new(0.0, 0.0, 200.0, 200.0));
+    assert!(!f.any_lit(Rect::new(100.0, 0.0, 100.0, 100.0)));
+    assert!(f.any_lit(Rect::new(0.0, 0.0, 100.0, 100.0)));
+    assert!(f.any_lit(Rect::new(0.0, 100.0, 200.0, 100.0)));
 }

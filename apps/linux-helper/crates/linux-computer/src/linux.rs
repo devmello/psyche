@@ -5,7 +5,7 @@
 
 use crate::a11y::{A11y, Acc, Tree};
 use crate::app_id::{self, DesktopIndex};
-use crate::backend::{ActError, AppInfo, Backend, ElementData, Frame, Hit, WinInfo};
+use crate::backend::{ActError, AppInfo, Backend, Described, ElementData, Frame, Hit, WinInfo};
 use crate::error::{code, CapError, CapResult};
 use crate::keychord::{KeyChord, Mods};
 use crate::roles;
@@ -46,6 +46,11 @@ pub trait RemotePath: Send + Sync {
     /// Called when the compositor ends the session (the owner pressed Stop in the shell's
     /// sharing indicator): the run is cancelled.
     fn on_closed(&self, f: Box<dyn Fn() + Send + Sync>);
+    /// Whether that Stop works now: a session is open and its end is being watched. A path that
+    /// cannot say has no kill switch, and the engine refuses to act through it.
+    fn stop_ready(&self) -> bool {
+        false
+    }
     /// Closes the session and the capture stream (between sessions the path costs nothing).
     fn close(&self);
     /// Window geometry the compositor can give (KWin scripting on KDE), else `None`.
@@ -126,6 +131,15 @@ impl LinuxBackend {
         let mut g = self.index.lock().unwrap_or_else(|e| e.into_inner());
         g.get_or_insert_with(|| DesktopIndex::load(&DesktopIndex::default_dirs(&|k| (self.env)(k))))
             .clone()
+    }
+
+    /// For Settings (`portal.status`'s `killSwitch`): X11, the last Escape grab worked (or none
+    /// was tried yet); a portal session, its `Closed` is watched while it is open.
+    pub fn kill_switch_status(&self) -> bool {
+        match &self.path {
+            Path::X11(x) => !x.escape_grab_failed(),
+            Path::Remote(r) => r.stop_ready(),
+        }
     }
 
     fn active_pid(&self) -> Option<u32> {
@@ -255,21 +269,28 @@ impl Backend for LinuxBackend {
                 })?;
                 let _ = self.a11y.grab_focus(w);
                 std::thread::sleep(Duration::from_millis(120));
-                let moved = self
+                // The focus is read fresh (a cached focus whose window is no longer active is
+                // dropped, see `A11y::focused`). Unknown is not "moved": portal input goes to the
+                // real focus, which may be an app that reports nothing to AT-SPI.
+                match self
                     .a11y
                     .focused(None)
                     .and_then(|a| self.a11y.pid_of_bus(&a.bus))
-                    == Some(app.pid);
-                if moved {
-                    Ok(true)
-                } else {
-                    Err(CapError::new(
+                {
+                    Some(p) if p == app.pid => Ok(true),
+                    None => Err(CapError::new(
+                        code::CONFLICT,
+                        "focus_unknown",
+                        format!("This desktop cannot say which app has keyboard focus, so Psyche does not act in {}. Ask the owner to click its window, then retry.", app.name),
+                    )
+                    .detail("app", app.id.as_str())),
+                    Some(_) => Err(CapError::new(
                         code::CONFLICT,
                         "focus_denied",
                         format!("This desktop does not let Psyche switch to {}. Ask the owner to click its window, then retry.", app.name),
                     )
                     .detail("app", app.id.as_str())
-                    .retryable())
+                    .retryable()),
                 }
             }
         }
@@ -420,17 +441,21 @@ impl Backend for LinuxBackend {
             .or_else(|| windows.first())?;
         self.a11y.hit(w, x, y).or(Some(Hit {
             pid: win.pid,
-            role: None,
-            secure: false,
-            labels: vec![],
+            window: Some(win.title.clone()).filter(|t| !t.is_empty()),
+            ..Hit::default()
         }))
+    }
+
+    fn describe(&self, e: &Acc) -> Described {
+        self.a11y.describe(e)
     }
 
     fn focused_is_secure(&self, app: Option<&AppInfo>) -> bool {
         match self.a11y.focused(app.map(|a| a.pid)) {
             Some(a) => self.a11y.is_password(&a),
-            // Focus unknown (an app whose toolkit reports no focus): nothing says it is a
-            // password field. The Gateway's own taint rules and the tier still apply.
+            // No focused element found: nothing says it is a password field. Keyboard input does
+            // not rely on this: the engine refuses it while the focused app is unknown
+            // (`focus_unknown`), and checks the app owns the focus before every chunk.
             None => false,
         }
     }
@@ -518,6 +543,14 @@ impl Backend for LinuxBackend {
         match &self.path {
             Path::X11(p) => p.displays(),
             Path::Remote(r) => r.displays(),
+        }
+    }
+
+    fn kill_switch_ready(&self) -> bool {
+        match &self.path {
+            // `check_desktop` just touched the grab: it is held, or another client holds Escape.
+            Path::X11(x) => x.escape_grabbed(),
+            Path::Remote(r) => r.stop_ready(),
         }
     }
 

@@ -136,6 +136,22 @@ fn with_approval(mut s: Value) -> Value {
     s
 }
 
+/// Write calls may also carry `fileLocalLabel`: on the separate desktop's guest only, the one risky
+/// label the Gateway saw the guest report, cleared for that check alone (never an approval).
+fn with_file_local(mut s: Value) -> Value {
+    if let Some(props) = s.get_mut("properties").and_then(Value::as_object_mut) {
+        props.insert(
+            "fileLocalLabel".into(),
+            json!({
+                "type": "string",
+                "maxLength": 400,
+                "description": "Separate desktop only (set by the Gateway, never by the model): the risky label the guest reported, allowed for this call's risky-label check only"
+            }),
+        );
+    }
+    s
+}
+
 fn target_schema(extra: Vec<(&str, Value)>, description: &str) -> Value {
     let mut props = vec![
         ("ref", string(Some("Element ref from the latest computer.ax_tree snapshot, e.g. e12"))),
@@ -178,13 +194,13 @@ fn click_spec(name: &'static str, description: &'static str, verb: &str) -> CapS
         description,
         side_effect: "write",
         target_kind: Some("app"),
-        input_schema: with_approval(target_schema(
+        input_schema: with_file_local(with_approval(target_schema(
             vec![(
                 "modifiers",
                 array(string_enum(&["cmd", "shift", "opt", "ctrl"])),
             )],
             verb,
-        )),
+        ))),
         streaming: false,
         receipt_kind: RECEIPT,
     }
@@ -197,7 +213,7 @@ pub fn specs() -> Vec<CapSpecLite> {
         description,
         side_effect: "write",
         target_kind: Some("app"),
-        input_schema: with_approval(input_schema),
+        input_schema: with_file_local(with_approval(input_schema)),
         streaming: false,
         receipt_kind: RECEIPT,
     };
@@ -244,6 +260,21 @@ pub fn specs() -> Vec<CapSpecLite> {
                 ],
                 &["app"],
                 None,
+            )),
+            streaming: false,
+            receipt_kind: None,
+        },
+        CapSpecLite {
+            name: "computer.resolve_target",
+            description: "Read-only: the role, accessibility labels and window of the element under a ref, a screen point (x, y with app), or the app's keyboard focus (focused: true with app), before acting on it. Nothing is pressed. Untrusted app content.",
+            side_effect: "read",
+            target_kind: Some("app"),
+            input_schema: with_approval(target_schema(
+                vec![(
+                    "focused",
+                    boolean(Some("Describe the app's focused element (what Return, Enter or Space would activate)")),
+                )],
+                "resolve a target",
             )),
             streaming: false,
             receipt_kind: None,
@@ -372,6 +403,7 @@ mod tests {
             vec![
                 "computer.ax_tree",
                 "computer.check_target",
+                "computer.resolve_target",
                 "computer.ax_value",
                 "computer.click",
                 "computer.double_click",
@@ -408,5 +440,21 @@ mod tests {
             click.input_schema["properties"]["expect"]["required"],
             json!(["role"])
         );
+        assert_eq!(
+            click.input_schema["properties"]["fileLocalLabel"]["type"],
+            "string"
+        );
+        let resolve = s
+            .iter()
+            .find(|x| x.name == "computer.resolve_target")
+            .unwrap();
+        assert_eq!(resolve.side_effect, "read");
+        assert_eq!(resolve.receipt_kind, None);
+        let props = resolve.input_schema["properties"].as_object().unwrap();
+        for k in ["ref", "expect", "x", "y", "app", "session", "focused"] {
+            assert!(props.contains_key(k), "{k}");
+        }
+        // A read never carries the guest's file-local relaxation.
+        assert!(!props.contains_key("fileLocalLabel"));
     }
 }

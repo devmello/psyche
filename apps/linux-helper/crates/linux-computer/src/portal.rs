@@ -15,7 +15,10 @@
 //!
 //! **Stop.** The compositor ends the session (`org.freedesktop.portal.Session.Closed`) when the
 //! owner presses Stop in the shell's sharing indicator. That is this path's kill switch: the
-//! callback registered with [`Portal::on_closed`] cancels the run.
+//! callback registered with [`Portal::on_closed`] cancels the run. A session whose `Closed`
+//! cannot be watched is closed again and refused (`kill_switch_unavailable`), and the engine
+//! refuses to act while no watched session is open ([`RemotePath::stop_ready`]): no Stop, no
+//! input.
 //!
 //! **Input.** Through the portal's `Notify*` methods (keysyms and absolute pointer motion
 //! relative to the stream); libei is preferred where the portal offers `ConnectToEIS`
@@ -75,6 +78,8 @@ pub struct Portal {
     dialog_timeout: Duration,
     /// Session generation: a `Closed` for an older session must not end a newer one.
     generation: Arc<AtomicU64>,
+    /// The generation whose `Closed` watcher is running (0: none).
+    watching: Arc<AtomicU64>,
 }
 
 fn dbus<E: std::fmt::Display>(what: &str, e: E) -> CapError {
@@ -94,6 +99,7 @@ impl Portal {
             counter: AtomicU64::new(0),
             dialog_timeout: DIALOG_TIMEOUT,
             generation: Arc::new(AtomicU64::new(0)),
+            watching: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -361,7 +367,14 @@ impl Portal {
                 "The desktop shared no screen",
             ));
         }
-        self.watch_closed(&session);
+        if !self.watch_closed(&session) {
+            // Without the sharing indicator's Stop there is no kill switch on this path.
+            self.close_session(&session);
+            return Err(CapError::unavailable(
+                "kill_switch_unavailable",
+                "Psyche could not watch the screen-sharing session's Stop, so it does not act",
+            ));
+        }
         Ok(Open {
             session,
             streams,
@@ -369,8 +382,9 @@ impl Portal {
         })
     }
 
-    /// Listens for `Session.Closed` on its own thread: the owner pressed Stop.
-    fn watch_closed(&self, session: &OwnedObjectPath) {
+    /// Listens for `Session.Closed` on its own thread: the owner pressed Stop. `false` when the
+    /// signal cannot be watched (then there is no kill switch for this session).
+    fn watch_closed(&self, session: &OwnedObjectPath) -> bool {
         let gen = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
         let Ok(rule) = zbus::MatchRule::builder()
             .msg_type(zbus::message::Type::Signal)
@@ -379,22 +393,34 @@ impl Portal {
             .and_then(|b| b.path(session.as_str()))
             .map(|b| b.build())
         else {
-            return;
+            return false;
         };
         let Ok(iter) = zbus::blocking::MessageIterator::for_match_rule(rule, &self.conn, Some(4))
         else {
-            return;
+            return false;
         };
         let on_closed = self.on_closed.clone();
         let generation = self.generation.clone();
+        let watching = self.watching.clone();
+        watching.store(gen, Ordering::SeqCst);
         std::thread::spawn(move || {
             let mut iter = iter;
-            if iter.next().is_some() && generation.load(Ordering::SeqCst) == gen {
+            let got = iter.next();
+            // The watcher is gone either way (the signal came, or the connection broke).
+            let _ = watching.compare_exchange(gen, 0, Ordering::SeqCst, Ordering::SeqCst);
+            if got.is_some() && generation.load(Ordering::SeqCst) == gen {
                 if let Some(f) = on_closed.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
                     f();
                 }
             }
         });
+        true
+    }
+
+    /// Whether the open session's `Closed` (the owner's Stop) is being watched right now.
+    pub fn stop_watched(&self) -> bool {
+        let gen = self.generation.load(Ordering::SeqCst);
+        gen != 0 && self.watching.load(Ordering::SeqCst) == gen && self.is_open()
     }
 
     fn close_session(&self, session: &OwnedObjectPath) {
@@ -737,6 +763,10 @@ impl RemotePath for PortalPath {
                 )
             })
             .collect()
+    }
+
+    fn stop_ready(&self) -> bool {
+        self.portal.stop_watched()
     }
 
     fn on_closed(&self, f: Box<dyn Fn() + Send + Sync>) {

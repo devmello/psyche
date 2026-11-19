@@ -164,6 +164,23 @@ pub fn redactions(
     out
 }
 
+/// A window-only capture is an allowlist: everything in front of the target window that the
+/// target app's process does not own is blacked out, whatever it is. That includes windows of
+/// processes the accessibility registry does not know (a terminal or a password manager without
+/// AT-SPI) and windows with no app id, which [`excluded_pids`] cannot classify. `windows` is front
+/// to back and `target` an index into it; the result is in screen points, clipped to the target.
+pub fn foreign_in_front(windows: &[WindowRef], target: usize, owner: u32) -> Vec<Rect> {
+    let Some(t) = windows.get(target) else {
+        return Vec::new();
+    };
+    windows[..target]
+        .iter()
+        .filter(|w| w.pid != owner)
+        .filter_map(|w| w.bounds.intersection(&t.bounds))
+        .filter(|r| r.w > 0.0 && r.h > 0.0)
+        .collect()
+}
+
 /// Ask about my screen (docs/design/screen-ask-2026.md §3.1).
 pub mod screen_ask {
     use super::*;
@@ -310,6 +327,35 @@ mod tests {
     use super::*;
     use serde_json::json;
     use std::collections::HashSet;
+
+    #[test]
+    fn a_window_only_capture_blacks_out_every_foreign_window_in_front() {
+        let w = |id: u64, pid: u32, b: Rect| WindowRef {
+            id,
+            pid,
+            layer: 0,
+            bounds: b,
+            alpha: 1.0,
+        };
+        let windows = vec![
+            // In front: a window of a process nobody classified, half over the target.
+            w(1, 999, Rect::new(50.0, 0.0, 100.0, 100.0)),
+            // In front, the target app's own dialog: kept.
+            w(2, 10, Rect::new(10.0, 10.0, 20.0, 20.0)),
+            // In front but elsewhere: nothing to black out.
+            w(3, 998, Rect::new(500.0, 0.0, 50.0, 50.0)),
+            // The target.
+            w(4, 10, Rect::new(0.0, 0.0, 100.0, 100.0)),
+            // Behind the target: never shown in a crop of it anyway, and not blacked out.
+            w(5, 997, Rect::new(0.0, 0.0, 300.0, 300.0)),
+        ];
+        assert_eq!(
+            foreign_in_front(&windows, 3, 10),
+            vec![Rect::new(50.0, 0.0, 50.0, 100.0)]
+        );
+        assert!(foreign_in_front(&windows, 0, 999).is_empty());
+        assert!(foreign_in_front(&windows, 9, 10).is_empty());
+    }
 
     #[test]
     fn scaled_size_never_upscales() {

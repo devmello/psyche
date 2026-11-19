@@ -60,13 +60,29 @@ pub struct ElementData {
 }
 
 /// What a hit test found under a point.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Hit {
     pub pid: u32,
+    /// The Mac role (`AXButton`), as the role map gives it.
     pub role: Option<String>,
+    /// The Mac subrole (`AXSecureTextField`, `AXSearchField`), when there is one.
+    pub subrole: Option<String>,
     pub secure: bool,
     /// Labels of the element and its ancestors up to the window (for the risky-label check).
     pub labels: Vec<String>,
+    /// The title of the window the element is in.
+    pub window: Option<String>,
+    /// The document the element is in (a browser page), when the toolkit says.
+    pub url: Option<String>,
+}
+
+/// What `computer.resolve_target` reports beside an element's own label and role: its ancestors'
+/// labels (nearest first, up to the window), the window's title and the document's address.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Described {
+    pub ancestors: Vec<String>,
+    pub window: Option<String>,
+    pub url: Option<String>,
 }
 
 /// An action that did not work (the app's own refusal), kept apart from [`CapError`] so the
@@ -183,6 +199,8 @@ pub trait Backend: TreeSource<Element: Send + 'static> + Send + Sync + 'static {
     /// Screen frame of the element, `None` for "no position".
     fn frame(&self, e: &Self::Element) -> Option<Rect>;
     fn hit_test(&self, x: f64, y: f64) -> Option<Hit>;
+    /// Read-only context of an element for `computer.resolve_target` (nothing is pressed).
+    fn describe(&self, e: &Self::Element) -> Described;
     /// Whether the keyboard focus is in a password field (any app).
     fn focused_is_secure(&self, app: Option<&AppInfo>) -> bool;
     /// The selected text of the focused element, never of a password field.
@@ -240,6 +258,10 @@ pub trait Backend: TreeSource<Element: Send + 'static> + Send + Sync + 'static {
     /// Installs the Stop source (Escape grab on X11, the portal's `Closed` on Wayland) once. The
     /// callback runs on a backend thread.
     fn start_stop_source(&self, _on_stop: Box<dyn Fn() + Send + Sync>) {}
+    /// Whether the owner's Stop works right now (asked after [`Backend::check_desktop`]): X11 holds
+    /// the Escape grab, or the portal session is open and its `Closed` signal is watched. The
+    /// engine refuses every computer-use action while it is `false`: no kill switch, no input.
+    fn kill_switch_ready(&self) -> bool;
     /// Called when the last session ended: the backend may close its portal session and capture
     /// stream (zero cost between sessions).
     fn session_idle(&self) {}
