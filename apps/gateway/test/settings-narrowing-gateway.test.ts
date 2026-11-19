@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getSetting, setSetting, updateDevice } from "@psyche/db";
 import type { PresenceVerifier } from "@psyche/permissions";
+import type { DeviceScope } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
@@ -32,7 +33,12 @@ const touchId: PresenceVerifier = {
   verify: async (assertion, challenge) => assertion.signature === `signed:${challenge}`,
 };
 const DEVICE = "admin-narrowing";
-const ADMIN = ["operator.read", "operator.write", "operator.approvals", "operator.admin"];
+const ADMIN: DeviceScope[] = [
+  "operator.read",
+  "operator.write",
+  "operator.approvals",
+  "operator.admin",
+];
 
 async function boot() {
   home = mkdtempSync(join(tmpdir(), "psyche-narrowing-"));
