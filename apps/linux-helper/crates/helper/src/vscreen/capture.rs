@@ -5,6 +5,11 @@
 //! A frame is a JPEG of the screen. A hash of the raw pixels decides whether the screen changed,
 //! and `frame_seq` counts the changes, so the watch pane can ask "anything new since N?" and get
 //! an empty answer for the price of one capture and one hash.
+//!
+//! A frame always fits one helper message: the node connection drops any line over 1 MiB, which
+//! would cut off every capability, not just the frame. So frames are at most `MAX_FRAME_WIDTH`
+//! wide, and the JPEG is re-encoded smaller (lower quality, then narrower) until it is at most
+//! `MAX_FRAME_JPEG`, which is about 700 KB once base64-encoded.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -51,7 +56,48 @@ pub struct Capturer {
     last_hash: u64,
     pub seq: u64,
     last_at: Option<Instant>,
-    jpeg: Option<(u64, u32, Vec<u8>)>,
+    /// `(seq, requested width, jpeg, width, height)` of the last frame encoded.
+    jpeg: Option<(u64, u32, Vec<u8>, u32, u32)>,
+}
+
+/// The widest frame handed out, whatever the caller asks for.
+pub const MAX_FRAME_WIDTH: u32 = 1920;
+/// The largest JPEG handed out: 512 KiB, about 700 KB in base64, well under the 1 MiB line limit.
+pub const MAX_FRAME_JPEG: usize = 512 * 1024;
+/// Qualities tried at each width, best first.
+const QUALITIES: [u8; 3] = [70, 50, 35];
+/// Frames never shrink below this to fit.
+const MIN_FIT_WIDTH: u32 = 320;
+
+fn encode(rgb: &[u8], w: u32, h: u32, quality: u8) -> Result<Vec<u8>, String> {
+    let mut out = Vec::with_capacity(64 * 1024);
+    jpeg_encoder::Encoder::new(&mut out, quality)
+        .encode(rgb, w as u16, h as u16, jpeg_encoder::ColorType::Rgb)
+        .map_err(|e| e.to_string())?;
+    Ok(out)
+}
+
+/// The JPEG of `raw` at most `target_width` wide (and at most `MAX_FRAME_WIDTH`) and at most
+/// `limit` bytes: lower quality first, then three quarters of the width, until it fits.
+pub fn encode_within(
+    raw: &Raw<'_>,
+    target_width: u32,
+    limit: usize,
+) -> Result<(Vec<u8>, u32, u32), String> {
+    let mut width = target_width.clamp(16, MAX_FRAME_WIDTH);
+    loop {
+        let (rgb, w, h) = to_rgb_scaled(raw, width);
+        for quality in QUALITIES {
+            let out = encode(&rgb, w, h, quality)?;
+            if out.len() <= limit {
+                return Ok((out, w, h));
+            }
+        }
+        if w <= MIN_FIT_WIDTH {
+            return Err(format!("the frame does not fit in {limit} bytes"));
+        }
+        width = (w * 3 / 4).max(MIN_FIT_WIDTH);
+    }
 }
 
 impl Capturer {
@@ -196,28 +242,19 @@ impl Capturer {
         }
     }
 
-    /// The JPEG of the current screen at most `max_width` wide.
-    pub fn jpeg(
-        &mut self,
-        max_width: Option<u32>,
-        quality: u8,
-    ) -> Result<(Vec<u8>, u32, u32), String> {
+    /// The JPEG of the current screen at most `max_width` wide, sized to fit one message.
+    pub fn jpeg(&mut self, max_width: Option<u32>) -> Result<(Vec<u8>, u32, u32), String> {
         let target = max_width
             .map(|m| m.min(self.width))
             .unwrap_or(self.width)
             .max(16);
-        if let Some((seq, w, bytes)) = &self.jpeg {
-            if *seq == self.seq && *w == target {
-                let h = scaled_height(self.width, self.height, target);
-                return Ok((bytes.clone(), target, h));
+        if let Some((seq, asked, bytes, w, h)) = &self.jpeg {
+            if *seq == self.seq && *asked == target {
+                return Ok((bytes.clone(), *w, *h));
             }
         }
-        let (rgb, w, h) = to_rgb_scaled(&self.raw(), target);
-        let mut out = Vec::with_capacity(64 * 1024);
-        jpeg_encoder::Encoder::new(&mut out, quality)
-            .encode(&rgb, w as u16, h as u16, jpeg_encoder::ColorType::Rgb)
-            .map_err(|e| e.to_string())?;
-        self.jpeg = Some((self.seq, target, out.clone()));
+        let (out, w, h) = encode_within(&self.raw(), target, MAX_FRAME_JPEG)?;
+        self.jpeg = Some((self.seq, target, out.clone(), w, h));
         Ok((out, w, h))
     }
 }
@@ -342,6 +379,51 @@ mod tests {
             100,
         );
         assert_eq!((w2, h2), (8, 4));
+    }
+
+    /// Noise does not compress: the worst case for the message size.
+    fn noise(w: u32, h: u32) -> Vec<u8> {
+        let mut x: u32 = 0x1234_5678;
+        (0..w * h * 4)
+            .map(|_| {
+                x ^= x << 13;
+                x ^= x >> 17;
+                x ^= x << 5;
+                x as u8
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_noisy_4k_screen_still_fits_one_message() {
+        let px = noise(3840, 2160);
+        let raw = Raw {
+            width: 3840,
+            height: 2160,
+            bgrx: &px,
+        };
+        let (jpeg, w, h) = encode_within(&raw, 3840, MAX_FRAME_JPEG).unwrap();
+        assert!(jpeg.len() <= MAX_FRAME_JPEG, "{} bytes", jpeg.len());
+        // base64 of it, plus the JSON around it, stays under the 1 MiB line limit.
+        assert!(jpeg.len().div_ceil(3) * 4 + 4096 < 1024 * 1024);
+        assert!(
+            w <= MAX_FRAME_WIDTH,
+            "clamped to {MAX_FRAME_WIDTH}, got {w}"
+        );
+        assert_eq!(h, w * 2160 / 3840);
+        assert_eq!(&jpeg[..2], &[0xff, 0xd8]);
+    }
+
+    #[test]
+    fn a_plain_screen_keeps_the_width_asked_for() {
+        let px = solid(1280, 800, [30, 30, 30]);
+        let raw = Raw {
+            width: 1280,
+            height: 800,
+            bgrx: &px,
+        };
+        let (_, w, h) = encode_within(&raw, 640, MAX_FRAME_JPEG).unwrap();
+        assert_eq!((w, h), (640, 400));
     }
 
     #[test]

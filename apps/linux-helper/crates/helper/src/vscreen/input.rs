@@ -147,6 +147,7 @@ pub struct Input {
     keymap: Keymap,
     shift_code: Option<u8>,
     held: HashSet<u8>,
+    held_buttons: HashSet<u8>,
 }
 
 impl Input {
@@ -175,6 +176,7 @@ impl Input {
             keymap,
             shift_code,
             held: HashSet::new(),
+            held_buttons: HashSet::new(),
         })
     }
 
@@ -199,17 +201,22 @@ impl Input {
         self.flush()
     }
 
-    pub fn button(&self, button: Button, down: bool) -> Result<(), String> {
+    pub fn button(&mut self, button: Button, down: bool) -> Result<(), String> {
         self.fake(
             if down { BUTTON_PRESS } else { BUTTON_RELEASE },
             button.code(),
             0,
             0,
         )?;
+        if down {
+            self.held_buttons.insert(button.code());
+        } else {
+            self.held_buttons.remove(&button.code());
+        }
         self.flush()
     }
 
-    pub fn click(&self, x: i32, y: i32, button: Button) -> Result<(), String> {
+    pub fn click(&mut self, x: i32, y: i32, button: Button) -> Result<(), String> {
         self.move_to(x, y)?;
         self.button(button, true)?;
         self.button(button, false)
@@ -313,13 +320,24 @@ impl Input {
         Ok(())
     }
 
-    /// Lets go of everything we are holding (the take-over ended mid-press).
+    /// Lets go of every key and button we are holding: the take-over ended, the pane lost focus
+    /// mid-press, or the screen stops. Otherwise a Ctrl the owner held while Alt-Tabbing away
+    /// would stay down and turn the agent's next typing into shortcuts.
     pub fn release_all(&mut self) -> Result<(), String> {
         let held: Vec<u8> = self.held.drain().collect();
         for code in held {
             self.fake(KEY_RELEASE, code, 0, 0)?;
         }
+        let buttons: Vec<u8> = self.held_buttons.drain().collect();
+        for code in buttons {
+            self.fake(BUTTON_RELEASE, code, 0, 0)?;
+        }
         self.flush()
+    }
+
+    /// Whether anything is held down (for tests and the log).
+    pub fn holds_anything(&self) -> bool {
+        !self.held.is_empty() || !self.held_buttons.is_empty()
     }
 }
 

@@ -9,7 +9,9 @@
 //! | `recipes.rs` | desktop entries, per-app launch recipes | yes |
 //! | `guard.rs` | single-instance checks before launch | traits + fakes |
 //! | `a11y.rs` | which AT-SPI apps each surface may see | trait + fakes |
-//! | `scope.rs` | `systemd-run --user --scope` in `psyche-vscreen.slice` | args are pure |
+//! | `scope.rs` | `systemd-run --user --scope` in `psyche-vscreen.slice`, the slice's caps | args are pure |
+//! | `bus.rs` | the session's private runtime dir and D-Bus session bus | mostly |
+//! | `spawn.rs` | children forked from a process-lifetime thread, peer checks | no |
 //! | `xauth.rs`, `xvfb.rs` | the private X server | no |
 //! | `wmdriver.rs`, `capture.rs`, `input.rs` | X11: window manager, XShm, XTest | no |
 //! | `display.rs` | **`VirtualDisplay`**: Xvfb + window manager + capture + input in one value | no |
@@ -20,6 +22,7 @@
 //! Xvfb and window manager inside the guest: it needs nothing from systemd or the Gateway.
 
 pub mod a11y;
+pub mod bus;
 pub mod capabilities;
 pub mod capture;
 pub mod display;
@@ -28,6 +31,7 @@ pub mod input;
 pub mod manager;
 pub mod recipes;
 pub mod scope;
+pub mod spawn;
 pub mod wm;
 pub mod wmdriver;
 pub mod xauth;

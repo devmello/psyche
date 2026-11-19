@@ -199,7 +199,9 @@ capability!(
         if p.max_width.is_some_and(|w| !(160..=3840).contains(&w)) {
             return Err(bad_params("maxWidth is 160 to 3840"));
         }
-        let f = m.frame(p.since, p.max_width).map_err(error)?;
+        // Wider than MAX_FRAME_WIDTH is accepted and clamped, so a frame always fits one message.
+        let max_width = p.max_width.map(|w| w.min(super::capture::MAX_FRAME_WIDTH));
+        let f = m.frame(p.since, max_width).map_err(error)?;
         Ok(json!({
             "changed": f.changed,
             "frameSeq": f.frame_seq,
@@ -226,6 +228,15 @@ struct WireEvent {
 #[derive(Deserialize)]
 struct InputParams {
     events: Vec<WireEvent>,
+    /// Not in the wire schema: the Gateway sends it when the take-over ends or the pane loses
+    /// focus, to let go of every held key and button.
+    #[serde(default)]
+    release: bool,
+}
+
+/// Whether `vscreen.input` asks to release everything held.
+pub fn parse_release(params: &Value) -> Result<bool, CapabilityError> {
+    Ok(parse::<InputParams>(params)?.release)
 }
 
 fn button(name: Option<&str>) -> Result<Button, CapabilityError> {
@@ -300,7 +311,8 @@ capability!(
     },
     |m, ctx| {
         let events = parse_events(&ctx.params)?;
-        m.owner_input(&events).map_err(error)?;
+        m.owner_input(&events, parse_release(&ctx.params)?)
+            .map_err(error)?;
         Ok(json!({ "ok": true }))
     }
 );
@@ -355,6 +367,12 @@ mod tests {
                 button: Button::Right
             }
         );
+        // The take-over's end: no events, everything held let go.
+        assert!(!parse_release(&json!({ "events": [] })).unwrap());
+        assert!(parse_release(&json!({ "events": [], "release": true })).unwrap());
+        assert!(parse_events(&json!({ "events": [], "release": true }))
+            .unwrap()
+            .is_empty());
         assert!(parse_events(&json!({ "events": [{ "type": "warp" }] })).is_err());
         assert!(parse_events(&json!({ "events": [{ "type": "move", "x": 1 }] })).is_err());
         assert!(parse_events(

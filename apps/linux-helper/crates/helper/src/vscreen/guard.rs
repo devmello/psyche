@@ -5,6 +5,12 @@
 //! outside `psyche-vscreen.slice`: its desktop id's D-Bus name is owned by a process outside the
 //! slice, or a process with its executable runs outside it. If so the launch is refused with
 //! `already_open_on_your_screen`; the helper never asks the running instance to open a window.
+//!
+//! - **Fails closed.** When the owner's bus cannot be asked (no `busctl`, no bus, an odd answer),
+//!   the launch is refused with `guard_unavailable`, not let through to the 10 s post-check.
+//! - **Recipes that make a separate instance** (`refuse_while_open: false`: their own profile or
+//!   user-data directory) skip the process check: a copy on the owner's screen cannot receive
+//!   the launch. Every other app is refused while a copy runs outside the slice.
 
 use std::path::{Path, PathBuf};
 
@@ -12,10 +18,11 @@ use super::recipes::{recipe_for, DesktopEntry};
 
 pub const SLICE: &str = "psyche-vscreen.slice";
 
-/// The session bus, as far as the guard needs it.
+/// The owner's session bus, as far as the guard needs it.
 pub trait SessionBus: Send + Sync {
-    /// The pid of the process that owns `name`, `None` when nobody does.
-    fn name_owner_pid(&self, name: &str) -> Option<u32>;
+    /// The pid of the process that owns `name`: `Ok(None)` when nobody does, `Err` when the bus
+    /// could not be asked (the guard then refuses).
+    fn name_owner_pid(&self, name: &str) -> Result<Option<u32>, String>;
 }
 
 /// The process table.
@@ -34,6 +41,8 @@ pub trait Procs: Send + Sync {
 pub enum Refusal {
     /// The app is open on the owner's screen (the pid is not shown to the model).
     AlreadyOpenOnYourScreen,
+    /// The owner's session bus could not be asked, so whether the app runs there is unknown.
+    CannotCheck,
 }
 
 /// The D-Bus names a GApplication-style app owns: its desktop id, when that looks like one.
@@ -132,15 +141,23 @@ pub fn check_before_launch(
     procs: &dyn Procs,
 ) -> Result<(), Refusal> {
     for name in bus_names(entry) {
-        if let Some(pid) = bus.name_owner_pid(&name) {
-            if !procs.in_vscreen_slice(pid) {
-                return Err(Refusal::AlreadyOpenOnYourScreen);
+        match bus.name_owner_pid(&name) {
+            Ok(Some(pid)) if !procs.in_vscreen_slice(pid) => {
+                return Err(Refusal::AlreadyOpenOnYourScreen)
+            }
+            Ok(_) => {}
+            Err(e) => {
+                crate::log(&format!("vscreen: guard: {e}"));
+                return Err(Refusal::CannotCheck);
             }
         }
     }
-    let names: &[&str] = recipe_for(&entry.id)
-        .map(|r| r.process_names)
-        .unwrap_or(&[]);
+    let recipe = recipe_for(&entry.id);
+    if recipe.is_some_and(|r| !r.refuse_while_open) {
+        // The recipe gives this launch its own instance (`recipes.rs`).
+        return Ok(());
+    }
+    let names: &[&str] = recipe.map(|r| r.process_names).unwrap_or(&[]);
     // Without a recipe the executable path is all there is to match on.
     if exe.is_some() || !names.is_empty() {
         let outside = procs
@@ -156,30 +173,45 @@ pub fn check_before_launch(
 
 // ---- the real thing ----
 
-/// `busctl --user call org.freedesktop.DBus ... GetConnectionUnixProcessID`.
+/// `busctl --user call org.freedesktop.DBus ... NameHasOwner`, then
+/// `GetConnectionUnixProcessID`. Any failure is an error, never "nobody owns it".
 pub struct BusctlBus;
 
+fn busctl_dbus(method: &str, name: &str) -> Result<String, String> {
+    let out = std::process::Command::new("busctl")
+        .args([
+            "--user",
+            "call",
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            method,
+            "s",
+            name,
+        ])
+        .stdin(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .map_err(|e| format!("busctl: {e}"))?;
+    if !out.status.success() {
+        return Err(format!("busctl {method}: {}", out.status));
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
 impl SessionBus for BusctlBus {
-    fn name_owner_pid(&self, name: &str) -> Option<u32> {
-        let out = std::process::Command::new("busctl")
-            .args([
-                "--user",
-                "call",
-                "org.freedesktop.DBus",
-                "/org/freedesktop/DBus",
-                "org.freedesktop.DBus",
-                "GetConnectionUnixProcessID",
-                "s",
-                name,
-            ])
-            .stdin(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .output()
-            .ok()?;
-        if !out.status.success() {
-            return None;
+    fn name_owner_pid(&self, name: &str) -> Result<Option<u32>, String> {
+        let has = busctl_dbus("NameHasOwner", name)?;
+        match parse_busctl_bool(&has) {
+            Some(false) => Ok(None),
+            Some(true) => {
+                let pid = busctl_dbus("GetConnectionUnixProcessID", name)?;
+                parse_busctl_u32(&pid)
+                    .map(Some)
+                    .ok_or_else(|| format!("busctl: unexpected answer {pid:?}"))
+            }
+            None => Err(format!("busctl: unexpected answer {has:?}")),
         }
-        parse_busctl_u32(&String::from_utf8_lossy(&out.stdout))
     }
 }
 
@@ -187,7 +219,17 @@ impl SessionBus for BusctlBus {
 pub fn parse_busctl_u32(text: &str) -> Option<u32> {
     let mut parts = text.split_whitespace();
     (parts.next()? == "u").then_some(())?;
-    parts.next()?.parse().ok()
+    let n = parts.next()?.parse().ok()?;
+    parts.next().is_none().then_some(n)
+}
+
+/// `b true` -> true.
+pub fn parse_busctl_bool(text: &str) -> Option<bool> {
+    match text.split_whitespace().collect::<Vec<_>>().as_slice() {
+        ["b", "true"] => Some(true),
+        ["b", "false"] => Some(false),
+        _ => None,
+    }
 }
 
 /// Whether a `/proc/<pid>/cgroup` text places the process in the virtual-screen slice.
@@ -245,8 +287,16 @@ mod tests {
 
     struct FakeBus(HashMap<String, u32>);
     impl SessionBus for FakeBus {
-        fn name_owner_pid(&self, name: &str) -> Option<u32> {
-            self.0.get(name).copied()
+        fn name_owner_pid(&self, name: &str) -> Result<Option<u32>, String> {
+            Ok(self.0.get(name).copied())
+        }
+    }
+
+    /// A bus that cannot be asked: busctl missing, no session bus, an odd answer.
+    struct DownBus;
+    impl SessionBus for DownBus {
+        fn name_owner_pid(&self, _: &str) -> Result<Option<u32>, String> {
+            Err("busctl: not found".into())
         }
     }
 
@@ -379,10 +429,71 @@ mod tests {
     }
 
     #[test]
+    fn a_bus_that_cannot_be_asked_refuses_instead_of_letting_it_through() {
+        let r = check_before_launch(
+            &entry("org.gnome.TextEditor", "gnome-text-editor"),
+            None,
+            &DownBus,
+            &nothing(),
+        );
+        assert_eq!(r, Err(Refusal::CannotCheck));
+        // An app with no bus name never asks the bus, so a down bus does not block it.
+        assert!(check_before_launch(&entry("xterm", "xterm"), None, &DownBus, &nothing()).is_ok());
+    }
+
+    #[test]
+    fn refuse_while_open_decides_whether_a_running_copy_blocks_the_launch() {
+        // (desktop id, comm of a copy running on the owner's screen, refused?)
+        let table: &[(&str, &str, bool)] = &[
+            // Separate instance by recipe: allowed next to the owner's copy.
+            ("chromium", "chromium", false),
+            ("google-chrome", "chrome", false),
+            ("code", "code", false),
+            ("libreoffice-writer", "soffice.bin", false),
+            // No separate-instance promise: refused.
+            ("firefox", "firefox", true),
+            ("firefox-esr", "firefox-esr", true),
+            ("slack", "slack", true),
+            ("obsidian", "obsidian", true),
+        ];
+        for (id, comm, refused) in table {
+            let procs = FakeProcs {
+                running: vec![(11, None, comm.to_string())],
+                ours: HashSet::new(),
+            };
+            let r = check_before_launch(
+                &entry(id, id),
+                Some(Path::new("/usr/bin/x")),
+                &FakeBus(HashMap::new()),
+                &procs,
+            );
+            assert_eq!(r.is_err(), *refused, "{id} with {comm} running");
+        }
+        // An app without a recipe is refused when its executable runs outside the slice.
+        let exe = PathBuf::from("/usr/bin/gedit");
+        let procs = FakeProcs {
+            running: vec![(12, Some(exe.clone()), "gedit".into())],
+            ours: HashSet::new(),
+        };
+        assert!(check_before_launch(
+            &entry("gedit", "gedit"),
+            Some(&exe),
+            &FakeBus(HashMap::new()),
+            &procs
+        )
+        .is_err());
+    }
+
+    #[test]
     fn busctl_output_and_cgroups_are_parsed() {
         assert_eq!(parse_busctl_u32("u 4242\n"), Some(4242));
         assert_eq!(parse_busctl_u32("s \"x\""), None);
         assert_eq!(parse_busctl_u32(""), None);
+        assert_eq!(parse_busctl_u32("u 1 2"), None);
+        assert_eq!(parse_busctl_bool("b true\n"), Some(true));
+        assert_eq!(parse_busctl_bool("b false\n"), Some(false));
+        assert_eq!(parse_busctl_bool("b maybe"), None);
+        assert_eq!(parse_busctl_bool(""), None);
         assert!(cgroup_in_slice("0::/user.slice/user-1000.slice/user@1000.service/psyche-vscreen.slice/psyche-vs-a-1.scope\n"));
         assert!(!cgroup_in_slice(
             "0::/user.slice/user-1000.slice/user@1000.service/app.slice/app-x.scope\n"

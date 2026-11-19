@@ -1,10 +1,12 @@
 //! Which AT-SPI applications a surface may see (linux-desktop design §7.2, last bullet).
 //!
-//! Apps on the virtual display share the owner's session bus, so they show up on the same
-//! accessibility bus as the owner's real apps. The helper filters by process: an application is
-//! on the virtual screen only if its pid (from `GetConnectionUnixProcessID` on the a11y bus) is
-//! in `psyche-vscreen.slice`, and Direct mode sees only applications outside that slice. The two
-//! surfaces can therefore not drive each other's apps.
+//! Apps on the virtual display have their own session bus and with it their own accessibility
+//! bus (`bus.rs`), so normally they never appear on the owner's. The filter stays as a second
+//! line: an application is on the virtual screen only if its pid (from
+//! `GetConnectionUnixProcessID` on the a11y bus) is in `psyche-vscreen.slice`, and Direct mode
+//! sees only applications outside that slice. The two surfaces can therefore not drive each
+//! other's apps, even when an app finds the other bus by itself. The virtual screen's tree is
+//! read on `VscreenManager::session_bus_address`.
 //!
 //! The AT-SPI module itself belongs to the direct-computer-use work (`a11y/`). This file is the
 //! seam: that module implements `A11yApps` (or just calls `visible_to` on its own list of

@@ -211,13 +211,29 @@ fn clipboard(conn: &RustConnection) -> Option<String> {
 }
 
 fn key_chord(m: &VscreenManager, key: &str) {
-    m.owner_input(&[
-        InputEvent::KeyDown("Control".into()),
-        InputEvent::KeyDown(key.into()),
-        InputEvent::KeyUp(key.into()),
-        InputEvent::KeyUp("Control".into()),
-    ])
+    m.owner_input(
+        &[
+            InputEvent::KeyDown("Control".into()),
+            InputEvent::KeyDown(key.into()),
+            InputEvent::KeyUp(key.into()),
+            InputEvent::KeyUp("Control".into()),
+        ],
+        false,
+    )
     .unwrap();
+}
+
+/// The environment of a running process, from `/proc/<pid>/environ`.
+fn environ_of(pid: u32) -> HashMap<String, String> {
+    std::fs::read(format!("/proc/{pid}/environ"))
+        .unwrap_or_default()
+        .split(|b| *b == 0)
+        .filter_map(|kv| {
+            let kv = String::from_utf8_lossy(kv);
+            let (k, v) = kv.split_once('=')?;
+            Some((k.to_string(), v.to_string()))
+        })
+        .collect()
 }
 
 fn fake_app() -> PathBuf {
@@ -307,7 +323,7 @@ impl Owner {
 #[test]
 fn gtk4_text_editor_runs_on_its_own_display_and_nothing_reaches_the_owners() {
     let _guard = serial();
-    if missing(&["gnome-text-editor"]).is_some() {
+    if missing(&["gnome-text-editor", "dbus-daemon"]).is_some() {
         return;
     }
     let owner = Owner::start();
@@ -347,10 +363,7 @@ fn gtk4_text_editor_runs_on_its_own_display_and_nothing_reaches_the_owners() {
     std::thread::sleep(Duration::from_millis(500));
     key_chord(&m, "a");
     key_chord(&m, "c");
-    let xauth = {
-        let rt = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
-        PathBuf::from(rt).join(format!("psyche/xauth-{number}"))
-    };
+    let xauth = m.xauthority().expect("the display's authority file");
     let conn = connect(number, &xauth);
     let mut got = None;
     for _ in 0..10 {
@@ -420,7 +433,10 @@ fn gtk4_text_editor_runs_on_its_own_display_and_nothing_reaches_the_owners() {
             Duration::from_secs(10),
             || {
                 use psyche_helper::vscreen::guard::{BusctlBus, SessionBus};
-                BusctlBus.name_owner_pid("org.gnome.TextEditor").is_some()
+                matches!(
+                    BusctlBus.name_owner_pid("org.gnome.TextEditor"),
+                    Ok(Some(_))
+                )
             },
         );
         let err = m.open_app("org.gnome.TextEditor").expect_err("refused");
@@ -501,10 +517,14 @@ fn launch_checks_parking_and_the_window_manager_with_a_fake_app() {
 
     // Take-over pauses the agent.
     m.start(None).unwrap();
-    m.owner_input(&[InputEvent::Move { x: 5.0, y: 5.0 }])
+    m.owner_input(&[InputEvent::Move { x: 5.0, y: 5.0 }], false)
         .unwrap();
     assert!(m.status().taken_over);
     assert_eq!(m.agent_type("x").unwrap_err().reason, "taken_over");
+    // Giving control back (release) un-pauses the agent at once.
+    m.owner_input(&[InputEvent::KeyDown("Control".into())], true)
+        .unwrap();
+    assert!(!m.status().taken_over);
     m.stop(false, true).unwrap();
 
     // Nothing ever reached the owner's display.
@@ -602,4 +622,126 @@ fn the_display_backend_works_on_its_own_for_other_callers() {
     let _ = second.wait();
     display.stop();
     assert!(!display.is_alive());
+}
+
+#[test]
+fn a_screen_started_from_a_short_lived_thread_survives_it() {
+    // Every capability call runs on its own thread that ends when the call returns. The X server
+    // must outlive that thread (PR_SET_PDEATHSIG fires on the forking thread's exit).
+    let _guard = serial();
+    if missing(&[]).is_some() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let (m, _idle) = manager(config(dir.path(), vec![]));
+    let started = {
+        let m = Arc::clone(&m);
+        std::thread::spawn(move || m.start(None).expect("start"))
+            .join()
+            .unwrap()
+    };
+    assert!(started.running);
+    std::thread::sleep(Duration::from_secs(3));
+    let st = m.status();
+    assert!(
+        st.running,
+        "the display is still up after the starting thread ended"
+    );
+    assert_eq!(st.display, started.display);
+    assert!(m.frame(None, Some(320)).unwrap().changed);
+    m.stop(false, true).unwrap();
+}
+
+#[test]
+fn apps_get_the_private_session_and_none_of_the_helpers_environment() {
+    let _guard = serial();
+    if missing(&["dbus-daemon"]).is_some() {
+        return;
+    }
+    let app = fake_app();
+    let dir = tempfile::tempdir().unwrap();
+    let apps = dir.path().join("applications");
+    std::fs::create_dir_all(&apps).unwrap();
+    desktop_file(&apps, "psyche.test.Env", app.to_str().unwrap());
+    std::env::set_var("PSYCHE_NODE_SOCKET", "/run/psyche-test/node.sock");
+    std::env::set_var("SSH_AUTH_SOCK", "/run/psyche-test/ssh");
+    let owner_bus = std::env::var("DBUS_SESSION_BUS_ADDRESS").unwrap_or_default();
+    let owner_rt = std::env::var("XDG_RUNTIME_DIR").unwrap_or_default();
+    let (m, _idle) = manager(config(dir.path(), vec![apps]));
+    let opened = m.open_app("psyche.test.Env").expect("open");
+    let env = environ_of(opened.pid);
+    let private = m.session_bus_address().expect("a private session bus");
+    assert_eq!(env.get("DBUS_SESSION_BUS_ADDRESS"), Some(&private));
+    assert_ne!(env.get("DBUS_SESSION_BUS_ADDRESS"), Some(&owner_bus));
+    assert_ne!(env.get("XDG_RUNTIME_DIR"), Some(&owner_rt));
+    for gone in [
+        "PSYCHE_NODE_SOCKET",
+        "SSH_AUTH_SOCK",
+        "PSYCHE_HELPER_STATE",
+        "WAYLAND_DISPLAY",
+    ] {
+        assert!(!env.contains_key(gone), "{gone} reached the app");
+    }
+    // The bus daemon runs in the slice, so what it activates does too.
+    let bus_pid = Command::new("pgrep")
+        .args([
+            "-f",
+            &format!("dbus-daemon --session --nofork --nopidfile --address={private}"),
+        ])
+        .output()
+        .unwrap();
+    let bus_pid: u32 = String::from_utf8_lossy(&bus_pid.stdout)
+        .lines()
+        .next()
+        .and_then(|l| l.trim().parse().ok())
+        .expect("the private dbus-daemon runs");
+    assert!(ProcFs.in_vscreen_slice(bus_pid));
+    // So does the X server.
+    let display = m.status().display.unwrap();
+    let xvfb = Command::new("pgrep")
+        .args(["-f", &format!("Xvfb {display} ")])
+        .output()
+        .unwrap();
+    let xvfb: u32 = String::from_utf8_lossy(&xvfb.stdout)
+        .lines()
+        .next()
+        .and_then(|l| l.trim().parse().ok())
+        .expect("Xvfb runs");
+    assert!(ProcFs.in_vscreen_slice(xvfb), "Xvfb is in the slice");
+    std::env::remove_var("PSYCHE_NODE_SOCKET");
+    std::env::remove_var("SSH_AUTH_SOCK");
+    assert!(m.stop(true, true).unwrap().stopped);
+}
+
+#[test]
+fn a_late_drop_of_an_old_display_leaves_the_new_one_alone() {
+    use psyche_helper::vscreen::display::VirtualDisplay;
+    let _guard = serial();
+    if missing(&[]).is_some() {
+        return;
+    }
+    let mut cfg = XvfbConfig::new(640, 480);
+    cfg.first_display = 87;
+    let old = VirtualDisplay::start(&cfg).expect("first");
+    let number = old.display.clone();
+    old.stop();
+    // The same display number again, while the old handle still exists (an in-flight frame).
+    let new = VirtualDisplay::start(&cfg).expect("second");
+    assert_eq!(new.display, number);
+    assert_ne!(
+        new.xauthority, old.xauthority,
+        "each start has its own auth file"
+    );
+    drop(old);
+    assert!(new.is_alive());
+    assert!(
+        new.xauthority.exists(),
+        "the new server's auth file is still there"
+    );
+    let n: u32 = new.display.trim_start_matches(':').parse().unwrap();
+    assert!(
+        psyche_helper::vscreen::xvfb::connect_verified(n, new.xvfb_pid()).is_ok(),
+        "the new server's socket and lock are intact"
+    );
+    new.stop();
 }

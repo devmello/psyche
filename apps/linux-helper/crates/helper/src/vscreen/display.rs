@@ -1,7 +1,8 @@
 //! `VirtualDisplay`: one private X display, ready to use. This is the reusable backend (the
 //! separate-desktop container runs the same thing inside the guest):
 //!
-//! - start an Xvfb on the first free display number,
+//! - start an Xvfb on the first free display number (only a server that is provably our child
+//!   is ever used, see `xvfb.rs`),
 //! - act as its window manager (`wm.rs`, `wmdriver.rs`),
 //! - capture frames (XShm, `capture.rs`),
 //! - inject input (XTest, `input.rs`).
@@ -18,7 +19,7 @@ use super::capture::Capturer;
 use super::input::{Button, Input};
 use super::wmdriver::{WindowRecord, WmDriver};
 use super::xauth::AUTH_NAME;
-use super::xvfb::{connect_stream, XvfbConfig, XvfbServer};
+use super::xvfb::{connect_verified, XvfbConfig, XvfbServer};
 
 pub use super::xvfb::XvfbConfig as DisplayConfig;
 
@@ -34,8 +35,12 @@ pub struct VirtualDisplay {
     pub started_at: Instant,
 }
 
-fn connect(display_number: u32, cookie: [u8; 16]) -> Result<Arc<RustConnection>, String> {
-    let unix = connect_stream(display_number).map_err(|e| e.to_string())?;
+fn connect(
+    display_number: u32,
+    server_pid: u32,
+    cookie: [u8; 16],
+) -> Result<Arc<RustConnection>, String> {
+    let unix = connect_verified(display_number, server_pid)?;
     let (stream, _) = DefaultStream::from_unix_stream(unix).map_err(|e| e.to_string())?;
     RustConnection::connect_to_stream_with_auth_info(stream, 0, AUTH_NAME.to_vec(), cookie.to_vec())
         .map(Arc::new)
@@ -46,9 +51,9 @@ impl VirtualDisplay {
     pub fn start(config: &XvfbConfig) -> Result<VirtualDisplay, String> {
         let xvfb = XvfbServer::start(config)?;
         // From here on, dropping `xvfb` (an error below) stops the server again.
-        let wm_conn = connect(xvfb.display_number, xvfb.cookie)?;
+        let wm_conn = connect(xvfb.display_number, xvfb.pid(), xvfb.cookie)?;
         let driver = WmDriver::start(wm_conn, 0)?;
-        let tool_conn = connect(xvfb.display_number, xvfb.cookie)?;
+        let tool_conn = connect(xvfb.display_number, xvfb.pid(), xvfb.cookie)?;
         let capturer = Capturer::new(Arc::clone(&tool_conn), 0)?;
         let input = Input::new(tool_conn, 0)?;
         Ok(VirtualDisplay {
@@ -109,7 +114,8 @@ impl VirtualDisplay {
             .refresh(max_age)
     }
 
-    /// `(seq, jpeg, width, height)` of the current screen.
+    /// `(seq, jpeg, width, height)` of the current screen, small enough for one helper message
+    /// (`capture::MAX_FRAME_JPEG`).
     pub fn frame(
         &self,
         max_width: Option<u32>,
@@ -117,7 +123,7 @@ impl VirtualDisplay {
     ) -> Result<(u64, Vec<u8>, u32, u32), String> {
         let mut cap = self.capturer.lock().unwrap_or_else(|p| p.into_inner());
         let seq = cap.refresh(max_age)?;
-        let (jpeg, w, h) = cap.jpeg(max_width, 70)?;
+        let (jpeg, w, h) = cap.jpeg(max_width)?;
         Ok((seq, jpeg, w, h))
     }
 
@@ -142,6 +148,12 @@ impl VirtualDisplay {
         self.with_input(|i| i.type_text(text))
     }
 
+    /// Lets go of every key and button our input holds (a take-over ended mid-press).
+    pub fn release_input(&self) -> Result<(), String> {
+        self.with_input(|i| i.release_all())
+    }
+
+    /// Stops the server. Idempotent: the `Drop` of an old handle does nothing after a stop.
     pub fn stop(&self) {
         self.xvfb.lock().unwrap_or_else(|p| p.into_inner()).stop();
     }

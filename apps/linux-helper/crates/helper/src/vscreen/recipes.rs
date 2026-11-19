@@ -191,7 +191,10 @@ pub struct RecipeEntry {
     /// What the owner gives up by this recipe, in one sentence (shown nowhere automatically:
     /// the table is the record the tests and docs read).
     pub tradeoff: &'static str,
-    /// The app cannot run a second instance, so a running one means refusing.
+    /// The recipe cannot promise a second, independent instance, so a copy already running on
+    /// the owner's screen means refusing (`guard.rs`). When false, the recipe's own data
+    /// directory makes the virtual screen's copy a separate instance, and the guard lets it start
+    /// while the owner's copy runs.
     pub refuse_while_open: bool,
 }
 
@@ -200,7 +203,7 @@ pub const RECIPES: &[RecipeEntry] = &[
         family: Family::Firefox,
         ids: &["firefox", "firefox-esr", "org.mozilla.firefox", "firefox_firefox"],
         process_names: &["firefox", "firefox-bin", "firefox-esr", "MainThread"],
-        tradeoff: "Runs on a copy of the owner's profile made on first use, so it has the logins from then, not later ones. A profile in use cannot be shared, so it is refused while Firefox is open.",
+        tradeoff: "Runs on a fresh copy of the owner's profile each session, without saved passwords, cookies, open tabs or form history, so it starts logged out. Refused while Firefox is open on the owner's screen.",
         refuse_while_open: true,
     },
     RecipeEntry {
@@ -227,7 +230,7 @@ pub const RECIPES: &[RecipeEntry] = &[
         family: Family::VsCode,
         ids: &["code", "code-insiders", "codium", "com.visualstudio.code", "com.vscodium.codium"],
         process_names: &["code", "code-insiders", "codium"],
-        tradeoff: "Uses its own settings and extensions directory, so the owner's are not loaded.",
+        tradeoff: "Uses its own settings and extensions directories, so the owner's settings and extensions are not loaded.",
         refuse_while_open: false,
     },
     RecipeEntry {
@@ -243,8 +246,8 @@ pub const RECIPES: &[RecipeEntry] = &[
             "md.obsidian.Obsidian",
         ],
         process_names: &["slack", "discord", "signal-desktop", "obsidian"],
-        tradeoff: "Uses its own data directory, so it starts logged out.",
-        refuse_while_open: false,
+        tradeoff: "Uses its own data directory, so it starts logged out. Refused while the app is open on the owner's screen: an Electron app may pick its own data directory and hand the launch to the running copy.",
+        refuse_while_open: true,
     },
     RecipeEntry {
         family: Family::LibreOffice,
@@ -279,22 +282,115 @@ pub struct LaunchContext {
     pub xauthority: PathBuf,
     /// The Firefox profile copy, already made (the manager copies it first).
     pub firefox_profile: Option<PathBuf>,
+    /// The session's private runtime dir (`bus.rs`): the apps' `XDG_RUNTIME_DIR`.
+    pub runtime_dir: PathBuf,
+    /// The private bus, or an address that leads nowhere. Never the owner's.
+    pub bus_address: String,
+    /// The owner's values of `APP_ENV_ALLOW`, read once when the helper starts.
+    pub base_env: Vec<(String, String)>,
 }
 
-/// The command and environment of one launch.
+/// The command and the whole environment of one launch: the app sees these variables and no
+/// others.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LaunchSpec {
     pub argv: Vec<String>,
-    pub env_set: Vec<(String, String)>,
-    pub env_remove: Vec<String>,
+    pub env: Vec<(String, String)>,
 }
 
-const ENV_REMOVE: &[&str] = &[
-    "WAYLAND_DISPLAY",
-    "XDG_ACTIVATION_TOKEN",
-    "DESKTOP_STARTUP_ID",
-    "XDG_SESSION_TYPE",
+/// The owner's variables an app on the virtual screen keeps: who and where the user is, the
+/// language, and the XDG base directories. Everything else of the helper's environment is left
+/// behind (`PSYCHE_*`, `SSH_AUTH_SOCK`, `GNOME_KEYRING_CONTROL`, `JOURNAL_STREAM`,
+/// `INVOCATION_ID`, `WAYLAND_*`, `DBUS_SESSION_BUS_ADDRESS`, `AT_SPI_BUS_ADDRESS`, ...).
+pub const APP_ENV_ALLOW: &[&str] = &[
+    "HOME",
+    "USER",
+    "LOGNAME",
+    "SHELL",
+    "PATH",
+    "LANG",
+    "LANGUAGE",
+    "LC_ALL",
+    "LC_CTYPE",
+    "LC_NUMERIC",
+    "LC_TIME",
+    "LC_COLLATE",
+    "LC_MONETARY",
+    "LC_MESSAGES",
+    "LC_PAPER",
+    "LC_NAME",
+    "LC_ADDRESS",
+    "LC_TELEPHONE",
+    "LC_MEASUREMENT",
+    "LC_IDENTIFICATION",
+    "TZ",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "XDG_CACHE_HOME",
+    "XDG_STATE_HOME",
+    "XDG_CONFIG_DIRS",
+    "XDG_DATA_DIRS",
+    "XDG_CURRENT_DESKTOP",
+    "XCURSOR_THEME",
+    "XCURSOR_SIZE",
 ];
+
+/// The whole environment of a process on the virtual screen: the allowlisted owner variables,
+/// then the virtual screen's own display, runtime dir and bus, the X11 toolkit switches and the
+/// accessibility switches. Later entries win, so nothing from `base_env` can override them.
+pub fn app_environment(ctx: &LaunchContext) -> Vec<(String, String)> {
+    let mut env: Vec<(String, String)> = ctx
+        .base_env
+        .iter()
+        .filter(|(k, _)| APP_ENV_ALLOW.contains(&k.as_str()))
+        .cloned()
+        .collect();
+    let fixed: [(&str, String); 14] = [
+        ("DISPLAY", ctx.display.clone()),
+        ("XAUTHORITY", ctx.xauthority.to_string_lossy().into_owned()),
+        (
+            "XDG_RUNTIME_DIR",
+            ctx.runtime_dir.to_string_lossy().into_owned(),
+        ),
+        ("DBUS_SESSION_BUS_ADDRESS", ctx.bus_address.clone()),
+        ("XDG_SESSION_TYPE", "x11".into()),
+        ("GDK_BACKEND", "x11".into()),
+        ("QT_QPA_PLATFORM", "xcb".into()),
+        ("MOZ_ENABLE_WAYLAND", "0".into()),
+        ("SDL_VIDEODRIVER", "x11".into()),
+        // AT-SPI: toolkits expose themselves on the session's own accessibility bus.
+        ("GTK_A11Y", "atspi".into()),
+        ("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1".into()),
+        ("ACCESSIBILITY_ENABLED", "1".into()),
+        ("GNOME_ACCESSIBILITY", "1".into()),
+        ("PATH", path_of(&ctx.base_env)),
+    ];
+    for (k, v) in fixed {
+        env.retain(|(n, _)| n != k);
+        env.push((k.to_string(), v));
+    }
+    env
+}
+
+fn path_of(base: &[(String, String)]) -> String {
+    base.iter()
+        .find(|(k, _)| k == "PATH")
+        .map(|(_, v)| v.clone())
+        .unwrap_or_else(|| "/usr/local/bin:/usr/bin:/bin".into())
+}
+
+/// A `file://` URL for `path`, percent-encoding everything but unreserved characters and `/`.
+pub fn file_url(path: &str) -> String {
+    let mut out = String::from("file://");
+    for b in path.bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'/' | b'-' | b'_' | b'.' | b'~') {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
 
 /// Where a recipe keeps a separate data directory for `id`.
 fn data_dir(ctx: &LaunchContext, kind: &str, id: &str) -> String {
@@ -330,39 +426,26 @@ pub fn launch_spec(entry: &DesktopEntry, ctx: &LaunchContext) -> Result<LaunchSp
                 "--user-data-dir={}",
                 data_dir(ctx, kind, &entry.id)
             ));
+            if family == Family::VsCode {
+                // Extensions are code: the owner's must not load into the agent's instance.
+                argv.push(format!(
+                    "--extensions-dir={}",
+                    data_dir(ctx, "code-extensions", &entry.id)
+                ));
+            }
             argv.push("--ozone-platform=x11".into());
         }
         Family::LibreOffice => {
             argv.push(format!(
-                "-env:UserInstallation=file://{}",
-                data_dir(ctx, "lo", "profile")
+                "-env:UserInstallation={}",
+                file_url(&data_dir(ctx, "lo", "profile"))
             ));
         }
         Family::Plain => {}
     }
-    let env_set = vec![
-        ("DISPLAY".to_string(), ctx.display.clone()),
-        (
-            "XAUTHORITY".to_string(),
-            ctx.xauthority.to_string_lossy().into_owned(),
-        ),
-        ("GDK_BACKEND".to_string(), "x11".to_string()),
-        ("QT_QPA_PLATFORM".to_string(), "xcb".to_string()),
-        ("MOZ_ENABLE_WAYLAND".to_string(), "0".to_string()),
-        ("SDL_VIDEODRIVER".to_string(), "x11".to_string()),
-        // AT-SPI: apps on the session bus are discoverable, and toolkits expose themselves.
-        ("GTK_A11Y".to_string(), "atspi".to_string()),
-        (
-            "QT_LINUX_ACCESSIBILITY_ALWAYS_ON".to_string(),
-            "1".to_string(),
-        ),
-        ("ACCESSIBILITY_ENABLED".to_string(), "1".to_string()),
-        ("GNOME_ACCESSIBILITY".to_string(), "1".to_string()),
-    ];
     Ok(LaunchSpec {
         argv,
-        env_set,
-        env_remove: ENV_REMOVE.iter().map(|s| s.to_string()).collect(),
+        env: app_environment(ctx),
     })
 }
 
@@ -407,29 +490,56 @@ pub fn firefox_profile_from_ini(ini: &str, base: &Path) -> Option<PathBuf> {
     })
 }
 
-/// Names under a profile that must not be copied: caches, locks and the running instance's files.
-pub fn firefox_skip(name: &str) -> bool {
-    matches!(
-        name,
-        "lock"
-            | ".parentlock"
-            | "parent.lock"
-            | "cache2"
-            | "startupCache"
-            | "crashes"
-            | "minidumps"
-            | "datareporting"
-            | "saved-telemetry-pings"
-            | "storage"
-            | "thumbnails"
-            | "sessionstore-backups"
-    )
+/// Files under a profile that carry the owner's secrets and sessions: saved passwords and their
+/// key, cookies, open tabs and their backups, form history, saved addresses and cards, site
+/// storage. Matched as a prefix, so `cookies.sqlite-wal` and `logins-backup.json` go too.
+const FIREFOX_PRIVATE: &[&str] = &[
+    "logins",
+    "signons",
+    "key3.db",
+    "key4.db",
+    "cookies.sqlite",
+    "sessionstore",
+    "sessionCheckpoints.json",
+    "formhistory.sqlite",
+    "autofill-profiles.json",
+    "webappsstore.sqlite",
+];
+
+/// Whether a profile entry carries the owner's secrets or sessions (`FIREFOX_PRIVATE`).
+pub fn firefox_private(name: &str) -> bool {
+    FIREFOX_PRIVATE.iter().any(|p| name.starts_with(p))
 }
 
-/// Copies a profile on first use. Does nothing when `dest` already exists. Symlinks are skipped.
-pub fn copy_profile(src: &Path, dest: &Path) -> std::io::Result<()> {
-    if dest.exists() {
-        return Ok(());
+/// Names under a profile that must not be copied: the owner's secrets and sessions, caches,
+/// locks and the running instance's files.
+pub fn firefox_skip(name: &str) -> bool {
+    firefox_private(name)
+        || matches!(
+            name,
+            "lock"
+                | ".parentlock"
+                | "parent.lock"
+                | "cache2"
+                | "startupCache"
+                | "crashes"
+                | "minidumps"
+                | "datareporting"
+                | "saved-telemetry-pings"
+                | "storage"
+                | "thumbnails"
+                | "sessionstore-backups"
+        )
+}
+
+/// Makes `dest` a fresh copy of `src`, replacing any older copy (the manager calls it once per
+/// display session, so nothing the agent's browsing left in the copy carries over). Secrets,
+/// caches and locks are skipped (`firefox_skip`), and so are symlinks.
+pub fn fresh_profile_copy(src: &Path, dest: &Path) -> std::io::Result<()> {
+    match std::fs::remove_dir_all(dest) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e),
     }
     let partial = dest.with_extension("partial");
     let _ = std::fs::remove_dir_all(&partial);
@@ -471,7 +581,49 @@ mod tests {
             firefox_profile: Some(PathBuf::from(
                 "/state/psyche-helper/vscreen/firefox/profile",
             )),
+            runtime_dir: PathBuf::from("/run/user/1000/psyche/vs-abc"),
+            bus_address: "unix:path=/run/user/1000/psyche/vs-abc/bus".into(),
+            base_env: owner_env(),
         }
+    }
+
+    /// The helper's own environment as a desktop session hands it over, secrets included.
+    fn owner_env() -> Vec<(String, String)> {
+        [
+            ("HOME", "/home/o"),
+            ("USER", "o"),
+            ("PATH", "/usr/bin:/bin"),
+            ("LANG", "de_DE.UTF-8"),
+            ("LC_TIME", "de_DE.UTF-8"),
+            ("XDG_DATA_DIRS", "/usr/share"),
+            ("DBUS_SESSION_BUS_ADDRESS", "unix:path=/run/user/1000/bus"),
+            ("AT_SPI_BUS_ADDRESS", "unix:path=/run/user/1000/at-spi/bus"),
+            ("XDG_RUNTIME_DIR", "/run/user/1000"),
+            ("PSYCHE_HOME", "/home/o/.psyche"),
+            ("PSYCHE_NODE_SOCKET", "/run/user/1000/psyche/node.sock"),
+            ("SSH_AUTH_SOCK", "/run/user/1000/gcr/ssh"),
+            ("GNOME_KEYRING_CONTROL", "/run/user/1000/keyring"),
+            ("JOURNAL_STREAM", "8:1234"),
+            ("INVOCATION_ID", "abc"),
+            ("WAYLAND_DISPLAY", "wayland-0"),
+            ("WAYLAND_SOCKET", "5"),
+            ("XDG_ACTIVATION_TOKEN", "t"),
+            ("DESKTOP_STARTUP_ID", "d"),
+            ("XDG_SESSION_TYPE", "wayland"),
+            ("DISPLAY", ":0"),
+            ("XAUTHORITY", "/run/user/1000/.mutter-Xwaylandauth"),
+        ]
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
+    }
+
+    fn env_of<'a>(spec: &'a LaunchSpec, k: &str) -> Option<&'a str> {
+        spec.env
+            .iter()
+            .rev()
+            .find(|(n, _)| n == k)
+            .map(|(_, v)| v.as_str())
     }
 
     fn entry(id: &str, exec: &[&str]) -> DesktopEntry {
@@ -578,13 +730,20 @@ mod tests {
     }
 
     #[test]
-    fn recipe_vscode_gets_its_own_user_data_dir_and_x11() {
+    fn recipe_vscode_gets_its_own_user_data_and_extensions_dirs_and_x11() {
         for id in RECIPES[2].ids {
             let spec = launch_spec(&entry(id, &["code"]), &ctx()).unwrap();
             assert!(
                 has(
                     &spec,
                     &format!("--user-data-dir=/state/psyche-helper/vscreen/code/{id}")
+                ),
+                "{id}"
+            );
+            assert!(
+                has(
+                    &spec,
+                    &format!("--extensions-dir=/state/psyche-helper/vscreen/code-extensions/{id}")
                 ),
                 "{id}"
             );
@@ -620,6 +779,15 @@ mod tests {
             );
             assert!(has(&spec, "--writer"));
         }
+        // A home with a space (or anything URL-special) still gives a valid file URL.
+        let mut c = ctx();
+        c.state_dir = PathBuf::from("/home/Ann Lee/.local/state/psyche-helper");
+        let spec = launch_spec(&entry("libreoffice-writer", &["libreoffice"]), &c).unwrap();
+        assert!(has(
+            &spec,
+            "-env:UserInstallation=file:///home/Ann%20Lee/.local/state/psyche-helper/vscreen/lo/profile"
+        ));
+        assert_eq!(file_url("/a/b#c%d"), "file:///a/b%23c%25d");
     }
 
     #[test]
@@ -644,25 +812,73 @@ mod tests {
         )
         .unwrap();
         assert_eq!(spec.argv, vec!["gnome-text-editor"]);
-        let env = |k: &str| {
-            spec.env_set
-                .iter()
-                .find(|(n, _)| n == k)
-                .map(|(_, v)| v.as_str())
-        };
-        assert_eq!(env("DISPLAY"), Some(":90"));
-        assert_eq!(env("GDK_BACKEND"), Some("x11"));
-        assert_eq!(env("QT_QPA_PLATFORM"), Some("xcb"));
-        assert_eq!(env("MOZ_ENABLE_WAYLAND"), Some("0"));
-        assert_eq!(env("XAUTHORITY"), Some("/run/user/1000/psyche/xauth-90"));
-        assert_eq!(env("WAYLAND_DISPLAY"), None);
+        assert_eq!(env_of(&spec, "DISPLAY"), Some(":90"));
+        assert_eq!(env_of(&spec, "GDK_BACKEND"), Some("x11"));
+        assert_eq!(env_of(&spec, "QT_QPA_PLATFORM"), Some("xcb"));
+        assert_eq!(env_of(&spec, "MOZ_ENABLE_WAYLAND"), Some("0"));
+        assert_eq!(env_of(&spec, "XDG_SESSION_TYPE"), Some("x11"));
+        assert_eq!(
+            env_of(&spec, "XAUTHORITY"),
+            Some("/run/user/1000/psyche/xauth-90")
+        );
+        // The owner's language and home come along.
+        assert_eq!(env_of(&spec, "HOME"), Some("/home/o"));
+        assert_eq!(env_of(&spec, "LANG"), Some("de_DE.UTF-8"));
+        assert_eq!(env_of(&spec, "LC_TIME"), Some("de_DE.UTF-8"));
+        assert_eq!(env_of(&spec, "PATH"), Some("/usr/bin:/bin"));
+    }
+
+    #[test]
+    fn the_virtual_screen_never_points_at_the_owners_bus() {
+        let spec = launch_spec(&entry("firefox", &["firefox"]), &ctx()).unwrap();
+        // Exactly one bus address, and it is the session's own.
+        let buses: Vec<&str> = spec
+            .env
+            .iter()
+            .filter(|(k, _)| k == "DBUS_SESSION_BUS_ADDRESS")
+            .map(|(_, v)| v.as_str())
+            .collect();
+        assert_eq!(buses, ["unix:path=/run/user/1000/psyche/vs-abc/bus"]);
+        // The runtime dir is the private one, so `$XDG_RUNTIME_DIR/bus` is not the owner's either.
+        assert_eq!(
+            env_of(&spec, "XDG_RUNTIME_DIR"),
+            Some("/run/user/1000/psyche/vs-abc")
+        );
+        assert_eq!(env_of(&spec, "AT_SPI_BUS_ADDRESS"), None);
+        // Nothing in the environment names the owner's runtime-dir sockets.
+        for (k, v) in &spec.env {
+            assert!(
+                !v.starts_with("unix:path=/run/user/1000/bus") && v != "/run/user/1000",
+                "{k}={v}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_helpers_secrets_and_the_owners_wayland_session_stay_behind() {
+        let spec = launch_spec(&entry("code", &["code"]), &ctx()).unwrap();
         for gone in [
+            "PSYCHE_HOME",
+            "PSYCHE_NODE_SOCKET",
+            "SSH_AUTH_SOCK",
+            "GNOME_KEYRING_CONTROL",
+            "JOURNAL_STREAM",
+            "INVOCATION_ID",
             "WAYLAND_DISPLAY",
+            "WAYLAND_SOCKET",
             "XDG_ACTIVATION_TOKEN",
             "DESKTOP_STARTUP_ID",
+            "AT_SPI_BUS_ADDRESS",
         ] {
-            assert!(spec.env_remove.iter().any(|v| v == gone), "{gone}");
+            assert_eq!(env_of(&spec, gone), None, "{gone}");
         }
+        // The owner's own display and authority are replaced, not kept alongside.
+        assert_eq!(spec.env.iter().filter(|(k, _)| k == "DISPLAY").count(), 1);
+        assert_eq!(env_of(&spec, "DISPLAY"), Some(":90"));
+        assert_eq!(
+            spec.env.iter().filter(|(k, _)| k == "XAUTHORITY").count(),
+            1
+        );
     }
 
     #[test]
@@ -685,29 +901,62 @@ mod tests {
     }
 
     #[test]
-    fn a_profile_is_copied_once_without_locks_or_caches() {
+    fn a_profile_copy_is_fresh_and_has_no_secrets_locks_or_caches() {
         let dir = tempfile::tempdir().unwrap();
         let src = dir.path().join("src");
         std::fs::create_dir_all(src.join("cache2")).unwrap();
         std::fs::create_dir_all(src.join("extensions")).unwrap();
-        std::fs::write(src.join("prefs.js"), "x").unwrap();
-        std::fs::write(src.join("lock"), "x").unwrap();
-        std::fs::write(src.join(".parentlock"), "x").unwrap();
-        std::fs::write(src.join("cache2/junk"), "x").unwrap();
-        std::fs::write(src.join("extensions/a.xpi"), "x").unwrap();
+        std::fs::create_dir_all(src.join("sessionstore-backups")).unwrap();
+        for f in ["prefs.js", "places.sqlite", "cert9.db", "extensions/a.xpi"] {
+            std::fs::write(src.join(f), "x").unwrap();
+        }
+        // Must not be copied: secrets, sessions, history of forms, locks, caches.
+        let private = [
+            "logins.json",
+            "logins-backup.json",
+            "key4.db",
+            "key3.db",
+            "signons.sqlite",
+            "cookies.sqlite",
+            "cookies.sqlite-wal",
+            "cookies.sqlite-shm",
+            "sessionstore.jsonlz4",
+            "sessionCheckpoints.json",
+            "formhistory.sqlite",
+            "formhistory.sqlite-wal",
+            "autofill-profiles.json",
+            "webappsstore.sqlite",
+            "lock",
+            ".parentlock",
+            "cache2/junk",
+            "sessionstore-backups/recovery.jsonlz4",
+        ];
+        for f in private {
+            std::fs::write(src.join(f), "x").unwrap();
+        }
         let dest = dir.path().join("dest");
-        copy_profile(&src, &dest).unwrap();
-        assert!(dest.join("prefs.js").is_file());
-        assert!(dest.join("extensions/a.xpi").is_file());
-        assert!(!dest.join("lock").exists());
-        assert!(!dest.join(".parentlock").exists());
+        fresh_profile_copy(&src, &dest).unwrap();
+        for kept in ["prefs.js", "places.sqlite", "cert9.db", "extensions/a.xpi"] {
+            assert!(dest.join(kept).is_file(), "{kept}");
+        }
+        for f in private {
+            assert!(!dest.join(f).exists(), "{f} was copied");
+        }
         assert!(!dest.join("cache2").exists());
-        // A second call does not touch the copy.
+        // Near-misses that share a word stay: they hold no secrets.
+        for name in [
+            "prefs.js",
+            "places.sqlite",
+            "permissions.sqlite",
+            "cookie-banner.json",
+        ] {
+            assert!(!firefox_private(name), "{name}");
+        }
+        // The next session's copy replaces whatever the agent left in the last one.
+        std::fs::write(dest.join("cookies.sqlite"), "agent's session").unwrap();
         std::fs::write(dest.join("prefs.js"), "changed").unwrap();
-        copy_profile(&src, &dest).unwrap();
-        assert_eq!(
-            std::fs::read_to_string(dest.join("prefs.js")).unwrap(),
-            "changed"
-        );
+        fresh_profile_copy(&src, &dest).unwrap();
+        assert!(!dest.join("cookies.sqlite").exists());
+        assert_eq!(std::fs::read_to_string(dest.join("prefs.js")).unwrap(), "x");
     }
 }

@@ -10,21 +10,34 @@
 //!   "Save changes?" dialog stays, flagged, and the Task parks.
 //! - **Stops on its own.** With no apps and no use for 10 minutes the display stops, and then the
 //!   helper's idle timer runs again.
+//! - **Capped first.** The slice's memory, task and CPU caps are set before anything starts in
+//!   it; the X server and the private bus run in scopes in the slice too. No caps, no screen.
+//! - **Its own session.** Apps get a private runtime dir and session bus (`bus.rs`) and only the
+//!   allowlisted environment (`recipes::app_environment`), never the owner's bus.
+//! - **Nothing stays pressed.** Keys and buttons held through the take-over are released when it
+//!   ends, when the pane loses focus, before the agent acts after the owner, and on stop.
 
 use std::path::PathBuf;
 use std::process::Child;
 use std::sync::{Arc, Mutex, Weak};
 use std::time::{Duration, Instant};
 
+use super::bus;
 use super::display::{DisplayConfig, VirtualDisplay};
-use super::guard::{check_before_launch, resolve_exe, BusctlBus, ProcFs, Procs, SessionBus};
+use super::guard::{
+    check_before_launch, resolve_exe, BusctlBus, ProcFs, Procs, Refusal, SessionBus,
+};
 use super::input::Button;
 use super::recipes::{
-    application_dirs, copy_profile, find_desktop_entry, firefox_profile_from_ini, launch_spec,
-    recipe_for, Family, LaunchContext,
+    app_environment, application_dirs, find_desktop_entry, firefox_profile_from_ini,
+    fresh_profile_copy, launch_spec, recipe_for, Family, LaunchContext, LaunchSpec, APP_ENV_ALLOW,
 };
-use super::scope::{parse_memory_high, unit_name, ScopeRunner, SystemdRunner, DEFAULT_MEMORY_HIGH};
+use super::scope::{
+    parse_cpu_quota, parse_memory, parse_tasks_max, unit_name, ScopeRunner, SliceLimits,
+    SystemdRunner,
+};
 use super::wmdriver::WindowRecord;
+use super::xauth;
 use crate::idle::{IdleHold, IdleTimer};
 use crate::paths::{state_dir, Env};
 
@@ -51,7 +64,10 @@ pub struct Config {
     pub xdg_runtime_dir: Option<String>,
     pub app_dirs: Vec<PathBuf>,
     pub path_var: String,
-    pub memory_high: String,
+    /// The owner's values of `recipes::APP_ENV_ALLOW`: all an app gets of the environment.
+    pub base_env: Vec<(String, String)>,
+    /// The slice's caps, set before anything starts in it.
+    pub limits: SliceLimits,
     pub first_display: u32,
     pub xvfb_path: String,
     pub width: u32,
@@ -69,11 +85,11 @@ impl Config {
     pub fn from_env(env: &dyn Env) -> Self {
         let home = PathBuf::from(env.get("HOME").unwrap_or_else(|| "/".into()));
         let state = state_dir(env);
-        let memory_high = env
-            .get("PSYCHE_VSCREEN_MEMORY_HIGH")
-            .and_then(|v| parse_memory_high(&v))
-            .or_else(|| memory_from_file(&state))
-            .unwrap_or_else(|| DEFAULT_MEMORY_HIGH.to_string());
+        let limits = limits_from(env, &state);
+        let base_env = APP_ENV_ALLOW
+            .iter()
+            .filter_map(|k| env.get(k).map(|v| (k.to_string(), v)))
+            .collect();
         Self {
             app_dirs: application_dirs(
                 &home,
@@ -95,18 +111,44 @@ impl Config {
             launch_wait: Duration::from_secs(10),
             close_grace: Duration::from_secs(4),
             watchdog_every: Duration::from_secs(2),
-            memory_high,
+            base_env,
+            limits,
             state_dir: state,
             home,
         }
     }
 }
 
-/// `<state>/vscreen.json` with `{"memoryHigh":"2G"}`: the setting the desktop writes.
-fn memory_from_file(state: &std::path::Path) -> Option<String> {
-    let text = std::fs::read_to_string(state.join("vscreen.json")).ok()?;
-    let v: serde_json::Value = serde_json::from_str(&text).ok()?;
-    parse_memory_high(v.get("memoryHigh")?.as_str()?)
+/// The slice's caps: `PSYCHE_VSCREEN_*` first, then `<state>/vscreen.json` (`{"memoryHigh":"2G",
+/// "memoryMax":"3G","tasksMax":2048,"cpuQuota":"200%"}`, what the desktop writes), then the
+/// defaults. A value that does not parse (`infinity` among them) falls back to the default.
+pub fn limits_from(env: &dyn Env, state: &std::path::Path) -> SliceLimits {
+    let file: serde_json::Value = std::fs::read_to_string(state.join("vscreen.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or(serde_json::Value::Null);
+    let setting = |env_key: &str, file_key: &str| -> Option<String> {
+        env.get(env_key).or_else(|| match file.get(file_key)? {
+            serde_json::Value::String(s) => Some(s.clone()),
+            serde_json::Value::Number(n) => Some(n.to_string()),
+            _ => None,
+        })
+    };
+    let d = SliceLimits::defaults();
+    SliceLimits {
+        memory_high: setting("PSYCHE_VSCREEN_MEMORY_HIGH", "memoryHigh")
+            .and_then(|v| parse_memory(&v))
+            .unwrap_or(d.memory_high),
+        memory_max: setting("PSYCHE_VSCREEN_MEMORY_MAX", "memoryMax")
+            .and_then(|v| parse_memory(&v))
+            .unwrap_or(d.memory_max),
+        tasks_max: setting("PSYCHE_VSCREEN_TASKS_MAX", "tasksMax")
+            .and_then(|v| parse_tasks_max(&v))
+            .unwrap_or(d.tasks_max),
+        cpu_quota_percent: setting("PSYCHE_VSCREEN_CPU_QUOTA", "cpuQuota")
+            .and_then(|v| parse_cpu_quota(&v))
+            .unwrap_or(d.cpu_quota_percent),
+    }
 }
 
 pub struct Deps {
@@ -133,8 +175,18 @@ struct AppRec {
     unsaved: bool,
 }
 
+/// One display session's private runtime dir and bus (`bus.rs`), and the scopes around them.
+struct Session {
+    dir: PathBuf,
+    /// The private bus, when `dbus-daemon` started; `None` means apps get `no_bus_address`.
+    bus_address: Option<String>,
+    bus: Option<(String, Child)>,
+    display_unit: String,
+}
+
 struct Inner {
     display: Option<Arc<VirtualDisplay>>,
+    session: Option<Session>,
     apps: Vec<AppRec>,
     next_unit: u32,
     last_activity: Instant,
@@ -210,6 +262,9 @@ pub struct VscreenManager {
     deps: Deps,
     idle: Arc<IdleTimer>,
     inner: Mutex<Inner>,
+    /// Whether this display session's Firefox profile copy is made. Its own lock: copying can
+    /// take seconds and must not block frames and status. Taken after `inner`, never before.
+    firefox_fresh: Mutex<bool>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -222,8 +277,10 @@ impl VscreenManager {
             config,
             deps,
             idle,
+            firefox_fresh: Mutex::new(false),
             inner: Mutex::new(Inner {
                 display: None,
+                session: None,
                 apps: Vec::new(),
                 next_unit: 1,
                 last_activity: Instant::now(),
@@ -259,7 +316,21 @@ impl VscreenManager {
                 return Ok(Arc::clone(d));
             }
             // The server died under us: clear the leftovers and start again.
-            Self::teardown_locked(&mut inner, &*self.deps.runner);
+            self.teardown_locked(&mut inner);
+        }
+        // The caps go on the slice before anything runs in it, and without them nothing does.
+        if !inner.limited {
+            self.deps
+                .runner
+                .limit_slice(&self.config.limits)
+                .map_err(|e| {
+                    VsError::new(
+                        "limits_failed",
+                        "The virtual screen could not be given its memory and CPU limits, so it did not start.",
+                    )
+                    .with_detail(&e)
+                })?;
+            inner.limited = true;
         }
         let (w, h) = size.unwrap_or((self.config.width, self.config.height));
         let mut cfg = DisplayConfig::new(w, h);
@@ -285,6 +356,10 @@ impl VscreenManager {
             .with_detail(&e)
         })?;
         let display = Arc::new(display);
+        let session = self
+            .start_session(&display)
+            .inspect_err(|_| display.stop())?;
+        inner.session = Some(session);
         inner.display = Some(Arc::clone(&display));
         inner.started_at_wall = Some(std::time::SystemTime::now());
         inner.last_activity = Instant::now();
@@ -302,22 +377,140 @@ impl VscreenManager {
         Ok(display)
     }
 
+    /// The X server into its scope in the slice, then the private runtime dir and bus.
+    fn start_session(&self, display: &VirtualDisplay) -> Result<Session, VsError> {
+        let display_unit = format!(
+            "psyche-vs-display-{}-{}",
+            display.display.trim_start_matches(':'),
+            display.xvfb_pid()
+        );
+        self.deps
+            .runner
+            .adopt(
+                &display_unit,
+                "Psyche virtual screen display",
+                display.xvfb_pid(),
+            )
+            .map_err(|e| {
+                VsError::new(
+                    "limits_failed",
+                    "The virtual screen could not be placed under its memory and CPU limits, so it did not start.",
+                )
+                .with_detail(&e)
+            })?;
+        let fail = |e: std::io::Error| {
+            VsError::new("display_failed", "The virtual screen could not start.")
+                .with_detail(&e.to_string())
+        };
+        let base = xauth::runtime_dir(self.config.xdg_runtime_dir.as_deref()).map_err(fail)?;
+        let dir = bus::make_session_dir(&base).map_err(fail)?;
+        let mut session = Session {
+            dir,
+            bus_address: None,
+            bus: None,
+            display_unit,
+        };
+        let address = bus::bus_address(&session.dir);
+        let spec = LaunchSpec {
+            argv: bus::dbus_daemon_argv(&session.dir),
+            env: app_environment(&self.launch_context(display, &session.dir, &address, None)),
+        };
+        let unit = format!(
+            "psyche-vs-bus-{}-{}",
+            display.display.trim_start_matches(':'),
+            display.xvfb_pid()
+        );
+        match self
+            .deps
+            .runner
+            .spawn(&unit, "Psyche virtual screen session bus", &spec)
+        {
+            Ok(mut child) => {
+                match bus::wait_for_bus(&session.dir, &mut child, Duration::from_secs(5)) {
+                    Ok(()) => {
+                        session.bus_address = Some(address);
+                        session.bus = Some((unit, child));
+                    }
+                    Err(e) => {
+                        crate::log(&format!("vscreen: no private session bus: {e}"));
+                        self.deps.runner.stop(&unit);
+                        let _ = child.kill();
+                        let _ = child.wait();
+                    }
+                }
+            }
+            Err(e) => crate::log(&format!("vscreen: no private session bus: {e}")),
+        }
+        Ok(session)
+    }
+
+    fn launch_context(
+        &self,
+        display: &VirtualDisplay,
+        session_dir: &std::path::Path,
+        bus_address: &str,
+        firefox_profile: Option<PathBuf>,
+    ) -> LaunchContext {
+        LaunchContext {
+            state_dir: self.config.state_dir.clone(),
+            display: display.display.clone(),
+            xauthority: display.xauthority.clone(),
+            firefox_profile,
+            runtime_dir: session_dir.to_path_buf(),
+            bus_address: bus_address.to_string(),
+            base_env: self.config.base_env.clone(),
+        }
+    }
+
     pub fn start(self: &Arc<Self>, size: Option<(u32, u32)>) -> Result<Status, VsError> {
         self.ensure_display(size)?;
         self.touch();
         Ok(self.status())
     }
 
-    fn teardown_locked(inner: &mut Inner, runner: &dyn ScopeRunner) {
+    /// The display's authority file, while it runs (tests and diagnostics).
+    pub fn xauthority(&self) -> Option<PathBuf> {
+        lock(&self.inner)
+            .display
+            .as_ref()
+            .map(|d| d.xauthority.clone())
+    }
+
+    /// The private session bus, while one runs (the AT-SPI work reads the apps' tree there).
+    pub fn session_bus_address(&self) -> Option<String> {
+        lock(&self.inner)
+            .session
+            .as_ref()
+            .and_then(|s| s.bus_address.clone())
+    }
+
+    fn teardown_locked(&self, inner: &mut Inner) {
+        let runner = &*self.deps.runner;
         for app in inner.apps.drain(..) {
             runner.stop(&app.unit);
             let mut child = app.child;
             let _ = child.kill();
             let _ = child.wait();
         }
-        if let Some(d) = inner.display.take() {
+        if let Some(mut s) = inner.session.take() {
+            if let Some((unit, mut child)) = s.bus.take() {
+                runner.stop(&unit);
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+            if let Some(d) = inner.display.take() {
+                d.stop();
+            }
+            runner.stop(&s.display_unit);
+            let _ = std::fs::remove_dir_all(&s.dir);
+        } else if let Some(d) = inner.display.take() {
             d.stop();
         }
+        // The next session's Firefox starts from a fresh copy; this one's goes.
+        let mut fresh = lock(&self.firefox_fresh);
+        *fresh = false;
+        let _ = std::fs::remove_dir_all(self.firefox_profile_dir());
+        drop(fresh);
         inner.hold = None;
         inner.started_at_wall = None;
         inner.owner_input_at = None;
@@ -339,18 +532,43 @@ impl VscreenManager {
         let exe = resolve_exe(&entry, &self.config.path_var);
         // Before anything starts: is it already open on the owner's screen?
         check_before_launch(&entry, exe.as_deref(), &*self.deps.bus, &*self.deps.procs).map_err(
-            |_| {
-                VsError::new(
+            |r| match r {
+                Refusal::AlreadyOpenOnYourScreen => VsError::new(
                     "already_open_on_your_screen",
                     format!(
                         "{} is already open on your screen. Use your own screen for it instead.",
                         entry.name
                     ),
-                )
+                ),
+                Refusal::CannotCheck => VsError::new(
+                    "guard_unavailable",
+                    format!(
+                        "Psyche could not check whether {} is already open on your screen, so it did not open it.",
+                        entry.name
+                    ),
+                ),
             },
         )?;
         let display = self.ensure_display(None)?;
         self.touch();
+        let (session_dir, bus_address) = {
+            let inner = lock(&self.inner);
+            let s = inner
+                .session
+                .as_ref()
+                .ok_or_else(|| VsError::new("not_running", "The virtual screen is not running."))?;
+            (s.dir.clone(), s.bus_address.clone())
+        };
+        if bus_address.is_none() && bus::needs_session_bus(&entry) {
+            return Err(VsError::new(
+                "needs_private_bus",
+                format!(
+                    "{} needs its own session bus on the virtual screen, and dbus-daemon is not installed, so it was not opened.",
+                    entry.name
+                ),
+            ));
+        }
+        let bus_address = bus_address.unwrap_or_else(|| bus::no_bus_address(&session_dir));
 
         let firefox_profile = if recipe_for(&entry.id).is_some_and(|r| r.family == Family::Firefox)
         {
@@ -358,12 +576,7 @@ impl VscreenManager {
         } else {
             None
         };
-        let ctx = LaunchContext {
-            state_dir: self.config.state_dir.clone(),
-            display: display.display.clone(),
-            xauthority: display.xauthority.clone(),
-            firefox_profile,
-        };
+        let ctx = self.launch_context(&display, &session_dir, &bus_address, firefox_profile);
         let spec = launch_spec(&entry, &ctx).map_err(|m| VsError::new("launch_failed", m))?;
         let (unit, serial) = {
             let mut inner = lock(&self.inner);
@@ -392,10 +605,6 @@ impl VscreenManager {
                 root_pid,
                 unsaved: false,
             });
-            if !inner.limited {
-                inner.limited = true;
-                self.deps.runner.limit_slice(&self.config.memory_high);
-            }
         }
         match display.wait_for_window(serial, self.config.launch_wait, |_| true) {
             Some(win) => Ok(Opened {
@@ -430,9 +639,16 @@ impl VscreenManager {
         }
     }
 
+    fn firefox_profile_dir(&self) -> PathBuf {
+        self.config.state_dir.join("vscreen/firefox/profile")
+    }
+
+    /// The agent's Firefox profile: a fresh copy of the owner's default profile once per display
+    /// session, without saved passwords, cookies, sessions or form history (`firefox_skip`).
     fn firefox_profile_copy(&self) -> Result<PathBuf, VsError> {
-        let dest = self.config.state_dir.join("vscreen/firefox/profile");
-        if dest.exists() {
+        let dest = self.firefox_profile_dir();
+        let mut fresh = lock(&self.firefox_fresh);
+        if *fresh && dest.is_dir() {
             return Ok(dest);
         }
         let bases = [
@@ -449,13 +665,22 @@ impl VscreenManager {
             firefox_profile_from_ini(&ini, base).filter(|p| p.is_dir())
         });
         let result = match source {
-            Some(src) => copy_profile(&src, &dest),
-            None => std::fs::create_dir_all(&dest),
+            Some(src) => fresh_profile_copy(&src, &dest),
+            None => std::fs::remove_dir_all(&dest)
+                .or_else(|e| {
+                    if e.kind() == std::io::ErrorKind::NotFound {
+                        Ok(())
+                    } else {
+                        Err(e)
+                    }
+                })
+                .and_then(|_| std::fs::create_dir_all(&dest)),
         };
         result.map_err(|e| {
             VsError::new("launch_failed", "Firefox's profile could not be prepared.")
                 .with_detail(&e.to_string())
         })?;
+        *fresh = true;
         Ok(dest)
     }
 
@@ -586,8 +811,10 @@ impl VscreenManager {
 
     // ---- input ----
 
-    /// The owner's take-over input, in the coordinates of the last frame handed out.
-    pub fn owner_input(&self, events: &[InputEvent]) -> Result<(), VsError> {
+    /// The owner's take-over input, in the coordinates of the last frame handed out. With
+    /// `release` (the take-over ended, or the pane lost focus) every held key and button is let
+    /// go afterwards and the agent is no longer paused.
+    pub fn owner_input(&self, events: &[InputEvent], release: bool) -> Result<(), VsError> {
         let display = self.current_display()?;
         let scale = {
             let mut inner = lock(&self.inner);
@@ -627,6 +854,21 @@ impl VscreenManager {
                 InputEvent::Text(t) => display.with_input(|i| i.type_text(t)).map_err(fail)?,
             }
         }
+        if release {
+            display.release_input().map_err(fail)?;
+            lock(&self.inner).owner_input_at = None;
+        }
+        Ok(())
+    }
+
+    /// Before the agent acts after the owner drove: let go of whatever the owner left pressed.
+    fn release_after_owner(&self, display: &VirtualDisplay) -> Result<(), VsError> {
+        let owner_was_here = lock(&self.inner).owner_input_at.take().is_some();
+        if owner_was_here {
+            display.release_input().map_err(|e| {
+                VsError::new("input_failed", "The input could not be sent.").with_detail(&e)
+            })?;
+        }
         Ok(())
     }
 
@@ -635,7 +877,9 @@ impl VscreenManager {
     pub fn agent_click(&self, x: i32, y: i32, button: Button) -> Result<(), VsError> {
         self.refuse_if_owner_drives()?;
         self.touch();
-        self.current_display()?.click(x, y, button).map_err(|e| {
+        let display = self.current_display()?;
+        self.release_after_owner(&display)?;
+        display.click(x, y, button).map_err(|e| {
             VsError::new("input_failed", "The click could not be sent.").with_detail(&e)
         })
     }
@@ -643,7 +887,9 @@ impl VscreenManager {
     pub fn agent_type(&self, text: &str) -> Result<(), VsError> {
         self.refuse_if_owner_drives()?;
         self.touch();
-        self.current_display()?.type_text(text).map_err(|e| {
+        let display = self.current_display()?;
+        self.release_after_owner(&display)?;
+        display.type_text(text).map_err(|e| {
             VsError::new("input_failed", "The text could not be typed.").with_detail(&e)
         })
     }
@@ -671,6 +917,11 @@ impl VscreenManager {
             });
         };
         self.touch();
+        // Nothing the owner held may stay down, whether the screen stops or stays for a dialog.
+        if let Err(e) = display.release_input() {
+            crate::log(&format!("vscreen: release on stop: {e}"));
+        }
+        lock(&self.inner).owner_input_at = None;
         if close_apps && !force {
             for w in display.windows() {
                 if w.transient_for.is_none() {
@@ -701,7 +952,7 @@ impl VscreenManager {
             }
         }
         let mut inner = lock(&self.inner);
-        Self::teardown_locked(&mut inner, &*self.deps.runner);
+        self.teardown_locked(&mut inner);
         crate::log("vscreen: stopped");
         Ok(StopOutcome {
             stopped: true,
@@ -712,7 +963,7 @@ impl VscreenManager {
     /// Stops everything now (the helper is exiting).
     pub fn shutdown(&self) {
         let mut inner = lock(&self.inner);
-        Self::teardown_locked(&mut inner, &*self.deps.runner);
+        self.teardown_locked(&mut inner);
     }
 }
 
@@ -728,7 +979,7 @@ fn watchdog(weak: Weak<VscreenManager>, every: Duration) {
             return;
         };
         if !display.is_alive() {
-            VscreenManager::teardown_locked(&mut inner, &*m.deps.runner);
+            m.teardown_locked(&mut inner);
             crate::log("vscreen: the display ended");
             inner.watchdog = false;
             return;
@@ -758,7 +1009,7 @@ fn watchdog(weak: Weak<VscreenManager>, every: Duration) {
         }
         inner.apps = keep;
         if inner.apps.is_empty() && inner.last_activity.elapsed() >= m.config.idle_stop {
-            VscreenManager::teardown_locked(&mut inner, &*m.deps.runner);
+            m.teardown_locked(&mut inner);
             crate::log("vscreen: stopped (idle)");
             inner.watchdog = false;
             return;
