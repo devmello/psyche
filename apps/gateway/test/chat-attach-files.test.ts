@@ -516,3 +516,28 @@ describe("ending a conversation never crashes the Gateway", () => {
     expect(() => synchronous(threadA)).not.toThrow();
   });
 });
+
+describe("attach records follow the live grant", () => {
+  it("a send is refused after the covering Settings folder is revoked", async () => {
+    broker.setPolicy({ ...broker.policy, folders: [{ path: docs, mode: "ro" }] });
+    await attach(threadA, [report]);
+    await send(threadA, [{ path: report }]);
+    broker.setPolicy({ ...broker.policy, folders: [] });
+    await expect(send(threadA, [{ path: report }])).rejects.toMatchObject({ code: "forbidden" });
+    expect(sent).toHaveLength(1);
+  });
+
+  it("a re-attach refreshes the record and the grant together (hours 20 and 30)", async () => {
+    const HOUR = 60 * 60 * 1000;
+    await attach(threadA, [report]);
+    now += 20 * HOUR;
+    await attach(threadA, [report]);
+    now += 10 * HOUR; // hour 30: past the first 24 h, inside the refreshed one
+    expect((await readFile(threadA, report)).output.text).toBe("Q3 numbers");
+    await send(threadA, [{ path: report }]);
+    expect(sent).toHaveLength(1);
+    now += 15 * HOUR; // hour 45: past the refreshed 24 h (ends at hour 44): both refuse
+    await expect(readFile(threadA, report)).rejects.toMatchObject({ code: "forbidden" });
+    await expect(send(threadA, [{ path: report }])).rejects.toMatchObject({ code: "forbidden" });
+  });
+});
