@@ -1227,6 +1227,8 @@ export class MockGateway implements GatewayClient {
   /** Every `files.requestShare` the mock saw; `shareAnswer` is what it replies (default: a card). */
   shareRequests: { threadId: string; path: string; access: "read" }[] = [];
   shareAnswer: "pending" | "already" = "pending";
+  /** Every `files.write` the mock accepted (the content is kept for assertions). */
+  fileWrites: { path: string; content: string; ifMatch?: string; create?: boolean }[] = [];
   /** False: this device lacks operator.admin (`devices.list` and the like are refused). */
   admin = true;
 
@@ -2108,6 +2110,37 @@ export class MockGateway implements GatewayClient {
         }))
         .sort((a, b) => rank(a.kind) - rank(b.kind) || a.name.localeCompare(b.name));
       return { entries, nextOffset: null };
+    },
+    "files.write": (p) => {
+      if (!this.admin) fail("forbidden", "saving a file requires operator.admin");
+      const policy = this.world.settings["permissions.policy"] as
+        | { folders?: { path: string; mode: "ro" | "rw" }[] }
+        | undefined;
+      const hits = (policy?.folders ?? []).filter((f) => p.path.startsWith(`${f.path}/`));
+      const best = hits.sort((a, b) => b.path.length - a.path.length)[0];
+      if (best === undefined) fail("forbidden", `${p.path} is outside every granted folder`);
+      if (best.mode !== "rw") fail("forbidden", `${best.path} is granted read-only`);
+      const node = this.world.files[p.path];
+      const modifiedAt = this.now();
+      if (node === undefined) {
+        if (p.create !== true) return fail("not_found", `${p.path} does not exist`);
+      } else {
+        if (node.kind !== "file") return fail("invalid_params", `${p.path} is not a file`);
+        if (p.create === true) return fail("conflict", `${p.path} already exists`);
+        const current = `${new TextEncoder().encode(node.text).length}-${node.modifiedAt ?? modifiedAt}`;
+        if (p.ifMatch !== current) return fail("conflict", `${p.path} changed since you opened it`);
+      }
+      this.fileWrites.push({
+        path: p.path,
+        content: p.content,
+        ...(p.ifMatch === undefined ? {} : { ifMatch: p.ifMatch }),
+        ...(p.create === undefined ? {} : { create: p.create }),
+      });
+      const size = new TextEncoder().encode(p.content).length;
+      // A fresh stamp each save, so the next etag differs even when the length does not.
+      const stamp = new Date(Date.parse(modifiedAt) + this.fileWrites.length * 1000).toISOString();
+      this.world.files[p.path] = { kind: "file", text: p.content, modifiedAt: stamp };
+      return { etag: `${size}-${stamp}`, modifiedAt: stamp, size };
     },
     "files.read": (p) => {
       if ((p.path === undefined) === (p.libraryPath === undefined))

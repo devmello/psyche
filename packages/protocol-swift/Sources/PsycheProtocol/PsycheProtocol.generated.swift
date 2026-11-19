@@ -574,6 +574,8 @@
 //   let filesRequestShareResult = try? JSONDecoder().decode(FilesRequestShareResult.self, from: jsonData)
 //   let filesStarterFoldersParams = try? JSONDecoder().decode(FilesStarterFoldersParams.self, from: jsonData)
 //   let filesStarterFoldersResult = try? JSONDecoder().decode(FilesStarterFoldersResult.self, from: jsonData)
+//   let filesWriteParams = try? JSONDecoder().decode(FilesWriteParams.self, from: jsonData)
+//   let filesWriteResult = try? JSONDecoder().decode(FilesWriteResult.self, from: jsonData)
 //   let frame = try? JSONDecoder().decode(Frame.self, from: jsonData)
 //   let gatedCapability = try? JSONDecoder().decode(GatedCapability.self, from: jsonData)
 //   let gatewayInfo = try? JSONDecoder().decode(GatewayInfo.self, from: jsonData)
@@ -15817,6 +15819,51 @@ public enum StarterFolderID: String, Codable, Sendable {
     case desktop = "desktop"
     case documents = "documents"
     case downloads = "downloads"
+}
+
+// MARK: - FilesWriteParams
+public struct FilesWriteParams: Codable, Sendable {
+    /// UTF-8 text
+    public let content: String
+    /// make a new file: it must not exist, and ifMatch is absent
+    public let create: Bool?
+    /// the etag `files.read` returned; the file must still match
+    public let ifMatch: String?
+    /// an absolute path in a granted folder
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case content = "content"
+        case create = "create"
+        case ifMatch = "ifMatch"
+        case path = "path"
+    }
+
+    public init(content: String, create: Bool? = nil, ifMatch: String? = nil, path: String) {
+        self.content = content
+        self.create = create
+        self.ifMatch = ifMatch
+        self.path = path
+    }
+}
+
+// MARK: - FilesWriteResult
+public struct FilesWriteResult: Codable, Sendable {
+    public let etag: String
+    public let modifiedAt: String
+    public let size: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case etag = "etag"
+        case modifiedAt = "modifiedAt"
+        case size = "size"
+    }
+
+    public init(etag: String, modifiedAt: String, size: Int) {
+        self.etag = etag
+        self.modifiedAt = modifiedAt
+        self.size = size
+    }
 }
 
 // MARK: - Frame

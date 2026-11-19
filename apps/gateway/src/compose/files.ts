@@ -1,7 +1,19 @@
+import { randomBytes } from "node:crypto";
 import { constants } from "node:fs";
-import { type FileHandle, lstat, open, readdir, realpath } from "node:fs/promises";
+import {
+  type FileHandle,
+  link,
+  lstat,
+  open,
+  readdir,
+  realpath,
+  rename,
+  stat,
+  unlink,
+} from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, join, resolve, sep } from "node:path";
+import { basename, dirname, extname, join, resolve, sep } from "node:path";
+import type { HashChainAuditLog } from "@psyche/audit";
 import { getAgentThreadState, getThread, listRuns } from "@psyche/db";
 import {
   assertGranted,
@@ -16,6 +28,8 @@ import { assertFolderGrantable, folderCovers } from "@psyche/permissions";
 import {
   FILE_CHUNK_BYTES,
   FILE_LIST_PAGE,
+  FILE_WRITE_EXTENSIONS,
+  FILE_WRITE_MAX_BYTES,
   type FileEntry,
   type MethodParams,
   type MethodResult,
@@ -45,6 +59,10 @@ export interface FilesSetup {
   userHome?: string;
   /** What `files.requestShare` raises its folder card with (the tool's broker and surfaces). */
   share?: FolderAccessToolDeps;
+  /**  reports every save here; without it the method is unavailable. */
+  audit?: Pick<HashChainAuditLog, "append">;
+  /** Test seam: the rename that publishes a saved file. */
+  rename?: (from: string, to: string) => Promise<void>;
 }
 
 /** A file the caller may read: its real path and display name. */
@@ -193,6 +211,123 @@ async function readFile(
   }
 }
 
+/**
+ * `files.write`: the owner's own edit of a text file from the Files pane (admin devices only, no
+ * approval card). The same gates as the agent's write, minus the card: a folder shared `rw`
+ * (policy folders only: a single attached file or a read-only folder never qualifies), no symlink,
+ * outside Psyche's home and the credential stores, an allowlisted extension, a size cap. The save
+ * needs the etag the reader holds (or `create`), and goes through a temp file and a rename.
+ */
+async function writeFile(
+  call: Call,
+  params: MethodParams<"files.write">,
+  setup: FilesSetup,
+): Promise<MethodResult<"files.write">> {
+  if (!call.identity.scopes.includes("operator.admin")) {
+    throw new PsycheError("forbidden", "saving a file requires operator.admin");
+  }
+  if (setup.audit === undefined) throw new PsycheError("unavailable", "saving is not set up");
+  const target = canonicalTarget(params.path);
+  const ext = extname(target).toLowerCase();
+  if (!(FILE_WRITE_EXTENSIONS as readonly string[]).includes(ext)) {
+    throw new PsycheError(
+      "invalid_params",
+      `only ${FILE_WRITE_EXTENSIONS.join(", ")} files can be saved here`,
+    );
+  }
+  const { content } = params;
+  if (content.includes("\0") || !content.isWellFormed()) {
+    throw new PsycheError("invalid_params", "only UTF-8 text can be saved");
+  }
+  const bytes = Buffer.from(content, "utf8");
+  if (bytes.length > FILE_WRITE_MAX_BYTES) {
+    throw new PsycheError(
+      "invalid_params",
+      `the file is larger than ${FILE_WRITE_MAX_BYTES} bytes`,
+    );
+  }
+  const create = params.create === true;
+  if (create === (params.ifMatch !== undefined)) {
+    throw new PsycheError("invalid_params", "pass exactly one of ifMatch and create");
+  }
+  assertNotProtected(target, protectedRoots(setup.home));
+  assertGranted(
+    target,
+    setup.folders().filter((f) => f.file !== true),
+    "write",
+  );
+  await assertNoSymlinks(target);
+
+  const current = await lstat(target).catch((err: NodeJS.ErrnoException) => {
+    if (err.code === "ENOENT") return undefined;
+    throw fsError(err, target);
+  });
+  let mode = 0o644;
+  if (current !== undefined) {
+    if (!current.isFile()) throw new PsycheError("invalid_params", `${target} is not a file`);
+    if (current.nlink !== 1) {
+      throw new PsycheError("forbidden", `${target} has another name; it can't be saved here`);
+    }
+    if (create) throw new PsycheError("conflict", `${target} already exists`);
+    if (params.ifMatch !== etagOf(current)) {
+      throw new PsycheError("conflict", `${target} changed since you opened it`);
+    }
+    mode = current.mode & 0o7777;
+  } else {
+    if (!create) throw new PsycheError("not_found", `${target} does not exist`);
+    const dir = await stat(dirname(target)).catch((err) => {
+      throw fsError(err, dirname(target));
+    });
+    if (!dir.isDirectory()) throw new PsycheError("invalid_params", "the folder is missing");
+  }
+
+  const tmp = join(dirname(target), `.${basename(target)}.${randomBytes(6).toString("hex")}.tmp`);
+  try {
+    const fh = await open(
+      tmp,
+      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+      mode,
+    );
+    try {
+      await fh.writeFile(bytes);
+      await fh.chmod(mode);
+      await fh.sync();
+    } finally {
+      await fh.close();
+    }
+    if (current === undefined) {
+      // A new name never replaces a file that appeared meanwhile: link fails with EEXIST.
+      try {
+        await link(tmp, target);
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === "EEXIST") {
+          throw new PsycheError("conflict", `${target} already exists`);
+        }
+        throw err;
+      }
+      await unlink(tmp);
+    } else {
+      // The last look before the swap: the file must still be the one the etag names.
+      const now = await lstat(target).catch(() => undefined);
+      if (now === undefined || !now.isFile() || etagOf(now) !== params.ifMatch) {
+        throw new PsycheError("conflict", `${target} changed since you opened it`);
+      }
+      await (setup.rename ?? rename)(tmp, target);
+    }
+  } catch (err) {
+    await unlink(tmp).catch(() => undefined);
+    throw err;
+  }
+  const info = await lstat(target);
+  // The path and the size only: never what was written.
+  await setup.audit.append({
+    kind: "files.write",
+    actor: { type: "device", deviceId: call.identity.deviceId },
+    data: { path: target, bytes: bytes.length, created: create },
+  });
+  return { etag: etagOf(info), modifiedAt: info.mtime.toISOString(), size: info.size };
+}
+
 const STARTER_FOLDERS = [
   ["documents", "Documents"],
   ["desktop", "Desktop"],
@@ -296,6 +431,9 @@ export function filesHandlers(setup: FilesSetup): Record<string, HandlerDef> {
     },
     "files.list": {
       run: (_call: Call, params: MethodParams<"files.list">) => listFolder(params, setup),
+    },
+    "files.write": {
+      run: (call: Call, params: MethodParams<"files.write">) => writeFile(call, params, setup),
     },
     "files.read": {
       run: (_call: Call, params: MethodParams<"files.read">) => readFile(params, setup),

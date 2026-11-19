@@ -1540,6 +1540,14 @@
         "sideEffecting": false
       },
       {
+        "description": "The owner's own edit of a text file from the Files pane. Only a paired device with operator.admin can call it; no tool, agent, MCP server or channel reaches it, and it raises no approval card (the agent's write_file always does). The path must lie in a folder shared read & write (permissions.policy.folders, mode rw; a single attached file or a read-only folder never qualifies), go through no symlink, stay out of Psyche's home and the credential stores, and end in .md, .markdown, .txt, .csv. Content is UTF-8, at most 5242880 bytes (invalid_params above that). ifMatch must equal the file's current etag or the call fails with conflict; without it the call needs create: true and a path that does not exist yet, in an existing folder. The write is atomic (temp file, then rename) and keeps the file's permission bits. Audited as files.write with the path and byte count, never the content. forbidden, not_found, invalid_params, conflict. Side-effecting.",
+        "name": "files.write",
+        "params": "#/$defs/FilesWriteParams",
+        "result": "#/$defs/FilesWriteResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "The Gateway's identity key and fingerprint, the Host's name and whether it is set up to be reached from other computers (publicOrigin, trusted proxy). The Host's Settings shows the fingerprint next to a pairing request so the owner can compare it with the one the new computer shows.",
         "name": "gateway.info",
         "params": "#/$defs/GatewayInfoParams",
@@ -20667,6 +20675,56 @@
       },
       "required": [
         "folders"
+      ],
+      "type": "object"
+    },
+    "FilesWriteParams": {
+      "properties": {
+        "path": {
+          "description": "an absolute path in a granted folder",
+          "maxLength": 4096,
+          "minLength": 2,
+          "pattern": "^(/|[A-Za-z]:[\\\\/])",
+          "type": "string"
+        },
+        "content": {
+          "description": "UTF-8 text",
+          "type": "string"
+        },
+        "ifMatch": {
+          "description": "the etag `files.read` returned; the file must still match",
+          "type": "string"
+        },
+        "create": {
+          "description": "make a new file: it must not exist, and ifMatch is absent",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "path",
+        "content"
+      ],
+      "type": "object"
+    },
+    "FilesWriteResult": {
+      "properties": {
+        "etag": {
+          "type": "string"
+        },
+        "modifiedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "etag",
+        "modifiedAt",
+        "size"
       ],
       "type": "object"
     },

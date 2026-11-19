@@ -2205,6 +2205,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...filesHandlers({
       folders: () => rawBroker.policy.folders ?? [],
       home: config.home,
+      audit,
       share: {
         broker: executorBroker,
         surfaces: ["desktop", "web"],

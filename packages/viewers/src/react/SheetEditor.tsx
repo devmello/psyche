@@ -15,6 +15,8 @@ import { useLoadable } from "./useBytes.ts";
 export interface SheetEditorProps extends ViewerProps {
   /** Back to the read-only viewer. Unsaved edits ask first. */
   onClose: () => void;
+  /** Told whenever unsaved edits appear or are saved, so a host can warn before it navigates away. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 /** What `fromUniverSnapshot` cannot write back, said before the first save. */
@@ -79,6 +81,10 @@ function EditorSurface(
   const [dirty, setDirty] = useState(false);
   const [save, setSave] = useState<SaveState>({ kind: "idle" });
   const [confirmClose, setConfirmClose] = useState(false);
+  const { onDirtyChange } = props;
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
 
   useEffect(() => {
     const el = host.current;

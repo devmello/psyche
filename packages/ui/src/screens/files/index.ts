@@ -1,4 +1,10 @@
 export {
+  canEditPath,
+  type FileEditKind,
+  type FileEditSession,
+  fileEditKind,
+} from "./FileEditFrame.tsx";
+export {
   displayPath,
   type FileRef,
   FilesPane,
