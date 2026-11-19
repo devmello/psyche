@@ -1,4 +1,4 @@
-import { mkdtemp, realpath, symlink } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -17,6 +17,22 @@ describe.skipIf(process.platform === "win32")("folderRefused when the real path 
     });
     expect(h.broker.folderRefused(loop)).toBe(true);
     expect(h.broker.grantedFolders()).toEqual([]);
+  });
+
+  it("judges such a folder again on the next look once its real path resolves (a mount back up)", async () => {
+    const home = await realpath(await mkdtemp(join(tmpdir(), "psy-fc-")));
+    const flaky = join(home, "flaky");
+    await symlink(flaky, flaky);
+    const h = makeBroker({
+      policy: { folders: [{ path: flaky, mode: "rw" }] },
+      hostProgram: { home },
+    });
+    expect(h.broker.folderRefused(flaky)).toBe(true);
+    await rm(flaky);
+    await mkdir(flaky);
+    // No setPolicy in between: the error answer was not remembered.
+    expect(h.broker.folderRefused(flaky)).toBe(false);
+    expect(h.broker.grantedFolders()).toEqual([{ path: flaky, mode: "rw" }]);
   });
 
   it("keeps a folder that does not exist yet", async () => {

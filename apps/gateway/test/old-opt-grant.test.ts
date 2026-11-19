@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AgentToolRegistration, ToolRunContext } from "@psyche/agent-core";
-import { fileTools, isProtectedPath } from "@psyche/files";
+import { assertGranted, fileTools, isProtectedPath } from "@psyche/files";
 import { CLI_HOME_DIRS } from "@psyche/model-router";
 import { createPermissionBroker } from "@psyche/permissions";
 import { describe, expect, it } from "vitest";
@@ -37,7 +37,7 @@ describe("an old /opt/homebrew rw grant", () => {
     expect(broker.grantedFolders()).toEqual([{ path: "/Users/o/Projects", mode: "rw" }]);
   });
 
-  it("the file executor wired on that list refuses list_dir and write_file there", async () => {
+  it("the file executor wired on that list refuses list_dir, and the write check refuses there", async () => {
     const tools = Object.fromEntries(
       fileTools({ folders: () => broker.grantedFolders(), protectedRoots: () => [] }).map((t) => [
         t.spec.name,
@@ -47,11 +47,11 @@ describe("an old /opt/homebrew rw grant", () => {
     await expect(tools.list_dir?.run?.({ path: "/opt/homebrew" }, ctx)).rejects.toMatchObject({
       code: "forbidden",
     });
-    // A parent that does not exist: if the refusal ever regressed, nothing real is written.
-    // `forbidden` (not `not_found`) is what proves the grant was ignored.
-    await expect(
-      tools.write_file?.run?.({ path: "/opt/homebrew/.psyche-never/op", content: "x" }, ctx),
-    ).rejects.toMatchObject({ code: "forbidden" });
+    // The write check write_file makes first, run on its own: the real write_file would create
+    // missing folders right after it, so a regression could write under the owner's real /opt.
+    expect(() =>
+      assertGranted("/opt/homebrew/bin/op", broker.grantedFolders(), "write"),
+    ).toThrowError(expect.objectContaining({ code: "forbidden" }));
   });
 
   it("no compose module reads the raw policy folders or the raw session folders", () => {
