@@ -19,18 +19,24 @@ enum Input {
         var value: Date { lock.withLock { at } }
     }
 
-    /// Tests replace the poster so no event reaches the system.
-    nonisolated(unsafe) static var postHook: (@Sendable (CGEvent) -> Void)?
+    /// Tests replace the poster so no event reaches the system. Task-local, so one test's hook cannot
+    /// leak into another test or into a concurrent task.
+    @TaskLocal static var postHook: (@Sendable (CGEvent) -> Void)?
 
     /// True when the process is a test runner: real input must never be posted from a test, since it
-    /// would drive the owner's mouse and keyboard.
+    /// would drive the owner's mouse and keyboard. Debug builds only: a release helper has no such
+    /// switch, so no environment variable can turn computer use off.
     static let underTestRunner: Bool = {
+        #if DEBUG
         let env = ProcessInfo.processInfo.environment
         if env["PSYCHE_NO_REAL_INPUT"] != nil || env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil { return true }
         if NSClassFromString("XCTestCase") != nil { return true }
         if Bundle.allBundles.contains(where: { $0.bundlePath.hasSuffix(".xctest") }) { return true }
         let name = ProcessInfo.processInfo.processName
         return name.contains("xctest") || name.contains("swiftpm-testing-helper")
+        #else
+        return false
+        #endif
     }()
 
     static let blockedInTests = CapabilityError.unavailable("input_blocked_in_tests", "Real input is not posted from a test runner")
@@ -91,20 +97,30 @@ enum Input {
         try pause(30, stop: stop)
         try stop.check()
         try post(CGEvent(mouseEventSource: src, mouseType: .leftMouseDown, mouseCursorPosition: a, mouseButton: .left))
-        // The button is down from here: however the drag ends (a stop included), release it where the
-        // pointer is, so the owner's next mouse move is not an unintended drag.
-        var at = a
-        defer { try? post(CGEvent(mouseEventSource: src, mouseType: .leftMouseUp, mouseCursorPosition: at, mouseButton: .left)) }
+        // The button is down from here. If the drag does not finish (a stop included) it is CANCELLED,
+        // never dropped: the pointer may be over another app that no tier check covered. A marked Esc
+        // (it passes the Esc tap) cancels the system drag, then the pointer goes back to the start and
+        // releases there, where a drop is a no-op.
+        var completed = false
+        defer {
+            if !completed {
+                for down in [true, false] {
+                    try? post(CGEvent(keyboardEventSource: src, virtualKey: 53, keyDown: down))
+                }
+                try? post(CGEvent(mouseEventSource: src, mouseType: .leftMouseDragged, mouseCursorPosition: a, mouseButton: .left))
+                try? post(CGEvent(mouseEventSource: src, mouseType: .leftMouseUp, mouseCursorPosition: a, mouseButton: .left))
+            }
+        }
         let steps = 12
         for i in 1...steps {
             try pause(15, stop: stop)
             let t = Double(i) / Double(steps)
             let p = CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
             try post(CGEvent(mouseEventSource: src, mouseType: .leftMouseDragged, mouseCursorPosition: p, mouseButton: .left))
-            at = p
         }
         try pause(30, stop: stop)
-        at = b
+        try post(CGEvent(mouseEventSource: src, mouseType: .leftMouseUp, mouseCursorPosition: b, mouseButton: .left))
+        completed = true
     }
 
     static func scroll(at p: CGPoint, dx: Int32, dy: Int32, stop: StopSignal) throws {

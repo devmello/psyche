@@ -40,6 +40,7 @@ public final class ComputerUse: @unchecked Sendable {
         self.policy = TierPolicy(settings: TierSettings.load(path: settingsPath), ownerInput: { [attention] in attention.lastOwnerInput })
         self.sessions = ComputerSessionLock()
         self.log = log
+        if Input.underTestRunner { log.info("computer use: real input is disabled (test runner detected)") }
         self.taps = SessionTaps(installer: liveInstaller(), sessions: sessions)
         wireOverlong()
     }
