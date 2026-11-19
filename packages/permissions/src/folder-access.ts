@@ -256,7 +256,7 @@ function windowsTempDir(env: FolderAccessEnv, home: string): string | undefined 
  * The same fold as `@psyche/files`' `foldPathName`.
  */
 function foldName(p: string): string {
-  return p.normalize("NFKC").toUpperCase().toLowerCase().normalize("NFKC");
+  return p.normalize("NFKC").toLowerCase().toUpperCase().toLowerCase().normalize("NFKC");
 }
 
 function under(child: string, root: string): boolean {

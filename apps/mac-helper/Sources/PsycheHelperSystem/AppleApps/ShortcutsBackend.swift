@@ -18,7 +18,7 @@ public final class LiveShortcutsBackend: ShortcutsBackend, @unchecked Sendable {
         on psyche_list()
           set fs to character id 31
           set out to {}
-          tell application "Shortcuts Events"
+          tell application id "com.apple.shortcuts.events"
             repeat with s in shortcuts
               set f to ""
               try

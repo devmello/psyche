@@ -16,16 +16,16 @@ public protocol MusicBackend: Sendable {
 /// Music and Spotify scripting: fixed script text, inputs as handler arguments.
 public final class MusicScriptingBackend: MusicBackend, @unchecked Sendable {
     static let bundleIds = ["music": "com.apple.Music", "spotify": "com.spotify.client"]
-    static let appNames = ["music": "Music", "spotify": "Spotify"]
 
     /// The same handlers for both players (their dictionaries share these terms); `appName` picks one.
     static func source(_ app: String) -> String {
-        let name = appNames[app] ?? "Music"
+        // Addressed by bundle id: a name lookup could launch another copy of the app.
+        let appId = bundleIds[app] ?? "com.apple.Music"
         let shuffleProp = app == "spotify" ? "shuffling" : "shuffle enabled"
         return ScriptHandler.prelude + """
             on psyche_now()
               set fs to character id 31
-              tell application "\(name)"
+              tell application id "\(appId)"
                 set pstate to (player state as text)
                 if pstate is "stopped" then return pstate & fs & "" & fs & "" & fs & "" & fs & "" & fs & "" & fs & (sound volume as text) & fs & (\(shuffleProp) as text)
                 set t to current track
@@ -34,7 +34,7 @@ public final class MusicScriptingBackend: MusicBackend, @unchecked Sendable {
               end tell
             end psyche_now
             on psyche_control(act, vol, shuf)
-              tell application "\(name)"
+              tell application id "\(appId)"
                 if act is "play" then play
                 if act is "pause" then pause
                 if act is "playpause" then playpause
@@ -52,7 +52,7 @@ public final class MusicScriptingBackend: MusicBackend, @unchecked Sendable {
         on psyche_tracks(q, onlyKind, lim)
           set fs to character id 31
           set out to {}
-          tell application "Music"
+          tell application id "com.apple.Music"
             if onlyKind is "albums" then
               set found to search library playlist 1 for q only albums
             else if onlyKind is "artists" then
@@ -72,7 +72,7 @@ public final class MusicScriptingBackend: MusicBackend, @unchecked Sendable {
         on psyche_playlists(q)
           set fs to character id 31
           set out to {}
-          tell application "Music"
+          tell application id "com.apple.Music"
             repeat with p in (user playlists whose name contains q)
               set end of out to (persistent ID of p) & fs & my psyche_clean(name of p) & fs & ((count of tracks of p) as text)
             end repeat
@@ -80,11 +80,11 @@ public final class MusicScriptingBackend: MusicBackend, @unchecked Sendable {
           return my psyche_join(out, character id 30)
         end psyche_playlists
         on psyche_play_track(pid)
-          tell application "Music" to play (first track of library playlist 1 whose persistent ID is pid)
+          tell application id "com.apple.Music" to play (first track of library playlist 1 whose persistent ID is pid)
           return "ok"
         end psyche_play_track
         on psyche_play_playlist(pid, shuf)
-          tell application "Music"
+          tell application id "com.apple.Music"
             if shuf is "true" then set shuffle enabled to true
             if shuf is "false" then set shuffle enabled to false
             play (first user playlist whose persistent ID is pid)
@@ -94,7 +94,7 @@ public final class MusicScriptingBackend: MusicBackend, @unchecked Sendable {
         -- Albums and artists play through one reusable playlist named "Psyche" (Music cannot
         -- queue an album through scripting); only that playlist's contents change.
         on psyche_play_set(kindName, artistName, albumName, shuf)
-          tell application "Music"
+          tell application id "com.apple.Music"
             if not (exists user playlist "Psyche") then make new user playlist with properties {name:"Psyche"}
             set p to user playlist "Psyche"
             delete tracks of p

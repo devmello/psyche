@@ -105,6 +105,50 @@ struct AppLaunchPolicyTests {
         #expect(resolved("app.zephium", [a, b, d]) == a.path)
     }
 
+    /// Review r2, finding 1: `/Applications/Safari.app` links to the Safari cryptex, a sealed
+    /// system location. A link a user made in /Applications to anywhere else is still refused.
+    @Test func safariThroughItsCryptexLinkIsASystemApp() throws {
+        let link = "/Applications/Safari.app"
+        let real = "/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app"
+        let links = [link: real, "/Applications/Evil.app": home + "/Projects/x/Evil.app",
+                     "/Applications/Tool.app": "/tmp/Tool.app"]
+        let ids = [real: "com.apple.Safari", home + "/Projects/x/Evil.app": "com.x.evil", "/tmp/Tool.app": "com.example.Tool",
+                   "/System/Cryptexes/App/System/Applications/Safari.app": "com.apple.Safari",
+                   home + "/Applications/Safari.app": "com.apple.Safari"]
+        let l = AppLaunchPolicy.Lookups(
+            candidates: { id in links.keys.filter { ids[links[$0] ?? $0] == id }.map { URL(fileURLWithPath: $0) } },
+            info: { url in ids[url.path].map { ["CFBundleIdentifier": $0, "CFBundleExecutable": "App"] } },
+            exists: { _ in true },
+            appleSigned: { $0.path.hasPrefix("/System/") },
+            realPath: { links[$0.path] ?? $0.path }
+        )
+        let safari = try AppLaunchPolicy.resolve(bundleId: "com.apple.Safari", home: home, lookups: l)
+        #expect(safari.path == real)
+        #expect(AppLaunchPolicy.tier(real, home: home) == 0)
+        // The other cryptex spelling is a system folder too.
+        try AppLaunchPolicy.check(URL(fileURLWithPath: "/System/Cryptexes/App/System/Applications/Safari.app"),
+                                  requestedId: "com.apple.Safari", home: home, lookups: l)
+        // A copy in ~/Applications loses to the system one (and fails the Apple check anyway).
+        let both = AppLaunchPolicy.Lookups(
+            candidates: { _ in [URL(fileURLWithPath: link), URL(fileURLWithPath: home + "/Applications/Safari.app")] },
+            info: l.info, exists: l.exists, appleSigned: { _ in true }, realPath: l.realPath)
+        #expect(try AppLaunchPolicy.resolve(bundleId: "com.apple.Safari", home: home, lookups: both).path == real)
+        // Links a user made in /Applications are judged where they lead.
+        for (id, why) in [("com.x.evil", "app_outside_applications"), ("com.example.Tool", "app_outside_applications")] {
+            do {
+                _ = try AppLaunchPolicy.resolve(bundleId: id, home: home, lookups: l)
+                Issue.record("\(id) must be refused")
+            } catch let e as CapabilityError {
+                #expect(e.reason == why)
+            }
+        }
+        // Not every /System path is a launch folder: a cryptex's other folders are not.
+        #expect(throws: CapabilityError.self) {
+            try AppLaunchPolicy.check(URL(fileURLWithPath: "/System/Volumes/Preboot/Cryptexes/App/usr/X.app"),
+                                      requestedId: nil, home: home, lookups: l)
+        }
+    }
+
     /// Review r1, finding 2: LaunchServices activates an instance that is already running.
     @Test func aRunningCopyMustBeTheCheckedOne() throws {
         let checked = URL(fileURLWithPath: "/Applications/Zephium.app")

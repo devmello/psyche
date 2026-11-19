@@ -822,6 +822,27 @@ describe("computer-use agent tools (J1–J5)", () => {
       expect(opens()).toHaveLength(2);
     });
 
+    // Review r2, finding 3: an approved path card covers its own conversation (and Task) only,
+    // and a tainted turn only when it was approved in a tainted turn.
+    it("keeps a path-card approval to its conversation, Task and taint", async () => {
+      helper.installed.set(zephium, { path: userBundle, name: "Zephium" });
+      await call("apps.open", { app: zephium }); // th_1, clean: card 1
+      expect(issued).toHaveLength(1);
+      await call("apps.open", { app: zephium }, { runId: "run_2" }); // same thread: no card
+      expect(issued).toHaveLength(1);
+      await call("apps.open", { app: zephium }, { threadId: "th_2" }); // another conversation
+      expect(issued).toHaveLength(2);
+      await call("apps.open", { app: zephium }, { taskId: "task_1" }); // a Task in th_1
+      expect(issued).toHaveLength(3);
+      await call("apps.open", { app: zephium }, { taint: true }); // a tainted turn in th_1
+      expect(issued).toHaveLength(4);
+      // Approved in a tainted turn: later tainted and clean turns there are covered.
+      await call("apps.open", { app: zephium }, { taint: true, runId: "run_3" });
+      await call("apps.open", { app: zephium }, { runId: "run_4" });
+      expect(issued).toHaveLength(4);
+      expect(opens()).toHaveLength(7);
+    });
+
     it("does not launch when the owner declines, and queues the card in unattended runs", async () => {
       helper.installed.set(zephium, { path: userBundle });
       answer = "deny";
@@ -1007,6 +1028,11 @@ describe("computer-use agent tools (J1–J5)", () => {
       ["/Applications/../tmp/X.app", false],
       ["/tmp/Applications/X.app", false],
       ["/Applications/Notes", false],
+      // Review r2: Safari's real place, a sealed cryptex.
+      ["/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app", true],
+      ["/System/Cryptexes/App/System/Applications/Safari.app", true],
+      ["/System/Volumes/Preboot/Cryptexes/App/usr/X.app", false],
+      ["/System/Volumes/Preboot/Applications/X.app", false],
     ])("systemAppPath(%s) is %s", (path, expected) => {
       expect(systemAppPath(path)).toBe(expected);
     });

@@ -80,7 +80,15 @@ describe("sensitive roots", () => {
 
   it.skipIf(WIN)("refuses other spellings APFS folds to a sensitive root (review r1)", () => {
     const ci = { ...env, caseInsensitive: true };
-    for (const rel of ["Applicationſ", ".config/ﬁsh", ".ſsh", "LIBRARY", "Library/Keychains"]) {
+    for (const rel of [
+      "Applicationſ",
+      ".config/ﬁsh",
+      ".ſsh",
+      ".ẞh",
+      ".SSH",
+      "LIBRARY",
+      "Library/Keychains",
+    ]) {
       expect(refuseFolder(join(home, rel), ci), rel).toBe("sensitive_root");
     }
     for (const rel of ["Projects/ſcratch", "Documents/ﬁnance", "Projects/app"]) {

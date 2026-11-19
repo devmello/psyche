@@ -176,10 +176,11 @@ export function assertNotProtected(
 /**
  * A path as a case- and normalization-insensitive disk compares names (APFS by default, NTFS
  * for case): compatibility-normalized (`ſ` is `s`, `ﬁ` is `fi`, the Kelvin sign is `K`, an NFD
- * `é` is the NFC one) and case-folded (`ß` is `ss`). Over-folding only refuses more.
+ * `é` is the NFC one) and case-folded (`ß` and `ẞ` are `ss`: lower, upper, then lower again).
+ * Over-folding only refuses more.
  */
 export function foldPathName(p: string): string {
-  return p.normalize("NFKC").toUpperCase().toLowerCase().normalize("NFKC");
+  return p.normalize("NFKC").toLowerCase().toUpperCase().toLowerCase().normalize("NFKC");
 }
 
 /** `dev:ino` of what `p` leads to now, or undefined when it does not exist. */

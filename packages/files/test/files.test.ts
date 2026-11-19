@@ -408,6 +408,7 @@ describe("other spellings of a write-protected name (review r1, finding 1)", () 
       ".config/fish",
       "Café",
       "Kit",
+      ".ssh",
     ].map((rel) => join(granted, rel));
   const setup = () => {
     for (const rel of [".zshrc", ".profile", ".bash_profile", ".gitconfig"]) {
@@ -427,24 +428,27 @@ describe("other spellings of a write-protected name (review r1, finding 1)", () 
     expect(foldPathName("Café")).toBe(foldPathName("Café"));
     expect(foldPathName(".BASH_PROFILE")).toBe(".bash_profile");
     expect(foldPathName("Straße")).toBe("strasse");
+    expect(foldPathName(".ẞh")).toBe(".ssh");
+    expect(foldPathName("STRAẞE")).toBe("strasse");
     expect(foldPathName(".zshrc2")).not.toBe(".zshrc");
   });
 
-  it
-    .skipIf(process.platform !== "darwin")
-    .each([
-      ".zſhrc",
-      ".zſhenv",
-      ".proﬁle",
-      ".baſh_proﬁle",
-      ".gitconﬁg",
-      ".ZSHRC",
-      "Library/LaunchAgentſ/x.plist",
-      "library/launchagents/x.plist",
-      ".config/ﬁsh/config.fish",
-      "Café/x.txt",
-      "Kit/x.txt",
-    ])("refuses writing %s", async (rel) => {
+  it.skipIf(process.platform !== "darwin").each([
+    ".zſhrc",
+    ".zſhenv",
+    ".proﬁle",
+    ".baſh_proﬁle",
+    ".gitconﬁg",
+    ".ZSHRC",
+    // Review r2: APFS reads `ẞ` as `ss`; `~/.ssh` does not exist yet here.
+    ".ẞh/config",
+    ".SSH/config",
+    "Library/LaunchAgentſ/x.plist",
+    "library/launchagents/x.plist",
+    ".config/ﬁsh/config.fish",
+    "Café/x.txt",
+    "Kit/x.txt",
+  ])("refuses writing %s", async (rel) => {
     setup();
     const path = join(granted, rel);
     await expect(run("write_file", { path, content: "PWNED" })).rejects.toMatchObject({
@@ -464,6 +468,9 @@ describe("other spellings of a write-protected name (review r1, finding 1)", () 
     "notes-ﬁnal.md",
     "Cafeteria/x.txt",
     "Kitchen/x.txt",
+    "Straße.md",
+    "İnbox.md",
+    ".ssh-notes/x.md",
   ])("still writes %s", async (rel) => {
     setup();
     const path = join(granted, rel);

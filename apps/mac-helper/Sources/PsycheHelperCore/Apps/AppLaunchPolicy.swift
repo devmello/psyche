@@ -9,7 +9,15 @@ public enum AppLaunchPolicy {
     /// reaches it (the Gateway refuses it as a share and as a write target).
     public static func appFolders(home: String) -> [String] {
         ["/Applications", "/System/Applications", "/System/Applications/Utilities", "/Applications/Utilities", home + "/Applications"]
+            + systemCryptexFolders
     }
+
+    /// Where the system's cryptex apps really live (Safari: `/Applications/Safari.app` is a link
+    /// to `/System/Cryptexes/App/System/Applications/Safari.app`, which leads to the Preboot
+    /// volume). Both are sealed system locations: tier 0, like `/System/Applications`.
+    public static let systemCryptexFolders = [
+        "/System/Cryptexes/App/System/Applications", "/System/Volumes/Preboot/Cryptexes/App/System/Applications",
+    ]
 
     /// Where Apple's own apps live. A `com.apple.*` id from anywhere else is a lookalike.
     static let appleFolders = ["/System/", "/Applications/"]
@@ -24,13 +32,18 @@ public enum AppLaunchPolicy {
         public var exists: @Sendable (URL) -> Bool
         /// A read-only static signature check against Apple's anchor (`SecStaticCodeCheckValidity`).
         public var appleSigned: @Sendable (URL) -> Bool
+        /// The bundle's real path (`canonical`: links followed). Judged by where it really is, so
+        /// a link in `/Applications` to anywhere else is refused.
+        public var realPath: @Sendable (URL) -> String
 
         public init(candidates: @escaping @Sendable (String) -> [URL], info: @escaping @Sendable (URL) -> [String: Any]?,
-                    exists: @escaping @Sendable (URL) -> Bool, appleSigned: @escaping @Sendable (URL) -> Bool) {
+                    exists: @escaping @Sendable (URL) -> Bool, appleSigned: @escaping @Sendable (URL) -> Bool,
+                    realPath: @escaping @Sendable (URL) -> String = { AppLaunchPolicy.canonical($0) }) {
             self.candidates = candidates
             self.info = info
             self.exists = exists
             self.appleSigned = appleSigned
+            self.realPath = realPath
         }
     }
 
@@ -45,7 +58,7 @@ public enum AppLaunchPolicy {
 
     /// Which launch folder a checked bundle is in: `/System` (0) before `/Applications` (1)
     /// before `~/Applications` (2).
-    static func tier(_ path: String, home: String) -> Int {
+    public static func tier(_ path: String, home: String) -> Int {
         if path.hasPrefix("/System/") { return 0 }
         if path.hasPrefix("/Applications/") { return 1 }
         return 2
@@ -60,7 +73,7 @@ public enum AppLaunchPolicy {
     public static func resolve(bundleId: String, home: String, lookups: Lookups) throws -> URL {
         var seen: [String] = []
         for url in lookups.candidates(bundleId) where lookups.exists(url) {
-            let path = canonical(url)
+            let path = lookups.realPath(url)
             if !seen.contains(path) { seen.append(path) }
         }
         var passed: [String] = []
@@ -123,7 +136,7 @@ public enum AppLaunchPolicy {
     ///   (`CFBundleExecutable` is a plain name, never `../../bin/bash`);
     /// - a `com.apple.*` id lives in `/System` or `/Applications` and carries Apple's signature.
     public static func check(_ url: URL, requestedId: String?, home: String, lookups: Lookups) throws {
-        let path = canonical(url)
+        let path = lookups.realPath(url)
         guard appFolders(home: home).contains(where: { path.hasPrefix($0 + "/") }) else {
             throw CapabilityError(.policyDenied, reason: "app_outside_applications", "Only apps installed in an Applications folder can be opened")
         }

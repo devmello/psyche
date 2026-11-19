@@ -402,7 +402,12 @@ export function openBindingFields(
  */
 export function systemAppPath(path: string): boolean {
   if (path.split("/").some((s) => s === "." || s === "..")) return false;
-  const m = /^\/(?:System\/)?Applications\/(.+)$/.exec(path);
+  // The sealed cryptex apps (Safari) resolve to `/System/Cryptexes/App/System/Applications` or
+  // its Preboot spelling, as in the helper's `AppLaunchPolicy.systemCryptexFolders`.
+  const m =
+    /^\/(?:System\/(?:Volumes\/Preboot\/)?Cryptexes\/App\/System\/|System\/)?Applications\/(.+)$/.exec(
+      path,
+    );
   if (m === null) return false;
   const inner = (m[1] ?? "").split("/");
   return (
@@ -879,10 +884,27 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
   };
   /**
    * The bundles the owner approved on a card that named their path, by that card's binding hash
-   * (`bundleFields`): a later open of the same bundle needs no second card. After a restart the
+   * (`bundleFields`), scoped like a stored approval is: the same conversation, the same Task when
+   * there is one, and a tainted turn only by a card approved in a tainted turn. A later open of
+   * the same bundle there needs no second card; anywhere else it asks again. After a restart the
    * approved card itself is found again by its binding (`confirmOpen`).
    */
-  const confirmedBindings = new Set<string>();
+  const confirmedSet = new Set<string>();
+  const confirmedKey = (hash: string, ctx: CallContext, tainted: boolean) =>
+    JSON.stringify([hash, ctx.threadId, ctx.taskId ?? null, tainted]);
+  const confirmedBindings = {
+    add(hash: string, ctx: CallContext): void {
+      if (confirmedSet.size > 4096) confirmedSet.clear();
+      confirmedSet.add(confirmedKey(hash, ctx, ctx.taint));
+    },
+    has(hash: string, ctx: CallContext): boolean {
+      // A clean turn may use a card approved in a tainted one, never the other way round.
+      return (
+        confirmedSet.has(confirmedKey(hash, ctx, true)) ||
+        (!ctx.taint && confirmedSet.has(confirmedKey(hash, ctx, false)))
+      );
+    },
+  };
   const bundleFields = (app: string, path: string) => ({
     tool: "apps.open",
     app: app.toLowerCase(),
@@ -979,7 +1001,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     // it opens (the loop's own binding covers the document).
     const fields = bundleFields(p.app, r.path);
     const hash = bindingHash("computer_action", fields);
-    if (confirmedBindings.has(hash)) return;
+    if (confirmedBindings.has(hash, ctx)) return;
     const target = appTarget(p.app);
     const decision = await deps.broker.decide(
       {
@@ -1010,7 +1032,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     for (const a of (await deps.broker.list({ status: "approved" })).filter(mine)) {
       const verified = await deps.broker.verifyBinding(a.id, hash);
       if (verified.ok) {
-        confirmedBindings.add(hash);
+        confirmedBindings.add(hash, ctx);
         return;
       }
     }
@@ -1066,7 +1088,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         details: { approvalId },
       });
     }
-    confirmedBindings.add(hash);
+    confirmedBindings.add(hash, ctx);
   }
 
   /** Apps where a payment control, page or card was seen lately (lowercased app → when). */
@@ -2189,6 +2211,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           if (onCard) {
             confirmedBindings.add(
               bindingHash("computer_action", bundleFields(p.app, resolved.path)),
+              deps.context(callId),
             );
           }
           await confirmOpen(p, resolved, callId, signal);
