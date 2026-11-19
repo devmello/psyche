@@ -6,6 +6,7 @@ import SwiftUI
 /// Memory (docs/design/ios-app-2026.md §4.5): To-do, Work and People. One `List`, so a to-do row can
 /// swipe; every row is drawn as a slice of a paper card (`cardRow`).
 struct MemoryView: View {
+    private let motion = MotionContext()
     enum Segment: String, CaseIterable, Identifiable {
         case todo = "To-do", work = "Work", people = "People"
         var id: String { rawValue }
@@ -203,7 +204,7 @@ struct MemoryView: View {
         // Wait for the rows to exist before scrolling to one.
         for _ in 0..<20 where model.phase.value == nil { try? await Task.sleep(for: .milliseconds(100)) }
         try? await Task.sleep(for: .milliseconds(150))
-        withAnimation { proxy.scrollTo(id, anchor: .center) }
+        withAnimation(motion.layout(.gentle)) { proxy.scrollTo(id, anchor: .center) }
         router.memoryFocusTodo = nil
         await model.highlight(id)
     }

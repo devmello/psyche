@@ -17,6 +17,8 @@ struct Composer: View {
     @State private var showFiles = false
     @State private var showCamera = false
     @State private var photoSelection: [PhotosPickerItem] = []
+    private let motion = MotionContext()
+    @Namespace private var glass
 
     private var showsStop: Bool { isRunning && composer.trimmedText.isEmpty && composer.attachments.isEmpty }
 
@@ -27,6 +29,7 @@ struct Composer: View {
                     HStack(spacing: 8) {
                         ForEach(composer.attachments) { attachment in
                             AttachmentChip(attachment: attachment) { composer.remove(attachment) }
+                                .transition(motion.transition(.rise))
                         }
                     }
                     .padding(.horizontal, 16)
@@ -49,6 +52,8 @@ struct Composer: View {
         }
         .padding(.horizontal, 12)
         .padding(.bottom, 8)
+        // Chips arriving or leaving, and the bar growing with them. Typing animates nothing.
+        .psycheAnimation(.smooth, value: composer.attachments.map(\.id))
         .photosPicker(isPresented: $showPhotos, selection: $photoSelection, maxSelectionCount: 5, matching: .images)
         .onChange(of: photoSelection) { _, items in
             guard !items.isEmpty else { return }
@@ -82,6 +87,7 @@ struct Composer: View {
                 .contentShape(Circle())
         }
         .glassEffect(.regular.interactive(), in: .circle)
+        .glassEffectID("plus", in: glass)
         .accessibilityLabel("Add photo or file")
     }
 
@@ -94,16 +100,21 @@ struct Composer: View {
                 .padding(.vertical, 14)
                 .padding(.leading, 6)
             dictationButton
-            if showsStop {
-                stopButton
-            } else {
-                sendButton
+            // Send and Stop trade places in one slot with a 100 ms crossfade, so the field never shifts.
+            ZStack {
+                if showsStop {
+                    stopButton.transition(.opacity)
+                } else {
+                    sendButton.transition(.opacity)
+                }
             }
+            .psycheFade(PsycheMotion.Duration.micro, value: showsStop)
         }
         .padding(.leading, 12)
         .padding(.trailing, 6)
         .frame(minHeight: 48)
         .glassEffect(.regular, in: .rect(cornerRadius: 24))
+        .glassEffectID("field", in: glass)
     }
 
     private var dictationButton: some View {
@@ -112,7 +123,7 @@ struct Composer: View {
             Image(systemName: active ? "waveform" : "mic")
                 .font(.system(size: 17, weight: .regular))
                 .foregroundStyle(active ? PsycheColor.text : PsycheColor.muted)
-                .symbolEffect(.variableColor.iterative, isActive: active)
+                .symbolEffect(.variableColor.iterative, isActive: active && !motion.reduced)
                 .frame(width: 36, height: 36)
                 .contentShape(Circle())
         }

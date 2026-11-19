@@ -23,7 +23,7 @@
 # Never runs `pnpm -w typecheck` or `pnpm -r test`.
 #
 # The owner's rule (2026-11-18): don't overheat the Mac with checks after every small fix. So the
-# full check runs at low priority (nice 10), and only one full check runs on this Mac at a time:
+# full check runs at low priority (nice 10), and only a few full checks (see the slots below) run at once:
 # others wait their turn instead of running side by side.
 # Exit 0 means every check passed. On failure, it prints the failures, and the last
 # lines of each failing log are what the Stop hook feeds back to the agent.
@@ -71,17 +71,34 @@ if [ -z "${VERIFY_NICED:-}" ] && command -v nice >/dev/null; then
   VERIFY_NICED=1 exec nice -n 10 bash "$0" "${args[@]}"
 fi
 
-# One full check at a time on this Mac. The lock lives in the shared git dir, so every worktree
-# sees it. A lock whose owner process is gone is taken over.
+# A few full checks at a time on this Mac, never more. Each slot is a lock dir in the shared git
+# dir, so every worktree sees them; a slot whose owner process is gone is taken over. The owner's
+# rule (2026-11-18) was one at a time on the old Mac; on the M4 Pro (2026-11-19, "do what you will
+# with that") machines with 10+ cores get 3 slots. PSYCHE_VERIFY_SLOTS overrides.
 if [ "$quick" = 0 ]; then
-  lock="$(cd "$(git rev-parse --git-common-dir)" && pwd)/agent-verify/full.lock"
-  mkdir -p "$(dirname "$lock")"
+  slots="${PSYCHE_VERIFY_SLOTS:-}"
+  if [ -z "$slots" ]; then
+    cores="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 1)"
+    if [ "$cores" -ge 10 ] 2>/dev/null; then slots=3; else slots=1; fi
+  fi
+  lockdir="$(cd "$(git rev-parse --git-common-dir)" && pwd)/agent-verify"
+  mkdir -p "$lockdir"
   said=0
-  until mkdir "$lock" 2>/dev/null; do
-    holder="$(cat "$lock/pid" 2>/dev/null)"
-    if [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; then rm -rf "$lock"; continue; fi
-    [ "$said" = 1 ] || { echo "verify: another full check is running (pid ${holder:-?}); waiting for it to finish"; said=1; }
-    sleep 10
+  lock=""
+  while [ -z "$lock" ]; do
+    i=1
+    while [ "$i" -le "$slots" ]; do
+      # Slot 1 keeps the old name, so a check from an older script still counts against it.
+      if [ "$i" = 1 ]; then try="$lockdir/full.lock"; else try="$lockdir/full.lock.$i"; fi
+      if mkdir "$try" 2>/dev/null; then lock="$try"; break; fi
+      holder="$(cat "$try/pid" 2>/dev/null)"
+      if [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; then rm -rf "$try"; continue; fi
+      i=$((i + 1))
+    done
+    if [ -z "$lock" ]; then
+      [ "$said" = 1 ] || { echo "verify: all $slots full-check slots are busy; waiting for one"; said=1; }
+      sleep 10
+    fi
   done
   echo $$ >"$lock/pid"
   trap 'rm -rf "$lock"' EXIT

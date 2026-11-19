@@ -240,6 +240,12 @@ Measured: 210.4 to 206.6 MiB.
 app, so the separate Node runtime stays (see Phase 3). 208 leaves 1.4 MiB of headroom above the
 measured 206.6, so the next small growth still trips the check.
 
-**Open structural idea:** serve one copy of the web client JS to both `psyched` and the desktop
-renderer in `app.asar`. That is about 37 MiB across the two builds and would be the largest single
-saving left. It is a structural change and is not done here.
+**One web client copy (done by S2, #937):** the packaged app already ships one copy. The renderer
+build in `app.asar` carries the web client as `web.html`. `dropGatewayWebCopy`
+(`apps/desktop/src/packaging/web-copy.ts`) removes `Resources/psyched/app/apps/web/dist` before
+signing, and the bundled Gateway serves the client from `app.asar` (`apps/gateway/src/web-asar.ts`),
+checking the header against `ElectronAsarIntegrity` and each file against its SHA-256. The 37.3 MiB
+`app/apps/web` row and the 206.6 MiB total above are the standalone `build-psyched.mjs` bundle, which
+keeps its own `apps/web/dist` (standalone Gateways, Docker). So the 208 MiB `psychedMB` limit checked
+by that script counts the web client once more than the packaged app does; `release.yml` checks the
+packaged `Resources/psyched` after the drop. No further saving is left here, and RAM is unchanged.
