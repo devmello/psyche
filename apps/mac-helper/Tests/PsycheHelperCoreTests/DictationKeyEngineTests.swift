@@ -114,6 +114,31 @@ struct DictationKeyEngineTests {
         #expect(gate.history == [true, false])
     }
 
+    @Test func aKeyDownBetweenTheModifierAndALateCallbackIsAChord() {
+        let gate = FakeGate()
+        let clock = Clock()
+        let e = clocked(gate, clock)
+        let t0 = clock.now  // fn goes down
+        clock.lastKeyDown = t0.addingTimeInterval(0.03)  // the arrow, before the callback ran
+        clock.now = t0.addingTimeInterval(0.08)  // the flagsChanged callback runs late
+        _ = e.flagsChanged(keyCode: fn, flags: fnMask, eventAge: 0.08)
+        clock.now = t0.addingTimeInterval(0.18)
+        #expect(e.recheckChord().map(\.down) == [false])
+    }
+
+    @Test func withoutTheEventAgeALateCallbackCannotTellKeyFromHold() {
+        // The old anchor (callback time): the same key looks like one struck before the hold.
+        let gate = FakeGate()
+        let clock = Clock()
+        let e = clocked(gate, clock)
+        let t0 = clock.now
+        clock.lastKeyDown = t0.addingTimeInterval(0.03)
+        clock.now = t0.addingTimeInterval(0.08)
+        _ = e.flagsChanged(keyCode: fn, flags: fnMask)
+        clock.now = t0.addingTimeInterval(0.18)
+        #expect(e.recheckChord().isEmpty)
+    }
+
     @Test func theEngineDoesNotKeepItsGateAlive() {
         var gate: FakeGate? = FakeGate()
         weak var weakGate = gate
@@ -121,5 +146,18 @@ struct DictationKeyEngineTests {
         gate = nil
         #expect(weakGate == nil)
         _ = e.flagsChanged(keyCode: fn, flags: fnMask)  // no crash with the gate gone
+    }
+
+    @Test func theEventAgeComesFromTheEventsOwnTimestampAndIsClamped() {
+        // 1:1 timebase: ticks are nanoseconds.
+        func age(_ event: UInt64, _ now: UInt64) -> TimeInterval {
+            DictationEventAge.seconds(eventTicks: event, nowTicks: now, numer: 1, denom: 1)
+        }
+        #expect(abs(age(1_000_000_000, 1_080_000_000) - 0.08) < 1e-9)
+        #expect(age(1_000_000_000, 5_000_000_000) == 0.25)  // an absurdly old timestamp is clamped
+        #expect(age(0, 5_000_000_000) == 0)  // no timestamp
+        #expect(age(6_000_000_000, 5_000_000_000) == 0)  // a timestamp from the future
+        // Apple silicon timebase 125/3.
+        #expect(abs(DictationEventAge.seconds(eventTicks: 100, nowTicks: 100 + 2_400_000, numer: 125, denom: 3) - 0.1) < 1e-9)
     }
 }

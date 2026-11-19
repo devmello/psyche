@@ -19,11 +19,14 @@ enum Input {
         var value: Date { lock.withLock { at } }
     }
 
+    /// Tests replace the poster so no event reaches the system.
+    nonisolated(unsafe) static var postHook: (@Sendable (CGEvent) -> Void)?
+
     private static func post(_ event: CGEvent?) {
         guard let event else { return }
         lastPost.note()
         event.setIntegerValueField(.eventSourceUserData, value: marker)
-        event.post(tap: .cghidEventTap)
+        if let postHook { postHook(event) } else { event.post(tap: .cghidEventTap) }
     }
 
     private static var source: CGEventSource? { CGEventSource(stateID: .hidSystemState) }
@@ -57,8 +60,10 @@ enum Input {
                 e?.setIntegerValueField(.mouseEventClickState, value: Int64(i))
                 e?.flags = flags
             }
+            try stop.check()
             post(down)
             try pause(20, stop: stop)
+            try stop.check()
             post(up)
             if i < count { try pause(40, stop: stop) }
         }
@@ -101,6 +106,7 @@ enum Input {
         for down in [true, false] {
             let e = CGEvent(keyboardEventSource: src, virtualKey: chord.keyCode, keyDown: down)
             e?.flags = chord.flags
+            try stop.check()  // an Esc during the pause or the focus check posts nothing more
             post(e)
             try pause(20, stop: stop)
         }
@@ -135,6 +141,7 @@ enum Input {
         for chunk in TypingChunks.split(text) {
             try guardChunk()
             for down in [true, false] {
+                try stop.check()  // the guard can block in AX: a stop that landed meanwhile posts nothing
                 let e = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: down)
                 chunk.withUnsafeBufferPointer { buf in
                     e?.keyboardSetUnicodeString(stringLength: buf.count, unicodeString: buf.baseAddress)
@@ -157,8 +164,10 @@ enum EscStopTap {
         keyCode == 53 && userData != Input.marker && flags.intersection([.maskCommand, .maskShift, .maskAlternate, .maskControl]).isEmpty
     }
 
-    static func install(stop: StopSignal, isActive: @escaping @Sendable () -> Bool, onStop: @escaping @Sendable () -> Void) -> (any SessionTapHandle)? {
-        RunLoopEventTap(
+    static func install(
+        stop: StopSignal, isActive: @escaping @Sendable () -> Bool, onStop: @escaping @Sendable () -> Void
+    ) -> Result<RunLoopEventTap, RunLoopEventTap.InstallFailure> {
+        RunLoopEventTap.create(
             place: .headInsertEventTap, options: .defaultTap, types: [.keyDown], qos: .userInteractive, name: "com.psyche.helper.esc-tap"
         ) { type, event in
             guard type == .keyDown,

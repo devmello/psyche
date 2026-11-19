@@ -8,6 +8,7 @@ import PsycheProtocol
 final class InvocationScope: @unchecked Sendable {
     @TaskLocal static var current: InvocationScope?
     var session: String?
+    var token: Int?
 }
 
 /// Shared state for computer use: AX engine, tier policy, session lock and Esc stop.
@@ -40,6 +41,7 @@ public final class ComputerUse: @unchecked Sendable {
         self.sessions = ComputerSessionLock()
         self.log = log
         self.taps = SessionTaps(installer: liveInstaller(), sessions: sessions)
+        wireOverlong()
     }
 
     /// Tests inject a fake installer: they must never create real event taps.
@@ -49,6 +51,7 @@ public final class ComputerUse: @unchecked Sendable {
         self.sessions = ComputerSessionLock()
         self.log = log
         self.taps = SessionTaps(installer: tapInstaller, sessions: sessions, schedule: schedule)
+        wireOverlong()
     }
 
     private func liveInstaller() -> LiveSessionTapInstaller {
@@ -64,6 +67,14 @@ public final class ComputerUse: @unchecked Sendable {
             })
     }
 
+    /// An action past the hard cap is stopped like an Esc press.
+    private func wireOverlong() {
+        taps.onOverlong = { [stop, log] id in
+            stop.trip()
+            log.info("computer use action ran past the time limit; stopped session \(id)")
+        }
+    }
+
     func reloadSettings() { policy.update(TierSettings.load(path: settingsPath)) }
 
     /// Session lock for one mutating call. The Gateway must name the session (the run id): a
@@ -75,18 +86,21 @@ public final class ComputerUse: @unchecked Sendable {
         }
         reloadSettings()
         // Esc tap first, then the lock: no action runs without the Esc stop (SessionTaps.beginSession).
-        try taps.beginSession(session)
-        // Mark the action in flight: its Esc stop outlives the idle timeout and `end_session`.
+        // The first call of an action also marks it in flight, atomically with taking the session:
+        // its Esc stop outlives the idle timeout and `end_session`.
         if let scope = InvocationScope.current, scope.session == nil {
+            scope.token = try taps.beginSession(session, invocation: true)
             scope.session = session
-            taps.beginInvocation(session)
+        } else {
+            try taps.beginSession(session)
         }
     }
 
     func endInvocation(_ scope: InvocationScope) {
         guard let session = scope.session else { return }
         scope.session = nil
-        taps.endInvocation(session)
+        taps.endInvocation(session, token: scope.token)
+        scope.token = nil
     }
 }
 
@@ -926,14 +940,34 @@ struct LiveSessionTapInstaller: SessionTapInstaller {
     let isActive: @Sendable () -> Bool
     let onStop: @Sendable () -> Void
 
-    func failureAfterInstall(_ kind: SessionTapKind) -> SessionTapFailure {
-        AXIsProcessTrusted() ? .timeout : .permission
+    /// The installer's own account of its last Esc-tap failure (the tap reports why it failed).
+    private final class Failure: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value = SessionTapFailure.permission
+        var current: SessionTapFailure {
+            get { lock.withLock { value } }
+            set { lock.withLock { value = newValue } }
+        }
     }
+
+    private let failure = Failure()
+
+    func failureAfterInstall(_ kind: SessionTapKind) -> SessionTapFailure { failure.current }
 
     func install(_ kind: SessionTapKind) -> (any SessionTapHandle)? {
         switch kind {
-        case .escStop: EscStopTap.install(stop: stop, isActive: isActive, onStop: onStop)
-        case .attention: attention.install()
+        case .escStop:
+            switch EscStopTap.install(stop: stop, isActive: isActive, onStop: onStop) {
+            case .success(let tap): return tap
+            case .failure(let reason):
+                failure.current = switch reason {
+                case .notTrusted: .permission
+                case .createFailed: .createFailed
+                case .timeout: .timeout
+                }
+                return nil
+            }
+        case .attention: return attention.install()
         }
     }
 }
