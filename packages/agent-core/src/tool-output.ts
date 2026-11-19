@@ -38,14 +38,26 @@ const TOOL_IMAGE_CHARS_LOW = 16_000_000;
 /**
  * Decodes and re-encodes an image, resized to the provider's 1568 px (the Gateway injects
  * `reencodeToolImage`). It must return new bytes and throw when it cannot read the image: the
- * original bytes are never sent. Without a shaper, tool images become a note.
+ * original bytes are never sent. Without a shaper, tool images become a note. `signal` is the
+ * run's: a shaper may drop a call still waiting for a decoder once it aborts. It throws
+ * `ImageShaperBusy` when too many images already wait, and the image becomes a "busy" note.
  */
-export type ImageShaper = (bytes: Buffer, mime: string) => Promise<Buffer>;
+export type ImageShaper = (bytes: Buffer, mime: string, signal?: AbortSignal) => Promise<Buffer>;
+
+/** Thrown by a shaper that refuses to queue another image (its decoders are all taken). */
+export class ImageShaperBusy extends Error {
+  constructor() {
+    super("too many images are waiting to be decoded");
+    this.name = "ImageShaperBusy";
+  }
+}
 
 export interface NormalizeOptions {
   /** The call failed: pictures in an error result are replaced by a note, never sent. */
   failed?: boolean;
   shaper?: ImageShaper;
+  /** The run's signal, handed to the shaper. */
+  signal?: AbortSignal;
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -102,8 +114,9 @@ class ImageBudget {
     if (this.o.shaper === undefined) return note("image omitted: images cannot be checked here");
     let shaped: Buffer;
     try {
-      shaped = await this.o.shaper(bytes, mime);
-    } catch {
+      shaped = await this.o.shaper(bytes, mime, this.o.signal);
+    } catch (err) {
+      if (err instanceof ImageShaperBusy) return note("image omitted: busy");
       return note("image omitted: it could not be read as an image");
     }
     // What a re-encode must produce: other bytes than the input (a shaper that hands back or

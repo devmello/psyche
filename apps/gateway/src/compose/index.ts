@@ -1598,7 +1598,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const loop = createAgentLoop({
     // Screenshots and MCP images are decoded and re-encoded (cut to 1568 px) before the model sees
     // or the thread keeps them; one that cannot be decoded becomes a note.
-    toolImageShaper: (bytes, mime) => reencodeToolImage(bytes, mime),
+    toolImageShaper: (bytes, mime, signal) =>
+      reencodeToolImage(bytes, mime, undefined, undefined, signal),
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
     state: new SqliteThreadStateStore(db, redactor, config.home, (threadId, state) =>
       // A life-answer preamble built for a local model is rebuilt before a cloud model reads it.
