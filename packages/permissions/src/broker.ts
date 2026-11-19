@@ -80,6 +80,7 @@ import {
   type PolicyConfig,
 } from "./policy.ts";
 import { DENY_ALL_LOOPBACK, type LocalProjectVerifier } from "./prohibitions.ts";
+import { receiptGrantId } from "./receipt-grant.ts";
 import { requesterKey, requesterSurfaces } from "./requester.ts";
 import type { RevocationLedger } from "./revocations.ts";
 import { riskClassFor } from "./risk.ts";
@@ -173,7 +174,10 @@ export interface PermissionBrokerOptions {
    * A restart revoked an approved set-aside card before any run used it (`reissue`): the resume
    * it promised will not happen, so the Gateway tells the owner instead of staying silent.
    */
-  onSetAsideRevoked?: (approval: ApprovalRequest, how: { failed: boolean }) => void;
+  onSetAsideRevoked?: (
+    approval: ApprovalRequest,
+    how: { failed: boolean; unknown: boolean },
+  ) => void;
   onEvent?: (event: BrokerEvent) => void;
   newId?: (prefix: string) => string;
   /** Records grant revocations outside the backup scope (design-26). */
@@ -2137,18 +2141,24 @@ export class PsychePermissionBroker implements PermissionBroker {
   }
 
   /**
-   * The receipts of calls that went through the standing grant this approval made. A call a
-   * grant allowed names no approval, so they are the approval's kind, with no approval id, from
-   * the grant's last use on. None when the grant was never used.
+   * The receipts of calls that went through the standing grant this approval made: each
+   * carries that grant's id (`receiptGrantId`), from the grant's creation on. Never matched by
+   * kind or task: an unrelated call's receipt says nothing about this one.
    */
   async #grantReceipts(a: ApprovalRequest): Promise<Receipt[]> {
     if (a.grantId == null) return [];
     const g = this.#store.getGrant(a.grantId);
-    const since = g?.grant.lastUsedAt;
-    if (g === undefined || g.grant.useCount === 0 || since == null) return [];
-    return (await this.receipts.list({ kind: a.kind })).filter(
-      (r) => r.approvalId == null && Date.parse(r.createdAt) >= Date.parse(since),
+    if (g === undefined) return [];
+    const since = Date.parse(g.grant.createdAt);
+    return (await this.receipts.list({})).filter(
+      (r) => receiptGrantId(r) === a.grantId && Date.parse(r.createdAt) >= since,
     );
+  }
+
+  /** Its grant let a call through (a use was counted). */
+  #grantUsed(a: ApprovalRequest): boolean {
+    const g = a.grantId == null ? undefined : this.#store.getGrant(a.grantId);
+    return g !== undefined && g.grant.useCount > 0;
   }
 
   async verifyBinding(approvalId: string, bindingHash: string): Promise<BindingVerification> {
@@ -2251,12 +2261,18 @@ export class PsychePermissionBroker implements PermissionBroker {
         { reason: unconsumedOnce ? "gateway_restart_unconsumed" : "gateway_restart_set_aside" },
       );
       if (lostResume) {
-        // It ran and did not succeed: its own receipt, or one after its grant's use, is not `ok`.
-        const failed =
-          (await this.receipts.list({ approvalId: rec.approval.id })).length > 0 ||
-          (await this.#grantReceipts(rec.approval)).length > 0;
+        // It ran and did not succeed. Failed: a receipt (its own, or its grant's) says so.
+        // Unknown: the provider did not confirm, or its grant was used and no receipt carries
+        // the grant's id (the old process died first, or the recorder cannot say).
+        const ran = [
+          ...(await this.receipts.list({ approvalId: rec.approval.id })),
+          ...(await this.#grantReceipts(rec.approval)),
+        ];
+        const failed = ran.some((r) => r.outcome === "failed");
+        const unknown =
+          !failed && (ran.some((r) => r.outcome === "uncertain") || this.#grantUsed(rec.approval));
         try {
-          this.#onSetAsideRevoked?.(structuredClone(rec.approval), { failed });
+          this.#onSetAsideRevoked?.(structuredClone(rec.approval), { failed, unknown });
         } catch {
           // A failed notice never stops the restart.
         }

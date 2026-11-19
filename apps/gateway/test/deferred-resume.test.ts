@@ -47,7 +47,15 @@ function connectorCall(path: string): PolicyCall {
  */
 function setup(
   plans: string[],
-  opts: { failWrites?: boolean; noReceipt?: boolean; standing?: boolean } = {},
+  opts: {
+    failWrites?: boolean;
+    noReceipt?: boolean;
+    standing?: boolean;
+    /** Another `gmail.send` in the same run succeeded first (no grant id on its receipt). */
+    unrelatedOk?: boolean;
+    /** The provider did not confirm the grant's call. */
+    uncertain?: boolean;
+  } = {},
 ) {
   const clock = new FakeClock(T0);
   const db = openDb(":memory:");
@@ -96,15 +104,27 @@ function setup(
         };
         const d = await broker.decide(call, ctx);
         if (d.decision === "allow" && d.grantId !== undefined) {
-          // A standing grant let the call through: the loop's receipt names no approval.
+          // A standing grant let the call through. As ConnectorRegistry records it: the tool's
+          // action as kind, no task, no approval, and the grant's id in its payload.
+          if (opts.unrelatedOk === true) {
+            await broker.recordReceipt({
+              kind: "gmail.send",
+              outcome: "ok",
+              summary: "Sent another email",
+              taskId,
+              approvalId: null,
+              payload: { rule: "mode:balanced/write" },
+            });
+          }
           if (opts.failWrites !== true) written.push(path);
           if (opts.noReceipt !== true) {
             await broker.recordReceipt({
-              kind: "connector_action",
-              outcome: opts.failWrites === true ? "failed" : "ok",
-              summary: `Wrote ${path}`,
-              taskId,
+              kind: "gmail.send",
+              outcome:
+                opts.uncertain === true ? "uncertain" : opts.failWrites === true ? "failed" : "ok",
+              summary: `Sent ${path}`,
               approvalId: null,
+              payload: { rule: `grant:${d.grantId}`, via: "grant", grantId: d.grantId },
             });
           }
         }
@@ -562,7 +582,12 @@ describe("follow-ups: a failed action is not done, and the restart notice is hon
 });
 
 describe("follow-ups: a standing grant's use is done only when its call succeeded", () => {
-  async function viaGrant(opts: { failWrites?: boolean; noReceipt?: boolean }) {
+  async function viaGrant(opts: {
+    failWrites?: boolean;
+    noReceipt?: boolean;
+    unrelatedOk?: boolean;
+    uncertain?: boolean;
+  }) {
     const h = setup([NOTES, NOTES], { ...opts, standing: true });
     const tok = tokens(h);
     const a = await h.scheduler.create(automation);
@@ -589,12 +614,32 @@ describe("follow-ups: a standing grant's use is done only when its call succeede
     expect(n?.body).not.toMatch(/ask again/);
   });
 
-  it("the grant let the call through and no receipt came: not done either", async () => {
-    const { h } = await viaGrant({ noReceipt: true });
+  it("the grant let the call through and no receipt came: outcome unknown, not done", async () => {
+    const { h, n } = await viaGrant({ noReceipt: true });
+    expect(await missed(h)).toEqual(["unknown"]);
+    expect(n?.body).toMatch(/can't tell whether it worked/);
+    expect(n?.body).toMatch(/Check Activity/);
+    expect(n?.body).not.toMatch(/it failed/);
+    // Over: no resume run does it again.
+    expect(h.resume.pending()).toEqual([]);
+  });
+
+  it("an unrelated ok receipt of the same kind (no grant id) does not make it done", async () => {
+    const { h } = await viaGrant({ unrelatedOk: true, noReceipt: true });
+    expect(await missed(h)).toEqual(["unknown"]);
+  });
+
+  it("an unrelated ok receipt does not hide the grant's failed call", async () => {
+    const { h } = await viaGrant({ unrelatedOk: true, failWrites: true });
     expect(await missed(h)).toEqual(["failed_kept"]);
   });
 
-  it("positive control: the grant's call succeeded: done, no notice", async () => {
+  it("the provider did not confirm the grant's call: outcome unknown", async () => {
+    const { h } = await viaGrant({ uncertain: true });
+    expect(await missed(h)).toEqual(["unknown"]);
+  });
+
+  it("positive control: a gmail.send whose ok receipt carries the grant id: done, no notice", async () => {
     const { h, n } = await viaGrant({});
     expect(h.written).toEqual([NOTES]);
     expect(n).toBeUndefined();
