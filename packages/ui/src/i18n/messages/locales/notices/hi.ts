@@ -49,7 +49,7 @@ export const notices: Partial<Catalogue> = {
   "notice.approvals.resumeMissed.title":
     "{automation, select, none {स्वचालन की मंज़ूर की गई कार्रवाई नहीं हुई} other {{automation}: मंज़ूर की गई कार्रवाई नहीं हुई}}",
   "notice.approvals.resumeMissed.body":
-    "स्वचालन फिर से चला, लेकिन उसी कार्रवाई तक नहीं पहुँचा, इसलिए कुछ नहीं हुआ। अगर उसे अब भी इसकी ज़रूरत है, तो वह फिर से पूछेगा।",
+    "{why, select, expired {स्वचालन के कार्रवाई तक पहुँचने से पहले मंज़ूरी की अवधि खत्म हो गई, इसलिए कुछ नहीं हुआ।} paused {स्वचालन रुका हुआ है या हटा दिया गया, इसलिए वह फिर से नहीं चला और कुछ नहीं हुआ।} restart {स्वचालन के फिर से चलने से पहले Psyche फिर से शुरू हो गया, इसलिए कुछ नहीं हुआ।} other {स्वचालन फिर से चला, लेकिन उसी कार्रवाई तक नहीं पहुँचा, इसलिए कुछ नहीं हुआ।}} अगर उसे अब भी इसकी ज़रूरत है, तो वह फिर से पूछेगा।",
   "notice.specialist.result.title":
     "{outcome, select, done {{who} ने {title} पूरा किया} partial {{who} ने {title} पर जल्दी रोक दिया} cancelled {{who} को {title} पर रोका गया} other {{who} {title} पूरा नहीं कर सका}}",
   "notice.specialist.result.body":

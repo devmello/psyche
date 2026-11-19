@@ -1,7 +1,127 @@
+import { FakeClock } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import type { PolicyApprovalInput, PolicyCall, PolicyContext } from "../src/index.ts";
-import { pathCarriesExecution, riskClassFor } from "../src/risk.ts";
-import { CTX, call, DEVICE, type Harness, makeBroker, path } from "./helpers.ts";
+import { riskClassFor, routineWritePath } from "../src/risk.ts";
+import {
+  CTX,
+  call,
+  DEVICE,
+  type Harness,
+  makeBroker,
+  memoryDb,
+  path,
+  sqliteBroker,
+} from "./helpers.ts";
+
+const HOME = "/Users/owner";
+const REPO = `${HOME}/src/app`;
+
+/** Review rounds 1 and 2: every path here must be sensitive (files that run later, or unknown). */
+const MUST_BE_SENSITIVE = [
+  // Round 1.
+  `${REPO}/.envrc`,
+  `${REPO}/Makefile`,
+  `${REPO}/package.json`,
+  `${REPO}/.vscode/tasks.json`,
+  `${REPO}/.github/workflows/ci.yml`,
+  `${REPO}/.husky/pre-commit`,
+  `${HOME}/.zshrc`,
+  `${HOME}/.bash_profile`,
+  `${HOME}/.config/fish/config.fish`,
+  `${HOME}/Library/LaunchAgents/com.example.agent.plist`,
+  `${REPO}/rules.mk`,
+  `${REPO}/pyproject.toml`,
+  `${REPO}/setup.py`,
+  `${REPO}/.npmrc`,
+  `${REPO}/.ENVRC`,
+  `${REPO}/MaKefile`,
+  // Round 2: Claude Code and MCP.
+  `${REPO}/.claude/settings.json`,
+  `${REPO}/.claude/hooks/stop.sh`,
+  `${REPO}/.claude/commands/ship.md`,
+  `${REPO}/.mcp.json`,
+  `${REPO}/CLAUDE.md`,
+  `${REPO}/AGENTS.md`,
+  // Git and editor config, PATH.
+  `${HOME}/.config/git/config`,
+  `${HOME}/.local/bin/git`,
+  `${HOME}/bin/git`,
+  `${HOME}/.config/nvim/init.lua`,
+  `${HOME}/.oh-my-zsh/custom/x.zsh`,
+  `${HOME}/.config/starship.toml`,
+  `${HOME}/.tmux.conf`,
+  `${HOME}/.vimrc`,
+  // Packages and environments.
+  `${REPO}/node_modules/.bin/vitest`,
+  `${REPO}/node_modules/left-pad/index.js`,
+  `${REPO}/node_modules/left-pad/package.json`,
+  `${REPO}/node_modules/left-pad/README.md`,
+  `${REPO}/.venv/lib/python3.12/site-packages/x.pth`,
+  `${REPO}/venv/bin/activate`,
+  `${REPO}/env/lib/python3.12/site-packages/notes.md`,
+  `${REPO}/.pnpmfile.cjs`,
+  // Hooks and task runners.
+  `${REPO}/.githooks/pre-commit`,
+  `${REPO}/githooks/pre-commit.md`,
+  `${REPO}/hooks/notes.md`,
+  `${REPO}/lefthook.yml`,
+  `${REPO}/mise.toml`,
+  `${REPO}/.mise.toml`,
+  `${REPO}/.cargo/config.toml`,
+  `${REPO}/vite.config.ts`,
+  `${REPO}/vitest.config.json`,
+  `${REPO}/conftest.py`,
+  `${REPO}/Dockerfile`,
+  `${REPO}/Dockerfile.md`,
+  `${REPO}/.justfile`,
+  `${REPO}/justfile`,
+  `${REPO}/.devcontainer/devcontainer.json`,
+  `${REPO}/app.code-workspace`,
+  `${REPO}/Gemfile`,
+  `${REPO}/.tool-versions`,
+  `${REPO}/docker-compose.yml`,
+  `${REPO}/compose.yaml`,
+  `${REPO}/.gitlab-ci.yml`,
+  `${REPO}/azure-pipelines.yml`,
+  `${REPO}/action.yml`,
+  `${REPO}/workflows/build.yml`,
+  `${REPO}/tsconfig.json`,
+  `${REPO}/tsconfig.base.json`,
+  `${REPO}/babelrc.json`,
+  `${REPO}/deno.json`,
+  `${REPO}/composer.json`,
+  // Code and unknown types.
+  `${REPO}/src/index.ts`,
+  `${REPO}/scripts/run.sh`,
+  `${REPO}/notes`,
+  `${HOME}/Notes/run.command`,
+  // Unicode that APFS folds onto the real file (U+017F long s), and other non-ASCII.
+  `${REPO}/ſetup.py`,
+  `${REPO}/package.jſon`,
+  `${HOME}/.zſhrc`,
+  `${HOME}/.baſhrc`,
+  `${REPO}/juſtfile`,
+  `${HOME}/Notes/ſummary.md`,
+  `${HOME}/Notes/café.md`,
+  `${HOME}/Notes/ﬁle.md`,
+];
+
+/** Documents and data that may be bulk-approved. */
+const MAY_BE_ROUTINE = [
+  `${HOME}/Notes/weekly.md`,
+  `${HOME}/notes/today.md`,
+  `${REPO}/data/report.csv`,
+  `${REPO}/docs/img/chart.png`,
+  `${REPO}/docs/guide.rst`,
+  `${HOME}/Notes/Makefile notes.md`,
+  `${REPO}/docs/package.md`,
+  `${HOME}/Notes/vscode/tasks.md`,
+  `${REPO}/data/people.json`,
+  `${REPO}/data/inventory.yaml`,
+  `${HOME}/Documents/Report.PDF`,
+  `${REPO}/.gitignore`,
+  `${REPO}/.editorconfig`,
+];
 
 // The risk class comes from the broker's own `decide` (its rule), driven for real here: the card
 // is routine only for a plain mode-default write ask. Each row is a near-miss that must not be.
@@ -59,12 +179,30 @@ describe("riskClass from the decision that asked (real decide)", () => {
     expect(issued.approval.setAside).toBe(true);
   });
 
-  it("positive control: a mode-default git commit through code.git is routine", async () => {
+  const git = (params: Record<string, unknown>) =>
+    call("code.git", "write", path("/Users/owner/src/app"), { kind: "git_write", params });
+
+  it("positive control: a commit of explicit document files, and a new branch, are routine", async () => {
     const h = mk();
-    const c = call("code.git", "write", path("/Users/owner/src/app"), { kind: "git_write" });
-    const { d, issued } = await issue(h, c);
+    const commit = git({ op: "commit", message: "Notes", paths: ["notes/today.md", "data/r.csv"] });
+    const { d, issued } = await issue(h, commit);
     expect(d.rule).toBe("mode:manual/write");
     expect(issued.approval.riskClass).toBe("routine");
+    const branch = git({ op: "branch", name: "notes", create: true });
+    expect((await issue(h, branch)).issued.approval.riskClass).toBe("routine");
+  });
+
+  it.each([
+    ["no paths (git's default: everything)", { op: "commit", message: "m" }],
+    ['"." (the owner\'s unfinished work too)', { op: "commit", message: "m", paths: ["."] }],
+    ["a folder", { op: "commit", message: "m", paths: ["notes"] }],
+    ["a folder with a slash", { op: "commit", message: "m", paths: ["notes/"] }],
+    ["a file that runs later", { op: "commit", message: "m", paths: ["notes/a.md", "Makefile"] }],
+    ["a path out of the repo", { op: "commit", message: "m", paths: ["../x.md"] }],
+    ["switching branch (rewrites the tree)", { op: "branch", name: "main" }],
+  ])("a git write with %s is sensitive", async (_name, params) => {
+    const h = mk();
+    expect((await issue(h, git(params))).issued.approval.riskClass).toBe("sensitive");
   });
 
   it("B1: a write the Auto classifier called sensitive is sensitive", async () => {
@@ -121,31 +259,22 @@ describe("riskClass from the decision that asked (real decide)", () => {
     expect((await issue(h, c)).issued.approval.riskClass).toBe("sensitive");
   });
 
-  it.each([
-    "/Users/owner/src/app/.envrc",
-    "/Users/owner/src/app/Makefile",
-    "/Users/owner/src/app/package.json",
-    "/Users/owner/src/app/.vscode/tasks.json",
-    "/Users/owner/src/app/.github/workflows/ci.yml",
-    "/Users/owner/src/app/.husky/pre-commit",
-    "/Users/owner/.zshrc",
-    "/Users/owner/.bash_profile",
-    "/Users/owner/.config/fish/config.fish",
-    "/Users/owner/Library/LaunchAgents/com.example.agent.plist",
-    "/Users/owner/src/app/rules.mk",
-  ])("a write to %s (carries execution) is sensitive", async (p) => {
+  it.each(MUST_BE_SENSITIVE)("a write to %s is sensitive (real decide)", async (p) => {
     const h = mk();
     expect((await issue(h, write(p))).issued.approval.riskClass).toBe("sensitive");
   });
 
-  it.each([
-    "/Users/owner/Notes/Makefile notes.md",
-    "/Users/owner/src/app/docs/package.md",
-    "/Users/owner/src/app/src/envrc.ts",
-    "/Users/owner/Notes/vscode/tasks.md",
-  ])("near-miss: %s is an ordinary file and stays routine", async (p) => {
+  it.each(MAY_BE_ROUTINE)("a write to %s may be routine (real decide)", async (p) => {
     const h = mk();
     expect((await issue(h, write(p))).issued.approval.riskClass).toBe("routine");
+  });
+
+  it("a patch (code.edit) is sensitive: its files are not read here", async () => {
+    const h = mk();
+    const c = call("code.edit", "write", path("/Users/owner/src/app"), {
+      params: { root: "/Users/owner/src/app", patch: "--- a/notes.md\n+++ b/notes.md\n" },
+    });
+    expect((await issue(h, c)).issued.approval.riskClass).toBe("sensitive");
   });
 
   it("no decision at all (a card issued without decide) is sensitive", async () => {
@@ -217,10 +346,19 @@ describe("riskClass from the decision that asked (real decide)", () => {
     ).toBe("sensitive");
   });
 
-  it("pathCarriesExecution: a bare or empty path fails closed", () => {
-    expect(pathCarriesExecution("")).toBe(true);
-    expect(pathCarriesExecution("/")).toBe(true);
-    expect(pathCarriesExecution("/Users/owner/Notes/a.md")).toBe(false);
+  it("routineWritePath: an empty or bare path fails closed", () => {
+    expect(routineWritePath("")).toBe(false);
+    expect(routineWritePath("/")).toBe(false);
+    expect(routineWritePath("/Users/owner/Notes")).toBe(false);
+  });
+});
+
+describe("routineWritePath: the document allowlist (both lists)", () => {
+  it.each(MUST_BE_SENSITIVE)("%s is not routine", (p) => {
+    expect(routineWritePath(p)).toBe(false);
+  });
+  it.each(MAY_BE_ROUTINE)("%s is routine", (p) => {
+    expect(routineWritePath(p)).toBe(true);
   });
 });
 
@@ -263,6 +401,29 @@ describe("bulk answers are checked by the broker", () => {
       });
     }
     expect((await answerAs(h, r.issued)).status).toBe("approved");
+  });
+});
+
+describe("the Gateway's SQLite store keeps the class and the set-aside mark", () => {
+  it("a routine set-aside card reads back as routine and set aside (and is gated as such)", async () => {
+    const db = memoryDb();
+    const clock = new FakeClock();
+    const h = {
+      broker: sqliteBroker(db, clock, { policy: { folders: FOLDERS } }),
+      clock,
+    } as unknown as Harness;
+    const routine = await issue(h, write(NOTES));
+    const sensitive = await issue(h, write(`${REPO}/Makefile`));
+    expect(await h.broker.get(routine.issued.approval.id)).toMatchObject({
+      riskClass: "routine",
+      setAside: true,
+    });
+    expect((await h.broker.get(sensitive.issued.approval.id))?.riskClass).toBe("sensitive");
+    // No `canResume` here: the stored mark still makes Approve refuse, as it must.
+    clock.advance(500);
+    await expect(answerAs(h, routine.issued)).rejects.toMatchObject({
+      details: { reason: "not_resumable" },
+    });
   });
 });
 

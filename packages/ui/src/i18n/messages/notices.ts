@@ -53,7 +53,7 @@ export const notices = {
   "notice.approvals.resumeMissed.title":
     "{automation, select, none {An approved automation action was not done} other {{automation}: the approved action was not done}}",
   "notice.approvals.resumeMissed.body":
-    "The automation ran again but did not reach the same action, so nothing was done. If it still needs it, it will ask again.",
+    "{why, select, expired {The approval ran out before the automation reached the action, so nothing was done.} paused {The automation is paused or was removed, so it did not run again and nothing was done.} restart {Psyche restarted before the automation could run again, so nothing was done.} other {The automation ran again but did not reach the same action, so nothing was done.}} If it still needs it, it will ask again.",
   "notice.specialist.result.title":
     "{outcome, select, done {{who} finished {title}} partial {{who} stopped early on {title}} cancelled {{who} was stopped on {title}} other {{who} couldn't finish {title}}}",
   "notice.specialist.result.body":

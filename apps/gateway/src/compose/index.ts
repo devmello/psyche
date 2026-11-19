@@ -217,7 +217,12 @@ import { requestPermissionTool } from "./request-permission.ts";
 import { researchTools } from "./research.ts";
 import { withRunSnapshot } from "./run-snapshot.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
-import { createScheduledHandlers, pausedRoutines, withPausedRoutines } from "./scheduled.ts";
+import {
+  createScheduledHandlers,
+  pausedRoutines,
+  routineOf,
+  withPausedRoutines,
+} from "./scheduled.ts";
 import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
 import { scriptTools } from "./scripts.ts";
 import { type ComposedSearch, composeSearch, graphNames } from "./search.ts";
@@ -739,7 +744,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     },
     // A set-aside card is approvable only when its automation can run again (deferred-resume.ts).
     // The scheduler is composed later; until then nothing can resume, so nothing is approved.
-    canResume: (a) => deferredResumeRef?.canResume(a) === true,
+    canResume: async (a) => (await deferredResumeRef?.canResume(a)) === true,
+    // A restart revoked an approved set-aside card: say the resume will not happen.
+    onSetAsideRevoked: (a) => deferredResumeRef?.revokedAtRestart(a),
     psycheHome: config.home,
     presence: {
       // Presence fails closed while the security records are untrusted; the registered keys
@@ -1389,6 +1396,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const deferredResume = new DeferredResume({
     scheduler,
     notifier,
+    clock,
+    // A built-in routine paused in Scheduled keeps `enabled`; it must not be resumed either.
+    // `scheduledKv` is composed later; this runs only once the owner answers a card.
+    isPaused: (a) => pausedRoutines(scheduledKv).has(routineOf(a).id),
     onError: (err) =>
       gwOptions.logger?.log("warn", "deferred resume failed", {
         error: err instanceof Error ? err.message : String(err),

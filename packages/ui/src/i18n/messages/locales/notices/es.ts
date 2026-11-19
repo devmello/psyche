@@ -51,7 +51,7 @@ export const notices: Partial<Catalogue> = {
   "notice.approvals.resumeMissed.title":
     "{automation, select, none {No se hizo una acción aprobada de una automatización} other {{automation}: no se hizo la acción aprobada}}",
   "notice.approvals.resumeMissed.body":
-    "La automatización se volvió a ejecutar pero no llegó a la misma acción, así que no se hizo nada. Si aún la necesita, volverá a preguntar.",
+    "{why, select, expired {La aprobación caducó antes de que la automatización llegara a la acción, así que no se hizo nada.} paused {La automatización está en pausa o se eliminó, así que no se volvió a ejecutar y no se hizo nada.} restart {Psyche se reinició antes de que la automatización pudiera volver a ejecutarse, así que no se hizo nada.} other {La automatización se volvió a ejecutar pero no llegó a la misma acción, así que no se hizo nada.}} Si aún la necesita, volverá a preguntar.",
   "notice.specialist.result.title":
     "{outcome, select, done {{who} terminó {title}} partial {{who} se detuvo pronto en {title}} cancelled {{who} se detuvo en {title}} other {{who} no pudo terminar {title}}}",
   "notice.specialist.result.body":

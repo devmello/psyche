@@ -7,12 +7,13 @@ import type { PolicyCall, PolicyContext, PolicyDecision } from "./types.ts";
  *
  * `routine` is deliberately narrow and fails closed. A card is routine only when the broker's own
  * `decide` asked for it with the plain mode default for a local write (`mode:<mode>/write`), on
- * a file or git write the tool really is, for the owner, with nothing that made it ask harder.
- * Any other rule (`classifier:*`, `taint:*`, `prohibition:*`, `policy:ask:*`, an escalation, a
- * floor, a hook), no decision at all, a device-only card, a non-owner requester, a typed word, a
- * payment, taint, a destructive class or a path that carries execution makes it `sensitive`, so
- * the bulk button never covers it. This only labels cards: it changes neither which actions ask
- * nor what an approval allows.
+ * a file or git write the tool really is, for the owner, with nothing that made it ask harder,
+ * and only for files on the document allowlist (`routineWritePath`). Any other rule
+ * (`classifier:*`, `taint:*`, `prohibition:*`, `policy:ask:*`, an escalation, a floor, a hook),
+ * no decision at all, a device-only card, a non-owner requester, a typed word, a payment, taint,
+ * a destructive class or any path off the allowlist makes it `sensitive`, so the bulk button
+ * never covers it. This only labels cards: it changes neither which actions ask nor what an
+ * approval allows.
  */
 export const ROUTINE_BULK_KINDS: ReadonlySet<ApprovalKind> = new Set<ApprovalKind>([
   "file_write",
@@ -23,104 +24,141 @@ export const ROUTINE_BULK_KINDS: ReadonlySet<ApprovalKind> = new Set<ApprovalKin
 const MODE_DEFAULT_WRITE = /^mode:(?:manual|balanced|auto)\/write$/;
 
 /**
- * Files whose content runs later without another ask: a shell rc, a task runner, a package's
- * scripts, an editor's tasks, a login agent. A write to one of these is never bulk-approved.
+ * Documents and data: what a write of may be bulk-approved. An allowlist, not a list of what
+ * runs code: anything not named here (scripts, configs, dotfiles, binaries, unknown types) is
+ * sensitive, so a new kind of file that runs later never slips in.
  */
-const EXECUTING_NAMES: ReadonlySet<string> = new Set([
-  ".envrc",
-  ".env",
-  "makefile",
-  "gnumakefile",
-  "justfile",
-  "rakefile",
-  "taskfile.yml",
-  "taskfile.yaml",
-  "package.json",
-  ".npmrc",
-  ".yarnrc",
-  ".yarnrc.yml",
-  "pyproject.toml",
-  "setup.py",
-  "setup.cfg",
-  "build.gradle",
-  "build.gradle.kts",
-  "cargo.toml",
-  "build.rs",
-  "procfile",
-  ".pre-commit-config.yaml",
-  ".gitattributes",
-  ".gitconfig",
-  ".bashrc",
-  ".bash_profile",
-  ".bash_login",
-  ".bash_logout",
-  ".profile",
-  ".zshrc",
-  ".zshenv",
-  ".zprofile",
-  ".zlogin",
-  ".zlogout",
-  ".inputrc",
-  "config.fish",
-  "crontab",
+const ROUTINE_EXTENSIONS: ReadonlySet<string> = new Set([
+  "md",
+  "markdown",
+  "txt",
+  "rst",
+  "csv",
+  "tsv",
+  "json",
+  "yaml",
+  "yml",
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "svg",
+  "pdf",
+  "docx",
+  "xlsx",
+  "pptx",
+  "rtf",
+  "log",
 ]);
 
-/** Folders whose files run or configure what runs (editor tasks, CI, hooks, login items). */
-const EXECUTING_SEGMENTS: readonly (readonly string[])[] = [
-  [".vscode"],
-  [".idea"],
-  [".github", "workflows"],
-  [".husky"],
-  [".git"],
-  [".direnv"],
-  ["launchagents"],
-  ["launchdaemons"],
-  [".config", "autostart"],
-  [".config", "fish"],
-  [".config", "systemd"],
-];
+/** The only leaf names that may start with a dot. */
+const INERT_DOTFILES: ReadonlySet<string> = new Set([
+  ".gitignore",
+  ".gitattributes",
+  ".editorconfig",
+]);
 
-const EXECUTING_SUFFIXES = [".mk", ".command", ".plist", ".service", ".desktop"];
+/** Folders whose files are installed code, executables or app and tool state. */
+const NEVER_SEGMENTS: ReadonlySet<string> = new Set([
+  "node_modules",
+  "venv",
+  "site-packages",
+  "dist-packages",
+  "bin",
+  "sbin",
+  "library",
+  ".local",
+  ".config",
+]);
 
-/** True when a write to `path` can carry execution (see `EXECUTING_NAMES`). */
-export function pathCarriesExecution(path: string): boolean {
-  const parts = path
-    .toLowerCase()
-    .split(/[\\/]+/)
-    .filter((p) => p !== "" && p !== ".");
+/** Names that run things or steer agents although their type is a document or data. */
+const NEVER_NAMES =
+  /^(?:dockerfile|containerfile|makefile|gnumakefile|justfile|rakefile|procfile|vagrantfile|claude|agents|gemini|copilot-instructions)(?:\.|$)/;
+
+/** JSON files tools read as configuration with scripts, tasks or hooks in them. */
+const NEVER_JSON =
+  /^(?:package|package-lock|composer|deno|bunfig|turbo|nx|project|angular|lerna|devcontainer|launch|tasks|settings|manifest|app|vercel|netlify|renovate|firebase|tslint|eslint|biome|tsconfig.*|jsconfig.*|.*rc)\.json$/;
+
+/** YAML that CI, containers, hooks or task runners run. When unsure, not routine. */
+const NEVER_YAML =
+  /(?:workflow|compose|lefthook|pipeline|ci|cd|taskfile|tasks?|pre-commit|action|mkdocs|serverless|cloudbuild|buildspec|travis|circle|gitlab|drone|jenkins|bitbucket|azure|deploy|helm|chart|values|kustomization|playbook|ansible|hooks?|config|settings|app|codemagic|appveyor|wercker|buildkite|mise|devfile|skaffold|tilt|garden|dagger)/;
+
+const NON_ASCII = /[^\x20-\x7e]/;
+
+/**
+ * True when a write to `path` may be bulk-approved: every segment is plain ASCII (after NFKC and
+ * lower-casing, so `ſetup.py` reads as `setup.py` and is still refused), no segment is hidden
+ * (`.x`) except three inert leaf names, no segment is installed code or tool state, and the file
+ * is a document or data type that nothing runs. Everything else is false.
+ */
+export function routineWritePath(path: string): boolean {
+  if (typeof path !== "string" || path === "") return false;
+  const folded = path.normalize("NFKC").toLowerCase();
+  if (NON_ASCII.test(path) || NON_ASCII.test(folded)) return false;
+  const parts = folded.split(/[\\/]+/).filter((p) => p !== "");
   const name = parts.at(-1);
-  if (name === undefined) return true;
-  if (EXECUTING_NAMES.has(name)) return true;
-  if (EXECUTING_SUFFIXES.some((s) => name.endsWith(s))) return true;
-  for (const seg of EXECUTING_SEGMENTS) {
-    for (let i = 0; i + seg.length <= parts.length - 1; i++) {
-      if (seg.every((s, j) => parts[i + j] === s)) return true;
-    }
+  if (name === undefined) return false;
+  for (const [i, seg] of parts.entries()) {
+    if (seg.startsWith(".") && !(i === parts.length - 1 && INERT_DOTFILES.has(seg))) return false;
+    if (NEVER_SEGMENTS.has(seg)) return false;
+    if (seg === "workflows" || seg === "hooks" || seg === "githooks") return false;
   }
-  return false;
+  if (INERT_DOTFILES.has(name)) return true;
+  if (NEVER_NAMES.test(name)) return false;
+  // `vite.config.json`, `x.config.yaml`: a tool's config, whatever its type.
+  if (/\.config\./.test(name) || name.startsWith("config.")) return false;
+  const dot = name.lastIndexOf(".");
+  if (dot <= 0) return false;
+  const ext = name.slice(dot + 1);
+  if (!ROUTINE_EXTENSIONS.has(ext)) return false;
+  if (ext === "json" && NEVER_JSON.test(name)) return false;
+  if ((ext === "yaml" || ext === "yml") && NEVER_YAML.test(name.slice(0, dot))) return false;
+  return true;
 }
 
-/** Every path the call writes, from its target and its binding fields. Empty means unknown. */
-function writtenPaths(call: PolicyCall | undefined, fields: unknown): string[] {
-  const out: string[] = [];
-  if (call?.target?.kind === "path" && typeof call.target.value === "string")
-    out.push(call.target.value);
+const joinPath = (root: string, rel: string) =>
+  rel.startsWith("/") ? rel : `${root.replace(/\/+$/, "")}/${rel}`;
+
+/**
+ * Every file the call writes, or undefined when that cannot be read (which is sensitive). The
+ * file tools write their canonical target (`realPath`); a commit takes its explicit `paths`
+ * (none means sensitive, never "everything"); a patch is not read, so it is sensitive.
+ */
+function writtenFiles(
+  kind: ApprovalKind,
+  call: PolicyCall | undefined,
+  fields: unknown,
+): string[] | undefined {
   const f = (fields ?? {}) as Record<string, unknown>;
-  for (const key of ["path", "realPath"]) {
-    const v = f[key];
-    if (typeof v === "string") out.push(v);
-  }
-  const files = f.files;
-  if (Array.isArray(files)) {
-    for (const v of files) {
-      if (typeof v === "string") out.push(v);
-      else if (typeof v === "object" && v !== null) {
-        const p = (v as { path?: unknown }).path;
-        if (typeof p === "string") out.push(p);
-      }
+  const targetPath =
+    call?.target?.kind === "path" && typeof call.target.value === "string"
+      ? call.target.value
+      : undefined;
+  if (kind === "git_write") {
+    // `code.git`'s own arguments (the binding hash covers every one of them), with the repo as
+    // the broker saw it (the canonical target). Creating a branch writes no file; switching
+    // rewrites the tree from whatever is in the repo (sensitive); a commit takes exactly the
+    // listed files, never "." or a folder (which would take the owner's unfinished work too).
+    const params = (call?.params ?? {}) as Record<string, unknown>;
+    if (targetPath === undefined) return undefined;
+    if (params.op === "branch") return params.create === true ? [] : undefined;
+    const paths = params.paths;
+    if (params.op !== "commit" || !Array.isArray(paths) || paths.length === 0) return undefined;
+    const out: string[] = [];
+    // A folder has no document type, so the file rule refuses it too.
+    for (const p of paths) {
+      if (typeof p !== "string" || p === "" || p === "." || p.endsWith("/") || p.includes(".."))
+        return undefined;
+      out.push(joinPath(targetPath, p));
     }
+    return out;
   }
-  return out;
+  // A patch (`code.edit`) names its files inside the patch, which is not read here: sensitive.
+  if (call?.tool === "code.edit" || Array.isArray(f.files)) return undefined;
+  if (typeof f.realPath === "string") return [f.realPath];
+  if (targetPath !== undefined) return [targetPath];
+  return undefined;
 }
 
 export interface RiskInput {
@@ -157,9 +195,9 @@ export function riskClassFor(input: RiskInput): RiskClass {
   const tool = r.call.tool;
   if (input.kind === "file_write" && inferApprovalKind(tool) !== "file_write") return "sensitive";
   if (input.kind === "git_write" && tool !== "code.git") return "sensitive";
-  if (input.kind === "file_write") {
-    const paths = writtenPaths(r.call, r.fields);
-    if (paths.length === 0 || paths.some(pathCarriesExecution)) return "sensitive";
-  }
+  const files = writtenFiles(input.kind, r.call, r.fields);
+  if (files === undefined) return "sensitive";
+  if (input.kind === "file_write" && files.length === 0) return "sensitive";
+  if (!files.every(routineWritePath)) return "sensitive";
   return "routine";
 }

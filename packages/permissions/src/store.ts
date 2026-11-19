@@ -22,6 +22,12 @@ export interface StoredToken {
   usedAt: string | null;
 }
 
+/** What the broker decided about a card that has no column of its own (kept in `input`). */
+export interface StoredCardFields {
+  cardRiskClass?: "routine" | "sensitive";
+  cardSetAside?: true;
+}
+
 export interface StoredApproval {
   approval: ApprovalRequest;
   tokens: StoredToken[];
@@ -399,6 +405,11 @@ function approvalFromRow(r: ApprovalRow): StoredApproval {
   const input = parse<PolicyApprovalInput>(r.request_input);
   // Not a column: the request input keeps it (teaching loop, "Because you said").
   if (input.fromLesson !== undefined) approval.fromLesson = { ...input.fromLesson };
+  // Not columns either: the broker's class and set-aside mark (#1333) ride on the stored input.
+  const card = input as PolicyApprovalInput & StoredCardFields;
+  if (card.cardRiskClass === "routine" || card.cardRiskClass === "sensitive")
+    approval.riskClass = card.cardRiskClass;
+  if (card.cardSetAside === true) approval.setAside = true;
   return {
     approval,
     tokens: parse<StoredToken[]>(r.answer_tokens),

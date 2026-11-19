@@ -1,6 +1,10 @@
 import { openDb } from "@psyche/db";
 import { PsycheNotifier } from "@psyche/notifications";
-import { createPermissionBroker, type PolicyCall } from "@psyche/permissions";
+import {
+  createPermissionBroker,
+  type PolicyCall,
+  SqlitePermissionStore,
+} from "@psyche/permissions";
 import { createDbSessionResolver, type RunLauncher, SqliteScheduler } from "@psyche/scheduler";
 import { FakeClock, sha256 } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
@@ -36,16 +40,21 @@ function setup(plans: string[]) {
   const db = openDb(":memory:");
   const notifier = new PsycheNotifier({ clock });
   let resume!: DeferredResume;
-  const broker = createPermissionBroker({
-    armDelayMs: 0,
-    clock,
-    approvers: {
-      device: async () => ({ scopes: ["operator.read", "operator.approvals"] }),
-      isOwnerSender: async () => false,
-    },
-    policy: { folders: [{ path: "/Users/owner", mode: "rw" }] },
-    canResume: (a) => resume.canResume(a),
-  });
+  const brokerFor = (r: () => DeferredResume) =>
+    createPermissionBroker({
+      armDelayMs: 0,
+      clock,
+      approvers: {
+        device: async () => ({ scopes: ["operator.read", "operator.approvals"] }),
+        isOwnerSender: async () => false,
+      },
+      // On the Gateway database, so a second broker on it is a restart.
+      store: new SqlitePermissionStore(db.sqlite),
+      policy: { folders: [{ path: "/Users/owner", mode: "rw" }] },
+      canResume: (a) => r().canResume(a),
+      onSetAsideRevoked: (a) => r().revokedAtRestart(a),
+    });
+  const broker = brokerFor(() => resume);
   const written: string[] = [];
   const gates: (() => void)[] = [];
   let hold = false;
@@ -119,7 +128,7 @@ function setup(plans: string[]) {
     sessions: createDbSessionResolver(db),
     notifier,
   });
-  resume = new DeferredResume({ scheduler, notifier });
+  resume = new DeferredResume({ scheduler, notifier, clock });
   broker.subscribe((e) => resume.onBrokerEvent(e));
   scheduler.subscribe((e) => {
     if (e.event === "automation.run.finished") resume.onRunFinished(e.payload.run);
@@ -146,8 +155,19 @@ function setup(plans: string[]) {
     // The test reads the answer token the way a paired device receives it.
     return card;
   };
+  /** A Gateway restart: a new broker and DeferredResume on the same database, then reissue. */
+  const restart = async () => {
+    let next!: DeferredResume;
+    const b = brokerFor(() => next);
+    next = new DeferredResume({ scheduler, notifier, clock });
+    await b.reissue();
+    await next.idle();
+    return { broker: b, resume: next };
+  };
   return {
     broker,
+    clock,
+    restart,
     scheduler,
     resume,
     notifier,
@@ -235,7 +255,7 @@ describe("Approve on a set-aside card resumes the automation (DeferredResume)", 
       message: {
         titleKey: RESUME_MISSED_TITLE_KEY,
         bodyKey: RESUME_MISSED_BODY_KEY,
-        params: { automation: "Weekly notes" },
+        params: { automation: "Weekly notes", why: "not_reached" },
       },
     });
   });
@@ -300,5 +320,134 @@ describe("Approve on a set-aside card resumes the automation (DeferredResume)", 
     await h.settle();
     expect(h.written).toEqual([]);
     expect(h.scheduler.runs(a.id).runs).toHaveLength(1);
+  });
+});
+
+/** The "not done" notices, with their reason. */
+async function missed(h: ReturnType<typeof setup>) {
+  return (await h.notifier.list())
+    .filter((n) => n.message?.titleKey === RESUME_MISSED_TITLE_KEY)
+    .map((n) => n.message?.params?.why);
+}
+
+describe("R2-2: approving never restarts an automation the owner turned off", () => {
+  it("paused before the tap: the approval is refused and nothing runs", async () => {
+    const h = setup([NOTES, NOTES]);
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    await h.scheduler.update(a.id, { enabled: false });
+    await expect(h.approve(card.id, tok.get(card.id) ?? "")).rejects.toMatchObject({
+      code: "unavailable",
+      details: { reason: "not_resumable" },
+    });
+    await h.settle();
+    expect((await h.broker.get(card.id))?.status).toBe("pending");
+    expect(h.written).toEqual([]);
+    expect(h.scheduler.runs(a.id).runs).toHaveLength(1);
+  });
+
+  it("positive control: switched back on, the same card approves and resumes", async () => {
+    const h = setup([NOTES, NOTES]);
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    await h.scheduler.update(a.id, { enabled: false });
+    await h.scheduler.update(a.id, { enabled: true });
+    expect((await h.approve(card.id, tok.get(card.id) ?? "")).status).toBe("approved");
+    await h.settle();
+    expect(h.written).toEqual([NOTES]);
+  });
+
+  it("paused between the tap and the resume: no run, and the owner is told", async () => {
+    const h = setup([NOTES, "/Users/owner/Notes/x.md", NOTES]);
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    h.holdRuns(true);
+    await h.scheduler.trigger(a.id);
+    await new Promise((r) => setImmediate(r));
+    await h.approve(card.id, tok.get(card.id) ?? "");
+    await h.resume.idle();
+    await h.scheduler.update(a.id, { enabled: false });
+    h.holdRuns(false);
+    h.release();
+    await h.settle();
+    expect(h.written).toEqual([]);
+    expect(h.scheduler.runs(a.id).runs).toHaveLength(2);
+    expect(await missed(h)).toEqual(["paused"]);
+  });
+
+  it("a built-in routine paused in Scheduled (enabled stays on) is not resumed", async () => {
+    const h = setup([NOTES, NOTES]);
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    const paused = new DeferredResume({
+      scheduler: h.scheduler,
+      notifier: h.notifier,
+      clock: h.clock,
+      isPaused: (x) => x.id === a.id,
+    });
+    expect(await paused.canResume(card)).toBe(false);
+    expect(await h.resume.canResume(card)).toBe(true);
+    void tok;
+  });
+});
+
+describe("silent misses: the owner is told when a promised resume can't happen", () => {
+  it("the approval ran out before the resume could start", async () => {
+    const h = setup([NOTES, "/Users/owner/Notes/x.md", NOTES]);
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    h.holdRuns(true);
+    await h.scheduler.trigger(a.id);
+    await new Promise((r) => setImmediate(r));
+    await h.approve(card.id, tok.get(card.id) ?? "");
+    await h.resume.idle();
+    // The run in progress takes longer than the card's 30 minutes.
+    h.clock.advance(31 * 60_000);
+    h.holdRuns(false);
+    h.release();
+    await h.settle();
+    expect(h.written).toEqual([]);
+    expect(h.scheduler.runs(a.id).runs).toHaveLength(2);
+    expect(await missed(h)).toEqual(["expired"]);
+  });
+
+  it("a restart revoked the approval before any run used it", async () => {
+    const h = setup([NOTES, "/Users/owner/Notes/x.md"]);
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    // Approved while another run is going, so it is still unused when the Gateway restarts.
+    h.holdRuns(true);
+    await h.scheduler.trigger(a.id);
+    await new Promise((r) => setImmediate(r));
+    await h.approve(card.id, tok.get(card.id) ?? "");
+    await h.resume.idle();
+    const after = await h.restart();
+    expect(await missed(h)).toEqual(["restart"]);
+    const n = (await h.notifier.list()).find(
+      (x) => x.message?.titleKey === RESUME_MISSED_TITLE_KEY,
+    );
+    expect(n?.title).toBe("Weekly notes: the approved action was not done");
+    expect(n?.body).toMatch(/restarted/);
+    // The revoked approval cannot be used by anything after the restart.
+    expect((await after.broker.verifyBinding(card.id, card.bindingHash)).ok).toBe(false);
+    h.release();
   });
 });

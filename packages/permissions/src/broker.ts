@@ -79,6 +79,7 @@ import {
   MemoryPermissionStore,
   type PermissionStore,
   type StoredApproval,
+  type StoredCardFields,
   type StoredGrant,
 } from "./store.ts";
 import type {
@@ -152,6 +153,11 @@ export interface PermissionBrokerOptions {
    * because approving would otherwise report success for an action that never runs.
    */
   canResume?: (approval: ApprovalRequest) => boolean | Promise<boolean>;
+  /**
+   * A restart revoked an approved set-aside card before any run used it (`reissue`): the resume
+   * it promised will not happen, so the Gateway tells the owner instead of staying silent.
+   */
+  onSetAsideRevoked?: (approval: ApprovalRequest) => void;
   onEvent?: (event: BrokerEvent) => void;
   newId?: (prefix: string) => string;
   /** Records grant revocations outside the backup scope (design-26). */
@@ -272,6 +278,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #ttlMs: number | undefined;
   readonly #deferredApproval: PermissionBrokerOptions["deferredApproval"];
   readonly #canResume: PermissionBrokerOptions["canResume"];
+  readonly #onSetAsideRevoked: PermissionBrokerOptions["onSetAsideRevoked"];
   readonly #onEvent: ((e: BrokerEvent) => void) | undefined;
   readonly #newId: (prefix: string) => string;
   readonly #revocations: RevocationLedger | undefined;
@@ -315,6 +322,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#ttlMs = options.ttlMs;
     this.#deferredApproval = options.deferredApproval;
     this.#canResume = options.canResume;
+    this.#onSetAsideRevoked = options.onSetAsideRevoked;
     this.#onEvent = options.onEvent;
     this.#revocations = options.revocations;
     this.#channelConversations = options.channelConversations;
@@ -994,6 +1002,11 @@ export class PsychePermissionBroker implements PermissionBroker {
         return out;
       });
     }
+    // Kept with the stored input, so a SQLite store (no column for them) gives them back.
+    const card = input as PolicyApprovalInput & StoredCardFields;
+    card.cardRiskClass = approval.riskClass;
+    if (approval.setAside === true) card.cardSetAside = true;
+    else delete card.cardSetAside;
     if (input.targetKind !== undefined) approval.targetKind = input.targetKind;
     if (input.target !== undefined) approval.target = { ...input.target };
     if (input.fromLesson !== undefined) {
@@ -2008,6 +2021,13 @@ export class PsychePermissionBroker implements PermissionBroker {
         { approvalId: rec.approval.id },
         { reason: "gateway_restart_unconsumed" },
       );
+      if (rec.approval.setAside === true) {
+        try {
+          this.#onSetAsideRevoked?.(structuredClone(rec.approval));
+        } catch {
+          // A failed notice never stops the restart.
+        }
+      }
     }
     for (const g of this.#store.listGrants()) {
       if (

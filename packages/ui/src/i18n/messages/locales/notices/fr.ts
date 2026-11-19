@@ -52,7 +52,7 @@ export const notices: Partial<Catalogue> = {
   "notice.approvals.resumeMissed.title":
     "{automation, select, none {Une action approuvée d'une automatisation n'a pas été faite} other {{automation} : l'action approuvée n'a pas été faite}}",
   "notice.approvals.resumeMissed.body":
-    "L'automatisation a été relancée mais n'a pas atteint la même action, donc rien n'a été fait. Si elle en a encore besoin, elle redemandera.",
+    "{why, select, expired {L'approbation a expiré avant que l'automatisation n'atteigne l'action, donc rien n'a été fait.} paused {L'automatisation est en pause ou a été supprimée, elle n'a donc pas été relancée et rien n'a été fait.} restart {Psyche a redémarré avant que l'automatisation puisse être relancée, donc rien n'a été fait.} other {L'automatisation a été relancée mais n'a pas atteint la même action, donc rien n'a été fait.}} Si elle en a encore besoin, elle redemandera.",
   "notice.specialist.result.title":
     "{outcome, select, done {{who} a terminé {title}} partial {{who} s'est arrêté tôt sur {title}} cancelled {{who} a été arrêté sur {title}} other {{who} n'a pas pu terminer {title}}}",
   "notice.specialist.result.body":

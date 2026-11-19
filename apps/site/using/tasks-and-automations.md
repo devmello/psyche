@@ -91,7 +91,7 @@ An automation runs with nobody watching. The agent is told so, and:
 Open the agent sheet, then **Approvals**, or press ⇧⌘P. It has four sections:
 
 - **Needs you:** full approval cards waiting for an answer.
-- **Deferred:** routine actions that unattended runs set aside, such as a plain file or git write, each with the automation, the action, the full path, and when it was set aside, plus **Approve** and **Decline**. **Approve all routine ones** approves only these rows, and the Gateway checks each one again. Sensitive actions, payments, folder requests, permanent deletions and messages you can edit keep their full card under **Needs you**, and a payment asks for Touch ID or your password as it always does. Actions waiting for an answer on another device show here as "Answer where it was sent".
+- **Deferred:** routine actions that unattended runs set aside: writes of notes, documents, data and images (Markdown, text, CSV, JSON or YAML data, PDF, Office files, pictures) outside hidden, tool and package folders, a commit of exactly such files, or a new branch, each with the automation, the action, the full path, and when it was set aside, plus **Approve** and **Decline**. **Approve all routine ones** approves only these rows, and the Gateway checks each one again. Sensitive actions, payments, folder requests, permanent deletions and messages you can edit keep their full card under **Needs you**, and a payment asks for Touch ID or your password as it always does. Actions waiting for an answer on another device show here as "Answer where it was sent".
 - **Recent:** decisions from the last 7 days and where they were answered.
 - **Standing grants:** how many site, session and always grants are active.
 
@@ -99,7 +99,7 @@ Cards expire 30 minutes after they are issued. An expired card says "Expired. No
 
 Automations do not raise one notice per action. Waiting actions share one notice, "N actions are waiting from your automations". Its count updates in place while it is open. If you dismiss it, it comes back when a new action is set aside, or after four hours. When nothing is left waiting, it closes.
 
-An automation's run does not wait for you: it sets the action aside and finishes without it. Approving a set-aside action runs the automation again. The action goes ahead once, and only if that run reaches exactly the same action (same file and content, same commit). If the run does something different, nothing is done, you get a notice, and the automation asks again next time it needs to. If the automation was deleted, Approve says it can't run instead of approving.
+An automation's run does not wait for you: it sets the action aside and finishes without it. Approving a set-aside action runs the automation again. The action goes ahead once, and only if that run reaches exactly the same action (same file and content, same commit). If the run does something different, nothing is done, you get a notice, and the automation asks again next time it needs to. You also get that notice when the approval runs out first, when you pause or remove the automation in the meantime, or when Psyche restarts before the run. Approving never restarts an automation you paused or removed: Approve says it can't run instead.
 
 ## Limits today
 

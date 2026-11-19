@@ -49,7 +49,7 @@ export const notices: Partial<Catalogue> = {
   "notice.approvals.resumeMissed.title":
     "{automation, select, none {承認した自動化の操作は行われませんでした} other {{automation}：承認した操作は行われませんでした}}",
   "notice.approvals.resumeMissed.body":
-    "自動化は再実行されましたが、同じ操作に到達しなかったため何も行われませんでした。まだ必要な場合は、もう一度確認されます。",
+    "{why, select, expired {自動化が操作に到達する前に承認の期限が切れたため、何も行われませんでした。} paused {自動化が一時停止中か削除されたため、再実行されず、何も行われませんでした。} restart {自動化が再実行される前にPsycheが再起動したため、何も行われませんでした。} other {自動化は再実行されましたが、同じ操作に到達しなかったため何も行われませんでした。}}まだ必要な場合は、もう一度確認されます。",
   "notice.specialist.result.title":
     "{outcome, select, done {{who}が{title}を終えました} partial {{who}は{title}を途中で止めました} cancelled {{who}は{title}で停止されました} other {{who}は{title}を完了できませんでした}}",
   "notice.specialist.result.body":
