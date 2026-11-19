@@ -71,7 +71,7 @@ Pages are untrusted content. Text on a page never becomes an instruction, and af
 - Recordings of browsing are made only when the Gateway runs with `PSYCHE_BROWSER_RECORD=1`. They are listed in the Library, but there is no replay view in Activity yet, and the "Keep task replays for" setting in Data controls sets how long they are kept.
 - There is no web search tool. The agent looks things up by opening pages in its browser.
 - Loopback and private-network addresses are refused, except for an approved dev preview.
-- Real Chrome mode's per-task card needs Touch ID or a passkey. Touch ID approvals cannot be approved in the desktop app yet, because nothing registers Psyche Helper's key with the Gateway; a passkey in the web client over https works. The same applies to credential fills and payments.
+- Real Chrome mode's per-task card needs Touch ID or a passkey. Touch ID works on the Mac when Psyche Helper is running; it needs no key to be registered. A passkey in the web client over https works too. Payments and paid credential fills follow the same rule.
 
 ## Learn more
 
