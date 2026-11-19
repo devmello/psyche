@@ -22,6 +22,7 @@ import { home } from "./home/zh.ts";
 import { links } from "./links/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
 import { meetingRecord } from "./meeting-record/zh.ts";
+import { memoryMap } from "./memory-map/zh.ts";
 import { memoryPage } from "./memory-page/zh.ts";
 import { memoryReview } from "./memory-review/zh.ts";
 import { memorySettings } from "./memory-settings/zh.ts";
@@ -57,6 +58,7 @@ import { workflows } from "./workflows/zh.ts";
 /** Simplified Chinese catalogue (zh). Same ids as `en`; missing ids fall back to English. */
 export const zh: Partial<Catalogue> = {
   // common: translated ids (i18n completion)
+  ...memoryMap,
   ...common,
   // chat: translated ids (i18n completion)
   ...chat,

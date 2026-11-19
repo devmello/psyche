@@ -22,6 +22,7 @@ import { homeRest } from "./home-rest/ja.ts";
 import { links } from "./links/ja.ts";
 import { mailMeetings } from "./mail-meetings/ja.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ja.ts";
+import { memoryMap } from "./memory-map/ja.ts";
 import { memoryRest } from "./memory-rest/ja.ts";
 import { memoryAdvancedRest } from "./memoryAdvanced-rest/ja.ts";
 import { memoryBasicsRest } from "./memoryBasics-rest/ja.ts";
@@ -56,6 +57,7 @@ import { workflows } from "./workflows/ja.ts";
 /** Japanese catalogue (ja). Same ids as `en`; missing ids fall back to English. */
 export const ja: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,

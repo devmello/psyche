@@ -35,6 +35,7 @@ import {
   type GraphTimelineRow,
   type GraphWorkStatus,
   type GraphWriteSource,
+  type MemoryMap,
   type Provenance,
   PsycheError,
 } from "@psyche/protocol";
@@ -46,6 +47,7 @@ import { classifySensitivity } from "../extraction/sensitivity.ts";
 import { blockingKinds, looksLikeInstruction } from "../filters.ts";
 import { trustRank } from "../provenance.ts";
 import { safeName } from "./clean.ts";
+import { buildMemoryMap } from "./map.ts";
 import { blockHash, normalizeIdentifier, normalizeName, sha256, slugify } from "./normalize.ts";
 import {
   isWorkKind,
@@ -3496,6 +3498,11 @@ export class GraphStore {
       .sort((a, b) => b.score - a.score || a.s.name.localeCompare(b.s.name))
       .slice(0, limit)
       .map((x) => x.s);
+  }
+
+  /** The memory map: nodes and the relations the store already holds (read-only). */
+  memoryMap(opts: { limit?: number; kinds?: GraphEntityKind[] } = {}): MemoryMap {
+    return buildMemoryMap(this.#db, { ...opts, now: this.#clock.now() });
   }
 
   /** Every active entity (for cards and the nightly pass). */

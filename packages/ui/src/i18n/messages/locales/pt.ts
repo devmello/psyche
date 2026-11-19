@@ -14,6 +14,7 @@ import { links } from "./links/pt.ts";
 import { mailMeetings } from "./mail-meetings/pt.ts";
 import { memoryA } from "./memory-a/pt.ts";
 import { memoryB } from "./memory-b/pt.ts";
+import { memoryMap } from "./memory-map/pt.ts";
 import { notices } from "./notices/pt.ts";
 import { overview } from "./overview/pt.ts";
 import { overviewGrowth } from "./overview-growth/pt.ts";
@@ -37,6 +38,7 @@ import { workflows } from "./workflows/pt.ts";
 
 /** Portuguese catalogue (pt, Brazil). Same ids as `en`; missing ids fall back to English. */
 export const pt: Partial<Catalogue> = {
+  ...memoryMap,
   ...scheduledA,
   ...scheduledForm,
   ...homeA,

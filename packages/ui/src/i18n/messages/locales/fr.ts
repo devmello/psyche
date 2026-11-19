@@ -17,6 +17,7 @@ import { helperOffline } from "./helper-offline/fr.ts";
 import { homeRest } from "./home-rest/fr.ts";
 import { links } from "./links/fr.ts";
 import { mailMeetings } from "./mail-meetings/fr.ts";
+import { memoryMap } from "./memory-map/fr.ts";
 import { memoryRest } from "./memory-rest/fr.ts";
 import { memoryReviewRest } from "./memoryReview-rest/fr.ts";
 import { memorySurfacesRest } from "./memorySurfaces-rest/fr.ts";
@@ -48,6 +49,7 @@ import { workflows } from "./workflows/fr.ts";
 /** French catalogue (fr). Same ids as `en`; missing ids fall back to English. */
 export const fr: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,

@@ -17,6 +17,7 @@ import { helperOffline } from "./helper-offline/de.ts";
 import { homeRest } from "./home-rest/de.ts";
 import { links } from "./links/de.ts";
 import { mailMeetings } from "./mail-meetings/de.ts";
+import { memoryMap } from "./memory-map/de.ts";
 import { memoryRest } from "./memory-rest/de.ts";
 import { memoryReviewRest } from "./memoryReview-rest/de.ts";
 import { memorySurfacesRest } from "./memorySurfaces-rest/de.ts";
@@ -48,6 +49,7 @@ import { workflows } from "./workflows/de.ts";
 /** German catalogue (de). Same ids as `en`; missing ids fall back to English. */
 export const de: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,
