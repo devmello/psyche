@@ -56,6 +56,29 @@ function defaultOptions(ctx: ConvertContext): JsonObject {
   return {};
 }
 
+/**
+ * What `reasoning: "off"` sends for a model that thinks by default. Sonnet 5.5 rejects
+ * `disabled` (it takes `between_tools`); Opus 5.5 and Fable cannot switch thinking off at all
+ * (`undefined`: their depth is `effort`'s job); the other adaptive models accept `disabled`.
+ */
+export function thinkingOffFor(modelId: string): JsonObject | undefined {
+  if (/^claude-sonnet-5-5/.test(modelId)) return { type: "between_tools" };
+  if (/^claude-(?:opus-5-5|fable-|mythos-)/.test(modelId)) return undefined;
+  return { type: "disabled" };
+}
+
+/** The request's per-route settings (`effort`, `reasoning`) as Anthropic options. */
+function routeOptions(request: ModelRequest, ctx: ConvertContext): JsonObject {
+  if (ctx.config.kind !== "anthropic" || !ADAPTIVE_THINKING.test(ctx.modelId)) return {};
+  const out: JsonObject = {};
+  if (request.effort !== undefined) out.effort = request.effort;
+  if (request.reasoning === "off") {
+    const off = thinkingOffFor(ctx.modelId);
+    if (off !== undefined) out.thinking = off;
+  }
+  return out;
+}
+
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
@@ -349,6 +372,8 @@ export function providerOptionsFor(
 ): SharedV4ProviderOptions {
   const key = packageKey(ctx.config);
   let merged = deepMerge(defaultOptions(ctx), ctx.config.defaultOptions ?? {});
+  // The route's own settings sit above the defaults and below an explicit providerOptions.
+  merged = deepMerge(merged, routeOptions(request, ctx));
   const fromKey = request.providerOptions?.[key];
   if (fromKey !== undefined) merged = deepMerge(merged, fromKey);
   const fromId = ctx.config.id !== key ? request.providerOptions?.[ctx.config.id] : undefined;
@@ -382,7 +407,11 @@ export function convertRequest(
     ...(thinking === undefined ? {} : { thinking }),
   };
   const prompt = convertMessages(request, c);
-  if (ctx.config.kind === "anthropic" && ctx.config.promptCaching !== false) {
+  if (
+    ctx.config.kind === "anthropic" &&
+    ctx.config.promptCaching !== false &&
+    request.cache !== "none"
+  ) {
     applyPromptCaching(prompt, ctx.config.cacheTtl);
   }
   const options: Omit<LanguageModelV4CallOptions, "abortSignal"> = { prompt };

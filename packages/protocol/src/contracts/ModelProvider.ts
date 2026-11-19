@@ -41,6 +41,25 @@ export interface ModelRequest {
   toolChoice?: "auto" | "none" | "required" | { tool: string };
   maxOutputTokens?: number;
   temperature?: number;
+  /**
+   * Reasoning depth for models that take it (Anthropic `output_config.effort`; other providers
+   * ignore it). One-shot background jobs ask for `low`: the default is `medium` or `high`, and
+   * thinking tokens are billed as output. Keep it constant within a thread (a change mid-thread
+   * invalidates Anthropic's message cache).
+   */
+  effort?: "low" | "medium" | "high";
+  /**
+   * `off` turns thinking off where the model allows it (Haiku 5.5, Sonnet 5.5 via
+   * `between_tools`, the 4.x models) so it cannot eat a small `maxOutputTokens`. Models that
+   * cannot switch it off (Opus 5.5, Fable) keep their thinking and rely on `effort`.
+   */
+  reasoning?: "off";
+  /**
+   * Anthropic cache breakpoints. Unset: the system prompt and the last message are marked.
+   * `none`: nothing is marked, for a one-shot call whose last message is unique and never read
+   * again (the write premium would be paid for nothing).
+   */
+  cache?: "none";
   /** Keyed by provider id, passed through untouched (e.g. `{anthropic: {thinking: …}}`). */
   providerOptions?: Record<string, JsonObject>;
 }

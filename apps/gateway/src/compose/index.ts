@@ -150,6 +150,7 @@ import { DeferredResume } from "./deferred-resume.ts";
 import { composeDeviceNotifications, DeviceNotifications } from "./device-notify.ts";
 import { composeDictation } from "./dictation.ts";
 import { composeEverything, type Everything, everythingSettings } from "./everything.ts";
+import { readSystemState } from "./everything-probe.ts";
 import { type ExecHostDeps, execHostTool } from "./exec-host.ts";
 import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
@@ -1481,6 +1482,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     provider,
     model: utility ?? modelRef,
     active: utility !== undefined,
+    // One learner call per thread per half minute; quicker turns are sent together.
+    // (Tests run with background off and learn on every turn.)
+    minIntervalMs: background ? 30_000 : 0,
     redactor,
     audit,
     broker: executorBroker,
@@ -2022,10 +2026,21 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     },
     // `search.semantic.engine: router`: the `embedding` role; a cloud one only with allowCloud (S4).
     routerEmbedder: (allowCloud) => routerEmbedder(router, allowCloud),
-    // Context cards at ingest: the utility model (cheap), a few items per minute, a daily budget.
+    // Context cards at ingest: a background job, so a cheap model only (the owner's utility pick or
+    // the provider's own cheap default, never the primary), one bounded step every 10 minutes, on AC
+    // power with the Mac idle, within a daily budget.
     // `search.model.engine: apple` moves all three jobs to Apple's on-device model (fail closed).
     engine: searchModelEngine,
-    cards: { provider: searchModels, model: utility ?? modelRef },
+    cards: {
+      provider: searchModels,
+      model: () =>
+        searchModelEngine() === "apple"
+          ? (utility ?? modelRef)
+          : router === undefined
+            ? utility
+            : router.utilityRef(),
+      readState: () => readSystemState(),
+    },
     // Cloud rerank of the top hits: the utility model, only when one is set and the owner opts in.
     ...(utility === undefined ? {} : { rerank: { provider: searchModels, model: utility } }),
     // Plain-English questions the rules cannot filter: the utility model, only when one is set.

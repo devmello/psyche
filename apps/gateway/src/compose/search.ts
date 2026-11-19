@@ -134,6 +134,18 @@ const REBUILD_CODE = {
   busy: "conflict",
 } as const;
 
+/** What the card gate reads from the host (a subset of the Everything memory pass's state). */
+export interface CardHostState {
+  onAc: boolean;
+  lowPowerMode: boolean;
+  /** Minutes since the last input; large when unknown. */
+  idleMinutes: number;
+}
+
+/** Cards are a background job: one bounded step this often, not on every library beat. */
+export const CARD_TICK_MS = 600_000;
+const CARD_MIN_IDLE_MINUTES = 2;
+
 export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
   memory: MemoryStore;
   now: () => number;
@@ -201,7 +213,22 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
   engine?: () => SearchModelEngine;
   cards?: {
     provider: ModelProvider;
-    model: ModelRef;
+    /**
+     * The cheap model cards run on, read on every tick. `undefined` means there is none (no
+     * utility model of the provider's own): the tick makes no call. Cards never fall back to the
+     * primary model, so nothing here may resolve to it.
+     */
+    model: ModelRef | (() => ModelRef | undefined);
+    /**
+     * The host's power and idle state, read before each tick. Cards run only on AC power, outside
+     * Low Power Mode, with the Mac idle for `minIdleMinutes`. Absent (tests): no host gate.
+     * A failed read holds the tick.
+     */
+    readState?: () => Promise<CardHostState>;
+    /** Minutes without input before a tick may run (default 2). */
+    minIdleMinutes?: number;
+    /** Time between ticks (default 10 minutes, rounded to the library timer's beat). */
+    tickMs?: number;
     resolvePerson?: (name: string, kind: "person" | "org") => string | undefined;
     /** Cards generated per tick, tests raise it. */
     batchSize?: number;
@@ -321,6 +348,22 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
   let sourceIndexer: SourceIndexer | undefined;
   let gateway: Gateway | undefined;
   const cardDeps = deps.cards;
+  const cardModel = (): ModelRef | undefined =>
+    typeof cardDeps?.model === "function" ? cardDeps.model() : cardDeps?.model;
+  const cardGate: NonNullable<ConstructorParameters<typeof CardQueue>[1]["gate"]> = async () => {
+    if (cardModel() === undefined) return "no_model";
+    if (cardDeps?.readState === undefined) return undefined;
+    let host: CardHostState;
+    try {
+      host = await cardDeps.readState();
+    } catch {
+      return "battery"; // not sure the Mac is on power: wait
+    }
+    if (host.lowPowerMode) return "low_power";
+    if (!host.onAc) return "battery";
+    if (host.idleMinutes < (cardDeps.minIdleMinutes ?? CARD_MIN_IDLE_MINUTES)) return "not_idle";
+    return undefined;
+  };
   const cardQueue =
     cardDeps === undefined
       ? undefined
@@ -333,15 +376,19 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
           ...(cardDeps.batchSize === undefined ? {} : { batchSize: cardDeps.batchSize }),
           blockedSources: () => sourceIndexer?.cardBlocked() ?? [],
           now: deps.now,
-          generate: (item) =>
-            generateCard(item, {
+          gate: cardGate,
+          generate: async (item) => {
+            const model = cardModel();
+            if (model === undefined) return { dropped: [], tokens: 0, error: "no cheap model" };
+            return generateCard(item, {
               provider: cardDeps.provider,
-              model: cardDeps.model,
+              model,
               now: deps.now,
               ...(cardDeps.resolvePerson === undefined
                 ? {}
                 : { resolvePerson: cardDeps.resolvePerson }),
-            }),
+            });
+          },
         });
   const cardTick = async () => {
     if (cardQueue === undefined) return;
@@ -691,6 +738,8 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
       if (every > 0) {
         // Local sources: a bounded step every few minutes on the same timer, and soon after start.
         let beat = 0;
+        // Cards share this timer but run on their own, slower beat.
+        const cardBeats = Math.max(1, Math.round((cardDeps?.tickMs ?? CARD_TICK_MS) / every));
         const first = setTimeout(() => void sourceTick().catch(() => undefined), 20_000);
         first.unref?.();
         libraryTimer = setInterval(() => {
@@ -699,8 +748,8 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
           beat += 1;
           if (beat % 5 === 0 && !backfill.running) void sourceTick().catch(() => undefined);
           if (!backfill.running) void syncLibrary().catch(() => undefined);
-          // Cards share this timer: no extra always-on process (a bounded step per tick).
-          if (!backfill.running) void cardTick();
+          // Cards share this timer: no extra always-on process (a bounded step per tick, on a slow beat).
+          if (beat % cardBeats === 0 && !backfill.running) void cardTick();
         }, every);
         libraryTimer.unref?.();
       }

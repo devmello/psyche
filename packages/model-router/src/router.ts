@@ -103,6 +103,19 @@ export const AUTO_MODE_KIND_RULES: readonly { kind: string; model: RegExp }[] = 
 ];
 
 /**
+ * The cheap model each provider kind binds to the `utility` role while the owner has picked none.
+ * Titles, compaction, the evaluator, search cards and the profile learner run there, so they stay
+ * off the primary model's price. Only models that are known to exist and to be priced are
+ * listed; a kind that is not here (Codex, OpenAI, Google, local servers) keeps the old
+ * fallback to the primary chain, and jobs that must never bill the primary skip instead.
+ * All of them are on the Auto-mode allowlist above, so the choice never widens it.
+ */
+export const CHEAP_UTILITY_BY_KIND: Readonly<Record<string, string>> = {
+  anthropic: "claude-haiku-5-5",
+  "claude-code": "haiku",
+};
+
+/**
  * The same rules as full refs, for a Gateway that has no router to ask for a provider's kind (the
  * default provider id of each kind is the kind itself).
  */
@@ -269,11 +282,43 @@ export class ModelRouter implements ModelProvider {
     return AUTO_MODE_KIND_RULES.some((r) => r.kind === kind && r.model.test(model));
   }
 
+  /**
+   * The cheap default for an unset utility role: the primary model's provider, with the model
+   * `CHEAP_UTILITY_BY_KIND` names for its kind. No fallbacks: a failing cheap model must not
+   * quietly move the work onto the primary model's price.
+   */
+  #cheapUtility(): RoleBinding | undefined {
+    const primary = this.#roles.get("primary");
+    if (primary === undefined) return undefined;
+    let id: string;
+    try {
+      id = parseModelRef(primary.model).provider;
+    } catch {
+      return undefined;
+    }
+    const provider = this.#providers.get(id);
+    if (provider === undefined) return undefined;
+    const kind = (provider as { config?: { kind?: string } }).config?.kind ?? id;
+    const model = CHEAP_UTILITY_BY_KIND[kind];
+    return model === undefined ? undefined : { model: `${id}/${model}` };
+  }
+
+  /**
+   * The concrete model of the `utility` role when it is not the primary's: the owner's pick, else
+   * the provider's cheap default. `undefined` means the role would fall back to the primary
+   * chain, so background jobs that must never bill it (search cards) skip.
+   */
+  utilityRef(): ModelRef | undefined {
+    return (this.#roles.get("utility") ?? this.#cheapUtility())?.model;
+  }
+
   #bindingFor(role: ModelRole): RoleBinding | undefined {
     const b = this.#roles.get(role);
     if (b !== undefined) return b;
-    // Utility and vision default to the primary chain; embedding and speech must be bound.
-    return role === "utility" || role === "vision" ? this.#roles.get("primary") : undefined;
+    // Utility is the provider's cheap model when it has one; utility and vision otherwise
+    // default to the primary chain. Embedding and speech must be bound.
+    if (role === "utility") return this.#cheapUtility() ?? this.#roles.get("primary");
+    return role === "vision" ? this.#roles.get("primary") : undefined;
   }
 
   async #plan(request: ModelRequest, options: RouterCallOptions): Promise<Plan> {
