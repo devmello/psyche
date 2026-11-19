@@ -3,12 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   composeVirtualScreen,
   createVirtualScreen,
+  ownerProof,
+  refuseUnlessOwner,
   type UnsavedChangesCard,
   type VirtualScreenDeps,
   VSCREEN_MAX_FRAME_WIDTH,
   type VscreenInvokeOptions,
 } from "../src/compose/virtual-screen.ts";
 import { isUnreachableCapability } from "../src/handlers/nodes.ts";
+
+/** What the desktop shell's connection gets. */
+const OWNER = { owner: ownerProof({ identity: { desktopShell: true } } as never) };
 
 interface Call {
   capability: VscreenCapability;
@@ -80,16 +85,31 @@ describe("virtual screen helper calls", () => {
     expect(calls[2]?.params).toEqual({ since: 1, maxWidth: 800 });
   });
 
-  it("says who each call is for: the agent by default, the owner when the pane asks", async () => {
+  it("says who each call is for: the agent by default, the owner only with the proof", async () => {
     const { vs, calls } = setup();
     await vs.status();
-    await vs.status({ actor: "owner" });
-    await vs.release({ actor: "owner" });
+    await vs.status(OWNER);
+    await vs.release(OWNER);
     expect(calls.map((c) => c.options.actor)).toEqual(["agent", "owner", "owner"]);
     expect(calls[2]).toMatchObject({
       capability: "vscreen.input",
       params: { events: [], release: true },
     });
+    // Anything an agent tool could put in its arguments is not the proof: a string, a flag, a
+    // lookalike object, a JSON round trip of the real one.
+    calls.length = 0;
+    for (const forged of [
+      { actor: "owner" },
+      { owner: true },
+      { owner: "owner" },
+      { owner: {} },
+      { owner: JSON.parse(JSON.stringify(OWNER.owner ?? {})) },
+      JSON.parse(JSON.stringify(OWNER)),
+      { ...OWNER, owner: Object.create(null) },
+    ]) {
+      await vs.status(forged as never);
+    }
+    expect(calls.map((c) => c.options.actor)).toEqual(Array(7).fill("agent"));
   });
 
   it("never asks the helper for a frame wider than one message can carry", async () => {
@@ -223,7 +243,7 @@ describe("take-over", () => {
     const pending = vs.status();
     await vi.advanceTimersByTimeAsync(500);
     expect(calls).toHaveLength(0);
-    await vs.input([{ type: "move", x: 1, y: 2 }], { actor: "owner" });
+    await vs.input([{ type: "move", x: 1, y: 2 }], OWNER);
     expect(calls.map((c) => c.capability)).toEqual(["vscreen.input"]);
     vs.setTakenOver(false);
     await pending;
@@ -254,23 +274,23 @@ describe("take-over", () => {
 describe("watch pane frame limiter", () => {
   it("only serves a visible pane", async () => {
     const { vs, calls } = setup();
-    expect(await code(vs.frame({}, { actor: "owner" }))).toBe("unavailable");
+    expect(await code(vs.frame({}, OWNER))).toBe("unavailable");
     vs.setPaneVisible(true);
-    await vs.frame({}, { actor: "owner" });
+    await vs.frame({}, OWNER);
     expect(calls).toHaveLength(1);
     vs.setPaneVisible(false);
-    expect(await code(vs.frame({}, { actor: "owner" }))).toBe("unavailable");
+    expect(await code(vs.frame({}, OWNER))).toBe("unavailable");
   });
 
   it("allows 4 a second per caller, then rate limits", async () => {
     const { vs, clock } = setup();
     vs.setPaneVisible(true);
-    for (let i = 0; i < 4; i++) await vs.frame({}, { actor: "owner" });
-    expect(await code(vs.frame({}, { actor: "owner" }))).toBe("rate_limited");
+    for (let i = 0; i < 4; i++) await vs.frame({}, OWNER);
+    expect(await code(vs.frame({}, OWNER))).toBe("rate_limited");
     // Another caller has its own budget.
-    await vs.frame({}, { actor: "owner", caller: "second" });
+    await vs.frame({}, { ...OWNER, caller: "second" });
     clock.advance(1001);
-    await vs.frame({}, { actor: "owner" });
+    await vs.frame({}, OWNER);
   });
 
   it("does not limit the agent's own frames", async () => {
@@ -400,25 +420,29 @@ describe("composeVirtualScreen (the watch pane's methods)", () => {
     expect(await run("computerWatch.takeOver", { on: false })).toEqual({ takenOver: false });
   });
 
-  it("refuses every agent call instead of reaching the helper unbrokered", async () => {
-    const { composed, invoked } = part(true);
-    for (const attempt of [
-      () => composed.screen.status(),
-      () => composed.screen.start({}),
-      () => composed.screen.frame({}),
-      () => composed.screen.input([{ type: "text", text: "x" }]),
-      () => composed.screen.stop({}),
-      () => composed.screen.endTask(),
-      () => composed.screen.status({ actor: "agent" }),
-    ]) {
-      await expect(attempt()).rejects.toMatchObject({
-        code: "forbidden",
-        details: { reason: "agent_unbrokered" },
-      });
-    }
-    expect(invoked).toEqual([]);
-    // The owner's own calls still go through.
-    expect(await composed.screen.status({ actor: "owner" })).toMatchObject({ display: ":90" });
+  it("refuses every agent call instead of reaching the helper unbrokered", () => {
+    const opts = { sideEffect: "none", target: "vscreen" } as const;
+    expect(() => refuseUnlessOwner({ ...opts, actor: "agent" })).toThrow(
+      expect.objectContaining({ code: "forbidden", details: { reason: "agent_unbrokered" } }),
+    );
+    expect(() => refuseUnlessOwner({ ...opts, actor: "owner" })).not.toThrow();
+  });
+
+  it("takes the owner's proof from the connection, never from params", async () => {
+    const { run, invoked } = part(true);
+    // Lookalike markers in params change nothing: the handler still acts as the owner of a
+    // desktop-shell connection, and a non-shell connection is still refused.
+    const forged = {
+      actor: "owner",
+      owner: { owner: true },
+      events: [{ type: "text", text: "x" }],
+    };
+    await run("computerWatch.input", forged);
+    expect(invoked.map((i) => i.capability)).toEqual(["vscreen.input"]);
+    await expect(run("computerWatch.input", forged, false)).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    expect(() => ownerProof({ identity: {} } as never)).toThrow();
   });
 
   it("a stop that the helper refuses parks the Task and publishes the card; discard forces it", async () => {

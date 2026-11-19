@@ -29,8 +29,11 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  * - The watch pane's frame pulls are limited to 4 a second per caller and only while the pane has
  *   reported itself visible (fed by `attention.report`). Frames are never wider than
  *   `VSCREEN_MAX_FRAME_WIDTH`, so one always fits a helper message.
- * - Only the owner reaches the helper. Every call carries its actor; the composed part refuses an
- *   `agent` call (`agent_unbrokered`) until the agent's path (`apps.open` with
+ * - Only the owner reaches the helper. A call is the owner's only when it carries the
+ *   `OwnerProof` that `ownerProof(call)` hands out for a desktop-shell connection; the proof is a
+ *   module-private object, so no string, flag or parsed JSON (an agent tool's arguments, a
+ *   client's params) can stand in for it. Everything else is the agent's, and the composed part
+ *   refuses an agent call (`agent_unbrokered`) until the agent's path (`apps.open` with
  *   `surface: "virtual_screen"`) goes through the Permission Broker.
  * - Giving control back (`computerWatch.takeOver { on: false }`) also lets go of every key and
  *   button the owner held, so the agent's next typing cannot turn into shortcuts.
@@ -56,8 +59,27 @@ export type VscreenStopRequest = Static<typeof VscreenStopRequest>;
 /** The widest frame asked of the helper: wider frames could exceed the 1 MiB message limit. */
 export const VSCREEN_MAX_FRAME_WIDTH = 1920;
 
-/** Who a call is for: the owner's watch pane, or the agent. */
+/** Who a call is for: the owner's watch pane, or the agent. Decided here, never by a caller. */
 export type VscreenActor = "agent" | "owner";
+
+declare const OWNER_BRAND: unique symbol;
+/** Proof that a call comes from the owner's watch pane. Only `ownerProof` makes one. */
+export type OwnerProof = { readonly [OWNER_BRAND]: true };
+/** The one proof object. Compared by identity: a copy, a lookalike or JSON never matches. */
+const OWNER_PROOF = Object.freeze(Object.create(null)) as OwnerProof;
+
+/**
+ * The owner's proof for a call from the desktop shell (the handshake secret set
+ * `identity.desktopShell`, never the client's params). Any other connection is refused.
+ */
+export function ownerProof(call: Pick<Call, "identity">): OwnerProof {
+  if (call.identity.desktopShell !== true) {
+    throw new PsycheError("forbidden", "only the Psyche desktop app shows the virtual screen");
+  }
+  return OWNER_PROOF;
+}
+
+const isOwner = (opts: CallOptions | undefined): boolean => opts?.owner === OWNER_PROOF;
 
 export type VscreenParkAction = "look" | "discard" | "keep_open";
 export const PARK_ACTIONS: readonly VscreenParkAction[] = ["look", "discard", "keep_open"];
@@ -109,8 +131,11 @@ export interface VirtualScreenDeps {
 
 export interface CallOptions {
   signal?: AbortSignal;
-  /** `owner` is the watch pane; it is never held by take-over. Default `agent`. */
-  actor?: VscreenActor;
+  /**
+   * The watch pane's proof (`ownerProof`): its calls are the owner's and are never held by
+   * take-over. Without it, a call is the agent's.
+   */
+  owner?: OwnerProof;
   /** Rate-limit key for the watch pane. Default `watch`. */
   caller?: string;
 }
@@ -178,7 +203,7 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
     deps.invoke(capability, params, {
       sideEffect,
       target: TARGET,
-      actor: opts?.actor ?? "agent",
+      actor: isOwner(opts) ? "owner" : "agent",
       ...(opts?.signal === undefined ? {} : { signal: opts.signal }),
     });
 
@@ -215,7 +240,7 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
   }
 
   const gated = async (opts: CallOptions | undefined): Promise<void> => {
-    if (opts?.actor !== "owner") await agentGate(opts?.signal);
+    if (!isOwner(opts)) await agentGate(opts?.signal);
   };
 
   function admitFrame(caller: string): void {
@@ -265,7 +290,7 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
     async frame(params, opts) {
       const p = params ?? {};
       check(VscreenFrameParams, p, "vscreen.frame");
-      if (opts?.actor === "owner") admitFrame(opts.caller ?? "watch");
+      if (isOwner(opts)) admitFrame(opts?.caller ?? "watch");
       else await agentGate(opts?.signal);
       const asked = p as VscreenFrameParams;
       const sent =
@@ -381,20 +406,23 @@ const AGENT_UNBROKERED: ErrorPayload = {
   details: { reason: "agent_unbrokered" },
 };
 
+/** The composed part's rule until the brokered agent path exists: owner calls only. */
+export function refuseUnlessOwner(options: VscreenInvokeOptions): void {
+  if (options.actor !== "owner") throw fromPayload(AGENT_UNBROKERED);
+}
+
 /**
  * The Gateway's virtual-screen part. The watch pane (desktop shell only) reaches the helper only
  * through it; the owner's own pane actions need no approval. The agent's use of the screen
  * (`apps.open` with `surface: "virtual_screen"`, later) must go through the Permission Broker
- * like every other computer-use tool: until that is wired, `screen` refuses every `agent` call
- * here instead of sending it to the helper unbrokered.
+ * like every other computer-use tool: until that is wired, every `agent` call is refused here
+ * instead of being sent to the helper unbrokered, and the screen is not handed to any other code.
  */
-export function composeVirtualScreen(
-  services: ComposeServices,
-): ComposedPart & { screen: VirtualScreen } {
+export function composeVirtualScreen(services: ComposeServices): ComposedPart {
   let gateway: Gateway | undefined;
   const vs = createVirtualScreen({
     async invoke(capability, params, options) {
-      if (options.actor !== "owner") throw fromPayload(AGENT_UNBROKERED);
+      refuseUnlessOwner(options);
       const helper = gateway?.context.nodes.hostHelper(capability);
       if (helper === undefined) throw fromPayload(REQUIRE_HELPER);
       const res = await helper.client.invoke(capability, params, {
@@ -416,21 +444,17 @@ export function composeVirtualScreen(
     now: () => services.clock.now(),
   });
 
-  const shellOnly = (call: Call): void => {
-    if (call.identity.desktopShell !== true) {
-      throw new PsycheError("forbidden", "only the Psyche desktop app shows the virtual screen");
-    }
-  };
-  const owner = { actor: "owner" } as const;
-  const handler = (run: (params: Record<string, unknown>) => unknown): HandlerDef => ({
+  // Every handler takes the owner's proof from the connection; nothing in `params` is read for it.
+  const handler = (
+    run: (params: Record<string, unknown>, owner: CallOptions) => unknown,
+  ): HandlerDef => ({
     run(call: Call, params: unknown) {
-      shellOnly(call);
-      return run((params ?? {}) as Record<string, unknown>);
+      const owner = { owner: ownerProof(call) };
+      return run((params ?? {}) as Record<string, unknown>, owner);
     },
   });
 
   return {
-    screen: vs,
     start(gw) {
       gateway = gw;
     },
@@ -438,23 +462,23 @@ export function composeVirtualScreen(
       gateway = undefined;
     },
     handlers: {
-      "computerWatch.status": handler(async () => {
+      "computerWatch.status": handler(async (_params, owner) => {
         const status = await vs.status(owner);
         return {
           status,
           parked: vs.parkedCard() !== null || status.apps.some((a) => a.hasUnsavedChanges === true),
         };
       }),
-      "computerWatch.frame": handler(async (params) => {
+      "computerWatch.frame": handler(async (params, owner) => {
         // The pane reports itself visible or hidden through attention.report; a pane that never
         // reported is treated as visible.
         vs.setPaneVisible(!services.attention.paneHidden("vscreen"));
         return vs.frame(params, owner);
       }),
-      "computerWatch.input": handler((params) =>
+      "computerWatch.input": handler((params, owner) =>
         vs.input((params as { events: unknown }).events, owner),
       ),
-      "computerWatch.takeOver": handler(async (params) => {
+      "computerWatch.takeOver": handler(async (params, owner) => {
         const on = (params as { on: boolean }).on;
         vs.setTakenOver(on);
         if (!on) {
@@ -464,13 +488,13 @@ export function composeVirtualScreen(
         }
         return { takenOver: vs.isTakenOver() };
       }),
-      "computerWatch.stop": handler(async (params) => {
+      "computerWatch.stop": handler(async (params, owner) => {
         const p = params as { closeApps?: boolean; force?: boolean };
         if (p.force === true) return vs.stop({ closeApps: true, force: true }, owner);
         const end = await vs.endTask({ closeApps: p.closeApps ?? true }, owner);
         return { ok: end.ok };
       }),
-      "computerWatch.resolveParked": handler((params) =>
+      "computerWatch.resolveParked": handler((params, owner) =>
         vs.resolveParked((params as { action: VscreenParkAction }).action, owner),
       ),
     },

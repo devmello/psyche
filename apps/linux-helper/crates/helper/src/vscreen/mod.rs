@@ -12,6 +12,7 @@
 //! | `scope.rs` | `systemd-run --user --scope` in `psyche-vscreen.slice`, the slice's caps | args are pure |
 //! | `bus.rs` | the session's private runtime dir and D-Bus session bus | mostly |
 //! | `spawn.rs` | children forked from a process-lifetime thread, peer checks | no |
+//! | `rmtree.rs` | removing a tree without following symlinks or crossing mounts | no |
 //! | `xauth.rs`, `xvfb.rs` | the private X server | no |
 //! | `wmdriver.rs`, `capture.rs`, `input.rs` | X11: window manager, XShm, XTest | no |
 //! | `display.rs` | **`VirtualDisplay`**: Xvfb + window manager + capture + input in one value | no |
@@ -30,6 +31,7 @@ pub mod guard;
 pub mod input;
 pub mod manager;
 pub mod recipes;
+pub mod rmtree;
 pub mod scope;
 pub mod spawn;
 pub mod wm;

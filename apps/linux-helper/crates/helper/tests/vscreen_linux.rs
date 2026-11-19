@@ -682,11 +682,16 @@ fn apps_get_the_private_session_and_none_of_the_helpers_environment() {
     ] {
         assert!(!env.contains_key(gone), "{gone} reached the app");
     }
-    // The bus daemon runs in the slice, so what it activates does too.
+    // The bus daemon (which activates nothing) runs in the slice.
     let bus_pid = Command::new("pgrep")
         .args([
             "-f",
-            &format!("dbus-daemon --session --nofork --nopidfile --address={private}"),
+            &format!(
+                "dbus-daemon --config-file={}/bus.conf",
+                private
+                    .trim_start_matches("unix:path=")
+                    .trim_end_matches("/bus")
+            ),
         ])
         .output()
         .unwrap();

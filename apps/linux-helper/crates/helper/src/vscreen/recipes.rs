@@ -203,7 +203,7 @@ pub const RECIPES: &[RecipeEntry] = &[
         family: Family::Firefox,
         ids: &["firefox", "firefox-esr", "org.mozilla.firefox", "firefox_firefox"],
         process_names: &["firefox", "firefox-bin", "firefox-esr", "MainThread"],
-        tradeoff: "Runs on a fresh copy of the owner's profile each session, without saved passwords, cookies, open tabs or form history, so it starts logged out. Refused while Firefox is open on the owner's screen.",
+        tradeoff: "Runs on a fresh copy of the owner's settings, bookmarks and history each session, without the Firefox Account and Sync, saved passwords, certificates, cookies, open tabs, form history or add-ons, so it starts logged out. Refused while Firefox is open on the owner's screen.",
         refuse_while_open: true,
     },
     RecipeEntry {
@@ -434,6 +434,8 @@ pub fn launch_spec(entry: &DesktopEntry, ctx: &LaunchContext) -> Result<LaunchSp
                 ));
             }
             argv.push("--ozone-platform=x11".into());
+            // No keyring on the private bus: say so, instead of probing for the owner's.
+            argv.push("--password-store=basic".into());
         }
         Family::LibreOffice => {
             argv.push(format!(
@@ -490,83 +492,78 @@ pub fn firefox_profile_from_ini(ini: &str, base: &Path) -> Option<PathBuf> {
     })
 }
 
-/// Files under a profile that carry the owner's secrets and sessions: saved passwords and their
-/// key, cookies, open tabs and their backups, form history, saved addresses and cards, site
-/// storage. Matched as a prefix, so `cookies.sqlite-wal` and `logins-backup.json` go too.
-const FIREFOX_PRIVATE: &[&str] = &[
-    "logins",
-    "signons",
-    "key3.db",
-    "key4.db",
-    "cookies.sqlite",
-    "sessionstore",
-    "sessionCheckpoints.json",
-    "formhistory.sqlite",
-    "autofill-profiles.json",
-    "webappsstore.sqlite",
+/// The only files copied from the owner's Firefox profile: settings (with Sync and Firefox
+/// Account prefs taken out), bookmarks and history, site permissions, the toolbar layout, search
+/// engines, download handlers and containers. Everything else stays behind, above all:
+/// - `signedInUser.json` (the Firefox Account session and the Sync keys: with it, Sync would put
+///   the passwords right back) and `weave/` (Sync state);
+/// - `logins*.json`, `key3.db`, `key4.db`, `signons.sqlite` (saved passwords and their key);
+/// - `cert9.db`, `pkcs11.txt` (the owner's certificates and smart-card modules);
+/// - `cookies.sqlite*`, `sessionstore*`, `sessionCheckpoints.json`, `storage/`,
+///   `webappsstore.sqlite` (logged-in sessions, open tabs, site storage);
+/// - `formhistory.sqlite`, `autofill-profiles.json` (form history, addresses, cards);
+/// - `extensions/`, `extensions.json` (add-ons are code, password managers among them);
+/// - caches, locks and crash data.
+pub const FIREFOX_COPY: &[&str] = &[
+    "prefs.js",
+    "places.sqlite",
+    "favicons.sqlite",
+    "permissions.sqlite",
+    "content-prefs.sqlite",
+    "xulstore.json",
+    "search.json.mozlz4",
+    "handlers.json",
+    "containers.json",
 ];
 
-/// Whether a profile entry carries the owner's secrets or sessions (`FIREFOX_PRIVATE`).
-pub fn firefox_private(name: &str) -> bool {
-    FIREFOX_PRIVATE.iter().any(|p| name.starts_with(p))
+/// Pref prefixes dropped from `prefs.js`: Sync and the Firefox Account.
+const FIREFOX_PREFS_DROPPED: &[&str] = &[
+    "services.sync.",
+    "identity.fxaccounts.",
+    "services.fxaccounts.",
+    "identity.sync.",
+];
+
+/// `prefs.js` without the Sync and Firefox Account prefs.
+pub fn firefox_prefs_without_sync(text: &str) -> String {
+    text.lines()
+        .filter(|line| {
+            let pref = line
+                .trim_start()
+                .strip_prefix("user_pref(")
+                .map(|rest| rest.trim_start().trim_start_matches('"'));
+            !pref.is_some_and(|name| FIREFOX_PREFS_DROPPED.iter().any(|p| name.starts_with(p)))
+        })
+        .map(|l| format!("{l}\n"))
+        .collect()
 }
 
-/// Names under a profile that must not be copied: the owner's secrets and sessions, caches,
-/// locks and the running instance's files.
-pub fn firefox_skip(name: &str) -> bool {
-    firefox_private(name)
-        || matches!(
-            name,
-            "lock"
-                | ".parentlock"
-                | "parent.lock"
-                | "cache2"
-                | "startupCache"
-                | "crashes"
-                | "minidumps"
-                | "datareporting"
-                | "saved-telemetry-pings"
-                | "storage"
-                | "thumbnails"
-                | "sessionstore-backups"
-        )
-}
-
-/// Makes `dest` a fresh copy of `src`, replacing any older copy (the manager calls it once per
-/// display session, so nothing the agent's browsing left in the copy carries over). Secrets,
-/// caches and locks are skipped (`firefox_skip`), and so are symlinks.
+/// Makes `dest` a fresh copy of the allowlisted files of `src` (`FIREFOX_COPY`), replacing any
+/// older copy: the manager calls it once per display session, so nothing the agent's browsing
+/// left in the last copy carries over. Only regular files are copied, never a symlink.
 pub fn fresh_profile_copy(src: &Path, dest: &Path) -> std::io::Result<()> {
-    match std::fs::remove_dir_all(dest) {
-        Ok(()) => {}
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-        Err(e) => return Err(e),
-    }
-    let partial = dest.with_extension("partial");
-    let _ = std::fs::remove_dir_all(&partial);
-    copy_dir(src, &partial)?;
-    std::fs::rename(&partial, dest)
-}
-
-fn copy_dir(src: &Path, dest: &Path) -> std::io::Result<()> {
     use std::os::unix::fs::DirBuilderExt;
+    super::rmtree::remove_tree_logged(dest, "old Firefox profile copy");
+    let partial = dest.with_extension("partial");
+    super::rmtree::remove_tree_logged(&partial, "partial Firefox profile copy");
     std::fs::DirBuilder::new()
         .recursive(true)
         .mode(0o700)
-        .create(dest)?;
-    for item in std::fs::read_dir(src)? {
-        let item = item?;
-        let name = item.file_name();
-        if firefox_skip(&name.to_string_lossy()) {
-            continue;
+        .create(&partial)?;
+    for name in FIREFOX_COPY {
+        let from = src.join(name);
+        match std::fs::symlink_metadata(&from) {
+            Ok(m) if m.is_file() => {}
+            _ => continue,
         }
-        let kind = item.file_type()?;
-        if kind.is_dir() {
-            copy_dir(&item.path(), &dest.join(&name))?;
-        } else if kind.is_file() {
-            std::fs::copy(item.path(), dest.join(&name))?;
+        if *name == "prefs.js" {
+            let text = std::fs::read_to_string(&from)?;
+            std::fs::write(partial.join(name), firefox_prefs_without_sync(&text))?;
+        } else {
+            std::fs::copy(&from, partial.join(name))?;
         }
     }
-    Ok(())
+    std::fs::rename(&partial, dest)
 }
 
 #[cfg(test)]
@@ -726,6 +723,7 @@ mod tests {
                 "{id}"
             );
             assert!(has(&spec, "--ozone-platform=x11"), "{id}");
+            assert!(has(&spec, "--password-store=basic"), "{id}");
         }
     }
 
@@ -901,62 +899,117 @@ mod tests {
     }
 
     #[test]
-    fn a_profile_copy_is_fresh_and_has_no_secrets_locks_or_caches() {
+    fn a_profile_copy_holds_only_the_allowlist_and_no_account_or_secrets() {
         let dir = tempfile::tempdir().unwrap();
         let src = dir.path().join("src");
-        std::fs::create_dir_all(src.join("cache2")).unwrap();
-        std::fs::create_dir_all(src.join("extensions")).unwrap();
-        std::fs::create_dir_all(src.join("sessionstore-backups")).unwrap();
-        for f in ["prefs.js", "places.sqlite", "cert9.db", "extensions/a.xpi"] {
+        let outside = dir.path().join("outside.sqlite");
+        std::fs::write(&outside, "not the profile's").unwrap();
+        for d in [
+            "extensions",
+            "weave",
+            "storage/default",
+            "cache2",
+            "sessionstore-backups",
+        ] {
+            std::fs::create_dir_all(src.join(d)).unwrap();
+        }
+        std::fs::write(
+            src.join("prefs.js"),
+            concat!(
+                "user_pref(\"browser.startup.homepage\", \"about:home\");\n",
+                "user_pref(\"services.sync.username\", \"owner@example.com\");\n",
+                "user_pref(\"identity.fxaccounts.account.device.name\", \"laptop\");\n",
+                "user_pref(\"services.sync.engine.passwords\", true);\n",
+                "  user_pref( \"identity.fxaccounts.enabled\", true);\n",
+            ),
+        )
+        .unwrap();
+        for f in [
+            "places.sqlite",
+            "favicons.sqlite",
+            "permissions.sqlite",
+            "xulstore.json",
+        ] {
             std::fs::write(src.join(f), "x").unwrap();
         }
-        // Must not be copied: secrets, sessions, history of forms, locks, caches.
-        let private = [
+        // A symlink under an allowlisted name is not followed.
+        std::os::unix::fs::symlink(&outside, src.join("content-prefs.sqlite")).unwrap();
+        // Must never be copied.
+        let never = [
+            "signedInUser.json",
+            "weave/bookmarks.json",
             "logins.json",
             "logins-backup.json",
             "key4.db",
             "key3.db",
             "signons.sqlite",
+            "cert9.db",
+            "pkcs11.txt",
             "cookies.sqlite",
             "cookies.sqlite-wal",
-            "cookies.sqlite-shm",
             "sessionstore.jsonlz4",
             "sessionCheckpoints.json",
+            "sessionstore-backups/recovery.jsonlz4",
             "formhistory.sqlite",
-            "formhistory.sqlite-wal",
             "autofill-profiles.json",
             "webappsstore.sqlite",
+            "storage/default/x",
+            "extensions/passwords@manager.xpi",
+            "extensions.json",
+            "user.js",
             "lock",
             ".parentlock",
             "cache2/junk",
-            "sessionstore-backups/recovery.jsonlz4",
         ];
-        for f in private {
-            std::fs::write(src.join(f), "x").unwrap();
+        for f in never {
+            std::fs::write(src.join(f), "secret").unwrap();
         }
         let dest = dir.path().join("dest");
         fresh_profile_copy(&src, &dest).unwrap();
-        for kept in ["prefs.js", "places.sqlite", "cert9.db", "extensions/a.xpi"] {
-            assert!(dest.join(kept).is_file(), "{kept}");
-        }
-        for f in private {
+        let mut got: Vec<String> = std::fs::read_dir(&dest)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        got.sort();
+        assert_eq!(
+            got,
+            [
+                "favicons.sqlite",
+                "permissions.sqlite",
+                "places.sqlite",
+                "prefs.js",
+                "xulstore.json"
+            ]
+        );
+        for f in never {
             assert!(!dest.join(f).exists(), "{f} was copied");
         }
-        assert!(!dest.join("cache2").exists());
-        // Near-misses that share a word stay: they hold no secrets.
-        for name in [
-            "prefs.js",
-            "places.sqlite",
-            "permissions.sqlite",
-            "cookie-banner.json",
-        ] {
-            assert!(!firefox_private(name), "{name}");
+        // Sync and the Firefox Account are out of the prefs; the rest stays.
+        let prefs = std::fs::read_to_string(dest.join("prefs.js")).unwrap();
+        assert!(prefs.contains("browser.startup.homepage"));
+        for gone in ["services.sync", "identity.fxaccounts", "owner@example.com"] {
+            assert!(!prefs.contains(gone), "{gone} in prefs");
+        }
+        // Every allowlisted name is a plain settings or history file.
+        for name in FIREFOX_COPY {
+            assert!(
+                ![
+                    "signedInUser.json",
+                    "logins.json",
+                    "key4.db",
+                    "cert9.db",
+                    "cookies.sqlite"
+                ]
+                .contains(name),
+                "{name}"
+            );
         }
         // The next session's copy replaces whatever the agent left in the last one.
         std::fs::write(dest.join("cookies.sqlite"), "agent's session").unwrap();
-        std::fs::write(dest.join("prefs.js"), "changed").unwrap();
+        std::fs::write(dest.join("signedInUser.json"), "agent signed in").unwrap();
         fresh_profile_copy(&src, &dest).unwrap();
         assert!(!dest.join("cookies.sqlite").exists());
-        assert_eq!(std::fs::read_to_string(dest.join("prefs.js")).unwrap(), "x");
+        assert!(!dest.join("signedInUser.json").exists());
+        assert!(dest.join("places.sqlite").is_file());
     }
 }

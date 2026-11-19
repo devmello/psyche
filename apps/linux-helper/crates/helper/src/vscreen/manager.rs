@@ -181,6 +181,8 @@ struct Session {
     /// The private bus, when `dbus-daemon` started; `None` means apps get `no_bus_address`.
     bus_address: Option<String>,
     bus: Option<(String, Child)>,
+    /// `at-spi-bus-launcher` on the private bus, when one is installed.
+    a11y: Option<(String, Child)>,
     display_unit: String,
 }
 
@@ -408,8 +410,10 @@ impl VscreenManager {
             dir,
             bus_address: None,
             bus: None,
+            a11y: None,
             display_unit,
         };
+        bus::write_bus_config(&session.dir).map_err(fail)?;
         let address = bus::bus_address(&session.dir);
         let spec = LaunchSpec {
             argv: bus::dbus_daemon_argv(&session.dir),
@@ -428,8 +432,9 @@ impl VscreenManager {
             Ok(mut child) => {
                 match bus::wait_for_bus(&session.dir, &mut child, Duration::from_secs(5)) {
                     Ok(()) => {
-                        session.bus_address = Some(address);
+                        session.bus_address = Some(address.clone());
                         session.bus = Some((unit, child));
+                        session.a11y = self.start_a11y(display, &session.dir, &address);
                     }
                     Err(e) => {
                         crate::log(&format!("vscreen: no private session bus: {e}"));
@@ -442,6 +447,37 @@ impl VscreenManager {
             Err(e) => crate::log(&format!("vscreen: no private session bus: {e}")),
         }
         Ok(session)
+    }
+
+    /// `at-spi-bus-launcher` on the private bus, best effort: without it the apps simply have no
+    /// accessibility tree.
+    fn start_a11y(
+        &self,
+        display: &VirtualDisplay,
+        session_dir: &std::path::Path,
+        address: &str,
+    ) -> Option<(String, Child)> {
+        let argv = bus::a11y_launcher_argv()?;
+        let spec = LaunchSpec {
+            argv,
+            env: app_environment(&self.launch_context(display, session_dir, address, None)),
+        };
+        let unit = format!(
+            "psyche-vs-a11y-{}-{}",
+            display.display.trim_start_matches(':'),
+            display.xvfb_pid()
+        );
+        match self
+            .deps
+            .runner
+            .spawn(&unit, "Psyche virtual screen accessibility bus", &spec)
+        {
+            Ok(child) => Some((unit, child)),
+            Err(e) => {
+                crate::log(&format!("vscreen: no accessibility bus: {e}"));
+                None
+            }
+        }
     }
 
     fn launch_context(
@@ -493,7 +529,7 @@ impl VscreenManager {
             let _ = child.wait();
         }
         if let Some(mut s) = inner.session.take() {
-            if let Some((unit, mut child)) = s.bus.take() {
+            for (unit, mut child) in s.a11y.take().into_iter().chain(s.bus.take()) {
                 runner.stop(&unit);
                 let _ = child.kill();
                 let _ = child.wait();
@@ -502,14 +538,14 @@ impl VscreenManager {
                 d.stop();
             }
             runner.stop(&s.display_unit);
-            let _ = std::fs::remove_dir_all(&s.dir);
+            super::rmtree::remove_tree_logged(&s.dir, "session dir");
         } else if let Some(d) = inner.display.take() {
             d.stop();
         }
         // The next session's Firefox starts from a fresh copy; this one's goes.
         let mut fresh = lock(&self.firefox_fresh);
         *fresh = false;
-        let _ = std::fs::remove_dir_all(self.firefox_profile_dir());
+        super::rmtree::remove_tree_logged(&self.firefox_profile_dir(), "Firefox profile copy");
         drop(fresh);
         inner.hold = None;
         inner.started_at_wall = None;
@@ -644,7 +680,7 @@ impl VscreenManager {
     }
 
     /// The agent's Firefox profile: a fresh copy of the owner's default profile once per display
-    /// session, without saved passwords, cookies, sessions or form history (`firefox_skip`).
+    /// session, without saved passwords, cookies, sessions or form history (`recipes::FIREFOX_COPY` is an allowlist).
     fn firefox_profile_copy(&self) -> Result<PathBuf, VsError> {
         let dest = self.firefox_profile_dir();
         let mut fresh = lock(&self.firefox_fresh);
@@ -666,15 +702,10 @@ impl VscreenManager {
         });
         let result = match source {
             Some(src) => fresh_profile_copy(&src, &dest),
-            None => std::fs::remove_dir_all(&dest)
-                .or_else(|e| {
-                    if e.kind() == std::io::ErrorKind::NotFound {
-                        Ok(())
-                    } else {
-                        Err(e)
-                    }
-                })
-                .and_then(|_| std::fs::create_dir_all(&dest)),
+            None => {
+                super::rmtree::remove_tree_logged(&dest, "old Firefox profile copy");
+                std::fs::create_dir_all(&dest)
+            }
         };
         result.map_err(|e| {
             VsError::new("launch_failed", "Firefox's profile could not be prepared.")
