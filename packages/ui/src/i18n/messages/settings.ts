@@ -398,6 +398,22 @@ export const settings = {
   "settings.credentials.slot.keyFile": "a key file on this Mac",
   "settings.credentials.slot.recovery": "its recovery key only",
   "settings.credentials.protectedBy": "Vault protected by:",
+  "settings.credentials.vault.adminOnly": "Only an administrator device can do this.",
+  "settings.credentials.vault.unlockReason": "Confirm the recovery key",
+  "settings.credentials.vault.setup.title": "Set up the vault",
+  "settings.credentials.vault.setup.body":
+    "The vault keeps your passwords, cards and API keys encrypted on this computer. Psyche creates it with a recovery key that you save once.",
+  "settings.credentials.vault.setup.button": "Set up the vault",
+  "settings.credentials.vault.setup.failed": "The vault was not created: {reason}",
+  "settings.credentials.vault.setup.noSlot": "This Gateway offers no key slot for the vault.",
+  "settings.credentials.vault.confirm.title": "Confirm your recovery key",
+  "settings.credentials.vault.confirm.body":
+    "Type the last group of your recovery key, the part after the final dash, to show that you saved it.",
+  "settings.credentials.vault.confirm.label": "Last group",
+  "settings.credentials.vault.confirm.button": "Confirm",
+  "settings.credentials.vault.confirm.wrong":
+    "That is not the last group of the recovery key. Check where you saved it and try again.",
+  "settings.credentials.vault.confirm.failed": "The recovery key was not confirmed: {reason}",
   "settings.credentials.moveToKeychain": "Move to Keychain",
   "settings.credentials.moveToKeychainNeeds":
     "Needs a Psyche Helper signed with a Developer ID and a provisioning profile",
@@ -1877,6 +1893,8 @@ export const settings = {
   "settings.permissions.trusted.remove": "Remove",
   "settings.permissions.trusted.removeNamed": "Remove {name} from trusted sites",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} and its subdomains",
+  "settings.permissions.subject.hostProgram": "{program} in {folder}, any arguments",
+  "settings.permissions.subject.hostProgramExact": "{program} in {folder}, exactly these arguments",
   "settings.permissions.sensitive.title": "Sensitive sites",
   "settings.permissions.sensitive.description":
     "Banks, health, email and password managers always ask before a read. Government and iCloud sites ask too; turn one off here to read it without asking.",

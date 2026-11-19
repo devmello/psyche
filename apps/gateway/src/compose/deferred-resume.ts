@@ -282,10 +282,14 @@ export class DeferredResume {
       };
       const entry = this.#entries.get(id);
       if (entry !== undefined) grantUse(entry, use);
-      else if (this.#o.clock.now() - Date.parse(e.grant.createdAt) < EARLY_MS) {
-        // The broker stores the grant, then finishes the answer (audit writes) before it says
-        // the card was decided: a run already going can use the grant in between. Kept for the
-        // entry, so that use is not lost and no resume does the action a second time.
+      else if (
+        e.fromSetAside === true &&
+        this.#o.clock.now() - Date.parse(e.grant.createdAt) < EARLY_MS
+      ) {
+        // The broker announces the decision right after it stores the answer, so a use comes
+        // first only when the decision reaches us late (a listener before us, a test). Kept for
+        // the entry, so that use is not lost and no resume does the action a second time. Only
+        // grants of set-aside cards: an attended "always" grant never fills the hold.
         this.#keepEarly({ use });
       }
     }

@@ -41,6 +41,7 @@ import { shellRest } from "./shell-rest/de.ts";
 import { specialistsRest } from "./specialists-rest/de.ts";
 import { webRest } from "./web-rest/de.ts";
 import { widgetsRest } from "./widgets-rest/de.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/de.ts";
 import { workRest } from "./work-rest/de.ts";
 import { workflows } from "./workflows/de.ts";
 
@@ -400,6 +401,9 @@ export const de: Partial<Catalogue> = {
   "blocks.approval.scope.trustSite": "Immer für diese Website ({site})",
   "blocks.approval.scope.trustSiteSubdomains":
     "Immer für diese Website und ihre Subdomains ({site})",
+  "blocks.approval.scope.hostProgram": "{program} in {folder} immer erlauben",
+  "blocks.approval.scope.hostProgramExact":
+    "{program} mit genau diesen Argumenten in {folder} immer erlauben",
   "blocks.approval.scope.site": "Für diese Website erlauben",
   "blocks.approval.scope.session": "Für diese Sitzung erlauben",
   "blocks.approval.scope.always": "Immer erlauben",
@@ -1210,6 +1214,24 @@ export const de: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "eine Schlüsseldatei auf diesem Mac",
   "settings.credentials.slot.recovery": "nur seinen Wiederherstellungsschlüssel",
   "settings.credentials.protectedBy": "Tresor geschützt durch:",
+  "settings.credentials.vault.adminOnly": "Das kann nur ein Administratorgerät.",
+  "settings.credentials.vault.unlockReason": "Wiederherstellungsschlüssel bestätigen",
+  "settings.credentials.vault.setup.title": "Tresor einrichten",
+  "settings.credentials.vault.setup.body":
+    "Der Tresor bewahrt deine Passwörter, Karten und API-Schlüssel verschlüsselt auf diesem Computer auf. Psyche legt ihn mit einem Wiederherstellungsschlüssel an, den du einmal sichern musst.",
+  "settings.credentials.vault.setup.button": "Tresor einrichten",
+  "settings.credentials.vault.setup.failed": "Der Tresor wurde nicht angelegt: {reason}",
+  "settings.credentials.vault.setup.noSlot":
+    "Dieses Gateway bietet keinen Schlüsselplatz für den Tresor.",
+  "settings.credentials.vault.confirm.title": "Bestätige deinen Wiederherstellungsschlüssel",
+  "settings.credentials.vault.confirm.body":
+    "Gib die letzte Gruppe deines Wiederherstellungsschlüssels ein, also den Teil nach dem letzten Bindestrich, um zu zeigen, dass du ihn gesichert hast.",
+  "settings.credentials.vault.confirm.label": "Letzte Gruppe",
+  "settings.credentials.vault.confirm.button": "Bestätigen",
+  "settings.credentials.vault.confirm.wrong":
+    "Das ist nicht die letzte Gruppe des Wiederherstellungsschlüssels. Sieh nach, wo du ihn gesichert hast, und versuche es erneut.",
+  "settings.credentials.vault.confirm.failed":
+    "Der Wiederherstellungsschlüssel wurde nicht bestätigt: {reason}",
   "settings.credentials.moveToKeychain": "In den Schlüsselbund verschieben",
   "settings.credentials.moveToKeychainNeeds":
     "Braucht einen mit einer Developer ID und einem Provisioning-Profil signierten Psyche Helper",
@@ -2136,6 +2158,8 @@ export const de: Partial<Catalogue> = {
   "settings.permissions.trusted.removeNamed":
     "{name} aus den vertrauenswürdigen Websites entfernen",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} und ihre Subdomains",
+  "settings.permissions.subject.hostProgram": "{program} in {folder}, beliebige Argumente",
+  "settings.permissions.subject.hostProgramExact": "{program} in {folder}, genau diese Argumente",
   "settings.permissions.sensitive.title": "Sensible Websites",
   "settings.permissions.sensitive.description":
     "Banken, Gesundheit, E-Mail und Passwortmanager fragen vor dem Lesen immer. Auch Behörden- und iCloud-Websites fragen; schalte eine Kategorie hier aus, um sie ohne Nachfrage zu lesen.",
@@ -2646,7 +2670,6 @@ export const de: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "Kopieren nicht möglich. Wähle den Schlüssel aus und kopiere ihn.",
   "onboarding.model.recoveryBody":
     "Psyche hat gerade deinen Tresor erstellt. Sichere diesen Schlüssel in einem Passwortmanager oder auf Papier: Er wird nur jetzt angezeigt und ist nach einer Wiederherstellung oder einem verlorenen Schlüsselplatz der einzige Weg zurück in den Tresor.",
-  "onboarding.model.savedIt": "Ich habe ihn gesichert",
   "onboarding.model.subscriptionNote":
     "Psyche verwendet die auf diesem Mac bereits angemeldete Claude-Code- oder Codex-App, braucht also keinen API-Schlüssel und speichert keinen. Melde dich zuerst dort an, falls noch nicht geschehen.",
   "onboarding.model.toolCheck": "Werkzeugaufruf-Prüfung",
@@ -3607,4 +3630,6 @@ export const de: Partial<Catalogue> = {
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
 };

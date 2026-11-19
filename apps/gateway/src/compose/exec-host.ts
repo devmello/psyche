@@ -24,6 +24,9 @@ import { createScratchDir, defaultDenyRead, scratchReadRules } from "@psyche/mcp
 import {
   classifyHostCommand,
   type FolderGrantEntry,
+  hostProgramCoverage,
+  operandsInside,
+  programName,
   READ_ONLY_RULE,
   SYSTEM_BIN_DIRS,
 } from "@psyche/permissions";
@@ -44,7 +47,10 @@ import type { SrtResolver } from "./srt.ts";
  * `exec_host`, "Run commands on this Mac" (security §5.4): one argv on the owner's own Mac, in a
  * folder the owner granted. Off by default (`exec.execHostEnabled`); every call asks on the Mac
  * (device-only), answered `once` or `always` bound to the exact argv, cwd, env subset and the
- * resolved executable's SHA-256 (30 days). A tainted turn is offered `once` only (§3.6).
+ * resolved executable's SHA-256 (30 days). A tainted turn is offered `once` only (§3.6). The card
+ * may also offer "Always allow <program> in <folder>" (`packages/permissions/src/host-program.ts`,
+ * 90 days): keyed on the binary's real path and hash, any arguments only for tools that cannot run
+ * other code, otherwise the exact argv; the run re-hashes the binary and stays under srt.
  *
  * The command runs under srt with Psyche's deny profile (§5.3: the vault, state, audit, browser
  * profiles, `~/.ssh`, Keychains) and may write only to its granted folder (when that grant is
@@ -128,7 +134,11 @@ function gitHardening(platform: NodeJS.Platform): readonly string[] {
   return platform === "win32" ? windowsGitHardening() : EXEC_HOST_GIT_HARDENING;
 }
 
-function isGit(executable: string, argv0: string | undefined, platform: NodeJS.Platform): boolean {
+export function isGit(
+  executable: string,
+  argv0: string | undefined,
+  platform: NodeJS.Platform,
+): boolean {
   if (platform === "win32") {
     const name = (p: string) =>
       win32
@@ -137,7 +147,8 @@ function isGit(executable: string, argv0: string | undefined, platform: NodeJS.P
         .replace(/\.exe$/, "");
     return name(executable) === "git" || (argv0 !== undefined && name(argv0) === "git");
   }
-  return basename(executable) === "git" || (argv0 !== undefined && basename(argv0) === "git");
+  // APFS folds case, and `ſ` folds to `s`: `GIT` is git and must get the same hardening.
+  return programName(executable) === "git" || (argv0 !== undefined && programName(argv0) === "git");
 }
 
 /** The `-c` pairs that switch off the drivers the repository's config defines (config only). */
@@ -325,7 +336,7 @@ export function cachedSrt(resolver: SrtLookup): {
 }
 
 export interface ExecHostDeps {
-  broker: Pick<PermissionBroker, "get">;
+  broker: Pick<PermissionBroker, "get"> & Partial<Pick<PermissionBroker, "listGrants">>;
   vault: { redact(text: string): string };
   /** The live granted folders for a conversation (Settings plus this chat's Allow once). */
   folders(threadId: string): readonly FolderGrantEntry[];
@@ -478,7 +489,8 @@ export function resolveExecutable(
   for (const c of candidates) {
     let real: string;
     try {
-      real = realpathSync(c);
+      // `.native` returns the file system's own spelling (`/bin/ſh` is `/bin/sh`).
+      real = realpathSync.native(c);
       if (!statSync(real).isFile()) continue;
       accessSync(real, constants.X_OK);
     } catch {
@@ -508,6 +520,19 @@ function browserProfiles(home: string): string[] {
 }
 
 /**
+ * Other places the owner's files and every app's temp files live: a program-grant run reads none
+ * of them (a link inside the folder could point there). Its own scratch directory is re-allowed.
+ */
+const CONFINED_DENY_READ = [
+  "/Volumes",
+  "/tmp",
+  "/private/tmp",
+  "/var/folders",
+  "/private/var/folders",
+  "/Users/Shared",
+];
+
+/**
  * The srt profile of one host command (security §5.3): Psyche's deny-read list, writes only to
  * the scratch directory and a read-write granted folder, network only to `allowedDomains`
  * through srt's proxies, every documented escape hatch off.
@@ -518,6 +543,8 @@ export function execHostSrtSettings(input: {
   scratch: string;
   writable: readonly string[];
   allowedDomains: readonly string[];
+  /** A program-grant run reads nothing of the owner's home or `/Volumes` but this folder. */
+  confineRead?: string;
 }): Record<string, unknown> {
   const h = (...p: string[]) => join(input.userHome, ...p);
   const scratch = scratchReadRules(input.psycheHome, input.scratch);
@@ -537,9 +564,13 @@ export function execHostSrtSettings(input: {
           h("Library", "Keychains"),
           ...browserProfiles(input.userHome),
           ...scratch.denyRead,
+          ...(input.confineRead === undefined ? [] : [input.userHome, ...CONFINED_DENY_READ]),
         ]),
       ],
-      allowRead: [...scratch.allowRead],
+      allowRead: [
+        ...scratch.allowRead,
+        ...(input.confineRead === undefined ? [] : [input.confineRead]),
+      ],
       allowWrite: [input.scratch, ...input.writable],
       denyWrite: [
         input.psycheHome,
@@ -876,16 +907,34 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
       const command = p.argv.join(" ");
       // Without srt nothing runs without a card (the sandbox is what keeps it read-only); the card
       // still reads as a read.
-      return {
-        kind: "exec_host",
+      // A standing program grant ("Always allow <program> in <folder>") needs the binary the
+      // Gateway resolved and the real cwd, and a sandbox to run in: never on Windows or without srt.
+      let cwdReal: string | undefined;
+      try {
+        cwdReal = realpathSync(p.cwd);
+      } catch {
+        cwdReal = undefined;
+      }
+      const hostProgram =
+        !windows && "path" in srt && hostProgramCoverage(p.argv, resolved.executable) === "any"
+          ? {
+              executable: resolved.executable,
+              sha256: resolved.sha256,
+              ...(cwdReal === undefined ? {} : { cwdReal }),
+            }
+          : undefined;
+      const meta = {
         ...(readOnly
           ? {
-              meta: {
-                hostCommand: "read_only" as const,
-                ...("missing" in srt ? { hostSandbox: "missing" as const } : {}),
-              },
+              hostCommand: "read_only" as const,
+              ...("missing" in srt ? { hostSandbox: "missing" as const } : {}),
             }
           : {}),
+        ...(hostProgram === undefined ? {} : { hostProgram }),
+      };
+      return {
+        kind: "exec_host",
+        ...(Object.keys(meta).length > 0 ? { meta } : {}),
         target: { kind: "command", value: command.slice(0, 1000) },
         summary: `Run \`${command.slice(0, 80)}\` on ${hostWords().thisDevice}`,
         details: {
@@ -919,7 +968,9 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
       // A quiet run takes its slot before the first await, so runs racing through the checks
       // never make a third; every exit releases it.
       const quiet = ctx.approvalId === undefined && ctx.authority?.rule === READ_ONLY_RULE;
-      if (quiet) {
+      // A standing program grant ("Always allow <program> in <folder>") authorized this run?
+      const program = quiet ? undefined : await programGrantOf(ctx);
+      if (quiet || program !== undefined) {
         if (quietRunning >= READ_ONLY_CONCURRENCY) {
           throw new PsycheError(
             "unavailable",
@@ -930,20 +981,80 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
         quietRunning++;
       }
       try {
-        return await runHost(p, ctx, quiet);
+        return await runHost(p, ctx, quiet, program);
       } finally {
-        if (quiet) quietRunning--;
+        if (quiet || program !== undefined) quietRunning--;
       }
     },
   });
 
-  async function runHost(p: HostParams, ctx: ToolRunContext, quiet: boolean): Promise<ToolResult> {
+  /** The program grant (binary and folder) that authorized this run, if one did. */
+  async function programGrantOf(
+    ctx: ToolRunContext,
+  ): Promise<{ executable: string; sha256: string; folder: string } | undefined> {
+    const id = ctx.authority?.grantId;
+    if (ctx.approvalId !== undefined || id === undefined) return undefined;
+    // Fail closed: a standing grant authorized this run, and without the ledger we cannot tell
+    // whether it was a program grant that must be confined.
+    if (deps.broker.listGrants === undefined) {
+      throw new PsycheError(
+        "unavailable",
+        "the grant ledger is not available; the command was not run",
+      );
+    }
+    const grants = await deps.broker.listGrants({ kind: "exec_host" });
+    const g = grants.find((x) => x.id === id);
+    if (g === undefined) {
+      throw new PsycheError("forbidden", "the grant that allowed this command is not live");
+    }
+    const h = (g.subject as { hostProgram?: Record<string, unknown> }).hostProgram;
+    if (h === undefined || h === null) return undefined;
+    if (
+      typeof h.executable !== "string" ||
+      typeof h.sha256 !== "string" ||
+      typeof h.folder !== "string"
+    ) {
+      throw new PsycheError("forbidden", "the program grant is malformed");
+    }
+    return { executable: h.executable, sha256: h.sha256, folder: h.folder };
+  }
+
+  async function runHost(
+    p: HostParams,
+    ctx: ToolRunContext,
+    quietRun: boolean,
+    program?: { executable: string; sha256: string; folder: string },
+  ): Promise<ToolResult> {
+    const quiet = quietRun;
+    // A program-grant run has the quiet class's limits: audited first, 15 s, two at a time.
+    const limited = quietRun || program !== undefined;
     const { real, folder } = await grantedFolder(p.cwd, deps.folders(ctx.threadId), platform);
     // Hashed again right before it runs: a binary swapped after approval does not run.
     const described = describe(p, platform);
     const { resolved, domains } = described;
     const readOnly = described.readOnly;
-    if (quiet && deps.audit === undefined) {
+    let confineRead: string | undefined;
+    if (program !== undefined) {
+      // Everything decide checked is checked again against what is on disk now.
+      let folderReal: string;
+      try {
+        folderReal = realpathSync.native(program.folder);
+      } catch {
+        throw new PsycheError("forbidden", "the folder of this program grant is gone");
+      }
+      if (
+        resolved.executable !== program.executable ||
+        resolved.sha256 !== program.sha256 ||
+        !operandsInside(p.argv[0] as string, p.argv.slice(1), real, folderReal)
+      ) {
+        throw new PsycheError(
+          "forbidden",
+          "This command no longer fits its program grant (the binary changed, or a path leaves the folder); it was not run",
+        );
+      }
+      confineRead = folderReal;
+    }
+    if (limited && deps.audit === undefined) {
       throw new PsycheError("forbidden", "Read-only commands run without a card only when audited");
     }
     if (quiet && !readOnly) {
@@ -1071,7 +1182,8 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
         userHome,
         scratch,
         // Read-only: nothing writable but the scratch directory, whatever the folder's grant.
-        writable: folder.mode === "rw" && !readOnly ? [folder.path] : [],
+        writable: folder.mode === "rw" && !readOnly && program === undefined ? [folder.path] : [],
+        ...(confineRead === undefined ? {} : { confineRead }),
         allowedDomains: readOnly ? [] : domains,
       });
       await writeFile(settings, JSON.stringify(profile), { mode: 0o600 });
@@ -1079,16 +1191,16 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
       args = ["--settings", settings, "--", resolved.executable, ...args];
     }
     const cap = deps.readOnlyTimeoutMs ?? READ_ONLY_TIMEOUT_MS;
-    const timeoutMs = quiet
+    const timeoutMs = limited
       ? Math.min(p.timeoutMs ?? cap, cap)
       : (p.timeoutMs ?? EXEC_DEFAULT_TIMEOUT_MS);
     let timedOut = false;
     let stopped = false;
-    if (quiet) {
+    if (limited) {
       // Recorded before it starts: a run the audit log cannot record does not run.
       try {
         await deps.audit?.append({
-          kind: "exec_host.read_only_run",
+          kind: program === undefined ? "exec_host.read_only_run" : "exec_host.program_run",
           actor: { type: "agent", runId: ctx.runId },
           subject: { runId: ctx.runId, threadId: ctx.threadId },
           data: {
@@ -1137,11 +1249,12 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
       if (timer !== undefined) clearTimeout(timer);
       ctx.signal.removeEventListener("abort", onAbort);
       await cleanup();
-      if (quiet) {
+      if (limited) {
         // The run's end, whatever happened; a failure to record it is reported, not dropped.
         try {
           await deps.audit?.append({
-            kind: "exec_host.read_only_run.done",
+            kind:
+              program === undefined ? "exec_host.read_only_run.done" : "exec_host.program_run.done",
             actor: { type: "agent", runId: ctx.runId },
             subject: { runId: ctx.runId, threadId: ctx.threadId },
             data: {

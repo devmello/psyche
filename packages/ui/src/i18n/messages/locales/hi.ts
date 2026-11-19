@@ -49,6 +49,7 @@ import { shellRest } from "./shell-rest/hi.ts";
 import { specialistsRest } from "./specialists-rest/hi.ts";
 import { webRest } from "./web-rest/hi.ts";
 import { widgetsRest } from "./widgets-rest/hi.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/hi.ts";
 import { workRest } from "./work-rest/hi.ts";
 import { workflows } from "./workflows/hi.ts";
 
@@ -402,6 +403,9 @@ export const hi: Partial<Catalogue> = {
   "blocks.approval.scope.task": "इस टास्क के लिए अनुमति दें",
   "blocks.approval.scope.trustSite": "इस साइट के लिए हमेशा ({site})",
   "blocks.approval.scope.trustSiteSubdomains": "इस साइट और इसके सबडोमेन के लिए हमेशा ({site})",
+  "blocks.approval.scope.hostProgram": "{folder} में {program} हमेशा अनुमति दें",
+  "blocks.approval.scope.hostProgramExact":
+    "{folder} में {program} को ठीक इन्हीं आर्गुमेंट के साथ हमेशा अनुमति दें",
   "blocks.approval.scope.site": "इस साइट के लिए अनुमति दें",
   "blocks.approval.scope.session": "इस सत्र के लिए अनुमति दें",
   "blocks.approval.scope.always": "हमेशा अनुमति दें",
@@ -1192,6 +1196,22 @@ export const hi: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "इस Mac पर एक कुंजी फ़ाइल",
   "settings.credentials.slot.recovery": "केवल इसकी रिकवरी कुंजी",
   "settings.credentials.protectedBy": "वॉल्ट इससे सुरक्षित है:",
+  "settings.credentials.vault.adminOnly": "यह केवल एडमिन डिवाइस ही कर सकता है।",
+  "settings.credentials.vault.unlockReason": "रिकवरी की की पुष्टि",
+  "settings.credentials.vault.setup.title": "वॉल्ट सेट अप करें",
+  "settings.credentials.vault.setup.body":
+    "वॉल्ट आपके पासवर्ड, कार्ड और API कुंजियाँ इस कंप्यूटर पर एन्क्रिप्टेड रखता है। Psyche इसे एक रिकवरी की के साथ बनाता है, जिसे आप एक बार सेव करते हैं।",
+  "settings.credentials.vault.setup.button": "वॉल्ट सेट अप करें",
+  "settings.credentials.vault.setup.failed": "वॉल्ट नहीं बना: {reason}",
+  "settings.credentials.vault.setup.noSlot": "इस Gateway में वॉल्ट के लिए कोई की स्लॉट नहीं है।",
+  "settings.credentials.vault.confirm.title": "अपनी रिकवरी की की पुष्टि करें",
+  "settings.credentials.vault.confirm.body":
+    "यह दिखाने के लिए कि आपने इसे सेव किया है, अपनी रिकवरी की का आखिरी समूह लिखें, यानी आखिरी डैश के बाद का हिस्सा।",
+  "settings.credentials.vault.confirm.label": "आखिरी समूह",
+  "settings.credentials.vault.confirm.button": "पुष्टि करें",
+  "settings.credentials.vault.confirm.wrong":
+    "यह रिकवरी की का आखिरी समूह नहीं है। देखें कि आपने इसे कहाँ सेव किया था और फिर कोशिश करें।",
+  "settings.credentials.vault.confirm.failed": "रिकवरी की की पुष्टि नहीं हुई: {reason}",
   "settings.credentials.moveToKeychain": "कीचेन में ले जाएँ",
   "settings.credentials.moveToKeychainNeeds":
     "Developer ID और प्रोविज़निंग प्रोफ़ाइल से साइन किया गया Psyche हेल्पर चाहिए",
@@ -2074,6 +2094,8 @@ export const hi: Partial<Catalogue> = {
   "settings.permissions.trusted.remove": "हटाएँ",
   "settings.permissions.trusted.removeNamed": "{name} को भरोसेमंद साइटों से हटाएँ",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} और इसके सबडोमेन",
+  "settings.permissions.subject.hostProgram": "{program}, {folder} में, कोई भी आर्गुमेंट",
+  "settings.permissions.subject.hostProgramExact": "{program}, {folder} में, ठीक यही आर्गुमेंट",
   "settings.permissions.sensitive.title": "संवेदनशील साइटें",
   "settings.permissions.sensitive.description":
     "बैंक, स्वास्थ्य, ईमेल और पासवर्ड मैनेजर पढ़ने से पहले हमेशा पूछते हैं। सरकारी और iCloud साइटें भी पूछती हैं; बिना पूछे पढ़ने के लिए यहाँ वह श्रेणी बंद करें।",
@@ -2558,7 +2580,6 @@ export const hi: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "कॉपी नहीं हो सकी। कुंजी चुनकर कॉपी करें।",
   "onboarding.model.recoveryBody":
     "Psyche ने अभी आपका वॉल्ट बनाया है। इस कुंजी को किसी पासवर्ड मैनेजर में या काग़ज़ पर सेव करें: यह केवल अभी दिखाई जाती है और रीस्टोर या कुंजी स्लॉट खो जाने के बाद वॉल्ट में वापस जाने का एकमात्र रास्ता है।",
-  "onboarding.model.savedIt": "मैंने इसे सेव कर लिया",
   "onboarding.model.subscriptionNote":
     "Psyche इस Mac पर पहले से साइन इन किए गए Claude Code या Codex ऐप का उपयोग करता है, इसलिए इसे कोई API कुंजी नहीं चाहिए और यह कोई संग्रहीत नहीं करता। अगर आपने अभी तक नहीं किया है, तो पहले वहाँ साइन इन करें।",
   "onboarding.model.toolCheck": "टूल-कॉलिंग जाँच",
@@ -3486,4 +3507,6 @@ export const hi: Partial<Catalogue> = {
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
 };

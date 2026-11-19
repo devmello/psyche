@@ -743,6 +743,53 @@ describe("a restart reports every set-aside approval whose resume it cut short, 
   });
 });
 
+describe("the decision is announced when the answer is stored", () => {
+  it("approval.decided comes before the answer's audit rows and the grant's own events", async () => {
+    const h = mk({ canResume: () => true });
+    const { issued } = await issue(h, call("conn.action", "write"), {
+      ...UNATTENDED,
+      permissionMode: "balanced",
+    });
+    h.clock.advance(500);
+    const order: string[] = [];
+    h.broker.subscribe((e) => {
+      if (e.type === "approval.decided" || e.type === "grant.created") order.push(e.type);
+      if (e.type === "approval.decided") {
+        // Nothing is audited yet for this decision: no subscriber may rely on it.
+        const audited = [...h.audit.store.entries()].some(
+          (x) => x.ok && x.entry.kind === "approval.decided",
+        );
+        order.push(`audited:${audited}`);
+      }
+    });
+    const waiting = h.broker.awaitDecision(issued.approval.id);
+    expect((await answerAs(h, issued, { scope: "always" })).status).toBe("approved");
+    expect(order).toEqual(["approval.decided", "audited:false", "grant.created"]);
+    // Waiters still resolve, once everything is done.
+    expect((await waiting).status).toBe("approved");
+  });
+
+  it("a use of a set-aside card's grant says so; an attended card's grant does not", async () => {
+    const h = mk({ canResume: () => true });
+    const used: (true | undefined)[] = [];
+    h.broker.subscribe((e) => {
+      if (e.type === "grant.used") used.push(e.fromSetAside);
+    });
+    const ctx = { ...UNATTENDED, permissionMode: "balanced" as const };
+    const set = await issue(h, call("conn.action", "write"), ctx);
+    h.clock.advance(500);
+    await answerAs(h, set.issued, { scope: "always" });
+    expect((await h.broker.decide(call("conn.action", "write"), ctx)).decision).toBe("allow");
+    const chat = { ...CTX, permissionMode: "balanced" as const };
+    const attended = await issue(h, call("other.action", "write"), chat, { setAside: undefined });
+    expect(attended.issued.approval.setAside).toBeUndefined();
+    h.clock.advance(500);
+    await answerAs(h, attended.issued, { scope: "always" });
+    expect((await h.broker.decide(call("other.action", "write"), chat)).decision).toBe("allow");
+    expect(used).toEqual([true, undefined]);
+  });
+});
+
 describe("set-aside cards", () => {
   it("are approved only when a resume run can start (fails closed without one)", async () => {
     const none = mk();

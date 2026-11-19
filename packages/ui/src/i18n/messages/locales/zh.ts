@@ -50,6 +50,7 @@ import { teach } from "./teach/zh.ts";
 import { web } from "./web/zh.ts";
 import { whatCanYouDo } from "./what-can-you-do/zh.ts";
 import { widgets } from "./widgets/zh.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/zh.ts";
 import { work } from "./work/zh.ts";
 import { workflows } from "./workflows/zh.ts";
 
@@ -434,6 +435,9 @@ export const zh: Partial<Catalogue> = {
   "blocks.approval.scope.task": "允许用于此任务",
   "blocks.approval.scope.trustSite": "始终允许此网站（{site}）",
   "blocks.approval.scope.trustSiteSubdomains": "始终允许此网站及其子域名（{site}）",
+  "blocks.approval.scope.hostProgram": "始终允许在 {folder} 中运行 {program}",
+  "blocks.approval.scope.hostProgramExact":
+    "始终允许在 {folder} 中以这些完全相同的参数运行 {program}",
   "blocks.approval.scope.site": "允许用于此网站",
   "blocks.approval.scope.session": "允许用于本次会话",
   "blocks.approval.scope.always": "始终允许",
@@ -1210,6 +1214,22 @@ export const zh: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "这台 Mac 上的密钥文件",
   "settings.credentials.slot.recovery": "仅其恢复密钥",
   "settings.credentials.protectedBy": "保险库保护方式：",
+  "settings.credentials.vault.adminOnly": "只有管理员设备才能执行此操作。",
+  "settings.credentials.vault.unlockReason": "确认恢复密钥",
+  "settings.credentials.vault.setup.title": "设置保险库",
+  "settings.credentials.vault.setup.body":
+    "保险库会把你的密码、银行卡和 API 密钥加密保存在这台电脑上。Psyche 创建它时会生成一个恢复密钥，你只需保存一次。",
+  "settings.credentials.vault.setup.button": "设置保险库",
+  "settings.credentials.vault.setup.failed": "未能创建保险库：{reason}",
+  "settings.credentials.vault.setup.noSlot": "此 Gateway 没有可用于保险库的密钥槽。",
+  "settings.credentials.vault.confirm.title": "确认你的恢复密钥",
+  "settings.credentials.vault.confirm.body":
+    "输入恢复密钥的最后一组（最后一个短横线之后的部分），以证明你已保存。",
+  "settings.credentials.vault.confirm.label": "最后一组",
+  "settings.credentials.vault.confirm.button": "确认",
+  "settings.credentials.vault.confirm.wrong":
+    "这不是恢复密钥的最后一组。请检查你保存它的位置后重试。",
+  "settings.credentials.vault.confirm.failed": "未能确认恢复密钥：{reason}",
   "settings.credentials.moveToKeychain": "移至钥匙串",
   "settings.credentials.moveToKeychainNeeds":
     "需要使用 Developer ID 签名并带有描述文件的 Psyche 助手",
@@ -2053,6 +2073,8 @@ export const zh: Partial<Catalogue> = {
   "settings.permissions.trusted.remove": "移除",
   "settings.permissions.trusted.removeNamed": "将 {name} 从信任的网站中移除",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} 及其子域名",
+  "settings.permissions.subject.hostProgram": "{program}，在 {folder} 中，任意参数",
+  "settings.permissions.subject.hostProgramExact": "{program}，在 {folder} 中，仅限这些参数",
   "settings.permissions.sensitive.title": "敏感网站",
   "settings.permissions.sensitive.description":
     "银行、健康、电子邮件和密码管理器在读取前始终会询问。政府网站和 iCloud 也会询问；想不经询问直接读取，请在此关闭对应类别。",
@@ -2523,7 +2545,6 @@ export const zh: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "无法拷贝。请选中密钥并手动拷贝。",
   "onboarding.model.recoveryBody":
     "Psyche 刚刚创建了你的保险库。请将此密钥保存在密码管理器中或写在纸上：它只显示这一次，是在恢复系统或丢失密钥槽后重新进入保险库的唯一途径。",
-  "onboarding.model.savedIt": "我已保存",
   "onboarding.model.subscriptionNote":
     "Psyche 使用这台 Mac 上已登录的 Claude Code 或 Codex App，因此不需要也不存储 API 密钥。如果尚未登录，请先在那里登录。",
   "onboarding.model.toolCheck": "工具调用检查",
@@ -3434,4 +3455,6 @@ export const zh: Partial<Catalogue> = {
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
 };

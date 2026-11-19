@@ -97,6 +97,11 @@ export interface CallMeta {
   hostCommand?: "read_only";
   /** With `hostCommand`: srt is missing, so the read-only command asks. */
   hostSandbox?: "missing";
+  /**
+   * `exec_host`: the binary the Gateway resolved (real path, SHA-256) and the real cwd, for a
+   * standing program grant (`host-program.ts`). Set only where a sandbox is present.
+   */
+  hostProgram?: { executable: string; sha256: string; cwdReal?: string };
   /** MCP server trust tier. */
   mcpTier?: "bundled" | "verified" | "unknown";
   /** MCP server and the `tools/list` hash the call was described with (grant subject, #279). */

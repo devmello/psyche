@@ -49,6 +49,7 @@ import { shellRest } from "./shell-rest/ko.ts";
 import { specialistsRest } from "./specialists-rest/ko.ts";
 import { webRest } from "./web-rest/ko.ts";
 import { widgetsRest } from "./widgets-rest/ko.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/ko.ts";
 import { workRest } from "./work-rest/ko.ts";
 import { workflows } from "./workflows/ko.ts";
 
@@ -399,6 +400,8 @@ export const ko: Partial<Catalogue> = {
   "blocks.approval.scope.task": "이 작업에 허용",
   "blocks.approval.scope.trustSite": "이 사이트는 항상 허용 ({site})",
   "blocks.approval.scope.trustSiteSubdomains": "이 사이트와 하위 도메인은 항상 허용 ({site})",
+  "blocks.approval.scope.hostProgram": "{folder}에서 {program} 항상 허용",
+  "blocks.approval.scope.hostProgramExact": "{folder}에서 정확히 이 인수로 {program} 항상 허용",
   "blocks.approval.scope.site": "이 사이트에 허용",
   "blocks.approval.scope.session": "이 세션에 허용",
   "blocks.approval.scope.always": "항상 허용",
@@ -1177,6 +1180,22 @@ export const ko: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "이 Mac의 키 파일",
   "settings.credentials.slot.recovery": "복구 키만",
   "settings.credentials.protectedBy": "금고 보호 수단:",
+  "settings.credentials.vault.adminOnly": "관리자 기기에서만 할 수 있습니다.",
+  "settings.credentials.vault.unlockReason": "복구 키 확인",
+  "settings.credentials.vault.setup.title": "금고 설정",
+  "settings.credentials.vault.setup.body":
+    "금고는 비밀번호, 카드, API 키를 이 컴퓨터에 암호화해 보관합니다. Psyche는 한 번만 저장하는 복구 키와 함께 금고를 만듭니다.",
+  "settings.credentials.vault.setup.button": "금고 설정",
+  "settings.credentials.vault.setup.failed": "금고를 만들지 못했습니다: {reason}",
+  "settings.credentials.vault.setup.noSlot": "이 Gateway에는 금고용 키 슬롯이 없습니다.",
+  "settings.credentials.vault.confirm.title": "복구 키를 확인하세요",
+  "settings.credentials.vault.confirm.body":
+    "저장했는지 확인하기 위해 복구 키의 마지막 그룹, 즉 마지막 하이픈 뒤의 부분을 입력하세요.",
+  "settings.credentials.vault.confirm.label": "마지막 그룹",
+  "settings.credentials.vault.confirm.button": "확인",
+  "settings.credentials.vault.confirm.wrong":
+    "복구 키의 마지막 그룹이 아닙니다. 저장한 위치를 확인하고 다시 시도하세요.",
+  "settings.credentials.vault.confirm.failed": "복구 키를 확인하지 못했습니다: {reason}",
   "settings.credentials.moveToKeychain": "키체인으로 이동",
   "settings.credentials.moveToKeychainNeeds":
     "Developer ID와 프로비저닝 프로파일로 서명된 Psyche Helper가 필요합니다",
@@ -2056,6 +2075,8 @@ export const ko: Partial<Catalogue> = {
   "settings.permissions.trusted.remove": "제거",
   "settings.permissions.trusted.removeNamed": "{name}을(를) 신뢰하는 사이트에서 제거",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} 및 하위 도메인",
+  "settings.permissions.subject.hostProgram": "{folder}의 {program}, 모든 인수",
+  "settings.permissions.subject.hostProgramExact": "{folder}의 {program}, 정확히 이 인수만",
   "settings.permissions.sensitive.title": "민감한 사이트",
   "settings.permissions.sensitive.description":
     "은행, 건강, 이메일, 비밀번호 관리자는 읽기 전에 항상 묻습니다. 정부 사이트와 iCloud도 묻습니다. 묻지 않고 읽으려면 여기서 해당 범주를 끄세요.",
@@ -2543,7 +2564,6 @@ export const ko: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "복사할 수 없습니다. 키를 선택하여 복사하십시오.",
   "onboarding.model.recoveryBody":
     "Psyche가 방금 금고를 만들었습니다. 이 키를 암호 관리자나 종이에 보관하십시오. 지금만 표시되며, 복원하거나 키 슬롯을 잃은 뒤 금고에 다시 들어갈 수 있는 유일한 방법입니다.",
-  "onboarding.model.savedIt": "저장했습니다",
   "onboarding.model.subscriptionNote":
     "Psyche는 이 Mac에 이미 로그인된 Claude Code 또는 Codex 앱을 사용하므로 API 키가 필요 없고 저장하지도 않습니다. 아직 로그인하지 않았다면 먼저 그곳에서 로그인하십시오.",
   "onboarding.model.toolCheck": "도구 호출 점검",
@@ -3475,4 +3495,6 @@ export const ko: Partial<Catalogue> = {
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
 };

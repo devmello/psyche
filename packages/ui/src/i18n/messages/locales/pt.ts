@@ -30,6 +30,7 @@ import { settingsD } from "./settings-d/pt.ts";
 import { settingsE } from "./settings-e/pt.ts";
 import { specialistsA } from "./specialists-a/pt.ts";
 import { teachA } from "./teach-a/pt.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/pt.ts";
 import { workA } from "./work-a/pt.ts";
 import { workB } from "./work-b/pt.ts";
 import { workflows } from "./workflows/pt.ts";
@@ -361,6 +362,9 @@ export const pt: Partial<Catalogue> = {
   "blocks.approval.scope.task": "Permitir nesta tarefa",
   "blocks.approval.scope.trustSite": "Sempre para este site ({site})",
   "blocks.approval.scope.trustSiteSubdomains": "Sempre para este site e seus subdomínios ({site})",
+  "blocks.approval.scope.hostProgram": "Permitir sempre {program} em {folder}",
+  "blocks.approval.scope.hostProgramExact":
+    "Permitir sempre {program} com exatamente estes argumentos em {folder}",
   "blocks.approval.scope.site": "Permitir neste site",
   "blocks.approval.scope.session": "Permitir nesta sessão",
   "blocks.approval.scope.always": "Permitir sempre",
@@ -1141,6 +1145,24 @@ export const pt: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "um arquivo de chave neste Mac",
   "settings.credentials.slot.recovery": "apenas a chave de recuperação",
   "settings.credentials.protectedBy": "Cofre protegido por:",
+  "settings.credentials.vault.adminOnly": "Só um dispositivo administrador pode fazer isso.",
+  "settings.credentials.vault.unlockReason": "Confirmar a chave de recuperação",
+  "settings.credentials.vault.setup.title": "Configurar o cofre",
+  "settings.credentials.vault.setup.body":
+    "O cofre guarda suas senhas, cartões e chaves de API criptografados neste computador. O Psyche o cria com uma chave de recuperação que você salva uma única vez.",
+  "settings.credentials.vault.setup.button": "Configurar o cofre",
+  "settings.credentials.vault.setup.failed": "O cofre não foi criado: {reason}",
+  "settings.credentials.vault.setup.noSlot":
+    "Este Gateway não oferece um espaço de chave para o cofre.",
+  "settings.credentials.vault.confirm.title": "Confirme sua chave de recuperação",
+  "settings.credentials.vault.confirm.body":
+    "Digite o último grupo da sua chave de recuperação, a parte depois do último hífen, para mostrar que você a salvou.",
+  "settings.credentials.vault.confirm.label": "Último grupo",
+  "settings.credentials.vault.confirm.button": "Confirmar",
+  "settings.credentials.vault.confirm.wrong":
+    "Esse não é o último grupo da chave de recuperação. Verifique onde você a salvou e tente de novo.",
+  "settings.credentials.vault.confirm.failed":
+    "A chave de recuperação não foi confirmada: {reason}",
   "settings.credentials.moveToKeychain": "Mover para as Chaves",
   "settings.credentials.moveToKeychainNeeds":
     "Precisa de um Psyche Helper assinado com um Developer ID e um perfil de provisionamento",
@@ -2043,6 +2065,9 @@ export const pt: Partial<Catalogue> = {
   "settings.permissions.trusted.remove": "Remover",
   "settings.permissions.trusted.removeNamed": "Remover {name} dos sites confiáveis",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} e seus subdomínios",
+  "settings.permissions.subject.hostProgram": "{program} em {folder}, quaisquer argumentos",
+  "settings.permissions.subject.hostProgramExact":
+    "{program} em {folder}, exatamente estes argumentos",
   "settings.permissions.sensitive.title": "Sites sensíveis",
   "settings.permissions.sensitive.description":
     "Bancos, saúde, e-mail e gerenciadores de senhas sempre perguntam antes de uma leitura. Sites do governo e do iCloud também; desative uma categoria aqui para lê-la sem perguntar.",
@@ -2535,7 +2560,6 @@ export const pt: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "Não foi possível copiar. Selecione a chave e copie.",
   "onboarding.model.recoveryBody":
     "O Psyche acabou de criar seu cofre. Salve esta chave em um gerenciador de senhas ou no papel: ela é mostrada só agora e é a única forma de voltar ao cofre após uma restauração ou a perda de um slot de chave.",
-  "onboarding.model.savedIt": "Eu salvei",
   "onboarding.model.subscriptionNote":
     "O Psyche usa o app Claude Code ou Codex já conectado neste Mac, então não precisa de chave de API e não guarda nenhuma. Faça login lá primeiro, se ainda não fez.",
   "onboarding.model.toolCheck": "Verificação de chamada de ferramentas",
@@ -3471,4 +3495,6 @@ export const pt: Partial<Catalogue> = {
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
 };

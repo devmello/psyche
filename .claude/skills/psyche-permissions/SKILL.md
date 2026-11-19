@@ -75,6 +75,10 @@ This covers any rule that sorts inputs into "asks" and "doesn't ask": money-inte
   When in doubt, show the card.
 - **Match receipts to approvals by grant or approval id, never by kind and task.** Connector receipts carry `tool.action` kinds (`gmail.send`) and no `taskId`, so a kind+task match reports a successful action as failed (#1358 B1).
 
+## 3d. Exec and path confinement (#1361, #1364)
+
+Rules live in `psyche-builder` §2: fold names (NFKC + case, `realpathSync.native`), cover symlink flags and path-valued options, `denyRead` the shared temp roots, fail closed on a missing lookup, and map every subscriber before moving an emit. Keep each probe as a table row.
+
 ## 4. Trust that moves to a new path or file
 
 If a client now trusts a different path (a socket, a pointer file, a config), the old `$PSYCHE_HOME` ownership no longer vouches for it. #1308 moved the helper's socket outside `$PSYCHE_HOME`, and the review found an impostor-Gateway risk: screen, computer use and `presence.confirm` signatures.

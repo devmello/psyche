@@ -82,6 +82,7 @@ import {
   type ToolCall,
   traceMarkdown,
   type VaultPayment,
+  type VaultStatus,
   validateEventPayload,
   validateParams,
   validateResult,
@@ -152,6 +153,11 @@ export interface MockWorld {
   nodes: NodeInfo[];
   credentials: CredentialMeta[];
   credentialUses: CredentialUse[];
+  /**
+   * The vault (`vault.status|setup|confirmRecovery|unlock`); absent → the mock does not implement
+   * them. Mirrors the Gateway: one setup (then `conflict`), a wrong last group is `invalid_params`.
+   */
+  vault?: { status: VaultStatus; recoveryKey?: string };
   /** Stripe Link (`vault.payments.*`); absent → Link is not set up (`payments_not_configured`). */
   linkMethods?: LinkPaymentMethod[];
   /** The guided Link setup (`payments.link.*`); absent → derived from `linkMethods`. */
@@ -1006,6 +1012,11 @@ export class MockGateway implements GatewayClient {
     if (handler === undefined) fail("not_implemented", `MockGateway does not implement ${method}`);
     const result = (handler as Handler)(params as never);
     return validateResult(method, result) as MethodResult<M>;
+  }
+
+  private vaultOf(): NonNullable<MockWorld["vault"]> {
+    const vault = this.world.vault;
+    return vault === undefined ? fail("not_implemented", "MockGateway has no vault") : vault;
   }
 
   /** Where the guided Link setup stands: set by the calls below, else read off the fixtures. */
@@ -3634,6 +3645,34 @@ export class MockGateway implements GatewayClient {
         ok: true,
         result: { shortcuts: this.world.shortcuts ?? appleShortcuts() },
       };
+    },
+    "vault.status": () => ({ status: this.vaultOf().status }),
+    "vault.setup": () => {
+      const vault = this.vaultOf();
+      if (vault.status.state !== "uninitialized") fail("conflict", "a vault already exists here");
+      vault.recoveryKey = "MOCK-ABCD-EFGH-WXYZ";
+      vault.status = {
+        ...vault.status,
+        state: "unlocked",
+        slots: ["key_file", "recovery"],
+        recoveryConfirmed: false,
+      };
+      return { status: vault.status, recoveryKey: vault.recoveryKey };
+    },
+    "vault.confirmRecovery": (p) => {
+      const vault = this.vaultOf();
+      if (vault.status.state === "uninitialized") fail("not_found", "no vault");
+      if (vault.status.state === "locked") fail("unauthorized", "the vault is locked");
+      const expected = vault.recoveryKey?.split("-").at(-1) ?? "";
+      if (expected === "" || p.lastGroup.trim().toUpperCase() !== expected)
+        fail("invalid_params", "that is not the last group of the recovery key");
+      vault.status = { ...vault.status, recoveryConfirmed: true };
+      return { status: vault.status };
+    },
+    "vault.unlock": () => {
+      const vault = this.vaultOf();
+      vault.status = { ...vault.status, state: "unlocked" };
+      return { status: vault.status };
     },
     "vault.list": () => ({ credentials: this.world.credentials }),
     "vault.add": (p) => {

@@ -159,6 +159,9 @@ export const blocks = {
   "blocks.approval.scope.task": "Allow for this task",
   "blocks.approval.scope.trustSite": "Always for this site ({site})",
   "blocks.approval.scope.trustSiteSubdomains": "Always for this site and its subdomains ({site})",
+  "blocks.approval.scope.hostProgram": "Always allow {program} in {folder}",
+  "blocks.approval.scope.hostProgramExact":
+    "Always allow {program} with exactly these arguments in {folder}",
   "blocks.approval.scope.site": "Allow for this site",
   "blocks.approval.scope.session": "Allow for this session",
   "blocks.approval.scope.always": "Always allow",

@@ -50,6 +50,7 @@ import { teach } from "./teach/ar.ts";
 import { web } from "./web/ar.ts";
 import { whatCanYouDo } from "./what-can-you-do/ar.ts";
 import { widgets } from "./widgets/ar.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/ar.ts";
 import { work } from "./work/ar.ts";
 import { workflows } from "./workflows/ar.ts";
 
@@ -442,6 +443,9 @@ export const ar: Partial<Catalogue> = {
   "blocks.approval.scope.task": "السماح لهذه المهمة",
   "blocks.approval.scope.trustSite": "دائمًا لهذا الموقع ({site})",
   "blocks.approval.scope.trustSiteSubdomains": "دائمًا لهذا الموقع ونطاقاته الفرعية ({site})",
+  "blocks.approval.scope.hostProgram": "السماح دائمًا بـ {program} في {folder}",
+  "blocks.approval.scope.hostProgramExact":
+    "السماح دائمًا بـ {program} بهذه الوسائط بالضبط في {folder}",
   "blocks.approval.scope.site": "السماح لهذا الموقع",
   "blocks.approval.scope.session": "السماح لهذه الجلسة",
   "blocks.approval.scope.always": "السماح دائمًا",
@@ -1234,6 +1238,22 @@ export const ar: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "ملف مفتاح على هذا الـ Mac",
   "settings.credentials.slot.recovery": "مفتاح الاستعادة الخاص بها فقط",
   "settings.credentials.protectedBy": "الخزنة محمية بواسطة:",
+  "settings.credentials.vault.adminOnly": "يمكن لجهاز مشرف فقط تنفيذ ذلك.",
+  "settings.credentials.vault.unlockReason": "تأكيد مفتاح الاسترداد",
+  "settings.credentials.vault.setup.title": "إعداد الخزنة",
+  "settings.credentials.vault.setup.body":
+    "تحفظ الخزنة كلمات المرور والبطاقات ومفاتيح API مشفّرة على هذا الكمبيوتر. ينشئها Psyche مع مفتاح استرداد تحفظه مرة واحدة.",
+  "settings.credentials.vault.setup.button": "إعداد الخزنة",
+  "settings.credentials.vault.setup.failed": "لم يتم إنشاء الخزنة: {reason}",
+  "settings.credentials.vault.setup.noSlot": "لا يوفّر هذا الـ Gateway خانة مفتاح للخزنة.",
+  "settings.credentials.vault.confirm.title": "أكّد مفتاح الاسترداد",
+  "settings.credentials.vault.confirm.body":
+    "اكتب المجموعة الأخيرة من مفتاح الاسترداد، أي الجزء بعد الشرطة الأخيرة، لتُثبت أنك حفظته.",
+  "settings.credentials.vault.confirm.label": "المجموعة الأخيرة",
+  "settings.credentials.vault.confirm.button": "تأكيد",
+  "settings.credentials.vault.confirm.wrong":
+    "هذه ليست المجموعة الأخيرة من مفتاح الاسترداد. تحقّق من مكان حفظه وحاول مرة أخرى.",
+  "settings.credentials.vault.confirm.failed": "لم يتم تأكيد مفتاح الاسترداد: {reason}",
   "settings.credentials.moveToKeychain": "النقل إلى سلسلة المفاتيح",
   "settings.credentials.moveToKeychainNeeds":
     "يحتاج إلى مساعد Psyche موقَّع بمعرّف مطوّر وملف تعريف توفير",
@@ -2123,6 +2143,8 @@ export const ar: Partial<Catalogue> = {
   "settings.permissions.trusted.remove": "إزالة",
   "settings.permissions.trusted.removeNamed": "إزالة {name} من المواقع الموثوقة",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} ونطاقاته الفرعية",
+  "settings.permissions.subject.hostProgram": "{program} في {folder}، بأي وسائط",
+  "settings.permissions.subject.hostProgramExact": "{program} في {folder}، بهذه الوسائط بالضبط",
   "settings.permissions.sensitive.title": "المواقع الحساسة",
   "settings.permissions.sensitive.description":
     "تسأل البنوك والصحة والبريد الإلكتروني ومديرو كلمات المرور دائمًا قبل القراءة. وكذلك المواقع الحكومية ومواقع iCloud؛ أوقف فئة هنا لقراءتها دون سؤال.",
@@ -2607,7 +2629,6 @@ export const ar: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "تعذّر النسخ. حدد المفتاح وانسخه.",
   "onboarding.model.recoveryBody":
     "أنشأ Psyche خزنتك للتو. احفظ هذا المفتاح في مدير كلمات سر أو على ورقة: فهو يُعرض الآن فقط وهو السبيل الوحيد للعودة إلى الخزنة بعد استعادة أو فقدان خانة مفتاح.",
-  "onboarding.model.savedIt": "حفظته",
   "onboarding.model.subscriptionNote":
     "يستخدم Psyche تطبيق Claude Code أو Codex المسجّل الدخول بالفعل على هذا الـ Mac، لذا لا يحتاج إلى مفتاح API ولا يخزّن أيًا منه. سجّل الدخول هناك أولًا إن لم تفعل.",
   "onboarding.model.toolCheck": "فحص استدعاء الأدوات",
@@ -3535,4 +3556,6 @@ export const ar: Partial<Catalogue> = {
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
 };

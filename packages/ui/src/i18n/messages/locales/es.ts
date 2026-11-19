@@ -30,6 +30,7 @@ import { settingsD } from "./settings-d/es.ts";
 import { settingsE } from "./settings-e/es.ts";
 import { specialistsA } from "./specialists-a/es.ts";
 import { teachA } from "./teach-a/es.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/es.ts";
 import { workA } from "./work-a/es.ts";
 import { workB } from "./work-b/es.ts";
 import { workflows } from "./workflows/es.ts";
@@ -373,6 +374,9 @@ export const es: Partial<Catalogue> = {
   "blocks.approval.scope.task": "Permitir en esta tarea",
   "blocks.approval.scope.trustSite": "Siempre para este sitio ({site})",
   "blocks.approval.scope.trustSiteSubdomains": "Siempre para este sitio y sus subdominios ({site})",
+  "blocks.approval.scope.hostProgram": "Permitir siempre {program} en {folder}",
+  "blocks.approval.scope.hostProgramExact":
+    "Permitir siempre {program} con exactamente estos argumentos en {folder}",
   "blocks.approval.scope.site": "Permitir en este sitio",
   "blocks.approval.scope.session": "Permitir en esta sesión",
   "blocks.approval.scope.always": "Permitir siempre",
@@ -1183,6 +1187,23 @@ export const es: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "un archivo de clave en este Mac",
   "settings.credentials.slot.recovery": "solo su clave de recuperación",
   "settings.credentials.protectedBy": "Bóveda protegida por:",
+  "settings.credentials.vault.adminOnly": "Solo un dispositivo administrador puede hacerlo.",
+  "settings.credentials.vault.unlockReason": "Confirmar la clave de recuperación",
+  "settings.credentials.vault.setup.title": "Configurar la bóveda",
+  "settings.credentials.vault.setup.body":
+    "La bóveda guarda tus contraseñas, tarjetas y claves de API cifradas en este ordenador. Psyche la crea con una clave de recuperación que guardas una sola vez.",
+  "settings.credentials.vault.setup.button": "Configurar la bóveda",
+  "settings.credentials.vault.setup.failed": "No se creó la bóveda: {reason}",
+  "settings.credentials.vault.setup.noSlot":
+    "Este Gateway no ofrece ranura de clave para la bóveda.",
+  "settings.credentials.vault.confirm.title": "Confirma tu clave de recuperación",
+  "settings.credentials.vault.confirm.body":
+    "Escribe el último grupo de tu clave de recuperación, la parte tras el último guion, para demostrar que la guardaste.",
+  "settings.credentials.vault.confirm.label": "Último grupo",
+  "settings.credentials.vault.confirm.button": "Confirmar",
+  "settings.credentials.vault.confirm.wrong":
+    "Ese no es el último grupo de la clave de recuperación. Revisa dónde la guardaste e inténtalo de nuevo.",
+  "settings.credentials.vault.confirm.failed": "No se confirmó la clave de recuperación: {reason}",
   "settings.credentials.moveToKeychain": "Mover al llavero",
   "settings.credentials.moveToKeychainNeeds":
     "Necesita un Psyche Helper firmado con un Developer ID y un perfil de aprovisionamiento",
@@ -2107,6 +2128,9 @@ export const es: Partial<Catalogue> = {
   "settings.permissions.trusted.remove": "Quitar",
   "settings.permissions.trusted.removeNamed": "Quitar {name} de los sitios de confianza",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} y sus subdominios",
+  "settings.permissions.subject.hostProgram": "{program} en {folder}, cualquier argumento",
+  "settings.permissions.subject.hostProgramExact":
+    "{program} en {folder}, exactamente estos argumentos",
   "settings.permissions.sensitive.title": "Sitios sensibles",
   "settings.permissions.sensitive.description":
     "Los bancos, la salud, el correo y los gestores de contraseñas siempre preguntan antes de leer. Los sitios del gobierno y de iCloud también; desactiva una categoría aquí para leerla sin preguntar.",
@@ -2613,7 +2637,6 @@ export const es: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "No se pudo copiar. Selecciona la clave y cópiala.",
   "onboarding.model.recoveryBody":
     "Psyche acaba de crear tu bóveda. Guarda esta clave en un gestor de contraseñas o en papel: solo se muestra ahora y es la única forma de volver a entrar en la bóveda tras una restauración o si se pierde una ranura de clave.",
-  "onboarding.model.savedIt": "La he guardado",
   "onboarding.model.subscriptionNote":
     "Psyche usa la app Claude Code o Codex con la sesión ya iniciada en este Mac, así que no necesita ninguna clave de API ni guarda ninguna. Si aún no lo has hecho, inicia sesión allí primero.",
   "onboarding.model.toolCheck": "Comprobación de llamadas a herramientas",
@@ -3567,4 +3590,6 @@ export const es: Partial<Catalogue> = {
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
 };

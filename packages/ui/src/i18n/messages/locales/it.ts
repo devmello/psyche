@@ -49,6 +49,7 @@ import { shellRest } from "./shell-rest/it.ts";
 import { specialistsRest } from "./specialists-rest/it.ts";
 import { webRest } from "./web-rest/it.ts";
 import { widgetsRest } from "./widgets-rest/it.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/it.ts";
 import { workRest } from "./work-rest/it.ts";
 import { workflows } from "./workflows/it.ts";
 
@@ -397,6 +398,9 @@ export const it: Partial<Catalogue> = {
   "blocks.approval.scope.trustSite": "Sempre per questo sito ({site})",
   "blocks.approval.scope.trustSiteSubdomains":
     "Sempre per questo sito e i suoi sottodomini ({site})",
+  "blocks.approval.scope.hostProgram": "Consenti sempre {program} in {folder}",
+  "blocks.approval.scope.hostProgramExact":
+    "Consenti sempre {program} con questi argomenti esatti in {folder}",
   "blocks.approval.scope.site": "Consenti per questo sito",
   "blocks.approval.scope.session": "Consenti per questa sessione",
   "blocks.approval.scope.always": "Consenti sempre",
@@ -1177,6 +1181,24 @@ export const it: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "un file chiave su questo Mac",
   "settings.credentials.slot.recovery": "solo la sua chiave di recupero",
   "settings.credentials.protectedBy": "Cassaforte protetta da:",
+  "settings.credentials.vault.adminOnly": "Solo un dispositivo amministratore può farlo.",
+  "settings.credentials.vault.unlockReason": "Conferma la chiave di recupero",
+  "settings.credentials.vault.setup.title": "Configura la cassaforte",
+  "settings.credentials.vault.setup.body":
+    "La cassaforte conserva password, carte e chiavi API cifrate su questo computer. Psyche la crea con una chiave di recupero che salvi una sola volta.",
+  "settings.credentials.vault.setup.button": "Configura la cassaforte",
+  "settings.credentials.vault.setup.failed": "La cassaforte non è stata creata: {reason}",
+  "settings.credentials.vault.setup.noSlot":
+    "Questo Gateway non offre uno slot per la chiave della cassaforte.",
+  "settings.credentials.vault.confirm.title": "Conferma la tua chiave di recupero",
+  "settings.credentials.vault.confirm.body":
+    "Digita l’ultimo gruppo della chiave di recupero, la parte dopo l’ultimo trattino, per mostrare che l’hai salvata.",
+  "settings.credentials.vault.confirm.label": "Ultimo gruppo",
+  "settings.credentials.vault.confirm.button": "Conferma",
+  "settings.credentials.vault.confirm.wrong":
+    "Non è l’ultimo gruppo della chiave di recupero. Controlla dove l’hai salvata e riprova.",
+  "settings.credentials.vault.confirm.failed":
+    "La chiave di recupero non è stata confermata: {reason}",
   "settings.credentials.moveToKeychain": "Sposta nel Portachiavi",
   "settings.credentials.moveToKeychainNeeds":
     "Richiede un Psyche Helper firmato con un Developer ID e un profilo di provisioning",
@@ -2085,6 +2107,8 @@ export const it: Partial<Catalogue> = {
   "settings.permissions.trusted.remove": "Rimuovi",
   "settings.permissions.trusted.removeNamed": "Rimuovi {name} dai siti attendibili",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} e i suoi sottodomini",
+  "settings.permissions.subject.hostProgram": "{program} in {folder}, qualsiasi argomento",
+  "settings.permissions.subject.hostProgramExact": "{program} in {folder}, solo questi argomenti",
   "settings.permissions.sensitive.title": "Siti sensibili",
   "settings.permissions.sensitive.description":
     "Banche, salute, e-mail e gestori di password chiedono sempre prima di una lettura. Chiedono anche i siti governativi e iCloud; disattiva una categoria qui per leggerla senza chiedere.",
@@ -2588,7 +2612,6 @@ export const it: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "Impossibile copiare. Seleziona la chiave e copiala.",
   "onboarding.model.recoveryBody":
     "Psyche ha appena creato la tua cassaforte. Salva questa chiave in un gestore di password o su carta: viene mostrata solo adesso ed è l’unico modo per rientrare nella cassaforte dopo un ripristino o la perdita di uno slot di chiave.",
-  "onboarding.model.savedIt": "L’ho salvata",
   "onboarding.model.subscriptionNote":
     "Psyche usa l’app Claude Code o Codex a cui hai già eseguito l’accesso su questo Mac, quindi non richiede né memorizza alcuna chiave API. Se non l’hai ancora fatto, accedi prima lì.",
   "onboarding.model.toolCheck": "Controllo della chiamata degli strumenti",
@@ -3526,4 +3549,6 @@ export const it: Partial<Catalogue> = {
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
 };

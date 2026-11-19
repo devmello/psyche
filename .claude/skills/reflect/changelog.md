@@ -2,6 +2,14 @@
 
 Newest first. The `reflect` skill reads the top entry to know where the last pass stopped.
 
+## 2026-11-18 (d): reflect pass over #1360–#1365 (wave 3)
+Merged: #1360, #1361, #1362, #1363, #1364, #1365 (last pass: #1359). Evidence: `review-1361-r2`, `review-1364-r1` and the wave-3 notes in `followup-1323.md`. Only #1361 had blockers (B1–B4, r2 items); #1364 was clean in round 1.
+- **`verify.sh`:** full mode also runs the same-named test of each touched source file (`x.ts` -> `x.test.ts`, beside it or in `test/`). Light: a few files, no import graph. `--related` is unchanged. Evidence: #1361 passed verify with 9 `exec-host.test.ts` failures hidden. Never loses a check.
+- **`psyche-builder`:** sibling/importer tests before the PR (#1361); merge `origin/main` before starting and before the PR for fixtures (#1360, #1346); name lists fold NFKC + case with `realpathSync.native` (#1361 B3); path confinement covers follow flags and path-valued options with temp-root `denyRead` (#1361 r2); lookups fail closed (#1361 r2); subscriber map before reordering an emit (#1364).
+- **`psyche-permissions` §3d (new, short):** pointer to those rules plus probe rows.
+- **`orchestrate` §4:** merge gate needs `--related` for widely imported or security code; stale-base note; brief wording for exec confinement and event reordering.
+- **Not changed:** nothing pruned, no stale advice found; #1362, #1363, #1365 gave no new pattern.
+
 ## 2026-11-18 (c): reflect pass over #1348–#1357
 Merged: #1348, #1350, #1333, #1351, #1355, #1353, #1356, #1354, #1357 (#1358 open, r1 blocked). Evidence: reviewer reports `review-1333` r3–r4, `-1348`, `-1350`, `-1351` r1–r2, `-1353`, `-1354` r1–r3, `-1355`, `-1356`, `-1357`, `-1358` r1, plus the orchestrator's patterns. Only #1333, #1351, #1354 and #1358 had blockers; the rest were clean first round.
 - **`psyche-permissions` §3c (new):** redacted reads must not round-trip into writes (#1351 B1); a "narrower?" check must model engine resolution and be probed with real `decide()` (#1354 x3); receipts match by grant or approval id (#1358 B1). Intro now counts #1354.

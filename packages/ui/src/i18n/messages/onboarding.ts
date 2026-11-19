@@ -116,7 +116,6 @@ export const onboarding = {
   "onboarding.model.copyFailed": "Couldn't copy. Select the key and copy it.",
   "onboarding.model.recoveryBody":
     "Psyche just created your vault. Save this key in a password manager or on paper: it is shown only now and is the only way back into the vault after a restore or a lost key slot.",
-  "onboarding.model.savedIt": "I saved it",
   "onboarding.model.subscriptionNote":
     "Psyche uses the Claude Code or Codex app already signed in on this Mac, so it needs no API key and stores none. Sign in there first if you haven't.",
   "onboarding.model.toolCheck": "Tool-calling check",

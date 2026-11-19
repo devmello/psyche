@@ -17,7 +17,8 @@
 #   - protocol:check if packages/protocol changed
 #   - i18n:check if any TS/TSX or message file changed
 #   - typecheck for each touched package (not with --quick)
-#   - vitest (one worker) on touched test files (not with --quick)
+#   - vitest (one worker) on touched test files plus the same-named test of each touched source
+#     file (x.ts -> x.test.ts); `--related` adds every importer (not with --quick)
 #   - platform-linux/windows tests when packages/ui/src/i18n/messages/** changed (not with --quick)
 # Never runs `pnpm -w typecheck` or `pnpm -r test`.
 #
@@ -180,6 +181,17 @@ for pkg in $test_pkgs; do
   [ -f "$pkg/package.json" ] || continue
   files="$(echo "$changed" | grep -E "^$pkg/.*\.(ts|tsx|mts)$" | grep -v '\.d\.ts$' | sed "s#^$pkg/##")"
   tfiles="$(echo "$files" | grep -E '\.(test|spec)\.' || true)"
+  # Source-sibling tests: for each touched non-test source file, also run the tracked test whose
+  # name matches it (`x.ts` -> `x.test.ts`, in the same dir or the package's test/). Light (a few
+  # files, no import graph), and #1361 hid 9 exec-host failures without it.
+  sib=""
+  tracked="$(git ls-files "$pkg" | grep -E '\.(test|spec)\.(ts|tsx|mts)$' || true)"
+  for sf in $(echo "$files" | grep -vE '\.(test|spec)\.' || true); do
+    b="$(basename "${sf%.*}")"
+    sib="$sib
+$(echo "$tracked" | grep -E "/$b\.(test|spec)\.(ts|tsx|mts)$" | sed "s#^$pkg/##")"
+  done
+  tfiles="$(printf '%s\n%s\n' "$tfiles" "$sib" | grep -v '^$' | sort -u || true)"
   name="vitest:$pkg"
   log="$logdir/${name//[^A-Za-z0-9_.-]/_}"
   [ "$quiet" = 1 ] || echo "verify: $name"

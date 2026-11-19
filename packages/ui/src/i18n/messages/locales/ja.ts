@@ -49,6 +49,7 @@ import { shellRest } from "./shell-rest/ja.ts";
 import { specialistsRest } from "./specialists-rest/ja.ts";
 import { webRest } from "./web-rest/ja.ts";
 import { widgetsRest } from "./widgets-rest/ja.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/ja.ts";
 import { workRest } from "./work-rest/ja.ts";
 import { workflows } from "./workflows/ja.ts";
 
@@ -399,6 +400,8 @@ export const ja: Partial<Catalogue> = {
   "blocks.approval.scope.task": "このタスクで許可",
   "blocks.approval.scope.trustSite": "このサイトでは常に許可（{site}）",
   "blocks.approval.scope.trustSiteSubdomains": "このサイトとそのサブドメインで常に許可（{site}）",
+  "blocks.approval.scope.hostProgram": "{folder} で {program} を常に許可",
+  "blocks.approval.scope.hostProgramExact": "{folder} で {program} をこの引数のときだけ常に許可",
   "blocks.approval.scope.site": "このサイトで許可",
   "blocks.approval.scope.session": "このセッションで許可",
   "blocks.approval.scope.always": "常に許可",
@@ -1173,6 +1176,23 @@ export const ja: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "このMac上のキーファイル",
   "settings.credentials.slot.recovery": "復旧キーのみ",
   "settings.credentials.protectedBy": "保管庫の保護方法：",
+  "settings.credentials.vault.adminOnly": "管理者のデバイスだけが実行できます。",
+  "settings.credentials.vault.unlockReason": "復旧キーを確認",
+  "settings.credentials.vault.setup.title": "保管庫を設定",
+  "settings.credentials.vault.setup.body":
+    "保管庫は、パスワード、カード、API キーを暗号化してこのコンピュータに保管します。Psyche は、一度だけ保存する復旧キーとともに保管庫を作成します。",
+  "settings.credentials.vault.setup.button": "保管庫を設定",
+  "settings.credentials.vault.setup.failed": "保管庫を作成できませんでした：{reason}",
+  "settings.credentials.vault.setup.noSlot":
+    "この Gateway には保管庫用のキースロットがありません。",
+  "settings.credentials.vault.confirm.title": "復旧キーを確認",
+  "settings.credentials.vault.confirm.body":
+    "保存したことを確認するため、復旧キーの最後のグループ（最後のハイフンより後ろ）を入力してください。",
+  "settings.credentials.vault.confirm.label": "最後のグループ",
+  "settings.credentials.vault.confirm.button": "確認",
+  "settings.credentials.vault.confirm.wrong":
+    "復旧キーの最後のグループと一致しません。保存した場所を確認して、もう一度お試しください。",
+  "settings.credentials.vault.confirm.failed": "復旧キーを確認できませんでした：{reason}",
   "settings.credentials.moveToKeychain": "キーチェーンに移動",
   "settings.credentials.moveToKeychainNeeds":
     "Developer IDで署名され、プロビジョニングプロファイルを持つPsyche Helperが必要です",
@@ -2064,6 +2084,8 @@ export const ja: Partial<Catalogue> = {
   "settings.permissions.trusted.remove": "削除",
   "settings.permissions.trusted.removeNamed": "{name} を信頼するサイトから削除",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} とそのサブドメイン",
+  "settings.permissions.subject.hostProgram": "{program}（{folder}、任意の引数）",
+  "settings.permissions.subject.hostProgramExact": "{program}（{folder}、この引数のみ）",
   "settings.permissions.sensitive.title": "機密性の高いサイト",
   "settings.permissions.sensitive.description":
     "銀行、医療、メール、パスワード管理は、読み取りの前に必ず確認します。政府系サイトとiCloudも確認します。確認なしで読み取りたい場合は、ここでカテゴリをオフにしてください。",
@@ -2558,7 +2580,6 @@ export const ja: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "コピーできませんでした。キーを選択してコピーしてください。",
   "onboarding.model.recoveryBody":
     "Psycheは保管庫を作成しました。このキーをパスワードマネージャか紙に保存してください。表示されるのは今だけで、復元後やキースロットを失った後に保管庫に戻る唯一の手段です。",
-  "onboarding.model.savedIt": "保存しました",
   "onboarding.model.subscriptionNote":
     "PsycheはこのMacでサインイン済みのClaude CodeまたはCodexアプリを使用するため、APIキーは不要で、保存もしません。まだの場合は、先にそちらでサインインしてください。",
   "onboarding.model.toolCheck": "ツール呼び出しの確認",
@@ -3493,4 +3514,6 @@ export const ja: Partial<Catalogue> = {
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
 };
