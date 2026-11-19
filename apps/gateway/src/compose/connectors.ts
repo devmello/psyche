@@ -357,7 +357,7 @@ export function composeConnectors(
   // finishes as connectors.updated. The UI never shows Connected before tokens are stored.
   const googleClient = googleClientStore(services, setup.google ?? {}, async (kind, data) => {
     await services.audit
-      .append({ kind, actor: { type: "owner", name: "settings" }, data: data as never })
+      .append({ kind, actor: { type: "user", name: "settings" }, data: data as never })
       .catch(() => undefined);
   });
   Object.assign(handlers, googleClient.handlers);
