@@ -866,6 +866,105 @@ const MUST_BLOCK: [string, FinancialAction][] = [
     "dialog $500 will be sent today",
     { origin: "https://secure.chase.com", labels: ["$500 will be sent today."], role: "dialog" },
   ],
+  // #1321 follow-ups: crypto on-ramps are exchanges
+  [
+    "moonpay Buy now",
+    { origin: "https://buy.moonpay.com", labels: ["Buy now"], role: "button", submits: true },
+  ],
+  [
+    "ramp Buy now",
+    { origin: "https://app.ramp.network", labels: ["Buy now"], role: "button", submits: true },
+  ],
+  [
+    "transak Buy now",
+    { origin: "https://global.transak.com", labels: ["Buy now"], role: "button", submits: true },
+  ],
+  [
+    "banxa Buy now",
+    { origin: "https://checkout.banxa.com", labels: ["Buy now"], role: "button", submits: true },
+  ],
+  [
+    "mercuryo Buy",
+    { origin: "https://exchange.mercuryo.io", labels: ["Buy"], role: "button", submits: true },
+  ],
+  // #1321 follow-ups: PayPal's person-to-person pages are P2P, not a checkout
+  [
+    "paypal.com/paypalme Pay",
+    {
+      pageUrl: "https://www.paypal.com/paypalme/john/50",
+      labels: ["Pay"],
+      role: "button",
+      submits: true,
+    },
+  ],
+  [
+    "paypal.com/myaccount/transfer Pay now",
+    {
+      pageUrl: "https://www.paypal.com/myaccount/transfer/homepage/pay",
+      labels: ["Pay now"],
+      role: "button",
+      submits: true,
+    },
+  ],
+  [
+    "paypal.com/us/myaccount/transfer/send Pay",
+    {
+      pageUrl: "https://www.paypal.com/us/myaccount/transfer/send",
+      labels: ["Pay $50"],
+      role: "button",
+      submits: true,
+    },
+  ],
+  // #1321 follow-ups: a "not affected" clause never takes the act before it
+  [
+    "dialog Leave? Send $500, balance is not affected.",
+    {
+      origin: "https://venmo.com",
+      labels: ["Leave this page? Send $500, balance is not affected."],
+      role: "dialog",
+    },
+  ],
+  [
+    "dialog Leave and transfer now? Savings are not affected.",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["Leave this page and transfer now? Savings are not affected."],
+      role: "dialog",
+    },
+  ],
+  [
+    "dialog Exit? Wire $900, others are not affected.",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["Exit this page? Wire $900, others are not affected."],
+      role: "dialog",
+    },
+  ],
+  // a bank payment sent to someone is still a move
+  [
+    "dialog Your payment will be sent to John on 11/20.",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["Your payment will be sent to John on 11/20. Continue?"],
+      role: "dialog",
+    },
+  ],
+  [
+    "venmo dialog Your payment will be sent on 11/20.",
+    {
+      origin: "https://venmo.com",
+      labels: ["Your payment will be sent on 11/20. Continue?"],
+      role: "dialog",
+    },
+  ],
+  [
+    "robinhood View and sell now",
+    { origin: "https://robinhood.com", labels: ["View and sell now"] },
+  ],
+  [
+    "mercury Scheduled transfers: run now",
+    { origin: "https://app.mercury.com", labels: ["Scheduled transfers: run now"] },
+  ],
 ];
 
 const MUST_NOT_BLOCK: [string, FinancialAction][] = [
@@ -1354,6 +1453,82 @@ const MUST_NOT_BLOCK: [string, FinancialAction][] = [
     { pageUrl: "https://wise.com/gb/send-money/", labels: ["Continue"] },
   ],
   ["chase avatar J", { origin: "https://www.chase.com", labels: ["J"], role: "button" }],
+  [
+    "dialog Leave? Your transfer is not affected.",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["Leave this page? Your transfer is not affected."],
+      role: "dialog",
+    },
+  ],
+  // #1321 follow-ups: bank bill pay and receipts, reads and headings
+  [
+    "chase dialog Your payment will be sent on 11/20.",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["Your payment will be sent on 11/20. Continue?"],
+      role: "dialog",
+    },
+  ],
+  [
+    "chase dialog Your payment receipt will be sent by email.",
+    {
+      origin: "https://www.chase.com",
+      labels: ["Your payment receipt will be sent by email. OK?"],
+      role: "dialog",
+    },
+  ],
+  [
+    "chase dialog A confirmation of your payment will be sent",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["A confirmation of your payment will be sent to your email."],
+      role: "dialog",
+    },
+  ],
+  [
+    "robinhood See buy and sell prices",
+    { origin: "https://robinhood.com", labels: ["See buy and sell prices"] },
+  ],
+  [
+    "mercury Scheduled transfers start Monday",
+    { origin: "https://app.mercury.com", labels: ["Scheduled transfers start Monday"] },
+  ],
+  [
+    "dialog Leave? Funds already transferred are not affected.",
+    {
+      origin: "https://secure.chase.com",
+      labels: ["Leave this page? Funds already transferred are not affected."],
+      role: "dialog",
+    },
+  ],
+  [
+    "paypal.com/checkoutnow Pay Now",
+    {
+      pageUrl: "https://www.paypal.com/checkoutnow?token=EC-1",
+      labels: ["Pay Now"],
+      role: "button",
+      submits: true,
+    },
+  ],
+  [
+    "paypal.com/webapps/hermes Complete Purchase",
+    {
+      pageUrl: "https://www.paypal.com/webapps/hermes?token=EC-1",
+      labels: ["Complete Purchase"],
+      role: "button",
+      submits: true,
+    },
+  ],
+  [
+    "paypal.com/sendgrid-lookalike is not a send path off paypal",
+    {
+      pageUrl: "https://www.example.com/paypalme/john",
+      labels: ["Pay"],
+      role: "button",
+      submits: true,
+    },
+  ],
   // review round 6: reads, listings and the leave dialog stay allowed
   ["robinhood Check sell price", { origin: "https://robinhood.com", labels: ["Check sell price"] }],
   [
@@ -1420,12 +1595,20 @@ describe("isNoCheckoutVenue: where the Link purchase tool never pays", () => {
     "https://venmo.com/pay",
     "https://cash.app",
     "https://secure.chase.com/web/auth",
+    "https://buy.moonpay.com",
+    "https://app.ramp.network/buy",
+    "https://global.transak.com",
+    "https://www.paypal.com/paypalme/john",
+    "https://www.paypal.com/myaccount/transfer/homepage/pay",
+    "https://www.paypal.com/en/send",
   ])("%s has no checkout", (url) => {
     expect(isNoCheckoutVenue(url)).toBe(true);
   });
   it.each([
     "https://shop.example.com/checkout",
     "https://www.paypal.com/checkoutnow",
+    "https://www.paypal.com/webapps/hermes?token=EC-1",
+    "https://www.paypal.com/myaccount/summary",
     "https://www.amazon.com/gp/buy",
     "https://ultimaterewardspoints.chase.com/travel",
     undefined,

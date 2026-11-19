@@ -105,6 +105,19 @@ const HOST_VENUES: Record<VenueKind, readonly string[]> = {
     "rarible.com",
     "polymarket.com",
     "kalshi.com",
+    // Crypto on-ramps: a card "Buy now" there buys crypto.
+    "moonpay.com",
+    "ramp.network",
+    "transak.com",
+    "banxa.com",
+    "simplex.com",
+    "mercuryo.io",
+    "onramper.com",
+    "paybis.com",
+    "changelly.com",
+    "guardarian.com",
+    "coinmama.com",
+    "sendwyre.com",
     // Wallet extensions' own pages: `chrome-extension://<id>` has the id as its hostname.
     ...WALLET_EXTENSIONS,
   ],
@@ -303,6 +316,28 @@ export function venueOfHost(input: string | undefined): VenueKind | undefined {
     if (hostIn(host, HOST_VENUES[kind])) return kind;
   }
   return undefined;
+}
+
+/** PayPal's person-to-person pages: PayPal.Me and the signed-in send and transfer screens. */
+const PAYPAL_P2P_PATH =
+  /^\/(?:[a-z]{2}(?:[-_][a-z]{2})?\/)?(?:paypalme(?:\/|$)|myaccount\/transfer(?:\/|$)|send)/i;
+
+/**
+ * The venue of a page: its host's venue, except that a PayPal page that sends money to a person
+ * (`/paypalme/…`, `/myaccount/transfer/…`, `/send…`) is P2P, not a checkout.
+ */
+export function venueOfPage(input: string | undefined): VenueKind | undefined {
+  const kind = venueOfHost(input);
+  if (kind !== "p2p_mixed" || input === undefined) return kind;
+  const host = financialHost(input);
+  if (host === undefined || !hostIn(host, ["paypal.com"])) return kind;
+  let path = "";
+  try {
+    path = new URL(input.trim()).pathname;
+  } catch {
+    return kind;
+  }
+  return PAYPAL_P2P_PATH.test(path) ? "p2p" : kind;
 }
 
 export function venueOfApp(bundleId: string | undefined): VenueKind | undefined {
@@ -895,13 +930,28 @@ function joinsAct(plain: string): boolean {
     (w, i) =>
       JOINERS.has(w) &&
       i > 0 &&
-      [words[i + 1], words[i + 2]].some(
-        (x) =>
-          x !== undefined &&
-          (VENUE_MOVE_WORDS.has(x) || VENUE_TRADE_WORDS.has(x) || ACT_VERBS.has(x)),
-      ),
+      [i + 1, i + 2].some((j) => {
+        const x = words[j];
+        if (x === undefined) return false;
+        if (!(VENUE_MOVE_WORDS.has(x) || VENUE_TRADE_WORDS.has(x) || ACT_VERBS.has(x)))
+          return false;
+        // "See buy and sell prices": the trade words name what is read.
+        const next = words[j + 1];
+        return !(next !== undefined && (READ_AFTER_TRADE.has(next) || TRADE_NOT_ACTION.has(next)));
+      }),
   );
 }
+
+/** What a read label reads about a trade: "See buy and sell prices", "View buy and sell orders". */
+const READ_AFTER_TRADE = new Set([
+  "price",
+  "prices",
+  "quote",
+  "quotes",
+  "orders",
+  "rates",
+  "chart",
+]);
 
 /** Trade verbs a read label names as a kind of thing ("View buy orders", "Check sell price"). */
 const TRADE_VERBS_READABLE = new Set(["buy", "sell", "trade", "swap"]);
@@ -937,7 +987,6 @@ const LISTING_ACTS = new Set([
   "complete",
   "place",
   "initiate",
-  "start",
   "resend",
   "retry",
 ]);
@@ -1413,7 +1462,7 @@ function isRewardsHost(input: string | undefined): boolean {
  * PayPal's checkout (`p2p_mixed`) stays a purchase.
  */
 export function isNoCheckoutVenue(input: string | undefined): boolean {
-  const kind = venueOfHost(input);
+  const kind = venueOfPage(input);
   if (kind === "brokerage" || kind === "exchange" || kind === "p2p") return true;
   return kind === "bank" && !isRewardsHost(input);
 }
@@ -1437,7 +1486,7 @@ function isLoneLetter(l: string, venue: VenueKind | undefined): boolean {
  * for everything else: a checkout, a bill payment, reading a balance, a link that navigates.
  */
 export function financialBlock(a: FinancialAction): FinancialBlock | undefined {
-  const venue = venueOfApp(a.app) ?? venueOfHost(a.pageUrl) ?? venueOfHost(a.origin);
+  const venue = venueOfApp(a.app) ?? venueOfPage(a.pageUrl) ?? venueOfPage(a.origin);
   const raw = a.labels ?? [];
   const labels = raw.filter((l) => l.trim() !== "");
   // An action the executor could not read, on a venue, could be the trade: refused, fail closed.
@@ -1597,6 +1646,49 @@ const PASSIVE_MOVES = new Set(["transferred", "wired", "withdrawn", "remitted", 
 const MONEY_SENT =
   /\b(?:funds|money|payment|payments|transfer|wire|amount|cash|balance|crypto|\d[\d.,]*(?: [a-z]{3})?)(?: [\p{L}\p{N}]+){0,2} (?:will be|is being|are being|will get|gets|get) sent\b/u;
 
+const NOT_AFFECTED =
+  /\b(?:[\p{L}\p{N}]+ ){0,4}(?:are not|is not|aren t|isn t|will not be|won t be) affected\b/gu;
+
+/** What a bank sends that is not money: "Your payment receipt will be sent by email". */
+const SENT_PAPERS = new Set([
+  "receipt",
+  "receipts",
+  "confirmation",
+  "confirmations",
+  "notice",
+  "notification",
+  "notifications",
+  "email",
+  "statement",
+  "statements",
+  "reminder",
+  "reminders",
+  "details",
+  "summary",
+  "code",
+]);
+
+/**
+ * Money that will be sent, as a dialog says it. A receipt or a confirmation that will be sent is
+ * not money, and at a bank a payment sent on a date and to no one ("Your payment will be sent on
+ * 11/20") is a bill payment, which stays a payment.
+ */
+function moneySent(text: string, kind: VenueKind): boolean {
+  for (const m of text.matchAll(new RegExp(MONEY_SENT.source, "gu"))) {
+    // "Your payment receipt will be sent", "A confirmation of your payment will be sent".
+    const before = text
+      .slice(0, m.index ?? 0)
+      .trim()
+      .split(" ")
+      .slice(-3);
+    if ([...m[0].split(" "), ...before].some((w) => SENT_PAPERS.has(w))) continue;
+    const after = text.slice((m.index ?? 0) + m[0].length);
+    if (kind === "bank" && /^ (?:on|by) /.test(after) && !/\bto\b/.test(after)) continue;
+    return true;
+  }
+  return false;
+}
+
 /** What a leave or discard dialog says will be lost: never itself an act. */
 const LOSS_CLAUSES: readonly RegExp[] = [
   /\b(?:your|the|this|any|all)? ?(?:[\p{L}\p{N}]+ ){0,3}(?:won t|wont|will not|isn t|is not|aren t|are not) (?:be )?(?:saved|kept|sent|submitted|finished)\b/gu,
@@ -1605,11 +1697,32 @@ const LOSS_CLAUSES: readonly RegExp[] = [
   /^\s*(?:changes|edits) (?:to|on|in) (?:your |the |this )?[\p{L}\p{N}]+\b/u,
   /^\s*(?:and )?lose (?:your |the |this )?[\p{L}\p{N}]+\b/u,
   // "Funds already transferred are not affected": what leaving does not touch.
-  /\b(?:[\p{L}\p{N}]+ ){0,4}(?:are not|is not|aren t|isn t|will not be|won t be) affected\b/gu,
+  NOT_AFFECTED,
 ];
 
+/**
+ * Takes out the loss clauses. A "not affected" clause never takes an act with it: in "Send $500,
+ * balance is not affected" the words up to the last move, trade or act verb stay ("send"), and
+ * only the rest goes. A move word right before "is not affected" is what is not affected ("Your
+ * transfer is not affected"), so it goes with the clause.
+ */
 function withoutLossClauses(text: string): string {
-  return LOSS_CLAUSES.reduce((t, re) => t.replace(re, " "), text);
+  return LOSS_CLAUSES.reduce(
+    (t, re) =>
+      re !== NOT_AFFECTED
+        ? t.replace(re, " ")
+        : t.replace(re, (m) => {
+            const ws = m.trim().split(" ");
+            const aux = ws.findIndex((w, i) => i > 0 && /^(?:are|is|aren|isn|will|won)$/.test(w));
+            let k = -1;
+            for (const [i, w] of ws.entries()) {
+              if (i >= aux - 1) break;
+              if (VENUE_MOVE_WORDS.has(w) || VENUE_TRADE_WORDS.has(w) || ACT_VERBS.has(w)) k = i;
+            }
+            return k < 0 ? " " : ` ${ws.slice(0, k + 1).join(" ")} `;
+          }),
+    text,
+  );
 }
 
 /** A confirm dialog's sentence names a trade or a move of money, with the same exemptions as a label. */
@@ -1634,7 +1747,7 @@ function dialogSaysAct(text: string, kind: VenueKind): boolean {
   if (words.some((w, i) => PASSIVE_MOVES.has(w) && words[i - 1] !== "already")) return true;
   // "Your funds will be sent to John", "The payment will be sent anyway". "A code will be sent" is
   // sign-in, so only money that is sent counts.
-  if (MONEY_SENT.test(words.join(" "))) return true;
+  if (moneySent(words.join(" "), kind)) return true;
   const cjk = plain.replace(CJK_NOT_ACT, " ");
   if (VENUE_CJK.some((w) => cjk.includes(w))) return true;
   return words.some((w, i) => {

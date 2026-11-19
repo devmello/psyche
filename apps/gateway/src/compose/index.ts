@@ -1189,6 +1189,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   const browserPart = parts.find((p): p is ComposedBrowser => "ownsTab" in p && "devServers" in p);
   if (paymentsPart !== undefined && browserPart !== undefined) {
+    const availability = paymentsPart.availability;
     const purchaseTool = createPurchaseTool({
       payments: paymentsPart.payments,
       driver: () => browserPart.driver,
@@ -1196,18 +1197,25 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       calls,
       approvals: broker,
       redactor,
+      // Checked on every call too: a tool list built before a disconnect raises no Pay card.
+      ...(availability === undefined ? {} : { ready: () => availability.ready() }),
       ...(gwOptions.env?.PSYCHE_LINK_TEST === "1" ? { test: true } : {}),
     });
-    const availability = paymentsPart.availability;
     if (availability === undefined) services.tools.register(purchaseTool);
     else {
       let unregister: (() => void) | undefined;
       const follow = () => {
-        const on = availability.configured();
+        // Connected and signed in: a saved CLI path alone is not enough (before sign-in, Link
+        // cannot pay).
+        const on = availability.ready();
         if (on && unregister === undefined) unregister = services.tools.register(purchaseTool);
         else if (!on && unregister !== undefined) {
           unregister();
           unregister = undefined;
+          // A Pay card still open when Link goes away is withdrawn, never left to be approved.
+          void broker
+            .invalidatePendingOfKind("purchase", "payments_disconnected")
+            .catch(() => undefined);
         }
       };
       follow();

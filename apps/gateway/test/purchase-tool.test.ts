@@ -95,6 +95,10 @@ function setup(
     auditThrows?: string;
     /** The pay button's name in the snapshot text and refs (default "Pay now"); `n` is the snapshot. */
     button?: (n: number) => string;
+    /** The page's address in snapshot `n` (default: the origin). */
+    url?: (n: number) => string;
+    /** Whether Stripe Link is connected and signed in (absent: always). */
+    ready?: () => boolean;
   } = {},
 ) {
   const home = mkdtempSync(join(tmpdir(), "psyche-pay-"));
@@ -146,11 +150,12 @@ function setup(
     tabOrigin: () => (opts.origin ?? (() => ORIGIN))(),
     peekSnapshot: () => ({
       text: `${page()}\n- button "${(opts.button ?? (() => "Pay now"))(0)}" [ref=r4]`,
-      url: (opts.origin ?? (() => ORIGIN))(),
+      url: opts.url === undefined ? (opts.origin ?? (() => ORIGIN))() : opts.url(0),
     }),
     snapshot: async () => {
       const n = nextSnap();
       return {
+        url: opts.url === undefined ? (opts.origin ?? (() => ORIGIN))() : opts.url(n),
         text: opts.snapshotText === undefined ? page() : opts.snapshotText(n),
         refs: [
           { ref: "r1", role: "textbox", name: "Card number" },
@@ -213,13 +218,14 @@ function setup(
     redactor,
     test: true,
     settleMs: 0,
+    ...(opts.ready === undefined ? {} : { ready: opts.ready }),
   });
   const params = { tabId: "t1" };
-  const approve = (total = "$12.00", id = "ap1") =>
+  const approve = (total = "$12.00", id = "ap1", at = (opts.origin ?? (() => ORIGIN))()) =>
     approvals.set(id, {
       bindingHash: toolCallBindingHash(PURCHASE_TOOL, params, {
         kind: "purchase",
-        bindingFields: purchaseFields(readOrder(PAGE(total), ORIGIN)),
+        bindingFields: purchaseFields(readOrder(PAGE(total), at)),
       }),
       scopeGranted: "once",
       status: "approved",
@@ -573,9 +579,38 @@ describe("checkout.pay_with_link", () => {
  * brokerage, an exchange, a P2P service or a bank it is refused before any card is shown; at a
  * merchant (PayPal's checkout included) it still asks on the Pay card.
  */
+/**
+ * #1323 N6 and N7: a reference to the tool held from before a disconnect (the loop builds its tool
+ * list once per step) raises no Pay card and pays nothing while Link is not connected and signed in.
+ */
+describe("checkout.pay_with_link while Stripe Link is not ready", () => {
+  it("describes no Pay card and pays nothing, even with an approval in hand", async () => {
+    let ready = true;
+    const s = setup({ ready: () => ready });
+    expect(s.tool.describeCall?.(s.params)).toMatchObject({ kind: "purchase" });
+    ready = false;
+    expect(() => s.tool.describeCall?.(s.params)).toThrow(/not connected and signed in/);
+    s.approve();
+    await expect(run(s)).rejects.toMatchObject({
+      code: "unavailable",
+      details: { reason: "payments_not_ready" },
+    });
+    expect(s.wallet.created).toBe(0);
+    expect(s.clicked()).toBe(false);
+    // Ready again: the same reference pays.
+    ready = true;
+    await expect(run(s)).resolves.toMatchObject({ output: { status: "paid" } });
+  });
+});
+
 describe("checkout.pay_with_link and the hard block on trades and transfers", () => {
-  const decide = async (origin: string, button: string) => {
-    const s = setup({ origin: () => origin, button: () => button, page: () => PAGE("$12.00") });
+  const decide = async (origin: string, button: string, url?: string) => {
+    const s = setup({
+      origin: () => origin,
+      button: () => button,
+      page: () => PAGE("$12.00"),
+      ...(url === undefined ? {} : { url: () => url }),
+    });
     const d = s.tool.describeCall?.(s.params);
     const clock = new FakeClock();
     const broker = createPermissionBroker({
@@ -613,8 +648,23 @@ describe("checkout.pay_with_link and the hard block on trades and transfers", ()
     ["https://venmo.com", "Pay"],
     ["https://secure.chase.com", "Pay now"],
     ["https://robinhood.com", "Buy now"],
+    // follow-ups to #1321: crypto on-ramps
+    ["https://buy.moonpay.com", "Buy now"],
+    ["https://app.ramp.network", "Buy now"],
+    ["https://global.transak.com", "Buy now"],
+    ["https://pay.coinbase.com", "Pay now"],
   ])("on %s (%s) it is refused before any card", async (origin, button) => {
     const d = await decide(origin, button);
+    expect(d).toMatchObject({ decision: "deny", rule: "prohibition:financial_transfer" });
+  });
+
+  it.each([
+    "https://www.paypal.com/paypalme/john",
+    "https://www.paypal.com/paypalme/john/50",
+    "https://www.paypal.com/myaccount/transfer/homepage/pay",
+    "https://www.paypal.com/us/myaccount/transfer/send",
+  ])("on PayPal's person-to-person page %s it is refused before any card", async (url) => {
+    const d = await decide("https://www.paypal.com", "Pay", url);
     expect(d).toMatchObject({ decision: "deny", rule: "prohibition:financial_transfer" });
   });
 
@@ -623,11 +673,30 @@ describe("checkout.pay_with_link and the hard block on trades and transfers", ()
     ["https://www.paypal.com", "Pay Now"],
     ["https://www.amazon.com", "Place your order"],
     ["https://ultimaterewardspoints.chase.com", "Pay now"],
-  ])("at the merchant %s (%s) it still asks on the Pay card", async (origin, button) => {
-    const d = await decide(origin, button);
+    ["https://www.paypal.com/checkoutnow?token=EC-1", "Pay Now"],
+    ["https://www.paypal.com/webapps/hermes?token=EC-1", "Complete Purchase"],
+  ])("at the merchant %s (%s) it still asks on the Pay card", async (at, button) => {
+    const u = new URL(at);
+    const d = await decide(u.origin, button, at);
     expect(d.decision).toBe("ask");
     expect(d.rule).not.toBe("prohibition:financial_transfer");
     expect(d.scopesOffered).toEqual(["once"]);
+  });
+
+  it("refuses before the click when the tab moved to a PayPal.Me page, and cancels in Link", async () => {
+    // Same origin throughout: only the page's path says it is now a send to a person.
+    const s = setup({
+      origin: () => "https://www.paypal.com",
+      url: (n) =>
+        n >= 3 ? "https://www.paypal.com/paypalme/john/12" : "https://www.paypal.com/checkoutnow",
+    });
+    s.approve();
+    await expect(run(s)).rejects.toMatchObject({
+      code: "policy_denied",
+      details: { rule: "prohibition:financial_transfer" },
+    });
+    expect(s.clicked()).toBe(false);
+    expect(s.wallet.cancelled).toBeGreaterThan(0);
   });
 
   it("refuses at run time on a venue tab, before any spend request", async () => {

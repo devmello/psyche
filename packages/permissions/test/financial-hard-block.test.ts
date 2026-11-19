@@ -523,6 +523,28 @@ const MUST_BLOCK: Row[] = [
   browser("www.coinbase.com", "Next", { pageUrl: "https://www.coinbase.com/en/withdraw-funds" }),
   browser("secure.chase.com", "Your funds will be sent to John. Continue?", { role: "dialog" }),
   browser("venmo.com", "Discard? The payment will be sent anyway.", { role: "dialog" }),
+  // #1321 follow-ups: crypto on-ramps, PayPal's person-to-person pages, "not affected" clauses
+  browser("buy.moonpay.com", "Buy now", { submits: true }),
+  browser("app.ramp.network", "Buy now", { submits: true }),
+  browser("www.paypal.com", "Pay", {
+    submits: true,
+    pageUrl: "https://www.paypal.com/paypalme/john/50",
+  }),
+  {
+    name: "Link purchase tool on moonpay: Buy now",
+    tool: "checkout.pay_with_link",
+    sideEffect: "financial",
+    target: origin("https://buy.moonpay.com"),
+    meta: { control: { unreadable: true, pageUrl: "https://buy.moonpay.com" } },
+  },
+  {
+    name: "Link purchase tool on PayPal.Me",
+    tool: "checkout.pay_with_link",
+    sideEffect: "financial",
+    target: origin("https://www.paypal.com"),
+    meta: { control: { unreadable: true, pageUrl: "https://www.paypal.com/paypalme/john" } },
+  },
+  browser("venmo.com", "Leave this page? Send $500, balance is not affected.", { role: "dialog" }),
   computer("com.robinhood.macos", "", { unreadable: true }),
   computer("com.google.Chrome", "Buy bitcoin"),
 ];
@@ -787,6 +809,15 @@ const MUST_NOT_BLOCK: Row[] = [
   browser("wise.com", "Continue", { pageUrl: "https://wise.com/gb/send-money/" }),
   browser("secure.chase.com", "Discard this transfer?", { role: "dialog" }),
   browser("www.chase.com", "J", { role: "button" }),
+  // #1321 follow-ups: bank bill pay and receipts, reads and headings
+  browser("secure.chase.com", "Your payment will be sent on 11/20. Continue?", { role: "dialog" }),
+  browser("www.chase.com", "Your payment receipt will be sent by email. OK?", { role: "dialog" }),
+  browser("robinhood.com", "See buy and sell prices"),
+  browser("app.mercury.com", "Scheduled transfers start Monday"),
+  browser("www.paypal.com", "Pay Now", {
+    submits: true,
+    pageUrl: "https://www.paypal.com/checkoutnow?token=EC-1",
+  }),
   // review round 6 (#1321)
   browser("robinhood.com", "View buy orders"),
   browser("robinhood.com", "Check sell price"),

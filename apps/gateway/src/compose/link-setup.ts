@@ -566,9 +566,34 @@ export class LinkSetup {
     return this.wallet.inner !== undefined;
   }
 
-  readonly #changeListeners = new Set<() => void>();
+  /**
+   * Whether Link can pay now: a CLI connected and, by the last `auth status` answer, signed in.
+   * Before the first answer it is false, so the purchase tool waits for a real answer.
+   */
+  ready(): boolean {
+    return this.configured() && this.#authCache?.value === true;
+  }
 
-  /** Called whenever a CLI is connected or forgotten (the purchase tool follows this). */
+  /** Asks `auth status` again (unless the last answer is fresh); the purchase tool follows it. */
+  refresh(): Promise<boolean> {
+    return this.#signedIn();
+  }
+
+  readonly #changeListeners = new Set<() => void>();
+  #lastReady = false;
+
+  /** Tells the listeners when `ready()` changed since they last heard. */
+  #readyChanged(): void {
+    const now = this.ready();
+    if (now === this.#lastReady) return;
+    this.#lastReady = now;
+    for (const l of this.#changeListeners) l();
+  }
+
+  /**
+   * Called whenever a CLI is connected or forgotten, or Link is signed in or out (the purchase
+   * tool follows this).
+   */
   onConfiguredChange(listener: () => void): () => void {
     this.#changeListeners.add(listener);
     return () => this.#changeListeners.delete(listener);
@@ -611,6 +636,7 @@ export class LinkSetup {
               return (this.#o.run ?? runFile)(l.file, l.args, env, CLI_TIMEOUT_MS);
             },
           });
+    this.#lastReady = this.ready();
     for (const l of this.#changeListeners) l();
   }
 
@@ -647,6 +673,7 @@ export class LinkSetup {
   #forgetAuth(): void {
     this.#gen += 1;
     this.#authCache = undefined;
+    this.#readyChanged();
   }
 
   /**
@@ -676,7 +703,10 @@ export class LinkSetup {
     this.#authInflight = run;
     try {
       const value = await run;
-      if (gen === this.#gen) this.#authCache = { at: this.#s.clock.now(), value };
+      if (gen === this.#gen) {
+        this.#authCache = { at: this.#s.clock.now(), value };
+        this.#readyChanged();
+      }
       return value;
     } finally {
       if (this.#authInflight === run) this.#authInflight = undefined;
@@ -928,8 +958,11 @@ export function composeGuidedPayments(
     link.broker = part.payments;
     const availability = {
       configured: () => link.configured(),
+      ready: () => link.ready(),
       onChange: (l: () => void) => link.onConfiguredChange(l),
     };
+    // The purchase tool waits for Link's own answer: ask it once at start when a CLI is saved.
+    if (link.configured()) void link.refresh().catch(() => undefined);
     const guard = (name: string): Record<string, HandlerDef> => {
       const h = part.handlers?.[name];
       return h === undefined

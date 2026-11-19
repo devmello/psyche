@@ -2192,6 +2192,22 @@ export class PsychePermissionBroker implements PermissionBroker {
     return closed;
   }
 
+  /**
+   * Withdraws every pending card of one kind (`reason` is recorded): the Gateway withdraws open
+   * Pay cards when Stripe Link is disconnected or signed out, so none can be approved for a
+   * payment that cannot happen. Returns the cards it closed.
+   */
+  async invalidatePendingOfKind(kind: ApprovalKind, reason: string): Promise<ApprovalRequest[]> {
+    this.#sweep();
+    const closed: ApprovalRequest[] = [];
+    for (const rec of this.#store.listApprovals({ status: "pending" })) {
+      if (rec.approval.kind !== kind) continue;
+      await this.#invalidate(rec, reason);
+      closed.push(structuredClone(rec.approval));
+    }
+    return closed;
+  }
+
   async revokeRunAuthority(runId: string): Promise<void> {
     for (const rec of this.#store.listApprovals()) {
       if (rec.approval.requestedBy.runId !== runId) continue;

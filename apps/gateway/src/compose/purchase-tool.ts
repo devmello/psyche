@@ -55,6 +55,12 @@ export interface PurchaseToolDeps {
   /** The Permission Broker's `get`, to re-check the approval this call runs under. */
   approvals: { get(id: string): Promise<ApprovalRequest | undefined> };
   redactor: SecretRedactor;
+  /**
+   * Whether Stripe Link can pay right now: a CLI connected and signed in. Checked when the call is
+   * described and again when it runs, so a tool list built before a disconnect raises no Pay card.
+   * Absent with a caller-supplied wallet, which is always ready.
+   */
+  ready?: () => boolean;
   /** Link test mode: test cards, no charge. */
   test?: boolean;
   /** How long to wait for the merchant's answer after submitting (default 20 s). */
@@ -177,6 +183,8 @@ interface Located {
   submit: string | undefined;
   /** The pay button's name as the page shows it now. */
   submitName: string | undefined;
+  /** The page's address in that snapshot (its path decides PayPal.Me from a checkout). */
+  url: string | undefined;
 }
 
 /** The first pay button a snapshot's text names (`- button "Buy now" [ref=…]`). */
@@ -225,11 +233,21 @@ async function locate(d: BrowserDriverEx, tabId: string, origin: string): Promis
       if (fields[f] === undefined && cardFieldAccepts(f, elementOf(meta)).ok) fields[f] = r.ref;
     }
   }
-  return { order, fields, submit, submitName };
+  return { order, fields, submit, submitName, url: snap.url };
 }
+
+/** Thrown while Stripe Link is not connected and signed in: no card is raised for it. */
+const notReady = (): never => {
+  throw new PsycheError(
+    "unavailable",
+    "Stripe Link is not connected and signed in; ask the owner to set it up in Settings",
+    { details: { reason: "payments_not_ready" } },
+  );
+};
 
 export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
   const describeCall = (params: unknown): ToolCallDescription => {
+    if (deps.ready !== undefined && !deps.ready()) notReady();
     const tabId = (params as { tabId?: unknown } | undefined)?.tabId;
     const d = deps.driver();
     const origin = typeof tabId === "string" ? d?.tabOrigin(tabId) : undefined;
@@ -313,6 +331,7 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
     async execute(callId, params) {
       const tabId = (params as { tabId?: unknown }).tabId;
       if (typeof tabId !== "string") throw new PsycheError("invalid_params", "tabId is required");
+      if (deps.ready !== undefined && !deps.ready()) notReady();
       const ctx = deps.calls.context(callId);
       const approvalId = ctx.approvalId;
       if (approvalId === undefined) {
@@ -343,7 +362,7 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
       if (start === undefined) throw new PsycheError("conflict", "the tab has no page yet");
       const first = await locate(d, tabId, start);
       // The hard block, on the live page, before a spend request exists.
-      if (hardBlock(start, start, first.submitName) !== undefined) refuseTrade();
+      if (hardBlock(start, first.url ?? start, first.submitName) !== undefined) refuseTrade();
       const hash = check(first);
       const input = inputOf(first.order, deps.test === true);
       for (const f of ["number", "cvc"] as const) {
@@ -418,7 +437,7 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
         // Last look for the hard block too: the page may have moved to a venue, or the button
         // may now say something else. The spend request is cancelled below.
         const at = origin() ?? start;
-        if (hardBlock(at, at, last.submitName) !== undefined) refuseTrade();
+        if (hardBlock(at, last.url ?? at, last.submitName) !== undefined) refuseTrade();
         submit = last.submit as string;
       } catch (err) {
         await deps.payments.cancel(id).catch(() => undefined);
