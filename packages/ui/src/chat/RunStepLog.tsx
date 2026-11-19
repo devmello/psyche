@@ -416,7 +416,7 @@ export function RunStepLog({
                 // The transcript's own pointer: it opens the dock card while pending, and is the
                 // card's morph target (`layoutId`) once answered (§5.3).
                 <span className="min-w-0 flex-1 leading-7" data-role="label">
-                  <ApprovalPointer approvalId={step.approvalId} />
+                  <ApprovalPointer approvalId={step.approvalId} bare />
                 </span>
               ) : step.kind === "thinking" ? null : (
                 <span

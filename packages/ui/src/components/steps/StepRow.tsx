@@ -67,7 +67,7 @@ export function StepRow({
   const running = status === "running" || status === "thinking";
   const hasDetail = children !== undefined && children !== null;
   const rail = glyphState(status);
-  const waiting = rail === "waiting" && level === 0;
+  const waiting = rail === "waiting";
   const motionProps = enter && !reduce ? fadeRise : {};
   const head = (
     <>
