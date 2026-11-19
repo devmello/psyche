@@ -183,3 +183,33 @@ describe("Test connection", () => {
     expect(button.disabled).toBe(true);
   });
 });
+
+describe("A server whose command is fixed", () => {
+  it("offers Rename only, and sends only the name", async () => {
+    const gateway = setup((g) => {
+      g.seedMcpServer(
+        {
+          id: "built",
+          name: "Built in",
+          trust: "bundled",
+          transport: "stdio",
+          network: false,
+          connected: true,
+        },
+        { config: { editable: false } },
+      );
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Open Built in" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    expect(screen.queryByLabelText("Command")).toBeNull();
+    const name = await screen.findByLabelText("Name");
+    await userEvent.clear(name);
+    await userEvent.type(name, "Mine");
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByText("Updated Mine.")).toBeTruthy();
+    expect(lastCall(gateway(), "mcp.update")?.params).toEqual({
+      id: "built",
+      changes: { name: "Mine" },
+    });
+  });
+});

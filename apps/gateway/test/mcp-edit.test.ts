@@ -2,12 +2,13 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getSetting } from "@psyche/db";
+import { getSetting, setSetting } from "@psyche/db";
 import type { McpProposal } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { type ComposedMcp, composeMcp, MCP_SERVERS_SETTING } from "../src/compose/mcp.ts";
+import { redactUrl } from "../src/compose/mcp-edit.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
 import { adminClient, desktopClient, ik, type TestClient } from "./helpers.ts";
 
@@ -98,6 +99,24 @@ async function addEcho(owner: TestClient, mcp: ComposedMcp) {
   await owner.call("mcp.add", { proposalId: proposal.id, approvalId: approval.id }, ik());
   await mcp.idle();
 }
+
+const entry = (id: string, more: Record<string, unknown> = {}) => ({
+  id,
+  name: id,
+  trust: "unknown",
+  transport: { kind: "stdio", command: [process.execPath, SERVER] },
+  sandbox: { allowedDomains: [] },
+  ...more,
+});
+const putEntries = (services: ComposeServices, value: unknown[]) =>
+  setSetting(services.db, MCP_SERVERS_SETTING, value);
+const patchEcho = (services: ComposeServices, patch: Record<string, unknown>) => {
+  const cur = stored(services) as Record<string, unknown>[];
+  putEntries(
+    services,
+    cur.map((c) => ({ ...c, ...patch })),
+  );
+};
 
 const stored = (services: ComposeServices) =>
   structuredClone(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
@@ -272,14 +291,16 @@ describe("mcp.test", () => {
     expect(stored(services)).toEqual(before);
   });
 
-  it("starts the stored config once when the server is on but not connected", async () => {
-    const { owner, mcp, services } = await setup();
-    await addEcho(owner, mcp);
-    // Break the server's connection on the host side by pausing then re-enabling is not
-    // needed: test the throwaway path through the adder directly with the stored entry.
-    const entry = (stored(services) as { id: string }[])[0];
-    const found = await mcp.adder.test(entry as never);
-    expect(found.tools.map((t) => t.name)).toEqual(["echo"]);
+  it("starts the stored config once, through the RPC, when the server is on but not connected", async () => {
+    const { owner, services } = await setup();
+    // Written straight to the setting: configured and on, but never started here.
+    putEntries(services, [entry("cold")]);
+    const cardsBefore = cards(owner);
+    const r = await owner.call<{ ok: boolean; toolCount: number; tools: string[] }>("mcp.test", {
+      id: "cold",
+    });
+    expect(r).toMatchObject({ ok: true, toolCount: 1, tools: ["echo"] });
+    expect(cards(owner)).toBe(cardsBefore);
   });
 
   it("refuses a paused server, and a server that was never approved", async () => {
@@ -316,5 +337,143 @@ describe("who may call them", () => {
     expect(await owner.call("mcp.config", { serverId: "echo" })).toMatchObject({
       config: { id: "echo", kind: "command", editable: true },
     });
+  });
+});
+
+describe("review r1 fixes", () => {
+  it("N1: the update result carries no stored env value, only names", async () => {
+    const { owner, mcp, services } = await setup();
+    await addEcho(owner, mcp);
+    const cur = (stored(services) as { transport: Record<string, unknown> }[])[0];
+    patchEcho(services, {
+      transport: { ...cur?.transport, env: { LEGACY_TOKEN: "plain-legacy-secret-value" } },
+    });
+    const r = await owner.call<UpdateResult>(
+      "mcp.update",
+      { id: "echo", changes: { allowedDomains: ["example.com"] } },
+      ik(),
+    );
+    const all = JSON.stringify(r);
+    expect(all).not.toContain("plain-legacy-secret-value");
+    // Positive control: the name is there.
+    expect(all).toContain("LEGACY_TOKEN");
+    const cfg = JSON.stringify(await owner.call("mcp.config", { serverId: "echo" }));
+    expect(cfg).not.toContain("plain-legacy-secret-value");
+    expect(cfg).toContain("LEGACY_TOKEN");
+  });
+
+  it("N4: URL user info and query values are hidden, in both directions", async () => {
+    const { owner, services } = await setup();
+    putEntries(services, [
+      {
+        id: "web",
+        name: "Web",
+        trust: "unknown",
+        enabled: false,
+        transport: { kind: "http", url: "https://u:pw@example.com/mcp?token=SECRET123&x=1#frag" },
+      },
+    ]);
+    const cfg = JSON.stringify(await owner.call("mcp.config", { serverId: "web" }));
+    expect(cfg).not.toContain("SECRET123");
+    expect(cfg).not.toContain("pw@");
+    expect(cfg).toContain("example.com/mcp?token=***&x=***");
+    expect(redactUrl("https://example.com/a/b")).toBe("https://example.com/a/b");
+    expect(redactUrl("https://example.com/a?api_key=k")).toBe("https://example.com/a?api_key=***");
+    expect(redactUrl("not a url")).toBe("");
+  });
+
+  it("N2: built-in, Psyche-made and shared servers can be renamed but not re-commanded", async () => {
+    const { owner, services } = await setup();
+    putEntries(services, [
+      entry("builtin", { trust: "bundled", enabled: false }),
+      entry("made", { madeBy: "psyche", enabled: false }),
+      entry("shared", {
+        bundle: { hash: "sha256:x" },
+        enabled: false,
+        transport: {
+          kind: "stdio",
+          command: ["npx", "-y", "@modelcontextprotocol/server-filesystem"],
+        },
+      }),
+    ]);
+    for (const id of ["builtin", "made", "shared"]) {
+      const r = await owner.call<UpdateResult>(
+        "mcp.update",
+        { id, changes: { name: `${id} renamed` } },
+        ik(),
+      );
+      expect(r).toMatchObject({ applied: true, server: { name: `${id} renamed` } });
+      await expect(
+        owner.call("mcp.update", { id, changes: { command: ["node", "evil.js"] } }, ik()),
+      ).rejects.toThrow(/"reason":"not_editable"/);
+    }
+    const now = stored(services) as { id: string; trust: string }[];
+    expect(now.find((c) => c.id === "builtin")?.trust).toBe("bundled");
+    expect(now.find((c) => c.id === "shared")?.trust).toBe("unknown");
+  });
+
+  it("N7: a rename between the check and the approval is kept", async () => {
+    const { owner, mcp, services } = await setup();
+    await addEcho(owner, mcp);
+    const r = await owner.call<UpdateResult>(
+      "mcp.update",
+      { id: "echo", changes: { command: [process.execPath, SERVER, "--write-tool"] } },
+      ik(),
+    );
+    await owner.call("mcp.update", { id: "echo", changes: { name: "Renamed" } }, ik());
+    await mcp.idle();
+    await approve(owner, r.approval?.id as string);
+    await owner.call("mcp.add", { proposalId: r.proposal?.id, approvalId: r.approval?.id }, ik());
+    await mcp.idle();
+    const now = stored(services) as { name: string; transport: { command: string[] } }[];
+    expect(now[0]?.name).toBe("Renamed");
+    expect(now[0]?.transport.command).toContain("--write-tool");
+  });
+
+  it.each([
+    ["never", undefined],
+    ["always", true],
+  ] as const)("N9: handlesMoney %s across an update", async (mode, kept) => {
+    const { owner, mcp, services } = await setup();
+    await addEcho(owner, mcp);
+    patchEcho(services, { handlesMoney: mode === "always" });
+    const r = await owner.call<UpdateResult>(
+      "mcp.update",
+      { id: "echo", changes: { allowedDomains: ["example.com"] } },
+      ik(),
+    );
+    await approve(owner, r.approval?.id as string);
+    await owner.call("mcp.add", { proposalId: r.proposal?.id, approvalId: r.approval?.id }, ik());
+    await mcp.idle();
+    const now = stored(services) as { handlesMoney?: boolean }[];
+    expect(now[0]?.handlesMoney).toBe(kept);
+  });
+
+  it("N9: an approval is a conflict after the server was deleted and added again", async () => {
+    const { owner, mcp } = await setup();
+    await addEcho(owner, mcp);
+    const r = await owner.call<UpdateResult>(
+      "mcp.update",
+      { id: "echo", changes: { allowedDomains: ["example.com"] } },
+      ik(),
+    );
+    await owner.call("mcp.remove", { serverId: "echo" }, ik());
+    await mcp.idle();
+    const again = await owner.call<{ proposal: McpProposal; approval: Card }>(
+      "mcp.probe",
+      { server: echo(["--write-tool"]) },
+      ik(),
+    );
+    await approve(owner, again.approval.id);
+    await owner.call(
+      "mcp.add",
+      { proposalId: again.proposal.id, approvalId: again.approval.id },
+      ik(),
+    );
+    await mcp.idle();
+    await approve(owner, r.approval?.id as string);
+    await expect(
+      owner.call("mcp.add", { proposalId: r.proposal?.id, approvalId: r.approval?.id }, ik()),
+    ).rejects.toThrow(/"code":"conflict"/);
   });
 });

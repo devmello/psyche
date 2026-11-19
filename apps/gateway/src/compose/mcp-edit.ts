@@ -4,6 +4,7 @@ import type { PsycheMcpServerConfig } from "@psyche/mcp-host";
 import {
   type McpServerChanges,
   type McpServerConfigView,
+  type McpServerInput,
   type McpServerStatus,
   mcpTrustFor,
   PsycheError,
@@ -100,7 +101,39 @@ export function applyChanges(
     if (changes.auth !== undefined) next.auth = changes.auth;
     next.trust = mcpTrustFor({ kind: "http", url: t.url });
   }
+  // The tier follows what runs: when none of it changed, the stored tier stays (a built-in or
+  // shared server renamed keeps its tier, whatever its command looks like).
+  const shape = (c: PsycheMcpServerConfig) =>
+    canonical({ t: c.transport, s: c.sandbox ?? null, a: c.auth ?? null, w: c.cwd ?? null });
+  if (shape(prev) === shape(next)) next.trust = prev.trust;
   return next;
+}
+
+/**
+ * A URL as shown to the owner: no user info, no fragment, and every query value hidden (a token
+ * often rides there). Unparseable input shows nothing.
+ */
+export function redactUrl(raw: string): string {
+  try {
+    const u = new URL(raw);
+    const keys = [...new Set([...u.searchParams.keys()])];
+    const q =
+      keys.length === 0 ? "" : `?${keys.map((k) => `${encodeURIComponent(k)}=***`).join("&")}`;
+    return `${u.protocol}//${u.host}${u.pathname}${q}`;
+  } catch {
+    return "";
+  }
+}
+
+/** `McpServerInput` with nothing a caller did not send: env values and URL secrets hidden. */
+function redactedInput(input: McpServerInput): McpServerInput {
+  const t = input.transport;
+  if (t.kind === "http") return { ...input, transport: { ...t, url: redactUrl(t.url) } };
+  if (t.env === undefined) return input;
+  const env = Object.fromEntries(
+    Object.entries(t.env).map(([k, v]) => [k, /^\{\{cred:[^}]+\}\}$/.test(v) ? v : ""]),
+  );
+  return { ...input, transport: { ...t, env } };
 }
 
 /** What differs, by name only: never a value (a plain env value can hold a token). */
@@ -134,8 +167,8 @@ function describeChange(prev: PsycheMcpServerConfig, next: PsycheMcpServerConfig
   } else if (a.kind === "http" && b.kind === "http") {
     if (a.url !== b.url) {
       fields.push("url");
-      out.oldUrl = a.url;
-      out.newUrl = b.url;
+      out.oldUrl = redactUrl(a.url);
+      out.newUrl = redactUrl(b.url);
     }
     if (canonical(prev.auth ?? null) !== canonical(next.auth ?? null)) {
       fields.push("auth");
@@ -153,7 +186,7 @@ export function configView(c: PsycheMcpServerConfig): McpServerConfigView {
     id: c.id,
     name: c.name,
     kind: t.kind === "stdio" ? "command" : "url",
-    ...(t.kind === "stdio" ? { command: [...t.command] } : { url: t.url }),
+    ...(t.kind === "stdio" ? { command: [...t.command] } : { url: redactUrl(t.url) }),
     allowedDomains: [...(c.sandbox?.allowedDomains ?? [])],
     envNames: t.kind === "stdio" ? Object.keys(t.env ?? {}) : [],
     ...(t.kind === "http" ? { auth: c.auth?.kind ?? "none" } : {}),
@@ -217,18 +250,24 @@ export function mcpEditHandlers(deps: McpEditDeps): Record<string, HandlerDef> {
           replace: true,
           summary: (found) =>
             `Update MCP server "${next.name}" (${fields.join(", ")}; ${found.tools.length} tools${found.network.reaches ? `, reaches ${found.network.hosts.join(", ").slice(0, 120)}` : ", no network"})`,
-          details: { replaces: true, change: { fields, ...out } },
+          details: {
+            replaces: true,
+            change: { fields, ...out },
+            ...(next.transport.kind === "http" ? { url: redactUrl(next.transport.url) } : {}),
+          },
           bind: { replaces: base },
           async precommit() {
             // The server changed since the card was made (another edit, another device).
             const cur = readEntries(services, deps.settingKey).find((c) => c.id === prev.id);
-            if (cur === undefined || sha(runIdentity(cur)) !== base) {
+            if (cur === undefined || !mcpEditable(cur) || sha(runIdentity(cur)) !== base) {
               throw new PsycheError(
                 "conflict",
                 "the server changed since this edit was checked; edit it again",
               );
             }
-            // The owner's current choices win over the snapshot the edit started from.
+            // The owner's current choices win over the snapshot the edit started from, a rename
+            // included (unless this very edit renames).
+            if (params.changes.name === undefined) next.name = cur.name;
             if (cur.handlesMoney === true) next.handlesMoney = true;
             else delete next.handlesMoney;
             if (cur.disabledTools === undefined) delete next.disabledTools;
@@ -247,7 +286,12 @@ export function mcpEditHandlers(deps: McpEditDeps): Record<string, HandlerDef> {
           fields: fields.join(","),
           approvalId: approval.id,
         });
-        return { applied: false, server: deps.status(prev), proposal, approval };
+        return {
+          applied: false,
+          server: deps.status(prev),
+          proposal: { ...proposal, server: redactedInput(proposal.server) },
+          approval,
+        };
       },
     },
     "mcp.test": {
