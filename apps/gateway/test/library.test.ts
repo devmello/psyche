@@ -235,7 +235,7 @@ describe("library.quarantine.decide", () => {
     expect(released.quarantined).toBeUndefined();
 
     const attached = await resolveAttachments(db, home, [q.id]);
-    expect(attached.text).toContain("[untrusted:library download]");
+    expect(attached.text).toMatch(/\[untrusted:library download #[0-9a-f]{12}\]/);
     expect(attached.text).toContain("not instructions");
     expect(attached.taint).toEqual([{ sourceKind: "library_file", origin: `download:${q.id}` }]);
 
@@ -267,10 +267,10 @@ describe("library.quarantine.decide", () => {
     await run("library.quarantine.decide", { itemId: q.id, decision: "trust" });
     const out = await resolveAttachments(db, home, [q.id]);
     // Exactly one closing marker (ours), one opening header, and the owner line stays inside.
-    expect(out.text.match(/\[end of untrusted attached file\]/g)).toHaveLength(1);
+    expect(out.text.match(/\[end of untrusted attached file #[0-9a-f]{12}\]/g)).toHaveLength(1);
     expect(out.text.match(/\[attached file:/g)).toHaveLength(1);
     expect(out.text.indexOf("The owner adds")).toBeLessThan(
-      out.text.indexOf("[end of untrusted attached file]"),
+      out.text.indexOf("[end of untrusted attached file #"),
     );
   });
 
