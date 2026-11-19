@@ -4,6 +4,7 @@ import { Filmstrip } from "../../components/filmstrip.tsx";
 import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { t } from "../../i18n/core.ts";
 import { formatTime } from "../../lib/format.ts";
+import { frameCache } from "./frame-cache.ts";
 import { stepLabel } from "./model.ts";
 
 /**
@@ -18,7 +19,15 @@ export type FrameImage = (
   size: "thumb" | "full",
 ) => Promise<MethodResult<"runs.frame">>;
 
-const cache = new Map<string, string>();
+const cache = frameCache;
+
+/** Holds a run's frames in the cache while a view of it is mounted. */
+function useRunFrames(runId: string): void {
+  useEffect(() => {
+    cache.retain(runId);
+    return () => cache.release(runId);
+  }, [runId]);
+}
 
 /** A frame as a data URL, loaded once per run, seq and size. */
 export function useFrameSrc(
@@ -29,6 +38,7 @@ export function useFrameSrc(
   skip = false,
 ): string | null {
   const key = seq === null ? null : `${runId}/${seq}/${size}`;
+  useRunFrames(runId);
   const [src, setSrc] = useState<string | null>(key === null ? null : (cache.get(key) ?? null));
   useEffect(() => {
     if (key === null || seq === null || skip) {
@@ -71,6 +81,7 @@ export function Thumbs({
   onSelect: (seq: number) => void;
 }): ReactElement {
   const [srcs, setSrcs] = useState<Record<number, string>>({});
+  useRunFrames(runId);
   useEffect(() => {
     let live = true;
     for (const f of frames) {
@@ -153,6 +164,7 @@ export function FrameViewer({
           ) : src ? (
             <img
               src={src}
+              decoding="async"
               alt={t("agent.timeline.frame.label", { seq: frame.seq, time: formatTime(frame.at) })}
               className="size-full object-contain"
             />
