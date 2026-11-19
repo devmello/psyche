@@ -1608,6 +1608,14 @@ describe("idle stops and restarts (PR #1401)", () => {
       transport: { kind: "stdio", command: [process.execPath, SERVER] },
     });
     const stops: string[] = [];
+    // The restart check runs at every touch and idle stop: it must not read the ledger file each
+    // time (round-3 review item 5), only once per reconcile.
+    const reads = [
+      vi.spyOn(ConnectorLedger.prototype, "get"),
+      vi.spyOn(ConnectorLedger.prototype, "list"),
+    ];
+    const readCount = () => reads.reduce((n, r) => n + r.mock.calls.length, 0);
+    let mcp: ComposedMcp | undefined;
     composed = await composeGateway({
       retentionIntervalMs: 0,
       background: false,
@@ -1618,26 +1626,38 @@ describe("idle stops and restarts (PR #1401)", () => {
         (s) => {
           // Already in the setting at startup: the first reconcile keeps the leftover record.
           setSetting(s.db, "mcp.servers", [server("orphan"), server("plain")]);
-          return composeMcp(s, {
+          mcp = composeMcp(s, {
             hostOptions: {
               launcher: fakeSrt,
-              idleStopMs: 300,
+              idleStopMs: 1000,
               onEvent: (e) => {
                 if (e.type === "status" && e.status === "disconnected") stops.push(e.serverId);
               },
             },
           });
+          return mcp;
         },
       ],
     });
-    await vi.waitFor(
-      () =>
-        expect(launches.map((l) => l.server)).toEqual(expect.arrayContaining(["orphan", "plain"])),
-      { timeout: 10_000 },
-    );
-    // The control is stopped for being idle; the one with a record keeps running.
-    await vi.waitFor(() => expect(stops).toContain("plain"), { timeout: 5_000 });
-    await new Promise((r) => setTimeout(r, 600));
-    expect(stops).not.toContain("orphan");
+    try {
+      await vi.waitFor(
+        () =>
+          expect(launches.map((l) => l.server)).toEqual(
+            expect.arrayContaining(["orphan", "plain"]),
+          ),
+        { timeout: 10_000 },
+      );
+      await (mcp as ComposedMcp).idle();
+      expect(stops).not.toContain("plain");
+      const afterReconcile = readCount();
+      // The control is stopped for being idle; the one with a record keeps running.
+      await vi.waitFor(() => expect(stops).toContain("plain"), { timeout: 5_000 });
+      await new Promise((r) => setTimeout(r, 600));
+      expect(stops).not.toContain("orphan");
+      // The idle stop asked the check again, from the snapshot.
+      expect(readCount()).toBe(afterReconcile);
+    } finally {
+      for (const r of reads) r.mockRestore();
+    }
   });
 });

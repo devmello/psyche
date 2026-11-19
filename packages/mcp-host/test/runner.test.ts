@@ -62,9 +62,112 @@ describe("reResolvesOnLaunch", () => {
     expect(reResolvesOnLaunch(split(line))).toBe(true);
   });
 
-  it("splits a shell string inside one argument", () => {
+  it("a shell given a string is opaque, pinned or not; a string elsewhere is split", () => {
     expect(reResolvesOnLaunch(["sh", "-c", "npx -y @scope/pkg"])).toBe(true);
-    expect(reResolvesOnLaunch(["sh", "-c", "npx -y @scope/pkg@1.2.3"])).toBe(false);
+    expect(reResolvesOnLaunch(["sh", "-c", "npx -y @scope/pkg@1.2.3"])).toBe(true);
+    expect(reResolvesOnLaunch(["env", "-S", "npx -y @scope/pkg@1.2.3"])).toBe(false);
+    expect(reResolvesOnLaunch(["env", "-S", "npx -y @scope/pkg"])).toBe(true);
+  });
+
+  // The round-3 review's probe (packages/mcp-host, PR #1401), every row with its required answer.
+  it.each<[string, string[], boolean]>([
+    ["abs npx", ["/usr/local/bin/npx", "-y", "pkg"], true],
+    ["node_modules/.bin npx", ["./node_modules/.bin/npx", "-y", "pkg"], true],
+    ["node npx-cli.js", ["node", "/usr/lib/node_modules/npm/bin/npx-cli.js", "-y", "pkg"], true],
+    [
+      "node npm-cli.js exec",
+      ["node", "/usr/lib/node_modules/npm/bin/npm-cli.js", "exec", "-y", "pkg"],
+      true,
+    ],
+    ["node pnpm.cjs dlx", ["node", "/opt/pnpm/bin/pnpm.cjs", "dlx", "pkg@1.2.3"], true],
+    ["sh -c $NPX", ["sh", "-c", "$NPX -y pkg"], true],
+    ["sh -c var", ["bash", "-c", "x=npx; $x -y pkg"], true],
+    ["sh -c quoted", ["sh", "-c", "exec npx -y 'pkg@1.2.3'"], true],
+    ["sh -c &&", ["sh", "-c", "cd /x&&npx -y pkg"], true],
+    ["sh -c ;", ["sh", "-c", "true;npx -y pkg"], true],
+    ["bash -lc", ["bash", "-lc", "my-server"], true],
+    ["cmd /c", ["cmd.exe", "/d", "/c", "my-server"], true],
+    ["pwsh -Command", ["pwsh", "-NoProfile", "-Command", "my-server"], true],
+    ["node -e", ["node", "-e", "require('child_process').execSync('npx -y pkg')"], true],
+    ["node --eval=", ["node", "--eval=1"], true],
+    ["node -p", ["node", "-p", "1"], true],
+    ["node -r x -e", ["node", "-r", "dotenv/config", "-e", "1"], true],
+    ["deno eval", ["deno", "eval", "1"], true],
+    ["python -c", ["python3", "-c", "import os"], true],
+    ["python -Ic", ["python3.12", "-Ic", "import os"], true],
+    ["$VAR in env -S", ["env", "-S", "$RUNNER pkg"], true],
+    ["%VAR%", ["%NPX%", "-y", "pkg@1.2.3"], true],
+    ["backticks", ["env", "-S", "`which npx` -y pkg"], true],
+    ["subshell", ["env", "-S", "(npx -y pkg)"], true],
+    ["pipe", ["env", "-S", "true|npx -y pkg"], true],
+    ["redirect", ["env", "-S", "npx -y pkg>/dev/null"], true],
+    ["npm_config_ env? (argv only)", ["npx", "-y", "pkg@1.2.3"], false],
+    ["--package= pinned", ["npx", "--package=pkg@1.2.3", "bin"], false],
+    ["-p pinned, positional is its command", ["npx", "-p", "pkg@1.2.3", "evil"], false],
+    ["loglevel value pinned-looking", ["npx", "--loglevel", "a@1.0.0", "evil"], true],
+    ["node-options", ["npx", "--node-options", "x@1.0.0", "evil"], true],
+    ["unknown flag before a pinned spec", ["npx", "--foo", "pkg@1.2.3"], true],
+    ["-c shell", ["npx", "-y", "-c", "evil"], true],
+    ["--call=", ["npx", "--call=evil"], true],
+    ["beta", ["npx", "-y", "pkg@1.2.3-beta"], false],
+    ["git", ["npx", "-y", "github:u/r#v1.2.3"], true],
+    ["tarball", ["npx", "-y", "https://x/pkg-1.2.3.tgz"], true],
+    ["alias npm:", ["npx", "-y", "foo@npm:bar@1.2.3"], true],
+    ["uvx --from git", ["uvx", "--from", "git+https://x/r@v1", "cmd"], true],
+    ["uvx --from pinned", ["uvx", "--from", "pkg==1.2.3", "cmd"], false],
+    ["uvx pkg@latest", ["uvx", "pkg@latest"], true],
+    ["uvx pinned + --with", ["uvx", "--with", "evil", "pkg==1.0"], true],
+    ["uvx --with=", ["uvx", "--with=evil", "pkg==1.0"], true],
+    ["uvx unknown value flag", ["uvx", "--python-platform", "a==1.0", "evil"], true],
+    ["uvx --with-executables-from", ["uvx", "--with-executables-from", "evil", "pkg==1.0"], true],
+    ["uv run --with", ["uv", "run", "--with", "evil", "evil"], true],
+    [
+      "uv run --with mcp[cli]",
+      ["uv", "run", "--with", "mcp[cli]", "mcp", "run", "server.py"],
+      true,
+    ],
+    [
+      "uv run --with pinned",
+      ["uv", "run", "--with", "mcp[cli]==1.2.0", "mcp", "run", "s.py"],
+      false,
+    ],
+    ["uv run a locked project", ["uv", "run", "--directory", "/srv/x", "server.py"], false],
+    ["uv --quiet tool run", ["uv", "--quiet", "tool", "run", "evil"], true],
+    ["uv tool run", ["uv", "tool", "run", "evil"], true],
+    ["python -m uv tool run", ["python3", "-m", "uv", "tool", "run", "evil"], true],
+    ["npm create", ["npm", "create", "evil"], true],
+    ["npm init", ["npm", "init", "evil"], true],
+    ["yarn create", ["yarn", "create", "evil"], true],
+    ["pnpm create", ["pnpm", "create", "evil"], true],
+    ["bun create", ["bun", "create", "evil"], true],
+    ["npm create pinned", ["npm", "create", "evil@1.0.0"], false],
+    ["npm exec --package", ["npm", "exec", "--package=evil", "--", "bin"], true],
+    ["deno npm:", ["deno", "run", "-A", "npm:evil"], true],
+    ["deno jsr:", ["deno", "run", "jsr:@std/evil"], true],
+    ["deno https:", ["deno", "run", "--allow-net", "https://x.example/mod.ts"], true],
+    ["deno npm: pinned", ["deno", "run", "-A", "npm:pkg@1.2.3"], false],
+    ["deno local file", ["deno", "run", "--allow-net=api.example.com", "server.ts"], false],
+    ["pnpm --silent dlx", ["pnpm", "--silent", "dlx", "evil"], true],
+    ["pnpm -C dir dlx", ["pnpm", "-C", "/srv/x", "dlx", "evil"], true],
+    ["yarn dlx -p", ["yarn", "dlx", "-p", "evil", "bin"], true],
+    ["npx.CMD windows", ["C:\\nodejs\\npx.CMD", "-y", "evil"], true],
+    ["corepack pnpm dlx", ["corepack", "pnpm", "dlx", "evil"], true],
+    ["env -S", ["env", "-S", "npx -y evil"], true],
+    ["NPX upper", ["NPX", "-y", "evil"], true],
+    ["pipx run --spec", ["pipx", "run", "--spec", "evil", "cmd"], true],
+    ["bun x", ["bun", "x", "evil"], true],
+    ["npx tab", ["npx\t-y\tevil"], true],
+    ["npx newline in one arg", ["sh", "-c", "npx\n-y\nevil"], true],
+    ["unicode space", ["env", "-S", "npx\u00a0-y\u00a0evil"], true],
+    ["npm --yes exec", ["npm", "--yes", "exec", "evil"], true],
+    ["npm -y x", ["npm", "x", "-y", "evil"], true],
+    ["npm --prefix dir run", ["npm", "--prefix", "/srv/x", "run", "start"], false],
+    ["pkg ver build", ["npx", "-y", "pkg@1.2.3+build"], false],
+    ["uvx pkg==1.0 --from (later)", ["uvx", "pkg==1.0", "--from", "evil"], false],
+    ["node --import tsx", ["node", "--import", "tsx", "server.ts"], false],
+    ["a wrapper script cannot be classified", ["bash", "./run.sh"], false],
+  ])("%s", (_name, command, expected) => {
+    expect(reResolvesOnLaunch(command)).toBe(expected);
   });
 
   // Must not match: no runner, or every package pinned to one exact release.
