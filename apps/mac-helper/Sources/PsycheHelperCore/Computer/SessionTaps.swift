@@ -70,7 +70,11 @@ public final class SessionTaps: @unchecked Sendable {
     private var attention: (any SessionTapHandle)?
     private var cancelIdle: (@Sendable () -> Void)?
     /// Called with the session id when its action outlived `maxInFlight` and the session was released.
+    /// Runs with the session lock held, before the session is released: trip the stop signal and
+    /// nothing else. It must never re-enter `ComputerSessionLock`.
     public var onOverlong: (@Sendable (String) -> Void)?
+    /// Runs after the session lock is released (log, notify).
+    public var afterOverlong: (@Sendable (String) -> Void)?
     /// Runs the deferred reconcile of `stopActiveFromTap`; tests replace it to run inline or capture.
     public var dispatchReconcile: @Sendable (@escaping @Sendable () -> Void) -> Void = { work in
         DispatchQueue.global(qos: .userInitiated).async(execute: work)
@@ -154,7 +158,7 @@ public final class SessionTaps: @unchecked Sendable {
     public func reconcile() {
         // An action that has run past the hard cap loses the session; trip the stop signal so it ends.
         // The stop is tripped before the session is released, so nothing sees it inactive while it runs.
-        sessions.reapOverlong { id in onOverlong?(id) }
+        if let id = sessions.reapOverlong(trip: { id in onOverlong?(id) }) { afterOverlong?(id) }
         lock.withLock {
             if sessions.activeSession == nil { removeIfIdleLocked() } else { armIdleLocked() }
         }
