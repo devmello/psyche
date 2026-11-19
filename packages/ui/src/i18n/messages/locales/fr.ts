@@ -18,6 +18,7 @@ import { helperOffline } from "./helper-offline/fr.ts";
 import { homeRest } from "./home-rest/fr.ts";
 import { links } from "./links/fr.ts";
 import { mailMeetings } from "./mail-meetings/fr.ts";
+import { memoryMap } from "./memory-map/fr.ts";
 import { memoryRest } from "./memory-rest/fr.ts";
 import { memoryReviewRest } from "./memoryReview-rest/fr.ts";
 import { memorySurfacesRest } from "./memorySurfaces-rest/fr.ts";
@@ -49,6 +50,7 @@ import { workflows } from "./workflows/fr.ts";
 /** French catalogue (fr). Same ids as `en`; missing ids fall back to English. */
 export const fr: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,
@@ -863,6 +865,7 @@ export const fr: Partial<Catalogue> = {
   "shell.shortcuts.description":
     "† signale les ajouts de Psyche aux raccourcis de Claude pour ordinateur.",
   "shell.threads.needsYou": "Besoin de vous",
+  "shell.threads.nowOn": "En cours : {step}",
   "shell.threads.running": "En cours",
   "shell.threads.titleField": "Titre de la discussion",
   "shell.threads.incognito": "Incognito",
@@ -1564,6 +1567,44 @@ export const fr: Partial<Catalogue> = {
   "settings.channels.loadLabel": "les canaux",
   "settings.channels.empty":
     "Aucun canal pour l’instant. Connectez Telegram, iMessage ou Slack pour joindre {persona} loin de ce Mac.",
+  "settings.channels.add.button": "Ajouter un canal",
+  "settings.channels.add.title": "Ajouter un canal",
+  "settings.channels.add.description":
+    "Choisissez où joindre {persona}. Les jetons vont directement dans le coffre et ne sont plus jamais affichés.",
+  "settings.channels.add.type": "Canal",
+  "settings.channels.add.account.slack": "Nom de l'espace de travail",
+  "settings.channels.add.account.discord": "ID de l'application",
+  "settings.channels.add.secret.bot_token": "Jeton du bot",
+  "settings.channels.add.secret.app_token": "Jeton de l'application",
+  "settings.channels.add.secret.auth_token": "Jeton d'authentification",
+  "settings.channels.add.secret.access_token": "Jeton d'accès",
+  "settings.channels.add.secret.app_secret": "Secret de l'application",
+  "settings.channels.add.secret.verify_token": "Jeton de vérification",
+  "settings.channels.add.submit": "Connecter",
+  "settings.channels.add.connecting": "Connexion",
+  "settings.channels.add.missing": "Remplissez tous les champs pour connecter.",
+  "settings.channels.add.failed":
+    "Psyche n'a pas pu ajouter le canal ({reason}). Il n'est pas activé.",
+  "settings.channels.add.account.sms": "Numéro d'envoi (+15551234567)",
+  "settings.channels.add.account.whatsapp": "Numéro WhatsApp (+15551234567)",
+  "settings.channels.add.badNumber":
+    "Saisissez le numéro au format international, par exemple +15551234567.",
+  "settings.channels.add.exists":
+    "Un canal {type} pour {account} existe déjà, rien n'a donc été modifié.",
+  "settings.channels.add.approvalLabel": "Ajout d'un canal",
+  "settings.channels.add.envNote":
+    "La Gateway doit aussi être lancée avec {env} défini sur ce compte. Telegram, iMessage, Signal et l'e-mail se configurent là où tourne la Gateway ; voir la documentation des canaux.",
+  "settings.channels.add.addedInactive":
+    "Canal ajouté, mais il ne tourne pas encore. Définissez {env} sur ce compte là où tourne la Gateway, puis relancez-la.",
+  "settings.channels.add.added":
+    "Canal ajouté. Il démarre dès que la Gateway a {env} défini sur ce compte. Écrivez ensuite à {persona} depuis ce canal pour obtenir un code d'appairage, puis approuvez-le ici.",
+  "settings.channels.add.storedNote":
+    "Déjà enregistré pour ce compte : {names}. Ils sont utilisés tels quels, sauf si vous les remplacez.",
+  "settings.channels.add.replace": "Remplacer les jetons enregistrés",
+  "settings.channels.add.statusFailed":
+    "Psyche n'a pas pu vérifier quels jetons sont déjà enregistrés ({reason}). Rien n'a été modifié.",
+  "settings.channels.add.storedTyped":
+    "Des jetons sont déjà enregistrés pour ce compte. Cochez « Remplacer les jetons enregistrés » pour utiliser ceux saisis, ou videz ces champs. Rien n'a été modifié.",
   "settings.channels.identities": "Liens d’identité",
   "settings.channels.identitiesDescription":
     "Une même personne sur plusieurs canaux. Les liens ne changent que depuis un appareil jumelé.",
@@ -2018,7 +2059,8 @@ export const fr: Partial<Catalogue> = {
   "settings.model.role.primary": "Principal",
   "settings.model.role.primaryHint": "Discussion, tâches et outils",
   "settings.model.role.utility": "Utilitaire",
-  "settings.model.role.utilityHint": "Titres, résumés et classificateur du mode auto",
+  "settings.model.role.utilityHint":
+    "Titres, résumés, cartes de recherche et autres tâches d'arrière-plan",
   "settings.model.role.image": "Image",
   "settings.model.role.imageHint":
     "Changements d’avatar ; « Aucun » signifie les créatures intégrées",
@@ -3029,6 +3071,23 @@ export const fr: Partial<Catalogue> = {
   "screens.library.openLabel": "Ouvrir {name}{editor, select, true { dans l’éditeur} other {}}",
   "screens.library.openInEditor": "Ouvrir dans l’éditeur",
   "screens.library.open": "Ouvrir",
+  "screens.library.deleteDownload": "Supprimer ce téléchargement",
+  "screens.library.deleteFailed":
+    "Psyche n'a pas pu supprimer {name} ({reason}). Il reste en quarantaine.",
+  "screens.library.recording.description":
+    "Une relecture de ce que l'agent a fait dans le navigateur. Le contenu des pages a été masqué à l'enregistrement.",
+  "screens.library.recording.play": "Lire",
+  "screens.library.recording.pause": "Pause",
+  "screens.library.recording.step": "Étape {n} sur {total}",
+  "screens.library.recording.scrub": "Position dans l'enregistrement",
+  "screens.library.recording.steps": "Étapes",
+  "screens.library.recording.empty": "Cet enregistrement n'a aucune étape.",
+  "screens.library.recording.noFrame": "Aucune image pour cette étape.",
+  "screens.library.recording.frameAlt": "Le navigateur à l'étape {n}",
+  "screens.library.recording.loading": "Chargement de l'enregistrement",
+  "screens.library.recording.loadFailed":
+    "Psyche n'a pas pu charger cet enregistrement ({reason}).",
+  "screens.library.recording.notFound": "Cet enregistrement n'est plus disponible.",
   "screens.library.trust": "Faire confiance à ce fichier",
   "screens.library.moreFor": "Autres actions pour {name}",
   "screens.library.quickLook": "Coup d’œil",

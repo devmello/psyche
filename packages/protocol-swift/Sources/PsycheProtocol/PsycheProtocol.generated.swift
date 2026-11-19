@@ -4,6 +4,8 @@
 // This file was generated from JSON Schema using quicktype, do not modify it directly.
 // To parse the JSON, add this file to your project and do:
 //
+//   let accessConfirmFolderParams = try? JSONDecoder().decode(AccessConfirmFolderParams.self, from: jsonData)
+//   let accessConfirmFolderResult = try? JSONDecoder().decode(AccessConfirmFolderResult.self, from: jsonData)
 //   let accessEntry = try? JSONDecoder().decode(AccessEntry.self, from: jsonData)
 //   let accessListParams = try? JSONDecoder().decode(AccessListParams.self, from: jsonData)
 //   let accessListResult = try? JSONDecoder().decode(AccessListResult.self, from: jsonData)
@@ -351,6 +353,7 @@
 //   let compactionBlock = try? JSONDecoder().decode(CompactionBlock.self, from: jsonData)
 //   let compactionResult = try? JSONDecoder().decode(CompactionResult.self, from: jsonData)
 //   let compactionSummary = try? JSONDecoder().decode(CompactionSummary.self, from: jsonData)
+//   let computerMachineRef = try? JSONDecoder().decode(ComputerMachineRef.self, from: jsonData)
 //   let computerSurface = try? JSONDecoder().decode(ComputerSurface.self, from: jsonData)
 //   let computerWatchParkAction = try? JSONDecoder().decode(ComputerWatchParkAction.self, from: jsonData)
 //   let computerWatchParkedPayload = try? JSONDecoder().decode(ComputerWatchParkedPayload.self, from: jsonData)
@@ -726,6 +729,9 @@
 //   let libraryItemKind = try? JSONDecoder().decode(LibraryItemKind.self, from: jsonData)
 //   let libraryListParams = try? JSONDecoder().decode(LibraryListParams.self, from: jsonData)
 //   let libraryListResult = try? JSONDecoder().decode(LibraryListResult.self, from: jsonData)
+//   let libraryQuarantineDecideParams = try? JSONDecoder().decode(LibraryQuarantineDecideParams.self, from: jsonData)
+//   let libraryQuarantineDecideResult = try? JSONDecoder().decode(LibraryQuarantineDecideResult.self, from: jsonData)
+//   let libraryQuarantineDecision = try? JSONDecoder().decode(LibraryQuarantineDecision.self, from: jsonData)
 //   let libraryUploadParams = try? JSONDecoder().decode(LibraryUploadParams.self, from: jsonData)
 //   let libraryUploadResult = try? JSONDecoder().decode(LibraryUploadResult.self, from: jsonData)
 //   let lifeAnswerBlock = try? JSONDecoder().decode(LifeAnswerBlock.self, from: jsonData)
@@ -740,6 +746,17 @@
 //   let logLine = try? JSONDecoder().decode(LogLine.self, from: jsonData)
 //   let logsTailParams = try? JSONDecoder().decode(LogsTailParams.self, from: jsonData)
 //   let logsTailResult = try? JSONDecoder().decode(LogsTailResult.self, from: jsonData)
+//   let machineAccount = try? JSONDecoder().decode(MachineAccount.self, from: jsonData)
+//   let machineChange = try? JSONDecoder().decode(MachineChange.self, from: jsonData)
+//   let machineDisplay = try? JSONDecoder().decode(MachineDisplay.self, from: jsonData)
+//   let machineFileRoot = try? JSONDecoder().decode(MachineFileRoot.self, from: jsonData)
+//   let machineInfo = try? JSONDecoder().decode(MachineInfo.self, from: jsonData)
+//   let machinePolicyOwner = try? JSONDecoder().decode(MachinePolicyOwner.self, from: jsonData)
+//   let machinesChangedPayload = try? JSONDecoder().decode(MachinesChangedPayload.self, from: jsonData)
+//   let machinesListParams = try? JSONDecoder().decode(MachinesListParams.self, from: jsonData)
+//   let machinesListResult = try? JSONDecoder().decode(MachinesListResult.self, from: jsonData)
+//   let machinesRenameParams = try? JSONDecoder().decode(MachinesRenameParams.self, from: jsonData)
+//   let machinesRenameResult = try? JSONDecoder().decode(MachinesRenameResult.self, from: jsonData)
 //   let mailThreadRef = try? JSONDecoder().decode(MailThreadRef.self, from: jsonData)
 //   let mCPAddParams = try? JSONDecoder().decode(MCPAddParams.self, from: jsonData)
 //   let mCPAddResult = try? JSONDecoder().decode(MCPAddResult.self, from: jsonData)
@@ -881,6 +898,7 @@
 //   let memoryGraphDeleteSourceResult = try? JSONDecoder().decode(MemoryGraphDeleteSourceResult.self, from: jsonData)
 //   let memoryGraphForgetAllParams = try? JSONDecoder().decode(MemoryGraphForgetAllParams.self, from: jsonData)
 //   let memoryGraphForgetAllResult = try? JSONDecoder().decode(MemoryGraphForgetAllResult.self, from: jsonData)
+//   let memoryGraphMapParams = try? JSONDecoder().decode(MemoryGraphMapParams.self, from: jsonData)
 //   let memoryGraphStatusParams = try? JSONDecoder().decode(MemoryGraphStatusParams.self, from: jsonData)
 //   let memoryHit = try? JSONDecoder().decode(MemoryHit.self, from: jsonData)
 //   let memoryImportFormat = try? JSONDecoder().decode(MemoryImportFormat.self, from: jsonData)
@@ -911,6 +929,10 @@
 //   let memoryLoopsListResult = try? JSONDecoder().decode(MemoryLoopsListResult.self, from: jsonData)
 //   let memoryLoopsUpdateParams = try? JSONDecoder().decode(MemoryLoopsUpdateParams.self, from: jsonData)
 //   let memoryLoopsUpdateResult = try? JSONDecoder().decode(MemoryLoopsUpdateResult.self, from: jsonData)
+//   let memoryMap = try? JSONDecoder().decode(MemoryMap.self, from: jsonData)
+//   let memoryMapEdge = try? JSONDecoder().decode(MemoryMapEdge.self, from: jsonData)
+//   let memoryMapEdgeKind = try? JSONDecoder().decode(MemoryMapEdgeKind.self, from: jsonData)
+//   let memoryMapNode = try? JSONDecoder().decode(MemoryMapNode.self, from: jsonData)
 //   let memoryNotesDeleteParams = try? JSONDecoder().decode(MemoryNotesDeleteParams.self, from: jsonData)
 //   let memoryNotesDeleteResult = try? JSONDecoder().decode(MemoryNotesDeleteResult.self, from: jsonData)
 //   let memoryNotesListParams = try? JSONDecoder().decode(MemoryNotesListParams.self, from: jsonData)
@@ -1334,6 +1356,7 @@
 //   let settingsSetParams = try? JSONDecoder().decode(SettingsSetParams.self, from: jsonData)
 //   let settingsSetResult = try? JSONDecoder().decode(SettingsSetResult.self, from: jsonData)
 //   let setupTokenInfo = try? JSONDecoder().decode(SetupTokenInfo.self, from: jsonData)
+//   let setupTokenPurpose = try? JSONDecoder().decode(SetupTokenPurpose.self, from: jsonData)
 //   let setupTokenScope = try? JSONDecoder().decode(SetupTokenScope.self, from: jsonData)
 //   let setupTokenVia = try? JSONDecoder().decode(SetupTokenVia.self, from: jsonData)
 //   let sideEffect = try? JSONDecoder().decode(SideEffect.self, from: jsonData)
@@ -1722,6 +1745,35 @@
 
 import Foundation
 
+// MARK: - AccessConfirmFolderParams
+public struct AccessConfirmFolderParams: Codable, Sendable {
+    public let entryID: String
+    public let movedTo: String
+
+    public enum CodingKeys: String, CodingKey {
+        case entryID = "entryId"
+        case movedTo = "movedTo"
+    }
+
+    public init(entryID: String, movedTo: String) {
+        self.entryID = entryID
+        self.movedTo = movedTo
+    }
+}
+
+// MARK: - AccessConfirmFolderResult
+public struct AccessConfirmFolderResult: Codable, Sendable {
+    public let confirmed: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case confirmed = "confirmed"
+    }
+
+    public init(confirmed: Bool) {
+        self.confirmed = confirmed
+    }
+}
+
 // MARK: - AccessListResult
 public struct AccessListResult: Codable, Sendable {
     public let entries: [AccessEntry]
@@ -1744,6 +1796,8 @@ public struct AccessEntry: Codable, Sendable {
     public let label: String
     public let lastUsedAt: String?
     public let mode: FolderModeEnum?
+    public let moved: Bool?
+    public let movedTo: String?
     public let path: String?
     public let refused: Bool?
     public let scope: AccessEntryScope
@@ -1759,6 +1813,8 @@ public struct AccessEntry: Codable, Sendable {
         case label = "label"
         case lastUsedAt = "lastUsedAt"
         case mode = "mode"
+        case moved = "moved"
+        case movedTo = "movedTo"
         case path = "path"
         case refused = "refused"
         case scope = "scope"
@@ -1767,7 +1823,7 @@ public struct AccessEntry: Codable, Sendable {
         case type = "type"
     }
 
-    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, path: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, moved: Bool? = nil, movedTo: String? = nil, path: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
         self.file = file
         self.grantID = grantID
         self.id = id
@@ -1775,6 +1831,8 @@ public struct AccessEntry: Codable, Sendable {
         self.label = label
         self.lastUsedAt = lastUsedAt
         self.mode = mode
+        self.moved = moved
+        self.movedTo = movedTo
         self.path = path
         self.refused = refused
         self.scope = scope
@@ -4228,6 +4286,7 @@ public struct ApprovalRequest: Codable, Sendable {
     public let id: String
     public let invalidatedReason: String?
     public let kind: ApprovalKind
+    public let machine: ComputerMachineRef?
     public let requestedAt: String
     public let requestedBy: RequestedBy
     public let requiresAuthentication: Bool
@@ -4257,6 +4316,7 @@ public struct ApprovalRequest: Codable, Sendable {
         case id = "id"
         case invalidatedReason = "invalidatedReason"
         case kind = "kind"
+        case machine = "machine"
         case requestedAt = "requestedAt"
         case requestedBy = "requestedBy"
         case requiresAuthentication = "requiresAuthentication"
@@ -4274,7 +4334,7 @@ public struct ApprovalRequest: Codable, Sendable {
         case targetKind = "targetKind"
     }
 
-    public init(bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, riskClass: RiskClass? = nil, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], setAside: Bool? = nil, sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
+    public init(bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, machine: ComputerMachineRef? = nil, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, riskClass: RiskClass? = nil, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], setAside: Bool? = nil, sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
         self.bindingHash = bindingHash
         self.decidedAt = decidedAt
         self.decidedBy = decidedBy
@@ -4287,6 +4347,7 @@ public struct ApprovalRequest: Codable, Sendable {
         self.id = id
         self.invalidatedReason = invalidatedReason
         self.kind = kind
+        self.machine = machine
         self.requestedAt = requestedAt
         self.requestedBy = requestedBy
         self.requiresAuthentication = requiresAuthentication
@@ -4345,6 +4406,23 @@ public struct FromLesson: Codable, Sendable {
         self.because = because
         self.feedbackID = feedbackID
         self.lessonID = lessonID
+    }
+}
+
+// MARK: - ComputerMachineRef
+public struct ComputerMachineRef: Codable, Sendable {
+    public let deviceID: String
+    /// No control, bidi, zero-width or invisible characters; no leading or trailing space
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case deviceID = "deviceId"
+        case name = "name"
+    }
+
+    public init(deviceID: String, name: String) {
+        self.deviceID = deviceID
+        self.name = name
     }
 }
 
@@ -9046,6 +9124,7 @@ public struct PairingRequest: Codable, Sendable {
     public let kind: PairingRequestKind
     /// Device requests: "sha256:" + hex SHA-256 of the raw Ed25519 public key the owner approves
     public let publicKeyFingerprint: String?
+    public let purpose: SetupTokenPurpose?
     /// Device requests: peer address as the Gateway saw it
     public let remoteAddress: String?
     public let senderID: String?
@@ -9065,13 +9144,14 @@ public struct PairingRequest: Codable, Sendable {
         case id = "id"
         case kind = "kind"
         case publicKeyFingerprint = "publicKeyFingerprint"
+        case purpose = "purpose"
         case remoteAddress = "remoteAddress"
         case senderID = "senderId"
         case status = "status"
         case transport = "transport"
     }
 
-    public init(channelID: String? = nil, code: String, createdAt: String, decidedAt: String? = nil, decidedByDeviceID: String? = nil, deviceID: String? = nil, display: String, expiresAt: String, id: String, kind: PairingRequestKind, publicKeyFingerprint: String? = nil, remoteAddress: String? = nil, senderID: String? = nil, status: PairingStatus, transport: PairingRequestTransport? = nil) {
+    public init(channelID: String? = nil, code: String, createdAt: String, decidedAt: String? = nil, decidedByDeviceID: String? = nil, deviceID: String? = nil, display: String, expiresAt: String, id: String, kind: PairingRequestKind, publicKeyFingerprint: String? = nil, purpose: SetupTokenPurpose? = nil, remoteAddress: String? = nil, senderID: String? = nil, status: PairingStatus, transport: PairingRequestTransport? = nil) {
         self.channelID = channelID
         self.code = code
         self.createdAt = createdAt
@@ -9083,6 +9163,7 @@ public struct PairingRequest: Codable, Sendable {
         self.id = id
         self.kind = kind
         self.publicKeyFingerprint = publicKeyFingerprint
+        self.purpose = purpose
         self.remoteAddress = remoteAddress
         self.senderID = senderID
         self.status = status
@@ -9093,6 +9174,11 @@ public struct PairingRequest: Codable, Sendable {
 public enum PairingRequestKind: String, Codable, Sendable {
     case channelSender = "channel-sender"
     case device = "device"
+}
+
+public enum SetupTokenPurpose: String, Codable, Sendable {
+    case device = "device"
+    case machine = "machine"
 }
 
 public enum PairingStatus: String, Codable, Sendable {
@@ -10605,12 +10691,6 @@ public struct CompactionBlock: Codable, Sendable {
 
 public enum CompactionBlockType: String, Codable, Sendable {
     case compaction = "compaction"
-}
-
-public enum ComputerSurface: String, Codable, Sendable {
-    case direct = "direct"
-    case separateDesktop = "separate_desktop"
-    case virtualScreen = "virtual_screen"
 }
 
 // MARK: - ComputerWatchParkedPayload
@@ -13573,19 +13653,24 @@ public struct DevicesRevokeSelfResult: Codable, Sendable {
 // MARK: - DevicesSetupTokenCreateParams
 public struct DevicesSetupTokenCreateParams: Codable, Sendable {
     public let approvalID: String?
+    public let purpose: SetupTokenPurpose?
     /// What the computer that uses the token gets, chosen by the owner now; never `node`.
-    /// `operator.admin` only when the owner ticks it
-    public let scopes: [SetupTokenScope]
+    /// `operator.admin` only when the owner ticks it. Required for purpose `device` (the
+    /// default); omitted for purpose `machine`, whose scopes are always ["node"] (see
+    /// setupTokenScopesFor)
+    public let scopes: [SetupTokenScope]?
     public let via: SetupTokenVia?
 
     public enum CodingKeys: String, CodingKey {
         case approvalID = "approvalId"
+        case purpose = "purpose"
         case scopes = "scopes"
         case via = "via"
     }
 
-    public init(approvalID: String? = nil, scopes: [SetupTokenScope], via: SetupTokenVia? = nil) {
+    public init(approvalID: String? = nil, purpose: SetupTokenPurpose? = nil, scopes: [SetupTokenScope]? = nil, via: SetupTokenVia? = nil) {
         self.approvalID = approvalID
+        self.purpose = purpose
         self.scopes = scopes
         self.via = via
     }
@@ -13608,9 +13693,11 @@ public struct DevicesSetupTokenCreateResult: Codable, Sendable {
     public let gatewayFingerprint: String
     public let gatewayURL: String
     public let hostName: String
-    /// psyche-pair:v1 link (gatewayUrl, gatewayFingerprint, setupToken, hostName) for an
-    /// address, or psyche-pair:v2 link (gatewayUrl, gatewayKey, certPin, setupToken, hostName)
-    /// for the LAN; nothing else. The token appears only here, once
+    /// For purpose machine, a psyche-machine:v1 link instead (gatewayUrl, gatewayKey, certPin?,
+    /// setupToken, hostName). Otherwise: psyche-pair:v1 link (gatewayUrl, gatewayFingerprint,
+    /// setupToken, hostName) for an address, or psyche-pair:v2 link (gatewayUrl, gatewayKey,
+    /// certPin, setupToken, hostName) for the LAN; nothing else. The token appears only here,
+    /// once
     public let link: String
     public let setupToken: SetupTokenInfo
     /// 1 or 2: which link format `link` is
@@ -13640,8 +13727,9 @@ public struct SetupTokenInfo: Codable, Sendable {
     public let createdAt: String
     public let expiresAt: String
     public let id: String
+    public let purpose: SetupTokenPurpose?
     public let revokedAt: String?
-    public let scopes: [SetupTokenScope]
+    public let scopes: [DeviceScope]
     public let status: SetupTokenInfoStatus
     public let usedAt: String?
     public let usedByDeviceID: String?
@@ -13650,6 +13738,7 @@ public struct SetupTokenInfo: Codable, Sendable {
         case createdAt = "createdAt"
         case expiresAt = "expiresAt"
         case id = "id"
+        case purpose = "purpose"
         case revokedAt = "revokedAt"
         case scopes = "scopes"
         case status = "status"
@@ -13657,10 +13746,11 @@ public struct SetupTokenInfo: Codable, Sendable {
         case usedByDeviceID = "usedByDeviceId"
     }
 
-    public init(createdAt: String, expiresAt: String, id: String, revokedAt: String? = nil, scopes: [SetupTokenScope], status: SetupTokenInfoStatus, usedAt: String? = nil, usedByDeviceID: String? = nil) {
+    public init(createdAt: String, expiresAt: String, id: String, purpose: SetupTokenPurpose? = nil, revokedAt: String? = nil, scopes: [DeviceScope], status: SetupTokenInfoStatus, usedAt: String? = nil, usedByDeviceID: String? = nil) {
         self.createdAt = createdAt
         self.expiresAt = expiresAt
         self.id = id
+        self.purpose = purpose
         self.revokedAt = revokedAt
         self.scopes = scopes
         self.status = status
@@ -18677,6 +18767,7 @@ public struct LibraryItemChangedPayload: Codable, Sendable {
 public enum LibraryItemChangedPayloadChange: String, Codable, Sendable {
     case created = "created"
     case deleted = "deleted"
+    case updated = "updated"
 }
 
 // MARK: - LibraryListParams
@@ -18685,6 +18776,7 @@ public struct LibraryListParams: Codable, Sendable {
     public let cursor: String?
     public let kind: LibraryItemKind?
     public let limit: Int?
+    public let quarantined: Bool?
     public let query: String?
     public let taskID: String?
     public let threadID: String?
@@ -18693,15 +18785,17 @@ public struct LibraryListParams: Codable, Sendable {
         case cursor = "cursor"
         case kind = "kind"
         case limit = "limit"
+        case quarantined = "quarantined"
         case query = "query"
         case taskID = "taskId"
         case threadID = "threadId"
     }
 
-    public init(cursor: String? = nil, kind: LibraryItemKind? = nil, limit: Int? = nil, query: String? = nil, taskID: String? = nil, threadID: String? = nil) {
+    public init(cursor: String? = nil, kind: LibraryItemKind? = nil, limit: Int? = nil, quarantined: Bool? = nil, query: String? = nil, taskID: String? = nil, threadID: String? = nil) {
         self.cursor = cursor
         self.kind = kind
         self.limit = limit
+        self.quarantined = quarantined
         self.query = query
         self.taskID = taskID
         self.threadID = threadID
@@ -18721,6 +18815,43 @@ public struct LibraryListResult: Codable, Sendable {
     public init(items: [LibraryItem], nextCursor: String? = nil) {
         self.items = items
         self.nextCursor = nextCursor
+    }
+}
+
+// MARK: - LibraryQuarantineDecideParams
+public struct LibraryQuarantineDecideParams: Codable, Sendable {
+    public let decision: LibraryQuarantineDecision
+    public let itemID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case decision = "decision"
+        case itemID = "itemId"
+    }
+
+    public init(decision: LibraryQuarantineDecision, itemID: String) {
+        self.decision = decision
+        self.itemID = itemID
+    }
+}
+
+public enum LibraryQuarantineDecision: String, Codable, Sendable {
+    case delete = "delete"
+    case trust = "trust"
+}
+
+// MARK: - LibraryQuarantineDecideResult
+public struct LibraryQuarantineDecideResult: Codable, Sendable {
+    public let item: LibraryItem?
+    public let ok: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case item = "item"
+        case ok = "ok"
+    }
+
+    public init(item: LibraryItem? = nil, ok: Bool) {
+        self.item = item
+        self.ok = ok
     }
 }
 
@@ -18885,6 +19016,198 @@ public struct LogLine: Codable, Sendable {
         self.msg = msg
         self.subsystem = subsystem
         self.ts = ts
+    }
+}
+
+// MARK: - MachinesChangedPayload
+public struct MachinesChangedPayload: Codable, Sendable {
+    public let change: MachineChange
+    public let machine: MachineInfo
+
+    public enum CodingKeys: String, CodingKey {
+        case change = "change"
+        case machine = "machine"
+    }
+
+    public init(change: MachineChange, machine: MachineInfo) {
+        self.change = change
+        self.machine = machine
+    }
+}
+
+public enum MachineChange: String, Codable, Sendable {
+    case added = "added"
+    case removed = "removed"
+    case updated = "updated"
+}
+
+// MARK: - MachineInfo
+public struct MachineInfo: Codable, Sendable {
+    public let account: MachineAccount
+    public let deviceID: String
+    public let display: MachineDisplay?
+    public let exec: Exec
+    public let files: Files
+    public let helperVersion: String?
+    public let id: String
+    public let lastSeenAt: String?
+    /// No control, bidi, zero-width or invisible characters; no leading or trailing space
+    public let name: String
+    public let passwordlessSudo: Bool
+    /// `linux` today
+    public let platform: String
+    public let policyOwner: MachinePolicyOwner
+    public let status: NodeStatus
+    public let surfaces: [ComputerSurface]
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case deviceID = "deviceId"
+        case display = "display"
+        case exec = "exec"
+        case files = "files"
+        case helperVersion = "helperVersion"
+        case id = "id"
+        case lastSeenAt = "lastSeenAt"
+        case name = "name"
+        case passwordlessSudo = "passwordlessSudo"
+        case platform = "platform"
+        case policyOwner = "policyOwner"
+        case status = "status"
+        case surfaces = "surfaces"
+    }
+
+    public init(account: MachineAccount, deviceID: String, display: MachineDisplay? = nil, exec: Exec, files: Files, helperVersion: String? = nil, id: String, lastSeenAt: String? = nil, name: String, passwordlessSudo: Bool, platform: String, policyOwner: MachinePolicyOwner, status: NodeStatus, surfaces: [ComputerSurface]) {
+        self.account = account
+        self.deviceID = deviceID
+        self.display = display
+        self.exec = exec
+        self.files = files
+        self.helperVersion = helperVersion
+        self.id = id
+        self.lastSeenAt = lastSeenAt
+        self.name = name
+        self.passwordlessSudo = passwordlessSudo
+        self.platform = platform
+        self.policyOwner = policyOwner
+        self.status = status
+        self.surfaces = surfaces
+    }
+}
+
+public enum MachineAccount: String, Codable, Sendable {
+    case dedicated = "dedicated"
+    case own = "own"
+}
+
+public enum MachineDisplay: String, Codable, Sendable {
+    case container = "container"
+    case desktopSession = "desktop_session"
+    case headless = "headless"
+}
+
+// MARK: - Exec
+public struct Exec: Codable, Sendable {
+    public let contained: Bool
+    public let enabled: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case contained = "contained"
+        case enabled = "enabled"
+    }
+
+    public init(contained: Bool, enabled: Bool) {
+        self.contained = contained
+        self.enabled = enabled
+    }
+}
+
+// MARK: - Files
+public struct Files: Codable, Sendable {
+    public let roots: [MachineFileRoot]
+
+    public enum CodingKeys: String, CodingKey {
+        case roots = "roots"
+    }
+
+    public init(roots: [MachineFileRoot]) {
+        self.roots = roots
+    }
+}
+
+// MARK: - MachineFileRoot
+public struct MachineFileRoot: Codable, Sendable {
+    public let mode: FolderModeEnum
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case mode = "mode"
+        case path = "path"
+    }
+
+    public init(mode: FolderModeEnum, path: String) {
+        self.mode = mode
+        self.path = path
+    }
+}
+
+public enum MachinePolicyOwner: String, Codable, Sendable {
+    case root = "root"
+    case user = "user"
+}
+
+public enum NodeStatus: String, Codable, Sendable {
+    case degraded = "degraded"
+    case offline = "offline"
+    case online = "online"
+}
+
+public enum ComputerSurface: String, Codable, Sendable {
+    case direct = "direct"
+    case separateDesktop = "separate_desktop"
+    case virtualScreen = "virtual_screen"
+}
+
+// MARK: - MachinesListResult
+public struct MachinesListResult: Codable, Sendable {
+    public let machines: [MachineInfo]
+
+    public enum CodingKeys: String, CodingKey {
+        case machines = "machines"
+    }
+
+    public init(machines: [MachineInfo]) {
+        self.machines = machines
+    }
+}
+
+// MARK: - MachinesRenameParams
+public struct MachinesRenameParams: Codable, Sendable {
+    public let id: String
+    /// No control, bidi, zero-width or invisible characters; no leading or trailing space
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case name = "name"
+    }
+
+    public init(id: String, name: String) {
+        self.id = id
+        self.name = name
+    }
+}
+
+// MARK: - MachinesRenameResult
+public struct MachinesRenameResult: Codable, Sendable {
+    public let machine: MachineInfo
+
+    public enum CodingKeys: String, CodingKey {
+        case machine = "machine"
+    }
+
+    public init(machine: MachineInfo) {
+        self.machine = machine
     }
 }
 
@@ -21884,6 +22207,24 @@ public struct MemoryGraphForgetAllResult: Codable, Sendable {
     }
 }
 
+// MARK: - MemoryGraphMapParams
+public struct MemoryGraphMapParams: Codable, Sendable {
+    /// Only these entity kinds
+    public let kinds: [SearchEntityType]?
+    /// At most this many entities, most important first (default 2000)
+    public let limit: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case kinds = "kinds"
+        case limit = "limit"
+    }
+
+    public init(kinds: [SearchEntityType]? = nil, limit: Int? = nil) {
+        self.kinds = kinds
+        self.limit = limit
+    }
+}
+
 // MARK: - MemoryImportParams
 public struct MemoryImportParams: Codable, Sendable {
     public let content: String?
@@ -22440,6 +22781,99 @@ public struct MemoryLoopsUpdateResult: Codable, Sendable {
 
     public init(loop: GraphLoop) {
         self.loop = loop
+    }
+}
+
+// MARK: - MemoryMap
+public struct MemoryMap: Codable, Sendable {
+    public let edges: [MemoryMapEdge]
+    public let nodes: [MemoryMapNode]
+    /// Entities in the store before the cap
+    public let total: Int
+    /// The least important entities were left out
+    public let truncated: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case edges = "edges"
+        case nodes = "nodes"
+        case total = "total"
+        case truncated = "truncated"
+    }
+
+    public init(edges: [MemoryMapEdge], nodes: [MemoryMapNode], total: Int, truncated: Bool) {
+        self.edges = edges
+        self.nodes = nodes
+        self.total = total
+        self.truncated = truncated
+    }
+}
+
+// MARK: - MemoryMapEdge
+public struct MemoryMapEdge: Codable, Sendable {
+    public let a: String
+    public let b: String
+    public let kind: MemoryMapEdgeKind
+    /// Strength 0..1
+    public let weight: Double
+
+    public enum CodingKeys: String, CodingKey {
+        case a = "a"
+        case b = "b"
+        case kind = "kind"
+        case weight = "weight"
+    }
+
+    public init(a: String, b: String, kind: MemoryMapEdgeKind, weight: Double) {
+        self.a = a
+        self.b = b
+        self.kind = kind
+        self.weight = weight
+    }
+}
+
+/// works_on: member, stakeholder, employer or part-of relation; met_in: attended or shared a
+/// meeting about it; co_mentioned: appeared in several of the same interactions; related:
+/// any other accepted relation
+public enum MemoryMapEdgeKind: String, Codable, Sendable {
+    case coMentioned = "co_mentioned"
+    case metIn = "met_in"
+    case related = "related"
+    case worksOn = "works_on"
+}
+
+// MARK: - MemoryMapNode
+public struct MemoryMapNode: Codable, Sendable {
+    public let id: String
+    public let kind: SearchEntityType
+    public let lastInteractionAt: String?
+    public let name: String
+    public let pinned: Bool
+    public let memoryMapNodePrivate: Bool?
+    /// A person the owner used to be in touch with and has not heard from in a while
+    public let quiet: Bool?
+    /// Importance 0..1 from recency, frequency, pins, open loops and links
+    public let weight: Double
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case kind = "kind"
+        case lastInteractionAt = "lastInteractionAt"
+        case name = "name"
+        case pinned = "pinned"
+        case memoryMapNodePrivate = "private"
+        case quiet = "quiet"
+        case weight = "weight"
+    }
+
+    public init(id: String, kind: SearchEntityType, lastInteractionAt: String? = nil, name: String, pinned: Bool, memoryMapNodePrivate: Bool? = nil, quiet: Bool? = nil, weight: Double) {
+        self.id = id
+        self.kind = kind
+        self.lastInteractionAt = lastInteractionAt
+        self.name = name
+        self.pinned = pinned
+        self.memoryMapNodePrivate = memoryMapNodePrivate
+        self.quiet = quiet
+        self.weight = weight
     }
 }
 
@@ -24948,6 +25382,7 @@ public struct Receipt: Codable, Sendable {
     public let id: String
     /// ApprovalKind vocabulary plus read kinds
     public let kind: String
+    public let machine: ComputerMachineRef?
     public let outcome: ReceiptOutcome
     public let payload: [String: JSONAny]?
     /// Client-visible short id for the receipt line
@@ -24962,6 +25397,7 @@ public struct Receipt: Codable, Sendable {
         case externalRefs = "externalRefs"
         case id = "id"
         case kind = "kind"
+        case machine = "machine"
         case outcome = "outcome"
         case payload = "payload"
         case shortID = "shortId"
@@ -24970,12 +25406,13 @@ public struct Receipt: Codable, Sendable {
         case toolCallID = "toolCallId"
     }
 
-    public init(approvalID: String? = nil, createdAt: String, externalRefs: [String: ExternalRef], id: String, kind: String, outcome: ReceiptOutcome, payload: [String: JSONAny]? = nil, shortID: String? = nil, summary: String, taskID: String? = nil, toolCallID: String? = nil) {
+    public init(approvalID: String? = nil, createdAt: String, externalRefs: [String: ExternalRef], id: String, kind: String, machine: ComputerMachineRef? = nil, outcome: ReceiptOutcome, payload: [String: JSONAny]? = nil, shortID: String? = nil, summary: String, taskID: String? = nil, toolCallID: String? = nil) {
         self.approvalID = approvalID
         self.createdAt = createdAt
         self.externalRefs = externalRefs
         self.id = id
         self.kind = kind
+        self.machine = machine
         self.outcome = outcome
         self.payload = payload
         self.shortID = shortID
@@ -25063,21 +25500,20 @@ public struct NodeInfo: Codable, Sendable {
 /// win-helper: the Windows helper on the Host (the node socket plus the handshake secret).
 /// host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux
 /// linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper
-/// inside a separate desktop (container or VM).
+/// inside a separate desktop (container or VM). machine: a separate computer that runs only
+/// the helper and that the owner paired so the agent can use its screen, apps, shell and
+/// files (docs/design/linux-helper-only-2026.md). SECURITY: the owner's approval is the only
+/// way a device becomes a machine; a node can never declare this kind in its own handshake
+/// or manifest, and the Gateway sets it from the stored decision (wave H3).
 public enum NodeKind: String, Codable, Sendable {
     case guest = "guest"
     case hostHelper = "host-helper"
     case macHelper = "mac-helper"
+    case machine = "machine"
     case phone = "phone"
     case remote = "remote"
     case vmGuest = "vm-guest"
     case winHelper = "win-helper"
-}
-
-public enum NodeStatus: String, Codable, Sendable {
-    case degraded = "degraded"
-    case offline = "offline"
-    case online = "online"
 }
 
 // MARK: - NodesCapabilitiesParams
@@ -27995,6 +28431,7 @@ public struct RunStep: Codable, Sendable {
     public let inputRequestID: String?
     public let kind: RunStepKind
     public let label: String
+    public let machine: ComputerMachineRef?
     public let memoryPath: String?
     public let modelRef: String?
     public let parentStepID: String?
@@ -28028,6 +28465,7 @@ public struct RunStep: Codable, Sendable {
         case inputRequestID = "inputRequestId"
         case kind = "kind"
         case label = "label"
+        case machine = "machine"
         case memoryPath = "memoryPath"
         case modelRef = "modelRef"
         case parentStepID = "parentStepId"
@@ -28046,7 +28484,7 @@ public struct RunStep: Codable, Sendable {
         case usage = "usage"
     }
 
-    public init(approvalID: String? = nil, artifactID: String? = nil, attempt: Int, attempts: [RunStepAttempt]? = nil, childRunID: String? = nil, doneLabel: String? = nil, endedAt: String? = nil, error: RunStepError? = nil, frames: Frames? = nil, groupID: String? = nil, id: String, inputRequestID: String? = nil, kind: RunStepKind, label: String, memoryPath: String? = nil, modelRef: String? = nil, parentStepID: String? = nil, payloadRef: PayloadRef? = nil, preview: Preview? = nil, progress: Progress? = nil, receiptID: String? = nil, runID: String, seq: Int, startedAt: String, status: RunStepStatus, target: String? = nil, taskID: String? = nil, text: Text? = nil, toolCallID: String? = nil, usage: Usage? = nil) {
+    public init(approvalID: String? = nil, artifactID: String? = nil, attempt: Int, attempts: [RunStepAttempt]? = nil, childRunID: String? = nil, doneLabel: String? = nil, endedAt: String? = nil, error: RunStepError? = nil, frames: Frames? = nil, groupID: String? = nil, id: String, inputRequestID: String? = nil, kind: RunStepKind, label: String, machine: ComputerMachineRef? = nil, memoryPath: String? = nil, modelRef: String? = nil, parentStepID: String? = nil, payloadRef: PayloadRef? = nil, preview: Preview? = nil, progress: Progress? = nil, receiptID: String? = nil, runID: String, seq: Int, startedAt: String, status: RunStepStatus, target: String? = nil, taskID: String? = nil, text: Text? = nil, toolCallID: String? = nil, usage: Usage? = nil) {
         self.approvalID = approvalID
         self.artifactID = artifactID
         self.attempt = attempt
@@ -28061,6 +28499,7 @@ public struct RunStep: Codable, Sendable {
         self.inputRequestID = inputRequestID
         self.kind = kind
         self.label = label
+        self.machine = machine
         self.memoryPath = memoryPath
         self.modelRef = modelRef
         self.parentStepID = parentStepID
@@ -38779,6 +39218,7 @@ public typealias FilesStarterFoldersParams = [String: JSONAny]
 public typealias GatewayInfoParams = [String: JSONAny]
 public typealias GrowthUpdatedPayload = [String: JSONAny]
 public typealias KeysStatusParams = [String: JSONAny]
+public typealias MachinesListParams = [String: JSONAny]
 public typealias MCPStatusParams = [String: JSONAny]
 public typealias MeetingsRecordPushResult = [String: JSONAny]
 public typealias MeetingsRecordStatusParams = [String: JSONAny]

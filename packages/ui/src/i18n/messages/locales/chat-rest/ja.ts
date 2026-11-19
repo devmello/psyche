@@ -133,6 +133,8 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.approval": "承認待ち: {summary}",
   "chat.steps.question": "質問: {question}",
   "chat.steps.answered": "回答: {question}",
+  "chat.steps.earlier": "{n, plural, other {以前の # ステップが完了}}",
+  "chat.steps.needsYou": "確認が必要です",
   "chat.steps.writing": "返信を作成中…",
   "chat.steps.thinking": "思考中: {text}",
   "chat.steps.thinkingEmpty": "思考中…",

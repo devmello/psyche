@@ -113,6 +113,7 @@ import { alertNotice, alertNotifyDecision } from "../security/alerts.ts";
 import { sealedPermissionStore } from "../security/sealed-stores.ts";
 import { StateSeal } from "../security/state-seal.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
+import { reencodeToolImage } from "../session/image-resize.ts";
 import { BusySources, UpdateGate } from "../update-gate.ts";
 import {
   API_KEY_IDS,
@@ -150,11 +151,12 @@ import { DeferredResume } from "./deferred-resume.ts";
 import { composeDeviceNotifications, DeviceNotifications } from "./device-notify.ts";
 import { composeDictation } from "./dictation.ts";
 import { composeEverything, type Everything, everythingSettings } from "./everything.ts";
+import { readSystemState } from "./everything-probe.ts";
 import { type ExecHostDeps, execHostTool } from "./exec-host.ts";
 import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
 import { migrateFilesConnector } from "./files-migration.ts";
-import { withFolder } from "./folder-access.ts";
+import { withFolder, withRecordedReal } from "./folder-access.ts";
 import { usesSandboxPc } from "./guest-sandbox.ts";
 import {
   mountParamsOnly,
@@ -714,9 +716,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const attention = new OwnerAttention(() => clock.now());
   // `Always allow` on a folder request lands in Settings → File access (permissions.policy.folders).
   const persistFolder = async (entry: FolderGrantEntry) => {
+    // A pick is already its real path: that is where the grant was made (`grantedRootRefused`).
     const next = withFolder(
       validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger) ?? {},
-      entry,
+      { ...entry, real: entry.path },
     );
     const saved = setSetting(db, "permissions.policy", next);
     rawBroker.setPolicy(hostPolicy(next, db));
@@ -734,6 +737,31 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     publish("settings.changed", { entries: [saved] });
     return true;
   };
+  // A Settings folder granted before real paths were recorded: the first real path the broker
+  // saw for it (while it still counted) is stored with it, so a later move survives a restart.
+  // With `by`, the owner confirmed a moved folder in Settings: reported like the security setting
+  // change a policy write is (change record, setting listeners).
+  const recordFolderReal = (path: string, real: string, by?: { deviceId: string }) => {
+    const current = validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger);
+    const next = current === undefined ? undefined : withRecordedReal(current, path, real);
+    if (next === undefined) return;
+    const before = getSetting(db, "permissions.policy")?.value;
+    const saved = setSetting(db, "permissions.policy", next);
+    rawBroker.setPolicy(hostPolicy(next, db));
+    publish("settings.changed", { entries: [saved] });
+    if (by !== undefined) {
+      try {
+        gwOptions.onSettingChanged?.({
+          key: "permissions.policy",
+          before,
+          after: next,
+          deviceId: by.deviceId,
+        });
+      } catch {
+        // Reporting never fails the change.
+      }
+    }
+  };
   let deferredResumeRef: DeferredResume | undefined;
   const rawBroker = new PsychePermissionBroker({
     folderAccess: {
@@ -742,6 +770,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       separateDesktopEnv: () => separateDesktopFolderEnv(config.home),
       persist: persistFolder,
       remove: forgetFolder,
+      recordReal: recordFolderReal,
     },
     channelConversations: (ref) => channelConversations.get(ref),
     approvers: {
@@ -1130,6 +1159,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         ...rawBroker.grantedFolders(),
         ...rawBroker.liveSessionFolders(threadId),
       ],
+      // One live look per root at a time, bounded: a hung mount does not fill the libuv pool.
+      lookRoot: (path) => rawBroker.lookRootNow(path),
       srt: execHostSrt,
       home: config.home,
       audit,
@@ -1484,6 +1515,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     provider,
     model: utility ?? modelRef,
     active: utility !== undefined,
+    // One learner call per thread per half minute; quicker turns are sent together.
+    // (Tests run with background off and learn on every turn.)
+    minIntervalMs: background ? 30_000 : 0,
     redactor,
     audit,
     broker: executorBroker,
@@ -1565,6 +1599,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   teachingRef = teaching;
   parts.push(teaching.part);
   const loop = createAgentLoop({
+    // Screenshots and MCP images are decoded and re-encoded (cut to 1568 px) before the model sees
+    // or the thread keeps them; one that cannot be decoded becomes a note.
+    toolImageShaper: (bytes, mime, signal) =>
+      reencodeToolImage(bytes, mime, undefined, undefined, signal),
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
     state: new SqliteThreadStateStore(db, redactor, config.home, (threadId, state) =>
       // A life-answer preamble built for a local model is rebuilt before a cloud model reads it.
@@ -2002,6 +2040,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       }),
       files: filesSourceDeps({
         folders: () => rawBroker.grantedFolders(),
+        // The indexer follows the roots itself: only roots looked at within the fresh window.
+        freshFolders: () => rawBroker.freshGrantedFolders(),
         // Vision OCR in the Mac helper (opt-in per source), one file at a time, on power only.
         ocr: { recognize: helperRecognizer(ocrHelper), power },
       }),
@@ -2025,10 +2065,21 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     },
     // `search.semantic.engine: router`: the `embedding` role; a cloud one only with allowCloud (S4).
     routerEmbedder: (allowCloud) => routerEmbedder(router, allowCloud),
-    // Context cards at ingest: the utility model (cheap), a few items per minute, a daily budget.
+    // Context cards at ingest: a background job, so a cheap model only (the owner's utility pick or
+    // the provider's own cheap default, never the primary), one bounded step every 10 minutes, on AC
+    // power with the Mac idle, within a daily budget.
     // `search.model.engine: apple` moves all three jobs to Apple's on-device model (fail closed).
     engine: searchModelEngine,
-    cards: { provider: searchModels, model: utility ?? modelRef },
+    cards: {
+      provider: searchModels,
+      model: () =>
+        searchModelEngine() === "apple"
+          ? (utility ?? modelRef)
+          : router === undefined
+            ? utility
+            : router.utilityRef(),
+      readState: () => readSystemState(),
+    },
     // Cloud rerank of the top hits: the utility model, only when one is set and the owner opts in.
     ...(utility === undefined ? {} : { rerank: { provider: searchModels, model: utility } }),
     // Plain-English questions the rules cannot filter: the utility model, only when one is set.
@@ -2230,7 +2281,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       },
     }),
     ...attentionHandlers(attention),
-    ...libraryHandlers({ db, home: config.home }),
+    ...libraryHandlers({ db, home: config.home, audit }),
     ...modelSettingsHandlers(modelSettings),
     ...apiKeyHandlers({
       vault: () => vault.vault,
@@ -2390,6 +2441,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     gwOptions.logger?.log("warn", msg, fields),
   );
   ownPorts.add(gateway.port, "gateway (bound)");
+  // The granted roots' first looks, before the indexer, the work sweep and the folder watchers
+  // start (bounded: a hung mount must not hold the start; those roots stay out until looked at).
+  await rawBroker.foldersSettled(2_000);
   for (const part of parts) await part.start?.(gateway);
   // Ask about this (Feed) and a search result in a side chat: `chat.send.context` names what the
   // agent reads as data (a search result by what the index holds, not what the window says).

@@ -33,6 +33,7 @@ Use `start_session` with `initiation: "user_asked"` (the owner asked for the wor
 Invoke the psyche-builder skill first.
 
 Task: <what the owner asked, in their words where it matters>
+Check main first: <the one-line check, e.g. `git log origin/main -S'<name>'`>. If it is already there, report the commit and stop.
 Where: <files, functions, error strings you already found>
 What I already know: <evidence, ruled-out causes, decisions the owner made>
 Done means: <observable checks>
@@ -41,7 +42,7 @@ Out of scope: <neighbouring areas other sessions own>
 
 - The `/goal` line must come first, so the session sets a goal. The goal evaluator only reads the conversation, so the condition has to be something the builder's messages can show, plus a turn cap.
 - Pass explicit file lists; an empty one runs a whole suite.
-- Before you dispatch a list of follow-ups, check each against main. Two of them were non-issues (see `psyche-permissions` learnings).
+- **Check main yourself before you dispatch each follow-up** (`git log origin/main -S'<identifier>'`, or read the code), and put the "check main first" line in the brief. Stale dispatches so far: the cross-window lockout, "helper quits with Psyche" and the web-client copy (#1392) were already done.
 - Put file paths and identifiers in backticks. Give every finding you already have, so the builder doesn't rediscover it.
 - `background` restates the product context and the owner's relevant decisions, for someone who has never seen this conversation.
 
@@ -64,13 +65,13 @@ Out of scope: <neighbouring areas other sessions own>
 
 - **Two PRs on the same UI or module:** before the second merges, merge `origin/main` into it and re-run the first PR's tests (#1325 and #1328 broke main until #1331).
 - **New action path:** for a PR that adds a tool or route that acts, put "check against every existing prohibition" into the review brief (#1315 skipped #1321's block).
-- **Brief wording by area:** decoder or redaction: three-way fuzz (before, main, head) with counts (#1342, #1345). Bulk-approval set: "allowlist". UI test of approvals or grants: "real Gateway shapes" (#1346). Persistence or a new approval/answer field: "real SQLite round trip" (#1333, #1355). Redacting getter: "the raw setter must refuse or merge-preserve" (#1351). Exec/path/name lists: "fold NFKC + case, `realpathSync.native`, path flags and option values, fail closed" (#1361); argv classifiers: "probe each value letter against the real binary, `--` as a value, abbreviations" (#1368, #1372). Event reordering: "subscriber map" (#1364). Grants: "equality match, nlink, expiry in every accessor, real handlers" (#1366). Vault writes: "check the slug is ours" (#1373).
+- **Brief wording by area:** decoder or redaction: three-way fuzz (before, main, head) with counts (#1342, #1345). Bulk-approval set: "allowlist". UI test of approvals or grants: "real Gateway shapes" (#1346). Persistence or a new approval/answer field: "real SQLite round trip" (#1333, #1355). Redacting getter: "the raw setter must refuse or merge-preserve" (#1351). Exec/path/name lists: "fold NFKC + case, `realpathSync.native`, path flags and option values, fail closed" (#1361); argv classifiers: "probe each value letter against the real binary, `--` as a value, abbreviations" (#1368, #1372). Event reordering: "subscriber map" (#1364). Grants: "equality match, nlink, expiry in every accessor, real handlers" (#1366). Vault writes: "check the slug is ours" (#1373). Owner text to a model: "redact, then truncate; real redactor" (#1407). Cache or fingerprint: "same-ms write, clock step, rowid reuse; frozen clock" (#1396). Idle stop or wake: "in-flight counting; same pre-start checks" (#1401, #1402). Granted roots: "use-time re-check, magic prefixes, swapped parent" (#1384, #1395).
 - **Merge gate:** full `verify.sh` runs touched tests and their same-named siblings only. A PR that changes widely imported or security code still needs `--related` once, or the importer tests named in the brief (#1361: 9 failures hid until the orchestrator ran them).
 - **Reviewer says "fit to merge" but lists medium non-blocking findings that contradict the PR's own claims** (docs or tests saying a grant ends at `/new` when it doesn't): send them back to the builder before merging (#1366 r1, fixed in r2 and r3).
 - **Conflict with main in a shared file** (`broker.ts`): resolve it in the builder's worktree, rerun the touched and sibling tests, and run one full verify.
 - **Stale base:** if a PR you dispatched overlaps one that merged after the builder started, tell it to merge `origin/main` and re-check fixtures before review (#1360).
 - **Message files:** a PR that adds English strings naming Mac or Touch ID is not "i18n only": the platform variants and `platform-linux/windows` tests must pass (#1338 broke main).
-- **Reviewers, verifiers and builders:** run verify in the foreground, report once, and don't wait with `pgrep -f` (load 26 from duplicate verifies; repeated reports). Say that `tsc` runs only via verify or alone (load 22 with overlapping full runs and loose `tsc`). Stagger dispatches so full verifies don't queue 45+ minutes.
+- **Reviewers, verifiers and builders:** run verify in the foreground, report once, and don't wait with `pgrep -f` (load 26 from duplicate verifies; repeated reports). Say that `tsc` runs only via verify or alone (load 22 with overlapping full runs and loose `tsc`). Stagger dispatches so full verifies don't queue 45+ minutes (slots: 3 on 10+ cores since #1394). Tell builders to write verify output to a file named for the PR, run it foreground with timeout 600000 and nice, and to use PR-specific names in shared scratch dirs (`pr-body.md` and `verify2.log` were overwritten by other sessions: #1404). Remind them to run git only in their own worktree.
 
 - Merge only after step 2 passes, plus step 3 for security PRs. Standing owner authorization (2026-11-05) covers this while Actions is locked: `gh pr merge <n> --merge --admin --match-head-commit <reviewed sha>`.
 - After a merge wave, check that main still builds for touched packages, and tell the owner in plain words what changed and what they must check by hand.

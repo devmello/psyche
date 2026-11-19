@@ -18,6 +18,7 @@ import { helperOffline } from "./helper-offline/de.ts";
 import { homeRest } from "./home-rest/de.ts";
 import { links } from "./links/de.ts";
 import { mailMeetings } from "./mail-meetings/de.ts";
+import { memoryMap } from "./memory-map/de.ts";
 import { memoryRest } from "./memory-rest/de.ts";
 import { memoryReviewRest } from "./memoryReview-rest/de.ts";
 import { memorySurfacesRest } from "./memorySurfaces-rest/de.ts";
@@ -49,6 +50,7 @@ import { workflows } from "./workflows/de.ts";
 /** German catalogue (de). Same ids as `en`; missing ids fall back to English. */
 export const de: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,
@@ -898,6 +900,7 @@ export const de: Partial<Catalogue> = {
   "shell.shortcuts.addition": "Psyche-Ergänzung",
   "shell.shortcuts.description": "† markiert Psyche-Ergänzungen zur Claude-Desktop-Belegung.",
   "shell.threads.needsYou": "Braucht dich",
+  "shell.threads.nowOn": "Jetzt: {step}",
   "shell.threads.running": "Läuft",
   "shell.threads.titleField": "Thread-Titel",
   "shell.threads.incognito": "Inkognito",
@@ -1611,6 +1614,44 @@ export const de: Partial<Catalogue> = {
   "settings.channels.loadLabel": "Kanäle",
   "settings.channels.empty":
     "Noch keine Kanäle. Verbinde Telegram, iMessage oder Slack, um {persona} auch fern von diesem Mac zu erreichen.",
+  "settings.channels.add.button": "Kanal hinzufügen",
+  "settings.channels.add.title": "Kanal hinzufügen",
+  "settings.channels.add.description":
+    "Wähle, wo {persona} erreichbar sein soll. Tokens gehen direkt in den Tresor und werden nie wieder angezeigt.",
+  "settings.channels.add.type": "Kanal",
+  "settings.channels.add.account.slack": "Name des Workspace",
+  "settings.channels.add.account.discord": "Anwendungs-ID",
+  "settings.channels.add.secret.bot_token": "Bot-Token",
+  "settings.channels.add.secret.app_token": "App-Token",
+  "settings.channels.add.secret.auth_token": "Auth-Token",
+  "settings.channels.add.secret.access_token": "Zugriffstoken",
+  "settings.channels.add.secret.app_secret": "App-Geheimnis",
+  "settings.channels.add.secret.verify_token": "Verifizierungs-Token",
+  "settings.channels.add.submit": "Verbinden",
+  "settings.channels.add.connecting": "Verbinde",
+  "settings.channels.add.missing": "Fülle alle Felder aus, um zu verbinden.",
+  "settings.channels.add.failed":
+    "Psyche konnte den Kanal nicht hinzufügen ({reason}). Er ist nicht eingeschaltet.",
+  "settings.channels.add.account.sms": "Absendernummer (+15551234567)",
+  "settings.channels.add.account.whatsapp": "WhatsApp-Nummer (+15551234567)",
+  "settings.channels.add.badNumber":
+    "Gib die Nummer im internationalen Format ein, etwa +15551234567.",
+  "settings.channels.add.exists":
+    "Für {account} gibt es bereits einen {type}-Kanal, daher wurde nichts geändert.",
+  "settings.channels.add.approvalLabel": "Kanal hinzufügen",
+  "settings.channels.add.envNote":
+    "Das Gateway muss außerdem mit {env} für dieses Konto gestartet werden. Telegram, iMessage, Signal und E-Mail werden dort eingerichtet, wo das Gateway läuft; siehe die Kanal-Dokumentation.",
+  "settings.channels.add.addedInactive":
+    "Kanal hinzugefügt, läuft aber noch nicht. Setze {env} dort, wo das Gateway läuft, auf dieses Konto und starte es neu.",
+  "settings.channels.add.added":
+    "Kanal hinzugefügt. Er startet, sobald das Gateway {env} auf dieses Konto gesetzt hat. Schreibe dann {persona} darüber an, um einen Kopplungscode zu erhalten, und bestätige ihn hier.",
+  "settings.channels.add.storedNote":
+    "Für dieses Konto bereits gespeichert: {names}. Sie werden unverändert verwendet, sofern du sie nicht ersetzt.",
+  "settings.channels.add.replace": "Gespeicherte Tokens ersetzen",
+  "settings.channels.add.statusFailed":
+    "Psyche konnte nicht prüfen, welche Tokens schon gespeichert sind ({reason}). Es wurde nichts geändert.",
+  "settings.channels.add.storedTyped":
+    "Für dieses Konto sind bereits Tokens gespeichert. Hake „Gespeicherte Tokens ersetzen“ an, um die eingegebenen zu verwenden, oder leere die Felder. Es wurde nichts geändert.",
   "settings.channels.identities": "Identitätsverknüpfungen",
   "settings.channels.identitiesDescription":
     "Eine Person über Kanäle hinweg. Verknüpfungen ändern sich nur von einem gekoppelten Gerät aus.",
@@ -2068,7 +2109,7 @@ export const de: Partial<Catalogue> = {
   "settings.model.role.primaryHint": "Chat, Aufgaben und Werkzeuge",
   "settings.model.role.utility": "Hilfsmodell",
   "settings.model.role.utilityHint":
-    "Titel, Zusammenfassungen und der Klassifikator im Automatikmodus",
+    "Titel, Zusammenfassungen, Suchkarten und andere Hintergrundaufgaben",
   "settings.model.role.image": "Bild",
   "settings.model.role.imageHint": "Avatar-Änderungen; „Keines“ bedeutet die mitgelieferten Wesen",
   "settings.model.addProvider": "Anbieter hinzufügen",
@@ -3092,6 +3133,22 @@ export const de: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}{editor, select, true { im Editor} other {}} öffnen",
   "screens.library.openInEditor": "Im Editor öffnen",
   "screens.library.open": "Öffnen",
+  "screens.library.deleteDownload": "Diesen Download löschen",
+  "screens.library.deleteFailed":
+    "Psyche konnte {name} nicht löschen ({reason}). Die Datei bleibt in Quarantäne.",
+  "screens.library.recording.description":
+    "Eine Wiedergabe dessen, was der Agent im Browser getan hat. Seiteninhalte wurden bei der Aufnahme geschwärzt.",
+  "screens.library.recording.play": "Abspielen",
+  "screens.library.recording.pause": "Pause",
+  "screens.library.recording.step": "Schritt {n} von {total}",
+  "screens.library.recording.scrub": "Position in der Aufnahme",
+  "screens.library.recording.steps": "Schritte",
+  "screens.library.recording.empty": "Diese Aufnahme enthält keine Schritte.",
+  "screens.library.recording.noFrame": "Für diesen Schritt gibt es kein Bild.",
+  "screens.library.recording.frameAlt": "Der Browser bei Schritt {n}",
+  "screens.library.recording.loading": "Aufnahme wird geladen",
+  "screens.library.recording.loadFailed": "Psyche konnte diese Aufnahme nicht laden ({reason}).",
+  "screens.library.recording.notFound": "Diese Aufnahme ist nicht mehr verfügbar.",
   "screens.library.trust": "Dieser Datei vertrauen",
   "screens.library.moreFor": "Weitere Aktionen für {name}",
   "screens.library.quickLook": "Übersicht",

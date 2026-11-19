@@ -20,6 +20,8 @@ import {
   Wrench,
 } from "lucide-react";
 import { type ReactElement, useState } from "react";
+import { NEEDS_YOU_ROW, NeedsYouTag } from "../chat/NeedsYou.tsx";
+import { RailNode } from "../chat/RailNode.tsx";
 import { StatusGlyph, type StatusKind } from "../components/status.tsx";
 import { t } from "../i18n/core.ts";
 import { formatDuration, formatTime, toolFamily } from "../lib/format.ts";
@@ -141,9 +143,10 @@ export function ToolCallRow({
   const family = toolFamily(block.tool);
   // A change the call made, as its receipt recorded it (`code.edit`, a file write).
   const diff = typeof receipt?.payload?.diff === "string" ? receipt.payload.diff : undefined;
+  const waiting = toolGlyph(block.status) === "waiting";
   return (
-    <li className="flex flex-col gap-1 py-1 text-body">
-      <div className="flex min-h-6 items-center gap-2">
+    <li className="flex flex-col gap-1 py-1 text-body" data-waiting={waiting ? "true" : undefined}>
+      <div className={cn("flex min-h-6 items-center gap-2", waiting && `px-2 ${NEEDS_YOU_ROW}`)}>
         <Icon className="size-4 shrink-0 text-label-secondary" aria-hidden="true">
           <title>{family}</title>
         </Icon>
@@ -152,7 +155,15 @@ export function ToolCallRow({
         <span className="shrink-0 text-callout text-label-tertiary tabular-nums">
           {duration(call) ?? ""}
         </span>
-        <StatusGlyph status={toolGlyph(block.status)} label={statusLabel(block.status)} />
+        {waiting ? (
+          <>
+            <NeedsYouTag />
+            <RailNode state="waiting" />
+            <span className="sr-only">{statusLabel(block.status)}</span>
+          </>
+        ) : (
+          <StatusGlyph status={toolGlyph(block.status)} label={statusLabel(block.status)} />
+        )}
       </div>
       {diff !== undefined ? (
         <details className="ms-6">
@@ -227,13 +238,23 @@ export function ToolRun({ items }: { items: readonly ToolCallItem[] }): ReactEle
     <div className="my-1.5" data-disclosure={DISCLOSURE_KEY[shown as 0 | 1 | 2]}>
       <button
         type="button"
-        className="-ms-1 inline-flex min-h-7 max-w-full cursor-default items-center gap-2 rounded-sm px-1 text-body text-label-secondary outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) hover:bg-fill-tertiary focus-visible:ring-2 focus-visible:ring-ring"
+        className={cn(
+          "-ms-1 inline-flex min-h-7 max-w-full cursor-default items-center gap-2 px-1 text-body text-label-secondary outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) focus-visible:ring-2 focus-visible:ring-ring",
+          glyph === "waiting" ? `px-2 ${NEEDS_YOU_ROW}` : "rounded-sm hover:bg-fill-tertiary",
+        )}
         aria-expanded={shown > 0}
         onClick={() => setExtra((e) => !e)}
       >
         <Lead className="size-4 shrink-0" aria-hidden="true" />
         <span className="truncate">{summarizeRun(items)}</span>
-        <StatusGlyph status={glyph} />
+        {glyph === "waiting" ? (
+          <>
+            <NeedsYouTag />
+            <RailNode state="waiting" />
+          </>
+        ) : (
+          <StatusGlyph status={glyph} />
+        )}
         {glyph === "running" ? (
           <span className="sr-only">{t("blocks.toolRun.runningNote")}</span>
         ) : failures > 0 ? (

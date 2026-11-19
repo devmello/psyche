@@ -34,6 +34,27 @@ import { join, resolve } from "node:path";
 export const LINUX_PACKAGED_HELPER_PATH = "/usr/lib/psyche/resources/linux-helper/psyche-helper";
 
 /**
+ * Every root-owned path a packaged Linux Host helper may run from: the desktop package's and the
+ * headless `psyche-server` package's (docs/design/linux-helper-only-2026.md, sections 7.2 and 9).
+ * The Gateway's peer check will accept a `root_owned` peer only at one of these (wave B1); until
+ * then it still reads `LINUX_PACKAGED_HELPER_PATH`, which stays as the desktop alias. A
+ * helper-only machine's own path (`/usr/lib/psyche-helper/psyche-helper`) is deliberately NOT
+ * here: a machine is never the Host helper.
+ */
+export const LINUX_PACKAGED_HELPER_PATHS: readonly string[] = [
+  LINUX_PACKAGED_HELPER_PATH,
+  "/usr/lib/psyche-server/psyche-helper",
+];
+
+/** Where the helper-only package installs the helper on a machine (deb/rpm). Never a Host helper. */
+export const LINUX_MACHINE_HELPER_PATH = "/usr/lib/psyche-helper/psyche-helper";
+
+/** Whether `path` is a packaged Host helper path (exact match; callers resolve symlinks first). */
+export function isLinuxPackagedHelperPath(path: string): boolean {
+  return LINUX_PACKAGED_HELPER_PATHS.includes(path);
+}
+
+/**
  * The name (`comm`, at most 15 bytes) the Linux helper gives itself once its start-up hardening is
  * done: descriptors closed, environment checked. Before that it still carries the name it was
  * executed under. The Gateway's peer check requires this name, so a process that is still inside

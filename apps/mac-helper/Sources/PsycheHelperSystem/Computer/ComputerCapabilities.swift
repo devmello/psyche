@@ -4,6 +4,13 @@ import Foundation
 import PsycheHelperCore
 import PsycheProtocol
 
+/// The session an in-progress computer action registered with `beginAction`, so `cap` can end it.
+final class InvocationScope: @unchecked Sendable {
+    @TaskLocal static var current: InvocationScope?
+    var session: String?
+    var token: Int?
+}
+
 /// Shared state for computer use: AX engine, tier policy, session lock and Esc stop.
 public final class ComputerUse: @unchecked Sendable {
     let engine = AXEngine()
@@ -12,8 +19,8 @@ public final class ComputerUse: @unchecked Sendable {
     public let stop = StopSignal()
     /// Owner input recency for pause-when-unwatched (#272).
     let attention = AttentionMonitor()
-    private var escTap: EscStopTap?
-    private let escLock = NSLock()
+    /// The Esc stop and attention taps, installed per session (see `SessionTaps`).
+    private(set) var taps: SessionTaps!
     private let settingsPath: String
     private let log: HelperLog
     /// True while the owner is recording a demonstration: the agent does not drive the computer then.
@@ -29,29 +36,42 @@ public final class ComputerUse: @unchecked Sendable {
     public var onUserStop: (@Sendable (String?) -> Void)?
 
     public init(environment: [String: String] = ProcessInfo.processInfo.environment, log: HelperLog) {
-        settingsPath = TierSettings.path(environment: environment)
-        policy = TierPolicy(settings: TierSettings.load(path: settingsPath), ownerInput: { [attention] in attention.lastOwnerInput })
-        sessions = ComputerSessionLock()
+        self.settingsPath = TierSettings.path(environment: environment)
+        self.policy = TierPolicy(settings: TierSettings.load(path: settingsPath), ownerInput: { [attention] in attention.lastOwnerInput })
+        self.sessions = ComputerSessionLock()
         self.log = log
+        if Input.underTestRunner { log.info("computer use: real input is disabled (test runner detected)") }
+        self.taps = SessionTaps(installer: liveInstaller(), sessions: sessions)
+        wireOverlong()
     }
 
-    /// Installs the Esc and attention taps (need Accessibility; retried on each computer-use call
-    /// until they work).
-    func ensureEscTap() {
-        attention.start()
-        escLock.lock()
-        defer { escLock.unlock() }
-        guard escTap == nil else { return }
-        let tap = EscStopTap(
-            stop: stop, isActive: { [sessions] in sessions.activeSession != nil },
+    /// Tests inject a fake installer: they must never create real event taps.
+    init(environment: [String: String], log: HelperLog, tapInstaller: any SessionTapInstaller, schedule: @escaping SessionTapScheduler = SessionTapTimer.live) {
+        self.settingsPath = TierSettings.path(environment: environment)
+        self.policy = TierPolicy(settings: TierSettings.load(path: settingsPath), ownerInput: { [attention] in attention.lastOwnerInput })
+        self.sessions = ComputerSessionLock()
+        self.log = log
+        self.taps = SessionTaps(installer: tapInstaller, sessions: sessions, schedule: schedule)
+        wireOverlong()
+    }
+
+    private func liveInstaller() -> LiveSessionTapInstaller {
+        LiveSessionTapInstaller(
+            attention: attention, stop: stop, isActive: { [sessions] in sessions.activeSession != nil },
             onStop: { [weak self] in
                 guard let self else { return }
-                let stopped = self.sessions.stopActive()
+                // Synchronous: trip the stop and drop the session. Tap removal (which takes the
+                // SessionTaps lock, possibly held for seconds by an install) runs off this callback.
+                let stopped = self.taps.stopActiveFromTap()
                 self.log.info("computer use stopped by Esc")
                 self.onUserStop?(stopped)
-            }
-        )
-        if tap.start() { escTap = tap }
+            })
+    }
+
+    /// An action past the hard cap is stopped like an Esc press.
+    private func wireOverlong() {
+        taps.onOverlong = { [stop] _ in stop.trip(reason: .timeLimit) }  // under the session lock: trip only
+        taps.afterOverlong = { [log] id in log.info("computer use action ran past the time limit; stopped session \(id)") }
     }
 
     func reloadSettings() { policy.update(TierSettings.load(path: settingsPath)) }
@@ -63,9 +83,23 @@ public final class ComputerUse: @unchecked Sendable {
         guard let session, !session.isEmpty, session.count <= 128 else {
             throw CapabilityError.invalidParams("session (the run id) is required for computer actions", field: "session")
         }
-        ensureEscTap()
         reloadSettings()
-        try sessions.acquire(session)
+        // Esc tap first, then the lock: no action runs without the Esc stop (SessionTaps.beginSession).
+        // The first call of an action also marks it in flight, atomically with taking the session:
+        // its Esc stop outlives the idle timeout and `end_session`.
+        if let scope = InvocationScope.current, scope.session == nil {
+            scope.token = try taps.beginSession(session, invocation: true)
+            scope.session = session
+        } else {
+            try taps.beginSession(session)
+        }
+    }
+
+    func endInvocation(_ scope: InvocationScope) {
+        guard let session = scope.session else { return }
+        scope.session = nil
+        taps.endInvocation(session, token: scope.token)
+        scope.token = nil
     }
 }
 
@@ -144,7 +178,14 @@ struct ActionOutcome {
 public enum ComputerCapabilities {
     /// A capability whose body runs as one stoppable invocation (Esc stops it, not later ones).
     static func cap(_ cu: ComputerUse, _ spec: CapabilitySpec, _ body: @escaping @Sendable (InvocationContext) async throws -> CapabilityOutput) -> Capability {
-        Capability(withApprovalParam(spec)) { ctx in try await cu.stop.run { try await body(ctx) } }
+        Capability(withApprovalParam(spec)) { ctx in
+            let scope = InvocationScope()
+            return try await InvocationScope.$current.withValue(scope) {
+                // However the body ends, the in-flight mark is cleared and a deferred end_session completes.
+                defer { cu.endInvocation(scope) }
+                return try await cu.stop.run { try await body(ctx) }
+            }
+        }
     }
 
     /// Every computer-use call may carry `approval {app, tier}`: what the Gateway's card covered (#267).
@@ -201,7 +242,6 @@ public enum ComputerCapabilities {
             let isMenu = !(p.menuPath ?? []).isEmpty
             // A role is required (`generic` means any): a name alone would match the wrong kind of element.
             guard isMenu || !(p.role ?? "").isEmpty else { throw CapabilityError.invalidParams("role is required", field: "role") }
-            cu.ensureEscTap()
             cu.reloadSettings()
             let app = try AXEngine.findApp(p.app, pid: nil)
             try cu.policy.authorize(.read, bundleId: app.bundleIdentifier, appName: app.localizedName ?? "app", approval: binding(ctx))
@@ -303,7 +343,6 @@ public enum ComputerCapabilities {
             permissions: [.accessibility]
         )) { ctx in
             let p = try ctx.decode(SnapshotParams.self)
-            cu.ensureEscTap()
             cu.reloadSettings()
             try cu.refuseWhileRecording()
             let app = try AXEngine.findApp(p.app, pid: p.pid)
@@ -843,7 +882,7 @@ public enum ComputerCapabilities {
             }
             try activate(appA, stop: cu.stop)
             try checkHit(a, app: appA, element: nil, approvalId: ctx.approvalId)
-            try Input.drag(from: a, to: b, stop: cu.stop)
+            try Input.drag(from: a, to: b, pid: appA.pid, stop: cu.stop)
             return ActionOutcome(status: "ok", method: "cgevent", app: appA).output("drag")
         }
     }
@@ -886,9 +925,48 @@ public enum ComputerCapabilities {
             sideEffect: .none, inputSchema: Schema.object(["session": Schema.string()])
         )) { ctx in
             let p = try ctx.decode(EndParams.self)
-            cu.sessions.release(p.session ?? "default")
+            cu.taps.release(p.session ?? "default")
             return CapabilityOutput(["released": true])
         }
     }
 }
 
+
+/// The live taps: the Esc stop and the owner-attention listener (Accessibility required).
+struct LiveSessionTapInstaller: SessionTapInstaller {
+    let attention: AttentionMonitor
+    let stop: StopSignal
+    let isActive: @Sendable () -> Bool
+    let onStop: @Sendable () -> Void
+
+    /// The installer's own account of its last Esc-tap failure (the tap reports why it failed).
+    private final class Failure: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value = SessionTapFailure.permission
+        var current: SessionTapFailure {
+            get { lock.withLock { value } }
+            set { lock.withLock { value = newValue } }
+        }
+    }
+
+    private let failure = Failure()
+
+    func failureAfterInstall(_ kind: SessionTapKind) -> SessionTapFailure { failure.current }
+
+    func install(_ kind: SessionTapKind) -> (any SessionTapHandle)? {
+        switch kind {
+        case .escStop:
+            switch EscStopTap.install(stop: stop, isActive: isActive, onStop: onStop) {
+            case .success(let tap): return tap
+            case .failure(let reason):
+                failure.current = switch reason {
+                case .notTrusted: .permission
+                case .createFailed: .createFailed
+                case .timeout: .timeout
+                }
+                return nil
+            }
+        case .attention: return attention.install()
+        }
+    }
+}

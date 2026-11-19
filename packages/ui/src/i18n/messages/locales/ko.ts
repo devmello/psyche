@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/ko.ts";
 import { links } from "./links/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ko.ts";
+import { memoryMap } from "./memory-map/ko.ts";
 import { memoryRest } from "./memory-rest/ko.ts";
 import { memoryAdvancedRest } from "./memoryAdvanced-rest/ko.ts";
 import { memoryBasicsRest } from "./memoryBasics-rest/ko.ts";
@@ -57,6 +58,7 @@ import { workflows } from "./workflows/ko.ts";
 /** Korean catalogue (ko). Same ids as `en`; missing ids fall back to English. */
 export const ko: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,
@@ -872,6 +874,7 @@ export const ko: Partial<Catalogue> = {
   "shell.shortcuts.addition": "Psyche 추가 항목",
   "shell.shortcuts.description": "†는 Claude 데스크탑 단축키에 Psyche가 추가한 항목입니다.",
   "shell.threads.needsYou": "확인 필요",
+  "shell.threads.nowOn": "지금: {step}",
   "shell.threads.running": "실행 중",
   "shell.threads.titleField": "스레드 제목",
   "shell.threads.incognito": "시크릿",
@@ -1562,6 +1565,43 @@ export const ko: Partial<Catalogue> = {
   "settings.channels.loadLabel": "채널",
   "settings.channels.empty":
     "아직 채널이 없습니다. Telegram, iMessage 또는 Slack을 연결하면 이 Mac을 떠나서도 {persona}에게 연락할 수 있습니다.",
+  "settings.channels.add.button": "채널 추가",
+  "settings.channels.add.title": "채널 추가",
+  "settings.channels.add.description":
+    "{persona}에게 연락할 수 있는 곳을 선택하세요. 토큰은 바로 보관함에 저장되며 다시 표시되지 않습니다.",
+  "settings.channels.add.type": "채널",
+  "settings.channels.add.account.slack": "워크스페이스 이름",
+  "settings.channels.add.account.discord": "애플리케이션 ID",
+  "settings.channels.add.secret.bot_token": "봇 토큰",
+  "settings.channels.add.secret.app_token": "앱 토큰",
+  "settings.channels.add.secret.auth_token": "인증 토큰",
+  "settings.channels.add.secret.access_token": "액세스 토큰",
+  "settings.channels.add.secret.app_secret": "앱 시크릿",
+  "settings.channels.add.secret.verify_token": "확인 토큰",
+  "settings.channels.add.submit": "연결",
+  "settings.channels.add.connecting": "연결 중",
+  "settings.channels.add.missing": "연결하려면 모든 항목을 입력하세요.",
+  "settings.channels.add.failed":
+    "Psyche가 채널을 추가하지 못했습니다({reason}). 켜지지 않았습니다.",
+  "settings.channels.add.account.sms": "발신 번호 (+15551234567)",
+  "settings.channels.add.account.whatsapp": "WhatsApp 번호 (+15551234567)",
+  "settings.channels.add.badNumber": "국제 형식으로 번호를 입력하세요. 예: +15551234567",
+  "settings.channels.add.exists":
+    "{account}용 {type} 채널이 이미 있어서 아무것도 바꾸지 않았습니다.",
+  "settings.channels.add.approvalLabel": "채널 추가",
+  "settings.channels.add.envNote":
+    "Gateway도 {env}를 이 계정으로 설정한 상태로 시작해야 합니다. Telegram, iMessage, Signal, 이메일은 Gateway가 실행되는 곳에서 설정합니다. 채널 문서를 참고하세요.",
+  "settings.channels.add.addedInactive":
+    "채널을 추가했지만 아직 실행되지 않습니다. Gateway가 실행되는 곳에서 {env}를 이 계정으로 설정한 뒤 다시 시작하세요.",
+  "settings.channels.add.added":
+    "채널을 추가했습니다. Gateway에서 {env}가 이 계정으로 설정되면 시작됩니다. 그런 다음 해당 채널에서 {persona}에게 메시지를 보내 페어링 코드를 받고 여기서 승인하세요.",
+  "settings.channels.add.storedNote":
+    "이 계정에 이미 저장됨: {names}. 교체하지 않으면 그대로 사용됩니다.",
+  "settings.channels.add.replace": "저장된 토큰 교체",
+  "settings.channels.add.statusFailed":
+    "Psyche가 이미 저장된 토큰을 확인하지 못했습니다({reason}). 아무것도 바꾸지 않았습니다.",
+  "settings.channels.add.storedTyped":
+    "이 계정에는 이미 저장된 토큰이 있습니다. 입력한 토큰을 쓰려면 '저장된 토큰 교체'를 선택하거나 해당 칸을 비우세요. 아무것도 바꾸지 않았습니다.",
   "settings.channels.identities": "신원 연결",
   "settings.channels.identitiesDescription":
     "여러 채널에 걸친 한 사람입니다. 연결은 페어링된 기기에서만 변경됩니다.",
@@ -1998,7 +2038,7 @@ export const ko: Partial<Catalogue> = {
   "settings.model.role.primary": "기본",
   "settings.model.role.primaryHint": "채팅, 작업 및 도구",
   "settings.model.role.utility": "유틸리티",
-  "settings.model.role.utilityHint": "제목, 요약 및 자동 모드 분류기",
+  "settings.model.role.utilityHint": "제목, 요약, 검색 카드 및 기타 백그라운드 작업",
   "settings.model.role.image": "이미지",
   "settings.model.role.imageHint": "아바타 변경, 없으면 내장 크리처 사용",
   "settings.model.addProvider": "제공업체 추가",
@@ -2975,6 +3015,22 @@ export const ko: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}{editor, select, true {을(를) 편집기에서} other {}} 열기",
   "screens.library.openInEditor": "편집기에서 열기",
   "screens.library.open": "열기",
+  "screens.library.deleteDownload": "이 다운로드 삭제",
+  "screens.library.deleteFailed":
+    "Psyche가 {name}을(를) 삭제하지 못했습니다({reason}). 격리 상태로 남아 있습니다.",
+  "screens.library.recording.description":
+    "에이전트가 브라우저에서 한 일을 다시 보여 줍니다. 페이지 내용은 녹화할 때 가려졌습니다.",
+  "screens.library.recording.play": "재생",
+  "screens.library.recording.pause": "일시정지",
+  "screens.library.recording.step": "{total}단계 중 {n}단계",
+  "screens.library.recording.scrub": "녹화 내 위치",
+  "screens.library.recording.steps": "단계",
+  "screens.library.recording.empty": "이 녹화에는 단계가 없습니다.",
+  "screens.library.recording.noFrame": "이 단계에는 화면이 없습니다.",
+  "screens.library.recording.frameAlt": "{n}단계의 브라우저",
+  "screens.library.recording.loading": "녹화를 불러오는 중",
+  "screens.library.recording.loadFailed": "Psyche가 이 녹화를 불러오지 못했습니다({reason}).",
+  "screens.library.recording.notFound": "이 녹화는 더 이상 사용할 수 없습니다.",
   "screens.library.trust": "이 파일 신뢰",
   "screens.library.moreFor": "{name}에 대한 추가 동작",
   "screens.library.quickLook": "훑어보기",

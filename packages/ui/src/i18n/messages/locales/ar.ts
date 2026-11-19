@@ -23,6 +23,7 @@ import { home } from "./home/ar.ts";
 import { links } from "./links/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
 import { meetingRecord } from "./meeting-record/ar.ts";
+import { memoryMap } from "./memory-map/ar.ts";
 import { memoryPage } from "./memory-page/ar.ts";
 import { memoryReview } from "./memory-review/ar.ts";
 import { memorySettings } from "./memory-settings/ar.ts";
@@ -58,6 +59,7 @@ import { workflows } from "./workflows/ar.ts";
 /** Arabic catalogue (ar). Same ids as `en`; missing ids fall back to English. */
 export const ar: Partial<Catalogue> = {
   // common: translated ids (i18n completion)
+  ...memoryMap,
   ...common,
   // chat: translated ids (i18n completion)
   ...chat,
@@ -927,6 +929,7 @@ export const ar: Partial<Catalogue> = {
   "shell.shortcuts.addition": "إضافة من Psyche",
   "shell.shortcuts.description": "تشير † إلى إضافات Psyche على خريطة اختصارات Claude لسطح المكتب.",
   "shell.threads.needsYou": "بحاجة إليك",
+  "shell.threads.nowOn": "الآن: {step}",
   "shell.threads.running": "قيد التشغيل",
   "shell.threads.titleField": "عنوان المحادثة",
   "shell.threads.incognito": "متخفية",
@@ -1619,6 +1622,41 @@ export const ar: Partial<Catalogue> = {
   "settings.channels.loadLabel": "القنوات",
   "settings.channels.empty":
     "لا قنوات بعد. اربط Telegram أو iMessage أو Slack للوصول إلى {persona} بعيدًا عن هذا الـ Mac.",
+  "settings.channels.add.button": "إضافة قناة",
+  "settings.channels.add.title": "إضافة قناة",
+  "settings.channels.add.description":
+    "اختر المكان الذي يمكن التواصل مع {persona} عبره. تذهب الرموز مباشرة إلى الخزنة ولا تُعرض مرة أخرى.",
+  "settings.channels.add.type": "القناة",
+  "settings.channels.add.account.slack": "اسم مساحة العمل",
+  "settings.channels.add.account.discord": "معرّف التطبيق",
+  "settings.channels.add.secret.bot_token": "رمز البوت",
+  "settings.channels.add.secret.app_token": "رمز التطبيق",
+  "settings.channels.add.secret.auth_token": "رمز المصادقة",
+  "settings.channels.add.secret.access_token": "رمز الوصول",
+  "settings.channels.add.secret.app_secret": "سر التطبيق",
+  "settings.channels.add.secret.verify_token": "رمز التحقق",
+  "settings.channels.add.submit": "اتصال",
+  "settings.channels.add.connecting": "جارٍ الاتصال",
+  "settings.channels.add.missing": "املأ جميع الحقول للاتصال.",
+  "settings.channels.add.failed": "تعذّر على Psyche إضافة القناة ({reason}). لم يتم تشغيلها.",
+  "settings.channels.add.account.sms": "رقم الإرسال (+15551234567)",
+  "settings.channels.add.account.whatsapp": "رقم واتساب (+15551234567)",
+  "settings.channels.add.badNumber": "أدخل الرقم بالصيغة الدولية، مثل +15551234567.",
+  "settings.channels.add.exists": "توجد قناة {type} للحساب {account} بالفعل، لذا لم يتغير شيء.",
+  "settings.channels.add.approvalLabel": "إضافة قناة",
+  "settings.channels.add.envNote":
+    "يجب أيضًا تشغيل Gateway مع ضبط {env} على هذا الحساب. يتم إعداد Telegram وiMessage وSignal والبريد الإلكتروني حيث يعمل Gateway؛ راجع وثائق القنوات.",
+  "settings.channels.add.addedInactive":
+    "تمت إضافة القناة لكنها لا تعمل بعد. اضبط {env} على هذا الحساب حيث يعمل Gateway ثم أعد تشغيله.",
+  "settings.channels.add.added":
+    "تمت إضافة القناة. تبدأ عندما يكون {env} في Gateway مضبوطًا على هذا الحساب. ثم راسل {persona} منها للحصول على رمز اقتران ووافق عليه هنا.",
+  "settings.channels.add.storedNote":
+    "محفوظ بالفعل لهذا الحساب: {names}. تُستخدم كما هي ما لم تستبدلها.",
+  "settings.channels.add.replace": "استبدال الرموز المحفوظة",
+  "settings.channels.add.statusFailed":
+    "تعذّر على Psyche التحقق من الرموز المحفوظة ({reason}). لم يتغير شيء.",
+  "settings.channels.add.storedTyped":
+    "توجد رموز محفوظة بالفعل لهذا الحساب. حدّد استبدال الرموز المحفوظة لاستخدام ما كتبته، أو امسح تلك الحقول. لم يتغير شيء.",
   "settings.channels.identities": "روابط الهوية",
   "settings.channels.identitiesDescription":
     "شخص واحد عبر القنوات. لا تتغيّر الروابط إلا من جهاز مقترن.",
@@ -2063,7 +2101,7 @@ export const ar: Partial<Catalogue> = {
   "settings.model.role.primary": "الأساسي",
   "settings.model.role.primaryHint": "الدردشة والمهام والأدوات",
   "settings.model.role.utility": "المساعد",
-  "settings.model.role.utilityHint": "العناوين والملخصات ومصنّف الوضع التلقائي",
+  "settings.model.role.utilityHint": "العناوين والملخصات وبطاقات البحث ومهام الخلفية الأخرى",
   "settings.model.role.image": "الصور",
   "settings.model.role.imageHint": "تغييرات الصورة الرمزية؛ «لا شيء» يعني المخلوقات المضمّنة",
   "settings.model.addProvider": "إضافة مزوّد",
@@ -3028,6 +3066,21 @@ export const ar: Partial<Catalogue> = {
   "screens.library.openLabel": "فتح {name}{editor, select, true { في المحرر} other {}}",
   "screens.library.openInEditor": "فتح في المحرر",
   "screens.library.open": "فتح",
+  "screens.library.deleteDownload": "احذف هذا التنزيل",
+  "screens.library.deleteFailed": "تعذّر على Psyche حذف {name} ({reason}). يبقى في الحجر.",
+  "screens.library.recording.description":
+    "إعادة تشغيل لما فعله الوكيل في المتصفح. حُجب محتوى الصفحة عند التسجيل.",
+  "screens.library.recording.play": "تشغيل",
+  "screens.library.recording.pause": "إيقاف مؤقت",
+  "screens.library.recording.step": "الخطوة {n} من {total}",
+  "screens.library.recording.scrub": "الموضع في التسجيل",
+  "screens.library.recording.steps": "الخطوات",
+  "screens.library.recording.empty": "لا تحتوي هذه اللقطة على خطوات.",
+  "screens.library.recording.noFrame": "لا توجد صورة لهذه الخطوة.",
+  "screens.library.recording.frameAlt": "المتصفح عند الخطوة {n}",
+  "screens.library.recording.loading": "جارٍ تحميل التسجيل",
+  "screens.library.recording.loadFailed": "تعذّر على Psyche تحميل هذا التسجيل ({reason}).",
+  "screens.library.recording.notFound": "لم يعد هذا التسجيل متاحًا.",
   "screens.library.trust": "الوثوق بهذا الملف",
   "screens.library.moreFor": "مزيد من الإجراءات لـ {name}",
   "screens.library.quickLook": "نظرة سريعة",

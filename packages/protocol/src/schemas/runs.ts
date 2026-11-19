@@ -1,5 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, ModelRef, Nullable, StringEnum, Usage } from "../common.ts";
+import { ComputerMachineRef } from "./machines.ts";
 import { Run, RunStatus } from "./threads.ts";
 
 /**
@@ -85,6 +86,8 @@ export const RunStep = Type.Object(
     doneLabel: Type.Optional(Type.String({ maxLength: RUN_STEP_LIMITS.labelChars })),
     /** A domain, file or recipient, redacted. */
     target: Type.Optional(Type.String({ maxLength: RUN_STEP_LIMITS.targetChars })),
+    /** The machine this step ran on; absent means the Host. */
+    machine: Type.Optional(ComputerMachineRef),
     startedAt: IsoDateTime,
     endedAt: Nullable(IsoDateTime),
     /** 1-based; a retry adds an attempt to the same step. */

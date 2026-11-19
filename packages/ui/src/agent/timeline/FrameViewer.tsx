@@ -4,6 +4,7 @@ import { Filmstrip } from "../../components/filmstrip.tsx";
 import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { t } from "../../i18n/core.ts";
 import { formatTime } from "../../lib/format.ts";
+import { frameCache } from "./frame-cache.ts";
 import { stepLabel } from "./model.ts";
 
 /**
@@ -18,7 +19,15 @@ export type FrameImage = (
   size: "thumb" | "full",
 ) => Promise<MethodResult<"runs.frame">>;
 
-const cache = new Map<string, string>();
+const cache = frameCache;
+
+/** Holds a run's frames in the cache while a view of it is mounted. */
+function useRunFrames(runId: string): void {
+  useEffect(() => {
+    cache.retain(runId);
+    return () => cache.release(runId);
+  }, [runId]);
+}
 
 /** A frame as a data URL, loaded once per run, seq and size. */
 export function useFrameSrc(
@@ -29,6 +38,7 @@ export function useFrameSrc(
   skip = false,
 ): string | null {
   const key = seq === null ? null : `${runId}/${seq}/${size}`;
+  useRunFrames(runId);
   const [src, setSrc] = useState<string | null>(key === null ? null : (cache.get(key) ?? null));
   useEffect(() => {
     if (key === null || seq === null || skip) {
@@ -45,7 +55,8 @@ export function useFrameSrc(
     image(seq, size).then(
       (r) => {
         const url = `data:${r.mime};base64,${r.dataBase64}`;
-        cache.set(key, url);
+        // A run nobody is looking at any more keeps nothing.
+        if (cache.holds(runId)) cache.set(key, url);
         if (live) setSrc(url);
       },
       () => undefined,
@@ -53,8 +64,13 @@ export function useFrameSrc(
     return () => {
       live = false;
     };
-  }, [key, seq, size, image, skip]);
+  }, [key, runId, seq, size, image, skip]);
   return src;
+}
+
+function thumbSrc(runId: string, seq: number): { src?: string } {
+  const src = cache.get(`${runId}/${seq}/thumb`);
+  return src ? { src } : {};
 }
 
 export function Thumbs({
@@ -70,22 +86,20 @@ export function Thumbs({
   current: number | null;
   onSelect: (seq: number) => void;
 }): ReactElement {
-  const [srcs, setSrcs] = useState<Record<number, string>>({});
+  // Thumbnails are read from the cache on render, so the cache's byte bound is the only bound.
+  const [, setLoaded] = useState(0);
+  useRunFrames(runId);
   useEffect(() => {
     let live = true;
     for (const f of frames) {
       if (f.expired) continue;
       const key = `${runId}/${f.seq}/thumb`;
-      const hit = cache.get(key);
-      if (hit) {
-        setSrcs((s) => (s[f.seq] ? s : { ...s, [f.seq]: hit }));
-        continue;
-      }
+      if (cache.get(key)) continue;
       image(f.seq, "thumb").then(
         (r) => {
-          const url = `data:${r.mime};base64,${r.dataBase64}`;
-          cache.set(key, url);
-          if (live) setSrcs((s) => ({ ...s, [f.seq]: url }));
+          if (!cache.holds(runId)) return;
+          cache.set(key, `data:${r.mime};base64,${r.dataBase64}`);
+          if (live) setLoaded((n) => n + 1);
         },
         () => undefined,
       );
@@ -99,7 +113,7 @@ export function Thumbs({
       frames={frames.map((f) => ({
         seq: f.seq,
         at: f.at,
-        ...(srcs[f.seq] ? { src: srcs[f.seq] } : {}),
+        ...thumbSrc(runId, f.seq),
       }))}
       {...(current === null ? {} : { current })}
       onSelect={onSelect}
@@ -153,6 +167,7 @@ export function FrameViewer({
           ) : src ? (
             <img
               src={src}
+              decoding="async"
               alt={t("agent.timeline.frame.label", { seq: frame.seq, time: formatTime(frame.at) })}
               className="size-full object-contain"
             />

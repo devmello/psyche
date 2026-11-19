@@ -7,6 +7,7 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
+  rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
@@ -21,6 +22,7 @@ import {
 } from "@psyche/agent-core";
 import {
   createPermissionBroker,
+  type FolderGrantEntry,
   type PolicyConfig,
   type PsychePermissionBroker,
   READ_ONLY_RULE,
@@ -537,19 +539,21 @@ describe.skipIf(!posixHost)(
   () => {
     const audited: { kind: string; data: Record<string, unknown> }[] = [];
     /** The tool, once its first srt lookup has answered (until then nothing runs quietly). */
-    const quietHost = async () => {
-      const t = makeQuiet();
+    type Folders = (threadId: string) => readonly FolderGrantEntry[];
+    const quietHost = async (folders?: Folders) => {
+      const t = makeQuiet(folders);
       await new Promise((r) => setTimeout(r, 5));
       return t;
     };
-    const makeQuiet = () =>
+    const makeQuiet = (folders?: Folders) =>
       execHostTool({
         broker: recording(),
         vault: { redact: (t) => t },
-        folders: (threadId) => [
-          ...(broker.policy.folders ?? []),
-          ...broker.sessionFolders(threadId),
-        ],
+        folders:
+          folders ??
+          ((threadId) => [...(broker.policy.folders ?? []), ...broker.sessionFolders(threadId)]),
+        // As the Gateway wires it: one live look per root at a time, through the broker.
+        lookRoot: (path) => broker.lookRootNow(path),
         srt: { resolve: async () => srt },
         home: psycheHome,
         userHome: home,
@@ -726,7 +730,8 @@ describe.skipIf(!posixHost)(
       // Swapped for a link to /usr (a stand-in for /opt/homebrew); only the link is touched.
       spawnSync("/bin/rmdir", [swapped]);
       symlinkSync("/usr", swapped);
-      expect(broker.grantedFolders().map((f) => f.path)).toContain(swapped);
+      // The broker may still list it for up to FOLDER_FRESH_MS (it never looks up a root
+      // synchronously); the run looks it up live and refuses.
       const t = await quietHost();
       const params = { argv: ["date"], cwd: swapped };
       const d = await decide(t, params);
@@ -744,7 +749,8 @@ describe.skipIf(!posixHost)(
       // A link to $PSYCHE_HOME: not a system folder, but a grant on it would be refused.
       spawnSync("/bin/rmdir", [swapped]);
       symlinkSync(psycheHome, swapped);
-      expect(broker.grantedFolders().map((f) => f.path)).toContain(swapped);
+      // The broker may still list it for up to FOLDER_FRESH_MS (it never looks up a root
+      // synchronously); the run looks it up live and refuses.
       const t = await quietHost();
       const params = { argv: ["date"], cwd: swapped };
       const d = await decide(t, params);
@@ -774,6 +780,98 @@ describe.skipIf(!posixHost)(
         run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
       ).rejects.toMatchObject({ code: "forbidden" });
       expect(started).toEqual([]);
+    });
+
+    it("a granted root swapped for a link to a shareable sibling folder covers nothing", async () => {
+      on();
+      const sibling = join(home, "Documents");
+      mkdirSync(sibling, { recursive: true });
+      const swapped = join(home, "Projects", "swapped-docs");
+      mkdirSync(swapped, { recursive: true });
+      setPolicy({ ...policy, folders: [...(policy.folders ?? []), { path: swapped, mode: "rw" }] });
+      spawnSync("/bin/rmdir", [swapped]);
+      symlinkSync(sibling, swapped);
+      // The broker may still list it for up to FOLDER_FRESH_MS (it never looks up a root
+      // synchronously); the run looks it up live and refuses.
+      const t = await quietHost();
+      const params = { argv: ["date"], cwd: swapped };
+      const d = await decide(t, params);
+      await expect(
+        run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+      ).rejects.toMatchObject({ code: "forbidden" });
+      expect(started).toEqual([]);
+    });
+
+    // PR #1395 review r1, finding 1: the root's PARENT swapped for a link. Its real path and the
+    // real parent plus its name agree, so only the real path recorded at grant time (or, for
+    // home, ~/Library and ~/.ssh, `refuseFolder` on where it leads) can tell.
+    const live: Folders = (threadId) => [
+      ...broker.grantedFolders(),
+      ...broker.liveSessionFolders(threadId),
+    ];
+    it.each([
+      // [where the parent now leads, granted name, how the grant knows its real path]
+      ["~", "Library", "recorded in Settings"],
+      ["~", ".ssh", "recorded in Settings"],
+      ["~/Documents", "notes", "recorded in Settings"],
+      ["~", "Library", "first seen by the broker"],
+      ["~", ".ssh", "first seen by the broker"],
+      ["~/Documents", "notes", "first seen by the broker"],
+      ["~", "Library", "not recorded at all"],
+      ["~", ".ssh", "not recorded at all"],
+      ["~/Documents", "notes", "not recorded at all"],
+    ])(
+      "a granted root whose parent is swapped for a link to %s (name %s, %s) covers nothing",
+      async (to, name, how) => {
+        on();
+        const target = to === "~" ? home : join(home, "Documents");
+        mkdirSync(join(target, name), { recursive: true });
+        const parent = join(home, "Parents", `${how.split(" ")[0]}-${name}-${to.length}`);
+        const granted = join(parent, name);
+        mkdirSync(granted, { recursive: true });
+        const entry =
+          how === "recorded in Settings"
+            ? { path: granted, mode: "rw" as const, real: granted }
+            : { path: granted, mode: "rw" as const };
+        setPolicy({ ...policy, folders: [...(policy.folders ?? []), entry] });
+        if (how === "first seen by the broker") {
+          await broker.foldersSettled();
+          expect(broker.recordedReal(granted)).toBe(granted);
+        }
+        rmSync(parent, { recursive: true });
+        symlinkSync(target, parent);
+        const t = await quietHost(how === "first seen by the broker" ? live : undefined);
+        const params = { argv: ["date"], cwd: granted };
+        const d = await decide(t, params);
+        await expect(
+          run(
+            t,
+            params,
+            ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+          ),
+        ).rejects.toMatchObject({ code: "forbidden" });
+        expect(started).toEqual([]);
+      },
+    );
+
+    it("a grant typed through a linked parent that has not moved still runs", async () => {
+      on();
+      const realCloud = join(home, "real-cloud");
+      mkdirSync(join(realCloud, "notes"), { recursive: true });
+      const cloud = join(home, "cloud");
+      symlinkSync(realCloud, cloud);
+      const granted = join(cloud, "notes");
+      // As Settings stores it: the typed path, with the real path it had when it was added.
+      setPolicy({
+        ...policy,
+        folders: [
+          ...(policy.folders ?? []),
+          { path: granted, mode: "rw", real: join(realCloud, "notes") },
+        ],
+      });
+      const t = await quietHost();
+      const res = await quietRun(t, { argv: ["date"], cwd: granted });
+      expect(res.output).toMatchObject({ exitCode: 0, outcome: "ok" });
     });
 
     it("env, allowedDomains or an absolute argv[0] keep the old card", async () => {

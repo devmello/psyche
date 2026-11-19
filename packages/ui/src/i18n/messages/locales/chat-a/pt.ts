@@ -137,6 +137,9 @@ export const chatA: Partial<Catalogue> = {
   "chat.steps.approval": "Aguardando sua aprovação: {summary}",
   "chat.steps.question": "Perguntou: {question}",
   "chat.steps.answered": "Respondido: {question}",
+  "chat.steps.earlier":
+    "{n, plural, one {# passo anterior concluído} other {# passos anteriores concluídos}}",
+  "chat.steps.needsYou": "Precisa de você",
   "chat.steps.writing": "Escrevendo a resposta…",
   "chat.steps.thinking": "Pensando: {text}",
   "chat.steps.thinkingEmpty": "Pensando…",

@@ -244,9 +244,14 @@
         "payload": "#/$defs/LessonChangedPayload"
       },
       {
-        "description": "A Library item was uploaded or deleted from a client, so other paired clients refetch the Library (a hint, not state).",
+        "description": "A Library item was uploaded, deleted or released from quarantine from a client, so other paired clients refetch the Library (a hint, not state).",
         "name": "library.item.changed",
         "payload": "#/$defs/LibraryItemChangedPayload"
+      },
+      {
+        "description": "A machine was added, renamed, changed status or limits, or removed. Emitted once the machine registry lands (wave H3).",
+        "name": "machines.changed",
+        "payload": "#/$defs/MachinesChangedPayload"
       },
       {
         "description": "Record meeting started or ended (stopped, silence, the conference app quit), or the ended recording's notes finished or failed (mail and meeting workflows §4.6).",
@@ -512,6 +517,14 @@
     ],
     "maxFrameBytes": 1048576,
     "methods": [
+      {
+        "description": "Confirms again a folder row of `access.list` marked `moved`: the folder is looked up now and shared where it leads, only if that is still `movedTo` (the place the owner saw) and a grant there would not be refused. A plain tap from an admin device, recorded and reported as that device's security setting change. False when there is nothing to confirm or the folder leads somewhere else now (read the list again).",
+        "name": "access.confirmFolder",
+        "params": "#/$defs/AccessConfirmFolderParams",
+        "result": "#/$defs/AccessConfirmFolderResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
       {
         "description": "Lists what the owner has given the agent access to: shared folders (always or for one chat) and standing grants, in one list for Settings.",
         "name": "access.list",
@@ -1793,6 +1806,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Decides a quarantined Library file: `trust` releases a download, channel or connector file from quarantine (invalid_params for any other origin, such as a meeting recording; the file stays where it is and is never opened for you; the OS download tag stays; its text stays untrusted data in chat and search), `delete` removes any quarantined item and its file. A plain tap from a paired admin device, no presence step. not_found for an unknown item, invalid_params for one that is not quarantined, conflict when a file to trust no longer matches the hash recorded at download (an integrity check). Audited with the deciding device. Side-effecting.",
+        "name": "library.quarantine.decide",
+        "params": "#/$defs/LibraryQuarantineDecideParams",
+        "result": "#/$defs/LibraryQuarantineDecideResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Uploads a file into the Library in base64 chunks (the first chunk omits uploadId; the last sets final and returns the item, origin upload, not quarantined: the owner chose it). invalid_params for a file over 25 MiB or an empty one. Attach the item's id to chat.send. Side-effecting.",
         "name": "library.upload",
         "params": "#/$defs/LibraryUploadParams",
@@ -1807,6 +1828,22 @@
         "result": "#/$defs/LogsTailResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Lists the computers the owner paired for Psyche to use (machines), with status, surfaces, the box's own limits and its account. Read-only. Not implemented until the machine registry lands.",
+        "name": "machines.list",
+        "params": "#/$defs/MachinesListParams",
+        "result": "#/$defs/MachinesListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Renames a machine. Names match case-insensitively and two machines cannot share one (conflict). Side-effecting. Not implemented until the machine registry lands.",
+        "name": "machines.rename",
+        "params": "#/$defs/MachinesRenameParams",
+        "result": "#/$defs/MachinesRenameResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
       },
       {
         "description": "Side-effecting: adds a probed server to mcp.servers with its approved trust card; approval_required without it, conflict when its tools changed since the probe.",
@@ -2311,6 +2348,14 @@
         "result": "#/$defs/MemoryGraphForgetAllResult",
         "scope": "operator.admin",
         "sideEffecting": true
+      },
+      {
+        "description": "The memory map: entities sized by importance with the relations the store already holds (works on, met in, co-mentioned, other). Names and links only: no facts, bodies or identifiers. Read-only.",
+        "name": "memory.graph.map",
+        "params": "#/$defs/MemoryGraphMapParams",
+        "result": "#/$defs/MemoryMap",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "Graph health: per-source counts and last ingest, last model pass, budget used, loop precision.",
@@ -4076,6 +4121,36 @@
     "protocolVersion": 1
   },
   "$defs": {
+    "AccessConfirmFolderParams": {
+      "properties": {
+        "entryId": {
+          "maxLength": 4200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "movedTo": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "entryId",
+        "movedTo"
+      ],
+      "type": "object"
+    },
+    "AccessConfirmFolderResult": {
+      "properties": {
+        "confirmed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "confirmed"
+      ],
+      "type": "object"
+    },
     "AccessEntry": {
       "properties": {
         "id": {
@@ -4118,6 +4193,13 @@
         },
         "refused": {
           "type": "boolean"
+        },
+        "moved": {
+          "type": "boolean"
+        },
+        "movedTo": {
+          "maxLength": 4096,
+          "type": "string"
         },
         "threadId": {
           "description": "ULID in production",
@@ -7535,6 +7617,9 @@
         },
         "target": {
           "$ref": "#/$defs/Target"
+        },
+        "machine": {
+          "$ref": "#/$defs/ComputerMachineRef"
         },
         "surfaces": {
           "items": {
@@ -15077,6 +15162,28 @@
       ],
       "type": "object"
     },
+    "ComputerMachineRef": {
+      "properties": {
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "description": "No control, bidi, zero-width or invisible characters; no leading or trailing space",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^(?!.*(?:\\udb40[\\udc00-\\udfff]|(?:\\udb41|\\udb42|\\udb43)[\\udc00-\\udfff]|\\ud804[\\udcbd\\udccd]|\\ud834[\\udd73-\\udd7a]|\\ud82f[\\udca0-\\udca3]|\\ud80d[\\udc30-\\udc3f]))[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc\\s](?:[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc]*[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc\\s])?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "deviceId",
+        "name"
+      ],
+      "type": "object"
+    },
     "ComputerSurface": {
       "enum": [
         "direct",
@@ -18477,12 +18584,15 @@
     "DevicesSetupTokenCreateParams": {
       "properties": {
         "scopes": {
-          "description": "What the computer that uses the token gets, chosen by the owner now; never `node`. `operator.admin` only when the owner ticks it",
+          "description": "What the computer that uses the token gets, chosen by the owner now; never `node`. `operator.admin` only when the owner ticks it. Required for purpose `device` (the default); omitted for purpose `machine`, whose scopes are always [\"node\"] (see setupTokenScopesFor)",
           "items": {
             "$ref": "#/$defs/SetupTokenScope"
           },
           "minItems": 1,
           "type": "array"
+        },
+        "purpose": {
+          "$ref": "#/$defs/SetupTokenPurpose"
         },
         "via": {
           "$ref": "#/$defs/SetupTokenVia"
@@ -18494,9 +18604,6 @@
           "type": "string"
         }
       },
-      "required": [
-        "scopes"
-      ],
       "type": "object"
     },
     "DevicesSetupTokenCreateResult": {
@@ -18505,7 +18612,7 @@
           "$ref": "#/$defs/SetupTokenInfo"
         },
         "link": {
-          "description": "psyche-pair:v1 link (gatewayUrl, gatewayFingerprint, setupToken, hostName) for an address, or psyche-pair:v2 link (gatewayUrl, gatewayKey, certPin, setupToken, hostName) for the LAN; nothing else. The token appears only here, once",
+          "description": "For purpose machine, a psyche-machine:v1 link instead (gatewayUrl, gatewayKey, certPin?, setupToken, hostName). Otherwise: psyche-pair:v1 link (gatewayUrl, gatewayFingerprint, setupToken, hostName) for an address, or psyche-pair:v2 link (gatewayUrl, gatewayKey, certPin, setupToken, hostName) for the LAN; nothing else. The token appears only here, once",
           "type": "string"
         },
         "version": {
@@ -25766,7 +25873,8 @@
         "change": {
           "enum": [
             "created",
-            "deleted"
+            "deleted",
+            "updated"
           ],
           "type": "string"
         }
@@ -25811,6 +25919,9 @@
           "maxLength": 500,
           "type": "string"
         },
+        "quarantined": {
+          "type": "boolean"
+        },
         "cursor": {
           "description": "Opaque cursor",
           "maxLength": 512,
@@ -25851,6 +25962,53 @@
         "items"
       ],
       "type": "object"
+    },
+    "LibraryQuarantineDecideParams": {
+      "properties": {
+        "itemId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "decision": {
+          "$ref": "#/$defs/LibraryQuarantineDecision"
+        }
+      },
+      "required": [
+        "itemId",
+        "decision"
+      ],
+      "type": "object"
+    },
+    "LibraryQuarantineDecideResult": {
+      "properties": {
+        "ok": {
+          "const": true,
+          "type": "boolean"
+        },
+        "item": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LibraryItem"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "LibraryQuarantineDecision": {
+      "enum": [
+        "trust",
+        "delete"
+      ],
+      "type": "string"
     },
     "LibraryUploadParams": {
       "properties": {
@@ -26364,6 +26522,245 @@
         "lines",
         "subsystems",
         "truncated"
+      ],
+      "type": "object"
+    },
+    "MachineAccount": {
+      "enum": [
+        "own",
+        "dedicated"
+      ],
+      "type": "string"
+    },
+    "MachineChange": {
+      "enum": [
+        "added",
+        "updated",
+        "removed"
+      ],
+      "type": "string"
+    },
+    "MachineDisplay": {
+      "enum": [
+        "headless",
+        "desktop_session",
+        "container"
+      ],
+      "type": "string"
+    },
+    "MachineFileRoot": {
+      "properties": {
+        "path": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "ro",
+            "rw"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "mode"
+      ],
+      "type": "object"
+    },
+    "MachineInfo": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "description": "No control, bidi, zero-width or invisible characters; no leading or trailing space",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^(?!.*(?:\\udb40[\\udc00-\\udfff]|(?:\\udb41|\\udb42|\\udb43)[\\udc00-\\udfff]|\\ud804[\\udcbd\\udccd]|\\ud834[\\udd73-\\udd7a]|\\ud82f[\\udca0-\\udca3]|\\ud80d[\\udc30-\\udc3f]))[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc\\s](?:[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc]*[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc\\s])?$",
+          "type": "string"
+        },
+        "platform": {
+          "description": "`linux` today",
+          "maxLength": 32,
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/NodeStatus"
+        },
+        "display": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MachineDisplay"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "surfaces": {
+          "items": {
+            "$ref": "#/$defs/ComputerSurface"
+          },
+          "type": "array"
+        },
+        "exec": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "contained": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "enabled",
+            "contained"
+          ],
+          "type": "object"
+        },
+        "files": {
+          "properties": {
+            "roots": {
+              "items": {
+                "$ref": "#/$defs/MachineFileRoot"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "roots"
+          ],
+          "type": "object"
+        },
+        "account": {
+          "$ref": "#/$defs/MachineAccount"
+        },
+        "policyOwner": {
+          "$ref": "#/$defs/MachinePolicyOwner"
+        },
+        "passwordlessSudo": {
+          "type": "boolean"
+        },
+        "helperVersion": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastSeenAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "deviceId",
+        "name",
+        "platform",
+        "status",
+        "surfaces",
+        "exec",
+        "files",
+        "account",
+        "policyOwner",
+        "passwordlessSudo"
+      ],
+      "type": "object"
+    },
+    "MachinePolicyOwner": {
+      "enum": [
+        "root",
+        "user"
+      ],
+      "type": "string"
+    },
+    "MachinesChangedPayload": {
+      "properties": {
+        "machine": {
+          "$ref": "#/$defs/MachineInfo"
+        },
+        "change": {
+          "$ref": "#/$defs/MachineChange"
+        }
+      },
+      "required": [
+        "machine",
+        "change"
+      ],
+      "type": "object"
+    },
+    "MachinesListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "MachinesListResult": {
+      "properties": {
+        "machines": {
+          "items": {
+            "$ref": "#/$defs/MachineInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "machines"
+      ],
+      "type": "object"
+    },
+    "MachinesRenameParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "description": "No control, bidi, zero-width or invisible characters; no leading or trailing space",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^(?!.*(?:\\udb40[\\udc00-\\udfff]|(?:\\udb41|\\udb42|\\udb43)[\\udc00-\\udfff]|\\ud804[\\udcbd\\udccd]|\\ud834[\\udd73-\\udd7a]|\\ud82f[\\udca0-\\udca3]|\\ud80d[\\udc30-\\udc3f]))[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc\\s](?:[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc]*[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc\\s])?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "type": "object"
+    },
+    "MachinesRenameResult": {
+      "properties": {
+        "machine": {
+          "$ref": "#/$defs/MachineInfo"
+        }
+      },
+      "required": [
+        "machine"
       ],
       "type": "object"
     },
@@ -29808,6 +30205,25 @@
       ],
       "type": "object"
     },
+    "MemoryGraphMapParams": {
+      "properties": {
+        "limit": {
+          "description": "At most this many entities, most important first (default 2000)",
+          "maximum": 5000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "kinds": {
+          "description": "Only these entity kinds",
+          "items": {
+            "$ref": "#/$defs/GraphEntityKind"
+          },
+          "maxItems": 7,
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
     "MemoryGraphStatusParams": {
       "properties": {},
       "type": "object"
@@ -30539,6 +30955,132 @@
       },
       "required": [
         "loop"
+      ],
+      "type": "object"
+    },
+    "MemoryMap": {
+      "properties": {
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/MemoryMapNode"
+          },
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/MemoryMapEdge"
+          },
+          "type": "array"
+        },
+        "total": {
+          "description": "Entities in the store before the cap",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "truncated": {
+          "description": "The least important entities were left out",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "nodes",
+        "edges",
+        "total",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "MemoryMapEdge": {
+      "properties": {
+        "a": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "b": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/MemoryMapEdgeKind"
+        },
+        "weight": {
+          "description": "Strength 0..1",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "a",
+        "b",
+        "kind",
+        "weight"
+      ],
+      "type": "object"
+    },
+    "MemoryMapEdgeKind": {
+      "description": "works_on: member, stakeholder, employer or part-of relation; met_in: attended or shared a meeting about it; co_mentioned: appeared in several of the same interactions; related: any other accepted relation",
+      "enum": [
+        "works_on",
+        "met_in",
+        "co_mentioned",
+        "related"
+      ],
+      "type": "string"
+    },
+    "MemoryMapNode": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/GraphEntityKind"
+        },
+        "name": {
+          "type": "string"
+        },
+        "weight": {
+          "description": "Importance 0..1 from recency, frequency, pins, open loops and links",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "lastInteractionAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pinned": {
+          "type": "boolean"
+        },
+        "private": {
+          "type": "boolean"
+        },
+        "quiet": {
+          "description": "A person the owner used to be in touch with and has not heard from in a while",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "weight",
+        "pinned"
       ],
       "type": "object"
     },
@@ -33056,7 +33598,7 @@
       "type": "object"
     },
     "NodeKind": {
-      "description": "win-helper: the Windows helper on the Host (the node socket plus the handshake secret). host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper inside a separate desktop (container or VM).",
+      "description": "win-helper: the Windows helper on the Host (the node socket plus the handshake secret). host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper inside a separate desktop (container or VM). machine: a separate computer that runs only the helper and that the owner paired so the agent can use its screen, apps, shell and files (docs/design/linux-helper-only-2026.md). SECURITY: the owner's approval is the only way a device becomes a machine; a node can never declare this kind in its own handshake or manifest, and the Gateway sets it from the stored decision (wave H3).",
       "enum": [
         "mac-helper",
         "vm-guest",
@@ -33064,7 +33606,8 @@
         "phone",
         "win-helper",
         "host-helper",
-        "guest"
+        "guest",
+        "machine"
       ],
       "type": "string"
     },
@@ -34138,6 +34681,9 @@
             "channel-sender"
           ],
           "type": "string"
+        },
+        "purpose": {
+          "$ref": "#/$defs/SetupTokenPurpose"
         },
         "code": {
           "type": "string"
@@ -36073,6 +36619,9 @@
             }
           ]
         },
+        "machine": {
+          "$ref": "#/$defs/ComputerMachineRef"
+        },
         "createdAt": {
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
@@ -37084,6 +37633,9 @@
         "target": {
           "maxLength": 120,
           "type": "string"
+        },
+        "machine": {
+          "$ref": "#/$defs/ComputerMachineRef"
         },
         "startedAt": {
           "description": "ISO-8601 timestamp (UTC)",
@@ -40732,9 +41284,12 @@
         },
         "scopes": {
           "items": {
-            "$ref": "#/$defs/SetupTokenScope"
+            "$ref": "#/$defs/DeviceScope"
           },
           "type": "array"
+        },
+        "purpose": {
+          "$ref": "#/$defs/SetupTokenPurpose"
         },
         "createdAt": {
           "description": "ISO-8601 timestamp (UTC)",
@@ -40801,6 +41356,13 @@
         "status"
       ],
       "type": "object"
+    },
+    "SetupTokenPurpose": {
+      "enum": [
+        "device",
+        "machine"
+      ],
+      "type": "string"
     },
     "SetupTokenScope": {
       "enum": [

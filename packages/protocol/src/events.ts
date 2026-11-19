@@ -31,6 +31,7 @@ import {
   VaultStatus,
 } from "./schemas/integrations.ts";
 import { FeedbackEvent, Lesson, LessonStatus } from "./schemas/learning.ts";
+import { MachineInfo } from "./schemas/machines.ts";
 import { MemoryChangeSource, MemoryJob, PersonaIdentity } from "./schemas/memory.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
 import { ResearchProgressEvent } from "./schemas/research.ts";
@@ -223,10 +224,10 @@ export const Events = {
   "library.item.changed": defineEvent({
     payload: Type.Object({
       itemId: Id,
-      change: StringEnum(["created", "deleted"]),
+      change: StringEnum(["created", "deleted", "updated"]),
     }),
     description:
-      "A Library item was uploaded or deleted from a client, so other paired clients refetch the Library (a hint, not state).",
+      "A Library item was uploaded, deleted or released from quarantine from a client, so other paired clients refetch the Library (a hint, not state).",
   }),
   "notification.created": defineEvent({
     payload: Type.Object({ notification: Notification }),
@@ -549,6 +550,14 @@ export const Events = {
     payload: SearchIndexStatus,
     description:
       "Search index backfill started, progressed or finished (docs/design/search-2026.md §6).",
+  }),
+  "machines.changed": defineEvent({
+    payload: Type.Object({
+      machine: MachineInfo,
+      change: StringEnum(["added", "updated", "removed"], { $id: "MachineChange" }),
+    }),
+    description:
+      "A machine was added, renamed, changed status or limits, or removed. Emitted once the machine registry lands (wave H3).",
   }),
 } as const;
 

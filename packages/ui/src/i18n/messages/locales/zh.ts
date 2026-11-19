@@ -23,6 +23,7 @@ import { home } from "./home/zh.ts";
 import { links } from "./links/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
 import { meetingRecord } from "./meeting-record/zh.ts";
+import { memoryMap } from "./memory-map/zh.ts";
 import { memoryPage } from "./memory-page/zh.ts";
 import { memoryReview } from "./memory-review/zh.ts";
 import { memorySettings } from "./memory-settings/zh.ts";
@@ -58,6 +59,7 @@ import { workflows } from "./workflows/zh.ts";
 /** Simplified Chinese catalogue (zh). Same ids as `en`; missing ids fall back to English. */
 export const zh: Partial<Catalogue> = {
   // common: translated ids (i18n completion)
+  ...memoryMap,
   ...common,
   // chat: translated ids (i18n completion)
   ...chat,
@@ -911,6 +913,7 @@ export const zh: Partial<Catalogue> = {
   "shell.shortcuts.addition": "Psyche 新增",
   "shell.shortcuts.description": "† 标记 Psyche 在 Claude 桌面版快捷键之外新增的项目。",
   "shell.threads.needsYou": "需要你",
+  "shell.threads.nowOn": "现在：{step}",
   "shell.threads.running": "运行中",
   "shell.threads.titleField": "会话标题",
   "shell.threads.incognito": "无痕",
@@ -1585,6 +1588,39 @@ export const zh: Partial<Catalogue> = {
   "settings.channels.loadLabel": "渠道",
   "settings.channels.empty":
     "还没有渠道。连接 Telegram、iMessage 或 Slack，即可在离开这台 Mac 时联系 {persona}。",
+  "settings.channels.add.button": "添加渠道",
+  "settings.channels.add.title": "添加渠道",
+  "settings.channels.add.description":
+    "选择可以联系 {persona} 的渠道。令牌会直接存入保险库，不会再次显示。",
+  "settings.channels.add.type": "渠道",
+  "settings.channels.add.account.slack": "工作区名称",
+  "settings.channels.add.account.discord": "应用 ID",
+  "settings.channels.add.secret.bot_token": "机器人令牌",
+  "settings.channels.add.secret.app_token": "应用令牌",
+  "settings.channels.add.secret.auth_token": "认证令牌",
+  "settings.channels.add.secret.access_token": "访问令牌",
+  "settings.channels.add.secret.app_secret": "应用密钥",
+  "settings.channels.add.secret.verify_token": "验证令牌",
+  "settings.channels.add.submit": "连接",
+  "settings.channels.add.connecting": "正在连接",
+  "settings.channels.add.missing": "请填写所有字段后再连接。",
+  "settings.channels.add.failed": "Psyche 无法添加该渠道（{reason}）。它尚未启用。",
+  "settings.channels.add.account.sms": "发送号码 (+15551234567)",
+  "settings.channels.add.account.whatsapp": "WhatsApp 号码 (+15551234567)",
+  "settings.channels.add.badNumber": "请按国际格式输入号码，例如 +15551234567。",
+  "settings.channels.add.exists": "{account} 的 {type} 渠道已存在，因此未做任何更改。",
+  "settings.channels.add.approvalLabel": "添加渠道",
+  "settings.channels.add.envNote":
+    "Gateway 还需在启动时将 {env} 设为此账号。Telegram、iMessage、Signal 和电子邮件需在运行 Gateway 的位置设置；请参阅渠道文档。",
+  "settings.channels.add.addedInactive":
+    "渠道已添加，但尚未运行。请在运行 Gateway 的位置将 {env} 设为此账号，然后重启。",
+  "settings.channels.add.added":
+    "渠道已添加。Gateway 将 {env} 设为此账号后才会启动。随后请从该渠道给 {persona} 发消息获取配对码，并在此批准。",
+  "settings.channels.add.storedNote": "此账号已存有：{names}。除非你选择替换，否则将原样使用。",
+  "settings.channels.add.replace": "替换已存的令牌",
+  "settings.channels.add.statusFailed": "Psyche 无法检查哪些令牌已存储（{reason}）。未做任何更改。",
+  "settings.channels.add.storedTyped":
+    "此账号已存有令牌。请勾选“替换已存的令牌”以使用你输入的令牌，或清空这些字段。未做任何更改。",
   "settings.channels.identities": "身份关联",
   "settings.channels.identitiesDescription": "跨渠道识别同一个人。关联只能从已配对的设备更改。",
   "settings.channels.identitiesFailed": "Psyche 无法载入身份关联（{reason}）。",
@@ -1999,7 +2035,7 @@ export const zh: Partial<Catalogue> = {
   "settings.model.role.primary": "主模型",
   "settings.model.role.primaryHint": "聊天、任务和工具",
   "settings.model.role.utility": "辅助模型",
-  "settings.model.role.utilityHint": "标题、摘要和自动模式分类器",
+  "settings.model.role.utilityHint": "标题、摘要、搜索卡片和其他后台任务",
   "settings.model.role.image": "图像模型",
   "settings.model.role.imageHint": "头像更改；“无”表示使用自带的生物",
   "settings.model.addProvider": "添加提供商",
@@ -2940,6 +2976,20 @@ export const zh: Partial<Catalogue> = {
   "screens.library.openLabel": "{editor, select, true {在编辑器中打开 {name}} other {打开 {name}}}",
   "screens.library.openInEditor": "在编辑器中打开",
   "screens.library.open": "打开",
+  "screens.library.deleteDownload": "删除此下载",
+  "screens.library.deleteFailed": "Psyche 无法删除 {name}（{reason}）。它仍在隔离中。",
+  "screens.library.recording.description": "重放代理在浏览器中的操作。页面内容在录制时已被遮盖。",
+  "screens.library.recording.play": "播放",
+  "screens.library.recording.pause": "暂停",
+  "screens.library.recording.step": "第 {n} 步，共 {total} 步",
+  "screens.library.recording.scrub": "录制中的位置",
+  "screens.library.recording.steps": "步骤",
+  "screens.library.recording.empty": "此录制没有步骤。",
+  "screens.library.recording.noFrame": "此步骤没有画面。",
+  "screens.library.recording.frameAlt": "第 {n} 步的浏览器画面",
+  "screens.library.recording.loading": "正在加载录制",
+  "screens.library.recording.loadFailed": "Psyche 无法加载此录制（{reason}）。",
+  "screens.library.recording.notFound": "此录制已不可用。",
   "screens.library.trust": "信任此文件",
   "screens.library.moreFor": "{name} 的更多操作",
   "screens.library.quickLook": "快速查看",

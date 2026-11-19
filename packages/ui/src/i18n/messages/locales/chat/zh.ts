@@ -128,6 +128,8 @@ export const chat: Partial<Catalogue> = {
   "chat.steps.approval": "正在等你批准：{summary}",
   "chat.steps.question": "已提问：{question}",
   "chat.steps.answered": "已回答：{question}",
+  "chat.steps.earlier": "{n, plural, other {之前的 # 个步骤已完成}}",
+  "chat.steps.needsYou": "需要你处理",
   "chat.steps.writing": "正在撰写回复…",
   "chat.steps.thinking": "思考：{text}",
   "chat.steps.thinkingEmpty": "正在思考…",

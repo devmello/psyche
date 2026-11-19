@@ -132,6 +132,8 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.approval": "승인 대기 중: {summary}",
   "chat.steps.question": "질문: {question}",
   "chat.steps.answered": "답변: {question}",
+  "chat.steps.earlier": "{n, plural, other {이전 # 단계 완료}}",
+  "chat.steps.needsYou": "확인이 필요해요",
   "chat.steps.writing": "답변 작성 중…",
   "chat.steps.thinking": "생각 중: {text}",
   "chat.steps.thinkingEmpty": "생각 중…",

@@ -36,11 +36,45 @@ export interface ModelMessage {
 export interface ModelRequest {
   model: ModelRef;
   system?: string;
+  /**
+   * Length of the leading part of `system` that stays the same from one owner turn to the next
+   * (base prompt, persona, skills index, tool guidance). The rest follows after a blank line
+   * (`system === stable + "\n\n" + volatile`): daily notes, the compaction summary and per-turn
+   * context. A provider with prompt caching sends the two parts as separate cached blocks;
+   * every other provider reads `system` whole.
+   */
+  systemStableLength?: number;
   messages: ModelMessage[];
   tools?: ToolSpec[];
+  /**
+   * Every tool this run loads on demand, loaded or not, in registration order. The loaded ones
+   * are also in `tools`. A provider with deferred tool loading (Anthropic `defer_loading`) sends
+   * all of them, so a load never changes the request prefix; every other provider ignores this
+   * and sends `tools`.
+   */
+  deferredTools?: ToolSpec[];
   toolChoice?: "auto" | "none" | "required" | { tool: string };
   maxOutputTokens?: number;
   temperature?: number;
+  /**
+   * Reasoning depth for models that take it (Anthropic `output_config.effort`; other providers
+   * ignore it). One-shot background jobs ask for `low`: the default is `medium` or `high`, and
+   * thinking tokens are billed as output. Keep it constant within a thread (a change mid-thread
+   * invalidates Anthropic's message cache).
+   */
+  effort?: "low" | "medium" | "high";
+  /**
+   * `off` turns thinking off where the model allows it (Haiku 5.5, Sonnet 5.5 via
+   * `between_tools`, the 4.x models) so it cannot eat a small `maxOutputTokens`. Models that
+   * cannot switch it off (Opus 5.5, Fable) keep their thinking and rely on `effort`.
+   */
+  reasoning?: "off";
+  /**
+   * Anthropic cache breakpoints. Unset: marked as usual (tools, system prompt, last message).
+   * `none`: nothing is marked, for a one-shot call whose last message is unique and never read
+   * again (the write premium would be paid for nothing).
+   */
+  cache?: "none";
   /** Keyed by provider id, passed through untouched (e.g. `{anthropic: {thinking: …}}`). */
   providerOptions?: Record<string, JsonObject>;
 }

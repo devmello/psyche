@@ -6,12 +6,17 @@ import type { CardSource } from "./types.ts";
 /** Kinds worth a card: whole items, not one-line chat messages. */
 export const CARD_KINDS = ["library", "connector", "thread", "idea", "goal", "memory"] as const;
 const DAY_MS = 86_400_000;
+/** Tokens the model may use per UTC day unless the owner sets another (Settings says "about 200 000"). */
+export const DEFAULT_DAILY_CARD_TOKENS = 200_000;
+
+/** Why a tick did nothing: the owner's switch, today's budget, or a gate (`CardQueueOptions.gate`). */
+export type CardPause = "disabled" | "budget" | "no_model" | "battery" | "low_power" | "not_idle";
 
 export interface CardQueueOptions {
   generate: (item: CardSource) => Promise<GenerateResult>;
   /** The owner's setting (`search.cards.enabled`); read on every tick. */
   enabled: () => boolean;
-  /** Tokens the model may use per UTC day (default 200 000, about 50 cards). */
+  /** Tokens the model may use per UTC day (default 200 000). */
   dailyTokenBudget?: number | (() => number | undefined);
   /** Items generated per tick (default 3). */
   batchSize?: number;
@@ -27,6 +32,16 @@ export interface CardQueueOptions {
    */
   blockedSources?: () => readonly string[];
   now?: () => number;
+  /**
+   * Whether this tick may call a model at all, read before any work: no cheap model to run on
+   * (cards never fall back to the primary), the Mac on battery or in Low Power Mode, or the owner
+   * at the keyboard. A reason pauses the tick: nothing is backfilled, queued or generated, and no
+   * model is called. Absent: always allowed.
+   */
+  gate?: () =>
+    | Exclude<CardPause, "disabled" | "budget">
+    | undefined
+    | Promise<Exclude<CardPause, "disabled" | "budget"> | undefined>;
 }
 
 export interface CardTickReport {
@@ -36,8 +51,8 @@ export interface CardTickReport {
   empty: number;
   backfilled: number;
   tokens: number;
-  /** Why the tick did nothing more: the switch is off or today's budget is used. */
-  paused?: "disabled" | "budget";
+  /** Why the tick did nothing more: the switch is off, today's budget is used, or a gate held. */
+  paused?: CardPause;
 }
 
 export interface CardQueueStatus {
@@ -58,19 +73,19 @@ export interface CardQueueStatus {
  */
 export class CardQueue {
   readonly #index: SqliteSearchIndex;
-  readonly #o: Required<Omit<CardQueueOptions, "generate" | "enabled">> &
-    Pick<CardQueueOptions, "generate" | "enabled">;
+  readonly #o: Required<Omit<CardQueueOptions, "generate" | "enabled" | "gate">> &
+    Pick<CardQueueOptions, "generate" | "enabled" | "gate">;
   #running = false;
 
   #budget(): number {
     const b = this.#o.dailyTokenBudget;
-    return (typeof b === "function" ? b() : b) ?? 200_000;
+    return (typeof b === "function" ? b() : b) ?? DEFAULT_DAILY_CARD_TOKENS;
   }
 
   constructor(index: SqliteSearchIndex, options: CardQueueOptions) {
     this.#index = index;
     this.#o = {
-      dailyTokenBudget: 200_000,
+      dailyTokenBudget: DEFAULT_DAILY_CARD_TOKENS,
       batchSize: 3,
       backfillPerTick: 5,
       minChars: 200,
@@ -124,6 +139,8 @@ export class CardQueue {
     if (!this.#o.enabled()) return { ...report, paused: "disabled" };
     this.#running = true;
     try {
+      const held = await this.#o.gate?.();
+      if (held !== undefined) return { ...report, paused: held };
       if (this.#queued() === 0) report.backfilled = this.#backfill(this.#o.backfillPerTick);
       for (const row of this.#next(this.#o.batchSize)) {
         if (this.#spent() >= this.#budget()) {

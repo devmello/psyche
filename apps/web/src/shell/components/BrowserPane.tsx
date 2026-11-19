@@ -264,16 +264,29 @@ function DesktopBrowserPane(props: {
     report();
     // ResizeObserver misses pure moves (side panel docking, sidebar toggle, slide-in animation),
     // so also re-check the position every frame; reports are deduplicated.
-    let raf = requestAnimationFrame(function tick() {
+    // The loop runs only while the document is visible.
+    let raf = 0;
+    const tick = () => {
       report();
       raf = requestAnimationFrame(tick);
-    });
+    };
+    const onVisibility = () => {
+      cancelAnimationFrame(raf);
+      raf = 0;
+      if (document.visibilityState !== "hidden") {
+        report();
+        raf = requestAnimationFrame(tick);
+      }
+    };
+    if (document.visibilityState !== "hidden") raf = requestAnimationFrame(tick);
+    document.addEventListener("visibilitychange", onVisibility);
     const ro = new ResizeObserver(report);
     ro.observe(el);
     window.addEventListener("resize", report);
     window.addEventListener("focus", report);
     return () => {
       cancelAnimationFrame(raf);
+      document.removeEventListener("visibilitychange", onVisibility);
       ro.disconnect();
       window.removeEventListener("resize", report);
       window.removeEventListener("focus", report);

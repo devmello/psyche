@@ -285,6 +285,8 @@ export const chat = {
   "chat.steps.approval": "Waiting for your approval: {summary}",
   "chat.steps.question": "Asked: {question}",
   "chat.steps.answered": "Answered: {question}",
+  "chat.steps.earlier": "{n, plural, one {# earlier step done} other {# earlier steps done}}",
+  "chat.steps.needsYou": "Needs you",
   "chat.steps.writing": "Writing the reply…",
   "chat.steps.thinking": "Thinking: {text}",
   "chat.steps.thinkingEmpty": "Thinking…",

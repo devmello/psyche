@@ -885,6 +885,43 @@ export const settings = {
   "settings.channels.loadLabel": "channels",
   "settings.channels.empty":
     "No channels yet. Connect Telegram, iMessage or Slack to reach {persona} away from this Mac.",
+  "settings.channels.add.button": "Add a channel",
+  "settings.channels.add.title": "Add a channel",
+  "settings.channels.add.description":
+    "Choose where {persona} can be reached. Tokens go straight to the vault and are never shown again.",
+  "settings.channels.add.type": "Channel",
+  "settings.channels.add.account.slack": "Workspace name",
+  "settings.channels.add.account.discord": "Application ID",
+  "settings.channels.add.secret.bot_token": "Bot token",
+  "settings.channels.add.secret.app_token": "App token",
+  "settings.channels.add.secret.auth_token": "Auth token",
+  "settings.channels.add.secret.access_token": "Access token",
+  "settings.channels.add.secret.app_secret": "App secret",
+  "settings.channels.add.secret.verify_token": "Verify token",
+  "settings.channels.add.submit": "Connect",
+  "settings.channels.add.connecting": "Connecting",
+  "settings.channels.add.missing": "Fill in every field to connect.",
+  "settings.channels.add.failed":
+    "Psyche couldn't add the channel ({reason}). It is not turned on.",
+  "settings.channels.add.account.sms": "Sending number (+15551234567)",
+  "settings.channels.add.account.whatsapp": "WhatsApp number (+15551234567)",
+  "settings.channels.add.badNumber": "Enter the number in international format, like +15551234567.",
+  "settings.channels.add.exists":
+    "A {type} channel for {account} already exists, so nothing was changed.",
+  "settings.channels.add.approvalLabel": "Adding a channel",
+  "settings.channels.add.envNote":
+    "The Gateway must also be started with {env} set to this account. Telegram, iMessage, Signal and email are set up where the Gateway runs; see the channel docs.",
+  "settings.channels.add.addedInactive":
+    "Channel added, but it is not running yet. Set {env} to this account where the Gateway runs, then restart it.",
+  "settings.channels.add.added":
+    "Channel added. It starts once the Gateway has {env} set to this account. Then message {persona} from it to get a pairing code, and approve it here.",
+  "settings.channels.add.storedNote":
+    "Already stored for this account: {names}. They are used as they are unless you replace them.",
+  "settings.channels.add.replace": "Replace stored tokens",
+  "settings.channels.add.statusFailed":
+    "Psyche couldn't check which tokens are already stored ({reason}). Nothing was changed.",
+  "settings.channels.add.storedTyped":
+    "Tokens are already stored for this account. Tick Replace stored tokens to use the ones you typed, or clear those fields. Nothing was changed.",
   "settings.channels.identities": "Identity links",
   "settings.channels.identitiesDescription":
     "One person across channels. Links change only from a paired device.",
@@ -1745,6 +1782,9 @@ export const settings = {
   "settings.access.loadLabel": "what Psyche can reach",
   "settings.access.loadFailed": "Psyche couldn't load what it can reach ({reason}).",
   "settings.access.unchanged": "Access is unchanged.",
+  "settings.access.moved": "Now points to {path} — confirm only if you moved it yourself",
+  "settings.access.confirm": "Confirm",
+  "settings.access.confirmNamed": "Confirm {name} again at {path}",
   "settings.files.sharedFolders": "Shared folders",
   "settings.files.noFolders": "No folders shared. {persona} works only in its own workspace.",
   "settings.files.shareFolder": "Share a folder",
@@ -1804,7 +1844,7 @@ export const settings = {
   "settings.model.role.primary": "Primary",
   "settings.model.role.primaryHint": "Chat, tasks and tools",
   "settings.model.role.utility": "Utility",
-  "settings.model.role.utilityHint": "Titles, summaries and the auto-mode classifier",
+  "settings.model.role.utilityHint": "Titles, summaries, search cards and other background jobs",
   "settings.model.role.image": "Image",
   "settings.model.role.imageHint": "Avatar changes; none means the bundled creatures",
   "settings.model.addProvider": "Add a provider",

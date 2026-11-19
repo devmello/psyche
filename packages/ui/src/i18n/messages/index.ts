@@ -25,6 +25,7 @@ import { home } from "./home.ts";
 import { links } from "./links.ts";
 import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
+import { memoryMap } from "./memory-map.ts";
 import { memoryPage } from "./memory-page.ts";
 import { memoryReview } from "./memory-review.ts";
 import { memorySettings } from "./memory-settings.ts";
@@ -97,6 +98,7 @@ export const en = {
   ...whatCanYouDo,
   ...memoryReview,
   ...memoryPage,
+  ...memoryMap,
   ...memorySettings,
   ...people,
   ...work,

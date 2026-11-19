@@ -85,6 +85,11 @@ This covers any rule that sorts inputs into "asks" and "doesn't ask": money-inte
   - macOS tools accept GNU-style long-option abbreviations (`file --f=` is `--files-from`); prefixes of 3 or more characters count. With exact names only in a table, the abbreviation's value is path-checked as an operand, which fails closed. Keep it that way.
   - Probe every value letter against the real binary on this Mac by passing an outside path as the "value", and record in the PR which table rows came from man pages only (#1372 r1 did this for rg 14, BSD grep, du, head, tail, jq, tree).
   - Skipping a value (treating it as a plain slot) is a relaxation and needs its own security review. Unlisted options fail closed: the value counts as an operand and is path-checked.
+- **Folder and root refusal (#1384, #1387, #1388, #1395):**
+  - A grant-time refusal alone leaves old grants live. Check at use time in every consumer (`folderFor`, `grantedFolders()`, exec-host), never from raw `policy.folders`. A memoised answer must not be the only gate where the consumer resolves paths itself: re-check the real path there. Don't memoise errors (a hung mount blocks, but a transient ELOOP must not stick).
+  - macOS magic prefixes (`/.nofollow/`, `/.resolve/`, `/.vol/<dev>/<ino>`) get past a lexical root check, `/opt` included (#1384 r1, HIGH). Judge `realpathSync.native`, and fold case with the volume's rules (APFS), not `toLowerCase` alone.
+  - Home-sensitive refusal is judged against the user whose files run, not `os.homedir()`: pass `home` in the env (#1388).
+  - "Moved" must compare against the realpath of the stored root and of its parents: a swapped parent is not a move (#1395 r1, HIGH; #1389 regressed here).
 - **Lookups fail closed**, and map every subscriber before moving an emit (`psyche-builder` §2).
 - Keep each probe as a table row.
 
@@ -96,6 +101,10 @@ This covers any rule that sorts inputs into "asks" and "doesn't ask": money-inte
 - **A "record" separate from a grant never grants a read.** Filter it by a live grant (a file entry or a covering folder) before promising a read, and a re-attach refreshes both expiries (#1366 r3, #1374).
 - **Third-party text into prompts:** filenames, paths and the like go in a fenced block with JSON-quoted values, tainted, never bare text framed as the owner's words (#1366 r1).
 - **Writing a vault item by slug:** first check the existing item is ours (kind, `ownerConnectorId`, exact bindings), as `mcp-manage.ts` does, otherwise use a fresh slug (#1373 r1). Changing a client must not silently reuse the old secret. Audit actors for admin calls are `{type: "device", deviceId}`, with no `name`.
+
+## 3f. Owner text on its way to a model (#1407 r1)
+
+Redact first, then trim, then slice, on every path (immediate and batched). Truncating raw text first lets a vault value that straddles the cut slip past the redactor. Match a provider on `config.kind`, never `?? id`. A cheap default model needs a fallback, or compaction fails for good; a gate must not fail open or silently turn off for local primaries. Test with the real redactor.
 
 ## 4. Trust that moves to a new path or file
 
@@ -117,3 +126,4 @@ If you change copy that names Touch ID, presence or approvals, also run `package
 ## Learnings
 
 - 2026-11-10: a "cross-window lockout" follow-up was unreachable, because `isDesktopShell` requires loopback. Uncapped chat answers (#1306) are by design: only guessing is limited. Check a security follow-up against main before building it.
+- 2026-11-19: a long helper action must keep its session alive by counting in-flight work: an idle timer that checks only the last acquire dropped the Esc tap mid-action (#1402 r1). A server woken from idle runs the same pre-start checks as a normal start (#1401 r1).

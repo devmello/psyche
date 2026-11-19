@@ -57,6 +57,8 @@ const NODE_KIND_ID: Readonly<Record<NodeInfo["kind"] | "win-helper", string>> = 
   phone: "phone",
   // The Linux helper (stored as host-helper) and the helper inside a separate desktop.
   "host-helper": "hostHelper",
+  // A paired helper-only computer; H6 adds its label, until then the kind shows as written.
+  machine: "machine",
   guest: "guest",
 };
 

@@ -86,6 +86,7 @@ export const shell = {
   "shell.shortcuts.addition": "Psyche addition",
   "shell.shortcuts.description": "† marks Psyche additions to the Claude desktop map.",
   "shell.threads.needsYou": "Needs you",
+  "shell.threads.nowOn": "Now: {step}",
   "shell.threads.running": "Running",
   "shell.threads.titleField": "Thread title",
   "shell.threads.incognito": "Incognito",

@@ -42,6 +42,37 @@ const inFlightRuns = new WeakMap<GatewayStore, Map<string, Promise<void>>>();
 let activeRunLoads = 0;
 const waitingRunLoads: (() => void)[] = [];
 
+/**
+ * A run whose `runs.get` failed is not asked for again on every refresh (an event gap used to
+ * re-read it each time: thousands of calls a minute). `not_found` (a pruned run) is not retried
+ * by a refresh at all; any other failure waits `RUN_RETRY_BASE_MS`, doubling per failure up to
+ * `RUN_RETRY_MAX_MS`. Mounting the trace again (`cause: "mount"`) always tries, and a success
+ * clears the record.
+ */
+const RUN_RETRY_BASE_MS = 2_000;
+const RUN_RETRY_MAX_MS = 5 * 60_000;
+const failedRuns = new WeakMap<GatewayStore, Map<string, { failures: number; until: number }>>();
+
+function runRetryBlocked(store: GatewayStore, runId: string): boolean {
+  const f = failedRuns.get(store)?.get(runId);
+  return f !== undefined && Date.now() < f.until;
+}
+
+function noteRunFailure(store: GatewayStore, runId: string, err: unknown): void {
+  let byRun = failedRuns.get(store);
+  if (byRun === undefined) {
+    byRun = new Map();
+    failedRuns.set(store, byRun);
+  }
+  const failures = (byRun.get(runId)?.failures ?? 0) + 1;
+  const code = (err as { code?: unknown } | null)?.code;
+  const wait =
+    code === "not_found"
+      ? Number.POSITIVE_INFINITY
+      : Math.min(RUN_RETRY_MAX_MS, RUN_RETRY_BASE_MS * 2 ** (failures - 1));
+  byRun.set(runId, { failures, until: Date.now() + wait });
+}
+
 async function withRunLoadSlot<T>(job: () => Promise<T>): Promise<T> {
   if (activeRunLoads >= MAX_RUN_LOADS) {
     await new Promise<void>((resolve) => waitingRunLoads.push(resolve));
@@ -125,6 +156,7 @@ export function useRun(
     }
     const pending = byRun.get(runId);
     if (pending !== undefined) return pending;
+    if (cause === "refresh" && runRetryBlocked(st, runId)) return;
     const job = withRunLoadSlot(async () => {
       if (cause === "refresh" && runIsSettledInStore(st, runId)) {
         // A settled run is not re-read unless an event (or a gap) said it changed.
@@ -136,7 +168,14 @@ export function useRun(
       }
       st.markRunLoaded(runId);
       const version = st.version();
-      const res = await st.call("runs.get", { runId });
+      let res: Awaited<ReturnType<typeof st.call<"runs.get">>>;
+      try {
+        res = await st.call("runs.get", { runId });
+      } catch (err) {
+        noteRunFailure(st, runId, err);
+        throw err;
+      }
+      failedRuns.get(st)?.delete(runId);
       st.update((s) =>
         upsertRunSteps(
           putMany(s, "runs", [res.run, ...res.children], version),

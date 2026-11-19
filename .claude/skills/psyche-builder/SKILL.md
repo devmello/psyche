@@ -9,6 +9,7 @@ The orchestrator gave you a brief and usually a `/goal`. Your job is one focused
 
 ## 1. Understand before editing
 
+- **Check main first.** Before you build, `git log origin/main --oneline -S'<identifier>'` or grep for the feature. Two dispatched tasks (helper quits with Psyche; web-client copy, #1392) were already on main. If it is done, report that with the commit and stop; don't re-do it.
 - Restate the task to yourself in one line. If the brief names files, read them first. Otherwise search: `grep -rn` on the user-visible string or error text is usually the fastest way in.
 - Check the domain skills under `.claude/skills/`:
   - `psyche-i18n` for any string;
@@ -33,6 +34,10 @@ The orchestrator gave you a brief and usually a `/goal`. Your job is one focused
 - **Exec, argv, path or name-list classifiers** (programs, files, keys, tool options): follow `psyche-permissions` §3d.
 - **Lookups fail closed.** A missing optional dependency (`listGrants`, a resolver, a store) must throw when the caller needs it, never fall back to the weaker path (#1361 r2).
 - **Fire-and-forget promises need `.catch`.** psyched has no `unhandledRejection` handler, so a rejected `void` promise can take the Gateway down (#1366; see `compose/thread-end.ts`).
+- **Redact, then truncate.** Any text of the owner's that goes to a model (learner, titles, compaction, search cards) is redacted first and cut second. A cut value no longer matches the redactor: #1407 r1 sent 10 of 16 secret characters to the utility model. Test with the real `SecretRedactor` and a secret that straddles the cut. See `psyche-permissions` §3f.
+- **Caches and fingerprints:** a key on `max(updated_at)`, a count or a rowid misses same-millisecond writes, clock steps and rowid reuse, so a hidden or retracted item can be served for hours (#1396 r2, a privacy regression). Key on content or on a version bumped by every write path, and freeze the clock in tests with fake timers.
+- **Idle timers and wake paths:** a timer that checks only the last acquire drops a safety tap or a connection mid-action. Count in-flight work (#1402 r1, Esc tap). A lazy restart or wake runs every pre-start check a normal start runs (hash, `madeBy`, bundle staleness: #1401 r1).
+- **Frames over 1 MiB** (`MAX_FRAME_BYTES`) close the socket and fail every call in flight: cap text-carrying methods well below it (#1381).
 - **Decoder, normaliser or redaction changes:** fuzz three ways (before, main, head) and report how many inputs got quieter or louder (#1342, #1345). Redaction helpers need two-way tests for every URL form (#1343).
 - **Guard the file list.** An empty `$files` makes `vitest run` or `vitest related` run the whole suite (the whole ui suite ran once by accident). Check `[ -n "$files" ]` first, and never run a whole package suite (`packages/permissions`) to be safe.
 - Keep to the brief's scope. Unrelated problems you notice go in the report under "Noticed", not in the diff. If you do widen the scope (a fix you can't leave out), say so in the report. In #1309 the builder added a label fix the brief never mentioned.
@@ -49,7 +54,16 @@ The owner's rule (2026-11-18): don't overheat the Mac. Size checks to the change
 
 verify.sh compares your failures with a run on the merge base. "also failing on the base" is not your problem. "new in" is. "base could not run" means unknown: run that file yourself on `origin/main` before you call it pre-existing. Delete untracked build output first (`apps/ios/.build-ios`): biome lints it (#1305).
 
-Run `tsc` only through `verify.sh`, or alone. Never loose and never in parallel with your own verify: load hit 22 when full runs and stray `tsc` overlapped, and one verify sat 45+ minutes in the queue. If it is queued, wait; don't start another. Run `verify.sh` in the foreground and wait for it. Don't end your turn while it runs in the background: the Stop hook then starts a second full verify, and load hit 26. Don't wait with `pgrep -f "verify.sh"`: it matches itself. **Fresh worktree (#1369, #1371, #1372, #1373):** there is no `node_modules`, so `pnpm exec` and `verify.sh` try a full install and better-sqlite3's node-gyp fails here, making every step FAIL. First run `pnpm install --frozen-lockfile --prefer-offline --ignore-scripts` once. If pnpm still reinstalls before a run, set `pnpm_config_verify_deps_before_run=false`. The Gateway bundle build works with `PNPM_CONFIG_IGNORE_SCRIPTS=true` (the `PNPM_CONFIG_` form; `npm_config_*` is ignored).
+Run `tsc` only through `verify.sh`, or alone, never in parallel with your own verify (load hit 22).
+
+**How to run `verify.sh` (#1375, #1396, #1397, #1398, #1404, #1407, #1394):**
+- Commit first and merge `origin/main`: it checks the committed diff against the merge base, so uncommitted files or a stale base mean it checks the wrong set.
+- Run it in the foreground, niced, with a long timeout, and write the output to a file with a PR-specific name: `nice bash .claude/scripts/verify.sh > "$SCRATCH/verify-<pr or branch>.log" 2>&1` with the Bash timeout at 600000. A backgrounded `| tail` loses the result, and the Stop hook starts a second full verify if you end your turn while one runs in the background (load 26).
+- Full checks share 3 slots on machines with 10+ cores (1 otherwise); a run waits for a free one, sometimes tens of minutes. Don't start another and don't poll with `pgrep -f "verify.sh"`, it matches itself.
+- Shared scratch dirs belong to every session: name files after your PR or branch (`pr-1404-body.md`, `verify-1404.log`). Another session overwrote `verify2.log` (#1404) and `pr-body.md`.
+- Run git only in your own worktree. A builder switched another worktree's branch.
+- **Fresh worktree (#1369, #1371–#1373):** there is no `node_modules`, so `pnpm exec` and `verify.sh` try a full install and better-sqlite3's node-gyp fails, making every step FAIL. Run `pnpm install --frozen-lockfile --prefer-offline --ignore-scripts` once; if pnpm still reinstalls, set `pnpm_config_verify_deps_before_run=false`. The Gateway bundle build wants `PNPM_CONFIG_IGNORE_SCRIPTS=true` (the `PNPM_CONFIG_` form; `npm_config_*` is ignored).
+- If `pnpm: command not found` (the session's Node has none), run `export PATH=$HOME/.nvm/versions/node/v24.22.3/bin:$PATH`. `verify.sh` itself falls back to nvm's default since #1390.
 
 The Stop hook runs `verify.sh --quick` (lint, secrets, protocol, i18n; seconds) when you try to finish with changes it hasn't seen pass. If it blocks you, fix what it reports. Never skip, weaken, `.skip` or delete a test to get it passing. If you truly cannot fix a failure after 3 attempts, stop and report it plainly.
 

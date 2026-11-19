@@ -2,6 +2,14 @@
 
 Newest first. The `reflect` skill reads the top entry to know where the last pass stopped.
 
+## 2026-11-19 (b): reflect pass over #1375-#1407 (wave 5)
+Merged: #1375, #1377, #1380, #1381, #1384-#1391, #1394-#1402, #1404, #1406, #1407 (last pass: #1374). Evidence: `review-1375`, `-1380`, `-1381`, `-1384`, `-1387`, `-1388`, `-1391`, `-1395`, `-1396` r1-r2, `-1397`, `-1400`, `-1401`, `-1402`, `-1407`, the PR Learnings, and the orchestrator's 11 lessons of the day. Rounds: #1384 HIGH then #1387/#1388/#1389/#1395 follow-ups (#1395 HIGH regression), #1396 2 rounds (cache privacy regression), #1407 blocking.
+- **`psyche-builder`:** "check main first" (2 stale dispatches, #1392); verify.sh recipe in one list: commit and merge main first (#1397, #1398), foreground niced with a file log (#1396, #1407), 3 slots (#1394), PR-specific names in shared scratch (#1404), git only in your own worktree, nvm PATH (#1390). New §2 bullets: redact before truncate (#1407 r1), cache/fingerprint keys and frozen clocks (#1396 r2), idle timers and wake paths (#1401 r1, #1402 r1), 1 MiB frame cap (#1381).
+- **`psyche-permissions`:** §3d folder and root refusal (use-time re-check, magic prefixes, exec user's home, swapped parent: #1384, #1387, #1388, #1395); new §3f owner text to models (#1407). Learning on in-flight counting (#1402).
+- **`orchestrate`:** "Check main first" line in the brief template; dispatch check strengthened; verify slots and scratch-name instructions; brief wording for redaction, caches, idle wake, granted roots.
+- **`learnings.md`:** TS/testing-library/Biome quirks, i18n scan, mock-gateway `fail()`, fixed `now`, composeSearch, MCP SDK double spawn, Swift `Task`. Pruned the `pgrep` line (now in the builder verify list).
+- **Not changed:** `verify.sh` (#1390 and #1394 already fixed the lock and pnpm); `psyche-apple`, `psyche-i18n` (learnings only); #1383, #1386, #1398, #1399 gave no new pattern.
+
 ## 2026-11-19: reflect pass over #1366, #1368–#1374 (wave 4)
 Merged: #1366, #1368, #1369, #1370, #1371, #1372, #1373, #1374 (last pass: #1367). Evidence: `review-1366` r1–r3, `-1368` r1–r2, `-1372` r1, `-1373` r1, and the PR Learnings of #1366, #1368, #1369, #1371, #1372, #1373. #1366 took 3 rounds, #1368 2 (r1 HIGH), #1372 and #1373 had one non-blocking round.
 - **`psyche-permissions`:** §3d now holds the exec/argv/path rules (moved from `psyche-builder`) plus argv classifier rules: `--` as an option value, per-tool attached-value letters, long-option abbreviations, probing real binaries, relaxations need review (#1368 r1, #1372 r1). New §3e: grants with identity, expiry in every accessor, real handlers for `endSession`, a record never grants, fenced third-party text in prompts, vault slug ownership, device audit actors (#1366, #1373, #1374).

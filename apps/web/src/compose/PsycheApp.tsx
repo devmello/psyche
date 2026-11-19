@@ -276,7 +276,11 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
           kind={parseMemoryKind(params.get("kind"))}
           startAdding={params.get("add") === "1"}
           onNavigate={navigate}
-          {...(parts[1] === "review" ? { view: "review" as const } : {})}
+          {...(parts[1] === "review"
+            ? { view: "review" as const }
+            : params.get("view") === "map"
+              ? { view: "map" as const }
+              : {})}
           {...(entity ? { entity } : {})}
         />,
       );

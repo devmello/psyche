@@ -882,3 +882,61 @@ export const CatchUpItem = Type.Object(
   { $id: "CatchUpItem" },
 );
 export type CatchUpItem = Static<typeof CatchUpItem>;
+
+/**
+ * The memory map (`memory.graph.map`): a read-only picture of the graph for the Memory page's Map
+ * view. Nodes are entities, edges are relations that already exist in the store, never new
+ * claims. Nothing here goes beyond what the list view shows: no facts, bodies or identifiers.
+ */
+export const MemoryMapEdgeKind = StringEnum(["works_on", "met_in", "co_mentioned", "related"], {
+  $id: "MemoryMapEdgeKind",
+  description:
+    "works_on: member, stakeholder, employer or part-of relation; met_in: attended or shared a meeting about it; co_mentioned: appeared in several of the same interactions; related: any other accepted relation",
+});
+export type MemoryMapEdgeKind = Static<typeof MemoryMapEdgeKind>;
+
+export const MemoryMapNode = Type.Object(
+  {
+    id: Id,
+    kind: GraphEntityKind,
+    name: Type.String(),
+    weight: Type.Number({
+      minimum: 0,
+      maximum: 1,
+      description: "Importance 0..1 from recency, frequency, pins, open loops and links",
+    }),
+    lastInteractionAt: Nullable(IsoDateTime),
+    pinned: Type.Boolean(),
+    private: Type.Optional(Type.Boolean()),
+    quiet: Type.Optional(
+      Type.Boolean({
+        description:
+          "A person the owner used to be in touch with and has not heard from in a while",
+      }),
+    ),
+  },
+  { $id: "MemoryMapNode" },
+);
+export type MemoryMapNode = Static<typeof MemoryMapNode>;
+
+export const MemoryMapEdge = Type.Object(
+  {
+    a: Id,
+    b: Id,
+    kind: MemoryMapEdgeKind,
+    weight: Type.Number({ minimum: 0, maximum: 1, description: "Strength 0..1" }),
+  },
+  { $id: "MemoryMapEdge" },
+);
+export type MemoryMapEdge = Static<typeof MemoryMapEdge>;
+
+export const MemoryMap = Type.Object(
+  {
+    nodes: Type.Array(MemoryMapNode),
+    edges: Type.Array(MemoryMapEdge),
+    total: Type.Integer({ minimum: 0, description: "Entities in the store before the cap" }),
+    truncated: Type.Boolean({ description: "The least important entities were left out" }),
+  },
+  { $id: "MemoryMap" },
+);
+export type MemoryMap = Static<typeof MemoryMap>;

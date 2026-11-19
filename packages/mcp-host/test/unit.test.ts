@@ -477,3 +477,19 @@ describe("serverTools", () => {
     expect(out[2]).not.toHaveProperty("sideEffect");
   });
 });
+
+describe("MCP result shape", () => {
+  it("drops the structured copy only when the text blocks are exactly its serialisation", async () => {
+    const { repeatsStructured } = await import("../src/host.ts");
+    const data = { n: 1, items: ["a", "b"] };
+    expect(repeatsStructured([{ type: "text", text: JSON.stringify(data, null, 2) }], data)).toBe(
+      true,
+    );
+    expect(repeatsStructured([{ type: "text", text: "Found 2 items" }], data)).toBe(false);
+    expect(repeatsStructured([{ type: "text", text: '{"n":2}' }], data)).toBe(false);
+    expect(repeatsStructured([], data)).toBe(false);
+    expect(repeatsStructured([{ type: "image", data: "AA", mimeType: "image/png" }], data)).toBe(
+      false,
+    );
+  });
+});
