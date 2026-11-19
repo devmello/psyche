@@ -72,6 +72,7 @@ if (a[0] === "auth" && a[1] === "login") {
     ? { verification_url: "https://login.link.com/device?c=1", device_code: "${DEVICE_CODE}" }
     : { verification_url: "https://login.link.com/device?c=1", phrase: "blue-otter-moon", device_code: "${DEVICE_CODE}" });
 } else if (a[0] === "auth" && a[1] === "status") {
+  if (fs.existsSync(file + ".exit1")) { out({ authenticated: false, error: "token expired" }); process.exit(1); }
   if (fs.existsSync(file + ".approve") && !fs.existsSync(file)) fs.writeFileSync(file, JSON.stringify({ access_token: "${TOKEN}" }), { mode: 0o644 });
   out({ authenticated: fs.existsSync(file) });
 } else if (a[0] === "auth" && a[1] === "logout") { try { fs.unlinkSync(file); } catch {} out({ ok: true }); }
@@ -650,11 +651,11 @@ describe("guided setup in the composed Gateway", () => {
     const held = tool();
     // A Stripe Link Pay card still open at disconnect is withdrawn; a vault-card checkout card
     // at a shop has nothing to do with Link and stays (#1332 N4).
-    const card = (hash: string, paymentSource: string) =>
+    const card = (hash: string, details: Record<string, unknown>) =>
       composed.gateway.context.broker.requestApproval({
         kind: "purchase",
         summary: "Pay $5 to shop.example",
-        details: { paymentSource },
+        details,
         bindingHash: hash.repeat(64),
         grantKey: "purchase|https://shop.example",
         requestedBy: { runId: null, taskId: null, threadId: null },
@@ -663,13 +664,19 @@ describe("guided setup in the composed Gateway", () => {
         scopesOffered: ["once"],
         taint: false,
       });
-    const issued = await card("c", "Stripe Link (one-time card)");
-    const other = await card("d", "Saved card");
+    const issued = await card("c", { paymentSource: "Stripe Link (one-time card)" });
+    // The fallback card for a tab with no origin names the tool but no payment source (#1332 N2).
+    const generic = await card("e", { tool: "checkout.pay_with_link" });
+    const other = await card("d", { paymentSource: "Saved card", tool: "browser.click" });
     await admin.call("payments.link.disconnect", {}, "k-d");
     expect(tool()).toBeUndefined();
     await waitFor(
       async () =>
         (await composed.gateway.context.broker.get(issued.approval.id))?.status === "invalidated",
+    );
+    await waitFor(
+      async () =>
+        (await composed.gateway.context.broker.get(generic.approval.id))?.status === "invalidated",
     );
     expect((await composed.gateway.context.broker.get(other.approval.id))?.status).toBe("pending");
     expect(() => held?.describeCall?.({ tabId: "t1" })).toThrow(/not connected and signed in/);
@@ -762,6 +769,53 @@ describe("guided setup in the composed Gateway", () => {
     expect((await status()).state).toBe("connected");
     expect(failed).toBeGreaterThan(0);
     expect(tool()).toBeDefined();
+  });
+
+  it("treats a CLI that exits non-zero as signed out, not unknown (#1332 N3)", async () => {
+    const cli = fakeCli();
+    let services: ComposeServices | undefined;
+    const { home, admin } = await bootAdmin(cli, {
+      onServices: (s) => (services = s),
+      statusTtlMs: 0,
+    });
+    const tool = () => services?.tools.get("checkout.pay_with_link");
+    const status = () => admin.call<LinkSetupStatus>("payments.link.status", {});
+    await admin.call("payments.link.connect", { path: cli }, "k-c");
+    await admin.call("payments.link.signIn", {}, "k-s");
+    writeFileSync(join(home, "vault", "link-auth.json.approve"), "");
+    // Positive control: exit 0 with signed-in output stays ready.
+    await waitFor(async () => tool() !== undefined && (await status()).state === "connected");
+    expect((await status()).state).toBe("connected");
+    expect(tool()).toBeDefined();
+    // The CLI now exits non-zero (expired token): not connected, tool hidden.
+    writeFileSync(join(home, "vault", "link-auth.json.exit1"), "");
+    expect((await status()).state).toBe("signed_out");
+    expect(tool()).toBeUndefined();
+    // And it recovers when the CLI answers again.
+    rmSync(join(home, "vault", "link-auth.json.exit1"));
+    await waitFor(async () => (await status()).state === "connected");
+    expect(tool()).toBeDefined();
+  });
+
+  it("retries `auth status` with back-off after a later connect fails transiently (#1332 N4)", async () => {
+    const cli = fakeCli();
+    let services: ComposeServices | undefined;
+    const calls: string[] = [];
+    let failures = 0;
+    const { home, admin } = await bootAdmin(cli, {
+      onServices: (s) => (services = s),
+      run: flaky(() => failures-- > 0, calls),
+      statusRetryMs: 20,
+      statusTtlMs: 0,
+    });
+    // Signed in at Link already, with the saved path not yet connected here.
+    writeFileSync(join(home, "vault", "link-auth.json"), JSON.stringify({ access_token: "x" }), {
+      mode: 0o600,
+    });
+    failures = 2;
+    await admin.call("payments.link.connect", { path: cli }, "k-c");
+    await waitFor(async () => services?.tools.get("checkout.pay_with_link") !== undefined);
+    expect(calls.filter((c) => c.startsWith("auth status")).length).toBeGreaterThanOrEqual(3);
   });
 
   it("asks `auth status` again with back-off after a failed start check (#1332 N5)", async () => {

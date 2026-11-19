@@ -308,6 +308,7 @@ export const runFile: RunLink = (file, args, env, timeoutMs) =>
           : reject(
               Object.assign(new Error("link-cli failed"), {
                 exitCode: (err as { code?: unknown }).code,
+                killed: (err as { killed?: unknown }).killed === true,
               }),
             ),
     );
@@ -587,6 +588,8 @@ export class LinkSetup {
    * CLI is disconnected.
    */
   startCheck(): void {
+    if (this.#retry !== undefined) clearTimeout(this.#retry);
+    this.#retry = undefined;
     let wait = this.#o.statusRetryMs ?? STATUS_RETRY_MS;
     const attempt = async () => {
       this.#retry = undefined;
@@ -727,8 +730,13 @@ export class LinkSetup {
           authenticated?: unknown;
         } | null;
         return doc?.authenticated === true;
-      } catch {
-        return undefined;
+      } catch (e) {
+        // Only a timeout or a failure to start the CLI is "no answer". A CLI that ran and exited
+        // non-zero (signed out, expired token) is not signed in: fail closed, never keep "ready".
+        const x = e as { exitCode?: unknown; killed?: unknown };
+        return typeof x.exitCode === "number" && x.exitCode !== 0 && x.killed !== true
+          ? false
+          : undefined;
       }
     })();
     this.#authInflight = run;
@@ -821,6 +829,8 @@ export class LinkSetup {
       });
     setSetting(this.#db, LINK_CLI_SETTING, { path: again.real });
     this.#sync();
+    // Same back-off as at start: a transient failure of the first `auth status` is asked again.
+    this.startCheck();
     this.#audit(
       "payments.link_cli_connected",
       { path: again.real, deviceId: call.identity.deviceId },
@@ -954,6 +964,8 @@ export class LinkSetup {
       throw new PsycheError("internal", "The Link auth file could not be removed");
     deleteSettings(this.#db, [LINK_CLI_SETTING]);
     this.#sync();
+    if (this.#retry !== undefined) clearTimeout(this.#retry);
+    this.#retry = undefined;
     if (logout !== undefined)
       this.#audit("payments.link_logout_skipped", { reason: logout, deviceId }, deviceId);
     this.#audit("payments.link_disconnected", { deviceId }, deviceId);

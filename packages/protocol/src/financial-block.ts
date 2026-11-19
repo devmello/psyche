@@ -348,33 +348,47 @@ const PAYPAL_P2P_SEGMENTS = new Set([
 ]);
 
 /**
+ * Decodes every valid `%XX` on its own, twice at most (double encoding), and leaves a malformed
+ * escape (`%ZZ`, a trailing `%`) as it is: one bad escape must not stop the rest decoding.
+ */
+function decodeEscapes(text: string): string {
+  let out = text;
+  for (let pass = 0; pass < 2; pass++) {
+    const next = out.replace(/%([0-9a-f]{2})/gi, (_, hex: string) =>
+      String.fromCharCode(Number.parseInt(hex, 16)),
+    );
+    if (next === out) break;
+    out = next;
+  }
+  return out;
+}
+
+/** A path segment without parameters (`paypalme;x`) and trailing dots or spaces. */
+function cleanSegment(seg: string): string {
+  return (seg.split(";")[0] ?? "").replace(/[.\s]+$/, "");
+}
+
+/**
  * Whether a PayPal address sends money to a person or out of the account: a `paypalme`,
- * `donate`, `pools`, `send` or `send-…` segment anywhere in the path (any locale prefix, `/c2/`),
- * `myaccount` followed by `transfer` or `money`, or the legacy `cmd=_send-money`. The path is
- * percent-decoded once and repeated slashes are collapsed first.
+ * `donate`, `pools`, `send` or `send-…` segment anywhere in the path or in a hash route (any
+ * locale prefix, `/c2/`), `myaccount` followed by `transfer` or `money`, or the legacy
+ * `cmd=_send-money`. Escapes are decoded one by one (twice), repeated slashes are collapsed, and a
+ * segment's `;parameters` and trailing dots are ignored.
  */
 function isPaypalP2pPath(u: URL): boolean {
-  let path = u.pathname;
-  try {
-    path = decodeURIComponent(path);
-  } catch {
-    // keep it as it is
-  }
-  const segs = path
+  const hash = decodeEscapes(u.hash.replace(/^#/, ""));
+  const hashPath = hash.split("?")[0] ?? "";
+  const segs = `${decodeEscapes(u.pathname)}/${hashPath}`
     .toLowerCase()
     .split("/")
+    .map(cleanSegment)
     .filter((x) => x !== "");
   for (const [i, seg] of segs.entries()) {
     if (PAYPAL_P2P_SEGMENTS.has(seg) || seg === "send" || seg.startsWith("send-")) return true;
     if (seg === "myaccount" && ["transfer", "money"].includes(segs[i + 1] ?? "")) return true;
   }
-  let query = u.search;
-  try {
-    query = decodeURIComponent(query);
-  } catch {
-    // keep it as it is
-  }
-  return /[?&]cmd=_send-money(?:&|$)/i.test(query);
+  const query = `${decodeEscapes(u.search)}&${hash.includes("?") ? hash.slice(hash.indexOf("?")) : ""}`;
+  return /[?&]cmd=_send-money(?:[&;%#]|$)/i.test(query);
 }
 
 /**
