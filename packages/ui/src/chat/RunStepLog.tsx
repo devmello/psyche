@@ -15,8 +15,8 @@ import { formatDuration } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
 import { Disclosure, fade, Presence, WorkingPulse } from "../motion/index.ts";
-import { RailNode } from "./RailNode.tsx";
-import { KEEP_DONE, railItems, type StepState } from "./run-progress.ts";
+import { RailLine, RailNode } from "./RailNode.tsx";
+import { KEEP_DONE, railItems } from "./run-progress.ts";
 
 /** Run states in which the run is still in progress, paused on the owner included. */
 const ACTIVE: readonly Run["status"][] = ["running", "awaiting_approval", "awaiting_input"];
@@ -507,31 +507,5 @@ export function RunStepLog({
             : t("chat.thread.working", { name: persona })}
       </p>
     </section>
-  );
-}
-
-/**
- * The line joining a step's marker to the next one. Below a finished step it is ink (the path
- * already taken); below the current or a waiting step it is the quiet hairline (not done yet).
- */
-function RailLine({
-  show,
-  state,
-  inset = false,
-}: {
-  show: boolean;
-  state: StepState;
-  inset?: boolean;
-}): ReactElement | null {
-  if (!show) return null;
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "pointer-events-none absolute top-[22px] -bottom-1 w-px transition-colors duration-(--duration-short) ease-(--ease-standard)",
-        inset ? "start-[15.5px]" : "start-[7.5px]",
-        state === "done" ? "bg-accent-7" : "bg-separator",
-      )}
-    />
   );
 }

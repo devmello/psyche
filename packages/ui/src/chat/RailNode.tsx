@@ -80,3 +80,32 @@ export function RailNode({ state }: { state: StepState }): ReactElement {
     </span>
   );
 }
+
+/**
+ * The line joining a step's marker to the next one. Below a finished step it is ink (the path
+ * already taken); below the current or a waiting step it is the quiet hairline (not done yet).
+ */
+export function RailLine({
+  show,
+  state,
+  inset = false,
+  startClass,
+}: {
+  show: boolean;
+  state: StepState;
+  inset?: boolean;
+  /** Where the line sits, when the row pads its marker (`start-[11.5px]`). */
+  startClass?: string;
+}): ReactElement | null {
+  if (!show) return null;
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "pointer-events-none absolute top-[22px] -bottom-1 w-px transition-colors duration-(--duration-short) ease-(--ease-standard)",
+        startClass ?? (inset ? "start-[15.5px]" : "start-[7.5px]"),
+        state === "done" ? "bg-accent-7" : "bg-separator",
+      )}
+    />
+  );
+}

@@ -1,4 +1,5 @@
 import type { Run, ToolCall } from "@psyche/protocol";
+import type { StepStatusKind } from "../components/status.tsx";
 import type { RunStep } from "./RunStepLog.tsx";
 
 /**
@@ -36,6 +37,27 @@ export function stepState(step: Pick<RunStep, "status">): StepState {
       return "failed";
     default:
       return "stopped";
+  }
+}
+
+/**
+ * The rail state of a run-trace row's status glyph kind, or null for the kinds the rail leaves to
+ * the plain status glyph (retried, partial, skipped, paused, pending, cancelled).
+ */
+export function glyphState(status: StepStatusKind): StepState | null {
+  switch (status) {
+    case "running":
+    case "thinking":
+      return "current";
+    case "waiting":
+      return "waiting";
+    case "done":
+      return "done";
+    case "failed":
+    case "blocked":
+      return "failed";
+    default:
+      return null;
   }
 }
 
