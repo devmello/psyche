@@ -8,7 +8,11 @@ export class FrameCache {
   private readonly holders = new Map<string, number>();
   private bytes = 0;
 
-  constructor(private readonly maxBytes: number) {}
+  private readonly maxBytes: number;
+
+  constructor(maxBytes: number) {
+    this.maxBytes = maxBytes;
+  }
 
   get size(): number {
     return this.map.size;

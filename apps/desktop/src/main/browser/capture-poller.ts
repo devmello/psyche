@@ -5,11 +5,14 @@
 export class CapturePoller {
   #timer: ReturnType<typeof setInterval> | undefined;
 
-  constructor(
-    private readonly everyMs: number,
-    /** Runs a check; returns false when nothing needs polling any more. */
-    private readonly tick: () => boolean,
-  ) {}
+  readonly #everyMs: number;
+  readonly #tick: () => boolean;
+
+  /** `tick` runs a check; it returns false when nothing needs polling any more. */
+  constructor(everyMs: number, tick: () => boolean) {
+    this.#everyMs = everyMs;
+    this.#tick = tick;
+  }
 
   get running(): boolean {
     return this.#timer !== undefined;
@@ -19,8 +22,8 @@ export class CapturePoller {
   start(): void {
     if (this.#timer !== undefined) return;
     this.#timer = setInterval(() => {
-      if (!this.tick()) this.stop();
-    }, this.everyMs);
+      if (!this.#tick()) this.stop();
+    }, this.#everyMs);
     this.#timer.unref();
   }
 
