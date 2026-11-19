@@ -657,7 +657,7 @@ export function OnboardingFlow({
             {sharing && !sharing.busy ? (
               <p role="alert" className="me-auto text-callout text-label-secondary">
                 {sharing.approvalId
-                  ? t("onboarding.folders.needsApproval")
+                  ? t("onboarding.folders.shareLater")
                   : t("onboarding.folders.failed", { reason: sharing.error ?? "" })}
               </p>
             ) : null}
@@ -674,15 +674,31 @@ export function OnboardingFlow({
                 {t("onboarding.folders.continueWithout")}
               </Button>
             ) : null}
-            <Button
-              type="button"
-              size="lg"
-              className="rounded-md"
-              disabled={sharing?.busy === true}
-              onClick={() => void openChat(sharing?.approvalId ?? undefined)}
-            >
-              {sharing && !sharing.busy ? t("onboarding.folders.retry") : t("onboarding.openChat")}
-            </Button>
+            {sharing && !sharing.busy && sharing.approvalId ? (
+              <Button
+                type="button"
+                size="lg"
+                className="rounded-md"
+                onClick={() => {
+                  const { sharedFolders: _skipped, ...rest } = result;
+                  onComplete({ ...rest, openFileAccess: true });
+                }}
+              >
+                {t("onboarding.folders.openFileAccess")}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="lg"
+                className="rounded-md"
+                disabled={sharing?.busy === true}
+                onClick={() => void openChat()}
+              >
+                {sharing && !sharing.busy
+                  ? t("onboarding.folders.retry")
+                  : t("onboarding.openChat")}
+              </Button>
+            )}
           </>
         ) : (
           <Button

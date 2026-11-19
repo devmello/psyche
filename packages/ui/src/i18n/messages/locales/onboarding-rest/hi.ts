@@ -62,8 +62,8 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.folders.desktop": "डेस्कटॉप",
   "onboarding.folders.downloads": "डाउनलोड",
   "onboarding.folders.hint": "आप इसे कभी भी सेटिंग्स में, फ़ाइल एक्सेस के अंतर्गत बदल सकते हैं।",
-  "onboarding.folders.needsApproval":
-    "इन फ़ोल्डरों को साझा करने के लिए कार्ड को मंज़ूर करें, फिर दोबारा कोशिश करें।",
+  "onboarding.folders.shareLater": "आप इन फ़ोल्डरों को बाद में सेटिंग्स → फ़ाइल एक्सेस में साझा कर सकते हैं।",
+  "onboarding.folders.openFileAccess": "फ़ाइल एक्सेस खोलें",
   "onboarding.folders.retry": "दोबारा कोशिश करें",
   "onboarding.folders.continueWithout": "साझा किए बिना आगे बढ़ें",
   "onboarding.folders.failed": "ये फ़ोल्डर साझा नहीं हो सके: {reason}",

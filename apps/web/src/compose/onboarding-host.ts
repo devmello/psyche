@@ -296,8 +296,10 @@ export async function shareStarterFolders(
   folders: readonly { id: string; path: string }[] | undefined,
   approvalId?: string,
 ): Promise<void> {
+  // Only the id is checked here; the Gateway's `assertFolderGrantable` is the gate on the path
+  // (a Windows drive or UNC path is as valid as a POSIX one).
   const wanted = (folders ?? []).filter(
-    (f) => ["documents", "desktop", "downloads"].includes(f.id) && f.path.startsWith("/"),
+    (f) => ["documents", "desktop", "downloads"].includes(f.id) && f.path !== "",
   );
   if (wanted.length === 0) return;
   const read = (await call("settings.get", { keys: ["permissions.policy"] })) as {
@@ -312,7 +314,9 @@ export async function shareStarterFolders(
     ? (policy.folders as { path: string; mode: "ro" | "rw" }[])
     : [];
   const added = wanted
-    .filter((f) => !existing.some((e) => e.path === f.path))
+    // Without case: `/Users/x/documents` and `/Users/x/Documents` are one folder on macOS and
+    // Windows, and a second entry differing only in case would be untidy at best.
+    .filter((f) => !existing.some((e) => e.path.toLowerCase() === f.path.toLowerCase()))
     .map((f) => ({ path: f.path, mode: "ro" as const }));
   if (added.length === 0) return;
   await call(

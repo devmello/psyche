@@ -42,13 +42,33 @@ describe("shareStarterFolders", () => {
     expect(call.mock.calls.some((c) => c[0] === "settings.set")).toBe(false);
   });
 
-  it("ignores anything that is not one of the three folders or not absolute", async () => {
+  it("ignores anything that is not one of the three folders", async () => {
+    const call = stub();
+    await shareStarterFolders(call, [{ id: "home", path: "/Users/ada" }]);
+    expect(call).not.toHaveBeenCalled();
+  });
+
+  it("keeps a Windows drive path and a UNC path: the Gateway is the gate", async () => {
     const call = stub();
     await shareStarterFolders(call, [
-      { id: "home", path: "/Users/ada" },
-      { id: "documents", path: "~/Documents" },
+      { id: "documents", path: "C:\\Users\\ada\\Documents" },
+      { id: "desktop", path: "\\\\server\\share\\Desktop" },
     ]);
-    expect(call).not.toHaveBeenCalled();
+    const set = call.mock.calls.find((c) => c[0] === "settings.set");
+    expect(set?.[1]).toMatchObject({
+      value: {
+        folders: [
+          { path: "C:\\Users\\ada\\Documents", mode: "ro" },
+          { path: "\\\\server\\share\\Desktop", mode: "ro" },
+        ],
+      },
+    });
+  });
+
+  it("does not add a folder that is stored with different case", async () => {
+    const call = stub({ folders: [{ path: "/Users/x/documents", mode: "ro" }] });
+    await shareStarterFolders(call, [{ id: "documents", path: "/Users/x/Documents" }]);
+    expect(call.mock.calls.some((c) => c[0] === "settings.set")).toBe(false);
   });
 
   it("a write that needs the approval card is not swallowed", async () => {

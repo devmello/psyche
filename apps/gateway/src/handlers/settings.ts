@@ -74,21 +74,36 @@ async function checkNewFolders(call: Call, value: unknown): Promise<void> {
 }
 
 /**
- * `~/x` in a folder grant becomes the absolute path before it is judged and stored: the policy
- * matches absolute paths only, so a `~` entry would grant nothing. Only a leading `~/` expands,
- * to the owner's home; `..` is resolved after expansion, so `~/../x` is judged (and stored) as
- * the real path `/x`'s parent, never as something under home. `~user/x` and a bare `~` are
- * refused. Everything else passes through untouched for `assertFolderGrantable`.
+ * Folder grants written as `~/x` are stored as `<home>/x`: the policy matches absolute paths
+ * only, so a literal `~` entry grants nothing.
+ *
+ * - Only an entry that is NEW in this write (its literal path is not in the stored policy) is
+ *   expanded. A `~/x` entry already stored never granted anything, and stays literal so an
+ *   unrelated policy write cannot start granting it.
+ * - Only a leading `~/` expands, to the owner's home. `~user/x` and a bare `~` are refused.
+ * - The result is normalised (`..` and `.` resolved, no trailing slash), not realpath'd, and
+ *   that normalised path is what `assertFolderGrantable` judges and what is stored: `~/../x`
+ *   becomes `<parent of home>/x`, never something under home.
  */
-export function expandPolicyFolders(value: unknown, userHome: string = homedir()): unknown {
+export function expandPolicyFolders(
+  value: unknown,
+  stored: unknown,
+  userHome: string = homedir(),
+): unknown {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
   const folders = (value as { folders?: unknown }).folders;
   if (!Array.isArray(folders)) return value;
+  const storedFolders = (stored as { folders?: unknown } | null | undefined)?.folders;
+  const known = new Set(
+    Array.isArray(storedFolders)
+      ? storedFolders.map((f: unknown) => (f as { path?: unknown } | null)?.path)
+      : [],
+  );
   return {
     ...value,
     folders: folders.map((f: unknown) => {
       const path = (f as { path?: unknown } | null)?.path;
-      if (typeof path !== "string" || !path.startsWith("~")) return f;
+      if (typeof path !== "string" || !path.startsWith("~") || known.has(path)) return f;
       if (!path.startsWith("~/")) {
         throw new PsycheError("invalid_params", "folder grants are absolute paths");
       }
@@ -181,7 +196,7 @@ export const settingsHandlers: Record<string, HandlerDef> = {
         throw new PsycheError("forbidden", `Changing ${key} requires operator.admin`);
       }
       if (key === "permissions.policy") {
-        value = expandPolicyFolders(value);
+        value = expandPolicyFolders(value, getSetting(call.ctx.db, key)?.value);
         await checkNewFolders(call, value);
       }
       // Fresh presence once a verifier was enrolled (helper Touch ID, passkeys); admin only before.
