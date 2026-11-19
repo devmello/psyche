@@ -81,8 +81,10 @@ const idOf = (path: string): string => {
 
 /**
  * The real path of `path` when it is a plain executable owned by the user or root that no one else
- * can write, none of whose folders is world-writable (a sticky root-owned one like /tmp aside), and
- * that is not inside `$PSYCHE_HOME` under any spelling (compared by (dev, ino), not by text).
+ * can write, and every folder above it (both along the path as given, where a symlink may live,
+ * and along the real path) is owned by the user or root and not writable by group or others (a
+ * sticky root-owned one like /tmp aside), and it is not inside `$PSYCHE_HOME` under any spelling
+ * (compared by (dev, ino), not by text).
  */
 export function checkOpPath(
   path: string,
@@ -96,12 +98,15 @@ export function checkOpPath(
     const uid = deps.uid ?? process.getuid?.();
     if (uid !== undefined && st.uid !== uid && st.uid !== 0) return undefined;
     const home = deps.psycheHome === undefined ? undefined : idOf(realpathSync(deps.psycheHome));
-    for (let d = dirname(real); ; d = dirname(d)) {
-      const dst = lstatSync(d);
-      if ((dst.mode & 0o002) !== 0 && !((dst.mode & 0o1000) !== 0 && dst.uid === 0))
-        return undefined;
-      if (home !== undefined && idOf(d) === home) return undefined;
-      if (dirname(d) === d) break;
+    for (const start of new Set([dirname(path), dirname(real)])) {
+      for (let d = start; ; d = dirname(d)) {
+        const dst = lstatSync(d);
+        const sticky = (dst.mode & 0o1000) !== 0 && dst.uid === 0;
+        if ((dst.mode & 0o022) !== 0 && !sticky) return undefined;
+        if (uid !== undefined && dst.uid !== uid && dst.uid !== 0) return undefined;
+        if (home !== undefined && idOf(d) === home) return undefined;
+        if (dirname(d) === d) break;
+      }
     }
     return real;
   } catch {
@@ -288,9 +293,19 @@ class OnePasswordSetup {
         .append({
           kind: "vault.external_source",
           actor: { type: "system" },
-          data: { source: "1password", kind: "app", available: true },
+          data: { source: "1password", kind: "app", available: this.#pinnedFileOk(pin) },
         })
         .catch(() => undefined);
+    }
+  }
+
+  /** Whether the pinned file is still the same safe file (no signature check: sync, at start). */
+  #pinnedFileOk(pin: Pin): boolean {
+    try {
+      const real = checkOpPath(pin.path, this.#o);
+      return real === pin.path && idOf(real) === `${pin.dev}:${pin.ino}`;
+    } catch {
+      return false;
     }
   }
 
@@ -317,8 +332,9 @@ class OnePasswordSetup {
   /** Signed by 1Password (macOS only), cached by the file's (dev, ino, mtime). */
   async #signedByVendor(real: string): Promise<boolean> {
     if (this.#os() !== "macos") return true;
+    // ctime is set by the kernel on every write and cannot be put back by touch -r.
     const st = statSync(real, { bigint: true });
-    const key = `${st.dev}:${st.ino}:${st.mtimeNs}`;
+    const key = `${st.dev}:${st.ino}:${st.size}:${st.ctimeNs}:${st.mtimeNs}`;
     const known = this.#signed.get(key);
     if (known !== undefined) return known;
     const ok = await (this.#o.codesign ?? defaultCodesign)(real);
@@ -331,7 +347,7 @@ class OnePasswordSetup {
     if (pin !== undefined) {
       const real = checkOpPath(pin.path, this.#o);
       if (real === undefined || real !== pin.path || idOf(real) !== `${pin.dev}:${pin.ino}`)
-        return { ok: false, problem: "op_changed" };
+        return this.#repin(pin);
       return (await this.#signedByVendor(real))
         ? { ok: true, path: real }
         : { ok: false, problem: "op_unsigned" };
@@ -341,6 +357,38 @@ class OnePasswordSetup {
       if (await this.#signedByVendor(real)) return { ok: true, path: real };
     }
     return found.length > 0 ? { ok: false, problem: "op_unsigned" } : { ok: false };
+  }
+
+  /**
+   * The pinned file is gone or different (an upgrade moves the version folder). On macOS, where
+   * the signature is checked, exactly one candidate that passes every check takes over the pin;
+   * anything else stays `op_changed` until the owner checks again.
+   */
+  async #repin(pin: Pin): Promise<Resolved> {
+    const no: Resolved = { ok: false, problem: "op_changed" };
+    if (this.#os() !== "macos" || this.#byConfig()) return no;
+    const good: string[] = [];
+    for (const real of opCandidates(this.#o)) {
+      if (await this.#signedByVendor(real)) good.push(real);
+    }
+    const [path] = good;
+    if (good.length !== 1 || path === undefined) return no;
+    const [dev = "", ino = ""] = idOf(path).split(":");
+    setSetting(this.#s.db, ONEPASSWORD_APP_SETTING, {
+      path,
+      dev,
+      ino,
+      ...(pin.account === undefined ? {} : { account: pin.account }),
+    } satisfies Pin);
+    this.#cache = undefined;
+    this.#s.audit
+      .append({
+        kind: "vault.external_source",
+        actor: { type: "system" },
+        data: { source: "1password", kind: "app", available: true, repinned: true },
+      })
+      .catch(() => undefined);
+    return { ok: true, path };
   }
 
   #source(): OnePasswordSource {

@@ -4,12 +4,13 @@ import {
   mkdtempSync,
   realpathSync,
   rmSync,
+  statSync,
   symlinkSync,
   utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { updateDevice } from "@psyche/db";
 import type { OnePasswordSetupStatus, OnePasswordTestResult } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
@@ -464,14 +465,16 @@ describe("the op file is pinned (N1)", () => {
     expect(s.op?.path).toBe(realpathSync(join(good, "op")));
   });
 
-  it("a replaced binary is refused at run time and the vault source answers unavailable", async () => {
-    const { admin, real, op, composed } = await pinned();
+  it("a replaced binary that is not signed is refused at run time and the vault source answers unavailable", async () => {
+    let signed = true;
+    const { admin, real, op, composed } = await pinned({ signed: () => signed });
     const setOp = vi.spyOn(composed.vault, "setOnePassword");
     await admin.call("vault.onePassword.connect", {}, ik());
     const file = join(real, "op");
     rmSync(file);
     writeFileSync(file, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
     chmodSync(file, 0o755);
+    signed = false;
     op.calls.length = 0;
 
     const s = await status(admin, true);
@@ -484,6 +487,8 @@ describe("the op file is pinned (N1)", () => {
     expect(op.calls).toHaveLength(0);
     // Disconnect still works, and Connect pins the new file after a fresh look.
     await admin.call("vault.onePassword.disconnect", {}, ik());
+    writeFileSync(file, "#!/bin/sh\nexit 3\n"); // a fresh, signed build
+    signed = true;
     const again = await admin.call<OnePasswordSetupStatus>("vault.onePassword.connect", {}, ik());
     expect(again.connected).toBe(true);
   });
@@ -567,5 +572,165 @@ describe("checkOpPath ancestors (N3)", () => {
     writeFileSync(join(root, "home2", "op"), "x", { mode: 0o755 });
     chmodSync(join(root, "home2", "op"), 0o755);
     expect(checkOpPath(join(root, "home2", "op"), { psycheHome: home })).toBeDefined();
+  });
+});
+
+describe("signature cache cannot be fooled (R1)", () => {
+  it("an in-place rewrite with the old mtime put back is checked again and refused", async () => {
+    let signed = true;
+    const dir = opFolder();
+    const { admin, codesigns } = await boot({ path: dir, signed: () => signed });
+    await admin.call("vault.onePassword.connect", {}, ik());
+    const file = join(dir, "op");
+    const before = statSync(file);
+    const n = codesigns.length;
+    signed = false;
+    // Same inode, same size, same mtime: only ctime tells.
+    writeFileSync(file, "#!/bin/sh\nexit 2\n");
+    utimesSync(file, before.atime, before.mtime);
+    expect(statSync(file).ino).toBe(before.ino);
+    expect(statSync(file).size).toBe(before.size);
+    const s = await status(admin, true);
+    expect(codesigns.length).toBe(n + 1);
+    expect(s).toMatchObject({ state: "error", problem: "op_unsigned" });
+  });
+});
+
+describe("an upgrade moves the op file (R3)", () => {
+  /** stable/op -> versions/<v>/op, like a Homebrew cask. */
+  function cask() {
+    const root = tmp("psyche-cask-");
+    chmodSync(root, 0o755);
+    const stable = join(root, "bin");
+    mkdirSync(stable);
+    const install = (v: string) => {
+      const d = join(root, "versions", v);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "op"), `#!/bin/sh\n# ${v}\n`, { mode: 0o755 });
+      chmodSync(join(d, "op"), 0o755);
+      return d;
+    };
+    const point = (v: string) => {
+      rmSync(join(stable, "op"), { force: true });
+      symlinkSync(join(root, "versions", v, "op"), join(stable, "op"));
+    };
+    return { root, stable, install, point };
+  }
+
+  it("re-pins to the one signed candidate, and says so in the audit", async () => {
+    const c = cask();
+    c.install("1");
+    c.point("1");
+    const { admin, composed } = await boot({ path: c.stable });
+    await admin.call("vault.onePassword.connect", {}, ik());
+    c.install("2");
+    c.point("2");
+    rmSync(join(c.root, "versions", "1"), { recursive: true });
+
+    const s = await status(admin, true);
+    expect(s).toMatchObject({ state: "signed_in", connected: true });
+    expect(s.op?.path).toBe(realpathSync(join(c.root, "versions", "2", "op")));
+    const entries = await composed.audit.query({ kind: "vault.external_source" });
+    expect(entries.some((e) => (e.data as { repinned?: boolean }).repinned === true)).toBe(true);
+    // Now pinned to the new file: a second look does not re-pin again.
+    await status(admin, true);
+    const again = await composed.audit.query({ kind: "vault.external_source" });
+    expect(again.filter((e) => (e.data as { repinned?: boolean }).repinned === true)).toHaveLength(
+      1,
+    );
+  });
+
+  it("does not re-pin to an unsigned new candidate", async () => {
+    const c = cask();
+    c.install("1");
+    c.point("1");
+    const { admin, composed } = await boot({
+      path: c.stable,
+      signed: (p) => !p.includes(`${sep}2${sep}`),
+    });
+    await admin.call("vault.onePassword.connect", {}, ik());
+    c.install("2");
+    c.point("2");
+    rmSync(join(c.root, "versions", "1"), { recursive: true });
+    const s = await status(admin, true);
+    expect(s).toMatchObject({ state: "error", connected: true, problem: "op_changed" });
+    const entries = await composed.audit.query({ kind: "vault.external_source" });
+    expect(entries.some((e) => (e.data as { repinned?: boolean }).repinned === true)).toBe(false);
+  });
+
+  it("does not re-pin when two candidates pass", async () => {
+    const c = cask();
+    c.install("1");
+    c.point("1");
+    const other = opFolder();
+    const { admin } = await boot({ path: `${c.stable}:${other}` });
+    await admin.call("vault.onePassword.connect", {}, ik());
+    c.install("2");
+    c.point("2");
+    rmSync(join(c.root, "versions", "1"), { recursive: true });
+    const s = await status(admin, true);
+    expect(s).toMatchObject({ state: "error", problem: "op_changed" });
+  });
+
+  it("never re-pins where the signature is not checked", async () => {
+    const c = cask();
+    c.install("1");
+    c.point("1");
+    const { admin } = await boot({ path: c.stable, platform: "linux" });
+    await admin.call("vault.onePassword.connect", {}, ik());
+    c.install("2");
+    c.point("2");
+    rmSync(join(c.root, "versions", "1"), { recursive: true });
+    expect((await status(admin, true)).problem).toBe("op_changed");
+  });
+});
+
+describe("the startup audit tells the truth (R5)", () => {
+  it("records available: false when the pinned file is gone", async () => {
+    const dir = opFolder();
+    const { admin, home, stop } = await boot({ path: dir });
+    await admin.call("vault.onePassword.connect", {}, ik());
+    await admin.close();
+    await stop("restart");
+    releaseAllGatewayLocks();
+    rmSync(join(dir, "op"));
+    const again = await boot({ home, path: tmp("psyche-empty-") });
+    const entries = await again.composed.audit.query({ kind: "vault.external_source" });
+    const startup = entries.filter((e) => (e.data as { kind?: string }).kind === "app");
+    expect(startup.at(-1)?.data).toMatchObject({ available: false });
+  });
+});
+
+describe("checkOpPath, tighter again (R2)", () => {
+  function opIn(mode: number): string {
+    const top = tmp("psyche-mode-");
+    const bin = join(top, "bin");
+    mkdirSync(bin);
+    writeFileSync(join(bin, "op"), "x", { mode: 0o755 });
+    chmodSync(join(bin, "op"), 0o755);
+    chmodSync(bin, mode);
+    return join(bin, "op");
+  }
+
+  it("refuses a group-writable folder, however the group is meant", () => {
+    expect(checkOpPath(opIn(0o755))).toBeDefined();
+    expect(checkOpPath(opIn(0o775))).toBeUndefined();
+    expect(checkOpPath(opIn(0o770))).toBeUndefined();
+    expect(checkOpPath(opIn(0o777))).toBeUndefined();
+  });
+
+  it("looks at the folder of a symlink as given, not only at its target", () => {
+    const top = tmp("psyche-sym-");
+    const open = join(top, "open");
+    mkdirSync(open);
+    symlinkSync("/bin/sh", join(open, "op"));
+    chmodSync(open, 0o777);
+    expect(checkOpPath(join(open, "op"))).toBeUndefined();
+  });
+
+  it("refuses a folder owned by someone else", () => {
+    const op = opIn(0o755);
+    // Pretend the Gateway runs as another user: the folders (and the file) are not theirs.
+    expect(checkOpPath(op, { uid: (process.getuid?.() ?? 1000) + 1 })).toBeUndefined();
   });
 });

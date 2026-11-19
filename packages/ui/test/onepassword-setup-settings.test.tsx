@@ -118,6 +118,9 @@ describe("the step for each state", () => {
     expect((await screen.findByTestId("onepassword-step")).textContent).toContain(
       "changed since you connected",
     );
+    // Check again (a probe) and Disconnect are both offered.
+    expect(button("Check again")).toBeTruthy();
+    expect(button("Disconnect")).toBeTruthy();
     cleanup();
     setup({ state: "error", connected: false, os: "macos", problem: "op_unsigned" });
     expect((await screen.findByTestId("onepassword-step")).textContent).toContain(
