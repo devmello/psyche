@@ -56,6 +56,9 @@ public final class NodeDaemon: @unchecked Sendable {
         case failed
     }
 
+    /// The shortest pause before an immediate reconnect after a Gateway-up signal.
+    static let minRetryGap: TimeInterval = 0.25
+
     private let identity: DeviceIdentity
     private let registry: CapabilityRegistry
     private let preflight: any PermissionPreflight
@@ -212,8 +215,15 @@ public final class NodeDaemon: @unchecked Sendable {
         waiting = true
         wakeRequested = restarted(current)
         defer { waiting = false }
+        let started = Date()
         while !isStopped, !wakeRequested, Date() < deadline {
             _ = wait.wait(until: deadline)
+        }
+        // However early the signal came, an immediate reconnect still waits `minRetryGap`, so a process
+        // rewriting `run/node-socket` in a loop cannot drive back-to-back handshakes.
+        if wakeRequested {
+            let gapEnd = started.addingTimeInterval(Self.minRetryGap)
+            while !isStopped, Date() < gapEnd { _ = wait.wait(until: gapEnd) }
         }
         return wakeRequested && !isStopped
     }

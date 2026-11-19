@@ -357,6 +357,78 @@ struct SessionTapsInFlightTests {
         try taps.beginSession("run-2")  // the computer is free for another run
     }
 
+    /// A rig with a short hard cap; `trips` records the stop in the same log as tap removal, to show the order.
+    private struct CapRig {
+        let clock = Clock()
+        let log = Log()
+        let timers = FakeTimers()
+        let sessions: ComputerSessionLock
+        let taps: SessionTaps
+        init() {
+            let clock = clock
+            let installer = FakeInstaller(log: log)
+            sessions = ComputerSessionLock(idleTimeout: 120, maxInFlight: 1800, now: { clock.now })
+            installer.sessions = sessions
+            taps = SessionTaps(installer: installer, sessions: sessions, schedule: timers.scheduler)
+            let log = log
+            taps.onOverlong = { log.add("trip \($0)") }
+        }
+    }
+
+    @Test func anOverlongActionKeepsTheSessionAndEscUntilItIsStopped() throws {
+        let rig = CapRig()
+        try rig.taps.beginSession("run-1", invocation: true)
+        rig.clock.now = rig.clock.now.addingTimeInterval(1801)  // past the cap, the reaper has not run
+        #expect(rig.sessions.activeSession == "run-1")  // Esc still consumed and trips
+        do { try rig.taps.beginSession("run-2"); Issue.record("expected a throw") } catch let e as CapabilityError {
+            #expect(e.reason == "computer_busy")  // another run cannot take over a running action
+        }
+        #expect(rig.taps.isInstalled)
+        rig.timers.fireAll()  // the reaper
+        let order = rig.log.all.filter { $0.hasPrefix("trip") || $0.hasPrefix("remove") }
+        #expect(order.first == "trip run-1")  // stopped before any tap comes down
+        #expect(order.count == 3)
+        #expect(!rig.taps.isInstalled)
+        #expect(rig.sessions.activeSession == nil)
+    }
+
+    @Test func theCapHasItsOwnWakeUp() throws {
+        let rig = CapRig()
+        try rig.taps.beginSession("run-1", invocation: true)
+        #expect(rig.timers.delays.last == 121)
+        rig.clock.now = rig.clock.now.addingTimeInterval(1750)
+        rig.timers.fireAll()  // an idle-timer wake: re-arms for the 50 s left, not another 121 s
+        #expect(rig.timers.delays.last == 50)
+    }
+
+    @Test func aReapedSessionReportsTheTimeLimitNotAnEscPress() throws {
+        let rig = CapRig()
+        try rig.taps.beginSession("run-1", invocation: true)
+        rig.clock.now = rig.clock.now.addingTimeInterval(1900)
+        rig.timers.fireAll()
+        do { try rig.taps.beginSession("run-1"); Issue.record("expected a throw") } catch let e as CapabilityError {
+            #expect(e.reason == "action_time_limit")
+        }
+    }
+
+    @Test func overlappingShortActionsOverThirtyMinutesAreNotReaped() throws {
+        let rig = CapRig()
+        var live: [Int] = []
+        let first = try #require(try rig.taps.beginSession("run-1", invocation: true))
+        live.append(first)
+        // Each action runs 60 s and overlaps the next by 30 s: the session never idles, no action is old.
+        for _ in 0..<80 {
+            rig.clock.now = rig.clock.now.addingTimeInterval(30)
+            live.append(try #require(try rig.taps.beginSession("run-1", invocation: true)))
+            rig.clock.now = rig.clock.now.addingTimeInterval(30)
+            rig.taps.endInvocation("run-1", token: live.removeFirst())
+            rig.timers.fireAll()
+        }
+        #expect(rig.log.all.filter { $0.hasPrefix("trip") }.isEmpty)
+        #expect(rig.taps.isInstalled)
+        #expect(throws: Never.self) { try rig.taps.beginSession("run-1") }
+    }
+
     @Test func aCreationFailureWhileTrustedIsNotRetryable() {
         let sessions = ComputerSessionLock()
         let taps = SessionTaps(installer: TimeoutInstaller(.createFailed), sessions: sessions)

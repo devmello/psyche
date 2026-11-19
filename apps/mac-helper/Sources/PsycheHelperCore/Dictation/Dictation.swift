@@ -326,6 +326,20 @@ public struct DictationKeySet: Sendable {
     }
 }
 
+/// How long ago a modifier event happened, from its own timestamp (`CGEvent.timestamp`, mach ticks).
+/// The result is clamped to `maxAge`: a timestamp that is missing, in the future or absurdly old (a
+/// remapper's virtual key) must not push the hold's start far into the past, where any keyDown would
+/// turn a real hold into a chord and dictation would never start.
+public enum DictationEventAge {
+    public static let maxAge: TimeInterval = 0.25
+
+    public static func seconds(eventTicks: UInt64, nowTicks: UInt64, numer: UInt32, denom: UInt32) -> TimeInterval {
+        guard eventTicks > 0, nowTicks > eventTicks, denom > 0 else { return 0 }
+        let nanos = Double(nowTicks - eventTicks) * Double(numer) / Double(denom)
+        return min(max(nanos / 1e9, 0), maxAge)
+    }
+}
+
 /// Switches the keystroke listener that detects chords. It stays off while no watched modifier is
 /// held, so ordinary typing does not wake the helper.
 public protocol KeyDownGate: AnyObject, Sendable {

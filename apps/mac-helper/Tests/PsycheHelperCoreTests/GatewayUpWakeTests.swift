@@ -125,7 +125,9 @@ struct GatewayUpEarlyWakeTests {
         try write(home + "/run/node-socket", "/tmp/b.sock")  // the Gateway came up while the attempt failed
         let started = Date()
         #expect(d.sleepUnlessStopped(30, baseline: before))
-        #expect(Date().timeIntervalSince(started) < 2)
+        let took = Date().timeIntervalSince(started)
+        #expect(took >= NodeDaemon.minRetryGap - 0.02)  // not a back-to-back reconnect
+        #expect(took < 2)
     }
 }
 

@@ -8,6 +8,7 @@ import PsycheProtocol
 final class InvocationScope: @unchecked Sendable {
     @TaskLocal static var current: InvocationScope?
     var session: String?
+    var token: Int?
 }
 
 /// Shared state for computer use: AX engine, tier policy, session lock and Esc stop.
@@ -88,7 +89,7 @@ public final class ComputerUse: @unchecked Sendable {
         // The first call of an action also marks it in flight, atomically with taking the session:
         // its Esc stop outlives the idle timeout and `end_session`.
         if let scope = InvocationScope.current, scope.session == nil {
-            try taps.beginSession(session, invocation: true)
+            scope.token = try taps.beginSession(session, invocation: true)
             scope.session = session
         } else {
             try taps.beginSession(session)
@@ -98,7 +99,8 @@ public final class ComputerUse: @unchecked Sendable {
     func endInvocation(_ scope: InvocationScope) {
         guard let session = scope.session else { return }
         scope.session = nil
-        taps.endInvocation(session)
+        taps.endInvocation(session, token: scope.token)
+        scope.token = nil
     }
 }
 

@@ -241,10 +241,13 @@ public final class DictationKeyWatcher: @unchecked Sendable {
             ) { _, event in
                 if event.getIntegerValueField(.eventSourceUserData) != Input.marker {
                     // The callback can run late: anchor the hold at when the modifier actually changed.
-                    let age = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .flagsChanged)
+                    var timebase = mach_timebase_info_data_t()
+                    mach_timebase_info(&timebase)
+                    let age = DictationEventAge.seconds(
+                        eventTicks: event.timestamp, nowTicks: mach_absolute_time(), numer: timebase.numer, denom: timebase.denom)
                     for change in engine.flagsChanged(
                         keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags.rawValue,
-                        eventAge: age.isFinite ? age : 0)
+                        eventAge: age)
                     {
                         continuation.yield(change)
                     }

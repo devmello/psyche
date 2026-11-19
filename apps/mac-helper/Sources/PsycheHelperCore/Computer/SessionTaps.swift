@@ -89,7 +89,8 @@ public final class SessionTaps: @unchecked Sendable {
     /// Esc tap first, then the session lock, so no action can run without the Esc stop. With
     /// `invocation`, the action is also marked in flight atomically with taking the session; end it
     /// with `endInvocation`.
-    public func beginSession(_ id: String, invocation: Bool = false) throws {
+    @discardableResult
+    public func beginSession(_ id: String, invocation: Bool = false) throws -> Int? {
         try lock.withLock {
             if esc == nil {
                 guard let tap = installer.install(.escStop) else {
@@ -105,11 +106,13 @@ public final class SessionTaps: @unchecked Sendable {
                 esc = tap
             }
             if attention == nil { attention = installer.install(.attention) }  // best effort: no record fails closed
-            do { try sessions.acquire(id, markInFlight: invocation) } catch {
+            let token: Int?
+            do { token = try sessions.acquire(id, markInFlight: invocation) } catch {
                 removeIfIdleLocked()
                 throw error
             }
             armIdleLocked()
+            return token
         }
     }
 
@@ -118,8 +121,8 @@ public final class SessionTaps: @unchecked Sendable {
     public func beginInvocation(_ id: String) { sessions.beginInvocation(id) }
 
     /// The action ended: completes a deferred `end_session`, then removes the taps if idle.
-    public func endInvocation(_ id: String) {
-        sessions.endInvocation(id)
+    public func endInvocation(_ id: String, token: Int? = nil) {
+        sessions.endInvocation(id, token: token)
         reconcile()
     }
 
@@ -150,7 +153,8 @@ public final class SessionTaps: @unchecked Sendable {
     /// Removes the taps when no session is active (an idle session expires without a release).
     public func reconcile() {
         // An action that has run past the hard cap loses the session; trip the stop signal so it ends.
-        if let overlong = sessions.reapOverlong() { onOverlong?(overlong) }
+        // The stop is tripped before the session is released, so nothing sees it inactive while it runs.
+        sessions.reapOverlong { id in onOverlong?(id) }
         lock.withLock {
             if sessions.activeSession == nil { removeIfIdleLocked() } else { armIdleLocked() }
         }
@@ -168,6 +172,9 @@ public final class SessionTaps: @unchecked Sendable {
 
     private func armIdleLocked() {
         cancelIdle?()
-        cancelIdle = schedule(sessions.idleTimeout + 1) { [weak self] in self?.reconcile() }
+        // Wake for the idle timeout, or sooner for the hard cap on a running action.
+        var delay = sessions.idleTimeout + 1
+        if let untilCap = sessions.timeUntilCap() { delay = min(delay, max(0.05, untilCap)) }
+        cancelIdle = schedule(delay) { [weak self] in self?.reconcile() }
     }
 }

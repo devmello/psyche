@@ -147,4 +147,17 @@ struct DictationKeyEngineTests {
         #expect(weakGate == nil)
         _ = e.flagsChanged(keyCode: fn, flags: fnMask)  // no crash with the gate gone
     }
+
+    @Test func theEventAgeComesFromTheEventsOwnTimestampAndIsClamped() {
+        // 1:1 timebase: ticks are nanoseconds.
+        func age(_ event: UInt64, _ now: UInt64) -> TimeInterval {
+            DictationEventAge.seconds(eventTicks: event, nowTicks: now, numer: 1, denom: 1)
+        }
+        #expect(abs(age(1_000_000_000, 1_080_000_000) - 0.08) < 1e-9)
+        #expect(age(1_000_000_000, 5_000_000_000) == 0.25)  // an absurdly old timestamp is clamped
+        #expect(age(0, 5_000_000_000) == 0)  // no timestamp
+        #expect(age(6_000_000_000, 5_000_000_000) == 0)  // a timestamp from the future
+        // Apple silicon timebase 125/3.
+        #expect(abs(DictationEventAge.seconds(eventTicks: 100, nowTicks: 100 + 2_400_000, numer: 125, denom: 3) - 0.1) < 1e-9)
+    }
 }

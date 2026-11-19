@@ -106,6 +106,8 @@ public struct CapabilityError: Error, Sendable, Equatable, CustomStringConvertib
     }
 
     public static let cancelled = CapabilityError(.cancelled, reason: "cancelled", "The invocation was cancelled")
+    public static let actionTimeLimit = CapabilityError(
+        .cancelled, reason: "action_time_limit", "One action ran past the time limit and was stopped; start a new run to continue")
     public static let stopped = CapabilityError(.cancelled, reason: "user_stopped", "The user pressed Esc to stop computer use")
 }
 
