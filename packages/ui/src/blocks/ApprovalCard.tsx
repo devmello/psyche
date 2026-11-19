@@ -632,9 +632,18 @@ export function ApprovalCard({
   // An email send that offers Always keeps it for this recipient (the grant is keyed by the
   // recipient list). Show it as a visible choice, not only as a menu entry. It sets the same
   // `choice` as the menu, so the floor confirm and the answer are unchanged.
-  const sendTo = Array.isArray(approval.details.to)
-    ? approval.details.to.filter((v): v is string => typeof v === "string")
-    : [];
+  // The grant covers to, cc and bcc together, so name one address only when that is all of them.
+  const listOf = (v: unknown) =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  const sendTo = [
+    ...new Set(
+      [
+        ...listOf(approval.details.to),
+        ...listOf(approval.details.cc),
+        ...listOf(approval.details.bcc),
+      ].map((a) => a.trim().toLowerCase()),
+    ),
+  ];
   const alwaysForRecipient =
     approval.kind === "send_email" && offered.includes("always") && !unsandboxed;
   const allowReady =

@@ -84,4 +84,15 @@ describe("Always allow for this recipient on an email send card", () => {
     expect(screen.getByRole("checkbox", { name: "Always allow for this recipient" })).toBeTruthy();
     expect(recipientChoice()).toBeNull();
   });
+
+  it("never names only the To address when cc or bcc add others (the grant covers all of them)", () => {
+    show(approval({ details: { to: ["jane@example.com"], bcc: ["other@example.net"] } }));
+    expect(screen.getByRole("checkbox", { name: "Always allow for this recipient" })).toBeTruthy();
+    expect(recipientChoice()).toBeNull();
+  });
+
+  it("still names the one address when cc repeats it", () => {
+    show(approval({ details: { to: ["Jane@example.com"], cc: ["jane@example.com"] } }));
+    expect(recipientChoice()).not.toBeNull();
+  });
 });
