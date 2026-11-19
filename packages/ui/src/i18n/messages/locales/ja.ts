@@ -671,15 +671,24 @@ export const ja: Partial<Catalogue> = {
   "agent.approvals.wantedTo": "の要求：{what}",
   "agent.approvals.openTask": "タスクを開く",
   "agent.approvals.deferredHint":
-    "自動化が応答を待っています。期限切れの操作が遅れて実行されることはありません。",
+    "自動化が保留にした操作です。承認すると、その操作を行うために自動化がもう一度実行されます。期限切れの操作が遅れて実行されることはありません。",
   "agent.approvals.approve": "承認",
   "agent.approvals.decline": "却下",
   "agent.approvals.approveRoutine": "定型の操作をすべて承認（{n, number}）",
   "agent.approvals.riskRoutine": "定型",
   "agent.approvals.riskSensitive": "機密性あり",
-  "agent.approvals.riskProhibited": "禁止",
   "agent.approvals.setAside": "{when}に保留",
   "agent.approvals.answerElsewhere": "送信された場所で回答",
+  "agent.approvals.setAsideNote":
+    "自動化がこの操作を保留にして先に進みました。承認すると再実行され、実行がまったく同じ操作に到達した場合にだけ行われます。",
+  "agent.approvals.setAsideApproved":
+    "承認しました。自動化が再実行され、まったく同じ操作に到達した場合にだけこれを行います。到達しなかった場合は通知が届きます。",
+  "agent.approvals.resuming":
+    "承認しました。{names}を再実行しています。各操作は実行が到達した場合にだけ行われ、到達しなかった場合は通知が届きます。",
+  "agent.approvals.notResumable":
+    "この自動化は再実行できないため、承認しても何も起きません。拒否するか、自動化を自分で実行してください。",
+  "agent.approvals.notRoutine":
+    "この操作には個別の承認が必要です。その操作のカードで承認してください。",
   "agent.approvals.noRecent": "過去7日間に判断はありません。",
   "agent.schedule.once": "{month}{day, number}日（{weekday}）{time}",
   "agent.schedule.every": "{span}ごと",

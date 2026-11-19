@@ -62,6 +62,14 @@ export function classifyAnswerError(err: unknown): AnswerFailure {
   if (code === "forbidden" && details.reason === "presence_required") {
     return { kind: "presence_unavailable" };
   }
+  // A set-aside automation card whose automation is gone, or a bulk answer on a card the Gateway
+  // did not class routine: say what to do instead of the Gateway's English.
+  if (code === "unavailable" && details.reason === "not_resumable") {
+    return { kind: "other", text: t("agent.approvals.notResumable") };
+  }
+  if (code === "invalid_params" && details.reason === "not_routine") {
+    return { kind: "other", text: t("agent.approvals.notRoutine") };
+  }
   const refusal = code === null ? undefined : PASSWORD_REFUSAL[code];
   if (refusal !== undefined) return { kind: "other", text: t(refusal) };
   if (

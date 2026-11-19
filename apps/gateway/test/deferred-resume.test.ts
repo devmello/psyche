@@ -1,0 +1,304 @@
+import { openDb } from "@psyche/db";
+import { PsycheNotifier } from "@psyche/notifications";
+import { createPermissionBroker, type PolicyCall } from "@psyche/permissions";
+import { createDbSessionResolver, type RunLauncher, SqliteScheduler } from "@psyche/scheduler";
+import { FakeClock, sha256 } from "@psyche/testing";
+import { describe, expect, it } from "vitest";
+import {
+  DeferredResume,
+  RESUME_MISSED_BODY_KEY,
+  RESUME_MISSED_TITLE_KEY,
+} from "../src/compose/deferred-resume.ts";
+
+const T0 = Date.parse("2026-11-18T10:00:00Z");
+const NOTES = "/Users/owner/Notes/weekly.md";
+
+function writeCall(path: string): PolicyCall {
+  const params = { path, content: "notes" };
+  return {
+    tool: "write_file",
+    sideEffect: "write",
+    target: { kind: "path", value: path },
+    targetKind: "path",
+    params,
+    paramsHash: sha256(JSON.stringify(params)),
+  };
+}
+
+/**
+ * The real broker, scheduler and DeferredResume, with a launcher that does what the agent loop
+ * does for an unattended run (the loop's own part is tested in agent-core features.test.ts):
+ * decide → an approved set-aside card for this exact call? (`claim` + `verifyBinding`, then do
+ * it and record its receipt) → otherwise set the action aside and finish without it.
+ */
+function setup(plans: string[]) {
+  const clock = new FakeClock(T0);
+  const db = openDb(":memory:");
+  const notifier = new PsycheNotifier({ clock });
+  let resume!: DeferredResume;
+  const broker = createPermissionBroker({
+    armDelayMs: 0,
+    clock,
+    approvers: {
+      device: async () => ({ scopes: ["operator.read", "operator.approvals"] }),
+      isOwnerSender: async () => false,
+    },
+    policy: { folders: [{ path: "/Users/owner", mode: "rw" }] },
+    canResume: (a) => resume.canResume(a),
+  });
+  const written: string[] = [];
+  const gates: (() => void)[] = [];
+  let hold = false;
+  let n = 0;
+  const launcher: RunLauncher = {
+    async launch(request) {
+      n += 1;
+      const i = n;
+      const taskId = `task_${i}`;
+      const held = hold
+        ? new Promise<void>((r) => {
+            gates.push(r);
+          })
+        : Promise.resolve();
+      const result = (async () => {
+        const path = plans[i - 1] ?? NOTES;
+        const call = writeCall(path);
+        const ctx = {
+          threadId: request.threadId,
+          runId: `run_${i}`,
+          taskId,
+          permissionMode: "manual" as const,
+          taint: false,
+          unattended: true,
+        };
+        const d = await broker.decide(call, ctx);
+        if (d.decision === "ask" && d.bindingHash !== undefined && d.approvalKind !== undefined) {
+          const id = await resume.claim({
+            taskId,
+            kind: d.approvalKind,
+            bindingHash: d.bindingHash,
+            taint: false,
+          });
+          const v = id === undefined ? undefined : await broker.verifyBinding(id, d.bindingHash);
+          if (v?.ok === true) {
+            written.push(path);
+            await broker.recordReceipt({
+              kind: "file_write",
+              outcome: "ok",
+              summary: `Wrote ${path}`,
+              taskId,
+              approvalId: id ?? null,
+            });
+          } else {
+            await broker.requestApproval({
+              kind: d.approvalKind,
+              summary: `Write ${path}`,
+              details: {},
+              bindingHash: d.bindingHash,
+              grantKey: d.grantKey ?? "k",
+              requestedBy: { runId: ctx.runId, taskId, threadId: ctx.threadId },
+              sideEffect: "write",
+              target: call.target,
+              surfaces: ["desktop"],
+              taint: false,
+              setAside: true,
+            });
+          }
+        }
+        await held;
+        return { status: "done" as const, summary: "ok", taskId };
+      })();
+      return { taskId, result };
+    },
+  };
+  const scheduler = new SqliteScheduler({
+    db,
+    clock,
+    timers: { setTimeout: () => undefined, clearTimeout: () => {} },
+    launcher,
+    sessions: createDbSessionResolver(db),
+    notifier,
+  });
+  resume = new DeferredResume({ scheduler, notifier });
+  broker.subscribe((e) => resume.onBrokerEvent(e));
+  scheduler.subscribe((e) => {
+    if (e.event === "automation.run.finished") resume.onRunFinished(e.payload.run);
+  });
+  const pendingCards = () => broker.list({ status: "pending" });
+  const approve = async (id: string, token: string) =>
+    broker.answer({
+      approvalId: id,
+      answerToken: token,
+      decision: "approve",
+      scope: "once",
+      decidedBy: { deviceId: "dev_mac", surface: "desktop" },
+    });
+  /** Let the scheduler, the resume queue and the runs it starts settle. */
+  const settle = async () => {
+    for (let i = 0; i < 5; i++) {
+      await scheduler.idle();
+      await resume.idle();
+    }
+  };
+  const issued = async () => {
+    const [card] = await pendingCards();
+    if (card === undefined) throw new Error("no pending card");
+    // The test reads the answer token the way a paired device receives it.
+    return card;
+  };
+  return {
+    broker,
+    scheduler,
+    resume,
+    notifier,
+    written,
+    pendingCards,
+    approve,
+    settle,
+    issued,
+    holdRuns: (on: boolean) => {
+      hold = on;
+    },
+    release: () => {
+      for (const g of gates.splice(0)) g();
+    },
+  };
+}
+
+/** Captures the answer token of every card as the broker issues it. */
+function tokens(h: ReturnType<typeof setup>) {
+  const map = new Map<string, string>();
+  const original = h.broker.requestApproval.bind(h.broker);
+  h.broker.requestApproval = async (input) => {
+    const out = await original(input);
+    map.set(out.approval.id, out.answerTokens.desktop ?? "");
+    return out;
+  };
+  return map;
+}
+
+const automation = {
+  kind: "cron" as const,
+  title: "Weekly notes",
+  schedule: "0 17 * * 5",
+  prompt: "Write the weekly notes.",
+};
+
+describe("Approve on a set-aside card resumes the automation (DeferredResume)", () => {
+  it("approve → a resume run reaches the identical call → it is done exactly once", async () => {
+    const h = setup([NOTES, NOTES, NOTES]);
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    expect(h.written).toEqual([]);
+    const card = await h.issued();
+    expect(card.setAside).toBe(true);
+    expect(card.riskClass).toBe("routine");
+
+    expect((await h.approve(card.id, tok.get(card.id) ?? "")).status).toBe("approved");
+    await h.settle();
+    // The resume run re-planned, reached the same write and used the approval once.
+    expect(h.written).toEqual([NOTES]);
+    expect(await h.pendingCards()).toHaveLength(0);
+    expect(h.resume.pending()).toEqual([]);
+    expect(await h.notifier.list()).toHaveLength(0);
+    expect((await h.broker.listReceipts({ approvalId: card.id })).length).toBe(1);
+
+    // A later run of the automation does not get to reuse it: it sets the action aside again.
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    expect(h.written).toEqual([NOTES]);
+    expect(await h.pendingCards()).toHaveLength(1);
+  });
+
+  it("a resume run that reaches a different call does nothing and says so", async () => {
+    const other = "/Users/owner/Notes/other.md";
+    const h = setup([NOTES, other]);
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    await h.approve(card.id, tok.get(card.id) ?? "");
+    await h.settle();
+    expect(h.written).toEqual([]);
+    // It asked again for what it did reach, and the owner is told the approval did nothing.
+    const pending = await h.pendingCards();
+    expect(pending).toHaveLength(1);
+    expect(pending[0]?.id).not.toBe(card.id);
+    const notes = await h.notifier.list();
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toMatchObject({
+      kind: "approval",
+      title: "Weekly notes: the approved action was not done",
+      message: {
+        titleKey: RESUME_MISSED_TITLE_KEY,
+        bodyKey: RESUME_MISSED_BODY_KEY,
+        params: { automation: "Weekly notes" },
+      },
+    });
+  });
+
+  it("approved while a run is going: that run's end starts the resume run", async () => {
+    const h = setup([NOTES, "/Users/owner/Notes/x.md", NOTES]);
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    // A second run is in progress (it set another action aside) when the owner approves.
+    h.holdRuns(true);
+    await h.scheduler.trigger(a.id);
+    await new Promise((r) => setImmediate(r));
+    await h.approve(card.id, tok.get(card.id) ?? "");
+    await h.resume.idle();
+    expect(h.scheduler.isRunning(a.id)).toBe(true);
+    expect(h.written).toEqual([]);
+    h.holdRuns(false);
+    h.release();
+    await h.settle();
+    expect(h.written).toEqual([NOTES]);
+  });
+
+  it("an automation that is gone cannot be approved (nothing would run)", async () => {
+    const h = setup([NOTES]);
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    await h.scheduler.remove(a.id);
+    await expect(h.approve(card.id, tok.get(card.id) ?? "")).rejects.toMatchObject({
+      code: "unavailable",
+      details: { reason: "not_resumable" },
+    });
+    expect((await h.broker.get(card.id))?.status).toBe("pending");
+    // Decline still works.
+    await h.broker.answer({
+      approvalId: card.id,
+      answerToken: tok.get(card.id) ?? "",
+      decision: "deny",
+      decidedBy: { deviceId: "dev_mac", surface: "desktop" },
+    });
+    expect((await h.broker.get(card.id))?.status).toBe("denied");
+  });
+
+  it("declining starts nothing", async () => {
+    const h = setup([NOTES, NOTES]);
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    await h.broker.answer({
+      approvalId: card.id,
+      answerToken: tok.get(card.id) ?? "",
+      decision: "deny",
+      decidedBy: { deviceId: "dev_mac", surface: "desktop" },
+    });
+    await h.settle();
+    expect(h.written).toEqual([]);
+    expect(h.scheduler.runs(a.id).runs).toHaveLength(1);
+  });
+});

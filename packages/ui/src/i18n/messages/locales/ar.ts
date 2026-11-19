@@ -738,15 +738,23 @@ export const ar: Partial<Catalogue> = {
   "agent.approvals.wantedTo": "أراد {what}",
   "agent.approvals.openTask": "فتح المهمة",
   "agent.approvals.deferredHint":
-    "الأتمتة تنتظر ردّك. الإجراء المنتهي الصلاحية لا يُنفَّذ متأخرًا أبدًا.",
+    "إجراءات أجّلتها الأتمتة. الموافقة على أحدها تشغّل الأتمتة مرة أخرى لتنفيذه. الإجراء المنتهي الصلاحية لا يُنفَّذ متأخرًا أبدًا.",
   "agent.approvals.approve": "موافقة",
   "agent.approvals.decline": "رفض",
   "agent.approvals.approveRoutine": "الموافقة على كل الإجراءات الروتينية ({n, number})",
   "agent.approvals.riskRoutine": "روتيني",
   "agent.approvals.riskSensitive": "حساس",
-  "agent.approvals.riskProhibited": "محظور",
   "agent.approvals.setAside": "أُجِّل {when}",
   "agent.approvals.answerElsewhere": "أجِب حيث أُرسل",
+  "agent.approvals.setAsideNote":
+    "أجّلت أتمتة هذا الإجراء وتابعت عملها. الموافقة تشغّلها مرة أخرى، ولا يُنفَّذ هذا إلا إذا وصل التشغيل إلى الإجراء نفسه.",
+  "agent.approvals.setAsideApproved":
+    "تمت الموافقة. تعمل الأتمتة مرة أخرى ولا تنفّذ هذا إلا إذا وصلت إلى الإجراء نفسه. وإن لم تصل، يصلك إشعار.",
+  "agent.approvals.resuming":
+    "تمت الموافقة. جارٍ تشغيل {names} مرة أخرى. لا يُنفَّذ كل إجراء إلا إذا وصل إليه التشغيل، وإلا يصلك إشعار.",
+  "agent.approvals.notResumable":
+    "لا يمكن تشغيل هذه الأتمتة مرة أخرى، لذا لن تفعل الموافقة شيئًا. ارفضه، أو شغّل الأتمتة بنفسك.",
+  "agent.approvals.notRoutine": "يحتاج هذا الإجراء إلى موافقة مستقلة. وافق عليه من بطاقته.",
   "agent.approvals.noRecent": "لا قرارات في الأيام السبعة الأخيرة.",
   "agent.schedule.once": "{weekday} {day, number} {month} {time}",
   "agent.schedule.every": "كل {span}",

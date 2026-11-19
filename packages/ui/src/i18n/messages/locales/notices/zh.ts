@@ -41,4 +41,10 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {{provider} 密钥已{action, select, changed {更改} other {移除}}} other {{provider} API 密钥已{action, select, changed {更改} other {移除}}}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {更改} other {移除}}来自：{device, select, none {某台设备} other {"{device}" ({platform}{paired, select, none {} other {，配对于 {paired}}})}}。如果不是你做的，请在“设置 → 设备”中撤销该设备。',
+  "notice.approvals.digest.title": "{count, plural, other {有 # 项自动化操作在等待}}",
+  "notice.approvals.digest.body": "打开“审批”来批准或拒绝它们",
+  "notice.approvals.resumeMissed.title":
+    "{automation, select, none {已批准的自动化操作未执行} other {{automation}：已批准的操作未执行}}",
+  "notice.approvals.resumeMissed.body":
+    "自动化已再次运行，但没有到达相同的操作，因此什么也没做。如果仍然需要，它会再次请求。",
 };

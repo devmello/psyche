@@ -44,4 +44,10 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {{provider} のキーが{action, select, changed {変更} other {削除}}されました} other {{provider} の API キーが{action, select, changed {変更} other {削除}}されました}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {変更} other {削除}}元: {device, select, none {デバイス} other {"{device}" ({platform}{paired, select, none {} other {、ペアリング日 {paired}}})}}。心当たりがない場合は、設定 → デバイスでこのデバイスを取り消してください。',
+  "notice.approvals.digest.title": "{count, plural, other {自動化の操作が#件待っています}}",
+  "notice.approvals.digest.body": "承認を開いて、承認または拒否してください",
+  "notice.approvals.resumeMissed.title":
+    "{automation, select, none {承認した自動化の操作は行われませんでした} other {{automation}：承認した操作は行われませんでした}}",
+  "notice.approvals.resumeMissed.body":
+    "自動化は再実行されましたが、同じ操作に到達しなかったため何も行われませんでした。まだ必要な場合は、もう一度確認されます。",
 };

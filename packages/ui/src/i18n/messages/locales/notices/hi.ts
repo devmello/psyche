@@ -43,4 +43,11 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {{provider} कुंजी {action, select, changed {बदली गई} other {हटाई गई}}} other {{provider} API कुंजी {action, select, changed {बदली गई} other {हटाई गई}}}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {बदलाव} other {हटाना}} इस डिवाइस से हुआ: {device, select, none {एक डिवाइस} other {"{device}" ({platform}{paired, select, none {} other {, पेयर किया गया {paired}}})}}। अगर यह आपने नहीं किया, तो सेटिंग → डिवाइस में उस डिवाइस को रद्द करें।',
+  "notice.approvals.digest.title":
+    "{count, plural, =1 {आपके स्वचालनों की # कार्रवाई इंतज़ार कर रही है} other {आपके स्वचालनों की # कार्रवाइयाँ इंतज़ार कर रही हैं}}",
+  "notice.approvals.digest.body": "उन्हें मंज़ूर या अस्वीकार करने के लिए मंज़ूरियाँ खोलें",
+  "notice.approvals.resumeMissed.title":
+    "{automation, select, none {स्वचालन की मंज़ूर की गई कार्रवाई नहीं हुई} other {{automation}: मंज़ूर की गई कार्रवाई नहीं हुई}}",
+  "notice.approvals.resumeMissed.body":
+    "स्वचालन फिर से चला, लेकिन उसी कार्रवाई तक नहीं पहुँचा, इसलिए कुछ नहीं हुआ। अगर उसे अब भी इसकी ज़रूरत है, तो वह फिर से पूछेगा।",
 };

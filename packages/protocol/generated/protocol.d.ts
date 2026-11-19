@@ -1012,6 +1012,7 @@ export interface AppleTabTextParams {
 export interface ApprovalAnswer {
     answerToken:      string;
     approvalId:       string;
+    bulk?:            boolean;
     decision:         ApprovalAnswerDecision;
     editedText?:      string;
     folderMode?:      FolderModeEnum;
@@ -1081,6 +1082,7 @@ export interface ApprovalRequest {
     riskClass?:             RiskClass;
     scopeGranted?:          GrantScope | null;
     scopesOffered:          GrantScope[];
+    setAside?:              boolean;
     sideEffect?:            SideEffect;
     status:                 ApprovalStatus;
     summary:                string;
@@ -1120,7 +1122,7 @@ export interface RequestedBy {
     toolCallId?:  string;
 }
 
-export type RiskClass = "routine" | "sensitive" | "prohibited";
+export type RiskClass = "routine" | "sensitive";
 
 export type SideEffect = "none" | "read" | "write" | "destructive" | "financial";
 

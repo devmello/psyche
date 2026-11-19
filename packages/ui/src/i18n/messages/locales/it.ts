@@ -674,15 +674,24 @@ export const it: Partial<Catalogue> = {
   "agent.approvals.wantedTo": "voleva {what}",
   "agent.approvals.openTask": "Apri attività",
   "agent.approvals.deferredHint":
-    "Le automazioni attendono una risposta. Un'azione scaduta non viene mai eseguita in ritardo.",
+    "Azioni che le tue automazioni hanno messo da parte. Approvandone una, l'automazione viene eseguita di nuovo per farla. Un'azione scaduta non viene mai eseguita in ritardo.",
   "agent.approvals.approve": "Approva",
   "agent.approvals.decline": "Rifiuta",
   "agent.approvals.approveRoutine": "Approva tutte le routine ({n, number})",
   "agent.approvals.riskRoutine": "Di routine",
   "agent.approvals.riskSensitive": "Sensibile",
-  "agent.approvals.riskProhibited": "Vietata",
   "agent.approvals.setAside": "Messa da parte {when}",
   "agent.approvals.answerElsewhere": "Rispondi dove è stata inviata",
+  "agent.approvals.setAsideNote":
+    "Un'automazione ha messo da parte questa azione ed è andata avanti. Approvando, viene eseguita di nuovo, e l'azione avviene solo se l'esecuzione arriva alla stessa identica azione.",
+  "agent.approvals.setAsideApproved":
+    "Approvata. L'automazione viene eseguita di nuovo e fa questo solo se arriva alla stessa identica azione. Altrimenti ricevi un avviso.",
+  "agent.approvals.resuming":
+    "Approvata. {names} viene eseguita di nuovo. Ogni azione avviene solo se l'esecuzione ci arriva; altrimenti ricevi un avviso.",
+  "agent.approvals.notResumable":
+    "Questa automazione non può essere eseguita di nuovo, quindi approvare non farebbe nulla. Rifiutala, oppure avvia tu l'automazione.",
+  "agent.approvals.notRoutine":
+    "Questa azione richiede una sua approvazione. Approvala sulla sua scheda.",
   "agent.approvals.noRecent": "Nessuna decisione negli ultimi 7 giorni.",
   "agent.schedule.once": "{weekday} {day, number} {month} {time}",
   "agent.schedule.every": "ogni {span}",

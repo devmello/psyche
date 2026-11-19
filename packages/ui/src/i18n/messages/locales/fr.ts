@@ -660,15 +660,24 @@ export const fr: Partial<Catalogue> = {
   "agent.approvals.wantedTo": "voulait {what}",
   "agent.approvals.openTask": "Ouvrir la tâche",
   "agent.approvals.deferredHint":
-    "Les automatisations attendent une réponse. Une action expirée n'est jamais exécutée en retard.",
+    "Actions mises de côté par vos automatisations. En approuver une relance l'automatisation pour l'effectuer. Une action expirée n'est jamais exécutée en retard.",
   "agent.approvals.approve": "Approuver",
   "agent.approvals.decline": "Refuser",
   "agent.approvals.approveRoutine": "Approuver toutes les routines ({n, number})",
   "agent.approvals.riskRoutine": "Routine",
   "agent.approvals.riskSensitive": "Sensible",
-  "agent.approvals.riskProhibited": "Interdite",
   "agent.approvals.setAside": "Mise de côté {when}",
   "agent.approvals.answerElsewhere": "Répondre là où elle a été envoyée",
+  "agent.approvals.setAsideNote":
+    "Une automatisation a mis ceci de côté et a continué. Approuver la relance, et ceci n'est fait que si l'exécution atteint exactement cette action.",
+  "agent.approvals.setAsideApproved":
+    "Approuvée. L'automatisation est relancée et ne fait ceci que si elle atteint exactement cette action. Sinon, vous recevez une notification.",
+  "agent.approvals.resuming":
+    "Approuvée. {names} est relancée. Chaque action n'est faite que si l'exécution l'atteint ; sinon, vous recevez une notification.",
+  "agent.approvals.notResumable":
+    "Cette automatisation ne peut pas être relancée, donc approuver ne ferait rien. Refusez-la, ou lancez l'automatisation vous-même.",
+  "agent.approvals.notRoutine":
+    "Cette action demande sa propre approbation. Approuvez-la sur sa propre carte.",
   "agent.approvals.noRecent": "Aucune décision depuis 7 jours.",
   "agent.schedule.once": "{weekday} {day, number} {month} à {time}",
   "agent.schedule.every": "toutes les {span}",

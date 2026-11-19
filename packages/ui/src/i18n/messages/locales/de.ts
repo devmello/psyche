@@ -695,15 +695,24 @@ export const de: Partial<Catalogue> = {
   "agent.approvals.wantedTo": "wollte {what}",
   "agent.approvals.openTask": "Aufgabe öffnen",
   "agent.approvals.deferredHint":
-    "Automationen warten auf eine Antwort. Eine abgelaufene Aktion wird nie verspätet ausgeführt.",
+    "Aktionen, die deine Automationen zurückgestellt haben. Genehmigst du eine, läuft die Automation erneut, um sie auszuführen. Eine abgelaufene Aktion wird nie verspätet ausgeführt.",
   "agent.approvals.approve": "Genehmigen",
   "agent.approvals.decline": "Ablehnen",
   "agent.approvals.approveRoutine": "Alle routinemäßigen genehmigen ({n, number})",
   "agent.approvals.riskRoutine": "Routine",
   "agent.approvals.riskSensitive": "Heikel",
-  "agent.approvals.riskProhibited": "Verboten",
   "agent.approvals.setAside": "Zurückgestellt {when}",
   "agent.approvals.answerElsewhere": "Dort beantworten, wo sie gesendet wurde",
+  "agent.approvals.setAsideNote":
+    "Eine Automation hat das zurückgestellt und weitergemacht. Genehmigen startet sie erneut, und das geschieht nur, wenn der Lauf genau diese Aktion erreicht.",
+  "agent.approvals.setAsideApproved":
+    "Genehmigt. Die Automation läuft erneut und tut das nur, wenn sie genau diese Aktion erreicht. Sonst bekommst du eine Mitteilung.",
+  "agent.approvals.resuming":
+    "Genehmigt. {names} läuft erneut. Jede Aktion geschieht nur, wenn der Lauf sie erreicht; sonst bekommst du eine Mitteilung.",
+  "agent.approvals.notResumable":
+    "Diese Automation kann nicht erneut laufen, Genehmigen würde also nichts tun. Lehne ab oder starte die Automation selbst.",
+  "agent.approvals.notRoutine":
+    "Diese Aktion braucht eine eigene Genehmigung. Genehmige sie auf ihrer eigenen Karte.",
   "agent.approvals.noRecent": "Keine Entscheidungen in den letzten 7 Tagen.",
   "agent.schedule.once": "{weekday}, {day, number}. {month} {time}",
   "agent.schedule.every": "alle {span}",

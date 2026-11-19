@@ -7158,6 +7158,10 @@
         },
         "via": {
           "$ref": "#/$defs/InputVia"
+        },
+        "bulk": {
+          "const": true,
+          "type": "boolean"
         }
       },
       "required": [
@@ -7384,6 +7388,9 @@
         },
         "riskClass": {
           "$ref": "#/$defs/RiskClass"
+        },
+        "setAside": {
+          "type": "boolean"
         },
         "taintSources": {
           "items": {
@@ -35717,8 +35724,7 @@
     "RiskClass": {
       "enum": [
         "routine",
-        "sensitive",
-        "prohibited"
+        "sensitive"
       ],
       "type": "string"
     },

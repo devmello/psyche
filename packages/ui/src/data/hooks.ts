@@ -818,6 +818,8 @@ export interface ApprovalExtras {
   /** `messages_send` card: the text left in the editor and the recipient picked. */
   editedText?: string;
   recipientChoice?: string;
+  /** "Approve all routine ones": the Gateway refuses it on any card it did not class routine. */
+  bulk?: true;
 }
 
 export async function answerApproval(
@@ -891,6 +893,7 @@ export async function answerApproval(
         ...(decision === "approve" && extras?.recipientChoice !== undefined
           ? { recipientChoice: extras.recipientChoice }
           : {}),
+        ...(decision === "approve" && extras?.bulk === true ? { bulk: true as const } : {}),
         ...(presence === undefined ? {} : { presence }),
       }),
     commit,

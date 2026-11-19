@@ -146,6 +146,12 @@ export interface PermissionBrokerOptions {
    * expiry and its answer path are unchanged.
    */
   deferredApproval?: (approval: ApprovalRequest) => boolean | Promise<boolean>;
+  /**
+   * For a card the agent loop set aside (`setAside`): true when a resume run of its automation
+   * can start once the card is approved. Absent or false refuses the approval (`not_resumable`),
+   * because approving would otherwise report success for an action that never runs.
+   */
+  canResume?: (approval: ApprovalRequest) => boolean | Promise<boolean>;
   onEvent?: (event: BrokerEvent) => void;
   newId?: (prefix: string) => string;
   /** Records grant revocations outside the backup scope (design-26). */
@@ -265,6 +271,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #armDelayMs: number;
   readonly #ttlMs: number | undefined;
   readonly #deferredApproval: PermissionBrokerOptions["deferredApproval"];
+  readonly #canResume: PermissionBrokerOptions["canResume"];
   readonly #onEvent: ((e: BrokerEvent) => void) | undefined;
   readonly #newId: (prefix: string) => string;
   readonly #revocations: RevocationLedger | undefined;
@@ -307,6 +314,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#armDelayMs = options.armDelayMs ?? APPROVAL_ARM_DELAY_MS;
     this.#ttlMs = options.ttlMs;
     this.#deferredApproval = options.deferredApproval;
+    this.#canResume = options.canResume;
     this.#onEvent = options.onEvent;
     this.#revocations = options.revocations;
     this.#channelConversations = options.channelConversations;
@@ -841,7 +849,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     return issued;
   }
 
-  #issue(raw: PolicyApprovalInput): IssuedApproval {
+  #issue(raw: PolicyApprovalInput, carry: { setAside?: boolean } = {}): IssuedApproval {
     const now = this.clock.now();
     const input: PolicyApprovalInput & GrantFields = structuredClone(raw);
     const recent = this.#recent.get(input.bindingHash);
@@ -945,13 +953,38 @@ export class PsychePermissionBroker implements PermissionBroker {
       grantId: null,
     };
     approval.sideEffect = se;
+    // Keyed on the decision that asked (its rule), never on a label the ask path does not carry.
     approval.riskClass = riskClassFor({
       kind: input.kind,
       sideEffect: se,
       requiresAuthentication,
       taint: approval.taint,
-      classifierLabel: recent?.decision.classifier?.label,
+      deviceOnly,
+      typedConfirmation: input.typedConfirmation !== undefined,
+      // Only the decision this run made counts: another run's ask under the same binding does not.
+      recent:
+        recent === undefined || recent.ctx.runId !== input.requestedBy.runId
+          ? undefined
+          : {
+              call: recent.call,
+              ctx: recent.ctx,
+              decision: recent.decision,
+              fields: recent.binding.fields,
+            },
     });
+    // The agent loop set this action aside: it says so, and its unattended run asked through
+    // `decide` and went on without it. Nothing waits on the card, so approving it starts a resume
+    // run (`canResume`). A caller that awaits its card (webhook delivery) never sets the flag.
+    if (
+      carry.setAside === true ||
+      (input.setAside === true &&
+        recent?.decision.deferred === true &&
+        recent.ctx.unattended === true &&
+        recent.ctx.runId === input.requestedBy.runId &&
+        input.requestedBy.runId != null)
+    ) {
+      approval.setAside = true;
+    }
     if (approval.taint && sources !== undefined && sources.length > 0) {
       approval.taintSources = sources.map((s) => {
         const out: TaintSource = { sourceKind: sanitizeDisplay(s.sourceKind) };
@@ -1030,6 +1063,15 @@ export class PsychePermissionBroker implements PermissionBroker {
       this.#notifications.set(a.id, n.id);
     } catch {
       // Delivery failure leaves the request pending in the approvals queue.
+    }
+  }
+
+  async #canResumeCard(a: ApprovalRequest): Promise<boolean> {
+    if (this.#canResume === undefined) return false;
+    try {
+      return (await this.#canResume(a)) === true;
+    } catch {
+      return false;
     }
   }
 
@@ -1375,6 +1417,35 @@ export class PsychePermissionBroker implements PermissionBroker {
           "chat_scope",
           "invalid_params",
           `chat answers ${chatScopes.join(" / ")} only`,
+        );
+      }
+      // "Approve all routine ones" is checked here, not in a client filter: a bulk answer lands
+      // only on a card the broker itself classed routine (no payment, no device-only card).
+      if (
+        input.bulk === true &&
+        (a.riskClass !== "routine" || a.requiresAuthentication || a.deviceOnly || scope !== "once")
+      ) {
+        return this.#reject(
+          rec,
+          id,
+          by,
+          "bulk_not_routine",
+          "invalid_params",
+          "this action needs its own approval",
+          { reason: "not_routine" },
+        );
+      }
+      // A set-aside card has nobody waiting on it: approving it is only honest when a resume run
+      // can start that may do it (the Gateway's DeferredResume). Without one, refuse.
+      if (a.setAside === true && !(await this.#canResumeCard(a))) {
+        return this.#reject(
+          rec,
+          id,
+          by,
+          "not_resumable",
+          "unavailable",
+          "this automation can't run again, so approving would do nothing",
+          { reason: "not_resumable" },
         );
       }
       const word = rec.input.typedConfirmation;
@@ -1970,7 +2041,8 @@ export class PsychePermissionBroker implements PermissionBroker {
       } else {
         input.scopesOffered = rec.approval.scopesOffered;
       }
-      const next = this.#issue(input);
+      // A re-issued set-aside card stays set aside: its run still goes on without it.
+      const next = this.#issue(input, { setAside: rec.approval.setAside === true });
       await this.#afterIssue(next.approval);
       issued.push(next);
     }

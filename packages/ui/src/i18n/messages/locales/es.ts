@@ -671,15 +671,24 @@ export const es: Partial<Catalogue> = {
   "agent.approvals.wantedTo": "quería {what}",
   "agent.approvals.openTask": "Abrir la tarea",
   "agent.approvals.deferredHint":
-    "Las automatizaciones esperan una respuesta. Una acción caducada nunca se ejecuta tarde.",
+    "Acciones que tus automatizaciones dejaron aparte. Al aprobar una, la automatización se vuelve a ejecutar para hacerla. Una acción caducada nunca se ejecuta tarde.",
   "agent.approvals.approve": "Aprobar",
   "agent.approvals.decline": "Rechazar",
   "agent.approvals.approveRoutine": "Aprobar todas las rutinarias ({n, number})",
   "agent.approvals.riskRoutine": "Rutinaria",
   "agent.approvals.riskSensitive": "Sensible",
-  "agent.approvals.riskProhibited": "Prohibida",
   "agent.approvals.setAside": "Aplazada {when}",
   "agent.approvals.answerElsewhere": "Responder donde se envió",
+  "agent.approvals.setAsideNote":
+    "Una automatización dejó esto aparte y siguió. Al aprobarlo se vuelve a ejecutar, y esto solo se hace si la ejecución llega a esta misma acción.",
+  "agent.approvals.setAsideApproved":
+    "Aprobada. La automatización se vuelve a ejecutar y solo hace esto si llega a esta misma acción. Si no, recibes un aviso.",
+  "agent.approvals.resuming":
+    "Aprobada. Ejecutando {names} de nuevo. Cada acción solo se hace si la ejecución llega a ella; si no, recibes un aviso.",
+  "agent.approvals.notResumable":
+    "Esta automatización no puede volver a ejecutarse, así que aprobar no haría nada. Recházala o ejecuta la automatización tú.",
+  "agent.approvals.notRoutine":
+    "Esa acción necesita su propia aprobación. Apruébala en su propia tarjeta.",
   "agent.approvals.noRecent": "Ninguna decisión en los últimos 7 días.",
   "agent.schedule.once": "{weekday} {day, number} de {month} {time}",
   "agent.schedule.every": "cada {span}",

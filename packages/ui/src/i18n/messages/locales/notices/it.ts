@@ -45,4 +45,11 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {La chiave {provider} è stata {action, select, changed {modificata} other {rimossa}}} other {La chiave API di {provider} è stata {action, select, changed {modificata} other {rimossa}}}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {Modificata} other {Rimossa}} da {device, select, none {un dispositivo} other {"{device}" ({platform}{paired, select, none {} other {, associato il {paired}}})}}. Se non sei stato tu, revoca il dispositivo in Impostazioni → Dispositivi.',
+  "notice.approvals.digest.title":
+    "{count, plural, =1 {# azione delle tue automazioni è in attesa} other {# azioni delle tue automazioni sono in attesa}}",
+  "notice.approvals.digest.body": "Apri Approvazioni per approvarle o rifiutarle",
+  "notice.approvals.resumeMissed.title":
+    "{automation, select, none {Un'azione approvata di un'automazione non è stata eseguita} other {{automation}: l'azione approvata non è stata eseguita}}",
+  "notice.approvals.resumeMissed.body":
+    "L'automazione è stata eseguita di nuovo ma non è arrivata alla stessa azione, quindi non è stato fatto nulla. Se ne ha ancora bisogno, chiederà di nuovo.",
 };

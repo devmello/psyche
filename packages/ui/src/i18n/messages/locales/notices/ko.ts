@@ -43,4 +43,10 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {{provider} 키가 {action, select, changed {변경} other {삭제}}되었습니다} other {{provider} API 키가 {action, select, changed {변경} other {삭제}}되었습니다}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {변경} other {삭제}}한 기기: {device, select, none {기기} other {"{device}" ({platform}{paired, select, none {} other {, 페어링 날짜 {paired}}})}}. 직접 하신 일이 아니라면 설정 → 기기에서 이 기기를 해제하세요.',
+  "notice.approvals.digest.title": "{count, plural, other {자동화의 작업 #개가 기다리고 있습니다}}",
+  "notice.approvals.digest.body": "승인을 열어 승인하거나 거절하세요",
+  "notice.approvals.resumeMissed.title":
+    "{automation, select, none {승인한 자동화 작업이 실행되지 않았습니다} other {{automation}: 승인한 작업이 실행되지 않았습니다}}",
+  "notice.approvals.resumeMissed.body":
+    "자동화가 다시 실행되었지만 같은 작업에 도달하지 않아 아무것도 하지 않았습니다. 여전히 필요하면 다시 요청합니다.",
 };

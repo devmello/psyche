@@ -145,6 +145,7 @@ import { macHelper } from "./connectors.ts";
 import { createContext } from "./context.ts";
 import { composeConversion } from "./convert.ts";
 import { DeferredDigest } from "./deferred-digest.ts";
+import { DeferredResume } from "./deferred-resume.ts";
 import { composeDeviceNotifications, DeviceNotifications } from "./device-notify.ts";
 import { composeDictation } from "./dictation.ts";
 import { composeEverything, type Everything, everythingSettings } from "./everything.ts";
@@ -693,6 +694,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     publish("settings.changed", { entries: [saved] });
     return true;
   };
+  let deferredResumeRef: DeferredResume | undefined;
   const rawBroker = new PsychePermissionBroker({
     folderAccess: {
       env: () => folderAccessEnv(config.home),
@@ -735,6 +737,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       const taskId = a.requestedBy.taskId;
       return isUnattendedTask(taskId == null ? undefined : await tasks.get(taskId));
     },
+    // A set-aside card is approvable only when its automation can run again (deferred-resume.ts).
+    // The scheduler is composed later; until then nothing can resume, so nothing is approved.
+    canResume: (a) => deferredResumeRef?.canResume(a) === true,
     psycheHome: config.home,
     presence: {
       // Presence fails closed while the security records are untrusted; the registered keys
@@ -1363,6 +1368,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     watchFetch: publicFetch(),
     ...(timeZone === undefined ? {} : { defaultTimezone: timeZone }),
   });
+  // Approve on a set-aside automation card starts a resume run that may do it once (deferred-resume.ts).
+  const deferredResume = new DeferredResume({
+    scheduler,
+    notifier,
+    onError: (err) =>
+      gwOptions.logger?.log("warn", "deferred resume failed", {
+        error: err instanceof Error ? err.message : String(err),
+      }),
+  });
+  deferredResumeRef = deferredResume;
+  broker.subscribe((e) => deferredResume.onBrokerEvent(e));
+  scheduler.subscribe((e) => {
+    if (e.event === "automation.run.finished") deferredResume.onRunFinished(e.payload.run);
+  });
   // E12 "From your other chats": digests of the owner's chats, shared only with threads.otherChats on.
   const otherChats = createOtherChats({ db, audit, now: () => clock.now() });
   // Context usage, owner-set limits and compaction (B7, C2): the meter and the compaction blocks.
@@ -1491,6 +1510,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     clock,
     ...(timeZone === undefined ? {} : { timeZone }),
     approvalSurfaces: ["desktop", "web"],
+    resumeApproval: (q) => deferredResume.claim(q),
     skills: skills.loader,
     ...(compaction === undefined ? {} : { compaction }),
     contextProviders: [

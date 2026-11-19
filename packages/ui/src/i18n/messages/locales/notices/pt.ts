@@ -44,4 +44,11 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {A chave do {provider} foi {action, select, changed {alterada} other {removida}}} other {A chave de API do {provider} foi {action, select, changed {alterada} other {removida}}}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {Alterada} other {Removida}} por {device, select, none {um dispositivo} other {"{device}" ({platform}{paired, select, none {} other {, pareado em {paired}}})}}. Se não foi você, revogue o dispositivo em Ajustes → Dispositivos.',
+  "notice.approvals.digest.title":
+    "{count, plural, =1 {# ação das suas automações está aguardando} other {# ações das suas automações estão aguardando}}",
+  "notice.approvals.digest.body": "Abra Aprovações para aprová-las ou recusá-las",
+  "notice.approvals.resumeMissed.title":
+    "{automation, select, none {Uma ação aprovada de uma automação não foi feita} other {{automation}: a ação aprovada não foi feita}}",
+  "notice.approvals.resumeMissed.body":
+    "A automação foi executada de novo, mas não chegou à mesma ação, então nada foi feito. Se ainda precisar, ela vai pedir de novo.",
 };

@@ -47,4 +47,11 @@ export const notices = {
     "{kind, select, brave {The {provider} key was {action, select, changed {changed} other {removed}}} other {The {provider} API key was {action, select, changed {changed} other {removed}}}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {Changed} other {Removed}} from {device, select, none {a device} other {"{device}" ({platform}{paired, select, none {} other {, paired {paired}}})}}. If that was not you, revoke the device in Settings → Devices.',
+  "notice.approvals.digest.title":
+    "{count, plural, =1 {# action is waiting from your automations} other {# actions are waiting from your automations}}",
+  "notice.approvals.digest.body": "Open Approvals to approve or decline them",
+  "notice.approvals.resumeMissed.title":
+    "{automation, select, none {An approved automation action was not done} other {{automation}: the approved action was not done}}",
+  "notice.approvals.resumeMissed.body":
+    "The automation ran again but did not reach the same action, so nothing was done. If it still needs it, it will ask again.",
 } as const;
