@@ -1210,6 +1210,24 @@ export const de: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "eine Schlüsseldatei auf diesem Mac",
   "settings.credentials.slot.recovery": "nur seinen Wiederherstellungsschlüssel",
   "settings.credentials.protectedBy": "Tresor geschützt durch:",
+  "settings.credentials.vault.adminOnly": "Das kann nur ein Administratorgerät.",
+  "settings.credentials.vault.unlockReason": "Wiederherstellungsschlüssel bestätigen",
+  "settings.credentials.vault.setup.title": "Tresor einrichten",
+  "settings.credentials.vault.setup.body":
+    "Der Tresor bewahrt deine Passwörter, Karten und API-Schlüssel verschlüsselt auf diesem Computer auf. Psyche legt ihn mit einem Wiederherstellungsschlüssel an, den du einmal sichern musst.",
+  "settings.credentials.vault.setup.button": "Tresor einrichten",
+  "settings.credentials.vault.setup.failed": "Der Tresor wurde nicht angelegt: {reason}",
+  "settings.credentials.vault.setup.noSlot":
+    "Dieses Gateway bietet keinen Schlüsselplatz für den Tresor.",
+  "settings.credentials.vault.confirm.title": "Bestätige deinen Wiederherstellungsschlüssel",
+  "settings.credentials.vault.confirm.body":
+    "Gib die letzte Gruppe deines Wiederherstellungsschlüssels ein, also den Teil nach dem letzten Bindestrich, um zu zeigen, dass du ihn gesichert hast.",
+  "settings.credentials.vault.confirm.label": "Letzte Gruppe",
+  "settings.credentials.vault.confirm.button": "Bestätigen",
+  "settings.credentials.vault.confirm.wrong":
+    "Das ist nicht die letzte Gruppe des Wiederherstellungsschlüssels. Sieh nach, wo du ihn gesichert hast, und versuche es erneut.",
+  "settings.credentials.vault.confirm.failed":
+    "Der Wiederherstellungsschlüssel wurde nicht bestätigt: {reason}",
   "settings.credentials.moveToKeychain": "In den Schlüsselbund verschieben",
   "settings.credentials.moveToKeychainNeeds":
     "Braucht einen mit einer Developer ID und einem Provisioning-Profil signierten Psyche Helper",

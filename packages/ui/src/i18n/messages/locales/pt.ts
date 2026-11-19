@@ -1141,6 +1141,24 @@ export const pt: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "um arquivo de chave neste Mac",
   "settings.credentials.slot.recovery": "apenas a chave de recuperação",
   "settings.credentials.protectedBy": "Cofre protegido por:",
+  "settings.credentials.vault.adminOnly": "Só um dispositivo administrador pode fazer isso.",
+  "settings.credentials.vault.unlockReason": "Confirmar a chave de recuperação",
+  "settings.credentials.vault.setup.title": "Configurar o cofre",
+  "settings.credentials.vault.setup.body":
+    "O cofre guarda suas senhas, cartões e chaves de API criptografados neste computador. O Psyche o cria com uma chave de recuperação que você salva uma única vez.",
+  "settings.credentials.vault.setup.button": "Configurar o cofre",
+  "settings.credentials.vault.setup.failed": "O cofre não foi criado: {reason}",
+  "settings.credentials.vault.setup.noSlot":
+    "Este Gateway não oferece um espaço de chave para o cofre.",
+  "settings.credentials.vault.confirm.title": "Confirme sua chave de recuperação",
+  "settings.credentials.vault.confirm.body":
+    "Digite o último grupo da sua chave de recuperação, a parte depois do último hífen, para mostrar que você a salvou.",
+  "settings.credentials.vault.confirm.label": "Último grupo",
+  "settings.credentials.vault.confirm.button": "Confirmar",
+  "settings.credentials.vault.confirm.wrong":
+    "Esse não é o último grupo da chave de recuperação. Verifique onde você a salvou e tente de novo.",
+  "settings.credentials.vault.confirm.failed":
+    "A chave de recuperação não foi confirmada: {reason}",
   "settings.credentials.moveToKeychain": "Mover para as Chaves",
   "settings.credentials.moveToKeychainNeeds":
     "Precisa de um Psyche Helper assinado com um Developer ID e um perfil de provisionamento",

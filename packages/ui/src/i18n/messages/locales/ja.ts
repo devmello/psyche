@@ -1173,6 +1173,23 @@ export const ja: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "このMac上のキーファイル",
   "settings.credentials.slot.recovery": "復旧キーのみ",
   "settings.credentials.protectedBy": "保管庫の保護方法：",
+  "settings.credentials.vault.adminOnly": "管理者のデバイスだけが実行できます。",
+  "settings.credentials.vault.unlockReason": "復旧キーを確認",
+  "settings.credentials.vault.setup.title": "保管庫を設定",
+  "settings.credentials.vault.setup.body":
+    "保管庫は、パスワード、カード、API キーを暗号化してこのコンピュータに保管します。Psyche は、一度だけ保存する復旧キーとともに保管庫を作成します。",
+  "settings.credentials.vault.setup.button": "保管庫を設定",
+  "settings.credentials.vault.setup.failed": "保管庫を作成できませんでした：{reason}",
+  "settings.credentials.vault.setup.noSlot":
+    "この Gateway には保管庫用のキースロットがありません。",
+  "settings.credentials.vault.confirm.title": "復旧キーを確認",
+  "settings.credentials.vault.confirm.body":
+    "保存したことを確認するため、復旧キーの最後のグループ（最後のハイフンより後ろ）を入力してください。",
+  "settings.credentials.vault.confirm.label": "最後のグループ",
+  "settings.credentials.vault.confirm.button": "確認",
+  "settings.credentials.vault.confirm.wrong":
+    "復旧キーの最後のグループと一致しません。保存した場所を確認して、もう一度お試しください。",
+  "settings.credentials.vault.confirm.failed": "復旧キーを確認できませんでした：{reason}",
   "settings.credentials.moveToKeychain": "キーチェーンに移動",
   "settings.credentials.moveToKeychainNeeds":
     "Developer IDで署名され、プロビジョニングプロファイルを持つPsyche Helperが必要です",

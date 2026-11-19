@@ -565,6 +565,57 @@ export function defaultModelChoice(kind: ProviderKind): ModelChoice {
   };
 }
 
+/**
+ * The vault's recovery key, shown once, with Copy. Onboarding asks for an "I saved it" tick
+ * (`onSaved`); Settings leaves it out and confirms the key against the Gateway instead.
+ */
+export function RecoveryKeyCard({
+  recoveryKey,
+  saved = false,
+  onSaved,
+}: {
+  recoveryKey: string;
+  saved?: boolean;
+  onSaved?: (saved: boolean) => void;
+}): ReactElement {
+  const clip = useCopy();
+  return (
+    <div
+      className="mt-2 flex flex-col gap-1 rounded-lg border border-approval-border bg-approval-surface p-3"
+      data-testid="vault-recovery-key"
+    >
+      <p className="text-headline text-label-primary">{t("onboarding.model.recoveryTitle")}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <code className="font-mono text-sm break-all select-all">{recoveryKey}</code>
+        <Button
+          type="button"
+          size="xs"
+          variant="outline"
+          onClick={() => void clip.copy(recoveryKey)}
+        >
+          {clip.state === "copied" ? <Check aria-hidden="true" /> : null}
+          {clip.state === "copied" ? t("onboarding.model.copied") : t("onboarding.model.copy")}
+        </Button>
+        <span role="status" className="sr-only">
+          {clip.state === "copied" ? t("onboarding.model.copiedStatus") : ""}
+        </span>
+        {clip.state === "failed" ? (
+          <span className="text-callout text-danger-text" role="alert">
+            {t("onboarding.model.copyFailed")}
+          </span>
+        ) : null}
+      </div>
+      <p className="text-callout text-label-secondary">{t("onboarding.model.recoveryBody")}</p>
+      {onSaved ? (
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={saved} onChange={(e) => onSaved(e.target.checked)} />
+          {t("onboarding.model.savedIt")}
+        </label>
+      ) : null}
+    </div>
+  );
+}
+
 export function ModelStep({
   value,
   onChange,
@@ -600,7 +651,6 @@ export function ModelStep({
   const known = models.some((m) => m.ref === value.modelRef);
   const picked = other || !known ? OTHER_MODEL : value.modelRef;
   const needsKey = value.kind === "cloud" || value.kind === "openrouter";
-  const clip = useCopy();
   return (
     <div className="flex flex-col gap-4">
       <RadioField
@@ -750,47 +800,11 @@ export function ModelStep({
             />
           ) : null}
           {recoveryKey ? (
-            <div
-              className="mt-2 flex flex-col gap-1 rounded-lg border border-approval-border bg-approval-surface p-3"
-              data-testid="vault-recovery-key"
-            >
-              <p className="text-headline text-label-primary">
-                {t("onboarding.model.recoveryTitle")}
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <code className="font-mono text-sm break-all select-all">{recoveryKey}</code>
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="outline"
-                  onClick={() => void clip.copy(recoveryKey)}
-                >
-                  {clip.state === "copied" ? <Check aria-hidden="true" /> : null}
-                  {clip.state === "copied"
-                    ? t("onboarding.model.copied")
-                    : t("onboarding.model.copy")}
-                </Button>
-                <span role="status" className="sr-only">
-                  {clip.state === "copied" ? t("onboarding.model.copiedStatus") : ""}
-                </span>
-                {clip.state === "failed" ? (
-                  <span className="text-callout text-danger-text" role="alert">
-                    {t("onboarding.model.copyFailed")}
-                  </span>
-                ) : null}
-              </div>
-              <p className="text-callout text-label-secondary">
-                {t("onboarding.model.recoveryBody")}
-              </p>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={recoverySaved}
-                  onChange={(e) => onRecoverySaved?.(e.target.checked)}
-                />
-                {t("onboarding.model.savedIt")}
-              </label>
-            </div>
+            <RecoveryKeyCard
+              recoveryKey={recoveryKey}
+              saved={recoverySaved}
+              {...(onRecoverySaved ? { onSaved: onRecoverySaved } : {})}
+            />
           ) : null}
         </div>
       ) : null}
