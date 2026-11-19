@@ -53,6 +53,9 @@ export const chat: Partial<Catalogue> = {
     "{name}: لا يستطيع Psyche قراءة هذا النوع من الملفات. أرفق ملف PDF أو Word أو Excel أو نصًا أو صورة",
   "chat.attach.refused.size": "{name} كبير جدًا للإرفاق (الصور 5 ميغابايت، والمستندات 25 ميغابايت)",
   "chat.attach.refused.count": "{name}: يمكن إرفاق ما يصل إلى 8 ملفات مع الرسالة",
+  "chat.attach.refused.sensitive": "{name}: موجود في مكان محمي ولا يمكن مشاركته مع Psyche",
+  "chat.attach.refused.unreadable":
+    "تعذّر إرفاق {name}. تأكد من أنه ما زال موجودًا وأنه ملف وليس مجلدًا",
   "chat.message.fromWidget": "من أداة",
   "chat.teach.notLikeThis": "ليس هكذا",
   "chat.teach.dialog": "علّم Psyche",

@@ -168,7 +168,7 @@ export function ChatThread({
   const view = useThread(threadId);
   const { fork, create, newChat } = useThreads();
   const call = useCall();
-  const { navigate, openArtifact } = useSlots();
+  const { navigate, openArtifact, pathOfFile } = useSlots();
   const { state: connection } = useConnection();
   const tasks = useStoreState((s) => s.tasks);
   const store = useStore();
@@ -208,8 +208,20 @@ export function ChatThread({
     () => ({ models: models.data, modelRef: argModelRef, permissionMode: argMode }),
     [models.data, argModelRef, argMode],
   );
-  const attachments = useAttachments(support, (file, signal) =>
-    uploadFile(call as GatewayCall, file, { threadId, signal }),
+  const nativeAttach = useMemo(
+    () =>
+      pathOfFile === undefined
+        ? undefined
+        : {
+            pathOf: pathOfFile,
+            attach: (paths: string[]) => call("chat.attachFiles", { threadId, paths }),
+          },
+    [pathOfFile, call, threadId],
+  );
+  const attachments = useAttachments(
+    support,
+    (file, signal) => uploadFile(call as GatewayCall, file, { threadId, signal }),
+    nativeAttach,
   );
   // "Send to chat" (the Library) hands items to this new chat's composer; it takes them once.
   const handedItems = useStoreState((s) =>
@@ -347,6 +359,7 @@ export function ChatThread({
       const replyToMessageId = quoting?.id ?? null;
       // The finished uploads go with this message; the chips clear once it is on its way.
       const sentIds = attachments.ids;
+      const sentFiles = attachments.attachedFiles;
       const sentContext = askContext
         ? {
             ref: askContext.ref,
@@ -366,6 +379,7 @@ export function ChatThread({
             mode,
             replyToMessageId,
             ...(sentIds.length > 0 ? { attachments: sentIds } : {}),
+            ...(sentFiles.length > 0 ? { attachedFiles: sentFiles } : {}),
             ...(sentContext ? { context: sentContext } : {}),
           });
         } catch (err) {
@@ -387,7 +401,11 @@ export function ChatThread({
       };
       // Waiting in the outbox is not working: the agent has not been told yet.
       const toOutbox =
-        outbox.enabled && connection !== "open" && !sentContext && sentIds.length === 0;
+        outbox.enabled &&
+        connection !== "open" &&
+        !sentContext &&
+        sentIds.length === 0 &&
+        sentFiles.length === 0;
       if (!queued && !toOutbox) setSentAt(Date.now());
       setQuoting(null);
       setMode("followUp");
@@ -400,6 +418,7 @@ export function ChatThread({
       mode,
       quoting,
       attachments.ids,
+      attachments.attachedFiles,
       attachments.clear,
       askContext,
       clearAskContext,

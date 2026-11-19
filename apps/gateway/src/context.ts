@@ -273,6 +273,25 @@ export interface GatewayContext {
    * sets it; without one a send naming a context is refused.
    */
   readonly chatContext: { resolve: ChatContextResolver | null };
+  /**
+   * Files attached from disk (desktop): `attach` grants the owner's picks read-only for one
+   * thread (the broker's `attachFiles`), `granted` lists the folders and files that thread may
+   * read. The composition root sets both; without them chat.attachFiles is unavailable and a
+   * send naming `attachedFiles` is refused.
+   */
+  readonly chatFiles: {
+    attach:
+      | ((
+          threadId: string,
+          paths: readonly string[],
+          by: { deviceId: string },
+        ) => Promise<{
+          files: { path: string; size: number }[];
+          refused: { path: string; reason: string }[];
+        }>)
+      | null;
+    granted: ((threadId: string) => readonly { path: string; mode: "ro" | "rw" }[]) | null;
+  };
   /** Per-reader pass over messages that carry a life answer (`chat.history`, `chat.message`, exports). */
   readonly messageScrub: MessageScrub;
   serverOrigin(): string;

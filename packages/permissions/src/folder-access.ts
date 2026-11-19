@@ -254,6 +254,52 @@ export async function resolveFolderPick(raw: string, env: FolderAccessEnv = {}):
   return real;
 }
 
+/**
+ * The real path of a FILE the owner attached to a chat message (a native pick or a drop). Same
+ * checks as a folder pick: symlinks and `..` are resolved first, so a link to `~/.ssh/id_ed25519`
+ * is judged as that file, and a file under a sensitive root is refused. Only regular files pass.
+ */
+export async function resolveFilePick(
+  raw: string,
+  env: FolderAccessEnv = {},
+): Promise<{ path: string; size: number }> {
+  if (raw.includes("\0") || !isAbsoluteHostPath(raw)) {
+    throw new PsycheError("invalid_params", "attach a file by its absolute path");
+  }
+  let real: string;
+  let size: number;
+  try {
+    real = await realpath(resolve(raw));
+    const st = await stat(real);
+    if (!st.isFile()) throw new PsycheError("invalid_params", `${raw} is not a file`);
+    size = st.size;
+  } catch (err) {
+    if (err instanceof PsycheError) throw err;
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new PsycheError("not_found", `${raw} does not exist`);
+    }
+    throw err;
+  }
+  const protectedReal: string[] = [];
+  for (const p of env.protectedRoots ?? []) {
+    try {
+      protectedReal.push(await realpath(p));
+    } catch {
+      // Not there: the written path is enough.
+    }
+  }
+  const refusal = refuseFolder(real, {
+    ...env,
+    protectedRoots: [...(env.protectedRoots ?? []), ...protectedReal],
+  });
+  if (refusal !== undefined) {
+    throw new PsycheError("forbidden", `${real} cannot be shared with the agent`, {
+      details: { reason: refusal, path: real },
+    });
+  }
+  return { path: real, size };
+}
+
 /** What the Gateway made of the folder the agent named, shown on the card as the pre-filled pick. */
 export type RequestedFolder =
   | { status: "ok"; path: string }

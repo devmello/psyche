@@ -640,6 +640,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     [store, kitStore, dispatch, openChatId],
   );
   const pickFolder = platform.dialogs?.pickFolder;
+  const pathOfFile = platform.dialogs?.pathOfFile;
   const remoteHost = platform.chrome?.remote?.hostName;
   const gatewaysPort = platform.gateways;
   const kitSlots = useMemo<UiSlots>(
@@ -650,6 +651,8 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       openSideChat,
       renderMcpApp,
       ...(pickFolder === undefined ? {} : { pickFolder }),
+      // Real paths are this Mac's: a client of another computer's Gateway uploads instead.
+      ...(pathOfFile === undefined || platform.chrome?.remote !== undefined ? {} : { pathOfFile }),
       ...(remoteHost === undefined ? {} : { remoteHost }),
       ...(gatewaysPort === undefined ? {} : { gateways: gatewaysPort }),
       openSettings: (section: string) => {
@@ -671,6 +674,8 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       openInPsyche,
       openSideChat,
       pickFolder,
+      pathOfFile,
+      platform.chrome?.remote,
       remoteHost,
       gatewaysPort,
       platform.windows,

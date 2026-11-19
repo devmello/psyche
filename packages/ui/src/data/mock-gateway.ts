@@ -2131,6 +2131,20 @@ export class MockGateway implements GatewayClient {
       nextCursor: null,
     }),
     "library.get": (p) => ({ item: this.find(this.world.library, p.itemId, "library item") }),
+    // The Gateway's shapes: a pick under a sensitive root is refused, the rest come back with
+    // their name, size and type.
+    "chat.attachFiles": (p) => {
+      const sensitive = (path: string) => /\/\.(ssh|psyche)\//.test(path);
+      return {
+        files: p.paths
+          .filter((path) => !sensitive(path))
+          .map((path) => {
+            const name = path.slice(path.lastIndexOf("/") + 1);
+            return { path, name, size: 12, type: mockMime(name) };
+          }),
+        refused: p.paths.filter(sensitive).map((path) => ({ path, reason: "sensitive" as const })),
+      };
+    },
     "library.upload": (p) => {
       const item: LibraryItem = {
         id: this.id("lib"),

@@ -348,6 +348,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     chatScreen: { resolve: null },
     terminalSessions: { owns: null },
     chatContext: { resolve: null },
+    chatFiles: { attach: null, granted: null },
     messageScrub: { scrub: null, heal: null },
     limits,
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>

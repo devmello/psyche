@@ -56,7 +56,14 @@ import {
   taskKey,
   trustedRead,
 } from "./engine.ts";
-import { type FolderAccessEnv, type FolderGrantEntry, resolveFolderPick } from "./folder-access.ts";
+import {
+  type FolderAccessEnv,
+  type FolderGrantEntry,
+  folderCovers,
+  resolveFilePick,
+  resolveFolderPick,
+} from "./folder-access.ts";
+
 import {
   AUTH_KINDS,
   allowedScopes,
@@ -211,6 +218,9 @@ export interface PermissionBrokerOptions {
   };
 }
 
+/** How long an attached file stays readable in its conversation (it also ends with the thread). */
+export const ATTACH_GRANT_MS = 24 * 60 * 60 * 1000;
+
 type GrantFields = { grantFields?: JsonObject };
 
 /**
@@ -333,6 +343,8 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #folderAccess: PermissionBrokerOptions["folderAccess"];
   /** thread → folders allowed for that conversation only; gone at `/new` and at a restart. */
   readonly #sessionFolders = new Map<string, FolderGrantEntry[]>();
+  /** When an attached file's grant ends (`${threadId}\0${path}` -> epoch ms); see attachFiles. */
+  readonly #fileGrantExpiry = new Map<string, number>();
 
   constructor(options: PermissionBrokerOptions) {
     this.clock = options.clock ?? { now: () => Date.now() };
@@ -1981,7 +1993,78 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   /** Folders allowed for one conversation (`once`), for the file executors behind the broker. */
   sessionFolders(threadId: string): readonly FolderGrantEntry[] {
+    this.#expireFileGrants(threadId);
     return this.#sessionFolders.get(threadId) ?? [];
+  }
+
+  /** Drops this conversation's attached-file grants whose 24 hours are over. */
+  #expireFileGrants(threadId: string): void {
+    const roots = this.#sessionFolders.get(threadId);
+    if (roots === undefined) return;
+    const now = this.clock.now();
+    const kept = roots.filter((r) => {
+      const until = this.#fileGrantExpiry.get(`${threadId}\0${r.path}`);
+      if (until === undefined || until > now) return true;
+      this.#fileGrantExpiry.delete(`${threadId}\0${r.path}`);
+      return false;
+    });
+    if (kept.length === roots.length) return;
+    if (kept.length === 0) this.#sessionFolders.delete(threadId);
+    else this.#sessionFolders.set(threadId, kept);
+  }
+
+  /**
+   * Chat attachments picked natively (chat.attachFiles): the owner's own pick of exactly these
+   * FILES is the approval. Each is resolved to its real path and refused under a sensitive root
+   * (`resolveFilePick`); a file already covered by a granted folder is left alone (a read-only
+   * file entry would narrow a read-write folder, since the longest root decides). The grant is
+   * read-only, covers only that file path, and ends with the conversation (`endSession`) or after
+   * `ATTACH_GRANT_MS`. Without folder-access settings nothing is granted.
+   */
+  async attachFiles(
+    threadId: string,
+    paths: readonly string[],
+    by: { deviceId: string },
+  ): Promise<{
+    files: { path: string; size: number }[];
+    refused: { path: string; reason: string }[];
+  }> {
+    if (this.#folderAccess === undefined) fail("unavailable", "attaching files is not set up");
+    const env = this.#folderAccess.env();
+    const files: { path: string; size: number }[] = [];
+    const refused: { path: string; reason: string }[] = [];
+    for (const raw of paths) {
+      try {
+        const file = await resolveFilePick(raw, env);
+        const covered = folderCovers(
+          [...(this.policy.folders ?? []), ...this.sessionFolders(threadId)],
+          file.path,
+          "ro",
+        );
+        if (covered === undefined) {
+          const roots = this.#sessionFolders.get(threadId) ?? [];
+          this.#sessionFolders.set(threadId, [
+            ...roots.filter((r) => r.path !== file.path),
+            { path: file.path, mode: "ro" },
+          ]);
+          this.#fileGrantExpiry.set(
+            `${threadId}\0${file.path}`,
+            this.clock.now() + ATTACH_GRANT_MS,
+          );
+          await this.#log(
+            "folder.granted",
+            actorOf(by),
+            { threadId },
+            { path: file.path, mode: "ro", scope: "once", attachment: true },
+          );
+        }
+        files.push(file);
+      } catch (err) {
+        if (!(err instanceof PsycheError)) throw err;
+        refused.push({ path: raw, reason: err.code });
+      }
+    }
+    return { files, refused };
   }
 
   /**
@@ -2742,6 +2825,9 @@ export class PsychePermissionBroker implements PermissionBroker {
   endSession(threadId: string): Promise<Grant[]> {
     this.#tasks.delete(`thread:${threadId}`);
     this.#sessionFolders.delete(threadId);
+    for (const k of this.#fileGrantExpiry.keys()) {
+      if (k.startsWith(`${threadId}\0`)) this.#fileGrantExpiry.delete(k);
+    }
     return this.#revokeWhere(
       (g) => g.grant.scope === "session" && g.meta.threadId === threadId,
       "session_ended",

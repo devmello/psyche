@@ -54,6 +54,10 @@ export const chatRest: Partial<Catalogue> = {
   "chat.attach.refused.size":
     "{name} est trop volumineux pour être joint (images 5 Mo, documents 25 Mo)",
   "chat.attach.refused.count": "{name} : un message peut contenir jusqu’à 8 fichiers",
+  "chat.attach.refused.sensitive":
+    "{name} se trouve dans un emplacement protégé et ne peut pas être partagé avec Psyche",
+  "chat.attach.refused.unreadable":
+    "Impossible de joindre {name}. Vérifiez qu’il existe toujours et que c’est un fichier, pas un dossier",
   "chat.message.fromWidget": "Depuis un widget",
   "chat.teach.notLikeThis": "Pas comme ça",
   "chat.teach.dialog": "Enseigner à Psyche",

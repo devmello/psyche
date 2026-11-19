@@ -51,6 +51,9 @@ export const chatRest: Partial<Catalogue> = {
     "{name}: Psyche इस तरह की फ़ाइल नहीं पढ़ सकता। PDF, Word, Excel, टेक्स्ट या चित्र फ़ाइल संलग्न करें",
   "chat.attach.refused.size": "{name} संलग्न करने के लिए बहुत बड़ी है (चित्र 5 MB, दस्तावेज़ 25 MB)",
   "chat.attach.refused.count": "{name}: एक संदेश के साथ अधिकतम 8 फ़ाइलें जा सकती हैं",
+  "chat.attach.refused.sensitive": "{name} सुरक्षित स्थान पर है और Psyche के साथ साझा नहीं किया जा सकता",
+  "chat.attach.refused.unreadable":
+    "{name} संलग्न नहीं हो सका। जाँचें कि वह अब भी मौजूद है और फ़ाइल है, फ़ोल्डर नहीं",
   "chat.message.fromWidget": "विजेट से",
   "chat.teach.notLikeThis": "ऐसे नहीं",
   "chat.teach.dialog": "Psyche को सिखाएँ",

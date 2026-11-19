@@ -4,11 +4,16 @@ import {
   type AttachSupport,
   acceptFor,
   admitFiles,
+  attachedPaths,
   attachmentIds,
   canAttach,
   chipsReducer,
+  classifyFile,
   type LibraryAttachItem,
   libraryChips,
+  MAX_ATTACHMENTS,
+  type NativeAttach,
+  nativeRefusal,
   type Refused,
   uploading,
 } from "./attachments.ts";
@@ -33,6 +38,8 @@ export interface UseAttachments {
   attach: ComposerAttach | undefined;
   /** The finished uploads' Library ids, for `chat.send`. */
   ids: string[];
+  /** Files from disk (desktop) the message carries, as `chat.send` `attachedFiles`. */
+  attachedFiles: { path: string }[];
   /** Sending waits while any file is still uploading. */
   uploading: boolean;
   /** After a send: forget the chips. */
@@ -51,6 +58,7 @@ let nextKey = 0;
 export function useAttachments(
   support: AttachSupport,
   upload: (file: File, signal: AbortSignal) => Promise<string>,
+  native?: NativeAttach,
 ): UseAttachments {
   const [chips, dispatch] = useReducer(chipsReducer, [] as readonly AttachmentChip[]);
   const [refused, setRefused] = useState<readonly Refused[]>([]);
@@ -59,42 +67,97 @@ export function useAttachments(
   chipsRef.current = chips;
   const uploadRef = useRef(upload);
   uploadRef.current = upload;
+  const nativeRef = useRef(native);
+  nativeRef.current = native;
   const supportRef = useRef(support);
   supportRef.current = support;
 
-  const onFiles = useCallback((files: readonly File[]) => {
-    const { accepted, refused: no } = admitFiles(
-      files,
-      supportRef.current,
-      chipsRef.current.length,
-    );
-    setRefused(no);
-    if (accepted.length === 0) return;
-    const added = accepted.map(({ file, kind }) => ({
-      file,
-      chip: {
-        key: `attach-${++nextKey}`,
-        name: file.name,
-        kind,
-        status: "uploading" as const,
-      },
-    }));
-    dispatch({ type: "add", chips: added.map((a) => a.chip) });
-    for (const { file, chip } of added) {
-      const abort = new AbortController();
-      aborts.current.set(chip.key, abort);
-      uploadRef.current(file, abort.signal).then(
-        (itemId) => {
-          aborts.current.delete(chip.key);
-          if (!abort.signal.aborted) dispatch({ type: "uploaded", key: chip.key, itemId });
-        },
-        () => {
-          aborts.current.delete(chip.key);
-          if (!abort.signal.aborted) dispatch({ type: "failed", key: chip.key });
-        },
+  /** Files that have a real path: attached in place, no upload (desktop). */
+  const attachInPlace = useCallback(
+    (picked: readonly { file: File; path: string }[], have: number): Refused[] => {
+      const no: Refused[] = [];
+      const added: { key: string; path: string; chip: AttachmentChip }[] = [];
+      for (const { file, path } of picked) {
+        const kind = classifyFile(file) ?? "document";
+        if (kind === "image" && !supportRef.current.images) {
+          no.push({ name: file.name, reason: "image" });
+        } else if (have + added.length >= MAX_ATTACHMENTS) {
+          no.push({ name: file.name, reason: "count" });
+        } else {
+          const key = `attach-${++nextKey}`;
+          added.push({ key, path, chip: { key, name: file.name, kind, status: "uploading" } });
+        }
+      }
+      if (added.length > 0) dispatch({ type: "add", chips: added.map((a) => a.chip) });
+      for (const { key, path, chip } of added) {
+        const grant = nativeRef.current?.attach([path]);
+        if (grant === undefined) {
+          dispatch({ type: "failed", key });
+          continue;
+        }
+        void grant.then(
+          (res) => {
+            const ok = res.files[0];
+            if (ok !== undefined) {
+              dispatch({ type: "granted", key, path: ok.path });
+              return;
+            }
+            // Refused (a sensitive file, a folder): no chip, and the owner is told why.
+            dispatch({ type: "remove", key });
+            const why = nativeRefusal(res.refused[0]?.reason ?? "");
+            setRefused((r) => [...r, { name: chip.name, reason: why }]);
+          },
+          () => dispatch({ type: "failed", key }),
+        );
+      }
+      return no;
+    },
+    [],
+  );
+
+  const onFiles = useCallback(
+    (all: readonly File[]) => {
+      const host = nativeRef.current;
+      const located = all.map((file) => ({ file, path: host?.pathOf(file) ?? null }));
+      const inPlace = located.flatMap((l) =>
+        l.path === null ? [] : [{ file: l.file, path: l.path }],
       );
-    }
-  }, []);
+      const uploads = located.flatMap((l) => (l.path === null ? [l.file] : []));
+      const noInPlace = inPlace.length > 0 ? attachInPlace(inPlace, chipsRef.current.length) : [];
+      const { accepted, refused: no } = admitFiles(
+        uploads,
+        supportRef.current,
+        chipsRef.current.length + inPlace.length - noInPlace.length,
+      );
+      setRefused([...noInPlace, ...no]);
+      if (accepted.length === 0) return;
+      const added = accepted.map(({ file, kind }) => ({
+        file,
+        chip: {
+          key: `attach-${++nextKey}`,
+          name: file.name,
+          kind,
+          status: "uploading" as const,
+        },
+      }));
+      dispatch({ type: "add", chips: added.map((a) => a.chip) });
+      for (const { file, chip } of added) {
+        const abort = new AbortController();
+        aborts.current.set(chip.key, abort);
+        uploadRef.current(file, abort.signal).then(
+          (itemId) => {
+            aborts.current.delete(chip.key);
+            if (!abort.signal.aborted) dispatch({ type: "uploaded", key: chip.key, itemId });
+          },
+          () => {
+            aborts.current.delete(chip.key);
+            if (!abort.signal.aborted) dispatch({ type: "failed", key: chip.key });
+          },
+        );
+      }
+    },
+    [attachInPlace],
+  );
 
   const onRemove = useCallback((key: string) => {
     aborts.current.get(key)?.abort();
@@ -145,6 +208,7 @@ export function useAttachments(
   return {
     attach,
     ids: attachmentIds(chips),
+    attachedFiles: attachedPaths(chips),
     uploading: uploading(chips),
     clear,
     addItems,

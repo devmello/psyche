@@ -483,6 +483,7 @@ export function useThread(threadId: string | null) {
       replyToMessageId?: string | null,
       attachments?: readonly string[],
       context?: SendContext,
+      attachedFiles?: readonly { path: string }[],
     ) => {
       if (threadId === null) return;
       const pendingId = `pending-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -508,6 +509,9 @@ export function useThread(threadId: string | null) {
             ...(mode ? { mode } : {}),
             ...(replyToMessageId ? { replyToMessageId } : {}),
             ...(attachments && attachments.length > 0 ? { attachments: [...attachments] } : {}),
+            ...(attachedFiles && attachedFiles.length > 0
+              ? { attachedFiles: attachedFiles.map((f) => ({ path: f.path })) }
+              : {}),
             ...(context ? { context: context.ref } : {}),
           }),
       });
@@ -528,6 +532,8 @@ export function useThread(threadId: string | null) {
         replyToMessageId?: string | null;
         /** Library item ids (finished uploads) sent with the message. */
         attachments?: readonly string[];
+        /** Files from disk the owner attached (desktop); `chat.attachFiles` granted them. */
+        attachedFiles?: readonly { path: string }[];
         /** What the message is about (Feed "Ask about this"); sent at once, never queued. */
         context?: SendContext;
       } = {},
@@ -541,7 +547,8 @@ export function useThread(threadId: string | null) {
         store.outbox !== undefined &&
         store.getState().connection !== "open" &&
         !options.context &&
-        (options.attachments ?? []).length === 0
+        (options.attachments ?? []).length === 0 &&
+        (options.attachedFiles ?? []).length === 0
       ) {
         store.outbox.enqueue({
           threadId,
@@ -557,6 +564,7 @@ export function useThread(threadId: string | null) {
           options.replyToMessageId ?? null,
           options.attachments,
           options.context,
+          options.attachedFiles,
         );
         return;
       }
@@ -570,6 +578,9 @@ export function useThread(threadId: string | null) {
           ...(options.attachments && options.attachments.length > 0
             ? { attachments: options.attachments }
             : {}),
+          ...(options.attachedFiles && options.attachedFiles.length > 0
+            ? { attachedFiles: options.attachedFiles }
+            : {}),
         };
         store.update((s) => ({ ...s, queue: [...s.queue, item] }));
         return;
@@ -579,6 +590,8 @@ export function useThread(threadId: string | null) {
         view.running ? mode : undefined,
         options.replyToMessageId ?? null,
         options.attachments,
+        undefined,
+        options.attachedFiles,
       );
     },
     [store, threadId, view.running, sendNow],
@@ -593,7 +606,14 @@ export function useThread(threadId: string | null) {
     if (running || threadId === null || queued.length === 0) return;
     const next = store.takeQueued(threadId);
     if (next === null) return;
-    void sendNow(next.content, undefined, next.replyToMessageId, next.attachments).then(
+    void sendNow(
+      next.content,
+      undefined,
+      next.replyToMessageId,
+      next.attachments,
+      undefined,
+      next.attachedFiles,
+    ).then(
       () => store.sentQueued(next),
       () => store.failQueued(next),
     );

@@ -1,4 +1,4 @@
-import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
+import { contextBridge, type IpcRendererEvent, ipcRenderer, webUtils } from "electron";
 import { IPC } from "./lib/ipc.ts";
 
 /**
@@ -226,6 +226,14 @@ const bridge = {
   },
   dialogs: {
     pickFolder: (opts?: { title?: string }) => invoke(IPC.dialogPickFolder, opts ?? {}),
+    /** A picked or dropped File's real path ("" when it has none). */
+    pathOfFile: (file: File): string => {
+      try {
+        return webUtils.getPathForFile(file);
+      } catch {
+        return "";
+      }
+    },
   },
   /**
    * Voice conversation (V-G): the voice key going down / up from any app, and `lock` / `suspend`

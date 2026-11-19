@@ -53,6 +53,10 @@ export const chatRest: Partial<Catalogue> = {
   "chat.attach.refused.size":
     "{name} è troppo grande per essere allegato (immagini 5 MB, documenti 25 MB)",
   "chat.attach.refused.count": "{name}: a un messaggio si possono allegare al massimo 8 file",
+  "chat.attach.refused.sensitive":
+    "{name} si trova in una posizione protetta e non può essere condiviso con Psyche",
+  "chat.attach.refused.unreadable":
+    "Impossibile allegare {name}. Controlla che esista ancora e che sia un file, non una cartella",
   "chat.message.fromWidget": "Dal widget",
   "chat.teach.notLikeThis": "Non così",
   "chat.teach.dialog": "Insegna a Psyche",

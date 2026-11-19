@@ -51,6 +51,9 @@ export const chatRest: Partial<Catalogue> = {
     "{name}: Psyche는 이 종류의 파일을 읽을 수 없습니다. PDF, Word, Excel, 텍스트 또는 이미지 파일을 첨부하십시오",
   "chat.attach.refused.size": "{name}은(는) 너무 커서 첨부할 수 없습니다 (이미지 5MB, 문서 25MB)",
   "chat.attach.refused.count": "{name}: 메시지 하나에는 파일을 최대 8개까지 첨부할 수 있습니다",
+  "chat.attach.refused.sensitive": "{name}은(는) 보호된 위치에 있어 Psyche와 공유할 수 없습니다",
+  "chat.attach.refused.unreadable":
+    "{name}을(를) 첨부하지 못했습니다. 파일이 아직 있고 폴더가 아닌 파일인지 확인하세요",
   "chat.message.fromWidget": "위젯에서",
   "chat.teach.notLikeThis": "이렇게 말고",
   "chat.teach.dialog": "Psyche에게 가르치기",
