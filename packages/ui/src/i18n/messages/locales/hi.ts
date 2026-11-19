@@ -702,6 +702,24 @@ export const hi: Partial<Catalogue> = {
   "agent.approvals.anAutomation": "एक ऑटोमेशन",
   "agent.approvals.wantedTo": "{what} चाहता था",
   "agent.approvals.openTask": "टास्क खोलें",
+  "agent.approvals.deferredHint":
+    "वे कार्रवाइयाँ जिन्हें आपके स्वचालनों ने अलग रखा। किसी को मंज़ूरी देने पर स्वचालन उसे करने के लिए फिर से चलता है। समाप्त हो चुकी कार्रवाई कभी देर से नहीं चलती।",
+  "agent.approvals.approve": "मंज़ूर करें",
+  "agent.approvals.decline": "अस्वीकार करें",
+  "agent.approvals.approveRoutine": "सभी सामान्य मंज़ूर करें ({n, number})",
+  "agent.approvals.riskRoutine": "सामान्य",
+  "agent.approvals.riskSensitive": "संवेदनशील",
+  "agent.approvals.setAside": "{when} स्थगित",
+  "agent.approvals.answerElsewhere": "जहाँ भेजा गया था वहाँ जवाब दें",
+  "agent.approvals.setAsideNote":
+    "एक स्वचालन ने इसे अलग रखा और आगे बढ़ गया। मंज़ूरी देने पर वह फिर से चलता है, और यह तभी होता है जब रन ठीक इसी कार्रवाई तक पहुँचे।",
+  "agent.approvals.setAsideApproved":
+    "मंज़ूर। स्वचालन फिर से चलता है और यह तभी करता है जब ठीक इसी कार्रवाई तक पहुँचे। अगर नहीं पहुँचा, तो आपको सूचना मिलेगी।",
+  "agent.approvals.resuming":
+    "मंज़ूर। {names} फिर से चल रहा है। हर कार्रवाई तभी होती है जब रन उस तक पहुँचे; नहीं तो आपको सूचना मिलेगी।",
+  "agent.approvals.notResumable":
+    "यह स्वचालन फिर से नहीं चल सकता, इसलिए मंज़ूरी देने से कुछ नहीं होगा। इसे अस्वीकार करें, या स्वचालन खुद चलाएँ।",
+  "agent.approvals.notRoutine": "इस कार्रवाई को अलग मंज़ूरी चाहिए। इसे इसके अपने कार्ड पर मंज़ूर करें।",
   "agent.approvals.noRecent": "पिछले 7 दिनों में कोई निर्णय नहीं।",
   "agent.schedule.once": "{weekday} {day, number} {month} {time}",
   "agent.schedule.every": "हर {span}",

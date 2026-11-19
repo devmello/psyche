@@ -643,6 +643,25 @@ export const pt: Partial<Catalogue> = {
   "agent.approvals.anAutomation": "Uma automação",
   "agent.approvals.wantedTo": "queria {what}",
   "agent.approvals.openTask": "Abrir tarefa",
+  "agent.approvals.deferredHint":
+    "Ações que suas automações deixaram de lado. Ao aprovar uma, a automação é executada de novo para fazê-la. Uma ação expirada nunca é executada atrasada.",
+  "agent.approvals.approve": "Aprovar",
+  "agent.approvals.decline": "Recusar",
+  "agent.approvals.approveRoutine": "Aprovar todas as rotineiras ({n, number})",
+  "agent.approvals.riskRoutine": "Rotineira",
+  "agent.approvals.riskSensitive": "Sensível",
+  "agent.approvals.setAside": "Adiada {when}",
+  "agent.approvals.answerElsewhere": "Responder onde foi enviada",
+  "agent.approvals.setAsideNote":
+    "Uma automação deixou isto de lado e continuou. Aprovar a executa de novo, e isto só é feito se a execução chegar a esta mesma ação.",
+  "agent.approvals.setAsideApproved":
+    "Aprovada. A automação é executada de novo e só faz isto se chegar a esta mesma ação. Se não chegar, você recebe um aviso.",
+  "agent.approvals.resuming":
+    "Aprovada. Executando {names} de novo. Cada ação só é feita se a execução chegar a ela; se não, você recebe um aviso.",
+  "agent.approvals.notResumable":
+    "Esta automação não pode ser executada de novo, então aprovar não faria nada. Recuse-a ou execute a automação você mesmo.",
+  "agent.approvals.notRoutine":
+    "Essa ação precisa de uma aprovação própria. Aprove-a no cartão dela.",
   "agent.approvals.noRecent": "Nenhuma decisão nos últimos 7 dias.",
   "agent.schedule.once": "{weekday}, {day, number} de {month}, {time}",
   "agent.schedule.every": "a cada {span}",

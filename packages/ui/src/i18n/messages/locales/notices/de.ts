@@ -46,6 +46,13 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {Der {provider}-Schlüssel wurde {action, select, changed {geändert} other {entfernt}}} other {Der {provider}-API-Schlüssel wurde {action, select, changed {geändert} other {entfernt}}}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {Geändert} other {Entfernt}} von {device, select, none {einem Gerät} other {"{device}" ({platform}{paired, select, none {} other {, gekoppelt am {paired}}})}}. Wenn du das nicht warst, widerrufe das Gerät unter Einstellungen → Geräte.',
+  "notice.approvals.digest.title":
+    "{count, plural, =1 {# Aktion deiner Automationen wartet} other {# Aktionen deiner Automationen warten}}",
+  "notice.approvals.digest.body": "Öffne Genehmigungen, um sie zu genehmigen oder abzulehnen",
+  "notice.approvals.resumeMissed.title":
+    "{automation, select, none {Eine genehmigte Aktion einer Automation wurde nicht ausgeführt} other {{automation}: Die genehmigte Aktion wurde nicht ausgeführt}}",
+  "notice.approvals.resumeMissed.body":
+    "{why, select, expired {Die Genehmigung ist abgelaufen, bevor die Automation die Aktion erreicht hat, also ist nichts passiert.} paused {Die Automation ist pausiert oder wurde entfernt, lief also nicht erneut, und es ist nichts passiert.} restart {Psyche wurde neu gestartet, bevor die Automation erneut laufen konnte, also ist nichts passiert.} other {Die Automation lief erneut, hat aber nicht dieselbe Aktion erreicht, also ist nichts passiert.}} Braucht sie sie noch, fragt sie erneut.",
   "notice.specialist.result.title":
     "{outcome, select, done {{who} hat {title} fertiggestellt} partial {{who} hat bei {title} früh aufgehört} cancelled {{who} wurde bei {title} gestoppt} other {{who} konnte {title} nicht abschließen}}",
   "notice.specialist.result.body":

@@ -41,6 +41,12 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {{provider} 密钥已{action, select, changed {更改} other {移除}}} other {{provider} API 密钥已{action, select, changed {更改} other {移除}}}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {更改} other {移除}}来自：{device, select, none {某台设备} other {"{device}" ({platform}{paired, select, none {} other {，配对于 {paired}}})}}。如果不是你做的，请在“设置 → 设备”中撤销该设备。',
+  "notice.approvals.digest.title": "{count, plural, other {有 # 项自动化操作在等待}}",
+  "notice.approvals.digest.body": "打开“审批”来批准或拒绝它们",
+  "notice.approvals.resumeMissed.title":
+    "{automation, select, none {已批准的自动化操作未执行} other {{automation}：已批准的操作未执行}}",
+  "notice.approvals.resumeMissed.body":
+    "{why, select, expired {在自动化到达该操作之前，批准已过期，因此什么也没做。} paused {自动化已暂停或已被删除，因此没有再次运行，什么也没做。} restart {在自动化能够再次运行之前，Psyche 已重启，因此什么也没做。} other {自动化已再次运行，但没有到达相同的操作，因此什么也没做。}}如果仍然需要，它会再次请求。",
   "notice.specialist.result.title":
     "{outcome, select, done {{who}完成了{title}} partial {{who}在{title}上提前停止了} cancelled {{who}在{title}上被停止了} other {{who}未能完成{title}}}",
   "notice.specialist.result.body":

@@ -76,7 +76,7 @@ psyche automations resume <id>
 An automation runs with nobody watching. The agent is told so, and:
 
 - It cannot ask you questions; question cards are not offered to it.
-- Any action that needs approval is **not attempted**. It is queued, the run carries on without it, and you get one notification: "Approval needed: …".
+- Any action that needs approval is **not attempted**. It is set aside, the run carries on without it, and one notice covers every waiting action: "N actions are waiting from your automations".
 - If there is nothing worth telling you, the run ends silently.
 - Notifying you of the result needs no approval.
 
@@ -91,18 +91,22 @@ An automation runs with nobody watching. The agent is told so, and:
 Open the agent sheet, then **Approvals**, or press ⇧⌘P. It has four sections:
 
 - **Needs you:** full approval cards waiting for an answer.
-- **Deferred:** what unattended runs wanted to do but could not ask you, as "… wanted to …" rows. Approvals you can answer on this device show under Needs you instead.
+- **Deferred:** routine actions that unattended runs set aside: writes of notes, documents, tables and images (Markdown, text, CSV, PDF, Office files, pictures) outside hidden, tool, package, skill and prompt folders, a commit of exactly such files, or a new branch, each with the automation, the action, the full path, and when it was set aside, plus **Approve** and **Decline**. **Approve all routine ones** approves only these rows, and the Gateway checks each one again. Sensitive actions, payments, folder requests, permanent deletions and messages you can edit keep their full card under **Needs you**, and a payment asks for Touch ID or your password as it always does. Actions waiting for an answer on another device show here as "Answer where it was sent".
 - **Recent:** decisions from the last 7 days and where they were answered.
 - **Standing grants:** how many site, session and always grants are active.
 
 Cards expire 30 minutes after they are issued. An expired card says "Expired. Nothing was done." and the Task stays resumable.
 
+Automations do not raise one notice per action. Waiting actions share one notice, "N actions are waiting from your automations". Its count updates in place while it is open. If you dismiss it, it comes back when a new action is set aside, or after four hours. When nothing is left waiting, it closes.
+
+An automation's run does not wait for you: it sets the action aside and finishes without it. Approving a set-aside action runs the automation again. The action goes ahead once, and only if that run reaches exactly the same action (same file and content, same commit). If the run does something different, nothing is done, you get a notice, and the automation asks again next time it needs to. You also get that notice when the approval runs out first, when you pause or remove the automation in the meantime, or when Psyche restarts before the run. Approving never restarts an automation you paused or removed: Approve says it can't run instead.
+
 ## Limits today
 
 - **Edit** in Upcoming is not available. Edit an automation from Scheduled, or ask the agent. There is no run history in the CLI.
-- Delivering an automation's results to Telegram falls back to an in-app notification, and webhook delivery does nothing.
+- Delivering an automation's results to Telegram falls back to an in-app notification. Webhook delivery posts the run's output once you approve its card.
 - The heartbeat, a light check-in every 30 to 60 minutes, is built but not scheduled, so it does not run.
-- Some links in the agent sheet do nothing yet: **Open activity** on a task card, **Open task** on a Deferred row, and **Review in Permissions** under Standing grants. Open Activity with ⇧⌘A and Settings → Permissions directly.
+- Some links in the agent sheet do nothing yet: **Open activity** on a task card and **Review in Permissions** under Standing grants. Open Activity with ⇧⌘A and Settings → Permissions directly.
 - There is no `psyche` CLI command for Tasks.
 
 ## Learn more

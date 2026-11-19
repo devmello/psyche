@@ -45,6 +45,13 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {La clave de {provider} se {action, select, changed {cambió} other {eliminó}}} other {La clave de API de {provider} se {action, select, changed {cambió} other {eliminó}}}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {Cambiada} other {Eliminada}} desde {device, select, none {un dispositivo} other {"{device}" ({platform}{paired, select, none {} other {, vinculado el {paired}}})}}. Si no fuiste tú, revoca el dispositivo en Ajustes → Dispositivos.',
+  "notice.approvals.digest.title":
+    "{count, plural, =1 {# acción de tus automatizaciones está esperando} other {# acciones de tus automatizaciones están esperando}}",
+  "notice.approvals.digest.body": "Abre Aprobaciones para aprobarlas o rechazarlas",
+  "notice.approvals.resumeMissed.title":
+    "{automation, select, none {No se hizo una acción aprobada de una automatización} other {{automation}: no se hizo la acción aprobada}}",
+  "notice.approvals.resumeMissed.body":
+    "{why, select, expired {La aprobación caducó antes de que la automatización llegara a la acción, así que no se hizo nada.} paused {La automatización está en pausa o se eliminó, así que no se volvió a ejecutar y no se hizo nada.} restart {Psyche se reinició antes de que la automatización pudiera volver a ejecutarse, así que no se hizo nada.} other {La automatización se volvió a ejecutar pero no llegó a la misma acción, así que no se hizo nada.}} Si aún la necesita, volverá a preguntar.",
   "notice.specialist.result.title":
     "{outcome, select, done {{who} terminó {title}} partial {{who} se detuvo pronto en {title}} cancelled {{who} se detuvo en {title}} other {{who} no pudo terminar {title}}}",
   "notice.specialist.result.body":
