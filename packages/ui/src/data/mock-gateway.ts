@@ -383,6 +383,8 @@ const fail = (code: ErrorCode, message: string, details?: Record<string, unknown
 export class MockGateway implements GatewayClient {
   readonly world: MockWorld;
   readonly calls: RecordedCall[] = [];
+  /** Channel transport secrets by `type|account` (names only, like the Gateway). */
+  readonly channelSecrets = new Map<string, MethodParams<"channels.secrets.set">["name"][]>();
   /** A host's presence (a web passkey); tests set it to exercise approvals that need one. */
   presence?: GatewayClient["presence"];
   /** The desktop host: Touch ID cards go through `approvals.approveWithTouchId`. */
@@ -4037,8 +4039,23 @@ export class MockGateway implements GatewayClient {
     "channels.identities.list": () => ({ identities: this.world.channelIdentities }),
     "channels.pairing.approve": (p) => ({ pairingRequest: this.decidePairing(p, "approved") }),
     "channels.pairing.deny": (p) => ({ pairingRequest: this.decidePairing(p, "denied") }),
-    "channels.secrets.set": (p) => ({ set: [p.name] }),
-    "channels.secrets.clear": () => ({ set: [] }),
+    "channels.secrets.set": (p) => {
+      const key = `${p.type}|${p.account}`;
+      const have = new Set(this.channelSecrets.get(key) ?? []);
+      have.add(p.name);
+      this.channelSecrets.set(key, [...have]);
+      return { set: [...have] };
+    },
+    "channels.secrets.clear": (p) => {
+      const key = `${p.type}|${p.account}`;
+      const left = (this.channelSecrets.get(key) ?? []).filter((n) => n !== p.name);
+      this.channelSecrets.set(key, left);
+      return { set: left };
+    },
+    "channels.secrets.status": (p) => ({
+      required: [],
+      set: this.channelSecrets.get(`${p.type}|${p.account}`) ?? [],
+    }),
     "channels.get": (p) => ({
       channel: this.find(this.world.channels, p.channelId, "channel") as Channel,
     }),

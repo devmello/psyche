@@ -1560,10 +1560,10 @@ export const pt: Partial<Catalogue> = {
   "settings.channels.add.approvalLabel": "Adicionar um canal",
   "settings.channels.add.envNote":
     "O Gateway também precisa ser iniciado com {env} definido para esta conta. Telegram, iMessage, Signal e e-mail são configurados onde o Gateway roda; veja a documentação de canais.",
-  "settings.channels.add.added":
-    "Canal adicionado e em execução. Envie uma mensagem a {persona} por ele para receber um código de pareamento e aprove-o aqui.",
   "settings.channels.add.addedInactive":
     "Canal adicionado, mas ainda não está em execução. Defina {env} para esta conta onde o Gateway roda e reinicie-o.",
+  "settings.channels.add.added":
+    "Canal adicionado. Ele começa quando o Gateway tiver {env} definido para esta conta. Depois envie uma mensagem a {persona} por ele para receber um código de pareamento e aprove-o aqui.",
   "settings.channels.identities": "Vínculos de identidade",
   "settings.channels.identitiesDescription":
     "Uma pessoa em vários canais. Os vínculos só mudam a partir de um dispositivo pareado.",

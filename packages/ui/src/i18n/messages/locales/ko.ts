@@ -1590,10 +1590,10 @@ export const ko: Partial<Catalogue> = {
   "settings.channels.add.approvalLabel": "채널 추가",
   "settings.channels.add.envNote":
     "Gateway도 {env}를 이 계정으로 설정한 상태로 시작해야 합니다. Telegram, iMessage, Signal, 이메일은 Gateway가 실행되는 곳에서 설정합니다. 채널 문서를 참고하세요.",
-  "settings.channels.add.added":
-    "채널을 추가했고 실행 중입니다. 해당 채널에서 {persona}에게 메시지를 보내 페어링 코드를 받은 뒤 여기서 승인하세요.",
   "settings.channels.add.addedInactive":
     "채널을 추가했지만 아직 실행되지 않습니다. Gateway가 실행되는 곳에서 {env}를 이 계정으로 설정한 뒤 다시 시작하세요.",
+  "settings.channels.add.added":
+    "채널을 추가했습니다. Gateway에서 {env}가 이 계정으로 설정되면 시작됩니다. 그런 다음 해당 채널에서 {persona}에게 메시지를 보내 페어링 코드를 받고 여기서 승인하세요.",
   "settings.channels.identities": "신원 연결",
   "settings.channels.identitiesDescription":
     "여러 채널에 걸친 한 사람입니다. 연결은 페어링된 기기에서만 변경됩니다.",

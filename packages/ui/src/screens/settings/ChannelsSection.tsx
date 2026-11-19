@@ -455,7 +455,7 @@ export function ChannelsSection({ now }: { now?: number }): ReactElement {
           toast(
             outcome.inactive
               ? t("settings.channels.add.addedInactive", { env: outcome.env })
-              : t("settings.channels.add.added", { persona: persona.name }),
+              : t("settings.channels.add.added", { persona: persona.name, env: outcome.env }),
           );
         }}
       />

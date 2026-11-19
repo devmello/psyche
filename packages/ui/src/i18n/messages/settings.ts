@@ -911,10 +911,10 @@ export const settings = {
   "settings.channels.add.approvalLabel": "Adding a channel",
   "settings.channels.add.envNote":
     "The Gateway must also be started with {env} set to this account. Telegram, iMessage, Signal and email are set up where the Gateway runs; see the channel docs.",
-  "settings.channels.add.added":
-    "Channel added and running. Message {persona} from it to get a pairing code, then approve it here.",
   "settings.channels.add.addedInactive":
     "Channel added, but it is not running yet. Set {env} to this account where the Gateway runs, then restart it.",
+  "settings.channels.add.added":
+    "Channel added. It starts once the Gateway has {env} set to this account. Then message {persona} from it to get a pairing code, and approve it here.",
   "settings.channels.identities": "Identity links",
   "settings.channels.identitiesDescription":
     "One person across channels. Links change only from a paired device.",

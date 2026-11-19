@@ -86,6 +86,12 @@ export async function connectChannel(
   if (channels.some((c) => c.type === type && c.account.toLowerCase() === account.toLowerCase())) {
     throw new Error(t("settings.channels.add.exists", { type: TYPE_NAME[type], account }));
   }
+  // Tokens already stored for this account (the CLI's two-step flow) are the owner's: a failed
+  // or approval-pending attempt must not delete them.
+  const before = await call("channels.secrets.status", { type, account }).then(
+    (r) => new Set<SecretName>(r.set),
+    () => new Set<SecretName>(),
+  );
   const stored: SecretName[] = [];
   try {
     for (const name of ADDABLE_CHANNELS[type]) {
@@ -108,10 +114,20 @@ export async function connectChannel(
       (r) => r.channel,
       () => channel,
     );
+    // `active` only means the row exists: the Gateway reports no adapter state here, so the
+    // message always names the variable that starts the transport.
     return { inactive: now.status !== "active", env: ENV[type] };
   } catch (err) {
-    for (const name of stored) {
-      await call("channels.secrets.clear", { type, account, name }).catch(() => undefined);
+    // If another add won the race and the channel now exists, the shared tokens are its own.
+    const raced = await call("channels.list", {}).then(
+      (r) => r.channels.some((c) => c.type === type && c.account === account),
+      () => false,
+    );
+    if (!raced) {
+      for (const name of stored) {
+        if (before.has(name)) continue;
+        await call("channels.secrets.clear", { type, account, name }).catch(() => undefined);
+      }
     }
     throw err;
   }

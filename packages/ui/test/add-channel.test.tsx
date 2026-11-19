@@ -73,6 +73,7 @@ describe("Add a channel", () => {
     expect(onClose).toHaveBeenCalled();
     expect(calls()).toEqual([
       ["channels.list", undefined],
+      ["channels.secrets.status", undefined],
       ["channels.secrets.set", "bot_token"],
       ["channels.secrets.set", "app_token"],
       ["channels.configure", undefined],
@@ -234,10 +235,71 @@ describe("connectChannel", () => {
     ).rejects.toThrow("vault locked");
     expect(log).toEqual([
       "channels.list",
+      "channels.secrets.status:",
       "channels.secrets.set:bot_token",
       "channels.secrets.set:app_token",
+      "channels.list",
       "channels.secrets.clear:bot_token",
     ]);
+  });
+
+  it("rolls back only the tokens it stored: ones already in the vault survive a failed attempt", async () => {
+    const cleared: string[] = [];
+    const call = vi.fn(async (method: string, params: Record<string, unknown>) => {
+      if (method === "channels.list") return { channels: [] };
+      if (method === "channels.secrets.status") return { required: [], set: ["bot_token"] };
+      if (method === "channels.secrets.clear") cleared.push(String(params.name));
+      if (method === "channels.configure") throw new Error("no");
+      return { set: [] };
+    });
+    await expect(
+      connectChannel(call as never, {
+        type: "slack",
+        account: "Acme",
+        secrets: { bot_token: "a", app_token: "b" },
+      }),
+    ).rejects.toThrow("no");
+    expect(cleared).toEqual(["app_token"]);
+  });
+
+  it("does not clear the tokens when another add created the same channel in the meantime", async () => {
+    let listed = 0;
+    const cleared: string[] = [];
+    const call = vi.fn(async (method: string, params: Record<string, unknown>) => {
+      if (method === "channels.list") {
+        listed += 1;
+        // Empty at the first check, then the winner's channel exists.
+        return {
+          channels: listed === 1 ? [] : [{ id: "chn_w", type: "discord", account: "app-1" }],
+        };
+      }
+      if (method === "channels.secrets.status") return { required: [], set: [] };
+      if (method === "channels.secrets.clear") cleared.push(String(params.name));
+      if (method === "channels.configure") throw new Error("channel already exists");
+      return { set: [] };
+    });
+    await expect(
+      connectChannel(call as never, {
+        type: "discord",
+        account: "app-1",
+        secrets: { bot_token: "t" },
+      }),
+    ).rejects.toThrow("already exists");
+    expect(cleared).toEqual([]);
+  });
+
+  it("keeps tokens stored before the flow when the approval is pending (mock vault)", async () => {
+    const { gateway, pending } = setup({ withApproval: true });
+    gateway().channelSecrets.set("slack|Acme", ["bot_token"]);
+    gateway().failNext("channels.configure", "approval_required", "needs approval", {
+      approvalId: "apr_2",
+    });
+    const form = await screen.findByRole("dialog");
+    await fillSlack(form);
+    await userEvent.click(within(form).getByRole("button", { name: "Connect" }));
+    await waitFor(() => expect(pending).toHaveLength(1));
+    // Only the token this attempt added is gone; the CLI-stored one is still there.
+    expect(gateway().channelSecrets.get("slack|Acme")).toEqual(["bot_token"]);
   });
 });
 

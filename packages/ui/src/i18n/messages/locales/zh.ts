@@ -1611,10 +1611,10 @@ export const zh: Partial<Catalogue> = {
   "settings.channels.add.approvalLabel": "添加渠道",
   "settings.channels.add.envNote":
     "Gateway 还需在启动时将 {env} 设为此账号。Telegram、iMessage、Signal 和电子邮件需在运行 Gateway 的位置设置；请参阅渠道文档。",
-  "settings.channels.add.added":
-    "渠道已添加并在运行。请从该渠道给 {persona} 发消息获取配对码，然后在此批准。",
   "settings.channels.add.addedInactive":
     "渠道已添加，但尚未运行。请在运行 Gateway 的位置将 {env} 设为此账号，然后重启。",
+  "settings.channels.add.added":
+    "渠道已添加。Gateway 将 {env} 设为此账号后才会启动。随后请从该渠道给 {persona} 发消息获取配对码，并在此批准。",
   "settings.channels.identities": "身份关联",
   "settings.channels.identitiesDescription": "跨渠道识别同一个人。关联只能从已配对的设备更改。",
   "settings.channels.identitiesFailed": "Psyche 无法载入身份关联（{reason}）。",
