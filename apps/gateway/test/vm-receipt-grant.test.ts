@@ -61,7 +61,7 @@ async function exec(grant?: { id: string; bindingHash: string }) {
     timeoutMs: 1000,
     ...(grant === undefined ? {} : { grant }),
   });
-  return (await broker.listReceipts({ kind: "vm.exec" }))[0];
+  return (await broker.listReceipts({ taskId: "task_1" })).find((r) => r.kind === "vm.exec");
 }
 
 describe("vm.exec receipts and the standing grant", () => {

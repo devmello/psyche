@@ -400,7 +400,6 @@ export class VmRunner implements SandboxRunner {
             outcome: res.receipt.outcome,
             summary: res.receipt.summary,
             ...(instance.scope.kind === "task" ? { taskId: instance.scope.id } : {}),
-            ...grantPayload(request),
           })
           .catch(() => undefined);
       }
