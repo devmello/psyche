@@ -5,6 +5,30 @@ import PsycheWire
 /// Keeps the helper connected: connect → handshake → serve, reconnecting with capped exponential
 /// backoff when the Gateway restarts, while pairing is pending, or after a denial.
 public final class NodeDaemon: @unchecked Sendable {
+    /// What the Gateway rewrites when it starts: the socket pointer and the per-launch handshake secret.
+    /// Other files in `run/` (update progress, pid files) change all the time and say nothing about it.
+    public struct RunFingerprint: Sendable, Equatable {
+        public struct FileMark: Sendable, Equatable {
+            var inode: UInt64
+            var mtimeSec: Int
+            var mtimeNsec: Int
+        }
+        public var socket: FileMark?
+        public var secret: FileMark?
+
+        public static func read(environment: [String: String]) -> RunFingerprint {
+            RunFingerprint(
+                socket: mark(HelperPaths.nodeSocketPointerPath(environment: environment)),
+                secret: mark(HelperPaths.handshakeSecretPath(environment: environment)))
+        }
+
+        private static func mark(_ path: String) -> FileMark? {
+            var st = stat()
+            guard lstat(path, &st) == 0 else { return nil }
+            return FileMark(inode: UInt64(st.st_ino), mtimeSec: Int(st.st_mtimespec.tv_sec), mtimeNsec: Int(st.st_mtimespec.tv_nsec))
+        }
+    }
+
     public struct Backoff: Sendable, Equatable {
         public var initial: TimeInterval = 0.5
         public var max: TimeInterval = 30
@@ -46,6 +70,8 @@ public final class NodeDaemon: @unchecked Sendable {
     private var waiting = false
     private var wakeRequested = false
     private var lastWaitStart = Date.distantPast
+    private var waitFingerprint = RunFingerprint(socket: nil, secret: nil)
+    private var waitIsDenied = false
     private let random: @Sendable () -> Double
 
     public init(
@@ -67,6 +93,7 @@ public final class NodeDaemon: @unchecked Sendable {
         var failures = 0
         while !isStopped {
             let delay: TimeInterval
+            var denied = false
             switch runOnce() {
             case .served:
                 failures = 0
@@ -74,21 +101,31 @@ public final class NodeDaemon: @unchecked Sendable {
             case .pending:
                 delay = backoff.jittered(backoff.pendingRetry, random: random())
             case .denied:
+                denied = true
                 delay = backoff.jittered(backoff.deniedRetry, random: random())
             case .failed:
                 delay = backoff.jittered(backoff.delay(afterFailures: failures), random: random())
                 failures += 1
             }
-            if sleepUnlessStopped(delay) { failures = 0 }  // woken by a Gateway-up signal: start the schedule over
+            if sleepUnlessStopped(delay, denied: denied) { failures = 0 }  // woken by a Gateway-up signal: start the schedule over
         }
     }
 
-    /// The Gateway is up (its socket pointer changed): cut the current wait short and reconnect now.
-    /// Ignored while connected, and at most once a second, so a noisy signal cannot spin the loop.
+    /// Something in `run/` changed. Cuts the current wait short and reconnects now only if the Gateway
+    /// really restarted: `run/node-socket` or `run/handshake.secret` is a different file or was
+    /// rewritten since the wait began. A denied or revoked wait (300 s) ends only on a new
+    /// `handshake.secret`, since a Gateway restart is what makes a denial worth retrying. Ignored while
+    /// connected, and at most once a second, so a noisy signal cannot spin the loop.
     public func gatewayMayBeUp(now: Date = Date()) {
+        let seen = RunFingerprint.read(environment: environment)
         wait.lock()
         defer { wait.unlock() }
         guard waiting, now.timeIntervalSince(lastWaitStart) >= 1 else { return }
+        if waitIsDenied {
+            guard seen.secret != waitFingerprint.secret else { return }
+        } else {
+            guard seen.socket != waitFingerprint.socket || seen.secret != waitFingerprint.secret else { return }
+        }
         wakeRequested = true
         wait.broadcast()
     }
@@ -162,10 +199,13 @@ public final class NodeDaemon: @unchecked Sendable {
     /// Waits up to `seconds` on a condition that `stop()` and `gatewayMayBeUp` signal. True if woken early
     /// by the Gateway-up signal.
     @discardableResult
-    func sleepUnlessStopped(_ seconds: TimeInterval) -> Bool {
+    func sleepUnlessStopped(_ seconds: TimeInterval, denied: Bool = false) -> Bool {
         let deadline = Date().addingTimeInterval(seconds)
+        let fingerprint = RunFingerprint.read(environment: environment)
         wait.lock()
         defer { wait.unlock() }
+        waitFingerprint = fingerprint
+        waitIsDenied = denied
         waiting = true
         wakeRequested = false
         lastWaitStart = Date()

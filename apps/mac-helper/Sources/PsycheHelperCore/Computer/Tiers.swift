@@ -370,6 +370,11 @@ public final class ComputerSessionLock: @unchecked Sendable {
     private let lock = NSLock()
     private var holder: (id: String, lastUse: Date)?
     private var stopped: [String] = []
+    /// Actions running now, per session. A session with one in flight is active however long ago it
+    /// last acquired, so a slow action (a long `computer.type`) keeps its Esc stop.
+    private var inFlight: [String: Int] = [:]
+    /// `end_session` arrived while an action ran: the lock is released when the last one ends.
+    private var releasePending: Set<String> = []
     public let idleTimeout: TimeInterval
     private let now: @Sendable () -> Date
 
@@ -385,7 +390,7 @@ public final class ComputerSessionLock: @unchecked Sendable {
         defer { lock.unlock() }
         if stopped.contains(session) { throw CapabilityError.stopped }
         let t = now()
-        if let h = holder, h.id != session, t.timeIntervalSince(h.lastUse) < idleTimeout {
+        if let h = holder, h.id != session, (inFlight[h.id] ?? 0) > 0 || t.timeIntervalSince(h.lastUse) < idleTimeout {
             throw CapabilityError(
                 .conflict, reason: "computer_busy", "Another task is using the computer. Try again when it finishes.",
                 retryable: true
@@ -402,6 +407,7 @@ public final class ComputerSessionLock: @unchecked Sendable {
         defer { lock.unlock() }
         guard let h = holder else { return nil }
         holder = nil
+        releasePending.remove(h.id)
         stopped.append(h.id)
         if stopped.count > 64 { stopped.removeFirst(stopped.count - 64) }
         return h.id
@@ -409,15 +415,42 @@ public final class ComputerSessionLock: @unchecked Sendable {
 
     public func release(_ session: String) {
         lock.lock()
-        if holder?.id == session { holder = nil }
+        defer { lock.unlock() }
+        guard holder?.id == session else { return }
+        if (inFlight[session] ?? 0) > 0 {
+            releasePending.insert(session)
+        } else {
+            holder = nil
+        }
+    }
+
+    /// Marks one action of `session` as running (call after `acquire`). Pair with `endInvocation`.
+    public func beginInvocation(_ session: String) {
+        lock.lock()
+        inFlight[session, default: 0] += 1
         lock.unlock()
+    }
+
+    /// The action ended: refreshes the idle clock, and completes a release that arrived meanwhile.
+    public func endInvocation(_ session: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        let left = (inFlight[session] ?? 0) - 1
+        if left > 0 { inFlight[session] = left } else { inFlight.removeValue(forKey: session) }
+        guard left <= 0, let h = holder, h.id == session else { return }
+        if releasePending.remove(session) != nil {
+            holder = nil
+        } else {
+            holder = (h.id, now())
+        }
     }
 
     public var activeSession: String? {
         lock.lock()
         defer { lock.unlock() }
-        guard let h = holder, now().timeIntervalSince(h.lastUse) < idleTimeout else { return nil }
-        return h.id
+        guard let h = holder else { return nil }
+        if (inFlight[h.id] ?? 0) > 0 || now().timeIntervalSince(h.lastUse) < idleTimeout { return h.id }
+        return nil
     }
 }
 

@@ -224,6 +224,102 @@ struct SessionTapsTests {
     }
 }
 
+private final class TimeoutInstaller: SessionTapInstaller, @unchecked Sendable {
+    let failure: SessionTapFailure
+    init(_ failure: SessionTapFailure) { self.failure = failure }
+    func install(_ kind: SessionTapKind) -> (any SessionTapHandle)? { nil }
+    func failureAfterInstall(_ kind: SessionTapKind) -> SessionTapFailure { failure }
+}
+
+@Suite("taps survive a long action (review 1402 #1)")
+struct SessionTapsInFlightTests {
+    @Test func aLongActionKeepsItsTapsPastTheIdleTimeout() throws {
+        let rig = Rig(idleTimeout: 120)
+        try rig.taps.beginSession("run-1")
+        rig.taps.beginInvocation("run-1")  // e.g. a 20k-character computer.type
+        rig.clock.now = rig.clock.now.addingTimeInterval(200)
+        rig.timers.fireAll()
+        #expect(rig.taps.isInstalled)
+        #expect(rig.sessions.activeSession == "run-1")
+        #expect(rig.log.all.filter { $0.hasPrefix("remove") }.isEmpty)
+        #expect(rig.timers.armed == 1)  // still watching
+        // Another run cannot take the computer meanwhile.
+        #expect(throws: CapabilityError.self) { try rig.taps.beginSession("run-2") }
+        rig.clock.now = rig.clock.now.addingTimeInterval(300)
+        rig.timers.fireAll()
+        #expect(rig.taps.isInstalled)
+        // The action ends: the idle clock restarts from now, then the taps go after the timeout.
+        rig.taps.endInvocation("run-1")
+        #expect(rig.taps.isInstalled)
+        rig.clock.now = rig.clock.now.addingTimeInterval(130)
+        rig.timers.fireAll()
+        #expect(!rig.taps.isInstalled)
+    }
+
+    @Test func endSessionDuringAnActionKeepsTheTapsUntilItEnds() throws {
+        let rig = Rig()
+        try rig.taps.beginSession("run-1")
+        rig.taps.beginInvocation("run-1")
+        rig.taps.release("run-1")  // computer.end_session arrives mid-action
+        #expect(rig.taps.isInstalled)
+        #expect(rig.sessions.activeSession == "run-1")
+        rig.taps.endInvocation("run-1")
+        #expect(!rig.taps.isInstalled)
+        #expect(rig.sessions.activeSession == nil)
+        #expect(rig.log.all.suffix(2) == ["remove escStop held=none", "remove attention held=none"])
+    }
+
+    @Test func aPendingEndSessionStillAppliesWhenTheLastActionEnds() throws {
+        let rig = Rig()
+        try rig.taps.beginSession("run-1")
+        rig.taps.beginInvocation("run-1")
+        rig.taps.release("run-1")
+        rig.taps.beginInvocation("run-1")
+        rig.taps.endInvocation("run-1")
+        #expect(rig.taps.isInstalled)  // one action still runs
+        rig.taps.endInvocation("run-1")
+        #expect(!rig.taps.isInstalled)
+    }
+
+    @Test func escWhileAnActionRunsStopsTheSessionAtOnce() throws {
+        let rig = Rig()
+        try rig.taps.beginSession("run-1")
+        rig.taps.beginInvocation("run-1")
+        #expect(rig.taps.stopActive() == "run-1")
+        #expect(!rig.taps.isInstalled)
+        rig.taps.endInvocation("run-1")  // the stopped action unwinds; nothing comes back
+        #expect(rig.sessions.activeSession == nil)
+        #expect(throws: CapabilityError.self) { try rig.taps.beginSession("run-1") }
+    }
+
+    @Test func theEscCallbackDefersTapRemovalOffItsThread() throws {
+        let rig = Rig()
+        final class Box: @unchecked Sendable { var work: (@Sendable () -> Void)? }
+        let box = Box()
+        rig.taps.dispatchReconcile = { box.work = $0 }
+        try rig.taps.beginSession("run-1")
+        #expect(rig.taps.stopActiveFromTap() == "run-1")
+        // Tripped now (the session is gone), but the lock-taking cleanup has not run on this thread.
+        #expect(rig.sessions.activeSession == nil)
+        #expect(rig.taps.isInstalled)
+        box.work?()
+        #expect(!rig.taps.isInstalled)
+    }
+
+    @Test func anInstallTimeoutIsNotReportedAsMissingAccessibility() {
+        let sessions = ComputerSessionLock()
+        let timedOut = SessionTaps(installer: TimeoutInstaller(.timeout), sessions: sessions)
+        do { try timedOut.beginSession("run-1"); Issue.record("expected a throw") } catch let e as CapabilityError {
+            #expect(e.reason == "esc_tap_timeout")
+            #expect(e.retryable)
+        } catch { Issue.record("unexpected \(error)") }
+        let denied = SessionTaps(installer: TimeoutInstaller(.permission), sessions: sessions)
+        do { try denied.beginSession("run-1"); Issue.record("expected a throw") } catch let e as CapabilityError {
+            #expect(e.reason == "permission_missing")
+        } catch { Issue.record("unexpected \(error)") }
+    }
+}
+
 @Suite("attention seed from the idle clock")
 struct AttentionSeedTests {
     private let now = Date(timeIntervalSince1970: 2_000_000)

@@ -219,6 +219,7 @@ public final class DictationKeyWatcher: @unchecked Sendable {
     /// enabled while a watched modifier is held, so ordinary typing never wakes the helper.
     final class Watch: @unchecked Sendable, KeyDownGate {
         private var engine: DictationKeyEngine!
+        private static let recheckQueue = DispatchQueue(label: "com.psyche.helper.dictation-chord-recheck", qos: .userInteractive)
         private let continuation: AsyncStream<DictationKeyChange>.Continuation
         private var flagsTap: RunLoopEventTap?
         private var keyTap: RunLoopEventTap?
@@ -226,14 +227,16 @@ public final class DictationKeyWatcher: @unchecked Sendable {
 
         init(keys: [DictationWatchedKey], continuation: AsyncStream<DictationKeyChange>.Continuation) {
             self.continuation = continuation
-            engine = DictationKeyEngine(keys, gate: self)
+            engine = DictationKeyEngine(keys, gate: self, lastKeyDownAge: {
+                CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .keyDown)
+            })
         }
 
         func install() -> Bool {
             let continuation = continuation
             let engine = engine!
             let flags = RunLoopEventTap(
-                place: .tailAppendEventTap, options: .listenOnly, types: [.flagsChanged], qos: .utility,
+                place: .tailAppendEventTap, options: .listenOnly, types: [.flagsChanged], qos: .userInteractive,
                 name: "com.psyche.helper.dictation-key"
             ) { _, event in
                 if event.getIntegerValueField(.eventSourceUserData) != Input.marker {
@@ -266,6 +269,14 @@ public final class DictationKeyWatcher: @unchecked Sendable {
 
         func setEnabled(_ on: Bool) {
             lock.withLock { keyTap }?.setEnabled(on)
+            guard on else { return }
+            // A key struck before the keyDown tap came on is still in the system clock: look again
+            // before the desktop's hold threshold (250 ms) so a missed chord does not start dictation.
+            let continuation = continuation
+            Self.recheckQueue.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                guard let engine = self?.engine else { return }
+                for change in engine.recheckChord() { continuation.yield(change) }
+            }
         }
 
         func finish() {
