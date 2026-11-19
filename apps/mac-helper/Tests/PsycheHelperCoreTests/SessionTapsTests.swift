@@ -392,6 +392,19 @@ struct SessionTapsInFlightTests {
         #expect(rig.sessions.activeSession == nil)
     }
 
+    @Test func theAfterReapCallbackRunsOutsideTheSessionLock() throws {
+        let rig = CapRig()
+        let sessions = rig.sessions
+        let log = rig.log
+        // Reading the session inside the callback would deadlock if the lock were still held.
+        rig.taps.afterOverlong = { id in log.add("after \(id) active=\(sessions.activeSession ?? "none")") }
+        try rig.taps.beginSession("run-1", invocation: true)
+        rig.clock.now = rig.clock.now.addingTimeInterval(1900)
+        rig.timers.fireAll()
+        let order = rig.log.all.filter { $0.hasPrefix("trip") || $0.hasPrefix("after") }
+        #expect(order == ["trip run-1", "after run-1 active=none"])
+    }
+
     @Test func theCapHasItsOwnWakeUp() throws {
         let rig = CapRig()
         try rig.taps.beginSession("run-1", invocation: true)
@@ -472,5 +485,35 @@ struct AttentionSeedTests {
         for idle in [-1.0, .infinity, .nan] {
             #expect(AttentionSeed.ownerInput(now: now, idle: idle, lastHelperPost: .distantPast) == nil)
         }
+    }
+}
+
+
+@Suite("stop reasons")
+struct StopReasonTests {
+    @Test func aTimeLimitTripFailsTheActionWithTheTimeLimitNotUserStopped() async {
+        let stop = StopSignal()
+        do {
+            try await stop.run {
+                stop.trip(reason: .timeLimit)
+                try stop.check()
+            }
+            Issue.record("expected a throw")
+        } catch let e as CapabilityError {
+            #expect(e.reason == "action_time_limit")
+        } catch { Issue.record("unexpected \(error)") }
+    }
+
+    @Test func anEscTripStillReportsUserStopped() async {
+        let stop = StopSignal()
+        do {
+            try await stop.run {
+                stop.trip()
+                try stop.check()
+            }
+            Issue.record("expected a throw")
+        } catch let e as CapabilityError {
+            #expect(e.reason == "user_stopped")
+        } catch { Issue.record("unexpected \(error)") }
     }
 }

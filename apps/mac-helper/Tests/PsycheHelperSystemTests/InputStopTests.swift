@@ -52,4 +52,57 @@ struct InputStopTests {
         }
         #expect(posts.count == 0)
     }
+
+    @Test func aStopMidDragStillReleasesTheButtonWhereThePointerIs() async throws {
+        let types = TypeLog()
+        let stop = StopSignal()
+        Input.postHook = { e in
+            types.add(e.type)
+            if e.type == .leftMouseDragged, types.count(.leftMouseDragged) == 3 { stop.trip() }
+        }
+        defer { Input.postHook = nil }
+        do {
+            try await stop.run { try Input.drag(from: CGPoint(x: 10, y: 10), to: CGPoint(x: 200, y: 10), stop: stop) }
+            Issue.record("expected the stop to end the drag")
+        } catch let e as CapabilityError {
+            #expect(e.reason == "user_stopped")
+        }
+        #expect(types.all.last == .leftMouseUp)
+        #expect(types.count(.leftMouseDown) == 1)
+        #expect(types.count(.leftMouseUp) == 1)
+    }
+
+    @Test func aStopBeforeAClickPostsNoMouseMove() async throws {
+        let posts = Posts()
+        Input.postHook = { _ in posts.bump() }
+        defer { Input.postHook = nil }
+        let stop = StopSignal()
+        do {
+            try await stop.run {
+                stop.trip()
+                try Input.click(at: .zero, count: 1, right: false, flags: [], stop: stop)
+            }
+            Issue.record("expected the stop to end the click")
+        } catch is CapabilityError {}
+        #expect(posts.count == 0)
+    }
+
+    @Test func withoutAHookATestRunnerNeverPostsRealInput() {
+        Input.postHook = nil
+        #expect(Input.underTestRunner)
+        do {
+            try Input.key(KeyChord(keyCode: 48, flags: [], name: "tab"), stop: StopSignal())
+            Issue.record("expected the post to be refused")
+        } catch let e as CapabilityError {
+            #expect(e.reason == "input_blocked_in_tests")
+        } catch { Issue.record("unexpected \(error)") }
+    }
+}
+
+private final class TypeLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var items: [CGEventType] = []
+    func add(_ t: CGEventType) { lock.withLock { items.append(t) } }
+    var all: [CGEventType] { lock.withLock { items } }
+    func count(_ t: CGEventType) -> Int { all.filter { $0 == t }.count }
 }

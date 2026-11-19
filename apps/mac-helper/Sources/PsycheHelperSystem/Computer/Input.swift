@@ -22,8 +22,22 @@ enum Input {
     /// Tests replace the poster so no event reaches the system.
     nonisolated(unsafe) static var postHook: (@Sendable (CGEvent) -> Void)?
 
-    private static func post(_ event: CGEvent?) {
+    /// True when the process is a test runner: real input must never be posted from a test, since it
+    /// would drive the owner's mouse and keyboard.
+    static let underTestRunner: Bool = {
+        let env = ProcessInfo.processInfo.environment
+        if env["PSYCHE_NO_REAL_INPUT"] != nil || env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil { return true }
+        if NSClassFromString("XCTestCase") != nil { return true }
+        if Bundle.allBundles.contains(where: { $0.bundlePath.hasSuffix(".xctest") }) { return true }
+        let name = ProcessInfo.processInfo.processName
+        return name.contains("xctest") || name.contains("swiftpm-testing-helper")
+    }()
+
+    static let blockedInTests = CapabilityError.unavailable("input_blocked_in_tests", "Real input is not posted from a test runner")
+
+    private static func post(_ event: CGEvent?) throws {
         guard let event else { return }
+        if postHook == nil, underTestRunner { throw blockedInTests }
         lastPost.note()
         event.setIntegerValueField(.eventSourceUserData, value: marker)
         if let postHook { postHook(event) } else { event.post(tap: .cghidEventTap) }
@@ -43,13 +57,14 @@ enum Input {
         try stop.check()
     }
 
-    static func move(to p: CGPoint) {
-        post(CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: .left))
+    static func move(to p: CGPoint) throws {
+        try post(CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: .left))
     }
 
     static func click(at p: CGPoint, count: Int, right: Bool, flags: CGEventFlags, stop: StopSignal) throws {
         let src = source
-        move(to: p)
+        try stop.check()
+        try move(to: p)
         try pause(30, stop: stop)
         let (downType, upType, button): (CGEventType, CGEventType, CGMouseButton) =
             right ? (.rightMouseDown, .rightMouseUp, .right) : (.leftMouseDown, .leftMouseUp, .left)
@@ -61,32 +76,40 @@ enum Input {
                 e?.flags = flags
             }
             try stop.check()
-            post(down)
+            try post(down)
             try pause(20, stop: stop)
             try stop.check()
-            post(up)
+            try post(up)
             if i < count { try pause(40, stop: stop) }
         }
     }
 
     static func drag(from a: CGPoint, to b: CGPoint, stop: StopSignal) throws {
         let src = source
-        move(to: a)
+        try stop.check()
+        try move(to: a)
         try pause(30, stop: stop)
-        post(CGEvent(mouseEventSource: src, mouseType: .leftMouseDown, mouseCursorPosition: a, mouseButton: .left))
+        try stop.check()
+        try post(CGEvent(mouseEventSource: src, mouseType: .leftMouseDown, mouseCursorPosition: a, mouseButton: .left))
+        // The button is down from here: however the drag ends (a stop included), release it where the
+        // pointer is, so the owner's next mouse move is not an unintended drag.
+        var at = a
+        defer { try? post(CGEvent(mouseEventSource: src, mouseType: .leftMouseUp, mouseCursorPosition: at, mouseButton: .left)) }
         let steps = 12
         for i in 1...steps {
             try pause(15, stop: stop)
             let t = Double(i) / Double(steps)
             let p = CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
-            post(CGEvent(mouseEventSource: src, mouseType: .leftMouseDragged, mouseCursorPosition: p, mouseButton: .left))
+            try post(CGEvent(mouseEventSource: src, mouseType: .leftMouseDragged, mouseCursorPosition: p, mouseButton: .left))
+            at = p
         }
         try pause(30, stop: stop)
-        post(CGEvent(mouseEventSource: src, mouseType: .leftMouseUp, mouseCursorPosition: b, mouseButton: .left))
+        at = b
     }
 
     static func scroll(at p: CGPoint, dx: Int32, dy: Int32, stop: StopSignal) throws {
-        move(to: p)
+        try stop.check()
+        try move(to: p)
         try pause(30, stop: stop)
         // Send in small steps so Esc can interrupt long scrolls.
         var remainingY = dy
@@ -94,7 +117,7 @@ enum Input {
         while remainingY != 0 || remainingX != 0 {
             let sy = max(-5, min(5, remainingY))
             let sx = max(-5, min(5, remainingX))
-            post(CGEvent(scrollWheelEvent2Source: source, units: .line, wheelCount: 2, wheel1: sy, wheel2: sx, wheel3: 0))
+            try post(CGEvent(scrollWheelEvent2Source: source, units: .line, wheelCount: 2, wheel1: sy, wheel2: sx, wheel3: 0))
             remainingY -= sy
             remainingX -= sx
             try pause(15, stop: stop)
@@ -107,7 +130,7 @@ enum Input {
             let e = CGEvent(keyboardEventSource: src, virtualKey: chord.keyCode, keyDown: down)
             e?.flags = chord.flags
             try stop.check()  // an Esc during the pause or the focus check posts nothing more
-            post(e)
+            try post(e)
             try pause(20, stop: stop)
         }
     }
@@ -146,7 +169,7 @@ enum Input {
                 chunk.withUnsafeBufferPointer { buf in
                     e?.keyboardSetUnicodeString(stringLength: buf.count, unicodeString: buf.baseAddress)
                 }
-                post(e)
+                try post(e)
             }
             try pause(15, stop: stop)
         }

@@ -69,10 +69,8 @@ public final class ComputerUse: @unchecked Sendable {
 
     /// An action past the hard cap is stopped like an Esc press.
     private func wireOverlong() {
-        taps.onOverlong = { [stop, log] id in
-            stop.trip()
-            log.info("computer use action ran past the time limit; stopped session \(id)")
-        }
+        taps.onOverlong = { [stop] _ in stop.trip(reason: .timeLimit) }  // under the session lock: trip only
+        taps.afterOverlong = { [log] id in log.info("computer use action ran past the time limit; stopped session \(id)") }
     }
 
     func reloadSettings() { policy.update(TierSettings.load(path: settingsPath)) }
