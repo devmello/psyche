@@ -8,9 +8,11 @@ export {
   fadeRise,
   ListItem,
   Presence,
+  useFadeRise,
   WorkingPulse,
 } from "./primitives.tsx";
 export {
+  cubicBezier,
   duration,
   ease,
   easeLinear,

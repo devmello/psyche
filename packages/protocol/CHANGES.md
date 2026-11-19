@@ -21,6 +21,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 ### v1 additive — 2026-11-18 (setup without a terminal: keys in Settings)
 
 - New methods `keys.status {}` → `{keys: ApiKeyStatus[]}`, `keys.set {id, key}` and `keys.clear {id}` → `{status}` (all `operator.admin`; set and clear are side-effecting). `id` is `anthropic | openai | google | openrouter | brave`. `ApiKeyStatus` is `{id, configured, source: env|vault|null, inVault}`: no key, no last characters. Keys live in the vault as Gateway-owned items; an environment variable still wins. Audited as `keys.set` / `keys.clear` with the provider id only.
+### v1 additive — 2026-11-18 (guided Stripe Link setup)
+
+- New methods `payments.link.status` (`operator.read`), `payments.link.connect {path, approvalId?}`, `payments.link.signIn` and `payments.link.disconnect` (`operator.admin`, side-effecting). `connect` answers `approval_required` first (a device-only `policy_change` card bound to the resolved CLI path) and `invalid_params` with `details.reason` (`LinkSetupReason`) for a path that is unsafe to run. Replaces the `PSYCHE_LINK_CLI`-only switch.
+- New event `payments.link.changed {status}` when the setup state changes (connected, sign-in finished, disconnected).
+- New types `LinkSetupState`, `LinkSetupReason` and `LinkSetupStatus`. The status never carries a token; `signIn` holds Link's own page address and the phrase to compare. `LinkSetupReason` also names `in_psyche_home`, `not_link_cli` and `volta_shim`. `payments.link.disconnect {force?}` fails `conflict` (`details.reason` `payment_in_progress`, with `open` and up to three `payments {merchantName, merchantHost}`) while a payment is still open; `force: true` (admin, audited) gives those payments up instead.
 
 ### v1 additive — 2026-11-09 (the owner's word on whether an MCP server moves money)
 

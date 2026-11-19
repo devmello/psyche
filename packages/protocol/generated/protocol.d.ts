@@ -2520,12 +2520,12 @@ export interface CatalogNeeds {
     inputs:  string[];
     network: string[];
     runsIn:  RunsIn;
-    signIn:  SignIn;
+    signIn:  SignInEnum;
 }
 
 export type RunsIn = "builtin" | "srt" | "remote";
 
-export type SignIn = "none" | "key" | "oauth";
+export type SignInEnum = "none" | "key" | "oauth";
 
 export type CatalogEntryStatus = "loaded" | "on_demand" | "installed" | "off" | "installable";
 
@@ -5180,7 +5180,7 @@ export interface LAN {
     /**
      * Interfaces the owner can pick: private IPv4 and IPv6 unique-local addresses only
      */
-    candidates: Candidate[];
+    candidates: LANCandidate[];
     /**
      * SHA-256 (base64url) of the LAN certificate's SPKI: the cert pin
      */
@@ -5214,7 +5214,7 @@ export interface LAN {
     problems: string[];
 }
 
-export interface Candidate {
+export interface LANCandidate {
     address:   string;
     isDefault: boolean;
     name:      string;
@@ -8661,6 +8661,53 @@ export interface PasskeysRegisterFinishResult {
 export interface PasskeysRemoveParams {
     passkeyId: string;
     reauth:    PasskeyReauth;
+}
+
+export interface PaymentsLinkChangedPayload {
+    status: LinkSetupStatus;
+}
+
+export interface LinkSetupStatus {
+    candidates: LinkSetupStatusCandidate[];
+    cli?:       CLI;
+    problem?:   Problem;
+    signIn?:    SignInClass;
+    state:      LinkSetupState;
+}
+
+export interface LinkSetupStatusCandidate {
+    path: string;
+}
+
+export interface CLI {
+    path:   string;
+    source: CLISource;
+}
+
+export type CLISource = "saved" | "env";
+
+export interface Problem {
+    path:   string;
+    reason: LinkSetupReason;
+}
+
+export type LinkSetupReason = "not_absolute" | "missing" | "not_a_file" | "not_executable" | "wrong_owner" | "writable" | "parent_wrong_owner" | "parent_writable" | "in_psyche_home" | "not_link_cli" | "volta_shim";
+
+export interface SignInClass {
+    expiresAt:       number;
+    phrase:          string;
+    verificationUrl: string;
+}
+
+export type LinkSetupState = "cli_missing" | "cli_found" | "signed_out" | "signing_in" | "connected";
+
+export interface PaymentsLinkConnectParams {
+    approvalId?: string;
+    path:        string;
+}
+
+export interface PaymentsLinkDisconnectParams {
+    force?: boolean;
 }
 
 export interface PersonaUpdatedPayload {

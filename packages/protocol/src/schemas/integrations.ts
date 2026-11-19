@@ -112,6 +112,59 @@ export const LinkPaymentMethod = Type.Object(
 );
 export type LinkPaymentMethod = Static<typeof LinkPaymentMethod>;
 
+/**
+ * Where Stripe Link stands on this Gateway, for the guided setup in Settings → Credentials. The
+ * CLI is the owner's own install; Link's sign-in happens on Link's page, so nothing here is a
+ * token, a password or a card.
+ */
+export const LinkSetupState = StringEnum(
+  ["cli_missing", "cli_found", "signed_out", "signing_in", "connected"],
+  { $id: "LinkSetupState" },
+);
+export type LinkSetupState = Static<typeof LinkSetupState>;
+
+export const LinkSetupReason = StringEnum(
+  [
+    "not_absolute",
+    "missing",
+    "not_a_file",
+    "not_executable",
+    "wrong_owner",
+    "writable",
+    "parent_wrong_owner",
+    "parent_writable",
+    // Inside Psyche's own folder (the agent can write there), not in the Link CLI's package, or
+    // Volta's shim (which runs whichever tool its name says, not this file).
+    "in_psyche_home",
+    "not_link_cli",
+    "volta_shim",
+  ],
+  { $id: "LinkSetupReason" },
+);
+export type LinkSetupReason = Static<typeof LinkSetupReason>;
+
+export const LinkSetupStatus = Type.Object(
+  {
+    state: LinkSetupState,
+    /** The CLI Psyche runs: saved in Settings (`saved`) or from `PSYCHE_LINK_CLI` (`env`). */
+    cli: Type.Optional(Type.Object({ path: Type.String(), source: StringEnum(["saved", "env"]) })),
+    /** Installs found in the usual places that passed the safety check, to confirm one. */
+    candidates: Type.Array(Type.Object({ path: Type.String() })),
+    /** Why the saved CLI, or an install found, was refused (never a reason to run it anyway). */
+    problem: Type.Optional(Type.Object({ path: Type.String(), reason: LinkSetupReason })),
+    /** While `signing_in`: Link's own page and the phrase it shows, to compare. */
+    signIn: Type.Optional(
+      Type.Object({
+        verificationUrl: Type.String(),
+        phrase: Type.String(),
+        expiresAt: Type.Number(),
+      }),
+    ),
+  },
+  { $id: "LinkSetupStatus" },
+);
+export type LinkSetupStatus = Static<typeof LinkSetupStatus>;
+
 /** Brand / last4 of a card: the one-time Link card or its funding method. Never the number. */
 const MaskedCard = Type.Object({ brand: Type.String(), last4: Type.String({ maxLength: 4 }) });
 

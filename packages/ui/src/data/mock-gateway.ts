@@ -44,6 +44,7 @@ import {
   type Lesson,
   type LibraryItem,
   type LinkPaymentMethod,
+  type LinkSetupStatus,
   type McpApp,
   type McpProposal,
   type McpServerSecret,
@@ -151,6 +152,8 @@ export interface MockWorld {
   credentialUses: CredentialUse[];
   /** Stripe Link (`vault.payments.*`); absent → Link is not set up (`payments_not_configured`). */
   linkMethods?: LinkPaymentMethod[];
+  /** The guided Link setup (`payments.link.*`); absent → derived from `linkMethods`. */
+  linkSetup?: LinkSetupStatus;
   payments?: VaultPayment[];
   settings: Record<string, unknown>;
   memoryFiles: Record<string, string>;
@@ -435,6 +438,8 @@ export class MockGateway implements GatewayClient {
   /** `sandbox.installSrt` calls so far, and an error to throw from it (tests). */
   installSrtCalls = 0;
   installSrtError: Error | null = null;
+  /** Makes the next `payments.link.connect` fail (an approval card, a refused path). */
+  linkConnectError: Error | null = null;
   /** What `sandbox.setup` finds (guided setup); tests change it between "Check again"s. */
   sandboxSetup: MethodResult<"sandbox.setup"> = {
     ready: true,
@@ -965,6 +970,24 @@ export class MockGateway implements GatewayClient {
     if (handler === undefined) fail("not_implemented", `MockGateway does not implement ${method}`);
     const result = (handler as Handler)(params as never);
     return validateResult(method, result) as MethodResult<M>;
+  }
+
+  /** Where the guided Link setup stands: set by the calls below, else read off the fixtures. */
+  private linkStatus(): LinkSetupStatus {
+    if (this.world.linkSetup !== undefined) return structuredClone(this.world.linkSetup);
+    return this.world.linkMethods === undefined
+      ? { state: "cli_missing", candidates: [] }
+      : {
+          state: "connected",
+          cli: { path: "/opt/homebrew/bin/link-cli", source: "saved" },
+          candidates: [],
+        };
+  }
+
+  private setLinkStatus(status: LinkSetupStatus): LinkSetupStatus {
+    this.world.linkSetup = status;
+    this.emit("payments.link.changed", { status });
+    return structuredClone(status);
   }
 
   /** The owner's Link payment methods; like the vault, `unavailable` when Link is not set up. */
@@ -2663,6 +2686,37 @@ export class MockGateway implements GatewayClient {
       });
       return { path: p.path, bytes: content.length, updatedAt: this.now(), etag: etagOf(content) };
     },
+    "memory.persona.get": () => {
+      const file = this.world.memoryFiles["IDENTITY.md"] ?? "";
+      return { identity: identityFields(file), description: "", etag: etagOf(file) };
+    },
+    "memory.persona.edit": (p) => {
+      let file = this.world.memoryFiles["IDENTITY.md"] ?? "---\n---\n";
+      const changed: string[] = [];
+      for (const [key, value] of Object.entries(p.fields ?? {})) {
+        if (typeof value !== "string") continue;
+        const line = `${key}: ${JSON.stringify(value)}`;
+        const existing = new RegExp(`^${key}:.*$`, "m");
+        file = existing.test(file)
+          ? file.replace(existing, line)
+          : file.replace("\n---\n", `\n${line}\n---\n`);
+        changed.push(key);
+      }
+      this.world.memoryFiles["IDENTITY.md"] = file;
+      this.emit("memory.file.changed", {
+        path: "IDENTITY.md",
+        etag: etagOf(file),
+        source: "api",
+        provenance: "owner",
+      });
+      return {
+        identity: identityFields(file),
+        description: "",
+        etag: etagOf(file),
+        changed,
+        avatarRequested: changed.includes("name") || changed.includes("creature"),
+      };
+    },
     "memory.notes.list": () => ({
       notes: Object.entries(this.world.memoryFiles)
         .filter(([path]) => path.startsWith(AGENT_NOTES_DIR))
@@ -3463,6 +3517,36 @@ export class MockGateway implements GatewayClient {
       });
       return { credential };
     },
+    "payments.link.status": () => this.linkStatus(),
+    "payments.link.connect": (p) => {
+      if (this.linkConnectError) throw this.linkConnectError;
+      return this.setLinkStatus({
+        state: "signed_out",
+        cli: { path: p.path, source: "saved" },
+        candidates: [],
+      });
+    },
+    "payments.link.signIn": () => {
+      const cli = this.linkStatus().cli ?? fail("conflict", "connect the Link CLI first");
+      return this.setLinkStatus({
+        state: "signing_in",
+        cli,
+        candidates: [],
+        signIn: {
+          verificationUrl: "https://login.link.com/device?c=1",
+          phrase: "blue-otter-moon",
+          expiresAt: Date.now() + 5 * 60_000,
+        },
+      });
+    },
+    "payments.link.disconnect": () => {
+      const cli = this.linkStatus().cli;
+      delete this.world.linkMethods;
+      return this.setLinkStatus({
+        state: cli === undefined ? "cli_missing" : "cli_found",
+        candidates: cli === undefined ? [] : [{ path: cli.path }],
+      });
+    },
     "vault.payments.methods": () => ({ methods: this.linkWallet() }),
     "vault.payments.list": (p) => {
       this.linkWallet();
@@ -3782,6 +3866,16 @@ function sleep(ms: number): Promise<void> {
 }
 
 /** Stable short etag for mock files. */
+/** The persona fields of an IDENTITY.md, read the way the Gateway's frontmatter parser reads them. */
+function identityFields(file: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const key of ["name", "creature", "vibe", "tagline", "emoji"]) {
+    const raw = new RegExp(`^${key}:\\s*(.*)$`, "m").exec(file)?.[1]?.trim();
+    if (raw) out[key] = raw.replace(/^"(.*)"$/, "$1");
+  }
+  return out;
+}
+
 function etagOf(content: string): string {
   let h = 2166136261;
   for (let i = 0; i < content.length; i++) {

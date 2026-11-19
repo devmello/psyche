@@ -712,6 +712,9 @@
 //   let lifeAnswerReason = try? JSONDecoder().decode(LifeAnswerReason.self, from: jsonData)
 //   let lifeFactHit = try? JSONDecoder().decode(LifeFactHit.self, from: jsonData)
 //   let linkPaymentMethod = try? JSONDecoder().decode(LinkPaymentMethod.self, from: jsonData)
+//   let linkSetupReason = try? JSONDecoder().decode(LinkSetupReason.self, from: jsonData)
+//   let linkSetupState = try? JSONDecoder().decode(LinkSetupState.self, from: jsonData)
+//   let linkSetupStatus = try? JSONDecoder().decode(LinkSetupStatus.self, from: jsonData)
 //   let logLevel = try? JSONDecoder().decode(LogLevel.self, from: jsonData)
 //   let logLine = try? JSONDecoder().decode(LogLine.self, from: jsonData)
 //   let logsTailParams = try? JSONDecoder().decode(LogsTailParams.self, from: jsonData)
@@ -1054,6 +1057,11 @@
 //   let passkeysRegisterFinishParams = try? JSONDecoder().decode(PasskeysRegisterFinishParams.self, from: jsonData)
 //   let passkeysRegisterFinishResult = try? JSONDecoder().decode(PasskeysRegisterFinishResult.self, from: jsonData)
 //   let passkeysRemoveParams = try? JSONDecoder().decode(PasskeysRemoveParams.self, from: jsonData)
+//   let paymentsLinkChangedPayload = try? JSONDecoder().decode(PaymentsLinkChangedPayload.self, from: jsonData)
+//   let paymentsLinkConnectParams = try? JSONDecoder().decode(PaymentsLinkConnectParams.self, from: jsonData)
+//   let paymentsLinkDisconnectParams = try? JSONDecoder().decode(PaymentsLinkDisconnectParams.self, from: jsonData)
+//   let paymentsLinkSignInParams = try? JSONDecoder().decode(PaymentsLinkSignInParams.self, from: jsonData)
+//   let paymentsLinkStatusParams = try? JSONDecoder().decode(PaymentsLinkStatusParams.self, from: jsonData)
 //   let permissionMode = try? JSONDecoder().decode(PermissionMode.self, from: jsonData)
 //   let personRemoved = try? JSONDecoder().decode(PersonRemoved.self, from: jsonData)
 //   let personaIdentity = try? JSONDecoder().decode(PersonaIdentity.self, from: jsonData)
@@ -8459,7 +8467,7 @@ public struct CatalogNeeds: Codable, Sendable {
     public let inputs: [String]
     public let network: [String]
     public let runsIn: RunsIn
-    public let signIn: SignIn
+    public let signIn: SignInEnum
 
     public enum CodingKeys: String, CodingKey {
         case inputs = "inputs"
@@ -8468,7 +8476,7 @@ public struct CatalogNeeds: Codable, Sendable {
         case signIn = "signIn"
     }
 
-    public init(inputs: [String], network: [String], runsIn: RunsIn, signIn: SignIn) {
+    public init(inputs: [String], network: [String], runsIn: RunsIn, signIn: SignInEnum) {
         self.inputs = inputs
         self.network = network
         self.runsIn = runsIn
@@ -8482,7 +8490,7 @@ public enum RunsIn: String, Codable, Sendable {
     case srt = "srt"
 }
 
-public enum SignIn: String, Codable, Sendable {
+public enum SignInEnum: String, Codable, Sendable {
     case key = "key"
     case none = "none"
     case oauth = "oauth"
@@ -15696,7 +15704,7 @@ public struct LAN: Codable, Sendable {
     /// Bonjour `_psyche._tcp` is being advertised
     public let advertising: Bool
     /// Interfaces the owner can pick: private IPv4 and IPv6 unique-local addresses only
-    public let candidates: [Candidate]
+    public let candidates: [LANCandidate]
     /// SHA-256 (base64url) of the LAN certificate's SPKI: the cert pin
     public let certSpki: String?
     /// The `gateway.lan` setting is on
@@ -15728,7 +15736,7 @@ public struct LAN: Codable, Sendable {
         case problems = "problems"
     }
 
-    public init(advertising: Bool, candidates: [Candidate], certSpki: String? = nil, enabled: Bool, interfaces: [String], ipv6: Bool? = nil, listening: [Listening], origin: String? = nil, port: Int, problems: [String]) {
+    public init(advertising: Bool, candidates: [LANCandidate], certSpki: String? = nil, enabled: Bool, interfaces: [String], ipv6: Bool? = nil, listening: [Listening], origin: String? = nil, port: Int, problems: [String]) {
         self.advertising = advertising
         self.candidates = candidates
         self.certSpki = certSpki
@@ -15742,8 +15750,8 @@ public struct LAN: Codable, Sendable {
     }
 }
 
-// MARK: - Candidate
-public struct Candidate: Codable, Sendable {
+// MARK: - LANCandidate
+public struct LANCandidate: Codable, Sendable {
     public let address: String
     public let isDefault: Bool
     public let name: String
@@ -25233,6 +25241,164 @@ public struct PasskeysRemoveParams: Codable, Sendable {
     public init(passkeyID: String, reauth: PasskeyReauth) {
         self.passkeyID = passkeyID
         self.reauth = reauth
+    }
+}
+
+// MARK: - PaymentsLinkChangedPayload
+public struct PaymentsLinkChangedPayload: Codable, Sendable {
+    public let status: LinkSetupStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: LinkSetupStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - LinkSetupStatus
+public struct LinkSetupStatus: Codable, Sendable {
+    public let candidates: [LinkSetupStatusCandidate]
+    public let cli: CLI?
+    public let problem: Problem?
+    public let signIn: SignInClass?
+    public let state: LinkSetupState
+
+    public enum CodingKeys: String, CodingKey {
+        case candidates = "candidates"
+        case cli = "cli"
+        case problem = "problem"
+        case signIn = "signIn"
+        case state = "state"
+    }
+
+    public init(candidates: [LinkSetupStatusCandidate], cli: CLI? = nil, problem: Problem? = nil, signIn: SignInClass? = nil, state: LinkSetupState) {
+        self.candidates = candidates
+        self.cli = cli
+        self.problem = problem
+        self.signIn = signIn
+        self.state = state
+    }
+}
+
+// MARK: - LinkSetupStatusCandidate
+public struct LinkSetupStatusCandidate: Codable, Sendable {
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case path = "path"
+    }
+
+    public init(path: String) {
+        self.path = path
+    }
+}
+
+// MARK: - CLI
+public struct CLI: Codable, Sendable {
+    public let path: String
+    public let source: CLISource
+
+    public enum CodingKeys: String, CodingKey {
+        case path = "path"
+        case source = "source"
+    }
+
+    public init(path: String, source: CLISource) {
+        self.path = path
+        self.source = source
+    }
+}
+
+public enum CLISource: String, Codable, Sendable {
+    case env = "env"
+    case saved = "saved"
+}
+
+// MARK: - Problem
+public struct Problem: Codable, Sendable {
+    public let path: String
+    public let reason: LinkSetupReason
+
+    public enum CodingKeys: String, CodingKey {
+        case path = "path"
+        case reason = "reason"
+    }
+
+    public init(path: String, reason: LinkSetupReason) {
+        self.path = path
+        self.reason = reason
+    }
+}
+
+public enum LinkSetupReason: String, Codable, Sendable {
+    case inPsycheHome = "in_psyche_home"
+    case missing = "missing"
+    case notAFile = "not_a_file"
+    case notAbsolute = "not_absolute"
+    case notExecutable = "not_executable"
+    case notLinkCLI = "not_link_cli"
+    case parentWritable = "parent_writable"
+    case parentWrongOwner = "parent_wrong_owner"
+    case voltaShim = "volta_shim"
+    case writable = "writable"
+    case wrongOwner = "wrong_owner"
+}
+
+// MARK: - SignInClass
+public struct SignInClass: Codable, Sendable {
+    public let expiresAt: Double
+    public let phrase: String
+    public let verificationURL: String
+
+    public enum CodingKeys: String, CodingKey {
+        case expiresAt = "expiresAt"
+        case phrase = "phrase"
+        case verificationURL = "verificationUrl"
+    }
+
+    public init(expiresAt: Double, phrase: String, verificationURL: String) {
+        self.expiresAt = expiresAt
+        self.phrase = phrase
+        self.verificationURL = verificationURL
+    }
+}
+
+public enum LinkSetupState: String, Codable, Sendable {
+    case cliFound = "cli_found"
+    case cliMissing = "cli_missing"
+    case connected = "connected"
+    case signedOut = "signed_out"
+    case signingIn = "signing_in"
+}
+
+// MARK: - PaymentsLinkConnectParams
+public struct PaymentsLinkConnectParams: Codable, Sendable {
+    public let approvalID: String?
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case path = "path"
+    }
+
+    public init(approvalID: String? = nil, path: String) {
+        self.approvalID = approvalID
+        self.path = path
+    }
+}
+
+// MARK: - PaymentsLinkDisconnectParams
+public struct PaymentsLinkDisconnectParams: Codable, Sendable {
+    public let force: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case force = "force"
+    }
+
+    public init(force: Bool? = nil) {
+        self.force = force
     }
 }
 
@@ -37857,6 +38023,8 @@ public typealias NodesListParams = [String: JSONAny]
 public typealias PasskeysListParams = [String: JSONAny]
 public typealias PasskeysReauthBeginParams = [String: JSONAny]
 public typealias PasskeysRegisterBeginParams = [String: JSONAny]
+public typealias PaymentsLinkSignInParams = [String: JSONAny]
+public typealias PaymentsLinkStatusParams = [String: JSONAny]
 public typealias SandboxListParams = [String: JSONAny]
 public typealias SandboxSetupParams = [String: JSONAny]
 public typealias ScheduledListParams = [String: JSONAny]

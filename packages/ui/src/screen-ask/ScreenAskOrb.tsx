@@ -1,5 +1,6 @@
 import { Loader } from "lucide-react";
 import type { ReactElement } from "react";
+import { duration } from "../motion/tokens.ts";
 
 /**
  * The ask panel's one state indicator (docs/design/screen-ask-2026.md, "Redesign: Siri-simple"): a
@@ -31,7 +32,7 @@ export function ScreenAskOrb({ state }: { state: OrbState }): ReactElement {
             <span
               key={i}
               className="psy-orb-bar w-0.5 rounded-full bg-primary-foreground"
-              style={{ height: i === 1 ? 12 : 6, animationDelay: `${i * 120}ms` }}
+              style={{ height: i === 1 ? 12 : 6, animationDelay: `${i * duration.orbStagger}ms` }}
             />
           ))}
         </span>

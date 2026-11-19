@@ -137,7 +137,6 @@ export function Avatar({
           "inline-flex size-full items-center justify-center overflow-hidden rounded-full bg-gray-2",
           ring,
           dashed && "outline-2 outline-dashed outline-offset-1 outline-gray-9 ring-0",
-          state === "needs-you" && looping && "animate-[psy-pulse-ring_1.2s_ease-in-out_infinite]",
           (state === "error" || state === "offline") && "grayscale",
           state === "offline" && "opacity-60",
         )}
@@ -163,6 +162,14 @@ export function Avatar({
           />
         )}
       </span>
+      {state === "needs-you" && looping ? (
+        // The halo is a separate layer so only its opacity loops (never box-shadow, motion.md §1.7).
+        <span
+          className="pointer-events-none absolute -inset-[3px] animate-psy-pulse-ring rounded-full ring-2 ring-approval/40"
+          data-testid="avatar-halo"
+          aria-hidden="true"
+        />
+      ) : null}
       {state === "error" ? (
         <span
           className="absolute -end-0.5 -bottom-0.5 rounded-full border-2 border-background bg-danger"

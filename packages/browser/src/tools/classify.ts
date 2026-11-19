@@ -92,15 +92,35 @@ export function classifyFormSubmit(meta: ElementMeta): ActionClass {
   };
 }
 
+/**
+ * The key a chord presses, after its modifiers: `Shift+Enter` and `Alt+Space` still send Return
+ * and a space (the key table in `cdp/keys.ts` reads the part after the last `+`).
+ */
+function chordKey(chord: string): string {
+  const k = chord.split("+").at(-1) ?? "";
+  return k.trim().toLowerCase();
+}
+
+/** Whether a key sequence presses Enter or Space (alone or in a chord) and which of the two. */
+export function activatingKeys(keys: string): { enter: boolean; space: boolean } {
+  const pressed = keys
+    .split(/\s+/)
+    .filter((c) => c !== "")
+    .map(chordKey);
+  return {
+    enter: pressed.some((k) => k === "enter"),
+    space: pressed.some((k) => k === "space" || k === " "),
+  };
+}
+
 /** A key press on `ref`: Enter/Space activate buttons and links; Enter in a field submits. */
 export function classifyKeys(keys: string, meta: ElementMeta | undefined): ActionClass {
-  const chords = keys.toLowerCase().split(/\s+/);
-  const activates = chords.some((k) => k === "enter" || k === "space" || k === " ");
-  if (!activates) return { sideEffect: "read", reason: "navigation keys" };
+  const { enter, space } = activatingKeys(keys);
+  if (!enter && !space) return { sideEffect: "read", reason: "navigation keys" };
   if (meta === undefined) return { sideEffect: "write", reason: "Enter without a target" };
   const field = meta.role === "textbox" || meta.role === "searchbox" || meta.role === "combobox";
   if (field) {
-    return chords.includes("enter") && meta.inForm
+    return enter && meta.inForm
       ? classifyFormSubmit(meta)
       : { sideEffect: "read", reason: "typing" };
   }

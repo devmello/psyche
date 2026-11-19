@@ -45,7 +45,7 @@ New threads start in the "Default mode for new threads" you choose in Settings โ
 
 For each tool call, the broker walks these steps in order. The first step that gives a final answer wins.
 
-1. **Hard prohibitions.** Deny, and log it. These cannot be configured (see [Security for owners](/security/)).
+1. **Hard prohibitions.** Deny, and log it. These cannot be configured (see [Security for owners](/security/)). One of them is trading and moving money: see [Trades and transfers are never allowed](#trades-and-transfers-are-never-allowed).
 2. **Your deny rules**, folder grants and blocked paths. Deny.
 3. **Hooks.** A hook can deny or ask, never allow. A hook that changes the arguments sends the call back to step 1.
 4. **Taint.** If this turn read untrusted content, an allow can become an ask, never the reverse. See [Untrusted content and taint](/security/taint).
@@ -107,6 +107,16 @@ Changing any of these needs an admin device and, once you have added a presence 
 - [Settings reference](/reference/settings)
 - [docs/05 ยง3, permission model](https://github.com/devmello/psyche/blob/main/docs/05-security-and-permissions.md#3-permission-model-specification)
 - [packages/permissions](https://github.com/devmello/psyche/tree/main/packages/permissions)
+
+## Trades and transfers are never allowed
+
+Payments and trades are different things. A purchase (a checkout, a bill on the utility's own site, a Stripe Link spend) asks for your approval with Touch ID or your Mac password. Psyche refuses these in every mode, and no approval changes that, so the card never appears:
+
+- buying or selling stocks, funds or crypto, or swapping tokens;
+- moving money between bank accounts, wires, and withdrawals from a brokerage or exchange;
+- sending money or crypto to a person (Venmo, Cash App, Zelle, a wallet address).
+
+It tells you to do it yourself. This applies to the browser, to computer use, to MCP tools and to Stripe Link purchases: Link never pays on a brokerage, exchange, bank or payments app. It does not use a model: Psyche looks at the site or app (a brokerage, exchange, bank or payments service, by its real domain) and at what the control says, in any of the ten languages. A look-alike such as `robinhood.com.evil.test` is not treated as Robinhood, and a real bank subdomain is. Reading a balance or your transactions is fine. Banks that also run a brokerage count for trades too: "Buy" on a bank site is refused like "Buy" at a brokerage. Sign-in codes ("Send code") and menus such as "Pay & transfer" are not trades.
 
 ## What Psyche never sends out
 

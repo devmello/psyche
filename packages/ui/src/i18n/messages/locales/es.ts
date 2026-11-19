@@ -1239,8 +1239,70 @@ export const es: Partial<Catalogue> = {
   "settings.credentials.payments.amountRefunded": "{total} · {refunded} reembolsado",
   "settings.credentials.payments.title": "Pagos",
   "settings.credentials.payments.loadLabel": "los pagos",
-  "settings.credentials.payments.notConfigured":
-    "Stripe Link no está configurado. Instala la CLI de Link en el equipo del Gateway, inicia sesión en Link y define PSYCHE_LINK_CLI; Psyche mostrará aquí tus métodos de pago.",
+  "settings.credentials.payments.notConfigured": "Stripe Link no está configurado en este Gateway.",
+  "settings.credentials.payments.setup.approvalLabel":
+    "Herramienta de línea de comandos de Stripe Link",
+  "settings.credentials.payments.setup.refused": "Psyche no ejecutará ese programa: {reason}.",
+  "settings.credentials.payments.setup.failed": "No funcionó: {reason}",
+  "settings.credentials.payments.setup.problem": "Psyche no ejecutará {path}: {reason}.",
+  "settings.credentials.payments.setup.recheck": "Comprobar de nuevo",
+  "settings.credentials.payments.setup.disconnect": "Desconectar",
+  "settings.credentials.payments.setup.disconnecting": "Desconectando…",
+  "settings.credentials.payments.setup.disconnectConfirm.title": "¿Desconectar Stripe Link?",
+  "settings.credentials.payments.setup.disconnectConfirm.body":
+    "Psyche olvida la CLI de Link y borra el inicio de sesión de Link guardado. Tu cuenta de Link y tus tarjetas no se tocan, y puedes volver a conectar cuando quieras.",
+  "settings.credentials.payments.setup.disconnectConfirm.go": "Desconectar",
+  "settings.credentials.payments.setup.disconnectConfirm.cancel": "Seguir conectado",
+  "settings.credentials.payments.setup.envOverride":
+    "Este Gateway se inició con PSYCHE_LINK_CLI, que tiene prioridad sobre la ruta guardada aquí.",
+  "settings.credentials.payments.setup.missing.title":
+    "Instala la herramienta de línea de comandos de Link",
+  "settings.credentials.payments.setup.missing.body":
+    "Psyche paga con Stripe Link mediante la herramienta de línea de comandos de Link. Ejecútalo en el equipo donde corre el Gateway y comprueba de nuevo.",
+  "settings.credentials.payments.setup.missing.region":
+    "Los pagos de Link para agentes están disponibles en EE. UU. y Canadá.",
+  "settings.credentials.payments.setup.found.title": "CLI de Link encontrada",
+  "settings.credentials.payments.setup.found.body":
+    "Conecta la copia que instalaste. Psyche la ejecuta solo para hablar con Stripe Link, y solo después de que lo apruebes.",
+  "settings.credentials.payments.setup.found.connect": "Conectar",
+  "settings.credentials.payments.setup.found.connecting": "Conectando…",
+  "settings.credentials.payments.setup.found.connectPath": "Conectar {path}",
+  "settings.credentials.payments.setup.signedOut.title": "Inicia sesión en Link",
+  "settings.credentials.payments.setup.signedOut.body":
+    "Psyche abre la página de Link, donde inicias sesión y apruebas este dispositivo. Escribes tu contraseña de Link allí; nunca llega a Psyche.",
+  "settings.credentials.payments.setup.signedOut.go": "Iniciar sesión con Link",
+  "settings.credentials.payments.setup.signedOut.starting": "Iniciando…",
+  "settings.credentials.payments.setup.signingIn.title": "Termina de iniciar sesión en Link",
+  "settings.credentials.payments.setup.signingIn.body":
+    "Abre la página de Link, comprueba que muestra la frase de abajo y aprueba.",
+  "settings.credentials.payments.setup.signingIn.phrase": "Frase:",
+  "settings.credentials.payments.setup.signingIn.open": "Abrir la página de Link",
+  "settings.credentials.payments.setup.signingIn.waiting": "Esperando a que apruebes en Link…",
+  "settings.credentials.payments.setup.connected": "Conectado a Stripe Link mediante {path}.",
+  "settings.credentials.payments.setup.connectedNoPath": "Conectado a Stripe Link.",
+  "settings.credentials.payments.setup.reason.not_absolute": "la ruta no es absoluta",
+  "settings.credentials.payments.setup.reason.missing": "no existe",
+  "settings.credentials.payments.setup.reason.not_a_file": "es un enlace o no es un archivo normal",
+  "settings.credentials.payments.setup.reason.not_executable": "no se puede ejecutar",
+  "settings.credentials.payments.setup.reason.wrong_owner": "pertenece a otro usuario",
+  "settings.credentials.payments.setup.reason.writable": "otros usuarios pueden modificarlo",
+  "settings.credentials.payments.setup.reason.parent_wrong_owner":
+    "una carpeta superior pertenece a otro usuario",
+  "settings.credentials.payments.setup.reason.parent_writable":
+    "otros usuarios pueden modificar una carpeta superior",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "está dentro de la propia carpeta de Psyche; instala la CLI de Link con npm",
+  "settings.credentials.payments.setup.reason.not_link_cli":
+    "no forma parte del paquete de la CLI de Link",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "es el shim de Volta; usa la carpeta de la CLI de Link dentro de Volta o instálala con npm",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "Hay un pago en curso. Desconecta cuando termine.",
+  "settings.credentials.payments.setup.force.title": "¿Desconectar de todos modos?",
+  "settings.credentials.payments.setup.force.body":
+    "Aún en curso: {payments}. Si desconectas de todos modos, Psyche lo cancela donde Link lo permita y lo olvida. Una retención en el comercio caduca sola y Psyche ya no podrá informar de ella.",
+  "settings.credentials.payments.setup.force.go": "Desconectar de todos modos",
+  "settings.credentials.payments.setup.force.aPayment": "un pago",
   "settings.credentials.payments.noMethods":
     "Tu cartera Link no tiene métodos de pago. Añade uno en la app de Link.",
   "settings.credentials.payments.methods": "Métodos de pago de Link",
@@ -1891,7 +1953,8 @@ export const es: Partial<Catalogue> = {
   "settings.permissions.never.secrets":
     "Escribir una contraseña, un número de tarjeta, una cuenta bancaria o un documento de identidad que pueda ver",
   "settings.permissions.never.captcha": "Resolver o saltarse un CAPTCHA",
-  "settings.permissions.never.money": "Hacer una transferencia u operación financiera",
+  "settings.permissions.never.money":
+    "Operar con valores o criptomonedas, mover dinero entre cuentas bancarias o enviarlo a una persona, aunque lo apruebes",
   "settings.permissions.never.delete":
     "Eliminar datos de forma permanente sin una confirmación escrita",
   "settings.permissions.never.injection":
