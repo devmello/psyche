@@ -871,6 +871,7 @@ export const es: Partial<Catalogue> = {
   "shell.shortcuts.description":
     "† marca los atajos que Psyche añade al mapa de Claude para escritorio.",
   "shell.threads.needsYou": "Te necesita",
+  "shell.threads.nowOn": "Ahora: {step}",
   "shell.threads.running": "En ejecución",
   "shell.threads.titleField": "Título de la conversación",
   "shell.threads.incognito": "Incógnito",

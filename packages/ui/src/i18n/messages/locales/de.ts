@@ -897,6 +897,7 @@ export const de: Partial<Catalogue> = {
   "shell.shortcuts.addition": "Psyche-Ergänzung",
   "shell.shortcuts.description": "† markiert Psyche-Ergänzungen zur Claude-Desktop-Belegung.",
   "shell.threads.needsYou": "Braucht dich",
+  "shell.threads.nowOn": "Jetzt: {step}",
   "shell.threads.running": "Läuft",
   "shell.threads.titleField": "Thread-Titel",
   "shell.threads.incognito": "Inkognito",

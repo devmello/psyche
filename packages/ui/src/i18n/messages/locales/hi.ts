@@ -886,6 +886,7 @@ export const hi: Partial<Catalogue> = {
   "shell.shortcuts.addition": "Psyche का जोड़",
   "shell.shortcuts.description": "† Claude डेस्कटॉप मैप में Psyche के जोड़े गए शॉर्टकट दर्शाता है।",
   "shell.threads.needsYou": "आपकी ज़रूरत है",
+  "shell.threads.nowOn": "अभी: {step}",
   "shell.threads.running": "चल रहा है",
   "shell.threads.titleField": "थ्रेड शीर्षक",
   "shell.threads.incognito": "इनकॉग्निटो",

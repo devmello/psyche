@@ -873,6 +873,7 @@ export const it: Partial<Catalogue> = {
   "shell.shortcuts.description":
     "† indica le aggiunte di Psyche alla mappa dell’app Claude per desktop.",
   "shell.threads.needsYou": "Richiede la tua attenzione",
+  "shell.threads.nowOn": "Ora: {step}",
   "shell.threads.running": "In corso",
   "shell.threads.titleField": "Titolo del thread",
   "shell.threads.incognito": "Incognito",
