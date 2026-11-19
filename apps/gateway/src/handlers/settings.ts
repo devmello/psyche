@@ -40,7 +40,12 @@ const PRESENCE_KEYS = [
  * classifier, the never list (refused) and payments (which still ask). Only the owner's
  * authenticated device (`operator.admin`) can write it; a tool call has no path to this method.
  */
-export const OWNER_CHOICE_KEYS: readonly string[] = ["permissions.mode"];
+export const OWNER_CHOICE_KEYS: readonly string[] = [
+  "permissions.mode",
+  // Optional sensitive categories (government, iCloud): off by default, the owner's toggle.
+  "permissions.sensitive.government",
+  "permissions.sensitive.icloud",
+];
 
 export function needsPresence(key: string): boolean {
   if (OWNER_CHOICE_KEYS.includes(key)) return false;

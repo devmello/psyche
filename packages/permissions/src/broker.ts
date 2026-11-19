@@ -31,8 +31,9 @@ import {
   type Surface,
   type ToolCallIntent,
 } from "@psyche/protocol";
+import { venueOfHost } from "@psyche/protocol/financial-block";
 import { monotonicFactory } from "ulid";
-import { type Binding, bindingFor, bindingHash } from "./binding.ts";
+import { type Binding, bindingFor, bindingHash, grantKeyHash } from "./binding.ts";
 import { cardHeader, sanitizeDetails, sanitizeDisplay } from "./cards.ts";
 import {
   CHANNEL_PAIRING_WINDOW_MS,
@@ -53,6 +54,7 @@ import {
   type TaskState,
   targetKey,
   taskKey,
+  trustedRead,
 } from "./engine.ts";
 import { type FolderAccessEnv, type FolderGrantEntry, resolveFolderPick } from "./folder-access.ts";
 import {
@@ -70,7 +72,12 @@ import {
   readCompose,
   resolveCompose,
 } from "./message-compose.ts";
-import { type CompiledPolicy, compilePolicy, type PolicyConfig } from "./policy.ts";
+import {
+  type CompiledPolicy,
+  compilePolicy,
+  isSensitiveHost,
+  type PolicyConfig,
+} from "./policy.ts";
 import { DENY_ALL_LOOPBACK, type LocalProjectVerifier } from "./prohibitions.ts";
 import { requesterKey, requesterSurfaces } from "./requester.ts";
 import type { RevocationLedger } from "./revocations.ts";
@@ -80,6 +87,13 @@ import {
   type StoredApproval,
   type StoredGrant,
 } from "./store.ts";
+import {
+  isSharedTenantHost,
+  normalizeTrustedSite,
+  type TrustedSite,
+  TrustedSiteError,
+  trustedSiteCovers,
+} from "./trusted-sites.ts";
 import type {
   BatchChild,
   PolicyAnswerInput,
@@ -318,6 +332,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       sessionFolders: (threadId) => this.#sessionFolders.get(threadId) ?? [],
       matchGrant: (key, kind, se, ctx, origin) => this.#matchGrant(key, kind, se, ctx, origin),
       useGrant: (rec, hash) => this.#useGrant(rec, hash),
+      trustedSite: (origin) => this.#trustedSite(origin),
       hooks: options.hooks ?? [],
       classifier,
       localProject: options.localProject ?? DENY_ALL_LOOPBACK,
@@ -564,6 +579,117 @@ export class PsychePermissionBroker implements PermissionBroker {
       return rec;
     }
     return undefined;
+  }
+
+  /** The trusted-site entry of a grant, if it is one (its grant key must match its own fields). */
+  static trustedSiteOf(rec: StoredGrant): TrustedSite | undefined {
+    const t = (rec.grant.subject as { trustedSite?: { origin?: unknown; subdomains?: unknown } })
+      .trustedSite;
+    if (t === undefined || typeof t.origin !== "string") return undefined;
+    const site: TrustedSite = { origin: t.origin, subdomains: t.subdomains === true };
+    return rec.grant.kind === "new_origin" &&
+      rec.grant.grantKey === grantKeyHash("trusted_site", site)
+      ? site
+      : undefined;
+  }
+
+  /** Whether a live trusted-site entry of the owner covers this origin (Balanced reads). */
+  #trustedSite(origin: string): boolean {
+    const now = this.clock.now();
+    for (const rec of this.#store.listGrants()) {
+      const g = rec.grant;
+      if (g.revokedAt != null || (g.expiresAt != null && Date.parse(g.expiresAt) <= now)) continue;
+      if ((rec.meta.requesterId ?? null) !== null) continue;
+      const site = PsychePermissionBroker.trustedSiteOf(rec);
+      if (site !== undefined && trustedSiteCovers(site, origin)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * What a first-read card may offer as "Always for this site": the exact origin (server-computed
+   * from the call, never from the answer) when the read is a Balanced, untainted, owner read of a
+   * site that is not on the sensitive list and may be trusted at all.
+   */
+  #trustSiteOffer(
+    recent: { call: PolicyCall; ctx: PolicyContext } | undefined,
+    input: PolicyApprovalInput,
+    se: SideEffect,
+  ): { origin: string; subdomains: boolean } | undefined {
+    // The call the broker itself decided (never a caller-supplied one) names the origin.
+    const call = recent?.call;
+    const ctx = recent?.ctx;
+    if (call === undefined || ctx === undefined || se !== "read") return undefined;
+    if (call.sideEffect !== "read") return undefined;
+    if (ctx.permissionMode !== "balanced" || input.taint || ctx.taint === true) return undefined;
+    if (ctx.initiator === "mcp_app") return undefined;
+    if (ctx.requester !== undefined && ctx.requester.role !== "owner") return undefined;
+    if (!trustedRead(call) || call.target?.kind !== "origin") return undefined;
+    const origin = safeOrigin(call.target.value);
+    if (origin === undefined) return undefined;
+    try {
+      const host = new URL(origin).hostname;
+      if (isSensitiveHost(this.#policy, host)) return undefined;
+      // A brokerage, exchange or bank is never a quiet read, and a shared-tenant host would
+      // trust every tenant's pages at once.
+      if (venueOfHost(host) !== undefined || isSharedTenantHost(host)) return undefined;
+      normalizeTrustedSite(origin);
+      let subdomains = true;
+      try {
+        normalizeTrustedSite(origin, true);
+      } catch {
+        subdomains = false;
+      }
+      return { origin, subdomains };
+    } catch (e) {
+      if (e instanceof TrustedSiteError) return undefined;
+      throw e;
+    }
+  }
+
+  #newTrustedSiteGrant(
+    rec: StoredApproval,
+    offer: { origin: string },
+    subdomains: boolean,
+    by: DecidedBy,
+    now: number,
+  ): StoredGrant {
+    const a = rec.approval;
+    const site: TrustedSite = { origin: offer.origin, subdomains };
+    const grantKey = grantKeyHash("trusted_site", site);
+    return {
+      grant: {
+        id: this.#newId("grt"),
+        kind: "new_origin",
+        scope: "always",
+        grantKey,
+        subject: {
+          grantKey,
+          trustedSite: { ...site },
+          target: { kind: "origin", value: site.origin },
+          sideEffect: "read",
+        },
+        binding: null,
+        expiresAt: new Date(now + this.#ttl().always).toISOString(),
+        useCount: 0,
+        lastUsedAt: null,
+        createdFromApprovalId: a.id,
+        taskId: null,
+        createdAt: new Date(now).toISOString(),
+        revokedAt: null,
+      },
+      meta: {
+        sideEffect: "read",
+        sessionId: null,
+        threadId: null,
+        origin: null,
+        createdByDeviceId: "deviceId" in by ? by.deviceId : null,
+        maxUses: null,
+        lastUsedBindingHash: null,
+        revokedReason: null,
+        requesterId: null,
+      },
+    };
   }
 
   #useGrant(rec: StoredGrant, bindingHash: string): StoredGrant {
@@ -908,6 +1034,10 @@ export class PsychePermissionBroker implements PermissionBroker {
         `${requester.role}: ${requester.display ?? requester.identityId ?? requester.senderId ?? "unknown"}`,
       );
     }
+    // Only the Gateway's own decision may offer it: a caller-supplied `details.trustSite` is dropped.
+    delete details.trustSite;
+    const trustOffer = this.#trustSiteOffer(recent, input, se);
+    if (trustOffer !== undefined) details.trustSite = { ...trustOffer };
     const sources = input.taintSources ?? input.context?.taintSources;
     if (sources !== undefined && sources.length > 0) {
       details.taintSources = sources.map((s) =>
@@ -1398,6 +1528,31 @@ export class PsychePermissionBroker implements PermissionBroker {
       }
     }
 
+    // "Always for this site": only a device answers it, only on a card that offered it, and the
+    // origin is the one the Gateway computed from the call (security §3.2).
+    let trustChoice: "origin" | "subdomains" | undefined;
+    if (input.trustSite !== undefined && input.decision === "approve") {
+      const offer = (a.details as { trustSite?: { origin?: unknown; subdomains?: unknown } })
+        .trustSite;
+      if (
+        chat ||
+        scope !== "once" ||
+        offer === undefined ||
+        typeof offer.origin !== "string" ||
+        (input.trustSite === "subdomains" && offer.subdomains !== true)
+      ) {
+        return this.#reject(
+          rec,
+          id,
+          by,
+          "trust_not_offered",
+          "invalid_params",
+          "this card does not offer to trust the site",
+        );
+      }
+      trustChoice = input.trustSite;
+    }
+
     // Security §5.4: `UNSANDBOXED` typed on an exec_host card runs that one command without srt.
     if (input.unsandboxed !== undefined) {
       if (input.decision !== "approve" || a.kind !== "exec_host" || scope !== "once") {
@@ -1538,6 +1693,19 @@ export class PsychePermissionBroker implements PermissionBroker {
           grant = this.#newGrant(fresh, scope, by, now);
           this.#store.insertGrant(grant);
           fa.grantId = grant.grant.id;
+        } else if (trustChoice !== undefined) {
+          const offered = (fa.details as { trustSite?: { origin?: string } }).trustSite;
+          if (offered?.origin !== undefined) {
+            grant = this.#newTrustedSiteGrant(
+              fresh,
+              { origin: offered.origin },
+              trustChoice === "subdomains",
+              by,
+              now,
+            );
+            this.#store.insertGrant(grant);
+            fa.grantId = grant.grant.id;
+          }
         }
       }
       this.#store.updateApproval(fresh);

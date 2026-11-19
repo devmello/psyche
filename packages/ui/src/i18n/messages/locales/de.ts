@@ -390,6 +390,9 @@ export const de: Partial<Catalogue> = {
 
   "blocks.approval.scope.once": "Einmal erlauben",
   "blocks.approval.scope.task": "Für diese Aufgabe erlauben",
+  "blocks.approval.scope.trustSite": "Immer für diese Website ({site})",
+  "blocks.approval.scope.trustSiteSubdomains":
+    "Immer für diese Website und ihre Subdomains ({site})",
   "blocks.approval.scope.site": "Für diese Website erlauben",
   "blocks.approval.scope.session": "Für diese Sitzung erlauben",
   "blocks.approval.scope.always": "Immer erlauben",
@@ -1026,6 +1029,8 @@ export const de: Partial<Catalogue> = {
   "settings.key.models.providers": "Modellanbieter",
   "settings.key.permissions.mode": "Standardmodus",
   "settings.key.permissions.policy": "Berechtigungsrichtlinie",
+  "settings.key.permissions.sensitive.government": "Vor dem Lesen von Behördenseiten fragen",
+  "settings.key.permissions.sensitive.icloud": "Vor dem Lesen von iCloud fragen",
   "settings.key.permissions.folders": "Geteilte Ordner",
   "settings.key.persona.name": "Name",
   "settings.key.persona.tagline": "Stimmung oder Motto",
@@ -2057,6 +2062,23 @@ export const de: Partial<Catalogue> = {
   "settings.permissions.noSends": "Kein Empfänger ist auf immer erlauben gesetzt.",
   "settings.permissions.origins": "Browser-Ursprünge",
   "settings.permissions.originsHint": "Websites, die der Agent ohne Nachfrage öffnen darf.",
+  "settings.permissions.trusted.title": "Vertrauenswürdige Websites",
+  "settings.permissions.trusted.description":
+    "Psyche liest diese Websites in jedem Chat ohne Nachfrage. Schreiben, Formulare und sensible Websites fragen weiterhin zuerst.",
+  "settings.permissions.trusted.empty":
+    "Noch keine vertrauenswürdigen Websites. Wähle bei einer Leseanfrage „Immer für diese Website“, um eine hinzuzufügen.",
+  "settings.permissions.trusted.added": "Hinzugefügt am {date}",
+  "settings.permissions.trusted.remove": "Entfernen",
+  "settings.permissions.trusted.removeNamed":
+    "{name} aus den vertrauenswürdigen Websites entfernen",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} und ihre Subdomains",
+  "settings.permissions.sensitive.title": "Sensible Websites",
+  "settings.permissions.sensitive.description":
+    "Banken, Gesundheit, E-Mail und Passwortmanager fragen vor dem Lesen immer. Auch Behörden- und iCloud-Websites fragen; schalte eine Kategorie hier aus, um sie ohne Nachfrage zu lesen.",
+  "settings.permissions.sensitive.governmentHint":
+    "Websites mit .gov oder .gov.uk (Steuer-, Identitäts- und Gesundheitskonten). Standardmäßig an.",
+  "settings.permissions.sensitive.icloudHint":
+    "iCloud-Websites (Mail, Fotos, Dateien). Standardmäßig an.",
   "settings.permissions.noOrigins":
     "Keine dauerhaften Website-Freigaben. Neue Websites fragen zuerst.",
   "settings.permissions.scopeExpires": "{scope}, läuft ab {date}",

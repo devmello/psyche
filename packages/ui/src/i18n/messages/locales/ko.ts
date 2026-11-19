@@ -391,6 +391,8 @@ export const ko: Partial<Catalogue> = {
   "blocks.details.binding": "바인딩",
   "blocks.approval.scope.once": "한 번만 허용",
   "blocks.approval.scope.task": "이 작업에 허용",
+  "blocks.approval.scope.trustSite": "이 사이트는 항상 허용 ({site})",
+  "blocks.approval.scope.trustSiteSubdomains": "이 사이트와 하위 도메인은 항상 허용 ({site})",
   "blocks.approval.scope.site": "이 사이트에 허용",
   "blocks.approval.scope.session": "이 세션에 허용",
   "blocks.approval.scope.always": "항상 허용",
@@ -997,6 +999,8 @@ export const ko: Partial<Catalogue> = {
   "settings.key.models.providers": "모델 제공업체",
   "settings.key.permissions.mode": "기본 모드",
   "settings.key.permissions.policy": "권한 정책",
+  "settings.key.permissions.sensitive.government": "정부 사이트를 읽기 전에 확인",
+  "settings.key.permissions.sensitive.icloud": "iCloud를 읽기 전에 확인",
   "settings.key.permissions.folders": "공유 폴더",
   "settings.key.persona.name": "이름",
   "settings.key.persona.tagline": "분위기 또는 태그라인",
@@ -1982,6 +1986,22 @@ export const ko: Partial<Catalogue> = {
   "settings.permissions.noSends": "항상 허용으로 설정된 수신자가 없습니다.",
   "settings.permissions.origins": "브라우저 출처",
   "settings.permissions.originsHint": "에이전트가 묻지 않고 열 수 있는 사이트입니다.",
+  "settings.permissions.trusted.title": "신뢰하는 사이트",
+  "settings.permissions.trusted.description":
+    "Psyche는 이 사이트를 어떤 대화에서든 묻지 않고 읽습니다. 쓰기, 양식, 민감한 사이트는 계속 먼저 묻습니다.",
+  "settings.permissions.trusted.empty":
+    "아직 신뢰하는 사이트가 없습니다. 첫 읽기 요청에서 ‘이 사이트는 항상 허용’을 선택하면 추가됩니다.",
+  "settings.permissions.trusted.added": "{date}에 추가됨",
+  "settings.permissions.trusted.remove": "제거",
+  "settings.permissions.trusted.removeNamed": "{name}을(를) 신뢰하는 사이트에서 제거",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} 및 하위 도메인",
+  "settings.permissions.sensitive.title": "민감한 사이트",
+  "settings.permissions.sensitive.description":
+    "은행, 건강, 이메일, 비밀번호 관리자는 읽기 전에 항상 묻습니다. 정부 사이트와 iCloud도 묻습니다. 묻지 않고 읽으려면 여기서 해당 범주를 끄세요.",
+  "settings.permissions.sensitive.governmentHint":
+    ".gov 또는 .gov.uk로 끝나는 사이트(세금, 신원, 건강 계정). 기본값은 켜짐입니다.",
+  "settings.permissions.sensitive.icloudHint":
+    "iCloud 사이트(메일, 사진, 파일). 기본값은 켜짐입니다.",
   "settings.permissions.noOrigins": "상시 허용된 웹사이트가 없습니다. 새 사이트는 먼저 묻습니다.",
   "settings.permissions.scopeExpires": "{scope}, {date} 만료",
   "settings.permissions.revokeNamed": "{name} 철회",

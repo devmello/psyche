@@ -21,6 +21,7 @@ import { appleApp } from "./ConnectorCapabilities.tsx";
 import { SCOPE_MODE_LABEL } from "./ConnectorsSection.tsx";
 import {
   Advanced,
+  bool,
   EmptyNotice,
   ErrorNotice,
   Group,
@@ -32,6 +33,7 @@ import {
   SettingHint,
   type SettingsFormProps,
   StatusChip,
+  SwitchField,
   str,
   useSettingsForm,
 } from "./shared.tsx";
@@ -91,10 +93,26 @@ export function grantKindLabel(kind: Grant["kind"]): string {
 
 const scopeLabel = (s: Grant["scope"]): string => t(`settings.permissions.scope.${s}`);
 
+/** The trusted-site entry of a grant ("Always for this site"), or null for any other grant. */
+export function trustedSiteOf(
+  g: Grant,
+): { origin: string; display: string; subdomains: boolean } | null {
+  const o = (g.subject as Record<string, unknown>).trustedSite;
+  if (g.kind !== "new_origin" || typeof o !== "object" || o === null) return null;
+  const { origin, subdomains } = o as { origin?: unknown; subdomains?: unknown };
+  if (typeof origin !== "string") return null;
+  return { origin, display: origin.replace(/^https:\/\//, ""), subdomains: subdomains === true };
+}
+
 /** One line naming exactly what a grant covers. */
 export function grantSubject(g: Grant): string {
   const s = g.subject;
   const text = (k: string) => (typeof s[k] === "string" ? (s[k] as string) : null);
+  const trusted = trustedSiteOf(g);
+  if (trusted !== null)
+    return trusted.subdomains
+      ? t("settings.permissions.subject.trustedSiteSubdomains", { origin: trusted.display })
+      : trusted.display;
   if (g.kind === "new_origin")
     return t("settings.permissions.subject.origin", {
       origin: (text("origin") ?? g.grantKey).replace(/^https?:\/\//, ""),
@@ -173,7 +191,10 @@ export function PermissionsPanel({
   const clock = useNow(30_000, now);
   const [showProhibitions, setShowProhibitions] = useState(false);
   const mode = str(values, "permissions.mode", "balanced") as PermissionMode;
-  const origins = grants.filter((g) => g.kind === "new_origin" && g.revokedAt === null);
+  const trusted = grants.filter((g) => trustedSiteOf(g) !== null && g.revokedAt === null);
+  const origins = grants.filter(
+    (g) => g.kind === "new_origin" && g.revokedAt === null && trustedSiteOf(g) === null,
+  );
   // Per-recipient sends the owner chose "always" for; Remove asks again next time.
   const sends = grants.filter((g) => g.kind === "send_email" && g.revokedAt === null);
   const active = grants.filter((g) => g.revokedAt === null);
@@ -278,6 +299,40 @@ export function PermissionsPanel({
         </Advanced>
 
         <Group
+          title={t("settings.permissions.trusted.title")}
+          description={t("settings.permissions.trusted.description")}
+        >
+          {trusted.length === 0 ? (
+            <EmptyNotice text={t("settings.permissions.trusted.empty")} />
+          ) : (
+            <ul className="flex flex-col gap-1.5">
+              {trusted.map((g) => (
+                <li key={g.id} className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{grantSubject(g)}</span>
+                  <span className="text-callout text-muted-foreground">
+                    {t("settings.permissions.trusted.added", { date: formatDate(g.createdAt) })}
+                  </span>
+                  {onRevoke ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => onRevoke(g)}
+                      disabled={revoking?.has(g.id) ?? false}
+                      aria-label={t("settings.permissions.trusted.removeNamed", {
+                        name: grantSubject(g),
+                      })}
+                    >
+                      {t("settings.permissions.trusted.remove")}
+                    </Button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Group>
+
+        <Group
           title={t("settings.permissions.sendsTitle")}
           description={t("settings.permissions.sendsHint")}
         >
@@ -304,6 +359,26 @@ export function PermissionsPanel({
               ))}
             </ul>
           )}
+        </Group>
+
+        <Group
+          title={t("settings.permissions.sensitive.title")}
+          description={t("settings.permissions.sensitive.description")}
+        >
+          <SwitchField
+            label={t("settings.key.permissions.sensitive.government")}
+            description={t("settings.permissions.sensitive.governmentHint")}
+            checked={bool(values, "permissions.sensitive.government", true)}
+            settingKey="permissions.sensitive.government"
+            onChange={(on) => onChange("permissions.sensitive.government", on)}
+          />
+          <SwitchField
+            label={t("settings.key.permissions.sensitive.icloud")}
+            description={t("settings.permissions.sensitive.icloudHint")}
+            checked={bool(values, "permissions.sensitive.icloud", true)}
+            settingKey="permissions.sensitive.icloud"
+            onChange={(on) => onChange("permissions.sensitive.icloud", on)}
+          />
         </Group>
 
         <Group

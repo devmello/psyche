@@ -818,6 +818,8 @@ export interface ApprovalExtras {
   /** `messages_send` card: the text left in the editor and the recipient picked. */
   editedText?: string;
   recipientChoice?: string;
+  /** "Always for this site" (with scope `once`) on a first-read card that offered it. */
+  trustSite?: "origin" | "subdomains";
 }
 
 export async function answerApproval(
@@ -890,6 +892,9 @@ export async function answerApproval(
           : {}),
         ...(decision === "approve" && extras?.recipientChoice !== undefined
           ? { recipientChoice: extras.recipientChoice }
+          : {}),
+        ...(decision === "approve" && extras?.trustSite !== undefined
+          ? { trustSite: extras.trustSite }
           : {}),
         ...(presence === undefined ? {} : { presence }),
       }),

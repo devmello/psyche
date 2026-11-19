@@ -65,7 +65,22 @@ export function focusApproval(approvalId: string): void {
 
 export type ApprovalChoice = "deny" | "once" | "task" | "site" | "always" | "session";
 
-type AllowScope = Exclude<ApprovalChoice, "deny">;
+/**
+ * `trust` / `trustSubdomains` are "Always for this site" (and its subdomains): sent as `once` plus
+ * `trustSite`, only on a first-read card that offers it (`details.trustSite`).
+ */
+type AllowScope = Exclude<ApprovalChoice, "deny"> | "trust" | "trustSubdomains";
+
+/** The origin a first-read card offers to trust, as the Gateway computed it. */
+function trustSiteOffer(
+  approval: ApprovalRequest,
+): { origin: string; display: string; subdomains: boolean } | null {
+  const o = (approval.details as Record<string, unknown>).trustSite;
+  if (typeof o !== "object" || o === null) return null;
+  const { origin, subdomains } = o as { origin?: unknown; subdomains?: unknown };
+  if (typeof origin !== "string" || !approval.scopesOffered.includes("once")) return null;
+  return { origin, display: origin.replace(/^https:\/\//, ""), subdomains: subdomains === true };
+}
 
 export interface ApprovalCardProps {
   approval: ApprovalRequest;
@@ -93,6 +108,8 @@ export interface ApprovalCardProps {
       unsandboxed?: "UNSANDBOXED";
       editedText?: string;
       recipientChoice?: string;
+      /** "Always for this site" on a first-read card (sent with scope `once`). */
+      trustSite?: "origin" | "subdomains";
     },
   ) => unknown;
   /** Fixed clock (stories, tests). */
@@ -479,6 +496,7 @@ export function ApprovalCard({
     return () => clearTimeout(timer);
   }, [interactive, armDelayMs]);
   const site = originOf(approval);
+  const trustOffer = approval.status === "pending" ? trustSiteOffer(approval) : null;
   // A send / destructive / financial card (§3.12): Always allow lifts its floor for this call
   // class, so it confirms first, and a tainted one never offers it (§3.6).
   const floor = floorClassOf(approval.kind, approval.sideEffect);
@@ -500,7 +518,14 @@ export function ApprovalCard({
       );
       return;
     }
-    const scope: GrantScope | undefined = decision === "deny" ? undefined : choice;
+    const trustSite =
+      decision === "approve" && choice === "trust"
+        ? ("origin" as const)
+        : decision === "approve" && choice === "trustSubdomains"
+          ? ("subdomains" as const)
+          : undefined;
+    const scope: GrantScope | undefined =
+      decision === "deny" ? undefined : trustSite !== undefined ? "once" : (choice as GrantScope);
     inFlight.current = true;
     setBusy(true);
     setError(null);
@@ -527,7 +552,9 @@ export function ApprovalCard({
               }
             : unsandboxed && decision === "approve"
               ? { unsandboxed: "UNSANDBOXED" }
-              : undefined,
+              : trustSite !== undefined
+                ? { trustSite }
+                : undefined,
       );
       if (decision === "approve" && onceOnlyHere && scope !== undefined && scope !== "once") {
         setForcedOnce(true);
@@ -612,6 +639,24 @@ export function ApprovalCard({
     ...(offered.includes("task") ? [{ value: "task" as const, label: scopeLabel("task") }] : []),
     ...(offered.includes("site") && site !== null
       ? [{ value: "site" as const, label: `${scopeLabel("site")} ${site}` }]
+      : []),
+    ...(trustOffer !== null
+      ? [
+          {
+            value: "trust" as const,
+            label: t("blocks.approval.scope.trustSite", { site: trustOffer.display }),
+          },
+          ...(trustOffer.subdomains
+            ? [
+                {
+                  value: "trustSubdomains" as const,
+                  label: t("blocks.approval.scope.trustSiteSubdomains", {
+                    site: trustOffer.display,
+                  }),
+                },
+              ]
+            : []),
+        ]
       : []),
     // Typing UNSANDBOXED allows this run only, so no lasting scope is offered then.
     ...(offered.includes("session") && !unsandboxed

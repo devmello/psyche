@@ -434,6 +434,8 @@ export const ar: Partial<Catalogue> = {
 
   "blocks.approval.scope.once": "السماح مرة واحدة",
   "blocks.approval.scope.task": "السماح لهذه المهمة",
+  "blocks.approval.scope.trustSite": "دائمًا لهذا الموقع ({site})",
+  "blocks.approval.scope.trustSiteSubdomains": "دائمًا لهذا الموقع ونطاقاته الفرعية ({site})",
   "blocks.approval.scope.site": "السماح لهذا الموقع",
   "blocks.approval.scope.session": "السماح لهذه الجلسة",
   "blocks.approval.scope.always": "السماح دائمًا",
@@ -1056,6 +1058,8 @@ export const ar: Partial<Catalogue> = {
   "settings.key.models.providers": "مزوّدو النماذج",
   "settings.key.permissions.mode": "الوضع الافتراضي",
   "settings.key.permissions.policy": "سياسة الأذونات",
+  "settings.key.permissions.sensitive.government": "اسأل قبل قراءة المواقع الحكومية",
+  "settings.key.permissions.sensitive.icloud": "اسأل قبل قراءة iCloud",
   "settings.key.permissions.folders": "المجلدات المشتركة",
   "settings.key.persona.name": "الاسم",
   "settings.key.persona.tagline": "الطابع أو الشعار",
@@ -2050,6 +2054,22 @@ export const ar: Partial<Catalogue> = {
   "settings.permissions.noSends": "لا يوجد مستلم مضبوط على السماح دائمًا.",
   "settings.permissions.origins": "مواقع المتصفح",
   "settings.permissions.originsHint": "المواقع التي يمكن للوكيل فتحها من دون سؤال.",
+  "settings.permissions.trusted.title": "المواقع الموثوقة",
+  "settings.permissions.trusted.description":
+    "يقرأ Psyche هذه المواقع دون سؤال في أي محادثة. أما الكتابة والنماذج والمواقع الحساسة فتسأل أولًا كالمعتاد.",
+  "settings.permissions.trusted.empty":
+    "لا توجد مواقع موثوقة بعد. اختر «دائمًا لهذا الموقع» عند أول طلب قراءة لإضافة موقع.",
+  "settings.permissions.trusted.added": "أُضيف في {date}",
+  "settings.permissions.trusted.remove": "إزالة",
+  "settings.permissions.trusted.removeNamed": "إزالة {name} من المواقع الموثوقة",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} ونطاقاته الفرعية",
+  "settings.permissions.sensitive.title": "المواقع الحساسة",
+  "settings.permissions.sensitive.description":
+    "تسأل البنوك والصحة والبريد الإلكتروني ومديرو كلمات المرور دائمًا قبل القراءة. وكذلك المواقع الحكومية ومواقع iCloud؛ أوقف فئة هنا لقراءتها دون سؤال.",
+  "settings.permissions.sensitive.governmentHint":
+    "المواقع التي تنتهي بـ .gov أو .gov.uk (حسابات الضرائب والهوية والصحة). مفعّلة افتراضيًا.",
+  "settings.permissions.sensitive.icloudHint":
+    "مواقع iCloud (البريد والصور والملفات). مفعّلة افتراضيًا.",
   "settings.permissions.noOrigins": "لا تصاريح دائمة لمواقع ويب. تسأل المواقع الجديدة أولًا.",
   "settings.permissions.scopeExpires": "{scope}، تنتهي {date}",
   "settings.permissions.revokeNamed": "إبطال {name}",

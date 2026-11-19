@@ -390,6 +390,8 @@ export const ja: Partial<Catalogue> = {
   "blocks.details.binding": "バインド",
   "blocks.approval.scope.once": "1回だけ許可",
   "blocks.approval.scope.task": "このタスクで許可",
+  "blocks.approval.scope.trustSite": "このサイトでは常に許可（{site}）",
+  "blocks.approval.scope.trustSiteSubdomains": "このサイトとそのサブドメインで常に許可（{site}）",
   "blocks.approval.scope.site": "このサイトで許可",
   "blocks.approval.scope.session": "このセッションで許可",
   "blocks.approval.scope.always": "常に許可",
@@ -992,6 +994,8 @@ export const ja: Partial<Catalogue> = {
   "settings.key.models.providers": "モデルプロバイダ",
   "settings.key.permissions.mode": "デフォルトモード",
   "settings.key.permissions.policy": "権限ポリシー",
+  "settings.key.permissions.sensitive.government": "政府系サイトを読む前に確認する",
+  "settings.key.permissions.sensitive.icloud": "iCloudを読む前に確認する",
   "settings.key.permissions.folders": "共有フォルダ",
   "settings.key.persona.name": "名前",
   "settings.key.persona.tagline": "雰囲気やキャッチフレーズ",
@@ -1989,6 +1993,22 @@ export const ja: Partial<Catalogue> = {
   "settings.permissions.noSends": "常に許可に設定された宛先はありません。",
   "settings.permissions.origins": "ブラウザのオリジン",
   "settings.permissions.originsHint": "エージェントが確認なしで開けるサイト。",
+  "settings.permissions.trusted.title": "信頼するサイト",
+  "settings.permissions.trusted.description":
+    "Psycheは、これらのサイトをどのチャットでも確認なしで読み取ります。書き込み、フォーム、機密性の高いサイトは引き続き先に確認します。",
+  "settings.permissions.trusted.empty":
+    "信頼するサイトはまだありません。最初の読み取りの確認で「このサイトでは常に許可」を選ぶと追加されます。",
+  "settings.permissions.trusted.added": "{date} に追加",
+  "settings.permissions.trusted.remove": "削除",
+  "settings.permissions.trusted.removeNamed": "{name} を信頼するサイトから削除",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} とそのサブドメイン",
+  "settings.permissions.sensitive.title": "機密性の高いサイト",
+  "settings.permissions.sensitive.description":
+    "銀行、医療、メール、パスワード管理は、読み取りの前に必ず確認します。政府系サイトとiCloudも確認します。確認なしで読み取りたい場合は、ここでカテゴリをオフにしてください。",
+  "settings.permissions.sensitive.governmentHint":
+    ".gov または .gov.uk で終わるサイト（税金、本人確認、医療のアカウント）。初期設定ではオンです。",
+  "settings.permissions.sensitive.icloudHint":
+    "iCloudのサイト（メール、写真、ファイル）。初期設定ではオンです。",
   "settings.permissions.noOrigins":
     "Webサイトへの継続的な許可はありません。新しいサイトは先に確認されます。",
   "settings.permissions.scopeExpires": "{scope}、{date}に期限切れ",

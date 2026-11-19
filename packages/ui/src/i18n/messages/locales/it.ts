@@ -388,6 +388,9 @@ export const it: Partial<Catalogue> = {
   "blocks.details.binding": "Vincolo",
   "blocks.approval.scope.once": "Consenti una volta",
   "blocks.approval.scope.task": "Consenti per questa attività",
+  "blocks.approval.scope.trustSite": "Sempre per questo sito ({site})",
+  "blocks.approval.scope.trustSiteSubdomains":
+    "Sempre per questo sito e i suoi sottodomini ({site})",
   "blocks.approval.scope.site": "Consenti per questo sito",
   "blocks.approval.scope.session": "Consenti per questa sessione",
   "blocks.approval.scope.always": "Consenti sempre",
@@ -996,6 +999,8 @@ export const it: Partial<Catalogue> = {
   "settings.key.models.providers": "Fornitori di modelli",
   "settings.key.permissions.mode": "Modalità di default",
   "settings.key.permissions.policy": "Criteri dei permessi",
+  "settings.key.permissions.sensitive.government": "Chiedi prima di leggere i siti governativi",
+  "settings.key.permissions.sensitive.icloud": "Chiedi prima di leggere iCloud",
   "settings.key.permissions.folders": "Cartelle condivise",
   "settings.key.persona.name": "Nome",
   "settings.key.persona.tagline": "Stile o motto",
@@ -2009,6 +2014,22 @@ export const it: Partial<Catalogue> = {
   "settings.permissions.noSends": "Nessun destinatario è impostato su consenti sempre.",
   "settings.permissions.origins": "Origini del browser",
   "settings.permissions.originsHint": "Siti che l’agente può aprire senza chiedere.",
+  "settings.permissions.trusted.title": "Siti attendibili",
+  "settings.permissions.trusted.description":
+    "Psyche legge questi siti senza chiedere, in qualsiasi chat. Scrittura, moduli e siti sensibili chiedono comunque prima.",
+  "settings.permissions.trusted.empty":
+    "Nessun sito attendibile per ora. Scegli «Sempre per questo sito» in una prima lettura per aggiungerne uno.",
+  "settings.permissions.trusted.added": "Aggiunto il {date}",
+  "settings.permissions.trusted.remove": "Rimuovi",
+  "settings.permissions.trusted.removeNamed": "Rimuovi {name} dai siti attendibili",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} e i suoi sottodomini",
+  "settings.permissions.sensitive.title": "Siti sensibili",
+  "settings.permissions.sensitive.description":
+    "Banche, salute, e-mail e gestori di password chiedono sempre prima di una lettura. Chiedono anche i siti governativi e iCloud; disattiva una categoria qui per leggerla senza chiedere.",
+  "settings.permissions.sensitive.governmentHint":
+    "Siti che terminano con .gov o .gov.uk (conti fiscali, di identità e sanitari). Attivo per impostazione predefinita.",
+  "settings.permissions.sensitive.icloudHint":
+    "Siti iCloud (posta, foto, file). Attivo per impostazione predefinita.",
   "settings.permissions.noOrigins":
     "Nessuna autorizzazione permanente per siti web. I nuovi siti chiedono prima.",
   "settings.permissions.scopeExpires": "{scope}, scade {date}",
