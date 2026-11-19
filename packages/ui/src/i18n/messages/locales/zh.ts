@@ -2942,6 +2942,8 @@ export const zh: Partial<Catalogue> = {
   "screens.library.openLabel": "{editor, select, true {在编辑器中打开 {name}} other {打开 {name}}}",
   "screens.library.openInEditor": "在编辑器中打开",
   "screens.library.open": "打开",
+  "screens.library.deleteDownload": "删除此下载",
+  "screens.library.deleteFailed": "Psyche 无法删除 {name}（{reason}）。它仍在隔离中。",
   "screens.library.recording.description": "重放代理在浏览器中的操作。页面内容在录制时已被遮盖。",
   "screens.library.recording.play": "播放",
   "screens.library.recording.pause": "暂停",

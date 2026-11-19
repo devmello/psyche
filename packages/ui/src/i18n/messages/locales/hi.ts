@@ -2982,6 +2982,8 @@ export const hi: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}{editor, select, true { एडिटर में} other {}} खोलें",
   "screens.library.openInEditor": "एडिटर में खोलें",
   "screens.library.open": "खोलें",
+  "screens.library.deleteDownload": "यह डाउनलोड हटाएँ",
+  "screens.library.deleteFailed": "Psyche {name} को हटा नहीं सका ({reason})। यह क्वारंटीन में ही रहेगा।",
   "screens.library.recording.description":
     "ब्राउज़र में एजेंट ने जो किया उसका रीप्ले। रिकॉर्डिंग के समय पेज की सामग्री छिपा दी गई थी।",
   "screens.library.recording.play": "चलाएँ",

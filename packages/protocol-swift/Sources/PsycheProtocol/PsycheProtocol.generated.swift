@@ -718,6 +718,9 @@
 //   let libraryItemKind = try? JSONDecoder().decode(LibraryItemKind.self, from: jsonData)
 //   let libraryListParams = try? JSONDecoder().decode(LibraryListParams.self, from: jsonData)
 //   let libraryListResult = try? JSONDecoder().decode(LibraryListResult.self, from: jsonData)
+//   let libraryQuarantineDecideParams = try? JSONDecoder().decode(LibraryQuarantineDecideParams.self, from: jsonData)
+//   let libraryQuarantineDecideResult = try? JSONDecoder().decode(LibraryQuarantineDecideResult.self, from: jsonData)
+//   let libraryQuarantineDecision = try? JSONDecoder().decode(LibraryQuarantineDecision.self, from: jsonData)
 //   let libraryUploadParams = try? JSONDecoder().decode(LibraryUploadParams.self, from: jsonData)
 //   let libraryUploadResult = try? JSONDecoder().decode(LibraryUploadResult.self, from: jsonData)
 //   let lifeAnswerBlock = try? JSONDecoder().decode(LifeAnswerBlock.self, from: jsonData)
@@ -18516,6 +18519,7 @@ public struct LibraryItemChangedPayload: Codable, Sendable {
 public enum LibraryItemChangedPayloadChange: String, Codable, Sendable {
     case created = "created"
     case deleted = "deleted"
+    case updated = "updated"
 }
 
 // MARK: - LibraryListParams
@@ -18524,6 +18528,7 @@ public struct LibraryListParams: Codable, Sendable {
     public let cursor: String?
     public let kind: LibraryItemKind?
     public let limit: Int?
+    public let quarantined: Bool?
     public let query: String?
     public let taskID: String?
     public let threadID: String?
@@ -18532,15 +18537,17 @@ public struct LibraryListParams: Codable, Sendable {
         case cursor = "cursor"
         case kind = "kind"
         case limit = "limit"
+        case quarantined = "quarantined"
         case query = "query"
         case taskID = "taskId"
         case threadID = "threadId"
     }
 
-    public init(cursor: String? = nil, kind: LibraryItemKind? = nil, limit: Int? = nil, query: String? = nil, taskID: String? = nil, threadID: String? = nil) {
+    public init(cursor: String? = nil, kind: LibraryItemKind? = nil, limit: Int? = nil, quarantined: Bool? = nil, query: String? = nil, taskID: String? = nil, threadID: String? = nil) {
         self.cursor = cursor
         self.kind = kind
         self.limit = limit
+        self.quarantined = quarantined
         self.query = query
         self.taskID = taskID
         self.threadID = threadID
@@ -18560,6 +18567,43 @@ public struct LibraryListResult: Codable, Sendable {
     public init(items: [LibraryItem], nextCursor: String? = nil) {
         self.items = items
         self.nextCursor = nextCursor
+    }
+}
+
+// MARK: - LibraryQuarantineDecideParams
+public struct LibraryQuarantineDecideParams: Codable, Sendable {
+    public let decision: LibraryQuarantineDecision
+    public let itemID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case decision = "decision"
+        case itemID = "itemId"
+    }
+
+    public init(decision: LibraryQuarantineDecision, itemID: String) {
+        self.decision = decision
+        self.itemID = itemID
+    }
+}
+
+public enum LibraryQuarantineDecision: String, Codable, Sendable {
+    case delete = "delete"
+    case trust = "trust"
+}
+
+// MARK: - LibraryQuarantineDecideResult
+public struct LibraryQuarantineDecideResult: Codable, Sendable {
+    public let item: LibraryItem?
+    public let ok: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case item = "item"
+        case ok = "ok"
+    }
+
+    public init(item: LibraryItem? = nil, ok: Bool) {
+        self.item = item
+        self.ok = ok
     }
 }
 

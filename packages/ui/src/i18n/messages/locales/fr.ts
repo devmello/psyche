@@ -3032,6 +3032,9 @@ export const fr: Partial<Catalogue> = {
   "screens.library.openLabel": "Ouvrir {name}{editor, select, true { dans l’éditeur} other {}}",
   "screens.library.openInEditor": "Ouvrir dans l’éditeur",
   "screens.library.open": "Ouvrir",
+  "screens.library.deleteDownload": "Supprimer ce téléchargement",
+  "screens.library.deleteFailed":
+    "Psyche n'a pas pu supprimer {name} ({reason}). Il reste en quarantaine.",
   "screens.library.recording.description":
     "Une relecture de ce que l'agent a fait dans le navigateur. Le contenu des pages a été masqué à l'enregistrement.",
   "screens.library.recording.play": "Lire",

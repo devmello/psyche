@@ -3030,6 +3030,8 @@ export const ar: Partial<Catalogue> = {
   "screens.library.openLabel": "فتح {name}{editor, select, true { في المحرر} other {}}",
   "screens.library.openInEditor": "فتح في المحرر",
   "screens.library.open": "فتح",
+  "screens.library.deleteDownload": "احذف هذا التنزيل",
+  "screens.library.deleteFailed": "تعذّر على Psyche حذف {name} ({reason}). يبقى في الحجر.",
   "screens.library.recording.description":
     "إعادة تشغيل لما فعله الوكيل في المتصفح. حُجب محتوى الصفحة عند التسجيل.",
   "screens.library.recording.play": "تشغيل",

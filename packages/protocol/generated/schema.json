@@ -239,7 +239,7 @@
         "payload": "#/$defs/LessonChangedPayload"
       },
       {
-        "description": "A Library item was uploaded or deleted from a client, so other paired clients refetch the Library (a hint, not state).",
+        "description": "A Library item was uploaded, deleted or released from quarantine from a client, so other paired clients refetch the Library (a hint, not state).",
         "name": "library.item.changed",
         "payload": "#/$defs/LibraryItemChangedPayload"
       },
@@ -1738,6 +1738,14 @@
         "result": "#/$defs/LibraryListResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Decides a quarantined Library file: `trust` releases a download, channel or connector file from quarantine (invalid_params for any other origin, such as a meeting recording; the file stays where it is and is never opened for you; the OS download tag stays; its text stays untrusted data in chat and search), `delete` removes any quarantined item and its file. A plain tap from a paired admin device, no presence step. not_found for an unknown item, invalid_params for one that is not quarantined, conflict when a file to trust no longer matches the hash recorded at download (an integrity check). Audited with the deciding device. Side-effecting.",
+        "name": "library.quarantine.decide",
+        "params": "#/$defs/LibraryQuarantineDecideParams",
+        "result": "#/$defs/LibraryQuarantineDecideResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
       },
       {
         "description": "Uploads a file into the Library in base64 chunks (the first chunk omits uploadId; the last sets final and returns the item, origin upload, not quarantined: the owner chose it). invalid_params for a file over 25 MiB or an empty one. Attach the item's id to chat.send. Side-effecting.",
@@ -25631,7 +25639,8 @@
         "change": {
           "enum": [
             "created",
-            "deleted"
+            "deleted",
+            "updated"
           ],
           "type": "string"
         }
@@ -25676,6 +25685,9 @@
           "maxLength": 500,
           "type": "string"
         },
+        "quarantined": {
+          "type": "boolean"
+        },
         "cursor": {
           "description": "Opaque cursor",
           "maxLength": 512,
@@ -25716,6 +25728,53 @@
         "items"
       ],
       "type": "object"
+    },
+    "LibraryQuarantineDecideParams": {
+      "properties": {
+        "itemId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "decision": {
+          "$ref": "#/$defs/LibraryQuarantineDecision"
+        }
+      },
+      "required": [
+        "itemId",
+        "decision"
+      ],
+      "type": "object"
+    },
+    "LibraryQuarantineDecideResult": {
+      "properties": {
+        "ok": {
+          "const": true,
+          "type": "boolean"
+        },
+        "item": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LibraryItem"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "LibraryQuarantineDecision": {
+      "enum": [
+        "trust",
+        "delete"
+      ],
+      "type": "string"
     },
     "LibraryUploadParams": {
       "properties": {

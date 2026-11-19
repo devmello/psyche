@@ -6135,23 +6135,36 @@ export interface LibraryItemChangedPayload {
     itemId: string;
 }
 
-export type LibraryItemChangedPayloadChange = "created" | "deleted";
+export type LibraryItemChangedPayloadChange = "created" | "deleted" | "updated";
 
 export interface LibraryListParams {
     /**
      * Opaque cursor
      */
-    cursor?:   string;
-    kind?:     LibraryItemKind;
-    limit?:    number;
-    query?:    string;
-    taskId?:   string;
-    threadId?: string;
+    cursor?:      string;
+    kind?:        LibraryItemKind;
+    limit?:       number;
+    quarantined?: boolean;
+    query?:       string;
+    taskId?:      string;
+    threadId?:    string;
 }
 
 export interface LibraryListResult {
     items:       LibraryItem[];
     nextCursor?: null | string;
+}
+
+export interface LibraryQuarantineDecideParams {
+    decision: LibraryQuarantineDecision;
+    itemId:   string;
+}
+
+export type LibraryQuarantineDecision = "trust" | "delete";
+
+export interface LibraryQuarantineDecideResult {
+    item?: LibraryItem | null;
+    ok:    boolean;
 }
 
 export interface LibraryUploadParams {

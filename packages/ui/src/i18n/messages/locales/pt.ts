@@ -2975,6 +2975,9 @@ export const pt: Partial<Catalogue> = {
   "screens.library.openLabel": "Abrir {name}{editor, select, true { no editor} other {}}",
   "screens.library.openInEditor": "Abrir no editor",
   "screens.library.open": "Abrir",
+  "screens.library.deleteDownload": "Excluir este download",
+  "screens.library.deleteFailed":
+    "O Psyche não conseguiu excluir {name} ({reason}). Continua em quarentena.",
   "screens.library.recording.description":
     "Uma reprodução do que o agente fez no navegador. O conteúdo das páginas foi ocultado na gravação.",
   "screens.library.recording.play": "Reproduzir",
