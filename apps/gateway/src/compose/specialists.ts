@@ -16,6 +16,7 @@ import type {
   MethodParams,
   MethodResult,
   ModelRef,
+  NoticeMessage,
   Notifier,
   PermissionBroker,
   RunBudget,
@@ -381,6 +382,28 @@ export function resultLine(result: SpecialistResult, used: RunBudget["used"]): s
   return parts.join(" · ");
 }
 
+/** The same card as message ids and values, so each client words it in its own language. */
+export function resultMessage(
+  role: string,
+  title: string,
+  result: SpecialistResult,
+  used: RunBudget["used"],
+): NoticeMessage {
+  const cost = used.costUsd ?? 0;
+  return {
+    titleKey: "notice.specialist.result.title",
+    bodyKey: "notice.specialist.result.body",
+    params: {
+      who: roleLabelOf(role),
+      title,
+      outcome: result.outcome,
+      findings: result.findings.length,
+      cost: cost > 0 ? `$${cost.toFixed(2)}` : "none",
+      minutes: Math.round(used.wallMs / 60_000),
+    },
+  };
+}
+
 /** The card's title in Psyche's voice (docs/copy, §6.2). */
 export function resultTitle(role: string, title: string, result: SpecialistResult): string {
   const who = roleLabelOf(role);
@@ -408,6 +431,7 @@ async function deliver(
       kind: "specialist_result",
       title: resultTitle(spec.role, task.title, result),
       body: resultLine(result, spec.budget.used),
+      message: resultMessage(spec.role, task.title, result, spec.budget.used),
       taskId,
       route: chatLinkRoute({ threadId: task.threadId }),
       dedupeKey: `specialist_result:${taskId}`,

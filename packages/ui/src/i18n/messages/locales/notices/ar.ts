@@ -43,4 +43,11 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {{action, select, changed {تم تغيير} other {تمت إزالة}} مفتاح {provider}} other {{action, select, changed {تم تغيير} other {تمت إزالة}} مفتاح API الخاص بـ {provider}}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {التغيير} other {الإزالة}} من {device, select, none {جهاز} other {"{device}" ({platform}{paired, select, none {} other {، اقترن في {paired}}})}}. إن لم تكن أنت من فعل ذلك، فألغِ الجهاز من الإعدادات ← الأجهزة.',
+  "notice.specialist.result.title":
+    "{outcome, select, done {{who} أنهى {title}} partial {توقف {who} مبكرًا في {title}} cancelled {تم إيقاف {who} في {title}} other {تعذّر على {who} إنهاء {title}}}",
+  "notice.specialist.result.body":
+    "{outcome, select, done {تم} partial {جزئي} cancelled {أُلغي} other {فشل}}{findings, plural, =0 {} one { · ملاحظة واحدة} two { · ملاحظتان} few { · # ملاحظات} many { · # ملاحظة} other { · # ملاحظة}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {أقل من دقيقة} other {# د}}",
+  "notice.mcp.changed.title": "خادم MCP {server} غيّر أدواته",
+  "notice.mcp.suspicious.title": "خادم MCP {server} فيه أوصاف أدوات مريبة",
+  "notice.mcp.review.body": "راجعها قبل استخدام هذا الخادم: {details}",
 };
