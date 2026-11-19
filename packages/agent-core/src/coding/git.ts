@@ -63,7 +63,9 @@ const UNSWITCHABLE =
 export function gitDriverOverrides(listed: string): string[] {
   const out = new Set<string>();
   for (const line of listed.split("\n")) {
-    const m = /^(filter|diff|merge)\.(.+)\.[^.]+$/i.exec(line.trim());
+    const m = /^(filter|diff|merge)\.(.*)\.[^.]+$/i.exec(line.trim());
+    // `(.*)`: an empty driver name (`[filter ""]`, listed as `filter..clean`) is a driver too,
+    // and `-c filter..clean=` switches it off.
     // Keys without a subsection (`diff.renames`, `merge.conflictstyle`) name no driver.
     if (m === null) continue;
     const section = (m[1] as string).toLowerCase();

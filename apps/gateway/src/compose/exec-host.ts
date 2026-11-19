@@ -209,8 +209,8 @@ function gitProbe(
 /**
  * Is the repository git opened from here one a quiet run may read? Its git dir is a plain
  * `.git` directly under its work tree (so cwd is not itself a git dir, whose own config git would
- * use), both lie inside the shared folder, its config redirects nothing, and its object stores
- * (alternates) are inside the folder too.
+ * use), both lie inside the shared folder, its config redirects nothing, it borrows no object
+ * stores (alternates) and it has no submodules.
  */
 export function quietGitRepoOk(
   probe: { gitDir: string; top: string },
@@ -234,19 +234,14 @@ export function quietGitRepoOk(
   ) {
     return false;
   }
-  const alt = join(objects, "info", "alternates");
-  if (lstatSync(alt, { throwIfNoEntry: false }) !== undefined) {
-    try {
-      for (const raw of readFileSync(alt, "utf8").split("\n")) {
-        const line = raw.trim();
-        if (line === "" || line.startsWith("#")) continue;
-        if (/["\\]/.test(line)) return false; // quoted or escaped paths: not worth parsing
-        if (!under(realpathSync(resolve(objects, line)), folderReal)) return false;
-      }
-    } catch {
-      return false;
-    }
+  // Any alternates at all ask: a store inside the folder can name further stores outside it.
+  if (lstatSync(join(objects, "info", "alternates"), { throwIfNoEntry: false }) !== undefined) {
+    return false;
   }
+  // Submodules ask: `.gitmodules` (a committed file) can set `submodule.<name>.ignore = none`,
+  // and git then recurses with the submodule's own config, whose drivers are never checked.
+  if (lstatSync(join(top, ".gitmodules"), { throwIfNoEntry: false }) !== undefined) return false;
+  if (lstatSync(join(gitDir, "modules"), { throwIfNoEntry: false }) !== undefined) return false;
   return true;
 }
 const MAX_TIMEOUT_MS = 10 * 60_000;
@@ -702,10 +697,11 @@ export function readOnlyGitInvocation(
       GIT_TERMINAL_PROMPT: "0",
       ...(folderRoot === undefined ? {} : { GIT_CEILING_DIRECTORIES: dirname(folderRoot) }),
     },
-    globals: ["--no-pager", "-c", "diff.ignoreSubmodules=all", "-c", "status.ignoreSubmodules=all"],
+    globals: ["--no-pager", "-c", "diff.ignoreSubmodules=all", "-c", "diff.submodule=short"],
     args: [
       ...(sub === undefined ? [] : [sub]),
       ...(sub !== undefined && GIT_DIFFING.has(sub) ? ["--no-ext-diff", "--no-textconv"] : []),
+      ...(sub === "status" || sub === "diff" ? ["--ignore-submodules=all"] : []),
       ...rest,
     ],
   };

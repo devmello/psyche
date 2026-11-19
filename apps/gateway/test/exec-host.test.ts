@@ -1098,17 +1098,75 @@ describe.skipIf(!posixHost)(
       await expect(
         run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
       ).rejects.toMatchObject({ code: "forbidden" });
-      // Inside the folder is fine.
+      // Inside the folder refuses too: a store there can name further stores outside it (r2).
       writeFileSync(
         join(dir, ".git", "objects", "info", "alternates"),
         `${join(dir, ".git", "objects")}\n`,
       );
-      const ok = await run(
-        t,
-        params,
-        ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+      await expect(
+        run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+      ).rejects.toMatchObject({ code: "forbidden" });
+    });
+
+    it("an empty driver name is switched off too (review of #1329 r2, B3)", async () => {
+      const dir = makeRepo("gitro-empty-name");
+      if (dir === null) return;
+      const mark = marker("empty-name");
+      writeFileSync(join(dir, ".gitattributes"), "* filter= diff=\n");
+      writeFileSync(
+        join(dir, ".git", "config"),
+        `${readFileSync(join(dir, ".git", "config"), "utf8")}[filter ""]\n\tclean = "touch ${mark}; cat"\n[diff ""]\n\ttextconv = "touch ${mark}; cat"\n`,
       );
-      expect(ok.output).toMatchObject({ exitCode: 0 });
+      writeFileSync(join(dir, "a.txt"), "changed\n");
+      setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+      const t = await readyReal();
+      for (const argv of [
+        ["git", "status"],
+        ["git", "diff"],
+        ["git", "blame", "a.txt"],
+      ]) {
+        const params = { argv, cwd: dir };
+        const d = await decide(t, params);
+        await run(
+          t,
+          params,
+          ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+        ).catch(() => undefined);
+        expect(existsSync(mark), `${argv.join(" ")} ran the empty-named driver`).toBe(false);
+      }
+    });
+
+    it("a repository with submodules never runs quietly (review of #1329 r2, B4)", async () => {
+      for (const [label, setup] of [
+        [
+          "gitmodules",
+          (dir: string) =>
+            writeFileSync(
+              join(dir, ".gitmodules"),
+              '[submodule "s"]\n\tpath = s\n\turl = ./s\n\tignore = none\n',
+            ),
+        ],
+        [
+          "modules dir",
+          (dir: string) => mkdirSync(join(dir, ".git", "modules", "s"), { recursive: true }),
+        ],
+      ] as const) {
+        const dir = makeRepo(`gitro-sub-${label.replace(" ", "-")}`);
+        if (dir === null) return;
+        setup(dir);
+        setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+        const t = await readyReal();
+        const params = { argv: ["git", "status"], cwd: dir };
+        const d = await decide(t, params);
+        await expect(
+          run(
+            t,
+            params,
+            ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+          ),
+          label,
+        ).rejects.toMatchObject({ code: "forbidden" });
+      }
     });
 
     it("blame runs quietly in an ordinary repository", async () => {
@@ -1234,7 +1292,14 @@ describe.skipIf(!posixHost)(
       const s = started[0] as (typeof started)[number];
       const after = s.args.slice(s.args.indexOf("--") + 2);
       expect(after).toEqual(expect.arrayContaining(["--no-pager", "core.fsmonitor=false"]));
-      expect(after.slice(-4)).toEqual(["diff", "--no-ext-diff", "--no-textconv", "--stat"]);
+      expect(after.slice(-5)).toEqual([
+        "diff",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--ignore-submodules=all",
+        "--stat",
+      ]);
+      expect(after).toEqual(expect.arrayContaining(["diff.submodule=short"]));
       expect(s.options?.env).toMatchObject({
         GIT_CONFIG_NOSYSTEM: "1",
         GIT_CONFIG_GLOBAL: "/dev/null",
