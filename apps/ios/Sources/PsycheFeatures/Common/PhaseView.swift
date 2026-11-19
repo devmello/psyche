@@ -23,9 +23,11 @@ struct PhaseView<Value: Sendable, Content: View>: View {
     }
 
     var body: some View {
-        // Skeleton → content is a 150 ms crossfade (spec §4.7); the stage change is the only thing that animates.
-        // A ZStack, so the outgoing and incoming stage overlap during the fade instead of stacking.
-        ZStack(alignment: .top) { stageBody }
+        // Skeleton → content is a 150 ms fade-in (spec §4.7); the stage change is the only thing that animates.
+        // A Group, not a ZStack: the content is often several siblings (Home's sections) or List rows, which
+        // must join the parent's stack or list. The outgoing stage leaves at once so it never stacks beside
+        // the incoming one.
+        Group { stageBody }
             .psycheFade(PsycheMotion.Duration.short, value: stage)
             .task(id: stage == .loading) {
                 guard stage == .loading else { return }
@@ -35,15 +37,17 @@ struct PhaseView<Value: Sendable, Content: View>: View {
             }
     }
 
+    private static var stageTransition: AnyTransition { .asymmetric(insertion: .opacity, removal: .identity) }
+
     @ViewBuilder
     private var stageBody: some View {
         switch phase {
         case .idle, .loading:
             content(skeleton).redacted(reason: .placeholder).allowsHitTesting(false)
                 .opacity(skeletonVisible ? 1 : 0)
-                .transition(.opacity)
+                .transition(Self.stageTransition)
         case .loaded(let value):
-            content(value).transition(.opacity)
+            content(value).transition(Self.stageTransition)
         case .failed(let message):
             VStack(spacing: 12) {
                 Text("Couldn't load this").font(.headline).foregroundStyle(PsycheColor.text)
@@ -54,7 +58,7 @@ struct PhaseView<Value: Sendable, Content: View>: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 40)
-            .transition(.opacity)
+            .transition(Self.stageTransition)
         }
     }
 }
