@@ -6,6 +6,7 @@ import type { Call, HandlerDef } from "../context.ts";
 import { LAN_SETTING, parseLanSettings } from "../lan/settings.ts";
 import { requireFreshPresence } from "../presence-gate.ts";
 import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
+import { isNarrowing } from "./settings-narrowing.ts";
 
 /**
  * Security settings (security §10): `permissions.*`, `computerUse.*`, `exec.*`, `vault.*`, `devices.*`,
@@ -143,7 +144,14 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       if (key === "mcp.servers")
         value = keepBundleProtections(getSetting(call.ctx.db, key)?.value, value);
       // Fresh presence once a verifier was enrolled (helper Touch ID, passkeys); admin only before.
-      if (needsPresence(key)) {
+      // A change that provably only narrows what the agent may do applies at once from an admin
+      // device (no card). Anything else, a mixed change included, keeps the card. Nothing is
+      // awaited between this read and the write below.
+      const narrowing =
+        needsPresence(key) &&
+        call.identity.scopes.includes("operator.admin") &&
+        isNarrowing(key, getSetting(call.ctx.db, key)?.value, value);
+      if (needsPresence(key) && !narrowing) {
         await requireFreshPresence(
           call,
           {
@@ -163,6 +171,7 @@ export const settingsHandlers: Record<string, HandlerDef> = {
           before,
           after: value,
           deviceId: call.identity.deviceId,
+          ...(narrowing ? { narrowing: true } : {}),
         });
       } catch {
         // Reporting never fails the change.
