@@ -78,6 +78,9 @@ function setup(opts: { listed?: ThreadListEntry[] } = {}) {
         if (method === "approvals.list") return { approvals: [] };
         if (method === "chat.history") return { messages: [], nextCursor: null };
         if (method === "threads.newChat") {
+          if ((params as { kind?: string } | undefined)?.kind === "incognito") {
+            return { thread: { ...EMPTY.thread, kind: "incognito" }, reused: false };
+          }
           const reused = created;
           created = true;
           return { thread: EMPTY.thread, reused };
@@ -217,5 +220,29 @@ describe("leaving an empty chat deletes it", () => {
 
     await emit("thread.deleted", { threadId: EMPTY.thread.id });
     await waitFor(() => expect(window.location.pathname).toBe("/chat"));
+  });
+});
+
+describe("New incognito chat", () => {
+  it("the button creates an incognito chat, and the side button does not", async () => {
+    window.history.replaceState(null, "", "/chat");
+    const { platform, named } = setup();
+    render(<ShellApp platform={platform} />);
+    await screen.findByTestId("shell");
+
+    const incognito = await screen.findByRole("button", { name: "+ Incognito" });
+    act(() => {
+      incognito.click();
+    });
+    await waitFor(() => expect(named("threads.newChat")).toHaveLength(1));
+    expect(named("threads.newChat")[0]?.params).toMatchObject({ kind: "incognito" });
+
+    // Positive control: a normal new chat is a side chat, never incognito.
+    act(() => {
+      screen.getByRole("button", { name: "+ Side chat" }).click();
+    });
+    await waitFor(() => expect(named("threads.newChat")).toHaveLength(2));
+    expect(named("threads.newChat")[1]?.params).toMatchObject({ kind: "side" });
+    expect(named("threads.newChat")[1]?.params).not.toMatchObject({ kind: "incognito" });
   });
 });

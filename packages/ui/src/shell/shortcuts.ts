@@ -10,6 +10,7 @@ import { isMac, isWindows } from "../lib/platform.ts";
 export type ShortcutId =
   | "palette"
   | "newSideChat"
+  | "newIncognitoChat"
   | "closeThread"
   | "toggleThreadList"
   | "compactSidebar"
@@ -61,6 +62,17 @@ export const SHORTCUTS: readonly Shortcut[] = [
       return t("shell.shortcut.newSideChat");
     },
     match: (e, m) => mod(e, m) && !e.shiftKey && key(e, "n"),
+  },
+  {
+    id: "newIncognitoChat",
+    get keys() {
+      return keysLabel("Mod+Shift+N");
+    },
+    get label() {
+      return t("shell.shortcut.newIncognitoChat");
+    },
+    psyche: true,
+    match: (e, m) => mod(e, m) && e.shiftKey && key(e, "n"),
   },
   {
     id: "closeThread",
