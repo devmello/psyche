@@ -4044,6 +4044,7 @@ public struct ApprovalAnswer: Codable, Sendable {
     public let editedText: String?
     public let folderMode: FolderModeEnum?
     public let folderPath: String?
+    public let hostProgram: Bool?
     public let presence: PresenceAssertion?
     public let recipientChoice: String?
     public let scope: GrantScope?
@@ -4059,6 +4060,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         case editedText = "editedText"
         case folderMode = "folderMode"
         case folderPath = "folderPath"
+        case hostProgram = "hostProgram"
         case presence = "presence"
         case recipientChoice = "recipientChoice"
         case scope = "scope"
@@ -4067,7 +4069,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, bulk: Bool? = nil, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, trustSite: TrustSite? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
+    public init(answerToken: String, approvalID: String, bulk: Bool? = nil, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, hostProgram: Bool? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, trustSite: TrustSite? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.bulk = bulk
@@ -4075,6 +4077,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         self.editedText = editedText
         self.folderMode = folderMode
         self.folderPath = folderPath
+        self.hostProgram = hostProgram
         self.presence = presence
         self.recipientChoice = recipientChoice
         self.scope = scope

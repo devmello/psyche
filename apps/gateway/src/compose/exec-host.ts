@@ -44,7 +44,10 @@ import type { SrtResolver } from "./srt.ts";
  * `exec_host`, "Run commands on this Mac" (security §5.4): one argv on the owner's own Mac, in a
  * folder the owner granted. Off by default (`exec.execHostEnabled`); every call asks on the Mac
  * (device-only), answered `once` or `always` bound to the exact argv, cwd, env subset and the
- * resolved executable's SHA-256 (30 days). A tainted turn is offered `once` only (§3.6).
+ * resolved executable's SHA-256 (30 days). A tainted turn is offered `once` only (§3.6). The card
+ * may also offer "Always allow <program> in <folder>" (`packages/permissions/src/host-program.ts`,
+ * 90 days): keyed on the binary's real path and hash, any arguments only for tools that cannot run
+ * other code, otherwise the exact argv; the run re-hashes the binary and stays under srt.
  *
  * The command runs under srt with Psyche's deny profile (§5.3: the vault, state, audit, browser
  * profiles, `~/.ssh`, Keychains) and may write only to its granted folder (when that grant is
@@ -874,16 +877,34 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
       const command = p.argv.join(" ");
       // Without srt nothing runs without a card (the sandbox is what keeps it read-only); the card
       // still reads as a read.
-      return {
-        kind: "exec_host",
+      // A standing program grant ("Always allow <program> in <folder>") needs the binary the
+      // Gateway resolved and the real cwd, and a sandbox to run in: never on Windows or without srt.
+      let cwdReal: string | undefined;
+      try {
+        cwdReal = realpathSync(p.cwd);
+      } catch {
+        cwdReal = undefined;
+      }
+      const hostProgram =
+        !windows && "path" in srt
+          ? {
+              executable: resolved.executable,
+              sha256: resolved.sha256,
+              ...(cwdReal === undefined ? {} : { cwdReal }),
+            }
+          : undefined;
+      const meta = {
         ...(readOnly
           ? {
-              meta: {
-                hostCommand: "read_only" as const,
-                ...("missing" in srt ? { hostSandbox: "missing" as const } : {}),
-              },
+              hostCommand: "read_only" as const,
+              ...("missing" in srt ? { hostSandbox: "missing" as const } : {}),
             }
           : {}),
+        ...(hostProgram === undefined ? {} : { hostProgram }),
+      };
+      return {
+        kind: "exec_host",
+        ...(Object.keys(meta).length > 0 ? { meta } : {}),
         target: { kind: "command", value: command.slice(0, 1000) },
         summary: `Run \`${command.slice(0, 80)}\` on ${hostWords().thisDevice}`,
         details: {

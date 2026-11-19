@@ -123,6 +123,24 @@ export function grantSubject(g: Grant): string {
     return t("settings.permissions.subject.prepNotes");
   if (g.kind === "connector_action" || g.kind === "mcp_tool")
     return text("action") ?? text("tool") ?? g.grantKey;
+  // "Always allow <program> in <folder>": the binary's name and the folder it is bound to.
+  const hp = s.hostProgram as
+    | { executable?: unknown; folder?: unknown; argv?: unknown }
+    | null
+    | undefined;
+  if (g.kind === "exec_host" && hp && typeof hp.executable === "string") {
+    const folder = typeof hp.folder === "string" ? hp.folder : "";
+    if (Array.isArray(hp.argv)) {
+      return t("settings.permissions.subject.hostProgramExact", {
+        program: (hp.argv as unknown[]).join(" "),
+        folder,
+      });
+    }
+    return t("settings.permissions.subject.hostProgram", {
+      program: hp.executable.split("/").pop() ?? hp.executable,
+      folder,
+    });
+  }
   if (g.kind === "exec" && Array.isArray(s.argv)) {
     const argv = (s.argv as unknown[]).join(" ");
     const cwd = text("cwd");

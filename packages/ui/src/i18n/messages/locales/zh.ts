@@ -430,6 +430,9 @@ export const zh: Partial<Catalogue> = {
   "blocks.approval.scope.task": "允许用于此任务",
   "blocks.approval.scope.trustSite": "始终允许此网站（{site}）",
   "blocks.approval.scope.trustSiteSubdomains": "始终允许此网站及其子域名（{site}）",
+  "blocks.approval.scope.hostProgram": "始终允许在 {folder} 中运行 {program}",
+  "blocks.approval.scope.hostProgramExact":
+    "始终允许在 {folder} 中以这些完全相同的参数运行 {program}",
   "blocks.approval.scope.site": "允许用于此网站",
   "blocks.approval.scope.session": "允许用于本次会话",
   "blocks.approval.scope.always": "始终允许",
@@ -2049,6 +2052,8 @@ export const zh: Partial<Catalogue> = {
   "settings.permissions.trusted.remove": "移除",
   "settings.permissions.trusted.removeNamed": "将 {name} 从信任的网站中移除",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} 及其子域名",
+  "settings.permissions.subject.hostProgram": "{program}，在 {folder} 中，任意参数",
+  "settings.permissions.subject.hostProgramExact": "{program}，在 {folder} 中，仅限这些参数",
   "settings.permissions.sensitive.title": "敏感网站",
   "settings.permissions.sensitive.description":
     "银行、健康、电子邮件和密码管理器在读取前始终会询问。政府网站和 iCloud 也会询问；想不经询问直接读取，请在此关闭对应类别。",

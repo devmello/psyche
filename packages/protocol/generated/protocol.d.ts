@@ -1017,6 +1017,7 @@ export interface ApprovalAnswer {
     editedText?:      string;
     folderMode?:      FolderModeEnum;
     folderPath?:      string;
+    hostProgram?:     boolean;
     presence?:        PresenceAssertion;
     recipientChoice?: string;
     scope?:           GrantScope;

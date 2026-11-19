@@ -356,6 +356,9 @@ export const pt: Partial<Catalogue> = {
   "blocks.approval.scope.task": "Permitir nesta tarefa",
   "blocks.approval.scope.trustSite": "Sempre para este site ({site})",
   "blocks.approval.scope.trustSiteSubdomains": "Sempre para este site e seus subdomínios ({site})",
+  "blocks.approval.scope.hostProgram": "Permitir sempre {program} em {folder}",
+  "blocks.approval.scope.hostProgramExact":
+    "Permitir sempre {program} com exatamente estes argumentos em {folder}",
   "blocks.approval.scope.site": "Permitir neste site",
   "blocks.approval.scope.session": "Permitir nesta sessão",
   "blocks.approval.scope.always": "Permitir sempre",
@@ -2038,6 +2041,9 @@ export const pt: Partial<Catalogue> = {
   "settings.permissions.trusted.remove": "Remover",
   "settings.permissions.trusted.removeNamed": "Remover {name} dos sites confiáveis",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} e seus subdomínios",
+  "settings.permissions.subject.hostProgram": "{program} em {folder}, quaisquer argumentos",
+  "settings.permissions.subject.hostProgramExact":
+    "{program} em {folder}, exatamente estes argumentos",
   "settings.permissions.sensitive.title": "Sites sensíveis",
   "settings.permissions.sensitive.description":
     "Bancos, saúde, e-mail e gerenciadores de senhas sempre perguntam antes de uma leitura. Sites do governo e do iCloud também; desative uma categoria aqui para lê-la sem perguntar.",

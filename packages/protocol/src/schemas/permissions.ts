@@ -268,6 +268,12 @@ export const ApprovalAnswer = Type.Object(
      */
     trustSite: Type.Optional(StringEnum(["origin", "subdomains"])),
     /**
+     * "Always allow <program> in <folder>" on an `exec_host` card that offered it
+     * (`details.hostProgram`), with `scope: "once"`: the Gateway stores a 90-day grant for the
+     * card's own binary (real path + SHA-256) and folder. Never from chat, never when tainted.
+     */
+    hostProgram: Type.Optional(Type.Literal(true)),
+    /**
      * `folder_access` only: the folder the owner picked (native picker). This path, resolved by
      * the Gateway, is what is granted, never the agent's own string.
      */

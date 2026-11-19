@@ -822,6 +822,8 @@ export interface ApprovalExtras {
   bulk?: true;
   /** "Always for this site" (with scope `once`) on a first-read card that offered it. */
   trustSite?: "origin" | "subdomains";
+  /** "Always allow <program> in <folder>" on a host-command card (sent with scope `once`). */
+  hostProgram?: true;
 }
 
 export async function answerApproval(
@@ -898,6 +900,9 @@ export async function answerApproval(
         ...(decision === "approve" && extras?.bulk === true ? { bulk: true as const } : {}),
         ...(decision === "approve" && extras?.trustSite !== undefined
           ? { trustSite: extras.trustSite }
+          : {}),
+        ...(decision === "approve" && extras?.hostProgram === true
+          ? { hostProgram: true as const }
           : {}),
         ...(presence === undefined ? {} : { presence }),
       }),

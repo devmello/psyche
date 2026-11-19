@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { basename } from "node:path";
 import { Receipts, sha256 } from "@psyche/audit";
 import {
   APPROVAL_ARM_DELAY_MS,
@@ -33,7 +34,7 @@ import {
 } from "@psyche/protocol";
 import { venueOfHost } from "@psyche/protocol/financial-block";
 import { monotonicFactory } from "ulid";
-import { type Binding, bindingFor, bindingHash, grantKeyHash } from "./binding.ts";
+import { type Binding, bindingFor, bindingHash, grantKeyHash, readsCwdConfig } from "./binding.ts";
 import { cardHeader, sanitizeDetails, sanitizeDisplay } from "./cards.ts";
 import {
   CHANNEL_PAIRING_WINDOW_MS,
@@ -56,7 +57,20 @@ import {
   taskKey,
   trustedRead,
 } from "./engine.ts";
-import { type FolderAccessEnv, type FolderGrantEntry, resolveFolderPick } from "./folder-access.ts";
+import {
+  type FolderAccessEnv,
+  type FolderGrantEntry,
+  refuseFolder,
+  resolveFolderPick,
+} from "./folder-access.ts";
+import {
+  HOST_PROGRAM_ROOTS,
+  type HostProgramFacts,
+  type HostProgramGrant,
+  hostProgramCoverage,
+  hostProgramGrantCovers,
+  hostProgramRefusal,
+} from "./host-program.ts";
 import {
   AUTH_KINDS,
   allowedScopes,
@@ -90,6 +104,7 @@ import {
   type StoredCardFields,
   type StoredGrant,
 } from "./store.ts";
+import { canonicalPath } from "./targets.ts";
 import {
   isSharedTenantHost,
   normalizeTrustedSite,
@@ -138,6 +153,8 @@ export type BrokerEvent =
 
 export interface PermissionBrokerOptions {
   approvers: ApproverDirectory;
+  /** "Always allow <program> in <folder>" (tests): where a granted binary may live, whose rules. */
+  hostProgram?: { roots?: readonly string[]; platform?: NodeJS.Platform; home?: string };
   store?: PermissionStore;
   audit?: AuditLog;
   receipts?: Receipts;
@@ -316,6 +333,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #channelConversations: ChannelConversationLookup | undefined;
   readonly #replyTimes = new Map<string, number[]>();
   readonly #folderAccess: PermissionBrokerOptions["folderAccess"];
+  readonly #hostProgram: NonNullable<PermissionBrokerOptions["hostProgram"]>;
   /** thread → folders allowed for that conversation only; gone at `/new` and at a restart. */
   readonly #sessionFolders = new Map<string, FolderGrantEntry[]>();
 
@@ -342,6 +360,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#revocations = options.revocations;
     this.#channelConversations = options.channelConversations;
     this.#folderAccess = options.folderAccess;
+    this.#hostProgram = options.hostProgram ?? {};
     const ulid = monotonicFactory();
     this.#newId = options.newId ?? ((prefix) => `${prefix}_${ulid(this.clock.now())}`);
     this.#bootId = options.bootId ?? this.#newId("boot");
@@ -359,6 +378,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       matchGrant: (key, kind, se, ctx, origin) => this.#matchGrant(key, kind, se, ctx, origin),
       useGrant: (rec, hash) => this.#useGrant(rec, hash),
       trustedSite: (origin) => this.#trustedSite(origin),
+      hostProgramGrant: (call, ctx) => this.#hostProgramGrant(call, ctx),
       hooks: options.hooks ?? [],
       classifier,
       localProject: options.localProject ?? DENY_ALL_LOOPBACK,
@@ -718,6 +738,184 @@ export class PsychePermissionBroker implements PermissionBroker {
     };
   }
 
+  /** The program grant of a stored grant, if it is one (its key must match its own fields). */
+  static hostProgramOf(rec: StoredGrant): HostProgramGrant | undefined {
+    const h = (rec.grant.subject as { hostProgram?: Record<string, unknown> }).hostProgram;
+    if (h === undefined || h === null || typeof h !== "object") return undefined;
+    const { executable, sha256, folder, argv } = h;
+    if (typeof executable !== "string" || typeof sha256 !== "string" || typeof folder !== "string")
+      return undefined;
+    if (argv !== null && !(Array.isArray(argv) && argv.every((a) => typeof a === "string")))
+      return undefined;
+    const out: HostProgramGrant = { executable, sha256, folder, argv: argv as string[] | null };
+    return rec.grant.kind === "exec_host" &&
+      rec.grant.scope === "always" &&
+      rec.grant.grantKey === grantKeyHash("host_program", out)
+      ? out
+      : undefined;
+  }
+
+  /** What a host command is, for a program grant: the call's own params and the Gateway's meta. */
+  #hostFacts(call: PolicyCall): HostProgramFacts | undefined {
+    const hp = call.meta?.hostProgram;
+    const p = (call.params ?? {}) as {
+      argv?: unknown;
+      cwd?: unknown;
+      env?: unknown;
+      allowedDomains?: unknown;
+    };
+    if (hp === undefined || !Array.isArray(p.argv) || typeof p.cwd !== "string") return undefined;
+    if (p.env !== undefined && (typeof p.env !== "object" || p.env === null)) return undefined;
+    if (p.allowedDomains !== undefined && !Array.isArray(p.allowedDomains)) return undefined;
+    // The binding the engine hashed names the same binary, or the description is not trusted.
+    const b = (call.binding ?? {}) as { executable?: unknown; executableSha256?: unknown };
+    if (b.executable !== undefined && b.executable !== hp.executable) return undefined;
+    if (b.executableSha256 !== undefined && b.executableSha256 !== hp.sha256) return undefined;
+    return {
+      argv: p.argv as string[],
+      cwd: p.cwd,
+      env: p.env as Record<string, unknown> | undefined,
+      allowedDomains: p.allowedDomains as unknown[] | undefined,
+      executable: hp.executable,
+      sha256: hp.sha256,
+      cwdReal: hp.cwdReal,
+    };
+  }
+
+  #hostProgramRefusal(f: HostProgramFacts, threadId: string | undefined): string | undefined {
+    return hostProgramRefusal(f, {
+      platform: this.#hostProgram.platform ?? process.platform,
+      roots: this.#hostProgram.roots ?? HOST_PROGRAM_ROOTS,
+      inGrantedFolder: (path) => this.engine.folderFor(path, threadId) !== undefined,
+    });
+  }
+
+  #refuseEnv(): FolderAccessEnv {
+    return this.#hostProgram.home === undefined ? {} : { home: this.#hostProgram.home };
+  }
+
+  /** The folder an offer or a grant covers: a shared folder that is not home or a sensitive root. */
+  #hostProgramFolder(cwd: string, threadId: string | undefined): string | undefined {
+    let c: string;
+    try {
+      c = canonicalPath(cwd);
+    } catch {
+      return undefined;
+    }
+    const root = this.engine.folderFor(c, threadId)?.path;
+    if (root === undefined) return undefined;
+    return refuseFolder(root, this.#refuseEnv()) === undefined ? root : undefined;
+  }
+
+  /** A live program grant that covers this host command (security §5.4); never in a tainted turn. */
+  #hostProgramGrant(call: PolicyCall, ctx: PolicyContext): StoredGrant | undefined {
+    if (ctx.taint === true) return undefined;
+    if (ctx.requester !== undefined && ctx.requester.role !== "owner") return undefined;
+    const f = this.#hostFacts(call);
+    if (f === undefined || this.#hostProgramRefusal(f, ctx.threadId) !== undefined) {
+      return undefined;
+    }
+    // The folder must still be a shared one, and the command must run inside it.
+    if (this.#hostProgramFolder(f.cwd, ctx.threadId) === undefined) return undefined;
+    if (readsCwdConfig(f.executable) || readsCwdConfig(f.argv[0] as string)) return undefined;
+    const now = this.clock.now();
+    for (const rec of this.#store.listGrants()) {
+      const g = rec.grant;
+      if (g.revokedAt != null || (g.expiresAt != null && Date.parse(g.expiresAt) <= now)) continue;
+      if ((rec.meta.requesterId ?? null) !== null) continue;
+      const h = PsychePermissionBroker.hostProgramOf(rec);
+      if (h === undefined || !hostProgramGrantCovers(h, f)) continue;
+      // Granted folders can be revoked: the grant's own folder must still be shared.
+      if (this.engine.folderFor(h.folder, ctx.threadId) === undefined) continue;
+      if (refuseFolder(h.folder, this.#refuseEnv()) !== undefined) continue;
+      return rec;
+    }
+    return undefined;
+  }
+
+  /**
+   * What an `exec_host` card may offer as "Always allow <program> in <folder>": computed from the
+   * call the broker itself decided, never from the caller's details or the answer.
+   */
+  #hostProgramOffer(
+    recent: { call: PolicyCall; ctx: PolicyContext } | undefined,
+    input: PolicyApprovalInput,
+  ): (HostProgramGrant & { program: string }) | undefined {
+    const call = recent?.call;
+    const ctx = recent?.ctx;
+    if (call === undefined || ctx === undefined || input.kind !== "exec_host") return undefined;
+    if (ctx.permissionMode === "manual") return undefined;
+    if (input.taint || ctx.taint === true || ctx.initiator === "mcp_app") return undefined;
+    if (ctx.requester !== undefined && ctx.requester.role !== "owner") return undefined;
+    const f = this.#hostFacts(call);
+    if (f === undefined || this.#hostProgramRefusal(f, ctx.threadId) !== undefined) {
+      return undefined;
+    }
+    const folder = this.#hostProgramFolder(f.cwd, ctx.threadId);
+    if (folder === undefined) return undefined;
+    // A program that reads config from the working directory (git, make, npm…) never gets a
+    // folder-wide grant: the config can change under it, and a grant cannot bind its hashes.
+    if (readsCwdConfig(f.executable) || readsCwdConfig(f.argv[0] as string)) return undefined;
+    const any = hostProgramCoverage(f.argv, f.executable) === "any";
+    return {
+      program: basename(f.executable),
+      executable: f.executable,
+      sha256: f.sha256,
+      folder,
+      argv: any ? null : [...f.argv],
+    };
+  }
+
+  #newHostProgramGrant(
+    rec: StoredApproval,
+    offer: HostProgramGrant,
+    by: DecidedBy,
+    now: number,
+  ): StoredGrant {
+    const a = rec.approval;
+    const key: HostProgramGrant = {
+      executable: offer.executable,
+      sha256: offer.sha256,
+      folder: offer.folder,
+      argv: offer.argv,
+    };
+    const grantKey = grantKeyHash("host_program", key);
+    return {
+      grant: {
+        id: this.#newId("grt"),
+        kind: "exec_host",
+        scope: "always",
+        grantKey,
+        subject: {
+          grantKey,
+          hostProgram: { ...key, argv: key.argv === null ? null : [...key.argv] },
+          target: { kind: "command", value: basename(key.executable) },
+          sideEffect: "destructive",
+        },
+        binding: null,
+        // 90 days like a trusted site, not the 30 of an exact command.
+        expiresAt: new Date(now + this.#ttl().always).toISOString(),
+        useCount: 0,
+        lastUsedAt: null,
+        createdFromApprovalId: a.id,
+        taskId: null,
+        createdAt: new Date(now).toISOString(),
+        revokedAt: null,
+      },
+      meta: {
+        sideEffect: "destructive",
+        sessionId: null,
+        threadId: null,
+        origin: null,
+        createdByDeviceId: "deviceId" in by ? by.deviceId : null,
+        maxUses: null,
+        lastUsedBindingHash: null,
+        revokedReason: null,
+        requesterId: null,
+      },
+    };
+  }
+
   #useGrant(rec: StoredGrant, bindingHash: string): StoredGrant {
     const now = this.clock.now();
     const next = structuredClone(rec);
@@ -1064,6 +1262,17 @@ export class PsychePermissionBroker implements PermissionBroker {
     delete details.trustSite;
     const trustOffer = this.#trustSiteOffer(recent, input, se);
     if (trustOffer !== undefined) details.trustSite = { ...trustOffer };
+    delete details.hostProgram;
+    const programOffer = this.#hostProgramOffer(recent, input);
+    if (programOffer !== undefined) {
+      details.hostProgram = {
+        program: programOffer.program,
+        executable: programOffer.executable,
+        sha256: programOffer.sha256,
+        folder: programOffer.folder,
+        argv: programOffer.argv,
+      };
+    }
     const sources = input.taintSources ?? input.context?.taintSources;
     if (sources !== undefined && sources.length > 0) {
       details.taintSources = sources.map((s) =>
@@ -1666,6 +1875,32 @@ export class PsychePermissionBroker implements PermissionBroker {
       trustChoice = input.trustSite;
     }
 
+    // "Always allow <program> in <folder>": a device answers it, on a card that offered it, with
+    // scope `once`; the program and folder are the Gateway's own, from the card (security §5.4).
+    let programChoice = false;
+    if (input.hostProgram === true && input.decision === "approve") {
+      const offer = (a.details as { hostProgram?: { executable?: unknown } }).hostProgram;
+      if (
+        chat ||
+        scope !== "once" ||
+        a.taint ||
+        a.kind !== "exec_host" ||
+        input.unsandboxed !== undefined ||
+        offer === undefined ||
+        typeof offer.executable !== "string"
+      ) {
+        return this.#reject(
+          rec,
+          id,
+          by,
+          "program_not_offered",
+          "invalid_params",
+          "this card does not offer to allow the program",
+        );
+      }
+      programChoice = true;
+    }
+
     // Security §5.4: `UNSANDBOXED` typed on an exec_host card runs that one command without srt.
     if (input.unsandboxed !== undefined) {
       if (input.decision !== "approve" || a.kind !== "exec_host" || scope !== "once") {
@@ -1806,6 +2041,28 @@ export class PsychePermissionBroker implements PermissionBroker {
           grant = this.#newGrant(fresh, scope, by, now);
           this.#store.insertGrant(grant);
           fa.grantId = grant.grant.id;
+        } else if (programChoice) {
+          const o = (fa.details as { hostProgram?: Record<string, unknown> }).hostProgram;
+          if (
+            o !== undefined &&
+            typeof o.executable === "string" &&
+            typeof o.sha256 === "string" &&
+            typeof o.folder === "string"
+          ) {
+            grant = this.#newHostProgramGrant(
+              fresh,
+              {
+                executable: o.executable,
+                sha256: o.sha256,
+                folder: o.folder,
+                argv: Array.isArray(o.argv) ? (o.argv as string[]) : null,
+              },
+              by,
+              now,
+            );
+            this.#store.insertGrant(grant);
+            fa.grantId = grant.grant.id;
+          }
         } else if (trustChoice !== undefined) {
           const offered = (fa.details as { trustSite?: { origin?: string } }).trustSite;
           if (offered?.origin !== undefined) {

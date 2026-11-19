@@ -394,6 +394,8 @@ export const ja: Partial<Catalogue> = {
   "blocks.approval.scope.task": "このタスクで許可",
   "blocks.approval.scope.trustSite": "このサイトでは常に許可（{site}）",
   "blocks.approval.scope.trustSiteSubdomains": "このサイトとそのサブドメインで常に許可（{site}）",
+  "blocks.approval.scope.hostProgram": "{folder} で {program} を常に許可",
+  "blocks.approval.scope.hostProgramExact": "{folder} で {program} をこの引数のときだけ常に許可",
   "blocks.approval.scope.site": "このサイトで許可",
   "blocks.approval.scope.session": "このセッションで許可",
   "blocks.approval.scope.always": "常に許可",
@@ -2059,6 +2061,8 @@ export const ja: Partial<Catalogue> = {
   "settings.permissions.trusted.remove": "削除",
   "settings.permissions.trusted.removeNamed": "{name} を信頼するサイトから削除",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} とそのサブドメイン",
+  "settings.permissions.subject.hostProgram": "{program}（{folder}、任意の引数）",
+  "settings.permissions.subject.hostProgramExact": "{program}（{folder}、この引数のみ）",
   "settings.permissions.sensitive.title": "機密性の高いサイト",
   "settings.permissions.sensitive.description":
     "銀行、医療、メール、パスワード管理は、読み取りの前に必ず確認します。政府系サイトとiCloudも確認します。確認なしで読み取りたい場合は、ここでカテゴリをオフにしてください。",

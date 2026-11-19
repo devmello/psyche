@@ -395,6 +395,8 @@ export const ko: Partial<Catalogue> = {
   "blocks.approval.scope.task": "이 작업에 허용",
   "blocks.approval.scope.trustSite": "이 사이트는 항상 허용 ({site})",
   "blocks.approval.scope.trustSiteSubdomains": "이 사이트와 하위 도메인은 항상 허용 ({site})",
+  "blocks.approval.scope.hostProgram": "{folder}에서 {program} 항상 허용",
+  "blocks.approval.scope.hostProgramExact": "{folder}에서 정확히 이 인수로 {program} 항상 허용",
   "blocks.approval.scope.site": "이 사이트에 허용",
   "blocks.approval.scope.session": "이 세션에 허용",
   "blocks.approval.scope.always": "항상 허용",
@@ -2052,6 +2054,8 @@ export const ko: Partial<Catalogue> = {
   "settings.permissions.trusted.remove": "제거",
   "settings.permissions.trusted.removeNamed": "{name}을(를) 신뢰하는 사이트에서 제거",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} 및 하위 도메인",
+  "settings.permissions.subject.hostProgram": "{folder}의 {program}, 모든 인수",
+  "settings.permissions.subject.hostProgramExact": "{folder}의 {program}, 정확히 이 인수만",
   "settings.permissions.sensitive.title": "민감한 사이트",
   "settings.permissions.sensitive.description":
     "은행, 건강, 이메일, 비밀번호 관리자는 읽기 전에 항상 묻습니다. 정부 사이트와 iCloud도 묻습니다. 묻지 않고 읽으려면 여기서 해당 범주를 끄세요.",
