@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentToolRegistration, ToolRunContext } from "@psyche/agent-core";
-import { createThread, openDb, type PsycheDb, putAgentThreadState } from "@psyche/db";
+import { createRun, createThread, openDb, type PsycheDb, putAgentThreadState } from "@psyche/db";
 import { createPermissionBroker, type PsychePermissionBroker } from "@psyche/permissions";
 import { FilesMethods } from "@psyche/protocol";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -28,11 +28,9 @@ const DEVICE = { deviceId: "dev_mac" };
 let broker: PsychePermissionBroker;
 let db: PsycheDb;
 let threadId: string;
-let active = false;
 const tokens = new Map<string, string>();
 
 beforeEach(() => {
-  active = false;
   tokens.clear();
   db = openDb(":memory:");
   threadId = createThread(db, { kind: "main", sessionKey: "owner:main" }).id;
@@ -72,7 +70,7 @@ const share = () => ({
 
 const callAs = (scopes: string[]): Call =>
   ({
-    ctx: { db, agent: { isActive: () => active } },
+    ctx: { db },
     identity: { scopes },
   }) as unknown as Call;
 const ADMIN = ["operator.read", "operator.admin"];
@@ -170,7 +168,7 @@ describe("files.requestShare", () => {
 
     // A running turn's taint is not saved yet: fail closed.
     putAgentThreadState(db, threadId, {});
-    active = true;
+    createRun(db, { threadId, modelRef: "fake/model" });
     const running = await requestShare();
     const card = (await broker.list({ status: "pending" })).find(
       (x) => x.id === running.approvalId,

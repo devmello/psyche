@@ -2,7 +2,7 @@ import { constants } from "node:fs";
 import { type FileHandle, lstat, open, readdir, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, resolve, sep } from "node:path";
-import { getAgentThreadState, getThread } from "@psyche/db";
+import { getAgentThreadState, getThread, listRuns } from "@psyche/db";
 import {
   assertGranted,
   assertNoSymlinks,
@@ -268,7 +268,10 @@ async function requestShare(
   const saved = getAgentThreadState(call.ctx.db, params.threadId)?.taint as
     | { sources?: TaintSource[] }
     | undefined;
-  const taint = saved !== undefined || call.ctx.agent.isActive(params.threadId);
+  const turnRunning = listRuns(call.ctx.db, { threadId: params.threadId, limit: 20 }).some(
+    (r) => r.status !== "done" && r.status !== "failed" && r.status !== "cancelled",
+  );
+  const taint = saved !== undefined || turnRunning;
   return requestFolderShare(setup.share, {
     threadId: params.threadId,
     path: params.path,
