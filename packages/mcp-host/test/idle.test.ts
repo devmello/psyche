@@ -3,8 +3,15 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { FakeCredentialBroker } from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { directLauncher, type McpHostEvent, PsycheMcpHost } from "../src/index.ts";
+import {
+  directLauncher,
+  type McpHostEvent,
+  PsycheMcpHost,
+  type StdioLauncher,
+  type StdioLaunchSpec,
+} from "../src/index.ts";
 
 const SERVER = fileURLToPath(new URL("./fixtures/stdio-mutable-server.ts", import.meta.url));
 const IDLE = 10 * 60_000;
@@ -17,9 +24,30 @@ const hosts: PsycheMcpHost[] = [];
 
 const startCount = () => readFileSync(starts, "utf8").split("\n").filter(Boolean).length;
 
+/** directLauncher that records every spec, cleanup and forget. */
+function recordingLauncher() {
+  const inner = directLauncher();
+  const specs: StdioLaunchSpec[] = [];
+  const cleaned: number[] = [];
+  const forgotten: string[] = [];
+  const launcher: StdioLauncher = {
+    isolation: inner.isolation,
+    async prepare(spec) {
+      specs.push(structuredClone(spec));
+      const n = specs.length;
+      const p = await (inner.prepare as NonNullable<typeof inner.prepare>)(spec);
+      return { ...p, cleanup: async () => void cleaned.push(n) };
+    },
+    async forget(id) {
+      forgotten.push(id);
+    },
+  };
+  return { launcher, specs, cleaned, forgotten };
+}
+
 async function setup(
   opts: ConstructorParameters<typeof PsycheMcpHost>[0] = {},
-  keepAlive?: boolean,
+  extra: Record<string, unknown> = {},
 ) {
   const events: McpHostEvent[] = [];
   const host = new PsycheMcpHost({
@@ -34,7 +62,7 @@ async function setup(
     name: "Mutable",
     trust: "bundled",
     transport: { kind: "stdio", command: [process.execPath, SERVER, desc, starts, poison] },
-    ...(keepAlive === undefined ? {} : { keepAlive }),
+    ...extra,
   } as Parameters<PsycheMcpHost["addServer"]>[0]);
   expect(info.status).toBe("connected");
   return { host, events };
@@ -110,7 +138,7 @@ describe("idle stop of stdio servers", () => {
   });
 
   it("keepAlive servers are never stopped", async () => {
-    const { host } = await setup({}, true);
+    const { host } = await setup({}, { keepAlive: true });
     await vi.advanceTimersByTimeAsync(IDLE * 3);
     expect(await status(host)).toBe("connected");
   });
@@ -141,6 +169,140 @@ describe("idle stop of stdio servers", () => {
     expect(now.toolsListHash).not.toBe(first.toolsListHash);
     // The new hash works once approved.
     const ok = await host.callTool("mut", "ping", {}, { toolsListHash: now.toolsListHash });
+    expect(ok.isError).toBe(false);
+  });
+});
+
+describe("restart safety", () => {
+  it("never idle-stops Psyche-made, shared-bundle or credential-bearing servers", async () => {
+    const made = await setup({}, { madeBy: "psyche", filesHash: "sha256:x" });
+    const bundle = await setup({}, { id: "mut", bundle: { hash: "sha256:y" } });
+    await vi.advanceTimersByTimeAsync(IDLE * 3);
+    expect(await status(made.host)).toBe("connected");
+    expect(await status(bundle.host)).toBe("connected");
+
+    const vault = new FakeCredentialBroker();
+    vault.add({
+      slug: "api",
+      kind: "api_key",
+      secret: "sk_test_idle_secret_1",
+      bindings: [{ connector: "mcp:mut" }],
+    });
+    let approvals = 0;
+    const cred = await setup(
+      {
+        secrets: {
+          credentials: vault,
+          async approve({ target }) {
+            approvals += 1;
+            vault.approve("ap_mut", { slug: "api", origin: target.value });
+            return "ap_mut";
+          },
+        },
+      },
+      {
+        transport: {
+          kind: "stdio",
+          command: [process.execPath, SERVER, desc, starts, poison],
+          env: { API_TOKEN: "{{cred:api}}" },
+        },
+      },
+    );
+    await vi.advanceTimersByTimeAsync(IDLE * 3);
+    expect(await status(cred.host)).toBe("connected");
+    expect(approvals).toBe(1);
+  });
+
+  it("re-applies the same launch spec on a restart", async () => {
+    const rec = recordingLauncher();
+    const { host } = await setup(
+      { launcher: rec.launcher },
+      { sandbox: { allowedDomains: ["a.example"], denyRead: ["/secret"] }, cwd: dir },
+    );
+    const { toolsListHash } = await host.listTools("mut");
+    await vi.advanceTimersByTimeAsync(IDLE);
+    await stopped(host);
+    await host.callTool("mut", "ping", {}, { toolsListHash });
+    // Two prepares per start (the SDK probes with a sibling): compare first and last.
+    const first = rec.specs[0];
+    const last = rec.specs.at(-1);
+    expect(rec.specs.length).toBeGreaterThanOrEqual(2);
+    expect(last).toEqual(first);
+    expect(first?.sandbox.allowedDomains).toEqual(["a.example"]);
+    expect(first?.sandbox.denyRead).toEqual(["/secret"]);
+  });
+
+  it("concurrent calls on a stopped server wait for the listing check; none runs on a changed list", async () => {
+    const { host, events } = await setup();
+    const first = await host.listTools("mut");
+    await vi.advanceTimersByTimeAsync(IDLE);
+    await stopped(host);
+    const base = startCount();
+    writeFileSync(desc, "Pings, differently.");
+    const calls = [1, 2, 3].map(() =>
+      host.callTool("mut", "ping", {}, { toolsListHash: first.toolsListHash }),
+    );
+    const results = await Promise.allSettled(calls);
+    expect(
+      results.map((r) => r.status === "rejected" && (r.reason as { code: string }).code),
+    ).toEqual(["conflict", "conflict", "conflict"]);
+    // One restart served all three.
+    expect(startCount() - base).toBeLessThanOrEqual(2);
+    expect(events.filter((e) => e.type === "tools_changed")).toHaveLength(2);
+  });
+
+  it("an idle stop in progress does not tear down the next launch", async () => {
+    const rec = recordingLauncher();
+    const { host } = await setup({ launcher: rec.launcher, idleStopMs: 1000 });
+    const { toolsListHash } = await host.listTools("mut");
+    const launches = rec.specs.length;
+    await vi.advanceTimersByTimeAsync(1000);
+    // The stop has begun (its close is real IO); a call arrives now.
+    const r = await host.callTool("mut", "ping", {}, { toolsListHash });
+    expect(r.isError).toBe(false);
+    await vi.waitFor(() => expect(rec.cleaned.length).toBeGreaterThan(0));
+    // Only launches of the first start were cleaned.
+    expect(Math.max(...rec.cleaned)).toBeLessThanOrEqual(launches);
+    expect(await status(host)).toBe("connected");
+  });
+
+  it("no restart after close()", async () => {
+    const { host } = await setup();
+    const { toolsListHash } = await host.listTools("mut");
+    await vi.advanceTimersByTimeAsync(IDLE);
+    await stopped(host);
+    const base = startCount();
+    await host.close();
+    await expect(host.callTool("mut", "ping", {}, { toolsListHash })).rejects.toMatchObject({
+      code: "unavailable",
+    });
+    expect(startCount()).toBe(base);
+  });
+
+  it("removeServer during a restart leaves no launch behind and forgets afterwards", async () => {
+    const rec = recordingLauncher();
+    const { host } = await setup({ launcher: rec.launcher });
+    const { toolsListHash } = await host.listTools("mut");
+    await vi.advanceTimersByTimeAsync(IDLE);
+    await stopped(host);
+    const call = host.callTool("mut", "ping", {}, { toolsListHash }).catch(() => undefined);
+    await host.removeServer("mut");
+    await call;
+    expect(rec.forgotten).toEqual(["mut"]);
+    // Every prepared launch was cleaned up.
+    expect([...rec.cleaned].sort()).toEqual(rec.specs.map((_, i) => i + 1));
+  });
+
+  it("a cancelled call leaves the server startable", async () => {
+    const { host } = await setup();
+    const { toolsListHash } = await host.listTools("mut");
+    await vi.advanceTimersByTimeAsync(IDLE);
+    await stopped(host);
+    const ac = new AbortController();
+    const call = host.callTool("mut", "ping", {}, { toolsListHash, signal: ac.signal });
+    ac.abort();
+    await expect(call).rejects.toBeDefined();
+    const ok = await host.callTool("mut", "ping", {}, { toolsListHash });
     expect(ok.isError).toBe(false);
   });
 });

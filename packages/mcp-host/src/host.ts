@@ -218,6 +218,9 @@ export class PsycheMcpHost implements McpHost {
   readonly #options: McpHostOptions;
   readonly #redact: (text: string) => string;
   readonly #bundled: Set<string>;
+  /** The launch each client was started with, so a superseded connect cleans up its own. */
+  readonly #launchOf = new WeakMap<Client, { cleanup?: () => Promise<void> }>();
+  #closed = false;
 
   constructor(options: McpHostOptions = {}) {
     this.#options = options;
@@ -311,6 +314,11 @@ export class PsycheMcpHost implements McpHost {
       if (s.removed === true || s.generation !== generation) {
         // A newer connect or a removal superseded this one: do not leak the client / process.
         await client.close().catch(() => undefined);
+        const own = this.#launchOf.get(client);
+        if (own !== undefined) {
+          if (s.launch === own) delete s.launch;
+          await own.cleanup?.().catch(() => undefined);
+        }
         return this.#info(s);
       }
       client.onclose = () => {
@@ -353,6 +361,9 @@ export class PsycheMcpHost implements McpHost {
     s.removed = true;
     s.generation += 1;
     this.#clearIdle(s);
+    // A wake still starting must finish (and be cleaned up as superseded) before `forget`, or it
+    // could recreate the egress allowlist / volume that `forget` drops (TM-18).
+    await s.waking?.catch(() => undefined);
     await this.#disconnect(s);
     if (s.config.transport.kind === "http") {
       await this.#options.oauth?.tokenStore.clear(tokenKey(s.config.id, s.config.transport.url));
@@ -386,7 +397,7 @@ export class PsycheMcpHost implements McpHost {
     options: McpCallOptions,
   ): Promise<McpToolResult> {
     if (options.signal?.aborted === true) throw new PsycheError("cancelled", "call aborted");
-    const s = await this.#ready(serverId);
+    const s = await this.#ready(serverId, options.signal);
     if (options.toolsListHash !== s.hash) {
       throw new PsycheError("conflict", "tools/list changed since approval (rug pull defense)", {
         details: { expected: options.toolsListHash, current: s.hash },
@@ -476,7 +487,7 @@ export class PsycheMcpHost implements McpHost {
     uri: string,
     signal?: AbortSignal,
   ): Promise<McpAppResource> {
-    const s = await this.#ready(serverId);
+    const s = await this.#ready(serverId, signal);
     if (!uri.startsWith("ui://") || !s.tools.some((t) => appResourceUri(t) === uri)) {
       throw new PsycheError("forbidden", "not a ui:// resource declared by this server's tools");
     }
@@ -516,6 +527,7 @@ export class PsycheMcpHost implements McpHost {
   }
 
   async close(): Promise<void> {
+    this.#closed = true;
     for (const s of this.#servers.values()) this.#clearIdle(s);
     await Promise.all([...this.#servers.values()].map((s) => this.#disconnect(s)));
   }
@@ -646,6 +658,7 @@ export class PsycheMcpHost implements McpHost {
         s.stderr = (s.stderr + chunk.toString("utf8")).slice(-STDERR_TAIL);
       });
       const client = this.#newClient(s);
+      this.#launchOf.set(client, s.launch);
       await client.connect(opened.transport, this.#requestOptions(signal));
       return client;
     }
@@ -665,6 +678,7 @@ export class PsycheMcpHost implements McpHost {
       s.stderr = (s.stderr + chunk.toString("utf8")).slice(-STDERR_TAIL);
     });
     const client = this.#newClient(s);
+    this.#launchOf.set(client, launch);
     await client.connect(transport, this.#requestOptions(signal));
     return client;
   }
@@ -840,11 +854,13 @@ export class PsycheMcpHost implements McpHost {
   }
 
   async #disconnect(s: ServerState): Promise<void> {
+    // Take both before awaiting: a restart that begins meanwhile sets its own, which this stop
+    // must not touch.
     const client = s.client;
-    delete s.client;
-    if (client !== undefined) await client.close().catch(() => undefined);
     const launch = s.launch;
+    delete s.client;
     delete s.launch;
+    if (client !== undefined) await client.close().catch(() => undefined);
     await launch?.cleanup?.().catch(() => undefined);
     if (s.status === "connected") {
       s.status = "disconnected";
@@ -876,7 +892,7 @@ export class PsycheMcpHost implements McpHost {
   #touch(s: ServerState): void {
     this.#clearIdle(s);
     const ms = this.#options.idleStopMs ?? DEFAULT_IDLE_STOP_MS;
-    if (ms <= 0 || s.removed === true || s.config.keepAlive === true) return;
+    if (ms <= 0 || this.#closed || s.removed === true || neverIdleStop(s.config)) return;
     if (s.config.transport.kind !== "stdio" || !this.#isUp(s)) return;
     const timer = setTimeout(() => {
       delete s.idleTimer;
@@ -903,6 +919,10 @@ export class PsycheMcpHost implements McpHost {
 
   /** After a crash or a failed restart: allow another start after a backoff, or give up. */
   #armRestart(s: ServerState): void {
+    if (neverAutoStart(s.config)) {
+      s.restartable = false;
+      return;
+    }
     const max = this.#options.restart?.maxAttempts ?? DEFAULT_RESTART_ATTEMPTS;
     if (s.restartFailures >= max) {
       s.restartable = false;
@@ -920,15 +940,19 @@ export class PsycheMcpHost implements McpHost {
    * again first, and its listing is fetched and compared with the pinned one in `#connect`: a
    * change emits `tools_changed` (grants revoked) and the caller's old hash then fails `conflict`.
    */
-  async #ready(serverId: string): Promise<ServerState> {
+  async #ready(serverId: string, signal?: AbortSignal): Promise<ServerState> {
+    if (this.#closed) throw new PsycheError("unavailable", "the MCP host is closed");
     const s = this.#get(serverId);
+    // A restart in flight has set `client` already but has not compared the listing yet: no
+    // call runs until it has.
+    if (s.waking !== undefined) await s.waking;
     if (!this.#isUp(s) && s.restartable && s.config.transport.kind === "stdio") {
-      await this.#wake(s);
+      await this.#wake(s, signal);
     }
     return this.#connected(serverId);
   }
 
-  async #wake(s: ServerState): Promise<void> {
+  async #wake(s: ServerState, signal?: AbortSignal): Promise<void> {
     if (s.waking !== undefined) return s.waking;
     if (Date.now() < s.nextRestartAt) {
       throw new PsycheError(
@@ -939,9 +963,15 @@ export class PsycheMcpHost implements McpHost {
     }
     const run = (async () => {
       try {
-        await this.#connect(s);
+        await this.#connect(s, signal);
         if (!this.#isUp(s)) {
-          s.restartFailures += 1;
+          if (signal?.aborted === true) {
+            // A cancelled turn is not a crash: leave the server startable.
+            s.restartable = true;
+            return;
+          }
+          // A death after connecting was counted by `onclose`; a failed start is counted here.
+          if (s.status === "error") s.restartFailures += 1;
           this.#armRestart(s);
           if (!s.restartable) {
             s.error = untrustedText(
@@ -992,6 +1022,23 @@ export class PsycheMcpHost implements McpHost {
       // listeners never break the host
     }
   }
+}
+
+/**
+ * Servers the host never restarts by itself (idle stop or crash). A Psyche-made or shared-bundle
+ * server starts only after the Gateway re-checks its code (`filesHash`, the bundle record), which
+ * a restart here would skip. A server with `{{cred:` env asks the owner for each secret at every
+ * start, so a restart would raise those cards again.
+ */
+function neverAutoStart(config: PsycheMcpServerConfig): boolean {
+  if (config.madeBy !== undefined || config.bundle !== undefined) return true;
+  const t = config.transport;
+  return t.kind === "stdio" && Object.values(t.env ?? {}).some((v) => v.includes("{{cred:"));
+}
+
+/** Never idle-stopped: the above, and servers the owner marked `keepAlive`. */
+function neverIdleStop(config: PsycheMcpServerConfig): boolean {
+  return config.keepAlive === true || neverAutoStart(config);
 }
 
 export const APP_MIME = "text/html;profile=mcp-app";
