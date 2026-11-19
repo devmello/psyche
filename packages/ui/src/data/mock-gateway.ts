@@ -3084,9 +3084,9 @@ export class MockGateway implements GatewayClient {
       const s = staged.proposal.server;
       if (staged.update !== undefined) {
         // An approved edit: the server takes the new config and keeps running.
-        const cfg = this.mcpConfigs.get(s.id);
-        const live = this.mcpServers.find((x) => x.id === s.id);
-        if (cfg === undefined || live === undefined) fail("not_found", `no MCP server ${s.id}`);
+        const cfg = this.mcpConfigs.get(s.id) ?? fail("not_found", `no MCP server ${s.id}`);
+        const live =
+          this.mcpServers.find((x) => x.id === s.id) ?? fail("not_found", `no MCP server ${s.id}`);
         const ch = staged.update;
         if (ch.name !== undefined) cfg.name = live.name = ch.name;
         if (ch.command !== undefined) cfg.command = [...ch.command];
