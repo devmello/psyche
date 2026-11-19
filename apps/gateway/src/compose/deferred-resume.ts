@@ -1,10 +1,11 @@
-import { type BrokerEvent, receiptGrantId } from "@psyche/permissions";
+import { type BrokerEvent, receiptGrantBinding, receiptGrantId } from "@psyche/permissions";
 import type {
   ApprovalKind,
   ApprovalRequest,
   Automation,
   AutomationRun,
   Notifier,
+  Receipt,
 } from "@psyche/protocol";
 
 /**
@@ -37,6 +38,8 @@ export interface ResumeScheduler {
 /** Why a promised resume did not do the action (the notice's `why`). */
 export type MissedReason =
   | "not_reached"
+  /** Not reached, but the standing permission the owner gave stays: the next run does it. */
+  | "not_reached_kept"
   | "expired"
   | "paused"
   | "restart"
@@ -90,10 +93,15 @@ interface Entry {
   /** The action ran but its receipt is `uncertain` (the provider did not confirm). */
   unknown: boolean;
   /**
-   * Tasks whose call went through the grant this approval made. That run ends the entry: its
-   * outcome is the grant receipt's, or unknown without one; a resume never runs it again.
+   * Tasks whose call went through the grant this approval made, bound to the card's own
+   * binding (another action under the same grant does not count). Only a run of this
+   * automation counts: when one of those tasks finishes as its run (`#finished`), that run ends
+   * the entry with its grant receipt's outcome, or unknown without one; a resume never runs it
+   * again. Any other task (an attended chat through the same grant) never finishes as one.
    */
   grantTasks: Set<string>;
+  /** Per task: the outcome of the receipt carrying the grant's id and the card's binding. */
+  grantOutcome: Map<string, Receipt["outcome"]>;
 }
 
 /** English fallback of `notice.approvals.resumeMissed.body` (its `why`). */
@@ -103,6 +111,8 @@ const MISSED_BODY: Record<MissedReason, string> = {
   expired: `The approval ran out before the automation reached the action, so nothing was done. ${ASK_AGAIN}`,
   paused: `The automation is paused or was removed, so it did not run again and nothing was done. ${ASK_AGAIN}`,
   restart: `Psyche restarted before the automation could run again, so nothing was done. ${ASK_AGAIN}`,
+  not_reached_kept:
+    "The automation ran again but did not reach the same action, so nothing was done. The permission you gave stays, so its next run will do this without asking. To take it back, revoke it under Standing permissions in Approvals.",
   restart_kept:
     "Psyche restarted before the automation could run again. The permission you gave stays, so its next run will do this without asking. To take it back, revoke it under Standing permissions in Approvals.",
   failed: `The automation ran the action again, but it failed. See Activity for what went wrong. ${ASK_AGAIN}`,
@@ -120,6 +130,7 @@ const KEPT_SCOPES: ReadonlySet<string> = new Set(["always", "site"]);
  * ask again". A task grant ends with its task and a session grant with a restart.
  */
 const KEPT: Partial<Record<MissedReason, MissedReason>> = {
+  not_reached: "not_reached_kept",
   restart: "restart_kept",
   failed: "failed_kept",
 };
@@ -146,6 +157,18 @@ export class DeferredResume {
     if (a.setAside !== true || taskId == null) return false;
     const run = this.#o.scheduler.runForTask(taskId);
     return run !== undefined && (await this.#runnable(run.automationId));
+  }
+
+  /**
+   * The broker's `sameAutomation`: `taskId` is a run of the automation whose run set this card
+   * aside. False when either is not a run (an attended chat, a task the scheduler lost).
+   */
+  sameAutomation(a: ApprovalRequest, taskId: string): boolean {
+    const origin = a.requestedBy.taskId;
+    if (origin == null) return false;
+    const card = this.#o.scheduler.runForTask(origin);
+    const run = this.#o.scheduler.runForTask(taskId);
+    return card !== undefined && run !== undefined && card.automationId === run.automationId;
   }
 
   /** The broker's `onSetAsideRevoked`: a restart ended an approval before any run used it. */
@@ -185,25 +208,41 @@ export class DeferredResume {
       }
     } else if (e.type === "receipt.created") {
       // Done means it succeeded: a failed or uncertain receipt is reported as not done. A call
-      // its grant allowed names no approval: its receipt carries that grant's id instead.
+      // its grant allowed names no approval: its receipt carries that grant's id and the call's
+      // binding instead, and counts only from a run of this automation that used the grant for
+      // this very action.
       const r = e.receipt;
+      const own = r.approvalId == null ? undefined : this.#entries.get(r.approvalId);
+      if (own !== undefined) {
+        if (r.outcome === "ok") own.done = true;
+        else if (r.outcome === "uncertain") own.unknown = true;
+        else own.failed = true;
+        return;
+      }
+      // Kept per task: it counts when that task finishes as a run of this automation.
       const grantId = receiptGrantId(r);
-      const entry =
-        (r.approvalId == null ? undefined : this.#entries.get(r.approvalId)) ??
-        (grantId === undefined
-          ? undefined
-          : [...this.#entries.values()].find((x) => x.approval.grantId === grantId));
-      if (entry !== undefined) {
-        if (r.outcome === "ok") entry.done = true;
-        else if (r.outcome === "uncertain") entry.unknown = true;
-        else entry.failed = true;
+      if (grantId === undefined || r.taskId == null) return;
+      for (const x of this.#entries.values()) {
+        if (x.approval.grantId !== grantId) continue;
+        if (receiptGrantBinding(r) !== x.approval.bindingHash) continue;
+        // A failure in the task is never hidden by another receipt.
+        if (x.grantOutcome.get(r.taskId) !== "failed") x.grantOutcome.set(r.taskId, r.outcome);
       }
     } else if (e.type === "grant.used") {
       // Approved with a standing scope: a call went through that grant. Not done yet: done is
-      // its `ok` receipt, never the use alone (the action can still fail).
+      // its `ok` receipt, never the use alone (the action can still fail). Only a run of this
+      // automation doing this very action counts.
       const id = e.grant.createdFromApprovalId;
       const entry = id == null ? undefined : this.#entries.get(id);
-      if (entry !== undefined && e.taskId !== undefined) entry.grantTasks.add(e.taskId);
+      // Whose run it is is checked when the task finishes (`#finished`): the scheduler records
+      // a run's task only once its launch returns, after the first call may have gone through.
+      if (
+        entry !== undefined &&
+        e.taskId !== undefined &&
+        e.bindingHash === entry.approval.bindingHash
+      ) {
+        entry.grantTasks.add(e.taskId);
+      }
     }
   }
 
@@ -263,6 +302,7 @@ export class DeferredResume {
       failed: false,
       unknown: false,
       grantTasks: new Set(),
+      grantOutcome: new Map(),
     });
     // A run in progress may still reach the call; its end starts the resume run otherwise.
     if (!this.#o.scheduler.isRunning(run.automationId)) await this.#start(run.automationId);
@@ -311,15 +351,20 @@ export class DeferredResume {
   async #finished(run: AutomationRun): Promise<void> {
     for (const e of [...this.#entries.values()]) {
       if (e.automationId !== run.automationId) continue;
+      // A run of this automation did the card's own action through its grant: its receipt
+      // says how it went (none, or uncertain: unknown). It is over either way, never run again.
+      const viaGrant = !e.done && run.taskId != null && e.grantTasks.has(run.taskId);
+      if (viaGrant) {
+        const outcome = e.grantOutcome.get(run.taskId as string);
+        if (outcome === "ok") e.done = true;
+        else if (outcome === "failed") e.failed = true;
+        else if (!e.failed) e.unknown = true;
+      }
       if (e.done) {
         this.#entries.delete(e.approval.id);
         this.#settle(e.approval.id);
         continue;
       }
-      // Its grant let this run's call through without an `ok` receipt: it ran, so it is over
-      // (failed, or unknown when no receipt carries the grant's id). Never run it again.
-      const viaGrant = run.taskId != null && e.grantTasks.has(run.taskId);
-      if (viaGrant && !e.failed) e.unknown = true;
       // Its resume run, or the run that took it, ended without the action: nothing was done.
       if (
         viaGrant ||

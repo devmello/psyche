@@ -149,6 +149,14 @@ function vmDisabled(): PsycheError {
 /** What a lifecycle receipt and `vm.updated` compare: everything the owner sees about a guest. */
 const fingerprint = (g: VmGuest) => JSON.stringify(g);
 
+/** The standing grant that let the command through, on its `vm.exec` receipt. */
+function grantPayload(request: Pick<ExecRequest, "grant">): {
+  payload?: { grantId: string; bindingHash: string };
+} {
+  const g = request.grant;
+  return g === undefined ? {} : { payload: { grantId: g.id, bindingHash: g.bindingHash } };
+}
+
 /**
  * The guest as a `SandboxRunner`. One "sandbox" per scope, all in the one guest: its psyche-node
  * keeps a workspace per scope. The guest's own policy applies inside it (NAT network, explicit
@@ -492,6 +500,7 @@ export class VmRunner implements SandboxRunner {
           outcome: res.receipt.outcome,
           summary: res.receipt.summary,
           ...(instance.scope.kind === "task" ? { taskId: instance.scope.id } : {}),
+          ...grantPayload(request),
         })
         .catch(() => undefined);
     }

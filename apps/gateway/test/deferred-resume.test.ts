@@ -105,7 +105,8 @@ function setup(
         const d = await broker.decide(call, ctx);
         if (d.decision === "allow" && d.grantId !== undefined) {
           // A standing grant let the call through. As ConnectorRegistry records it: the tool's
-          // action as kind, no task, no approval, and the grant's id in its payload.
+          // action as kind, the call's task, no approval, and the grant's id and the call's
+          // binding in its payload.
           if (opts.unrelatedOk === true) {
             await broker.recordReceipt({
               kind: "gmail.send",
@@ -123,8 +124,14 @@ function setup(
               outcome:
                 opts.uncertain === true ? "uncertain" : opts.failWrites === true ? "failed" : "ok",
               summary: `Sent ${path}`,
+              taskId,
               approvalId: null,
-              payload: { rule: `grant:${d.grantId}`, via: "grant", grantId: d.grantId },
+              payload: {
+                rule: `grant:${d.grantId}`,
+                via: "grant",
+                grantId: d.grantId,
+                bindingHash: d.bindingHash ?? "",
+              },
             });
           }
         }
@@ -670,5 +677,91 @@ describe("follow-ups: a standing grant's use is done only when its call succeede
     );
     await h.resume.idle();
     expect(await missed(h)).toEqual(["failed_kept"]);
+  });
+});
+
+describe("follow-ups: only this automation's own run of this very action counts", () => {
+  const OTHER = "/Users/owner/Notes/other.md";
+
+  it("an attended chat send through the same grant does not settle the entry", async () => {
+    const h = setup([NOTES, OTHER, NOTES], { standing: true });
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    // A second run is going when the owner approves "always": the resume waits for it.
+    h.holdRuns(true);
+    await h.scheduler.trigger(a.id);
+    await new Promise((r) => setImmediate(r));
+    await h.approve(card.id, tok.get(card.id) ?? "", "always");
+    await h.resume.idle();
+    // Meanwhile the owner's own chat sends the same thing through the same grant.
+    const chat = { threadId: "thr_chat", runId: "run_chat", taskId: "task_chat" };
+    const d = await h.broker.decide(connectorCall(NOTES), {
+      ...chat,
+      permissionMode: "balanced",
+      taint: false,
+    });
+    expect(d.decision).toBe("allow");
+    await h.broker.recordReceipt({
+      kind: "gmail.send",
+      outcome: "ok",
+      summary: "Sent from chat",
+      taskId: chat.taskId,
+      approvalId: null,
+      payload: {
+        rule: `grant:${d.grantId}`,
+        grantId: d.grantId ?? "",
+        bindingHash: d.bindingHash ?? "",
+      },
+    });
+    expect(h.resume.pending()).toEqual([card.id]);
+    h.holdRuns(false);
+    h.release();
+    await h.settle();
+    // The automation's own resume run still did it, and it is done: no notice.
+    expect(h.written).toEqual([NOTES]);
+    expect(await missed(h)).toEqual([]);
+    expect(h.resume.pending()).toEqual([]);
+  });
+
+  it("another action through the grant in the automation's resume run: not reached, kept wording", async () => {
+    const h = setup([NOTES, OTHER], { standing: true });
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    await h.approve(card.id, tok.get(card.id) ?? "", "always");
+    await h.settle();
+    // The resume run did another write under the same grant, with its own ok receipt.
+    expect(h.written).toEqual([OTHER]);
+    // Not reached; the `always` grant stays, so the next run does it without asking.
+    expect(await missed(h)).toEqual(["not_reached_kept"]);
+    const n = (await h.notifier.list()).find(
+      (x) => x.message?.titleKey === RESUME_MISSED_TITLE_KEY,
+    );
+    expect(n?.body).toMatch(/did not reach the same action/);
+    expect(n?.body).toMatch(/permission you gave stays/);
+    expect(n?.body).toMatch(/Standing permissions/);
+    expect(n?.body).not.toMatch(/ask again/);
+  });
+
+  it("a once approval not reached by its resume run: not_reached, it will ask again", async () => {
+    const h = setup([NOTES, OTHER, OTHER]);
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    await h.approve(card.id, tok.get(card.id) ?? "", "once");
+    await h.settle();
+    expect(await missed(h)).toEqual(["not_reached"]);
+    const n = (await h.notifier.list()).find(
+      (x) => x.message?.titleKey === RESUME_MISSED_TITLE_KEY,
+    );
+    expect(n?.body).toMatch(/ask again/);
+    expect(n?.body).not.toMatch(/permission you gave stays/);
   });
 });

@@ -98,6 +98,8 @@ export interface ConnectorRegistryOptions {
    * Preferred over `approvalFor`, which cannot carry a standing grant.
    */
   authorityFor?: (callId: string) => ToolCallAuthority | undefined;
+  /** The task a tool call runs in (from the agent loop), for its receipt. */
+  taskFor?: (callId: string) => string | undefined;
   /**
    * Whether the owner lifted the destructive / financial floor for a connection's action group
    * (Settings → Connectors' confirmed opt-in, security §3.12): only then may it be `allow`.
@@ -629,6 +631,7 @@ export class ConnectorRegistry {
       throw new PsycheError("policy_denied", "this connection is read-only");
     }
     const authority = this.#opts.authorityFor?.(callId);
+    const taskId = this.#opts.taskFor?.(callId);
     const approvalId = authority?.approvalId ?? this.#opts.approvalFor?.(callId);
     // A standing grant the loop verified, when no approval was answered for this very call.
     const grantId = approvalId === undefined ? authority?.grantId : undefined;
@@ -708,6 +711,7 @@ export class ConnectorRegistry {
       if (writes && this.#opts.broker !== undefined) {
         const r = await this.#opts.broker.recordReceipt({
           kind: tool.action,
+          ...(taskId === undefined ? {} : { taskId }),
           outcome: out.isError === true ? "failed" : "ok",
           summary: out.receiptSummary ?? desc?.summary ?? `${tool.action} via ${connectorId}`,
           toolCallId: callId,
@@ -721,8 +725,11 @@ export class ConnectorRegistry {
                 payload: {
                   rule: authority.rule,
                   ...viaOf(authority, approvalId),
-                  // The standing grant that let it through (a resume's done check reads it).
-                  ...(authority.grantId === undefined ? {} : { grantId: authority.grantId }),
+                  // The standing grant that let it through and the exact call's binding (a
+                  // resume's done check reads both).
+                  ...(authority.grantId === undefined
+                    ? {}
+                    : { grantId: authority.grantId, bindingHash: authority.bindingHash }),
                 },
               }),
         });
@@ -746,9 +753,10 @@ export class ConnectorRegistry {
             summary: `${tool.action} via ${connectorId} did not confirm`,
             toolCallId: callId,
             approvalId: approvalId ?? null,
+            ...(taskId === undefined ? {} : { taskId }),
             ...(authority?.grantId === undefined
               ? {}
-              : { payload: { grantId: authority.grantId } }),
+              : { payload: { grantId: authority.grantId, bindingHash: authority.bindingHash } }),
           })
           .catch(() => undefined);
       }

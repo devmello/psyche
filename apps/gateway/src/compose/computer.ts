@@ -11,6 +11,7 @@ import {
   type PermissionBroker,
   PsycheError,
   type SideEffect,
+  type ToolCallAuthority,
   type ToolCallDescription,
   type ToolRegistration,
   type ToolResult,
@@ -413,6 +414,8 @@ export interface ComputerDeps {
   helper(): HelperNode | undefined;
   /** The running call's decision context (`CallContexts.context`). */
   context(callId: string): CallContext;
+  /** What authorized the call (`CallContexts.authorityFor`): its receipt names the grant. */
+  authority?(callId: string): ToolCallAuthority | undefined;
   /** Cancels a run after the owner pressed Esc on the Mac. */
   cancelRun(threadId: string, runId: string, reason: string): void;
   /** The agent used an app (Settings → Computer use lists it). */
@@ -1316,6 +1319,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     summary: string,
   ): Promise<string | undefined> {
     const ctx = deps.context(callId);
+    const grant = deps.authority?.(callId);
     // The action already happened: a failed receipt must not make the agent do it again.
     const r = await deps.broker
       .recordReceipt({
@@ -1326,6 +1330,11 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         toolCallId: callId,
         approvalId: approvalId ?? null,
         ...(res.receipt?.externalRefs ? { externalRefs: res.receipt.externalRefs } : {}),
+        // The standing grant that let it through and the exact call's binding (a resume's
+        // done check reads both).
+        ...(grant?.grantId === undefined
+          ? {}
+          : { payload: { grantId: grant.grantId, bindingHash: grant.bindingHash } }),
       })
       .catch((err: unknown) => {
         deps.logger?.log("warn", "computer-use receipt not recorded", {
@@ -2123,6 +2132,7 @@ export function composeComputer(services: ComposeServices): ComposedPart {
     broker: services.broker,
     helper: computerHelper(() => gateway),
     context: (callId) => services.calls.context(callId),
+    authority: (callId) => services.calls.authorityFor(callId),
     cancelRun(_threadId, runId, reason) {
       // Not awaited: the run is waiting on this very tool call.
       void gateway?.context.agent.cancel(runId, reason).catch(() => undefined);

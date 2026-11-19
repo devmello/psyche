@@ -1,5 +1,7 @@
+import { SqliteReceiptStore } from "@psyche/audit";
+import type { ApprovalRequest } from "@psyche/protocol";
 import { FakeClock } from "@psyche/testing";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { PolicyApprovalInput, PolicyCall, PolicyContext } from "../src/index.ts";
 import { riskClassFor, routineWritePath } from "../src/risk.ts";
 import {
@@ -480,10 +482,25 @@ describe("the Gateway's SQLite store keeps the class and the set-aside mark", ()
 });
 
 describe("a restart reports every set-aside approval whose resume it cut short, once", () => {
-  async function approved(scope: "once" | "always" | "task") {
+  /** Runs of the card's automation: the run that set it aside and its resume run. */
+  const RUNS = new Set([UNATTENDED.taskId, "task_resume"]);
+
+  async function approved(
+    scope: "once" | "always" | "task",
+    opt: { sameAutomation?: boolean } = {},
+  ) {
     const db = memoryDb();
     const clock = new FakeClock();
-    const options = { policy: { folders: FOLDERS }, canResume: () => true };
+    const options = {
+      policy: { folders: FOLDERS },
+      canResume: () => true,
+      ...(opt.sameAutomation === false
+        ? {}
+        : {
+            sameAutomation: (a: ApprovalRequest, taskId: string) =>
+              RUNS.has(a.requestedBy.taskId ?? "") && RUNS.has(taskId),
+          }),
+    };
     const h = { broker: sqliteBroker(db, clock, options), clock } as unknown as Harness;
     // Balanced mode with no path: the plain mode default offers standing scopes too.
     const c = call("conn.action", "write");
@@ -546,31 +563,53 @@ describe("a restart reports every set-aside approval whose resume it cut short, 
     expect((await restart()).seen).toEqual([]);
   });
 
-  /** The same call again, as a resume run makes it: the `always` grant lets it through. */
-  async function throughGrant(h: Harness) {
-    const d = await h.broker.decide(call("conn.action", "write"), {
-      ...UNATTENDED,
-      runId: "run_resume",
-      taskId: "task_resume",
-      permissionMode: "balanced",
-    });
+  /**
+   * A call through the `always` grant, as a run makes it: by default the card's own call in a
+   * run of its automation (`task_resume`); `params` makes it another action under the grant.
+   */
+  async function throughGrant(
+    h: Harness,
+    opts: { taskId?: string; params?: Record<string, unknown> } = {},
+  ) {
+    const d = await h.broker.decide(
+      call(
+        "conn.action",
+        "write",
+        undefined,
+        opts.params === undefined ? {} : { params: opts.params },
+      ),
+      {
+        ...UNATTENDED,
+        runId: "run_resume",
+        taskId: opts.taskId ?? "task_resume",
+        permissionMode: "balanced",
+      },
+    );
     expect(d.decision).toBe("allow");
     expect(d.grantId).toBeDefined();
-    return d.grantId as string;
+    return { id: d.grantId as string, bindingHash: d.bindingHash as string };
   }
 
-  /** A connector receipt as ConnectorRegistry writes it: its action, no task, the grant's id. */
+  /**
+   * A connector receipt as ConnectorRegistry writes it: its action as kind, its task, and the
+   * grant's id and the call's binding in its payload.
+   */
   const connectorReceipt = (
     h: Harness,
     outcome: "ok" | "failed" | "uncertain",
-    grantId: string | undefined,
+    grant: { id: string; bindingHash: string } | undefined,
+    taskId = "task_resume",
   ) =>
     h.broker.recordReceipt({
       kind: "gmail.send",
       outcome,
       summary: outcome,
+      taskId,
       approvalId: null,
-      payload: grantId === undefined ? { rule: "mode:auto/write" } : { rule: `grant:${grantId}` },
+      payload:
+        grant === undefined
+          ? { rule: "mode:auto/write" }
+          : { rule: `grant:${grant.id}`, grantId: grant.id, bindingHash: grant.bindingHash },
     });
 
   it("a use of its grant whose call failed is not done: reported, as failed", async () => {
@@ -593,12 +632,38 @@ describe("a restart reports every set-aside approval whose resume it cut short, 
 
   it("an unrelated ok receipt of the same kind (another grant, or none) does not make it done", async () => {
     const { h, issued, restart } = await approved("always");
-    await throughGrant(h);
+    const g = await throughGrant(h);
     await connectorReceipt(h, "ok", undefined);
-    await connectorReceipt(h, "ok", "grt_someone_else");
+    await connectorReceipt(h, "ok", { ...g, id: "grt_someone_else" });
     const r = await restart();
     expect(r.seen).toEqual([issued.approval.id]);
     expect(r.unknown).toEqual([true]);
+  });
+
+  it("an attended chat send through the same grant does not make it done", async () => {
+    const { h, issued, restart } = await approved("always");
+    // Not a run of the card's automation: its ok receipt says nothing about the card.
+    await connectorReceipt(h, "ok", await throughGrant(h, { taskId: "task_chat" }), "task_chat");
+    const r = await restart();
+    expect(r.seen).toEqual([issued.approval.id]);
+  });
+
+  it("another action through the grant in the automation's run does not make it done", async () => {
+    const { h, issued, restart } = await approved("always");
+    const other = await throughGrant(h, { params: { other: true } });
+    expect(other.bindingHash).not.toBe(issued.approval.bindingHash);
+    await connectorReceipt(h, "ok", other);
+    const r = await restart();
+    expect(r.seen).toEqual([issued.approval.id]);
+    // Its own action never ran through the grant: not reached, not "unknown" and not failed.
+    expect(r.failed).toEqual([false]);
+    expect(r.unknown).toEqual([false]);
+  });
+
+  it("without the automation check (no sameAutomation) no grant receipt counts: fails closed", async () => {
+    const { h, issued, restart } = await approved("always", { sameAutomation: false });
+    await connectorReceipt(h, "ok", await throughGrant(h));
+    expect((await restart()).seen).toEqual([issued.approval.id]);
   });
 
   it("an uncertain receipt for its grant's call: reported, outcome unknown", async () => {
@@ -609,24 +674,39 @@ describe("a restart reports every set-aside approval whose resume it cut short, 
     expect(r.unknown).toEqual([true]);
   });
 
-  it("positive control: an ok receipt carrying its grant's id (a connector send) is done", async () => {
+  it("positive control: an ok receipt for its own call in its automation's run is done", async () => {
     const { h, restart } = await approved("always");
     await connectorReceipt(h, "ok", await throughGrant(h));
     expect((await restart()).seen).toEqual([]);
   });
 
-  it("positive control: the loop's receipt carries the grant id in payload.grantId", async () => {
+  it("positive control: the loop's receipt (payload.grantId and bindingHash) is done", async () => {
     const { h, restart } = await approved("always");
-    const grantId = await throughGrant(h);
+    const g = await throughGrant(h);
     await h.broker.recordReceipt({
       kind: "connector_action",
       outcome: "ok",
       summary: "ok",
       taskId: "task_resume",
       approvalId: null,
-      payload: { grantId },
+      payload: { grantId: g.id, bindingHash: g.bindingHash },
     });
     expect((await restart()).seen).toEqual([]);
+  });
+
+  it("the boot check reads the receipts once per boot, from the grants' creation on", async () => {
+    const one = await approved("always");
+    await throughGrant(one.h);
+    const query = vi.spyOn(SqliteReceiptStore.prototype, "query");
+    try {
+      await one.restart();
+      const filters = query.mock.calls.map(([f]) => f);
+      // Never a scan of every receipt; one `since` query for the grants, whatever the cards.
+      expect(filters.filter((f) => Object.keys(f).length === 0)).toEqual([]);
+      expect(filters.filter((f) => f.since !== undefined)).toHaveLength(1);
+    } finally {
+      query.mockRestore();
+    }
   });
 
   it("positive control: a resume that is over (settled) is not reported", async () => {
