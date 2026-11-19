@@ -21,6 +21,7 @@ import {
   useImplementedTypes,
 } from "../settings/ConnectorsSection.tsx";
 import { ConnectProgress, permissionOf, useConnectorConnect } from "../settings/connect-flow.tsx";
+import { approvalIdOf } from "../settings/shared.tsx";
 import type { TccPermission } from "../settings/types.ts";
 import { DoneStep } from "./DoneStep.tsx";
 import { FoldersStep } from "./FoldersStep.tsx";
@@ -124,6 +125,7 @@ export function OnboardingFlow({
   onCheckModel,
   helper,
   onVerify,
+  onShareFolders,
   macPermissions = true,
   onPreviewImport,
   onCommitImport,
@@ -385,6 +387,28 @@ export function OnboardingFlow({
 
   const isLast = current === "done";
 
+  // The ticked folders are written when the chat opens. A card the Gateway wants approved first
+  // is shown here with a retry, never dropped: the owner approves it, then tries again.
+  const [sharing, setSharing] = useState<{
+    busy: boolean;
+    approvalId: string | null;
+    error: string | null;
+  } | null>(null);
+  const openChat = async (approvalId?: string) => {
+    if (sharedFolders.length === 0 || !onShareFolders) {
+      onComplete(result);
+      return;
+    }
+    setSharing({ busy: true, approvalId: approvalId ?? null, error: null });
+    try {
+      await onShareFolders(sharedFolders, approvalId);
+      onComplete(result);
+    } catch (err) {
+      const id = approvalIdOf(err);
+      setSharing({ busy: false, approvalId: id, error: id ? null : describeError(err) });
+    }
+  };
+
   // Entering Done applies the model and checks the setup once per visit.
   const resultRef = useRef(result);
   resultRef.current = result;
@@ -629,9 +653,37 @@ export function OnboardingFlow({
           </Button>
         ) : null}
         {isLast ? (
-          <Button type="button" size="lg" className="rounded-md" onClick={() => onComplete(result)}>
-            {t("onboarding.openChat")}
-          </Button>
+          <>
+            {sharing && !sharing.busy ? (
+              <p role="alert" className="me-auto text-callout text-label-secondary">
+                {sharing.approvalId
+                  ? t("onboarding.folders.needsApproval")
+                  : t("onboarding.folders.failed", { reason: sharing.error ?? "" })}
+              </p>
+            ) : null}
+            {sharing && !sharing.busy ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-label-secondary"
+                onClick={() => {
+                  const { sharedFolders: _skipped, ...rest } = result;
+                  onComplete(rest);
+                }}
+              >
+                {t("onboarding.folders.continueWithout")}
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              size="lg"
+              className="rounded-md"
+              disabled={sharing?.busy === true}
+              onClick={() => void openChat(sharing?.approvalId ?? undefined)}
+            >
+              {sharing && !sharing.busy ? t("onboarding.folders.retry") : t("onboarding.openChat")}
+            </Button>
+          </>
         ) : (
           <Button
             type="button"

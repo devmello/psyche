@@ -1,7 +1,10 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { OnboardingFlow } from "../src/screens/onboarding/OnboardingFlow.tsx";
+import {
+  OnboardingFlow,
+  type OnboardingFlowProps,
+} from "../src/screens/onboarding/OnboardingFlow.tsx";
 import type { OnboardingResult } from "../src/screens/onboarding/types.ts";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
@@ -13,7 +16,7 @@ const OFFERED = [
   { id: "downloads" as const, path: "/Users/ada/Downloads" },
 ];
 
-function run(offered: typeof OFFERED) {
+function run(offered: typeof OFFERED, onShareFolders?: OnboardingFlowProps["onShareFolders"]) {
   const onComplete = vi.fn<(r: OnboardingResult) => void>();
   render(
     <StoryWorld
@@ -21,7 +24,11 @@ function run(offered: typeof OFFERED) {
         g.starterFolders = offered;
       }}
     >
-      <OnboardingFlow onComplete={onComplete} defaultStep="folders" />
+      <OnboardingFlow
+        onComplete={onComplete}
+        defaultStep="folders"
+        {...(onShareFolders ? { onShareFolders } : {})}
+      />
     </StoryWorld>,
   );
   return onComplete;
@@ -74,5 +81,41 @@ describe("onboarding folders step", () => {
     run([]);
     await screen.findByTestId("onboarding-safety");
     expect(screen.queryByTestId("onboarding-folders")).toBeNull();
+  });
+
+  it("a card that needs approval is shown with a retry, then retried with its id", async () => {
+    const user = userEvent.setup();
+    const needs = Object.assign(new Error("approval required"), {
+      code: "approval_required",
+      details: { approvalId: "ap1" },
+    });
+    const share = vi
+      .fn<NonNullable<OnboardingFlowProps["onShareFolders"]>>()
+      .mockRejectedValueOnce(needs)
+      .mockResolvedValueOnce(undefined);
+    const onComplete = run(OFFERED, share);
+    await user.click(await screen.findByRole("checkbox", { name: /documents/i }));
+    await toTheEnd(user, /^next/i);
+    expect((await screen.findByRole("alert")).textContent).toMatch(/approve the card/i);
+    expect(onComplete).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: /try again/i }));
+    await waitFor(() => expect(onComplete).toHaveBeenCalled());
+    expect(share).toHaveBeenLastCalledWith(
+      [{ id: "documents", path: "/Users/ada/Documents" }],
+      "ap1",
+    );
+  });
+
+  it("Continue without sharing finishes with nothing shared", async () => {
+    const user = userEvent.setup();
+    const needs = Object.assign(new Error("x"), {
+      code: "approval_required",
+      details: { approvalId: "a" },
+    });
+    const onComplete = run(OFFERED, vi.fn().mockRejectedValue(needs));
+    await user.click(await screen.findByRole("checkbox", { name: /desktop/i }));
+    await toTheEnd(user, /^next/i);
+    await user.click(await screen.findByRole("button", { name: /continue without sharing/i }));
+    expect(onComplete.mock.calls[0]?.[0].sharedFolders).toBeUndefined();
   });
 });

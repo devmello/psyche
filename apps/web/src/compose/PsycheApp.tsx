@@ -73,7 +73,7 @@ import { DesktopHelperBanner, fixTouchId } from "./helper.tsx";
 import { kitClient } from "./kit-client.ts";
 import { renderLibraryThumbnail } from "./library-thumbnails.tsx";
 import { writeOnboarding } from "./onboarding.ts";
-import { saveHabits, saveMemory, shareStarterFolders } from "./onboarding-host.ts";
+import { saveHabits, saveMemory } from "./onboarding-host.ts";
 import { useRemotePresence } from "./remote-presence.tsx";
 import { settingsRoute } from "./settings.tsx";
 import { SideChatPane } from "./side-chat.tsx";
@@ -395,7 +395,6 @@ export async function completeOnboarding(
   });
   if (result.habits) await saveHabits(call, result.habits);
   if (result.memory) await saveMemory(call, result.memory);
-  await shareStarterFolders(call, result.sharedFolders);
   // The mail and meetings decision screen (§7.5), when it was offered: one setting per switch.
   // Best effort: a failed write leaves that workflow off, the safe default, and the owner can
   // turn it on in Settings → Mail & meetings.

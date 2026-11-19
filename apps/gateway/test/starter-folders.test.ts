@@ -56,23 +56,34 @@ describe("files.starterFolders", () => {
 });
 
 describe("policy folders with ~", () => {
-  it("expand to the absolute path, other entries untouched", () => {
-    const out = expandPolicyFolders(
-      {
-        mode: "x",
-        folders: [
-          { path: "~/Documents", mode: "ro" },
-          { path: "/abs", mode: "rw" },
-        ],
-      },
-      "/Users/ada",
-    );
-    expect(out).toEqual({
-      mode: "x",
-      folders: [
-        { path: "/Users/ada/Documents", mode: "ro" },
-        { path: "/abs", mode: "rw" },
-      ],
-    });
+  const out = (path: string) =>
+    (
+      expandPolicyFolders({ folders: [{ path, mode: "ro" }] }, "/Users/ada") as {
+        folders: { path: string }[];
+      }
+    ).folders[0]?.path;
+
+  it("expands a leading ~/ to the owner's home", () => {
+    expect(out("~/Documents")).toBe("/Users/ada/Documents");
+  });
+
+  it("normalises .. after expansion, so ~/../x is the real path", () => {
+    expect(out("~/../x")).toBe("/Users/x");
+    expect(out("~/../..")).toBe("/");
+  });
+
+  it("refuses ~user/ and a bare ~", () => {
+    expect(() => out("~root/x")).toThrow();
+    expect(() => out("~")).toThrow();
+  });
+
+  it("leaves a plain absolute path and other keys untouched", () => {
+    expect(out("/abs/dir")).toBe("/abs/dir");
+    expect(expandPolicyFolders({ mode: "x" }, "/Users/ada")).toEqual({ mode: "x" });
+  });
+
+  it("an escape lands on a path assertFolderGrantable refuses", async () => {
+    const { assertFolderGrantable } = await import("@psyche/permissions");
+    await expect(assertFolderGrantable(out("~/../..") ?? "")).rejects.toThrow();
   });
 });

@@ -65,6 +65,11 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.folders.downloads": "Download",
   "onboarding.folders.hint":
     "Puoi cambiarlo in qualsiasi momento in Impostazioni, sotto Accesso ai file.",
+  "onboarding.folders.needsApproval":
+    "Approva la scheda per condividere queste cartelle, poi riprova.",
+  "onboarding.folders.retry": "Riprova",
+  "onboarding.folders.continueWithout": "Continua senza condividere",
+  "onboarding.folders.failed": "Impossibile condividere queste cartelle: {reason}",
   "onboarding.you.lead": "Tutto in questa pagina è facoltativo e potrai cambiarlo più tardi.",
   "onboarding.you.agent": "Il tuo agente",
   "onboarding.you.customize": "Personalizza l’aspetto",

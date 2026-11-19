@@ -62,6 +62,11 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.folders.desktop": "デスクトップ",
   "onboarding.folders.downloads": "ダウンロード",
   "onboarding.folders.hint": "設定の「ファイルアクセス」でいつでも変更できます。",
+  "onboarding.folders.needsApproval":
+    "カードを承認するとこれらのフォルダを共有できます。承認後にもう一度お試しください。",
+  "onboarding.folders.retry": "もう一度試す",
+  "onboarding.folders.continueWithout": "共有せずに続ける",
+  "onboarding.folders.failed": "これらのフォルダを共有できませんでした：{reason}",
   "onboarding.you.lead": "このページの内容はすべて任意で、あとから変更できます。",
   "onboarding.you.agent": "あなたのエージェント",
   "onboarding.you.customize": "見た目をカスタマイズ",

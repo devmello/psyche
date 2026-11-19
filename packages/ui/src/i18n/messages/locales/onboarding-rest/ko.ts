@@ -61,6 +61,11 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.folders.desktop": "데스크탑",
   "onboarding.folders.downloads": "다운로드",
   "onboarding.folders.hint": "설정의 파일 접근에서 언제든 바꿀 수 있습니다.",
+  "onboarding.folders.needsApproval":
+    "카드를 승인하면 이 폴더를 공유할 수 있습니다. 승인 후 다시 시도하세요.",
+  "onboarding.folders.retry": "다시 시도",
+  "onboarding.folders.continueWithout": "공유하지 않고 계속",
+  "onboarding.folders.failed": "이 폴더를 공유하지 못했습니다: {reason}",
   "onboarding.you.lead": "이 페이지의 모든 항목은 선택 사항이며 나중에 변경할 수 있습니다.",
   "onboarding.you.agent": "내 에이전트",
   "onboarding.you.customize": "모양 사용자 지정",

@@ -173,6 +173,11 @@ export const galleryA: Partial<Catalogue> = {
   "onboarding.folders.downloads": "Descargas",
   "onboarding.folders.hint":
     "Puedes cambiarlo en cualquier momento en Ajustes, en Acceso a archivos.",
+  "onboarding.folders.needsApproval":
+    "Aprueba la tarjeta para compartir estas carpetas y vuelve a intentarlo.",
+  "onboarding.folders.retry": "Reintentar",
+  "onboarding.folders.continueWithout": "Continuar sin compartir",
+  "onboarding.folders.failed": "No se pudieron compartir estas carpetas: {reason}",
   "onboarding.you.lead": "Todo en esta página es opcional y puedes cambiarlo más tarde.",
   "onboarding.you.agent": "Tu agente",
   "onboarding.you.customize": "Personalizar el aspecto",

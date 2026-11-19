@@ -214,6 +214,15 @@ export interface OnboardingShellProps extends OnboardingExtrasProps {
    * and Done says they are set up in the desktop app. Default true.
    */
   macPermissions?: boolean;
+  /**
+   * Writes the ticked folders (read only) when the owner opens the chat. Rejects with
+   * `approval_required` (and `details.approvalId`) when the Gateway wants its approval card
+   * first; the flow then asks the owner to approve and calls again with that id.
+   */
+  onShareFolders?: (
+    folders: { id: StarterFolderId; path: string }[],
+    approvalId?: string,
+  ) => Promise<void>;
   /** Desktop: the bundled Mac helper's state, shown in Permissions; never blocks a step. */
   helper?: MacHelperStatus;
   /**

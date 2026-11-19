@@ -51,11 +51,22 @@ describe("shareStarterFolders", () => {
     expect(call).not.toHaveBeenCalled();
   });
 
-  it("a refused write never throws", async () => {
+  it("a write that needs the approval card is not swallowed", async () => {
+    const needs = Object.assign(new Error("approval required"), {
+      code: "approval_required",
+      details: { approvalId: "ap1" },
+    });
     const call = vi.fn(async (m: string) => {
-      if (m === "settings.set") throw new Error("approval_required");
+      if (m === "settings.set") throw needs;
       return { settings: {} };
     });
-    await expect(shareStarterFolders(call, [DOCS])).resolves.toBeUndefined();
+    await expect(shareStarterFolders(call, [DOCS])).rejects.toBe(needs);
+  });
+
+  it("the retry carries the approved approvalId", async () => {
+    const call = stub();
+    await shareStarterFolders(call, [DOCS], "ap1");
+    const set = call.mock.calls.find((c) => c[0] === "settings.set");
+    expect(set?.[1]).toMatchObject({ key: "permissions.policy", approvalId: "ap1" });
   });
 });

@@ -65,6 +65,11 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.folders.downloads": "Downloads",
   "onboarding.folders.hint":
     "Du kannst das jederzeit in den Einstellungen unter Dateizugriff ändern.",
+  "onboarding.folders.needsApproval":
+    "Bestätige die Karte, um diese Ordner zu teilen, und versuche es dann erneut.",
+  "onboarding.folders.retry": "Erneut versuchen",
+  "onboarding.folders.continueWithout": "Ohne Teilen fortfahren",
+  "onboarding.folders.failed": "Diese Ordner konnten nicht geteilt werden: {reason}",
   "onboarding.you.lead": "Alles auf dieser Seite ist optional, und du kannst es später ändern.",
   "onboarding.you.agent": "Dein Agent",
   "onboarding.you.customize": "Aussehen anpassen",
