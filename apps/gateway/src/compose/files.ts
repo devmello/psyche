@@ -262,8 +262,14 @@ async function requestShare(
     throw new PsycheError("invalid_params", "this button shares a folder read only");
   }
   if (setup.share === undefined) throw new PsycheError("unavailable", "sharing is not set up");
-  if (getThread(call.ctx.db, params.threadId) === undefined) {
+  const thread = getThread(call.ctx.db, params.threadId);
+  if (thread === undefined) {
     throw new PsycheError("not_found", `thread ${params.threadId} not found`);
+  }
+  // An owner share belongs to the owner's own conversations. A channel thread's turns can come
+  // from other senders, and a subagent thread belongs to its parent's run.
+  if (thread.kind === "channel" || thread.kind === "subagent") {
+    throw new PsycheError("forbidden", "a folder can't be shared from this kind of conversation");
   }
   const saved = getAgentThreadState(call.ctx.db, params.threadId)?.taint as
     | { sources?: TaintSource[] }
@@ -276,6 +282,7 @@ async function requestShare(
     threadId: params.threadId,
     path: params.path,
     taint,
+    unattended: thread.kind === "automation",
     ...(saved?.sources === undefined ? {} : { taintSources: saved.sources }),
   });
 }

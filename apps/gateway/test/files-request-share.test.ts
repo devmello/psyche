@@ -169,7 +169,11 @@ describe("files.requestShare", () => {
     // A running turn's taint is not saved yet: fail closed.
     putAgentThreadState(db, threadId, {});
     createRun(db, { threadId, modelRef: "fake/model" });
-    const running = await requestShare();
+    const running = await requestShare(ADMIN, {
+      threadId,
+      path: "~/Projects/picked",
+      access: "read",
+    });
     const card = (await broker.list({ status: "pending" })).find(
       (x) => x.id === running.approvalId,
     );
@@ -199,5 +203,69 @@ describe("files.requestShare", () => {
     await expect(
       requestShare(ADMIN, { threadId: "thr_nope", path: "~/Projects/app", access: "read" }),
     ).rejects.toMatchObject({ code: "not_found" });
+  });
+
+  it("leaves one pending card for 5 clicks, two devices, or a card the agent already raised", async () => {
+    const racing = await Promise.all([1, 2, 3, 4, 5].map(() => requestShare()));
+    expect(new Set(racing.map((r) => r.approvalId)).size).toBe(1);
+    const again = await requestShare(["operator.admin"]);
+    expect(again.approvalId).toBe(racing[0]?.approvalId);
+    expect(await broker.list({ status: "pending" })).toHaveLength(1);
+
+    // A card the agent raised with request_folder_access on this thread is reused too.
+    const other = join(home, "Projects", "other");
+    mkdirSync(other, { recursive: true });
+    const tool = requestFolderAccessTool(share());
+    const ctx: ToolRunContext = {
+      callId: "call_9",
+      threadId,
+      runId: "run_9",
+      taint: false,
+      permissionMode: "balanced",
+      mode: "attended",
+      signal: new AbortController().signal,
+      onUpdate: () => undefined,
+    };
+    void tool.run?.({ path: other, reason: "r", access: "read" }, ctx);
+    let agentCard: { id: string } | undefined;
+    for (let i = 0; i < 50 && agentCard === undefined; i++) {
+      agentCard = (await broker.list({ status: "pending" })).find(
+        (a) => a.details.resolvedPath === other,
+      );
+      await new Promise((res) => setTimeout(res, 5));
+    }
+    const viaButton = await requestShare(ADMIN, { threadId, path: other, access: "read" });
+    expect(viaButton.approvalId).toBe(agentCard?.id);
+    expect(await broker.list({ status: "pending" })).toHaveLength(2);
+  });
+
+  it("offers what the tool offers per thread kind, and refuses channel and subagent threads", async () => {
+    const mk = (kind: "automation" | "incognito" | "channel" | "subagent") =>
+      createThread(db, { kind, sessionKey: `k:${kind}` }).id;
+    const scopes = async (id: string) => {
+      const r = await requestShare(ADMIN, { threadId: id, path: "~/Projects/app", access: "read" });
+      return (await broker.list({ status: "pending" })).find((a) => a.id === r.approvalId)
+        ?.scopesOffered;
+    };
+    // An automation thread has no "this conversation": a lasting answer only, as for the tool.
+    expect(await scopes(mk("automation"))).toEqual(["always"]);
+    expect(await scopes(mk("incognito"))).toEqual(["once", "always"]);
+    for (const kind of ["channel", "subagent"] as const) {
+      await expect(
+        requestShare(ADMIN, { threadId: mk(kind), path: "~/Projects/app", access: "read" }),
+      ).rejects.toMatchObject({ code: "forbidden" });
+    }
+    expect(await broker.list({ status: "pending" })).toHaveLength(2);
+  });
+
+  it("words the card neutrally, keeping the agent's path as the place it tried", async () => {
+    const r = await requestShare();
+    const card = (await broker.list({ status: "pending" })).find((a) => a.id === r.approvalId);
+    expect(card?.summary).toBe("Share a folder for this chat (a file tool tried ~/Projects/app)");
+    expect(card?.details).toMatchObject({
+      reason: "Share a folder for this chat",
+      requestedPath: "~/Projects/app",
+    });
+    expect(JSON.stringify(card)).not.toMatch(/You chose/);
   });
 });

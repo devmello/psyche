@@ -1,8 +1,8 @@
-import type { RunStepError, ToolCall } from "@psyche/protocol";
+import type { ToolCall } from "@psyche/protocol";
 import { type ReactElement, useState } from "react";
 import { Button } from "../components/ui/button.tsx";
-import { useApproval, useCall } from "../data/index.ts";
-import { useRun, useRunStep } from "../data/runs.ts";
+import { useApproval, useCall, useGatewayQuery } from "../data/index.ts";
+import { useRun } from "../data/runs.ts";
 import { t } from "../i18n/core.ts";
 
 /**
@@ -12,28 +12,25 @@ import { t } from "../i18n/core.ts";
  * tool is not retried: the owner asks again.
  */
 
-/** The file tools whose reach `assertGranted` limits (`@psyche/files`). */
-const FILE_TOOLS: ReadonlySet<string> = new Set([
+/** The read-side file tools; a read-only share helps these (a write needs the tool's own ask). */
+const READ_TOOLS: ReadonlySet<string> = new Set([
   "read_file",
   "list_dir",
   "search_files",
-  "write_file",
-  "edit_file",
   "open_document",
-  "write_document",
 ]);
 
-const OUTSIDE = " is outside every granted folder";
-
-/** The folder a file tool could not reach, or null when this error is something else. */
+/**
+ * The folder a file tool was denied, or null for any other call. Read from what the Gateway made
+ * of the call, never from text: the permission engine denies a file tool before it runs
+ * (`status: "blocked"`, rule `folder:not_granted`, target the path it tried).
+ */
 export function outsideFolderPath(
-  tool: string,
-  error: Pick<RunStepError, "code" | "message"> | undefined,
+  call: Pick<ToolCall, "tool" | "status" | "decisionRule" | "target">,
 ): string | null {
-  if (!FILE_TOOLS.has(tool) || error === undefined || error.code !== "forbidden") return null;
-  const at = error.message.lastIndexOf(OUTSIDE);
-  if (at <= 0 || at + OUTSIDE.length !== error.message.length) return null;
-  return error.message.slice(0, at);
+  if (!READ_TOOLS.has(call.tool)) return null;
+  if (call.status !== "blocked" || call.decisionRule !== "folder:not_granted") return null;
+  return call.target?.kind === "path" && call.target.value.length > 0 ? call.target.value : null;
 }
 
 type Phase =
@@ -54,7 +51,10 @@ export function ShareFolderAction({
   const callMethod = useCall();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const { approval } = useApproval(phase.kind === "pending" ? phase.approvalId : null);
-  if (threadId === null) return null;
+  // Only an admin device may share (`files.requestShare`); `devices.list` is admin-only too, so
+  // it is the way to tell: no answer, no button.
+  const admin = useGatewayQuery("devices.list", {}).data !== undefined;
+  if (threadId === null || !admin) return null;
 
   const answered = phase.kind === "pending" ? approval?.status : undefined;
   if (phase.kind === "shared" || answered === "approved") {
@@ -105,14 +105,8 @@ export function ShareFolderAction({
   );
 }
 
-/** Loads the failed call's step and shows the share button when its error is the outside-folder one. */
+/** The share button under a file tool the permission engine denied for being outside every granted folder. */
 export function ShareFolderForCall({ call }: { call: ToolCall }): ReactElement | null {
-  if (call.status !== "failed" || call.stepId === undefined) return null;
-  return <ShareFolderLoaded call={call} />;
-}
-
-function ShareFolderLoaded({ call }: { call: ToolCall }): ReactElement | null {
-  const { detail } = useRunStep(call.runId, call.stepId ?? null);
-  const path = outsideFolderPath(call.tool, detail?.step.error);
+  const path = outsideFolderPath(call);
   return path === null ? null : <ShareFolderAction call={call} path={path} />;
 }

@@ -146,6 +146,8 @@ async function issueFolderCard(
   c: {
     path: string;
     reason: string;
+    /** Overrides the default card summary. */
+    summary?: string;
     mode: "ro" | "rw";
     resolved: Record<string, unknown>;
     threadId: string;
@@ -172,7 +174,7 @@ async function issueFolderCard(
   });
   return deps.broker.requestApproval({
     kind: "folder_access",
-    summary: `Share a folder: ${c.path}`.slice(0, 300),
+    summary: (c.summary ?? `Share a folder: ${c.path}`).slice(0, 300),
     details: { requestedPath: c.path, reason: c.reason, access: c.mode, ...c.resolved },
     bindingHash: binding,
     grantKey: `folder_access|${c.mode}`,
@@ -192,7 +194,32 @@ async function issueFolderCard(
  */
 export async function requestFolderShare(
   deps: FolderAccessToolDeps,
-  p: { threadId: string; path: string; taint: boolean; taintSources?: readonly TaintSource[] },
+  p: {
+    threadId: string;
+    path: string;
+    taint: boolean;
+    taintSources?: readonly TaintSource[];
+    /** An automation thread has no "this conversation": it follows the tool's unattended rule. */
+    unattended?: boolean;
+  },
+): Promise<{ status: "pending" | "already"; approvalId?: string }> {
+  // Clicks racing on one thread and folder (a double click, two devices) share one card.
+  const key = `${p.threadId}\0${p.path}`;
+  const running = shareInFlight.get(key);
+  if (running !== undefined) return running;
+  const job = shareOnce(deps, p).finally(() => shareInFlight.delete(key));
+  shareInFlight.set(key, job);
+  return job;
+}
+
+const shareInFlight = new Map<
+  string,
+  Promise<{ status: "pending" | "already"; approvalId?: string }>
+>();
+
+async function shareOnce(
+  deps: FolderAccessToolDeps,
+  p: Parameters<typeof requestFolderShare>[1],
 ): Promise<{ status: "pending" | "already"; approvalId?: string }> {
   const requested = await resolveRequestedFolder(p.path, deps.folderEnv?.() ?? {});
   const covered = folderCovers(
@@ -201,6 +228,17 @@ export async function requestFolderShare(
     "ro",
   );
   if (covered !== undefined && requested.status !== "blocked") return { status: "already" };
+  // A card already waiting on this thread for this folder (one the agent raised, or an earlier
+  // click) is the answer: never a second one.
+  const waiting = (await deps.broker.list({ status: "pending" })).find(
+    (a) =>
+      a.kind === "folder_access" &&
+      a.requestedBy.threadId === p.threadId &&
+      (requested.status === "missing"
+        ? a.details.folderStatus === "missing" && a.details.requestedPath === p.path
+        : a.details.resolvedPath === requested.path),
+  );
+  if (waiting !== undefined) return { status: "pending", approvalId: waiting.id };
   const resolved =
     requested.status === "missing"
       ? { folderStatus: "missing" }
@@ -211,13 +249,15 @@ export async function requestFolderShare(
         };
   const issued = await issueFolderCard(deps, {
     path: p.path,
-    reason: "You chose to share this folder so the assistant can read it.",
+    // Gateway-written: the agent's path is shown as the place it tried, not as the owner's words.
+    reason: "Share a folder for this chat",
+    summary: `Share a folder for this chat (a file tool tried ${p.path})`,
     mode: "ro",
     resolved,
     threadId: p.threadId,
     callId: `share_${randomUUID()}`,
     requestedBy: { runId: null, taskId: null, threadId: p.threadId },
-    scopesOffered: folderScopesOffered(p.taint),
+    scopesOffered: p.unattended === true && !p.taint ? ["always"] : folderScopesOffered(p.taint),
     taint: p.taint,
     taintSources: p.taintSources,
   });
