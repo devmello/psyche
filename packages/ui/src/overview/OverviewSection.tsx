@@ -3,7 +3,7 @@ import type { ReactElement, ReactNode } from "react";
 import { Card, type CardAction } from "../blocks/card.tsx";
 import { t } from "../i18n/core.ts";
 import type { MessageId } from "../i18n/index.ts";
-import { duration, fadeRise } from "../motion/index.ts";
+import { duration, useFadeRise } from "../motion/index.ts";
 
 /** The Overview's section anchors, in page order (agent-overview-2026 §5.1). */
 export const OVERVIEW_SECTIONS = [
@@ -42,6 +42,7 @@ export function OverviewSection({
   children,
 }: OverviewSectionProps): ReactElement {
   const title = sectionTitle(id);
+  const fadeRise = useFadeRise();
   return (
     // Each section fades and rises in once, staggered by its place on the page (capped, so the
     // last ones do not wait); motion.md §4.1. Reduced motion keeps the fade.

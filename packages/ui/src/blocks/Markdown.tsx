@@ -4,12 +4,13 @@ import { t } from "../i18n/core.ts";
 import { useSmoothText } from "../lib/smooth-text.ts";
 import { cn } from "../lib/utils.ts";
 import { SafeLink } from "../links/SafeLink.tsx";
+import { cubicBezier, duration, ease } from "../motion/tokens.ts";
 import { psycheCodePlugin } from "./highlighter.ts";
 
 const STREAM_FADE = {
   animation: "fadeIn",
-  duration: 140,
-  easing: "ease-out",
+  duration: duration.streamFade,
+  easing: cubicBezier(ease.enter),
   sep: "word",
 } as const;
 

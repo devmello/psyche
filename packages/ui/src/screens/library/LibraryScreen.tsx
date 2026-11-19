@@ -400,8 +400,8 @@ export function LibraryItemView({
               onDoubleClick={() => onOpen?.(item)}
               onKeyDown={itemKeys(item, actions)}
               className={cn(
-                "relative flex aspect-[4/5] w-full items-center justify-center overflow-hidden rounded-sm bg-surface-raised shadow-elevation-1 transition-shadow outline-none",
-                "hover:shadow-elevation-2 focus-visible:ring-3 focus-visible:ring-ring/50",
+                "relative flex aspect-[4/5] w-full items-center justify-center overflow-hidden rounded-sm bg-surface-raised shadow-elevation-1 outline-none",
+                "hover:bg-fill-quaternary focus-visible:ring-3 focus-visible:ring-ring/50",
                 selected ? "ring-2 ring-accent-8" : "",
               )}
             >
