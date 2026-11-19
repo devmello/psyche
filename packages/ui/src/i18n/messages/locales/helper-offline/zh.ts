@@ -14,6 +14,5 @@ export const helperOffline: Partial<Catalogue> = {
   "platform.helper.choose.use": "使用 {when} 配对的助手（…{id}）",
   "platform.helper.choose.useNoTime": "使用此助手（…{id}）",
   "platform.helper.choose.name": "自称：{name}",
-  "platform.helper.choose.label": "Psyche Helper 的选择",
   "platform.helper.choose.failed": "无法选择助手：{reason}",
 };

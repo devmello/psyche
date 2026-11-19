@@ -92,7 +92,7 @@ describe("HelperChoiceBanner", () => {
     expect(pending).toMatchObject({
       key: "devices.hostHelperDeviceId",
       approvalId: "ap_9",
-      label: "Psyche Helper choice",
+      label: "Which Psyche Helper to use",
     });
     expect(screen.queryByTestId("helper-choice-error")).toBeNull();
     onChoose.mockResolvedValueOnce(undefined);
@@ -177,7 +177,7 @@ describe("HelperOfflineBanner with a verifier enrolled", () => {
     await userEvent.click(within(banner).getAllByRole("button")[1] as HTMLElement);
     const card = await screen.findByTestId("settings-approval");
     // Words, not the setting key.
-    expect(card.textContent).toContain("Psyche Helper choice");
+    expect(card.textContent).toContain("Which Psyche Helper to use");
     expect(card.textContent).not.toContain("devices.hostHelperDeviceId needs");
     await waitFor(() => expect(within(card).queryByText("Loading the approval…")).toBeNull());
     const allow = within(card).getByRole("button", { name: "Allow with scope" });

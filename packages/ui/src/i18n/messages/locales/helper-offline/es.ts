@@ -15,6 +15,5 @@ export const helperOffline: Partial<Catalogue> = {
   "platform.helper.choose.use": "Usar el asistente emparejado el {when} (…{id})",
   "platform.helper.choose.useNoTime": "Usar el asistente (…{id})",
   "platform.helper.choose.name": "Se llama a sí mismo: {name}",
-  "platform.helper.choose.label": "Elección de Psyche Helper",
   "platform.helper.choose.failed": "No se pudo elegir el asistente: {reason}",
 };

@@ -15,6 +15,5 @@ export const helperOffline: Partial<Catalogue> = {
   "platform.helper.choose.use": "{when}에 페어링한 도우미 사용 (…{id})",
   "platform.helper.choose.useNoTime": "이 도우미 사용 (…{id})",
   "platform.helper.choose.name": "스스로 밝힌 이름: {name}",
-  "platform.helper.choose.label": "Psyche Helper 선택",
   "platform.helper.choose.failed": "도우미를 선택하지 못했습니다: {reason}",
 };

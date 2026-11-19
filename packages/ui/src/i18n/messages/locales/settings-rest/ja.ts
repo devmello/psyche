@@ -126,6 +126,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.exec.srtPath": "srtの場所",
   "settings.key.devices.hostHelper.status": "Linux ヘルパーの確認",
   "settings.key.devices.helper.availability": "Psyche Helper の接続",
+  "settings.key.devices.hostHelperDeviceId": "使用する Psyche Helper",
   "settings.key.search.model.engine": "検索用のモデル",
   "settings.key.search.semantic.enabled": "セマンティック検索（オンデバイス）",
   "settings.key.search.cards.enabled": "検索用のコンテキストカード",

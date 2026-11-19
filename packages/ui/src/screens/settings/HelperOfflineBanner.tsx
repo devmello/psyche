@@ -6,6 +6,7 @@ import { activeI18n, t } from "../../i18n/core.ts";
 import { HOST_HELPER_STATUS_KEY } from "./HostHelperCheckGroup.tsx";
 import type { MacHelperStatus } from "./MacHelperStatus.tsx";
 import { SettingsApprovalProvider } from "./SettingsApproval.tsx";
+import { settingLabel } from "./setting-labels.ts";
 import { approvalIdOf, messageOf, SettingsApprovalContext } from "./shared.tsx";
 
 /** The Gateway's helper availability (`HelperAvailability`, published as this setting). */
@@ -96,7 +97,7 @@ export function HelperChoiceBanner({
         if (approvalId !== null && requestApproval) {
           requestApproval({
             key: HOST_HELPER_PIN_KEY,
-            label: t("platform.helper.choose.label"),
+            label: settingLabel(HOST_HELPER_PIN_KEY),
             approvalId,
             retry: (id) => onChoose(deviceId, id),
           });

@@ -174,6 +174,7 @@ export const settings = {
   "settings.key.exec.srtPath": "srt location",
   "settings.key.devices.hostHelper.status": "Linux helper check",
   "settings.key.devices.helper.availability": "Psyche Helper connection",
+  "settings.key.devices.hostHelperDeviceId": "Which Psyche Helper to use",
   "settings.key.computerUse.apps": "App access",
   "settings.key.context.maxTokens": "Context limit",
   "settings.key.search.model.engine": "Model for search",

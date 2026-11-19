@@ -14,6 +14,5 @@ export const helperOffline: Partial<Catalogue> = {
   "platform.helper.choose.use": "{when} को पेयर किया गया हेल्पर इस्तेमाल करें (…{id})",
   "platform.helper.choose.useNoTime": "हेल्पर इस्तेमाल करें (…{id})",
   "platform.helper.choose.name": "खुद को कहता है: {name}",
-  "platform.helper.choose.label": "Psyche Helper का चुनाव",
   "platform.helper.choose.failed": "हेल्पर चुना नहीं जा सका: {reason}",
 };

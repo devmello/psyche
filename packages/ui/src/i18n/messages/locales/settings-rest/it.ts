@@ -127,6 +127,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.exec.srtPath": "Posizione di srt",
   "settings.key.devices.hostHelper.status": "Controllo dell'assistente Linux",
   "settings.key.devices.helper.availability": "Connessione di Psyche Helper",
+  "settings.key.devices.hostHelperDeviceId": "Quale Psyche Helper usare",
   "settings.key.search.model.engine": "Modello per la ricerca",
   "settings.key.search.semantic.enabled": "Ricerca semantica (sul dispositivo)",
   "settings.key.search.cards.enabled": "Schede di contesto per la ricerca",

@@ -14,7 +14,6 @@ export const helperOffline = {
   "platform.helper.choose.use": "Use the helper paired {when} (…{id})",
   "platform.helper.choose.useNoTime": "Use the helper (…{id})",
   "platform.helper.choose.name": "Calls itself: {name}",
-  "platform.helper.choose.label": "Psyche Helper choice",
   "platform.helper.choose.failed": "Couldn't choose the helper: {reason}",
   "platform.helper.contactsPermission":
     "Contacts needs permission for Psyche Helper in System Settings.",
