@@ -61,4 +61,8 @@ export const notices = {
   "notice.mcp.changed.title": "MCP server {server} changed its tools",
   "notice.mcp.suspicious.title": "MCP server {server} has suspicious tool descriptions",
   "notice.mcp.review.body": "Review before you use this server: {details}",
+  "notice.security.tightened.title":
+    "Security settings were tightened from {device, select, none {a device} other {{device}}}",
+  "notice.security.tightened.body":
+    "This only reduced what Psyche is allowed to do, so no approval was needed. If that was not you, revoke the device in Settings → Devices.",
 } as const;

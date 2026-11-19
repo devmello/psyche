@@ -562,8 +562,36 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   // Parts that act on a setting the moment it changes (the separate desktop's reset).
   const settingListeners: ((c: { key: string; after: unknown }) => void)[] = [];
+  // A security change that only narrowed (no card) leaves one low-key notice per device and hour,
+  // so a compromised admin device cannot strip protections unseen.
+  const tightenedAt = new Map<string, number>();
+  const noticeTightened = (deviceId: string) => {
+    const now = clock.now();
+    const last = tightenedAt.get(deviceId);
+    if (last !== undefined && now - last < 60 * 60 * 1000) return;
+    tightenedAt.set(deviceId, now);
+    // The display name is the device's own choice, so add the start of its id: a compromised
+    // device cannot pass itself off as the owner's own by name alone.
+    const named = keyActorParts(getDevice(db, deviceId))?.device;
+    const device = named === undefined ? "none" : `${named} (${deviceId.slice(0, 8)})`;
+    void notifier
+      .notify({
+        kind: "system",
+        title: `Security settings were tightened from ${device === "none" ? "a device" : device}`,
+        body: "This only reduced what Psyche is allowed to do, so no approval was needed. If that was not you, revoke the device in Settings → Devices.",
+        message: {
+          titleKey: "notice.security.tightened.title",
+          bodyKey: "notice.security.tightened.body",
+          params: { device },
+        },
+        route: "/settings/devices",
+        dedupeKey: `security-tightened:${deviceId}:${Math.floor(now / (60 * 60 * 1000))}`,
+      })
+      .catch(() => undefined);
+  };
   gwOptions.onSettingChanged = (c) => {
     void changes.record(settingChange(c));
+    if (c.narrowing === true) noticeTightened(c.deviceId);
     for (const listener of settingListeners) listener(c);
   };
   // A restored backup's log is shorter than what this key anchored; the restore is audited with

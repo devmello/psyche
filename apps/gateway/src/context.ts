@@ -185,7 +185,13 @@ export interface GatewayContext {
   readonly memory: MemoryStore | null;
   /** Reports `settings.set` to the audit trail. */
   readonly onSettingChanged:
-    | ((change: { key: string; before: unknown; after: unknown; deviceId: string }) => void)
+    | ((change: {
+        key: string;
+        before: unknown;
+        after: unknown;
+        deviceId: string;
+        narrowing?: boolean;
+      }) => void)
     | null;
   readonly limits: GatewayLimits;
   readonly failedChallenges: RateLimiter;

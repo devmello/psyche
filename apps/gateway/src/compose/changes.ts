@@ -288,6 +288,7 @@ export function settingChange(c: {
   before: unknown;
   after: unknown;
   deviceId: string;
+  narrowing?: boolean;
 }): ChangeInput {
   const json = (v: unknown) => (v === undefined ? undefined : JSON.stringify(v));
   const before = json(c.before);
@@ -299,6 +300,7 @@ export function settingChange(c: {
     target: { object: c.key },
     action: before === undefined ? "create" : "update",
     hashOnly: true,
+    ...(c.narrowing === true ? { note: "narrowing: true" } : {}),
     ...(before === undefined ? {} : { before }),
     ...(after === undefined ? {} : { after }),
   };
