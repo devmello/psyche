@@ -336,6 +336,125 @@ describe("memory map", () => {
     expect(env.db.sqlite.prepare("SELECT count(*) AS n FROM graph_entities").get()).toEqual(before);
   });
 
+  describe("the cache never serves a stale map (the clock is frozen throughout)", () => {
+    it("sees a retracted edge", () => {
+      const sam = person("Sam");
+      const kit = thing("project", "Kitchen");
+      const e = graph.setEdge({ src: sam.id, rel: "member_of", dst: kit.id, provenance: "owner" });
+      expect(map().edges).toHaveLength(1);
+      graph.retractEdge(e?.edge.id ?? "");
+      expect(map().edges).toEqual([]);
+    });
+
+    it("sees a rename", () => {
+      const sam = person("Sam");
+      expect(map().nodes[0]?.name).toBe("Sam");
+      graph.updateEntity(sam.id, { name: "Samuel" });
+      expect(map().nodes[0]?.name).toBe("Samuel");
+    });
+
+    it("sees a hide that comes with an unhide in the same instant", () => {
+      const a = person("A");
+      const b = person("B");
+      const c = person("C");
+      graph.updateEntity(c.id, { hidden: true });
+      expect(
+        map()
+          .nodes.map((n) => n.id)
+          .sort(),
+      ).toEqual([a.id, b.id].sort());
+      graph.updateEntity(c.id, { hidden: false });
+      graph.updateEntity(a.id, { hidden: true });
+      expect(
+        map()
+          .nodes.map((n) => n.id)
+          .sort(),
+      ).toEqual([b.id, c.id].sort());
+    });
+
+    it("sees the private flag change and an archived entity", () => {
+      const a = thing("project", "A");
+      const b = person("B");
+      expect(map().nodes.find((n) => n.id === a.id)?.private).toBeUndefined();
+      graph.updateEntity(a.id, { private: true });
+      expect(map().nodes.find((n) => n.id === a.id)?.private).toBe(true);
+      graph.updateEntity(b.id, { status: "archived" });
+      expect(map().nodes.map((n) => n.id)).toEqual([a.id]);
+    });
+
+    it("sees an interaction whose participants were replaced by the same number of others", () => {
+      const a = person("A");
+      const b = person("B");
+      const c = person("C");
+      const put = (who: string[]) =>
+        graph.upsertInteraction({
+          kind: "chat",
+          source: "test",
+          externalRef: "same",
+          occurredAt: iso(NOW - DAY),
+          direction: "both",
+          participants: who.map((entityId) => ({ entityId, role: "to" as const })),
+        });
+      put([a.id, b.id]);
+      put([a.id, b.id]);
+      graph.upsertInteraction({
+        kind: "chat",
+        source: "test",
+        externalRef: "second",
+        occurredAt: iso(NOW - DAY),
+        direction: "both",
+        participants: [a.id, b.id].map((entityId) => ({ entityId, role: "to" as const })),
+      });
+      expect(kindBetween(map(), a.id, b.id)).toBe("co_mentioned");
+      // Same interaction, same size, different people.
+      graph.upsertInteraction({
+        kind: "chat",
+        source: "test",
+        externalRef: "second",
+        occurredAt: iso(NOW - DAY),
+        direction: "both",
+        participants: [a.id, c.id].map((entityId) => ({ entityId, role: "to" as const })),
+      });
+      graph.upsertInteraction({
+        kind: "chat",
+        source: "test",
+        externalRef: "same",
+        occurredAt: iso(NOW - DAY),
+        direction: "both",
+        participants: [a.id, c.id].map((entityId) => ({ entityId, role: "to" as const })),
+      });
+      const m = map();
+      expect(kindBetween(m, a.id, c.id)).toBe("co_mentioned");
+      expect(kindBetween(m, a.id, b.id)).toBeUndefined();
+    });
+
+    it("sees an interaction that moved to another date and a loop that changed hands", () => {
+      const a = person("A");
+      const b = person("B");
+      interact("chat", [a.id], { daysAgo: 1 });
+      expect(map().nodes.find((n) => n.id === a.id)?.weight).toBeGreaterThan(0);
+      const before = map();
+      env.db.sqlite
+        .prepare("UPDATE graph_interactions SET occurred_at = ?")
+        .run(iso(NOW - 900 * DAY));
+      expect(map()).not.toBe(before);
+      graph.addLoop({
+        direction: "waiting_on",
+        text: "Reply",
+        counterpartId: a.id,
+        status: "open",
+        provenance: "owner",
+        detectedBy: "owner",
+      });
+      const withLoop = map();
+      expect(withLoop.nodes.find((n) => n.id === a.id)?.weight).toBe(1);
+      env.db.sqlite.prepare("UPDATE graph_loops SET counterpart_id = ?").run(b.id);
+      const moved = map();
+      expect(moved).not.toBe(withLoop);
+      expect(moved.nodes.find((n) => n.id === b.id)?.weight).toBeGreaterThan(0);
+    });
+  });
+
   it("handles thousands of nodes and interactions within a time budget", () => {
     const N = 3000;
     const ent = env.db.sqlite.prepare(

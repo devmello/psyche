@@ -280,28 +280,21 @@ export function buildMemoryMap(db: Database.Database, opts: MemoryMapOptions = {
   return { nodes, edges, total: rows.length, truncated: rows.length > kept.length };
 }
 
-/** Cheap fingerprint of everything the map reads; equal fingerprints mean an equal map. */
+/**
+ * A fingerprint that changes whenever any row changes through this connection or another one.
+ * SQLite counts every insert, update and delete (triggers included), so no change to an entity,
+ * edge, interaction or participant can slip past it, whatever the clock says. It also moves for
+ * writes to unrelated tables, which only costs a rebuild.
+ */
 export function graphFingerprint(db: Database.Database): string {
-  const r = db
-    .prepare(
-      `SELECT
-         (SELECT count(*) || ':' || coalesce(max(updated_at), '') || ':' || coalesce(sum(pinned), 0)
-                 || ':' || coalesce(sum(hidden), 0) || ':' || coalesce(sum(private), 0)
-                 || ':' || coalesce(sum(status = 'active'), 0) FROM graph_entities) AS e,
-         (SELECT count(*) || ':' || coalesce(max(updated_at), '') || ':' || coalesce(max(rowid), 0)
-            FROM graph_edges) AS x,
-         (SELECT count(*) || ':' || coalesce(max(rowid), 0) FROM graph_interactions) AS i,
-         (SELECT coalesce(max(rowid), 0) FROM graph_participants) AS p,
-         (SELECT count(*) || ':' || coalesce(max(rowid), 0) FROM graph_interaction_subjects) AS s,
-         (SELECT count(*) || ':' || coalesce(sum(status IN ('open', 'suggested')), 0) FROM graph_loops) AS l`,
-    )
-    .get() as Record<string, string | number>;
-  return Object.values(r).join("|");
+  const changes = (db.prepare("SELECT total_changes() AS n").get() as { n: number }).n;
+  const other = db.pragma("data_version", { simple: true });
+  return `${changes}:${String(other)}`;
 }
 
 /**
  * A map builder that remembers its last few results. A result is reused while the graph's
- * fingerprint is unchanged and it is not a day old (recency and "quiet" move with the clock).
+ * fingerprint is unchanged and it is under six hours old (recency and "quiet" move with the clock).
  */
 export function createMemoryMapBuilder(db: Database.Database) {
   const cache = new Map<string, { fingerprint: string; at: number; map: MemoryMap }>();

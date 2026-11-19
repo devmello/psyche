@@ -146,7 +146,6 @@ export function MapCanvas({
   const focusIdRef = useRef(focusId);
   focusIdRef.current = focusId;
   const lastFocusId = useRef(focusId);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: request is stable
   useEffect(() => {
     const prev = modelRef.current;
     const prevLayout = layoutRef.current;
