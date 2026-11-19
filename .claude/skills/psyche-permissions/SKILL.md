@@ -47,9 +47,17 @@ This covers any rule that sorts inputs into "asks" and "doesn't ask": money-inte
 - **Fail closed:** if the target can't be read (an old helper, a Windows or Linux helper), refuse with `point_unchecked` or `focus_unchecked`. Don't let it through.
 - **Unlabelled targets:** treat them as unknown and use context: the window title or URL, the parent labels, a recent payment in the same app.
 - **An owner flag beats the heuristic:** a tool renamed to dodge the words still pays under `handlesMoney`. A raw `settings.set` must not be able to clear that flag.
+- **No whole-label or whole-route exemptions.** An early exit for a label, route or word class ("transfers", listing words, leave dialogs, article segments) un-blocks real flows. #1321 needed 7 rounds, most of them for this. Narrow the match instead, and add a row for the flow the exemption would have let through.
 - **Match on kind:** match on the provider's kind, never on an id a user can choose. #1300 R2: the id `anthropic` on an `anthropic-compatible` endpoint passed, and the real CLI refs didn't.
 
 **Write the probe table first.** Before you change a rule, write a table-driven test with two lists: inputs that must match, and near-misses that share a word and must not. The pattern is `packages/protocol/test/money-intent.test.ts`: `PAYMENT_LABELS` and `ORDINARY_LABELS` with `it.each`. Include amounts with decimals, tickers, keyboard paths, snake_case and camelCase tool names, and the reviewer's probes from every earlier round. Every review finding becomes a row that failed before your fix. In #1301, round 1 widened regexes one way only. Rounds 2 to 5 each found misses in the other direction, and the reviewers' two-way probe lists caught them.
+
+## 3b. Hardening fails closed, on the right target
+
+- **Unexpressible input means ask or refuse, never `continue`.** #1329: a git driver name that couldn't be expressed was skipped, `(.+)` missed empty names, and `status.ignoreSubmodules` was a config key git doesn't have. Check a config key or flag against the tool itself (`git config --help`, run it), not memory.
+- **Validate what the tool will resolve, not what encloses it.** #1329 B2 checked the enclosing repo, not the repo git actually resolves (`-C`, `GIT_DIR`, alternates, submodules). Resolve first, then check that result.
+- **Every new action path gets checked against every existing prohibition.** #1315's purchase tool skipped #1321's hard block. When a PR adds a tool, route or channel that can act, list the prohibitions (money block, outbound check, read-only allowlist, presence) and add a test per prohibition through the new path.
+- **Presence stays payments-only.** #1327's agent search popped a vault unlock. Reads and searches never trigger Touch ID or a vault prompt.
 
 ## 4. Trust that moves to a new path or file
 

@@ -24,6 +24,8 @@ The orchestrator gave you a brief and usually a `/goal`. Your job is one focused
 - Add or update tests that would have caught the bug or prove the feature works. Follow the patterns of the nearest existing test file.
 - **Behaviour changes break old tests.** If you change a rule, a default, an allowlist, an error code or copy a test asserts, `git grep` the tests for the old value and update them in the same commit. This includes an owner decision relayed mid-PR. Eight existing tests broke this way in #1299, #1300 and #1301. One was `model-settings.test.ts` after the small-models decision, left for the orchestrator to fix.
 - **Classifier-like work:** any rule that sorts inputs into "asks" and "doesn't ask", or "counts" and "doesn't count". Write a table-driven test with both lists before you change the rule: inputs that must match, and near-misses that share a word and must not. Every review finding becomes a row. See `psyche-permissions` §3.
+- **Negative tests need a positive control.** A test that only asserts absence (reduced motion #1318, "picker hidden" #1325) passes when the feature is broken. Pair it with a case where the thing does appear, and run the test against the code it is meant to guard: #1327's redaction test built its own redactor, and #1329 B1/B2 tests covered only normal cases while the hole stayed open.
+- **Merging main brings other PRs' tests.** #1325 asserted the Persona picker hidden, #1328 brought it back, and main broke (#1331). If `git merge origin/main` touches the same UI, re-run the tests of both before you push.
 - **A fix that changes a shared predicate** (who is local, enrolled, ready, financial): list its callers and test one you didn't mean to change. Fixes opened new holes in #1299 and #1301. See `psyche-permissions` §2.
 - Keep to the brief's scope. Unrelated problems you notice go in the report under "Noticed", not in the diff. If you do widen the scope (a fix you can't leave out), say so in the report. In #1309 the builder added a label fix the brief never mentioned.
 - Protocol changes: `pnpm protocol:gen`. If you add an enum value, update the Swift helper's exhaustive `switch` sites and the TS `Record<Kind, …>` maps.
@@ -36,6 +38,8 @@ The owner's rule (2026-11-18): don't overheat the Mac. Size checks to the change
 3. If you changed widely imported code (a shared hook, store, protocol type or permission rule), also run `verify.sh --related` once before the PR. It runs every existing test that imports what you changed, which is where builders most often break things unnoticed (#1299, #1300). Otherwise the merge gate runs it.
 
 verify.sh compares your failures with a run on the merge base. "also failing on the base" is not your problem. "new in" is. "base could not run" means unknown: run that file yourself on `origin/main` before you call it pre-existing. Delete untracked build output first (`apps/ios/.build-ios`): biome lints it (#1305).
+
+Run `verify.sh` in the foreground and wait for it. Don't end your turn while it runs in the background: the Stop hook then starts a second full verify, and load hit 26. Don't wait with `pgrep -f "verify.sh"`: it matches itself. In a fresh worktree `pnpm install` can fail on the better-sqlite3 rebuild; use `pnpm install --frozen-lockfile --ignore-scripts`, which is enough for vitest.
 
 The Stop hook runs `verify.sh --quick` (lint, secrets, protocol, i18n; seconds) when you try to finish with changes it hasn't seen pass. If it blocks you, fix what it reports. Never skip, weaken, `.skip` or delete a test to get it passing. If you truly cannot fix a failure after 3 attempts, stop and report it plainly.
 
@@ -63,7 +67,7 @@ End your turn with:
 - the cause, the fix, and the verification result;
 - "Not verified", "Noticed" and any question for the orchestrator.
 
-No praise or filler. If something failed, say it failed.
+Send the report once. Don't re-send it while waiting on background work. No praise or filler. If something failed, say it failed.
 
 When the orchestrator sends review findings, fix them on the same branch, verify, push, and report again in the same shape:
 - Each finding gets a test that fails without your fix.
