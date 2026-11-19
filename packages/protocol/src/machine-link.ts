@@ -98,6 +98,7 @@ function isNonPublicHost(hostname: string): boolean {
       (first === 0x64 && second === 0xff9b) || // 64:ff9b::/32 NAT64 (embeds an IPv4 address)
       first === 0x2002 || // 2002::/16 6to4 (embeds an IPv4 address)
       (first === 0x2001 && (second === 0 || second === 0x0db8)) || // Teredo, documentation
+      (first === 0x100 && second === 0 && g[2] === 0 && g[3] === 0) || // 100::/64 discard
       (first & 0xffc0) === 0xfe80 || // fe80::/10 link-local
       (first & 0xffc0) === 0xfec0 || // fec0::/10 site-local (deprecated)
       (first & 0xff00) === 0xff00 // ff00::/8 multicast
@@ -120,8 +121,16 @@ function isNonPublicHost(hostname: string): boolean {
       (a === 203 && b === 0 && c === 113) // TEST-NET-3
     );
   }
-  // A single-label host (`gateway`) or `.internal` name has no public certificate.
-  return !h.includes(".") || h.endsWith(".internal");
+  // A single-label host (`gateway`) or a private-use name has no public certificate.
+  return (
+    !h.includes(".") ||
+    h.endsWith(".internal") ||
+    h.endsWith(".home.arpa") ||
+    h === "home.arpa" ||
+    h.endsWith(".lan") ||
+    h.endsWith(".corp") ||
+    h.endsWith(".home")
+  );
 }
 
 /**

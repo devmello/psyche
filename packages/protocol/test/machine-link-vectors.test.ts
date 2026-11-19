@@ -105,6 +105,11 @@ describe("machine names", () => {
     ["shorthand format letter overlap", "lab\u{1bca0}box"],
     ["Egyptian hieroglyph format", "lab\u{13430}box"],
     ["variation selector supplement", "lab\u{e0100}box"],
+    ["Arabic pound mark above", "lab࢐box"],
+    ["Arabic piastre mark above", "lab࢑box"],
+    ["Kaithi number above", "lab\u{110cd}box"],
+    ["default-ignorable E01F0", "lab\u{e01f0}box"],
+    ["default-ignorable E0FFF", "lab\u{e0fff}box"],
     ["object replacement", "lab￼box"],
     ["ideographic space inside", "lab　box"],
     ["no-break space inside", "lab box"],
@@ -143,6 +148,8 @@ describe("machine names", () => {
 
   it("refuses non-strings", () => {
     expect(machineNameOk(5)).toBe(false);
+    for (const lone of ["a\udb40b", "a\udc00b", "ab\ud83d"])
+      expect(machineNameOk(lone)).toBe(false);
     expect(machineNameOk(undefined)).toBe(false);
   });
 });

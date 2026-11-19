@@ -19,15 +19,23 @@ import { ComputerSurface } from "./tools.ts";
  * Rust.)
  */
 const BAD_NAME_CHARS =
-  "\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc";
-export const MACHINE_NAME_PATTERN = `^(?!.*(?:\\udb40[\\udc00-\\uddef]|\\ud804\\udcbd|\\ud834[\\udd73-\\udd7a]|\\ud82f[\\udca0-\\udca3]|\\ud80d[\\udc30-\\udc3f]))[^${BAD_NAME_CHARS}\\s](?:[^${BAD_NAME_CHARS}]*[^${BAD_NAME_CHARS}\\s])?$`;
+  "\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc";
+export const MACHINE_NAME_PATTERN = `^(?!.*(?:\\udb40[\\udc00-\\udfff]|(?:\\udb41|\\udb42|\\udb43)[\\udc00-\\udfff]|\\ud804[\\udcbd\\udccd]|\\ud834[\\udd73-\\udd7a]|\\ud82f[\\udca0-\\udca3]|\\ud80d[\\udc30-\\udc3f]))[^${BAD_NAME_CHARS}\\s](?:[^${BAD_NAME_CHARS}]*[^${BAD_NAME_CHARS}\\s])?$`;
 const MACHINE_NAME_RE = new RegExp(MACHINE_NAME_PATTERN);
 const INVISIBLE_ONE = new RegExp(INVISIBLE.source, "u");
 
 /** Whether `name` is an acceptable machine name (1 to 64 characters, no hidden or control text). */
 export function machineNameOk(name: unknown): name is string {
   return (
-    typeof name === "string" && name.length >= 1 && name.length <= 64 && MACHINE_NAME_RE.test(name)
+    typeof name === "string" &&
+    // A lone surrogate shows as U+FFFD and serde_json refuses its escape; the pattern can't see it.
+    name.isWellFormed() &&
+    name.length >= 1 &&
+    name.length <= 64 &&
+    MACHINE_NAME_RE.test(name) &&
+    // The pattern is best effort (a plain JSON Schema pattern); this is the full rule that guards
+    // `hostName` in a pairing link, so no format or default-ignorable character gets through.
+    !INVISIBLE_ONE.test(name)
   );
 }
 

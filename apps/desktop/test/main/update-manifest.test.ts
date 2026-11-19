@@ -1,6 +1,14 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash, generateKeyPairSync, type KeyObject, sign } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -513,6 +521,26 @@ describe("per-platform manifests (Linux helper and server packages)", () => {
     const root = resolve(import.meta.dirname, "../../../..");
     const r = spawnSync("sh", ["-c", gate as string], { cwd: root, encoding: "utf8" });
     expect(r.status).toBe(1);
+
+    // On a copy with the constant flipped the same expression exits 0 ...
+    const src = readFileSync(SCRIPT, "utf8");
+    const flipped = src.replace(
+      /^export const DESKTOP_LINUX_SUPPORT = false;$/m,
+      "export const DESKTOP_LINUX_SUPPORT = true;",
+    );
+    expect(flipped).not.toBe(src);
+    const tmp = temp();
+    mkdirSync(join(tmp, "deploy/scripts"), { recursive: true });
+    writeFileSync(join(tmp, "deploy/scripts/update-manifest.mjs"), flipped);
+    expect(spawnSync("sh", ["-c", gate as string], { cwd: tmp, encoding: "utf8" }).status).toBe(0);
+    // ... and where the script cannot be imported at all it exits 2, which the job treats as a
+    // failure rather than as "no Linux support".
+    const empty = temp();
+    expect(spawnSync("sh", ["-c", gate as string], { cwd: empty, encoding: "utf8" }).status).toBe(
+      2,
+    );
+    // The job's shell turns exit 2 into a failed step and exit 1 into a warning.
+    expect(yml).toMatch(/gate=\$\?\n\s+if \[ "\$gate" -ne 1 \]; then\n\s+echo "::error::/);
   });
 
   it("a Linux-only manifest needs the explicit --linux-only", () => {
