@@ -10,7 +10,13 @@ afterEach(() => {
 });
 
 const frame = (seq: number): RunFrame =>
-  ({ seq, at: 1_000 + seq, width: 10, height: 10, expired: false }) as RunFrame;
+  ({
+    seq,
+    at: "2026-11-19T10:00:00.000Z",
+    width: 10,
+    height: 10,
+    expired: false,
+  }) satisfies RunFrame;
 
 describe("Thumbs and the frame cache", () => {
   it("keeps thumbnails only in the cache, and drops them when the run view closes", async () => {
