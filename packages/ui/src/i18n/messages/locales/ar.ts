@@ -926,6 +926,7 @@ export const ar: Partial<Catalogue> = {
   "shell.shortcuts.addition": "إضافة من Psyche",
   "shell.shortcuts.description": "تشير † إلى إضافات Psyche على خريطة اختصارات Claude لسطح المكتب.",
   "shell.threads.needsYou": "بحاجة إليك",
+  "shell.threads.nowOn": "الآن: {step}",
   "shell.threads.running": "قيد التشغيل",
   "shell.threads.titleField": "عنوان المحادثة",
   "shell.threads.incognito": "متخفية",

@@ -869,6 +869,7 @@ export const ja: Partial<Catalogue> = {
   "shell.shortcuts.addition": "Psyche独自",
   "shell.shortcuts.description": "†はClaudeデスクトップ版の配列にPsycheが追加したものです。",
   "shell.threads.needsYou": "要対応",
+  "shell.threads.nowOn": "実行中: {step}",
   "shell.threads.running": "実行中",
   "shell.threads.titleField": "スレッドのタイトル",
   "shell.threads.incognito": "シークレット",

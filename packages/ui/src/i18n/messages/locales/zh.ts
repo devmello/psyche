@@ -910,6 +910,7 @@ export const zh: Partial<Catalogue> = {
   "shell.shortcuts.addition": "Psyche 新增",
   "shell.shortcuts.description": "† 标记 Psyche 在 Claude 桌面版快捷键之外新增的项目。",
   "shell.threads.needsYou": "需要你",
+  "shell.threads.nowOn": "现在：{step}",
   "shell.threads.running": "运行中",
   "shell.threads.titleField": "会话标题",
   "shell.threads.incognito": "无痕",

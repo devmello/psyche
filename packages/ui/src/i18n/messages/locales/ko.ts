@@ -871,6 +871,7 @@ export const ko: Partial<Catalogue> = {
   "shell.shortcuts.addition": "Psyche 추가 항목",
   "shell.shortcuts.description": "†는 Claude 데스크탑 단축키에 Psyche가 추가한 항목입니다.",
   "shell.threads.needsYou": "확인 필요",
+  "shell.threads.nowOn": "지금: {step}",
   "shell.threads.running": "실행 중",
   "shell.threads.titleField": "스레드 제목",
   "shell.threads.incognito": "시크릿",

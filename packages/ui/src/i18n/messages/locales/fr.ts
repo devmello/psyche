@@ -862,6 +862,7 @@ export const fr: Partial<Catalogue> = {
   "shell.shortcuts.description":
     "† signale les ajouts de Psyche aux raccourcis de Claude pour ordinateur.",
   "shell.threads.needsYou": "Besoin de vous",
+  "shell.threads.nowOn": "En cours : {step}",
   "shell.threads.running": "En cours",
   "shell.threads.titleField": "Titre de la discussion",
   "shell.threads.incognito": "Incognito",
