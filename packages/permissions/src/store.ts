@@ -22,6 +22,12 @@ export interface StoredToken {
   usedAt: string | null;
 }
 
+/** What the broker decided about a card that has no column of its own (kept in `input`). */
+export interface StoredCardFields {
+  cardRiskClass?: "routine" | "sensitive";
+  cardSetAside?: true;
+}
+
 export interface StoredApproval {
   approval: ApprovalRequest;
   tokens: StoredToken[];
@@ -260,14 +266,31 @@ export class SqlitePermissionStore implements PermissionStore {
 
   updateApproval(rec: StoredApproval): void {
     const p = this.#approvalParams(rec);
-    // Mutable columns only; the request itself never changes.
+    // Mutable columns only; the request itself never changes. An answer can change what the
+    // approval binds: the compose card's edited text and recipient (`details.final` and its
+    // `binding_hash`), a folder pick, UNSANDBOXED. Those must reach the store, or a reload would
+    // bind the agent's draft instead of what the owner approved (#1333 follow-up).
     this.#db
       .prepare(
-        `UPDATE approvals SET answer_tokens = ?, status = ?, scope_granted = ?, decided_by = ?,
-           invalidated_reason = ?, consumed_at = ?, run_revoked = ?, decided_at = ?, grant_id = ?,
-           updated_at = ? WHERE id = ?`,
+        `UPDATE approvals SET details = ?, binding_hash = ?, answer_tokens = ?, status = ?,
+           scope_granted = ?, decided_by = ?, invalidated_reason = ?, consumed_at = ?,
+           run_revoked = ?, decided_at = ?, grant_id = ?, updated_at = ? WHERE id = ?`,
       )
-      .run(p[19], p[20], p[21], p[22], p[23], p[25], p[26], p[30], p[31], p[33], rec.approval.id);
+      .run(
+        p[3],
+        p[4],
+        p[19],
+        p[20],
+        p[21],
+        p[22],
+        p[23],
+        p[25],
+        p[26],
+        p[30],
+        p[31],
+        p[33],
+        rec.approval.id,
+      );
   }
 
   getApproval(id: string): StoredApproval | undefined {
@@ -399,6 +422,11 @@ function approvalFromRow(r: ApprovalRow): StoredApproval {
   const input = parse<PolicyApprovalInput>(r.request_input);
   // Not a column: the request input keeps it (teaching loop, "Because you said").
   if (input.fromLesson !== undefined) approval.fromLesson = { ...input.fromLesson };
+  // Not columns either: the broker's class and set-aside mark (#1333) ride on the stored input.
+  const card = input as PolicyApprovalInput & StoredCardFields;
+  if (card.cardRiskClass === "routine" || card.cardRiskClass === "sensitive")
+    approval.riskClass = card.cardRiskClass;
+  if (card.cardSetAside === true) approval.setAside = true;
   return {
     approval,
     tokens: parse<StoredToken[]>(r.answer_tokens),

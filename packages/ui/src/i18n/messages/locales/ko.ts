@@ -680,6 +680,25 @@ export const ko: Partial<Catalogue> = {
   "agent.approvals.anAutomation": "자동화",
   "agent.approvals.wantedTo": "— 시도한 동작: {what}",
   "agent.approvals.openTask": "작업 열기",
+  "agent.approvals.deferredHint":
+    "자동화가 보류해 둔 작업입니다. 하나를 승인하면 그 작업을 하려고 자동화가 다시 실행됩니다. 만료된 작업은 늦게 실행되지 않습니다.",
+  "agent.approvals.approve": "승인",
+  "agent.approvals.decline": "거절",
+  "agent.approvals.approveRoutine": "일상적인 항목 모두 승인 ({n, number})",
+  "agent.approvals.riskRoutine": "일상",
+  "agent.approvals.riskSensitive": "민감",
+  "agent.approvals.setAside": "{when} 보류됨",
+  "agent.approvals.answerElsewhere": "보낸 곳에서 응답",
+  "agent.approvals.setAsideNote":
+    "자동화가 이 작업을 보류하고 계속 진행했습니다. 승인하면 다시 실행되며, 실행이 정확히 같은 작업에 도달할 때만 진행됩니다.",
+  "agent.approvals.setAsideApproved":
+    "승인됨. 자동화가 다시 실행되며 정확히 같은 작업에 도달할 때만 이 작업을 합니다. 도달하지 못하면 알림을 받습니다.",
+  "agent.approvals.resuming":
+    "승인됨. {names}을(를) 다시 실행하는 중입니다. 각 작업은 실행이 도달할 때만 진행되며, 그렇지 않으면 알림을 받습니다.",
+  "agent.approvals.notResumable":
+    "이 자동화는 다시 실행할 수 없으므로 승인해도 아무 일도 일어나지 않습니다. 거절하거나 자동화를 직접 실행하세요.",
+  "agent.approvals.notRoutine":
+    "이 작업은 별도의 승인이 필요합니다. 해당 작업의 카드에서 승인하세요.",
   "agent.approvals.noRecent": "최근 7일 동안 결정이 없습니다.",
   "agent.schedule.once": "{month} {day, number}일 {weekday} {time}",
   "agent.schedule.every": "{span}마다",

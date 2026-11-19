@@ -44,6 +44,13 @@ export const notices: Partial<Catalogue> = {
     "{kind, select, brave {A chave do {provider} foi {action, select, changed {alterada} other {removida}}} other {A chave de API do {provider} foi {action, select, changed {alterada} other {removida}}}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {Alterada} other {Removida}} por {device, select, none {um dispositivo} other {"{device}" ({platform}{paired, select, none {} other {, pareado em {paired}}})}}. Se não foi você, revogue o dispositivo em Ajustes → Dispositivos.',
+  "notice.approvals.digest.title":
+    "{count, plural, =1 {# ação das suas automações está aguardando} other {# ações das suas automações estão aguardando}}",
+  "notice.approvals.digest.body": "Abra Aprovações para aprová-las ou recusá-las",
+  "notice.approvals.resumeMissed.title":
+    "{automation, select, none {Uma ação aprovada de uma automação não foi feita} other {{automation}: a ação aprovada não foi feita}}",
+  "notice.approvals.resumeMissed.body":
+    "{why, select, expired {A aprovação expirou antes de a automação chegar à ação, então nada foi feito. Se ainda precisar, ela vai pedir de novo.} paused {A automação está pausada ou foi removida, então não foi executada de novo e nada foi feito. Se ainda precisar, ela vai pedir de novo.} restart {O Psyche reiniciou antes de a automação poder ser executada de novo, então nada foi feito. Se ainda precisar, ela vai pedir de novo.} restart_kept {O Psyche reiniciou antes de a automação poder ser executada de novo. A permissão que você deu continua, então a próxima execução fará isto sem perguntar. Para retirá-la, revogue-a em Permissões permanentes, em Aprovações.} failed {A automação executou a ação de novo, mas ela falhou. Veja em Atividade o que deu errado. Se ainda precisar, ela vai pedir de novo.} other {A automação foi executada de novo, mas não chegou à mesma ação, então nada foi feito. Se ainda precisar, ela vai pedir de novo.}}",
   "notice.specialist.result.title":
     "{outcome, select, done {{who} terminou {title}} partial {{who} parou cedo em {title}} cancelled {{who} foi interrompido em {title}} other {{who} não conseguiu terminar {title}}}",
   "notice.specialist.result.body":

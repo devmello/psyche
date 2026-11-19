@@ -47,6 +47,13 @@ export const notices = {
     "{kind, select, brave {The {provider} key was {action, select, changed {changed} other {removed}}} other {The {provider} API key was {action, select, changed {changed} other {removed}}}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {Changed} other {Removed}} from {device, select, none {a device} other {"{device}" ({platform}{paired, select, none {} other {, paired {paired}}})}}. If that was not you, revoke the device in Settings → Devices.',
+  "notice.approvals.digest.title":
+    "{count, plural, =1 {# action is waiting from your automations} other {# actions are waiting from your automations}}",
+  "notice.approvals.digest.body": "Open Approvals to approve or decline them",
+  "notice.approvals.resumeMissed.title":
+    "{automation, select, none {An approved automation action was not done} other {{automation}: the approved action was not done}}",
+  "notice.approvals.resumeMissed.body":
+    "{why, select, expired {The approval ran out before the automation reached the action, so nothing was done. If it still needs it, it will ask again.} paused {The automation is paused or was removed, so it did not run again and nothing was done. If it still needs it, it will ask again.} restart {Psyche restarted before the automation could run again, so nothing was done. If it still needs it, it will ask again.} restart_kept {Psyche restarted before the automation could run again. The permission you gave stays, so its next run will do this without asking. To take it back, revoke it under Standing permissions in Approvals.} failed {The automation ran the action again, but it failed. See Activity for what went wrong. If it still needs it, it will ask again.} other {The automation ran again but did not reach the same action, so nothing was done. If it still needs it, it will ask again.}}",
   "notice.specialist.result.title":
     "{outcome, select, done {{who} finished {title}} partial {{who} stopped early on {title}} cancelled {{who} was stopped on {title}} other {{who} couldn't finish {title}}}",
   "notice.specialist.result.body":

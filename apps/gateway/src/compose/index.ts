@@ -77,6 +77,7 @@ import {
   type EventName,
   type EventPayload,
   type IssuedApproval,
+  isUnattendedTask,
   MEMORY_RECALL_MODE_SETTING,
   MEMORY_WORK_SETTING_KEY,
   type Message,
@@ -144,6 +145,8 @@ import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
 import { macHelper } from "./connectors.ts";
 import { createContext } from "./context.ts";
 import { composeConversion } from "./convert.ts";
+import { DeferredDigest } from "./deferred-digest.ts";
+import { DeferredResume } from "./deferred-resume.ts";
 import { composeDeviceNotifications, DeviceNotifications } from "./device-notify.ts";
 import { composeDictation } from "./dictation.ts";
 import { composeEverything, type Everything, everythingSettings } from "./everything.ts";
@@ -215,7 +218,12 @@ import { requestPermissionTool } from "./request-permission.ts";
 import { researchTools } from "./research.ts";
 import { withRunSnapshot } from "./run-snapshot.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
-import { createScheduledHandlers, pausedRoutines, withPausedRoutines } from "./scheduled.ts";
+import {
+  createScheduledHandlers,
+  pausedRoutines,
+  routineOf,
+  withPausedRoutines,
+} from "./scheduled.ts";
 import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
 import { scriptTools } from "./scripts.ts";
 import { type ComposedSearch, composeSearch, graphNames } from "./search.ts";
@@ -718,6 +726,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     publish("settings.changed", { entries: [saved] });
     return true;
   };
+  let deferredResumeRef: DeferredResume | undefined;
   const rawBroker = new PsychePermissionBroker({
     folderAccess: {
       env: () => folderAccessEnv(config.home),
@@ -755,6 +764,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     notifier,
     clock,
     revocations,
+    // An unattended run's card is announced by the automation digest, not by its own notice.
+    deferredApproval: async (a) => {
+      const taskId = a.requestedBy.taskId;
+      return isUnattendedTask(taskId == null ? undefined : await tasks.get(taskId));
+    },
+    // A set-aside card is approvable only when its automation can run again (deferred-resume.ts).
+    // The scheduler is composed later; until then nothing can resume, so nothing is approved.
+    canResume: async (a) => (await deferredResumeRef?.canResume(a)) === true,
+    // A restart revoked an approved set-aside card: say the resume will not happen.
+    onSetAsideRevoked: (a, how) => deferredResumeRef?.revokedAtRestart(a, how),
     psycheHome: config.home,
     presence: {
       // Presence fails closed while the security records are untrusted; the registered keys
@@ -813,6 +832,26 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       if (e.type === "approval.decided") teachingRef?.observeApproval(e.approval);
     } else if (e.type === "receipt.created") {
       publish("receipt.created", { receipt: e.receipt });
+    }
+  });
+  // One digest for every automation card waiting on the owner (see deferred-digest.ts).
+  const deferredDigest = new DeferredDigest({
+    broker,
+    notifier,
+    clock,
+    isDeferred: async (a) => {
+      const taskId = a.requestedBy.taskId;
+      return isUnattendedTask(taskId == null ? undefined : await tasks.get(taskId));
+    },
+  });
+  broker.subscribe((e) => {
+    if (
+      e.type === "approval.created" ||
+      e.type === "approval.decided" ||
+      e.type === "approval.expired" ||
+      e.type === "approval.invalidated"
+    ) {
+      void deferredDigest.refresh().catch(() => undefined);
     }
   });
 
@@ -1380,6 +1419,25 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     watchFetch: publicFetch(),
     ...(timeZone === undefined ? {} : { defaultTimezone: timeZone }),
   });
+  // Approve on a set-aside automation card starts a resume run that may do it once (deferred-resume.ts).
+  const deferredResume = new DeferredResume({
+    scheduler,
+    notifier,
+    clock,
+    settle: (id) => broker.settleSetAside(id),
+    // A built-in routine paused in Scheduled keeps `enabled`; it must not be resumed either.
+    // `scheduledKv` is composed later; this runs only once the owner answers a card.
+    isPaused: (a) => pausedRoutines(scheduledKv).has(routineOf(a).id),
+    onError: (err) =>
+      gwOptions.logger?.log("warn", "deferred resume failed", {
+        error: err instanceof Error ? err.message : String(err),
+      }),
+  });
+  deferredResumeRef = deferredResume;
+  broker.subscribe((e) => deferredResume.onBrokerEvent(e));
+  scheduler.subscribe((e) => {
+    if (e.event === "automation.run.finished") deferredResume.onRunFinished(e.payload.run);
+  });
   // E12 "From your other chats": digests of the owner's chats, shared only with threads.otherChats on.
   const otherChats = createOtherChats({ db, audit, now: () => clock.now() });
   // Context usage, owner-set limits and compaction (B7, C2): the meter and the compaction blocks.
@@ -1508,6 +1566,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     clock,
     ...(timeZone === undefined ? {} : { timeZone }),
     approvalSurfaces: ["desktop", "web"],
+    resumeApproval: (q) => deferredResume.claim(q),
     skills: skills.loader,
     ...(compaction === undefined ? {} : { compaction }),
     contextProviders: [

@@ -10,7 +10,7 @@ import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { type ComposedMcp, composeMcp, MCP_SERVERS_SETTING } from "../src/compose/mcp.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
 import { methodPresence } from "../src/presence-gate.ts";
-import { adminClient, ik, type TestClient } from "./helpers.ts";
+import { adminClient, ik, seedMcpServers, type TestClient } from "./helpers.ts";
 
 /** A configured server's detail: its tools, the on/off switch and its secrets, by name. */
 
@@ -78,7 +78,7 @@ async function setup(withLauncher = true) {
   const owner = await adminClient(composed.gateway);
   clients.push(owner);
   const serve = async (...servers: Record<string, unknown>[]) => {
-    await owner.call("settings.set", { key: MCP_SERVERS_SETTING, value: servers }, ik());
+    seedMcpServers(services as ComposeServices, servers);
     await (mcp as ComposedMcp).idle();
   };
   const stored = async () =>

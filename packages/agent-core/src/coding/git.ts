@@ -27,8 +27,12 @@ export interface GitRunner {
 /** Bytes of git output a tool result carries. */
 export const GIT_OUTPUT_CAP = 128 * 1024;
 
-/** Prefixed to every invocation. */
+/**
+ * Prefixed to every invocation. `--literal-pathspecs`: a path is a file name, never pathspec
+ * magic, so `:!notes.md`, `:(exclude)…` or `*.md` in a commit's paths cannot widen what it stages.
+ */
 export const GIT_HARDENING = [
+  "--literal-pathspecs",
   "-c",
   "core.hooksPath=/dev/null",
   "-c",

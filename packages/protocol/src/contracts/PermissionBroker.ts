@@ -228,6 +228,13 @@ export interface ApprovalRequestInput {
    * card shows "Because you said: …" with the owner's words.
    */
   fromLesson?: { lessonId: string; feedbackId: string; because: string };
+  /**
+   * The agent loop's unattended run is setting this action aside and going on without it: nobody
+   * waits on the card. Only the loop sets it (a caller that awaits the decision, such as a
+   * webhook delivery, never does). The broker marks the card `setAside` only when its own
+   * `decide` for this run also deferred it.
+   */
+  setAside?: true;
 }
 
 /** A created request plus one single-use answer token per delivered surface. Tokens are returned only here. */

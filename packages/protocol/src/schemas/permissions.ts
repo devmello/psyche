@@ -147,6 +147,9 @@ export const TaintSource = Type.Object(
 );
 export type TaintSource = Static<typeof TaintSource>;
 
+export const RiskClass = StringEnum(["routine", "sensitive"], { $id: "RiskClass" });
+export type RiskClass = Static<typeof RiskClass>;
+
 /** Wire shape (data model §4.1, security §3.7). Answer tokens are never on the wire to clients that did not receive them. */
 export const ApprovalRequest = Type.Object(
   {
@@ -175,6 +178,18 @@ export const ApprovalRequest = Type.Object(
     deviceOnly: Type.Boolean(),
     requiresAuthentication: Type.Boolean(),
     taint: Type.Boolean(),
+    /**
+     * The broker's risk class for the card (the automation digest): `routine` only for a plain
+     * mode-default local file or git write, for the owner, untainted, payment-free, not
+     * device-only and not on a path that carries execution. Absent on older cards: not routine.
+     */
+    riskClass: Type.Optional(RiskClass),
+    /**
+     * An unattended run set this action aside and went on without it: nothing waits on the card.
+     * Approving it starts a resume run of the automation, which does the action once if it reaches
+     * the identical call (same binding); otherwise nothing runs and the owner is told.
+     */
+    setAside: Type.Optional(Type.Boolean()),
     /** Where the taint came from (security §3.6, §3.11 `taint.sources`); present only when tainted. */
     taintSources: Type.Optional(Type.Array(TaintSource)),
     status: ApprovalStatus,
@@ -277,6 +292,11 @@ export const ApprovalAnswer = Type.Object(
     presence: Type.Optional(PresenceAssertionSchema),
     /** `voice`: answered by a spoken phrase after a readback (docs/voice/voice-mode-2026.md §4.6). */
     via: Type.Optional(InputVia),
+    /**
+     * Sent by "Approve all routine ones": the broker refuses it (`invalid_params`, details.reason
+     * `not_routine`) unless the card is its own `routine` class and the scope is `once`.
+     */
+    bulk: Type.Optional(Type.Literal(true)),
   },
   { $id: "ApprovalAnswer" },
 );

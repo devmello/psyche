@@ -1161,6 +1161,7 @@
 //   let reviewItem = try? JSONDecoder().decode(ReviewItem.self, from: jsonData)
 //   let reviewItemChange = try? JSONDecoder().decode(ReviewItemChange.self, from: jsonData)
 //   let reviewNever = try? JSONDecoder().decode(ReviewNever.self, from: jsonData)
+//   let riskClass = try? JSONDecoder().decode(RiskClass.self, from: jsonData)
 //   let run = try? JSONDecoder().decode(Run.self, from: jsonData)
 //   let runBudget = try? JSONDecoder().decode(RunBudget.self, from: jsonData)
 //   let runFrame = try? JSONDecoder().decode(RunFrame.self, from: jsonData)
@@ -4035,6 +4036,7 @@ public struct AppleTabTextParams: Codable, Sendable {
 public struct ApprovalAnswer: Codable, Sendable {
     public let answerToken: String
     public let approvalID: String
+    public let bulk: Bool?
     public let decision: ApprovalAnswerDecision
     public let editedText: String?
     public let folderMode: FolderModeEnum?
@@ -4049,6 +4051,7 @@ public struct ApprovalAnswer: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case answerToken = "answerToken"
         case approvalID = "approvalId"
+        case bulk = "bulk"
         case decision = "decision"
         case editedText = "editedText"
         case folderMode = "folderMode"
@@ -4061,9 +4064,10 @@ public struct ApprovalAnswer: Codable, Sendable {
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, trustSite: TrustSite? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
+    public init(answerToken: String, approvalID: String, bulk: Bool? = nil, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, trustSite: TrustSite? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
         self.answerToken = answerToken
         self.approvalID = approvalID
+        self.bulk = bulk
         self.decision = decision
         self.editedText = editedText
         self.folderMode = folderMode
@@ -4189,8 +4193,10 @@ public struct ApprovalRequest: Codable, Sendable {
     public let requestedAt: String
     public let requestedBy: RequestedBy
     public let requiresAuthentication: Bool
+    public let riskClass: RiskClass?
     public let scopeGranted: GrantScope?
     public let scopesOffered: [GrantScope]
+    public let setAside: Bool?
     public let sideEffect: SideEffect?
     public let status: ApprovalStatus
     public let summary: String
@@ -4216,8 +4222,10 @@ public struct ApprovalRequest: Codable, Sendable {
         case requestedAt = "requestedAt"
         case requestedBy = "requestedBy"
         case requiresAuthentication = "requiresAuthentication"
+        case riskClass = "riskClass"
         case scopeGranted = "scopeGranted"
         case scopesOffered = "scopesOffered"
+        case setAside = "setAside"
         case sideEffect = "sideEffect"
         case status = "status"
         case summary = "summary"
@@ -4228,7 +4236,7 @@ public struct ApprovalRequest: Codable, Sendable {
         case targetKind = "targetKind"
     }
 
-    public init(bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
+    public init(bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, riskClass: RiskClass? = nil, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], setAside: Bool? = nil, sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
         self.bindingHash = bindingHash
         self.decidedAt = decidedAt
         self.decidedBy = decidedBy
@@ -4244,8 +4252,10 @@ public struct ApprovalRequest: Codable, Sendable {
         self.requestedAt = requestedAt
         self.requestedBy = requestedBy
         self.requiresAuthentication = requiresAuthentication
+        self.riskClass = riskClass
         self.scopeGranted = scopeGranted
         self.scopesOffered = scopesOffered
+        self.setAside = setAside
         self.sideEffect = sideEffect
         self.status = status
         self.summary = summary
@@ -4329,6 +4339,11 @@ public struct RequestedBy: Codable, Sendable {
         self.threadID = threadID
         self.toolCallID = toolCallID
     }
+}
+
+public enum RiskClass: String, Codable, Sendable {
+    case routine = "routine"
+    case sensitive = "sensitive"
 }
 
 public enum SideEffect: String, Codable, Sendable {

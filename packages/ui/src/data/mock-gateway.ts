@@ -1738,6 +1738,9 @@ export class MockGateway implements GatewayClient {
         !approval.scopesOffered.includes(p.scope)
       )
         fail("invalid_params", `scope ${p.scope} was not offered`);
+      // As the broker: a bulk answer lands only on a card classed routine.
+      if (p.bulk === true && (approval.riskClass !== "routine" || approval.requiresAuthentication))
+        fail("invalid_params", "this action needs its own approval");
       delete this.world.answerTokens[approval.id];
       const decided: ApprovalRequest = {
         ...approval,

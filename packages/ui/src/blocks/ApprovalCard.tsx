@@ -824,6 +824,14 @@ export function ApprovalCard({
           </>
         ) : null}
       </p>
+      {approval.setAside === true ? (
+        // Nothing waits on a set-aside card: approving starts a resume run (deferred-resume.ts).
+        <p className="mt-2 text-callout text-label-secondary" data-testid="approval-set-aside">
+          {approval.status === "approved"
+            ? t("agent.approvals.setAsideApproved")
+            : t("agent.approvals.setAsideNote")}
+        </p>
+      ) : null}
 
       {/* Always mounted so screen readers announce the text when it appears (C7). */}
       <p

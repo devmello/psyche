@@ -729,6 +729,24 @@ export const zh: Partial<Catalogue> = {
   "agent.approvals.anAutomation": "一个自动化",
   "agent.approvals.wantedTo": "想要{what}",
   "agent.approvals.openTask": "打开任务",
+  "agent.approvals.deferredHint":
+    "自动化搁置的操作。批准其中一项后，自动化会再次运行来完成它。过期的操作绝不会延迟执行。",
+  "agent.approvals.approve": "批准",
+  "agent.approvals.decline": "拒绝",
+  "agent.approvals.approveRoutine": "批准所有常规操作（{n, number}）",
+  "agent.approvals.riskRoutine": "常规",
+  "agent.approvals.riskSensitive": "敏感",
+  "agent.approvals.setAside": "{when}搁置",
+  "agent.approvals.answerElsewhere": "在发出的地方回复",
+  "agent.approvals.setAsideNote":
+    "某个自动化搁置了此操作并继续运行。批准后会再次运行，只有在运行到达完全相同的操作时才会执行。",
+  "agent.approvals.setAsideApproved":
+    "已批准。自动化会再次运行，只有到达完全相同的操作时才会执行此操作。否则你会收到通知。",
+  "agent.approvals.resuming":
+    "已批准。正在再次运行 {names}。每项操作只有在运行到达时才会执行；否则你会收到通知。",
+  "agent.approvals.notResumable":
+    "此自动化无法再次运行，因此批准不会有任何作用。请拒绝，或自己运行该自动化。",
+  "agent.approvals.notRoutine": "此操作需要单独批准。请在它自己的卡片上批准。",
   "agent.approvals.noRecent": "最近 7 天没有决定。",
   "agent.schedule.once": "{weekday} {month}{day, number}日 {time}",
   "agent.schedule.every": "每 {span}",

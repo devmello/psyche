@@ -30,6 +30,10 @@
       "types": "./src/binding.ts",
       "default": "./src/binding.ts"
     },
+    "./routine-path": {
+      "types": "./src/routine-path.ts",
+      "default": "./src/routine-path.ts"
+    },
     "./schema.json": "./generated/schema.json"
   },
   "scripts": {

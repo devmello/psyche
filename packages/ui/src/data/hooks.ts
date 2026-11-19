@@ -818,6 +818,8 @@ export interface ApprovalExtras {
   /** `messages_send` card: the text left in the editor and the recipient picked. */
   editedText?: string;
   recipientChoice?: string;
+  /** "Approve all routine ones": the Gateway refuses it on any card it did not class routine. */
+  bulk?: true;
   /** "Always for this site" (with scope `once`) on a first-read card that offered it. */
   trustSite?: "origin" | "subdomains";
 }
@@ -893,6 +895,7 @@ export async function answerApproval(
         ...(decision === "approve" && extras?.recipientChoice !== undefined
           ? { recipientChoice: extras.recipientChoice }
           : {}),
+        ...(decision === "approve" && extras?.bulk === true ? { bulk: true as const } : {}),
         ...(decision === "approve" && extras?.trustSite !== undefined
           ? { trustSite: extras.trustSite }
           : {}),

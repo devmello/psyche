@@ -59,7 +59,7 @@ export function NowSection({ now: fixedNow }: { now?: number }): ReactElement {
   ]);
 
   const running = live.runs.filter((r) => r.parentRunId == null);
-  const needs = approvals.live.length + questions.open.length;
+  const needs = approvals.needsYou + questions.open.length;
   const next = entries.flatMap((e) => (e.automation ? [e.automation] : [])).slice(0, NEXT_UP);
   const openRun = (runId: string) => navigate?.(overviewRunHref(runId));
   const firstNext = next[0];

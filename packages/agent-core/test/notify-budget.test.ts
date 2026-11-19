@@ -88,9 +88,10 @@ describe("notify budget (#307)", () => {
     });
     expect(h.broker.issued[0]?.approval.status).toBe("pending");
     expect(sent(events)).toEqual(["n1", "n2", "n3"]);
-    // One "Approval needed" notice for the deferred card, none for the blocked calls.
+    // No per-card notice from the loop (#1333): the Gateway's automation digest announces the
+    // deferred card. None for the blocked calls either.
     const notes = await h.notifier.list();
-    expect(notes.filter((n) => n.kind === "approval")).toHaveLength(1);
+    expect(notes.filter((n) => n.kind === "approval")).toHaveLength(0);
     // The model is told why, so it can stop.
     const last = resultsIn(h.provider.requests.at(-1)).get("n6") as { error?: string } | undefined;
     expect(JSON.stringify(last)).toContain("notification budget reached");
