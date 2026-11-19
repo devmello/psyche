@@ -344,7 +344,7 @@ describe("keys.*", () => {
       pairedAt: "2026-11-03T10:00:00Z",
     });
     expect(shown).toMatch(/^"Mac It was YOU x z+…" \(macos, paired 2026-11-03\)$/);
-    expect(shown).not.toMatch(/[\u0000-\u001f\u202a-\u202e\u2066-\u2069]/);
+    expect(shown).not.toMatch(/[\p{Cc}\u202a-\u202e\u2066-\u2069]/u);
     expect([...shown.split('"')[1]!].length).toBe(40);
     expect(describeKeyActor({ name: "Phone", platform: "ios", pairedAt: "n/a" })).toBe(
       '"Phone" (ios)',
