@@ -588,6 +588,42 @@
       "body": "{\"\\u0067atewayUrl\":\"https://evil.example\",\"\\u0067atewayUrl\":\"https://a.ts.net\",\"gatewayKey\":\"$KEY\",\"setupToken\":\"$TOKEN\",\"hostName\":\"H\"}",
       "expect": "refuse",
       "problem": "malformed"
+    },
+    {
+      "label": "nopin: discard prefix v6",
+      "url": "https://[100::1]",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: home.arpa",
+      "url": "https://printer.home.arpa",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: bare home.arpa",
+      "url": "https://home.arpa",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: .lan name",
+      "url": "https://nas.lan",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: .corp name",
+      "url": "https://gw.corp",
+      "expect": "refuse",
+      "problem": "bad_field"
+    },
+    {
+      "label": "nopin: .home name",
+      "url": "https://gw.home",
+      "expect": "refuse",
+      "problem": "bad_field"
     }
   ]
 }
