@@ -262,6 +262,12 @@ export const ApprovalAnswer = Type.Object(
     decision: StringEnum(["approve", "deny"]),
     scope: Type.Optional(GrantScope),
     /**
+     * "Always for this site" on a first-read card that offered it (`details.trustSite`), with
+     * `scope: "once"`: the Gateway adds the card's own origin to the trusted sites (reads only).
+     * `subdomains` also covers its subdomains; it is accepted only when the card offered it.
+     */
+    trustSite: Type.Optional(StringEnum(["origin", "subdomains"])),
+    /**
      * `folder_access` only: the folder the owner picked (native picker). This path, resolved by
      * the Gateway, is what is granted, never the agent's own string.
      */

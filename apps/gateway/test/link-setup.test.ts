@@ -12,14 +12,14 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { updateDevice } from "@psyche/db";
+import { readGuardOf, setReadGuard, updateDevice } from "@psyche/db";
 import type { PresenceVerifier } from "@psyche/permissions";
 import type { LinkSetupStatus } from "@psyche/protocol";
 
 type Scope = "operator.read" | "operator.write" | "operator.approvals" | "operator.admin";
 
 import { FakeModelProvider } from "@psyche/testing";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { composeBrowser } from "../src/compose/browser.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import {
@@ -818,6 +818,170 @@ describe("guided setup in the composed Gateway", () => {
     expect(calls.filter((c) => c.startsWith("auth status")).length).toBeGreaterThanOrEqual(3);
   });
 
+  /** A first sign-in, then a restart on the same home: the saved CLI is signed in. */
+  async function signedInHome(cli: string): Promise<string> {
+    const first = await bootAdmin(cli);
+    await first.admin.call("payments.link.connect", { path: cli }, "k-c");
+    await first.admin.call("payments.link.signIn", {}, "k-s");
+    writeFileSync(join(first.home, "vault", "link-auth.json.approve"), "");
+    await waitFor(
+      async () =>
+        (await first.admin.call<LinkSetupStatus>("payments.link.status", {})).state === "connected",
+    );
+    first.admin.close();
+    await first.stop();
+    return first.home;
+  }
+
+  /** `auth status` waits `delayMs` and then fails, as a slow offline CLI does. */
+  const slowFailing =
+    (calls: string[], delayMs: number): RunLink =>
+    async (file, args, env, timeout) => {
+      const verb = args.filter((a) => !a.startsWith("-") && !a.endsWith(".js")).join(" ");
+      calls.push(verb);
+      if (verb.startsWith("auth status")) {
+        await new Promise((r) => setTimeout(r, delayMs));
+        throw new Error("timed out");
+      }
+      return runFile(file, args, env, timeout);
+    };
+
+  it("ends the retry chain at stop(): no timer, no database read after (#1342 N1)", async () => {
+    const cli = fakeCli();
+    const home = await signedInHome(cli);
+    const rejections: unknown[] = [];
+    const onRejection = (e: unknown) => rejections.push(e);
+    process.on("unhandledRejection", onRejection);
+    try {
+      const calls: string[] = [];
+      const b = await boot(cli, { home, run: slowFailing(calls, 150), statusRetryMs: 10 });
+      await waitFor(async () => calls.some((c) => c.startsWith("auth status")));
+      // stop() while the first check is still running.
+      await b.stop();
+      const seen = calls.length;
+      await new Promise((r) => setTimeout(r, 400));
+      expect(calls.length).toBe(seen);
+      expect(rejections).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onRejection);
+    }
+  }, 20_000);
+
+  it("keeps one retry chain when connect is called twice, and stop() ends it (#1342 N1)", async () => {
+    const cli = fakeCli();
+    const calls: string[] = [];
+    const rejections: unknown[] = [];
+    const onRejection = (e: unknown) => rejections.push(e);
+    process.on("unhandledRejection", onRejection);
+    // The retry timers: created, and not yet fired or cleared.
+    const pending = new Set<unknown>();
+    const realSet = globalThis.setTimeout;
+    const realClear = globalThis.clearTimeout;
+    const setSpy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+      fn: (...a: unknown[]) => void,
+      ms?: number,
+      ...rest: unknown[]
+    ) => {
+      if (!String(fn).includes("attempt()")) return realSet(fn, ms, ...rest);
+      const h: unknown = realSet(
+        (...a: unknown[]) => {
+          pending.delete(h);
+          fn(...a);
+        },
+        ms,
+        ...rest,
+      );
+      pending.add(h);
+      return h;
+    }) as typeof setTimeout);
+    const clearSpy = vi.spyOn(globalThis, "clearTimeout").mockImplementation(((h: never) => {
+      pending.delete(h);
+      realClear(h);
+    }) as typeof clearTimeout);
+    try {
+      const b = await bootAdmin(cli, { run: slowFailing(calls, 60), statusRetryMs: 10 });
+      // The second connect starts while the first one's check is still running.
+      const first = b.admin.call("payments.link.connect", { path: cli }, "k-c1");
+      await waitFor(async () => calls.some((c) => c.startsWith("auth status")));
+      const second = b.admin.call("payments.link.connect", { path: cli }, "k-c2");
+      await Promise.all([first, second]);
+      await b.stop();
+      // No retry timer is left behind, not even one from the overlapped chain.
+      expect(pending.size).toBe(0);
+      await new Promise((r) => setTimeout(r, 100));
+      const seen = calls.length;
+      await new Promise((r) => setTimeout(r, 400));
+      expect(calls.length).toBe(seen);
+      expect(rejections).toEqual([]);
+    } finally {
+      setSpy.mockRestore();
+      clearSpy.mockRestore();
+      process.off("unhandledRejection", onRejection);
+    }
+  }, 20_000);
+
+  it("goes on with the back-off when the status check itself throws (#1345)", async () => {
+    const cli = fakeCli();
+    const home = await signedInHome(cli);
+    let services: ComposeServices | undefined;
+    let armed = false;
+    let thrown = 0;
+    // The first CLI answer is lost. Then the next read of the saved CLI path throws, which comes
+    // from `#runnable()` before the CLI is run, outside the run's own error handling.
+    const lost: RunLink = async (file, args, env, timeout) => {
+      const verb = args.filter((a) => !a.startsWith("-") && !a.endsWith(".js")).join(" ");
+      if (verb.startsWith("auth status") && !armed && thrown === 0) {
+        armed = true;
+        throw new Error("timed out");
+      }
+      return runFile(file, args, env, timeout);
+    };
+    await boot(cli, {
+      home,
+      run: lost,
+      statusRetryMs: 60,
+      onServices: (s) => {
+        services = s;
+        const prev = readGuardOf(s.db);
+        setReadGuard(s.db, {
+          ...prev,
+          check() {
+            if (armed && new Error().stack?.includes("runnable")) {
+              armed = false;
+              thrown++;
+              throw new Error("settings unreadable");
+            }
+            prev?.check();
+          },
+        });
+      },
+    });
+    await waitFor(async () => services?.tools.get("checkout.pay_with_link") !== undefined);
+    expect(thrown).toBe(1);
+  }, 20_000);
+
+  it("never joins a status run from before the last connect (#1342 N2)", async () => {
+    const cli = fakeCli();
+    const home = await signedInHome(cli);
+    let services: ComposeServices | undefined;
+    let slow = true;
+    const slowOnce: RunLink = async (file, args, env, timeout) => {
+      const out = await runFile(file, args, env, timeout);
+      if (slow && args.includes("status")) {
+        slow = false;
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      return out;
+    };
+    const b = await boot(cli, { home, run: slowOnce, onServices: (s) => (services = s) });
+    const admin = await adminClient(b.composed.gateway);
+    cleanups.push(() => admin.close());
+    // The start check is running slowly; connect lands in the middle of it.
+    await new Promise((r) => setTimeout(r, 100));
+    await admin.call("payments.link.connect", { path: cli }, "k-again");
+    await waitFor(async () => services?.tools.get("checkout.pay_with_link") !== undefined);
+  });
+
   it("asks `auth status` again with back-off after a failed start check (#1332 N5)", async () => {
     const cli = fakeCli();
     const first = await bootAdmin(cli);
@@ -897,7 +1061,7 @@ describe("guided setup in the composed Gateway", () => {
         );
       }
       expect(calls).toEqual([]);
-    });
+    }, 20_000);
   });
 
   describe("disconnecting with a payment open", () => {
@@ -933,7 +1097,7 @@ describe("guided setup in the composed Gateway", () => {
         code: "conflict",
         details: { reason: "payment_in_progress" },
       });
-    });
+    }, 20_000);
 
     it("names the open payment in the refusal", async () => {
       const cli = fakeCli();

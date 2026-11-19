@@ -18,6 +18,7 @@
 #   - i18n:check if any TS/TSX or message file changed
 #   - typecheck for each touched package (not with --quick)
 #   - vitest (one worker) on touched test files (not with --quick)
+#   - platform-linux/windows tests when packages/ui/src/i18n/messages/** changed (not with --quick)
 # Never runs `pnpm -w typecheck` or `pnpm -r test`.
 #
 # The owner's rule (2026-11-18): don't overheat the Mac with checks after every small fix. So the
@@ -229,6 +230,11 @@ for pkg in $test_pkgs; do
   [ -n "$pre" ] && warn+=("$name: also failing on the base (pre-existing, not yours):$pre")
   if [ -n "$own" ]; then fail+=("$name|$log.rerun.log"); else pass+=("$name"); fi
 done
+# Message files that name Mac or Touch ID need Linux/Windows variants; `vitest related` misses
+# the platform tests (#1338 broke main), so always run them when the messages change.
+if echo "$changed" | grep -q '^packages/ui/src/i18n/messages/'; then
+  run vitest:ui-platform bash -c "cd packages/ui && pnpm exec vitest run --maxWorkers=1 test/platform-linux.test.tsx test/platform-windows.test.tsx"
+fi
 # Tests outside apps/ and packages/ (tests/acceptance, tests/integration): run what was touched.
 other="$(echo "$changed" | grep -E '^tests/.*\.(test|spec)\.(ts|tsx|mts)$' || true)"
 # shellcheck disable=SC2086

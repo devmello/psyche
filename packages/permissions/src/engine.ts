@@ -28,6 +28,7 @@ import { checkProhibitions, type LocalProjectVerifier } from "./prohibitions.ts"
 import { checkRequester } from "./requester.ts";
 import type { StoredGrant } from "./store.ts";
 import { canonicalPath, canonicalUrl, isUnder } from "./targets.ts";
+import { TRUSTED_SITE_READ_TOOLS } from "./trusted-sites.ts";
 import type { PolicyCall, PolicyContext, PolicyDecision } from "./types.ts";
 
 /**
@@ -116,6 +117,8 @@ export interface EngineDeps {
     origin: string | undefined,
   ): StoredGrant | undefined;
   useGrant(rec: StoredGrant, bindingHash: string): StoredGrant;
+  /** Whether a live trusted-site entry (the owner's "Always for this site") covers this origin. */
+  trustedSite?(origin: string): boolean;
   hooks: readonly PolicyHook[];
   classifier: ActionClassifier;
   localProject: LocalProjectVerifier;
@@ -189,6 +192,13 @@ export function safeOrigin(value: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** A GET-style read tool a trusted site covers (never a write, a submit or a download). */
+export function trustedRead(call: PolicyCall): boolean {
+  if (!TRUSTED_SITE_READ_TOOLS.test(call.tool)) return false;
+  const method = (call.params as { method?: unknown } | null | undefined)?.method;
+  return method === undefined || (typeof method === "string" && /^(GET|HEAD)$/i.test(method));
 }
 
 function originOf(call: PolicyCall): string | undefined {
@@ -885,6 +895,20 @@ export class PolicyEngine {
           return ask(`${modeRule}:sensitive`, "sensitive-category source");
         }
         if (tk === undefined) return done("allow", modeRule, undefined, { binding });
+        // Balanced only (Manual never skips a first read, Auto has its own rules): a read of an
+        // origin the owner trusts runs in any task. Not in a tainted turn (§3.6 stays exact), not
+        // for a designated person, and a sensitive host was already sent to a card above.
+        if (
+          mode === "balanced" &&
+          !tainted &&
+          origin !== undefined &&
+          trustedRead(call) &&
+          (ctx.requester === undefined || ctx.requester.role === "owner") &&
+          d.trustedSite?.(origin) === true
+        ) {
+          // Never mark the origin touched: a touched origin is allowed later in a tainted turn.
+          return done("allow", `${modeRule}:trusted_site`, undefined, { binding });
+        }
         if (mode === "auto" && !tainted) {
           state.touched.add(tk);
           return done("allow", modeRule, undefined, { binding });

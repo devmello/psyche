@@ -349,6 +349,7 @@ export const de: Partial<Catalogue> = {
   "blocks.details.to": "An",
   "blocks.details.exactRecipient": "(genauer Empfänger)",
   "blocks.details.cc": "Kopie",
+  "blocks.details.bcc": "Kopie verborgen",
   "blocks.details.subject": "Betreff",
   "blocks.details.body": "Text",
   "blocks.details.view": "Anzeigen",
@@ -389,9 +390,14 @@ export const de: Partial<Catalogue> = {
 
   "blocks.approval.scope.once": "Einmal erlauben",
   "blocks.approval.scope.task": "Für diese Aufgabe erlauben",
+  "blocks.approval.scope.trustSite": "Immer für diese Website ({site})",
+  "blocks.approval.scope.trustSiteSubdomains":
+    "Immer für diese Website und ihre Subdomains ({site})",
   "blocks.approval.scope.site": "Für diese Website erlauben",
   "blocks.approval.scope.session": "Für diese Sitzung erlauben",
   "blocks.approval.scope.always": "Immer erlauben",
+  "blocks.approval.alwaysRecipient": "Immer erlauben, an {recipients} zu senden",
+  "blocks.approval.alwaysRecipientFrom": "Immer erlauben, an {recipients} über {account} zu senden",
   "blocks.approval.scopeGranted.once": "einmal erlauben",
   "blocks.approval.scopeGranted.task": "für diese Aufgabe erlauben",
   "blocks.approval.scopeGranted.site": "für diese Website erlauben",
@@ -1042,6 +1048,8 @@ export const de: Partial<Catalogue> = {
   "settings.key.models.providers": "Modellanbieter",
   "settings.key.permissions.mode": "Standardmodus",
   "settings.key.permissions.policy": "Berechtigungsrichtlinie",
+  "settings.key.permissions.sensitive.government": "Vor dem Lesen von Behördenseiten fragen",
+  "settings.key.permissions.sensitive.icloud": "Vor dem Lesen von iCloud fragen",
   "settings.key.permissions.folders": "Geteilte Ordner",
   "settings.key.persona.name": "Name",
   "settings.key.persona.tagline": "Stimmung oder Motto",
@@ -1682,6 +1690,44 @@ export const de: Partial<Catalogue> = {
   "settings.mcp.env.value": "Wert",
   "settings.mcp.env.namePlaceholder": "API_BASE_URL",
   "settings.mcp.env.saved": "Gespeichert",
+  "settings.mcp.updated": "{name} aktualisiert.",
+  "settings.mcp.edit.group": "Bearbeiten und testen",
+  "settings.mcp.edit.action": "Bearbeiten",
+  "settings.mcp.edit.title": "{name} bearbeiten",
+  "settings.mcp.edit.intro":
+    "Wenn du ändern willst, was läuft oder wohin es sich verbindet, brauchst du erneut deine Freigabe. Der aktuelle Server läuft weiter, bis du zustimmst.",
+  "settings.mcp.edit.save": "Änderungen speichern",
+  "settings.mcp.edit.loadFailed":
+    "Die Einstellungen dieses Servers konnten nicht geladen werden. {reason}",
+  "settings.mcp.edit.locked":
+    "Befehl und Verbindung dieses Servers lassen sich nicht bearbeiten. Entferne ihn und füge einen anderen hinzu, um sie zu ändern.",
+  "settings.mcp.test.action": "Verbindung testen",
+  "settings.mcp.test.running": "Wird getestet…",
+  "settings.mcp.test.hint": "Prüft die gespeicherte Einrichtung noch einmal. Nichts ändert sich.",
+  "settings.mcp.test.paused": "Schalte diesen Server ein, um ihn zu testen.",
+  "settings.mcp.test.ok":
+    "Funktioniert. {n, plural, one {# Werkzeug} other {# Werkzeuge}} verfügbar.",
+  "settings.mcp.test.failed": "Hat nicht funktioniert: {reason}",
+  "settings.mcp.trust.updateTitle": "{name} aktualisieren?",
+  "settings.mcp.trust.updateIntro":
+    "Psyche hat die neue Einrichtung in der Sandbox ausgeführt und diese Werkzeuge gefunden. Der aktuelle Server läuft weiter, bis du zustimmst.",
+  "settings.mcp.trust.change.title": "Was sich ändert",
+  "settings.mcp.trust.change.none": "keine",
+  "settings.mcp.trust.change.was": "Vorher: {value}",
+  "settings.mcp.trust.change.now": "Jetzt: {value}",
+  "settings.mcp.trust.change.command": "Befehl",
+  "settings.mcp.trust.change.url": "Adresse",
+  "settings.mcp.trust.change.domains": "Erlaubte Domains",
+  "settings.mcp.trust.change.auth": "Anmeldung",
+  "settings.mcp.trust.change.envAdded": "Hinzugefügte Variablen",
+  "settings.mcp.trust.change.envRemoved": "Entfernte Variablen",
+  "settings.mcp.trust.change.envChanged": "Geänderte Variablen",
+  "settings.mcp.trust.change.query": "Geänderte Adressparameter",
+  "settings.mcp.trust.change.userinfo": "Anmeldedaten in der Adresse",
+  "settings.mcp.trust.change.changed": "Geändert",
+  "settings.mcp.edit.changeUrl": "Adresse ändern",
+  "settings.mcp.edit.urlHidden":
+    "Teile dieser Adresse sind verborgen. Gib zum Ändern die vollständige neue Adresse ein.",
   "settings.mcp.env.add": "Variable hinzufügen",
   "settings.mcp.env.badName":
     "Namen verwenden Großbuchstaben, Ziffern und Unterstriche und beginnen mit einem Buchstaben oder Unterstrich.",
@@ -2048,6 +2094,7 @@ export const de: Partial<Catalogue> = {
   "settings.permissions.subject.execIn": "{argv} in {cwd}",
   "settings.permissions.subject.emailTo": "an {recipient}",
   "settings.permissions.subject.emailAny": "an beliebige Empfänger",
+  "settings.permissions.subject.emailFrom": "an {recipients} von {account}",
   "settings.permissions.subject.calendarNamed": "Kalender {id}",
   "settings.permissions.subject.calendar": "Kalender",
   "settings.permissions.title": "Berechtigungen",
@@ -2066,8 +2113,29 @@ export const de: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "{name} hat seine Werkzeugliste seit deiner Bestätigung geändert, daher hat Psyche seine Freigaben widerrufen. Jede Aktion fragt erneut, bis du sie überprüfst.",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "Empfänger, die immer erlaubt sind",
+  "settings.permissions.sendsHint":
+    "Mails an diese Empfänger gehen ohne Nachfrage raus. Entfernen, um wieder gefragt zu werden.",
+  "settings.permissions.noSends": "Kein Empfänger ist auf immer erlauben gesetzt.",
   "settings.permissions.origins": "Browser-Ursprünge",
   "settings.permissions.originsHint": "Websites, die der Agent ohne Nachfrage öffnen darf.",
+  "settings.permissions.trusted.title": "Vertrauenswürdige Websites",
+  "settings.permissions.trusted.description":
+    "Psyche liest diese Websites in jedem Chat ohne Nachfrage. Schreiben, Formulare und sensible Websites fragen weiterhin zuerst.",
+  "settings.permissions.trusted.empty":
+    "Noch keine vertrauenswürdigen Websites. Wähle bei einer Leseanfrage „Immer für diese Website“, um eine hinzuzufügen.",
+  "settings.permissions.trusted.added": "Hinzugefügt am {date}",
+  "settings.permissions.trusted.remove": "Entfernen",
+  "settings.permissions.trusted.removeNamed":
+    "{name} aus den vertrauenswürdigen Websites entfernen",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} und ihre Subdomains",
+  "settings.permissions.sensitive.title": "Sensible Websites",
+  "settings.permissions.sensitive.description":
+    "Banken, Gesundheit, E-Mail und Passwortmanager fragen vor dem Lesen immer. Auch Behörden- und iCloud-Websites fragen; schalte eine Kategorie hier aus, um sie ohne Nachfrage zu lesen.",
+  "settings.permissions.sensitive.governmentHint":
+    "Websites mit .gov oder .gov.uk (Steuer-, Identitäts- und Gesundheitskonten). Standardmäßig an.",
+  "settings.permissions.sensitive.icloudHint":
+    "iCloud-Websites (Mail, Fotos, Dateien). Standardmäßig an.",
   "settings.permissions.noOrigins":
     "Keine dauerhaften Website-Freigaben. Neue Websites fragen zuerst.",
   "settings.permissions.scopeExpires": "{scope}, läuft ab {date}",

@@ -89,6 +89,8 @@ const LABELLED_KEYS = [
   "models.utility",
   "models.providers",
   "permissions.mode",
+  "permissions.sensitive.government",
+  "permissions.sensitive.icloud",
   "permissions.policy",
   "permissions.folders",
   "persona.name",

@@ -725,6 +725,8 @@
 //   let mCPApp = try? JSONDecoder().decode(MCPApp.self, from: jsonData)
 //   let mCPAppParams = try? JSONDecoder().decode(MCPAppParams.self, from: jsonData)
 //   let mCPAppResult = try? JSONDecoder().decode(MCPAppResult.self, from: jsonData)
+//   let mCPConfigParams = try? JSONDecoder().decode(MCPConfigParams.self, from: jsonData)
+//   let mCPConfigResult = try? JSONDecoder().decode(MCPConfigResult.self, from: jsonData)
 //   let mCPFilesReadParams = try? JSONDecoder().decode(MCPFilesReadParams.self, from: jsonData)
 //   let mCPFilesWriteParams = try? JSONDecoder().decode(MCPFilesWriteParams.self, from: jsonData)
 //   let mCPHandlesMoneySetParams = try? JSONDecoder().decode(MCPHandlesMoneySetParams.self, from: jsonData)
@@ -738,6 +740,8 @@
 //   let mCPSecretsReplaceParams = try? JSONDecoder().decode(MCPSecretsReplaceParams.self, from: jsonData)
 //   let mCPSecretsReplaceResult = try? JSONDecoder().decode(MCPSecretsReplaceResult.self, from: jsonData)
 //   let mCPSecretsResult = try? JSONDecoder().decode(MCPSecretsResult.self, from: jsonData)
+//   let mCPServerChanges = try? JSONDecoder().decode(MCPServerChanges.self, from: jsonData)
+//   let mCPServerConfigView = try? JSONDecoder().decode(MCPServerConfigView.self, from: jsonData)
 //   let mCPServerInput = try? JSONDecoder().decode(MCPServerInput.self, from: jsonData)
 //   let mCPServerSecret = try? JSONDecoder().decode(MCPServerSecret.self, from: jsonData)
 //   let mCPServerStatus = try? JSONDecoder().decode(MCPServerStatus.self, from: jsonData)
@@ -746,10 +750,14 @@
 //   let mCPSetEnabledResult = try? JSONDecoder().decode(MCPSetEnabledResult.self, from: jsonData)
 //   let mCPStatusParams = try? JSONDecoder().decode(MCPStatusParams.self, from: jsonData)
 //   let mCPStatusResult = try? JSONDecoder().decode(MCPStatusResult.self, from: jsonData)
+//   let mCPTestParams = try? JSONDecoder().decode(MCPTestParams.self, from: jsonData)
+//   let mCPTestResult = try? JSONDecoder().decode(MCPTestResult.self, from: jsonData)
 //   let mCPToolsParams = try? JSONDecoder().decode(MCPToolsParams.self, from: jsonData)
 //   let mCPToolsResult = try? JSONDecoder().decode(MCPToolsResult.self, from: jsonData)
 //   let mCPToolsSetParams = try? JSONDecoder().decode(MCPToolsSetParams.self, from: jsonData)
 //   let mCPToolsSetResult = try? JSONDecoder().decode(MCPToolsSetResult.self, from: jsonData)
+//   let mCPUpdateParams = try? JSONDecoder().decode(MCPUpdateParams.self, from: jsonData)
+//   let mCPUpdateResult = try? JSONDecoder().decode(MCPUpdateResult.self, from: jsonData)
 //   let meetingActionItem = try? JSONDecoder().decode(MeetingActionItem.self, from: jsonData)
 //   let meetingAttendee = try? JSONDecoder().decode(MeetingAttendee.self, from: jsonData)
 //   let meetingNotes = try? JSONDecoder().decode(MeetingNotes.self, from: jsonData)
@@ -4036,6 +4044,7 @@ public struct ApprovalAnswer: Codable, Sendable {
     public let presence: PresenceAssertion?
     public let recipientChoice: String?
     public let scope: GrantScope?
+    public let trustSite: TrustSite?
     public let unsandboxed: Unsandboxed?
     public let via: InputVia?
 
@@ -4050,11 +4059,12 @@ public struct ApprovalAnswer: Codable, Sendable {
         case presence = "presence"
         case recipientChoice = "recipientChoice"
         case scope = "scope"
+        case trustSite = "trustSite"
         case unsandboxed = "unsandboxed"
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, bulk: Bool? = nil, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
+    public init(answerToken: String, approvalID: String, bulk: Bool? = nil, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, trustSite: TrustSite? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.bulk = bulk
@@ -4065,6 +4075,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         self.presence = presence
         self.recipientChoice = recipientChoice
         self.scope = scope
+        self.trustSite = trustSite
         self.unsandboxed = unsandboxed
         self.via = via
     }
@@ -4112,6 +4123,11 @@ public enum GrantScope: String, Codable, Sendable {
     case session = "session"
     case site = "site"
     case task = "task"
+}
+
+public enum TrustSite: String, Codable, Sendable {
+    case origin = "origin"
+    case subdomains = "subdomains"
 }
 
 public enum Unsandboxed: String, Codable, Sendable {
@@ -11273,7 +11289,7 @@ public struct TransportClass: Codable, Sendable {
     public let command: [String]?
     public let env: [String: JSONAny]?
     public let kind: TransportEnum
-    public let auth: Auth?
+    public let auth: TransportAuth?
     public let url: String?
 
     public enum CodingKeys: String, CodingKey {
@@ -11284,7 +11300,7 @@ public struct TransportClass: Codable, Sendable {
         case url = "url"
     }
 
-    public init(command: [String]? = nil, env: [String: JSONAny]? = nil, kind: TransportEnum, auth: Auth? = nil, url: String? = nil) {
+    public init(command: [String]? = nil, env: [String: JSONAny]? = nil, kind: TransportEnum, auth: TransportAuth? = nil, url: String? = nil) {
         self.command = command
         self.env = env
         self.kind = kind
@@ -11293,9 +11309,9 @@ public struct TransportClass: Codable, Sendable {
     }
 }
 
-// MARK: - Auth
-public struct Auth: Codable, Sendable {
-    public let kind: AuthKind
+// MARK: - TransportAuth
+public struct TransportAuth: Codable, Sendable {
+    public let kind: AuthEnum
     public let credential: String?
 
     public enum CodingKeys: String, CodingKey {
@@ -11303,13 +11319,13 @@ public struct Auth: Codable, Sendable {
         case credential = "credential"
     }
 
-    public init(kind: AuthKind, credential: String? = nil) {
+    public init(kind: AuthEnum, credential: String? = nil) {
         self.kind = kind
         self.credential = credential
     }
 }
 
-public enum AuthKind: String, Codable, Sendable {
+public enum AuthEnum: String, Codable, Sendable {
     case bearer = "bearer"
     case none = "none"
     case oauth = "oauth"
@@ -18539,6 +18555,74 @@ public enum ProvenanceEnum: String, Codable, Sendable {
     case untrusted = "untrusted"
 }
 
+// MARK: - MCPConfigParams
+public struct MCPConfigParams: Codable, Sendable {
+    public let serverID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case serverID = "serverId"
+    }
+
+    public init(serverID: String) {
+        self.serverID = serverID
+    }
+}
+
+// MARK: - MCPConfigResult
+public struct MCPConfigResult: Codable, Sendable {
+    public let config: MCPServerConfigView
+
+    public enum CodingKeys: String, CodingKey {
+        case config = "config"
+    }
+
+    public init(config: MCPServerConfigView) {
+        self.config = config
+    }
+}
+
+// MARK: - MCPServerConfigView
+public struct MCPServerConfigView: Codable, Sendable {
+    public let allowedDomains: [String]
+    public let auth: AuthEnum?
+    public let command: [String]?
+    public let editable: Bool
+    public let envNames: [String]
+    public let id: String
+    public let kind: TentacledKind
+    public let name: String
+    public let url: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case allowedDomains = "allowedDomains"
+        case auth = "auth"
+        case command = "command"
+        case editable = "editable"
+        case envNames = "envNames"
+        case id = "id"
+        case kind = "kind"
+        case name = "name"
+        case url = "url"
+    }
+
+    public init(allowedDomains: [String], auth: AuthEnum? = nil, command: [String]? = nil, editable: Bool, envNames: [String], id: String, kind: TentacledKind, name: String, url: String? = nil) {
+        self.allowedDomains = allowedDomains
+        self.auth = auth
+        self.command = command
+        self.editable = editable
+        self.envNames = envNames
+        self.id = id
+        self.kind = kind
+        self.name = name
+        self.url = url
+    }
+}
+
+public enum TentacledKind: String, Codable, Sendable {
+    case command = "command"
+    case url = "url"
+}
+
 // MARK: - MCPFilesReadParams
 public struct MCPFilesReadParams: Codable, Sendable {
     public let serverID: String
@@ -18785,6 +18869,41 @@ public enum Launcher: String, Codable, Sendable {
     case vm = "vm"
 }
 
+// MARK: - MCPTestParams
+public struct MCPTestParams: Codable, Sendable {
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+// MARK: - MCPTestResult
+public struct MCPTestResult: Codable, Sendable {
+    public let error: String?
+    public let ok: Bool
+    public let toolCount: Int
+    public let tools: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case error = "error"
+        case ok = "ok"
+        case toolCount = "toolCount"
+        case tools = "tools"
+    }
+
+    public init(error: String? = nil, ok: Bool, toolCount: Int, tools: [String]) {
+        self.error = error
+        self.ok = ok
+        self.toolCount = toolCount
+        self.tools = tools
+    }
+}
+
 // MARK: - MCPToolsParams
 public struct MCPToolsParams: Codable, Sendable {
     public let serverID: String
@@ -18868,6 +18987,88 @@ public struct MCPToolsSetResult: Codable, Sendable {
 
     public init(tools: [MCPServerTool]) {
         self.tools = tools
+    }
+}
+
+// MARK: - MCPUpdateParams
+public struct MCPUpdateParams: Codable, Sendable {
+    public let changes: MCPServerChanges
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case changes = "changes"
+        case id = "id"
+    }
+
+    public init(changes: MCPServerChanges, id: String) {
+        self.changes = changes
+        self.id = id
+    }
+}
+
+// MARK: - MCPServerChanges
+public struct MCPServerChanges: Codable, Sendable {
+    public let allowedDomains: [String]?
+    public let auth: MCPServerChangesAuth?
+    public let command: [String]?
+    public let env: [String: JSONAny]?
+    public let name: String?
+    public let url: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case allowedDomains = "allowedDomains"
+        case auth = "auth"
+        case command = "command"
+        case env = "env"
+        case name = "name"
+        case url = "url"
+    }
+
+    public init(allowedDomains: [String]? = nil, auth: MCPServerChangesAuth? = nil, command: [String]? = nil, env: [String: JSONAny]? = nil, name: String? = nil, url: String? = nil) {
+        self.allowedDomains = allowedDomains
+        self.auth = auth
+        self.command = command
+        self.env = env
+        self.name = name
+        self.url = url
+    }
+}
+
+// MARK: - MCPServerChangesAuth
+public struct MCPServerChangesAuth: Codable, Sendable {
+    public let kind: AuthEnum
+    public let credential: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case credential = "credential"
+    }
+
+    public init(kind: AuthEnum, credential: String? = nil) {
+        self.kind = kind
+        self.credential = credential
+    }
+}
+
+// MARK: - MCPUpdateResult
+public struct MCPUpdateResult: Codable, Sendable {
+    public let applied: Bool
+    public let approval: ApprovalRequest?
+    public let proposal: MCPProposal?
+    public let server: MCPServerStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case applied = "applied"
+        case approval = "approval"
+        case proposal = "proposal"
+        case server = "server"
+    }
+
+    public init(applied: Bool, approval: ApprovalRequest? = nil, proposal: MCPProposal? = nil, server: MCPServerStatus) {
+        self.applied = applied
+        self.approval = approval
+        self.proposal = proposal
+        self.server = server
     }
 }
 

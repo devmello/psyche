@@ -365,7 +365,7 @@ function decodeEscapes(text: string): string {
 
 /** A path segment without parameters (`paypalme;x`) and trailing dots or spaces. */
 function cleanSegment(seg: string): string {
-  return (seg.split(";")[0] ?? "").replace(/[.\s]+$/, "");
+  return (seg.split(/[;#?]/)[0] ?? "").replace(/[.\s]+$/, "");
 }
 
 /**
@@ -376,18 +376,40 @@ function cleanSegment(seg: string): string {
  * segment's `;parameters` and trailing dots are ignored.
  */
 function isPaypalP2pPath(u: URL): boolean {
-  const hash = decodeEscapes(u.hash.replace(/^#/, ""));
-  const hashPath = hash.split("?")[0] ?? "";
-  const segs = `${decodeEscapes(u.pathname)}/${hashPath}`
-    .toLowerCase()
-    .split("/")
-    .map(cleanSegment)
-    .filter((x) => x !== "");
-  for (const [i, seg] of segs.entries()) {
-    if (PAYPAL_P2P_SEGMENTS.has(seg) || seg === "send" || seg.startsWith("send-")) return true;
-    if (seg === "myaccount" && ["transfer", "money"].includes(segs[i + 1] ?? "")) return true;
+  // The hash is split at its first raw `?`: the route before it, the hash query after it.
+  const rawHash = u.hash.replace(/^#/, "");
+  const cut = rawHash.indexOf("?");
+  const hash = decodeEscapes(cut < 0 ? rawHash : rawHash.slice(0, cut));
+  const hashQuery = cut < 0 ? "" : decodeEscapes(rawHash.slice(cut));
+  const pathSegs = (text: string) =>
+    text
+      .toLowerCase()
+      .split("/")
+      .map(cleanSegment)
+      .filter((x) => x !== "");
+  const hasP2p = (segs: string[]): boolean => {
+    for (const [i, seg] of segs.entries()) {
+      if (PAYPAL_P2P_SEGMENTS.has(seg) || seg === "send" || seg.startsWith("send-")) return true;
+      if (seg === "myaccount" && ["transfer", "money"].includes(segs[i + 1] ?? "")) return true;
+    }
+    return false;
+  };
+  const pathSegments = pathSegs(decodeEscapes(u.pathname));
+  if (hasP2p(pathSegments)) return true;
+  // A hash route (`#/us/paypalme/john`, `#!paypalme`): its P2P words count at any position, but
+  // not the bare `pay`, `send` and `send-*` other than `send-money`, which are steps of a
+  // checkout (`#/pay`, `#/send-otp`, `#/send-code`).
+  const route = pathSegs(hash.replace(/^!/, ""));
+  for (const [i, seg] of route.entries()) {
+    if (seg !== "pay" && PAYPAL_P2P_SEGMENTS.has(seg)) return true;
+    if (seg === "send-money") return true;
+    if (seg === "myaccount" && ["transfer", "money"].includes(route[i + 1] ?? "")) return true;
   }
-  const query = `${decodeEscapes(u.search)}&${hash.includes("?") ? hash.slice(hash.indexOf("?")) : ""}`;
+  // `/myaccount#/transfer/send`: the path ends in `myaccount`, the hash goes on from there.
+  if (pathSegments.at(-1) === "myaccount" && ["transfer", "money"].includes(route[0] ?? ""))
+    return true;
+  // Only the `cmd=` check reads the queries; their values are not routes.
+  const query = `${decodeEscapes(u.search)}&${hashQuery}`;
   return /[?&]cmd=_send-money(?:[&;%#]|$)/i.test(query);
 }
 

@@ -1724,6 +1724,14 @@
         "sideEffecting": false
       },
       {
+        "description": "A configured server's command or URL, allowed domains and env variable names, to prefill the edit form. Admin only because arguments are the owner's own text. Never a secret value. not_found for an unknown server.",
+        "name": "mcp.config",
+        "params": "#/$defs/McpConfigParams",
+        "result": "#/$defs/McpConfigResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "The code of an agent-made MCP server (madeBy psyche), read-only. not_found for an unknown server or one not made by Psyche.",
         "name": "mcp.files.read",
         "params": "#/$defs/McpFilesReadParams",
@@ -1796,6 +1804,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Checks an added server with its approved config: asks the running server for its tools, or, when it is on but not connected, starts the stored config once in the sandbox and stops it. Changes no config, raises no trust card and takes no config from the caller. Admin because it can start a process. not_found for an unknown server; unavailable (reason paused or not_running) for a paused server or one the Gateway does not run.",
+        "name": "mcp.test",
+        "params": "#/$defs/McpTestParams",
+        "result": "#/$defs/McpTestResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "A configured server's tools (name, description, side effect when annotated) and whether each is offered to the agent. Descriptions are server-authored: render as data. not_found for an unknown server.",
         "name": "mcp.tools",
         "params": "#/$defs/McpToolsParams",
@@ -1808,6 +1824,14 @@
         "name": "mcp.tools.set",
         "params": "#/$defs/McpToolsSetParams",
         "result": "#/$defs/McpToolsSetResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting: edits a server in place. A display name applies at once. Anything that changes what runs or where it connects (command, arguments, URL, auth, allowed domains, env names or secrets) is probed in the sandbox and opens the same device-only trust card as mcp.probe, showing the old and the new config; the old server keeps running until mcp.add with that approved card, which restarts it with the new config. Never applied silently. Not available for a Psyche-made, shared or built-in server (only its name). not_found for an unknown server; invalid_params when a field does not fit the server's kind.",
+        "name": "mcp.update",
+        "params": "#/$defs/McpUpdateParams",
+        "result": "#/$defs/McpUpdateResult",
         "scope": "operator.admin",
         "sideEffecting": true
       },
@@ -7126,6 +7150,13 @@
         },
         "scope": {
           "$ref": "#/$defs/GrantScope"
+        },
+        "trustSite": {
+          "enum": [
+            "origin",
+            "subdomains"
+          ],
+          "type": "string"
         },
         "folderPath": {
           "maxLength": 4096,
@@ -25937,6 +25968,30 @@
       ],
       "type": "object"
     },
+    "McpConfigParams": {
+      "properties": {
+        "serverId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "serverId"
+      ],
+      "type": "object"
+    },
+    "McpConfigResult": {
+      "properties": {
+        "config": {
+          "$ref": "#/$defs/McpServerConfigView"
+        }
+      },
+      "required": [
+        "config"
+      ],
+      "type": "object"
+    },
     "McpFilesReadParams": {
       "properties": {
         "serverId": {
@@ -26224,6 +26279,159 @@
       },
       "required": [
         "secrets"
+      ],
+      "type": "object"
+    },
+    "McpServerChanges": {
+      "properties": {
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        },
+        "command": {
+          "items": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array"
+        },
+        "env": {
+          "patternProperties": {
+            "^[A-Z_][A-Z0-9_]{0,63}$": {
+              "anyOf": [
+                {
+                  "maxLength": 4000,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "url": {
+          "maxLength": 2000,
+          "pattern": "^https://",
+          "type": "string"
+        },
+        "auth": {
+          "anyOf": [
+            {
+              "properties": {
+                "kind": {
+                  "const": "none",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "oauth",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "bearer",
+                  "type": "string"
+                },
+                "credential": {
+                  "pattern": "^\\{\\{cred:[a-z0-9][a-z0-9-]{0,63}(\\.[a-z]+)?\\}\\}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "credential"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "allowedDomains": {
+          "items": {
+            "maxLength": 253,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "McpServerConfigView": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "command",
+            "url"
+          ],
+          "type": "string"
+        },
+        "command": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "url": {
+          "type": "string"
+        },
+        "allowedDomains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "envNames": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "auth": {
+          "enum": [
+            "none",
+            "oauth",
+            "bearer"
+          ],
+          "type": "string"
+        },
+        "editable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "allowedDomains",
+        "envNames",
+        "editable"
       ],
       "type": "object"
     },
@@ -26517,6 +26725,45 @@
       ],
       "type": "object"
     },
+    "McpTestParams": {
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "McpTestResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "toolCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ok",
+        "toolCount",
+        "tools"
+      ],
+      "type": "object"
+    },
     "McpToolsParams": {
       "properties": {
         "serverId": {
@@ -26582,6 +26829,44 @@
       },
       "required": [
         "tools"
+      ],
+      "type": "object"
+    },
+    "McpUpdateParams": {
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "changes": {
+          "$ref": "#/$defs/McpServerChanges"
+        }
+      },
+      "required": [
+        "id",
+        "changes"
+      ],
+      "type": "object"
+    },
+    "McpUpdateResult": {
+      "properties": {
+        "applied": {
+          "type": "boolean"
+        },
+        "server": {
+          "$ref": "#/$defs/McpServerStatus"
+        },
+        "proposal": {
+          "$ref": "#/$defs/McpProposal"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        }
+      },
+      "required": [
+        "applied",
+        "server"
       ],
       "type": "object"
     },

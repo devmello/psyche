@@ -1020,6 +1020,7 @@ export interface ApprovalAnswer {
     presence?:        PresenceAssertion;
     recipientChoice?: string;
     scope?:           GrantScope;
+    trustSite?:       TrustSite;
     unsandboxed?:     Unsandboxed;
     via?:             InputVia;
 }
@@ -1043,6 +1044,8 @@ export interface PresenceAssertion {
 export type PresenceAssertionKind = "webauthn" | "helper" | "password";
 
 export type GrantScope = "once" | "task" | "site" | "session" | "always";
+
+export type TrustSite = "origin" | "subdomains";
 
 export type Unsandboxed = "UNSANDBOXED";
 
@@ -3603,16 +3606,16 @@ export interface TransportClass {
     command?: string[];
     env?:     { [key: string]: unknown };
     kind:     TransportEnum;
-    auth?:    Auth;
+    auth?:    TransportAuth;
     url?:     string;
 }
 
-export interface Auth {
-    kind:        AuthKind;
+export interface TransportAuth {
+    kind:        AuthEnum;
     credential?: string;
 }
 
-export type AuthKind = "none" | "oauth" | "bearer";
+export type AuthEnum = "none" | "oauth" | "bearer";
 
 export type TransportEnum = "stdio" | "http";
 
@@ -6157,6 +6160,28 @@ export interface MCPApp {
 
 export type ProvenanceEnum = "untrusted";
 
+export interface MCPConfigParams {
+    serverId: string;
+}
+
+export interface MCPConfigResult {
+    config: MCPServerConfigView;
+}
+
+export interface MCPServerConfigView {
+    allowedDomains: string[];
+    auth?:          AuthEnum;
+    command?:       string[];
+    editable:       boolean;
+    envNames:       string[];
+    id:             string;
+    kind:           TentacledKind;
+    name:           string;
+    url?:           string;
+}
+
+export type TentacledKind = "command" | "url";
+
 export interface MCPFilesReadParams {
     serverId: string;
 }
@@ -6234,6 +6259,17 @@ export interface MCPStatusResult {
 
 export type Launcher = "srt" | "container" | "vm" | "none";
 
+export interface MCPTestParams {
+    id: string;
+}
+
+export interface MCPTestResult {
+    error?:    string;
+    ok:        boolean;
+    toolCount: number;
+    tools:     string[];
+}
+
 export interface MCPToolsParams {
     serverId: string;
 }
@@ -6259,6 +6295,32 @@ export interface MCPToolsSetParams {
 
 export interface MCPToolsSetResult {
     tools: MCPServerTool[];
+}
+
+export interface MCPUpdateParams {
+    changes: MCPServerChanges;
+    id:      string;
+}
+
+export interface MCPServerChanges {
+    allowedDomains?: string[];
+    auth?:           MCPServerChangesAuth;
+    command?:        string[];
+    env?:            { [key: string]: unknown };
+    name?:           string;
+    url?:            string;
+}
+
+export interface MCPServerChangesAuth {
+    kind:        AuthEnum;
+    credential?: string;
+}
+
+export interface MCPUpdateResult {
+    applied:   boolean;
+    approval?: ApprovalRequest;
+    proposal?: MCPProposal;
+    server:    MCPServerStatus;
 }
 
 export interface MeetingNotesResult {

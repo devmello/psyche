@@ -137,7 +137,7 @@ export interface McpAdder {
 const sha = (text: string) => `sha256:${createHash("sha256").update(text, "utf8").digest("hex")}`;
 
 /** Sorted-key JSON, so the hash does not depend on key order. */
-function canonical(value: unknown): string {
+export function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (value !== null && typeof value === "object") {
     const o = value as Record<string, unknown>;
@@ -567,7 +567,7 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     commit,
     remove,
     install,
-    test: (config) => probe(inputOf(config), config),
+    test: (config) => probe(inputOfAny(config), config),
   };
 }
 
@@ -580,5 +580,39 @@ export function inputOf(config: PsycheMcpServerConfig): McpServerInput {
     name: config.name,
     transport: { kind: "stdio", command: [...t.command] },
     allowedDomains: [...(config.sandbox?.allowedDomains ?? [])],
+  };
+}
+
+/** The `McpServerInput` view of any config: how `mcp.test` and `mcp.update` probe a stored one. */
+export function inputOfAny(config: PsycheMcpServerConfig): McpServerInput {
+  const t = config.transport;
+  if (t.kind === "stdio") {
+    return {
+      id: config.id,
+      name: config.name,
+      transport: {
+        kind: "stdio",
+        command: [...t.command],
+        ...(t.env === undefined ? {} : { env: { ...t.env } }),
+      },
+      allowedDomains: [...(config.sandbox?.allowedDomains ?? [])],
+    };
+  }
+  const a = config.auth;
+  return {
+    id: config.id,
+    name: config.name,
+    transport: {
+      kind: "http",
+      url: t.url,
+      ...(a === undefined
+        ? {}
+        : {
+            auth:
+              a.kind === "bearer"
+                ? { kind: "bearer" as const, credential: a.credential }
+                : { kind: a.kind },
+          }),
+    },
   };
 }

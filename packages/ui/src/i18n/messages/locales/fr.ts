@@ -334,6 +334,7 @@ export const fr: Partial<Catalogue> = {
   "blocks.details.to": "À",
   "blocks.details.exactRecipient": "(destinataire exact)",
   "blocks.details.cc": "Cc",
+  "blocks.details.bcc": "Cci",
   "blocks.details.subject": "Objet",
   "blocks.details.body": "Corps",
   "blocks.details.view": "Afficher",
@@ -373,9 +374,15 @@ export const fr: Partial<Catalogue> = {
   "blocks.details.binding": "Liaison",
   "blocks.approval.scope.once": "Autoriser une fois",
   "blocks.approval.scope.task": "Autoriser pour cette tâche",
+  "blocks.approval.scope.trustSite": "Toujours pour ce site ({site})",
+  "blocks.approval.scope.trustSiteSubdomains":
+    "Toujours pour ce site et ses sous-domaines ({site})",
   "blocks.approval.scope.site": "Autoriser pour ce site",
   "blocks.approval.scope.session": "Autoriser pour cette session",
   "blocks.approval.scope.always": "Toujours autoriser",
+  "blocks.approval.alwaysRecipient": "Toujours autoriser l’envoi à {recipients}",
+  "blocks.approval.alwaysRecipientFrom":
+    "Toujours autoriser l’envoi à {recipients} depuis {account}",
   "blocks.approval.scopeGranted.once": "autorisé une fois",
   "blocks.approval.scopeGranted.task": "autorisé pour cette tâche",
   "blocks.approval.scopeGranted.site": "autorisé pour ce site",
@@ -1002,6 +1009,9 @@ export const fr: Partial<Catalogue> = {
   "settings.key.models.providers": "Fournisseurs de modèles",
   "settings.key.permissions.mode": "Mode par défaut",
   "settings.key.permissions.policy": "Politique d’autorisation",
+  "settings.key.permissions.sensitive.government":
+    "Demander avant de lire les sites gouvernementaux",
+  "settings.key.permissions.sensitive.icloud": "Demander avant de lire iCloud",
   "settings.key.permissions.folders": "Dossiers partagés",
   "settings.key.persona.name": "Nom",
   "settings.key.persona.tagline": "Humeur ou devise",
@@ -1637,6 +1647,43 @@ export const fr: Partial<Catalogue> = {
   "settings.mcp.env.value": "Valeur",
   "settings.mcp.env.namePlaceholder": "API_BASE_URL",
   "settings.mcp.env.saved": "Enregistré",
+  "settings.mcp.updated": "{name} mis à jour.",
+  "settings.mcp.edit.group": "Modifier et tester",
+  "settings.mcp.edit.action": "Modifier",
+  "settings.mcp.edit.title": "Modifier {name}",
+  "settings.mcp.edit.intro":
+    "Changer ce qui s'exécute ou l'endroit où il se connecte demande de nouveau ton accord. Le serveur actuel continue de tourner jusqu'à ton approbation.",
+  "settings.mcp.edit.save": "Enregistrer les modifications",
+  "settings.mcp.edit.loadFailed": "Impossible de charger les réglages de ce serveur. {reason}",
+  "settings.mcp.edit.locked":
+    "La commande et la connexion de ce serveur ne peuvent pas être modifiées. Retire-le et ajoutes-en un autre pour les changer.",
+  "settings.mcp.test.action": "Tester la connexion",
+  "settings.mcp.test.running": "Test en cours…",
+  "settings.mcp.test.hint": "Revérifie la configuration enregistrée. Rien ne change.",
+  "settings.mcp.test.paused": "Active ce serveur pour le tester.",
+  "settings.mcp.test.ok":
+    "Ça marche. {n, plural, one {# outil disponible} other {# outils disponibles}}.",
+  "settings.mcp.test.failed": "Ça n'a pas marché : {reason}",
+  "settings.mcp.trust.updateTitle": "Mettre à jour {name} ?",
+  "settings.mcp.trust.updateIntro":
+    "Psyche a exécuté la nouvelle configuration dans son bac à sable et a trouvé ces outils. Le serveur actuel continue de tourner jusqu'à ton approbation.",
+  "settings.mcp.trust.change.title": "Ce qui change",
+  "settings.mcp.trust.change.none": "aucun",
+  "settings.mcp.trust.change.was": "Avant : {value}",
+  "settings.mcp.trust.change.now": "Après : {value}",
+  "settings.mcp.trust.change.command": "Commande",
+  "settings.mcp.trust.change.url": "Adresse",
+  "settings.mcp.trust.change.domains": "Domaines autorisés",
+  "settings.mcp.trust.change.auth": "Connexion",
+  "settings.mcp.trust.change.envAdded": "Variables ajoutées",
+  "settings.mcp.trust.change.envRemoved": "Variables retirées",
+  "settings.mcp.trust.change.envChanged": "Variables modifiées",
+  "settings.mcp.trust.change.query": "Paramètres de l'adresse modifiés",
+  "settings.mcp.trust.change.userinfo": "Identifiants dans l'adresse",
+  "settings.mcp.trust.change.changed": "Modifié",
+  "settings.mcp.edit.changeUrl": "Changer l'adresse",
+  "settings.mcp.edit.urlHidden":
+    "Certaines parties de cette adresse sont masquées. Pour la changer, saisis la nouvelle adresse complète.",
   "settings.mcp.env.add": "Ajouter une variable",
   "settings.mcp.env.badName":
     "Les noms utilisent des majuscules, des chiffres et des tirets bas, et commencent par une lettre ou un tiret bas.",
@@ -1996,6 +2043,7 @@ export const fr: Partial<Catalogue> = {
   "settings.permissions.subject.execIn": "{argv} dans {cwd}",
   "settings.permissions.subject.emailTo": "à {recipient}",
   "settings.permissions.subject.emailAny": "à n’importe quel destinataire",
+  "settings.permissions.subject.emailFrom": "à {recipients} depuis {account}",
   "settings.permissions.subject.calendarNamed": "calendrier {id}",
   "settings.permissions.subject.calendar": "calendrier",
   "settings.permissions.title": "Autorisations",
@@ -2014,8 +2062,28 @@ export const fr: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "{name} a changé sa liste d’outils depuis votre approbation ; Psyche a donc révoqué ses accords. Chaque action redemande jusqu’à ce que vous l’examiniez.",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "Destinataires toujours autorisés",
+  "settings.permissions.sendsHint":
+    "Les e-mails envoyés à ces destinataires partent sans demande. Retirez-en un pour être à nouveau invité à confirmer.",
+  "settings.permissions.noSends": "Aucun destinataire n’est réglé sur toujours autoriser.",
   "settings.permissions.origins": "Origines du navigateur",
   "settings.permissions.originsHint": "Sites que l’agent peut ouvrir sans demander.",
+  "settings.permissions.trusted.title": "Sites de confiance",
+  "settings.permissions.trusted.description":
+    "Psyche lit ces sites sans demander, dans toutes les conversations. L’écriture, les formulaires et les sites sensibles demandent toujours d’abord.",
+  "settings.permissions.trusted.empty":
+    "Aucun site de confiance pour l’instant. Choisissez « Toujours pour ce site » lors d’une première lecture pour en ajouter un.",
+  "settings.permissions.trusted.added": "Ajouté le {date}",
+  "settings.permissions.trusted.remove": "Retirer",
+  "settings.permissions.trusted.removeNamed": "Retirer {name} des sites de confiance",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} et ses sous-domaines",
+  "settings.permissions.sensitive.title": "Sites sensibles",
+  "settings.permissions.sensitive.description":
+    "Les banques, la santé, la messagerie et les gestionnaires de mots de passe demandent toujours avant une lecture. Les sites gouvernementaux et iCloud aussi ; désactivez une catégorie ici pour la lire sans demander.",
+  "settings.permissions.sensitive.governmentHint":
+    "Sites se terminant par .gov ou .gov.uk (comptes d’impôts, d’identité et de santé). Activé par défaut.",
+  "settings.permissions.sensitive.icloudHint":
+    "Sites iCloud (messagerie, photos, fichiers). Activé par défaut.",
   "settings.permissions.noOrigins":
     "Aucun accord permanent pour des sites web. Les nouveaux sites demandent d’abord.",
   "settings.permissions.scopeExpires": "{scope}, expire {date}",
