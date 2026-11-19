@@ -304,6 +304,7 @@ async function saveFile(
   );
   // The temp file's own inode: once it is the target, the save has happened.
   let written: { dev: bigint; ino: bigint } | undefined;
+  let renameTried = false;
   const isOurs = async (): Promise<boolean> => {
     if (written === undefined) return false;
     const at = await lstat(target, { bigint: true }).catch(() => undefined);
@@ -327,6 +328,7 @@ async function saveFile(
       throw new PsycheError("conflict", `${target} changed since you opened it`);
     }
     try {
+      renameTried = true;
       await (setup.rename ?? rename)(tmp, target);
     } catch (err) {
       // A rename whose reply was lost (NFS, SMB retry) can report ENOENT after it happened: if
@@ -342,7 +344,11 @@ async function saveFile(
     if (!(await isOurs())) {
       // Empty the file through its own descriptor, which a swapped path cannot redirect, so a
       // temp file stranded in a moved folder holds none of the owner's text; then remove it.
-      await fh.truncate(0).catch(() => undefined);
+      // Once a rename was tried the inode may already be the owner's file (a filesystem whose
+      // inode numbers are not stable, like smbfs without file IDs, can hide that), so then it is
+      // emptied only when the folder really moved.
+      const swapped = !sameHostPath(await realpath(dir).catch(() => ""), dir);
+      if (!renameTried || swapped) await fh.truncate(0).catch(() => undefined);
       await unlink(tmp).catch(() => undefined);
     }
     throw err;

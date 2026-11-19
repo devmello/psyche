@@ -90,6 +90,20 @@ describe("a dropped spreadsheet draft stays dropped", () => {
     const save = screen.queryByRole("button", { name: "Save" }) as HTMLButtonElement | null;
     expect(save === null || save.disabled).toBe(true);
   });
+  it("the sheet's own Done, then Discard, also drops the edits", async () => {
+    const { editCell } = setupCsv();
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await editCell();
+    const dones = await screen.findAllByRole("button", { name: "Done" });
+    fireEvent.click(dones[dones.length - 1] as HTMLElement);
+    fireEvent.click(await screen.findByRole("button", { name: "Discard" }));
+    await new Promise((r) => setTimeout(r, 200));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await new Promise((r) => setTimeout(r, 300));
+    expect(screen.queryByText("Unsaved changes restored")).toBeNull();
+    const save = screen.queryByRole("button", { name: "Save" }) as HTMLButtonElement | null;
+    expect(save === null || save.disabled).toBe(true);
+  });
   it("Reload leaves a spreadsheet conflict for the file as it is now", async () => {
     const { gw, editCell, state } = setupCsv();
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));

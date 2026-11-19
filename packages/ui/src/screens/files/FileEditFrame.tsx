@@ -368,7 +368,12 @@ export function FileEditFrame({
           readOnly,
           save,
           setDirty,
-          close: onClose,
+          // An editor closes itself only when clean or after the owner chose Discard: either way
+          // no draft may outlive it (the unmount report then carries a stale drop count).
+          close: () => {
+            dropDraft(path);
+            onClose();
+          },
         })}
       </div>
     </section>
