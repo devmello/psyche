@@ -31,6 +31,23 @@ set -o pipefail  # no -u: macOS bash 3.2 treats empty arrays as unbound
 
 cd "$(git rev-parse --show-toplevel)" || exit 2
 
+# A session started before nvm's default Node changed keeps the old Node on PATH, and that Node
+# may have no pnpm any more (2026-11-19: v24.18.0 lost it after the owner moved to v24.22.3).
+# Every check would then fail with "pnpm: command not found", so use nvm's default Node instead.
+if ! command -v pnpm >/dev/null 2>&1; then
+  nvm_dir="${NVM_DIR:-$HOME/.nvm}"
+  default="$(cat "$nvm_dir/alias/default" 2>/dev/null)"
+  for bin in "$nvm_dir"/versions/node/v"${default#v}"*/bin "$nvm_dir"/versions/node/*/bin; do
+    if [ -x "$bin/pnpm" ]; then
+      PATH="$bin:$PATH"
+      export PATH
+      echo "verify: pnpm wasn't on PATH; using $bin" >&2
+      break
+    fi
+  done
+  command -v pnpm >/dev/null 2>&1 || { echo "verify: pnpm not found; run scripts/dev/new-mac/1-node.sh" >&2; exit 2; }
+fi
+
 base=""
 related=0
 quick=0
