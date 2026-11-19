@@ -578,9 +578,9 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
   };
 
   /**
-   * The vault items bound to `mcp:<id>` end with the server: an item made for it alone is
-   * deleted, one shared with something else only loses this binding. A later Add under the same
-   * id then can't be handed a secret the owner gave the old server. A locked vault leaves them.
+   * The vault items bound to `mcp:<id>` are unbound when the server goes, never deleted: they
+   * stay in the vault for the owner to reuse or delete. A later Add under the same id then can't
+   * be handed a secret the owner gave the old server. A locked vault leaves them bound.
    */
   const releaseSecrets = async (serverId: string) => {
     const target = `mcp:${serverId}`;
@@ -588,12 +588,10 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
       for (const item of await services.vault.list()) {
         const ours = item.bindings.filter((b) => "connector" in b && b.connector === target);
         if (ours.length === 0) continue;
+        // Unbind only: the owner may add the server again or use the key elsewhere, and can
+        // delete the item in the vault. An item left with no bindings stays.
         const rest = item.bindings.filter((b) => !ours.includes(b));
-        if (rest.length === 0 && item.ownerConnectorId === null) {
-          await services.vault.delete(item.id);
-        } else {
-          await services.vault.update(item.id, { bindings: rest });
-        }
+        await services.vault.update(item.id, { bindings: rest });
       }
     } catch {
       // locked or unavailable: nothing was released

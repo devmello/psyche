@@ -157,7 +157,7 @@ describe("probe resolves the server's own vault binding", () => {
   });
 });
 
-describe("removing a server releases its vault items", () => {
+describe("removing a server unbinds its vault items", () => {
   const listed = async (owner: TestClient) =>
     (
       await owner.call<{ credentials: { id: string; slug: string; bindings: unknown[] }[] }>(
@@ -166,7 +166,7 @@ describe("removing a server releases its vault items", () => {
       )
     ).credentials;
 
-  it("deletes an item made for it alone and unbinds one shared with another", async () => {
+  it("unbinds every item bound to it and deletes none; a new Add under the same id gets nothing", async () => {
     const owner = await setup();
     await addKey(owner, "only-echo", "mcp:echo");
     await addKey(owner, "shared-key", "mcp:echo");
@@ -192,11 +192,19 @@ describe("removing a server releases its vault items", () => {
     ]);
     await owner.call("mcp.remove", { serverId: "echo" }, ik());
     const after = await listed(owner);
-    expect(after.some((c) => c.slug === "only-echo")).toBe(false);
+    // Kept in the vault, with no binding to the removed server left.
+    const only = after.find((c) => c.slug === "only-echo");
+    expect(only).toBeDefined();
+    expect(JSON.stringify(only?.bindings)).not.toContain("mcp:echo");
     const kept = after.find((c) => c.slug === "shared-key");
     expect(JSON.stringify(kept?.bindings)).toContain("mcp:other");
     expect(JSON.stringify(kept?.bindings)).not.toContain("mcp:echo");
     // Positive control: an item bound only to another server is untouched.
-    expect(after.some((c) => c.slug === "unrelated")).toBe(true);
+    const unrelated = after.find((c) => c.slug === "unrelated");
+    expect(JSON.stringify(unrelated?.bindings)).toContain("mcp:other");
+    // A new Add under the same id can't be handed the unbound items.
+    await expect(
+      withCards(owner, () => owner.call("mcp.probe", { server: server("only-echo") }, ik())),
+    ).rejects.toThrow();
   });
 });
