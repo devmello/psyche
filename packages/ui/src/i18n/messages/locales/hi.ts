@@ -38,6 +38,7 @@ import { passwordPresence } from "./password-presence/hi.ts";
 import { peopleRest } from "./people-rest/hi.ts";
 import { personDataRest } from "./person-data-rest/hi.ts";
 import { researchRest } from "./research-rest/hi.ts";
+import { scheduledForm } from "./scheduled-form/hi.ts";
 import { scheduledRest } from "./scheduled-rest/hi.ts";
 import { screensRest } from "./screens-rest/hi.ts";
 import { securityState } from "./security-state/hi.ts";
@@ -103,6 +104,7 @@ export const hi: Partial<Catalogue> = {
   ...automationChatRest,
   ...widgetsRest,
   ...scheduledRest,
+  ...scheduledForm,
   ...settingsRest,
   "common.cancel": "रद्द करें",
   "common.close": "बंद करें",

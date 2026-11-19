@@ -34,6 +34,7 @@ import { passwordPresence } from "./password-presence/zh.ts";
 import { people } from "./people/zh.ts";
 import { research } from "./research/zh.ts";
 import { scheduled } from "./scheduled/zh.ts";
+import { scheduledForm } from "./scheduled-form/zh.ts";
 import { screens } from "./screens/zh.ts";
 import { securityState } from "./security-state/zh.ts";
 import { selfConnectors } from "./self-connectors/zh.ts";
@@ -123,6 +124,7 @@ export const zh: Partial<Catalogue> = {
   ...research,
   // scheduled: translated ids (i18n completion)
   ...scheduled,
+  ...scheduledForm,
   // automation-chat: translated ids (i18n completion)
   ...automationChat,
   // widgets: translated ids (i18n completion)

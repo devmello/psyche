@@ -1,0 +1,55 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Automation form strings (es); merged into `../es.ts`. */
+export const scheduledForm: Partial<Catalogue> = {
+  "scheduled.form.edit.title": "Editar automatización",
+  "scheduled.form.prompt": "¿Qué debe hacer Psyche?",
+  "scheduled.form.prompt.hint":
+    "Escríbelo como se lo pedirías a Psyche. Se ejecuta sin que nadie lo vigile, así que no puede hacerte preguntas.",
+  "scheduled.form.name": "Nombre (opcional)",
+  "scheduled.form.name.hint": "Déjalo vacío para usar la primera línea de las instrucciones.",
+  "scheduled.form.when": "Cuándo",
+  "scheduled.form.zone": "Horas en {zone}.",
+  "scheduled.form.when.kind": "Se repite",
+  "scheduled.form.when.once": "Una vez, en una fecha y hora",
+  "scheduled.form.when.daily": "Cada día, a una hora",
+  "scheduled.form.when.weekdays": "Entre semana, a una hora",
+  "scheduled.form.when.weekly": "Semanal, en días elegidos",
+  "scheduled.form.when.interval": "Cada pocas horas",
+  "scheduled.form.when.custom": "Horario actual: {schedule}",
+  "scheduled.form.date": "Fecha",
+  "scheduled.form.time": "Hora",
+  "scheduled.form.days": "En estos días",
+  "scheduled.form.hours": "Horas entre ejecuciones",
+  "scheduled.form.custom.hint":
+    "Psyche mantiene este horario tal cual. Elige otra opción para cambiarlo.",
+  "scheduled.form.switch.hint":
+    "Una automatización de una sola vez no puede repetirse, y una repetitiva no puede pasar a ser de una sola vez. Crea una nueva para eso.",
+  "scheduled.form.next": "Próximas ejecuciones",
+  "scheduled.form.next.none": "Este horario no tiene más ejecuciones.",
+  "scheduled.form.delivery": "Dónde va el resultado",
+  "scheduled.form.delivery.inbox": "Mi bandeja de entrada",
+  "scheduled.form.delivery.thread": "Un chat",
+  "scheduled.form.delivery.none": "A ningún sitio (sin aviso)",
+  "scheduled.form.delivery.threadPick": "Chat",
+  "scheduled.form.delivery.pick": "Elige un chat",
+  "scheduled.form.enabled": "Activada",
+  "scheduled.form.enabled.hint": "Desactívala para conservarla sin ejecutarla.",
+  "scheduled.form.approvals":
+    "Si una ejecución necesita tu aprobación, no pregunta durante la ejecución. La acción espera en Diferidas, en Aprobaciones, hasta que respondas.",
+  "scheduled.form.save": "Guardar",
+  "scheduled.form.cancel": "Cancelar",
+  "scheduled.form.delete": "Eliminar",
+  "scheduled.form.error.prompt": "Escribe qué debe hacer Psyche.",
+  "scheduled.form.error.name": "El nombre debe tener menos de 200 caracteres.",
+  "scheduled.form.error.date": "Elige una fecha.",
+  "scheduled.form.error.time": "Elige una hora.",
+  "scheduled.form.error.past": "Esa hora ya pasó. Elige una posterior.",
+  "scheduled.form.error.days": "Elige al menos un día.",
+  "scheduled.form.error.hours": "Escribe un número entero de horas, de 1 a 168.",
+  "scheduled.form.error.switch":
+    "Psyche no puede cambiar una automatización entre una sola vez y repetitiva. Crea una nueva.",
+  "scheduled.form.error.thread": "Elige el chat al que va el resultado, o elige otro lugar.",
+  "scheduled.form.notFound": "Esa automatización ya no existe.",
+  "scheduled.form.toast.created": "Se creó {title}",
+};

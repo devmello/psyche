@@ -37,6 +37,7 @@ import { platform } from "./platform.ts";
 import { research } from "./research.ts";
 import { sandboxPc } from "./sandbox-pc.ts";
 import { scheduled } from "./scheduled.ts";
+import { scheduledForm } from "./scheduled-form.ts";
 import { screenAsk } from "./screen-ask.ts";
 import { screens } from "./screens.ts";
 import { securityState } from "./security-state.ts";
@@ -114,6 +115,7 @@ export const en = {
   ...capabilities,
   ...research,
   ...scheduled,
+  ...scheduledForm,
   ...automationChat,
   ...widgets,
   ...platform,
