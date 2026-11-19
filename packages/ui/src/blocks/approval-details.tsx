@@ -548,6 +548,20 @@ export function ApprovalDetails({
               "account",
             ]}
           />
+          {/* The rest of the bound message (threadId, inReplyTo, references): a reply says so. */}
+          {(() => {
+            const shownKeys = new Set([
+              "to",
+              "cc",
+              "bcc",
+              "subject",
+              "body",
+              "attachments",
+              "account",
+            ]);
+            const rest = Object.fromEntries(Object.entries(p).filter(([k]) => !shownKeys.has(k)));
+            return Object.keys(rest).length > 0 ? <ParamRows params={rest} /> : null;
+          })()}
         </dl>
       );
     }

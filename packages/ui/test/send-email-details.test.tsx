@@ -53,4 +53,21 @@ describe("send_email details on a Gateway card", () => {
     expect(container.textContent ?? "").toContain("Old shape");
     expect(container.textContent ?? "").toContain("jane@example.com");
   });
+
+  it("still shows reply fields from params (threadId, inReplyTo), so a reply says so", () => {
+    const { container } = render(
+      <ApprovalDetails
+        approval={sendApproval({
+          to: ["jane@example.com"],
+          subject: "Re: Lunch",
+          body: "Yes",
+          threadId: "thread-abc123",
+          inReplyTo: "<msg-42@example.com>",
+        })}
+      />,
+    );
+    const text = container.textContent ?? "";
+    expect(text).toContain("thread-abc123");
+    expect(text).toContain("<msg-42@example.com>");
+  });
 });

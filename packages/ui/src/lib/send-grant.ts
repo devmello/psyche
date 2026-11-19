@@ -16,11 +16,24 @@ export function splitRecipients(value: string): string[] {
     .filter((a) => a !== "");
 }
 
-/** The account and recipient set a `send_email` grant key covers, or null for another key. */
+/**
+ * The account and recipient set a `send_email` grant key covers, or null for another key.
+ * Real keys arrive namespaced by the tool (`<tool>|send_email:…`, the loop's namespacedGrantKey),
+ * and an account may itself contain `:` (`apple-mail:<connectorId>`), while a canonical address
+ * never does, so the account ends at the last `:`.
+ */
 export function parseSendGrantKey(grantKey: string): SendGrantKey | null {
-  if (!grantKey.startsWith(SEND_PREFIX)) return null;
-  const rest = grantKey.slice(SEND_PREFIX.length);
-  const cut = rest.indexOf(":");
+  const bar = grantKey.indexOf("|");
+  const bare = grantKey.startsWith(SEND_PREFIX)
+    ? grantKey
+    : bar > 0 && grantKey.slice(bar + 1).startsWith(SEND_PREFIX)
+      ? grantKey.slice(bar + 1)
+      : null;
+  if (bare === null) return null;
+  const rest = bare.slice(SEND_PREFIX.length);
+  const cut = rest.lastIndexOf(":");
   if (cut <= 0) return null;
-  return { account: rest.slice(0, cut), recipients: splitRecipients(rest.slice(cut + 1)) };
+  const recipients = splitRecipients(rest.slice(cut + 1));
+  if (recipients.length === 0) return null;
+  return { account: rest.slice(0, cut), recipients };
 }
