@@ -4063,6 +4063,9 @@
           "maxLength": 4096,
           "type": "string"
         },
+        "refused": {
+          "type": "boolean"
+        },
         "threadId": {
           "description": "ULID in production",
           "maxLength": 64,

@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { realpathSync } from "node:fs";
 import { basename } from "node:path";
 import { Receipts, sha256 } from "@psyche/audit";
 import { isUnderHostPath } from "@psyche/hostfs";
@@ -63,6 +64,7 @@ import {
   type FolderAccessEnv,
   type FolderGrantEntry,
   folderCovers,
+  inSystemRoot,
   refuseFolder,
   resolveFilePick,
   resolveFolderPick,
@@ -366,6 +368,8 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #psycheHome: string | undefined;
   /** thread → folders allowed for that conversation only; gone at `/new` and at a restart. */
   readonly #sessionFolders = new Map<string, FolderGrantEntry[]>();
+  /** `folderRefused` answers by path: the real path is resolved once, not on every call. */
+  readonly #refusedMemo = new Map<string, boolean>();
   /** When an attached file's grant ends (`${threadId}\0${path}` -> epoch ms); see attachFiles. */
   readonly #fileGrantExpiry = new Map<string, number>();
   /**
@@ -415,6 +419,8 @@ export class PsychePermissionBroker implements PermissionBroker {
       task: (ctx) => this.#task(ctx),
       peekTask: (ctx) => this.#tasks.get(taskKey(ctx)),
       sessionFolders: (threadId) => this.sessionFolders(threadId),
+      folderRefused: (path) => this.folderRefused(path),
+      workspaceRefused: (path) => this.#workspaceRefused(path),
       matchGrant: (key, kind, se, ctx, origin) => this.#matchGrant(key, kind, se, ctx, origin),
       useGrant: (rec, hash, ctx) => this.#useGrant(rec, hash, ctx?.taskId),
       trustedSite: (origin) => this.#trustedSite(origin),
@@ -427,6 +433,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       onClassified: (ctx, call, label, reason, breaker) =>
         this.#onClassified(ctx, call, label, reason, breaker),
     });
+    this.#warmRefusals();
   }
 
   get bootId(): string {
@@ -440,6 +447,29 @@ export class PsychePermissionBroker implements PermissionBroker {
   /** Takes effect on the next call (feature F5). Never reachable from a tool (security §3.9). */
   setPolicy(config: PolicyConfig): void {
     this.#policy = compilePolicy(config);
+    this.#refusedMemo.clear();
+    this.#warmRefusals();
+  }
+
+  /**
+   * The folders the owner granted in Settings that still count: a folder `inSystemRoot` refuses
+   * today (granted before `/opt` was refused, say) is left out. Every consumer that reads the
+   * granted folders (file and exec executors, harness mounts, meetings, conversion) uses this,
+   * never the raw `policy.folders`.
+   */
+  grantedFolders(): NonNullable<PolicyConfig["folders"]> {
+    return (this.policy.folders ?? []).filter((f) => !this.folderRefused(f.path));
+  }
+
+  /** This conversation's folders and attached files that still count (see `grantedFolders`). */
+  liveSessionFolders(threadId: string): FolderGrantEntry[] {
+    return this.sessionFolders(threadId).filter((f) => !this.folderRefused(f.path));
+  }
+
+  /** Resolves each stored folder's real path once, here, not on every `decide` (a hung mount). */
+  #warmRefusals(): void {
+    for (const f of this.#policy.folders) this.folderRefused(f.path);
+    for (const r of this.#policy.workspaceRoots) this.#workspaceRefused(r);
   }
 
   subscribe(listener: (e: BrokerEvent) => void): () => void {
@@ -828,6 +858,37 @@ export class PsychePermissionBroker implements PermissionBroker {
       roots: this.#hostProgram.roots ?? HOST_PROGRAM_ROOTS,
       inGrantedFolder: (path) => this.engine.folderFor(path, threadId) !== undefined,
     });
+  }
+
+  /**
+   * A granted folder inside a system root (`inSystemRoot`), as written or by its real path (a symlink).
+   * Such a folder covers nothing; Settings lists it as refused.
+   */
+  folderRefused(path: string): boolean {
+    const known = this.#refusedMemo.get(path);
+    if (known !== undefined) return known;
+    const env = this.#refuseEnv();
+    let refused = inSystemRoot(path, env);
+    if (!refused) {
+      try {
+        const real = realpathSync(path);
+        refused = real !== path && inSystemRoot(real, env);
+      } catch {
+        refused = false;
+      }
+    }
+    this.#refusedMemo.set(path, refused);
+    return refused;
+  }
+
+  /** A workspace root: refused like a grant would be (`refuseFolder`), or inside a system root. */
+  #workspaceRefused(path: string): boolean {
+    const key = `ws\0${path}`;
+    const known = this.#refusedMemo.get(key);
+    if (known !== undefined) return known;
+    const refused = refuseFolder(path, this.#refuseEnv()) !== undefined || this.folderRefused(path);
+    this.#refusedMemo.set(key, refused);
+    return refused;
   }
 
   #refuseEnv(): FolderAccessEnv {

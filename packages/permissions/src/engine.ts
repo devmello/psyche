@@ -105,6 +105,14 @@ export interface EngineDeps {
   policy(): CompiledPolicy;
   /** Folders the owner allowed for one conversation only (`folder_access`, scope `once`). */
   sessionFolders?(threadId: string): readonly { path: string; mode: "ro" | "rw"; file?: true }[];
+  /**
+   * Whether a granted folder is one the owner could not grant today (inside `/opt`,
+   * `/usr`, `/System`...). A folder granted before a root was refused stops covering anything, so
+   * the check is made at use, not only when the grant was made (fail closed).
+   */
+  folderRefused?(path: string): boolean;
+  /** The same for a workspace root (`permissions.policy.workspaceRoots`). */
+  workspaceRefused?(path: string): boolean;
   /** The Task's state, created on first use (`decide`). */
   task(ctx: PolicyContext): TaskState;
   /** The Task's state if the broker has one, without creating it (`preview`). */
@@ -236,13 +244,16 @@ export class PolicyEngine {
   ): { path: string; mode: "ro" | "rw"; workspace: boolean } | undefined {
     const p = this.#d.policy();
     for (const root of p.workspaceRoots) {
+      if (this.#d.workspaceRefused?.(root) === true) continue;
       if (isUnder(path, root)) return { path: root, mode: "rw", workspace: true };
     }
     // The longest root decides, whether Settings or this conversation granted it.
     const roots: { path: string; mode: "ro" | "rw"; file?: true }[] = [
       ...p.folders,
       ...(threadId === undefined ? [] : (this.#d.sessionFolders?.(threadId) ?? [])),
-    ].sort((a, b) => b.path.length - a.path.length);
+    ]
+      .filter((f) => this.#d.folderRefused?.(f.path) !== true)
+      .sort((a, b) => b.path.length - a.path.length);
     for (const f of roots) {
       const hit =
         f.file === true ? isUnder(path, f.path) && isUnder(f.path, path) : isUnder(path, f.path);
