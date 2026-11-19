@@ -1,3 +1,5 @@
+import { homedir } from "node:os";
+import { normalize, sep } from "node:path";
 import { getSetting, getSettings, setSetting } from "@psyche/db";
 import { assertFolderGrantable } from "@psyche/permissions";
 import { isAdminSettingKey, PsycheError } from "@psyche/protocol";
@@ -71,6 +73,32 @@ async function checkNewFolders(call: Call, value: unknown): Promise<void> {
   }
 }
 
+/**
+ * `~/x` in a folder grant becomes the absolute path before it is judged and stored: the policy
+ * matches absolute paths only, so a `~` entry would grant nothing. Only a leading `~/` expands,
+ * to the owner's home; `..` is resolved after expansion, so `~/../x` is judged (and stored) as
+ * the real path `/x`'s parent, never as something under home. `~user/x` and a bare `~` are
+ * refused. Everything else passes through untouched for `assertFolderGrantable`.
+ */
+export function expandPolicyFolders(value: unknown, userHome: string = homedir()): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
+  const folders = (value as { folders?: unknown }).folders;
+  if (!Array.isArray(folders)) return value;
+  return {
+    ...value,
+    folders: folders.map((f: unknown) => {
+      const path = (f as { path?: unknown } | null)?.path;
+      if (typeof path !== "string" || !path.startsWith("~")) return f;
+      if (!path.startsWith("~/")) {
+        throw new PsycheError("invalid_params", "folder grants are absolute paths");
+      }
+      const home = normalize(userHome);
+      const joined = normalize(`${home}${sep}${path.slice(2)}`);
+      return { ...(f as object), path: joined.length > 1 ? joined.replace(/[\\/]+$/, "") : joined };
+    }),
+  };
+}
+
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -142,7 +170,7 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       }
       // `gateway.lan` is stored in its normalized form, and a malformed or wildcard value is
       // refused before anything (including the presence card) is created for it.
-      const value = key === LAN_SETTING ? parseLanSettings(params.value) : params.value;
+      let value = key === LAN_SETTING ? parseLanSettings(params.value) : params.value;
       if (key.startsWith(INTERNAL_SETTING_PREFIX)) {
         throw new PsycheError(
           "invalid_params",
@@ -152,7 +180,10 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       if (isAdminSettingKey(key) && !call.identity.scopes.includes("operator.admin")) {
         throw new PsycheError("forbidden", `Changing ${key} requires operator.admin`);
       }
-      if (key === "permissions.policy") await checkNewFolders(call, value);
+      if (key === "permissions.policy") {
+        value = expandPolicyFolders(value);
+        await checkNewFolders(call, value);
+      }
       // Fresh presence once a verifier was enrolled (helper Touch ID, passkeys); admin only before.
       if (needsPresence(key)) {
         await requireFreshPresence(
