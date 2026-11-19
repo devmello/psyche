@@ -309,8 +309,6 @@ export interface RootFacts {
   real?: string;
   /** The stored path itself is a symlink (`lstat`), whatever it points at. */
   link: boolean;
-  /** The real path of its parent: only looked up for a grant with no recorded real path. */
-  realParent?: string;
 }
 
 /**
@@ -318,7 +316,7 @@ export interface RootFacts {
  * the libuv pool). A missing path gives no `real`; any other failure throws, and the caller
  * treats the root as refused for now (a hung or broken mount leaves its real place unknown).
  */
-export async function lookupRootFacts(stored: string, withParent: boolean): Promise<RootFacts> {
+export async function lookupRootFacts(stored: string): Promise<RootFacts> {
   const missing = (err: unknown): boolean => (err as NodeJS.ErrnoException).code === "ENOENT";
   let real: string | undefined;
   try {
@@ -332,15 +330,7 @@ export async function lookupRootFacts(stored: string, withParent: boolean): Prom
   } catch (err) {
     if (!missing(err)) throw err;
   }
-  const realParent =
-    withParent && real !== undefined
-      ? await realpath(dirname(stored)).catch(() => undefined)
-      : undefined;
-  return {
-    ...(real === undefined ? {} : { real }),
-    link,
-    ...(realParent === undefined ? {} : { realParent }),
-  };
+  return { ...(real === undefined ? {} : { real }), link };
 }
 
 /**
@@ -355,7 +345,9 @@ export async function lookupRootFacts(stored: string, withParent: boolean): Prom
  *   a link to a sibling on a case-sensitive volume is caught);
  * - the real path differs from the one `recorded` when it was granted (up to spelling), which
  *   also catches a parent swapped for a link;
- * - an old grant with nothing recorded: the root itself moved (`rootMoved`).
+ * - an old grant with nothing recorded whose real path is not the stored one (up to spelling):
+ *   nothing says where it was granted, so it waits for the owner to confirm it again
+ *   (`grantedRootMoved`).
  * A root that does not exist is not refused, and an unmoved old home-root grant keeps working.
  */
 export function grantedRootRefused(
@@ -370,9 +362,26 @@ export function grantedRootRefused(
   if (inSystemRoot(real, env)) return true;
   if (!sameRootSpelling(real, stored, env) && refuseFolder(real, env) !== undefined) return true;
   if (facts.link && !samePlaceExact(stored, real)) return true;
-  if (recorded !== undefined) return !sameRootSpelling(real, recorded, env);
-  if (sameRootSpelling(real, stored, env)) return false;
-  return facts.realParent !== undefined && rootMoved(stored, real, facts.realParent, env);
+  return !sameRootSpelling(real, recorded ?? stored, env);
+}
+
+/**
+ * The place an older grant (nothing `recorded`) now leads to, when that is the only reason it
+ * does not count and the owner may confirm it again there: a plain folder (not itself a link)
+ * whose real path differs from the stored one, outside every system root and every place a grant
+ * would be refused. Undefined otherwise.
+ */
+export function grantedRootMoved(
+  stored: string,
+  facts: RootFacts,
+  recorded: string | undefined,
+  env: FolderAccessEnv = {},
+): string | undefined {
+  const real = facts.real;
+  if (recorded !== undefined || real === undefined || facts.link) return undefined;
+  if (sameRootSpelling(real, stored, env) || inSystemRoot(stored, env)) return undefined;
+  if (inSystemRoot(real, env) || refuseFolder(real, env) !== undefined) return undefined;
+  return real;
 }
 
 export type FolderRefusal = "sensitive_root" | "contains_sensitive_root" | "not_absolute";
@@ -648,19 +657,22 @@ export function folderScopesOffered(taint: boolean): ("once" | "always")[] {
 /**
  * Settings path: throws `forbidden` when a folder the owner types or picks into
  * `permissions.policy.folders` is a sensitive root. A folder that does not exist yet is judged
- * by its normalised path.
+ * by its normalised path. Returns the real path it judged, or undefined when the folder does not
+ * exist yet: Settings records that one as where the folder was granted, so it is looked up once.
  */
 export async function assertFolderGrantable(
   given: string,
   env: FolderAccessEnv = {},
-): Promise<void> {
+): Promise<string | undefined> {
   const raw = expandHome(given, env);
   if (raw.includes("\0") || !isAbsoluteHostPath(raw)) {
     throw new PsycheError("invalid_params", "folder grants are absolute paths");
   }
   let real = resolve(raw);
+  let exists = false;
   try {
     real = await realpath(real);
+    exists = true;
   } catch (err) {
     // Not there (yet): the normalised path is judged. Any other failure (`/.vol/..` gives ENOENT
     // but opens; a loop; no permission) leaves the real path unknown, so nothing is granted.
@@ -687,4 +699,5 @@ export async function assertFolderGrantable(
       details: { reason: refusal, path: real },
     });
   }
+  return exists ? real : undefined;
 }

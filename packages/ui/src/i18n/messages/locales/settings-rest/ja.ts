@@ -673,6 +673,9 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.access.loadLabel": "Psycheがアクセスできるもの",
   "settings.access.loadFailed": "Psycheはアクセスできるものを読み込めませんでした（{reason}）。",
   "settings.access.unchanged": "アクセスは変更されていません。",
+  "settings.access.moved": "共有後に {path} へ移動しました · 共有を続けるには確認してください",
+  "settings.access.confirm": "確認",
+  "settings.access.confirmNamed": "{path} の {name} をもう一度確認",
   "settings.model.advancedHint": "コンテキストの上限、ローカルモデル",
   "settings.permissions.subject.prepNotes": "「Prep:」で始まるタイトルのメモ（会議の準備）",
   "settings.permissions.specificConnectors":

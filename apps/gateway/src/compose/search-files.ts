@@ -16,12 +16,15 @@ export { filesAdapter };
 /** The files source over the granted folders, with the files package's extractors (PDF, DOCX, XLSX). */
 export function filesSourceDeps(o: {
   folders: () => readonly GrantedFolder[];
+  /** The granted folders judged from a fresh look (`freshGrantedFolders`), for the walk. */
+  freshFolders?: () => Promise<readonly GrantedFolder[]>;
   protectedRoots?: () => readonly string[] | undefined;
   /** Vision OCR through the Mac helper; the owner's switch is added by the search compose. */
   ocr?: Omit<FilesOcr, "enabled">;
 }): FilesSourceDeps {
   return {
     folders: o.folders,
+    ...(o.freshFolders === undefined ? {} : { freshFolders: o.freshFolders }),
     // Off until composeSearch binds the owner's switch (a bare `ocr` would be always on).
     ...(o.ocr === undefined ? {} : { ocr: { ...o.ocr, enabled: () => false } }),
     isProtected: (path) => {

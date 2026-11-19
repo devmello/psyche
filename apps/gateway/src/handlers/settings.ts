@@ -1,4 +1,3 @@
-import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { normalize, sep } from "node:path";
 import { getSetting, getSettings, setSetting } from "@psyche/db";
@@ -59,8 +58,14 @@ export function needsPresence(key: string): boolean {
   return PRESENCE_ROOTS.includes(root) || PRESENCE_KEYS.some((re) => re.test(key));
 }
 
-/** A folder newly added to the policy must not be a sensitive root (security §3.5). */
-async function checkNewFolders(call: Call, value: unknown): Promise<void> {
+/**
+ * A folder newly added to the policy must not be a sensitive root (security §3.5). Returns the
+ * real path each new folder was judged at (absent when it does not exist yet): that one path is
+ * what is recorded (`recordPolicyFolderReals`), so a swap between the check and the record
+ * cannot record a place that was never checked.
+ */
+async function checkNewFolders(call: Call, value: unknown): Promise<Map<string, string>> {
+  const judged = new Map<string, string>();
   const folders = (value as { folders?: unknown } | null)?.folders;
   const roots = (value as { workspaceRoots?: unknown } | null)?.workspaceRoots;
   const storedPolicy = getSetting(call.ctx.db, "permissions.policy")?.value as
@@ -71,7 +76,8 @@ async function checkNewFolders(call: Call, value: unknown): Promise<void> {
     const known = new Set((storedPolicy?.folders ?? []).map((f) => f.path));
     for (const f of folders as { path?: unknown }[]) {
       if (typeof f?.path !== "string" || known.has(f.path)) continue;
-      await assertFolderGrantable(f.path, folderAccessEnv(home));
+      const real = await assertFolderGrantable(f.path, folderAccessEnv(home));
+      if (real !== undefined) judged.set(f.path, real);
     }
   }
   // A workspace root is a folder grant (read-write, matched first): the same rules.
@@ -82,17 +88,22 @@ async function checkNewFolders(call: Call, value: unknown): Promise<void> {
       await assertFolderGrantable(r, folderAccessEnv(home));
     }
   }
+  return judged;
 }
 
 /**
  * Each folder grant's real path (`real`), set here and never taken from the client: an entry the
  * stored policy already has keeps what was recorded for it (a write that drops the field, from an
- * older Settings, loses nothing); a new entry gets its real path now, or none when it does not
- * exist yet (the broker records the first one it sees). A granted root whose real path later
- * differs from this one covers nothing (`grantedRootRefused`), so a parent swapped for a link is
- * caught as well as the root itself.
+ * older Settings, loses nothing); a new entry gets the real path `checkNewFolders` judged it at
+ * (`judged`), or none when it does not exist yet (the broker records the first one it sees, if
+ * that is the path itself). A granted root whose real path later differs from this one covers
+ * nothing (`grantedRootRefused`), so a parent swapped for a link is caught as well as the root.
  */
-export async function recordPolicyFolderReals(value: unknown, stored: unknown): Promise<unknown> {
+export function recordPolicyFolderReals(
+  value: unknown,
+  stored: unknown,
+  judged: ReadonlyMap<string, string>,
+): unknown {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
   const folders = (value as { folders?: unknown }).folders;
   if (!Array.isArray(folders)) return value;
@@ -113,10 +124,36 @@ export async function recordPolicyFolderReals(value: unknown, stored: unknown): 
     const { real: _client, ...rest } = f as { path: string; real?: unknown };
     let real: string | undefined;
     if (known.has(rest.path)) real = known.get(rest.path);
-    else real = await realpath(rest.path).catch(() => undefined);
+    else real = judged.get(rest.path);
     out.push(real === undefined ? rest : { ...rest, real });
   }
   return { ...value, folders: out };
+}
+
+/**
+ * Just before a policy write: an entry with no `real` takes the one the stored policy has for the
+ * same path now. The broker may have recorded an older folder's real path while this write
+ * waited for its card, and the write must not drop it.
+ */
+export function mergeStoredFolderReals(value: unknown, stored: unknown): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
+  const folders = (value as { folders?: unknown }).folders;
+  const storedFolders = (stored as { folders?: unknown } | null | undefined)?.folders;
+  if (!Array.isArray(folders) || !Array.isArray(storedFolders)) return value;
+  const reals = new Map<string, string>();
+  for (const f of storedFolders as { path?: unknown; real?: unknown }[]) {
+    if (typeof f?.path === "string" && typeof f.real === "string") reals.set(f.path, f.real);
+  }
+  return {
+    ...value,
+    folders: folders.map((f: unknown) => {
+      if (typeof f !== "object" || f === null) return f;
+      const e = f as { path?: unknown; real?: unknown };
+      if (typeof e.path !== "string" || e.real !== undefined) return f;
+      const real = reals.get(e.path);
+      return real === undefined ? f : { ...e, real };
+    }),
+  };
 }
 
 /**
@@ -203,8 +240,8 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       }
       if (key === "permissions.policy") {
         value = expandPolicyFolders(value, getSetting(call.ctx.db, key)?.value);
-        await checkNewFolders(call, value);
-        value = await recordPolicyFolderReals(value, getSetting(call.ctx.db, key)?.value);
+        const judged = await checkNewFolders(call, value);
+        value = recordPolicyFolderReals(value, getSetting(call.ctx.db, key)?.value, judged);
       }
       // Fresh presence once a verifier was enrolled (helper Touch ID, passkeys); admin only before.
       // A change that provably only narrows what the agent may do applies at once from an admin
@@ -229,6 +266,8 @@ export const settingsHandlers: Record<string, HandlerDef> = {
         );
       }
       const before = getSettings(call.ctx.db, [key])[key];
+      // Nothing is awaited between this read and the write.
+      if (key === "permissions.policy") value = mergeStoredFolderReals(value, before);
       const entry = setSetting(call.ctx.db, key, value);
       try {
         call.ctx.onSettingChanged?.({

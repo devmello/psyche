@@ -63,6 +63,7 @@ import {
   type FolderAccessEnv,
   type FolderGrantEntry,
   folderCovers,
+  grantedRootMoved,
   grantedRootRefused,
   inSystemRoot,
   lookupRootFacts,
@@ -70,6 +71,7 @@ import {
   refuseFolder,
   resolveFilePick,
   resolveFolderPick,
+  sameRootSpelling,
 } from "./folder-access.ts";
 import {
   HOST_PROGRAM_ROOTS,
@@ -149,8 +151,8 @@ const DAY = 24 * HOUR;
 export const FOLDER_FRESH_MS = 5_000;
 export const FOLDER_STALE_CAP_MS = 60_000;
 /**
- * How long an evaluation waits, once per lookup, for a look at a root with no usable answer (a
- * new grant, a start, a root not read for longer than the cap).
+ * How long an evaluation waits, once per lookup, for a look at a root whose answer is not fresh
+ * (a new grant, a start, a root not read for longer than `FOLDER_FRESH_MS`).
  */
 const FOLDER_FIRST_LOOK_WAIT_MS = 250;
 
@@ -165,6 +167,19 @@ function raceTimeout(p: Promise<unknown>, ms: number): Promise<void> {
     };
     p.then(done, done);
   });
+}
+
+/** How long `freshGrantedFolders` waits for the looks it starts. */
+const FOLDER_FRESH_WAIT_MS = 2_000;
+/** How long an executor's live look (`lookRootNow`) may take before the root is refused. */
+const FOLDER_LIVE_LOOK_MS = 2_000;
+
+interface RootLookup {
+  done: Promise<RootFacts | "error">;
+  /** An evaluation has already waited for it (it waits once per lookup). */
+  waited: boolean;
+  /** When it started (broker clock). */
+  since: number;
 }
 
 interface RootLook {
@@ -419,10 +434,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   /** The last look at each granted root (`lookupRootFacts`), refreshed asynchronously. */
   readonly #rootLooks = new Map<string, RootLook>();
   /** One lookup in flight per path; `waited` once an evaluation has waited for it. */
-  readonly #rootLookups = new Map<
-    string,
-    { done: Promise<void>; waited: boolean; since: number }
-  >();
+  readonly #rootLookups = new Map<string, RootLookup>();
   /** Verdicts from `#rootLooks` and the recorded real paths, until either changes. */
   readonly #rootVerdicts = new Map<string, boolean>();
   /** Real paths recorded in the policy (`folders[].real`), by stored and canonical path. */
@@ -511,20 +523,48 @@ export class PsychePermissionBroker implements PermissionBroker {
     // What is on disk (`#rootLooks`) survives a policy write; the verdicts depend on the
     // recorded real paths, which may have changed.
     this.#rootVerdicts.clear();
+    this.#pruneRoots();
     this.#warmRefusals();
   }
 
   /**
    * The folders the owner granted in Settings that still count: a folder `inSystemRoot` refuses
    * today (granted before `/opt` was refused, say), or one that leads somewhere else than where
-   * it was granted (`grantedRootRefused`), is left out. Every consumer that reads the granted
-   * folders (file and exec executors, harness mounts, meetings, conversion) uses this, never the
-   * raw `policy.folders`. Each entry carries its recorded real path (`real`) when one is known,
-   * so an executor can compare it with the real path it looks up itself.
+   * it was granted (`grantedRootRefused`), is left out. Answers from the last look at the disk,
+   * which can be older than `FOLDER_FRESH_MS`: a reader that follows the roots itself without a
+   * live check of its own (an indexer, a sweep, the coding tools) uses `freshGrantedFolders`.
+   * Each entry carries its recorded real path (`real`) when one is known, so an executor can
+   * compare it with the real path it looks up itself.
    */
   grantedFolders(): NonNullable<PolicyConfig["folders"]> {
     return (this.policy.folders ?? [])
       .filter((f) => !this.folderRefused(f.path))
+      .map((f) => this.#withReal(f));
+  }
+
+  /**
+   * `grantedFolders`, judged from a look no older than `FOLDER_FRESH_MS`: the looks that are due
+   * start now and are awaited (at most `timeoutMs`). A root whose look is still pending after
+   * that, or that has never been looked at, is left out until a look completes.
+   */
+  async freshGrantedFolders(
+    timeoutMs = FOLDER_FRESH_WAIT_MS,
+  ): Promise<NonNullable<PolicyConfig["folders"]>> {
+    const folders = this.policy.folders ?? [];
+    for (const f of folders) this.folderRefused(f.path);
+    const due = folders.flatMap((f) => {
+      const l = this.#rootLookups.get(f.path);
+      return l === undefined ? [] : [l.done];
+    });
+    if (due.length > 0) await raceTimeout(Promise.all(due), timeoutMs);
+    return folders
+      .filter((f) => {
+        const look = this.#rootLooks.get(f.path);
+        if (look === undefined || look.first === true || this.#rootLookups.has(f.path))
+          return false;
+        if (this.clock.now() - look.checkedAt > FOLDER_FRESH_MS) return false;
+        return !this.folderRefused(f.path);
+      })
       .map((f) => this.#withReal(f));
   }
 
@@ -542,10 +582,48 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   /**
    * The real path a granted root had when it was granted: recorded in the policy, seen at the
-   * pick, or the first one seen for an older grant. Undefined when nothing is known yet.
+   * pick, or the first one seen for an older grant (only when that is the stored path itself, up
+   * to spelling). Undefined when nothing is known yet.
    */
   recordedReal(path: string): string | undefined {
     return this.#recordedReal.get(path) ?? this.#observedReal.get(path);
+  }
+
+  /**
+   * Where a Settings folder granted before real paths were recorded now leads, when that is the
+   * only reason it does not count: its real path is not the stored one, so nothing says it was
+   * granted there. Settings shows it as moved, and the owner may confirm it again
+   * (`confirmMovedFolder`). Undefined for every other folder.
+   */
+  folderMovedTo(path: string): string | undefined {
+    if (!(this.#policy.config.folders ?? []).some((f) => f.path === path)) return undefined;
+    const look = this.#rootLooks.get(path);
+    if (look === undefined || look.first === true || look.facts === "error") return undefined;
+    return grantedRootMoved(path, look.facts, this.recordedReal(path), this.#confirmEnv());
+  }
+
+  /**
+   * The owner's tap on a moved older folder (Settings → Access): looks it up now and records
+   * where it leads today as where it was granted, so it counts again. Only for a Settings folder
+   * with nothing recorded whose real path is a plain folder a grant may cover (`refuseFolder`
+   * passes there). False when there is nothing to confirm.
+   */
+  async confirmMovedFolder(path: string): Promise<boolean> {
+    const entry = (this.#policy.config.folders ?? []).find((f) => f.path === path);
+    if (entry === undefined || this.recordedReal(path) !== undefined) return false;
+    const facts = await this.lookRootNow(path);
+    if (facts === undefined) return false;
+    const real = grantedRootMoved(path, facts, undefined, this.#confirmEnv());
+    if (real === undefined) return false;
+    this.#observedReal.set(path, real);
+    this.#rootVerdicts.delete(path);
+    await this.#folderAccess?.recordReal?.(path, real);
+    await this.#log("folder.confirmed", { type: "system" }, {}, { path, real });
+    return true;
+  }
+
+  #confirmEnv(): FolderAccessEnv {
+    return this.#folderAccess?.env() ?? this.#refuseEnv();
   }
 
   /** Starts a look at every stored root (asynchronous: nothing here touches the disk). */
@@ -565,9 +643,34 @@ export class PsychePermissionBroker implements PermissionBroker {
     for (const r of this.#policy.workspaceRoots) this.#workspaceRefused(r);
   }
 
+  /** The roots anything still grants: Settings folders (both spellings), workspace roots, chats. */
+  #liveRoots(): Set<string> {
+    const live = new Set<string>(this.#policy.workspaceRoots);
+    for (const f of this.#policy.config.folders ?? []) live.add(f.path);
+    for (const f of this.#policy.folders) live.add(f.path);
+    for (const roots of this.#sessionFolders.values()) for (const r of roots) live.add(r.path);
+    return live;
+  }
+
   /**
-   * Waits until every root lookup in flight has finished (tests, and the Gateway once at start).
-   * With `timeoutMs`, waits no longer than that.
+   * Forgets the looks, verdicts and first-seen real paths of roots nothing grants any more (a
+   * revoke, a policy write, an ended chat, an expired attachment), so a path granted again later
+   * starts from a fresh look, never from an old baseline.
+   */
+  #pruneRoots(): void {
+    const live = this.#liveRoots();
+    for (const map of [this.#rootLooks, this.#rootVerdicts, this.#observedReal] as Map<
+      string,
+      unknown
+    >[]) {
+      for (const k of [...map.keys()]) if (!live.has(k)) map.delete(k);
+    }
+  }
+
+  /**
+   * Waits until every root lookup in flight has finished; with `timeoutMs`, no longer than that.
+   * The Gateway waits (bounded) once at start, before the indexer, the work sweep and the folder
+   * watchers start; Settings' access list waits briefly; tests wait for good.
    */
   async foldersSettled(timeoutMs?: number): Promise<void> {
     for (;;) {
@@ -583,8 +686,9 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   /**
    * Before an evaluation: waits (at most `FOLDER_FIRST_LOOK_WAIT_MS`, once per lookup) for the
-   * looks at roots that have no usable answer yet: never looked at, or past the stale cap. On a
-   * healthy disk that is a fraction of a millisecond; a hung mount costs one short wait, after
+   * looks at roots whose answer is not fresh: never looked at, or older than `FOLDER_FRESH_MS`.
+   * So the engine decides on a look at most about `FOLDER_FRESH_MS` old. On a healthy disk the
+   * wait is a fraction of a millisecond; a hung mount costs one short wait per lookup, after
    * which the root is judged as `folderRefused` says. Undefined when there is nothing to wait for,
    * so an evaluation does not yield for nothing.
    */
@@ -595,13 +699,13 @@ export class PsychePermissionBroker implements PermissionBroker {
       ...(threadId === undefined ? [] : this.sessionFolders(threadId).map((f) => f.path)),
     ];
     const now = this.clock.now();
-    const waits: Promise<void>[] = [];
+    const waits: Promise<unknown>[] = [];
     for (const path of paths) {
       this.folderRefused(path);
       const look = this.#rootLooks.get(path);
       const lookup = this.#rootLookups.get(path);
       if (look === undefined || lookup === undefined || lookup.waited) continue;
-      if (look.first === true || now - look.checkedAt > FOLDER_STALE_CAP_MS) {
+      if (look.first === true || now - look.checkedAt > FOLDER_FRESH_MS) {
         lookup.waited = true;
         waits.push(lookup.done);
       }
@@ -611,28 +715,71 @@ export class PsychePermissionBroker implements PermissionBroker {
       : raceTimeout(Promise.all(waits), FOLDER_FIRST_LOOK_WAIT_MS);
   }
 
-  /** Starts one asynchronous look at a root unless one is in flight. */
-  #lookAt(path: string): void {
-    if (this.#rootLookups.has(path)) return;
-    const done = lookupRootFacts(path, this.recordedReal(path) === undefined).then(
-      (facts) => this.#looked(path, facts),
-      () => this.#looked(path, "error"),
+  /**
+   * A look at a root started now, for an executor that checks live (exec-host). It goes through
+   * the same single lookup per path as the cache: one already in flight is awaited first (it may
+   * have started before the caller's call), then a new one. Undefined when the root cannot be
+   * read, or no look completes within `timeoutMs` (a hung mount): the caller refuses the root.
+   * Waiting callers never start more lookups, so a hung mount holds one libuv thread per path.
+   */
+  async lookRootNow(path: string, timeoutMs = FOLDER_LIVE_LOOK_MS): Promise<RootFacts | undefined> {
+    const until = Date.now() + timeoutMs;
+    const within = async (
+      p: Promise<RootFacts | "error">,
+    ): Promise<RootFacts | "error" | undefined> => {
+      const left = until - Date.now();
+      if (left <= 0) return undefined;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<undefined>((resolve) => {
+        timer = setTimeout(() => resolve(undefined), left);
+        (timer as { unref?: () => void }).unref?.();
+      });
+      try {
+        return await Promise.race([p, timeout]);
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+    const earlier = this.#rootLookups.get(path);
+    if (earlier !== undefined && (await within(earlier.done)) === undefined) return undefined;
+    // Another caller may have started the next one meanwhile: share it.
+    const next = this.#rootLookups.get(path) ?? this.#lookAt(path);
+    const facts = await within(next.done);
+    return facts === undefined || facts === "error" ? undefined : facts;
+  }
+
+  /** Starts one asynchronous look at a root unless one is in flight; returns the one in flight. */
+  #lookAt(path: string): RootLookup {
+    const inFlight = this.#rootLookups.get(path);
+    if (inFlight !== undefined) return inFlight;
+    const done = lookupRootFacts(path).then(
+      (facts): RootFacts => {
+        this.#looked(path, facts);
+        return facts;
+      },
+      (): "error" => {
+        this.#looked(path, "error");
+        return "error";
+      },
     );
-    const entry = { done, waited: false, since: this.clock.now() };
+    const entry: RootLookup = { done, waited: false, since: this.clock.now() };
     this.#rootLookups.set(path, entry);
     void done.finally(() => {
       if (this.#rootLookups.get(path) === entry) this.#rootLookups.delete(path);
     });
+    return entry;
   }
 
   #looked(path: string, facts: RootFacts | "error"): void {
     this.#rootLooks.set(path, { facts, checkedAt: this.clock.now() });
     this.#rootVerdicts.delete(path);
-    // An older grant with nothing recorded: the first real path seen where it still counts is
-    // what later looks compare with (a parent swapped afterwards is caught), and it is stored.
+    // An older grant with nothing recorded counts only while its real path is the stored path
+    // itself (up to spelling). That real path is then what later looks compare with (a parent
+    // swapped afterwards is caught), and it is stored. Anything else waits for the owner.
     if (facts === "error" || facts.real === undefined || this.recordedReal(path) !== undefined)
       return;
-    if (this.folderRefused(path)) return;
+    if (!sameRootSpelling(facts.real, path, this.#refuseEnv())) return;
+    if (!this.#liveRoots().has(path) || this.folderRefused(path)) return;
     this.#observedReal.set(path, facts.real);
     this.#rootVerdicts.delete(path);
     const inSettings = (this.#policy.config.folders ?? []).some((f) => f.path === path);
@@ -2510,6 +2657,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   /** Revokes an `always` folder: it stops working on the next call. */
   async revokeFolder(path: string): Promise<boolean> {
     const removed = (await this.#folderAccess?.remove?.(path)) ?? false;
+    this.#pruneRoots();
     if (removed)
       await this.#log("folder.revoked", { type: "system" }, {}, { path, scope: "always" });
     return removed;
@@ -2531,6 +2679,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#attachRecords.delete(`${threadId}\0${path}`);
     if (kept.length === 0) this.#sessionFolders.delete(threadId);
     else this.#sessionFolders.set(threadId, kept);
+    this.#pruneRoots();
     await this.#log("folder.revoked", { type: "system" }, { threadId }, { path, scope: "once" });
     return true;
   }
@@ -2577,6 +2726,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     if (kept.length === roots.length) return;
     if (kept.length === 0) this.#sessionFolders.delete(threadId);
     else this.#sessionFolders.set(threadId, kept);
+    this.#pruneRoots();
   }
 
   /**
@@ -3399,6 +3549,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   endSession(threadId: string): Promise<Grant[]> {
     this.#tasks.delete(`thread:${threadId}`);
     this.#sessionFolders.delete(threadId);
+    this.#pruneRoots();
     for (const k of this.#fileGrantExpiry.keys()) {
       if (k.startsWith(`${threadId}\0`)) this.#fileGrantExpiry.delete(k);
     }

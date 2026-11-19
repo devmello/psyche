@@ -45,7 +45,7 @@ describe("sharing the CLI workdir", () => {
   it("resolves ok, and Settings accepts it", async () => {
     const env = folderAccessEnv(psyche);
     expect(await resolveRequestedFolder(cli, env)).toEqual({ status: "ok", path: cli });
-    await expect(assertFolderGrantable(cli, env)).resolves.toBeUndefined();
+    await expect(assertFolderGrantable(cli, env)).resolves.toEqual(expect.any(String));
   });
 
   it("still refuses ~/.psyche and everything else under it", async () => {

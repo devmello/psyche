@@ -89,7 +89,7 @@ describe("sensitive roots", () => {
   it("the Settings path applies the same rule", async () => {
     await expect(assertFolderGrantable(home, env)).rejects.toMatchObject({ code: "forbidden" });
     await expect(assertFolderGrantable("~/.ssh", env)).rejects.toMatchObject({ code: "forbidden" });
-    await expect(assertFolderGrantable(docs, env)).resolves.toBeUndefined();
+    await expect(assertFolderGrantable(docs, env)).resolves.toEqual(expect.any(String));
   });
 });
 
@@ -216,7 +216,7 @@ describe("Psyche's own CLI workdirs", () => {
   it("shares the workdir Psyche made for a CLI provider, with no block on the card", async () => {
     expect(await resolveRequestedFolder(cli, ownEnv)).toEqual({ status: "ok", path: cli });
     expect(await resolveFolderPick(cli, ownEnv)).toBe(cli);
-    await expect(assertFolderGrantable(cli, ownEnv)).resolves.toBeUndefined();
+    await expect(assertFolderGrantable(cli, ownEnv)).resolves.toEqual(expect.any(String));
     expect(refuseFolder(join(cli, "sub"), ownEnv)).toBeUndefined();
   });
 

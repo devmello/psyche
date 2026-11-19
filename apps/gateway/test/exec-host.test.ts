@@ -552,6 +552,8 @@ describe.skipIf(!posixHost)(
         folders:
           folders ??
           ((threadId) => [...(broker.policy.folders ?? []), ...broker.sessionFolders(threadId)]),
+        // As the Gateway wires it: one live look per root at a time, through the broker.
+        lookRoot: (path) => broker.lookRootNow(path),
         srt: { resolve: async () => srt },
         home: psycheHome,
         userHome: home,
@@ -817,6 +819,7 @@ describe.skipIf(!posixHost)(
       ["~/Documents", "notes", "first seen by the broker"],
       ["~", "Library", "not recorded at all"],
       ["~", ".ssh", "not recorded at all"],
+      ["~/Documents", "notes", "not recorded at all"],
     ])(
       "a granted root whose parent is swapped for a link to %s (name %s, %s) covers nothing",
       async (to, name, how) => {

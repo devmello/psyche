@@ -345,6 +345,13 @@ export interface ExecHostDeps {
   vault: { redact(text: string): string };
   /** The live granted folders for a conversation (Settings plus this chat's Allow once). */
   folders(threadId: string): readonly FolderGrantEntry[];
+  /**
+   * A live look at a granted root (the broker's `lookRootNow`): one lookup in flight per path
+   * shared with the broker's cache, bounded by a timeout, so a hung mount holds one libuv thread
+   * per path, not one per call. Undefined: the root cannot be read now (refused). Without it
+   * (tests) each call looks the roots up itself.
+   */
+  lookRoot?(path: string): Promise<RootFacts | undefined>;
   srt: SrtLookup;
   /** `$PSYCHE_HOME`: denied to the command; its settings and scratch live under it. */
   home: string;
@@ -643,6 +650,8 @@ async function grantedFolder(
   folders: readonly FolderGrantEntry[],
   platform: NodeJS.Platform = process.platform,
   env: FolderAccessEnv = {},
+  look: (path: string) => Promise<RootFacts | undefined> = (path) =>
+    lookupRootFacts(path).catch(() => undefined),
 ): Promise<{ real: string; folder: FolderGrantEntry }> {
   let real: string;
   try {
@@ -650,7 +659,7 @@ async function grantedFolder(
   } catch {
     throw new PsycheError("not_found", `${cwd} does not exist`);
   }
-  // Each granted root is looked up now, here (the broker's answer can be a few seconds old), and
+  // Each granted root is looked up now (the broker's answer can be seconds old), and
   // judged by `grantedRootRefused`: inside a system folder, leading to a place a grant would be
   // refused (home, ~/Library, ~/.ssh, Psyche's data), or anywhere else than where it was granted
   // (its recorded real path; a swapped parent too), it covers nothing. Spelling moves (case,
@@ -659,12 +668,8 @@ async function grantedFolder(
   const resolvedFolders = (
     await Promise.all(
       folders.map(async (f): Promise<FolderGrantEntry | undefined> => {
-        let facts: RootFacts;
-        try {
-          facts = await lookupRootFacts(f.path, f.real === undefined);
-        } catch {
-          return undefined;
-        }
+        const facts = await look(f.path);
+        if (facts === undefined) return undefined;
         if (grantedRootRefused(f.path, facts, f.real, env)) return undefined;
         return { ...f, path: facts.real ?? f.path };
       }),
@@ -1057,6 +1062,9 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
       platform,
       // Home-relative refusals (~/Library, ~/.ssh, the CLI dirs) judged against the exec user's home.
       { ...folderAccessEnv(deps.home), home: userHome },
+      deps.lookRoot === undefined
+        ? undefined
+        : (path) => deps.lookRoot?.(path) ?? Promise.resolve(undefined),
     );
     // Hashed again right before it runs: a binary swapped after approval does not run.
     const described = describe(p, platform);

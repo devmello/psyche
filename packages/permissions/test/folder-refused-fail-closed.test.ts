@@ -9,12 +9,12 @@ import { type Harness, makeBroker } from "./helpers.ts";
 /**
  * `folderRefused` fails closed: only a missing path (ENOENT) may be judged as typed. It answers
  * from the broker's last look at the disk, refreshed asynchronously once it is older than
- * `FOLDER_FRESH_MS`; `look` waits that long and lets the refresh land.
+ * `FOLDER_FRESH_MS`. `look` waits that long, then makes ONE read through the fresh accessor
+ * (r2: a helper that read twice hid a stale first answer).
  */
-async function look(h: Harness): Promise<void> {
+async function look(h: Harness): Promise<string[]> {
   h.clock.advance(FOLDER_FRESH_MS + 1);
-  h.broker.grantedFolders();
-  await h.broker.foldersSettled();
+  return (await h.broker.freshGrantedFolders()).map((f) => f.path);
 }
 
 describe.skipIf(process.platform === "win32")("folderRefused when the real path is unknown", () => {
@@ -46,7 +46,7 @@ describe.skipIf(process.platform === "win32")("folderRefused when the real path 
     // Until the next look the failed answer holds (a hung mount isn't looked up on each call).
     expect(h.broker.folderRefused(flaky)).toBe(true);
     // No setPolicy in between: a later read looks again, and the folder counts.
-    await look(h);
+    expect(await look(h)).toEqual([flaky]);
     expect(h.broker.folderRefused(flaky)).toBe(false);
     expect(h.broker.grantedFolders()).toEqual([{ path: flaky, mode: "rw", real: flaky }]);
   });
@@ -103,12 +103,12 @@ describe.skipIf(process.platform === "win32")(
       expect(h.broker.grantedFolders()).toEqual([{ path: root, mode: "rw", real: root }]);
       await rm(root, { recursive: true });
       await symlink(target, root);
-      await look(h);
+      expect(await look(h)).toEqual([]);
       expect(h.broker.folderRefused(root)).toBe(true);
       expect(h.broker.grantedFolders()).toEqual([]);
     });
 
-    it("stays allowed under a symlinked parent, or when it does not exist yet", async () => {
+    it("stays allowed under a symlinked parent when recorded, or when it does not exist yet", async () => {
       const { home } = await setup();
       await mkdir(join(home, "real"));
       await symlink(join(home, "real"), join(home, "linked"));
@@ -118,7 +118,8 @@ describe.skipIf(process.platform === "win32")(
       const h = makeBroker({
         policy: {
           folders: [
-            { path: under, mode: "rw" },
+            // As Settings stores a typed path: with the real path it had when it was added.
+            { path: under, mode: "rw", real: join(home, "real", "p") },
             { path: later, mode: "rw" },
           ],
         },
@@ -126,10 +127,22 @@ describe.skipIf(process.platform === "win32")(
       });
       await h.broker.foldersSettled();
       expect(h.broker.grantedFolders().map((f) => f.path)).toEqual([under, later]);
-      // The first real path seen is what later looks compare with.
-      expect(h.broker.recordedReal(under)).toBe(join(home, "real", "p"));
-      await look(h);
-      expect(h.broker.grantedFolders().map((f) => f.path)).toEqual([under, later]);
+      expect(await look(h)).toEqual([under, later]);
+    });
+
+    it("an older grant under a symlinked parent, with nothing recorded, waits for the owner", async () => {
+      const { home } = await setup();
+      await mkdir(join(home, "real", "p"), { recursive: true });
+      await symlink(join(home, "real"), join(home, "linked"));
+      const under = join(home, "linked", "p");
+      const h = makeBroker({
+        policy: { folders: [{ path: under, mode: "rw" }] },
+        hostProgram: { home },
+      });
+      await h.broker.foldersSettled();
+      expect(h.broker.grantedFolders()).toEqual([]);
+      expect(h.broker.recordedReal(under)).toBeUndefined();
+      expect(h.broker.folderMovedTo(under)).toBe(join(home, "real", "p"));
     });
 
     it("stays allowed when /tmp resolves to /private/tmp", async () => {
@@ -138,8 +151,7 @@ describe.skipIf(process.platform === "win32")(
         const h = makeBroker({ policy: { folders: [{ path: dir, mode: "rw" }] }, hostProgram: {} });
         await h.broker.foldersSettled();
         expect(h.broker.folderRefused(dir)).toBe(false);
-        await look(h);
-        expect(h.broker.folderRefused(dir)).toBe(false);
+        expect(await look(h)).toEqual([dir]);
       } finally {
         await rm(dir, { recursive: true });
       }
@@ -194,7 +206,7 @@ describe.skipIf(process.platform === "win32")("failed looks", () => {
     h.broker.setPolicy({ ...h.broker.policy });
     await h.broker.foldersSettled();
     expect(h.broker.folderRefused(flaky)).toBe(true);
-    await look(h);
+    expect(await look(h)).toEqual([flaky]);
     expect(h.broker.folderRefused(flaky)).toBe(false);
   });
 });

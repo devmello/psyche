@@ -4,6 +4,8 @@
 // This file was generated from JSON Schema using quicktype, do not modify it directly.
 // To parse the JSON, add this file to your project and do:
 //
+//   let accessConfirmFolderParams = try? JSONDecoder().decode(AccessConfirmFolderParams.self, from: jsonData)
+//   let accessConfirmFolderResult = try? JSONDecoder().decode(AccessConfirmFolderResult.self, from: jsonData)
 //   let accessEntry = try? JSONDecoder().decode(AccessEntry.self, from: jsonData)
 //   let accessListParams = try? JSONDecoder().decode(AccessListParams.self, from: jsonData)
 //   let accessListResult = try? JSONDecoder().decode(AccessListResult.self, from: jsonData)
@@ -1719,6 +1721,32 @@
 
 import Foundation
 
+// MARK: - AccessConfirmFolderParams
+public struct AccessConfirmFolderParams: Codable, Sendable {
+    public let entryID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case entryID = "entryId"
+    }
+
+    public init(entryID: String) {
+        self.entryID = entryID
+    }
+}
+
+// MARK: - AccessConfirmFolderResult
+public struct AccessConfirmFolderResult: Codable, Sendable {
+    public let confirmed: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case confirmed = "confirmed"
+    }
+
+    public init(confirmed: Bool) {
+        self.confirmed = confirmed
+    }
+}
+
 // MARK: - AccessListResult
 public struct AccessListResult: Codable, Sendable {
     public let entries: [AccessEntry]
@@ -1741,6 +1769,8 @@ public struct AccessEntry: Codable, Sendable {
     public let label: String
     public let lastUsedAt: String?
     public let mode: FolderModeEnum?
+    public let moved: Bool?
+    public let movedTo: String?
     public let path: String?
     public let refused: Bool?
     public let scope: AccessEntryScope
@@ -1756,6 +1786,8 @@ public struct AccessEntry: Codable, Sendable {
         case label = "label"
         case lastUsedAt = "lastUsedAt"
         case mode = "mode"
+        case moved = "moved"
+        case movedTo = "movedTo"
         case path = "path"
         case refused = "refused"
         case scope = "scope"
@@ -1764,7 +1796,7 @@ public struct AccessEntry: Codable, Sendable {
         case type = "type"
     }
 
-    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, path: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, moved: Bool? = nil, movedTo: String? = nil, path: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
         self.file = file
         self.grantID = grantID
         self.id = id
@@ -1772,6 +1804,8 @@ public struct AccessEntry: Codable, Sendable {
         self.label = label
         self.lastUsedAt = lastUsedAt
         self.mode = mode
+        self.moved = moved
+        self.movedTo = movedTo
         self.path = path
         self.refused = refused
         self.scope = scope

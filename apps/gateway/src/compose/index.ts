@@ -1142,6 +1142,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         ...rawBroker.grantedFolders(),
         ...rawBroker.liveSessionFolders(threadId),
       ],
+      // One live look per root at a time, bounded: a hung mount does not fill the libuv pool.
+      lookRoot: (path) => rawBroker.lookRootNow(path),
       srt: execHostSrt,
       home: config.home,
       audit,
@@ -2015,6 +2017,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       }),
       files: filesSourceDeps({
         folders: () => rawBroker.grantedFolders(),
+        // The indexer follows the roots itself: only roots looked at within the fresh window.
+        freshFolders: () => rawBroker.freshGrantedFolders(),
         // Vision OCR in the Mac helper (opt-in per source), one file at a time, on power only.
         ocr: { recognize: helperRecognizer(ocrHelper), power },
       }),
@@ -2414,6 +2418,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     gwOptions.logger?.log("warn", msg, fields),
   );
   ownPorts.add(gateway.port, "gateway (bound)");
+  // The granted roots' first looks, before the indexer, the work sweep and the folder watchers
+  // start (bounded: a hung mount must not hold the start; those roots stay out until looked at).
+  await rawBroker.foldersSettled(2_000);
   for (const part of parts) await part.start?.(gateway);
   // Ask about this (Feed) and a search result in a side chat: `chat.send.context` names what the
   // agent reads as data (a search result by what the index holds, not what the window says).

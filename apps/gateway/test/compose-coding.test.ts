@@ -31,7 +31,11 @@ function services(withFiles = true) {
     tools: registry,
     // Psyche's home sits beside the repo, as on a real Mac; it is protected, the repo is not.
     home: join(dir, ".psyche"),
-    rawBroker: { policy: { folders }, grantedFolders: () => folders },
+    rawBroker: {
+      policy: { folders },
+      grantedFolders: () => folders,
+      freshGrantedFolders: async () => folders,
+    },
     broker: {
       recordReceipt: async (r: unknown) => {
         receipts.push(r);

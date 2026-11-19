@@ -204,18 +204,18 @@ describe.skipIf(WIN)("every reader of the granted folders sees the filter (3, 4,
     });
     await h.broker.foldersSettled();
     expect(h.broker.grantedFolders()).toHaveLength(1);
+    // One read through the fresh accessor (r2: a second read hid a stale first answer).
     const look = async () => {
       h.clock.advance(FOLDER_FRESH_MS + 1);
-      h.broker.grantedFolders();
-      await h.broker.foldersSettled();
+      return (await h.broker.freshGrantedFolders()).map((f) => f.path);
     };
     await rm(root, { recursive: true });
     await symlink("/opt", root);
-    await look();
+    expect(await look()).toEqual([]);
     expect(h.broker.grantedFolders()).toHaveLength(0);
     await rm(root);
     await symlink(join(home, "Projects"), root);
-    await look();
+    expect(await look()).toEqual([]);
     expect(h.broker.grantedFolders()).toHaveLength(0);
   });
 });

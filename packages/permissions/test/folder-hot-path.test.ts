@@ -145,18 +145,83 @@ describe.skipIf(process.platform === "win32")("granted roots on the decide path"
     expect(h.broker.folderRefused(granted)).toBe(false);
   });
 
-  it("a root nobody read for a long while keeps counting while its refresh runs", async () => {
+  it("a root swapped while nobody read it is left out by the first fresh read (r2 finding 1)", async () => {
     const { home, granted } = await tree();
     const h = makeBroker({
-      policy: { folders: [{ path: granted, mode: "rw" }] },
+      policy: { folders: [{ path: granted, mode: "rw", real: granted }] },
       hostProgram: { home },
     });
     await h.broker.foldersSettled();
     h.clock.advance(10 * FOLDER_STALE_CAP_MS);
-    expect(h.broker.folderRefused(granted)).toBe(false);
-    expect(h.broker.grantedFolders()).toHaveLength(1);
+    const { rm } = await import("node:fs/promises");
+    await rm(granted, { recursive: true });
+    await symlink(join(home, "Documents"), granted);
+    // One read, no settling first: the fresh accessor waits for the look itself.
+    expect(await h.broker.freshGrantedFolders()).toEqual([]);
+    // And a decide waits for it too (the engine's bound is the fresh window).
+    const d = await h.broker.decide(
+      call("write_file", "write", path(join(granted, "a.txt"))),
+      ctx as never,
+    );
+    expect(d).toMatchObject({ decision: "deny", rule: "folder:not_granted" });
+  });
+
+  it("an unswapped root nobody read for a while is still handed out by the fresh read", async () => {
+    const { home, granted } = await tree();
+    const h = makeBroker({
+      policy: { folders: [{ path: granted, mode: "rw", real: granted }] },
+      hostProgram: { home },
+    });
     await h.broker.foldersSettled();
-    expect(h.broker.folderRefused(granted)).toBe(false);
+    h.clock.advance(10 * FOLDER_STALE_CAP_MS);
+    expect((await h.broker.freshGrantedFolders()).map((f) => f.path)).toEqual([granted]);
+  });
+
+  it("the fresh read leaves out a root on a hung mount, after a bounded wait", async () => {
+    const { home, granted, missing } = await tree();
+    const h = makeBroker({
+      policy: {
+        folders: [
+          { path: granted, mode: "rw", real: granted },
+          { path: missing, mode: "rw" },
+        ],
+      },
+      hostProgram: { home },
+    });
+    await h.broker.foldersSettled();
+    probe.hang.add(granted);
+    h.clock.advance(FOLDER_FRESH_MS + 1);
+    const t0 = Date.now();
+    const fresh = await h.broker.freshGrantedFolders(100);
+    expect(Date.now() - t0).toBeLessThan(2_000);
+    expect(fresh.map((f) => f.path)).toEqual([missing]);
+    release();
+    await h.broker.foldersSettled();
+    expect((await h.broker.freshGrantedFolders()).map((f) => f.path)).toEqual([granted, missing]);
+  });
+
+  it("exec-host's live looks share one lookup per path and give up on a hung mount (r2 finding 7)", async () => {
+    const { home, granted } = await tree();
+    const h = makeBroker({
+      policy: { folders: [{ path: granted, mode: "rw", real: granted }] },
+      hostProgram: { home },
+    });
+    await h.broker.foldersSettled();
+    // Healthy: a look started now.
+    expect(await h.broker.lookRootNow(granted)).toEqual({ real: granted, link: false });
+    probe.hang.add(granted);
+    probe.lookups.length = 0;
+    const t0 = Date.now();
+    const looks = await Promise.all(
+      Array.from({ length: 20 }, () => h.broker.lookRootNow(granted, 100)),
+    );
+    expect(Date.now() - t0).toBeLessThan(2_000);
+    expect(looks.every((l) => l === undefined)).toBe(true);
+    // Twenty callers, one realpath held on the libuv pool.
+    expect(probe.lookups.filter((p) => p === granted)).toEqual([granted]);
+    release();
+    await h.broker.foldersSettled();
+    expect(await h.broker.lookRootNow(granted)).toEqual({ real: granted, link: false });
   });
 
   it("a first look that hangs makes an evaluation wait briefly, not for the mount", async () => {

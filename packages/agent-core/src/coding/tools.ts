@@ -60,8 +60,14 @@ import {
 export interface CodingToolsDeps {
   /** The P9 file tools' registrations (`read_file`, `write_file`) whose executors are reused. */
   files: { read: AgentToolRegistration; write: AgentToolRegistration };
-  /** The owner's granted folders, read on every call (`permissions.policy.folders`). */
-  folders: () => readonly CodingFolderGrant[] | undefined;
+  /**
+   * The owner's granted folders, read on every call (`permissions.policy.folders`). The Gateway
+   * passes the broker's `freshGrantedFolders`: the tools follow the root themselves (search, git).
+   */
+  folders: () =>
+    | readonly CodingFolderGrant[]
+    | undefined
+    | Promise<readonly CodingFolderGrant[] | undefined>;
   /**
    * Locations no coding workspace may be, or contain (Psyche's own home, credential stores;
    * #285): a workspace root is mounted into the sandbox whole, so `~` would expose `~/.ssh`.
@@ -121,21 +127,32 @@ const worst = (a: ProvenanceOut, b: ProvenanceOut): ProvenanceOut =>
 export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
   const workspaces = deps.workspaces ?? new CodingWorkspaces(deps.now);
   /** A folder grant for `path`, unless it is, or holds, a protected location. */
-  const grantOf = (path: string, isRoot = false): CodingFolderGrant | undefined => {
+  const grantOf = async (path: string, isRoot = false): Promise<CodingFolderGrant | undefined> => {
     for (const raw of deps.protectedRoots?.() ?? []) {
       const r = canonicalRoot(raw);
       if (isUnder(path, r) || (isRoot && isUnder(r, path))) return undefined;
     }
-    return grantFor(path, deps.folders());
+    return grantFor(path, await deps.folders());
   };
 
-  /** The workspace and a live re-check of its folder grant (a revoke applies at once). */
-  const workspace = (ctx: ToolRunContext, root: string, access: "read" | "write") => {
+  /**
+   * The workspace and a live re-check of its folder grant (a revoke applies at once), and of its
+   * root: still a real folder at the path `code.open` checked. A root or a parent swapped for a
+   * link since then (even under a wider grant that still covers the path) closes it.
+   */
+  const workspace = async (ctx: ToolRunContext, root: string, access: "read" | "write") => {
     const ws = workspaces.get(ctx, canonicalRoot(root));
-    const grant = grantOf(ws.root, true);
+    const grant = await grantOf(ws.root, true);
     if (grant === undefined) throw new PsycheError("forbidden", `${ws.root} is no longer granted`);
     if (access === "write" && grant.mode !== "rw") {
       throw new PsycheError("forbidden", `${grant.path} is granted read-only`);
+    }
+    const real = await realpath(ws.root).catch(() => undefined);
+    if (real !== ws.root) {
+      throw new PsycheError(
+        "forbidden",
+        `${ws.root} is no longer the folder that was opened; open it again`,
+      );
     }
     return ws;
   };
@@ -224,7 +241,7 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
     }),
     async run(p, ctx) {
       const root = canonicalRoot(p.path);
-      const grant = grantOf(root, true);
+      const grant = await grantOf(root, true);
       if (grant === undefined) {
         throw new PsycheError("forbidden", `${root} is outside every granted folder`);
       }
@@ -284,7 +301,7 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
     provenanceOut: "untrusted",
     describeCall: (p) => ({ target: { kind: "path", value: joinTarget(p.root, p.path) } }),
     async run(p, ctx) {
-      const ws = workspace(ctx, p.root, "read");
+      const ws = await workspace(ctx, p.root, "read");
       const dir = resolveInRoot(ws.root, p.path ?? ".");
       const result = await searchCode({
         dir,
@@ -321,7 +338,7 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
     provenanceOut: "untrusted",
     describeCall: (p) => ({ target: { kind: "path", value: joinTarget(p.root, p.path) } }),
     async run(p, ctx) {
-      const ws = workspace(ctx, p.root, "read");
+      const ws = await workspace(ctx, p.root, "read");
       const full = resolveInRoot(ws.root, p.path);
       const file = await readWhole(full, ctx);
       const lines = file.text === "" ? [] : file.text.replace(/\n$/, "").split("\n");
@@ -398,7 +415,7 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
     targetKind: "path",
     describeCall: editDescribe,
     async run(p, ctx) {
-      const ws = workspace(ctx, p.root, "write");
+      const ws = await workspace(ctx, p.root, "write");
       const patches = parsePatch(p.patch);
       // Plan every file first: one hunk that does not match writes nothing at all.
       const planned: {
@@ -418,7 +435,7 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
             `${f.path} is inside .git; code.edit never writes there`,
           );
         }
-        const g = grantOf(full);
+        const g = await grantOf(full);
         if (g?.mode !== "rw")
           throw new PsycheError("forbidden", `${f.path} is not in a read-write grant`);
         const exists = await lstat(full).then(
@@ -532,7 +549,11 @@ export function filesSummary(files: readonly string[]): string {
   return `${shown.slice(0, -1).join(", ")} and ${shown.at(-1)}`;
 }
 
-type WorkspaceOf = (ctx: ToolRunContext, root: string, access: "read" | "write") => CodingWorkspace;
+type WorkspaceOf = (
+  ctx: ToolRunContext,
+  root: string,
+  access: "read" | "write",
+) => Promise<CodingWorkspace>;
 type ReceiptFn = (
   ctx: ToolRunContext,
   kind: string,
@@ -597,7 +618,7 @@ function runTool(
       };
     },
     async run(p, ctx) {
-      const ws = workspace(ctx, p.root, "write");
+      const ws = await workspace(ctx, p.root, "write");
       // The command's cwd must be the repository or a folder in it.
       const hostCwd = resolveInRoot(ws.root, p.cwd ?? ".");
       const network = p.network ?? "none";
@@ -794,7 +815,7 @@ function gitTool(
     },
     async run(p, ctx) {
       const writes = p.op === "commit" || p.op === "branch" || p.op === "push";
-      const ws = workspace(ctx, p.root, writes ? "write" : "read");
+      const ws = await workspace(ctx, p.root, writes ? "write" : "read");
       const root = ws.root;
       const sig = ctx.signal;
       const ok = (output: Record<string, unknown>, receiptId?: string): ToolResult => ({

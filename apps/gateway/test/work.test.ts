@@ -325,6 +325,15 @@ describe("the Apple sources", () => {
     expect(files.map((f) => [f.path, f.owner])).toEqual([[join(hw7, "hw7.tex"), true]]);
     const folders = await src.folders(signal);
     expect(folders.map((f) => f.path).sort()).toEqual([join(granted, "MATH21"), hw7]);
+    // PR #1395 r2: the sweep reads the roots from the broker's fresh look (async). A root left
+    // out there (swapped since its last look) is neither swept nor listed.
+    const fresh = appleWorkSources(seams, async () => []);
+    expect(await fresh.files([hw7], NOW - 7 * DAY, signal)).toEqual([]);
+    expect(await fresh.folders(signal)).toEqual([]);
+    const live = appleWorkSources(seams, async () => [{ path: granted }]);
+    expect((await live.files([hw7], NOW - 7 * DAY, signal)).map((f) => f.path)).toEqual([
+      join(hw7, "hw7.tex"),
+    ]);
   });
 });
 

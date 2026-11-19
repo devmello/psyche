@@ -4,7 +4,11 @@ import { join } from "node:path";
 import { getSetting, openDb, setSetting } from "@psyche/db";
 import { describe, expect, it } from "vitest";
 import type { Call } from "../src/context.ts";
-import { settingsHandlers } from "../src/handlers/settings.ts";
+import {
+  mergeStoredFolderReals,
+  recordPolicyFolderReals,
+  settingsHandlers,
+} from "../src/handlers/settings.ts";
 
 /** The `real` a write records for a new folder: its real path, or none when it is not there. */
 function realOf(path: string): { real?: string } {
@@ -167,5 +171,56 @@ describe("settings.set permissions.policy records each folder's real path", () =
       value: { folders: [{ path: join(root, "old"), mode: "rw", real: "/elsewhere" }], other: 1 },
     });
     expect(stored(db)).toEqual([{ path: join(root, "old"), mode: "rw" }]);
+  });
+});
+
+/** PR #1395 r2 finding 5: one real path per new folder, and no record lost to a slow write. */
+describe("policy writes keep the folders' real paths", () => {
+  it("records only the real path the check judged, never a second lookup", () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "psy-judged-")));
+    mkdirSync(join(root, "a"));
+    mkdirSync(join(root, "b"));
+    const value = {
+      folders: [
+        { path: join(root, "a"), mode: "rw" },
+        { path: join(root, "b"), mode: "rw" },
+      ],
+    };
+    // `b` exists, but the check did not judge it at a real path: nothing is recorded for it.
+    expect(
+      recordPolicyFolderReals(value, undefined, new Map([[join(root, "a"), join(root, "a")]])),
+    ).toEqual({
+      folders: [
+        { path: join(root, "a"), mode: "rw", real: join(root, "a") },
+        { path: join(root, "b"), mode: "rw" },
+      ],
+    });
+  });
+
+  it("an entry without a real path takes the one stored meanwhile, and nothing else changes", () => {
+    const value = {
+      other: 1,
+      folders: [
+        { path: "/u/a", mode: "rw" },
+        { path: "/u/b", mode: "ro", real: "/u/b" },
+        { path: "/u/new", mode: "rw" },
+      ],
+    };
+    const stored = {
+      folders: [
+        { path: "/u/a", mode: "rw", real: "/u/a" },
+        { path: "/u/b", mode: "ro", real: "/elsewhere" },
+        { path: "/u/gone", mode: "rw", real: "/u/gone" },
+      ],
+    };
+    expect(mergeStoredFolderReals(value, stored)).toEqual({
+      other: 1,
+      folders: [
+        { path: "/u/a", mode: "rw", real: "/u/a" },
+        { path: "/u/b", mode: "ro", real: "/u/b" },
+        { path: "/u/new", mode: "rw" },
+      ],
+    });
+    expect(mergeStoredFolderReals(value, undefined)).toEqual(value);
   });
 });

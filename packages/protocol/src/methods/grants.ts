@@ -28,6 +28,13 @@ export const AccessEntry = Type.Object(
      * `~/.ssh`...), so it covers nothing. Revoke is still offered.
      */
     refused: Type.Optional(Type.Boolean()),
+    /**
+     * With `refused`: a folder kept until revoked, granted before Psyche recorded where each
+     * folder really is, that now leads somewhere else (`movedTo`). It covers nothing until the
+     * owner confirms it again there (`access.confirmFolder`).
+     */
+    moved: Type.Optional(Type.Boolean()),
+    movedTo: Type.Optional(Type.String({ maxLength: 4096 })),
     threadId: Type.Optional(Id),
     grantId: Type.Optional(Id),
     kind: Type.Optional(ApprovalKind),
@@ -52,6 +59,13 @@ export const GrantsMethods = {
     scope: "operator.admin",
     description:
       "Revokes one entry of `access.list` at once (a folder stops working on the next call; a grant is revoked). Changing standing permissions is an admin action.",
+  }),
+  "access.confirmFolder": defineMethod({
+    params: Type.Object({ entryId: Type.String({ minLength: 1, maxLength: 4200 }) }),
+    result: Type.Object({ confirmed: Type.Boolean() }),
+    scope: "operator.admin",
+    description:
+      "Confirms again a folder row of `access.list` marked `moved`: the folder is looked up now and shared where it leads today, unless a grant there would be refused. A plain tap from an admin device; false when there is nothing to confirm.",
   }),
   "grants.list": defineMethod({
     params: Type.Object({

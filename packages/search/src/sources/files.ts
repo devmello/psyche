@@ -1,6 +1,6 @@
 import type { Dirent } from "node:fs";
 import { lstat, readdir, readFile } from "node:fs/promises";
-import { basename, extname, join } from "node:path";
+import { basename, extname, join, sep } from "node:path";
 import type { PowerState } from "./manager.ts";
 import type { SourceAdapter, SourceItem } from "./types.ts";
 
@@ -40,6 +40,12 @@ const OCR_MAX_PENDING = 5000;
 export interface FilesSourceDeps {
   /** The granted folders, read on every pass so a revoked grant applies at once. */
   folders: () => readonly { path: string }[];
+  /**
+   * The granted folders judged from a look at most a few seconds old (the broker's
+   * `freshGrantedFolders`): the walk and each pull follow the roots, so a root swapped for a
+   * link stops being read by the next pass. Without it `folders` is used.
+   */
+  freshFolders?: () => Promise<readonly { path: string }[]>;
   /** True for a path no grant opens (`~/.psyche`, credential stores); such paths are skipped. */
   isProtected?: (path: string) => boolean;
   /**
@@ -98,6 +104,8 @@ export function filesAdapter(deps: FilesSourceDeps): SourceAdapter & { invalidat
   let listing: { at: number; entries: Entry[]; complete: boolean } | undefined;
   const now = deps.now ?? Date.now;
 
+  const liveRoots = async (): Promise<readonly { path: string }[]> =>
+    deps.freshFolders === undefined ? deps.folders() : await deps.freshFolders();
   const walk = async (signal: AbortSignal) => {
     if (listing !== undefined && now() - listing.at < LISTING_TTL_MS) return listing;
     const entries: Entry[] = [];
@@ -128,7 +136,7 @@ export function filesAdapter(deps: FilesSourceDeps): SourceAdapter & { invalidat
         }
       }
     };
-    for (const f of deps.folders()) await visit(f.path);
+    for (const f of await liveRoots()) await visit(f.path);
     entries.sort((a, b) => a.mtime - b.mtime || (a.path < b.path ? -1 : 1));
     listing = { at: now(), entries, complete };
     return listing;
@@ -211,7 +219,12 @@ export function filesAdapter(deps: FilesSourceDeps): SourceAdapter & { invalidat
         c.mtime === undefined ||
         e.mtime > c.mtime ||
         (e.mtime === c.mtime && e.path > (c.path ?? ""));
-      const { entries } = await walk(signal);
+      const listed = await walk(signal);
+      // The listing is kept for a while: read only what a root that still counts holds now.
+      const roots = (await liveRoots()).map((f) => f.path);
+      const entries = listed.entries.filter((e) =>
+        roots.some((r) => e.path === r || e.path.startsWith(r.endsWith(sep) ? r : `${r}${sep}`)),
+      );
       const todo = entries.filter(after);
       const page = todo.slice(0, Math.min(limit, 40));
       const budget: Budget = { left: deps.ocr?.pagesPerPull ?? OCR_PAGES_PER_PULL, skipped: [] };
