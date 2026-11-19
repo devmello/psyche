@@ -17,6 +17,17 @@ public protocol SessionTapHandle: AnyObject, Sendable {
 /// Installs a tap of one kind; nil when the system refuses (no Accessibility).
 public protocol SessionTapInstaller: Sendable {
     func install(_ kind: SessionTapKind) -> (any SessionTapHandle)?
+    /// Why the last `install` returned nil. Accessibility trusted yet no tap means the install timed out.
+    func failureAfterInstall(_ kind: SessionTapKind) -> SessionTapFailure
+}
+
+public enum SessionTapFailure: Sendable, Equatable {
+    case permission
+    case timeout
+}
+
+extension SessionTapInstaller {
+    public func failureAfterInstall(_ kind: SessionTapKind) -> SessionTapFailure { .permission }
 }
 
 /// Runs `fire` once after `delay`; the returned closure cancels it.
@@ -55,6 +66,10 @@ public final class SessionTaps: @unchecked Sendable {
     private var esc: (any SessionTapHandle)?
     private var attention: (any SessionTapHandle)?
     private var cancelIdle: (@Sendable () -> Void)?
+    /// Runs the deferred reconcile of `stopActiveFromTap`; tests replace it to run inline or capture.
+    public var dispatchReconcile: @Sendable (@escaping @Sendable () -> Void) -> Void = { work in
+        DispatchQueue.global(qos: .userInitiated).async(execute: work)
+    }
 
     public init(installer: any SessionTapInstaller, sessions: ComputerSessionLock, schedule: @escaping SessionTapScheduler = SessionTapTimer.live) {
         self.installer = installer
@@ -70,7 +85,12 @@ public final class SessionTaps: @unchecked Sendable {
     public func beginSession(_ id: String) throws {
         try lock.withLock {
             if esc == nil {
-                guard let tap = installer.install(.escStop) else { throw CapabilityError.permissionMissing(.accessibility) }
+                guard let tap = installer.install(.escStop) else {
+                    if installer.failureAfterInstall(.escStop) == .timeout {
+                        throw CapabilityError.unavailable("esc_tap_timeout", "Computer use could not start its Esc stop in time. Try again.", retryable: true)
+                    }
+                    throw CapabilityError.permissionMissing(.accessibility)
+                }
                 esc = tap
             }
             if attention == nil { attention = installer.install(.attention) }  // best effort: no record fails closed
@@ -82,7 +102,17 @@ public final class SessionTaps: @unchecked Sendable {
         }
     }
 
-    /// Releases the session lock, then removes the taps if nothing holds it.
+    /// An action of `id` started (after `beginSession`): the session stays active, and its taps stay,
+    /// until `endInvocation`, however long the action runs.
+    public func beginInvocation(_ id: String) { sessions.beginInvocation(id) }
+
+    /// The action ended: completes a deferred `end_session`, then removes the taps if idle.
+    public func endInvocation(_ id: String) {
+        sessions.endInvocation(id)
+        reconcile()
+    }
+
+    /// Releases the session lock (deferred while an action of it runs), then removes the taps if nothing holds it.
     public func release(_ id: String) {
         sessions.release(id)
         reconcile()
@@ -93,6 +123,16 @@ public final class SessionTaps: @unchecked Sendable {
     public func stopActive() -> String? {
         let stopped = sessions.stopActive()
         reconcile()
+        return stopped
+    }
+
+    /// Esc callback variant: trips the session synchronously, but removes the taps off the callback's
+    /// thread. `reconcile` takes the tap lock, which another thread can hold for seconds while it
+    /// installs a tap; the held Esc keyDown must not wait for that.
+    @discardableResult
+    public func stopActiveFromTap() -> String? {
+        let stopped = sessions.stopActive()
+        dispatchReconcile { [weak self] in self?.reconcile() }
         return stopped
     }
 

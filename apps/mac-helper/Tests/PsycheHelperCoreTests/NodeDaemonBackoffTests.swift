@@ -30,17 +30,20 @@ struct NodeDaemonBackoffTests {
         }
     }
 
-    private func daemon() -> NodeDaemon {
+    private func daemon(home: String = NSTemporaryDirectory()) -> NodeDaemon {
         NodeDaemon(
             identity: DeviceIdentity(), registry: CapabilityRegistry([]), preflight: NoPreflight(), log: HelperLog(echo: { _ in }),
-            environment: ["PSYCHE_HOME": NSTemporaryDirectory()])
+            environment: ["PSYCHE_HOME": home])
     }
 
     @Test func aWaitEndsEarlyWhenTheGatewayComesUp() async {
-        let d = daemon()
+        let home = NSTemporaryDirectory() + "psyche-daemon-\(UUID().uuidString)"
+        try? FileManager.default.createDirectory(atPath: home + "/run", withIntermediateDirectories: true)
+        let d = daemon(home: home)
         let started = Date()
         async let woken: Bool = _Concurrency.Task.detached { d.sleepUnlessStopped(30) }.value
         try? await _Concurrency.Task.sleep(nanoseconds: 1_300_000_000)  // past the one-second debounce
+        try? "/tmp/new.sock".write(toFile: home + "/run/node-socket", atomically: true, encoding: .utf8)  // the Gateway restarted
         d.gatewayMayBeUp()
         #expect(await woken)
         #expect(Date().timeIntervalSince(started) < 10)
