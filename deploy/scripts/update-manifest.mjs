@@ -24,12 +24,19 @@ import {
   sign,
   verify,
 } from "node:crypto";
-import { readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const FORMAT = "psyche-update-manifest";
 const VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
+
+/**
+ * Whether `classifyArtifact` knows the desktop Linux packages (`Psyche-<v>-linux-<arch>.deb|rpm|
+ * AppImage`, L2). release.yml greps for `DESKTOP_LINUX_SUPPORT = true`; flip this with that
+ * classification. The helper-only and server packages below are not the desktop's.
+ */
+export const DESKTOP_LINUX_SUPPORT = false;
 
 export function keyIdOf(raw) {
   return createHash("sha256").update(raw).digest("hex").slice(0, 16);
@@ -98,6 +105,7 @@ export function buildManifest({
   files,
   winArch,
   deltaBase,
+  linuxOnly = false,
   now = new Date(),
 }) {
   if (!VERSION.test(release) || !VERSION.test(minimum))
@@ -105,16 +113,27 @@ export function buildManifest({
   if (deltaBase !== undefined && !VERSION.test(deltaBase))
     throw new Error("--delta-base must look like 1.2.3");
   if (!/^https:\/\/.+\/$/.test(base)) throw new Error("--base must be an https URL ending in /");
-  const all = files.map((f) => artifactOf(f, { winArch, deltaBase })).filter(Boolean);
+  // A file the caller named that this script cannot classify is an error, never a silent drop
+  // (a desktop Linux package would otherwise ship with no manifest entry). The one exception is
+  // an unexpanded shell glob (`artifacts/Psyche-*.dmg` with no match): it names no file.
+  const all = [];
+  for (const f of files) {
+    if (/[*?[]/.test(f) && !existsSync(f)) continue;
+    const a = artifactOf(f, { winArch, deltaBase });
+    if (!a) throw new Error(`cannot classify ${basename(f)}: not a known release file`);
+    all.push(a);
+  }
   const mac = all.filter((a) => a.platform === "darwin");
   const win = all.filter((a) => a.platform === "win32");
   const linux = all.filter((a) => a.platform === "linux");
   const macUpdate = mac.some((a) => a.kind === "zip");
   const winUpdate =
     win.some((a) => a.kind === "squirrel-releases") && win.some((a) => a.kind === "nupkg-full");
-  if (!macUpdate && !winUpdate && linux.length === 0)
+  // Every Mac client reads the latest manifest, so one with no Mac or Windows update would make
+  // them all refuse it. A Linux-only manifest needs the explicit --linux-only (never the release job).
+  if (!macUpdate && !winUpdate && !(linuxOnly && linux.length > 0))
     throw new Error(
-      "no update among the artifacts: a Psyche-<version>-darwin-<arch>.zip, or RELEASES and a Psyche-<version>-full.nupkg, or a psyche-helper / psyche-server Linux package",
+      "no update among the artifacts: a Psyche-<version>-darwin-<arch>.zip, or RELEASES and a Psyche-<version>-full.nupkg (--linux-only allows a Linux-only manifest)",
     );
   if (win.length && !winUpdate)
     throw new Error("Windows files without RELEASES and the full nupkg cannot update anyone");
@@ -225,6 +244,7 @@ function main(argv) {
       else if (a === "--base") opts.base = rest[++i];
       else if (a === "--win-arch") opts.winArch = rest[++i];
       else if (a === "--delta-base") opts.deltaBase = rest[++i];
+      else if (a === "--linux-only") opts.linuxOnly = true;
       else if (a === "--image") {
         const [k, v] = String(rest[++i]).split("=");
         opts.images[k] = v;

@@ -15064,8 +15064,10 @@
           "type": "string"
         },
         "name": {
+          "description": "No control, bidi, zero-width or invisible characters; no leading or trailing space",
           "maxLength": 64,
           "minLength": 1,
+          "pattern": "^(?!.*\\udb40[\\udc00-\\udc7f])[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u061c\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\s](?:[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u061c\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb]*[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u061c\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\s])?$",
           "type": "string"
         }
       },
@@ -26299,13 +26301,6 @@
       ],
       "type": "string"
     },
-    "MachineFileMode": {
-      "enum": [
-        "ro",
-        "rw"
-      ],
-      "type": "string"
-    },
     "MachineFileRoot": {
       "properties": {
         "path": {
@@ -26314,7 +26309,11 @@
           "type": "string"
         },
         "mode": {
-          "$ref": "#/$defs/MachineFileMode"
+          "enum": [
+            "ro",
+            "rw"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -26338,8 +26337,10 @@
           "type": "string"
         },
         "name": {
+          "description": "No control, bidi, zero-width or invisible characters; no leading or trailing space",
           "maxLength": 64,
           "minLength": 1,
+          "pattern": "^(?!.*\\udb40[\\udc00-\\udc7f])[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u061c\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\s](?:[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u061c\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb]*[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u061c\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\s])?$",
           "type": "string"
         },
         "platform": {
@@ -26348,7 +26349,7 @@
           "type": "string"
         },
         "status": {
-          "$ref": "#/$defs/MachineStatus"
+          "$ref": "#/$defs/NodeStatus"
         },
         "display": {
           "anyOf": [
@@ -26450,14 +26451,6 @@
       ],
       "type": "string"
     },
-    "MachineStatus": {
-      "enum": [
-        "online",
-        "offline",
-        "degraded"
-      ],
-      "type": "string"
-    },
     "MachinesChangedPayload": {
       "properties": {
         "machine": {
@@ -26500,8 +26493,10 @@
           "type": "string"
         },
         "name": {
+          "description": "No control, bidi, zero-width or invisible characters; no leading or trailing space",
           "maxLength": 64,
           "minLength": 1,
+          "pattern": "^(?!.*\\udb40[\\udc00-\\udc7f])[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u061c\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\s](?:[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u061c\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb]*[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u061c\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\s])?$",
           "type": "string"
         }
       },
@@ -34425,13 +34420,6 @@
       ],
       "type": "string"
     },
-    "PairingPurpose": {
-      "enum": [
-        "device",
-        "machine"
-      ],
-      "type": "string"
-    },
     "PairingRequest": {
       "properties": {
         "id": {
@@ -34448,7 +34436,7 @@
           "type": "string"
         },
         "purpose": {
-          "$ref": "#/$defs/PairingPurpose"
+          "$ref": "#/$defs/SetupTokenPurpose"
         },
         "code": {
           "type": "string"
@@ -41049,7 +41037,7 @@
         },
         "scopes": {
           "items": {
-            "$ref": "#/$defs/SetupTokenInfoScope"
+            "$ref": "#/$defs/DeviceScope"
           },
           "type": "array"
         },
@@ -41121,16 +41109,6 @@
         "status"
       ],
       "type": "object"
-    },
-    "SetupTokenInfoScope": {
-      "enum": [
-        "operator.read",
-        "operator.write",
-        "operator.approvals",
-        "operator.admin",
-        "node"
-      ],
-      "type": "string"
     },
     "SetupTokenPurpose": {
       "enum": [

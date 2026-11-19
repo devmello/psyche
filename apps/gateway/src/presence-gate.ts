@@ -184,8 +184,13 @@ export const PRESENCE_METHODS: Readonly<Record<string, (p: Params) => string | u
   "devices.approve": (p) =>
     `Approve a new device with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
   // A setup token pairs a computer without a second approval, so making one is approving ahead.
+  // `purpose: machine` has no gate until the machine registry lands: the handler refuses it
+  // (`unavailable`) first, so no card is shown for a request that will fail. H3 must give it its
+  // own purpose-aware summary ("Let a new Linux computer pair itself as a computer Psyche can use").
   "devices.setupToken.create": (p) =>
-    `Let a new computer pair itself${p.via === "lan" ? " from this network" : ""} with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
+    p.purpose === "machine"
+      ? undefined
+      : `Let a new computer pair itself${p.via === "lan" ? " from this network" : ""} with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
   // Anything but "always" lowers protection: a server whose tools are not payments needs no
   // presence on its calls. Raising it to "always" only adds friction and stays admin-only.
   "mcp.handlesMoney.set": (p) =>

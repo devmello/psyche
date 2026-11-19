@@ -736,11 +736,9 @@
 //   let machineAccount = try? JSONDecoder().decode(MachineAccount.self, from: jsonData)
 //   let machineChange = try? JSONDecoder().decode(MachineChange.self, from: jsonData)
 //   let machineDisplay = try? JSONDecoder().decode(MachineDisplay.self, from: jsonData)
-//   let machineFileMode = try? JSONDecoder().decode(MachineFileMode.self, from: jsonData)
 //   let machineFileRoot = try? JSONDecoder().decode(MachineFileRoot.self, from: jsonData)
 //   let machineInfo = try? JSONDecoder().decode(MachineInfo.self, from: jsonData)
 //   let machinePolicyOwner = try? JSONDecoder().decode(MachinePolicyOwner.self, from: jsonData)
-//   let machineStatus = try? JSONDecoder().decode(MachineStatus.self, from: jsonData)
 //   let machinesChangedPayload = try? JSONDecoder().decode(MachinesChangedPayload.self, from: jsonData)
 //   let machinesListParams = try? JSONDecoder().decode(MachinesListParams.self, from: jsonData)
 //   let machinesListResult = try? JSONDecoder().decode(MachinesListResult.self, from: jsonData)
@@ -1087,7 +1085,6 @@
 //   let onePasswordSetupStatus = try? JSONDecoder().decode(OnePasswordSetupStatus.self, from: jsonData)
 //   let onePasswordTestResult = try? JSONDecoder().decode(OnePasswordTestResult.self, from: jsonData)
 //   let oSPermission = try? JSONDecoder().decode(OSPermission.self, from: jsonData)
-//   let pairingPurpose = try? JSONDecoder().decode(PairingPurpose.self, from: jsonData)
 //   let pairingRequest = try? JSONDecoder().decode(PairingRequest.self, from: jsonData)
 //   let pairingRequestedPayload = try? JSONDecoder().decode(PairingRequestedPayload.self, from: jsonData)
 //   let pairingStatus = try? JSONDecoder().decode(PairingStatus.self, from: jsonData)
@@ -1346,7 +1343,6 @@
 //   let settingsSetParams = try? JSONDecoder().decode(SettingsSetParams.self, from: jsonData)
 //   let settingsSetResult = try? JSONDecoder().decode(SettingsSetResult.self, from: jsonData)
 //   let setupTokenInfo = try? JSONDecoder().decode(SetupTokenInfo.self, from: jsonData)
-//   let setupTokenInfoScope = try? JSONDecoder().decode(SetupTokenInfoScope.self, from: jsonData)
 //   let setupTokenPurpose = try? JSONDecoder().decode(SetupTokenPurpose.self, from: jsonData)
 //   let setupTokenScope = try? JSONDecoder().decode(SetupTokenScope.self, from: jsonData)
 //   let setupTokenVia = try? JSONDecoder().decode(SetupTokenVia.self, from: jsonData)
@@ -1757,7 +1753,7 @@ public struct AccessEntry: Codable, Sendable {
     public let kind: ApprovalKind?
     public let label: String
     public let lastUsedAt: String?
-    public let mode: MachineFileMode?
+    public let mode: FolderModeEnum?
     public let path: String?
     public let refused: Bool?
     public let scope: AccessEntryScope
@@ -1781,7 +1777,7 @@ public struct AccessEntry: Codable, Sendable {
         case type = "type"
     }
 
-    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: MachineFileMode? = nil, path: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, path: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
         self.file = file
         self.grantID = grantID
         self.id = id
@@ -1829,7 +1825,7 @@ public enum ApprovalKind: String, Codable, Sendable {
     case taskStart = "task_start"
 }
 
-public enum MachineFileMode: String, Codable, Sendable {
+public enum FolderModeEnum: String, Codable, Sendable {
     case ro = "ro"
     case rw = "rw"
 }
@@ -4088,7 +4084,7 @@ public struct ApprovalAnswer: Codable, Sendable {
     public let bulk: Bool?
     public let decision: ApprovalAnswerDecision
     public let editedText: String?
-    public let folderMode: MachineFileMode?
+    public let folderMode: FolderModeEnum?
     public let folderPath: String?
     public let hostProgram: Bool?
     public let presence: PresenceAssertion?
@@ -4115,7 +4111,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, bulk: Bool? = nil, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: MachineFileMode? = nil, folderPath: String? = nil, hostProgram: Bool? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, trustSite: TrustSite? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
+    public init(answerToken: String, approvalID: String, bulk: Bool? = nil, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, hostProgram: Bool? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, trustSite: TrustSite? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.bulk = bulk
@@ -4368,6 +4364,7 @@ public struct FromLesson: Codable, Sendable {
 // MARK: - ComputerMachineRef
 public struct ComputerMachineRef: Codable, Sendable {
     public let deviceID: String
+    /// No control, bidi, zero-width or invisible characters; no leading or trailing space
     public let name: String
 
     public enum CodingKeys: String, CodingKey {
@@ -10769,7 +10766,7 @@ public struct ConnectPaired: Codable, Sendable {
     public let deviceID: String
     public let nodeID: String?
     public let phase: ConnectPairedPhase
-    public let scopes: [SetupTokenInfoScope]
+    public let scopes: [DeviceScope]
     public let serverTime: String
     public let stateVersion: Int
 
@@ -10782,7 +10779,7 @@ public struct ConnectPaired: Codable, Sendable {
         case stateVersion = "stateVersion"
     }
 
-    public init(deviceID: String, nodeID: String? = nil, phase: ConnectPairedPhase, scopes: [SetupTokenInfoScope], serverTime: String, stateVersion: Int) {
+    public init(deviceID: String, nodeID: String? = nil, phase: ConnectPairedPhase, scopes: [DeviceScope], serverTime: String, stateVersion: Int) {
         self.deviceID = deviceID
         self.nodeID = nodeID
         self.phase = phase
@@ -10796,7 +10793,7 @@ public enum ConnectPairedPhase: String, Codable, Sendable {
     case paired = "paired"
 }
 
-public enum SetupTokenInfoScope: String, Codable, Sendable {
+public enum DeviceScope: String, Codable, Sendable {
     case node = "node"
     case operatorAdmin = "operator.admin"
     case operatorApprovals = "operator.approvals"
@@ -10893,7 +10890,7 @@ public struct ConnectResult: Codable, Sendable {
     public let deviceID: String?
     public let nodeID: String?
     public let phase: ConnectResultPhase
-    public let scopes: [SetupTokenInfoScope]?
+    public let scopes: [DeviceScope]?
     public let serverTime: String?
     public let stateVersion: Int?
     /// Machine-readable cause when there is one: setup_token_invalid (the setup token was used,
@@ -10915,7 +10912,7 @@ public struct ConnectResult: Codable, Sendable {
         case reason = "reason"
     }
 
-    public init(deviceID: String? = nil, nodeID: String? = nil, phase: ConnectResultPhase, scopes: [SetupTokenInfoScope]? = nil, serverTime: String? = nil, stateVersion: Int? = nil, code: String? = nil, pairingRequestID: String? = nil, reason: String? = nil) {
+    public init(deviceID: String? = nil, nodeID: String? = nil, phase: ConnectResultPhase, scopes: [DeviceScope]? = nil, serverTime: String? = nil, stateVersion: Int? = nil, code: String? = nil, pairingRequestID: String? = nil, reason: String? = nil) {
         self.deviceID = deviceID
         self.nodeID = nodeID
         self.phase = phase
@@ -13083,7 +13080,7 @@ public struct Device: Codable, Sendable {
     public let publicKey: String
     public let revokedAt: String?
     public let role: DeviceRole
-    public let scopes: [SetupTokenInfoScope]
+    public let scopes: [DeviceScope]
 
     public enum CodingKeys: String, CodingKey {
         case id = "id"
@@ -13097,7 +13094,7 @@ public struct Device: Codable, Sendable {
         case scopes = "scopes"
     }
 
-    public init(id: String, lastSeenAt: String? = nil, name: String, pairedAt: String? = nil, platform: DevicePlatform, publicKey: String, revokedAt: String? = nil, role: DeviceRole, scopes: [SetupTokenInfoScope]) {
+    public init(id: String, lastSeenAt: String? = nil, name: String, pairedAt: String? = nil, platform: DevicePlatform, publicKey: String, revokedAt: String? = nil, role: DeviceRole, scopes: [DeviceScope]) {
         self.id = id
         self.lastSeenAt = lastSeenAt
         self.name = name
@@ -13123,7 +13120,7 @@ public struct DevicesApproveParams: Codable, Sendable {
     public let code: String?
     public let pairingRequestID: String
     /// Owner-chosen scopes; never taken from the client
-    public let scopes: [SetupTokenInfoScope]
+    public let scopes: [DeviceScope]
 
     public enum CodingKeys: String, CodingKey {
         case approvalID = "approvalId"
@@ -13132,7 +13129,7 @@ public struct DevicesApproveParams: Codable, Sendable {
         case scopes = "scopes"
     }
 
-    public init(approvalID: String? = nil, code: String? = nil, pairingRequestID: String, scopes: [SetupTokenInfoScope]) {
+    public init(approvalID: String? = nil, code: String? = nil, pairingRequestID: String, scopes: [DeviceScope]) {
         self.approvalID = approvalID
         self.code = code
         self.pairingRequestID = pairingRequestID
@@ -13526,7 +13523,7 @@ public struct SetupTokenInfo: Codable, Sendable {
     public let id: String
     public let purpose: SetupTokenPurpose?
     public let revokedAt: String?
-    public let scopes: [SetupTokenInfoScope]
+    public let scopes: [DeviceScope]
     public let status: SetupTokenInfoStatus
     public let usedAt: String?
     public let usedByDeviceID: String?
@@ -13543,7 +13540,7 @@ public struct SetupTokenInfo: Codable, Sendable {
         case usedByDeviceID = "usedByDeviceId"
     }
 
-    public init(createdAt: String, expiresAt: String, id: String, purpose: SetupTokenPurpose? = nil, revokedAt: String? = nil, scopes: [SetupTokenInfoScope], status: SetupTokenInfoStatus, usedAt: String? = nil, usedByDeviceID: String? = nil) {
+    public init(createdAt: String, expiresAt: String, id: String, purpose: SetupTokenPurpose? = nil, revokedAt: String? = nil, scopes: [DeviceScope], status: SetupTokenInfoStatus, usedAt: String? = nil, usedByDeviceID: String? = nil) {
         self.createdAt = createdAt
         self.expiresAt = expiresAt
         self.id = id
@@ -16203,7 +16200,7 @@ public struct GatewayLANRotateCERTResult: Codable, Sendable {
 public struct GatewayPrepareUpdateParams: Codable, Sendable {
     /// `prepare` (default) stops new work and waits; `check` only reports what is busy; `cancel`
     /// resumes normal service now
-    public let mode: Mode?
+    public let mode: GatewayPrepareUpdateParamsMode?
     /// How long the Gateway stays closed to new work if no update follows (default 120000). It
     /// then resumes by itself
     public let timeoutMS: Int?
@@ -16217,7 +16214,7 @@ public struct GatewayPrepareUpdateParams: Codable, Sendable {
         case waitMS = "waitMs"
     }
 
-    public init(mode: Mode? = nil, timeoutMS: Int? = nil, waitMS: Int? = nil) {
+    public init(mode: GatewayPrepareUpdateParamsMode? = nil, timeoutMS: Int? = nil, waitMS: Int? = nil) {
         self.mode = mode
         self.timeoutMS = timeoutMS
         self.waitMS = waitMS
@@ -16226,7 +16223,7 @@ public struct GatewayPrepareUpdateParams: Codable, Sendable {
 
 /// `prepare` (default) stops new work and waits; `check` only reports what is busy; `cancel`
 /// resumes normal service now
-public enum Mode: String, Codable, Sendable {
+public enum GatewayPrepareUpdateParamsMode: String, Codable, Sendable {
     case cancel = "cancel"
     case check = "check"
     case prepare = "prepare"
@@ -18807,6 +18804,7 @@ public struct MachineInfo: Codable, Sendable {
     public let helperVersion: String?
     public let id: String
     public let lastSeenAt: String?
+    /// No control, bidi, zero-width or invisible characters; no leading or trailing space
     public let name: String
     public let passwordlessSudo: Bool
     /// `linux` today
@@ -18892,7 +18890,7 @@ public struct Files: Codable, Sendable {
 
 // MARK: - MachineFileRoot
 public struct MachineFileRoot: Codable, Sendable {
-    public let mode: MachineFileMode
+    public let mode: FolderModeEnum
     public let path: String
 
     public enum CodingKeys: String, CodingKey {
@@ -18900,7 +18898,7 @@ public struct MachineFileRoot: Codable, Sendable {
         case path = "path"
     }
 
-    public init(mode: MachineFileMode, path: String) {
+    public init(mode: FolderModeEnum, path: String) {
         self.mode = mode
         self.path = path
     }
@@ -18939,6 +18937,7 @@ public struct MachinesListResult: Codable, Sendable {
 // MARK: - MachinesRenameParams
 public struct MachinesRenameParams: Codable, Sendable {
     public let id: String
+    /// No control, bidi, zero-width or invisible characters; no leading or trailing space
     public let name: String
 
     public enum CodingKeys: String, CodingKey {

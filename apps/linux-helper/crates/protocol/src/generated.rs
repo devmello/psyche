@@ -7,6 +7,7 @@ pub struct ComputerMachineRef {
     ///ULID in production
     #[serde(rename = "deviceId")]
     pub device_id: ComputerMachineRefDeviceId,
+    ///No control, bidi, zero-width or invisible characters; no leading or trailing space
     pub name: ComputerMachineRefName,
 }
 ///ULID in production
@@ -66,7 +67,7 @@ impl<'de> ::serde::Deserialize<'de> for ComputerMachineRefDeviceId {
             })
     }
 }
-///`ComputerMachineRefName`
+///No control, bidi, zero-width or invisible characters; no leading or trailing space
 #[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[serde(transparent)]
 pub struct ComputerMachineRefName(::std::string::String);

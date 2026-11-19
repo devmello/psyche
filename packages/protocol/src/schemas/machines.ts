@@ -1,5 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, Nullable, StringEnum } from "../common.ts";
+import { NodeStatus } from "./identity.ts";
 import { ComputerSurface } from "./tools.ts";
 
 /**
@@ -9,6 +10,34 @@ import { ComputerSurface } from "./tools.ts";
  */
 
 /**
+ * Characters a machine's name may never contain: controls, bidi controls and overrides, zero-width
+ * and other default-ignorable format characters, and invisible fillers. The name starts out as what
+ * the box reports and appears on every approval card, so it must read as it is. No leading or
+ * trailing space, not blank. `machineNameOk` is the same rule for code that checks a string.
+ * (Written without `\p{..}` and flags so it is a plain JSON Schema pattern for TypeBox, Swift and
+ * Rust.)
+ */
+const BAD_NAME_CHARS =
+  "\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u061c\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb";
+export const MACHINE_NAME_PATTERN = `^(?!.*\\udb40[\\udc00-\\udc7f])[^${BAD_NAME_CHARS}\\s](?:[^${BAD_NAME_CHARS}]*[^${BAD_NAME_CHARS}\\s])?$`;
+const MACHINE_NAME_RE = new RegExp(MACHINE_NAME_PATTERN);
+
+/** Whether `name` is an acceptable machine name (1 to 64 characters, no hidden or control text). */
+export function machineNameOk(name: unknown): name is string {
+  return (
+    typeof name === "string" && name.length >= 1 && name.length <= 64 && MACHINE_NAME_RE.test(name)
+  );
+}
+
+/** A machine's name as the owner sees it ("lab-box"). Every machine name uses this one rule. */
+export const MachineName = Type.String({
+  minLength: 1,
+  maxLength: 64,
+  pattern: MACHINE_NAME_PATTERN,
+  description: "No control, bidi, zero-width or invisible characters; no leading or trailing space",
+});
+
+/**
  * Which computer an approval card, receipt or run-trace step is about, when it is not the Host.
  * Absent means the Host. The binding hash of such a card includes `deviceId`, so a card approved
  * for one machine can never be used on the Host or on another machine (wave H4).
@@ -16,17 +45,11 @@ import { ComputerSurface } from "./tools.ts";
 export const ComputerMachineRef = Type.Object(
   {
     deviceId: Id,
-    /** The machine's name as the owner sees it ("lab-box"). */
-    name: Type.String({ minLength: 1, maxLength: 64 }),
+    name: MachineName,
   },
   { $id: "ComputerMachineRef" },
 );
 export type ComputerMachineRef = Static<typeof ComputerMachineRef>;
-
-export const MachineStatus = StringEnum(["online", "offline", "degraded"], {
-  $id: "MachineStatus",
-});
-export type MachineStatus = Static<typeof MachineStatus>;
 
 /** How the machine's screen exists: the helper's own private screen, or a real session. */
 export const MachineDisplay = StringEnum(["headless", "desktop_session", "container"], {
@@ -37,7 +60,7 @@ export type MachineDisplay = Static<typeof MachineDisplay>;
 export const MachineFileRoot = Type.Object(
   {
     path: Type.String({ minLength: 1, maxLength: 4096 }),
-    mode: StringEnum(["ro", "rw"], { $id: "MachineFileMode" }),
+    mode: StringEnum(["ro", "rw"]),
   },
   { $id: "MachineFileRoot" },
 );
@@ -53,9 +76,9 @@ export const MachineInfo = Type.Object(
   {
     id: Id,
     deviceId: Id,
-    name: Type.String({ minLength: 1, maxLength: 64 }),
+    name: MachineName,
     platform: Type.String({ maxLength: 32, description: "`linux` today" }),
-    status: MachineStatus,
+    status: NodeStatus,
     display: Nullable(MachineDisplay),
     surfaces: Type.Array(ComputerSurface),
     exec: Type.Object({

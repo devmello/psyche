@@ -12,7 +12,7 @@ export interface AccessEntry {
     kind?:       ApprovalKind;
     label:       string;
     lastUsedAt?: string;
-    mode?:       MachineFileMode;
+    mode?:       FolderModeEnum;
     path?:       string;
     refused?:    boolean;
     scope:       AccessEntryScope;
@@ -23,7 +23,7 @@ export interface AccessEntry {
 
 export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "folder_access" | "separate_desktop_share" | "batch" | "permission_request";
 
-export type MachineFileMode = "ro" | "rw";
+export type FolderModeEnum = "ro" | "rw";
 
 export type AccessEntryScope = "always" | "conversation" | "limited";
 
@@ -1017,7 +1017,7 @@ export interface ApprovalAnswer {
     bulk?:            boolean;
     decision:         ApprovalAnswerDecision;
     editedText?:      string;
-    folderMode?:      MachineFileMode;
+    folderMode?:      FolderModeEnum;
     folderPath?:      string;
     hostProgram?:     boolean;
     presence?:        PresenceAssertion;
@@ -1121,7 +1121,10 @@ export interface FromLesson {
 
 export interface ComputerMachineRef {
     deviceId: string;
-    name:     string;
+    /**
+     * No control, bidi, zero-width or invisible characters; no leading or trailing space
+     */
+    name: string;
 }
 
 export interface RequestedBy {
@@ -3331,14 +3334,14 @@ export interface ConnectPaired {
     deviceId:     string;
     nodeId?:      string;
     phase:        ConnectPairedPhase;
-    scopes:       SetupTokenInfoScope[];
+    scopes:       DeviceScope[];
     serverTime:   string;
     stateVersion: number;
 }
 
 export type ConnectPairedPhase = "paired";
 
-export type SetupTokenInfoScope = "operator.read" | "operator.write" | "operator.approvals" | "operator.admin" | "node";
+export type DeviceScope = "operator.read" | "operator.write" | "operator.approvals" | "operator.admin" | "node";
 
 export interface ConnectParams {
     capabilities?: NodeCapability[];
@@ -3378,7 +3381,7 @@ export interface ConnectResult {
     deviceId?:     string;
     nodeId?:       string;
     phase:         ConnectResultPhase;
-    scopes?:       SetupTokenInfoScope[];
+    scopes?:       DeviceScope[];
     serverTime?:   string;
     stateVersion?: number;
     /**
@@ -4202,7 +4205,7 @@ export interface Device {
     publicKey:  string;
     revokedAt?: null | string;
     role:       DeviceRole;
-    scopes:     SetupTokenInfoScope[];
+    scopes:     DeviceScope[];
 }
 
 export type DeviceRole = "client" | "node" | "both";
@@ -4217,7 +4220,7 @@ export interface DevicesApproveParams {
     /**
      * Owner-chosen scopes; never taken from the client
      */
-    scopes: SetupTokenInfoScope[];
+    scopes: DeviceScope[];
 }
 
 export interface DevicesApproveResult {
@@ -4356,7 +4359,7 @@ export interface SetupTokenInfo {
     id:              string;
     purpose?:        SetupTokenPurpose;
     revokedAt?:      null | string;
-    scopes:          SetupTokenInfoScope[];
+    scopes:          DeviceScope[];
     status:          SetupTokenInfoStatus;
     usedAt?:         null | string;
     usedByDeviceId?: null | string;
@@ -5364,7 +5367,7 @@ export interface GatewayPrepareUpdateParams {
      * `prepare` (default) stops new work and waits; `check` only reports what is busy; `cancel`
      * resumes normal service now
      */
-    mode?: Mode;
+    mode?: GatewayPrepareUpdateParamsMode;
     /**
      * How long the Gateway stays closed to new work if no update follows (default 120000). It
      * then resumes by itself
@@ -5381,7 +5384,7 @@ export interface GatewayPrepareUpdateParams {
  * `prepare` (default) stops new work and waits; `check` only reports what is busy; `cancel`
  * resumes normal service now
  */
-export type Mode = "prepare" | "check" | "cancel";
+export type GatewayPrepareUpdateParamsMode = "prepare" | "check" | "cancel";
 
 export interface GatewayShutdownPayload {
     reason: string;
@@ -6236,14 +6239,17 @@ export interface MachinesChangedPayload {
 export type MachineChange = "added" | "updated" | "removed";
 
 export interface MachineInfo {
-    account:          MachineAccount;
-    deviceId:         string;
-    display?:         MachineDisplay | null;
-    exec:             Exec;
-    files:            Files;
-    helperVersion?:   null | string;
-    id:               string;
-    lastSeenAt?:      null | string;
+    account:        MachineAccount;
+    deviceId:       string;
+    display?:       MachineDisplay | null;
+    exec:           Exec;
+    files:          Files;
+    helperVersion?: null | string;
+    id:             string;
+    lastSeenAt?:    null | string;
+    /**
+     * No control, bidi, zero-width or invisible characters; no leading or trailing space
+     */
     name:             string;
     passwordlessSudo: boolean;
     /**
@@ -6269,7 +6275,7 @@ export interface Files {
 }
 
 export interface MachineFileRoot {
-    mode: MachineFileMode;
+    mode: FolderModeEnum;
     path: string;
 }
 
@@ -6284,7 +6290,10 @@ export interface MachinesListResult {
 }
 
 export interface MachinesRenameParams {
-    id:   string;
+    id: string;
+    /**
+     * No control, bidi, zero-width or invisible characters; no leading or trailing space
+     */
     name: string;
 }
 

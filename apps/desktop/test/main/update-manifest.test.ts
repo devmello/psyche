@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createHash, generateKeyPairSync, type KeyObject, sign } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -474,23 +474,50 @@ describe("per-platform manifests (Linux helper and server packages)", () => {
     ).toMatchObject({ action: "update" });
   });
 
-  it("a Linux-only release builds, and a look-alike name is not an artifact", () => {
-    const dir = temp();
-    const good = join(dir, "psyche-helper-1.4.0-linux-x64.deb");
-    const bad = join(dir, "psyche-helper-1.4.0-linux-x86_64.deb");
-    writeFileSync(good, "a");
-    writeFileSync(bad, "b");
-    const out = JSON.parse(
-      execFileSync(
-        process.execPath,
-        [SCRIPT, "build", "--release", "1.4.0", "--base", `${PINNED}v1.4.0/`, good, bad],
-        { encoding: "utf8" },
-      ),
+  const build = (args: string[]) =>
+    spawnSync(
+      process.execPath,
+      [SCRIPT, "build", "--release", "1.4.0", "--base", `${PINNED}v1.4.0/`, ...args],
+      {
+        encoding: "utf8",
+      },
     );
+  const file = (name: string) => {
+    const f = join(temp(), name);
+    writeFileSync(f, "x");
+    return f;
+  };
+
+  it("a Linux-only manifest needs the explicit --linux-only", () => {
+    const good = file("psyche-helper-1.4.0-linux-x64.deb");
+    const refused = build([good]);
+    expect(refused.status).not.toBe(0);
+    expect(refused.stderr).toMatch(/no update among the artifacts/);
+    const out = JSON.parse(build(["--linux-only", good]).stdout);
     expect(out.artifacts).toEqual([]);
     expect(out.platforms["linux-x64"].map((a: { name: string }) => a.name)).toEqual([
       "psyche-helper-1.4.0-linux-x64.deb",
     ]);
+  });
+
+  it("never drops a file it was given: unclassified names (desktop Linux packages, look-alikes) fail", () => {
+    const zip = file("Psyche-1.4.0-darwin-arm64.zip");
+    for (const name of [
+      "Psyche-1.4.0-linux-x64.deb",
+      "Psyche-1.4.0-linux-x64.rpm",
+      "Psyche-1.4.0-linux-x64.AppImage",
+      "psyche-helper-1.4.0-linux-x86_64.deb",
+    ]) {
+      const r = build([zip, file(name)]);
+      expect(r.status, name).not.toBe(0);
+      expect(r.stderr, name).toMatch(/cannot classify/);
+    }
+  });
+
+  it("skips an unmatched shell glob (it names no file), as release.yml can pass one", () => {
+    const zip = file("Psyche-1.4.0-darwin-arm64.zip");
+    const r = build([zip, "/nonexistent-dir/Psyche-*.dmg"]);
+    expect(r.status).toBe(0);
   });
 });
 

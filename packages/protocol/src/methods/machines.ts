@@ -1,6 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import { Id } from "../common.ts";
-import { MachineInfo } from "../schemas/machines.ts";
+import { MachineInfo, MachineName } from "../schemas/machines.ts";
 import { defineMethod } from "./define.ts";
 
 /**
@@ -19,7 +19,7 @@ export const MachinesMethods = {
       "Lists the computers the owner paired for Psyche to use (machines), with status, surfaces, the box's own limits and its account. Read-only. Not implemented until the machine registry lands.",
   }),
   "machines.rename": defineMethod({
-    params: Type.Object({ id: Id, name: Type.String({ minLength: 1, maxLength: 64 }) }),
+    params: Type.Object({ id: Id, name: MachineName }),
     result: Type.Object({ machine: MachineInfo }),
     scope: "operator.admin",
     sideEffecting: true,

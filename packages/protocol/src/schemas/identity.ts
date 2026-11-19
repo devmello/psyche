@@ -85,6 +85,17 @@ export const PairingStatus = StringEnum(["pending", "approved", "denied", "expir
 });
 export type PairingStatus = Static<typeof PairingStatus>;
 
+/**
+ * What a setup token is for, and what approving a pairing request makes the device. `device` (the
+ * default, and what every token was before) pairs a computer's app with the operator scopes the
+ * owner chose. `machine` pairs a helper-only Linux computer as a `machine` node: its scopes are
+ * always exactly `["node"]`, never chosen by the caller, and its link is `psyche-machine:v1`
+ * (`machine-link.ts`). A `device` token never pairs a machine and a `machine` token never pairs a
+ * client. The Gateway side is wave H3.
+ */
+export const SetupTokenPurpose = StringEnum(["device", "machine"], { $id: "SetupTokenPurpose" });
+export type SetupTokenPurpose = Static<typeof SetupTokenPurpose>;
+
 export const PairingRequest = Type.Object(
   {
     id: Id,
@@ -94,7 +105,7 @@ export const PairingRequest = Type.Object(
      * older Gateway never sets it). `machine` is the "wants to let Psyche use its screen, apps,
      * shell and files" card; approving it is what makes the device a `machine` node (H3).
      */
-    purpose: Type.Optional(StringEnum(["device", "machine"], { $id: "PairingPurpose" })),
+    purpose: Type.Optional(SetupTokenPurpose),
     code: Type.String(),
     deviceId: Nullable(Id),
     channelId: Nullable(Id),

@@ -155,6 +155,21 @@ describe("fresh presence on admin methods", () => {
     });
   });
 
+  it("a machine token request fails at once, with no card for a request that cannot succeed (until H3)", async () => {
+    const { admin } = await boot(touchId, undefined, {
+      publicOrigin: "https://studio-mac.tail1234.ts.net",
+      allowedOrigins: ["https://studio-mac.tail1234.ts.net"],
+    });
+    expect(await admin.request("devices.setupToken.create", { purpose: "machine" })).toMatchObject({
+      ok: false,
+      error: { code: "unavailable" },
+    });
+    // A device token still raises its card as before.
+    expect(
+      await admin.request("devices.setupToken.create", { scopes: ["operator.read"] }),
+    ).toMatchObject({ ok: false, error: { code: "approval_required" } });
+  });
+
   it("another device cannot spend the card the owner approved for a link", async () => {
     const { admin, c } = await boot(touchId, undefined, {
       publicOrigin: "https://studio-mac.tail1234.ts.net",

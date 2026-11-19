@@ -1,6 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { DeviceScope, Id, IsoDateTime, Nullable, StringEnum } from "../common.ts";
-import { Device, PairingRequest, PairingStatus } from "../schemas/identity.ts";
+import { Device, PairingRequest, PairingStatus, SetupTokenPurpose } from "../schemas/identity.ts";
 import { defineMethod } from "./define.ts";
 
 /** `devices.*`: pairing and device management; every method needs `operator.admin` (security §10). */
@@ -98,16 +98,6 @@ export const SetupTokenScope = StringEnum(
 );
 export type SetupTokenScope = Static<typeof SetupTokenScope>;
 
-/**
- * What a setup token is for. `device` (the default, and what every token was before) pairs a
- * computer's app with the operator scopes the owner chose. `machine` pairs a helper-only Linux
- * computer as a `machine` node: its scopes are always exactly `["node"]`, never chosen by the
- * caller, and its link is `psyche-machine:v1` (`machine-link.ts`). A `device` token never pairs a
- * machine and a `machine` token never pairs a client. The Gateway side is wave H3.
- */
-export const SetupTokenPurpose = StringEnum(["device", "machine"], { $id: "SetupTokenPurpose" });
-export type SetupTokenPurpose = Static<typeof SetupTokenPurpose>;
-
 /** The scopes a machine token carries: the `node` scope and nothing else. */
 export const MACHINE_TOKEN_SCOPES = ["node"] as const;
 
@@ -125,11 +115,7 @@ export const SetupTokenInfo = Type.Object(
   {
     id: Id,
     /** `node` appears only on a `purpose: machine` token. */
-    scopes: Type.Array(
-      StringEnum([...SetupTokenScope.enum, ...MACHINE_TOKEN_SCOPES], {
-        $id: "SetupTokenInfoScope",
-      }),
-    ),
+    scopes: Type.Array(DeviceScope),
     /** Absent means `device`. */
     purpose: Type.Optional(SetupTokenPurpose),
     createdAt: IsoDateTime,

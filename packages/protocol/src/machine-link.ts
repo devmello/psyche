@@ -22,13 +22,11 @@
  * owner's approval on the Gateway (wave H3), never by anything a node or a link declares.
  */
 
-import { lanHostKind } from "./lan-address.ts";
+import { isLocalSuffixHost, lanHostKind, parseIpv4, parseIpv6 } from "./lan-address.ts";
 import {
   cleanHostName,
   fromBase64Url,
   isBase64Url32Bytes,
-  isLanLinkOrigin,
-  isLinkOrigin,
   MAX_LINK_LENGTH,
   MAX_NAME_LENGTH,
   MAX_URL_LENGTH,
@@ -73,27 +71,102 @@ export class MachineLinkError extends Error {
 const REQUIRED_FIELDS = ["gatewayUrl", "gatewayKey", "setupToken", "hostName"] as const;
 const ALL_FIELDS = ["gatewayUrl", "gatewayKey", "certPin", "setupToken", "hostName"] as const;
 
-/** A local-network address has a self-signed certificate, so it can only go with a `certPin`. */
-function isLanHostOrigin(text: string): boolean {
-  try {
-    return lanHostKind(new URL(text).hostname) !== null;
-  } catch {
-    return true;
+/**
+ * Hosts a CA-certified (no `certPin`) Gateway can never be: this computer, a local network, a
+ * link-local or carrier-grade address, or anything that is not a plain public name or address.
+ */
+function isNonPublicHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  if (h.endsWith(".")) return true; // one canonical spelling only
+  if (h === "localhost" || h.endsWith(".localhost") || h === "localhost.localdomain") return true;
+  if (isLocalSuffixHost(h) || lanHostKind(h) !== null) return true;
+  const bare = h.startsWith("[") && h.endsWith("]") ? h.slice(1, -1) : h;
+  if (bare.includes(":")) {
+    const g = parseIpv6(bare);
+    if (g === null) return true;
+    const first = g[0] ?? 0;
+    return (
+      g.slice(0, 5).every((x) => x === 0) || // ::, ::1, ::a.b.c.d (compatible), ::ffff:a.b.c.d (mapped)
+      (first & 0xffc0) === 0xfe80 || // fe80::/10 link-local
+      (first & 0xff00) === 0xff00 // ff00::/8 multicast
+    );
   }
+  if (/^[0-9.]+$/.test(bare)) {
+    const v4 = parseIpv4(bare);
+    if (v4 === null) return true;
+    const [a, b] = v4;
+    return (
+      a === 0 ||
+      a === 127 ||
+      a >= 224 ||
+      (a === 169 && b === 254) ||
+      (a === 100 && b >= 64 && b <= 127)
+    );
+  }
+  return false;
 }
 
-function checkPayload(p: MachineLinkPayload): void {
-  const lan = p.certPin !== undefined;
+/**
+ * The Gateway origin exactly as `URL.origin` writes it (an optional final `/` is accepted and
+ * dropped), or null. With a `certPin` the host must be a local-network one (the `psyche-pair:v2`
+ * rule); without it, a public name or address with a CA-issued certificate. Anything URL would
+ * rewrite (case, default port, a backslash, short IPv4 forms) is refused rather than normalized,
+ * so the Rust parser sees the same string.
+ */
+function canonicalGatewayOrigin(text: unknown, lan: boolean): string | null {
+  if (typeof text !== "string" || text.length === 0 || text.length > MAX_URL_LENGTH) return null;
+  if (UNSAFE_TEXT.test(text) || /\s/.test(text) || /[?#%\\]/.test(text)) return null;
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    return null;
+  }
   if (
-    typeof p.gatewayUrl !== "string" ||
-    p.gatewayUrl.length === 0 ||
-    p.gatewayUrl.length > MAX_URL_LENGTH ||
-    UNSAFE_TEXT.test(p.gatewayUrl) ||
-    /\s/.test(p.gatewayUrl) ||
-    !(lan
-      ? isLanLinkOrigin(p.gatewayUrl)
-      : isLinkOrigin(p.gatewayUrl) && !isLanHostOrigin(p.gatewayUrl))
+    url.protocol !== "https:" ||
+    url.username !== "" ||
+    url.password !== "" ||
+    url.pathname !== "/" ||
+    url.search !== "" ||
+    url.hash !== "" ||
+    url.port === "0" ||
+    (text !== url.origin && text !== `${url.origin}/`)
   ) {
+    return null;
+  }
+  if (lan ? lanHostKind(url.hostname) === null : isNonPublicHost(url.hostname)) return null;
+  return url.origin;
+}
+
+/** A duplicate key at the top level of a JSON object text (JSON.parse keeps the last; serde fails). */
+function hasDuplicateKey(body: string): boolean {
+  const seen = new Set<string>();
+  let depth = 0;
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i];
+    if (c === "{" || c === "[") depth++;
+    else if (c === "}" || c === "]") depth--;
+    else if (c === '"') {
+      let end = i + 1;
+      while (end < body.length && body[end] !== '"') end += body[end] === "\\" ? 2 : 1;
+      let next = end + 1;
+      while (next < body.length && /\s/.test(body[next] ?? "")) next++;
+      if (depth === 1 && body[next] === ":") {
+        const key = body.slice(i + 1, end);
+        if (seen.has(key)) return true;
+        seen.add(key);
+      }
+      i = end;
+    }
+  }
+  return false;
+}
+
+/** Validates a payload and returns it with the canonical `gatewayUrl`. */
+function checkPayload(p: MachineLinkPayload): MachineLinkPayload {
+  const lan = p.certPin !== undefined;
+  const gatewayUrl = canonicalGatewayOrigin(p.gatewayUrl, lan);
+  if (gatewayUrl === null) {
     throw new MachineLinkError("bad_field", "gatewayUrl");
   }
   if (typeof p.gatewayKey !== "string" || !isBase64Url32Bytes(p.gatewayKey)) {
@@ -113,6 +186,7 @@ function checkPayload(p: MachineLinkPayload): void {
   ) {
     throw new MachineLinkError("bad_field", "hostName");
   }
+  return { ...p, gatewayUrl };
 }
 
 /** Builds the link for a payload, validating it with the same rules `parseMachineLink` applies. */
@@ -124,8 +198,7 @@ export function formatMachineLink(payload: MachineLinkPayload): string {
     setupToken: payload.setupToken,
     hostName: payload.hostName,
   };
-  checkPayload(clean);
-  const text = `${MACHINE_LINK_PREFIX}${toBase64Url(JSON.stringify(clean))}`;
+  const text = `${MACHINE_LINK_PREFIX}${toBase64Url(JSON.stringify(checkPayload(clean)))}`;
   if (text.length > MAX_LINK_LENGTH) throw new MachineLinkError("malformed");
   return text;
 }
@@ -153,6 +226,7 @@ export function parseMachineLink(input: string): MachineLinkPayload {
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new MachineLinkError("malformed");
   }
+  if (hasDuplicateKey(body)) throw new MachineLinkError("malformed");
   const record = parsed as Record<string, unknown>;
   const extra = Object.keys(record).find((k) => !(ALL_FIELDS as readonly string[]).includes(k));
   if (extra !== undefined) throw new MachineLinkError("extra_fields", extra);
@@ -169,8 +243,8 @@ export function parseMachineLink(input: string): MachineLinkPayload {
     setupToken: record.setupToken as string,
     hostName: record.hostName as string,
   };
-  checkPayload(payload);
-  return { ...payload, hostName: cleanHostName(payload.hostName) };
+  const checked = checkPayload(payload);
+  return { ...checked, hostName: cleanHostName(checked.hostName) };
 }
 
 /**
