@@ -1649,6 +1649,11 @@ export const ar: Partial<Catalogue> = {
     "تمت إضافة القناة لكنها لا تعمل بعد. اضبط {env} على هذا الحساب حيث يعمل Gateway ثم أعد تشغيله.",
   "settings.channels.add.added":
     "تمت إضافة القناة. تبدأ عندما يكون {env} في Gateway مضبوطًا على هذا الحساب. ثم راسل {persona} منها للحصول على رمز اقتران ووافق عليه هنا.",
+  "settings.channels.add.storedNote":
+    "محفوظ بالفعل لهذا الحساب: {names}. تُستخدم كما هي ما لم تستبدلها.",
+  "settings.channels.add.replace": "استبدال الرموز المحفوظة",
+  "settings.channels.add.statusFailed":
+    "تعذّر على Psyche التحقق من الرموز المحفوظة ({reason}). لم يتغير شيء.",
   "settings.channels.identities": "روابط الهوية",
   "settings.channels.identitiesDescription":
     "شخص واحد عبر القنوات. لا تتغيّر الروابط إلا من جهاز مقترن.",

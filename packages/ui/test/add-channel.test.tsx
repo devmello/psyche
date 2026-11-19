@@ -288,18 +288,62 @@ describe("connectChannel", () => {
     expect(cleared).toEqual([]);
   });
 
-  it("keeps tokens stored before the flow when the approval is pending (mock vault)", async () => {
-    const { gateway, pending } = setup({ withApproval: true });
+  it("does not overwrite stored tokens unless Replace is ticked", async () => {
+    const { gateway, pending, calls } = setup({ withApproval: true });
     gateway().channelSecrets.set("slack|Acme", ["bot_token"]);
     gateway().failNext("channels.configure", "approval_required", "needs approval", {
       approvalId: "apr_2",
     });
     const form = await screen.findByRole("dialog");
-    await fillSlack(form);
+    await userEvent.type(within(form).getByLabelText("Workspace name"), "Acme");
+    const replace = (await within(form).findByLabelText(
+      "Replace stored tokens",
+    )) as HTMLInputElement;
+    expect(replace.checked).toBe(false);
+    expect(within(form).getByText(/Already stored for this account: Bot token/)).toBeTruthy();
+    // The stored token's field is off; only the missing one is asked for.
+    expect((within(form).getByLabelText("Bot token") as HTMLInputElement).disabled).toBe(true);
+    await userEvent.type(within(form).getByLabelText("App token"), "xapp-2");
     await userEvent.click(within(form).getByRole("button", { name: "Connect" }));
     await waitFor(() => expect(pending).toHaveLength(1));
-    // Only the token this attempt added is gone; the CLI-stored one is still there.
+    const sets = calls().filter(([m]) => m === "channels.secrets.set");
+    expect(sets).toEqual([["channels.secrets.set", "app_token"]]);
+    // Only the token this attempt added is gone; the stored one is still there.
     expect(gateway().channelSecrets.get("slack|Acme")).toEqual(["bot_token"]);
+  });
+
+  it("replaces stored tokens when Replace is ticked", async () => {
+    const { gateway, onAdded, calls } = setup();
+    gateway().channelSecrets.set("slack|Acme", ["bot_token"]);
+    const form = await screen.findByRole("dialog");
+    await userEvent.type(within(form).getByLabelText("Workspace name"), "Acme");
+    await userEvent.click(await within(form).findByLabelText("Replace stored tokens"));
+    await userEvent.type(within(form).getByLabelText("Bot token"), "xoxb-new");
+    await userEvent.type(within(form).getByLabelText("App token"), "xapp-new");
+    await userEvent.click(within(form).getByRole("button", { name: "Connect" }));
+    await waitFor(() => expect(onAdded).toHaveBeenCalled());
+    expect(calls().filter(([m]) => m === "channels.secrets.set")).toEqual([
+      ["channels.secrets.set", "bot_token"],
+      ["channels.secrets.set", "app_token"],
+    ]);
+  });
+
+  it("stops before storing anything when the stored tokens cannot be read", async () => {
+    const log: string[] = [];
+    const call = vi.fn(async (method: string) => {
+      log.push(method);
+      if (method === "channels.list") return { channels: [] };
+      if (method === "channels.secrets.status") throw new Error("vault is locked");
+      return { set: [] };
+    });
+    await expect(
+      connectChannel(call as never, {
+        type: "discord",
+        account: "app-1",
+        secrets: { bot_token: "t" },
+      }),
+    ).rejects.toThrow(/couldn't check which tokens are already stored \(.*vault is locked/);
+    expect(log).toEqual(["channels.list", "channels.secrets.status"]);
   });
 });
 
