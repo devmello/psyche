@@ -71,7 +71,7 @@ describe("normalizeTrustedSite: exact, canonical, never a shared suffix", () => 
     ["http://example.org", "http://example.org"],
     ["https://example.org:443", "https://example.org"],
     ["https://example.org.", "https://example.org"],
-    ["https://bücher.example", "https://xn--bcher-kva.example"],
+    ["https://bücher.de", "https://xn--bcher-kva.de"],
   ];
   it.each(OK)("accepts %s as %s", (input, want) => {
     expect(normalizeTrustedSite(input).origin).toBe(want);
@@ -461,7 +461,7 @@ describe("answering Always for this site is bounded", () => {
     expect(i.approval.details).toMatchObject({
       trustSite: { origin: "https://project.github.io", subdomains: true },
     });
-    const bare = await ask(h, { ...CTX, taskId: "t9", runId: "r9" }, "https://tiny.example");
+    const bare = await ask(h, { ...CTX, taskId: "t9", runId: "r9" }, "https://tiny.example.net");
     expect(
       (bare.approval.details as { trustSite?: { subdomains?: boolean } }).trustSite,
     ).toBeDefined();
@@ -657,4 +657,79 @@ describe("a trusted read does not make the origin touched (read-then-exfil)", ()
       );
     },
   );
+});
+
+describe("subdomain trust checks the host being read (R2)", () => {
+  const wide = (u: string) => normalizeTrustedSite(u, true);
+  const NOT_COVERED: [string, string][] = [
+    ["https://google.com", "https://docs.google.com"],
+    ["https://google.com", "https://drive.google.com"],
+    ["https://google.com", "https://sites.google.com"],
+    ["https://google.com", "https://script.google.com/macros/s/ATTACKER/exec?d=SECRET"],
+    ["https://google.com", "https://pay.google.com"],
+    ["https://googleusercontent.com", "https://x.googleusercontent.com"],
+    ["https://amazonaws.com", "https://attacker-bucket.s3.amazonaws.com"],
+    ["https://windows.net", "https://evil.blob.core.windows.net"],
+    ["https://example.org", "https://www.kraken.com"],
+  ];
+  it.each(NOT_COVERED)("%s with subdomains does not cover %s", (trusted, read) => {
+    let site: ReturnType<typeof wide> | undefined;
+    try {
+      site = wide(trusted);
+    } catch {
+      return; // refusing the entry outright is also closed
+    }
+    expect(trustedSiteCovers(site, read)).toBe(false);
+  });
+
+  it("control: ordinary subdomains are covered", () => {
+    expect(trustedSiteCovers(wide("https://google.com"), "https://news.google.com")).toBe(true);
+    expect(trustedSiteCovers(wide("https://example.com"), "https://a.b.example.com")).toBe(true);
+  });
+
+  const UNKNOWN = [
+    "https://router.local",
+    "https://nas.lan",
+    "https://app.internal",
+    "https://x.corp",
+    "https://home.arpa",
+    "https://printer.home.arpa",
+  ];
+  it.each(UNKNOWN)("%s is not a public name and cannot be trusted", (u) => {
+    expect(() => normalizeTrustedSite(u)).toThrow();
+    expect(() => normalizeTrustedSite(u, true)).toThrow();
+  });
+
+  const COLLECTORS = [
+    "https://webhook.site",
+    "https://abc.webhook.site",
+    "https://requestbin.com",
+    "https://eo123.m.pipedream.net",
+    "https://abc.ngrok.io",
+    "https://abc.ngrok-free.app",
+    "https://pastebin.com",
+    "https://ipfs.io",
+  ];
+  it.each(COLLECTORS)("collector %s cannot be trusted", (u) => {
+    expect(() => normalizeTrustedSite(u)).toThrow();
+  });
+  it("control: github.com and ordinary sites stay trustable", () => {
+    expect(() => normalizeTrustedSite("https://github.com")).not.toThrow();
+    expect(() => normalizeTrustedSite("https://example.net")).not.toThrow();
+  });
+
+  it("a trade click stays denied or asked on and around a subdomain-trusted site", async () => {
+    const h = makeBroker();
+    await trust(h, "https://example.com", "subdomains");
+    const buy = (u: string) =>
+      call("browser.click", "financial", origin(u), {
+        meta: { action: "click", control: { labels: ["Buy"], role: "button" } },
+      });
+    const covered = await h.broker.decide(buy("https://a.example.com"), TASK2);
+    expect(covered.decision).toBe("ask");
+    expect(covered.rule).not.toContain("trusted_site");
+    expect((await h.broker.decide(buy("https://www.kraken.com"), TASK2)).decision).toBe("deny");
+    // Positive control: the read of the covered subdomain is quiet.
+    expect((await h.broker.decide(nav("https://a.example.com"), TASK2)).decision).toBe("allow");
+  });
 });

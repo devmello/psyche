@@ -1,4 +1,5 @@
-import { getPublicSuffix } from "tldts";
+import { venueOfHost } from "@psyche/protocol/financial-block";
+import { getPublicSuffix, parse } from "tldts";
 import { canonicalUrl, isLoopbackName } from "./targets.ts";
 
 /**
@@ -64,22 +65,70 @@ export function isPublicSuffixLike(host: string): boolean {
   }
 }
 
-/** Hosts whose tenants share one origin and differ by path: trust there covers every tenant. */
+/** Hosts whose tenants share one origin and differ by path: exact hosts only. */
 const SHARED_PATH_HOSTS = new Set([
   "storage.googleapis.com",
   "raw.githubusercontent.com",
   "gist.githubusercontent.com",
+]);
+
+/**
+ * Hosts that serve many parties' (or the owner's private) content, with everything under them:
+ * Google Docs, Drive, Sites and Apps Script web apps, user-content hosts.
+ */
+const SHARED_TENANT_TREES = [
   "docs.google.com",
   "drive.google.com",
   "sites.google.com",
-]);
+  "script.google.com",
+  "pay.google.com",
+  "wallet.google.com",
+  "script.googleusercontent.com",
+  "googleusercontent.com",
+];
 
 /** Path-style S3 endpoints (`s3.amazonaws.com`, `s3.us-east-1.amazonaws.com`, `s3-eu-west-1...`). */
 const S3_PATH_STYLE = /^s3[.-]([a-z0-9-]+\.)*amazonaws\.com(\.cn)?$/;
 
-/** No trust offer at all on these: exact-origin trust would already cover every tenant. */
+const underOrEqual = (host: string, base: string) => host === base || host.endsWith(`.${base}`);
+
+/** No trust offer at all on these: trust there would cover every tenant. */
 export function isSharedTenantHost(host: string): boolean {
-  return SHARED_PATH_HOSTS.has(host) || S3_PATH_STYLE.test(host);
+  return (
+    SHARED_PATH_HOSTS.has(host) ||
+    S3_PATH_STYLE.test(host) ||
+    SHARED_TENANT_TREES.some((b) => underOrEqual(host, b))
+  );
+}
+
+/** Request catchers, tunnels and paste or gateway hosts: a quiet read there is an exfil channel. */
+const COLLECTORS = [
+  "webhook.site",
+  "requestbin.com",
+  "pipedream.net",
+  "ngrok.io",
+  "ngrok.app",
+  "ngrok.dev",
+  "ngrok-free.app",
+  "ngrok-free.dev",
+  "pastebin.com",
+  "ipfs.io",
+];
+
+export function isCollectorHost(host: string): boolean {
+  return COLLECTORS.some((b) => underOrEqual(host, b));
+}
+
+/** A name under no ICANN or private suffix (`router.local`, `.lan`, `.internal`, `home.arpa`). */
+function isUnknownSuffix(host: string): boolean {
+  // `arpa` is an ICANN suffix, but `home.arpa` and reverse-DNS names are local, never a site.
+  if (/(^|\.)arpa$/.test(host)) return true;
+  try {
+    const r = parse(host, { allowPrivateDomains: true });
+    return r.isIcann !== true && r.isPrivate !== true;
+  } catch {
+    return true;
+  }
 }
 
 function isIpLiteral(host: string): boolean {
@@ -108,7 +157,13 @@ export function normalizeTrustedSite(input: string, subdomains = false): Trusted
   }
   if (!u.host.includes("."))
     throw new TrustedSiteError("single_label", "a bare host name is not a site");
-  if (isPublicSuffixLike(u.host) || isSharedTenantHost(u.host)) {
+  if (isUnknownSuffix(u.host)) {
+    throw new TrustedSiteError("public_suffix", "this name is not on the public internet");
+  }
+  if (isCollectorHost(u.host) || isSharedTenantHost(u.host) || venueOfHost(u.host) !== undefined) {
+    throw new TrustedSiteError("public_suffix", "this host serves many parties' content");
+  }
+  if (isPublicSuffixLike(u.host)) {
     throw new TrustedSiteError("public_suffix", "a shared suffix cannot be trusted");
   }
   return { origin: u.origin, subdomains };
@@ -131,5 +186,17 @@ export function trustedSiteCovers(site: TrustedSite, origin: string): boolean {
   if (isIpLiteral(o.host) || isLoopbackName(o.host)) return false;
   if (o.origin === t.origin) return true;
   if (!site.subdomains) return false;
-  return o.scheme === t.scheme && o.port === t.port && o.host.endsWith(`.${t.host}`);
+  if (o.scheme !== t.scheme || o.port !== t.port || !o.host.endsWith(`.${t.host}`)) return false;
+  // The host being read is checked too, not only the trusted one: a subdomain that is a different
+  // party's (a private suffix such as `s3.amazonaws.com`), a shared-tenant or collector host or a
+  // venue is never covered by a parent's subdomain trust.
+  return (
+    getPublicSuffix(o.host, { allowPrivateDomains: true }) ===
+      getPublicSuffix(t.host, { allowPrivateDomains: true }) &&
+    !isPublicSuffixLike(o.host) &&
+    !isSharedTenantHost(o.host) &&
+    !isCollectorHost(o.host) &&
+    !isUnknownSuffix(o.host) &&
+    venueOfHost(o.host) === undefined
+  );
 }
