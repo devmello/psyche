@@ -24,6 +24,7 @@ import { mailMeetings } from "./mail-meetings/hi.ts";
 import { meetingRecordRest } from "./meeting-record-rest/hi.ts";
 import { memoryAdvancedRest } from "./memory-advanced-rest/hi.ts";
 import { memoryBasicsRest } from "./memory-basics-rest/hi.ts";
+import { memoryMap } from "./memory-map/hi.ts";
 import { memoryPrivacyRest } from "./memory-privacy-rest/hi.ts";
 import { memoryRest } from "./memory-rest/hi.ts";
 import { memoryReviewRest } from "./memory-review-rest/hi.ts";
@@ -56,6 +57,7 @@ import { workflows } from "./workflows/hi.ts";
 /** Hindi catalogue (hi). Same ids as `en`; missing ids fall back to English. */
 export const hi: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,

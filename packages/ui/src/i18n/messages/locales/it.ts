@@ -24,6 +24,7 @@ import { mailMeetings } from "./mail-meetings/it.ts";
 import { meetingRecordRest } from "./meeting-record-rest/it.ts";
 import { memoryAdvancedRest } from "./memory-advanced-rest/it.ts";
 import { memoryBasicsRest } from "./memory-basics-rest/it.ts";
+import { memoryMap } from "./memory-map/it.ts";
 import { memoryPrivacyRest } from "./memory-privacy-rest/it.ts";
 import { memoryRest } from "./memory-rest/it.ts";
 import { memoryReviewRest } from "./memory-review-rest/it.ts";
@@ -56,6 +57,7 @@ import { workflows } from "./workflows/it.ts";
 /** Italian catalogue (it). Same ids as `en`; missing ids fall back to English. */
 export const it: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,

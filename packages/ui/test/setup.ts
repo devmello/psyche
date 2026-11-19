@@ -25,6 +25,17 @@ if (typeof window.matchMedia !== "function") {
     }) as MediaQueryList;
 }
 
+// jsdom has no 2D canvas; the memory map checks for a missing context and draws nothing.
+const nativeGetContext = HTMLCanvasElement.prototype.getContext;
+HTMLCanvasElement.prototype.getContext = function getContext(
+  this: HTMLCanvasElement,
+  type: string,
+  ...rest: unknown[]
+) {
+  if (type === "2d") return null;
+  return (nativeGetContext as (...a: unknown[]) => unknown).call(this, type, ...rest);
+} as typeof HTMLCanvasElement.prototype.getContext;
+
 class NoopObserver {
   observe() {}
   unobserve() {}

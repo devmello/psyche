@@ -22,6 +22,7 @@ import { homeRest } from "./home-rest/ko.ts";
 import { links } from "./links/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ko.ts";
+import { memoryMap } from "./memory-map/ko.ts";
 import { memoryRest } from "./memory-rest/ko.ts";
 import { memoryAdvancedRest } from "./memoryAdvanced-rest/ko.ts";
 import { memoryBasicsRest } from "./memoryBasics-rest/ko.ts";
@@ -56,6 +57,7 @@ import { workflows } from "./workflows/ko.ts";
 /** Korean catalogue (ko). Same ids as `en`; missing ids fall back to English. */
 export const ko: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,

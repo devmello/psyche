@@ -9,6 +9,8 @@ import {
   type GraphInteraction,
   type GraphTimelineRow,
   type GraphWorkStatus,
+  type MemoryMap,
+  type MemoryMapEdge,
   type MethodName,
   type MethodParams,
   type Provenance,
@@ -295,6 +297,78 @@ function timelineOf(
   rows.sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id));
   const page = rows.slice(0, limit);
   return { rows: page, nextBefore: rows.length > limit ? (page.at(-1)?.at ?? null) : null };
+}
+
+/**
+ * `memory.graph.map`: the owner left out; weight from interactions and links; edges from current
+ * relations and from people who share two interactions. Mirrors the Gateway's builder in miniature.
+ */
+function mapOf(world: GraphWorld, limit: number, kinds: string[] | undefined): MemoryMap {
+  const pool = world.entities.filter(
+    (e) =>
+      e.status === "active" && !e.isOwner && !e.hidden && (kinds ? kinds.includes(e.kind) : true),
+  );
+  const ids = new Set(pool.map((e) => e.id));
+  const current = world.edges.filter((x) => x.supersededBy == null && x.retractedAt == null);
+  const edges = new Map<string, MemoryMapEdge>();
+  const put = (a: string, b: string, kind: MemoryMapEdge["kind"]) => {
+    if (a === b || !ids.has(a) || !ids.has(b)) return;
+    const key = a < b ? `${a}|${b}` : `${b}|${a}`;
+    if (!edges.has(key)) edges.set(key, { a, b, kind, weight: 0.5 });
+  };
+  const worksOn = new Set(["member_of", "stakeholder_of", "works_at", "studied_at", "part_of"]);
+  for (const x of current)
+    put(
+      x.src,
+      x.dst,
+      worksOn.has(x.rel) ? "works_on" : x.rel === "attended" ? "met_in" : "related",
+    );
+  const pairs = new Map<string, number>();
+  const count = new Map<string, number>();
+  for (const i of world.interactions) {
+    const who = [...new Set(i.participants.map((p) => p.entityId))].filter((id) => ids.has(id));
+    for (const id of who) count.set(id, (count.get(id) ?? 0) + 1);
+    if (who.length > 12) continue;
+    for (let a = 0; a < who.length; a++)
+      for (let b = a + 1; b < who.length; b++) {
+        const key =
+          (who[a] as string) < (who[b] as string) ? `${who[a]}|${who[b]}` : `${who[b]}|${who[a]}`;
+        pairs.set(key, (pairs.get(key) ?? 0) + 1);
+      }
+  }
+  for (const [key, n] of pairs) {
+    const [a, b] = key.split("|") as [string, string];
+    if (n >= 2) put(a, b, "co_mentioned");
+  }
+  const degree = new Map<string, number>();
+  for (const e of edges.values()) {
+    degree.set(e.a, (degree.get(e.a) ?? 0) + 1);
+    degree.set(e.b, (degree.get(e.b) ?? 0) + 1);
+  }
+  const scored = pool
+    .map((e) => ({
+      e,
+      score:
+        Math.log1p(count.get(e.id) ?? 0) + Math.log1p(degree.get(e.id) ?? 0) + (e.pinned ? 1.5 : 0),
+    }))
+    .sort((x, y) => y.score - x.score || x.e.name.localeCompare(y.e.name));
+  const kept = scored.slice(0, limit);
+  const max = kept[0]?.score || 1;
+  const keep = new Set(kept.map((k) => k.e.id));
+  return {
+    nodes: kept.map(({ e, score }) => ({
+      id: e.id,
+      kind: e.kind,
+      name: e.name,
+      weight: Math.round((score / max) * 1000) / 1000,
+      lastInteractionAt: e.lastInteractionAt,
+      pinned: e.pinned,
+      ...(e.private === true ? { private: true } : {}),
+    })),
+    edges: [...edges.values()].filter((e) => keep.has(e.a) && keep.has(e.b)),
+    total: pool.length,
+    truncated: pool.length > kept.length,
+  };
 }
 
 export function graphHandlers(ctx: GraphMockContext): Handlers {
@@ -690,6 +764,7 @@ export function graphHandlers(ctx: GraphMockContext): Handlers {
       return { removed, cardPath: e.cardPath ?? null, dryRun: p.dryRun === true };
     },
     "memory.graph.status": () => ctx.graph().status,
+    "memory.graph.map": (p) => mapOf(ctx.graph(), p.limit ?? 2000, p.kinds),
 
     "memory.graph.blocklist.list": () => ({ entries: ctx.graph().blocklist }),
     "memory.graph.blocklist.add": (p) => {

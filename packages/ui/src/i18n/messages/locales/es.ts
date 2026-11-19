@@ -14,6 +14,7 @@ import { links } from "./links/es.ts";
 import { mailMeetings } from "./mail-meetings/es.ts";
 import { memoryA } from "./memory-a/es.ts";
 import { memoryB } from "./memory-b/es.ts";
+import { memoryMap } from "./memory-map/es.ts";
 import { notices } from "./notices/es.ts";
 import { overview } from "./overview/es.ts";
 import { overviewGrowth } from "./overview-growth/es.ts";
@@ -37,6 +38,7 @@ import { workflows } from "./workflows/es.ts";
 
 /** Spanish catalogue (es). Same ids as `en`; missing ids fall back to English. */
 export const es: Partial<Catalogue> = {
+  ...memoryMap,
   ...scheduledA,
   ...scheduledForm,
   ...homeA,

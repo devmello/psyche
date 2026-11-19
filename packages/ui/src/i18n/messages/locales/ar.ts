@@ -22,6 +22,7 @@ import { home } from "./home/ar.ts";
 import { links } from "./links/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
 import { meetingRecord } from "./meeting-record/ar.ts";
+import { memoryMap } from "./memory-map/ar.ts";
 import { memoryPage } from "./memory-page/ar.ts";
 import { memoryReview } from "./memory-review/ar.ts";
 import { memorySettings } from "./memory-settings/ar.ts";
@@ -57,6 +58,7 @@ import { workflows } from "./workflows/ar.ts";
 /** Arabic catalogue (ar). Same ids as `en`; missing ids fall back to English. */
 export const ar: Partial<Catalogue> = {
   // common: translated ids (i18n completion)
+  ...memoryMap,
   ...common,
   // chat: translated ids (i18n completion)
   ...chat,
