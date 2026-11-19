@@ -13,13 +13,52 @@ import type { FolderAccessEnv } from "@psyche/permissions";
  * never as a granted path. Each entry is given as written and as its real path, since granted
  * paths are compared as real paths.
  */
-export function protectedRoots(psycheHome: string): string[] {
+/**
+ * Linux: where a written file runs code as the owner later, outside every sandbox. A desktop entry
+ * that `apps.open` or the desktop would launch, login and session autostart, user services, the
+ * session's environment, D-Bus activation, the terminal `Terminal=true` entries open in, and the
+ * shell start-up files (review of #1294, round 3).
+ */
+export const LINUX_EXEC_PATHS: readonly (readonly string[])[] = [
+  [".local", "share", "applications"],
+  [".local", "share", "flatpak", "exports"],
+  [".local", "share", "dbus-1"],
+  [".local", "share", "xdg-terminals"],
+  [".local", "share", "systemd"],
+  [".config", "autostart"],
+  [".config", "systemd", "user"],
+  [".config", "environment.d"],
+  [".config", "xdg-terminals.list"],
+  [".config", "plasma-workspace", "env"],
+  [".config", "fish", "config.fish"],
+  [".config", "fish", "conf.d"],
+  [".bashrc"],
+  [".bash_profile"],
+  [".bash_login"],
+  [".bash_logout"],
+  [".profile"],
+  [".zshrc"],
+  [".zshenv"],
+  [".zprofile"],
+  [".zlogin"],
+  [".xprofile"],
+  [".xsessionrc"],
+  [".xinitrc"],
+  [".pam_environment"],
+];
+
+export function protectedRoots(
+  psycheHome: string,
+  platform: NodeJS.Platform = process.platform,
+): string[] {
   const out = new Set<string>();
   // The CLI binaries Psyche runs unsandboxed (`~/.local/share/claude`, `~/.bun`...): not writable
   // through a wide grant such as an older home-root one. Not in `defaultDenyRead`: MCP servers
   // run `npx` from `~/.npm-global`.
   const cliDirs = CLI_HOME_DIRS.map((segments) => join(homedir(), ...segments));
-  for (const p of [...defaultDenyRead(psycheHome), ...cliDirs]) {
+  const linux =
+    platform === "linux" ? LINUX_EXEC_PATHS.map((segments) => join(homedir(), ...segments)) : [];
+  for (const p of [...defaultDenyRead(psycheHome), ...cliDirs, ...linux]) {
     out.add(p);
     try {
       out.add(realpathSync(p));

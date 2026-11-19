@@ -7,7 +7,7 @@ import type {
   NodeInvokeResult,
   ToolRegistration,
 } from "@psyche/protocol";
-import { PsycheError } from "@psyche/protocol";
+import { APPROVAL_TTL_MS, PsycheError } from "@psyche/protocol";
 import { FakePermissionBroker } from "@psyche/testing";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
@@ -167,6 +167,7 @@ let guest: RecordingNode;
 let desktop: FakeDesktop;
 let tools: Map<string, ToolRegistration>;
 let cu: ComputerUse;
+let broker: FakePermissionBroker;
 let clock = 1_000_000;
 const contexts = new Map<string, CallContext>();
 
@@ -177,8 +178,9 @@ beforeEach(() => {
   desktop = new FakeDesktop(guest);
   contexts.clear();
   clock = 1_000_000;
+  broker = new FakePermissionBroker({ armDelayMs: 0 });
   cu = createComputerUse({
-    broker: new FakePermissionBroker({ armDelayMs: 0 }),
+    broker,
     helper: () => ({ nodeId: "node-host", client: host, kind: "host-helper" }),
     context: (id) => {
       const c = contexts.get(id);
@@ -727,5 +729,86 @@ describe("a stale separate-desktop session", () => {
     // No yield, no release, no reset: task_1's workspace is intact for its approved action.
     expect(desktop.released).toEqual([]);
     expect(desktop.owner()).toBe("task_1");
+  });
+});
+
+/** Review of #1294, round 3, finding 2: only the session's own cards hold it, for one card's life. */
+describe("what keeps a stale separate-desktop session", () => {
+  it("is not held by another kind of card of the same Task", async () => {
+    await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
+    await broker.requestApproval({
+      kind: "send_email",
+      summary: "Send the report",
+      details: {},
+      bindingHash: `sha256:${"0".repeat(64)}`,
+      grantKey: "mail",
+      requestedBy: { runId: "run_1", taskId: "task_1", threadId: "th_1" },
+      sideEffect: "write",
+      surfaces: ["desktop"],
+      taint: false,
+    });
+    clock += 3 * 60_000;
+    const r = await call(
+      "computer.snapshot",
+      { app: editor, surface: "separate_desktop" },
+      "task_2",
+    );
+    expect(r.isError).toBeUndefined();
+    expect(desktop.released).toEqual(["task_1"]);
+  });
+
+  it("is not held by a Host card of the same Task", async () => {
+    await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
+    // The loop's card for a call on the Host's own desktop (no surface in its details).
+    await broker.requestApproval({
+      kind: "computer_action",
+      summary: "click “Save” in org.gnome.TextEditor",
+      details: { app: editor, action: "click" },
+      bindingHash: `sha256:${"1".repeat(64)}`,
+      grantKey: "host",
+      requestedBy: { runId: "run_1", taskId: "task_1", threadId: "th_1" },
+      sideEffect: "write",
+      surfaces: ["desktop"],
+      taint: false,
+    });
+    clock += 3 * 60_000;
+    const r = await call(
+      "computer.snapshot",
+      { app: editor, surface: "separate_desktop" },
+      "task_2",
+    );
+    expect(r.isError).toBeUndefined();
+  });
+
+  it("is held by the loop's card for this Task on this surface, for one card's lifetime", async () => {
+    await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
+    await broker.requestApproval({
+      kind: "computer_action",
+      summary: "In the separate desktop: click “Save” in org.gnome.TextEditor",
+      details: { app: editor, action: "click", surface: "separate_desktop" },
+      bindingHash: `sha256:${"2".repeat(64)}`,
+      grantKey: "sd",
+      requestedBy: { runId: "run_1", taskId: "task_1", threadId: "th_1" },
+      sideEffect: "write",
+      surfaces: ["desktop"],
+      taint: false,
+      ttlMs: 24 * 60 * 60_000,
+    });
+    clock += 3 * 60_000;
+    const held = await call(
+      "computer.snapshot",
+      { app: editor, surface: "separate_desktop" },
+      "task_2",
+    );
+    expect(errorOf(held)?.details).toMatchObject({ reason: "computer_busy" });
+    // Past one card's lifetime from the session's last use, the card no longer holds it.
+    clock += APPROVAL_TTL_MS;
+    const r = await call(
+      "computer.snapshot",
+      { app: editor, surface: "separate_desktop" },
+      "task_2",
+    );
+    expect(r.isError).toBeUndefined();
+    expect(desktop.released).toEqual(["task_1"]);
   });
 });

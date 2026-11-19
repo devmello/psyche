@@ -4,6 +4,7 @@ import type { CallContext } from "@psyche/browser";
 import { getSetting, listNodes } from "@psyche/db";
 import { appIdAliases, bindingHash } from "@psyche/permissions";
 import {
+  APPROVAL_TTL_MS,
   type ComputerSurface,
   createValidator,
   type ErrorPayload,
@@ -78,6 +79,8 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /** The helper releases an idle session after 2 minutes; the Gateway's view follows it. */
 const SESSION_IDLE_MS = 2 * 60_000;
+/** Tool calls a session remembers, to know which pending cards are its own. */
+const MAX_SESSION_CALLS = 256;
 const INVOKE_TIMEOUT_MS = 60_000;
 /** Shortcuts get `SHORTCUT_TIMEOUT_S` in the helper; the Gateway waits a little longer. */
 const SHORTCUT_TIMEOUT_S = 600;
@@ -607,6 +610,8 @@ interface Session {
   lastUsed: number;
   /** Apps snapshotted in this session (screenshots come after AX). */
   snapshotted: Set<string>;
+  /** The tool calls made in this session (the newest `MAX_SESSION_CALLS`). */
+  callIds: Set<string>;
 }
 
 /** An element as the latest snapshot showed it. Refs are helper-global and never reused. */
@@ -849,13 +854,25 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
    * before a call, or a helper's ask during one). A failed look counts as waiting.
    */
   async function waitsOnOwner(s: Session): Promise<boolean> {
+    // At most one card's lifetime from the session's last use: a Task cannot hold the surface
+    // (its shares, its tunnel) by raising one card after another.
+    if (now() - s.lastUsed > APPROVAL_TTL_MS) return false;
     try {
       const pending = await deps.broker.list({ status: "pending" });
-      return pending.some(
-        (a) =>
+      return pending.some((a) => {
+        if (a.kind !== "computer_action") return false;
+        // A card one of this session's calls raised (the helper's ask, a payment card)...
+        if (a.requestedBy.toolCallId !== undefined && s.callIds.has(a.requestedBy.toolCallId)) {
+          return true;
+        }
+        // ...or the loop's card for this Task's next call on this same surface.
+        const surface = (a.details as { surface?: unknown } | undefined)?.surface;
+        if (surface !== s.surface) return false;
+        return (
           (s.taskId !== undefined && a.requestedBy.taskId === s.taskId) ||
-          (typeof a.requestedBy.runId === "string" && s.runIds.has(a.requestedBy.runId)),
-      );
+          (typeof a.requestedBy.runId === "string" && s.runIds.has(a.requestedBy.runId))
+        );
+      });
     } catch {
       return true;
     }
@@ -926,6 +943,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
         lastUsed: now(),
         snapshotted: new Set(),
+        callIds: new Set(),
       };
       sessions.set(id, s);
     }
@@ -1638,7 +1656,15 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           ...(approvalId === undefined ? {} : { approvalId }),
         },
       );
-      if (session !== undefined) session.lastUsed = now();
+      if (session !== undefined) {
+        session.lastUsed = now();
+        session.callIds.delete(callId);
+        session.callIds.add(callId);
+        for (const old of session.callIds) {
+          if (session.callIds.size <= MAX_SESSION_CALLS) break;
+          session.callIds.delete(old);
+        }
+      }
       if (res.ok) {
         // A helper that acted on another app than the approved one (an older helper without
         // the check): report it and stop, never treat it as the approved action.
