@@ -730,6 +730,10 @@ export abstract class DriverBase implements BrowserDriverEx {
   tabOrigin(tabId: string): string | undefined {
     return this.tabs.get(tabId)?.page.origin;
   }
+  tabUrl(tabId: string): string | undefined {
+    const page = this.tabs.get(tabId)?.page;
+    return page?.origin === undefined ? undefined : page.url;
+  }
   fillSecret(
     tabId: string,
     ref: string,

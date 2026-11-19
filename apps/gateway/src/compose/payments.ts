@@ -31,10 +31,15 @@ export interface ComposedPayments extends ComposedPart {
   /** The broker, for the purchase tools that hold, capture and refund through it. */
   readonly payments?: PaymentBroker;
   /**
-   * Set by the guided setup: whether a Link CLI is connected, and when that changes. The purchase
-   * tool is offered only while it is, so a Pay card is never raised for a payment that cannot happen.
+   * Set by the guided setup: whether a Link CLI is connected (`configured`) and signed in as well
+   * (`ready`), and when either changes. The purchase tool is offered only while Link is ready, so a
+   * Pay card is never raised for a payment that cannot happen.
    */
-  readonly availability?: { configured(): boolean; onChange(listener: () => void): () => void };
+  readonly availability?: {
+    configured(): boolean;
+    ready(): boolean;
+    onChange(listener: () => void): () => void;
+  };
 }
 
 export function paymentsSetupFromEnv(env: NodeJS.ProcessEnv = process.env): PaymentsSetup {

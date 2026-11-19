@@ -47,4 +47,11 @@ export const notices = {
     "{kind, select, brave {The {provider} key was {action, select, changed {changed} other {removed}}} other {The {provider} API key was {action, select, changed {changed} other {removed}}}}",
   "notice.apiKey.changed.body":
     '{action, select, changed {Changed} other {Removed}} from {device, select, none {a device} other {"{device}" ({platform}{paired, select, none {} other {, paired {paired}}})}}. If that was not you, revoke the device in Settings → Devices.',
+  "notice.specialist.result.title":
+    "{outcome, select, done {{who} finished {title}} partial {{who} stopped early on {title}} cancelled {{who} was stopped on {title}} other {{who} couldn't finish {title}}}",
+  "notice.specialist.result.body":
+    "{outcome, select, done {Done} partial {Partial} cancelled {Cancelled} other {Failed}}{findings, plural, =0 {} one { · # finding} other { · # findings}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {under 1 min} other {# min}}",
+  "notice.mcp.changed.title": "MCP server {server} changed its tools",
+  "notice.mcp.suspicious.title": "MCP server {server} has suspicious tool descriptions",
+  "notice.mcp.review.body": "Review before you use this server: {details}",
 } as const;

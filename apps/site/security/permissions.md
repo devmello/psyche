@@ -28,10 +28,10 @@ Each thread has a permission mode. Balanced is the default.
 | --- | --- | --- | --- | --- |
 | Plan | Only tools with no side effect run | Denied | Denied | Denied |
 | Manual | The first read of each new source asks | Ask every time; standing grants are ignored | Ask, once only | Ask, once only, on your device |
-| Balanced | The first read of each new source asks; sensitive sites always ask | Standing grants apply; otherwise ask | Ask, once or for this task | Ask, once only, on your device |
+| Balanced | The first read of each new source asks, unless you made it a trusted site; sensitive sites always ask | Standing grants apply; otherwise ask | Ask, once or for this task | Ask, once only, on your device |
 | Auto | New ordinary sites are read without asking, unless the turn is tainted or the site is sensitive | Inside your grants, a rules classifier decides: routine runs, sensitive asks, prohibited is denied | Ask, once or for this task | Ask, once only, on your device |
 
-A "new source" is a site, connector account, folder, app or MCP server the task has not touched yet. "Sensitive sites" is a built-in, editable list of banking, brokerage, government, health, password-manager, sign-in and webmail hosts.
+A "new source" is a site, connector account, folder, app or MCP server the task has not touched yet. "Sensitive sites" is a built-in, editable list of banking, brokerage, health, password-manager, sign-in and webmail hosts. Government (`.gov`, `.gov.uk`) and iCloud sites are on that list by default, because they hold tax, identity, health and mail accounts. You can turn either category off in Settings → Permissions → Sensitive sites.
 
 Change a thread's mode from the Manual / Balanced / Auto switch above the message box, or from the mode menu in the chat header. Choosing a mode applies at once, with no Touch ID or password, and, from the main chat, is remembered as the default for new chats (a new chat starts in Auto only if its model is on the list). Auto mode is offered only when the thread uses a model on the auto-mode allowlist; the Gateway refuses `auto` otherwise and drops an `auto` thread to Balanced if you switch to a model that is not on the list. Local models are not on the list by default.
 
@@ -89,6 +89,21 @@ A restored backup never brings revoked grants back; see [Backups](/security/back
 ::: info Screenshot placeholder
 Settings → Permissions → Grants ledger, with one "site" grant for a travel site showing its expiry, 37 uses and a Revoke button.
 :::
+
+## Trusted sites
+
+On the card for the first read of a site in Balanced mode, **Always for this site** adds that site to Settings → Permissions → Trusted sites. From then on, reads of that site (opening a page, taking a snapshot, reading page text, a GET fetch) don't ask, in any chat. You can also choose **this site and its subdomains**.
+
+A trusted site is exact: the scheme, host and port must all match, so `http://` or another port, a subdomain (unless you chose subdomains), the parent domain and look-alike or punycode names all still ask. Names are compared in lowercase punycode with a trailing dot removed. IP addresses, `localhost`, bare host names, brokerage and bank hosts, hosts shared by many tenants (`s3.amazonaws.com`, `storage.googleapis.com`) and public suffixes from the Public Suffix List, including its private section (`co.uk`, `github.io`, `run.app`), can't be trusted, so a subdomain choice never covers one. A subdomain choice also covers only subdomains that pass the same checks: `google.com` with subdomains covers `news.google.com` but not `docs.google.com`, `drive.google.com`, `script.google.com` or `pay.google.com`, and `amazonaws.com` does not cover a `s3.amazonaws.com` bucket. Names with no public suffix (`.local`, `.lan`, `.internal`) and request catchers or tunnels (`webhook.site`, `ngrok`, `pastebin.com`) can't be trusted either.
+
+A trusted site still asks when:
+
+- it is on the sensitive-site list (banks, health, email, password managers, and any optional category you turned on);
+- the turn has read untrusted content (see [taint](/security/taint)), which keeps the usual rules;
+- the action is not a read: writes, forms, submits, downloads, filling a login and payments follow the usual rules, and a hard-blocked venue (a brokerage, exchange or bank) stays blocked for anything but a read;
+- the thread is in Manual mode. Auto keeps its own rules.
+
+Remove a site in Settings → Permissions → Trusted sites, or revoke it from the grants ledger. Entries expire like other "always" grants (90 days by default, the `alwaysExpiryDays` setting).
 
 ## Folders, sites, apps and connectors
 

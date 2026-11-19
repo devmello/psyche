@@ -61,6 +61,7 @@ import {
   RESTORE_MARKER,
   RevocationLedger,
   replayRevocations,
+  SENSITIVE_CATEGORY_SETTING_PREFIX,
   SqlitePermissionStore,
 } from "@psyche/permissions";
 import {
@@ -199,7 +200,7 @@ import { graphSourceAdapters } from "./people-sources.ts";
 import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { folderAccessEnv, ownWorkdirs, protectedRoots } from "./protected-paths.ts";
-import { createPurchaseTool } from "./purchase-tool.ts";
+import { createPurchaseTool, LINK_PAYMENT_SOURCE, PURCHASE_TOOL } from "./purchase-tool.ts";
 import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import {
@@ -228,6 +229,7 @@ import { helperRecognizer } from "./search-ocr.ts";
 import { agentBlockedHit, canOpenGistSource, scrubCitations } from "./search-open.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import { agentLocalSearch, searchEverythingTool } from "./search-tool.ts";
+import { applySensitiveCategories, sensitiveCategoriesFrom } from "./sensitive-categories.ts";
 import { composeSeparateDesktop, separateDesktopFolderEnv } from "./separate-desktop.ts";
 import {
   type ApprovalRelay,
@@ -676,7 +678,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       entry,
     );
     const saved = setSetting(db, "permissions.policy", next);
-    rawBroker.setPolicy(hostPolicy(next));
+    rawBroker.setPolicy(hostPolicy(next, db));
     publish("settings.changed", { entries: [saved] });
   };
   // Revoking an `always` folder (Settings' access list) drops it from the same policy list.
@@ -687,7 +689,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     const kept = folders.filter((f) => f.path !== path);
     if (kept.length === folders.length) return false;
     const saved = setSetting(db, "permissions.policy", { ...current, folders: kept });
-    rawBroker.setPolicy(hostPolicy({ ...current, folders: kept }));
+    rawBroker.setPolicy(hostPolicy({ ...current, folders: kept }, db));
     publish("settings.changed", { entries: [saved] });
     return true;
   };
@@ -749,7 +751,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       `http://localhost:${config.port}`,
       ...config.allowedOrigins.filter((o) => /^https?:\/\//.test(o)),
     ],
-    policy: hostPolicy((policy ?? storedPolicy) as PolicyConfig | undefined),
+    policy: hostPolicy((policy ?? storedPolicy) as PolicyConfig | undefined, db),
   });
   const broker = withRelay(tokens.wrap(rawBroker), relays, gwOptions.logger);
   // The teaching loop (#679) reads approval answers as implicit feedback; set once composed.
@@ -991,7 +993,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // exec_host, a connector group set to deny, a connector, macOS access, the sandbox).
   const savePolicy = (next: PolicyConfig) => {
     const entry = setSetting(db, "permissions.policy", next);
-    rawBroker.setPolicy(hostPolicy(next));
+    rawBroker.setPolicy(hostPolicy(next, db));
     publish("settings.changed", { entries: [entry] });
   };
   // The Gateway's one srt lookup (`PSYCHE_SRT_PATH`, `exec.srtPath`, then found on this Mac):
@@ -1262,6 +1264,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   const browserPart = parts.find((p): p is ComposedBrowser => "ownsTab" in p && "devServers" in p);
   if (paymentsPart !== undefined && browserPart !== undefined) {
+    const availability = paymentsPart.availability;
     const purchaseTool = createPurchaseTool({
       payments: paymentsPart.payments,
       driver: () => browserPart.driver,
@@ -1269,18 +1272,34 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       calls,
       approvals: broker,
       redactor,
+      // Checked on every call too: a tool list built before a disconnect raises no Pay card.
+      ...(availability === undefined ? {} : { ready: () => availability.ready() }),
       ...(gwOptions.env?.PSYCHE_LINK_TEST === "1" ? { test: true } : {}),
     });
-    const availability = paymentsPart.availability;
     if (availability === undefined) services.tools.register(purchaseTool);
     else {
       let unregister: (() => void) | undefined;
       const follow = () => {
-        const on = availability.configured();
+        // Connected and signed in: a saved CLI path alone is not enough (before sign-in, Link
+        // cannot pay).
+        const on = availability.ready();
         if (on && unregister === undefined) unregister = services.tools.register(purchaseTool);
         else if (!on && unregister !== undefined) {
           unregister();
           unregister = undefined;
+          // A Stripe Link Pay card still open when Link goes away is withdrawn, never left to be
+          // approved. Other purchase cards (a vault card at a shop, a connector) stay.
+          void broker
+            .invalidatePendingOfKind(
+              "purchase",
+              "payments_disconnected",
+              // The fallback card (a tab with no origin) has no paymentSource: the loop always
+              // names the tool, so match that too.
+              (a) =>
+                a.details?.paymentSource === LINK_PAYMENT_SOURCE ||
+                a.details?.tool === PURCHASE_TOOL,
+            )
+            .catch(() => undefined);
         }
       };
       follow();
@@ -1435,7 +1454,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       }),
       write: (next) => {
         const entry = setSetting(db, "permissions.policy", next);
-        rawBroker.setPolicy(hostPolicy(next as PolicyConfig));
+        rawBroker.setPolicy(hostPolicy(next as PolicyConfig, db));
         publish("settings.changed", { entries: [entry] });
       },
       owned: () => (getSetting(db, TEACHING_ASK_RULES_KEY)?.value as string[] | undefined) ?? [],
@@ -2227,9 +2246,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       if (entry.key === MEMORY_RECALL_MODE_SETTING) void memoryRecall.apply();
       if (entry.key === WEB_SEARCH_PROVIDER_SETTING || entry.key === WEB_SEARCH_SEARXNG_SETTING)
         webTools.refresh();
+      // The optional sensitive categories (Settings → Permissions) apply to the next call.
+      // Only this layer changes: connector matrices, lifted floors and Computer use tiers stay.
+      if (entry.key.startsWith(SENSITIVE_CATEGORY_SETTING_PREFIX)) {
+        applySensitiveCategories(rawBroker, db);
+        continue;
+      }
       if (entry.key !== "permissions.policy") continue;
       try {
-        rawBroker.setPolicy(hostPolicy((entry.value ?? {}) as PolicyConfig));
+        rawBroker.setPolicy(hostPolicy((entry.value ?? {}) as PolicyConfig, db));
       } catch (err) {
         gwOptions.logger?.log("warn", "invalid permissions.policy ignored", {
           code: PsycheError.from(err).code,
@@ -2432,11 +2457,15 @@ export { createLogger, surfaceOf };
  * (`/workspace`, the sandbox's) would grant read-write on a host `/workspace` to the host file
  * tools, so here no workspace root exists unless the owner names one (#287).
  */
-function hostPolicy(p: PolicyConfig | undefined): PolicyConfig {
+function hostPolicy(p: PolicyConfig | undefined, db: PsycheDb): PolicyConfig {
   // Lifted floors come only from Settings' confirmed opt-in (`permissions.liftedFloors.<id>`,
   // connector-matrix.ts), never from a stored or imported policy (security §3.12).
-  const { liftedFloors: _imported, ...rest } = p ?? {};
-  return { ...rest, workspaceRoots: p?.workspaceRoots ?? [] };
+  const { liftedFloors: _imported, sensitiveCategories: _stored, ...rest } = p ?? {};
+  return {
+    ...rest,
+    sensitiveCategories: sensitiveCategoriesFrom(db),
+    workspaceRoots: p?.workspaceRoots ?? [],
+  };
 }
 
 /**

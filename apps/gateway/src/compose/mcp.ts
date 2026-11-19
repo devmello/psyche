@@ -289,12 +289,25 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     services.logger?.log("warn", msg, fields);
   const registrations = new Map<string, McpRegistration>();
   /** Owner-visible and audited (security §11 "showing a visual diff"; #281). */
-  const report = (serverId: string, title: string, body: string, data: Record<string, unknown>) => {
+  const report = (
+    serverId: string,
+    titleKey: "notice.mcp.changed.title" | "notice.mcp.suspicious.title",
+    title: string,
+    body: string,
+    data: Record<string, unknown>,
+  ) => {
+    const details = body.slice(0, 1_000);
     services.notifier
       .notify({
         kind: "system",
         title,
-        body: body.slice(0, 1_000),
+        body: details,
+        message: {
+          titleKey,
+          bodyKey: "notice.mcp.review.body",
+          // Values are one line: the server's change list and warnings, joined.
+          params: { server: serverId, details: details.replace(/\s*\n+\s*/g, "; ") },
+        },
         route: "/settings/connectors",
         dedupeKey: `mcp:${serverId}:${String(data.hash ?? "tools")}`,
       })
@@ -349,6 +362,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
           // A changed listing: the owner sees what changed; its grants were revoked above.
           report(
             event.serverId,
+            "notice.mcp.changed.title",
             `MCP server ${event.serverId} changed its tools`,
             [changeLines(event.changes), warningText(event.warnings, new Set())]
               .filter((l) => l !== "")
@@ -417,6 +431,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
       if (warnings.length > 0 && config.trust !== "bundled") {
         report(
           config.id,
+          "notice.mcp.suspicious.title",
           `MCP server ${config.id} has suspicious tool descriptions`,
           warningText(warnings, blocked),
           { warnings, blocked: [...blocked] },

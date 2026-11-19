@@ -1019,6 +1019,7 @@ export interface ApprovalAnswer {
     presence?:        PresenceAssertion;
     recipientChoice?: string;
     scope?:           GrantScope;
+    trustSite?:       TrustSite;
     unsandboxed?:     Unsandboxed;
     via?:             InputVia;
 }
@@ -1042,6 +1043,8 @@ export interface PresenceAssertion {
 export type PresenceAssertionKind = "webauthn" | "helper" | "password";
 
 export type GrantScope = "once" | "task" | "site" | "session" | "always";
+
+export type TrustSite = "origin" | "subdomains";
 
 export type Unsandboxed = "UNSANDBOXED";
 

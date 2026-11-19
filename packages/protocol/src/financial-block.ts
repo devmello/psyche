@@ -105,6 +105,37 @@ const HOST_VENUES: Record<VenueKind, readonly string[]> = {
     "rarible.com",
     "polymarket.com",
     "kalshi.com",
+    // Crypto on-ramps: a card "Buy now" there buys crypto.
+    "moonpay.com",
+    "ramp.network",
+    "transak.com",
+    "banxa.com",
+    "simplex.com",
+    "mercuryo.io",
+    "onramper.com",
+    "paybis.com",
+    "changelly.com",
+    "guardarian.com",
+    "coinmama.com",
+    "sendwyre.com",
+    // Stripe's own on-ramp; link.com itself is Link's sign-in and wallet.
+    "crypto.link.com",
+    "wert.io",
+    "alchemypay.org",
+    "sardine.ai",
+    "kado.money",
+    "topperpay.com",
+    "utorg.pro",
+    "switchere.com",
+    "coinify.com",
+    "bitpay.com",
+    "strike.me",
+    "river.com",
+    "swanbitcoin.com",
+    "bitcoin.com",
+    "wirexapp.com",
+    "nexo.com",
+    "swapped.com",
     // Wallet extensions' own pages: `chrome-extension://<id>` has the id as its hostname.
     ...WALLET_EXTENSIONS,
   ],
@@ -303,6 +334,96 @@ export function venueOfHost(input: string | undefined): VenueKind | undefined {
     if (hostIn(host, HOST_VENUES[kind])) return kind;
   }
   return undefined;
+}
+
+/** PayPal's person-to-person segments: PayPal.Me, donations and money pools. */
+const PAYPAL_P2P_SEGMENTS = new Set([
+  "paypalme",
+  "paypal.me",
+  "donate",
+  "pools",
+  "pool",
+  "sendmoney",
+  "pay",
+]);
+
+/**
+ * Decodes every valid `%XX` on its own, twice at most (double encoding), and leaves a malformed
+ * escape (`%ZZ`, a trailing `%`) as it is: one bad escape must not stop the rest decoding.
+ */
+function decodeEscapes(text: string): string {
+  let out = text;
+  for (let pass = 0; pass < 2; pass++) {
+    const next = out.replace(/%([0-9a-f]{2})/gi, (_, hex: string) =>
+      String.fromCharCode(Number.parseInt(hex, 16)),
+    );
+    if (next === out) break;
+    out = next;
+  }
+  return out;
+}
+
+/** A path segment without parameters (`paypalme;x`) and trailing dots or spaces. */
+function cleanSegment(seg: string): string {
+  return (seg.split(";")[0] ?? "").replace(/[.\s]+$/, "");
+}
+
+/**
+ * Whether a PayPal address sends money to a person or out of the account: a `paypalme`,
+ * `donate`, `pools`, `send` or `send-…` segment anywhere in the path or in a hash route (any
+ * locale prefix, `/c2/`), `myaccount` followed by `transfer` or `money`, or the legacy
+ * `cmd=_send-money`. Escapes are decoded one by one (twice), repeated slashes are collapsed, and a
+ * segment's `;parameters` and trailing dots are ignored.
+ */
+function isPaypalP2pPath(u: URL): boolean {
+  const hash = decodeEscapes(u.hash.replace(/^#/, ""));
+  const pathSegs = (text: string) =>
+    text
+      .toLowerCase()
+      .split("/")
+      .map(cleanSegment)
+      .filter((x) => x !== "");
+  const hasP2p = (segs: string[]): boolean => {
+    for (const [i, seg] of segs.entries()) {
+      if (PAYPAL_P2P_SEGMENTS.has(seg) || seg === "send" || seg.startsWith("send-")) return true;
+      if (seg === "myaccount" && ["transfer", "money"].includes(segs[i + 1] ?? "")) return true;
+    }
+    return false;
+  };
+  const pathSegments = pathSegs(decodeEscapes(u.pathname));
+  if (hasP2p(pathSegments)) return true;
+  // A hash route (`#/us/paypalme/john`, `#!paypalme`): its P2P words count at any position, but
+  // not the bare `pay`, `send` and `send-*` other than `send-money`, which are steps of a
+  // checkout (`#/pay`, `#/send-otp`, `#/send-code`).
+  const route = pathSegs(hash.replace(/^!/, "").replace(/\?/g, "/"));
+  for (const [i, seg] of route.entries()) {
+    if (seg !== "pay" && PAYPAL_P2P_SEGMENTS.has(seg)) return true;
+    if (seg === "send-money") return true;
+    if (seg === "myaccount" && ["transfer", "money"].includes(route[i + 1] ?? "")) return true;
+  }
+  // `/myaccount#/transfer/send`: the path ends in `myaccount`, the hash goes on from there.
+  if (pathSegments.at(-1) === "myaccount" && ["transfer", "money"].includes(route[0] ?? ""))
+    return true;
+  const query = `${decodeEscapes(u.search)}&${hash.includes("?") ? hash.slice(hash.indexOf("?")) : ""}`;
+  return /[?&]cmd=_send-money(?:[&;%#]|$)/i.test(query);
+}
+
+/**
+ * The venue of a page: its host's venue, except that a PayPal page that sends money to a person
+ * or out of the account (`isPaypalP2pPath`) is P2P, not a checkout.
+ */
+export function venueOfPage(input: string | undefined): VenueKind | undefined {
+  const kind = venueOfHost(input);
+  if (kind !== "p2p_mixed" || input === undefined) return kind;
+  const host = financialHost(input);
+  if (host === undefined || !hostIn(host, ["paypal.com"])) return kind;
+  let u: URL;
+  try {
+    u = new URL(input.trim());
+  } catch {
+    return kind;
+  }
+  return isPaypalP2pPath(u) ? "p2p" : kind;
 }
 
 export function venueOfApp(bundleId: string | undefined): VenueKind | undefined {
@@ -891,6 +1012,8 @@ const JOINERS = new Set([
 /** Whether a move or a trade word follows "and", "&" or "then" ("View & transfer", "View and swap"). */
 function joinsAct(plain: string): boolean {
   const words = wordsOf(plain.replace(/&|\+/g, " and "));
+  // No read-noun excuse here ("See buy and sell prices" is refused, an accepted over-block):
+  // every such excuse reopened "View and buy orders now" (#1332 review B2).
   return words.some(
     (w, i) =>
       JOINERS.has(w) &&
@@ -937,6 +1060,7 @@ const LISTING_ACTS = new Set([
   "complete",
   "place",
   "initiate",
+  // "Scheduled transfers start Monday" is refused too: an accepted over-block (#1332 review B3).
   "start",
   "resend",
   "retry",
@@ -1413,7 +1537,7 @@ function isRewardsHost(input: string | undefined): boolean {
  * PayPal's checkout (`p2p_mixed`) stays a purchase.
  */
 export function isNoCheckoutVenue(input: string | undefined): boolean {
-  const kind = venueOfHost(input);
+  const kind = venueOfPage(input);
   if (kind === "brokerage" || kind === "exchange" || kind === "p2p") return true;
   return kind === "bank" && !isRewardsHost(input);
 }
@@ -1437,7 +1561,7 @@ function isLoneLetter(l: string, venue: VenueKind | undefined): boolean {
  * for everything else: a checkout, a bill payment, reading a balance, a link that navigates.
  */
 export function financialBlock(a: FinancialAction): FinancialBlock | undefined {
-  const venue = venueOfApp(a.app) ?? venueOfHost(a.pageUrl) ?? venueOfHost(a.origin);
+  const venue = venueOfApp(a.app) ?? venueOfPage(a.pageUrl) ?? venueOfPage(a.origin);
   const raw = a.labels ?? [];
   const labels = raw.filter((l) => l.trim() !== "");
   // An action the executor could not read, on a venue, could be the trade: refused, fail closed.
@@ -1597,6 +1721,9 @@ const PASSIVE_MOVES = new Set(["transferred", "wired", "withdrawn", "remitted", 
 const MONEY_SENT =
   /\b(?:funds|money|payment|payments|transfer|wire|amount|cash|balance|crypto|\d[\d.,]*(?: [a-z]{3})?)(?: [\p{L}\p{N}]+){0,2} (?:will be|is being|are being|will get|gets|get) sent\b/u;
 
+const NOT_AFFECTED =
+  /\b(?:[\p{L}\p{N}]+ ){0,4}(?:are not|is not|aren t|isn t|will not be|won t be) affected\b/gu;
+
 /** What a leave or discard dialog says will be lost: never itself an act. */
 const LOSS_CLAUSES: readonly RegExp[] = [
   /\b(?:your|the|this|any|all)? ?(?:[\p{L}\p{N}]+ ){0,3}(?:won t|wont|will not|isn t|is not|aren t|are not) (?:be )?(?:saved|kept|sent|submitted|finished)\b/gu,
@@ -1605,11 +1732,32 @@ const LOSS_CLAUSES: readonly RegExp[] = [
   /^\s*(?:changes|edits) (?:to|on|in) (?:your |the |this )?[\p{L}\p{N}]+\b/u,
   /^\s*(?:and )?lose (?:your |the |this )?[\p{L}\p{N}]+\b/u,
   // "Funds already transferred are not affected": what leaving does not touch.
-  /\b(?:[\p{L}\p{N}]+ ){0,4}(?:are not|is not|aren t|isn t|will not be|won t be) affected\b/gu,
+  NOT_AFFECTED,
 ];
 
+/**
+ * Takes out the loss clauses. A "not affected" clause never takes an act with it: in "Send $500,
+ * balance is not affected" the words up to the last move, trade or act verb stay ("send"), and
+ * only the rest goes. A move word right before "is not affected" is what is not affected ("Your
+ * transfer is not affected"), so it goes with the clause.
+ */
 function withoutLossClauses(text: string): string {
-  return LOSS_CLAUSES.reduce((t, re) => t.replace(re, " "), text);
+  return LOSS_CLAUSES.reduce(
+    (t, re) =>
+      re !== NOT_AFFECTED
+        ? t.replace(re, " ")
+        : t.replace(re, (m) => {
+            const ws = m.trim().split(" ");
+            const aux = ws.findIndex((w, i) => i > 0 && /^(?:are|is|aren|isn|will|won)$/.test(w));
+            let k = -1;
+            for (const [i, w] of ws.entries()) {
+              if (i >= aux - 1) break;
+              if (VENUE_MOVE_WORDS.has(w) || VENUE_TRADE_WORDS.has(w) || ACT_VERBS.has(w)) k = i;
+            }
+            return k < 0 ? " " : ` ${ws.slice(0, k + 1).join(" ")} `;
+          }),
+    text,
+  );
 }
 
 /** A confirm dialog's sentence names a trade or a move of money, with the same exemptions as a label. */
@@ -1634,6 +1782,8 @@ function dialogSaysAct(text: string, kind: VenueKind): boolean {
   if (words.some((w, i) => PASSIVE_MOVES.has(w) && words[i - 1] !== "already")) return true;
   // "Your funds will be sent to John", "The payment will be sent anyway". "A code will be sent" is
   // sign-in, so only money that is sent counts.
+  // No bill-pay or receipt excuse: "Your payment will be sent on 11/20" is refused, an accepted
+  // over-block. Each excuse reopened money sent to a person (#1332 review B1).
   if (MONEY_SENT.test(words.join(" "))) return true;
   const cjk = plain.replace(CJK_NOT_ACT, " ");
   if (VENUE_CJK.some((w) => cjk.includes(w))) return true;

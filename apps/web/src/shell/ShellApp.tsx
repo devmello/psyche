@@ -240,6 +240,7 @@ export interface ShellSlots {
     threadId: string | null;
     onOpen: (threadId: string) => void;
     onNew: () => void;
+    onNewIncognito: () => void;
   }) => ReactNode;
   /** ⌘K (§5.5); absent keeps the shell's own palette. */
   palette?: (props: PaletteSlotProps) => ReactNode;
@@ -860,6 +861,9 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         case "newSideChat":
           newSideChat();
           return true;
+        case "newIncognitoChat":
+          newIncognitoChat();
+          return true;
         case "toggleThreadList":
           // ⌘B: the sidebar, or the threads drawer when compact (redesign §4).
           if (compact) setDrawerOpen((o) => !o);
@@ -950,6 +954,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       compact,
       toggleSidebar,
       toggleSidebarMode,
+      newIncognitoChat,
     ],
   );
 
@@ -1085,9 +1090,14 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   const openThread = (id: string) => navigate(`/chat/${id}`);
   const threadsFor = (onOpen: (id: string) => void) =>
     slots.threadList ? (
-      slots.threadList({ threadId, onOpen, onNew: newSideChat })
+      slots.threadList({ threadId, onOpen, onNew: newSideChat, onNewIncognito: newIncognitoChat })
     ) : (
-      <ThreadList currentThreadId={threadId} onOpen={onOpen} onNew={newSideChat} />
+      <ThreadList
+        currentThreadId={threadId}
+        onOpen={onOpen}
+        onNew={newSideChat}
+        onNewIncognito={newIncognitoChat}
+      />
     );
   const sidebar = slots.sidebar ? (
     slots.sidebar({

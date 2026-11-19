@@ -32,4 +32,5 @@ export * from "./requester.ts";
 export * from "./revocations.ts";
 export * from "./store.ts";
 export * from "./targets.ts";
+export * from "./trusted-sites.ts";
 export * from "./types.ts";

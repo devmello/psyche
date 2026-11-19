@@ -34,6 +34,17 @@ describe("keyboard map", () => {
       expect(actions.has(a), a).toBe(true);
   });
 
+  it("Mod+Shift+N starts an incognito chat; plain Mod+N stays a side chat", () => {
+    const mac = { mac: true };
+    expect(matchShortcut(ev("N", { metaKey: true, shiftKey: true }, "KeyN"), mac)).toBe(
+      "newIncognitoChat",
+    );
+    expect(matchShortcut(ev("n", { metaKey: true }, "KeyN"), mac)).toBe("newSideChat");
+    expect(matchShortcut(ev("N", { ctrlKey: true, shiftKey: true }, "KeyN"), { mac: false })).toBe(
+      "newIncognitoChat",
+    );
+  });
+
   it("matches macOS chords", () => {
     const mac = { mac: true };
     expect(matchShortcut(ev("k", { metaKey: true }, "KeyK"), mac)).toBe("palette");

@@ -738,6 +738,14 @@ export function ChatThread({
           */}
           <ThreadPrimitive.Root className="@container/chat relative flex h-full min-h-0 min-w-[min(100%,var(--chat-min-width))] flex-1 flex-col overflow-hidden bg-canvas">
             {offline ? <OfflineBanner state={connection} waiting={outbox.enabled} /> : null}
+            {incognitoThread ? (
+              <p
+                role="note"
+                className="shrink-0 border-b border-dashed border-separator px-4 py-1.5 text-footnote text-label-secondary @xl/chat:px-6 @5xl/chat:px-10"
+              >
+                {t("chat.incognito.notice")}
+              </p>
+            ) : null}
             <ThreadPrimitive.Viewport
               ref={viewportRef}
               autoScroll={false}

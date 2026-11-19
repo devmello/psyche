@@ -251,6 +251,7 @@ export const chat = {
   // Redesign 2026, workstream B (docs/design/redesign-2026.md §5.2).
   "chat.toolbar.label": "Chat toolbar",
   "chat.toolbar.incognito": "Incognito",
+  "chat.incognito.notice": "Not used for memory, search or activity. Expires after 24 h.",
   "chat.toolbar.view": "Transcript view",
   "chat.toolbar.view.status": "Status only",
   "chat.toolbar.view.actions": "Actions",

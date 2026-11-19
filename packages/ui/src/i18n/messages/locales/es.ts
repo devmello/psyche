@@ -269,6 +269,8 @@ export const es: Partial<Catalogue> = {
 
   "chat.toolbar.label": "Barra de herramientas del chat",
   "chat.toolbar.incognito": "Incógnito",
+  "chat.incognito.notice":
+    "No se usa para la memoria, la búsqueda ni la actividad. Caduca en 24 h.",
   "chat.toolbar.view": "Vista de la transcripción",
   "chat.toolbar.view.status": "Solo estado",
   "chat.toolbar.view.actions": "Acciones",
@@ -322,6 +324,7 @@ export const es: Partial<Catalogue> = {
   "blocks.details.to": "Para",
   "blocks.details.exactRecipient": "(destinatario exacto)",
   "blocks.details.cc": "Cc",
+  "blocks.details.bcc": "Cco",
   "blocks.details.subject": "Asunto",
   "blocks.details.body": "Cuerpo",
   "blocks.details.view": "Ver",
@@ -362,9 +365,13 @@ export const es: Partial<Catalogue> = {
 
   "blocks.approval.scope.once": "Permitir una vez",
   "blocks.approval.scope.task": "Permitir en esta tarea",
+  "blocks.approval.scope.trustSite": "Siempre para este sitio ({site})",
+  "blocks.approval.scope.trustSiteSubdomains": "Siempre para este sitio y sus subdominios ({site})",
   "blocks.approval.scope.site": "Permitir en este sitio",
   "blocks.approval.scope.session": "Permitir en esta sesión",
   "blocks.approval.scope.always": "Permitir siempre",
+  "blocks.approval.alwaysRecipient": "Permitir siempre enviar a {recipients}",
+  "blocks.approval.alwaysRecipientFrom": "Permitir siempre enviar a {recipients} desde {account}",
   "blocks.approval.scopeGranted.once": "permitir una vez",
   "blocks.approval.scopeGranted.task": "permitir en esta tarea",
   "blocks.approval.scopeGranted.site": "permitir en este sitio",
@@ -778,6 +785,7 @@ export const es: Partial<Catalogue> = {
 
   "shell.shortcut.palette": "Paleta de comandos",
   "shell.shortcut.newSideChat": "Nueva conversación paralela",
+  "shell.shortcut.newIncognitoChat": "Nueva conversación de incógnito",
   "shell.shortcut.closeThread": "Cerrar la vista de conversación o la ventana flotante",
   "shell.shortcut.toggleThreadList": "Mostrar u ocultar la barra lateral",
   "shell.shortcut.compactSidebar": "Barra lateral compacta o completa",
@@ -849,6 +857,7 @@ export const es: Partial<Catalogue> = {
   "shell.threads.filter": "Filtrar conversaciones",
   "shell.threads.search": "Buscar conversaciones",
   "shell.threads.newSideChat": "Nueva conversación paralela",
+  "shell.threads.newIncognitoChat": "Nueva conversación de incógnito",
   "shell.threads.loading": "Cargando conversaciones",
   "shell.threads.mainChat": "Conversación principal",
   "shell.threads.sideChats": "Conversaciones paralelas",
@@ -994,6 +1003,8 @@ export const es: Partial<Catalogue> = {
   "settings.key.models.providers": "Proveedores de modelos",
   "settings.key.permissions.mode": "Modo por omisión",
   "settings.key.permissions.policy": "Política de permisos",
+  "settings.key.permissions.sensitive.government": "Preguntar antes de leer sitios del gobierno",
+  "settings.key.permissions.sensitive.icloud": "Preguntar antes de leer iCloud",
   "settings.key.permissions.folders": "Carpetas compartidas",
   "settings.key.persona.name": "Nombre",
   "settings.key.persona.tagline": "Carácter o lema",
@@ -2037,6 +2048,7 @@ export const es: Partial<Catalogue> = {
   "settings.permissions.subject.execIn": "{argv} en {cwd}",
   "settings.permissions.subject.emailTo": "a {recipient}",
   "settings.permissions.subject.emailAny": "a cualquier destinatario",
+  "settings.permissions.subject.emailFrom": "a {recipients} desde {account}",
   "settings.permissions.subject.calendarNamed": "calendario {id}",
   "settings.permissions.subject.calendar": "calendario",
   "settings.permissions.title": "Permisos",
@@ -2055,8 +2067,28 @@ export const es: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "{name} cambió su lista de herramientas desde que lo aprobaste, así que Psyche revocó sus permisos. Cada acción vuelve a preguntar hasta que lo revises.",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "Destinatarios siempre permitidos",
+  "settings.permissions.sendsHint":
+    "Los correos a estos destinatarios se envían sin preguntar. Quita uno para volver a preguntar.",
+  "settings.permissions.noSends": "Ningún destinatario está configurado para permitir siempre.",
   "settings.permissions.origins": "Orígenes del navegador",
   "settings.permissions.originsHint": "Sitios que el agente puede abrir sin preguntar.",
+  "settings.permissions.trusted.title": "Sitios de confianza",
+  "settings.permissions.trusted.description":
+    "Psyche lee estos sitios sin preguntar, en cualquier chat. Escribir, los formularios y los sitios sensibles siguen preguntando antes.",
+  "settings.permissions.trusted.empty":
+    "Aún no hay sitios de confianza. Elige «Siempre para este sitio» en una primera lectura para añadir uno.",
+  "settings.permissions.trusted.added": "Añadido el {date}",
+  "settings.permissions.trusted.remove": "Quitar",
+  "settings.permissions.trusted.removeNamed": "Quitar {name} de los sitios de confianza",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} y sus subdominios",
+  "settings.permissions.sensitive.title": "Sitios sensibles",
+  "settings.permissions.sensitive.description":
+    "Los bancos, la salud, el correo y los gestores de contraseñas siempre preguntan antes de leer. Los sitios del gobierno y de iCloud también; desactiva una categoría aquí para leerla sin preguntar.",
+  "settings.permissions.sensitive.governmentHint":
+    "Sitios que terminan en .gov o .gov.uk (cuentas de impuestos, identidad y salud). Activado por defecto.",
+  "settings.permissions.sensitive.icloudHint":
+    "Sitios de iCloud (correo, fotos, archivos). Activado por defecto.",
   "settings.permissions.noOrigins":
     "No hay permisos permanentes para sitios web. Los sitios nuevos preguntan primero.",
   "settings.permissions.scopeExpires": "{scope}, caduca {date}",
@@ -3131,6 +3163,7 @@ export const es: Partial<Catalogue> = {
   "web.viewers.noPath": "Este archivo no tiene ruta.",
   "web.shortcut.palette": "Paleta de comandos",
   "web.shortcut.newSideChat": "Nueva conversación paralela",
+  "web.shortcut.newIncognitoChat": "Nueva conversación de incógnito",
   "web.shortcut.closeThreadView": "Cerrar la vista de conversación o la ventana flotante",
   "web.shortcut.toggleThreadList": "Mostrar u ocultar la lista de conversaciones",
   "web.shortcut.cycleThreads": "Recorrer las conversaciones",
@@ -3175,7 +3208,9 @@ export const es: Partial<Catalogue> = {
   "web.threads.untitled": "Sin título",
   "web.threads.label": "Conversaciones",
   "web.threads.newSideChatTitle": "Nueva conversación paralela (⌘N)",
+  "web.threads.newIncognitoChatTitle": "Nueva conversación de incógnito",
   "web.threads.newSideChat": "+ Conversación paralela",
+  "web.threads.newIncognitoChat": "+ Incógnito",
   "web.threads.searchLabel": "Buscar conversaciones",
   "web.threads.searchPlaceholder": "Buscar",
   "web.threads.empty": "Aún no hay conversaciones paralelas.",

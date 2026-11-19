@@ -19,7 +19,7 @@ import type { LinkSetupStatus } from "@psyche/protocol";
 type Scope = "operator.read" | "operator.write" | "operator.approvals" | "operator.admin";
 
 import { FakeModelProvider } from "@psyche/testing";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { composeBrowser } from "../src/compose/browser.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import {
@@ -72,6 +72,7 @@ if (a[0] === "auth" && a[1] === "login") {
     ? { verification_url: "https://login.link.com/device?c=1", device_code: "${DEVICE_CODE}" }
     : { verification_url: "https://login.link.com/device?c=1", phrase: "blue-otter-moon", device_code: "${DEVICE_CODE}" });
 } else if (a[0] === "auth" && a[1] === "status") {
+  if (fs.existsSync(file + ".exit1")) { out({ authenticated: false, error: "token expired" }); process.exit(1); }
   if (fs.existsSync(file + ".approve") && !fs.existsSync(file)) fs.writeFileSync(file, JSON.stringify({ access_token: "${TOKEN}" }), { mode: 0o644 });
   out({ authenticated: fs.existsSync(file) });
 } else if (a[0] === "auth" && a[1] === "logout") { try { fs.unlinkSync(file); } catch {} out({ ok: true }); }
@@ -294,6 +295,26 @@ describe("checkLinkCliPath on Windows", () => {
     },
   );
 
+  it("refuses a `.cmd` shim outside Psyche's folder whose script is inside it", () => {
+    const home = tmp("psyche-home-");
+    // The agent can write under workspace/: a planted copy of the package, started by a tidy shim.
+    const planted = fakeCli("js", join(home, "workspace", "x"));
+    const npm = tmp("psyche-win-npm-");
+    const cmd = (target: string) => `@ECHO off\r\nnode  "${target}" %*\r\n`;
+    writeFileSync(join(npm, "link-cli.cmd"), cmd(planted));
+    expect(checkLinkCliPath(join(npm, "link-cli.cmd"), { ...win, psycheHome: home })).toEqual({
+      ok: false,
+      reason: "in_psyche_home",
+    });
+    // The same shim pointing at the package outside the folder passes, and returns the script.
+    const outside = fakeCli();
+    writeFileSync(join(npm, "link-cli.cmd"), cmd(outside));
+    expect(checkLinkCliPath(join(npm, "link-cli.cmd"), { ...win, psycheHome: home })).toEqual({
+      ok: true,
+      real: statRealpath(outside),
+    });
+  });
+
   it("refuses a `.cmd` file that is not an npm or pnpm shim of a Link CLI script", () => {
     const dir = tmp("psyche-win-cmd-");
     for (const body of ["@echo off\r\npowershell -Command %*\r\n", "", "calc.exe %*"]) {
@@ -425,10 +446,13 @@ describe("guided setup in the composed Gateway", () => {
     onServices?: (services: ComposeServices) => void;
     /** Spend records on disk before the Gateway starts: [id, status, age in ms]. */
     spends?: [string, string, number, string?][];
+    /** Start on an existing `$PSYCHE_HOME` (a restart). */
+    home?: string;
+    statusRetryMs?: number;
   }
 
   async function boot(cli: string, extra: BootOptions = {}) {
-    const home = tmp("psyche-gw-link-");
+    const home = extra.home ?? tmp("psyche-gw-link-");
     const keyFile = join(home, "vault.key");
     writeFileSync(keyFile, Buffer.alloc(32, 7), { mode: 0o600 });
     const bin = tmp("psyche-link-path-");
@@ -482,12 +506,19 @@ describe("guided setup in the composed Gateway", () => {
           detect: { env: { PATH: bin }, home: tmp("psyche-h-") },
           pollMs: extra.pollMs ?? 20,
           ...(extra.statusTtlMs === undefined ? {} : { statusTtlMs: extra.statusTtlMs }),
+          ...(extra.statusRetryMs === undefined ? {} : { statusRetryMs: extra.statusRetryMs }),
           ...(extra.run === undefined ? {} : { run: extra.run }),
         },
       },
     });
-    cleanups.push(() => composed.stop("test"));
-    return { home, composed };
+    let stopped = false;
+    const stop = async () => {
+      if (stopped) return;
+      stopped = true;
+      await composed.stop("test");
+    };
+    cleanups.push(stop);
+    return { home, composed, stop };
   }
 
   async function bootAdmin(cli: string, extra: BootOptions = {}) {
@@ -599,21 +630,88 @@ describe("guided setup in the composed Gateway", () => {
     expect(methods.methods[0]?.last4).toBe("1881");
   });
 
-  it("offers the purchase tool only while a Link CLI is connected", async () => {
+  it("offers the purchase tool only while Link is connected and signed in", async () => {
     const cli = fakeCli();
     let services: ComposeServices | undefined;
-    const { admin } = await bootAdmin(cli, { onServices: (s) => (services = s) });
+    const { home, admin, composed } = await bootAdmin(cli, { onServices: (s) => (services = s) });
     const tool = () => services?.tools.get("checkout.pay_with_link");
+    const authFile = join(home, "vault", "link-auth.json");
     // Nothing is set up: the tool is not there, so no Pay card can be raised for it.
     expect(tool()).toBeUndefined();
+    // A saved CLI path alone is not enough: before sign-in Link cannot pay (#1323 N7).
     await admin.call("payments.link.connect", { path: cli }, "k-c");
-    expect(tool()).toBeDefined();
+    expect(tool()).toBeUndefined();
+    await admin.call("payments.link.signIn", {}, "k-s");
+    writeFileSync(`${authFile}.approve`, "");
+    await waitFor(async () => tool() !== undefined);
     expect(tool()?.spec.sideEffect).toBe("financial");
+    rmSync(`${authFile}.approve`);
+    // A reference held from before the disconnect (the loop's tool list for this step) raises no
+    // Pay card and pays nothing (#1323 N6).
+    const held = tool();
+    // A Stripe Link Pay card still open at disconnect is withdrawn; a vault-card checkout card
+    // at a shop has nothing to do with Link and stays (#1332 N4).
+    const card = (hash: string, details: Record<string, unknown>) =>
+      composed.gateway.context.broker.requestApproval({
+        kind: "purchase",
+        summary: "Pay $5 to shop.example",
+        details,
+        bindingHash: hash.repeat(64),
+        grantKey: "purchase|https://shop.example",
+        requestedBy: { runId: null, taskId: null, threadId: null },
+        sideEffect: "financial",
+        surfaces: ["desktop"],
+        scopesOffered: ["once"],
+        taint: false,
+      });
+    const issued = await card("c", { paymentSource: "Stripe Link (one-time card)" });
+    // The fallback card for a tab with no origin names the tool but no payment source (#1332 N2).
+    const generic = await card("e", { tool: "checkout.pay_with_link" });
+    const other = await card("d", { paymentSource: "Saved card", tool: "browser.click" });
     await admin.call("payments.link.disconnect", {}, "k-d");
     expect(tool()).toBeUndefined();
-    // And it comes back when connected again.
+    await waitFor(
+      async () =>
+        (await composed.gateway.context.broker.get(issued.approval.id))?.status === "invalidated",
+    );
+    await waitFor(
+      async () =>
+        (await composed.gateway.context.broker.get(generic.approval.id))?.status === "invalidated",
+    );
+    expect((await composed.gateway.context.broker.get(other.approval.id))?.status).toBe("pending");
+    expect(() => held?.describeCall?.({ tabId: "t1" })).toThrow(/not connected and signed in/);
+    await expect(
+      held?.execute(
+        "call-1",
+        { tabId: "t1" },
+        new AbortController().signal,
+        () => {},
+      ) as Promise<unknown>,
+    ).rejects.toMatchObject({ code: "unavailable", details: { reason: "payments_not_ready" } });
+    // And it comes back once connected and signed in again (the token file is gone: sign in anew).
     await admin.call("payments.link.connect", { path: cli }, "k-c2");
-    expect(tool()).toBeDefined();
+    expect(tool()).toBeUndefined();
+    await admin.call("payments.link.signIn", {}, "k-s2");
+    writeFileSync(`${authFile}.approve`, "");
+    await waitFor(async () => tool() !== undefined);
+  });
+
+  it("offers the purchase tool at start when the saved CLI is already signed in", async () => {
+    const cli = fakeCli();
+    let services: ComposeServices | undefined;
+    const first = await bootAdmin(cli);
+    await first.admin.call("payments.link.connect", { path: cli }, "k-c");
+    await first.admin.call("payments.link.signIn", {}, "k-s");
+    writeFileSync(join(first.home, "vault", "link-auth.json.approve"), "");
+    await waitFor(
+      async () =>
+        (await first.admin.call<LinkSetupStatus>("payments.link.status", {})).state === "connected",
+    );
+    // A restart: the next Gateway finds the saved CLI and Link's token file on disk.
+    first.admin.close();
+    await first.stop();
+    await bootAdmin(cli, { home: first.home, onServices: (s) => (services = s) });
+    await waitFor(async () => services?.tools.get("checkout.pay_with_link") !== undefined);
   });
 
   it("refuses to connect a planted script inside Psyche's folder", async () => {
@@ -638,6 +736,259 @@ describe("guided setup in the composed Gateway", () => {
     const st = await admin.call<LinkSetupStatus>("payments.link.status", {});
     expect(st.problem).toEqual({ path: statRealpath(cli), reason: "writable" });
     expect(st.cli).toBeUndefined();
+  });
+
+  /** A Link CLI whose `auth status` gives no answer (a timeout) while `failing()` says so. */
+  const flaky =
+    (failing: () => boolean, calls: string[] = []): RunLink =>
+    async (file, args, env, timeout) => {
+      const verb = args.filter((a) => !a.startsWith("-") && !a.endsWith(".js")).join(" ");
+      calls.push(verb);
+      if (verb.startsWith("auth status") && failing()) throw new Error("timed out");
+      return runFile(file, args, env, timeout);
+    };
+
+  it("keeps the last answer when `auth status` gives none (#1332 N4)", async () => {
+    const cli = fakeCli();
+    let services: ComposeServices | undefined;
+    let fail = false;
+    let failed = 0;
+    const { home, admin } = await bootAdmin(cli, {
+      onServices: (s) => (services = s),
+      run: flaky(() => fail && ++failed > 0),
+      statusTtlMs: 0,
+    });
+    const tool = () => services?.tools.get("checkout.pay_with_link");
+    const status = () => admin.call<LinkSetupStatus>("payments.link.status", {});
+    await admin.call("payments.link.connect", { path: cli }, "k-c");
+    await admin.call("payments.link.signIn", {}, "k-s");
+    writeFileSync(join(home, "vault", "link-auth.json.approve"), "");
+    await waitFor(async () => tool() !== undefined && (await status()).state === "connected");
+    // The CLI times out: the tool stays, and Settings still says connected.
+    fail = true;
+    expect((await status()).state).toBe("connected");
+    expect(failed).toBeGreaterThan(0);
+    expect(tool()).toBeDefined();
+  });
+
+  it("treats a CLI that exits non-zero as signed out, not unknown (#1332 N3)", async () => {
+    const cli = fakeCli();
+    let services: ComposeServices | undefined;
+    const { home, admin } = await bootAdmin(cli, {
+      onServices: (s) => (services = s),
+      statusTtlMs: 0,
+    });
+    const tool = () => services?.tools.get("checkout.pay_with_link");
+    const status = () => admin.call<LinkSetupStatus>("payments.link.status", {});
+    await admin.call("payments.link.connect", { path: cli }, "k-c");
+    await admin.call("payments.link.signIn", {}, "k-s");
+    writeFileSync(join(home, "vault", "link-auth.json.approve"), "");
+    // Positive control: exit 0 with signed-in output stays ready.
+    await waitFor(async () => tool() !== undefined && (await status()).state === "connected");
+    expect((await status()).state).toBe("connected");
+    expect(tool()).toBeDefined();
+    // The CLI now exits non-zero (expired token): not connected, tool hidden.
+    writeFileSync(join(home, "vault", "link-auth.json.exit1"), "");
+    expect((await status()).state).toBe("signed_out");
+    expect(tool()).toBeUndefined();
+    // And it recovers when the CLI answers again.
+    rmSync(join(home, "vault", "link-auth.json.exit1"));
+    await waitFor(async () => (await status()).state === "connected");
+    expect(tool()).toBeDefined();
+  });
+
+  it("retries `auth status` with back-off after a later connect fails transiently (#1332 N4)", async () => {
+    const cli = fakeCli();
+    let services: ComposeServices | undefined;
+    const calls: string[] = [];
+    let failures = 0;
+    const { home, admin } = await bootAdmin(cli, {
+      onServices: (s) => (services = s),
+      run: flaky(() => failures-- > 0, calls),
+      statusRetryMs: 20,
+      statusTtlMs: 0,
+    });
+    // Signed in at Link already, with the saved path not yet connected here.
+    writeFileSync(join(home, "vault", "link-auth.json"), JSON.stringify({ access_token: "x" }), {
+      mode: 0o600,
+    });
+    failures = 2;
+    await admin.call("payments.link.connect", { path: cli }, "k-c");
+    await waitFor(async () => services?.tools.get("checkout.pay_with_link") !== undefined);
+    expect(calls.filter((c) => c.startsWith("auth status")).length).toBeGreaterThanOrEqual(3);
+  });
+
+  /** A first sign-in, then a restart on the same home: the saved CLI is signed in. */
+  async function signedInHome(cli: string): Promise<string> {
+    const first = await bootAdmin(cli);
+    await first.admin.call("payments.link.connect", { path: cli }, "k-c");
+    await first.admin.call("payments.link.signIn", {}, "k-s");
+    writeFileSync(join(first.home, "vault", "link-auth.json.approve"), "");
+    await waitFor(
+      async () =>
+        (await first.admin.call<LinkSetupStatus>("payments.link.status", {})).state === "connected",
+    );
+    first.admin.close();
+    await first.stop();
+    return first.home;
+  }
+
+  /** `auth status` waits `delayMs` and then fails, as a slow offline CLI does. */
+  const slowFailing =
+    (calls: string[], delayMs: number): RunLink =>
+    async (file, args, env, timeout) => {
+      const verb = args.filter((a) => !a.startsWith("-") && !a.endsWith(".js")).join(" ");
+      calls.push(verb);
+      if (verb.startsWith("auth status")) {
+        await new Promise((r) => setTimeout(r, delayMs));
+        throw new Error("timed out");
+      }
+      return runFile(file, args, env, timeout);
+    };
+
+  it("ends the retry chain at stop(): no timer, no database read after (#1342 N1)", async () => {
+    const cli = fakeCli();
+    const home = await signedInHome(cli);
+    const rejections: unknown[] = [];
+    const onRejection = (e: unknown) => rejections.push(e);
+    process.on("unhandledRejection", onRejection);
+    try {
+      const calls: string[] = [];
+      const b = await boot(cli, { home, run: slowFailing(calls, 150), statusRetryMs: 10 });
+      await waitFor(async () => calls.some((c) => c.startsWith("auth status")));
+      // stop() while the first check is still running.
+      await b.stop();
+      const seen = calls.length;
+      await new Promise((r) => setTimeout(r, 400));
+      expect(calls.length).toBe(seen);
+      expect(rejections).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onRejection);
+    }
+  });
+
+  it("keeps one retry chain when connect is called twice, and stop() ends it (#1342 N1)", async () => {
+    const cli = fakeCli();
+    const calls: string[] = [];
+    const rejections: unknown[] = [];
+    const onRejection = (e: unknown) => rejections.push(e);
+    process.on("unhandledRejection", onRejection);
+    // The retry timers: created, and not yet fired or cleared.
+    const pending = new Set<unknown>();
+    const realSet = globalThis.setTimeout;
+    const realClear = globalThis.clearTimeout;
+    const setSpy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+      fn: (...a: unknown[]) => void,
+      ms?: number,
+      ...rest: unknown[]
+    ) => {
+      if (!String(fn).includes("attempt()")) return realSet(fn, ms, ...rest);
+      const h: unknown = realSet(
+        (...a: unknown[]) => {
+          pending.delete(h);
+          fn(...a);
+        },
+        ms,
+        ...rest,
+      );
+      pending.add(h);
+      return h;
+    }) as typeof setTimeout);
+    const clearSpy = vi.spyOn(globalThis, "clearTimeout").mockImplementation(((h: never) => {
+      pending.delete(h);
+      realClear(h);
+    }) as typeof clearTimeout);
+    try {
+      const b = await bootAdmin(cli, { run: slowFailing(calls, 60), statusRetryMs: 10 });
+      // The second connect starts while the first one's check is still running.
+      const first = b.admin.call("payments.link.connect", { path: cli }, "k-c1");
+      await waitFor(async () => calls.some((c) => c.startsWith("auth status")));
+      const second = b.admin.call("payments.link.connect", { path: cli }, "k-c2");
+      await Promise.all([first, second]);
+      await b.stop();
+      // No retry timer is left behind, not even one from the overlapped chain.
+      expect(pending.size).toBe(0);
+      await new Promise((r) => setTimeout(r, 100));
+      const seen = calls.length;
+      await new Promise((r) => setTimeout(r, 400));
+      expect(calls.length).toBe(seen);
+      expect(rejections).toEqual([]);
+    } finally {
+      setSpy.mockRestore();
+      clearSpy.mockRestore();
+      process.off("unhandledRejection", onRejection);
+    }
+  });
+
+  it("goes on with the back-off when a status check throws (#1345)", async () => {
+    const cli = fakeCli();
+    const home = await signedInHome(cli);
+    let services: ComposeServices | undefined;
+    let throws = 1;
+    const calls: string[] = [];
+    // The first check fails; the chain goes on to the retry, which answers.
+    const throwing: RunLink = async (file, args, env, timeout) => {
+      const verb = args.filter((a) => !a.startsWith("-") && !a.endsWith(".js")).join(" ");
+      calls.push(verb);
+      if (verb.startsWith("auth status") && throws-- > 0) throw new Error("boom");
+      return runFile(file, args, env, timeout);
+    };
+    await boot(cli, {
+      home,
+      run: throwing,
+      statusRetryMs: 20,
+      onServices: (s) => (services = s),
+    });
+    await waitFor(async () => services?.tools.get("checkout.pay_with_link") !== undefined);
+    expect(calls.filter((c) => c.startsWith("auth status")).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("never joins a status run from before the last connect (#1342 N2)", async () => {
+    const cli = fakeCli();
+    const home = await signedInHome(cli);
+    let services: ComposeServices | undefined;
+    let slow = true;
+    const slowOnce: RunLink = async (file, args, env, timeout) => {
+      const out = await runFile(file, args, env, timeout);
+      if (slow && args.includes("status")) {
+        slow = false;
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      return out;
+    };
+    const b = await boot(cli, { home, run: slowOnce, onServices: (s) => (services = s) });
+    const admin = await adminClient(b.composed.gateway);
+    cleanups.push(() => admin.close());
+    // The start check is running slowly; connect lands in the middle of it.
+    await new Promise((r) => setTimeout(r, 100));
+    await admin.call("payments.link.connect", { path: cli }, "k-again");
+    await waitFor(async () => services?.tools.get("checkout.pay_with_link") !== undefined);
+  });
+
+  it("asks `auth status` again with back-off after a failed start check (#1332 N5)", async () => {
+    const cli = fakeCli();
+    const first = await bootAdmin(cli);
+    await first.admin.call("payments.link.connect", { path: cli }, "k-c");
+    await first.admin.call("payments.link.signIn", {}, "k-s");
+    writeFileSync(join(first.home, "vault", "link-auth.json.approve"), "");
+    await waitFor(
+      async () =>
+        (await first.admin.call<LinkSetupStatus>("payments.link.status", {})).state === "connected",
+    );
+    first.admin.close();
+    await first.stop();
+    // After the restart the first two checks time out; the third answers.
+    let services: ComposeServices | undefined;
+    const calls: string[] = [];
+    let failures = 2;
+    await boot(cli, {
+      home: first.home,
+      onServices: (s) => (services = s),
+      run: flaky(() => failures-- > 0, calls),
+      statusRetryMs: 20,
+    });
+    await waitFor(async () => services?.tools.get("checkout.pay_with_link") !== undefined);
+    expect(calls.filter((c) => c.startsWith("auth status")).length).toBe(3);
   });
 
   describe("how often the CLI is run", () => {

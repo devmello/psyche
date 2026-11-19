@@ -223,6 +223,8 @@ export const settings = {
   "settings.key.models.providers": "Model providers",
   "settings.key.permissions.mode": "Default mode",
   "settings.key.permissions.policy": "Permission policy",
+  "settings.key.permissions.sensitive.government": "Ask before reading government sites",
+  "settings.key.permissions.sensitive.icloud": "Ask before reading iCloud",
   "settings.key.permissions.folders": "Shared folders",
   "settings.key.persona.name": "Name",
   "settings.key.persona.tagline": "Vibe or tagline",
@@ -1837,6 +1839,7 @@ export const settings = {
   "settings.permissions.subject.execIn": "{argv} in {cwd}",
   "settings.permissions.subject.emailTo": "to {recipient}",
   "settings.permissions.subject.emailAny": "to any recipient",
+  "settings.permissions.subject.emailFrom": "to {recipients} from {account}",
   "settings.permissions.subject.calendarNamed": "calendar {id}",
   "settings.permissions.subject.calendar": "calendar",
   "settings.permissions.subject.prepNotes": 'Notes titled "Prep:" (meeting prep)',
@@ -1858,8 +1861,27 @@ export const settings = {
   "settings.permissions.toolsChanged":
     "{name} changed its tool list since you approved it, so Psyche revoked its grants. Every action asks again until you review it.",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "Recipients you always allow",
+  "settings.permissions.sendsHint":
+    "Email sent to these recipients goes out without asking. Remove one to be asked again.",
+  "settings.permissions.noSends": "No recipient is set to always allow.",
   "settings.permissions.origins": "Browser origins",
   "settings.permissions.originsHint": "Sites the agent may open without asking.",
+  "settings.permissions.trusted.title": "Trusted sites",
+  "settings.permissions.trusted.description":
+    "Psyche reads these sites without asking, in any chat. Writing, forms and sensitive sites still ask first.",
+  "settings.permissions.trusted.empty":
+    "No trusted sites yet. Choose “Always for this site” on a first-read request to add one.",
+  "settings.permissions.trusted.added": "Added {date}",
+  "settings.permissions.trusted.remove": "Remove",
+  "settings.permissions.trusted.removeNamed": "Remove {name} from trusted sites",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} and its subdomains",
+  "settings.permissions.sensitive.title": "Sensitive sites",
+  "settings.permissions.sensitive.description":
+    "Banks, health, email and password managers always ask before a read. Government and iCloud sites ask too; turn one off here to read it without asking.",
+  "settings.permissions.sensitive.governmentHint":
+    "Sites ending in .gov or .gov.uk (tax, identity and health accounts). On by default.",
+  "settings.permissions.sensitive.icloudHint": "iCloud sites (mail, photos, files). On by default.",
   "settings.permissions.noOrigins": "No standing website grants. New sites ask first.",
   "settings.permissions.scopeExpires": "{scope}, expires {date}",
   "settings.permissions.revokeNamed": "Revoke {name}",
