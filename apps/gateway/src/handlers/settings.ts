@@ -5,6 +5,7 @@ import { folderAccessEnv } from "../compose/protected-paths.ts";
 import type { Call, HandlerDef } from "../context.ts";
 import { LAN_SETTING, parseLanSettings } from "../lan/settings.ts";
 import { requireFreshPresence } from "../presence-gate.ts";
+import { redactMcpServers } from "../redact.ts";
 import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
 
 /**
@@ -118,6 +119,11 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       const settings = Object.fromEntries(
         Object.entries(all).filter(([k]) => !k.startsWith(INTERNAL_SETTING_PREFIX)),
       );
+      // A tool server's env values, URL secrets and auth never leave the Gateway this way, for
+      // any device: `mcp.config` and `mcp.secrets` are how the owner sees them.
+      if ("mcp.servers" in settings) {
+        settings["mcp.servers"] = redactMcpServers(settings["mcp.servers"]);
+      }
       return { settings, stateVersion: call.ctx.bus.stateVersion };
     },
   },
@@ -181,7 +187,11 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       }
       const stateVersion = call.ctx.bus.bumpStateVersion();
       call.emit("settings.changed", { entries: [entry] });
-      return { entry, stateVersion };
+      return {
+        entry:
+          entry.key === "mcp.servers" ? { ...entry, value: redactMcpServers(entry.value) } : entry,
+        stateVersion,
+      };
     },
   },
 };

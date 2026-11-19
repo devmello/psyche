@@ -644,8 +644,11 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
           return;
         }
         if (f.event !== "settings.changed") return;
+        // The event carries a redacted copy: reconcile from the stored setting.
         for (const entry of f.payload?.entries ?? []) {
-          if (entry.key === MCP_SERVERS_SETTING) void enqueue(entry.value);
+          if (entry.key === MCP_SERVERS_SETTING) {
+            void enqueue(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
+          }
         }
       });
     },

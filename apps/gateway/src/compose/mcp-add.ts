@@ -4,6 +4,7 @@ import {
   createMcpHost,
   diagnoseLaunch,
   type McpHostOptions,
+  mcpCredentialTarget,
   type PsycheMcpServerConfig,
   type StdioLauncher,
   type ToolWarning,
@@ -17,6 +18,7 @@ import {
   type McpServerStatus,
   mcpTrustFor,
   PsycheError,
+  type Target,
 } from "@psyche/protocol";
 import type { HandlerDef } from "../context.ts";
 import { TURN_ON_SANDBOX_PC } from "./guest-sandbox.ts";
@@ -240,12 +242,42 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     }
     // Same launcher and secrets as the real host; nothing is registered, no events reach it.
     const { onEvent: _ignored, ...hostOptions } = deps.hostOptions ?? {};
+    const probeId = `${config.id}-probe-${randomUUID().slice(0, 8)}`;
+    // The probe host names the server `<id>-probe-xxxx`, but the owner's vault items are bound to
+    // `mcp:<id>`. The probe asks for, and resolves, exactly the server's own binding: the same
+    // items the real server may read, no others.
+    const own = mcpCredentialTarget(config.id);
+    const asProbe = mcpCredentialTarget(probeId).value;
+    const rebind = (t: Target): Target => (t.value === asProbe ? own : t);
+    const inj = deps.secrets;
+    const secrets: McpHostOptions["secrets"] =
+      inj === undefined
+        ? undefined
+        : {
+            // Only `resolve` is re-aimed; everything else (redaction included) is the shared
+            // broker's own.
+            credentials: new Proxy(inj.credentials, {
+              get(base, prop) {
+                if (prop === "resolve") {
+                  return (
+                    placeholder: string,
+                    target: Target,
+                    approvalId: string,
+                    options?: Parameters<typeof base.resolve>[3],
+                  ) => base.resolve(placeholder, rebind(target), approvalId, options);
+                }
+                const v = Reflect.get(base, prop, base) as unknown;
+                return typeof v === "function" ? v.bind(base) : v;
+              },
+            }),
+            approve: (input) =>
+              inj.approve({ ...input, serverId: config.id, target: rebind(input.target) }),
+          };
     const host = createMcpHost({
-      ...(deps.secrets === undefined ? {} : { secrets: deps.secrets }),
+      ...(secrets === undefined ? {} : { secrets }),
       ...hostOptions,
       ...(launcher === undefined ? {} : { launcher }),
     });
-    const probeId = `${config.id}-probe-${randomUUID().slice(0, 8)}`;
     try {
       const info = await host.addServer({ ...runAs, id: probeId });
       const d = host.describe(probeId);
