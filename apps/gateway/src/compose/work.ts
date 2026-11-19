@@ -343,7 +343,7 @@ export interface WorkDeps {
   /** The Apple seams (the same ones search reads through); absent in tests that inject sources. */
   apple?: AppleSearchSeams;
   /** The folders the owner granted. */
-  broker?: { policy: { folders?: readonly { path: string }[] } };
+  broker?: { grantedFolders(): readonly { path: string }[] };
   /** Replaces the real sources (tests). */
   sources?: WorkSources;
   timeZone?: () => string;
@@ -398,7 +398,7 @@ export function composeWork(deps: WorkDeps): Work {
           files: async () => [],
           folders: async () => [],
         }
-      : appleWorkSources(deps.apple, () => deps.broker?.policy.folders ?? []));
+      : appleWorkSources(deps.apple, () => deps.broker?.grantedFolders() ?? []));
   const settings = () => workSettings(getSetting(db, MEMORY_WORK_SETTING_KEY)?.value);
   let running = false;
 

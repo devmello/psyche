@@ -1,6 +1,8 @@
 import { type Dirent, readdirSync, realpathSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { defaultDenyRead } from "@psyche/mcp-host";
+import { CLI_HOME_DIRS } from "@psyche/model-router";
 import type { FolderAccessEnv } from "@psyche/permissions";
 
 /**
@@ -13,7 +15,11 @@ import type { FolderAccessEnv } from "@psyche/permissions";
  */
 export function protectedRoots(psycheHome: string): string[] {
   const out = new Set<string>();
-  for (const p of defaultDenyRead(psycheHome)) {
+  // The CLI binaries Psyche runs unsandboxed (`~/.local/share/claude`, `~/.bun`...): not writable
+  // through a wide grant such as an older home-root one. Not in `defaultDenyRead`: MCP servers
+  // run `npx` from `~/.npm-global`.
+  const cliDirs = CLI_HOME_DIRS.map((segments) => join(homedir(), ...segments));
+  for (const p of [...defaultDenyRead(psycheHome), ...cliDirs]) {
     out.add(p);
     try {
       out.add(realpathSync(p));

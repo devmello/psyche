@@ -25,6 +25,7 @@ import {
   classifyHostCommand,
   type FolderGrantEntry,
   hostProgramCoverage,
+  inSystemRoot,
   operandsInside,
   programName,
   READ_ONLY_RULE,
@@ -644,9 +645,13 @@ async function grantedFolder(
   } catch {
     throw new PsycheError("not_found", `${cwd} does not exist`);
   }
-  const resolvedFolders = await Promise.all(
-    folders.map(async (f) => ({ ...f, path: await realpath(f.path).catch(() => f.path) })),
-  );
+  // A granted root that became a link into a system folder since the policy was set (the
+  // broker's answer for it is memoised) is judged by where it leads now, and covers nothing.
+  const resolvedFolders = (
+    await Promise.all(
+      folders.map(async (f) => ({ ...f, path: await realpath(f.path).catch(() => f.path) })),
+    )
+  ).filter((f) => !inSystemRoot(f.path));
   const folder = folderOf(real, resolvedFolders, platform);
   if (folder === undefined) {
     throw new PsycheError("forbidden", `${real} is outside every granted folder`, {
