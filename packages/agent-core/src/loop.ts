@@ -161,6 +161,7 @@ import {
   type ThreadState,
   type ThreadStateStore,
 } from "./state.ts";
+import { capToolOutput, isPartList, normalizeToolOutput, withoutImages } from "./tool-output.ts";
 import { TRUSTED_CONTEXT_CAP, type TurnContextProvider } from "./turn-context.ts";
 import {
   bindingHash,
@@ -3010,7 +3011,7 @@ export class PsycheAgentLoop implements AgentLoop {
       type: "tool_result",
       callId: call.id,
       name: call.name,
-      output: this.#cap(result.output),
+      output: await this.#shape(run, result.output),
       ...(failed ? { isError: true } : {}),
       provenance: result.provenance,
     };
@@ -3018,12 +3019,17 @@ export class PsycheAgentLoop implements AgentLoop {
     return part;
   }
 
-  /** Oversized results are cut with a visible marker, never silently (C2). */
-  #cap(output: unknown): unknown {
-    const max = this.#o.maxToolResultChars ?? 50_000;
-    const text = typeof output === "string" ? output : JSON.stringify(output ?? null);
-    if (text.length <= max) return output;
-    return `${text.slice(0, max)}\n[truncated: result is ${text.length.toLocaleString("en-US")} characters; the first ${max.toLocaleString("en-US")} are shown]`;
+  /**
+   * What the model receives for a result: screenshots and MCP images as image parts (a model that
+   * cannot read images gets a note), then an oversized result cut with a visible marker that keeps
+   * its structure, head and tail (C2). Provenance stays on the part, so images are untrusted input too.
+   */
+  async #shape(run: RunState, output: unknown): Promise<unknown> {
+    let shaped = normalizeToolOutput(output);
+    if (isPartList(shaped) && shaped.some((p) => p.type === "image")) {
+      if (!(await this.#canSeeImages(run.model))) shaped = withoutImages(shaped, run.model);
+    }
+    return capToolOutput(shaped, this.#o.maxToolResultChars ?? 50_000);
   }
 
   async #persist(

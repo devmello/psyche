@@ -95,13 +95,15 @@ function convertToolResultOutput(
     for (const p of output as Record<string, unknown>[]) {
       if (p.type === "text" && typeof p.text === "string")
         value.push({ type: "text", text: p.text });
-      else if (p.type === "image" && typeof p.mime === "string") {
+      else if (p.type === "image") {
+        const mime = typeof p.mime === "string" ? p.mime : p.mimeType;
+        if (typeof mime !== "string") continue;
         if (typeof p.data === "string")
-          value.push({ type: "file", mediaType: p.mime, data: { type: "data", data: p.data } });
+          value.push({ type: "file", mediaType: mime, data: { type: "data", data: p.data } });
         else if (typeof p.url === "string")
           value.push({
             type: "file",
-            mediaType: p.mime,
+            mediaType: mime,
             data: { type: "url", url: new URL(p.url) },
           });
       }

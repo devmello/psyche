@@ -26,8 +26,14 @@ import {
 } from "./paths.ts";
 import { type FileProvenanceIndex, MemoryFileProvenance, readProvenance } from "./provenance.ts";
 
-/** Bytes one `read_file` call returns; page with `offset`. */
-export const MAX_READ_BYTES = 256 * 1024;
+/**
+ * Bytes one `read_file` call returns; page with `offset`. Sized to fit the loop's 50,000-character
+ * tool-result cap once the text is JSON-escaped, so `nextOffset` points right after what the model
+ * actually received (a bigger window was cut by the loop and the paged read skipped the rest).
+ */
+export const MAX_READ_BYTES = 32 * 1024;
+/** Escaped (JSON) characters one page's `text` may take: leaves room under the cap for the fields. */
+const MAX_READ_JSON_CHARS = 44_000;
 /** What makes a folder a git directory (`is_git_directory`), plus its config. */
 const GIT_DIR_ENTRIES = new Set(["head", "objects", "refs", "config"]);
 
@@ -384,13 +390,21 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
           return { output: { ...base, binary: true, text: "" }, provenance };
         }
         const more = offset + window.byteLength < info.size;
-        const end = more ? utf8Boundary(window, window.byteLength) : window.byteLength;
+        let end = more ? utf8Boundary(window, window.byteLength) : window.byteLength;
+        // Quotes, backslashes and control characters grow when escaped: shrink until the page fits.
+        while (
+          end > 0 &&
+          JSON.stringify(window.subarray(0, end).toString("utf8")).length > MAX_READ_JSON_CHARS
+        ) {
+          end = utf8Boundary(window, Math.max(1, Math.floor(end * 0.9)));
+        }
+        const more2 = more || end < window.byteLength;
         return {
           output: {
             ...base,
             offset,
-            truncated: more,
-            ...(more ? { nextOffset: offset + end } : {}),
+            truncated: more2,
+            ...(more2 ? { nextOffset: offset + end } : {}),
             text: window.subarray(0, end).toString("utf8"),
           },
           provenance,

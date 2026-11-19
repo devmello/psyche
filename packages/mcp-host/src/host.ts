@@ -171,6 +171,26 @@ interface ServerState {
 const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_INPUT_ROUNDS = 4;
 const DEFAULT_MAX_RESULT_BYTES = 256 * 1024;
+/** What an image block counts against the result cap (the model reads it as an image part). */
+const IMAGE_BLOCK_BYTES = 4 * 1024;
+
+/**
+ * True when the text blocks are only the JSON of `structuredContent` (the MCP spec has servers
+ * send both): the model then gets the structured form once.
+ */
+export function repeatsStructured(content: unknown, structured: unknown): boolean {
+  if (!Array.isArray(content)) return false;
+  const texts = content.filter((b) => (b as { type?: unknown } | null)?.type === "text");
+  if (texts.length === 0) return false;
+  const want = JSON.stringify(structured);
+  return texts.every((b) => {
+    try {
+      return JSON.stringify(JSON.parse(String((b as { text?: unknown }).text))) === want;
+    } catch {
+      return false;
+    }
+  });
+}
 const STDERR_TAIL = 8 * 1024;
 
 /**
@@ -354,7 +374,8 @@ export class PsycheMcpHost implements McpHost {
           redactDeep(
             {
               blocks: Array.isArray(result.content) ? result.content : [],
-              ...(result.structuredContent === undefined
+              ...(result.structuredContent === undefined ||
+              repeatsStructured(result.content, result.structuredContent)
                 ? {}
                 : { structured: result.structuredContent }),
             },
@@ -757,11 +778,18 @@ export class PsycheMcpHost implements McpHost {
 
   #cap(content: McpCallContent): McpCallContent {
     const max = this.#options.maxResultBytes ?? DEFAULT_MAX_RESULT_BYTES;
-    if (Buffer.byteLength(JSON.stringify(content)) <= max) return content;
+    // A picture is sent as an image part, not as text: it costs the model a few thousand tokens,
+    // whatever its bytes, so it counts a flat amount here.
+    const sizeOf = (b: unknown): number => {
+      const isImage = (b as { type?: unknown } | null)?.type === "image";
+      return isImage ? IMAGE_BLOCK_BYTES : Buffer.byteLength(JSON.stringify(b));
+    };
+    const rest = Buffer.byteLength(JSON.stringify({ ...content, blocks: [] }));
+    if (content.blocks.reduce((n, b) => n + sizeOf(b), rest) <= max) return content;
     const out: McpCallContent = { blocks: [], truncated: true };
     let used = 0;
     for (const b of content.blocks) {
-      const size = Buffer.byteLength(JSON.stringify(b));
+      const size = sizeOf(b);
       if (used + size > max) break;
       out.blocks.push(b);
       used += size;

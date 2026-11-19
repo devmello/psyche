@@ -98,7 +98,7 @@ describe("ported from the Gateway stand-in", () => {
     writeFileSync(join(granted, "big.txt"), "x".repeat(300 * 1024));
     const r = await run("read_file", { path: join(granted, "big.txt") });
     expect(r.output.truncated).toBe(true);
-    expect((r.output.text as string).length).toBe(256 * 1024);
+    expect((r.output.text as string).length).toBe(32 * 1024);
     const d = tools.write_file?.describeCall?.({ path: join(granted, "n.md"), content: "a" });
     expect(d).toMatchObject({ kind: "file_write", bindingFields: { operation: "overwrite" } });
     expect(readdirSync(granted)).not.toContain("n.md");
@@ -577,5 +577,28 @@ describe("a document write never leaves a runnable file (#1333 routine writes)",
     chmodSync(script, 0o755);
     await run("write_file", { path: script, content: "#!/bin/sh\n" });
     expect(modeOf(script)).toBe(0o755);
+  });
+});
+
+describe("read_file paging", () => {
+  it("reading a 600 KB file page by page covers every byte exactly once", async () => {
+    // Quotes, backslashes and multi-byte text grow when JSON-escaped: the worst case.
+    const line = 'say "héllo" \\ wörld ✓\n';
+    let body = "";
+    while (Buffer.byteLength(body) < 600 * 1024) body += line;
+    writeFileSync(join(granted, "paged.txt"), body);
+    const chunks: string[] = [];
+    let offset = 0;
+    for (let pages = 0; pages < 100; pages++) {
+      const r = await run("read_file", { path: join(granted, "paged.txt"), offset });
+      const text = r.output.text as string;
+      // What the loop's 50,000-character cap sees must fit whole.
+      expect(JSON.stringify(r.output).length).toBeLessThan(50_000);
+      chunks.push(text);
+      if (r.output.nextOffset === undefined) break;
+      expect(r.output.nextOffset).toBe(offset + Buffer.byteLength(text));
+      offset = r.output.nextOffset as number;
+    }
+    expect(chunks.join("")).toBe(body);
   });
 });
