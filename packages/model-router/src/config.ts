@@ -53,10 +53,26 @@ export interface ProviderConfig {
   headers?: Record<string, string>;
   /** Defaults merged under the request's `providerOptions` for this provider. */
   defaultOptions?: JsonObject;
-  /** Anthropic: mark the system prompt and the last message as cache breakpoints (default true). */
+  /**
+   * Anthropic: cache breakpoints on the last tool sent up front, the system prompt's stable
+   * block and the last message (default true). See `prompt-cache.ts`.
+   */
   promptCaching?: boolean;
-  /** Anthropic: `"5m"` (default) or `"1h"` cache TTL. */
+  /** Anthropic: `"5m"` (default) or `"1h"` cache TTL for the last-message breakpoint. */
   cacheTtl?: "5m" | "1h";
+  /**
+   * Anthropic: TTL of the tools and stable-system breakpoints when the request marks a stable
+   * system block (default `"1h"`: that prefix is shared by every thread and outlives the gaps
+   * between owner messages). Never shorter than `cacheTtl`.
+   */
+  prefixCacheTtl?: "5m" | "1h";
+  /**
+   * Anthropic: send tools loaded on demand with `defer_loading` and reference them from
+   * `load_tools` results, so a load keeps the prompt cache (Claude 4.5 and later). Default
+   * false until `scripts/smoke-deferred-tools.ts` has passed against the real API: a request
+   * shape the API rejected would fail every turn.
+   */
+  deferLoading?: boolean;
   /**
    * Anthropic only: replace client tools named `memory` / `computer` with the provider-defined
    * `memory_20250818` / `computer_toolset_20260801` (architecture §4.4). Off by default.
