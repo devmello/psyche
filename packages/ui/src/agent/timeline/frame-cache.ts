@@ -45,6 +45,11 @@ export class FrameCache {
     }
   }
 
+  /** Whether a view of the run is mounted; a load that finishes after it closed is dropped. */
+  holds(runId: string): boolean {
+    return (this.holders.get(runId) ?? 0) > 0;
+  }
+
   /** A run view mounted. Pair with `release`. */
   retain(runId: string): void {
     this.holders.set(runId, (this.holders.get(runId) ?? 0) + 1);
