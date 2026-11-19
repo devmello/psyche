@@ -70,25 +70,44 @@ describe("useRun load volume", () => {
     expect(runsGetCalls(gateway)).toHaveLength(31);
   });
 
-  it("a refresh asks a finished run only for the steps after the last one it has", async () => {
+  it("a settled run is fetched once across refreshes, and re-read only after an event changed it", async () => {
     const { gateway, store, wrapper } = setup();
     const { result } = renderHook(() => useRun(R.done), { wrapper });
     await waitFor(() => expect(result.current.steps.length).toBeGreaterThan(0));
     expect(runsGetCalls(gateway)).toHaveLength(1);
-    const lastSeq = result.current.steps.at(-1)?.seq ?? 0;
     const stepsCalls = () => gateway.calls.filter((c) => c.method === "runs.steps");
     const stepsBefore = stepsCalls().length;
     await act(async () => {
       await store.refreshAll();
       await store.refreshAll();
     });
-    // No whole-run reload; one cheap steps call per refresh, from the last seq.
+    // Nothing changed: a refresh asks for neither the run nor its steps.
     expect(runsGetCalls(gateway)).toHaveLength(1);
-    expect(stepsCalls().length - stepsBefore).toBe(2);
+    expect(stepsCalls()).toHaveLength(stepsBefore);
+    // A step event says the run changed: the next refresh asks for the steps after the last seq.
+    const last = result.current.steps.at(-1);
+    const lastSeq = last?.seq ?? 0;
+    act(() => gateway.setStep(last as NonNullable<typeof last>));
+    await act(async () => store.refreshAll());
+    expect(stepsCalls()).toHaveLength(stepsBefore + 1);
     expect(stepsCalls().at(-1)?.params).toMatchObject({ runId: R.done, afterSeq: lastSeq });
+    expect(runsGetCalls(gateway)).toHaveLength(1);
     // The owner's own reload still asks again.
     await act(async () => result.current.reload());
     await waitFor(() => expect(runsGetCalls(gateway)).toHaveLength(2));
+  });
+
+  it("a running run is re-fetched on every refresh", async () => {
+    const { gateway, store, wrapper } = setup();
+    const { result } = renderHook(() => useRun(R.live), { wrapper });
+    await waitFor(() => expect(result.current.steps).toHaveLength(3));
+    await act(async () => {
+      await store.refreshAll();
+      await store.refreshAll();
+    });
+    expect(
+      runsGetCalls(gateway).filter((c) => (c.params as { runId: string }).runId === R.live),
+    ).toHaveLength(3);
   });
 });
 
@@ -132,6 +151,46 @@ describe("useRun", () => {
     await act(() => result.current.deleteTrace());
     expect(result.current.steps).toEqual([]);
     expect(result.current.run?.id).toBe(R.failed);
+  });
+});
+
+describe("runs after a reconnect", () => {
+  const runsGetFor = (gateway: MockGateway, runId: string) =>
+    gateway.calls.filter(
+      (c) => c.method === "runs.get" && (c.params as { runId: string }).runId === runId,
+    ).length;
+  const stepsCalls = (gateway: MockGateway) =>
+    gateway.calls.filter((c) => c.method === "runs.steps");
+
+  it("a run settled before the drop is re-read for the steps after its last seq only", async () => {
+    const { gateway, wrapper } = setup();
+    const { result } = renderHook(() => useRun(R.done), { wrapper });
+    await waitFor(() => expect(result.current.steps.length).toBeGreaterThan(0));
+    const lastSeq = result.current.steps.at(-1)?.seq ?? 0;
+    const stepsBefore = stepsCalls(gateway).length;
+    act(() => gateway.setConnection("offline"));
+    act(() => gateway.setConnection("open"));
+    await waitFor(() => expect(stepsCalls(gateway).length).toBeGreaterThan(stepsBefore));
+    const after = stepsCalls(gateway).slice(stepsBefore);
+    expect(after).toHaveLength(1);
+    expect(after[0]?.params).toMatchObject({ runId: R.done, afterSeq: lastSeq });
+    expect(runsGetFor(gateway, R.done)).toBe(1);
+  });
+
+  it("a run still running in the store, settled while the connection was down, is re-read", async () => {
+    const { gateway, wrapper } = setup();
+    const { result } = renderHook(() => useRun(R.live), { wrapper });
+    await waitFor(() => expect(result.current.steps).toHaveLength(3));
+    expect(runsGetFor(gateway, R.live)).toBe(1);
+    act(() => gateway.setConnection("offline"));
+    // The run finishes on the Gateway while no events reach the client.
+    const world = (gateway as unknown as { world: { runs: { id: string }[] } }).world;
+    world.runs = world.runs.map((r) =>
+      r.id === R.live ? { ...r, status: "done", endedAt: FIXTURE_NOW } : r,
+    );
+    act(() => gateway.setConnection("open"));
+    await waitFor(() => expect(result.current.run?.status).toBe("done"));
+    expect(runsGetFor(gateway, R.live)).toBe(2);
   });
 });
 
