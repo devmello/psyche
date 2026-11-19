@@ -24,6 +24,7 @@ import { mailMeetings } from "./mail-meetings/hi.ts";
 import { meetingRecordRest } from "./meeting-record-rest/hi.ts";
 import { memoryAdvancedRest } from "./memory-advanced-rest/hi.ts";
 import { memoryBasicsRest } from "./memory-basics-rest/hi.ts";
+import { memoryMap } from "./memory-map/hi.ts";
 import { memoryPrivacyRest } from "./memory-privacy-rest/hi.ts";
 import { memoryRest } from "./memory-rest/hi.ts";
 import { memoryReviewRest } from "./memory-review-rest/hi.ts";
@@ -56,6 +57,7 @@ import { workflows } from "./workflows/hi.ts";
 /** Hindi catalogue (hi). Same ids as `en`; missing ids fall back to English. */
 export const hi: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,
@@ -886,6 +888,7 @@ export const hi: Partial<Catalogue> = {
   "shell.shortcuts.addition": "Psyche का जोड़",
   "shell.shortcuts.description": "† Claude डेस्कटॉप मैप में Psyche के जोड़े गए शॉर्टकट दर्शाता है।",
   "shell.threads.needsYou": "आपकी ज़रूरत है",
+  "shell.threads.nowOn": "अभी: {step}",
   "shell.threads.running": "चल रहा है",
   "shell.threads.titleField": "थ्रेड शीर्षक",
   "shell.threads.incognito": "इनकॉग्निटो",
@@ -2979,6 +2982,19 @@ export const hi: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}{editor, select, true { एडिटर में} other {}} खोलें",
   "screens.library.openInEditor": "एडिटर में खोलें",
   "screens.library.open": "खोलें",
+  "screens.library.recording.description":
+    "ब्राउज़र में एजेंट ने जो किया उसका रीप्ले। रिकॉर्डिंग के समय पेज की सामग्री छिपा दी गई थी।",
+  "screens.library.recording.play": "चलाएँ",
+  "screens.library.recording.pause": "रोकें",
+  "screens.library.recording.step": "चरण {n} / {total}",
+  "screens.library.recording.scrub": "रिकॉर्डिंग में स्थिति",
+  "screens.library.recording.steps": "चरण",
+  "screens.library.recording.empty": "इस रिकॉर्डिंग में कोई चरण नहीं है।",
+  "screens.library.recording.noFrame": "इस चरण की कोई तस्वीर नहीं है।",
+  "screens.library.recording.frameAlt": "चरण {n} पर ब्राउज़र",
+  "screens.library.recording.loading": "रिकॉर्डिंग लोड हो रही है",
+  "screens.library.recording.loadFailed": "Psyche यह रिकॉर्डिंग लोड नहीं कर सका ({reason})।",
+  "screens.library.recording.notFound": "यह रिकॉर्डिंग अब उपलब्ध नहीं है।",
   "screens.library.trust": "इस फ़ाइल पर भरोसा करें",
   "screens.library.moreFor": "{name} के लिए और कार्रवाइयाँ",
   "screens.library.quickLook": "क्विक लुक",

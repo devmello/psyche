@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { SharedV4ProviderOptions } from "@ai-sdk/provider";
-import type { ModelRequest } from "@psyche/protocol";
+import type { ModelRequest, ToolSpec } from "@psyche/protocol";
 import type { ToolNameMap } from "./tool-names.ts";
 
 /**
@@ -32,13 +32,17 @@ function stable(value: unknown): unknown {
   return value;
 }
 
-/** Fingerprint of what a thinking block is bound to: system prompt and provider-facing tools. */
-export function thinkingPrefix(request: ModelRequest, names: ToolNameMap): string {
-  const tools = (request.tools ?? []).map((t) => [
-    names.toProvider(t.name),
-    t.description,
-    t.inputSchema,
-  ]);
+/**
+ * Fingerprint of what a thinking block is bound to: the system prompt and the provider-facing
+ * tools sent up front. Tools sent with `defer_loading` are left out (pass `upFront`, see
+ * `prompt-cache.ts`): the API does not bind a block to them, so loading one keeps it.
+ */
+export function thinkingPrefix(
+  request: ModelRequest,
+  names: ToolNameMap,
+  upFront: readonly ToolSpec[] = request.tools ?? [],
+): string {
+  const tools = upFront.map((t) => [names.toProvider(t.name), t.description, t.inputSchema]);
   const canonical = JSON.stringify(stable({ system: request.system ?? "", tools }));
   return `sha256:${createHash("sha256").update(canonical).digest("hex").slice(0, 32)}`;
 }

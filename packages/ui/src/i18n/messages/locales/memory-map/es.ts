@@ -1,0 +1,55 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Memory map strings (es); merged into `../es.ts`. */
+export const memoryMap: Partial<Catalogue> = {
+  "memory.page.view": "Vista",
+  "memory.page.view.list": "Lista",
+  "memory.page.view.map": "Mapa",
+  "memory.map.title": "Mapa de memoria",
+  "memory.map.canvasLabel":
+    "Mapa de {nodes, plural, one {# elemento} other {# elementos}} con {links, plural, one {# vínculo} other {# vínculos}}. Arrastra para mover, desplázate o pellizca para ampliar, flechas para moverte.",
+  "memory.map.loading": "Cargando el mapa",
+  "memory.map.loadFailed": "No se pudo cargar el mapa de memoria.",
+  "memory.map.empty":
+    "Aún no hay nada que mapear. A medida que Psyche conozca a las personas, proyectos y temas de tu vida, aparecerán aquí, conectados.",
+  "memory.map.sparse":
+    "Todavía hay pocos vínculos. Aparecerán más cuando otras personas compartan proyectos, reuniones y conversaciones contigo.",
+  "memory.map.truncated": "Se muestran los {shown} más importantes de {total}.",
+  "memory.map.search": "Buscar en el mapa",
+  "memory.map.search.placeholder": "Busca una persona, proyecto o tema",
+  "memory.map.search.results": "Coincidencias",
+  "memory.map.search.none": "Nada en el mapa coincide con «{q}».",
+  "memory.map.filters": "Mostrar en el mapa",
+  "memory.map.group.people": "Personas",
+  "memory.map.group.projects": "Proyectos",
+  "memory.map.group.events": "Eventos",
+  "memory.map.group.topics": "Temas",
+  "memory.map.group.other": "Lugares y organizaciones",
+  "memory.map.quiet": "{n, plural, one {# persona sin contacto} other {# personas sin contacto}}",
+  "memory.map.kind.person": "Persona",
+  "memory.map.kind.org": "Organización",
+  "memory.map.kind.project": "Proyecto",
+  "memory.map.kind.place": "Lugar",
+  "memory.map.kind.event": "Evento",
+  "memory.map.kind.topic": "Tema",
+  "memory.map.kind.assignment": "Tarea",
+  "memory.map.edge.works_on": "Trabaja en",
+  "memory.map.edge.met_in": "Se conocieron en",
+  "memory.map.edge.co_mentioned": "Mencionados juntos",
+  "memory.map.edge.related": "Relacionado",
+  "memory.map.legend": "Vínculos",
+  "memory.map.zoomIn": "Acercar",
+  "memory.map.zoomOut": "Alejar",
+  "memory.map.fit": "Ajustar a la vista",
+  "memory.map.focus.showing":
+    "{name} y {n, plural, =0 {sin conexiones} one {# conexión} other {# conexiones}}",
+  "memory.map.focus.clear": "Mostrar todo",
+  "memory.map.card.connections":
+    "{n, plural, =0 {Sin vínculos} one {# vínculo} other {# vínculos}}",
+  "memory.map.card.quiet": "Sin contacto",
+  "memory.map.card.private": "Privado",
+  "memory.map.card.open": "Abrir",
+  "memory.map.card.focus": "Enfocar aquí",
+  "memory.map.card.hint": "Haz clic para abrir. Mayús + clic para enfocar aquí.",
+  "memory.map.list.label": "Elementos del mapa, los más importantes primero",
+};

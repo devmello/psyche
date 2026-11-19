@@ -4,6 +4,8 @@ import { ArrowDown } from "lucide-react";
 import * as m from "motion/react-m";
 import { type ReactElement, type ReactNode, useEffect, useId, useState } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
+import { NEEDS_YOU_ROW, NeedsYouTag } from "../chat/NeedsYou.tsx";
+import { RailNode } from "../chat/RailNode.tsx";
 import { WorkNote } from "../chat/WorkNote.tsx";
 import { DelayedSkeleton } from "../components/DelayedSkeleton.tsx";
 import { StatusGlyph } from "../components/status.tsx";
@@ -20,6 +22,7 @@ import {
 } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { displaySummary } from "../lib/cards.ts";
+import { cn } from "../lib/utils.ts";
 import { MapBlock } from "../map/MapBlock.tsx";
 import { fade, motionSpring, Presence, spring } from "../motion/index.ts";
 import { foldResearch } from "../research/model.ts";
@@ -141,7 +144,14 @@ function ToolRunItems({ blocks }: { blocks: readonly ToolCallBlock[] }): ReactEl
  * `spring.emphasis`); under reduced motion the card fades out and the row fades in. Rows that are
  * already answered when the transcript loads appear without motion.
  */
-export function ApprovalPointer({ approvalId }: { approvalId: string }): ReactElement {
+export function ApprovalPointer({
+  approvalId,
+  bare = false,
+}: {
+  approvalId: string;
+  /** Inside a row that already says "Needs you" (the run rail): no chip of its own. */
+  bare?: boolean;
+}): ReactElement {
   const { approval, loading } = useApproval(approvalId);
   const persona = usePersona();
   const [expanded, setExpanded] = useState(false);
@@ -157,13 +167,23 @@ export function ApprovalPointer({ approvalId }: { approvalId: string }): ReactEl
           key="pending"
           type="button"
           onClick={() => focusApproval(approval.id)}
-          className="-ms-1 my-0.5 inline-flex min-h-6 cursor-default items-center gap-1.5 rounded-sm px-1 py-0.5 text-callout text-label-secondary outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) hover:bg-fill-tertiary hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring"
+          className={cn(
+            "inline-flex min-h-6 cursor-default items-center gap-1.5 text-callout outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) focus-visible:ring-2 focus-visible:ring-ring",
+            bare
+              ? "-ms-1 my-0.5 rounded-sm px-1 py-0.5 text-label-secondary hover:bg-fill-tertiary hover:text-label-primary"
+              : `my-1 min-h-7 px-2 py-0.5 text-approval-text hover:brightness-95 ${NEEDS_YOU_ROW}`,
+          )}
           aria-label={t("blocks.message.reviewApproval", { summary })}
           title={summary}
           {...fade}
         >
-          <StatusGlyph status="waiting" className="[&_svg]:size-3.5" />
+          {bare ? (
+            <StatusGlyph status="waiting" className="[&_svg]:size-3.5" />
+          ) : (
+            <RailNode state="waiting" />
+          )}
           {t("blocks.message.waitingApproval")}
+          {bare ? null : <NeedsYouTag />}
           <ArrowDown className="size-3.5" aria-hidden="true" />
         </m.button>
       ) : (

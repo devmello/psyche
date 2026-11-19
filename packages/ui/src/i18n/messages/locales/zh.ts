@@ -22,6 +22,7 @@ import { home } from "./home/zh.ts";
 import { links } from "./links/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
 import { meetingRecord } from "./meeting-record/zh.ts";
+import { memoryMap } from "./memory-map/zh.ts";
 import { memoryPage } from "./memory-page/zh.ts";
 import { memoryReview } from "./memory-review/zh.ts";
 import { memorySettings } from "./memory-settings/zh.ts";
@@ -57,6 +58,7 @@ import { workflows } from "./workflows/zh.ts";
 /** Simplified Chinese catalogue (zh). Same ids as `en`; missing ids fall back to English. */
 export const zh: Partial<Catalogue> = {
   // common: translated ids (i18n completion)
+  ...memoryMap,
   ...common,
   // chat: translated ids (i18n completion)
   ...chat,
@@ -910,6 +912,7 @@ export const zh: Partial<Catalogue> = {
   "shell.shortcuts.addition": "Psyche 新增",
   "shell.shortcuts.description": "† 标记 Psyche 在 Claude 桌面版快捷键之外新增的项目。",
   "shell.threads.needsYou": "需要你",
+  "shell.threads.nowOn": "现在：{step}",
   "shell.threads.running": "运行中",
   "shell.threads.titleField": "会话标题",
   "shell.threads.incognito": "无痕",
@@ -2939,6 +2942,18 @@ export const zh: Partial<Catalogue> = {
   "screens.library.openLabel": "{editor, select, true {在编辑器中打开 {name}} other {打开 {name}}}",
   "screens.library.openInEditor": "在编辑器中打开",
   "screens.library.open": "打开",
+  "screens.library.recording.description": "重放代理在浏览器中的操作。页面内容在录制时已被遮盖。",
+  "screens.library.recording.play": "播放",
+  "screens.library.recording.pause": "暂停",
+  "screens.library.recording.step": "第 {n} 步，共 {total} 步",
+  "screens.library.recording.scrub": "录制中的位置",
+  "screens.library.recording.steps": "步骤",
+  "screens.library.recording.empty": "此录制没有步骤。",
+  "screens.library.recording.noFrame": "此步骤没有画面。",
+  "screens.library.recording.frameAlt": "第 {n} 步的浏览器画面",
+  "screens.library.recording.loading": "正在加载录制",
+  "screens.library.recording.loadFailed": "Psyche 无法加载此录制（{reason}）。",
+  "screens.library.recording.notFound": "此录制已不可用。",
   "screens.library.trust": "信任此文件",
   "screens.library.moreFor": "{name} 的更多操作",
   "screens.library.quickLook": "快速查看",

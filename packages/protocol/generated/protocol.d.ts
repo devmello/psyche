@@ -7397,6 +7397,17 @@ export interface MemoryGraphForgetAllResult {
     removed:   GraphRemovedCounts;
 }
 
+export interface MemoryGraphMapParams {
+    /**
+     * Only these entity kinds
+     */
+    kinds?: SearchEntityType[];
+    /**
+     * At most this many entities, most important first (default 2000)
+     */
+    limit?: number;
+}
+
 export interface MemoryImportParams {
     content?: string;
     dryRun?:  boolean;
@@ -7605,6 +7616,53 @@ export interface MemoryLoopsUpdateParams {
 
 export interface MemoryLoopsUpdateResult {
     loop: GraphLoop;
+}
+
+export interface MemoryMap {
+    edges: MemoryMapEdge[];
+    nodes: MemoryMapNode[];
+    /**
+     * Entities in the store before the cap
+     */
+    total: number;
+    /**
+     * The least important entities were left out
+     */
+    truncated: boolean;
+}
+
+export interface MemoryMapEdge {
+    a:    string;
+    b:    string;
+    kind: MemoryMapEdgeKind;
+    /**
+     * Strength 0..1
+     */
+    weight: number;
+}
+
+/**
+ * works_on: member, stakeholder, employer or part-of relation; met_in: attended or shared a
+ * meeting about it; co_mentioned: appeared in several of the same interactions; related:
+ * any other accepted relation
+ */
+export type MemoryMapEdgeKind = "works_on" | "met_in" | "co_mentioned" | "related";
+
+export interface MemoryMapNode {
+    id:                 string;
+    kind:               SearchEntityType;
+    lastInteractionAt?: null | string;
+    name:               string;
+    pinned:             boolean;
+    private?:           boolean;
+    /**
+     * A person the owner used to be in touch with and has not heard from in a while
+     */
+    quiet?: boolean;
+    /**
+     * Importance 0..1 from recency, frequency, pins, open loops and links
+     */
+    weight: number;
 }
 
 export interface MemoryNotesDeleteParams {

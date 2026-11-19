@@ -16,6 +16,13 @@ public final class NodeDaemon: @unchecked Sendable {
         public func delay(afterFailures n: Int) -> TimeInterval {
             Swift.min(max, initial * pow(2, Double(Swift.max(0, n))))
         }
+
+        /// `delay` with equal jitter: half fixed, half random, so a Gateway restart does not bring
+        /// every client back in the same instant. `random` is in [0, 1); the result never exceeds `delay`.
+        public func jittered(_ delay: TimeInterval, random: Double) -> TimeInterval {
+            let r = Swift.min(Swift.max(random, 0), 1)
+            return delay / 2 + delay / 2 * r
+        }
     }
 
     public enum Outcome: Sendable, Equatable {
@@ -34,11 +41,19 @@ public final class NodeDaemon: @unchecked Sendable {
     private let lock = NSLock()
     private var stopped = false
     private var current: FrameChannel?
+    // Reconnect waits block on this condition instead of polling: zero wakeups while waiting.
+    private let wait = NSCondition()
+    private var waiting = false
+    private var wakeRequested = false
+    private var lastWaitStart = Date.distantPast
+    private let random: @Sendable () -> Double
 
     public init(
         identity: DeviceIdentity, registry: CapabilityRegistry, preflight: any PermissionPreflight, log: HelperLog,
-        environment: [String: String] = ProcessInfo.processInfo.environment, backoff: Backoff = Backoff()
+        environment: [String: String] = ProcessInfo.processInfo.environment, backoff: Backoff = Backoff(),
+        random: @escaping @Sendable () -> Double = { Double.random(in: 0..<1) }
     ) {
+        self.random = random
         self.identity = identity
         self.registry = registry
         self.preflight = preflight
@@ -57,15 +72,25 @@ public final class NodeDaemon: @unchecked Sendable {
                 failures = 0
                 delay = backoff.initial
             case .pending:
-                delay = backoff.pendingRetry
+                delay = backoff.jittered(backoff.pendingRetry, random: random())
             case .denied:
-                delay = backoff.deniedRetry
+                delay = backoff.jittered(backoff.deniedRetry, random: random())
             case .failed:
-                delay = backoff.delay(afterFailures: failures)
+                delay = backoff.jittered(backoff.delay(afterFailures: failures), random: random())
                 failures += 1
             }
-            sleepUnlessStopped(delay)
+            if sleepUnlessStopped(delay) { failures = 0 }  // woken by a Gateway-up signal: start the schedule over
         }
+    }
+
+    /// The Gateway is up (its socket pointer changed): cut the current wait short and reconnect now.
+    /// Ignored while connected, and at most once a second, so a noisy signal cannot spin the loop.
+    public func gatewayMayBeUp(now: Date = Date()) {
+        wait.lock()
+        defer { wait.unlock() }
+        guard waiting, now.timeIntervalSince(lastWaitStart) >= 1 else { return }
+        wakeRequested = true
+        wait.broadcast()
     }
 
     /// One connect → handshake → serve cycle.
@@ -116,6 +141,9 @@ public final class NodeDaemon: @unchecked Sendable {
         stopped = true
         let channel = current
         lock.unlock()
+        wait.lock()
+        wait.broadcast()
+        wait.unlock()
         channel?.shutdown()
     }
 
@@ -131,10 +159,20 @@ public final class NodeDaemon: @unchecked Sendable {
         lock.unlock()
     }
 
-    private func sleepUnlessStopped(_ seconds: TimeInterval) {
+    /// Waits up to `seconds` on a condition that `stop()` and `gatewayMayBeUp` signal. True if woken early
+    /// by the Gateway-up signal.
+    @discardableResult
+    func sleepUnlessStopped(_ seconds: TimeInterval) -> Bool {
         let deadline = Date().addingTimeInterval(seconds)
-        while !isStopped, Date() < deadline {
-            Thread.sleep(forTimeInterval: Swift.min(0.25, deadline.timeIntervalSinceNow))
+        wait.lock()
+        defer { wait.unlock() }
+        waiting = true
+        wakeRequested = false
+        lastWaitStart = Date()
+        defer { waiting = false }
+        while !isStopped, !wakeRequested, Date() < deadline {
+            _ = wait.wait(until: deadline)
         }
+        return wakeRequested && !isStopped
     }
 }

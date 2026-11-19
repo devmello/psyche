@@ -22,6 +22,7 @@ import { homeRest } from "./home-rest/ja.ts";
 import { links } from "./links/ja.ts";
 import { mailMeetings } from "./mail-meetings/ja.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ja.ts";
+import { memoryMap } from "./memory-map/ja.ts";
 import { memoryRest } from "./memory-rest/ja.ts";
 import { memoryAdvancedRest } from "./memoryAdvanced-rest/ja.ts";
 import { memoryBasicsRest } from "./memoryBasics-rest/ja.ts";
@@ -56,6 +57,7 @@ import { workflows } from "./workflows/ja.ts";
 /** Japanese catalogue (ja). Same ids as `en`; missing ids fall back to English. */
 export const ja: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,
@@ -869,6 +871,7 @@ export const ja: Partial<Catalogue> = {
   "shell.shortcuts.addition": "Psyche独自",
   "shell.shortcuts.description": "†はClaudeデスクトップ版の配列にPsycheが追加したものです。",
   "shell.threads.needsYou": "要対応",
+  "shell.threads.nowOn": "実行中: {step}",
   "shell.threads.running": "実行中",
   "shell.threads.titleField": "スレッドのタイトル",
   "shell.threads.incognito": "シークレット",
@@ -2996,6 +2999,19 @@ export const ja: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}を{editor, select, true {エディタで} other {}}開く",
   "screens.library.openInEditor": "エディタで開く",
   "screens.library.open": "開く",
+  "screens.library.recording.description":
+    "エージェントがブラウザで行った操作のリプレイです。ページの内容は記録時に伏せられています。",
+  "screens.library.recording.play": "再生",
+  "screens.library.recording.pause": "一時停止",
+  "screens.library.recording.step": "ステップ {n} / {total}",
+  "screens.library.recording.scrub": "録画内の位置",
+  "screens.library.recording.steps": "ステップ",
+  "screens.library.recording.empty": "この録画にはステップがありません。",
+  "screens.library.recording.noFrame": "このステップの画像はありません。",
+  "screens.library.recording.frameAlt": "ステップ {n} のブラウザ",
+  "screens.library.recording.loading": "録画を読み込み中",
+  "screens.library.recording.loadFailed": "Psyche はこの録画を読み込めませんでした（{reason}）。",
+  "screens.library.recording.notFound": "この録画はもう利用できません。",
   "screens.library.trust": "このファイルを信頼",
   "screens.library.moreFor": "{name}のその他の操作",
   "screens.library.quickLook": "クイックルック",

@@ -325,3 +325,46 @@ public struct DictationKeySet: Sendable {
         return out
     }
 }
+
+/// Switches the keystroke listener that detects chords. It stays off while no watched modifier is
+/// held, so ordinary typing does not wake the helper.
+public protocol KeyDownGate: AnyObject, Sendable {
+    func setEnabled(_ on: Bool)
+}
+
+/// `DictationKeySet` plus the gate: the keyDown tap is enabled when a watched key goes down and
+/// disabled again when every key is up (a release, or a chord that ended the hold).
+public final class DictationKeyEngine: @unchecked Sendable {
+    private let lock = NSLock()
+    private var set: DictationKeySet
+    private var gateOn = false
+    private let gate: any KeyDownGate
+
+    public init(_ watched: [DictationWatchedKey], gate: any KeyDownGate) {
+        set = DictationKeySet(watched)
+        self.gate = gate
+    }
+
+    public func flagsChanged(keyCode: Int64, flags: UInt64) -> [DictationKeyChange] {
+        lock.withLock {
+            let out = set.flagsChanged(keyCode: keyCode, flags: flags)
+            sync()
+            return out
+        }
+    }
+
+    public func keyDown() -> [DictationKeyChange] {
+        lock.withLock {
+            let out = set.keyDown()
+            sync()
+            return out
+        }
+    }
+
+    private func sync() {
+        let want = set.trackers.contains { $0.isDown }
+        guard want != gateOn else { return }
+        gateOn = want
+        gate.setEnabled(want)
+    }
+}

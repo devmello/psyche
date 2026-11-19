@@ -32,6 +32,21 @@ export const Narrow: Story = {
   ),
 };
 
+/** The Map view: people, projects and topics sized by importance, joined by what Psyche knows. */
+export const MemoryMap: Story = { args: { view: "map" } };
+
+/** The Map view with nothing remembered yet: one calm sentence. */
+export const MemoryMapEmpty: Story = {
+  args: { view: "map" },
+  decorators: [
+    withWorld({
+      edit: (w) => {
+        w.graph.entities = [];
+      },
+    }),
+  ],
+};
+
 /** Today's People page, Keep in touch included, moved in unchanged. */
 export const People: Story = { args: { kind: "people" } };
 
