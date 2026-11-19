@@ -352,16 +352,22 @@ describe("Balanced reads of a trusted site", () => {
     expect((await h.broker.decide(nav(SITE), TASK2)).decision).toBe("ask");
   });
 
-  it("a designated person's reads do not use the owner's trusted sites", async () => {
-    const h = makeBroker();
-    await trust(h);
-    await control(h);
-    const d = await h.broker.decide(nav(SITE), {
-      ...TASK2,
-      requester: { role: "friend", identityId: "idn_1", senderId: "x", channel: "telegram" },
-    } as PolicyContext);
-    expect(d.rule).not.toContain("trusted_site");
-  });
+  it.each(["designated", "allowed"] as const)(
+    "a %s requester's reads do not use the owner's trusted sites (control: the owner)",
+    async (role) => {
+      const h = makeBroker();
+      await trust(h);
+      await control(h);
+      const owner = await h.broker.decide(nav(SITE), { ...TASK2, requester: { role: "owner" } });
+      expect(owner.rule).toBe("mode:balanced/read:trusted_site");
+      const other = await h.broker.decide(nav(SITE), {
+        ...TASK2,
+        taskId: "task_3",
+        requester: { role, identityId: "idn_1", senderId: "x", channel: "telegram" },
+      });
+      expect(other.rule).not.toContain("trusted_site");
+    },
+  );
 });
 
 describe("answering Always for this site is bounded", () => {
