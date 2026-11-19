@@ -55,7 +55,8 @@ export function useFrameSrc(
     image(seq, size).then(
       (r) => {
         const url = `data:${r.mime};base64,${r.dataBase64}`;
-        cache.set(key, url);
+        // A run nobody is looking at any more keeps nothing.
+        if (cache.holds(runId)) cache.set(key, url);
         if (live) setSrc(url);
       },
       () => undefined,
@@ -63,8 +64,13 @@ export function useFrameSrc(
     return () => {
       live = false;
     };
-  }, [key, seq, size, image, skip]);
+  }, [key, runId, seq, size, image, skip]);
   return src;
+}
+
+function thumbSrc(runId: string, seq: number): { src?: string } {
+  const src = cache.get(`${runId}/${seq}/thumb`);
+  return src ? { src } : {};
 }
 
 export function Thumbs({
@@ -80,23 +86,20 @@ export function Thumbs({
   current: number | null;
   onSelect: (seq: number) => void;
 }): ReactElement {
-  const [srcs, setSrcs] = useState<Record<number, string>>({});
+  // Thumbnails are read from the cache on render, so the cache's byte bound is the only bound.
+  const [, setLoaded] = useState(0);
   useRunFrames(runId);
   useEffect(() => {
     let live = true;
     for (const f of frames) {
       if (f.expired) continue;
       const key = `${runId}/${f.seq}/thumb`;
-      const hit = cache.get(key);
-      if (hit) {
-        setSrcs((s) => (s[f.seq] ? s : { ...s, [f.seq]: hit }));
-        continue;
-      }
+      if (cache.get(key)) continue;
       image(f.seq, "thumb").then(
         (r) => {
-          const url = `data:${r.mime};base64,${r.dataBase64}`;
-          cache.set(key, url);
-          if (live) setSrcs((s) => ({ ...s, [f.seq]: url }));
+          if (!cache.holds(runId)) return;
+          cache.set(key, `data:${r.mime};base64,${r.dataBase64}`);
+          if (live) setLoaded((n) => n + 1);
         },
         () => undefined,
       );
@@ -110,7 +113,7 @@ export function Thumbs({
       frames={frames.map((f) => ({
         seq: f.seq,
         at: f.at,
-        ...(srcs[f.seq] ? { src: srcs[f.seq] } : {}),
+        ...thumbSrc(runId, f.seq),
       }))}
       {...(current === null ? {} : { current })}
       onSelect={onSelect}
