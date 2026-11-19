@@ -121,6 +121,24 @@ export interface AssembleInput {
 export interface DailyNotes {
   sections: ContextSection[];
   untrusted: boolean;
+  /** The time they were read for: a re-read for the same notes passes it again. */
+  at: number;
+  /** Each note's text as read (end trimmed), or undefined when the file did not exist. */
+  files: { path: string; content: string | undefined }[];
+}
+
+/**
+ * True when `next` only adds to `prev`: the same notes, each either unchanged, newly created
+ * or grown at the end. An edited or deleted line, or a deleted note, is not an append.
+ */
+export function onlyAppended(prev: DailyNotes, next: DailyNotes): boolean {
+  if (prev.files.length !== next.files.length) return false;
+  return prev.files.every((before, i) => {
+    const after = next.files[i];
+    if (after === undefined || after.path !== before.path) return false;
+    if (before.content === undefined) return true;
+    return after.content?.startsWith(before.content) === true;
+  });
 }
 
 export interface AssembledContext {
@@ -276,6 +294,7 @@ export async function readDailyNotes(
   const today = localDate(now, timeZone);
   const yesterday = localDate(now - 86_400_000, timeZone);
   const sections: ContextSection[] = [];
+  const files: DailyNotes["files"] = [];
   let untrusted = false;
   for (const [date, label] of [
     [yesterday, "Yesterday"],
@@ -283,6 +302,7 @@ export async function readDailyNotes(
   ] as const) {
     const path = `memory/${date}.md`;
     const file = memory === undefined ? undefined : await memory.readFile(path);
+    files.push({ path, content: file?.content.trimEnd() });
     if (file === undefined) {
       sections.push({
         id: `daily:${date}`,
@@ -312,7 +332,7 @@ export async function readDailyNotes(
       ...(hasUntrusted ? { untrusted: true } : {}),
     });
   }
-  return { sections, untrusted };
+  return { sections, untrusted, at: now, files };
 }
 
 /**

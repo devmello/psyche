@@ -94,6 +94,7 @@ import {
   type DailyNotes,
   DEFAULT_BASE_PROMPT,
   DEFAULT_CONTEXT_BUDGETS,
+  onlyAppended,
   readDailyNotes,
   renderSystemParts,
 } from "./context.ts";
@@ -414,7 +415,8 @@ interface RunState {
   /**
    * Yesterday's and today's notes, read on the run's first prompt. An append later in the run
    * (the agent's own memory tool, feed feedback) shows from the next run, so the system prompt
-   * and the provider's prompt cache stay the same from one step to the next.
+   * and the provider's prompt cache stay the same from one step to the next. An edit or a
+   * deleted line replaces it at the next step (`onlyAppended`).
    */
   dailyNotes?: DailyNotes;
   runId: string;
@@ -1505,12 +1507,19 @@ export class PsycheAgentLoop implements AgentLoop {
     }
     let deferred: AgentToolRegistration[] = [];
     ({ tools, deferred } = this.#defer(run, tools, hidden));
-    run.dailyNotes ??= await readDailyNotes(
+    // The run's notes, read again each step for the same dates. While they only grow, the
+    // run keeps its first read: appends show from the next run, so the system prompt and the
+    // prompt cache stay put. An edited or deleted line takes effect now, so a line the owner
+    // removed (an injected one, something to forget) is not shown for the rest of the run.
+    const notes = await readDailyNotes(
       this.#o.memory,
-      this.#clock.now(),
+      run.dailyNotes?.at ?? this.#clock.now(),
       this.#o.timeZone ?? "UTC",
       this.#budgets.dailyNote,
     );
+    if (run.dailyNotes === undefined || !onlyAppended(run.dailyNotes, notes)) {
+      run.dailyNotes = notes;
+    }
     const ctx = await assembleContext({
       basePrompt: this.#o.basePrompt ?? DEFAULT_BASE_PROMPT,
       ...(this.#o.memory === undefined ? {} : { memory: this.#o.memory }),
