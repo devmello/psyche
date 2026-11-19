@@ -33,6 +33,7 @@ import { useCall, useGatewayQuery, useMemoryFile } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { cn } from "../lib/utils.ts";
+import { downloadExport, type ExportFile } from "../screens/settings/DataControlsSection.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
 import { lessonsAt, useLessons } from "../teaching/hooks.ts";
 import { LessonMark, lessonMarkLabel } from "../teaching/LessonMark.tsx";
@@ -345,8 +346,8 @@ export function SoulMemoryPanel({
   onStartIncognito?: () => void;
   /** The shell picks the export file to import (format + content) and calls back. */
   onImport?: () => void;
-  /** Receives the export zip (base64) to save. */
-  onExported?: (file: { filename: string; data: string }) => void;
+  /** Receives the export zip (base64) to save; without it the zip is saved as a download. */
+  onExported?: (file: ExportFile) => void;
 }): ReactElement {
   const persona = usePersona();
   const slots = useSlots();
@@ -505,7 +506,8 @@ export function SoulMemoryPanel({
                 variant="ghost"
                 onClick={async () => {
                   const res = await call("memory.export", {});
-                  onExported?.({ filename: res.filename, data: res.data });
+                  // Without a host save of its own, the zip is saved as a download (it was dropped).
+                  (onExported ?? downloadExport)(res);
                   setNotice(t("agent.memory.exported", { file: res.filename }));
                 }}
               >

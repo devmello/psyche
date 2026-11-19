@@ -176,7 +176,6 @@ export const web = {
   "web.shortcut.closeThreadView": "Close thread view or pop-out",
   "web.shortcut.toggleThreadList": "Toggle thread list",
   "web.shortcut.cycleThreads": "Cycle threads",
-  "web.shortcut.forkSelection": "Fork selection into a side chat",
   "web.shortcut.stop": "Stop the run; release Take control",
   "web.shortcut.cycleDisclosure": "Cycle disclosure: status, actions, raw",
   "web.shortcut.openBrowserPane": "Browser pane",

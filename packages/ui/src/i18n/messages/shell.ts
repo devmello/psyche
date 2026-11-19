@@ -7,7 +7,6 @@ export const shell = {
   "shell.shortcut.toggleThreadList": "Toggle the sidebar",
   "shell.shortcut.compactSidebar": "Compact or full sidebar",
   "shell.shortcut.cycleThreads": "Cycle threads",
-  "shell.shortcut.forkSelection": "Fork from selection into a side chat",
   "shell.shortcut.stop": "Stop the run; release Take control",
   "shell.shortcut.cycleDisclosure": "Cycle disclosure level",
   "shell.shortcut.browserPane": "Browser pane",
