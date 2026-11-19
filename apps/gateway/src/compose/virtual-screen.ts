@@ -27,7 +27,13 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  * - Take-over (`setTakenOver`): while the owner drives the watch view the agent's calls wait in
  *   `agentGate()`, bounded, then fail with a retryable `user_in_control`. Owner input is never gated.
  * - The watch pane's frame pulls are limited to 4 a second per caller and only while the pane has
- *   reported itself visible (fed by `attention.report`).
+ *   reported itself visible (fed by `attention.report`). Frames are never wider than
+ *   `VSCREEN_MAX_FRAME_WIDTH`, so one always fits a helper message.
+ * - Only the owner reaches the helper. Every call carries its actor; the composed part refuses an
+ *   `agent` call (`agent_unbrokered`) until the agent's path (`apps.open` with
+ *   `surface: "virtual_screen"`) goes through the Permission Broker.
+ * - Giving control back (`computerWatch.takeOver { on: false }`) also lets go of every key and
+ *   button the owner held, so the agent's next typing cannot turn into shortcuts.
  *
  * The service is standalone: it takes the helper through an injected `invoke`.
  * `composeVirtualScreen` (bottom of the file) is the part compose/index.ts registers: it builds
@@ -47,6 +53,12 @@ export const VscreenStopRequest = Type.Object({
 });
 export type VscreenStopRequest = Static<typeof VscreenStopRequest>;
 
+/** The widest frame asked of the helper: wider frames could exceed the 1 MiB message limit. */
+export const VSCREEN_MAX_FRAME_WIDTH = 1920;
+
+/** Who a call is for: the owner's watch pane, or the agent. */
+export type VscreenActor = "agent" | "owner";
+
 export type VscreenParkAction = "look" | "discard" | "keep_open";
 export const PARK_ACTIONS: readonly VscreenParkAction[] = ["look", "discard", "keep_open"];
 
@@ -65,6 +77,8 @@ export type ResolveParkedResult =
 
 export interface VscreenInvokeOptions {
   signal?: AbortSignal;
+  /** Who the call is for. An `agent` call must be decided by the Permission Broker. */
+  actor: VscreenActor;
   /** The Permission Broker side effect of this call. */
   sideEffect: SideEffect;
   /** The broker target: always the one virtual screen. */
@@ -73,8 +87,10 @@ export interface VscreenInvokeOptions {
 
 export interface VirtualScreenDeps {
   /**
-   * Invokes a capability on the Linux host helper through the Permission Broker and returns its
-   * result. A helper or broker failure is thrown as a `PsycheError` (details kept).
+   * Invokes a capability on the Linux host helper and returns its result. An `owner` call (the
+   * watch pane, desktop shell only) goes straight to the helper; an `agent` call must go through
+   * the Permission Broker, and the composed part refuses it until that path exists. A helper or
+   * broker failure is thrown as a `PsycheError` (details kept).
    */
   invoke(
     capability: VscreenCapability,
@@ -94,7 +110,7 @@ export interface VirtualScreenDeps {
 export interface CallOptions {
   signal?: AbortSignal;
   /** `owner` is the watch pane; it is never held by take-over. Default `agent`. */
-  actor?: "agent" | "owner";
+  actor?: VscreenActor;
   /** Rate-limit key for the watch pane. Default `watch`. */
   caller?: string;
 }
@@ -104,6 +120,8 @@ export interface VirtualScreen {
   status(opts?: CallOptions): Promise<VscreenStatus>;
   frame(params?: unknown, opts?: CallOptions): Promise<VscreenFrame>;
   input(events: unknown, opts?: CallOptions): Promise<{ ok: boolean }>;
+  /** Lets go of every key and button held on the screen (the take-over ended). */
+  release(opts?: CallOptions): Promise<{ ok: boolean }>;
   stop(params?: unknown, opts?: CallOptions): Promise<{ ok: boolean }>;
   endTask(params?: { closeApps?: boolean }, opts?: CallOptions): Promise<EndTaskResult>;
   /** The parked card, if the Task is parked on unsaved changes. */
@@ -155,12 +173,13 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
     capability: VscreenCapability,
     params: Record<string, unknown>,
     sideEffect: SideEffect,
-    signal?: AbortSignal,
+    opts: CallOptions | undefined,
   ): Promise<unknown> =>
     deps.invoke(capability, params, {
       sideEffect,
       target: TARGET,
-      ...(signal === undefined ? {} : { signal }),
+      actor: opts?.actor ?? "agent",
+      ...(opts?.signal === undefined ? {} : { signal: opts.signal }),
     });
 
   function agentGate(signal?: AbortSignal): Promise<void> {
@@ -220,11 +239,11 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
 
   const stopCall = async (
     params: VscreenStopRequest,
-    signal?: AbortSignal,
-  ): Promise<{ ok: boolean }> => ackOf(await call("vscreen.stop", params, "write", signal));
+    opts: CallOptions | undefined,
+  ): Promise<{ ok: boolean }> => ackOf(await call("vscreen.stop", params, "write", opts));
 
-  const statusCall = async (signal?: AbortSignal): Promise<VscreenStatus> =>
-    resultOf(VscreenStatus, await call("vscreen.status", {}, "none", signal), "vscreen.status");
+  const statusCall = async (opts: CallOptions | undefined): Promise<VscreenStatus> =>
+    resultOf(VscreenStatus, await call("vscreen.status", {}, "none", opts), "vscreen.status");
 
   return {
     async start(params, opts) {
@@ -233,14 +252,14 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
       await gated(opts);
       return resultOf(
         VscreenStatus,
-        await call("vscreen.start", p as Record<string, unknown>, "write", opts?.signal),
+        await call("vscreen.start", p as Record<string, unknown>, "write", opts),
         "vscreen.start",
       );
     },
 
     async status(opts) {
       await gated(opts);
-      return statusCall(opts?.signal);
+      return statusCall(opts);
     },
 
     async frame(params, opts) {
@@ -248,9 +267,14 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
       check(VscreenFrameParams, p, "vscreen.frame");
       if (opts?.actor === "owner") admitFrame(opts.caller ?? "watch");
       else await agentGate(opts?.signal);
+      const asked = p as VscreenFrameParams;
+      const sent =
+        asked.maxWidth !== undefined && asked.maxWidth > VSCREEN_MAX_FRAME_WIDTH
+          ? { ...asked, maxWidth: VSCREEN_MAX_FRAME_WIDTH }
+          : asked;
       return resultOf(
         VscreenFrame,
-        await call("vscreen.frame", p as Record<string, unknown>, "read", opts?.signal),
+        await call("vscreen.frame", sent as Record<string, unknown>, "read", opts),
         "vscreen.frame",
       );
     },
@@ -259,24 +283,30 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
       const p = { events };
       check(VscreenInputParams, p, "vscreen.input");
       // The owner driving the watch view: allowed even while taken over.
-      return ackOf(await call("vscreen.input", p, "write", opts?.signal));
+      return ackOf(await call("vscreen.input", p, "write", opts));
+    },
+
+    async release(opts) {
+      // `release` is not in the wire schema (like `force` on stop): the helper lets go of every
+      // key and button it holds after the (empty) events.
+      return ackOf(await call("vscreen.input", { events: [], release: true }, "write", opts));
     },
 
     async stop(params, opts) {
       const p = params ?? {};
       check(VscreenStopRequest, p, "vscreen.stop");
       await gated(opts);
-      return stopCall(p as VscreenStopRequest, opts?.signal);
+      return stopCall(p as VscreenStopRequest, opts);
     },
 
     async endTask(params, opts) {
       const closeApps = params?.closeApps ?? true;
-      const res = await stopCall({ closeApps }, opts?.signal);
+      const res = await stopCall({ closeApps }, opts);
       if (res.ok) {
         card = null;
         return { ok: true };
       }
-      const status = await statusCall(opts?.signal);
+      const status = await statusCall(opts);
       const unsaved = status.apps.filter((a) => a.hasUnsavedChanges === true);
       if (unsaved.length === 0) {
         throw new PsycheError("conflict", "The virtual screen could not be closed.", {
@@ -301,7 +331,7 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
       }
       if (action === "look") return { action, view: "computer-watch" };
       if (action === "discard") {
-        const res = await stopCall({ closeApps: true, force: true }, opts?.signal);
+        const res = await stopCall({ closeApps: true, force: true }, opts);
         if (!res.ok) {
           throw new PsycheError("conflict", "The virtual screen could not be closed.", {
             details: { reason: "stop_refused" },
@@ -345,16 +375,26 @@ function fromPayload(e: ErrorPayload): PsycheError {
   });
 }
 
+const AGENT_UNBROKERED: ErrorPayload = {
+  code: "forbidden",
+  message: "Psyche cannot use the virtual screen on its own yet.",
+  details: { reason: "agent_unbrokered" },
+};
+
 /**
  * The Gateway's virtual-screen part. The watch pane (desktop shell only) reaches the helper only
- * through it; the owner's own pane actions need no approval, the agent's use of the screen
- * (`apps.open` with `surface: "virtual_screen"`, later) goes through the Permission Broker like
- * every other computer-use tool.
+ * through it; the owner's own pane actions need no approval. The agent's use of the screen
+ * (`apps.open` with `surface: "virtual_screen"`, later) must go through the Permission Broker
+ * like every other computer-use tool: until that is wired, `screen` refuses every `agent` call
+ * here instead of sending it to the helper unbrokered.
  */
-export function composeVirtualScreen(services: ComposeServices): ComposedPart {
+export function composeVirtualScreen(
+  services: ComposeServices,
+): ComposedPart & { screen: VirtualScreen } {
   let gateway: Gateway | undefined;
   const vs = createVirtualScreen({
     async invoke(capability, params, options) {
+      if (options.actor !== "owner") throw fromPayload(AGENT_UNBROKERED);
       const helper = gateway?.context.nodes.hostHelper(capability);
       if (helper === undefined) throw fromPayload(REQUIRE_HELPER);
       const res = await helper.client.invoke(capability, params, {
@@ -390,6 +430,7 @@ export function composeVirtualScreen(services: ComposeServices): ComposedPart {
   });
 
   return {
+    screen: vs,
     start(gw) {
       gateway = gw;
     },
@@ -413,8 +454,14 @@ export function composeVirtualScreen(services: ComposeServices): ComposedPart {
       "computerWatch.input": handler((params) =>
         vs.input((params as { events: unknown }).events, owner),
       ),
-      "computerWatch.takeOver": handler((params) => {
-        vs.setTakenOver((params as { on: boolean }).on);
+      "computerWatch.takeOver": handler(async (params) => {
+        const on = (params as { on: boolean }).on;
+        vs.setTakenOver(on);
+        if (!on) {
+          // Nothing the owner held stays pressed for the agent. A helper that is gone has
+          // nothing pressed either, so giving control back never fails on it.
+          await vs.release(owner).catch(() => undefined);
+        }
         return { takenOver: vs.isTakenOver() };
       }),
       "computerWatch.stop": handler(async (params) => {

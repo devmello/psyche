@@ -73,6 +73,11 @@ export function ComputerWatch({
   const toggling = useRef(false);
   const mine = useRef(false);
   const lastMove = useRef(0);
+  // What the owner holds down right now, so it can be let go when focus leaves the pane: a Ctrl
+  // held while Alt-Tabbing away must not stay down for the agent's next typing.
+  const heldKeys = useRef(new Set<string>());
+  const heldButtons = useRef(new Set<(typeof BUTTONS)[number]>());
+  const lastPoint = useRef({ x: 0, y: 0 });
   const active = visible && docVisible;
   const running = status?.state === "running";
 
@@ -139,12 +144,36 @@ export function ComputerWatch({
     };
   }, [active, running, client]);
 
+  /** Key-up and button-up for everything still held (focus left, hidden, or control handed back). */
+  const letGo = useCallback(() => {
+    const events: VscreenInputEvent[] = [];
+    for (const key of heldKeys.current) events.push({ type: "key_up", key });
+    for (const button of heldButtons.current)
+      events.push({ type: "up", ...lastPoint.current, button });
+    heldKeys.current.clear();
+    heldButtons.current.clear();
+    if (events.length > 0) void client.input(events).catch(() => {});
+  }, [client]);
+
+  useEffect(() => {
+    const onHidden = () => {
+      if (document.visibilityState === "hidden") letGo();
+    };
+    window.addEventListener("blur", letGo);
+    document.addEventListener("visibilitychange", onHidden);
+    return () => {
+      window.removeEventListener("blur", letGo);
+      document.removeEventListener("visibilitychange", onHidden);
+    };
+  }, [letGo]);
+
   // Hiding the pane (or closing it) hands control back: the agent must not stay paused unseen.
   const release = useCallback(() => {
+    letGo();
     if (!mine.current) return;
     mine.current = false;
     void client.setTakenOver(false).catch(() => {});
-  }, [client]);
+  }, [client, letGo]);
   useEffect(() => {
     if (!visible) release();
     return release;
@@ -152,6 +181,7 @@ export function ComputerWatch({
 
   const toggleTakeOver = async () => {
     const on = !takenOver;
+    if (!on) letGo();
     toggling.current = true;
     setTakenOver(on);
     try {
@@ -194,7 +224,11 @@ export function ComputerWatch({
     const p = at(e.clientX, e.clientY);
     if (!p) return;
     if (kind === "down") e.currentTarget.focus();
-    send([{ type: kind, ...p, button: BUTTONS[e.button] ?? "left" }]);
+    const button = BUTTONS[e.button] ?? "left";
+    lastPoint.current = p;
+    if (kind === "down") heldButtons.current.add(button);
+    else heldButtons.current.delete(button);
+    send([{ type: kind, ...p, button }]);
   };
   const onMove = (e: PointerEvent<HTMLElement>) => {
     const now = Date.now();
@@ -202,6 +236,7 @@ export function ComputerWatch({
     const p = at(e.clientX, e.clientY);
     if (!p) return;
     lastMove.current = now;
+    lastPoint.current = p;
     send([{ type: "move", ...p }]);
   };
   const onWheel = (e: WheelEvent<HTMLElement>) => {
@@ -210,6 +245,8 @@ export function ComputerWatch({
   };
   const onKey = (type: "key_down" | "key_up", e: KeyboardEvent<HTMLElement>) => {
     e.preventDefault();
+    if (type === "key_down") heldKeys.current.add(e.key);
+    else heldKeys.current.delete(e.key);
     send([{ type, key: e.key }]);
   };
   const onPaste = (e: ClipboardEvent<HTMLElement>) => {
@@ -300,6 +337,7 @@ export function ComputerWatch({
                 onWheel,
                 onKeyDown: (e: KeyboardEvent<HTMLElement>) => onKey("key_down", e),
                 onKeyUp: (e: KeyboardEvent<HTMLElement>) => onKey("key_up", e),
+                onBlur: letGo,
                 onPaste,
                 onContextMenu: (e: { preventDefault(): void }) => e.preventDefault(),
               }

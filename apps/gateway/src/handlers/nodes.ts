@@ -20,6 +20,9 @@ import { paramsHash } from "../idempotency.ts";
  * through the Gateway's own `dictation.*` methods (J9).
  * `screen.*` captures the owner's screen on the ask shortcut; only the desktop reaches it, through
  * the Gateway's own `screen.capture` (docs/design/screen-ask-2026.md).
+ * `vscreen.*` is the Linux helper's virtual screen: its frames show the agent's apps and its input
+ * types into them. Only the desktop's watch pane reaches it, through the Gateway's own
+ * `computerWatch.*` methods, on any node.
  *
  * Capabilities that have a Gateway agent tool are reachable only through that tool, which
  * describes them (kind, binding, the full arguments on the card, #274): `apps.*` (AppleScript,
@@ -35,7 +38,7 @@ import { paramsHash } from "../idempotency.ts";
  * Host helper's are already behind the allowlist below; this keeps a remote node's out too).
  */
 const UNREACHABLE =
-  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation|apps|computer|messages|notify|screen|ocr|llm|presence|teach|chrome)([^a-z0-9]|$)/;
+  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation|apps|computer|messages|notify|screen|ocr|llm|presence|teach|chrome|vscreen)([^a-z0-9]|$)/;
 
 /**
  * The helper's own notification permission, which the desktop's onboarding and Settings read and

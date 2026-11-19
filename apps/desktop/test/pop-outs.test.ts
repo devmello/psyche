@@ -1,11 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { checkRoute } from "../src/lib/ipc.ts";
-import {
-  createPopOutRegistry,
-  isWatchPopOutRoute,
-  type PopOutWindow,
-  watchPopOutRoute,
-} from "../src/main/pop-outs.ts";
+import { createPopOutRegistry, type PopOutWindow, watchPopOutRoute } from "../src/main/pop-outs.ts";
 
 function fakeWindow() {
   let closed: (() => void) | undefined;
@@ -89,15 +84,5 @@ describe("watch pane route", () => {
   it("is a route the pop-out window accepts", () => {
     const route = watchPopOutRoute("0b6f2c1e-77aa-4c0e-9d3b-5a1f1c2d3e4f");
     expect(checkRoute("window:openPopOut", route)).toBe(route);
-  });
-
-  it("recognises only the watch pane route", () => {
-    expect(isWatchPopOutRoute(watchPopOutRoute("t_123"))).toBe(true);
-    // The web shell names a pop-out by pane id.
-    expect(isWatchPopOutRoute("/chat/t_123/pane/p_computer-watch_2")).toBe(true);
-    expect(isWatchPopOutRoute("/chat/t_123/pane/browser")).toBe(false);
-    expect(isWatchPopOutRoute("/chat/t_123/pane/computer-watch/extra")).toBe(false);
-    expect(isWatchPopOutRoute("/chat/pane/computer-watch")).toBe(false);
-    expect(isWatchPopOutRoute("/settings")).toBe(false);
   });
 });

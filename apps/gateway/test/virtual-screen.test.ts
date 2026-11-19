@@ -5,8 +5,10 @@ import {
   createVirtualScreen,
   type UnsavedChangesCard,
   type VirtualScreenDeps,
+  VSCREEN_MAX_FRAME_WIDTH,
   type VscreenInvokeOptions,
 } from "../src/compose/virtual-screen.ts";
+import { isUnreachableCapability } from "../src/handlers/nodes.ts";
 
 interface Call {
   capability: VscreenCapability;
@@ -76,6 +78,25 @@ describe("virtual screen helper calls", () => {
       ["vscreen.stop", "write", "vscreen"],
     ]);
     expect(calls[2]?.params).toEqual({ since: 1, maxWidth: 800 });
+  });
+
+  it("says who each call is for: the agent by default, the owner when the pane asks", async () => {
+    const { vs, calls } = setup();
+    await vs.status();
+    await vs.status({ actor: "owner" });
+    await vs.release({ actor: "owner" });
+    expect(calls.map((c) => c.options.actor)).toEqual(["agent", "owner", "owner"]);
+    expect(calls[2]).toMatchObject({
+      capability: "vscreen.input",
+      params: { events: [], release: true },
+    });
+  });
+
+  it("never asks the helper for a frame wider than one message can carry", async () => {
+    const { vs, calls } = setup();
+    await vs.frame({ maxWidth: 3840 });
+    await vs.frame({ maxWidth: 1280 });
+    expect(calls.map((c) => c.params.maxWidth)).toEqual([VSCREEN_MAX_FRAME_WIDTH, 1280]);
   });
 
   it("rejects bad shapes before calling the helper", async () => {
@@ -364,6 +385,42 @@ describe("composeVirtualScreen (the watch pane's methods)", () => {
     expect(await run("computerWatch.takeOver", { on: false })).toEqual({ takenOver: false });
   });
 
+  it("giving control back lets go of every held key and button", async () => {
+    const { run, invoked } = part(true);
+    await run("computerWatch.takeOver", { on: true });
+    expect(invoked).toEqual([]);
+    await run("computerWatch.takeOver", { on: false });
+    expect(invoked).toEqual([
+      { capability: "vscreen.input", params: { events: [], release: true } },
+    ]);
+  });
+
+  it("giving control back still works when the helper is gone", async () => {
+    const { run } = part(false);
+    expect(await run("computerWatch.takeOver", { on: false })).toEqual({ takenOver: false });
+  });
+
+  it("refuses every agent call instead of reaching the helper unbrokered", async () => {
+    const { composed, invoked } = part(true);
+    for (const attempt of [
+      () => composed.screen.status(),
+      () => composed.screen.start({}),
+      () => composed.screen.frame({}),
+      () => composed.screen.input([{ type: "text", text: "x" }]),
+      () => composed.screen.stop({}),
+      () => composed.screen.endTask(),
+      () => composed.screen.status({ actor: "agent" }),
+    ]) {
+      await expect(attempt()).rejects.toMatchObject({
+        code: "forbidden",
+        details: { reason: "agent_unbrokered" },
+      });
+    }
+    expect(invoked).toEqual([]);
+    // The owner's own calls still go through.
+    expect(await composed.screen.status({ actor: "owner" })).toMatchObject({ display: ":90" });
+  });
+
   it("a stop that the helper refuses parks the Task and publishes the card; discard forces it", async () => {
     const { run, published, invoked } = part(true, false, true);
     expect(await run("computerWatch.stop", {})).toEqual({ ok: false });
@@ -383,5 +440,26 @@ describe("composeVirtualScreen (the watch pane's methods)", () => {
       action: "look",
       view: "computer-watch",
     });
+  });
+});
+
+describe("nodes.invoke and the virtual screen", () => {
+  it("reaches no vscreen capability on any node", () => {
+    for (const name of [
+      "vscreen.status",
+      "vscreen.start",
+      "vscreen.stop",
+      "vscreen.frame",
+      "vscreen.input",
+      "VSCREEN.input",
+      "vscreen_frame",
+      "vscreen",
+    ]) {
+      expect(isUnreachableCapability(name), name).toBe(true);
+    }
+    // Near misses that only share the letters stay reachable.
+    for (const name of ["vscreenshot.take", "vscreens", "screenshare.vscreen"]) {
+      expect(isUnreachableCapability(name), name).toBe(false);
+    }
   });
 });

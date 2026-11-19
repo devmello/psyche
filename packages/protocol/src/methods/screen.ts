@@ -145,8 +145,9 @@ export const ScreenMethods = {
  * `vscreen.*` (linux design §7, §11): the Linux helper's virtual-screen capabilities, an Xvfb
  * display the helper manages on the owner's machine. These are node capabilities, not Gateway
  * methods, so they are not in `Methods`: the shapes below are the helper's `NodeCapability`
- * inputs and results. Host-only: `nodes.invoke` reaches only `vscreen.status`; the Gateway's own
- * virtual-screen module and the watch view call the rest through the Permission Broker.
+ * inputs and results. Host-only, and never through `nodes.invoke`: only the Gateway's own
+ * virtual-screen module calls them, for the desktop's watch view (`computerWatch.*`). An agent
+ * path must go through the Permission Broker.
  */
 export const VSCREEN_CAPABILITIES = [
   "vscreen.start",
@@ -156,9 +157,6 @@ export const VSCREEN_CAPABILITIES = [
   "vscreen.input",
 ] as const;
 export type VscreenCapability = (typeof VSCREEN_CAPABILITIES)[number];
-
-/** The only `vscreen.*` capability `nodes.invoke` may reach. */
-export const VSCREEN_NODES_INVOKE_ALLOWED = ["vscreen.status"] as const;
 
 export const VscreenState = StringEnum(["stopped", "starting", "running", "stopping"], {
   $id: "VscreenState",

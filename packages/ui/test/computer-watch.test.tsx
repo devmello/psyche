@@ -181,6 +181,50 @@ describe("ComputerWatch take over", () => {
     expect(client.inputs).toHaveLength(2);
   });
 
+  it("lets go of held keys and buttons when focus leaves the pane", async () => {
+    const client = fakeClient();
+    render(<ComputerWatch client={client} visible />);
+    await advance(10);
+    const img = sizeImage();
+    await takeOver();
+    const region = img.parentElement as HTMLElement;
+
+    // Ctrl held, then the owner Alt-Tabs away: the pane loses focus.
+    fireEvent.keyDown(region, { key: "Control" });
+    client.inputs.length = 0;
+    fireEvent.blur(region);
+    expect(client.inputs).toEqual([[{ type: "key_up", key: "Control" }]]);
+
+    // A mouse button held when the window loses focus.
+    fireEvent.pointerDown(img, { clientX: 330, clientY: 200, button: 0 });
+    client.inputs.length = 0;
+    act(() => {
+      window.dispatchEvent(new Event("blur"));
+    });
+    expect(client.inputs).toEqual([[{ type: "up", x: 640, y: 360, button: "left" }]]);
+
+    // Nothing held: nothing sent.
+    client.inputs.length = 0;
+    fireEvent.blur(region);
+    expect(client.inputs).toEqual([]);
+  });
+
+  it("lets go of held keys before handing control back", async () => {
+    const client = fakeClient();
+    render(<ComputerWatch client={client} visible />);
+    await advance(10);
+    const img = sizeImage();
+    await takeOver();
+    const region = img.parentElement as HTMLElement;
+    fireEvent.keyDown(region, { key: "Shift" });
+    fireEvent.keyDown(region, { key: "Alt" });
+    fireEvent.keyUp(region, { key: "Alt" });
+    client.inputs.length = 0;
+    await takeOver();
+    expect(client.inputs).toEqual([[{ type: "key_up", key: "Shift" }]]);
+    expect(client.calls.takenOver).toEqual([true, false]);
+  });
+
   it("gives control back when the pane is hidden or closed", async () => {
     const client = fakeClient();
     const { rerender, unmount } = render(<ComputerWatch client={client} visible />);
