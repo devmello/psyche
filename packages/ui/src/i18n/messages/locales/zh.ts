@@ -50,6 +50,7 @@ import { teach } from "./teach/zh.ts";
 import { web } from "./web/zh.ts";
 import { whatCanYouDo } from "./what-can-you-do/zh.ts";
 import { widgets } from "./widgets/zh.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/zh.ts";
 import { work } from "./work/zh.ts";
 import { workflows } from "./workflows/zh.ts";
 
@@ -3454,4 +3455,6 @@ export const zh: Partial<Catalogue> = {
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
 };

@@ -30,6 +30,7 @@ import { settingsD } from "./settings-d/pt.ts";
 import { settingsE } from "./settings-e/pt.ts";
 import { specialistsA } from "./specialists-a/pt.ts";
 import { teachA } from "./teach-a/pt.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/pt.ts";
 import { workA } from "./work-a/pt.ts";
 import { workB } from "./work-b/pt.ts";
 import { workflows } from "./workflows/pt.ts";
@@ -3494,4 +3495,6 @@ export const pt: Partial<Catalogue> = {
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
 };

@@ -49,6 +49,7 @@ import { shellRest } from "./shell-rest/it.ts";
 import { specialistsRest } from "./specialists-rest/it.ts";
 import { webRest } from "./web-rest/it.ts";
 import { widgetsRest } from "./widgets-rest/it.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/it.ts";
 import { workRest } from "./work-rest/it.ts";
 import { workflows } from "./workflows/it.ts";
 
@@ -3548,4 +3549,6 @@ export const it: Partial<Catalogue> = {
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
 };
