@@ -159,6 +159,10 @@ export const ja: Partial<Catalogue> = {
   "errors.cancelled": "キャンセルされました。",
   "errors.reason.vault_removal_pending":
     "古いサーバーの削除を完了するには、保管庫のロックを解除してから、もう一度お試しください。",
+  "errors.reason.connected_with_other_client":
+    "Google は別のクライアントで接続されています。先に Google を切断してから、クライアントを変更してください。",
+  "errors.reason.secret_required":
+    "別のクライアントには、そのクライアント専用のシークレットが必要です。",
   "errors.reason.updating":
     "Psycheはアップデートをインストールするため、まもなく再起動します。しばらくしてからもう一度お試しください。",
   "errors.unavailable": "Psycheは現在その操作を実行できません。",
@@ -2446,6 +2450,19 @@ export const ja: Partial<Catalogue> = {
   "settings.connect.noSignIn": "Gatewayがサインインページを返しませんでした",
   "settings.connect.notConfigured":
     "{name}はこのGatewayでまだ設定されていません。独自のOAuthクライアントが必要です（Psycheのドキュメントの「Googleとの接続」ガイドを参照）。後で設定 → コネクタから設定してください。",
+  "settings.googleClient.using": "あなたの Google クライアント {clientId} を使用しています。",
+  "settings.googleClient.fromConfig": "config.json または環境変数で設定されています。",
+  "settings.googleClient.change": "別のクライアントを使う",
+  "settings.googleClient.help":
+    "Psyche には専用の Google クライアントがありません。ご自身の Google Cloud プロジェクトで、デスクトップアプリ用の無料 OAuth クライアントを一度作成し、その ID をここに貼り付けてください。",
+  "settings.googleClient.docs": "作成方法",
+  "settings.googleClient.id": "クライアント ID",
+  "settings.googleClient.idHint": ".apps.googleusercontent.com で終わります",
+  "settings.googleClient.invalid":
+    "Google のクライアント ID ではありません。.apps.googleusercontent.com で終わる必要があります。",
+  "settings.googleClient.secret": "クライアントシークレット",
+  "settings.googleClient.secretHint": "保管庫に保存され、Google にのみ送信されます。",
+  "settings.googleClient.saveFailed": "Google クライアントを保存できませんでした: {reason}",
   "settings.connect.alreadyConnected": "{name}はすでに接続されています。",
   "settings.connect.needsPermission":
     "{name}は設定されていますが、macOSがまだ許可していません。次の場所で許可してください：",

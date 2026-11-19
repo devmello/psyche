@@ -157,6 +157,9 @@ export const it: Partial<Catalogue> = {
   "errors.cancelled": "È stato annullato.",
   "errors.reason.vault_removal_pending":
     "Sblocca la cassaforte per completare la rimozione del vecchio server, poi riprova.",
+  "errors.reason.connected_with_other_client":
+    "Google è connesso con un altro client. Disconnetti prima Google, poi cambia il client.",
+  "errors.reason.secret_required": "Un client diverso richiede il proprio segreto del client.",
   "errors.reason.updating":
     "Psyche sta per riavviarsi per installare un aggiornamento. Riprova tra un momento.",
   "errors.unavailable": "Psyche non può farlo in questo momento.",
@@ -2478,6 +2481,19 @@ export const it: Partial<Catalogue> = {
   "settings.connect.noSignIn": "il Gateway non ha restituito una pagina di accesso",
   "settings.connect.notConfigured":
     "{name} non è ancora configurato su questo Gateway: richiede un tuo client OAuth (vedi la guida Connecting Google nella documentazione di Psyche). Configuralo più tardi in Impostazioni → Connettori.",
+  "settings.googleClient.using": "Viene usato il tuo client Google {clientId}.",
+  "settings.googleClient.fromConfig": "È impostato in config.json o nell'ambiente.",
+  "settings.googleClient.change": "Usa un altro client",
+  "settings.googleClient.help":
+    "Psyche non ha un client Google proprio. Crea una sola volta un client OAuth gratuito di tipo app desktop nel tuo progetto Google Cloud e incolla qui il suo ID.",
+  "settings.googleClient.docs": "Come crearne uno",
+  "settings.googleClient.id": "ID client",
+  "settings.googleClient.idHint": "Termina con .apps.googleusercontent.com",
+  "settings.googleClient.invalid":
+    "Questo non è un ID client Google. Termina con .apps.googleusercontent.com.",
+  "settings.googleClient.secret": "Segreto del client",
+  "settings.googleClient.secretHint": "Conservato nella tua cassaforte e inviato solo a Google.",
+  "settings.googleClient.saveFailed": "Impossibile salvare il client Google: {reason}",
   "settings.connect.alreadyConnected": "{name} è già collegato.",
   "settings.connect.needsPermission":
     "{name} è configurato, ma macOS non l’ha ancora autorizzato. Autorizzalo in",

@@ -162,6 +162,9 @@ export const ko: Partial<Catalogue> = {
   "errors.cancelled": "취소되었습니다.",
   "errors.reason.vault_removal_pending":
     "이전 서버 제거를 마치려면 보관함 잠금을 해제한 뒤 다시 시도하세요.",
+  "errors.reason.connected_with_other_client":
+    "Google이 다른 클라이언트로 연결되어 있습니다. 먼저 Google 연결을 해제한 다음 클라이언트를 변경하세요.",
+  "errors.reason.secret_required": "다른 클라이언트에는 해당 클라이언트의 보안 비밀이 필요합니다.",
   "errors.reason.updating":
     "Psyche가 업데이트를 설치하기 위해 곧 다시 시작됩니다. 잠시 후 다시 시도하십시오.",
   "errors.unavailable": "Psyche가 지금은 해당 작업을 할 수 없습니다.",
@@ -2430,6 +2433,19 @@ export const ko: Partial<Catalogue> = {
   "settings.connect.noSignIn": "Gateway가 로그인 페이지를 반환하지 않았습니다",
   "settings.connect.notConfigured":
     "{name}은(는) 아직 이 Gateway에 설정되어 있지 않습니다. 사용자 자신의 OAuth 클라이언트가 필요합니다(Psyche 문서의 Google 연결 가이드 참조). 나중에 설정 → 커넥터에서 설정하십시오.",
+  "settings.googleClient.using": "내 Google 클라이언트 {clientId}를 사용 중입니다.",
+  "settings.googleClient.fromConfig": "config.json 또는 환경 변수에 설정되어 있습니다.",
+  "settings.googleClient.change": "다른 클라이언트 사용",
+  "settings.googleClient.help":
+    "Psyche에는 자체 Google 클라이언트가 없습니다. 본인의 Google Cloud 프로젝트에서 데스크톱 앱용 무료 OAuth 클라이언트를 한 번 만든 다음 ID를 여기에 붙여넣으세요.",
+  "settings.googleClient.docs": "만드는 방법",
+  "settings.googleClient.id": "클라이언트 ID",
+  "settings.googleClient.idHint": ".apps.googleusercontent.com으로 끝납니다",
+  "settings.googleClient.invalid":
+    "Google 클라이언트 ID가 아닙니다. .apps.googleusercontent.com으로 끝나야 합니다.",
+  "settings.googleClient.secret": "클라이언트 보안 비밀",
+  "settings.googleClient.secretHint": "보관함에 저장되며 Google에만 전송됩니다.",
+  "settings.googleClient.saveFailed": "Google 클라이언트를 저장하지 못했습니다: {reason}",
   "settings.connect.alreadyConnected": "{name}이(가) 이미 연결되어 있습니다.",
   "settings.connect.needsPermission":
     "{name}이(가) 설정되었지만 macOS가 아직 허용하지 않았습니다. 다음에서 허용하십시오:",

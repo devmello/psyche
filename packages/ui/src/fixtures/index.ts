@@ -184,6 +184,8 @@ export interface FixtureWorld {
   usage: UsageSummary;
   /** `connectors.connect` behaviour in the mock: "unavailable" answers not_implemented. */
   connectorConnect?: "unavailable" | "not_configured";
+  /** `connectors.googleClient`: absent = set in config.json; `null` = not set up yet. */
+  googleClient?: { clientId: string; hasSecret: boolean; source: "app" | "config" } | null;
   /** macOS grant for the Apple connectors (#549); default granted. */
   appleGrant?: "granted" | "denied" | "notDetermined";
   /** The last turn's context usage by thread id; absent → no turn has reported yet. */

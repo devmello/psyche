@@ -157,6 +157,9 @@ export const hi: Partial<Catalogue> = {
   "errors.cancelled": "इसे रद्द कर दिया गया।",
   "errors.reason.vault_removal_pending":
     "पुराने सर्वर को हटाने का काम पूरा करने के लिए वॉल्ट अनलॉक करें, फिर दोबारा कोशिश करें।",
+  "errors.reason.connected_with_other_client":
+    "Google किसी दूसरे क्लाइंट से जुड़ा है। पहले Google को डिस्कनेक्ट करें, फिर क्लाइंट बदलें।",
+  "errors.reason.secret_required": "दूसरे क्लाइंट को अपना क्लाइंट सीक्रेट चाहिए।",
   "errors.reason.updating":
     "Psyche अपडेट इंस्टॉल करने के लिए अभी रीस्टार्ट होने वाला है। थोड़ी देर में फिर से कोशिश करें।",
   "errors.unavailable": "Psyche अभी ऐसा नहीं कर सकता।",
@@ -2451,6 +2454,19 @@ export const hi: Partial<Catalogue> = {
   "settings.connect.noSignIn": "Gateway ने साइन-इन पेज नहीं लौटाया",
   "settings.connect.notConfigured":
     "{name} अभी इस Gateway पर सेट अप नहीं है: इसे आपका अपना OAuth क्लाइंट चाहिए (Psyche के दस्तावेज़ों में Connecting Google गाइड)। इसे बाद में सेटिंग्ज़ → कनेक्टर में सेट अप करें।",
+  "settings.googleClient.using": "आपका Google क्लाइंट {clientId} इस्तेमाल हो रहा है।",
+  "settings.googleClient.fromConfig": "यह config.json या एनवायरनमेंट में सेट है।",
+  "settings.googleClient.change": "दूसरा क्लाइंट इस्तेमाल करें",
+  "settings.googleClient.help":
+    "Psyche का अपना कोई Google क्लाइंट नहीं है। अपने Google Cloud प्रोजेक्ट में एक बार मुफ़्त डेस्कटॉप-ऐप OAuth क्लाइंट बनाएँ, फिर उसकी ID यहाँ चिपकाएँ।",
+  "settings.googleClient.docs": "इसे कैसे बनाएँ",
+  "settings.googleClient.id": "क्लाइंट ID",
+  "settings.googleClient.idHint": ".apps.googleusercontent.com पर खत्म होती है",
+  "settings.googleClient.invalid":
+    "यह Google क्लाइंट ID नहीं है। यह .apps.googleusercontent.com पर खत्म होती है।",
+  "settings.googleClient.secret": "क्लाइंट सीक्रेट",
+  "settings.googleClient.secretHint": "आपके वॉल्ट में रखा जाता है और सिर्फ़ Google को भेजा जाता है।",
+  "settings.googleClient.saveFailed": "Google क्लाइंट सहेजा नहीं जा सका: {reason}",
   "settings.connect.alreadyConnected": "{name} पहले से कनेक्टेड है।",
   "settings.connect.needsPermission":
     "{name} सेट अप है, लेकिन macOS ने अभी इसकी अनुमति नहीं दी है। इसकी अनुमति यहाँ दें:",

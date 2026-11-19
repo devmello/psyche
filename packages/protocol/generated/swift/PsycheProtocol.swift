@@ -384,6 +384,9 @@
 //   let connectorsGetCustomProposalResult = try? JSONDecoder().decode(ConnectorsGetCustomProposalResult.self, from: jsonData)
 //   let connectorsGetParams = try? JSONDecoder().decode(ConnectorsGetParams.self, from: jsonData)
 //   let connectorsGetResult = try? JSONDecoder().decode(ConnectorsGetResult.self, from: jsonData)
+//   let connectorsGoogleClientParams = try? JSONDecoder().decode(ConnectorsGoogleClientParams.self, from: jsonData)
+//   let connectorsGoogleClientSetParams = try? JSONDecoder().decode(ConnectorsGoogleClientSetParams.self, from: jsonData)
+//   let connectorsGoogleClientSetResult = try? JSONDecoder().decode(ConnectorsGoogleClientSetResult.self, from: jsonData)
 //   let connectorsInstallCustomParams = try? JSONDecoder().decode(ConnectorsInstallCustomParams.self, from: jsonData)
 //   let connectorsInstallCustomResult = try? JSONDecoder().decode(ConnectorsInstallCustomResult.self, from: jsonData)
 //   let connectorsListParams = try? JSONDecoder().decode(ConnectorsListParams.self, from: jsonData)
@@ -601,6 +604,7 @@
 //   let goalsMilestoneResult = try? JSONDecoder().decode(GoalsMilestoneResult.self, from: jsonData)
 //   let goalsUpdateParams = try? JSONDecoder().decode(GoalsUpdateParams.self, from: jsonData)
 //   let goalsUpdateResult = try? JSONDecoder().decode(GoalsUpdateResult.self, from: jsonData)
+//   let googleClientStatus = try? JSONDecoder().decode(GoogleClientStatus.self, from: jsonData)
 //   let grant = try? JSONDecoder().decode(Grant.self, from: jsonData)
 //   let grantScope = try? JSONDecoder().decode(GrantScope.self, from: jsonData)
 //   let grantsListParams = try? JSONDecoder().decode(GrantsListParams.self, from: jsonData)
@@ -12153,6 +12157,62 @@ public struct ConnectorsGetResult: Codable, Sendable {
     public init(connector: Connector) {
         self.connector = connector
     }
+}
+
+// MARK: - ConnectorsGoogleClientSetParams
+public struct ConnectorsGoogleClientSetParams: Codable, Sendable {
+    public let clientID: String
+    public let clientSecret: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case clientID = "clientId"
+        case clientSecret = "clientSecret"
+    }
+
+    public init(clientID: String, clientSecret: String? = nil) {
+        self.clientID = clientID
+        self.clientSecret = clientSecret
+    }
+}
+
+// MARK: - ConnectorsGoogleClientSetResult
+public struct ConnectorsGoogleClientSetResult: Codable, Sendable {
+    public let status: GoogleClientStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: GoogleClientStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - GoogleClientStatus
+public struct GoogleClientStatus: Codable, Sendable {
+    public let clientID: String?
+    public let configured: Bool
+    public let hasSecret: Bool
+    public let source: GoogleClientStatusSource?
+
+    public enum CodingKeys: String, CodingKey {
+        case clientID = "clientId"
+        case configured = "configured"
+        case hasSecret = "hasSecret"
+        case source = "source"
+    }
+
+    public init(clientID: String? = nil, configured: Bool, hasSecret: Bool, source: GoogleClientStatusSource? = nil) {
+        self.clientID = clientID
+        self.configured = configured
+        self.hasSecret = hasSecret
+        self.source = source
+    }
+}
+
+public enum GoogleClientStatusSource: String, Codable, Sendable {
+    case app = "app"
+    case config = "config"
 }
 
 // MARK: - ConnectorsInstallCustomParams
@@ -38428,6 +38488,7 @@ public typealias BrowserRealChromeStatusParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
 public typealias ConnectorsCatalogueParams = [String: JSONAny]
+public typealias ConnectorsGoogleClientParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]
 public typealias DailyAutomationsTemplatesParams = [String: JSONAny]
 public typealias DevicesBootstrapAdminParams = [String: JSONAny]

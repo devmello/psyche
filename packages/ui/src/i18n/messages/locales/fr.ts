@@ -143,6 +143,9 @@ export const fr: Partial<Catalogue> = {
   "errors.cancelled": "L’opération a été annulée.",
   "errors.reason.vault_removal_pending":
     "Déverrouille le coffre pour terminer la suppression de l'ancien serveur, puis réessaie.",
+  "errors.reason.connected_with_other_client":
+    "Google est connecté avec un autre client. Déconnectez d'abord Google, puis changez de client.",
+  "errors.reason.secret_required": "Un autre client a besoin de son propre secret client.",
   "errors.reason.updating":
     "Psyche va redémarrer pour installer une mise à jour. Réessayez dans un instant.",
   "errors.unavailable": "Psyche ne peut pas faire cela pour le moment.",
@@ -2474,6 +2477,19 @@ export const fr: Partial<Catalogue> = {
   "settings.connect.noSignIn": "la Gateway n’a pas renvoyé de page de connexion",
   "settings.connect.notConfigured":
     "{name} n’est pas encore configuré sur cette Gateway : il lui faut votre propre client OAuth (voir le guide « Connecting Google » dans la documentation de Psyche). Configurez-le plus tard dans Réglages → Connecteurs.",
+  "settings.googleClient.using": "Votre client Google {clientId} est utilisé.",
+  "settings.googleClient.fromConfig": "Il est défini dans config.json ou l'environnement.",
+  "settings.googleClient.change": "Utiliser un autre client",
+  "settings.googleClient.help":
+    "Psyche n'a pas de client Google à lui. Créez une seule fois un client OAuth gratuit de type application de bureau dans votre propre projet Google Cloud, puis collez son identifiant ici.",
+  "settings.googleClient.docs": "Comment en créer un",
+  "settings.googleClient.id": "ID client",
+  "settings.googleClient.idHint": "Se termine par .apps.googleusercontent.com",
+  "settings.googleClient.invalid":
+    "Ce n'est pas un ID client Google. Il se termine par .apps.googleusercontent.com.",
+  "settings.googleClient.secret": "Secret client",
+  "settings.googleClient.secretHint": "Conservé dans votre coffre et envoyé uniquement à Google.",
+  "settings.googleClient.saveFailed": "Impossible d'enregistrer le client Google : {reason}",
   "settings.connect.alreadyConnected": "{name} est déjà connecté.",
   "settings.connect.needsPermission":
     "{name} est configuré, mais macOS ne l’a pas encore autorisé. Autorisez-le dans",

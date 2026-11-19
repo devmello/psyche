@@ -123,6 +123,9 @@ export const es: Partial<Catalogue> = {
   "errors.cancelled": "Se canceló.",
   "errors.reason.vault_removal_pending":
     "Desbloquea la bóveda para terminar de quitar el servidor anterior y vuelve a intentarlo.",
+  "errors.reason.connected_with_other_client":
+    "Google está conectado con otro cliente. Desconecta Google primero y luego cambia el cliente.",
+  "errors.reason.secret_required": "Un cliente distinto necesita su propio secreto de cliente.",
   "errors.reason.updating":
     "Psyche está a punto de reiniciarse para instalar una actualización. Inténtalo de nuevo en un momento.",
   "errors.unavailable": "Psyche no puede hacer eso ahora mismo.",
@@ -2502,6 +2505,19 @@ export const es: Partial<Catalogue> = {
   "settings.connect.noSignIn": "el Gateway no devolvió una página de inicio de sesión",
   "settings.connect.notConfigured":
     "{name} aún no está configurado en este Gateway: necesita tu propio cliente OAuth (la guía «Connecting Google» de la documentación de Psyche). Configúralo más tarde en Ajustes → Conectores.",
+  "settings.googleClient.using": "Se usa tu cliente de Google {clientId}.",
+  "settings.googleClient.fromConfig": "Está definido en config.json o en el entorno.",
+  "settings.googleClient.change": "Usar otro cliente",
+  "settings.googleClient.help":
+    "Psyche no tiene un cliente de Google propio. Crea una sola vez un cliente OAuth gratuito de tipo aplicación de escritorio en tu propio proyecto de Google Cloud y pega aquí su ID.",
+  "settings.googleClient.docs": "Cómo crear uno",
+  "settings.googleClient.id": "ID de cliente",
+  "settings.googleClient.idHint": "Termina en .apps.googleusercontent.com",
+  "settings.googleClient.invalid":
+    "Eso no es un ID de cliente de Google. Termina en .apps.googleusercontent.com.",
+  "settings.googleClient.secret": "Secreto del cliente",
+  "settings.googleClient.secretHint": "Se guarda en tu bóveda y solo se envía a Google.",
+  "settings.googleClient.saveFailed": "No se pudo guardar el cliente de Google: {reason}",
   "settings.connect.alreadyConnected": "{name} ya está conectado.",
   "settings.connect.needsPermission":
     "{name} está configurado, pero macOS aún no lo ha permitido. Permítelo en",

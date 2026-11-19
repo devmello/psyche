@@ -19,6 +19,20 @@ const CustomProposalResult = Type.Object(
   { $id: "CustomConnectorProposalResult" },
 );
 
+const GoogleClientStatus = Type.Object(
+  {
+    /** A client id is known (from the app, `config.json` or the environment). */
+    configured: Type.Boolean(),
+    /** The client id (not a secret), when configured. */
+    clientId: Type.Optional(Type.String()),
+    /** A client secret is stored. Never returned. */
+    hasSecret: Type.Boolean(),
+    /** `app`: pasted in Settings. `config`: `config.json` or the environment (wins). */
+    source: Type.Union([Type.Literal("app"), Type.Literal("config"), Type.Null()]),
+  },
+  { $id: "GoogleClientStatus" },
+);
+
 /**
  * `connectors.*` (data model §8). Custom connectors (M9): a manifest, given directly or derived
  * from an OpenAPI document, is validated, scanned and staged by `connectors.proposeCustom`, which
@@ -62,6 +76,25 @@ export const ConnectorsMethods = {
     sideEffecting: true,
     description:
       "Side-effecting: disconnects, revokes the provider tokens and invalidates pending work.",
+  }),
+  "connectors.googleClient": defineMethod({
+    params: Type.Object({}),
+    result: GoogleClientStatus,
+    scope: "operator.read",
+    description:
+      "Whether the owner's own Google OAuth client (Desktop app) is set up on this Gateway, and its client id. Never returns the client secret.",
+  }),
+  "connectors.googleClient.set": defineMethod({
+    params: Type.Object({
+      clientId: Type.String({ minLength: 1, maxLength: 256 }),
+      /** A Desktop client's secret; kept in the vault, bound to Google's token endpoint. */
+      clientSecret: Type.Optional(Type.String({ minLength: 1, maxLength: 512 })),
+    }),
+    result: Type.Object({ status: GoogleClientStatus }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: saves the owner's Google OAuth client for Connect. The id is kept as an internal setting and the secret as a vault item bound to Google's token endpoint. invalid_params when the id is not a Google client id; unavailable while the vault is locked and a secret is given. A client set in config.json or the environment wins and is refused with conflict.",
   }),
   "connectors.status": defineMethod({
     params: Type.Object({ connectorId: Id }),

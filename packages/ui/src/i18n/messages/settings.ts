@@ -2610,6 +2610,19 @@ export const settings = {
   "settings.connect.noSignIn": "the Gateway didn't return a sign-in page",
   "settings.connect.notConfigured":
     "{name} isn't set up on this Gateway yet: it needs your own OAuth client (the Connecting Google guide in Psyche's docs). Set it up later in Settings → Connectors & sources.",
+  "settings.googleClient.using": "Using your Google client {clientId}.",
+  "settings.googleClient.fromConfig": "It's set in config.json or the environment.",
+  "settings.googleClient.change": "Use a different client",
+  "settings.googleClient.help":
+    "Psyche has no Google client of its own. Create a free Desktop-app OAuth client in your own Google Cloud project once, then paste its ID here.",
+  "settings.googleClient.docs": "How to create one",
+  "settings.googleClient.id": "Client ID",
+  "settings.googleClient.idHint": "Ends in .apps.googleusercontent.com",
+  "settings.googleClient.invalid":
+    "That isn't a Google client ID. It ends in .apps.googleusercontent.com.",
+  "settings.googleClient.secret": "Client secret",
+  "settings.googleClient.secretHint": "Kept in your vault and only ever sent to Google.",
+  "settings.googleClient.saveFailed": "Couldn't save the Google client: {reason}",
   "settings.connect.alreadyConnected": "{name} is already connected.",
   "settings.connect.needsPermission":
     "{name} is set up, but macOS has not allowed it yet. Allow it in",

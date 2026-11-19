@@ -191,6 +191,11 @@ export interface MockWorld {
   modelProbes?: Record<string, EndpointProbe>;
   /** `connectors.connect` behaviour: "unavailable" answers not_implemented (#505). */
   connectorConnect?: "unavailable" | "not_configured";
+  /**
+   * `connectors.googleClient`: the owner's Google OAuth client. Absent: set in config.json (so
+   * Connect works as before); `null`: not set up yet.
+   */
+  googleClient?: { clientId: string; hasSecret: boolean; source: "app" | "config" } | null;
   /** macOS grant for the Apple connectors (#549); default granted. */
   appleGrant?: "granted" | "denied" | "notDetermined";
   /** `connectors.catalogue`; absent → the fixture catalogue (accounts and the Apple apps). */
@@ -2946,6 +2951,38 @@ export class MockGateway implements GatewayClient {
       if (c.type !== "custom") fail("invalid_params", "only a custom connector can be removed");
       this.world.connectors = this.world.connectors.filter((x) => x.id !== c.id);
       return { ok: true as const };
+    },
+    "connectors.googleClient": () => {
+      const c = this.world.googleClient;
+      if (c === undefined)
+        return {
+          configured: true,
+          clientId: "1234567890-abc.apps.googleusercontent.com",
+          hasSecret: false,
+          source: "config" as const,
+        };
+      return c === null
+        ? { configured: false, hasSecret: false, source: null }
+        : { configured: true, clientId: c.clientId, hasSecret: c.hasSecret, source: c.source };
+    },
+    "connectors.googleClient.set": (p) => {
+      if (this.world.googleClient?.source === "config")
+        throw new PsycheError("conflict", "The Google client is set in config.json", {
+          details: { reason: "client_from_config" },
+        });
+      this.world.googleClient = {
+        clientId: p.clientId,
+        hasSecret: p.clientSecret !== undefined,
+        source: "app",
+      };
+      return {
+        status: {
+          configured: true,
+          clientId: p.clientId,
+          hasSecret: p.clientSecret !== undefined,
+          source: "app" as const,
+        },
+      };
     },
     "connectors.catalogue": () => ({ entries: this.world.catalogue ?? connectorCatalogue() }),
     "connectors.configure": (p) => {

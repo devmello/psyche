@@ -49,6 +49,8 @@ const INTERNAL_SEALED = new Set([
   "_presence.helperKeys",
   "_lan.networks",
   "_payments.linkCli",
+  // Decides which OAuth app receives the owner's Google consent.
+  "_connectors.googleClient",
   "_payments.linkAbandonedBefore",
 ]);
 

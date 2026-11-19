@@ -195,6 +195,9 @@ export const zh: Partial<Catalogue> = {
   "errors.timeout": "Psyche 响应超时。",
   "errors.cancelled": "已取消。",
   "errors.reason.vault_removal_pending": "请先解锁保管库以完成旧服务器的移除，然后重试。",
+  "errors.reason.connected_with_other_client":
+    "Google 已通过另一个客户端连接。请先断开 Google，再更改客户端。",
+  "errors.reason.secret_required": "不同的客户端需要它自己的客户端密钥。",
   "errors.reason.updating": "Psyche 即将重启以安装更新，请稍后再试。",
   "errors.unavailable": "Psyche 目前无法执行该操作。",
   "errors.approval_required": "此操作需要先获得你的批准。",
@@ -2419,6 +2422,19 @@ export const zh: Partial<Catalogue> = {
   "settings.connect.noSignIn": "Gateway 未返回登录页面",
   "settings.connect.notConfigured":
     "此 Gateway 上尚未设置 {name}：它需要你自己的 OAuth 客户端（见 Psyche 文档中的“连接 Google”指南）。稍后可在“设置 → 连接器”中设置。",
+  "settings.googleClient.using": "正在使用你的 Google 客户端 {clientId}。",
+  "settings.googleClient.fromConfig": "它在 config.json 或环境变量中设置。",
+  "settings.googleClient.change": "使用其他客户端",
+  "settings.googleClient.help":
+    "Psyche 没有自己的 Google 客户端。请在你自己的 Google Cloud 项目中创建一次免费的桌面应用 OAuth 客户端，然后把它的 ID 粘贴到这里。",
+  "settings.googleClient.docs": "如何创建",
+  "settings.googleClient.id": "客户端 ID",
+  "settings.googleClient.idHint": "以 .apps.googleusercontent.com 结尾",
+  "settings.googleClient.invalid":
+    "这不是 Google 客户端 ID。它以 .apps.googleusercontent.com 结尾。",
+  "settings.googleClient.secret": "客户端密钥",
+  "settings.googleClient.secretHint": "保存在你的保险库中，只会发送给 Google。",
+  "settings.googleClient.saveFailed": "无法保存 Google 客户端：{reason}",
   "settings.connect.alreadyConnected": "{name} 已经连接。",
   "settings.connect.needsPermission": "{name} 已设置，但 macOS 尚未允许它。请在以下位置允许：",
   "settings.connect.openSystemSettings": "打开系统设置",

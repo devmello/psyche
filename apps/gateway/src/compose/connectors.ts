@@ -61,6 +61,7 @@ import type { Gateway } from "../server.ts";
 import { createChangeRecorder } from "./changes.ts";
 import { connectorMatrixSync } from "./connector-matrix.ts";
 import { fetchLimit, taskOrigins } from "./fetch-origins.ts";
+import { googleClientStore } from "./google-client.ts";
 import { indexedConnectorLibrary } from "./library.ts";
 import { type MailCredentials, mailCredentials } from "./mail-credentials.ts";
 import { protectedRoots } from "./protected-paths.ts";
@@ -354,9 +355,24 @@ export function composeConnectors(
   }
   // #505: connect returns at once; an OAuth sign-in comes back pending with its consent page and
   // finishes as connectors.updated. The UI never shows Connected before tokens are stored.
-  const googleDefaults = setup.google ?? {};
-  const googleConfigured =
-    typeof googleDefaults.clientId === "string" && googleDefaults.clientId !== "";
+  const googleClient = googleClientStore(
+    services,
+    setup.google ?? {},
+    async (call, kind, data) => {
+      await services.audit
+        .append({
+          kind,
+          actor: { type: "device", deviceId: call.identity.deviceId },
+          data: data as never,
+        })
+        .catch(() => undefined);
+    },
+    async () =>
+      (await registry.list())
+        .filter((r) => r.type === "google" && r.status !== "disconnected")
+        .map((r) => (typeof r.config.clientId === "string" ? r.config.clientId : undefined)),
+  );
+  Object.assign(handlers, googleClient.handlers);
   handlers["connectors.connect"] = {
     run: async (_call: Call, params: never) => {
       const p = (params ?? {}) as {
@@ -368,17 +384,16 @@ export function composeConnectors(
       };
       let config = p.config ?? {};
       if (p.catalogueId === "google") {
+        const defaults = googleClient.resolve();
         config = {
-          ...(googleDefaults.clientId === undefined ? {} : { clientId: googleDefaults.clientId }),
-          ...(googleDefaults.clientSecret === undefined
-            ? {}
-            : { clientSecret: googleDefaults.clientSecret }),
+          ...(defaults.clientId === undefined ? {} : { clientId: defaults.clientId }),
+          ...(defaults.clientSecret === undefined ? {} : { clientSecret: defaults.clientSecret }),
           ...config,
         };
         if (typeof config.clientId !== "string" || config.clientId === "") {
           throw new PsycheError(
             "unavailable",
-            "Google is not set up on this Gateway: add your OAuth client id (docs/guides/connectors-google.md)",
+            "Google is not set up yet: paste your OAuth client id in Settings → Connectors (docs/guides/connectors-google.md)",
             { details: { reason: "not_configured", guide: "docs/guides/connectors-google.md" } },
           );
         }
@@ -405,7 +420,7 @@ export function composeConnectors(
         .map((e) => ({
           ...e,
           available: e.available && implemented.has(e.id),
-          ...(e.id === "google" ? { configured: googleConfigured } : {}),
+          ...(e.id === "google" ? { configured: googleClient.status().configured } : {}),
         })),
     }),
   };

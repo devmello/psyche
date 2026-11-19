@@ -197,6 +197,9 @@ export const ar: Partial<Catalogue> = {
   "errors.cancelled": "تم إلغاؤه.",
   "errors.reason.vault_removal_pending":
     "افتح قفل الخزنة لإكمال إزالة الخادم القديم، ثم حاول مرة أخرى.",
+  "errors.reason.connected_with_other_client":
+    "Google متصل بعميل آخر. افصل Google أولًا ثم غيّر العميل.",
+  "errors.reason.secret_required": "يحتاج العميل المختلف إلى سر عميل خاص به.",
   "errors.reason.updating": "سيعيد Psyche التشغيل الآن لتثبيت تحديث. حاول مرة أخرى بعد لحظة.",
   "errors.unavailable": "لا يستطيع Psyche القيام بذلك الآن.",
   "errors.approval_required": "يحتاج هذا إلى موافقتك أولًا.",
@@ -2499,6 +2502,19 @@ export const ar: Partial<Catalogue> = {
   "settings.connect.noSignIn": "لم يُرجع Gateway صفحة تسجيل دخول",
   "settings.connect.notConfigured":
     "لم يُعدّ {name} على Gateway هذا بعد: يحتاج إلى عميل OAuth خاص بك (دليل ربط Google في وثائق Psyche). أعدّه لاحقًا في الإعدادات ← الموصّلات.",
+  "settings.googleClient.using": "يتم استخدام عميل Google الخاص بك {clientId}.",
+  "settings.googleClient.fromConfig": "تم تعيينه في config.json أو في متغيرات البيئة.",
+  "settings.googleClient.change": "استخدام عميل آخر",
+  "settings.googleClient.help":
+    "ليس لدى Psyche عميل Google خاص به. أنشئ مرة واحدة عميل OAuth مجانيًا من نوع تطبيق سطح المكتب في مشروع Google Cloud الخاص بك، ثم الصق معرّفه هنا.",
+  "settings.googleClient.docs": "كيفية إنشائه",
+  "settings.googleClient.id": "معرّف العميل",
+  "settings.googleClient.idHint": "ينتهي بـ .apps.googleusercontent.com",
+  "settings.googleClient.invalid":
+    "هذا ليس معرّف عميل Google. يجب أن ينتهي بـ .apps.googleusercontent.com.",
+  "settings.googleClient.secret": "سر العميل",
+  "settings.googleClient.secretHint": "يُحفظ في خزنتك ولا يُرسل إلا إلى Google.",
+  "settings.googleClient.saveFailed": "تعذّر حفظ عميل Google: {reason}",
   "settings.connect.alreadyConnected": "{name} متصل بالفعل.",
   "settings.connect.needsPermission": "{name} مُعَدّ، لكن macOS لم يسمح به بعد. اسمح به في",
   "settings.connect.openSystemSettings": "فتح إعدادات النظام",
