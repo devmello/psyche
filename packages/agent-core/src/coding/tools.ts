@@ -15,6 +15,7 @@ import {
 } from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "../registry.ts";
+import { assertContained } from "./contain.ts";
 import {
   BRANCH_PATTERN,
   capOutput,
@@ -323,6 +324,8 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
     async run(p, ctx) {
       const ws = workspace(ctx, p.root, "read");
       const full = resolveInRoot(ws.root, p.path);
+      // By its real path too: a link in the repository never reads outside it.
+      await assertContained(ws.root, full);
       const file = await readWhole(full, ctx);
       const lines = file.text === "" ? [] : file.text.replace(/\n$/, "").split("\n");
       const start = p.start_line ?? 1;
@@ -412,6 +415,7 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
       for (const f of patches) {
         cancelled(ctx);
         const full = resolveInRoot(ws.root, f.path);
+        await assertContained(ws.root, full);
         if (isGitInternal(ws.root, full)) {
           throw new PsycheError(
             "forbidden",
@@ -456,6 +460,7 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
             );
           }
         }
+        await assertContained(ws.root, f.full);
         await runFile(deps.files.write, { path: f.full, content: f.after }, ctx);
         written.push({
           path: f.rel,
@@ -600,10 +605,21 @@ function runTool(
       const ws = workspace(ctx, p.root, "write");
       // The command's cwd must be the repository or a folder in it.
       const hostCwd = resolveInRoot(ws.root, p.cwd ?? ".");
+      await assertContained(ws.root, hostCwd);
       const network = p.network ?? "none";
       const scope = sandboxScopeOf(ws, network);
+      // `.git` is mounted by its host path, which the runtime resolves on the host: a link there
+      // (one a run planted in a folder without git) would mount whatever it points at.
       const gitDir = await lstat(`${ws.root}/.git`).then(
-        () => true,
+        (st) => {
+          if (st.isSymbolicLink()) {
+            throw new PsycheError(
+              "forbidden",
+              `${ws.root}/.git is a symlink; code.run never mounts it`,
+            );
+          }
+          return true;
+        },
         () => false,
       );
       const sandbox = await runner.ensureSandbox(scope, {
@@ -804,7 +820,13 @@ function gitTool(
       });
       if (p.op === "status") return ok({ ...(await gitStatus(runner, root, sig)) });
       if (p.op === "diff") {
-        const paths = (p.paths ?? []).map((x) => relativeTo(root, resolveInRoot(root, x)));
+        const paths: string[] = [];
+        for (const x of p.paths ?? []) {
+          const full = resolveInRoot(root, x);
+          // Git takes a link as a link, never through one: only the last part may be a link.
+          await assertContained(root, full, { finalLink: "allow" });
+          paths.push(relativeTo(root, full));
+        }
         const out = await gitOk(
           runner,
           root,
@@ -845,11 +867,13 @@ function gitTool(
         return ok({ commits });
       }
       if (p.op === "commit") {
-        const paths = (p.paths ?? ["."]).map((x) => {
+        const paths: string[] = [];
+        for (const x of p.paths ?? ["."]) {
           const full = resolveInRoot(root, x);
           if (isGitInternal(root, full)) throw new PsycheError("forbidden", `${x} is inside .git`);
-          return relativeTo(root, full);
-        });
+          await assertContained(root, full, { finalLink: "allow" });
+          paths.push(relativeTo(root, full));
+        }
         await gitOk(runner, root, ["add", "--all", "--", ...paths], sig);
         const staged = await git(runner, root, ["diff", "--cached", "--quiet"], sig);
         if (staged.exitCode === 0) throw new PsycheError("conflict", "nothing to commit");

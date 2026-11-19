@@ -1,7 +1,9 @@
 import { constants, type Dirent } from "node:fs";
-import { open, readdir } from "node:fs/promises";
+import { open, readdir, realpath } from "node:fs/promises";
 import { join } from "node:path";
+import { sameHostPath } from "@psyche/hostfs";
 import { PsycheError } from "@psyche/protocol";
+import { assertContained } from "./contain.ts";
 import { relativeTo } from "./workspace.ts";
 
 /** `code.search` bounds: files read, bytes per file, folder depth, hits, characters per hit. */
@@ -105,7 +107,28 @@ async function readSmall(path: string): Promise<Buffer | undefined> {
   }
 }
 
-/** ripgrep-style search over a workspace: sorted walk, no symlinks, no binaries. */
+/**
+ * A folder of the walk is still its own real path. Checked after it is listed and again after its
+ * files are read: a folder swapped for a link meanwhile ends the search with nothing returned.
+ */
+async function assertStillReal(dir: string): Promise<void> {
+  const real = await realpath(dir).catch(() => undefined);
+  if (real === undefined || !sameHostPath(real, dir)) {
+    throw new PsycheError(
+      "forbidden",
+      `${dir} moved or became a symlink during the search; search again`,
+      {
+        details: { reason: "symlink_escape" },
+      },
+    );
+  }
+}
+
+/**
+ * ripgrep-style search over a workspace: sorted walk, no symlinks, no binaries. The folder to
+ * search must be inside the root by its real path, with no link on the way (`contain.ts`); the
+ * walk never descends into a linked folder or opens a linked file.
+ */
 export async function searchCode(input: CodeSearchInput): Promise<CodeSearchResult> {
   let re: RegExp;
   if (input.regex && riskyRegex(input.pattern)) {
@@ -122,12 +145,15 @@ export async function searchCode(input: CodeSearchInput): Promise<CodeSearchResu
   } catch (err) {
     throw new PsycheError("invalid_params", `pattern: ${(err as Error).message}`);
   }
+  await assertContained(input.root, input.dir);
   const include = input.globs.filter((g) => !g.startsWith("!")).map(globToRegExp);
   const exclude = input.globs.filter((g) => g.startsWith("!")).map((g) => globToRegExp(g.slice(1)));
   const matches: CodeSearchResult["matches"] = [];
   let files = 0;
   let truncated = false;
   const queue: { dir: string; depth: number }[] = [{ dir: input.dir, depth: 0 }];
+  /** The folder whose files are being read, re-checked when the walk leaves it (`break` too). */
+  let reading: string | undefined;
   walk: while (queue.length > 0) {
     const { dir, depth } = queue.shift() as { dir: string; depth: number };
     let entries: Dirent[];
@@ -138,6 +164,8 @@ export async function searchCode(input: CodeSearchInput): Promise<CodeSearchResu
         throw new PsycheError("not_found", `${dir}: ${(err as Error).message}`);
       continue;
     }
+    await assertStillReal(dir);
+    reading = dir;
     entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     for (const e of entries) {
       if (input.signal?.aborted) throw new PsycheError("cancelled", "cancelled");
@@ -176,6 +204,9 @@ export async function searchCode(input: CodeSearchInput): Promise<CodeSearchResu
         }
       }
     }
+    await assertStillReal(dir);
+    reading = undefined;
   }
+  if (reading !== undefined) await assertStillReal(reading);
   return { matches, filesSearched: files, truncated };
 }
