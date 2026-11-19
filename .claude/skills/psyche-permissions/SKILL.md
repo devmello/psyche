@@ -5,7 +5,7 @@ description: Changing Psyche's permissions, approvals and trust code. Covers the
 
 # Permissions, approvals and classifiers
 
-Every PR here gets an independent security review. In the five PRs of 2026-11-09, the three in this area needed 2 to 5 fix rounds each (#1299, #1300, #1301). The traps below caused most of those rounds. Read them before the first edit.
+Every PR here gets an independent security review. #1299, #1300, #1301 and #1354 needed 2 to 5 fix rounds each. The traps below caused most of those rounds. Read them before the first edit.
 
 ## Where things live
 
@@ -62,6 +62,18 @@ This covers any rule that sorts inputs into "asks" and "doesn't ask": money-inte
 - **Validate what the tool will resolve, not what encloses it.** #1329 B2 checked the enclosing repo, not the repo git actually resolves (`-C`, `GIT_DIR`, alternates, submodules). Resolve first, then check that result.
 - **Every new action path gets checked against every existing prohibition.** #1315's purchase tool skipped #1321's hard block. When a PR adds a tool, route or channel that can act, list the prohibitions (money block, outbound check, read-only allowlist, presence) and add a test per prohibition through the new path.
 - **Presence stays payments-only.** #1327's agent search popped a vault unlock. Reads and searches never trigger Touch ID or a vault prompt.
+
+## 3c. Redacted reads, "is this narrower?" checks, receipts
+
+- **Redacted reads must not round-trip into writes.** When a getter redacts (env values, URL tokens, OAuth fields, bearer credentials), the raw setter for the same key must refuse, or merge-preserve every stored secret for existing ids. #1351 B1: `settings.get mcp.servers` then `settings.set` with the same value wiped secrets on every entry, and a one-field toggle did the same. Test it: get, set the same value, stored value unchanged. Check the CLI (`psyche config`) and `useSettings().set` too.
+- **A pure "is this narrower?" check must model how the engine resolves.** #1354 took three rounds (the orchestrator fixed r2). Probe through the real `decide()`, not only the pure function. Cover:
+  - longest-root folder matching, including session folder grants the check can't see, so removing a `ro` child under an `rw` parent widens;
+  - first-match order for `sites` and `apps`, and make sure the order check runs when order is the only change (an early `same()` skip hid it);
+  - `canonicalPath`, not raw strings;
+  - `compilePolicy` vs `parsePolicy`;
+  - settings nothing reads.
+  When in doubt, show the card.
+- **Match receipts to approvals by grant or approval id, never by kind and task.** Connector receipts carry `tool.action` kinds (`gmail.send`) and no `taskId`, so a kind+task match reports a successful action as failed (#1358 B1).
 
 ## 4. Trust that moves to a new path or file
 
