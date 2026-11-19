@@ -726,7 +726,7 @@ describe("follow-ups: only this automation's own run of this very action counts"
     expect(h.resume.pending()).toEqual([]);
   });
 
-  it("another action through the grant in the automation's resume run: not_reached", async () => {
+  it("another action through the grant in the automation's resume run: not reached, kept wording", async () => {
     const h = setup([NOTES, OTHER], { standing: true });
     const tok = tokens(h);
     const a = await h.scheduler.create(automation);
@@ -737,6 +737,31 @@ describe("follow-ups: only this automation's own run of this very action counts"
     await h.settle();
     // The resume run did another write under the same grant, with its own ok receipt.
     expect(h.written).toEqual([OTHER]);
+    // Not reached; the `always` grant stays, so the next run does it without asking.
+    expect(await missed(h)).toEqual(["not_reached_kept"]);
+    const n = (await h.notifier.list()).find(
+      (x) => x.message?.titleKey === RESUME_MISSED_TITLE_KEY,
+    );
+    expect(n?.body).toMatch(/did not reach the same action/);
+    expect(n?.body).toMatch(/permission you gave stays/);
+    expect(n?.body).toMatch(/Standing permissions/);
+    expect(n?.body).not.toMatch(/ask again/);
+  });
+
+  it("a once approval not reached by its resume run: not_reached, it will ask again", async () => {
+    const h = setup([NOTES, OTHER, OTHER]);
+    const tok = tokens(h);
+    const a = await h.scheduler.create(automation);
+    await h.scheduler.trigger(a.id);
+    await h.settle();
+    const card = await h.issued();
+    await h.approve(card.id, tok.get(card.id) ?? "", "once");
+    await h.settle();
     expect(await missed(h)).toEqual(["not_reached"]);
+    const n = (await h.notifier.list()).find(
+      (x) => x.message?.titleKey === RESUME_MISSED_TITLE_KEY,
+    );
+    expect(n?.body).toMatch(/ask again/);
+    expect(n?.body).not.toMatch(/permission you gave stays/);
   });
 });

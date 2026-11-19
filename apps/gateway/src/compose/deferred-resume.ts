@@ -38,6 +38,8 @@ export interface ResumeScheduler {
 /** Why a promised resume did not do the action (the notice's `why`). */
 export type MissedReason =
   | "not_reached"
+  /** Not reached, but the standing permission the owner gave stays: the next run does it. */
+  | "not_reached_kept"
   | "expired"
   | "paused"
   | "restart"
@@ -109,6 +111,8 @@ const MISSED_BODY: Record<MissedReason, string> = {
   expired: `The approval ran out before the automation reached the action, so nothing was done. ${ASK_AGAIN}`,
   paused: `The automation is paused or was removed, so it did not run again and nothing was done. ${ASK_AGAIN}`,
   restart: `Psyche restarted before the automation could run again, so nothing was done. ${ASK_AGAIN}`,
+  not_reached_kept:
+    "The automation ran again but did not reach the same action, so nothing was done. The permission you gave stays, so its next run will do this without asking. To take it back, revoke it under Standing permissions in Approvals.",
   restart_kept:
     "Psyche restarted before the automation could run again. The permission you gave stays, so its next run will do this without asking. To take it back, revoke it under Standing permissions in Approvals.",
   failed: `The automation ran the action again, but it failed. See Activity for what went wrong. ${ASK_AGAIN}`,
@@ -126,6 +130,7 @@ const KEPT_SCOPES: ReadonlySet<string> = new Set(["always", "site"]);
  * ask again". A task grant ends with its task and a session grant with a restart.
  */
 const KEPT: Partial<Record<MissedReason, MissedReason>> = {
+  not_reached: "not_reached_kept",
   restart: "restart_kept",
   failed: "failed_kept",
 };
