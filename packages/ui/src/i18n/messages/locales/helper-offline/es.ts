@@ -9,4 +9,9 @@ export const helperOffline: Partial<Catalogue> = {
   "platform.helper.contactsPermission":
     "Los contactos necesitan permiso para el Helper de Psyche en Ajustes del Sistema.",
   "platform.helper.offline.dismiss": "Descartar",
+  "platform.helper.choose.title": "Hay dos Psyche Helper conectados",
+  "platform.helper.choose.text":
+    "Psyche no adivina cuál se ejecuta en este ordenador, así que Mail, Notas, Calendario y Recordatorios están en pausa. Elige el que quieres usar.",
+  "platform.helper.choose.use": "Usar {name}",
+  "platform.helper.choose.failed": "No se pudo elegir el asistente: {reason}",
 };

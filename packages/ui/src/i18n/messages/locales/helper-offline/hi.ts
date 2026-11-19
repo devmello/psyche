@@ -8,4 +8,9 @@ export const helperOffline: Partial<Catalogue> = {
   "platform.helper.offline.reconnect": "फिर से कनेक्ट करें",
   "platform.helper.contactsPermission": "संपर्कों के लिए सिस्टम सेटिंग्स में Psyche Helper को अनुमति चाहिए।",
   "platform.helper.offline.dismiss": "बंद करें",
+  "platform.helper.choose.title": "दो Psyche Helper जुड़े हैं",
+  "platform.helper.choose.text":
+    "Psyche अंदाज़ा नहीं लगाएगा कि इस कंप्यूटर पर कौन-सा चल रहा है, इसलिए Mail, Notes, Calendar और Reminders रुके हैं। जिसे इस्तेमाल करना है उसे चुनें।",
+  "platform.helper.choose.use": "{name} इस्तेमाल करें",
+  "platform.helper.choose.failed": "हेल्पर चुना नहीं जा सका: {reason}",
 };

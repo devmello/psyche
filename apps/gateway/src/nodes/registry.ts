@@ -1,4 +1,5 @@
 import {
+  getDevice,
   getNodeByDevice,
   getSetting,
   listNodes,
@@ -68,7 +69,7 @@ export function nodeKindOf(identity: PairedIdentity, params: ConnectParams): Nod
  */
 export const HOST_HELPER_PIN_SETTING = "devices.hostHelperDeviceId";
 /**
- * Written by the Gateway: `{ ambiguous, helpers, peerCheck?, peerCheckReason?, refused? }`, so the
+ * Written by the Gateway: `{ ambiguous, helpers, candidates?, peerCheck?, peerCheckReason?, refused? }`, so the
  * app can say why Host features are off. `peerCheck` (Linux only, additive) is what the
  * accept-time peer check found
  * for the Host helper in use: absent when there is no single helper or no check ran.
@@ -112,6 +113,10 @@ export class NodeRegistry {
   #ambiguous = false;
   /** The `peerCheck` last published in `devices.hostHelper.status`. */
   #publishedPeerCheck: string | undefined;
+  /** The ambiguous helpers last published, so a third helper (or the pin) republishes. */
+  #publishedCandidates = "";
+  /** Told after every attach, detach or pin change, so a listener follows the helper at once. */
+  readonly #changeListeners = new Set<() => void>();
   readonly #invocations = new Map<string, Invocation>();
 
   constructor(ctx: GatewayContext) {
@@ -173,6 +178,7 @@ export class NodeRegistry {
     });
     bus.publish("node.updated", { node: info });
     this.#syncHostHelperStatus();
+    this.#notifyChange();
     return info;
   }
 
@@ -191,6 +197,50 @@ export class NodeRegistry {
       if (node) this.#ctx.bus.publish("node.updated", { node });
     }
     this.#syncHostHelperStatus();
+    this.#notifyChange();
+  }
+
+  /**
+   * Calls `listener` after every change to the set of live nodes or to the pinned helper, so the
+   * helper's availability follows connect and disconnect directly instead of being polled by the
+   * next job or search. Returns the unsubscribe.
+   */
+  onHostHelperChange(listener: () => void): () => void {
+    this.#changeListeners.add(listener);
+    return () => this.#changeListeners.delete(listener);
+  }
+
+  #notifyChange(): void {
+    for (const l of [...this.#changeListeners]) {
+      try {
+        l();
+      } catch (err) {
+        this.#ctx.log.log("warn", "host helper listener failed", {
+          code: PsycheError.from(err).code,
+        });
+      }
+    }
+  }
+
+  /** The owner changed `devices.hostHelperDeviceId`: re-evaluate the ambiguity and tell listeners. */
+  refreshHostHelper(): void {
+    this.#syncHostHelperStatus();
+    this.#notifyChange();
+  }
+
+  /**
+   * The live Host helpers the Gateway refuses to choose between: more than one, and none pinned
+   * (or the pin names none of them). Empty otherwise. Names are the device names the owner sees
+   * in Settings → Devices, so the notice can say which is which.
+   */
+  ambiguousHelpers(): { deviceId: string; nodeId: string; name: string }[] {
+    const live = this.#liveHostHelpers();
+    if (live.length <= 1 || this.#soleHostHelper() !== undefined) return [];
+    return live.map((e) => ({
+      deviceId: e.info.deviceId,
+      nodeId: e.info.id,
+      name: getDevice(this.#ctx.db, e.info.deviceId)?.name ?? e.info.deviceId,
+    }));
   }
 
   #failInvocations(connId: string, message: string): void {
@@ -222,7 +272,8 @@ export class NodeRegistry {
     peerCheck?: PeerCheck;
     peerCheckReason?: string;
   }[] {
-    return [...this.#live.values()].filter((e) => e.host);
+    // A connection that already closed is not a helper, even if its detach has not run yet.
+    return [...this.#live.values()].filter((e) => e.host && e.conn.open);
   }
 
   /** The pinned Host helper's device id (`HOST_HELPER_PIN_SETTING`), when one is set. */
@@ -279,18 +330,36 @@ export class NodeRegistry {
     const peerCheck = sole?.peerCheck;
     const peerCheckReason = sole?.peerCheckReason;
     const publishedKey = `${peerCheck ?? ""}:${peerCheckReason ?? ""}`;
-    if (ambiguous === this.#ambiguous && publishedKey === this.#publishedPeerCheck) return;
+    const candidates = this.ambiguousHelpers();
+    const candidatesKey = candidates
+      .map((c) => c.deviceId)
+      .sort()
+      .join(",");
+    if (
+      ambiguous === this.#ambiguous &&
+      publishedKey === this.#publishedPeerCheck &&
+      candidatesKey === this.#publishedCandidates
+    ) {
+      return;
+    }
     const ambiguityChanged = ambiguous !== this.#ambiguous;
     this.#ambiguous = ambiguous;
     this.#publishedPeerCheck = publishedKey;
-    if (ambiguous && ambiguityChanged) {
+    this.#publishedCandidates = candidatesKey;
+    if (ambiguous) {
       this.#ctx.log.log("warn", "host helper ambiguous: more than one helper on the node socket", {
         helpers: live.length,
+        devices: candidates.map((c) => `${c.name} (${c.deviceId})`).join(", "),
       });
+    } else if (ambiguityChanged) {
+      this.#ctx.log.log("info", "host helper ambiguity resolved", { helpers: live.length });
     }
     const entry = setSetting(this.#ctx.db, HOST_HELPER_STATUS_SETTING, {
       ambiguous,
       helpers: live.length,
+      ...(candidates.length === 0
+        ? {}
+        : { candidates: candidates.map((c) => ({ deviceId: c.deviceId, name: c.name })) }),
       ...(peerCheck === undefined ? {} : { peerCheck }),
       ...(peerCheckReason === undefined ? {} : { peerCheckReason }),
     });

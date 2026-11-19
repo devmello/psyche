@@ -6,6 +6,7 @@ import { isAdminSettingKey, PsycheError } from "@psyche/protocol";
 import { folderAccessEnv } from "../compose/protected-paths.ts";
 import type { Call, HandlerDef } from "../context.ts";
 import { LAN_SETTING, parseLanSettings } from "../lan/settings.ts";
+import { HOST_HELPER_PIN_SETTING } from "../nodes/registry.ts";
 import { requireFreshPresence } from "../presence-gate.ts";
 import { redactMcpServers } from "../redact.ts";
 import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
@@ -207,6 +208,8 @@ export const settingsHandlers: Record<string, HandlerDef> = {
           });
         }
       }
+      // Pinning (or unpinning) the Host helper settles or reopens an ambiguity at once.
+      if (key === HOST_HELPER_PIN_SETTING) call.ctx.nodes.refreshHostHelper();
       const stateVersion = call.ctx.bus.bumpStateVersion();
       call.emit("settings.changed", { entries: [entry] });
       return {

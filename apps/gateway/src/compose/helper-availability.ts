@@ -17,6 +17,12 @@ export interface HelperAvailabilityStatus {
   retryAt: number;
   /** The helper answered the Contacts read with a missing-permission refusal (System Settings). */
   contactsDenied: boolean;
+  /**
+   * Two or more Host helpers are connected and none is pinned: Host features are off because
+   * Psyche will not guess between them (not because no helper is running). Empty otherwise. The
+   * app names them and offers "use this one" (`devices.hostHelperDeviceId`).
+   */
+  ambiguous: { deviceId: string; name: string }[];
 }
 
 export interface HelperAvailabilityOptions {
@@ -49,6 +55,7 @@ export class HelperAvailability {
   #failures = 0;
   #retryAt = 0;
   #contactsDenied = false;
+  #ambiguous: { deviceId: string; name: string }[] = [];
   readonly #now: () => number;
   readonly #log: NonNullable<HelperAvailabilityOptions["log"]>;
   readonly #baseMs: number;
@@ -70,6 +77,7 @@ export class HelperAvailability {
       failures: this.#failures,
       retryAt: this.#retryAt,
       contactsDenied: this.#contactsDenied,
+      ambiguous: this.#ambiguous.map((a) => ({ ...a })),
     };
   }
 
@@ -121,6 +129,16 @@ export class HelperAvailability {
   setContactsDenied(denied: boolean): void {
     if (denied === this.#contactsDenied) return;
     this.#contactsDenied = denied;
+    this.#changed();
+  }
+
+  /** The helpers Psyche refuses to choose between (empty when there is no such conflict). */
+  setAmbiguous(helpers: { deviceId: string; name: string }[]): void {
+    const same =
+      helpers.length === this.#ambiguous.length &&
+      helpers.every((h, i) => h.deviceId === this.#ambiguous[i]?.deviceId);
+    if (same) return;
+    this.#ambiguous = helpers.map((h) => ({ deviceId: h.deviceId, name: h.name }));
     this.#changed();
   }
 
