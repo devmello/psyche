@@ -1565,7 +1565,8 @@ export const fr: Partial<Catalogue> = {
     "Aucun canal pour l’instant. Connectez Telegram, iMessage ou Slack pour joindre {persona} loin de ce Mac.",
   "settings.channels.add.button": "Ajouter un canal",
   "settings.channels.add.title": "Ajouter un canal",
-  "settings.channels.add.description": "Choisissez où joindre {persona}. Les jetons vont directement dans le coffre et ne sont plus jamais affichés.",
+  "settings.channels.add.description":
+    "Choisissez où joindre {persona}. Les jetons vont directement dans le coffre et ne sont plus jamais affichés.",
   "settings.channels.add.type": "Canal",
   "settings.channels.add.account.slack": "Nom de l'espace de travail",
   "settings.channels.add.account.discord": "ID de l'application",
@@ -1577,12 +1578,15 @@ export const fr: Partial<Catalogue> = {
   "settings.channels.add.secret.access_token": "Jeton d'accès",
   "settings.channels.add.secret.app_secret": "Secret de l'application",
   "settings.channels.add.secret.verify_token": "Jeton de vérification",
-  "settings.channels.add.otherTypes": "Telegram, iMessage, Signal et l'e-mail se configurent là où tourne la Gateway. Voir la documentation des canaux.",
+  "settings.channels.add.otherTypes":
+    "Telegram, iMessage, Signal et l'e-mail se configurent là où tourne la Gateway. Voir la documentation des canaux.",
   "settings.channels.add.submit": "Connecter",
   "settings.channels.add.connecting": "Connexion",
   "settings.channels.add.missing": "Remplissez tous les champs pour connecter.",
-  "settings.channels.add.failed": "Psyche n'a pas pu ajouter le canal ({reason}). Il n'est pas activé.",
-  "settings.channels.add.added": "Canal ajouté. Écrivez à {persona} depuis ce canal pour obtenir un code d'appairage, puis approuvez-le ici.",
+  "settings.channels.add.failed":
+    "Psyche n'a pas pu ajouter le canal ({reason}). Il n'est pas activé.",
+  "settings.channels.add.added":
+    "Canal ajouté. Écrivez à {persona} depuis ce canal pour obtenir un code d'appairage, puis approuvez-le ici.",
   "settings.channels.identities": "Liens d’identité",
   "settings.channels.identitiesDescription":
     "Une même personne sur plusieurs canaux. Les liens ne changent que depuis un appareil jumelé.",

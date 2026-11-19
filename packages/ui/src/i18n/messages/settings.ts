@@ -887,7 +887,8 @@ export const settings = {
     "No channels yet. Connect Telegram, iMessage or Slack to reach {persona} away from this Mac.",
   "settings.channels.add.button": "Add a channel",
   "settings.channels.add.title": "Add a channel",
-  "settings.channels.add.description": "Choose where {persona} can be reached. Tokens go straight to the vault and are never shown again.",
+  "settings.channels.add.description":
+    "Choose where {persona} can be reached. Tokens go straight to the vault and are never shown again.",
   "settings.channels.add.type": "Channel",
   "settings.channels.add.account.slack": "Workspace name",
   "settings.channels.add.account.discord": "Application ID",
@@ -899,12 +900,15 @@ export const settings = {
   "settings.channels.add.secret.access_token": "Access token",
   "settings.channels.add.secret.app_secret": "App secret",
   "settings.channels.add.secret.verify_token": "Verify token",
-  "settings.channels.add.otherTypes": "Telegram, iMessage, Signal and email are set up where the Gateway runs. See the channel docs.",
+  "settings.channels.add.otherTypes":
+    "Telegram, iMessage, Signal and email are set up where the Gateway runs. See the channel docs.",
   "settings.channels.add.submit": "Connect",
   "settings.channels.add.connecting": "Connecting",
   "settings.channels.add.missing": "Fill in every field to connect.",
-  "settings.channels.add.failed": "Psyche couldn't add the channel ({reason}). It is not turned on.",
-  "settings.channels.add.added": "Channel added. Message {persona} from it to get a pairing code, then approve it here.",
+  "settings.channels.add.failed":
+    "Psyche couldn't add the channel ({reason}). It is not turned on.",
+  "settings.channels.add.added":
+    "Channel added. Message {persona} from it to get a pairing code, then approve it here.",
   "settings.channels.identities": "Identity links",
   "settings.channels.identitiesDescription":
     "One person across channels. Links change only from a paired device.",

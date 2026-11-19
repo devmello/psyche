@@ -1586,7 +1586,8 @@ export const zh: Partial<Catalogue> = {
     "还没有渠道。连接 Telegram、iMessage 或 Slack，即可在离开这台 Mac 时联系 {persona}。",
   "settings.channels.add.button": "添加渠道",
   "settings.channels.add.title": "添加渠道",
-  "settings.channels.add.description": "选择可以联系 {persona} 的渠道。令牌会直接存入保险库，不会再次显示。",
+  "settings.channels.add.description":
+    "选择可以联系 {persona} 的渠道。令牌会直接存入保险库，不会再次显示。",
   "settings.channels.add.type": "渠道",
   "settings.channels.add.account.slack": "工作区名称",
   "settings.channels.add.account.discord": "应用 ID",
@@ -1598,12 +1599,14 @@ export const zh: Partial<Catalogue> = {
   "settings.channels.add.secret.access_token": "访问令牌",
   "settings.channels.add.secret.app_secret": "应用密钥",
   "settings.channels.add.secret.verify_token": "验证令牌",
-  "settings.channels.add.otherTypes": "Telegram、iMessage、Signal 和电子邮件需在运行 Gateway 的位置设置。请参阅渠道文档。",
+  "settings.channels.add.otherTypes":
+    "Telegram、iMessage、Signal 和电子邮件需在运行 Gateway 的位置设置。请参阅渠道文档。",
   "settings.channels.add.submit": "连接",
   "settings.channels.add.connecting": "正在连接",
   "settings.channels.add.missing": "请填写所有字段后再连接。",
   "settings.channels.add.failed": "Psyche 无法添加该渠道（{reason}）。它尚未启用。",
-  "settings.channels.add.added": "渠道已添加。请从该渠道给 {persona} 发消息获取配对码，然后在此批准。",
+  "settings.channels.add.added":
+    "渠道已添加。请从该渠道给 {persona} 发消息获取配对码，然后在此批准。",
   "settings.channels.identities": "身份关联",
   "settings.channels.identitiesDescription": "跨渠道识别同一个人。关联只能从已配对的设备更改。",
   "settings.channels.identitiesFailed": "Psyche 无法载入身份关联（{reason}）。",

@@ -1561,7 +1561,8 @@ export const ja: Partial<Catalogue> = {
     "チャンネルはまだありません。Telegram、iMessage、Slackを接続すると、このMacから離れていても{persona}に連絡できます。",
   "settings.channels.add.button": "チャンネルを追加",
   "settings.channels.add.title": "チャンネルを追加",
-  "settings.channels.add.description": "{persona} に連絡できる場所を選びます。トークンは直接保管庫に保存され、再表示されません。",
+  "settings.channels.add.description":
+    "{persona} に連絡できる場所を選びます。トークンは直接保管庫に保存され、再表示されません。",
   "settings.channels.add.type": "チャンネル",
   "settings.channels.add.account.slack": "ワークスペース名",
   "settings.channels.add.account.discord": "アプリケーション ID",
@@ -1573,12 +1574,15 @@ export const ja: Partial<Catalogue> = {
   "settings.channels.add.secret.access_token": "アクセストークン",
   "settings.channels.add.secret.app_secret": "アプリシークレット",
   "settings.channels.add.secret.verify_token": "検証トークン",
-  "settings.channels.add.otherTypes": "Telegram、iMessage、Signal、メールは Gateway が動作する場所で設定します。チャンネルのドキュメントを参照してください。",
+  "settings.channels.add.otherTypes":
+    "Telegram、iMessage、Signal、メールは Gateway が動作する場所で設定します。チャンネルのドキュメントを参照してください。",
   "settings.channels.add.submit": "接続",
   "settings.channels.add.connecting": "接続中",
   "settings.channels.add.missing": "接続するにはすべての項目を入力してください。",
-  "settings.channels.add.failed": "Psyche はチャンネルを追加できませんでした（{reason}）。有効にはなっていません。",
-  "settings.channels.add.added": "チャンネルを追加しました。そこから {persona} にメッセージを送ってペアリングコードを受け取り、ここで承認してください。",
+  "settings.channels.add.failed":
+    "Psyche はチャンネルを追加できませんでした（{reason}）。有効にはなっていません。",
+  "settings.channels.add.added":
+    "チャンネルを追加しました。そこから {persona} にメッセージを送ってペアリングコードを受け取り、ここで承認してください。",
   "settings.channels.identities": "IDの関連付け",
   "settings.channels.identitiesDescription":
     "複数のチャンネルにまたがる同一人物。関連付けはペアリングされたデバイスからのみ変更できます。",

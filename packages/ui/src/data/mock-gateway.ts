@@ -3996,7 +3996,7 @@ export class MockGateway implements GatewayClient {
       const { channelId, approvalId: _approval, ...fields } = p;
       if (channelId === undefined) {
         if (fields.type === undefined || fields.account === undefined) {
-          fail("invalid_params", "a new channel needs a type and an account");
+          return fail("invalid_params", "a new channel needs a type and an account");
         }
         const now = this.now();
         const created: Channel = {

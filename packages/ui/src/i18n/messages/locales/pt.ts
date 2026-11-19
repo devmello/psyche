@@ -1533,7 +1533,8 @@ export const pt: Partial<Catalogue> = {
     "Nenhum canal ainda. Conecte o Telegram, o iMessage ou o Slack para falar com {persona} longe deste Mac.",
   "settings.channels.add.button": "Adicionar um canal",
   "settings.channels.add.title": "Adicionar um canal",
-  "settings.channels.add.description": "Escolha onde {persona} pode ser contatado. Os tokens vão direto para o cofre e nunca são exibidos de novo.",
+  "settings.channels.add.description":
+    "Escolha onde {persona} pode ser contatado. Os tokens vão direto para o cofre e nunca são exibidos de novo.",
   "settings.channels.add.type": "Canal",
   "settings.channels.add.account.slack": "Nome do espaço de trabalho",
   "settings.channels.add.account.discord": "ID do aplicativo",
@@ -1545,12 +1546,15 @@ export const pt: Partial<Catalogue> = {
   "settings.channels.add.secret.access_token": "Token de acesso",
   "settings.channels.add.secret.app_secret": "Segredo do aplicativo",
   "settings.channels.add.secret.verify_token": "Token de verificação",
-  "settings.channels.add.otherTypes": "Telegram, iMessage, Signal e e-mail são configurados onde o Gateway roda. Veja a documentação de canais.",
+  "settings.channels.add.otherTypes":
+    "Telegram, iMessage, Signal e e-mail são configurados onde o Gateway roda. Veja a documentação de canais.",
   "settings.channels.add.submit": "Conectar",
   "settings.channels.add.connecting": "Conectando",
   "settings.channels.add.missing": "Preencha todos os campos para conectar.",
-  "settings.channels.add.failed": "O Psyche não conseguiu adicionar o canal ({reason}). Ele não está ativado.",
-  "settings.channels.add.added": "Canal adicionado. Envie uma mensagem a {persona} por ele para receber um código de pareamento e aprove-o aqui.",
+  "settings.channels.add.failed":
+    "O Psyche não conseguiu adicionar o canal ({reason}). Ele não está ativado.",
+  "settings.channels.add.added":
+    "Canal adicionado. Envie uma mensagem a {persona} por ele para receber um código de pareamento e aprove-o aqui.",
   "settings.channels.identities": "Vínculos de identidade",
   "settings.channels.identitiesDescription":
     "Uma pessoa em vários canais. Os vínculos só mudam a partir de um dispositivo pareado.",

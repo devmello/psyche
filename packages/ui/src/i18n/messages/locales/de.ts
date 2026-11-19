@@ -1612,7 +1612,8 @@ export const de: Partial<Catalogue> = {
     "Noch keine Kanäle. Verbinde Telegram, iMessage oder Slack, um {persona} auch fern von diesem Mac zu erreichen.",
   "settings.channels.add.button": "Kanal hinzufügen",
   "settings.channels.add.title": "Kanal hinzufügen",
-  "settings.channels.add.description": "Wähle, wo {persona} erreichbar sein soll. Tokens gehen direkt in den Tresor und werden nie wieder angezeigt.",
+  "settings.channels.add.description":
+    "Wähle, wo {persona} erreichbar sein soll. Tokens gehen direkt in den Tresor und werden nie wieder angezeigt.",
   "settings.channels.add.type": "Kanal",
   "settings.channels.add.account.slack": "Name des Workspace",
   "settings.channels.add.account.discord": "Anwendungs-ID",
@@ -1624,12 +1625,15 @@ export const de: Partial<Catalogue> = {
   "settings.channels.add.secret.access_token": "Zugriffstoken",
   "settings.channels.add.secret.app_secret": "App-Geheimnis",
   "settings.channels.add.secret.verify_token": "Verifizierungs-Token",
-  "settings.channels.add.otherTypes": "Telegram, iMessage, Signal und E-Mail werden dort eingerichtet, wo das Gateway läuft. Siehe die Kanal-Dokumentation.",
+  "settings.channels.add.otherTypes":
+    "Telegram, iMessage, Signal und E-Mail werden dort eingerichtet, wo das Gateway läuft. Siehe die Kanal-Dokumentation.",
   "settings.channels.add.submit": "Verbinden",
   "settings.channels.add.connecting": "Verbinde",
   "settings.channels.add.missing": "Fülle alle Felder aus, um zu verbinden.",
-  "settings.channels.add.failed": "Psyche konnte den Kanal nicht hinzufügen ({reason}). Er ist nicht eingeschaltet.",
-  "settings.channels.add.added": "Kanal hinzugefügt. Schreibe {persona} darüber an, um einen Kopplungscode zu erhalten, und bestätige ihn hier.",
+  "settings.channels.add.failed":
+    "Psyche konnte den Kanal nicht hinzufügen ({reason}). Er ist nicht eingeschaltet.",
+  "settings.channels.add.added":
+    "Kanal hinzugefügt. Schreibe {persona} darüber an, um einen Kopplungscode zu erhalten, und bestätige ihn hier.",
   "settings.channels.identities": "Identitätsverknüpfungen",
   "settings.channels.identitiesDescription":
     "Eine Person über Kanäle hinweg. Verknüpfungen ändern sich nur von einem gekoppelten Gerät aus.",
