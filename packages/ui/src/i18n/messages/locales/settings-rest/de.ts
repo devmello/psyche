@@ -689,7 +689,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.access.loadFailed": "Psyche konnte nicht laden, worauf es zugreifen kann ({reason}).",
   "settings.access.unchanged": "Der Zugriff ist unverändert.",
   "settings.access.moved":
-    "Seit der Freigabe nach {path} verschoben · bestätige, um ihn weiter freizugeben",
+    "Zeigt jetzt auf {path} – bestätige nur, wenn du ihn selbst verschoben hast",
   "settings.access.confirm": "Bestätigen",
   "settings.access.confirmNamed": "{name} erneut unter {path} bestätigen",
   "settings.model.advancedHint": "Kontextgrenzen, lokale Modelle",

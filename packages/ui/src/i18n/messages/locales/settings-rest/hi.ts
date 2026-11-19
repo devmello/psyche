@@ -654,7 +654,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.access.loadLabel": "Psyche कहाँ तक पहुँच सकता है",
   "settings.access.loadFailed": "Psyche यह लोड नहीं कर सका कि वह कहाँ तक पहुँच सकता है ({reason})।",
   "settings.access.unchanged": "एक्सेस जस का तस है।",
-  "settings.access.moved": "साझा करने के बाद {path} पर ले जाया गया · इसे साझा रखने के लिए पुष्टि करें",
+  "settings.access.moved": "अब {path} की ओर इशारा करता है — पुष्टि तभी करें जब आपने इसे खुद ले जाया हो",
   "settings.access.confirm": "पुष्टि करें",
   "settings.access.confirmNamed": "{path} पर {name} की फिर से पुष्टि करें",
   "settings.model.advancedHint": "संदर्भ की सीमाएँ, लोकल मॉडल",

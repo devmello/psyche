@@ -624,7 +624,7 @@ export const settings: Partial<Catalogue> = {
   "settings.access.loadLabel": "ما يستطيع Psyche الوصول إليه",
   "settings.access.loadFailed": "تعذّر على Psyche تحميل ما يستطيع الوصول إليه ({reason}).",
   "settings.access.unchanged": "الوصول دون تغيير.",
-  "settings.access.moved": "نُقل إلى {path} بعد مشاركته · أكّد لمواصلة مشاركته",
+  "settings.access.moved": "يشير الآن إلى {path} — لا تؤكّد إلا إذا نقلته بنفسك",
   "settings.access.confirm": "تأكيد",
   "settings.access.confirmNamed": "تأكيد {name} مجددًا في {path}",
   "settings.model.advancedHint": "حدود السياق، النماذج المحلية",

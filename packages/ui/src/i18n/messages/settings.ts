@@ -1782,7 +1782,7 @@ export const settings = {
   "settings.access.loadLabel": "what Psyche can reach",
   "settings.access.loadFailed": "Psyche couldn't load what it can reach ({reason}).",
   "settings.access.unchanged": "Access is unchanged.",
-  "settings.access.moved": "Moved to {path} since it was shared · confirm to keep sharing it",
+  "settings.access.moved": "Now points to {path} — confirm only if you moved it yourself",
   "settings.access.confirm": "Confirm",
   "settings.access.confirmNamed": "Confirm {name} again at {path}",
   "settings.files.sharedFolders": "Shared folders",

@@ -3,6 +3,7 @@
 
 export interface AccessConfirmFolderParams {
     entryId: string;
+    movedTo: string;
 }
 
 export interface AccessConfirmFolderResult {

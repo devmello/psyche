@@ -200,6 +200,55 @@ describe.skipIf(process.platform === "win32")("granted roots on the decide path"
     expect((await h.broker.freshGrantedFolders()).map((f) => f.path)).toEqual([granted, missing]);
   });
 
+  it("a hung mount costs a fresh read its bound once, not on every call (r3 finding 3)", async () => {
+    const { home, granted, missing } = await tree();
+    const h = makeBroker({
+      policy: {
+        folders: [
+          { path: granted, mode: "rw", real: granted },
+          { path: missing, mode: "rw" },
+        ],
+      },
+      hostProgram: { home },
+    });
+    await h.broker.foldersSettled();
+    probe.hang.add(granted);
+    h.clock.advance(FOLDER_FRESH_MS + 1);
+    const timed = async () => {
+      const t0 = Date.now();
+      const paths = (await h.broker.freshGrantedFolders(300)).map((f) => f.path);
+      return { paths, ms: Date.now() - t0 };
+    };
+    const first = await timed();
+    expect(first.paths).toEqual([missing]);
+    expect(first.ms).toBeGreaterThanOrEqual(250);
+    // The same hung lookup: left out at once, every time (each code.* call, pull, sweep).
+    for (let i = 0; i < 5; i++) {
+      const next = await timed();
+      expect(next.paths).toEqual([missing]);
+      expect(next.ms).toBeLessThan(150);
+    }
+    release();
+    await h.broker.foldersSettled();
+    expect((await timed()).paths).toEqual([granted, missing]);
+  });
+
+  it("two fresh reads at once both wait for a healthy look (neither leaves the root out)", async () => {
+    const { home, granted } = await tree();
+    const h = makeBroker({
+      policy: { folders: [{ path: granted, mode: "rw", real: granted }] },
+      hostProgram: { home },
+    });
+    await h.broker.foldersSettled();
+    h.clock.advance(FOLDER_FRESH_MS + 1);
+    const [a, b] = await Promise.all([
+      h.broker.freshGrantedFolders(),
+      h.broker.freshGrantedFolders(),
+    ]);
+    expect(a.map((f) => f.path)).toEqual([granted]);
+    expect(b.map((f) => f.path)).toEqual([granted]);
+  });
+
   it("exec-host's live looks share one lookup per path and give up on a hung mount (r2 finding 7)", async () => {
     const { home, granted } = await tree();
     const h = makeBroker({

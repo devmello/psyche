@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { ATTACH_GRANT_MS, FOLDER_FRESH_MS } from "../src/broker.ts";
-import { accessEntries } from "../src/handlers.ts";
+import { accessEntries, createPermissionHandlers } from "../src/handlers.ts";
 import {
   type FolderAccessEnv,
   grantedRootMoved,
@@ -368,6 +368,8 @@ describe.skipIf(process.platform === "win32")("PR #1395 r2 probes", () => {
 });
 
 describe.skipIf(process.platform === "win32")("Settings: an older folder that moved", () => {
+  const DEVICE = { deviceId: "dev_admin", surface: "desktop" as const };
+
   async function moved() {
     const home = await realpath(await mkdtemp(join(tmpdir(), "psy-confirm-")));
     await mkdir(join(home, "real-cloud", "Notes"), { recursive: true });
@@ -376,35 +378,100 @@ describe.skipIf(process.platform === "win32")("Settings: an older folder that mo
     return { home, granted, real: join(home, "real-cloud", "Notes") };
   }
 
-  it("is listed refused and moved, and the owner's confirm records where it leads now", async () => {
-    const { home, granted, real } = await moved();
-    let policy = { folders: [{ path: granted, mode: "rw" as const }] } as {
-      folders: { path: string; mode: "rw"; real?: string }[];
+  /** A broker whose store records `real` into `policy` (as the Gateway's does). */
+  function storing(home: string, granted: string) {
+    const state = {
+      policy: { folders: [{ path: granted, mode: "rw" as const }] } as {
+        folders: { path: string; mode: "rw"; real?: string }[];
+      },
+      recorded: [] as [string, string, { deviceId: string } | undefined][],
     };
     const h = makeBroker({
-      policy,
+      policy: state.policy,
       hostProgram: { home },
       folderAccess: {
         env: () => ({ home }),
         persist: async () => {},
-        recordReal: (p, r) => {
-          policy = { folders: policy.folders.map((f) => (f.path === p ? { ...f, real: r } : f)) };
-          h.broker.setPolicy(policy);
+        recordReal: (p, r, by) => {
+          state.recorded.push([p, r, by]);
+          state.policy = {
+            folders: state.policy.folders.map((f) => (f.path === p ? { ...f, real: r } : f)),
+          };
+          h.broker.setPolicy(state.policy);
         },
       },
     });
+    return { h, state };
+  }
+
+  it("is listed refused and moved, and the owner's confirm records where it leads now", async () => {
+    const { home, granted, real } = await moved();
+    const { h, state } = storing(home, granted);
     await h.broker.foldersSettled();
     expect(h.broker.grantedFolders()).toEqual([]);
     const [row] = await accessEntries(h.broker);
     expect(row).toMatchObject({ path: granted, refused: true, moved: true, movedTo: real });
-    expect(await h.broker.confirmMovedFolder(granted)).toBe(true);
-    expect(policy.folders).toEqual([{ path: granted, mode: "rw", real }]);
+    expect(await h.broker.confirmMovedFolder(granted, real, DEVICE)).toBe(true);
+    expect(state.policy.folders).toEqual([{ path: granted, mode: "rw", real }]);
+    // The store is told which device confirmed it (the Gateway reports a security change).
+    expect(state.recorded).toEqual([[granted, real, { deviceId: "dev_admin" }]]);
+    // Audited as the owner's device, not the system.
+    const [audited] = await h.audit.query({ kind: "folder.confirmed" });
+    expect(audited?.actor).toMatchObject({ type: "device", deviceId: "dev_admin" });
     expect(h.broker.grantedFolders().map((f) => f.path)).toEqual([granted]);
     const [after] = await accessEntries(h.broker);
     expect(after).not.toHaveProperty("refused");
     expect(after).not.toHaveProperty("moved");
     // Nothing more to confirm.
-    expect(await h.broker.confirmMovedFolder(granted)).toBe(false);
+    expect(await h.broker.confirmMovedFolder(granted, real, DEVICE)).toBe(false);
+  });
+
+  it("E: a folder re-pointed between the list and the tap is not confirmed (PR #1395 r3)", async () => {
+    const home = await realpath(await mkdtemp(join(tmpdir(), "psy-confirm-e-")));
+    await mkdir(join(home, "Work", "app"), { recursive: true });
+    await mkdir(join(home, "Documents", "app"), { recursive: true });
+    await symlink(join(home, "Work"), join(home, "Projects"));
+    const granted = join(home, "Projects", "app");
+    const { h, state } = storing(home, granted);
+    await h.broker.foldersSettled();
+    const [row] = await accessEntries(h.broker);
+    const seen = row?.movedTo as string;
+    expect(seen).toBe(join(home, "Work", "app"));
+    // Before the tap, the parent now leads to ~/Documents.
+    await rm(join(home, "Projects"));
+    await symlink(join(home, "Documents"), join(home, "Projects"));
+    expect(await h.broker.confirmMovedFolder(granted, seen, DEVICE)).toBe(false);
+    expect(state.recorded).toEqual([]);
+    expect(h.broker.recordedReal(granted)).toBeUndefined();
+    expect(h.broker.grantedFolders()).toEqual([]);
+    // Read again, the list shows where it leads now; only a tap on that confirms it there.
+    const [again] = await accessEntries(h.broker);
+    expect(again?.movedTo).toBe(join(home, "Documents", "app"));
+    expect(await h.broker.confirmMovedFolder(granted, again?.movedTo as string, DEVICE)).toBe(true);
+    expect(state.policy.folders[0]?.real).toBe(join(home, "Documents", "app"));
+  });
+
+  it("a confirm through the handler takes what the row showed, and the caller's device", async () => {
+    const { home, granted, real } = await moved();
+    const { h, state } = storing(home, granted);
+    await h.broker.foldersSettled();
+    const handlers = createPermissionHandlers(h.broker, h.audit);
+    const admin = {
+      deviceId: "dev_admin",
+      scopes: ["operator.admin"] as never,
+      surface: "desktop" as const,
+    };
+    const entryId = `folder:always:${granted}`;
+    await expect(
+      handlers["access.confirmFolder"]({ entryId, movedTo: join(home, "elsewhere") }, admin),
+    ).resolves.toEqual({ confirmed: false });
+    await expect(handlers["access.confirmFolder"]({ entryId }, admin)).rejects.toMatchObject({
+      code: "invalid_params",
+    });
+    await expect(
+      handlers["access.confirmFolder"]({ entryId, movedTo: real }, admin),
+    ).resolves.toEqual({ confirmed: true });
+    expect(state.recorded).toEqual([[granted, real, { deviceId: "dev_admin" }]]);
   });
 
   it("confirm refuses a folder that now leads where no grant may be, and one never granted", async () => {
@@ -422,8 +489,10 @@ describe.skipIf(process.platform === "win32")("Settings: an older folder that mo
     });
     await h.broker.foldersSettled();
     expect(h.broker.folderMovedTo(granted)).toBeUndefined();
-    expect(await h.broker.confirmMovedFolder(granted)).toBe(false);
-    expect(await h.broker.confirmMovedFolder(join(home, "Documents"))).toBe(false);
+    expect(await h.broker.confirmMovedFolder(granted, join(home, "Library"), DEVICE)).toBe(false);
+    expect(
+      await h.broker.confirmMovedFolder(join(home, "Documents"), join(home, "Documents"), DEVICE),
+    ).toBe(false);
     expect(recordReal).not.toHaveBeenCalled();
     expect(h.broker.grantedFolders()).toEqual([]);
   });

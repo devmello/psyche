@@ -159,9 +159,14 @@ export function createPermissionHandlers(
     },
     async "access.confirmFolder"(p, c) {
       requireScope(c, Methods["access.confirmFolder"].scope);
-      const { entryId } = check(Methods["access.confirmFolder"].params, p);
+      const { entryId, movedTo } = check(Methods["access.confirmFolder"].params, p);
       if (!entryId.startsWith(FOLDER_ALWAYS)) return { confirmed: false };
-      return { confirmed: await broker.confirmMovedFolder(entryId.slice(FOLDER_ALWAYS.length)) };
+      const confirmed = await broker.confirmMovedFolder(
+        entryId.slice(FOLDER_ALWAYS.length),
+        movedTo,
+        { deviceId: c.deviceId, surface: c.surface },
+      );
+      return { confirmed };
     },
     async "grants.list"(p, c) {
       requireScope(c, Methods["grants.list"].scope);

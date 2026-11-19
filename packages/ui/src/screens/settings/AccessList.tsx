@@ -188,7 +188,9 @@ export function ConnectedAccessList({
   const confirm = (e: AccessEntry) => {
     setFailed(null);
     setConfirming((s) => new Set([...s, e.id]));
-    call("access.confirmFolder", { entryId: e.id })
+    // What the owner saw: the Gateway confirms only while the folder still leads there, and
+    // the list is read again either way (a folder re-pointed meanwhile shows its new place).
+    call("access.confirmFolder", { entryId: e.id, movedTo: e.movedTo ?? "" })
       .then(() => list.reload())
       .catch((err: unknown) => setFailed(messageOf(err)))
       .finally(() =>

@@ -159,7 +159,9 @@ describe("Access list", () => {
       />,
     );
     expect(
-      screen.getByText(/Moved to \/Users\/o\/real-cloud\/Notes since it was shared/),
+      screen.getByText(
+        /Now points to \/Users\/o\/real-cloud\/Notes — confirm only if you moved it yourself/,
+      ),
     ).toBeTruthy();
     await user.click(
       screen.getByRole("button", {

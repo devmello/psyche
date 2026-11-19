@@ -589,7 +589,7 @@ export const settings: Partial<Catalogue> = {
   "settings.access.loadLabel": "Psyche 能访问的内容",
   "settings.access.loadFailed": "Psyche 无法载入它能访问的内容（{reason}）。",
   "settings.access.unchanged": "访问权限未更改。",
-  "settings.access.moved": "共享后已移至 {path} · 确认后继续共享",
+  "settings.access.moved": "现在指向 {path}——仅当是你自己移动的才确认",
   "settings.access.confirm": "确认",
   "settings.access.confirmNamed": "在 {path} 重新确认 {name}",
   "settings.model.advancedHint": "上下文上限、本地模型",

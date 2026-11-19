@@ -666,7 +666,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.access.loadLabel": "Psyche가 접근할 수 있는 항목",
   "settings.access.loadFailed": "Psyche가 접근 가능한 항목을 불러오지 못했습니다 ({reason}).",
   "settings.access.unchanged": "접근 권한은 변경되지 않았습니다.",
-  "settings.access.moved": "공유한 후 {path}(으)로 이동됨 · 계속 공유하려면 확인하세요",
+  "settings.access.moved": "이제 {path}을(를) 가리킵니다. 직접 옮긴 경우에만 확인하세요",
   "settings.access.confirm": "확인",
   "settings.access.confirmNamed": "{path}에서 {name} 다시 확인",
   "settings.model.advancedHint": "컨텍스트 한도, 로컬 모델",

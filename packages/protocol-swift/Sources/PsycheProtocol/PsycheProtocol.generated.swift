@@ -1740,13 +1740,16 @@ import Foundation
 // MARK: - AccessConfirmFolderParams
 public struct AccessConfirmFolderParams: Codable, Sendable {
     public let entryID: String
+    public let movedTo: String
 
     public enum CodingKeys: String, CodingKey {
         case entryID = "entryId"
+        case movedTo = "movedTo"
     }
 
-    public init(entryID: String) {
+    public init(entryID: String, movedTo: String) {
         self.entryID = entryID
+        self.movedTo = movedTo
     }
 }
 

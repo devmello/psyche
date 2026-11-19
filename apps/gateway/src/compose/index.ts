@@ -737,13 +737,28 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   };
   // A Settings folder granted before real paths were recorded: the first real path the broker
   // saw for it (while it still counted) is stored with it, so a later move survives a restart.
-  const recordFolderReal = (path: string, real: string) => {
+  // With `by`, the owner confirmed a moved folder in Settings: reported like the security setting
+  // change a policy write is (change record, setting listeners).
+  const recordFolderReal = (path: string, real: string, by?: { deviceId: string }) => {
     const current = validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger);
     const next = current === undefined ? undefined : withRecordedReal(current, path, real);
     if (next === undefined) return;
+    const before = getSetting(db, "permissions.policy")?.value;
     const saved = setSetting(db, "permissions.policy", next);
     rawBroker.setPolicy(hostPolicy(next, db));
     publish("settings.changed", { entries: [saved] });
+    if (by !== undefined) {
+      try {
+        gwOptions.onSettingChanged?.({
+          key: "permissions.policy",
+          before,
+          after: next,
+          deviceId: by.deviceId,
+        });
+      } catch {
+        // Reporting never fails the change.
+      }
+    }
   };
   let deferredResumeRef: DeferredResume | undefined;
   const rawBroker = new PsychePermissionBroker({

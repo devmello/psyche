@@ -61,11 +61,15 @@ export const GrantsMethods = {
       "Revokes one entry of `access.list` at once (a folder stops working on the next call; a grant is revoked). Changing standing permissions is an admin action.",
   }),
   "access.confirmFolder": defineMethod({
-    params: Type.Object({ entryId: Type.String({ minLength: 1, maxLength: 4200 }) }),
+    params: Type.Object({
+      entryId: Type.String({ minLength: 1, maxLength: 4200 }),
+      /** The row's `movedTo`, as the owner saw it: confirmed only while the folder still leads there. */
+      movedTo: Type.String({ minLength: 1, maxLength: 4096 }),
+    }),
     result: Type.Object({ confirmed: Type.Boolean() }),
     scope: "operator.admin",
     description:
-      "Confirms again a folder row of `access.list` marked `moved`: the folder is looked up now and shared where it leads today, unless a grant there would be refused. A plain tap from an admin device; false when there is nothing to confirm.",
+      "Confirms again a folder row of `access.list` marked `moved`: the folder is looked up now and shared where it leads, only if that is still `movedTo` (the place the owner saw) and a grant there would not be refused. A plain tap from an admin device, recorded and reported as that device's security setting change. False when there is nothing to confirm or the folder leads somewhere else now (read the list again).",
   }),
   "grants.list": defineMethod({
     params: Type.Object({

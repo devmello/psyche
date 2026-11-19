@@ -178,8 +178,12 @@ interface RootLookup {
   done: Promise<RootFacts | "error">;
   /** An evaluation has already waited for it (it waits once per lookup). */
   waited: boolean;
+  /** A fresh read (`freshGrantedFolders`) waited its whole bound for it: the next ones do not. */
+  freshTimedOut: boolean;
   /** When it started (broker clock). */
   since: number;
+  /** When it started (wall clock): a fresh read does not wait on one older than its bound. */
+  startedAt: number;
 }
 
 interface RootLook {
@@ -297,8 +301,10 @@ export interface PermissionBrokerOptions {
     /**
      * Stores the real path first seen for a Settings folder granted before real paths were
      * recorded (`permissions.policy.folders[].real`), so a later move is caught after a restart.
+     * With `by`, the owner confirmed a moved folder from that device (`confirmMovedFolder`): the
+     * store reports it as that device's security setting change, as a policy write would.
      */
-    recordReal?: (path: string, real: string) => void | Promise<void>;
+    recordReal?: (path: string, real: string, by?: { deviceId: string }) => void | Promise<void>;
   };
 }
 
@@ -552,11 +558,19 @@ export class PsychePermissionBroker implements PermissionBroker {
   ): Promise<NonNullable<PolicyConfig["folders"]>> {
     const folders = this.policy.folders ?? [];
     for (const f of folders) this.folderRefused(f.path);
+    // A lookup is not waited on again once a fresh read waited its whole bound for it, nor once
+    // it is older than the bound: a root on a hung mount costs one wait, then it is left out at
+    // once until it answers.
+    const started = Date.now();
     const due = folders.flatMap((f) => {
       const l = this.#rootLookups.get(f.path);
-      return l === undefined ? [] : [l.done];
+      if (l === undefined || l.freshTimedOut || started - l.startedAt >= timeoutMs) return [];
+      return [l];
     });
-    if (due.length > 0) await raceTimeout(Promise.all(due), timeoutMs);
+    if (due.length > 0) {
+      await raceTimeout(Promise.all(due.map((l) => l.done)), timeoutMs);
+      for (const l of due) if ([...this.#rootLookups.values()].includes(l)) l.freshTimedOut = true;
+    }
     return folders
       .filter((f) => {
         const look = this.#rootLooks.get(f.path);
@@ -603,22 +617,29 @@ export class PsychePermissionBroker implements PermissionBroker {
   }
 
   /**
-   * The owner's tap on a moved older folder (Settings → Access): looks it up now and records
-   * where it leads today as where it was granted, so it counts again. Only for a Settings folder
-   * with nothing recorded whose real path is a plain folder a grant may cover (`refuseFolder`
-   * passes there). False when there is nothing to confirm.
+   * The owner's tap on a moved older folder (Settings → Access). `seen` is the place Settings
+   * showed (`movedTo`): the folder is looked up now, and only when it still leads there (up to
+   * spelling) is that recorded as where it was granted, so it counts again. A folder re-pointed
+   * since the list was read is not confirmed (false; Settings reads the list again). Only for a
+   * Settings folder with nothing recorded whose real path is a plain folder a grant may cover
+   * (`refuseFolder` passes there). Recorded as the owner's device's change (`by`).
    */
-  async confirmMovedFolder(path: string): Promise<boolean> {
+  async confirmMovedFolder(
+    path: string,
+    seen: string,
+    by: { deviceId: string; surface?: Surface },
+  ): Promise<boolean> {
     const entry = (this.#policy.config.folders ?? []).find((f) => f.path === path);
     if (entry === undefined || this.recordedReal(path) !== undefined) return false;
     const facts = await this.lookRootNow(path);
     if (facts === undefined) return false;
-    const real = grantedRootMoved(path, facts, undefined, this.#confirmEnv());
-    if (real === undefined) return false;
+    const env = this.#confirmEnv();
+    const real = grantedRootMoved(path, facts, undefined, env);
+    if (real === undefined || !sameRootSpelling(real, seen, env)) return false;
     this.#observedReal.set(path, real);
     this.#rootVerdicts.delete(path);
-    await this.#folderAccess?.recordReal?.(path, real);
-    await this.#log("folder.confirmed", { type: "system" }, {}, { path, real });
+    await this.#folderAccess?.recordReal?.(path, real, { deviceId: by.deviceId });
+    await this.#log("folder.confirmed", actorOf(by), {}, { path, real });
     return true;
   }
 
@@ -762,7 +783,13 @@ export class PsychePermissionBroker implements PermissionBroker {
         return "error";
       },
     );
-    const entry: RootLookup = { done, waited: false, since: this.clock.now() };
+    const entry: RootLookup = {
+      done,
+      waited: false,
+      freshTimedOut: false,
+      since: this.clock.now(),
+      startedAt: Date.now(),
+    };
     this.#rootLookups.set(path, entry);
     void done.finally(() => {
       if (this.#rootLookups.get(path) === entry) this.#rootLookups.delete(path);
