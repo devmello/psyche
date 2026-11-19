@@ -30,6 +30,7 @@ import { overviewShared } from "./overview-shared/de.ts";
 import { passwordPresence } from "./password-presence/de.ts";
 import { peopleRest } from "./people-rest/de.ts";
 import { researchRest } from "./research-rest/de.ts";
+import { scheduledForm } from "./scheduled-form/de.ts";
 import { scheduledRest } from "./scheduled-rest/de.ts";
 import { screensRest } from "./screens-rest/de.ts";
 import { securityState } from "./security-state/de.ts";
@@ -86,6 +87,7 @@ export const de: Partial<Catalogue> = {
   ...homeRest,
   ...researchRest,
   ...scheduledRest,
+  ...scheduledForm,
   ...widgetsRest,
   ...miscRest,
   // common

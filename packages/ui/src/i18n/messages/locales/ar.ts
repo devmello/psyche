@@ -34,6 +34,7 @@ import { passwordPresence } from "./password-presence/ar.ts";
 import { people } from "./people/ar.ts";
 import { research } from "./research/ar.ts";
 import { scheduled } from "./scheduled/ar.ts";
+import { scheduledForm } from "./scheduled-form/ar.ts";
 import { screens } from "./screens/ar.ts";
 import { securityState } from "./security-state/ar.ts";
 import { selfConnectors } from "./self-connectors/ar.ts";
@@ -123,6 +124,7 @@ export const ar: Partial<Catalogue> = {
   ...research,
   // scheduled: translated ids (i18n completion)
   ...scheduled,
+  ...scheduledForm,
   // automation-chat: translated ids (i18n completion)
   ...automationChat,
   // widgets: translated ids (i18n completion)

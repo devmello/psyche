@@ -19,6 +19,7 @@ import { overviewGrowth } from "./overview-growth/es.ts";
 import { overviewShared } from "./overview-shared/es.ts";
 import { passwordPresence } from "./password-presence/es.ts";
 import { scheduledA } from "./scheduled-a/es.ts";
+import { scheduledForm } from "./scheduled-form/es.ts";
 import { securityState } from "./security-state/es.ts";
 import { separateDesktop } from "./separate-desktop/es.ts";
 import { settingsA } from "./settings-a/es.ts";
@@ -35,6 +36,7 @@ import { workflows } from "./workflows/es.ts";
 /** Spanish catalogue (es). Same ids as `en`; missing ids fall back to English. */
 export const es: Partial<Catalogue> = {
   ...scheduledA,
+  ...scheduledForm,
   ...homeA,
   ...teachA,
   ...specialistsA,

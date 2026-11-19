@@ -38,6 +38,7 @@ import { passwordPresence } from "./password-presence/ja.ts";
 import { peopleRest } from "./people-rest/ja.ts";
 import { personDataRest } from "./personData-rest/ja.ts";
 import { researchRest } from "./research-rest/ja.ts";
+import { scheduledForm } from "./scheduled-form/ja.ts";
 import { scheduledRest } from "./scheduled-rest/ja.ts";
 import { screensRest } from "./screens-rest/ja.ts";
 import { securityState } from "./security-state/ja.ts";
@@ -71,6 +72,7 @@ export const ja: Partial<Catalogue> = {
   ...widgetsRest,
   ...automationChatRest,
   ...scheduledRest,
+  ...scheduledForm,
   ...researchRest,
   ...homeRest,
   ...meetingRecordRest,
