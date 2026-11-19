@@ -69,7 +69,7 @@ const cleanLabel = (label: string) => label.replace(RECOMMENDED, "");
 
 /** A `fill-tertiary` capsule; the selected chip takes the accent (theme-gated AA contrast). */
 const CHIP =
-  "group/chip inline-flex h-7 max-w-full min-w-0 items-center gap-1.5 rounded-full bg-fill-tertiary px-3 text-body text-label-primary outline-none select-none transition-[color,background-color,box-shadow] duration-(--duration-micro) ease-(--ease-standard) active:bg-fill-secondary active:duration-(--duration-instant) focus-visible:ring-3 focus-visible:ring-ring data-checked:bg-primary data-checked:text-primary-foreground";
+  "group/chip inline-flex h-7 max-w-full min-w-0 items-center gap-1.5 rounded-full bg-fill-tertiary px-3 text-body text-label-primary outline-none select-none transition-[color,background-color] duration-(--duration-micro) ease-(--ease-standard) active:bg-fill-secondary active:duration-(--duration-instant) focus-visible:ring-3 focus-visible:ring-ring data-checked:bg-primary data-checked:text-primary-foreground";
 
 interface Draft {
   selected: string[];

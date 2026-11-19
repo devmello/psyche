@@ -1954,7 +1954,8 @@ export const de: Partial<Catalogue> = {
   "settings.permissions.never.secrets":
     "Ein sichtbares Passwort, eine Kartennummer, ein Bankkonto oder eine amtliche Ausweisnummer eingeben",
   "settings.permissions.never.captcha": "Ein CAPTCHA lösen oder umgehen",
-  "settings.permissions.never.money": "Eine Überweisung oder einen Handel ausführen",
+  "settings.permissions.never.money":
+    "Wertpapiere oder Krypto handeln, Geld zwischen Bankkonten verschieben oder an eine Person senden, auch wenn du zustimmst",
   "settings.permissions.never.delete": "Daten ohne eingetippte Bestätigung endgültig löschen",
   "settings.permissions.never.injection":
     "Anweisungen aus Webseiten, E-Mails oder Dateien befolgen",

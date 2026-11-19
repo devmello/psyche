@@ -2664,6 +2664,37 @@ export class MockGateway implements GatewayClient {
       });
       return { path: p.path, bytes: content.length, updatedAt: this.now(), etag: etagOf(content) };
     },
+    "memory.persona.get": () => {
+      const file = this.world.memoryFiles["IDENTITY.md"] ?? "";
+      return { identity: identityFields(file), description: "", etag: etagOf(file) };
+    },
+    "memory.persona.edit": (p) => {
+      let file = this.world.memoryFiles["IDENTITY.md"] ?? "---\n---\n";
+      const changed: string[] = [];
+      for (const [key, value] of Object.entries(p.fields ?? {})) {
+        if (typeof value !== "string") continue;
+        const line = `${key}: ${JSON.stringify(value)}`;
+        const existing = new RegExp(`^${key}:.*$`, "m");
+        file = existing.test(file)
+          ? file.replace(existing, line)
+          : file.replace("\n---\n", `\n${line}\n---\n`);
+        changed.push(key);
+      }
+      this.world.memoryFiles["IDENTITY.md"] = file;
+      this.emit("memory.file.changed", {
+        path: "IDENTITY.md",
+        etag: etagOf(file),
+        source: "api",
+        provenance: "owner",
+      });
+      return {
+        identity: identityFields(file),
+        description: "",
+        etag: etagOf(file),
+        changed,
+        avatarRequested: changed.includes("name") || changed.includes("creature"),
+      };
+    },
     "memory.notes.list": () => ({
       notes: Object.entries(this.world.memoryFiles)
         .filter(([path]) => path.startsWith(AGENT_NOTES_DIR))
@@ -3813,6 +3844,16 @@ function sleep(ms: number): Promise<void> {
 }
 
 /** Stable short etag for mock files. */
+/** The persona fields of an IDENTITY.md, read the way the Gateway's frontmatter parser reads them. */
+function identityFields(file: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const key of ["name", "creature", "vibe", "tagline", "emoji"]) {
+    const raw = new RegExp(`^${key}:\\s*(.*)$`, "m").exec(file)?.[1]?.trim();
+    if (raw) out[key] = raw.replace(/^"(.*)"$/, "$1");
+  }
+  return out;
+}
+
 function etagOf(content: string): string {
   let h = 2166136261;
   for (let i = 0; i < content.length; i++) {

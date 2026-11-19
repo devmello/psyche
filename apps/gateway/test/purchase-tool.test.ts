@@ -1,9 +1,12 @@
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createAuditLog, hashCanonical } from "@psyche/audit";
 import { parseMoney, readOrder } from "@psyche/browser";
+import { createPermissionBroker } from "@psyche/permissions";
 import { PsycheError } from "@psyche/protocol";
 import { toolCallBindingHash } from "@psyche/protocol/binding";
+import { FakeClock, FakeNotifier } from "@psyche/testing";
 import { type LinkWallet, PaymentBroker, SecretRedactor, type SpendRequest } from "@psyche/vault";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -90,6 +93,8 @@ function setup(
     closeAfterClick?: boolean;
     /** Audit kind whose write throws (after the record is saved). */
     auditThrows?: string;
+    /** The pay button's name in the snapshot text and refs (default "Pay now"); `n` is the snapshot. */
+    button?: (n: number) => string;
   } = {},
 ) {
   const home = mkdtempSync(join(tmpdir(), "psyche-pay-"));
@@ -139,16 +144,22 @@ function setup(
   };
   const driver = {
     tabOrigin: () => (opts.origin ?? (() => ORIGIN))(),
-    peekSnapshot: () => ({ text: page(), url: ORIGIN }),
-    snapshot: async () => ({
-      text: opts.snapshotText === undefined ? page() : opts.snapshotText(nextSnap()),
-      refs: [
-        { ref: "r1", role: "textbox", name: "Card number" },
-        { ref: "r2", role: "textbox", name: "Expiry" },
-        { ref: "r3", role: "textbox", name: "CVC" },
-        { ref: "r4", role: "button", name: "Pay now" },
-      ],
+    peekSnapshot: () => ({
+      text: `${page()}\n- button "${(opts.button ?? (() => "Pay now"))(0)}" [ref=r4]`,
+      url: (opts.origin ?? (() => ORIGIN))(),
     }),
+    snapshot: async () => {
+      const n = nextSnap();
+      return {
+        text: opts.snapshotText === undefined ? page() : opts.snapshotText(n),
+        refs: [
+          { ref: "r1", role: "textbox", name: "Card number" },
+          { ref: "r2", role: "textbox", name: "Expiry" },
+          { ref: "r3", role: "textbox", name: "CVC" },
+          { ref: "r4", role: "button", name: (opts.button ?? (() => "Pay now"))(n) },
+        ],
+      };
+    },
     describe: async (_t: string, ref: string) => ({
       ref,
       role: "textbox",
@@ -216,6 +227,7 @@ function setup(
       requestedBy: { taskId: "task1" },
     });
   return {
+    clicked: () => clicked,
     maskEnded: () => maskEnded,
     fillOptions,
     tool,
@@ -553,5 +565,91 @@ describe("checkout.pay_with_link", () => {
     expect(toMinor("12.5", "USD")).toBe(1250);
     expect(toMinor("1200", "JPY")).toBe(1200);
     expect(toMinor("1.234", "USD")).toBeUndefined();
+  });
+});
+
+/**
+ * #1321 round 6: the Link purchase tool is under the hard block on trades and transfers. On a
+ * brokerage, an exchange, a P2P service or a bank it is refused before any card is shown; at a
+ * merchant (PayPal's checkout included) it still asks on the Pay card.
+ */
+describe("checkout.pay_with_link and the hard block on trades and transfers", () => {
+  const decide = async (origin: string, button: string) => {
+    const s = setup({ origin: () => origin, button: () => button, page: () => PAGE("$12.00") });
+    const d = s.tool.describeCall?.(s.params);
+    const clock = new FakeClock();
+    const broker = createPermissionBroker({
+      approvers: {
+        device: async () => ({ scopes: ["operator.read", "operator.approvals"] }),
+        isOwnerSender: async () => false,
+      },
+      clock,
+      audit: createAuditLog({ clock }),
+      notifier: new FakeNotifier({ clock }),
+    });
+    return broker.decide(
+      {
+        tool: PURCHASE_TOOL,
+        sideEffect: "financial",
+        targetKind: "origin",
+        ...(d?.target === undefined ? {} : { target: d.target }),
+        params: s.params,
+        paramsHash: hashCanonical(s.params),
+        kind: "purchase",
+        ...(d?.meta === undefined ? {} : { meta: d.meta }),
+      } as never,
+      {
+        threadId: "thr1",
+        runId: "run1",
+        taskId: "task1",
+        permissionMode: "auto",
+        taint: false,
+      } as never,
+    );
+  };
+
+  it.each([
+    ["https://www.coinbase.com", "Buy now"],
+    ["https://venmo.com", "Pay"],
+    ["https://secure.chase.com", "Pay now"],
+    ["https://robinhood.com", "Buy now"],
+  ])("on %s (%s) it is refused before any card", async (origin, button) => {
+    const d = await decide(origin, button);
+    expect(d).toMatchObject({ decision: "deny", rule: "prohibition:financial_transfer" });
+  });
+
+  it.each([
+    ["https://shop.example.com", "Pay now"],
+    ["https://www.paypal.com", "Pay Now"],
+    ["https://www.amazon.com", "Place your order"],
+    ["https://ultimaterewardspoints.chase.com", "Pay now"],
+  ])("at the merchant %s (%s) it still asks on the Pay card", async (origin, button) => {
+    const d = await decide(origin, button);
+    expect(d.decision).toBe("ask");
+    expect(d.rule).not.toBe("prohibition:financial_transfer");
+    expect(d.scopesOffered).toEqual(["once"]);
+  });
+
+  it("refuses at run time on a venue tab, before any spend request", async () => {
+    const s = setup({ origin: () => "https://www.coinbase.com", button: () => "Buy now" });
+    s.approve();
+    await expect(run(s)).rejects.toMatchObject({
+      code: "policy_denied",
+      details: { rule: "prohibition:financial_transfer" },
+    });
+    expect(s.wallet.created).toBe(0);
+    expect(s.clicked()).toBe(false);
+  });
+
+  it("refuses before the click when the pay button turned into a trade, and cancels in Link", async () => {
+    // The first snapshots show "Pay now"; the last look before the click shows a crypto buy.
+    const s = setup({ button: (n) => (n >= 3 ? "Buy now 1 BTC" : "Pay now") });
+    s.approve();
+    await expect(run(s)).rejects.toMatchObject({
+      code: "policy_denied",
+      details: { rule: "prohibition:financial_transfer" },
+    });
+    expect(s.clicked()).toBe(false);
+    expect(s.wallet.cancelled).toBeGreaterThan(0);
   });
 });

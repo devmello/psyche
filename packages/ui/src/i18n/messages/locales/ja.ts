@@ -1891,7 +1891,8 @@ export const ja: Partial<Catalogue> = {
   "settings.permissions.never.secrets":
     "見える形でパスワード、カード番号、銀行口座、政府発行IDを入力する",
   "settings.permissions.never.captcha": "CAPTCHAを解く、または回避する",
-  "settings.permissions.never.money": "送金や金融取引を行う",
+  "settings.permissions.never.money":
+    "承認しても、証券や暗号資産の取引、銀行口座間の送金、個人への送金は行わない",
   "settings.permissions.never.delete": "入力による確認なしにデータを完全に削除する",
   "settings.permissions.never.injection": "Webページ、メール、ファイルに書かれた指示に従う",
   "settings.permissions.never.accounts": "あなたの承認なしに第三者サービスのアカウントを作成する",

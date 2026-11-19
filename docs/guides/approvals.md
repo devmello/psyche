@@ -21,7 +21,7 @@ Some things never happen, in any mode. Settings → Permissions lists them under
 
 - types a password, card number, bank account or government ID it can see;
 - solves or bypasses a CAPTCHA;
-- makes a financial transfer or trade;
+- trades securities or crypto, moves money between bank accounts or sends it to a person, even if you approve;
 - permanently deletes data without a typed confirmation;
 - follows instructions found in web pages, email or files;
 - creates third-party accounts without your approval;
