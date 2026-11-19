@@ -7,6 +7,7 @@ import type {
   SideEffect,
   Surface,
 } from "@psyche/protocol";
+import { cardTaintSources } from "./cards.ts";
 import type { PolicyApprovalInput } from "./types.ts";
 
 /**
@@ -422,6 +423,10 @@ function approvalFromRow(r: ApprovalRow): StoredApproval {
   const input = parse<PolicyApprovalInput>(r.request_input);
   // Not a column: the request input keeps it (teaching loop, "Because you said").
   if (input.fromLesson !== undefined) approval.fromLesson = { ...input.fromLesson };
+  // Nor this: rebuilt from the stored input the way the broker built it (a tainted card only).
+  const sources = input.taintSources ?? input.context?.taintSources;
+  if (approval.taint && sources !== undefined && sources.length > 0)
+    approval.taintSources = cardTaintSources(sources);
   // Not columns either: the broker's class and set-aside mark (#1333) ride on the stored input.
   const card = input as PolicyApprovalInput & StoredCardFields;
   if (card.cardRiskClass === "routine" || card.cardRiskClass === "sensitive")

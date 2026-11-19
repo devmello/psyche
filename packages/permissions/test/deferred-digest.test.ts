@@ -493,15 +493,17 @@ describe("a restart reports every set-aside approval whose resume it cut short, 
     const restart = async () => {
       const seen: string[] = [];
       const failed: boolean[] = [];
+      const unknown: boolean[] = [];
       const b = sqliteBroker(db, clock, {
         ...options,
         onSetAsideRevoked: (a, how) => {
           seen.push(a.id);
           failed.push(how.failed);
+          unknown.push(how.unknown);
         },
       });
       await b.reissue();
-      return { b, seen, failed };
+      return { b, seen, failed, unknown };
     };
     return { h, issued, restart };
   }
@@ -540,6 +542,89 @@ describe("a restart reports every set-aside approval whose resume it cut short, 
       outcome: "ok",
       summary: "ok",
       approvalId: issued.approval.id,
+    });
+    expect((await restart()).seen).toEqual([]);
+  });
+
+  /** The same call again, as a resume run makes it: the `always` grant lets it through. */
+  async function throughGrant(h: Harness) {
+    const d = await h.broker.decide(call("conn.action", "write"), {
+      ...UNATTENDED,
+      runId: "run_resume",
+      taskId: "task_resume",
+      permissionMode: "balanced",
+    });
+    expect(d.decision).toBe("allow");
+    expect(d.grantId).toBeDefined();
+    return d.grantId as string;
+  }
+
+  /** A connector receipt as ConnectorRegistry writes it: its action, no task, the grant's id. */
+  const connectorReceipt = (
+    h: Harness,
+    outcome: "ok" | "failed" | "uncertain",
+    grantId: string | undefined,
+  ) =>
+    h.broker.recordReceipt({
+      kind: "gmail.send",
+      outcome,
+      summary: outcome,
+      approvalId: null,
+      payload: grantId === undefined ? { rule: "mode:auto/write" } : { rule: `grant:${grantId}` },
+    });
+
+  it("a use of its grant whose call failed is not done: reported, as failed", async () => {
+    const { h, issued, restart } = await approved("always");
+    await connectorReceipt(h, "failed", await throughGrant(h));
+    const r = await restart();
+    expect(r.seen).toEqual([issued.approval.id]);
+    expect(r.failed).toEqual([true]);
+    expect(r.unknown).toEqual([false]);
+  });
+
+  it("a use of its grant with no receipt is not done: reported, outcome unknown", async () => {
+    const { h, issued, restart } = await approved("always");
+    await throughGrant(h);
+    const r = await restart();
+    expect(r.seen).toEqual([issued.approval.id]);
+    expect(r.failed).toEqual([false]);
+    expect(r.unknown).toEqual([true]);
+  });
+
+  it("an unrelated ok receipt of the same kind (another grant, or none) does not make it done", async () => {
+    const { h, issued, restart } = await approved("always");
+    await throughGrant(h);
+    await connectorReceipt(h, "ok", undefined);
+    await connectorReceipt(h, "ok", "grt_someone_else");
+    const r = await restart();
+    expect(r.seen).toEqual([issued.approval.id]);
+    expect(r.unknown).toEqual([true]);
+  });
+
+  it("an uncertain receipt for its grant's call: reported, outcome unknown", async () => {
+    const { h, issued, restart } = await approved("always");
+    await connectorReceipt(h, "uncertain", await throughGrant(h));
+    const r = await restart();
+    expect(r.seen).toEqual([issued.approval.id]);
+    expect(r.unknown).toEqual([true]);
+  });
+
+  it("positive control: an ok receipt carrying its grant's id (a connector send) is done", async () => {
+    const { h, restart } = await approved("always");
+    await connectorReceipt(h, "ok", await throughGrant(h));
+    expect((await restart()).seen).toEqual([]);
+  });
+
+  it("positive control: the loop's receipt carries the grant id in payload.grantId", async () => {
+    const { h, restart } = await approved("always");
+    const grantId = await throughGrant(h);
+    await h.broker.recordReceipt({
+      kind: "connector_action",
+      outcome: "ok",
+      summary: "ok",
+      taskId: "task_resume",
+      approvalId: null,
+      payload: { grantId },
     });
     expect((await restart()).seen).toEqual([]);
   });

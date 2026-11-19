@@ -717,7 +717,14 @@ export class ConnectorRegistry {
           // and for a send / destructive / financial call let through without a card, `via`.
           ...(authority === undefined
             ? {}
-            : { payload: { rule: authority.rule, ...viaOf(authority, approvalId) } }),
+            : {
+                payload: {
+                  rule: authority.rule,
+                  ...viaOf(authority, approvalId),
+                  // The standing grant that let it through (a resume's done check reads it).
+                  ...(authority.grantId === undefined ? {} : { grantId: authority.grantId }),
+                },
+              }),
         });
         receiptId = r.id;
       }
@@ -739,6 +746,9 @@ export class ConnectorRegistry {
             summary: `${tool.action} via ${connectorId} did not confirm`,
             toolCallId: callId,
             approvalId: approvalId ?? null,
+            ...(authority?.grantId === undefined
+              ? {}
+              : { payload: { grantId: authority.grantId } }),
           })
           .catch(() => undefined);
       }

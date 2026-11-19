@@ -157,7 +157,13 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
       toolCallId: ctx.callId,
       approvalId: ctx.approvalId ?? null,
       externalRefs,
-      payload: JSON.parse(JSON.stringify(payload)),
+      payload: JSON.parse(
+        JSON.stringify({
+          ...payload,
+          // The standing grant that let it through (a resume's done check reads it).
+          ...(ctx.authority?.grantId === undefined ? {} : { grantId: ctx.authority.grantId }),
+        }),
+      ),
     });
     return r.id;
   };

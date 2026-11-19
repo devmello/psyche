@@ -1,4 +1,4 @@
-import type { BrokerEvent } from "@psyche/permissions";
+import { type BrokerEvent, receiptGrantId } from "@psyche/permissions";
 import type {
   ApprovalKind,
   ApprovalRequest,
@@ -43,7 +43,14 @@ export type MissedReason =
   /** A restart cut the resume short, but the standing permission the owner gave stays. */
   | "restart_kept"
   /** The resumed action ran and failed (its receipt is not `ok`). */
-  | "failed";
+  | "failed"
+  /** It failed, but the standing permission the owner gave stays: the next run tries again. */
+  | "failed_kept"
+  /**
+   * It ran (its grant let the call through) but nothing says whether it worked: no receipt
+   * carries the grant's id, or the provider did not confirm.
+   */
+  | "unknown";
 
 export interface DeferredResumeOptions {
   scheduler: ResumeScheduler;
@@ -73,10 +80,20 @@ interface Entry {
   automationId: string;
   state: EntryState;
   resumeTaskId?: string;
-  /** The action ran and succeeded (an `ok` receipt, or a use of the grant the approval made). */
+  /**
+   * The action ran and succeeded: an `ok` receipt naming this approval, or carrying the id of
+   * the standing grant it made. A use of the grant alone is not done.
+   */
   done: boolean;
-  /** The action ran but its receipt is not `ok`: it failed, or its outcome is unknown. */
+  /** The action ran and its receipt says it failed. */
   failed: boolean;
+  /** The action ran but its receipt is `uncertain` (the provider did not confirm). */
+  unknown: boolean;
+  /**
+   * Tasks whose call went through the grant this approval made. That run ends the entry: its
+   * outcome is the grant receipt's, or unknown without one; a resume never runs it again.
+   */
+  grantTasks: Set<string>;
 }
 
 /** English fallback of `notice.approvals.resumeMissed.body` (its `why`). */
@@ -89,10 +106,27 @@ const MISSED_BODY: Record<MissedReason, string> = {
   restart_kept:
     "Psyche restarted before the automation could run again. The permission you gave stays, so its next run will do this without asking. To take it back, revoke it under Standing permissions in Approvals.",
   failed: `The automation ran the action again, but it failed. See Activity for what went wrong. ${ASK_AGAIN}`,
+  failed_kept:
+    "The automation ran the action again, but it failed. See Activity for what went wrong. The permission you gave stays, so its next run will try again without asking. To take it back, revoke it under Standing permissions in Approvals.",
+  unknown:
+    "The automation ran the action again, but Psyche can't tell whether it worked. Check Activity to see.",
 };
 
 /** A standing grant the owner gave on the card that still covers the next run. */
 const KEPT_SCOPES: ReadonlySet<string> = new Set(["always", "site"]);
+
+/**
+ * The wording when that grant stays: the next run does it without asking, so never "it will
+ * ask again". A task grant ends with its task and a session grant with a restart.
+ */
+const KEPT: Partial<Record<MissedReason, MissedReason>> = {
+  restart: "restart_kept",
+  failed: "failed_kept",
+};
+
+function keptGrant(a: ApprovalRequest): boolean {
+  return a.scopeGranted != null && KEPT_SCOPES.has(a.scopeGranted) && a.grantId != null;
+}
 
 export class DeferredResume {
   readonly #o: DeferredResumeOptions;
@@ -115,16 +149,15 @@ export class DeferredResume {
   }
 
   /** The broker's `onSetAsideRevoked`: a restart ended an approval before any run used it. */
-  revokedAtRestart(a: ApprovalRequest, how: { failed?: boolean } = {}): void {
+  revokedAtRestart(a: ApprovalRequest, how: { failed?: boolean; unknown?: boolean } = {}): void {
     this.#serial(async () => {
       const taskId = a.requestedBy.taskId;
       const run = taskId == null ? undefined : this.#o.scheduler.runForTask(taskId);
       this.#entries.delete(a.id);
-      // A task grant ended with its task and a session grant with the restart; an `always` or
-      // site grant stays, so the next run does this without asking: say that, not "ask again".
-      const kept = a.scopeGranted != null && KEPT_SCOPES.has(a.scopeGranted) && a.grantId != null;
-      // An action that ran and failed before the restart says so (the next run asks again).
-      const why: MissedReason = how.failed === true ? "failed" : kept ? "restart_kept" : "restart";
+      // An action that ran and failed before the restart says so; a kept grant's wording is
+      // chosen in `#missed`.
+      const why: MissedReason =
+        how.failed === true ? "failed" : how.unknown === true ? "unknown" : "restart";
       await this.#missed(a, run?.automationId, why);
     });
   }
@@ -151,18 +184,26 @@ export class DeferredResume {
         this.#serial(() => this.#approved(e.approval));
       }
     } else if (e.type === "receipt.created") {
-      // Done means it succeeded: a failed or uncertain receipt is reported as not done.
-      const id = e.receipt.approvalId;
-      const entry = id == null ? undefined : this.#entries.get(id);
+      // Done means it succeeded: a failed or uncertain receipt is reported as not done. A call
+      // its grant allowed names no approval: its receipt carries that grant's id instead.
+      const r = e.receipt;
+      const grantId = receiptGrantId(r);
+      const entry =
+        (r.approvalId == null ? undefined : this.#entries.get(r.approvalId)) ??
+        (grantId === undefined
+          ? undefined
+          : [...this.#entries.values()].find((x) => x.approval.grantId === grantId));
       if (entry !== undefined) {
-        if (e.receipt.outcome === "ok") entry.done = true;
+        if (r.outcome === "ok") entry.done = true;
+        else if (r.outcome === "uncertain") entry.unknown = true;
         else entry.failed = true;
       }
     } else if (e.type === "grant.used") {
-      // Approved with a standing scope: the resume run's call went through that grant.
+      // Approved with a standing scope: a call went through that grant. Not done yet: done is
+      // its `ok` receipt, never the use alone (the action can still fail).
       const id = e.grant.createdFromApprovalId;
       const entry = id == null ? undefined : this.#entries.get(id);
-      if (entry !== undefined) entry.done = true;
+      if (entry !== undefined && e.taskId !== undefined) entry.grantTasks.add(e.taskId);
     }
   }
 
@@ -220,6 +261,8 @@ export class DeferredResume {
       state: "waiting",
       done: false,
       failed: false,
+      unknown: false,
+      grantTasks: new Set(),
     });
     // A run in progress may still reach the call; its end starts the resume run otherwise.
     if (!this.#o.scheduler.isRunning(run.automationId)) await this.#start(run.automationId);
@@ -273,13 +316,24 @@ export class DeferredResume {
         this.#settle(e.approval.id);
         continue;
       }
+      // Its grant let this run's call through without an `ok` receipt: it ran, so it is over
+      // (failed, or unknown when no receipt carries the grant's id). Never run it again.
+      const viaGrant = run.taskId != null && e.grantTasks.has(run.taskId);
+      if (viaGrant && !e.failed) e.unknown = true;
       // Its resume run, or the run that took it, ended without the action: nothing was done.
-      if (e.state === "claimed" || (e.state === "running" && e.resumeTaskId === run.taskId)) {
+      if (
+        viaGrant ||
+        e.state === "claimed" ||
+        (e.state === "running" && e.resumeTaskId === run.taskId)
+      ) {
         // Reached in time but the approval had run out (verifyBinding said expired), or not reached.
         const expired =
           e.approval.scopeGranted === "once" &&
           this.#o.clock.now() >= Date.parse(e.approval.expiresAt);
-        await this.#end(e, e.failed ? "failed" : expired ? "expired" : "not_reached");
+        await this.#end(
+          e,
+          e.failed ? "failed" : e.unknown ? "unknown" : expired ? "expired" : "not_reached",
+        );
       }
     }
     // Approved while that run was going and not reached by it: now start the resume run.
@@ -307,6 +361,7 @@ export class DeferredResume {
   ): Promise<void> {
     // Told once: a restart does not report it again.
     this.#settle(a.id);
+    const shown = keptGrant(a) ? (KEPT[why] ?? why) : why;
     const automation =
       automationId === undefined ? undefined : await this.#o.scheduler.get(automationId);
     const name = (automation?.title ?? "").slice(0, 120);
@@ -317,11 +372,11 @@ export class DeferredResume {
           name === ""
             ? "An approved automation action was not done"
             : `${name}: the approved action was not done`,
-        body: MISSED_BODY[why],
+        body: MISSED_BODY[shown],
         message: {
           titleKey: RESUME_MISSED_TITLE_KEY,
           bodyKey: RESUME_MISSED_BODY_KEY,
-          params: { automation: name === "" ? "none" : name, why },
+          params: { automation: name === "" ? "none" : name, why: shown },
         },
         dedupeKey: `approvals:resume-missed:${a.id}`,
         route: "/agent/approvals",
