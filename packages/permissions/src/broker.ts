@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { realpathSync } from "node:fs";
-import { basename } from "node:path";
+import { basename, dirname } from "node:path";
 import { Receipts, sha256 } from "@psyche/audit";
 import { isUnderHostPath } from "@psyche/hostfs";
 import {
@@ -68,6 +68,7 @@ import {
   refuseFolder,
   resolveFilePick,
   resolveFolderPick,
+  rootMoved,
 } from "./folder-access.ts";
 import {
   HOST_PROGRAM_ROOTS,
@@ -453,7 +454,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   setPolicy(config: PolicyConfig): void {
     this.#policy = compilePolicy(config);
     this.#refusedMemo.clear();
-    this.#refusedRetryAt.clear();
+    // Retry windows survive a policy write: an unrelated write must not re-block on a hung mount.
     this.#warmRefusals();
   }
 
@@ -474,8 +475,10 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   /** Resolves each stored folder's real path once, here, not on every `decide` (a hung mount). */
   #warmRefusals(): void {
-    for (const f of this.#policy.folders) this.folderRefused(f.path);
-    for (const r of this.#policy.workspaceRoots) this.#workspaceRefused(r);
+    const now = this.clock.now();
+    const waiting = (p: string): boolean => (this.#refusedRetryAt.get(p) ?? 0) > now;
+    for (const f of this.#policy.folders) if (!waiting(f.path)) this.folderRefused(f.path);
+    for (const r of this.#policy.workspaceRoots) if (!waiting(r)) this.#workspaceRefused(r);
   }
 
   subscribe(listener: (e: BrokerEvent) => void): () => void {
@@ -871,40 +874,49 @@ export class PsychePermissionBroker implements PermissionBroker {
    * Such a folder covers nothing; Settings lists it as refused.
    */
   folderRefused(path: string): boolean {
-    const known = this.#refusedMemo.get(path);
-    if (known !== undefined) return known;
     const retryAt = this.#refusedRetryAt.get(path);
-    if (retryAt !== undefined && Date.now() < retryAt) return true;
-    this.#refusedRetryAt.delete(path);
-    const env = this.#refuseEnv();
-    let refused = inSystemRoot(path, env);
-    if (!refused) {
-      try {
-        // The native call, so `/.nofollow/..` links and case on disk show up; anything but a
-        // missing path leaves the real location unknown, which counts as refused.
-        const real = realpathSync.native(path);
-        refused = real !== path && inSystemRoot(real, env);
-      } catch (err) {
-        // Refused for now, and remembered only briefly: a mount that timed out at start (SMB,
-        // NFS) is judged again within a minute, and a hung one is not looked up on every call.
-        if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-          this.#refusedRetryAt.set(path, Date.now() + FOLDER_ERROR_RETRY_MS);
-          return true;
-        }
-      }
+    if (retryAt !== undefined) {
+      if (this.clock.now() < retryAt) return true;
+      this.#refusedRetryAt.delete(path);
     }
-    this.#refusedMemo.set(path, refused);
-    return refused;
+    const env = this.#refuseEnv();
+    // The string-only part is memoised; the real path is looked up on every call, so a root
+    // swapped for a link after the policy was set stops counting at once.
+    const key = `sys\0${path}`;
+    let named = this.#refusedMemo.get(key);
+    if (named === undefined) {
+      named = inSystemRoot(path, env);
+      this.#refusedMemo.set(key, named);
+    }
+    if (named) return true;
+    try {
+      // The native call, so `/.nofollow/..` links and case on disk show up; anything but a
+      // missing path leaves the real location unknown, which counts as refused.
+      const real = realpathSync.native(path);
+      if (real === path) return false;
+      if (inSystemRoot(real, env)) return true;
+      // Moved to a different folder (not just spelled differently): it covers nothing.
+      return rootMoved(path, real, realpathSync.native(dirname(path)), env);
+    } catch (err) {
+      // Refused for now, and remembered only briefly: a mount that timed out (SMB, NFS) is
+      // judged again within a minute, and a hung one is not looked up on every call.
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+        this.#refusedRetryAt.set(path, this.clock.now() + FOLDER_ERROR_RETRY_MS);
+        return true;
+      }
+      return false;
+    }
   }
 
   /** A workspace root: refused like a grant would be (`refuseFolder`), or inside a system root. */
   #workspaceRefused(path: string): boolean {
     const key = `ws\0${path}`;
-    const known = this.#refusedMemo.get(key);
-    if (known !== undefined) return known;
-    const refused = refuseFolder(path, this.#refuseEnv()) !== undefined || this.folderRefused(path);
-    this.#refusedMemo.set(key, refused);
-    return refused;
+    let byName = this.#refusedMemo.get(key);
+    if (byName === undefined) {
+      byName = refuseFolder(path, this.#refuseEnv()) !== undefined;
+      this.#refusedMemo.set(key, byName);
+    }
+    return byName || this.folderRefused(path);
   }
 
   #refuseEnv(): FolderAccessEnv {

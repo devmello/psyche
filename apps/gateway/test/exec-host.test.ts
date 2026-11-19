@@ -726,7 +726,7 @@ describe.skipIf(!posixHost)(
       // Swapped for a link to /usr (a stand-in for /opt/homebrew); only the link is touched.
       spawnSync("/bin/rmdir", [swapped]);
       symlinkSync("/usr", swapped);
-      expect(broker.grantedFolders().map((f) => f.path)).toContain(swapped);
+      expect(broker.grantedFolders().map((f) => f.path)).not.toContain(swapped);
       const t = await quietHost();
       const params = { argv: ["date"], cwd: swapped };
       const d = await decide(t, params);
@@ -744,7 +744,7 @@ describe.skipIf(!posixHost)(
       // A link to $PSYCHE_HOME: not a system folder, but a grant on it would be refused.
       spawnSync("/bin/rmdir", [swapped]);
       symlinkSync(psycheHome, swapped);
-      expect(broker.grantedFolders().map((f) => f.path)).toContain(swapped);
+      expect(broker.grantedFolders().map((f) => f.path)).not.toContain(swapped);
       const t = await quietHost();
       const params = { argv: ["date"], cwd: swapped };
       const d = await decide(t, params);
@@ -767,6 +767,25 @@ describe.skipIf(!posixHost)(
       setPolicy({ ...policy, folders: [...(policy.folders ?? []), { path: swapped, mode: "rw" }] });
       spawnSync("/bin/rmdir", [swapped]);
       symlinkSync(target, swapped);
+      const t = await quietHost();
+      const params = { argv: ["date"], cwd: swapped };
+      const d = await decide(t, params);
+      await expect(
+        run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+      ).rejects.toMatchObject({ code: "forbidden" });
+      expect(started).toEqual([]);
+    });
+
+    it("a granted root swapped for a link to a shareable sibling folder covers nothing", async () => {
+      on();
+      const sibling = join(home, "Documents");
+      mkdirSync(sibling, { recursive: true });
+      const swapped = join(home, "Projects", "swapped-docs");
+      mkdirSync(swapped, { recursive: true });
+      setPolicy({ ...policy, folders: [...(policy.folders ?? []), { path: swapped, mode: "rw" }] });
+      spawnSync("/bin/rmdir", [swapped]);
+      symlinkSync(sibling, swapped);
+      expect(broker.grantedFolders().map((f) => f.path)).not.toContain(swapped);
       const t = await quietHost();
       const params = { argv: ["date"], cwd: swapped };
       const d = await decide(t, params);

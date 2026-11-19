@@ -30,7 +30,7 @@ import {
   operandsInside,
   programName,
   READ_ONLY_RULE,
-  refuseFolder,
+  rootMoved,
   SYSTEM_BIN_DIRS,
 } from "@psyche/permissions";
 import {
@@ -649,22 +649,24 @@ async function grantedFolder(
   } catch {
     throw new PsycheError("not_found", `${cwd} does not exist`);
   }
-  // A granted root that became a link since the policy was set (the broker's answer for it is
-  // memoised) is judged by where it leads now: into a system folder, or anywhere a grant would be
-  // refused (home itself, ~/Library, ~/.ssh, Psyche's own data), it covers nothing. A root that
-  // is still where it was keeps its meaning, so an old home-root grant still works.
+  // A granted root that became a link since the policy was set is judged by where it leads now:
+  // moved to any other folder (a system folder, ~/Documents, a sibling project, /Volumes/X) it
+  // covers nothing. Spelling moves (case, /tmp -> /private/tmp, the firmlinked Data volume) and a
+  // root that is still where it was keep their meaning, so an old home-root grant still works.
   const resolvedFolders = (
     await Promise.all(
       folders.map(async (f) => {
         const real = await realpath(f.path).catch(() => f.path);
-        return { entry: { ...f, path: real }, moved: real !== f.path };
+        let moved = false;
+        if (real !== f.path) {
+          const parent = await realpath(dirname(f.path)).catch(() => undefined);
+          moved = parent === undefined ? false : rootMoved(f.path, real, parent, env);
+        }
+        return { entry: { ...f, path: real }, moved };
       }),
     )
   )
-    .filter(
-      ({ entry, moved }) =>
-        !inSystemRoot(entry.path) && !(moved && refuseFolder(entry.path, env) !== undefined),
-    )
+    .filter(({ entry, moved }) => !moved && !inSystemRoot(entry.path, env))
     .map(({ entry }) => entry);
   const folder = folderOf(real, resolvedFolders, platform);
   if (folder === undefined) {

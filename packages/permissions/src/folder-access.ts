@@ -1,7 +1,7 @@
 import { realpathSync } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import {
   canonicalHostPath,
   isAbsoluteHostPath,
@@ -243,6 +243,44 @@ export function inSystemRoot(given: string, env: FolderAccessEnv = {}): boolean 
     const root = fold(joinHostPath(resolve(env.home ?? homedir()), segments.join("/")));
     return under(folded, root) || (under(root, folded) && !under(home, folded));
   });
+}
+
+/**
+ * Whether a granted root now leads somewhere else than where it was granted: its real path
+ * differs from its (real) parent folder plus its own name. Only spelling moves are benign: case
+ * on a case-insensitive disk, `/tmp` `/var` `/etc` resolving under `/private`, and the firmlinked
+ * `/System/Volumes/Data/...` spelling. A root swapped for a link to any other folder (even a
+ * shareable one) is moved. A root that does not exist has no real path and is not moved.
+ */
+export function rootMoved(
+  stored: string,
+  real: string,
+  realParent: string,
+  env: FolderAccessEnv = {},
+): boolean {
+  const ci = env.caseInsensitive ?? process.platform === "darwin";
+  const norm = (p: string): string => {
+    let c = p;
+    try {
+      c = canonicalHostPath(p);
+    } catch {
+      /* keep as given */
+    }
+    c = c.replace(/^\/System\/Volumes\/Data(?=\/|$)/, "") || "/";
+    c = c.replace(/^\/(tmp|var|etc)(?=\/|$)/, "/private/$1");
+    return ci && !isWin32HostPath(c) ? c.toLowerCase() : c;
+  };
+  return norm(real) !== norm(join(realParent, basename(stored)));
+}
+
+/** `rootMoved` with the real paths looked up now; a path that cannot be resolved is not moved. */
+export function rootMovedSync(stored: string, env: FolderAccessEnv = {}): boolean {
+  try {
+    const real = realpathSync.native(stored);
+    return rootMoved(stored, real, realpathSync.native(dirname(stored)), env);
+  } catch {
+    return false;
+  }
 }
 
 export type FolderRefusal = "sensitive_root" | "contains_sensitive_root" | "not_absolute";
